@@ -1,0 +1,44 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Logs
+logs/
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+*.out
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Temporary files
+*.tmp
+*.bak
+*.old
+
+# Generated files
+*.lock
+Cargo.lock
+
+# Coverage
+coverage/
+*.profraw
+
+# Secrets
+.env
+.env.*
