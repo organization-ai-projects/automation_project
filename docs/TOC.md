@@ -12,6 +12,8 @@ Ce document liste les différentes sections de la documentation interne du proje
 - [Planification consolidée](planning.md)
 - [Bibliothèques et composantes symboliques](projects/projects_libraries.md)
 - [Produits et composants du workspace](projects/projects_products.md)
+- [UI](ui.md)
+- [Produits](products.md)
 - [Phases de développement](development_phases.md)
 - [Architecture](ARCHITECTURE.md)
 - [Metadata](metadata.md)
