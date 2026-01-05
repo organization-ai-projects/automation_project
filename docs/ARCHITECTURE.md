@@ -195,3 +195,25 @@ automation_project/
 │       ├── ai/
 │       └── ui/                   # composants UI réutilisables (lib)
 ```
+
+## 9. Produits initiaux
+
+### 9.1 Varina
+
+**Varina** est le premier produit du workspace. Il est dédié à la partie automatisation et génération. Ses responsabilités incluent :
+
+- Automatisation des workflows de développement.
+- Génération de code et de modules nécessaires.
+- Orchestration des tâches symboliques et neuronales.
+- Intégration avec le `engine` pour exécuter les commandes et publier les événements.
+
+Structure :
+
+```plaintext
+projects/
+├── products/
+│   ├── varina/
+│   │   ├── backend/          # backend (binaire pour l’automatisation)
+│   │   └── ui/               # source UI (compile en ui_dist/)
+│   │       └── ui_dist/      # artefacts packagés (wasm + assets + manifest)
+```
