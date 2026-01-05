@@ -5,7 +5,7 @@
 ### 1.1 Séparation stricte Frontend / Backend
 
 - **Frontend** : UIs (y compris l’UI centrale) écrites en Rust (Dioxus) et distribuées sous forme de **bundles UI** (WASM + assets).
-- **Backend** : services/agents exécutables (process séparés) qui réalisent le travail (workflows, génération, lint, etc.).
+- **Backend** : services/backends exécutables (process séparés) qui réalisent le travail (workflows, génération, lint, etc.).
 
 Aucune UI ne contient de logique métier. Une UI ne fait que :
 
@@ -49,7 +49,7 @@ Conséquence :
 
 Un **produit** peut contenir :
 
-- un **backend** (agent exécutable) : optionnel mais recommandé,
+- un **backend** (exécutable) : optionnel mais recommandé,
 - une ou plusieurs **UIs** (bundles) : optionnel (mais attendu si le produit a une surface utilisateur).
 
 Le backend et les UIs d’un produit ne communiquent **jamais directement**.
@@ -63,7 +63,7 @@ Le backend et les UIs d’un produit ne communiquent **jamais directement**.
 Toutes les connexions passent par `engine` :
 
 - `central_ui` → `engine` (UI client)
-- `product backend` → `engine` (agent client)
+- `product backend` → `engine` (backend client)
 - `launcher` → `engine` (system client)
 
 Interdictions :
@@ -83,7 +83,7 @@ Exemples de commandes :
 - `ListProducts`
 - `ActivateProduct(product_id)`
 - `RunWorkflow(project_id, workflow_id)`
-- `SpawnAgent(product_id)` (si agent non lancé)
+- `SpawnBackend(product_id)` (si backend non lancé)
 - `GetStatus(project_id)`
 
 Exemples d’événements :
@@ -121,7 +121,7 @@ Le bundle UI :
 
 ---
 
-## 5. Gestion des backends (agents)
+## 5. Gestion des backends
 
 ### 5.1 Règle
 
@@ -133,9 +133,9 @@ Quand un utilisateur ouvre une UI produit ou déclenche une action :
 
 1. `central_ui` envoie une `Command` à `engine`.
 2. `engine` vérifie auth/permissions.
-3. si l’agent backend n’est pas lancé : `engine` le démarre.
-4. `engine` route la commande vers l’agent.
-5. l’agent publie des `Event` (logs, progress, résultat).
+3. si le backend n’est pas lancé : `engine` le démarre.
+4. `engine` route la commande vers le backend.
+5. le backend publie des `Event` (logs, progress, résultat).
 6. `central_ui` affiche l’état temps réel.
 
 ---
@@ -148,7 +148,7 @@ Le registry central (`.automation_project/registry.json`) est la source de véri
 
 - liste des produits,
 - chemins bundles UI,
-- identités agents backends,
+- identités backends,
 - versions + compatibilité schema.
 
 ### 6.2 Règle
@@ -163,7 +163,7 @@ Le registry est **explicite** et versionné.
 - `engine` est l’unique autorité :
 
   - authentification utilisateur (UI),
-  - authentification machine (agents),
+  - authentification machine (backends),
   - permissions,
   - audit log.
 
@@ -179,11 +179,11 @@ automation_project/
 │   ├── products/
 │   │   ├── core/
 │   │   │   ├── launcher/         # bootstrap
-│   │   │   ├── engine/           # WS hub + orchestration + spawn agents
+│   │   │   ├── engine/           # WS hub + orchestration + spawn backends
 │   │   │   ├── central_ui/       # cockpit desktop, charge bundles UI
 │   │   │   └── watcher/          # supervision externe
 │   │   ├── <product_x>/
-│   │   │   ├── agent/            # backend (binaire)
+│   │   │   ├── backend/          # backend (binaire)
 │   │   │   └── ui/               # source UI (compile en ui_dist/)
 │   │   │       └── ui_dist/      # artefacts packagés (wasm + assets + manifest)
 │   └── libraries/
