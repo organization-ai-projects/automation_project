@@ -54,9 +54,9 @@ Ce document décrit le workflow Git/GitHub utilisé pour le projet `automation_p
 
 ## 4. Règles générales
 
-- **Tests** : Toute modification doit être accompagnée de tests (unitaires, intégration, etc.).
+- **Tests** : Toute modification doit être accompagnée de tests (unitaires, intégration, etc.). Les tests peuvent être absents temporairement lors des phases exploratoires, mais sont requis avant toute fusion de `dev` vers `main`. Les tests peuvent être exécutés localement ou via CI lorsqu’elle est disponible.
 - **Commits** : Les messages de commit doivent être clairs et suivre une convention (ex. : `fix: correct bug in X`, `feat: add new feature Y`).
-- **Rebase** : Rebaser régulièrement les branches de travail sur `dev` pour éviter les conflits.
+- **Fusion** : Le merge doit être strictement utilisé pour intégrer les modifications, afin de préserver l'intégrité et l'historique complet des commits.
 
 ---
 
