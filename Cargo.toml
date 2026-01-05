@@ -1,3 +1,8 @@
 [workspace]
 members = [
+  "projects/products/core/central_ui",
+  "projects/products/core/engine",
+  "projects/products/core/launcher",
+  "projects/products/core/watcher",
 ]
+resolver = "2"
