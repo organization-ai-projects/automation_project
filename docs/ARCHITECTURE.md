@@ -27,9 +27,4 @@ automation_project/
 │       ├── neural/               # Logique neuronale (optionnelle)
 │       ├── ai/                   # Orchestrateur IA
 │       └── ui/                   # Composants UI communs
-└── .automation_project/
-    ├── registry.json             # Registry centralisé des produits et UIs
-    ├── settings.json
-    ├── cache/
-    └── logs/
 ```

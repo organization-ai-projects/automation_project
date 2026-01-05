@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = ["projects/libraries/ai","projects/libraries/common", "projects/libraries/neural", "projects/libraries/protocol", "projects/libraries/security", "projects/libraries/symbolic", "projects/libraries/ui",
   "projects/products/core/central_ui",
   "projects/products/core/engine",
   "projects/products/core/launcher",
