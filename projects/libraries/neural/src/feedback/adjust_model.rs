@@ -1,5 +1,5 @@
 // neural/src/training/feedback.rs
-use crate::network::neural_net::NeuralNetwork;
+use crate::network::neural_net::{NetworkError, NeuralNetwork};
 use ndarray::Array1;
 use thiserror::Error;
 
@@ -8,7 +8,7 @@ pub enum FeedbackError {
     #[error("Invalid feedback format: {0}")]
     InvalidFormat(String),
     #[error("Network error: {0}")]
-    NetworkError(#[from] crate::network::NetworkError),
+    NetworkError(#[from] NetworkError),
     #[error("Training error: {0}")]
     TrainingError(String),
 }
