@@ -1,8 +1,7 @@
-mod neural_net;
-use crate::network::neural_net::{NeuralNetwork, SimpleNeuralNet};
+use crate::network::neural_net::{NetworkError, NeuralNetwork};
 use crate::tokenization::rust_tokenizer::RustTokenizer;
-use ndarray::{Array1, Array2};
-use thiserror::Error;
+use ndarray::Array1;
+use thiserror::Error; // Import du trait pour `gen`
 
 #[derive(Debug, Error)]
 pub enum GenerationError {
@@ -13,7 +12,7 @@ pub enum GenerationError {
     #[error("Generation failed: {0}")]
     GenerationFailed(String),
     #[error("Network error: {0}")]
-    NetworkError(#[from] crate::network::NetworkError),
+    NetworkError(#[from] NetworkError),
 }
 
 #[derive(Debug, Clone)]
@@ -93,7 +92,13 @@ impl CodeGenerator {
 
     fn sample_token(&self, logits: &Array1<f64>) -> Result<usize, GenerationError> {
         let scaled_logits = logits / self.config.temperature as f64;
-        let probs = softmax(&scaled_logits);
+        let mut probs = softmax(&scaled_logits);
+
+        // Appliquer top-k si configuré
+        if let Some(k) = self.config.top_k {
+            probs = apply_top_k(&probs, k);
+        }
+
         sample_categorical(&probs)
     }
 }
@@ -105,9 +110,20 @@ fn softmax(logits: &Array1<f64>) -> Array1<f64> {
     exp_logits / sum_exp
 }
 
+fn apply_top_k(probs: &Array1<f64>, k: usize) -> Array1<f64> {
+    let mut sorted_probs: Vec<(usize, f64)> = probs.iter().cloned().enumerate().collect();
+    sorted_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+    let mut filtered = Array1::<f64>::zeros(probs.len());
+    for &(idx, prob) in sorted_probs.iter().take(k) {
+        filtered[idx] = prob;
+    }
+
+    filtered
+}
+
 fn sample_categorical(probs: &Array1<f64>) -> Result<usize, GenerationError> {
-    let mut rng = rand::thread_rng();
-    let sample: f64 = rng.gen();
+    let sample: f64 = rand::random::<f64>();
     let mut cumsum = 0.0;
     for (idx, &prob) in probs.iter().enumerate() {
         cumsum += prob;

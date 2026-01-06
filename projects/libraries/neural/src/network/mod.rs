@@ -1,3 +1,3 @@
-pub mod neural_network;
+pub mod neural_net;
 
-pub use neural_network::SimpleNeuralNet;
+pub use neural_net::SimpleNeuralNet;

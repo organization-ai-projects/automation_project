@@ -10,8 +10,10 @@ pub fn is_valid_name(name: &str) -> bool {
 
 // Format a timestamp as a readable string
 pub fn format_timestamp(timestamp: u64) -> String {
-    use chrono::{NaiveDateTime, Utc};
-    let naive = NaiveDateTime::from_timestamp_opt(timestamp as i64, 0)
-        .unwrap_or_else(|| Utc::now().naive_utc());
-    naive.format("%Y-%m-%d %H:%M:%S").to_string()
+    use chrono::{TimeZone, Utc};
+    let datetime = Utc
+        .timestamp_opt(timestamp as i64, 0)
+        .single()
+        .unwrap_or_else(Utc::now);
+    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
 }
