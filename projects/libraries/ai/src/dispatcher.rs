@@ -1,6 +1,7 @@
 // projects/libraries/ai/src/dispatch.rs
 use crate::SolverStrategy;
-use crate::task::{Task, TaskType};
+use crate::task::Task;
+use crate::task_type::TaskType;
 
 pub struct Dispatcher {
     // Statistiques pour améliorer les décisions

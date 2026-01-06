@@ -2,13 +2,15 @@ pub mod analyzer;
 pub mod generation;
 pub mod linter;
 pub mod rules;
-pub mod solver;
-pub mod workflow;
+pub mod solver_result;
+pub mod symbolic_error;
+pub mod symbolic_solver;
+pub mod validation_result;
 pub mod validator;
+pub mod workflow;
 
 // Ré-exporte pour faciliter l'utilisation
-pub use solver::SymbolicSolver;
-pub use solver::{SolverResult, SymbolicError, ValidationResult};
+pub use symbolic_error::SymbolicError;
 
 pub fn init() {
     println!("Initializing symbolic library...");

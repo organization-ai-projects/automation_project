@@ -1,6 +1,7 @@
+use crate::AuthError;
 // security/src/permissions.rs
-use crate::auth::{Token, AuthError};
-use crate::role::{Role, Permission};
+use crate::role::{Permission, Role};
+use crate::token::Token;
 
 /// Vérifie si un rôle a une permission spécifique
 pub fn has_permission(role: &Role, required_permission: Permission) -> bool {
@@ -9,12 +10,16 @@ pub fn has_permission(role: &Role, required_permission: Permission) -> bool {
 
 /// Vérifie si un rôle a plusieurs permissions à la fois
 pub fn has_all_permissions(role: &Role, required_permissions: &[Permission]) -> bool {
-    required_permissions.iter().all(|&perm| role.has_permission(perm))
+    required_permissions
+        .iter()
+        .all(|&perm| role.has_permission(perm))
 }
 
 /// Vérifie si un rôle a au moins une des permissions listées
 pub fn has_any_permission(role: &Role, required_permissions: &[Permission]) -> bool {
-    required_permissions.iter().any(|&perm| role.has_permission(perm))
+    required_permissions
+        .iter()
+        .any(|&perm| role.has_permission(perm))
 }
 
 /// Vérifie si un rôle a une permission, retourne une erreur sinon
@@ -27,7 +32,10 @@ pub fn check_permission(role: &Role, required_permission: Permission) -> Result<
 }
 
 /// Vérifie si un rôle a toutes les permissions requises
-pub fn check_all_permissions(role: &Role, required_permissions: &[Permission]) -> Result<(), AuthError> {
+pub fn check_all_permissions(
+    role: &Role,
+    required_permissions: &[Permission],
+) -> Result<(), AuthError> {
     if has_all_permissions(role, required_permissions) {
         Ok(())
     } else {
@@ -36,20 +44,27 @@ pub fn check_all_permissions(role: &Role, required_permissions: &[Permission]) -
 }
 
 /// Vérifie si un token valide a une permission
-pub fn check_token_permission(token: &Token, required_permission: Permission) -> Result<(), AuthError> {
+pub fn check_token_permission(
+    token: &Token,
+    required_permission: Permission,
+) -> Result<(), AuthError> {
     crate::auth::validate_token(token)?;
-    check_permission(token.role(), required_permission)
+    check_permission(&token.role, required_permission)
 }
 
 /// Vérifie si un token valide a toutes les permissions requises
-pub fn check_token_all_permissions(token: &Token, required_permissions: &[Permission]) -> Result<(), AuthError> {
+pub fn check_token_all_permissions(
+    token: &Token,
+    required_permissions: &[Permission],
+) -> Result<(), AuthError> {
     crate::auth::validate_token(token)?;
-    check_all_permissions(token.role(), required_permissions)
+    check_all_permissions(&token.role, required_permissions)
 }
 
 /// Filtre une liste de permissions en ne gardant que celles qu'un rôle possède
 pub fn filter_allowed_permissions(role: &Role, permissions: &[Permission]) -> Vec<Permission> {
-    permissions.iter()
+    permissions
+        .iter()
         .copied()
         .filter(|&perm| role.has_permission(perm))
         .collect()
@@ -57,7 +72,8 @@ pub fn filter_allowed_permissions(role: &Role, permissions: &[Permission]) -> Ve
 
 /// Retourne les permissions manquantes pour un rôle
 pub fn missing_permissions(role: &Role, required_permissions: &[Permission]) -> Vec<Permission> {
-    required_permissions.iter()
+    required_permissions
+        .iter()
         .copied()
         .filter(|&perm| !role.has_permission(perm))
         .collect()

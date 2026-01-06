@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
+common = { path = "../common" }
+chrono = "0.4"
+uuid = { version = "1.0", features = ["v7"] }

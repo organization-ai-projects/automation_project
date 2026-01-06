@@ -1,5 +1,4 @@
 // Function for evaluating symbolic rules
-
 use crate::rules::Rule;
 
 pub fn evaluate_rule(rule: &Rule, code: &str) -> bool {
