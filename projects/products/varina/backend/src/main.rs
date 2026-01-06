@@ -1,3 +1,8 @@
+use backend::app::run_backend;
+
 fn main() {
-    println!("Hello, world!");
+    if let Err(e) = run_backend() {
+        eprintln!("fatal: {e}");
+        std::process::exit(1);
+    }
 }

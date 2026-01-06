@@ -1,5 +1,6 @@
 // neural/src/training/feedback.rs
 use crate::network::neural_net::{NetworkError, NeuralNetwork};
+use common::utils::format_timestamp;
 use ndarray::Array1;
 use thiserror::Error;
 
@@ -35,6 +36,17 @@ pub struct UserFeedback {
     pub feedback_type: FeedbackType,
     /// Timestamp
     pub timestamp: std::time::SystemTime,
+}
+
+impl UserFeedback {
+    pub fn formatted_timestamp(&self) -> String {
+        format_timestamp(
+            self.timestamp
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )
+    }
 }
 
 /// Gestionnaire d'ajustement du modèle via feedback
@@ -181,7 +193,8 @@ impl FeedbackAdjuster {
         }
 
         metrics.total_examples = training_examples.len();
-        metrics.avg_loss = metrics.batch_losses.iter().sum::<f64>() / metrics.batch_losses.len() as f64;
+        metrics.avg_loss =
+            metrics.batch_losses.iter().sum::<f64>() / metrics.batch_losses.len() as f64;
 
         println!("Adjustment complete: avg_loss = {:.6}", metrics.avg_loss);
 
@@ -226,7 +239,11 @@ impl FeedbackAdjuster {
             correct,
             incorrect,
             partial,
-            accuracy: if total > 0 { correct as f64 / total as f64 } else { 0.0 },
+            accuracy: if total > 0 {
+                correct as f64 / total as f64
+            } else {
+                0.0
+            },
         }
     }
 
@@ -250,8 +267,8 @@ impl FeedbackAdjuster {
     fn load_history(path: &std::path::Path) -> Result<Vec<UserFeedback>, FeedbackError> {
         let json = std::fs::read_to_string(path)
             .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
-        let history = serde_json::from_str(&json)
-            .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
+        let history =
+            serde_json::from_str(&json).map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
         Ok(history)
     }
 }
@@ -295,7 +312,14 @@ impl Serialize for UserFeedback {
         state.serialize_field("input", &self.input)?;
         state.serialize_field("generated_output", &self.generated_output)?;
         state.serialize_field("feedback_type", &format!("{:?}", self.feedback_type))?;
-        state.serialize_field("timestamp", &self.timestamp.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs())?;
+        state.serialize_field(
+            "timestamp",
+            &self
+                .timestamp
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )?;
         state.end()
     }
 }
