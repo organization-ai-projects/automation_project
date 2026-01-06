@@ -1,6 +1,5 @@
 [workspace]
 members = [
-  "backend",
   "projects/libraries/ai",
   "projects/libraries/common",
   "projects/libraries/neural",
@@ -13,7 +12,6 @@ members = [
   "projects/products/core/launcher",
   "projects/products/core/watcher",
   "projects/products/varina/backend",
-  "projects/products/varina/ui",
-  "ui",
+  "projects/products/varina/ui"
 ]
 resolver = "2"
