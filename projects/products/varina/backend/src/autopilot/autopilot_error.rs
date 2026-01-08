@@ -1,5 +1,8 @@
+use command_runner::CommandError;
 use std::fmt;
 
+/// Structure représentant une erreur spécifique à l'autopilot.
+/// Permet de convertir des erreurs externes (comme `CommandError`) en erreurs internes.
 #[derive(Debug)]
 pub struct AutopilotError {
     pub message: String,
@@ -20,5 +23,13 @@ impl From<String> for AutopilotError {
 impl From<AutopilotError> for String {
     fn from(error: AutopilotError) -> Self {
         format!("AutopilotError: {}", error).to_string()
+    }
+}
+
+impl From<CommandError> for AutopilotError {
+    fn from(error: CommandError) -> Self {
+        Self {
+            message: error.to_string(),
+        }
     }
 }

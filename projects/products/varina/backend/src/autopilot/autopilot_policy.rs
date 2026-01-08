@@ -1,8 +1,13 @@
+use serde::{Deserialize, Serialize};
+
+// projects/products/varina/backend/src/autopilot/autopilot_policy.rs
 use crate::pre_checks::PreChecks;
 
 /// Policy de sécurité pour l’autopilot.
 /// Idée: le code "IA" ne décide pas au feeling, il applique une policy déterministe.
-#[derive(Debug, Clone)]
+/// Définit les règles de sécurité et les politiques appliquées par l'autopilot.
+/// Ces règles déterminent les fichiers pertinents, les branches protégées, et les actions autorisées.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutopilotPolicy {
     /// Branches interdites de commit direct.
     pub protected_branches: Vec<String>,
@@ -49,5 +54,19 @@ impl Default for AutopilotPolicy {
             push_remote: "origin".into(),
             push_set_upstream_if_missing: true,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_policy() {
+        let policy = AutopilotPolicy::default();
+        assert!(policy.protected_branches.contains(&"main".to_string()));
+        assert!(policy.protected_branches.contains(&"dev".to_string()));
+        assert!(policy.fail_on_unrelated_changes);
+        assert!(!policy.allow_push);
     }
 }

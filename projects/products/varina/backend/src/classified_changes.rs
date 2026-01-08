@@ -1,7 +1,8 @@
-use crate::git_github::GitChange;
+use git_lib::git_change::GitChange;
+// projects/products/varina/backend/src/classified_changes.rs
+use serde::{Deserialize, Serialize};
 
-/// Classification des changements selon policy.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClassifiedChanges {
     pub relevant: Vec<GitChange>,
     pub unrelated: Vec<GitChange>,

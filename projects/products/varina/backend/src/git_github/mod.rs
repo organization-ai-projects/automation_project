@@ -1,8 +1,4 @@
-pub mod git_change;
-pub mod handlers;
-pub mod suggestions;
+pub mod git_parser;
+pub mod policy_suggestions;
 
-pub use git_change::GitChange;
-
-// Ajouter les fonctions nécessaires pour gérer preview et apply dans ce module.
-// Ajouter les modules nécessaires pour organiser les fonctionnalités.
+pub use policy_suggestions::{PolicySuggestion, suggest_policy_from_report};

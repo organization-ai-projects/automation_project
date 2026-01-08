@@ -1,7 +1,7 @@
 // symbolic/src/validator.rs
 use crate::validator::ValidationError;
 use crate::validator::validation_result::ValidationResult;
-use common::utils::is_valid_id;
+use common::common_id::is_valid_id;
 
 /// Validateur de code Rust
 pub struct CodeValidator {

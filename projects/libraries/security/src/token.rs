@@ -1,100 +1,146 @@
+// projects/libraries/security/src/token.rs
 use crate::role::Role;
-use common::utils::is_valid_name;
+use crate::token_error::TokenError;
+use common::common_id::is_valid_id;
+use common_time::timestamp_utils::current_timestamp_ms;
+
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
-use uuid::{Timestamp, Uuid};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Token {
     pub value: String,
     pub user_id: String,
     pub role: Role,
-    pub issued_at: u64,
-    pub expires_at: u64,
+
+    /// Milliseconds since Unix epoch (UTC)
+    pub issued_at_ms: u64,
+    /// Milliseconds since Unix epoch (UTC)
+    pub expires_at_ms: u64,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
 }
 
 impl Token {
-    pub fn new(user_id: String, role: Role, duration_secs: u64) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        if !is_valid_name(&user_id) {
-            panic!("Invalid user ID provided");
+    /// Creates a token lasting `duration_ms` milliseconds.
+    pub fn new(user_id: String, role: Role, duration_ms: u64) -> Result<Self, TokenError> {
+        if duration_ms == 0 {
+            return Err(TokenError::InvalidDuration);
         }
 
-        Self {
-            value: Uuid::new_v7(Timestamp::from_unix(uuid::NoContext, 0, 0))
-                .to_string(),
+        // Validate user_id according to your existing common::utils::is_valid_id contract.
+        let numeric_id = user_id
+            .parse::<u64>()
+            .map_err(|_| TokenError::InvalidUserIdFormat)?;
+
+        if !is_valid_id(numeric_id) {
+            return Err(TokenError::InvalidUserIdValue);
+        }
+
+        let now = current_timestamp_ms();
+        let expires = now
+            .checked_add(duration_ms)
+            .ok_or(TokenError::TimestampOverflow)?;
+
+        Ok(Self {
+            // Proper UUIDv7 (time-ordered, includes randomness)
+            value: Uuid::now_v7().to_string(),
             user_id,
             role,
-            issued_at: now,
-            expires_at: now + duration_secs,
+            issued_at_ms: now,
+            expires_at_ms: expires,
             session_id: None,
-        }
+        })
     }
 
+    /// Creates a token with an attached session id.
     pub fn new_with_session(
         user_id: String,
         role: Role,
-        duration_secs: u64,
+        duration_ms: u64,
         session_id: String,
-    ) -> Self {
-        let mut token = Self::new(user_id, role, duration_secs);
+    ) -> Result<Self, TokenError> {
+        if session_id.trim().is_empty() {
+            return Err(TokenError::InvalidSessionId);
+        }
+
+        let mut token = Self::new(user_id, role, duration_ms)?;
         token.session_id = Some(session_id);
-        token
+        Ok(token)
     }
 
     pub fn is_expired(&self) -> bool {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        now >= self.expires_at
+        current_timestamp_ms() >= self.expires_at_ms
     }
 
-    pub fn time_until_expiry(&self) -> Option<u64> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+    /// Remaining time in milliseconds until expiry.
+    pub fn time_until_expiry_ms(&self) -> u64 {
+        let now = current_timestamp_ms();
+        self.expires_at_ms.saturating_sub(now)
+    }
 
-        if self.expires_at > now {
-            Some(self.expires_at - now)
-        } else {
-            None
+    /// Extends expiry by `additional_ms`.
+    /// If already expired, it renews from "now".
+    pub fn renew(&mut self, additional_ms: u64) -> Result<(), TokenError> {
+        if additional_ms == 0 {
+            return Err(TokenError::InvalidDuration);
         }
-    }
 
-    pub fn renew(&mut self, additional_duration_secs: u64) {
-        self.expires_at += additional_duration_secs;
-    }
+        let now = current_timestamp_ms();
 
-    pub fn age(&self) -> u64 {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        if now > self.issued_at {
-            now - self.issued_at
+        let base = if now >= self.expires_at_ms {
+            now
         } else {
-            1 // Retourne un âge minimal de 1 si les horodatages sont identiques
+            self.expires_at_ms
+        };
+
+        self.expires_at_ms = base
+            .checked_add(additional_ms)
+            .ok_or(TokenError::TimestampOverflow)?;
+
+        Ok(())
+    }
+
+    /// Age of the token in milliseconds.
+    pub fn age_ms(&self) -> u64 {
+        let now = current_timestamp_ms();
+        now.saturating_sub(self.issued_at_ms)
+    }
+
+    /// Optional: quick structural validation.
+    pub fn validate(&self) -> bool {
+        // value must be non-empty
+        if self.value.trim().is_empty() {
+            return false;
         }
+
+        // user_id must still be valid
+        let numeric_id = match self.user_id.parse::<u64>() {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
+        if !is_valid_id(numeric_id) {
+            return false;
+        }
+
+        // timestamps must be sane
+        self.expires_at_ms >= self.issued_at_ms
     }
 }
 
+/// Simple helper: "valid and not expired".
 pub fn validate_token(token: &Token) -> bool {
-    !token.is_expired()
+    token.validate() && !token.is_expired()
 }
 
-pub fn generate_token(duration_secs: u64) -> Token {
-    Token::new("default_user".to_string(), Role::User, duration_secs)
+/// “Dev helper” (je te conseille de le garder en test ou tooling)
+#[cfg(test)]
+pub fn generate_token_for_tests(duration_ms: u64) -> Token {
+    Token::new("1".to_string(), Role::User, duration_ms).expect("test token")
 }
 
+/// Placeholder for revocation logic (blacklist / store / cache, etc.)
 pub fn revoke_token(_token: &Token) {
-    // Placeholder for token revocation logic
+    // Intentionally empty: implement via a revocation store (in-memory/redis/db) if needed.
 }

@@ -1,7 +1,10 @@
 use neural::{NeuralSolver, feedback};
 use symbolic::symbolic_solver::SymbolicSolver;
 
-use crate::{ai_error::AiError, dispatcher::Dispatcher, solver_strategy::SolverStrategy, task::Task, task_result::TaskResult};
+use crate::{
+    ai_error::AiError, dispatcher::Dispatcher, solver_strategy::SolverStrategy, task::Task,
+    task_result::TaskResult,
+};
 
 pub struct AiOrchestrator {
     symbolic: SymbolicSolver,
