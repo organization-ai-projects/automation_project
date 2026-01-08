@@ -27,7 +27,11 @@ impl fmt::Display for ValidationError {
                 write!(f, "Name '{}' contains invalid characters", name)
             }
             ValidationError::PayloadTooLarge { size, max } => {
-                write!(f, "Payload size {} bytes exceeds maximum of {} bytes", size, max)
+                write!(
+                    f,
+                    "Payload size {} bytes exceeds maximum of {} bytes",
+                    size, max
+                )
             }
             ValidationError::NameTooLong { length, max } => {
                 write!(f, "Name length {} exceeds maximum of {}", length, max)

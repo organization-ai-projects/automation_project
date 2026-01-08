@@ -1,17 +1,5 @@
 // ai/src/task.rs
-use crate::strategy::SolverStrategy;  // ← Correction ici
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TaskType {
-    CodeAnalysis,
-    Linting,
-    Documentation,
-    SimpleGeneration,
-    ComplexGeneration,
-    Refactoring,
-    IntentParsing,
-}
+use crate::task_type::TaskType;
 
 #[derive(Debug, Clone)]
 pub struct Task {
@@ -69,12 +57,4 @@ impl Task {
     pub fn context(&self) -> Option<&str> {
         self.context.as_deref()
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct TaskResult {
-    pub output: String,
-    pub confidence: f64,
-    pub strategy_used: SolverStrategy,  // ← Plus de crate::solver
-    pub metadata: Option<String>,
 }

@@ -1,48 +1,7 @@
 // symbolic/src/validator.rs
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum ValidationError {
-    #[error("Syntax error: {0}")]
-    SyntaxError(String),
-    #[error("Parse error at line {line}: {message}")]
-    ParseError { line: usize, message: String },
-    #[error("Invalid structure: {0}")]
-    InvalidStructure(String),
-    #[error("Missing required element: {0}")]
-    MissingElement(String),
-}
-
-/// Résultat de validation
-#[derive(Debug, Clone)]
-pub struct ValidationResult {
-    pub is_valid: bool,
-    pub errors: Vec<String>,
-    pub warnings: Vec<String>,
-}
-
-impl ValidationResult {
-    pub fn valid() -> Self {
-        Self {
-            is_valid: true,
-            errors: Vec::new(),
-            warnings: Vec::new(),
-        }
-    }
-
-    pub fn invalid(errors: Vec<String>) -> Self {
-        Self {
-            is_valid: false,
-            errors,
-            warnings: Vec::new(),
-        }
-    }
-
-    pub fn with_warnings(mut self, warnings: Vec<String>) -> Self {
-        self.warnings = warnings;
-        self
-    }
-}
+use crate::validator::ValidationError;
+use crate::validator::validation_result::ValidationResult;
+use common::common_id::is_valid_id;
 
 /// Validateur de code Rust
 pub struct CodeValidator {
@@ -65,8 +24,10 @@ impl CodeValidator {
         let mut warnings = Vec::new();
 
         // Validation de base
-        if code.trim().is_empty() {
-            return Ok(ValidationResult::invalid(vec!["Code is empty".to_string()]));
+        if !is_valid_id(code.len() as u64) {
+            return Ok(ValidationResult::invalid(vec![
+                "Invalid ID length".to_string(),
+            ]));
         }
 
         // Vérifier la syntaxe avec syn
@@ -193,12 +154,17 @@ impl CodeValidator {
             }
         }
 
-        // Vérifier si le fix fonctionne
-        if syn::parse_file(&fixed).is_ok() {
-            Some(fixed)
-        } else {
-            None
+        // Vérifier si le code corrigé est valide
+        // Encapsuler le code dans une fonction pour validation
+        let wrapped_code = format!("fn test_wrapper() {{\n{}\n}}", fixed);
+        if !self.validate_code(&wrapped_code) {
+            println!("[DEBUG] Validation failed for wrapped code");
+            return None;
         }
+
+        println!("[DEBUG] Code before fix: {}", code);
+        println!("[DEBUG] Code after fix: {}", fixed);
+        Some(fixed)
     }
 
     /// Tente de fermer les délimiteurs ouverts
@@ -259,6 +225,11 @@ impl CodeValidator {
         } else {
             None
         }
+    }
+
+    /// Vérifie si le code est valide (sans erreurs de syntaxe)
+    fn validate_code(&self, code: &str) -> bool {
+        syn::parse_file(code).is_ok()
     }
 }
 

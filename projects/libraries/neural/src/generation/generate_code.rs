@@ -1,5 +1,6 @@
 use crate::network::neural_net::{NetworkError, NeuralNetwork};
 use crate::tokenization::rust_tokenizer::RustTokenizer;
+use common::common_id::is_valid_id;
 use ndarray::Array1;
 use thiserror::Error; // Import du trait pour `gen`
 
@@ -33,6 +34,12 @@ impl Default for GenerationConfig {
             top_p: Some(0.95),
             stop_token_id: 0,
         }
+    }
+}
+
+impl GenerationConfig {
+    pub fn validate_stop_token_id(&self) -> bool {
+        is_valid_id(self.stop_token_id as u64)
     }
 }
 

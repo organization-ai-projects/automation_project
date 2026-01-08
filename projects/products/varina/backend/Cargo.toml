@@ -4,3 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+common = { workspace = true }
+ai = { workspace = true }
+git_lib = { workspace = true }
+protocol = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+command_runner = { workspace = true }

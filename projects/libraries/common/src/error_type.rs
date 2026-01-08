@@ -1,3 +1,4 @@
+// projects/libraries/common/src/error_type.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]
