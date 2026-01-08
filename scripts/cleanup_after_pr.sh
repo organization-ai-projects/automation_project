@@ -1,49 +1,36 @@
 #!/bin/bash
 set -euo pipefail
 
-# Usage: ./cleanup_after_pr.sh
-# Description: Nettoie les branches locales en retard vs leur upstream, les supprime (local+remote),
-#              puis les recrée depuis dev (et push upstream).
+REMOTE="${REMOTE:-origin}"
+BASE_BRANCH="${BASE_BRANCH:-dev}"
+PROTECTED_BRANCHES=("dev" "main")
 
-echo "=== Mise à jour de la branche dev ==="
+echo "=== Mise à jour de la branche $BASE_BRANCH ==="
 CURRENT_BRANCH="$(git branch --show-current || true)"
 
-if ! git checkout dev; then
-  echo "Erreur : Impossible de basculer sur la branche dev." >&2
-  exit 1
-fi
+git checkout "$BASE_BRANCH"
+git pull "$REMOTE" "$BASE_BRANCH"
 
-if ! git pull origin dev; then
-  echo "Erreur : Impossible de mettre à jour la branche dev." >&2
-  exit 1
-fi
-
-echo "✓ Branche dev mise à jour avec succès."
+echo "✓ Branche $BASE_BRANCH mise à jour."
 echo ""
 echo "=== Détection des branches locales en retard vs upstream ==="
 
-git fetch origin --prune
+git fetch "$REMOTE" --prune
 
 OUTDATED_BRANCHES=()
 
-# Liste toutes les branches locales + leur "track" upstream (ex: "[behind 2]" / "[ahead 1]" / "[gone]" / "")
-# Note: %(upstream:track) est vide si pas d'upstream configuré.
-while IFS= read -r line; do
-  # line = "<branch>\t<track>"
-  branch="${line%%$'\t'*}"
-  track="${line#*$'\t'}"
+while IFS=$'\t' read -r branch track; do
+  # ignore protected
+  for p in "${PROTECTED_BRANCHES[@]}"; do
+    [[ "$branch" == "$p" ]] && continue 2
+  done
 
-  # Sécurité: ignore dev/main
-  if [[ "$branch" == "dev" || "$branch" == "main" ]]; then
+  # ignore branches without upstream (safe default)
+  if [[ -z "$track" ]]; then
     continue
   fi
 
-  # Track examples:
-  #   "[behind 2]"
-  #   "[ahead 1]"
-  #   "[ahead 1, behind 2]"
-  #   "[gone]"
-  #   "" (no upstream)
+  # mark as outdated if behind or gone
   if [[ "$track" == *"behind"* || "$track" == *"gone"* ]]; then
     OUTDATED_BRANCHES+=("$branch")
   fi
@@ -60,47 +47,45 @@ printf ' - %s\n' "${OUTDATED_BRANCHES[@]}"
 echo ""
 echo "=== Suppression des branches locales et distantes ==="
 for branch in "${OUTDATED_BRANCHES[@]}"; do
-  echo "Traitement de la branche: $branch"
+  echo "Traitement: $branch"
 
+  # delete local (safe then force)
   if git branch -d "$branch" 2>/dev/null; then
-    echo "  ✓ Branche locale $branch supprimée."
+    echo "  ✓ Locale supprimée."
   elif git branch -D "$branch" 2>/dev/null; then
-    echo "  ⚠ Branche locale $branch supprimée (force - non mergée)."
+    echo "  ⚠ Locale supprimée (force)."
   else
-    echo "  ℹ Branche locale $branch n'existe pas ou déjà supprimée."
+    echo "  ℹ Locale inexistante."
   fi
 
-  if git push origin --delete "$branch" 2>/dev/null; then
-    echo "  ✓ Branche distante $branch supprimée."
+  # delete remote only if it exists
+  if git ls-remote --exit-code --heads "$REMOTE" "$branch" >/dev/null 2>&1; then
+    if git push "$REMOTE" --delete "$branch" >/dev/null 2>&1; then
+      echo "  ✓ Distante supprimée."
+    else
+      echo "  ℹ Distante non supprimée (droits/protection?)."
+    fi
   else
-    echo "  ℹ Branche distante $branch n'existe pas, déjà supprimée, ou droits insuffisants."
+    echo "  ℹ Distante inexistante."
   fi
 done
 
 echo ""
-echo "=== Recréation des branches depuis dev ==="
+echo "=== Recréation depuis $BASE_BRANCH ==="
 for branch in "${OUTDATED_BRANCHES[@]}"; do
-  echo "Recréation de la branche: $branch"
-
-  if ! git checkout -b "$branch" dev; then
-    echo "  Erreur : Impossible de créer la branche $branch." >&2
-    continue
-  fi
-
-  if git push --set-upstream origin "$branch"; then
-    echo "  ✓ Branche $branch recréée et poussée avec succès."
-  else
-    echo "  Erreur : Impossible de pousser la branche recréée $branch." >&2
-  fi
+  echo "Recréation: $branch"
+  git checkout -b "$branch" "$BASE_BRANCH"
+  git push --set-upstream "$REMOTE" "$branch"
+  echo "  ✓ OK."
 done
 
 echo ""
 echo "=== Retour sur branche d'origine ==="
 if [[ -n "$CURRENT_BRANCH" ]] && git show-ref --verify --quiet "refs/heads/$CURRENT_BRANCH"; then
   git checkout "$CURRENT_BRANCH"
-  echo "✓ Retour sur la branche $CURRENT_BRANCH"
+  echo "✓ Retour sur $CURRENT_BRANCH"
 else
-  echo "✓ Resté sur la branche dev"
+  echo "✓ Resté sur $BASE_BRANCH"
 fi
 
 echo ""
