@@ -31,6 +31,14 @@ pub enum EventType {
     StateChanged,
     /// Custom event type
     Custom,
+    /// Log line event
+    LogLine,
+    /// Job state changed event
+    JobStateChanged,
+    /// Job finished event
+    JobFinished,
+    /// Payload event
+    Payload,
 }
 
 impl EventType {
@@ -50,6 +58,10 @@ impl EventType {
             EventType::Progress => "progress",
             EventType::StateChanged => "state_changed",
             EventType::Custom => "custom",
+            EventType::LogLine => "log_line",
+            EventType::JobStateChanged => "job_state_changed",
+            EventType::JobFinished => "job_finished",
+            EventType::Payload => "payload",
         }
     }
 }

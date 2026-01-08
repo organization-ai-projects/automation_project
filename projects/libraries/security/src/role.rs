@@ -2,6 +2,8 @@
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
+use crate::Permission;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Role {
     Admin,
@@ -10,62 +12,7 @@ pub enum Role {
     Guest,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Permission {
-    /// Lire le code, voir les projets
-    Read,
 
-    /// Écrire/modifier du code
-    Write,
-
-    /// Exécuter la génération de code, l'analyse, etc.
-    Execute,
-
-    /// Supprimer des projets/fichiers
-    Delete,
-
-    /// Administrer (gérer users, permissions, settings)
-    Admin,
-
-    /// Entraîner/ajuster les modèles
-    Train,
-
-    /// Accéder aux logs et métriques
-    ViewLogs,
-
-    /// Modifier la configuration système
-    ConfigureSystem,
-}
-
-impl Permission {
-    /// Retourne toutes les permissions disponibles
-    pub fn all() -> &'static [Permission] {
-        &[
-            Permission::Read,
-            Permission::Write,
-            Permission::Execute,
-            Permission::Delete,
-            Permission::Admin,
-            Permission::Train,
-            Permission::ViewLogs,
-            Permission::ConfigureSystem,
-        ]
-    }
-
-    /// Convertit en string
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Permission::Read => "read",
-            Permission::Write => "write",
-            Permission::Execute => "execute",
-            Permission::Delete => "delete",
-            Permission::Admin => "admin",
-            Permission::Train => "train",
-            Permission::ViewLogs => "view_logs",
-            Permission::ConfigureSystem => "configure_system",
-        }
-    }
-}
 
 impl Role {
     /// Retourne les permissions associées à ce rôle
@@ -120,24 +67,6 @@ impl Role {
             Role::Moderator => "moderator",
             Role::User => "user",
             Role::Guest => "guest",
-        }
-    }
-}
-
-impl FromStr for Permission {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "read" => Ok(Permission::Read),
-            "write" => Ok(Permission::Write),
-            "execute" => Ok(Permission::Execute),
-            "delete" => Ok(Permission::Delete),
-            "admin" => Ok(Permission::Admin),
-            "train" => Ok(Permission::Train),
-            "viewlogs" | "view_logs" => Ok(Permission::ViewLogs),
-            "configuresystem" | "configure_system" => Ok(Permission::ConfigureSystem),
-            _ => Err(()),
         }
     }
 }

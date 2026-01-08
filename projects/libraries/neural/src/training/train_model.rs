@@ -211,7 +211,11 @@ impl Trainer {
             }
 
             // Early stopping
-            if self.config.early_stopping_patience.is_some_and(|patience| patience_counter >= patience) {
+            if self
+                .config
+                .early_stopping_patience
+                .is_some_and(|patience| patience_counter >= patience)
+            {
                 info!("Early stopping at epoch {}", epoch + 1);
                 break;
             }

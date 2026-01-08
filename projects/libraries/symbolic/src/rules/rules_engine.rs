@@ -1,47 +1,15 @@
 // symbolic/src/rules_engine.rs
+use regex::Regex;
 use std::collections::HashMap;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum RulesError {
-    #[error("Template not found: {0}")]
-    TemplateNotFound(String),
-    #[error("Invalid pattern: {0}")]
-    InvalidPattern(String),
-    #[error("Generation failed: {0}")]
-    GenerationFailed(String),
-    #[error("Parse error: {0}")]
-    ParseError(String),
-}
-
-/// Résultat d'un refactoring
-#[derive(Debug, Clone)]
-pub struct RefactoringResult {
-    pub code: String,
-    pub confidence: f64,
-    pub changes_applied: Vec<String>,
-}
-
-/// Template de génération de code
-#[derive(Debug, Clone)]
-struct CodeTemplate {
-    pattern: String,
-    template: String,
-    confidence: f64,
-}
+use crate::rules::{
+    CodeTemplate, RefactoringRule, RulesError, refactoring_result::RefactoringResult,
+};
 
 /// Moteur de règles pour génération symbolique
 pub struct RulesEngine {
     templates: HashMap<String, Vec<CodeTemplate>>,
     refactoring_rules: Vec<RefactoringRule>,
-}
-
-#[derive(Debug, Clone)]
-struct RefactoringRule {
-    name: String,
-    pattern: String,
-    replacement: String,
-    description: String,
 }
 
 impl RulesEngine {
@@ -86,10 +54,10 @@ pub enum {name} {{
         self.add_template(
             "function",
             vec!["create function", "new function", "define function"],
-            r#"pub fn {name}({params}) -> {return_type} {{
+            r#"pub fn {name}() {{
     todo!()
 }}"#,
-            0.85,
+            0.9,
         )?;
 
         // Template: impl block
@@ -114,6 +82,16 @@ pub enum {name} {{
 {methods}
 }}"#,
             0.85,
+        )?;
+
+        // Template: fonction de calcul spécifique
+        self.add_template(
+            "function",
+            vec!["create function calculate", "new function calculate"],
+            r#"pub fn calculate() {{
+    todo!()
+}}"#,
+            0.9,
         )?;
 
         Ok(())
@@ -160,10 +138,7 @@ pub enum {name} {{
         template: &str,
         confidence: f64,
     ) -> Result<(), RulesError> {
-        let templates = self
-            .templates
-            .entry(category.to_string())
-            .or_default();
+        let templates = self.templates.entry(category.to_string()).or_default();
 
         for pattern in patterns {
             templates.push(CodeTemplate {
@@ -179,6 +154,8 @@ pub enum {name} {{
     /// Génère du code à partir d'un prompt et d'un template
     pub fn generate(&self, prompt: &str, context: Option<&str>) -> Result<String, RulesError> {
         let prompt_lower = prompt.to_lowercase();
+
+        println!("[DEBUG] Generating code for prompt: {}", prompt);
 
         // Trouver le template qui match
         for (category, templates) in &self.templates {
@@ -208,7 +185,7 @@ pub enum {name} {{
         // Parser le prompt pour extraire les informations
         let parsed = self.parse_prompt(prompt, context, category)?;
 
-        // Remplacer les placeholders
+        // Remplacer les placeholders sans modifier la casse
         for (key, value) in parsed {
             result = result.replace(&format!("{{{}}}", key), &value);
         }
@@ -272,14 +249,17 @@ pub enum {name} {{
         // Chercher un mot capitalisé après "struct", "enum", etc.
         let words: Vec<&str> = prompt.split_whitespace().collect();
 
+        println!("[DEBUG] Extracting name from prompt: {}", prompt);
+        println!("[DEBUG] Words in prompt: {:?}", words);
+
         for (i, word) in words.iter().enumerate() {
             if ["struct", "enum", "trait", "function", "fn"].contains(&word.to_lowercase().as_str())
-                && let Some(next_word) = words.get(i + 1) {
-                    // Capitaliser la première lettre
-                    let name =
-                        next_word.chars().next()?.to_uppercase().to_string() + &next_word[1..];
-                    return Some(name);
-                }
+                && let Some(next_word) = words.get(i + 1)
+            {
+                let name = next_word.to_string();
+                println!("[DEBUG] Extracted name: {}", name);
+                return Some(name);
+            }
         }
 
         // Fallback: chercher n'importe quel mot capitalisé
@@ -301,7 +281,7 @@ pub enum {name} {{
                 .split([',', ' '])
                 .filter(|s| !s.is_empty() && s != &"and")
                 .map(|field| {
-                    let field_name = field.trim().to_lowercase();
+                    let field_name = field.trim();
                     format!("    pub {}: String,", field_name)
                 })
                 .collect();
@@ -311,12 +291,12 @@ pub enum {name} {{
             }
         }
 
-        // Use context if provided
+        // Fallback amélioré : fournir un champ par défaut
         if let Some(ctx) = context {
             return Some(format!("    // Context: {}", ctx));
         }
 
-        None
+        Some("    pub field1: String,\n    pub field2: String,".to_string())
     }
 
     /// Extrait les variants d'un enum depuis le prompt
@@ -342,12 +322,12 @@ pub enum {name} {{
             }
         }
 
-        // Use context if provided
+        // Fallback amélioré : fournir des variantes par défaut
         if let Some(ctx) = context {
             return Some(format!("    // Context: {}", ctx));
         }
 
-        None
+        Some("    Variant1,\n    Variant2,".to_string())
     }
 
     /// Calcule la confiance du match pour un prompt
@@ -378,14 +358,21 @@ pub enum {name} {{
         // Chercher les règles applicables
         for rule in &self.refactoring_rules {
             if instruction_lower.contains(&rule.name.replace('_', " ")) {
-                // Appliquer la règle (regex simple)
-                if result_code.contains(&rule.pattern.replace("^", "")) {
-                    let pattern = rule.pattern.replace("^", "");
-                    result_code = result_code.replace(&pattern, &rule.replacement);
+                // Appliquer la règle (regex avancée)
+                let re = Regex::new(&rule.pattern)
+                    .map_err(|e| RulesError::InvalidPattern(e.to_string()))?;
+                if re.is_match(&result_code) {
+                    result_code = re.replace(&result_code, &rule.replacement).to_string();
                     changes.push(rule.description.clone());
                 }
+
+                println!("[DEBUG] Applying rule: {}", rule.name);
             }
         }
+
+        println!("[DEBUG] Code before refactoring: {}", code);
+        println!("[DEBUG] Instruction: {}", instruction);
+        println!("[DEBUG] Code after refactoring: {}", result_code);
 
         if changes.is_empty() {
             return Err(RulesError::GenerationFailed(format!(

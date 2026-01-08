@@ -1,7 +1,7 @@
 // projects/libraries/protocol/src/metadata.rs
+use crate::validation_error::ValidationError;
+use common_time::timestamp_utils::current_timestamp_ms;
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
-use crate::error::ValidationError;
 
 /// Maximum acceptable timestamp drift into the future (1 hour in milliseconds)
 const MAX_FUTURE_DRIFT_MS: u64 = 3600 * 1000;
@@ -9,12 +9,20 @@ const MAX_FUTURE_DRIFT_MS: u64 = 3600 * 1000;
 /// Metadata associated with commands and events
 ///
 /// Contains timing and identification information for protocol messages
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Metadata {
-    /// Timestamp in milliseconds since UNIX epoch (January 1, 1970 UTC)
-    pub timestamp: u64,
-    /// Unique identifier for the message
-    pub id: u64,
+    pub request_id: String,
+    pub job_id: Option<String>,
+
+    // Routing (engine uses this)
+    pub product_id: Option<String>,
+
+    // Audit / observability
+    pub client_id: Option<String>,
+    pub timestamp_ms: Option<u64>,
+
+    // Compatibility
+    pub schema_version: Option<u32>,
 }
 
 impl Metadata {
@@ -22,28 +30,37 @@ impl Metadata {
     ///
     /// The ID is generated from the current timestamp combined with process randomness
     pub fn now() -> Self {
-        let timestamp = Self::current_timestamp_ms();
-        let id = Self::generate_id(timestamp);
-        Self { timestamp, id }
+        let timestamp_ms = Self::current_timestamp_ms();
+        let request_id = Self::generate_id(timestamp_ms).to_string(); // Conversion en String
+        Self {
+            timestamp_ms: Some(timestamp_ms),
+            request_id,
+            ..Default::default()
+        }
     }
 
     /// Creates metadata with a specific timestamp and generated ID
-    pub fn with_timestamp(timestamp: u64) -> Self {
-        let id = Self::generate_id(timestamp);
-        Self { timestamp, id }
+    pub fn with_timestamp(timestamp_ms: u64) -> Self {
+        let request_id = Self::generate_id(timestamp_ms).to_string(); // Conversion en String
+        Self {
+            timestamp_ms: Some(timestamp_ms),
+            request_id,
+            ..Default::default()
+        }
     }
 
     /// Creates metadata with specific timestamp and ID
-    pub fn new(timestamp: u64, id: u64) -> Self {
-        Self { timestamp, id }
+    pub fn new(timestamp_ms: u64, request_id: String) -> Self {
+        Self {
+            timestamp_ms: Some(timestamp_ms),
+            request_id,
+            ..Default::default()
+        }
     }
 
     /// Gets the current system timestamp in milliseconds since UNIX epoch
     pub fn current_timestamp_ms() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("System time before UNIX epoch")
-            .as_millis() as u64
+        current_timestamp_ms()
     }
 
     /// Validates the metadata
@@ -52,11 +69,14 @@ impl Metadata {
     pub fn validate(&self) -> Result<(), ValidationError> {
         let now = Self::current_timestamp_ms();
 
-        // Check if timestamp is too far in the future
-        if self.timestamp > now + MAX_FUTURE_DRIFT_MS {
-            return Err(ValidationError::InvalidTimestamp(
-                format!("Timestamp {} is too far in the future (current: {})", self.timestamp, now)
-            ));
+        if let Some(timestamp_ms) = self.timestamp_ms {
+            // Check if timestamp is too far in the future
+            if timestamp_ms > now + MAX_FUTURE_DRIFT_MS {
+                return Err(ValidationError::InvalidTimestamp(format!(
+                    "Timestamp {} is too far in the future (current: {})",
+                    timestamp_ms, now
+                )));
+            }
         }
 
         Ok(())
@@ -79,8 +99,12 @@ impl Metadata {
     /// Note: This is a basic implementation. For production use, consider using
     /// a dedicated datetime library like `chrono`.
     pub fn timestamp_to_string(&self) -> String {
-        let secs = self.timestamp / 1000;
-        let millis = self.timestamp % 1000;
-        format!("{}+{:03}ms", secs, millis)
+        if let Some(timestamp_ms) = self.timestamp_ms {
+            let secs = timestamp_ms / 1000;
+            let millis = timestamp_ms % 1000;
+            format!("{}+{:03}ms", secs, millis)
+        } else {
+            "Unknown timestamp".to_string()
+        }
     }
 }

@@ -1,31 +1,9 @@
-use crate::analyzer::CodeAnalyzer;
-use crate::rules::RulesEngine;
-use crate::validator::CodeValidator;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum SymbolicError {
-    #[error("Analysis error: {0}")]
-    AnalysisError(String),
-    #[error("Validation error: {0}")]
-    ValidationError(String),
-    #[error("Generation error: {0}")]
-    GenerationError(String),
-}
-
-#[derive(Debug, Clone)]
-pub struct SolverResult {
-    pub output: String,
-    pub confidence: f64,
-    pub metadata: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ValidationResult {
-    pub is_valid: bool,
-    pub reason: String,
-    pub suggested_fix: Option<String>,
-}
+use crate::validator::ValidationError;
+use crate::validator::validation_result::ValidationResult;
+use crate::{
+    analyzer::CodeAnalyzer, rules::RulesEngine, solver_result::SolverResult,
+    symbolic_error::SymbolicError, validator::CodeValidator,
+};
 
 /// Solver symbolique - orchestration interne de symbolic
 pub struct SymbolicSolver {
@@ -133,8 +111,10 @@ impl SymbolicSolver {
         let context = "Default context";
         let validation = ValidationResult {
             is_valid: true,
-            reason: "Refactoring applied successfully".to_string(),
+            reason: Some("Refactoring applied successfully".to_string()),
             suggested_fix: None,
+            errors: Vec::new(),
+            warnings: Vec::new(),
         };
 
         let refactored = self
@@ -162,7 +142,7 @@ impl SymbolicSolver {
         let validation = self
             .validator
             .validate(code) // Use validate method from CodeValidator
-            .map_err(|e| SymbolicError::ValidationError(e.to_string()))?;
+            .map_err(|e: ValidationError| SymbolicError::ValidationError(e.to_string()))?;
 
         Ok(validation)
     }
