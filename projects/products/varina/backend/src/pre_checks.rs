@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// Niveau de checks avant commit/push.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PreChecks {
     None,
     FmtCheck,

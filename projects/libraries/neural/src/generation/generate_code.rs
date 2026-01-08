@@ -1,6 +1,6 @@
 use crate::network::neural_net::{NetworkError, NeuralNetwork};
 use crate::tokenization::rust_tokenizer::RustTokenizer;
-use common::utils::is_valid_id;
+use common::common_id::is_valid_id;
 use ndarray::Array1;
 use thiserror::Error; // Import du trait pour `gen`
 

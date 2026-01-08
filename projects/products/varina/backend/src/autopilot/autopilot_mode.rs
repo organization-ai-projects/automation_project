@@ -1,7 +1,9 @@
-/// Mode d'autopilot.
-/// - DryRun: ne modifie rien, renvoie un plan.
-/// - ApplySafe: applique uniquement si c'est sûr (policy + checks OK).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+/// Mode d'exécution de l'autopilot.
+/// - `DryRun` : Génère un plan sans appliquer de changements.
+/// - `ApplySafe` : Applique les changements uniquement si les vérifications passent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AutopilotMode {
     DryRun,
     ApplySafe,

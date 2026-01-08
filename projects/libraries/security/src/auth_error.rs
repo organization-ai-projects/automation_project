@@ -1,3 +1,4 @@
+// projects/libraries/security/src/auth_error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]

@@ -1,4 +1,7 @@
 // Module for feedback loop
 pub mod adjust_model;
 
-pub use adjust_model::{FeedbackError, FeedbackType, UserFeedback, FeedbackAdjuster, FeedbackConfig, FeedbackStats, AdjustmentMetrics};
+pub use adjust_model::{
+    AdjustmentMetrics, FeedbackAdjuster, FeedbackConfig, FeedbackError, FeedbackStats,
+    FeedbackType, UserFeedback,
+};

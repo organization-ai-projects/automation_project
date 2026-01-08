@@ -23,6 +23,14 @@ pub enum CommandType {
     Configure,
     /// Custom command type
     Custom,
+    // Generic job model (final)
+    StartJob,
+    GetJobStatus,
+    GetJobResult,
+    CancelJob,
+    // Legacy / transitional (optionnel)
+    Preview,
+    Apply,
 }
 
 impl CommandType {
@@ -38,6 +46,12 @@ impl CommandType {
             CommandType::Unsubscribe => "unsubscribe",
             CommandType::Configure => "configure",
             CommandType::Custom => "custom",
+            CommandType::StartJob => "start_job",
+            CommandType::GetJobStatus => "get_job_status",
+            CommandType::GetJobResult => "get_job_result",
+            CommandType::CancelJob => "cancel_job",
+            CommandType::Preview => "preview",
+            CommandType::Apply => "apply",
         }
     }
 }

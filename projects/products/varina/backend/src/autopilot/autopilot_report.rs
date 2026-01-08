@@ -1,11 +1,14 @@
 use crate::{
     autopilot::{AutopilotMode, AutopilotPlan},
     classified_changes::ClassifiedChanges,
-    git_github::GitChange,
 };
+use git_lib::git_change::GitChange;
+use serde::{Deserialize, Serialize}; // Import des macros nécessaires pour la sérialisation
 
+/// Structure représentant un rapport d'exécution de l'autopilot.
+/// Combine le plan, les changements classifiés, et les logs pour un suivi complet.
 /// Rapport d’exécution (plan + actions réalisées ou refus).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)] // Ajout de Serialize pour permettre la conversion en JSON
 pub struct AutopilotReport {
     pub mode: AutopilotMode,
     pub branch: String,
@@ -15,6 +18,13 @@ pub struct AutopilotReport {
     pub plan: AutopilotPlan,
     pub applied: bool,
     pub logs: Vec<String>,
+}
+
+impl AutopilotReport {
+    /// Add a log entry to the report.
+    pub fn add_log(&mut self, entry: String) {
+        self.logs.push(entry);
+    }
 }
 
 #[cfg(test)]

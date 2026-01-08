@@ -1,5 +1,9 @@
+use serde::{Deserialize, Serialize};
+
+/// Structure représentant un plan d'action généré par l'autopilot.
+/// Contient les informations nécessaires pour appliquer ou non des changements.
 /// Plan d’action (ce que l’autopilot ferait).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutopilotPlan {
     pub branch: String,
     pub will_stage: Vec<String>,
@@ -7,6 +11,19 @@ pub struct AutopilotPlan {
     pub commit_message: String,
     pub will_push: bool,
     pub notes: Vec<String>,
+}
+
+impl AutopilotPlan {
+    /// Validate the plan to ensure all fields are properly set.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.branch.is_empty() {
+            return Err("Branch name cannot be empty".to_string());
+        }
+        if self.commit_message.is_empty() {
+            return Err("Commit message cannot be empty".to_string());
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -29,5 +46,31 @@ mod tests {
         assert_eq!(plan.commit_message, "Initial commit");
         assert!(plan.will_push);
         assert_eq!(plan.notes.len(), 1);
+    }
+
+    #[test]
+    fn test_autopilot_plan_validation() {
+        let mut plan = AutopilotPlan {
+            branch: "".to_string(),
+            will_stage: vec![],
+            will_commit: true,
+            commit_message: "".to_string(),
+            will_push: true,
+            notes: vec![],
+        };
+
+        assert_eq!(
+            plan.validate().err(),
+            Some("Branch name cannot be empty".to_string())
+        );
+
+        plan.branch = "main".to_string();
+        assert_eq!(
+            plan.validate().err(),
+            Some("Commit message cannot be empty".to_string())
+        );
+
+        plan.commit_message = "Initial commit".to_string();
+        assert!(plan.validate().is_ok());
     }
 }

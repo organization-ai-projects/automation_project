@@ -1,7 +1,86 @@
+use std::str::FromStr;
+
+use serde::{Deserialize, Serialize};
+
+// projects/libraries/security/src/permissions.rs
 use crate::AuthError;
-// security/src/permissions.rs
-use crate::role::{Permission, Role};
+use crate::role::Role;
 use crate::token::Token;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Permission {
+    /// Lire le code, voir les projets
+    Read,
+
+    /// Écrire/modifier du code
+    Write,
+
+    /// Exécuter la génération de code, l'analyse, etc.
+    Execute,
+
+    /// Supprimer des projets/fichiers
+    Delete,
+
+    /// Administrer (gérer users, permissions, settings)
+    Admin,
+
+    /// Entraîner/ajuster les modèles
+    Train,
+
+    /// Accéder aux logs et métriques
+    ViewLogs,
+
+    /// Modifier la configuration système
+    ConfigureSystem,
+}
+
+impl Permission {
+    /// Retourne toutes les permissions disponibles
+    pub fn all() -> &'static [Permission] {
+        &[
+            Permission::Read,
+            Permission::Write,
+            Permission::Execute,
+            Permission::Delete,
+            Permission::Admin,
+            Permission::Train,
+            Permission::ViewLogs,
+            Permission::ConfigureSystem,
+        ]
+    }
+
+    /// Convertit en string
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Permission::Read => "read",
+            Permission::Write => "write",
+            Permission::Execute => "execute",
+            Permission::Delete => "delete",
+            Permission::Admin => "admin",
+            Permission::Train => "train",
+            Permission::ViewLogs => "view_logs",
+            Permission::ConfigureSystem => "configure_system",
+        }
+    }
+}
+
+impl FromStr for Permission {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "read" => Ok(Permission::Read),
+            "write" => Ok(Permission::Write),
+            "execute" => Ok(Permission::Execute),
+            "delete" => Ok(Permission::Delete),
+            "admin" => Ok(Permission::Admin),
+            "train" => Ok(Permission::Train),
+            "viewlogs" | "view_logs" => Ok(Permission::ViewLogs),
+            "configuresystem" | "configure_system" => Ok(Permission::ConfigureSystem),
+            _ => Err(()),
+        }
+    }
+}
 
 /// Vérifie si un rôle a une permission spécifique
 pub fn has_permission(role: &Role, required_permission: Permission) -> bool {
@@ -143,7 +222,8 @@ mod tests {
 
     #[test]
     fn test_token_permission() {
-        let token = Token::new("user123".to_string(), Role::User, 3600);
+        // Token::new -> Result + user_id numérique + durée en ms
+        let token = Token::new("1".to_string(), Role::User, 3_600_000).unwrap();
 
         assert!(check_token_permission(&token, Permission::Write).is_ok());
         assert!(check_token_permission(&token, Permission::Delete).is_err());

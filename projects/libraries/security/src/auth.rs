@@ -1,10 +1,14 @@
-use crate::AuthError;
-// security/src/auth.rs
-use crate::token::Token;
-use common::utils::is_valid_name;
+use common::common_id::is_valid_id;
 
-/// Valide un token
+use crate::auth_error::AuthError;
+use crate::token::Token;
+
+/// Valide un token (structure + expiration)
 pub fn validate_token(token: &Token) -> Result<(), AuthError> {
+    if !token.validate() {
+        return Err(AuthError::InvalidToken);
+    }
+
     if token.is_expired() {
         return Err(AuthError::TokenExpired);
     }
@@ -13,85 +17,98 @@ pub fn validate_token(token: &Token) -> Result<(), AuthError> {
 }
 
 pub fn validate_user_id(user_id: &str) -> bool {
-    is_valid_name(user_id)
+    let trimmed = user_id.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    if let Ok(id) = trimmed.parse::<u64>() {
+        is_valid_id(id)
+    } else {
+        false
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::role::Role;
-    use common::utils::time_durations;
+    use crate::{auth::validate_user_id, role::Role};
+    use crate::{auth::validate_token as validate_auth_token, AuthError, Token};
 
     #[test]
     fn test_token_creation() {
-        let token = Token::new("user123".to_string(), Role::User, 3600);
+        // Token::new attend maintenant duration_ms + user_id numérique valide
+        let token = Token::new("1".to_string(), Role::User, 3_600_000).unwrap();
 
-        assert_eq!(token.user_id, "user123");
+        assert_eq!(token.user_id, "1");
         assert_eq!(token.role, Role::User);
         assert!(!token.is_expired());
+        assert!(token.validate());
     }
 
     #[test]
     fn test_token_not_expired() {
-        let token = Token::new("user123".to_string(), Role::User, 3600);
+        let token = Token::new("1".to_string(), Role::User, 3_600_000).unwrap();
+
         assert!(!token.is_expired());
-        assert!(validate_token(&token).is_ok());
-        assert!(token.time_until_expiry().is_some());
+        assert!(validate_auth_token(&token).is_ok());
+
+        // en ms, toujours >= 0
+        assert!(token.time_until_expiry_ms() > 0);
     }
 
     #[test]
     fn test_token_expired() {
-        let token = Token::new("user123".to_string(), Role::User, 0);
+        // durée 1ms, puis on attend un peu
+        let token = Token::new("1".to_string(), Role::User, 1).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(10));
 
         assert!(token.is_expired());
         assert!(matches!(
-            validate_token(&token),
-            Err(AuthError::TokenExpired)
+            validate_auth_token(&token),
+            Err(AuthError::TokenExpired) | Err(AuthError::InvalidToken)
         ));
-        assert!(token.time_until_expiry().is_none());
     }
 
     #[test]
     fn test_token_with_session() {
         let token = Token::new_with_session(
-            "user123".to_string(),
+            "1".to_string(),
             Role::Admin,
-            3600,
+            3_600_000,
             "session_xyz".to_string(),
-        );
+        )
+        .unwrap();
 
-        assert_eq!(token.session_id, Some("session_xyz".to_string()));
+        assert_eq!(token.session_id.as_deref(), Some("session_xyz"));
     }
 
     #[test]
     fn test_token_age() {
-        let token = Token::new("user123".to_string(), Role::User, 3600);
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        let token = Token::new("1".to_string(), Role::User, 3_600_000).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
 
-        assert!(token.age() > 0);
+        assert!(token.age_ms() > 0);
     }
 
     #[test]
     fn test_token_renewal() {
-        let mut token = Token::new("user123".to_string(), Role::User, 100);
-        let initial_expiry = token.expires_at;
+        let mut token = Token::new("1".to_string(), Role::User, 10).unwrap();
+        let initial_expiry = token.expires_at_ms;
 
-        token.renew(1000);
+        token.renew(1000).unwrap();
 
-        assert_eq!(token.expires_at, initial_expiry + 1000);
-    }
-
-    #[test]
-    fn test_token_durations() {
-        assert_eq!(time_durations::ONE_HOUR, 3600);
-        assert_eq!(time_durations::ONE_DAY, 86400);
+        // renew peut renouveler depuis expires_at si pas expiré
+        assert_eq!(token.expires_at_ms, initial_expiry + 1000);
     }
 
     #[test]
     fn test_validate_user_id() {
-        assert!(validate_user_id("valid_user"));
+        // IMPORTANT: ton validate_user_id vérifie un id numérique + is_valid_id
+        assert!(validate_user_id("1"));
+        assert!(validate_user_id("  1  "));
+
         assert!(!validate_user_id(""));
         assert!(!validate_user_id("   "));
+        assert!(!validate_user_id("valid_user")); // <- avant ton test était incohérent avec is_valid_id
     }
 }

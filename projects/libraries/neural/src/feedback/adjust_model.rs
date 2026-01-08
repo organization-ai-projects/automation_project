@@ -1,6 +1,6 @@
 // neural/src/training/feedback.rs
 use crate::network::neural_net::{NetworkError, NeuralNetwork};
-use common::utils::format_timestamp;
+use common_time::timestamp_utils::{format_timestamp};
 use ndarray::Array1;
 use thiserror::Error;
 

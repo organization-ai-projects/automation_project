@@ -12,6 +12,26 @@ members = [
   "projects/products/core/launcher",
   "projects/products/core/watcher",
   "projects/products/varina/backend",
-  "projects/products/varina/ui"
+  "projects/products/varina/ui",
+  "projects/libraries/git_lib",
+  "projects/libraries/command_runner",
+  "projects/libraries/common_calendar",
+  "projects/libraries/common_time",
 ]
 resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+ai = { path = "projects/libraries/ai" }
+common = { path = "projects/libraries/common" }
+neural = { path = "projects/libraries/neural" }
+protocol = { path = "projects/libraries/protocol" }
+security = { path = "projects/libraries/security" }
+symbolic = { path = "projects/libraries/symbolic" }
+ui = { path = "projects/libraries/ui" }
+git_lib = { path = "projects/libraries/git_lib" }
+command_runner = { path = "projects/libraries/command_runner" }
+common_calendar = { path = "projects/libraries/common_calendar" }
+common_time = { path = "projects/libraries/common_time" }

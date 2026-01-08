@@ -1,8 +1,10 @@
 // projects/libraries/protocol/src/event.rs
-use serde::{Deserialize, Serialize};
-use crate::metadata::Metadata;
-use crate::error::ValidationError;
+use crate::validation_error::ValidationError;
 use crate::event_type::EventType;
+use crate::log_level::LogLevel;
+use crate::metadata::Metadata;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Maximum allowed length for event names (in characters)
 pub const MAX_EVENT_NAME_LENGTH: usize = 256;
@@ -20,6 +22,15 @@ pub struct Event {
     pub data: String,
     /// Associated metadata
     pub metadata: Metadata,
+
+    // Generic payload
+    pub payload_type: Option<String>,
+    pub payload: Option<Value>,
+
+    // Common fields for log/progress (optional depending on event_type)
+    pub level: Option<LogLevel>,
+    pub message: Option<String>,
+    pub pct: Option<u8>,
 }
 
 impl Event {
@@ -30,16 +41,31 @@ impl Event {
             event_type,
             data,
             metadata: Metadata::now(),
+            payload_type: None,
+            payload: None,
+            level: None,
+            message: None,
+            pct: None,
         }
     }
 
     /// Creates a new event with custom metadata
-    pub fn with_metadata(name: String, event_type: EventType, data: String, metadata: Metadata) -> Self {
+    pub fn with_metadata(
+        name: String,
+        event_type: EventType,
+        data: String,
+        metadata: Metadata,
+    ) -> Self {
         Self {
             name,
             event_type,
             data,
             metadata,
+            payload_type: None,
+            payload: None,
+            level: None,
+            message: None,
+            pct: None,
         }
     }
 
@@ -61,7 +87,11 @@ impl Event {
         }
 
         // Check name format (alphanumeric, underscore, hyphen, dot)
-        if !self.name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.') {
+        if !self
+            .name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.')
+        {
             return Err(ValidationError::InvalidNameFormat(self.name.clone()));
         }
 
