@@ -1,56 +1,58 @@
 #!/bin/bash
+set -euo pipefail
+
 # Usage: ./create_after_delete.sh
+# Recrée la branche courante depuis dev après suppression locale + remote.
 
-# Récupérer le nom de la branche locale actuelle
-BRANCH_NAME=$(git branch --show-current)
+REMOTE="origin"
+BASE_BRANCH="dev"
 
-# Vérifier si une branche est active
-if [ -z "$BRANCH_NAME" ]; then
-  echo "Erreur : Aucune branche locale active. Vous devez être sur une branche pour l'utiliser."
+BRANCH_NAME="$(git branch --show-current || true)"
+
+if [[ -z "$BRANCH_NAME" ]]; then
+  echo "Erreur : Aucune branche locale active (detached HEAD). Passe sur une branche et relance." >&2
   exit 1
 fi
 
-# Supprimer la branche locale
-if git branch --list $BRANCH_NAME > /dev/null 2>&1; then
-  git branch -d $BRANCH_NAME
-  if [ $? -eq 0 ]; then
-    echo "Branche locale $BRANCH_NAME supprimée."
+if [[ "$BRANCH_NAME" == "$BASE_BRANCH" || "$BRANCH_NAME" == "main" ]]; then
+  echo "Erreur : Refus de supprimer une branche protégée ($BRANCH_NAME)." >&2
+  exit 1
+fi
+
+echo "=== Recreate branch: $BRANCH_NAME (base: $BASE_BRANCH, remote: $REMOTE) ==="
+
+# Toujours se mettre sur la base avant de supprimer la branche courante
+git fetch "$REMOTE" --prune
+
+echo "-> Checkout $BASE_BRANCH"
+git checkout "$BASE_BRANCH"
+git pull "$REMOTE" "$BASE_BRANCH"
+
+echo "-> Delete local branch $BRANCH_NAME (safe)"
+if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+  if git branch -d "$BRANCH_NAME"; then
+    echo "✓ Branche locale \"$BRANCH_NAME\" supprimée."
   else
-    echo "Erreur : Impossible de supprimer la branche locale $BRANCH_NAME."
+    echo "Erreur : Branche locale \"$BRANCH_NAME\" non mergée, suppression refusée." >&2
+    echo "Astuce : merge-la ou supprime en force avec: git branch -D \"$BRANCH_NAME\"" >&2
     exit 1
   fi
 else
-  echo "La branche locale $BRANCH_NAME n'existe pas."
+  echo "ℹ Branche locale \"$BRANCH_NAME\" inexistante."
 fi
 
-# Supprimer la branche distante si elle existe
-if git ls-remote --exit-code origin $BRANCH_NAME > /dev/null 2>&1; then
-  git push origin --delete $BRANCH_NAME
-  if [ $? -eq 0 ]; then
-    echo "Branche distante $BRANCH_NAME supprimée."
-  else
-    echo "Erreur : Impossible de supprimer la branche distante $BRANCH_NAME."
-  fi
+echo "-> Delete remote branch $BRANCH_NAME (if exists)"
+if git ls-remote --exit-code --heads "$REMOTE" "$BRANCH_NAME" >/dev/null 2>&1; then
+  git push "$REMOTE" --delete "$BRANCH_NAME"
+  echo "✓ Branche distante \"$BRANCH_NAME\" supprimée."
 else
-  echo "La branche distante $BRANCH_NAME n'existe pas."
+  echo "ℹ Branche distante \"$BRANCH_NAME\" inexistante."
 fi
 
-# Créer la branche à partir de dev
-git checkout dev
-if [ $? -ne 0 ]; then
-  echo "Erreur : Impossible de basculer sur la branche dev."
-  exit 1
-fi
+echo "-> Create branch from $BASE_BRANCH"
+git checkout -b "$BRANCH_NAME" "$BASE_BRANCH"
 
-git pull origin dev
-if [ $? -ne 0 ]; then
-  echo "Erreur : Impossible de mettre à jour dev."
-  exit 1
-fi
+echo "-> Push & set upstream"
+git push --set-upstream "$REMOTE" "$BRANCH_NAME"
 
-git checkout -b $BRANCH_NAME
-if [ $? -eq 0 ]; then
-  echo "Branche $BRANCH_NAME recréée avec succès."
-else
-  echo "Erreur : Impossible de recréer la branche $BRANCH_NAME."
-fi
+echo "✓ Branche \"$BRANCH_NAME\" recréée depuis \"$BASE_BRANCH\" et poussée sur \"$REMOTE\"."

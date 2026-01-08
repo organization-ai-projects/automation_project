@@ -2,102 +2,105 @@
 set -euo pipefail
 
 # Usage: ./cleanup_after_pr.sh
-# Description: Nettoie les branches mergées et les recrée depuis dev à jour
+# Description: Nettoie les branches locales en retard vs leur upstream, les supprime (local+remote),
+#              puis les recrée depuis dev (et push upstream).
 
 echo "=== Mise à jour de la branche dev ==="
-# Sauvegarder la branche courante
-CURRENT_BRANCH=$(git branch --show-current)
+CURRENT_BRANCH="$(git branch --show-current || true)"
 
-# Mettre à jour la branche dev
 if ! git checkout dev; then
-    echo "Erreur : Impossible de basculer sur la branche dev." >&2
-    exit 1
+  echo "Erreur : Impossible de basculer sur la branche dev." >&2
+  exit 1
 fi
 
 if ! git pull origin dev; then
-    echo "Erreur : Impossible de mettre à jour la branche dev." >&2
-    exit 1
+  echo "Erreur : Impossible de mettre à jour la branche dev." >&2
+  exit 1
 fi
 
 echo "✓ Branche dev mise à jour avec succès."
-
 echo ""
-echo "=== Détection des branches locales non à jour ==="
-# Récupérer les informations distantes
-git fetch origin
+echo "=== Détection des branches locales en retard vs upstream ==="
 
-# Trouver les branches locales non à jour
-OUTDATED_BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/heads | while read BRANCH; do
-    STATUS=$(git status -sb --branch "$BRANCH" 2>/dev/null || true)
-    if [[ "$STATUS" == *"behind"* ]]; then
-        echo "$BRANCH"
-    fi
-done)
+git fetch origin --prune
 
-if [ -z "$OUTDATED_BRANCHES" ]; then
-    echo "Aucune branche locale non à jour détectée."
-    exit 0
+OUTDATED_BRANCHES=()
+
+# Liste toutes les branches locales + leur "track" upstream (ex: "[behind 2]" / "[ahead 1]" / "[gone]" / "")
+# Note: %(upstream:track) est vide si pas d'upstream configuré.
+while IFS= read -r line; do
+  # line = "<branch>\t<track>"
+  branch="${line%%$'\t'*}"
+  track="${line#*$'\t'}"
+
+  # Sécurité: ignore dev/main
+  if [[ "$branch" == "dev" || "$branch" == "main" ]]; then
+    continue
+  fi
+
+  # Track examples:
+  #   "[behind 2]"
+  #   "[ahead 1]"
+  #   "[ahead 1, behind 2]"
+  #   "[gone]"
+  #   "" (no upstream)
+  if [[ "$track" == *"behind"* || "$track" == *"gone"* ]]; then
+    OUTDATED_BRANCHES+=("$branch")
+  fi
+done < <(git for-each-ref --format='%(refname:short)%09%(upstream:track)' refs/heads)
+
+if (( ${#OUTDATED_BRANCHES[@]} == 0 )); then
+  echo "Aucune branche locale en retard détectée."
+  exit 0
 fi
 
-echo "Branches locales non à jour détectées :"
-echo "$OUTDATED_BRANCHES"
+echo "Branches ciblées :"
+printf ' - %s\n' "${OUTDATED_BRANCHES[@]}"
 
 echo ""
 echo "=== Suppression des branches locales et distantes ==="
-for BRANCH in $OUTDATED_BRANCHES; do
-    # Ignorer dev et main par sécurité
-    if [[ "$BRANCH" == "dev" || "$BRANCH" == "main" ]]; then
-        echo "⚠ Branche protégée '$BRANCH' ignorée."
-        continue
-    fi
+for branch in "${OUTDATED_BRANCHES[@]}"; do
+  echo "Traitement de la branche: $branch"
 
-    echo "Traitement de la branche: $BRANCH"
+  if git branch -d "$branch" 2>/dev/null; then
+    echo "  ✓ Branche locale $branch supprimée."
+  elif git branch -D "$branch" 2>/dev/null; then
+    echo "  ⚠ Branche locale $branch supprimée (force - non mergée)."
+  else
+    echo "  ℹ Branche locale $branch n'existe pas ou déjà supprimée."
+  fi
 
-    # Supprimer la branche locale (force si non mergée)
-    if git branch -d "$BRANCH" 2>/dev/null; then
-        echo "  ✓ Branche locale $BRANCH supprimée."
-    elif git branch -D "$BRANCH" 2>/dev/null; then
-        echo "  ⚠ Branche locale $BRANCH supprimée (force - non mergée)."
-    else
-        echo "  ℹ Branche locale $BRANCH n'existe pas ou déjà supprimée."
-    fi
-
-    # Supprimer la branche distante
-    if git push origin --delete "$BRANCH" 2>/dev/null; then
-        echo "  ✓ Branche distante $BRANCH supprimée."
-    else
-        echo "  ℹ Branche distante $BRANCH n'existe pas ou déjà supprimée."
-    fi
+  if git push origin --delete "$branch" 2>/dev/null; then
+    echo "  ✓ Branche distante $branch supprimée."
+  else
+    echo "  ℹ Branche distante $branch n'existe pas, déjà supprimée, ou droits insuffisants."
+  fi
 done
 
 echo ""
 echo "=== Recréation des branches depuis dev ==="
-for BRANCH in $OUTDATED_BRANCHES; do
-    # Ignorer dev et main
-    if [[ "$BRANCH" == "dev" || "$BRANCH" == "main" ]]; then
-        continue
-    fi
+for branch in "${OUTDATED_BRANCHES[@]}"; do
+  echo "Recréation de la branche: $branch"
 
-    echo "Recréation de la branche: $BRANCH"
+  if ! git checkout -b "$branch" dev; then
+    echo "  Erreur : Impossible de créer la branche $branch." >&2
+    continue
+  fi
 
-    if ! git checkout -b "$BRANCH" dev; then
-        echo "  Erreur : Impossible de créer la branche $BRANCH." >&2
-        continue
-    fi
-
-    if git push --set-upstream origin "$BRANCH"; then
-        echo "  ✓ Branche $BRANCH recréée et poussée avec succès."
-    else
-        echo "  Erreur : Impossible de pousser la branche recréée $BRANCH." >&2
-    fi
+  if git push --set-upstream origin "$branch"; then
+    echo "  ✓ Branche $branch recréée et poussée avec succès."
+  else
+    echo "  Erreur : Impossible de pousser la branche recréée $branch." >&2
+  fi
 done
 
-# Retourner sur la branche d'origine ou dev
-if [ -n "$CURRENT_BRANCH" ] && git show-ref --verify --quiet "refs/heads/$CURRENT_BRANCH"; then
-    git checkout "$CURRENT_BRANCH"
-    echo "✓ Retour sur la branche $CURRENT_BRANCH"
+echo ""
+echo "=== Retour sur branche d'origine ==="
+if [[ -n "$CURRENT_BRANCH" ]] && git show-ref --verify --quiet "refs/heads/$CURRENT_BRANCH"; then
+  git checkout "$CURRENT_BRANCH"
+  echo "✓ Retour sur la branche $CURRENT_BRANCH"
 else
-    echo "✓ Resté sur la branche dev"
+  echo "✓ Resté sur la branche dev"
 fi
 
 echo ""
