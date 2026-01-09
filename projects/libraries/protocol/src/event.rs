@@ -1,10 +1,9 @@
 // projects/libraries/protocol/src/event.rs
-use crate::validation_error::ValidationError;
-use crate::event_type::EventType;
 use crate::log_level::LogLevel;
 use crate::metadata::Metadata;
+use crate::validation_error::ValidationError;
+use crate::{EventVariant, Payload, event_type::EventType};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// Maximum allowed length for event names (in characters)
 pub const MAX_EVENT_NAME_LENGTH: usize = 256;
@@ -23,29 +22,62 @@ pub struct Event {
     /// Associated metadata
     pub metadata: Metadata,
 
-    // Generic payload
-    pub payload_type: Option<String>,
-    pub payload: Option<Value>,
+    /// Generic payload encapsulated in a `Payload` struct
+    pub payload: Option<Payload>,
 
     // Common fields for log/progress (optional depending on event_type)
     pub level: Option<LogLevel>,
     pub message: Option<String>,
     pub pct: Option<u8>,
+
+    /// The specific variant of the event
+    pub variant: EventVariant,
 }
 
+type CommonFields = (
+    Option<Payload>,
+    Option<LogLevel>,
+    Option<String>,
+    Option<u8>,
+    EventVariant,
+);
+
 impl Event {
+    /// Common initialization for all constructors
+    fn initialize_common_fields() -> CommonFields {
+        (None, None, None, None, EventVariant::Default)
+    }
+
     /// Creates a new event with the current timestamp
     pub fn new(name: String, event_type: EventType, data: String) -> Self {
+        Self::create_event(
+            name,
+            event_type,
+            data,
+            Metadata::now(),
+            EventVariant::Default,
+        )
+    }
+
+    /// Helper method to create an event with customizable metadata and variant
+    fn create_event(
+        name: String,
+        event_type: EventType,
+        data: String,
+        metadata: Metadata,
+        variant: EventVariant,
+    ) -> Self {
+        let (payload, level, message, pct, _) = Self::initialize_common_fields();
         Self {
             name,
             event_type,
             data,
-            metadata: Metadata::now(),
-            payload_type: None,
-            payload: None,
-            level: None,
-            message: None,
-            pct: None,
+            metadata,
+            payload,
+            level,
+            message,
+            pct,
+            variant,
         }
     }
 
@@ -56,17 +88,50 @@ impl Event {
         data: String,
         metadata: Metadata,
     ) -> Self {
+        Self::create_event(name, event_type, data, metadata, EventVariant::Default)
+    }
+
+    /// Creates a new event with a specific variant
+    pub fn with_variant(
+        name: String,
+        event_type: EventType,
+        data: String,
+        variant: EventVariant,
+    ) -> Self {
+        Self::create_event(name, event_type, data, Metadata::now(), variant)
+    }
+
+    /// Creates a new event with a `Payload`
+    pub fn with_payload(
+        name: String,
+        event_type: EventType,
+        metadata: Metadata,
+        payload: Payload,
+    ) -> Self {
         Self {
             name,
             event_type,
-            data,
+            data: payload
+                .payload
+                .clone()
+                .map_or_else(|| "".to_string(), |v| v.to_string()),
             metadata,
-            payload_type: None,
-            payload: None,
+            payload: Some(payload),
             level: None,
             message: None,
             pct: None,
+            variant: EventVariant::Default,
         }
+    }
+
+    /// Updates the payload of an existing event
+    pub fn update_payload(&mut self, payload: Payload) {
+        self.payload = Some(payload);
+    }
+
+    /// Extracts the payload as a `Payload` struct
+    pub fn extract_payload(&self) -> Option<Payload> {
+        self.payload.clone()
     }
 
     /// Validates the event structure and content
@@ -111,6 +176,7 @@ impl Event {
         // Validate metadata
         self.metadata.validate()?;
 
-        Ok(())
+        // Validate variant-specific rules
+        self.variant.validate()
     }
 }

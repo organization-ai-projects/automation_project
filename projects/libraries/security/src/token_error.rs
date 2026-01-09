@@ -1,25 +1,37 @@
-// projects/libraries/security/src/token_error.rs
-use std::fmt;
+use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Error, Clone)]
 pub enum TokenError {
-    InvalidUserIdFormat,
-    InvalidUserIdValue,
+    #[error("invalid duration")]
     InvalidDuration,
-    InvalidSessionId,
+
+    #[error("invalid user id format")]
+    InvalidUserIdFormat,
+
+    #[error("invalid user id value")]
+    InvalidUserIdValue,
+
+    #[error("timestamp overflow")]
     TimestampOverflow,
-}
 
-impl fmt::Display for TokenError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TokenError::InvalidUserIdFormat => write!(f, "User ID is not a valid number"),
-            TokenError::InvalidUserIdValue => write!(f, "Invalid user ID provided"),
-            TokenError::InvalidDuration => write!(f, "Invalid token duration"),
-            TokenError::InvalidSessionId => write!(f, "Invalid session id"),
-            TokenError::TimestampOverflow => write!(f, "Timestamp overflow"),
-        }
-    }
-}
+    #[error("invalid session id")]
+    InvalidSessionId,
 
-impl std::error::Error for TokenError {}
+    #[error("missing secret")]
+    MissingSecret,
+
+    #[error("secret too short (min 32 chars)")]
+    SecretTooShort,
+
+    #[error("jwt error: {0}")]
+    Jwt(String),
+
+    #[error("token expired")]
+    Expired,
+
+    #[error("invalid token")]
+    InvalidToken,
+
+    #[error("cannot renew expired token")]
+    CannotRenewExpired,
+}

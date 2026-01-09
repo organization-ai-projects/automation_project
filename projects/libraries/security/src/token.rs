@@ -1,146 +1,130 @@
 // projects/libraries/security/src/token.rs
-use crate::role::Role;
-use crate::token_error::TokenError;
-use common::common_id::is_valid_id;
-use common_time::timestamp_utils::current_timestamp_ms;
-
+use crate::auth::UserId;
+use crate::{auth_error, role::Role};
+use common_time::timestamp_utils;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
+/// Token vérifié (struct interne pratique pour l'app).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Token {
     pub value: String,
-    pub user_id: String,
+    pub user_id: UserId,
     pub role: Role,
-
-    /// Milliseconds since Unix epoch (UTC)
     pub issued_at_ms: u64,
-    /// Milliseconds since Unix epoch (UTC)
     pub expires_at_ms: u64,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
 }
 
 impl Token {
-    /// Creates a token lasting `duration_ms` milliseconds.
-    pub fn new(user_id: String, role: Role, duration_ms: u64) -> Result<Self, TokenError> {
+    /// Vérifie si le token est expiré
+    pub fn is_expired(&self) -> bool {
+        self.is_expired_with_grace(0)
+    }
+
+    /// Vérifie si le token est expiré avec un délai de grâce optionnel
+    pub fn is_expired_with_grace(&self, grace_ms: u64) -> bool {
+        let now = timestamp_utils::current_timestamp_ms();
+        self.expires_at_ms.saturating_add(grace_ms) <= now
+    }
+
+    /// Retourne le temps restant avant l'expiration en millisecondes
+    pub fn time_until_expiry_ms(&self) -> i64 {
+        let now = timestamp_utils::current_timestamp_ms() as i64;
+        self.expires_at_ms as i64 - now
+    }
+
+    /// Retourne l'âge du token en millisecondes
+    pub fn age_ms(&self) -> u64 {
+        let now = timestamp_utils::current_timestamp_ms();
+        now.saturating_sub(self.issued_at_ms)
+    }
+
+    /// Valide un token (structure + expiration)
+    pub fn validate_token(&self) -> Result<(), auth_error::AuthError> {
+        if self.user_id.value() == 0 {
+            return Err(auth_error::AuthError::InvalidToken);
+        }
+        if self.is_expired() {
+            return Err(auth_error::AuthError::TokenExpired);
+        }
+        Ok(())
+    }
+
+    #[cfg(test)]
+    /// Crée un nouveau token (uniquement pour les tests)
+    pub fn new(user_id: UserId, role: Role, duration_ms: u64) -> Result<Self, String> {
         if duration_ms == 0 {
-            return Err(TokenError::InvalidDuration);
+            return Err("Duration must be greater than 0".to_string());
         }
-
-        // Validate user_id according to your existing common::utils::is_valid_id contract.
-        let numeric_id = user_id
-            .parse::<u64>()
-            .map_err(|_| TokenError::InvalidUserIdFormat)?;
-
-        if !is_valid_id(numeric_id) {
-            return Err(TokenError::InvalidUserIdValue);
-        }
-
-        let now = current_timestamp_ms();
-        let expires = now
+        let issued_at_ms = timestamp_utils::current_timestamp_ms();
+        let expires_at_ms = issued_at_ms
             .checked_add(duration_ms)
-            .ok_or(TokenError::TimestampOverflow)?;
+            .ok_or("Timestamp overflow")?;
 
         Ok(Self {
-            // Proper UUIDv7 (time-ordered, includes randomness)
-            value: Uuid::now_v7().to_string(),
+            value: "test_value".to_string(),
             user_id,
             role,
-            issued_at_ms: now,
-            expires_at_ms: expires,
+            issued_at_ms,
+            expires_at_ms,
             session_id: None,
         })
     }
 
-    /// Creates a token with an attached session id.
+    #[cfg(test)]
+    /// Crée un nouveau token avec une session (uniquement pour les tests)
     pub fn new_with_session(
-        user_id: String,
+        user_id: UserId,
         role: Role,
         duration_ms: u64,
         session_id: String,
-    ) -> Result<Self, TokenError> {
-        if session_id.trim().is_empty() {
-            return Err(TokenError::InvalidSessionId);
-        }
-
+    ) -> Result<Self, String> {
         let mut token = Self::new(user_id, role, duration_ms)?;
         token.session_id = Some(session_id);
         Ok(token)
     }
-
-    pub fn is_expired(&self) -> bool {
-        current_timestamp_ms() >= self.expires_at_ms
-    }
-
-    /// Remaining time in milliseconds until expiry.
-    pub fn time_until_expiry_ms(&self) -> u64 {
-        let now = current_timestamp_ms();
-        self.expires_at_ms.saturating_sub(now)
-    }
-
-    /// Extends expiry by `additional_ms`.
-    /// If already expired, it renews from "now".
-    pub fn renew(&mut self, additional_ms: u64) -> Result<(), TokenError> {
-        if additional_ms == 0 {
-            return Err(TokenError::InvalidDuration);
-        }
-
-        let now = current_timestamp_ms();
-
-        let base = if now >= self.expires_at_ms {
-            now
-        } else {
-            self.expires_at_ms
-        };
-
-        self.expires_at_ms = base
-            .checked_add(additional_ms)
-            .ok_or(TokenError::TimestampOverflow)?;
-
-        Ok(())
-    }
-
-    /// Age of the token in milliseconds.
-    pub fn age_ms(&self) -> u64 {
-        let now = current_timestamp_ms();
-        now.saturating_sub(self.issued_at_ms)
-    }
-
-    /// Optional: quick structural validation.
-    pub fn validate(&self) -> bool {
-        // value must be non-empty
-        if self.value.trim().is_empty() {
-            return false;
-        }
-
-        // user_id must still be valid
-        let numeric_id = match self.user_id.parse::<u64>() {
-            Ok(v) => v,
-            Err(_) => return false,
-        };
-        if !is_valid_id(numeric_id) {
-            return false;
-        }
-
-        // timestamps must be sane
-        self.expires_at_ms >= self.issued_at_ms
-    }
 }
 
-/// Simple helper: "valid and not expired".
-pub fn validate_token(token: &Token) -> bool {
-    token.validate() && !token.is_expired()
-}
-
-/// “Dev helper” (je te conseille de le garder en test ou tooling)
 #[cfg(test)]
-pub fn generate_token_for_tests(duration_ms: u64) -> Token {
-    Token::new("1".to_string(), Role::User, duration_ms).expect("test token")
-}
+mod tests {
+    use super::*;
 
-/// Placeholder for revocation logic (blacklist / store / cache, etc.)
-pub fn revoke_token(_token: &Token) {
-    // Intentionally empty: implement via a revocation store (in-memory/redis/db) if needed.
+    #[test]
+    fn test_is_expired() {
+        let token = Token::new(UserId::from("123"), Role::User, 1).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        assert!(token.is_expired());
+    }
+
+    #[test]
+    fn test_is_expired_with_grace() {
+        let token = Token::new(UserId::from("123"), Role::User, 50).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(60));
+
+        // Expiré sans grâce
+        assert!(token.is_expired());
+
+        // Pas expiré avec 100ms de grâce
+        assert!(!token.is_expired_with_grace(100));
+    }
+
+    #[test]
+    fn test_time_until_expiry() {
+        let token = Token::new(UserId::from("123"), Role::User, 5000).unwrap();
+        let remaining = token.time_until_expiry_ms();
+        assert!(remaining > 4500 && remaining <= 5000);
+    }
+
+    #[test]
+    fn test_validate_token() {
+        let valid = Token::new(UserId::from("123"), Role::User, 5000).unwrap();
+        assert!(valid.validate_token().is_ok());
+
+        let expired = Token::new(UserId::from("123"), Role::User, 1).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        assert!(matches!(
+            expired.validate_token(),
+            Err(auth_error::AuthError::TokenExpired)
+        ));
+    }
 }

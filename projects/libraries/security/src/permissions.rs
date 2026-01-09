@@ -127,7 +127,7 @@ pub fn check_token_permission(
     token: &Token,
     required_permission: Permission,
 ) -> Result<(), AuthError> {
-    crate::auth::validate_token(token)?;
+    token.validate_token()?;
     check_permission(&token.role, required_permission)
 }
 
@@ -136,7 +136,7 @@ pub fn check_token_all_permissions(
     token: &Token,
     required_permissions: &[Permission],
 ) -> Result<(), AuthError> {
-    crate::auth::validate_token(token)?;
+    token.validate_token()?;
     check_all_permissions(&token.role, required_permissions)
 }
 
@@ -160,6 +160,8 @@ pub fn missing_permissions(role: &Role, required_permissions: &[Permission]) -> 
 
 #[cfg(test)]
 mod tests {
+    use crate::auth::UserId;
+
     use super::*;
 
     #[test]
@@ -223,7 +225,7 @@ mod tests {
     #[test]
     fn test_token_permission() {
         // Token::new -> Result + user_id numérique + durée en ms
-        let token = Token::new("1".to_string(), Role::User, 3_600_000).unwrap();
+        let token = Token::new(UserId::from("1"), Role::User, 3_600_000).unwrap();
 
         assert!(check_token_permission(&token, Permission::Write).is_ok());
         assert!(check_token_permission(&token, Permission::Delete).is_err());

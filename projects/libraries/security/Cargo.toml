@@ -10,3 +10,4 @@ common = { workspace = true }
 chrono = "0.4"
 uuid = { version = "1.0", features = ["v7"] }
 common_time = { workspace = true }
+jsonwebtoken = { version = "10.2.0", features = ["rust_crypto"] }
