@@ -1,0 +1,21 @@
+[logging]
+log_file = "watcher.log"
+log_level = "info"
+
+[[components]]
+name = "engine"
+ping_interval = 5
+ping = { systemd = { unit = "automation-engine.service" } }
+restart = { policy = "on_failure", systemd_unit = "automation-engine.service", backoff_min_secs = 1, backoff_max_secs = 60 }
+
+[[components]]
+name = "central_ui"
+ping_interval = 10
+ping = { process = { process_name = "central_ui" } }
+restart = { policy = "always", backoff_min_secs = 2, backoff_max_secs = 60 }
+
+[[components]]
+name = "varina-backend"
+ping_interval = 5
+ping = { http = { url = "http://127.0.0.1:4040/health" } }
+restart = { policy = "on_failure", backoff_min_secs = 1, backoff_max_secs = 60, max_consecutive_restarts = 10 }
