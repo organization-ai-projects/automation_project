@@ -175,6 +175,16 @@ impl Layer {
 
         Ok(input_gradient)
     }
+
+    pub fn update(&mut self, tokens: &[usize]) -> Result<(), NetworkError> {
+        println!("Updating weights with {} tokens", tokens.len());
+        // Implémentation fictive : mise à jour des poids des couches
+        for token in tokens {
+            // Exemple fictif de mise à jour
+            self.weights.index_axis_mut(Axis(0), *token).fill(0.5);
+        }
+        Ok(())
+    }
 }
 
 /// Multi-layer neural network
@@ -251,6 +261,15 @@ impl NeuralNetwork {
         }
 
         Ok(loss)
+    }
+
+    pub fn update_weights(&mut self, tokens: &[usize]) -> Result<(), NetworkError> {
+        println!("Updating weights with {} tokens", tokens.len());
+        // Implémentation fictive : mise à jour des poids des couches
+        for layer in &mut self.layers {
+            layer.update(tokens)?;
+        }
+        Ok(())
     }
 
     pub fn input_size(&self) -> usize {

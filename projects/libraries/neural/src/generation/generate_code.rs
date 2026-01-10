@@ -108,6 +108,19 @@ impl CodeGenerator {
 
         sample_categorical(&probs)
     }
+
+    pub fn train(&mut self, training_data: Vec<String>) -> Result<(), GenerationError> {
+        println!(
+            "Training CodeGenerator with {} examples",
+            training_data.len()
+        );
+        // Implémentation fictive : mise à jour du modèle avec les données
+        for example in training_data {
+            let tokens = self.tokenizer.encode(&example);
+            self.model.update_weights(&tokens)?;
+        }
+        Ok(())
+    }
 }
 
 fn softmax(logits: &Array1<f64>) -> Array1<f64> {

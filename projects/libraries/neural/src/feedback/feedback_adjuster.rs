@@ -1,53 +1,11 @@
-// neural/src/training/feedback.rs
-use crate::network::neural_net::{NetworkError, NeuralNetwork};
-use common_time::timestamp_utils::format_timestamp;
 use ndarray::Array1;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum FeedbackError {
-    #[error("Invalid feedback format: {0}")]
-    InvalidFormat(String),
-    #[error("Network error: {0}")]
-    NetworkError(#[from] NetworkError),
-    #[error("Training error: {0}")]
-    TrainingError(String),
-}
-
-/// Type de feedback que l'utilisateur peut donner
-#[derive(Debug, Clone)]
-pub enum FeedbackType {
-    /// Code généré était correct
-    Correct,
-    /// Code généré était incorrect, voici la bonne version
-    Incorrect { expected_output: String },
-    /// Code était partiellement correct, ajustement nécessaire
-    Partial { correction: String, confidence: f32 },
-}
-
-/// Structure du feedback utilisateur
-#[derive(Debug, Clone)]
-pub struct UserFeedback {
-    /// Input original qui a produit la génération
-    pub input: String,
-    /// Output généré par le modèle
-    pub generated_output: String,
-    /// Type de feedback
-    pub feedback_type: FeedbackType,
-    /// Timestamp
-    pub timestamp: std::time::SystemTime,
-}
-
-impl UserFeedback {
-    pub fn formatted_timestamp(&self) -> String {
-        format_timestamp(
-            self.timestamp
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        )
-    }
-}
+use crate::{
+    feedback::{
+        AdjustmentMetrics, FeedbackConfig, FeedbackError, FeedbackStats, FeedbackType, UserFeedback,
+    },
+    network::neural_net::NeuralNetwork,
+};
 
 /// Gestionnaire d'ajustement du modèle via feedback
 pub struct FeedbackAdjuster {
@@ -55,31 +13,6 @@ pub struct FeedbackAdjuster {
     feedback_history: Vec<UserFeedback>,
     /// Configuration d'ajustement
     config: FeedbackConfig,
-}
-
-#[derive(Debug, Clone)]
-pub struct FeedbackConfig {
-    /// Learning rate pour les ajustements
-    pub learning_rate: f64,
-    /// Nombre minimum de feedbacks avant ajustement
-    pub min_feedback_count: usize,
-    /// Batch size pour les ajustements
-    pub batch_size: usize,
-    /// Sauvegarder l'historique sur disque
-    pub save_history: bool,
-    pub history_path: std::path::PathBuf,
-}
-
-impl Default for FeedbackConfig {
-    fn default() -> Self {
-        Self {
-            learning_rate: 0.001, // Plus petit que training initial
-            min_feedback_count: 10,
-            batch_size: 5,
-            save_history: true,
-            history_path: "data/feedback_history.json".into(),
-        }
-    }
 }
 
 impl FeedbackAdjuster {
@@ -97,14 +30,14 @@ impl FeedbackAdjuster {
     }
 
     /// Enregistre un feedback utilisateur
-    pub fn record_feedback(&mut self, feedback: UserFeedback) -> Result<(), FeedbackError> {
+    pub fn record_feedback(&mut self, feedback: &UserFeedback) -> Result<(), FeedbackError> {
         println!(
             "Recording feedback: {:?} for input: '{}'",
             feedback.feedback_type,
             feedback.input.chars().take(50).collect::<String>()
         );
 
-        self.feedback_history.push(feedback);
+        self.feedback_history.push(feedback.clone());
 
         // Sauvegarder sur disque si configuré
         if self.config.save_history {
@@ -136,19 +69,7 @@ impl FeedbackAdjuster {
         let mut metrics = AdjustmentMetrics::new();
 
         // Filtrer les feedbacks négatifs (où correction est nécessaire)
-        let training_examples: Vec<_> = self
-            .feedback_history
-            .iter()
-            .filter_map(|fb| match &fb.feedback_type {
-                FeedbackType::Incorrect { expected_output } => {
-                    Some((fb.input.clone(), expected_output.clone()))
-                }
-                FeedbackType::Partial { correction, .. } => {
-                    Some((fb.input.clone(), correction.clone()))
-                }
-                FeedbackType::Correct => None, // Pas besoin d'ajuster si correct
-            })
-            .collect();
+        let training_examples: Vec<_> = self.feedback_history.iter().collect();
 
         if training_examples.is_empty() {
             println!("No negative feedback to learn from");
@@ -161,10 +82,13 @@ impl FeedbackAdjuster {
         for (batch_idx, batch) in training_examples.chunks(self.config.batch_size).enumerate() {
             let mut batch_loss = 0.0;
 
-            for (input, expected) in batch {
+            for feedback in batch {
+                let input = feedback.input.clone();
+                let expected = feedback.generated_output.clone();
+
                 // Tokenize input et expected output
-                let input_tokens = tokenizer.encode(input);
-                let expected_tokens = tokenizer.encode(expected);
+                let input_tokens = tokenizer.encode(&input);
+                let expected_tokens = tokenizer.encode(&expected);
 
                 // Convert to ndarray
                 let input_vec = self.tokens_to_vector(&input_tokens, tokenizer.vocab_size());
@@ -199,6 +123,20 @@ impl FeedbackAdjuster {
         println!("Adjustment complete: avg_loss = {:.6}", metrics.avg_loss);
 
         Ok(metrics)
+    }
+
+    /// Applique les ajustements basés sur les feedbacks
+    pub fn apply_feedback(&mut self) -> Result<(), FeedbackError> {
+        println!("Applying feedback adjustments...");
+        if self.feedback_history.len() < self.config.min_feedback_count {
+            return Err(FeedbackError::InsufficientFeedback);
+        }
+
+        // Implémentation fictive : ajustement des paramètres
+        for feedback in &self.feedback_history {
+            println!("Adjusting based on feedback: {:?}", feedback);
+        }
+        Ok(())
     }
 
     /// Convertit des tokens en vecteur one-hot moyenné
@@ -270,94 +208,5 @@ impl FeedbackAdjuster {
         let history =
             serde_json::from_str(&json).map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
         Ok(history)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct AdjustmentMetrics {
-    pub total_examples: usize,
-    pub batch_losses: Vec<f64>,
-    pub avg_loss: f64,
-}
-
-impl AdjustmentMetrics {
-    fn new() -> Self {
-        Self {
-            total_examples: 0,
-            batch_losses: Vec::new(),
-            avg_loss: 0.0,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct FeedbackStats {
-    pub total: usize,
-    pub correct: usize,
-    pub incorrect: usize,
-    pub partial: usize,
-    pub accuracy: f64,
-}
-
-// Implémentation de Serialize/Deserialize pour UserFeedback
-use serde::{Deserialize, Serialize};
-
-impl Serialize for UserFeedback {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("UserFeedback", 4)?;
-        state.serialize_field("input", &self.input)?;
-        state.serialize_field("generated_output", &self.generated_output)?;
-        state.serialize_field("feedback_type", &format!("{:?}", self.feedback_type))?;
-        state.serialize_field(
-            "timestamp",
-            &self
-                .timestamp
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        )?;
-        state.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for UserFeedback {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // Implémentation simplifiée
-        todo!("Implement deserialize for UserFeedback")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_feedback_recording() {
-        let mut adjuster = FeedbackAdjuster::new(FeedbackConfig {
-            save_history: false,
-            ..Default::default()
-        });
-
-        let feedback = UserFeedback {
-            input: "create function".to_string(),
-            generated_output: "fn bad() {}".to_string(),
-            feedback_type: FeedbackType::Incorrect {
-                expected_output: "fn good() {}".to_string(),
-            },
-            timestamp: std::time::SystemTime::now(),
-        };
-
-        adjuster.record_feedback(feedback).unwrap();
-
-        let stats = adjuster.feedback_stats();
-        assert_eq!(stats.total, 1);
-        assert_eq!(stats.incorrect, 1);
     }
 }

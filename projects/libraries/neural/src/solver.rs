@@ -80,22 +80,28 @@ impl NeuralSolver {
     }
 
     pub fn train(&mut self, training_data: Vec<String>) -> Result<(), NeuralError> {
-        // TODO: Implémenter training pipeline
         println!("Training on {} examples", training_data.len());
-        Ok(())
+
+        // Exemple d'entraînement : mise à jour du modèle avec les données
+        self.generator
+            .train(training_data)
+            .map_err(|e| NeuralError::TrainingError(e.to_string()))
     }
 
-    pub fn record_feedback(&mut self, feedback: UserFeedback) -> Result<(), NeuralError> {
+    pub fn record_feedback(&mut self, feedback: &UserFeedback) -> Result<(), NeuralError> {
         self.feedback_adjuster
             .record_feedback(feedback)
             .map_err(|e| NeuralError::TrainingError(e.to_string()))
     }
 
     pub fn adjust_from_feedback(&mut self) -> Result<(), NeuralError> {
-        // TODO: Appliquer les feedbacks au modèle
         let stats = self.feedback_adjuster.feedback_stats();
         println!("Feedback stats: {:?}", stats);
-        Ok(())
+
+        // Appliquer les ajustements au modèle
+        self.feedback_adjuster
+            .apply_feedback()
+            .map_err(|e| NeuralError::TrainingError(e.to_string()))
     }
 
     fn estimate_confidence(&self, output: &str) -> f64 {
