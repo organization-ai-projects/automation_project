@@ -4,8 +4,9 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
-use crate::service::Service;
 use anyhow::{Context, Result, anyhow};
+
+use crate::Service;
 
 /// Resolves the binary path for a given service.
 ///

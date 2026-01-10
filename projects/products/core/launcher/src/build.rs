@@ -1,5 +1,5 @@
 // projects/products/core/launcher/src/build.rs
-use crate::defaults::default_profile;
+use crate::default_profile;
 use serde::Deserialize;
 
 #[derive(Debug, Default, Deserialize)]

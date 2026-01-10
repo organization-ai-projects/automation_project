@@ -9,11 +9,11 @@ use std::{
 
 use crate::{
     ChildHandle,
-    entry::Paths,
+    Paths,
     log_message,
-    process::{resolve_bin_path, spawn_service},
-    restart_policy::RestartPolicy,
-    service::Service,
+    {resolve_bin_path, spawn_service},
+    RestartPolicy,
+    Service,
 };
 use anyhow::{Result, bail};
 use std::time::Instant;

@@ -10,10 +10,10 @@ use std::{
 
 use crate::{
     ChildHandle, Cli, Config, cargo_build, normalize_path, parse_csv,
-    service::{topo_sort, validate_services},
-    shutdown::install_shutdown_handler,
-    supervisor::start_and_supervise,
-    workspace::Workspace,
+    {topo_sort, validate_services},
+    install_shutdown_handler,
+    start_and_supervise,
+    Workspace,
 };
 use anyhow::{Context, Result, bail};
 use clap::Parser;

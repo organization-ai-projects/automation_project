@@ -1,7 +1,7 @@
 // projects/products/core/launcher/src/config.rs
 use serde::Deserialize;
 
-use crate::{Build, Service, launcher::Launcher, workspace::Workspace};
+use crate::{Build, Launcher, Service, Workspace};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {

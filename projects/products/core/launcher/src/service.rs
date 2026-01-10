@@ -3,8 +3,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use anyhow::{Result, bail};
 use serde::Deserialize;
 
-use crate::RestartPolicy;
-use crate::restart_policy::{default_backoff, default_restart};
+use crate::{RestartPolicy, default_backoff, default_restart};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Service {
