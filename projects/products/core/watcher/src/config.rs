@@ -18,18 +18,18 @@ pub struct WatcherConfig {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ComponentConfig {
-    /// Nom logique (pour logs, UI, etc.)
+    /// Logical name (for logs, UI, etc.)
     pub name: String,
 
-    /// Intervalle entre deux checks (secondes)
+    /// Interval between two checks (seconds)
     #[serde(default = "default_ping_interval")]
     pub ping_interval: u64,
 
-    /// Comment on check si le composant est vivant
+    /// How to check if the component is alive
     #[serde(default)]
     pub ping: PingConfig,
 
-    /// Comment on redémarre le composant
+    /// How to restart the component
     #[serde(default)]
     pub restart: RestartConfig,
 }
@@ -40,19 +40,19 @@ pub enum PingConfig {
     /// systemd: check `systemctl is-active --quiet <unit>`
     Systemd { unit: String },
 
-    /// HTTP GET (attend un 2xx) ex: http://127.0.0.1:3030/health
+    /// HTTP GET (expects a 2xx) e.g., http://127.0.0.1:3030/health
     Http { url: String },
 
     /// process: check via `pgrep -x <process_name>` (dev/fallback)
     Process { process_name: String },
 
-    /// Désactive le ping (pas recommandé, mais utile en bootstrap)
+    /// Disables ping (not recommended, but useful during bootstrap)
     Disabled,
 }
 
 impl Default for PingConfig {
     fn default() -> Self {
-        // Si tu ne précises rien dans le TOML, on assume systemd unit = name
+        // If you don't specify anything in the TOML, we assume systemd unit = name
         PingConfig::Systemd {
             unit: "CHANGE_ME.service".to_string(),
         }
@@ -75,16 +75,16 @@ pub struct RestartConfig {
     #[serde(default)]
     pub policy: RestartPolicy,
 
-    /// Optionnel: override systemd unit pour restart
+    /// Optional: override systemd unit for restart
     pub systemd_unit: Option<String>,
 
-    /// Backoff exponentiel: min/max (secondes)
+    /// Exponential backoff: min/max (seconds)
     #[serde(default = "default_backoff_min")]
     pub backoff_min_secs: u64,
     #[serde(default = "default_backoff_max")]
     pub backoff_max_secs: u64,
 
-    /// Anti-boucle: max restarts consécutifs avant pause longue (optionnel)
+    /// Anti-loop: max consecutive restarts before a long pause (optional)
     #[serde(default)]
     pub max_consecutive_restarts: Option<u32>,
 }
@@ -166,8 +166,8 @@ impl WatcherConfig {
     }
 
     fn normalize_defaults(&mut self) {
-        // Rend le default PingConfig utile: si l'utilisateur n'a pas mis ping,
-        // on remplace CHANGE_ME par le nom du composant.
+        // Makes the default PingConfig useful: if the user did not set ping,
+        // we replace CHANGE_ME with the component name.
         for c in &mut self.components {
             if let PingConfig::Systemd { unit } = &mut c.ping
                 && unit == "CHANGE_ME.service"
@@ -233,12 +233,12 @@ impl WatcherConfig {
                 PingConfig::Disabled => {}
             }
 
-            // Cohérence policy
+            // Policy consistency
             if matches!(c.restart.policy, RestartPolicy::Never)
                 && (c.restart.max_consecutive_restarts.unwrap_or(0) > 0)
             {
-                // pas une erreur, mais conceptuellement inutile
-                // tu peux le laisser en warn dans les logs plus tard
+                // not an error, but conceptually unnecessary
+                // you can leave it as a warning in the logs later
             }
         }
 

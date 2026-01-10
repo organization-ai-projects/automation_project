@@ -3,7 +3,7 @@
 #[derive(serde::Deserialize)]
 pub struct LoginRequest {
     pub user_id: String,
-    pub password: String, // TODO: implémenter validation réelle
+    pub password: String, // TODO: implement real validation
     pub role: Option<security::Role>,
     pub duration_ms: Option<u64>,
     pub session_id: Option<String>,

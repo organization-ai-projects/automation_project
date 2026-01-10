@@ -26,7 +26,7 @@ pub async fn route_command(
     cmd: Command,
     state: &EngineState,
     token: &Token,
-    _perms: &[Permission], // à implémenter dès que possible
+    _perms: &[Permission], // to be implemented as soon as possible
 ) -> Event {
     let meta = cmd.metadata.clone();
 
@@ -55,7 +55,7 @@ pub async fn route_command(
             ws_event_ok_payload(&meta, "ProjectsListed", "engine/projects", value)
         }
 
-        // Actions spécifiques aux projets
+        // Project-specific actions
         action if action.starts_with("project.") => {
             info!("WS cmd: {} (user_id={})", action, token.user_id);
 
@@ -83,7 +83,7 @@ pub async fn route_command(
         "backend.hello" => {
             info!("WS cmd: backend.hello (user_id={})", token.user_id);
 
-            // Exiger une permission dédiée
+            // Require a dedicated permission
             if let Err(e) = require_permission(token, Permission::Execute) {
                 return ws_event_error(&meta, 403, 1003, e);
             }
@@ -112,7 +112,7 @@ pub async fn route_command(
                 hello.routes.len()
             );
 
-            // Enregistrer dans le runtime registry
+            // Register in the runtime registry
             let mut backends = state.backend_registry.write().await;
             let backends: &mut BackendRegistry = &mut backends; // Annotation explicite
             backends.register(
