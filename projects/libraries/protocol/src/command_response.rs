@@ -6,10 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct CommandResponse {
     pub metadata: Metadata,
     pub status: ResponseStatus,
-
     pub message: Option<String>,
-
     pub payload: Option<Payload>,
-
     pub error: Option<ProtocolError>,
 }

@@ -2,6 +2,8 @@
 use crate::validation_error::ValidationError;
 use common_time::timestamp_utils::current_timestamp_ms;
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::hash::{Hash, Hasher};
 
 /// Maximum acceptable timestamp drift into the future (1 hour in milliseconds)
 const MAX_FUTURE_DRIFT_MS: u64 = 3600 * 1000;
@@ -106,5 +108,49 @@ impl Metadata {
         } else {
             "Unknown timestamp".to_string()
         }
+    }
+
+    /// Convert Metadata to a unique String representation
+    pub fn to_key(&self) -> String {
+        self.request_id.clone()
+    }
+}
+
+impl Hash for Metadata {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.request_id.hash(state);
+        self.job_id.hash(state);
+        self.product_id.hash(state);
+        self.client_id.hash(state);
+        self.timestamp_ms.hash(state);
+        self.schema_version.hash(state);
+    }
+}
+
+impl PartialEq for Metadata {
+    fn eq(&self, other: &Self) -> bool {
+        self.request_id == other.request_id
+            && self.job_id == other.job_id
+            && self.product_id == other.product_id
+            && self.client_id == other.client_id
+            && self.timestamp_ms == other.timestamp_ms
+            && self.schema_version == other.schema_version
+    }
+}
+
+impl Eq for Metadata {}
+
+impl fmt::Display for Metadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Metadata {{ request_id: {}, job_id: {:?}, product_id: {:?}, client_id: {:?}, timestamp_ms: {:?}, schema_version: {:?} }}",
+            self.request_id,
+            self.job_id,
+            self.product_id,
+            self.client_id,
+            self.timestamp_ms,
+            self.schema_version
+        )
     }
 }

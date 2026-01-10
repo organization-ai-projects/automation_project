@@ -1,3 +1,4 @@
+// projects/products/varina/backend/src/autopilot/autopilot_plan.rs
 use serde::{Deserialize, Serialize};
 
 /// Structure représentant un plan d'action généré par l'autopilot.

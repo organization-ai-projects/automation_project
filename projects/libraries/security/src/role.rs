@@ -12,8 +12,6 @@ pub enum Role {
     Guest,
 }
 
-
-
 impl Role {
     /// Retourne les permissions associées à ce rôle
     pub fn permissions(&self) -> &'static [Permission] {

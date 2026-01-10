@@ -1,7 +1,6 @@
 // projects/products/varina/backend/src/compiled_autopilot_policy.rs
-use std::collections::HashSet;
-
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use crate::AutopilotPolicy;
 
@@ -30,7 +29,7 @@ impl From<&AutopilotPolicy> for CompiledAutopilotPolicy {
             .map(|s| s.trim().to_string())
             .collect();
 
-        let relevant_prefixes_norm = normalize_prefixes(&p.relevant_prefixes);
+        let mut relevant_prefixes_norm = normalize_prefixes(&p.relevant_prefixes);
         let blocked_prefixes_norm = normalize_prefixes(&p.blocked_prefixes);
 
         let relevant_files_norm = p
@@ -38,6 +37,23 @@ impl From<&AutopilotPolicy> for CompiledAutopilotPolicy {
             .iter()
             .map(|f| normalize_path(f))
             .collect::<HashSet<_>>();
+
+        relevant_prefixes_norm.push("projects/libraries/".to_string());
+        relevant_prefixes_norm.push("projects/products/".to_string());
+
+        // Vérification de l'existence des chemins
+        relevant_prefixes_norm.retain(|prefix| {
+            let exists = std::path::Path::new(prefix).exists();
+            if !exists {
+                println!("[warning] Le préfixe n'existe pas : {}", prefix);
+            }
+            exists
+        });
+
+        println!(
+            "[debug] relevant_prefixes_norm: {:?}",
+            relevant_prefixes_norm
+        );
 
         Self {
             protected_branches,
@@ -85,6 +101,15 @@ fn normalize_prefixes(prefixes: &[String]) -> Vec<String> {
         }
 
         if !n.is_empty() {
+            let absolute_path = std::env::current_dir().unwrap().join(&n);
+            if !absolute_path.exists() {
+                println!(
+                    "[warning] normalize_prefixes: Le préfixe absolu n'existe pas : {}",
+                    absolute_path.display()
+                );
+                continue;
+            }
+            println!("[debug] normalize_prefixes: Adding normalized prefix={}", n);
             out.push(n);
         }
     }
@@ -100,5 +125,9 @@ pub fn path_has_compiled_prefix(path_norm: &str, prefix_norm: &str) -> bool {
     if prefix_norm.is_empty() {
         return false;
     }
+    println!(
+        "[debug] path_has_compiled_prefix: Checking if path_norm={} starts with prefix_norm={}",
+        path_norm, prefix_norm
+    );
     path_norm.starts_with(prefix_norm)
 }

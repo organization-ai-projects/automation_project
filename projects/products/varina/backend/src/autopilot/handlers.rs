@@ -1,3 +1,4 @@
+// projects/products/varina/backend/src/autopilot/handlers.rs
 use protocol::{ApplyRequest, ApplyResponse, PreviewRequest, PreviewResponse};
 
 use crate::automation::run_git_autopilot;
@@ -22,7 +23,7 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
         Ok(r) => r,
         Err(e) => {
             println!("[error] handle_preview_git_autopilot: Error running autopilot: {e}");
-            return Err(e.to_string());
+            return Err(format!("Autopilot execution failed: {e}")); // Message d'erreur plus précis
         }
     };
 

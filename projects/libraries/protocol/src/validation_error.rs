@@ -16,6 +16,8 @@ pub enum ValidationError {
     NameTooLong { length: usize, max: usize },
     /// Timestamp is invalid (e.g., in the future beyond acceptable threshold)
     InvalidTimestamp(String),
+    /// Variant-specific validation error
+    InvalidVariant(String),
 }
 
 impl fmt::Display for ValidationError {
@@ -38,6 +40,9 @@ impl fmt::Display for ValidationError {
             }
             ValidationError::InvalidTimestamp(reason) => {
                 write!(f, "Invalid timestamp: {}", reason)
+            }
+            ValidationError::InvalidVariant(variant) => {
+                write!(f, "Invalid variant: {}", variant)
             }
         }
     }

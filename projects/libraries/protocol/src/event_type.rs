@@ -39,30 +39,45 @@ pub enum EventType {
     JobFinished,
     /// Payload event
     Payload,
+    /// Acknowledgment event
+    Acknowledgment,
 }
 
 impl EventType {
+    /// Static mapping of all EventType variants to their string representations
+    const EVENT_TYPE_STRINGS: &'static [(&'static str, EventType)] = &[
+        ("started", EventType::Started),
+        ("stopped", EventType::Stopped),
+        ("created", EventType::Created),
+        ("updated", EventType::Updated),
+        ("deleted", EventType::Deleted),
+        ("error", EventType::Error),
+        ("warning", EventType::Warning),
+        ("info", EventType::Info),
+        ("completed", EventType::Completed),
+        ("failed", EventType::Failed),
+        ("progress", EventType::Progress),
+        ("state_changed", EventType::StateChanged),
+        ("custom", EventType::Custom),
+        ("log_line", EventType::LogLine),
+        ("job_state_changed", EventType::JobStateChanged),
+        ("job_finished", EventType::JobFinished),
+        ("payload", EventType::Payload),
+        ("acknowledgment", EventType::Acknowledgment),
+    ];
+
     /// Returns a string representation of the event type
     pub fn as_str(&self) -> &'static str {
-        match self {
-            EventType::Started => "started",
-            EventType::Stopped => "stopped",
-            EventType::Created => "created",
-            EventType::Updated => "updated",
-            EventType::Deleted => "deleted",
-            EventType::Error => "error",
-            EventType::Warning => "warning",
-            EventType::Info => "info",
-            EventType::Completed => "completed",
-            EventType::Failed => "failed",
-            EventType::Progress => "progress",
-            EventType::StateChanged => "state_changed",
-            EventType::Custom => "custom",
-            EventType::LogLine => "log_line",
-            EventType::JobStateChanged => "job_state_changed",
-            EventType::JobFinished => "job_finished",
-            EventType::Payload => "payload",
-        }
+        Self::EVENT_TYPE_STRINGS
+            .iter()
+            .find(|(_, event_type)| event_type == self)
+            .map(|(name, _)| *name)
+            .unwrap_or("unknown")
+    }
+
+    /// Returns a mapping of all EventType variants to their string representations
+    pub fn all_as_str() -> &'static [(&'static str, EventType)] {
+        Self::EVENT_TYPE_STRINGS
     }
 }
 

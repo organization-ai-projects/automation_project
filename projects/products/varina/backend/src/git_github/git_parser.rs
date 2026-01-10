@@ -1,3 +1,4 @@
+// projects/products/varina/backend/src/git_github/git_parser.rs
 use crate::autopilot::AutopilotError;
 
 type Result<T> = std::result::Result<T, AutopilotError>;
