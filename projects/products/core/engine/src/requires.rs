@@ -13,7 +13,7 @@ pub async fn require_project_exists(cmd: &Command, state: &EngineState) -> Resul
     Ok(())
 }
 
-/// Vérifie les permissions du token
+/// Checks the token's permissions
 pub fn require_permission(token: &Token, perm: Permission) -> Result<(), String> {
     if !token.role.permissions().contains(&perm) {
         return Err(format!("Missing permission: {:?}", perm));

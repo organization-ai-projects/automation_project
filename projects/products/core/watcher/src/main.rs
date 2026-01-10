@@ -33,10 +33,10 @@ async fn main() {
         config.logging.log_level.as_str(),
     );
 
-    // 3) Cancellation: permet un arrêt propre
+    // 3) Cancellation: allows for a clean shutdown
     let shutdown = CancellationToken::new();
 
-    // 4) Lancer toutes les supervisions
+    // 4) Launch all supervisions
     let mut set = JoinSet::new();
     let supervisor = supervisor::Supervisor::new();
 
@@ -48,12 +48,12 @@ async fn main() {
         });
     }
 
-    // 5) Attendre Ctrl+C (ou arrêt externe)
+    // 5) Wait for Ctrl+C (or external shutdown)
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             log::warn!("Watcher: Ctrl+C received, shutting down...");
         }
-        // Si tu veux: détecter si une tâche meurt (ça ne devrait pas arriver)
+        // If desired: detect if a task dies (this shouldn't happen)
         res = set.join_next() => {
             if let Some(Err(e)) = res {
                 log::error!("Watcher: a supervision task panicked: {}", e);
@@ -63,7 +63,7 @@ async fn main() {
         }
     }
 
-    // 6) Déclencher shutdown, puis attendre la fin des tasks (avec timeout)
+    // 6) Trigger shutdown, then wait for tasks to finish (with timeout)
     shutdown.cancel();
 
     let grace = tokio::time::sleep(std::time::Duration::from_secs(5));
@@ -79,7 +79,7 @@ async fn main() {
                 match next {
                     Some(Ok(_)) => { /* task ended */ }
                     Some(Err(e)) => log::error!("Watcher: task join error: {}", e),
-                    None => break, // plus aucune task
+                    None => break, // no more tasks
                 }
             }
         }

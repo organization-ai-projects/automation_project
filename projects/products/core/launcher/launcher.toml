@@ -1,15 +1,15 @@
 [workspace]
-# chemin relatif depuis ce fichier (launcher/) vers la racine workspace core/
+# Relative path from this file (launcher/) to the core workspace root
 root = ".."
 
 [build]
 enabled = true
 profile = "debug" # debug|release
-# args supplémentaires si besoin:
+# Additional arguments if needed:
 extra_args = ["--bins"]
 
 [launcher]
-# global
+# Global settings
 startup_timeout_ms = 15000
 shutdown_grace_ms = 2500
 
@@ -18,7 +18,7 @@ name = "watcher"
 bin = "watcher"
 args = []
 env = []
-cwd = ".."                                  # relatif au workspace root
+cwd = ".."                                  # Relative to the workspace root
 depends_on = []
 restart = "on-failure"                      # never|on-failure|always
 restart_max = 10
@@ -33,7 +33,7 @@ env = ["RUST_LOG=info"]
 cwd = ".."
 depends_on = ["watcher"]
 restart = "always"
-restart_max = 0                             # 0 = illimité
+restart_max = 0                             # 0 = unlimited
 restart_backoff_ms = 800
 ready_http = "http://127.0.0.1:8080/health"
 
@@ -47,4 +47,4 @@ depends_on = ["api"]
 restart = "on-failure"
 restart_max = 5
 restart_backoff_ms = 1000
-# pas de healthcheck => considère ready dès le spawn
+# No healthcheck => considered ready as soon as spawned

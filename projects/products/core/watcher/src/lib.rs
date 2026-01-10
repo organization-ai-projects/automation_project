@@ -2,7 +2,7 @@ pub mod config;
 pub mod logger;
 pub mod supervisor;
 
-// Point d'entrée pour initialiser les composants du watcher
+// Entry point to initialize watcher components
 pub fn initialize() {
     println!("Watcher initialized");
 }

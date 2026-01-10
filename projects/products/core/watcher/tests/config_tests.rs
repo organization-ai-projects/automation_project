@@ -101,7 +101,7 @@ mod tests {
             }],
             logging: LoggingConfig {
                 log_file: "watcher.log".to_string().into(),
-                log_level: LogLevel::Debug, // Utilisation d'un niveau valide ici
+                log_level: LogLevel::Debug,
             },
         };
 

@@ -72,7 +72,7 @@ pub fn ws_event(args: WsEventArgs) -> Event {
     }
 }
 
-/// OK standard: ACK + payload "ok" (pour que data ne soit jamais vide).
+/// Standard OK: ACK + payload "ok" (ensures data is never empty).
 pub fn ws_event_ok(meta: &Metadata, name: &str) -> Event {
     ws_event_ok_payload(
         meta,
@@ -82,7 +82,7 @@ pub fn ws_event_ok(meta: &Metadata, name: &str) -> Event {
     )
 }
 
-/// OK avec payload typé.
+/// OK with typed payload.
 pub fn ws_event_ok_payload(
     meta: &Metadata,
     name: &str,

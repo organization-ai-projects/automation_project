@@ -25,8 +25,8 @@ pub struct Registry {
 }
 
 impl Registry {
-    /// Point d’entrée NORMAL du moteur.
-    /// Scanne le dossier projets + hydrate le registry.
+    /// NORMAL entry point of the engine.
+    /// Scans the projects folder and populates the registry.
     pub fn load(projects_dir: impl AsRef<Path>) -> Result<Self, String> {
         let projects_dir = projects_dir.as_ref();
 
@@ -39,7 +39,7 @@ impl Registry {
         Ok(registry)
     }
 
-    /// Scan automatique des projets présents sur disque
+    /// Automatic scan of projects present on disk
     pub fn scan_projects(&mut self, projects_dir: &Path) -> Result<(), String> {
         let entries = fs::read_dir(projects_dir).map_err(|e| {
             format!(

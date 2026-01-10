@@ -71,7 +71,7 @@ impl Supervisor {
                 component.name, consecutive_failures
             );
 
-            // Décider si on redémarre
+            // Decide whether to restart
             let should_restart = match component.restart.policy {
                 RestartPolicy::Never => false,
                 RestartPolicy::Always => true,
@@ -89,7 +89,7 @@ impl Supervisor {
                 continue;
             }
 
-            // Anti-boucle: si on dépasse un seuil de restarts consécutifs, on cooldown
+            // Anti-loop: if we exceed a threshold of consecutive restarts, cooldown
             if let Some(max) = component.restart.max_consecutive_restarts
                 && consecutive_restarts >= max
             {
@@ -104,13 +104,13 @@ impl Supervisor {
                     }
                     _ = sleep(Duration::from_secs(COOLDOWN_ON_RESTART_LOOP_SECS)) => {}
                 }
-                // Reset partiel pour retenter proprement
+                // Partial reset for a clean retry
                 consecutive_restarts = 0;
                 backoff_secs = component.restart.backoff_min_secs.max(1);
                 continue;
             }
 
-            // Tenter le restart
+            // Attempt the restart
             match self.restart_component(&component).await {
                 Ok(()) => {
                     consecutive_restarts = consecutive_restarts.saturating_add(1);
@@ -127,7 +127,7 @@ impl Supervisor {
                 }
             }
 
-            // Backoff exponentiel avant prochain ping
+            // Exponential backoff before the next ping
             let max_backoff = component
                 .restart
                 .backoff_max_secs
@@ -147,7 +147,7 @@ impl Supervisor {
     async fn ping_component(&self, component: &ComponentConfig) -> bool {
         match &component.ping {
             PingConfig::Disabled => {
-                // “toujours alive” pour ne jamais déclencher de restart
+                // "always alive" to never trigger a restart
                 true
             }
 
@@ -191,7 +191,7 @@ impl Default for Supervisor {
 /* ---------------- systemd helpers ---------------- */
 
 async fn systemd_is_active(unit: &str) -> bool {
-    // systemctl is-active --quiet <unit> => exit code 0 si actif
+    // systemctl is-active --quiet <unit> => exit code 0 if active
     match Command::new(SYSTEMCTL)
         .arg("is-active")
         .arg("--quiet")
@@ -229,7 +229,7 @@ async fn systemd_restart(unit: &str) -> Result<(), String> {
 /* ---------------- process helpers ---------------- */
 
 async fn process_is_running(process_name: &str) -> bool {
-    // pgrep -x <process_name> => stdout non vide si trouvé
+    // pgrep -x <process_name> => non-empty stdout if found
     match Command::new(PGREP)
         .arg("-x")
         .arg(process_name)

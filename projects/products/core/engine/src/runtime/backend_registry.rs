@@ -11,7 +11,7 @@ pub struct BackendInfo {
 }
 
 pub struct BackendRegistry {
-    backends: HashMap<String, BackendInfo>, // Clé : instance_id
+    backends: HashMap<String, BackendInfo>, // Key: instance_id
 }
 
 impl BackendRegistry {
