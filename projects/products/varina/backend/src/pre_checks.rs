@@ -1,3 +1,4 @@
+// projects/products/varina/backend/src/pre_checks.rs
 use serde::{Deserialize, Serialize};
 
 /// Niveau de checks avant commit/push.

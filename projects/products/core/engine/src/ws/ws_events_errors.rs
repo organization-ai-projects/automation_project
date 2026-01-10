@@ -1,3 +1,4 @@
+// projects/products/core/engine/src/ws/ws_events_errors.rs
 use protocol::{Event, EventType, EventVariant, Metadata};
 
 use crate::ws::{WsEventArgs, WsEventErrorDetails, ws_events::ws_event};

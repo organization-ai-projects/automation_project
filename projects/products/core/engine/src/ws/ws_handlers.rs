@@ -1,7 +1,7 @@
 // projects/products/core/engine/src/ws/ws_handlers.rs
 use crate::{
-    ws::{route_command, ws_event_error},
     EngineState, WS_IDLE_TIMEOUT, WS_MAX_MESSAGE_BYTES, WS_PING_EVERY,
+    ws::{route_command, ws_event_error},
 };
 use futures_util::{SinkExt, StreamExt};
 use protocol::{Command, Metadata};

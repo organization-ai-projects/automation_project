@@ -11,3 +11,5 @@ protocol = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 command_runner = { workspace = true }
+ignore = "0.4"
+lazy_static = "1.4"

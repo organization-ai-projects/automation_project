@@ -1,6 +1,6 @@
 // projects/products/varina/backend/src/policy_evaluation.rs
-
 use git_lib::git_change::GitChange;
+use ignore::gitignore::GitignoreBuilder;
 
 use crate::{
     AutopilotPolicy, ClassifiedChangesRef,
@@ -9,6 +9,8 @@ use crate::{
         compiled_autopilot_policy::{normalize_path, path_has_compiled_prefix},
     },
 };
+
+use std::path::Path;
 
 /// ==============================
 /// SECTION: Policy evaluation
@@ -68,19 +70,79 @@ pub fn is_blocked_norm(path_norm: &str, policy: &CompiledAutopilotPolicy) -> boo
 }
 
 pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
-    let compiled = CompiledAutopilotPolicy::from(policy);
+    let compiled = CompiledAutopilotPolicy {
+        relevant_prefixes_norm: vec![
+            "src/".to_string(),
+            "tests/".to_string(),
+            "projects/libraries/ai/".to_string(),
+            "projects/libraries/command_runner/".to_string(),
+            "projects/libraries/common/".to_string(),
+            "projects/libraries/common_calendar/".to_string(),
+            "projects/libraries/common_time/".to_string(),
+            "projects/libraries/git_lib/".to_string(),
+            "projects/libraries/neural/".to_string(),
+            "projects/libraries/protocol/".to_string(),
+            "projects/libraries/security/".to_string(),
+            "projects/libraries/symbolic/".to_string(),
+            "projects/libraries/ui/".to_string(),
+            "projects/products/core/".to_string(),
+            "projects/products/varina/".to_string(),
+        ],
+        ..CompiledAutopilotPolicy::from(policy)
+    };
+
+    println!("[debug] is_relevant: Vérification du chemin {}", path);
+    // Vérification de l'existence du fichier
+    if !std::path::Path::new(path).exists() {
+        println!("[debug] is_relevant: Le fichier {} n'existe pas", path);
+        return false;
+    }
+
+    // Vérification avec .gitignore
+    let gitignore_path = std::path::Path::new(".gitignore");
+    if !gitignore_path.exists() {
+        println!("[debug] is_relevant: .gitignore introuvable, aucun fichier ne sera ignoré");
+        return is_relevant_norm(&normalize_path(path), &compiled);
+    }
+
+    let mut gitignore_builder = GitignoreBuilder::new(".");
+    gitignore_builder.add(gitignore_path);
+    let gitignore = gitignore_builder
+        .build()
+        .expect("Échec de l'analyse du fichier .gitignore");
+
+    if gitignore.matched(path, false).is_ignore() {
+        println!(
+            "[debug] is_relevant: Le chemin {} est ignoré par .gitignore",
+            path
+        );
+        return false;
+    }
+
     is_relevant_norm(&normalize_path(path), &compiled)
 }
 
 pub fn is_relevant_norm(path_norm: &str, policy: &CompiledAutopilotPolicy) -> bool {
-    if policy.relevant_files_norm.contains(path_norm) {
-        return true;
+    let repo_root = Path::new(".");
+    let mut builder = GitignoreBuilder::new(repo_root);
+    builder.add(repo_root.join(".gitignore"));
+    let gitignore = builder
+        .build()
+        .expect("Erreur lors de la construction de .gitignore");
+
+    let is_ignored = gitignore
+        .matched_path_or_any_parents(path_norm, false)
+        .is_ignore();
+
+    if !is_ignored {
+        // Utilisation de `policy` pour vérifier les préfixes pertinents
+        return policy
+            .relevant_prefixes_norm
+            .iter()
+            .any(|prefix| path_has_compiled_prefix(path_norm, prefix));
     }
 
-    policy
-        .relevant_prefixes_norm
-        .iter()
-        .any(|pref| path_has_compiled_prefix(path_norm, pref))
+    false
 }
 
 pub fn display_change_path(ch: &GitChange) -> String {
@@ -100,3 +162,5 @@ pub fn has_merge_conflicts(changes: &[GitChange]) -> bool {
         x == b'U' || y == b'U' || (x == b'A' && y == b'A') || (x == b'D' && y == b'D')
     })
 }
+
+// Implémentation supprimée car redondante avec celle dans compiled_autopilot_policy.rs.

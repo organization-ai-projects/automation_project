@@ -1,6 +1,6 @@
+// projects/products/varina/backend/src/autopilot/autopilot_policy.rs
 use serde::{Deserialize, Serialize};
 
-// projects/products/varina/backend/src/autopilot/autopilot_policy.rs
 use crate::pre_checks::PreChecks;
 
 /// Policy de sécurité pour l’autopilot.

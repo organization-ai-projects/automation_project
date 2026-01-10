@@ -11,7 +11,6 @@ pub mod command_type;
 pub mod event;
 pub mod event_type;
 pub mod event_variant;
-pub mod generate_enum_methods;
 pub mod json;
 pub mod log_level;
 pub mod metadata;

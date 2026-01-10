@@ -159,10 +159,13 @@ pub fn run_cmd_mode(
     };
 
     // Single source of truth for logs
-    cmdlog.push_to(logs, match mode {
-        FailureMode::Strict => "strict",
-        FailureMode::AllowFailure => "allow_failure",
-    });
+    cmdlog.push_to(
+        logs,
+        match mode {
+            FailureMode::Strict => "strict",
+            FailureMode::AllowFailure => "allow_failure",
+        },
+    );
 
     if mode == FailureMode::Strict && !out.status.success() {
         return Err(CommandError::NonZeroExit {
@@ -178,7 +181,12 @@ pub fn run_cmd_mode(
 }
 
 /// Strict: non-zero exit becomes an error.
-pub fn run_cmd_ok(repo_path: &Path, program: &str, args: &[&str], logs: &mut Vec<String>) -> Result<Output> {
+pub fn run_cmd_ok(
+    repo_path: &Path,
+    program: &str,
+    args: &[&str],
+    logs: &mut Vec<String>,
+) -> Result<Output> {
     run_cmd_mode(repo_path, program, args, FailureMode::Strict, logs)
 }
 

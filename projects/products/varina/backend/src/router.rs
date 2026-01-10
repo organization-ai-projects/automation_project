@@ -1,18 +1,19 @@
-use crate::automation::run_git_autopilot_in_repo;
-use crate::autopilot::{handle_apply_git_autopilot, handle_preview_git_autopilot};
-use crate::{AutopilotMode, AutopilotPolicy};
+// projects/products/varina/backend/src/router.rs
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use protocol::apply_request::ApplyRequest;
 use protocol::payload::Payload;
 use protocol::preview_request::PreviewRequest;
 use protocol::{Command, CommandResponse, Metadata, ProtocolError, ResponseStatus};
 
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use crate::automation::run_git_autopilot_in_repo;
+use crate::autopilot::{handle_apply_git_autopilot, handle_preview_git_autopilot};
+use crate::{AutopilotMode, AutopilotPolicy};
 
 // ---------- Routing constants (future proof) ----------
-const ACTION_GIT_AUTOPILOT_PREVIEW: &str = "git_autopilot.preview";
-const ACTION_GIT_AUTOPILOT_APPLY: &str = "git_autopilot.apply";
+pub const ACTION_GIT_AUTOPILOT_PREVIEW: &str = "git_autopilot/preview";
+pub const ACTION_GIT_AUTOPILOT_APPLY: &str = "git_autopilot/apply";
 const ACTION_GIT_AUTOPILOT_RUN: &str = "git_autopilot.run";
 
 // Payload type (v2 ready). Active-les quand tu veux versionner strict.
@@ -55,7 +56,6 @@ pub fn handle_command(cmd: Command) -> CommandResponse {
     match action {
         ACTION_GIT_AUTOPILOT_PREVIEW => handle_json::<PreviewRequest, _, _>(
             &cmd,
-            // Mets Some(PAYLOAD_TYPE_PREVIEW_V1) si tu veux versionner strict dès maintenant
             Some(PAYLOAD_TYPE_PREVIEW_V1),
             handle_preview_git_autopilot,
             RESPONSE_TYPE_PREVIEW,

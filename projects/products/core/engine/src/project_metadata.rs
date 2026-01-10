@@ -1,3 +1,4 @@
+// projects/products/core/engine/src/project_metadata.rs
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

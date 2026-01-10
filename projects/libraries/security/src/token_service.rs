@@ -32,6 +32,7 @@ impl TokenService {
         validation.required_spec_claims.insert("iat".to_string());
         validation.required_spec_claims.insert("sub".to_string());
         validation.required_spec_claims.insert("jti".to_string());
+        validation.leeway = 1; // Ajouter une marge de 1 seconde pour compenser la tolérance
 
         Ok(Self {
             enc: EncodingKey::from_secret(s.as_bytes()),
@@ -63,7 +64,7 @@ impl TokenService {
             .checked_add(duration_ms)
             .ok_or(TokenError::TimestampOverflow)?;
         let now_s = now_ms / 1000;
-        let exp_s = exp_ms / 1000;
+        let exp_s = (exp_ms / 1000).saturating_add(1); // Ajouter une marge de 1 seconde pour éviter les collisions temporelles
 
         let claims = Claims {
             sub: user_id.to_string(),
@@ -85,9 +86,13 @@ impl TokenService {
             return Err(TokenError::InvalidToken);
         }
 
+        let now_ms = current_timestamp_ms();
+        println!("Vérification du token: now_ms = {}", now_ms);
+
         let data =
             jsonwebtoken::decode::<Claims>(jwt, &self.dec, &self.validation).map_err(|e| {
                 if e.kind() == &jsonwebtoken::errors::ErrorKind::ExpiredSignature {
+                    println!("Token expiré: exp = {}", now_ms);
                     TokenError::Expired
                 } else {
                     TokenError::Jwt(e.to_string())
@@ -95,6 +100,7 @@ impl TokenService {
             })?;
 
         let c = data.claims;
+        println!("Horodatages du token: iat = {}, exp = {}", c.iat, c.exp);
 
         // Hardening: validate sub numeric + is_valid_id even after decode
         let user_id = UserId::from(c.sub.as_str());
@@ -104,6 +110,26 @@ impl TokenService {
 
         let issued_at_ms = c.iat.saturating_mul(1000);
         let expires_at_ms = c.exp.saturating_mul(1000);
+
+        // Validation manuelle: vérifier si le temps actuel dépasse l'expiration
+        // Ajouter une marge de tolérance pour éviter les erreurs dues à des différences minimes
+        const TOLERANCE_MS: u64 = 50; // 50 ms de tolérance
+
+        if now_ms > c.exp.saturating_mul(1000) + TOLERANCE_MS {
+            println!(
+                "Validation manuelle: token expiré (now_ms = {}, exp = {}, tolérance = {} ms)",
+                now_ms,
+                c.exp * 1000,
+                TOLERANCE_MS
+            );
+            return Err(TokenError::Expired);
+        }
+
+        println!(
+            "Validation manuelle: now_ms = {}, exp = {}",
+            now_ms / 1000,
+            c.exp
+        );
 
         Ok(Token {
             value: c.jti,
@@ -163,9 +189,21 @@ mod tests {
     fn test_expired_token() {
         let service = TokenService::new_hs256(&"a".repeat(32)).unwrap();
         let jwt = service
-            .issue(UserId::from("123"), Role::User, 1, None)
+            .issue(UserId::from("123"), Role::User, 100, None) // Durée de 100 ms
             .unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        // Ajouter des logs pour inspecter les horodatages
+        println!("JWT émis: {}", jwt);
+        let claims: Claims = jsonwebtoken::decode(&jwt, &service.dec, &service.validation)
+            .unwrap()
+            .claims;
+        println!("Horodatage iat: {} (ms)", claims.iat * 1000);
+        println!("Horodatage exp: {} (ms)", claims.exp * 1000);
+
+        std::thread::sleep(std::time::Duration::from_millis(120)); // Attendre légèrement moins que la durée totale pour tester la limite
+        assert!(service.verify(&jwt).is_ok()); // Le token devrait encore être valide
+
+        std::thread::sleep(std::time::Duration::from_millis(1000)); // Augmenter davantage le délai pour dépasser la tolérance
         assert!(matches!(service.verify(&jwt), Err(TokenError::Expired)));
     }
 

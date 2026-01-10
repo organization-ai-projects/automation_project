@@ -1,3 +1,4 @@
+// projects/products/core/engine/src/config.rs
 use std::{env, net::IpAddr, path::PathBuf};
 
 use crate::CorsConfig;

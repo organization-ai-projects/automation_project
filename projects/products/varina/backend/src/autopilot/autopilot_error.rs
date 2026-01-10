@@ -1,5 +1,7 @@
-use command_runner::CommandError;
+// projects/products/varina/backend/src/autopilot/autopilot_error.rs
 use std::fmt;
+
+use command_runner::CommandError;
 
 /// Structure représentant une erreur spécifique à l'autopilot.
 /// Permet de convertir des erreurs externes (comme `CommandError`) en erreurs internes.

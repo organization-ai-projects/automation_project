@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 /// Represents a parsed Git change (porcelain -z).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GitChange {
-    pub xy: [u8; 2],          // Example: [b'M', b' '] ; [b'R', b' ']
+    pub xy: [u8; 2], // Example: [b'M', b' '] ; [b'R', b' ']
     pub path: String,
     pub orig_path: Option<String>, // For renames/copies
 }

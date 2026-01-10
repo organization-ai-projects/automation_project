@@ -1,5 +1,5 @@
 // projects/libraries/git_lib/src/commands.rs
-use command_runner::{run_cmd_allow_failure, run_cmd_ok, CommandError};
+use command_runner::{CommandError, run_cmd_allow_failure, run_cmd_ok};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::result::Result as StdResult;
@@ -73,7 +73,12 @@ pub fn normalize_repo_path(repo_path: &Path) -> Result<PathBuf> {
 
 /// Retrieves the current branch and checks if HEAD is detached.
 pub fn current_branch(repo_path: &Path, logs: &mut Vec<String>) -> Result<(String, bool)> {
-    let out = run_cmd_ok(repo_path, GIT_BIN, &["rev-parse", "--abbrev-ref", "HEAD"], logs)?;
+    let out = run_cmd_ok(
+        repo_path,
+        GIT_BIN,
+        &["rev-parse", "--abbrev-ref", "HEAD"],
+        logs,
+    )?;
     let branch = s_trim(&out.stdout);
     let detached = branch == "HEAD" || branch.is_empty();
     Ok((branch, detached))
@@ -85,6 +90,8 @@ pub fn current_branch(repo_path: &Path, logs: &mut Vec<String>) -> Result<(Strin
 
 /// Adds files to the Git index.
 pub fn git_add_paths(repo_path: &Path, paths: &[String], logs: &mut Vec<String>) -> Result<()> {
+    logs.push("[debug] git_add_paths: function entered".to_string());
+
     let cleaned: Vec<&str> = paths
         .iter()
         .map(|p| p.trim())
@@ -92,23 +99,28 @@ pub fn git_add_paths(repo_path: &Path, paths: &[String], logs: &mut Vec<String>)
         .collect();
 
     if cleaned.is_empty() {
-        logs.push("[debug] git_add_paths: no paths provided".to_string());
         return Ok(());
     }
 
-    logs.push(format!(
-        "[debug] git_add_paths: {} path(s) (chunk={})",
-        cleaned.len(),
-        ADD_CHUNK
-    ));
+    let relative_paths: Vec<String> = cleaned
+        .iter()
+        .filter(|p| repo_path.join(p).exists())
+        .map(|p| {
+            repo_path
+                .join(p)
+                .strip_prefix(repo_path)
+                .unwrap()
+                .to_string_lossy()
+                .to_string()
+        })
+        .collect();
 
-    for chunk in cleaned.chunks(ADD_CHUNK) {
+    for chunk in relative_paths.chunks(ADD_CHUNK) {
         let mut args = Vec::<&str>::with_capacity(2 + chunk.len());
         args.push("add");
         args.push("--");
-        args.extend_from_slice(chunk);
+        args.extend(chunk.iter().map(String::as_str));
 
-        // Strict: if git add fails -> CommandError::NonZeroExit
         run_cmd_ok(repo_path, GIT_BIN, &args, logs)?;
     }
 
@@ -117,14 +129,24 @@ pub fn git_add_paths(repo_path: &Path, paths: &[String], logs: &mut Vec<String>)
 
 /// Commits staged changes with a subject and optional body.
 /// Note: this does NOT stage files. Caller should stage first.
-pub fn git_commit(repo_path: &Path, subject: &str, body: &str, logs: &mut Vec<String>) -> Result<()> {
+pub fn git_commit(
+    repo_path: &Path,
+    subject: &str,
+    body: &str,
+    logs: &mut Vec<String>,
+) -> Result<()> {
     let subject = subject.trim();
     if subject.is_empty() {
         return Err(invalid("Sujet de commit vide"));
     }
 
     // Safety check: make sure something is staged (gives a clearer error)
-    let staged = run_cmd_ok(repo_path, GIT_BIN, &["diff", "--cached", "--name-only"], logs)?;
+    let staged = run_cmd_ok(
+        repo_path,
+        GIT_BIN,
+        &["diff", "--cached", "--name-only"],
+        logs,
+    )?;
     if staged.stdout.is_empty() {
         return Err(invalid("Aucun fichier mis en scène pour le commit"));
     }
@@ -132,7 +154,12 @@ pub fn git_commit(repo_path: &Path, subject: &str, body: &str, logs: &mut Vec<St
     if body.trim().is_empty() {
         run_cmd_ok(repo_path, GIT_BIN, &["commit", "-m", subject], logs)?;
     } else {
-        run_cmd_ok(repo_path, GIT_BIN, &["commit", "-m", subject, "-m", body], logs)?;
+        run_cmd_ok(
+            repo_path,
+            GIT_BIN,
+            &["commit", "-m", subject, "-m", body],
+            logs,
+        )?;
     }
 
     Ok(())
@@ -140,14 +167,24 @@ pub fn git_commit(repo_path: &Path, subject: &str, body: &str, logs: &mut Vec<St
 
 /// Validates commit without applying changes.
 /// This requires staged files too (git checks it).
-pub fn git_commit_dry_run(repo_path: &Path, subject: &str, body: &str, logs: &mut Vec<String>) -> Result<()> {
+pub fn git_commit_dry_run(
+    repo_path: &Path,
+    subject: &str,
+    body: &str,
+    logs: &mut Vec<String>,
+) -> Result<()> {
     let subject = subject.trim();
     if subject.is_empty() {
         return Err(invalid("Sujet de commit vide (dry-run)"));
     }
 
     if body.trim().is_empty() {
-        run_cmd_ok(repo_path, GIT_BIN, &["commit", "--dry-run", "-m", subject], logs)?;
+        run_cmd_ok(
+            repo_path,
+            GIT_BIN,
+            &["commit", "--dry-run", "-m", subject],
+            logs,
+        )?;
     } else {
         run_cmd_ok(
             repo_path,
@@ -208,7 +245,12 @@ pub fn git_push_current_branch(
 }
 
 /// Pushes to a remote branch.
-pub fn git_push(repo_path: &Path, remote: &str, branch: &str, logs: &mut Vec<String>) -> Result<()> {
+pub fn git_push(
+    repo_path: &Path,
+    remote: &str,
+    branch: &str,
+    logs: &mut Vec<String>,
+) -> Result<()> {
     let remote = remote.trim();
     let branch = branch.trim();
 
@@ -234,7 +276,18 @@ pub fn git_status_porcelain_z(repo_path: &Path, logs: &mut Vec<String>) -> Resul
         "[debug] git status --porcelain -z: {} bytes",
         out.stdout.len()
     ));
-    parse_porcelain_v1_z(&out.stdout)
+    logs.push(format!(
+        "[debug] git_status_porcelain_z: raw output={:?}",
+        String::from_utf8_lossy(&out.stdout)
+    ));
+
+    let parsed_changes = parse_porcelain_v1_z(&out.stdout)?;
+    logs.push(format!(
+        "[debug] git_status_porcelain_z: parsed changes={:?}",
+        parsed_changes
+    ));
+
+    Ok(parsed_changes)
 }
 
 /// Parses `git status --porcelain -z` (porcelain v1).

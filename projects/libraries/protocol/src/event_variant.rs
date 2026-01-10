@@ -1,9 +1,9 @@
-use crate::generate_enum_methods;
 use crate::validation_error::ValidationError;
+use protocol_macros::EnumMethods;
 use serde::{Deserialize, Serialize};
 
 /// Variants of protocol events
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, EnumMethods)]
 pub enum EventVariant {
     /// Represents an acknowledgment event with an ID
     Acknowledged { id: String },
@@ -27,15 +27,6 @@ pub enum EventVariant {
     /// Default variant for uninitialized or unknown events
     Default,
 }
-
-generate_enum_methods!(EventVariant,
-    acknowledged => Acknowledged { id: String },
-    created => Created { id: String, data: String },
-    updated => Updated { id: String, old_data: String, new_data: String },
-    deleted => Deleted { id: String },
-    error => Error { id: String, message: String },
-    default_variant => Default {},
-);
 
 impl EventVariant {
     /// Validates the specific variant of the event

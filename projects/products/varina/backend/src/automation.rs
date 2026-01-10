@@ -1,15 +1,16 @@
+// projects/products/varina/backend/src/automation.rs
 use std::path::Path;
 
-use crate::autopilot::{
-    AutopilotError, AutopilotMode, AutopilotPlan, AutopilotPolicy, AutopilotReport,
-};
-use crate::cargo::{cargo_fmt_check, cargo_test};
 use git_lib::commands::{
     build_commit_message, build_commit_subject, current_branch, ensure_git_repo, git_add_paths,
     git_commit, git_commit_dry_run, git_push_current_branch, git_status_porcelain_z,
     normalize_repo_path,
 };
 
+use crate::autopilot::{
+    AutopilotError, AutopilotMode, AutopilotPlan, AutopilotPolicy, AutopilotReport,
+};
+use crate::cargo::{cargo_fmt_check, cargo_test};
 use crate::{PreChecks, classify_changes, has_merge_conflicts};
 
 type Result<T> = std::result::Result<T, AutopilotError>;
@@ -239,11 +240,33 @@ pub fn run_git_autopilot_in_repo(
 
     let mut applied = false;
 
+    logs.push(format!(
+        "[debug] automation.rs: mode={:?}, will_commit={}, will_stage_empty={}",
+        mode,
+        plan.will_commit,
+        plan.will_stage.is_empty()
+    ));
+
     if mode == AutopilotMode::ApplySafe {
+        logs.push("[debug] automation.rs: Entering ApplySafe block".to_string());
         if plan.will_commit {
             // Stage relevant (batch)
             logs.push(format!("[debug] Staging files: {:?}", plan.will_stage));
             git_add_paths(&repo_path, &plan.will_stage, &mut logs)?;
+
+            logs.push(format!(
+                "[debug] automation.rs: paths transmitted to git_add_paths (ApplySafe)={:?}",
+                plan.will_stage
+            ));
+
+            logs.push(format!(
+                "[debug] automation.rs: relevant paths transmitted to git_add_paths={:?}",
+                classified
+                    .relevant
+                    .iter()
+                    .map(|c| c.path.clone())
+                    .collect::<Vec<_>>()
+            ));
 
             println!(
                 "[debug] Ajout des chemins pertinents à l'index Git: {:?}",
@@ -277,9 +300,23 @@ pub fn run_git_autopilot_in_repo(
         }
     } else {
         logs.push("[dryrun] no changes applied".into());
+        logs.push("[debug] automation.rs: Entering DryRun block".to_string());
 
-        // Effectuer un commit en mode "dry-run" pour valider les changements
-        git_commit_dry_run(&repo_path, &plan.commit_message, "", &mut logs)?;
+        // Ajouter temporairement les fichiers à l'index pour le commit simulé
+        if mode == AutopilotMode::DryRun && !plan.will_stage.is_empty() {
+            logs.push(format!(
+                "[debug] Temporarily staging files for dry-run: {:?}",
+                plan.will_stage
+            ));
+            git_add_paths(&repo_path, &plan.will_stage, &mut logs)?;
+
+            // Effectuer le commit simulé
+            git_commit_dry_run(&repo_path, &plan.commit_message, "", &mut logs)?;
+
+            // Restaurer l'état initial de l'index
+            logs.push("[debug] Restoring index state after dry-run".into());
+            git_reset(&repo_path, &plan.will_stage, &mut logs)?;
+        }
     }
 
     // Add notes after apply/dryrun
@@ -289,6 +326,8 @@ pub fn run_git_autopilot_in_repo(
             classified.unrelated.len()
         ));
     }
+
+    println!("[debug] Final logs: {:?}", logs);
 
     Ok(AutopilotReport {
         mode,
@@ -308,4 +347,30 @@ pub fn run_git_autopilot_in_repo(
 #[allow(dead_code)]
 fn exists(path: &str) -> bool {
     Path::new(path).exists()
+}
+
+/// Réinitialise les fichiers spécifiés dans l'index Git
+pub fn git_reset(
+    repo_path: &Path,
+    paths: &[String],
+    logs: &mut Vec<String>,
+) -> std::result::Result<(), AutopilotError> {
+    logs.push(format!("[cmd] git reset -- {:?}", paths));
+
+    let status = std::process::Command::new("git")
+        .arg("reset")
+        .arg("--")
+        .args(paths)
+        .current_dir(repo_path)
+        .status()
+        .map_err(|e| {
+            AutopilotError::from(format!("Erreur lors de l'exécution de git reset: {}", e))
+        })?;
+
+    if !status.success() {
+        return Err(AutopilotError::from("git reset a échoué".to_string()));
+    }
+
+    logs.push("[cmd] git reset terminé avec succès".into());
+    Ok(())
 }

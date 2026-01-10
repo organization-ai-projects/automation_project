@@ -1,12 +1,12 @@
 // security/src/lib.rs
 pub mod auth;
 pub mod auth_error;
+pub mod claims;
 pub mod permissions;
 pub mod role;
 pub mod token;
 pub mod token_error;
 pub mod token_service;
-pub mod claims;
 
 pub use crate::token::Token;
 pub use auth_error::AuthError;
@@ -20,6 +20,6 @@ pub use role::Role;
 pub fn init() {
     println!("Initializing security library...");
 }
+pub use claims::Claims;
 pub use token_error::TokenError;
 pub use token_service::TokenService;
-pub use claims::Claims;

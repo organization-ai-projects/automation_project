@@ -1,6 +1,7 @@
-use git_lib::git_change::GitChange;
 // projects/products/varina/backend/src/classified_changes.rs
 use serde::{Deserialize, Serialize};
+
+use git_lib::git_change::GitChange;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClassifiedChanges {

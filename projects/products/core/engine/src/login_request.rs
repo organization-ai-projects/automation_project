@@ -1,4 +1,5 @@
-/// HTTP: login (issue JWT)
+// projects/products/core/engine/src/login_request.rs
+// HTTP: login (issue JWT)
 #[derive(serde::Deserialize)]
 pub struct LoginRequest {
     pub user_id: String,
