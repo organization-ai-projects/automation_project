@@ -8,12 +8,7 @@ use std::{
 };
 
 use crate::{
-    ChildHandle,
-    Paths,
-    log_message,
-    {resolve_bin_path, spawn_service},
-    RestartPolicy,
-    Service,
+    ChildHandle, Paths, RestartPolicy, Service, log_message, {resolve_bin_path, spawn_service},
 };
 use anyhow::{Result, bail};
 use std::time::Instant;

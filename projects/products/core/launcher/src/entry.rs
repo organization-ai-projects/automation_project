@@ -9,11 +9,8 @@ use std::{
 };
 
 use crate::{
-    ChildHandle, Cli, Config, cargo_build, normalize_path, parse_csv,
-    {topo_sort, validate_services},
-    install_shutdown_handler,
-    start_and_supervise,
-    Workspace,
+    ChildHandle, Cli, Config, Workspace, cargo_build, install_shutdown_handler, normalize_path,
+    parse_csv, start_and_supervise, {topo_sort, validate_services},
 };
 use anyhow::{Context, Result, bail};
 use clap::Parser;
