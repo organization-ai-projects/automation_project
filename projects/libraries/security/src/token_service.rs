@@ -92,8 +92,16 @@ impl TokenService {
         let data =
             jsonwebtoken::decode::<Claims>(jwt, &self.dec, &self.validation).map_err(|e| {
                 if e.kind() == &jsonwebtoken::errors::ErrorKind::ExpiredSignature {
-                    println!("Token expiré: exp = {}", now_ms);
-                    TokenError::Expired
+                    let exp_with_tolerance = now_ms.saturating_sub(50); // Appliquer la tolérance ici
+                    if exp_with_tolerance > now_ms {
+                        println!(
+                            "Token expiré avec tolérance: exp = {}, tolérance = 50 ms",
+                            now_ms
+                        );
+                        TokenError::Expired
+                    } else {
+                        TokenError::Jwt(e.to_string())
+                    }
                 } else {
                     TokenError::Jwt(e.to_string())
                 }
