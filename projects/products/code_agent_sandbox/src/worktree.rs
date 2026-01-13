@@ -1,9 +1,10 @@
+// projects/products/code_agent_sandbox/src/worktree.rs
 use std::fs;
 
 use anyhow::{Context, Result};
 use walkdir::WalkDir;
 
-use crate::policy::{glob_match, Policy};
+use crate::policies::{Policy, policy::glob_match};
 
 /// Initialize worktree from source repo using allowlists/forbids.
 /// Idempotent: if Cargo.toml exists in work_root, it won't recopy.

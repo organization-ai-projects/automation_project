@@ -5,7 +5,6 @@ use common::common_id::CommonID;
 use common::custom_uuid::Id128;
 use common_time::timestamp_utils::current_timestamp_ms;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use uuid::Uuid;
 
 /// Service pour issuer/verify des JWT.
 /// - Stateless: pas besoin de store.
@@ -65,11 +64,11 @@ impl TokenService {
             .checked_add(duration_ms)
             .ok_or(TokenError::TimestampOverflow)?;
         let now_s = now_ms / 1000;
-        let exp_s = (exp_ms / 1000).saturating_add(1); // Ajouter une marge de 1 seconde pour éviter les collisions temporelles
+        let exp_s = (exp_ms / 1000).saturating_add(1);
 
         let claims = Claims {
             sub: user_id.to_string(),
-            jti: Uuid::now_v7().to_string(),
+            jti: Id128::new(0, None, None).to_string(),
             role,
             iat: now_s,
             exp: exp_s,
@@ -104,8 +103,10 @@ impl TokenService {
         println!("Horodatages du token: iat = {}, exp = {}", c.iat, c.exp);
 
         // Hardening: validate sub numeric + CommonID validation
-        let user_id = UserId::from(c.sub.as_str());
-        if !CommonID::is_valid(Id128::new(user_id.value() as u16, None, None)) {
+        let user_id =
+            UserId::new(Id128::from_hex(&c.sub).map_err(|_| TokenError::InvalidUserIdValue)?)?;
+
+        if !CommonID::is_valid(user_id.value()) {
             return Err(TokenError::InvalidUserIdValue);
         }
 
@@ -167,10 +168,7 @@ impl TokenService {
 
     /// Validate a token's claims.
     pub fn validate_token(&self, token: &Token) -> Result<(), TokenError> {
-        // Validation basée sur CommonID
-        // Correction : validation avec le type attendu `Id128`
-        let id128 = Id128::new(token.user_id.value() as u16, None, None);
-        if !CommonID::is_valid(id128) {
+        if !CommonID::is_valid(token.user_id.value()) {
             return Err(TokenError::InvalidUserIdValue);
         }
         Ok(())
@@ -193,7 +191,12 @@ mod tests {
     fn test_expired_token() {
         let service = TokenService::new_hs256(&"a".repeat(32)).unwrap();
         let jwt = service
-            .issue(UserId::from("123"), Role::User, 100, None) // Durée de 100 ms
+            .issue(
+                UserId::from(Id128::from_bytes_unchecked([1u8; 16])),
+                Role::User,
+                100,
+                None,
+            ) // Durée de 100 ms
             .unwrap();
 
         // Ajouter des logs pour inspecter les horodatages
@@ -215,9 +218,17 @@ mod tests {
     fn test_valid_token() {
         let service = TokenService::new_hs256(&"a".repeat(32)).unwrap();
         let jwt = service
-            .issue(UserId::from("123"), Role::User, 60000, None)
+            .issue(
+                UserId::new(Id128::from_bytes_unchecked([123u8; 16])).unwrap(),
+                Role::User,
+                60000,
+                None,
+            )
             .unwrap();
         let token = service.verify(&jwt).unwrap();
-        assert_eq!(token.user_id.value(), 123);
+        assert_eq!(
+            token.user_id.value(),
+            Id128::from_bytes_unchecked([123u8; 16])
+        );
     }
 }

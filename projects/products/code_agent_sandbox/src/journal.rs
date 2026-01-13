@@ -48,11 +48,3 @@ impl Journal {
         Ok(())
     }
 }
-
-impl Default for Journal {
-    fn default() -> Self {
-        let temp_file = std::fs::File::create("/tmp/journal_default.log")
-            .expect("Failed to create default journal file");
-        Journal { file: temp_file }
-    }
-}

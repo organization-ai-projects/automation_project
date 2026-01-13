@@ -4,10 +4,10 @@ use crate::{
     actions::{Action, ActionResult},
     command_runner::CommandRunner,
     engine::{
-        handle_generate_code, record_action_event, record_and_push_result, records, EngineConfig,
+        EngineConfig, handle_generate_code, record_action_event, record_and_push_result, records,
     },
     journal::Journal,
-    policy::Policy,
+    policies::Policy,
     sandbox_fs::SandboxFs,
 };
 

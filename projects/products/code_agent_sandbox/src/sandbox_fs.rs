@@ -1,13 +1,17 @@
 // projects/products/code_agent_sandbox/src/sandbox_fs.rs
-use std::{fs::{self, OpenOptions}, io::Write, path::{Path, PathBuf}};
+use std::{
+    fs::{self, OpenOptions},
+    io::Write,
+    path::{Path, PathBuf},
+};
 
-use anyhow::{bail, Context, Result};
-use diffy::{apply, Patch};
+use anyhow::{Context, Result, bail};
+use diffy::{Patch, apply};
 use protocol::json;
-use rand::{rngs::OsRng, TryRngCore};
+use rand::{TryRngCore, rngs::OsRng};
 use walkdir::WalkDir;
 
-use crate::{actions::ActionResult, policy::Policy};
+use crate::{actions::ActionResult, policies::Policy};
 
 #[derive(Clone)]
 pub struct SandboxFs {
@@ -103,10 +107,8 @@ impl SandboxFs {
 
         let abs = self.policy.resolve_work_path_for_write(rel)?;
 
-        if create_dirs {
-            if let Some(parent) = abs.parent() {
-                fs::create_dir_all(parent)?;
-            }
+        if create_dirs && let Some(parent) = abs.parent() {
+            fs::create_dir_all(parent)?;
         }
 
         // Vérification anti-symlink avant écriture

@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 thiserror = "1.0"
 chrono = "0.4"
-uuid = { version = "1.4", features = ["v4"] }
 command_runner = { workspace = true }
 common_time = { workspace = true }
 serde = { workspace = true }

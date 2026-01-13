@@ -1,16 +1,13 @@
 // projects/products/code_agent_sandbox/src/command_runner.rs
-use std::{
-    path::Path,
-    process::{Command, Stdio},
-    thread,
-    time::Duration,
-};
+// NOTE: validate_args returns Rust errors (anyhow::Error), NOT ActionResult.
+// ActionResult is protocol output, never used as an error type.
 
-use anyhow::{Context, Result};
+use anyhow::{Result, bail};
+use command_runner::{run_cmd_allow_failure, run_cmd_ok};
 use protocol::json;
-use wait_timeout::ChildExt;
+use std::path::Path;
 
-use crate::{actions::ActionResult, policy::Policy, runner_config::RunnerConfig};
+use crate::{actions::ActionResult, policies::Policy, runner_config::RunnerConfig};
 
 #[derive(Clone)]
 pub struct CommandRunner {
@@ -23,60 +20,21 @@ impl CommandRunner {
         Self { policy, cfg }
     }
 
-    /// Utility to drain and collect output from a reader.
-    fn drain(mut r: impl std::io::Read + Send + 'static) -> thread::JoinHandle<Vec<u8>> {
-        thread::spawn(move || {
-            let mut buf = Vec::new();
-            let _ = r.read_to_end(&mut buf);
-            buf
-        })
-    }
-
-    fn drain_output(handle: Option<thread::JoinHandle<Vec<u8>>>) -> String {
-        handle
-            .map(|h| String::from_utf8_lossy(&h.join().unwrap_or_default()).to_string())
-            .unwrap_or_default()
-    }
-
-    /// Centralized argument validation to avoid duplication.
-    fn validate_args(args: &[String], disallowed_patterns: &[&str]) -> Result<(), ActionResult> {
+    fn validate_args(args: &[String], disallowed_patterns: &[&str]) -> Result<()> {
         for a in args {
             if disallowed_patterns.iter().any(|p| a.contains(p)) {
-                return Err(ActionResult::error(
-                    "PolicyViolation",
-                    format!("suspicious arg: {a}"),
-                ));
+                bail!("suspicious arg: {a}");
             }
-
-            // Check for absolute paths
             let path = Path::new(a);
             if path.is_absolute() || a.starts_with("C:\\") {
-                return Err(ActionResult::error(
-                    "PolicyViolation",
-                    format!("absolute path not allowed: {a}"),
-                ));
+                bail!("absolute path not allowed: {a}");
             }
         }
         Ok(())
     }
 
     pub fn run_cargo(&self, subcommand: &str, args: &[String]) -> Result<ActionResult> {
-        // Valider les arguments spécifiques à cargo
-        Self::validate_args(
-            args,
-            &[
-                "..",
-                "\\0",
-                "--manifest-path",
-                "--target-dir",
-                "--config",
-                "-Z",
-                "--release", // Restrict release builds
-            ],
-        )
-        .map_err(|e| anyhow::Error::msg(format!("Validation failed: {:?}", e)))?;
-
-        // Vérifier les sous-commandes autorisées
+        // Validate subcommand first (policy decision => ActionResult, not crash)
         if !self
             .cfg
             .allowed_cargo_subcommands
@@ -89,110 +47,85 @@ impl CommandRunner {
             ));
         }
 
-        // Construire et exécuter la commande via run_command
-        let mut full_args = vec![
-            subcommand.to_string(),
-            "--locked".to_string(),
-            "--offline".to_string(),
-            "--frozen".to_string(),
-        ];
-        full_args.extend_from_slice(args);
-        self.run_command(&self.cfg.cargo_path, &full_args)
+        // Validate args (policy decision => ActionResult)
+        if let Err(e) = Self::validate_args(
+            args,
+            &[
+                "..",
+                "\\0",
+                "--manifest-path",
+                "--target-dir",
+                "--config",
+                "-Z",
+                "--release",
+            ],
+        ) {
+            return Ok(ActionResult::error("PolicyViolation", e.to_string()));
+        }
+
+        let mut logs = Vec::new();
+        let output = run_cmd_ok(
+            self.policy.work_root(),
+            &self.cfg.cargo_path,
+            [subcommand, "--locked", "--offline", "--frozen"]
+                .iter()
+                .copied()
+                .chain(args.iter().map(|s| s.as_str()))
+                .collect::<Vec<_>>()
+                .as_slice(),
+            &mut logs,
+        )?;
+
+        Ok(ActionResult::success(
+            "CommandExecuted",
+            "ok",
+            Some(json!({
+                "exitCode": output.status.code().unwrap_or(-1),
+                "stdout": truncate(&String::from_utf8_lossy(&output.stdout), 2000),
+                "stderr": truncate(&String::from_utf8_lossy(&output.stderr), 2000),
+            })),
+        ))
     }
 
-    /// Méthode générique pour exécuter des commandes, rendue privée pour usage interne.
-    fn run_command(&self, program: &str, args: &[String]) -> Result<ActionResult> {
-        // Validate binary
-        if !self.cfg.allowed_bins.iter().any(|b| b == program) {
-            return Ok(ActionResult::error(
-                "PolicyViolation",
-                format!("binary not allowed: {program}"),
-            ));
-        }
-
-        // Validate arguments
-        Self::validate_args(args, &["..", "\0"])
-            .map_err(|e| anyhow::Error::msg(format!("Validation failed: {:?}", e)))?;
-
-        // Build the command
-        let mut cmd = Command::new(program);
-        for arg in args {
-            cmd.arg(arg);
-        }
-
-        cmd.current_dir(self.policy.work_root());
-        cmd.stdin(Stdio::null());
-        cmd.stdout(Stdio::piped());
-        cmd.stderr(Stdio::piped());
-
-        cmd.env_clear();
-        for k in &self.cfg.env_allowlist {
-            if let Ok(v) = std::env::var(k) {
-                cmd.env(k, v);
-            }
-        }
-
-        tracing::info!("Running command: {} {:?}", program, args);
-        let mut child = cmd.spawn().context("failed to spawn command")?;
-
-        // Start draining in background threads
-        let stdout_h = child.stdout.take().map(Self::drain);
-        let stderr_h = child.stderr.take().map(Self::drain);
-
-        let timeout = Duration::from_millis(self.cfg.timeout_ms.max(1));
-        let status_opt = child.wait_timeout(timeout).context("wait_timeout failed")?;
-
-        let timed_out = status_opt.is_none();
-        if timed_out {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-
-        // Now collect outputs (won't block forever because process is done/killed)
-        let stdout = Self::drain_output(stdout_h);
-        let stderr = Self::drain_output(stderr_h);
-
-        match status_opt {
-            Some(status) if status.success() => Ok(ActionResult::success(
-                "CommandExecuted",
-                "ok",
-                Some(json!({
-                    "exit_code": status.code().unwrap_or(-1),
-                    "stdout": truncate(&stdout, 2000),
-                    "stderr": truncate(&stderr, 2000)
-                })),
-            )),
-            Some(status) => Ok(ActionResult::error(
-                "CommandFailed",
-                format!(
-                    "exit_code={} stderr={}",
-                    status.code().unwrap_or(-1),
-                    truncate(&stderr, 2000)
-                ),
-            )),
-            None => Ok(ActionResult::error(
-                "Timeout",
-                format!("command timed out after {}ms", self.cfg.timeout_ms),
-            )),
-        }
-    }
-
-    /// Exécute une commande dans un environnement isolé (niveau bunker).
     pub fn run_in_bunker(&self, program: &str, args: &[String]) -> Result<ActionResult> {
-        // Valider les arguments pour détecter des motifs dangereux
-        Self::validate_args(
+        if let Err(e) = Self::validate_args(
             args,
             &["..", "\\0", "--dangerous", "-rf", "--no-preserve-root"],
-        )
-        .map_err(|e| anyhow::Error::msg(format!("Validation failed: {:?}", e)))?;
+        ) {
+            return Ok(ActionResult::error("PolicyViolation", e.to_string()));
+        }
 
-        // Exécuter la commande via run_command
-        self.run_command(program, args)
+        let mut logs = Vec::new();
+        let output = match run_cmd_allow_failure(
+            self.policy.work_root(),
+            program,
+            args.iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .as_slice(),
+            &mut logs,
+        ) {
+            Ok(output) => output,
+            Err(e) => {
+                return Ok(ActionResult::error(
+                    "CommandExecutionFailed",
+                    format!("Failed to execute command: {e:?}"),
+                ));
+            }
+        };
+
+        Ok(ActionResult::success(
+            "CommandExecuted",
+            "ok",
+            Some(json!({
+                "exitCode": output.status.code().unwrap_or(-1),
+                "stdout": truncate(&String::from_utf8_lossy(&output.stdout), 2000),
+                "stderr": truncate(&String::from_utf8_lossy(&output.stderr), 2000),
+            })),
+        ))
     }
 
-    /// Determines if a subcommand requires execution in a bunker environment.
     pub fn requires_bunker(subcommand: &str) -> bool {
-        // Exemple de logique : certaines sous-commandes nécessitent un bunker
         const BUNKER_COMMANDS: [&str; 2] = ["install", "publish"];
         BUNKER_COMMANDS.contains(&subcommand)
     }
@@ -202,12 +135,10 @@ fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         return s.to_string();
     }
-
     let mut cut = max;
     while cut > 0 && !s.is_char_boundary(cut) {
         cut -= 1;
     }
-
     let mut t = s[..cut].to_string();
     t.push_str("\n...[truncated]...");
     t

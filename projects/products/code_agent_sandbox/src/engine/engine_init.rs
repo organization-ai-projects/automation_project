@@ -1,14 +1,16 @@
+// projects/products/code_agent_sandbox/src/engine/engine_init.rs
 use anyhow::{Context, Result};
 use chrono::Utc;
-use std::{fs, path::PathBuf};
-use uuid::Uuid;
+use std::fs;
+
+use common::Id128;
 
 use crate::{
     command_runner::CommandRunner,
-    engine::{generate_globs, EngineConfig, EnginePaths, WorkspaceMode, FORBIDDEN, READ, WRITE},
+    engine::{EngineConfig, EnginePaths, FORBIDDEN, READ, WRITE, WorkspaceMode, generate_globs},
+    execution_paths::ExecutionPaths,
     journal::Journal,
-    policy::Policy,
-    policy_config::PolicyConfig,
+    policies::{Policy, PolicyConfig},
     runner_config::RunnerConfig,
     sandbox_fs::SandboxFs,
     worktree,
@@ -18,8 +20,7 @@ use crate::{
 /// L’orchestrateur construit ceci et le passe au cœur.
 pub struct EngineInit {
     pub run_id: String,
-    pub run_dir: PathBuf,
-    pub work_root: PathBuf,
+    pub paths: ExecutionPaths,
     pub journal: Journal,
     pub policy: Policy,
     pub sfs: SandboxFs,
@@ -36,7 +37,7 @@ pub fn initialize_engine(
         Some(id) if !id.trim().is_empty() => id.trim().to_string(),
         _ => {
             let ts = Utc::now().format("%Y%m%d_%H%M%S_%3f").to_string();
-            format!("{}_{}", ts, Uuid::new_v4())
+            format!("{}_{}", ts, Id128::new(0, None, None))
         }
     };
 
@@ -80,15 +81,12 @@ pub fn initialize_engine(
     let sfs = SandboxFs::new(policy.clone());
 
     let runner_cfg = RunnerConfig {
-        allowed_bins: vec!["cargo".into()],
         allowed_cargo_subcommands: vec![
             "check".into(),
             "test".into(),
             "clippy".into(),
             "fmt".into(),
         ],
-        timeout_ms: config.timeout_ms,
-        env_allowlist: vec!["RUST_LOG".into()],
         cargo_path: "cargo".into(),
     };
 
@@ -96,8 +94,7 @@ pub fn initialize_engine(
 
     Ok(EngineInit {
         run_id: engine_run_id,
-        run_dir,
-        work_root,
+        paths: ExecutionPaths::new(run_dir, work_root),
         journal,
         policy,
         sfs,

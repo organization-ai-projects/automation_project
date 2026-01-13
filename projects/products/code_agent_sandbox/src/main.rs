@@ -24,18 +24,21 @@ mod actions;
 mod agents;
 mod command_runner;
 mod engine;
+mod execution_context;
+mod execution_paths;
 mod journal;
 mod journal_line;
 mod memory;
 mod normalization;
-mod policy;
-mod policy_config;
+mod policies;
 mod runner_config;
 mod sandbox_fs;
 mod score;
 mod worktree;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
+use common_time::timeout::with_timeout; // Correction de l'import pour inclure `with_timeout`
+use common_time::{SystemClock, TimeSpan};
 use std::io::{self, Read};
 use std::path::PathBuf;
 
@@ -61,7 +64,8 @@ fn main() -> Result<()> {
         runs_root: PathBuf::from(&args[2]),
     };
 
-    let config = EngineConfig::default();
+    let timeout = TimeSpan::from_secs(30);
+    let config = EngineConfig::new(timeout);
 
     // ==========================
     // Step 2: Reading Standard Input
@@ -73,12 +77,18 @@ fn main() -> Result<()> {
     // ==========================
     // Step 3: Execute Request
     // ==========================
-    let response = engine::execute_request(req, &paths, config)?;
+    let clock = SystemClock; // Correction pour utiliser directement l'instance de SystemClock
+    let timeout_future = with_timeout(
+        engine::execute_request(req, &paths, config),
+        &clock,
+        timeout,
+    );
 
-    // ==========================
-    // Step 4: Output Response
-    // ==========================
-    println!("{}", protocol::to_json_string_pretty(&response)?);
+    match futures::executor::block_on(timeout_future) {
+        Ok(Ok(res)) => println!("{}", protocol::to_json_string_pretty(&res)?),
+        Ok(Err(err)) => bail!("Execution error: {}", err),
+        Err(_) => bail!("Timeout exceeded while executing request"),
+    }
 
     Ok(())
 }

@@ -1,20 +1,22 @@
-use ai::AiBody;
 // projects/products/code_agent_sandbox/src/agent_driver.rs
 use anyhow::{Context, Result};
 use chrono::Utc;
+use common::Id128;
+use std::path;
 
 use crate::{
     actions::{Action, ActionResult},
     agents::{AgentOutcome, AgentRequest},
     command_runner::CommandRunner,
     engine::EngineCtx,
-    memory::{append_event, MemoryEvent},
+    memory::{MemoryEvent, append_event},
     score::{ScoreConfig, ScoreSummary},
 };
+use ai::AiBody;
 
 pub fn run_agent_with_orchestrator(
     ctx: &mut EngineCtx,
-    run_dir: &std::path::Path,
+    run_dir: &path::Path,
     req: AgentRequest,
 ) -> Result<(AgentOutcome, Vec<ActionResult>)> {
     let mem_path = run_dir.join("agent_memory.jsonl");
@@ -73,8 +75,7 @@ pub fn run_agent_with_orchestrator(
 
         let prompt = format!(
             "Intent:\n{}\n\nContext:\n{}\n\nTask: propose a minimal Rust code change (unified diff) that makes tests/check pass. Output ONLY a unified diff.",
-            req.intent,
-            context
+            req.intent, context
         );
 
         let task = ai_body.create_task(&prompt);
@@ -209,7 +210,7 @@ pub fn run_agent_with_orchestrator(
     Ok((outcome, all_results))
 }
 
-pub fn run_and_record(
+fn run_and_record(
     ctx: &mut EngineCtx,
     actions: Vec<Action>,
     run_dir: &std::path::Path,
@@ -242,8 +243,11 @@ pub fn run_and_record(
                 // We keep it harmless: save only.
                 let ai_ws = run_dir.join("ai_workspace");
                 std::fs::create_dir_all(&ai_ws)?;
-                let file_path =
-                    ai_ws.join(format!("generated_{}.{}", uuid::Uuid::new_v4(), language));
+                let file_path = ai_ws.join(format!(
+                    "generated_{}.{}",
+                    Id128::new(0, None, None),
+                    language
+                ));
                 std::fs::write(&file_path, code)?;
                 Ok(ActionResult::success(
                     "CodeGenerated",
@@ -266,7 +270,7 @@ pub fn run_and_record(
     Ok(results)
 }
 
-pub fn default_score_cfg() -> ScoreConfig {
+fn default_score_cfg() -> ScoreConfig {
     ScoreConfig {
         penalize_unwrap_outside_tests: true,
         unwrap_penalty: 10,
@@ -277,7 +281,7 @@ pub fn default_score_cfg() -> ScoreConfig {
     }
 }
 
-pub fn build_context_snippet(results: &[ActionResult], score: &ScoreSummary) -> String {
+fn build_context_snippet(results: &[ActionResult], score: &ScoreSummary) -> String {
     // Keep it short: last cargo stderr snippets + notes
     let mut parts = Vec::new();
     parts.push(format!(
@@ -291,20 +295,19 @@ pub fn build_context_snippet(results: &[ActionResult], score: &ScoreSummary) -> 
 
     // Extract last cargo stderr
     for r in results.iter().rev().take(20) {
-        if r.kind.starts_with("Cargo") {
-            if let Some(data) = &r.data {
-                if let Some(stderr) = data.get("stderr").and_then(|v| v.as_str()) {
-                    let s = truncate(stderr, 2000);
-                    parts.push(format!("{} stderr:\n{}", r.kind, s));
-                }
-            }
+        if r.kind.starts_with("Cargo")
+            && let Some(data) = &r.data
+            && let Some(stderr) = data.get("stderr").and_then(|v| v.as_str())
+        {
+            let s = truncate(stderr, 2000);
+            parts.push(format!("{} stderr:\n{}", r.kind, s));
         }
     }
 
     parts.join("\n")
 }
 
-pub fn truncate(s: &str, max: usize) -> String {
+fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         return s.to_string();
     }
@@ -313,7 +316,7 @@ pub fn truncate(s: &str, max: usize) -> String {
     t
 }
 
-pub fn detect_single_target_file(unified_diff: &str) -> Option<String> {
+fn detect_single_target_file(unified_diff: &str) -> Option<String> {
     // Very simple: look for a line like "+++ b/src/main.rs"
     // and extract path after "b/".
     for line in unified_diff.lines() {

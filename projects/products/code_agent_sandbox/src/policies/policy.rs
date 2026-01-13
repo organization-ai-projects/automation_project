@@ -1,15 +1,14 @@
-// projects/products/code_agent_sandbox/src/policy.rs
-use std::default::Default;
+// projects/products/code_agent_sandbox/src/policies/policy.rs
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use toml::Value;
 
 use crate::access_kind::AccessKind;
-use crate::actions::Action;
+use crate::actions::{self, Action};
 use crate::normalization::normalize_rel;
-use crate::policy_config::PolicyConfig;
+use crate::policies::PolicyConfig;
 
 #[derive(Clone)]
 pub struct Policy {
@@ -26,11 +25,11 @@ impl Policy {
     }
 
     pub fn source_repo_root(&self) -> &Path {
-        &self.cfg.source_repo_root
+        &self.cfg.context.source_repo_root
     }
 
     pub fn work_root(&self) -> &Path {
-        &self.cfg.work_root
+        &self.cfg.context.paths.work_root
     }
 
     pub fn resolve_work_path_for_read(&self, rel: &str) -> Result<PathBuf> {
@@ -82,11 +81,11 @@ impl Policy {
             bail!("access not allowed by policy: {rel_norm}");
         }
 
-        let abs = self.cfg.work_root.join(&rel_norm);
+        let abs = self.cfg.context.paths.work_root.join(&rel_norm);
 
         // Protection contre la traversée de répertoires
-        let canon_root =
-            std::fs::canonicalize(&self.cfg.work_root).unwrap_or(self.cfg.work_root.clone());
+        let canon_root = std::fs::canonicalize(&self.cfg.context.paths.work_root)
+            .unwrap_or(self.cfg.context.paths.work_root.clone());
         let parent = abs.parent().unwrap_or(&abs);
         let canon_parent = std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
         if !canon_parent.starts_with(&canon_root) {
@@ -124,7 +123,7 @@ impl Policy {
 
     /// Authorizes an action based on the current policy rules.
     /// Returns an error if the action violates the policy.
-    pub fn authorize_action(&self, action: &crate::actions::Action) -> anyhow::Result<()> {
+    pub fn authorize_action(&self, action: &actions::Action) -> anyhow::Result<()> {
         let err = |e: anyhow::Error| e.context("Policy authorization failed");
 
         match action {
@@ -160,15 +159,6 @@ impl Policy {
     }
 }
 
-#[allow(clippy::derivable_impls)]
-impl Default for Policy {
-    fn default() -> Self {
-        Policy {
-            cfg: PolicyConfig::default(),
-        }
-    }
-}
-
 /// IMPORTANT: you already have this function used by SandboxFs.
 /// Keep your existing implementation if you have one.
 /// This fallback is minimal.
@@ -183,14 +173,27 @@ pub fn glob_match(path: &str, pattern: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::path::PathBuf;
+
+    use crate::{
+        access_kind::AccessKind,
+        execution_context::ExecutionContext,
+        execution_paths::ExecutionPaths,
+        policies::{Policy, PolicyConfig},
+    };
 
     #[test]
     fn test_forbid_wins_over_allow() {
-        let cfg = PolicyConfig {
+        let context = ExecutionContext {
+            paths: ExecutionPaths {
+                run_dir: PathBuf::from("/run"),
+                work_root: PathBuf::from("/work"),
+            },
             source_repo_root: PathBuf::from("/repo"),
-            work_root: PathBuf::from("/work"),
-            run_dir: PathBuf::from("/run"),
+        };
+
+        let cfg = PolicyConfig {
+            context,
             max_read_bytes: 1024,
             max_write_bytes: 1024,
             max_files_per_request: 10,
@@ -204,9 +207,11 @@ mod tests {
         // Path is allowed by `allow_read_globs` but forbidden by `forbid_globs`
         let result = policy.resolve_work_path("src/forbidden/file.txt", AccessKind::Read);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("forbidden path by policy"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("forbidden path by policy")
+        );
     }
 }

@@ -6,15 +6,27 @@ use crate::{
     journal::Journal,
 };
 
+fn record_result(
+    journal: &mut Journal,
+    run_id: &str,
+    result: &ActionResult,
+) -> Result<(), anyhow::Error> {
+    let t = Utc::now().to_rfc3339();
+    journal.record_result(run_id, result, &t)
+}
+
+fn push_result(results: &mut Vec<ActionResult>, result: ActionResult) {
+    results.push(result);
+}
+
 pub fn record_and_push_result(
     journal: &mut Journal,
     run_id: &str,
     result: ActionResult,
     results: &mut Vec<ActionResult>,
 ) -> Result<(), anyhow::Error> {
-    let t = Utc::now().to_rfc3339();
-    journal.record_result(run_id, &result, &t)?;
-    results.push(result);
+    record_result(journal, run_id, &result)?;
+    push_result(results, result);
     Ok(())
 }
 

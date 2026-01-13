@@ -1,6 +1,7 @@
 // projects/products/core/engine/src/routes.rs
 use std::{collections::HashMap, convert::Infallible};
 
+use common::Id128;
 use tracing::warn;
 use warp::{Filter, Reply, http::StatusCode};
 
@@ -31,7 +32,9 @@ async fn login(req: LoginRequest, state: EngineState) -> Result<impl Reply, warp
         return Err(warp::reject());
     }
 
-    let user_id = UserId::from(req.user_id.as_str());
+    let user_id = UserId::from(Id128::from_bytes_unchecked(
+        req.user_id.as_bytes().try_into().unwrap(),
+    ));
     let role = req.role.unwrap_or(Role::User);
 
     let duration_ms = req

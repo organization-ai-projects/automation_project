@@ -1,5 +1,5 @@
 // projects/products/code_agent_sandbox/src/engine/generate_utils.rs
-use crate::engine::{Rights, PATH_RIGHTS};
+use crate::engine::{PATH_RIGHTS, Rights};
 
 pub fn generate_globs(mask: Rights) -> Vec<String> {
     PATH_RIGHTS

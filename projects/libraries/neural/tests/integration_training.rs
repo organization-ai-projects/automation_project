@@ -1,13 +1,27 @@
 use neural::{
     generation::{GenerationConfig, code_generator::CodeGenerator},
-    network::neural_net::NeuralNetwork,
+    network::neural_net::{Activation, LayerConfig, NeuralNetwork, WeightInit},
     tokenization::RustTokenizer,
 };
 
 #[test]
 fn test_code_generator_training() {
     // Mock objects for NeuralNetwork and RustTokenizer
-    let mock_model = NeuralNetwork::new(vec![]).unwrap();
+    let layers = vec![
+        LayerConfig {
+            input_size: 4,
+            output_size: 8,
+            activation: Activation::ReLU,
+            weight_init: WeightInit::Xavier,
+        },
+        LayerConfig {
+            input_size: 8,
+            output_size: 4,
+            activation: Activation::Sigmoid,
+            weight_init: WeightInit::He,
+        },
+    ];
+    let mock_model = NeuralNetwork::new(layers).unwrap();
     let mock_tokenizer = RustTokenizer::new(vec![
         "<PAD>".to_string(),
         "<EOS>".to_string(),

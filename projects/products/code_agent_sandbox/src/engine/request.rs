@@ -1,15 +1,14 @@
-use std::fs;
-
 // projects/products/code_agent_sandbox/src/engine/request.rs
-use anyhow::Context;
+use anyhow::{Context, anyhow};
+use common_time::SystemClock;
+use common_time::timeout::with_timeout;
 use serde::Deserialize;
+use std::fs;
 
 use crate::{
     actions::{Action, ActionResult, LowLevelActionContext, run_low_level_actions},
-    agents::{AgentRequest, agent_driver},
-    engine::{
-        EngineConfig, EngineCtx, EngineInit, EnginePaths, Response, WorkspaceMode
-    },
+    agents::{AgentRequest, run_agent_with_orchestrator},
+    engine::{EngineConfig, EngineCtx, EngineInit, EnginePaths, Response, WorkspaceMode},
     score::{ScoreConfig, ScoreSummary},
 };
 
@@ -31,7 +30,7 @@ pub struct Request {
 
 /// ✅ Core du domaine.
 /// ⚠️ Important: pas callable depuis “dehors” du module engine.
-pub(in crate::engine) fn execute_with_init(
+pub(in crate::engine) async fn execute_with_init(
     mut req: Request,
     init: &mut EngineInit,
     paths: &EnginePaths,
@@ -47,16 +46,31 @@ pub(in crate::engine) fn execute_with_init(
         policy: &init.policy,
         sfs: &init.sfs,
         runner: &init.runner,
-        run_dir: &init.run_dir,
+        run_dir: &init.paths.run_dir,
         journal: &mut init.journal,
         config,
     };
 
-    results.extend(run_low_level_actions(
-        &init.run_id,
-        &req.actions,
-        &mut ll_ctx,
-    )?);
+    let timeout = config.timeout; // Utilisation directe du champ timeout, qui est maintenant obligatoire
+    let clock = SystemClock;
+    let result = with_timeout(
+        async { run_low_level_actions(&init.run_id, &req.actions, &mut ll_ctx) },
+        &clock,
+        timeout,
+    )
+    .await;
+
+    match result {
+        Ok(actions_result) => {
+            results.extend(actions_result?);
+        }
+        Err(_) => {
+            return Err(anyhow!(
+                "Execution timed out after {:?}",
+                timeout.as_duration()
+            ));
+        }
+    }
 
     // High-level agent loop (optional)
     let mut agent_outcome = None;
@@ -81,7 +95,7 @@ pub(in crate::engine) fn execute_with_init(
         };
 
         let (outcome, agent_results) =
-            agent_driver::run_agent_with_orchestrator(&mut ctx, &init.run_dir, agent_req)?;
+            run_agent_with_orchestrator(&mut ctx, &init.paths.run_dir, agent_req)?;
         agent_outcome = Some(outcome);
         results.extend(agent_results);
     }
@@ -99,12 +113,12 @@ pub(in crate::engine) fn execute_with_init(
         },
     );
 
-    Ok(Response {
-        run_id: init.run_id.clone(),
-        workspace_mode: req.workspace_mode,
-        work_root: init.work_root.to_string_lossy().to_string(),
+    Ok(Response::new(
+        init.run_id.clone(),
+        req.workspace_mode,
+        init.paths.work_root.to_string_lossy().to_string(),
         results,
         score,
         agent_outcome,
-    })
+    ))
 }

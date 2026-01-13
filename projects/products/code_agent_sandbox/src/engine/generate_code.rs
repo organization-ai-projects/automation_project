@@ -1,9 +1,9 @@
 // projects/products/code_agent_sandbox/src/engine/generate_code.rs
-use uuid::Uuid;
-
 use crate::{
-    actions::{ActionResult, LowLevelActionContext}, normalization::normalize_extension,
+    actions::{ActionResult, LowLevelActionContext},
+    normalization::normalize_extension,
 };
+use common::Id128;
 
 pub fn handle_generate_code(
     language: &str,
@@ -24,7 +24,7 @@ pub fn handle_generate_code(
     }
 
     let ext = normalize_extension(language);
-    let file_path = ai_ws.join(format!("generated_{}.{}", Uuid::new_v4(), ext));
+    let file_path = ai_ws.join(format!("generated_{}.{}", Id128::new(0, None, None), ext));
 
     if !file_path.starts_with(ctx.run_dir) {
         return Err(anyhow::anyhow!("Attempted to write outside of run_dir"));

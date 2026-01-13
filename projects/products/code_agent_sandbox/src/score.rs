@@ -51,42 +51,39 @@ impl ScoreSummary {
             }
 
             // If a ReadFile result contains contents, scan it for patterns.
-            if let Some(data) = &r.data {
-                if let Some(contents) = data.get("contents").and_then(|v| v.as_str()) {
-                    let path = data.get("path").and_then(|v| v.as_str()).unwrap_or("");
-                    let is_tests = path.contains("/tests/")
-                        || path.starts_with("tests/")
-                        || path.contains("#[test]");
+            if let Some(data) = &r.data
+                && let Some(contents) = data.get("contents").and_then(|v| v.as_str())
+            {
+                let path = data.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                let is_tests = path.contains("/tests/")
+                    || path.starts_with("tests/")
+                    || path.contains("#[test]");
 
-                    if cfg.penalize_unwrap_outside_tests
-                        && !is_tests
-                        && contents.contains(".unwrap()")
-                    {
-                        score -= cfg.unwrap_penalty;
-                        notes.push(format!(
-                            "Penalized unwrap outside tests in {path} (-{})",
-                            cfg.unwrap_penalty
-                        ));
-                    }
-                    if cfg.penalize_panic_outside_tests && !is_tests && contents.contains("panic!(")
-                    {
-                        score -= cfg.panic_penalty;
-                        notes.push(format!(
-                            "Penalized panic outside tests in {path} (-{})",
-                            cfg.panic_penalty
-                        ));
-                    }
-                    if cfg.penalize_dbg_outside_tests && !is_tests && contents.contains("dbg!(") {
-                        score -= cfg.dbg_penalty;
-                        notes.push(format!(
-                            "Penalized dbg outside tests in {path} (-{})",
-                            cfg.dbg_penalty
-                        ));
-                    }
+                if cfg.penalize_unwrap_outside_tests && !is_tests && contents.contains(".unwrap()")
+                {
+                    score -= cfg.unwrap_penalty;
+                    notes.push(format!(
+                        "Penalized unwrap outside tests in {path} (-{})",
+                        cfg.unwrap_penalty
+                    ));
                 }
-
-                // If it contains stderr from cargo/clippy, you can add more heuristics later.
+                if cfg.penalize_panic_outside_tests && !is_tests && contents.contains("panic!(") {
+                    score -= cfg.panic_penalty;
+                    notes.push(format!(
+                        "Penalized panic outside tests in {path} (-{})",
+                        cfg.panic_penalty
+                    ));
+                }
+                if cfg.penalize_dbg_outside_tests && !is_tests && contents.contains("dbg!(") {
+                    score -= cfg.dbg_penalty;
+                    notes.push(format!(
+                        "Penalized dbg outside tests in {path} (-{})",
+                        cfg.dbg_penalty
+                    ));
+                }
             }
+
+            // If it contains stderr from cargo/clippy, you can add more heuristics later.
         }
 
         Self {

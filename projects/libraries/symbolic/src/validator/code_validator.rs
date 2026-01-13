@@ -44,6 +44,12 @@ impl CodeValidator {
             }
         }
 
+        // Invalider explicitement le code vide après la validation syntaxique
+        if code.trim().is_empty() {
+            errors.push("Code is empty".to_string());
+            return Ok(ValidationResult::invalid(errors));
+        }
+
         // Vérifications additionnelles
         self.check_common_issues(code, &mut warnings);
 
