@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/feedback/adjustment_metrics.rs
 #[derive(Debug, Clone)]
 pub struct AdjustmentMetrics {
     pub total_examples: usize,

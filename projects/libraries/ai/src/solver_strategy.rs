@@ -1,3 +1,4 @@
+/// projects/libraries/ai/src/solver_strategy.rs
 /// Stratégies d'orchestration neuro-symbolique
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SolverStrategy {

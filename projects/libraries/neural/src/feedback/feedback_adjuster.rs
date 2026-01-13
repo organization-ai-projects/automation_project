@@ -1,4 +1,7 @@
+// projects/libraries/neural/src/feedback/feedback_adjuster.rs
 use ndarray::Array1;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use crate::{
     feedback::{
@@ -13,6 +16,8 @@ pub struct FeedbackAdjuster {
     feedback_history: Vec<UserFeedback>,
     /// Configuration d'ajustement
     config: FeedbackConfig,
+    /// Ensemble des feedbacks vus (pour éviter les doublons)
+    seen_feedback: std::collections::HashSet<u64>,
 }
 
 impl FeedbackAdjuster {
@@ -26,18 +31,39 @@ impl FeedbackAdjuster {
         Self {
             feedback_history,
             config,
+            seen_feedback: std::collections::HashSet::new(),
         }
     }
 
     /// Enregistre un feedback utilisateur
     pub fn record_feedback(&mut self, feedback: &UserFeedback) -> Result<(), FeedbackError> {
-        println!(
-            "Recording feedback: {:?} for input: '{}'",
-            feedback.feedback_type,
-            feedback.input.chars().take(50).collect::<String>()
-        );
+        // Ajout d'un petit pourcentage de feedbacks Correct pour stabilisation
+        match &feedback.feedback_type {
+            FeedbackType::Incorrect { .. } => {
+                self.feedback_history.push(feedback.clone());
+            }
+            FeedbackType::Partial { .. } => {
+                self.feedback_history.push(feedback.clone());
+            }
+            FeedbackType::Correct { metadata: _ } => {
+                if rand::random::<f32>() < self.config.correct_sampling_ratio {
+                    self.feedback_history.push(feedback.clone());
+                }
+            }
+        };
 
-        self.feedback_history.push(feedback.clone());
+        // Marquer le feedback comme "vu"
+        let mut hasher = DefaultHasher::new();
+        feedback.hash(&mut hasher);
+        let feedback_hash = hasher.finish();
+        self.seen_feedback.insert(feedback_hash);
+
+        // Remplacement du log pour éviter les fuites de données sensibles
+        let preview_len = feedback.input.len();
+        println!(
+            "Recording feedback: {:?} (input_len={})",
+            feedback.feedback_type, preview_len
+        );
 
         // Sauvegarder sur disque si configuré
         if self.config.save_history {
@@ -61,6 +87,23 @@ impl FeedbackAdjuster {
             )));
         }
 
+        // Vérification des dimensions du modèle et du tokenizer
+        if model.input_size() != tokenizer.vocab_size() {
+            return Err(FeedbackError::TrainingError(format!(
+                "Model input size ({}) does not match tokenizer vocab size ({})",
+                model.input_size(),
+                tokenizer.vocab_size()
+            )));
+        }
+
+        if model.output_size() != tokenizer.vocab_size() {
+            return Err(FeedbackError::TrainingError(format!(
+                "Model output size ({}) does not match tokenizer vocab size ({})",
+                model.output_size(),
+                tokenizer.vocab_size()
+            )));
+        }
+
         println!(
             "Adjusting model with {} feedback examples",
             self.feedback_history.len()
@@ -69,45 +112,52 @@ impl FeedbackAdjuster {
         let mut metrics = AdjustmentMetrics::new();
 
         // Filtrer les feedbacks négatifs (où correction est nécessaire)
-        let training_examples: Vec<_> = self.feedback_history.iter().collect();
+        let training_examples: Vec<(&str, String)> = self
+            .feedback_history
+            .iter()
+            .filter_map(|fb| {
+                let target = match &fb.feedback_type {
+                    FeedbackType::Incorrect {
+                        expected_output, ..
+                    } => expected_output.clone(),
+                    FeedbackType::Partial { correction, .. } => correction.clone(),
+                    FeedbackType::Correct { .. } => return None,
+                };
+                Some((fb.input.as_str(), target))
+            })
+            .collect();
 
         if training_examples.is_empty() {
-            println!("No negative feedback to learn from");
+            println!("No valid feedback to learn from");
             return Ok(metrics);
         }
 
         println!("Training on {} negative examples", training_examples.len());
 
+        // Vérification de la taille des batchs pour éviter les divisions par zéro
+        if self.config.batch_size == 0 {
+            return Err(FeedbackError::TrainingError(
+                "batch_size must be > 0".into(),
+            ));
+        }
+
         // Fine-tuning en mini-batches
         for (batch_idx, batch) in training_examples.chunks(self.config.batch_size).enumerate() {
             let mut batch_loss = 0.0;
 
-            for feedback in batch {
-                let input = feedback.input.clone();
-                let expected = feedback.generated_output.clone();
-
+            for (input, expected) in batch {
                 // Tokenize input et expected output
-                let input_tokens = tokenizer.encode(&input);
-                let expected_tokens = tokenizer.encode(&expected);
+                let input_tokens = tokenizer.encode(input);
+                let expected_tokens = tokenizer.encode(expected);
 
                 // Convert to ndarray
                 let input_vec = self.tokens_to_vector(&input_tokens, tokenizer.vocab_size());
                 let target_vec = self.tokens_to_vector(&expected_tokens, tokenizer.vocab_size());
 
-                // Forward pass
-                let output = model.forward(&input_vec)?;
-
-                // Calculer l'erreur
-                let error = &target_vec - &output;
-                let loss = error.mapv(|x| x * x).sum() / error.len() as f64;
+                // Forward pass et backward
+                model.forward(&input_vec)?;
+                let loss = model.backward(&target_vec, self.config.learning_rate)?;
                 batch_loss += loss;
-
-                // Backward pass avec learning rate réduit
-                // Note: Pour un vrai fine-tuning, il faudrait backprop à travers toutes les couches
-                // Ici on fait un ajustement simple sur la dernière couche
-                for layer in model.layers_mut().iter_mut().rev().take(1) {
-                    layer.backward(&error, self.config.learning_rate)?;
-                }
             }
 
             let avg_batch_loss = batch_loss / batch.len() as f64;
@@ -166,7 +216,7 @@ impl FeedbackAdjuster {
 
         for fb in &self.feedback_history {
             match fb.feedback_type {
-                FeedbackType::Correct => correct += 1,
+                FeedbackType::Correct { metadata: _ } => correct += 1,
                 FeedbackType::Incorrect { .. } => incorrect += 1,
                 FeedbackType::Partial { .. } => partial += 1,
             }
@@ -192,6 +242,22 @@ impl FeedbackAdjuster {
             self.save_history()?;
         }
         Ok(())
+    }
+
+    pub fn has_feedback(&self, feedback_hash: &str) -> bool {
+        let mut hasher = DefaultHasher::new();
+        feedback_hash.hash(&mut hasher);
+        let target_hash = hasher.finish();
+
+        self.seen_feedback.contains(&target_hash)
+    }
+
+    pub fn feedback_count(&self) -> usize {
+        self.feedback_history.len()
+    }
+
+    pub fn min_feedback_for_adjustment(&self) -> usize {
+        self.config.min_feedback_count
     }
 
     fn save_history(&self) -> Result<(), FeedbackError> {

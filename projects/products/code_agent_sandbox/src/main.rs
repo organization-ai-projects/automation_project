@@ -1,266 +1,172 @@
 // projects/products/code_agent_sandbox/src/main.rs
-use std::{
-    io::{self, Read},
-    path::PathBuf,
-};
+mod actions;
+mod agents;
+mod command_runner;
+mod engine;
+mod journal;
+mod memory;
+mod normalization;
+mod policy;
+mod policy_config;
+mod runner_config;
+mod sandbox_fs;
+mod score;
+mod worktree;
 
-use ai::{ai_orchestrator::AiOrchestrator, solver_strategy::SolverStrategy, task::Task};
-use anyhow::{Context, Result};
-use chrono::Utc;
-use code_agent_sandbox::{
-    policy::PolicyConfig, runner::RunnerConfig, Action, ActionResult, CommandRunner, Journal,
-    Policy, SandboxFs, ScoreConfig, ScoreSummary,
-};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use crate::agents::agent_driver;
+use crate::engine::engine_orchestrator;
+use crate::engine::{EngineConfig, EnginePaths, LowLevelActionContext, Request};
+use ai::ai_body::AiBody;
+use ai::task::Task;
+use anyhow::{bail, Context, Result};
+use std::io::{self, Read};
+use std::path::PathBuf;
+use tracing::warn;
 
-/// This program is a "tampon" (gateway) between an AI agent and your machine.
-/// It executes a constrained set of actions (file reads/writes/patch + cargo commands)
-/// inside an allowlisted root, logs everything, and returns structured results.
-///
-/// Usage:
-///   echo '<json request>' | cargo run --release -- <repo_root> <run_root>
-/// Example:
-///   echo '{"run_id":null,"actions":[{"kind":"RunCargo","args":{"subcommand":"check","args":[]}}]}' \
-///     | cargo run --release -- ./my_repo ./.agent_runs
 fn main() -> Result<()> {
-    // Définir les chemins par défaut pour repo_root et runs_root avec des chemins relatifs
-    let repo_root = PathBuf::from("./");
-    let runs_root = PathBuf::from("./projects/products/code_agent_sandbox");
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() != 3 {
+        eprintln!(
+            "Usage: {} <repo_root> <runs_root>",
+            args.first()
+                .map(|s| s.as_str())
+                .unwrap_or("code_agent_sandbox")
+        );
+        bail!("invalid arguments");
+    }
 
-    // Lire l'entrée JSON complète depuis stdin
+    let paths = EnginePaths {
+        repo_root: PathBuf::from(&args[1]),
+        runs_root: PathBuf::from(&args[2]),
+    };
+
+    let config = EngineConfig::default();
+
+    // stdin -> Request
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
-    let mut req: Request = serde_json::from_str(&input).context("invalid JSON request")?;
+    let req: Request = serde_json::from_str(&input).context("Invalid JSON input for Request")?;
 
-    // Create run id if absent
-    let run_id = req
-        .run_id
-        .take()
-        .unwrap_or_else(|| Uuid::new_v4().to_string());
-
-    // Build run directory
-    let timestamp = Utc::now().format("%Y-%m-%d_%H-%M-%S").to_string();
-    let run_dir = runs_root.join(format!("{}_{}", timestamp, run_id));
-    std::fs::create_dir_all(&run_dir)?;
-
-    // Set up policy
-    let policy = Policy::new(PolicyConfig {
-        repo_root: repo_root.clone(),
-        run_dir: run_dir.clone(),
-        // Tight defaults (edit these to your taste)
-        max_read_bytes: 1_500_000,
-        max_write_bytes: 2_000_000,
-        max_files_per_request: 80,
-        forbid_globs: vec![
-            ".git/**".into(),
-            "**/.env".into(),
-            "**/.env.*".into(),
-            "**/id_rsa".into(),
-            "**/id_ed25519".into(),
-            "**/secrets/**".into(),
-            "**/target/**".into(),
-        ],
-        allow_write_globs: vec![
-            "src/**".into(),
-            "tests/**".into(),
-            "examples/**".into(),
-            "benches/**".into(),
-            "Cargo.toml".into(),
-            "README.md".into(),
-        ],
-        allow_read_globs: vec![
-            "**".into(), // read is broad, still filtered by forbid_globs + size limits
-        ],
-    })?;
-
-    // File system gateway
-    let sfs = SandboxFs::new(policy.clone());
-
-    // Ajouter un espace dédié pour l'IA
-    let ai_workspace = runs_root.join("ai_workspace");
-    std::fs::create_dir_all(&ai_workspace)?;
-
-    // Étendre le CommandRunner pour autoriser l'exécution de scripts dans l'espace IA
-    let runner = CommandRunner::new(
-        policy.clone(),
-        RunnerConfig {
-            allowed_bins: vec!["cargo".into(), "python3".into()], // Autoriser Python
-            allowed_cargo_subcommands: vec![
-                "check".into(),
-                "test".into(),
-                "clippy".into(),
-                "fmt".into(),
-            ],
-            timeout_ms: 120_000,
-            env_allowlist: vec!["RUST_LOG".into()],
-        },
-    );
-
-    // Journal
-    let mut journal = Journal::new(run_dir.join("journal.jsonl"))?;
-
-    // Initialiser l'orchestrateur AI
-    let mut ai_orchestrator = AiOrchestrator::new()?;
-
-    // Charger un modèle neuronal si nécessaire
-    let model_path = PathBuf::from("./models/neural_model.bin");
-    let tokenizer_path = PathBuf::from("./models/tokenizer.json");
-    if model_path.exists() && tokenizer_path.exists() {
-        ai_orchestrator.load_neural_model(&model_path, &tokenizer_path)?;
+    // IA obligatoire
+    if req.agent.is_none() {
+        bail!("agent is required: AI is not optional");
     }
 
-    // Exemple d'utilisation de l'orchestrateur pour résoudre une tâche
-    let task = Task::new_code_generation("fn main() { println!(\"Hello, world!\"); }".into());
-    let result = ai_orchestrator.solve(&task)?;
-    println!("Résultat de la tâche : {:?}", result);
+    // 1) Engine init (ENGINE ONLY)
+    let workspace_mode = req.workspace_mode.clone();
 
-    // Exemple d'utilisation de l'approche hybride
-    let hybrid_task =
-        Task::new_code_generation("fn main() { println!(\"Hello, Hybrid AI!\"); }".into());
-    let hybrid_result = ai_orchestrator.solve_forced(&hybrid_task, SolverStrategy::Hybrid)?;
-    println!("Résultat hybride : {:?}", hybrid_result);
+    let mut init = engine_orchestrator::initialize_engine(
+        &paths,
+        &config,
+        req.run_id.as_deref(), // Respecte le run_id fourni dans la requête
+        workspace_mode,
+    )?;
 
-    // Execute actions
-    let mut results = Vec::with_capacity(req.actions.len());
-    let mut files_touched = 0usize;
-
-    // Utiliser une référence pour éviter le déplacement
-    for action in &req.actions {
-        files_touched += action.estimated_file_touch_count();
-        if files_touched > policy.config().max_files_per_request {
-            results.push(ActionResult::error(
-                "PolicyViolation",
-                format!(
-                    "Too many files touched in one request (>{})",
-                    policy.config().max_files_per_request
-                ),
-            ));
-            break;
-        }
-
-        let timestamp = Utc::now().to_rfc3339();
-        journal.record_action(&run_id, action, &timestamp)?;
-
-        let res = match action {
-            Action::ReadFile { path } => sfs.read_file(path),
-            Action::ListDir { path, max_depth } => sfs.list_dir(path, *max_depth),
-            Action::WriteFile {
-                path,
-                contents,
-                create_dirs,
-            } => sfs.write_file(path, contents, *create_dirs),
-            Action::ApplyUnifiedDiff { path, unified_diff } => {
-                sfs.apply_unified_diff(path, unified_diff)
-            }
-            Action::RunCargo { subcommand, args } => runner.run_cargo(subcommand, args),
-            Action::GenerateCode { language, code } => {
-                let language = language.to_lowercase();
-                let file_path = ai_workspace.join(format!("generated_{}.{}", timestamp, language));
-                std::fs::write(&file_path, code)?;
-
-                if language == "python" {
-                    runner.run_command("python3", &[file_path.to_string_lossy().to_string()])
-                } else if language == "rust" {
-                    let output_binary =
-                        ai_workspace.join(format!("generated_{}_binary", timestamp));
-                    let compile_status = runner.run_command(
-                        "rustc",
-                        &[
-                            file_path.to_string_lossy().to_string(),
-                            "-o".to_string(),
-                            output_binary.to_string_lossy().to_string(),
-                        ],
-                    );
-
-                    if let Ok(result) = compile_status {
-                        if result.ok {
-                            runner.run_command(output_binary.to_string_lossy().as_ref(), &[])
-                        } else {
-                            Ok(result)
-                        }
-                    } else {
-                        compile_status
-                    }
-                } else {
-                    Ok(ActionResult::error(
-                        "UnsupportedLanguage",
-                        format!("Language '{}' is not supported", language),
-                    ))
-                }
-            }
+    // 2) Low-level actions (ENGINE ONLY)
+    let mut results = Vec::new();
+    {
+        let mut ll_ctx = LowLevelActionContext {
+            policy: &init.policy,
+            sfs: &init.sfs,
+            runner: &init.runner,
+            run_dir: &init.run_dir,
+            journal: &mut init.journal,
+            config: &config,
         };
 
-        let res = match res {
-            Ok(ok) => ok,
-            Err(e) => ActionResult::error("ExecutionError", format!("{:#}", e)),
+        let low_level = engine::run_low_level_actions(&init.run_id, &req.actions, &mut ll_ctx)?;
+        results.extend(low_level);
+    }
+
+    // Ensure models/ and replay.jsonl paths exist
+    let model_dir = paths.runs_root.join("models");
+    let replay_path = paths.runs_root.join("replay.jsonl");
+
+    std::fs::create_dir_all(&model_dir).context("Failed to create models directory")?;
+    if !replay_path.exists() {
+        std::fs::File::create(&replay_path).context("Failed to create replay file")?;
+    }
+
+    // Pass paths to the agent request
+    let mut agent_req = req.agent.clone().unwrap(); // safe: checked above
+    agent_req.model_dir = Some(model_dir.clone());
+    agent_req.replay_path = Some(replay_path.clone());
+
+    // 3) Agent IA (APP orchestration, donc main.rs)
+    let (agent_outcome, agent_results) = {
+        let mut agent_ctx = crate::engine::EngineCtx {
+            run_id: init.run_id.clone(),
+            sfs: init.sfs.clone(),
+            runner: init.runner.clone(),
+            journal: &mut init.journal,
         };
 
-        let timestamp = Utc::now().to_rfc3339();
-        journal.record_result(&run_id, &res, &timestamp)?;
-        results.push(res);
-    }
+        agent_driver::run_agent_with_orchestrator(&mut agent_ctx, &init.run_dir, agent_req)?
+    };
 
-    // Cloner les actions pour éviter le déplacement
-    let actions = req.actions.clone();
+    results.extend(agent_results);
 
-    // Journaliser les actions de l'IA
-    for action in &actions {
-        if let Action::GenerateCode { language, code } = &action {
-            let timestamp = Utc::now().to_rfc3339();
-            journal.record_action(&run_id, action, &timestamp)?;
+    // 4) Score + Response (ENGINE ONLY helpers)
+    let score = engine_orchestrator::score_results(&results);
 
-            // Sauvegarder le code généré dans l'espace IA
-            let file_path = ai_workspace.join(format!("generated_{}.{}", timestamp, language));
-            std::fs::write(&file_path, code)?;
+    // Cloner agent_outcome avant de le déplacer
+    let agent_outcome_clone = agent_outcome.clone();
 
-            // Exécuter le code si nécessaire (par exemple, pour Python)
-            if language == "python" {
-                let res = runner.run_command("python3", &[file_path.to_string_lossy().to_string()]);
-                let res = match res {
-                    Ok(ok) => ok,
-                    Err(e) => ActionResult::error("ExecutionError", format!("{:#}", e)),
-                };
-
-                let timestamp = Utc::now().to_rfc3339();
-                journal.record_result(&run_id, &res, &timestamp)?;
-                results.push(res);
-            }
-        }
-    }
-
-    // Optional scoring pass: summarize the session quality (unwrap penalties, clippy hints, etc.)
-    let score = ScoreSummary::from_results(
-        &results,
-        ScoreConfig {
-            penalize_unwrap_outside_tests: true,
-            unwrap_penalty: 10,
-            penalize_panic_outside_tests: true,
-            panic_penalty: 20,
-            penalize_dbg_outside_tests: true,
-            dbg_penalty: 10,
-        },
-    );
-
-    let resp = Response {
-        run_id,
+    // Passer à l'agent outcome cloné ici
+    let resp = engine_orchestrator::finalize_response(
+        init.run_id,
+        req.workspace_mode,
+        &init.work_root,
         results,
         score,
-    };
-    print!("{}", serde_json::to_string_pretty(&resp)?);
+        Some(agent_outcome),
+    );
+
+    println!("{}", serde_json::to_string_pretty(&resp)?);
+
+    // Vérification et centralisation des interactions via AiBody
+    // Suppression des interactions directes inutiles avec d'autres modules
+    // Charger les exemples d'entraînement existants
+    let mut ai_body = AiBody::new()?;
+    let training_examples = ai_body
+        .load_training_examples(&replay_path)
+        .unwrap_or_else(|_| {
+            warn!("Failed to load training examples. Starting with an empty replay buffer.");
+            vec![]
+        });
+
+    // Utilisation de training_examples pour éviter l'erreur
+    tracing::info!("Loaded {} training examples", training_examples.len());
+
+    // Ajouter un exemple d'entraînement après une action réussie
+    if let Some(example) = agent_outcome_clone.training_example.as_ref() {
+        // Utilisation correcte de example
+        let task = Task::new_code_generation("example input".to_string());
+        ai_body
+            .train_with_verdict(
+                &task,
+                "example input",
+                example,
+                true, // Exemple correct
+            )
+            .unwrap_or_else(|e| {
+                warn!("Failed to train with verdict: {:?}", e);
+            });
+    }
+
+    // Sauvegarder le modèle neural après l'entraînement
+    let model_path = model_dir.join("neural_model.bin");
+    let tokenizer_path = model_dir.join("tokenizer.bin");
+    ai_body
+        .save_neural_model(&model_path, &tokenizer_path)
+        .unwrap_or_else(|e| {
+            warn!("Failed to save neural model: {:?}", e);
+        });
+
+    // Exemple d'utilisation de AiBody pour résoudre une tâche
+    let task = Task::new_code_generation("example task".to_string());
+    let result = ai_body.solve(&task)?;
+    tracing::info!("Résultat de la tâche: {:?}", result);
+
     Ok(())
-}
-
-#[derive(Debug, Deserialize)]
-struct Request {
-    #[serde(default)]
-    run_id: Option<String>,
-    actions: Vec<Action>,
-}
-
-#[derive(Debug, Serialize)]
-struct Response {
-    run_id: String,
-    results: Vec<ActionResult>,
-    score: ScoreSummary,
 }

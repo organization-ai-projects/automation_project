@@ -14,3 +14,6 @@ wait-timeout = "0.2"
 diffy = "0.3"
 chrono = "0.4"
 ai = { workspace = true }
+toml = "0.5"
+log = "0.4"
+tracing.workspace = true

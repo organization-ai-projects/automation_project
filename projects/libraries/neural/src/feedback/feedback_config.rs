@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/feedback/feedback_config.rs
 #[derive(Debug, Clone)]
 pub struct FeedbackConfig {
     /// Learning rate pour les ajustements
@@ -9,6 +10,8 @@ pub struct FeedbackConfig {
     /// Sauvegarder l'historique sur disque
     pub save_history: bool,
     pub history_path: std::path::PathBuf,
+    /// Ratio d'échantillonnage pour les feedbacks Correct
+    pub correct_sampling_ratio: f32,
 }
 
 impl Default for FeedbackConfig {
@@ -19,6 +22,7 @@ impl Default for FeedbackConfig {
             batch_size: 5,
             save_history: true,
             history_path: "data/feedback_history.json".into(),
+            correct_sampling_ratio: 0.05, // Valeur par défaut, à ajuster selon les besoins
         }
     }
 }

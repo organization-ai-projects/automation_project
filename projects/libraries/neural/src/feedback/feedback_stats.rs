@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/feedback/feedback_stats.rs
 #[derive(Debug, Clone)]
 pub struct FeedbackStats {
     pub total: usize,

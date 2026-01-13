@@ -7,7 +7,7 @@ use serde::Serialize;
 use crate::actions::{Action, ActionResult};
 
 pub struct Journal {
-    file: std::fs::File,
+    pub file: std::fs::File,
 }
 
 impl Journal {

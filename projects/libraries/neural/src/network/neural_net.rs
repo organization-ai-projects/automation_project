@@ -77,6 +77,8 @@ pub struct Layer {
     last_input: Option<Array1<f64>>,
     #[serde(skip)]
     last_weighted_sum: Option<Array1<f64>>,
+    #[serde(skip)]
+    last_output: Option<Array1<f64>>,
 }
 
 impl Layer {
@@ -90,6 +92,7 @@ impl Layer {
             activation: config.activation,
             last_input: None,
             last_weighted_sum: None,
+            last_output: None,
         }
     }
 
@@ -137,6 +140,7 @@ impl Layer {
 
         // Apply activation
         let output = weighted_sum.mapv(|x| self.activation.apply(x));
+        self.last_output = Some(output.clone());
 
         Ok(output)
     }
@@ -166,12 +170,12 @@ impl Layer {
 
         let bias_gradient = delta.clone();
 
+        // Calculate input gradient for previous layer (BEFORE update)
+        let input_gradient = self.weights.t().dot(&delta);
+
         // Update parameters
         self.weights = &self.weights - learning_rate * &weight_gradient;
         self.biases = &self.biases - learning_rate * &bias_gradient;
-
-        // Calculate input gradient for previous layer
-        let input_gradient = self.weights.t().dot(&delta);
 
         Ok(input_gradient)
     }
@@ -246,14 +250,16 @@ impl NeuralNetwork {
         let output = self
             .layers
             .last()
-            .and_then(|l| l.last_input.as_ref())
+            .and_then(|l| l.last_output.as_ref())
             .ok_or_else(|| {
                 NetworkError::InvalidConfig("Must call forward() before backward()".to_string())
             })?;
 
         // Calculate initial gradient (MSE loss)
         let mut gradient = output - target;
-        let loss = gradient.mapv(|x| x * x).sum() / gradient.len() as f64;
+        let n = gradient.len() as f64;
+        let loss = gradient.mapv(|x| x * x).sum() / n;
+        gradient = (2.0 / n) * gradient;
 
         // Backpropagate through layers
         for layer in self.layers.iter_mut().rev() {

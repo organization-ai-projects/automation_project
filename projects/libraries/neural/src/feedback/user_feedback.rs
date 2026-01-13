@@ -1,10 +1,11 @@
-use common::format_timestamp;
+// projects/libraries/neural/src/feedback/user_feedback.rs
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 use crate::feedback::FeedbackType;
 
-/// Structure du feedback utilisateur
-#[derive(Debug, Clone)]
+/// structure du feadback utilisateur pour la partie neuronale
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserFeedback {
     /// Input original qui a produit la génération
     pub input: String,
@@ -12,49 +13,53 @@ pub struct UserFeedback {
     pub generated_output: String,
     /// Type de feedback
     pub feedback_type: FeedbackType,
-    /// Timestamp
-    pub timestamp: std::time::SystemTime,
+
+    /// Timestamp Unix en secondes (stable en sérialisation)
+    pub timestamp_unix_secs: u64,
 }
 
 impl UserFeedback {
+    pub fn new(
+        input: impl Into<String>,
+        generated_output: impl Into<String>,
+        feedback_type: FeedbackType,
+    ) -> Self {
+        let timestamp_unix_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0); // Pas de log ici, laisse le caller gérer
+
+        Self {
+            input: input.into(),
+            generated_output: generated_output.into(),
+            feedback_type,
+            timestamp_unix_secs,
+        }
+    }
+
+    pub fn from_parts(input: &str, generated_output: &str, feedback_type: FeedbackType) -> Self {
+        let timestamp_unix_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        Self {
+            input: input.to_string(),
+            generated_output: generated_output.to_string(),
+            feedback_type,
+            timestamp_unix_secs,
+        }
+    }
+
     pub fn formatted_timestamp(&self) -> String {
-        format_timestamp(
-            self.timestamp
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        )
+        common::format_timestamp(self.timestamp_unix_secs)
     }
 }
 
-impl Serialize for UserFeedback {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("UserFeedback", 4)?;
-        state.serialize_field("input", &self.input)?;
-        state.serialize_field("generated_output", &self.generated_output)?;
-        state.serialize_field("feedback_type", &format!("{:?}", self.feedback_type))?;
-        state.serialize_field(
-            "timestamp",
-            &self
-                .timestamp
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        )?;
-        state.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for UserFeedback {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // Implémentation simplifiée
-        todo!("Implement deserialize for UserFeedback")
+impl Hash for UserFeedback {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.input.hash(state);
+        self.generated_output.hash(state);
+        self.timestamp_unix_secs.hash(state);
     }
 }

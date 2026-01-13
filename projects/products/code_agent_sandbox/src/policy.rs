@@ -1,199 +1,188 @@
 // projects/products/code_agent_sandbox/src/policy.rs
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use serde::{Deserialize, Serialize};
+use toml::Value;
 
-#[derive(Debug, Clone)]
+use crate::policy_config::PolicyConfig;
+
+#[derive(Clone)]
 pub struct Policy {
     cfg: PolicyConfig,
-    repo_root_canon: PathBuf,
-    run_dir_canon: PathBuf,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PolicyConfig {
-    pub repo_root: PathBuf,
-    pub run_dir: PathBuf,
-
-    pub max_read_bytes: usize,
-    pub max_write_bytes: usize,
-    pub max_files_per_request: usize,
-
-    /// Deny patterns (simple glob-ish with "**" and "*" only).
-    pub forbid_globs: Vec<String>,
-    /// Allow writes only to these.
-    pub allow_write_globs: Vec<String>,
-    /// Allow reads to these (still filtered by forbid_globs).
-    pub allow_read_globs: Vec<String>,
 }
 
 impl Policy {
     pub fn new(cfg: PolicyConfig) -> Result<Self> {
-        let repo_root_canon =
-            canonical_dir(&cfg.repo_root).context("repo_root must exist and be a directory")?;
-        let run_dir_canon = canonical_dir(&cfg.run_dir)
-            .or_else(|_| {
-                std::fs::create_dir_all(&cfg.run_dir)?;
-                canonical_dir(&cfg.run_dir)
-            })
-            .context("run_dir invalid")?;
-
-        Ok(Self {
-            cfg,
-            repo_root_canon,
-            run_dir_canon,
-        })
+        Ok(Self { cfg })
     }
 
     pub fn config(&self) -> &PolicyConfig {
         &self.cfg
     }
 
-    pub fn repo_root(&self) -> &Path {
-        &self.repo_root_canon
+    pub fn source_repo_root(&self) -> &Path {
+        &self.cfg.source_repo_root
+    }
+
+    pub fn work_root(&self) -> &Path {
+        &self.cfg.work_root
     }
 
     pub fn run_dir(&self) -> &Path {
-        &self.run_dir_canon
+        &self.cfg.run_dir
     }
 
-    /// Resolve a repo-relative path (like "src/main.rs") into a canonical absolute path
-    /// and enforce allow/deny rules.
-    pub fn resolve_repo_path_for_read(&self, rel: &str) -> Result<PathBuf> {
-        let abs = self.safe_join(self.repo_root(), rel)?;
-        self.enforce_globs(
-            rel,
-            &self.cfg.allow_read_globs,
-            &self.cfg.forbid_globs,
-            "read",
-        )?;
-        Ok(abs)
+    pub fn resolve_work_path_for_read(&self, rel: &str) -> Result<PathBuf> {
+        self.resolve_work_path(rel, AccessKind::Read)
     }
 
-    pub fn resolve_repo_path_for_write(&self, rel: &str) -> Result<PathBuf> {
-        let abs = self.safe_join(self.repo_root(), rel)?;
-        self.enforce_globs(
-            rel,
-            &self.cfg.allow_write_globs,
-            &self.cfg.forbid_globs,
-            "write",
-        )?;
-        Ok(abs)
+    pub fn resolve_work_path_for_write(&self, rel: &str) -> Result<PathBuf> {
+        self.resolve_work_path(rel, AccessKind::Write)
     }
 
-    fn safe_join(&self, root: &Path, rel: &str) -> Result<PathBuf> {
-        if rel.contains('\0') {
-            bail!("invalid path (NUL byte)");
+    fn is_allowed(&self, rel_norm: &str, kind: AccessKind) -> bool {
+        match kind {
+            AccessKind::Read => self
+                .cfg
+                .allow_read_globs
+                .iter()
+                .any(|g| glob_match(rel_norm, g)),
+            AccessKind::Write => self
+                .cfg
+                .allow_write_globs
+                .iter()
+                .any(|g| glob_match(rel_norm, g)),
         }
+    }
 
-        // Very defensive: forbid absolute paths and parent traversal.
-        let rel_path = Path::new(rel);
-        if rel_path.is_absolute() {
-            bail!("absolute paths forbidden: {rel}");
-        }
-        if rel_path
-            .components()
-            .any(|c| matches!(c, std::path::Component::ParentDir))
+    fn resolve_work_path(&self, rel: &str, kind: AccessKind) -> Result<PathBuf> {
+        let rel_norm = normalize_rel(rel);
+
+        // Reject paths with invalid segments
+        if rel_norm
+            .split('/')
+            .any(|seg| seg == ".." || seg.is_empty() || seg == ".")
         {
-            bail!("parent traversal forbidden: {rel}");
+            bail!("invalid relative path: {rel_norm}");
         }
 
-        let joined = root.join(rel_path);
+        // Vérifie d'abord les chemins interdits
+        if self
+            .cfg
+            .forbid_globs
+            .iter()
+            .any(|g| glob_match(&rel_norm, g))
+        {
+            bail!("forbidden path by policy: {rel_norm}");
+        }
 
-        // Canonicalize parent dir if file doesn't exist yet.
-        let canon = if joined.exists() {
-            joined
-                .canonicalize()
-                .with_context(|| format!("cannot canonicalize: {rel}"))?
-        } else {
-            let parent = joined.parent().context("path has no parent")?;
-            let parent_canon = parent
-                .canonicalize()
-                .with_context(|| format!("cannot canonicalize parent for: {rel}"))?;
-            parent_canon.join(joined.file_name().context("invalid file name")?)
+        // Applique la logique deny-by-default
+        if !self.is_allowed(&rel_norm, kind) {
+            bail!("access not allowed by policy: {rel_norm}");
+        }
+
+        let abs = self.cfg.work_root.join(&rel_norm);
+
+        // Protection contre la traversée de répertoires
+        let canon_root =
+            std::fs::canonicalize(&self.cfg.work_root).unwrap_or(self.cfg.work_root.clone());
+        let parent = abs.parent().unwrap_or(&abs);
+        let canon_parent = std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
+        if !canon_parent.starts_with(&canon_root) {
+            bail!("path traversal detected: {rel_norm}");
+        }
+
+        Ok(abs)
+    }
+
+    pub fn load_with_overrides(cfg: PolicyConfig, overrides_path: &Path) -> Result<Self> {
+        let mut policy = Self::new(cfg)?;
+
+        if overrides_path.exists() {
+            let content = fs::read_to_string(overrides_path)
+                .context("Failed to read policy_overrides.toml")?;
+            let overrides: Value =
+                toml::from_str(&content).context("Failed to parse policy_overrides.toml")?;
+
+            if let Some(forbid) = overrides.get("forbid_globs").and_then(|v| v.as_array()) {
+                for glob in forbid.iter().filter_map(|v| v.as_str()) {
+                    policy.cfg.forbid_globs.push(glob.to_string());
+                    log::info!("OVERRIDE: Added to forbid_globs: {}", glob);
+                }
+            }
+
+            if overrides.get("allow_read_globs").is_some()
+                || overrides.get("allow_write_globs").is_some()
+            {
+                log::warn!("OVERRIDE: Allow rules in overrides are ignored for safety.");
+            }
+        }
+
+        Ok(policy)
+    }
+}
+
+#[derive(Copy, Clone)]
+enum AccessKind {
+    Read,
+    Write,
+}
+
+fn normalize_rel(rel: &str) -> String {
+    let mut s = rel.trim().replace('\\', "/");
+    while s.starts_with("./") {
+        s = s[2..].to_string();
+    }
+    while s.starts_with('/') {
+        s = s[1..].to_string();
+    }
+    s
+}
+
+/// IMPORTANT: you already have this function used by SandboxFs.
+/// Keep your existing implementation if you have one.
+/// This fallback is minimal.
+pub fn glob_match(path: &str, pattern: &str) -> bool {
+    if pattern == "**" || pattern == "**/**" {
+        return true;
+    }
+    if let Some(prefix) = pattern.strip_suffix("/**") {
+        return path == prefix || path.starts_with(&format!("{prefix}/"));
+    }
+    if pattern.contains('*') {
+        // Refuse ambiguous patterns in a sandbox
+        return false;
+    }
+    path == pattern
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_forbid_wins_over_allow() {
+        let cfg = PolicyConfig {
+            source_repo_root: PathBuf::from("/repo"),
+            work_root: PathBuf::from("/work"),
+            run_dir: PathBuf::from("/run"),
+            max_read_bytes: 1024,
+            max_write_bytes: 1024,
+            max_files_per_request: 10,
+            forbid_globs: vec!["src/forbidden/**".into()],
+            allow_read_globs: vec!["src/**".into()],
+            allow_write_globs: vec![],
         };
 
-        // Ensure it stays inside root.
-        let root = root.canonicalize()?;
-        if !canon.starts_with(&root) {
-            bail!("path escapes root: {rel}");
-        }
-        Ok(canon)
+        let policy = Policy::new(cfg).unwrap();
+
+        // Path is allowed by `allow_read_globs` but forbidden by `forbid_globs`
+        let result = policy.resolve_work_path("src/forbidden/file.txt", AccessKind::Read);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("forbidden path by policy"));
     }
-
-    fn enforce_globs(&self, rel: &str, allow: &[String], deny: &[String], op: &str) -> Result<()> {
-        let rel_norm = rel.replace('\\', "/");
-
-        if deny.iter().any(|g| glob_match(&rel_norm, g)) {
-            bail!("policy forbids {op} on: {rel}");
-        }
-
-        if !allow.is_empty() && !allow.iter().any(|g| glob_match(&rel_norm, g)) {
-            bail!("policy does not allow {op} on: {rel}");
-        }
-
-        Ok(())
-    }
-}
-
-fn canonical_dir(p: &Path) -> Result<PathBuf> {
-    let meta = std::fs::metadata(p)?;
-    if !meta.is_dir() {
-        bail!("not a directory: {}", p.display());
-    }
-    Ok(p.canonicalize()?)
-}
-
-/// Minimal glob matcher:
-/// - "*" matches any chars except "/"
-/// - "**" matches any chars including "/"
-///
-/// This is enough for policy gates without pulling a heavy glob engine.
-pub fn glob_match(path: &str, glob: &str) -> bool {
-    let p = path;
-    let g = glob.replace('\\', "/");
-
-    fn rec(p: &str, g: &str) -> bool {
-        if g.is_empty() {
-            return p.is_empty();
-        }
-        if g == "**" {
-            return true;
-        }
-        if let Some(rest) = g.strip_prefix("**/") {
-            // "**/" can match empty or any nested dirs
-            if rec(p, rest) {
-                return true;
-            }
-            if let Some(pos) = p.find('/') {
-                return rec(&p[pos + 1..], g);
-            }
-            return false;
-        }
-        if let Some(rest) = g.strip_prefix('*') {
-            // '*' matches any segment chars (not '/')
-            // try all possible consumptions until '/' boundary
-            let mut i = 0usize;
-            while i <= p.len() {
-                if i < p.len() && &p[i..i + 1] == "/" {
-                    break;
-                }
-                if rec(&p[i..], rest) {
-                    return true;
-                }
-                i += 1;
-            }
-            return false;
-        }
-        // literal char
-        if let (Some(pc), Some(gc)) = (p.chars().next(), g.chars().next()) {
-            if pc == gc {
-                return rec(&p[pc.len_utf8()..], &g[gc.len_utf8()..]);
-            }
-        }
-        false
-    }
-
-    rec(p, &g)
 }

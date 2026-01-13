@@ -1,4 +1,4 @@
-// Module for feedback loop
+// projects/libraries/neural/src/feedback/mod.rs
 pub mod adjustment_metrics;
 pub mod feedback_adjuster;
 pub mod feedback_config;
