@@ -1,7 +1,8 @@
 // projects/libraries/security/src/token_service.rs
 use crate::auth::UserId;
 use crate::{Claims, Role, Token, TokenError};
-use common::common_id::is_valid_id;
+use common::common_id::CommonID;
+use common::custom_uuid::Id128;
 use common_time::timestamp_utils::current_timestamp_ms;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use uuid::Uuid;
@@ -102,9 +103,9 @@ impl TokenService {
         let c = data.claims;
         println!("Horodatages du token: iat = {}, exp = {}", c.iat, c.exp);
 
-        // Hardening: validate sub numeric + is_valid_id even after decode
+        // Hardening: validate sub numeric + CommonID validation
         let user_id = UserId::from(c.sub.as_str());
-        if !is_valid_id(user_id.value()) {
+        if !CommonID::is_valid(Id128::new(user_id.value() as u16, None, None)) {
             return Err(TokenError::InvalidUserIdValue);
         }
 
@@ -166,7 +167,10 @@ impl TokenService {
 
     /// Validate a token's claims.
     pub fn validate_token(&self, token: &Token) -> Result<(), TokenError> {
-        if !is_valid_id(token.user_id.value()) {
+        // Validation basée sur CommonID
+        // Correction : validation avec le type attendu `Id128`
+        let id128 = Id128::new(token.user_id.value() as u16, None, None);
+        if !CommonID::is_valid(id128) {
             return Err(TokenError::InvalidUserIdValue);
         }
         Ok(())

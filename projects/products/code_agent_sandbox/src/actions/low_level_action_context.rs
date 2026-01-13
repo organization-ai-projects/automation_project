@@ -1,4 +1,3 @@
-// projects/products/code_agent_sandbox/src/engine/low_level_action_context.rs
 use std::path::Path;
 
 use crate::{
@@ -52,6 +51,16 @@ pub fn run_low_level_actions(
 
         record_action_event(ctx.journal, run_id, action)?;
 
+        // Vérification de la politique avant d'exécuter l'action
+        if let Err(policy_violation) = ctx.policy.authorize_action(action) {
+            let res = ActionResult::error(
+                "PolicyViolation",
+                format!("Action not allowed by policy: {}", policy_violation),
+            );
+            record_and_push_result(ctx.journal, run_id, res, &mut results)?;
+            continue;
+        }
+
         if records::check_file_limit(
             files_touched,
             ctx.config.max_files_per_request,
@@ -73,7 +82,15 @@ pub fn run_low_level_actions(
             Action::ApplyUnifiedDiff { path, unified_diff } => {
                 ctx.sfs.apply_unified_diff(path, unified_diff)
             }
-            Action::RunCargo { subcommand, args } => ctx.runner.run_cargo(subcommand, args),
+            Action::RunCargo { subcommand, args } => {
+                // Vérifie si la commande cargo nécessite d'être exécutée dans un environnement sécurisé (bunker).
+                if CommandRunner::requires_bunker(subcommand) {
+                    ctx.runner
+                        .run_in_bunker("cargo", &[subcommand.clone(), args.join(" ")])
+                } else {
+                    ctx.runner.run_cargo(subcommand, args)
+                }
+            }
             Action::GenerateCode { language, code } => handle_generate_code(language, code, ctx),
         };
 

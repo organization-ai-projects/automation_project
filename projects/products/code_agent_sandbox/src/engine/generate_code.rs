@@ -2,7 +2,7 @@
 use uuid::Uuid;
 
 use crate::{
-    actions::ActionResult, engine::LowLevelActionContext, normalization::normalize_extension,
+    actions::{ActionResult, LowLevelActionContext}, normalization::normalize_extension,
 };
 
 pub fn handle_generate_code(
@@ -35,7 +35,7 @@ pub fn handle_generate_code(
     Ok(ActionResult::success(
         "CodeGenerated",
         "saved",
-        Some(serde_json::json!({
+        Some(protocol::json!({
             "path": file_path.to_string_lossy(),
             "language": language,
             "bytes": code.len()

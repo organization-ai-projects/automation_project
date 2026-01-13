@@ -1,4 +1,5 @@
 // projects/products/code_agent_sandbox/src/actions/action_result.rs
+use protocol::Json;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -9,14 +10,14 @@ pub struct ActionResult {
     pub message: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<serde_json::Value>,
+    pub data: Option<Json>,
 }
 
 impl ActionResult {
     pub fn success(
         kind: impl Into<String>,
         message: impl Into<String>,
-        data: Option<serde_json::Value>,
+        data: Option<Json>,
     ) -> Self {
         Self {
             ok: true,

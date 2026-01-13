@@ -1,4 +1,4 @@
-use ndarray::Array1;
+use ndarray::{Array1, s};
 
 use crate::{
     generation::{GenerationConfig, GenerationError, apply_top_k, sample_categorical, softmax},
@@ -22,28 +22,41 @@ impl CodeGenerator {
     }
 
     pub fn generate(&mut self, prompt: &str) -> Result<String, GenerationError> {
+        println!("Starting generation with prompt: {}", prompt);
         let prompt_tokens = self.tokenizer.encode(prompt);
+        println!("Encoded tokens: {:?}", prompt_tokens);
         let generated_tokens = self.generate_tokens(prompt_tokens)?;
+        println!("Generated tokens: {:?}", generated_tokens);
         let code = self
             .tokenizer
             .decode(&generated_tokens)
             .map_err(|e| GenerationError::TokenizationError(e.to_string()))?;
+        println!("Decoded code: {}", code);
         Ok(code)
     }
 
     fn generate_tokens(&mut self, mut tokens: Vec<usize>) -> Result<Vec<usize>, GenerationError> {
+        println!(
+            "Starting token generation with initial tokens: {:?}",
+            tokens
+        );
         for _ in 0..self.config.max_new_tokens {
             let input = self.tokens_to_input(&tokens)?;
+            println!("Input vector: {:?}", input);
             let logits = self
                 .model
                 .forward(&input)
                 .map_err(GenerationError::NetworkError)?;
+            println!("Logits: {:?}", logits);
             let next_token = self.sample_token(&logits)?;
+            println!("Sampled next token: {}", next_token);
             tokens.push(next_token);
             if next_token == self.config.stop_token_id {
+                println!("Stop token encountered: {}", next_token);
                 break;
             }
         }
+        println!("Generated tokens: {:?}", tokens);
         Ok(tokens)
     }
 
@@ -60,19 +73,37 @@ impl CodeGenerator {
         if context_size > 0 {
             input /= context_size as f64;
         }
+
+        // Ensure the input vector matches the model's expected input size
+        let model_input_size = self.model.input_size();
+        if input.len() != model_input_size {
+            let mut resized_input = Array1::<f64>::zeros(model_input_size);
+            let copy_len = input.len().min(model_input_size);
+            resized_input
+                .slice_mut(s![..copy_len])
+                .assign(&input.slice(s![..copy_len]));
+            return Ok(resized_input);
+        }
+
         Ok(input)
     }
 
     fn sample_token(&self, logits: &Array1<f64>) -> Result<usize, GenerationError> {
+        println!("Logits before scaling: {:?}", logits);
         let scaled_logits = logits / self.config.temperature as f64;
+        println!("Logits after scaling: {:?}", scaled_logits);
         let mut probs = softmax(&scaled_logits);
+        println!("Probabilities after softmax: {:?}", probs);
 
         // Apply top-k filtering if configured
         if let Some(k) = self.config.top_k {
             probs = apply_top_k(&probs, k);
+            println!("Probabilities after top-k filtering: {:?}", probs);
         }
 
-        sample_categorical(&probs)
+        let sampled_token = sample_categorical(&probs)?;
+        println!("Sampled token: {}", sampled_token);
+        Ok(sampled_token)
     }
 
     /// Serialize the neural network model to disk

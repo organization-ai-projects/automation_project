@@ -1,8 +1,10 @@
-use std::{fs, path::PathBuf};
+// projects/products/code_agent_sandbox/src/sandbox_fs.rs
+use std::{fs::{self, OpenOptions}, io::Write, path::{Path, PathBuf}};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use diffy::{apply, Patch};
-use serde_json::json;
+use protocol::json;
+use rand::{rngs::OsRng, TryRngCore};
 use walkdir::WalkDir;
 
 use crate::{actions::ActionResult, policy::Policy};
@@ -19,19 +21,21 @@ impl SandboxFs {
 
     pub fn read_file(&self, rel: &str) -> Result<ActionResult> {
         let path = self.policy.resolve_work_path_for_read(rel)?;
-        let bytes = fs::read(&path).with_context(|| format!("read failed: {}", path.display()))?;
+        let metadata =
+            fs::metadata(&path).with_context(|| format!("metadata failed: {}", path.display()))?;
 
-        if bytes.len() > self.policy.config().max_read_bytes {
+        if metadata.len() as usize > self.policy.config().max_read_bytes {
             return Ok(ActionResult::error(
                 "PolicyViolation",
                 format!(
                     "read too large: {} bytes (max {})",
-                    bytes.len(),
+                    metadata.len(),
                     self.policy.config().max_read_bytes
                 ),
             ));
         }
 
+        let bytes = fs::read(&path).with_context(|| format!("read failed: {}", path.display()))?;
         let text = String::from_utf8_lossy(&bytes).to_string();
 
         Ok(ActionResult::success(
@@ -54,28 +58,15 @@ impl SandboxFs {
             let p = e.path();
             let is_dir = p.is_dir();
 
-            let rel_display = p
-                .strip_prefix(self.policy.work_root())
-                .map(|r| r.to_string_lossy().replace('\\', "/"))
-                .unwrap_or_else(|_| p.to_string_lossy().replace('\\', "/"));
+            let rel_display = match p.strip_prefix(self.policy.work_root()) {
+                Ok(r) => r.to_string_lossy().replace('\\', "/"),
+                Err(_) => continue, // Skip si strip_prefix échoue
+            };
 
             if self
                 .policy
-                .config()
-                .forbid_globs
-                .iter()
-                .any(|g| crate::policy::glob_match(&rel_display, g))
-            {
-                continue;
-            }
-
-            // Vérifie les droits READ
-            if !self
-                .policy
-                .config()
-                .allow_read_globs
-                .iter()
-                .any(|g| crate::policy::glob_match(&rel_display, g))
+                .resolve_work_path_for_read(&rel_display)
+                .is_err()
             {
                 continue;
             }
@@ -84,6 +75,11 @@ impl SandboxFs {
                 "path": rel_display,
                 "is_dir": is_dir
             }));
+
+            // Limite le nombre d'entrées
+            if entries.len() >= self.policy.config().max_files_per_request {
+                break;
+            }
         }
 
         Ok(ActionResult::success(
@@ -113,6 +109,9 @@ impl SandboxFs {
             }
         }
 
+        // Vérification anti-symlink avant écriture
+        self.validate_symlinks(&abs)?;
+
         atomic_write(&abs, contents.as_bytes())?;
 
         Ok(ActionResult::success(
@@ -123,6 +122,17 @@ impl SandboxFs {
     }
 
     pub fn apply_unified_diff(&self, rel: &str, unified_diff: &str) -> Result<ActionResult> {
+        if unified_diff.len() > self.policy.config().max_write_bytes * 2 {
+            return Ok(ActionResult::error(
+                "PolicyViolation",
+                format!(
+                    "unified diff too large: {} bytes (max {})",
+                    unified_diff.len(),
+                    self.policy.config().max_write_bytes * 2
+                ),
+            ));
+        }
+
         let abs = self.policy.resolve_work_path_for_write(rel)?;
         let original = fs::read_to_string(&abs).unwrap_or_default();
 
@@ -146,6 +156,10 @@ impl SandboxFs {
         if let Some(parent) = abs.parent() {
             fs::create_dir_all(parent)?;
         }
+
+        // Vérification anti-symlink avant écriture
+        self.validate_symlinks(&abs)?;
+
         atomic_write(&abs, updated.as_bytes())?;
 
         Ok(ActionResult::success(
@@ -154,11 +168,76 @@ impl SandboxFs {
             Some(json!({ "path": rel, "bytes": updated.len() })),
         ))
     }
+
+    pub fn validate_symlinks(&self, path: &Path) -> Result<()> {
+        // Vérifie les parents pour détecter les symlinks jusqu'à work_root
+        let mut cur = path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| path.to_path_buf());
+
+        while cur.starts_with(self.policy.work_root()) {
+            if cur.exists() {
+                let md = fs::symlink_metadata(&cur)?;
+                if md.file_type().is_symlink() {
+                    bail!("Symlink detected in path ancestry: {}", cur.display());
+                }
+            }
+            match cur.parent() {
+                Some(p) => cur = p.to_path_buf(),
+                None => break,
+            }
+        }
+
+        // Canonicalise le parent existant (ou work_root)
+        let parent = path.parent().unwrap_or(self.policy.work_root());
+        let canon_parent = fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
+        if !canon_parent.starts_with(self.policy.work_root()) {
+            bail!("Path traversal detected: {}", canon_parent.display());
+        }
+
+        Ok(())
+    }
 }
 
 fn atomic_write(path: &PathBuf, bytes: &[u8]) -> Result<()> {
-    let tmp = path.with_extension("tmp.agent");
-    fs::write(&tmp, bytes).with_context(|| format!("write tmp failed: {}", tmp.display()))?;
-    fs::rename(&tmp, path).with_context(|| format!("rename tmp failed: {}", path.display()))?;
+    let parent = path.parent().context("no parent dir")?;
+    fs::create_dir_all(parent).ok(); // Assure que le répertoire existe
+
+    // Génère un nom temporaire unique dans le même répertoire
+    let mut tmp = parent.to_path_buf();
+    let mut buf = [0u8; 8];
+    OsRng
+        .try_fill_bytes(&mut buf)
+        .map_err(|e| anyhow::anyhow!("Failed to generate nonce: {e}"))?;
+    let nonce = u64::from_be_bytes(buf);
+    tmp.push(format!(
+        ".tmp.agent.{}.{}",
+        path.file_name().and_then(|s| s.to_str()).unwrap_or("file"),
+        nonce
+    ));
+
+    // Crée un fichier temporaire de manière atomique
+    let mut f = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&tmp)
+        .with_context(|| format!("open tmp failed: {}", tmp.display()))?;
+
+    f.write_all(bytes).context("write tmp failed")?;
+    f.sync_all().ok(); // Optionnel pour la robustesse en cas de crash
+
+    // Vérifie que la cible n'est pas un symlink
+    if path
+        .symlink_metadata()
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        bail!("target path is a symlink: {}", path.display());
+    }
+
+    fs::rename(&tmp, path)
+        .with_context(|| format!("rename tmp failed: {} -> {}", tmp.display(), path.display()))?;
+
     Ok(())
 }

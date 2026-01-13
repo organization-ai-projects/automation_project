@@ -1,15 +1,19 @@
 // projects/products/code_agent_sandbox/src/policy.rs
+use std::default::Default;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use toml::Value;
 
+use crate::access_kind::AccessKind;
+use crate::actions::Action;
+use crate::normalization::normalize_rel;
 use crate::policy_config::PolicyConfig;
 
 #[derive(Clone)]
 pub struct Policy {
-    cfg: PolicyConfig,
+    pub cfg: PolicyConfig,
 }
 
 impl Policy {
@@ -27,10 +31,6 @@ impl Policy {
 
     pub fn work_root(&self) -> &Path {
         &self.cfg.work_root
-    }
-
-    pub fn run_dir(&self) -> &Path {
-        &self.cfg.run_dir
     }
 
     pub fn resolve_work_path_for_read(&self, rel: &str) -> Result<PathBuf> {
@@ -121,40 +121,64 @@ impl Policy {
 
         Ok(policy)
     }
+
+    /// Authorizes an action based on the current policy rules.
+    /// Returns an error if the action violates the policy.
+    pub fn authorize_action(&self, action: &crate::actions::Action) -> anyhow::Result<()> {
+        let err = |e: anyhow::Error| e.context("Policy authorization failed");
+
+        match action {
+            Action::ReadFile { path } => {
+                self.resolve_work_path_for_read(path)
+                    .map(|_| ())
+                    .map_err(err)?;
+            }
+            Action::ListDir { path, .. } => {
+                self.resolve_work_path_for_read(path)
+                    .map(|_| ())
+                    .map_err(err)?;
+            }
+            Action::WriteFile { path, .. } => {
+                self.resolve_work_path_for_write(path)
+                    .map(|_| ())
+                    .map_err(err)?;
+            }
+            Action::ApplyUnifiedDiff { path, .. } => {
+                self.resolve_work_path_for_write(path)
+                    .map(|_| ())
+                    .map_err(err)?;
+            }
+            Action::RunCargo { .. } => {
+                // Optional: validate cargo subcommands if needed.
+            }
+            Action::GenerateCode { .. } => {
+                // No specific FS access required; allow by default.
+            }
+        }
+
+        Ok(())
+    }
 }
 
-#[derive(Copy, Clone)]
-enum AccessKind {
-    Read,
-    Write,
-}
-
-fn normalize_rel(rel: &str) -> String {
-    let mut s = rel.trim().replace('\\', "/");
-    while s.starts_with("./") {
-        s = s[2..].to_string();
+#[allow(clippy::derivable_impls)]
+impl Default for Policy {
+    fn default() -> Self {
+        Policy {
+            cfg: PolicyConfig::default(),
+        }
     }
-    while s.starts_with('/') {
-        s = s[1..].to_string();
-    }
-    s
 }
 
 /// IMPORTANT: you already have this function used by SandboxFs.
 /// Keep your existing implementation if you have one.
 /// This fallback is minimal.
 pub fn glob_match(path: &str, pattern: &str) -> bool {
-    if pattern == "**" || pattern == "**/**" {
-        return true;
-    }
-    if let Some(prefix) = pattern.strip_suffix("/**") {
-        return path == prefix || path.starts_with(&format!("{prefix}/"));
-    }
-    if pattern.contains('*') {
-        // Refuse ambiguous patterns in a sandbox
-        return false;
-    }
-    path == pattern
+    use globset::{Glob, GlobMatcher};
+
+    let glob = Glob::new(pattern).expect("Invalid glob pattern");
+    let matcher: GlobMatcher = glob.compile_matcher();
+
+    matcher.is_match(path)
 }
 
 #[cfg(test)]

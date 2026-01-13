@@ -124,6 +124,8 @@ impl Layer {
     }
 
     pub fn forward(&mut self, input: &Array1<f64>) -> Result<Array1<f64>, NetworkError> {
+        println!("Input dimensions: {}", input.len());
+        println!("Expected dimensions: {}", self.weights.ncols());
         if input.len() != self.weights.ncols() {
             return Err(NetworkError::DimensionMismatch {
                 expected: self.weights.ncols(),
@@ -131,15 +133,20 @@ impl Layer {
             });
         }
 
+        println!("Weights: {:?}", self.weights);
+        println!("Biases: {:?}", self.biases);
+
         // Cache input pour backprop
         self.last_input = Some(input.clone());
 
         // Weighted sum
         let weighted_sum = self.weights.dot(input) + &self.biases;
+        println!("Weighted sum: {:?}", weighted_sum);
         self.last_weighted_sum = Some(weighted_sum.clone());
 
         // Apply activation
         let output = weighted_sum.mapv(|x| self.activation.apply(x));
+        println!("Output after activation: {:?}", output);
         self.last_output = Some(output.clone());
 
         Ok(output)

@@ -97,3 +97,14 @@ impl ScoreSummary {
         }
     }
 }
+
+impl Default for ScoreSummary {
+    fn default() -> Self {
+        Self {
+            score: 0,
+            notes: Vec::new(),
+            cargo_ok: true,
+            cargo_failures: 0,
+        }
+    }
+}

@@ -5,4 +5,5 @@ pub struct RunnerConfig {
     pub allowed_cargo_subcommands: Vec<String>,
     pub timeout_ms: u64,
     pub env_allowlist: Vec<String>,
+    pub cargo_path: String, // Absolute path to the cargo binary
 }

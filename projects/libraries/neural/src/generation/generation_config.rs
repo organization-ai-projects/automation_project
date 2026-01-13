@@ -1,5 +1,7 @@
 // projects/libraries/neural/src/generation/generation_config.rs
-use common::common_id::is_valid_id;
+
+use common::CommonID;
+use common::Id128;
 
 #[derive(Debug, Clone)]
 pub struct GenerationConfig {
@@ -24,6 +26,6 @@ impl Default for GenerationConfig {
 
 impl GenerationConfig {
     pub fn validate_stop_token_id(&self) -> bool {
-        is_valid_id(self.stop_token_id as u64)
+        CommonID::is_valid(Id128::new(self.stop_token_id as u16, None, None))
     }
 }

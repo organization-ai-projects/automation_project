@@ -1,3 +1,5 @@
+use std::path;
+
 // projects/products/code_agent_sandbox/src/agents/agent_request.rs
 use serde::Deserialize;
 
@@ -23,9 +25,9 @@ pub struct AgentRequest {
 
     /// Répertoire pour les modèles (ex: ./models)
     #[serde(default)]
-    pub model_dir: Option<std::path::PathBuf>,
+    pub model_dir: Option<path::PathBuf>,
 
     /// Fichier pour le replay buffer (ex: ./replay.jsonl)
     #[serde(default)]
-    pub replay_path: Option<std::path::PathBuf>,
+    pub replay_path: Option<path::PathBuf>,
 }

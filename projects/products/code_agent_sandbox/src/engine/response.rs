@@ -2,7 +2,7 @@
 use serde::Serialize;
 
 use crate::{
-    actions::ActionResult, agents::AgentOutcome, engine::WorkspaceMode, score::ScoreSummary,
+    actions::ActionResult, agents::AgentOutcome, engine::WorkspaceMode, score::ScoreSummary
 };
 
 #[derive(Debug, Serialize)]
@@ -16,4 +16,17 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_outcome: Option<AgentOutcome>,
+}
+
+impl Response {
+    pub fn new(results: Vec<ActionResult>) -> Self {
+        Self {
+            run_id: String::new(),
+            workspace_mode: WorkspaceMode::Assist,
+            work_root: String::new(),
+            results,
+            score: ScoreSummary::default(),
+            agent_outcome: None,
+        }
+    }
 }

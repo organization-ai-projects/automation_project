@@ -1,5 +1,6 @@
 // projects/libraries/security/src/auth.rs
-use common::common_id::is_valid_id;
+use common::common_id::CommonID;
+use common::custom_uuid::Id128;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -10,7 +11,7 @@ pub struct UserId(u64);
 impl UserId {
     /// Crée un UserId validé
     pub fn new(id: u64) -> Result<Self, crate::TokenError> {
-        if !is_valid_id(id) {
+        if !CommonID::is_valid(Id128::new(id as u16, None, None)) {
             return Err(crate::TokenError::InvalidUserIdValue);
         }
         Ok(Self(id))
@@ -23,7 +24,7 @@ impl UserId {
 
     /// Vérifie si l'ID est valide
     pub fn is_valid(&self) -> bool {
-        is_valid_id(self.0)
+        CommonID::is_valid(Id128::new(self.0 as u16, None, None))
     }
 }
 

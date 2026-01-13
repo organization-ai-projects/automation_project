@@ -1,3 +1,4 @@
+use ai::AiBody;
 // projects/products/code_agent_sandbox/src/agent_driver.rs
 use anyhow::{Context, Result};
 use chrono::Utc;
@@ -5,16 +6,15 @@ use chrono::Utc;
 use crate::{
     actions::{Action, ActionResult},
     agents::{AgentOutcome, AgentRequest},
+    command_runner::CommandRunner,
     engine::EngineCtx,
     memory::{append_event, MemoryEvent},
     score::{ScoreConfig, ScoreSummary},
 };
 
-use ai::ai_body::AiBody;
-
 pub fn run_agent_with_orchestrator(
     ctx: &mut EngineCtx,
-    run_dir: &std::path::Path, // Ajout du paramètre run_dir
+    run_dir: &std::path::Path,
     req: AgentRequest,
 ) -> Result<(AgentOutcome, Vec<ActionResult>)> {
     let mem_path = run_dir.join("agent_memory.jsonl");
@@ -53,14 +53,14 @@ pub fn run_agent_with_orchestrator(
             path: "src".into(),
             max_depth: 4,
         }],
-        run_dir, // Ajout du paramètre run_dir
+        run_dir,
     )?);
 
     if let Some(f) = &req.focus_file {
         all_results.extend(run_and_record(
             ctx,
             vec![Action::ReadFile { path: f.clone() }],
-            run_dir, // Ajout du paramètre run_dir
+            run_dir,
         )?);
     }
 
@@ -77,7 +77,7 @@ pub fn run_agent_with_orchestrator(
             context
         );
 
-        let task = ai_body.create_task(&prompt); // Correction du type pour passer une référence
+        let task = ai_body.create_task(&prompt);
 
         let diff_text = match req.forced_strategy.as_deref() {
             None => ai_body.solve(&task)?.output,
@@ -155,7 +155,7 @@ pub fn run_agent_with_orchestrator(
                     args: vec![],
                 },
             ],
-            run_dir, // Ajout du paramètre run_dir
+            run_dir,
         )?);
 
         all_results.extend(step_results);
@@ -181,7 +181,7 @@ pub fn run_agent_with_orchestrator(
                     "cargo_ok={} score={} failures={}",
                     last_score.cargo_ok, last_score.score, last_score.cargo_failures
                 )),
-                metadata: Some(serde_json::json!({
+                metadata: Some(protocol::json!({
                     "cargo_ok": last_score.cargo_ok,
                     "score": last_score.score,
                     "cargo_failures": last_score.cargo_failures,
@@ -197,7 +197,7 @@ pub fn run_agent_with_orchestrator(
     }
 
     let outcome = AgentOutcome {
-        training_example: None, // Ajout du champ manquant
+        training_example: None,
         ok: last_score.cargo_ok && last_score.score >= 0,
         iters: it,
         final_score: last_score.score,
@@ -230,7 +230,14 @@ pub fn run_and_record(
             Action::ApplyUnifiedDiff { path, unified_diff } => {
                 ctx.sfs.apply_unified_diff(path, unified_diff)
             }
-            Action::RunCargo { subcommand, args } => ctx.runner.run_cargo(subcommand, args),
+            Action::RunCargo { subcommand, args } => {
+                if CommandRunner::requires_bunker(subcommand) {
+                    ctx.runner
+                        .run_in_bunker("cargo", &[subcommand.clone(), args.join(" ")])
+                } else {
+                    ctx.runner.run_cargo(subcommand, args)
+                }
+            }
             Action::GenerateCode { language, code } => {
                 // We keep it harmless: save only.
                 let ai_ws = run_dir.join("ai_workspace");
@@ -241,7 +248,7 @@ pub fn run_and_record(
                 Ok(ActionResult::success(
                     "CodeGenerated",
                     "saved",
-                    Some(serde_json::json!({ "path": file_path.to_string_lossy() })),
+                    Some(protocol::json!({ "path": file_path.to_string_lossy() })),
                 ))
             }
         };

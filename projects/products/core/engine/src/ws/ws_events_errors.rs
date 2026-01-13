@@ -1,7 +1,8 @@
 // projects/products/core/engine/src/ws/ws_events_errors.rs
 use protocol::{Event, EventType, EventVariant, Metadata};
 
-use crate::ws::{WsEventArgs, WsEventErrorDetails, ws_events::ws_event};
+use crate::ws::{WsEventArgs, WsEventErrorDetails, ws_event};
+use common::custom_uuid::Id128;
 
 // Update ws_event_error to use the new error details struct
 pub fn ws_event_error(
@@ -21,7 +22,7 @@ pub fn ws_event_error(
         name: "Error".to_string(),
         event_type: EventType::Error,
         variant: EventVariant::Error {
-            id: meta.to_key(),
+            id: Id128::from_hex(&meta.to_key()).expect("Invalid Id128 format"),
             message: msg.into(),
         },
         payload: None,

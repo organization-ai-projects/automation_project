@@ -4,7 +4,10 @@ use std::{fs::OpenOptions, io::Write, path::PathBuf};
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::actions::{Action, ActionResult};
+use crate::{
+    actions::{Action, ActionResult},
+    journal_line::JournalLine,
+};
 
 pub struct Journal {
     pub file: std::fs::File,
@@ -40,16 +43,16 @@ impl Journal {
     }
 
     fn write_line<T: Serialize>(&mut self, line: &T) -> Result<()> {
-        let s = serde_json::to_string(line)?;
+        let s = protocol::to_json_string(line)?;
         writeln!(self.file, "{}", s)?;
         Ok(())
     }
 }
 
-#[derive(Serialize)]
-struct JournalLine<'a, T: Serialize> {
-    run_id: &'a str,
-    event: &'a str,
-    timestamp: &'a str,
-    payload: &'a T,
+impl Default for Journal {
+    fn default() -> Self {
+        let temp_file = std::fs::File::create("/tmp/journal_default.log")
+            .expect("Failed to create default journal file");
+        Journal { file: temp_file }
+    }
 }

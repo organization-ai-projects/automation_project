@@ -7,21 +7,33 @@ use neural::{
 #[test]
 fn test_code_generator_integration() {
     // Mock objects for NeuralNetwork and RustTokenizer
+    let mock_tokenizer = RustTokenizer::new(vec![
+        "fn".to_string(),
+        "main".to_string(),
+        "(".to_string(),
+        ")".to_string(),
+        "{".to_string(),
+        "}".to_string(),
+        "println".to_string(),
+        "!".to_string(),
+        "\"".to_string(),
+        "Hello".to_string(),
+        ",".to_string(),
+        "world".to_string(),
+        "\"".to_string(),
+        ";".to_string(),
+    ]);
+
+    let vocab_size = mock_tokenizer.vocab_size();
     let mock_model = NeuralNetwork::new(vec![LayerConfig {
-        input_size: 10,
+        input_size: vocab_size,
         output_size: 5,
         activation: Activation::ReLU,
         weight_init: WeightInit::Xavier,
     }])
-    .unwrap(); // Ajout d'une configuration valide
-    let mock_tokenizer = RustTokenizer::new(vec![
-        "<PAD>".to_string(),
-        "<EOS>".to_string(),
-        "<BOS>".to_string(),
-        "<UNK>".to_string(),
-    ]);
-    let config = GenerationConfig::default();
+    .unwrap();
 
+    let config = GenerationConfig::default();
     let mut generator = CodeGenerator::new(mock_model, mock_tokenizer, config);
 
     let prompt = "fn main() { println!(\"Hello, world!\"); }";
