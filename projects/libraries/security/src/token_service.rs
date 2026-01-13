@@ -1,10 +1,10 @@
 // projects/libraries/security/src/token_service.rs
 use crate::auth::UserId;
 use crate::{Claims, Role, Token, TokenError};
-use common::common_id::is_valid_id;
+use common::common_id::CommonID;
+use common::custom_uuid::Id128;
 use common_time::timestamp_utils::current_timestamp_ms;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use uuid::Uuid;
 
 /// Service pour issuer/verify des JWT.
 /// - Stateless: pas besoin de store.
@@ -64,11 +64,11 @@ impl TokenService {
             .checked_add(duration_ms)
             .ok_or(TokenError::TimestampOverflow)?;
         let now_s = now_ms / 1000;
-        let exp_s = (exp_ms / 1000).saturating_add(1); // Ajouter une marge de 1 seconde pour éviter les collisions temporelles
+        let exp_s = (exp_ms / 1000).saturating_add(1);
 
         let claims = Claims {
             sub: user_id.to_string(),
-            jti: Uuid::now_v7().to_string(),
+            jti: Id128::new(0, None, None).to_string(),
             role,
             iat: now_s,
             exp: exp_s,
@@ -92,8 +92,16 @@ impl TokenService {
         let data =
             jsonwebtoken::decode::<Claims>(jwt, &self.dec, &self.validation).map_err(|e| {
                 if e.kind() == &jsonwebtoken::errors::ErrorKind::ExpiredSignature {
-                    println!("Token expiré: exp = {}", now_ms);
-                    TokenError::Expired
+                    let exp_with_tolerance = now_ms.saturating_sub(50); // Appliquer la tolérance ici
+                    if exp_with_tolerance > now_ms {
+                        println!(
+                            "Token expiré avec tolérance: exp = {}, tolérance = 50 ms",
+                            now_ms
+                        );
+                        TokenError::Expired
+                    } else {
+                        TokenError::Jwt(e.to_string())
+                    }
                 } else {
                     TokenError::Jwt(e.to_string())
                 }
@@ -102,9 +110,11 @@ impl TokenService {
         let c = data.claims;
         println!("Horodatages du token: iat = {}, exp = {}", c.iat, c.exp);
 
-        // Hardening: validate sub numeric + is_valid_id even after decode
-        let user_id = UserId::from(c.sub.as_str());
-        if !is_valid_id(user_id.value()) {
+        // Hardening: validate sub numeric + CommonID validation
+        let user_id =
+            UserId::new(Id128::from_hex(&c.sub).map_err(|_| TokenError::InvalidUserIdValue)?)?;
+
+        if !CommonID::is_valid(user_id.value()) {
             return Err(TokenError::InvalidUserIdValue);
         }
 
@@ -166,7 +176,7 @@ impl TokenService {
 
     /// Validate a token's claims.
     pub fn validate_token(&self, token: &Token) -> Result<(), TokenError> {
-        if !is_valid_id(token.user_id.value()) {
+        if !CommonID::is_valid(token.user_id.value()) {
             return Err(TokenError::InvalidUserIdValue);
         }
         Ok(())
@@ -189,7 +199,12 @@ mod tests {
     fn test_expired_token() {
         let service = TokenService::new_hs256(&"a".repeat(32)).unwrap();
         let jwt = service
-            .issue(UserId::from("123"), Role::User, 100, None) // Durée de 100 ms
+            .issue(
+                UserId::from(Id128::from_bytes_unchecked([1u8; 16])),
+                Role::User,
+                100,
+                None,
+            ) // Durée de 100 ms
             .unwrap();
 
         // Ajouter des logs pour inspecter les horodatages
@@ -211,9 +226,17 @@ mod tests {
     fn test_valid_token() {
         let service = TokenService::new_hs256(&"a".repeat(32)).unwrap();
         let jwt = service
-            .issue(UserId::from("123"), Role::User, 60000, None)
+            .issue(
+                UserId::new(Id128::from_bytes_unchecked([123u8; 16])).unwrap(),
+                Role::User,
+                60000,
+                None,
+            )
             .unwrap();
         let token = service.verify(&jwt).unwrap();
-        assert_eq!(token.user_id.value(), 123);
+        assert_eq!(
+            token.user_id.value(),
+            Id128::from_bytes_unchecked([123u8; 16])
+        );
     }
 }

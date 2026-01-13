@@ -1,4 +1,4 @@
-// ai/src/task.rs
+// projects/libraries/ai/src/task.rs
 use crate::task_type::TaskType;
 
 #[derive(Debug, Clone)]

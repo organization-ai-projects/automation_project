@@ -77,6 +77,8 @@ pub struct Layer {
     last_input: Option<Array1<f64>>,
     #[serde(skip)]
     last_weighted_sum: Option<Array1<f64>>,
+    #[serde(skip)]
+    last_output: Option<Array1<f64>>,
 }
 
 impl Layer {
@@ -90,6 +92,7 @@ impl Layer {
             activation: config.activation,
             last_input: None,
             last_weighted_sum: None,
+            last_output: None,
         }
     }
 
@@ -121,6 +124,8 @@ impl Layer {
     }
 
     pub fn forward(&mut self, input: &Array1<f64>) -> Result<Array1<f64>, NetworkError> {
+        println!("Input dimensions: {}", input.len());
+        println!("Expected dimensions: {}", self.weights.ncols());
         if input.len() != self.weights.ncols() {
             return Err(NetworkError::DimensionMismatch {
                 expected: self.weights.ncols(),
@@ -128,15 +133,21 @@ impl Layer {
             });
         }
 
+        println!("Weights: {:?}", self.weights);
+        println!("Biases: {:?}", self.biases);
+
         // Cache input pour backprop
         self.last_input = Some(input.clone());
 
         // Weighted sum
         let weighted_sum = self.weights.dot(input) + &self.biases;
+        println!("Weighted sum: {:?}", weighted_sum);
         self.last_weighted_sum = Some(weighted_sum.clone());
 
         // Apply activation
         let output = weighted_sum.mapv(|x| self.activation.apply(x));
+        println!("Output after activation: {:?}", output);
+        self.last_output = Some(output.clone());
 
         Ok(output)
     }
@@ -166,14 +177,24 @@ impl Layer {
 
         let bias_gradient = delta.clone();
 
+        // Calculate input gradient for previous layer (BEFORE update)
+        let input_gradient = self.weights.t().dot(&delta);
+
         // Update parameters
         self.weights = &self.weights - learning_rate * &weight_gradient;
         self.biases = &self.biases - learning_rate * &bias_gradient;
 
-        // Calculate input gradient for previous layer
-        let input_gradient = self.weights.t().dot(&delta);
-
         Ok(input_gradient)
+    }
+
+    pub fn update(&mut self, tokens: &[usize]) -> Result<(), NetworkError> {
+        println!("Updating weights with {} tokens", tokens.len());
+        // Implémentation fictive : mise à jour des poids des couches
+        for token in tokens {
+            // Exemple fictif de mise à jour
+            self.weights.index_axis_mut(Axis(0), *token).fill(0.5);
+        }
+        Ok(())
     }
 }
 
@@ -236,14 +257,16 @@ impl NeuralNetwork {
         let output = self
             .layers
             .last()
-            .and_then(|l| l.last_input.as_ref())
+            .and_then(|l| l.last_output.as_ref())
             .ok_or_else(|| {
                 NetworkError::InvalidConfig("Must call forward() before backward()".to_string())
             })?;
 
         // Calculate initial gradient (MSE loss)
         let mut gradient = output - target;
-        let loss = gradient.mapv(|x| x * x).sum() / gradient.len() as f64;
+        let n = gradient.len() as f64;
+        let loss = gradient.mapv(|x| x * x).sum() / n;
+        gradient = (2.0 / n) * gradient;
 
         // Backpropagate through layers
         for layer in self.layers.iter_mut().rev() {
@@ -251,6 +274,15 @@ impl NeuralNetwork {
         }
 
         Ok(loss)
+    }
+
+    pub fn update_weights(&mut self, tokens: &[usize]) -> Result<(), NetworkError> {
+        println!("Updating weights with {} tokens", tokens.len());
+        // Implémentation fictive : mise à jour des poids des couches
+        for layer in &mut self.layers {
+            layer.update(tokens)?;
+        }
+        Ok(())
     }
 
     pub fn input_size(&self) -> usize {

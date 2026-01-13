@@ -9,3 +9,4 @@ serde_json = { workspace = true }
 thiserror = "1.0"
 common_time = { workspace = true }
 protocol_macros = { workspace = true }
+common = { workspace = true }

@@ -1,4 +1,5 @@
 pub mod analyzer;
+pub mod feedback_symbolic;
 pub mod generation;
 pub mod linter;
 pub mod rules;

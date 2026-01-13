@@ -1,7 +1,8 @@
 // symbolic/src/validator.rs
 use crate::validator::ValidationError;
 use crate::validator::validation_result::ValidationResult;
-use common::common_id::is_valid_id;
+use common::common_id::CommonID;
+use common::custom_uuid::Id128;
 
 /// Validateur de code Rust
 pub struct CodeValidator {
@@ -24,10 +25,8 @@ impl CodeValidator {
         let mut warnings = Vec::new();
 
         // Validation de base
-        if !is_valid_id(code.len() as u64) {
-            return Ok(ValidationResult::invalid(vec![
-                "Invalid ID length".to_string(),
-            ]));
+        if !CommonID::is_valid(Id128::new(0, None, None)) {
+            return Ok(ValidationResult::invalid(vec!["Invalid ID".to_string()]));
         }
 
         // Vérifier la syntaxe avec syn
@@ -43,6 +42,12 @@ impl CodeValidator {
                 errors.push(format!("Syntax error: {}", e));
                 return Ok(ValidationResult::invalid(errors));
             }
+        }
+
+        // Invalider explicitement le code vide après la validation syntaxique
+        if code.trim().is_empty() {
+            errors.push("Code is empty".to_string());
+            return Ok(ValidationResult::invalid(errors));
         }
 
         // Vérifications additionnelles

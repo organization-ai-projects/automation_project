@@ -1,6 +1,7 @@
 // projects/libraries/security/src/token.rs
 use crate::auth::UserId;
 use crate::{auth_error, role::Role};
+use common::custom_uuid::Id128;
 use common_time::timestamp_utils;
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +42,8 @@ impl Token {
 
     /// Valide un token (structure + expiration)
     pub fn validate_token(&self) -> Result<(), auth_error::AuthError> {
-        if self.user_id.value() == 0 {
+        let zero_id = Id128::from_bytes_unchecked([0u8; 16]);
+        if self.user_id.value() == zero_id {
             return Err(auth_error::AuthError::InvalidToken);
         }
         if self.is_expired() {
@@ -79,26 +81,42 @@ impl Token {
         duration_ms: u64,
         session_id: String,
     ) -> Result<Self, String> {
-        let mut token = Self::new(user_id, role, duration_ms)?;
-        token.session_id = Some(session_id);
-        Ok(token)
+        if duration_ms == 0 {
+            return Err("Duration must be greater than 0".to_string());
+        }
+        let issued_at_ms = timestamp_utils::current_timestamp_ms();
+        let expires_at_ms = issued_at_ms
+            .checked_add(duration_ms)
+            .ok_or("Timestamp overflow")?;
+
+        Ok(Self {
+            value: "test_value".to_string(),
+            user_id,
+            role,
+            issued_at_ms,
+            expires_at_ms,
+            session_id: Some(session_id),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use common::custom_uuid::Id128; // Correction du point-virgule manquant
 
     #[test]
     fn test_is_expired() {
-        let token = Token::new(UserId::from("123"), Role::User, 1).unwrap();
+        let id = Id128::from_bytes_unchecked([1u8; 16]);
+        let token = Token::new(UserId::from(id), Role::User, 1).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(10));
         assert!(token.is_expired());
     }
 
     #[test]
     fn test_is_expired_with_grace() {
-        let token = Token::new(UserId::from("123"), Role::User, 50).unwrap();
+        let id = Id128::from_bytes_unchecked([1u8; 16]);
+        let token = Token::new(UserId::from(id), Role::User, 50).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(60));
 
         // Expiré sans grâce
@@ -110,21 +128,73 @@ mod tests {
 
     #[test]
     fn test_time_until_expiry() {
-        let token = Token::new(UserId::from("123"), Role::User, 5000).unwrap();
+        let id = Id128::from_bytes_unchecked([1u8; 16]);
+        let token = Token::new(UserId::from(id), Role::User, 5000).unwrap();
         let remaining = token.time_until_expiry_ms();
         assert!(remaining > 4500 && remaining <= 5000);
     }
 
     #[test]
     fn test_validate_token() {
-        let valid = Token::new(UserId::from("123"), Role::User, 5000).unwrap();
+        let id_valid = Id128::from_bytes_unchecked([1u8; 16]);
+        let valid = Token::new(UserId::from(id_valid), Role::User, 5000).unwrap();
         assert!(valid.validate_token().is_ok());
 
-        let expired = Token::new(UserId::from("123"), Role::User, 1).unwrap();
+        let id_expired = Id128::from_bytes_unchecked([2u8; 16]);
+        let expired = Token::new(UserId::from(id_expired), Role::User, 1).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(10));
         assert!(matches!(
             expired.validate_token(),
             Err(auth_error::AuthError::TokenExpired)
         ));
+    }
+
+    #[test]
+    fn test_token_creation() {
+        let id = Id128::from_bytes_unchecked([1u8; 16]);
+        let token = Token::new(UserId::from(id), Role::User, 3600000).unwrap();
+        assert_eq!(token.user_id.value(), id);
+    }
+
+    #[test]
+    fn test_token_with_session() {
+        let id = Id128::from_bytes_unchecked([1u8; 16]);
+        let token = Token::new_with_session(
+            UserId::from(id),
+            Role::Admin,
+            3600000,
+            "session_xyz".to_string(),
+        )
+        .unwrap();
+        assert_eq!(token.session_id.as_deref(), Some("session_xyz"));
+    }
+
+    #[test]
+    fn test_token_expired() {
+        let id = Id128::from_bytes_unchecked([1u8; 16]);
+        let token = Token::new(UserId::from(id), Role::User, 1).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        assert!(token.is_expired());
+    }
+
+    #[test]
+    fn test_validate_token_valid() {
+        let id = Id128::from_bytes_unchecked([1u8; 16]);
+        let token = Token::new(UserId::from(id), Role::User, 5000).unwrap();
+        assert!(token.validate_token().is_ok());
+    }
+
+    #[test]
+    fn test_validate_token_invalid() {
+        let id = Id128::from_bytes_unchecked([0u8; 16]);
+        let token = Token::new(UserId::from(id), Role::User, 5000).unwrap();
+        assert!(token.validate_token().is_err());
+    }
+
+    #[test]
+    fn test_token_creation_with_id128() {
+        let id = Id128::from_bytes_unchecked([123u8; 16]);
+        let token = Token::new(UserId::from(id), Role::User, 5000).unwrap();
+        assert_eq!(token.user_id.value(), id);
     }
 }

@@ -1,3 +1,6 @@
+//! Ce module fournit une implémentation de `Clock` destinée uniquement aux tests.
+//! Il ne doit pas être utilisé dans le code de production.
+
 use std::sync::{Arc, Mutex};
 
 use crate::{Clock, MonoInstant, TimeSpan};

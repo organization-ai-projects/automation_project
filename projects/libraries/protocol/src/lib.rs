@@ -29,7 +29,10 @@ pub use command_type::CommandType;
 pub use event::Event;
 pub use event_type::EventType;
 pub use event_variant::EventVariant;
-pub use json::{Json, from_json, to_json};
+pub use json::{
+    Json, from_json, from_json_owned, from_json_str, json, to_json, to_json_string,
+    to_json_string_pretty,
+};
 pub use log_level::LogLevel;
 pub use metadata::Metadata;
 pub use payload::Payload;

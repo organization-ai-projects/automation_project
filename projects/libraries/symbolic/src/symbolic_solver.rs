@@ -1,9 +1,11 @@
+// projects/libraries/symbolic/src/symbolic_solver.rs
+use crate::feedback_symbolic::SymbolicFeedback;
 use crate::validator::ValidationError;
-use crate::validator::validation_result::ValidationResult;
 use crate::{
     analyzer::CodeAnalyzer, rules::RulesEngine, solver_result::SolverResult,
     symbolic_error::SymbolicError, validator::CodeValidator,
 };
+use tracing;
 
 /// Solver symbolique - orchestration interne de symbolic
 pub struct SymbolicSolver {
@@ -107,25 +109,16 @@ impl SymbolicSolver {
             SymbolicError::GenerationError("Refactoring requires instruction".to_string())
         })?;
 
-        let prompt = "Default prompt";
-        let context = "Default context";
-        let validation = ValidationResult {
-            is_valid: true,
-            reason: Some("Refactoring applied successfully".to_string()),
-            suggested_fix: None,
-            errors: Vec::new(),
-            warnings: Vec::new(),
-        };
-
         let refactored = self
             .rules
             .apply_refactoring(code, instruction)
             .map_err(|e| SymbolicError::GenerationError(e.to_string()))?;
 
-        // Use the restored variables in the logic
-        println!(
-            "Prompt: {}, Context: {}, Validation: {:?}",
-            prompt, context, validation
+        tracing::debug!(
+            instruction=%instruction,
+            confidence=refactored.confidence,
+            changes=%refactored.changes_applied.join(", "),
+            "Refactor applied"
         );
 
         Ok(SolverResult {
@@ -145,5 +138,37 @@ impl SymbolicSolver {
             .map_err(|e: ValidationError| SymbolicError::ValidationError(e.to_string()))?;
 
         Ok(validation)
+    }
+
+    pub fn adjust_rules(
+        &mut self,
+        input: &str,
+        feedback: SymbolicFeedback,
+    ) -> Result<(), SymbolicError> {
+        tracing::info!(
+            input=%input,
+            positive=feedback.is_positive(),
+            "Adjusting symbolic rules"
+        );
+
+        if feedback.is_positive() {
+            tracing::info!("Retour positif reçu. Renforcement des règles associées.");
+            self.reinforce_rule(input);
+        } else {
+            tracing::info!("Retour négatif reçu. Révision des règles associées.");
+            self.weaken_rule(input);
+        }
+
+        Ok(())
+    }
+
+    pub fn reinforce_rule(&mut self, input: &str) {
+        tracing::info!(input=%input, "Renforcement de la règle");
+        // Logique pour renforcer une règle
+    }
+
+    pub fn weaken_rule(&mut self, input: &str) {
+        tracing::info!(input=%input, "Affaiblissement de la règle");
+        // Logique pour affaiblir une règle
     }
 }

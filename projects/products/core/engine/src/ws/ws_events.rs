@@ -2,6 +2,7 @@
 use protocol::{Event, EventType, EventVariant, Metadata, Payload};
 
 use crate::ws::WsEventArgs;
+use common::custom_uuid::Id128;
 
 #[inline]
 fn non_empty_data(args: &WsEventArgs) -> String {
@@ -93,7 +94,9 @@ pub fn ws_event_ok_payload(
         meta.clone(),
         name,
         EventType::Acknowledgment,
-        EventVariant::Acknowledged { id: meta.to_key() },
+        EventVariant::Acknowledged {
+            id: Id128::from_hex(&meta.to_key()).expect("Invalid Id128 format"),
+        },
         Some(payload_json(payload_type, payload)),
         None,
     ))

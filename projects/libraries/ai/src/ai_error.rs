@@ -1,3 +1,4 @@
+// projects/libraries/ai/src/ai_error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]

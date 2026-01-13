@@ -160,6 +160,8 @@ pub fn missing_permissions(role: &Role, required_permissions: &[Permission]) -> 
 
 #[cfg(test)]
 mod tests {
+    use common::Id128;
+
     use crate::auth::UserId;
 
     use super::*;
@@ -224,9 +226,11 @@ mod tests {
 
     #[test]
     fn test_token_permission() {
-        // Token::new -> Result + user_id numérique + durée en ms
-        let token = Token::new(UserId::from("1"), Role::User, 3_600_000).unwrap();
+        // Création d'un token avec un `user_id` valide
+        let user_id = UserId::from(Id128::from_bytes_unchecked([123u8; 16]));
+        let token = Token::new(user_id, Role::User, 3_600_000).unwrap();
 
+        // Vérification des permissions via le token
         assert!(check_token_permission(&token, Permission::Write).is_ok());
         assert!(check_token_permission(&token, Permission::Delete).is_err());
     }

@@ -43,3 +43,9 @@ impl From<TimeSpan> for Duration {
         s.inner
     }
 }
+
+impl Default for TimeSpan {
+    fn default() -> Self {
+        TimeSpan::from_secs(30) // Default value of 30 seconds
+    }
+}

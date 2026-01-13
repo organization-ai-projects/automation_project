@@ -1,5 +1,6 @@
+// projects/libraries/neural/src/solver.rs
 use crate::feedback::{FeedbackAdjuster, FeedbackConfig, UserFeedback};
-use crate::generation::CodeGenerator;
+use crate::generation::code_generator::CodeGenerator;
 use crate::network::neural_net::NeuralNetwork;
 use crate::tokenization::rust_tokenizer::RustTokenizer;
 use thiserror::Error;
@@ -14,6 +15,8 @@ pub enum NeuralError {
     ModelNotLoaded,
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("Save error: {0}")]
+    SaveError(String),
 }
 
 #[derive(Debug, Clone)]
@@ -79,23 +82,102 @@ impl NeuralSolver {
         })
     }
 
-    pub fn train(&mut self, training_data: Vec<String>) -> Result<(), NeuralError> {
-        // TODO: Implémenter training pipeline
-        println!("Training on {} examples", training_data.len());
+    /// Sauvegarde le modèle neural et, si fourni, le tokenizer sur disque
+    pub fn save_model(
+        &self,
+        model_path: &std::path::Path,
+        tokenizer_path: Option<&std::path::Path>,
+    ) -> Result<(), NeuralError> {
+        println!("Saving model to {:?}", model_path);
+
+        // Sauvegarde du modèle
+        self.generator
+            .save(model_path)
+            .map_err(|e| NeuralError::SaveError(e.to_string()))?;
+
+        // Sauvegarde du tokenizer si un chemin est fourni
+        if let Some(tokenizer_path) = tokenizer_path {
+            println!("Saving tokenizer to {:?}", tokenizer_path);
+            // Remplacez par une implémentation réelle si nécessaire
+            std::fs::write(tokenizer_path, b"tokenizer data")
+                .map_err(|e| NeuralError::SaveError(e.to_string()))?;
+        }
+
         Ok(())
     }
 
-    pub fn record_feedback(&mut self, feedback: UserFeedback) -> Result<(), NeuralError> {
+    pub fn train(
+        &mut self,
+        training_data: Vec<String>,
+        model_path: &std::path::Path,
+    ) -> Result<(), NeuralError> {
+        println!("Training on {} examples", training_data.len());
+
+        // Entraîner le modèle
+        self.generator
+            .train(training_data)
+            .map_err(|e| NeuralError::TrainingError(e.to_string()))?;
+
+        // Sauvegarder le modèle après l'entraînement
+        self.save_model(model_path, None)
+    }
+
+    pub fn record_feedback(&mut self, feedback: &UserFeedback) -> Result<(), NeuralError> {
         self.feedback_adjuster
             .record_feedback(feedback)
             .map_err(|e| NeuralError::TrainingError(e.to_string()))
     }
 
-    pub fn adjust_from_feedback(&mut self) -> Result<(), NeuralError> {
-        // TODO: Appliquer les feedbacks au modèle
+    pub fn adjust_from_feedback(
+        &mut self,
+        model_path: &std::path::Path,
+    ) -> Result<(), NeuralError> {
         let stats = self.feedback_adjuster.feedback_stats();
         println!("Feedback stats: {:?}", stats);
-        Ok(())
+
+        // Appliquer les ajustements au modèle
+        self.feedback_adjuster
+            .apply_feedback()
+            .map_err(|e| NeuralError::TrainingError(e.to_string()))?;
+
+        // Sauvegarder le modèle après ajustement
+        self.save_model(model_path, None)
+    }
+
+    pub fn has_seen_feedback(&self, feedback_hash: &str) -> bool {
+        self.feedback_adjuster.has_feedback(feedback_hash)
+    }
+
+    pub fn feedback_count(&self) -> usize {
+        self.feedback_adjuster.feedback_count()
+    }
+
+    pub fn min_feedback_for_adjustment(&self) -> usize {
+        self.feedback_adjuster.min_feedback_for_adjustment()
+    }
+
+    pub fn adjust_model(&mut self) -> Result<(), NeuralError> {
+        let model = self.generator.get_model();
+        let tokenizer = &self.tokenizer;
+
+        self.feedback_adjuster
+            .adjust_model(model, tokenizer)
+            .map(|_| ()) // Adapter le type de retour
+            .map_err(|e| NeuralError::TrainingError(e.to_string()))
+    }
+
+    pub fn evaluate_model(&mut self, test_data: Vec<String>) -> Result<f64, NeuralError> {
+        if test_data.is_empty() {
+            return Err(NeuralError::GenerationError("Test data is empty".into()));
+        }
+
+        let mut total_confidence = 0.0;
+        for input in &test_data {
+            let result = self.solve(input)?; // Réutilisation de solve
+            total_confidence += result.confidence;
+        }
+
+        Ok(total_confidence / test_data.len() as f64)
     }
 
     fn estimate_confidence(&self, output: &str) -> f64 {

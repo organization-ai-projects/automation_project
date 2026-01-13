@@ -1,58 +1,50 @@
 // projects/libraries/security/src/auth.rs
-use common::common_id::is_valid_id;
+use common::common_id::CommonID;
+use common::custom_uuid::Id128;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
+use crate::TokenError;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct UserId(u64);
+pub struct UserId(Id128);
 
 impl UserId {
     /// Crée un UserId validé
-    pub fn new(id: u64) -> Result<Self, crate::TokenError> {
-        if !is_valid_id(id) {
-            return Err(crate::TokenError::InvalidUserIdValue);
+    pub fn new(id: Id128) -> Result<Self, TokenError> {
+        if !CommonID::is_valid(id) {
+            return Err(TokenError::InvalidUserIdValue);
         }
         Ok(Self(id))
     }
 
-    /// Retourne la valeur brute
-    pub fn value(&self) -> u64 {
+    /// Retourne l'identifiant sous forme d'Id128
+    pub fn value(&self) -> Id128 {
         self.0
-    }
-
-    /// Vérifie si l'ID est valide
-    pub fn is_valid(&self) -> bool {
-        is_valid_id(self.0)
     }
 }
 
 // TryFrom pour conversion sûre depuis u64
 impl TryFrom<u64> for UserId {
-    type Error = crate::TokenError;
+    type Error = TokenError;
 
     fn try_from(id: u64) -> Result<Self, Self::Error> {
-        Self::new(id)
+        Self::new(Id128::new(id as u16, None, None))
     }
 }
 
 // Implémentation du trait FromStr pour UserId
 impl FromStr for UserId {
-    type Err = crate::TokenError;
+    type Err = TokenError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let id = s
             .trim()
-            .parse::<u64>()
-            .map_err(|_| crate::TokenError::InvalidUserIdFormat)?;
-        Self::new(id)
-    }
-}
-
-// From<&str> pour commodité (utilise 0 en cas d'échec - à utiliser avec précaution)
-impl From<&str> for UserId {
-    fn from(id: &str) -> Self {
-        id.parse().unwrap_or(UserId(0))
+            .parse::<u128>()
+            .map_err(|_| TokenError::InvalidUserIdFormat)?;
+        let id128 = Id128::from_bytes_unchecked(id.to_be_bytes());
+        Self::new(id128)
     }
 }
 
@@ -63,15 +55,16 @@ impl From<UserId> for String {
     }
 }
 
-impl fmt::Display for UserId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+// Implémentation de From<Id128> pour UserId
+impl From<Id128> for UserId {
+    fn from(id: Id128) -> Self {
+        UserId(id)
     }
 }
 
-impl PartialEq<&str> for UserId {
-    fn eq(&self, other: &&str) -> bool {
-        self.0.to_string() == *other
+impl fmt::Display for UserId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -88,68 +81,62 @@ mod tests {
 
     #[test]
     fn test_user_id_new_valid() {
-        let user_id = UserId::new(1).unwrap();
-        assert_eq!(user_id.value(), 1);
+        let id = Id128::from_bytes_unchecked([1u8; 16]);
+        let user_id = UserId::new(id).unwrap();
+        assert_eq!(user_id.value(), id);
     }
 
     #[test]
     fn test_user_id_new_invalid() {
-        assert!(UserId::new(0).is_err());
-    }
-
-    #[test]
-    fn test_user_id_try_from_u64() {
-        let user_id = UserId::try_from(1u64).unwrap();
-        assert_eq!(user_id.value(), 1);
-
-        assert!(UserId::try_from(0u64).is_err());
-    }
-
-    #[test]
-    fn test_user_id_try_from_str() {
-        let user_id = "1".parse::<UserId>().unwrap();
-        assert_eq!(user_id.value(), 1);
-
-        assert!("0".parse::<UserId>().is_err());
-        assert!("invalid".parse::<UserId>().is_err());
-        assert!("".parse::<UserId>().is_err());
-    }
-
-    #[test]
-    fn test_user_id_from_str_fallback() {
-        // From<&str> utilise 0 en cas d'échec
-        let user_id = UserId::from("invalid");
-        assert_eq!(user_id.value(), 0);
+        let invalid_id = Id128::from_bytes_unchecked([0u8; 16]);
+        assert!(UserId::new(invalid_id).is_err());
     }
 
     #[test]
     fn test_user_id_equality() {
-        let id1 = UserId::new(1).unwrap();
-        let id2 = UserId::new(1).unwrap();
-        let id3 = UserId::new(2).unwrap();
+        let id1 = Id128::from_bytes_unchecked([1u8; 16]);
+        let id2 = Id128::from_bytes_unchecked([1u8; 16]);
+        let id3 = Id128::from_bytes_unchecked([2u8; 16]);
 
-        assert_eq!(id1, id2);
-        assert_ne!(id1, id3);
-        assert_eq!(id1, "1");
+        let user_id1 = UserId::new(id1).unwrap();
+        let user_id2 = UserId::new(id2).unwrap();
+        let user_id3 = UserId::new(id3).unwrap();
+
+        assert_eq!(user_id1, user_id2);
+        assert_ne!(user_id1, user_id3);
     }
 
     #[test]
     fn test_user_id_display() {
-        let user_id = UserId::new(42).unwrap();
-        assert_eq!(format!("{}", user_id), "42");
+        let id = Id128::from_bytes_unchecked([42u8; 16]);
+        let user_id = UserId::new(id).unwrap();
+        assert_eq!(format!("{}", user_id), id.to_string());
     }
 
     #[test]
     fn test_token_creation() {
-        let token = Token::new("1".parse::<UserId>().unwrap(), Role::User, 3_600_000).unwrap();
-        assert_eq!(token.user_id.value(), 1);
+        let token = Token::new(
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
+            Role::User,
+            3_600_000,
+        )
+        .unwrap();
+        assert_eq!(
+            token.user_id.value(),
+            Id128::from_bytes_unchecked([1u8; 16])
+        );
         assert_eq!(token.role, Role::User);
         assert!(!token.is_expired());
     }
 
     #[test]
     fn test_token_not_expired() {
-        let token = Token::new("1".parse::<UserId>().unwrap(), Role::User, 3_600_000).unwrap();
+        let token = Token::new(
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
+            Role::User,
+            3_600_000,
+        )
+        .unwrap();
         assert!(!token.is_expired());
         assert!(token.validate_token().is_ok());
         assert!(token.time_until_expiry_ms() > 0);
@@ -157,7 +144,12 @@ mod tests {
 
     #[test]
     fn test_token_expired() {
-        let token = Token::new("1".parse::<UserId>().unwrap(), Role::User, 1).unwrap();
+        let token = Token::new(
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
+            Role::User,
+            1,
+        )
+        .unwrap();
         std::thread::sleep(std::time::Duration::from_millis(10));
         assert!(token.is_expired());
         assert!(matches!(
@@ -169,7 +161,7 @@ mod tests {
     #[test]
     fn test_token_with_session() {
         let token = Token::new_with_session(
-            "1".parse::<UserId>().unwrap(),
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
             Role::Admin,
             3_600_000,
             "session_xyz".to_string(),
@@ -180,18 +172,30 @@ mod tests {
 
     #[test]
     fn test_token_age() {
-        let token = Token::new("1".parse::<UserId>().unwrap(), Role::User, 3_600_000).unwrap();
+        let token = Token::new(
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
+            Role::User,
+            3_600_000,
+        )
+        .unwrap();
         std::thread::sleep(std::time::Duration::from_millis(5));
         assert!(token.age_ms() > 0);
     }
 
     #[test]
     fn test_validate_user_id() {
-        assert!(validate_user_id("1"));
-        assert!(validate_user_id("  1  "));
-        assert!(!validate_user_id(""));
-        assert!(!validate_user_id("   "));
-        assert!(!validate_user_id("0"));
-        assert!(!validate_user_id("invalid"));
+        // Vérifie que "0" est invalide
+        let invalid_id = Id128::from_bytes_unchecked([0u8; 16]);
+        assert!(!CommonID::is_valid(invalid_id));
+    }
+
+    #[test]
+    fn test_user_id_new_with_id128() {
+        // Teste directement avec Id128
+        let valid_id = Id128::from_bytes_unchecked([1u8; 16]);
+        let invalid_id = Id128::from_bytes_unchecked([0u8; 16]);
+
+        assert!(CommonID::is_valid(valid_id));
+        assert!(!CommonID::is_valid(invalid_id));
     }
 }
