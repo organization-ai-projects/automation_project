@@ -3,7 +3,10 @@ use std::path::Path;
 use common_time::SystemClock;
 use protocol::json;
 
-use crate::{engine::EngineCtx, memory::{MemoryEvent, append_event}};
+use crate::{
+    engine::EngineCtx,
+    memory::{MemoryEvent, append_event},
+};
 
 // projects/products/code_agent_sandbox/src/logging/events.rs
 pub fn log_event(

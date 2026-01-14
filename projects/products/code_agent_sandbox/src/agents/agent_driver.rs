@@ -32,7 +32,6 @@ pub fn parse_diff_touched_files(unified_diff: &str) -> Vec<String> {
     out
 }
 
-
 // Updated `run_agent_with_orchestrator` to use refactored functions
 pub fn run_agent_with_orchestrator(
     ctx: &mut EngineCtx,
