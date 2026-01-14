@@ -28,6 +28,7 @@ mod execution_context;
 mod execution_paths;
 mod journal;
 mod journal_line;
+mod logging;
 mod memory;
 mod normalization;
 mod policies;

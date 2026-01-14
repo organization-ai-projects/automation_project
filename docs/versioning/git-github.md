@@ -223,3 +223,7 @@ fi
 ---
 
 **Ce workflow garantit une gestion propre et collaborative du code.**
+
+le commit doit être conforme à semver, il faut également utiliser la convention suivante pour le scope :
+libraries/[nom de la librairie]
+products/[nom du produit]

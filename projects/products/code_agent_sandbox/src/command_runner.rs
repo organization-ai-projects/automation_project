@@ -131,6 +131,21 @@ impl CommandRunner {
     }
 }
 
+// Moved `extract_cargo_stderr` from `agent_driver.rs`
+// This function extracts and formats Cargo stderr logs
+pub fn extract_cargo_stderr(result: &ActionResult) -> Option<String> {
+    if result.kind.starts_with("Cargo") {
+        result
+            .data
+            .as_ref()
+            .and_then(|data| data.get("stderr"))
+            .and_then(|stderr| stderr.as_str())
+            .map(|stderr| format!("{} stderr:\n{}", result.kind, truncate(stderr, 2000)))
+    } else {
+        None
+    }
+}
+
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         return s.to_string();
