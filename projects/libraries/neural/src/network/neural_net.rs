@@ -1,5 +1,6 @@
 // projects/libraries/neural/src/network/neural_net.rs
 use ndarray::{Array1, Array2, Axis};
+use protocol::json;
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -234,7 +235,7 @@ impl NeuralNetwork {
         let data = std::fs::read_to_string(path)
             .map_err(|e| NetworkError::InvalidConfig(e.to_string()))?;
         let layers: Vec<Layer> =
-            serde_json::from_str(&data).map_err(|e| NetworkError::InvalidConfig(e.to_string()))?;
+            json::from_json_str(&data).map_err(|e| NetworkError::InvalidConfig(e.to_string()))?;
         Ok(Self { layers })
     }
 

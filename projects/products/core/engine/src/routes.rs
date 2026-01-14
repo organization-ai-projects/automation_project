@@ -5,7 +5,7 @@ use common::Id128;
 use tracing::warn;
 use warp::{Filter, Reply, http::StatusCode};
 
-use protocol::ProtocolError;
+use protocol::{ProtocolError, json};
 use security::{Role, auth::UserId};
 
 use crate::const_values::{DEFAULT_DURATION_MS, LOGIN_MAX_DURATION_MS};
@@ -20,7 +20,7 @@ fn http_error(code: StatusCode, message: impl Into<String>) -> impl Reply {
 }
 
 async fn health() -> Result<impl Reply, warp::Rejection> {
-    Ok(warp::reply::json(&serde_json::json!({
+    Ok(warp::reply::json(&json!({
         "ok": true,
         "service": "engine"
     })))

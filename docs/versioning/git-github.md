@@ -224,6 +224,8 @@ fi
 
 **Ce workflow garantit une gestion propre et collaborative du code.**
 
+avant de faire un commit il faut faire un git status, git diff et éventuellement git branch pour vérifier qu'on soit sur une branche de travail et laquelle
 le commit doit être conforme à semver, il faut également utiliser la convention suivante pour le scope :
 libraries/[nom de la librairie]
 products/[nom du produit]
+le commit doit être le plus détaillé possible et structuré proprement

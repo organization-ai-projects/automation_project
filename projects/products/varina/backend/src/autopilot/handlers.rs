@@ -35,7 +35,7 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
 
     Ok(PreviewResponse {
         summary: "Prévisualisation réussie".to_string(),
-        payload: Some(serde_json::to_value(report).unwrap()), // Conversion en Value
+        payload: Some(protocol::json::to_value(&report).unwrap()),
     })
 }
 
@@ -43,8 +43,8 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
 /// Toujours policy default (push interdit par défaut).
 pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, String> {
     let policy = AutopilotPolicy {
-        fail_on_unrelated_changes: false, // Désactivation pour les tests
-        pre_checks: PreChecks::None,      // Désactivation des pré-checks pour les tests
+        fail_on_unrelated_changes: false,
+        pre_checks: PreChecks::None,
         ..AutopilotPolicy::default()
     };
 
@@ -63,6 +63,6 @@ pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, S
 
     Ok(ApplyResponse {
         result: "Application terminée".to_string(),
-        payload: Some(serde_json::to_value(report).unwrap()), // Conversion en Value
+        payload: Some(protocol::json::to_value(&report).unwrap()),
     })
 }

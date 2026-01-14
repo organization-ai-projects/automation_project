@@ -1,6 +1,6 @@
 use backend::router::{ACTION_GIT_AUTOPILOT_PREVIEW, handle_command};
-use protocol::{Command, CommandType, Metadata, Payload};
-use serde_json::{Value, json};
+use protocol::json::Json;
+use protocol::{Command, CommandType, Metadata, Payload, pjson};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -96,17 +96,17 @@ fn build_preview_command() -> Command {
         action: Some(ACTION_GIT_AUTOPILOT_PREVIEW.to_string()),
         payload: Some(Payload {
             payload_type: Some(PREVIEW_PAYLOAD_TYPE_V1.to_string()),
-            payload: Some(json!({
+            payload: Some(pjson!({
                 "request_id": "it-dryrun-001",
                 "details": "integration test dry-run",
-                "policy_overrides": null
+                "policy_overrides": pjson!(null)
             })),
         }),
     }
 }
 
 /// Helper: fetch payload JSON from CommandResponse
-fn response_payload_json(resp_payload: &Payload) -> Value {
+fn response_payload_json(resp_payload: &Payload) -> Json {
     resp_payload
         .payload
         .clone()

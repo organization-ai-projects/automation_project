@@ -2,10 +2,10 @@
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use protocol::apply_request::ApplyRequest;
-use protocol::payload::Payload;
-use protocol::preview_request::PreviewRequest;
-use protocol::{Command, CommandResponse, Metadata, ProtocolError, ResponseStatus};
+use protocol::{
+    Command, CommandResponse, Metadata, ProtocolError, ResponseStatus, apply_request::ApplyRequest,
+    json, payload::Payload, preview_request::PreviewRequest,
+};
 
 use crate::automation::run_git_autopilot_in_repo;
 use crate::autopilot::{handle_apply_git_autopilot, handle_preview_git_autopilot};
@@ -150,7 +150,7 @@ where
     println!("[debug] handle_json: Inspecting inner_ref: {:?}", inner_ref);
     println!("[debug] handle_json: Attempting to deserialize payload into target structure");
 
-    let req: Req = match serde_json::from_value(inner_ref.clone()) {
+    let req: Req = match json::from_value(inner_ref.clone()) {
         Ok(r) => r,
         Err(e) => {
             println!("[error] handle_json: Invalid JSON payload: {e}");
@@ -216,7 +216,7 @@ fn ok<T: Serialize + Clone>(
     payload_type: &str,
     res: &T,
 ) -> CommandResponse {
-    let message = match serde_json::to_string(res) {
+    let message = match json::to_string(res) {
         Ok(s) => s,
         Err(e) => {
             return err(
@@ -229,7 +229,7 @@ fn ok<T: Serialize + Clone>(
         }
     };
 
-    let payload_value = match serde_json::to_value(res.clone()) {
+    let payload_value = match json::to_value(&res.clone()) {
         Ok(v) => v,
         Err(e) => {
             return err(

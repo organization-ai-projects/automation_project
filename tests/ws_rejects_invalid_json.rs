@@ -1,5 +1,6 @@
 #[tokio::test]
 async fn ws_rejects_invalid_json() {
+    use protocol::json;
     use warp::test::WsClient;
     use warp::Filter;
 
@@ -12,7 +13,7 @@ async fn ws_rejects_invalid_json() {
                 while let Some(Ok(msg)) = rx.next().await {
                     if let Ok(text) = msg.to_str() {
                         // Simulate rejecting invalid JSON
-                        if serde_json::from_str::<serde_json::Value>(text).is_err() {
+                        if json::from_json_str::<json::Json>(text).is_err() {
                             let _ = tx.send(warp::ws::Message::text("Invalid JSON"));
                         }
                     }

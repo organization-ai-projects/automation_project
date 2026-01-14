@@ -1,6 +1,6 @@
 use backend::router::{ACTION_GIT_AUTOPILOT_APPLY, ACTION_GIT_AUTOPILOT_PREVIEW, handle_command};
-use protocol::{Command, CommandType, Metadata, Payload};
-use serde_json::json;
+use protocol::json::Json;
+use protocol::{Command, CommandType, Metadata, Payload, pjson};
 
 const PREVIEW_PAYLOAD_TYPE_V1: &str = "git_autopilot/preview/v1";
 const APPLY_PAYLOAD_TYPE_V1: &str = "git_autopilot/apply/v1";
@@ -14,7 +14,7 @@ fn cmd(command_type: CommandType, action: Option<&str>, payload: Option<Payload>
     }
 }
 
-fn payload(payload_type: Option<&str>, inner: Option<serde_json::Value>) -> Payload {
+fn payload(payload_type: Option<&str>, inner: Option<Json>) -> Payload {
     Payload {
         payload_type: payload_type.map(|s| s.to_string()),
         payload: inner,
@@ -72,10 +72,11 @@ fn router_rejects_missing_payload() {
 
 #[test]
 fn router_rejects_invalid_payload_type_preview() {
+    let invalid_json = pjson!({});
     let res = handle_command(cmd(
         CommandType::Preview,
         Some(ACTION_GIT_AUTOPILOT_PREVIEW),
-        Some(payload(Some("wrong/type"), Some(json!({})))),
+        Some(payload(Some("wrong/type"), Some(invalid_json))),
     ));
 
     assert_eq!(res.status.code, 415);
@@ -93,10 +94,11 @@ fn router_rejects_invalid_payload_type_preview() {
 
 #[test]
 fn router_rejects_invalid_payload_type_apply() {
+    let invalid_json = pjson!({});
     let res = handle_command(cmd(
         CommandType::Apply,
         Some(ACTION_GIT_AUTOPILOT_APPLY),
-        Some(payload(Some("wrong/type"), Some(json!({})))),
+        Some(payload(Some("wrong/type"), Some(invalid_json))),
     ));
 
     assert_eq!(res.status.code, 415);
@@ -129,12 +131,11 @@ fn router_rejects_missing_inner_payload() {
 
 #[test]
 fn router_rejects_invalid_json_shape_for_preview() {
-    // On force un JSON qui a de très fortes chances d'échouer à la désérialisation
-    // (PreviewRequest est presque forcément un struct attendu comme objet).
+    let invalid_json = pjson!(null);
     let res = handle_command(cmd(
         CommandType::Preview,
         Some(ACTION_GIT_AUTOPILOT_PREVIEW),
-        Some(payload(Some(PREVIEW_PAYLOAD_TYPE_V1), Some(json!(null)))),
+        Some(payload(Some(PREVIEW_PAYLOAD_TYPE_V1), Some(invalid_json))),
     ));
 
     assert_eq!(res.status.code, 400);
@@ -152,10 +153,11 @@ fn router_rejects_invalid_json_shape_for_preview() {
 
 #[test]
 fn router_rejects_invalid_json_shape_for_apply() {
+    let invalid_json = pjson!(null);
     let res = handle_command(cmd(
         CommandType::Apply,
         Some(ACTION_GIT_AUTOPILOT_APPLY),
-        Some(payload(Some(APPLY_PAYLOAD_TYPE_V1), Some(json!(null)))),
+        Some(payload(Some(APPLY_PAYLOAD_TYPE_V1), Some(invalid_json))),
     ));
 
     assert_eq!(res.status.code, 400);

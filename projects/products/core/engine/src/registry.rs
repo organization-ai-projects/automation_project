@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+use protocol::json;
+use protocol::json::JsonSerializable;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -11,10 +13,10 @@ use crate::ProjectMetadata;
 const ERR_READ_PROJECTS_DIR: &str = "Failed to read projects dir";
 const ERR_READ_PROJECT_ENTRY: &str = "Failed to read project entry";
 const ERR_READ_METADATA: &str = "Failed to read metadata.json";
-const ERR_INVALID_METADATA: &str = "Invalid metadata.json";
+const _ERR_INVALID_METADATA: &str = "Invalid metadata.json";
 const AUTO_DETECTED_DESCRIPTION: &str = "Auto-detected project";
 const DEFAULT_VERSION: &str = "0.1.0";
-const ERR_SERIALIZE_REGISTRY: &str = "Failed to serialize registry";
+const _ERR_SERIALIZE_REGISTRY: &str = "Failed to serialize registry";
 const ERR_WRITE_CACHE: &str = "Failed to write registry cache";
 const METADATA_FILE: &str = "metadata.json";
 const IGNORED_FOLDERS: [&str; 5] = [".git", "node_modules", "target", ".idea", ".vscode"];
@@ -94,8 +96,9 @@ impl Registry {
 
         match fs::read_to_string(&metadata_path) {
             Ok(data) => {
-                let mut meta: ProjectMetadata = serde_json::from_str(&data)
-                    .map_err(|e| format!("{} in '{}': {}", ERR_INVALID_METADATA, project_id, e))?;
+                let mut meta: ProjectMetadata = json::from_json_str(&data).unwrap_or_else(|e| {
+                    panic!("Failed to parse ProjectMetadata: {e}");
+                });
 
                 // Log if metadata.json contains a mismatched ID
                 if meta.id != project_id {
@@ -143,8 +146,9 @@ impl Registry {
     /// Sauvegarde optionnelle du cache (accélération startup)
     pub fn save_cache(&self, path: impl AsRef<Path>) -> Result<(), String> {
         let path = path.as_ref();
-        let data = serde_json::to_string_pretty(self)
-            .map_err(|e| format!("{}: {}", ERR_SERIALIZE_REGISTRY, e))?;
+        let data = self.to_json_string().unwrap_or_else(|e| {
+            panic!("Failed to serialize ProjectMetadata: {e}");
+        });
         fs::write(path, data)
             .map_err(|e| format!("{} '{}': {}", ERR_WRITE_CACHE, path.display(), e))?;
         Ok(())

@@ -96,8 +96,7 @@ impl AiOrchestrator {
             .append(true)
             .open(replay_path)
             .map_err(|e| AiError::TaskError(e.to_string()))?;
-        let serialized =
-            serde_json::to_string(example).map_err(|e| AiError::TaskError(e.to_string()))?;
+        let serialized = protocol::json::to_string(example)?;
         writeln!(file, "{}", serialized).map_err(|e| AiError::TaskError(e.to_string()))?;
         Ok(())
     }
@@ -107,8 +106,7 @@ impl AiOrchestrator {
         replay_path: &std::path::Path,
         example_json: &str,
     ) -> Result<(), AiError> {
-        let mut example: UserFeedback =
-            serde_json::from_str(example_json).map_err(|e| AiError::TaskError(e.to_string()))?;
+        let mut example: UserFeedback = protocol::json::from_json_str(example_json)?;
 
         if example.timestamp_unix_secs == 0 {
             example.timestamp_unix_secs = std::time::SystemTime::now()
@@ -135,9 +133,10 @@ impl AiOrchestrator {
 
         let mut out = Vec::new();
         for line in reader.lines() {
-            let mut feedback: UserFeedback =
-                serde_json::from_str(&line.map_err(|e| AiError::TaskError(e.to_string()))?)
-                    .map_err(|e| AiError::TaskError(e.to_string()))?;
+            let mut feedback: UserFeedback = protocol::json::from_json_str(
+                &line.map_err(|e| AiError::TaskError(e.to_string()))?,
+            )
+            .map_err(|e| AiError::TaskError(e.to_string()))?;
 
             if feedback.timestamp_unix_secs == 0 {
                 feedback.timestamp_unix_secs = std::time::SystemTime::now()
@@ -147,7 +146,8 @@ impl AiOrchestrator {
             }
 
             out.push(
-                serde_json::to_string(&feedback).map_err(|e| AiError::TaskError(e.to_string()))?,
+                protocol::json::to_string(&feedback)
+                    .map_err(|e| AiError::TaskError(e.to_string()))?,
             );
         }
         Ok(out)

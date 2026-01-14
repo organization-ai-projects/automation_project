@@ -261,7 +261,7 @@ impl FeedbackAdjuster {
     }
 
     fn save_history(&self) -> Result<(), FeedbackError> {
-        let json = serde_json::to_string_pretty(&self.feedback_history)
+        let json = protocol::json::to_json_string_pretty(&self.feedback_history)
             .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
         std::fs::write(&self.config.history_path, json)
             .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
@@ -271,8 +271,8 @@ impl FeedbackAdjuster {
     fn load_history(path: &std::path::Path) -> Result<Vec<UserFeedback>, FeedbackError> {
         let json = std::fs::read_to_string(path)
             .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
-        let history =
-            serde_json::from_str(&json).map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
+        let history = protocol::json::from_json_str(&json)
+            .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
         Ok(history)
     }
 }
