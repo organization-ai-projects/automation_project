@@ -1,0 +1,16 @@
+[package]
+name = "neural"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ndarray = { version = "0.15", features = ["serde"] }
+thiserror = { workspace = true }
+rand = "0.8"
+rand_distr = "0.4"
+tracing = "0.1"
+common = { workspace = true }
+common_time = { workspace = true }
+protocol = { workspace = true }
+common_json = { workspace = true }
+serde = { workspace = true }

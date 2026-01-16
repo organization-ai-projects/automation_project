@@ -1,0 +1,49 @@
+name: Rust CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    name: Rust CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Rust toolchain (officiel, maintenu)
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      # Cache Cargo (énorme gain de temps)
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # Vérification rapide (compile sans linker)
+      - name: Cargo check
+        run: cargo check --workspace --all-targets
+
+      # Format
+      - name: Cargo fmt
+        run: cargo fmt --all -- --check
+
+      # Lint sérieux
+      - name: Cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # Tests
+      - name: Cargo test
+        run: cargo test --workspace --all-features --verbose
