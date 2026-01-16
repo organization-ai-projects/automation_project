@@ -22,6 +22,9 @@ members = [
   "projects/products/varina/backend",
   "projects/products/varina/ui",
   "projects/products/code_agent_sandbox",
+  "projects/libraries/ast_core",
+  "projects/libraries/pjson_proc_macros",
+  "projects/libraries/hybrid_arena",
 ]
 resolver = "2"
 
@@ -30,7 +33,7 @@ serde = { version = "1.0", features = ["derive"] }
 tracing = { version = "0.1" }
 thiserror = "1.0"
 
-ai = { path = "projects/libraries/ai" }
+pjson_proc_macros = { path = "projects/libraries/pjson_proc_macros" }
 common = { path = "projects/libraries/common" }
 common_json = { path = "projects/libraries/common_json" }
 neural = { path = "projects/libraries/neural" }
@@ -45,3 +48,6 @@ common_time = { path = "projects/libraries/common_time" }
 common_parsing = { path = "projects/libraries/common_parsing" }
 common_tokenize = { path = "projects/libraries/common_tokenize" }
 protocol_macros = { path = "projects/libraries/protocol_macros" }
+ast_core = { path = "projects/libraries/ast_core" }
+ai = { path = "projects/libraries/ai" }
+hybrid_arena = { path = "projects/libraries/hybrid_arena" }
