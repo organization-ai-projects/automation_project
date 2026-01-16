@@ -2,6 +2,7 @@
 use std::{fs::OpenOptions, io::Write, path::PathBuf};
 
 use anyhow::Result;
+use common_json::to_json_string;
 use serde::Serialize;
 
 use crate::{
@@ -43,7 +44,7 @@ impl Journal {
     }
 
     fn write_line<T: Serialize>(&mut self, line: &T) -> Result<()> {
-        let s = protocol::to_json_string(line)?;
+        let s = to_json_string(line)?;
         writeln!(self.file, "{}", s)?;
         Ok(())
     }

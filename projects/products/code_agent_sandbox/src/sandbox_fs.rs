@@ -6,8 +6,8 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use common_json::pjson;
 use diffy::{Patch, apply};
-use protocol::json;
 use rand::{TryRngCore, rngs::OsRng};
 use walkdir::WalkDir;
 
@@ -45,7 +45,9 @@ impl SandboxFs {
         Ok(ActionResult::success(
             "ReadFile",
             format!("read {} bytes", bytes.len()),
-            Some(json!({ "path": rel, "contents": text, "bytes": bytes.len() })),
+            Some(
+                pjson!({ "path": (rel.to_string()), "contents": text, "bytes": (bytes.len() as i64) }),
+            ),
         ))
     }
 
@@ -75,7 +77,7 @@ impl SandboxFs {
                 continue;
             }
 
-            entries.push(json!({
+            entries.push(pjson!({
                 "path": rel_display,
                 "is_dir": is_dir
             }));
@@ -89,7 +91,7 @@ impl SandboxFs {
         Ok(ActionResult::success(
             "ListDir",
             format!("listed {} entries", entries.len()),
-            Some(json!({ "root": rel, "entries": entries })),
+            Some(pjson!({ "root": rel, "entries": entries })),
         ))
     }
 
@@ -119,7 +121,7 @@ impl SandboxFs {
         Ok(ActionResult::success(
             "WriteFile",
             "written",
-            Some(json!({ "path": rel, "bytes": contents.len() })),
+            Some(pjson!({ "path": (rel.to_string()), "bytes": (contents.len() as i64) })),
         ))
     }
 
@@ -167,7 +169,7 @@ impl SandboxFs {
         Ok(ActionResult::success(
             "ApplyUnifiedDiff",
             "patched",
-            Some(json!({ "path": rel, "bytes": updated.len() })),
+            Some(pjson!({ "path": (rel.to_string()), "bytes": (updated.len() as i64) })),
         ))
     }
 
