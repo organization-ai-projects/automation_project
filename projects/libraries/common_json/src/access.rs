@@ -1,9 +1,10 @@
 // projects/libraries/common_json/src/access.rs
 
+use crate::Json;
 use crate::error::{JsonError, JsonResult};
 use crate::json_access::JsonAccess;
 use crate::json_access_mut::JsonAccessMut;
-use crate::value::{Json, JsonArray, JsonObject};
+use crate::value::{JsonArray, JsonObject};
 
 impl JsonAccess for Json {
     fn get_field(&self, key: &str) -> JsonResult<&Json> {

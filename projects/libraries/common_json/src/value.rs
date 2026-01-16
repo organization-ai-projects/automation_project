@@ -3,21 +3,10 @@
 // Type Aliases
 // ============================================================================
 
-use serde::{Deserialize, Serialize};
+use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
+use serde::ser::{Serialize, Serializer};
 
-use crate::JsonError;
-
-/// Valeur JSON générique.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Json {
-    Null,
-    Bool(bool),
-    Number(JsonNumber),
-    String(String),
-    Array(JsonArray),
-    Object(JsonMap),
-}
+use crate::{JsonError, json::Json, to_json};
 
 /// Map clé-valeur pour les objets JSON.
 pub type JsonMap = std::collections::HashMap<String, Json>;
@@ -29,10 +18,67 @@ pub type JsonArray = Vec<Json>;
 pub type JsonObject = JsonMap;
 
 /// Nombre JSON.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct JsonNumber {
     value: f64,
+}
+
+impl Serialize for JsonNumber {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Serialize as integer if it has no fractional part
+        if self.value.fract() == 0.0 && self.value.abs() < (i64::MAX as f64) {
+            serializer.serialize_i64(self.value as i64)
+        } else {
+            serializer.serialize_f64(self.value)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for JsonNumber {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(JsonNumberVisitor)
+    }
+}
+
+struct JsonNumberVisitor;
+
+impl<'de> Visitor<'de> for JsonNumberVisitor {
+    type Value = JsonNumber;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a JSON number")
+    }
+
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(JsonNumber { value: v as f64 })
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(JsonNumber { value: v as f64 })
+    }
+
+    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        if v.is_finite() {
+            Ok(JsonNumber { value: v })
+        } else {
+            Err(de::Error::custom("invalid float value: must be finite"))
+        }
+    }
 }
 
 impl JsonNumber {
@@ -66,6 +112,103 @@ impl From<u64> for JsonNumber {
         JsonNumber {
             value: value as f64,
         }
+    }
+}
+
+pub struct JsonVisitor;
+
+impl<'de> Visitor<'de> for JsonVisitor {
+    type Value = Json;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a valid JSON value")
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Json::Null)
+    }
+
+    fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Json::Bool(v))
+    }
+
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Json::Number(JsonNumber::from(v)))
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Json::Number(JsonNumber::from(v)))
+    }
+
+    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        JsonNumber::from_f64(v)
+            .map(Json::Number)
+            .ok_or_else(|| de::Error::custom("invalid float value"))
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Json::String(v.to_owned()))
+    }
+
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Json::String(v))
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Json::Null)
+    }
+
+    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Deserialize::deserialize(deserializer)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut vec = Vec::new();
+        while let Some(elem) = seq.next_element()? {
+            vec.push(elem);
+        }
+        Ok(Json::Array(vec))
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut obj = JsonMap::new();
+        while let Some((key, value)) = map.next_entry()? {
+            obj.insert(key, value);
+        }
+        Ok(Json::Object(obj))
     }
 }
 
@@ -200,7 +343,7 @@ impl Json {
 
     /// Convertit un type sérialisable en `Json`.
     pub fn from_serialize<T: Serialize>(value: &T) -> Result<Self, JsonError> {
-        crate::serialize::to_json(value)
+        to_json(value)
     }
 }
 
@@ -241,5 +384,149 @@ impl From<f64> for Json {
 impl From<bool> for Json {
     fn from(value: bool) -> Self {
         Json::Bool(value)
+    }
+}
+
+// ============================================================================
+// Additional From implementations for common integer types
+// ============================================================================
+
+impl From<i8> for Json {
+    #[inline]
+    fn from(value: i8) -> Self {
+        Json::Number(JsonNumber {
+            value: value as f64,
+        })
+    }
+}
+
+impl From<i16> for Json {
+    #[inline]
+    fn from(value: i16) -> Self {
+        Json::Number(JsonNumber {
+            value: value as f64,
+        })
+    }
+}
+
+impl From<i32> for Json {
+    #[inline]
+    fn from(value: i32) -> Self {
+        Json::Number(JsonNumber {
+            value: value as f64,
+        })
+    }
+}
+
+impl From<u8> for Json {
+    #[inline]
+    fn from(value: u8) -> Self {
+        Json::Number(JsonNumber {
+            value: value as f64,
+        })
+    }
+}
+
+impl From<u16> for Json {
+    #[inline]
+    fn from(value: u16) -> Self {
+        Json::Number(JsonNumber {
+            value: value as f64,
+        })
+    }
+}
+
+impl From<u32> for Json {
+    #[inline]
+    fn from(value: u32) -> Self {
+        Json::Number(JsonNumber {
+            value: value as f64,
+        })
+    }
+}
+
+impl From<f32> for Json {
+    #[inline]
+    fn from(value: f32) -> Self {
+        Json::Number(JsonNumber {
+            value: value as f64,
+        })
+    }
+}
+
+impl From<isize> for Json {
+    #[inline]
+    fn from(value: isize) -> Self {
+        Json::Number(JsonNumber {
+            value: value as f64,
+        })
+    }
+}
+
+impl From<usize> for Json {
+    #[inline]
+    fn from(value: usize) -> Self {
+        Json::Number(JsonNumber {
+            value: value as f64,
+        })
+    }
+}
+
+// Option support: None -> Null, Some(v) -> v.into()
+impl<T: Into<Json>> From<Option<T>> for Json {
+    #[inline]
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(v) => v.into(),
+            None => Json::Null,
+        }
+    }
+}
+
+// Vec support
+impl<T: Into<Json>> From<Vec<T>> for Json {
+    #[inline]
+    fn from(value: Vec<T>) -> Self {
+        Json::Array(value.into_iter().map(Into::into).collect())
+    }
+}
+
+// &[T] slice support (requires Clone)
+impl<T: Clone + Into<Json>> From<&[T]> for Json {
+    #[inline]
+    fn from(value: &[T]) -> Self {
+        Json::Array(value.iter().cloned().map(Into::into).collect())
+    }
+}
+
+// Cow<str> support
+impl From<std::borrow::Cow<'_, str>> for Json {
+    #[inline]
+    fn from(value: std::borrow::Cow<'_, str>) -> Self {
+        Json::String(value.into_owned())
+    }
+}
+
+// &String support
+impl From<&String> for Json {
+    #[inline]
+    fn from(value: &String) -> Self {
+        Json::String(value.clone())
+    }
+}
+
+// char support
+impl From<char> for Json {
+    #[inline]
+    fn from(value: char) -> Self {
+        Json::String(value.to_string())
+    }
+}
+
+// () unit type -> Null
+impl From<()> for Json {
+    #[inline]
+    fn from(_: ()) -> Self {
+        Json::Null
     }
 }

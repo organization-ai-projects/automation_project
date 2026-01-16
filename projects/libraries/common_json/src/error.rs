@@ -1,5 +1,6 @@
 //! Documentation déplacée dans le fichier [error.md](../docs/error.md).
 
+use std::fmt;
 use thiserror::Error;
 
 /// Type d'erreur complet pour les opérations JSON.
@@ -141,3 +142,21 @@ impl JsonError {
 ///
 /// Équivalent à `Result<T, JsonError>`.
 pub type JsonResult<T> = Result<T, JsonError>;
+
+impl serde::de::Error for JsonError {
+    fn custom<T: fmt::Display>(msg: T) -> Self {
+        JsonError::Custom(msg.to_string())
+    }
+}
+
+impl serde::ser::Error for JsonError {
+    fn custom<T: fmt::Display>(msg: T) -> Self {
+        JsonError::Custom(msg.to_string())
+    }
+}
+
+impl From<std::io::Error> for JsonError {
+    fn from(err: std::io::Error) -> Self {
+        JsonError::Custom(err.to_string())
+    }
+}

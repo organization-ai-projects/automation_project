@@ -1,4 +1,4 @@
-use crate::Json;
+use crate::json::Json;
 
 /// Builder fluide pour construire des tableaux JSON.
 ///

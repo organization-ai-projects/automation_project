@@ -1,5 +1,6 @@
+use crate::Json;
 use crate::error::{JsonError, JsonResult};
-use crate::value::{Json, JsonMap, JsonNumber};
+use crate::value::{JsonMap, JsonNumber};
 use common_parsing::Cursor;
 use std::io::Read;
 

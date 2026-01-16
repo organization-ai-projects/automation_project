@@ -1,4 +1,5 @@
-use crate::{Json, JsonArray, JsonObject, JsonResult};
+use crate::Json;
+use crate::{JsonArray, JsonObject, JsonResult};
 
 /// Trait d'extension pour l'accès fluide aux valeurs JSON.
 ///

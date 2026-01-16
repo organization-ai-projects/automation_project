@@ -1,9 +1,10 @@
 // Documentation déplacée dans docs/merge.md. Référez-vous à ce fichier pour les détails.
 
+use crate::Json;
 use crate::array_diff::ArrayDiff;
 use crate::json_diff::JsonDiff;
 use crate::merge_strategy::MergeStrategy;
-use crate::value::{Json, JsonMap};
+use crate::value::JsonMap;
 use std::collections::HashMap;
 
 /// Fusionne deux valeurs JSON avec la stratégie spécifiée.

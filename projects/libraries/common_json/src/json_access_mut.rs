@@ -1,4 +1,4 @@
-use crate::{Json, JsonResult};
+use crate::{JsonResult, json::Json};
 
 pub trait JsonAccessMut {
     /// Retourne une référence mutable vers un champ.

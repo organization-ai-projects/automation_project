@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use crate::{Json, array_diff::ArrayDiff};
+use crate::array_diff::ArrayDiff;
+use crate::json::Json;
 
 /// Représente une différence entre deux valeurs JSON.
 ///
