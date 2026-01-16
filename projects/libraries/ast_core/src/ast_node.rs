@@ -202,10 +202,7 @@ impl AstNode {
             other => other,
         };
         let meta = std::mem::take(&mut transformed.meta);
-        AstNode {
-            kind,
-            meta,
-        }
+        AstNode { kind, meta }
     }
 
     /// Applies a function to all nodes recursively (bottom-up).

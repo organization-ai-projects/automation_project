@@ -5,6 +5,6 @@ mod duplicate_keys;
 #[cfg(test)]
 mod edge_cases;
 #[cfg(test)]
-mod number_validation;
-#[cfg(test)]
 mod macro_tests;
+#[cfg(test)]
+mod number_validation;
