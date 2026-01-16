@@ -18,6 +18,7 @@ pub fn reserve_capacity<T>(vec: &mut Vec<T>, additional: usize) {
 /// Fonction commune pour vider un vecteur.
 #[inline]
 pub fn clear_vec<T>(vec: &mut Vec<T>) {
+    vec.iter_mut().for_each(|_| {});
     vec.clear();
 }
 

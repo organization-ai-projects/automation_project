@@ -226,8 +226,14 @@ impl<T> SlotArena<T> {
     /// so that old IDs remain invalid.
     #[inline]
     pub fn clear(&mut self) {
-        clear_vec(&mut self.slots);
+        for slot in &mut self.slots {
+            if slot.value.is_some() {
+                slot.value = None;
+                slot.generation = slot.generation.wrapping_add(1);
+            }
+        }
         clear_vec(&mut self.free);
+        self.free.extend(0..self.slots.len() as u32);
         self.len = 0;
     }
 

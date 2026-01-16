@@ -98,7 +98,7 @@
 //!
 //! ## Simultaneous Mutable Access
 //!
-//! Safely mutate two items at once with `get2_mut`:
+//! Safely mutate two items at once with `get_mut`:
 //!
 //! ```rust
 //! use hybrid_arena::SlotArena;
@@ -107,7 +107,7 @@
 //! let id1 = arena.alloc(10).unwrap();
 //! let id2 = arena.alloc(20).unwrap();
 //!
-//! let (a, b) = arena.get2_mut(id1, id2);
+//! let (a, b) = arena.get_mut(id1, id2);
 //! *a.unwrap() += 5;
 //! *b.unwrap() += 5;
 //! ```
