@@ -1,3 +1,4 @@
+use common_json::json;
 // projects/libraries/neural/src/feedback/feedback_adjuster.rs
 use ndarray::Array1;
 use std::collections::hash_map::DefaultHasher;
@@ -261,7 +262,7 @@ impl FeedbackAdjuster {
     }
 
     fn save_history(&self) -> Result<(), FeedbackError> {
-        let json = protocol::json::to_json_string_pretty(&self.feedback_history)
+        let json = json::to_json_string_pretty(&self.feedback_history)
             .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
         std::fs::write(&self.config.history_path, json)
             .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
@@ -271,8 +272,8 @@ impl FeedbackAdjuster {
     fn load_history(path: &std::path::Path) -> Result<Vec<UserFeedback>, FeedbackError> {
         let json = std::fs::read_to_string(path)
             .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
-        let history = protocol::json::from_json_str(&json)
-            .map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
+        let history =
+            json::from_json_str(&json).map_err(|e| FeedbackError::TrainingError(e.to_string()))?;
         Ok(history)
     }
 }

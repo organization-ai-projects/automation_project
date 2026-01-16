@@ -1,6 +1,6 @@
 // projects/libraries/neural/src/network/neural_net.rs
+use common_json::json;
 use ndarray::{Array1, Array2, Axis};
-use protocol::json;
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

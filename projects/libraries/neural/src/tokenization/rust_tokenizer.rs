@@ -1,5 +1,4 @@
-use protocol::json;
-use protocol::json::JsonSerializable;
+use common_json::{JsonError, JsonSerializable, json};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -11,11 +10,11 @@ pub enum TokenizationError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Serialization error: {0}")]
-    SerializationError(protocol::json::JsonError),
+    SerializationError(JsonError),
 }
 
-impl From<protocol::json::JsonError> for TokenizationError {
-    fn from(err: protocol::json::JsonError) -> Self {
+impl From<JsonError> for TokenizationError {
+    fn from(err: JsonError) -> Self {
         TokenizationError::SerializationError(err)
     }
 }
@@ -139,9 +138,7 @@ impl RustTokenizer {
     }
 
     pub fn save(&self, path: &std::path::Path) -> Result<(), TokenizationError> {
-        let json = self
-            .to_json_string()
-            .map_err(protocol::json::JsonError::from)?;
+        let json = self.to_json_string()?;
         std::fs::write(path, json)?;
         Ok(())
     }

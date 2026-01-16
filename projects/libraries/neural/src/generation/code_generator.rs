@@ -1,5 +1,5 @@
+use common_json::{JsonSerializable, to_string};
 use ndarray::{Array1, s};
-use protocol::json::JsonSerializable;
 
 use crate::{
     generation::{GenerationConfig, GenerationError, apply_top_k, sample_categorical, softmax},
@@ -117,8 +117,8 @@ impl CodeGenerator {
             .to_json()
             .map_err(|e| std::io::Error::other(e.to_string()))?;
 
-        let serialized_model_str = protocol::json::to_string(&serialized_model)
-            .map_err(|e| std::io::Error::other(e.to_string()))?;
+        let serialized_model_str =
+            to_string(&serialized_model).map_err(|e| std::io::Error::other(e.to_string()))?;
 
         // Write the serialized data to the specified file
         std::fs::write(model_path, serialized_model_str)
