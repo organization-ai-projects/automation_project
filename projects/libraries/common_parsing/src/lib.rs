@@ -4,11 +4,6 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-/// Placeholder example.
-pub fn parse_example(_input: &str) -> Result<(), String> {
-    Ok(())
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct CursorPosition {
     pos: usize,
