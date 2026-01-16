@@ -1,5 +1,5 @@
 // projects/libraries/ai/src/ai_error.rs
-use protocol::json::JsonError;
+use common_json::JsonError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

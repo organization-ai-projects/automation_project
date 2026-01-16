@@ -11,3 +11,4 @@ symbolic = { workspace = true }
 neural = { workspace = true }
 tracing = { workspace = true }
 protocol = { workspace = true }
+common_json = { workspace = true }

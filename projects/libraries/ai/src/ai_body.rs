@@ -1,5 +1,7 @@
 //! AiBody is the only public interface of the `ai` library.
 //! Do not use directly: ai_orchestrator.rs and ai_feedback.rs.
+use std::path;
+
 // projects/libraries/ai/src/ai_body.rs
 use tracing::warn;
 
@@ -21,8 +23,8 @@ impl AiBody {
 
     pub fn load_neural_model(
         &mut self,
-        model_path: &std::path::Path,
-        tokenizer_path: &std::path::Path,
+        model_path: &path::Path,
+        tokenizer_path: &path::Path,
     ) -> Result<(), AiError> {
         if model_path.is_file() && tokenizer_path.is_file() {
             self.orchestrator
@@ -122,8 +124,8 @@ impl AiBody {
 
     pub fn save_neural_model(
         &self,
-        model_path: &std::path::Path,
-        tokenizer_path: &std::path::Path,
+        model_path: &path::Path,
+        tokenizer_path: &path::Path,
     ) -> Result<(), AiError> {
         self.orchestrator
             .save_neural_model(model_path, tokenizer_path)
@@ -131,17 +133,14 @@ impl AiBody {
 
     pub fn append_training_example(
         &self,
-        replay_path: &std::path::Path,
+        replay_path: &path::Path,
         example_json: &str,
     ) -> Result<(), AiError> {
         self.orchestrator
             .append_training_example_json(replay_path, example_json)
     }
 
-    pub fn load_training_examples(
-        &self,
-        replay_path: &std::path::Path,
-    ) -> Result<Vec<String>, AiError> {
+    pub fn load_training_examples(&self, replay_path: &path::Path) -> Result<Vec<String>, AiError> {
         self.orchestrator
             .load_training_examples_as_strings(replay_path)
     }

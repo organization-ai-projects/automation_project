@@ -458,6 +458,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 The library is organized into:
 
 - **Public API**:
+
   - `AiBody` - Primary interface for all operations
   - `Task` - Task construction and configuration (part of public API for advanced users)
   - `TaskResult` - Results from task execution
@@ -532,6 +533,10 @@ for handle in handles {
 - `serde`: Serialization for feedback types
 - `thiserror`: Error handling
 
-## License
+## Contribuer
 
-[Your license here]
+Les contributions sont les bienvenues ! Veuillez ouvrir une issue ou une pull request sur le dépôt GitHub.
+
+Pour plus de détails sur le workflow Git/GitHub utilisé dans ce projet, consultez la [documentation sur le versioning](../../../docs/versioning/git-github.md).
+
+## Licence
