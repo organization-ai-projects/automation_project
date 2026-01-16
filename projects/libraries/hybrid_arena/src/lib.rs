@@ -1,0 +1,173 @@
+//! # `hybrid_arena` - High-Performance Arena Allocators
+//!
+//! Fast, type-safe arena allocators with generation-checked IDs for Rust.
+//!
+//! ## Features
+//!
+//! - **Type-safe IDs**: Compile-time guarantee that `Id<Foo>` can't access `Arena<Bar>`
+//! - **Generation tracking**: Prevents use-after-free bugs with ABA problem prevention
+//! - **Cache-friendly**: IDs packed into single `u64` for optimal cache performance
+//! - **Zero-cost abstractions**: All bounds checks optimize away in release builds
+//! - **Flexible allocation**: Choose between bump allocation or slot reuse
+//! - **Rich API**: Iterators, batch allocation, Index traits, and more
+//!
+//! ## Arena Types
+//!
+//! | Arena | Allocation | Removal | Use Case |
+//! |-------|-----------|---------|----------|
+//! | [`BumpArena`] | O(1) | ❌ | ASTs, graphs, interned strings |
+//! | [`SlotArena`] | O(1) | O(1) | ECS entities, object pools |
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use hybrid_arena::{BumpArena, SlotArena, Id};
+//!
+//! // BumpArena: fast append-only allocation
+//! let mut bump: BumpArena<String> = BumpArena::new();
+//! let id = bump.alloc("hello".to_string()).unwrap();
+//! assert_eq!(bump[id], "hello");
+//!
+//! // SlotArena: supports removal and reuse
+//! let mut slots: SlotArena<i32> = SlotArena::new();
+//! let id1 = slots.alloc(42).unwrap();
+//! let id2 = slots.alloc(100).unwrap();
+//! slots.remove(id1); // Slot is recycled
+//! let id3 = slots.alloc(200).unwrap(); // Reuses slot 0
+//! assert_eq!(id3.index(), id1.index()); // Same slot
+//! assert_ne!(id3.generation(), id1.generation()); // Different generation
+//! ```
+//!
+//! ## ID System
+//!
+//! IDs are packed into a single `u64` for cache efficiency:
+//! - **Bits 0-31**: Index (supports up to 4 billion items)
+//! - **Bits 32-63**: Generation (for use-after-free detection)
+//!
+//! ```rust
+//! use hybrid_arena::Id;
+//!
+//! let id: Id<String> = Id::new(42, 1);
+//! assert_eq!(id.index(), 42);
+//! assert_eq!(id.generation(), 1);
+//! assert_eq!(std::mem::size_of::<Id<String>>(), 8); // Single u64
+//! ```
+//!
+//! ## Iteration
+//!
+//! Both arenas support efficient iteration:
+//!
+//! ```rust
+//! use hybrid_arena::BumpArena;
+//!
+//! let mut arena: BumpArena<i32> = BumpArena::new();
+//! arena.alloc_extend([1, 2, 3, 4, 5]).unwrap();
+//!
+//! // Reference iteration
+//! for item in arena.iter() {
+//!     println!("{}", item);
+//! }
+//!
+//! // Mutable iteration
+//! for item in arena.iter_mut() {
+//!     *item *= 2;
+//! }
+//!
+//! // Iteration with IDs
+//! for (id, item) in arena.iter_with_ids() {
+//!     println!("{}: {}", id, item);
+//! }
+//! ```
+//!
+//! ## Self-Referential Structures
+//!
+//! Use `alloc_with` to create items that know their own ID:
+//!
+//! ```rust
+//! use hybrid_arena::{BumpArena, Id};
+//!
+//! struct Node {
+//!     id: Id<Node>,
+//!     value: i32,
+//! }
+//!
+//! let mut arena: BumpArena<Node> = BumpArena::new();
+//! let id = arena.alloc_with(|id| Node { id, value: 42 }).unwrap();
+//! assert_eq!(arena[id].id, id);
+//! ```
+//!
+//! ## Simultaneous Mutable Access
+//!
+//! Safely mutate two items at once with `get2_mut`:
+//!
+//! ```rust
+//! use hybrid_arena::SlotArena;
+//!
+//! let mut arena: SlotArena<i32> = SlotArena::new();
+//! let id1 = arena.alloc(10).unwrap();
+//! let id2 = arena.alloc(20).unwrap();
+//!
+//! let (a, b) = arena.get2_mut(id1, id2);
+//! *a.unwrap() += 5;
+//! *b.unwrap() += 5;
+//! ```
+//!
+//! ## Feature Flags
+//!
+//! - **`serde`**: Enable serialization/deserialization support
+//! - **`stable`**: Use only stable Rust features (default)
+//!
+//! ## Performance Tips
+//!
+//! 1. **Pre-allocate**: Use `with_capacity()` when size is known
+//! 2. **Batch allocation**: Use `alloc_extend()` for multiple items
+//! 3. **Use Index syntax**: `arena[id]` is as fast as `get().unwrap()`
+//! 4. **Choose wisely**: `BumpArena` for read-heavy, `SlotArena` for dynamic
+
+pub mod bump_arena;
+pub mod bump_arena_drain;
+pub mod bump_arena_into_iter;
+pub mod bump_arena_iter;
+pub mod bump_arena_iter_mut;
+pub mod common_methods;
+pub mod error;
+pub mod id;
+pub mod slot;
+pub mod slot_arena;
+pub mod slot_arena_drain;
+pub mod slot_arena_iter;
+pub mod slot_arena_iter_mut;
+
+// Re-export main types
+pub use bump_arena::BumpArena;
+pub use bump_arena_drain::BumpArenaDrain;
+pub use bump_arena_into_iter::BumpArenaIntoIter;
+pub use bump_arena_iter::BumpArenaIter;
+pub use bump_arena_iter_mut::BumpArenaIterMut;
+pub use common_methods::{
+    clear_vec, is_valid_id, new_arena, reserve_capacity, with_capacity_arena,
+};
+pub use error::ArenaError;
+pub use id::Id;
+pub use slot::Slot;
+pub use slot_arena::SlotArena;
+pub use slot_arena_drain::SlotArenaDrain;
+pub use slot_arena_iter::SlotArenaIter;
+pub use slot_arena_iter_mut::SlotArenaIterMut;
+
+// Re-export iterator types for advanced use
+
+/// Prelude module for convenient imports.
+///
+/// ```rust
+/// use hybrid_arena::prelude::*;
+/// ```
+pub mod prelude {
+    pub use crate::bump_arena::BumpArena;
+    pub use crate::error::ArenaError;
+    pub use crate::id::Id;
+    pub use crate::slot_arena::SlotArena;
+}
+
+#[cfg(test)]
+mod tests;
