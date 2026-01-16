@@ -1,10 +1,12 @@
 // projects/products/varina/backend/src/router.rs
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use std::path;
 
+use common_json::{from_value, to_string, to_value};
 use protocol::{
     Command, CommandResponse, Metadata, ProtocolError, ResponseStatus, apply_request::ApplyRequest,
-    json, payload::Payload, preview_request::PreviewRequest,
+    payload::Payload, preview_request::PreviewRequest,
 };
 
 use crate::automation::run_git_autopilot_in_repo;
@@ -150,7 +152,7 @@ where
     println!("[debug] handle_json: Inspecting inner_ref: {:?}", inner_ref);
     println!("[debug] handle_json: Attempting to deserialize payload into target structure");
 
-    let req: Req = match json::from_value(inner_ref.clone()) {
+    let req: Req = match from_value(inner_ref.clone()) {
         Ok(r) => r,
         Err(e) => {
             println!("[error] handle_json: Invalid JSON payload: {e}");
@@ -183,7 +185,7 @@ where
 
 fn run_git_autopilot(cmd: &Command) -> CommandResponse {
     // TODO future proof: repo path dans payload + validation + whitelist
-    let repo_path = std::path::Path::new("/chemin/du/repo");
+    let repo_path = path::Path::new("/chemin/du/repo");
     let mode = AutopilotMode::ApplySafe;
     let policy = AutopilotPolicy::default();
 
@@ -216,7 +218,7 @@ fn ok<T: Serialize + Clone>(
     payload_type: &str,
     res: &T,
 ) -> CommandResponse {
-    let message = match json::to_string(res) {
+    let message = match to_string(res) {
         Ok(s) => s,
         Err(e) => {
             return err(
@@ -229,7 +231,7 @@ fn ok<T: Serialize + Clone>(
         }
     };
 
-    let payload_value = match json::to_value(&res.clone()) {
+    let payload_value = match to_value(&res.clone()) {
         Ok(v) => v,
         Err(e) => {
             return err(
