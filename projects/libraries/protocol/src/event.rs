@@ -10,6 +10,14 @@ pub const MAX_EVENT_NAME_LENGTH: usize = 256;
 /// Maximum allowed size for event data (in bytes)
 pub const MAX_EVENT_DATA_SIZE: usize = 10 * 1024 * 1024; // 10 MB
 
+type CommonFields = (
+    Option<Payload>,
+    Option<LogLevel>,
+    Option<String>,
+    Option<u8>,
+    EventVariant,
+);
+
 /// Represents an event in the protocol
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
@@ -33,14 +41,6 @@ pub struct Event {
     /// The specific variant of the event
     pub variant: EventVariant,
 }
-
-type CommonFields = (
-    Option<Payload>,
-    Option<LogLevel>,
-    Option<String>,
-    Option<u8>,
-    EventVariant,
-);
 
 impl Event {
     /// Common initialization for all constructors
@@ -114,7 +114,7 @@ impl Event {
             data: payload
                 .payload
                 .clone()
-                .map_or_else(|| "".to_string(), |v| v.to_string()),
+                .map_or_else(|| "".to_string(), |v| format!("{:?}", v)),
             metadata,
             payload: Some(payload),
             level: None,

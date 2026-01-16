@@ -1,4 +1,4 @@
-use crate::json::Json; // Remplace serde_json::Value par Json centralisé
+use common_json::Json;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

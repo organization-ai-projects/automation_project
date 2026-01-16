@@ -1,5 +1,5 @@
 //projects/libraries/protocol/src/command_response.rs
-use crate::{ProtocolError, ResponseStatus, metadata::Metadata, payload::Payload}; // Import Metadata and Payload
+use crate::{ProtocolError, ResponseStatus, metadata::Metadata, payload::Payload};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
