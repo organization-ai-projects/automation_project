@@ -1,7 +1,7 @@
-use protocol::json::{Json, from_json_str, json};
-use std::fs;
+use common_json::{Json, from_json_str, pjson, to_string};
 use std::io::Write;
 use std::process::{Command, Stdio};
+use std::{fs, process};
 use tempfile::tempdir;
 
 fn run_with_stdin(repo_root: &str, runs_root: &str, input: &str) -> std::process::Output {
@@ -24,7 +24,7 @@ fn run_with_stdin(repo_root: &str, runs_root: &str, input: &str) -> std::process
     child.wait_with_output().expect("Failed to wait output")
 }
 
-fn parse_stdout_json(output: &std::process::Output, input: &str) -> Json {
+fn parse_stdout_json(output: &process::Output, input: &str) -> Json {
     let stdout = String::from_utf8_lossy(&output.stdout);
     from_json_str(&stdout).unwrap_or_else(|e| {
         panic!(
@@ -55,14 +55,13 @@ fn test_integration_pipeline() {
     // - Action kind is camelCase: writeFile
     // - createDirs is camelCase
     // - Path is relative (policy normalizes / strips leading slashes)
-    let input_allowed = json!({
+    let input_allowed = common_json::to_string(&pjson!({
         "runId": "test_run_123",
         "workspaceMode": "assist",
         "actions": [
             { "kind": "writeFile", "path": "src/agent_tmp.txt", "contents": "data", "createDirs": true }
         ]
-    })
-    .to_string();
+    })).unwrap();
 
     let out_allowed = run_with_stdin(&repo_root_s, &runs_root_s, &input_allowed);
 
@@ -77,36 +76,50 @@ fn test_integration_pipeline() {
     }
 
     let v = parse_stdout_json(&out_allowed, &input_allowed);
-    assert_eq!(v["runId"], "test_run_123");
-    assert!(v["results"].is_array(), "results must be an array: {v}");
+    let run_id = v
+        .as_object()
+        .and_then(|obj| obj.get("runId"))
+        .and_then(|x| x.as_str());
+    assert_eq!(run_id, Some("test_run_123"));
+
+    let results = v
+        .as_object()
+        .and_then(|obj| obj.get("results"))
+        .and_then(|x| x.as_array());
+    assert!(results.is_some(), "results must be an array: {:?}", v);
 
     // 3) Forbidden request (.git/** is FORBIDDEN)
-    let input_forbidden = json!({
+    let input_forbidden = to_string(&pjson!({
         "runId": "test_run_forbidden",
         "workspaceMode": "assist",
         "actions": [
             { "kind": "writeFile", "path": ".git/config", "contents": "nope", "createDirs": false }
         ]
-    })
-    .to_string();
+    }))
+    .unwrap();
 
     let out_forbidden = run_with_stdin(&repo_root_s, &runs_root_s, &input_forbidden);
 
     // Depending on your engine design, it may exit non-zero OR return ok:false results.
     // We'll parse JSON and assert at least one ok=false.
     let v2 = parse_stdout_json(&out_forbidden, &input_forbidden);
+    let results = v2
+        .as_object()
+        .and_then(|obj| obj.get("results"))
+        .and_then(|x| x.as_array());
+    assert!(results.is_some(), "results must be an array: {:?}", v2);
 
-    assert!(v2["results"].is_array(), "results must be an array: {v2}");
-
-    let any_failed = v2["results"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|r| r.get("ok").and_then(|x| x.as_bool()) == Some(false));
+    let any_failed = results.unwrap().iter().any(|r| {
+        r.as_object()
+            .and_then(|obj| obj.get("ok"))
+            .and_then(|x| x.as_bool())
+            == Some(false)
+    });
 
     assert!(
         any_failed,
-        "expected a failed action result for forbidden path (.git/**). got: {v2}"
+        "expected a failed action result for forbidden path (.git/**). got: {:?}",
+        v2
     );
 
     // 4) Invalid CLI args (0 args)

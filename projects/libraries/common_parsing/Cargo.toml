@@ -1,0 +1,9 @@
+[package]
+name = "common_parsing"
+version = "0.1.0"
+edition = "2024"
+
+description = "A library for common parsing utilities."
+license = "MIT"
+
+[dependencies]

@@ -38,6 +38,7 @@ mod score;
 mod worktree;
 
 use anyhow::{Context, Result, bail};
+use common_json::{from_json_str, to_json_string_pretty};
 use common_time::timeout::with_timeout; // Correction de l'import pour inclure `with_timeout`
 use common_time::{SystemClock, TimeSpan};
 use std::io::{self, Read};
@@ -73,7 +74,7 @@ fn main() -> Result<()> {
     // ==========================
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
-    let req: Request = protocol::from_json_str(&input).context("Invalid JSON input for Request")?;
+    let req: Request = from_json_str(&input).context("Invalid JSON input for Request")?;
 
     // ==========================
     // Step 3: Execute Request
@@ -86,7 +87,7 @@ fn main() -> Result<()> {
     );
 
     match futures::executor::block_on(timeout_future) {
-        Ok(Ok(res)) => println!("{}", protocol::to_json_string_pretty(&res)?),
+        Ok(Ok(res)) => println!("{}", to_json_string_pretty(&res)?),
         Ok(Err(err)) => bail!("Execution error: {}", err),
         Err(_) => bail!("Timeout exceeded while executing request"),
     }

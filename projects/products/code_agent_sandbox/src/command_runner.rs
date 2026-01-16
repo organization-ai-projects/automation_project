@@ -4,7 +4,7 @@
 
 use anyhow::{Result, bail};
 use command_runner::{run_cmd_allow_failure, run_cmd_ok};
-use protocol::json;
+use common_json::{JsonAccess, pjson};
 use std::path::Path;
 
 use crate::{actions::ActionResult, policies::Policy, runner_config::RunnerConfig};
@@ -79,10 +79,10 @@ impl CommandRunner {
         Ok(ActionResult::success(
             "CommandExecuted",
             "ok",
-            Some(json!({
-                "exitCode": output.status.code().unwrap_or(-1),
-                "stdout": truncate(&String::from_utf8_lossy(&output.stdout), 2000),
-                "stderr": truncate(&String::from_utf8_lossy(&output.stderr), 2000),
+            Some(pjson!({
+                "exitCode": (output.status.code().unwrap_or(-1) as i64),
+                "stdout": (truncate(&String::from_utf8_lossy(&output.stdout), 2000).to_string()),
+                "stderr": (truncate(&String::from_utf8_lossy(&output.stderr), 2000).to_string())
             })),
         ))
     }
@@ -117,10 +117,10 @@ impl CommandRunner {
         Ok(ActionResult::success(
             "CommandExecuted",
             "ok",
-            Some(json!({
-                "exitCode": output.status.code().unwrap_or(-1),
-                "stdout": truncate(&String::from_utf8_lossy(&output.stdout), 2000),
-                "stderr": truncate(&String::from_utf8_lossy(&output.stderr), 2000),
+            Some(pjson!({
+                "exitCode": (output.status.code().unwrap_or(-1) as i64),
+                "stdout": (truncate(&String::from_utf8_lossy(&output.stdout), 2000).to_string()),
+                "stderr": (truncate(&String::from_utf8_lossy(&output.stderr), 2000).to_string())
             })),
         ))
     }
@@ -138,7 +138,7 @@ pub fn extract_cargo_stderr(result: &ActionResult) -> Option<String> {
         result
             .data
             .as_ref()
-            .and_then(|data| data.get("stderr"))
+            .and_then(|data| data.get_field("stderr").ok())
             .and_then(|stderr| stderr.as_str())
             .map(|stderr| format!("{} stderr:\n{}", result.kind, truncate(stderr, 2000)))
     } else {

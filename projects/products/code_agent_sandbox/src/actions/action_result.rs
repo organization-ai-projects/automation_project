@@ -1,6 +1,7 @@
 // projects/products/code_agent_sandbox/src/actions/action_result.rs
-use protocol::Json;
 use serde::Serialize;
+
+use common_json::Json;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

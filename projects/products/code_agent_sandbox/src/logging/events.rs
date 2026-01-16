@@ -1,7 +1,7 @@
 use std::path::Path;
 
+use common_json::Json;
 use common_time::SystemClock;
-use protocol::json;
 
 use crate::{
     engine::EngineCtx,
@@ -15,7 +15,7 @@ pub fn log_event(
     kind: &str,
     input: Option<String>,
     output: Option<String>,
-    metadata: Option<json::Json>,
+    metadata: Option<Json>,
 ) {
     let event = MemoryEvent {
         ts: SystemClock::now_rfc3339(),

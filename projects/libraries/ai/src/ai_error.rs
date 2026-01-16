@@ -1,4 +1,5 @@
 // projects/libraries/ai/src/ai_error.rs
+use common_json::JsonError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -9,4 +10,6 @@ pub enum AiError {
     NeuralError(#[from] neural::NeuralError),
     #[error("Task error: {0}")]
     TaskError(String),
+    #[error("JSON error: {0}")]
+    JsonError(#[from] JsonError),
 }

@@ -1,3 +1,4 @@
+use common_json::{JsonSerializable, to_string};
 use ndarray::{Array1, s};
 
 use crate::{
@@ -111,11 +112,16 @@ impl CodeGenerator {
         println!("Saving CodeGenerator model to {:?}", model_path);
 
         // Serialize the neural network model
-        let serialized_model =
-            serde_json::to_string(&self.model).map_err(|e| std::io::Error::other(e.to_string()))?;
+        let serialized_model = self
+            .model
+            .to_json()
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+
+        let serialized_model_str =
+            to_string(&serialized_model).map_err(|e| std::io::Error::other(e.to_string()))?;
 
         // Write the serialized data to the specified file
-        std::fs::write(model_path, serialized_model)
+        std::fs::write(model_path, serialized_model_str)
     }
 
     pub fn train(&mut self, training_data: Vec<String>) -> Result<(), GenerationError> {

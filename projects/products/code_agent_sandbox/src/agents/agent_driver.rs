@@ -1,7 +1,7 @@
 // projects/products/code_agent_sandbox/src/agent_driver.rs
 use anyhow::{Context, Result};
+use common_json::pjson;
 use common_time::SystemClock;
-use protocol::json;
 use std::path::Path;
 
 use crate::{
@@ -173,12 +173,12 @@ pub fn run_agent_with_orchestrator(
                 "cargo_ok={} score={} failures={}",
                 last_score.cargo_ok, last_score.score, last_score.cargo_failures
             )),
-            Some(json::Json::from(json!({
-                "cargo_ok": last_score.cargo_ok,
-                "score": last_score.score,
-                "cargo_failures": last_score.cargo_failures,
-                "notes": last_score.notes
-            }))),
+            Some(pjson!({
+                "cargo_ok": (last_score.cargo_ok),
+                "score": (last_score.score as i64),
+                "cargo_failures": (last_score.cargo_failures as i64),
+                "notes": (last_score.notes.clone())
+            })),
         );
 
         if last_score.cargo_ok && last_score.score >= 0 {

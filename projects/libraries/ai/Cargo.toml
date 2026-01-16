@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
+serde = { workspace = true }
 thiserror = "1.0"
+blake3 = "1.8.3"
 symbolic = { workspace = true }
 neural = { workspace = true }
 tracing = { workspace = true }
-serde_json = { workspace = true }
-blake3 = "1.8.3"
+protocol = { workspace = true }
+common_json = { workspace = true }

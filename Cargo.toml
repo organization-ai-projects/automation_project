@@ -2,34 +2,40 @@
 members = [
   "projects/libraries/ai",
   "projects/libraries/common",
+  "projects/libraries/common_json",
   "projects/libraries/neural",
   "projects/libraries/protocol",
   "projects/libraries/security",
   "projects/libraries/symbolic",
   "projects/libraries/ui",
+  "projects/libraries/common_parsing",
+  "projects/libraries/common_tokenize",
+  "projects/libraries/git_lib",
+  "projects/libraries/command_runner",
+  "projects/libraries/common_calendar",
+  "projects/libraries/common_time",
+  "projects/libraries/protocol_macros",
   "projects/products/core/central_ui",
   "projects/products/core/engine",
   "projects/products/core/launcher",
   "projects/products/core/watcher",
   "projects/products/varina/backend",
   "projects/products/varina/ui",
-  "projects/libraries/git_lib",
-  "projects/libraries/command_runner",
-  "projects/libraries/common_calendar",
-  "projects/libraries/common_time",
-  "projects/libraries/protocol_macros",
   "projects/products/code_agent_sandbox",
+  "projects/libraries/ast_core",
+  "projects/libraries/pjson_proc_macros",
+  "projects/libraries/hybrid_arena",
 ]
 resolver = "2"
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 tracing = { version = "0.1" }
 thiserror = "1.0"
 
-ai = { path = "projects/libraries/ai" }
+pjson_proc_macros = { path = "projects/libraries/pjson_proc_macros" }
 common = { path = "projects/libraries/common" }
+common_json = { path = "projects/libraries/common_json" }
 neural = { path = "projects/libraries/neural" }
 protocol = { path = "projects/libraries/protocol" }
 security = { path = "projects/libraries/security" }
@@ -39,4 +45,9 @@ git_lib = { path = "projects/libraries/git_lib" }
 command_runner = { path = "projects/libraries/command_runner" }
 common_calendar = { path = "projects/libraries/common_calendar" }
 common_time = { path = "projects/libraries/common_time" }
+common_parsing = { path = "projects/libraries/common_parsing" }
+common_tokenize = { path = "projects/libraries/common_tokenize" }
 protocol_macros = { path = "projects/libraries/protocol_macros" }
+ast_core = { path = "projects/libraries/ast_core" }
+ai = { path = "projects/libraries/ai" }
+hybrid_arena = { path = "projects/libraries/hybrid_arena" }

@@ -1,3 +1,4 @@
+use common_json::{JsonError, JsonSerializable, json};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -9,7 +10,13 @@ pub enum TokenizationError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Serialization error: {0}")]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(JsonError),
+}
+
+impl From<JsonError> for TokenizationError {
+    fn from(err: JsonError) -> Self {
+        TokenizationError::SerializationError(err)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,14 +138,14 @@ impl RustTokenizer {
     }
 
     pub fn save(&self, path: &std::path::Path) -> Result<(), TokenizationError> {
-        let json = serde_json::to_string_pretty(self)?;
+        let json = self.to_json_string()?;
         std::fs::write(path, json)?;
         Ok(())
     }
 
     pub fn load(path: &std::path::Path) -> Result<Self, TokenizationError> {
         let json = std::fs::read_to_string(path)?;
-        let tokenizer = serde_json::from_str(&json)?;
+        let tokenizer = json::from_json_str(&json)?;
         Ok(tokenizer)
     }
 }

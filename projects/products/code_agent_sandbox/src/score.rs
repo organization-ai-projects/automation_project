@@ -1,4 +1,5 @@
 // projects/products/code_agent_sandbox/src/score.rs
+use common_json::JsonAccess;
 use serde::Serialize;
 
 use crate::actions::ActionResult;
@@ -52,9 +53,13 @@ impl ScoreSummary {
 
             // If a ReadFile result contains contents, scan it for patterns.
             if let Some(data) = &r.data
-                && let Some(contents) = data.get("contents").and_then(|v| v.as_str())
+                && let Some(contents) = data.get_field("contents").ok().and_then(|v| v.as_str())
             {
-                let path = data.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                let path = data
+                    .get_field("path")
+                    .ok()
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let is_tests = path.contains("/tests/")
                     || path.starts_with("tests/")
                     || path.contains("#[test]");

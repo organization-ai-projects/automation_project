@@ -2,6 +2,7 @@
 use std::{collections::HashMap, convert::Infallible};
 
 use common::Id128;
+use common_json::pjson;
 use tracing::warn;
 use warp::{Filter, Reply, http::StatusCode};
 
@@ -20,7 +21,7 @@ fn http_error(code: StatusCode, message: impl Into<String>) -> impl Reply {
 }
 
 async fn health() -> Result<impl Reply, warp::Rejection> {
-    Ok(warp::reply::json(&serde_json::json!({
+    Ok(warp::reply::json(&pjson!({
         "ok": true,
         "service": "engine"
     })))

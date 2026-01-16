@@ -222,8 +222,35 @@ fi
 
 ---
 
-**Ce workflow garantit une gestion propre et collaborative du code.**
+## Avant de faire un commit
 
-le commit doit être conforme à semver, il faut également utiliser la convention suivante pour le scope :
-libraries/[nom de la librairie]
-products/[nom du produit]
+Avant de créer un commit, suivez ces étapes pour garantir la conformité avec les conventions du projet :
+
+1. **Vérifiez l'état du dépôt** :
+
+   - Utilisez `git status` pour voir les fichiers modifiés et ajoutés.
+   - Utilisez `git diff` pour examiner les changements non validés.
+   - Utilisez `git branch` pour confirmer que vous êtes sur une branche de travail et identifier laquelle.
+
+2. **Respectez les conventions de commit** :
+   - Le message de commit doit être conforme à [SemVer](https://semver.org/).
+   - Utilisez la convention suivante pour le scope :
+     - `libraries/[nom de la librairie]` pour les bibliothèques.
+     - `products/[nom du produit]` pour les produits.
+   - Le message doit être structuré proprement, détaillé et rédigé en anglais pour l'internationalisation.
+
+Exemple de message de commit :
+
+```text
+feat(libraries/hybrid_arena): add new library with SlotArena and BumpArena implementations
+
+- Implemented SlotArena with allocation, removal, and generation tracking.
+- Added BumpArena for efficient memory allocation.
+- Included comprehensive tests for both arenas.
+- Added benchmarks for allocation, access, and iteration performance.
+- Fixed Clippy warnings and ensured code adheres to best practices.
+```
+
+---
+
+**Ce workflow garantit une gestion propre et collaborative du code.**

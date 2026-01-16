@@ -4,6 +4,7 @@ use crate::{
     normalization::normalize_extension,
 };
 use common::Id128;
+use common_json::pjson;
 
 pub fn handle_generate_code(
     language: &str,
@@ -35,10 +36,10 @@ pub fn handle_generate_code(
     Ok(ActionResult::success(
         "CodeGenerated",
         "saved",
-        Some(protocol::json!({
-            "path": file_path.to_string_lossy(),
-            "language": language,
-            "bytes": code.len()
+        Some(pjson!({
+            "path": (file_path.to_string_lossy().to_string()),
+            "language": (language.to_string()),
+            "bytes": (code.len() as i64)
         })),
     ))
 }

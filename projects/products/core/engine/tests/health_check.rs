@@ -38,7 +38,19 @@ async fn health_check_works() {
 
     // Assert: verify the response
     assert_eq!(response.status(), 200);
-    assert_eq!(response.body(), "{\"ok\":true,\"service\":\"engine\"}");
+
+    // Parse the response body as a string and sort the keys manually
+    let body = std::str::from_utf8(response.body()).unwrap();
+    let mut body_parts: Vec<&str> = body
+        .trim_matches(|c| c == '{' || c == '}')
+        .split(',')
+        .map(|s| s.trim())
+        .collect();
+    body_parts.sort();
+
+    let expected_body = ["\"ok\":true", "\"service\":\"engine\""];
+    assert_eq!(body_parts, expected_body);
+
     // When allow_any_origin is true, Warp echoes back the origin for security reasons
     assert_eq!(
         response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),

@@ -1,5 +1,5 @@
+use common_json::Json;
 //projects/libraries/protocol/src/payload.rs
-use crate::json::Json; // Remplace serde_json::Value par Json centralisé
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

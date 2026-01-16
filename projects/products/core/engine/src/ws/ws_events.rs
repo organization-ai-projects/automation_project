@@ -1,3 +1,4 @@
+use common_json::{Json, to_json_string};
 // projects/products/core/engine/src/ws/ws_events.rs
 use protocol::{Event, EventType, EventVariant, Metadata, Payload};
 
@@ -11,7 +12,7 @@ fn non_empty_data(args: &WsEventArgs) -> String {
         .and_then(|p| p.payload.as_ref())
         .and_then(|v| {
             if v.is_object() || v.is_array() {
-                Some(v.to_string())
+                Some(to_json_string(v).unwrap_or_else(|_| "{}".to_string()))
             } else {
                 None
             }
@@ -49,7 +50,7 @@ fn best_message(args: &WsEventArgs) -> Option<String> {
 }
 
 #[inline]
-fn payload_json(payload_type: impl Into<String>, value: serde_json::Value) -> Payload {
+fn payload_json(payload_type: impl Into<String>, value: Json) -> Payload {
     Payload {
         payload_type: Some(payload_type.into()),
         payload: Some(value),
@@ -75,12 +76,7 @@ pub fn ws_event(args: WsEventArgs) -> Event {
 
 /// Standard OK: ACK + payload "ok" (ensures data is never empty).
 pub fn ws_event_ok(meta: &Metadata, name: &str) -> Event {
-    ws_event_ok_payload(
-        meta,
-        name,
-        "ack",
-        serde_json::Value::String("ok".to_string()),
-    )
+    ws_event_ok_payload(meta, name, "ack", Json::String("ok".to_string()))
 }
 
 /// OK with typed payload.
@@ -88,7 +84,7 @@ pub fn ws_event_ok_payload(
     meta: &Metadata,
     name: &str,
     payload_type: &str,
-    payload: serde_json::Value,
+    payload: Json,
 ) -> Event {
     ws_event(WsEventArgs::new(
         meta.clone(),

@@ -3,6 +3,7 @@ use crate::{
     EngineState, WS_IDLE_TIMEOUT, WS_MAX_MESSAGE_BYTES, WS_PING_EVERY,
     ws::{route_command, ws_event_error},
 };
+use common_json::{JsonSerializable, from_json_str};
 use futures_util::{SinkExt, StreamExt};
 use protocol::{Command, Metadata};
 use tracing::{info, warn};
@@ -33,12 +34,12 @@ const CODE_SERIALIZE: i32 = 2200;
 // Small helpers (no magic)
 // -------------------------
 #[inline]
-fn safe_json(ev: &impl serde::Serialize) -> String {
-    serde_json::to_string(ev).unwrap_or_else(|_| "{}".to_string())
+fn safe_json(ev: &impl JsonSerializable) -> String {
+    ev.to_json_string().unwrap_or_else(|_| "{}".to_string())
 }
 
 #[inline]
-async fn send_event(tx: &mut (impl SinkExt<Message> + Unpin), ev: &impl serde::Serialize) -> bool {
+async fn send_event(tx: &mut (impl SinkExt<Message> + Unpin), ev: &impl JsonSerializable) -> bool {
     tx.send(Message::text(safe_json(ev))).await.is_ok()
 }
 
@@ -163,7 +164,7 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
                 };
 
                 // JSON -> Command
-                let cmd: Command = match serde_json::from_str(text) {
+                let cmd: Command = match from_json_str(text) {
                     Ok(c) => c,
                     Err(e) => {
                         warn!(user_id = %token.user_id, error = %e, "WS invalid JSON");
@@ -185,10 +186,10 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
                 let ev = route_command(cmd, &state, &token, perms).await;
 
                 // Serialize event, fallback if it fails
-                let out = serde_json::to_string(&ev).unwrap_or_else(|e| {
+                let out = ev.to_json_string().unwrap_or_else(|e| {
                     warn!(user_id = %token.user_id, error = %e, "WS failed to serialize event");
                     let fallback = ws_event_error(&meta, HTTP_SERIALIZE, CODE_SERIALIZE, ERR_SERIALIZATION);
-                    serde_json::to_string(&fallback).unwrap_or_else(|_| "{\"name\":\"Error\"}".to_string())
+                    fallback.to_json_string().unwrap_or_else(|_| "{\"name\":\"Error\"}".to_string())
                 });
 
                 if tx.send(Message::text(out)).await.is_err() {
