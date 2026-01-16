@@ -71,6 +71,12 @@ For more details, refer to the following documents:
 - [Usage Examples](docs/usage_examples.md)
 - [Contributing](docs/contributing.md)
 
-## License
+## Contribuer
+
+Les contributions sont les bienvenues ! Veuillez ouvrir une issue ou une pull request sur le dépôt GitHub.
+
+Pour plus de détails sur le workflow Git/GitHub utilisé dans ce projet, consultez la [documentation sur le versioning](../../../docs/versioning/git-github.md).
+
+## Licence
 
 Part of the automation project workspace.
