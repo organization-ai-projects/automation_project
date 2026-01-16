@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use protocol::json;
-use protocol::json::JsonSerializable;
+use common_json::{JsonSerializable, from_json_str};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -96,7 +95,7 @@ impl Registry {
 
         match fs::read_to_string(&metadata_path) {
             Ok(data) => {
-                let mut meta: ProjectMetadata = json::from_json_str(&data).unwrap_or_else(|e| {
+                let mut meta: ProjectMetadata = from_json_str(&data).unwrap_or_else(|e| {
                     panic!("Failed to parse ProjectMetadata: {e}");
                 });
 

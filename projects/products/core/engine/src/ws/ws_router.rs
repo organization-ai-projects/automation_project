@@ -1,5 +1,6 @@
+use common_json::{from_value, pjson, to_value};
 // projects/products/core/engine/src/ws/ws_router.rs
-use protocol::{Command, Event, json};
+use protocol::{Command, Event};
 use security::{Permission, Token};
 use serde::Deserialize;
 use tracing::{info, warn};
@@ -48,7 +49,7 @@ pub async fn route_command(
             let reg = state.registry.read().await;
             let list: Vec<ProjectMetadata> = reg.projects.values().cloned().collect();
 
-            let value = json::to_value(&list).unwrap_or_else(|_| json::json!([]));
+            let value = to_value(&list).unwrap_or_else(|_| pjson!([]));
             ws_event_ok_payload(&meta, "ProjectsListed", "engine/projects", value)
         }
 
@@ -93,7 +94,7 @@ pub async fn route_command(
                 }
             };
 
-            let hello: BackendHello = match json::from_value(payload_value) {
+            let hello: BackendHello = match from_value(payload_value) {
                 Ok(h) => h,
                 Err(e) => {
                     warn!("Failed to parse BackendHello: {e}");

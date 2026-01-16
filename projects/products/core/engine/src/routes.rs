@@ -2,10 +2,11 @@
 use std::{collections::HashMap, convert::Infallible};
 
 use common::Id128;
+use common_json::pjson;
 use tracing::warn;
 use warp::{Filter, Reply, http::StatusCode};
 
-use protocol::{ProtocolError, json};
+use protocol::ProtocolError;
 use security::{Role, auth::UserId};
 
 use crate::const_values::{DEFAULT_DURATION_MS, LOGIN_MAX_DURATION_MS};
@@ -20,7 +21,7 @@ fn http_error(code: StatusCode, message: impl Into<String>) -> impl Reply {
 }
 
 async fn health() -> Result<impl Reply, warp::Rejection> {
-    Ok(warp::reply::json(&json!({
+    Ok(warp::reply::json(&pjson!({
         "ok": true,
         "service": "engine"
     })))
