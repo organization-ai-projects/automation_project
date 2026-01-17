@@ -1,3 +1,4 @@
+// projects/libraries/ast_core/src/walk_validate.rs
 use crate::{
     AstErrorKind, AstKind, AstNode, AstPath, AstValidationError, PathItem, ValidateLimits,
 };

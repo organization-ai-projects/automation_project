@@ -1,3 +1,4 @@
+// projects/libraries/neural/tests/integration_sampling.rs
 use ndarray::Array1;
 use neural::generation::{apply_top_k, sample_categorical};
 

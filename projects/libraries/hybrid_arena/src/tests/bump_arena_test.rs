@@ -1,3 +1,4 @@
+// projects/libraries/hybrid_arena/src/tests/bump_arena_test.rs
 use crate::{BumpArena, Id};
 
 #[test]

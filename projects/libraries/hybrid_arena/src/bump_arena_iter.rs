@@ -1,3 +1,4 @@
+// projects/libraries/hybrid_arena/src/bump_arena_iter.rs
 use std::slice;
 
 /// An iterator over references to items in a `BumpArena`.

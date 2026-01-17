@@ -28,15 +28,15 @@ pub struct Request {
     pub agent: Option<AgentRequest>,
 }
 
-/// ✅ Core du domaine.
-/// ⚠️ Important: pas callable depuis “dehors” du module engine.
+/// ✅ Core of the domain.
+/// ⚠️ Important: not callable from "outside" the engine module.
 pub(in crate::engine) async fn execute_with_init(
     mut req: Request,
     init: &mut EngineInit,
     paths: &EnginePaths,
     config: &EngineConfig,
 ) -> Result<Response, anyhow::Error> {
-    // Orchestrator a décidé du run_id (source of truth)
+    // Orchestrator decided the run_id (source of truth)
     req.run_id = Some(init.run_id.clone());
 
     let mut results: Vec<ActionResult> = Vec::new();
@@ -51,7 +51,7 @@ pub(in crate::engine) async fn execute_with_init(
         config,
     };
 
-    let timeout = config.timeout; // Utilisation directe du champ timeout, qui est maintenant obligatoire
+    let timeout = config.timeout; // Direct use of the timeout field, which is now mandatory
     let clock = SystemClock;
     let result = with_timeout(
         async { run_low_level_actions(&init.run_id, &req.actions, &mut ll_ctx) },
@@ -75,7 +75,7 @@ pub(in crate::engine) async fn execute_with_init(
     // High-level agent loop (optional)
     let mut agent_outcome = None;
     if let Some(mut agent_req) = req.agent.take() {
-        // ✅ on garde ton comportement “modèle + replay global”
+        // ✅ keeping your behavior "global model + replay"
         let model_dir = paths.runs_root.join("models");
         let replay_path = paths.runs_root.join("replay.jsonl");
 

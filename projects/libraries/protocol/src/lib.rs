@@ -1,8 +1,4 @@
 // projects/libraries/protocol/src/lib.rs
-pub fn init() {
-    println!("Initializing protocol library...");
-}
-
 pub mod apply_request;
 pub mod apply_response;
 pub mod command;
@@ -28,8 +24,6 @@ pub use command_type::CommandType;
 pub use event::Event;
 pub use event_type::EventType;
 pub use event_variant::EventVariant;
-
-// Re-export macros from common_json
 pub use log_level::LogLevel;
 pub use metadata::Metadata;
 pub use payload::Payload;

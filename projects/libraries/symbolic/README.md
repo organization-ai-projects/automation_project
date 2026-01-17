@@ -1,23 +1,23 @@
 # `symbolic`
 
-**Description** : Crate Rust pour les calculs symboliques.
+**Description**: Rust crate for symbolic computations.
 
-## Fonctionnalités
+## Features
 
-- Simplification d'expressions.
-- Résolution symbolique.
+- Expression simplification.
+- Symbolic resolution.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 symbolic = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```

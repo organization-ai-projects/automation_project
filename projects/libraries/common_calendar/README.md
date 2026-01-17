@@ -1,23 +1,23 @@
 # `common_calendar`
 
-**Description** : Crate Rust pour la gestion des calendriers.
+**Description**: Rust crate for calendar management.
 
-## Fonctionnalités
+## Features
 
-- Calculs de dates.
-- Gestion des fuseaux horaires.
+- Date calculations.
+- Timezone management.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 common_calendar = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```

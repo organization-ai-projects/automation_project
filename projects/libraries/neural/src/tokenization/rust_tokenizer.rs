@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/tokenization/rust_tokenizer.rs
 use common_json::{JsonError, JsonSerializable, json};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -69,7 +70,7 @@ impl RustTokenizer {
         }
     }
 
-    /// Encode texte → tokens IDs
+    /// Encode text → token IDs
     pub fn encode(&self, text: &str) -> Vec<usize> {
         let tokens = Self::tokenize(text);
         let mut ids = vec![self.bos_token];
@@ -87,7 +88,7 @@ impl RustTokenizer {
         ids
     }
 
-    /// Decode tokens IDs → texte
+    /// Decode token IDs → text
     pub fn decode(&self, ids: &[usize]) -> Result<String, TokenizationError> {
         let mut tokens = Vec::new();
 
@@ -107,7 +108,7 @@ impl RustTokenizer {
         Ok(tokens.join(" "))
     }
 
-    /// Tokenize simple (word-level + symbols)
+    /// Simple tokenization (word-level + symbols)
     fn tokenize(text: &str) -> Vec<String> {
         let mut tokens = Vec::new();
         let mut current = String::new();

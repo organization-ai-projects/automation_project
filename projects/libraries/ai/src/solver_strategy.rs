@@ -1,19 +1,19 @@
 /// projects/libraries/ai/src/solver_strategy.rs
-/// Stratégies d'orchestration neuro-symbolique
+/// Neuro-symbolic orchestration strategies
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SolverStrategy {
-    /// Utiliser uniquement le solver symbolique
+    /// Use only the symbolic solver
     SymbolicOnly,
 
-    /// Utiliser uniquement le solver neural
+    /// Use only the neural solver
     NeuralOnly,
 
-    /// Essayer symbolic d'abord, si échec ou confiance basse → neural
+    /// Try symbolic first, if it fails or confidence is low → neural
     SymbolicThenNeural,
 
-    /// Neural génère, symbolic valide et corrige si nécessaire
+    /// Neural generates, symbolic validates and corrects if necessary
     NeuralWithSymbolicValidation,
 
-    /// Exécuter les deux en parallèle, choisir le meilleur résultat
+    /// Execute both in parallel, choose the best result
     Hybrid,
 }

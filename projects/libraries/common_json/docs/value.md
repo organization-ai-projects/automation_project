@@ -1,22 +1,22 @@
-# Types de base JSON et constructeurs
+# JSON Base Types and Builders
 
-Ce module définit les types alias pour les valeurs JSON et fournit des fonctions constructeurs pour créer facilement des valeurs JSON.
+This module defines type aliases for JSON values and provides builder functions to easily create JSON values.
 
 ## Types
 
-| Type         | Description                        |
-| ------------ | ---------------------------------- |
-| `Json`       | Valeur JSON générique              |
-| `JsonMap`    | Map clé-valeur pour objets         |
-| `JsonArray`  | Tableau de valeurs JSON            |
-| `JsonObject` | Alias pour `JsonMap<String, Json>` |
-| `JsonNumber` | Nombre JSON (entier ou flottant)   |
+| Type         | Description                       |
+| ------------ | --------------------------------- |
+| `Json`       | Generic JSON value                |
+| `JsonMap`    | Key-value map for objects         |
+| `JsonArray`  | Array of JSON values              |
+| `JsonObject` | Alias for `JsonMap<String, Json>` |
+| `JsonNumber` | JSON number (integer or float)    |
 
-## Constructeurs
+## Builders
 
-Les constructeurs permettent de créer des valeurs JSON de manière explicite sans dépendre d'une implémentation interne. Ils sont aussi plus lisibles pour les cas simples.
+Builders allow creating JSON values explicitly without relying on internal implementation. They are also more readable for simple cases.
 
-### Exemples
+### Examples
 
 ```rust
 use common_json::value::*;
@@ -28,20 +28,20 @@ let b = boolean(true);        // true
 let s = string("hello");      // "hello"
 let i = number_i64(42);       // 42
 let u = number_u64(100);      // 100
-let f = number_f64(3.14);     // Some(3.14) ou None si NaN/Infinity
+let f = number_f64(3.14);     // Some(3.14) or None if NaN/Infinity
 ```
 
-## Pourquoi des constructeurs ?
+## Why Builders?
 
-Les constructeurs permettent de créer des valeurs JSON de manière explicite sans dépendre de la syntaxe `Json::Object(...)` qui expose l'implémentation interne. Ils sont aussi plus lisibles pour les cas simples.
+Builders allow creating JSON values explicitly without relying on the `Json::Object(...)` syntax that exposes internal implementation. They are also more readable for simple cases.
 
 ## Tests
 
-Ce module contient des tests couvrant :
+This module includes tests covering:
 
-- Création d'objets vides
-- Création de tableaux vides
-- Création de valeurs null
-- Création de booléens (true/false)
-- Création de chaînes
-- Création de nombres (i64, u64, f64, et cas NaN)
+- Creating empty objects
+- Creating empty arrays
+- Creating null values
+- Creating booleans (true/false)
+- Creating strings
+- Creating numbers (i64, u64, f64, and NaN cases)

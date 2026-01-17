@@ -22,17 +22,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Rust toolchain (officiel, maintenu)
+      # Rust toolchain (official, maintained)
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
-      # Cache Cargo (énorme gain de temps)
+      # Cache Cargo (huge time saver)
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      # Vérification rapide (compile sans linker)
+      # Quick verification (compiles without linking)
       - name: Cargo check
         run: cargo check --workspace --all-targets
 
@@ -40,7 +40,7 @@ jobs:
       - name: Cargo fmt
         run: cargo fmt --all -- --check
 
-      # Lint sérieux
+      # Serious linting
       - name: Cargo clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 

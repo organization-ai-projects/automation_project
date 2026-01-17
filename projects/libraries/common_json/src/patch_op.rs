@@ -1,41 +1,42 @@
+// projects/libraries/common_json/src/patch_op.rs
 use crate::Json;
 
-/// Opération de patch JSON (style RFC 6902).
+/// JSON patch operation (RFC 6902 style).
 ///
-/// **Note** : Ce type est défini mais les opérations ne sont pas encore implémentées.
+/// **Note**: This type is defined but the operations are not yet implemented.
 #[derive(Debug, Clone)]
 pub enum PatchOp {
-    /// Ajoute une valeur à un chemin.
+    /// Adds a value to a path.
     Add {
-        /// Chemin JSON Pointer.
+        /// JSON Pointer path.
         path: String,
-        /// Valeur à ajouter.
+        /// Value to add.
         value: Json,
     },
-    /// Supprime la valeur à un chemin.
+    /// Removes the value at a path.
     Remove {
-        /// Chemin JSON Pointer.
+        /// JSON Pointer path.
         path: String,
     },
-    /// Remplace la valeur à un chemin.
+    /// Replaces the value at a path.
     Replace {
-        /// Chemin JSON Pointer.
+        /// JSON Pointer path.
         path: String,
-        /// Nouvelle valeur.
+        /// New value.
         value: Json,
     },
-    /// Déplace une valeur d'un chemin à un autre.
+    /// Moves a value from one path to another.
     Move {
-        /// Chemin source.
+        /// Source path.
         from: String,
-        /// Chemin destination.
+        /// Destination path.
         to: String,
     },
-    /// Copie une valeur d'un chemin à un autre.
+    /// Copies a value from one path to another.
     Copy {
-        /// Chemin source.
+        /// Source path.
         from: String,
-        /// Chemin destination.
+        /// Destination path.
         to: String,
     },
 }

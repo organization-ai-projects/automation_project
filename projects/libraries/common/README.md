@@ -1,23 +1,23 @@
 # `common`
 
-**Description** : Crate Rust pour les fonctionnalités communes.
+**Description**: Rust crate for common functionalities.
 
-## Fonctionnalités
+## Features
 
-- Utilitaires génériques.
-- Fonctions partagées.
+- Generic utilities.
+- Shared functions.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 common = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```

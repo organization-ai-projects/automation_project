@@ -1,23 +1,23 @@
 # `security`
 
-**Description** : Crate Rust pour les fonctionnalités de sécurité.
+**Description**: Rust crate for security features.
 
-## Fonctionnalités
+## Features
 
-- Chiffrement.
-- Validation des données.
+- Encryption.
+- Data validation.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 security = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```

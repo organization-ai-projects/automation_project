@@ -1,4 +1,5 @@
-use crate::{Json, error::JsonError};
+// projects/libraries/common_json/src/deserialization/json_map_access.rs
+use crate::{Json, json_error::JsonError, json_error::JsonErrorCode};
 use serde::de::{DeserializeSeed, IntoDeserializer, MapAccess};
 
 use super::json_deserializer::JsonDeserializer;
@@ -43,7 +44,7 @@ where
         let value = self
             .value
             .take()
-            .ok_or_else(|| JsonError::custom("value is missing"))?;
+            .ok_or_else(|| JsonError::new(JsonErrorCode::ValueIsMissing))?;
         seed.deserialize(JsonDeserializer::new(value))
     }
 }

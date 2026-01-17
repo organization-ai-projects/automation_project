@@ -128,6 +128,26 @@ impl NeuralSolver {
             .map_err(|e| NeuralError::TrainingError(e.to_string()))
     }
 
+    pub fn record_feedback_if_new(
+        &mut self,
+        feedback_hash: &str,
+        input: &str,
+        generated_output: &str,
+        feedback_type: crate::feedback::FeedbackType,
+    ) -> Result<bool, NeuralError> {
+        if self.has_seen_feedback(feedback_hash) {
+            return Ok(false);
+        }
+
+        let user_feedback = UserFeedback::from_parts(input, generated_output, feedback_type);
+        self.record_feedback(&user_feedback)?;
+        Ok(true)
+    }
+
+    pub fn pending_since_last_adjust(&self) -> usize {
+        self.feedback_adjuster.pending_feedback_count()
+    }
+
     pub fn adjust_from_feedback(
         &mut self,
         model_path: &std::path::Path,

@@ -1,19 +1,19 @@
-# Accès fluide aux valeurs JSON
+# Fluent Access to JSON Values
 
-Ce module fournit des traits et des builders pour naviguer et construire des structures JSON de manière ergonomique.
+This module provides traits and builders for navigating and constructing JSON structures ergonomically.
 
-## Contenu
+## Contents
 
-| Type                | Description                    |
-| ------------------- | ------------------------------ |
-| `JsonAccess`        | Trait pour l'accès en lecture  |
-| `JsonAccessMut`     | Trait pour l'accès en écriture |
-| `JsonObjectBuilder` | Builder fluide pour objets     |
-| `JsonArrayBuilder`  | Builder fluide pour tableaux   |
+| Type                | Description                |
+| ------------------- | -------------------------- |
+| `JsonAccess`        | Trait for read access      |
+| `JsonAccessMut`     | Trait for write access     |
+| `JsonObjectBuilder` | Fluent builder for objects |
+| `JsonArrayBuilder`  | Fluent builder for arrays  |
 
-## Navigation par chemin
+## Path Navigation
 
-Le trait `JsonAccess` permet de naviguer dans des structures imbriquées avec la méthode `get_path` :
+The `JsonAccess` trait allows navigating nested structures with the `get_path` method:
 
 ```rust
 use common_json::{pjson, JsonAccess};
@@ -27,37 +27,37 @@ let data = pjson!({
     tags: ["admin", "user"]
 });
 
-// Navigation par points
+// Dot navigation
 assert_eq!(data.get_path("user.profile.name").unwrap().as_str(), Some("Alice"));
 
-// Accès aux tableaux avec [index]
+// Array access with [index]
 assert_eq!(data.get_path("tags[0]").unwrap().as_str(), Some("admin"));
 assert_eq!(data.get_path("tags[1]").unwrap().as_str(), Some("user"));
 ```
 
-## Accesseurs stricts
+## Strict Accessors
 
-Les méthodes `as_*_strict()` retournent une erreur si le type ne correspond pas, au lieu de retourner `None` :
+The `as_*_strict()` methods return an error if the type does not match, instead of returning `None`:
 
 ```rust
 use common_json::{pjson, JsonAccess, JsonError};
 
 let data = pjson!({ count: 42 });
 
-// as_i64() retourne Option<i64>
+// as_i64() returns Option<i64>
 assert_eq!(data.get_field("count").unwrap().as_i64(), Some(42));
 
-// as_i64_strict() retourne Result<i64, JsonError>
+// as_i64_strict() returns Result<i64, JsonError>
 assert_eq!(data.get_field("count").unwrap().as_i64_strict().unwrap(), 42);
 
-// Erreur si mauvais type
+// Error if wrong type
 let err = data.get_field("count").unwrap().as_str_strict();
 assert!(matches!(err, Err(JsonError::TypeMismatch { .. })));
 ```
 
-## Builders fluides
+## Fluent Builders
 
-Les builders permettent de construire du JSON de manière lisible :
+The builders allow constructing JSON in a readable way:
 
 ```rust
 use common_json::{JsonObjectBuilder, JsonArrayBuilder};
@@ -65,9 +65,9 @@ use common_json::{JsonObjectBuilder, JsonArrayBuilder};
 let obj = JsonObjectBuilder::new()
     .field("name", "Alice")
     .field("age", 30)
-    .field_opt("nickname", Some("Ali"))  // Ajouté car Some
-    .field_opt::<_, &str>("email", None) // Ignoré car None
-    .field_if(true, "active", true)      // Ajouté car condition vraie
+    .field_opt("nickname", Some("Ali"))  // Added because Some
+    .field_opt::<_, &str>("email", None) // Ignored because None
+    .field_if(true, "active", true)      // Added because condition is true
     .build();
 
 let arr = JsonArrayBuilder::new()
@@ -79,20 +79,20 @@ let arr = JsonArrayBuilder::new()
 
 ## Tests
 
-Ce module contient 8 tests couvrant :
+This module contains 8 tests covering :
 
-- `get_field` : accès aux champs d'objets
-- `get_index` : accès aux éléments de tableaux
-- `get_path` : navigation par chemin (dot notation + indices)
-- `as_*_strict` : accesseurs stricts avec erreurs typées
-- `type_name` : identification du type JSON
-- `is_truthy` : évaluation booléenne des valeurs
+- `get_field` : access to object fields
+- `get_index` : access to array elements
+- `get_path` : navigation by path (dot notation + indices)
+- `as_*_strict` : strict accessors with typed errors
+- `type_name` : identification of JSON type
+- `is_truthy` : boolean evaluation of values
 - Mutations : `set_field`, `push`, etc.
-- Builders : `JsonObjectBuilder` et `JsonArrayBuilder`
+- Builders : `JsonObjectBuilder` and `JsonArrayBuilder`
 
-### Non couvert
+### Not Covered
 
-- `get_field_mut`, `get_index_mut` (accesseurs mutables)
-- `remove_field`, `remove_at` (suppressions)
-- `insert_at` (insertion à un index)
-- Chemins invalides complexes
+- `get_field_mut`, `get_index_mut` (mutable accessors)
+- `remove_field`, `remove_at` (removals)
+- `insert_at` (insertion at an index)
+- Complex invalid paths

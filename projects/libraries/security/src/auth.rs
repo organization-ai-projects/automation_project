@@ -11,7 +11,7 @@ use crate::TokenError;
 pub struct UserId(Id128);
 
 impl UserId {
-    /// Crée un UserId validé
+    /// Creates a validated UserId
     pub fn new(id: Id128) -> Result<Self, TokenError> {
         if !CommonID::is_valid(id) {
             return Err(TokenError::InvalidUserIdValue);
@@ -19,13 +19,13 @@ impl UserId {
         Ok(Self(id))
     }
 
-    /// Retourne l'identifiant sous forme d'Id128
+    /// Returns the identifier as Id128
     pub fn value(&self) -> Id128 {
         self.0
     }
 }
 
-// TryFrom pour conversion sûre depuis u64
+// TryFrom for safe conversion from u64
 impl TryFrom<u64> for UserId {
     type Error = TokenError;
 
@@ -34,7 +34,7 @@ impl TryFrom<u64> for UserId {
     }
 }
 
-// Implémentation du trait FromStr pour UserId
+// Implementation of the FromStr trait for UserId
 impl FromStr for UserId {
     type Err = TokenError;
 
@@ -48,14 +48,14 @@ impl FromStr for UserId {
     }
 }
 
-// Conversion vers String
+// Conversion to String
 impl From<UserId> for String {
     fn from(user_id: UserId) -> Self {
         user_id.0.to_string()
     }
 }
 
-// Implémentation de From<Id128> pour UserId
+// Implementation of From<Id128> for UserId
 impl From<Id128> for UserId {
     fn from(id: Id128) -> Self {
         UserId(id)
@@ -68,7 +68,7 @@ impl fmt::Display for UserId {
     }
 }
 
-/// Fonction utilitaire pour valider un user_id string
+/// Utility function to validate a user_id string
 pub fn validate_user_id(user_id: &str) -> bool {
     user_id.parse::<UserId>().is_ok()
 }
@@ -184,14 +184,14 @@ mod tests {
 
     #[test]
     fn test_validate_user_id() {
-        // Vérifie que "0" est invalide
+        // Check that "0" is invalid
         let invalid_id = Id128::from_bytes_unchecked([0u8; 16]);
         assert!(!CommonID::is_valid(invalid_id));
     }
 
     #[test]
     fn test_user_id_new_with_id128() {
-        // Teste directement avec Id128
+        // Test directly with Id128
         let valid_id = Id128::from_bytes_unchecked([1u8; 16]);
         let invalid_id = Id128::from_bytes_unchecked([0u8; 16]);
 

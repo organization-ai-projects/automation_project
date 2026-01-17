@@ -1,23 +1,27 @@
 # `common_json`
 
-**Description** : Crate Rust pour la manipulation de JSON commun.
+**Description**: Rust crate for common JSON manipulation.
 
-## Fonctionnalités
+## Features
 
-- Parsing JSON.
-- Génération JSON.
+- JSON parsing.
+- JSON generation.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 common_json = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```
+
+## Documentation
+
+For a complete table of contents, see [TOC.md](docs/TOC.md).

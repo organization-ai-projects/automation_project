@@ -1,5 +1,6 @@
+// projects/libraries/common_json/src/serialization/json_serializer.rs
 use crate::Json;
-use crate::error::JsonError;
+use crate::json_error::{JsonError, JsonErrorCode};
 use crate::value::{JsonMap, JsonNumber};
 use serde::ser::{self, Serialize};
 
@@ -64,10 +65,10 @@ impl ser::Serializer for JsonSerializer {
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
         if !v.is_finite() {
-            return Err(JsonError::serialize("non-finite number"));
+            return Err(JsonError::new(JsonErrorCode::Serialize));
         }
         let number =
-            JsonNumber::from_f64(v).ok_or_else(|| JsonError::serialize("non-finite number"))?;
+            JsonNumber::from_f64(v).ok_or_else(|| JsonError::new(JsonErrorCode::Serialize))?;
         Ok(Json::Number(number))
     }
 

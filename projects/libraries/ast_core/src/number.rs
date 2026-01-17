@@ -1,3 +1,4 @@
+// projects/libraries/ast_core/src/number.rs
 /// A numeric value preserving type information.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Number {

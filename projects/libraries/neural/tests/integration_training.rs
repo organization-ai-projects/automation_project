@@ -1,3 +1,4 @@
+// projects/libraries/neural/tests/integration_training.rs
 use neural::{
     generation::{GenerationConfig, code_generator::CodeGenerator},
     network::neural_net::{Activation, LayerConfig, NeuralNetwork, WeightInit},

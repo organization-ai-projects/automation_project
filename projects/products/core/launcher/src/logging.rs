@@ -1,3 +1,4 @@
+// projects/products/core/launcher/src/logging.rs
 use std::io::{self, Write};
 
 /// Centralized logging function to handle both stdout and stderr.

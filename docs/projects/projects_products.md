@@ -1,71 +1,71 @@
-# Produits et Composants du Workspace
+# Products and Workspace Components
 
 ## 1. Core
 
 ### 1.1 Engine (`engine`)
 
-Cœur du système.
+Core of the system.
 
-Responsabilités :
+Responsibilities:
 
-- Gestion du workspace `automation_project`
-- Registry global des projets
-- Chargement et lifecycle des projets
-- Création des `ProjectContext`
-- Exécution des workflows
+- Management of the `automation_project` workspace
+- Global registry of projects
+- Project loading and lifecycle management
+- Creation of `ProjectContext`
+- Workflow execution
 
-> `engine` est le noyau logique du produit.
+> `engine` is the logical core of the product.
 
 ---
 
 ### 1.2 Launcher (`launcher`)
 
-Composant de démarrage initial.
+Initial startup component.
 
-Responsabilités :
+Responsibilities:
 
-- Initialisation des composants critiques (engine, central_ui, watcher).
-- Gestion des commandes de bootstrap.
-- Supervision déléguée au `watcher` après démarrage.
+- Initialization of critical components (engine, central_ui, watcher).
+- Management of bootstrap commands.
+- Supervision delegated to the `watcher` after startup.
 
-> `launcher` est le point d'entrée principal du système.
+> `launcher` is the main entry point of the system.
 
 ---
 
 ### 1.3 Central UI (`central_ui`)
 
-Interface utilisateur centrale.
+Central user interface.
 
-Responsabilités :
+Responsibilities:
 
-- Administration des produits.
-- Agrégation des UIs des différents produits.
-- Navigation entre les produits.
+- Product administration.
+- Aggregation of UIs from different products.
+- Navigation between products.
 
-> `central_ui` fournit une vue unifiée pour les utilisateurs finaux.
+> `central_ui` provides a unified view for end users.
 
 ---
 
 ### 1.4 Watcher (`watcher`)
 
-Superviseur global.
+Global supervisor.
 
-#### Responsabilités
+#### Responsibilities
 
-- **Surveillance des composants critiques** :
-  - Supervise le `launcher`, l'`engine`, et le `central_ui`.
-  - Ping régulièrement les composants pour vérifier leur état.
-- **Redémarrage automatique** :
-  - Redémarre les composants défaillants en cas de crash ou de non-réponse.
-  - Implémente une logique de backoff exponentiel pour éviter les boucles de redémarrage.
-- **Gestion des logs** :
-  - Consigne les événements critiques (crashs, redémarrages) dans un fichier de log dédié.
-- **Configuration flexible** :
-  - Permet de définir les composants à surveiller, les intervalles de ping, et les politiques de redémarrage via un fichier de configuration (`watcher.toml`).
+- **Monitoring of critical components** :
+  - Monitors the `launcher`, `engine`, and `central_ui`.
+  - Regularly pings components to check their status.
+- **Automatic restart** :
+  - Restarts failing components in case of crash or non-response.
+  - Implements exponential backoff logic to avoid restart loops.
+- **Log management** :
+  - Logs critical events (crashes, restarts) to a dedicated log file.
+- **Flexible configuration** :
+  - Allows defining monitored components, ping intervals, and restart policies via a configuration file (`watcher.toml`).
 
-Le `watcher` ne communique jamais avec les projets ou les workflows. Il se limite strictement à la supervision des exécutables du core.
+The `watcher` never communicates with projects or workflows. It is strictly limited to supervising the core executables.
 
-#### Exemple de configuration (`watcher.toml`)
+#### Example configuration (`watcher.toml`)
 
 ```toml
 [components]
@@ -80,32 +80,32 @@ log_level = "info"
 
 ---
 
-## 2. Interfaces Utilisateur (UI)
+## 2. User Interfaces (UI)
 
-### 2.1 UI pour chaque produit
+### 2.1 UI for each product
 
-- Chaque produit (ex. `app`) inclut une **UI dédiée** pour ses fonctionnalités spécifiques.
-- Une **bibliothèque commune** dans `projects/libraries/ui` fournit des composants réutilisables pour toutes les UIs.
-- Un **mécanisme de registry** centralise la liste des produits et leurs UIs disponibles.
-- Une **UI centrale** (dashboard global) permet :
-  - L’administration des produits.
-  - L’agrégation des UIs des différents produits.
-  - La navigation entre les produits.
+- Each product (e.g. `app`) includes a **dedicated UI** for its specific features.
+- A **common library** in `projects/libraries/ui` provides reusable components for all UIs.
+- A **registry mechanism** centralizes the list of products and their available UIs.
+- A **central UI** (global dashboard) allows :
+  - Product administration.
+  - Aggregation of UIs from different products.
+  - Navigation between products.
 
-> Ces informations ont été consolidées pour éviter les doublons.
+> This information has been consolidated to avoid duplicates.
 
 ---
 
 ## 3. `products/core`
 
-- **Namespace** : Contient les exécutables principaux (launcher, engine, central_ui).
-- **Règles** :
-  - Chaque sous-dossier est un crate binaire distinct.
-  - Dépendances partagées via `libraries/common` et `libraries/protocol`.
+- **Namespace** : Contains the main executables (launcher, engine, central_ui).
+- **Rules** :
+  - Each sub-folder is a distinct binary crate.
+  - Shared dependencies via `libraries/common` and `libraries/protocol`.
 
-> Cette section a été consolidée pour éviter les doublons.
+> This section has been consolidated to avoid duplicates.
 
-Cette architecture garantit une supervision robuste et réduit les points de défaillance uniques (SPOF) en isolant les responsabilités entre les composants.
+This architecture ensures robust supervision and reduces single points of failure (SPOF) by isolating responsibilities between components.
 
-Hiérarchie d’exécution :
-launcher → watcher → engine → projets → UIs
+Execution hierarchy :
+launcher → watcher → engine → projects → UIs

@@ -1,12 +1,13 @@
-use crate::error::JsonResult;
+// projects/libraries/common_json/src/deserialization/json_deserializable.rs
+use crate::json_error::JsonResult;
 use crate::{Json, parser};
 use serde::de::DeserializeOwned;
 use std::io::Read;
 
 use super::json_deserializer::JsonDeserializer;
 
-/// Trait pour les types désérialisables depuis JSON.
-/// Voir la documentation complète dans docs/deserialize.md.
+/// Trait for types that can be deserialized from JSON.
+/// See the full documentation in docs/deserialize.md.
 pub trait JsonDeserializable: Sized {
     fn from_json(value: &Json) -> JsonResult<Self>;
     fn from_json_owned(value: Json) -> JsonResult<Self>;
@@ -43,8 +44,8 @@ where
     }
 }
 
-// Fonctions standalone pour le parsing et la désérialisation.
-// Voir les détails et exemples dans docs/deserialize.md.
+// Standalone functions for parsing and deserialization.
+// See details and examples in docs/deserialize.md.
 #[inline]
 pub fn parse(s: &str) -> JsonResult<Json> {
     parser::parse_str(s)
@@ -88,7 +89,7 @@ pub fn from_reader<T: JsonDeserializable, R: Read>(reader: R) -> JsonResult<T> {
     T::from_json(&json_value)
 }
 
-// Alias legacy pour compatibilité ascendante.
+// Legacy alias for backward compatibility.
 #[inline]
 pub fn from_value<T: JsonDeserializable>(value: Json) -> JsonResult<T> {
     from_json_owned(value)

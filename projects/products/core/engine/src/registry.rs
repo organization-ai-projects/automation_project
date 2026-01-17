@@ -77,7 +77,7 @@ impl Registry {
         Ok(())
     }
 
-    /// Vérifie si un chemin est un dossier valide
+    /// Checks if a path is a valid directory
     fn is_valid_project_dir(path: &Path) -> bool {
         if !path.is_dir() {
             return false;
@@ -86,7 +86,7 @@ impl Registry {
         !IGNORED_FOLDERS.contains(&name) && !name.starts_with('.')
     }
 
-    /// Charge metadata.json si présent, sinon fallback auto
+    /// Loads metadata.json if present, otherwise auto fallback
     fn load_project_metadata(
         project_id: &str,
         project_dir: &Path,
@@ -142,7 +142,7 @@ impl Registry {
         }
     }
 
-    /// Sauvegarde optionnelle du cache (accélération startup)
+    /// Optional cache saving (startup acceleration)
     pub fn save_cache(&self, path: impl AsRef<Path>) -> Result<(), String> {
         let path = path.as_ref();
         let data = self.to_json_string().unwrap_or_else(|e| {

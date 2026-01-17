@@ -1,23 +1,23 @@
 # `git_lib`
 
-**Description** : Crate Rust pour les interactions avec Git.
+**Description** : A Rust crate for interacting with Git.
 
-## Fonctionnalités
+## Features
 
-- Gestion des dépôts Git.
-- Commandes Git simplifiées.
+- Git repository management.
+- Simplified Git commands.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml` :
 
 ```toml
 [dependencies]
 git_lib = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example of use
 ```

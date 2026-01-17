@@ -7,7 +7,7 @@ use crate::{
 };
 use tracing;
 
-/// Solver symbolique - orchestration interne de symbolic
+/// Symbolic solver - internal orchestration of symbolic
 pub struct SymbolicSolver {
     analyzer: CodeAnalyzer,
     rules: RulesEngine,
@@ -152,10 +152,10 @@ impl SymbolicSolver {
         );
 
         if feedback.is_positive() {
-            tracing::info!("Retour positif reçu. Renforcement des règles associées.");
+            tracing::info!("Positive feedback received. Reinforcing associated rules.");
             self.reinforce_rule(input);
         } else {
-            tracing::info!("Retour négatif reçu. Révision des règles associées.");
+            tracing::info!("Negative feedback received. Revising associated rules.");
             self.weaken_rule(input);
         }
 
@@ -163,12 +163,12 @@ impl SymbolicSolver {
     }
 
     pub fn reinforce_rule(&mut self, input: &str) {
-        tracing::info!(input=%input, "Renforcement de la règle");
-        // Logique pour renforcer une règle
+        tracing::info!(input=%input, "Reinforcing rule");
+        // Logic to reinforce a rule
     }
 
     pub fn weaken_rule(&mut self, input: &str) {
-        tracing::info!(input=%input, "Affaiblissement de la règle");
-        // Logique pour affaiblir une règle
+        tracing::info!(input=%input, "Weakening rule");
+        // Logic to weaken a rule
     }
 }

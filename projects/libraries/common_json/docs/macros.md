@@ -1,19 +1,19 @@
-# Macros de construction JSON
+# JSON Construction Macros
 
-Ce module fournit des macros pour créer du JSON de manière déclarative, avec des fonctionnalités supplémentaires.
+This module provides macros for creating JSON declaratively, with additional features.
 
-## Macros disponibles
+## Available Macros
 
-| Macro          | Description                           |
-| -------------- | ------------------------------------- |
-| `pjson!`       | Macro principale, syntaxe JSON-like   |
-| `pjson_key!`   | Helper pour les clés (interne)        |
-| `json_array!`  | Création de tableaux avec expressions |
-| `json_object!` | Création d'objets avec `=>`           |
+| Macro          | Description                    |
+| -------------- | ------------------------------ |
+| `pjson!`       | Main macro, JSON-like syntax   |
+| `pjson_key!`   | Helper for keys (internal)     |
+| `json_array!`  | Create arrays with expressions |
+| `json_object!` | Create objects with `=>`       |
 
-## Syntaxe de `pjson!`
+## `pjson!` Syntax
 
-### Valeurs primitives
+### Primitive Values
 
 ```rust
 use common_json::pjson;
@@ -26,7 +26,7 @@ let pi = pjson!(3.14);          // 3.14
 let s = pjson!("hello");        // "hello"
 ```
 
-### Tableaux
+### Arrays
 
 ```rust
 use common_json::pjson;
@@ -37,23 +37,23 @@ let mixed = pjson!([1, "two", true, null]);
 let nested = pjson!([[1, 2], [3, 4]]);
 ```
 
-### Objets
+### Objects
 
 ```rust
 use common_json::pjson;
 
-// Clés comme identifiants
+// Keys as identifiers
 let obj = pjson!({ name: "test", value: 42 });
 
-// Clés comme chaînes (pour caractères spéciaux)
+// Keys as strings (for special characters)
 let obj = pjson!({ "key-with-dash": "value" });
 
-// Clés dynamiques avec parenthèses
+// Dynamic keys with parentheses
 let key = "dynamic";
 let obj = pjson!({ (key): "value" });
 ```
 
-### Interpolation de variables
+### Variable Interpolation
 
 ```rust
 use common_json::pjson;
@@ -61,14 +61,14 @@ use common_json::pjson;
 let name = "Alice";
 let age = 30;
 
-// Utilisez des parenthèses pour interpoler des variables
+// Use parentheses to interpolate variables
 let user = pjson!({
     name: (name),
     age: (age)
 });
 ```
 
-### Structures imbriquées
+### Nested Structures
 
 ```rust
 use common_json::pjson;
@@ -83,9 +83,9 @@ let config = pjson!({
 });
 ```
 
-### Trailing commas
+### Trailing Commas
 
-Les virgules finales sont acceptées :
+Trailing commas are accepted:
 
 ```rust
 use common_json::pjson;
@@ -96,15 +96,15 @@ let arr = pjson!([1, 2, 3,]);       // OK
 
 ## Tests
 
-Ce module contient 16 tests couvrant :
+This module contains 16 tests covering:
 
-- Primitives : null, booléens, nombres, chaînes
-- Tableaux : vides, simples, mixtes
-- Objets : vides, simples, imbriqués
-- Fonctionnalités : clés dynamiques, interpolation, trailing commas
-- Macros alternatives : `json_array!`, `json_object!`
+- Primitives: null, booleans, numbers, strings
+- Arrays: empty, simple, mixed
+- Objects: empty, simple, nested
+- Features: dynamic keys, interpolation, trailing commas
+- Alternative macros: `json_array!`, `json_object!`
 
-### Non couvert
+### Not Covered
 
-- Gestion d'erreurs (types non sérialisables)
-- Cas limites avec caractères Unicode dans les clés
+- Error handling (non-serializable types)
+- Edge cases with Unicode characters in keys

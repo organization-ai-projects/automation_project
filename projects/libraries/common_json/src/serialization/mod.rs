@@ -1,4 +1,5 @@
-mod const_values;
+// projects/libraries/common_json/src/serialization/mod.rs
+pub mod const_values;
 mod helpers;
 mod json_map_serializer;
 mod json_seq_serializer;

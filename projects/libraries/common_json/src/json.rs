@@ -1,29 +1,31 @@
+// projects/libraries/common_json/src/json.rs
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use serde::ser::SerializeMap;
 use serde::ser::SerializeSeq;
+use std::collections::HashMap;
 
 use crate::JsonVisitor;
 use crate::deserialization;
-use crate::error;
+use crate::json_error;
 use crate::serialization;
 
 /// Re-export JSON core types for compatibility.
 pub use crate::value::{JsonArray, JsonMap, JsonNumber, JsonObject};
 
-/// Convertit un objet en une chaîne JSON formatée.
-pub fn to_json_string_pretty<T: Serialize>(value: &T) -> Result<String, error::JsonError> {
+/// Converts an object into a formatted JSON string.
+pub fn to_json_string_pretty<T: Serialize>(value: &T) -> Result<String, json_error::JsonError> {
     serialization::to_string_pretty(value)
 }
 
-/// Convertit une chaîne JSON en un objet.
-pub fn from_json_str<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, error::JsonError> {
+/// Converts a JSON string into an object.
+pub fn from_json_str<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, json_error::JsonError> {
     deserialization::from_str(s)
 }
 
-/// Valeur JSON générique.
+/// Generic JSON value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Json {
     Null,
@@ -68,5 +70,34 @@ impl<'de> Deserialize<'de> for Json {
         D: Deserializer<'de>,
     {
         deserializer.deserialize_any(JsonVisitor)
+    }
+}
+
+impl Json {
+    /// Extracts the structure of a JSON object, preserving keys and values.
+    pub fn extract_structure(&self) -> HashMap<String, String> {
+        let mut structure = HashMap::new();
+        self.extract_recursive("root", &mut structure);
+        structure
+    }
+
+    fn extract_recursive(&self, path: &str, structure: &mut HashMap<String, String>) {
+        match self {
+            Json::Object(map) => {
+                for (key, value) in map {
+                    let new_path = format!("{}/{}", path, key);
+                    value.extract_recursive(&new_path, structure);
+                }
+            }
+            Json::Array(array) => {
+                for (index, value) in array.iter().enumerate() {
+                    let new_path = format!("{}/[{}]", path, index);
+                    value.extract_recursive(&new_path, structure);
+                }
+            }
+            _ => {
+                structure.insert(path.to_string(), format!("{:?}", self));
+            }
+        }
     }
 }

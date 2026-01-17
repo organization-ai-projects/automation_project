@@ -1,24 +1,24 @@
-# Principes non négociables
+# Non-Negotiable Principles
 
 ## Introduction
 
-Ce document énumère les principes fondamentaux qui guident le développement du projet `automation_project`. Pour une vue d'ensemble, consultez [Vue d'ensemble](overview.md).
+This document lists the fundamental principles that guide the development of the `automation_project`. For an overview, see [Overview](overview.md).
 
 ---
 
-## 1. Principes non négociables
+## 1. Non-Negotiable Principles
 
-Ces principes s’appliquent dès les premières versions et priment sur toute considération de rapidité ou de confort.
+These principles apply from the earliest versions and take precedence over any considerations of speed or convenience.
 
-- Multi-projets **dès le design**
-- Isolation stricte des états
-- Symbolique prioritaire
-- Neuronal optionnel
-- APIs claires et stables
-- Architecture pensée long terme
-- Aucune dépendance circulaire entre les crates :
-  - `engine` ne dépend jamais de `ui`
-  - `ai` ne dépend jamais de `engine`
-  - `symbolic` et `neural` ne connaissent pas le workspace
+- Multi-project **from design**
+- Strict state isolation
+- Symbolic priority
+- Neural optional
+- Clear and stable APIs
+- Long-term architecture planning
+- No circular dependencies between crates:
+  - `engine` never depends on `ui`
+  - `ai` never depends on `engine`
+  - `symbolic` and `neural` do not know the workspace
 
-Toute évolution du projet doit préserver ces principes ou justifier explicitement leur révision.
+Any project evolution must preserve these principles or explicitly justify their revision.

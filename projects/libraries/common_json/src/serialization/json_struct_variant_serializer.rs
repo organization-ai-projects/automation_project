@@ -1,5 +1,6 @@
+// projects/libraries/common_json/src/serialization/json_struct_variant_serializer.rs
 use crate::Json;
-use crate::error::JsonError;
+use crate::json_error::JsonError;
 use crate::value::JsonMap;
 use serde::ser::{Serialize, SerializeStructVariant};
 

@@ -1,150 +1,76 @@
-// Documentation déplacée dans docs/merge.md. Référez-vous à ce fichier pour les détails.
-
+// projects/libraries/common_json/src/merge.rs
 use crate::Json;
-use crate::array_diff::ArrayDiff;
-use crate::json_diff::JsonDiff;
+use crate::json_comparison::JsonComparison;
 use crate::merge_strategy::MergeStrategy;
 use crate::value::JsonMap;
-use std::collections::HashMap;
 
-/// Fusionne deux valeurs JSON avec la stratégie spécifiée.
+/// Merges two JSON values using the specified strategy.
 ///
-/// # Stratégies
+/// # Strategies
 ///
-/// - `Replace` : retourne simplement `source`
-/// - `DeepMerge` : fusionne récursivement les objets
-/// - `Concat` : comme `DeepMerge` mais concatène les tableaux
+/// - `Replace`: Simply returns `source`
+/// - `DeepMerge`: Recursively merges objects
+/// - `Concat`: Like `DeepMerge` but concatenates arrays
 pub fn merge(target: &Json, source: &Json, strategy: MergeStrategy) -> Json {
+    let comparison = JsonComparison::compare(target, source);
     match strategy {
         MergeStrategy::Replace => source.clone(),
-        MergeStrategy::DeepMerge => deep_merge(target, source),
-        MergeStrategy::Concat => concat_merge(target, source),
+        MergeStrategy::DeepMerge => deep_merge(target, comparison),
+        MergeStrategy::Concat => concat_merge(target, comparison),
     }
 }
 
-/// Fusion profonde de deux valeurs JSON.
-///
-/// - Les objets sont fusionnés récursivement
-/// - Les tableaux et autres types sont remplacés par la source
-pub fn deep_merge(target: &Json, source: &Json) -> Json {
-    match (target, source) {
-        (Json::Object(target_map), Json::Object(source_map)) => {
+/// Applies a deep merge based on the `JsonComparison`.
+fn deep_merge(target: &Json, comparison: JsonComparison) -> Json {
+    match target {
+        Json::Object(target_map) => {
             let mut result = target_map.clone();
-            for (key, source_value) in source_map {
-                let merged_value = match result.get(key) {
-                    Some(target_value) => deep_merge(target_value, source_value),
-                    None => source_value.clone(),
+            for (key, diff) in comparison.object_differences {
+                let merged_value = match diff.value_difference {
+                    Some((_, updated)) => updated,
+                    None => deep_merge(target_map.get(&key).unwrap_or(&Json::Null), diff),
                 };
-                result.insert(key.clone(), merged_value);
+                result.insert(key, merged_value);
             }
             Json::Object(result)
         }
-        _ => source.clone(),
+        _ => target.clone(),
     }
 }
 
-/// Fusion avec concaténation des tableaux.
-///
-/// - Les objets sont fusionnés récursivement
-/// - Les tableaux sont concaténés (target + source)
-/// - Les autres types sont remplacés par la source
-pub fn concat_merge(target: &Json, source: &Json) -> Json {
-    match (target, source) {
-        (Json::Object(target_map), Json::Object(source_map)) => {
+/// Applies a concatenation merge based on the `JsonComparison`.
+fn concat_merge(target: &Json, comparison: JsonComparison) -> Json {
+    match target {
+        Json::Object(target_map) => {
             let mut result = target_map.clone();
-            for (key, source_value) in source_map {
-                let merged_value = match result.get(key) {
-                    Some(target_value) => concat_merge(target_value, source_value),
-                    None => source_value.clone(),
+            for (key, diff) in comparison.object_differences {
+                let merged_value = match diff.value_difference {
+                    Some((_, updated)) => updated,
+                    None => concat_merge(target_map.get(&key).unwrap_or(&Json::Null), diff),
                 };
-                result.insert(key.clone(), merged_value);
+                result.insert(key, merged_value);
             }
             Json::Object(result)
         }
-        (Json::Array(target_arr), Json::Array(source_arr)) => {
+        Json::Array(target_arr) => {
             let mut result = target_arr.clone();
-            result.extend(source_arr.iter().cloned());
+            for diff in comparison.array_differences {
+                if let Some((_, updated)) = diff.value_difference {
+                    result.push(updated);
+                }
+            }
             Json::Array(result)
         }
-        _ => source.clone(),
+        _ => target.clone(),
     }
 }
 
-/// Calcule les différences entre deux valeurs JSON.
+/// Checks if one JSON contains another (for filtering/matching).
 ///
-/// Compare `target` (ancienne valeur) à `source` (nouvelle valeur).
-pub fn diff(target: &Json, source: &Json) -> JsonDiff {
-    if target == source {
-        return JsonDiff::Same;
-    }
-
-    match (target, source) {
-        (Json::Object(target_map), Json::Object(source_map)) => {
-            let mut differences = HashMap::new();
-
-            for (key, target_value) in target_map {
-                match source_map.get(key) {
-                    Some(source_value) => {
-                        let field_diff = diff(target_value, source_value);
-                        if !matches!(field_diff, JsonDiff::Same) {
-                            differences.insert(key.clone(), field_diff);
-                        }
-                    }
-                    None => {
-                        differences.insert(key.clone(), JsonDiff::Removed(target_value.clone()));
-                    }
-                }
-            }
-
-            for (key, source_value) in source_map {
-                if !target_map.contains_key(key) {
-                    differences.insert(key.clone(), JsonDiff::Added(source_value.clone()));
-                }
-            }
-
-            if differences.is_empty() {
-                JsonDiff::Same
-            } else {
-                JsonDiff::Object(differences)
-            }
-        }
-        (Json::Array(target_arr), Json::Array(source_arr)) => {
-            let mut array_diffs = Vec::new();
-            let max_len = target_arr.len().max(source_arr.len());
-
-            for i in 0..max_len {
-                let diff = match (target_arr.get(i), source_arr.get(i)) {
-                    (Some(t), Some(s)) if t == s => ArrayDiff::Same(t.clone()),
-                    (Some(t), Some(s)) => ArrayDiff::Changed {
-                        from: t.clone(),
-                        to: s.clone(),
-                    },
-                    (Some(t), None) => ArrayDiff::Removed(t.clone()),
-                    (None, Some(s)) => ArrayDiff::Added(s.clone()),
-                    (None, None) => unreachable!(),
-                };
-                array_diffs.push(diff);
-            }
-
-            if array_diffs.iter().all(|d| matches!(d, ArrayDiff::Same(_))) {
-                JsonDiff::Same
-            } else {
-                JsonDiff::Array(array_diffs)
-            }
-        }
-        _ => JsonDiff::Changed {
-            from: target.clone(),
-            to: source.clone(),
-        },
-    }
-}
-
-/// Vérifie si un JSON contient un autre (pour filtrage/matching).
-///
-/// La vérification est récursive :
-/// - Pour les objets : tous les champs de `needle` doivent exister dans `haystack` avec les mêmes valeurs
-/// - Pour les tableaux : tous les éléments de `needle` doivent être présents dans `haystack`
-/// - Pour les primitives : égalité stricte
+/// The check is recursive:
+/// - For objects: all fields in `needle` must exist in `haystack` with the same values
+/// - For arrays: all elements in `needle` must be present in `haystack`
+/// - For primitives: strict equality
 pub fn contains(haystack: &Json, needle: &Json) -> bool {
     match (haystack, needle) {
         (Json::Object(h), Json::Object(n)) => n
@@ -157,15 +83,15 @@ pub fn contains(haystack: &Json, needle: &Json) -> bool {
     }
 }
 
-/// Aplatit un objet JSON imbriqué en clés avec notation pointée.
+/// Flattens a nested JSON object into keys with dotted notation.
 ///
-/// Transforme une structure hiérarchique en objet plat où les clés
-/// représentent le chemin complet vers chaque valeur.
+/// Transforms a hierarchical structure into a flat object where keys
+/// represent the full path to each value.
 ///
 /// # Limitations
 ///
-/// - Seuls les objets sont aplatis, pas les tableaux
-/// - Les clés contenant des points peuvent causer des ambiguïtés
+/// - Only objects are flattened, not arrays
+/// - Keys containing dots may cause ambiguities
 pub fn flatten(value: &Json) -> Json {
     let mut result = JsonMap::new();
     flatten_recursive(value, String::new(), &mut result);
@@ -192,9 +118,9 @@ fn flatten_recursive(value: &Json, prefix: String, result: &mut JsonMap) {
     }
 }
 
-/// Reconstruit un objet imbriqué depuis des clés avec notation pointée.
+/// Reconstructs a nested object from keys with dotted notation.
 ///
-/// Opération inverse de [`flatten`].
+/// Inverse operation of [`flatten`].
 pub fn unflatten(value: &Json) -> Json {
     match value {
         Json::Object(map) => {

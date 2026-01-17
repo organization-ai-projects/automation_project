@@ -1,4 +1,4 @@
-// security/src/role.rs
+// projects/libraries/security/src/role.rs
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -13,7 +13,7 @@ pub enum Role {
 }
 
 impl Role {
-    /// Retourne les permissions associées à ce rôle
+    /// Returns the permissions associated with this role
     pub fn permissions(&self) -> &'static [Permission] {
         match self {
             Role::Admin => &[
@@ -38,12 +38,12 @@ impl Role {
         }
     }
 
-    /// Vérifie si ce rôle a une permission spécifique
+    /// Checks if this role has a specific permission
     pub fn has_permission(&self, permission: Permission) -> bool {
         self.permissions().contains(&permission)
     }
 
-    /// Retourne le niveau de privilège (pour comparaisons)
+    /// Returns the privilege level (for comparisons)
     pub fn privilege_level(&self) -> u8 {
         match self {
             Role::Admin => 4,
@@ -53,12 +53,12 @@ impl Role {
         }
     }
 
-    /// Vérifie si ce rôle a plus de privilèges qu'un autre
+    /// Checks if this role has more privileges than another
     pub fn has_higher_privilege_than(&self, other: &Role) -> bool {
         self.privilege_level() > other.privilege_level()
     }
 
-    /// Convertit en string
+    /// Converts to string
     pub fn as_str(&self) -> &'static str {
         match self {
             Role::Admin => "admin",

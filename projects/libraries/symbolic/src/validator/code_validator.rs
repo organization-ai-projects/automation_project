@@ -1,10 +1,10 @@
-// symbolic/src/validator.rs
+// projects/libraries/symbolic/src/validator/code_validator.rs
 use crate::validator::ValidationError;
 use crate::validator::validation_result::ValidationResult;
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
 
-/// Validateur de code Rust
+/// Rust code validator
 pub struct CodeValidator {
     strict_mode: bool,
 }
@@ -19,23 +19,23 @@ impl CodeValidator {
         self
     }
 
-    /// Valide du code Rust
+    /// Validates Rust code
     pub fn validate(&self, code: &str) -> Result<ValidationResult, ValidationError> {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
-        // Validation de base
+        // Basic validation
         if !CommonID::is_valid(Id128::new(0, None, None)) {
             return Ok(ValidationResult::invalid(vec!["Invalid ID".to_string()]));
         }
 
-        // Vérifier la syntaxe avec syn
+        // Check syntax with syn
         match syn::parse_file(code) {
             Ok(syntax_tree) => {
-                // Validation réussie au niveau syntaxe
+                // Syntax-level validation succeeded
                 println!("Code parsed successfully");
 
-                // Validations sémantiques supplémentaires
+                // Additional semantic validations
                 self.validate_semantics(&syntax_tree, &mut warnings);
             }
             Err(e) => {
@@ -44,13 +44,13 @@ impl CodeValidator {
             }
         }
 
-        // Invalider explicitement le code vide après la validation syntaxique
+        // Explicitly invalidate empty code after syntax validation
         if code.trim().is_empty() {
             errors.push("Code is empty".to_string());
             return Ok(ValidationResult::invalid(errors));
         }
 
-        // Vérifications additionnelles
+        // Additional checks
         self.check_common_issues(code, &mut warnings);
 
         if errors.is_empty() {
@@ -60,7 +60,7 @@ impl CodeValidator {
         }
     }
 
-    /// Valide la syntaxe uniquement (plus rapide)
+    /// Validates syntax only (faster)
     pub fn validate_syntax(&self, code: &str) -> Result<ValidationResult, ValidationError> {
         if code.trim().is_empty() {
             return Ok(ValidationResult::invalid(vec!["Code is empty".to_string()]));
@@ -75,19 +75,19 @@ impl CodeValidator {
         }
     }
 
-    /// Suggère un fix pour des erreurs communes
+    /// Suggests a fix for common errors
     pub fn suggest_fix(&self, code: &str, errors: &[String]) -> Option<String> {
-        // Si erreur de missing semicolon
+        // If missing semicolon error
         if errors.iter().any(|e| e.contains("expected `;`")) {
             return self.try_add_semicolons(code);
         }
 
-        // Si erreur de parenthèses non fermées
+        // If unclosed delimiter error
         if errors.iter().any(|e| e.contains("unclosed delimiter")) {
             return self.try_close_delimiters(code);
         }
 
-        // Si erreur de type struct/enum mal formé
+        // If malformed struct/enum error
         if errors.iter().any(|e| e.contains("expected `{`")) {
             return self.try_fix_struct_format(code);
         }
@@ -95,42 +95,42 @@ impl CodeValidator {
         None
     }
 
-    /// Validations sémantiques supplémentaires
+    /// Additional semantic validations
     fn validate_semantics(&self, _syntax_tree: &syn::File, warnings: &mut Vec<String>) {
-        // TODO: Ajouter des validations sémantiques plus avancées
-        // - Vérifier les imports inutilisés
-        // - Vérifier les variables non utilisées
-        // - Vérifier les types incohérents
+        // TODO: Add more advanced semantic validations
+        // - Check for unused imports
+        // - Check for unused variables
+        // - Check for inconsistent types
 
         if self.strict_mode {
             warnings.push("Strict mode enabled: additional checks not yet implemented".to_string());
         }
     }
 
-    /// Vérifie les problèmes courants
+    /// Checks for common issues
     fn check_common_issues(&self, code: &str, warnings: &mut Vec<String>) {
-        // Vérifier les println! en production
+        // Check for println! in production
         if code.contains("println!") {
             warnings.push("Code contains println! statements".to_string());
         }
 
-        // Vérifier les todo!()
+        // Check for todo!()
         if code.contains("todo!()") {
             warnings.push("Code contains todo!() macros".to_string());
         }
 
-        // Vérifier les unwrap()
+        // Check for unwrap()
         if code.contains(".unwrap()") {
             warnings
                 .push("Code contains .unwrap() calls (consider proper error handling)".to_string());
         }
 
-        // Vérifier les #[allow(dead_code)]
+        // Check for #[allow(dead_code)]
         if code.contains("#[allow(dead_code)]") {
             warnings.push("Code contains #[allow(dead_code)] attributes".to_string());
         }
 
-        // Vérifier la longueur des lignes
+        // Check line length
         for (i, line) in code.lines().enumerate() {
             if line.len() > 100 {
                 warnings.push(format!("Line {} exceeds 100 characters", i + 1));
@@ -138,7 +138,7 @@ impl CodeValidator {
         }
     }
 
-    /// Tente d'ajouter des points-virgules manquants
+    /// Attempts to add missing semicolons
     fn try_add_semicolons(&self, code: &str) -> Option<String> {
         let mut fixed = String::new();
 
@@ -159,8 +159,8 @@ impl CodeValidator {
             }
         }
 
-        // Vérifier si le code corrigé est valide
-        // Encapsuler le code dans une fonction pour validation
+        // Check if the fixed code is valid
+        // Wrap the code in a function for validation
         let wrapped_code = format!("fn test_wrapper() {{\n{}\n}}", fixed);
         if !self.validate_code(&wrapped_code) {
             println!("[DEBUG] Validation failed for wrapped code");
@@ -172,7 +172,7 @@ impl CodeValidator {
         Some(fixed)
     }
 
-    /// Tente de fermer les délimiteurs ouverts
+    /// Attempts to close open delimiters
     fn try_close_delimiters(&self, code: &str) -> Option<String> {
         let mut open_braces = 0;
         let mut open_brackets = 0;
@@ -192,7 +192,7 @@ impl CodeValidator {
 
         let mut fixed = code.to_string();
 
-        // Fermer les délimiteurs ouverts
+        // Close open delimiters
         for _ in 0..open_parens.max(0) {
             fixed.push(')');
         }
@@ -203,7 +203,7 @@ impl CodeValidator {
             fixed.push('}');
         }
 
-        // Vérifier si le fix fonctionne
+        // Check if the fix works
         if syn::parse_file(&fixed).is_ok() {
             Some(fixed)
         } else {
@@ -211,9 +211,9 @@ impl CodeValidator {
         }
     }
 
-    /// Tente de corriger le format d'un struct/enum
+    /// Attempts to fix struct/enum format
     fn try_fix_struct_format(&self, code: &str) -> Option<String> {
-        // Correction simple: ajouter {} si manquant après struct/enum
+        // Simple fix: add {} if missing after struct/enum
         let mut fixed = code.to_string();
 
         if code.contains("struct") && !code.contains('{') {
@@ -224,7 +224,7 @@ impl CodeValidator {
             fixed.push_str("enum {}");
         }
 
-        // Vérifier si le fix fonctionne
+        // Check if the fix works
         if syn::parse_file(&fixed).is_ok() {
             Some(fixed)
         } else {
@@ -232,7 +232,7 @@ impl CodeValidator {
         }
     }
 
-    /// Vérifie si le code est valide (sans erreurs de syntaxe)
+    /// Checks if the code is valid (no syntax errors)
     fn validate_code(&self, code: &str) -> bool {
         syn::parse_file(code).is_ok()
     }
@@ -259,7 +259,7 @@ mod tests {
         let validator = CodeValidator::new().unwrap();
         let code = r#"
             fn main() {
-                println!("Hello, world!");
+                println!(\"Hello, world!\");
             }
         "#;
 
@@ -295,7 +295,7 @@ mod tests {
         let validator = CodeValidator::new().unwrap();
         let code = r#"
             fn main() {
-                println!("test");
+                println!(\"test\");
                 let x = Some(5).unwrap();
                 todo!();
             }

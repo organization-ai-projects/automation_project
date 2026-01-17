@@ -3,41 +3,41 @@ use serde::{Deserialize, Serialize};
 
 use crate::pre_checks::PreChecks;
 
-/// Policy de sécurité pour l’autopilot.
-/// Idée: le code "IA" ne décide pas au feeling, il applique une policy déterministe.
-/// Définit les règles de sécurité et les politiques appliquées par l'autopilot.
-/// Ces règles déterminent les fichiers pertinents, les branches protégées, et les actions autorisées.
+/// Security policy for the autopilot.
+/// Idea: the "AI" code does not decide arbitrarily; it applies a deterministic policy.
+/// Defines the security rules and policies applied by the autopilot.
+/// These rules determine relevant files, protected branches, and authorized actions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutopilotPolicy {
-    /// Branches interdites de commit direct.
+    /// Branches where direct commits are forbidden.
     pub protected_branches: Vec<String>,
 
-    /// Pré-checks à exécuter avant d'agir.
+    /// Pre-checks to execute before acting.
     pub pre_checks: PreChecks,
 
-    /// Ce que tu considères "pertinent" (allowlist).
-    /// Exemple: ["src/", "tests/", "crates/"]
+    /// What is considered "relevant" (allowlist).
+    /// Example: ["src/", "tests/", "crates/"]
     pub relevant_prefixes: Vec<String>,
 
-    /// Fichiers exacts considérés pertinents même hors prefixes.
-    /// Exemple: ["Cargo.toml", "Cargo.lock", "README.md"]
+    /// Exact files considered relevant even outside prefixes.
+    /// Example: ["Cargo.toml", "Cargo.lock", "README.md"]
     pub relevant_files: Vec<String>,
 
-    /// Tout ce qui matche ici est refusé (même si pertinent).
-    /// Exemple: ["target/", ".env", ".automation_project/secrets"]
+    /// Anything matching here is denied (even if relevant).
+    /// Example: ["target/", ".env", ".automation_project/secrets"]
     pub blocked_prefixes: Vec<String>,
 
-    /// Si true: si des fichiers non-pertinents existent, on refuse d'agir.
-    /// (recommandé pour éviter split/branch auto "magique".)
+    /// If true: if unrelated files exist, refuse to act.
+    /// (recommended to avoid automatic split/branch behavior.)
     pub fail_on_unrelated_changes: bool,
 
-    /// Autoriser le push automatique.
+    /// Allow automatic push.
     pub allow_push: bool,
 
-    /// Remote à utiliser si push autorisé. (ex: "origin")
+    /// Remote to use if push is allowed. (e.g., "origin")
     pub push_remote: String,
 
-    /// Si push autorisé, pousser la branche courante en upstream si nécessaire.
+    /// If push is allowed, push the current branch upstream if missing.
     pub push_set_upstream_if_missing: bool,
 }
 

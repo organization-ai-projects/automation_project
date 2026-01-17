@@ -1,23 +1,23 @@
 # `pjson_proc_macros`
 
-**Description** : Crate Rust pour les macros procédurales liées à `pjson`.
+**Description**: Rust crate for procedural macros related to `pjson`.
 
-## Fonctionnalités
+## Features
 
-- Génération automatique de code.
-- Validation des structures JSON.
+- Automatic code generation.
+- Validation of JSON structures.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml` :
 
 ```toml
 [dependencies]
 pjson_proc_macros = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example of use
 ```

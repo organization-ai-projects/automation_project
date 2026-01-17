@@ -1,5 +1,5 @@
-use common_json::to_value;
 // projects/products/varina/backend/src/autopilot/handlers.rs
+use common_json::to_value;
 use protocol::{ApplyRequest, ApplyResponse, PreviewRequest, PreviewResponse};
 
 use crate::automation::run_git_autopilot;
@@ -7,11 +7,11 @@ use crate::git_github::suggest_policy_from_report;
 use crate::{AutopilotMode, AutopilotPolicy, PreChecks};
 
 /// Preview = DryRun.
-/// Ne fait AUCUNE mutation hasardeuse de policy.
-/// On part sur AutopilotPolicy::default() (robuste).
+/// Does NOT make any random policy mutations.
+/// Starts with AutopilotPolicy::default() (robust).
 pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewResponse, String> {
     let policy = AutopilotPolicy {
-        fail_on_unrelated_changes: false, // Désactivation pour les tests
+        fail_on_unrelated_changes: false, // Disabled for testing
         ..AutopilotPolicy::default()
     };
 
@@ -24,24 +24,24 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
         Ok(r) => r,
         Err(e) => {
             println!("[error] handle_preview_git_autopilot: Error running autopilot: {e}");
-            return Err(format!("Autopilot execution failed: {e}")); // Message d'erreur plus précis
+            return Err(format!("Autopilot execution failed: {e}")); // More precise error message
         }
     };
 
     let _suggestion = suggest_policy_from_report(&report, &policy);
-    // Si ton protocol n'a pas de champ suggestion, tu peux soit:
-    // - ignorer (comme ici),
-    // - ou ajouter les notes dans report.logs dans run_git_autopilot (meilleur endroit),
-    // - ou enrichir protocol plus tard quand tu seras prêt.
+    // If your protocol does not have a suggestion field, you can either:
+    // - ignore it (as done here),
+    // - or add the notes to report.logs in run_git_autopilot (better place),
+    // - or enrich the protocol later when ready.
 
     Ok(PreviewResponse {
-        summary: "Prévisualisation réussie".to_string(),
+        summary: "Preview successful".to_string(),
         payload: Some(to_value(&report).unwrap()),
     })
 }
 
 /// Apply = ApplySafe.
-/// Toujours policy default (push interdit par défaut).
+/// Always uses the default policy (push disabled by default).
 pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, String> {
     let policy = AutopilotPolicy {
         fail_on_unrelated_changes: false,
@@ -63,7 +63,7 @@ pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, S
     };
 
     Ok(ApplyResponse {
-        result: "Application terminée".to_string(),
+        result: "Application completed".to_string(),
         payload: Some(to_value(&report).unwrap()),
     })
 }

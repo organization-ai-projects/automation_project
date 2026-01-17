@@ -1,10 +1,12 @@
-use crate::{Json, error::JsonError};
+// projects/libraries/common_json/src/deserialization/json_deserializer.rs
+use crate::{Json, json_error::JsonError};
 use serde::de::{self, Visitor};
 
 use super::helpers::{to_bytes, to_f64, to_i64, to_u64, type_error};
 use super::json_enum_access::JsonEnumAccess;
 use super::json_map_access::JsonMapAccess;
 use super::json_seq_access::JsonSeqAccess;
+use crate::json_error::JsonErrorCode;
 
 pub(crate) struct JsonDeserializer<'de> {
     input: &'de Json,
@@ -48,7 +50,8 @@ impl<'de> de::Deserializer<'de> for JsonDeserializer<'de> {
         V: Visitor<'de>,
     {
         let value = to_i64(self.input)?;
-        let value = i8::try_from(value).map_err(|_| JsonError::custom("integer out of range"))?;
+        let value =
+            i8::try_from(value).map_err(|_| JsonError::new(JsonErrorCode::InvalidInteger))?;
         visitor.visit_i8(value)
     }
 
@@ -57,7 +60,8 @@ impl<'de> de::Deserializer<'de> for JsonDeserializer<'de> {
         V: Visitor<'de>,
     {
         let value = to_i64(self.input)?;
-        let value = i16::try_from(value).map_err(|_| JsonError::custom("integer out of range"))?;
+        let value =
+            i16::try_from(value).map_err(|_| JsonError::new(JsonErrorCode::InvalidInteger))?;
         visitor.visit_i16(value)
     }
 
@@ -66,7 +70,8 @@ impl<'de> de::Deserializer<'de> for JsonDeserializer<'de> {
         V: Visitor<'de>,
     {
         let value = to_i64(self.input)?;
-        let value = i32::try_from(value).map_err(|_| JsonError::custom("integer out of range"))?;
+        let value =
+            i32::try_from(value).map_err(|_| JsonError::new(JsonErrorCode::InvalidInteger))?;
         visitor.visit_i32(value)
     }
 
@@ -83,7 +88,8 @@ impl<'de> de::Deserializer<'de> for JsonDeserializer<'de> {
         V: Visitor<'de>,
     {
         let value = to_u64(self.input)?;
-        let value = u8::try_from(value).map_err(|_| JsonError::custom("integer out of range"))?;
+        let value =
+            u8::try_from(value).map_err(|_| JsonError::new(JsonErrorCode::InvalidInteger))?;
         visitor.visit_u8(value)
     }
 
@@ -92,7 +98,8 @@ impl<'de> de::Deserializer<'de> for JsonDeserializer<'de> {
         V: Visitor<'de>,
     {
         let value = to_u64(self.input)?;
-        let value = u16::try_from(value).map_err(|_| JsonError::custom("integer out of range"))?;
+        let value =
+            u16::try_from(value).map_err(|_| JsonError::new(JsonErrorCode::InvalidInteger))?;
         visitor.visit_u16(value)
     }
 
@@ -101,7 +108,8 @@ impl<'de> de::Deserializer<'de> for JsonDeserializer<'de> {
         V: Visitor<'de>,
     {
         let value = to_u64(self.input)?;
-        let value = u32::try_from(value).map_err(|_| JsonError::custom("integer out of range"))?;
+        let value =
+            u32::try_from(value).map_err(|_| JsonError::new(JsonErrorCode::InvalidInteger))?;
         visitor.visit_u32(value)
     }
 
@@ -139,7 +147,7 @@ impl<'de> de::Deserializer<'de> for JsonDeserializer<'de> {
                 if let (Some(ch), None) = (chars.next(), chars.next()) {
                     visitor.visit_char(ch)
                 } else {
-                    Err(JsonError::custom("expected a single character"))
+                    Err(JsonError::new(JsonErrorCode::ExpectedSingleCharacter))
                 }
             }
             other => Err(type_error("string", other)),

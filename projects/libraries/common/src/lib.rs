@@ -1,7 +1,4 @@
-pub fn init() {
-    println!("Initializing common library...");
-}
-
+// projects/libraries/common/src/lib.rs
 pub mod common_id;
 pub mod custom_uuid;
 pub mod error_type;

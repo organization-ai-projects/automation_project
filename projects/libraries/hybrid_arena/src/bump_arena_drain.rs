@@ -1,3 +1,4 @@
+//  projects/libraries/hybrid_arena/src/bump_arena_drain.rs
 /// A draining iterator for `BumpArena`.
 #[derive(Debug)]
 pub struct BumpArenaDrain<'a, T> {

@@ -1,4 +1,4 @@
-/// Résultat d'un refactoring
+// Refactoring result
 #[derive(Debug, Clone)]
 pub struct RefactoringResult {
     pub code: String,

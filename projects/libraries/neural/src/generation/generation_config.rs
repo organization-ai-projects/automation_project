@@ -1,5 +1,4 @@
 // projects/libraries/neural/src/generation/generation_config.rs
-
 use common::CommonID;
 use common::Id128;
 

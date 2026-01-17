@@ -12,11 +12,11 @@ pub struct ValidateLimits {
 }
 
 impl ValidateLimits {
-    /// Strict limits for JSON-like structures.
-    pub fn strict_json() -> Self {
+    /// Strict limits for common structured data.
+    pub fn strict() -> Self {
         Self {
-            max_depth: 32,    // Reasonable for JSON
-            max_size: 10_000, // Prevent abuse
+            max_depth: 32,
+            max_size: 10_000,
         }
     }
 
@@ -28,10 +28,10 @@ impl ValidateLimits {
         }
     }
 
-    /// Validates if a float value is acceptable under strict JSON rules.
+    /// Validates if a float value is acceptable under strict rules.
     pub fn validate_float(value: f64) -> Result<(), &'static str> {
         if value.is_nan() || value.is_infinite() {
-            Err("Invalid float: NaN or Infinity is not allowed in strict JSON")
+            Err("Invalid float: NaN or Infinity is not allowed under strict rules")
         } else {
             Ok(())
         }

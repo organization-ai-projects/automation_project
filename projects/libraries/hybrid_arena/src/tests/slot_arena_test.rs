@@ -1,3 +1,4 @@
+// projects/libraries/hybrid_arena/src/tests/slot_arena_test.rs
 use crate::{Id, SlotArena};
 
 #[test]

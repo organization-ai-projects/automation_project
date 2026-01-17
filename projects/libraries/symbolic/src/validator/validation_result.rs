@@ -1,4 +1,4 @@
-/// Résultat de validation
+// projects/libraries/symbolic/src/validator/validation_result.rs
 #[derive(Debug, Clone)]
 pub struct ValidationResult {
     pub is_valid: bool,

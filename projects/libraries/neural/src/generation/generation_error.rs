@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/generation/generation_error.rs
 use thiserror::Error;
 
 use crate::network::neural_net::NetworkError;

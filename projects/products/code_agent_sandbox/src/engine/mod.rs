@@ -1,5 +1,5 @@
 // projects/products/code_agent_sandbox/src/engine/mod.rs
-// Modules internes
+// Internal modules
 pub mod engine_config;
 pub mod engine_ctx;
 pub mod engine_init;
@@ -14,16 +14,16 @@ pub mod response;
 pub mod rights;
 pub mod workspace_mode;
 
-// ✅ API publique du module `engine`
-// Expose uniquement ce qui est nécessaire pour l'extérieur
+// ✅ Public API of the `engine` module
+// Expose only what is necessary for external use
 pub use engine_orchestrator::execute_request;
 pub use engine_paths::EnginePaths;
 pub use request::Request;
 pub use response::Response;
 pub use workspace_mode::WorkspaceMode;
 
-// ✅ API interne au crate
-// Expose uniquement pour le crate courant
+// ✅ Internal API for the crate
+// Expose only for the current crate
 pub(crate) use engine_config::EngineConfig;
 pub(crate) use engine_ctx::EngineCtx;
 pub(crate) use engine_init::{EngineInit, initialize_engine};

@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/generation/mod.rs
 pub mod code_generator;
 pub mod generation_config;
 pub mod generation_error;

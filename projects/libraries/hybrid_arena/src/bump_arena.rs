@@ -3,7 +3,7 @@
 //! The bump arena is optimized for scenarios where you allocate many items
 //! and never remove them individually. It provides O(1) allocation with
 //! excellent cache locality.
-
+// projects/libraries/hybrid_arena/src/bump_arena.rs
 use std::ops::{Index, IndexMut};
 use std::slice;
 
@@ -17,28 +17,6 @@ use crate::{BumpArenaDrain, BumpArenaIntoIter, BumpArenaIter, BumpArenaIterMut};
 // Redéfinition directe du type IntoIter
 type IntoIter<T> = BumpArenaIntoIter<T>;
 
-/// A bump arena for fast, append-only allocation.
-///
-/// # Performance characteristics
-/// - Allocation: O(1) amortized
-/// - Access by ID: O(1)
-/// - Iteration: O(n), cache-friendly
-/// - Memory: Contiguous, no fragmentation
-///
-/// # When to use
-/// - Parse trees / ASTs that are built once and read many times
-/// - Interned strings or symbols
-/// - ECS entity storage (without removal)
-/// - Graph nodes allocated in bulk
-///
-/// # Example
-/// ```
-/// use hybrid_arena::{BumpArena, Id};
-///
-/// let mut arena: BumpArena<String> = BumpArena::new();
-/// let id = arena.alloc("hello".to_string()).unwrap();
-/// assert_eq!(arena.get(id), Some(&"hello".to_string()));
-/// ```
 #[derive(Debug)]
 pub struct BumpArena<T> {
     pub items: Vec<T>,

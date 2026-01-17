@@ -1,18 +1,18 @@
-# Builder fluide pour tableaux JSON
+# Fluent Builder for JSON Arrays
 
-Permet de construire des tableaux JSON de manière lisible et type-safe.
+Allows constructing JSON arrays in a readable and type-safe manner.
 
-## Méthodes
+## Methods
 
-| Méthode       | Description               |
+| Method        | Description               |
 | ------------- | ------------------------- |
-| `element`     | Ajoute un élément         |
-| `element_opt` | Ajoute si `Some`          |
-| `element_if`  | Ajoute si condition vraie |
-| `extend`      | Ajoute plusieurs éléments |
-| `build`       | Finalise le tableau       |
+| `element`     | Adds an element           |
+| `element_opt` | Adds if `Some`            |
+| `element_if`  | Adds if condition is true |
+| `extend`      | Adds multiple elements    |
+| `build`       | Finalizes the array       |
 
-## Exemple
+## Example
 
 ```rust
 use common_json::JsonArrayBuilder;
@@ -29,9 +29,9 @@ assert_eq!(arr.as_array().unwrap().len(), 6);
 
 ## Tests
 
-Ce module contient des tests couvrant :
+This module includes tests covering:
 
-- Ajout d'éléments simples avec `element`
-- Ajout conditionnel avec `element_opt` et `element_if`
-- Extension avec plusieurs éléments via `extend`
-- Finalisation et validation du tableau avec `build`
+- Adding simple elements with `element`
+- Conditional addition with `element_opt` and `element_if`
+- Extending with multiple elements via `extend`
+- Finalizing and validating the array with `build`

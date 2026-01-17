@@ -3,7 +3,7 @@
 //! The ID is packed into a single u64 for cache efficiency:
 //! - High 32 bits: generation (for ABA problem prevention)
 //! - Low 32 bits: index
-
+// projects/libraries/hybrid_arena/src/id.rs
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;

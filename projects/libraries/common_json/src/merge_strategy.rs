@@ -1,13 +1,14 @@
-/// Stratégie de fusion pour combiner des valeurs JSON.
+// projects/libraries/common_json/src/merge_strategy.rs
+/// Merge strategy for combining JSON values.
 ///
-/// Détermine comment les valeurs sont combinées lors d'un merge.
+/// Determines how values are combined during a merge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MergeStrategy {
-    /// Remplace la cible par la source (pas de fusion).
+    /// Replaces the target with the source (no merging).
     #[default]
     Replace,
-    /// Fusionne récursivement les objets, remplace les autres types.
+    /// Recursively merges objects, replaces other types.
     DeepMerge,
-    /// Concatène les tableaux, fusionne récursivement les objets.
+    /// Concatenates arrays, recursively merges objects.
     Concat,
 }

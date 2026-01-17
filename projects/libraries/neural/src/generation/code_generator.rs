@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/generation/code_generator.rs
 use common_json::{JsonSerializable, to_string};
 use ndarray::{Array1, s};
 

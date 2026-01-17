@@ -8,16 +8,16 @@ use serde::ser::{Serialize, Serializer};
 
 use crate::{JsonError, json::Json, to_json};
 
-/// Map clé-valeur pour les objets JSON.
+/// Key-value map for JSON objects.
 pub type JsonMap = std::collections::HashMap<String, Json>;
 
-/// Tableau de valeurs JSON.
+/// Array of JSON values.
 pub type JsonArray = Vec<Json>;
 
-/// Objet JSON (map String -> Json).
+/// JSON object (map String -> Json).
 pub type JsonObject = JsonMap;
 
-/// Nombre JSON.
+/// JSON number.
 #[derive(Debug, Clone, PartialEq)]
 pub struct JsonNumber {
     value: f64,
@@ -216,49 +216,49 @@ impl<'de> Visitor<'de> for JsonVisitor {
 // Constructors
 // ============================================================================
 
-/// Crée un objet JSON vide `{}`.
+/// Creates an empty JSON object `{}`.
 #[inline]
 pub fn object() -> Json {
     Json::Object(JsonMap::new())
 }
 
-/// Crée un tableau JSON vide `[]`.
+/// Creates an empty JSON array `[]`.
 #[inline]
 pub fn array() -> Json {
     Json::Array(Vec::new())
 }
 
-/// Crée une valeur JSON `null`.
+/// Creates a JSON `null` value.
 #[inline]
 pub fn null() -> Json {
     Json::Null
 }
 
-/// Crée un booléen JSON.
+/// Creates a JSON boolean.
 #[inline]
 pub fn boolean(v: bool) -> Json {
     Json::Bool(v)
 }
 
-/// Crée une chaîne JSON.
+/// Creates a JSON string.
 #[inline]
 pub fn string<S: Into<String>>(s: S) -> Json {
     Json::String(s.into())
 }
 
-/// Crée un nombre JSON à partir d'un `i64`.
+/// Creates a JSON number from an `i64`.
 #[inline]
 pub fn number_i64(n: i64) -> Json {
     Json::Number(n.into())
 }
 
-/// Crée un nombre JSON à partir d'un `u64`.
+/// Creates a JSON number from a `u64`.
 #[inline]
 pub fn number_u64(n: u64) -> Json {
     Json::Number(n.into())
 }
 
-/// Crée un nombre JSON à partir d'un `f64`.
+/// Creates a JSON number from an `f64`.
 #[inline]
 pub fn number_f64(n: f64) -> Option<Json> {
     JsonNumber::from_f64(n).map(Json::Number)
@@ -341,6 +341,7 @@ impl Json {
         matches!(self, Json::Null)
     }
 
+    /// Converts a serializable type into `Json`.
     /// Convertit un type sérialisable en `Json`.
     pub fn from_serialize<T: Serialize>(value: &T) -> Result<Self, JsonError> {
         to_json(value)
