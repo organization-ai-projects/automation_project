@@ -1,7 +1,8 @@
+// projects/libraries/ai/src/feedbacks/api_feedback.rs
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
-/// Métadonnées publiques (API). Stable et extensible.
+/// Public metadata (API). Stable and extensible.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FeedbackMeta<'a> {
     pub confidence: Option<f32>,
@@ -34,7 +35,7 @@ impl<'a> FeedbackMeta<'a> {
     }
 }
 
-/// Verdict public (API). Impossible d’être ambigu.
+/// Public verdict (API). Unambiguous.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FeedbackVerdict<'a> {
     Correct,
@@ -43,7 +44,7 @@ pub enum FeedbackVerdict<'a> {
     Rejected,
 }
 
-/// Requête publique complète (API).
+/// Complete public request (API).
 #[derive(Debug, Clone)]
 pub struct FeedbackInput<'a> {
     pub task_input: Cow<'a, str>,

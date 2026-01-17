@@ -1,3 +1,4 @@
+// projects/libraries/security/src/claims.rs
 use serde::{Deserialize, Serialize};
 
 use crate::Role;

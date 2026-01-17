@@ -18,7 +18,7 @@ pub const ACTION_GIT_AUTOPILOT_PREVIEW: &str = "git_autopilot/preview";
 pub const ACTION_GIT_AUTOPILOT_APPLY: &str = "git_autopilot/apply";
 const ACTION_GIT_AUTOPILOT_RUN: &str = "git_autopilot.run";
 
-// Payload type (v2 ready). Active-les quand tu veux versionner strict.
+// Payload type (v2 ready). Activate them when you want strict versioning.
 const PAYLOAD_TYPE_PREVIEW_V1: &str = "git_autopilot/preview/v1";
 const PAYLOAD_TYPE_APPLY_V1: &str = "git_autopilot/apply/v1";
 
@@ -74,7 +74,7 @@ pub fn handle_command(cmd: Command) -> CommandResponse {
             404,
             "Not Found",
             E_ACTION_UNSUPPORTED,
-            "Commande non supportée",
+            "Unsupported command",
         ),
     }
 }
@@ -184,8 +184,8 @@ where
 }
 
 fn run_git_autopilot(cmd: &Command) -> CommandResponse {
-    // TODO future proof: repo path dans payload + validation + whitelist
-    let repo_path = path::Path::new("/chemin/du/repo");
+    // TODO future proof: repo path in payload + validation + whitelist
+    let repo_path = path::Path::new("/path/to/repo");
     let mode = AutopilotMode::ApplySafe;
     let policy = AutopilotPolicy::default();
 
@@ -196,7 +196,7 @@ fn run_git_autopilot(cmd: &Command) -> CommandResponse {
                 code: 200,
                 description: "Success".to_string(),
             },
-            message: Some(format!("Succès : {:?}", report)),
+            message: Some(format!("Success: {:?}", report)),
             payload: None,
             error: None,
         },

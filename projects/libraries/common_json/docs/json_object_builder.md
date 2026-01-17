@@ -1,17 +1,17 @@
-# Builder fluide pour objets JSON
+# Fluent Builder for JSON Objects
 
-Permet de construire des objets JSON de manière lisible et type-safe.
+Allows constructing JSON objects in a readable and type-safe manner.
 
-## Méthodes
+## Methods
 
-| Méthode     | Description               |
+| Method      | Description               |
 | ----------- | ------------------------- |
-| `field`     | Ajoute un champ           |
-| `field_opt` | Ajoute si `Some`          |
-| `field_if`  | Ajoute si condition vraie |
-| `build`     | Finalise l'objet          |
+| `field`     | Adds a field              |
+| `field_opt` | Adds if `Some`            |
+| `field_if`  | Adds if condition is true |
+| `build`     | Finalizes the object      |
 
-## Exemple
+## Example
 
 ```rust
 use common_json::{JsonObjectBuilder, JsonAccess};
@@ -29,8 +29,8 @@ assert_eq!(user.get_field("age").unwrap().as_i64(), Some(30));
 
 ## Tests
 
-Ce module contient des tests couvrant :
+This module includes tests covering:
 
-- Ajout de champs simples avec `field`
-- Ajout conditionnel avec `field_opt` et `field_if`
-- Finalisation et validation de l'objet avec `build`
+- Adding simple fields with `field`
+- Conditional addition with `field_opt` and `field_if`
+- Finalizing and validating the object with `build`

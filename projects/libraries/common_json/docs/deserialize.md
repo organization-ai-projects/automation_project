@@ -1,29 +1,29 @@
-# Désérialisation JSON avec trait et fonctions utilitaires
+# JSON Deserialization with Trait and Utility Functions
 
-Ce module fournit deux approches pour désérialiser du JSON :
+This module provides two approaches for deserializing JSON:
 
-- Le trait `JsonDeserializable` pour une API orientée objet
-- Des fonctions standalone pour une utilisation directe
+- The `JsonDeserializable` trait for an object-oriented API
+- Standalone functions for direct usage
 
 ## Architecture
 
-| API               | Description                    | Source      |
-| ----------------- | ------------------------------ | ----------- |
-| `parse`           | Parse une chaîne → `Json`      | `&str`      |
-| `parse_bytes`     | Parse des bytes → `Json`       | `&[u8]`     |
-| `parse_reader`    | Parse un reader → `Json`       | `impl Read` |
-| `from_json`       | Désérialise → `T`              | `&Json`     |
-| `from_json_owned` | Désérialise (sans clone) → `T` | `Json`      |
-| `from_str`        | Parse et désérialise → `T`     | `&str`      |
-| `from_bytes`      | Parse et désérialise → `T`     | `&[u8]`     |
-| `from_reader`     | Parse et désérialise → `T`     | `impl Read` |
+| API               | Description                  | Source      |
+| ----------------- | ---------------------------- | ----------- |
+| `parse`           | Parse a string → `Json`      | `&str`      |
+| `parse_bytes`     | Parse bytes → `Json`         | `&[u8]`     |
+| `parse_reader`    | Parse a reader → `Json`      | `impl Read` |
+| `from_json`       | Deserialize → `T`            | `&Json`     |
+| `from_json_owned` | Deserialize (no clone) → `T` | `Json`      |
+| `from_str`        | Parse and deserialize → `T`  | `&str`      |
+| `from_bytes`      | Parse and deserialize → `T`  | `&[u8]`     |
+| `from_reader`     | Parse and deserialize → `T`  | `impl Read` |
 
-## Parse vs Désérialisation
+## Parse vs Deserialization
 
-- **Parse** : Convertit du texte/bytes en `Json` (valeur générique)
-- **Désérialisation** : Convertit du JSON en type Rust typé
+- **Parse**: Converts text/bytes into `Json` (generic value)
+- **Deserialization**: Converts JSON into a typed Rust structure
 
-### Exemple pour Parse vs Désérialisation
+### Example for Parse vs Deserialization
 
 ```rust
 use common_json::{parse, from_str, Json};
@@ -34,20 +34,20 @@ struct User { name: String }
 
 let json_str = r#"{"name": "Alice"}"#;
 
-// Parse → Json générique
+// Parse → Generic Json
 let json: Json = parse(json_str).unwrap();
 assert_eq!(json["name"], "Alice");
 
-// Désérialisation → Type concret
+// Deserialize → Concrete Type
 let user: User = from_str(json_str).unwrap();
 assert_eq!(user.name, "Alice");
 ```
 
-## Trait JsonDeserializable
+## JsonDeserializable Trait
 
-Le trait est automatiquement implémenté pour tout type `T: DeserializeOwned`.
+The trait is automatically implemented for any type `T: DeserializeOwned`.
 
-### Exemple pour Trait JsonDeserializable
+### Example for JsonDeserializable Trait
 
 ```rust
 use common_json::JsonDeserializable;
@@ -60,7 +60,7 @@ let config = Config::from_json_str(r#"{"port": 8080}"#).unwrap();
 assert_eq!(config.port, 8080);
 ```
 
-## Fonctions standalone
+## Standalone Functions
 
 ### `parse`
 
@@ -119,25 +119,25 @@ let p: Point = from_str(r#"{"x": 10, "y": 20}"#).unwrap();
 assert_eq!(p.x, 10);
 ```
 
-## Alias legacy
+## Legacy Alias
 
-Pour la compatibilité avec l'ancien code :
+For compatibility with old code:
 
 - `from_value` → `from_json_owned`
-- `from_json_str` (fonction) → `from_str`
+- `from_json_str` (function) → `from_str`
 
 ## Tests
 
-Ce module contient 5 tests couvrant :
+This module contains 5 tests covering :
 
-- `parse` : parsing de chaîne vers `Json`
-- `parse_bytes` : parsing de bytes vers `Json`
-- `from_str` : désérialisation directe depuis chaîne
-- `from_json` : désérialisation depuis valeur `Json`
-- Méthodes du trait `JsonDeserializable`
+- `parse`: parsing from string to `Json`
+- `parse_bytes`: parsing from bytes to `Json`
+- `from_str`: direct deserialization from string
+- `from_json`: deserialization from `Json` value
+- Methods of the `JsonDeserializable` trait
 
-### Non couvert
+### Not Covered
 
-- `parse_reader` / `from_reader` (lecture depuis `Read`)
-- `from_json_owned` (sans clone)
-- Gestion d'erreurs sur JSON malformé
+- `parse_reader` / `from_reader` (reading from `Read`)
+- `from_json_owned` (no clone)
+- Error handling on malformed JSON

@@ -1,21 +1,22 @@
+// projects/libraries/common_time/src/units.rs
 use crate::TimeSpan;
 
-/// Unités en secondes (u64) pour construire des TimeSpan proprement.
+/// Units in seconds (u64) to construct TimeSpan cleanly.
 pub const SEC: u64 = 1;
 pub const MIN: u64 = 60 * SEC;
 pub const HOUR: u64 = 60 * MIN;
 pub const DAY: u64 = 24 * HOUR;
 pub const WEEK: u64 = 7 * DAY;
 
-/// Approximation volontaire (calendrier ≠ durée)
+/// Approximation by design (calendar ≠ duration)
 pub const MONTH_APPROX: u64 = 30 * DAY;
 
-/// DSL stable (pas d'op traits en const)
+/// Stable DSL (no op traits in const)
 pub const fn span(n: u64, unit_secs: u64) -> TimeSpan {
     TimeSpan::from_secs(n.saturating_mul(unit_secs))
 }
 
-// Exemples prêts à l'emploi
+// Ready-to-use examples
 pub const ONE_SECOND: TimeSpan = span(1, SEC);
 pub const ONE_MINUTE: TimeSpan = span(1, MIN);
 pub const FIFTEEN_MINUTES: TimeSpan = span(15, MIN);

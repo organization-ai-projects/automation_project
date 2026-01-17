@@ -1,5 +1,6 @@
+// projects/libraries/common_json/src/parser.rs
 use crate::Json;
-use crate::error::{JsonError, JsonResult};
+use crate::json_error::{JsonError, JsonErrorCode, JsonResult};
 use crate::value::{JsonMap, JsonNumber};
 use common_parsing::Cursor;
 use std::io::Read;
@@ -15,11 +16,8 @@ pub fn parse_str(input: &str) -> JsonResult<Json> {
 }
 
 pub fn parse_bytes(bytes: &[u8]) -> JsonResult<Json> {
-    let input = std::str::from_utf8(bytes).map_err(|err| JsonError::ParseError {
-        line: 1,
-        column: 1,
-        message: err.to_string(),
-    })?;
+    let input = std::str::from_utf8(bytes)
+        .map_err(|err| JsonError::new(JsonErrorCode::ParseError).context(err.to_string()))?;
     parse_str(input)
 }
 
@@ -27,11 +25,7 @@ pub fn parse_reader<R: Read>(mut reader: R) -> JsonResult<Json> {
     let mut buffer = Vec::new();
     reader
         .read_to_end(&mut buffer)
-        .map_err(|err| JsonError::ParseError {
-            line: 1,
-            column: 1,
-            message: err.to_string(),
-        })?;
+        .map_err(|err| JsonError::new(JsonErrorCode::ParseError).context(err.to_string()))?;
     parse_bytes(&buffer)
 }
 
@@ -51,11 +45,12 @@ impl<'a> Parser<'a> {
     }
 
     fn error(&self, message: &str) -> JsonError {
-        JsonError::ParseError {
-            line: self.cursor.line(),
-            column: self.cursor.column(),
-            message: message.to_string(),
-        }
+        JsonError::new(JsonErrorCode::ParseError).context(format!(
+            "{} at line {}, column {}",
+            message,
+            self.cursor.line(),
+            self.cursor.column()
+        ))
     }
 
     fn peek_char(&self) -> Option<char> {

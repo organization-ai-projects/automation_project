@@ -1,9 +1,9 @@
 // projects/libraries/ai/src/ai_feedback.rs
 use neural::NeuralSolver;
+use neural::feedback::FeedbackType;
 use neural::feedback::feedback_type::FeedbackMetadata;
-use neural::feedback::{FeedbackType, UserFeedback};
 use symbolic::{feedback_symbolic::SymbolicFeedback, symbolic_solver::SymbolicSolver};
-use tracing::{info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::ai_error::AiError;
 use crate::feedbacks::{InternalFeedbackEvent, InternalFeedbackMeta, InternalFeedbackVerdict};
@@ -78,16 +78,44 @@ impl AiFeedback {
         };
 
         if matches!(verdict, InternalFeedbackVerdict::Rejected) {
-            info!("Rejected verdict: skipping neural training");
+            debug!("Rejected verdict: skipping neural training");
             return Ok(());
         }
 
-        // Dedup stable: blake3 over structured bytes (no giant format!)
-        // Requires dependency: blake3 = "1"
+        // Define feedback_type based on the verdict and meta values
+        let feedback_type = match verdict {
+            InternalFeedbackVerdict::Correct => FeedbackType::Correct {
+                metadata: FeedbackMetadata {
+                    confidence: meta.confidence,
+                    rationale: meta.rationale.clone(),
+                    source: meta.source.clone(),
+                },
+            },
+            InternalFeedbackVerdict::Incorrect { expected_output } => FeedbackType::Incorrect {
+                expected_output: expected_output.clone(),
+                metadata: FeedbackMetadata {
+                    confidence: meta.confidence,
+                    rationale: meta.rationale.clone(),
+                    source: meta.source.clone(),
+                },
+            },
+            InternalFeedbackVerdict::Partial { correction } => FeedbackType::Partial {
+                correction: correction.clone(),
+                metadata: FeedbackMetadata {
+                    confidence: meta.confidence,
+                    rationale: meta.rationale.clone(),
+                    source: meta.source.clone(),
+                },
+            },
+            InternalFeedbackVerdict::Rejected => return Ok(()),
+        };
+
+        // Stable deduplication: uses blake3 to hash structured bytes, avoiding large formats
         let tag = verdict.stable_kind();
         let payload = verdict.stable_payload();
 
         let mut hasher = blake3::Hasher::new();
+        hasher.update(b"ai_feedback_v1\0");
         hasher.update(&(input.len() as u64).to_le_bytes());
         hasher.update(input.as_bytes());
         hasher.update(&(generated_output.len() as u64).to_le_bytes());
@@ -99,46 +127,34 @@ impl AiFeedback {
         }
         let feedback_hash_hex = hasher.finalize().to_hex().to_string();
 
-        if neural.has_seen_feedback(&feedback_hash_hex) {
-            info!("Duplicate feedback detected, skipping");
+        debug!(hash = %feedback_hash_hex[..8], "Generated feedback hash");
+
+        if neural.record_feedback_if_new(
+            &feedback_hash_hex,
+            input,
+            generated_output,
+            feedback_type,
+        )? {
+            info!("New feedback recorded");
+        } else {
+            debug!("Duplicate feedback detected, skipping");
             return Ok(());
         }
 
-        let metadata = FeedbackMetadata {
-            confidence: meta.confidence,
-            rationale: meta.rationale.clone(),
-            source: meta.source.clone(),
-        };
-
-        let feedback_type = match verdict {
-            InternalFeedbackVerdict::Correct => FeedbackType::Correct { metadata },
-            InternalFeedbackVerdict::Incorrect { expected_output } => FeedbackType::Incorrect {
-                expected_output: expected_output.clone(),
-                metadata,
-            },
-            InternalFeedbackVerdict::Partial { correction } => FeedbackType::Partial {
-                correction: correction.clone(),
-                metadata,
-            },
-            InternalFeedbackVerdict::Rejected => return Ok(()),
-        };
-
-        let user_feedback = UserFeedback::from_parts(input, generated_output, feedback_type);
-        neural.record_feedback(&user_feedback)?;
-
         let min_feedback = neural.min_feedback_for_adjustment();
         if min_feedback == 0 {
+            error!("Neural solver misconfigured: min_feedback_for_adjustment() == 0");
             return Err(AiError::TaskError(
                 "Neural solver misconfigured: min_feedback_for_adjustment() == 0".into(),
             ));
         }
 
-        if neural.feedback_count() % min_feedback == 0 {
+        if neural.pending_since_last_adjust() >= min_feedback {
             info!("Threshold reached, adjusting neural model");
             neural.adjust_model()?;
         }
 
-        info!(
+        debug!(
             kind = ?verdict,
             input_len = input.len(),
             output_len = generated_output.len(),

@@ -11,7 +11,7 @@ use crate::runtime::backend_registry::BackendRegistry;
 pub struct EngineState {
     pub registry: Arc<RwLock<Registry>>,
     pub token_service: Arc<TokenService>,
-    pub backend_registry: Arc<RwLock<BackendRegistry>>, // New field for connected backends
+    pub backend_registry: Arc<RwLock<BackendRegistry>>,
 }
 
 impl EngineState {

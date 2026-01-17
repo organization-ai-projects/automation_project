@@ -16,8 +16,8 @@ use crate::{
     worktree,
 };
 
-/// ✅ Type de domaine, pas une façade.
-/// L’orchestrateur construit ceci et le passe au cœur.
+/// ✅ Domain type, not a facade.
+/// The orchestrator builds this and passes it to the core.
 pub struct EngineInit {
     pub run_id: String,
     pub paths: ExecutionPaths,
@@ -71,7 +71,7 @@ pub fn initialize_engine(
     if matches!(workspace_mode, WorkspaceMode::Learn) {
         worktree::init_worktree_from_repo(&policy).context("failed to init worktree")?;
 
-        // ton check de repo git (tu l’avais)
+        // your Git repo check (you had it)
         if !work_root.join(".git").exists() {
             anyhow::bail!("work_root is not a valid Git repository");
         }

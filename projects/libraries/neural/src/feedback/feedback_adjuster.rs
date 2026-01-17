@@ -1,5 +1,5 @@
-use common_json::json;
 // projects/libraries/neural/src/feedback/feedback_adjuster.rs
+use common_json::json;
 use ndarray::Array1;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -11,17 +11,18 @@ use crate::{
     network::neural_net::NeuralNetwork,
 };
 
-/// Gestionnaire d'ajustement du modèle via feedback
+/// Model adjustment manager via feedback
 pub struct FeedbackAdjuster {
-    /// Historique des feedbacks
+    /// Feedback history
     feedback_history: Vec<UserFeedback>,
-    /// Configuration d'ajustement
+    /// Adjustment configuration
     config: FeedbackConfig,
-    /// Ensemble des feedbacks vus (pour éviter les doublons)
+    /// Set of seen feedbacks (to avoid duplicates)
     seen_feedback: std::collections::HashSet<u64>,
 }
 
 impl FeedbackAdjuster {
+    /// Creates a new FeedbackAdjuster instance
     pub fn new(config: FeedbackConfig) -> Self {
         let feedback_history = if config.save_history && config.history_path.exists() {
             Self::load_history(&config.history_path).unwrap_or_default()
@@ -36,9 +37,9 @@ impl FeedbackAdjuster {
         }
     }
 
-    /// Enregistre un feedback utilisateur
+    /// Records user feedback
     pub fn record_feedback(&mut self, feedback: &UserFeedback) -> Result<(), FeedbackError> {
-        // Ajout d'un petit pourcentage de feedbacks Correct pour stabilisation
+        // Adds a small percentage of Correct feedbacks for stabilization
         match &feedback.feedback_type {
             FeedbackType::Incorrect { .. } => {
                 self.feedback_history.push(feedback.clone());
@@ -53,20 +54,20 @@ impl FeedbackAdjuster {
             }
         };
 
-        // Marquer le feedback comme "vu"
+        // Mark the feedback as "seen"
         let mut hasher = DefaultHasher::new();
         feedback.hash(&mut hasher);
         let feedback_hash = hasher.finish();
         self.seen_feedback.insert(feedback_hash);
 
-        // Remplacement du log pour éviter les fuites de données sensibles
+        // Replace the log to avoid leaking sensitive data
         let preview_len = feedback.input.len();
         println!(
             "Recording feedback: {:?} (input_len={})",
             feedback.feedback_type, preview_len
         );
 
-        // Sauvegarder sur disque si configuré
+        // Save to disk if configured
         if self.config.save_history {
             self.save_history()?;
         }
@@ -74,7 +75,7 @@ impl FeedbackAdjuster {
         Ok(())
     }
 
-    /// Ajuste le modèle basé sur les feedbacks accumulés
+    /// Adjusts the model based on accumulated feedback
     pub fn adjust_model(
         &mut self,
         model: &mut NeuralNetwork,
@@ -88,7 +89,7 @@ impl FeedbackAdjuster {
             )));
         }
 
-        // Vérification des dimensions du modèle et du tokenizer
+        // Check model and tokenizer dimensions
         if model.input_size() != tokenizer.vocab_size() {
             return Err(FeedbackError::TrainingError(format!(
                 "Model input size ({}) does not match tokenizer vocab size ({})",
@@ -112,7 +113,7 @@ impl FeedbackAdjuster {
 
         let mut metrics = AdjustmentMetrics::new();
 
-        // Filtrer les feedbacks négatifs (où correction est nécessaire)
+        // Filter negative feedbacks (where correction is needed)
         let training_examples: Vec<(&str, String)> = self
             .feedback_history
             .iter()
@@ -135,19 +136,19 @@ impl FeedbackAdjuster {
 
         println!("Training on {} negative examples", training_examples.len());
 
-        // Vérification de la taille des batchs pour éviter les divisions par zéro
+        // Check batch size to avoid division by zero
         if self.config.batch_size == 0 {
             return Err(FeedbackError::TrainingError(
                 "batch_size must be > 0".into(),
             ));
         }
 
-        // Fine-tuning en mini-batches
+        // Fine-tuning in mini-batches
         for (batch_idx, batch) in training_examples.chunks(self.config.batch_size).enumerate() {
             let mut batch_loss = 0.0;
 
             for (input, expected) in batch {
-                // Tokenize input et expected output
+                // Tokenize input and expected output
                 let input_tokens = tokenizer.encode(input);
                 let expected_tokens = tokenizer.encode(expected);
 
@@ -155,7 +156,7 @@ impl FeedbackAdjuster {
                 let input_vec = self.tokens_to_vector(&input_tokens, tokenizer.vocab_size());
                 let target_vec = self.tokens_to_vector(&expected_tokens, tokenizer.vocab_size());
 
-                // Forward pass et backward
+                // Forward pass and backward
                 model.forward(&input_vec)?;
                 let loss = model.backward(&target_vec, self.config.learning_rate)?;
                 batch_loss += loss;
@@ -176,21 +177,21 @@ impl FeedbackAdjuster {
         Ok(metrics)
     }
 
-    /// Applique les ajustements basés sur les feedbacks
+    /// Applies adjustments based on feedback
     pub fn apply_feedback(&mut self) -> Result<(), FeedbackError> {
         println!("Applying feedback adjustments...");
         if self.feedback_history.len() < self.config.min_feedback_count {
             return Err(FeedbackError::InsufficientFeedback);
         }
 
-        // Implémentation fictive : ajustement des paramètres
+        // Placeholder implementation: adjust parameters
         for feedback in &self.feedback_history {
             println!("Adjusting based on feedback: {:?}", feedback);
         }
         Ok(())
     }
 
-    /// Convertit des tokens en vecteur one-hot moyenné
+    /// Converts tokens to averaged one-hot vector
     fn tokens_to_vector(&self, tokens: &[usize], vocab_size: usize) -> Array1<f64> {
         let mut vec = Array1::<f64>::zeros(vocab_size);
 
@@ -200,7 +201,7 @@ impl FeedbackAdjuster {
             }
         }
 
-        // Normaliser
+        // Normalize
         if !tokens.is_empty() {
             vec / tokens.len() as f64
         } else {
@@ -208,7 +209,7 @@ impl FeedbackAdjuster {
         }
     }
 
-    /// Statistiques sur les feedbacks
+    /// Feedback statistics
     pub fn feedback_stats(&self) -> FeedbackStats {
         let total = self.feedback_history.len();
         let mut correct = 0;
@@ -236,7 +237,7 @@ impl FeedbackAdjuster {
         }
     }
 
-    /// Réinitialiser l'historique de feedback
+    /// Resets feedback history
     pub fn clear_history(&mut self) -> Result<(), FeedbackError> {
         self.feedback_history.clear();
         if self.config.save_history {
@@ -259,6 +260,11 @@ impl FeedbackAdjuster {
 
     pub fn min_feedback_for_adjustment(&self) -> usize {
         self.config.min_feedback_count
+    }
+
+    /// Returns the number of pending feedbacks since the last adjustment
+    pub fn pending_feedback_count(&self) -> usize {
+        self.feedback_history.len() // Placeholder: adjust according to real logic
     }
 
     fn save_history(&self) -> Result<(), FeedbackError> {

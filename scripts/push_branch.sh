@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Usage: ./push_branch.sh
-# Description: Push la branche courante vers le remote, refuse dev/main.
+# Description: Push the current branch to the remote, dev/main denied.
 
 REMOTE="${REMOTE:-origin}"
 PROTECTED_BRANCHES=("dev" "main")
@@ -10,13 +10,13 @@ PROTECTED_BRANCHES=("dev" "main")
 BRANCH_NAME="$(git branch --show-current || true)"
 
 if [[ -z "$BRANCH_NAME" ]]; then
-  echo "Erreur : Aucune branche locale active (detached HEAD). Passe sur une branche et relance." >&2
+  echo "Error: No active local branch (detached HEAD). Switch to a branch and retry." >&2
   exit 1
 fi
 
 for b in "${PROTECTED_BRANCHES[@]}"; do
   if [[ "$BRANCH_NAME" == "$b" ]]; then
-    echo "Erreur : push direct interdit vers '$b'." >&2
+    echo "Error: Direct push to '$b' is forbidden." >&2
     exit 1
   fi
 done
@@ -25,11 +25,11 @@ git fetch "$REMOTE" --prune
 
 echo "=== Push branch: $BRANCH_NAME -> $REMOTE ==="
 
-# Si upstream existe, push simple, sinon push -u
+# If upstream exists, simple push, otherwise push -u
 if git rev-parse --abbrev-ref --symbolic-full-name "@{u}" >/dev/null 2>&1; then
   git push "$REMOTE" "$BRANCH_NAME"
-  echo "✓ Branche '$BRANCH_NAME' poussée sur '$REMOTE'."
+  echo "✓ Branch '$BRANCH_NAME' pushed to '$REMOTE'."
 else
   git push --set-upstream "$REMOTE" "$BRANCH_NAME"
-  echo "✓ Branche '$BRANCH_NAME' poussée sur '$REMOTE' (upstream configuré)."
+  echo "✓ Branch '$BRANCH_NAME' pushed to '$REMOTE' (upstream configured)."
 fi

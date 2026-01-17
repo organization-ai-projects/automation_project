@@ -6,7 +6,7 @@ pub const FORBIDDEN: u8 = 0b0100; // Bit 2
 #[derive(Debug)]
 pub struct PathRights {
     pub path: &'static str,
-    pub rights: u8, // Bitmask des droits
+    pub rights: u8,
 }
 
 pub const PATH_RIGHTS: &[PathRights] = &[

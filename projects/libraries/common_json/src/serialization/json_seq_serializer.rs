@@ -1,4 +1,5 @@
-use crate::{Json, error::JsonError};
+// projects/libraries/common_json/src/serialization/json_seq_serializer.rs
+use crate::{Json, json_error::JsonError};
 use serde::ser::{Serialize, SerializeSeq, SerializeTuple, SerializeTupleStruct};
 
 use super::json_serializer::JsonSerializer;
@@ -6,6 +7,9 @@ use super::json_serializer::JsonSerializer;
 pub(crate) struct JsonSeqSerializer {
     pub(crate) elements: Vec<Json>,
 }
+
+// Common type aliases for consistency and to avoid repetition.
+pub(crate) type SerializeResult = Result<Json, JsonError>;
 
 impl SerializeSeq for JsonSeqSerializer {
     type Ok = Json;
@@ -16,7 +20,7 @@ impl SerializeSeq for JsonSeqSerializer {
         Ok(())
     }
 
-    fn end(self) -> Result<Json, JsonError> {
+    fn end(self) -> SerializeResult {
         Ok(Json::Array(self.elements))
     }
 }
@@ -29,7 +33,7 @@ impl SerializeTuple for JsonSeqSerializer {
         SerializeSeq::serialize_element(self, value)
     }
 
-    fn end(self) -> Result<Json, JsonError> {
+    fn end(self) -> SerializeResult {
         SerializeSeq::end(self)
     }
 }
@@ -42,7 +46,7 @@ impl SerializeTupleStruct for JsonSeqSerializer {
         SerializeSeq::serialize_element(self, value)
     }
 
-    fn end(self) -> Result<Json, JsonError> {
+    fn end(self) -> SerializeResult {
         SerializeSeq::end(self)
     }
 }

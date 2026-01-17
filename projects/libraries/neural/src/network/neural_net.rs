@@ -55,7 +55,7 @@ pub enum WeightInit {
     Xavier,
     He,
     LeCun,
-    Zero, // Pour debug seulement
+    Zero, // For debugging only
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,7 +73,7 @@ pub struct Layer {
     pub biases: Array1<f64>,
     pub activation: Activation,
 
-    // Cache pour backprop
+    // Cache for backpropagation
     #[serde(skip)]
     last_input: Option<Array1<f64>>,
     #[serde(skip)]
@@ -137,7 +137,7 @@ impl Layer {
         println!("Weights: {:?}", self.weights);
         println!("Biases: {:?}", self.biases);
 
-        // Cache input pour backprop
+        // Cache input for backpropagation
         self.last_input = Some(input.clone());
 
         // Weighted sum
@@ -190,9 +190,9 @@ impl Layer {
 
     pub fn update(&mut self, tokens: &[usize]) -> Result<(), NetworkError> {
         println!("Updating weights with {} tokens", tokens.len());
-        // Implémentation fictive : mise à jour des poids des couches
+        // Placeholder implementation: updating layer weights
         for token in tokens {
-            // Exemple fictif de mise à jour
+            // Example placeholder update
             self.weights.index_axis_mut(Axis(0), *token).fill(0.5);
         }
         Ok(())
@@ -231,7 +231,7 @@ impl NeuralNetwork {
     }
 
     pub fn load(path: &std::path::Path) -> Result<Self, NetworkError> {
-        // Charger un modèle NeuralNetwork depuis un fichier (implémentation simplifiée)
+        // Load a NeuralNetwork model from a file (simplified implementation)
         let data = std::fs::read_to_string(path)
             .map_err(|e| NetworkError::InvalidConfig(e.to_string()))?;
         let layers: Vec<Layer> =
@@ -279,7 +279,7 @@ impl NeuralNetwork {
 
     pub fn update_weights(&mut self, tokens: &[usize]) -> Result<(), NetworkError> {
         println!("Updating weights with {} tokens", tokens.len());
-        // Implémentation fictive : mise à jour des poids des couches
+        // Placeholder implementation: updating layer weights
         for layer in &mut self.layers {
             layer.update(tokens)?;
         }
@@ -299,7 +299,7 @@ impl NeuralNetwork {
     }
 }
 
-// Alias pour compatibilité avec l'ancien code
+// Alias for compatibility with older code
 pub type SimpleNeuralNet = NeuralNetwork;
 
 #[cfg(test)]

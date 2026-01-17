@@ -1,34 +1,34 @@
+// projects/libraries/common_json/src/serialization/json_serializable.rs
 use crate::{
     Json,
-    error::{JsonError, JsonResult},
+    json_error::{JsonError, JsonResult},
 };
 use serde::ser::Serialize;
 use std::io::Write;
 
 use super::helpers::{json_to_string, serialize_to_json};
 
-/// Trait pour les types sérialisables en JSON.
+/// Trait for types serializable to JSON.
 ///
-/// Implémentété automatiquement pour tout type `T: Serialize` grâce à
-/// l'implémentation blanket. Vous n'avez pas besoin d'implémenter ce trait
-/// manuellement.
+/// Automatically implemented for any type `T: Serialize` through the blanket implementation.
+/// You do not need to implement this trait manually.
 pub trait JsonSerializable {
-    /// Convertit en valeur JSON.
+    /// Converts to a JSON value.
     fn to_json(&self) -> Result<Json, JsonError>;
 
-    /// Convertit en chaîne JSON compacte (sans espaces).
+    /// Converts to a compact JSON string (no spaces).
     fn to_json_string(&self) -> Result<String, JsonError>;
 
-    /// Convertit en chaîne JSON formatée (avec indentation).
+    /// Converts to a formatted JSON string (with indentation).
     fn to_json_string_pretty(&self) -> Result<String, JsonError>;
 
-    /// Convertit en bytes JSON (UTF-8).
+    /// Converts to JSON bytes (UTF-8).
     fn to_json_bytes(&self) -> Result<Vec<u8>, JsonError>;
 
-    /// Écrit le JSON dans un writer.
+    /// Writes JSON to a writer.
     fn write_json<W: Write>(&self, writer: W) -> Result<(), JsonError>;
 
-    /// Écrit le JSON formaté dans un writer.
+    /// Writes formatted JSON to a writer.
     fn write_json_pretty<W: Write>(&self, writer: W) -> Result<(), JsonError>;
 }
 
@@ -63,40 +63,40 @@ impl<T: Serialize> JsonSerializable for T {
 }
 
 // ============================================================================
-// Fonctions standalone
+// Standalone functions
 // ============================================================================
 
-/// Convertit une valeur en `Json`.
+/// Converts a value to `Json`.
 #[inline]
 pub fn to_json<T: Serialize>(value: &T) -> Result<Json, JsonError> {
     serialize_to_json(value)
 }
 
-/// Convertit une valeur en chaîne JSON compacte.
+/// Converts a value to a compact JSON string.
 #[inline]
 pub fn to_string<T: Serialize>(value: &T) -> JsonResult<String> {
     json_to_string(&serialize_to_json(value)?, false)
 }
 
-/// Convertit une valeur en chaîne JSON formatée (avec indentation).
+/// Converts a value to a formatted JSON string (with indentation).
 #[inline]
 pub fn to_string_pretty<T: Serialize>(value: &T) -> JsonResult<String> {
     json_to_string(&serialize_to_json(value)?, true)
 }
 
-/// Convertit une valeur en bytes JSON (UTF-8).
+/// Converts a value to JSON bytes (UTF-8).
 #[inline]
 pub fn to_bytes<T: Serialize>(value: &T) -> JsonResult<Vec<u8>> {
     Ok(json_to_string(&serialize_to_json(value)?, false)?.into_bytes())
 }
 
-/// Convertit une valeur en bytes JSON formatés.
+/// Converts a value to formatted JSON bytes.
 #[inline]
 pub fn to_bytes_pretty<T: Serialize>(value: &T) -> JsonResult<Vec<u8>> {
     Ok(json_to_string(&serialize_to_json(value)?, true)?.into_bytes())
 }
 
-/// Écrit le JSON dans un writer.
+/// Writes JSON to a writer.
 #[inline]
 pub fn write_to<T: Serialize, W: Write>(value: &T, mut writer: W) -> JsonResult<()> {
     let payload = json_to_string(&serialize_to_json(value)?, false)?;
@@ -104,7 +104,7 @@ pub fn write_to<T: Serialize, W: Write>(value: &T, mut writer: W) -> JsonResult<
     Ok(())
 }
 
-/// Écrit le JSON formaté dans un writer.
+/// Writes formatted JSON to a writer.
 #[inline]
 pub fn write_to_pretty<T: Serialize, W: Write>(value: &T, mut writer: W) -> JsonResult<()> {
     let payload = json_to_string(&serialize_to_json(value)?, true)?;
@@ -112,29 +112,29 @@ pub fn write_to_pretty<T: Serialize, W: Write>(value: &T, mut writer: W) -> Json
     Ok(())
 }
 
-/// Convertit un `Json` en bytes JSON formatés.
+/// Converts a `Json` value to formatted JSON bytes.
 #[inline]
 pub fn value_to_bytes_pretty(json: &Json) -> Result<Vec<u8>, JsonError> {
     Ok(json_to_string(json, true)?.into_bytes())
 }
 
 // ============================================================================
-// Alias legacy (compatibilité ascendante)
+// Legacy aliases (backward compatibility)
 // ============================================================================
 
-/// Alias legacy pour [`to_json`].
+/// Legacy alias for [`to_json`].
 #[inline]
 pub fn to_value<T: Serialize>(value: &T) -> Result<Json, JsonError> {
     to_json(value)
 }
 
-/// Alias legacy - convertit en chaîne JSON.
+/// Legacy alias - converts to a JSON string.
 #[inline]
 pub fn to_json_string<T: Serialize>(value: &T) -> JsonResult<String> {
     to_string(value)
 }
 
-/// Alias legacy - convertit en chaîne JSON formatée.
+/// Legacy alias - converts to a formatted JSON string.
 #[inline]
 pub fn to_json_string_pretty<T: Serialize>(value: &T) -> JsonResult<String> {
     to_string_pretty(value)

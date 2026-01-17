@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/training/mod.rs
 // Module for training models
 pub mod train_model;
 

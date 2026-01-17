@@ -1,23 +1,23 @@
 # `ui`
 
-**Description** : Crate Rust pour les composants d'interface utilisateur.
+**Description**: Rust crate for user interface components.
 
-## Fonctionnalités
+## Features
 
-- Widgets réutilisables.
-- Intégration facile.
+- Reusable widgets.
+- Easy integration.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 ui = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```

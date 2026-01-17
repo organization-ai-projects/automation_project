@@ -1,3 +1,4 @@
+// projects/libraries/hybrid_arena/src/slot_arena_drain.rs
 use crate::SlotArena;
 
 /// A draining iterator for `SlotArena`.

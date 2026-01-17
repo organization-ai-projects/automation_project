@@ -7,10 +7,10 @@ use crate::{
 };
 use git_lib::git_change::GitChange;
 
-/// Structure représentant un rapport d'exécution de l'autopilot.
-/// Combine le plan, les changements classifiés, et les logs pour un suivi complet.
-/// Rapport d’exécution (plan + actions réalisées ou refus).
-#[derive(Debug, Clone, Serialize, Deserialize)] // Ajout de Serialize pour permettre la conversion en JSON
+/// Structure representing an execution report of the autopilot.
+/// Combines the plan, classified changes, and logs for complete tracking.
+/// Execution report (plan + actions performed or refused).
+#[derive(Debug, Clone, Serialize, Deserialize)] // Added Serialize to allow JSON conversion
 pub struct AutopilotReport {
     pub mode: AutopilotMode,
     pub branch: String,
@@ -76,7 +76,7 @@ mod tests {
         assert!(report.applied);
         assert_eq!(report.logs.len(), 1);
 
-        // Utilisation des champs classified et plan
+        // Using the classified and plan fields
         assert_eq!(report.classified.blocked[0].path, "blocked_file.rs");
         assert_eq!(report.classified.relevant[0].path, "relevant_file.rs");
         assert_eq!(report.classified.unrelated[0].path, "unrelated_file.rs");

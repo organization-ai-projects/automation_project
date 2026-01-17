@@ -1,4 +1,5 @@
-use crate::error::JsonError;
+// projects/libraries/common_json/src/serialization/key_serializer.rs
+use crate::json_error::{JsonError, JsonErrorCode};
 use serde::ser::{self, Serialize};
 
 pub(crate) struct KeySerializer;
@@ -57,7 +58,7 @@ impl ser::Serializer for KeySerializer {
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
         if !v.is_finite() {
-            return Err(JsonError::serialize("non-finite number"));
+            return Err(JsonError::new(JsonErrorCode::Serialize));
         }
         Ok(v.to_string())
     }
@@ -71,25 +72,23 @@ impl ser::Serializer for KeySerializer {
     }
 
     fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        Err(JsonError::custom("JSON object keys cannot be bytes"))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        Err(JsonError::custom("JSON object keys cannot be null"))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, _value: &T) -> Result<Self::Ok, Self::Error> {
-        Err(JsonError::custom(
-            "JSON object keys must be primitive types",
-        ))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        Err(JsonError::custom("JSON object keys cannot be unit"))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        Err(JsonError::custom("JSON object keys cannot be unit"))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_unit_variant(
@@ -106,9 +105,7 @@ impl ser::Serializer for KeySerializer {
         _name: &'static str,
         _value: &T,
     ) -> Result<Self::Ok, Self::Error> {
-        Err(JsonError::custom(
-            "JSON object keys must be primitive types",
-        ))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -122,15 +119,11 @@ impl ser::Serializer for KeySerializer {
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        Err(JsonError::custom(
-            "JSON object keys must be primitive types",
-        ))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        Err(JsonError::custom(
-            "JSON object keys must be primitive types",
-        ))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_tuple_struct(
@@ -138,9 +131,7 @@ impl ser::Serializer for KeySerializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        Err(JsonError::custom(
-            "JSON object keys must be primitive types",
-        ))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_tuple_variant(
@@ -150,15 +141,11 @@ impl ser::Serializer for KeySerializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        Err(JsonError::custom(
-            "JSON object keys must be primitive types",
-        ))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        Err(JsonError::custom(
-            "JSON object keys must be primitive types",
-        ))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_struct(
@@ -166,9 +153,7 @@ impl ser::Serializer for KeySerializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        Err(JsonError::custom(
-            "JSON object keys must be primitive types",
-        ))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 
     fn serialize_struct_variant(
@@ -178,8 +163,6 @@ impl ser::Serializer for KeySerializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        Err(JsonError::custom(
-            "JSON object keys must be primitive types",
-        ))
+        Err(JsonError::new(JsonErrorCode::Custom))
     }
 }

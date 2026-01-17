@@ -1,15 +1,6 @@
 //! `ast_core` - A generic Abstract Syntax Tree (AST) library.
 //!
-//! This crate provides a generic AST representation and validation utilities
-//! for use in procedural macros and other tools.
-//!
-//! # Features
-//!
-//! - Generic AST representation (not tied to any specific language)
-//! - Validation with configurable limits (depth, size, duplicate keys)
-//! - Rich metadata support (spans, origin tracking, custom attributes)
-//! - Builder pattern for ergonomic AST construction
-//! - Traversal and transformation utilities
+// projects/libraries/ast_core/src/lib.rs
 
 mod ast_builder;
 mod ast_error_kind;

@@ -1,23 +1,23 @@
 # `common_time`
 
-**Description** : Crate Rust pour la gestion du temps.
+**Description**: Rust crate for time management.
 
-## Fonctionnalités
+## Features
 
-- Manipulation des durées.
-- Calculs temporels.
+- Duration manipulation.
+- Time calculations.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 common_time = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```

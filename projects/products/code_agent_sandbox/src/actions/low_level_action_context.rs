@@ -1,3 +1,4 @@
+// projects/products/code_agent_sandbox/src/actions/low_level_action_context.rs
 use std::path::Path;
 
 use crate::{
@@ -23,7 +24,7 @@ pub struct LowLevelActionContext<'a> {
 pub fn run_low_level_actions(
     run_id: &str,
     actions: &[Action],
-    ctx: &mut LowLevelActionContext, // Regroupement des paramètres dans une structure
+    ctx: &mut LowLevelActionContext, // Grouping parameters into a structure
 ) -> Result<Vec<ActionResult>, anyhow::Error> {
     if actions.is_empty() {
         return Ok(Vec::new());
@@ -51,7 +52,7 @@ pub fn run_low_level_actions(
 
         record_action_event(ctx.journal, run_id, action)?;
 
-        // Vérification de la politique avant d'exécuter l'action
+        // Policy check before executing the action
         if let Err(policy_violation) = ctx.policy.authorize_action(action) {
             let res = ActionResult::error(
                 "PolicyViolation",
@@ -83,7 +84,7 @@ pub fn run_low_level_actions(
                 ctx.sfs.apply_unified_diff(path, unified_diff)
             }
             Action::RunCargo { subcommand, args } => {
-                // Vérifie si la commande cargo nécessite d'être exécutée dans un environnement sécurisé (bunker).
+                // Check if the cargo command needs to be executed in a secure environment (bunker).
                 if CommandRunner::requires_bunker(subcommand) {
                     ctx.runner
                         .run_in_bunker("cargo", &[subcommand.clone(), args.join(" ")])

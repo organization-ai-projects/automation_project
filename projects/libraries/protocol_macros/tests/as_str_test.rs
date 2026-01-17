@@ -1,5 +1,5 @@
 //! Tests for the as_str() method generation (premium feature)
-
+// projects/libraries/protocol_macros/tests/as_str_test.rs
 use protocol_macros::EnumMethods;
 
 #[derive(Debug, Clone, EnumMethods)]

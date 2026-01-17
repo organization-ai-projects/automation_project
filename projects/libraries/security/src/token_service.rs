@@ -6,8 +6,8 @@ use common::custom_uuid::Id128;
 use common_time::timestamp_utils::current_timestamp_ms;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 
-/// Service pour issuer/verify des JWT.
-/// - Stateless: pas besoin de store.
+/// Service to issue/verify JWTs.
+/// - Stateless: no need for a store.
 #[derive(Clone)]
 pub struct TokenService {
     enc: EncodingKey,
@@ -16,7 +16,7 @@ pub struct TokenService {
 }
 
 impl TokenService {
-    /// secret: string robuste (ENV). Min 32 chars recommandé.
+    /// secret: robust string (ENV). Minimum 32 characters recommended.
     pub fn new_hs256(secret: &str) -> Result<Self, TokenError> {
         let s = secret.trim();
         if s.is_empty() {
@@ -32,7 +32,7 @@ impl TokenService {
         validation.required_spec_claims.insert("iat".to_string());
         validation.required_spec_claims.insert("sub".to_string());
         validation.required_spec_claims.insert("jti".to_string());
-        validation.leeway = 1; // Ajouter une marge de 1 seconde pour compenser la tolérance
+        validation.leeway = 1; // Add a 1-second margin to compensate for tolerance
 
         Ok(Self {
             enc: EncodingKey::from_secret(s.as_bytes()),
@@ -87,15 +87,15 @@ impl TokenService {
         }
 
         let now_ms = current_timestamp_ms();
-        println!("Vérification du token: now_ms = {}", now_ms);
+        println!("Token verification: now_ms = {}", now_ms);
 
         let data =
             jsonwebtoken::decode::<Claims>(jwt, &self.dec, &self.validation).map_err(|e| {
                 if e.kind() == &jsonwebtoken::errors::ErrorKind::ExpiredSignature {
-                    let exp_with_tolerance = now_ms.saturating_sub(50); // Appliquer la tolérance ici
+                    let exp_with_tolerance = now_ms.saturating_sub(50); // Apply tolerance here
                     if exp_with_tolerance > now_ms {
                         println!(
-                            "Token expiré avec tolérance: exp = {}, tolérance = 50 ms",
+                            "Token expired with tolerance: exp = {}, tolerance = 50 ms",
                             now_ms
                         );
                         TokenError::Expired
@@ -108,7 +108,7 @@ impl TokenService {
             })?;
 
         let c = data.claims;
-        println!("Horodatages du token: iat = {}, exp = {}", c.iat, c.exp);
+        println!("Token timestamps: iat = {}, exp = {}", c.iat, c.exp);
 
         // Hardening: validate sub numeric + CommonID validation
         let user_id =
@@ -121,13 +121,13 @@ impl TokenService {
         let issued_at_ms = c.iat.saturating_mul(1000);
         let expires_at_ms = c.exp.saturating_mul(1000);
 
-        // Validation manuelle: vérifier si le temps actuel dépasse l'expiration
-        // Ajouter une marge de tolérance pour éviter les erreurs dues à des différences minimes
-        const TOLERANCE_MS: u64 = 50; // 50 ms de tolérance
+        // Manual validation: check if the current time exceeds expiration
+        // Add a tolerance margin to avoid errors due to minor differences
+        const TOLERANCE_MS: u64 = 50; // 50 ms tolerance
 
         if now_ms > c.exp.saturating_mul(1000) + TOLERANCE_MS {
             println!(
-                "Validation manuelle: token expiré (now_ms = {}, exp = {}, tolérance = {} ms)",
+                "Manual validation: token expired (now_ms = {}, exp = {}, tolerance = {} ms)",
                 now_ms,
                 c.exp * 1000,
                 TOLERANCE_MS
@@ -136,7 +136,7 @@ impl TokenService {
         }
 
         println!(
-            "Validation manuelle: now_ms = {}, exp = {}",
+            "Manual validation: now_ms = {}, exp = {}",
             now_ms / 1000,
             c.exp
         );
@@ -151,7 +151,7 @@ impl TokenService {
         })
     }
 
-    /// Renouvelle un token existant (crée un nouveau JWT signé)
+    /// Renew an existing token (creates a new signed JWT)
     pub fn renew(
         &self,
         old_token: &Token,
@@ -204,21 +204,21 @@ mod tests {
                 Role::User,
                 100,
                 None,
-            ) // Durée de 100 ms
+            ) // Duration of 100 ms
             .unwrap();
 
-        // Ajouter des logs pour inspecter les horodatages
-        println!("JWT émis: {}", jwt);
+        // Add logs to inspect timestamps
+        println!("JWT issued: {}", jwt);
         let claims: Claims = jsonwebtoken::decode(&jwt, &service.dec, &service.validation)
             .unwrap()
             .claims;
-        println!("Horodatage iat: {} (ms)", claims.iat * 1000);
-        println!("Horodatage exp: {} (ms)", claims.exp * 1000);
+        println!("Timestamp iat: {} (ms)", claims.iat * 1000);
+        println!("Timestamp exp: {} (ms)", claims.exp * 1000);
 
-        std::thread::sleep(std::time::Duration::from_millis(120)); // Attendre légèrement moins que la durée totale pour tester la limite
-        assert!(service.verify(&jwt).is_ok()); // Le token devrait encore être valide
+        std::thread::sleep(std::time::Duration::from_millis(120)); // Wait slightly less than the total duration to test the limit
+        assert!(service.verify(&jwt).is_ok()); // The token should still be valid
 
-        std::thread::sleep(std::time::Duration::from_millis(1000)); // Augmenter davantage le délai pour dépasser la tolérance
+        std::thread::sleep(std::time::Duration::from_millis(1000)); // Increase the delay further to exceed tolerance
         assert!(matches!(service.verify(&jwt), Err(TokenError::Expired)));
     }
 

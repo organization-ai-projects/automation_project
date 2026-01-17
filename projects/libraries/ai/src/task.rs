@@ -37,7 +37,6 @@ impl Task {
         &self.task_type
     }
 
-    // Méthode helper pour lib.rs
     pub fn task_type_str(&self) -> &str {
         match self.task_type {
             TaskType::CodeAnalysis => "analysis",

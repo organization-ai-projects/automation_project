@@ -1,3 +1,4 @@
+/// projects/libraries/ast_core/src/span.rs
 /// A source span (byte offsets).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {

@@ -1,6 +1,5 @@
-use std::path;
-
 // projects/libraries/ai/src/ai_orchestrator.rs
+use std::path;
 use tracing::{info, warn};
 
 use crate::{
@@ -10,7 +9,8 @@ use crate::{
     task::Task,
 };
 
-/// ❗ Interne (si tu veux AiBody seul public, mets `pub(crate)` ou enlève `pub` carrément)
+/// Internal structure for AI orchestration.
+/// Provides feedback and dispatching capabilities.
 pub(crate) struct AiOrchestrator {
     pub(crate) feedback: AiFeedback,
     pub(crate) dispatcher: Dispatcher,
@@ -67,7 +67,7 @@ impl AiOrchestrator {
         self.feedback.adjust(event)
     }
 
-    // API simplifiée
+    // Simplified API
     pub(crate) fn generate_code(&mut self, prompt: &str) -> Result<String, AiError> {
         let task = Task::new_code_generation(prompt.to_string());
         Ok(self.solve(&task)?.output)

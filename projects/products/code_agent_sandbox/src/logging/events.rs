@@ -1,3 +1,4 @@
+// projects/products/code_agent_sandbox/src/logging/events.rs
 use std::path::Path;
 
 use common_json::Json;
@@ -8,7 +9,6 @@ use crate::{
     memory::{MemoryEvent, append_event},
 };
 
-// projects/products/code_agent_sandbox/src/logging/events.rs
 pub fn log_event(
     mem_path: &Path,
     ctx: &EngineCtx,

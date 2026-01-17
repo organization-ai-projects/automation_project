@@ -1,8 +1,7 @@
 //! AiBody is the only public interface of the `ai` library.
 //! Do not use directly: ai_orchestrator.rs and ai_feedback.rs.
-use std::path;
-
 // projects/libraries/ai/src/ai_body.rs
+use std::path;
 use tracing::warn;
 
 use crate::{

@@ -1,10 +1,12 @@
-use crate::{Json, error::JsonError};
+// projects/libraries/common_json/src/deserialization/json_variant_access.rs
+use crate::{Json, json_error::JsonError};
 use serde::de::{DeserializeSeed, VariantAccess, Visitor};
 
 use super::helpers::type_error;
 use super::json_deserializer::JsonDeserializer;
 use super::json_map_access::JsonMapAccess;
 use super::json_seq_access::JsonSeqAccess;
+use crate::json_error::JsonErrorCode;
 
 pub(crate) struct JsonVariantAccess<'de> {
     pub(crate) value: Option<&'de Json>,
@@ -27,7 +29,7 @@ impl<'de> VariantAccess<'de> for JsonVariantAccess<'de> {
     {
         let value = self
             .value
-            .ok_or_else(|| JsonError::custom("missing enum value"))?;
+            .ok_or_else(|| JsonError::new(JsonErrorCode::MissingEnumValueError))?;
         seed.deserialize(JsonDeserializer::new(value))
     }
 
@@ -38,7 +40,7 @@ impl<'de> VariantAccess<'de> for JsonVariantAccess<'de> {
         match self.value {
             Some(Json::Array(values)) => visitor.visit_seq(JsonSeqAccess::new(values.iter())),
             Some(other) => Err(type_error("array", other)),
-            None => Err(JsonError::custom("missing enum value")),
+            None => Err(JsonError::new(JsonErrorCode::MissingEnumValueError)),
         }
     }
 
@@ -53,7 +55,7 @@ impl<'de> VariantAccess<'de> for JsonVariantAccess<'de> {
         match self.value {
             Some(Json::Object(map)) => visitor.visit_map(JsonMapAccess::new(map.iter())),
             Some(other) => Err(type_error("object", other)),
-            None => Err(JsonError::custom("missing enum value")),
+            None => Err(JsonError::new(JsonErrorCode::MissingEnumValueError)),
         }
     }
 }

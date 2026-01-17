@@ -15,25 +15,25 @@ if [[ -z "$BRANCH_NAME" ]]; then
   if [[ -f "$LAST_DELETED_FILE" ]]; then
     BRANCH_NAME="$(tr -d '\r' < "$LAST_DELETED_FILE" | head -n 1 | xargs || true)"
     if [[ -z "$BRANCH_NAME" ]]; then
-      echo "Erreur : $LAST_DELETED_FILE est vide ou invalide." >&2
+      echo "Error: $LAST_DELETED_FILE is empty or invalid." >&2
       exit 1
     fi
-    echo "Aucun nom fourni. Recréation de la dernière branche supprimée : $BRANCH_NAME"
+    echo "No name provided. Recreating the last deleted branch: $BRANCH_NAME"
   else
-    echo "Erreur : vous devez spécifier un nom de branche (ou $LAST_DELETED_FILE n'existe pas)." >&2
+    echo "Error: you must specify a branch name (or $LAST_DELETED_FILE does not exist)." >&2
     exit 1
   fi
 fi
 
 # Protections basiques
 if [[ "$BRANCH_NAME" == "$BASE_BRANCH" || "$BRANCH_NAME" == "main" ]]; then
-  echo "Erreur : nom de branche protégé/refusé: $BRANCH_NAME" >&2
+  echo "Error: protected/refused branch name: $BRANCH_NAME" >&2
   exit 1
 fi
 
 # Refuse spaces (optional but sane)
 if [[ "$BRANCH_NAME" == *" "* ]]; then
-  echo "Erreur : nom de branche invalide (contient des espaces): '$BRANCH_NAME'" >&2
+  echo "Error: invalid branch name (contains spaces): '$BRANCH_NAME'" >&2
   exit 1
 fi
 
@@ -46,13 +46,13 @@ git pull "$REMOTE" "$BASE_BRANCH"
 
 # If branch already exists locally, just checkout it (or refuse; your choice)
 if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
-  echo "ℹ La branche locale '$BRANCH_NAME' existe déjà. Checkout."
+  echo "ℹ The local branch '$BRANCH_NAME' already exists. Checkout."
   git checkout "$BRANCH_NAME"
 else
   git checkout -b "$BRANCH_NAME" "$BASE_BRANCH"
-  echo "✓ Branche '$BRANCH_NAME' créée depuis '$BASE_BRANCH'."
+  echo "✓ Branch '$BRANCH_NAME' created from '$BASE_BRANCH'."
 fi
 
 # Optional: push + upstream (highly recommended)
 git push --set-upstream "$REMOTE" "$BRANCH_NAME"
-echo "✓ Branche '$BRANCH_NAME' poussée sur '$REMOTE' avec upstream."
+echo "✓ Branch '$BRANCH_NAME' pushed to '$REMOTE' with upstream."

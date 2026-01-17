@@ -2,7 +2,7 @@
 //!
 //! These tests ensure that the public API of EnumMethods works as documented
 //! and catches regressions in the generated code behavior.
-
+// projects/libraries/protocol_macros/tests/api_contract_test.rs
 use protocol_macros::EnumMethods;
 
 /// Test 1: Debug mode actually uses Debug formatting

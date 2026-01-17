@@ -1,3 +1,4 @@
+// projects/libraries/hybrid_arena/src/bump_arena_into_iter.rs
 /// An owning iterator over items in a `BumpArena`.
 #[derive(Debug)]
 pub struct BumpArenaIntoIter<T> {

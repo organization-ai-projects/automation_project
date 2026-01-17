@@ -1,41 +1,40 @@
+// projects/libraries/security/src/permissions.rs
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
-
-// projects/libraries/security/src/permissions.rs
 use crate::AuthError;
 use crate::role::Role;
 use crate::token::Token;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Permission {
-    /// Lire le code, voir les projets
+    /// Read code, view projects
     Read,
 
-    /// Écrire/modifier du code
+    /// Write/modify code
     Write,
 
-    /// Exécuter la génération de code, l'analyse, etc.
+    /// Execute code generation, analysis, etc.
     Execute,
 
-    /// Supprimer des projets/fichiers
+    /// Delete projects/files
     Delete,
 
-    /// Administrer (gérer users, permissions, settings)
+    /// Administer (manage users, permissions, settings)
     Admin,
 
-    /// Entraîner/ajuster les modèles
+    /// Train/adjust models
     Train,
 
-    /// Accéder aux logs et métriques
+    /// Access logs and metrics
     ViewLogs,
 
-    /// Modifier la configuration système
+    /// Modify system configuration
     ConfigureSystem,
 }
 
 impl Permission {
-    /// Retourne toutes les permissions disponibles
+    /// Returns all available permissions
     pub fn all() -> &'static [Permission] {
         &[
             Permission::Read,
@@ -49,7 +48,7 @@ impl Permission {
         ]
     }
 
-    /// Convertit en string
+    /// Converts to string
     pub fn as_str(&self) -> &'static str {
         match self {
             Permission::Read => "read",
@@ -82,26 +81,26 @@ impl FromStr for Permission {
     }
 }
 
-/// Vérifie si un rôle a une permission spécifique
+/// Checks if a role has a specific permission
 pub fn has_permission(role: &Role, required_permission: Permission) -> bool {
     role.has_permission(required_permission)
 }
 
-/// Vérifie si un rôle a plusieurs permissions à la fois
+/// Checks if a role has all specified permissions
 pub fn has_all_permissions(role: &Role, required_permissions: &[Permission]) -> bool {
     required_permissions
         .iter()
         .all(|&perm| role.has_permission(perm))
 }
 
-/// Vérifie si un rôle a au moins une des permissions listées
+/// Checks if a role has at least one of the specified permissions
 pub fn has_any_permission(role: &Role, required_permissions: &[Permission]) -> bool {
     required_permissions
         .iter()
         .any(|&perm| role.has_permission(perm))
 }
 
-/// Vérifie si un rôle a une permission, retourne une erreur sinon
+/// Checks if a role has a specific permission, returns an error otherwise
 pub fn check_permission(role: &Role, required_permission: Permission) -> Result<(), AuthError> {
     if has_permission(role, required_permission) {
         Ok(())
@@ -110,7 +109,7 @@ pub fn check_permission(role: &Role, required_permission: Permission) -> Result<
     }
 }
 
-/// Vérifie si un rôle a toutes les permissions requises
+/// Checks if a role has all required permissions
 pub fn check_all_permissions(
     role: &Role,
     required_permissions: &[Permission],
@@ -122,7 +121,7 @@ pub fn check_all_permissions(
     }
 }
 
-/// Vérifie si un token valide a une permission
+/// Checks if a valid token has a specific permission
 pub fn check_token_permission(
     token: &Token,
     required_permission: Permission,
@@ -131,7 +130,7 @@ pub fn check_token_permission(
     check_permission(&token.role, required_permission)
 }
 
-/// Vérifie si un token valide a toutes les permissions requises
+/// Checks if a valid token has all required permissions
 pub fn check_token_all_permissions(
     token: &Token,
     required_permissions: &[Permission],
@@ -140,7 +139,7 @@ pub fn check_token_all_permissions(
     check_all_permissions(&token.role, required_permissions)
 }
 
-/// Filtre une liste de permissions en ne gardant que celles qu'un rôle possède
+/// Filters a list of permissions, keeping only those a role possesses
 pub fn filter_allowed_permissions(role: &Role, permissions: &[Permission]) -> Vec<Permission> {
     permissions
         .iter()
@@ -149,7 +148,7 @@ pub fn filter_allowed_permissions(role: &Role, permissions: &[Permission]) -> Ve
         .collect()
 }
 
-/// Retourne les permissions manquantes pour un rôle
+/// Returns the missing permissions for a role
 pub fn missing_permissions(role: &Role, required_permissions: &[Permission]) -> Vec<Permission> {
     required_permissions
         .iter()
@@ -226,11 +225,11 @@ mod tests {
 
     #[test]
     fn test_token_permission() {
-        // Création d'un token avec un `user_id` valide
+        // Create a token with a valid `user_id`
         let user_id = UserId::from(Id128::from_bytes_unchecked([123u8; 16]));
         let token = Token::new(user_id, Role::User, 3_600_000).unwrap();
 
-        // Vérification des permissions via le token
+        // Check permissions via the token
         assert!(check_token_permission(&token, Permission::Write).is_ok());
         assert!(check_token_permission(&token, Permission::Delete).is_err());
     }

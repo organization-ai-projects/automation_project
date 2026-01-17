@@ -6,7 +6,7 @@ use crate::engine::{
     EngineConfig, EngineInit, EnginePaths, Request, Response, initialize_engine, request,
 };
 
-/// Seul point d’entrée officiel “hors domaine”.
+/// The only official "out-of-domain" entry point.
 pub async fn execute_request(
     req: Request,
     paths: &EnginePaths,

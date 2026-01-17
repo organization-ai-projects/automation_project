@@ -1,3 +1,4 @@
+// projects/libraries/symbolic/src/validator/mod.rs
 // Module for code validation
 pub mod code_validator;
 pub mod validation_error;

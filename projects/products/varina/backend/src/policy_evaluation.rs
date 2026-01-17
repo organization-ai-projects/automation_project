@@ -15,7 +15,7 @@ use std::path::Path;
 /// ==============================
 /// SECTION: Policy evaluation
 /// ==============================
-/// Best: policy compilée + résultat borrowed (zero clone).
+/// Best: compiled policy + borrowed result (zero clone).
 pub fn classify_changes_ref<'a>(
     changes: &'a [GitChange],
     policy: &AutopilotPolicy,
@@ -24,7 +24,7 @@ pub fn classify_changes_ref<'a>(
     classify_changes_ref_with_policy(changes, &compiled)
 }
 
-/// Best: caller fournit la policy compilée (si tu fais plusieurs opérations).
+/// Best: caller provides the compiled policy (useful for multiple operations).
 pub fn classify_changes_ref_with_policy<'a>(
     changes: &'a [GitChange],
     policy: &CompiledAutopilotPolicy,
@@ -49,7 +49,7 @@ pub fn classify_changes_ref_with_policy<'a>(
     out
 }
 
-/// Compat: version owning (clones explicites au dernier moment).
+/// Compatibility: owning version (explicit clones at the last moment).
 pub fn classify_changes(
     changes: &[GitChange],
     policy: &AutopilotPolicy,
@@ -91,17 +91,17 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
         ..CompiledAutopilotPolicy::from(policy)
     };
 
-    println!("[debug] is_relevant: Vérification du chemin {}", path);
-    // Vérification de l'existence du fichier
+    println!("[debug] is_relevant: Checking path {}", path);
+    // Check if the file exists
     if !std::path::Path::new(path).exists() {
-        println!("[debug] is_relevant: Le fichier {} n'existe pas", path);
+        println!("[debug] is_relevant: File {} does not exist", path);
         return false;
     }
 
-    // Vérification avec .gitignore
+    // Check with .gitignore
     let gitignore_path = std::path::Path::new(".gitignore");
     if !gitignore_path.exists() {
-        println!("[debug] is_relevant: .gitignore introuvable, aucun fichier ne sera ignoré");
+        println!("[debug] is_relevant: .gitignore not found, no files will be ignored");
         return is_relevant_norm(&normalize_path(path), &compiled);
     }
 
@@ -109,11 +109,11 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
     gitignore_builder.add(gitignore_path);
     let gitignore = gitignore_builder
         .build()
-        .expect("Échec de l'analyse du fichier .gitignore");
+        .expect("Failed to parse .gitignore file");
 
     if gitignore.matched(path, false).is_ignore() {
         println!(
-            "[debug] is_relevant: Le chemin {} est ignoré par .gitignore",
+            "[debug] is_relevant: Path {} is ignored by .gitignore",
             path
         );
         return false;
@@ -126,16 +126,14 @@ pub fn is_relevant_norm(path_norm: &str, policy: &CompiledAutopilotPolicy) -> bo
     let repo_root = Path::new(".");
     let mut builder = GitignoreBuilder::new(repo_root);
     builder.add(repo_root.join(".gitignore"));
-    let gitignore = builder
-        .build()
-        .expect("Erreur lors de la construction de .gitignore");
+    let gitignore = builder.build().expect("Error while building .gitignore");
 
     let is_ignored = gitignore
         .matched_path_or_any_parents(path_norm, false)
         .is_ignore();
 
     if !is_ignored {
-        // Utilisation de `policy` pour vérifier les préfixes pertinents
+        // Use `policy` to check relevant prefixes
         return policy
             .relevant_prefixes_norm
             .iter()
@@ -153,7 +151,7 @@ pub fn display_change_path(ch: &GitChange) -> String {
 }
 
 /// Unmerged states (porcelain XY):
-/// - 'U' is canonical conflict marker
+/// - 'U' is the canonical conflict marker
 /// - 'AA' and 'DD' are also unmerged
 pub fn has_merge_conflicts(changes: &[GitChange]) -> bool {
     changes.iter().any(|c| {
@@ -163,4 +161,4 @@ pub fn has_merge_conflicts(changes: &[GitChange]) -> bool {
     })
 }
 
-// Implémentation supprimée car redondante avec celle dans compiled_autopilot_policy.rs.
+// Implementation removed because it is redundant with the one in compiled_autopilot_policy.rs.

@@ -1,7 +1,5 @@
 # Automatic Project
 
-`automation_project` est un workspace d’automatisation avancé, conçu pour orchestrer plusieurs projets simultanément avec des fonctionnalités telles que la génération de code, le linting, la documentation automatisée, et l’orchestration de workflows.
+`automation_project` is an advanced automation workspace, designed to orchestrate multiple projects simultaneously with features such as code generation, linting, automated documentation, and workflow orchestration.
 
-## Documentation
-
-La documentation interne est disponible dans le dossier `docs/`. Pour une vue complète, consultez la [table des matières](docs/TOC.md).
+Internal documentation is available in the `docs/` folder. For a complete view, see the [table of contents](docs/TOC.md).

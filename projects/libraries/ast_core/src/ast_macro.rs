@@ -1,31 +1,5 @@
-/// High-level AST façade macro.
-///
-/// # Build modes
-/// - Object: `past!({ key: value, ... })`
-/// - Array: `past!([1, 2, 3])`
-/// - Scalar: `past!(42)` or `past!("string")` or `past!(some_expr)`
-///
-/// # Validation
-/// - Default: `past!({ ... }, validate)`
-/// - Preset: `past!({ ... }, validate: preset: strict_json)` (strict_json | unbounded | default)
-/// - Config: `past!({ ... }, validate: cfg: { max_depth: 10, max_size: 100 })`
-/// - Custom: `past!({ ... }, validate: with: my_limits)`
-///
-/// # Metadata (IA-friendly)
-/// - Origin: `origin: ai("agent")` | `origin: tool("fmt")` | `origin: parser("json")` | `origin: proc("derive")`
-/// - Flags: `flags: ["generated", "cached"]`
-/// - Attrs: `attrs: { "version": "1.0", "author": expr }`
-///
-/// # Chaining
-/// All meta and validate clauses can be chained in any order:
-/// ```ignore
-/// past!({ data: 42 }, origin: ai("gpt"), flags: ["test"], validate: preset: strict_json)
-/// ```
-///
-/// # Validate existing node
-/// - `past!(node, validate)`
-/// - `past!(node, validate: preset: strict_json)`
-/// - `past!(node, validate: with: custom_limits)`
+// projects/libraries/ast_core/src/ast_macro.rs
+// High-level AST macro for building and validating nodes.
 #[macro_export]
 macro_rules! past {
     // ============================================================
@@ -157,8 +131,8 @@ macro_rules! past {
     (@value $e:expr) => { $crate::AstBuilder::from($e) };
 
     // --- validate presets ---
-    (@validate_preset $node:expr, strict_json) => {{
-        ($node).validate_with(&$crate::ValidateLimits::strict_json())
+    (@validate_preset $node:expr, strict) => {{
+        ($node).validate_with(&$crate::ValidateLimits::strict())
     }};
     (@validate_preset $node:expr, unbounded) => {{
         ($node).validate_with(&$crate::ValidateLimits::unbounded())
@@ -171,7 +145,7 @@ macro_rules! past {
         ::std::compile_error!(::std::concat!(
             "Unknown validation preset: `",
             ::std::stringify!($unknown),
-            "`. Available presets: strict_json, unbounded, default"
+            "`. Available presets: strict, unbounded, default"
         ))
     }};
 

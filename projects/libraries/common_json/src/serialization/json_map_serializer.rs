@@ -1,5 +1,6 @@
+// projects/libraries/common_json/src/serialization/json_map_serializer.rs
 use crate::Json;
-use crate::error::JsonError;
+use crate::json_error::{JsonError, JsonErrorCode};
 use crate::value::JsonMap;
 use serde::ser::{Serialize, SerializeMap, SerializeStruct};
 
@@ -34,7 +35,7 @@ impl SerializeMap for JsonMapSerializer {
         let key = self
             .next_key
             .take()
-            .ok_or_else(|| JsonError::custom("value serialized before key"))?;
+            .ok_or_else(|| JsonError::new(JsonErrorCode::ValueSerializedBeforeKey))?;
         let value = value.serialize(JsonSerializer)?;
         self.map.insert(key, value);
         Ok(())

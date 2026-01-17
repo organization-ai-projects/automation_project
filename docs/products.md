@@ -1,12 +1,12 @@
-# Produits
+# Products
 
-## 1. Définition d’un produit
+## 1. Definition of a Product
 
-Un produit = `metadata.ron` + (optionnel) `agent` + (optionnel) `ui bundle`.
+A product = `metadata.ron` + (optional) `agent` + (optional) `ui bundle`.
 
-## 2. Définition d’un agent
+## 2. Definition of an Agent
 
-- process séparé
-- authentifié machine auprès de `engine`
-- n’expose aucun port public
-- ne parle qu’à `engine`
+- Separate process
+- Machine authenticated with `engine`
+- Exposes no public ports
+- Communicates only with `engine`

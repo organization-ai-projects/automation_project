@@ -1,53 +1,48 @@
-# Documentation automatisée
+# Automated Documentation
 
 ## Introduction
 
-Ce document décrit les objectifs et les fonctionnalités de la documentation automatisée dans le projet `automation_project`. Pour une vue d'ensemble, consultez [Vue d'ensemble](overview.md).
+This document describes the objectives and features of automated documentation in the `automation_project`. For an overview, see [Overview](overview.md).
 
 ---
 
-## 1. Documentation automatisée
+## 1. Automated Documentation
 
-### 1.1 Objectifs
+### 1.1 Objectives
 
-La documentation est une composante essentielle du projet et doit être générée automatiquement pour garantir sa mise à jour et sa cohérence avec le code.
+Documentation is an essential component of the project and must be generated automatically to ensure it is up-to-date and consistent with the code.
 
-#### 1.1.1 Fonctionnalités détaillées
+#### 1.1.1 Detailed Features
 
-Les fonctionnalités suivantes sont proposées pour la documentation automatisée :
+The following features are proposed for automated documentation:
 
-1. **Génération automatique** :
+1. **Automatic Generation**:
+   - Use `cargo doc` to produce standard Rust documentation.
+   - Enriched documentation with code examples, diagrams, and detailed explanations.
 
-   - Utilisation de `cargo doc` pour produire la documentation Rust standard.
-   - Documentation enrichie avec des exemples de code, diagrammes, et explications détaillées.
+2. **Multi-format Export**:
+   - **HTML**: For online viewing.
+   - **Markdown**: For integration into Git repositories.
+   - **PDF**: For deliverables or offline distribution.
 
-2. **Exportation multi-formats** :
+   Export to other formats can be added later as needed.
 
-   - **HTML** : Pour la consultation en ligne.
-   - **Markdown** : Pour l’intégration dans des dépôts Git.
-   - **PDF** : Pour les livrables ou la distribution hors ligne.
+3. **Integration with Workflows**:
+   - Automatic generation of documentation for modules added or modified in workflows.
+   - Enrichment of examples through symbolic and neural workflows.
 
-   L’exportation vers d’autres formats peut être ajoutée ultérieurement selon les besoins.
+4. **Compatibility and Standards**:
+   - Adherence to standardized formats like Markdown and HTML.
+   - Documentation of critical dependencies and minimum required versions.
 
-3. **Intégration avec les workflows** :
+5. **Verification and Quality**:
+   - Define project-specific linting rules.
+   - Automate code convention checks via:
+     - **Clippy**: for standard Rust rules.
+     - Custom rules tailored to the project.
+   - Generate detailed reports on detected violations and improvement suggestions.
+   - Propose automatic corrections where possible.
 
-   - Génération automatique de documentation pour les modules ajoutés ou modifiés dans les workflows.
-   - Enrichissement des exemples grâce aux workflows symboliques et neuronaux.
+> These features ensure comprehensive, up-to-date documentation tailored to the diverse needs of users and developers.
 
-4. **Compatibilité et standards** :
-
-   - Respect des formats standardisés comme Markdown et HTML.
-   - Documentation des dépendances critiques et des versions minimales requises.
-
-5. **Vérification et qualité** :
-
-   - Définir des règles de linting spécifiques au projet.
-   - Automatiser la vérification des conventions de code via :
-     - **Clippy** : pour les règles Rust standards.
-     - Règles personnalisées adaptées au projet.
-   - Générer des rapports détaillés sur les violations détectées et suggestions d’amélioration.
-   - Proposer des corrections automatiques lorsque possible.
-
-> Ces fonctionnalités garantissent une documentation complète, à jour, et adaptée aux différents besoins des utilisateurs et développeurs.
-
-La documentation automatisée est considérée comme un artefact de première classe du système, au même titre que le code ou les workflows.
+Automated documentation is considered a first-class artifact of the system, on par with code or workflows.

@@ -17,7 +17,6 @@
 // 5. Neural model training and saving
 //
 // ==========================
-
 // Necessary module imports
 mod access_kind;
 mod actions;
@@ -39,7 +38,7 @@ mod worktree;
 
 use anyhow::{Context, Result, bail};
 use common_json::{from_json_str, to_json_string_pretty};
-use common_time::timeout::with_timeout; // Correction de l'import pour inclure `with_timeout`
+use common_time::timeout::with_timeout;
 use common_time::{SystemClock, TimeSpan};
 use std::io::{self, Read};
 use std::path::PathBuf;
@@ -79,7 +78,7 @@ fn main() -> Result<()> {
     // ==========================
     // Step 3: Execute Request
     // ==========================
-    let clock = SystemClock; // Correction pour utiliser directement l'instance de SystemClock
+    let clock = SystemClock;
     let timeout_future = with_timeout(
         engine::execute_request(req, &paths, config),
         &clock,

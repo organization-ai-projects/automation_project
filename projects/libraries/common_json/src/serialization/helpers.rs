@@ -1,10 +1,10 @@
+// projects/libraries/common_json/src/serialization/helpers.rs
 use crate::Json;
-use crate::error::{JsonError, JsonResult};
+use crate::json_error::{JsonError, JsonErrorCode, JsonResult};
+use crate::serialization::const_values::INDENT_WIDTH;
+use crate::serialization::json_serializer::JsonSerializer;
 use serde::ser::Serialize;
 use std::fmt::Write as FmtWrite;
-
-use super::const_values::INDENT_WIDTH;
-use super::json_serializer::JsonSerializer;
 
 pub(crate) fn serialize_to_json<T: Serialize>(value: &T) -> Result<Json, JsonError> {
     value.serialize(JsonSerializer)
@@ -23,7 +23,7 @@ fn append_json(output: &mut String, json: &Json, pretty: bool, indent: usize) ->
         Json::Number(number) => {
             let value = number.as_f64();
             if !value.is_finite() {
-                return Err(JsonError::serialize("non-finite number"));
+                return Err(JsonError::new(JsonErrorCode::Serialize));
             }
             output.push_str(&value.to_string());
         }

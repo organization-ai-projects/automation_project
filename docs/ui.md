@@ -1,13 +1,13 @@
 # UI
 
-## 1. Règles
+## 1. Rules
 
-- Toute UI produit est un **bundle WASM** chargé par `central_ui`.
-- Une UI ne dépend jamais d’un backend produit.
-- Toute action passe par `engine` via `protocol`.
+- Every product UI is a **WASM bundle** loaded by `central_ui`.
+- A UI never depends on a product backend.
+- All actions go through `engine` via `protocol`.
 
-## 2. Contrat minimal UI
+## 2. Minimal UI Contract
 
-- Connexion WS à `engine`
-- Auth user session
+- WS connection to `engine`
+- User session authentication
 - Send Command / receive Events

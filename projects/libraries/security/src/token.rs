@@ -5,7 +5,7 @@ use common::custom_uuid::Id128;
 use common_time::timestamp_utils;
 use serde::{Deserialize, Serialize};
 
-/// Token vérifié (struct interne pratique pour l'app).
+/// Verified token (internal struct convenient for the app).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Token {
     pub value: String,
@@ -17,30 +17,30 @@ pub struct Token {
 }
 
 impl Token {
-    /// Vérifie si le token est expiré
+    /// Checks if the token is expired
     pub fn is_expired(&self) -> bool {
         self.is_expired_with_grace(0)
     }
 
-    /// Vérifie si le token est expiré avec un délai de grâce optionnel
+    /// Checks if the token is expired with an optional grace period
     pub fn is_expired_with_grace(&self, grace_ms: u64) -> bool {
         let now = timestamp_utils::current_timestamp_ms();
         self.expires_at_ms.saturating_add(grace_ms) <= now
     }
 
-    /// Retourne le temps restant avant l'expiration en millisecondes
+    /// Returns the remaining time until expiration in milliseconds
     pub fn time_until_expiry_ms(&self) -> i64 {
         let now = timestamp_utils::current_timestamp_ms() as i64;
         self.expires_at_ms as i64 - now
     }
 
-    /// Retourne l'âge du token en millisecondes
+    /// Returns the age of the token in milliseconds
     pub fn age_ms(&self) -> u64 {
         let now = timestamp_utils::current_timestamp_ms();
         now.saturating_sub(self.issued_at_ms)
     }
 
-    /// Valide un token (structure + expiration)
+    /// Validates a token (structure + expiration)
     pub fn validate_token(&self) -> Result<(), auth_error::AuthError> {
         let zero_id = Id128::from_bytes_unchecked([0u8; 16]);
         if self.user_id.value() == zero_id {
@@ -53,7 +53,7 @@ impl Token {
     }
 
     #[cfg(test)]
-    /// Crée un nouveau token (uniquement pour les tests)
+    /// Creates a new token (for tests only)
     pub fn new(user_id: UserId, role: Role, duration_ms: u64) -> Result<Self, String> {
         if duration_ms == 0 {
             return Err("Duration must be greater than 0".to_string());
@@ -74,7 +74,7 @@ impl Token {
     }
 
     #[cfg(test)]
-    /// Crée un nouveau token avec une session (uniquement pour les tests)
+    /// Creates a new token with a session (for tests only)
     pub fn new_with_session(
         user_id: UserId,
         role: Role,
@@ -103,7 +103,7 @@ impl Token {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common::custom_uuid::Id128; // Correction du point-virgule manquant
+    use common::custom_uuid::Id128; // Fixed missing semicolon
 
     #[test]
     fn test_is_expired() {
@@ -119,10 +119,10 @@ mod tests {
         let token = Token::new(UserId::from(id), Role::User, 50).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(60));
 
-        // Expiré sans grâce
+        // Expired without grace
         assert!(token.is_expired());
 
-        // Pas expiré avec 100ms de grâce
+        // Not expired with 100ms grace
         assert!(!token.is_expired_with_grace(100));
     }
 

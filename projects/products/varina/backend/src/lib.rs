@@ -1,4 +1,4 @@
-/// projects/products/varina/backend/src/lib.rs
+// projects/products/varina/backend/src/lib.rs
 pub mod app;
 pub mod automation;
 pub mod autopilot;

@@ -26,19 +26,19 @@
 - Scalability to handle a large number of simultaneous projects.
 - Optimization of performance and workflows for production environments.
 
-### Communication WebSocket
+### WebSocket Communication
 
-- **Hub unique** : Engine agit comme le seul point de connexion WebSocket pour les UIs et les processus backend des produits.
-- **Clients autorisés** :
-  - **Utilisateurs** : via login/session.
-  - **Agents** : via tokens ou certificats.
-  - **System Client (launcher)** : bootstrap autorisé pour des commandes limitées (start engine, healthcheck, open UI).
-- **Contrat stable** : Messages structurés en commandes (request/response) et événements (stream).
-  - **Exemples de commandes** :
+- **Single Hub**: The engine acts as the sole WebSocket connection point for UIs and backend processes of products.
+- **Authorized Clients**:
+  - **Users**: via login/session.
+  - **Agents**: via tokens or certificates.
+  - **System Client (launcher)**: bootstrap authorized for limited commands (start engine, healthcheck, open UI).
+- **Stable Contract**: Messages structured into commands (request/response) and events (stream).
+  - **Examples of Commands**:
     - `ListProjects`
     - `ActivateProduct(product_id)`
     - `RunWorkflow(project_id, workflow_id)`
-  - **Exemples d’événements** :
+  - **Examples of Events**:
     - `LogLine(project_id, level, message)`
     - `Progress(workflow_id, pct)`
     - `WorkflowFinished(workflow_id, result)`

@@ -5,11 +5,9 @@ Thank you for your interest in contributing to the `protocol_macros` crate! This
 ## How to Contribute
 
 1. **Fork the Repository**
-
    - Create a fork of the repository on GitHub.
 
 2. **Clone the Repository**
-
    - Clone your fork locally:
 
      ```bash
@@ -17,7 +15,6 @@ Thank you for your interest in contributing to the `protocol_macros` crate! This
      ```
 
 3. **Create a Branch**
-
    - Create a new branch for your feature or bug fix:
 
      ```bash
@@ -25,12 +22,10 @@ Thank you for your interest in contributing to the `protocol_macros` crate! This
      ```
 
 4. **Make Changes**
-
    - Implement your changes.
    - Add tests for new features or bug fixes.
 
 5. **Run Tests**
-
    - Ensure all tests pass:
 
      ```bash
@@ -38,7 +33,6 @@ Thank you for your interest in contributing to the `protocol_macros` crate! This
      ```
 
 6. **Commit Changes**
-
    - Commit your changes with a descriptive message:
 
      ```bash
@@ -46,7 +40,6 @@ Thank you for your interest in contributing to the `protocol_macros` crate! This
      ```
 
 7. **Push Changes**
-
    - Push your branch to your fork:
 
      ```bash
@@ -54,7 +47,6 @@ Thank you for your interest in contributing to the `protocol_macros` crate! This
      ```
 
 8. **Create a Pull Request**
-
    - Open a pull request on GitHub.
 
 ## Guidelines

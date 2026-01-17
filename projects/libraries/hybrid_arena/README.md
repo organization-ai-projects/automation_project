@@ -1,23 +1,28 @@
 # `hybrid_arena`
 
-**Description** : Crate Rust pour la gestion des arènes hybrides.
+**Description**: Rust crate for managing hybrid arenas.
 
-## Fonctionnalités
+## Features
 
-- Allocation bump.
-- Gestion des slots avec génération.
+- Bump allocation.
+- Slot management with generation.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 hybrid_arena = "0.1.0"
 ```
 
-## Utilisation
+## Documentation
+
+- [BumpArena](docs/bump_arena.md): Detailed documentation for the BumpArena.
+- [Table of Contents](docs/toc.md): Overview of all documentation.
+
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```

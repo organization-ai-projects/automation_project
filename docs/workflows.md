@@ -1,33 +1,33 @@
-# Orchestration des workflows
+# Workflow Orchestration
 
 ## Introduction
 
-Ce document explique les workflows automatisés dans le projet `automation_project`. Pour une vue d'ensemble, consultez [Vue d'ensemble](overview.md).
+This document explains the automated workflows in the `automation_project`. For an overview, see [Overview](overview.md).
 
 ---
 
-## 1. Orchestration des workflows
+## 1. Workflow Orchestration
 
-### 1.1 Objectifs
+### 1.1 Objectives
 
-L’orchestration des workflows est au cœur du système et permet d’automatiser les étapes clés du développement logiciel.
+Workflow orchestration is at the heart of the system and enables the automation of key steps in software development.
 
-L’Engine orchestre les workflows et délègue l’exécution aux crates produits (comme `app` ou `admin-ui`). Ces produits utilisent le crate `ai` comme point d’accès centralisé aux fonctionnalités symboliques et neuronales.
+The Engine orchestrates workflows and delegates execution to product crates (such as `app` or `admin-ui`). These products use the `ai` crate as a centralized access point for symbolic and neural features.
 
-#### 1.1.1 Étapes typiques d’un workflow
+#### 1.1.1 Typical Workflow Steps
 
-1. **Analyse** : Vérification du code source et des dépendances.
-2. **Génération** : Création de nouveaux fichiers ou modules.
-3. **Validation** : Linting, tests, et vérifications structurelles.
-4. **Itération** : Ajustements basés sur les résultats de la validation.
+1. **Analysis**: Verification of source code and dependencies.
+2. **Generation**: Creation of new files or modules.
+3. **Validation**: Linting, tests, and structural checks.
+4. **Iteration**: Adjustments based on validation results.
 
-Les étapes d’un workflow ne sont pas nécessairement linéaires et peuvent être conditionnelles ou répétées.
+Workflow steps are not necessarily linear and can be conditional or repeated.
 
-#### 1.1.2 Exemple concret
+#### 1.1.2 Concrete Example
 
-Un workflow typique pourrait inclure :
+A typical workflow might include:
 
-- Analyse des fichiers Rust pour détecter les modules manquants.
-- Génération automatique des modules nécessaires.
-- Validation des modules générés avec des tests unitaires.
-- Documentation automatique des modules ajoutés.
+- Analyzing Rust files to detect missing modules.
+- Automatically generating the necessary modules.
+- Validating the generated modules with unit tests.
+- Automatically documenting the added modules.

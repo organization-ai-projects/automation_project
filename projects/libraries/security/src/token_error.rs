@@ -1,3 +1,4 @@
+// projects/libraries/security/src/token_error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error, Clone)]

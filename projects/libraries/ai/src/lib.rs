@@ -1,4 +1,4 @@
-// ai/src/lib.rs
+// projects/libraries/ai/src/lib.rs
 
 // Public modules
 pub mod ai_body;

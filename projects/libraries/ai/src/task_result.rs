@@ -10,7 +10,6 @@ pub struct TaskResult {
 }
 
 impl TaskResult {
-    /// Fonction utilitaire pour construire un TaskResult
     pub fn new(
         output: String,
         confidence: f64,

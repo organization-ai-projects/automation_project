@@ -1,4 +1,5 @@
-/// The kind of validation error.
+// projects/libraries/ast_core/src/ast_error_kind.rs
+// The kind of validation error.
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstErrorKind {
     MaxDepth { max: usize, got: usize },

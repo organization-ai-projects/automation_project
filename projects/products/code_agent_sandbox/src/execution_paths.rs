@@ -1,3 +1,4 @@
+// projects/products/code_agent_sandbox/src/execution_paths.rs
 use std::path::PathBuf;
 
 #[derive(Clone, Debug)]

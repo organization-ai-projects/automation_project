@@ -6,7 +6,7 @@ use git_lib::git_change::GitChange;
 //internal
 use crate::ClassifiedChanges;
 
-/// Classification des changements selon policy (borrowed, zero-clone).
+/// Classification of changes according to policy (borrowed, zero-clone).
 #[derive(Debug, Clone)]
 pub struct ClassifiedChangesRef<'a> {
     pub relevant: Vec<&'a GitChange>,
@@ -23,7 +23,7 @@ impl<'a> ClassifiedChangesRef<'a> {
         }
     }
 
-    /// Convertit en version owning (clones explicites).
+    /// Converts to an owning version (explicit clones).
     pub fn to_owned(&self) -> ClassifiedChanges {
         ClassifiedChanges {
             relevant: self.relevant.iter().map(|&ch| ch.clone()).collect(),

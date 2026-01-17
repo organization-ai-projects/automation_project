@@ -1,3 +1,4 @@
+// projects/libraries/symbolic/src/solver_result.rs
 #[derive(Debug, Clone)]
 pub struct SolverResult {
     pub output: String,

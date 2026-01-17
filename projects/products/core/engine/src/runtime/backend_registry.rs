@@ -1,3 +1,4 @@
+// projects/products/core/engine/src/runtime/backend_registry.rs
 use std::collections::HashMap;
 
 // Backend registry implementation
@@ -11,7 +12,7 @@ pub struct BackendInfo {
 }
 
 pub struct BackendRegistry {
-    backends: HashMap<String, BackendInfo>, // Key: instance_id
+    backends: HashMap<String, BackendInfo>,
 }
 
 impl BackendRegistry {

@@ -1,5 +1,5 @@
-use common_json::Json;
 //projects/libraries/protocol/src/payload.rs
+use common_json::Json;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
