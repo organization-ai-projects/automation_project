@@ -8,7 +8,6 @@ pub mod token;
 pub mod token_error;
 pub mod token_service;
 
-pub use token::Token;
 pub use auth_error::AuthError;
 pub use claims::Claims;
 pub use permissions::{
@@ -17,5 +16,6 @@ pub use permissions::{
     has_permission, missing_permissions,
 };
 pub use role::Role;
+pub use token::Token;
 pub use token_error::TokenError;
 pub use token_service::TokenService;
