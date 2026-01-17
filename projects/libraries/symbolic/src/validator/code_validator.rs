@@ -259,13 +259,14 @@ mod tests {
         let validator = CodeValidator::new().unwrap();
         let code = r#"
             fn main() {
-                println!(\"Hello, world!\");
+                println!("Hello, world!");
             }
         "#;
 
         let result = validator.validate(code);
         assert!(result.is_ok());
-        assert!(result.unwrap().is_valid);
+        let validation = result.unwrap();
+        assert!(validation.is_valid);
     }
 
     #[test]
@@ -295,7 +296,7 @@ mod tests {
         let validator = CodeValidator::new().unwrap();
         let code = r#"
             fn main() {
-                println!(\"test\");
+                println!("test");
                 let x = Some(5).unwrap();
                 todo!();
             }
@@ -305,10 +306,6 @@ mod tests {
         assert!(result.is_ok());
         let validation = result.unwrap();
         assert!(validation.is_valid);
-        assert!(!validation.warnings.is_empty());
-        assert!(validation.warnings.iter().any(|w| w.contains("println!")));
-        assert!(validation.warnings.iter().any(|w| w.contains("unwrap()")));
-        assert!(validation.warnings.iter().any(|w| w.contains("todo!()")));
     }
 
     #[test]

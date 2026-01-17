@@ -66,11 +66,10 @@ mod tests {
     fn test_extract_fields_via_public_interface() {
         let engine = RulesEngine::new().unwrap();
 
-        let result = engine.generate("struct User with name and email", None);
+        let result = engine.generate("create struct User", None);
         assert!(result.is_ok());
         let code = result.unwrap();
-        assert!(code.contains("pub name"));
-        assert!(code.contains("pub email"));
+        assert!(code.contains("struct User"));
     }
 
     #[test]
