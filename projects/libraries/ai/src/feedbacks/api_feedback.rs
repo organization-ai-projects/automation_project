@@ -2,6 +2,8 @@
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
+use crate::feedbacks::InternalFeedbackEvent;
+
 /// Public metadata (API). Stable and extensible.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FeedbackMeta<'a> {
@@ -120,5 +122,15 @@ impl<'a> FeedbackInput<'a> {
     pub fn meta(mut self, meta: FeedbackMeta<'a>) -> Self {
         self.meta = meta;
         self
+    }
+
+    pub(crate) fn to_internal(&self) -> InternalFeedbackEvent<'a> {
+        InternalFeedbackEvent {
+            task_input: self.task_input.clone(),
+            input: self.input.clone(),
+            generated_output: self.generated_output.clone(),
+            verdict: self.verdict.clone().into(),
+            meta: self.meta.clone().into(),
+        }
     }
 }

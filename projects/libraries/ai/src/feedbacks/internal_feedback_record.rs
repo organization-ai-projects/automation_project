@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
-use crate::feedbacks::{InternalFeedbackMeta, InternalFeedbackVerdict};
+use crate::feedbacks::{InternalFeedbackEvent, InternalFeedbackMeta, InternalFeedbackVerdict};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InternalFeedbackRecord<'a> {
@@ -23,20 +23,5 @@ impl<'a> InternalFeedbackRecord<'a> {
             verdict: event.verdict,
             meta: event.meta,
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct InternalFeedbackEvent<'a> {
-    pub task_input: Cow<'a, str>,
-    pub input: Cow<'a, str>,
-    pub generated_output: Cow<'a, str>,
-    pub verdict: InternalFeedbackVerdict,
-    pub meta: InternalFeedbackMeta,
-}
-
-impl<'a> InternalFeedbackEvent<'a> {
-    pub fn to_record(self) -> InternalFeedbackRecord<'a> {
-        InternalFeedbackRecord::from_event(self)
     }
 }
