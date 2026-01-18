@@ -1,0 +1,1 @@
+pub const MAX_LOG_CHARS: usize = 8_000;
