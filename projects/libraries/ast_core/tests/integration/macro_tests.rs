@@ -10,7 +10,7 @@ fn test_macro_build_object() {
     });
 
     assert!(node.is_object());
-    assert_eq!(node.get("name").unwrap().as_str(), Some("test"));
+    assert_eq!(node.get("name").unwrap().as_string(), Some("test"));
     assert_eq!(
         node.get("value").unwrap().as_number().unwrap().as_i64(),
         Some(42)
@@ -107,7 +107,7 @@ fn test_macro_nested_structures() {
             .unwrap()
             .get("key")
             .unwrap()
-            .as_str(),
+            .as_string(),
         Some("value")
     );
 }
@@ -184,7 +184,7 @@ fn test_macro_large_nested_structure() {
             .unwrap()
             .get("key")
             .unwrap()
-            .as_str(),
+            .as_string(),
         Some("deep_value")
     );
 }
