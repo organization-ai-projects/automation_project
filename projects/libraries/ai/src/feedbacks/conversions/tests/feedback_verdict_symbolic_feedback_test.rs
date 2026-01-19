@@ -16,6 +16,12 @@ mod tests {
         assert!(!symbolic_feedback.is_positive());
         assert!(symbolic_feedback.payload.is_none());
 
+        // Test case: NoFeedback verdict
+        let verdict = FeedbackVerdict::NoFeedback;
+        let symbolic_feedback: SymbolicFeedback = verdict.into();
+        assert!(!symbolic_feedback.is_positive());
+        assert!(symbolic_feedback.payload.is_none());
+
         // Test case: Incorrect verdict
         let verdict = FeedbackVerdict::Incorrect {
             expected_output: "Expected output".into(),

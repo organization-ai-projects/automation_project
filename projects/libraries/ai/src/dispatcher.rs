@@ -3,6 +3,7 @@ use crate::SolverStrategy;
 use crate::task::Task;
 use crate::task_type::TaskType;
 
+#[allow(dead_code)]
 pub struct Dispatcher {
     // Statistics to improve decision-making
     symbolic_success_rate: f64,
@@ -64,6 +65,7 @@ impl Dispatcher {
     }
 
     /// Updates success statistics
+         #[allow(dead_code)]
     pub fn update_stats(&mut self, strategy: SolverStrategy, success: bool) {
         // Update using moving average
         let alpha = 0.1; // Adjustment factor for moving average

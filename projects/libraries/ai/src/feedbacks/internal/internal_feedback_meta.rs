@@ -1,19 +1,20 @@
-// projects/libraries/ai/src/feedback_meta.rs
+// projects/libraries/ai/src/feedbacks/internal/internal_feedback_meta.rs
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
-use crate::feedbacks::FeedbackMeta;
+use crate::feedbacks::public_api_feedback::FeedbackMeta;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct InternalFeedbackMeta {
+pub(crate) struct InternalFeedbackMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub confidence: Option<f32>,
+    pub(crate) confidence: Option<f32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub rationale: Option<String>,
+    pub(crate) rationale: Option<Cow<'static, str>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub source: Option<String>,
+    pub(crate) source: Option<Cow<'static, str>>,
 }
 
 impl InternalFeedbackMeta {
@@ -26,8 +27,8 @@ impl<'a> From<FeedbackMeta<'a>> for InternalFeedbackMeta {
     fn from(meta: FeedbackMeta<'a>) -> Self {
         InternalFeedbackMeta {
             confidence: meta.confidence,
-            rationale: meta.rationale.map(|s| s.into_owned()),
-            source: meta.source.map(|s| s.into_owned()),
+            rationale: meta.rationale.map(|s| Cow::Owned(s.into_owned())),
+            source: meta.source.map(|s| Cow::Owned(s.into_owned())),
         }
     }
 }

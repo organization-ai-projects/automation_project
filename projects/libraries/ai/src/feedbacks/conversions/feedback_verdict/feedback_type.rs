@@ -1,5 +1,5 @@
 // projects/libraries/ai/src/feedbacks/conversions/feedback_verdict/feedback_type.rs
-use crate::feedbacks::FeedbackVerdict;
+use crate::feedbacks::public_api_feedback::FeedbackVerdict;
 use neural::feedback::FeedbackType;
 
 impl<'a> From<FeedbackVerdict<'a>> for FeedbackType {
@@ -10,6 +10,10 @@ impl<'a> From<FeedbackVerdict<'a>> for FeedbackType {
             },
             FeedbackVerdict::Rejected => FeedbackType::Incorrect {
                 expected_output: "Rejected".to_string(),
+                metadata: Default::default(),
+            },
+            FeedbackVerdict::NoFeedback => FeedbackType::Incorrect {
+                expected_output: "NoFeedback".to_string(),
                 metadata: Default::default(),
             },
             FeedbackVerdict::Incorrect { expected_output } => FeedbackType::Incorrect {

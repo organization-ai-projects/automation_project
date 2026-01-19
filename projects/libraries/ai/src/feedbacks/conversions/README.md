@@ -16,6 +16,7 @@ Ce dossier contient les implémentations des conversions entre différents types
 1. **Un fichier par conversion** : Chaque fichier doit contenir les implémentations de conversion pour un type cible spécifique.
 2. **Documentation** : Chaque implémentation doit être accompagnée de commentaires expliquant son rôle et ses particularités.
 3. **Tests** : Les tests unitaires pour les conversions doivent être placés dans les fichiers correspondants ou dans un dossier `tests/` si nécessaire.
+4. **Centralisation** : Toute conversion entre types de domaines différents (public ↔ internal, public ↔ symbolic, etc.) doit être implémentée exclusivement dans ce dossier. Les implémentations `From` / `Into` en dehors de `conversions/` sont interdites.
 
 ## Exemple
 
@@ -29,6 +30,7 @@ impl<'a> From<FeedbackVerdict<'a>> for InternalFeedbackVerdict {
         match verdict {
             FeedbackVerdict::Correct => InternalFeedbackVerdict::Correct,
             FeedbackVerdict::Rejected => InternalFeedbackVerdict::Rejected,
+            FeedbackVerdict::NoFeedback => InternalFeedbackVerdict::NoFeedback,
             FeedbackVerdict::Incorrect { expected_output } => InternalFeedbackVerdict::Incorrect {
                 expected_output: expected_output.into_owned(),
             },

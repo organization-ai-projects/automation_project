@@ -1,52 +1,11 @@
-// projects/libraries/ai/src/feedbacks/api_feedback.rs
-use serde::{Deserialize, Serialize};
+// projects/libraries/ai/src/feedbacks/public_api_feedback/feedback_input.rs
 use std::borrow::Cow;
 
-use crate::feedbacks::InternalFeedbackEvent;
+use crate::feedbacks::public_api_feedback::{FeedbackMeta, FeedbackVerdict};
 
-/// Public metadata (API). Stable and extensible.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct FeedbackMeta<'a> {
-    pub confidence: Option<f32>,
-    pub rationale: Option<Cow<'a, str>>,
-    pub source: Option<Cow<'a, str>>,
-}
-
-impl<'a> FeedbackMeta<'a> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn confidence(mut self, v: f32) -> Self {
-        self.confidence = Some(v);
-        self
-    }
-
-    pub fn rationale(mut self, v: impl Into<Cow<'a, str>>) -> Self {
-        self.rationale = Some(v.into());
-        self
-    }
-
-    pub fn source(mut self, v: impl Into<Cow<'a, str>>) -> Self {
-        self.source = Some(v.into());
-        self
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.confidence.is_none() && self.rationale.is_none() && self.source.is_none()
-    }
-}
-
-/// Public verdict (API). Unambiguous.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FeedbackVerdict<'a> {
-    Correct,
-    Incorrect { expected_output: Cow<'a, str> },
-    Partial { correction: Cow<'a, str> },
-    Rejected,
-}
-
-/// Complete public request (API).
+/// FeedbackInput is the main entry point / public DTO for feedback.
+///
+/// It is the only structure intended to be used by other modules in this crate.
 #[derive(Debug, Clone)]
 pub struct FeedbackInput<'a> {
     pub task_input: Cow<'a, str>,
@@ -57,7 +16,8 @@ pub struct FeedbackInput<'a> {
 }
 
 impl<'a> FeedbackInput<'a> {
-    pub fn correct(
+    #[allow(dead_code)]
+    pub(crate) fn correct(
         task_input: impl Into<Cow<'a, str>>,
         input: impl Into<Cow<'a, str>>,
         generated_output: impl Into<Cow<'a, str>>,
@@ -71,7 +31,24 @@ impl<'a> FeedbackInput<'a> {
         }
     }
 
-    pub fn incorrect_expected(
+    #[allow(dead_code)]
+    pub(crate) fn correct_with_meta(
+        task_input: impl Into<Cow<'a, str>>,
+        input: impl Into<Cow<'a, str>>,
+        generated_output: impl Into<Cow<'a, str>>,
+        meta: impl Into<FeedbackMeta<'a>>,
+    ) -> Self {
+        Self {
+            task_input: task_input.into(),
+            input: input.into(),
+            generated_output: generated_output.into(),
+            verdict: FeedbackVerdict::Correct,
+            meta: meta.into(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn incorrect(
         task_input: impl Into<Cow<'a, str>>,
         input: impl Into<Cow<'a, str>>,
         generated_output: impl Into<Cow<'a, str>>,
@@ -88,7 +65,8 @@ impl<'a> FeedbackInput<'a> {
         }
     }
 
-    pub fn partial_correction(
+    #[allow(dead_code)]
+    pub(crate) fn partial(
         task_input: impl Into<Cow<'a, str>>,
         input: impl Into<Cow<'a, str>>,
         generated_output: impl Into<Cow<'a, str>>,
@@ -105,7 +83,8 @@ impl<'a> FeedbackInput<'a> {
         }
     }
 
-    pub fn rejected(
+    #[allow(dead_code)]
+    pub(crate) fn rejected(
         task_input: impl Into<Cow<'a, str>>,
         input: impl Into<Cow<'a, str>>,
         generated_output: impl Into<Cow<'a, str>>,
@@ -119,18 +98,23 @@ impl<'a> FeedbackInput<'a> {
         }
     }
 
-    pub fn meta(mut self, meta: FeedbackMeta<'a>) -> Self {
-        self.meta = meta;
-        self
-    }
-
-    pub(crate) fn to_internal(&self) -> InternalFeedbackEvent<'a> {
-        InternalFeedbackEvent {
-            task_input: self.task_input.clone(),
-            input: self.input.clone(),
-            generated_output: self.generated_output.clone(),
-            verdict: self.verdict.clone().into(),
-            meta: self.meta.clone().into(),
+    #[allow(dead_code)]
+    pub(crate) fn no_feedback(
+        task_input: impl Into<Cow<'a, str>>,
+        input: impl Into<Cow<'a, str>>,
+        generated_output: impl Into<Cow<'a, str>>,
+    ) -> Self {
+        Self {
+            task_input: task_input.into(),
+            input: input.into(),
+            generated_output: generated_output.into(),
+            verdict: FeedbackVerdict::NoFeedback,
+            meta: FeedbackMeta::new(),
         }
+    }
+    #[allow(dead_code)]
+    pub(crate) fn meta(mut self, meta: impl Into<FeedbackMeta<'a>>) -> Self {
+        self.meta = meta.into();
+        self
     }
 }

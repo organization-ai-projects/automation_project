@@ -25,6 +25,17 @@ mod tests {
             }
         );
 
+        // Test case: NoFeedback verdict
+        let internal_verdict = InternalFeedbackVerdict::NoFeedback;
+        let feedback_type: FeedbackType = internal_verdict.into();
+        assert_eq!(
+            feedback_type,
+            FeedbackType::Incorrect {
+                expected_output: "NoFeedback".to_string(),
+                metadata: Default::default()
+            }
+        );
+
         // Test case: Incorrect verdict
         let internal_verdict = InternalFeedbackVerdict::Incorrect {
             expected_output: "Expected output".to_string(),
