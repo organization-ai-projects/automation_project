@@ -1,7 +1,9 @@
 // projects/libraries/command_runner/src/cdm_log.rs
 use std::process::Output;
 
-use crate::{CommandInfo, MAX_LOG_CHARS, status_string, trim_lossy, truncate_utf8};
+use common::{trim_lossy, truncate_utf8};
+
+use crate::{CommandInfo, MAX_LOG_CHARS, status_string};
 
 #[derive(Debug, Clone)]
 pub struct CmdLog {

@@ -65,7 +65,7 @@ impl Dispatcher {
     }
 
     /// Updates success statistics
-         #[allow(dead_code)]
+    #[allow(dead_code)]
     pub fn update_stats(&mut self, strategy: SolverStrategy, success: bool) {
         // Update using moving average
         let alpha = 0.1; // Adjustment factor for moving average
