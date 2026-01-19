@@ -1,12 +1,12 @@
 /// projects/libraries/ast_core/src/span.rs
 /// A source span (byte offsets).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Span {
+pub struct AstSpan {
     pub start: u32,
     pub end: u32,
 }
 
-impl Span {
+impl AstSpan {
     /// Creates a new span.
     pub fn new(start: u32, end: u32) -> Self {
         Self { start, end }

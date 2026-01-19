@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 thiserror = "1.0"
 chrono = "0.4"
-command_runner = { workspace = true }
 common_time = { workspace = true }
 serde = { workspace = true }
 rand = "0.8"

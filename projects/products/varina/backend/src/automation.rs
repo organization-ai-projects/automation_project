@@ -1,6 +1,7 @@
 // projects/products/varina/backend/src/automation.rs
 use std::path::Path;
 
+#[allow(deprecated)]
 use git_lib::commands::{
     build_commit_message, build_commit_subject, current_branch, ensure_git_repo, git_add_paths,
     git_commit, git_commit_dry_run, git_push_current_branch, git_status_porcelain_z,
@@ -26,6 +27,7 @@ pub fn run_git_autopilot(mode: AutopilotMode, policy: &AutopilotPolicy) -> Resul
 
 /// Production entry point: execute autopilot inside a specific repo directory.
 /// This removes any dependency on process CWD (important when engine spawns backends).
+#[allow(deprecated)]
 pub fn run_git_autopilot_in_repo(
     repo_path: &Path,
     mode: AutopilotMode,
@@ -35,8 +37,9 @@ pub fn run_git_autopilot_in_repo(
     let mut logs = Vec::<String>::new();
 
     logs.push(format!("[ctx] repo_path={}", repo_path.display()));
+    #[allow(deprecated)]
     ensure_git_repo(&repo_path, &mut logs)?;
-
+    #[allow(deprecated)]
     let (branch, detached_head) = current_branch(&repo_path, &mut logs)?;
     logs.push(format!(
         "[git] branch={branch} detached_head={detached_head}"
@@ -247,6 +250,7 @@ pub fn run_git_autopilot_in_repo(
         if plan.will_commit {
             // Stage relevant (batch)
             logs.push(format!("[debug] Staging files: {:?}", plan.will_stage));
+            #[allow(deprecated)]
             git_add_paths(&repo_path, &plan.will_stage, &mut logs)?;
 
             logs.push(format!(
@@ -279,6 +283,7 @@ pub fn run_git_autopilot_in_repo(
 
             // Commit (subject + body)
             println!("[debug] Attempting commit with changes: {:?}", changes);
+
             println!(
                 "[debug] Commit message: {:?}",
                 build_commit_message(&branch, &classified.relevant)
@@ -339,6 +344,8 @@ pub fn run_git_autopilot_in_repo(
 /// ==============================
 /// SECTION: Optional tiny util
 /// ==============================
+/// Checks if a file or directory exists at the given path.
+/// This function is currently unused and may be removed in the future.
 #[allow(dead_code)]
 fn exists(path: &str) -> bool {
     Path::new(path).exists()

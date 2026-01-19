@@ -1,12 +1,15 @@
 // projects/libraries/ai/src/ai_orchestrator.rs
-use std::path;
-use tracing::{info, warn};
+use std::path::Path;
+use tracing::{debug, info};
 
 use crate::{
     ai_error::AiError,
     dispatcher::Dispatcher,
-    feedbacks::{InternalFeedbackEvent, ai_feedback::AiFeedback},
+    feedbacks::internal::internal_feedback_input::InternalFeedbackInput,
+    feedbacks::{ai_feedback::AiFeedback, public_api_feedback::FeedbackInput},
+    solve_trace::SolveTrace,
     task::Task,
+    task_result::TaskResult,
 };
 
 /// Internal structure for AI orchestration.
@@ -28,32 +31,22 @@ impl AiOrchestrator {
 
     pub(crate) fn load_neural_model(
         &mut self,
-        model_path: &path::Path,
-        tokenizer_path: &path::Path,
+        model_path: &Path,
+        tokenizer_path: &Path,
     ) -> Result<(), AiError> {
-        info!("Loading neural model...");
+        debug!("Loading neural model...");
         self.feedback
             .load_neural_model(model_path, tokenizer_path)?;
-        info!("Neural model loaded successfully");
+        debug!("Neural model loaded successfully");
         Ok(())
     }
 
     pub(crate) fn save_neural_model(
         &self,
-        model_path: &path::Path,
-        tokenizer_path: &path::Path,
+        model_path: &Path,
+        tokenizer_path: &Path,
     ) -> Result<(), AiError> {
-        if let Some(neural) = &self.feedback.neural {
-            neural.save_model(model_path, Some(tokenizer_path))?;
-            info!(
-                "Neural model saved successfully to {:?} and {:?}",
-                model_path, tokenizer_path
-            );
-            Ok(())
-        } else {
-            warn!("Neural model not loaded. Cannot save.");
-            Err(AiError::TaskError("Neural model not loaded".into()))
-        }
+        self.feedback.save_neural_model(model_path, tokenizer_path)
     }
 
     // --- Feedback API ---
@@ -63,8 +56,20 @@ impl AiOrchestrator {
     /// Adjust feedback for both symbolic and neural solvers.
     /// This is a convenience wrapper around AiFeedback::adjust.
     /// Only accepts primitives.
-    pub(crate) fn adjust(&mut self, event: &InternalFeedbackEvent<'_>) -> Result<(), AiError> {
-        self.feedback.adjust(event)
+    pub(crate) fn adjust(&mut self, feedback_input: &FeedbackInput<'_>) -> Result<(), AiError> {
+        let internal_feedback_input = InternalFeedbackInput::from(feedback_input);
+        self.feedback.adjust(&internal_feedback_input)
+    }
+
+    /// Adjust feedback using a solve trace (path-aware neurosymbolic training).
+    pub(crate) fn adjust_with_trace(
+        &mut self,
+        feedback_input: &FeedbackInput<'_>,
+        trace: &SolveTrace,
+    ) -> Result<(), AiError> {
+        let internal_feedback_input = InternalFeedbackInput::from(feedback_input);
+        self.feedback
+            .adjust_with_trace(&internal_feedback_input, trace)
     }
 
     // Simplified API
@@ -87,15 +92,19 @@ impl AiOrchestrator {
         Ok(self.solve(&task)?.output)
     }
 
-    pub(crate) fn evaluate_model(&mut self, test_data: Vec<String>) -> Result<f64, AiError> {
-        if let Some(neural) = &mut self.feedback.neural {
-            neural.evaluate_model(test_data).map_err(|e| {
-                warn!("Neural evaluation failed: {:?}", e);
-                AiError::TaskError("Neural evaluation failed".into())
-            })
-        } else {
-            warn!("Neural model not loaded. Cannot evaluate.");
-            Err(AiError::TaskError("Neural model not loaded".into()))
-        }
+    pub(crate) fn evaluate_model(
+        &mut self,
+        evaluate_data: impl IntoIterator<Item = String>,
+    ) -> Result<f64, AiError> {
+        self.feedback.evaluate_model(evaluate_data)
+    }
+    #[allow(dead_code)]
+    pub(crate) fn solve_and_return_trace(
+        &mut self,
+        task: &Task,
+    ) -> Result<(TaskResult, SolveTrace), AiError> {
+        let res = self.solve(task)?;
+        let trace = res.trace().clone();
+        Ok((res, trace))
     }
 }
