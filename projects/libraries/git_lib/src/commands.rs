@@ -1,25 +1,39 @@
 // projects/libraries/git_lib/src/commands.rs
-use command_runner::{CommandError, run_cmd_allow_failure, run_cmd_ok};
-use std::collections::BTreeMap;
+use command_runner::{CommandError, CommandInfo, run_cmd_allow_failure, run_cmd_ok};
+use common::string_manipulate::trim_lossy;
 use std::path::{Path, PathBuf};
 use std::result::Result as StdResult;
 
-use crate::git_change::{GitChange, GitStatus};
+use crate::PushContext;
+use crate::git_change::GitChange;
+use crate::repo_context::RepoContext;
 
 type Result<T> = StdResult<T, CommandError>;
 
-const GIT_BIN: &str = "git";
-const ADD_CHUNK: usize = 100;
+pub const GIT_BIN: &str = "git";
 
-// -----------------------------
-// Small helpers
-// -----------------------------
+fn invalid(reason: impl Into<String>) -> CommandError {
+    CommandError::InvalidInput {
+        info: CommandInfo {
+            program: GIT_BIN.to_string(),
+            args: vec![],
+        },
+        reason: reason.into(),
+    }
+}
 
+// ==============================
+// SECTION: Fonctions dépréciées
+// ==============================
+
+// Constantes et utilitaires nécessaires pour les fonctions dépréciées
+#[deprecated(note = "Utilisez une autre méthode pour s_trim.")]
 #[inline]
-fn s_trim(bytes: &[u8]) -> String {
+pub fn s_trim(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).trim().to_string()
 }
 
+#[deprecated(note = "Utilisez une autre méthode pour truncate_utf8.")]
 /// UTF-8 safe truncation (no panic).
 pub fn truncate_utf8(mut s: String, max: usize) -> String {
     if s.len() <= max {
@@ -36,59 +50,62 @@ pub fn truncate_utf8(mut s: String, max: usize) -> String {
     s
 }
 
-fn invalid(reason: impl Into<String>) -> CommandError {
-    CommandError::InvalidInput {
-        program: GIT_BIN.to_string(),
-        reason: reason.into(),
+const ADD_CHUNK: usize = 100;
+
+// Fonctions dépréciées (restaurées avec leurs dépendances)
+#[deprecated(note = "Use PushContext::push instead.")]
+pub fn git_push_current_branch(
+    repo_path: &Path,
+    remote: &str,
+    set_upstream_if_missing: bool,
+    logs: &mut Vec<String>,
+) -> Result<()> {
+    let remote = remote.trim();
+    if remote.is_empty() {
+        return Err(CommandError::InvalidInput {
+            info: CommandInfo {
+                program: GIT_BIN.to_string(),
+                args: vec![],
+            },
+            reason: "Remote vide pour le push".to_string(),
+        });
     }
-}
 
-// -----------------------------
-// Repo checks / info
-// -----------------------------
-
-/// Ensures the given path is a Git repository.
-pub fn ensure_git_repo(repo_path: &Path, logs: &mut Vec<String>) -> Result<()> {
-    let out = run_cmd_ok(
+    let upstream_probe = run_cmd_allow_failure(
         repo_path,
         GIT_BIN,
-        &["rev-parse", "--is-inside-work-tree"],
+        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
         logs,
     )?;
-    let s = s_trim(&out.stdout);
-    if s != "true" {
-        return Err(invalid("Refus: pas dans un repository git."));
+
+    let has_upstream = upstream_probe.status.success();
+
+    if has_upstream {
+        run_cmd_ok(repo_path, GIT_BIN, &["push"], logs)?;
+        return Ok(());
     }
+
+    if !set_upstream_if_missing {
+        logs.push("[git] upstream missing; push skipped (set_upstream_if_missing=false)".into());
+        return Ok(());
+    }
+    #[allow(deprecated)]
+    let (branch, detached) = current_branch(repo_path, logs)?;
+    if detached {
+        return Err(CommandError::InvalidInput {
+            info: CommandInfo {
+                program: GIT_BIN.to_string(),
+                args: vec![],
+            },
+            reason: "Refus: HEAD détaché, impossible de push upstream automatiquement.".to_string(),
+        });
+    }
+
+    run_cmd_ok(repo_path, GIT_BIN, &["push", "-u", remote, &branch], logs)?;
     Ok(())
 }
 
-/// Default repo path if empty. (Does not canonicalize on purpose.)
-pub fn normalize_repo_path(repo_path: &Path) -> Result<PathBuf> {
-    if repo_path.as_os_str().is_empty() {
-        Ok(PathBuf::from("."))
-    } else {
-        Ok(repo_path.to_path_buf())
-    }
-}
-
-/// Retrieves the current branch and checks if HEAD is detached.
-pub fn current_branch(repo_path: &Path, logs: &mut Vec<String>) -> Result<(String, bool)> {
-    let out = run_cmd_ok(
-        repo_path,
-        GIT_BIN,
-        &["rev-parse", "--abbrev-ref", "HEAD"],
-        logs,
-    )?;
-    let branch = s_trim(&out.stdout);
-    let detached = branch == "HEAD" || branch.is_empty();
-    Ok((branch, detached))
-}
-
-// -----------------------------
-// Index / commit / push
-// -----------------------------
-
-/// Adds files to the Git index.
+#[deprecated(note = "Utilisez RepoContext::git_add_paths à la place.")]
 pub fn git_add_paths(repo_path: &Path, paths: &[String], logs: &mut Vec<String>) -> Result<()> {
     logs.push("[debug] git_add_paths: function entered".to_string());
 
@@ -127,8 +144,37 @@ pub fn git_add_paths(repo_path: &Path, paths: &[String], logs: &mut Vec<String>)
     Ok(())
 }
 
-/// Commits staged changes with a subject and optional body.
-/// Note: this does NOT stage files. Caller should stage first.
+#[deprecated(note = "Utilisez RepoContext::current_branch à la place.")]
+pub fn current_branch(repo_path: &Path, logs: &mut Vec<String>) -> Result<(String, bool)> {
+    let out = run_cmd_ok(
+        repo_path,
+        GIT_BIN,
+        &["rev-parse", "--abbrev-ref", "HEAD"],
+        logs,
+    )?;
+    #[allow(deprecated)]
+    let branch = s_trim(&out.stdout);
+    let detached = branch == "HEAD" || branch.is_empty();
+    Ok((branch, detached))
+}
+
+#[deprecated(note = "Utilisez RepoContext::ensure_git_repo à la place.")]
+pub fn ensure_git_repo(repo_path: &Path, logs: &mut Vec<String>) -> Result<()> {
+    let out = run_cmd_ok(
+        repo_path,
+        GIT_BIN,
+        &["rev-parse", "--is-inside-work-tree"],
+        logs,
+    )?;
+    #[allow(deprecated)]
+    let s = s_trim(&out.stdout);
+    if s != "true" {
+        return Err(invalid("Refus: pas dans un repository git."));
+    }
+    Ok(())
+}
+
+#[deprecated(note = "Utilisez CommitContext::git_commit à la place.")]
 pub fn git_commit(
     repo_path: &Path,
     subject: &str,
@@ -140,7 +186,6 @@ pub fn git_commit(
         return Err(invalid("Sujet de commit vide"));
     }
 
-    // Safety check: make sure something is staged (gives a clearer error)
     let staged = run_cmd_ok(
         repo_path,
         GIT_BIN,
@@ -165,8 +210,7 @@ pub fn git_commit(
     Ok(())
 }
 
-/// Validates commit without applying changes.
-/// This requires staged files too (git checks it).
+#[deprecated(note = "Utilisez CommitContext::git_commit_dry_run à la place.")]
 pub fn git_commit_dry_run(
     repo_path: &Path,
     subject: &str,
@@ -197,54 +241,56 @@ pub fn git_commit_dry_run(
     Ok(())
 }
 
-/// Pushes the current branch.
-/// If upstream missing:
-/// - if set_upstream_if_missing => push -u <remote> <branch>
-/// - else => no-op (logged)
-pub fn git_push_current_branch(
-    repo_path: &Path,
+#[deprecated(note = "Utilisez une autre méthode pour construire le message de commit.")]
+pub fn build_commit_message(branch: &str, classified_relevant: &[GitChange]) -> (String, String) {
+    let subject = format!("varina: update ({})", branch.trim());
+    let body = classified_relevant
+        .iter()
+        .map(|change| format!("{:?}: {}", change.xy, change.path))
+        .collect::<Vec<_>>()
+        .join("\n");
+    (subject, body)
+}
+
+#[deprecated(note = "Utilisez une autre méthode pour construire le sujet du commit.")]
+pub fn build_commit_subject(branch: &str) -> String {
+    let base = format!("varina: update ({})", branch.trim());
+    #[allow(deprecated)]
+    truncate_utf8(base, 72)
+}
+
+#[deprecated(note = "Utilisez une autre méthode pour normalize_repo_path.")]
+pub fn normalize_repo_path(repo_path: &Path) -> Result<PathBuf> {
+    if repo_path.as_os_str().is_empty() {
+        Ok(PathBuf::from("."))
+    } else {
+        Ok(repo_path.to_path_buf())
+    }
+}
+
+// ==============================
+// SECTION: Nouvelles fonctions
+// ==============================
+
+/// Nouvelle fonction moderne pour effectuer un push avec `PushContext`.
+pub fn push_with_context(
+    repo_context: &mut RepoContext,
     remote: &str,
+    branch: Option<&str>,
     set_upstream_if_missing: bool,
-    logs: &mut Vec<String>,
 ) -> Result<()> {
-    let remote = remote.trim();
-    if remote.is_empty() {
-        return Err(invalid("Remote vide pour le push"));
-    }
+    let mut push_ctx = PushContext {
+        repo_path: repo_context.repo_path,
+        logs: repo_context.logs,
+        remote,
+        branch,
+    };
 
-    // Upstream probe is intentionally permissive:
-    // non-zero means "no upstream", not necessarily a fatal error.
-    let upstream_probe = run_cmd_allow_failure(
-        repo_path,
-        GIT_BIN,
-        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
-        logs,
-    )?;
-
-    let has_upstream = upstream_probe.status.success();
-
-    if has_upstream {
-        run_cmd_ok(repo_path, GIT_BIN, &["push"], logs)?;
-        return Ok(());
-    }
-
-    if !set_upstream_if_missing {
-        logs.push("[git] upstream missing; push skipped (set_upstream_if_missing=false)".into());
-        return Ok(());
-    }
-
-    let (branch, detached) = current_branch(repo_path, logs)?;
-    if detached {
-        return Err(invalid(
-            "Refus: HEAD détaché, impossible de push upstream automatiquement.",
-        ));
-    }
-
-    run_cmd_ok(repo_path, GIT_BIN, &["push", "-u", remote, &branch], logs)?;
-    Ok(())
+    push_ctx.push(set_upstream_if_missing)
 }
 
 /// Pushes to a remote branch.
+#[deprecated(note = "Use PushContext::push instead.")]
 pub fn git_push(
     repo_path: &Path,
     remote: &str,
@@ -265,9 +311,24 @@ pub fn git_push(
     Ok(())
 }
 
-// -----------------------------
-// Status / parsing
-// -----------------------------
+/// Runs a Git command with optional failure handling.
+pub fn run_git_command(
+    repo_path: &Path,
+    args: &[&str],
+    logs: &mut Vec<String>,
+    allow_failure: bool,
+) -> Result<String> {
+    let result = if allow_failure {
+        run_cmd_allow_failure(repo_path, GIT_BIN, args, logs)
+    } else {
+        run_cmd_ok(repo_path, GIT_BIN, args, logs)
+    };
+
+    match result {
+        Ok(out) => Ok(trim_lossy(&out.stdout)),
+        Err(err) => Err(err),
+    }
+}
 
 /// Retrieves the Git status in porcelain v1 format (-z) and parses it.
 pub fn git_status_porcelain_z(repo_path: &Path, logs: &mut Vec<String>) -> Result<Vec<GitChange>> {
@@ -357,51 +418,4 @@ pub fn read_cstr(bytes: &[u8], start: usize) -> Result<(String, usize)> {
     }
     let s = String::from_utf8_lossy(&bytes[start..end]).to_string();
     Ok((s, end + 1))
-}
-
-// -----------------------------
-// Commit message builders
-// -----------------------------
-
-/// Builds a short commit subject.
-pub fn build_commit_subject(branch: &str) -> String {
-    let base = format!("varina: update ({})", branch.trim());
-    truncate_utf8(base, 72)
-}
-
-/// Builds a detailed commit message.
-/// Grouping by GitStatus avoids allocations for status keys.
-pub fn build_commit_message(branch: &str, relevant: &[GitChange]) -> (String, String) {
-    let subject = build_commit_subject(branch);
-
-    let mut by_status: BTreeMap<GitStatus, Vec<String>> = BTreeMap::new();
-    for c in relevant {
-        by_status
-            .entry(c.status())
-            .or_default()
-            .push(display_change_path(c));
-    }
-
-    let mut body_lines = Vec::new();
-    for (status, files) in by_status {
-        body_lines.push(format!("- {}:", status.as_str()));
-        for f in files.into_iter().take(50) {
-            body_lines.push(format!("  - {}", f));
-        }
-        if body_lines.len() > 400 {
-            body_lines.push("  - ... (truncated)".into());
-            break;
-        }
-    }
-
-    let body = truncate_utf8(body_lines.join("\n"), 4000);
-    (subject, body)
-}
-
-/// Displays a Git change path (rename friendly).
-pub fn display_change_path(ch: &GitChange) -> String {
-    match &ch.orig_path {
-        Some(orig) => format!("{orig} -> {}", ch.path),
-        None => ch.path.clone(),
-    }
 }
