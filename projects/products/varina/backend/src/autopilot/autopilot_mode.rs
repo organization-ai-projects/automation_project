@@ -1,4 +1,4 @@
-// projects/products/varina/backend/src/autopilot/autopilot_mode.rs
+//! projects/products/varina/backend/src/autopilot/autopilot_mode.rs
 use serde::{Deserialize, Serialize};
 
 /// Autopilot execution mode.

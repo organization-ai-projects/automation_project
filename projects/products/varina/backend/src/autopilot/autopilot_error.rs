@@ -1,4 +1,4 @@
-// projects/products/varina/backend/src/autopilot/autopilot_error.rs
+//! projects/products/varina/backend/src/autopilot/autopilot_error.rs
 use std::fmt;
 
 use command_runner::CommandError;

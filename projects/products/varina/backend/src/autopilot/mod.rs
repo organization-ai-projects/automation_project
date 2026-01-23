@@ -1,4 +1,4 @@
-/// projects/products/varina/backend/src/autopilot/mod.rs
+//! projects/products/varina/backend/src/autopilot/mod.rs
 pub mod autopilot_error;
 pub mod autopilot_mode;
 pub mod autopilot_plan;

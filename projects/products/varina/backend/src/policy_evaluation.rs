@@ -1,48 +1,47 @@
-// projects/products/varina/backend/src/policy_evaluation.rs
-use git_lib::git_change::GitChange;
+//! projects/products/varina/backend/src/policy_evaluation.rs
 use ignore::gitignore::GitignoreBuilder;
 
 use crate::{
-    AutopilotPolicy, ClassifiedChangesRef,
+    AutopilotPolicy, ClassifiedChanges, ClassifiedChangesRef,
     autopilot::{
         CompiledAutopilotPolicy,
         compiled_autopilot_policy::{normalize_path, path_has_compiled_prefix},
     },
 };
 
-use std::path::Path;
+use std::path::{self, Path};
 
 /// ==============================
 /// SECTION: Policy evaluation
 /// ==============================
 /// Best: compiled policy + borrowed result (zero clone).
-pub fn classify_changes_ref<'a>(
-    changes: &'a [GitChange],
+pub fn classify_changes_ref(
+    changes: &[impl AsRef<str>],
     policy: &AutopilotPolicy,
-) -> ClassifiedChangesRef<'a> {
+) -> ClassifiedChangesRef {
     let compiled = CompiledAutopilotPolicy::from(policy);
     classify_changes_ref_with_policy(changes, &compiled)
 }
 
 /// Best: caller provides the compiled policy (useful for multiple operations).
-pub fn classify_changes_ref_with_policy<'a>(
-    changes: &'a [GitChange],
+pub fn classify_changes_ref_with_policy(
+    changes: &[impl AsRef<str>],
     policy: &CompiledAutopilotPolicy,
-) -> ClassifiedChangesRef<'a> {
+) -> ClassifiedChangesRef {
     let mut out = ClassifiedChangesRef::new();
 
     for ch in changes.iter() {
-        let path_norm = normalize_path(&ch.path);
+        let path_norm = normalize_path(ch.as_ref());
 
         if is_blocked_norm(&path_norm, policy) {
-            out.blocked.push(ch);
+            out.blocked.push(ch.as_ref().to_string());
             continue;
         }
 
         if is_relevant_norm(&path_norm, policy) {
-            out.relevant.push(ch);
+            out.relevant.push(ch.as_ref().to_string())
         } else {
-            out.unrelated.push(ch);
+            out.unrelated.push(ch.as_ref().to_string());
         }
     }
 
@@ -51,9 +50,9 @@ pub fn classify_changes_ref_with_policy<'a>(
 
 /// Compatibility: owning version (explicit clones at the last moment).
 pub fn classify_changes(
-    changes: &[GitChange],
+    changes: &[impl AsRef<str>],
     policy: &AutopilotPolicy,
-) -> crate::ClassifiedChanges {
+) -> ClassifiedChanges {
     classify_changes_ref(changes, policy).to_owned()
 }
 
@@ -93,13 +92,13 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
 
     println!("[debug] is_relevant: Checking path {}", path);
     // Check if the file exists
-    if !std::path::Path::new(path).exists() {
+    if !path::Path::new(path).exists() {
         println!("[debug] is_relevant: File {} does not exist", path);
         return false;
     }
 
     // Check with .gitignore
-    let gitignore_path = std::path::Path::new(".gitignore");
+    let gitignore_path = path::Path::new(".gitignore");
     if !gitignore_path.exists() {
         println!("[debug] is_relevant: .gitignore not found, no files will be ignored");
         return is_relevant_norm(&normalize_path(path), &compiled);
@@ -143,20 +142,17 @@ pub fn is_relevant_norm(path_norm: &str, policy: &CompiledAutopilotPolicy) -> bo
     false
 }
 
-pub fn display_change_path(ch: &GitChange) -> String {
-    match &ch.orig_path {
-        Some(orig) => format!("{orig} -> {}", ch.path),
-        None => ch.path.clone(),
-    }
+pub fn display_change_path(ch: &impl AsRef<str>) -> String {
+    ch.as_ref().to_string()
 }
 
 /// Unmerged states (porcelain XY):
 /// - 'U' is the canonical conflict marker
 /// - 'AA' and 'DD' are also unmerged
-pub fn has_merge_conflicts(changes: &[GitChange]) -> bool {
+pub fn has_merge_conflicts(changes: &[impl AsRef<str>]) -> bool {
     changes.iter().any(|c| {
-        let x = c.xy[0];
-        let y = c.xy[1];
+        let x = c.as_ref().as_bytes()[0];
+        let y = c.as_ref().as_bytes()[1];
         x == b'U' || y == b'U' || (x == b'A' && y == b'A') || (x == b'D' && y == b'D')
     })
 }

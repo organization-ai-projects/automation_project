@@ -1,4 +1,4 @@
-// projects/products/varina/backend/src/git_github/policy_suggestions.rs
+//! projects/products/varina/backend/src/git_github/policy_suggestions.rs
 use crate::autopilot::{AutopilotPolicy, AutopilotReport};
 
 pub struct PolicySuggestion {
