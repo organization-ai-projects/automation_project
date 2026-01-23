@@ -1,20 +1,17 @@
-// projects/products/varina/backend/src/classified_changes_ref.rs
-
-//libraries
-use git_lib::git_change::GitChange;
+//! projects/products/varina/backend/src/classified_changes_ref.rs
 
 //internal
 use crate::ClassifiedChanges;
 
 /// Classification of changes according to policy (borrowed, zero-clone).
 #[derive(Debug, Clone)]
-pub struct ClassifiedChangesRef<'a> {
-    pub relevant: Vec<&'a GitChange>,
-    pub unrelated: Vec<&'a GitChange>,
-    pub blocked: Vec<&'a GitChange>,
+pub struct ClassifiedChangesRef {
+    pub relevant: Vec<String>,
+    pub unrelated: Vec<String>,
+    pub blocked: Vec<String>,
 }
 
-impl<'a> ClassifiedChangesRef<'a> {
+impl ClassifiedChangesRef {
     pub fn new() -> Self {
         Self {
             relevant: Vec::new(),
@@ -26,14 +23,14 @@ impl<'a> ClassifiedChangesRef<'a> {
     /// Converts to an owning version (explicit clones).
     pub fn to_owned(&self) -> ClassifiedChanges {
         ClassifiedChanges {
-            relevant: self.relevant.iter().map(|&ch| ch.clone()).collect(),
-            unrelated: self.unrelated.iter().map(|&ch| ch.clone()).collect(),
-            blocked: self.blocked.iter().map(|&ch| ch.clone()).collect(),
+            relevant: self.relevant.to_vec(),
+            unrelated: self.unrelated.to_vec(),
+            blocked: self.blocked.to_vec(),
         }
     }
 }
 
-impl<'a> Default for ClassifiedChangesRef<'a> {
+impl Default for ClassifiedChangesRef {
     fn default() -> Self {
         Self::new()
     }

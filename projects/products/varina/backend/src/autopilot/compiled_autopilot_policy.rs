@@ -1,4 +1,4 @@
-// projects/products/varina/backend/src/compiled_autopilot_policy.rs
+//! projects/products/varina/backend/src/compiled_autopilot_policy.rs
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 

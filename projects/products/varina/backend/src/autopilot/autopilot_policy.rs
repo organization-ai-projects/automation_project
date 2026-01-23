@@ -1,4 +1,4 @@
-// projects/products/varina/backend/src/autopilot/autopilot_policy.rs
+//! projects/products/varina/backend/src/autopilot/autopilot_policy.rs
 use serde::{Deserialize, Serialize};
 
 use crate::pre_checks::PreChecks;

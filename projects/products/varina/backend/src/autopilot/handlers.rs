@@ -1,4 +1,4 @@
-// projects/products/varina/backend/src/autopilot/handlers.rs
+//! projects/products/varina/backend/src/autopilot/handlers.rs
 use common_json::to_value;
 use protocol::{ApplyRequest, ApplyResponse, PreviewRequest, PreviewResponse};
 

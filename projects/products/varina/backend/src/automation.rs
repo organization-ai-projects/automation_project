@@ -1,17 +1,16 @@
-// projects/products/varina/backend/src/automation.rs
-use std::path::Path;
-
-#[allow(deprecated)]
-use git_lib::commands::{
-    build_commit_message, build_commit_subject, current_branch, ensure_git_repo, git_add_paths,
-    git_commit, git_commit_dry_run, git_push_current_branch, git_status_porcelain_z,
-    normalize_repo_path,
-};
+//! projects/products/varina/backend/src/automation.rs
+use std::path::{Path, PathBuf};
+use std::{fs, process};
 
 use crate::autopilot::{
     AutopilotError, AutopilotMode, AutopilotPlan, AutopilotPolicy, AutopilotReport,
 };
 use crate::cargo::{cargo_fmt_check, cargo_test};
+use crate::git_github::commands::status::git_status_porcelain_z;
+use crate::git_github::commands::{
+    current_branch, ensure_git_repo, git_add_paths, git_commit, git_commit_dry_run,
+    git_push_current_branch, git_reset,
+};
 use crate::{PreChecks, classify_changes, has_merge_conflicts};
 
 type Result<T> = std::result::Result<T, AutopilotError>;
@@ -27,7 +26,6 @@ pub fn run_git_autopilot(mode: AutopilotMode, policy: &AutopilotPolicy) -> Resul
 
 /// Production entry point: execute autopilot inside a specific repo directory.
 /// This removes any dependency on process CWD (important when engine spawns backends).
-#[allow(deprecated)]
 pub fn run_git_autopilot_in_repo(
     repo_path: &Path,
     mode: AutopilotMode,
@@ -37,9 +35,7 @@ pub fn run_git_autopilot_in_repo(
     let mut logs = Vec::<String>::new();
 
     logs.push(format!("[ctx] repo_path={}", repo_path.display()));
-    #[allow(deprecated)]
     ensure_git_repo(&repo_path, &mut logs)?;
-    #[allow(deprecated)]
     let (branch, detached_head) = current_branch(&repo_path, &mut logs)?;
     logs.push(format!(
         "[git] branch={branch} detached_head={detached_head}"
@@ -139,16 +135,14 @@ pub fn run_git_autopilot_in_repo(
     }
 
     // Stage only relevant.
-    let will_stage = classified
-        .relevant
-        .iter()
-        .map(|c| c.path.clone())
-        .collect::<Vec<_>>();
+    let will_stage = classified.relevant.to_vec();
     let will_commit = !will_stage.is_empty();
     let will_push = policy.allow_push && will_commit;
 
     // Build commit message: subject + body (safe sizes).
-    let (commit_subject, commit_body) = build_commit_message(&branch, &classified.relevant);
+    let commit = build_commit_message(&branch, &classified.relevant);
+    let commit_subject = commit.0.to_string();
+    let commit_body = commit.1.to_string();
     let commit_message_for_report = if commit_body.is_empty() {
         commit_subject.clone()
     } else {
@@ -199,7 +193,7 @@ pub fn run_git_autopilot_in_repo(
     ));
     if lock_file.exists() {
         logs.push("[debug] .git/index.lock detected, attempting removal...".to_string());
-        std::fs::remove_file(&lock_file).map_err(|e| {
+        fs::remove_file(&lock_file).map_err(|e| {
             let error_message = format!("[error] Failed to remove .git/index.lock: {}", e);
             logs.push(error_message.clone());
             AutopilotError::from(error_message)
@@ -210,7 +204,7 @@ pub fn run_git_autopilot_in_repo(
     }
 
     // Check for active Git processes
-    let git_processes = std::process::Command::new("pgrep")
+    let git_processes = process::Command::new("pgrep")
         .arg("git")
         .output()
         .expect("Unable to check Git processes");
@@ -250,7 +244,6 @@ pub fn run_git_autopilot_in_repo(
         if plan.will_commit {
             // Stage relevant (batch)
             logs.push(format!("[debug] Staging files: {:?}", plan.will_stage));
-            #[allow(deprecated)]
             git_add_paths(&repo_path, &plan.will_stage, &mut logs)?;
 
             logs.push(format!(
@@ -260,26 +253,14 @@ pub fn run_git_autopilot_in_repo(
 
             logs.push(format!(
                 "[debug] automation.rs: relevant paths transmitted to git_add_paths={:?}",
-                classified
-                    .relevant
-                    .iter()
-                    .map(|c| c.path.clone())
-                    .collect::<Vec<_>>()
+                classified.relevant.to_vec()
             ));
 
             println!(
                 "[debug] Adding relevant paths to Git index: {:?}",
                 classified.relevant
             );
-            git_add_paths(
-                &repo_path,
-                &classified
-                    .relevant
-                    .iter()
-                    .map(|c| c.path.clone())
-                    .collect::<Vec<_>>(),
-                &mut logs,
-            )?;
+            git_add_paths(&repo_path, &classified.relevant.to_vec(), &mut logs)?;
 
             // Commit (subject + body)
             println!("[debug] Attempting commit with changes: {:?}", changes);
@@ -351,26 +332,30 @@ fn exists(path: &str) -> bool {
     Path::new(path).exists()
 }
 
-/// Resets specified files in the Git index
-pub fn git_reset(
-    repo_path: &Path,
-    paths: &[String],
-    logs: &mut Vec<String>,
-) -> std::result::Result<(), AutopilotError> {
-    logs.push(format!("[cmd] git reset -- {:?}", paths));
-
-    let status = std::process::Command::new("git")
-        .arg("reset")
-        .arg("--")
-        .args(paths)
-        .current_dir(repo_path)
-        .status()
-        .map_err(|e| AutopilotError::from(format!("Error executing git reset: {}", e)))?;
-
-    if !status.success() {
-        return Err(AutopilotError::from("git reset failed".to_string()));
+/// Normalizes the repository path to ensure it is absolute and valid.
+pub fn normalize_repo_path(repo_path: &Path) -> Result<PathBuf> {
+    let path = Path::new(repo_path);
+    if path.is_absolute() {
+        Ok(path.to_path_buf())
+    } else {
+        std::env::current_dir()
+            .map_err(|e| AutopilotError::from(format!("Failed to get current directory: {}", e)))?
+            .join(path)
+            .canonicalize()
+            .map_err(|e| AutopilotError::from(format!("Failed to normalize path: {}", e)))
     }
+}
 
-    logs.push("[cmd] git reset completed successfully".into());
-    Ok(())
+/// Builds the commit subject based on the current branch name.
+pub fn build_commit_subject(branch: &str) -> String {
+    format!("Commit on branch: {}", branch)
+}
+
+/// Builds the commit message based on the branch name and relevant changes.
+pub fn build_commit_message(branch: &str, relevant_changes: &[String]) -> (String, String) {
+    let changes_summary = relevant_changes.join(", ");
+    let subject = format!("Commit on branch: {}", branch);
+    let body = format!("Changes:\n{}", changes_summary);
+
+    (subject, body)
 }
