@@ -1,3 +1,4 @@
+// projects/libraries/ast_core/tests/integration/macro_tests.rs
 use ast_core::past;
 
 #[test]
@@ -9,7 +10,7 @@ fn test_macro_build_object() {
     });
 
     assert!(node.is_object());
-    assert_eq!(node.get("name").unwrap().as_str(), Some("test"));
+    assert_eq!(node.get("name").unwrap().as_string(), Some("test"));
     assert_eq!(
         node.get("value").unwrap().as_number().unwrap().as_i64(),
         Some(42)
@@ -65,7 +66,7 @@ fn test_macro_build_scalars() {
 fn test_macro_validate_presets() {
     let node = past!({ small: true });
 
-    let strict_result = past!(node, validate: preset: strict_json);
+    let strict_result = past!(node, validate: preset: strict);
     assert!(strict_result.is_ok());
 
     let unbounded_result = past!(node, validate: preset: unbounded);
@@ -106,7 +107,7 @@ fn test_macro_nested_structures() {
             .unwrap()
             .get("key")
             .unwrap()
-            .as_str(),
+            .as_string(),
         Some("value")
     );
 }
@@ -183,7 +184,7 @@ fn test_macro_large_nested_structure() {
             .unwrap()
             .get("key")
             .unwrap()
-            .as_str(),
+            .as_string(),
         Some("deep_value")
     );
 }
@@ -206,7 +207,6 @@ fn test_macro_large_object() {
         key7: 7,
         key8: 8,
         key9: 9,
-        // Add more keys dynamically if needed
     });
 
     assert!(node.is_object());

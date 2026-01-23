@@ -1,23 +1,23 @@
 # `common_tokenize`
 
-**Description** : Crate Rust pour la tokenisation de texte.
+**Description** : Rust crate for text tokenization.
 
-## Fonctionnalités
+## Features
 
-- Tokenisation rapide.
-- Support multilingue.
+- Fast tokenization.
+- Multilingual support.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml` :
 
 ```toml
 [dependencies]
 common_tokenize = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example of use
 ```

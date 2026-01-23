@@ -1,7 +1,7 @@
 //! Showcase of protocol_macros features
 //!
 //! Run with: cargo run --example showcase
-
+// projects/libraries/protocol_macros/examples/showcase.rs
 use protocol_macros::EnumMethods;
 
 // Example 1: Basic enum with all variant types

@@ -1,20 +1,20 @@
-# Fusion, comparaison et transformation de JSON
+# JSON Merging, Comparison, and Transformation
 
-Ce module fournit des utilitaires pour combiner, comparer et transformer des structures JSON.
+This module provides utilities for combining, comparing, and transforming JSON structures.
 
-## Contenu
+## Contents
 
-| Fonction       | Description                                            |
-| -------------- | ------------------------------------------------------ |
-| `merge`        | Fusionne avec une stratégie choisie                    |
-| `deep_merge`   | Fusion récursive des objets                            |
-| `concat_merge` | Fusion avec concaténation des tableaux                 |
-| `diff`         | Calcule les différences entre deux JSON                |
-| `contains`     | Vérifie si un JSON contient un autre                   |
-| `flatten`      | Aplatit un objet imbriqué en clés pointées             |
-| `unflatten`    | Reconstruit un objet imbriqué depuis des clés pointées |
+| Function       | Description                                   |
+| -------------- | --------------------------------------------- |
+| `merge`        | Merges with a chosen strategy                 |
+| `deep_merge`   | Recursive merging of objects                  |
+| `concat_merge` | Merging with array concatenation              |
+| `diff`         | Computes differences between two JSONs        |
+| `contains`     | Checks if one JSON contains another           |
+| `flatten`      | Flattens a nested object into dotted keys     |
+| `unflatten`    | Reconstructs a nested object from dotted keys |
 
-## Stratégiques de fusion
+## Merging Strategies
 
 ```rust
 use common_json::{pjson, deep_merge, concat_merge};
@@ -30,18 +30,18 @@ let patch = pjson!({
     tags: ["v2"]
 });
 
-// deep_merge : fusionne les objets, remplace les tableaux
+// deep_merge: merges objects, replaces arrays
 let merged = deep_merge(&base, &patch);
 assert_eq!(merged["config"]["timeout"], 30);
 assert_eq!(merged["config"]["debug"], true);
-assert_eq!(merged["tags"], pjson!(["v2"])); // Remplacé
+assert_eq!(merged["tags"], pjson!(["v2"])); // Replaced
 
-// concat_merge : fusionne les objets, concatène les tableaux
+// concat_merge: merges objects, concatenates arrays
 let merged = concat_merge(&base, &patch);
 assert_eq!(merged["tags"].as_array().unwrap().len(), 2); // ["v1", "v2"]
 ```
 
-## Diff et comparaison
+## Diff and Comparison
 
 ```rust
 use common_json::{pjson, diff, contains, JsonDiff};
@@ -53,7 +53,7 @@ let changes = diff(&old, &new);
 // name: Changed { from: "v1", to: "v2" }
 // extra: Added(true)
 
-// contains vérifie l'inclusion partielle
+// contains checks for partial inclusion
 let haystack = pjson!({ user: { name: "Alice", age: 30 }, active: true });
 assert!(contains(&haystack, &pjson!({ user: { name: "Alice"} })));
 ```
@@ -80,17 +80,17 @@ assert_eq!(restored["user"]["profile"]["name"], "Alice");
 
 ## Tests
 
-Ce module contient 8 tests couvrant :
+This module contains 8 tests covering :
 
-- `deep_merge` : fusion récursive
-- `concat_merge` : fusion avec concaténation
-- `diff` : comparaison (same, changed, added/removed)
-- `contains` : inclusion partielle
-- `flatten` / `unflatten` : aplatissement et reconstruction
+- `deep_merge` : recursive merging
+- `concat_merge` : merging with concatenation
+- `diff` : comparison (same, changed, added/removed)
+- `contains` : partial inclusion
+- `flatten` / `unflatten` : flattening and reconstruction
 
-### Non couvert
+### Not covered
 
-- `merge` avec `MergeStrategy::Replace`
-- `PatchOp` (défini mais non implémenté)
-- Diff sur tableaux avec éléments réordonnés
-- Flatten de tableaux (uniquement objets supportés)
+- `merge` with `MergeStrategy::Replace`
+- `PatchOp` (defined but not implemented)
+- Diff on arrays with reordered elements
+- Flattening of arrays (only objects supported)

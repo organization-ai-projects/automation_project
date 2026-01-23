@@ -1,28 +1,28 @@
-# Sérialisation JSON
+# JSON Serialization
 
-Ce module fournit des outils pour sérialiser des données en JSON, avec deux approches principales :
+This module provides tools for serializing data into JSON, with two main approaches:
 
-- **Trait [`JsonSerializable`]** : API orientée objet pour les types implémentant `serde::Serialize`.
-- **Fonctions standalone** : Utilisation directe sans implémentation de trait.
+- **Trait [`JsonSerializable`]**: Object-oriented API for types implementing `serde::Serialize`.
+- **Standalone Functions**: Direct usage without trait implementation.
 
-## Contenu
+## Contents
 
-| API                           | Description                      | Retourne                          |
-| ----------------------------- | -------------------------------- | --------------------------------- |
-| [`JsonSerializable::to_json`] | Méthode trait → valeur JSON      | `Result<Json, JsonError>`         |
-| [`to_json`]                   | Fonction → valeur JSON           | `Result<Json, JsonError>`         |
-| [`to_string`]                 | Fonction → chaîne compacte       | `JsonResult<String>`              |
-| [`to_string_pretty`]          | Fonction → chaîne formatée       | `JsonResult<String>`              |
-| [`to_bytes`]                  | Fonction → bytes compacts        | `JsonResult<Vec<u8>>`             |
-| [`to_bytes_pretty`]           | Fonction → bytes formatés        | `JsonResult<Vec<u8>>`             |
-| [`write_to`]                  | Fonction → écriture dans `Write` | `JsonResult<()>`                  |
-| [`write_to_pretty`]           | Fonction → écriture formatée     | `JsonResult<()>`                  |
+| API                           | Description                 | Returns                   |
+| ----------------------------- | --------------------------- | ------------------------- |
+| [`JsonSerializable::to_json`] | Trait method → JSON value   | `Result<Json, JsonError>` |
+| [`to_json`]                   | Function → JSON value       | `Result<Json, JsonError>` |
+| [`to_string`]                 | Function → Compact string   | `JsonResult<String>`      |
+| [`to_string_pretty`]          | Function → Formatted string | `JsonResult<String>`      |
+| [`to_bytes`]                  | Function → Compact bytes    | `JsonResult<Vec<u8>>`     |
+| [`to_bytes_pretty`]           | Function → Formatted bytes  | `JsonResult<Vec<u8>>`     |
+| [`write_to`]                  | Function → Write to `Write` | `JsonResult<()>`          |
+| [`write_to_pretty`]           | Function → Formatted write  | `JsonResult<()>`          |
 
-## Exemple d'utilisation
+## Usage Example
 
-### Trait vs Fonctions
+### Trait vs Functions
 
-Le trait [`JsonSerializable`] est automatiquement implémenté pour tout type implémentant `serde::Serialize`. Les deux approches sont équivalentes :
+The [`JsonSerializable`] trait is automatically implemented for any type implementing `serde::Serialize`. Both approaches are equivalent:
 
 ```rust
 use common_json::{to_string, JsonSerializable};
@@ -33,14 +33,14 @@ struct User { name: String }
 
 let user = User { name: "Alice".into() };
 
-// Approche fonction
+// Function approach
 let s1 = to_string(&user).unwrap();
 
-// Approche trait
+// Trait approach
 let s2 = user.to_json_string().unwrap();
 ```
 
-### Exemple complet
+### Full Example
 
 ```rust
 use common_json::{to_json, to_string, to_string_pretty, to_bytes, JsonSerializable};
@@ -59,15 +59,15 @@ let config = Config {
     max_connections: 100,
 };
 
-// Vers une valeur JSON
+// To a JSON value
 let json = to_json(&config).unwrap();
 assert_eq!(json["name"], "my-app");
 
-// Vers une chaîne compacte
+// To a compact string
 let compact = to_string(&config).unwrap();
 // {"name":"my-app","debug":true,"max_connections":100}
 
-// Vers une chaîne formatée
+// To a formatted string
 let pretty = to_string_pretty(&config).unwrap();
 // {
 //   "name": "my-app",
@@ -75,13 +75,13 @@ let pretty = to_string_pretty(&config).unwrap();
 //   "max_connections": 100
 // }
 
-// Vers des bytes (pour I/O réseau)
+// To bytes (for network I/O)
 let bytes = to_bytes(&config).unwrap();
 ```
 
-## Alias legacy
+## Legacy Aliases
 
-Pour la compatibilité avec l'ancien code, les alias suivants sont disponibles :
+For compatibility with old code, the following aliases are available:
 
 - [`to_value`] → [`to_json`]
 - [`to_json_string`] → [`to_string`]
@@ -89,15 +89,15 @@ Pour la compatibilité avec l'ancien code, les alias suivants sont disponibles :
 
 ## Tests
 
-Ce module contient des tests couvrant :
+This module contains tests covering:
 
-- `to_json` : conversion vers valeur JSON
-- `to_string` : conversion vers chaîne
-- `to_bytes` : conversion vers bytes
-- Méthodes du trait `JsonSerializable`
+- `to_json`: conversion to JSON value
+- `to_string`: conversion to string
+- `to_bytes`: conversion to bytes
+- Methods of the `JsonSerializable` trait
 
-### Non couvert
+### Not Covered
 
-- `write_to` / `write_to_pretty` (écriture vers un `Write`)
-- `to_string_pretty` / `to_bytes_pretty` (variantes formatées)
-- Gestion d'erreurs sur types non sérialisables
+- `write_to` / `write_to_pretty` (writing to a `Write`)
+- `to_string_pretty` / `to_bytes_pretty` (formatted variants)
+- Error handling for non-serializable types

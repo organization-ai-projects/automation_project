@@ -1,3 +1,4 @@
+// projects/libraries/ai/src/training.rs
 use crate::{ai_error::AiError, ai_orchestrator::AiOrchestrator, task::Task};
 use common_json::{from_json_str, to_string};
 use neural::feedback::{FeedbackType, UserFeedback, feedback_type::FeedbackMetadata};
@@ -22,16 +23,16 @@ impl AiOrchestrator {
                 FeedbackType::Correct {
                     metadata: FeedbackMetadata {
                         confidence: Some(1.0),
-                        rationale: Some("Feedback positif".to_string()),
+                        rationale: Some("Positive feedback".to_string()),
                         source: Some("user".to_string()),
                     },
                 }
             } else {
                 FeedbackType::Incorrect {
-                    expected_output: generated_output.to_string(),
+                    expected_output: "<unknown>".to_string(),
                     metadata: FeedbackMetadata {
                         confidence: Some(0.0),
-                        rationale: Some("Feedback négatif".to_string()),
+                        rationale: Some("Negative feedback without expected output".to_string()),
                         source: Some("user".to_string()),
                     },
                 }
@@ -50,40 +51,35 @@ impl AiOrchestrator {
             task.task_type()
         );
 
-        if let Some(neural) = &mut self.feedback.neural {
-            neural.record_feedback(feedback)?;
-            if let Err(e) = neural.save_model(
-                "models/neural_model.bin".as_ref(),
-                Some("models/tokenizer.bin".as_ref()),
-            ) {
-                warn!("Failed to save neural model: {:?}", e);
+        {
+            if let Ok(neural) = self.feedback.neural_mut() {
+                neural.record_feedback(feedback)?;
+            } else {
+                warn!("Neural model not loaded, skipping neural feedback");
             }
-        } else {
-            warn!("Neural model not loaded, skipping neural feedback");
         }
 
-        let symbolic_feedback = SymbolicFeedback {
-            is_positive: matches!(&feedback.feedback_type, FeedbackType::Correct { .. }),
-            metadata: Some(format!(
-                "Input: {}, Output: {}",
-                feedback.input, feedback.generated_output
-            )),
-        };
-        self.feedback
-            .symbolic
-            .adjust_rules(task.input(), symbolic_feedback)?;
+        self.feedback.symbolic_mut().adjust_rules(
+            task.input(),
+            SymbolicFeedback {
+                is_positive: matches!(&feedback.feedback_type, FeedbackType::Correct { .. }),
+                metadata: Some(format!(
+                    "Input: {}, Output: {}",
+                    feedback.input, feedback.generated_output
+                )),
+            },
+        )?;
 
         Ok(())
     }
 
     pub(crate) fn train_neural(
         &mut self,
-        training_data: Vec<String>,
+        training_data: impl IntoIterator<Item = String>,
         model_path: &Path,
     ) -> Result<(), AiError> {
-        self.feedback
-            .neural_mut()?
-            .train(training_data, model_path)?;
+        let data: Vec<String> = training_data.into_iter().collect();
+        self.feedback.neural_mut()?.train(data, model_path)?;
         Ok(())
     }
 

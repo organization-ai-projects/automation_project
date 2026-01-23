@@ -1,3 +1,5 @@
-pub mod input_conversions;
-pub mod meta_conversions;
-pub mod verdict_conversions;
+// projects/libraries/ai/src/feedbacks/conversions/mod.rs
+pub mod feedback_input;
+pub mod feedback_verdict;
+pub mod internal_feedback_meta;
+pub mod internal_feedback_verdict;

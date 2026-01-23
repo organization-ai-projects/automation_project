@@ -1,49 +1,49 @@
-# Vue d'ensemble
+# Overview
 
 ## Introduction
 
-Ce document présente une vue d'ensemble du projet `automation_project`, un workspace d'automatisation avancé. Pour des détails spécifiques, consultez les sections suivantes :
+This document provides an overview of the `automation_project`, an advanced automation workspace. For specific details, see the following sections:
 
-- [Organisation multi-projets](projects/organization.md)
-- [Principes non négociables](principles.md)
-- [Documentation automatisée](documentation.md)
-- [Orchestration des workflows](workflows.md)
-- [Planification consolidée](planning.md)
+- [Multi-project Organization](projects/organization.md)
+- [Non-Negotiable Principles](principles.md)
+- [Automated Documentation](documentation.md)
+- [Workflow Orchestration](workflows.md)
+- [Consolidated Planning](planning.md)
 
-Cette vue d’ensemble ne décrit pas les détails d’implémentation, volontairement couverts dans les documents spécialisés.
-
----
-
-## 1. Objectif
-
-L’objectif de ce projet est de construire un **workspace d’automatisation avancé** (type Google / Microsoft) capable d’orchestrer **plusieurs projets simultanément**, avec une automatisation avancée du cycle de développement logiciel.
-
-Le système vise à automatiser :
-
-- La génération de code
-- Le linting et la validation structurelle
-- La documentation
-- L’application et l’évolution des bonnes pratiques
-- L’orchestration de workflows complets (analyse → génération → validation → itération)
-
-Le projet est **100 % Rust**, avec :
-
-- une base **symbolique forte** (règles, structures, invariants)
-- une composante **neuronale optionnelle et activable** (Burn)
+This overview does not describe implementation details, which are deliberately covered in specialized documents.
 
 ---
 
-## 2. Concept fondamental : `automation_project`
+## 1. Objective
 
-### 2.1 Définition
+The goal of this project is to build an **advanced automation workspace** (similar to Google/Microsoft) capable of orchestrating **multiple simultaneous projects**, with advanced automation of the software development lifecycle.
 
-**`automation_project` est le workspace racine.**
+The system aims to automate:
 
-Ce n’est pas un simple projet, mais un **environnement global outillé**, capable de gérer **N projets hétérogènes**.
+- Code generation
+- Linting and structural validation
+- Documentation
+- Application and evolution of best practices
+- Orchestration of complete workflows (analysis → generation → validation → iteration)
 
-> `automation_project` = conteneur racine + registry + tooling + orchestration
+The project is **100% Rust**, with:
 
-Il peut contenir :
+- a strong **symbolic foundation** (rules, structures, invariants)
+- an **optional and activatable neural component** (Burn)
 
-- des **produits finaux** (applications, services, outils)
-- des **libraries / SDK** (réutilisables, versionnées)
+---
+
+## 2. Fundamental Concept: `automation_project`
+
+### 2.1 Definition
+
+**`automation_project` is the root workspace.**
+
+It is not a simple project, but a **global tooled environment**, capable of managing **N heterogeneous projects**.
+
+> `automation_project` = root container + registry + tooling + orchestration
+
+It can contain:
+
+- **Final products** (applications, services, tools)
+- **Libraries / SDKs** (reusable, versioned)

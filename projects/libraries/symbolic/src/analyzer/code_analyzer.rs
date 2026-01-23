@@ -1,3 +1,4 @@
+// projects/libraries/symbolic/src/analyzer/code_analyzer.rs
 // Implementation of the CodeAnalyzer structure
 
 pub struct CodeAnalyzer;

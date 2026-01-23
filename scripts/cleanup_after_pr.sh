@@ -5,81 +5,80 @@ REMOTE="${REMOTE:-origin}"
 BASE_BRANCH="${BASE_BRANCH:-dev}"
 PROTECTED_BRANCHES=("dev" "main")
 
-echo "=== Mise à jour de la branche $BASE_BRANCH ==="
+echo "=== Updating branch $BASE_BRANCH ==="
 CURRENT_BRANCH="$(git branch --show-current || true)"
 
 git checkout "$BASE_BRANCH"
 git pull "$REMOTE" "$BASE_BRANCH"
 
-echo "✓ Branche $BASE_BRANCH mise à jour."
+echo "✓ Branch $BASE_BRANCH updated."
 echo ""
-echo "=== Détection des branches locales en retard sur $BASE_BRANCH ==="
+echo "=== Detecting local branches behind $BASE_BRANCH ==="
 
 git fetch "$REMOTE" --prune
 
 OUTDATED_BRANCHES=()
 
-# Parcourir toutes les branches locales
+# Ignore protected branches
+# Check if BASE_BRANCH has commits that the branch lacks (branch behind)
 for branch in $(git for-each-ref --format='%(refname:short)' refs/heads); do
-  # Ignorer les branches protégées
   for p in "${PROTECTED_BRANCHES[@]}"; do
     [[ "$branch" == "$p" ]] && continue 2
   done
 
-  # Vérifier si BASE_BRANCH a des commits que la branche n'a pas (branche en retard)
   BEHIND_COUNT=$(git rev-list --count "$branch..$BASE_BRANCH" 2>/dev/null || echo "0")
 
   if (( BEHIND_COUNT > 0 )); then
-    echo "  → $branch est en retard de $BEHIND_COUNT commit(s) sur $BASE_BRANCH"
+    echo "  → $branch is behind by $BEHIND_COUNT commit(s) on $BASE_BRANCH"
     OUTDATED_BRANCHES+=("$branch")
   fi
 done
 
 if (( ${#OUTDATED_BRANCHES[@]} == 0 )); then
-  echo "Aucune branche locale en retard détectée."
+  echo "No outdated local branches detected."
   exit 0
 fi
 
-echo "Branches ciblées :"
+echo "Target branches:"
 printf ' - %s\n' "${OUTDATED_BRANCHES[@]}"
 
 echo ""
-echo "=== Suppression et recréation des branches ==="
+echo "=== Deleting and recreating branches ==="
 for branch in "${OUTDATED_BRANCHES[@]}"; do
-  echo "Traitement: $branch"
+  echo "Processing: $branch"
 
-  # Supprimer la branche locale
+  # Delete the local branch
   if git branch -d "$branch" 2>/dev/null; then
-    echo "  ✓ Locale supprimée."
+    echo "  ✓ Local branch deleted."
   elif git branch -D "$branch" 2>/dev/null; then
-    echo "  ⚠ Locale supprimée (force)."
+    echo "  ⚠ Local branch deleted (force)."
   else
-    echo "  ℹ Locale inexistante."
+    echo "  ℹ Local branch does not exist."
   fi
 
-  # Supprimer la branche distante si elle existe
+  # Delete the remote branch if it exists
   if git ls-remote --exit-code --heads "$REMOTE" "$branch" >/dev/null 2>&1; then
     if git push "$REMOTE" --delete "$branch" >/dev/null 2>&1; then
-      echo "  ✓ Distante supprimée."
+      echo "  ✓ Remote branch deleted."
     else
-      echo "  ℹ Distante non supprimée (droits/protection?)."
+      echo "  ℹ Remote branch not deleted (permissions/protection?)."
     fi
   else
-    echo "  ℹ Distante inexistante."
+    echo "  ℹ Remote branch does not exist."
   fi
 
-  # Recréer la branche à partir de BASE_BRANCH
+  # Recreate the branch from BASE_BRANCH
   git checkout -b "$branch" "$BASE_BRANCH"
   git push --set-upstream "$REMOTE" "$branch"
-  echo "  ✓ Branche recréée."
+  echo "  ✓ Branch recreated."
 done
 
 if [[ -n "$CURRENT_BRANCH" ]] && git show-ref --verify --quiet "refs/heads/$CURRENT_BRANCH"; then
   git checkout "$CURRENT_BRANCH"
-  echo "✓ Retour sur $CURRENT_BRANCH"
+  echo "✓ Returned to $CURRENT_BRANCH"
 else
-  echo "✓ Resté sur $BASE_BRANCH"
+  echo "✓ Remained on $BASE_BRANCH"
 fi
 
 echo ""
-echo "=== Nettoyage terminé ==="
+echo "=== Cleanup complete ==="

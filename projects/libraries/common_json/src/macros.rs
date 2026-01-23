@@ -1,46 +1,6 @@
-//! Macros de construction JSON optimisées.
+//! JSON construction macros optimized for performance.
 //!
-//! Ce module fournit des macros pour créer du JSON de manière déclarative,
-//! avec des performances optimales et une ergonomie supérieure à `serde_json::json!`.
-//!
-//! Pour plus de détails, exemples et documentation, consultez le fichier `docs/macros.md`.
-
-/// Macro principale pour créer des valeurs JSON.
-///
-/// Supporte tous les types JSON : null, bool, number, string, array, object.
-/// Utilise `Into<Json>` pour les conversions.
-///
-/// # Fonctionnalités
-///
-/// - **Expressions complexes** : appels de méthodes, arithmétique, etc.
-/// - **Variables directes** : `pjson!(my_var)` sans conversion explicite
-/// - **Types automatiques** : `Option<T>`, `Vec<T>`, tous les entiers, `&str`, `String`, etc.
-/// - **Clés flexibles** : identifiant `name` → `"name"`, ou littéral `"my-key"`
-/// - **Nested** : objets et tableaux imbriqués
-///
-/// # Limitation
-///
-/// **Turbofish** : les expressions avec `::<A, B>` doivent être wrappées dans `( )` :
-/// ```rust,ignore
-/// pjson!({ "x": (foo::<i32, u32>()) })  // OK
-/// pjson!({ "x": foo::<i32, u32>() })    // Erreur de compilation
-/// ```
-///
-/// # Exemples
-///
-/// ```rust
-/// use common_json::pjson;
-///
-/// let path = std::path::Path::new("/tmp/test");
-/// let obj = pjson!({
-///     "simple": 42,
-///     "method_call": path.to_string_lossy().to_string(),
-///     "arithmetic": 1 + 2 * 3,
-///     nested: {  // clé identifiant → "nested"
-///         "array": [1, 2, 3]
-///     }
-/// });
-/// ```
+// projects/libraries/common_json/src/macros.rs
 #[macro_export]
 macro_rules! pjson {
     // NULL
@@ -93,14 +53,6 @@ macro_rules! pjson {
     };
 }
 
-/// Helper macro pour convertir les valeurs dans les objets.
-///
-/// Gère les cas spéciaux :
-/// - `null`, `true`, `false` → valeurs JSON directes
-/// - `[...]` → tableaux JSON (récursif)
-/// - `{...}` → objets JSON (récursif)
-/// - `(expr)` → expressions complexes (appels de méthodes, etc.)
-/// - littéraux et identifiants → conversion via Into<Json>
 #[macro_export]
 #[doc(hidden)]
 macro_rules! pjson_val {
@@ -138,12 +90,6 @@ macro_rules! pjson_val {
     };
 }
 
-/// Helper macro pour gérer les différents types de clés dans les objets.
-///
-/// Supporte :
-/// - Identifiants : `name` → `"name"`
-/// - Littéraux string : `"key-name"` → `"key-name"`
-/// - Expressions entre parenthèses : `(my_var)` → valeur de `my_var`
 #[macro_export]
 #[doc(hidden)]
 macro_rules! pjson_key {
@@ -161,24 +107,6 @@ macro_rules! pjson_key {
     };
 }
 
-/// Crée un tableau JSON à partir de valeurs.
-///
-/// Utilise `Into<Json>` pour chaque élément, permettant des types mixtes
-/// tant qu'ils implémentent `Into<Json>`.
-///
-/// # Exemples
-///
-/// ```rust
-/// use common_json::json_array;
-///
-/// let arr = json_array![1, 2, 3];
-/// let mixed = json_array!["hello", 42, true];
-///
-/// let name = "test";
-/// let age = 25;
-/// let active = true;
-/// let from_vars = json_array![name, age, active];
-/// ```
 #[macro_export]
 macro_rules! json_array {
     () => {
@@ -189,29 +117,6 @@ macro_rules! json_array {
     };
 }
 
-/// Crée un objet JSON à partir de paires clé-valeur.
-///
-/// Utilise la syntaxe `=>` pour séparer clés et valeurs.
-/// Les clés sont converties en `String`, les valeurs via `Into<Json>`.
-///
-/// # Exemples
-///
-/// ```rust
-/// use common_json::json_object;
-///
-/// let obj = json_object! {
-///     "name" => "Alice",
-///     "age" => 30,
-/// };
-///
-/// // Avec des variables
-/// let key = "dynamic";
-/// let value = 42;
-/// let obj = json_object! {
-///     key => value,
-///     "static" => "value",
-/// };
-/// ```
 #[macro_export]
 macro_rules! json_object {
     () => {
@@ -227,22 +132,6 @@ macro_rules! json_object {
     }};
 }
 
-/// Macro pour créer un `Json` à partir d'une expression quelconque.
-///
-/// Cette macro est un raccourci pour `Json::from(expr)` et fonctionne
-/// avec tout type implémentant `Into<Json>`.
-///
-/// # Exemples
-///
-/// ```rust
-/// use common_json::json_value;
-///
-/// let s = json_value!("hello");
-/// let n = json_value!(42);
-/// let b = json_value!(true);
-/// let opt = json_value!(Some(10));
-/// let none = json_value!(None::<i32>);
-/// ```
 #[macro_export]
 macro_rules! json_value {
     ($value:expr) => {

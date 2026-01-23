@@ -65,7 +65,7 @@ impl Trainer {
 
         Self {
             config,
-            network: SimpleNeuralNet::new(layer_configs).unwrap(), // Gestion explicite des erreurs
+            network: SimpleNeuralNet::new(layer_configs).unwrap(), // Explicit error handling
         }
     }
 
@@ -74,7 +74,7 @@ impl Trainer {
         data.lines()
             .enumerate()
             .map(|(idx, line)| {
-                // Format attendu: "input_text|target_value"
+                // Expected format: "input_text|target_value"
                 let parts: Vec<&str> = line.split('|').collect();
 
                 if parts.len() != 2 {

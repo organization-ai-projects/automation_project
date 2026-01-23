@@ -1,67 +1,10 @@
 // projects/libraries/protocol_macros/src/lib.rs
-//! Protocol Macros - Procedural macros for the protocol library
-//!
-//! This crate provides derive macros and attribute macros for generating
-//! boilerplate code for protocol-related enums and structs.
 
 use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::HashMap;
 use syn::{Data, DeriveInput, Fields, Ident, LitStr, Type, parse_macro_input};
 
-/// Derives constructor methods and a Display implementation for enums.
-///
-/// # Features
-/// - Generates snake_case constructor methods for each variant
-/// - Implements Display trait with customizable formatting
-/// - Supports unit, tuple, and struct variants
-/// - Optional debug mode for Display formatting
-/// - Generates `as_str()` const method for variant names
-///
-/// # Example
-/// ```ignore
-/// #[derive(EnumMethods)]
-/// enum Event {
-///     Ping,
-///     Created { id: String, data: String },
-///     Data(String, u32),
-/// }
-///
-/// // Generates:
-/// // - Event::ping() -> Event
-/// // - Event::created(id: String, data: String) -> Event
-/// // - Event::data(String, u32) -> Event
-/// // - Event::as_str(&self) -> &'static str
-/// // - Display implementation
-/// ```
-///
-/// # Attributes
-/// - `#[enum_methods(mode = "debug")]` - Use Debug formatting for values (case-insensitive)
-///
-/// # Errors
-/// - Compile error if used on non-enum types
-/// - Compile error if attribute syntax is invalid
-/// - Compile error if unknown mode is specified
-/// - Compile error if snake_case names collide
-///
-/// # Compile Error Examples
-/// ```compile_fail
-/// # use protocol_macros::EnumMethods;
-/// #[derive(EnumMethods)]
-/// enum BadEnum {
-///     HTTPServer,
-///     HttpServer,  // ❌ Error: collision - both generate `http_server()`
-/// }
-/// ```
-///
-/// ```compile_fail
-/// # use protocol_macros::EnumMethods;
-/// #[derive(EnumMethods)]
-/// #[enum_methods(mode = "invalid")]  // ❌ Error: unknown mode
-/// enum BadMode {
-///     Ping,
-/// }
-/// ```
 #[proc_macro_derive(EnumMethods, attributes(enum_methods))]
 pub fn derive_enum_methods(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

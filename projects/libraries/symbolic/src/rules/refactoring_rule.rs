@@ -1,3 +1,4 @@
+// projects/libraries/symbolic/src/rules/refactoring_rule.rs
 #[derive(Debug, Clone)]
 pub struct RefactoringRule {
     pub name: String,

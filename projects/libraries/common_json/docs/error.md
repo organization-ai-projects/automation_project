@@ -1,39 +1,39 @@
-# Types d'erreurs JSON avec contexte riche
+# JSON Error Types with Rich Context
 
-Ce module fournit des types d'erreurs spécifiques aux opérations JSON, permettant de diagnostiquer précisément les problèmes lors de la manipulation de données JSON.
+This module provides error types specific to JSON operations, enabling precise diagnosis of issues when handling JSON data.
 
-## Types d'erreurs
+## Error Types
 
-| Variante                      | Description                             | Exemple d'utilisation       |
-| ----------------------------- | --------------------------------------- | --------------------------- |
-| `JsonError::Serialize`        | Erreur de sérialisation/désérialisation | JSON malformé               |
-| `JsonError::TypeMismatch`     | Type attendu différent du type trouvé   | `as_str()` sur un nombre    |
-| `JsonError::MissingField`     | Champ absent dans un objet              | `obj["missing"]`            |
-| `JsonError::IndexOutOfBounds` | Index hors limites dans un tableau      | `arr[10]` sur tableau de 3  |
-| `JsonError::InvalidPath`      | Expression de chemin invalide           | `"user..name"`              |
-| `JsonError::UnexpectedNull`   | Valeur null inattendue                  | Champ requis est null       |
-| `JsonError::ParseError`       | Erreur de parsing avec position         | Ligne/colonne de l'erreur   |
-| `JsonError::Custom`           | Erreur personnalisée                    | Messages spécifiques métier |
+| Variant                       | Description                           | Example Usage                |
+| ----------------------------- | ------------------------------------- | ---------------------------- |
+| `JsonError::Serialize`        | Serialization/deserialization error   | Malformed JSON               |
+| `JsonError::TypeMismatch`     | Expected type differs from found type | `as_str()` on a number       |
+| `JsonError::MissingField`     | Missing field in an object            | `obj["missing"]`             |
+| `JsonError::IndexOutOfBounds` | Index out of bounds in an array       | `arr[10]` on array of size 3 |
+| `JsonError::InvalidPath`      | Invalid path expression               | `"user..name"`               |
+| `JsonError::UnexpectedNull`   | Unexpected null value                 | Required field is null       |
+| `JsonError::ParseError`       | Parsing error with position           | Line/column of the error     |
+| `JsonError::Custom`           | Custom error                          | Specific business messages   |
 
-## Exemple
+## Example
 
 ```rust
 use common_json::{pjson, JsonAccess, JsonError};
 
 let data = pjson!({ name: "test" });
 
-// TypeMismatch: essayer de lire un string comme i64
+// TypeMismatch: trying to read a string as i64
 let result = data.get_field("name").unwrap().as_i64_strict();
 assert!(matches!(result, Err(JsonError::TypeMismatch { .. })));
 
-// MissingField: champ inexistant
+// MissingField: non-existent field
 let result = data.get_field("missing");
 assert!(matches!(result, Err(JsonError::MissingField { .. })));
 ```
 
-## Exemples supplémentaires
+## Additional Examples
 
-### Exemple d'erreur TypeMismatch
+### TypeMismatch Error Example
 
 ```rust
 use common_json::JsonError;
@@ -42,7 +42,7 @@ let err = JsonError::type_mismatch("string", "number");
 assert!(err.to_string().contains("expected string"));
 ```
 
-### Exemple d'erreur MissingField
+### MissingField Error Example
 
 ```rust
 use common_json::JsonError;
@@ -51,7 +51,7 @@ let err = JsonError::missing_field("username");
 assert!(err.to_string().contains("username"));
 ```
 
-### Exemple d'erreur IndexOutOfBounds
+### IndexOutOfBounds Error Example
 
 ```rust
 use common_json::JsonError;
@@ -60,7 +60,7 @@ let err = JsonError::index_out_of_bounds(10, 3);
 // Message: "Index out of bounds: 10 (array length: 3)"
 ```
 
-### Exemple d'erreur personnalisée
+### Custom Error Example
 
 ```rust
 use common_json::JsonError;
@@ -70,13 +70,13 @@ let err = JsonError::custom("Invalid user configuration");
 
 ## Tests
 
-Ce module contient 3 tests couvrant :
+This module contains 3 tests covering:
 
-- Création et vérification d'erreurs `TypeMismatch`
-- Création et vérification d'erreurs `MissingField`
-- Création et formatage d'erreurs `IndexOutOfBounds`
+- Creation and verification of `TypeMismatch` errors
+- Creation and verification of `MissingField` errors
+- Creation and formatting of `IndexOutOfBounds` errors
 
-### Non couvert
+### Not Covered
 
-- `InvalidPath`, `UnexpectedNull`, `ParseError`, `Custom` (constructeurs testés indirectement)
-- `is_serialize()` (testé indirectement via les modules de désérialisation)
+- `InvalidPath`, `UnexpectedNull`, `ParseError`, `Custom` (constructors tested indirectly)
+- `is_serialize()` (tested indirectly through deserialization modules)

@@ -1,23 +1,23 @@
 # `neural`
 
-**Description** : Crate Rust pour les réseaux de neurones.
+**Description**: Rust crate for neural networks.
 
-## Fonctionnalités
+## Features
 
-- Entraînement de modèles.
-- Prédictions.
+- Model training.
+- Predictions.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 neural = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```

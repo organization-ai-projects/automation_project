@@ -1,3 +1,4 @@
+// projects/libraries/ast_core/src/ast_validation_error.rs
 use std::fmt;
 
 use crate::{AstErrorKind, AstPath};
@@ -25,6 +26,9 @@ impl fmt::Display for AstValidationError {
                 write!(f, "Exceeded maximum size for {}: {}", kind, max)
             }
             AstErrorKind::DuplicateKey { key } => write!(f, "Duplicate key found: {}", key),
+            AstErrorKind::TypeMismatch { expected, got } => {
+                write!(f, "Type mismatch: expected {}, got {}", expected, got)
+            }
         }
     }
 }

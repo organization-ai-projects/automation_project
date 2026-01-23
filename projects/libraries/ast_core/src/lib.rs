@@ -1,15 +1,6 @@
 //! `ast_core` - A generic Abstract Syntax Tree (AST) library.
 //!
-//! This crate provides a generic AST representation and validation utilities
-//! for use in procedural macros and other tools.
-//!
-//! # Features
-//!
-//! - Generic AST representation (not tied to any specific language)
-//! - Validation with configurable limits (depth, size, duplicate keys)
-//! - Rich metadata support (spans, origin tracking, custom attributes)
-//! - Builder pattern for ergonomic AST construction
-//! - Traversal and transformation utilities
+// projects/libraries/ast_core/src/lib.rs
 
 mod ast_builder;
 mod ast_error_kind;
@@ -19,13 +10,15 @@ mod ast_macro;
 mod ast_meta;
 mod ast_node;
 mod ast_path;
+mod ast_span;
 mod ast_validation_error;
+mod conversions;
 mod ext_id;
+mod macros;
 mod number;
 mod opaque_value;
 mod origin;
 mod path_item;
-mod span;
 mod validate_limits;
 mod walk_validate;
 
@@ -36,13 +29,13 @@ pub use ast_kind::AstKind;
 pub use ast_meta::AstMeta;
 pub use ast_node::AstNode;
 pub use ast_path::AstPath;
+pub use ast_span::AstSpan;
 pub use ast_validation_error::AstValidationError;
 pub use ext_id::ExtId;
 pub use number::Number;
 pub use opaque_value::OpaqueValue;
 pub use origin::Origin;
 pub use path_item::PathItem;
-pub use span::Span;
 pub use validate_limits::ValidateLimits;
 
 #[cfg(test)]

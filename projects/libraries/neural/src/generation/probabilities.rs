@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/generation/probabilities.rs
 use ndarray::Array1;
 
 /// Applies the softmax function to an array of logits.

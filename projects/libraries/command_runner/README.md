@@ -1,42 +1,42 @@
 # Command Runner
 
-`command_runner` est une bibliothèque Rust conçue pour exécuter des commandes système de manière robuste et ergonomique. Elle fournit des outils pour gérer les erreurs, capturer les sorties, et journaliser les exécutions.
+`command_runner` is a Rust library designed to execute system commands in a robust and ergonomic way. It provides tools to handle errors, capture outputs, and log executions.
 
-## Fonctionnalités
+## Features
 
-- **Exécution stricte ou permissive** :
-  - `run_cmd_ok` : Retourne une erreur si la commande échoue.
-  - `run_cmd_allow_failure` : Retourne toujours la sortie, même en cas d'échec.
-- **Gestion des erreurs** :
-  - Types d'erreurs détaillés (`CommandError`).
-  - Journalisation des commandes exécutées.
-- **Troncature sécurisée** :
-  - Les sorties longues sont tronquées de manière UTF-8 sûre.
+- **Strict or permissive execution**:
+  - `run_cmd_ok`: Returns an error if the command fails.
+  - `run_cmd_allow_failure`: Always returns the output, even in case of failure.
+- **Error handling**:
+  - Detailed error types (`CommandError`).
+  - Logging of executed commands.
+- **Safe truncation**:
+  - Long outputs are truncated in a UTF-8 safe manner.
 
 ## Installation
 
-Ajoutez la dépendance suivante à votre `Cargo.toml` :
+Add the following dependency to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 command_runner = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
-### Exemple de base
+### Basic Example
 
 ```rust
 use command_runner::{run_cmd_ok, CommandError};
 use std::path::Path;
 
 fn main() -> Result<(), CommandError> {
-    let repo_path = Path::new("/chemin/vers/repo");
+    let repo_path = Path::new("/path/to/repo");
     let mut logs = Vec::new();
 
     let output = run_cmd_ok(repo_path, "git", &["status"], &mut logs)?;
 
-    println!("Statut: {}", output.status);
+    println!("Status: {}", output.status);
     println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
     println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 
@@ -44,24 +44,24 @@ fn main() -> Result<(), CommandError> {
 }
 ```
 
-### Modes d'exécution
+### Execution Modes
 
-- **Strict** :
-  - Utilisez `run_cmd_ok` pour des commandes où un code de sortie non nul est considéré comme une erreur.
-- **Permissif** :
-  - Utilisez `run_cmd_allow_failure` pour capturer la sortie même si la commande échoue.
+- **Strict**:
+  - Use `run_cmd_ok` for commands where a non-zero exit code is considered an error.
+- **Permissive**:
+  - Use `run_cmd_allow_failure` to capture the output even if the command fails.
 
-### Gestion des erreurs
+### Error Handling
 
-Les erreurs sont encapsulées dans le type `CommandError` :
+Errors are encapsulated in the `CommandError` type:
 
-- `InvalidInput` : Entrée invalide pour la commande.
-- `Io` : Erreur d'entrée/sortie lors de l'exécution.
-- `NonZeroExit` : La commande a échoué avec un code de sortie non nul.
+- `InvalidInput`: Invalid input for the command.
+- `Io`: Input/output error during execution.
+- `NonZeroExit`: The command failed with a non-zero exit code.
 
-### Journalisation
+### Logging
 
-Les journaux des commandes exécutées peuvent être collectés dans un `Vec<String>` :
+Logs of executed commands can be collected in a `Vec<String>`:
 
 ```rust
 let mut logs = Vec::new();
@@ -71,12 +71,12 @@ for log in logs {
 }
 ```
 
-## Contribuer
+## Contributing
 
-Les contributions sont les bienvenues ! Veuillez ouvrir une issue ou une pull request sur le dépôt GitHub.
+Contributions are welcome! Please open an issue or pull request on the GitHub repository.
 
-Pour plus de détails sur le workflow Git/GitHub utilisé dans ce projet, consultez la [documentation sur le versioning](../../../docs/versioning/git-github.md).
+For more details on the Git/GitHub workflow used in this project, see the [versioning documentation](../../../docs/versioning/git-github.md).
 
-## Licence
+## License
 
-Ce projet est sous licence MIT. Consultez le fichier `LICENSE` pour plus de détails.
+This project is licensed under the MIT License. See the `LICENSE` file for details.

@@ -1,3 +1,4 @@
+// projects/libraries/hybrid_arena/src/slot_arena_iter.rs
 use crate::Slot;
 
 /// An iterator over references to active items in a `SlotArena`.

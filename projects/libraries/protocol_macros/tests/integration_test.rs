@@ -1,5 +1,5 @@
 //! Integration tests for protocol_macros demonstrating advanced features
-
+// projects/libraries/protocol_macros/tests/integration_test.rs
 use protocol_macros::EnumMethods;
 
 /// Test enum with unit, tuple, and struct variants (Display mode)

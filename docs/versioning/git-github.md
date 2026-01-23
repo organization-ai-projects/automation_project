@@ -1,126 +1,126 @@
-# Workflow Git/GitHub
+# Git/GitHub Workflow
 
-Ce document décrit le workflow Git/GitHub utilisé pour le projet `automation_project`.
+This document describes the Git/GitHub workflow used for the `automation_project`.
 
 ---
 
-## 1. Branches principales
+## 1. Main Branches
 
 ### `main`
 
-- **Description** : Branche stable contenant les versions validées et prêtes pour la production.
-- **Règle** : Aucun commit direct. Les modifications proviennent uniquement de la branche `dev` après stabilisation.
+- **Description**: Stable branch containing validated and production-ready versions.
+- **Rule**: No direct commits. Changes come only from the `dev` branch after stabilization.
 
 ### `dev`
 
-- **Description** : Branche de développement contenant les fonctionnalités en cours de test.
-- **Règle** : Aucun commit direct. Les modifications proviennent uniquement des branches de travail via des PRs.
+- **Description**: Development branch containing features under testing.
+- **Rule**: No direct commits. Changes come only from working branches via PRs.
 
 ---
 
-## 2. Branches de travail
+## 2. Working Branches
 
-### Création
+### Creation
 
-- Une branche de travail est créée pour chaque nouvelle fonctionnalité ou correction de bug.
-- **Convention de nommage** : `feature/<nom>` ou `fix/<nom>`.
-  - Exemple : `feature/ui-improvements`, `fix/bug-123`.
+- A working branch is created for each new feature or bug fix.
+- **Naming Convention**: `feature/<name>` or `fix/<name>`.
+  - Example: `feature/ui-improvements`, `fix/bug-123`.
 
-### Fusion
+### Merging
 
-- Les branches de travail sont fusionnées dans `dev` via une Pull Request (PR).
-- **Règle** :
-  - La PR doit être approuvée avant la fusion.
-  - Les tests doivent passer avant la fusion.
-
----
-
-## 3. Processus de fusion
-
-### De `dev` vers `main`
-
-1. Stabiliser la branche `dev`.
-2. Effectuer des tests approfondis.
-3. Créer une PR de `dev` vers `main`.
-4. Une fois approuvée, fusionner dans `main`.
-
-### De branche de travail vers `dev`
-
-1. Créer une PR de la branche de travail vers `dev`.
-2. Attendre l’approbation et s’assurer que les tests passent.
-3. Fusionner dans `dev`.
+- Working branches are merged into `dev` via a Pull Request (PR).
+- **Rule**:
+  - The PR must be approved before merging.
+  - Tests must pass before merging.
 
 ---
 
-## 4. Synchronisation après une PR
+## 3. Merging Process
 
-Une fois qu'une PR de votre branche de travail a été fusionnée dans `dev`, vous devez synchroniser votre dépôt local pour rester à jour :
+### From `dev` to `main`
 
-1. **Mettre à jour la branche `dev` locale** :
+1. Stabilize the `dev` branch.
+2. Perform thorough testing.
+3. Create a PR from `dev` to `main`.
+4. Once approved, merge into `main`.
+
+### From Working Branch to `dev`
+
+1. Create a PR from the working branch to `dev`.
+2. Wait for approval and ensure tests pass.
+3. Merge into `dev`.
+
+---
+
+## 4. Synchronization after a PR
+
+Once a PR from your working branch has been merged into `dev`, you need to synchronize your local repository to stay up to date:
+
+1. **Update the local `dev` branch** :
 
    ```bash
    git checkout dev
    git pull origin dev
    ```
 
-2. **Supprimer la branche de travail locale si elle n'est plus nécessaire** :
+2. **Delete the local working branch if no longer needed** :
 
    ```bash
-   git branch -d feature/<nom>
+   git branch -d feature/<name>
    ```
 
-3. **Supprimer la branche de travail distante si elle n'est plus nécessaire** :
+3. **Delete the remote working branch if no longer needed** :
 
    ```bash
-   git push origin --delete feature/<nom>
+   git push origin --delete feature/<name>
    ```
 
-4. **Créer une nouvelle branche de travail si nécessaire** :
-   Si vous commencez une nouvelle tâche, créez une nouvelle branche à partir de la version mise à jour de `dev` :
+4. **Create a new working branch if necessary** :
+   If you are starting a new task, create a new branch from the updated version of `dev`:
 
    ```bash
-   git checkout -b feature/<nouvelle-tâche>
+   git checkout -b feature/<new-task>
    ```
 
-### Gestion des branches de travail persistantes
+### Managing Persistent Working Branches
 
-Si vous souhaitez conserver une branche de travail pour y revenir plus tard :
+If you want to keep a working branch for later:
 
-1. **Mettre à jour la branche de travail avec `dev`** :
-   Avant de reprendre le travail sur une branche existante, assurez-vous qu'elle est synchronisée avec les derniers changements de `dev` :
+1. **Update the working branch with `dev`** :
+   Before resuming work on an existing branch, ensure it is synchronized with the latest changes from `dev`:
 
    ```bash
-   git checkout feature/<nom>
+   git checkout feature/<name>
    git pull origin dev
    git merge dev
    ```
 
-2. **Pousser les mises à jour vers la branche distante** :
-   Si vous avez fusionné ou ajouté des modifications, poussez-les vers la branche distante pour éviter les divergences :
+2. **Push updates to the remote branch** :
+   If you have merged or added changes, push them to the remote branch to avoid divergences:
 
    ```bash
-   git push origin feature/<nom>
+   git push origin feature/<name>
    ```
 
-3. **Reprendre le travail** :
-   Continuez à travailler sur la branche comme d'habitude. Une fois terminé, créez une nouvelle PR pour fusionner les modifications dans `dev`.
+3. **Resume work** :
+   Continue working on the branch as usual. Once finished, create a new PR to merge the changes into `dev`.
 
-4. **Supprimer la branche si elle n'est plus nécessaire** :
-   Si la branche n'est plus utile, suivez les étapes de suppression mentionnées ci-dessus.
-
----
-
-## 5. Règles générales
-
-- **Tests** : Toute modification doit être accompagnée de tests (unitaires, intégration, etc.). Les tests peuvent être absents temporairement lors des phases exploratoires, mais sont requis avant toute fusion de `dev` vers `main`. Les tests peuvent être exécutés localement ou via CI lorsqu’elle est disponible.
-- **Commits** : Les messages de commit doivent être clairs et suivre une convention (ex. : `fix: correct bug in X`, `feat: add new feature Y`).
-- **Fusion** : Le merge doit être strictement utilisé pour intégrer les modifications, afin de préserver l'intégrité et l'historique complet des commits.
+4. **Delete the branch if no longer needed** :
+   If the branch is no longer useful, follow the deletion steps mentioned above.
 
 ---
 
-## 6. Commandes utiles
+## 5. General Rules
 
-### Initialisation du dépôt local
+- **Tests**: Any changes must be accompanied by tests (unit, integration, etc.). Tests may be temporarily absent during exploratory phases but are required before any merge from `dev` to `main`. Tests can be run locally or via CI when available.
+- **Commits**: Commit messages must be clear and follow a convention (e.g.: `fix: correct bug in X`, `feat: add new feature Y`).
+- **Merge**: Merge should be strictly used to integrate changes, in order to preserve the integrity and complete history of commits.
+
+---
+
+## 6. Useful Commands
+
+### Initializing the local repository
 
 ```bash
 git clone https://github.com/organization-ai-projects/automation_project.git
@@ -128,24 +128,24 @@ cd automation_project
 git checkout -b dev origin/dev
 ```
 
-### Création d’une branche de travail
+### Creating a working branch
 
 ```bash
 git checkout dev
 git pull origin dev
-git checkout -b feature/<nom>
+git checkout -b feature/<name>
 ```
 
-### Fusion d’une branche de travail dans `dev`
+### Merging a working branch into `dev`
 
 ```bash
 git checkout dev
 git pull origin dev
-git merge feature/<nom>
+git merge feature/<name>
 git push origin dev
 ```
 
-### Fusion de `dev` dans `main`
+### Merging `dev` into `main`
 
 ```bash
 git checkout main
@@ -154,18 +154,18 @@ git merge dev
 git push origin main
 ```
 
-### Automatisation avec des scripts
+### Automation with scripts
 
-Pour simplifier certaines tâches répétitives, voici des scripts que vous pouvez utiliser :
+To simplify certain repetitive tasks, here are some scripts you can use:
 
-#### Script : Créer une nouvelle branche de travail
+#### Script: Create a new working branch
 
 ```bash
 #!/bin/bash
 # Usage: ./create_branch.sh <branch-name>
 
 if [ -z "$1" ]; then
-  echo "Erreur : Vous devez spécifier un nom de branche."
+  echo "Error: You must specify a branch name."
   exit 1
 fi
 
@@ -173,32 +173,32 @@ BRANCH_NAME=$1
 
 git checkout dev
 if [ $? -ne 0 ]; then
-  echo "Erreur : Impossible de basculer sur la branche dev."
+  echo "Error: Unable to switch to dev branch."
   exit 1
 fi
 
 git pull origin dev
 if [ $? -ne 0 ]; then
-  echo "Erreur : Impossible de mettre à jour dev."
+  echo "Error: Unable to update dev."
   exit 1
 fi
 
 git checkout -b $BRANCH_NAME
 if [ $? -eq 0 ]; then
-  echo "Branche $BRANCH_NAME créée avec succès."
+  echo "Branch $BRANCH_NAME created successfully."
 else
-  echo "Erreur : Impossible de créer la branche $BRANCH_NAME."
+  echo "Error: Unable to create branch $BRANCH_NAME."
 fi
 ```
 
-#### Script : Supprimer une branche locale et distante
+#### Script: Delete a local and remote branch
 
 ```bash
 #!/bin/bash
 # Usage: ./delete_branch.sh <branch-name>
 
 if [ -z "$1" ]; then
-  echo "Erreur : Vous devez spécifier un nom de branche."
+  echo "Error: You must specify a branch name."
   exit 1
 fi
 
@@ -206,40 +206,39 @@ BRANCH_NAME=$1
 
 git branch -d $BRANCH_NAME
 if [ $? -eq 0 ]; then
-  echo "Branche locale $BRANCH_NAME supprimée."
+  echo "Local branch $BRANCH_NAME deleted."
 else
-  echo "Erreur : Impossible de supprimer la branche locale $BRANCH_NAME."
+  echo "Error: Unable to delete local branch $BRANCH_NAME."
   exit 1
 fi
 
 git push origin --delete $BRANCH_NAME
 if [ $? -eq 0 ]; then
-  echo "Branche distante $BRANCH_NAME supprimée."
+  echo "Remote branch $BRANCH_NAME deleted."
 else
-  echo "Erreur : Impossible de supprimer la branche distante $BRANCH_NAME."
+  echo "Error: Unable to delete remote branch $BRANCH_NAME."
 fi
 ```
 
 ---
 
-## Avant de faire un commit
+## Before making a commit
 
-Avant de créer un commit, suivez ces étapes pour garantir la conformité avec les conventions du projet :
+Before creating a commit, follow these steps to ensure compliance with project conventions:
 
-1. **Vérifiez l'état du dépôt** :
+1. **Check the repository status** :
+   - Use `git status` to see modified and added files.
+   - Use `git diff` to review unstaged changes.
+   - Use `git branch` to confirm you are on a working branch and identify which one.
 
-   - Utilisez `git status` pour voir les fichiers modifiés et ajoutés.
-   - Utilisez `git diff` pour examiner les changements non validés.
-   - Utilisez `git branch` pour confirmer que vous êtes sur une branche de travail et identifier laquelle.
+2. **Follow commit conventions** :
+   - The commit message must comply with [SemVer](https://semver.org/).
+   - Use the following convention for the scope :
+     - `libraries/[library name]` for libraries.
+     - `products/[product name]` for products.
+   - The message must be properly structured, detailed, and written in English for internationalization.
 
-2. **Respectez les conventions de commit** :
-   - Le message de commit doit être conforme à [SemVer](https://semver.org/).
-   - Utilisez la convention suivante pour le scope :
-     - `libraries/[nom de la librairie]` pour les bibliothèques.
-     - `products/[nom du produit]` pour les produits.
-   - Le message doit être structuré proprement, détaillé et rédigé en anglais pour l'internationalisation.
-
-Exemple de message de commit :
+Example of a commit message :
 
 ```text
 feat(libraries/hybrid_arena): add new library with SlotArena and BumpArena implementations
@@ -253,4 +252,38 @@ feat(libraries/hybrid_arena): add new library with SlotArena and BumpArena imple
 
 ---
 
-**Ce workflow garantit une gestion propre et collaborative du code.**
+### Handling Breaking Changes
+
+When introducing a breaking change that affects other parts of the project, follow these steps to ensure proper communication and resolution:
+
+1. **Document the Breaking Change**:
+   - Clearly describe the breaking change in the commit message.
+   - Use the `[BREAKING CHANGE]` tag in the commit message.
+   - Include details about the impact and the files or crates affected.
+
+2. **Create an Issue**:
+   - Open an issue on GitHub to track the breaking change.
+   - Assign the issue to the responsible developer or team.
+   - Include the following details in the issue:
+     - Description of the breaking change.
+     - Steps to reproduce the issue (if applicable).
+     - Files or crates affected.
+     - Suggested solutions or next steps.
+
+3. **Link the Commit to the Issue**:
+   - Reference the issue number in the commit message (e.g., `Refs #123`).
+   - This ensures traceability between the code and the issue.
+
+4. **Communicate with the Team**:
+   - Notify the team about the breaking change during stand-ups or via communication tools.
+   - Ensure everyone is aware of the issue and its impact.
+
+5. **Plan and Implement a Fix**:
+   - Prioritize the issue and plan the necessary refactoring or fixes.
+   - Test the changes thoroughly before merging them into `dev` or `main`.
+
+By following these steps, you ensure that breaking changes are managed transparently and efficiently, minimizing disruption to the project.
+
+---
+
+**This workflow ensures clean and collaborative code management.**

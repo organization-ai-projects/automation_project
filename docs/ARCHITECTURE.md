@@ -1,92 +1,91 @@
-# ARCHITECTURE (version finale)
+# ARCHITECTURE (final version)
 
-## 1. Principes d’architecture
+## 1. Architecture Principles
 
-### 1.1 Séparation stricte Frontend / Backend
+### 1.1 Strict Frontend / Backend Separation
 
-- **Frontend** : UIs (y compris l’UI centrale) écrites en Rust (Dioxus) et distribuées sous forme de **bundles UI** (WASM + assets).
-- **Backend** : services/backends exécutables (process séparés) qui réalisent le travail (workflows, génération, lint, etc.).
+- **Frontend**: UIs (including the central UI) written in Rust (Dioxus) and distributed as **UI bundles** (WASM + assets).
+- **Backend**: services/backends executables (separate processes) that perform tasks (workflows, generation, linting, etc.).
 
-Aucune UI ne contient de logique métier. Une UI ne fait que :
+No UI contains business logic. A UI only:
 
-- afficher un état,
-- envoyer des commandes,
-- écouter des événements.
+- displays a state,
+- sends commands,
+- listens to events.
 
-### 1.2 Hub unique et autorité unique
+### 1.2 Single Hub and Single Authority
 
-- **Engine** est le **hub unique** (WebSocket) et l’**autorité d’exécution** :
+- **Engine** is the **single hub** (WebSocket) and the **execution authority**:
+  - authenticates,
+  - authorizes,
+  - logs (audit),
+  - orchestrates,
+  - supervises execution,
+  - routes commands and events.
 
-  - authentifie,
-  - autorise,
-  - journalise (audit),
-  - orchestre,
-  - supervise l’exécution,
-  - route commandes et événements.
+### 1.3 True Aggregation of UIs (without compile-time dependencies)
 
-### 1.3 Agrégation réelle des UIs (sans dépendances compile-time)
+The central UI **aggregates** product UIs by loading their bundles **at runtime**.
+It is forbidden to “depend” on product UI crates in `central_ui`.
 
-L’UI centrale **agrège** les UIs produits en chargeant leurs bundles **au runtime**.
-Il est interdit de “dépendre” des crates UI produits dans `central_ui`.
+Consequence:
 
-Conséquence :
-
-- aucune recompilation globale requise pour ajouter/mettre à jour une UI produit,
-- l’UI centrale reste stable, extensible, et “future proof”.
-
----
-
-## 2. Topologie des composants
-
-### 2.1 Composants essentiels (core)
-
-- `engine` (binaire) : hub WS + autorité + orchestration + gestion process.
-- `central_ui` (binaire) : cockpit desktop, charge des bundles UI.
-- `watcher` (binaire) : superviseur externe (resilience: relance, backoff, healthchecks).
-- `launcher` (binaire) : bootstrap initial (démarre engine/central_ui/watcher si nécessaire).
-
-### 2.2 Produits
-
-Un **produit** peut contenir :
-
-- un **backend** (exécutable) : optionnel mais recommandé,
-- une ou plusieurs **UIs** (bundles) : optionnel (mais attendu si le produit a une surface utilisateur).
-
-Le backend et les UIs d’un produit ne communiquent **jamais directement**.
+- no global recompilation required to add/update a product UI,
+- the central UI remains stable, extensible, and “future proof.”
 
 ---
 
-## 3. Communication et protocole (Command/Event)
+## 2. Component Topology
+
+### 2.1 Essential Components (core)
+
+- `engine` (binary): WS hub + authority + orchestration + process management.
+- `central_ui` (binary): desktop cockpit, loads UI bundles.
+- `watcher` (binary): external supervisor (resilience: restart, backoff, healthchecks).
+- `launcher` (binary): initial bootstrap (starts engine/central_ui/watcher if necessary).
+
+### 2.2 Products
+
+A **product** may contain :
+
+- a **backend** (executable): optional but recommended,
+- one or more **UIs** (bundles): optional (but expected if the product has a user surface).
+
+The backend and UIs of a product never communicate **directly**.
+
+---
+
+## 3. Communication and Protocol (Command/Event)
 
 ### 3.1 WebSocket Hub
 
-Toutes les connexions passent par `engine` :
+All connections go through `engine`:
 
 - `central_ui` → `engine` (UI client)
 - `product backend` → `engine` (backend client)
 - `launcher` → `engine` (system client)
 
-Interdictions :
+Prohibitions:
 
 - UI ↔ backend direct
 - backend ↔ backend direct
 - UI ↔ UI direct
 
-### 3.2 Modèle Command / Event
+### 3.2 Command / Event Model
 
-- **Command** (request/response) : déclenche une action ou demande un état.
-- **Event** (stream) : notifications push temps réel.
+- **Command** (request/response): triggers an action or requests a state.
+- **Event** (stream): real-time push notifications.
 
-Exemples de commandes :
+Examples of commands:
 
 - `ListProjects`
 - `ListProducts`
 - `ActivateProduct(product_id)`
 - `RunWorkflow(project_id, workflow_id)`
-- `SpawnBackend(product_id)` (si backend non lancé)
+- `SpawnBackend(product_id)` (if backend not started)
 - `GetStatus(project_id)`
 
-Exemples d’événements :
+Examples of events:
 
 - `LogLine(project_id, level, message)`
 - `Progress(workflow_id, pct)`
@@ -95,83 +94,82 @@ Exemples d’événements :
 
 ---
 
-## 4. Bundles UI (règle centrale)
+## 4. UI Bundles (central rule)
 
-### 4.1 Définition
+### 4.1 Definition
 
-Un **bundle UI** est un artefact distribuable :
+A **UI bundle** is a distributable artifact:
 
 - `ui.wasm` (Dioxus WASM)
-- `assets/` (icônes, css, etc.)
-- `ui_manifest.ron` (métadonnées du bundle)
+- `assets/` (icons, css, etc.)
+- `ui_manifest.ron` (bundle metadata)
 
-Le bundle UI :
+The UI bundle:
 
-- dépend de `protocol` + `common`,
-- parle uniquement à `engine` via WS.
+- depends on `protocol` + `common`,
+- only communicates with `engine` via WS.
 
-### 4.2 Chargement des bundles
+### 4.2 Loading Bundles
 
-`central_ui` charge les bundles UI au runtime :
+`central_ui` loads UI bundles at runtime:
 
-- depuis le disque local (installation),
-- ou depuis `engine` (distribution distante).
+- from the local disk (installation),
+- or from `engine` (remote distribution).
 
-`central_ui` ne compile pas les UIs produits, il les **charge**.
-
----
-
-## 5. Gestion des backends
-
-### 5.1 Règle
-
-Les backends sont des processus séparés, démarrés et supervisés par `engine`.
-
-### 5.2 Cycle de vie
-
-Quand un utilisateur ouvre une UI produit ou déclenche une action :
-
-1. `central_ui` envoie une `Command` à `engine`.
-2. `engine` vérifie auth/permissions.
-3. si le backend n’est pas lancé : `engine` le démarre.
-4. `engine` route la commande vers le backend.
-5. le backend publie des `Event` (logs, progress, résultat).
-6. `central_ui` affiche l’état temps réel.
+`central_ui` does not compile the produced UIs, it **loads** them.
 
 ---
 
-## 6. Registry (source de vérité)
+## 5. Backend Management
 
-### 6.1 Rôle
+### 5.1 Rule
 
-Le registry central (`.automation_project/registry.json`) est la source de vérité pour :
+Backends are separate processes, started and supervised by `engine`.
 
-- liste des produits,
-- chemins bundles UI,
-- identités backends,
-- versions + compatibilité schema.
+### 5.2 Lifecycle
 
-### 6.2 Règle
+When a user opens a product UI or triggers an action:
 
-Aucun composant n’infère l’architecture par scan implicite sans registry.
-Le registry est **explicite** et versionné.
+1. `central_ui` sends a `Command` to `engine`.
+2. `engine` checks auth/permissions.
+3. if the backend is not started: `engine` starts it.
+4. `engine` routes the command to the backend.
+5. the backend publishes `Event` (logs, progress, result).
+6. `central_ui` displays the real-time state.
 
 ---
 
-## 7. Sécurité
+## 6. Registry (source of truth)
 
-- `engine` est l’unique autorité :
+### 6.1 Role
 
-  - authentification utilisateur (UI),
-  - authentification machine (backends),
+The central registry (`.automation_project/registry.json`) is the source of truth for:
+
+- list of products,
+- UI bundle paths,
+- backend identities,
+- versions + schema compatibility.
+
+### 6.2 Rule
+
+No component infers the architecture by implicit scanning without registry.
+The registry is **explicit** and versioned.
+
+---
+
+## 7. Security
+
+- `engine` is the only authority:
+  - user authentication (UI),
+  - machine authentication (backends),
   - permissions,
   - audit log.
 
-`central_ui` affiche les permissions renvoyées par `engine` mais ne décide jamais.
+`central_ui` displays the permissions returned by `engine` but never decides.
 
 ---
 
-## 8. Structure du workspace
+## 8. Workspace Structure
 
 ```plaintext
 automation_project/
@@ -180,12 +178,12 @@ automation_project/
 │   │   ├── core/
 │   │   │   ├── launcher/         # bootstrap
 │   │   │   ├── engine/           # WS hub + orchestration + spawn backends
-│   │   │   ├── central_ui/       # cockpit desktop, charge bundles UI
-│   │   │   └── watcher/          # supervision externe
+│   │   │   ├── central_ui/       # desktop cockpit, loads UI bundles
+│   │   │   └── watcher/          # external supervision
 │   │   ├── <product_x>/
-│   │   │   ├── backend/          # backend (binaire)
-│   │   │   └── ui/               # source UI (compile en ui_dist/)
-│   │   │       └── ui_dist/      # artefacts packagés (wasm + assets + manifest)
+│   │   │   ├── backend/          # backend (binary)
+│   │   │   └── ui/               # UI source (compiles to ui_dist/)
+│   │   │       └── ui_dist/      # packaged artifacts (wasm + assets + manifest)
 │   └── libraries/
 │       ├── common/
 │       ├── protocol/
@@ -193,19 +191,19 @@ automation_project/
 │       ├── symbolic/
 │       ├── neural/
 │       ├── ai/
-│       └── ui/                   # composants UI réutilisables (lib)
+│       └── ui/                   # reusable UI components (lib)
 ```
 
-## 9. Produits initiaux
+## 9. Initial Products
 
 ### 9.1 Varina
 
-**Varina** est le premier produit du workspace. Il est dédié à la partie automatisation et génération. Ses responsabilités incluent :
+**Varina** is the first product of the workspace. It is dedicated to automation and generation. Its responsibilities include:
 
-- Automatisation des workflows de développement.
-- Génération de code et de modules nécessaires.
-- Orchestration des tâches symboliques et neuronales.
-- Intégration avec le `engine` pour exécuter les commandes et publier les événements.
+- Automating development workflows.
+- Generating necessary code and modules.
+- Orchestrating symbolic and neural tasks.
+- Integrating with the `engine` to execute commands and publish events.
 
 Structure :
 
@@ -213,7 +211,7 @@ Structure :
 projects/
 ├── products/
 │   ├── varina/
-│   │   ├── backend/          # backend (binaire pour l’automatisation)
-│   │   └── ui/               # source UI (compile en ui_dist/)
-│   │       └── ui_dist/      # artefacts packagés (wasm + assets + manifest)
+│   │   ├── backend/          # backend (binary for automation)
+│   │   └── ui/               # UI source (compiles to ui_dist/)
+│   │       └── ui_dist/      # packaged artifacts (wasm + assets + manifest)
 ```

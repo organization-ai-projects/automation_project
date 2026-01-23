@@ -38,20 +38,11 @@ impl Id128 {
 
         let mut id = [0u8; 16];
 
-        // 48-bit timestamp ms
-        let ms_be = ms.to_be_bytes(); // 8 bytes
-        id[0..6].copy_from_slice(&ms_be[2..8]);
-
-        // node_id
+        // Timestamp, node_id, process_id, boot_id, and sequence are combined to form the ID.
+        id[0..6].copy_from_slice(&ms.to_be_bytes()[2..8]);
         id[6..8].copy_from_slice(&node_id.to_be_bytes());
-
-        // process_id
         id[8..10].copy_from_slice(&process_id.to_be_bytes());
-
-        // boot_id
         id[10..12].copy_from_slice(&boot_id.to_be_bytes());
-
-        // 32-bit seq
         id[12..16].copy_from_slice(&seq.to_be_bytes());
 
         Self(id)
@@ -79,7 +70,7 @@ impl Id128 {
         &LAST_MS
     }
 
-    /// 32-char lowercase hex
+    /// Converts the ID to a 32-character lowercase hexadecimal string.
     pub fn to_hex(&self) -> String {
         let mut s = String::with_capacity(32);
         for byte in &self.0 {
@@ -105,7 +96,7 @@ impl Id128 {
         Ok(Self(out))
     }
 
-    /// Extract timestamp ms (48-bit)
+    /// Extracts the 48-bit timestamp from the ID.
     pub fn timestamp_ms(&self) -> u64 {
         let mut ms_be = [0u8; 8];
         ms_be[2..8].copy_from_slice(&self.0[0..6]);
@@ -135,7 +126,7 @@ impl Id128 {
         dur.as_millis() as u64
     }
 
-    /// Monotonic ms: never decreases inside the process (handles clock rollback).
+    /// Generates a monotonic timestamp in milliseconds, ensuring no rollback within the process.
     fn monotonic_ms() -> u64 {
         let now = Self::now_ms();
         let last = Self::static_last_ms();
@@ -149,9 +140,7 @@ impl Id128 {
         }
     }
 
-    /// Sequence strategy:
-    /// - if ms changed: reset seq to random start to reduce predictability
-    /// - if same ms: increment
+    /// Generates the next sequence number for the given timestamp.
     fn next_seq_for_ms(ms: u64) -> u32 {
         static STATE: Mutex<(u64, u32)> = Mutex::new((0, 0));
         let mut state = STATE.lock().unwrap();

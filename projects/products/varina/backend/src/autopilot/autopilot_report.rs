@@ -1,21 +1,20 @@
-// projects/products/varina/backend/src/autopilot/autopilot_report.rs
+//! projects/products/varina/backend/src/autopilot/autopilot_report.rs
 use serde::{Deserialize, Serialize};
 
 use crate::{
     autopilot::{AutopilotMode, AutopilotPlan},
     classified_changes::ClassifiedChanges,
 };
-use git_lib::git_change::GitChange;
 
-/// Structure représentant un rapport d'exécution de l'autopilot.
-/// Combine le plan, les changements classifiés, et les logs pour un suivi complet.
-/// Rapport d’exécution (plan + actions réalisées ou refus).
-#[derive(Debug, Clone, Serialize, Deserialize)] // Ajout de Serialize pour permettre la conversion en JSON
+/// Structure representing an execution report of the autopilot.
+/// Combines the plan, classified changes, and logs for complete tracking.
+/// Execution report (plan + actions performed or refused).
+#[derive(Debug, Clone, Serialize, Deserialize)] // Added Serialize to allow JSON conversion
 pub struct AutopilotReport {
     pub mode: AutopilotMode,
     pub branch: String,
     pub detached_head: bool,
-    pub changes: Vec<GitChange>,
+    pub changes: Vec<String>,
     pub classified: ClassifiedChanges,
     pub plan: AutopilotPlan,
     pub applied: bool,
@@ -41,21 +40,9 @@ mod tests {
             detached_head: false,
             changes: vec![],
             classified: ClassifiedChanges {
-                blocked: vec![GitChange {
-                    xy: [b'M', b' '],
-                    path: "blocked_file.rs".to_string(),
-                    orig_path: None,
-                }],
-                relevant: vec![GitChange {
-                    xy: [b'A', b' '],
-                    path: "relevant_file.rs".to_string(),
-                    orig_path: None,
-                }],
-                unrelated: vec![GitChange {
-                    xy: [b'D', b' '],
-                    path: "unrelated_file.rs".to_string(),
-                    orig_path: None,
-                }],
+                blocked: vec!["blocked_file.rs".to_string()],
+                relevant: vec!["relevant_file.rs".to_string()],
+                unrelated: vec!["unrelated_file.rs".to_string()],
             },
             plan: AutopilotPlan {
                 branch: "main".to_string(),
@@ -76,10 +63,10 @@ mod tests {
         assert!(report.applied);
         assert_eq!(report.logs.len(), 1);
 
-        // Utilisation des champs classified et plan
-        assert_eq!(report.classified.blocked[0].path, "blocked_file.rs");
-        assert_eq!(report.classified.relevant[0].path, "relevant_file.rs");
-        assert_eq!(report.classified.unrelated[0].path, "unrelated_file.rs");
+        // Using the classified and plan fields
+        assert_eq!(report.classified.blocked[0], "blocked_file.rs");
+        assert_eq!(report.classified.relevant[0], "relevant_file.rs");
+        assert_eq!(report.classified.unrelated[0], "unrelated_file.rs");
 
         assert_eq!(report.plan.branch, "main");
         assert!(report.plan.will_commit);

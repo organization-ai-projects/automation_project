@@ -1,3 +1,4 @@
+/// projects/products/core/watcher/tests/config_tests.rs
 #[cfg(test)]
 mod tests {
     use watcher::config::{

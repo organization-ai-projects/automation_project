@@ -1,12 +1,13 @@
+// projects/libraries/ast_core/src/ast_meta.rs
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{ExtId, Origin, Span};
+use crate::{ExtId, Origin, ast_span::AstSpan};
 
 /// Metadata attached to AST nodes.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct AstMeta {
     /// Source span (byte offsets)
-    pub span: Option<Span>,
+    pub span: Option<AstSpan>,
     /// Origin of this node
     pub origin: Option<Origin>,
     /// Boolean flags

@@ -66,7 +66,7 @@ impl SandboxFs {
 
             let rel_display = match p.strip_prefix(self.policy.work_root()) {
                 Ok(r) => r.to_string_lossy().replace('\\', "/"),
-                Err(_) => continue, // Skip si strip_prefix échoue
+                Err(_) => continue, // Skip if strip_prefix fails
             };
 
             if self
@@ -82,7 +82,7 @@ impl SandboxFs {
                 "is_dir": is_dir
             }));
 
-            // Limite le nombre d'entrées
+            // Limits the number of entries
             if entries.len() >= self.policy.config().max_files_per_request {
                 break;
             }
@@ -113,7 +113,9 @@ impl SandboxFs {
             fs::create_dir_all(parent)?;
         }
 
-        // Vérification anti-symlink avant écriture
+        // Anti-symlink check before writing
+        // Checks parents to detect symlinks up to work_root
+        // Generates a unique temporary name in the same directory
         self.validate_symlinks(&abs)?;
 
         atomic_write(&abs, contents.as_bytes())?;
@@ -161,7 +163,7 @@ impl SandboxFs {
             fs::create_dir_all(parent)?;
         }
 
-        // Vérification anti-symlink avant écriture
+        // Anti-symlink check before writing
         self.validate_symlinks(&abs)?;
 
         atomic_write(&abs, updated.as_bytes())?;
@@ -174,7 +176,7 @@ impl SandboxFs {
     }
 
     pub fn validate_symlinks(&self, path: &Path) -> Result<()> {
-        // Vérifie les parents pour détecter les symlinks jusqu'à work_root
+        // Checks parents to detect symlinks up to work_root
         let mut cur = path
             .parent()
             .map(|p| p.to_path_buf())
@@ -193,7 +195,7 @@ impl SandboxFs {
             }
         }
 
-        // Canonicalise le parent existant (ou work_root)
+        // Canonicalize the existing parent (or work_root)
         let parent = path.parent().unwrap_or(self.policy.work_root());
         let canon_parent = fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
         if !canon_parent.starts_with(self.policy.work_root()) {
@@ -206,9 +208,11 @@ impl SandboxFs {
 
 fn atomic_write(path: &PathBuf, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().context("no parent dir")?;
-    fs::create_dir_all(parent).ok(); // Assure que le répertoire existe
+    fs::create_dir_all(parent).ok();
 
-    // Génère un nom temporaire unique dans le même répertoire
+    // Generates a unique temporary name in the same directory
+    // Creates a temporary file atomically
+    // Verifies that the target is not a symlink
     let mut tmp = parent.to_path_buf();
     let mut buf = [0u8; 8];
     OsRng
@@ -221,7 +225,7 @@ fn atomic_write(path: &PathBuf, bytes: &[u8]) -> Result<()> {
         nonce
     ));
 
-    // Crée un fichier temporaire de manière atomique
+    // Creates a temporary file atomically
     let mut f = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -229,9 +233,9 @@ fn atomic_write(path: &PathBuf, bytes: &[u8]) -> Result<()> {
         .with_context(|| format!("open tmp failed: {}", tmp.display()))?;
 
     f.write_all(bytes).context("write tmp failed")?;
-    f.sync_all().ok(); // Optionnel pour la robustesse en cas de crash
+    f.sync_all().ok();
 
-    // Vérifie que la cible n'est pas un symlink
+    // Verifies that the target is not a symlink
     if path
         .symlink_metadata()
         .map(|m| m.file_type().is_symlink())

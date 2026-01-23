@@ -3,7 +3,10 @@ name = "git_lib"
 version = "0.1.0"
 edition = "2024"
 
+authors = ["Your Name <your.email@example.com>"]
+description = "[ABANDONED] A modular library for interacting with Git repositories."
+license = "MIT"
+
 [dependencies]
-common = { workspace = true }
-command_runner = { workspace = true }
 serde = { workspace = true }
+thiserror = { workspace = true }

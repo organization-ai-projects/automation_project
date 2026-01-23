@@ -1,3 +1,4 @@
+// projects/libraries/protocol/src/event_variant.rs
 use crate::validation_error::ValidationError;
 use common::custom_uuid::Id128;
 use protocol_macros::EnumMethods;

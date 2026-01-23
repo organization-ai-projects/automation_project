@@ -66,7 +66,7 @@ impl Policy {
             bail!("invalid relative path: {rel_norm}");
         }
 
-        // Vérifie d'abord les chemins interdits
+        // First checks forbidden paths
         if self
             .cfg
             .forbid_globs
@@ -76,14 +76,14 @@ impl Policy {
             bail!("forbidden path by policy: {rel_norm}");
         }
 
-        // Applique la logique deny-by-default
+        // Applies the deny-by-default logic
         if !self.is_allowed(&rel_norm, kind) {
             bail!("access not allowed by policy: {rel_norm}");
         }
 
         let abs = self.cfg.context.paths.work_root.join(&rel_norm);
 
-        // Protection contre la traversée de répertoires
+        // Protection against directory traversal
         let canon_root = std::fs::canonicalize(&self.cfg.context.paths.work_root)
             .unwrap_or(self.cfg.context.paths.work_root.clone());
         let parent = abs.parent().unwrap_or(&abs);

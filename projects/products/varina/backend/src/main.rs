@@ -1,9 +1,11 @@
-// projects/products/varina/backend/src/main.rs
+//! projects/products/varina/backend/src/main.rs
+use std::process;
+
 use backend::app::run_backend;
 
 fn main() {
     if let Err(e) = run_backend() {
         eprintln!("fatal: {e}");
-        std::process::exit(1);
+        process::exit(1);
     }
 }

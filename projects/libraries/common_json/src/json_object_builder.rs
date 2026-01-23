@@ -1,31 +1,32 @@
+// projects/libraries/common_json/src/json_object_builder.rs
 use crate::{Json, JsonMap};
 
-/// Builder fluide pour construire des objets JSON.
+/// Fluent builder for constructing JSON objects.
 ///
-/// Permet de construire des objets JSON de manière lisible et type-safe.
+/// Allows building JSON objects in a readable and type-safe manner.
 pub struct JsonObjectBuilder {
     map: JsonMap,
 }
 
 impl JsonObjectBuilder {
-    /// Crée un nouveau builder vide.
+    /// Creates a new empty builder.
     pub fn new() -> Self {
         Self {
             map: JsonMap::new(),
         }
     }
 
-    /// Ajoute un champ à l'objet.
+    /// Adds a field to the object.
     ///
-    /// La clé et la valeur sont convertis via `Into<String>` et `Into<Json>`.
+    /// The key and value are converted via `Into<String>` and `Into<Json>`.
     pub fn field<K: Into<String>, V: Into<Json>>(mut self, key: K, value: V) -> Self {
         self.map.insert(key.into(), value.into());
         self
     }
 
-    /// Ajoute un champ seulement si la valeur est `Some`.
+    /// Adds a field only if the value is `Some`.
     ///
-    /// Si `None`, le champ n'est pas ajouté.
+    /// If `None`, the field is not added.
     pub fn field_opt<K: Into<String>, V: Into<Json>>(mut self, key: K, value: Option<V>) -> Self {
         if let Some(v) = value {
             self.map.insert(key.into(), v.into());
@@ -33,7 +34,7 @@ impl JsonObjectBuilder {
         self
     }
 
-    /// Ajoute un champ seulement si la condition est vraie.
+    /// Adds a field only if the condition is true.
     pub fn field_if<K: Into<String>, V: Into<Json>>(
         self,
         condition: bool,
@@ -47,7 +48,7 @@ impl JsonObjectBuilder {
         }
     }
 
-    /// Finalise et retourne l'objet JSON.
+    /// Finalizes and returns the JSON object.
     pub fn build(self) -> Json {
         Json::Object(self.map)
     }

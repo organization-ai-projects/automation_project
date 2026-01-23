@@ -47,5 +47,3 @@ The new procedural macro resolves these issues and provides additional features 
 3. Run `cargo build` to verify the changes.
 
 4. Update any tests to use the new constructors and methods.
-
-For more details, refer to the [README](../README.md).

@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 common = { workspace = true }
 ai = { workspace = true }
-git_lib = { workspace = true }
 protocol = { workspace = true }
 serde = { workspace = true }
 command_runner = { workspace = true }

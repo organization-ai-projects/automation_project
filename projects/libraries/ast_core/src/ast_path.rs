@@ -1,3 +1,4 @@
+// projects/libraries/ast_core/src/ast_path.rs
 use std::fmt;
 
 use crate::PathItem;

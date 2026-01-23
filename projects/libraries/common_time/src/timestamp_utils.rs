@@ -1,10 +1,11 @@
+// projects/libraries/common_time/src/timestamp_utils.rs
 use chrono::{TimeZone, Utc};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Type alias pour représenter un timestamp en millisecondes.
+/// Type alias to represent a timestamp in milliseconds.
 pub type Timestamp = u64;
 
-/// Retourne le timestamp actuel en millisecondes depuis l'époque UNIX.
+/// Returns the current timestamp in milliseconds since the UNIX epoch.
 pub fn current_timestamp_ms() -> Timestamp {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -12,7 +13,7 @@ pub fn current_timestamp_ms() -> Timestamp {
         .as_millis() as Timestamp
 }
 
-/// Valide qu'un timestamp n'est pas trop loin dans le futur.
+/// Validates that a timestamp is not too far in the future.
 pub fn validate_timestamp(timestamp_ms: Timestamp, max_drift_ms: Timestamp) -> Result<(), String> {
     let now = current_timestamp_ms();
     if timestamp_ms > now + max_drift_ms {
@@ -25,7 +26,7 @@ pub fn validate_timestamp(timestamp_ms: Timestamp, max_drift_ms: Timestamp) -> R
     }
 }
 
-/// Formate un timestamp en une chaîne lisible.
+/// Formats a timestamp into a readable string.
 pub fn format_timestamp(timestamp: Timestamp) -> String {
     let datetime = Utc
         .timestamp_opt(timestamp as i64, 0)

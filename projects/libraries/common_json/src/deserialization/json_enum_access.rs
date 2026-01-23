@@ -1,4 +1,5 @@
-use crate::{Json, error::JsonError};
+// projects/libraries/common_json/src/deserialization/json_enum_access.rs
+use crate::{Json, json_error::JsonError};
 use serde::de::{self, DeserializeSeed, EnumAccess, IntoDeserializer};
 
 use super::json_variant_access::JsonVariantAccess;

@@ -1,3 +1,4 @@
+// projects/libraries/symbolic/src/linter/lint_code.rs
 // Function for linting code
 
 pub fn lint_code(code: &str) -> Vec<String> {

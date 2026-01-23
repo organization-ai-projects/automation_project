@@ -1,35 +1,35 @@
-# Organisation multi-projets
+# Multi-project Organization
 
 ## Introduction
 
-Ce document détaille l'organisation des projets dans le workspace `automation_project`. Pour une vue d'ensemble, consultez [Vue d'ensemble](../overview.md).
+This document details the organization of projects within the `automation_project` workspace. For an overview, see [Overview](../overview.md).
 
 ---
 
-## 1. Gestion de l'état interne des projets
+## 1. Managing Internal Project State
 
-Chaque projet est responsable de la gestion de son propre état interne. Cela inclut des éléments tels que les fichiers de configuration, les caches, les journaux, et les données temporaires.
+Each project is responsible for managing its own internal state. This includes elements such as configuration files, caches, logs, and temporary data.
 
-### Principes clés
+### Key Principles
 
-- **Indépendance** : Chaque projet doit gérer son état de manière isolée, sans dépendre d'autres projets.
-- **Flexibilité** : La structure interne d'un projet est laissée à sa discrétion, afin qu'il puisse s'adapter à ses besoins spécifiques.
-- **Isolation stricte** : Aucun fichier ou donnée interne ne doit "fuiter" vers d'autres projets.
+- **Independence**: Each project must manage its state in isolation, without relying on other projects.
+- **Flexibility**: The internal structure of a project is left to its discretion, so it can adapt to its specific needs.
+- **Strict Isolation**: No internal files or data should "leak" to other projects.
 
-### Recommandations
+### Recommendations
 
-- Utiliser des fichiers ou des dossiers dédiés pour organiser l'état interne (par exemple, `state/`, `cache/`, `logs/`).
-- Inclure un champ `schema_version` dans les fichiers persistés (comme `project.toml`) pour garantir la compatibilité future.
-- Documenter la structure interne choisie pour faciliter la maintenance et la collaboration.
+- Use dedicated files or folders to organize internal state (e.g., `state/`, `cache/`, `logs/`).
+- Include a `schema_version` field in persisted files (like `project.toml`) to ensure future compatibility.
+- Document the chosen internal structure to facilitate maintenance and collaboration.
 
-### Interdictions
+### Prohibitions
 
-- Aucun projet ne doit écrire dans l’état interne d’un autre projet.
-- Aucun état partagé global hors des mécanismes explicitement prévus par l’Engine.
-- Aucun accès direct à un autre projet via chemins relatifs ou absolus.
+- No project should write to the internal state of another project.
+- No global shared state outside of mechanisms explicitly provided by the Engine.
+- No direct access to another project via relative or absolute paths.
 
-### Portée de l'état interne
+### Scope of Internal State
 
-L’état interne d’un projet inclut toute donnée persistée ou semi-persistée nécessaire à son fonctionnement, mais n’inclut pas le code source lui-même.
+The internal state of a project includes all persisted or semi-persisted data necessary for its operation but does not include the source code itself.
 
-> Ces principes garantissent que chaque projet reste autonome et maintenable, tout en permettant une grande flexibilité dans son organisation interne.
+> These principles ensure that each project remains autonomous and maintainable while allowing great flexibility in its internal organization.

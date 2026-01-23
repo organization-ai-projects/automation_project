@@ -1,59 +1,58 @@
-// projects/products/varina/backend/src/policy_evaluation.rs
-use git_lib::git_change::GitChange;
+//! projects/products/varina/backend/src/policy_evaluation.rs
 use ignore::gitignore::GitignoreBuilder;
 
 use crate::{
-    AutopilotPolicy, ClassifiedChangesRef,
+    AutopilotPolicy, ClassifiedChanges, ClassifiedChangesRef,
     autopilot::{
         CompiledAutopilotPolicy,
         compiled_autopilot_policy::{normalize_path, path_has_compiled_prefix},
     },
 };
 
-use std::path::Path;
+use std::path::{self, Path};
 
 /// ==============================
 /// SECTION: Policy evaluation
 /// ==============================
-/// Best: policy compilée + résultat borrowed (zero clone).
-pub fn classify_changes_ref<'a>(
-    changes: &'a [GitChange],
+/// Best: compiled policy + borrowed result (zero clone).
+pub fn classify_changes_ref(
+    changes: &[impl AsRef<str>],
     policy: &AutopilotPolicy,
-) -> ClassifiedChangesRef<'a> {
+) -> ClassifiedChangesRef {
     let compiled = CompiledAutopilotPolicy::from(policy);
     classify_changes_ref_with_policy(changes, &compiled)
 }
 
-/// Best: caller fournit la policy compilée (si tu fais plusieurs opérations).
-pub fn classify_changes_ref_with_policy<'a>(
-    changes: &'a [GitChange],
+/// Best: caller provides the compiled policy (useful for multiple operations).
+pub fn classify_changes_ref_with_policy(
+    changes: &[impl AsRef<str>],
     policy: &CompiledAutopilotPolicy,
-) -> ClassifiedChangesRef<'a> {
+) -> ClassifiedChangesRef {
     let mut out = ClassifiedChangesRef::new();
 
     for ch in changes.iter() {
-        let path_norm = normalize_path(&ch.path);
+        let path_norm = normalize_path(ch.as_ref());
 
         if is_blocked_norm(&path_norm, policy) {
-            out.blocked.push(ch);
+            out.blocked.push(ch.as_ref().to_string());
             continue;
         }
 
         if is_relevant_norm(&path_norm, policy) {
-            out.relevant.push(ch);
+            out.relevant.push(ch.as_ref().to_string())
         } else {
-            out.unrelated.push(ch);
+            out.unrelated.push(ch.as_ref().to_string());
         }
     }
 
     out
 }
 
-/// Compat: version owning (clones explicites au dernier moment).
+/// Compatibility: owning version (explicit clones at the last moment).
 pub fn classify_changes(
-    changes: &[GitChange],
+    changes: &[impl AsRef<str>],
     policy: &AutopilotPolicy,
-) -> crate::ClassifiedChanges {
+) -> ClassifiedChanges {
     classify_changes_ref(changes, policy).to_owned()
 }
 
@@ -91,17 +90,17 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
         ..CompiledAutopilotPolicy::from(policy)
     };
 
-    println!("[debug] is_relevant: Vérification du chemin {}", path);
-    // Vérification de l'existence du fichier
-    if !std::path::Path::new(path).exists() {
-        println!("[debug] is_relevant: Le fichier {} n'existe pas", path);
+    println!("[debug] is_relevant: Checking path {}", path);
+    // Check if the file exists
+    if !path::Path::new(path).exists() {
+        println!("[debug] is_relevant: File {} does not exist", path);
         return false;
     }
 
-    // Vérification avec .gitignore
-    let gitignore_path = std::path::Path::new(".gitignore");
+    // Check with .gitignore
+    let gitignore_path = path::Path::new(".gitignore");
     if !gitignore_path.exists() {
-        println!("[debug] is_relevant: .gitignore introuvable, aucun fichier ne sera ignoré");
+        println!("[debug] is_relevant: .gitignore not found, no files will be ignored");
         return is_relevant_norm(&normalize_path(path), &compiled);
     }
 
@@ -109,11 +108,11 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
     gitignore_builder.add(gitignore_path);
     let gitignore = gitignore_builder
         .build()
-        .expect("Échec de l'analyse du fichier .gitignore");
+        .expect("Failed to parse .gitignore file");
 
     if gitignore.matched(path, false).is_ignore() {
         println!(
-            "[debug] is_relevant: Le chemin {} est ignoré par .gitignore",
+            "[debug] is_relevant: Path {} is ignored by .gitignore",
             path
         );
         return false;
@@ -126,16 +125,14 @@ pub fn is_relevant_norm(path_norm: &str, policy: &CompiledAutopilotPolicy) -> bo
     let repo_root = Path::new(".");
     let mut builder = GitignoreBuilder::new(repo_root);
     builder.add(repo_root.join(".gitignore"));
-    let gitignore = builder
-        .build()
-        .expect("Erreur lors de la construction de .gitignore");
+    let gitignore = builder.build().expect("Error while building .gitignore");
 
     let is_ignored = gitignore
         .matched_path_or_any_parents(path_norm, false)
         .is_ignore();
 
     if !is_ignored {
-        // Utilisation de `policy` pour vérifier les préfixes pertinents
+        // Use `policy` to check relevant prefixes
         return policy
             .relevant_prefixes_norm
             .iter()
@@ -145,22 +142,19 @@ pub fn is_relevant_norm(path_norm: &str, policy: &CompiledAutopilotPolicy) -> bo
     false
 }
 
-pub fn display_change_path(ch: &GitChange) -> String {
-    match &ch.orig_path {
-        Some(orig) => format!("{orig} -> {}", ch.path),
-        None => ch.path.clone(),
-    }
+pub fn display_change_path(ch: &impl AsRef<str>) -> String {
+    ch.as_ref().to_string()
 }
 
 /// Unmerged states (porcelain XY):
-/// - 'U' is canonical conflict marker
+/// - 'U' is the canonical conflict marker
 /// - 'AA' and 'DD' are also unmerged
-pub fn has_merge_conflicts(changes: &[GitChange]) -> bool {
+pub fn has_merge_conflicts(changes: &[impl AsRef<str>]) -> bool {
     changes.iter().any(|c| {
-        let x = c.xy[0];
-        let y = c.xy[1];
+        let x = c.as_ref().as_bytes()[0];
+        let y = c.as_ref().as_bytes()[1];
         x == b'U' || y == b'U' || (x == b'A' && y == b'A') || (x == b'D' && y == b'D')
     })
 }
 
-// Implémentation supprimée car redondante avec celle dans compiled_autopilot_policy.rs.
+// Implementation removed because it is redundant with the one in compiled_autopilot_policy.rs.

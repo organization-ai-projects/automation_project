@@ -1,13 +1,14 @@
 //! AiBody is the only public interface of the `ai` library.
 //! Do not use directly: ai_orchestrator.rs and ai_feedback.rs.
-use std::path;
-
 // projects/libraries/ai/src/ai_body.rs
+
+use std::path::Path;
 use tracing::warn;
 
 use crate::{
-    ai_error::AiError, ai_orchestrator::AiOrchestrator, feedbacks::FeedbackInput,
-    solver_strategy::SolverStrategy, task::Task, task_result::TaskResult,
+    ai_error::AiError, ai_orchestrator::AiOrchestrator,
+    feedbacks::public_api_feedback::FeedbackInput, solver_strategy::SolverStrategy, task::Task,
+    task_result::TaskResult,
 };
 
 pub struct AiBody {
@@ -23,22 +24,43 @@ impl AiBody {
 
     pub fn load_neural_model(
         &mut self,
-        model_path: &path::Path,
-        tokenizer_path: &path::Path,
-    ) -> Result<(), AiError> {
+        model_path: &Path,
+        tokenizer_path: &Path,
+    ) -> Result<bool, AiError> {
         if model_path.is_file() && tokenizer_path.is_file() {
             self.orchestrator
-                .load_neural_model(model_path, tokenizer_path)
+                .load_neural_model(model_path, tokenizer_path)?;
+            Ok(true)
         } else {
             warn!(
                 "Model or tokenizer file not found or not a file. Skipping neural model loading."
             );
-            Ok(())
+            Ok(false)
         }
     }
 
     pub fn solve(&mut self, task: &Task) -> Result<TaskResult, AiError> {
         self.orchestrator.solve(task)
+    }
+
+    pub fn solve_with_strategy(
+        &mut self,
+        task: &Task,
+        strategy: SolverStrategy,
+    ) -> Result<TaskResult, AiError> {
+        self.orchestrator.solve_forced(task, strategy)
+    }
+
+    pub fn solve_symbolic_then_neural(&mut self, task: &Task) -> Result<TaskResult, AiError> {
+        self.solve_with_strategy(task, SolverStrategy::SymbolicThenNeural)
+    }
+
+    pub fn solve_neural_with_validation(&mut self, task: &Task) -> Result<TaskResult, AiError> {
+        self.solve_with_strategy(task, SolverStrategy::NeuralWithSymbolicValidation)
+    }
+
+    pub fn solve_hybrid(&mut self, task: &Task) -> Result<TaskResult, AiError> {
+        self.solve_with_strategy(task, SolverStrategy::Hybrid)
     }
 
     // --- Feedback public API (primitives, not exposing internal types) ---
@@ -56,30 +78,27 @@ impl AiBody {
             .train_with_verdict(task, input, generated_output, ok)
     }
 
-    /// Adjust the system with detailed feedback.
+    /// Adjust the system with detailed feedback (legacy / best-effort).
     ///
-    /// Accepts a `FeedbackInput`, which encapsulates:
-    /// - The task context and input
-    /// - The generated output
-    /// - A structured verdict (Correct, Incorrect, Partial, or Rejected)
-    /// - Optional metadata (confidence, rationale, source)
-    ///
-    /// The feedback is used to adjust both neural and symbolic components
-    /// of the AI system, improving future predictions.
-    ///
-    /// # Example
-    /// ```ignore
-    /// use ai::feedbacks::{FeedbackInput, FeedbackMeta};
-    ///
-    /// let feedback = FeedbackInput::correct("task", "input", "output")
-    ///     .meta(FeedbackMeta::new().confidence(0.95));
-    /// ai.adjust(feedback)?;
-    /// ```
+    /// This does NOT carry solve-path information. For neurosymbolic "path-aware"
+    /// training, prefer `adjust_with_result(...)` (uses result.trace()).
     pub fn adjust(&mut self, req: FeedbackInput<'_>) -> Result<(), AiError> {
-        let event = req.to_internal();
+        self.orchestrator.adjust(&req)
+    }
 
-        // Appel à l'orchestrateur avec les types internes
-        self.orchestrator.adjust(&event)
+    /// Adjust the system with detailed feedback, using the `TaskResult` solve trace.
+    ///
+    /// This enables path-aware neurosymbolic training (winner/fallback/validation/hybrid).
+    ///
+    /// Usage pattern:
+    /// 1) let result = ai.solve(&task)?;
+    /// 2) ai.adjust_with_result(feedback, &result)?;
+    pub fn adjust_with_result(
+        &mut self,
+        req: FeedbackInput<'_>,
+        result: &TaskResult,
+    ) -> Result<(), AiError> {
+        self.orchestrator.adjust_with_trace(&req, result.trace())
     }
 
     // --- Simplified API (unchanged on usage side) ---
@@ -98,34 +117,24 @@ impl AiBody {
 
     pub fn train_neural(
         &mut self,
-        training_data: Vec<String>,
-        model_path: &std::path::Path,
+        training_data: impl IntoIterator<Item = String>,
+        model_path: &Path,
     ) -> Result<(), AiError> {
-        self.orchestrator.train_neural(training_data, model_path)
+        let data: Vec<String> = training_data.into_iter().collect();
+        self.orchestrator.train_neural(data, model_path)
     }
 
-    pub fn solve_symbolic_then_neural(&mut self, task: &Task) -> Result<TaskResult, AiError> {
-        self.orchestrator
-            .solve_forced(task, SolverStrategy::SymbolicThenNeural)
-    }
-
-    pub fn solve_neural_with_validation(&mut self, task: &Task) -> Result<TaskResult, AiError> {
-        self.orchestrator
-            .solve_forced(task, SolverStrategy::NeuralWithSymbolicValidation)
-    }
-
-    pub fn solve_hybrid(&mut self, task: &Task) -> Result<TaskResult, AiError> {
-        self.orchestrator.solve_forced(task, SolverStrategy::Hybrid)
-    }
-
-    pub fn evaluate_model(&mut self, test_data: Vec<String>) -> Result<f64, AiError> {
-        self.orchestrator.evaluate_model(test_data)
+    pub fn evaluate_model(
+        &mut self,
+        evaluate_data: impl IntoIterator<Item = String>,
+    ) -> Result<f64, AiError> {
+        self.orchestrator.evaluate_model(evaluate_data)
     }
 
     pub fn save_neural_model(
         &self,
-        model_path: &path::Path,
-        tokenizer_path: &path::Path,
+        model_path: &Path,
+        tokenizer_path: &Path,
     ) -> Result<(), AiError> {
         self.orchestrator
             .save_neural_model(model_path, tokenizer_path)
@@ -133,14 +142,14 @@ impl AiBody {
 
     pub fn append_training_example(
         &self,
-        replay_path: &path::Path,
+        replay_path: &Path,
         example_json: &str,
     ) -> Result<(), AiError> {
         self.orchestrator
             .append_training_example_json(replay_path, example_json)
     }
 
-    pub fn load_training_examples(&self, replay_path: &path::Path) -> Result<Vec<String>, AiError> {
+    pub fn load_training_examples(&self, replay_path: &Path) -> Result<Vec<String>, AiError> {
         self.orchestrator
             .load_training_examples_as_strings(replay_path)
     }

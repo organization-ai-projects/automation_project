@@ -1,182 +1,182 @@
 # Protocol Library
 
-Une bibliothèque Rust pour la communication basée sur des commandes et événements typés avec validation et métadonnées.
+A Rust library for communication based on typed commands and events with validation and metadata.
 
 ## Version
 
-Version actuelle : **1.0.0**
+Current version: **1.0.0**
 
-## Caractéristiques
+## Features
 
-- ✅ **Commandes et événements typés** - Types définis pour une meilleure sécurité et clarté
-- ✅ **Validation robuste** - Validation complète avec messages d'erreur descriptifs
-- ✅ **Métadonnées automatiques** - Timestamps et IDs uniques générés automatiquement
-- ✅ **Sérialisation** - Support complet de serde pour JSON/binaire
-- ✅ **Sécurité** - Limites de taille et validation de format pour prévenir les abus
-- ✅ **Documentation complète** - Docs inline et exemples
+- ✅ **Typed commands and events** - Defined types for better safety and clarity
+- ✅ **Robust validation** - Comprehensive validation with descriptive error messages
+- ✅ **Automatic metadata** - Automatically generated timestamps and unique IDs
+- ✅ **Serialization** - Full serde support for JSON/binary
+- ✅ **Security** - Size limits and format validation to prevent abuse
+- ✅ **Complete documentation** - Inline docs and examples
 
 ## Installation
 
-Ajoutez à votre `Cargo.toml` :
+Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 protocol = { path = "../path/to/protocol" }
 ```
 
-## Utilisation
+## Usage
 
-### Créer et valider une commande
+### Create and validate a command
 
 ```rust
 use protocol::{Command, CommandType};
 
-// Créer une nouvelle commande
+// Create a new command
 let cmd = Command::new(
     "execute_task".to_string(),
     CommandType::Execute,
     r#"{"task": "example", "params": {}}"#.to_string()
 );
 
-// Valider la commande
+// Validate the command
 match cmd.validate() {
-    Ok(()) => println!("Commande valide!"),
-    Err(e) => eprintln!("Erreur de validation: {}", e),
+    Ok(()) => println!("Valid command!"),
+    Err(e) => eprintln!("Validation error: {}", e),
 }
 ```
 
-### Créer et valider un événement
+### Create and validate an event
 
 ```rust
 use protocol::{Event, EventType};
 
-// Créer un nouvel événement
+// Create a new event
 let event = Event::new(
     "task_completed".to_string(),
     EventType::Completed,
     r#"{"result": "success", "duration_ms": 1234}"#.to_string()
 );
 
-// Valider l'événement
+// Validate the event
 if let Err(e) = event.validate() {
-    eprintln!("Événement invalide: {}", e);
+    eprintln!("Invalid event: {}", e);
 }
 ```
 
-### Types de commandes disponibles
+### Available command types
 
-- `Execute` - Exécuter une tâche ou opération
-- `Query` - Interroger pour obtenir des informations
-- `Update` - Mettre à jour des données existantes
-- `Delete` - Supprimer des données ou ressources
-- `Create` - Créer de nouvelles ressources
-- `Subscribe` - S'abonner à des événements ou mises à jour
-- `Unsubscribe` - Se désabonner d'événements ou mises à jour
-- `Configure` - Commande de configuration
-- `Custom` - Type de commande personnalisé
+- `Execute` - Execute a task or operation
+- `Query` - Query for information
+- `Update` - Update existing data
+- `Delete` - Delete data or resources
+- `Create` - Create new resources
+- `Subscribe` - Subscribe to events or updates
+- `Unsubscribe` - Unsubscribe from events or updates
+- `Configure` - Configuration command
+- `Custom` - Custom command type
 
-### Types d'événements disponibles
+### Available event types
 
-- `Started` / `Stopped` - Démarrage/arrêt du système
-- `Created` / `Updated` / `Deleted` - Modifications de données
-- `Error` / `Warning` / `Info` - Niveaux de log
-- `Completed` / `Failed` - Résultats de tâches
-- `Progress` - Mise à jour de progression
-- `StateChanged` - Changement d'état
-- `Custom` - Type d'événement personnalisé
+- `Started` / `Stopped` - System start/stop
+- `Created` / `Updated` / `Deleted` - Data modifications
+- `Error` / `Warning` / `Info` - Log levels
+- `Completed` / `Failed` - Task results
+- `Progress` - Progress updates
+- `StateChanged` - State changes
+- `Custom` - Custom event type
 
-### Métadonnées
+### Metadata
 
-Les métadonnées sont automatiquement générées avec :
+Metadata is automatically generated with:
 
-- **Timestamp** : millisecondes depuis UNIX epoch
-- **ID unique** : combinaison de timestamp et compteur atomique
+- **Timestamp**: milliseconds since UNIX epoch
+- **Unique ID**: combination of timestamp and atomic counter
 
 ```rust
 use protocol::Metadata;
 
-// Créer avec timestamp actuel
+// Create with the current timestamp
 let metadata = Metadata::now();
 
-// Accéder aux données
+// Access the data
 println!("Timestamp: {}", metadata.timestamp);
 println!("ID: {}", metadata.id);
-println!("Format lisible: {}", metadata.timestamp_to_string());
+println!("Readable format: {}", metadata.timestamp_to_string());
 ```
 
-### Gestion des erreurs
+### Error handling
 
-La bibliothèque fournit des erreurs de validation détaillées :
+The library provides detailed validation errors:
 
 ```rust
 use protocol::{Command, CommandType, ValidationError};
 
 let cmd = Command::new(
-    "test command with spaces!".to_string(), // Nom invalide
+    "test command with spaces!".to_string(), // Invalid name
     CommandType::Execute,
     "payload".to_string()
 );
 
 match cmd.validate() {
     Err(ValidationError::InvalidNameFormat(name)) => {
-        println!("Nom invalide: {}", name);
+        println!("Invalid name: {}", name);
     }
-    Err(e) => println!("Autre erreur: {}", e),
+    Err(e) => println!("Other error: {}", e),
     Ok(()) => println!("OK"),
 }
 ```
 
-Types d'erreurs :
+Error types:
 
-- `EmptyName` - Nom vide ou contenant seulement des espaces
-- `EmptyPayload` - Payload/données vides
-- `InvalidNameFormat` - Nom contient des caractères invalides
-- `PayloadTooLarge` - Payload dépasse la taille maximale (10 MB)
-- `NameTooLong` - Nom dépasse la longueur maximale (256 caractères)
-- `InvalidTimestamp` - Timestamp invalide (trop loin dans le futur)
+- `EmptyName` - Name is empty or contains only spaces
+- `EmptyPayload` - Payload/data is empty
+- `InvalidNameFormat` - Name contains invalid characters
+- `PayloadTooLarge` - Payload exceeds the maximum size (10 MB)
+- `NameTooLong` - Name exceeds the maximum length (256 characters)
+- `InvalidTimestamp` - Invalid timestamp (too far in the future)
 
-## Limites de sécurité
+## Security limits
 
-Pour prévenir les abus et attaques :
+To prevent abuse and attacks:
 
-### Commandes
+### Commands
 
-- Longueur maximale du nom : **256 caractères**
-- Taille maximale du payload : **10 MB**
-- Caractères autorisés dans le nom : alphanumériques, `_`, `-`, `.`
+- Maximum name length: **256 characters**
+- Maximum payload size: **10 MB**
+- Allowed characters in the name: alphanumeric, `_`, `-`, `.`
 
-### Événements
+### Events
 
-- Longueur maximale du nom : **256 caractères**
-- Taille maximale des données : **10 MB**
-- Caractères autorisés dans le nom : alphanumériques, `_`, `-`, `.`
+- Maximum name length: **256 characters**
+- Maximum data size: **10 MB**
+- Allowed characters in the name: alphanumeric, `_`, `-`, `.`
 
 ### Timestamps
 
-- Dérive maximale dans le futur : **1 heure**
+- Maximum drift into the future: **1 hour**
 
 ## Tests
 
-Lancer les tests :
+Run the tests:
 
 ```bash
 cargo test -p protocol
 ```
 
-## Évolutions futures possibles
+## Possible future developments
 
-- Support de payloads structurés avec `serde_json::Value`
-- Compression des payloads volumineux
-- Chiffrement des données sensibles
-- Signatures cryptographiques pour l'authenticité
-- Support des schémas de validation personnalisés
+- Support for structured payloads with `serde_json::Value`
+- Compression of large payloads
+- Encryption of sensitive data
+- Cryptographic signatures for authenticity
+- Support for custom validation schemas
 
-## Contribuer
+## Contribute
 
-Les contributions sont les bienvenues ! Veuillez ouvrir une issue ou une pull request sur le dépôt GitHub.
+Contributions are welcome! Please open an issue or pull request on the GitHub repository.
 
-Pour plus de détails sur le workflow Git/GitHub utilisé dans ce projet, consultez la [documentation sur le versioning](../../../docs/versioning/git-github.md).
+For more details on the Git/GitHub workflow used in this project, see the [versioning documentation](../../../docs/versioning/git-github.md).
 
-## Licence
+## License
 
-À définir
+To be defined

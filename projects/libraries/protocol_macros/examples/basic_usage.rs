@@ -2,7 +2,7 @@
 //!
 //! Run this example with:
 //! cargo run --example basic_usage -p protocol_macros
-
+// projects/libraries/protocol_macros/examples/basic_usage.rs
 use protocol_macros::EnumMethods;
 
 /// A simple event enum demonstrating all variant types

@@ -1,5 +1,5 @@
 //! Errors that can occur when working with arenas.
-
+// projects/libraries/hybrid_arena/src/error.rs
 use std::fmt;
 
 /// Errors that can occur when working with arenas.

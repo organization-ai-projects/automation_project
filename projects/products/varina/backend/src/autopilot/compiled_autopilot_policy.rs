@@ -1,11 +1,11 @@
-// projects/products/varina/backend/src/compiled_autopilot_policy.rs
+//! projects/products/varina/backend/src/compiled_autopilot_policy.rs
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::AutopilotPolicy;
 
-/// Policy compilée: normalisée + structures rapides.
-/// Objectif: éviter de normaliser/itérer trop à chaque changement.
+/// Compiled policy: normalized + optimized structures.
+/// Goal: avoid normalizing/iterating too much on every change.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompiledAutopilotPolicy {
     pub protected_branches: HashSet<String>,
@@ -41,11 +41,11 @@ impl From<&AutopilotPolicy> for CompiledAutopilotPolicy {
         relevant_prefixes_norm.push("projects/libraries/".to_string());
         relevant_prefixes_norm.push("projects/products/".to_string());
 
-        // Vérification de l'existence des chemins
+        // Check for the existence of paths
         relevant_prefixes_norm.retain(|prefix| {
             let exists = std::path::Path::new(prefix).exists();
             if !exists {
-                println!("[warning] Le préfixe n'existe pas : {}", prefix);
+                println!("[warning] Prefix does not exist: {}", prefix);
             }
             exists
         });
@@ -104,7 +104,7 @@ fn normalize_prefixes(prefixes: &[String]) -> Vec<String> {
             let absolute_path = std::env::current_dir().unwrap().join(&n);
             if !absolute_path.exists() {
                 println!(
-                    "[warning] normalize_prefixes: Le préfixe absolu n'existe pas : {}",
+                    "[warning] normalize_prefixes: Absolute prefix does not exist: {}",
                     absolute_path.display()
                 );
                 continue;

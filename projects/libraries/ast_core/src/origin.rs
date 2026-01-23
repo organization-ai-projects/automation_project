@@ -1,3 +1,4 @@
+// projects/libraries/ast_core/src/origin.rs
 /// The origin/source of an AST node.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Origin {

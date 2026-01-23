@@ -3,8 +3,9 @@ use crate::SolverStrategy;
 use crate::task::Task;
 use crate::task_type::TaskType;
 
+#[allow(dead_code)]
 pub struct Dispatcher {
-    // Statistiques pour améliorer les décisions
+    // Statistics to improve decision-making
     symbolic_success_rate: f64,
     neural_success_rate: f64,
 }
@@ -12,20 +13,20 @@ pub struct Dispatcher {
 impl Dispatcher {
     pub fn new() -> Self {
         Self {
-            symbolic_success_rate: 0.9, // Initial estimates
+            symbolic_success_rate: 0.9,
             neural_success_rate: 0.8,
         }
     }
 
-    /// Décide quelle stratégie utiliser basé sur le type de tâche
+    /// Decides which strategy to use based on the task type
     pub fn decide_strategy(&self, task: &Task, neural_available: bool) -> SolverStrategy {
         match task.task_type() {
-            // Analyse statique = toujours symbolic
+            // Static analysis = always symbolic
             TaskType::CodeAnalysis | TaskType::Linting | TaskType::Documentation => {
                 SolverStrategy::SymbolicOnly
             }
 
-            // Génération simple = symbolic d'abord
+            // Simple generation = symbolic first
             TaskType::SimpleGeneration => {
                 if neural_available {
                     SolverStrategy::SymbolicThenNeural
@@ -34,7 +35,7 @@ impl Dispatcher {
                 }
             }
 
-            // Génération complexe = neural avec validation
+            // Complex generation = neural with validation
             TaskType::ComplexGeneration => {
                 if neural_available {
                     SolverStrategy::NeuralWithSymbolicValidation
@@ -43,7 +44,7 @@ impl Dispatcher {
                 }
             }
 
-            // Refactoring = hybride (meilleur des deux)
+            // Refactoring = hybrid (best of both)
             TaskType::Refactoring => {
                 if neural_available {
                     SolverStrategy::Hybrid
@@ -52,7 +53,7 @@ impl Dispatcher {
                 }
             }
 
-            // Intent parsing = neural si disponible
+            // Intent parsing = neural if available
             TaskType::IntentParsing => {
                 if neural_available {
                     SolverStrategy::NeuralOnly
@@ -63,10 +64,11 @@ impl Dispatcher {
         }
     }
 
-    /// Met à jour les statistiques de succès
+    /// Updates success statistics
+    #[allow(dead_code)]
     pub fn update_stats(&mut self, strategy: SolverStrategy, success: bool) {
-        // Mise à jour avec moyenne mobile
-        let alpha = 0.1; // Learning rate
+        // Update using moving average
+        let alpha = 0.1; // Adjustment factor for moving average
 
         match strategy {
             SolverStrategy::SymbolicOnly | SolverStrategy::SymbolicThenNeural => {

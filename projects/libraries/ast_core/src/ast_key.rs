@@ -1,3 +1,4 @@
+// projects/libraries/ast_core/src/ast_key.rs
 use std::fmt;
 
 /// A key in an AST object.

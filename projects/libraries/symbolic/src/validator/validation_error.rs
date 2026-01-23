@@ -1,3 +1,4 @@
+// projects/libraries/symbolic/src/validator/validation_error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]

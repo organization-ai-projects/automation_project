@@ -1,3 +1,4 @@
+// projects/libraries/ast_core/tests/integration/duplicate_keys.rs
 use ast_core::{AstKey, AstKind, AstNode, ValidateLimits};
 
 #[test]

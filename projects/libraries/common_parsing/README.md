@@ -1,23 +1,23 @@
 # `common_parsing`
 
-**Description** : Crate Rust pour le parsing générique.
+**Description**: Rust crate for generic parsing.
 
-## Fonctionnalités
+## Features
 
-- Parsing de texte.
-- Analyse syntaxique.
+- Text parsing.
+- Syntax analysis.
 
 ## Installation
 
-Ajoutez ceci à votre `Cargo.toml` :
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 common_parsing = "0.1.0"
 ```
 
-## Utilisation
+## Usage
 
 ```rust
-// Exemple d'utilisation
+// Example usage
 ```

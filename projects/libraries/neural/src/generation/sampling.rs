@@ -1,3 +1,4 @@
+// projects/libraries/neural/src/generation/sampling.rs
 use crate::generation::GenerationError;
 use ndarray::Array1;
 

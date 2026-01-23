@@ -1,9 +1,9 @@
-// projects/products/varina/backend/src/autopilot/autopilot_mode.rs
+//! projects/products/varina/backend/src/autopilot/autopilot_mode.rs
 use serde::{Deserialize, Serialize};
 
-/// Mode d'exécution de l'autopilot.
-/// - `DryRun` : Génère un plan sans appliquer de changements.
-/// - `ApplySafe` : Applique les changements uniquement si les vérifications passent.
+/// Autopilot execution mode.
+/// - `DryRun`: Generates a plan without applying changes.
+/// - `ApplySafe`: Applies changes only if checks pass.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AutopilotMode {
     DryRun,

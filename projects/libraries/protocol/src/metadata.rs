@@ -33,7 +33,7 @@ impl Metadata {
     /// The ID is generated from the current timestamp combined with process randomness
     pub fn now() -> Self {
         let timestamp_ms = Self::current_timestamp_ms();
-        let request_id = Self::generate_id(timestamp_ms).to_string(); // Conversion en String
+        let request_id = Self::generate_id(timestamp_ms).to_string();
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,
@@ -43,7 +43,7 @@ impl Metadata {
 
     /// Creates metadata with a specific timestamp and generated ID
     pub fn with_timestamp(timestamp_ms: u64) -> Self {
-        let request_id = Self::generate_id(timestamp_ms).to_string(); // Conversion en String
+        let request_id = Self::generate_id(timestamp_ms).to_string();
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,

@@ -1,16 +1,16 @@
-// projects/products/varina/backend/src/automation.rs
-use std::path::Path;
-
-use git_lib::commands::{
-    build_commit_message, build_commit_subject, current_branch, ensure_git_repo, git_add_paths,
-    git_commit, git_commit_dry_run, git_push_current_branch, git_status_porcelain_z,
-    normalize_repo_path,
-};
+//! projects/products/varina/backend/src/automation.rs
+use std::path::{Path, PathBuf};
+use std::{fs, process};
 
 use crate::autopilot::{
     AutopilotError, AutopilotMode, AutopilotPlan, AutopilotPolicy, AutopilotReport,
 };
 use crate::cargo::{cargo_fmt_check, cargo_test};
+use crate::git_github::commands::status::git_status_porcelain_z;
+use crate::git_github::commands::{
+    current_branch, ensure_git_repo, git_add_paths, git_commit, git_commit_dry_run,
+    git_push_current_branch, git_reset,
+};
 use crate::{PreChecks, classify_changes, has_merge_conflicts};
 
 type Result<T> = std::result::Result<T, AutopilotError>;
@@ -36,7 +36,6 @@ pub fn run_git_autopilot_in_repo(
 
     logs.push(format!("[ctx] repo_path={}", repo_path.display()));
     ensure_git_repo(&repo_path, &mut logs)?;
-
     let (branch, detached_head) = current_branch(&repo_path, &mut logs)?;
     logs.push(format!(
         "[git] branch={branch} detached_head={detached_head}"
@@ -50,7 +49,7 @@ pub fn run_git_autopilot_in_repo(
 
     if detached_head {
         return Err(format!(
-            "Refus: HEAD détaché (branch='{}'). Checkout une branche avant d'utiliser l'autopilot.",
+            "Refusal: Detached HEAD (branch='{}'). Checkout a branch before using autopilot.",
             branch
         )
         .into());
@@ -58,7 +57,7 @@ pub fn run_git_autopilot_in_repo(
 
     if policy.protected_branches.iter().any(|b| b == &branch) {
         return Err(format!(
-            "Refus: la branche '{}' est protégée ({:?}).",
+            "Refusal: The branch '{}' is protected ({:?}).",
             branch, policy.protected_branches
         )
         .into());
@@ -71,7 +70,7 @@ pub fn run_git_autopilot_in_repo(
 
     // Nothing to do: return a clean report with empty plan.
     if changes.is_empty() {
-        notes.push("Aucun changement détecté.".into());
+        notes.push("No changes detected.".into());
 
         let plan = AutopilotPlan {
             branch: branch.clone(),
@@ -96,15 +95,15 @@ pub fn run_git_autopilot_in_repo(
         });
     }
 
-    println!("[debug] Validation des changements pertinents et bloqués");
-    println!("[debug] Changements détectés: {:?}", changes);
-    println!("[debug] Changements classifiés: {:?}", classified);
+    println!("[debug] Validating relevant and blocked changes");
+    println!("[debug] Detected changes: {:?}", changes);
+    println!("[debug] Classified changes: {:?}", classified);
 
     // Conflicts: check XY bytes directly (robust).
     if has_merge_conflicts(&changes) {
-        println!("[debug] Conflits de fusion détectés");
+        println!("[debug] Merge conflicts detected");
         return Err(
-            "Conflits de fusion détectés. Résolvez les conflits avant de continuer."
+            "Merge conflicts detected. Resolve conflicts before continuing."
                 .to_string()
                 .into(),
         );
@@ -112,12 +111,9 @@ pub fn run_git_autopilot_in_repo(
 
     // Blocked -> hard stop.
     if !classified.blocked.is_empty() {
-        println!(
-            "[debug] Changements bloqués détectés: {:?}",
-            classified.blocked
-        );
+        println!("[debug] Blocked changes detected: {:?}", classified.blocked);
         return Err(format!(
-            "Refus: des changements bloqués ont été détectés: {:?}",
+            "Refusal: Blocked changes detected: {:?}",
             classified.blocked
         )
         .to_string()
@@ -127,11 +123,11 @@ pub fn run_git_autopilot_in_repo(
     // Unrelated -> hard stop if policy says so.
     if policy.fail_on_unrelated_changes && !classified.unrelated.is_empty() {
         println!(
-            "[debug] Changements non liés détectés: {:?}",
+            "[debug] Unrelated changes detected: {:?}",
             classified.unrelated
         );
         return Err(format!(
-            "Refus: des changements non liés ont été détectés: {:?}",
+            "Refusal: Unrelated changes detected: {:?}",
             classified.unrelated
         )
         .to_string()
@@ -139,16 +135,14 @@ pub fn run_git_autopilot_in_repo(
     }
 
     // Stage only relevant.
-    let will_stage = classified
-        .relevant
-        .iter()
-        .map(|c| c.path.clone())
-        .collect::<Vec<_>>();
+    let will_stage = classified.relevant.to_vec();
     let will_commit = !will_stage.is_empty();
     let will_push = policy.allow_push && will_commit;
 
     // Build commit message: subject + body (safe sizes).
-    let (commit_subject, commit_body) = build_commit_message(&branch, &classified.relevant);
+    let commit = build_commit_message(&branch, &classified.relevant);
+    let commit_subject = commit.0.to_string();
+    let commit_body = commit.1.to_string();
     let commit_message_for_report = if commit_body.is_empty() {
         commit_subject.clone()
     } else {
@@ -191,34 +185,32 @@ pub fn run_git_autopilot_in_repo(
         ));
     }
 
-    // Vérification et suppression du fichier .git/index.lock avant toute opération Git
+    // Check and remove .git/index.lock file before any Git operation
     let lock_file = repo_path.join(".git/index.lock");
     logs.push(format!(
-        "[debug] Vérification de l'existence de .git/index.lock: {:?}",
+        "[debug] Checking for existence of .git/index.lock: {:?}",
         lock_file
     ));
     if lock_file.exists() {
-        logs.push("[debug] .git/index.lock détecté, tentative de suppression...".to_string());
-        std::fs::remove_file(&lock_file).map_err(|e| {
-            let error_message = format!("[error] Échec de suppression de .git/index.lock: {}", e);
+        logs.push("[debug] .git/index.lock detected, attempting removal...".to_string());
+        fs::remove_file(&lock_file).map_err(|e| {
+            let error_message = format!("[error] Failed to remove .git/index.lock: {}", e);
             logs.push(error_message.clone());
             AutopilotError::from(error_message)
         })?;
-        logs.push("[debug] Fichier verrouillé supprimé avec succès: .git/index.lock".to_string());
+        logs.push("[debug] Successfully removed lock file: .git/index.lock".to_string());
     } else {
-        logs.push("[debug] Aucun fichier .git/index.lock détecté.".to_string());
+        logs.push("[debug] No .git/index.lock file detected.".to_string());
     }
 
-    // Vérification des processus Git actifs
-    let git_processes = std::process::Command::new("pgrep")
+    // Check for active Git processes
+    let git_processes = process::Command::new("pgrep")
         .arg("git")
         .output()
-        .expect("Impossible de vérifier les processus Git");
+        .expect("Unable to check Git processes");
 
     if !git_processes.stdout.is_empty() {
-        println!(
-            "[warning] Des processus Git actifs ont été détectés. Cela pourrait causer des conflits."
-        );
+        println!("[warning] Active Git processes detected. This might cause conflicts.");
     }
 
     // Pre-checks before apply
@@ -261,29 +253,18 @@ pub fn run_git_autopilot_in_repo(
 
             logs.push(format!(
                 "[debug] automation.rs: relevant paths transmitted to git_add_paths={:?}",
-                classified
-                    .relevant
-                    .iter()
-                    .map(|c| c.path.clone())
-                    .collect::<Vec<_>>()
+                classified.relevant.to_vec()
             ));
 
             println!(
-                "[debug] Ajout des chemins pertinents à l'index Git: {:?}",
+                "[debug] Adding relevant paths to Git index: {:?}",
                 classified.relevant
             );
-            git_add_paths(
-                &repo_path,
-                &classified
-                    .relevant
-                    .iter()
-                    .map(|c| c.path.clone())
-                    .collect::<Vec<_>>(),
-                &mut logs,
-            )?;
+            git_add_paths(&repo_path, &classified.relevant.to_vec(), &mut logs)?;
 
             // Commit (subject + body)
             println!("[debug] Attempting commit with changes: {:?}", changes);
+
             println!(
                 "[debug] Commit message: {:?}",
                 build_commit_message(&branch, &classified.relevant)
@@ -302,7 +283,7 @@ pub fn run_git_autopilot_in_repo(
         logs.push("[dryrun] no changes applied".into());
         logs.push("[debug] automation.rs: Entering DryRun block".to_string());
 
-        // Ajouter temporairement les fichiers à l'index pour le commit simulé
+        // Temporarily stage files for dry-run
         if mode == AutopilotMode::DryRun && !plan.will_stage.is_empty() {
             logs.push(format!(
                 "[debug] Temporarily staging files for dry-run: {:?}",
@@ -310,10 +291,10 @@ pub fn run_git_autopilot_in_repo(
             ));
             git_add_paths(&repo_path, &plan.will_stage, &mut logs)?;
 
-            // Effectuer le commit simulé
+            // Perform dry-run commit
             git_commit_dry_run(&repo_path, &plan.commit_message, "", &mut logs)?;
 
-            // Restaurer l'état initial de l'index
+            // Restore initial index state
             logs.push("[debug] Restoring index state after dry-run".into());
             git_reset(&repo_path, &plan.will_stage, &mut logs)?;
         }
@@ -322,7 +303,7 @@ pub fn run_git_autopilot_in_repo(
     // Add notes after apply/dryrun
     if !classified.unrelated.is_empty() && !policy.fail_on_unrelated_changes {
         plan.notes.push(format!(
-            "Attention: {} changements non liés ignorés (fail_on_unrelated_changes=false).",
+            "Warning: {} unrelated changes ignored (fail_on_unrelated_changes=false).",
             classified.unrelated.len()
         ));
     }
@@ -344,33 +325,37 @@ pub fn run_git_autopilot_in_repo(
 /// ==============================
 /// SECTION: Optional tiny util
 /// ==============================
+/// Checks if a file or directory exists at the given path.
+/// This function is currently unused and may be removed in the future.
 #[allow(dead_code)]
 fn exists(path: &str) -> bool {
     Path::new(path).exists()
 }
 
-/// Réinitialise les fichiers spécifiés dans l'index Git
-pub fn git_reset(
-    repo_path: &Path,
-    paths: &[String],
-    logs: &mut Vec<String>,
-) -> std::result::Result<(), AutopilotError> {
-    logs.push(format!("[cmd] git reset -- {:?}", paths));
-
-    let status = std::process::Command::new("git")
-        .arg("reset")
-        .arg("--")
-        .args(paths)
-        .current_dir(repo_path)
-        .status()
-        .map_err(|e| {
-            AutopilotError::from(format!("Erreur lors de l'exécution de git reset: {}", e))
-        })?;
-
-    if !status.success() {
-        return Err(AutopilotError::from("git reset a échoué".to_string()));
+/// Normalizes the repository path to ensure it is absolute and valid.
+pub fn normalize_repo_path(repo_path: &Path) -> Result<PathBuf> {
+    let path = Path::new(repo_path);
+    if path.is_absolute() {
+        Ok(path.to_path_buf())
+    } else {
+        std::env::current_dir()
+            .map_err(|e| AutopilotError::from(format!("Failed to get current directory: {}", e)))?
+            .join(path)
+            .canonicalize()
+            .map_err(|e| AutopilotError::from(format!("Failed to normalize path: {}", e)))
     }
+}
 
-    logs.push("[cmd] git reset terminé avec succès".into());
-    Ok(())
+/// Builds the commit subject based on the current branch name.
+pub fn build_commit_subject(branch: &str) -> String {
+    format!("Commit on branch: {}", branch)
+}
+
+/// Builds the commit message based on the branch name and relevant changes.
+pub fn build_commit_message(branch: &str, relevant_changes: &[String]) -> (String, String) {
+    let changes_summary = relevant_changes.join(", ");
+    let subject = format!("Commit on branch: {}", branch);
+    let body = format!("Changes:\n{}", changes_summary);
+
+    (subject, body)
 }

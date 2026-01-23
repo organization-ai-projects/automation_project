@@ -1,3 +1,4 @@
+// projects/libraries/hybrid_arena/src/bump_arena_iter_mut.rs
 use std::slice;
 
 /// An iterator over mutable references to items in a `BumpArena`.

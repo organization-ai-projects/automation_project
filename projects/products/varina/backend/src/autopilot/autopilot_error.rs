@@ -1,10 +1,10 @@
-// projects/products/varina/backend/src/autopilot/autopilot_error.rs
+//! projects/products/varina/backend/src/autopilot/autopilot_error.rs
 use std::fmt;
 
 use command_runner::CommandError;
 
-/// Structure représentant une erreur spécifique à l'autopilot.
-/// Permet de convertir des erreurs externes (comme `CommandError`) en erreurs internes.
+/// Structure representing an autopilot-specific error.
+/// Allows converting external errors (like `CommandError`) into internal errors.
 #[derive(Debug)]
 pub struct AutopilotError {
     pub message: String,

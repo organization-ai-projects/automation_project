@@ -1,34 +1,34 @@
-//! Module commun pour les méthodes partagées entre SlotArena et BumpArena.
-
+//! Common module for shared methods between SlotArena and BumpArena.
+// projects/libraries/hybrid_arena/src/common_methods.rs
 use crate::error::ArenaError;
 use crate::id::Id;
 
-/// Fonction commune pour vérifier si un ID est valide.
+/// Common function to check if an ID is valid.
 #[inline]
 pub fn is_valid_id<T>(id: Id<T>, len: usize, generation: u32) -> bool {
     (id.index() as usize) < len && id.generation() == generation
 }
 
-/// Fonction commune pour réserver de la capacité.
+/// Common function to reserve capacity.
 #[inline]
 pub fn reserve_capacity<T>(vec: &mut Vec<T>, additional: usize) {
     vec.reserve(additional);
 }
 
-/// Fonction commune pour vider un vecteur.
+/// Common function to clear a vector.
 #[inline]
 pub fn clear_vec<T>(vec: &mut Vec<T>) {
     vec.iter_mut().for_each(|_| {});
     vec.clear();
 }
 
-/// Fonction commune pour créer une nouvelle arène vide.
+/// Common function to create a new empty arena.
 #[inline]
 pub fn new_arena<T>() -> Vec<T> {
     Vec::new()
 }
 
-/// Fonction commune pour créer une arène avec une capacité pré-allouée.
+/// Common function to create an arena with pre-allocated capacity.
 #[inline]
 pub fn with_capacity_arena<T>(capacity: usize) -> Vec<T> {
     Vec::with_capacity(capacity)

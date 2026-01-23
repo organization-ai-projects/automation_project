@@ -1,12 +1,12 @@
 # Metadata
 
-## 1 Fichier `metadata.ron`
+## 1 `metadata.ron` File
 
-Chaque projet inclut un fichier `metadata.ron` qui décrit ses capacités et ses points d’entrée. Ce fichier est utilisé par le registry global et l’UI centrale pour découvrir et afficher les projets.
+Each project includes a `metadata.ron` file that describes its capabilities and entry points. This file is used by the global registry and the central UI to discover and display projects.
 
-Le fichier `metadata.ron` est purement déclaratif. Il ne déclenche aucune action par lui-même.
+The `metadata.ron` file is purely declarative. It does not trigger any actions by itself.
 
-### 1.1 Exemple de fichier `metadata.ron`
+### 1.1 Example of a `metadata.ron` File
 
 ```ron
 (
@@ -32,9 +32,9 @@ Le fichier `metadata.ron` est purement déclaratif. Il ne déclenche aucune acti
   ],
 
   domains: [
-    (id: "projects",  desc: "gestion multi-projets"),
-    (id: "workflows", desc: "orchestration et runners"),
-    (id: "logs",      desc: "événements & observabilité"),
+    (id: "projects",  desc: "multi-project management"),
+    (id: "workflows", desc: "orchestration and runners"),
+    (id: "logs",      desc: "events & observability"),
   ],
 
   ai_hints: (
@@ -45,10 +45,10 @@ Le fichier `metadata.ron` est purement déclaratif. Il ne déclenche aucune acti
 )
 ```
 
-> Convention :
+> Convention:
 >
-> - `id` : Stable, unique, et adapté aux machines.
-> - `name` : Lisible par un humain et destiné aux interfaces utilisateur.
-> Note :
-> - Le champ `entrypoints` pourra inclure d'autres types de points d'entrée à l'avenir, au-delà de `ui`.
-> - De même, le champ `ai_hints` est extensible, mais sans garantie de support pour les nouvelles clés.
+> - `id`: Stable, unique, and machine-friendly.
+> - `name`: Human-readable and intended for user interfaces.
+>   Note:
+> - The `entrypoints` field may include other types of entry points in the future, beyond `ui`.
+> - Similarly, the `ai_hints` field is extensible, but there is no guarantee of support for new keys.
