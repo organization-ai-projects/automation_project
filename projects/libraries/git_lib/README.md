@@ -1,23 +1,7 @@
-# `git_lib`
+# git_lib
 
-**Description** : A Rust crate for interacting with Git.
+## Status: Abandoned
 
-## Features
+This project has been abandoned in favor of creating a native versioning tool aimed at exploring innovative solutions and improving existing workflows.
 
-- Git repository management.
-- Simplified Git commands.
-
-## Installation
-
-Add this to your `Cargo.toml` :
-
-```toml
-[dependencies]
-git_lib = "0.1.0"
-```
-
-## Usage
-
-```rust
-// Example of use
-```
+If you're interested in this project, the code remains available, but it will no longer be maintained or updated.
