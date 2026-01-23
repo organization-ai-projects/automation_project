@@ -2,6 +2,9 @@
 use crate::feedbacks::internal::internal_feedback_verdict::InternalFeedbackVerdict;
 use neural::feedback::FeedbackType;
 
+const REJECTED: &str = "Rejected";
+const NO_FEEDBACK: &str = "NoFeedback";
+
 impl<'a> From<InternalFeedbackVerdict<'a>> for FeedbackType {
     fn from(verdict: InternalFeedbackVerdict<'a>) -> Self {
         match verdict {
@@ -9,11 +12,11 @@ impl<'a> From<InternalFeedbackVerdict<'a>> for FeedbackType {
                 metadata: Default::default(),
             },
             InternalFeedbackVerdict::Rejected => FeedbackType::Incorrect {
-                expected_output: "Rejected".to_string(),
+                expected_output: REJECTED.to_string(),
                 metadata: Default::default(),
             },
             InternalFeedbackVerdict::NoFeedback => FeedbackType::Incorrect {
-                expected_output: "NoFeedback".to_string(),
+                expected_output: NO_FEEDBACK.to_string(),
                 metadata: Default::default(),
             },
             InternalFeedbackVerdict::Incorrect { expected_output } => FeedbackType::Incorrect {

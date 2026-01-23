@@ -42,7 +42,7 @@ impl<'a> From<FeedbackVerdict<'a>> for InternalFeedbackVerdict {
 }
 ```
 
-This structure allows for quick localization and easy maintenance of conversions.
+This structure allows for quickly locating and easily maintaining conversions.
 
 ---
 
