@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 serde = { workspace = true }
-thiserror = "1.0"
+thiserror = { workspace = true }
 blake3 = "1.8.3"
 symbolic = { workspace = true }
 neural = { workspace = true }
