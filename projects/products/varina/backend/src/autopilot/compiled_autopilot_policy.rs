@@ -101,7 +101,13 @@ fn normalize_prefixes(prefixes: &[String]) -> Vec<String> {
         }
 
         if !n.is_empty() {
-            let absolute_path = std::env::current_dir().unwrap().join(&n);
+            let absolute_path = match std::env::current_dir() {
+                Ok(dir) => dir.join(&n),
+                Err(err) => {
+                    println!("[warning] normalize_prefixes: Failed to read current_dir: {err}");
+                    continue;
+                }
+            };
             if !absolute_path.exists() {
                 println!(
                     "[warning] normalize_prefixes: Absolute prefix does not exist: {}",

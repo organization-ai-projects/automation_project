@@ -12,11 +12,21 @@ mod tests {
         ]);
 
         assert!(node.is_object());
-        assert_eq!(node.get("name").unwrap().as_string(), Some("test"));
         assert_eq!(
-            node.get("value").unwrap().as_number().unwrap().as_i64(),
+            node.get("name").expect("name field").as_string(),
+            Some("test")
+        );
+        assert_eq!(
+            node.get("value")
+                .expect("value field")
+                .as_number()
+                .expect("value number")
+                .as_i64(),
             Some(42)
         );
-        assert_eq!(node.get("active").unwrap().as_bool(), Some(true));
+        assert_eq!(
+            node.get("active").expect("active field").as_bool(),
+            Some(true)
+        );
     }
 }

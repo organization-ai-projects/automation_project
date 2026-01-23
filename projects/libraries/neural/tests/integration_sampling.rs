@@ -16,7 +16,7 @@ fn test_integration_apply_top_k() {
 #[test]
 fn test_integration_sample_categorical() {
     let probs = Array1::from_vec(vec![0.0, 1.0, 0.0]);
-    let token = sample_categorical(&probs).unwrap();
+    let token = sample_categorical(&probs).expect("sample succeeds");
 
     assert_eq!(token, 1);
 }

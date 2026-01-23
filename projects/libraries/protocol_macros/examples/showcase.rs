@@ -30,7 +30,13 @@ enum BinaryEvent {
     DataPacket(Vec<u8>),
 }
 
-fn main() {
+#[derive(Debug, thiserror::Error)]
+enum ShowcaseError {
+    #[error("Failed to parse address: {0}")]
+    AddressParseError(String),
+}
+
+fn main() -> Result<(), ShowcaseError> {
     println!("=== protocol_macros Showcase ===\n");
 
     // Feature 1: Snake_case constructors
@@ -67,7 +73,9 @@ fn main() {
 
     // Feature 5: Debug mode for non-Display types
     println!("\n5. Debug mode (for non-Display types):");
-    let addr = "127.0.0.1:8080".parse().unwrap();
+    let addr = "127.0.0.1:8080"
+        .parse()
+        .map_err(|_| ShowcaseError::AddressParseError("127.0.0.1:8080".to_string()))?;
     let connected = BinaryEvent::connected(addr);
     let packet = BinaryEvent::data_packet(vec![0xFF, 0xAA, 0xBB]);
     println!("   {}", connected);
@@ -90,4 +98,5 @@ fn main() {
     );
 
     println!("\n=== All features working perfectly! ===");
+    Ok(())
 }

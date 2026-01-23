@@ -36,8 +36,8 @@ impl JsonComparison {
                         object_differences.insert(
                             key.clone(),
                             JsonComparison::compare(
-                                value1.unwrap_or(&Json::Null),
-                                value2.unwrap_or(&Json::Null),
+                                value1.expect("Expected a value"),
+                                value2.expect("Expected a value"),
                             ),
                         );
                     }
@@ -51,8 +51,8 @@ impl JsonComparison {
                 let mut array_differences = Vec::new();
                 let max_len = arr1.len().max(arr2.len());
                 for i in 0..max_len {
-                    let value1 = arr1.get(i).unwrap_or(&Json::Null);
-                    let value2 = arr2.get(i).unwrap_or(&Json::Null);
+                    let value1 = arr1.get(i).expect("Expected a value");
+                    let value2 = arr2.get(i).expect("Expected a value");
                     if value1 != value2 {
                         array_differences.push(JsonComparison::compare(value1, value2));
                     }

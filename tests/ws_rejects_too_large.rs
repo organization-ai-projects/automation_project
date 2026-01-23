@@ -26,13 +26,13 @@ async fn ws_rejects_too_large() {
     tokio::task::spawn(server.1);
 
     // Connect to the WebSocket server
-    let client = warp::test::ws().path("/ws").handshake(addr).await.unwrap();
+    let client = warp::test::ws().path("/ws").handshake(addr).await.expect("Failed to connect to WebSocket server");
 
     // Send a message that exceeds the size limit
     let large_message = "a".repeat(2048);
-    client.send(warp::ws::Message::text(large_message)).await.unwrap();
+    client.send(warp::ws::Message::text(large_message)).await.expect("Failed to send message");
 
     // Assert the server responds with "Message too large"
-    let response = client.recv().await.unwrap();
-    assert_eq!(response.to_str().unwrap(), "Message too large");
+    let response = client.recv().await.expect("Failed to receive response");
+    assert_eq!(response.to_str().expect("Failed to convert response to string"), "Message too large");
 }

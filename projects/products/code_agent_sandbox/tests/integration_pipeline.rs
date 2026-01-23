@@ -62,7 +62,8 @@ fn test_integration_pipeline() {
         "actions": [
             { "kind": "writeFile", "path": "src/agent_tmp.txt", "contents": "data", "createDirs": true }
         ]
-    })).unwrap();
+    }))
+    .expect("serialize allowed input");
 
     let out_allowed = run_with_stdin(&repo_root_s, &runs_root_s, &input_allowed);
 
@@ -97,7 +98,7 @@ fn test_integration_pipeline() {
             { "kind": "writeFile", "path": ".git/config", "contents": "nope", "createDirs": false }
         ]
     }))
-    .unwrap();
+    .expect("serialize forbidden input");
 
     let out_forbidden = run_with_stdin(&repo_root_s, &runs_root_s, &input_forbidden);
 
@@ -110,7 +111,7 @@ fn test_integration_pipeline() {
         .and_then(|x| x.as_array());
     assert!(results.is_some(), "results must be an array: {:?}", v2);
 
-    let any_failed = results.unwrap().iter().any(|r| {
+    let any_failed = results.expect("results array").iter().any(|r| {
         r.as_object()
             .and_then(|obj| obj.get("ok"))
             .and_then(|x| x.as_bool())

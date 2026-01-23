@@ -295,7 +295,10 @@ impl<'de> de::Deserializer<'de> for JsonDeserializer<'de> {
         match self.input {
             Json::String(variant) => visitor.visit_enum(JsonEnumAccess::new(variant, None)),
             Json::Object(map) if map.len() == 1 => {
-                let (variant, value) = map.iter().next().unwrap();
+                let (variant, value) = map.iter().next().ok_or_else(|| {
+                    JsonError::new(JsonErrorCode::MissingEnumValueError)
+                        .context("enum object must have one entry")
+                })?;
                 visitor.visit_enum(JsonEnumAccess::new(variant, Some(value)))
             }
             other => Err(type_error("enum", other)),

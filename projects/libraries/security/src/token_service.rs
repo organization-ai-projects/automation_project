@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_expired_token() {
-        let service = TokenService::new_hs256(&"a".repeat(32)).unwrap();
+        let service = TokenService::new_hs256(&"a".repeat(32)).expect("token service init");
         let jwt = service
             .issue(
                 UserId::from(Id128::from_bytes_unchecked([1u8; 16])),
@@ -205,12 +205,12 @@ mod tests {
                 100,
                 None,
             ) // Duration of 100 ms
-            .unwrap();
+            .expect("issue token");
 
         // Add logs to inspect timestamps
         println!("JWT issued: {}", jwt);
         let claims: Claims = jsonwebtoken::decode(&jwt, &service.dec, &service.validation)
-            .unwrap()
+            .expect("decode token")
             .claims;
         println!("Timestamp iat: {} (ms)", claims.iat * 1000);
         println!("Timestamp exp: {} (ms)", claims.exp * 1000);
@@ -224,16 +224,16 @@ mod tests {
 
     #[test]
     fn test_valid_token() {
-        let service = TokenService::new_hs256(&"a".repeat(32)).unwrap();
+        let service = TokenService::new_hs256(&"a".repeat(32)).expect("token service init");
         let jwt = service
             .issue(
-                UserId::new(Id128::from_bytes_unchecked([123u8; 16])).unwrap(),
+                UserId::new(Id128::from_bytes_unchecked([123u8; 16])).expect("user id"),
                 Role::User,
                 60000,
                 None,
             )
-            .unwrap();
-        let token = service.verify(&jwt).unwrap();
+            .expect("issue token");
+        let token = service.verify(&jwt).expect("verify token");
         assert_eq!(
             token.user_id.value(),
             Id128::from_bytes_unchecked([123u8; 16])

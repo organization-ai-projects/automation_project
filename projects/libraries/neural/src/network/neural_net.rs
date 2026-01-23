@@ -114,7 +114,15 @@ impl Layer {
             }
         };
 
-        let normal = Normal::new(0.0, std_dev).unwrap();
+        let normal = match Normal::new(0.0, std_dev) {
+            Ok(normal) => normal,
+            Err(_) => {
+                return (
+                    Array2::zeros((output_size, input_size)),
+                    Array1::zeros(output_size),
+                );
+            }
+        };
         let mut rng = rand::thread_rng();
 
         let weights = Array2::from_shape_fn((output_size, input_size), |_| normal.sample(&mut rng));
@@ -318,7 +326,7 @@ mod tests {
         let mut layer = Layer::new(config);
         let input = Array1::from_vec(vec![1.0, 2.0, 3.0]);
 
-        let output = layer.forward(&input).unwrap();
+        let output = layer.forward(&input).expect("forward succeeds");
         assert_eq!(output.len(), 2);
     }
 
@@ -339,7 +347,7 @@ mod tests {
             },
         ];
 
-        let network = NeuralNetwork::new(configs).unwrap();
+        let network = NeuralNetwork::new(configs).expect("network init");
         assert_eq!(network.input_size(), 4);
         assert_eq!(network.output_size(), 1);
     }
@@ -361,14 +369,14 @@ mod tests {
             },
         ];
 
-        let mut network = NeuralNetwork::new(configs).unwrap();
+        let mut network = NeuralNetwork::new(configs).expect("network init");
         let input = Array1::from_vec(vec![1.0, 2.0]);
         let target = Array1::from_vec(vec![1.0]);
 
-        let output = network.forward(&input).unwrap();
+        let output = network.forward(&input).expect("forward succeeds");
         assert_eq!(output.len(), 1);
 
-        let loss = network.backward(&target, 0.01).unwrap();
+        let loss = network.backward(&target, 0.01).expect("backward succeeds");
         assert!(loss >= 0.0);
     }
 }

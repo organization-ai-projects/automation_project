@@ -69,7 +69,7 @@ fn main() {
     let id = Id128::new(42, None, None);
     println!("Generated ID: {}", id.to_hex());
 
-    let parsed = Id128::from_hex(&id.to_hex()).unwrap();
+    let parsed = Id128::from_hex(&id.to_hex()).expect("valid hex id");
     assert_eq!(id, parsed);
 
     println!("Timestamp: {}", id.timestamp_ms());

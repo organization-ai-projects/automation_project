@@ -22,6 +22,6 @@ A bump arena for fast, append-only allocation.
 use hybrid_arena::{BumpArena, Id};
 
 let mut arena: BumpArena<String> = BumpArena::new();
-let id = arena.alloc("hello".to_string()).unwrap();
+let id = arena.alloc("hello".to_string()).expect("alloc hello");
 assert_eq!(arena.get(id), Some(&"hello".to_string()));
 ```

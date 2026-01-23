@@ -227,7 +227,7 @@ mod tests {
     fn test_token_permission() {
         // Create a token with a valid `user_id`
         let user_id = UserId::from(Id128::from_bytes_unchecked([123u8; 16]));
-        let token = Token::new(user_id, Role::User, 3_600_000).unwrap();
+        let token = Token::new(user_id, Role::User, 3_600_000).expect("token");
 
         // Check permissions via the token
         assert!(check_token_permission(&token, Permission::Write).is_ok());

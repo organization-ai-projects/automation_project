@@ -125,7 +125,13 @@ pub fn run_agent_with_orchestrator(
             continue;
         }
 
-        let target_file = touched_files.into_iter().next().unwrap();
+        let Some(target_file) = touched_files.into_iter().next() else {
+            all_results.push(ActionResult::error(
+                "AgentError",
+                "Unified diff did not include a target file".to_string(),
+            ));
+            continue;
+        };
         let mut step_results = Vec::new();
 
         step_results.extend(run_and_record(

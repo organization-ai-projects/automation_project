@@ -14,11 +14,13 @@ pub fn initialize_logger(log_file: &str, log_level: &str) {
         _ => LevelFilter::Info,
     };
 
-    let file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_file)
-        .unwrap();
+    let file = match OpenOptions::new().create(true).append(true).open(log_file) {
+        Ok(file) => file,
+        Err(err) => {
+            eprintln!("Failed to open log file {}: {}", log_file, err);
+            return;
+        }
+    };
 
     let _ = log::set_boxed_logger(Box::new(SimpleLogger {
         file: Mutex::new(file),

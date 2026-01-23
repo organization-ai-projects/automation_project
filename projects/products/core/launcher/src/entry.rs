@@ -12,9 +12,41 @@ use crate::{
     ChildHandle, Cli, Config, Workspace, cargo_build, install_shutdown_handler, normalize_path,
     parse_csv, start_and_supervise, {topo_sort, validate_services},
 };
-use anyhow::{Context, Result, bail};
 use clap::Parser;
 use std::path::Path;
+use thiserror::Error;
+
+use crate::cargo_commands::CargoCommandError;
+use crate::service::ServiceError;
+use crate::shutdown::ShutdownError;
+use crate::supervisor::SupervisorError;
+
+#[derive(Debug, Error)]
+pub enum EntryError {
+    #[error("Failed to resolve parent directory of config path")]
+    ResolveParentDir,
+
+    #[error("failed to read config")]
+    ReadConfig,
+
+    #[error("invalid TOML in configuration file")]
+    InvalidToml,
+
+    #[error("Service error: {0}")]
+    Service(#[from] ServiceError),
+
+    #[error("Cargo command error: {0}")]
+    CargoCommand(#[from] CargoCommandError),
+
+    #[error("Shutdown error: {0}")]
+    Shutdown(#[from] ShutdownError),
+
+    #[error("Supervisor error: {0}")]
+    Supervisor(#[from] SupervisorError),
+
+    #[error("Service not found: {0}")]
+    ServiceNotFound(String),
+}
 
 #[derive(Clone)]
 pub struct Paths {
@@ -23,18 +55,14 @@ pub struct Paths {
     pub profile_dir: PathBuf,
 }
 
-pub fn main() -> Result<()> {
+pub fn main() -> Result<(), EntryError> {
     let cli = Cli::parse();
 
     let config_path = PathBuf::from(&cli.config);
-    let config_dir = config_path
-        .parent()
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| PathBuf::from("."));
+    let config_dir = config_path.parent().ok_or(EntryError::ResolveParentDir)?;
 
-    let cfg_text = fs::read_to_string(&config_path).with_context(|| "failed to read config")?;
-    let mut cfg: Config =
-        toml::from_str(&cfg_text).with_context(|| "invalid TOML in configuration file")?;
+    let cfg_text = fs::read_to_string(&config_path).map_err(|_| EntryError::ReadConfig)?;
+    let mut cfg: Config = toml::from_str(&cfg_text).map_err(|_| EntryError::InvalidToml)?;
 
     // Apply CLI overrides
     if cli.build {
@@ -47,7 +75,7 @@ pub fn main() -> Result<()> {
     // Resolve workspace root using `Workspace` struct
     let workspace = Workspace {
         root: normalize_path(&config_dir.join(&cfg.workspace.root))
-            .with_context(|| "failed to resolve workspace.root")?,
+            .map_err(|_| EntryError::ResolveParentDir)?,
     };
 
     // Filter only/skip
@@ -62,7 +90,7 @@ pub fn main() -> Result<()> {
         services.retain(|s| !skip_set.contains(&s.name));
     }
     if services.is_empty() {
-        bail!("no services selected (check config/--only/--skip)");
+        return Err(EntryError::InvalidToml);
     }
 
     // Validate uniqueness + deps
@@ -98,7 +126,11 @@ pub fn main() -> Result<()> {
 
     // Start services in order, waiting for readiness if configured
     for name in start_order {
-        let svc = services.iter().find(|s| s.name == name).unwrap().clone();
+        let svc = services
+            .iter()
+            .find(|s| s.name == name)
+            .ok_or(EntryError::ServiceNotFound(name.clone()))?
+            .clone();
         let paths = Paths {
             workspace: workspace.clone(),
             target_dir: target_dir.clone(),

@@ -4,6 +4,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::HashMap;
 use syn::{Data, DeriveInput, Fields, Ident, LitStr, Type, parse_macro_input};
+use thiserror::Error;
 
 #[proc_macro_derive(EnumMethods, attributes(enum_methods))]
 pub fn derive_enum_methods(input: TokenStream) -> TokenStream {
@@ -34,157 +35,179 @@ pub fn derive_enum_methods(input: TokenStream) -> TokenStream {
     }
 
     // Generate constructor methods
-    let constructors = enum_data.variants.iter().map(|variant| {
-        let variant_name = &variant.ident;
-        let snake_name = to_snake_case(&variant_name.to_string());
-        let snake_ident = Ident::new(&snake_name, variant_name.span());
+    let constructors: Result<Vec<_>, syn::Error> = enum_data
+        .variants
+        .iter()
+        .map(|variant| {
+            let variant_name = &variant.ident;
+            let snake_name = to_snake_case(&variant_name.to_string());
+            let snake_ident = Ident::new(&snake_name, variant_name.span());
 
-        match &variant.fields {
-            // Unit variant: Ping
-            Fields::Unit => {
-                quote! {
+            match &variant.fields {
+                // Unit variant: Ping
+                Fields::Unit => Ok(quote! {
                     #[inline]
                     pub fn #snake_ident() -> Self {
                         Self::#variant_name
                     }
-                }
-            }
-            // Struct variant: Created { id: String, data: String }
-            Fields::Named(fields) => {
-                let field_names: Vec<_> = fields
-                    .named
-                    .iter()
-                    .map(|f| f.ident.as_ref().unwrap())
-                    .collect();
-                let field_types: Vec<_> = fields.named.iter().map(|f| &f.ty).collect();
+                }),
+                // Struct variant: Created { id: String, data: String }
+                Fields::Named(fields) => {
+                    let field_names: Vec<_> = fields
+                        .named
+                        .iter()
+                        .map(|f| {
+                            f.ident
+                                .as_ref()
+                                .ok_or_else(|| syn::Error::new_spanned(f, "Missing identifier"))
+                        })
+                        .collect::<Result<_, _>>()?;
+                    let field_types: Vec<_> = fields.named.iter().map(|f| &f.ty).collect();
 
-                quote! {
-                    #[inline]
-                    pub fn #snake_ident(#(#field_names: #field_types),*) -> Self {
-                        Self::#variant_name { #(#field_names),* }
-                    }
+                    Ok(quote! {
+                        #[inline]
+                        pub fn #snake_ident(#(#field_names: #field_types),*) -> Self {
+                            Self::#variant_name { #(#field_names),* }
+                        }
+                    })
                 }
-            }
-            // Tuple variant: Data(String, u32)
-            Fields::Unnamed(fields) => {
-                let arg_names: Vec<Ident> = (0..fields.unnamed.len())
-                    .map(|i| Ident::new(&format!("arg{}", i), variant_name.span()))
-                    .collect();
-                let arg_types: Vec<&Type> = fields.unnamed.iter().map(|f| &f.ty).collect();
+                // Tuple variant: Data(String, u32)
+                Fields::Unnamed(fields) => {
+                    let arg_names: Vec<Ident> = (0..fields.unnamed.len())
+                        .map(|i| Ident::new(&format!("arg{}", i), variant_name.span()))
+                        .collect();
+                    let arg_types: Vec<&Type> = fields.unnamed.iter().map(|f| &f.ty).collect();
 
-                quote! {
-                    #[inline]
-                    pub fn #snake_ident(#(#arg_names: #arg_types),*) -> Self {
-                        Self::#variant_name(#(#arg_names),*)
-                    }
+                    Ok(quote! {
+                        #[inline]
+                        pub fn #snake_ident(#(#arg_names: #arg_types),*) -> Self {
+                            Self::#variant_name(#(#arg_names),*)
+                        }
+                    })
                 }
             }
-        }
-    });
+        })
+        .collect();
+
+    let constructors = match constructors {
+        Ok(constructors) => constructors,
+        Err(e) => return e.to_compile_error().into(),
+    };
 
     // Generate Display implementation
-    let display_arms = enum_data.variants.iter().map(|variant| {
-        let variant_name = &variant.ident;
-        let snake = to_snake_case(&variant_name.to_string());
-        let snake_lit = LitStr::new(&snake, variant_name.span());
+    let display_arms: Result<Vec<_>, syn::Error> = enum_data
+        .variants
+        .iter()
+        .map(|variant| {
+            let variant_name = &variant.ident;
+            let snake = to_snake_case(&variant_name.to_string());
+            let snake_lit = LitStr::new(&snake, variant_name.span());
 
-        match &variant.fields {
-            // Unit variant: "ping"
-            Fields::Unit => {
-                quote! {
+            match &variant.fields {
+                // Unit variant: "ping"
+                Fields::Unit => Ok(quote! {
                     Self::#variant_name => f.write_str(#snake_lit)
-                }
-            }
-            // Struct variant: "created { id=..., data=... }"
-            Fields::Named(fields) => {
-                let field_names: Vec<_> = fields
-                    .named
-                    .iter()
-                    .map(|f| f.ident.as_ref().unwrap())
-                    .collect();
+                }),
+                // Struct variant: "created { id=..., data=... }"
+                Fields::Named(fields) => {
+                    let field_names: Vec<_> = fields
+                        .named
+                        .iter()
+                        .map(|f| {
+                            f.ident
+                                .as_ref()
+                                .ok_or_else(|| MacroError::MissingFieldIdent.to_syn_error(f))
+                        })
+                        .collect::<Result<_, _>>()?;
 
-                let format_fields = if field_names.is_empty() {
-                    quote! {}
-                } else {
-                    let field_formats = field_names.iter().enumerate().map(|(i, name)| {
-                        let name_str = name.to_string();
-                        if i == 0 {
-                            match display_mode {
-                                DisplayMode::Display => quote! {
-                                    write!(f, "{}={}", #name_str, #name)?;
-                                },
-                                DisplayMode::Debug => quote! {
-                                    write!(f, "{}={:?}", #name_str, #name)?;
-                                },
+                    let format_fields = if field_names.is_empty() {
+                        quote! {}
+                    } else {
+                        let field_formats = field_names.iter().enumerate().map(|(i, name)| {
+                            let name_str = name.to_string();
+                            if i == 0 {
+                                match display_mode {
+                                    DisplayMode::Display => quote! {
+                                        write!(f, "{}={}", #name_str, #name)?;
+                                    },
+                                    DisplayMode::Debug => quote! {
+                                        write!(f, "{}={:?}", #name_str, #name)?;
+                                    },
+                                }
+                            } else {
+                                match display_mode {
+                                    DisplayMode::Display => quote! {
+                                        write!(f, ", {}={}", #name_str, #name)?;
+                                    },
+                                    DisplayMode::Debug => quote! {
+                                        write!(f, ", {}={:?}", #name_str, #name)?;
+                                    },
+                                }
                             }
-                        } else {
-                            match display_mode {
-                                DisplayMode::Display => quote! {
-                                    write!(f, ", {}={}", #name_str, #name)?;
-                                },
-                                DisplayMode::Debug => quote! {
-                                    write!(f, ", {}={:?}", #name_str, #name)?;
-                                },
-                            }
+                        });
+                        quote! { #(#field_formats)* }
+                    };
+
+                    Ok(quote! {
+                        Self::#variant_name { #(#field_names),* } => {
+                            f.write_str(#snake_lit)?;
+                            f.write_str(" { ")?;
+                            #format_fields
+                            f.write_str(" }")
                         }
-                    });
-                    quote! { #(#field_formats)* }
-                };
-
-                quote! {
-                    Self::#variant_name { #(#field_names),* } => {
-                        f.write_str(#snake_lit)?;
-                        f.write_str(" { ")?;
-                        #format_fields
-                        f.write_str(" }")
-                    }
+                    })
                 }
-            }
-            // Tuple variant: "data(arg0=..., arg1=...)"
-            Fields::Unnamed(fields) => {
-                let arg_names: Vec<Ident> = (0..fields.unnamed.len())
-                    .map(|i| Ident::new(&format!("arg{}", i), variant_name.span()))
-                    .collect();
+                // Tuple variant: "data(arg0=..., arg1=...)"
+                Fields::Unnamed(fields) => {
+                    let arg_names: Vec<Ident> = (0..fields.unnamed.len())
+                        .map(|i| Ident::new(&format!("arg{}", i), variant_name.span()))
+                        .collect();
 
-                let format_args = if arg_names.is_empty() {
-                    quote! {}
-                } else {
-                    let arg_formats = arg_names.iter().enumerate().map(|(i, name)| {
-                        let name_str = format!("arg{}", i);
-                        if i == 0 {
-                            match display_mode {
-                                DisplayMode::Display => quote! {
-                                    write!(f, "{}={}", #name_str, #name)?;
-                                },
-                                DisplayMode::Debug => quote! {
-                                    write!(f, "{}={:?}", #name_str, #name)?;
-                                },
+                    let format_args = if arg_names.is_empty() {
+                        quote! {}
+                    } else {
+                        let arg_formats = arg_names.iter().enumerate().map(|(i, name)| {
+                            let name_str = format!("arg{}", i);
+                            if i == 0 {
+                                match display_mode {
+                                    DisplayMode::Display => quote! {
+                                        write!(f, "{}={}", #name_str, #name)?;
+                                    },
+                                    DisplayMode::Debug => quote! {
+                                        write!(f, "{}={:?}", #name_str, #name)?;
+                                    },
+                                }
+                            } else {
+                                match display_mode {
+                                    DisplayMode::Display => quote! {
+                                        write!(f, ", {}={}", #name_str, #name)?;
+                                    },
+                                    DisplayMode::Debug => quote! {
+                                        write!(f, ", {}={:?}", #name_str, #name)?;
+                                    },
+                                }
                             }
-                        } else {
-                            match display_mode {
-                                DisplayMode::Display => quote! {
-                                    write!(f, ", {}={}", #name_str, #name)?;
-                                },
-                                DisplayMode::Debug => quote! {
-                                    write!(f, ", {}={:?}", #name_str, #name)?;
-                                },
-                            }
+                        });
+                        quote! { #(#arg_formats)* }
+                    };
+
+                    Ok(quote! {
+                        Self::#variant_name(#(#arg_names),*) => {
+                            f.write_str(#snake_lit)?;
+                            f.write_str("(")?;
+                            #format_args
+                            f.write_str(")")
                         }
-                    });
-                    quote! { #(#arg_formats)* }
-                };
-
-                quote! {
-                    Self::#variant_name(#(#arg_names),*) => {
-                        f.write_str(#snake_lit)?;
-                        f.write_str("(")?;
-                        #format_args
-                        f.write_str(")")
-                    }
+                    })
                 }
             }
-        }
-    });
+        })
+        .collect();
+
+    let display_arms = match display_arms {
+        Ok(display_arms) => display_arms,
+        Err(e) => return e.to_compile_error().into(),
+    };
 
     // Generate as_str() method for each variant (premium feature!)
     let as_str_arms = enum_data.variants.iter().map(|variant| {
@@ -248,6 +271,18 @@ pub fn derive_enum_methods(input: TokenStream) -> TokenStream {
 enum DisplayMode {
     Display, // Uses {} formatting
     Debug,   // Uses {:?} formatting
+}
+
+#[derive(Debug, Error)]
+enum MacroError {
+    #[error("missing identifier for named field")]
+    MissingFieldIdent,
+}
+
+impl MacroError {
+    fn to_syn_error(&self, tokens: impl quote::ToTokens) -> syn::Error {
+        syn::Error::new_spanned(tokens, self.to_string())
+    }
 }
 
 /// Parse display mode from attributes with proper error handling

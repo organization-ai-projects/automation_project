@@ -27,12 +27,14 @@ async fn ws_rejects_invalid_json() {
     tokio::task::spawn(server.1);
 
     // Connect to the WebSocket server
-    let client = warp::test::ws().path("/ws").handshake(addr).await.unwrap();
+    let client = warp::test::ws().path("/ws").handshake(addr).await.expect("Failed to connect to WebSocket server");
 
     // Send invalid JSON
-    client.send(warp::ws::Message::text("{invalid_json}")).await.unwrap();
+    client.send(warp::ws::Message::text("{invalid_json}"))
+        .await
+        .expect("Failed to send message");
 
     // Assert the server responds with "Invalid JSON"
-    let response = client.recv().await.unwrap();
-    assert_eq!(response.to_str().unwrap(), "Invalid JSON");
+    let response = client.recv().await.expect("Failed to receive response");
+    assert_eq!(response.to_str().expect("Failed to convert response to string"), "Invalid JSON");
 }

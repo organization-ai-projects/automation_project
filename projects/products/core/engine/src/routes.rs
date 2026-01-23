@@ -33,9 +33,17 @@ async fn login(req: LoginRequest, state: EngineState) -> Result<impl Reply, warp
         return Err(warp::reject());
     }
 
-    let user_id = UserId::from(Id128::from_bytes_unchecked(
-        req.user_id.as_bytes().try_into().unwrap(),
-    ));
+    let user_id_bytes: [u8; 16] = match req.user_id.as_bytes().try_into() {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            warn!(
+                "Login failed: invalid user_id length for user_id={}",
+                req.user_id
+            );
+            return Err(warp::reject());
+        }
+    };
+    let user_id = UserId::from(Id128::from_bytes_unchecked(user_id_bytes));
     let role = req.role.unwrap_or(Role::User);
 
     let duration_ms = req

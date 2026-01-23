@@ -25,15 +25,15 @@ use hybrid_arena::{BumpArena, SlotArena, Id};
 
 // BumpArena: fast append-only allocation
 let mut bump: BumpArena<String> = BumpArena::new();
-let id = bump.alloc("hello".to_string()).unwrap();
+let id = bump.alloc("hello".to_string()).expect("alloc hello");
 assert_eq!(bump[id], "hello");
 
 // SlotArena: supports removal and reuse
 let mut slots: SlotArena<i32> = SlotArena::new();
-let id1 = slots.alloc(42).unwrap();
-let id2 = slots.alloc(100).unwrap();
+let id1 = slots.alloc(42).expect("alloc 42");
+let id2 = slots.alloc(100).expect("alloc 100");
 slots.remove(id1); // Slot is recycled
-let id3 = slots.alloc(200).unwrap(); // Reuses slot 0
+let id3 = slots.alloc(200).expect("alloc 200"); // Reuses slot 0
 assert_eq!(id3.index(), id1.index()); // Same slot
 assert_ne!(id3.generation(), id1.generation()); // Different generation
 ```
@@ -62,7 +62,7 @@ Both arenas support efficient iteration:
 use hybrid_arena::BumpArena;
 
 let mut arena: BumpArena<i32> = BumpArena::new();
-arena.alloc_extend([1, 2, 3, 4, 5]).unwrap();
+arena.alloc_extend([1, 2, 3, 4, 5]).expect("extend arena");
 
 // Reference iteration
 for item in arena.iter() {
@@ -93,7 +93,9 @@ struct Node {
 }
 
 let mut arena: BumpArena<Node> = BumpArena::new();
-let id = arena.alloc_with(|id| Node { id, value: 42 }).unwrap();
+let id = arena
+    .alloc_with(|id| Node { id, value: 42 })
+    .expect("alloc node");
 assert_eq!(arena[id].id, id);
 ```
 
@@ -105,12 +107,14 @@ Safely mutate two items at once with `get_mut`:
 use hybrid_arena::SlotArena;
 
 let mut arena: SlotArena<i32> = SlotArena::new();
-let id1 = arena.alloc(10).unwrap();
-let id2 = arena.alloc(20).unwrap();
+let id1 = arena.alloc(10).expect("alloc 10");
+let id2 = arena.alloc(20).expect("alloc 20");
 
 let (a, b) = arena.get_mut(id1, id2);
-*a.unwrap() += 5;
-*b.unwrap() += 5;
+let a = a.expect("first id exists");
+let b = b.expect("second id exists");
+*a += 5;
+*b += 5;
 ```
 
 ## Feature Flags
@@ -122,5 +126,5 @@ let (a, b) = arena.get_mut(id1, id2);
 
 1. **Pre-allocate**: Use `with_capacity()` when size is known
 2. **Batch allocation**: Use `alloc_extend()` for multiple items
-3. **Use Index syntax**: `arena[id]` is as fast as `get().unwrap()`
+3. **Use Index syntax**: `arena[id]` is as fast as `get().expect("present")`
 4. **Choose wisely**: `BumpArena` for read-heavy, `SlotArena` for dynamic

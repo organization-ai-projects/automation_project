@@ -1,13 +1,26 @@
 // projects/products/core/launcher/src/shutdown.rs
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    thread,
-    time::Duration,
-};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 use crate::ChildHandle;
-use anyhow::Result;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum ShutdownError {
+    #[error("Failed to acquire lock on shutting_down")]
+    LockShuttingDown,
+
+    #[error("Failed to acquire lock on running")]
+    LockRunning,
+
+    #[error("Failed to acquire lock on child")]
+    LockChild,
+
+    #[error("Failed to set Ctrl+C handler")]
+    CtrlCHandlerError,
+}
 
 /// Installs a shutdown handler to gracefully terminate running services.
 ///
@@ -19,29 +32,45 @@ pub fn install_shutdown_handler(
     running: Arc<Mutex<HashMap<String, ChildHandle>>>,
     shutting_down: Arc<Mutex<bool>>,
     grace_ms: u64,
-) -> Result<()> {
+) -> Result<(), ShutdownError> {
     ctrlc::set_handler(move || {
-        eprintln!("\n🛑 shutdown requested");
-        {
-            let mut sd = shutting_down.lock().unwrap();
-            *sd = true;
-        }
+        let result: Result<(), ShutdownError> = (|| {
+            let mut shutting_down = shutting_down
+                .lock()
+                .map_err(|_| ShutdownError::LockShuttingDown)?;
+            *shutting_down = true;
 
-        let mut map = running.lock().unwrap();
-        for (name, handle) in map.iter_mut() {
-            eprintln!("Stopping {name}");
-            let _ = handle.child.lock().unwrap().kill();
-        }
+            let mut running_guard = running.lock().map_err(|_| ShutdownError::LockRunning)?;
+            for (_name, handle) in running_guard.iter_mut() {
+                handle.kill().map_err(|_| ShutdownError::LockChild)?;
+            }
 
-        // give some grace
-        thread::sleep(Duration::from_millis(grace_ms));
+            // give some grace
+            thread::sleep(Duration::from_millis(grace_ms));
 
-        // best effort: wait then exit
-        for (name, handle) in map.iter_mut() {
-            let _ = handle.child.lock().unwrap().wait();
-            eprintln!("Stopped {name}");
+            // best effort: wait then exit
+            for (name, handle) in running_guard.iter_mut() {
+                let _ = handle
+                    .child
+                    .lock()
+                    .map_err(|_| ShutdownError::LockChild)?
+                    .wait();
+                eprintln!("Stopped {name}");
+            }
+            Ok(())
+        })();
+
+        if let Err(err) = result {
+            eprintln!("Error during shutdown: {:?}", err);
         }
-        std::process::exit(0);
-    })?;
+    })
+    .map_err(|_| ShutdownError::CtrlCHandlerError)?;
     Ok(())
+}
+
+// Ajout des conversions From pour ShutdownError
+impl From<ctrlc::Error> for ShutdownError {
+    fn from(_: ctrlc::Error) -> Self {
+        ShutdownError::LockShuttingDown // Exemple de conversion
+    }
 }

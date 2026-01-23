@@ -10,8 +10,24 @@ use std::{
 use crate::{
     ChildHandle, Paths, RestartPolicy, Service, log_message, {resolve_bin_path, spawn_service},
 };
-use anyhow::{Result, bail};
 use std::time::Instant;
+use thiserror::Error;
+
+/// Error type for supervisor operations.
+#[derive(Debug, Error)]
+pub enum SupervisorError {
+    #[error("service `{0}` not ready within `{1:?}`")]
+    NotReady(String, Duration),
+
+    #[error("log stream error: {0}")]
+    LogStreamError(String),
+
+    #[error("child process error: {0}")]
+    ChildProcessError(String),
+
+    #[error("failed to spawn service `{0}`: {1}")]
+    SpawnServiceError(String, String),
+}
 
 /// Starts and supervises a service, handling its lifecycle and restart policy.
 ///
@@ -29,11 +45,12 @@ pub fn start_and_supervise(
     shutting_down: Arc<Mutex<bool>>,
     startup_timeout: Duration,
     dry_run: bool,
-) -> Result<()> {
+) -> Result<(), SupervisorError> {
     let bin_path = resolve_bin_path(&paths.workspace.root, &paths.profile_dir, &svc.bin);
 
     // initial spawn
-    let child = spawn_service(&svc, &paths.workspace.root, &bin_path, dry_run)?;
+    let child = spawn_service(&svc, &paths.workspace.root, &bin_path, dry_run)
+        .map_err(|e| SupervisorError::SpawnServiceError(svc.name.clone(), e.to_string()))?;
     if dry_run {
         return Ok(());
     }
@@ -65,14 +82,17 @@ pub fn start_and_supervise(
     let running = Arc::clone(&running);
     let shutting_down = Arc::clone(&shutting_down);
     thread::spawn(move || {
-        supervise_loop(
-            svc,
+        let svc_clone = svc.clone();
+        if let Err(e) = supervise_loop(
+            svc_clone,
             paths.workspace.root,
             bin_path,
             running,
             shutting_down,
             startup_timeout,
-        );
+        ) {
+            log_message(&format!("Error in supervise_loop: {e}"), true, &svc.name);
+        }
     });
 
     Ok(())
@@ -123,28 +143,33 @@ pub fn pipe_child_outputs(name: String, handle: ChildHandle) {
     spawn_logger(stderr, name, LogStream::Stderr);
 }
 
-pub fn wait_ready(svc: &Service, timeout: Duration) -> Result<()> {
+pub fn wait_ready(svc: &Service, timeout: Duration) -> Result<(), SupervisorError> {
     let Some(url) = &svc.ready_http else {
         return Ok(());
     };
 
     let start = Instant::now();
     while start.elapsed() < timeout {
-        if is_http_healthy(url) {
+        if is_http_healthy(url).is_ok() {
             log_message(&format!("✅ ready: {}", svc.name), false, &svc.name);
             return Ok(());
         }
         thread::sleep(Duration::from_millis(200));
     }
 
-    bail!("service `{}` not ready within {:?}", svc.name, timeout);
+    Err(SupervisorError::NotReady(svc.name.clone(), timeout))
 }
 
-fn is_http_healthy(url: &str) -> bool {
+#[derive(Debug, Error)]
+pub enum HttpHealthError {
+    #[error("HTTP request failed")]
+    RequestFailed,
+}
+
+fn is_http_healthy(url: &str) -> Result<bool, HttpHealthError> {
     let resp = ureq::get(url).timeout(Duration::from_millis(800)).call();
-    resp.ok()
-        .map(|r| r.status() >= 200 && r.status() < 300)
-        .unwrap_or(false)
+    let status = resp.ok().map(|r| r.status() >= 200 && r.status() < 300);
+    status.ok_or(HttpHealthError::RequestFailed)
 }
 
 // Simplified `lock_recover` by introducing a type alias for MutexGuard
@@ -260,7 +285,7 @@ pub fn supervise_loop(
     running: Arc<Mutex<HashMap<String, ChildHandle>>>,
     shutting_down: Arc<Mutex<bool>>,
     startup_timeout: Duration,
-) {
+) -> Result<(), SupervisorError> {
     let mut restarts: u32 = 0;
 
     loop {
@@ -273,7 +298,7 @@ pub fn supervise_loop(
                 let mut c = lock_recover_arc(&h.child, "child");
                 let _ = c.kill();
             }
-            return;
+            return Ok(());
         }
 
         let child = {
@@ -287,7 +312,7 @@ pub fn supervise_loop(
                     // Kill the process if shutting down
                     let mut c = lock_recover_arc(&child.child, "child");
                     let _ = c.kill();
-                    return;
+                    return Ok(());
                 }
 
                 let mut child_guard = lock_recover_arc(&child.child, "child");
@@ -297,7 +322,9 @@ pub fn supervise_loop(
                             let mut map = lock_recover(&running, "running map");
                             map.remove(&svc.name);
                         }
-                        let code: i32 = status.code().unwrap_or(-1);
+                        let code: i32 = status.code().ok_or(SupervisorError::ChildProcessError(
+                            "Missing status code".to_string(),
+                        ))?;
                         let success = status.success();
                         log_message(&format!("exited (code={})", code), true, &svc.name);
 
@@ -308,7 +335,7 @@ pub fn supervise_loop(
                         };
 
                         if !should_restart {
-                            return;
+                            return Ok(());
                         }
                         break;
                     }
@@ -326,7 +353,7 @@ pub fn supervise_loop(
                             let mut map = lock_recover(&running, "running map");
                             map.remove(&svc.name);
                         }
-                        return;
+                        return Ok(());
                     }
                 }
             }
@@ -339,7 +366,7 @@ pub fn supervise_loop(
                 true,
                 &svc.name,
             );
-            return;
+            return Ok(());
         }
 
         if !handle_restart(
@@ -351,7 +378,7 @@ pub fn supervise_loop(
             startup_timeout,
             &mut restarts,
         ) {
-            return;
+            return Ok(());
         }
     }
 }

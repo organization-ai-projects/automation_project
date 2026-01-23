@@ -18,7 +18,7 @@ fn bench_bump_alloc(c: &mut Criterion) {
             b.iter(|| {
                 let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
                 for i in 0..size {
-                    black_box(arena.alloc(i as u64).unwrap());
+                    black_box(arena.alloc(i as u64).expect("alloc"));
                 }
                 arena
             });
@@ -36,7 +36,7 @@ fn bench_slot_alloc(c: &mut Criterion) {
             b.iter(|| {
                 let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
                 for i in 0..size {
-                    black_box(arena.alloc(i as u64).unwrap());
+                    black_box(arena.alloc(i as u64).expect("alloc"));
                 }
                 arena
             });
@@ -54,7 +54,11 @@ fn bench_bump_alloc_extend(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(size), &data, |b, data| {
             b.iter(|| {
                 let mut arena: BumpArena<u64> = BumpArena::with_capacity(data.len());
-                black_box(arena.alloc_extend(data.iter().copied()).unwrap());
+                black_box(
+                    arena
+                        .alloc_extend(data.iter().copied())
+                        .expect("alloc extend"),
+                );
                 arena
             });
         });
@@ -71,14 +75,16 @@ fn bench_bump_get(c: &mut Criterion) {
 
     for size in [100, 1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
-        let ids: Vec<Id<u64>> = (0..size).map(|i| arena.alloc(i as u64).unwrap()).collect();
+        let ids: Vec<Id<u64>> = (0..size)
+            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .collect();
 
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &ids, |b, ids| {
             b.iter(|| {
                 let mut sum = 0u64;
                 for id in ids {
-                    sum += arena.get(*id).unwrap();
+                    sum += arena.get(*id).expect("id present");
                 }
                 black_box(sum)
             });
@@ -92,14 +98,16 @@ fn bench_slot_get(c: &mut Criterion) {
 
     for size in [100, 1_000, 10_000, 100_000] {
         let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
-        let ids: Vec<Id<u64>> = (0..size).map(|i| arena.alloc(i as u64).unwrap()).collect();
+        let ids: Vec<Id<u64>> = (0..size)
+            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .collect();
 
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &ids, |b, ids| {
             b.iter(|| {
                 let mut sum = 0u64;
                 for id in ids {
-                    sum += arena.get(*id).unwrap();
+                    sum += arena.get(*id).expect("id present");
                 }
                 black_box(sum)
             });
@@ -113,7 +121,9 @@ fn bench_bump_index(c: &mut Criterion) {
 
     for size in [100, 1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
-        let ids: Vec<Id<u64>> = (0..size).map(|i| arena.alloc(i as u64).unwrap()).collect();
+        let ids: Vec<Id<u64>> = (0..size)
+            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .collect();
 
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &ids, |b, ids| {
@@ -138,7 +148,9 @@ fn bench_bump_access_compare(c: &mut Criterion) {
 
     for size in [1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
-        let ids: Vec<Id<u64>> = (0..size).map(|i| arena.alloc(i as u64).unwrap()).collect();
+        let ids: Vec<Id<u64>> = (0..size)
+            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .collect();
 
         group.throughput(Throughput::Elements(size as u64));
 
@@ -147,7 +159,7 @@ fn bench_bump_access_compare(c: &mut Criterion) {
             b.iter(|| {
                 let mut sum = 0u64;
                 for id in ids {
-                    sum += arena.get(*id).unwrap();
+                    sum += arena.get(*id).expect("id present");
                 }
                 black_box(sum)
             });
@@ -172,7 +184,9 @@ fn bench_slot_access_compare(c: &mut Criterion) {
 
     for size in [1_000, 10_000, 100_000] {
         let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
-        let ids: Vec<Id<u64>> = (0..size).map(|i| arena.alloc(i as u64).unwrap()).collect();
+        let ids: Vec<Id<u64>> = (0..size)
+            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .collect();
 
         group.throughput(Throughput::Elements(size as u64));
 
@@ -181,7 +195,7 @@ fn bench_slot_access_compare(c: &mut Criterion) {
             b.iter(|| {
                 let mut sum = 0u64;
                 for id in ids {
-                    sum += arena.get(*id).unwrap();
+                    sum += arena.get(*id).expect("id present");
                 }
                 black_box(sum)
             });
@@ -211,7 +225,7 @@ fn bench_bump_iter(c: &mut Criterion) {
     for size in [100, 1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
         for i in 0..size {
-            arena.alloc(i as u64).unwrap();
+            arena.alloc(i as u64).expect("alloc");
         }
 
         group.throughput(Throughput::Elements(size as u64));
@@ -231,7 +245,7 @@ fn bench_slot_iter(c: &mut Criterion) {
     for size in [100, 1_000, 10_000, 100_000] {
         let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
         for i in 0..size {
-            arena.alloc(i as u64).unwrap();
+            arena.alloc(i as u64).expect("alloc");
         }
 
         group.throughput(Throughput::Elements(size as u64));
@@ -258,8 +272,9 @@ fn bench_slot_remove_realloc(c: &mut Criterion) {
             b.iter_batched(
                 || {
                     let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
-                    let ids: Vec<Id<u64>> =
-                        (0..size).map(|i| arena.alloc(i as u64).unwrap()).collect();
+                    let ids: Vec<Id<u64>> = (0..size)
+                        .map(|i| arena.alloc(i as u64).expect("alloc"))
+                        .collect();
                     (arena, ids)
                 },
                 |(mut arena, ids)| {
@@ -269,7 +284,7 @@ fn bench_slot_remove_realloc(c: &mut Criterion) {
                     }
                     // Reallocate all (reuses slots)
                     for i in 0..ids.len() {
-                        black_box(arena.alloc(i as u64).unwrap());
+                        black_box(arena.alloc(i as u64).expect("alloc"));
                     }
                     arena
                 },
@@ -290,7 +305,7 @@ fn bench_slot_retain(c: &mut Criterion) {
                 || {
                     let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
                     for i in 0..size {
-                        arena.alloc(i as u64).unwrap();
+                        arena.alloc(i as u64).expect("alloc");
                     }
                     arena
                 },
@@ -326,7 +341,9 @@ fn bench_bump_safe_vs_unsafe(c: &mut Criterion) {
 
     for size in [1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
-        let ids: Vec<Id<u64>> = (0..size).map(|i| arena.alloc(i as u64).unwrap()).collect();
+        let ids: Vec<Id<u64>> = (0..size)
+            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .collect();
 
         group.throughput(Throughput::Elements(size as u64));
 
@@ -335,7 +352,7 @@ fn bench_bump_safe_vs_unsafe(c: &mut Criterion) {
             b.iter(|| {
                 let mut sum = 0u64;
                 for id in ids {
-                    sum += arena.get_safe(*id).unwrap();
+                    sum += arena.get_safe(*id).expect("id present");
                 }
                 black_box(sum);
             });

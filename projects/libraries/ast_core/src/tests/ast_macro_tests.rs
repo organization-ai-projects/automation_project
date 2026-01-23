@@ -60,7 +60,7 @@ mod tests {
             max_depth: 32,
             max_size: 100_000,
         };
-        node.validate_with(&limits).unwrap();
+        node.validate_with(&limits).expect("validate wide tree");
     }
 
     #[test]
