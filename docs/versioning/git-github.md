@@ -252,4 +252,38 @@ feat(libraries/hybrid_arena): add new library with SlotArena and BumpArena imple
 
 ---
 
+### Handling Breaking Changes
+
+When introducing a breaking change that affects other parts of the project, follow these steps to ensure proper communication and resolution:
+
+1. **Document the Breaking Change**:
+   - Clearly describe the breaking change in the commit message.
+   - Use the `[BREAKING CHANGE]` tag in the commit message.
+   - Include details about the impact and the files or crates affected.
+
+2. **Create an Issue**:
+   - Open an issue on GitHub to track the breaking change.
+   - Assign the issue to the responsible developer or team.
+   - Include the following details in the issue:
+     - Description of the breaking change.
+     - Steps to reproduce the issue (if applicable).
+     - Files or crates affected.
+     - Suggested solutions or next steps.
+
+3. **Link the Commit to the Issue**:
+   - Reference the issue number in the commit message (e.g., `Refs #123`).
+   - This ensures traceability between the code and the issue.
+
+4. **Communicate with the Team**:
+   - Notify the team about the breaking change during stand-ups or via communication tools.
+   - Ensure everyone is aware of the issue and its impact.
+
+5. **Plan and Implement a Fix**:
+   - Prioritize the issue and plan the necessary refactoring or fixes.
+   - Test the changes thoroughly before merging them into `dev` or `main`.
+
+By following these steps, you ensure that breaking changes are managed transparently and efficiently, minimizing disruption to the project.
+
+---
+
 **This workflow ensures clean and collaborative code management.**
