@@ -39,11 +39,20 @@ async fn login(req: LoginRequest, state: EngineState) -> Result<impl Reply, warp
             .try_into()
             .expect("user_id must be 16 bytes"),
     ));
-    let role = req.role.unwrap_or(Role::User);
+    let role = req.role.unwrap_or_else(|| {
+        eprintln!("Role not provided, defaulting to User.");
+        Role::User
+    });
 
     let duration_ms = req
         .duration_ms
-        .unwrap_or(DEFAULT_DURATION_MS)
+        .unwrap_or_else(|| {
+            eprintln!(
+                "Duration not provided, using default: {} ms",
+                DEFAULT_DURATION_MS
+            );
+            DEFAULT_DURATION_MS
+        })
         .min(LOGIN_MAX_DURATION_MS);
 
     let jwt = state

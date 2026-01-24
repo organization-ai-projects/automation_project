@@ -30,7 +30,10 @@ pub fn main() -> Result<()> {
     let config_dir = config_path
         .parent()
         .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| PathBuf::from("."));
+        .unwrap_or_else(|| {
+            eprintln!("Parent directory not found, using current directory.");
+            PathBuf::from(".")
+        });
 
     let cfg_text = fs::read_to_string(&config_path).with_context(|| "failed to read config")?;
     let mut cfg: Config =

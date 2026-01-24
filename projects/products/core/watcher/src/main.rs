@@ -17,7 +17,10 @@ async fn main() {
     println!("Watcher starting...");
 
     // 1) Config path (env override)
-    let config_path = env_var("WATCHER_CONFIG").unwrap_or_else(|| "watcher.toml".to_string());
+    let config_path = env_var("WATCHER_CONFIG").unwrap_or_else(|| {
+        eprintln!("WATCHER_CONFIG not set, using default: watcher.toml");
+        "watcher.toml".to_string()
+    });
 
     let config = match WatcherConfig::load_from_file(&config_path) {
         Ok(cfg) => Arc::new(cfg),
@@ -29,7 +32,10 @@ async fn main() {
 
     // 2) Logger
     logger::initialize_logger(
-        config.logging.log_file.to_str().unwrap_or("watcher.log"),
+        config.logging.log_file.to_str().unwrap_or_else(|| {
+            eprintln!("Log file path invalid, using default: watcher.log");
+            "watcher.log"
+        }),
         config.logging.log_level.as_str(),
     );
 
