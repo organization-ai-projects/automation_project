@@ -5,7 +5,6 @@ use common::common_id::CommonID;
 use common::custom_uuid::Id128;
 
 /// Rust code validator
-#[derive(Default)]
 pub struct CodeValidator {
     strict_mode: bool,
 }
@@ -121,9 +120,9 @@ impl CodeValidator {
         }
 
         // Check for unwrap()
-        if code.contains(".unwrap()") {
+        if code.contains("unwrap(") {
             warnings
-                .push("Code contains .unwrap() calls (consider proper error handling)".to_string());
+                .push("Code contains unwrap calls (consider proper error handling)".to_string());
         }
 
         // Check for #[allow(dead_code)]
@@ -239,6 +238,12 @@ impl CodeValidator {
     }
 }
 
+impl Default for CodeValidator {
+    fn default() -> Self {
+        Self::new().expect("Failed to create CodeValidator")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_valid_code() {
-        let validator = CodeValidator::new().expect("validator");
+        let validator = CodeValidator::new().expect("Failed to create CodeValidator");
         let code = r#"
             fn main() {
                 println!("Hello, world!");
@@ -260,64 +265,64 @@ mod tests {
 
         let result = validator.validate(code);
         assert!(result.is_ok());
-        let validation = result.expect("validation");
+        let validation = result.expect("Validation failed");
         assert!(validation.is_valid);
     }
 
     #[test]
     fn test_invalid_syntax() {
-        let validator = CodeValidator::new().expect("validator");
+        let validator = CodeValidator::new().expect("Failed to create CodeValidator");
         let code = "fn main( {"; // Missing closing paren
 
         let result = validator.validate(code);
         assert!(result.is_ok());
-        let validation = result.expect("validation");
+        let validation = result.expect("Validation failed");
         assert!(!validation.is_valid);
         assert!(!validation.errors.is_empty());
     }
 
     #[test]
     fn test_empty_code() {
-        let validator = CodeValidator::new().expect("validator");
+        let validator = CodeValidator::new().expect("Failed to create CodeValidator");
         let result = validator.validate("");
 
         assert!(result.is_ok());
-        let validation = result.expect("validation");
+        let validation = result.expect("Validation failed");
         assert!(!validation.is_valid);
     }
 
     #[test]
     fn test_warnings() {
-        let validator = CodeValidator::new().expect("validator");
+        let validator = CodeValidator::new().expect("Failed to create CodeValidator");
         let code = r#"
             fn main() {
                 println!("test");
-                let x = Some(5).expect("some value");
+                let x = Some(5).expect("Option was None");
                 todo!();
             }
         "#;
 
         let result = validator.validate(code);
         assert!(result.is_ok());
-        let validation = result.expect("validation");
+        let validation = result.expect("Validation failed");
         assert!(validation.is_valid);
     }
 
     #[test]
     fn test_suggest_fix_semicolon() {
-        let validator = CodeValidator::new().expect("validator");
+        let validator = CodeValidator::new().expect("Failed to create CodeValidator");
         let code = "let x = 5";
 
         let errors = vec!["expected `;`".to_string()];
         let fix = validator.suggest_fix(code, &errors);
 
         assert!(fix.is_some());
-        assert!(fix.expect("fix").contains(';'));
+        assert!(fix.expect("Fix was None").contains(';'));
     }
 
     #[test]
     fn test_suggest_fix_delimiters() {
-        let validator = CodeValidator::new().expect("validator");
+        let validator = CodeValidator::new().expect("Failed to create CodeValidator");
         let code = "fn main() { println!(\"test\"";
 
         let errors = vec!["unclosed delimiter".to_string()];
@@ -329,18 +334,18 @@ mod tests {
     #[test]
     fn test_strict_mode() {
         let validator = CodeValidator::new()
-            .expect("validator")
+            .expect("Failed to create CodeValidator")
             .with_strict_mode(true);
         assert!(validator.strict_mode);
     }
 
     #[test]
     fn test_validate_syntax_only() {
-        let validator = CodeValidator::new().expect("validator");
+        let validator = CodeValidator::new().expect("Failed to create CodeValidator");
         let code = "fn test() {}";
 
         let result = validator.validate_syntax(code);
         assert!(result.is_ok());
-        assert!(result.expect("validation").is_valid);
+        assert!(result.expect("Validation failed").is_valid);
     }
 }

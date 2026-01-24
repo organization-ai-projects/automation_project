@@ -62,8 +62,8 @@ let config = AstBuilder::object(vec![
 ]);
 
 // Access data
-assert_eq!(config.get("name").and_then(|v| v.as_str()), Some("my-app"));
-assert_eq!(config.get("version").and_then(|v| v.as_number()).and_then(|n| n.as_i64()), Some(1));
+assert_eq!(config.get("name").expect("Missing 'name' key").as_str(), Some("my-app"));
+assert_eq!(config.get("version").expect("Missing 'version' key").as_number().expect("'version' is not a number").as_i64(), Some(1));
 ```
 
 ### Validation

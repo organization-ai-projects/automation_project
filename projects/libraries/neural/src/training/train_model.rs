@@ -55,11 +55,7 @@ pub struct Trainer {
 }
 
 impl Trainer {
-    pub fn new(
-        input_size: usize,
-        output_size: usize,
-        config: TrainingConfig,
-    ) -> Result<Self, TrainingError> {
+    pub fn new(input_size: usize, output_size: usize, config: TrainingConfig) -> Self {
         let layer_configs = vec![LayerConfig {
             input_size,
             output_size,
@@ -67,10 +63,10 @@ impl Trainer {
             weight_init: WeightInit::He,
         }];
 
-        let network = SimpleNeuralNet::new(layer_configs)
-            .map_err(|e| TrainingError::NetworkError(e.to_string()))?;
-
-        Ok(Self { config, network })
+        Self {
+            config,
+            network: SimpleNeuralNet::new(layer_configs).expect("network init"),
+        }
     }
 
     /// Parse raw text data into training examples
@@ -246,7 +242,7 @@ mod tests {
     #[test]
     fn test_tokenization() {
         let config = TrainingConfig::default();
-        let trainer = Trainer::new(10, 1, config).expect("trainer init");
+        let trainer = Trainer::new(10, 1, config);
 
         let result = trainer.tokenize("test");
         assert!(result.is_ok());
@@ -256,7 +252,7 @@ mod tests {
     #[test]
     fn test_parse_data() {
         let config = TrainingConfig::default();
-        let trainer = Trainer::new(10, 1, config).expect("trainer init");
+        let trainer = Trainer::new(10, 1, config);
 
         let data = "hello|1.0\nworld|0.5";
         let examples = trainer.parse_data(data).expect("parse data succeeds");

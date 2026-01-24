@@ -1,12 +1,5 @@
 // projects/libraries/protocol/src/event_type.rs
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum EventTypeError {
-    #[error("Unrecognized event type: {0:?}")]
-    UnrecognizedEventType(EventType),
-}
 
 /// Types of events in the protocol
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -74,12 +67,12 @@ impl EventType {
     ];
 
     /// Returns a string representation of the event type
-    pub fn as_str(&self) -> Result<&'static str, EventTypeError> {
+    pub fn as_str(&self) -> &'static str {
         Self::EVENT_TYPE_STRINGS
             .iter()
             .find(|(_, event_type)| event_type == self)
             .map(|(name, _)| *name)
-            .ok_or(EventTypeError::UnrecognizedEventType(*self))
+            .unwrap_or("unknown")
     }
 
     /// Returns a mapping of all EventType variants to their string representations
@@ -90,9 +83,6 @@ impl EventType {
 
 impl std::fmt::Display for EventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.as_str() {
-            Ok(name) => write!(f, "{}", name),
-            Err(err) => write!(f, "{}", err),
-        }
+        write!(f, "{}", self.as_str())
     }
 }

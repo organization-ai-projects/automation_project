@@ -62,8 +62,7 @@ fn test_integration_pipeline() {
         "actions": [
             { "kind": "writeFile", "path": "src/agent_tmp.txt", "contents": "data", "createDirs": true }
         ]
-    }))
-    .expect("serialize allowed input");
+    })).expect("Failed to serialize allowed request to JSON");
 
     let out_allowed = run_with_stdin(&repo_root_s, &runs_root_s, &input_allowed);
 
@@ -111,7 +110,7 @@ fn test_integration_pipeline() {
         .and_then(|x| x.as_array());
     assert!(results.is_some(), "results must be an array: {:?}", v2);
 
-    let any_failed = results.expect("results array").iter().any(|r| {
+    let any_failed = results.expect("Results array is missing").iter().any(|r| {
         r.as_object()
             .and_then(|obj| obj.get("ok"))
             .and_then(|x| x.as_bool())

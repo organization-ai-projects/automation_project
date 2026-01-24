@@ -28,11 +28,11 @@ let data = pjson!({
 });
 
 // Dot navigation
-assert_eq!(data.get_path("user.profile.name").expect("Path not found").as_str(), Some("Alice"));
+assert_eq!(data.get_path("user.profile.name").expect("Missing 'user.profile.name'").as_str(), Some("Alice"));
 
 // Array access with [index]
-assert_eq!(data.get_path("tags[0]").expect("Path not found").as_str(), Some("admin"));
-assert_eq!(data.get_path("tags[1]").expect("Path not found").as_str(), Some("user"));
+assert_eq!(data.get_path("tags[0]").expect("Missing 'tags[0]'").as_str(), Some("admin"));
+assert_eq!(data.get_path("tags[1]").expect("Missing 'tags[1]'").as_str(), Some("user"));
 ```
 
 ## Strict Accessors
@@ -45,13 +45,13 @@ use common_json::{pjson, JsonAccess, JsonError};
 let data = pjson!({ count: 42 });
 
 // as_i64() returns Option<i64>
-assert_eq!(data.get_field("count").expect("Field not found").as_i64(), Some(42));
+assert_eq!(data.get_field("count").expect("Missing 'count'").as_i64(), Some(42));
 
 // as_i64_strict() returns Result<i64, JsonError>
-assert_eq!(data.get_field("count").expect("Field not found").as_i64_strict().expect("Strict conversion failed"), 42);
+assert_eq!(data.get_field("count").expect("Missing 'count'").as_i64_strict().expect("'count' is not an i64"), 42);
 
 // Error if wrong type
-let err = data.get_field("count").expect("Field not found").as_str_strict();
+let err = data.get_field("count").expect("Missing 'count'").as_str_strict();
 assert!(matches!(err, Err(JsonError::TypeMismatch { .. })));
 ```
 

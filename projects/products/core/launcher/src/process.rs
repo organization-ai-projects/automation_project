@@ -4,21 +4,9 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
-use thiserror::Error;
+use anyhow::{Context, Result, anyhow};
 
 use crate::Service;
-
-#[derive(Debug, Error)]
-pub enum ProcessError {
-    #[error("Failed to resolve current working directory")]
-    ResolveCwdError,
-
-    #[error("dry-run: spawn skipped")]
-    DryRunSkipped,
-
-    #[error("failed to spawn `{0}` from {1}")]
-    SpawnError(String, String),
-}
 
 /// Resolves the binary path for a given service.
 ///
@@ -53,12 +41,12 @@ pub fn spawn_service(
     workspace_root: &Path,
     bin_path: &Path,
     dry_run: bool,
-) -> Result<Child, ProcessError> {
+) -> Result<Child> {
     let cwd = svc
         .cwd
         .as_ref()
         .map(|c| workspace_root.join(c))
-        .ok_or(ProcessError::ResolveCwdError)?;
+        .unwrap_or_else(|| workspace_root.to_path_buf());
 
     let mut cmd = Command::new(bin_path);
     cmd.args(&svc.args)
@@ -68,8 +56,6 @@ pub fn spawn_service(
 
     for kv in &svc.env {
         if let Some((k, v)) = kv.split_once('=') {
-            let k: &str = k;
-            let v: &str = v;
             cmd.env(k, v);
         }
     }
@@ -77,9 +63,10 @@ pub fn spawn_service(
     println!("▶ spawn {}: {:?}", svc.name, cmd);
 
     if dry_run {
-        return Err(ProcessError::DryRunSkipped);
+        // dummy child is impossible; caller won't use it because dry_run returns earlier.
+        return Err(anyhow!("dry-run: spawn skipped"));
     }
 
     cmd.spawn()
-        .map_err(|_e| ProcessError::SpawnError(svc.name.clone(), bin_path.display().to_string()))
+        .with_context(|| format!("failed to spawn `{}` from {}", svc.name, bin_path.display()))
 }

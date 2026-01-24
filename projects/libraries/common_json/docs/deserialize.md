@@ -32,14 +32,14 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 struct User { name: String }
 
-let json_str = r#"{"name": "Alice"}"#;
+let json_str = r#"{\"name\": \"Alice\"}"#;
 
 // Parse → Generic Json
-let json: Json = parse(json_str).expect("parse json string");
+let json: Json = parse(json_str).expect("Failed to parse JSON string");
 assert_eq!(json["name"], "Alice");
 
 // Deserialize → Concrete Type
-let user: User = from_str(json_str).expect("deserialize user");
+let user: User = from_str(json_str).expect("Failed to deserialize JSON into User struct");
 assert_eq!(user.name, "Alice");
 ```
 
@@ -56,7 +56,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 struct Config { port: u16 }
 
-let config = Config::from_json_str(r#"{"port": 8080}"#).expect("deserialize config");
+let config = Config::from_json_str(r#"{\"port\": 8080}"#).expect("Failed to deserialize JSON into Config struct");
 assert_eq!(config.port, 8080);
 ```
 
@@ -67,7 +67,7 @@ assert_eq!(config.port, 8080);
 ```rust
 use common_json::parse;
 
-let json = parse(r#"{"name": "Alice", "age": 30}"#).expect("parse json");
+let json = parse(r#"{\"name\": \"Alice\", \"age\": 30}"#).expect("Failed to parse JSON string");
 assert_eq!(json["name"], "Alice");
 assert_eq!(json["age"], 30);
 ```
@@ -87,8 +87,8 @@ assert_eq!(json[0], 1);
 use common_json::parse_reader;
 use std::io::Cursor;
 
-let cursor = Cursor::new(br#"{"key": "value"}"#);
-let json = parse_reader(cursor).expect("parse reader");
+let cursor = Cursor::new(br#"{\"key\": \"value\"}"#);
+let json = parse_reader(cursor).expect("Failed to parse JSON from reader");
 assert_eq!(json["key"], "value");
 ```
 
@@ -102,7 +102,7 @@ use serde::Deserialize;
 struct User { name: String }
 
 let json = pjson!({ name: "Alice" });
-let user: User = from_json(&json).expect("deserialize user from json");
+let user: User = from_json(&json).expect("deserialize user");
 assert_eq!(user.name, "Alice");
 ```
 
@@ -115,7 +115,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 struct Point { x: i32, y: i32 }
 
-let p: Point = from_str(r#"{"x": 10, "y": 20}"#).expect("deserialize point");
+let p: Point = from_str(r#"{\"x\": 10, \"y\": 20}"#).expect("Failed to deserialize JSON into Point struct");
 assert_eq!(p.x, 10);
 ```
 

@@ -12,7 +12,7 @@ async fn health_check_works() {
     let registry = engine::Registry::default();
     let token_service =
         TokenService::new_hs256("this_is_a_very_long_test_secret_key_for_testing_purposes")
-            .expect("token service init");
+            .expect("Failed to create TokenService");
     let state = EngineState {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
@@ -40,7 +40,7 @@ async fn health_check_works() {
     assert_eq!(response.status(), 200);
 
     // Parse the response body as a string and sort the keys manually
-    let body = std::str::from_utf8(response.body()).expect("response is utf-8");
+    let body = std::str::from_utf8(response.body()).expect("Response body is not valid UTF-8");
     let mut body_parts: Vec<&str> = body
         .trim_matches(|c| c == '{' || c == '}')
         .split(',')
@@ -56,7 +56,7 @@ async fn health_check_works() {
         response
             .headers()
             .get(ACCESS_CONTROL_ALLOW_ORIGIN)
-            .expect("cors header present"),
+            .expect("Missing CORS header"),
         "http://localhost:3000"
     );
 }
@@ -67,7 +67,7 @@ async fn health_check_handles_not_found() {
     let registry = engine::Registry::default();
     let token_service =
         TokenService::new_hs256("this_is_a_very_long_test_secret_key_for_testing_purposes")
-            .expect("token service init");
+            .expect("Failed to create TokenService");
     let state = EngineState {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
@@ -86,7 +86,7 @@ async fn health_check_handles_not_found() {
 
     // Assert: verify the response
     assert_eq!(response.status(), 404);
-    let body = std::str::from_utf8(response.body()).expect("response is utf-8");
+    let body = std::str::from_utf8(response.body()).expect("Response body is not valid UTF-8");
     assert!(body.contains("Not Found"));
 }
 
@@ -96,7 +96,7 @@ async fn cors_applied_to_other_routes() {
     let registry = engine::Registry::default();
     let token_service =
         TokenService::new_hs256("this_is_a_very_long_test_secret_key_for_testing_purposes")
-            .expect("token service init");
+            .expect("Failed to create TokenService");
     let state = EngineState {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
@@ -125,7 +125,7 @@ async fn cors_applied_to_other_routes() {
         response
             .headers()
             .get(ACCESS_CONTROL_ALLOW_ORIGIN)
-            .expect("cors header present"),
+            .expect("Missing CORS header"),
         "http://localhost:3000"
     );
 }
@@ -136,7 +136,7 @@ async fn minimal_cors_test() {
     let registry = engine::Registry::default();
     let token_service =
         TokenService::new_hs256("this_is_a_longer_test_key_to_avoid_secrettoosmall_error")
-            .expect("token service init");
+            .expect("Failed to create TokenService");
     let state = EngineState {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
@@ -165,7 +165,7 @@ async fn minimal_cors_test() {
         response
             .headers()
             .get(ACCESS_CONTROL_ALLOW_ORIGIN)
-            .expect("cors header present"),
+            .expect("Missing CORS header"),
         "http://example.com"
     );
 }
@@ -194,7 +194,7 @@ async fn custom_cors_test() {
         response
             .headers()
             .get(ACCESS_CONTROL_ALLOW_ORIGIN)
-            .expect("cors header present"),
+            .expect("Missing CORS header"),
         "*"
     );
 }
@@ -222,7 +222,7 @@ async fn isolated_cors_route_test() {
         response
             .headers()
             .get(ACCESS_CONTROL_ALLOW_ORIGIN)
-            .expect("cors header present"),
+            .expect("Missing CORS header"),
         "http://test.com"
     );
 }

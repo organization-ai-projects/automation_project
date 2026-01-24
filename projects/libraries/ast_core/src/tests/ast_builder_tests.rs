@@ -13,19 +13,19 @@ mod tests {
 
         assert!(node.is_object());
         assert_eq!(
-            node.get("name").expect("name field").as_string(),
+            node.get("name").expect("Missing 'name'").as_string(),
             Some("test")
         );
         assert_eq!(
             node.get("value")
-                .expect("value field")
+                .expect("Missing 'value'")
                 .as_number()
-                .expect("value number")
+                .expect("'value' is not a number")
                 .as_i64(),
             Some(42)
         );
         assert_eq!(
-            node.get("active").expect("active field").as_bool(),
+            node.get("active").expect("Missing 'active'").as_bool(),
             Some(true)
         );
     }

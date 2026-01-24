@@ -143,10 +143,7 @@ impl Id128 {
     /// Generates the next sequence number for the given timestamp.
     fn next_seq_for_ms(ms: u64) -> u32 {
         static STATE: Mutex<(u64, u32)> = Mutex::new((0, 0));
-        let mut state = match STATE.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let mut state = STATE.lock().expect("Failed to acquire lock on STATE");
 
         if state.0 != ms {
             state.0 = ms;
@@ -257,7 +254,7 @@ mod tests {
     fn roundtrip_hex() {
         let id = Id128::new(42, None, None);
         let s = id.to_string();
-        let parsed: Id128 = s.parse().expect("parse Id128");
+        let parsed: Id128 = s.parse().expect("Failed to parse Id128 from string");
         assert_eq!(id, parsed);
     }
 
@@ -289,7 +286,9 @@ mod tests {
             handles.push(thread::spawn(move || {
                 for _ in 0..50_000 {
                     let id = Id128::new(1, None, None).to_string();
-                    let mut s = set.lock().expect("lock set");
+                    let mut s = set
+                        .lock()
+                        .expect("Failed to acquire lock on set in multithreaded test");
                     if !s.insert(id) {
                         panic!("duplicate");
                     }
@@ -298,7 +297,7 @@ mod tests {
         }
 
         for h in handles {
-            h.join().expect("join thread");
+            h.join().expect("Thread join failed in multithreaded test");
         }
     }
 }

@@ -34,12 +34,9 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
     // - or add the notes to report.logs in run_git_autopilot (better place),
     // - or enrich the protocol later when ready.
 
-    let payload =
-        to_value(&report).map_err(|e| format!("Failed to serialize preview report: {e}"))?;
-
     Ok(PreviewResponse {
         summary: "Preview successful".to_string(),
-        payload: Some(payload),
+        payload: Some(to_value(&report).expect("serialize report")),
     })
 }
 
@@ -65,11 +62,8 @@ pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, S
         }
     };
 
-    let payload =
-        to_value(&report).map_err(|e| format!("Failed to serialize apply report: {e}"))?;
-
     Ok(ApplyResponse {
         result: "Application completed".to_string(),
-        payload: Some(payload),
+        payload: Some(to_value(&report).expect("serialize report")),
     })
 }

@@ -62,7 +62,7 @@ Both arenas support efficient iteration:
 use hybrid_arena::BumpArena;
 
 let mut arena: BumpArena<i32> = BumpArena::new();
-arena.alloc_extend([1, 2, 3, 4, 5]).expect("extend arena");
+arena.alloc_extend([1, 2, 3, 4, 5]).expect("alloc extend");
 
 // Reference iteration
 for item in arena.iter() {
@@ -111,8 +111,8 @@ let id1 = arena.alloc(10).expect("alloc 10");
 let id2 = arena.alloc(20).expect("alloc 20");
 
 let (a, b) = arena.get_mut(id1, id2);
-let a = a.expect("first id exists");
-let b = b.expect("second id exists");
+let a = a.expect("id1 present");
+let b = b.expect("id2 present");
 *a += 5;
 *b += 5;
 ```

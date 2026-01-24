@@ -1,28 +1,28 @@
-# Conversion Conventions
+# Conventions pour les conversions
 
-This folder contains the implementations of conversions between different types used in the project. To maintain clear and consistent organization, the following conventions have been adopted :
+Ce dossier contient les implémentations des conversions entre différents types utilisés dans le projet. Afin de maintenir une organisation claire et cohérente, les conventions suivantes ont été adoptées :
 
-## File Structure
+## Structure des fichiers
 
-- Each source type has its own folder in `conversions/`.
-  - Example: `feedback_verdict/`, `internal_feedback_verdict/`.
-- Inside each folder, files are named according to the target type.
-  - Example:
-    - `feedback_verdict/internal_feedback_verdict.rs`: Contains conversions from `FeedbackVerdict` to `InternalFeedbackVerdict`.
-    - `feedback_verdict/symbolic_feedback.rs`: Contains conversions from `FeedbackVerdict` to `SymbolicFeedback`.
+- Chaque type source possède son propre dossier dans `conversions/`.
+  - Exemple : `feedback_verdict/`, `internal_feedback_verdict/`.
+- À l'intérieur de chaque dossier, les fichiers sont nommés selon le type cible.
+  - Exemple :
+    - `feedback_verdict/internal_feedback_verdict.rs` : Contient les conversions de `FeedbackVerdict` vers `InternalFeedbackVerdict`.
+    - `feedback_verdict/symbolic_feedback.rs` : Contient les conversions de `FeedbackVerdict` vers `SymbolicFeedback`.
 
-## General Rules
+## Règles générales
 
-1. **One file per conversion**: Each file should contain the conversion implementations for a specific target type.
-2. **Documentation**: Each implementation must be accompanied by comments explaining its role and specifics.
-3. **Tests**: Unit tests for conversions should be placed in the corresponding files or in a `tests/` folder if necessary.
-4. **Centralization**: Any conversion between different domain types (public ↔ internal, public ↔ symbolic, etc.) must be implemented exclusively in this folder. `From` / `Into` implementations outside of `conversions/` are prohibited.
+1. **Un fichier par conversion** : Chaque fichier doit contenir les implémentations de conversion pour un type cible spécifique.
+2. **Documentation** : Chaque implémentation doit être accompagnée de commentaires expliquant son rôle et ses particularités.
+3. **Tests** : Les tests unitaires pour les conversions doivent être placés dans les fichiers correspondants ou dans un dossier `tests/` si nécessaire.
+4. **Centralisation** : Toute conversion entre types de domaines différents (public ↔ internal, public ↔ symbolic, etc.) doit être implémentée exclusivement dans ce dossier. Les implémentations `From` / `Into` en dehors de `conversions/` sont interdites.
 
-## Example
+## Exemple
 
-### Conversion from `FeedbackVerdict` to `InternalFeedbackVerdict`
+### Conversion de `FeedbackVerdict` vers `InternalFeedbackVerdict`
 
-File: `feedback_verdict/internal_feedback_verdict.rs`
+Fichier : `feedback_verdict/internal_feedback_verdict.rs`
 
 ```rust
 impl<'a> From<FeedbackVerdict<'a>> for InternalFeedbackVerdict {
@@ -42,8 +42,8 @@ impl<'a> From<FeedbackVerdict<'a>> for InternalFeedbackVerdict {
 }
 ```
 
-This structure allows for quickly locating and easily maintaining conversions.
+Cette structure permet de localiser rapidement les conversions et de les maintenir facilement.
 
 ---
 
-By following these conventions, we ensure better readability and increased scalability of the code.
+En suivant ces conventions, nous assurons une meilleure lisibilité et une évolutivité accrue du code.

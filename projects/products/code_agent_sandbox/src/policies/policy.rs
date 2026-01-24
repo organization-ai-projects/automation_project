@@ -202,14 +202,15 @@ mod tests {
             allow_write_globs: vec![],
         };
 
-        let policy = Policy::new(cfg).expect("policy init");
+        let policy =
+            Policy::new(cfg).expect("Failed to create Policy with the given configuration");
 
         // Path is allowed by `allow_read_globs` but forbidden by `forbid_globs`
         let result = policy.resolve_work_path("src/forbidden/file.txt", AccessKind::Read);
         assert!(result.is_err());
         assert!(
             result
-                .expect_err("expected forbidden path")
+                .unwrap_err()
                 .to_string()
                 .contains("forbidden path by policy")
         );

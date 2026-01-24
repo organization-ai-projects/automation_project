@@ -11,19 +11,19 @@ fn test_macro_build_object() {
 
     assert!(node.is_object());
     assert_eq!(
-        node.get("name").expect("name field").as_string(),
+        node.get("name").expect("Missing 'name' key").as_string(),
         Some("test")
     );
     assert_eq!(
         node.get("value")
-            .expect("value field")
+            .expect("Missing 'value' key")
             .as_number()
-            .expect("value number")
+            .expect("'value' is not a number")
             .as_i64(),
         Some(42)
     );
     assert_eq!(
-        node.get("active").expect("active field").as_bool(),
+        node.get("active").expect("Missing 'active' key").as_bool(),
         Some(true)
     );
 }
@@ -33,11 +33,29 @@ fn test_macro_build_array() {
     let node = past!([1, 2, 3]);
 
     assert!(node.is_array());
-    let arr = node.as_array().expect("array");
+    let arr = node.as_array().expect("Node is not an array");
     assert_eq!(arr.len(), 3);
-    assert_eq!(arr[0].as_number().expect("num").as_i64(), Some(1));
-    assert_eq!(arr[1].as_number().expect("num").as_i64(), Some(2));
-    assert_eq!(arr[2].as_number().expect("num").as_i64(), Some(3));
+    assert_eq!(
+        arr[0]
+            .as_number()
+            .expect("Element 0 is not a number")
+            .as_i64(),
+        Some(1)
+    );
+    assert_eq!(
+        arr[1]
+            .as_number()
+            .expect("Element 1 is not a number")
+            .as_i64(),
+        Some(2)
+    );
+    assert_eq!(
+        arr[2]
+            .as_number()
+            .expect("Element 2 is not a number")
+            .as_i64(),
+        Some(3)
+    );
 }
 
 #[test]
@@ -70,7 +88,10 @@ fn test_macro_build_scalars() {
 
     let negative_node = past!(-42);
     assert_eq!(
-        negative_node.as_number().expect("number").as_i64(),
+        negative_node
+            .as_number()
+            .expect("Node is not a number")
+            .as_i64(),
         Some(-42)
     );
 }
@@ -102,11 +123,27 @@ fn test_macro_nested_structures() {
     });
 
     assert!(node.is_object());
-    let level1 = node.get("level1").expect("level1");
-    let level2 = level1.get("level2").expect("level2");
-    let level3 = level2.get("level3").expect("level3");
-    assert!(level3.is_object());
-    assert_eq!(level3.get("key").expect("key").as_string(), Some("value"));
+    assert!(
+        node.get("level1")
+            .expect("Missing 'level1' key")
+            .get("level2")
+            .expect("Missing 'level2' key")
+            .get("level3")
+            .expect("Missing 'level3' key")
+            .is_object()
+    );
+    assert_eq!(
+        node.get("level1")
+            .expect("Missing 'level1' key")
+            .get("level2")
+            .expect("Missing 'level2' key")
+            .get("level3")
+            .expect("Missing 'level3' key")
+            .get("key")
+            .expect("Missing 'key' key")
+            .as_string(),
+        Some("value")
+    );
 }
 
 #[test]
@@ -125,11 +162,21 @@ fn test_macro_with_metadata() {
 fn test_macro_empty_structures() {
     let empty_object = past!({});
     assert!(empty_object.is_object());
-    assert!(empty_object.as_object().expect("object").is_empty());
+    assert!(
+        empty_object
+            .as_object()
+            .expect("Empty object is not an object")
+            .is_empty()
+    );
 
     let empty_array = past!([]);
     assert!(empty_array.is_array());
-    assert!(empty_array.as_array().expect("array").is_empty());
+    assert!(
+        empty_array
+            .as_array()
+            .expect("Empty array is not an array")
+            .is_empty()
+    );
 }
 
 #[test]
@@ -148,7 +195,7 @@ fn test_macro_large_structure() {
     });
 
     assert!(node.is_object());
-    assert_eq!(node.as_object().expect("object").len(), 10);
+    assert_eq!(node.as_object().expect("Node is not an object").len(), 10);
 }
 
 #[test]
@@ -168,13 +215,20 @@ fn test_macro_large_nested_structure() {
     });
 
     assert!(node.is_object());
-    let level1 = node.get("level1").expect("level1");
-    let level2 = level1.get("level2").expect("level2");
-    let level3 = level2.get("level3").expect("level3");
-    let level4 = level3.get("level4").expect("level4");
-    let level5 = level4.get("level5").expect("level5");
     assert_eq!(
-        level5.get("key").expect("key").as_string(),
+        node.get("level1")
+            .expect("Missing 'level1' key")
+            .get("level2")
+            .expect("Missing 'level2' key")
+            .get("level3")
+            .expect("Missing 'level3' key")
+            .get("level4")
+            .expect("Missing 'level4' key")
+            .get("level5")
+            .expect("Missing 'level5' key")
+            .get("key")
+            .expect("Missing 'key' key")
+            .as_string(),
         Some("deep_value")
     );
 }
@@ -200,5 +254,5 @@ fn test_macro_large_object() {
     });
 
     assert!(node.is_object());
-    assert!(node.as_object().expect("object").len() >= 10);
+    assert!(node.as_object().expect("Node is not an object").len() >= 10);
 }

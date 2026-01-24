@@ -28,20 +28,11 @@ let data = pjson!({
 });
 
 // Dot navigation
-assert_eq!(
-    data.get_path("user.profile.name").expect("path exists").as_str(),
-    Some("Alice")
-);
+assert_eq!(data.get_path("user.profile.name").expect("Missing 'user.profile.name'").as_str(), Some("Alice"));
 
 // Array access with [index]
-assert_eq!(
-    data.get_path("tags[0]").expect("tag index 0 exists").as_str(),
-    Some("admin")
-);
-assert_eq!(
-    data.get_path("tags[1]").expect("tag index 1 exists").as_str(),
-    Some("user")
-);
+assert_eq!(data.get_path("tags[0]").expect("Missing 'tags[0]'").as_str(), Some("admin"));
+assert_eq!(data.get_path("tags[1]").expect("Missing 'tags[1]'").as_str(), Some("user"));
 ```
 
 ## Strict Accessors
@@ -60,16 +51,10 @@ assert_eq!(
 );
 
 // as_i64_strict() returns Result<i64, JsonError>
-assert_eq!(
-    data.get_field("count")
-        .expect("field exists")
-        .as_i64_strict()
-        .expect("count is i64"),
-    42
-);
+assert_eq!(data.get_field("count").expect("Missing 'count'").as_i64_strict().expect("'count' is not an i64"), 42);
 
 // Error if wrong type
-let err = data.get_field("count").expect("field exists").as_str_strict();
+let err = data.get_field("count").expect("Missing 'count'").as_str_strict();
 assert!(matches!(err, Err(JsonError::TypeMismatch { .. })));
 ```
 
@@ -119,23 +104,17 @@ use common_json::{pjson, JsonAccessMut};
 let mut data = pjson!({ "name": "Alice", "tags": ["admin"] });
 
 // Modify a field
-data.set_field("name", "Bob").expect("set name");
-assert_eq!(
-    data.get_field("name").expect("field exists").as_str(),
-    Some("Bob")
-);
+data.set_field("name", "Bob").expect("Failed to set 'name'");
+assert_eq!(data.get_field("name").expect("Missing 'name'").as_str(), Some("Bob"));
 
 // Add a field
-data.set_field("age", 25).expect("set age");
-assert_eq!(
-    data.get_field("age").expect("field exists").as_i64(),
-    Some(25)
-);
+data.set_field("age", 25).expect("Failed to set 'age'");
+assert_eq!(data.get_field("age").expect("Missing 'age'").as_i64(), Some(25));
 
 // Add to an array
-let tags = data.get_field_mut("tags").expect("tags exists");
-tags.push("user").expect("push tag");
-assert_eq!(tags.as_array().expect("tags array").len(), 2);
+let tags = data.get_field_mut("tags").expect("Missing 'tags'");
+tags.push("user").expect("Failed to push to 'tags'");
+assert_eq!(tags.as_array().expect("'tags' is not an array").len(), 2);
 ```
 
 ## Tests

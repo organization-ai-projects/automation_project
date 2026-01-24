@@ -229,7 +229,7 @@ mod tests {
             "nested": { "a": 1 }
         });
 
-        let map = obj.as_object().expect("object");
+        let map = obj.as_object().expect("Object conversion failed");
         assert_eq!(map.get("null_val"), Some(&Json::Null));
         assert_eq!(map.get("bool_true"), Some(&Json::Bool(true)));
         assert_eq!(map.get("bool_false"), Some(&Json::Bool(false)));
@@ -254,11 +254,11 @@ mod tests {
     fn test_json_array_macro() {
         let arr = json_array![1, 2, 3];
         assert!(arr.is_array());
-        assert_eq!(arr.as_array().expect("array").len(), 3);
+        assert_eq!(arr.as_array().expect("Array conversion failed").len(), 3);
 
         // Mixed types
         let mixed = json_array!["hello", 42, true];
-        assert_eq!(mixed.as_array().expect("array").len(), 3);
+        assert_eq!(mixed.as_array().expect("Array conversion failed").len(), 3);
     }
 
     #[test]
@@ -268,7 +268,7 @@ mod tests {
             "age" => 30,
         };
 
-        let map = obj.as_object().expect("object");
+        let map = obj.as_object().expect("Object conversion failed");
         assert_eq!(map.get("name"), Some(&Json::from("Alice")));
         assert_eq!(map.get("age"), Some(&Json::from(30)));
     }
@@ -282,7 +282,7 @@ mod tests {
             active: true
         });
 
-        let map = obj.as_object().expect("object");
+        let map = obj.as_object().expect("Object conversion failed");
         assert_eq!(map.get("name"), Some(&Json::from("Alice")));
         assert_eq!(map.get("age"), Some(&Json::from(30)));
         assert_eq!(map.get("active"), Some(&Json::Bool(true)));
@@ -296,7 +296,7 @@ mod tests {
             (key_name): 42
         });
 
-        let map = obj.as_object().expect("object");
+        let map = obj.as_object().expect("Object conversion failed");
         assert_eq!(map.get("dynamic_key"), Some(&Json::from(42)));
     }
 }

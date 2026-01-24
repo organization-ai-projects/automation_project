@@ -114,15 +114,7 @@ impl Layer {
             }
         };
 
-        let normal = match Normal::new(0.0, std_dev) {
-            Ok(normal) => normal,
-            Err(_) => {
-                return (
-                    Array2::zeros((output_size, input_size)),
-                    Array1::zeros(output_size),
-                );
-            }
-        };
+        let normal = Normal::new(0.0, std_dev).expect("valid normal distribution");
         let mut rng = rand::thread_rng();
 
         let weights = Array2::from_shape_fn((output_size, input_size), |_| normal.sample(&mut rng));

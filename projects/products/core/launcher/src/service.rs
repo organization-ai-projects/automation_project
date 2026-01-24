@@ -1,8 +1,8 @@
 // projects/products/core/launcher/src/service.rs
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use anyhow::{Result, bail};
 use serde::Deserialize;
-use thiserror::Error;
 
 use crate::{RestartPolicy, default_backoff, default_restart};
 
@@ -32,26 +32,14 @@ pub struct Service {
     pub ready_http: Option<String>,
 }
 
-#[derive(Debug, Error)]
-pub enum ServiceError {
-    #[error("service with empty name")]
-    EmptyServiceName,
-    #[error("duplicate service name: {0}")]
-    DuplicateServiceName(String),
-    #[error("service `{0}` depends on unknown service `{1}`")]
-    UnknownServiceDependency(String, String),
-    #[error("dependency cycle detected in services (topo sort failed)")]
-    DependencyCycle,
-}
-
-pub fn validate_services(services: &[Service]) -> Result<(), ServiceError> {
+pub fn validate_services(services: &[Service]) -> Result<()> {
     let mut names = HashSet::new();
     for s in services {
         if s.name.trim().is_empty() {
-            return Err(ServiceError::EmptyServiceName);
+            bail!("service with empty name");
         }
         if !names.insert(s.name.clone()) {
-            return Err(ServiceError::DuplicateServiceName(s.name.clone()));
+            bail!("duplicate service name: {}", s.name);
         }
     }
     // deps exist
@@ -59,10 +47,7 @@ pub fn validate_services(services: &[Service]) -> Result<(), ServiceError> {
     for s in services {
         for d in &s.depends_on {
             if !set.contains(d.as_str()) {
-                return Err(ServiceError::UnknownServiceDependency(
-                    s.name.clone(),
-                    d.clone(),
-                ));
+                bail!("service `{}` depends on unknown service `{}`", s.name, d);
             }
         }
     }
@@ -71,7 +56,7 @@ pub fn validate_services(services: &[Service]) -> Result<(), ServiceError> {
 
 /// Performs a topological sort on the given services based on their dependencies.
 /// Returns a sorted vector of service names or an error if a cycle is detected.
-pub fn topo_sort(services: &[Service]) -> Result<Vec<String>, ServiceError> {
+pub fn topo_sort(services: &[Service]) -> Result<Vec<String>> {
     let mut indeg: HashMap<String, usize> = HashMap::new();
     let mut graph: HashMap<String, Vec<String>> = HashMap::new();
 
@@ -94,17 +79,20 @@ pub fn topo_sort(services: &[Service]) -> Result<Vec<String>, ServiceError> {
         out.push(n.clone());
         if let Some(nexts) = graph.get(&n) {
             for m in nexts {
-                let e = indeg.get_mut(m).ok_or(ServiceError::DependencyCycle)?;
-                *e -= 1;
-                if *e == 0 {
-                    q.push_back(m.clone());
+                if let Some(e) = indeg.get_mut(m) {
+                    *e -= 1;
+                    if *e == 0 {
+                        q.push_back(m.clone());
+                    }
+                } else {
+                    eprintln!("Key not found in indeg");
                 }
             }
         }
     }
 
     if out.len() != services.len() {
-        return Err(ServiceError::DependencyCycle);
+        bail!("dependency cycle detected in services (topo sort failed)");
     }
     Ok(out)
 }

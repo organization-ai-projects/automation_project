@@ -34,10 +34,10 @@ struct User { name: String }
 let user = User { name: "Alice".into() };
 
 // Function approach
-let s1 = to_string(&user).expect("serialize user to string");
+let s1 = to_string(&user).expect("Failed to serialize user to string");
 
 // Trait approach
-let s2 = user.to_json_string().expect("serialize user to json string");
+let s2 = user.to_json_string().expect("Failed to serialize user to JSON string");
 ```
 
 ### Full Example
@@ -60,15 +60,15 @@ let config = Config {
 };
 
 // To a JSON value
-let json = to_json(&config).expect("serialize config to json");
+let json = to_json(&config).expect("Failed to serialize config to JSON value");
 assert_eq!(json["name"], "my-app");
 
 // To a compact string
-let compact = to_string(&config).expect("serialize config to compact string");
+let compact = to_string(&config).expect("Failed to serialize config to compact string");
 // {"name":"my-app","debug":true,"max_connections":100}
 
 // To a formatted string
-let pretty = to_string_pretty(&config).expect("serialize config to pretty string");
+let pretty = to_string_pretty(&config).expect("Failed to serialize config to formatted string");
 // {
 //   "name": "my-app",
 //   "debug": true,
@@ -76,7 +76,7 @@ let pretty = to_string_pretty(&config).expect("serialize config to pretty string
 // }
 
 // To bytes (for network I/O)
-let bytes = to_bytes(&config).expect("serialize config to bytes");
+let bytes = to_bytes(&config).expect("Failed to serialize config to bytes");
 ```
 
 ## Legacy Aliases

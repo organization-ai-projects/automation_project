@@ -18,7 +18,7 @@ fn bench_bump_alloc(c: &mut Criterion) {
             b.iter(|| {
                 let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
                 for i in 0..size {
-                    black_box(arena.alloc(i as u64).expect("alloc"));
+                    black_box(arena.alloc(i as u64).expect("Allocation failed"));
                 }
                 arena
             });
@@ -36,7 +36,7 @@ fn bench_slot_alloc(c: &mut Criterion) {
             b.iter(|| {
                 let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
                 for i in 0..size {
-                    black_box(arena.alloc(i as u64).expect("alloc"));
+                    black_box(arena.alloc(i as u64).expect("Allocation failed"));
                 }
                 arena
             });
@@ -57,7 +57,7 @@ fn bench_bump_alloc_extend(c: &mut Criterion) {
                 black_box(
                     arena
                         .alloc_extend(data.iter().copied())
-                        .expect("alloc extend"),
+                        .expect("Allocation failed"),
                 );
                 arena
             });
@@ -76,7 +76,7 @@ fn bench_bump_get(c: &mut Criterion) {
     for size in [100, 1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
         let ids: Vec<Id<u64>> = (0..size)
-            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .map(|i| arena.alloc(i as u64).expect("Allocation failed"))
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));
@@ -84,7 +84,7 @@ fn bench_bump_get(c: &mut Criterion) {
             b.iter(|| {
                 let mut sum = 0u64;
                 for id in ids {
-                    sum += arena.get(*id).expect("id present");
+                    sum += arena.get(*id).expect("Failed to retrieve value from arena");
                 }
                 black_box(sum)
             });
@@ -99,7 +99,7 @@ fn bench_slot_get(c: &mut Criterion) {
     for size in [100, 1_000, 10_000, 100_000] {
         let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
         let ids: Vec<Id<u64>> = (0..size)
-            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .map(|i| arena.alloc(i as u64).expect("Allocation failed"))
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));
@@ -122,7 +122,7 @@ fn bench_bump_index(c: &mut Criterion) {
     for size in [100, 1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
         let ids: Vec<Id<u64>> = (0..size)
-            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .map(|i| arena.alloc(i as u64).expect("Allocation failed"))
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));
@@ -149,7 +149,7 @@ fn bench_bump_access_compare(c: &mut Criterion) {
     for size in [1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
         let ids: Vec<Id<u64>> = (0..size)
-            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .map(|i| arena.alloc(i as u64).expect("Allocation failed"))
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));
@@ -159,7 +159,7 @@ fn bench_bump_access_compare(c: &mut Criterion) {
             b.iter(|| {
                 let mut sum = 0u64;
                 for id in ids {
-                    sum += arena.get(*id).expect("id present");
+                    sum += arena.get(*id).expect("Failed to retrieve value from arena");
                 }
                 black_box(sum)
             });
@@ -185,7 +185,7 @@ fn bench_slot_access_compare(c: &mut Criterion) {
     for size in [1_000, 10_000, 100_000] {
         let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
         let ids: Vec<Id<u64>> = (0..size)
-            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .map(|i| arena.alloc(i as u64).expect("Allocation failed"))
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));
@@ -273,7 +273,7 @@ fn bench_slot_remove_realloc(c: &mut Criterion) {
                 || {
                     let mut arena: SlotArena<u64> = SlotArena::with_capacity(size);
                     let ids: Vec<Id<u64>> = (0..size)
-                        .map(|i| arena.alloc(i as u64).expect("alloc"))
+                        .map(|i| arena.alloc(i as u64).expect("Allocation failed"))
                         .collect();
                     (arena, ids)
                 },
@@ -284,7 +284,7 @@ fn bench_slot_remove_realloc(c: &mut Criterion) {
                     }
                     // Reallocate all (reuses slots)
                     for i in 0..ids.len() {
-                        black_box(arena.alloc(i as u64).expect("alloc"));
+                        black_box(arena.alloc(i as u64).expect("Allocation failed"));
                     }
                     arena
                 },
@@ -342,7 +342,7 @@ fn bench_bump_safe_vs_unsafe(c: &mut Criterion) {
     for size in [1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
         let ids: Vec<Id<u64>> = (0..size)
-            .map(|i| arena.alloc(i as u64).expect("alloc"))
+            .map(|i| arena.alloc(i as u64).expect("Allocation failed"))
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));

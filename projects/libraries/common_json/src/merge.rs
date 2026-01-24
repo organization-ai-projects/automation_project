@@ -150,11 +150,7 @@ fn set_nested_value(root: &mut Json, path: &str, value: Json) {
             if !map.contains_key(*part) {
                 map.insert((*part).to_string(), Json::Object(JsonMap::new()));
             }
-            if let Some(next) = map.get_mut(*part) {
-                current = next;
-            } else {
-                return;
-            }
+            current = map.get_mut(*part).expect("nested key present");
         }
     }
 }
