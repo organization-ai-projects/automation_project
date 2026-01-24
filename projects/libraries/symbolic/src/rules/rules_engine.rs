@@ -235,7 +235,7 @@ pub enum {name} {{
         data.insert("params".to_string(), "".to_string());
         data.insert("return_type".to_string(), "()".to_string());
 
-        // Methods pour trait
+        // Methods for trait
         data.insert(
             "methods".to_string(),
             "    // TODO: Add methods".to_string(),

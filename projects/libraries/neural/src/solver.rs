@@ -98,7 +98,7 @@ impl NeuralSolver {
         // Save the tokenizer if a path is provided
         if let Some(tokenizer_path) = tokenizer_path {
             println!("Saving tokenizer to {:?}", tokenizer_path);
-            // Remplacez par une implémentation réelle si nécessaire
+            // Replace with a real implementation if necessary
             std::fs::write(tokenizer_path, b"tokenizer data")
                 .map_err(|e| NeuralError::SaveError(e.to_string()))?;
         }
