@@ -175,7 +175,7 @@ cargo test -p protocol
 
 Contributions are welcome! Please open an issue or pull request on the GitHub repository.
 
-For more details on the Git/GitHub workflow used in this project, see the [versioning documentation](../../../docs/versioning/git-github.md).
+For more details on the Git/GitHub workflow used in this project, see the [versioning documentation](docs/versioning/git-github.md).
 
 ## License
 

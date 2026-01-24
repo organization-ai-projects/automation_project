@@ -26,7 +26,7 @@ pub struct SolverResult {
     pub metadata: Option<String>,
 }
 
-/// Solver neural - orchestration interne de neural
+/// Neural solver - internal orchestration of neural operations
 pub struct NeuralSolver {
     generator: CodeGenerator,
     feedback_adjuster: FeedbackAdjuster,
@@ -72,7 +72,7 @@ impl NeuralSolver {
             .generate(&tokenized_input)
             .map_err(|e| NeuralError::GenerationError(e.to_string()))?;
 
-        // Estimer la confiance (heuristique simple)
+        // Estimate confidence (simple heuristic)
         let confidence = self.estimate_confidence(&output);
 
         Ok(SolverResult {
@@ -82,7 +82,7 @@ impl NeuralSolver {
         })
     }
 
-    /// Sauvegarde le modèle neural et, si fourni, le tokenizer sur disque
+    /// Saves the neural model and, if provided, the tokenizer to disk
     pub fn save_model(
         &self,
         model_path: &std::path::Path,
@@ -90,15 +90,15 @@ impl NeuralSolver {
     ) -> Result<(), NeuralError> {
         println!("Saving model to {:?}", model_path);
 
-        // Sauvegarde du modèle
+        // Save the model
         self.generator
             .save(model_path)
             .map_err(|e| NeuralError::SaveError(e.to_string()))?;
 
-        // Sauvegarde du tokenizer si un chemin est fourni
+        // Save the tokenizer if a path is provided
         if let Some(tokenizer_path) = tokenizer_path {
             println!("Saving tokenizer to {:?}", tokenizer_path);
-            // Remplacez par une implémentation réelle si nécessaire
+            // Replace with a real implementation if necessary
             std::fs::write(tokenizer_path, b"tokenizer data")
                 .map_err(|e| NeuralError::SaveError(e.to_string()))?;
         }
@@ -113,12 +113,12 @@ impl NeuralSolver {
     ) -> Result<(), NeuralError> {
         println!("Training on {} examples", training_data.len());
 
-        // Entraîner le modèle
+        // Train the model
         self.generator
             .train(training_data)
             .map_err(|e| NeuralError::TrainingError(e.to_string()))?;
 
-        // Sauvegarder le modèle après l'entraînement
+        // Save the model after training
         self.save_model(model_path, None)
     }
 
@@ -155,12 +155,12 @@ impl NeuralSolver {
         let stats = self.feedback_adjuster.feedback_stats();
         println!("Feedback stats: {:?}", stats);
 
-        // Appliquer les ajustements au modèle
+        // Apply adjustments to the model
         self.feedback_adjuster
             .apply_feedback()
             .map_err(|e| NeuralError::TrainingError(e.to_string()))?;
 
-        // Sauvegarder le modèle après ajustement
+        // Save the model after adjustment
         self.save_model(model_path, None)
     }
 
@@ -182,7 +182,7 @@ impl NeuralSolver {
 
         self.feedback_adjuster
             .adjust_model(model, tokenizer)
-            .map(|_| ()) // Adapter le type de retour
+            .map(|_| ())
             .map_err(|e| NeuralError::TrainingError(e.to_string()))
     }
 
@@ -193,7 +193,7 @@ impl NeuralSolver {
 
         let mut total_confidence = 0.0;
         for input in &test_data {
-            let result = self.solve(input)?; // Réutilisation de solve
+            let result = self.solve(input)?;
             total_confidence += result.confidence;
         }
 
@@ -201,17 +201,17 @@ impl NeuralSolver {
     }
 
     fn estimate_confidence(&self, output: &str) -> f64 {
-        // Heuristiques simples pour estimer la confiance
+        // Simple heuristics to estimate confidence
         let mut confidence: f64 = 0.75;
 
-        // Pénaliser si trop court ou trop long
+        // Penalize if too short or too long
         if output.len() < 10 {
             confidence -= 0.2;
         } else if output.len() > 5000 {
             confidence -= 0.1;
         }
 
-        // Bonus si contient des mots-clés Rust
+        // Bonus if it contains Rust keywords
         if output.contains("fn ") || output.contains("struct ") {
             confidence += 0.1;
         }

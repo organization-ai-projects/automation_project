@@ -14,7 +14,7 @@ use crate::error::ArenaError;
 use crate::id::Id;
 use crate::{BumpArenaDrain, BumpArenaIntoIter, BumpArenaIter, BumpArenaIterMut};
 
-// Redéfinition directe du type IntoIter
+// Direct redefinition of the IntoIter type
 type IntoIter<T> = BumpArenaIntoIter<T>;
 
 #[derive(Debug)]
@@ -252,25 +252,25 @@ impl<T> BumpArena<T> {
 
     /// Safe wrapper for `get_unchecked`.
     ///
-    /// Cette méthode vérifie que l'ID est valide avant d'accéder à l'élément.
+    /// This method checks that the ID is valid before accessing the element.
     #[inline]
     pub fn get_safe(&self, id: Id<T>) -> Option<&T> {
         if id.generation() != 0 || id.index() as usize >= self.items.len() {
             return None;
         }
-        // SAFETY: Nous avons vérifié les limites et la génération.
+        // SAFETY: We have checked the bounds and generation.
         Some(unsafe { self.get_unchecked(id) })
     }
 
     /// Safe wrapper for `get_unchecked_mut`.
     ///
-    /// Cette méthode vérifie que l'ID est valide avant d'accéder à l'élément mutable.
+    /// This method checks that the ID is valid before accessing the mutable element.
     #[inline]
     pub fn get_safe_mut(&mut self, id: Id<T>) -> Option<&mut T> {
         if id.generation() != 0 || id.index() as usize >= self.items.len() {
             return None;
         }
-        // SAFETY: Nous avons vérifié les limites et la génération.
+        // SAFETY: We have checked the bounds and generation.
         Some(unsafe { self.get_unchecked_mut(id) })
     }
 }
