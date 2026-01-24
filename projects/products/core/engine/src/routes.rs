@@ -160,5 +160,3 @@ pub fn build_routes(
 
     base.with(cors_mw).recover(recover)
 }
-
-// Fin du fichier routes.rs

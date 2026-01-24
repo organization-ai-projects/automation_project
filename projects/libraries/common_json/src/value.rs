@@ -342,7 +342,6 @@ impl Json {
     }
 
     /// Converts a serializable type into `Json`.
-    /// Convertit un type sérialisable en `Json`.
     pub fn from_serialize<T: Serialize>(value: &T) -> Result<Self, JsonError> {
         to_json(value)
     }

@@ -18,7 +18,7 @@ fn bench_past_object_1000(c: &mut Criterion) {
                     value: (i as i64),
                     nested: { a: 1, b: 2 }
                 });
-                arena.alloc(node).expect("Allocation dans l'arène a échoué");
+                arena.alloc(node).expect("Allocation in the arena failed");
             }
 
             black_box(arena.len());
@@ -48,7 +48,7 @@ fn bench_builder_object_1000(c: &mut Criterion) {
                     ),
                 ];
                 let node = AstBuilder::object(fields);
-                arena.alloc(node).expect("Allocation dans l'arène a échoué");
+                arena.alloc(node).expect("Allocation in the arena failed");
             }
             black_box(arena.len());
         })
@@ -255,7 +255,7 @@ fn bench_build_only_no_drop(c: &mut Criterion) {
                         value: (i as i64),
                         nested: { a: 1, b: 2 }
                     });
-                    arena.alloc(node).expect("Allocation dans l'arène a échoué");
+                    arena.alloc(node).expect("Allocation in the arena failed");
                 }
             }
             black_box(arena.len());

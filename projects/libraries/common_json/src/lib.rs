@@ -1,7 +1,7 @@
 //! # common_json
 //!
-//! Bibliothèque JSON complète pour Rust, avec des APIs ergonomiques,
-//! une gestion d'erreurs riche et des utilitaires puissants.
+//! Comprehensive JSON library for Rust, with ergonomic APIs,
+//! rich error handling, and powerful utilities.
 // projects/libraries/common_json/src/lib.rs
 
 pub mod access;

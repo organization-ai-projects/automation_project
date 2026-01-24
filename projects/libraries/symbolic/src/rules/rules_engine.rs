@@ -6,7 +6,7 @@ use crate::rules::{
     CodeTemplate, RefactoringRule, RulesError, refactoring_result::RefactoringResult,
 };
 
-/// Moteur de règles pour génération symbolique
+/// Rules engine for symbolic generation
 pub struct RulesEngine {
     templates: HashMap<String, Vec<CodeTemplate>>,
     refactoring_rules: Vec<RefactoringRule>,
@@ -19,16 +19,16 @@ impl RulesEngine {
             refactoring_rules: Vec::new(),
         };
 
-        // Initialiser avec des templates de base
+        // Initialize with default templates
         engine.init_default_templates()?;
         engine.init_refactoring_rules()?;
 
         Ok(engine)
     }
 
-    /// Initialise les templates par défaut
+    /// Initializes default templates
     fn init_default_templates(&mut self) -> Result<(), RulesError> {
-        // Template: struct simple
+        // Template: simple struct
         self.add_template(
             "struct",
             vec!["create struct", "new struct", "define struct"],
@@ -50,7 +50,7 @@ pub enum {name} {{
             0.9,
         )?;
 
-        // Template: fonction simple
+        // Template: simple function
         self.add_template(
             "function",
             vec!["create function", "new function", "define function"],
@@ -84,7 +84,7 @@ pub enum {name} {{
             0.85,
         )?;
 
-        // Template: fonction de calcul spécifique
+        // Template: specific calculation function
         self.add_template(
             "function",
             vec!["create function calculate", "new function calculate"],
@@ -97,7 +97,7 @@ pub enum {name} {{
         Ok(())
     }
 
-    /// Initialise les règles de refactoring
+    /// Initializes refactoring rules
     fn init_refactoring_rules(&mut self) -> Result<(), RulesError> {
         self.refactoring_rules.push(RefactoringRule {
             name: "add_debug_derive".to_string(),
@@ -130,7 +130,7 @@ pub enum {name} {{
         Ok(())
     }
 
-    /// Ajoute un template
+    /// Adds a template
     fn add_template(
         &mut self,
         category: &str,
@@ -151,13 +151,13 @@ pub enum {name} {{
         Ok(())
     }
 
-    /// Génère du code à partir d'un prompt et d'un template
+    /// Generates code from a prompt and a template
     pub fn generate(&self, prompt: &str, context: Option<&str>) -> Result<String, RulesError> {
         let prompt_lower = prompt.to_lowercase();
 
         println!("[DEBUG] Generating code for prompt: {}", prompt);
 
-        // Trouver le template qui match
+        // Find the template that matches
         for (category, templates) in &self.templates {
             for template in templates {
                 if prompt_lower.contains(&template.pattern) {
@@ -172,7 +172,7 @@ pub enum {name} {{
         )))
     }
 
-    /// Remplit un template avec les données extraites du prompt
+    /// Fills a template with data extracted from the prompt
     fn fill_template(
         &self,
         template: &str,
@@ -182,10 +182,10 @@ pub enum {name} {{
     ) -> Result<String, RulesError> {
         let mut result = template.to_string();
 
-        // Parser le prompt pour extraire les informations
+        // Parse the prompt to extract information
         let parsed = self.parse_prompt(prompt, context, category)?;
 
-        // Remplacer les placeholders sans modifier la casse
+        // Replace placeholders without changing case
         for (key, value) in parsed {
             result = result.replace(&format!("{{{}}}", key), &value);
         }
@@ -193,7 +193,7 @@ pub enum {name} {{
         Ok(result)
     }
 
-    /// Parse un prompt pour extraire les informations structurées
+    /// Parses a prompt to extract structured information
     fn parse_prompt(
         &self,
         prompt: &str,
@@ -202,21 +202,21 @@ pub enum {name} {{
     ) -> Result<HashMap<String, String>, RulesError> {
         let mut data = HashMap::new();
 
-        // Extraire le nom (chercher un mot capitalisé)
+        // Extract the name (search for a capitalized word)
         if let Some(name) = self.extract_name(prompt) {
             data.insert("name".to_string(), name);
         } else {
             data.insert("name".to_string(), "MyType".to_string());
         }
 
-        // Extraire les fields si présents
+        // Extract the fields if present
         if let Some(fields) = self.extract_fields(prompt, context) {
             data.insert("fields".to_string(), fields);
         } else {
             data.insert("fields".to_string(), "    // TODO: Add fields".to_string());
         }
 
-        // Extraire les variants pour enum
+        // Extract the variants for enum
         if let Some(variants) = self.extract_variants(prompt, context) {
             data.insert("variants".to_string(), variants);
         } else {
@@ -226,16 +226,16 @@ pub enum {name} {{
             );
         }
 
-        // Ajouter la catégorie si disponible
+        // Add the category if available
         if let Some(cat) = category {
             data.insert("category".to_string(), cat.to_string());
         }
 
-        // Paramètres de fonction
+        // Function parameters
         data.insert("params".to_string(), "".to_string());
         data.insert("return_type".to_string(), "()".to_string());
 
-        // Methods pour trait
+        // Methods for trait
         data.insert(
             "methods".to_string(),
             "    // TODO: Add methods".to_string(),
@@ -244,9 +244,9 @@ pub enum {name} {{
         Ok(data)
     }
 
-    /// Extrait le nom d'un type depuis le prompt
+    /// Extracts the name of a type from the prompt
     fn extract_name(&self, prompt: &str) -> Option<String> {
-        // Chercher un mot capitalisé après "struct", "enum", etc.
+        // Search for a capitalized word after "struct", "enum", etc.
         let words: Vec<&str> = prompt.split_whitespace().collect();
 
         println!("[DEBUG] Extracting name from prompt: {}", prompt);
@@ -262,7 +262,7 @@ pub enum {name} {{
             }
         }
 
-        // Fallback: chercher n'importe quel mot capitalisé
+        // Fallback: search for any capitalized word
         for word in words {
             if word.chars().next()?.is_uppercase() {
                 return Some(word.to_string());
@@ -272,9 +272,10 @@ pub enum {name} {{
         None
     }
 
-    /// Extrait les fields d'un struct depuis le prompt
+    /// Extracts the fields of a struct from the prompt
+    /// Search for "with X and Y" or "with X, Y"
     fn extract_fields(&self, prompt: &str, context: Option<&str>) -> Option<String> {
-        // Chercher "with X and Y" ou "with X, Y"
+        // Search for "with X and Y" or "with X, Y"
         if let Some(start) = prompt.find("with ") {
             let fields_text = &prompt[start + 5..];
             let fields: Vec<String> = fields_text
@@ -291,7 +292,7 @@ pub enum {name} {{
             }
         }
 
-        // Fallback amélioré : fournir un champ par défaut
+        // Improved fallback: provide a default field
         if let Some(ctx) = context {
             return Some(format!("    // Context: {}", ctx));
         }
@@ -299,9 +300,10 @@ pub enum {name} {{
         Some("    pub field1: String,\n    pub field2: String,".to_string())
     }
 
-    /// Extrait les variants d'un enum depuis le prompt
+    /// Extracts the variants of an enum from the prompt
+    /// Search for "variants: X, Y, Z"
     fn extract_variants(&self, prompt: &str, context: Option<&str>) -> Option<String> {
-        // Chercher "variants: X, Y, Z"
+        // Search for "variants: X, Y, Z"
         if let Some(start) = prompt.find("variants:") {
             let variants_text = &prompt[start + 9..];
             let variants: Vec<String> = variants_text
@@ -322,7 +324,7 @@ pub enum {name} {{
             }
         }
 
-        // Fallback amélioré : fournir des variantes par défaut
+        // Improved fallback: provide default variants
         if let Some(ctx) = context {
             return Some(format!("    // Context: {}", ctx));
         }
@@ -330,7 +332,7 @@ pub enum {name} {{
         Some("    Variant1,\n    Variant2,".to_string())
     }
 
-    /// Calcule la confiance du match pour un prompt
+    /// Calculates the confidence of the match for a prompt
     pub fn match_confidence(&self, prompt: &str) -> f64 {
         let prompt_lower = prompt.to_lowercase();
 
@@ -345,7 +347,7 @@ pub enum {name} {{
         0.0
     }
 
-    /// Applique un refactoring au code
+    /// Applies a refactoring to the code
     pub fn apply_refactoring(
         &self,
         code: &str,
@@ -355,10 +357,10 @@ pub enum {name} {{
         let mut result_code = code.to_string();
         let mut changes = Vec::new();
 
-        // Chercher les règles applicables
+        // Search for applicable rules
         for rule in &self.refactoring_rules {
             if instruction_lower.contains(&rule.name.replace('_', " ")) {
-                // Appliquer la règle (regex avancée)
+                // Apply the rule (advanced regex)
                 let re = Regex::new(&rule.pattern)
                     .map_err(|e| RulesError::InvalidPattern(e.to_string()))?;
                 if re.is_match(&result_code) {
@@ -388,7 +390,7 @@ pub enum {name} {{
         })
     }
 
-    /// Ajoute une règle de refactoring personnalisée
+    /// Adds a custom refactoring rule
     pub fn add_refactoring_rule(
         &mut self,
         name: String,
