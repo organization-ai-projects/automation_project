@@ -30,7 +30,10 @@ pub fn main() -> Result<()> {
     let config_dir = config_path
         .parent()
         .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| PathBuf::from("."));
+        .unwrap_or_else(|| {
+            eprintln!("Parent directory not found, using current directory.");
+            PathBuf::from(".")
+        });
 
     let cfg_text = fs::read_to_string(&config_path).with_context(|| "failed to read config")?;
     let mut cfg: Config =
@@ -98,7 +101,11 @@ pub fn main() -> Result<()> {
 
     // Start services in order, waiting for readiness if configured
     for name in start_order {
-        let svc = services.iter().find(|s| s.name == name).unwrap().clone();
+        let svc = services
+            .iter()
+            .find(|s| s.name == name)
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "Service not found"))?
+            .clone();
         let paths = Paths {
             workspace: workspace.clone(),
             target_dir: target_dir.clone(),

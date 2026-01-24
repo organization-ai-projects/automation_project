@@ -79,10 +79,13 @@ pub fn topo_sort(services: &[Service]) -> Result<Vec<String>> {
         out.push(n.clone());
         if let Some(nexts) = graph.get(&n) {
             for m in nexts {
-                let e = indeg.get_mut(m).unwrap();
-                *e -= 1;
-                if *e == 0 {
-                    q.push_back(m.clone());
+                if let Some(e) = indeg.get_mut(m) {
+                    *e -= 1;
+                    if *e == 0 {
+                        q.push_back(m.clone());
+                    }
+                } else {
+                    eprintln!("Key not found in indeg");
                 }
             }
         }

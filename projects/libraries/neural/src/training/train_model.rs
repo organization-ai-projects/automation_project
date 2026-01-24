@@ -65,7 +65,7 @@ impl Trainer {
 
         Self {
             config,
-            network: SimpleNeuralNet::new(layer_configs).unwrap(), // Explicit error handling
+            network: SimpleNeuralNet::new(layer_configs).expect("network init"),
         }
     }
 
@@ -246,7 +246,7 @@ mod tests {
 
         let result = trainer.tokenize("test");
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 4);
+        assert_eq!(result.expect("tokenize succeeds").len(), 4);
     }
 
     #[test]
@@ -255,7 +255,7 @@ mod tests {
         let trainer = Trainer::new(10, 1, config);
 
         let data = "hello|1.0\nworld|0.5";
-        let examples = trainer.parse_data(data).unwrap();
+        let examples = trainer.parse_data(data).expect("parse data succeeds");
 
         assert_eq!(examples.len(), 2);
         assert_eq!(examples[0].target, 1.0);

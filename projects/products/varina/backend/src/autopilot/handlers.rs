@@ -36,7 +36,7 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
 
     Ok(PreviewResponse {
         summary: "Preview successful".to_string(),
-        payload: Some(to_value(&report).unwrap()),
+        payload: Some(to_value(&report).expect("serialize report")),
     })
 }
 
@@ -64,6 +64,6 @@ pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, S
 
     Ok(ApplyResponse {
         result: "Application completed".to_string(),
-        payload: Some(to_value(&report).unwrap()),
+        payload: Some(to_value(&report).expect("serialize report")),
     })
 }

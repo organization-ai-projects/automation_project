@@ -64,8 +64,7 @@ impl ScoreSummary {
                     || path.starts_with("tests/")
                     || path.contains("#[test]");
 
-                if cfg.penalize_unwrap_outside_tests && !is_tests && contents.contains(".unwrap()")
-                {
+                if cfg.penalize_unwrap_outside_tests && !is_tests && contents.contains("unwrap(") {
                     score -= cfg.unwrap_penalty;
                     notes.push(format!(
                         "Penalized unwrap outside tests in {path} (-{})",

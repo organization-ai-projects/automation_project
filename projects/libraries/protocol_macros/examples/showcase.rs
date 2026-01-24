@@ -67,7 +67,7 @@ fn main() {
 
     // Feature 5: Debug mode for non-Display types
     println!("\n5. Debug mode (for non-Display types):");
-    let addr = "127.0.0.1:8080".parse().unwrap();
+    let addr = "127.0.0.1:8080".parse().expect("parse address");
     let connected = BinaryEvent::connected(addr);
     let packet = BinaryEvent::data_packet(vec![0xFF, 0xAA, 0xBB]);
     println!("   {}", connected);

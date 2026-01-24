@@ -22,7 +22,7 @@ fn test_code_generator_training() {
             weight_init: WeightInit::He,
         },
     ];
-    let mock_model = NeuralNetwork::new(layers).unwrap();
+    let mock_model = NeuralNetwork::new(layers).expect("network init");
     let mock_tokenizer = RustTokenizer::new(vec![
         "<PAD>".to_string(),
         "<EOS>".to_string(),

@@ -31,7 +31,7 @@ The `SlotArena` is a dynamic arena allocator that supports allocation, removal, 
 use hybrid_arena::{SlotArena, Id};
 
 let mut arena: SlotArena<String> = SlotArena::new();
-let id = arena.alloc("hello".to_string()).unwrap();
+let id = arena.alloc("hello".to_string()).expect("alloc hello");
 assert_eq!(arena.get(id), Some(&"hello".to_string()));
 
 let removed = arena.remove(id);

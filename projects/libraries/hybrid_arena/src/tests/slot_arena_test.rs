@@ -4,8 +4,8 @@ use crate::{Id, SlotArena};
 #[test]
 fn test_alloc_and_get() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    let id1 = arena.alloc(10).unwrap();
-    let id2 = arena.alloc(20).unwrap();
+    let id1 = arena.alloc(10).expect("alloc 10");
+    let id2 = arena.alloc(20).expect("alloc 20");
 
     assert_eq!(arena.get(id1), Some(&10));
     assert_eq!(arena.get(id2), Some(&20));
@@ -15,8 +15,8 @@ fn test_alloc_and_get() {
 #[test]
 fn test_remove_and_reuse() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    let id1 = arena.alloc(10).unwrap();
-    let id2 = arena.alloc(20).unwrap();
+    let id1 = arena.alloc(10).expect("alloc 10");
+    let id2 = arena.alloc(20).expect("alloc 20");
 
     // Remove first item
     assert_eq!(arena.remove(id1), Some(10));
@@ -24,7 +24,7 @@ fn test_remove_and_reuse() {
     assert_eq!(arena.len(), 1);
 
     // Allocate new item - should reuse slot 0
-    let id3 = arena.alloc(30).unwrap();
+    let id3 = arena.alloc(30).expect("alloc 30");
     assert_eq!(id3.index(), id1.index());
     assert_ne!(id3.generation(), id1.generation()); // Generation bumped
     assert_eq!(arena[id3], 30);
@@ -38,11 +38,11 @@ fn test_remove_and_reuse() {
 #[test]
 fn test_generation_prevents_use_after_free() {
     let mut arena: SlotArena<String> = SlotArena::new();
-    let id = arena.alloc("first".to_string()).unwrap();
+    let id = arena.alloc("first".to_string()).expect("alloc first");
     let old_gen = id.generation();
 
     arena.remove(id);
-    let new_id = arena.alloc("second".to_string()).unwrap();
+    let new_id = arena.alloc("second".to_string()).expect("alloc second");
 
     // Same slot, different generation
     assert_eq!(id.index(), new_id.index());
@@ -56,12 +56,14 @@ fn test_generation_prevents_use_after_free() {
 #[test]
 fn test_get2_mut() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    let id1 = arena.alloc(10).unwrap();
-    let id2 = arena.alloc(20).unwrap();
+    let id1 = arena.alloc(10).expect("alloc 10");
+    let id2 = arena.alloc(20).expect("alloc 20");
 
     let (a, b) = arena.get_mut(id1, id2);
-    *a.unwrap() += 1;
-    *b.unwrap() += 1;
+    let a = a.expect("id1 present");
+    let b = b.expect("id2 present");
+    *a += 1;
+    *b += 1;
 
     assert_eq!(arena[id1], 11);
     assert_eq!(arena[id2], 21);
@@ -71,16 +73,16 @@ fn test_get2_mut() {
 #[should_panic(expected = "cannot borrow the same slot twice")]
 fn test_get2_mut_same_id_panics() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    let id = arena.alloc(10).unwrap();
+    let id = arena.alloc(10).expect("alloc 10");
     let _ = arena.get_mut(id, id);
 }
 
 #[test]
 fn test_iter() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    let _ = arena.alloc(1).unwrap();
-    let id2 = arena.alloc(2).unwrap();
-    let _ = arena.alloc(3).unwrap();
+    let _ = arena.alloc(1).expect("alloc 1");
+    let id2 = arena.alloc(2).expect("alloc 2");
+    let _ = arena.alloc(3).expect("alloc 3");
 
     // Remove middle item
     arena.remove(id2);
@@ -92,7 +94,7 @@ fn test_iter() {
 #[test]
 fn test_iter_mut() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    arena.alloc_extend([1, 2, 3]).unwrap();
+    arena.alloc_extend([1, 2, 3]).expect("alloc extend");
 
     for item in arena.iter_mut() {
         *item *= 2;
@@ -105,7 +107,7 @@ fn test_iter_mut() {
 #[test]
 fn test_drain() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    arena.alloc_extend([1, 2, 3]).unwrap();
+    arena.alloc_extend([1, 2, 3]).expect("alloc extend");
 
     let drained: Vec<_> = arena.drain().collect();
     assert_eq!(drained, vec![1, 2, 3]);
@@ -116,7 +118,7 @@ fn test_drain() {
 #[test]
 fn test_retain() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    arena.alloc_extend([1, 2, 3, 4, 5]).unwrap();
+    arena.alloc_extend([1, 2, 3, 4, 5]).expect("alloc extend");
 
     arena.retain(|_, v| *v % 2 == 1);
 
@@ -128,8 +130,8 @@ fn test_retain() {
 #[test]
 fn test_clear() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    let id1 = arena.alloc(10).unwrap();
-    let _ = arena.alloc(20).unwrap();
+    let id1 = arena.alloc(10).expect("alloc 10");
+    let _ = arena.alloc(20).expect("alloc 20");
 
     arena.clear();
 
@@ -141,7 +143,7 @@ fn test_clear() {
 #[test]
 fn test_generation_overflow() {
     let mut arena: SlotArena<i32> = SlotArena::new();
-    let _id = arena.alloc(42).unwrap();
+    let _id = arena.alloc(42).expect("alloc 42");
 
     // Manually set generation to MAX-1 to test wrapping
     arena.slots[0].generation = u32::MAX - 1;
@@ -150,21 +152,21 @@ fn test_generation_overflow() {
     arena.len = 0;
 
     // Allocate: generation should be MAX-1
-    let id1 = arena.alloc(100).unwrap();
+    let id1 = arena.alloc(100).expect("alloc 100");
     assert_eq!(id1.generation(), u32::MAX - 1);
 
     // Remove: generation should wrap to MAX
     arena.remove(id1);
 
     // Allocate again: generation should be MAX
-    let id2 = arena.alloc(200).unwrap();
+    let id2 = arena.alloc(200).expect("alloc 200");
     assert_eq!(id2.generation(), u32::MAX);
 
     // Remove: generation should wrap to 0
     arena.remove(id2);
 
     // Allocate again: generation should be 0
-    let id3 = arena.alloc(300).unwrap();
+    let id3 = arena.alloc(300).expect("alloc 300");
     assert_eq!(id3.generation(), 0);
 }
 
@@ -175,7 +177,9 @@ fn test_alloc_with() {
         value: i32,
     }
     let mut arena: SlotArena<Node> = SlotArena::new();
-    let id = arena.alloc_with(|id| Node { id, value: 42 }).unwrap();
+    let id = arena
+        .alloc_with(|id| Node { id, value: 42 })
+        .expect("alloc node");
     assert_eq!(arena[id].id, id);
     assert_eq!(arena[id].value, 42);
 }

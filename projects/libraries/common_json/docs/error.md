@@ -23,7 +23,10 @@ use common_json::{pjson, JsonAccess, JsonError};
 let data = pjson!({ name: "test" });
 
 // TypeMismatch: trying to read a string as i64
-let result = data.get_field("name").unwrap().as_i64_strict();
+let result = data
+    .get_field("name")
+    .expect("field exists")
+    .as_i64_strict();
 assert!(matches!(result, Err(JsonError::TypeMismatch { .. })));
 
 // MissingField: non-existent field

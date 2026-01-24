@@ -32,7 +32,7 @@ fn test_code_generator_integration() {
         activation: Activation::ReLU,
         weight_init: WeightInit::Xavier,
     }])
-    .unwrap();
+    .expect("network init");
 
     let config = GenerationConfig::default();
     let mut generator = CodeGenerator::new(mock_model, mock_tokenizer, config);
@@ -41,6 +41,6 @@ fn test_code_generator_integration() {
     let result = generator.generate(prompt);
 
     assert!(result.is_ok());
-    let generated_code = result.unwrap();
+    let generated_code = result.expect("generation succeeds");
     assert!(!generated_code.is_empty());
 }

@@ -18,7 +18,7 @@ pub fn initialize_logger(log_file: &str, log_level: &str) {
         .create(true)
         .append(true)
         .open(log_file)
-        .unwrap();
+        .expect("Failed to open log file");
 
     let _ = log::set_boxed_logger(Box::new(SimpleLogger {
         file: Mutex::new(file),
