@@ -1,5 +1,5 @@
-//! Ce module fournit une implémentation de `Clock` destinée uniquement aux tests.
-//! Il ne doit pas être utilisé dans le code de production.
+//! This module provides an implementation of `Clock` intended for testing purposes only.
+//! It should not be used in production code.
 // projects/libraries/common_time/src/fake_clock.rs
 use std::sync::{Arc, Mutex};
 

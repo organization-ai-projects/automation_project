@@ -41,7 +41,7 @@ impl<T> SlotArena<T> {
         }
     }
 
-    /// Fonction interne pour gérer l'allocation commune.
+    /// Internal function to handle common allocation logic.
     #[inline]
     fn alloc_internal<F>(&mut self, initializer: F) -> Result<Id<T>, ArenaError>
     where

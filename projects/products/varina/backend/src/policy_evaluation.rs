@@ -156,5 +156,3 @@ pub fn has_merge_conflicts(changes: &[impl AsRef<str>]) -> bool {
         x == b'U' || y == b'U' || (x == b'A' && y == b'A') || (x == b'D' && y == b'D')
     })
 }
-
-// Implementation removed because it is redundant with the one in compiled_autopilot_policy.rs.

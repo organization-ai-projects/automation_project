@@ -177,7 +177,6 @@ mod tests {
 
     #[test]
     fn test_pjson_complex_expressions_without_parens() {
-        // Test: expressions complexes SANS parenthèses
         let path = std::path::Path::new("/tmp/test");
 
         let obj = pjson!({
@@ -241,11 +240,9 @@ mod tests {
         let s = "test";
         let v = vec![1, 2, 3];
 
-        // Variables directes
         assert_eq!(pjson!(x), Json::from(42));
         assert_eq!(pjson!(s), Json::from("test"));
 
-        // Vec via From
         let arr = pjson!(v);
         assert!(arr.is_array());
     }
@@ -256,7 +253,6 @@ mod tests {
         assert!(arr.is_array());
         assert_eq!(arr.as_array().expect("Array conversion failed").len(), 3);
 
-        // Mixed types
         let mixed = json_array!["hello", 42, true];
         assert_eq!(mixed.as_array().expect("Array conversion failed").len(), 3);
     }
@@ -275,7 +271,6 @@ mod tests {
 
     #[test]
     fn test_pjson_ident_keys() {
-        // Clés identifiants → stringify automatique
         let obj = pjson!({
             name: "Alice",
             age: 30,
@@ -290,7 +285,6 @@ mod tests {
 
     #[test]
     fn test_pjson_dynamic_key() {
-        // Clé dynamique via (expr)
         let key_name = "dynamic_key";
         let obj = pjson!({
             (key_name): 42

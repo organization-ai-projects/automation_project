@@ -72,7 +72,7 @@ async fn health_check_handles_not_found() {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
         backend_registry: Arc::new(RwLock::new(BackendRegistry::new())),
-    }; // Ajout du champ manquant
+    };
 
     let cors = CorsConfig::default();
     let routes = build_routes(state, cors);
@@ -101,7 +101,7 @@ async fn cors_applied_to_other_routes() {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
         backend_registry: Arc::new(RwLock::new(BackendRegistry::new())),
-    }; // Ajout du champ manquant
+    };
 
     let cors = CorsConfig {
         allow_any_origin: true,

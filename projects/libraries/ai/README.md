@@ -532,10 +532,10 @@ for handle in handles {
 - `serde`: Serialization for feedback types
 - `thiserror`: Error handling
 
-## Contribuer
+## Contribute
 
-Les contributions sont les bienvenues ! Veuillez ouvrir une issue ou une pull request sur le dépôt GitHub.
+Contributions are welcome! Please open an issue or a pull request on the GitHub repository.
 
-Pour plus de détails sur le workflow Git/GitHub utilisé dans ce projet, consultez la [documentation sur le versioning](../../../docs/versioning/git-github.md).
+For more details on the Git/GitHub workflow used in this project, see the [versioning documentation](../../../docs/versioning/git-github.md).
 
-## Licence
+## License
