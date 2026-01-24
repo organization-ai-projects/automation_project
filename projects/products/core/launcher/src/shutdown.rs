@@ -23,14 +23,28 @@ pub fn install_shutdown_handler(
     ctrlc::set_handler(move || {
         eprintln!("\n🛑 shutdown requested");
         {
-            let mut sd = shutting_down.lock().unwrap();
-            *sd = true;
+            if let Ok(mut sd) = shutting_down.lock() {
+                *sd = true;
+            } else {
+                eprintln!("Failed to acquire lock on shutting_down");
+            }
         }
 
-        let mut map = running.lock().unwrap();
+        let mut map = match running.lock() {
+            Ok(map) => map,
+            Err(_) => {
+                eprintln!("Failed to acquire lock on running");
+                return;
+            }
+        };
+
         for (name, handle) in map.iter_mut() {
             eprintln!("Stopping {name}");
-            let _ = handle.child.lock().unwrap().kill();
+            if let Ok(mut child) = handle.child.lock() {
+                let _ = child.kill();
+            } else {
+                eprintln!("Failed to acquire lock on child");
+            }
         }
 
         // give some grace
@@ -38,7 +52,11 @@ pub fn install_shutdown_handler(
 
         // best effort: wait then exit
         for (name, handle) in map.iter_mut() {
-            let _ = handle.child.lock().unwrap().wait();
+            if let Ok(mut child) = handle.child.lock() {
+                let _ = child.wait();
+            } else {
+                eprintln!("Failed to acquire lock on child");
+            }
             eprintln!("Stopped {name}");
         }
         std::process::exit(0);

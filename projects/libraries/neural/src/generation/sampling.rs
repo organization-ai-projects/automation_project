@@ -5,7 +5,7 @@ use ndarray::Array1;
 /// Applies top-k filtering to an array of probabilities.
 pub fn apply_top_k(probs: &Array1<f64>, k: usize) -> Array1<f64> {
     let mut sorted_probs: Vec<(usize, f64)> = probs.iter().cloned().enumerate().collect();
-    sorted_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    sorted_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
     let mut filtered = Array1::<f64>::zeros(probs.len());
     for &(idx, prob) in sorted_probs.iter().take(k) {

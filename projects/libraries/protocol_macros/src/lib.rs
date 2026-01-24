@@ -54,7 +54,7 @@ pub fn derive_enum_methods(input: TokenStream) -> TokenStream {
                 let field_names: Vec<_> = fields
                     .named
                     .iter()
-                    .map(|f| f.ident.as_ref().unwrap())
+                    .map(|f| f.ident.as_ref().expect("field ident"))
                     .collect();
                 let field_types: Vec<_> = fields.named.iter().map(|f| &f.ty).collect();
 
@@ -100,7 +100,7 @@ pub fn derive_enum_methods(input: TokenStream) -> TokenStream {
                 let field_names: Vec<_> = fields
                     .named
                     .iter()
-                    .map(|f| f.ident.as_ref().unwrap())
+                    .map(|f| f.ident.as_ref().expect("field ident"))
                     .collect();
 
                 let format_fields = if field_names.is_empty() {

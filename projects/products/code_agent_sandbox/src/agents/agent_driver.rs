@@ -125,7 +125,9 @@ pub fn run_agent_with_orchestrator(
             continue;
         }
 
-        let target_file = touched_files.into_iter().next().unwrap();
+        let target_file = touched_files.into_iter().next().ok_or_else(|| {
+            anyhow::anyhow!("Expected exactly one touched file, but none were found.")
+        })?;
         let mut step_results = Vec::new();
 
         step_results.extend(run_and_record(

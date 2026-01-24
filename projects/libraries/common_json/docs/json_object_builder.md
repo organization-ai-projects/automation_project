@@ -23,8 +23,14 @@ let user = JsonObjectBuilder::new()
     .field_if(true, "verified", true)
     .build();
 
-assert_eq!(user.get_field("name").unwrap().as_str(), Some("Alice"));
-assert_eq!(user.get_field("age").unwrap().as_i64(), Some(30));
+assert_eq!(
+    user.get_field("name").expect("field exists").as_str(),
+    Some("Alice")
+);
+assert_eq!(
+    user.get_field("age").expect("field exists").as_i64(),
+    Some(30)
+);
 ```
 
 ## Tests

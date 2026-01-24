@@ -82,7 +82,7 @@ mod tests {
     #[test]
     fn test_user_id_new_valid() {
         let id = Id128::from_bytes_unchecked([1u8; 16]);
-        let user_id = UserId::new(id).unwrap();
+        let user_id = UserId::new(id).expect("user id");
         assert_eq!(user_id.value(), id);
     }
 
@@ -98,9 +98,9 @@ mod tests {
         let id2 = Id128::from_bytes_unchecked([1u8; 16]);
         let id3 = Id128::from_bytes_unchecked([2u8; 16]);
 
-        let user_id1 = UserId::new(id1).unwrap();
-        let user_id2 = UserId::new(id2).unwrap();
-        let user_id3 = UserId::new(id3).unwrap();
+        let user_id1 = UserId::new(id1).expect("user id1");
+        let user_id2 = UserId::new(id2).expect("user id2");
+        let user_id3 = UserId::new(id3).expect("user id3");
 
         assert_eq!(user_id1, user_id2);
         assert_ne!(user_id1, user_id3);
@@ -109,18 +109,18 @@ mod tests {
     #[test]
     fn test_user_id_display() {
         let id = Id128::from_bytes_unchecked([42u8; 16]);
-        let user_id = UserId::new(id).unwrap();
+        let user_id = UserId::new(id).expect("user id");
         assert_eq!(format!("{}", user_id), id.to_string());
     }
 
     #[test]
     fn test_token_creation() {
         let token = Token::new(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
             Role::User,
             3_600_000,
         )
-        .unwrap();
+        .expect("token");
         assert_eq!(
             token.user_id.value(),
             Id128::from_bytes_unchecked([1u8; 16])
@@ -132,11 +132,11 @@ mod tests {
     #[test]
     fn test_token_not_expired() {
         let token = Token::new(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
             Role::User,
             3_600_000,
         )
-        .unwrap();
+        .expect("token");
         assert!(!token.is_expired());
         assert!(token.validate_token().is_ok());
         assert!(token.time_until_expiry_ms() > 0);
@@ -145,11 +145,11 @@ mod tests {
     #[test]
     fn test_token_expired() {
         let token = Token::new(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
             Role::User,
             1,
         )
-        .unwrap();
+        .expect("token");
         std::thread::sleep(std::time::Duration::from_millis(10));
         assert!(token.is_expired());
         assert!(matches!(
@@ -161,23 +161,23 @@ mod tests {
     #[test]
     fn test_token_with_session() {
         let token = Token::new_with_session(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
             Role::Admin,
             3_600_000,
             "session_xyz".to_string(),
         )
-        .unwrap();
+        .expect("token");
         assert_eq!(token.session_id.as_deref(), Some("session_xyz"));
     }
 
     #[test]
     fn test_token_age() {
         let token = Token::new(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).unwrap(),
+            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
             Role::User,
             3_600_000,
         )
-        .unwrap();
+        .expect("token");
         std::thread::sleep(std::time::Duration::from_millis(5));
         assert!(token.age_ms() > 0);
     }

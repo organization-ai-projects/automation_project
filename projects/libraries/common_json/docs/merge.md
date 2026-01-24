@@ -38,7 +38,7 @@ assert_eq!(merged["tags"], pjson!(["v2"])); // Replaced
 
 // concat_merge: merges objects, concatenates arrays
 let merged = concat_merge(&base, &patch);
-assert_eq!(merged["tags"].as_array().unwrap().len(), 2); // ["v1", "v2"]
+assert_eq!(merged["tags"].as_array().expect("array").len(), 2); // ["v1", "v2"]
 ```
 
 ## Diff and Comparison

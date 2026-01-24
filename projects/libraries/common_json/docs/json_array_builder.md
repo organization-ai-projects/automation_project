@@ -24,7 +24,7 @@ let arr = JsonArrayBuilder::new()
     .extend(vec![4, 5, 6])
     .build();
 
-assert_eq!(arr.as_array().unwrap().len(), 6);
+assert_eq!(arr.as_array().expect("array").len(), 6);
 ```
 
 ## Tests

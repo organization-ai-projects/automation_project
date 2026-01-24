@@ -10,9 +10,8 @@ The `ai` library provides a high-level API through the `AiBody` struct, which or
 
 ```rust
 use ai::{AiBody, Task};
-use std::error::Error;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut ai = AiBody::new()?;
     let task = Task::new_code_generation("write a fibonacci function".to_string());
     let result = ai.solve(&task)?;
@@ -31,12 +30,8 @@ The main entry point for the library. All operations should go through this inte
 
 ```rust
 use ai::ai_body::AiBody;
-use std::error::Error;
 
-fn initialize_ai() -> Result<AiBody, Box<dyn Error>> {
-    let ai = AiBody::new()?;
-    Ok(ai)
-}
+let mut ai = AiBody::new()?;
 ```
 
 #### `Task`
@@ -335,19 +330,15 @@ pub fn create_task(&self, prompt: &str) -> Task
 
 ```rust
 use ai::{AiBody, Task};
-use std::error::Error;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut ai = AiBody::new()?;
 
     // Load neural model (optional)
-    if let Err(e) = ai.load_neural_model(
+    ai.load_neural_model(
         std::path::Path::new("model.safetensors"),
         std::path::Path::new("tokenizer.json")
-    ) {
-        eprintln!("Failed to load model: {}", e);
-        return Err(e.into());
-    }
+    )?;
 
     // Generate code
     let code = ai.generate_code("write a function to calculate fibonacci")?;
@@ -519,26 +510,18 @@ If you need parallel processing:
 ```rust
 use ai::AiBody;
 use std::thread;
-use std::error::Error;
 
 let handles: Vec<_> = (0..4).map(|i| {
     thread::spawn(move || {
-        match AiBody::new() {
-            Ok(mut ai) => {
-                match ai.generate_code(&format!("task {}", i)) {
-                    Ok(code) => println!("Generated code: {}", code),
-                    Err(e) => eprintln!("Failed to generate code: {}", e),
-                }
-            }
-            Err(e) => eprintln!("Failed to initialize AiBody: {}", e),
-        }
+        let mut ai = AiBody::new().expect("Failed to create AiBody instance");
+        // Each thread has its own instance
+        ai.generate_code(&format!("task {}", i))
     })
 }).collect();
 
 for handle in handles {
-    if let Err(e) = handle.join() {
-        eprintln!("Thread panicked: {:?}", e);
-    }
+    let result = handle.join().expect("Thread panicked while joining");
+    println!("Result: {:?}", result);
 }
 ```
 
@@ -549,10 +532,10 @@ for handle in handles {
 - `serde`: Serialization for feedback types
 - `thiserror`: Error handling
 
-## Contributing
+## Contribuer
 
-Contributions are welcome! Please open an issue or a pull request on the GitHub repository.
+Les contributions sont les bienvenues ! Veuillez ouvrir une issue ou une pull request sur le dépôt GitHub.
 
-For more details about the Git/GitHub workflow used in this project, check the [versioning documentation](../../../docs/versioning/git-github.md).
+Pour plus de détails sur le workflow Git/GitHub utilisé dans ce projet, consultez la [documentation sur le versioning](../../../docs/versioning/git-github.md).
 
-## License
+## Licence
