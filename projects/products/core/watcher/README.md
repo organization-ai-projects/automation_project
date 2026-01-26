@@ -83,7 +83,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 ## Documentation
 
 - [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/core/watcher/documentation/TOC.md)
-- [Architecture](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/core/watcher/../../../../documentation/technical_documentation/ARCHITECTURE.md)
+- [Architecture](https://github.com/organization-ai-projects/automation_project/blob/main/documentation/technical_documentation/ARCHITECTURE.md)
 
 ## Contributing
 

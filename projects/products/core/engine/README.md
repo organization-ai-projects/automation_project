@@ -33,7 +33,7 @@ Engine is the **single point of communication** in the system. All components (U
 
 ## Architecture Position
 
-```
+```plaintext
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  central_ui │     │  product_ui │     │   launcher  │
 └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
@@ -55,14 +55,14 @@ Engine is the **single point of communication** in the system. All components (U
 
 ### Commands (request/response)
 
-```
+```plaintext
 ListProjects, ListProducts, ActivateProduct(id),
 RunWorkflow(project_id, workflow_id), SpawnBackend(product_id)
 ```
 
 ### Events (stream)
 
-```
+```plaintext
 LogLine(project_id, level, msg), Progress(workflow_id, pct),
 ProductStateChanged(product_id, state), WorkflowFinished(workflow_id, result)
 ```
@@ -84,7 +84,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 ## Documentation
 
 - [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/core/engine/documentation/TOC.md)
-- [Architecture](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/core/engine/../../../../documentation/technical_documentation/ARCHITECTURE.md)
+- [Architecture](https://github.com/organization-ai-projects/automation_project/blob/main/documentation/technical_documentation/ARCHITECTURE.md)
 
 ## Contributing
 

@@ -49,11 +49,11 @@ Central UI is the **main user interface** for the automation platform. It aggreg
 
 Central UI loads bundles that conform to this contract:
 
-| Artifact           | Description                        |
-| ------------------ | ---------------------------------- |
-| `ui.wasm`          | Compiled Dioxus WASM module        |
-| `assets/`          | Icons, CSS, static resources       |
-| `ui_manifest.ron`  | Bundle metadata and configuration  |
+| Artifact          | Description                       |
+| ----------------- | --------------------------------- |
+| `ui.wasm`         | Compiled Dioxus WASM module       |
+| `assets/`         | Icons, CSS, static resources      |
+| `ui_manifest.ron` | Bundle metadata and configuration |
 
 ## Key Principles
 
@@ -94,7 +94,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 ## Documentation
 
 - [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/core/central_ui/documentation/TOC.md)
-- [Architecture](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/core/central_ui/../../../../documentation/technical_documentation/ARCHITECTURE.md)
+- [Architecture](https://github.com/organization-ai-projects/automation_project/blob/main/documentation/technical_documentation/ARCHITECTURE.md)
 
 ## Contributing
 

@@ -62,13 +62,13 @@ cargo run -p launcher
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
+| Code | Meaning                                  |
+| ---- | ---------------------------------------- |
 | 0    | Successful startup, all services running |
-| 1    | Configuration error |
-| 2    | Engine failed to start |
-| 3    | Watcher failed to start |
-| 4    | Central UI failed to start |
+| 1    | Configuration error                      |
+| 2    | Engine failed to start                   |
+| 3    | Watcher failed to start                  |
+| 4    | Central UI failed to start               |
 
 ## License
 
@@ -77,7 +77,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 ## Documentation
 
 - [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/core/launcher/documentation/TOC.md)
-- [Architecture](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/core/launcher/../../../../documentation/technical_documentation/ARCHITECTURE.md)
+- [Architecture](https://github.com/organization-ai-projects/automation_project/blob/main/documentation/technical_documentation/ARCHITECTURE.md)
 
 ## Contributing
 
