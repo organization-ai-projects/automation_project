@@ -12,7 +12,7 @@ mod unit_tests {
             detached_head: false,
             changes: vec![GitChange {
                 xy: [32, 77],
-                path: "docs/versioning/git-github.md".to_string(),
+                path: "README.md".to_string(),
                 orig_path: None,
             }],
             classified: ClassifiedChanges {

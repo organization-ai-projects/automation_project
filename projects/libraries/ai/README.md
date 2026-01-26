@@ -536,6 +536,17 @@ for handle in handles {
 
 Contributions are welcome! Please open an issue or a pull request on the GitHub repository.
 
-For more details on the Git/GitHub workflow used in this project, see the [versioning documentation](docs/versioning/git-github.md).
-
 ## License
+
+This project is licensed under the MIT License. See [License](https://github.com/organization-ai-projects/automation_project/blob/main/LICENSE).
+
+## Documentation
+
+- [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/ai/documentation/TOC.md)
+
+## Contributing
+
+See the workspace README and contribution guide:
+
+- [Workspace README](https://github.com/organization-ai-projects/automation_project/blob/main/README.md)
+- [Contributing](https://github.com/organization-ai-projects/automation_project/blob/main/CONTRIBUTING.md)

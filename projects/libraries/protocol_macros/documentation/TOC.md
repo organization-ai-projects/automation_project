@@ -1,0 +1,6 @@
+# protocol_macros Documentation Index
+
+- [Back to protocol_macros README](../README.md)
+- [Implementation Details](implementation.md)
+- [Migration Guide](migration_guide.md)
+- [Usage Examples](usage_examples.md)

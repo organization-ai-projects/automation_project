@@ -66,17 +66,21 @@ Debug mode uses `{:?}` formatting for all fields.
 
 For more details, refer to the following documents:
 
-- [Implementation Details](docs/implementation.md)
-- [Migration Guide](docs/migration_guide.md)
-- [Usage Examples](docs/usage_examples.md)
-- [Contributing](docs/contributing.md)
+- [Implementation Details](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/protocol_macros/documentation/implementation.md)
+- [Migration Guide](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/protocol_macros/documentation/migration_guide.md)
+- [Usage Examples](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/protocol_macros/documentation/usage_examples.md)
 
 ## Contribute
 
 Contributions are welcome! Please open an issue or a pull request on the GitHub repository.
 
-For more details on the Git/GitHub workflow used in this project, see the [versioning documentation](docs/versioning/git-github.md).
-
 ## License
 
-Part of the automation project workspace.
+This project is licensed under the MIT License. See [License](https://github.com/organization-ai-projects/automation_project/blob/main/LICENSE).
+
+## Contributing
+
+See the workspace README and contribution guide:
+
+- [Workspace README](https://github.com/organization-ai-projects/automation_project/blob/main/README.md)
+- [Contributing](https://github.com/organization-ai-projects/automation_project/blob/main/CONTRIBUTING.md)
