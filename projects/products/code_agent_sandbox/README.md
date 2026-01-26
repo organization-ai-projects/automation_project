@@ -11,7 +11,7 @@ The **Code Agent Sandbox** crate provides a robust and modular infrastructure fo
 
 ## Documentation
 
-For detailed documentation, please refer to the [docs/ folder](docs/) or the [Project Overview](docs/PROJECT_OVERVIEW.md).
+For detailed documentation, please refer to the [documentation/ folder](https://github.com/organization-ai-projects/automation_project/tree/main/projects/products/code_agent_sandbox/documentation) or the [Project Overview](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/code_agent_sandbox/documentation/PROJECT_OVERVIEW.md).
 
 ## Installation
 
@@ -27,4 +27,11 @@ Contributions are welcome! Please open an issue or submit a pull request on the 
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+This project is licensed under the MIT License. See [License](https://github.com/organization-ai-projects/automation_project/blob/main/LICENSE).
+
+## Contributing
+
+See the workspace README and contribution guide:
+
+- [Workspace README](https://github.com/organization-ai-projects/automation_project/blob/main/README.md)
+- [Contributing](https://github.com/organization-ai-projects/automation_project/blob/main/CONTRIBUTING.md)
