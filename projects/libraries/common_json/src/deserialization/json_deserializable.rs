@@ -7,7 +7,7 @@ use std::io::Read;
 use super::json_deserializer::JsonDeserializer;
 
 /// Trait for types that can be deserialized from JSON.
-/// See the full documentation in docs/deserialize.md.
+/// See the full documentation in documentation/deserialize.md.
 pub trait JsonDeserializable: Sized {
     fn from_json(value: &Json) -> JsonResult<Self>;
     fn from_json_owned(value: Json) -> JsonResult<Self>;
@@ -45,7 +45,7 @@ where
 }
 
 // Standalone functions for parsing and deserialization.
-// See details and examples in docs/deserialize.md.
+// See details and examples in documentation/deserialize.md.
 #[inline]
 pub fn parse(s: &str) -> JsonResult<Json> {
     parser::parse_str(s)

@@ -19,7 +19,7 @@ Add the following dependency to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-command_runner = "0.1.0"
+command_runner = { path = "../command_runner" }
 ```
 
 ## Usage
@@ -71,12 +71,17 @@ for log in logs {
 }
 ```
 
-## Contributing
+## Documentation
 
-Contributions are welcome! Please open an issue or pull request on the GitHub repository.
-
-For more details on the Git/GitHub workflow used in this project, see the [versioning documentation](docs/versioning/git-github.md).
+- [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/command_runner/documentation/TOC.md)
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+This project is licensed under the MIT License. See [License](https://github.com/organization-ai-projects/automation_project/blob/main/LICENSE).
+
+## Contributing
+
+See the workspace README and contribution guide:
+
+- [Workspace README](https://github.com/organization-ai-projects/automation_project/blob/main/README.md)
+- [Contributing](https://github.com/organization-ai-projects/automation_project/blob/main/CONTRIBUTING.md)
