@@ -230,13 +230,52 @@ fn accounts_ui_route() -> impl Filter<Extract = (impl warp::Reply,), Error = war
 }
 
 fn validate_bundle(ui_dist: &Path) -> Result<(), Vec<String>> {
-    let required = ["index.html", "ui.js", "ui.wasm", "ui_manifest.ron"];
     let mut missing = Vec::new();
-    for file in required {
-        let path = ui_dist.join(file);
-        if !path.exists() {
-            missing.push(path.display().to_string());
-        }
+    let index = ui_dist.join("public").join("index.html");
+    if !index.exists() {
+        missing.push(index.display().to_string());
+    }
+
+    let assets_dir = ui_dist.join("public").join("assets");
+    let js_found = std::fs::read_dir(&assets_dir)
+        .ok()
+        .and_then(|mut entries| {
+            entries.find_map(|entry| {
+                entry.ok().and_then(|entry| {
+                    let path = entry.path();
+                    if path.extension().and_then(|ext| ext.to_str()) == Some("js") {
+                        Some(path)
+                    } else {
+                        None
+                    }
+                })
+            })
+        });
+    if js_found.is_none() {
+        missing.push(assets_dir.join("*.js").display().to_string());
+    }
+
+    let wasm_found = std::fs::read_dir(&assets_dir)
+        .ok()
+        .and_then(|mut entries| {
+            entries.find_map(|entry| {
+                entry.ok().and_then(|entry| {
+                    let path = entry.path();
+                    if path.extension().and_then(|ext| ext.to_str()) == Some("wasm") {
+                        Some(path)
+                    } else {
+                        None
+                    }
+                })
+            })
+        });
+    if wasm_found.is_none() {
+        missing.push(assets_dir.join("*.wasm").display().to_string());
+    }
+
+    let manifest = ui_dist.join("ui_manifest.ron");
+    if !manifest.exists() {
+        missing.push(manifest.display().to_string());
     }
     if missing.is_empty() {
         Ok(())
