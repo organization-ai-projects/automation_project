@@ -9,6 +9,9 @@ use security::{Role, TokenService};
 use tokio::sync::RwLock;
 use warp::http::StatusCode;
 
+// These tests mutate process-wide env vars to point to temp claim dirs.
+// We serialize access with CLAIM_LOCK and ensure the env var is only read
+// during test setup (no concurrent reads in the tested code paths).
 static CLAIM_LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
 
 fn build_state(account_manager: AccountManager) -> EngineState {
