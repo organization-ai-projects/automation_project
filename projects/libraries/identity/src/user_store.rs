@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 use tokio::sync::RwLock;
 
+use rand::RngCore;
 use security::{PasswordError, Role, password};
 
 use crate::{IdentityError, UserId};
@@ -35,7 +36,7 @@ impl UserStore {
             return Ok(hash.as_str());
         }
 
-        let hash = password::hash_password("fallback_password")?;
+        let hash = password::hash_password(&random_fallback_secret())?;
         let _ = FALLBACK_HASH.set(hash);
 
         Ok(FALLBACK_HASH
@@ -110,6 +111,30 @@ impl UserStore {
     pub async fn user_count(&self) -> usize {
         let users = self.users.read().await;
         users.len()
+    }
+}
+
+fn random_fallback_secret() -> String {
+    let mut bytes = [0u8; 32];
+    let mut rng = rand::rng();
+    rng.fill_bytes(&mut bytes);
+    bytes_to_hex(&bytes)
+}
+
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push(nibble_to_hex(byte >> 4));
+        out.push(nibble_to_hex(byte & 0x0f));
+    }
+    out
+}
+
+fn nibble_to_hex(n: u8) -> char {
+    match n {
+        0..=9 => (b'0' + n) as char,
+        10..=15 => (b'a' + (n - 10)) as char,
+        _ => '0',
     }
 }
 
