@@ -349,12 +349,19 @@ impl AccountManager {
             return Err(AccountStoreError::InvalidCredentials);
         }
 
-        user.last_login_ms = Some(current_timestamp_ms());
-        user.updated_at_ms = current_timestamp_ms();
+        let login_ts = current_timestamp_ms();
+        user.last_login_ms = Some(login_ts);
         let role = user.role;
         drop(users);
 
-        self.save().await?;
+        self.append_audit(AuditEntry {
+            timestamp_ms: login_ts,
+            actor: user_id.to_string(),
+            action: "login".to_string(),
+            target: user_id.to_string(),
+            details: None,
+        })
+        .await?;
         Ok(role)
     }
 
