@@ -101,7 +101,10 @@ pub fn has_any_permission(role: &Role, required_permissions: &[Permission]) -> b
 }
 
 /// Checks if a role has a specific permission, returns an error otherwise
-pub fn check_permission(role: &Role, required_permission: Permission) -> Result<(), PermissionError> {
+pub fn check_permission(
+    role: &Role,
+    required_permission: Permission,
+) -> Result<(), PermissionError> {
     if has_permission(role, required_permission) {
         Ok(())
     } else {

@@ -1,6 +1,7 @@
 // projects/products/accounts/backend/src/main.rs
 use std::time::Duration;
 
+use bytes::Bytes;
 use common::Id128;
 use futures_util::{SinkExt, StreamExt};
 use protocol::{Command, CommandType, Metadata, Payload};
@@ -8,7 +9,6 @@ use security::{Role, TokenService};
 use serde::Serialize;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{info, warn};
-use bytes::Bytes;
 
 #[derive(Debug, Serialize)]
 struct BackendHello {
@@ -63,7 +63,11 @@ async fn main() {
 
     let cmd_json = common_json::to_string(&cmd).expect("serialize command");
     let cmd_json_bytes = Bytes::from(cmd_json);
-    tx.send(Message::Text(String::from_utf8_lossy(&cmd_json_bytes).to_string().into())).await.expect("send hello");
+    tx.send(Message::Text(
+        String::from_utf8_lossy(&cmd_json_bytes).to_string().into(),
+    ))
+    .await
+    .expect("send hello");
     info!("Accounts backend registered");
 
     loop {

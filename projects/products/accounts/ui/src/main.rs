@@ -426,7 +426,8 @@ mod accounts_web {
                     let status = resp.status();
                     let text = resp.text().await.unwrap_or_default();
                     if status == 200 {
-                        if let Ok(list) = common_json::from_json_str::<AccountsListResponse>(&text) {
+                        if let Ok(list) = common_json::from_json_str::<AccountsListResponse>(&text)
+                        {
                             users.set(list.users);
                         } else {
                             msg.set("Failed to parse users list".to_string());
@@ -466,7 +467,8 @@ mod accounts_web {
             match Request::post("/api/accounts/users")
                 .header("authorization", &format!("Bearer {token}"))
                 .header("Content-Type", "application/json")
-                .body(payload).unwrap()
+                .body(payload)
+                .unwrap()
                 .send()
                 .await
             {
@@ -509,7 +511,8 @@ mod accounts_web {
             match Request::patch(&format!("/api/accounts/users/{user_id_val}"))
                 .header("authorization", &format!("Bearer {token}"))
                 .header("Content-Type", "application/json")
-                .body(payload).unwrap()
+                .body(payload)
+                .unwrap()
                 .send()
                 .await
             {
@@ -550,7 +553,8 @@ mod accounts_web {
             match Request::post(&format!("/api/accounts/users/{user_id_val}/status"))
                 .header("authorization", &format!("Bearer {token}"))
                 .header("Content-Type", "application/json")
-                .body(payload).unwrap()
+                .body(payload)
+                .unwrap()
                 .send()
                 .await
             {
@@ -590,7 +594,8 @@ mod accounts_web {
             match Request::post(&format!("/api/accounts/users/{user_id_val}/reset_password"))
                 .header("authorization", &format!("Bearer {token}"))
                 .header("Content-Type", "application/json")
-                .body(payload).unwrap()
+                .body(payload)
+                .unwrap()
                 .send()
                 .await
             {

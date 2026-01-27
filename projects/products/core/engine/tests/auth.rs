@@ -124,7 +124,10 @@ async fn login_blocks_role_escalation() {
 
 #[tokio::test]
 async fn setup_admin_creates_first_admin_and_consumes_claim() {
-    let _guard = CLAIM_LOCK.get_or_init(|| tokio::sync::Mutex::new(())).lock().await;
+    let _guard = CLAIM_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
     let mut claim_dir = std::env::temp_dir();
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -147,9 +150,7 @@ async fn setup_admin_creates_first_admin_and_consumes_claim() {
         .expect("system time")
         .as_nanos();
     data_dir.push(format!("accounts_store_setup_admin_{nanos}"));
-    let manager = AccountManager::load(data_dir)
-        .await
-        .unwrap();
+    let manager = AccountManager::load(data_dir).await.unwrap();
     let state = build_state(manager);
     let routes = build_routes(state.clone(), engine::CorsConfig::default());
 
@@ -197,7 +198,10 @@ async fn setup_admin_creates_first_admin_and_consumes_claim() {
 
 #[tokio::test]
 async fn setup_admin_rejects_invalid_claim() {
-    let _guard = CLAIM_LOCK.get_or_init(|| tokio::sync::Mutex::new(())).lock().await;
+    let _guard = CLAIM_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
     let mut claim_dir = std::env::temp_dir();
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -216,9 +220,7 @@ async fn setup_admin_rejects_invalid_claim() {
         .expect("system time")
         .as_nanos();
     data_dir.push(format!("accounts_store_invalid_claim_{nanos}"));
-    let manager = AccountManager::load(data_dir)
-        .await
-        .unwrap();
+    let manager = AccountManager::load(data_dir).await.unwrap();
     let state = build_state(manager);
     let routes = build_routes(state, engine::CorsConfig::default());
 
@@ -246,7 +248,10 @@ async fn setup_admin_rejects_invalid_claim() {
 
 #[tokio::test]
 async fn setup_status_flips_after_admin_creation() {
-    let _guard = CLAIM_LOCK.get_or_init(|| tokio::sync::Mutex::new(())).lock().await;
+    let _guard = CLAIM_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
     let mut claim_dir = std::env::temp_dir();
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -284,7 +289,13 @@ async fn setup_status_flips_after_admin_creation() {
         Json::Object(map) => {
             let setup_mode = map
                 .get("setup_mode")
-                .and_then(|v| if let Json::Bool(b) = v { Some(*b) } else { None })
+                .and_then(|v| {
+                    if let Json::Bool(b) = v {
+                        Some(*b)
+                    } else {
+                        None
+                    }
+                })
                 .expect("setup_mode");
             assert!(setup_mode);
         }
@@ -317,7 +328,13 @@ async fn setup_status_flips_after_admin_creation() {
         Json::Object(map) => {
             let setup_mode = map
                 .get("setup_mode")
-                .and_then(|v| if let Json::Bool(b) = v { Some(*b) } else { None })
+                .and_then(|v| {
+                    if let Json::Bool(b) = v {
+                        Some(*b)
+                    } else {
+                        None
+                    }
+                })
                 .expect("setup_mode");
             assert!(!setup_mode);
         }
@@ -340,7 +357,13 @@ async fn setup_status_flips_after_admin_creation() {
     let jwt = match payload {
         Json::Object(map) => map
             .get("jwt")
-            .and_then(|v| if let Json::String(s) = v { Some(s.clone()) } else { None })
+            .and_then(|v| {
+                if let Json::String(s) = v {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            })
             .expect("jwt"),
         _ => panic!("invalid login response"),
     };

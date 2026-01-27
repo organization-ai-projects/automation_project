@@ -1,5 +1,5 @@
 // projects/libraries/security/src/token.rs
-use crate::{role::Role, TokenError};
+use crate::{TokenError, role::Role};
 use common::custom_uuid::Id128;
 use common_time::timestamp_utils;
 use serde::{Deserialize, Serialize};
@@ -142,10 +142,7 @@ mod tests {
         let id_expired = Id128::from_bytes_unchecked([2u8; 16]);
         let expired = Token::new(id_expired, Role::User, 1).expect("token");
         std::thread::sleep(std::time::Duration::from_millis(10));
-        assert!(matches!(
-            expired.validate_token(),
-            Err(TokenError::Expired)
-        ));
+        assert!(matches!(expired.validate_token(), Err(TokenError::Expired)));
     }
 
     #[test]
@@ -158,13 +155,8 @@ mod tests {
     #[test]
     fn test_token_with_session() {
         let id = Id128::from_bytes_unchecked([1u8; 16]);
-        let token = Token::new_with_session(
-            id,
-            Role::Admin,
-            3600000,
-            "session_xyz".to_string(),
-        )
-        .expect("token");
+        let token = Token::new_with_session(id, Role::Admin, 3600000, "session_xyz".to_string())
+            .expect("token");
         assert_eq!(token.session_id.as_deref(), Some("session_xyz"));
     }
 

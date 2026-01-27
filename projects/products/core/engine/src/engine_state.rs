@@ -17,7 +17,11 @@ pub struct EngineState {
 }
 
 impl EngineState {
-    pub fn new(registry: Registry, token_service: TokenService, account_manager: AccountManager) -> Self {
+    pub fn new(
+        registry: Registry,
+        token_service: TokenService,
+        account_manager: AccountManager,
+    ) -> Self {
         Self {
             registry: Arc::new(RwLock::new(registry)),
             token_service: Arc::new(token_service),

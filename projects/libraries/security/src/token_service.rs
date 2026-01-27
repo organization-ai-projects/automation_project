@@ -114,8 +114,7 @@ impl TokenService {
         println!("Token timestamps: iat = {}, exp = {}", c.iat, c.exp);
 
         // Hardening: validate sub numeric + CommonID validation
-        let subject_id =
-            Id128::from_hex(&c.sub).map_err(|_| TokenError::InvalidSubjectIdFormat)?;
+        let subject_id = Id128::from_hex(&c.sub).map_err(|_| TokenError::InvalidSubjectIdFormat)?;
 
         if !CommonID::is_valid(subject_id) {
             return Err(TokenError::InvalidSubjectIdValue);

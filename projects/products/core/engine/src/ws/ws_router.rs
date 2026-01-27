@@ -40,7 +40,10 @@ pub async fn route_command(
         }
 
         "engine.list_projects" => {
-            info!("WS cmd: engine.list_projects (subject_id={})", token.subject_id);
+            info!(
+                "WS cmd: engine.list_projects (subject_id={})",
+                token.subject_id
+            );
 
             if let Err(e) = require_permission(token, Permission::Read) {
                 return ws_event_error(&meta, 403, 1003, e);

@@ -1,10 +1,10 @@
 // projects/libraries/protocol/src/lib.rs
+pub mod accounts;
 pub mod apply_request;
 pub mod apply_response;
 pub mod command;
 pub mod command_response;
 pub mod command_type;
-pub mod accounts;
 pub mod event;
 pub mod event_type;
 pub mod event_variant;
@@ -17,12 +17,12 @@ pub mod protocol_error;
 pub mod response_status;
 pub mod validation_error;
 
+pub use accounts::*;
 pub use apply_request::ApplyRequest;
 pub use apply_response::ApplyResponse;
 pub use command::Command;
 pub use command_response::CommandResponse;
 pub use command_type::CommandType;
-pub use accounts::*;
 pub use event::Event;
 pub use event_type::EventType;
 pub use event_variant::EventVariant;
