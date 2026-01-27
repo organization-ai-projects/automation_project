@@ -36,6 +36,7 @@ For workspace users and operators, the Launcher is the entry point:
 - Ensure the registry is available (`.automation_project/registry.json`).
 - Appliance-style admin bootstrap (one-time, no terminal):
   - Engine generates `~/.automation_project/owner.claim` on first start (permissions 0600).
+  - On non-Unix platforms, strict 0600 permissions may not be enforceable; treat the claim file as sensitive and restrict access via OS-specific ACLs when possible.
   - Engine stays in setup mode until the claim is consumed.
   - Central UI reads `owner.claim` locally and calls `POST /setup/owner/admin` with:
     - `claim` (file secret)

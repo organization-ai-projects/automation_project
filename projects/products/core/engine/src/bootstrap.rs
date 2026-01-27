@@ -250,5 +250,12 @@ fn ensure_strict_permissions(path: &PathBuf) -> Result<(), BootstrapError> {
             fs::set_permissions(path, perms)?;
         }
     }
+    #[cfg(not(unix))]
+    {
+        eprintln!(
+            "bootstrap: owner claim permissions not enforced on this platform: {}",
+            path.display()
+        );
+    }
     Ok(())
 }
