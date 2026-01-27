@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UI_DIR="$ROOT_DIR/projects/products/accounts/ui"
 OUT_DIR="$UI_DIR/ui_dist"
+UI_MANIFEST="ui_manifest.ron"
 
 if ! command -v dx >/dev/null 2>&1; then
   echo "dx (dioxus-cli) not found. Install with: cargo install dioxus-cli" >&2
@@ -18,6 +19,8 @@ mkdir -p "$OUT_DIR"
     dx bundle --release --debug-symbols false --out-dir ui_dist
 )
 
-cp "$UI_DIR/ui_manifest.ron" "$OUT_DIR/ui_manifest.ron"
+if [[ -f "$UI_DIR/$UI_MANIFEST" ]]; then
+  cp "$UI_DIR/$UI_MANIFEST" "$OUT_DIR/$UI_MANIFEST"
+fi
 
 echo "Accounts UI bundle generated in $OUT_DIR"
