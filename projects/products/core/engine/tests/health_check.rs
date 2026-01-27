@@ -178,7 +178,7 @@ async fn minimal_cors_test() {
             data_dir.push(format!("accounts_store_health_four_{nanos}"));
             AccountManager::load(data_dir).await.unwrap()
         }),
-    }; // Ajout du champ manquant
+    };
 
     let cors = CorsConfig {
         allow_any_origin: true,
