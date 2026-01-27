@@ -141,7 +141,9 @@ pub fn wait_ready(svc: &Service, timeout: Duration) -> Result<()> {
 }
 
 fn is_http_healthy(url: &str) -> bool {
-    let resp = ureq::get(url).call();
+    let resp = ureq::get(url)
+        .timeout(Duration::from_millis(800))
+        .call();
     resp.ok()
         .map(|r| r.status().is_success())
         .unwrap_or(false)
