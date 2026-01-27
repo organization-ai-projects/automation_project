@@ -1,6 +1,7 @@
 // projects/products/core/engine/src/engine_state.rs
 use std::sync::Arc;
 
+use accounts_backend::AccountManager;
 use security::TokenService;
 use tokio::sync::RwLock;
 
@@ -12,14 +13,20 @@ pub struct EngineState {
     pub registry: Arc<RwLock<Registry>>,
     pub token_service: Arc<TokenService>,
     pub backend_registry: Arc<RwLock<BackendRegistry>>,
+    pub account_manager: Arc<AccountManager>,
 }
 
 impl EngineState {
-    pub fn new(registry: Registry, token_service: TokenService) -> Self {
+    pub fn new(
+        registry: Registry,
+        token_service: TokenService,
+        account_manager: AccountManager,
+    ) -> Self {
         Self {
             registry: Arc::new(RwLock::new(registry)),
             token_service: Arc::new(token_service),
             backend_registry: Arc::new(RwLock::new(BackendRegistry::new())),
+            account_manager: Arc::new(account_manager),
         }
     }
 }

@@ -9,4 +9,4 @@ ctrlc = "3"
 serde = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 toml = { workspace = true }
-ureq = "2"
+ureq = "3"

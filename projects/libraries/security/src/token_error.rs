@@ -6,11 +6,11 @@ pub enum TokenError {
     #[error("invalid duration")]
     InvalidDuration,
 
-    #[error("invalid user id format")]
-    InvalidUserIdFormat,
+    #[error("invalid subject id format")]
+    InvalidSubjectIdFormat,
 
-    #[error("invalid user id value")]
-    InvalidUserIdValue,
+    #[error("invalid subject id value")]
+    InvalidSubjectIdValue,
 
     #[error("timestamp overflow")]
     TimestampOverflow,

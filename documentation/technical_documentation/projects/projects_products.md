@@ -4,7 +4,7 @@
 
 ## Product Definition
 
-A product = `metadata.ron` + (optional) `backend` + (optional) `ui bundle`.
+A product = `metadata.ron` + `backend` + `ui bundle`.
 
 For details on `metadata.ron`, see [Metadata](../metadata.md).
 

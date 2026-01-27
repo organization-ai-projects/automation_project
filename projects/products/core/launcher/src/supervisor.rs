@@ -141,10 +141,12 @@ pub fn wait_ready(svc: &Service, timeout: Duration) -> Result<()> {
 }
 
 fn is_http_healthy(url: &str) -> bool {
-    let resp = ureq::get(url).timeout(Duration::from_millis(800)).call();
-    resp.ok()
-        .map(|r| r.status() >= 200 && r.status() < 300)
-        .unwrap_or(false)
+    let config = ureq::Agent::config_builder()
+        .timeout_per_call(Some(Duration::from_millis(800)))
+        .build();
+    let agent = config.new_agent();
+    let resp = agent.get(url).call();
+    matches!(resp, Ok(r) if r.status().is_success())
 }
 
 // Simplified `lock_recover` by introducing a type alias for MutexGuard
