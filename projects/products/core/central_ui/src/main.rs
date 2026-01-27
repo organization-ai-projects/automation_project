@@ -212,6 +212,7 @@ fn accounts_ui_route() -> impl Filter<Extract = (impl warp::Reply,), Error = war
         .ok()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("projects/products/accounts/ui/ui_dist"));
+    let ui_public = ui_dist.join("public");
 
     if let Err(missing) = validate_bundle(&ui_dist) {
         for item in missing {
@@ -220,10 +221,10 @@ fn accounts_ui_route() -> impl Filter<Extract = (impl warp::Reply,), Error = war
     }
 
     let index = warp::path::end()
-        .and(warp::fs::file(ui_dist.join("index.html")))
+        .and(warp::fs::file(ui_public.join("index.html")))
         .map(|file: warp::fs::File| file.into_response());
 
-    let files = warp::fs::dir(ui_dist);
+    let files = warp::fs::dir(ui_public);
 
     index.or(files).boxed()
 }
