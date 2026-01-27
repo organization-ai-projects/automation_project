@@ -175,22 +175,9 @@ async fn setup_admin(
     req: SetupAdminRequest,
     state: EngineState,
 ) -> Result<impl Reply, warp::Rejection> {
-    if setup_complete().unwrap_or(false) {
-        return Ok(http_error(StatusCode::CONFLICT, "Setup already completed"));
-    }
-
     if req.password.trim().is_empty() {
         return Ok(http_error(StatusCode::BAD_REQUEST, "Password is required"));
     }
-
-    if state.account_manager.user_count().await > 0 {
-        return Ok(http_error(StatusCode::CONFLICT, "Admin already exists"));
-    }
-
-    let user_id = match parse_user_id(&req.user_id) {
-        Ok(id) => id,
-        Err(e) => return Ok(http_error(StatusCode::BAD_REQUEST, e)),
-    };
 
     if let Err(err) = validate_claim(&req.claim) {
         return Ok(match err {
@@ -202,6 +189,15 @@ async fn setup_admin(
             }
             _ => http_error(StatusCode::INTERNAL_SERVER_ERROR, "Setup failed"),
         });
+    }
+
+    let user_id = match parse_user_id(&req.user_id) {
+        Ok(id) => id,
+        Err(e) => return Ok(http_error(StatusCode::BAD_REQUEST, e)),
+    };
+
+    if state.account_manager.user_count().await > 0 {
+        return Ok(http_error(StatusCode::CONFLICT, "Admin already exists"));
     }
 
     if let Err(e) = state
