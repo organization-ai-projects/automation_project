@@ -1,6 +1,5 @@
 // projects/libraries/security/src/token.rs
-use crate::auth::UserId;
-use crate::{auth_error, role::Role};
+use crate::{TokenError, role::Role};
 use common::custom_uuid::Id128;
 use common_time::timestamp_utils;
 use serde::{Deserialize, Serialize};
@@ -9,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Token {
     pub value: String,
-    pub user_id: UserId,
+    pub subject_id: Id128,
     pub role: Role,
     pub issued_at_ms: u64,
     pub expires_at_ms: u64,
@@ -41,20 +40,20 @@ impl Token {
     }
 
     /// Validates a token (structure + expiration)
-    pub fn validate_token(&self) -> Result<(), auth_error::AuthError> {
+    pub fn validate_token(&self) -> Result<(), TokenError> {
         let zero_id = Id128::from_bytes_unchecked([0u8; 16]);
-        if self.user_id.value() == zero_id {
-            return Err(auth_error::AuthError::InvalidToken);
+        if self.subject_id == zero_id {
+            return Err(TokenError::InvalidToken);
         }
         if self.is_expired() {
-            return Err(auth_error::AuthError::TokenExpired);
+            return Err(TokenError::Expired);
         }
         Ok(())
     }
 
     #[cfg(test)]
     /// Creates a new token (for tests only)
-    pub fn new(user_id: UserId, role: Role, duration_ms: u64) -> Result<Self, String> {
+    pub fn new(subject_id: Id128, role: Role, duration_ms: u64) -> Result<Self, String> {
         if duration_ms == 0 {
             return Err("Duration must be greater than 0".to_string());
         }
@@ -65,7 +64,7 @@ impl Token {
 
         Ok(Self {
             value: "test_value".to_string(),
-            user_id,
+            subject_id,
             role,
             issued_at_ms,
             expires_at_ms,
@@ -76,7 +75,7 @@ impl Token {
     #[cfg(test)]
     /// Creates a new token with a session (for tests only)
     pub fn new_with_session(
-        user_id: UserId,
+        subject_id: Id128,
         role: Role,
         duration_ms: u64,
         session_id: String,
@@ -91,7 +90,7 @@ impl Token {
 
         Ok(Self {
             value: "test_value".to_string(),
-            user_id,
+            subject_id,
             role,
             issued_at_ms,
             expires_at_ms,
@@ -108,7 +107,7 @@ mod tests {
     #[test]
     fn test_is_expired() {
         let id = Id128::from_bytes_unchecked([1u8; 16]);
-        let token = Token::new(UserId::from(id), Role::User, 1).expect("token");
+        let token = Token::new(id, Role::User, 1).expect("token");
         std::thread::sleep(std::time::Duration::from_millis(10));
         assert!(token.is_expired());
     }
@@ -116,7 +115,7 @@ mod tests {
     #[test]
     fn test_is_expired_with_grace() {
         let id = Id128::from_bytes_unchecked([1u8; 16]);
-        let token = Token::new(UserId::from(id), Role::User, 50).expect("token");
+        let token = Token::new(id, Role::User, 50).expect("token");
         std::thread::sleep(std::time::Duration::from_millis(60));
 
         // Expired without grace
@@ -129,7 +128,7 @@ mod tests {
     #[test]
     fn test_time_until_expiry() {
         let id = Id128::from_bytes_unchecked([1u8; 16]);
-        let token = Token::new(UserId::from(id), Role::User, 5000).expect("token");
+        let token = Token::new(id, Role::User, 5000).expect("token");
         let remaining = token.time_until_expiry_ms();
         assert!(remaining > 4500 && remaining <= 5000);
     }
@@ -137,42 +136,34 @@ mod tests {
     #[test]
     fn test_validate_token() {
         let id_valid = Id128::from_bytes_unchecked([1u8; 16]);
-        let valid = Token::new(UserId::from(id_valid), Role::User, 5000).expect("token");
+        let valid = Token::new(id_valid, Role::User, 5000).expect("token");
         assert!(valid.validate_token().is_ok());
 
         let id_expired = Id128::from_bytes_unchecked([2u8; 16]);
-        let expired = Token::new(UserId::from(id_expired), Role::User, 1).expect("token");
+        let expired = Token::new(id_expired, Role::User, 1).expect("token");
         std::thread::sleep(std::time::Duration::from_millis(10));
-        assert!(matches!(
-            expired.validate_token(),
-            Err(auth_error::AuthError::TokenExpired)
-        ));
+        assert!(matches!(expired.validate_token(), Err(TokenError::Expired)));
     }
 
     #[test]
     fn test_token_creation() {
         let id = Id128::from_bytes_unchecked([1u8; 16]);
-        let token = Token::new(UserId::from(id), Role::User, 3600000).expect("token");
-        assert_eq!(token.user_id.value(), id);
+        let token = Token::new(id, Role::User, 3600000).expect("token");
+        assert_eq!(token.subject_id, id);
     }
 
     #[test]
     fn test_token_with_session() {
         let id = Id128::from_bytes_unchecked([1u8; 16]);
-        let token = Token::new_with_session(
-            UserId::from(id),
-            Role::Admin,
-            3600000,
-            "session_xyz".to_string(),
-        )
-        .expect("token");
+        let token = Token::new_with_session(id, Role::Admin, 3600000, "session_xyz".to_string())
+            .expect("token");
         assert_eq!(token.session_id.as_deref(), Some("session_xyz"));
     }
 
     #[test]
     fn test_token_expired() {
         let id = Id128::from_bytes_unchecked([1u8; 16]);
-        let token = Token::new(UserId::from(id), Role::User, 1).expect("token");
+        let token = Token::new(id, Role::User, 1).expect("token");
         std::thread::sleep(std::time::Duration::from_millis(10));
         assert!(token.is_expired());
     }
@@ -180,21 +171,21 @@ mod tests {
     #[test]
     fn test_validate_token_valid() {
         let id = Id128::from_bytes_unchecked([1u8; 16]);
-        let token = Token::new(UserId::from(id), Role::User, 5000).expect("token");
+        let token = Token::new(id, Role::User, 5000).expect("token");
         assert!(token.validate_token().is_ok());
     }
 
     #[test]
     fn test_validate_token_invalid() {
         let id = Id128::from_bytes_unchecked([0u8; 16]);
-        let token = Token::new(UserId::from(id), Role::User, 5000).expect("token");
+        let token = Token::new(id, Role::User, 5000).expect("token");
         assert!(token.validate_token().is_err());
     }
 
     #[test]
     fn test_token_creation_with_id128() {
         let id = Id128::from_bytes_unchecked([123u8; 16]);
-        let token = Token::new(UserId::from(id), Role::User, 5000).expect("token");
-        assert_eq!(token.user_id.value(), id);
+        let token = Token::new(id, Role::User, 5000).expect("token");
+        assert_eq!(token.subject_id, id);
     }
 }

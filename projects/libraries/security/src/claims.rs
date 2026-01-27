@@ -6,7 +6,7 @@ use crate::Role;
 /// JWT claims (standard-ish).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    /// Subject = user_id
+    /// Subject identifier
     pub sub: String,
     /// JWT ID = UUIDv7 (unique token id)
     pub jti: String,

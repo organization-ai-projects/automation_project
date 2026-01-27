@@ -1,6 +1,5 @@
 // projects/libraries/common/src/custom_uuid.rs
 use rand::RngCore;
-use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::Path;
@@ -232,14 +231,16 @@ fn decode_hex_nibble(c: u8) -> Option<u8> {
 }
 
 fn random_u16() -> u16 {
+    let mut rng = rand::rng();
     let mut b = [0u8; 2];
-    OsRng.fill_bytes(&mut b);
+    rng.fill_bytes(&mut b);
     u16::from_be_bytes(b)
 }
 
 fn random_u32() -> u32 {
+    let mut rng = rand::rng();
     let mut b = [0u8; 4];
-    OsRng.fill_bytes(&mut b);
+    rng.fill_bytes(&mut b);
     u32::from_be_bytes(b)
 }
 

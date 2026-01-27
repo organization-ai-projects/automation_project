@@ -25,6 +25,8 @@ No UI contains business logic. A UI only:
   - supervises execution,
   - routes commands and events.
 
+`central_ui` is the **UI gateway**: it aggregates UI bundles and proxies UI actions to `engine`.
+
 ### 1.3 True Aggregation of UIs (without compile-time dependencies)
 
 The central UI **aggregates** product UIs by loading their bundles **at runtime**.
@@ -48,10 +50,10 @@ Consequence:
 
 ### 2.2 Products
 
-A **product** may contain :
+A **product** contains:
 
-- a **backend** (executable): optional but recommended,
-- one or more **UIs** (bundles): optional (but expected if the product has a user surface).
+- a **backend** (executable): required,
+- one or more **UIs** (bundles): required if the product has a user surface.
 
 The backend and UIs of a product never communicate **directly**.
 
@@ -69,7 +71,8 @@ All connections go through `engine`:
 
 Prohibitions:
 
-- UI <-> backend direct
+- UI bundle <-> engine direct
+- UI bundle <-> backend direct
 - backend <-> backend direct
 - UI <-> UI direct
 
@@ -109,7 +112,7 @@ A **UI bundle** is a distributable artifact:
 The UI bundle:
 
 - depends on `protocol` + `common`,
-- only communicates with `engine` via WS.
+- communicates with `engine` **through `central_ui`** (never directly).
 
 ### 4.2 UI Rules
 
@@ -128,9 +131,9 @@ The UI bundle:
 
 ### 4.4 Minimal UI Contract
 
-- WS connection to `engine`
-- User session authentication
-- Send Command / receive Events
+- Runs inside `central_ui`
+- User session authentication (via `central_ui`)
+- Send Command / receive Events via `central_ui`
 
 ---
 
@@ -144,12 +147,14 @@ Backends are separate processes, started and supervised by `engine`.
 
 When a user opens a product UI or triggers an action:
 
-1. `central_ui` sends a `Command` to `engine`.
-2. `engine` checks auth/permissions.
-3. if the backend is not started: `engine` starts it.
-4. `engine` routes the command to the backend.
-5. the backend publishes `Event` (logs, progress, result).
-6. `central_ui` displays the real-time state.
+1. The UI bundle sends a `Command` to `central_ui`.
+2. `central_ui` forwards the `Command` to `engine`.
+3. `engine` checks auth/permissions.
+4. if the backend is not started: `engine` starts it.
+5. `engine` routes the command to the backend.
+6. the backend publishes `Event` (logs, progress, result).
+7. `engine` forwards events to `central_ui`.
+8. `central_ui` displays the real-time state.
 
 ---
 

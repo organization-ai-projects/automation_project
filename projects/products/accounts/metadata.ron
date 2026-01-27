@@ -1,0 +1,29 @@
+(
+  schema_version: 1,
+  generated_at: "2026-01-27T00:00:00Z",
+  id: "accounts",
+  name: "Accounts",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "accounts", title: "Accounts", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "auth",
+    "accounts",
+  ],
+
+  domains: [
+    (id: "accounts", desc: "account bootstrap and login"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/"],
+    config_files: ["backend/Cargo.toml", "ui/Cargo.toml"],
+  ),
+)

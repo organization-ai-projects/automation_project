@@ -1,5 +1,6 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use hybrid_arena::SlotArena;
+use std::hint::black_box;
 
 use ast_core::{AstBuilder, AstKey, AstNode, past};
 
