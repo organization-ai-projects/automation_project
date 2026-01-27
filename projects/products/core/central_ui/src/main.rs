@@ -170,7 +170,6 @@ fn owner_claim_path(claim_dir: Option<String>) -> PathBuf {
         .join(".automation_project")
         .join("owner.claim")
 }
-//replace serde_json with common_json
 fn read_claim(path: &PathBuf) -> Result<OwnerClaim, std::io::Error> {
     let data = std::fs::read(path)?;
     let claim: OwnerClaim = common_json::from_slice(&data).map_err(|e| {
