@@ -25,15 +25,24 @@ For workspace users and operators, the Launcher is the entry point:
 
 ### 1.3 Command/Event Flow
 
-1. A UI or backend sends a Command to the Engine.
+1. A UI bundle sends a Command to `central_ui`, which forwards it to the Engine.
 2. The Engine validates auth/permissions.
-3. The Engine routes the command to the target backend (if any).
+3. The Engine routes the command to the target backend.
 4. The backend emits Events (logs, progress, results).
-5. The Engine forwards Events to connected clients.
+5. The Engine forwards Events to `central_ui`, which displays them.
 
 ### 1.4 First Launch Checklist
 
 - Ensure the registry is available (`.automation_project/registry.json`).
-- Authentication bootstrap is not secured yet.
-  - Current login accepts any `user_id` with a non-empty password and defaults to `Role::User` if no role is provided.
-  - A proper admin bootstrap flow and password validation are planned but not implemented (see issue #53).
+- Appliance-style admin bootstrap (one-time, no terminal):
+  - Engine generates `~/.automation_project/owner.claim` on first start (permissions 0600).
+  - Engine stays in setup mode until the claim is consumed.
+  - Central UI reads `owner.claim` locally and calls `POST /setup/owner/admin` with:
+    - `claim` (file secret)
+    - `user_id` (32 hex chars)
+    - `password`
+  - Engine verifies the claim, creates the first admin, then consumes the claim and writes `owner.claim.used`.
+  - Setup mode is permanently disabled after first admin creation.
+  - Claims expire after 24 hours; expired claims are regenerated on next start.
+- Login validates credentials against the identity store and rejects invalid credentials.
+- Role escalation via the login request is ignored (role is derived from the identity store).

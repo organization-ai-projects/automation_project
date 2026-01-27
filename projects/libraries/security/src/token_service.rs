@@ -1,5 +1,4 @@
 // projects/libraries/security/src/token_service.rs
-use crate::auth::UserId;
 use crate::{Claims, Role, Token, TokenError};
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
@@ -44,7 +43,7 @@ impl TokenService {
     /// Issue a signed JWT. duration_ms must be > 0.
     pub fn issue(
         &self,
-        user_id: UserId,
+        subject_id: Id128,
         role: Role,
         duration_ms: u64,
         session_id: Option<String>,
@@ -66,8 +65,12 @@ impl TokenService {
         let now_s = now_ms / 1000;
         let exp_s = (exp_ms / 1000).saturating_add(1);
 
+        if !CommonID::is_valid(subject_id) {
+            return Err(TokenError::InvalidSubjectIdValue);
+        }
+
         let claims = Claims {
-            sub: user_id.to_string(),
+            sub: subject_id.to_string(),
             jti: Id128::new(0, None, None).to_string(),
             role,
             iat: now_s,
@@ -111,11 +114,11 @@ impl TokenService {
         println!("Token timestamps: iat = {}, exp = {}", c.iat, c.exp);
 
         // Hardening: validate sub numeric + CommonID validation
-        let user_id =
-            UserId::new(Id128::from_hex(&c.sub).map_err(|_| TokenError::InvalidUserIdValue)?)?;
+        let subject_id =
+            Id128::from_hex(&c.sub).map_err(|_| TokenError::InvalidSubjectIdFormat)?;
 
-        if !CommonID::is_valid(user_id.value()) {
-            return Err(TokenError::InvalidUserIdValue);
+        if !CommonID::is_valid(subject_id) {
+            return Err(TokenError::InvalidSubjectIdValue);
         }
 
         let issued_at_ms = c.iat.saturating_mul(1000);
@@ -143,7 +146,7 @@ impl TokenService {
 
         Ok(Token {
             value: c.jti,
-            user_id,
+            subject_id,
             role: c.role,
             issued_at_ms,
             expires_at_ms,
@@ -167,7 +170,7 @@ impl TokenService {
             .ok_or(TokenError::TimestampOverflow)?;
 
         self.issue(
-            old_token.user_id.clone(),
+            old_token.subject_id,
             old_token.role,
             new_duration,
             old_token.session_id.clone(),
@@ -176,8 +179,8 @@ impl TokenService {
 
     /// Validate a token's claims.
     pub fn validate_token(&self, token: &Token) -> Result<(), TokenError> {
-        if !CommonID::is_valid(token.user_id.value()) {
-            return Err(TokenError::InvalidUserIdValue);
+        if !CommonID::is_valid(token.subject_id) {
+            return Err(TokenError::InvalidSubjectIdValue);
         }
         Ok(())
     }
@@ -200,7 +203,7 @@ mod tests {
         let service = TokenService::new_hs256(&"a".repeat(32)).expect("token service init");
         let jwt = service
             .issue(
-                UserId::from(Id128::from_bytes_unchecked([1u8; 16])),
+                Id128::from_bytes_unchecked([1u8; 16]),
                 Role::User,
                 100,
                 None,
@@ -227,16 +230,13 @@ mod tests {
         let service = TokenService::new_hs256(&"a".repeat(32)).expect("token service init");
         let jwt = service
             .issue(
-                UserId::new(Id128::from_bytes_unchecked([123u8; 16])).expect("user id"),
+                Id128::from_bytes_unchecked([123u8; 16]),
                 Role::User,
                 60000,
                 None,
             )
             .expect("issue token");
         let token = service.verify(&jwt).expect("verify token");
-        assert_eq!(
-            token.user_id.value(),
-            Id128::from_bytes_unchecked([123u8; 16])
-        );
+        assert_eq!(token.subject_id, Id128::from_bytes_unchecked([123u8; 16]));
     }
 }

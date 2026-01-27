@@ -1,0 +1,20 @@
+[package]
+name = "accounts-backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+protocol = { workspace = true }
+common = { workspace = true }
+common_json = { workspace = true }
+common_time = { workspace = true }
+security = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+bytes = { workspace = true }
+futures-util = "0.3"
+url = "2"
+tracing = { workspace = true }
+tracing-subscriber = "0.3"

@@ -4,7 +4,9 @@ Role-based access control (RBAC) and token authentication for `automation_projec
 
 ## Overview
 
-This library provides a complete security layer with roles, permissions, and token-based authentication. It is used by Engine to enforce authorization on all commands.
+This library provides user-agnostic security primitives: roles, permissions, token-based authentication, and password hashing. It is used by Engine to enforce authorization on all commands.
+
+User management and storage are intentionally out of scope; use the `identity` crate for users and stores.
 
 ## Features
 
@@ -12,6 +14,7 @@ This library provides a complete security layer with roles, permissions, and tok
 - **Permission System** - Eight granular permissions for fine-grained control
 - **Token Authentication** - JWT-like token generation and validation
 - **Permission Utilities** - Helper functions for checking and filtering permissions
+- **Password Hashing** - Argon2 hashing and verification utilities
 
 ## Roles
 
@@ -72,11 +75,11 @@ use security::{Token, TokenService, Role, check_token_permission, Permission};
 use common::Id128;
 
 // Create a token service
-let service = TokenService::new("your-secret-key");
+let service = TokenService::new_hs256("your-secret-key")?;
 
-// Generate a token for a user
-let user_id = Id128::new(1, None, None);
-let token = service.create_token(user_id.into(), Role::User, 3600)?;
+// Generate a token for a subject
+let subject_id = Id128::new(1, None, None);
+let token = service.issue(subject_id, Role::User, 3600, None)?;
 
 // Validate and check permissions
 check_token_permission(&token, Permission::Write)?;

@@ -1,4 +1,5 @@
 // projects/products/core/engine/tests/health_check.rs
+use accounts_backend::AccountManager;
 use engine::{BackendRegistry, CorsConfig, EngineState, build_routes};
 use security::TokenService;
 use std::sync::Arc;
@@ -17,6 +18,15 @@ async fn health_check_works() {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
         backend_registry: Arc::new(RwLock::new(BackendRegistry::new())),
+        account_manager: Arc::new({
+            let mut data_dir = std::env::temp_dir();
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos();
+            data_dir.push(format!("accounts_store_health_one_{nanos}"));
+            AccountManager::load(data_dir).await.unwrap()
+        }),
     };
 
     let cors = CorsConfig {
@@ -72,6 +82,15 @@ async fn health_check_handles_not_found() {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
         backend_registry: Arc::new(RwLock::new(BackendRegistry::new())),
+        account_manager: Arc::new({
+            let mut data_dir = std::env::temp_dir();
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos();
+            data_dir.push(format!("accounts_store_health_two_{nanos}"));
+            AccountManager::load(data_dir).await.unwrap()
+        }),
     };
 
     let cors = CorsConfig::default();
@@ -101,6 +120,15 @@ async fn cors_applied_to_other_routes() {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
         backend_registry: Arc::new(RwLock::new(BackendRegistry::new())),
+        account_manager: Arc::new({
+            let mut data_dir = std::env::temp_dir();
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos();
+            data_dir.push(format!("accounts_store_health_three_{nanos}"));
+            AccountManager::load(data_dir).await.unwrap()
+        }),
     };
 
     let cors = CorsConfig {
@@ -141,6 +169,15 @@ async fn minimal_cors_test() {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
         backend_registry: Arc::new(RwLock::new(BackendRegistry::new())),
+        account_manager: Arc::new({
+            let mut data_dir = std::env::temp_dir();
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos();
+            data_dir.push(format!("accounts_store_health_four_{nanos}"));
+            AccountManager::load(data_dir).await.unwrap()
+        }),
     }; // Ajout du champ manquant
 
     let cors = CorsConfig {

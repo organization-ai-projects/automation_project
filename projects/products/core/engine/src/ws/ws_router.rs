@@ -35,12 +35,12 @@ pub async fn route_command(
 
     match action {
         "engine.ping" => {
-            info!("WS cmd: engine.ping (user_id={})", token.user_id);
+            info!("WS cmd: engine.ping (subject_id={})", token.subject_id);
             ws_event_ok(&meta, "Pong")
         }
 
         "engine.list_projects" => {
-            info!("WS cmd: engine.list_projects (user_id={})", token.user_id);
+            info!("WS cmd: engine.list_projects (subject_id={})", token.subject_id);
 
             if let Err(e) = require_permission(token, Permission::Read) {
                 return ws_event_error(&meta, 403, 1003, e);
@@ -55,7 +55,7 @@ pub async fn route_command(
 
         // Project-specific actions
         action if action.starts_with("project.") => {
-            info!("WS cmd: {} (user_id={})", action, token.user_id);
+            info!("WS cmd: {} (subject_id={})", action, token.subject_id);
 
             if let Err(e) = require_project_exists(&cmd, state).await {
                 return ws_event_error(&meta, 404, 1001, e);
@@ -79,7 +79,7 @@ pub async fn route_command(
         }
 
         "backend.hello" => {
-            info!("WS cmd: backend.hello (user_id={})", token.user_id);
+            info!("WS cmd: backend.hello (subject_id={})", token.subject_id);
 
             // Require a dedicated permission
             if let Err(e) = require_permission(token, Permission::Execute) {
@@ -125,8 +125,8 @@ pub async fn route_command(
 
         other => {
             warn!(
-                "WS cmd: unsupported action '{}' (user_id={})",
-                other, token.user_id
+                "WS cmd: unsupported action '{}' (subject_id={})",
+                other, token.subject_id
             );
             ws_event_error(&meta, 404, 1004, format!("Unsupported action: {}", other))
         }

@@ -11,4 +11,4 @@ serde = { workspace = true }
 command_runner = { workspace = true }
 common_json = { workspace = true }
 ignore = "0.4"
-lazy_static = "1.4"
+lazy_static = "1.5"

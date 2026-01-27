@@ -1,0 +1,8 @@
+(
+  schema_version: 1,
+  id: "accounts",
+  title: "Accounts",
+  entrypoint: "index.html",
+  kind: "ui_bundle",
+  version: "0.1.0",
+)

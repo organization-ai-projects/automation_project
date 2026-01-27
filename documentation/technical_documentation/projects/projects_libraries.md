@@ -2,7 +2,6 @@
 
 - [Back to Projects Index](TOC.md)
 
-
 ## 1. Detailed Role of Components
 
 ### 1.1 Common (`common`)

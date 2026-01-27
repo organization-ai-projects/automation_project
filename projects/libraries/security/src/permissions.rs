@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-use crate::AuthError;
+use crate::PermissionError;
 use crate::role::Role;
 use crate::token::Token;
 
@@ -101,11 +101,11 @@ pub fn has_any_permission(role: &Role, required_permissions: &[Permission]) -> b
 }
 
 /// Checks if a role has a specific permission, returns an error otherwise
-pub fn check_permission(role: &Role, required_permission: Permission) -> Result<(), AuthError> {
+pub fn check_permission(role: &Role, required_permission: Permission) -> Result<(), PermissionError> {
     if has_permission(role, required_permission) {
         Ok(())
     } else {
-        Err(AuthError::Unauthorized)
+        Err(PermissionError::Unauthorized)
     }
 }
 
@@ -113,11 +113,11 @@ pub fn check_permission(role: &Role, required_permission: Permission) -> Result<
 pub fn check_all_permissions(
     role: &Role,
     required_permissions: &[Permission],
-) -> Result<(), AuthError> {
+) -> Result<(), PermissionError> {
     if has_all_permissions(role, required_permissions) {
         Ok(())
     } else {
-        Err(AuthError::Unauthorized)
+        Err(PermissionError::Unauthorized)
     }
 }
 
@@ -125,8 +125,10 @@ pub fn check_all_permissions(
 pub fn check_token_permission(
     token: &Token,
     required_permission: Permission,
-) -> Result<(), AuthError> {
-    token.validate_token()?;
+) -> Result<(), PermissionError> {
+    token
+        .validate_token()
+        .map_err(|_| PermissionError::Unauthorized)?;
     check_permission(&token.role, required_permission)
 }
 
@@ -134,8 +136,10 @@ pub fn check_token_permission(
 pub fn check_token_all_permissions(
     token: &Token,
     required_permissions: &[Permission],
-) -> Result<(), AuthError> {
-    token.validate_token()?;
+) -> Result<(), PermissionError> {
+    token
+        .validate_token()
+        .map_err(|_| PermissionError::Unauthorized)?;
     check_all_permissions(&token.role, required_permissions)
 }
 
@@ -160,8 +164,6 @@ pub fn missing_permissions(role: &Role, required_permissions: &[Permission]) -> 
 #[cfg(test)]
 mod tests {
     use common::Id128;
-
-    use crate::auth::UserId;
 
     use super::*;
 
@@ -195,7 +197,7 @@ mod tests {
     fn test_check_permission_unauthorized() {
         let result = check_permission(&Role::Guest, Permission::Write);
         assert!(result.is_err());
-        assert!(matches!(result, Err(AuthError::Unauthorized)));
+        assert!(matches!(result, Err(PermissionError::Unauthorized)));
     }
 
     #[test]
@@ -225,9 +227,9 @@ mod tests {
 
     #[test]
     fn test_token_permission() {
-        // Create a token with a valid `user_id`
-        let user_id = UserId::from(Id128::from_bytes_unchecked([123u8; 16]));
-        let token = Token::new(user_id, Role::User, 3_600_000).expect("token");
+        // Create a token with a valid subject id
+        let subject_id = Id128::from_bytes_unchecked([123u8; 16]);
+        let token = Token::new(subject_id, Role::User, 3_600_000).expect("token");
 
         // Check permissions via the token
         assert!(check_token_permission(&token, Permission::Write).is_ok());

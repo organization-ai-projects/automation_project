@@ -58,7 +58,7 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
     // --------
     let token = match state.token_service.verify(&jwt) {
         Ok(t) => {
-            info!(user_id = %t.user_id, role = ?t.role, "WS auth success");
+            info!(subject_id = %t.subject_id, role = ?t.role, "WS auth success");
             t
         }
         Err(e) => {
@@ -79,7 +79,7 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
 
     let perms = token.role.permissions();
     info!(
-        user_id = %token.user_id,
+        subject_id = %token.subject_id,
         role = ?token.role,
         permissions = ?perms,
         "WS authenticated"
@@ -94,14 +94,14 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
             _ = ping.tick() => {
                 // Close idle connections
                 if last_activity.elapsed() > WS_IDLE_TIMEOUT {
-                    warn!(user_id = %token.user_id, "WS idle timeout, closing connection");
+                    warn!(subject_id = %token.subject_id, "WS idle timeout, closing connection");
                     let _ = tx.send(Message::close()).await;
                     break;
                 }
 
                 // Keep-alive
                 if tx.send(Message::ping(Vec::new())).await.is_err() {
-                    info!(user_id = %token.user_id, "WS connection closed during ping");
+                    info!(subject_id = %token.subject_id, "WS connection closed during ping");
                     break;
                 }
             }
@@ -110,17 +110,17 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
                 let msg = match msg {
                     Some(Ok(m)) => m,
                     Some(Err(e)) => {
-                        warn!(user_id = %token.user_id, error = %e, "WS error receiving message");
+                        warn!(subject_id = %token.subject_id, error = %e, "WS error receiving message");
                         break;
                     }
                     None => {
-                        info!(user_id = %token.user_id, "WS connection closed by client");
+                        info!(subject_id = %token.subject_id, "WS connection closed by client");
                         break;
                     }
                 };
 
                 if msg.is_close() {
-                    info!(user_id = %token.user_id, "WS close frame received");
+                    info!(subject_id = %token.subject_id, "WS close frame received");
                     break;
                 }
 
@@ -130,7 +130,7 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
                 // Respond to client ping
                 if msg.is_ping() {
                     if tx.send(Message::pong(Vec::new())).await.is_err() {
-                        info!(user_id = %token.user_id, "WS connection closed during pong");
+                        info!(subject_id = %token.subject_id, "WS connection closed during pong");
                         break;
                     }
                     continue;
@@ -141,14 +141,14 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
 
                 // Ignore binary
                 if msg.is_binary() {
-                    warn!(user_id = %token.user_id, "WS binary message ignored");
+                    warn!(subject_id = %token.subject_id, "WS binary message ignored");
                     continue;
                 }
 
                 // Size limit (bytes) before parsing
                 let size = msg.as_bytes().len();
                 if size > WS_MAX_MESSAGE_BYTES {
-                    warn!(user_id = %token.user_id, bytes = size, "WS message too large");
+                    warn!(subject_id = %token.subject_id, bytes = size, "WS message too large");
                     let ev = ws_event_error(&meta_now(), HTTP_TOO_LARGE, CODE_TOO_LARGE, ERR_MSG_TOO_LARGE);
                     let _ = send_event(&mut tx, &ev).await;
                     continue;
@@ -158,7 +158,7 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
                 let text = match msg.to_str() {
                     Ok(t) => t,
                     Err(_) => {
-                        warn!(user_id = %token.user_id, "WS invalid UTF-8 message");
+                        warn!(subject_id = %token.subject_id, "WS invalid UTF-8 message");
                         continue;
                     }
                 };
@@ -167,7 +167,7 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
                 let cmd: Command = match from_json_str(text) {
                     Ok(c) => c,
                     Err(e) => {
-                        warn!(user_id = %token.user_id, error = %e, "WS invalid JSON");
+                        warn!(subject_id = %token.subject_id, error = %e, "WS invalid JSON");
                         let ev = ws_event_error(
                             &meta_now(),
                             HTTP_BAD_JSON,
@@ -187,18 +187,18 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
 
                 // Serialize event, fallback if it fails
                 let out = ev.to_json_string().unwrap_or_else(|e| {
-                    warn!(user_id = %token.user_id, error = %e, "WS failed to serialize event");
+                    warn!(subject_id = %token.subject_id, error = %e, "WS failed to serialize event");
                     let fallback = ws_event_error(&meta, HTTP_SERIALIZE, CODE_SERIALIZE, ERR_SERIALIZATION);
                     fallback.to_json_string().unwrap_or_else(|_| "{\"name\":\"Error\"}".to_string())
                 });
 
                 if tx.send(Message::text(out)).await.is_err() {
-                    info!(user_id = %token.user_id, "WS connection closed during send");
+                    info!(subject_id = %token.subject_id, "WS connection closed during send");
                     break;
                 }
             }
         }
     }
 
-    info!(user_id = %token.user_id, "WS connection closed");
+    info!(subject_id = %token.subject_id, "WS connection closed");
 }

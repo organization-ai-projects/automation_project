@@ -1,0 +1,42 @@
+# Identity Library
+
+User identity primitives and in-memory storage for `automation_project`.
+
+## Overview
+
+This crate provides user-related types and storage without mixing into the `security` crate.
+It relies on `security` for password hashing and role definitions.
+
+## Features
+
+- **UserId** - Validated user identifier type
+- **User Store** - In-memory user storage with password verification
+- **Identity Errors** - Clear error types for identity concerns
+
+## Installation
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+identity = { path = "../identity" }
+```
+
+## Usage
+
+```rust
+use identity::{UserId, UserStore};
+use security::Role;
+use common::Id128;
+
+let store = UserStore::new();
+let user_id = UserId::new(Id128::from_bytes_unchecked([1u8; 16]))?;
+
+store.add_user(user_id.clone(), "secure_password", Role::User).await?;
+let role = store.authenticate(&user_id, "secure_password").await?;
+```
+
+## Scope
+
+- This crate owns user identity and storage concerns.
+- Token issuance and authorization checks live in the `security` crate.

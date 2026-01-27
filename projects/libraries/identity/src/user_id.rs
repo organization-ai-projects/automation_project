@@ -1,20 +1,20 @@
-// projects/libraries/security/src/auth.rs
+// projects/libraries/identity/src/user_id.rs
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
-use crate::TokenError;
+use crate::IdentityError;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct UserId(Id128);
 
 impl UserId {
     /// Creates a validated UserId
-    pub fn new(id: Id128) -> Result<Self, TokenError> {
+    pub fn new(id: Id128) -> Result<Self, IdentityError> {
         if !CommonID::is_valid(id) {
-            return Err(TokenError::InvalidUserIdValue);
+            return Err(IdentityError::InvalidUserIdValue);
         }
         Ok(Self(id))
     }
@@ -27,7 +27,7 @@ impl UserId {
 
 // TryFrom for safe conversion from u64
 impl TryFrom<u64> for UserId {
-    type Error = TokenError;
+    type Error = IdentityError;
 
     fn try_from(id: u64) -> Result<Self, Self::Error> {
         Self::new(Id128::new(id as u16, None, None))
@@ -36,13 +36,13 @@ impl TryFrom<u64> for UserId {
 
 // Implementation of the FromStr trait for UserId
 impl FromStr for UserId {
-    type Err = TokenError;
+    type Err = IdentityError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let id = s
             .trim()
             .parse::<u128>()
-            .map_err(|_| TokenError::InvalidUserIdFormat)?;
+            .map_err(|_| IdentityError::InvalidUserIdFormat)?;
         let id128 = Id128::from_bytes_unchecked(id.to_be_bytes());
         Self::new(id128)
     }
@@ -76,8 +76,6 @@ pub fn validate_user_id(user_id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::role::Role;
-    use crate::{AuthError, Token};
 
     #[test]
     fn test_user_id_new_valid() {
@@ -111,75 +109,6 @@ mod tests {
         let id = Id128::from_bytes_unchecked([42u8; 16]);
         let user_id = UserId::new(id).expect("user id");
         assert_eq!(format!("{}", user_id), id.to_string());
-    }
-
-    #[test]
-    fn test_token_creation() {
-        let token = Token::new(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
-            Role::User,
-            3_600_000,
-        )
-        .expect("token");
-        assert_eq!(
-            token.user_id.value(),
-            Id128::from_bytes_unchecked([1u8; 16])
-        );
-        assert_eq!(token.role, Role::User);
-        assert!(!token.is_expired());
-    }
-
-    #[test]
-    fn test_token_not_expired() {
-        let token = Token::new(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
-            Role::User,
-            3_600_000,
-        )
-        .expect("token");
-        assert!(!token.is_expired());
-        assert!(token.validate_token().is_ok());
-        assert!(token.time_until_expiry_ms() > 0);
-    }
-
-    #[test]
-    fn test_token_expired() {
-        let token = Token::new(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
-            Role::User,
-            1,
-        )
-        .expect("token");
-        std::thread::sleep(std::time::Duration::from_millis(10));
-        assert!(token.is_expired());
-        assert!(matches!(
-            token.validate_token(),
-            Err(AuthError::TokenExpired)
-        ));
-    }
-
-    #[test]
-    fn test_token_with_session() {
-        let token = Token::new_with_session(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
-            Role::Admin,
-            3_600_000,
-            "session_xyz".to_string(),
-        )
-        .expect("token");
-        assert_eq!(token.session_id.as_deref(), Some("session_xyz"));
-    }
-
-    #[test]
-    fn test_token_age() {
-        let token = Token::new(
-            UserId::new(Id128::from_bytes_unchecked([1u8; 16])).expect("user id"),
-            Role::User,
-            3_600_000,
-        )
-        .expect("token");
-        std::thread::sleep(std::time::Duration::from_millis(5));
-        assert!(token.age_ms() > 0);
     }
 
     #[test]

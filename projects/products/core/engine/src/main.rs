@@ -1,9 +1,10 @@
 // projects/products/core/engine/src/main.rs
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
+use accounts_backend::AccountManager;
 use engine::{BackendRegistry, EngineState, Registry, config::EngineConfig, routes};
 use security::TokenService;
 
@@ -34,11 +35,48 @@ async fn main() {
         "Registry loaded"
     );
 
+    // Accounts storage
+    let data_dir = std::env::var("ACCOUNTS_DATA_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| AccountManager::default_data_dir());
+    let account_manager = match AccountManager::load(data_dir).await {
+        Ok(manager) => manager,
+        Err(e) => {
+            error!(error = %e, "Failed to load accounts store");
+            return;
+        }
+    };
+
+    // Bootstrap claim (appliance setup)
+    match engine::ensure_owner_claim() {
+        Ok(state) if state.setup_mode => {
+            if let Some(expires_at) = state.expires_at {
+                info!(
+                    claim_path = %state.claim_path.display(),
+                    expires_at_unix = expires_at,
+                    "Setup mode enabled: owner claim available"
+                );
+            } else {
+                info!(
+                    claim_path = %state.claim_path.display(),
+                    "Setup mode enabled: owner claim available"
+                );
+            }
+        }
+        Ok(_) => {
+            info!("Setup mode disabled: owner claim already consumed");
+        }
+        Err(e) => {
+            error!(error = %e, "Failed to initialize owner claim");
+        }
+    }
+
     // State
     let state = EngineState {
         registry: Arc::new(RwLock::new(registry)),
         token_service: Arc::new(token_service),
         backend_registry: Arc::new(RwLock::new(BackendRegistry::new())),
+        account_manager: Arc::new(account_manager),
     };
 
     // Routes

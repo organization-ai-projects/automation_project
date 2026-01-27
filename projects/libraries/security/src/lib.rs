@@ -1,15 +1,18 @@
 // projects/libraries/security/src/lib.rs
-pub mod auth;
-pub mod auth_error;
 pub mod claims;
+pub mod password;
+pub mod password_error;
+pub mod permission_error;
 pub mod permissions;
 pub mod role;
 pub mod token;
 pub mod token_error;
 pub mod token_service;
 
-pub use auth_error::AuthError;
 pub use claims::Claims;
+pub use password::{hash_password, verify_password};
+pub use password_error::PasswordError;
+pub use permission_error::PermissionError;
 pub use permissions::{
     Permission, check_all_permissions, check_permission, check_token_all_permissions,
     check_token_permission, filter_allowed_permissions, has_all_permissions, has_any_permission,

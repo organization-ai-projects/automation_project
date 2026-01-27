@@ -3,8 +3,6 @@ pub mod config;
 pub mod const_values;
 pub mod cors_config;
 pub mod engine_state;
-pub mod login_request;
-pub mod login_response;
 pub mod project_metadata;
 pub mod registry;
 pub mod requires;
@@ -15,11 +13,15 @@ pub mod ws;
 pub use config::EngineConfig;
 pub use const_values::*;
 pub use cors_config::CorsConfig;
+pub use bootstrap::{
+    BootstrapError, OwnerClaim, SetupState, consume_claim, ensure_owner_claim, setup_complete,
+    validate_claim,
+};
 pub use engine_state::EngineState;
-pub use login_request::LoginRequest;
-pub use login_response::LoginResponse;
+pub use protocol::accounts::{LoginRequest, LoginResponse, SetupAdminRequest, SetupAdminResponse, SetupStatusResponse};
 pub use project_metadata::ProjectMetadata;
 pub use registry::Registry;
 pub use requires::{require_permission, require_project_exists};
 pub use routes::build_routes;
 pub use runtime::*;
+pub mod bootstrap;
