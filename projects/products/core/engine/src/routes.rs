@@ -155,16 +155,7 @@ fn parse_user_id(input: &str) -> Result<UserId, &'static str> {
         return UserId::new(id).map_err(|_| "invalid user id");
     }
 
-    if input.len() == 16 {
-        let bytes: [u8; 16] = input
-            .as_bytes()
-            .try_into()
-            .map_err(|_| "user_id must be 16 bytes or 32 hex chars")?;
-        let id = Id128::from_bytes_unchecked(bytes);
-        return UserId::new(id).map_err(|_| "invalid user id");
-    }
-
-    Err("user_id must be 16 bytes or 32 hex chars")
+    Err("user_id must be 32 hex chars")
 }
 
 fn normalize_user_id(input: &str) -> Result<String, &'static str> {
