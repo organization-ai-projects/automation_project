@@ -300,7 +300,10 @@ impl<T> SlotArena<T> {
             let slot = self.slots.get_unchecked(id.index() as usize);
             assert!(slot.value.is_some(), "slot is empty");
             assert!(slot.generation == id.generation(), "generation mismatch");
-            slot.value.as_ref().unwrap_unchecked()
+            match slot.value.as_ref() {
+                Some(value) => value,
+                None => unreachable!("slot is empty"),
+            }
         }
     }
 
@@ -318,7 +321,10 @@ impl<T> SlotArena<T> {
             let slot = self.slots.get_unchecked_mut(id.index() as usize);
             assert!(slot.value.is_some(), "slot is empty");
             assert!(slot.generation == id.generation(), "generation mismatch");
-            slot.value.as_mut().unwrap_unchecked()
+            match slot.value.as_mut() {
+                Some(value) => value,
+                None => unreachable!("slot is empty"),
+            }
         }
     }
 }
