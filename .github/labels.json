@@ -1,0 +1,62 @@
+[
+  {
+    "name": "bug",
+    "color": "d73a4a",
+    "description": "Something isn't working"
+  },
+  {
+    "name": "feature",
+    "color": "a2eeef",
+    "description": "New feature or request"
+  },
+  {
+    "name": "enhancement",
+    "color": "84b6eb",
+    "description": "Improvement to existing feature"
+  },
+  {
+    "name": "documentation",
+    "color": "0075ca",
+    "description": "Improvements or additions to documentation"
+  },
+  {
+    "name": "chore",
+    "color": "fef2c0",
+    "description": "Maintenance and housekeeping tasks"
+  },
+  {
+    "name": "refactor",
+    "color": "fbca04",
+    "description": "Code refactoring"
+  },
+  {
+    "name": "test",
+    "color": "1d76db",
+    "description": "Testing related changes"
+  },
+  {
+    "name": "sync_branch",
+    "color": "ededed",
+    "description": "Automated branch synchronization"
+  },
+  {
+    "name": "dependencies",
+    "color": "0366d6",
+    "description": "Dependencies updates"
+  },
+  {
+    "name": "ci",
+    "color": "28a745",
+    "description": "CI/CD related changes"
+  },
+  {
+    "name": "security",
+    "color": "ee0701",
+    "description": "Security related issues or improvements"
+  },
+  {
+    "name": "performance",
+    "color": "ff6b6b",
+    "description": "Performance improvements"
+  }
+]

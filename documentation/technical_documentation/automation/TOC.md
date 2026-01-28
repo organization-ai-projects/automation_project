@@ -2,4 +2,4 @@
 
 - [Back to Technical TOC](../TOC.md)
 
-- [Documentation Sync](sync_docs.md)
+> Pour la documentation des scripts d'automatisation, consultez [scripts/automation/](../../../scripts/automation/README.md).

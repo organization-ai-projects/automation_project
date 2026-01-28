@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Git hook: pre-push
+# Runs formatting, linting, and tests before push
+# Bypass: SKIP_PRE_PUSH=1 git push ...
+
+# Allow bypass for emergency situations
+if [[ "${SKIP_PRE_PUSH:-}" == "1" ]]; then
+  echo "⚠️  Pre-push checks skipped (SKIP_PRE_PUSH=1)"
+  exit 0
+fi
+
+echo "🔍 Running pre-push checks..."
+echo ""
+
+# Get the root of the git repository
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 1
+
+# Track overall status
+FAILED=0
+
+# 1. Check formatting
+echo "📝 Checking code formatting..."
+if ! cargo fmt --all --check; then
+  echo ""
+  echo "❌ Code formatting check failed!"
+  echo "   Run: cargo fmt --all"
+  echo ""
+  FAILED=1
+else
+  echo "✅ Formatting OK"
+  echo ""
+fi
+
+# 2. Run clippy
+echo "🔎 Running clippy..."
+if ! cargo clippy --all-targets --all-features -- -D warnings; then
+  echo ""
+  echo "❌ Clippy found issues!"
+  echo "   Run: cargo clippy --all-targets --all-features -- -D warnings"
+  echo ""
+  FAILED=1
+else
+  echo "✅ Clippy OK"
+  echo ""
+fi
+
+# 3. Run tests
+echo "🧪 Running tests..."
+if ! cargo test --workspace; then
+  echo ""
+  echo "❌ Tests failed!"
+  echo "   Run: cargo test --workspace"
+  echo ""
+  FAILED=1
+else
+  echo "✅ Tests OK"
+  echo ""
+fi
+
+# Final result
+if [[ $FAILED -eq 1 ]]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "❌ Pre-push checks FAILED"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "Please fix the issues before pushing."
+  echo "Bypass (emergency only): SKIP_PRE_PUSH=1 git push"
+  echo ""
+  exit 1
+fi
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ All pre-push checks PASSED"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+exit 0
