@@ -7,9 +7,8 @@
 use std::ops::{Index, IndexMut};
 use std::slice;
 
-use crate::common_methods::{
-    ArenaCommon, clear_vec, new_arena, reserve_capacity, with_capacity_arena,
-};
+use crate::arena_common_trait::ArenaCommon;
+use crate::common_methods::{clear_vec, new_arena, reserve_capacity, with_capacity_arena};
 use crate::error::ArenaError;
 use crate::id::Id;
 use crate::{BumpArenaDrain, BumpArenaIntoIter, BumpArenaIter, BumpArenaIterMut};

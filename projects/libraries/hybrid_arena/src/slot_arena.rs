@@ -6,9 +6,8 @@
 // projects/libraries/hybrid_arena/src/slot_arena.rs
 use std::ops::{Index, IndexMut};
 
-use crate::common_methods::{
-    ArenaCommon, clear_vec, new_arena, reserve_capacity, with_capacity_arena,
-};
+use crate::arena_common_trait::ArenaCommon;
+use crate::common_methods::{clear_vec, new_arena, reserve_capacity, with_capacity_arena};
 use crate::error::ArenaError;
 use crate::id::Id;
 use crate::{Slot, SlotArenaDrain, SlotArenaIter, SlotArenaIterMut};
