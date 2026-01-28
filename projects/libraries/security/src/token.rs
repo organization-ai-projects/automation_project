@@ -53,14 +53,14 @@ impl Token {
 
     #[cfg(test)]
     /// Creates a new token (for tests only)
-    pub fn new(subject_id: Id128, role: Role, duration_ms: u64) -> Result<Self, String> {
+    pub fn new(subject_id: Id128, role: Role, duration_ms: u64) -> Result<Self, TokenError> {
         if duration_ms == 0 {
-            return Err("Duration must be greater than 0".to_string());
+            return Err(TokenError::InvalidDuration);
         }
         let issued_at_ms = timestamp_utils::current_timestamp_ms();
         let expires_at_ms = issued_at_ms
             .checked_add(duration_ms)
-            .ok_or("Timestamp overflow")?;
+            .ok_or(TokenError::TimestampOverflow)?;
 
         Ok(Self {
             value: "test_value".to_string(),
@@ -79,14 +79,14 @@ impl Token {
         role: Role,
         duration_ms: u64,
         session_id: String,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, TokenError> {
         if duration_ms == 0 {
-            return Err("Duration must be greater than 0".to_string());
+            return Err(TokenError::InvalidDuration);
         }
         let issued_at_ms = timestamp_utils::current_timestamp_ms();
         let expires_at_ms = issued_at_ms
             .checked_add(duration_ms)
-            .ok_or("Timestamp overflow")?;
+            .ok_or(TokenError::TimestampOverflow)?;
 
         Ok(Self {
             value: "test_value".to_string(),
