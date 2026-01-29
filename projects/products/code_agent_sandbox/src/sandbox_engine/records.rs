@@ -1,4 +1,4 @@
-// projects/products/code_agent_sandbox/src/engine/records.rs
+// projects/products/code_agent_sandbox/src/sandbox_engine/records.rs
 use chrono::Utc;
 
 use crate::{
@@ -6,20 +6,7 @@ use crate::{
     journal::Journal,
 };
 
-fn record_result(
-    journal: &mut Journal,
-    run_id: &str,
-    result: &ActionResult,
-) -> Result<(), anyhow::Error> {
-    let t = Utc::now().to_rfc3339();
-    journal.record_result(run_id, result, &t)
-}
-
-fn push_result(results: &mut Vec<ActionResult>, result: ActionResult) {
-    results.push(result);
-}
-
-pub fn record_and_push_result(
+pub(crate) fn record_and_push_result(
     journal: &mut Journal,
     run_id: &str,
     result: ActionResult,
@@ -31,7 +18,7 @@ pub fn record_and_push_result(
 }
 
 // Specialize record_event for Action and ActionResult
-pub fn record_action_event(
+pub(crate) fn record_action_event(
     journal: &mut Journal,
     run_id: &str,
     action: &Action,
@@ -40,7 +27,7 @@ pub fn record_action_event(
     journal.record_action(run_id, action, &t)
 }
 
-pub fn check_file_limit(
+pub(crate) fn check_file_limit(
     files_touched: usize,
     max_files: usize,
     run_id: &str,
@@ -56,4 +43,17 @@ pub fn check_file_limit(
         return Ok(true);
     }
     Ok(false)
+}
+
+fn record_result(
+    journal: &mut Journal,
+    run_id: &str,
+    result: &ActionResult,
+) -> Result<(), anyhow::Error> {
+    let t = Utc::now().to_rfc3339();
+    journal.record_result(run_id, result, &t)
+}
+
+fn push_result(results: &mut Vec<ActionResult>, result: ActionResult) {
+    results.push(result);
 }

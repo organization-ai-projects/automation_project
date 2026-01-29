@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub enum WorkspaceMode {
+pub(crate) enum WorkspaceMode {
     #[default]
     Assist,
     Learn,

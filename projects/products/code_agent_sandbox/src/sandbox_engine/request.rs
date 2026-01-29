@@ -8,29 +8,30 @@ use std::fs;
 use crate::{
     actions::{Action, ActionResult, LowLevelActionContext, run_low_level_actions},
     agents::{AgentRequest, run_agent_with_orchestrator},
-    engine::{EngineConfig, EngineCtx, EngineInit, EnginePaths, Response, WorkspaceMode},
+    sandbox_engine::{EngineConfig, EngineCtx, EngineInit, EnginePaths, Response, WorkspaceMode},
     score::{ScoreConfig, ScoreSummary},
 };
 
+//replace run_id issue 67
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Request {
+pub(crate) struct Request {
     #[serde(default)]
-    pub run_id: Option<String>,
+    pub(crate) run_id: Option<String>,
 
     #[serde(default)]
-    pub workspace_mode: WorkspaceMode,
+    pub(crate) workspace_mode: WorkspaceMode,
 
     #[serde(default)]
-    pub actions: Vec<Action>,
+    pub(crate) actions: Vec<Action>,
 
     #[serde(default)]
-    pub agent: Option<AgentRequest>,
+    pub(crate) agent: Option<AgentRequest>,
 }
 
 /// ✅ Core of the domain.
 /// ⚠️ Important: not callable from "outside" the engine module.
-pub(in crate::engine) async fn execute_with_init(
+pub(in crate::sandbox_engine) async fn execute_with_init(
     mut req: Request,
     init: &mut EngineInit,
     paths: &EnginePaths,
@@ -51,7 +52,7 @@ pub(in crate::engine) async fn execute_with_init(
         config,
     };
 
-    let timeout = config.timeout; // Direct use of the timeout field, which is now mandatory
+    let timeout = config.timeout;
     let clock = SystemClock;
     let result = with_timeout(
         async { run_low_level_actions(&init.run_id, &req.actions, &mut ll_ctx) },

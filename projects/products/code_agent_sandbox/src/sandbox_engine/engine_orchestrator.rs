@@ -2,12 +2,12 @@
 use anyhow::{Context, Result, anyhow};
 use common_time::{SystemClock, timeout::with_timeout};
 
-use crate::engine::{
+use crate::sandbox_engine::{
     EngineConfig, EngineInit, EnginePaths, Request, Response, initialize_engine, request,
 };
 
 /// The only official "out-of-domain" entry point.
-pub async fn execute_request(
+pub(crate) async fn execute_request(
     req: Request,
     paths: &EnginePaths,
     config: EngineConfig,

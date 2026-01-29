@@ -2,24 +2,24 @@
 use serde::Serialize;
 
 use crate::{
-    actions::ActionResult, agents::AgentOutcome, engine::WorkspaceMode, score::ScoreSummary,
+    actions::ActionResult, agents::AgentOutcome, sandbox_engine::WorkspaceMode, score::ScoreSummary,
 };
 
+//replace run_id issue 67
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Response {
-    pub run_id: String,
-    pub workspace_mode: WorkspaceMode,
-    pub work_root: String,
-    pub results: Vec<ActionResult>,
-    pub score: ScoreSummary,
-
+pub(crate) struct Response {
+    pub(crate) run_id: String,
+    pub(crate) workspace_mode: WorkspaceMode,
+    pub(crate) work_root: String,
+    pub(crate) results: Vec<ActionResult>,
+    pub(crate) score: ScoreSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_outcome: Option<AgentOutcome>,
+    pub(crate) agent_outcome: Option<AgentOutcome>,
 }
 
 impl Response {
-    pub fn new(
+    pub(crate) fn new(
         run_id: String,
         workspace_mode: WorkspaceMode,
         work_root: String,

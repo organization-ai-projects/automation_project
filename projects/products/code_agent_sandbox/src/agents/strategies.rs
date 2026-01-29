@@ -3,7 +3,7 @@ use ai::AiBody;
 
 use crate::agents::StrategyFn;
 
-pub const STRATEGIES: &[(&str, StrategyFn)] = &[
+pub(crate) const STRATEGIES: &[(&str, StrategyFn)] = &[
     ("auto", AiBody::solve),
     ("symbolicthenneural", AiBody::solve_symbolic_then_neural),
     (

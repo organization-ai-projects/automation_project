@@ -4,11 +4,11 @@ use std::fs;
 use anyhow::{Context, Result};
 use walkdir::WalkDir;
 
-use crate::policies::{Policy, policy::glob_match};
+use crate::policies::{Policy, glob_match};
 
 /// Initialize worktree from source repo using allowlists/forbids.
 /// Idempotent: if Cargo.toml exists in work_root, it won't recopy.
-pub fn init_worktree_from_repo(policy: &Policy) -> Result<()> {
+pub(crate) fn init_worktree_from_repo(policy: &Policy) -> Result<()> {
     let src_root = policy.source_repo_root();
     let dst_root = policy.work_root();
 

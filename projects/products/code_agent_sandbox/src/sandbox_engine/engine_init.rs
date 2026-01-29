@@ -7,27 +7,29 @@ use common::Id128;
 
 use crate::{
     command_runner::CommandRunner,
-    engine::{EngineConfig, EnginePaths, FORBIDDEN, READ, WRITE, WorkspaceMode, generate_globs},
     execution_paths::ExecutionPaths,
     journal::Journal,
     policies::{Policy, PolicyConfig},
     runner_config::RunnerConfig,
+    sandbox_engine::{
+        EngineConfig, EnginePaths, FORBIDDEN, READ, WRITE, WorkspaceMode, generate_globs,
+    },
     sandbox_fs::SandboxFs,
     worktree,
 };
 
 /// ✅ Domain type, not a facade.
 /// The orchestrator builds this and passes it to the core.
-pub struct EngineInit {
-    pub run_id: String,
-    pub paths: ExecutionPaths,
-    pub journal: Journal,
-    pub policy: Policy,
-    pub sfs: SandboxFs,
-    pub runner: CommandRunner,
+pub(crate) struct EngineInit {
+    pub(crate) run_id: String,
+    pub(crate) paths: ExecutionPaths,
+    pub(crate) journal: Journal,
+    pub(crate) policy: Policy,
+    pub(crate) sfs: SandboxFs,
+    pub(crate) runner: CommandRunner,
 }
 
-pub fn initialize_engine(
+pub(crate) fn initialize_engine(
     paths: &EnginePaths,
     config: &EngineConfig,
     run_id: Option<&str>,

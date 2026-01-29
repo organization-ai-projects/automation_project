@@ -2,7 +2,7 @@
 use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
-pub struct EnginePaths {
-    pub repo_root: PathBuf,
-    pub runs_root: PathBuf,
+pub(crate) struct EnginePaths {
+    pub(crate) repo_root: PathBuf,
+    pub(crate) runs_root: PathBuf,
 }

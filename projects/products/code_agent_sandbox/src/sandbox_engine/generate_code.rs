@@ -6,7 +6,7 @@ use crate::{
 use common::Id128;
 use common_json::pjson;
 
-pub fn handle_generate_code(
+pub(crate) fn handle_generate_code(
     language: &str,
     code: &str,
     ctx: &LowLevelActionContext,

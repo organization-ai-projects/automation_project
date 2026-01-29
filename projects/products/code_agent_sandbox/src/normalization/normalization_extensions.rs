@@ -1,6 +1,6 @@
 // projects/products/code_agent_sandbox/src/normalization/normalization_extensions.rs
 // Optimize normalize_extension to avoid allocations
-pub fn normalize_extension(language: &str) -> &'static str {
+pub(crate) fn normalize_extension(language: &str) -> &'static str {
     let l = language.trim();
     if l.eq_ignore_ascii_case("rust") || l.eq_ignore_ascii_case("rs") {
         "rs"

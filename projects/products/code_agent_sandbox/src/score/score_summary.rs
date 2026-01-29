@@ -1,37 +1,19 @@
-// projects/products/code_agent_sandbox/src/score.rs
 use common_json::JsonAccess;
 use serde::Serialize;
 
-use crate::actions::ActionResult;
-
-/// Small "symbolic" scoring layer: tries to estimate code quality signals
-/// from outputs (cargo/clippy) and from file contents in results (if present).
-///
-/// This is NOT perfect. It's intentionally simple and deterministic.
-/// The goal is to shape rewards and guide the agent.
-#[derive(Debug, Clone)]
-pub struct ScoreConfig {
-    pub penalize_unwrap_outside_tests: bool,
-    pub unwrap_penalty: i32,
-
-    pub penalize_panic_outside_tests: bool,
-    pub panic_penalty: i32,
-
-    pub penalize_dbg_outside_tests: bool,
-    pub dbg_penalty: i32,
-}
+use crate::{actions::ActionResult, score::ScoreConfig};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ScoreSummary {
-    pub score: i32,
-    pub notes: Vec<String>,
-    pub cargo_ok: bool,
-    pub cargo_failures: usize,
+pub(crate) struct ScoreSummary {
+    pub(crate) score: i32,
+    pub(crate) notes: Vec<String>,
+    pub(crate) cargo_ok: bool,
+    pub(crate) cargo_failures: usize,
 }
 
 impl ScoreSummary {
-    pub fn from_results(results: &[ActionResult], cfg: ScoreConfig) -> Self {
+    pub(crate) fn from_results(results: &[ActionResult], cfg: ScoreConfig) -> Self {
         let mut score = 0i32;
         let mut notes = Vec::new();
 

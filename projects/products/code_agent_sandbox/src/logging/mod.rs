@@ -1,3 +1,3 @@
-pub mod events;
+mod events;
 
-pub use events::log_event;
+pub(crate) use events::log_event;

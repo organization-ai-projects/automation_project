@@ -1,15 +1,15 @@
 // projects/products/code_agent_sandbox/src/engine/path_rights.rs
-pub const READ: u8 = 0b0001; // Bit 0
-pub const WRITE: u8 = 0b0010; // Bit 1
-pub const FORBIDDEN: u8 = 0b0100; // Bit 2
+pub(crate) const READ: u8 = 0b0001; // Bit 0
+pub(crate) const WRITE: u8 = 0b0010; // Bit 1
+pub(crate) const FORBIDDEN: u8 = 0b0100; // Bit 2
 
 #[derive(Debug)]
-pub struct PathRights {
-    pub path: &'static str,
-    pub rights: u8,
+pub(crate) struct PathRights {
+    pub(crate) path: &'static str,
+    pub(crate) rights: u8,
 }
 
-pub const PATH_RIGHTS: &[PathRights] = &[
+pub(crate) const PATH_RIGHTS: &[PathRights] = &[
     PathRights {
         path: "src/**",
         rights: READ | WRITE,

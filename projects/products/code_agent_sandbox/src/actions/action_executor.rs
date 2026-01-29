@@ -2,13 +2,13 @@
 use crate::{
     actions::{Action, ActionResult},
     command_runner::CommandRunner,
-    engine::EngineCtx,
+    sandbox_engine::EngineCtx,
 };
 use anyhow::Result;
 use std::fs;
 use std::path::Path;
 
-pub fn execute_action(
+pub(crate) fn execute_action(
     ctx: &mut EngineCtx,
     action: &Action,
     run_dir: &Path,
@@ -29,7 +29,7 @@ pub fn execute_action(
     }
 }
 
-pub fn run_cargo_action(
+pub(crate) fn run_cargo_action(
     ctx: &mut EngineCtx,
     subcommand: &str,
     args: &[String],

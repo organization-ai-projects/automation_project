@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
-pub enum Action {
+pub(crate) enum Action {
     ReadFile {
         path: String,
     },
@@ -34,7 +34,7 @@ pub enum Action {
 }
 
 impl Action {
-    pub fn estimated_file_touch_count(&self) -> usize {
+    pub(crate) fn estimated_file_touch_count(&self) -> usize {
         match self {
             Action::ReadFile { .. } => 1,
             Action::ListDir { .. } => 1,
