@@ -14,12 +14,12 @@ const SYSTEMCTL: &str = "systemctl";
 const PGREP: &str = "pgrep";
 
 #[derive(Clone)]
-pub struct Supervisor {
+pub(crate) struct Supervisor {
     client: Arc<Client>,
 }
 
 impl Supervisor {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(2))
             .build()
@@ -30,7 +30,7 @@ impl Supervisor {
         }
     }
 
-    pub async fn supervise_component(
+    pub(crate) async fn supervise_component(
         &self,
         component: ComponentConfig,
         shutdown: CancellationToken,

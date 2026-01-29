@@ -1,10 +1,14 @@
 // projects/products/core/watcher/src/main.rs
+mod config;
+mod supervisor;
+
 use std::sync::Arc;
 
 use anyhow::Context;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
-use watcher::{config::WatcherConfig, logger, supervisor};
+
+use crate::config::{WatcherConfig, initialize_logger};
 
 fn env_var(key: &str) -> Option<String> {
     std::env::var(key)
@@ -28,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
     let config = Arc::new(config);
 
     // 2) Logger
-    logger::initialize_logger(
+    initialize_logger(
         config.logging.log_file.to_str().unwrap_or_else(|| {
             eprintln!("Log file path invalid, using default: watcher.log");
             "watcher.log"

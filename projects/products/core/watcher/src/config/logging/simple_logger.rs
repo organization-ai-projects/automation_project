@@ -5,27 +5,6 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::Mutex;
 
-pub fn initialize_logger(log_file: &str, log_level: &str) {
-    let level = match log_level {
-        "debug" => LevelFilter::Debug,
-        "info" => LevelFilter::Info,
-        "warn" => LevelFilter::Warn,
-        "error" => LevelFilter::Error,
-        _ => LevelFilter::Info,
-    };
-
-    let file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_file)
-        .expect("Failed to open log file");
-
-    let _ = log::set_boxed_logger(Box::new(SimpleLogger {
-        file: Mutex::new(file),
-    }))
-    .map(|()| log::set_max_level(level));
-}
-
 struct SimpleLogger {
     file: Mutex<std::fs::File>,
 }
@@ -45,4 +24,25 @@ impl log::Log for SimpleLogger {
     }
 
     fn flush(&self) {}
+}
+
+pub(crate) fn initialize_logger(log_file: &str, log_level: &str) {
+    let level = match log_level {
+        "debug" => LevelFilter::Debug,
+        "info" => LevelFilter::Info,
+        "warn" => LevelFilter::Warn,
+        "error" => LevelFilter::Error,
+        _ => LevelFilter::Info,
+    };
+
+    let file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_file)
+        .expect("Failed to open log file");
+
+    let _ = log::set_boxed_logger(Box::new(SimpleLogger {
+        file: Mutex::new(file),
+    }))
+    .map(|()| log::set_max_level(level));
 }
