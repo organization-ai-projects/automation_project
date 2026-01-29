@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Git hook: pre-push
-# Runs formatting, linting, and tests before push
+# Runs scope-aware formatting, linting, and tests before push
 # Bypass: SKIP_PRE_PUSH=1 git push ...
 
 # Allow bypass for emergency situations
@@ -15,6 +15,82 @@ echo ""
 # Get the root of the git repository
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 1
+
+# Extract crate names from commit scopes
+detect_crates_from_scopes() {
+  # Get commit messages from commits being pushed
+  local commits
+  commits=$(git log @{u}..HEAD --format=%B 2>/dev/null)
+
+  local crates=()
+  local invalid_scopes=0
+  local scope_re='^[a-z]+\(([^)]+)\):'
+
+  # Extract scope from "type(scope): message" format
+  # scope can be: products/accounts/backend → accounts-backend
+  # or: products/core/engine → engine
+  # or: scripts/... → (skip, not a crate)
+  while IFS= read -r line; do
+    # Match pattern: type(scope):
+    if [[ $line =~ $scope_re ]]; then
+      local scope="${BASH_REMATCH[1]}"
+
+      # Parse scope: products/accounts/backend → accounts-backend
+      if [[ $scope =~ ^(libraries|products)/([^/]+)(/([^/]+))?$ ]]; then
+        local crate_path="${BASH_REMATCH[2]}"
+        if [[ -n "${BASH_REMATCH[4]}" ]]; then
+          crate_path="${crate_path}/${BASH_REMATCH[4]}"
+        fi
+
+        # Convert to crate name: accounts/backend → accounts-backend
+        local crate_name="${crate_path//'/'/-}"
+
+        # Validate that crate exists in Cargo.toml (has Cargo.toml file)
+        if [[ ! -f "projects/$scope/Cargo.toml" ]]; then
+          # Crate doesn't exist
+          invalid_scopes=$((invalid_scopes + 1))
+        else
+          # Avoid duplicates
+          if [[ ! " ${crates[@]} " =~ " ${crate_name} " ]]; then
+            crates+=("$crate_name")
+          fi
+        fi
+      fi
+    fi
+  done <<< "$commits"
+
+  # If there were invalid scopes, return empty (force full workspace test)
+  if [[ $invalid_scopes -gt 0 ]]; then
+    return 1
+  fi
+
+  printf '%s\n' "${crates[@]}"
+}
+
+# Get affected crates from commit scopes
+AFFECTED=$(detect_crates_from_scopes)
+SCOPE_VALID=$?
+
+if [[ $SCOPE_VALID -ne 0 ]] || [[ -z "$AFFECTED" ]]; then
+  echo "⚠️  Invalid or missing crate scope(s) in commits - testing full workspace"
+  echo "   (Use scopes like 'refactor(products/accounts/backend):' pointing to existing crates)"
+  echo ""
+  CLIPPY_ARGS="--all-targets --all-features"
+  TEST_ARGS="--workspace"
+else
+  echo "🎯 Crates from commit scopes:"
+  echo "$AFFECTED" | sed 's/^/   - /'
+  echo ""
+
+  # Build clippy/test args for affected crates
+  CLIPPY_ARGS=""
+  TEST_ARGS=""
+  while IFS= read -r crate; do
+    [[ -z "$crate" ]] && continue
+    CLIPPY_ARGS+=" -p $crate"
+    TEST_ARGS+=" -p $crate"
+  done <<< "$AFFECTED"
+fi
 
 # Track overall status
 FAILED=0
@@ -32,12 +108,13 @@ else
   echo ""
 fi
 
-# 2. Run clippy
+# 2. Run clippy on affected crates
 echo "🔎 Running clippy..."
-if ! cargo clippy --all-targets --all-features -- -D warnings; then
+# shellcheck disable=SC2086
+if ! cargo clippy $CLIPPY_ARGS -- -D warnings; then
   echo ""
   echo "❌ Clippy found issues!"
-  echo "   Run: cargo clippy --all-targets --all-features -- -D warnings"
+  echo "   Run: cargo clippy $CLIPPY_ARGS -- -D warnings"
   echo ""
   FAILED=1
 else
@@ -45,12 +122,13 @@ else
   echo ""
 fi
 
-# 3. Run tests
+# 3. Run tests on affected crates
 echo "🧪 Running tests..."
-if ! cargo test --workspace; then
+# shellcheck disable=SC2086
+if ! cargo test $TEST_ARGS; then
   echo ""
   echo "❌ Tests failed!"
-  echo "   Run: cargo test --workspace"
+  echo "   Run: cargo test $TEST_ARGS"
   echo ""
   FAILED=1
 else
@@ -76,3 +154,4 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 exit 0
+

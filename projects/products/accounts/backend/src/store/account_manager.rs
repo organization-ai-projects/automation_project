@@ -1,103 +1,17 @@
-// projects/products/accounts/backend/src/store.rs
-use std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc};
-
+// projects/products/accounts/backend/src/store/account_manager.rs
 use common_json::{from_json_str, to_string};
 use common_time::timestamp_utils::current_timestamp_ms;
 use security::{Permission, Role};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 
-#[derive(Debug, thiserror::Error)]
-pub enum AccountStoreError {
-    #[error("account not found")]
-    NotFound,
-    #[error("account already exists")]
-    AlreadyExists,
-    #[error("invalid credentials")]
-    InvalidCredentials,
-    #[error("invalid password")]
-    InvalidPassword,
-    #[error("invalid role")]
-    InvalidRole,
-    #[error("invalid permission")]
-    InvalidPermission,
-    #[error("invalid status")]
-    InvalidStatus,
-    #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("json error: {0}")]
-    Json(String),
-    #[error("password error: {0}")]
-    Password(String),
-}
-
-#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-pub enum AccountStatus {
-    Active,
-    Suspended,
-    Disabled,
-}
-
-impl AccountStatus {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            AccountStatus::Active => "active",
-            AccountStatus::Suspended => "suspended",
-            AccountStatus::Disabled => "disabled",
-        }
-    }
-}
-
-impl FromStr for AccountStatus {
-    type Err = AccountStoreError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.to_lowercase().as_str() {
-            "active" => Ok(AccountStatus::Active),
-            "suspended" => Ok(AccountStatus::Suspended),
-            "disabled" => Ok(AccountStatus::Disabled),
-            _ => Err(AccountStoreError::InvalidStatus),
-        }
-    }
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct AccountRecord {
-    pub user_id: String,
-    pub password_hash: String,
-    pub role: Role,
-    pub extra_permissions: Vec<Permission>,
-    pub status: AccountStatus,
-    pub created_at_ms: u64,
-    pub updated_at_ms: u64,
-    pub last_login_ms: Option<u64>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct AccountsFile {
-    schema_version: u32,
-    users: Vec<AccountRecord>,
-}
-
-#[derive(Debug, Clone)]
-pub struct AccountSummary {
-    pub user_id: String,
-    pub role: Role,
-    pub permissions: Vec<Permission>,
-    pub status: AccountStatus,
-    pub created_at_ms: u64,
-    pub updated_at_ms: u64,
-    pub last_login_ms: Option<u64>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct AuditEntry {
-    pub timestamp_ms: u64,
-    pub actor: String,
-    pub action: String,
-    pub target: String,
-    pub details: Option<String>,
-}
+use crate::store::account_record::AccountRecord;
+use crate::store::account_status::AccountStatus;
+use crate::store::account_store_error::AccountStoreError;
+use crate::store::account_summary::AccountSummary;
+use crate::store::accounts_file::AccountsFile;
+use crate::store::audit_entry::AuditEntry;
 
 #[derive(Clone)]
 pub struct AccountManager {

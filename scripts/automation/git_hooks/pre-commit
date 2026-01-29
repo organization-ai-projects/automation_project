@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Git hook: pre-commit
+# Formats code before commit
+# Bypass: SKIP_PRE_COMMIT=1 git commit ...
+
+# Allow bypass for emergency situations
+if [[ "${SKIP_PRE_COMMIT:-}" == "1" ]]; then
+  echo "⚠️  Pre-commit checks skipped (SKIP_PRE_COMMIT=1)"
+  exit 0
+fi
+
+echo "📝 Running pre-commit checks..."
+echo ""
+
+# Get the root of the git repository
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 1
+
+# Detect affected crates from staged changes
+detect_affected_crates() {
+  local changed_files
+  changed_files=$(git diff --cached --name-only --diff-filter=ACMRU)
+
+  local affected_crates=()
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+
+    if [[ $file =~ ^projects/(libraries|products)/([^/]+)(/[^/]+)?(/src|/tests|/Cargo\.toml) ]]; then
+      local crate_name="${BASH_REMATCH[2]}"
+      if [[ "${BASH_REMATCH[3]}" =~ ^/([^/]+)$ ]]; then
+        crate_name="${crate_name}/${BASH_REMATCH[1]}"
+        crate_name="${crate_name//'/'/-}"
+      else
+        crate_name="${crate_name//'_'/'-'}"
+      fi
+
+      if [[ ! " ${affected_crates[@]} " =~ " ${crate_name} " ]]; then
+        affected_crates+=("$crate_name")
+      fi
+    fi
+  done <<< "$changed_files"
+
+  printf '%s\n' "${affected_crates[@]}"
+}
+
+# Get affected crates
+AFFECTED=$(detect_affected_crates)
+if [[ -z "$AFFECTED" ]]; then
+  echo "🎯 No Rust crates detected, checking all files"
+else
+  echo "🎯 Affected crates:"
+  echo "$AFFECTED" | sed 's/^/   - /'
+  echo ""
+fi
+
+# 1. Format staged files
+echo "✨ Formatting code..."
+if ! cargo fmt --all; then
+  echo ""
+  echo "❌ Formatting failed!"
+  exit 1
+fi
+
+# Add formatted files back to staging
+git add -u
+
+echo "✅ Pre-commit checks passed"
+echo ""
+
+exit 0

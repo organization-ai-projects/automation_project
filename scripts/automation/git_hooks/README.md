@@ -45,13 +45,39 @@ refactor(api): simplify error handling
 SKIP_COMMIT_VALIDATION=1 git commit -m "emergency fix"
 ```
 
+### `pre-commit`
+
+Exécute le formatage du code avant chaque commit :
+
+1. **Formatage** : `cargo fmt --all`
+
+Ajoute automatiquement les fichiers formatés au staging.
+
+**Bypass (urgence uniquement):**
+
+```bash
+SKIP_PRE_COMMIT=1 git commit -m "message"
+```
+
 ### `pre-push`
 
-Exécute les vérifications de qualité avant chaque push :
+Exécute les vérifications de qualité avant chaque push, **avec détection de scope intelligent** :
 
 1. **Formatage** : `cargo fmt --all --check`
-2. **Linting** : `cargo clippy --all-targets --all-features -- -D warnings`
-3. **Tests** : `cargo test --workspace`
+2. **Linting** : `cargo clippy` (seulement sur les crates affectés)
+3. **Tests** : `cargo test` (seulement sur les crates affectés)
+
+#### Détection de scope
+
+Le hook analyse les fichiers modifiés et ne teste que les crates concernés :
+
+```plaintext
+projects/products/accounts/backend/src/...  → teste accounts-backend
+projects/libraries/security/src/...         → teste security
+projects/products/core/engine/src/...       → teste engine
+```
+
+Si aucune modification n'est détectée, un test complet du workspace est lancé.
 
 **Bypass (urgence uniquement):**
 
@@ -77,6 +103,7 @@ Les hooks sont :
 - **Autonomes** - Pas de dépendances externes (npm, cargo-husky, etc.)
 - **Bypassables** - Variables d'environnement pour les urgences
 - **Informatifs** - Messages clairs sur ce qui est vérifié et comment corriger
+- **Intelligents** - Détection de scope pour éviter les tests inutiles
 
 ## Maintenance
 
