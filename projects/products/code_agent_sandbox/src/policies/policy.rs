@@ -40,18 +40,24 @@ impl Policy {
         self.resolve_work_path(rel, AccessKind::Write)
     }
 
-    fn is_allowed(&self, rel_norm: &str, kind: AccessKind) -> bool {
+    fn is_allowed(&self, rel_norm: &str, kind: AccessKind) -> Result<bool> {
         match kind {
-            AccessKind::Read => self
-                .cfg
-                .allow_read_globs
-                .iter()
-                .any(|g| glob_match(rel_norm, g)),
-            AccessKind::Write => self
-                .cfg
-                .allow_write_globs
-                .iter()
-                .any(|g| glob_match(rel_norm, g)),
+            AccessKind::Read => {
+                for g in &self.cfg.allow_read_globs {
+                    if glob_match(rel_norm, g)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            AccessKind::Write => {
+                for g in &self.cfg.allow_write_globs {
+                    if glob_match(rel_norm, g)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
         }
     }
 
@@ -67,17 +73,14 @@ impl Policy {
         }
 
         // First checks forbidden paths
-        if self
-            .cfg
-            .forbid_globs
-            .iter()
-            .any(|g| glob_match(&rel_norm, g))
-        {
-            bail!("forbidden path by policy: {rel_norm}");
+        for g in &self.cfg.forbid_globs {
+            if glob_match(&rel_norm, g)? {
+                bail!("forbidden path by policy: {rel_norm}");
+            }
         }
 
         // Applies the deny-by-default logic
-        if !self.is_allowed(&rel_norm, kind) {
+        if !self.is_allowed(&rel_norm, kind)? {
             bail!("access not allowed by policy: {rel_norm}");
         }
 
@@ -162,13 +165,13 @@ impl Policy {
 /// IMPORTANT: you already have this function used by SandboxFs.
 /// Keep your existing implementation if you have one.
 /// This fallback is minimal.
-pub fn glob_match(path: &str, pattern: &str) -> bool {
+pub fn glob_match(path: &str, pattern: &str) -> Result<bool> {
     use globset::{Glob, GlobMatcher};
 
-    let glob = Glob::new(pattern).expect("Invalid glob pattern");
+    let glob = Glob::new(pattern).context("Invalid glob pattern")?;
     let matcher: GlobMatcher = glob.compile_matcher();
 
-    matcher.is_match(path)
+    Ok(matcher.is_match(path))
 }
 
 #[cfg(test)]
