@@ -1,3 +1,4 @@
+use anyhow::bail;
 // projects/products/core/watcher/src/config.rs
 use serde::Deserialize;
 use std::{
@@ -157,7 +158,7 @@ fn default_log_level() -> LogLevel {
 }
 
 impl WatcherConfig {
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         let content = fs::read_to_string(path)?;
         let mut config: WatcherConfig = toml::from_str(&content)?;
         config.normalize_defaults();
@@ -177,57 +178,51 @@ impl WatcherConfig {
         }
     }
 
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> anyhow::Result<()> {
         // ---- components ----
         for c in &self.components {
             let name = c.name.trim();
             if name.is_empty() {
-                return Err("Component name cannot be empty".to_string());
+                bail!("Component name cannot be empty");
             }
 
             if c.ping_interval == 0 {
-                return Err(format!(
-                    "Ping interval for component '{}' must be > 0",
-                    c.name
-                ));
+                bail!("Ping interval for component '{}' must be > 0", c.name);
             }
 
             if c.restart.backoff_min_secs == 0 || c.restart.backoff_max_secs == 0 {
-                return Err(format!(
-                    "Backoff min/max must be > 0 for component '{}'",
-                    c.name
-                ));
+                bail!("Backoff min/max must be > 0 for component '{}'", c.name);
             }
 
             if c.restart.backoff_min_secs > c.restart.backoff_max_secs {
-                return Err(format!("Backoff min > max for component '{}'", c.name));
+                bail!("Backoff min > max for component '{}'", c.name);
             }
 
             // Validation ping
             match &c.ping {
                 PingConfig::Systemd { unit } => {
                     if unit.trim().is_empty() {
-                        return Err(format!("systemd.unit is empty for component '{}'", c.name));
+                        bail!("systemd.unit is empty for component '{}'", c.name);
                     }
                 }
                 PingConfig::Http { url } => {
                     let u = url.trim();
                     if u.is_empty() {
-                        return Err(format!("ping.http.url is empty for component '{}'", c.name));
+                        bail!("ping.http.url is empty for component '{}'", c.name);
                     }
                     if !(u.starts_with("http://") || u.starts_with("https://")) {
-                        return Err(format!(
+                        bail!(
                             "ping.http.url must start with http:// or https:// for component '{}'",
                             c.name
-                        ));
+                        );
                     }
                 }
                 PingConfig::Process { process_name } => {
                     if process_name.trim().is_empty() {
-                        return Err(format!(
+                        bail!(
                             "ping.process.process_name is empty for component '{}'",
                             c.name
-                        ));
+                        );
                     }
                 }
                 PingConfig::Disabled => {}
@@ -244,7 +239,7 @@ impl WatcherConfig {
 
         // ---- logging ----
         if self.logging.log_file.as_os_str().is_empty() {
-            return Err("Log file path cannot be empty".to_string());
+            bail!("Log file path cannot be empty");
         }
 
         Ok(())

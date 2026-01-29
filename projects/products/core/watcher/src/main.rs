@@ -1,6 +1,7 @@
 // projects/products/core/watcher/src/main.rs
 use std::sync::Arc;
 
+use anyhow::Context;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use watcher::{config::WatcherConfig, logger, supervisor};
@@ -13,7 +14,7 @@ fn env_var(key: &str) -> Option<String> {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     println!("Watcher starting...");
 
     // 1) Config path (env override)
@@ -22,13 +23,9 @@ async fn main() {
         "watcher.toml".to_string()
     });
 
-    let config = match WatcherConfig::load_from_file(&config_path) {
-        Ok(cfg) => Arc::new(cfg),
-        Err(e) => {
-            eprintln!("Failed to load configuration '{}': {}", config_path, e);
-            std::process::exit(1);
-        }
-    };
+    let config = WatcherConfig::load_from_file(&config_path)
+        .with_context(|| format!("Failed to load configuration '{}'", config_path))?;
+    let config = Arc::new(config);
 
     // 2) Logger
     logger::initialize_logger(
@@ -92,4 +89,5 @@ async fn main() {
     }
 
     log::info!("Watcher stopped.");
+    Ok(())
 }
