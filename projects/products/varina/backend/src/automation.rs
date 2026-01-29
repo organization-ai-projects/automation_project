@@ -323,15 +323,8 @@ pub fn run_git_autopilot_in_repo(
 }
 
 /// ==============================
-/// SECTION: Optional tiny util
+/// SECTION: Path Normalization
 /// ==============================
-/// Checks if a file or directory exists at the given path.
-/// This function is currently unused and may be removed in the future.
-#[allow(dead_code)]
-fn exists(path: &str) -> bool {
-    Path::new(path).exists()
-}
-
 /// Normalizes the repository path to ensure it is absolute and valid.
 pub fn normalize_repo_path(repo_path: &Path) -> Result<PathBuf> {
     let path = Path::new(repo_path);
