@@ -2,7 +2,7 @@
 
 /// Errors during bootstrap/setup operations
 #[derive(Debug, thiserror::Error)]
-pub enum BootstrapError {
+pub(crate) enum BootstrapError {
     #[error("home directory is not available")]
     HomeDirUnavailable,
 

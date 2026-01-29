@@ -1,12 +1,8 @@
 // projects/products/core/engine/src/runtime/mod.rs
+pub(crate) mod backend_connection;
 mod backend_info;
-mod backend_registry_impl;
-pub mod routing_table;
-pub mod runtime_state;
-pub mod types;
+mod backend_registry;
 
-pub use backend_info::BackendInfo;
-pub use backend_registry_impl::BackendRegistry;
-pub use routing_table::RoutingTable;
-pub use runtime_state::RuntimeState;
-pub use types::*;
+pub(crate) use backend_connection::BackendConnection;
+pub(crate) use backend_info::BackendInfo;
+pub(crate) use backend_registry::BackendRegistry;

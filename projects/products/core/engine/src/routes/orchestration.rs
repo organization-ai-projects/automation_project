@@ -49,7 +49,7 @@ async fn recover(rejection: warp::Rejection) -> Result<impl Reply, Infallible> {
 // the middleware behavior correctly.
 
 /// Build complete route filter with all endpoints
-pub fn build_routes(
+pub(crate) fn build_routes(
     state: EngineState,
     cors: CorsConfig,
 ) -> impl Filter<Extract = (impl Reply,), Error = Infallible> + Clone {

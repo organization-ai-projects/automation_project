@@ -1,29 +1,30 @@
 // projects/products/core/engine/src/routes/mod.rs
 
 // Module declarations
-pub mod accounts;
-pub mod auth;
-pub mod helpers;
-pub mod orchestration;
-pub mod projects;
-pub mod setup;
+pub(crate) mod accounts;
+pub(crate) mod auth;
+pub(crate) mod helpers;
+pub(crate) mod http_forwarder;
+pub(crate) mod orchestration;
+pub(crate) mod projects;
+pub(crate) mod setup;
 
 // Re-exports from helpers
-pub use helpers::http_error;
+pub(crate) use helpers::http_error;
 
 // Re-exports from auth
-pub use auth::{login, normalize_user_id, parse_user_id};
+pub(crate) use auth::login;
 
 // Re-exports from setup
-pub use setup::{health, setup_admin, setup_status};
+pub(crate) use setup::{health, setup_admin, setup_status};
 
 // Re-exports from projects
-pub use projects::list_projects;
+pub(crate) use projects::list_projects;
 
 // Re-exports from accounts
-pub use accounts::{
+pub(crate) use accounts::{
     create_account, get_account, list_accounts, reset_password, update_account, update_status,
 };
 
 // Re-exports from orchestration
-pub use orchestration::build_routes;
+pub(crate) use orchestration::build_routes;

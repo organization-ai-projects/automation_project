@@ -1,13 +1,30 @@
 // projects/products/core/engine/src/main.rs
-use std::{path::PathBuf, sync::Arc};
+mod bootstrap;
+mod const_values;
+mod cors_config;
+mod engine_config;
+mod engine_state;
+mod registry;
+mod requires;
+mod routes;
+mod runtime;
+mod ws;
+
+pub(crate) use bootstrap::{
+    BootstrapError, consume_claim, ensure_owner_claim, setup_complete, validate_claim,
+};
+pub(crate) use const_values::*;
+pub(crate) use cors_config::CorsConfig;
+pub(crate) use engine_state::EngineState;
+pub(crate) use registry::Registry;
+pub(crate) use requires::{require_permission, require_project_exists};
+pub(crate) use runtime::*;
 
 use anyhow::Context;
-use tokio::sync::RwLock;
+use security::TokenService;
 use tracing::{error, info, warn};
 
-use accounts_backend::AccountManager;
-use engine::{BackendRegistry, EngineState, Registry, engine_config::EngineConfig, routes};
-use security::TokenService;
+use crate::engine_config::EngineConfig;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -15,6 +32,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Load configuration
     let config = EngineConfig::from_env().context("Failed to load engine configuration")?;
+    if config.allow_insecure_secret {
+        warn!("ENGINE_ALLOW_INSECURE_SECRET=1 is set; default secret may be used (INSECURE)");
+    }
 
     // Secret JWT
     let token_service =
@@ -36,26 +56,30 @@ async fn main() -> anyhow::Result<()> {
         "Registry loaded"
     );
 
-    // Accounts storage
-    let data_dir = std::env::var("ACCOUNTS_DATA_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| AccountManager::default_data_dir());
-    let account_manager = AccountManager::load(data_dir)
-        .await
-        .context("Failed to load accounts store")?;
+    if let Ok(cache_path) = std::env::var("ENGINE_REGISTRY_CACHE_PATH")
+        && let Err(e) = registry.save_cache(&cache_path)
+    {
+        warn!(
+            cache_path = %cache_path,
+            error = %e,
+            "Failed to write registry cache"
+        );
+    }
 
     // Bootstrap claim (appliance setup)
-    match engine::ensure_owner_claim() {
+    match crate::ensure_owner_claim() {
         Ok(state) if state.setup_mode => {
             if let Some(expires_at) = state.expires_at {
                 info!(
                     claim_path = %state.claim_path.display(),
+                    used_marker_path = %state.used_marker_path.display(),
                     expires_at_unix = expires_at,
                     "Setup mode enabled: owner claim available"
                 );
             } else {
                 info!(
                     claim_path = %state.claim_path.display(),
+                    used_marker_path = %state.used_marker_path.display(),
                     "Setup mode enabled: owner claim available"
                 );
             }
@@ -69,12 +93,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // State
-    let state = EngineState {
-        registry: Arc::new(RwLock::new(registry)),
-        token_service: Arc::new(token_service),
-        backend_registry: Arc::new(RwLock::new(BackendRegistry::new())),
-        account_manager: Arc::new(account_manager),
-    };
+    let state = EngineState::new(registry, token_service);
 
     // Routes
     let routes = routes::build_routes(state, config.cors);

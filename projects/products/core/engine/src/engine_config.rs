@@ -6,17 +6,17 @@ use anyhow::bail;
 use crate::CorsConfig;
 
 #[derive(Debug)]
-pub struct EngineConfig {
-    pub host: IpAddr,
-    pub port: u16,
-    pub projects_dir: PathBuf,
-    pub cors: CorsConfig,
-    pub jwt_secret: String,
-    pub allow_insecure_secret: bool,
+pub(crate) struct EngineConfig {
+    pub(crate) host: IpAddr,
+    pub(crate) port: u16,
+    pub(crate) projects_dir: PathBuf,
+    pub(crate) cors: CorsConfig,
+    pub(crate) jwt_secret: String,
+    pub(crate) allow_insecure_secret: bool,
 }
 
 impl EngineConfig {
-    pub fn from_env() -> anyhow::Result<Self> {
+    pub(crate) fn from_env() -> anyhow::Result<Self> {
         let host = Self::env_ip("ENGINE_HOST", "127.0.0.1")?;
         let port = Self::env_u16("ENGINE_PORT", 3030)?;
         let projects_dir = Self::env_var("ENGINE_PROJECTS_DIR")
@@ -61,20 +61,20 @@ impl EngineConfig {
         })
     }
 
-    pub fn env_var(key: &str) -> Option<String> {
+    pub(crate) fn env_var(key: &str) -> Option<String> {
         env::var(key)
             .ok()
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
     }
 
-    pub fn env_u16(key: &str, default: u16) -> anyhow::Result<u16> {
+    pub(crate) fn env_u16(key: &str, default: u16) -> anyhow::Result<u16> {
         Ok(Self::env_var(key)
             .and_then(|v| v.parse::<u16>().ok())
             .unwrap_or(default))
     }
 
-    pub fn env_ip(key: &str, default: &str) -> anyhow::Result<IpAddr> {
+    pub(crate) fn env_ip(key: &str, default: &str) -> anyhow::Result<IpAddr> {
         Ok(Self::env_var(key)
             .and_then(|v| v.parse::<IpAddr>().ok())
             .unwrap_or_else(|| default.parse::<IpAddr>().expect("default ip invalid")))

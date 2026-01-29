@@ -12,7 +12,7 @@ const CLAIM_FILE_NAME: &str = "owner.claim";
 const CLAIM_USED_NAME: &str = "owner.claim.used";
 const CLAIM_TTL_HOURS: i64 = 24;
 
-pub fn ensure_owner_claim() -> Result<SetupState, BootstrapError> {
+pub(crate) fn ensure_owner_claim() -> Result<SetupState, BootstrapError> {
     let claim_path = owner_claim_path()?;
     let used_marker_path = owner_claim_used_path()?;
 
@@ -59,7 +59,7 @@ pub fn ensure_owner_claim() -> Result<SetupState, BootstrapError> {
     })
 }
 
-pub fn validate_claim(secret: &str) -> Result<OwnerClaim, BootstrapError> {
+pub(crate) fn validate_claim(secret: &str) -> Result<OwnerClaim, BootstrapError> {
     let claim_path = owner_claim_path()?;
     let used_marker_path = owner_claim_used_path()?;
 
@@ -83,7 +83,7 @@ pub fn validate_claim(secret: &str) -> Result<OwnerClaim, BootstrapError> {
     Ok(claim)
 }
 
-pub fn consume_claim() -> Result<(), BootstrapError> {
+pub(crate) fn consume_claim() -> Result<(), BootstrapError> {
     let claim_path = owner_claim_path()?;
     let used_marker_path = owner_claim_used_path()?;
 
@@ -102,7 +102,7 @@ pub fn consume_claim() -> Result<(), BootstrapError> {
     Ok(())
 }
 
-pub fn setup_complete() -> Result<bool, BootstrapError> {
+pub(crate) fn setup_complete() -> Result<bool, BootstrapError> {
     Ok(owner_claim_used_path()?.exists())
 }
 

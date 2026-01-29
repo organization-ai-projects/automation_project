@@ -1,11 +1,13 @@
 // projects/products/core/engine/src/routes/helpers.rs
-use std::str::FromStr;
 use warp::{http::StatusCode, reply::WithStatus};
 
-use protocol::accounts::AccountSummary;
+use protocol::{Event, EventType};
 
 /// HTTP error response builder
-pub fn http_error(code: StatusCode, message: impl Into<String>) -> WithStatus<warp::reply::Json> {
+pub(crate) fn http_error(
+    code: StatusCode,
+    message: impl Into<String>,
+) -> WithStatus<warp::reply::Json> {
     let err = common_json::pjson!({
         "code": i32::from(code.as_u16()),
         "message": message.into(),
@@ -14,7 +16,7 @@ pub fn http_error(code: StatusCode, message: impl Into<String>) -> WithStatus<wa
 }
 
 /// Extract Bearer token from Authorization header
-pub fn bearer_token(headers: &warp::http::HeaderMap) -> Option<String> {
+pub(crate) fn bearer_token(headers: &warp::http::HeaderMap) -> Option<String> {
     let value = headers.get("authorization")?.to_str().ok()?;
     let value = value.trim();
     value
@@ -23,7 +25,7 @@ pub fn bearer_token(headers: &warp::http::HeaderMap) -> Option<String> {
 }
 
 /// Validate admin role from token
-pub fn require_admin(
+pub(crate) fn require_admin(
     headers: &warp::http::HeaderMap,
     state: &crate::EngineState,
 ) -> Result<security::Token, WithStatus<warp::reply::Json>> {
@@ -39,34 +41,29 @@ pub fn require_admin(
     Ok(token)
 }
 
-/// Parse role string to security::Role
-pub fn parse_role(input: &str) -> Result<security::Role, &'static str> {
-    security::Role::from_str(input).map_err(|_| "Invalid role")
-}
-
-/// Parse permission strings to security::Permission vector
-pub fn parse_permissions(values: &[String]) -> Result<Vec<security::Permission>, &'static str> {
-    let mut perms = Vec::new();
-    for value in values {
-        let perm = security::Permission::from_str(value).map_err(|_| "Invalid permission")?;
-        perms.push(perm);
+pub(crate) fn event_to_http(event: Event, ok_status: StatusCode) -> WithStatus<warp::reply::Json> {
+    if event.event_type == EventType::Error {
+        if let Some(payload) = event.payload.and_then(|p| p.payload)
+            && let common_json::Json::Object(map) = payload
+            && let Some(common_json::Json::Number(status)) = map.get("status")
+        {
+            let code = status.as_f64() as u16;
+            let msg = map
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Request failed");
+            let status = StatusCode::from_u16(code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            return http_error(status, msg);
+        }
+        return http_error(StatusCode::INTERNAL_SERVER_ERROR, "Backend error");
     }
-    Ok(perms)
-}
 
-/// Map backend AccountSummary to protocol AccountSummary
-pub fn map_summary(summary: accounts_backend::AccountSummary) -> AccountSummary {
-    AccountSummary {
-        user_id: summary.user_id,
-        role: summary.role.as_str().to_string(),
-        permissions: summary
-            .permissions
-            .into_iter()
-            .map(|p| p.as_str().to_string())
-            .collect(),
-        status: summary.status.as_str().to_string(),
-        created_at_ms: summary.created_at_ms,
-        updated_at_ms: summary.updated_at_ms,
-        last_login_ms: summary.last_login_ms,
+    if let Some(payload) = event.payload.and_then(|p| p.payload) {
+        return warp::reply::with_status(warp::reply::json(&payload), ok_status);
     }
+
+    warp::reply::with_status(
+        warp::reply::json(&common_json::pjson!({ "ok": true })),
+        ok_status,
+    )
 }

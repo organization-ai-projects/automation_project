@@ -4,12 +4,13 @@ use tracing::warn;
 use warp::{Reply, http::StatusCode};
 
 use super::auth::parse_user_id;
-use super::helpers::http_error;
+use super::helpers::{event_to_http, http_error};
+use crate::routes::http_forwarder::{accounts_product_id, forward_to_backend, payload_from};
 use crate::{BootstrapError, EngineState, consume_claim, setup_complete, validate_claim};
-use protocol::accounts::{SetupAdminRequest, SetupAdminResponse, SetupStatusResponse};
+use protocol::accounts::{SetupAdminRequest, SetupStatusResponse};
 
 /// Health check endpoint
-pub async fn health() -> Result<impl Reply, warp::Rejection> {
+pub(crate) async fn health() -> Result<impl Reply, warp::Rejection> {
     Ok(warp::reply::json(&pjson!({
         "ok": true,
         "service": "engine"
@@ -17,7 +18,7 @@ pub async fn health() -> Result<impl Reply, warp::Rejection> {
 }
 
 /// Setup admin account (initial bootstrap)
-pub async fn setup_admin(
+pub(crate) async fn setup_admin(
     req: SetupAdminRequest,
     state: EngineState,
 ) -> Result<impl Reply, warp::Rejection> {
@@ -42,27 +43,23 @@ pub async fn setup_admin(
         Err(e) => return Ok(http_error(StatusCode::BAD_REQUEST, e)),
     };
 
-    if state.account_manager.user_count().await > 0 {
-        return Ok(http_error(StatusCode::CONFLICT, "Admin already exists"));
-    }
-
-    if let Err(e) = state
-        .account_manager
-        .create(
-            user_id.to_string(),
-            &req.password,
-            security::Role::Admin,
-            Vec::new(),
-            "bootstrap",
-        )
-        .await
+    let product_id = match accounts_product_id() {
+        Ok(id) => id,
+        Err(msg) => return Ok(http_error(StatusCode::BAD_GATEWAY, msg)),
+    };
+    let payload = payload_from(
+        pjson!({
+            "claim": req.claim,
+            "user_id": user_id.to_string(),
+            "password": req.password
+        }),
+        None,
+    );
+    let event = match forward_to_backend(&product_id, "accounts.setup_admin", payload, &state).await
     {
-        warn!(error = %e, "Setup failed to create admin user");
-        return Ok(http_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Setup failed",
-        ));
-    }
+        Ok(ev) => ev,
+        Err(msg) => return Ok(http_error(StatusCode::BAD_GATEWAY, msg)),
+    };
 
     if let Err(e) = consume_claim() {
         warn!(error = %e, "Setup failed to consume claim");
@@ -72,14 +69,11 @@ pub async fn setup_admin(
         ));
     }
 
-    Ok(warp::reply::with_status(
-        warp::reply::json(&SetupAdminResponse { ok: true }),
-        StatusCode::CREATED,
-    ))
+    Ok(event_to_http(event, StatusCode::CREATED))
 }
 
 /// Get setup status (whether setup is required)
-pub async fn setup_status() -> Result<impl Reply, warp::Rejection> {
+pub(crate) async fn setup_status() -> Result<impl Reply, warp::Rejection> {
     let setup_mode = !setup_complete().unwrap_or(false);
     Ok(warp::reply::json(&SetupStatusResponse { setup_mode }))
 }

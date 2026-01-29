@@ -1,11 +1,11 @@
 // projects/products/core/engine/src/ws/ws_handlers.rs
 use crate::{
     EngineState, WS_IDLE_TIMEOUT, WS_MAX_MESSAGE_BYTES, WS_PING_EVERY,
-    ws::{route_command, ws_event_error},
+    ws::{BackendRegistration, route_command, ws_event_error, ws_event_ok},
 };
-use common_json::{JsonSerializable, from_json_str};
+use common_json::{JsonSerializable, from_json_str, from_value};
 use futures_util::{SinkExt, StreamExt};
-use protocol::{Command, Metadata};
+use protocol::{Command, Event, Metadata};
 use tracing::{info, warn};
 use warp::ws::{Message, WebSocket};
 
@@ -50,8 +50,9 @@ fn meta_now() -> Metadata {
     Metadata::now()
 }
 
-pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
+pub(crate) async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
     let (mut tx, mut rx) = socket.split();
+    let (out_tx, mut out_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
 
     // --------
     // Auth
@@ -104,6 +105,14 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
                     info!(subject_id = %token.subject_id, "WS connection closed during ping");
                     break;
                 }
+            }
+
+            msg = out_rx.recv() => {
+                if let Some(text) = msg
+                    && tx.send(Message::text(text)).await.is_err() {
+                        info!(subject_id = %token.subject_id, "WS connection closed during backend send");
+                        break;
+                    }
             }
 
             msg = rx.next() => {
@@ -163,6 +172,15 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
                     }
                 };
 
+                // Event -> pending HTTP forwarders
+                if let Ok(event) = from_json_str::<Event>(text) {
+                    let request_id = event.metadata.request_id;
+                    if let Some(tx) = state.pending_requests.write().await.remove(&request_id) {
+                        let _ = tx.send(event);
+                    }
+                    continue;
+                }
+
                 // JSON -> Command
                 let cmd: Command = match from_json_str(text) {
                     Ok(c) => c,
@@ -181,6 +199,44 @@ pub async fn ws_handle(socket: WebSocket, state: EngineState, jwt: String) {
 
                 // Correlate to command
                 let meta = cmd.metadata.clone();
+
+                // Backend registration shortcut (capture sender)
+                if cmd.action.as_deref() == Some("backend.hello") {
+                    let payload_value = match cmd.payload.as_ref().and_then(|p| p.payload.as_ref()) {
+                        Some(v) => v.clone(),
+                        None => {
+                            let ev = ws_event_error(&meta, HTTP_BAD_JSON, CODE_BAD_JSON, "Missing payload");
+                            let _ = send_event(&mut tx, &ev).await;
+                            continue;
+                        }
+                    };
+
+                    let registration: BackendRegistration = match from_value(payload_value) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            let ev = ws_event_error(&meta, HTTP_BAD_JSON, CODE_BAD_JSON, format!("Invalid payload: {e}"));
+                            let _ = send_event(&mut tx, &ev).await;
+                            continue;
+                        }
+                    };
+
+                    let mut backends = state.backend_registry.write().await;
+                    backends.register_with_sender(
+                        registration.product_id,
+                        registration.instance_id,
+                        registration.capabilities,
+                        registration.routes,
+                        out_tx.clone(),
+                    );
+                    info!(
+                        registered_backends = backends.count(),
+                        "Backend registration accepted"
+                    );
+
+                    let ev = ws_event_ok(&meta, "BackendRegistered");
+                    let _ = send_event(&mut tx, &ev).await;
+                    continue;
+                }
 
                 // Route
                 let ev = route_command(cmd, &state, &token, perms).await;
