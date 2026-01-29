@@ -458,12 +458,10 @@ mod accounts_web {
         users: Signal<Vec<AccountSummary>>,
         mut msg: Signal<String>,
     ) {
-        let token = jwt.read().clone();
-        if token.is_none() {
+        let Some(token) = jwt.read().clone() else {
             msg.set("Not authenticated".to_string());
             return;
-        }
-        let token = token.unwrap();
+        };
         let body = CreateAccountRequest {
             user_id: user_id.read().clone(),
             password: password.read().clone(),
@@ -507,12 +505,10 @@ mod accounts_web {
         users: Signal<Vec<AccountSummary>>,
         mut msg: Signal<String>,
     ) {
-        let token = jwt.read().clone();
-        if token.is_none() {
+        let Some(token) = jwt.read().clone() else {
             msg.set("Not authenticated".to_string());
             return;
-        }
-        let token = token.unwrap();
+        };
         let body = UpdateAccountRequest {
             role: Some(role.read().clone()),
             permissions: Some(permissions.read().clone()),
@@ -554,12 +550,10 @@ mod accounts_web {
         users: Signal<Vec<AccountSummary>>,
         mut msg: Signal<String>,
     ) {
-        let token = jwt.read().clone();
-        if token.is_none() {
+        let Some(token) = jwt.read().clone() else {
             msg.set("Not authenticated".to_string());
             return;
-        }
-        let token = token.unwrap();
+        };
         let body = UpdateStatusRequest {
             status: status.read().clone(),
         };
@@ -599,12 +593,10 @@ mod accounts_web {
         password: Signal<String>,
         mut msg: Signal<String>,
     ) {
-        let token = jwt.read().clone();
-        if token.is_none() {
+        let Some(token) = jwt.read().clone() else {
             msg.set("Not authenticated".to_string());
             return;
-        }
-        let token = token.unwrap();
+        };
         let body = ResetPasswordRequest {
             password: password.read().clone(),
         };
