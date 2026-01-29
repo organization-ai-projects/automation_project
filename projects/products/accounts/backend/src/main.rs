@@ -1,6 +1,7 @@
 // projects/products/accounts/backend/src/main.rs
 use std::time::Duration;
 
+use anyhow::Context;
 use bytes::Bytes;
 use common::Id128;
 use futures_util::{SinkExt, StreamExt};
@@ -19,7 +20,7 @@ struct BackendHello {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let engine_ws = std::env::var("ACCOUNTS_BACKEND_ENGINE_WS")
@@ -28,18 +29,18 @@ async fn main() {
         .or_else(|_| std::env::var("ENGINE_JWT_SECRET"))
         .unwrap_or_else(|_| "CHANGE_ME_CHANGE_ME_CHANGE_ME_32CHARS_MIN!!".to_string());
 
-    let token_service = TokenService::new_hs256(&jwt_secret).expect("invalid jwt secret");
+    let token_service = TokenService::new_hs256(&jwt_secret).context("invalid jwt secret")?;
     let subject = Id128::new(1, None, None);
     let token = token_service
         .issue(subject, Role::Admin, 24 * 60 * 60 * 1000, None)
-        .expect("issue token");
+        .context("issue token")?;
 
     let ws_url = format!("{engine_ws}?token={token}");
     info!(%ws_url, "Connecting accounts backend");
 
     let (ws_stream, _) = tokio_tungstenite::connect_async(ws_url)
         .await
-        .expect("connect to engine ws");
+        .context("connect to engine ws")?;
     let (mut tx, mut rx) = ws_stream.split();
 
     let hello = BackendHello {
@@ -51,7 +52,7 @@ async fn main() {
 
     let payload = Payload {
         payload_type: Some("backend/hello".to_string()),
-        payload: Some(common_json::to_value(&hello).expect("hello json")),
+        payload: Some(common_json::to_value(&hello).context("hello json")?),
     };
 
     let cmd = Command {
@@ -61,13 +62,13 @@ async fn main() {
         payload: Some(payload),
     };
 
-    let cmd_json = common_json::to_string(&cmd).expect("serialize command");
+    let cmd_json = common_json::to_string(&cmd).context("serialize command")?;
     let cmd_json_bytes = Bytes::from(cmd_json);
     tx.send(Message::Text(
         String::from_utf8_lossy(&cmd_json_bytes).to_string().into(),
     ))
     .await
-    .expect("send hello");
+    .context("send hello")?;
     info!("Accounts backend registered");
 
     loop {
@@ -97,4 +98,5 @@ async fn main() {
             }
         }
     }
+    Ok(())
 }
