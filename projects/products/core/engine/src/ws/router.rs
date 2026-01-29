@@ -1,23 +1,14 @@
-// projects/products/core/engine/src/ws/ws_router.rs
+// projects/products/core/engine/src/ws/router.rs
 use common_json::{from_value, pjson, to_value};
 use protocol::{Command, Event};
 use security::{Permission, Token};
-use serde::Deserialize;
 use tracing::{info, warn};
 
-use crate::runtime::backend_registry::BackendRegistry;
+use crate::runtime::BackendRegistry;
 use crate::{
     EngineState, ProjectMetadata, require_permission, require_project_exists,
-    ws::{ws_event_error, ws_event_ok, ws_event_ok_payload},
+    ws::{BackendRegistration, ws_event_error, ws_event_ok, ws_event_ok_payload},
 };
-
-#[derive(Debug, Deserialize)]
-struct BackendHello {
-    product_id: String,
-    instance_id: String,
-    capabilities: Vec<String>,
-    routes: Vec<String>,
-}
 
 /// Command router "engine-level".
 pub async fn route_command(
@@ -97,30 +88,30 @@ pub async fn route_command(
                 }
             };
 
-            let hello: BackendHello = match from_value(payload_value) {
+            let registration: BackendRegistration = match from_value(payload_value) {
                 Ok(h) => h,
                 Err(e) => {
-                    warn!("Failed to parse BackendHello: {e}");
+                    warn!("Failed to parse BackendRegistration: {e}");
                     return ws_event_error(&meta, 400, 1000, "Invalid payload");
                 }
             };
 
             info!(
                 "Backend hello: product_id={} instance_id={} capabilities={} routes={}",
-                hello.product_id,
-                hello.instance_id,
-                hello.capabilities.len(),
-                hello.routes.len()
+                registration.product_id,
+                registration.instance_id,
+                registration.capabilities.len(),
+                registration.routes.len()
             );
 
             // Register in the runtime registry
             let mut backends = state.backend_registry.write().await;
             let backends: &mut BackendRegistry = &mut backends;
             backends.register(
-                hello.product_id,
-                hello.instance_id,
-                hello.capabilities,
-                hello.routes,
+                registration.product_id,
+                registration.instance_id,
+                registration.capabilities,
+                registration.routes,
             );
 
             ws_event_ok(&meta, "BackendRegistered")

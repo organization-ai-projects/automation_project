@@ -6,7 +6,7 @@ use security::TokenService;
 use tokio::sync::RwLock;
 
 use crate::Registry;
-use crate::runtime::backend_registry::BackendRegistry;
+use crate::runtime::BackendRegistry;
 
 #[derive(Clone)]
 pub struct EngineState {

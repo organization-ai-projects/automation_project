@@ -1,16 +1,9 @@
-// projects/products/core/engine/src/runtime/backend_registry.rs
+// projects/products/core/engine/src/runtime/backend_registry_impl.rs
 use std::collections::HashMap;
 
-// Backend registry implementation
+use super::BackendInfo;
 
-#[derive(Debug)]
-pub struct BackendInfo {
-    pub product_id: String,
-    pub instance_id: String,
-    pub capabilities: Vec<String>,
-    pub routes: Vec<String>,
-}
-
+/// Registry for managing connected backend services
 pub struct BackendRegistry {
     backends: HashMap<String, BackendInfo>,
 }

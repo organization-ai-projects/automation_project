@@ -1,53 +1,16 @@
-// projects/products/core/engine/src/bootstrap.rs
+// projects/products/core/engine/src/bootstrap/operations.rs
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 
 use chrono::Utc;
 use rand::RngCore;
-use serde::{Deserialize, Serialize};
+
+use super::{BootstrapError, OwnerClaim, SetupState};
 
 const CLAIM_FILE_NAME: &str = "owner.claim";
 const CLAIM_USED_NAME: &str = "owner.claim.used";
 const CLAIM_TTL_HOURS: i64 = 24;
-
-#[derive(Debug, Clone)]
-pub struct SetupState {
-    pub setup_mode: bool,
-    pub claim_path: PathBuf,
-    pub used_marker_path: PathBuf,
-    pub expires_at: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OwnerClaim {
-    pub secret: String,
-    pub created_at: i64,
-    pub expires_at: i64,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum BootstrapError {
-    #[error("home directory is not available")]
-    HomeDirUnavailable,
-
-    #[error("claim file missing")]
-    ClaimMissing,
-
-    #[error("claim expired")]
-    ClaimExpired,
-
-    #[error("claim invalid")]
-    ClaimInvalid,
-
-    #[error("setup already completed")]
-    SetupAlreadyCompleted,
-
-    #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("json error: {0}")]
-    Json(String),
-}
 
 pub fn ensure_owner_claim() -> Result<SetupState, BootstrapError> {
     let claim_path = owner_claim_path()?;

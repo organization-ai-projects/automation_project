@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
 use accounts_backend::AccountManager;
-use engine::{BackendRegistry, EngineState, Registry, config::EngineConfig, routes};
+use engine::{BackendRegistry, EngineState, Registry, engine_config::EngineConfig, routes};
 use security::TokenService;
 
 #[tokio::main]
