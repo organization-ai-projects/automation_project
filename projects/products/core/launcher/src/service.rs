@@ -4,35 +4,35 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use anyhow::{Result, bail};
 use serde::Deserialize;
 
-use crate::{RestartPolicy, default_backoff, default_restart};
+use crate::restart_policy::{RestartPolicy, default_backoff, default_restart};
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Service {
-    pub name: String,
-    pub bin: String,
+pub(crate) struct Service {
+    pub(crate) name: String,
+    pub(crate) bin: String,
 
     #[serde(default)]
-    pub args: Vec<String>,
+    pub(crate) args: Vec<String>,
     #[serde(default)]
-    pub env: Vec<String>,
+    pub(crate) env: Vec<String>,
     #[serde(default)]
-    pub cwd: Option<String>,
+    pub(crate) cwd: Option<String>,
 
     #[serde(default)]
-    pub depends_on: Vec<String>,
+    pub(crate) depends_on: Vec<String>,
 
     #[serde(default = "default_restart")]
-    pub restart: RestartPolicy,
+    pub(crate) restart: RestartPolicy,
     #[serde(default)]
-    pub restart_max: u32, // 0 = infinite
+    pub(crate) restart_max: u32, // 0 = infinite
     #[serde(default = "default_backoff")]
-    pub restart_backoff_ms: u64,
+    pub(crate) restart_backoff_ms: u64,
 
     #[serde(default)]
-    pub ready_http: Option<String>,
+    pub(crate) ready_http: Option<String>,
 }
 
-pub fn validate_services(services: &[Service]) -> Result<()> {
+pub(crate) fn validate_services(services: &[Service]) -> Result<()> {
     let mut names = HashSet::new();
     for s in services {
         if s.name.trim().is_empty() {
@@ -56,7 +56,7 @@ pub fn validate_services(services: &[Service]) -> Result<()> {
 
 /// Performs a topological sort on the given services based on their dependencies.
 /// Returns a sorted vector of service names or an error if a cycle is detected.
-pub fn topo_sort(services: &[Service]) -> Result<Vec<String>> {
+pub(crate) fn topo_sort(services: &[Service]) -> Result<Vec<String>> {
     let mut indeg: HashMap<String, usize> = HashMap::new();
     let mut graph: HashMap<String, Vec<String>> = HashMap::new();
 

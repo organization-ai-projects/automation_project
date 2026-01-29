@@ -1,17 +1,18 @@
 // projects/products/core/launcher/src/build.rs
-use crate::default_profile;
 use serde::Deserialize;
 
+use crate::defaults::default_profile;
+
 #[derive(Debug, Default, Deserialize)]
-pub struct Build {
+pub(crate) struct Build {
     #[serde(default = "default_build_enabled")]
-    pub enabled: bool,
+    pub(crate) enabled: bool,
     #[serde(default = "default_profile")]
-    pub profile: String, // "debug" | "release"
+    pub(crate) profile: String, // "debug" | "release"
     #[serde(default)]
-    pub extra_args: Vec<String>,
+    pub(crate) extra_args: Vec<String>,
 }
 
-pub fn default_build_enabled() -> bool {
+pub(crate) fn default_build_enabled() -> bool {
     true
 }

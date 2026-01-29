@@ -5,6 +5,6 @@ use std::{
 };
 
 #[derive(Clone)]
-pub struct ChildHandle {
-    pub child: Arc<Mutex<Child>>,
+pub(crate) struct ChildHandle {
+    pub(crate) child: Arc<Mutex<Child>>,
 }

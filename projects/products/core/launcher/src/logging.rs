@@ -7,7 +7,7 @@ use std::io::{self, Write};
 /// * `message` - The message to log.
 /// * `is_error` - Whether the message is an error (stderr) or not (stdout).
 /// * `context` - Additional context to include in the log.
-pub fn log_message(message: &str, is_error: bool, context: &str) {
+pub(crate) fn log_message(message: &str, is_error: bool, context: &str) {
     if is_error {
         let _ = writeln!(io::stderr(), "[{}] {}", context, message);
     } else {

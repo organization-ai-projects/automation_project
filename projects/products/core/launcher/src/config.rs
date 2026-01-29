@@ -1,15 +1,15 @@
 // projects/products/core/launcher/src/config.rs
 use serde::Deserialize;
 
-use crate::{Build, Launcher, Service, Workspace};
+use crate::{build::Build, launcher::Launcher, service::Service, workspace::Workspace};
 
 #[derive(Debug, Deserialize)]
-pub struct Config {
-    pub workspace: Workspace,
+pub(crate) struct Config {
+    pub(crate) workspace: Workspace,
     #[serde(default)]
-    pub build: Build,
+    pub(crate) build: Build,
     #[serde(default)]
-    pub launcher: Launcher,
+    pub(crate) launcher: Launcher,
     #[serde(default)]
-    pub service: Vec<Service>,
+    pub(crate) service: Vec<Service>,
 }

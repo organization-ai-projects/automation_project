@@ -6,8 +6,9 @@ use std::{
     time::Duration,
 };
 
-use crate::ChildHandle;
 use anyhow::Result;
+
+use crate::child_handle::ChildHandle;
 
 /// Installs a shutdown handler to gracefully terminate running services.
 ///
@@ -15,7 +16,7 @@ use anyhow::Result;
 /// * `running` - A shared map of running services and their handles.
 /// * `shutting_down` - A shared flag indicating if shutdown is in progress.
 /// * `grace_ms` - The grace period in milliseconds before forcing termination.
-pub fn install_shutdown_handler(
+pub(crate) fn install_shutdown_handler(
     running: Arc<Mutex<HashMap<String, ChildHandle>>>,
     shutting_down: Arc<Mutex<bool>>,
     grace_ms: u64,

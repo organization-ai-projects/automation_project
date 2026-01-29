@@ -1,29 +1,32 @@
-// projects/products/core/launcher/src/entry.rs
+// projects/products/core/launcher/src/entry/entry_main.rs
 use std::{
     collections::HashMap,
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
 
-use crate::{
-    ChildHandle, Cli, Config, Workspace, cargo_build, install_shutdown_handler, normalize_path,
-    parse_csv, start_and_supervise, {topo_sort, validate_services},
-};
 use anyhow::{Context, Result, bail};
 use clap::Parser;
-use std::path::Path;
 
-#[derive(Clone)]
-pub struct Paths {
-    pub workspace: Workspace,
-    pub target_dir: PathBuf,
-    pub profile_dir: PathBuf,
-}
+use crate::{
+    cargo_commands::cargo_build,
+    child_handle::ChildHandle,
+    ci::Cli,
+    config::Config,
+    normalizer::normalize_path,
+    parsing::parse_csv,
+    service::{topo_sort, validate_services},
+    shutdown::install_shutdown_handler,
+    supervisor::start_and_supervise,
+    workspace::Workspace,
+};
 
-pub fn main() -> Result<()> {
+use super::paths::Paths;
+
+pub(crate) fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let config_path = PathBuf::from(&cli.config);
@@ -87,7 +90,7 @@ pub fn main() -> Result<()> {
     }
 
     // Determine target dir + binary paths
-    let (target_dir, profile_dir) = target_paths(&workspace.root, &cfg.build.profile);
+    let (_target_dir, profile_dir) = target_paths(&workspace.root, &cfg.build.profile);
 
     // State
     let running: Arc<Mutex<HashMap<String, ChildHandle>>> = Arc::new(Mutex::new(HashMap::new()));
@@ -108,7 +111,6 @@ pub fn main() -> Result<()> {
             .clone();
         let paths = Paths {
             workspace: workspace.clone(),
-            target_dir: target_dir.clone(),
             profile_dir: profile_dir.clone(),
         };
         start_and_supervise(
@@ -129,7 +131,7 @@ pub fn main() -> Result<()> {
     }
 }
 
-pub fn target_paths(workspace_root: &Path, profile: &str) -> (PathBuf, PathBuf) {
+fn target_paths(workspace_root: &Path, profile: &str) -> (PathBuf, PathBuf) {
     let target_dir = workspace_root.join("target");
     let profile_dir = target_dir.join(profile);
     (target_dir, profile_dir)
