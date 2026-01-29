@@ -1,6 +1,7 @@
 // projects/products/core/engine/src/main.rs
 use std::{path::PathBuf, sync::Arc};
 
+use anyhow::Context;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
@@ -9,15 +10,15 @@ use engine::{BackendRegistry, EngineState, Registry, config::EngineConfig, route
 use security::TokenService;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     // Load configuration
-    let config = EngineConfig::from_env().expect("Failed to load engine configuration");
+    let config = EngineConfig::from_env().context("Failed to load engine configuration")?;
 
     // Secret JWT
     let token_service =
-        TokenService::new_hs256(&config.jwt_secret).expect("ENGINE_JWT_SECRET invalid");
+        TokenService::new_hs256(&config.jwt_secret).context("ENGINE_JWT_SECRET invalid")?;
 
     // Registry auto
     let registry = Registry::load(&config.projects_dir).unwrap_or_else(|e| {
@@ -39,13 +40,9 @@ async fn main() {
     let data_dir = std::env::var("ACCOUNTS_DATA_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| AccountManager::default_data_dir());
-    let account_manager = match AccountManager::load(data_dir).await {
-        Ok(manager) => manager,
-        Err(e) => {
-            error!(error = %e, "Failed to load accounts store");
-            return;
-        }
-    };
+    let account_manager = AccountManager::load(data_dir)
+        .await
+        .context("Failed to load accounts store")?;
 
     // Bootstrap claim (appliance setup)
     match engine::ensure_owner_claim() {
@@ -101,4 +98,5 @@ async fn main() {
     );
 
     warp::serve(routes).run((config.host, config.port)).await;
+    Ok(())
 }

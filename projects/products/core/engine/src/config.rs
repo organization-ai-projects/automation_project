@@ -1,6 +1,8 @@
 // projects/products/core/engine/src/config.rs
 use std::{env, net::IpAddr, path::PathBuf};
 
+use anyhow::bail;
+
 use crate::CorsConfig;
 
 #[derive(Debug)]
@@ -14,7 +16,7 @@ pub struct EngineConfig {
 }
 
 impl EngineConfig {
-    pub fn from_env() -> Result<Self, String> {
+    pub fn from_env() -> anyhow::Result<Self> {
         let host = Self::env_ip("ENGINE_HOST", "127.0.0.1")?;
         let port = Self::env_u16("ENGINE_PORT", 3030)?;
         let projects_dir = Self::env_var("ENGINE_PROJECTS_DIR")
@@ -46,7 +48,7 @@ impl EngineConfig {
                 );
                 "CHANGE_ME_CHANGE_ME_CHANGE_ME_32CHARS_MIN!!".to_string()
             }
-            None => return Err("ENGINE_JWT_SECRET is required".to_string()),
+            None => bail!("ENGINE_JWT_SECRET is required"),
         };
 
         Ok(Self {
@@ -66,13 +68,13 @@ impl EngineConfig {
             .filter(|s| !s.is_empty())
     }
 
-    pub fn env_u16(key: &str, default: u16) -> Result<u16, String> {
+    pub fn env_u16(key: &str, default: u16) -> anyhow::Result<u16> {
         Ok(Self::env_var(key)
             .and_then(|v| v.parse::<u16>().ok())
             .unwrap_or(default))
     }
 
-    pub fn env_ip(key: &str, default: &str) -> Result<IpAddr, String> {
+    pub fn env_ip(key: &str, default: &str) -> anyhow::Result<IpAddr> {
         Ok(Self::env_var(key)
             .and_then(|v| v.parse::<IpAddr>().ok())
             .unwrap_or_else(|| default.parse::<IpAddr>().expect("default ip invalid")))
