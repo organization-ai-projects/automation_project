@@ -204,12 +204,16 @@ mod accounts_web {
                             let body = SetupAdminInput { user_id, password };
                             let payload =
                                 common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
-                            match Request::post("/api/setup/admin")
+                            let request = match Request::post("/api/setup/admin")
                                 .header("Content-Type", "application/json")
-                                .body(payload).unwrap()
-                                .send()
-                                .await
-                            {
+                                .body(payload) {
+                                Ok(r) => r,
+                                Err(e) => {
+                                    setup_msg.set(format!("Failed to create request: {e}"));
+                                    return;
+                                }
+                            };
+                            match request.send().await {
                                 Ok(resp) => {
                                     let status = resp.status();
                                     let text = resp.text().await.unwrap_or_default();
@@ -257,12 +261,16 @@ mod accounts_web {
                                 session_id: None,
                             };
                             let payload = common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
-                            match Request::post("/api/login")
+                            let request = match Request::post("/api/login")
                                 .header("Content-Type", "application/json")
-                                .body(payload).unwrap()
-                                .send()
-                                .await
-                            {
+                                .body(payload) {
+                                Ok(r) => r,
+                                Err(e) => {
+                                    token_msg.set(format!("Failed to create request: {e}"));
+                                    return;
+                                }
+                            };
+                            match request.send().await {
                                 Ok(resp) => {
                                     let status = resp.status();
                                     let text = resp.text().await.unwrap_or_default();
@@ -464,14 +472,18 @@ mod accounts_web {
         };
         let payload = common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
         spawn(async move {
-            match Request::post("/api/accounts/users")
+            let request = match Request::post("/api/accounts/users")
                 .header("authorization", &format!("Bearer {token}"))
                 .header("Content-Type", "application/json")
                 .body(payload)
-                .unwrap()
-                .send()
-                .await
             {
+                Ok(r) => r,
+                Err(e) => {
+                    msg.set(format!("Failed to create request: {e}"));
+                    return;
+                }
+            };
+            match request.send().await {
                 Ok(resp) => {
                     let status = resp.status();
                     let text = resp.text().await.unwrap_or_default();
@@ -508,14 +520,18 @@ mod accounts_web {
         let payload = common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
         let user_id_val = user_id.read().clone();
         spawn(async move {
-            match Request::patch(&format!("/api/accounts/users/{user_id_val}"))
+            let request = match Request::patch(&format!("/api/accounts/users/{user_id_val}"))
                 .header("authorization", &format!("Bearer {token}"))
                 .header("Content-Type", "application/json")
                 .body(payload)
-                .unwrap()
-                .send()
-                .await
             {
+                Ok(r) => r,
+                Err(e) => {
+                    msg.set(format!("Failed to create request: {e}"));
+                    return;
+                }
+            };
+            match request.send().await {
                 Ok(resp) => {
                     let status = resp.status();
                     let text = resp.text().await.unwrap_or_default();
@@ -550,14 +566,18 @@ mod accounts_web {
         let payload = common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
         let user_id_val = user_id.read().clone();
         spawn(async move {
-            match Request::post(&format!("/api/accounts/users/{user_id_val}/status"))
+            let request = match Request::post(&format!("/api/accounts/users/{user_id_val}/status"))
                 .header("authorization", &format!("Bearer {token}"))
                 .header("Content-Type", "application/json")
                 .body(payload)
-                .unwrap()
-                .send()
-                .await
             {
+                Ok(r) => r,
+                Err(e) => {
+                    msg.set(format!("Failed to create request: {e}"));
+                    return;
+                }
+            };
+            match request.send().await {
                 Ok(resp) => {
                     let status_code = resp.status();
                     let text = resp.text().await.unwrap_or_default();
@@ -591,14 +611,19 @@ mod accounts_web {
         let payload = common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
         let user_id_val = user_id.read().clone();
         spawn(async move {
-            match Request::post(&format!("/api/accounts/users/{user_id_val}/reset_password"))
-                .header("authorization", &format!("Bearer {token}"))
-                .header("Content-Type", "application/json")
-                .body(payload)
-                .unwrap()
-                .send()
-                .await
-            {
+            let request =
+                match Request::post(&format!("/api/accounts/users/{user_id_val}/reset_password"))
+                    .header("authorization", &format!("Bearer {token}"))
+                    .header("Content-Type", "application/json")
+                    .body(payload)
+                {
+                    Ok(r) => r,
+                    Err(e) => {
+                        msg.set(format!("Failed to create request: {e}"));
+                        return;
+                    }
+                };
+            match request.send().await {
                 Ok(resp) => {
                     let status = resp.status();
                     let text = resp.text().await.unwrap_or_default();
