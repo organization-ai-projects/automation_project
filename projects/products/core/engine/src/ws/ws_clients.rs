@@ -28,7 +28,7 @@ impl WsClient {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to send message: {}", e))?;
 
-        // Réception de la réponse
+        // Receive the response
         if let Some(Ok(Message::Text(response))) = ws_stream.next().await {
             return Ok(response.to_string());
         }
