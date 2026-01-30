@@ -2,7 +2,8 @@
 #[cfg(test)]
 mod unit_tests {
     use super::super::suggestions::{PolicySuggestion, suggest_policy_from_report};
-    use crate::autopilot::{AutopilotPolicy, AutopilotReport, ClassifiedChanges, GitChange};
+    use crate::autopilot::{AutopilotPolicy, AutopilotReport};
+    use crate::classified_changes::ClassifiedChanges;
 
     #[test]
     fn test_suggestion_with_unrelated_changes() {
@@ -10,18 +11,10 @@ mod unit_tests {
             mode: Default::default(),
             branch: "main".to_string(),
             detached_head: false,
-            changes: vec![GitChange {
-                xy: [32, 77],
-                path: "README.md".to_string(),
-                orig_path: None,
-            }],
+            changes: vec!["README.md".to_string()],
             classified: ClassifiedChanges {
                 relevant: vec![],
-                unrelated: vec![GitChange {
-                    xy: [32, 77],
-                    path: "unrelated/file.rs".to_string(),
-                    orig_path: None,
-                }],
+                unrelated: vec!["unrelated/file.rs".to_string()],
                 blocked: vec![],
             },
             plan: Default::default(),

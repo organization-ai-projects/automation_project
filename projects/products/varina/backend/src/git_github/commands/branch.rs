@@ -1,7 +1,7 @@
 //! projects/products/varina/backend/src/git_github/commands/branch.rs
 use std::path::Path;
 
-use crate::AutopilotError;
+use crate::autopilot::AutopilotError;
 
 // Retrieves the current branch name and checks if the HEAD is detached.
 pub fn current_branch(

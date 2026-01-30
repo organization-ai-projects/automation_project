@@ -1,7 +1,7 @@
 //! projects/products/varina/backend/src/classified_changes_ref.rs
 
 //internal
-use crate::ClassifiedChanges;
+use crate::classified_changes::ClassifiedChanges;
 
 /// Classification of changes according to policy (borrowed, zero-clone).
 #[derive(Debug, Clone)]

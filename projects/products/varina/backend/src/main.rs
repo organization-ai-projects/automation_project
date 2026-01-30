@@ -1,6 +1,15 @@
 //! projects/products/varina/backend/src/main.rs
-use backend::app::run_backend;
+mod app;
+mod automation;
+mod autopilot;
+mod cargo;
+mod classified_changes;
+mod classified_changes_ref;
+mod git_github;
+mod policy_evaluation;
+mod pre_checks;
+mod router;
 
 fn main() -> anyhow::Result<()> {
-    run_backend()
+    app::run_backend()
 }
