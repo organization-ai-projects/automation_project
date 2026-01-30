@@ -1,7 +1,8 @@
 // projects/products/accounts/backend/src/store/account_record.rs
-use crate::store::account_status::AccountStatus;
+use protocol::accounts::AccountStatus;
 use security::{Permission, Role};
 
+//replace user_id issue #67
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AccountRecord {
     pub user_id: String,

@@ -2,29 +2,23 @@
 use std::str::FromStr;
 
 use protocol::accounts::{
-    AccountsListResponse, CreateAccountRequest, ResetPasswordRequest, UpdateAccountRequest,
-    UpdateStatusRequest,
+    AccountStatus, AccountsListResponse, CreateAccountRequest, ResetPasswordRequest,
+    UpdateAccountRequest, UpdateStatusRequest,
 };
 use protocol::{Command, Event, Metadata};
 use security::Role;
 
 use crate::router::helpers::{
-    err_event, get_user_id, map_store_error, map_summary, ok_payload, ok_payload_json,
-    parse_permissions, payload_as,
+    err_event, get_user_id, map_store_error, ok_payload, ok_payload_json, parse_permissions,
+    payload_as,
 };
 use crate::store::account_manager::AccountManager;
-use crate::store::account_status::AccountStatus;
 use crate::store::account_store_error::AccountStoreError;
 
 use super::command_router::{PAYLOAD_ACCOUNT, PAYLOAD_ACCOUNTS_LIST, PAYLOAD_OK};
 
 pub async fn handle_list_users(meta: &Metadata, manager: &AccountManager) -> Event {
-    let users = manager
-        .list()
-        .await
-        .into_iter()
-        .map(map_summary)
-        .collect::<Vec<_>>();
+    let users = manager.list().await.into_iter().collect::<Vec<_>>();
     ok_payload(
         meta,
         "AccountsList",
@@ -40,7 +34,7 @@ pub async fn handle_get_user(meta: &Metadata, cmd: &Command, manager: &AccountMa
     };
 
     match manager.get(&user_id).await {
-        Ok(user) => ok_payload(meta, "Account", PAYLOAD_ACCOUNT, map_summary(user)),
+        Ok(user) => ok_payload(meta, "Account", PAYLOAD_ACCOUNT, user),
         Err(err) => map_store_error(meta, err),
     }
 }
@@ -123,7 +117,7 @@ pub async fn handle_update_status(
 
     let status = match AccountStatus::from_str(&req.status) {
         Ok(s) => s,
-        Err(_) => return err_event(meta, 400, "Invalid status"),
+        Err(_) => return map_store_error(meta, AccountStoreError::InvalidStatus),
     };
 
     match manager.update_status(&user_id, status, "system").await {

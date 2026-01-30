@@ -3,12 +3,10 @@ use std::str::FromStr;
 
 use common::Id128;
 use common_json::{Json, JsonMap, from_value, to_json_string, to_value};
-use protocol::accounts::AccountSummary as ProtocolAccountSummary;
 use protocol::{Command, Event, EventType, EventVariant, Metadata, Payload};
 use security::Permission;
 
 use crate::store::account_store_error::AccountStoreError;
-use crate::store::account_summary::AccountSummary;
 
 pub fn payload_as<T>(cmd: &Command) -> Result<T, String>
 where
@@ -35,22 +33,6 @@ pub fn get_user_id(cmd: &Command) -> Result<String, String> {
     match map.get("user_id") {
         Some(Json::String(id)) if !id.trim().is_empty() => Ok(id.clone()),
         _ => Err("Missing user_id".to_string()),
-    }
-}
-
-pub fn map_summary(summary: AccountSummary) -> ProtocolAccountSummary {
-    ProtocolAccountSummary {
-        user_id: summary.user_id,
-        role: summary.role.as_str().to_string(),
-        permissions: summary
-            .permissions
-            .into_iter()
-            .map(|p| p.as_str().to_string())
-            .collect(),
-        status: summary.status.as_str().to_string(),
-        created_at_ms: summary.created_at_ms,
-        updated_at_ms: summary.updated_at_ms,
-        last_login_ms: summary.last_login_ms,
     }
 }
 

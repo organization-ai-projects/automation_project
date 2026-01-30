@@ -7,11 +7,11 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 
 use crate::store::account_record::AccountRecord;
-use crate::store::account_status::AccountStatus;
 use crate::store::account_store_error::AccountStoreError;
-use crate::store::account_summary::AccountSummary;
 use crate::store::accounts_file::AccountsFile;
 use crate::store::audit_entry::AuditEntry;
+use protocol::accounts::AccountStatus;
+use protocol::accounts::AccountSummary;
 
 #[derive(Clone)]
 pub struct AccountManager {
@@ -87,9 +87,13 @@ impl AccountManager {
             .values()
             .map(|u| AccountSummary {
                 user_id: u.user_id.clone(),
-                role: u.role,
-                permissions: self.effective_permissions(u),
-                status: u.status,
+                role: u.role.to_string(),
+                permissions: self
+                    .effective_permissions(u)
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect(),
+                status: u.status.to_string(),
                 created_at_ms: u.created_at_ms,
                 updated_at_ms: u.updated_at_ms,
                 last_login_ms: u.last_login_ms,
@@ -102,9 +106,13 @@ impl AccountManager {
         let user = users.get(user_id).ok_or(AccountStoreError::NotFound)?;
         Ok(AccountSummary {
             user_id: user.user_id.clone(),
-            role: user.role,
-            permissions: self.effective_permissions(user),
-            status: user.status,
+            role: user.role.to_string(),
+            permissions: self
+                .effective_permissions(user)
+                .iter()
+                .map(|p| p.to_string())
+                .collect(),
+            status: user.status.to_string(),
             created_at_ms: user.created_at_ms,
             updated_at_ms: user.updated_at_ms,
             last_login_ms: user.last_login_ms,

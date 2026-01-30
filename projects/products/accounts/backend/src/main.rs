@@ -2,12 +2,14 @@
 mod router;
 mod store;
 
+use std::str::FromStr;
 use std::{path::PathBuf, time::Duration};
 
 use anyhow::Context;
 use bytes::Bytes;
 use common::Id128;
 use futures_util::{SinkExt, StreamExt};
+use protocol::protocol_id::ProtocolId;
 use protocol::{Command, CommandType, Metadata, Payload};
 use security::{Role, TokenService};
 use serde::Serialize;
@@ -18,8 +20,8 @@ use crate::store::account_manager::AccountManager;
 
 #[derive(Debug, Serialize)]
 struct BackendHello {
-    product_id: String,
-    instance_id: String,
+    product_id: ProtocolId,
+    instance_id: ProtocolId,
     capabilities: Vec<String>,
     routes: Vec<String>,
 }
@@ -50,6 +52,14 @@ async fn main() -> anyhow::Result<()> {
         .issue(subject, Role::Admin, 24 * 60 * 60 * 1000, None)
         .context("issue token")?;
 
+    let product_id_raw = std::env::var("ENGINE_ACCOUNTS_PRODUCT_ID")
+        .or_else(|_| std::env::var("ACCOUNTS_PRODUCT_ID"))
+        .context("ACCOUNTS_PRODUCT_ID env var is required")?;
+    let product_id =
+        ProtocolId::from_str(&product_id_raw).context("invalid ACCOUNTS_PRODUCT_ID")?;
+
+    let instance_id = ProtocolId::new(subject);
+
     let ws_url = format!("{engine_ws}?token={token}");
     info!(%ws_url, "Connecting accounts backend");
 
@@ -59,8 +69,8 @@ async fn main() -> anyhow::Result<()> {
     let (mut tx, mut rx) = ws_stream.split();
 
     let hello = BackendHello {
-        product_id: "accounts".to_string(),
-        instance_id: format!("accounts-{}", subject.to_hex()),
+        product_id,
+        instance_id,
         capabilities: vec!["auth".to_string(), "accounts".to_string()],
         routes: vec![],
     };
