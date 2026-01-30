@@ -12,7 +12,6 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
 # Save current branch to restore on exit (handle detached HEAD safely)
 INITIAL_BRANCH="$(git branch --show-current 2>/dev/null || true)"
-trap '[[ -n "${INITIAL_BRANCH:-}" ]] && git switch "$INITIAL_BRANCH" >/dev/null 2>&1 || true' EXIT
 
 # shellcheck source=scripts/common_lib/core/logging.sh
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
@@ -26,6 +25,53 @@ require_cmd git
 require_cmd gh
 require_cmd jq
 require_git_repo
+
+# Find all merged branches (upstream gone + merged into main)
+MERGED_BRANCHES=()
+while IFS= read -r branch; do
+  # Skip main and dev
+  [[ "$branch" == "main" || "$branch" == "dev" ]] && continue
+
+  # Check if upstream is gone
+  if ! git rev-parse --abbrev-ref "$branch@{upstream}" >/dev/null 2>&1; then
+    # Check if branch is merged into main (only main is guaranteed up-to-date)
+    if git merge-base --is-ancestor "$branch" main 2>/dev/null; then
+      MERGED_BRANCHES+=("$branch")
+    fi
+  fi
+done < <(git branch --format='%(refname:short)')
+
+# Propose to delete all merged branches at once
+SHOULD_DELETE_INITIAL_BRANCH=false
+if [[ ${#MERGED_BRANCHES[@]} -gt 0 ]]; then
+  echo ""
+  echo "⚠️  Found ${#MERGED_BRANCHES[@]} merged branch(es) with gone upstream:"
+  for branch in "${MERGED_BRANCHES[@]}"; do
+    echo "   - $branch"
+  done
+  read -rp "Delete all these branches? [Y/n] " delete_choice
+  if [[ ! "$delete_choice" =~ ^[Nn] ]]; then
+    # Check if current branch will be deleted
+    for branch in "${MERGED_BRANCHES[@]}"; do
+      if [[ "$branch" == "$INITIAL_BRANCH" ]]; then
+        SHOULD_DELETE_INITIAL_BRANCH=true
+        INITIAL_BRANCH=""  # Don't restore it
+        break
+      fi
+    done
+  else
+    MERGED_BRANCHES=()  # Clear array if user said no
+  fi
+fi
+
+# Set trap to restore branch at exit (only if not deleting)
+trap 'if [[ -n "${INITIAL_BRANCH:-}" ]]; then
+  if git rev-parse --abbrev-ref "${INITIAL_BRANCH}@{upstream}" >/dev/null 2>&1; then
+    git switch "$INITIAL_BRANCH" >/dev/null 2>&1 || true
+  else
+    warn "Upstream missing for $INITIAL_BRANCH. Staying on dev."
+  fi
+fi' EXIT
 
 # Function to validate branch name
 validate_branch_name() {
@@ -53,6 +99,8 @@ echo ""
 # Step 1: Synchronize dev with main
 info "Step 1/3: Synchronizing dev with main..."
 echo ""
+# Switch to dev before running sync (avoid issues with orphaned branches)
+git switch dev >/dev/null 2>&1 || die "Failed to switch to dev branch"
 if bash "$SCRIPT_DIR/../read/synch_main_dev.sh"; then
   info "✓ Synchronization complete"
 else
@@ -108,11 +156,11 @@ case "$choice" in
     BRANCH_NAME="${BRANCH_TYPE}/issue-${ISSUE_NUM}-${ISSUE_TITLE}"
 
     info "Generated branch name: $BRANCH_NAME"
-      validate_branch_name "$BRANCH_NAME"
     read -rp "Confirm? [Y/n] " confirm
     if [[ "$confirm" =~ ^[Nn] ]]; then
       read -rp "Enter custom branch name: " BRANCH_NAME
     fi
+    validate_branch_name "$BRANCH_NAME"
 
     bash "$ROOT_DIR/scripts/versioning/file_versioning/git/create_branch.sh" "$BRANCH_NAME"
     ;;
@@ -140,3 +188,18 @@ esac
 
 echo ""
 info "✅ Workflow complete! Ready to start coding."
+
+# Delete merged branches if user requested it
+if [[ ${#MERGED_BRANCHES[@]} -gt 0 ]]; then
+  echo ""
+  info "Deleting merged branches..."
+  for branch in "${MERGED_BRANCHES[@]}"; do
+    if git branch -d "$branch" 2>/dev/null; then
+      info "✓ Deleted: $branch"
+    else
+      # Force delete if needed
+      git branch -D "$branch"
+      info "✓ Force deleted: $branch"
+    fi
+  done
+fi

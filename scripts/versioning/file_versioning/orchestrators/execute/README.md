@@ -23,7 +23,8 @@ Orchestrates three steps:
 - Validates all dependencies at startup (fail-fast)
 - Enforces branch naming conventions
 - Allows issue-based branch creation with auto-naming
-- Supports custom branch names with validation
+- Supports custom branch names with validation after confirmation
+- Skips `main` and `dev` branches during cleanup
 - Safe branch switching on exit (handles detached HEAD)
 
 ### `ci_watch_pr.sh`
