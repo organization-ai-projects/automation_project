@@ -1,4 +1,4 @@
-// projects/libraries/command_runner/src/cdm_log.rs
+// projects/libraries/command_runner/src/cmd_log.rs
 use std::process::Output;
 
 use common::{trim_lossy, truncate_utf8};
