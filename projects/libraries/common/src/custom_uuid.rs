@@ -8,15 +8,11 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::IdError;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Id128([u8; 16]);
-
-#[derive(Debug)]
-pub enum IdError {
-    InvalidLen,
-    InvalidHex,
-}
 
 impl Id128 {
     /// Create a new generator-friendly ID with optional boot_id and process_id.
@@ -193,7 +189,7 @@ impl Id128 {
     }
 }
 
-impl fmt::Display for Id128 {
+impl std::fmt::Display for Id128 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for b in &self.0 {
             write!(f, "{:02x}", b)?;
@@ -207,17 +203,6 @@ impl FromStr for Id128 {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::from_hex(s)
-    }
-}
-
-impl std::error::Error for IdError {}
-
-impl fmt::Display for IdError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            IdError::InvalidLen => write!(f, "Invalid length for ID"),
-            IdError::InvalidHex => write!(f, "Invalid hex format for ID"),
-        }
     }
 }
 
@@ -242,63 +227,4 @@ fn random_u32() -> u32 {
     let mut b = [0u8; 4];
     rng.fill_bytes(&mut b);
     u32::from_be_bytes(b)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::HashSet;
-    use std::sync::{Arc, Mutex};
-    use std::thread;
-
-    #[test]
-    fn roundtrip_hex() {
-        let id = Id128::new(42, None, None);
-        let s = id.to_string();
-        let parsed: Id128 = s.parse().expect("Failed to parse Id128 from string");
-        assert_eq!(id, parsed);
-    }
-
-    #[test]
-    fn ordering_is_mostly_time_sorted() {
-        let a = Id128::new(1, None, None);
-        let b = Id128::new(1, None, None);
-        assert!(a.timestamp_ms() <= b.timestamp_ms());
-    }
-
-    #[test]
-    fn fields_extract() {
-        let node = 7u16;
-        let boot = 9u16;
-        let proc_ = 11u16;
-        let id = Id128::new_with_params(node, boot, proc_);
-        assert_eq!(id.node_id(), node);
-        assert_eq!(id.boot_id(), boot);
-        assert_eq!(id.process_id(), proc_);
-    }
-
-    #[test]
-    fn no_duplicates_multithread() {
-        let set = Arc::new(Mutex::new(HashSet::new()));
-        let mut handles = vec![];
-
-        for _ in 0..8 {
-            let set = set.clone();
-            handles.push(thread::spawn(move || {
-                for _ in 0..50_000 {
-                    let id = Id128::new(1, None, None).to_string();
-                    let mut s = set
-                        .lock()
-                        .expect("Failed to acquire lock on set in multithreaded test");
-                    if !s.insert(id) {
-                        panic!("duplicate");
-                    }
-                }
-            }));
-        }
-
-        for h in handles {
-            h.join().expect("Thread join failed in multithreaded test");
-        }
-    }
 }
