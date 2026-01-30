@@ -1,36 +1,36 @@
 # Git Hooks
 
-Git hooks personnalisés pour assurer la qualité du code et des commits.
+Custom git hooks to ensure code and commit quality.
 
-## Hooks disponibles
+## Available hooks
 
 ### `commit-msg`
 
-Valide le format des messages de commit selon les conventions du projet.
+Validates commit message format according to project conventions.
 
-**Format attendu:**
+**Expected format:**
 
 ```plaintext
 <type>(<scope>): <message>
 ```
 
-ou
+or
 
 ```plaintext
 <type>: <message>
 ```
 
-**Types autorisés:**
+**Allowed types:**
 
-- `feature`, `feat` - Nouvelle fonctionnalité
-- `fix` - Correction de bug
-- `fixture` - Données de test ou fixtures
+- `feature`, `feat` - New feature
+- `fix` - Bug fix
+- `fixture` - Test data or fixtures
 - `doc`, `docs` - Documentation
-- `refactor` - Refactorisation
+- `refactor` - Refactoring
 - `test`, `tests` - Tests
-- `chore` - Tâches de maintenance
+- `chore` - Maintenance tasks
 
-**Exemples valides:**
+**Valid examples:**
 
 ```bash
 feat(auth): add user authentication
@@ -39,7 +39,7 @@ docs(readme): update installation instructions
 refactor(api): simplify error handling
 ```
 
-**Bypass (urgence uniquement):**
+**Bypass (emergency only):**
 
 ```bash
 SKIP_COMMIT_VALIDATION=1 git commit -m "emergency fix"
@@ -47,13 +47,13 @@ SKIP_COMMIT_VALIDATION=1 git commit -m "emergency fix"
 
 ### `pre-commit`
 
-Exécute le formatage du code avant chaque commit :
+Runs code formatting before each commit:
 
-1. **Formatage** : `cargo fmt --all`
+1. **Formatting**: `cargo fmt --all`
 
-Ajoute automatiquement les fichiers formatés au staging.
+Automatically adds formatted files to staging.
 
-**Bypass (urgence uniquement):**
+**Bypass (emergency only):**
 
 ```bash
 SKIP_PRE_COMMIT=1 git commit -m "message"
@@ -61,25 +61,25 @@ SKIP_PRE_COMMIT=1 git commit -m "message"
 
 ### `pre-push`
 
-Exécute les vérifications de qualité avant chaque push, **avec détection de scope intelligent** :
+Runs quality checks before each push, **with smart scope detection**:
 
-1. **Formatage** : `cargo fmt --all --check`
-2. **Linting** : `cargo clippy` (seulement sur les crates affectés)
-3. **Tests** : `cargo test` (seulement sur les crates affectés)
+1. **Formatting**: `cargo fmt --all --check`
+2. **Linting**: `cargo clippy` (only on affected crates)
+3. **Tests**: `cargo test` (only on affected crates)
 
-#### Détection de scope
+#### Scope detection
 
-Le hook analyse les fichiers modifiés et ne teste que les crates concernés :
+The hook analyzes changed files and only tests the impacted crates:
 
 ```plaintext
-projects/products/accounts/backend/src/...  → teste accounts-backend
-projects/libraries/security/src/...         → teste security
-projects/products/core/engine/src/...       → teste engine
+projects/products/accounts/backend/src/...  → tests accounts-backend
+projects/libraries/security/src/...         → tests security
+projects/products/core/engine/src/...       → tests engine
 ```
 
-Si aucune modification n'est détectée, un test complet du workspace est lancé.
+If no changes are detected, a full workspace test is run.
 
-**Bypass (urgence uniquement):**
+**Bypass (emergency only):**
 
 ```bash
 SKIP_PRE_PUSH=1 git push
@@ -87,40 +87,40 @@ SKIP_PRE_PUSH=1 git push
 
 ## Installation
 
-Exécutez le script d'installation :
+Run the installation script:
 
 ```bash
 ./scripts/git_hooks/install_hooks.sh
 ```
 
-Ce script copie les hooks dans `.git/hooks/` et les rend exécutables.
+This script copies the hooks into `.git/hooks/` and makes them executable.
 
 ## Architecture
 
-Les hooks sont :
+The hooks are:
 
-- **Custom bash scripts** - Cohérents avec l'infrastructure existante
-- **Autonomes** - Pas de dépendances externes (npm, cargo-husky, etc.)
-- **Bypassables** - Variables d'environnement pour les urgences
-- **Informatifs** - Messages clairs sur ce qui est vérifié et comment corriger
-- **Intelligents** - Détection de scope pour éviter les tests inutiles
+- **Custom bash scripts** - Consistent with the existing infrastructure
+- **Autonomous** - No external dependencies (npm, cargo-husky, etc.)
+- **Bypassable** - Environment variables for emergencies
+- **Informative** - Clear messages about what is checked and how to fix it
+- **Smart** - Scope detection to avoid unnecessary tests
 
 ## Maintenance
 
-Pour mettre à jour les hooks après modification :
+To update the hooks after changes:
 
 ```bash
 ./scripts/git_hooks/install_hooks.sh
 ```
 
-Pour désactiver temporairement un hook :
+To temporarily disable a hook:
 
 ```bash
-# Renommer le hook dans .git/hooks/
+# Rename the hook in .git/hooks/
 mv .git/hooks/pre-push .git/hooks/pre-push.disabled
 ```
 
-Pour le réactiver :
+To re-enable it:
 
 ```bash
 mv .git/hooks/pre-push.disabled .git/hooks/pre-push

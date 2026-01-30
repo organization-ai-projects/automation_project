@@ -4,7 +4,7 @@
 
 This document provides an overview of the Git workflow pipeline for the `automation_project`. Each step links to a detailed guide.
 
-Pour l'automatisation de ces workflows, consultez la [documentation des scripts](../../../../../../scripts/README.md).
+For automating these workflows, see the [scripts documentation](../../../../../../scripts/README.md).
 
 ## Table of Contents
 

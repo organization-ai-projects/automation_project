@@ -1,55 +1,55 @@
-# Scripts d'Automatisation
+# Automation Scripts
 
-## Vue d'ensemble
+## Overview
 
-Dans la volonté de faciliter et structurer le travail de l'équipe, des scripts d'automatisation ont été créés pour gérer les tâches répétitives et les workflows critiques du projet.
+To make the team's work easier and more structured, automation scripts were created to handle repetitive tasks and critical project workflows.
 
-Ces scripts couvrent plusieurs domaines :
+These scripts cover several areas:
 
-- **Automatisation générale** : Build UI, synchronisation documentation, validation de bundles
-- **Gestion des versions** : Gestion Git (branches, commits, synchronisation), workflows GitHub (pull requests, issues)
-- **Bibliothèques communes** : Utilitaires réutilisables (logging, opérations fichiers, commandes, réseau)
+- **General automation**: Build UI, documentation sync, bundle validation
+- **Version management**: Git operations (branches, commits, sync), GitHub workflows (pull requests, issues)
+- **Common libraries**: Reusable utilities (logging, file operations, commands, network)
 
-## Documentation des Scripts
+## Scripts Documentation
 
-**La documentation complète et pratique sur l'utilisation des scripts se trouve dans le répertoire `scripts/` à la racine du projet.**
+**The complete, practical documentation for script usage lives in the `scripts/` directory at the project root.**
 
-Pour consulter :
+See:
 
-- **[README Principal des Scripts](../../scripts/README.md)** : Vue d'ensemble de l'organisation et philosophie
-- **[Scripts d'Automatisation](../../scripts/automation/README.md)** : Documentation des scripts automation (build UI, sync docs, etc.)
-- **[Scripts de Versioning](../../scripts/versioning/README.md)** : Documentation des scripts Git et GitHub
-- **[Bibliothèques Communes](../../scripts/common_lib/README.md)** : Documentation des utilitaires réutilisables
+- **[Main Scripts README](../../scripts/README.md)**: Overview of organization and philosophy
+- **[Automation Scripts](../../scripts/automation/README.md)**: Automation script docs (build UI, sync docs, etc.)
+- **[Versioning Scripts](../../scripts/versioning/README.md)**: Git and GitHub script docs
+- **[Common Libraries](../../scripts/common_lib/README.md)**: Reusable utilities documentation
 
-## Principes et Standards
+## Principles and Standards
 
-Les scripts respectent les principes suivants :
+The scripts follow these principles:
 
-1. **Robustesse** : Tous les scripts utilisent `set -euo pipefail` pour une gestion stricte des erreurs
-2. **Modularité** : Les fonctions communes sont centralisées dans `scripts/common_lib/`
-3. **Documentation** : Chaque script est documenté avec son usage, ses paramètres et des exemples
-4. **Maintenabilité** : Code clair avec logging cohérent et messages d'erreur explicites
-5. **Sécurité** : Validation des entrées, gestion des credentials, opérations atomiques
+1. **Robustness**: All scripts use `set -euo pipefail` for strict error handling
+2. **Modularity**: Common functions live in `scripts/common_lib/`
+3. **Documentation**: Each script is documented with usage, parameters, and examples
+4. **Maintainability**: Clear code with consistent logging and explicit error messages
+5. **Security**: Input validation, credential handling, atomic operations
 
-## Workflows et Conventions
+## Workflows and Conventions
 
-Ce répertoire (`technical_documentation/`) contient les guides conceptuels sur les workflows d'équipe et les conventions :
+This directory (`technical_documentation/`) contains conceptual guides for team workflows and conventions:
 
-- **[Workflows Git](versioning/file_versioning/git/)** : Conventions et processus pour le versioning
-- **[Workflows GitHub](versioning/file_versioning/github/)** : Conventions pour les pull requests, issues, etc.
-- **[Automatisation de Documentation](automation/)** : Processus de génération et synchronisation
+- **[Git Workflows](versioning/file_versioning/git/)**: Conventions and processes for versioning
+- **[GitHub Workflows](versioning/file_versioning/github/)**: Conventions for pull requests, issues, etc.
+- **[Documentation Automation](automation/)**: Generation and synchronization processes
 
-Ces documents décrivent **pourquoi** et **comment** travailler en équipe, tandis que `scripts/` décrit **comment utiliser** les outils pratiques.
+These documents describe **why** and **how** to work as a team, while `scripts/` describes **how to use** the practical tools.
 
-## Séparation des Responsabilités
+## Separation of Responsibilities
 
-| Emplacement                | Contenu                                                   | Objectif                             |
-| -------------------------- | --------------------------------------------------------- | ------------------------------------ |
-| `technical_documentation/` | Workflows, conventions, philosophie, guides conceptuels   | Comprendre les processus d'équipe    |
-| `scripts/`                 | Documentation pratique des scripts, utilisation, exemples | Utiliser les outils d'automatisation |
+| Location                   | Content                                                   | Purpose                               |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------- |
+| `technical_documentation/` | Workflows, conventions, philosophy, conceptual guides     | Understand team processes             |
+| `scripts/`                 | Practical script docs, usage, examples                    | Use the automation tools              |
 
-## Note Importante
+## Important Note
 
-**Source Unique de Vérité** : Pour toute information sur l'utilisation pratique d'un script (paramètres, options, exemples), consultez toujours la documentation dans `scripts/`. C'est la seule source maintenue pour l'usage pratique des scripts.
+**Single Source of Truth**: For any practical usage info (parameters, options, examples), always consult the documentation in `scripts/`. That is the only maintained source for practical script usage.
 
-Les documents dans `technical_documentation/` peuvent référencer les scripts mais ne doivent jamais dupliquer leur documentation d'utilisation.
+Documents in `technical_documentation/` may reference scripts but must never duplicate their usage documentation.

@@ -60,4 +60,4 @@ If you want to keep a working branch for later:
 
 ## Automation Available
 
-Pour automatiser le nettoyage après un PR, consultez la [documentation des scripts](../../../../../../scripts/versioning/file_versioning/git/README.md).
+To automate cleanup after a PR, see the [scripts documentation](../../../../../../scripts/versioning/file_versioning/git/README.md).

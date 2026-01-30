@@ -59,4 +59,4 @@ This document explains how to create and manage branches in the `automation_proj
 
 ## Automation Available
 
-Pour automatiser la création de branches, consultez la [documentation des scripts](../../../../../../scripts/versioning/file_versioning/git/README.md).
+To automate branch creation, see the [scripts documentation](../../../../../../scripts/versioning/file_versioning/git/README.md).

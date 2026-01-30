@@ -31,7 +31,7 @@ impl std::str::FromStr for AccountStatus {
     }
 }
 
-// Implémentation de Display pour AccountStatus
+// Display implementation for AccountStatus
 impl std::fmt::Display for AccountStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)

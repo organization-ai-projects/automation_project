@@ -81,7 +81,7 @@ impl FromStr for Permission {
     }
 }
 
-// Implémentation de Display pour Permission
+// Display implementation for Permission
 impl std::fmt::Display for Permission {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)

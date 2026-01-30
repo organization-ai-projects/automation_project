@@ -8,7 +8,7 @@ This document lists the various sections of the internal documentation for the `
 
 - [Multi-project Organization](projects/organization.md): Overview of how the project is structured across multiple components.
 - [Automated Documentation](documentation.md): Details on how documentation is generated and maintained.
-- [Scripts d'Automatisation](scripts_automation.md): **Point d'entrée principal pour accéder à la documentation des scripts pratiques** (automation, versioning, bibliothèques communes).
+- [Automation Scripts](scripts_automation.md): **Primary entry point for practical script documentation** (automation, versioning, common libraries).
 - [Automation Index](automation/TOC.md): A deeper dive into automation-related documentation.
 - [System Processes](system_processes.md): How core processes are launched and supervised.
 - [Libraries and Symbolic Components](projects/projects_libraries.md): Information about shared libraries and symbolic components.

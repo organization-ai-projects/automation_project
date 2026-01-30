@@ -65,7 +65,7 @@ This document explains how to properly create a commit in the `automation_projec
 
 ## Automation Available
 
-Pour automatiser add + commit + push, consultez la [documentation des scripts](../../../../../../scripts/versioning/file_versioning/git/README.md).
+To automate add + commit + push, see the [scripts documentation](../../../../../../scripts/versioning/file_versioning/git/README.md).
 
 ## Commit Message Types
 

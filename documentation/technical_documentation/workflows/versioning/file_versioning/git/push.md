@@ -27,4 +27,4 @@ This document explains how to push changes to the remote repository in the `auto
 
 ## Automation Available
 
-Pour automatiser le push, consultez la [documentation des scripts](../../../../../../scripts/versioning/file_versioning/git/README.md).
+To automate the push, see the [scripts documentation](../../../../../../scripts/versioning/file_versioning/git/README.md).

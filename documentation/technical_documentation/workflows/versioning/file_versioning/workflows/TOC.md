@@ -4,4 +4,4 @@
 
 ## Team Workflows
 
-- [Synchronization After PR](sync_after_pr.md) - Guide conceptuel sur la synchronisation du dépôt après un merge de PR
+- [Synchronization After PR](sync_after_pr.md) - Conceptual guide to repository synchronization after a PR merge
