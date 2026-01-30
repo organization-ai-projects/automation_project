@@ -59,7 +59,12 @@ info "Creating PR for branch: $CURRENT_BRANCH → $BASE_BRANCH"
 if [[ -z "$TITLE" ]]; then
   # Extract type and description from branch name (e.g., feat/add-login → Add login)
   if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test)/(.+)$ ]]; then
-    TITLE="$(echo "$CURRENT_BRANCH" | sed -E 's|^(feat|fix|chore|refactor|docs|test)/|\U\1: |' | sed -E 's|-| |g')"
+    TYPE="${BASH_REMATCH[1]}"
+    DESC="${BASH_REMATCH[2]}"
+    # Capitalize first letter and replace hyphens with spaces
+    TYPE_CAPITALIZED="$(echo "${TYPE:0:1}" | tr '[:lower:]' '[:upper:]')${TYPE:1}"
+    DESC_FORMATTED="$(echo "$DESC" | sed -E 's|-| |g')"
+    TITLE="${TYPE_CAPITALIZED}: ${DESC_FORMATTED}"
   else
     TITLE="$CURRENT_BRANCH"
   fi
