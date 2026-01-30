@@ -11,47 +11,53 @@ use crate::normalization::normalize_rel;
 use crate::policies::PolicyConfig;
 
 #[derive(Clone)]
-pub struct Policy {
-    pub cfg: PolicyConfig,
+pub(crate) struct Policy {
+    pub(crate) cfg: PolicyConfig,
 }
 
 impl Policy {
-    pub fn new(cfg: PolicyConfig) -> Result<Self> {
+    pub(crate) fn new(cfg: PolicyConfig) -> Result<Self> {
         Ok(Self { cfg })
     }
 
-    pub fn config(&self) -> &PolicyConfig {
+    pub(crate) fn config(&self) -> &PolicyConfig {
         &self.cfg
     }
 
-    pub fn source_repo_root(&self) -> &Path {
+    pub(crate) fn source_repo_root(&self) -> &Path {
         &self.cfg.context.source_repo_root
     }
 
-    pub fn work_root(&self) -> &Path {
+    pub(crate) fn work_root(&self) -> &Path {
         &self.cfg.context.paths.work_root
     }
 
-    pub fn resolve_work_path_for_read(&self, rel: &str) -> Result<PathBuf> {
+    pub(crate) fn resolve_work_path_for_read(&self, rel: &str) -> Result<PathBuf> {
         self.resolve_work_path(rel, AccessKind::Read)
     }
 
-    pub fn resolve_work_path_for_write(&self, rel: &str) -> Result<PathBuf> {
+    pub(crate) fn resolve_work_path_for_write(&self, rel: &str) -> Result<PathBuf> {
         self.resolve_work_path(rel, AccessKind::Write)
     }
 
-    fn is_allowed(&self, rel_norm: &str, kind: AccessKind) -> bool {
+    fn is_allowed(&self, rel_norm: &str, kind: AccessKind) -> Result<bool> {
         match kind {
-            AccessKind::Read => self
-                .cfg
-                .allow_read_globs
-                .iter()
-                .any(|g| glob_match(rel_norm, g)),
-            AccessKind::Write => self
-                .cfg
-                .allow_write_globs
-                .iter()
-                .any(|g| glob_match(rel_norm, g)),
+            AccessKind::Read => {
+                for g in &self.cfg.allow_read_globs {
+                    if glob_match(rel_norm, g)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            AccessKind::Write => {
+                for g in &self.cfg.allow_write_globs {
+                    if glob_match(rel_norm, g)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
         }
     }
 
@@ -67,17 +73,14 @@ impl Policy {
         }
 
         // First checks forbidden paths
-        if self
-            .cfg
-            .forbid_globs
-            .iter()
-            .any(|g| glob_match(&rel_norm, g))
-        {
-            bail!("forbidden path by policy: {rel_norm}");
+        for g in &self.cfg.forbid_globs {
+            if glob_match(&rel_norm, g)? {
+                bail!("forbidden path by policy: {rel_norm}");
+            }
         }
 
         // Applies the deny-by-default logic
-        if !self.is_allowed(&rel_norm, kind) {
+        if !self.is_allowed(&rel_norm, kind)? {
             bail!("access not allowed by policy: {rel_norm}");
         }
 
@@ -95,7 +98,7 @@ impl Policy {
         Ok(abs)
     }
 
-    pub fn load_with_overrides(cfg: PolicyConfig, overrides_path: &Path) -> Result<Self> {
+    pub(crate) fn load_with_overrides(cfg: PolicyConfig, overrides_path: &Path) -> Result<Self> {
         let mut policy = Self::new(cfg)?;
 
         if overrides_path.exists() {
@@ -123,7 +126,7 @@ impl Policy {
 
     /// Authorizes an action based on the current policy rules.
     /// Returns an error if the action violates the policy.
-    pub fn authorize_action(&self, action: &actions::Action) -> anyhow::Result<()> {
+    pub(crate) fn authorize_action(&self, action: &actions::Action) -> anyhow::Result<()> {
         let err = |e: anyhow::Error| e.context("Policy authorization failed");
 
         match action {
@@ -162,57 +165,11 @@ impl Policy {
 /// IMPORTANT: you already have this function used by SandboxFs.
 /// Keep your existing implementation if you have one.
 /// This fallback is minimal.
-pub fn glob_match(path: &str, pattern: &str) -> bool {
+pub fn glob_match(path: &str, pattern: &str) -> Result<bool> {
     use globset::{Glob, GlobMatcher};
 
-    let glob = Glob::new(pattern).expect("Invalid glob pattern");
+    let glob = Glob::new(pattern).context("Invalid glob pattern")?;
     let matcher: GlobMatcher = glob.compile_matcher();
 
-    matcher.is_match(path)
-}
-
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-
-    use crate::{
-        access_kind::AccessKind,
-        execution_context::ExecutionContext,
-        execution_paths::ExecutionPaths,
-        policies::{Policy, PolicyConfig},
-    };
-
-    #[test]
-    fn test_forbid_wins_over_allow() {
-        let context = ExecutionContext {
-            paths: ExecutionPaths {
-                run_dir: PathBuf::from("/run"),
-                work_root: PathBuf::from("/work"),
-            },
-            source_repo_root: PathBuf::from("/repo"),
-        };
-
-        let cfg = PolicyConfig {
-            context,
-            max_read_bytes: 1024,
-            max_write_bytes: 1024,
-            max_files_per_request: 10,
-            forbid_globs: vec!["src/forbidden/**".into()],
-            allow_read_globs: vec!["src/**".into()],
-            allow_write_globs: vec![],
-        };
-
-        let policy =
-            Policy::new(cfg).expect("Failed to create Policy with the given configuration");
-
-        // Path is allowed by `allow_read_globs` but forbidden by `forbid_globs`
-        let result = policy.resolve_work_path("src/forbidden/file.txt", AccessKind::Read);
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("forbidden path by policy")
-        );
-    }
+    Ok(matcher.is_match(path))
 }

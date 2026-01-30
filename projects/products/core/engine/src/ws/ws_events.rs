@@ -1,13 +1,13 @@
 // projects/products/core/engine/src/ws/ws_events.rs
-use common_json::{Json, to_json_string};
+use common_json::{Json, JsonMap, number_i64, number_u64, to_json_string};
 use protocol::{Event, EventType, EventVariant, Metadata, Payload};
 
 use crate::ws::WsEventArgs;
 use common::custom_uuid::Id128;
 
 #[inline]
-fn non_empty_data(args: &WsEventArgs) -> String {
-    args.payload
+fn non_empty_data(args: &WsEventArgs, payload: &Option<Payload>) -> String {
+    payload
         .as_ref()
         .and_then(|p| p.payload.as_ref())
         .and_then(|v| {
@@ -57,8 +57,18 @@ fn payload_json(payload_type: impl Into<String>, value: Json) -> Payload {
     }
 }
 
-pub fn ws_event(args: WsEventArgs) -> Event {
-    let data = non_empty_data(&args);
+pub(crate) fn ws_event(args: WsEventArgs) -> Event {
+    let payload = match &args.payload {
+        Some(p) => Some(p.clone()),
+        None => args.error_details.as_ref().map(|ed| {
+            let mut map = JsonMap::new();
+            map.insert("http_code".to_string(), number_u64(ed.http_code as u64));
+            map.insert("code".to_string(), number_i64(ed.code as i64));
+            map.insert("message".to_string(), Json::String(ed.message.clone()));
+            payload_json("engine/error", Json::Object(map))
+        }),
+    };
+    let data = non_empty_data(&args, &payload);
     let message = best_message(&args);
 
     Event {
@@ -66,7 +76,7 @@ pub fn ws_event(args: WsEventArgs) -> Event {
         event_type: args.event_type,
         data,
         metadata: args.meta,
-        payload: args.payload,
+        payload,
         level: None,
         message,
         pct: None,
@@ -75,12 +85,12 @@ pub fn ws_event(args: WsEventArgs) -> Event {
 }
 
 /// Standard OK: ACK + payload "ok" (ensures data is never empty).
-pub fn ws_event_ok(meta: &Metadata, name: &str) -> Event {
+pub(crate) fn ws_event_ok(meta: &Metadata, name: &str) -> Event {
     ws_event_ok_payload(meta, name, "ack", Json::String("ok".to_string()))
 }
 
 /// OK with typed payload.
-pub fn ws_event_ok_payload(
+pub(crate) fn ws_event_ok_payload(
     meta: &Metadata,
     name: &str,
     payload_type: &str,

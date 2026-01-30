@@ -3,12 +3,12 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AgentOutcome {
-    pub ok: bool,
-    pub iters: usize,
-    pub final_score: i32,
-    pub cargo_ok: bool,
-    pub cargo_failures: usize,
-    pub notes: Vec<String>,
-    pub training_example: Option<String>,
+pub(crate) struct AgentOutcome {
+    pub(crate) ok: bool,
+    pub(crate) iters: usize,
+    pub(crate) final_score: i32,
+    pub(crate) cargo_ok: bool,
+    pub(crate) cargo_failures: usize,
+    pub(crate) notes: Vec<String>,
+    pub(crate) training_example: Option<String>,
 }

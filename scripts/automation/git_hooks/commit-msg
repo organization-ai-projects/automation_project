@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Git hook: commit-msg
+# Validates commit message format
+# Bypass: SKIP_COMMIT_VALIDATION=1 git commit ...
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Allow bypass for emergency situations
+if [[ "${SKIP_COMMIT_VALIDATION:-}" == "1" ]]; then
+  exit 0
+fi
+
+# Allowed prefixes
+ALLOWED_TYPES="^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)"
+
+# Validate format: <type>(<scope>): <message> or <type>: <message>
+if [[ ! "$COMMIT_MSG" =~ $ALLOWED_TYPES(\([a-zA-Z0-9_/-]+\))?:\ .+ ]]; then
+  echo "❌ Invalid commit message format!"
+  echo ""
+  echo "Expected format:"
+  echo "  <type>(<scope>): <message>"
+  echo "  or"
+  echo "  <type>: <message>"
+  echo ""
+  echo "Allowed types:"
+  echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore"
+  echo ""
+  echo "Examples:"
+  echo "  feat(auth): add user authentication"
+  echo "  fix: resolve null pointer exception"
+  echo "  docs(readme): update installation instructions"
+  echo ""
+  echo "Your commit message:"
+  echo "  $COMMIT_MSG"
+  echo ""
+  echo "Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..."
+  exit 1
+fi
+
+exit 0

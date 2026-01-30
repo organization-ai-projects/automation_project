@@ -10,8 +10,8 @@ use crate::{
     journal_line::JournalLine,
 };
 
-pub struct Journal {
-    pub file: std::fs::File,
+pub(crate) struct Journal {
+    pub(crate) file: std::fs::File,
 }
 
 impl Journal {
@@ -20,7 +20,12 @@ impl Journal {
         Ok(Self { file })
     }
 
-    pub fn record_action(&mut self, run_id: &str, action: &Action, timestamp: &str) -> Result<()> {
+    pub(crate) fn record_action(
+        &mut self,
+        run_id: &str,
+        action: &Action,
+        timestamp: &str,
+    ) -> Result<()> {
         self.write_line(&JournalLine {
             run_id,
             event: "action",
@@ -29,7 +34,7 @@ impl Journal {
         })
     }
 
-    pub fn record_result(
+    pub(crate) fn record_result(
         &mut self,
         run_id: &str,
         result: &ActionResult,

@@ -1,5 +1,5 @@
 //! projects/products/varina/backend/src/git_github/commands/reset.rs
-use crate::AutopilotError;
+use crate::autopilot::AutopilotError;
 use std::{path::Path, process, result};
 /// Resets specified files in the Git index
 pub fn git_reset(

@@ -1,5 +1,5 @@
 /// projects/products/core/launcher/src/defaults.rs
 /// Provides the default profile name.
-pub fn default_profile() -> String {
+pub(crate) fn default_profile() -> String {
     "debug".to_string()
 }

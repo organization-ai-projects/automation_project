@@ -1,7 +1,6 @@
 // projects/products/varina/backend/src/router.rs
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use std::path;
 
 use common_json::{from_value, to_string, to_value};
 use protocol::{
@@ -10,8 +9,8 @@ use protocol::{
 };
 
 use crate::automation::run_git_autopilot_in_repo;
+use crate::autopilot::{AutopilotMode, AutopilotPolicy};
 use crate::autopilot::{handle_apply_git_autopilot, handle_preview_git_autopilot};
-use crate::{AutopilotMode, AutopilotPolicy};
 
 // ---------- Routing constants (future proof) ----------
 pub const ACTION_GIT_AUTOPILOT_PREVIEW: &str = "git_autopilot/preview";
@@ -185,11 +184,11 @@ where
 
 fn run_git_autopilot(cmd: &Command) -> CommandResponse {
     // TODO future proof: repo path in payload + validation + whitelist
-    let repo_path = path::Path::new("/path/to/repo");
+    let repo_path = crate::automation::resolve_repo_path();
     let mode = AutopilotMode::ApplySafe;
     let policy = AutopilotPolicy::default();
 
-    match run_git_autopilot_in_repo(repo_path, mode, &policy) {
+    match run_git_autopilot_in_repo(&repo_path, mode, &policy) {
         Ok(report) => CommandResponse {
             metadata: meta(cmd),
             status: ResponseStatus {

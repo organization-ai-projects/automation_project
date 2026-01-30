@@ -1,27 +1,26 @@
 // projects/products/code_agent_sandbox/src/policies/policy_config.rs
 use std::path::{Path, PathBuf};
 
-use crate::engine::{EngineConfig, EnginePaths};
 use crate::execution_context::ExecutionContext;
+use crate::sandbox_engine::{EngineConfig, EnginePaths};
 
 #[derive(Clone, Debug)]
-pub struct PolicyConfig {
-    pub context: ExecutionContext,
+pub(crate) struct PolicyConfig {
+    pub(crate) context: ExecutionContext,
 
-    pub max_read_bytes: usize,
-    pub max_write_bytes: usize,
-    pub max_files_per_request: usize,
-
+    pub(crate) max_read_bytes: usize,
+    pub(crate) max_write_bytes: usize,
+    pub(crate) max_files_per_request: usize,
     /// Forbidden paths
-    pub forbid_globs: Vec<String>,
+    pub(crate) forbid_globs: Vec<String>,
     /// Allowed paths for writing
-    pub allow_write_globs: Vec<String>,
+    pub(crate) allow_write_globs: Vec<String>,
     /// Allowed paths for reading
-    pub allow_read_globs: Vec<String>,
+    pub(crate) allow_read_globs: Vec<String>,
 }
 
 impl PolicyConfig {
-    pub fn new(
+    pub(crate) fn new(
         paths: &EnginePaths,
         run_dir: &Path,
         work_root: PathBuf,

@@ -22,7 +22,6 @@ mod access_kind;
 mod actions;
 mod agents;
 mod command_runner;
-mod engine;
 mod execution_context;
 mod execution_paths;
 mod journal;
@@ -32,8 +31,10 @@ mod memory;
 mod normalization;
 mod policies;
 mod runner_config;
+mod sandbox_engine;
 mod sandbox_fs;
 mod score;
+mod utils;
 mod worktree;
 
 use anyhow::{Context, Result, bail};
@@ -43,7 +44,7 @@ use common_time::{SystemClock, TimeSpan};
 use std::io::{self, Read};
 use std::path::PathBuf;
 
-use crate::engine::{EngineConfig, EnginePaths, Request};
+use crate::sandbox_engine::{EngineConfig, EnginePaths, Request};
 
 fn main() -> Result<()> {
     // ==========================
@@ -80,7 +81,7 @@ fn main() -> Result<()> {
     // ==========================
     let clock = SystemClock;
     let timeout_future = with_timeout(
-        engine::execute_request(req, &paths, config),
+        sandbox_engine::execute_request(req, &paths, config),
         &clock,
         timeout,
     );

@@ -22,3 +22,6 @@ pub use role::Role;
 pub use token::Token;
 pub use token_error::TokenError;
 pub use token_service::TokenService;
+
+#[cfg(test)]
+mod tests;

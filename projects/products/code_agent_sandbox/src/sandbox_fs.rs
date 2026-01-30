@@ -14,16 +14,16 @@ use walkdir::WalkDir;
 use crate::{actions::ActionResult, policies::Policy};
 
 #[derive(Clone)]
-pub struct SandboxFs {
+pub(crate) struct SandboxFs {
     policy: Policy,
 }
 
 impl SandboxFs {
-    pub fn new(policy: Policy) -> Self {
+    pub(crate) fn new(policy: Policy) -> Self {
         Self { policy }
     }
 
-    pub fn read_file(&self, rel: &str) -> Result<ActionResult> {
+    pub(crate) fn read_file(&self, rel: &str) -> Result<ActionResult> {
         let path = self.policy.resolve_work_path_for_read(rel)?;
         let metadata =
             fs::metadata(&path).with_context(|| format!("metadata failed: {}", path.display()))?;
@@ -51,7 +51,7 @@ impl SandboxFs {
         ))
     }
 
-    pub fn list_dir(&self, rel: &str, max_depth: usize) -> Result<ActionResult> {
+    pub(crate) fn list_dir(&self, rel: &str, max_depth: usize) -> Result<ActionResult> {
         let root = self.policy.resolve_work_path_for_read(rel)?;
         let depth = if max_depth == 0 { 3 } else { max_depth.min(12) };
 
@@ -95,7 +95,12 @@ impl SandboxFs {
         ))
     }
 
-    pub fn write_file(&self, rel: &str, contents: &str, create_dirs: bool) -> Result<ActionResult> {
+    pub(crate) fn write_file(
+        &self,
+        rel: &str,
+        contents: &str,
+        create_dirs: bool,
+    ) -> Result<ActionResult> {
         if contents.len() > self.policy.config().max_write_bytes {
             return Ok(ActionResult::error(
                 "PolicyViolation",
@@ -127,7 +132,7 @@ impl SandboxFs {
         ))
     }
 
-    pub fn apply_unified_diff(&self, rel: &str, unified_diff: &str) -> Result<ActionResult> {
+    pub(crate) fn apply_unified_diff(&self, rel: &str, unified_diff: &str) -> Result<ActionResult> {
         if unified_diff.len() > self.policy.config().max_write_bytes * 2 {
             return Ok(ActionResult::error(
                 "PolicyViolation",
@@ -175,7 +180,7 @@ impl SandboxFs {
         ))
     }
 
-    pub fn validate_symlinks(&self, path: &Path) -> Result<()> {
+    pub(crate) fn validate_symlinks(&self, path: &Path) -> Result<()> {
         // Checks parents to detect symlinks up to work_root
         let mut cur = path
             .parent()

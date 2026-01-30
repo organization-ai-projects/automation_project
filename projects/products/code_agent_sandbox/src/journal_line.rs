@@ -2,9 +2,9 @@
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub struct JournalLine<'a, T: Serialize> {
-    pub run_id: &'a str,
-    pub event: &'a str,
-    pub timestamp: &'a str,
-    pub payload: &'a T,
+pub(crate) struct JournalLine<'a, T: Serialize> {
+    pub(crate) run_id: &'a str,
+    pub(crate) event: &'a str,
+    pub(crate) timestamp: &'a str,
+    pub(crate) payload: &'a T,
 }

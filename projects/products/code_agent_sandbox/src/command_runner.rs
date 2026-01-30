@@ -4,15 +4,17 @@
 
 use anyhow::{Result, bail};
 use command_runner::{run_cmd_allow_failure, run_cmd_ok};
-use common_json::{JsonAccess, pjson};
+use common_json::pjson;
 use std::path::Path;
 
-use crate::{actions::ActionResult, policies::Policy, runner_config::RunnerConfig};
+use crate::{
+    actions::ActionResult, policies::Policy, runner_config::RunnerConfig, utils::truncate,
+};
 
 #[derive(Clone)]
-pub struct CommandRunner {
-    pub policy: Policy,
-    pub cfg: RunnerConfig,
+pub(crate) struct CommandRunner {
+    pub(crate) policy: Policy,
+    pub(crate) cfg: RunnerConfig,
 }
 
 impl CommandRunner {
@@ -33,7 +35,7 @@ impl CommandRunner {
         Ok(())
     }
 
-    pub fn run_cargo(&self, subcommand: &str, args: &[String]) -> Result<ActionResult> {
+    pub(crate) fn run_cargo(&self, subcommand: &str, args: &[String]) -> Result<ActionResult> {
         // Validate subcommand first (policy decision => ActionResult, not crash)
         if !self
             .cfg
@@ -87,7 +89,7 @@ impl CommandRunner {
         ))
     }
 
-    pub fn run_in_bunker(&self, program: &str, args: &[String]) -> Result<ActionResult> {
+    pub(crate) fn run_in_bunker(&self, program: &str, args: &[String]) -> Result<ActionResult> {
         if let Err(e) = Self::validate_args(
             args,
             &["..", "\\0", "--dangerous", "-rf", "--no-preserve-root"],
@@ -125,36 +127,8 @@ impl CommandRunner {
         ))
     }
 
-    pub fn requires_bunker(subcommand: &str) -> bool {
+    pub(crate) fn requires_bunker(subcommand: &str) -> bool {
         const BUNKER_COMMANDS: [&str; 2] = ["install", "publish"];
         BUNKER_COMMANDS.contains(&subcommand)
     }
-}
-
-// Moved `extract_cargo_stderr` from `agent_driver.rs`
-// This function extracts and formats Cargo stderr logs
-pub fn extract_cargo_stderr(result: &ActionResult) -> Option<String> {
-    if result.kind.starts_with("Cargo") {
-        result
-            .data
-            .as_ref()
-            .and_then(|data| data.get_field("stderr").ok())
-            .and_then(|stderr| stderr.as_str())
-            .map(|stderr| format!("{} stderr:\n{}", result.kind, truncate(stderr, 2000)))
-    } else {
-        None
-    }
-}
-
-fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        return s.to_string();
-    }
-    let mut cut = max;
-    while cut > 0 && !s.is_char_boundary(cut) {
-        cut -= 1;
-    }
-    let mut t = s[..cut].to_string();
-    t.push_str("\n...[truncated]...");
-    t
 }

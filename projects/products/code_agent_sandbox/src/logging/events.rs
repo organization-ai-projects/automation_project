@@ -5,11 +5,11 @@ use common_json::Json;
 use common_time::SystemClock;
 
 use crate::{
-    engine::EngineCtx,
     memory::{MemoryEvent, append_event},
+    sandbox_engine::EngineCtx,
 };
 
-pub fn log_event(
+pub(crate) fn log_event(
     mem_path: &Path,
     ctx: &EngineCtx,
     kind: &str,

@@ -3,9 +3,9 @@ use std::{path::Path, process::Command};
 
 use anyhow::{Context, Result, bail};
 
-use crate::Build;
+use crate::build::Build;
 
-pub fn cargo_build(root: &Path, build: &Build, dry_run: bool) -> Result<(), anyhow::Error> {
+pub(crate) fn cargo_build(root: &Path, build: &Build, dry_run: bool) -> Result<(), anyhow::Error> {
     let mut cmd = Command::new("cargo");
     cmd.arg("build");
 

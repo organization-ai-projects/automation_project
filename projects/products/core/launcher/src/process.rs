@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow};
 
-use crate::Service;
+use crate::service::Service;
 
 /// Resolves the binary path for a given service.
 ///
@@ -17,7 +17,7 @@ use crate::Service;
 ///
 /// # Returns
 /// The resolved binary path.
-pub fn resolve_bin_path(workspace_root: &Path, profile_dir: &Path, bin: &str) -> PathBuf {
+pub(crate) fn resolve_bin_path(workspace_root: &Path, profile_dir: &Path, bin: &str) -> PathBuf {
     // Unix: target/debug/bin ; Windows: target\debug\bin.exe
     let mut p = workspace_root.join("target").join(profile_dir).join(bin);
     if cfg!(windows) {
@@ -36,7 +36,7 @@ pub fn resolve_bin_path(workspace_root: &Path, profile_dir: &Path, bin: &str) ->
 ///
 /// # Returns
 /// A handle to the spawned child process.
-pub fn spawn_service(
+pub(crate) fn spawn_service(
     svc: &Service,
     workspace_root: &Path,
     bin_path: &Path,

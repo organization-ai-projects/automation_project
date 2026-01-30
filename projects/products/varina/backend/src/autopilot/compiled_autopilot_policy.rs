@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-use crate::AutopilotPolicy;
+use crate::autopilot::AutopilotPolicy;
 
 /// Compiled policy: normalized + optimized structures.
 /// Goal: avoid normalizing/iterating too much on every change.

@@ -6,9 +6,8 @@
 // projects/libraries/hybrid_arena/src/slot_arena.rs
 use std::ops::{Index, IndexMut};
 
-use crate::common_methods::{
-    ArenaCommon, clear_vec, new_arena, reserve_capacity, with_capacity_arena,
-};
+use crate::arena_common_trait::ArenaCommon;
+use crate::common_methods::{clear_vec, new_arena, reserve_capacity, with_capacity_arena};
 use crate::error::ArenaError;
 use crate::id::Id;
 use crate::{Slot, SlotArenaDrain, SlotArenaIter, SlotArenaIterMut};
@@ -301,7 +300,10 @@ impl<T> SlotArena<T> {
             let slot = self.slots.get_unchecked(id.index() as usize);
             assert!(slot.value.is_some(), "slot is empty");
             assert!(slot.generation == id.generation(), "generation mismatch");
-            slot.value.as_ref().unwrap_unchecked()
+            match slot.value.as_ref() {
+                Some(value) => value,
+                None => unreachable!("slot is empty"),
+            }
         }
     }
 
@@ -319,7 +321,10 @@ impl<T> SlotArena<T> {
             let slot = self.slots.get_unchecked_mut(id.index() as usize);
             assert!(slot.value.is_some(), "slot is empty");
             assert!(slot.generation == id.generation(), "generation mismatch");
-            slot.value.as_mut().unwrap_unchecked()
+            match slot.value.as_mut() {
+                Some(value) => value,
+                None => unreachable!("slot is empty"),
+            }
         }
     }
 }

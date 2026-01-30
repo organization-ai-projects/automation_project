@@ -2,13 +2,13 @@
 use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
-pub struct ExecutionPaths {
-    pub run_dir: PathBuf,
-    pub work_root: PathBuf,
+pub(crate) struct ExecutionPaths {
+    pub(crate) run_dir: PathBuf,
+    pub(crate) work_root: PathBuf,
 }
 
 impl ExecutionPaths {
-    pub fn new(run_dir: PathBuf, work_root: PathBuf) -> Self {
+    pub(crate) fn new(run_dir: PathBuf, work_root: PathBuf) -> Self {
         Self { run_dir, work_root }
     }
 }

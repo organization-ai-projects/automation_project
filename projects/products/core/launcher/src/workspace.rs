@@ -3,6 +3,6 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Workspace {
-    pub root: PathBuf,
+pub(crate) struct Workspace {
+    pub(crate) root: PathBuf,
 }

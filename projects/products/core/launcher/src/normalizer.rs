@@ -2,7 +2,7 @@
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
-pub fn normalize_path(p: &Path) -> Result<PathBuf, anyhow::Error> {
+pub(crate) fn normalize_path(p: &Path) -> Result<PathBuf, anyhow::Error> {
     let abs = if p.is_absolute() {
         p.to_path_buf()
     } else {

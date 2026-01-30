@@ -1,4 +1,5 @@
 //! projects/products/varina/backend/src/automation.rs
+use std::env;
 use std::path::{Path, PathBuf};
 use std::{fs, process};
 
@@ -6,12 +7,17 @@ use crate::autopilot::{
     AutopilotError, AutopilotMode, AutopilotPlan, AutopilotPolicy, AutopilotReport,
 };
 use crate::cargo::{cargo_fmt_check, cargo_test};
-use crate::git_github::commands::status::git_status_porcelain_z;
-use crate::git_github::commands::{
-    current_branch, ensure_git_repo, git_add_paths, git_commit, git_commit_dry_run,
-    git_push_current_branch, git_reset,
+use crate::git_github::git_parser::{
+    parse_git_branch, parse_git_diff, parse_git_log_oneline, parse_git_show,
 };
-use crate::{PreChecks, classify_changes, has_merge_conflicts};
+use crate::git_github::{
+    current_branch, ensure_git_repo, git_add_paths, git_commit, git_commit_dry_run,
+    git_push_current_branch, git_reset, git_status_porcelain_z,
+};
+use crate::policy_evaluation::{
+    classify_changes, display_change_path, has_merge_conflicts, is_blocked, is_relevant,
+};
+use crate::pre_checks::PreChecks;
 
 type Result<T> = std::result::Result<T, AutopilotError>;
 
@@ -21,7 +27,16 @@ type Result<T> = std::result::Result<T, AutopilotError>;
 /// Backward-compatible entry point (uses current working directory).
 /// Prefer `run_git_autopilot_in_repo` for production.
 pub fn run_git_autopilot(mode: AutopilotMode, policy: &AutopilotPolicy) -> Result<AutopilotReport> {
-    run_git_autopilot_in_repo(Path::new("."), mode, policy)
+    let repo_path = resolve_repo_path();
+    run_git_autopilot_in_repo(&repo_path, mode, policy)
+}
+
+/// Resolve repository path from environment or fallback to current directory.
+pub fn resolve_repo_path() -> PathBuf {
+    env::var("VARINA_REPO_PATH")
+        .ok()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 /// Production entry point: execute autopilot inside a specific repo directory.
@@ -36,6 +51,7 @@ pub fn run_git_autopilot_in_repo(
 
     logs.push(format!("[ctx] repo_path={}", repo_path.display()));
     ensure_git_repo(&repo_path, &mut logs)?;
+    append_git_context(&repo_path, &mut logs);
     let (branch, detached_head) = current_branch(&repo_path, &mut logs)?;
     logs.push(format!(
         "[git] branch={branch} detached_head={detached_head}"
@@ -80,6 +96,8 @@ pub fn run_git_autopilot_in_repo(
             will_push: false,
             notes,
         };
+        plan.validate()
+            .map_err(|e| AutopilotError::from(format!("Invalid plan: {e}")))?;
 
         logs.push("[plan] empty (no changes)".into());
 
@@ -157,6 +175,8 @@ pub fn run_git_autopilot_in_repo(
         will_push,
         notes,
     };
+    plan.validate()
+        .map_err(|e| AutopilotError::from(format!("Invalid plan: {e}")))?;
 
     // Plan diagnostics (useful for UI)
     logs.push(format!(
@@ -184,6 +204,7 @@ pub fn run_git_autopilot_in_repo(
             policy.blocked_prefixes
         ));
     }
+    append_policy_diagnostics(&repo_path, &changes, policy, &mut logs);
 
     // Check and remove .git/index.lock file before any Git operation
     let lock_file = repo_path.join(".git/index.lock");
@@ -310,7 +331,7 @@ pub fn run_git_autopilot_in_repo(
 
     println!("[debug] Final logs: {:?}", logs);
 
-    Ok(AutopilotReport {
+    let mut report = AutopilotReport {
         mode,
         branch,
         detached_head,
@@ -319,19 +340,15 @@ pub fn run_git_autopilot_in_repo(
         plan,
         applied,
         logs,
-    })
+    };
+
+    add_policy_suggestions(&mut report, policy);
+    Ok(report)
 }
 
 /// ==============================
-/// SECTION: Optional tiny util
+/// SECTION: Path Normalization
 /// ==============================
-/// Checks if a file or directory exists at the given path.
-/// This function is currently unused and may be removed in the future.
-#[allow(dead_code)]
-fn exists(path: &str) -> bool {
-    Path::new(path).exists()
-}
-
 /// Normalizes the repository path to ensure it is absolute and valid.
 pub fn normalize_repo_path(repo_path: &Path) -> Result<PathBuf> {
     let path = Path::new(repo_path);
@@ -358,4 +375,162 @@ pub fn build_commit_message(branch: &str, relevant_changes: &[String]) -> (Strin
     let body = format!("Changes:\n{}", changes_summary);
 
     (subject, body)
+}
+
+fn append_git_context(repo_path: &Path, logs: &mut Vec<String>) {
+    let branch_output = process::Command::new("git")
+        .arg("-C")
+        .arg(repo_path)
+        .arg("branch")
+        .arg("--no-color")
+        .output();
+
+    match branch_output {
+        Ok(output) if output.status.success() => {
+            let text = String::from_utf8_lossy(&output.stdout);
+            match parse_git_branch(&text) {
+                Ok((current, branches)) => {
+                    logs.push(format!(
+                        "[git] branches_count={} current_branch={}",
+                        branches.len().saturating_add(1),
+                        current
+                    ));
+                }
+                Err(e) => logs.push(format!("[git] branch parse error: {e}")),
+            }
+        }
+        Ok(output) => logs.push(format!(
+            "[git] branch command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )),
+        Err(e) => logs.push(format!("[git] branch command error: {e}")),
+    }
+
+    let log_output = process::Command::new("git")
+        .arg("-C")
+        .arg(repo_path)
+        .arg("log")
+        .arg("--oneline")
+        .arg("-n")
+        .arg("5")
+        .output();
+
+    match log_output {
+        Ok(output) if output.status.success() => {
+            let text = String::from_utf8_lossy(&output.stdout);
+            match parse_git_log_oneline(&text) {
+                Ok(commits) => logs.push(format!("[git] recent_commits_count={}", commits.len())),
+                Err(e) => logs.push(format!("[git] log parse error: {e}")),
+            }
+        }
+        Ok(output) => logs.push(format!(
+            "[git] log command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )),
+        Err(e) => logs.push(format!("[git] log command error: {e}")),
+    }
+
+    let show_output = process::Command::new("git")
+        .arg("-C")
+        .arg(repo_path)
+        .arg("show")
+        .arg("-s")
+        .arg("--format=%H%n%an%n%ad%n%B")
+        .arg("HEAD")
+        .output();
+
+    match show_output {
+        Ok(output) if output.status.success() => {
+            let text = String::from_utf8_lossy(&output.stdout);
+            match parse_git_show(&text) {
+                Ok((hash, author, date, _message)) => logs.push(format!(
+                    "[git] head_commit={hash} author={author} date={date}"
+                )),
+                Err(e) => logs.push(format!("[git] show parse error: {e}")),
+            }
+        }
+        Ok(output) => logs.push(format!(
+            "[git] show command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )),
+        Err(e) => logs.push(format!("[git] show command error: {e}")),
+    }
+
+    let diff_output = process::Command::new("git")
+        .arg("-C")
+        .arg(repo_path)
+        .arg("diff")
+        .output();
+
+    match diff_output {
+        Ok(output) if output.status.success() => {
+            let text = String::from_utf8_lossy(&output.stdout);
+            match parse_git_diff(&text) {
+                Ok(changes) => logs.push(format!("[git] diff_entries={}", changes.len())),
+                Err(e) => logs.push(format!("[git] diff parse error: {e}")),
+            }
+        }
+        Ok(output) => logs.push(format!(
+            "[git] diff command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )),
+        Err(e) => logs.push(format!("[git] diff command error: {e}")),
+    }
+}
+
+fn append_policy_diagnostics(
+    repo_path: &Path,
+    changes: &[String],
+    policy: &AutopilotPolicy,
+    logs: &mut Vec<String>,
+) {
+    let cwd = std::env::current_dir().ok();
+    let can_check = cwd
+        .as_ref()
+        .and_then(|dir| dir.canonicalize().ok())
+        .is_some_and(|dir| dir == repo_path);
+
+    if !can_check {
+        logs.push("[policy] skip detailed relevance check: repo_path != cwd".to_string());
+        return;
+    }
+
+    for change in changes {
+        let path = extract_status_path(change);
+        let blocked = is_blocked(path, policy);
+        let relevant = is_relevant(path, policy);
+        let display = display_change_path(&path);
+        logs.push(format!(
+            "[policy] path={} blocked={} relevant={}",
+            display, blocked, relevant
+        ));
+    }
+}
+
+fn extract_status_path(status_line: &str) -> &str {
+    let trimmed = status_line.trim();
+    if trimmed.len() <= 3 {
+        return trimmed;
+    }
+    let candidate = trimmed.get(3..).unwrap_or(trimmed).trim();
+    match candidate.split_once(" -> ") {
+        Some((_from, to)) => to.trim(),
+        None => candidate,
+    }
+}
+
+fn add_policy_suggestions(report: &mut AutopilotReport, policy: &AutopilotPolicy) {
+    let suggestion = crate::git_github::suggest_policy_from_report(report, policy);
+
+    if let Some(allow_push) = suggestion.allow_push {
+        report.add_log(format!("[suggestion] allow_push={allow_push}"));
+    }
+    if let Some(fail_on_unrelated_changes) = suggestion.fail_on_unrelated_changes {
+        report.add_log(format!(
+            "[suggestion] fail_on_unrelated_changes={fail_on_unrelated_changes}"
+        ));
+    }
+    for note in suggestion.notes {
+        report.add_log(format!("[suggestion] {note}"));
+    }
 }

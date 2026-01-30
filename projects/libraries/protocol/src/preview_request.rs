@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::metadata;
 
+//replace request_id issue #67
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PreviewRequest {
     #[serde(rename = "request_id")]

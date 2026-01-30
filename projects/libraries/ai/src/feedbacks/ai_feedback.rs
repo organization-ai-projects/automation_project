@@ -8,7 +8,8 @@ use crate::ai_error::AiError;
 use crate::feedbacks::internal::internal_feedback_input::InternalFeedbackInput;
 use crate::feedbacks::internal::internal_feedback_meta::InternalFeedbackMeta;
 use crate::feedbacks::internal::internal_feedback_verdict::InternalFeedbackVerdict;
-use crate::solve_trace::{SolveTrace, SolveWinner};
+use crate::solve_trace::SolveTrace;
+use crate::solve_winner::SolveWinner;
 use crate::solver_strategy::SolverStrategy;
 
 /// `AiFeedback` is responsible for coordinating the processing of feedback

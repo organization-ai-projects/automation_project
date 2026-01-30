@@ -1,24 +1,9 @@
 // projects/libraries/neural/src/tokenization/rust_tokenizer.rs
-use common_json::{JsonError, JsonSerializable, json};
+use common_json::{JsonSerializable, json};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum TokenizationError {
-    #[error("Unknown token: {0}")]
-    UnknownToken(String),
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
-    #[error("Serialization error: {0}")]
-    SerializationError(JsonError),
-}
-
-impl From<JsonError> for TokenizationError {
-    fn from(err: JsonError) -> Self {
-        TokenizationError::SerializationError(err)
-    }
-}
+use crate::tokenization::TokenizationError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RustTokenizer {
