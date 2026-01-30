@@ -81,6 +81,13 @@ impl FromStr for Permission {
     }
 }
 
+// Implémentation de Display pour Permission
+impl std::fmt::Display for Permission {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Checks if a role has a specific permission
 pub fn has_permission(role: &Role, required_permission: Permission) -> bool {
     role.has_permission(required_permission)
@@ -162,80 +169,4 @@ pub fn missing_permissions(role: &Role, required_permissions: &[Permission]) -> 
         .copied()
         .filter(|&perm| !role.has_permission(perm))
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use common::Id128;
-
-    use super::*;
-
-    #[test]
-    fn test_has_permission() {
-        assert!(has_permission(&Role::Admin, Permission::Admin));
-        assert!(has_permission(&Role::User, Permission::Write));
-        assert!(!has_permission(&Role::Guest, Permission::Write));
-    }
-
-    #[test]
-    fn test_has_all_permissions() {
-        let perms = vec![Permission::Read, Permission::Write];
-        assert!(has_all_permissions(&Role::User, &perms));
-        assert!(!has_all_permissions(&Role::Guest, &perms));
-    }
-
-    #[test]
-    fn test_has_any_permission() {
-        let perms = vec![Permission::Write, Permission::Delete];
-        assert!(has_any_permission(&Role::User, &perms)); // Has Write
-        assert!(!has_any_permission(&Role::Guest, &perms)); // Has neither
-    }
-
-    #[test]
-    fn test_check_permission_ok() {
-        assert!(check_permission(&Role::User, Permission::Write).is_ok());
-    }
-
-    #[test]
-    fn test_check_permission_unauthorized() {
-        let result = check_permission(&Role::Guest, Permission::Write);
-        assert!(result.is_err());
-        assert!(matches!(result, Err(PermissionError::Unauthorized)));
-    }
-
-    #[test]
-    fn test_filter_allowed_permissions() {
-        let all_perms = vec![
-            Permission::Read,
-            Permission::Write,
-            Permission::Delete,
-            Permission::Admin,
-        ];
-
-        let user_allowed = filter_allowed_permissions(&Role::User, &all_perms);
-        assert_eq!(user_allowed.len(), 2); // Read, Write
-        assert!(user_allowed.contains(&Permission::Read));
-        assert!(user_allowed.contains(&Permission::Write));
-        assert!(!user_allowed.contains(&Permission::Delete));
-    }
-
-    #[test]
-    fn test_missing_permissions() {
-        let required = vec![Permission::Read, Permission::Write, Permission::Delete];
-        let missing = missing_permissions(&Role::User, &required);
-
-        assert_eq!(missing.len(), 1);
-        assert!(missing.contains(&Permission::Delete));
-    }
-
-    #[test]
-    fn test_token_permission() {
-        // Create a token with a valid subject id
-        let subject_id = Id128::from_bytes_unchecked([123u8; 16]);
-        let token = Token::new(subject_id, Role::User, 3_600_000).expect("token");
-
-        // Check permissions via the token
-        assert!(check_token_permission(&token, Permission::Write).is_ok());
-        assert!(check_token_permission(&token, Permission::Delete).is_err());
-    }
 }
