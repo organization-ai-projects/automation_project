@@ -42,14 +42,20 @@ detect_crates_from_scopes() {
           crate_path="${crate_path}/${BASH_REMATCH[4]}"
         fi
 
-        # Convert to crate name: accounts/backend → accounts-backend
-        local crate_name="${crate_path//'/'/-}"
-
         # Validate that crate exists in Cargo.toml (has Cargo.toml file)
-        if [[ ! -f "projects/$scope/Cargo.toml" ]]; then
+        local cargo_toml="projects/$scope/Cargo.toml"
+        if [[ ! -f "$cargo_toml" ]]; then
           # Crate doesn't exist
           invalid_scopes=$((invalid_scopes + 1))
         else
+          # Resolve actual crate name from Cargo.toml
+          local crate_name
+          crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
+          if [[ -z "$crate_name" ]]; then
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
+
           # Avoid duplicates
           if [[ ! " ${crates[@]} " =~ " ${crate_name} " ]]; then
             crates+=("$crate_name")
@@ -154,4 +160,3 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 exit 0
-

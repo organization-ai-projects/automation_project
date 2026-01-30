@@ -62,8 +62,11 @@ if ! cargo fmt --all; then
   exit 1
 fi
 
-# Add formatted files back to staging
-git add -u
+# Re-add only files that were already staged (avoid scooping unrelated changes)
+mapfile -t STAGED_FILES < <(git diff --cached --name-only --diff-filter=ACMRU)
+if [[ ${#STAGED_FILES[@]} -gt 0 ]]; then
+  git add -- "${STAGED_FILES[@]}"
+fi
 
 echo "✅ Pre-commit checks passed"
 echo ""
