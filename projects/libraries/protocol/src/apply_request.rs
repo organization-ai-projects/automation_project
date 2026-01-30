@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::metadata;
 use common::custom_uuid::Id128;
 
+//replace request_id issue #67
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApplyRequest {
     #[serde(rename = "request_id")]

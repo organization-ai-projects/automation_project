@@ -1,5 +1,7 @@
 // projects/libraries/protocol/src/metadata.rs
+use crate::protocol_id::ProtocolId;
 use crate::validation_error::ValidationError;
+use common_time::timestamp_utils::Timestamp;
 use common_time::timestamp_utils::current_timestamp_ms;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -13,15 +15,15 @@ const MAX_FUTURE_DRIFT_MS: u64 = 3600 * 1000;
 /// Contains timing and identification information for protocol messages
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Metadata {
-    pub request_id: String,
-    pub job_id: Option<String>,
+    pub request_id: ProtocolId,
+    pub job_id: Option<ProtocolId>,
 
     // Routing (engine uses this)
-    pub product_id: Option<String>,
+    pub product_id: Option<ProtocolId>,
 
     // Audit / observability
-    pub client_id: Option<String>,
-    pub timestamp_ms: Option<u64>,
+    pub client_id: Option<ProtocolId>,
+    pub timestamp_ms: Option<Timestamp>,
 
     // Compatibility
     pub schema_version: Option<u32>,
@@ -33,7 +35,10 @@ impl Metadata {
     /// The ID is generated from the current timestamp combined with process randomness
     pub fn now() -> Self {
         let timestamp_ms = Self::current_timestamp_ms();
-        let request_id = Self::generate_id(timestamp_ms).to_string();
+        let request_id = match Self::generate_id(timestamp_ms).to_string().parse() {
+            Ok(id) => id,
+            Err(e) => panic!("Failed to parse request_id: {}", e),
+        };
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,
@@ -43,7 +48,10 @@ impl Metadata {
 
     /// Creates metadata with a specific timestamp and generated ID
     pub fn with_timestamp(timestamp_ms: u64) -> Self {
-        let request_id = Self::generate_id(timestamp_ms).to_string();
+        let request_id = match Self::generate_id(timestamp_ms).to_string().parse() {
+            Ok(id) => id,
+            Err(e) => panic!("Failed to parse request_id: {}", e),
+        };
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,
@@ -53,6 +61,10 @@ impl Metadata {
 
     /// Creates metadata with specific timestamp and ID
     pub fn new(timestamp_ms: u64, request_id: String) -> Self {
+        let request_id = match request_id.parse() {
+            Ok(id) => id,
+            Err(e) => panic!("Failed to parse request_id: {}", e),
+        };
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,
@@ -112,7 +124,7 @@ impl Metadata {
 
     /// Convert Metadata to a unique String representation
     pub fn to_key(&self) -> String {
-        self.request_id.clone()
+        self.request_id.to_string()
     }
 }
 
