@@ -1,26 +1,36 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Usage: ./add_commit_push.sh "Commit message"
 # Description: Adds all changes, commits, then pushes via push_branch.sh
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+# shellcheck source=scripts/common_lib/core/logging.sh
+source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/staging.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/staging.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit.sh"
+
+require_git_repo
+
 if [[ "$#" -ne 1 ]]; then
-  echo "Error: You must provide a commit message."
-  echo "Usage: $0 \"Commit message\"" >&2
-  exit 1
+  die "You must provide a commit message. Usage: $0 \"Commit message\""
 fi
 
 COMMIT_MESSAGE="$1"
 
-echo "=== git add ==="
-git add .
+info "Adding all changes..."
+git_add_all
 
-echo "=== git commit ==="
-git commit -m "$COMMIT_MESSAGE"
+info "Committing with message: $COMMIT_MESSAGE"
+git_commit "$COMMIT_MESSAGE"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-echo "=== git push (via push_branch.sh) ==="
+info "Pushing via push_branch.sh..."
 "$SCRIPT_DIR/push_branch.sh"
 
-echo "✓ Commit and push completed successfully."
+info "✅ Commit and push completed successfully."

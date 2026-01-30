@@ -1,7 +1,7 @@
 // projects/libraries/neural/src/generation/generation_error.rs
 use thiserror::Error;
 
-use crate::network::neural_net::NetworkError;
+use crate::network::NetworkError;
 
 #[derive(Debug, Error)]
 #[error("{0}")]

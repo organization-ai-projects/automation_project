@@ -5,17 +5,17 @@ use common_json::Json;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ActionResult {
-    pub ok: bool,
-    pub kind: String,
-    pub message: String,
+pub(crate) struct ActionResult {
+    pub(crate) ok: bool,
+    pub(crate) kind: String,
+    pub(crate) message: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<Json>,
+    pub(crate) data: Option<Json>,
 }
 
 impl ActionResult {
-    pub fn success(
+    pub(crate) fn success(
         kind: impl Into<String>,
         message: impl Into<String>,
         data: Option<Json>,
@@ -28,7 +28,7 @@ impl ActionResult {
         }
     }
 
-    pub fn error(kind: impl Into<String>, message: impl Into<String>) -> Self {
+    pub(crate) fn error(kind: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             ok: false,
             kind: kind.into(),

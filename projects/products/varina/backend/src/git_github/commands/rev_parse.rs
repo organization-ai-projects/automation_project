@@ -1,5 +1,5 @@
 //! projects/products/varina/backend/src/git_github/commands/rev_parse.rs
-use crate::AutopilotError;
+use crate::autopilot::AutopilotError;
 use std::path::Path;
 /// Ensures that the given path is a valid Git repository.
 pub fn ensure_git_repo(repo_path: &Path, logs: &mut Vec<String>) -> Result<(), AutopilotError> {

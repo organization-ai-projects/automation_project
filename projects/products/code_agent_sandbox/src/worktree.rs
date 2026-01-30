@@ -4,11 +4,11 @@ use std::fs;
 use anyhow::{Context, Result};
 use walkdir::WalkDir;
 
-use crate::policies::{Policy, policy::glob_match};
+use crate::policies::{Policy, glob_match};
 
 /// Initialize worktree from source repo using allowlists/forbids.
 /// Idempotent: if Cargo.toml exists in work_root, it won't recopy.
-pub fn init_worktree_from_repo(policy: &Policy) -> Result<()> {
+pub(crate) fn init_worktree_from_repo(policy: &Policy) -> Result<()> {
     let src_root = policy.source_repo_root();
     let dst_root = policy.work_root();
 
@@ -33,12 +33,13 @@ pub fn init_worktree_from_repo(policy: &Policy) -> Result<()> {
         let rel_str = rel.to_string_lossy().replace('\\', "/");
 
         // forbid
-        if policy
+        let is_forbidden = policy
             .config()
             .forbid_globs
             .iter()
-            .any(|g| glob_match(&rel_str, g))
-        {
+            .try_fold(false, |acc, g| glob_match(&rel_str, g).map(|m| acc || m))?;
+
+        if is_forbidden {
             continue;
         }
 
@@ -47,13 +48,13 @@ pub fn init_worktree_from_repo(policy: &Policy) -> Result<()> {
             .config()
             .allow_read_globs
             .iter()
-            .any(|g| glob_match(&rel_str, g));
+            .try_fold(false, |acc, g| glob_match(&rel_str, g).map(|m| acc || m))?;
 
         let allowed_write = policy
             .config()
             .allow_write_globs
             .iter()
-            .any(|g| glob_match(&rel_str, g));
+            .try_fold(false, |acc, g| glob_match(&rel_str, g).map(|m| acc || m))?;
 
         if !(allowed_read || allowed_write) {
             continue;

@@ -1,7 +1,7 @@
 //! projects/products/varina/backend/src/git_github/commands/add.rs
 use std::{path::Path, process};
 
-use crate::AutopilotError;
+use crate::autopilot::AutopilotError;
 // Adds the specified paths to the Git index.
 pub fn git_add_paths(
     repo_path: &Path,

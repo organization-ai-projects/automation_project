@@ -5,7 +5,7 @@ use crate::ws::{WsEventArgs, WsEventErrorDetails, ws_event};
 use common::custom_uuid::Id128;
 
 // Update ws_event_error to use the new error details struct
-pub fn ws_event_error(
+pub(crate) fn ws_event_error(
     meta: &Metadata,
     http_code: u16,
     code: i32,

@@ -4,12 +4,10 @@ use ndarray::Array1;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use crate::{
-    feedback::{
-        AdjustmentMetrics, FeedbackConfig, FeedbackError, FeedbackStats, FeedbackType, UserFeedback,
-    },
-    network::neural_net::NeuralNetwork,
+use crate::feedback::{
+    AdjustmentMetrics, FeedbackConfig, FeedbackError, FeedbackStats, FeedbackType, UserFeedback,
 };
+use crate::network::neural_network::NeuralNetwork;
 
 /// Model adjustment manager via feedback
 pub struct FeedbackAdjuster {

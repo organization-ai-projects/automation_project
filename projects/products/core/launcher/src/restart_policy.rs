@@ -3,14 +3,14 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-pub enum RestartPolicy {
+pub(crate) enum RestartPolicy {
     Never,
     OnFailure,
     Always,
 }
-pub fn default_restart() -> RestartPolicy {
+pub(crate) fn default_restart() -> RestartPolicy {
     RestartPolicy::OnFailure
 }
-pub fn default_backoff() -> u64 {
+pub(crate) fn default_backoff() -> u64 {
     500
 }

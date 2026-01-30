@@ -1,13 +1,12 @@
 //! projects/products/varina/backend/src/policy_evaluation.rs
 use ignore::gitignore::GitignoreBuilder;
 
-use crate::{
-    AutopilotPolicy, ClassifiedChanges, ClassifiedChangesRef,
-    autopilot::{
-        CompiledAutopilotPolicy,
-        compiled_autopilot_policy::{normalize_path, path_has_compiled_prefix},
-    },
+use crate::autopilot::{
+    AutopilotPolicy, CompiledAutopilotPolicy,
+    compiled_autopilot_policy::{normalize_path, path_has_compiled_prefix},
 };
+use crate::classified_changes::ClassifiedChanges;
+use crate::classified_changes_ref::ClassifiedChangesRef;
 
 use std::path::{self, Path};
 

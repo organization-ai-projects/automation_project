@@ -4,27 +4,28 @@ use std::path::Path;
 use crate::{
     actions::{Action, ActionResult},
     command_runner::CommandRunner,
-    engine::{
-        EngineConfig, handle_generate_code, record_action_event, record_and_push_result, records,
-    },
     journal::Journal,
     policies::Policy,
+    sandbox_engine::{
+        EngineConfig, check_file_limit, handle_generate_code, record_action_event,
+        record_and_push_result,
+    },
     sandbox_fs::SandboxFs,
 };
 
 pub struct LowLevelActionContext<'a> {
-    pub policy: &'a Policy,
-    pub sfs: &'a SandboxFs,
-    pub runner: &'a CommandRunner,
-    pub run_dir: &'a Path,
-    pub journal: &'a mut Journal,
-    pub config: &'a EngineConfig,
+    pub(crate) policy: &'a Policy,
+    pub(crate) sfs: &'a SandboxFs,
+    pub(crate) runner: &'a CommandRunner,
+    pub(crate) run_dir: &'a Path,
+    pub(crate) journal: &'a mut Journal,
+    pub(crate) config: &'a EngineConfig,
 }
 
-pub fn run_low_level_actions(
+pub(crate) fn run_low_level_actions(
     run_id: &str,
     actions: &[Action],
-    ctx: &mut LowLevelActionContext, // Grouping parameters into a structure
+    ctx: &mut LowLevelActionContext,
 ) -> Result<Vec<ActionResult>, anyhow::Error> {
     if actions.is_empty() {
         return Ok(Vec::new());
@@ -62,7 +63,7 @@ pub fn run_low_level_actions(
             continue;
         }
 
-        if records::check_file_limit(
+        if check_file_limit(
             files_touched,
             ctx.config.max_files_per_request,
             run_id,

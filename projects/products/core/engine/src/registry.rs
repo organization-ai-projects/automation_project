@@ -2,33 +2,34 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::str::FromStr;
 
-use common_json::{JsonSerializable, from_json_str};
+use common_json::JsonSerializable;
+use common_time::timestamp_utils::current_timestamp_ms;
+use protocol::ProjectMetadata;
+use protocol::protocol_id::ProtocolId;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::ProjectMetadata;
-
 const ERR_READ_PROJECTS_DIR: &str = "Failed to read projects dir";
 const ERR_READ_PROJECT_ENTRY: &str = "Failed to read project entry";
-const ERR_READ_METADATA: &str = "Failed to read metadata.json";
-const _ERR_INVALID_METADATA: &str = "Invalid metadata.json";
-const AUTO_DETECTED_DESCRIPTION: &str = "Auto-detected project";
+const ERR_READ_METADATA: &str = "Failed to read metadata.ron";
 const DEFAULT_VERSION: &str = "0.1.0";
+const DEFAULT_KIND: &str = "product";
 const _ERR_SERIALIZE_REGISTRY: &str = "Failed to serialize registry";
 const ERR_WRITE_CACHE: &str = "Failed to write registry cache";
-const METADATA_FILE: &str = "metadata.json";
+const METADATA_FILE: &str = "metadata.ron";
 const IGNORED_FOLDERS: [&str; 5] = [".git", "node_modules", "target", ".idea", ".vscode"];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct Registry {
-    pub projects: HashMap<String, ProjectMetadata>,
+pub(crate) struct Registry {
+    pub(crate) projects: HashMap<String, ProjectMetadata>,
 }
 
 impl Registry {
     /// NORMAL entry point of the engine.
     /// Scans the projects folder and populates the registry.
-    pub fn load(projects_dir: impl AsRef<Path>) -> Result<Self, String> {
+    pub(crate) fn load(projects_dir: impl AsRef<Path>) -> Result<Self, String> {
         let projects_dir = projects_dir.as_ref();
 
         if !projects_dir.is_dir() {
@@ -41,7 +42,7 @@ impl Registry {
     }
 
     /// Automatic scan of projects present on disk
-    pub fn scan_projects(&mut self, projects_dir: &Path) -> Result<(), String> {
+    pub(crate) fn scan_projects(&mut self, projects_dir: &Path) -> Result<(), String> {
         let entries = fs::read_dir(projects_dir).map_err(|e| {
             format!(
                 "{} '{}': {}",
@@ -68,7 +69,7 @@ impl Registry {
             };
 
             let metadata = Self::load_project_metadata(&folder, &path)?;
-            let key = folder.to_string(); // Use folder as the key
+            let key = folder.to_string();
             if self.projects.insert(key.clone(), metadata).is_some() {
                 warn!("Duplicate project key '{}', overwritten", key);
             }
@@ -86,7 +87,7 @@ impl Registry {
         !IGNORED_FOLDERS.contains(&name) && !name.starts_with('.')
     }
 
-    /// Loads metadata.json if present, otherwise auto fallback
+    /// Loads metadata.ron if present, otherwise auto fallback
     fn load_project_metadata(
         project_id: &str,
         project_dir: &Path,
@@ -95,25 +96,28 @@ impl Registry {
 
         match fs::read_to_string(&metadata_path) {
             Ok(data) => {
-                let mut meta: ProjectMetadata = from_json_str(&data).unwrap_or_else(|e| {
-                    panic!("Failed to parse ProjectMetadata: {e}");
-                });
+                let mut meta: ProjectMetadata = ron::from_str(&data)
+                    .map_err(|e| format!("Failed to parse metadata.ron: {e}"))?;
 
-                // Log if metadata.json contains a mismatched ID
-                if meta.id != project_id {
-                    warn!(
-                        "Mismatched ID in metadata.json: expected '{}', found '{}'",
-                        project_id, meta.id
-                    );
+                if let Ok(expected) = ProtocolId::from_str(project_id) {
+                    if meta.id != expected {
+                        warn!(
+                            "Mismatched ID in metadata.ron: expected '{}', found '{}'",
+                            project_id, meta.id
+                        );
+                    }
+                } else {
+                    return Err(format!(
+                        "Project folder '{}' must be a ProtocolId hex",
+                        project_id
+                    ));
                 }
 
-                // Force meta.id to match project_id
-                meta.id = project_id.to_string();
                 if meta.name.trim().is_empty() {
                     meta.name = project_id.to_string();
                 }
-                if meta.description.trim().is_empty() {
-                    meta.description = AUTO_DETECTED_DESCRIPTION.to_string();
+                if meta.kind.trim().is_empty() {
+                    meta.kind = DEFAULT_KIND.to_string();
                 }
                 if meta.version.trim().is_empty() {
                     meta.version = DEFAULT_VERSION.to_string();
@@ -121,9 +125,7 @@ impl Registry {
 
                 Ok(meta)
             }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                Ok(Self::auto_metadata(project_id))
-            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Self::auto_metadata(project_id),
             Err(e) => Err(format!(
                 "{} '{}': {}",
                 ERR_READ_METADATA,
@@ -133,17 +135,25 @@ impl Registry {
         }
     }
 
-    fn auto_metadata(project_id: &str) -> ProjectMetadata {
-        ProjectMetadata {
-            id: project_id.to_string(),
+    fn auto_metadata(project_id: &str) -> Result<ProjectMetadata, String> {
+        let id = ProtocolId::from_str(project_id)
+            .map_err(|e| format!("project.id must be a ProtocolId hex: {e}"))?;
+        Ok(ProjectMetadata {
+            schema_version: 1,
+            generated_at: current_timestamp_ms(),
+            id,
             name: project_id.to_string(),
-            description: AUTO_DETECTED_DESCRIPTION.to_string(),
+            kind: DEFAULT_KIND.to_string(),
             version: DEFAULT_VERSION.to_string(),
-        }
+            entrypoints: None,
+            capabilities: Vec::new(),
+            domains: Vec::new(),
+            ai_hints: None,
+        })
     }
 
     /// Optional cache saving (startup acceleration)
-    pub fn save_cache(&self, path: impl AsRef<Path>) -> Result<(), String> {
+    pub(crate) fn save_cache(&self, path: impl AsRef<Path>) -> Result<(), String> {
         let path = path.as_ref();
         let data = self.to_json_string().unwrap_or_else(|e| {
             panic!("Failed to serialize ProjectMetadata: {e}");

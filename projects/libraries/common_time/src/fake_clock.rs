@@ -3,24 +3,17 @@
 // projects/libraries/common_time/src/fake_clock.rs
 use std::sync::{Arc, Mutex};
 
-use crate::{Clock, MonoInstant, TimeSpan};
+use crate::{Clock, MonoInstant, TimeSpan, fake_clock_state::FakeClockState};
 
 #[derive(Clone, Debug)]
 pub struct FakeClock {
-    state: Arc<Mutex<State>>,
-}
-
-#[derive(Debug)]
-struct State {
-    now: std::time::Instant,
+    state: Arc<Mutex<FakeClockState>>,
 }
 
 impl FakeClock {
     pub fn new() -> Self {
         Self {
-            state: Arc::new(Mutex::new(State {
-                now: std::time::Instant::now(),
-            })),
+            state: Arc::new(Mutex::new(FakeClockState::new())),
         }
     }
 

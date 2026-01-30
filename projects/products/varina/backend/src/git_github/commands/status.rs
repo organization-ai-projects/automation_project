@@ -1,7 +1,7 @@
 //! projects/products/varina/backend/src/git_github/commands/status.rs
 use std::{path, process};
 
-use crate::AutopilotError;
+use crate::autopilot::AutopilotError;
 
 /// Retrieves the current status of the repository in a porcelain format.
 pub fn git_status_porcelain_z(

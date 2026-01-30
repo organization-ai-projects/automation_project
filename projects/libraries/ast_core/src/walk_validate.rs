@@ -1,25 +1,8 @@
 // projects/libraries/ast_core/src/walk_validate.rs
+use crate::frame::Frame;
 use crate::{
     AstErrorKind, AstKind, AstNode, AstPath, AstValidationError, PathItem, ValidateLimits,
 };
-
-enum Frame<'a> {
-    Enter {
-        node: &'a AstNode,
-        depth: usize,
-    },
-    ArrayNext {
-        node: &'a AstNode,
-        depth: usize,
-        idx: usize,
-    },
-    ObjectNext {
-        node: &'a AstNode,
-        depth: usize,
-        idx: usize,
-    },
-    PopPath,
-}
 
 pub fn validate_iterative(
     root: &AstNode,

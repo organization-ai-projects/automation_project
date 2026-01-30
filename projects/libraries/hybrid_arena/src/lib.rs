@@ -1,5 +1,6 @@
 //! # `hybrid_arena` - High-Performance Arena Allocators
 // projects/libraries/hybrid_arena/src/lib.rs
+mod arena_common_trait;
 pub mod bump_arena;
 pub mod bump_arena_drain;
 pub mod bump_arena_into_iter;

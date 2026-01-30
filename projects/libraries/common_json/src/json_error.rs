@@ -1,26 +1,7 @@
 // projects/libraries/common_json/src/json_error.rs
 use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
-pub enum JsonErrorCode {
-    Serialize,
-    TypeMismatch,
-    MissingField,
-    IndexOutOfBounds,
-    InvalidPath,
-    UnexpectedNull,
-    ParseError,
-    UnsupportedOperation,
-    Io,
-    Custom,
-    InvalidInteger,
-    InvalidByteValue,
-    MissingEnumValueError,
-    ValueSerializedBeforeKey,
-    FieldNotFound,
-    ExpectedSingleCharacter,
-    ValueIsMissing,
-}
+pub use crate::json_error_code::JsonErrorCode;
 
 #[derive(Debug, serde::Serialize)]
 pub struct JsonError {

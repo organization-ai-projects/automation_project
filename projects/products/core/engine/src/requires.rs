@@ -4,7 +4,10 @@ use security::{Permission, Token};
 
 use crate::EngineState;
 
-pub async fn require_project_exists(cmd: &Command, state: &EngineState) -> Result<(), String> {
+pub(crate) async fn require_project_exists(
+    cmd: &Command,
+    state: &EngineState,
+) -> Result<(), String> {
     let key = cmd.metadata.to_key();
     let reg = state.registry.read().await;
     if !reg.projects.contains_key(&key) {
@@ -14,7 +17,7 @@ pub async fn require_project_exists(cmd: &Command, state: &EngineState) -> Resul
 }
 
 /// Checks the token's permissions
-pub fn require_permission(token: &Token, perm: Permission) -> Result<(), String> {
+pub(crate) fn require_permission(token: &Token, perm: Permission) -> Result<(), String> {
     if !token.role.permissions().contains(&perm) {
         return Err(format!("Missing permission: {:?}", perm));
     }

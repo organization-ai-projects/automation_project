@@ -1,7 +1,7 @@
 // projects/libraries/neural/tests/integration_code_generator.rs
 use neural::{
     generation::{GenerationConfig, code_generator::CodeGenerator},
-    network::neural_net::{Activation, LayerConfig, NeuralNetwork, WeightInit},
+    network::{Activation, LayerConfig, WeightInit, neural_network::NeuralNetwork},
     tokenization::RustTokenizer,
 };
 

@@ -3,12 +3,9 @@ use neural::NeuralError;
 use tracing::{info, warn};
 
 use crate::{
-    ai_error::AiError,
-    ai_orchestrator::AiOrchestrator,
-    solve_trace::{SolveDecision, SolveTrace, SolveWinner},
-    solver_strategy::SolverStrategy,
-    task::Task,
-    task_result::TaskResult,
+    ai_error::AiError, ai_orchestrator::AiOrchestrator, solve_decision::SolveDecision,
+    solve_trace::SolveTrace, solve_winner::SolveWinner, solver_strategy::SolverStrategy,
+    task::Task, task_result::TaskResult,
 };
 
 impl AiOrchestrator {

@@ -3,8 +3,9 @@ use common_json::to_value;
 use protocol::{ApplyRequest, ApplyResponse, PreviewRequest, PreviewResponse};
 
 use crate::automation::run_git_autopilot;
+use crate::autopilot::{AutopilotMode, AutopilotPolicy};
 use crate::git_github::suggest_policy_from_report;
-use crate::{AutopilotMode, AutopilotPolicy, PreChecks};
+use crate::pre_checks::PreChecks;
 
 /// Preview = DryRun.
 /// Does NOT make any random policy mutations.

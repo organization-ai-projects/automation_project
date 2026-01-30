@@ -4,7 +4,7 @@ use ndarray::{Array1, s};
 
 use crate::{
     generation::{GenerationConfig, GenerationError, apply_top_k, sample_categorical, softmax},
-    network::neural_net::NeuralNetwork,
+    network::neural_network::NeuralNetwork,
     tokenization::RustTokenizer,
 };
 
@@ -116,10 +116,10 @@ impl CodeGenerator {
         let serialized_model = self
             .model
             .to_json()
-            .map_err(|e| std::io::Error::other(e.to_string()))?;
+            .map_err(|e: common_json::JsonError| std::io::Error::other(e.to_string()))?;
 
-        let serialized_model_str =
-            to_string(&serialized_model).map_err(|e| std::io::Error::other(e.to_string()))?;
+        let serialized_model_str = to_string(&serialized_model)
+            .map_err(|e: common_json::JsonError| std::io::Error::other(e.to_string()))?;
 
         // Write the serialized data to the specified file
         std::fs::write(model_path, serialized_model_str)

@@ -1,22 +1,22 @@
 // projects/products/code_agent_sandbox/src/agent_driver.rs
 use anyhow::{Context, Result};
-use common_json::pjson;
+use common_json::{JsonAccess, pjson};
 use common_time::SystemClock;
 use std::path::Path;
 
 use crate::{
-    actions::{Action, ActionResult},
+    actions::{Action, ActionResult, execute_action},
     agents::{AgentOutcome, AgentRequest, STRATEGIES},
-    command_runner::extract_cargo_stderr,
-    engine::EngineCtx,
     logging::log_event,
+    sandbox_engine::EngineCtx,
     score::{ScoreConfig, ScoreSummary},
+    utils::truncate,
 };
 use ai::AiBody;
 
 /// Parses unified diff (patch) text and returns the list of touched files.
 /// This does NOT compute diffs.
-pub fn parse_diff_touched_files(unified_diff: &str) -> Vec<String> {
+pub(crate) fn parse_diff_touched_files(unified_diff: &str) -> Vec<String> {
     let mut out = Vec::new();
 
     for path in unified_diff
@@ -33,7 +33,7 @@ pub fn parse_diff_touched_files(unified_diff: &str) -> Vec<String> {
 }
 
 // Updated `run_agent_with_orchestrator` to use refactored functions
-pub fn run_agent_with_orchestrator(
+pub(crate) fn run_agent_with_orchestrator(
     ctx: &mut EngineCtx,
     run_dir: &Path,
     req: AgentRequest,
@@ -201,9 +201,6 @@ pub fn run_agent_with_orchestrator(
     Ok((outcome, all_results))
 }
 
-// Removed `execute_action` and `run_cargo_action` from this file
-use crate::actions::execute_action;
-
 // Updated `run_and_record` to use `common_time::SystemClock`
 fn run_and_record(
     ctx: &mut EngineCtx,
@@ -260,4 +257,17 @@ fn build_context_snippet(results: &[ActionResult], score: &ScoreSummary) -> Stri
     );
 
     parts.join("\n")
+}
+
+fn extract_cargo_stderr(result: &ActionResult) -> Option<String> {
+    if result.kind.starts_with("Cargo") {
+        result
+            .data
+            .as_ref()
+            .and_then(|data| data.get_field("stderr").ok())
+            .and_then(|stderr| stderr.as_str())
+            .map(|stderr| format!("{} stderr:\n{}", result.kind, truncate(stderr, 2000)))
+    } else {
+        None
+    }
 }

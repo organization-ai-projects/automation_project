@@ -42,3 +42,5 @@ coverage/
 # Secrets
 .env
 .env.*
+
+ANALYSE_COHERENCE_WORKFLOWS_SCRIPTS.md

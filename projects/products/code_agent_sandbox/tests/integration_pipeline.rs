@@ -5,6 +5,8 @@ use std::process::{Command, Stdio};
 use std::{fs, process};
 use tempfile::tempdir;
 
+// ---- local helpers (test-only) ----
+// If other integration tests need them, move to tests/helpers.rs.
 fn run_with_stdin(repo_root: &str, runs_root: &str, input: &str) -> std::process::Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_code_agent_sandbox"))
         .arg(repo_root)
@@ -37,6 +39,7 @@ fn parse_stdout_json(output: &process::Output, input: &str) -> Json {
         )
     })
 }
+// ---- end helpers ----
 
 #[test]
 fn test_integration_pipeline() {

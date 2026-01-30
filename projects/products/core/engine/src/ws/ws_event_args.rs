@@ -4,17 +4,17 @@ use protocol::{EventType, EventVariant, Metadata, Payload};
 use crate::ws::WsEventErrorDetails;
 
 // Update WsEventArgs to use Payload directly
-pub struct WsEventArgs {
-    pub meta: Metadata,
-    pub name: String,
-    pub event_type: EventType,
-    pub variant: EventVariant,
-    pub payload: Option<Payload>,
-    pub error_details: Option<WsEventErrorDetails>,
+pub(crate) struct WsEventArgs {
+    pub(crate) meta: Metadata,
+    pub(crate) name: String,
+    pub(crate) event_type: EventType,
+    pub(crate) variant: EventVariant,
+    pub(crate) payload: Option<Payload>,
+    pub(crate) error_details: Option<WsEventErrorDetails>,
 }
 
 impl WsEventArgs {
-    pub fn new(
+    pub(crate) fn new(
         meta: Metadata,
         name: impl Into<String>,
         event_type: EventType,

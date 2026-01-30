@@ -1,7 +1,7 @@
 //! projects/products/varina/backend/src/git_github/commands/commit.rs
 use std::{path::Path, process};
 
-use crate::AutopilotError;
+use crate::autopilot::AutopilotError;
 
 /// Commits the staged changes in the Git repository with the given subject and body.
 pub fn git_commit(

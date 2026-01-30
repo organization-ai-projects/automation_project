@@ -1,7 +1,7 @@
 //! projects/products/varina/backend/src/git_github/commands/push.rs
 use std::{path::Path, process};
 
-use crate::AutopilotError;
+use crate::autopilot::AutopilotError;
 
 /// Pushes the current branch to the remote repository.
 pub fn git_push_current_branch(

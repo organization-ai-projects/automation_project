@@ -1,58 +1,77 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Usage: ./create_branch.sh <branch-name>
 # If branch-name is omitted, tries to reuse /tmp/last_deleted_branch.
 # Creates branch from dev and optionally pushes it.
 
-REMOTE="origin"
-BASE_BRANCH="dev"
-LAST_DELETED_FILE="/tmp/last_deleted_branch"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+# shellcheck source=scripts/common_lib/core/logging.sh
+source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
+# shellcheck source=scripts/common_lib/core/string_utils.sh
+source "$ROOT_DIR/scripts/common_lib/core/string_utils.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/synch.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/synch.sh"
+
+require_git_repo
+
+REMOTE="${REMOTE:-origin}"
+BASE_BRANCH="${BASE_BRANCH:-dev}"
 
 BRANCH_NAME="${1:-}"
 
 if [[ -z "$BRANCH_NAME" ]]; then
-  if [[ -f "$LAST_DELETED_FILE" ]]; then
-    BRANCH_NAME="$(tr -d '\r' < "$LAST_DELETED_FILE" | head -n 1 | xargs || true)"
-    if [[ -z "$BRANCH_NAME" ]]; then
-      echo "Error: $LAST_DELETED_FILE is empty or invalid." >&2
-      exit 1
-    fi
-    echo "No name provided. Recreating the last deleted branch: $BRANCH_NAME"
+  if BRANCH_NAME="$(get_last_deleted_branch)"; then
+    info "No name provided. Recreating the last deleted branch: $BRANCH_NAME"
   else
-    echo "Error: you must specify a branch name (or $LAST_DELETED_FILE does not exist)." >&2
-    exit 1
+    die "You must specify a branch name (or no last deleted branch found)."
   fi
 fi
 
-# Protections basiques
-if [[ "$BRANCH_NAME" == "$BASE_BRANCH" || "$BRANCH_NAME" == "main" ]]; then
-  echo "Error: protected/refused branch name: $BRANCH_NAME" >&2
-  exit 1
+# Protections
+require_non_protected_branch "$BRANCH_NAME"
+
+# Refuse spaces
+if string_contains "$BRANCH_NAME" " "; then
+  die "Invalid branch name (contains spaces): '$BRANCH_NAME'"
 fi
 
-# Refuse spaces (optional but sane)
-if [[ "$BRANCH_NAME" == *" "* ]]; then
-  echo "Error: invalid branch name (contains spaces): '$BRANCH_NAME'" >&2
-  exit 1
+# Validate branch naming convention
+ALLOWED_PREFIXES=("feature/" "feat/" "fix/" "fixture/" "doc/" "docs/" "refactor/" "test/" "tests/" "chore/")
+has_valid_prefix=false
+for prefix in "${ALLOWED_PREFIXES[@]}"; do
+  if [[ "$BRANCH_NAME" == "$prefix"* ]]; then
+    has_valid_prefix=true
+    break
+  fi
+done
+
+if [[ "$has_valid_prefix" == false ]]; then
+  die "Invalid branch name: must start with one of: ${ALLOWED_PREFIXES[*]}"
 fi
 
-echo "=== Create branch: $BRANCH_NAME (base: $BASE_BRANCH) ==="
+info "Creating branch: $BRANCH_NAME (base: $BASE_BRANCH)"
 
-git fetch "$REMOTE" --prune
+git_fetch_prune "$REMOTE"
 
 git checkout "$BASE_BRANCH"
 git pull "$REMOTE" "$BASE_BRANCH"
 
-# If branch already exists locally, just checkout it (or refuse; your choice)
-if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
-  echo "ℹ The local branch '$BRANCH_NAME' already exists. Checkout."
+# If branch already exists locally, just checkout it
+if branch_exists_local "$BRANCH_NAME"; then
+  info "The local branch '$BRANCH_NAME' already exists. Checking out."
   git checkout "$BRANCH_NAME"
 else
   git checkout -b "$BRANCH_NAME" "$BASE_BRANCH"
-  echo "✓ Branch '$BRANCH_NAME' created from '$BASE_BRANCH'."
+  info "✓ Branch '$BRANCH_NAME' created from '$BASE_BRANCH'."
 fi
 
-# Optional: push + upstream (highly recommended)
+# Push with upstream
 git push --set-upstream "$REMOTE" "$BRANCH_NAME"
-echo "✓ Branch '$BRANCH_NAME' pushed to '$REMOTE' with upstream."
+info "✓ Branch '$BRANCH_NAME' pushed to '$REMOTE' with upstream."
