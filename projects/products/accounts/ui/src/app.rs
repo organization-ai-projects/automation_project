@@ -6,11 +6,7 @@ use crate::components::card_components::{login_card, setup_card, users_table};
 use crate::components::form_components::{input_field, input_password, select_role, select_status};
 use crate::parse_json::parse_json;
 use crate::permission_picker::permission_picker;
-use crate::setup_admin_input::SetupAdminInput;
-use crate::user_actions::{
-    create_user_action, reload_users_with_token, reset_password_action, update_status_action,
-    update_user_action,
-};
+use crate::user_actions::{create_user_action, reset_password_action, update_user_action};
 
 /// Main application component with setup, login, and user management
 #[component]
@@ -34,17 +30,20 @@ pub fn app() -> Element {
                 .send()
                 .await
             {
-                Ok(resp) => {
-                    if let Ok(text) = resp.text().await {
-                        if let Ok(status) = parse_json::<serde_json::json::Object>(&text) {
-                            if let Some(needs_setup) = status.get("needs_setup") {
-                                if needs_setup.as_bool().unwrap_or(false) {
-                                    setup_mode.set(true);
-                                }
-                            }
+                Ok(resp) => match parse_json::<serde_json::Value>(resp).await {
+                    Ok(status) => {
+                        let needs_setup = status
+                            .get("needs_setup")
+                            .and_then(|value| value.as_bool())
+                            .unwrap_or(false);
+                        if needs_setup {
+                            setup_mode.set(true);
                         }
                     }
-                }
+                    Err(err) => {
+                        msg.set(format!("Failed to parse setup status: {err}"));
+                    }
+                },
                 Err(err) => {
                     msg.set(format!("Failed to check setup status: {err}"));
                 }
@@ -77,16 +76,9 @@ pub fn app() -> Element {
             class: "container",
 
             if setup_mode.read().clone() {
-                {setup_card(
-                    user_id,
-                    password,
-                    msg,
-                    setup_mode,
-                    jwt,
-                    create_user_action,
-                )}
+                {setup_card(user_id, password, msg, setup_mode)}
             } else if jwt.read().is_none() {
-                {login_card(jwt, user_id, password, msg, reload_users_with_token, users)}
+                {login_card(user_id, password, msg, jwt, users)}
             } else {
                 // User management dashboard
                 div {
@@ -134,19 +126,7 @@ pub fn app() -> Element {
 
                         {select_status("Filter by status", status_filter)}
 
-                        {users_table(
-                            users,
-                            jwt,
-                            user_id,
-                            role,
-                            permissions,
-                            password,
-                            msg,
-                            update_user_action,
-                            update_status_action,
-                            reset_password_action,
-                            reload_users_with_token,
-                        )}
+                        {users_table(users)}
                     }
 
                     // User edit form (when a user is selected)

@@ -2,10 +2,11 @@
 use dioxus::prelude::*;
 
 /// Text input field component
-pub fn input_field(label: &str, mut value: Signal<String>) -> Element {
+pub fn input_field(label: &str, mut value: Signal<String>, read_only: bool) -> Element {
     rsx! {
         label { "{label}" }
         input {
+            readonly: read_only,
             value: "{value.read()}",
             oninput: move |evt| value.set(evt.value().clone()),
         }
@@ -25,9 +26,9 @@ pub fn input_password(label: &str, mut value: Signal<String>) -> Element {
 }
 
 /// Role selector dropdown
-pub fn select_role(mut role: Signal<String>) -> Element {
+pub fn select_role(label: &str, mut role: Signal<String>) -> Element {
     rsx! {
-        label { "Role" }
+        label { "{label}" }
         select {
             value: "{role.read()}",
             onchange: move |evt| role.set(evt.value().clone()),
@@ -40,9 +41,9 @@ pub fn select_role(mut role: Signal<String>) -> Element {
 }
 
 /// Status selector dropdown
-pub fn select_status(mut status: Signal<String>) -> Element {
+pub fn select_status(label: &str, mut status: Signal<String>) -> Element {
     rsx! {
-        label { "Status" }
+        label { "{label}" }
         select {
             value: "{status.read()}",
             onchange: move |evt| status.set(evt.value().clone()),

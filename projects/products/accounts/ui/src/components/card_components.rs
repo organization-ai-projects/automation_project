@@ -1,7 +1,7 @@
 // projects/products/accounts/ui/src/card_components.rs
 use dioxus::prelude::*;
 use gloo_net::http::Request;
-use protocol::accounts::{AccountSummary, LoginRequest, LoginResponse, SetupStatusResponse};
+use protocol::accounts::{AccountSummary, LoginRequest, LoginResponse};
 
 use crate::{
     components::form_components::{input_field, input_password},
@@ -15,12 +15,12 @@ pub fn setup_card(
     setup_user: Signal<String>,
     setup_pass: Signal<String>,
     mut setup_msg: Signal<String>,
-    mut setup_mode: Signal<Option<bool>>,
+    mut setup_mode: Signal<bool>,
 ) -> Element {
     rsx! {
         section { class: "card",
             h2 { "Create first admin" }
-            {input_field("User ID (32 hex chars)", setup_user)}
+            {input_field("User ID (32 hex chars)", setup_user, false)}
             {input_password("Password", setup_pass)}
             button {
                 class: "primary",
@@ -46,7 +46,7 @@ pub fn setup_card(
                                 let text = resp.text().await.unwrap_or_default();
                                 setup_msg.set(format!("status {}: {}", status, text));
                                 if status == 201 {
-                                    setup_mode.set(Some(false));
+                                    setup_mode.set(false);
                                 }
                             }
                             Err(err) => {
@@ -73,7 +73,7 @@ pub fn login_card(
     rsx! {
         section { class: "card",
             h2 { "Login" }
-            {input_field("User ID (32 hex chars)", login_user)}
+            {input_field("User ID (32 hex chars)", login_user, false)}
             {input_password("Password", login_pass)}
             button {
                 class: "primary",
