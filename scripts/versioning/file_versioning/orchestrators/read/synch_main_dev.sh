@@ -97,30 +97,47 @@ while [[ $attempt -le $MAX_RETRIES ]]; do
   [[ "$SYNC_BRANCH" == "$MAIN" ]] && die "SYNC_BRANCH cannot be the same as MAIN ($MAIN)"
   [[ "$SYNC_BRANCH" == "$DEV" ]] && die "SYNC_BRANCH cannot be the same as DEV ($DEV)"
 
-  # Check if dev already contains main (nothing to sync)
-  if git merge-base --is-ancestor "$REMOTE/$MAIN" "$REMOTE/$DEV"; then
+  # Check if main contains dev (dev needs syncing) or if they're already synced
+  # Only exit if main is NOT ahead of dev (i.e., dev already has all main commits)
+  # Count commits: main..dev vs dev..main
+  COMMITS_IN_MAIN="$(git rev-list --count "$REMOTE/$DEV".."$REMOTE/$MAIN" 2>/dev/null || echo "0")"
+
+  if [[ "$COMMITS_IN_MAIN" == "0" ]]; then
     info "✅ Dev already contains all commits from main. Nothing to sync."
     exit 0
   fi
 
-  # Ensure local main exists and is up to date with remote main
+  info "Found $COMMITS_IN_MAIN commit(s) in main that need syncing to dev."
+
+  # Ensure local dev and main exist and are up to date with remote
+  info "Updating local '$DEV' from $REMOTE/$DEV..."
+  if ! git show-ref --verify --quiet "refs/heads/$DEV"; then
+    info "Local branch '$DEV' not found. Creating from $REMOTE/$DEV..."
+    git switch -c "$DEV" "$REMOTE/$DEV" >/dev/null
+  else
+    git switch "$DEV" >/dev/null
+  fi
+  git pull --ff-only "$REMOTE" "$DEV"
+
   info "Updating local '$MAIN' from $REMOTE/$MAIN..."
   if ! git show-ref --verify --quiet "refs/heads/$MAIN"; then
     info "Local branch '$MAIN' not found. Creating from $REMOTE/$MAIN..."
-    git switch -c "$MAIN" "$REMOTE/$MAIN" >/dev/null
-  else
-    git switch "$MAIN" >/dev/null
+    git branch "$MAIN" "$REMOTE/$MAIN" >/dev/null
   fi
-  git pull --ff-only "$REMOTE" "$MAIN"
 
   # Branch existence safety: check if local sync branch already exists
   if git show-ref --verify --quiet "refs/heads/$SYNC_BRANCH"; then
     die "Local branch '$SYNC_BRANCH' already exists. Please delete it first or use a different name."
   fi
 
-  # Create unique sync branch from main (exact copy, no merge)
-  info "Creating sync branch '$SYNC_BRANCH' from '$MAIN'..."
-  git switch -c "$SYNC_BRANCH" "$MAIN" >/dev/null
+  # Create sync branch FROM DEV (preserves dev's commits) then merge main INTO it
+  # This is safer in a team environment - we don't lose dev's work
+  info "Creating sync branch '$SYNC_BRANCH' from '$DEV'..."
+  git switch -c "$SYNC_BRANCH" "$DEV" >/dev/null
+
+  # Merge main into the sync branch (main commits come into dev's history)
+  info "Merging '$MAIN' into '$SYNC_BRANCH'..."
+  git merge --no-ff "$MAIN" -m "Sync: merge main into dev" || die "Merge conflict detected. Manual intervention required."
 
   # Branch existence safety: check if remote sync branch already exists
   if git ls-remote --heads "$REMOTE" "$SYNC_BRANCH" | awk '{print $2}' | grep -qx "refs/heads/$SYNC_BRANCH"; then
