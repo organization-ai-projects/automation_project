@@ -1,7 +1,7 @@
 // projects/products/core/engine/src/bootstrap/owner_claim.rs
 use serde::{Deserialize, Serialize};
 
-//use commont_time to created_at and expires_at
+// use common_time for created_at and expires_at
 /// Owner bootstrap claim with secret and expiration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct OwnerClaim {
