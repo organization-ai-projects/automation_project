@@ -54,7 +54,34 @@ else
   echo ""
 fi
 
-# 1. Format staged files
+# 1. Check orchestrator script permissions
+echo "🔒 Checking orchestrator script permissions..."
+PERMISSION_ERRORS=0
+
+# Check read/ scripts (must NOT be executable)
+while IFS= read -r -d '' script; do
+  if [[ -x "$script" ]]; then
+    echo "   ❌ $script should NOT be executable (use chmod 644)"
+    PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+  fi
+done < <(find scripts/versioning/file_versioning/orchestrators/read -name '*.sh' -type f -print0 2>/dev/null)
+
+# Check execute/ scripts (must BE executable)
+while IFS= read -r -d '' script; do
+  if [[ ! -x "$script" ]]; then
+    echo "   ❌ $script should be executable (use chmod 755)"
+    PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+  fi
+done < <(find scripts/versioning/file_versioning/orchestrators/execute -name '*.sh' -type f -print0 2>/dev/null)
+
+if [[ $PERMISSION_ERRORS -gt 0 ]]; then
+  echo ""
+  echo "❌ Script permission errors detected!"
+  echo "   Convention: read/ scripts = 644, execute/ scripts = 755"
+  exit 1
+fi
+
+# 2. Format staged files
 echo "✨ Formatting code..."
 if ! cargo fmt --all; then
   echo ""
