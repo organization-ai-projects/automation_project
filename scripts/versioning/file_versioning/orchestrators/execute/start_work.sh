@@ -8,7 +8,7 @@ set -euo pipefail
 #   3. Create branch (from issue or custom)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
 # Save current branch to restore on exit (handle detached HEAD safely)
 INITIAL_BRANCH="$(git branch --show-current 2>/dev/null || true)"
