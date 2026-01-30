@@ -8,7 +8,7 @@ set -euo pipefail
 #   3. Create branch (from issue or custom)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
 # Save current branch to restore on exit (handle detached HEAD safely)
 INITIAL_BRANCH="$(git branch --show-current 2>/dev/null || true)"
@@ -77,7 +77,7 @@ echo ""
 read -rp "Your choice: " choice
 
 case "$choice" in
-  [0-9]+)
+  [0-9]*)
     # Validate issue number format strictly
     if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
       die "Invalid issue number: $choice"
@@ -114,7 +114,7 @@ case "$choice" in
       read -rp "Enter custom branch name: " BRANCH_NAME
     fi
 
-    bash "$SCRIPT_DIR/git/create_branch.sh" "$BRANCH_NAME"
+    bash "$ROOT_DIR/scripts/versioning/file_versioning/git/create_branch.sh" "$BRANCH_NAME"
     ;;
 
   [Cc])
@@ -126,7 +126,7 @@ case "$choice" in
     read -rp "Enter branch name: " BRANCH_NAME
 
     validate_branch_name "$BRANCH_NAME"
-    bash "$SCRIPT_DIR/../read/git/create_branch.sh" "$BRANCH_NAME"
+    bash "$ROOT_DIR/scripts/versioning/file_versioning/git/create_branch.sh" "$BRANCH_NAME"
     ;;
 
   [Ss])
