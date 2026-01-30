@@ -1,6 +1,7 @@
 // projects/libraries/neural/src/feedback/feedback_error.rs
-use crate::network::neural_net::NetworkError;
 use thiserror::Error;
+
+use crate::network::NetworkError;
 
 #[derive(Debug, Error)]
 pub enum FeedbackError {

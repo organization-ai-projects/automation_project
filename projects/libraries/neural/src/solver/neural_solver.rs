@@ -1,30 +1,10 @@
-// projects/libraries/neural/src/solver.rs
+// projects/libraries/neural/src/solver/neural_solver.rs
 use crate::feedback::{FeedbackAdjuster, FeedbackConfig, UserFeedback};
 use crate::generation::code_generator::CodeGenerator;
-use crate::network::neural_net::NeuralNetwork;
+use crate::network::neural_network::NeuralNetwork;
 use crate::tokenization::rust_tokenizer::RustTokenizer;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum NeuralError {
-    #[error("Generation error: {0}")]
-    GenerationError(String),
-    #[error("Training error: {0}")]
-    TrainingError(String),
-    #[error("Model not loaded")]
-    ModelNotLoaded,
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
-    #[error("Save error: {0}")]
-    SaveError(String),
-}
-
-#[derive(Debug, Clone)]
-pub struct SolverResult {
-    pub output: String,
-    pub confidence: f64,
-    pub metadata: Option<String>,
-}
+use crate::solver::{NeuralError, SolverResult};
 
 /// Neural solver - internal orchestration of neural operations
 pub struct NeuralSolver {

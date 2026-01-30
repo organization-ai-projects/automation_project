@@ -1,53 +1,11 @@
-// projects/libraries/neural/src/training/train_model.rs
-use crate::network::neural_net::{Activation, LayerConfig, SimpleNeuralNet, WeightInit};
+// projects/libraries/neural/src/training/trainer.rs
 use ndarray::Array1;
-use thiserror::Error;
 use tracing::{debug, info};
 
-#[derive(Debug, Error)]
-pub enum TrainingError {
-    #[error("Invalid input data: {0}")]
-    InvalidInput(String),
-    #[error("Network error: {0}")]
-    NetworkError(String),
-    #[error("Dimension mismatch: expected {expected}, got {actual}")]
-    DimensionMismatch { expected: usize, actual: usize },
-}
-
-#[derive(Debug, Clone)]
-pub struct TrainingConfig {
-    pub learning_rate: f64,
-    pub epochs: usize,
-    pub batch_size: usize,
-    pub validation_split: f32,
-    pub early_stopping_patience: Option<usize>,
-}
-
-impl Default for TrainingConfig {
-    fn default() -> Self {
-        Self {
-            learning_rate: 0.01,
-            epochs: 100,
-            batch_size: 32,
-            validation_split: 0.2,
-            early_stopping_patience: Some(10),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct TrainingExample {
-    pub input: Array1<f64>,
-    pub target: f64,
-}
-
-#[derive(Debug)]
-pub struct TrainingMetrics {
-    pub train_losses: Vec<f64>,
-    pub val_losses: Vec<f64>,
-    pub best_epoch: usize,
-    pub final_loss: f64,
-}
+use crate::{
+    network::{Activation, LayerConfig, SimpleNeuralNet, WeightInit},
+    training::{TrainingConfig, TrainingError, TrainingExample, TrainingMetrics},
+};
 
 pub struct Trainer {
     config: TrainingConfig,
@@ -70,7 +28,7 @@ impl Trainer {
     }
 
     /// Parse raw text data into training examples
-    fn parse_data(&self, data: &str) -> Result<Vec<TrainingExample>, TrainingError> {
+    pub(crate) fn parse_data(&self, data: &str) -> Result<Vec<TrainingExample>, TrainingError> {
         data.lines()
             .enumerate()
             .map(|(idx, line)| {
@@ -101,7 +59,7 @@ impl Trainer {
     }
 
     /// Tokenize text into numerical representation
-    fn tokenize(&self, text: &str) -> Result<Array1<f64>, TrainingError> {
+    pub(crate) fn tokenize(&self, text: &str) -> Result<Array1<f64>, TrainingError> {
         let tokens: Vec<f64> = text
             .chars()
             .filter(|c| c.is_alphanumeric() || c.is_whitespace())
@@ -232,33 +190,5 @@ impl Trainer {
 
     pub fn network(&self) -> &SimpleNeuralNet {
         &self.network
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_tokenization() {
-        let config = TrainingConfig::default();
-        let trainer = Trainer::new(10, 1, config);
-
-        let result = trainer.tokenize("test");
-        assert!(result.is_ok());
-        assert_eq!(result.expect("tokenize succeeds").len(), 4);
-    }
-
-    #[test]
-    fn test_parse_data() {
-        let config = TrainingConfig::default();
-        let trainer = Trainer::new(10, 1, config);
-
-        let data = "hello|1.0\nworld|0.5";
-        let examples = trainer.parse_data(data).expect("parse data succeeds");
-
-        assert_eq!(examples.len(), 2);
-        assert_eq!(examples[0].target, 1.0);
-        assert_eq!(examples[1].target, 0.5);
     }
 }
