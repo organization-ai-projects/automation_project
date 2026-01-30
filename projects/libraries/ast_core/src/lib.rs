@@ -14,6 +14,7 @@ mod ast_span;
 mod ast_validation_error;
 mod conversions;
 mod ext_id;
+mod frame;
 mod macros;
 mod number;
 mod opaque_value;
