@@ -1,0 +1,54 @@
+name: Rust CI (main)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  gate:
+    name: Gate PR sources into main
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Allow only dev or hotfix/* into main
+        run: |
+          HEAD="${{ github.head_ref }}"
+          if [[ "$HEAD" == "dev" || "$HEAD" == hotfix/* ]]; then
+            echo "OK: $HEAD can merge into main"
+            exit 0
+          fi
+          echo "ERROR: PRs into main must come from 'dev' or 'hotfix/*'. Got: $HEAD"
+          exit 1
+
+  ci:
+    name: Rust CI
+    runs-on: ubuntu-latest
+    needs: [gate]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Cargo check
+        run: cargo check --workspace --all-targets
+
+      - name: Cargo fmt
+        run: cargo fmt --all -- --check
+
+      - name: Cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Cargo test
+        run: cargo test --workspace --all-features --verbose
