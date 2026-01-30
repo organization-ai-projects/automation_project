@@ -28,6 +28,8 @@ require_git_repo
 
 # Find all merged branches (upstream gone + merged into main)
 MERGED_BRANCHES=()
+info "Fetching latest main branch..."
+git fetch origin main || die "Failed to fetch latest main branch."
 while IFS= read -r branch; do
   # Skip main and dev
   [[ "$branch" == "main" || "$branch" == "dev" ]] && continue
@@ -35,7 +37,7 @@ while IFS= read -r branch; do
   # Check if upstream is gone
   if ! git rev-parse --abbrev-ref "$branch@{upstream}" >/dev/null 2>&1; then
     # Check if branch is merged into main (only main is guaranteed up-to-date)
-    if git merge-base --is-ancestor "$branch" main 2>/dev/null; then
+    if git merge-base --is-ancestor "$branch" origin/main 2>/dev/null; then
       MERGED_BRANCHES+=("$branch")
     fi
   fi
@@ -66,10 +68,13 @@ fi
 
 # Set trap to restore branch at exit (only if not deleting)
 trap 'if [[ -n "${INITIAL_BRANCH:-}" ]]; then
-  if git rev-parse --abbrev-ref "${INITIAL_BRANCH}@{upstream}" >/dev/null 2>&1; then
+  if git show-ref --verify --quiet "refs/heads/$INITIAL_BRANCH"; then
     git switch "$INITIAL_BRANCH" >/dev/null 2>&1 || true
+    if ! git rev-parse --abbrev-ref "$INITIAL_BRANCH@{upstream}" >/dev/null 2>&1; then
+      warn "Upstream missing for $INITIAL_BRANCH. Restored local branch."
+    fi
   else
-    warn "Upstream missing for $INITIAL_BRANCH. Staying on dev."
+    warn "Branch $INITIAL_BRANCH does not exist locally. Staying on current branch."
   fi
 fi' EXIT
 
@@ -197,9 +202,13 @@ if [[ ${#MERGED_BRANCHES[@]} -gt 0 ]]; then
     if git branch -d "$branch" 2>/dev/null; then
       info "✓ Deleted: $branch"
     else
-      # Force delete if needed
-      git branch -D "$branch"
-      info "✓ Force deleted: $branch"
+      read -rp "Force delete branch $branch? [Y/n] " force_delete_choice
+      if [[ ! "$force_delete_choice" =~ ^[Nn] ]]; then
+        git branch -D "$branch"
+        info "✓ Force deleted: $branch"
+      else
+        warn "Skipped force deletion of: $branch"
+      fi
     fi
   done
 fi
