@@ -11,4 +11,5 @@ env:
 
 jobs:
   ci:
+    name: Run reusable Rust CI
     uses: ./.github/workflows/ci_reusable.yml

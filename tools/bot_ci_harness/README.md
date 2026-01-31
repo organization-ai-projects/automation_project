@@ -96,7 +96,7 @@ This testing approach is superior to `act` for this use case because:
 A utility script is available to easily generate custom scenarios:
 
 ```bash
-./tools/bot_ci_harness/utils/new_scenario.sh
+./tools/bot_ci_harness/scenario_generator.sh
 ```
 
 This script guides you to create a `.env` file with the necessary parameters (name, setup type, mock states, etc.). The file will be automatically placed in the `scenarios/` folder with an incremented number.
