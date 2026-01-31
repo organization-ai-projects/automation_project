@@ -40,7 +40,7 @@ Scripts are organized by **responsibility domain** and **execution mode**:
 - Non-interactive, composable
 - No prompts, stable exit codes
 - Called by execute orchestrators
-- Examples: `synch_main_dev.sh`, `create_pr.sh`
+- Examples: `synch_main_dev_ci.sh` (bot only), `create_pr.sh`
 
 ## Key Principles
 

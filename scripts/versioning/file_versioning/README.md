@@ -22,9 +22,9 @@ Complete workflows that users run directly:
 
 ### 📁 `orchestrators/read/` - Read-Only Components
 
-Specialized scripts called by execute scripts:
+Specialized scripts called by execute scripts or bot automation:
 
-- `synch_main_dev.sh` - Synchronize dev with main
+- `synch_main_dev_ci.sh` - Synchronize dev with main (bot automation only)
 - `create_pr.sh` - Create pull request
 - `check_priority_issues.sh` - List high priority/security issues
 
@@ -54,9 +54,11 @@ Low-level scripts using only `git` commands:
 
 This orchestrates:
 
-1. **Sync** dev with main (via `synch_main_dev.sh`)
+1. **Fetch** latest from dev and main branches
 2. **Check** high priority issues (via `check_priority_issues.sh`)
 3. **Create** feature branch from issue (via `git/create_branch.sh`)
+
+Note: Main→dev synchronization is now automated by bot after PR merge
 
 This orchestrator:
 
@@ -90,7 +92,7 @@ Currently empty. Reserved for scripts using only `gh` commands.
 ### Hybrid Components (root level)
 
 - `check_priority_issues.sh` - List high priority/security issues
-- `synch_main_dev.sh` - Synchronize main→dev via automated PR
+- `synch_main_dev_ci.sh` - Synchronize main→dev via automated PR (bot-only, called by GitHub Actions)
 - `create_pr.sh` - Create pull requests with auto-generated content
 
 ## Branch Naming Conventions
