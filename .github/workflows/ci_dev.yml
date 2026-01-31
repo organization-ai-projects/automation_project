@@ -11,27 +11,4 @@ env:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-
-      - name: Cargo check
-        run: cargo check --workspace --all-targets
-
-      - name: Cargo fmt
-        run: cargo fmt --all -- --check
-
-      - name: Cargo clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      - name: Cargo test
-        run: cargo test --workspace --all-features --verbose
+    uses: ./.github/workflows/ci_reusable.yml

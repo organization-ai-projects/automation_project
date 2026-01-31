@@ -10,7 +10,7 @@ These scripts are the **main entry points** you run directly from the command li
 
 Orchestrates three steps:
 
-1. **Sync** dev with main (uses `../read/synch_main_dev.sh`)
+1. **Fetch** latest changes from dev and main branches (Main→dev sync is automated by bot after PR merge)
 2. **Check** high priority issues (uses `../read/check_priority_issues.sh`)
 3. **Create** feature branch from issue (uses `../read/git/create_branch.sh`)
 

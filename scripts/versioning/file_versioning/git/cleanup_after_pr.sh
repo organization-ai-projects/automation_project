@@ -4,6 +4,45 @@ set -euo pipefail
 REMOTE="${REMOTE:-origin}"
 BASE_BRANCH="${BASE_BRANCH:-dev}"
 PROTECTED_BRANCHES=("dev" "main")
+DELETE_ONLY=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --delete-only)
+      DELETE_ONLY=true
+      shift
+      ;;
+    --help|-h)
+      cat << 'EOF'
+Usage: cleanup_after_pr.sh [OPTIONS]
+
+Detects and manages local branches that are behind the base branch.
+
+Options:
+  --delete-only    Delete outdated branches without recreating them
+  --help, -h       Show this help message
+
+Environment variables:
+  REMOTE           Git remote name (default: origin)
+  BASE_BRANCH      Base branch to compare against (default: dev)
+
+Examples:
+  # Recreate outdated branches from base branch (default)
+  ./cleanup_after_pr.sh
+
+  # Only delete outdated branches
+  ./cleanup_after_pr.sh --delete-only
+EOF
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Use --help for usage information"
+      exit 1
+      ;;
+  esac
+done
 
 echo "=== Updating branch $BASE_BRANCH ==="
 CURRENT_BRANCH="$(git branch --show-current || true)"
@@ -43,7 +82,7 @@ echo "Target branches:"
 printf ' - %s\n' "${OUTDATED_BRANCHES[@]}"
 
 echo ""
-echo "=== Deleting and recreating branches ==="
+echo "=== Deleting outdated branches ==="
 for branch in "${OUTDATED_BRANCHES[@]}"; do
   echo "Processing: $branch"
 
@@ -67,10 +106,12 @@ for branch in "${OUTDATED_BRANCHES[@]}"; do
     echo "  ℹ Remote branch does not exist."
   fi
 
-  # Recreate the branch from BASE_BRANCH
-  git checkout -b "$branch" "$BASE_BRANCH"
-  git push --set-upstream "$REMOTE" "$branch"
-  echo "  ✓ Branch recreated."
+  # Recreate the branch from BASE_BRANCH if not in delete-only mode
+  if [[ "$DELETE_ONLY" == "false" ]]; then
+    git checkout -b "$branch" "$BASE_BRANCH"
+    git push --set-upstream "$REMOTE" "$branch"
+    echo "  ✓ Branch recreated."
+  fi
 done
 
 if [[ -n "$CURRENT_BRANCH" ]] && git show-ref --verify --quiet "refs/heads/$CURRENT_BRANCH"; then
