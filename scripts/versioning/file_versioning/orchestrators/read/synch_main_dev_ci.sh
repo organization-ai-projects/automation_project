@@ -7,6 +7,12 @@ if [[ -z "${CI:-}" || "$CI" != "true" ]]; then
   exit 1
 fi
 
+# Check if gh CLI is available
+if ! command -v gh &> /dev/null; then
+  echo "gh CLI not found. Please install GitHub CLI before running this script." >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGGING_SH="$SCRIPT_DIR/../../../../common_lib/core/logging.sh"
 if [[ -f "$LOGGING_SH" ]]; then
@@ -16,6 +22,10 @@ else
   info() { echo "$*"; }
 fi
 
+# Standardize token usage
+# Use APP_GH_TOKEN for all operations to ensure consistent permissions.
+export GITHUB_TOKEN="${APP_GH_TOKEN:-${GH_TOKEN}}"
+
 REMOTE="${REMOTE:-origin}"
 MAIN="${MAIN:-main}"
 DEV="${DEV:-dev}"
@@ -24,45 +34,46 @@ SYNC_BRANCH="sync/main-into-dev"
 # Fetch branches
 git fetch "$REMOTE"
 
-# Handle sync branch conflicts
+# Clean up existing sync branch if it exists
 if git show-ref --verify --quiet "refs/heads/$SYNC_BRANCH"; then
-  echo "Sync branch already exists. Reusing existing branch." >&2
-  git switch "$SYNC_BRANCH"
-else
-  git switch -C "$SYNC_BRANCH" "$REMOTE/$DEV"
+  info "Removing existing local sync branch..."
+  git branch -D "$SYNC_BRANCH" || true
 fi
 
-# Handle merge conflicts explicitly
-if ! git merge --no-edit "$REMOTE/$MAIN"; then
-  echo "Merge conflict detected. Please resolve conflicts manually." >&2
-  exit 1
+# Delete remote sync branch if it exists
+if git ls-remote --heads "$REMOTE" "$SYNC_BRANCH" | grep -q "$SYNC_BRANCH"; then
+  info "Removing existing remote sync branch..."
+  git push "$REMOTE" --delete "$SYNC_BRANCH" || true
 fi
+
+# Create sync branch from main (not dev)
+info "Creating sync branch from $MAIN..."
+git switch -C "$SYNC_BRANCH" "$REMOTE/$MAIN"
+
+# Push sync branch to remote
+info "Pushing sync branch to remote..."
+git push -f "$REMOTE" "$SYNC_BRANCH"
 
 # Create PR
-PR_URL=$(gh pr create \
+info "Creating PR to merge $MAIN into $DEV..."
+PR_CREATE_OUTPUT=$(gh pr create \
   --base "$DEV" \
   --head "$SYNC_BRANCH" \
   --title "chore: sync main into dev" \
-  --body "Automated sync after merge into main.")
+  --body "Automated sync after merge into main." 2>&1) || {
+
+  # PR creation failed - check if it's because branches are identical
+  if echo "$PR_CREATE_OUTPUT" | grep -q "No commits between"; then
+    info "ℹ️ No sync needed - dev is already up to date with main"
+    exit 0
+  else
+    echo "❌ Failed to create PR: $PR_CREATE_OUTPUT" >&2
+    exit 1
+  fi
+}
+
+PR_URL="$PR_CREATE_OUTPUT"
 info "Created PR: $PR_URL"
-
-# Avoid duplicate issue creation
-EXISTING_ISSUE=$(gh issue list --label "sync-failure" --state open --json title --jq '.[] | select(.title == "Sync Failure: main → dev")')
-if [[ -n "$EXISTING_ISSUE" ]]; then
-  echo "An open issue for sync failure already exists. Skipping issue creation." >&2
-else
-  gh issue create --title "Sync Failure: main → dev" --body "The sync operation failed. Please investigate." --label "sync-failure"
-fi
-
-# Check if gh CLI is available
-if ! command -v gh &> /dev/null; then
-  echo "gh CLI not found. Please install GitHub CLI before running this script." >&2
-  exit 1
-fi
-
-# Standardize token usage
-# Use APP_GH_TOKEN for all operations to ensure consistent permissions.
-export GITHUB_TOKEN="$APP_GH_TOKEN"
 
 # Wait for PR to stabilize
 info "Waiting for PR to stabilize..."
