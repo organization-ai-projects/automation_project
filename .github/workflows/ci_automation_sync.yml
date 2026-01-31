@@ -120,7 +120,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh issue create --repo "$GH_REPO" \
-            --title "Automation failed: sync main → dev (run ${{ github.run_id }})" \
-            --body "The automation that syncs **main → dev** failed.\n\n- Source PR: $SOURCE_PR_URL\n- Run: $RUN_URL\n\nAction items:\n- Inspect the run logs\n- Check for merge conflicts / ruleset blocks\n- If a conflict exists, resolve manually and rerun sync if needed" \
-            --label "automation"
+          # Check if an open automation failure issue already exists
+          EXISTING_ISSUE=$(gh issue list --repo "$GH_REPO" \
+            --label "automation-failed" \
+            --state open \
+            --search "Automation failed: sync main → dev" \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [[ -n "$EXISTING_ISSUE" ]]; then
+            echo "⚠️ An open automation failure issue already exists (#$EXISTING_ISSUE). Adding comment instead."
+            gh issue comment "$EXISTING_ISSUE" --repo "$GH_REPO" \
+              --body "🔄 Another sync failure occurred.\n\n- Source PR: $SOURCE_PR_URL\n- Run: $RUN_URL"
+          else
+            gh issue create --repo "$GH_REPO" \
+              --title "Automation failed: sync main → dev" \
+              --body "The automation that syncs **main → dev** failed.\n\n- Source PR: $SOURCE_PR_URL\n- Run: $RUN_URL\n\nAction items:\n- Inspect the run logs\n- Check for merge conflicts / ruleset blocks\n- If a conflict exists, resolve manually and rerun sync if needed" \
+              --label "automation-failed"
+          fi
