@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HARNESS_DIR="$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)"
+# Replace escaped quotes with proper quoting
+HARNESS_DIR="$(cd "$(dirname \"${BASH_SOURCE[0]}\")" && pwd)"
 SCENARIOS_DIR="$HARNESS_DIR/scenarios"
 
 # Color helpers
@@ -28,24 +29,27 @@ prompt() {
   fi
 }
 
+# Update prompt_yn to loop until valid input
 prompt_yn() {
   local var_name="$1"
   local description="$2"
   local default="${3:-n}"
   local -n result=$var_name
 
-  if [[ "$default" == "y" ]]; then
-    echo -ne "${YELLOW}$description${NC} [${GREEN}Y${NC}/n]: "
-  else
-    echo -ne "${YELLOW}$description${NC} [y/${GREEN}N${NC}]: "
-  fi
+  while true; do
+    if [[ "$default" == "y" ]]; then
+      echo -ne "${YELLOW}$description${NC} [${GREEN}Y${NC}/n]: "
+    else
+      echo -ne "${YELLOW}$description${NC} [y/${GREEN}N${NC}]: "
+    fi
 
-  read -r ans
-  case "${ans:-$default}" in
-    y|Y) result="true" ;;
-    n|N) result="false" ;;
-    *) result="$default" ;;
-  esac
+    read -r ans
+    case "${ans:-$default}" in
+      y|Y) result="true"; break ;;
+      n|N) result="false"; break ;;
+      *) echo "Invalid input. Please enter 'y' or 'n'." ;;
+    esac
+  done
 }
 
 prompt_choice() {
@@ -77,6 +81,15 @@ prompt_choice() {
   fi
 }
 
+# Ensure nullglob is enabled to avoid errors when no .env files exist
+shopt -s nullglob
+
+# Add existence checks for .env files
+if [[ ! -d "$SCENARIOS_DIR" || -z $(find "$SCENARIOS_DIR" -name '*.env' -print -quit) ]]; then
+  echo "No .env files found in $SCENARIOS_DIR. Exiting." >&2
+  exit 1
+fi
+
 main() {
   echo -e "${GREEN}=== Bot CI Harness: New Scenario Generator ===${NC}\n"
 
@@ -99,6 +112,15 @@ main() {
   # Collect inputs
   local scenario_name
   prompt scenario_name "Scenario name (short description)" "my_test_case"
+
+  # Sanitize scenario name to replace invalid characters with '_'
+  scenario_name=$(echo "$scenario_name" | sed 's/[^a-zA-Z0-9_-]/_/g')
+
+  # Validate that the sanitized name is not empty
+  if [[ -z "$scenario_name" ]]; then
+    echo "Error: Scenario name cannot be empty after sanitization." >&2
+    exit 1
+  fi
 
   local setups=("noop" "main_ahead" "conflict")
   local setup

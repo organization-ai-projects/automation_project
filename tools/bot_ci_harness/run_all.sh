@@ -173,10 +173,23 @@ run_one() {
   # Assertions
   assert_file_exists "$GH_MOCK_LOG"
 
+  # Validate EXPECT_EXIT values to ensure they are numeric
+  if ! [[ "$EXPECT_EXIT" =~ ^[0-9]+$ ]]; then
+    error "Invalid EXPECT_EXIT value: $EXPECT_EXIT. Must be numeric."
+    exit 1
+  fi
+
+  # Ensure EXPECT_EXIT values are numeric and validate them
+  if ! [[ "$EXPECT_EXIT" =~ ^[0-9]+$ ]]; then
+    error "Invalid EXPECT_EXIT value: $EXPECT_EXIT. Must be numeric."
+    exit 1
+  fi
+
+  # Compare exit_code to EXPECT_EXIT for success and failure cases
   if [[ "${EXPECT_EXIT:-0}" == "0" ]]; then
     assert_eq "$exit_code" "0" "script should succeed"
   else
-    [[ $exit_code != 0 ]] || fail "script should have failed (exit $exit_code)"
+    assert_ne "$exit_code" "0" "script should fail"
   fi
 
   local calls
@@ -312,3 +325,8 @@ main() {
 }
 
 main
+
+# Define a helper function for error handling
+error() {
+  echo "[ERROR] $1" >&2
+}

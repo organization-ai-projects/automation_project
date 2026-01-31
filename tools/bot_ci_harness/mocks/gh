@@ -66,10 +66,17 @@ arg_after() {
 cmd="${1:-}"
 sub="${2:-}"
 
+# Consolidate exit logic to ensure consistent handling
+exit_with_code() {
+  local code="$1"
+  _trace_json "$2" "$3" "$4"
+  exit "$code"
+}
+
 if [[ "$cmd" == "pr" && "$sub" == "list" ]]; then
   # Supports: gh pr list --head X --base Y --json number --jq '.[0].number'
   jq_expr="$(arg_after --jq "$@")"
-  local response=""
+  response=""
   if [[ "$PR_EXISTS" == "true" ]]; then
     if [[ -n "$jq_expr" ]]; then
       response="$PR_NUMBER"
@@ -88,32 +95,25 @@ if [[ "$cmd" == "pr" && "$sub" == "list" ]]; then
       echo "[]"
     fi
   fi
-  _trace_json "pr list" "$*" "$response"
-  exit 0
+  exit_with_code 0 "pr list" "$*" "$response"
 fi
 
 if [[ "$cmd" == "pr" && "$sub" == "create" ]]; then
   # Returns URL
-  _trace_json "pr create" "$*" "$PR_URL"
-  echo "$PR_URL"
-  exit 0
+  exit_with_code 0 "pr create" "$*" "$PR_URL"
 fi
 
 if [[ "$cmd" == "pr" && "$sub" == "edit" ]]; then
   # label add etc
-  _trace_json "pr edit" "$*" "OK"
-  exit 0
+  exit_with_code 0 "pr edit" "$*" "OK"
 fi
 
 if [[ "$cmd" == "pr" && "$sub" == "merge" ]]; then
   # The script uses: gh pr merge "$PR_NUMBER" --auto --merge
   if [[ "$MERGE_ENABLE_FAIL" == "true" ]]; then
-    _trace_json "pr merge" "$*" "ERROR: Pull request is in unstable status"
-    echo "GraphQL: Pull request Pull request is in unstable status (enablePullRequestAutoMerge)" >&2
-    exit 1
+    exit_with_code 1 "pr merge" "$*" "ERROR: Pull request is in unstable status"
   fi
-  _trace_json "pr merge" "$*" "OK"
-  exit 0
+  exit_with_code 0 "pr merge" "$*" "OK"
 fi
 
 if [[ "$cmd" == "pr" && "$sub" == "view" ]]; then
@@ -153,7 +153,7 @@ if [[ "$cmd" == "pr" && "$sub" == "view" ]]; then
   fi
 
   # If they provided --jq, output only the requested scalar-like value.
-  local response=""
+  response=""
   if [[ -n "$jq_expr" ]]; then
     case "$jq_expr" in
       ".number") response="$PR_NUMBER"; echo "$PR_NUMBER" ;;

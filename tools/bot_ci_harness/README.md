@@ -30,7 +30,7 @@ Create a file `tools/bot_ci_harness/scenarios/XX_name.env` with:
 
 ## Architecture
 
-```plaint_text
+```plaintext
 tools/bot_ci_harness/
 ├── README.md
 ├── run_all.sh              # Main runner
@@ -39,17 +39,18 @@ tools/bot_ci_harness/
 │   └── git_sandbox.sh      # Temporary git repo creation
 ├── mocks/
 │   └── gh                  # Mock GitHub CLI
-└── scenarios/
-    ├── 01_noop_dev_up_to_date.env
-    ├── 02_sync_needed_happy_path.env
-    ├── 03_merge_conflict.env
-    ├── 04_pr_already_exists.env
-    ├── 05_unstable_then_ok.env
-    ├── 06_main_advances_midrun.env
-    ├── 07_automerge_enable_fail.env
-    ├── 08_pr_exists_automerge_fail.env
-    ├── 09_dev_advances_midrun.env
-    └── 10_stable_timeout.env
+├── scenarios/              # Scenario definitions
+│   ├── 01_noop_dev_up_to_date.env
+│   ├── 02_sync_needed_happy_path.env
+│   ├── 03_merge_conflict.env
+│   ├── 04_pr_already_exists.env
+│   ├── 05_unstable_then_ok.env
+│   ├── 06_main_advances_midrun.env
+│   ├── 07_automerge_enable_fail.env
+│   ├── 08_pr_exists_automerge_fail.env
+│   ├── 09_dev_advances_midrun.env
+│   └── 10_stable_timeout.env
+├── scenario_generator.sh   # Scenario generator script
 ```
 
 ## Covered scenarios
