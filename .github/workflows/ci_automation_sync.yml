@@ -89,33 +89,37 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh pr comment "$SOURCE_PR_NUMBER" \
+          gh pr comment "$SOURCE_PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
             --body "❌ Auto-sync main → dev failed.\n\nRun: $RUN_URL\n\nPlease check the workflow logs for details."
 
       - name: Ensure failure label exists
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh label create "automation-failed" \
-            --color "FF0000" \
-            --description "Automation sync failed" \
-            || true
+          if ! gh label view "automation-failed" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh label create "automation-failed" \
+              --repo "$GITHUB_REPOSITORY" \
+              --color "FF0000" \
+              --description "Automation sync failed"
+          fi
 
       - name: Add failure label to source PR
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr edit "$SOURCE_PR_NUMBER" --add-label "automation-failed"
+          gh pr edit "$SOURCE_PR_NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "automation-failed"
 
       - name: Create issue on failure
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue create \
+          gh issue create --repo "$GITHUB_REPOSITORY" \
             --title "Automation failed: sync main → dev (run ${{ github.run_id }})" \
             --body "The automation that syncs **main → dev** failed.\n\n- Source PR: $SOURCE_PR_URL\n- Run: $RUN_URL\n\nAction items:\n- Inspect the run logs\n- Check for merge conflicts / ruleset blocks\n- If a conflict exists, resolve manually and rerun sync if needed" \
             --label "automation"
