@@ -43,6 +43,13 @@ jobs:
           echo "APP_GH_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_ENV
           echo "GH_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_ENV
 
+      - name: Validate tokens
+        run: |
+          if [[ -z "${APP_GH_TOKEN}" && -z "${GH_TOKEN}" ]]; then
+            echo "❌ Aucun jeton valide (APP_GH_TOKEN ou GH_TOKEN) n'est défini. Assurez-vous que les secrets nécessaires sont configurés."
+            exit 1
+          fi
+
       - name: Configure Git identity
         run: |
           git config user.name "automation-project-bot"
@@ -137,11 +144,4 @@ jobs:
               --title "Automation failed: sync main → dev" \
               --body "The automation that syncs **main → dev** failed.\n\n- Source PR: $SOURCE_PR_URL\n- Run: $RUN_URL\n\nAction items:\n- Inspect the run logs\n- Check for merge conflicts / ruleset blocks\n- If a conflict exists, resolve manually and rerun sync if needed" \
               --label "automation-failed"
-          fi
-
-      - name: Validate tokens
-        run: |
-          if [[ -z "${APP_GH_TOKEN}" && -z "${GH_TOKEN}" ]]; then
-            echo "❌ Aucun jeton valide (APP_GH_TOKEN ou GH_TOKEN) n'est défini. Assurez-vous que les secrets nécessaires sont configurés."
-            exit 1
           fi
