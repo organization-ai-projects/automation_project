@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Replace escaped quotes with proper quoting
-HARNESS_DIR="$(cd "$(dirname \"${BASH_SOURCE[0]}\")" && pwd)"
+# Correct the HARNESS_DIR path resolution
+HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIOS_DIR="$HARNESS_DIR/scenarios"
+
+# Ensure the scenarios directory exists
+mkdir -p "$SCENARIOS_DIR"
 
 # Color helpers
 RED='\033[0;31m'
@@ -83,12 +86,6 @@ prompt_choice() {
 
 # Ensure nullglob is enabled to avoid errors when no .env files exist
 shopt -s nullglob
-
-# Add existence checks for .env files
-if [[ ! -d "$SCENARIOS_DIR" || -z $(find "$SCENARIOS_DIR" -name '*.env' -print -quit) ]]; then
-  echo "No .env files found in $SCENARIOS_DIR. Exiting." >&2
-  exit 1
-fi
 
 main() {
   echo -e "${GREEN}=== Bot CI Harness: New Scenario Generator ===${NC}\n"

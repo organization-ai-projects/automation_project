@@ -54,17 +54,20 @@ jobs:
           git fetch --prune origin
           if git merge-base --is-ancestor origin/main origin/dev; then
             echo "sync_needed=false" >> $GITHUB_OUTPUT
-            echo "Dev already contains main. No sync needed."
+            echo "ℹ️ Dev branch already contains all changes from main. No sync needed."
           else
             echo "sync_needed=true" >> $GITHUB_OUTPUT
-            echo "Dev is behind main. Sync will run."
+            echo "✅ Dev branch is behind main. Sync will proceed."
           fi
 
       - name: Run sync (CI-only script)
         if: steps.precheck.outputs.sync_needed == 'true'
         run: |
           chmod +x scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh
-          scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh
+          scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh || {
+            echo "❌ Sync script failed. Check logs for details.";
+            exit 1;
+          }
 
       - name: Comment success on source PR
         if: success() && steps.precheck.outputs.sync_needed == 'true'
@@ -72,7 +75,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr comment "$SOURCE_PR_NUMBER" \
-            --body "✅ Auto-sync main → dev started and completed successfully.\n\nRun: $RUN_URL"
+            --body "✅ Auto-sync main → dev completed successfully.\n\nRun: $RUN_URL\n\nAll changes from main have been merged into dev."
 
       - name: Comment no-op on source PR
         if: success() && steps.precheck.outputs.sync_needed != 'true'
@@ -80,7 +83,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr comment "$SOURCE_PR_NUMBER" \
-            --body "ℹ️ Auto-sync main → dev: nothing to do (dev already contains main).\n\nRun: $RUN_URL"
+            --body "ℹ️ Auto-sync main → dev: No changes were needed as dev already contains all updates from main.\n\nRun: $RUN_URL"
 
       - name: Comment failure on source PR
         if: failure()
@@ -88,7 +91,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr comment "$SOURCE_PR_NUMBER" \
-            --body "❌ Auto-sync main → dev failed.\n\nRun: $RUN_URL\n\nPlease check the workflow logs."
+            --body "❌ Auto-sync main → dev failed.\n\nRun: $RUN_URL\n\nPlease check the workflow logs for details."
 
       - name: Add failure label to source PR
         if: failure()
