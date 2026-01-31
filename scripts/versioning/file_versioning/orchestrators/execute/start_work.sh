@@ -101,16 +101,17 @@ validate_branch_name() {
 info "🚀 Starting work workflow"
 echo ""
 
-# Step 1: Synchronize dev with main
-info "Step 1/3: Synchronizing dev with main..."
+# Step 1: Fetch latest changes
+info "Step 1/3: Fetching latest changes..."
 echo ""
-# Switch to dev before running sync (avoid issues with orphaned branches)
+info "Fetching latest main branch..."
+git fetch origin main || die "Failed to fetch latest main branch."
+info "Fetching latest dev branch..."
+git fetch origin dev || die "Failed to fetch latest dev branch."
 git switch dev >/dev/null 2>&1 || die "Failed to switch to dev branch"
-if bash "$SCRIPT_DIR/../read/synch_main_dev.sh"; then
-  info "✓ Synchronization complete"
-else
-  die "Synchronization failed. Please fix issues before continuing."
-fi
+git pull origin dev || die "Failed to pull dev branch"
+info "✓ Dev branch updated"
+info "💡 Note: main → dev synchronization is handled by the automation bot after PRs"
 echo ""
 
 # Step 2: Show priority issues

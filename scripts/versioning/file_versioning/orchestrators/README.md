@@ -43,7 +43,7 @@ We split orchestrators into two categories based on **how they're used**:
 
 **Examples:**
 
-- `synch_main_dev.sh` - Sync dev with main (called by `start_work.sh`)
+- `synch_main_dev_ci.sh` - Sync dev with main (called by bot/CI only)
 - `check_priority_issues.sh` - List priority issues (called by `start_work.sh`)
 - `create_pr.sh` - Create PR with defaults (called by other scripts)
 
@@ -83,11 +83,11 @@ read -rp "Choose an option: " choice
 echo "🎉 All done!"
 echo "❌ Something failed"
 
-# ✅ Call read/ scripts
-bash "../read/synch_main_dev.sh"
+# ✅ Call read/ scripts (bot automation handles sync)
+# bash "../read/synch_main_dev_ci.sh"  (No longer called by start_work.sh - bot-only)
 
 # ✅ Guide workflows
-echo "Step 1 of 3: Syncing..."
+echo "Step 1 of 3: Preparing dev..."
 ```
 
 ## Execution Flow
@@ -97,11 +97,13 @@ User runs:  ./execute/start_work.sh
             ↓
             Prompts & orchestrates
             ↓
-            Calls read/synch_main_dev.sh   (API call)
+            Fetches latest from dev/main
             ↓
             Calls read/check_priority_issues.sh (API call)
             ↓
             Calls git/create_branch.sh (API call)
+            ↓
+            [Bot automation handles main→dev sync via GitHub Actions]
             ↓
             Reports success to user
 ```

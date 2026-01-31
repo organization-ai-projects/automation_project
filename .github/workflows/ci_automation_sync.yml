@@ -8,11 +8,22 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
+
+concurrency:
+  group: sync-main-to-dev
+  cancel-in-progress: false
 
 jobs:
   sync-main-to-dev:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SOURCE_PR_NUMBER: ${{ github.event.pull_request.number }}
+      SOURCE_PR_URL: ${{ github.event.pull_request.html_url }}
 
     steps:
       - name: Checkout
@@ -20,7 +31,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 🔐 Token GitHub App
       - name: Generate GitHub App token
         id: app-token
         uses: tibdex/github-app-token@v2
@@ -28,44 +38,74 @@ jobs:
           app_id: ${{ secrets.BOT_APP_ID }}
           private_key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
 
-      - name: Export token
-        run: echo "GH_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_ENV
+      - name: Export tokens
+        run: |
+          echo "APP_GH_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_ENV
+          echo "GH_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_ENV
 
-      - name: Configure Git
+      - name: Configure Git identity
         run: |
           git config user.name "automation-project-bot"
           git config user.email "automation-bot@users.noreply.github.com"
 
-      - name: Fetch branches
-        run: git fetch origin
-
-      - name: Check if sync needed
-        id: check
+      - name: Quick pre-check (is dev behind main?)
+        id: precheck
         run: |
+          git fetch --prune origin
           if git merge-base --is-ancestor origin/main origin/dev; then
             echo "sync_needed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ Dev branch already contains all changes from main. No sync needed."
           else
             echo "sync_needed=true" >> $GITHUB_OUTPUT
+            echo "✅ Dev branch is behind main. Sync will proceed."
           fi
 
-      - name: Create sync branch
-        if: steps.check.outputs.sync_needed == 'true'
+      - name: Run sync (CI-only script)
+        if: steps.precheck.outputs.sync_needed == 'true'
         run: |
-          git switch -C chore/sync-main-into-dev origin/dev
-          git merge --no-edit origin/main
-          git push -u origin chore/sync-main-into-dev --force-with-lease
+          chmod +x scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh
+          scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh || {
+            echo "❌ Sync script failed. Check logs for details.";
+            exit 1;
+          }
 
-      - name: Create PR
-        if: steps.check.outputs.sync_needed == 'true'
+      - name: Comment success on source PR
+        if: success() && steps.precheck.outputs.sync_needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh pr list --base dev --head chore/sync-main-into-dev --state open --json number --jq 'length > 0' | grep -q true; then
-            gh pr create \
-              --base dev \
-              --head chore/sync-main-into-dev \
-              --title "chore: sync main into dev" \
-              --body "Automated sync after merge into main."
-          fi
+          gh pr comment "$SOURCE_PR_NUMBER" \
+            --body "✅ Auto-sync main → dev completed successfully.\n\nRun: $RUN_URL\n\nAll changes from main have been merged into dev."
 
-      - name: Enable auto-merge
-        if: steps.check.outputs.sync_needed == 'true'
-        run: gh pr merge chore/sync-main-into-dev --auto --merge
+      - name: Comment no-op on source PR
+        if: success() && steps.precheck.outputs.sync_needed != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "$SOURCE_PR_NUMBER" \
+            --body "ℹ️ Auto-sync main → dev: No changes were needed as dev already contains all updates from main.\n\nRun: $RUN_URL"
+
+      - name: Comment failure on source PR
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "$SOURCE_PR_NUMBER" \
+            --body "❌ Auto-sync main → dev failed.\n\nRun: $RUN_URL\n\nPlease check the workflow logs for details."
+
+      - name: Add failure label to source PR
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit "$SOURCE_PR_NUMBER" --add-label "automation-failed"
+
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "Automation failed: sync main → dev (run ${{ github.run_id }})" \
+            --body "The automation that syncs **main → dev** failed.\n\n- Source PR: $SOURCE_PR_URL\n- Run: $RUN_URL\n\nAction items:\n- Inspect the run logs\n- Check for merge conflicts / ruleset blocks\n- If a conflict exists, resolve manually and rerun sync if needed" \
+            --label "automation"

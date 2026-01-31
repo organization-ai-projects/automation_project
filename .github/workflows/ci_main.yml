@@ -19,36 +19,14 @@ jobs:
         run: |
           HEAD="${{ github.head_ref }}"
           if [[ "$HEAD" == "dev" || "$HEAD" == hotfix/* ]]; then
-            echo "OK: $HEAD can merge into main"
+            echo "✅ OK: Branch '$HEAD' is allowed to merge into main."
             exit 0
           fi
-          echo "ERROR: PRs into main must come from 'dev' or 'hotfix/*'. Got: $HEAD"
+          echo "❌ ERROR: Only 'dev' or 'hotfix/*' branches can merge into main. Received: '$HEAD'."
           exit 1
 
   ci:
     name: Rust CI
-    runs-on: ubuntu-latest
     needs: [gate]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-
-      - name: Cargo check
-        run: cargo check --workspace --all-targets
-
-      - name: Cargo fmt
-        run: cargo fmt --all -- --check
-
-      - name: Cargo clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      - name: Cargo test
-        run: cargo test --workspace --all-features --verbose
+    if: always() && (needs.gate.result == 'success' || needs.gate.result == 'skipped')
+    uses: ./.github/workflows/ci_reusable.yml

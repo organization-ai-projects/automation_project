@@ -4,11 +4,13 @@ These are **internal scripts** called by executable orchestrators. They are not 
 
 ## Scripts
 
-### `synch_main_dev.sh`
+### `synch_main_dev_ci.sh`
 
-**Synchronizes dev branch with main using a clean merge PR.**
+**Synchronizes dev branch with main via automated PR (CI-only, bot automation).**
 
-Called by: `start_work.sh` (Step 1)
+Called by: GitHub Actions workflow `ci_automation_sync.yml` (after PR merge into main)
+
+⚠️ **Note:** This script is for CI/bot automation only. Do NOT run manually.
 
 **What it does:**
 

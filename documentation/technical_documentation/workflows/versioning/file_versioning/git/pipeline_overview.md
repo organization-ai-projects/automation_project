@@ -43,9 +43,9 @@ For automating these workflows, see the [scripts documentation](../../../../../.
    - Wait for CI validation on the `main` branch before merging.
 
 7. **Synchronize `dev` with `main`**:
-   - After changes are merged into `main`, synchronize `dev` to integrate these changes.
-   - The `synch_main_dev.sh` script automates this synchronization (merge main → dev via automatic PR).
-   - See [scripts documentation](../../../../../../scripts/versioning/file_versioning/README.md) for script usage.
+   - After changes are merged into `main`, synchronization is automated by bot.
+   - GitHub Actions (`ci_automation_sync.yml`) automatically creates PRs to sync dev with main using `synch_main_dev_ci.sh`.
+   - See [scripts documentation](../../../../../../scripts/versioning/file_versioning/README.md) for bot automation details.
 
 8. **Create a New Working Branch**:
    - After synchronization, you can create a new working branch following the [Branch Creation Guidelines](branch_creation.md).
