@@ -21,24 +21,22 @@ MAIN="${MAIN:-main}"
 DEV="${DEV:-dev}"
 SYNC_BRANCH="sync/main-into-dev"
 
-# Configure Git
-info "Configuring Git..."
-git config user.name "automation-project-bot"
-git config user.email "automation-bot@users.noreply.github.com"
-
 # Fetch branches
 git fetch "$REMOTE"
 
-# Check if sync is needed
-if git merge-base --is-ancestor "$REMOTE/$MAIN" "$REMOTE/$DEV"; then
-  echo "No sync needed. Exiting."
-  exit 0
+# Handle sync branch conflicts
+if git show-ref --verify --quiet "refs/heads/$SYNC_BRANCH"; then
+  echo "Sync branch already exists. Reusing existing branch." >&2
+  git switch "$SYNC_BRANCH"
+else
+  git switch -C "$SYNC_BRANCH" "$REMOTE/$DEV"
 fi
 
-# Create sync branch
-git switch -C "$SYNC_BRANCH" "$REMOTE/$DEV"
-git merge --no-edit "$REMOTE/$MAIN"
-git push -u "$REMOTE" "$SYNC_BRANCH" --force-with-lease
+# Handle merge conflicts explicitly
+if ! git merge --no-edit "$REMOTE/$MAIN"; then
+  echo "Merge conflict detected. Please resolve conflicts manually." >&2
+  exit 1
+fi
 
 # Create PR
 PR_URL=$(gh pr create \
@@ -47,6 +45,24 @@ PR_URL=$(gh pr create \
   --title "chore: sync main into dev" \
   --body "Automated sync after merge into main.")
 info "Created PR: $PR_URL"
+
+# Avoid duplicate issue creation
+EXISTING_ISSUE=$(gh issue list --label "sync-failure" --state open --json title --jq '.[] | select(.title == "Sync Failure: main → dev")')
+if [[ -n "$EXISTING_ISSUE" ]]; then
+  echo "An open issue for sync failure already exists. Skipping issue creation." >&2
+else
+  gh issue create --title "Sync Failure: main → dev" --body "The sync operation failed. Please investigate." --label "sync-failure"
+fi
+
+# Check if gh CLI is available
+if ! command -v gh &> /dev/null; then
+  echo "gh CLI not found. Please install GitHub CLI before running this script." >&2
+  exit 1
+fi
+
+# Standardize token usage
+# Use APP_GH_TOKEN for all operations to ensure consistent permissions.
+export GITHUB_TOKEN="$APP_GH_TOKEN"
 
 # Wait for PR to stabilize
 info "Waiting for PR to stabilize..."
