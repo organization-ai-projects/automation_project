@@ -93,6 +93,16 @@ jobs:
           gh pr comment "$SOURCE_PR_NUMBER" \
             --body "❌ Auto-sync main → dev failed.\n\nRun: $RUN_URL\n\nPlease check the workflow logs for details."
 
+      - name: Ensure failure label exists
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create "automation-failed" \
+            --color "FF0000" \
+            --description "Automation sync failed" \
+            || true
+
       - name: Add failure label to source PR
         if: failure()
         env:
