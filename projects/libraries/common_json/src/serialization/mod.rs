@@ -13,3 +13,6 @@ pub use json_serializable::{
     JsonSerializable, to_bytes, to_bytes_pretty, to_json, to_json_string, to_json_string_pretty,
     to_string, to_string_pretty, to_value, value_to_bytes_pretty, write_to, write_to_pretty,
 };
+
+#[cfg(test)]
+mod tests;

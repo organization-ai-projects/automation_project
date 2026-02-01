@@ -12,3 +12,6 @@ pub mod validator;
 pub mod workflow;
 
 pub use symbolic_error::SymbolicError;
+
+#[cfg(test)]
+mod tests;

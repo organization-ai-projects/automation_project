@@ -121,3 +121,23 @@ fn test_validate_syntax_only() {
     assert!(result.is_ok());
     assert!(result.expect("Validation failed").is_valid);
 }
+
+#[test]
+fn test_validate_syntax_only_empty_code() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let result = validator.validate_syntax("");
+
+    assert!(result.is_ok());
+    assert!(!result.expect("Validation failed").is_valid);
+}
+
+#[test]
+fn test_suggest_fix_no_match() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = "fn main() {}";
+
+    let errors = vec!["some other error".to_string()];
+    let fix = validator.suggest_fix(code, &errors);
+
+    assert!(fix.is_none());
+}

@@ -55,3 +55,6 @@ pub use merge_strategy::MergeStrategy;
 pub use parser::parse_str;
 pub use patch_op::PatchOp;
 pub use value::JsonVisitor;
+
+#[cfg(test)]
+mod tests;
