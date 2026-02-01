@@ -218,6 +218,82 @@ fn bench_validate_html_ast(c: &mut Criterion) {
     });
 }
 
+fn bench_validate_config_ast(c: &mut Criterion) {
+    let config_ast = past!({
+        "version": "1.0",
+        "services": [
+            {
+                "name": "api",
+                "host": "0.0.0.0",
+                "port": 8080,
+                "retries": 3,
+                "features": ["auth", "metrics", "tracing"]
+            },
+            {
+                "name": "worker",
+                "host": "127.0.0.1",
+                "port": 9000,
+                "queue": "jobs",
+                "concurrency": 8
+            }
+        ],
+        "database": {
+            "driver": "postgres",
+            "host": "db.internal",
+            "port": 5432,
+            "pool": { "min": 2, "max": 16 }
+        },
+        "logging": {
+            "level": "info",
+            "format": "json",
+            "outputs": ["stdout", "file"]
+        }
+    });
+    let limits = ast_core::ValidateLimits::default();
+
+    c.bench_function("validate_config_ast", |b| {
+        b.iter(|| {
+            let _ = black_box(config_ast.validate_with(&limits));
+        })
+    });
+}
+
+fn bench_build_and_validate_api_schema(c: &mut Criterion) {
+    let limits = ast_core::ValidateLimits::default();
+    c.bench_function("build_and_validate_api_schema", |b| {
+        b.iter(|| {
+            let schema = past!({
+                "openapi": "3.0.0",
+                "info": { "title": "Example API", "version": "1.2.3" },
+                "paths": {
+                    "/users": {
+                        "get": {
+                            "responses": {
+                                "200": { "description": "ok" },
+                                "404": { "description": "not found" }
+                            }
+                        }
+                    },
+                    "/users/{id}": {
+                        "get": {
+                            "parameters": [
+                                { "name": "id", "in": "path", "required": true }
+                            ],
+                            "responses": { "200": { "description": "ok" } }
+                        }
+                    }
+                }
+            });
+
+            if let Err(e) = schema.validate_with(&limits) {
+                black_box(e);
+            } else {
+                black_box(());
+            }
+        })
+    });
+}
+
 fn bench_rebuild_and_validate_html(c: &mut Criterion) {
     let limits = ast_core::ValidateLimits::default();
     c.bench_function("rebuild_and_validate_html", |b| {
@@ -289,6 +365,8 @@ criterion_group!(
     bench_validate_only,
     bench_validate_code_ast,
     bench_validate_html_ast,
+    bench_validate_config_ast,
+    bench_build_and_validate_api_schema,
     bench_rebuild_and_validate_html,
     bench_build_only_no_drop,
     bench_drop_only_big

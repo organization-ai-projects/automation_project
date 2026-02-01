@@ -3,15 +3,28 @@ use crate::validator::ValidationError;
 use crate::validator::validation_result::ValidationResult;
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
+use regex::Regex;
+use tracing;
 
 /// Rust code validator
 pub struct CodeValidator {
     strict_mode: bool,
+    expect_re: Regex,
+    try_re: Regex,
 }
 
 impl CodeValidator {
     pub fn new() -> Result<Self, ValidationError> {
-        Ok(Self { strict_mode: false })
+        let expect_re = Regex::new(r"\bexpect\s*\(")
+            .map_err(|err| ValidationError::InvalidStructure(err.to_string()))?;
+        let try_re = Regex::new(r"\btry\s*!\s*\(")
+            .map_err(|err| ValidationError::InvalidStructure(err.to_string()))?;
+
+        Ok(Self {
+            strict_mode: false,
+            expect_re,
+            try_re,
+        })
     }
 
     pub fn with_strict_mode(mut self, strict: bool) -> Self {
@@ -33,7 +46,7 @@ impl CodeValidator {
         match syn::parse_file(code) {
             Ok(syntax_tree) => {
                 // Syntax-level validation succeeded
-                println!("Code parsed successfully");
+                tracing::debug!("Code parsed successfully");
 
                 // Additional semantic validations
                 self.validate_semantics(&syntax_tree, &mut warnings);
@@ -125,6 +138,17 @@ impl CodeValidator {
                 .push("Code contains unwrap calls (consider proper error handling)".to_string());
         }
 
+        // Check for expect()
+        if self.expect_re.is_match(code) {
+            warnings
+                .push("Code contains expect calls (consider proper error handling)".to_string());
+        }
+
+        // Check for deprecated macros
+        if self.try_re.is_match(code) {
+            warnings.push("Code contains deprecated try! macro (use ? instead)".to_string());
+        }
+
         // Check for #[allow(dead_code)]
         if code.contains("#[allow(dead_code)]") {
             warnings.push("Code contains #[allow(dead_code)] attributes".to_string());
@@ -163,12 +187,12 @@ impl CodeValidator {
         // Wrap the code in a function for validation
         let wrapped_code = format!("fn test_wrapper() {{\n{}\n}}", fixed);
         if !self.validate_code(&wrapped_code) {
-            println!("[DEBUG] Validation failed for wrapped code");
+            tracing::debug!("Validation failed for wrapped code");
             return None;
         }
 
-        println!("[DEBUG] Code before fix: {}", code);
-        println!("[DEBUG] Code after fix: {}", fixed);
+        tracing::debug!("Code before fix: {}", code);
+        tracing::debug!("Code after fix: {}", fixed);
         Some(fixed)
     }
 

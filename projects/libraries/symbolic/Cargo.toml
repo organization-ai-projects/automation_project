@@ -10,3 +10,10 @@ regex = "1.12"
 syn = { version = "2.0", features = ["full"] }
 common = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["html_reports"] }
+
+[[bench]]
+name = "symbolic_bench"
+harness = false

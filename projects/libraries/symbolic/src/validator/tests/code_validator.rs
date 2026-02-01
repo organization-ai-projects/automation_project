@@ -49,8 +49,9 @@ fn test_warnings() {
     let code = r#"
         fn main() {
             println!("test");
-            let x = Some(5).expect("Option was None");
+            let x = Some(5).expect ("Option was None");
             todo!();
+            let _ = try ! (Ok::<_, ()>(()));
         }
     "#;
 
@@ -58,6 +59,18 @@ fn test_warnings() {
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
     assert!(validation.is_valid);
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("expect calls"))
+    );
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("deprecated try! macro"))
+    );
 }
 
 #[test]
@@ -107,4 +120,24 @@ fn test_validate_syntax_only() {
     let result = validator.validate_syntax(code);
     assert!(result.is_ok());
     assert!(result.expect("Validation failed").is_valid);
+}
+
+#[test]
+fn test_validate_syntax_only_empty_code() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let result = validator.validate_syntax("");
+
+    assert!(result.is_ok());
+    assert!(!result.expect("Validation failed").is_valid);
+}
+
+#[test]
+fn test_suggest_fix_no_match() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = "fn main() {}";
+
+    let errors = vec!["some other error".to_string()];
+    let fix = validator.suggest_fix(code, &errors);
+
+    assert!(fix.is_none());
 }
