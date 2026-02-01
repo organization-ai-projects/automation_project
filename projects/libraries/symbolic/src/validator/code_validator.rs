@@ -3,6 +3,7 @@ use crate::validator::ValidationError;
 use crate::validator::validation_result::ValidationResult;
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
+use tracing;
 
 /// Rust code validator
 pub struct CodeValidator {
@@ -33,7 +34,7 @@ impl CodeValidator {
         match syn::parse_file(code) {
             Ok(syntax_tree) => {
                 // Syntax-level validation succeeded
-                println!("Code parsed successfully");
+                tracing::debug!("Code parsed successfully");
 
                 // Additional semantic validations
                 self.validate_semantics(&syntax_tree, &mut warnings);
@@ -163,12 +164,12 @@ impl CodeValidator {
         // Wrap the code in a function for validation
         let wrapped_code = format!("fn test_wrapper() {{\n{}\n}}", fixed);
         if !self.validate_code(&wrapped_code) {
-            println!("[DEBUG] Validation failed for wrapped code");
+            tracing::debug!("Validation failed for wrapped code");
             return None;
         }
 
-        println!("[DEBUG] Code before fix: {}", code);
-        println!("[DEBUG] Code after fix: {}", fixed);
+        tracing::debug!("Code before fix: {}", code);
+        tracing::debug!("Code after fix: {}", fixed);
         Some(fixed)
     }
 
