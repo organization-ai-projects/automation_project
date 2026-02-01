@@ -4,9 +4,10 @@ use crate::{Metadata, ProtocolId, ValidationError};
 #[test]
 fn test_metadata_validate_future_timestamp_rejected() {
     let now = Metadata::current_timestamp_ms();
+    let drift_buffer_ms = 10_000;
     let metadata = Metadata {
         request_id: ProtocolId::default(),
-        timestamp_ms: Some(now + (3600 * 1000) + 1),
+        timestamp_ms: Some(now + (3600 * 1000) + drift_buffer_ms),
         ..Default::default()
     };
 
