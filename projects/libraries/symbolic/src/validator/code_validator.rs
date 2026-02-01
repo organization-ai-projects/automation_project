@@ -125,6 +125,17 @@ impl CodeValidator {
                 .push("Code contains unwrap calls (consider proper error handling)".to_string());
         }
 
+        // Check for expect()
+        if code.contains("expect(") {
+            warnings
+                .push("Code contains expect calls (consider proper error handling)".to_string());
+        }
+
+        // Check for deprecated macros
+        if code.contains("try!(") || code.contains("try !(") || code.contains("try! (") {
+            warnings.push("Code contains deprecated try! macro (use ? instead)".to_string());
+        }
+
         // Check for #[allow(dead_code)]
         if code.contains("#[allow(dead_code)]") {
             warnings.push("Code contains #[allow(dead_code)] attributes".to_string());
