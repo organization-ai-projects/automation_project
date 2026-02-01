@@ -2,7 +2,8 @@
 use crate::{MergeStrategy, object};
 use crate::merge::{merge, contains};
 
-#[test]
+    use crate::{MergeStrategy, contains, object};
+    use crate::merge::merge;
 fn test_merge() {
     let target = object();
     let source = object();
