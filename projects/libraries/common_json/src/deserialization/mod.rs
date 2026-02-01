@@ -11,3 +11,6 @@ pub use json_deserializable::{
     JsonDeserializable, from_bytes, from_json, from_json_owned, from_json_str, from_reader,
     from_slice, from_str, from_value, parse, parse_bytes, parse_reader,
 };
+
+#[cfg(test)]
+mod tests;
