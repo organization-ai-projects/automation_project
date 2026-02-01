@@ -17,23 +17,17 @@ fn test_metadata_validate_future_timestamp_rejected() {
     }
 }
 
-#[test]
-#[should_panic]
-fn test_metadata_now_panics_on_request_id_parse() {
-    let _ = Metadata::now();
-}
-
-#[test]
-#[should_panic]
-fn test_metadata_with_timestamp_panics_on_request_id_parse() {
-    let _ = Metadata::with_timestamp(1);
-}
-
-#[test]
-#[should_panic]
-fn test_metadata_new_panics_on_request_id_parse() {
-    let _ = Metadata::new(1, "invalid".to_string());
-}
+// NOTE: The following tests were removed because they codified panicking behavior
+// that is actually a bug. Metadata::now(), Metadata::with_timestamp(), and 
+// Metadata::new() should be normal constructors and should not panic.
+// The underlying issue is that these methods try to parse a decimal u64 ID as hex,
+// causing a parse failure. Once this bug is fixed, these tests should be rewritten
+// to assert successful construction and valid request_id semantics.
+//
+// Removed tests:
+// - test_metadata_now_panics_on_request_id_parse
+// - test_metadata_with_timestamp_panics_on_request_id_parse
+// - test_metadata_new_panics_on_request_id_parse
 
 #[test]
 fn test_metadata_current_timestamp_ms_non_zero() {

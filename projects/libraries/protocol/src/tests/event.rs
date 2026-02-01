@@ -17,26 +17,16 @@ fn build_event_with_metadata(metadata: Metadata, name: String, data: String) -> 
     Event::with_metadata(name, EventType::Custom, data, metadata)
 }
 
-#[test]
-#[should_panic]
-fn test_event_new_panics_due_to_metadata_now() {
-    let _ = Event::new(
-        "valid_name".to_string(),
-        EventType::Custom,
-        "data".to_string(),
-    );
-}
-
-#[test]
-#[should_panic]
-fn test_event_with_variant_panics_due_to_metadata_now() {
-    let _ = Event::with_variant(
-        "valid_name".to_string(),
-        EventType::Custom,
-        "data".to_string(),
-        EventVariant::Default,
-    );
-}
+// NOTE: The following tests were removed because they codified panicking behavior
+// that is actually a bug. Event::new() and Event::with_variant() are documented as
+// normal constructors and should not panic. The underlying issue is that these
+// methods call Metadata::now(), which panics when parsing its generated ID.
+// Once the Metadata::now() bug is fixed, these tests should be rewritten to validate
+// successful event construction instead of expecting panics.
+//
+// Removed tests:
+// - test_event_new_panics_due_to_metadata_now
+// - test_event_with_variant_panics_due_to_metadata_now
 
 #[test]
 fn test_event_validate_empty_name() {
