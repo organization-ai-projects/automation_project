@@ -12,3 +12,6 @@ pub use metadata_domain::MetadataDomain;
 pub use metadata_entry_point::MetadataEntrypoint;
 pub use metadata_entry_points::MetadataEntrypoints;
 pub use project_metadata::ProjectMetadata;
+
+#[cfg(test)]
+mod tests;

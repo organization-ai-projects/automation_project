@@ -36,3 +36,6 @@ pub use protocol_error::ProtocolError;
 pub use protocol_id::ProtocolId;
 pub use response_status::ResponseStatus;
 pub use validation_error::ValidationError;
+
+#[cfg(test)]
+mod tests;
