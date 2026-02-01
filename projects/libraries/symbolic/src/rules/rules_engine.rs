@@ -155,7 +155,7 @@ pub enum {name} {{
     pub fn generate(&self, prompt: &str, context: Option<&str>) -> Result<String, RulesError> {
         let prompt_lower = prompt.to_lowercase();
 
-        println!("[DEBUG] Generating code for prompt: {}", prompt);
+        tracing::debug!("Generating code for prompt: {}", prompt);
 
         // Find the template that matches
         for (category, templates) in &self.templates {
@@ -249,15 +249,15 @@ pub enum {name} {{
         // Search for a capitalized word after "struct", "enum", etc.
         let words: Vec<&str> = prompt.split_whitespace().collect();
 
-        println!("[DEBUG] Extracting name from prompt: {}", prompt);
-        println!("[DEBUG] Words in prompt: {:?}", words);
+        tracing::debug!("Extracting name from prompt: {}", prompt);
+        tracing::debug!("Words in prompt: {:?}", words);
 
         for (i, word) in words.iter().enumerate() {
             if ["struct", "enum", "trait", "function", "fn"].contains(&word.to_lowercase().as_str())
                 && let Some(next_word) = words.get(i + 1)
             {
                 let name = next_word.to_string();
-                println!("[DEBUG] Extracted name: {}", name);
+                tracing::debug!("Extracted name: {}", name);
                 return Some(name);
             }
         }
@@ -368,13 +368,13 @@ pub enum {name} {{
                     changes.push(rule.description.clone());
                 }
 
-                println!("[DEBUG] Applying rule: {}", rule.name);
+                tracing::debug!("Applying rule: {}", rule.name);
             }
         }
 
-        println!("[DEBUG] Code before refactoring: {}", code);
-        println!("[DEBUG] Instruction: {}", instruction);
-        println!("[DEBUG] Code after refactoring: {}", result_code);
+        tracing::debug!("Code before refactoring: {}", code);
+        tracing::debug!("Instruction: {}", instruction);
+        tracing::debug!("Code after refactoring: {}", result_code);
 
         if changes.is_empty() {
             return Err(RulesError::GenerationFailed(format!(
