@@ -13,10 +13,10 @@ fn test_json_map_access_valid() {
     let value2 = Json::Null;
     let data = vec![(&key1, &value1), (&key2, &value2)];
     let mut map = JsonMapAccess::new(data.into_iter());
-    map.next_key_seed(PhantomData::<()>).ok(); // Initialisation de `self.value`
+    map.next_key_seed(PhantomData::<()>).ok(); // Initialize `self.value`
     let seed = PhantomData::<String>;
     let result = map.next_key_seed(seed);
-    println!("Résultat de next_key_seed: {:?}", result);
+    println!("next_key_seed result: {:?}", result);
     assert!(result.is_ok());
 }
 
@@ -26,6 +26,6 @@ fn test_json_map_access_empty() {
     let mut map = JsonMapAccess::new(data.iter());
     let seed = PhantomData::<String>;
     let result = map.next_key_seed(seed);
-    println!("Résultat de next_key_seed: {:?}", result);
+    println!("next_key_seed result: {:?}", result);
     assert!(result.is_ok());
 }

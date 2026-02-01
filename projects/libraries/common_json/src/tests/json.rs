@@ -11,6 +11,6 @@ fn test_to_json_string_pretty() {
             assert!(json.contains("test"));
             assert!(json.contains("json"));
         }
-        Err(e) => panic!("Erreur lors de la conversion en JSON : {:?}", e),
+        Err(e) => panic!("Error converting to JSON: {:?}", e),
     }
 }
