@@ -5,11 +5,15 @@ use std::process::Command;
 #[cfg(test)]
 #[test]
 fn test_parse_json_stdout() {
-    // Use an actual command to obtain a valid ExitStatus
-    let output = Command::new("echo")
-        .arg("{\"key\":\"value\"}")
+    // Use an actual command to obtain a valid ExitStatus, then override stdout/stderr
+    // Using cargo --version is more portable than echo (which behaves differently on Windows)
+    let mut temp_output = Command::new("cargo")
+        .arg("--version")
         .output()
-        .expect("Failed to execute echo command");
+        .expect("Failed to execute cargo command");
+    temp_output.stdout = b"{\"key\":\"value\"}".to_vec();
+    temp_output.stderr = Vec::new();
+    let output = temp_output;
     
     let parsed = parse_json_stdout(&output, "");
     match parsed {
