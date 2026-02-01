@@ -3,6 +3,7 @@ use crate::validator::ValidationError;
 use crate::validator::validation_result::ValidationResult;
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
+use regex::Regex;
 
 /// Rust code validator
 pub struct CodeValidator {
@@ -126,13 +127,15 @@ impl CodeValidator {
         }
 
         // Check for expect()
-        if code.contains("expect(") {
+        let expect_re = Regex::new(r"\bexpect\s*\(").expect("valid expect regex");
+        if expect_re.is_match(code) {
             warnings
                 .push("Code contains expect calls (consider proper error handling)".to_string());
         }
 
         // Check for deprecated macros
-        if code.contains("try!(") || code.contains("try !(") || code.contains("try! (") {
+        let try_re = Regex::new(r"\btry\s*!\s*\(").expect("valid try macro regex");
+        if try_re.is_match(code) {
             warnings.push("Code contains deprecated try! macro (use ? instead)".to_string());
         }
 

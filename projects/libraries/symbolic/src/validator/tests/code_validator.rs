@@ -49,9 +49,9 @@ fn test_warnings() {
     let code = r#"
         fn main() {
             println!("test");
-            let x = Some(5).expect("Option was None");
+            let x = Some(5).expect ("Option was None");
             todo!();
-            let _ = try!(Ok::<_, ()>(()));
+            let _ = try ! (Ok::<_, ()>(()));
         }
     "#;
 
