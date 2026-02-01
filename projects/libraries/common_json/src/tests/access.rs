@@ -13,7 +13,7 @@ fn test_get_field() {
 
     match json.get_field("key") {
         Ok(value) => assert_eq!(value, &Json::from("value")),
-        Err(e) => panic!("Erreur lors de l'accès au champ : {:?}", e),
+        Err(e) => panic!("Error accessing field: {:?}", e),
     }
     assert!(json.get_field("missing").is_err());
 }
@@ -24,7 +24,7 @@ fn test_get_index() {
 
     match json.get_index(1) {
         Ok(value) => assert_eq!(value, &Json::from(2)),
-        Err(e) => panic!("Erreur lors de l'accès à l'index : {:?}", e),
+        Err(e) => panic!("Error accessing index: {:?}", e),
     }
     assert!(json.get_index(5).is_err());
 }
@@ -41,7 +41,7 @@ fn test_get_path() {
 
     match json.get_path("nested.key") {
         Ok(value) => assert_eq!(value, &Json::from("value")),
-        Err(e) => panic!("Erreur lors de l'accès au chemin : {:?}", e),
+        Err(e) => panic!("Error accessing path: {:?}", e),
     }
     assert!(json.get_path("nested.missing").is_err());
 }
@@ -50,12 +50,12 @@ fn test_get_path() {
 fn test_set_field() {
     let mut json = Json::Object(HashMap::new());
     if let Err(e) = json.set_field("key", "value") {
-        panic!("Erreur lors de la définition du champ : {:?}", e);
+        panic!("Error setting field: {:?}", e);
     }
 
     match json.get_field("key") {
         Ok(value) => assert_eq!(value, &Json::from("value")),
-        Err(e) => panic!("Erreur lors de l'accès au champ : {:?}", e),
+        Err(e) => panic!("Error accessing field: {:?}", e),
     }
 }
 
@@ -68,7 +68,7 @@ fn test_remove_field() {
 
     match json.remove_field("key") {
         Ok(value) => assert_eq!(value, Some(Json::from("value"))),
-        Err(e) => panic!("Erreur lors de la suppression du champ : {:?}", e),
+        Err(e) => panic!("Error removing field: {:?}", e),
     }
     assert!(json.get_field("key").is_err());
 }

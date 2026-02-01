@@ -13,6 +13,6 @@ fn test_json_array_builder() {
         assert!(arr.contains(&Json::from("value1")));
         assert!(arr.contains(&Json::from("value2")));
     } else {
-        panic!("Le résultat n'est pas un tableau JSON");
+        panic!("Result is not a JSON array");
     }
 }

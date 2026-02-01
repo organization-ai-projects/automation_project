@@ -9,12 +9,12 @@ use crate::json_access_mut::JsonAccessMut;
 fn test_json_access() {
     let mut json = Json::Object(JsonObject::new());
     if let Err(e) = json.set_field("key", Json::String("value".to_string())) {
-        panic!("Erreur lors de la définition du champ : {:?}", e);
+        panic!("Error setting field: {:?}", e);
     }
 
     match json.get_field("key") {
         Ok(value) => assert_eq!(value, &Json::String("value".to_string())),
-        Err(e) => panic!("Erreur lors de l'accès au champ : {:?}", e),
+        Err(e) => panic!("Error accessing field: {:?}", e),
     }
     assert!(json.get_field("nonexistent").is_err());
 }

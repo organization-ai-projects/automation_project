@@ -17,6 +17,6 @@ fn test_json_variant_access_newtype_variant() {
     let variant = JsonVariantAccess {
         value: Some(&Json::Null),
     };
-    let seed = PhantomData::<()>; // Utilisation d'un type valide
+    let seed = PhantomData::<()>; // Using a valid type
     assert!(variant.newtype_variant_seed(seed).is_ok());
 }
