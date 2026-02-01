@@ -49,8 +49,9 @@ fn test_warnings() {
     let code = r#"
         fn main() {
             println!("test");
-            let x = Some(5).expect("Option was None");
+            let x = Some(5).expect ("Option was None");
             todo!();
+            let _ = try ! (Ok::<_, ()>(()));
         }
     "#;
 
@@ -58,6 +59,18 @@ fn test_warnings() {
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
     assert!(validation.is_valid);
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("expect calls"))
+    );
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("deprecated try! macro"))
+    );
 }
 
 #[test]

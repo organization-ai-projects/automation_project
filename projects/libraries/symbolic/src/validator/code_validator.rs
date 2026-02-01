@@ -3,6 +3,7 @@ use crate::validator::ValidationError;
 use crate::validator::validation_result::ValidationResult;
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
+use regex::Regex;
 use tracing;
 
 /// Rust code validator
@@ -124,6 +125,19 @@ impl CodeValidator {
         if code.contains("unwrap(") {
             warnings
                 .push("Code contains unwrap calls (consider proper error handling)".to_string());
+        }
+
+        // Check for expect()
+        let expect_re = Regex::new(r"\bexpect\s*\(").expect("valid expect regex");
+        if expect_re.is_match(code) {
+            warnings
+                .push("Code contains expect calls (consider proper error handling)".to_string());
+        }
+
+        // Check for deprecated macros
+        let try_re = Regex::new(r"\btry\s*!\s*\(").expect("valid try macro regex");
+        if try_re.is_match(code) {
+            warnings.push("Code contains deprecated try! macro (use ? instead)".to_string());
         }
 
         // Check for #[allow(dead_code)]
