@@ -1,5 +1,6 @@
 // projects/libraries/common_json/src/tests/merge.rs
-use crate::{merge, MergeStrategy, contains, object};
+use crate::{MergeStrategy, object};
+use crate::merge::{merge, contains};
 
 #[test]
 fn test_merge() {
