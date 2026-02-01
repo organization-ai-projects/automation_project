@@ -9,11 +9,22 @@ use tracing;
 /// Rust code validator
 pub struct CodeValidator {
     strict_mode: bool,
+    expect_re: Regex,
+    try_re: Regex,
 }
 
 impl CodeValidator {
     pub fn new() -> Result<Self, ValidationError> {
-        Ok(Self { strict_mode: false })
+        let expect_re = Regex::new(r"\bexpect\s*\(")
+            .map_err(|err| ValidationError::InvalidStructure(err.to_string()))?;
+        let try_re = Regex::new(r"\btry\s*!\s*\(")
+            .map_err(|err| ValidationError::InvalidStructure(err.to_string()))?;
+
+        Ok(Self {
+            strict_mode: false,
+            expect_re,
+            try_re,
+        })
     }
 
     pub fn with_strict_mode(mut self, strict: bool) -> Self {
@@ -128,15 +139,13 @@ impl CodeValidator {
         }
 
         // Check for expect()
-        let expect_re = Regex::new(r"\bexpect\s*\(").expect("valid expect regex");
-        if expect_re.is_match(code) {
+        if self.expect_re.is_match(code) {
             warnings
                 .push("Code contains expect calls (consider proper error handling)".to_string());
         }
 
         // Check for deprecated macros
-        let try_re = Regex::new(r"\btry\s*!\s*\(").expect("valid try macro regex");
-        if try_re.is_match(code) {
+        if self.try_re.is_match(code) {
             warnings.push("Code contains deprecated try! macro (use ? instead)".to_string());
         }
 
