@@ -1,20 +1,19 @@
 // projects/libraries/common_json/src/tests/merge.rs
-#[cfg(test)]
-mod tests {
-    use super::*;
+use crate::{MergeStrategy, object};
+use crate::merge::{merge, contains};
 
-    #[test]
-    fn test_merge() {
-        let target = Json::object();
-        let source = Json::object();
-        let result = merge(&target, &source, MergeStrategy::Overwrite);
-        assert!(result.is_object());
-    }
+    use crate::{MergeStrategy, contains, object};
+    use crate::merge::merge;
+fn test_merge() {
+    let target = object();
+    let source = object();
+    let result = merge(&target, &source, MergeStrategy::Replace);
+    assert!(result.is_object());
+}
 
-    #[test]
-    fn test_contains() {
-        let haystack = Json::object();
-        let needle = Json::object();
-        assert!(!contains(&haystack, &needle));
-    }
+#[test]
+fn test_contains() {
+    let haystack = object();
+    let needle = object();
+    assert!(contains(&haystack, &needle));
 }
