@@ -18,20 +18,20 @@ fn test_metadata_validate_future_timestamp_rejected() {
 }
 
 // NOTE: The following tests were removed because they codified panicking behavior
-// that is actually a bug. Metadata::now(), Metadata::with_timestamp(), and 
+// that is actually a bug. Metadata::now(), Metadata::with_timestamp(), and
 // Metadata::new() should be normal constructors and should not panic.
 // The underlying issue is that these methods try to parse a decimal u64 ID as hex,
 // causing a parse failure.
 //
-// CRITICAL: This is a BLOCKING ISSUE for production reliability. Metadata::now() 
+// CRITICAL: This is a BLOCKING ISSUE for production reliability. Metadata::now()
 // is actively used in production code and WILL PANIC at runtime:
 // - projects/products/accounts/backend/src/main.rs:84
 // - projects/products/core/engine/src/routes/http_forwarder.rs:39
 // - projects/products/core/engine/src/ws/ws_handlers.rs:50
 //
-// The bug must be fixed (e.g., by having generate_id() return a hex string, or by 
-// changing the parsing logic) before these constructors can be used safely. Once 
-// fixed, these tests should be rewritten to assert successful construction and 
+// The bug must be fixed (e.g., by having generate_id() return a hex string, or by
+// changing the parsing logic) before these constructors can be used safely. Once
+// fixed, these tests should be rewritten to assert successful construction and
 // valid request_id semantics.
 //
 // Removed tests:

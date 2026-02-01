@@ -22,15 +22,15 @@ fn build_event_with_metadata(metadata: Metadata, name: String, data: String) -> 
 // normal constructors and should not panic. The underlying issue is that these
 // methods call Metadata::now(), which panics when parsing its generated ID.
 //
-// CRITICAL: The underlying Metadata::now() bug affects production code and will 
+// CRITICAL: The underlying Metadata::now() bug affects production code and will
 // cause runtime panics at:
 // - projects/products/accounts/backend/src/main.rs:84
 // - projects/products/core/engine/src/routes/http_forwarder.rs:39
 // - projects/products/core/engine/src/ws/ws_handlers.rs:50
 //
-// Although Event::new() and Event::with_variant() are not currently used in 
-// production, the Metadata::now() implementation MUST be fixed before these 
-// constructors can be used safely. Once the bug is fixed, these tests should be 
+// Although Event::new() and Event::with_variant() are not currently used in
+// production, the Metadata::now() implementation MUST be fixed before these
+// constructors can be used safely. Once the bug is fixed, these tests should be
 // rewritten to validate successful event construction instead of expecting panics.
 //
 // Removed tests:

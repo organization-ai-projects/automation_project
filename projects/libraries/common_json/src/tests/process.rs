@@ -14,7 +14,7 @@ fn test_parse_json_stdout() {
     temp_output.stdout = b"{\"key\":\"value\"}".to_vec();
     temp_output.stderr = Vec::new();
     let output = temp_output;
-    
+
     let parsed = parse_json_stdout(&output, "");
     match parsed {
         Ok(json) => assert!(json.is_object()),
