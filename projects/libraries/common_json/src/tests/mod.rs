@@ -12,6 +12,7 @@ mod json_number_visitor;
 mod json_object_builder;
 mod json_visitor;
 mod macros;
+mod merge;
 mod merge_strategy;
 mod parser;
 mod patch_op;
