@@ -16,7 +16,6 @@ fn test_json_map_access_valid() {
     map.next_key_seed(PhantomData::<()>).ok(); // Initialisation de `self.value`
     let seed = PhantomData::<String>;
     let result = map.next_key_seed(seed);
-    println!("Résultat de next_key_seed: {:?}", result);
     assert!(result.is_ok());
 }
 
@@ -26,6 +25,5 @@ fn test_json_map_access_empty() {
     let mut map = JsonMapAccess::new(data.iter());
     let seed = PhantomData::<String>;
     let result = map.next_key_seed(seed);
-    println!("Résultat de next_key_seed: {:?}", result);
     assert!(result.is_ok());
 }
