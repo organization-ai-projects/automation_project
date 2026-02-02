@@ -6,6 +6,16 @@ use crate::{
 use common::custom_uuid::Id128;
 use common_json::Json;
 
+/// Helper to validate that a ProtocolId has proper hex formatting
+fn assert_valid_protocol_id_hex(id: &ProtocolId) {
+    let hex = id.to_hex();
+    assert_eq!(hex.len(), 32, "Protocol ID should be 32 hex characters");
+    assert!(
+        hex.chars().all(|c| c.is_ascii_hexdigit()),
+        "Protocol ID should be valid hex"
+    );
+}
+
 fn base_metadata() -> Metadata {
     Metadata {
         request_id: ProtocolId::default(),
@@ -17,25 +27,55 @@ fn build_event_with_metadata(metadata: Metadata, name: String, data: String) -> 
     Event::with_metadata(name, EventType::Custom, data, metadata)
 }
 
-// NOTE: The following tests were removed because they codified panicking behavior
-// that is actually a bug. Event::new() and Event::with_variant() are documented as
-// normal constructors and should not panic. The underlying issue is that these
-// methods call Metadata::now(), which panics when parsing its generated ID.
-//
-// CRITICAL: The underlying Metadata::now() bug affects production code and will
-// cause runtime panics at:
-// - projects/products/accounts/backend/src/main.rs:84
-// - projects/products/core/engine/src/routes/http_forwarder.rs:39
-// - projects/products/core/engine/src/ws/ws_handlers.rs:50
-//
-// Although Event::new() and Event::with_variant() are not currently used in
-// production, the Metadata::now() implementation MUST be fixed before these
-// constructors can be used safely. Once the bug is fixed, these tests should be
-// rewritten to validate successful event construction instead of expecting panics.
-//
-// Removed tests:
-// - test_event_new_panics_due_to_metadata_now
-// - test_event_with_variant_panics_due_to_metadata_now
+#[test]
+fn test_event_new_sets_metadata() {
+    // Create two events to verify uniqueness
+    let event1 = Event::new("name1".to_string(), EventType::Info, "data".to_string());
+    let event2 = Event::new("name2".to_string(), EventType::Info, "data".to_string());
+
+    // Verify both IDs are valid hex strings
+    assert_valid_protocol_id_hex(&event1.metadata.request_id);
+    assert_valid_protocol_id_hex(&event2.metadata.request_id);
+
+    // Verify IDs are unique (not constant/zero)
+    assert_ne!(
+        event1.metadata.request_id, event2.metadata.request_id,
+        "Different events should have unique request_ids"
+    );
+
+    assert!(event1.metadata.timestamp_ms.is_some());
+    assert!(event2.metadata.timestamp_ms.is_some());
+}
+
+#[test]
+fn test_event_with_variant_sets_metadata() {
+    // Create two events to verify uniqueness
+    let event1 = Event::with_variant(
+        "name1".to_string(),
+        EventType::Info,
+        "data".to_string(),
+        EventVariant::Default,
+    );
+    let event2 = Event::with_variant(
+        "name2".to_string(),
+        EventType::Info,
+        "data".to_string(),
+        EventVariant::Default,
+    );
+
+    // Verify both IDs are valid hex strings
+    assert_valid_protocol_id_hex(&event1.metadata.request_id);
+    assert_valid_protocol_id_hex(&event2.metadata.request_id);
+
+    // Verify IDs are unique (not constant/zero)
+    assert_ne!(
+        event1.metadata.request_id, event2.metadata.request_id,
+        "Different events should have unique request_ids"
+    );
+
+    assert!(event1.metadata.timestamp_ms.is_some());
+    assert!(event2.metadata.timestamp_ms.is_some());
+}
 
 #[test]
 fn test_event_validate_empty_name() {

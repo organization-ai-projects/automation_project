@@ -2,14 +2,15 @@
 use serde::{Deserialize, Serialize};
 
 use crate::Role;
+use protocol::ProtocolId;
 
 /// JWT claims (standard-ish).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     /// Subject identifier
-    pub sub: String,
+    pub sub: ProtocolId,
     /// JWT ID = UUIDv7 (unique token id)
-    pub jti: String,
+    pub jti: ProtocolId,
     /// Role
     pub role: Role,
     /// Issued-at (seconds since epoch)
@@ -18,5 +19,5 @@ pub struct Claims {
     pub exp: u64,
     /// Optional session id
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sid: Option<String>,
+    pub sid: Option<ProtocolId>,
 }

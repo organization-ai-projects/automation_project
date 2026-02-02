@@ -2,7 +2,7 @@
 use common_json::pjson;
 use warp::{Reply, http::StatusCode};
 
-use super::auth::normalize_user_id;
+use super::auth::{normalize_user_id, validate_user_id};
 use super::helpers::{event_to_http, http_error, require_admin};
 use crate::EngineState;
 use crate::routes::http_forwarder::{accounts_product_id, forward_to_backend, payload_from};
@@ -53,7 +53,7 @@ pub(crate) async fn get_account(
         Ok(id) => id,
         Err(msg) => return Ok(http_error(StatusCode::BAD_GATEWAY, msg)),
     };
-    let payload = payload_from(pjson!({ "user_id": user_id }), None);
+    let payload = payload_from(pjson!({ "user_id": user_id.to_string() }), None);
     let event = match forward_to_backend(&product_id, "accounts.get", payload, &state).await {
         Ok(ev) => ev,
         Err(msg) => return Ok(http_error(StatusCode::BAD_GATEWAY, msg)),
@@ -73,7 +73,7 @@ pub(crate) async fn create_account(
         Err(err) => return Ok(err),
     };
 
-    let user_id = match normalize_user_id(&req.user_id) {
+    let user_id = match validate_user_id(req.user_id) {
         Ok(id) => id,
         Err(e) => return Ok(http_error(StatusCode::BAD_REQUEST, e)),
     };
@@ -122,7 +122,7 @@ pub(crate) async fn update_account(
     };
     let payload = payload_from(
         pjson!({
-            "user_id": user_id,
+            "user_id": user_id.to_string(),
             "role": req.role,
             "permissions": req.permissions
         }),
@@ -159,7 +159,7 @@ pub(crate) async fn update_status(
     };
     let payload = payload_from(
         pjson!({
-            "user_id": user_id,
+            "user_id": user_id.to_string(),
             "status": req.status
         }),
         None,
@@ -196,7 +196,7 @@ pub(crate) async fn reset_password(
     };
     let payload = payload_from(
         pjson!({
-            "user_id": user_id,
+            "user_id": user_id.to_string(),
             "password": req.password
         }),
         None,

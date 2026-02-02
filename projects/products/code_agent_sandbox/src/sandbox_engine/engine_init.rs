@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use std::fs;
 
-use common::Id128;
+use protocol::ProtocolId;
 
 use crate::{
     command_runner::CommandRunner,
@@ -39,7 +39,7 @@ pub(crate) fn initialize_engine(
         Some(id) if !id.trim().is_empty() => id.trim().to_string(),
         _ => {
             let ts = Utc::now().format("%Y%m%d_%H%M%S_%3f").to_string();
-            format!("{}_{}", ts, Id128::new(0, None, None))
+            format!("{}_{}", ts, ProtocolId::default())
         }
     };
 

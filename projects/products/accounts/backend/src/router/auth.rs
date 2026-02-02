@@ -1,7 +1,6 @@
 // projects/products/accounts/backend/src/router/auth.rs
-use common::Id128;
 use protocol::accounts::{LoginRequest, LoginResponse};
-use protocol::{Command, Event, Metadata};
+use protocol::{Command, Event, Metadata, ProtocolId};
 use security::TokenService;
 
 use crate::router::helpers::{err_event, ok_payload, payload_as};
@@ -24,10 +23,7 @@ pub async fn handle_login(
         return err_event(meta, 401, "Invalid credentials");
     }
 
-    let user_id = match Id128::from_hex(&req.user_id) {
-        Ok(id) => id,
-        Err(_) => return err_event(meta, 400, "Invalid user_id"),
-    };
+    let user_id: ProtocolId = req.user_id;
 
     let role = match manager.authenticate(&req.user_id, &req.password).await {
         Ok(r) => r,

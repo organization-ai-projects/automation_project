@@ -11,10 +11,6 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
-# shellcheck source=scripts/common_lib/core/logging.sh
-source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 
 require_git_repo
 require_cmd cargo
@@ -27,7 +23,7 @@ ISSUES=0
 
 # 1. Check formatting
 info "Checking code formatting..."
-if cargo fmt --check; then
+if cargo fmt --all -- --check; then
   info "✓ Code is properly formatted."
 else
   warn "⚠ Code formatting issues detected. Run: cargo fmt"

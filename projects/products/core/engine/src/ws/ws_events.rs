@@ -1,9 +1,9 @@
 // projects/products/core/engine/src/ws/ws_events.rs
 use common_json::{Json, JsonMap, number_i64, number_u64, to_json_string};
-use protocol::{Event, EventType, EventVariant, Metadata, Payload};
+use protocol::{Event, EventType, EventVariant, Metadata, Payload, ProtocolId};
+use std::str::FromStr;
 
 use crate::ws::WsEventArgs;
-use common::custom_uuid::Id128;
 
 #[inline]
 fn non_empty_data(args: &WsEventArgs, payload: &Option<Payload>) -> String {
@@ -101,7 +101,9 @@ pub(crate) fn ws_event_ok_payload(
         name,
         EventType::Acknowledgment,
         EventVariant::Acknowledged {
-            id: Id128::from_hex(&meta.to_key()).expect("Invalid Id128 format"),
+            id: ProtocolId::from_str(&meta.to_key())
+                .expect("Invalid ProtocolId format")
+                .as_inner(),
         },
         Some(payload_json(payload_type, payload)),
         None,

@@ -6,7 +6,7 @@
 
 A product = `metadata.ron` + `backend` + `ui bundle`.
 
-For details on `metadata.ron`, see [Metadata](../metadata.md).
+For details on `metadata.ron`, see [Metadata](../metadata.md). `metadata.ron` uses hex `ProtocolId` values for `id`.
 
 ## Backend Definition
 

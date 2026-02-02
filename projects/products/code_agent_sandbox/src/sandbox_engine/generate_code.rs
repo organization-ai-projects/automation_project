@@ -3,8 +3,8 @@ use crate::{
     actions::{ActionResult, LowLevelActionContext},
     normalization::normalize_extension,
 };
-use common::Id128;
 use common_json::pjson;
+use protocol::ProtocolId;
 
 pub(crate) fn handle_generate_code(
     language: &str,
@@ -25,7 +25,7 @@ pub(crate) fn handle_generate_code(
     }
 
     let ext = normalize_extension(language);
-    let file_path = ai_ws.join(format!("generated_{}.{}", Id128::new(0, None, None), ext));
+    let file_path = ai_ws.join(format!("generated_{}.{}", ProtocolId::default(), ext));
 
     if !file_path.starts_with(ctx.run_dir) {
         return Err(anyhow::anyhow!("Attempted to write outside of run_dir"));

@@ -2,17 +2,19 @@
 use crate::{TokenError, role::Role};
 use common::custom_uuid::Id128;
 use common_time::timestamp_utils;
+use protocol::ProtocolId;
 use serde::{Deserialize, Serialize};
 
 /// Verified token (internal struct convenient for the app).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Token {
-    pub value: String,
-    pub subject_id: Id128,
+    /// JWT ID (`jti`) for this token.
+    pub value: ProtocolId,
+    pub subject_id: ProtocolId,
     pub role: Role,
     pub issued_at_ms: u64,
     pub expires_at_ms: u64,
-    pub session_id: Option<String>,
+    pub session_id: Option<ProtocolId>,
 }
 
 impl Token {
@@ -41,7 +43,7 @@ impl Token {
 
     /// Validates a token (structure + expiration)
     pub fn validate_token(&self) -> Result<(), TokenError> {
-        let zero_id = Id128::from_bytes_unchecked([0u8; 16]);
+        let zero_id = ProtocolId::new(Id128::from_bytes_unchecked([0u8; 16]));
         if self.subject_id == zero_id {
             return Err(TokenError::InvalidToken);
         }

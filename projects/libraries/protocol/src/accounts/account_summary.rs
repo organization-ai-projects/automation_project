@@ -1,9 +1,11 @@
 // projects/libraries/protocol/src/accounts/account_summary.rs
 use serde::{Deserialize, Serialize};
 
+use crate::ProtocolId;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccountSummary {
-    pub user_id: String,
+    pub user_id: ProtocolId,
     pub role: String,
     pub permissions: Vec<String>,
     pub status: String,
