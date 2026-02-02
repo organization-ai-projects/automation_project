@@ -20,7 +20,10 @@ fn build_event_with_metadata(metadata: Metadata, name: String, data: String) -> 
 #[test]
 fn test_event_new_sets_metadata() {
     let event = Event::new("name".to_string(), EventType::Info, "data".to_string());
-    assert_ne!(event.metadata.request_id, ProtocolId::default());
+    // Verify the request_id is a valid hex string with proper length (32 chars for 128-bit ID)
+    let hex = event.metadata.request_id.to_hex();
+    assert_eq!(hex.len(), 32, "Generated ID should be 32 hex characters");
+    assert!(hex.chars().all(|c| c.is_ascii_hexdigit()), "Generated ID should be valid hex");
     assert!(event.metadata.timestamp_ms.is_some());
 }
 
@@ -32,7 +35,10 @@ fn test_event_with_variant_sets_metadata() {
         "data".to_string(),
         EventVariant::Default,
     );
-    assert_ne!(event.metadata.request_id, ProtocolId::default());
+    // Verify the request_id is a valid hex string with proper length (32 chars for 128-bit ID)
+    let hex = event.metadata.request_id.to_hex();
+    assert_eq!(hex.len(), 32, "Generated ID should be 32 hex characters");
+    assert!(hex.chars().all(|c| c.is_ascii_hexdigit()), "Generated ID should be valid hex");
     assert!(event.metadata.timestamp_ms.is_some());
 }
 

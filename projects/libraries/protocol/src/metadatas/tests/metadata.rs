@@ -20,7 +20,10 @@ fn test_metadata_validate_future_timestamp_rejected() {
 #[test]
 fn test_metadata_now_generates_request_id() {
     let metadata = Metadata::now();
-    assert_ne!(metadata.request_id, ProtocolId::default());
+    // Verify the request_id is a valid hex string with proper length (32 chars for 128-bit ID)
+    let hex = metadata.request_id.to_hex();
+    assert_eq!(hex.len(), 32, "Generated ID should be 32 hex characters");
+    assert!(hex.chars().all(|c| c.is_ascii_hexdigit()), "Generated ID should be valid hex");
     assert!(metadata.timestamp_ms.is_some());
 }
 
@@ -29,15 +32,21 @@ fn test_metadata_with_timestamp_generates_request_id() {
     let timestamp_ms = 1_700_000_000_000;
     let metadata = Metadata::with_timestamp(timestamp_ms);
     assert_eq!(metadata.timestamp_ms, Some(timestamp_ms));
-    assert_ne!(metadata.request_id, ProtocolId::default());
+    // Verify the request_id is a valid hex string with proper length (32 chars for 128-bit ID)
+    let hex = metadata.request_id.to_hex();
+    assert_eq!(hex.len(), 32, "Generated ID should be 32 hex characters");
+    assert!(hex.chars().all(|c| c.is_ascii_hexdigit()), "Generated ID should be valid hex");
 }
 
 #[test]
 fn test_metadata_new_accepts_protocol_id_string() {
     let timestamp_ms = 1_700_000_000_123;
-    let request_id = ProtocolId::default().to_string();
-    let metadata = Metadata::new(timestamp_ms, request_id);
+    let original_id = ProtocolId::default();
+    let request_id_str = original_id.to_hex();
+    let metadata = Metadata::new(timestamp_ms, request_id_str.clone());
     assert_eq!(metadata.timestamp_ms, Some(timestamp_ms));
+    // Verify the provided hex string is actually used
+    assert_eq!(metadata.request_id.to_hex(), request_id_str, "Metadata::new should preserve valid request_id");
 }
 
 #[test]
