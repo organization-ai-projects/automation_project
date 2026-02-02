@@ -59,9 +59,8 @@ impl Metadata {
     /// Creates metadata with specific timestamp and ID string.
     #[deprecated(note = "Use new_with_protocol_id or try_new for strict ProtocolId handling")]
     pub fn new(timestamp_ms: u64, request_id: String) -> Self {
-        let request_id =
-            ProtocolId::from_str(&request_id).expect("request_id must be a valid hex ProtocolId");
-        Self::new_with_protocol_id(timestamp_ms, request_id)
+        Self::try_new(timestamp_ms, &request_id)
+            .unwrap_or_else(|_| Self::with_timestamp(timestamp_ms))
     }
 
     /// Creates metadata with specific timestamp and ProtocolId.
