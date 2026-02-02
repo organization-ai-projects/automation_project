@@ -14,7 +14,7 @@ The `metadata.ron` file is purely declarative. It does not trigger any actions b
 (
   schema_version: 1,
   generated_at: "2026-01-04T12:00:00Z",
-  id: "dev_forge_app",
+  id: "4fb1f3633c504d8d82accf829a854ea4",
   name: "Dev Forge Desktop",
   kind: "product", // product | library
   version: "0.1.0",
@@ -49,7 +49,7 @@ The `metadata.ron` file is purely declarative. It does not trigger any actions b
 
 > Convention:
 >
-> - `id`: Stable, unique, and machine-friendly.
+> - `id`: Stable, unique, and machine-friendly (hex ProtocolId).
 > - `name`: Human-readable and intended for user interfaces.
 >   Note:
 > - The `entrypoints` field may include other types of entry points in the future, beyond `ui`.
