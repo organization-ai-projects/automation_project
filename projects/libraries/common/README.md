@@ -50,13 +50,13 @@ println!("Sequence: {}", id.seq());
 
 The 128-bit ID contains:
 
-| Bytes  | Component    | Description                              |
-| ------ | ------------ | ---------------------------------------- |
-| 0-5    | Timestamp    | 48-bit millisecond timestamp             |
-| 6-7    | Node ID      | Machine/agent identifier                 |
-| 8-9    | Process ID   | Process identifier                       |
-| 10-11  | Boot ID      | Changes each program start               |
-| 12-15  | Sequence     | Counter for same-millisecond uniqueness  |
+| Bytes | Component  | Description                             |
+| ----- | ---------- | --------------------------------------- |
+| 0-5   | Timestamp  | 48-bit millisecond timestamp            |
+| 6-7   | Node ID    | Machine/agent identifier                |
+| 8-9   | Process ID | Process identifier                      |
+| 10-11 | Boot ID    | Changes each program start              |
+| 12-15 | Sequence   | Counter for same-millisecond uniqueness |
 
 ### Persistent node ID
 
@@ -79,6 +79,17 @@ let trimmed = trim_lossy("  hello  ");
 
 // Truncate to max bytes (UTF-8 safe)
 let truncated = truncate_utf8("Hello, 世界!", 10);
+```
+
+## Examples
+
+### Name Validation
+
+```rust
+use common::Name;
+
+let name = Name::new("valid_name").unwrap();
+assert_eq!(name.as_str(), "valid_name");
 ```
 
 ## Thread Safety

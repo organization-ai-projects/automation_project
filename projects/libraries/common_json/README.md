@@ -8,14 +8,14 @@ A custom JSON implementation providing parsing, serialization, deserialization, 
 
 ## Features
 
-- **Parsing** - Fast JSON parsing from strings, bytes, or readers
-- **Serialization** - Convert Rust types to JSON with pretty-print options
-- **Deserialization** - Type-safe JSON to Rust conversion
-- **Macros** - `pjson!` macro for ergonomic JSON construction
-- **Merging** - Flexible merge strategies for combining JSON values
+- **Parsing** - Fast JSON parsing from strings, bytes, or readers ([example](#parse-and-serialize))
+- **Serialization** - Convert Rust types to JSON with pretty-print options ([example](#parse-and-serialize))
+- **Deserialization** - Type-safe JSON to Rust conversion ([example](#parse-and-serialize))
+- **Macros** - `pjson!` macro for ergonomic JSON construction ([example](#construct-json-with-macros))
+- **Merging** - Flexible merge strategies for combining JSON values ([example](#merge-json-values))
 - **Comparison** - Deep equality and diff utilities
-- **Access** - Path-based JSON traversal (mutable and immutable)
-- **Builders** - Fluent API for constructing arrays and objects
+- **Access** - Path-based JSON traversal (mutable and immutable) ([example](#access-nested-values))
+- **Builders** - Fluent API for constructing arrays and objects ([example](#builder-pattern))
 
 ## Installation
 
@@ -120,12 +120,44 @@ let obj = JsonObjectBuilder::new()
 
 ## Macros Reference
 
-| Macro          | Description                           |
-| -------------- | ------------------------------------- |
-| `pjson!`       | Full-featured JSON construction       |
-| `json_array!`  | Simple array construction             |
-| `json_object!` | Simple object construction            |
-| `json_value!`  | Convert expression to Json            |
+| Macro          | Description                     |
+| -------------- | ------------------------------- |
+| `pjson!`       | Full-featured JSON construction |
+| `json_array!`  | Simple array construction       |
+| `json_object!` | Simple object construction      |
+| `json_value!`  | Convert expression to Json      |
+
+### Examples for Macros
+
+#### `json_array!`
+
+```rust
+use common_json::json_array;
+
+let array = json_array!["apple", "banana", "cherry"];
+assert_eq!(array[0].as_str(), Some("apple"));
+```
+
+#### `json_object!`
+
+```rust
+use common_json::json_object;
+
+let object = json_object! {
+    "name" => "Alice",
+    "age" => 30
+};
+assert_eq!(object["name"].as_str(), Some("Alice"));
+```
+
+#### `json_value!`
+
+```rust
+use common_json::json_value;
+
+let value = json_value!(42);
+assert_eq!(value.as_i64(), Some(42));
+```
 
 ## License
 
