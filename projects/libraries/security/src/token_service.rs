@@ -17,6 +17,12 @@ pub struct TokenService {
 impl TokenService {
     /// secret: robust string (ENV). Minimum 32 characters recommended.
     pub fn new_hs256(secret: &str) -> Result<Self, TokenError> {
+        Self::new_hs256_with_leeway(secret, 0)
+    }
+
+    /// secret: robust string (ENV). Minimum 32 characters recommended.
+    /// leeway_seconds: grace window allowed after exp for clock skew handling.
+    pub fn new_hs256_with_leeway(secret: &str, leeway_seconds: u64) -> Result<Self, TokenError> {
         let s = secret.trim();
         if s.is_empty() {
             return Err(TokenError::MissingSecret);
@@ -31,7 +37,7 @@ impl TokenService {
         validation.required_spec_claims.insert("iat".to_string());
         validation.required_spec_claims.insert("sub".to_string());
         validation.required_spec_claims.insert("jti".to_string());
-        validation.leeway = 1; // Add a 1-second margin to compensate for tolerance
+        validation.leeway = leeway_seconds;
 
         Ok(Self {
             enc: EncodingKey::from_secret(s.as_bytes()),
