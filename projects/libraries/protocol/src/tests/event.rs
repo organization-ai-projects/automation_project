@@ -10,7 +10,10 @@ use common_json::Json;
 fn assert_valid_protocol_id_hex(id: &ProtocolId) {
     let hex = id.to_hex();
     assert_eq!(hex.len(), 32, "Protocol ID should be 32 hex characters");
-    assert!(hex.chars().all(|c| c.is_ascii_hexdigit()), "Protocol ID should be valid hex");
+    assert!(
+        hex.chars().all(|c| c.is_ascii_hexdigit()),
+        "Protocol ID should be valid hex"
+    );
 }
 
 fn base_metadata() -> Metadata {
@@ -29,14 +32,17 @@ fn test_event_new_sets_metadata() {
     // Create two events to verify uniqueness
     let event1 = Event::new("name1".to_string(), EventType::Info, "data".to_string());
     let event2 = Event::new("name2".to_string(), EventType::Info, "data".to_string());
-    
+
     // Verify both IDs are valid hex strings
     assert_valid_protocol_id_hex(&event1.metadata.request_id);
     assert_valid_protocol_id_hex(&event2.metadata.request_id);
-    
+
     // Verify IDs are unique (not constant/zero)
-    assert_ne!(event1.metadata.request_id, event2.metadata.request_id, "Different events should have unique request_ids");
-    
+    assert_ne!(
+        event1.metadata.request_id, event2.metadata.request_id,
+        "Different events should have unique request_ids"
+    );
+
     assert!(event1.metadata.timestamp_ms.is_some());
     assert!(event2.metadata.timestamp_ms.is_some());
 }
@@ -56,14 +62,17 @@ fn test_event_with_variant_sets_metadata() {
         "data".to_string(),
         EventVariant::Default,
     );
-    
+
     // Verify both IDs are valid hex strings
     assert_valid_protocol_id_hex(&event1.metadata.request_id);
     assert_valid_protocol_id_hex(&event2.metadata.request_id);
-    
+
     // Verify IDs are unique (not constant/zero)
-    assert_ne!(event1.metadata.request_id, event2.metadata.request_id, "Different events should have unique request_ids");
-    
+    assert_ne!(
+        event1.metadata.request_id, event2.metadata.request_id,
+        "Different events should have unique request_ids"
+    );
+
     assert!(event1.metadata.timestamp_ms.is_some());
     assert!(event2.metadata.timestamp_ms.is_some());
 }

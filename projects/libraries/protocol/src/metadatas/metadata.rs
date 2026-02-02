@@ -7,6 +7,7 @@ use common_time::timestamp_utils::current_timestamp_ms;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 /// Maximum acceptable timestamp drift into the future (1 hour in milliseconds)
 const MAX_FUTURE_DRIFT_MS: u64 = 3600 * 1000;
@@ -55,20 +56,23 @@ impl Metadata {
         }
     }
 
-    /// Creates metadata with specific timestamp and ID
-    ///
-    /// If the provided `request_id` string is not a valid hex ProtocolId,
-    /// a new ID will be generated instead (silently falling back).
-    /// This maintains backwards compatibility but may hide caller errors.
-    pub fn new(timestamp_ms: u64, request_id: String) -> Self {
-        let request_id = request_id
-            .parse()
-            .unwrap_or_else(|_| Self::generate_request_id(timestamp_ms));
+    /// Creates metadata with specific timestamp and ID.
+    pub fn new(timestamp_ms: u64, request_id: ProtocolId) -> Self {
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,
             ..Default::default()
         }
+    }
+
+    /// Creates metadata with specific timestamp and ID string.
+    /// Returns an error when the request_id is not a valid hex ProtocolId.
+    pub fn try_new(
+        timestamp_ms: u64,
+        request_id: &str,
+    ) -> Result<Self, <ProtocolId as FromStr>::Err> {
+        let request_id = ProtocolId::from_str(request_id)?;
+        Ok(Self::new(timestamp_ms, request_id))
     }
 
     /// Gets the current system timestamp in milliseconds since UNIX epoch
