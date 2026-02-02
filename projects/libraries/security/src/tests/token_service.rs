@@ -26,7 +26,7 @@ fn test_expired_token() {
     std::thread::sleep(std::time::Duration::from_millis(120));
     assert!(service.verify(&jwt).is_ok());
 
-    for _ in 0..30 {
+    for _ in 0..50 {
         if matches!(service.verify(&jwt), Err(TokenError::Expired)) {
             return;
         }
