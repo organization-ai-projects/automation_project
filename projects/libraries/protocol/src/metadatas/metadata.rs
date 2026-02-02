@@ -33,7 +33,8 @@ pub struct Metadata {
 impl Metadata {
     /// Creates new metadata with the current timestamp and a generated ID
     ///
-    /// The ID is generated from the current timestamp combined with process randomness
+    /// The ID is derived from the current timestamp and a monotonic counter,
+    /// ensuring uniqueness for IDs generated within this process.
     pub fn now() -> Self {
         let timestamp_ms = Self::current_timestamp_ms();
         let request_id = Self::generate_request_id(timestamp_ms);
@@ -55,6 +56,10 @@ impl Metadata {
     }
 
     /// Creates metadata with specific timestamp and ID
+    ///
+    /// If the provided `request_id` string is not a valid hex ProtocolId,
+    /// a new ID will be generated instead (silently falling back).
+    /// This maintains backwards compatibility but may hide caller errors.
     pub fn new(timestamp_ms: u64, request_id: String) -> Self {
         let request_id = request_id
             .parse()
