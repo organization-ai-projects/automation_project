@@ -3,7 +3,7 @@ use common_json::pjson;
 use tracing::warn;
 use warp::{Reply, http::StatusCode};
 
-use super::auth::parse_user_id;
+use super::auth::validate_user_id;
 use super::helpers::{event_to_http, http_error};
 use crate::routes::http_forwarder::{accounts_product_id, forward_to_backend, payload_from};
 use crate::{BootstrapError, EngineState, consume_claim, setup_complete, validate_claim};
@@ -38,7 +38,7 @@ pub(crate) async fn setup_admin(
         });
     }
 
-    let user_id = match parse_user_id(&req.user_id) {
+    let user_id = match validate_user_id(req.user_id) {
         Ok(id) => id,
         Err(e) => return Ok(http_error(StatusCode::BAD_REQUEST, e)),
     };

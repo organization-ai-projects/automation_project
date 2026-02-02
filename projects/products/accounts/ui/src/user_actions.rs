@@ -1,10 +1,12 @@
 // projects/products/accounts/ui/src/user_actions.rs
 use dioxus::prelude::*;
 use gloo_net::http::Request;
+use protocol::ProtocolId;
 use protocol::accounts::{
     AccountSummary, AccountsListResponse, CreateAccountRequest, ResetPasswordRequest,
     UpdateAccountRequest, UpdateStatusRequest,
 };
+use std::str::FromStr;
 
 /// Reload users list from API with authentication token
 pub fn reload_users_with_token(
@@ -50,8 +52,16 @@ pub fn create_user_action(
         msg.set("Not authenticated".to_string());
         return;
     };
+    let user_id_val = user_id.read().clone();
+    let user_id = match ProtocolId::from_str(&user_id_val) {
+        Ok(id) => id,
+        Err(_) => {
+            msg.set("User ID must be 32 hex chars".to_string());
+            return;
+        }
+    };
     let body = CreateAccountRequest {
-        user_id: user_id.read().clone(),
+        user_id,
         password: password.read().clone(),
         role: role.read().clone(),
         permissions: permissions.read().clone(),
@@ -98,12 +108,20 @@ pub fn update_user_action(
         msg.set("Not authenticated".to_string());
         return;
     };
+    let user_id_val = user_id.read().clone();
+    let user_id = match ProtocolId::from_str(&user_id_val) {
+        Ok(id) => id,
+        Err(_) => {
+            msg.set("User ID must be 32 hex chars".to_string());
+            return;
+        }
+    };
     let body = UpdateAccountRequest {
         role: Some(role.read().clone()),
         permissions: Some(permissions.read().clone()),
     };
     let payload = common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
-    let user_id_val = user_id.read().clone();
+    let user_id_val = user_id.to_string();
     spawn(async move {
         let request = match Request::patch(&format!("/api/accounts/users/{user_id_val}"))
             .header("authorization", &format!("Bearer {token}"))
@@ -144,11 +162,19 @@ pub fn update_status_action(
         msg.set("Not authenticated".to_string());
         return;
     };
+    let user_id_val = user_id.read().clone();
+    let user_id = match ProtocolId::from_str(&user_id_val) {
+        Ok(id) => id,
+        Err(_) => {
+            msg.set("User ID must be 32 hex chars".to_string());
+            return;
+        }
+    };
     let body = UpdateStatusRequest {
         status: status.read().clone(),
     };
     let payload = common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
-    let user_id_val = user_id.read().clone();
+    let user_id_val = user_id.to_string();
     spawn(async move {
         let request = match Request::post(&format!("/api/accounts/users/{user_id_val}/status"))
             .header("authorization", &format!("Bearer {token}"))
@@ -188,11 +214,19 @@ pub fn reset_password_action(
         msg.set("Not authenticated".to_string());
         return;
     };
+    let user_id_val = user_id.read().clone();
+    let user_id = match ProtocolId::from_str(&user_id_val) {
+        Ok(id) => id,
+        Err(_) => {
+            msg.set("User ID must be 32 hex chars".to_string());
+            return;
+        }
+    };
     let body = ResetPasswordRequest {
         password: password.read().clone(),
     };
     let payload = common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
-    let user_id_val = user_id.read().clone();
+    let user_id_val = user_id.to_string();
     spawn(async move {
         let request =
             match Request::post(&format!("/api/accounts/users/{user_id_val}/reset_password"))

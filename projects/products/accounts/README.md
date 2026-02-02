@@ -14,6 +14,7 @@ Notes:
 - Backend registers with Engine via WebSocket (`backend.hello`).
 - Storage (JSON) lives in `projects/products/accounts/data/` by default (override with `ACCOUNTS_DATA_DIR`).
 - `accounts-backend` is a product binary (not a library crate).
+- Migration: existing stored `user_id` values must be 32-char hex ProtocolId strings.
 
 Backend (WS actions handled by accounts-backend):
 
@@ -27,7 +28,8 @@ Backend (WS actions handled by accounts-backend):
 - `accounts.update_status`
 - `accounts.reset_password`
 
-Admin endpoints (via Engine, requires `Authorization: Bearer <jwt>`):
+Admin endpoints (via Engine, requires `Authorization: Bearer <jwt>`).
+`{user_id}` is a 32-char hex ProtocolId:
 
 - `GET /accounts/users`
 - `GET /accounts/users/{user_id}`

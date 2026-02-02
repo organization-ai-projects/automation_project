@@ -1,7 +1,9 @@
 // projects/products/accounts/ui/src/card_components.rs
 use dioxus::prelude::*;
 use gloo_net::http::Request;
+use protocol::ProtocolId;
 use protocol::accounts::{AccountSummary, LoginRequest, LoginResponse};
+use std::str::FromStr;
 
 use crate::{
     components::form_components::{input_field, input_password},
@@ -28,6 +30,13 @@ pub fn setup_card(
                     let user_id = setup_user.read().clone();
                     let password = setup_pass.read().clone();
                     spawn(async move {
+                        let user_id = match ProtocolId::from_str(&user_id) {
+                            Ok(id) => id,
+                            Err(_) => {
+                                setup_msg.set("User ID must be 32 hex chars".to_string());
+                                return;
+                            }
+                        };
                         let body = SetupAdminInput { user_id, password };
                         let payload =
                             common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string());
@@ -81,6 +90,13 @@ pub fn login_card(
                     let user_id = login_user.read().clone();
                     let password = login_pass.read().clone();
                     spawn(async move {
+                        let user_id = match ProtocolId::from_str(&user_id) {
+                            Ok(id) => id,
+                            Err(_) => {
+                                login_msg.set("User ID must be 32 hex chars".to_string());
+                                return;
+                            }
+                        };
                         let body = LoginRequest {
                             user_id,
                             password,

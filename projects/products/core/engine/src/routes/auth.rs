@@ -1,6 +1,7 @@
 // projects/products/core/engine/src/routes/auth.rs
-use common::Id128;
 use identity::UserId;
+use protocol::ProtocolId;
+use std::str::FromStr;
 use tracing::warn;
 use warp::{Reply, http::StatusCode};
 
@@ -10,18 +11,20 @@ use crate::const_values::{DEFAULT_DURATION_MS, LOGIN_MAX_DURATION_MS};
 use crate::routes::http_forwarder::{accounts_product_id, forward_to_backend, payload_from};
 use protocol::accounts::LoginRequest;
 
-/// Parse user_id from hex string
-pub(crate) fn parse_user_id(input: &str) -> Result<UserId, &'static str> {
-    if let Ok(id) = Id128::from_hex(input) {
-        return UserId::new(id).map_err(|_| "invalid user id");
-    }
+/// Validate a ProtocolId as a user id
+pub(crate) fn validate_user_id(id: ProtocolId) -> Result<ProtocolId, &'static str> {
+    UserId::new(id).map(|_| id).map_err(|_| "invalid user id")
+}
 
-    Err("user_id must be 32 hex chars")
+/// Parse user_id from hex string
+pub(crate) fn parse_user_id(input: &str) -> Result<ProtocolId, &'static str> {
+    let id = ProtocolId::from_str(input).map_err(|_| "user_id must be 32 hex chars")?;
+    validate_user_id(id)
 }
 
 /// Normalize user_id string (validate and return canonical form)
-pub(crate) fn normalize_user_id(input: &str) -> Result<String, &'static str> {
-    parse_user_id(input).map(|id| id.to_string())
+pub(crate) fn normalize_user_id(input: &str) -> Result<ProtocolId, &'static str> {
+    parse_user_id(input)
 }
 
 /// Login handler - forward to accounts backend
@@ -34,7 +37,7 @@ pub(crate) async fn login(
         return Ok(http_error(StatusCode::UNAUTHORIZED, "Invalid credentials"));
     }
 
-    let user_id = match parse_user_id(&req.user_id) {
+    let user_id = match validate_user_id(req.user_id) {
         Ok(id) => id,
         Err(e) => {
             warn!("Login failed: invalid user_id={}: {}", req.user_id, e);

@@ -7,7 +7,6 @@ use std::{path::PathBuf, time::Duration};
 
 use anyhow::Context;
 use bytes::Bytes;
-use common::Id128;
 use futures_util::{SinkExt, StreamExt};
 use protocol::protocol_id::ProtocolId;
 use protocol::{Command, CommandType, Metadata, Payload};
@@ -47,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Accounts data dir: {:?}", account_manager.data_dir());
 
     let token_service = TokenService::new_hs256(&jwt_secret).context("invalid jwt secret")?;
-    let subject = Id128::new(1, None, None);
+    let subject = ProtocolId::default();
     let token = token_service
         .issue(subject, Role::Admin, 24 * 60 * 60 * 1000, None)
         .context("issue token")?;
@@ -58,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
     let product_id =
         ProtocolId::from_str(&product_id_raw).context("invalid ACCOUNTS_PRODUCT_ID")?;
 
-    let instance_id = ProtocolId::new(subject);
+    let instance_id = subject;
 
     let ws_url = format!("{engine_ws}?token={token}");
     info!(%ws_url, "Connecting accounts backend");

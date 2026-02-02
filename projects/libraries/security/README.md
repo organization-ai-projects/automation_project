@@ -72,14 +72,17 @@ match check_permission(&role, Permission::Delete) {
 
 ```rust
 use security::{Token, TokenService, Role, check_token_permission, Permission};
-use common::Id128;
+use protocol::ProtocolId;
+use std::str::FromStr;
 
 // Create a token service
 let service = TokenService::new_hs256("your-secret-key")?;
 
 // Generate a token for a subject
-let subject_id = Id128::new(1, None, None);
+let subject_id = ProtocolId::from_str("00000000000000000000000000000001")?;
 let token = service.issue(subject_id, Role::User, 3600, None)?;
+
+// Note: Token.value represents the JWT ID (`jti`) as a ProtocolId.
 
 // Validate and check permissions
 check_token_permission(&token, Permission::Write)?;

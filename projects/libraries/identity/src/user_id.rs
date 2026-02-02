@@ -1,6 +1,7 @@
 // projects/libraries/identity/src/user_id.rs
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
+use protocol::ProtocolId;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -8,19 +9,19 @@ use std::str::FromStr;
 use crate::IdentityError;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct UserId(Id128);
+pub struct UserId(ProtocolId);
 
 impl UserId {
     /// Creates a validated UserId
-    pub fn new(id: Id128) -> Result<Self, IdentityError> {
-        if !CommonID::is_valid(id) {
+    pub fn new(id: ProtocolId) -> Result<Self, IdentityError> {
+        if !CommonID::is_valid(id.as_inner()) {
             return Err(IdentityError::InvalidUserIdValue);
         }
         Ok(Self(id))
     }
 
-    /// Returns the identifier as Id128
-    pub fn value(&self) -> Id128 {
+    /// Returns the identifier as ProtocolId
+    pub fn value(&self) -> ProtocolId {
         self.0
     }
 }
@@ -30,7 +31,7 @@ impl TryFrom<u64> for UserId {
     type Error = IdentityError;
 
     fn try_from(id: u64) -> Result<Self, Self::Error> {
-        Self::new(Id128::new(id as u16, None, None))
+        Self::new(ProtocolId::new(Id128::new(id as u16, None, None)))
     }
 }
 
@@ -39,12 +40,8 @@ impl FromStr for UserId {
     type Err = IdentityError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let id = s
-            .trim()
-            .parse::<u128>()
-            .map_err(|_| IdentityError::InvalidUserIdFormat)?;
-        let id128 = Id128::from_bytes_unchecked(id.to_be_bytes());
-        Self::new(id128)
+        let id = ProtocolId::from_str(s.trim()).map_err(|_| IdentityError::InvalidUserIdFormat)?;
+        Self::new(id)
     }
 }
 
@@ -55,10 +52,12 @@ impl From<UserId> for String {
     }
 }
 
-// Implementation of From<Id128> for UserId
-impl From<Id128> for UserId {
-    fn from(id: Id128) -> Self {
-        UserId(id)
+// TryFrom for safe conversion from Id128
+impl TryFrom<Id128> for UserId {
+    type Error = IdentityError;
+
+    fn try_from(id: Id128) -> Result<Self, Self::Error> {
+        Self::new(ProtocolId::new(id))
     }
 }
 
