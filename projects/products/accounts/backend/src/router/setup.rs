@@ -28,13 +28,7 @@ pub async fn handle_setup_admin(meta: &Metadata, cmd: &Command, manager: &Accoun
 
     let role = Role::Admin;
     let create = manager
-        .create(
-            req.user_id.clone(),
-            &req.password,
-            role,
-            Vec::new(),
-            "setup",
-        )
+        .create(req.user_id, &req.password, role, Vec::new(), "setup")
         .await;
     match create {
         Ok(_) => ok_payload(

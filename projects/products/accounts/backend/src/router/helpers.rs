@@ -1,9 +1,8 @@
 // projects/products/accounts/backend/src/router/helpers.rs
 use std::str::FromStr;
 
-use common::Id128;
 use common_json::{Json, JsonMap, from_value, to_json_string, to_value};
-use protocol::{Command, Event, EventType, EventVariant, Metadata, Payload};
+use protocol::{Command, Event, EventType, EventVariant, Metadata, Payload, ProtocolId};
 use security::Permission;
 
 use crate::store::account_store_error::AccountStoreError;
@@ -23,7 +22,7 @@ pub fn payload_value(cmd: &Command) -> Result<Json, String> {
         .ok_or_else(|| "Missing payload".to_string())
 }
 
-pub fn get_user_id(cmd: &Command) -> Result<String, String> {
+pub fn get_user_id(cmd: &Command) -> Result<ProtocolId, String> {
     let payload = payload_value(cmd)?;
     let map = match payload {
         Json::Object(map) => map,
@@ -31,7 +30,9 @@ pub fn get_user_id(cmd: &Command) -> Result<String, String> {
     };
 
     match map.get("user_id") {
-        Some(Json::String(id)) if !id.trim().is_empty() => Ok(id.clone()),
+        Some(Json::String(id)) if !id.trim().is_empty() => id
+            .parse::<ProtocolId>()
+            .map_err(|_| "Invalid user_id".to_string()),
         _ => Err("Missing user_id".to_string()),
     }
 }
@@ -97,7 +98,7 @@ pub fn err_event(meta: &Metadata, status: u16, message: &str) -> Event {
         message: Some(message.to_string()),
         pct: None,
         variant: EventVariant::Error {
-            id: Id128::new(0, None, None),
+            id: common::Id128::new(0, None, None),
             message: message.to_string(),
         },
     }

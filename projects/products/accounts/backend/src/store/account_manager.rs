@@ -10,6 +10,7 @@ use crate::store::account_record::AccountRecord;
 use crate::store::account_store_error::AccountStoreError;
 use crate::store::accounts_file::AccountsFile;
 use crate::store::audit_entry::AuditEntry;
+use protocol::ProtocolId;
 use protocol::accounts::AccountStatus;
 use protocol::accounts::AccountSummary;
 
@@ -18,7 +19,7 @@ pub struct AccountManager {
     data_dir: PathBuf,
     accounts_path: PathBuf,
     audit_path: PathBuf,
-    state: Arc<RwLock<HashMap<String, AccountRecord>>>,
+    state: Arc<RwLock<HashMap<ProtocolId, AccountRecord>>>,
 }
 
 impl AccountManager {
@@ -44,11 +45,7 @@ impl AccountManager {
             } else {
                 let parsed: AccountsFile =
                     from_json_str(&raw).map_err(|e| AccountStoreError::Json(e.to_string()))?;
-                parsed
-                    .users
-                    .into_iter()
-                    .map(|u| (u.user_id.clone(), u))
-                    .collect()
+                parsed.users.into_iter().map(|u| (u.user_id, u)).collect()
             }
         } else {
             HashMap::new()
@@ -86,7 +83,7 @@ impl AccountManager {
         users
             .values()
             .map(|u| AccountSummary {
-                user_id: u.user_id.clone(),
+                user_id: u.user_id,
                 role: u.role.to_string(),
                 permissions: self
                     .effective_permissions(u)
@@ -101,11 +98,11 @@ impl AccountManager {
             .collect()
     }
 
-    pub async fn get(&self, user_id: &str) -> Result<AccountSummary, AccountStoreError> {
+    pub async fn get(&self, user_id: &ProtocolId) -> Result<AccountSummary, AccountStoreError> {
         let users = self.state.read().await;
         let user = users.get(user_id).ok_or(AccountStoreError::NotFound)?;
         Ok(AccountSummary {
-            user_id: user.user_id.clone(),
+            user_id: user.user_id,
             role: user.role.to_string(),
             permissions: self
                 .effective_permissions(user)
@@ -121,7 +118,7 @@ impl AccountManager {
 
     pub async fn create(
         &self,
-        user_id: String,
+        user_id: ProtocolId,
         password: &str,
         role: Role,
         extra_permissions: Vec<Permission>,
@@ -141,7 +138,7 @@ impl AccountManager {
         let now = current_timestamp_ms();
 
         let record = AccountRecord {
-            user_id: user_id.clone(),
+            user_id,
             password_hash: hash,
             role,
             extra_permissions,
@@ -151,7 +148,7 @@ impl AccountManager {
             last_login_ms: None,
         };
 
-        users.insert(user_id.clone(), record);
+        users.insert(user_id, record);
         drop(users);
 
         self.save().await?;
@@ -159,7 +156,7 @@ impl AccountManager {
             timestamp_ms: now,
             actor: actor.to_string(),
             action: "create".to_string(),
-            target: user_id,
+            target: user_id.to_string(),
             details: None,
         })
         .await?;
@@ -169,7 +166,7 @@ impl AccountManager {
 
     pub async fn reset_password(
         &self,
-        user_id: &str,
+        user_id: &ProtocolId,
         password: &str,
         actor: &str,
     ) -> Result<(), AccountStoreError> {
@@ -199,7 +196,7 @@ impl AccountManager {
 
     pub async fn update_role_permissions(
         &self,
-        user_id: &str,
+        user_id: &ProtocolId,
         role: Option<Role>,
         permissions: Option<Vec<Permission>>,
         actor: &str,
@@ -229,7 +226,7 @@ impl AccountManager {
 
     pub async fn update_status(
         &self,
-        user_id: &str,
+        user_id: &ProtocolId,
         status: AccountStatus,
         actor: &str,
     ) -> Result<(), AccountStoreError> {
@@ -253,7 +250,7 @@ impl AccountManager {
 
     pub async fn authenticate(
         &self,
-        user_id: &str,
+        user_id: &ProtocolId,
         password: &str,
     ) -> Result<Role, AccountStoreError> {
         let mut users = self.state.write().await;
