@@ -89,29 +89,16 @@ impl TokenService {
             return Err(TokenError::InvalidToken);
         }
 
-        let now_ms = current_timestamp_ms();
-        println!("Token verification: now_ms = {}", now_ms);
-
         let data =
             jsonwebtoken::decode::<Claims>(jwt, &self.dec, &self.validation).map_err(|e| {
                 if e.kind() == &jsonwebtoken::errors::ErrorKind::ExpiredSignature {
-                    let exp_with_tolerance = now_ms.saturating_sub(50); // Apply tolerance here
-                    if exp_with_tolerance > now_ms {
-                        println!(
-                            "Token expired with tolerance: exp = {}, tolerance = 50 ms",
-                            now_ms
-                        );
-                        TokenError::Expired
-                    } else {
-                        TokenError::Jwt(e.to_string())
-                    }
+                    TokenError::Expired
                 } else {
                     TokenError::Jwt(e.to_string())
                 }
             })?;
 
         let c = data.claims;
-        println!("Token timestamps: iat = {}, exp = {}", c.iat, c.exp);
 
         // Hardening: validate sub numeric + CommonID validation
         let subject_id = Id128::from_hex(&c.sub).map_err(|_| TokenError::InvalidSubjectIdFormat)?;
@@ -123,25 +110,7 @@ impl TokenService {
         let issued_at_ms = c.iat.saturating_mul(1000);
         let expires_at_ms = c.exp.saturating_mul(1000);
 
-        // Manual validation: check if the current time exceeds expiration
-        // Add a tolerance margin to avoid errors due to minor differences
-        const TOLERANCE_MS: u64 = 50; // 50 ms tolerance
-
-        if now_ms > c.exp.saturating_mul(1000) + TOLERANCE_MS {
-            println!(
-                "Manual validation: token expired (now_ms = {}, exp = {}, tolerance = {} ms)",
-                now_ms,
-                c.exp * 1000,
-                TOLERANCE_MS
-            );
-            return Err(TokenError::Expired);
-        }
-
-        println!(
-            "Manual validation: now_ms = {}, exp = {}",
-            now_ms / 1000,
-            c.exp
-        );
+        // jsonwebtoken Validation already checked `exp` with configured leeway.
 
         Ok(Token {
             value: c.jti,
