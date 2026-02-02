@@ -4,6 +4,7 @@ use common::common_id::CommonID;
 use common::custom_uuid::Id128;
 use common_time::timestamp_utils::current_timestamp_ms;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use protocol::ProtocolId;
 
 /// Service to issue/verify JWTs.
 /// - Stateless: no need for a store.
@@ -49,17 +50,17 @@ impl TokenService {
     /// Issue a signed JWT. duration_ms must be > 0.
     pub fn issue(
         &self,
-        subject_id: Id128,
+        subject_id: ProtocolId,
         role: Role,
         duration_ms: u64,
-        session_id: Option<String>,
+        session_id: Option<ProtocolId>,
     ) -> Result<String, TokenError> {
         if duration_ms == 0 {
             return Err(TokenError::InvalidDuration);
         }
 
         if let Some(sid) = &session_id
-            && sid.trim().is_empty()
+            && !CommonID::is_valid(sid.as_inner())
         {
             return Err(TokenError::InvalidSessionId);
         }
@@ -71,13 +72,13 @@ impl TokenService {
         let now_s = now_ms / 1000;
         let exp_s = (exp_ms / 1000).saturating_add(1);
 
-        if !CommonID::is_valid(subject_id) {
+        if !CommonID::is_valid(subject_id.as_inner()) {
             return Err(TokenError::InvalidSubjectIdValue);
         }
 
         let claims = Claims {
-            sub: subject_id.to_string(),
-            jti: Id128::new(0, None, None).to_string(),
+            sub: subject_id,
+            jti: ProtocolId::new(Id128::new(0, None, None)),
             role,
             iat: now_s,
             exp: exp_s,
@@ -107,9 +108,9 @@ impl TokenService {
         let c = data.claims;
 
         // Hardening: validate sub numeric + CommonID validation
-        let subject_id = Id128::from_hex(&c.sub).map_err(|_| TokenError::InvalidSubjectIdFormat)?;
+        let subject_id = c.sub;
 
-        if !CommonID::is_valid(subject_id) {
+        if !CommonID::is_valid(subject_id.as_inner()) {
             return Err(TokenError::InvalidSubjectIdValue);
         }
 
@@ -147,13 +148,13 @@ impl TokenService {
             old_token.subject_id,
             old_token.role,
             new_duration,
-            old_token.session_id.clone(),
+            old_token.session_id,
         )
     }
 
     /// Validate a token's claims.
     pub fn validate_token(&self, token: &Token) -> Result<(), TokenError> {
-        if !CommonID::is_valid(token.subject_id) {
+        if !CommonID::is_valid(token.subject_id.as_inner()) {
             return Err(TokenError::InvalidSubjectIdValue);
         }
         Ok(())

@@ -1,5 +1,6 @@
 use common::Id128;
 use common_time::timestamp_utils::current_timestamp_ms;
+use protocol::ProtocolId;
 
 use crate::{
     Permission, PermissionError, Role, Token, check_permission, check_token_permission,
@@ -68,10 +69,10 @@ fn test_missing_permissions() {
 #[test]
 fn test_token_permission() {
     // Create a token with a valid subject id
-    let subject_id = Id128::from_bytes_unchecked([123u8; 16]);
+    let subject_id = ProtocolId::new(Id128::from_bytes_unchecked([123u8; 16]));
     let issued_at_ms = current_timestamp_ms();
     let token = Token {
-        value: "test_value".to_string(),
+        value: ProtocolId::new(Id128::from_bytes_unchecked([7u8; 16])),
         subject_id,
         role: Role::User,
         issued_at_ms,
