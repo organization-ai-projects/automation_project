@@ -1,8 +1,8 @@
 // projects/products/core/engine/src/ws/ws_events_errors.rs
-use protocol::{Event, EventType, EventVariant, Metadata};
+use protocol::{Event, EventType, EventVariant, Metadata, ProtocolId};
+use std::str::FromStr;
 
 use crate::ws::{WsEventArgs, WsEventErrorDetails, ws_event};
-use common::custom_uuid::Id128;
 
 // Update ws_event_error to use the new error details struct
 pub(crate) fn ws_event_error(
@@ -22,7 +22,9 @@ pub(crate) fn ws_event_error(
         name: "Error".to_string(),
         event_type: EventType::Error,
         variant: EventVariant::Error {
-            id: Id128::from_hex(&meta.to_key()).expect("Invalid Id128 format"),
+            id: ProtocolId::from_str(&meta.to_key())
+                .expect("Invalid ProtocolId format")
+                .as_inner(),
             message: msg.into(),
         },
         payload: None,
