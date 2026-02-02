@@ -41,8 +41,8 @@ fn test_metadata_with_timestamp_generates_request_id() {
 #[test]
 fn test_metadata_new_accepts_protocol_id_string() {
     let timestamp_ms = 1_700_000_000_123;
-    let original_id = ProtocolId::default();
-    let request_id_str = original_id.to_hex();
+    let test_id = ProtocolId::default();
+    let request_id_str = test_id.to_hex();
     let metadata = Metadata::new(timestamp_ms, request_id_str.clone());
     assert_eq!(metadata.timestamp_ms, Some(timestamp_ms));
     // Verify the provided hex string is actually used
