@@ -2,12 +2,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::metadata;
+use crate::protocol_id::ProtocolId;
 
-//replace request_id issue #67
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PreviewRequest {
     #[serde(rename = "request_id")]
-    pub request_id: String,
+    pub request_id: ProtocolId,
     pub details: String,
     pub policy_overrides: Option<metadata::Metadata>,
 }
