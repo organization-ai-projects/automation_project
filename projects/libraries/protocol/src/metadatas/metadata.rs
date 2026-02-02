@@ -1,11 +1,13 @@
 // projects/libraries/protocol/src/metadata.rs
 use crate::protocol_id::ProtocolId;
 use crate::validation_error::ValidationError;
+use common::Id128;
 use common_time::timestamp_utils::Timestamp;
 use common_time::timestamp_utils::current_timestamp_ms;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 /// Maximum acceptable timestamp drift into the future (1 hour in milliseconds)
 const MAX_FUTURE_DRIFT_MS: u64 = 3600 * 1000;
@@ -32,13 +34,11 @@ pub struct Metadata {
 impl Metadata {
     /// Creates new metadata with the current timestamp and a generated ID
     ///
-    /// The ID is generated from the current timestamp combined with process randomness
+    /// The ID is derived from the current timestamp and a monotonic counter,
+    /// ensuring uniqueness for IDs generated within this process.
     pub fn now() -> Self {
         let timestamp_ms = Self::current_timestamp_ms();
-        let request_id = match Self::generate_id(timestamp_ms).to_string().parse() {
-            Ok(id) => id,
-            Err(e) => panic!("Failed to parse request_id: {}", e),
-        };
+        let request_id = Self::generate_request_id(timestamp_ms);
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,
@@ -48,10 +48,7 @@ impl Metadata {
 
     /// Creates metadata with a specific timestamp and generated ID
     pub fn with_timestamp(timestamp_ms: u64) -> Self {
-        let request_id = match Self::generate_id(timestamp_ms).to_string().parse() {
-            Ok(id) => id,
-            Err(e) => panic!("Failed to parse request_id: {}", e),
-        };
+        let request_id = Self::generate_request_id(timestamp_ms);
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,
@@ -59,17 +56,23 @@ impl Metadata {
         }
     }
 
-    /// Creates metadata with specific timestamp and ID
-    pub fn new(timestamp_ms: u64, request_id: String) -> Self {
-        let request_id = match request_id.parse() {
-            Ok(id) => id,
-            Err(e) => panic!("Failed to parse request_id: {}", e),
-        };
+    /// Creates metadata with specific timestamp and ID.
+    pub fn new(timestamp_ms: u64, request_id: ProtocolId) -> Self {
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,
             ..Default::default()
         }
+    }
+
+    /// Creates metadata with specific timestamp and ID string.
+    /// Returns an error when the request_id is not a valid hex ProtocolId.
+    pub fn try_new(
+        timestamp_ms: u64,
+        request_id: &str,
+    ) -> Result<Self, <ProtocolId as FromStr>::Err> {
+        let request_id = ProtocolId::from_str(request_id)?;
+        Ok(Self::new(timestamp_ms, request_id))
     }
 
     /// Gets the current system timestamp in milliseconds since UNIX epoch
@@ -96,16 +99,16 @@ impl Metadata {
         Ok(())
     }
 
-    /// Generates a unique ID based on timestamp
-    ///
-    /// Combines timestamp with a simple counter for uniqueness
-    fn generate_id(timestamp: u64) -> u64 {
+    /// Generates a unique request ID based on timestamp and a monotonic counter.
+    fn generate_request_id(timestamp: u64) -> ProtocolId {
         use std::sync::atomic::{AtomicU64, Ordering};
         static COUNTER: AtomicU64 = AtomicU64::new(0);
 
-        let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-        // Combine timestamp (upper 42 bits) with counter (lower 22 bits)
-        ((timestamp & 0x3FFFFFFFFFF) << 22) | (counter & 0x3FFFFF)
+        let counter = COUNTER.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+        let mut bytes = [0u8; 16];
+        bytes[0..8].copy_from_slice(&timestamp.to_be_bytes());
+        bytes[8..16].copy_from_slice(&counter.to_be_bytes());
+        ProtocolId::new(Id128::from_bytes_unchecked(bytes))
     }
 
     /// Converts timestamp to a human-readable ISO 8601 string (UTC)

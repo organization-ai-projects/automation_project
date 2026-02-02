@@ -1,6 +1,16 @@
 // projects/libraries/protocol/src/metadatas/tests/metadata.rs
 use crate::{Metadata, ProtocolId, ValidationError};
 
+/// Helper to validate that a ProtocolId has proper hex formatting
+fn assert_valid_protocol_id_hex(id: &ProtocolId) {
+    let hex = id.to_hex();
+    assert_eq!(hex.len(), 32, "Protocol ID should be 32 hex characters");
+    assert!(
+        hex.chars().all(|c| c.is_ascii_hexdigit()),
+        "Protocol ID should be valid hex"
+    );
+}
+
 #[test]
 fn test_metadata_validate_future_timestamp_rejected() {
     let now = Metadata::current_timestamp_ms();
@@ -17,27 +27,69 @@ fn test_metadata_validate_future_timestamp_rejected() {
     }
 }
 
-// NOTE: The following tests were removed because they codified panicking behavior
-// that is actually a bug. Metadata::now(), Metadata::with_timestamp(), and
-// Metadata::new() should be normal constructors and should not panic.
-// The underlying issue is that these methods try to parse a decimal u64 ID as hex,
-// causing a parse failure.
-//
-// CRITICAL: This is a BLOCKING ISSUE for production reliability. Metadata::now()
-// is actively used in production code and WILL PANIC at runtime:
-// - projects/products/accounts/backend/src/main.rs:84
-// - projects/products/core/engine/src/routes/http_forwarder.rs:39
-// - projects/products/core/engine/src/ws/ws_handlers.rs:50
-//
-// The bug must be fixed (e.g., by having generate_id() return a hex string, or by
-// changing the parsing logic) before these constructors can be used safely. Once
-// fixed, these tests should be rewritten to assert successful construction and
-// valid request_id semantics.
-//
-// Removed tests:
-// - test_metadata_now_panics_on_request_id_parse
-// - test_metadata_with_timestamp_panics_on_request_id_parse
-// - test_metadata_new_panics_on_request_id_parse
+#[test]
+fn test_metadata_now_generates_request_id() {
+    // Create two metadata instances to verify uniqueness
+    let metadata1 = Metadata::now();
+    let metadata2 = Metadata::now();
+
+    // Verify both IDs are valid hex strings
+    assert_valid_protocol_id_hex(&metadata1.request_id);
+    assert_valid_protocol_id_hex(&metadata2.request_id);
+
+    // Verify IDs are unique (monotonic counter ensures this)
+    assert_ne!(
+        metadata1.request_id, metadata2.request_id,
+        "Sequential Metadata::now() calls should generate unique IDs"
+    );
+
+    assert!(metadata1.timestamp_ms.is_some());
+    assert!(metadata2.timestamp_ms.is_some());
+}
+
+#[test]
+fn test_metadata_with_timestamp_generates_request_id() {
+    let timestamp_ms = 1_700_000_000_000;
+
+    // Create two metadata instances with same timestamp to verify uniqueness
+    let metadata1 = Metadata::with_timestamp(timestamp_ms);
+    let metadata2 = Metadata::with_timestamp(timestamp_ms);
+
+    assert_eq!(metadata1.timestamp_ms, Some(timestamp_ms));
+    assert_eq!(metadata2.timestamp_ms, Some(timestamp_ms));
+
+    // Verify both IDs are valid hex strings
+    assert_valid_protocol_id_hex(&metadata1.request_id);
+    assert_valid_protocol_id_hex(&metadata2.request_id);
+
+    // Verify IDs are unique even with same timestamp (monotonic counter ensures this)
+    assert_ne!(
+        metadata1.request_id, metadata2.request_id,
+        "Sequential calls should generate unique IDs even with same timestamp"
+    );
+}
+
+#[test]
+fn test_metadata_new_accepts_protocol_id_string() {
+    let timestamp_ms = 1_700_000_000_123;
+    // Use a fixed, known 32-character hex string to make the intent explicit
+    let request_id_str = "00112233445566778899aabbccddeeff".to_string();
+    let id: ProtocolId = request_id_str.parse().expect("valid request_id");
+    let metadata = Metadata::new(timestamp_ms, id);
+    assert_eq!(metadata.timestamp_ms, Some(timestamp_ms));
+    // Verify the provided hex string is actually used
+    assert_eq!(
+        metadata.request_id, id,
+        "Metadata::new should preserve valid request_id"
+    );
+}
+
+#[test]
+fn test_metadata_new_rejects_invalid_protocol_id_string() {
+    let timestamp_ms = 1_700_000_000_123;
+    let request_id_str = "not-hex";
+    assert!(Metadata::try_new(timestamp_ms, request_id_str).is_err());
+}
 
 #[test]
 fn test_metadata_current_timestamp_ms_non_zero() {
