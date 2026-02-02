@@ -12,7 +12,8 @@ fn test_secret_too_short() {
 
 #[test]
 fn test_expired_token() {
-    let service = TokenService::new_hs256(&"a".repeat(32)).expect("token service init");
+    let service =
+        TokenService::new_hs256_with_leeway(&"a".repeat(32), 1).expect("token service init");
     let jwt = service
         .issue(
             Id128::from_bytes_unchecked([1u8; 16]),
@@ -25,7 +26,7 @@ fn test_expired_token() {
     std::thread::sleep(std::time::Duration::from_millis(120));
     assert!(service.verify(&jwt).is_ok());
 
-    for _ in 0..30 {
+    for _ in 0..50 {
         if matches!(service.verify(&jwt), Err(TokenError::Expired)) {
             return;
         }

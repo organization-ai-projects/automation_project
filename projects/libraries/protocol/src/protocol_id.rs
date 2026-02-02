@@ -1,5 +1,6 @@
 // projects/libraries/protocol/src/protocol_id.rs
 use common::Id128;
+use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::str::FromStr;
@@ -55,7 +56,46 @@ impl<'de> Deserialize<'de> for ProtocolId {
     where
         D: Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        ProtocolId::from_str(&s).map_err(serde::de::Error::custom)
+        struct ProtocolIdVisitor;
+
+        impl<'de> Visitor<'de> for ProtocolIdVisitor {
+            type Value = ProtocolId;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a 32-char hex string or a 16-byte array")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                ProtocolId::from_str(v).map_err(serde::de::Error::custom)
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                self.visit_str(&v)
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut bytes = [0u8; 16];
+                for (i, byte) in bytes.iter_mut().enumerate() {
+                    *byte = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+                }
+                if seq.next_element::<u8>()?.is_some() {
+                    return Err(serde::de::Error::invalid_length(17, &self));
+                }
+                Ok(ProtocolId::new(Id128::from_bytes_unchecked(bytes)))
+            }
+        }
+
+        deserializer.deserialize_any(ProtocolIdVisitor)
     }
 }
