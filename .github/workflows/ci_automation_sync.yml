@@ -89,18 +89,24 @@ jobs:
           fi
 
           echo "Waiting for merge of $SYNC_PR_URL..."
-          TIMEOUT_SECS=300
+          TIMEOUT_SECS="${AUTO_MERGE_TIMEOUT_SECS:-600}"
           DEADLINE=$(( $(date +%s) + TIMEOUT_SECS ))
           while true; do
-            MERGED_AT=$(gh pr view "$SYNC_PR_URL" --json mergedAt --jq '.mergedAt // empty')
+            PR_STATE_MERGED_AT=$(gh pr view "$SYNC_PR_URL" --json state,mergedAt --jq '.state + " " + (.mergedAt // "")')
+            PR_STATE="${PR_STATE_MERGED_AT%% *}"
+            MERGED_AT="${PR_STATE_MERGED_AT#* }"
             if [[ -n "$MERGED_AT" ]]; then
+              break
+            fi
+            if [[ "$PR_STATE" == "CLOSED" ]]; then
+              echo "⚠️ Sync PR closed without merge; cleaning up branch."
               break
             fi
             if [[ $(date +%s) -ge $DEADLINE ]]; then
               echo "⚠️ Merge not completed within timeout; cleanup skipped."
               exit 0
             fi
-            sleep 5
+            sleep 10
           done
 
           echo "Deleting remote branch $SYNC_BRANCH..."
