@@ -1,11 +1,12 @@
 use common::Id128;
 use identity::{IdentityError, UserId, UserStore};
+use protocol::ProtocolId;
 use security::Role;
 
 #[tokio::test]
 async fn add_and_authenticate_user() {
     let store = UserStore::new();
-    let user_id = match UserId::new(Id128::from_bytes_unchecked([1u8; 16])) {
+    let user_id = match UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16]))) {
         Ok(id) => id,
         Err(e) => panic!("Failed to create UserId: {}", e),
     };
@@ -25,7 +26,7 @@ async fn add_and_authenticate_user() {
 #[tokio::test]
 async fn invalid_password_is_rejected() {
     let store = UserStore::new();
-    let user_id = match UserId::new(Id128::from_bytes_unchecked([2u8; 16])) {
+    let user_id = match UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([2u8; 16]))) {
         Ok(id) => id,
         Err(e) => panic!("Failed to create UserId: {}", e),
     };
@@ -42,7 +43,7 @@ async fn invalid_password_is_rejected() {
 #[tokio::test]
 async fn missing_user_is_rejected() {
     let store = UserStore::new();
-    let user_id = match UserId::new(Id128::from_bytes_unchecked([3u8; 16])) {
+    let user_id = match UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([3u8; 16]))) {
         Ok(id) => id,
         Err(e) => panic!("Failed to create UserId: {}", e),
     };
@@ -54,7 +55,7 @@ async fn missing_user_is_rejected() {
 #[tokio::test]
 async fn empty_password_is_rejected() {
     let store = UserStore::new();
-    let user_id = match UserId::new(Id128::from_bytes_unchecked([4u8; 16])) {
+    let user_id = match UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([4u8; 16]))) {
         Ok(id) => id,
         Err(e) => panic!("Failed to create UserId: {}", e),
     };
@@ -66,7 +67,7 @@ async fn empty_password_is_rejected() {
 #[tokio::test]
 async fn user_exists_and_count_work() {
     let store = UserStore::new();
-    let user_id = match UserId::new(Id128::from_bytes_unchecked([5u8; 16])) {
+    let user_id = match UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([5u8; 16]))) {
         Ok(id) => id,
         Err(e) => panic!("Failed to create UserId: {}", e),
     };
@@ -86,7 +87,7 @@ async fn user_exists_and_count_work() {
 #[tokio::test]
 async fn get_user_role_returns_role() {
     let store = UserStore::new();
-    let user_id = match UserId::new(Id128::from_bytes_unchecked([6u8; 16])) {
+    let user_id = match UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([6u8; 16]))) {
         Ok(id) => id,
         Err(e) => panic!("Failed to create UserId: {}", e),
     };

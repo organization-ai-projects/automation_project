@@ -26,11 +26,12 @@ identity = { path = "../identity" }
 
 ```rust
 use identity::{UserId, UserStore};
+use protocol::ProtocolId;
 use security::Role;
-use common::Id128;
+use std::str::FromStr;
 
 let store = UserStore::new();
-let user_id = UserId::new(Id128::from_bytes_unchecked([1u8; 16]))?;
+let user_id = UserId::new(ProtocolId::from_str("00000000000000000000000000000001")?)?;
 
 store.add_user(user_id.clone(), "secure_password", Role::User).await?;
 let role = store.authenticate(&user_id, "secure_password").await?;
