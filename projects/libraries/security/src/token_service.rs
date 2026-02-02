@@ -1,7 +1,6 @@
 // projects/libraries/security/src/token_service.rs
 use crate::{Claims, Role, Token, TokenError};
 use common::common_id::CommonID;
-use common::custom_uuid::Id128;
 use common_time::timestamp_utils::current_timestamp_ms;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use protocol::ProtocolId;
@@ -78,7 +77,7 @@ impl TokenService {
 
         let claims = Claims {
             sub: subject_id,
-            jti: ProtocolId::new(Id128::new(0, None, None)),
+            jti: ProtocolId::default(),
             role,
             iat: now_s,
             exp: exp_s,

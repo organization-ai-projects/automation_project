@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 /// Verified token (internal struct convenient for the app).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Token {
+    /// JWT ID (`jti`) for this token.
     pub value: ProtocolId,
     pub subject_id: ProtocolId,
     pub role: Role,

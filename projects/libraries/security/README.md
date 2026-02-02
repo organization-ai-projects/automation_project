@@ -82,6 +82,8 @@ let service = TokenService::new_hs256("your-secret-key")?;
 let subject_id = ProtocolId::from_str("00000000000000000000000000000001")?;
 let token = service.issue(subject_id, Role::User, 3600, None)?;
 
+// Note: Token.value represents the JWT ID (`jti`) as a ProtocolId.
+
 // Validate and check permissions
 check_token_permission(&token, Permission::Write)?;
 ```
