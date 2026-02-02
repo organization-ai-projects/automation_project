@@ -70,17 +70,18 @@ fn test_metadata_with_timestamp_generates_request_id() {
 }
 
 #[test]
-fn test_metadata_new_accepts_protocol_id_string() {
+fn test_metadata_try_new_accepts_protocol_id_string() {
     let timestamp_ms = 1_700_000_000_123;
     // Use a fixed, known 32-character hex string to make the intent explicit
     let request_id_str = "00112233445566778899aabbccddeeff".to_string();
     let id: ProtocolId = request_id_str.parse().expect("valid request_id");
-    let metadata = Metadata::new(timestamp_ms, id);
+    let metadata = Metadata::try_new(timestamp_ms, &request_id_str)
+        .expect("valid request_id should construct metadata");
     assert_eq!(metadata.timestamp_ms, Some(timestamp_ms));
     // Verify the provided hex string is actually used
     assert_eq!(
         metadata.request_id, id,
-        "Metadata::new should preserve valid request_id"
+        "Metadata::try_new should preserve valid request_id"
     );
 }
 

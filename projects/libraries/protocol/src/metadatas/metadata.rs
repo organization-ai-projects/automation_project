@@ -56,8 +56,16 @@ impl Metadata {
         }
     }
 
-    /// Creates metadata with specific timestamp and ID.
-    pub fn new(timestamp_ms: u64, request_id: ProtocolId) -> Self {
+    /// Creates metadata with specific timestamp and ID string.
+    #[deprecated(note = "Use new_with_protocol_id or try_new for strict ProtocolId handling")]
+    pub fn new(timestamp_ms: u64, request_id: String) -> Self {
+        let request_id =
+            ProtocolId::from_str(&request_id).expect("request_id must be a valid hex ProtocolId");
+        Self::new_with_protocol_id(timestamp_ms, request_id)
+    }
+
+    /// Creates metadata with specific timestamp and ProtocolId.
+    pub fn new_with_protocol_id(timestamp_ms: u64, request_id: ProtocolId) -> Self {
         Self {
             timestamp_ms: Some(timestamp_ms),
             request_id,
@@ -72,7 +80,7 @@ impl Metadata {
         request_id: &str,
     ) -> Result<Self, <ProtocolId as FromStr>::Err> {
         let request_id = ProtocolId::from_str(request_id)?;
-        Ok(Self::new(timestamp_ms, request_id))
+        Ok(Self::new_with_protocol_id(timestamp_ms, request_id))
     }
 
     /// Gets the current system timestamp in milliseconds since UNIX epoch
@@ -104,7 +112,7 @@ impl Metadata {
         use std::sync::atomic::{AtomicU64, Ordering};
         static COUNTER: AtomicU64 = AtomicU64::new(0);
 
-        let counter = COUNTER.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+        let counter = COUNTER.fetch_add(1, Ordering::Relaxed) + 1;
         let mut bytes = [0u8; 16];
         bytes[0..8].copy_from_slice(&timestamp.to_be_bytes());
         bytes[8..16].copy_from_slice(&counter.to_be_bytes());
