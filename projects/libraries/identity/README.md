@@ -35,6 +35,8 @@ let user_id = UserId::new(ProtocolId::from_str("00000000000000000000000000000001
 
 store.add_user(user_id.clone(), "secure_password", Role::User).await?;
 let role = store.authenticate(&user_id, "secure_password").await?;
+
+// Conversions from Id128 now use TryFrom to enforce validation.
 ```
 
 ## Scope

@@ -52,10 +52,12 @@ impl From<UserId> for String {
     }
 }
 
-// Implementation of From<Id128> for UserId
-impl From<Id128> for UserId {
-    fn from(id: Id128) -> Self {
-        UserId(ProtocolId::new(id))
+// TryFrom for safe conversion from Id128
+impl TryFrom<Id128> for UserId {
+    type Error = IdentityError;
+
+    fn try_from(id: Id128) -> Result<Self, Self::Error> {
+        Self::new(ProtocolId::new(id))
     }
 }
 
