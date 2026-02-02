@@ -27,6 +27,7 @@ _trace_json() {
 PR_EXISTS="${MOCK_PR_EXISTS:-false}"           # if true, pr list returns an existing PR number
 PR_NUMBER="${MOCK_PR_NUMBER:-123}"
 PR_URL="${MOCK_PR_URL:-https://mock/pr/123}"
+PR_CREATED_AT="${MOCK_PR_CREATED_AT:-2026-01-01T00:00:00Z}"
 
 # Simulate mergeability "UNKNOWN" for first N calls to `pr view --json mergeable`
 UNSTABLE_CALLS="${MOCK_UNSTABLE_CALLS:-0}"
@@ -41,6 +42,8 @@ MERGE_ENABLE_FAIL="${MOCK_ENABLE_AUTOMERGE_FAIL:-false}"
 # PR merged state (used by polling)
 # We simulate that the PR becomes merged after N polls (default 1)
 MERGE_AFTER_POLLS="${MOCK_MERGE_AFTER_POLLS:-1}"
+PR_CLOSED_WITHOUT_MERGE="${MOCK_PR_CLOSED_WITHOUT_MERGE:-false}"
+MERGED_AT_VALUE="${MOCK_MERGED_AT_VALUE:-2026-01-01T00:00:00Z}"
 
 poll_count_file="$STATE_DIR/poll_count"
 mergeable_calls_file="$STATE_DIR/mergeable_calls"
@@ -75,15 +78,27 @@ exit_with_code() {
 
 if [[ "$cmd" == "pr" && "$sub" == "list" ]]; then
   # Supports: gh pr list --head X --base Y --json number --jq '.[0].number'
+  # Also supports: --json url,createdAt --jq 'sort_by(.createdAt) | last | .url'
   jq_expr="$(arg_after --jq "$@")"
+  json_fields="$(arg_after --json "$@")"
   response=""
   if [[ "$PR_EXISTS" == "true" ]]; then
     if [[ -n "$jq_expr" ]]; then
-      response="$PR_NUMBER"
-      echo "$PR_NUMBER"
+      if echo "$jq_expr" | grep -q "last" && echo "$json_fields" | grep -q "createdAt"; then
+        response="$PR_URL"
+        echo "$PR_URL"
+      else
+        response="$PR_NUMBER"
+        echo "$PR_NUMBER"
+      fi
     else
-      response="[{\"number\":$PR_NUMBER}]"
-      echo "[{\"number\":$PR_NUMBER}]"
+      if echo "$json_fields" | grep -q "createdAt"; then
+        response="[{\"url\":\"$PR_URL\",\"createdAt\":\"$PR_CREATED_AT\"}]"
+        echo "[{\"url\":\"$PR_URL\",\"createdAt\":\"$PR_CREATED_AT\"}]"
+      else
+        response="[{\"number\":$PR_NUMBER}]"
+        echo "[{\"number\":$PR_NUMBER}]"
+      fi
     fi
   else
     # no PR found
@@ -135,8 +150,13 @@ if [[ "$cmd" == "pr" && "$sub" == "view" ]]; then
   merged="false"
   closed="false"
   if [[ "$poll_count" -ge "$MERGE_AFTER_POLLS" ]]; then
-    merged="true"
-    closed="true"
+    if [[ "$PR_CLOSED_WITHOUT_MERGE" == "true" ]]; then
+      merged="false"
+      closed="true"
+    else
+      merged="true"
+      closed="true"
+    fi
   fi
 
   # mergeable: return UNKNOWN first N calls when requesting mergeable
@@ -160,6 +180,18 @@ if [[ "$cmd" == "pr" && "$sub" == "view" ]]; then
       ".url") response="$PR_URL"; echo "$PR_URL" ;;
       ".merged") response="$merged"; echo "$merged" ;;
       ".closed") response="$closed"; echo "$closed" ;;
+      ".mergedAt // empty")
+        if [[ "$merged" == "true" ]]; then response="$MERGED_AT_VALUE"; else response=""; fi
+        echo "$response"
+        ;;
+      ".state + \" \" + (.mergedAt // \"\")")
+        state="OPEN"
+        if [[ "$closed" == "true" ]]; then state="CLOSED"; fi
+        merged_at=""
+        if [[ "$merged" == "true" ]]; then merged_at="$MERGED_AT_VALUE"; fi
+        response="$state $merged_at"
+        echo "$response"
+        ;;
       ".mergeable"*) response="$mergeable"; echo "$mergeable" ;;
       *statusCheckRollup* ) response="$CHECKS_STATUS"; echo "$CHECKS_STATUS" ;;
       *) response=""; echo "" ;;
@@ -174,6 +206,11 @@ if [[ "$cmd" == "pr" && "$sub" == "view" ]]; then
   echo "$response"
   _trace_json "pr view" "$*" "$response"
   exit 0
+fi
+
+if [[ "$cmd" == "api" ]]; then
+  # Minimal support for: gh api -X DELETE repos/<org>/<repo>/git/refs/heads/<branch>
+  exit_with_code 0 "api" "$*" "OK"
 fi
 
 echo "MOCK GH: unsupported command: $*" >&2
