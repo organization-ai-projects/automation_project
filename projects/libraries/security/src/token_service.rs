@@ -17,6 +17,12 @@ pub struct TokenService {
 impl TokenService {
     /// secret: robust string (ENV). Minimum 32 characters recommended.
     pub fn new_hs256(secret: &str) -> Result<Self, TokenError> {
+        Self::new_hs256_with_leeway(secret, 0)
+    }
+
+    /// secret: robust string (ENV). Minimum 32 characters recommended.
+    /// leeway_seconds: grace window allowed after exp for clock skew handling.
+    pub fn new_hs256_with_leeway(secret: &str, leeway_seconds: u64) -> Result<Self, TokenError> {
         let s = secret.trim();
         if s.is_empty() {
             return Err(TokenError::MissingSecret);
@@ -31,7 +37,7 @@ impl TokenService {
         validation.required_spec_claims.insert("iat".to_string());
         validation.required_spec_claims.insert("sub".to_string());
         validation.required_spec_claims.insert("jti".to_string());
-        validation.leeway = 1; // Add a 1-second margin to compensate for tolerance
+        validation.leeway = leeway_seconds;
 
         Ok(Self {
             enc: EncodingKey::from_secret(s.as_bytes()),
@@ -89,29 +95,16 @@ impl TokenService {
             return Err(TokenError::InvalidToken);
         }
 
-        let now_ms = current_timestamp_ms();
-        println!("Token verification: now_ms = {}", now_ms);
-
         let data =
             jsonwebtoken::decode::<Claims>(jwt, &self.dec, &self.validation).map_err(|e| {
                 if e.kind() == &jsonwebtoken::errors::ErrorKind::ExpiredSignature {
-                    let exp_with_tolerance = now_ms.saturating_sub(50); // Apply tolerance here
-                    if exp_with_tolerance > now_ms {
-                        println!(
-                            "Token expired with tolerance: exp = {}, tolerance = 50 ms",
-                            now_ms
-                        );
-                        TokenError::Expired
-                    } else {
-                        TokenError::Jwt(e.to_string())
-                    }
+                    TokenError::Expired
                 } else {
                     TokenError::Jwt(e.to_string())
                 }
             })?;
 
         let c = data.claims;
-        println!("Token timestamps: iat = {}, exp = {}", c.iat, c.exp);
 
         // Hardening: validate sub numeric + CommonID validation
         let subject_id = Id128::from_hex(&c.sub).map_err(|_| TokenError::InvalidSubjectIdFormat)?;
@@ -123,25 +116,7 @@ impl TokenService {
         let issued_at_ms = c.iat.saturating_mul(1000);
         let expires_at_ms = c.exp.saturating_mul(1000);
 
-        // Manual validation: check if the current time exceeds expiration
-        // Add a tolerance margin to avoid errors due to minor differences
-        const TOLERANCE_MS: u64 = 50; // 50 ms tolerance
-
-        if now_ms > c.exp.saturating_mul(1000) + TOLERANCE_MS {
-            println!(
-                "Manual validation: token expired (now_ms = {}, exp = {}, tolerance = {} ms)",
-                now_ms,
-                c.exp * 1000,
-                TOLERANCE_MS
-            );
-            return Err(TokenError::Expired);
-        }
-
-        println!(
-            "Manual validation: now_ms = {}, exp = {}",
-            now_ms / 1000,
-            c.exp
-        );
+        // jsonwebtoken Validation already checked `exp` with configured leeway.
 
         Ok(Token {
             value: c.jti,
