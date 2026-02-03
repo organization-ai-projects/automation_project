@@ -129,7 +129,6 @@ async fn main() -> anyhow::Result<()> {
     info!("Accounts backend registered");
 
     // Set up graceful shutdown signal handler
-    let shutdown_manager = account_manager.clone();
     let shutdown_flag = Arc::new(AtomicBool::new(false));
     let shutdown_flag_clone = shutdown_flag.clone();
     
@@ -157,7 +156,6 @@ async fn main() -> anyhow::Result<()> {
         // Check for shutdown signal
         if shutdown_flag.load(Ordering::Relaxed) {
             info!("Shutting down gracefully...");
-            flush_and_stop_periodic_task(&flush_handle, &shutdown_manager, "on shutdown").await;
             break;
         }
         

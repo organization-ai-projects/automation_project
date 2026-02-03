@@ -328,12 +328,18 @@ mod tests {
     use super::*;
     use security::Role;
     use std::sync::atomic::Ordering;
+    use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
+
+    // Shared counter for unique test directory names
+    static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn create_unique_temp_dir() -> PathBuf {
+        let id = TEST_DIR_COUNTER.fetch_add(1, AtomicOrdering::Relaxed);
+        std::env::temp_dir().join(format!("accounts_test_{}_{}", current_timestamp_ms(), id))
+    }
 
     async fn create_test_manager() -> AccountManager {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let temp_dir = std::env::temp_dir().join(format!("accounts_test_{}_{}", current_timestamp_ms(), id));
+        let temp_dir = create_unique_temp_dir();
         tokio::fs::create_dir_all(&temp_dir).await.unwrap();
         AccountManager::load(temp_dir).await.unwrap()
     }
@@ -414,10 +420,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_last_login_survives_restart() {
-        use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
-        static COUNTER: AtomicU64 = AtomicU64::new(1000);
-        let id = COUNTER.fetch_add(1, AtomicOrdering::Relaxed);
-        let temp_dir = std::env::temp_dir().join(format!("accounts_test_{}_{}", current_timestamp_ms(), id));
+        let temp_dir = create_unique_temp_dir();
         tokio::fs::create_dir_all(&temp_dir).await.unwrap();
         
         let user_id = ProtocolId::default();
