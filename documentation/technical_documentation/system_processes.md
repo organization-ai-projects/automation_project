@@ -33,7 +33,7 @@ For workspace users and operators, the Launcher is the entry point:
 
 ### 1.4 First Launch Checklist
 
-- Ensure the registry is available (`.automation_project/registry.json`).
+- Ensure the registry is available (`.automation_project/registry.json`). See [Registry](registry.md).
 - Appliance-style admin bootstrap (one-time, no terminal):
   - Engine generates `~/.automation_project/owner.claim` on first start (permissions 0600).
   - On non-Unix platforms, strict 0600 permissions may not be enforceable; treat the claim file as sensitive and restrict access via OS-specific ACLs when possible.
@@ -47,3 +47,38 @@ For workspace users and operators, the Launcher is the entry point:
   - Claims expire after 24 hours; expired claims are regenerated on next start.
 - Login validates credentials against the identity store and rejects invalid credentials.
 - Role escalation via the login request is ignored (role is derived from the identity store).
+
+### 1.5 Diagrams
+
+#### Core Process Flow
+
+Below is a diagram illustrating the core process flow:
+
+```plaintext
++-----------+       +---------+       +---------+       +---------+
+|   UI      | ----> | Central | ----> | Engine  | ----> | Backend |
+|  Bundle   |       |   UI    |       |         |       |         |
++-----------+       +---------+       +---------+       +---------+
+     |                     |                 |                 |
+     v                     v                 v                 v
++-----------+       +---------+       +---------+       +---------+
+| Commands  |       | Validate |       | Route   |       | Emit    |
+| & Events  |       | Auth     |       | Command |       | Events  |
++-----------+       +---------+       +---------+       +---------+
+```
+
+#### Supervision Flow
+
+The following diagram shows how the Watcher supervises core services:
+
+```plaintext
++---------+       +---------+       +---------+
+| Launcher| ----> | Watcher | ----> | Services|
++---------+       +---------+       +---------+
+     |                 |                 |
+     v                 v                 v
++---------+       +---------+       +---------+
+| Start   |       | Monitor |       | Restart |
+| Services|       | Health  |       | on Crash|
++---------+       +---------+       +---------+
+```

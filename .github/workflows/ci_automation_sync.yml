@@ -75,6 +75,45 @@ jobs:
             echo "❌ Sync script failed. Check logs for details.";
             exit 1;
           }
+      - name: Cleanup sync branch after merge
+        if: success() && steps.precheck.outputs.sync_needed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          SYNC_BRANCH="sync/main-into-dev"
+          SYNC_PR_URL=$(gh pr list --state all --head "$SYNC_BRANCH" --json url,createdAt --jq 'sort_by(.createdAt) | last | .url')
+          if [[ -z "$SYNC_PR_URL" ]]; then
+            echo "⚠️ No sync PR found for $SYNC_BRANCH. Skipping cleanup."
+            exit 0
+          fi
+
+          echo "Waiting for merge of $SYNC_PR_URL..."
+          TIMEOUT_SECS="${AUTO_MERGE_TIMEOUT_SECS:-600}"
+          DEADLINE=$(( $(date +%s) + TIMEOUT_SECS ))
+          while true; do
+            PR_STATE_MERGED_AT=$(gh pr view "$SYNC_PR_URL" --json state,mergedAt --jq '.state + " " + (.mergedAt // "")')
+            PR_STATE="${PR_STATE_MERGED_AT%% *}"
+            MERGED_AT="${PR_STATE_MERGED_AT#* }"
+            if [[ -n "$MERGED_AT" ]]; then
+              break
+            fi
+            if [[ "$PR_STATE" == "CLOSED" ]]; then
+              echo "⚠️ Sync PR closed without merge; cleaning up branch."
+              break
+            fi
+            if [[ $(date +%s) -ge $DEADLINE ]]; then
+              echo "⚠️ Merge not completed within timeout; cleanup skipped."
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "Deleting remote branch $SYNC_BRANCH..."
+          ENCODED_BRANCH="${SYNC_BRANCH//\//%2F}"
+          gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$ENCODED_BRANCH" || {
+            echo "⚠️ Failed to delete $SYNC_BRANCH (it may already be gone)."
+          }
 
       - name: Comment success on source PR
         if: success() && steps.precheck.outputs.sync_needed == 'true'

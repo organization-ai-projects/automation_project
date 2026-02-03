@@ -16,12 +16,17 @@ echo ""
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 1
 
+# Get commit messages from commits being pushed
+UPSTREAM_BRANCH="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")"
+if [[ -z "$UPSTREAM_BRANCH" ]]; then
+  echo "⚠️  No upstream branch detected. Falling back to origin/dev for scope detection."
+  UPSTREAM_BRANCH="origin/dev"
+fi
+
+commits=$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null)
+
 # Extract crate names from commit scopes
 detect_crates_from_scopes() {
-  # Get commit messages from commits being pushed
-  local commits
-  commits=$(git log @{u}..HEAD --format=%B 2>/dev/null)
-
   local crates=()
   local invalid_scopes=0
   local scope_re='^[a-z]+\(([^)]+)\):'

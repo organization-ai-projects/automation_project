@@ -12,6 +12,34 @@ This library provides date and calendar utilities including leap year detection,
 - **Month Day Count** - Get the number of days in any month
 - **Date Parsing** - Parse date strings in `YYYY-MM-DD` format
 
+## Examples
+
+### Leap Year Detection
+
+```rust
+use common_calendar::Calendar;
+assert!(Calendar::is_leap_year(2024));
+assert!(!Calendar::is_leap_year(2023));
+```
+
+### Days in Month
+
+```rust
+use common_calendar::Calendar;
+
+assert_eq!(Calendar::days_in_month(2024, 2), Some(29)); // Leap year
+assert_eq!(Calendar::days_in_month(2023, 2), Some(28)); // Normal year
+```
+
+### Date Parsing
+
+```rust
+use common_calendar::Calendar;
+
+let date = Calendar::parse_date("2024-01-15");
+assert!(date.is_some());
+```
+
 ## Installation
 
 Add to your `Cargo.toml`:
