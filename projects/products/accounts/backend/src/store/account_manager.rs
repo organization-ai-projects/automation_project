@@ -2,6 +2,7 @@
 use common_json::{from_json_str, to_string};
 use common_time::timestamp_utils::current_timestamp_ms;
 use security::{Permission, Role};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
@@ -20,6 +21,7 @@ pub struct AccountManager {
     accounts_path: PathBuf,
     audit_path: PathBuf,
     state: Arc<RwLock<HashMap<ProtocolId, AccountRecord>>>,
+    dirty: Arc<AtomicBool>,
 }
 
 impl AccountManager {
@@ -56,6 +58,7 @@ impl AccountManager {
             accounts_path,
             audit_path,
             state: Arc::new(RwLock::new(users)),
+            dirty: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -67,11 +70,29 @@ impl AccountManager {
         };
         let out = to_string(&file).map_err(|e| AccountStoreError::Json(e.to_string()))?;
         tokio::fs::write(&self.accounts_path, out).await?;
+        self.dirty.store(false, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub async fn flush_if_dirty(&self) -> Result<(), AccountStoreError> {
+        if self.dirty.load(Ordering::Relaxed) {
+            self.save().await?;
+        }
         Ok(())
     }
 
     pub fn data_dir(&self) -> &PathBuf {
         &self.data_dir
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_dirty(&self) -> bool {
+        self.dirty.load(Ordering::Relaxed)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_dirty(&self, value: bool) {
+        self.dirty.store(value, Ordering::Relaxed);
     }
 
     pub async fn user_count(&self) -> usize {
@@ -272,6 +293,9 @@ impl AccountManager {
         user.last_login_ms = Some(login_ts);
         let role = user.role;
         drop(users);
+
+        // Mark accounts as dirty to trigger batched persistence
+        self.dirty.store(true, Ordering::Relaxed);
 
         self.append_audit(AuditEntry {
             timestamp_ms: login_ts,
