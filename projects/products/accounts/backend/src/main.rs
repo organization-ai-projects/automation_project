@@ -4,6 +4,8 @@ mod store;
 
 use std::str::FromStr;
 use std::{path::PathBuf, time::Duration};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::Context;
 use bytes::Bytes;
@@ -44,6 +46,26 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("load accounts store")?;
     info!("Accounts data dir: {:?}", account_manager.data_dir());
+
+    // Get configurable flush interval (default: 5 minutes)
+    let flush_interval_secs = std::env::var("ACCOUNTS_FLUSH_INTERVAL_SECS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(300); // 5 minutes default
+    info!("Login metadata flush interval: {}s", flush_interval_secs);
+
+    // Spawn periodic flush task
+    let flush_manager = account_manager.clone();
+    let flush_handle = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(flush_interval_secs));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            interval.tick().await;
+            if let Err(err) = flush_manager.flush_if_dirty().await {
+                warn!(%err, "Failed to flush login metadata");
+            }
+        }
+    });
 
     let token_service = TokenService::new_hs256(&jwt_secret).context("invalid jwt secret")?;
     let subject = ProtocolId::default();
@@ -95,7 +117,42 @@ async fn main() -> anyhow::Result<()> {
     .context("send hello")?;
     info!("Accounts backend registered");
 
+    // Set up graceful shutdown signal handler
+    let shutdown_manager = account_manager.clone();
+    let shutdown_flag = Arc::new(AtomicBool::new(false));
+    let shutdown_flag_clone = shutdown_flag.clone();
+    
+    tokio::spawn(async move {
+        #[cfg(unix)]
+        {
+            let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("failed to create SIGTERM handler");
+            let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+                .expect("failed to create SIGINT handler");
+            tokio::select! {
+                _ = sigterm.recv() => info!("Received SIGTERM"),
+                _ = sigint.recv() => info!("Received SIGINT"),
+            }
+        }
+        #[cfg(not(unix))]
+        {
+            tokio::signal::ctrl_c().await.expect("failed to listen for ctrl-c");
+            info!("Received Ctrl-C");
+        }
+        shutdown_flag_clone.store(true, Ordering::Relaxed);
+    });
+
     loop {
+        // Check for shutdown signal
+        if shutdown_flag.load(Ordering::Relaxed) {
+            info!("Shutting down gracefully...");
+            flush_handle.abort();
+            if let Err(err) = shutdown_manager.flush_if_dirty().await {
+                warn!(%err, "Failed to flush on shutdown");
+            }
+            break;
+        }
+        
         tokio::select! {
             msg = rx.next() => {
                 match msg {
@@ -133,5 +190,13 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
+    
+    // Final flush on exit
+    info!("Flushing login metadata before exit...");
+    flush_handle.abort();
+    if let Err(err) = account_manager.flush_if_dirty().await {
+        warn!(%err, "Failed to flush on exit");
+    }
+    
     Ok(())
 }

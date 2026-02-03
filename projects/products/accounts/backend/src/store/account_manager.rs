@@ -3,6 +3,7 @@ use common_json::{from_json_str, to_string};
 use common_time::timestamp_utils::current_timestamp_ms;
 use security::{Permission, Role};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 
@@ -20,6 +21,7 @@ pub struct AccountManager {
     accounts_path: PathBuf,
     audit_path: PathBuf,
     state: Arc<RwLock<HashMap<ProtocolId, AccountRecord>>>,
+    dirty: Arc<AtomicBool>,
 }
 
 impl AccountManager {
@@ -56,6 +58,7 @@ impl AccountManager {
             accounts_path,
             audit_path,
             state: Arc::new(RwLock::new(users)),
+            dirty: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -67,6 +70,14 @@ impl AccountManager {
         };
         let out = to_string(&file).map_err(|e| AccountStoreError::Json(e.to_string()))?;
         tokio::fs::write(&self.accounts_path, out).await?;
+        self.dirty.store(false, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub async fn flush_if_dirty(&self) -> Result<(), AccountStoreError> {
+        if self.dirty.load(Ordering::Relaxed) {
+            self.save().await?;
+        }
         Ok(())
     }
 
@@ -273,6 +284,9 @@ impl AccountManager {
         let role = user.role;
         drop(users);
 
+        // Mark accounts as dirty to trigger batched persistence
+        self.dirty.store(true, Ordering::Relaxed);
+
         self.append_audit(AuditEntry {
             timestamp_ms: login_ts,
             actor: user_id.to_string(),
@@ -306,5 +320,141 @@ impl AccountManager {
             .write_all(payload.as_bytes())
             .await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use security::Role;
+    use std::sync::atomic::Ordering;
+
+    async fn create_test_manager() -> AccountManager {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let temp_dir = std::env::temp_dir().join(format!("accounts_test_{}_{}", current_timestamp_ms(), id));
+        tokio::fs::create_dir_all(&temp_dir).await.unwrap();
+        AccountManager::load(temp_dir).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_login_sets_dirty_flag() {
+        let manager = create_test_manager().await;
+        let user_id = ProtocolId::default();
+        
+        // Create a test user
+        manager.create(user_id, "test_password", Role::User, vec![], "test_actor")
+            .await
+            .unwrap();
+        
+        // Clear dirty flag after create
+        manager.dirty.store(false, Ordering::Relaxed);
+        assert!(!manager.dirty.load(Ordering::Relaxed), "Dirty flag should be false initially");
+        
+        // Authenticate (login)
+        manager.authenticate(&user_id, "test_password").await.unwrap();
+        
+        // Check that dirty flag is set
+        assert!(manager.dirty.load(Ordering::Relaxed), "Dirty flag should be true after login");
+        
+        // Cleanup
+        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_flush_if_dirty_saves_data() {
+        let manager = create_test_manager().await;
+        let user_id = ProtocolId::default();
+        
+        // Create a test user
+        manager.create(user_id, "test_password", Role::User, vec![], "test_actor")
+            .await
+            .unwrap();
+        
+        // Authenticate to update last_login_ms
+        manager.authenticate(&user_id, "test_password").await.unwrap();
+        
+        // Get last_login_ms before flush
+        let user_before = manager.get(&user_id).await.unwrap();
+        assert!(user_before.last_login_ms.is_some(), "last_login_ms should be set");
+        let login_time = user_before.last_login_ms.unwrap();
+        
+        // Flush the dirty data
+        assert!(manager.dirty.load(Ordering::Relaxed), "Should be dirty before flush");
+        manager.flush_if_dirty().await.unwrap();
+        assert!(!manager.dirty.load(Ordering::Relaxed), "Should not be dirty after flush");
+        
+        // Reload from disk
+        let data_dir = manager.data_dir().clone();
+        drop(manager);
+        let reloaded = AccountManager::load(data_dir.clone()).await.unwrap();
+        
+        // Verify last_login_ms persisted
+        let user_after = reloaded.get(&user_id).await.unwrap();
+        assert_eq!(user_after.last_login_ms, Some(login_time), "last_login_ms should persist across reload");
+        
+        // Cleanup
+        tokio::fs::remove_dir_all(&data_dir).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_flush_if_dirty_skips_when_clean() {
+        let manager = create_test_manager().await;
+        
+        // Ensure dirty flag is false
+        manager.dirty.store(false, Ordering::Relaxed);
+        
+        // Call flush_if_dirty when clean - should not error
+        manager.flush_if_dirty().await.unwrap();
+        
+        // Cleanup
+        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_last_login_survives_restart() {
+        use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
+        static COUNTER: AtomicU64 = AtomicU64::new(1000);
+        let id = COUNTER.fetch_add(1, AtomicOrdering::Relaxed);
+        let temp_dir = std::env::temp_dir().join(format!("accounts_test_{}_{}", current_timestamp_ms(), id));
+        tokio::fs::create_dir_all(&temp_dir).await.unwrap();
+        
+        let user_id = ProtocolId::default();
+        
+        // First session: create user and login
+        {
+            let manager = AccountManager::load(temp_dir.clone()).await.unwrap();
+            manager.create(user_id, "test_password", Role::User, vec![], "test_actor")
+                .await
+                .unwrap();
+            
+            manager.authenticate(&user_id, "test_password").await.unwrap();
+            let user = manager.get(&user_id).await.unwrap();
+            assert!(user.last_login_ms.is_some(), "last_login_ms should be set after login");
+            
+            // Flush to disk (simulate periodic flush)
+            manager.flush_if_dirty().await.unwrap();
+        }
+        
+        // Second session: reload and verify
+        {
+            let manager = AccountManager::load(temp_dir.clone()).await.unwrap();
+            let user = manager.get(&user_id).await.unwrap();
+            assert!(user.last_login_ms.is_some(), "last_login_ms should be set after login");
+            
+            // Flush to disk (simulate periodic flush)
+            manager.flush_if_dirty().await.unwrap();
+        }
+        
+        // Second session: reload and verify
+        {
+            let manager = AccountManager::load(temp_dir.clone()).await.unwrap();
+            let user = manager.get(&user_id).await.unwrap();
+            assert!(user.last_login_ms.is_some(), "last_login_ms should survive restart after flush");
+        }
+        
+        // Cleanup
+        tokio::fs::remove_dir_all(&temp_dir).await.ok();
     }
 }
