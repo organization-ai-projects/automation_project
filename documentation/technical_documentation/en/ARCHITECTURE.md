@@ -93,7 +93,7 @@ Command path: UI → central_ui → engine → backend. Event path: backend → 
 
 Bootstrap note (startup phase): `launcher` starts the core services (`engine`, `central_ui`, `watcher`). After bootstrap completes, normal command/event flow begins.
 
-![Bootstrap (startup)](assets/architecture_bootstrap.png)
+![Bootstrap (startup)](../assets/architecture_bootstrap.png)
 
 ```plaintext
                              +---------+
