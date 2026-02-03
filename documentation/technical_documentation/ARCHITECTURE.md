@@ -41,21 +41,7 @@ Consequence:
 
 ## 2. Component Topology
 
-### 2.1 Essential Components (core)
-
-- `engine` (binary): WS hub + authority + orchestration + process management.
-- `central_ui` (binary): desktop cockpit, loads UI bundles.
-- `watcher` (binary): external supervisor (resilience: restart, backoff, healthchecks).
-- `launcher` (binary): initial bootstrap (starts engine/central_ui/watcher if necessary).
-
-### 2.2 Products
-
-A **product** contains:
-
-- a **backend** (executable): required,
-- one or more **UIs** (bundles): required if the product has a user surface.
-
-The backend and UIs of a product never communicate **directly**.
+For detailed descriptions of the core components (`engine`, `central_ui`, `watcher`, `launcher`) and products, refer to [Products and Workspace Components](projects/projects_products.md).
 
 ---
 
@@ -68,6 +54,8 @@ All connections go through `engine`:
 - `central_ui` -> `engine` (UI client)
 - `product backend` -> `engine` (backend client)
 - `launcher` -> `engine` (system client)
+
+UI bundles do not connect to `engine` directly; they run inside `central_ui`, which acts as the single client toward `engine`.
 
 Prohibitions:
 
@@ -96,6 +84,35 @@ Examples of events:
 - `Progress(workflow_id, pct)`
 - `ProductStateChanged(product_id, state)`
 - `WorkflowFinished(workflow_id, result)`
+
+### 3.3 Example: Command/Event Flow
+
+The diagram below reflects the strict communication rules. Product UIs send commands to `central_ui`, which forwards them to `engine`. `engine` calls the product backends and emits events back to UIs through `central_ui`.
+
+Command path: UI → central_ui → engine → backend. Event path: backend → engine → central_ui → UI.
+
+Bootstrap note (startup phase): `launcher` starts the core services (`engine`, `central_ui`, `watcher`). After bootstrap completes, normal command/event flow begins.
+
+![Bootstrap (startup)](assets/architecture_bootstrap.png)
+
+```plaintext
+                             +---------+
+                             | Watcher |
+                             +---------+
+
+   +-----------+    +------------+    +---------+    +---------------+
+   | Product   | <->| Central UI | <->| Engine  | <->| Product Backend|
+   | UI (WASM) |    |  (Gateway) |    |  (Hub)  |    |   (Service)    |
+   +-----------+    +------------+    +---------+    +---------------+
+```
+
+#### Updated Notes
+
+- **Product UI**: Sends commands to `central_ui`; never talks to backends directly.
+- **Central UI**: Gateway between UIs and `engine`; forwards commands and streams events.
+- **Engine**: Central hub that authenticates, authorizes, orchestrates, and routes to backends.
+- **Product Backend**: Executes commands and emits events through `engine`.
+- **Watcher**: Supervises core components (`engine`, `central_ui`, etc.) and restarts them on failure. It is not part of the command/event path.
 
 ---
 
@@ -162,7 +179,7 @@ When a user opens a product UI or triggers an action:
 
 ### 6.1 Role
 
-The central registry (`.automation_project/registry.json`) is the source of truth for:
+The central registry (`.automation_project/registry.json`) is the source of truth for (see [Registry](registry.md)):
 
 - list of products,
 - UI bundle paths,
@@ -202,7 +219,7 @@ automation_project/
 |   |   |-- <product_x>/
 |   |   |   |-- backend/          # backend (binary)
 |   |   |   `-- ui/               # UI source (compiles to ui_dist/)
-|   |   |       `-- ui_dist/      # packaged artifacts (wasm + assets + manifest)
+|   |   |       `-- ui_dist/     # packaged artifacts (wasm + assets + manifest)
 |   `-- libraries/
 |       |-- common/
 |       |-- protocol/
@@ -213,24 +230,8 @@ automation_project/
 |       `-- ui/                   # reusable UI components (lib)
 ```
 
+---
+
 ## 9. Initial Products
 
-### 9.1 Varina
-
-**Varina** is the first product of the workspace. It is dedicated to automation and generation. Its responsibilities include:
-
-- Automating development workflows.
-- Generating necessary code and modules.
-- Orchestrating symbolic and neural tasks.
-- Integrating with the `engine` to execute commands and publish events.
-
-Structure :
-
-```plaintext
-projects/
-|-- products/
-|   |-- varina/
-|   |   |-- backend/          # backend (binary for automation)
-|   |   `-- ui/               # UI source (compiles to ui_dist/)
-|   |       `-- ui_dist/      # packaged artifacts (wasm + assets + manifest)
-```
+For details on initial products like `varina`, refer to [Products and Workspace Components](projects/projects_products.md).
