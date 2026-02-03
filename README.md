@@ -19,11 +19,13 @@ For details, see the architecture doc: `documentation/technical_documentation/AR
 
 Internal documentation is available in the `documentation/` folder. Start with the [Documentation Index](documentation/TOC.md), or jump directly to the [Technical Documentation TOC](documentation/technical_documentation/TOC.md).
 
+Scripts documentation is indexed in [scripts/TOC.md](scripts/TOC.md).
+
 ## Contribute
 
 Contributions are welcome! Please open an issue or a pull request on the GitHub repository.
 
-For more details on the Git/GitHub workflow used in this project, see the [versioning documentation](documentation/technical_documentation/versioning/file_versioning/git/TOC.md).
+For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licenses
 

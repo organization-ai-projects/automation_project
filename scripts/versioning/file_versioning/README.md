@@ -122,5 +122,4 @@ Example: `feature/user-authentication`, `fix/null-pointer-bug`
 
 For detailed workflow documentation, see:
 
-- [Git Workflow Pipeline](../../../documentation/technical_documentation/workflows/versioning/file_versioning/git/pipeline_overview.md)
-- [Scripts Overview](../../../documentation/technical_documentation/workflows/versioning/file_versioning/scripts_overview.md)
+- [Scripts TOC](../../TOC.md)

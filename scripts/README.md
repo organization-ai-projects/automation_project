@@ -36,7 +36,7 @@ Scripts are organized by **what they do** (responsibility), not by the tools the
 For complete details about all scripts:
 
 - See the README in each domain directory
-- Full documentation: `documentation/technical_documentation/versioning/file_versioning/scripts_overview.md`
+- See the scripts TOC: `scripts/TOC.md`
 
 ## Quick Reference
 
