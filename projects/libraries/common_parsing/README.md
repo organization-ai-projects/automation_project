@@ -66,6 +66,19 @@ assert!(parse_date("invalid").is_none());
 assert!(parse_date("2024-13-01").is_none()); // Invalid month
 ```
 
+## Examples
+
+### Unified Diff Parsing
+
+```rust
+use common_parsing::DiffParser;
+
+let diff = "diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-Hello\n+Hi";
+let parser = DiffParser::new(diff);
+let files = parser.touched_files();
+assert_eq!(files, vec!["file.txt"]);
+```
+
 ## License
 
 This project is licensed under the MIT License. See [License](https://github.com/organization-ai-projects/automation_project/blob/main/LICENSE).

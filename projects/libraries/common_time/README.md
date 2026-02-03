@@ -76,6 +76,18 @@ async fn example() {
 }
 ```
 
+## Examples
+
+### Clock Abstraction
+
+```rust
+use common_time::{Clock, SystemClock};
+
+let clock = SystemClock::default();
+let now = clock.now();
+println!("Current time: {}", now);
+```
+
 ## License
 
 This project is licensed under the MIT License. See [License](https://github.com/organization-ai-projects/automation_project/blob/main/LICENSE).

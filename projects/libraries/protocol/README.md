@@ -135,6 +135,19 @@ Error types:
 - `NameTooLong` - Name exceeds the maximum length (256 characters)
 - `InvalidTimestamp` - Invalid timestamp (too far in the future)
 
+### Validate a Command
+
+```rust
+use protocol::{Command, CommandType};
+
+let cmd = Command::new(
+    "execute_task".to_string(),
+    CommandType::Execute,
+    r#"{"task": "example", "params": {}}"#.to_string()
+);
+assert!(cmd.validate().is_ok());
+```
+
 ## Security limits
 
 To prevent abuse and attacks:

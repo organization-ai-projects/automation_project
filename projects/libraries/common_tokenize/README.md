@@ -28,6 +28,16 @@ let tokens = tokenize_example("hello world foo bar");
 // Returns: ["hello", "world", "foo", "bar"]
 ```
 
+## Examples
+
+### Basic Tokenization
+
+```rust
+use common_tokenize::tokenize_example;
+let tokens = tokenize_example("hello world foo bar");
+assert_eq!(tokens, vec!["hello", "world", "foo", "bar"]);
+```
+
 ## License
 
 This project is licensed under the MIT License. See [License](https://github.com/organization-ai-projects/automation_project/blob/main/LICENSE).
