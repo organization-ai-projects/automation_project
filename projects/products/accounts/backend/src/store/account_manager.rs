@@ -85,6 +85,16 @@ impl AccountManager {
         &self.data_dir
     }
 
+    #[cfg(test)]
+    pub(crate) fn is_dirty(&self) -> bool {
+        self.dirty.load(Ordering::Relaxed)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_dirty(&self, value: bool) {
+        self.dirty.store(value, Ordering::Relaxed);
+    }
+
     pub async fn user_count(&self) -> usize {
         self.state.read().await.len()
     }
@@ -322,6 +332,3 @@ impl AccountManager {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests;

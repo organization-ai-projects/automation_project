@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/store/account_manager/tests/account_manager.rs
+// projects/products/accounts/backend/src/store/tests/account_manager.rs
 #[cfg(test)]
 mod tests {
     use crate::store::account_manager::AccountManager;
@@ -6,7 +6,6 @@ mod tests {
     use protocol::ProtocolId;
     use security::Role;
     use std::path::PathBuf;
-    use std::sync::atomic::Ordering;
     use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
     // Shared counter for unique test directory names
@@ -34,14 +33,14 @@ mod tests {
             .unwrap();
         
         // Clear dirty flag after create
-        manager.dirty.store(false, Ordering::Relaxed);
-        assert!(!manager.dirty.load(Ordering::Relaxed), "Dirty flag should be false initially");
+        manager.set_dirty(false);
+        assert!(!manager.is_dirty(), "Dirty flag should be false initially");
         
         // Authenticate (login)
         manager.authenticate(&user_id, "test_password").await.unwrap();
         
         // Check that dirty flag is set
-        assert!(manager.dirty.load(Ordering::Relaxed), "Dirty flag should be true after login");
+        assert!(manager.is_dirty(), "Dirty flag should be true after login");
         
         // Cleanup
         tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
@@ -66,9 +65,9 @@ mod tests {
         let login_time = user_before.last_login_ms.unwrap();
         
         // Flush the dirty data
-        assert!(manager.dirty.load(Ordering::Relaxed), "Should be dirty before flush");
+        assert!(manager.is_dirty(), "Should be dirty before flush");
         manager.flush_if_dirty().await.unwrap();
-        assert!(!manager.dirty.load(Ordering::Relaxed), "Should not be dirty after flush");
+        assert!(!manager.is_dirty(), "Should not be dirty after flush");
         
         // Reload from disk
         let data_dir = manager.data_dir().clone();
@@ -88,7 +87,7 @@ mod tests {
         let manager = create_test_manager().await;
         
         // Ensure dirty flag is false
-        manager.dirty.store(false, Ordering::Relaxed);
+        manager.set_dirty(false);
         
         // Call flush_if_dirty when clean - should not error
         manager.flush_if_dirty().await.unwrap();
