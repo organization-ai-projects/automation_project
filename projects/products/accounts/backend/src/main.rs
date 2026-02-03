@@ -58,11 +58,19 @@ async fn main() -> anyhow::Result<()> {
         .context("load accounts store")?;
     info!("Accounts data dir: {:?}", account_manager.data_dir());
 
-    // Get configurable flush interval (default: 5 minutes)
+    // Get configurable flush interval (default: 5 minutes, minimum: 1 second)
     let flush_interval_secs = std::env::var("ACCOUNTS_FLUSH_INTERVAL_SECS")
         .ok()
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(300); // 5 minutes default
+    
+    // Validate flush interval is non-zero to prevent panic in tokio::time::interval
+    let flush_interval_secs = if flush_interval_secs == 0 {
+        warn!("ACCOUNTS_FLUSH_INTERVAL_SECS cannot be 0, using default of 300s");
+        300
+    } else {
+        flush_interval_secs
+    };
     info!("Login metadata flush interval: {}s", flush_interval_secs);
 
     // Spawn periodic flush task
