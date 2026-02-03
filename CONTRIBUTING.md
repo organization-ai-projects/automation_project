@@ -4,7 +4,7 @@
 
 Contributions are welcome. Keep changes focused, follow existing structure, and link your work to an issue when possible.
 
-For detailed workflow documentation, see the [Git Workflow Guide](documentation/technical_documentation/versioning/file_versioning/git/TOC.md).
+For detailed workflow documentation, see the [scripts TOC](scripts/TOC.md).
 
 ---
 
@@ -48,7 +48,7 @@ Use descriptive branch names with a type prefix:
 - Use clear, descriptive commit messages.
 - Reference issues when applicable: `fix: Resolve panic in parser (#42)`
 
-See [Commit Guidelines](documentation/technical_documentation/versioning/file_versioning/git/commit.md) for details.
+See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details.
 
 ---
 
@@ -83,7 +83,7 @@ See [Commit Guidelines](documentation/technical_documentation/versioning/file_ve
 - **Size**: Keep PRs focused; split large changes into smaller PRs
 - **Tests**: Include tests for new functionality
 
-See [Pull Request Guide](documentation/technical_documentation/versioning/file_versioning/git/pull_request.md) for details.
+See [Versioning TOC](scripts/versioning/file_versioning/TOC.md) for details.
 
 ---
 

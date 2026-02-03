@@ -7,8 +7,7 @@ This document lists the various sections of the internal documentation for the `
 ## Documentation
 
 - [Automated Documentation](documentation.md): Details on how documentation is generated and maintained.
-- [Automation Scripts](../../scripts/automation/README.md): Practical automation docs (scripts).
-- [Versioning Scripts](../../scripts/versioning/file_versioning/README.md): Versioning workflow docs (scripts).
+- [Scripts TOC](../../scripts/TOC.md): Entry point for automation + versioning + common_lib.
 - [System Processes](system_processes.md): How core processes are launched and supervised.
 - [Libraries and Symbolic Components](projects/projects_libraries.md): Information about shared libraries and symbolic components.
 - [Products and Workspace Components](projects/projects_products.md): Details on the products and components within the workspace.
