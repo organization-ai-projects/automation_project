@@ -1,5 +1,7 @@
 # Projet d'Automatisation
 
+**English version**: [README.md](README.md)
+
 `automation_project` est un espace de travail d'automatisation avancé, conçu pour orchestrer plusieurs projets simultanément avec des fonctionnalités telles que la génération de code, le linting, la documentation automatisée et l'orchestration de flux de travail.
 
 ## Architecture en un coup d'œil

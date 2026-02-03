@@ -1,5 +1,7 @@
 # Contributing
 
+**Version française** : [CONTRIBUTING.fr.md](CONTRIBUTING.fr.md)
+
 ## Overview
 
 Contributions are welcome. Keep changes focused, follow existing structure, and link your work to an issue when possible.

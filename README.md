@@ -8,7 +8,7 @@
 - Product backends are separate processes; UIs are runtime-loaded bundles.
 - Central UI aggregates product UIs without compile-time coupling.
 
-For details, see the architecture doc: `documentation/technical_documentation/ARCHITECTURE.md`.
+For details, see the architecture doc: `documentation/technical_documentation/en/ARCHITECTURE.md`.
 
 ## Repository structure
 
@@ -17,9 +17,11 @@ For details, see the architecture doc: `documentation/technical_documentation/AR
 - `projects/libraries/`: shared libraries (protocol, common, security, symbolic, neural, ai).
 - `documentation/`: technical documentation and guides.
 
-Internal documentation is available in the `documentation/` folder. Start with the [Documentation Index](documentation/TOC.md), or jump directly to the [Technical Documentation TOC](documentation/technical_documentation/TOC.md).
+Internal documentation is available in the `documentation/` folder. Start with the [Documentation Index](documentation/TOC.md), or jump directly to the [Technical Documentation TOC](documentation/technical_documentation/en/TOC.md).
 
 Scripts documentation is indexed in [scripts/TOC.md](scripts/TOC.md).
+
+**Version française** : [README.fr.md](README.fr.md)
 
 ## Contribute
 

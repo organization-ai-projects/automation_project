@@ -1,5 +1,7 @@
 # Contribuer
 
+**English version**: [CONTRIBUTING.md](CONTRIBUTING.md)
+
 ## Vue d'ensemble
 
 Les contributions sont les bienvenues. Gardez les modifications ciblées, suivez la structure existante et liez votre travail à une issue lorsque c'est possible.
