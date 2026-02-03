@@ -39,7 +39,67 @@
 
 ---
 
-### 1.4 AI Orchestrator (`ai`)
+### 1.4 Library Catalog (workspace overview)
+
+Current libraries under `projects/libraries`:
+
+- `ai`: Orchestrator for symbolic + neural flows.
+- `ast_core`: AST structures and parsing utilities.
+- `command_runner`: Execute commands with structured results.
+- `common`: Shared types, errors, and utilities.
+- `common_calendar`: Calendar/date utilities.
+- `common_json`: JSON model + helpers.
+- `common_parsing`: Parsing helpers for shared formats.
+- `common_time`: Time utilities.
+- `common_tokenize`: Tokenization utilities.
+- `hybrid_arena`: Arena-style storage with hybrid indexing.
+- `identity`: Identity types and store helpers.
+- `neural`: Neural inference/training component.
+- `pjson_proc_macros`: Proc-macros for JSON tooling.
+- `protocol`: Wire contracts and protocol types.
+- `protocol_macros`: Proc-macros for protocol helpers.
+- `security`: Auth, tokens, claims, and verification helpers.
+- `symbolic`: Symbolic analysis/validation engine.
+- `ui`: Shared UI components for product UIs.
+
+---
+
+### 1.5 Example: Using the `common` Library
+
+Below is an example of how to use the `common` library to define and handle errors:
+
+#### Code Example
+
+```rust
+use common::errors::{AppError, Result};
+
+fn perform_action() -> Result<()> {
+    // Example logic
+    if some_condition {
+        Err(AppError::new("An error occurred"))
+    } else {
+        Ok(())
+    }
+}
+
+fn main() {
+    match perform_action() {
+        Ok(_) => println!("Action performed successfully"),
+        Err(e) => eprintln!("Error: {}", e),
+    }
+}
+```
+
+#### Explanation
+
+- `AppError`: A shared error type defined in the `common` library.
+- `Result`: A type alias for `Result<T, AppError>` to simplify error handling.
+
+This demonstrates how the `common` library provides reusable utilities for consistent error management.
+
+---
+
+### 1.6 AI Orchestrator (`ai`)
 
 - **Coordination**: Supervision of `symbolic` and `neural` components.
 - **Intelligent Decision-making**: Determines when to delegate to neural.

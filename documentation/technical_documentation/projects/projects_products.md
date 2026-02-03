@@ -15,7 +15,9 @@ For details on `metadata.ron`, see [Metadata](../metadata.md). `metadata.ron` us
 - Exposes no public ports
 - Communicates only with `engine`
 
-## 1. Core
+## 1. Core Products
+
+The **core products** are foundational components that ensure the proper functioning of the entire system. They are located in `products/core`.
 
 ### 1.1 Engine (`engine`)
 
@@ -24,7 +26,7 @@ Core of the system.
 Responsibilities:
 
 - Management of the `automation_project` workspace
-- Global registry of projects
+- Global registry of projects (see [Registry](../registry.md))
 - Project loading and lifecycle management
 - Creation of `ProjectContext`
 - Workflow execution
@@ -97,12 +99,12 @@ log_level = "info"
 
 ## 2. User Interfaces (UI)
 
-### 2.1 UI for each product
+### Dedicated UIs for Products
 
-- Each product (e.g. `app`) includes a **dedicated UI** for its specific features.
+- Each product (e.g., `app`) includes a **dedicated UI** for its specific features.
 - A **common library** in `projects/libraries/ui` provides reusable components for all UIs.
-- A **registry mechanism** centralizes the list of products and their available UIs.
-- A **central UI** (global dashboard) allows :
+- A **registry mechanism** centralizes the list of products and their available UIs (see [Registry](../registry.md)).
+- A **central UI** (global dashboard) allows:
   - Product administration.
   - Aggregation of UIs from different products.
   - Navigation between products.
@@ -118,5 +120,5 @@ log_level = "info"
 
 This architecture ensures robust supervision and reduces single points of failure (SPOF) by isolating responsibilities between components.
 
-Execution hierarchy :
-launcher -> watcher -> engine -> projects -> UIs
+Execution hierarchy:
+launcher -> (starts engine, central_ui, watcher) -> watcher supervises core -> engine orchestrates products and UIs
