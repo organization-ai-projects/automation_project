@@ -44,3 +44,6 @@ coverage/
 .env.*
 
 ANALYSE_COHERENCE_WORKFLOWS_SCRIPTS.md
+
+# Ignore ui_dist files
+**/ui_dist/
