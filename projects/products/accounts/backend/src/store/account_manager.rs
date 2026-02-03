@@ -2,8 +2,8 @@
 use common_json::{from_json_str, to_string};
 use common_time::timestamp_utils::current_timestamp_ms;
 use security::{Permission, Role};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 

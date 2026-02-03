@@ -3,9 +3,9 @@ mod router;
 mod store;
 
 use std::str::FromStr;
-use std::{path::PathBuf, time::Duration};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::{path::PathBuf, time::Duration};
 
 use anyhow::Context;
 use bytes::Bytes;
@@ -131,14 +131,16 @@ async fn main() -> anyhow::Result<()> {
     // Set up graceful shutdown signal handler
     let shutdown_flag = Arc::new(AtomicBool::new(false));
     let shutdown_flag_clone = shutdown_flag.clone();
-    
+
     tokio::spawn(async move {
         #[cfg(unix)]
         {
-            let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .expect("failed to create SIGTERM handler");
-            let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                .expect("failed to create SIGINT handler");
+            let mut sigterm =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("failed to create SIGTERM handler");
+            let mut sigint =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+                    .expect("failed to create SIGINT handler");
             tokio::select! {
                 _ = sigterm.recv() => info!("Received SIGTERM"),
                 _ = sigint.recv() => info!("Received SIGINT"),
@@ -146,7 +148,9 @@ async fn main() -> anyhow::Result<()> {
         }
         #[cfg(not(unix))]
         {
-            tokio::signal::ctrl_c().await.expect("failed to listen for ctrl-c");
+            tokio::signal::ctrl_c()
+                .await
+                .expect("failed to listen for ctrl-c");
             info!("Received Ctrl-C");
         }
         shutdown_flag_clone.store(true, Ordering::Relaxed);
@@ -158,7 +162,7 @@ async fn main() -> anyhow::Result<()> {
             info!("Shutting down gracefully...");
             break;
         }
-        
+
         tokio::select! {
             msg = rx.next() => {
                 match msg {
@@ -196,10 +200,10 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
-    
+
     // Final flush on exit
     info!("Flushing login metadata before exit...");
     flush_and_stop_periodic_task(&flush_handle, &account_manager, "on exit").await;
-    
+
     Ok(())
 }
