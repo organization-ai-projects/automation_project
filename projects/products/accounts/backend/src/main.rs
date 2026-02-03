@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
         .ok()
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(300); // 5 minutes default
-    
+
     // Validate flush interval is non-zero to prevent panic in tokio::time::interval
     let flush_interval_secs = if flush_interval_secs == 0 {
         warn!("ACCOUNTS_FLUSH_INTERVAL_SECS cannot be 0, using default of 300s");
