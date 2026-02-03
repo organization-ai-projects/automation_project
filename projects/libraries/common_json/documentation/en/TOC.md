@@ -1,6 +1,6 @@
 # common_json Documentation Index
 
-- [Back to common_json README](../README.md)
+- [Back to common_json README](../../README.md)
 
 This document lists the various sections of the internal documentation for the `common_json` crate.
 

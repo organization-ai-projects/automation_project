@@ -50,7 +50,7 @@ Utilisez des noms de branches descriptifs avec un préfixe de type :
 - Utilisez des messages de commit clairs et descriptifs.
 - Référencez les issues le cas échéant : `fix: Résoudre la panique dans le parseur (#42)`
 
-Voir [TOC des scripts Git](scripts/versioning/file_versioning/git/fr/TOC.md) pour plus de détails.
+Voir [TOC des scripts Git](scripts/versioning/file_versioning/git/TOC.fr.md) pour plus de détails.
 
 ---
 
@@ -85,7 +85,7 @@ Voir [TOC des scripts Git](scripts/versioning/file_versioning/git/fr/TOC.md) pou
 - **Taille** : Gardez les PRs ciblées ; divisez les grands changements en PRs plus petites
 - **Tests** : Incluez des tests pour les nouvelles fonctionnalités
 
-Voir [TOC de Versioning](scripts/versioning/file_versioning/fr/TOC.md) pour plus de détails.
+Voir [TOC de Versioning](scripts/versioning/file_versioning/TOC.fr.md) pour plus de détails.
 
 ---
 

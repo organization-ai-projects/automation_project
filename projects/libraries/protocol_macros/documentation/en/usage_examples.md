@@ -42,4 +42,4 @@ let data = BinaryEvent::data(vec![0xDE, 0xAD]);
 println!("{}", data); // Output: data(arg0=[222, 173])
 ```
 
-For more examples, refer to the [README](../README.md).
+For more examples, refer to the [README](../../README.md).

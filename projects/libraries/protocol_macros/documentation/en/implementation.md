@@ -29,4 +29,4 @@ The `protocol_macros` crate is a robust procedural macro library designed to gen
 - Minimal compile-time overhead.
 - Optimized token generation.
 
-For more details, refer to the [README](../README.md).
+For more details, refer to the [README](../../README.md).

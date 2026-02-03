@@ -1,3 +1,3 @@
 # Index de Documentation
 
-- [Retour à README](../../README.md)
+- [Retour à README](../../README.fr.md)
