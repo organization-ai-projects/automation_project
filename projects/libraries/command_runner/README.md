@@ -44,6 +44,27 @@ fn main() -> Result<(), CommandError> {
 }
 ```
 
+### Permissive Execution (inspect status manually)
+
+```rust
+use command_runner::run_cmd_allow_failure;
+use std::path::Path;
+
+fn main() {
+    let repo_path = Path::new("/path/to/repo");
+    let mut logs = Vec::new();
+
+    let output = run_cmd_allow_failure(repo_path, "git", &["status", "--porcelain"], &mut logs)
+        .expect("command runner failed");
+
+    if output.status.success() {
+        println!("repo is clean");
+    } else {
+        eprintln!("git status failed (exit: {})", output.status);
+    }
+}
+```
+
 ### Execution Modes
 
 - **Strict**:
@@ -68,6 +89,28 @@ let mut logs = Vec::new();
 run_cmd_ok(repo_path, "ls", &["-la"], &mut logs)?;
 for log in logs {
     println!("{}", log);
+}
+```
+
+### CommandError with NonZeroExit
+
+```rust
+use command_runner::{run_cmd_ok, CommandError};
+use std::path::Path;
+
+fn main() {
+    let repo_path = Path::new("/path/to/repo");
+    let mut logs = Vec::new();
+
+    match run_cmd_ok(repo_path, "false", &[], &mut logs) {
+        Ok(_) => println!("unexpected success"),
+        Err(CommandError::NonZeroExit { log }) => {
+            eprintln!("command failed: {}", log.status);
+        }
+        Err(err) => {
+            eprintln!("runner error: {err}");
+        }
+    }
 }
 ```
 
