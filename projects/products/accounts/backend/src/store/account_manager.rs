@@ -437,17 +437,7 @@ mod tests {
             manager.flush_if_dirty().await.unwrap();
         }
         
-        // Second session: reload and verify
-        {
-            let manager = AccountManager::load(temp_dir.clone()).await.unwrap();
-            let user = manager.get(&user_id).await.unwrap();
-            assert!(user.last_login_ms.is_some(), "last_login_ms should be set after login");
-            
-            // Flush to disk (simulate periodic flush)
-            manager.flush_if_dirty().await.unwrap();
-        }
-        
-        // Second session: reload and verify
+        // Second session: reload and verify persistence
         {
             let manager = AccountManager::load(temp_dir.clone()).await.unwrap();
             let user = manager.get(&user_id).await.unwrap();

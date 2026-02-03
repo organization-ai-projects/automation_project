@@ -19,6 +19,17 @@ use tracing::{info, warn};
 
 use crate::store::account_manager::AccountManager;
 
+async fn flush_and_stop_periodic_task(
+    flush_handle: &tokio::task::JoinHandle<()>,
+    manager: &AccountManager,
+    context: &str,
+) {
+    flush_handle.abort();
+    if let Err(err) = manager.flush_if_dirty().await {
+        warn!(%err, "Failed to flush {}", context);
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct BackendHello {
     product_id: ProtocolId,
@@ -146,10 +157,7 @@ async fn main() -> anyhow::Result<()> {
         // Check for shutdown signal
         if shutdown_flag.load(Ordering::Relaxed) {
             info!("Shutting down gracefully...");
-            flush_handle.abort();
-            if let Err(err) = shutdown_manager.flush_if_dirty().await {
-                warn!(%err, "Failed to flush on shutdown");
-            }
+            flush_and_stop_periodic_task(&flush_handle, &shutdown_manager, "on shutdown").await;
             break;
         }
         
@@ -193,10 +201,7 @@ async fn main() -> anyhow::Result<()> {
     
     // Final flush on exit
     info!("Flushing login metadata before exit...");
-    flush_handle.abort();
-    if let Err(err) = account_manager.flush_if_dirty().await {
-        warn!(%err, "Failed to flush on exit");
-    }
+    flush_and_stop_periodic_task(&flush_handle, &account_manager, "on exit").await;
     
     Ok(())
 }
