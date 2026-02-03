@@ -2,7 +2,7 @@
 
 - [Retour à common_json README](../../README.fr.md)
 
-Ce document liste the various sections of the internal documentation for the `common_json` crate.
+Ce document liste les différentes sections de la documentation interne pour le crate `common_json`.
 
 ## Documentation
 
