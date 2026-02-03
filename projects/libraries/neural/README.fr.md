@@ -118,7 +118,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 
 ## Documentation
 
-- [Index de Documentation](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/neural/documentation/en/TOC.md)
+- [Index de Documentation](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/neural/documentation/fr/TOC.md)
 
 ## Contributing
 

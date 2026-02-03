@@ -125,7 +125,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 
 - [BumpArena](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/hybrid_arena/documentation/bump_arena.md)
 - [SlotArena](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/hybrid_arena/documentation/slot_arena.md)
-- [Table des Matières](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/hybrid_arena/documentation/en/TOC.md)
+- [Table des Matières](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/hybrid_arena/documentation/fr/TOC.md)
 
 ## Contributing
 

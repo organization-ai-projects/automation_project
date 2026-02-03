@@ -116,7 +116,7 @@ fn main() {
 
 ## Documentation
 
-- [Index de Documentation](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/command_runner/documentation/en/TOC.md)
+- [Index de Documentation](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/command_runner/documentation/fr/TOC.md)
 
 ## License
 

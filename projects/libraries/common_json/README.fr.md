@@ -165,7 +165,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 
 ## Documentation
 
-- [Index de Documentation](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/common_json/documentation/en/TOC.md)
+- [Index de Documentation](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/common_json/documentation/fr/TOC.md)
 
 ## Contributing
 

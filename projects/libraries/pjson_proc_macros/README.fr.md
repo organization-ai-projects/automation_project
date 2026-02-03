@@ -62,7 +62,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 
 ## Documentation
 
-- [Index de Documentation](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/pjson_proc_macros/documentation/en/TOC.md)
+- [Index de Documentation](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/pjson_proc_macros/documentation/fr/TOC.md)
 
 ## Contributing
 
