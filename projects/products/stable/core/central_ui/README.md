@@ -93,7 +93,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 
 ## Documentation
 
-- [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/core/central_ui/documentation/TOC.md)
+- [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/stable/core/central_ui/documentation/TOC.md)
 - [Architecture](https://github.com/organization-ai-projects/automation_project/blob/main/documentation/technical_documentation/ARCHITECTURE.md)
 
 ## Contributing

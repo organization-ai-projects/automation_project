@@ -11,7 +11,7 @@ Backend service for the Varina product.
 For architecture context, see `documentation/technical_documentation/ARCHITECTURE.md`.
 ## Documentation
 
-- [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/varina/backend/documentation/TOC.md)
+- [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/stable/varina/backend/documentation/TOC.md)
 
 ## Contributing
 
