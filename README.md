@@ -12,10 +12,14 @@ For details, see the architecture doc: `documentation/technical_documentation/AR
 
 ## Repository structure
 
-- `projects/products/core/`: core binaries (engine, launcher, watcher, central UI).
-- `projects/products/<product>/`: product backends and UI bundles.
-- `projects/libraries/`: shared libraries (protocol, common, security, symbolic, neural, ai).
-- `documentation/`: technical documentation and guides.
+- `projects/products/stable/`: production-ready products following all architectural principles
+  - `stable/core/`: core binaries (engine, launcher, watcher, central UI)
+  - `stable/<product>/`: stable product backends and UI bundles
+- `projects/products/unstable/`: MVP products for rapid experimentation (may break principles)
+- `projects/libraries/`: shared libraries (protocol, common, security, symbolic, neural, ai)
+- `documentation/`: technical documentation and guides
+
+See [projects/products/README.md](projects/products/README.md) for details on stable vs unstable products.
 
 Internal documentation is available in the `documentation/` folder. Start with the [Documentation Index](documentation/TOC.md), or jump directly to the [Technical Documentation TOC](documentation/technical_documentation/TOC.md).
 
