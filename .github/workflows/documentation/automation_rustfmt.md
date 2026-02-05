@@ -9,7 +9,7 @@ This workflow automates code formatting checks to ensure consistency across the 
 
 ## Triggers
 
-- Triggered on pull requests and pushes to specific branches.
+- Triggered on pull requests targeting the `dev` or `main` branches.
 
 ## Steps
 

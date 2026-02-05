@@ -1,13 +1,13 @@
 # Bot Workflows Documentation
 
-This directory contains documentation for workflows related to bot automation tasks.
+This directory contains index docs for bot-related workflows. The detailed workflow docs live in the parent directory.
 
 ## Directory Structure
 
 ```plaintext
 .github/workflows/
 ├── automation_rustfmt.yml      # Automates code formatting checks
-├── automation_sync.yml         # Synchronizes automation-related tasks
+├── automation_sync.yml         # Syncs main into dev after merge
 └── documentation/bot/
     ├── README.md               # This file
     └── TOC.md                  # Bot workflows documentation index
@@ -16,8 +16,7 @@ This directory contains documentation for workflows related to bot automation ta
 ## Workflows
 
 - **`automation_rustfmt.yml`**: Automates code formatting checks.
-- **`automation_rustfmt.yml`**: Automates code formatting checks.
-- **`automation_sync.yml`**: Synchronizes automation-related tasks.
+- **`automation_sync.yml`**: Syncs main into dev after merge.
 
 For detailed documentation, see:
 

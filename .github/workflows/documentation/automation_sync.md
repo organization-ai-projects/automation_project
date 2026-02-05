@@ -8,14 +8,14 @@ This workflow syncs the `main` branch into `dev` after merges to keep `dev` up t
 
 ## Triggers
 
-- Triggered on a schedule or manual dispatch.
+- Triggered on PRs merged into `main`.
 
 ## Steps
 
 1. **Checkout Code**: Checks out the repository code.
-2. **Create sync PR**: Creates a PR that merges `main` into `dev`.
-3. **Validate Changes**: Validates that the synchronization was successful.
+2. **Generate GitHub App token**: Creates a token to authenticate the sync.
+3. **Run sync script**: Runs the script that creates the `main` → `dev` sync PR and waits for mergeability.
 
 ## Contribution
 
-Contributors can manually trigger this workflow if they need to sync `main` into `dev`.
+This workflow is event-driven and does not provide a manual trigger.
