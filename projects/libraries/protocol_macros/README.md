@@ -27,6 +27,15 @@ protocol_macros/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `tests/`: Tests.
+
+
 ## Overview
 
 The `protocol_macros` crate is a **procedural macro crate** that generates constructor methods, `Display`, and `as_str()` implementations for enums. The crate focuses on correctness, compile-time safety, and clean error messages, making it suitable for production APIs and internal tooling alike.
