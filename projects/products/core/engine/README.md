@@ -27,6 +27,14 @@ engine/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 Engine is the **single point of communication** in the system. All components (UIs, backends, launcher) connect to Engine via WebSocket. No direct communication between components is allowed.
