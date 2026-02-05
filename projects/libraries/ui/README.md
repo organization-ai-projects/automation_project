@@ -25,6 +25,14 @@ ui/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 This library provides shared UI components and widgets used by product UIs. Components are built with Dioxus and designed to be compiled to WASM for use in UI bundles.
