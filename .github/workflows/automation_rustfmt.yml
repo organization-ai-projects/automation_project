@@ -58,7 +58,7 @@ jobs:
       - name: Run rustfmt on modified files
         if: steps.check_fmt.outputs.needs_formatting == 'true'
         run: |
-          echo "${{ steps.check_fmt.outputs.modified_files }}" | xargs cargo fmt
+          echo "${{ steps.check_fmt.outputs.modified_files }}" | xargs cargo fmt --
 
       - name: Auto-commit rustfmt changes
         if: steps.check_fmt.outputs.needs_formatting == 'true'
