@@ -29,6 +29,14 @@ security/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 This library provides user-agnostic security primitives: roles, permissions, token-based authentication, and password hashing. It is used by Engine to enforce authorization on all commands.
