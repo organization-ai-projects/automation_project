@@ -28,6 +28,14 @@ protocol/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 A Rust library for communication based on typed commands and events with validation and metadata.
