@@ -25,6 +25,14 @@ ui/
     └── main.rs
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Responsibilities
 
 - Provides the product UI as a runtime-loaded WASM bundle.

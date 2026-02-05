@@ -27,6 +27,14 @@ backend/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Responsibilities
 
 - Handles product-specific commands and workflows.

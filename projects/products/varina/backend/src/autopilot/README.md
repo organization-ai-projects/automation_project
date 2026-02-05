@@ -25,6 +25,19 @@ autopilot/
 └── autopilot_report.rs     # Execution reporting
 ```
 
+## Files
+
+- `README.md`: This file.
+- `autopilot_error.rs`: Additional module or asset.
+- `autopilot_mode.rs`: Additional module or asset.
+- `autopilot_plan.rs`: Additional module or asset.
+- `autopilot_policy.rs`: Additional module or asset.
+- `autopilot_report.rs`: Additional module or asset.
+- `compiled_autopilot_policy.rs`: Additional module or asset.
+- `handlers.rs`: Additional module or asset.
+- `mod.rs`: Module exports.
+
+
 ## Description
 
 The `autopilot` module is designed to automate Git tasks while adhering to strict security policies. This document explains the different parts of the module and their roles.
