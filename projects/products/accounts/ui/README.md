@@ -1,6 +1,27 @@
-# Accounts UI
+# Accounts UI Documentation
 
-Dioxus WASM UI bundle for Accounts (setup/admin + login).
+This directory contains the Dioxus WASM UI bundle for Accounts (setup/admin + login).
+
+## Role in the Project
+
+This UI is responsible for providing the web interface for account setup, login, and user management. It communicates with the accounts backend through the central_ui proxy.
+
+It interacts mainly with:
+
+- Central UI - For serving the UI bundle
+- Accounts backend - For account operations
+- Engine - Through central_ui proxy
+
+## Directory Structure
+
+```
+ui/
+├── README.md           # This file
+├── Cargo.toml          # Package configuration
+├── ui_manifest.ron     # UI metadata
+└── src/               # Source code
+    └── main.rs
+```
 
 ## Build (WASM bundle)
 
