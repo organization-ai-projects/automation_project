@@ -1,6 +1,29 @@
-# varina ui
+# Varina UI Documentation
 
-UI bundle source for the Varina product.
+This directory contains the UI bundle source for the Varina product.
+
+## Role in the Project
+
+This product UI is responsible for providing the Varina interface as a runtime-loaded WASM bundle. It sends commands and receives events via Engine, avoiding direct coupling with the backend.
+
+It interacts mainly with:
+
+- Central UI - Loaded at runtime by central_ui
+- Varina backend - Through Engine for commands and events
+- Engine - For communication
+
+## Directory Structure
+
+```
+ui/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   ├── TOC.md
+│   └── usage.md
+└── src/               # Source code
+    └── main.rs
+```
 
 ## Responsibilities
 

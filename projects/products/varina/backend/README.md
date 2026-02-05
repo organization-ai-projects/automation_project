@@ -1,6 +1,31 @@
-# varina backend
+# Varina Backend Documentation
 
-Backend service for the Varina product.
+This directory contains the backend service for the Varina product.
+
+## Role in the Project
+
+This product backend is responsible for handling Varina product-specific commands and workflows. It communicates exclusively with Engine and emits events and logs for the central UI to display.
+
+It interacts mainly with:
+
+- Engine - For command handling and event emission
+- AI library - For AI-powered features
+- Git automation - For version control operations
+
+## Directory Structure
+
+```
+backend/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   ├── TOC.md
+│   └── usage.md
+└── src/               # Source code
+    ├── main.rs
+    ├── autopilot/     # Git automation module
+    └── ...
+```
 
 ## Responsibilities
 

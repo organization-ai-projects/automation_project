@@ -1,4 +1,8 @@
-# Documentation Index
+# Table of Contents
 
-- [Back to README](../README.md)
-- [Usage](usage.md)
+This document provides an overview of all documentation files in this directory.
+
+## Guides
+
+- [Back to README](../README.md): Main product UI documentation
+- [Usage](usage.md): Usage guide and examples
