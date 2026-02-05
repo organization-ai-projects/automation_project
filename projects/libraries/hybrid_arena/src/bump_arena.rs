@@ -3,6 +3,16 @@
 //! The bump arena is optimized for scenarios where you allocate many items
 //! and never remove them individually. It provides O(1) allocation with
 //! excellent cache locality.
+//!
+//! ## Safety Invariants
+//!
+//! The `BumpArena` maintains the following invariants:
+//!
+//! * All IDs use generation = 0
+//! * IDs may become valid again after `clear()`
+//!
+//! These invariants are maintained by all safe public methods. Internal `unsafe`
+//! functions assume these invariants hold and may cause undefined behavior if violated.
 // projects/libraries/hybrid_arena/src/bump_arena.rs
 use std::ops::{Index, IndexMut};
 use std::slice;
@@ -18,7 +28,7 @@ type IntoIter<T> = BumpArenaIntoIter<T>;
 
 #[derive(Debug)]
 pub struct BumpArena<T> {
-    pub items: Vec<T>,
+    pub(crate) items: Vec<T>,
 }
 
 impl<T> BumpArena<T> {
@@ -224,7 +234,7 @@ impl<T> BumpArena<T> {
     /// # Safety
     /// The caller must ensure `id` is valid (index < len, generation == 0).
     #[inline]
-    pub unsafe fn get_unchecked(&self, id: Id<T>) -> &T {
+    pub(crate) unsafe fn get_unchecked(&self, id: Id<T>) -> &T {
         debug_assert!(id.generation() == 0, "BumpArena only uses generation 0");
         debug_assert!(
             (id.index() as usize) < self.items.len(),
@@ -239,7 +249,7 @@ impl<T> BumpArena<T> {
     /// # Safety
     /// The caller must ensure `id` is valid (index < len, generation == 0).
     #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, id: Id<T>) -> &mut T {
+    pub(crate) unsafe fn get_unchecked_mut(&mut self, id: Id<T>) -> &mut T {
         debug_assert!(id.generation() == 0, "BumpArena only uses generation 0");
         debug_assert!(
             (id.index() as usize) < self.items.len(),

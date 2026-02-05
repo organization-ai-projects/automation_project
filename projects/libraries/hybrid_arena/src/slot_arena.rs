@@ -3,6 +3,17 @@
 //! The slot arena supports dynamic allocation and deallocation with generation
 //! tracking to prevent use-after-free bugs. Removed slots are recycled for
 //! future allocations.
+//!
+//! ## Safety Invariants
+//!
+//! The `SlotArena` maintains the following invariants:
+//!
+//! * A slot is free iff `slot.value.is_none()` and its index is in `free`
+//! * `len` equals the number of occupied slots
+//! * An `Id` is valid iff index is in bounds, generation matches, and slot is occupied
+//!
+//! These invariants are maintained by all safe public methods. Internal `unsafe`
+//! functions assume these invariants hold and may cause undefined behavior if violated.
 // projects/libraries/hybrid_arena/src/slot_arena.rs
 use std::ops::{Index, IndexMut};
 
@@ -14,9 +25,9 @@ use crate::{Slot, SlotArenaDrain, SlotArenaIter, SlotArenaIterMut};
 
 #[derive(Debug)]
 pub struct SlotArena<T> {
-    pub slots: Vec<Slot<T>>,
-    pub free: Vec<u32>,
-    pub len: usize,
+    pub(crate) slots: Vec<Slot<T>>,
+    pub(crate) free: Vec<u32>,
+    pub(crate) len: usize,
 }
 
 impl<T> SlotArena<T> {

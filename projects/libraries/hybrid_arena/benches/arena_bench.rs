@@ -337,8 +337,8 @@ fn bench_id_pack_unpack(c: &mut Criterion) {
     });
 }
 
-fn bench_bump_safe_vs_unsafe(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bump_safe_vs_unsafe");
+fn bench_bump_safe_access(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bump_safe_access");
 
     for size in [1_000, 10_000, 100_000] {
         let mut arena: BumpArena<u64> = BumpArena::with_capacity(size);
@@ -348,7 +348,7 @@ fn bench_bump_safe_vs_unsafe(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(size as u64));
 
-        // Safe get()
+        // get_safe() method
         group.bench_with_input(BenchmarkId::new("get_safe", size), &ids, |b, ids| {
             b.iter(|| {
                 let mut sum = 0u64;
@@ -359,14 +359,12 @@ fn bench_bump_safe_vs_unsafe(c: &mut Criterion) {
             });
         });
 
-        // Unsafe get_unchecked_benchmark()
-        group.bench_with_input(BenchmarkId::new("get_unchecked", size), &ids, |b, ids| {
+        // Index operator
+        group.bench_with_input(BenchmarkId::new("index", size), &ids, |b, ids| {
             b.iter(|| {
                 let mut sum = 0u64;
                 for id in ids {
-                    unsafe {
-                        sum += *arena.items.get_unchecked(id.index() as usize);
-                    }
+                    sum += arena[*id];
                 }
                 black_box(sum);
             });
@@ -390,7 +388,7 @@ criterion_group!(
     bench_slot_remove_realloc,
     bench_slot_retain,
     bench_id_pack_unpack,
-    bench_bump_safe_vs_unsafe,
+    bench_bump_safe_access,
 );
 
 criterion_main!(benches);
