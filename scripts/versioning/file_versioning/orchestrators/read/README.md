@@ -18,9 +18,9 @@ It interacts mainly with:
 read/
 ├── README.md (this file)
 ├── TOC.md
-├── synch_main_dev_ci.sh       # Automated dev/main sync (bot-only)
 ├── check_priority_issues.sh   # List priority/security issues
-└── create_pr.sh               # Create pull requests
+├── create_pr.sh               # Create pull requests
+└── synch_main_dev_ci.sh       # Automated dev/main sync (bot-only)
 ```
 
 ## Scripts
