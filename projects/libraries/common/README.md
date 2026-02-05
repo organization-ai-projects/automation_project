@@ -1,6 +1,31 @@
-# Common Library
+# Common Library Documentation
 
-Shared utilities and types for `automation_project`.
+This directory contains shared utilities and types for the entire automation project.
+
+## Role in the Project
+
+This library is responsible for providing foundational types and utilities used across all other crates in the workspace. It includes ID generation, name validation, error types, and string manipulation that form the basis for all other modules.
+
+It interacts mainly with:
+
+- All other libraries and products (as a dependency)
+- Identity library - For ID generation
+- Various products - For common type definitions
+
+## Directory Structure
+
+```
+common/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── id.rs
+    ├── name.rs
+    └── ...
+```
 
 ## Overview
 
