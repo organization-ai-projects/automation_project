@@ -1,6 +1,17 @@
-# Automatic Project
+# Automation Project
 
 `automation_project` is an advanced automation workspace, designed to orchestrate multiple projects simultaneously with features such as code generation, linting, automated documentation, and workflow orchestration.
+
+## Role in the Project
+
+This repository serves as the main workspace for the automation project. It is responsible for coordinating all project components, products, and libraries into a cohesive automation system.
+
+It interacts mainly with:
+
+- `projects/products/core/`: Core binaries including engine, launcher, watcher, and central UI
+- `projects/libraries/`: Shared libraries for protocol, common utilities, security, and AI
+- `documentation/`: Technical documentation and architectural guides
+- `.github/workflows/`: CI/CD automation and workflow orchestration
 
 ## Architecture at a glance
 

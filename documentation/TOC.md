@@ -1,10 +1,12 @@
-# Documentation Index
+# Table of Contents
 
-This index points to the top-level documentation sets in the repository.
+This document provides an overview of all documentation files in this directory.
+
+## Documentation Files
+
+- [Technical TOC](technical_documentation/TOC.md): Entry point for technical documentation including architecture, projects, and system processes
+- [Contributing](../CONTRIBUTING.md): Guidelines for contributing to the project
+
+## Navigation
 
 - [Back to Repository README](../README.md)
-
-## Technical Documentation
-
-- [Technical TOC](technical_documentation/TOC.md)
-- [Contributing](../CONTRIBUTING.md)

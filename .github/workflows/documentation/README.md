@@ -1,6 +1,16 @@
-# Workflows Documentation
+# Workflows Documentation Documentation
 
 This directory contains all documentation related to GitHub Actions workflows used in this repository. The goal is to provide clarity on their purpose, triggers, and steps.
+
+## Role in the Project
+
+This directory is responsible for maintaining comprehensive documentation for all GitHub Actions workflows used in the repository. It ensures that workflow configurations are well-documented, maintainable, and understandable for all contributors.
+
+It interacts mainly with:
+
+- `.github/workflows/`: The actual workflow configuration files
+- `.github/`: Parent directory for GitHub-related configuration
+- Root repository documentation for overall project context
 
 ## Directory Structure
 
