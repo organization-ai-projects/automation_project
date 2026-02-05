@@ -27,6 +27,14 @@ common_parsing/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 This library provides parsing utilities including a cursor-based text parser, unified diff parsing, and date validation.
