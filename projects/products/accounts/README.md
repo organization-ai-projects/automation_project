@@ -24,6 +24,15 @@ accounts/
 └── data/              # Storage directory (JSON)
 ```
 
+## Files
+
+- `README.md`: This file.
+- `backend/`: Backend service source.
+- `data/`: Additional module or asset.
+- `metadata.ron`: Additional module or asset.
+- `ui/`: UI bundle source.
+
+
 ## Description
 
 Accounts is the product that handles first-admin bootstrap and normal login.

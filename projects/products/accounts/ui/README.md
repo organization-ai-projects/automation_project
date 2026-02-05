@@ -23,6 +23,14 @@ ui/
     └── main.rs
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Build (WASM bundle)
 
 ```bash
