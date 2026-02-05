@@ -30,6 +30,15 @@ hybrid_arena/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `benches/`: Benchmarks.
+
+
 ## Overview
 
 This library provides two arena allocator types optimized for different use cases: `BumpArena` for append-only allocation with excellent cache locality, and `SlotArena` for generational allocation with removal support.
