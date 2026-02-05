@@ -26,6 +26,14 @@ identity/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `src/`: Source code.
+- `tests/`: Tests.
+
+
 ## Overview
 
 This crate provides user-related types and storage without mixing into the `security` crate.
