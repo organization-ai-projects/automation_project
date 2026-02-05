@@ -1,6 +1,6 @@
 # automation_rustfmt.yml Documentation
 
-This workflow automates code formatting checks to ensure consistency across the codebase. It runs `rustfmt` on the code and reports any formatting issues.
+This workflow automates code formatting checks to ensure consistency across the codebase. It runs `rustfmt` only on Rust files modified in the PR and reports any formatting issues.
 
 ## Purpose
 
@@ -14,9 +14,11 @@ This workflow automates code formatting checks to ensure consistency across the 
 ## Steps
 
 1. **Checkout Code**: Checks out the repository code.
-2. **Run rustfmt**: Executes the `rustfmt` tool to check for formatting issues.
+2. **Run rustfmt on modified files**: Executes `rustfmt` only for Rust files changed in the PR.
 3. **Report Issues**: Reports any formatting issues found.
 
 ## Contribution
+
+Note: This workflow intentionally formats only modified files, not the entire repository. Existing unformatted code outside the PR remains unchanged.
 
 Contributors should ensure their code is formatted before pushing changes to avoid workflow failures.
