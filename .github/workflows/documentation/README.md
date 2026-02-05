@@ -18,6 +18,9 @@ This directory contains all documentation related to GitHub Actions workflows us
     ├── ci_reusable.md   # Documentation for the ci_reusable.yml workflow
     ├── automation_rustfmt.md # Documentation for the automation_rustfmt.yml workflow
     ├── automation_sync.md # Documentation for the automation_sync.yml workflow
+    ├── bot/
+    │   ├── README.md    # Bot workflows docs index
+    │   └── TOC.md       # Bot workflows documentation TOC
     └── README.md        # This file
 ```
 
