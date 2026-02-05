@@ -27,6 +27,14 @@ common/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 This library provides foundational types and utilities used across all other crates in the workspace. It includes ID generation, name validation, error types, and string manipulation.
