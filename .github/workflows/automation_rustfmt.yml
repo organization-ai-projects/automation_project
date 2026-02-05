@@ -38,9 +38,15 @@ jobs:
         id: check_fmt
         run: |
           echo "needs_formatting=false" >> $GITHUB_OUTPUT
-          MODIFIED_FILES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | grep '\.rs$' || true)
+          MODIFIED_FILES=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}..HEAD | grep '\.rs$' || true)
           if [ -z "$MODIFIED_FILES" ]; then
             echo "No Rust files modified. Skipping formatting."
+            exit 0
+          fi
+
+          MODIFIED_FILES=$(echo "$MODIFIED_FILES" | xargs -I{} bash -lc 'test -f "$1" && echo "$1"' _ {} || true)
+          if [ -z "$MODIFIED_FILES" ]; then
+            echo "No existing Rust files to format after filtering. Skipping formatting."
             exit 0
           fi
 
