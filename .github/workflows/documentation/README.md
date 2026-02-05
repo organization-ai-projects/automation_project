@@ -10,7 +10,7 @@ This directory contains all documentation related to GitHub Actions workflows us
 ├── ci_dev.yml            # Handles CI tasks for the dev branch
 ├── ci_reusable.yml       # Reusable workflow for common CI steps
 ├── automation_rustfmt.yml # Automates code formatting checks
-├── automation_sync.yml   # Synchronizes branches and configurations
+├── automation_sync.yml   # Syncs main into dev after merge
 └── documentation/
     ├── TOC.md           # Table of contents for workflow documentation
     ├── ci_main.md       # Documentation for the ci_main.yml workflow
@@ -32,7 +32,7 @@ Workflows are organized into two categories:
 
 - **Automation Workflows**:
   - `automation_rustfmt.yml`: Automates code formatting checks.
-  - `automation_sync.yml`: Synchronizes branches and configurations.
+  - `automation_sync.yml`: Syncs main into dev after merge.
 
 ## Adding New Workflows
 

@@ -13,9 +13,9 @@ This workflow syncs the `main` branch into `dev` after merges to keep `dev` up t
 ## Steps
 
 1. **Checkout Code**: Checks out the repository code.
-2. **Sync Automation**: Runs scripts to synchronize automation configurations.
+2. **Create sync PR**: Creates a PR that merges `main` into `dev`.
 3. **Validate Changes**: Validates that the synchronization was successful.
 
 ## Contribution
 
-Contributors can manually trigger this workflow if they make changes to automation configurations.
+Contributors can manually trigger this workflow if they need to sync `main` into `dev`.
