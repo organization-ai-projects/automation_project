@@ -1,4 +1,30 @@
-# Feedback semantics
+# Feedback Semantics Documentation
+
+This directory contains feedback data structures and semantics used for training and evaluation in the AI library.
+
+## Role in the Project
+
+This module is responsible for defining feedback data structures and their semantic meanings. It ensures consistent handling of feedback between public and internal APIs for training and evaluation.
+
+It interacts mainly with:
+
+- AI body - For feedback processing
+- Neural library - For training adjustments
+- Symbolic library - For rule adjustments
+
+## Directory Structure
+
+```
+feedbacks/
+├── README.md              # This file
+├── mod.rs                 # Module exports
+├── ai_feedback.rs         # Main feedback processing
+├── conversions/           # Type conversions
+├── internal/              # Internal feedback types
+└── public_api_feedback/   # Public API types
+```
+
+## Feedback Semantics
 
 This module defines feedback data used for training and evaluation. The meanings
 below are intended to keep public and internal handling consistent.
