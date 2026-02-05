@@ -25,6 +25,14 @@ command_runner/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Description
 
 `command_runner` is a Rust library designed to execute system commands in a robust and ergonomic way. It provides tools to handle errors, capture outputs, and log executions.
