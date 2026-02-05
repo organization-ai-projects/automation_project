@@ -31,6 +31,15 @@ neural/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `tests/`: Tests.
+
+
 ## Overview
 
 This library provides machine learning capabilities for code generation, with support for training, inference, feedback collection, and model adjustment. It integrates with the symbolic library for hybrid AI approaches.
