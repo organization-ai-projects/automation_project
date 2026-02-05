@@ -173,13 +173,7 @@ run_one() {
   # Assertions
   assert_file_exists "$GH_MOCK_LOG"
 
-  # Validate EXPECT_EXIT values to ensure they are numeric
-  if ! [[ "$EXPECT_EXIT" =~ ^[0-9]+$ ]]; then
-    error "Invalid EXPECT_EXIT value: $EXPECT_EXIT. Must be numeric."
-    exit 1
-  fi
-
-  # Ensure EXPECT_EXIT values are numeric and validate them
+  # Ensure EXPECT_EXIT values are numeric
   if ! [[ "$EXPECT_EXIT" =~ ^[0-9]+$ ]]; then
     error "Invalid EXPECT_EXIT value: $EXPECT_EXIT. Must be numeric."
     exit 1
@@ -249,7 +243,7 @@ run_one() {
   trap - RETURN
 }
 
-# Ajout d'une variable pour suivre les scénarios échoués
+# Track failed scenarios
 FAILED_SCENARIOS=()
 
 main() {
@@ -300,28 +294,19 @@ main() {
   info "═══════════════════════════════════════════"
   if [[ $failed -eq 0 ]]; then
     info "🎉 All $passed scenarios passed!"
-  else
-    info "❌ $failed failed, $passed passed"
-    exit 1
-  fi
-
-  # Ajout d'une option pour arrêter au premier échec
-  if [[ $FAIL_FAST -eq 1 && ${#FAILED_SCENARIOS[@]} -gt 0 ]]; then
-    echo "\n[FAIL-FAST] Arrêt après le premier échec."
-    exit 1
-  fi
-
-  # Ajout d'un résumé des scénarios échoués
-  if [[ ${#FAILED_SCENARIOS[@]} -gt 0 ]]; then
-    echo "\nRésumé des scénarios échoués :"
-    for scenario in "${FAILED_SCENARIOS[@]}"; do
-      echo "- $scenario"
-    done
-    exit 1
-  else
-    echo "\n🎉 Tous les scénarios ont réussi !"
     exit 0
   fi
+
+  info "❌ $failed failed, $passed passed"
+  if [[ $FAIL_FAST -eq 1 ]]; then
+    info "[FAIL-FAST] Stopped after the first failure."
+  fi
+
+  info "Failed scenarios:"
+  for scenario in "${FAILED_SCENARIOS[@]}"; do
+    info "- $scenario"
+  done
+  exit 1
 }
 
 main

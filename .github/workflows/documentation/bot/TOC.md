@@ -4,5 +4,5 @@ This document provides an overview of all documentation files related to bot wor
 
 ## Bot Workflows
 
-- [automation_cleanup.md](automation_cleanup.md): Documentation for the `automation_cleanup.yml` workflow.
-- [automation_sync.md](automation_sync.md): Documentation for the `automation_sync.yml` workflow.
+- [automation_rustfmt.md](../automation_rustfmt.md): Documentation for the `automation_rustfmt.yml` workflow.
+- [automation_sync.md](../automation_sync.md): Documentation for the `automation_sync.yml` workflow.

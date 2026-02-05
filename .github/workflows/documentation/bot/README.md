@@ -6,16 +6,20 @@ This directory contains documentation for workflows related to bot automation ta
 
 ```plaintext
 .github/workflows/
-├── automation_cleanup.yml      # Automates code formatting checks
+├── automation_rustfmt.yml      # Automates code formatting checks
 ├── automation_sync.yml         # Synchronizes automation-related tasks
 └── documentation/bot/
-    ├── automation_cleanup.md   # Documentation for the automation_cleanup.yml workflow
-    └── automation_sync.md      # Documentation for the automation_sync.yml workflow
+    ├── README.md               # This file
+    └── TOC.md                  # Bot workflows documentation index
 ```
 
 ## Workflows
 
 - **`automation_cleanup.yml`**: Automates code formatting checks.
+- **`automation_rustfmt.yml`**: Automates code formatting checks.
 - **`automation_sync.yml`**: Synchronizes automation-related tasks.
 
-For detailed documentation, see the corresponding `.md` files in this directory.
+For detailed documentation, see:
+
+- [automation_rustfmt.yml Documentation](../automation_rustfmt.md)
+- [automation_sync.yml Documentation](../automation_sync.md)

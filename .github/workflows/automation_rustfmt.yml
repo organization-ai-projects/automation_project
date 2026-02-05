@@ -37,20 +37,28 @@ jobs:
       - name: Check for formatting issues
         id: check_fmt
         run: |
+          echo "needs_formatting=false" >> $GITHUB_OUTPUT
           MODIFIED_FILES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | grep '\.rs$' || true)
           if [ -z "$MODIFIED_FILES" ]; then
             echo "No Rust files modified. Skipping formatting."
-            echo "needs_formatting=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
+          {
+            echo "modified_files<<EOF"
+            echo "$MODIFIED_FILES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
           echo "Checking formatting for modified files..."
-          echo "$MODIFIED_FILES" | xargs cargo fmt -- --check || echo "needs_formatting=true" >> $GITHUB_OUTPUT
+          if ! echo "$MODIFIED_FILES" | xargs cargo fmt -- --check; then
+            echo "needs_formatting=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Run rustfmt on modified files
         if: steps.check_fmt.outputs.needs_formatting == 'true'
         run: |
-          echo "$MODIFIED_FILES" | xargs cargo fmt
+          echo "${{ steps.check_fmt.outputs.modified_files }}" | xargs cargo fmt
 
       - name: Auto-commit rustfmt changes
         if: steps.check_fmt.outputs.needs_formatting == 'true'
