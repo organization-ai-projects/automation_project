@@ -27,6 +27,14 @@ launcher/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 Launcher is the **entry point** for starting the automation platform. It initializes the environment, starts core services in the correct order, and then exits once the system is running.
