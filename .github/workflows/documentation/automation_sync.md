@@ -1,11 +1,10 @@
 # automation_sync.yml Documentation
 
-This workflow synchronizes automation-related tasks to ensure consistency and up-to-date configurations across the repository.
+This workflow syncs the `main` branch into `dev` after merges to keep `dev` up to date.
 
 ## Purpose
 
-- Keeps automation configurations synchronized.
-- Ensures that all automation tasks are up-to-date.
+- Keeps `dev` aligned with `main` after merge.
 
 ## Triggers
 
