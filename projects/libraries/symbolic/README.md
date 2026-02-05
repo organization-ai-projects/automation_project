@@ -29,6 +29,15 @@ symbolic/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `benches/`: Benchmarks.
+
+
 ## Overview
 
 This library provides deterministic, rule-based code manipulation capabilities. Unlike the neural library which uses ML, symbolic processing relies on pattern matching, templates, and explicit rules for predictable results.
