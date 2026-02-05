@@ -24,6 +24,14 @@ common_calendar/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 This library provides date and calendar utilities including leap year detection, month day counting, and date parsing using chrono.
