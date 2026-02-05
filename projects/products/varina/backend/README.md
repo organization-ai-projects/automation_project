@@ -14,7 +14,7 @@ It interacts mainly with:
 
 ## Directory Structure
 
-```
+```text
 backend/
 ├── Cargo.toml          # Package configuration
 ├── README.md           # This file
@@ -34,7 +34,6 @@ backend/
 - `documentation/`: Additional documentation.
 - `src/`: Source code.
 
-
 ## Responsibilities
 
 - Handles product-specific commands and workflows.
@@ -42,6 +41,7 @@ backend/
 - Emits events and logs for the central UI to display.
 
 For architecture context, see `documentation/technical_documentation/ARCHITECTURE.md`.
+
 ## Documentation
 
 - [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/varina/backend/documentation/TOC.md)
