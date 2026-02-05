@@ -29,6 +29,16 @@ ast_core/
 └── tests/             # Integration tests
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `tests/`: Tests.
+- `benches/`: Benchmarks.
+
+
 ## Description
 
 `ast_core` is a generic library for representing, validating, and transforming Abstract Syntax Trees (ASTs). It is designed for use in runtime tools, compile-time tools (proc-macros), and AI systems.
