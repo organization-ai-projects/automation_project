@@ -14,8 +14,10 @@ This workflow automates code formatting checks to ensure consistency across the 
 ## Steps
 
 1. **Checkout Code**: Checks out the repository code.
-2. **Run rustfmt on modified files**: Executes `rustfmt` only for Rust files changed in the PR.
-3. **Report Issues**: Reports any formatting issues found.
+2. **Install Rust**: Installs the Rust toolchain with `rustfmt`.
+3. **Check formatting**: Checks modified Rust files for formatting issues.
+4. **Run rustfmt**: Formats modified Rust files that need changes.
+5. **Auto-commit**: Commits formatting changes back to the PR branch.
 
 ## Contribution
 
