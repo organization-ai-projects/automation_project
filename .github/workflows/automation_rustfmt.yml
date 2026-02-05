@@ -1,0 +1,60 @@
+name: Auto rustfmt
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rustfmt:
+    name: Apply rustfmt
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'sync/main-into-dev'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Ensure local branch
+        run: git checkout -B "${{ github.head_ref }}"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check for formatting issues
+        id: check_fmt
+        run: |
+          MODIFIED_FILES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | grep '\.rs$' || true)
+          if [ -z "$MODIFIED_FILES" ]; then
+            echo "No Rust files modified. Skipping formatting."
+            echo "needs_formatting=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Checking formatting for modified files..."
+          echo "$MODIFIED_FILES" | xargs cargo fmt -- --check || echo "needs_formatting=true" >> $GITHUB_OUTPUT
+
+      - name: Run rustfmt on modified files
+        if: steps.check_fmt.outputs.needs_formatting == 'true'
+        run: |
+          echo "$MODIFIED_FILES" | xargs cargo fmt
+
+      - name: Auto-commit rustfmt changes
+        if: steps.check_fmt.outputs.needs_formatting == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: apply rustfmt"
+          branch: ${{ github.head_ref }}
