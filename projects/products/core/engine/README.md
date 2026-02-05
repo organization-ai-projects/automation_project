@@ -1,6 +1,31 @@
-# Engine
+# Engine Documentation
 
-The central hub and execution authority for `automation_project`.
+This directory contains the central hub and execution authority for the automation project.
+
+## Role in the Project
+
+This product is responsible for being the single point of communication in the system. All components (UIs, backends, launcher) connect to Engine via WebSocket. It handles authentication, authorization, audit logging, process management, and registry access.
+
+It interacts mainly with:
+
+- All UIs (central_ui, product UIs) - Via WebSocket
+- All backends - Via WebSocket for command routing
+- Launcher - For startup coordination
+- Security library - For authentication and authorization
+
+## Directory Structure
+
+```
+engine/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   ├── TOC.md
+│   └── operations.md
+└── src/               # Source code
+    ├── main.rs
+    └── ...
+```
 
 ## Overview
 

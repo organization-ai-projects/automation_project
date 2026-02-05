@@ -1,6 +1,31 @@
-# Launcher
+# Launcher Documentation
 
-Bootstrap binary for `automation_project`.
+This directory contains the bootstrap binary for the automation project.
+
+## Role in the Project
+
+This product is responsible for being the entry point for starting the automation platform. It initializes the environment, starts core services in the correct order (Engine → Watcher → Central UI), and then exits once the system is running.
+
+It interacts mainly with:
+
+- Engine - Starts and waits for ready
+- Watcher - Starts for supervision
+- Central UI - Starts the desktop interface
+- Registry - Reads configuration
+
+## Directory Structure
+
+```
+launcher/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   ├── TOC.md
+│   └── usage.md
+└── src/               # Source code
+    ├── main.rs
+    └── ...
+```
 
 ## Overview
 
