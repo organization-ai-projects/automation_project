@@ -15,7 +15,7 @@ This directory contains documentation for workflows related to bot automation ta
 
 ## Workflows
 
-- **`automation_cleanup.yml`**: Automates code formatting checks.
+- **`automation_rustfmt.yml`**: Automates code formatting checks.
 - **`automation_rustfmt.yml`**: Automates code formatting checks.
 - **`automation_sync.yml`**: Synchronizes automation-related tasks.
 
