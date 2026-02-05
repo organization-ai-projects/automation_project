@@ -27,6 +27,14 @@ common_time/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 This library provides time-related utilities including clocks, timeouts, backoff strategies, and duration constants.
