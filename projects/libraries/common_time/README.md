@@ -1,6 +1,31 @@
-# Common Time Library
+# Common Time Library Documentation
 
-Time and duration utilities for `automation_project`.
+This directory contains time and duration utilities for the automation project.
+
+## Role in the Project
+
+This library is responsible for providing time-related utilities across the automation project. It includes clock abstractions for testing, backoff strategies for retry logic, and duration constants.
+
+It interacts mainly with:
+
+- Common calendar library - For date handling
+- Various products - For timeout and retry logic
+- Test infrastructure - For testable time
+
+## Directory Structure
+
+```
+common_time/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── clock.rs
+    ├── backoff.rs
+    └── ...
+```
 
 ## Overview
 

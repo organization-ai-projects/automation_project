@@ -1,6 +1,29 @@
-# Common Tokenize Library
+# Common Tokenize Library Documentation
 
-Text tokenization utilities for `automation_project`.
+This directory contains text tokenization utilities for the automation project.
+
+## Role in the Project
+
+This library is responsible for providing text tokenization utilities for splitting text into tokens across the automation project.
+
+It interacts mainly with:
+
+- AI library - For text processing
+- Neural library - For tokenization
+- Various products - For text analysis
+
+## Directory Structure
+
+```
+common_tokenize/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    └── ...
+```
 
 ## Overview
 

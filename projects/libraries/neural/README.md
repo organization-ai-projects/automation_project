@@ -1,6 +1,35 @@
-# Neural Library
+# Neural Library Documentation
 
-Neural network-based code generation and inference for `automation_project`.
+This directory contains neural network-based code generation and inference capabilities for the automation project.
+
+## Role in the Project
+
+This library is responsible for providing machine learning capabilities for code generation across the automation project. It supports training, inference, feedback collection, and model adjustment, integrating with the symbolic library for hybrid AI approaches.
+
+It interacts mainly with:
+
+- AI library - As the neural solver component
+- Symbolic library - For hybrid AI approaches
+- Common tokenize library - For text tokenization
+- Training systems - For model updates
+
+## Directory Structure
+
+```
+neural/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── generation.rs
+    ├── inference.rs
+    ├── training.rs
+    ├── feedback.rs
+    ├── network.rs
+    └── ...
+```
 
 ## Overview
 
