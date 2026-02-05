@@ -30,6 +30,15 @@ code_agent_sandbox/
 └── tests/             # Integration tests
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `tests/`: Tests.
+
+
 ## Description
 
 The **Code Agent Sandbox** crate provides a robust and modular infrastructure for executing various actions in a controlled environment. It includes advanced features such as:
