@@ -1,6 +1,38 @@
-# Git Hooks
+# Git Hooks Documentation
 
 Custom git hooks to ensure code and commit quality.
+
+## Role in the Project
+
+This directory is responsible for enforcing code quality and commit standards through automated validation at key points in the git workflow.
+It interacts mainly with:
+
+- Git commit and push workflow
+- Cargo formatting and linting tools
+- Test infrastructure
+- Commit message conventions
+- Changed file detection system
+
+## Role in the Project
+
+This directory is responsible for enforcing code quality and commit standards through automated validation at key points in the git workflow.
+It interacts mainly with:
+
+- Git commit and push workflow
+- Cargo formatting and linting tools
+- Test infrastructure
+- Commit message conventions
+- Changed file detection system
+
+## Directory Structure
+
+```plaintext
+git_hooks/
+├── commit-msg          # Validates commit message format
+├── pre-commit          # Runs code formatting before commit
+├── pre-push            # Runs quality checks before push
+└── install_hooks.sh    # Installs git hooks to .git/hooks/
+```
 
 ## Available hooks
 

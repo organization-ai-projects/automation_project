@@ -1,14 +1,14 @@
-# Git Hooks TOC
+# Table of Contents
 
-- [Back to Automation TOC](../TOC.md)
+This document provides an overview of all documentation files in this directory.
 
-## Overview
+## Documentation
 
-- [Git Hooks README](README.md)
+- [README.md](README.md): Main documentation for git hooks
 
 ## Hooks
 
-- [commit-msg](commit-msg)
-- [pre-commit](pre-commit)
-- [pre-push](pre-push)
-- [install_hooks.sh](install_hooks.sh)
+- [commit-msg](commit-msg): Validates commit message format
+- [pre-commit](pre-commit): Runs code formatting before commit
+- [pre-push](pre-push): Runs quality checks before push
+- [install_hooks.sh](install_hooks.sh): Installs git hooks to .git/hooks/

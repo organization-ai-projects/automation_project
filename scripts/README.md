@@ -1,6 +1,16 @@
-# Scripts Organization
+# Scripts Documentation
 
-This directory contains all automation scripts for the project, organized by **responsibility domain**.
+This directory contains all automation scripts for the project, organized by responsibility domain.
+
+## Role in the Project
+
+This directory is responsible for providing automation infrastructure, version control workflows, and reusable utility libraries for the entire project.
+It interacts mainly with:
+
+- Project build system and workspace structure
+- Git version control system and GitHub platform
+- CI/CD pipelines and quality gates
+- All project modules requiring automation support
 
 ## Directory Structure
 

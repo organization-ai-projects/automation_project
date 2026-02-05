@@ -1,41 +1,42 @@
-# Automation Scripts
+# Automation Documentation
 
 This directory contains scripts for project-wide automation tasks.
 
-## Scope
+## Role in the Project
 
-Scripts here automate tasks that operate on the repository as a whole:
+This directory is responsible for automating repository-wide tasks including builds, testing, quality checks, security audits, and release preparation.
+It interacts mainly with:
 
-- **Building** - UI bundles, artifacts
-- **Testing** - Test coverage, dependency checks
-- **Checking** - Code quality, merge conflicts, security audits
-- **Releasing** - Version bumps, changelogs, git tags
-- **Setup** - Git hooks installation
+- Cargo workspace and build system
+- Test infrastructure and coverage tools
+- Git hooks and quality gates
+- Dependency management and security scanners
+- Release tooling and changelog generators
 
-## Organization
+## Directory Structure
 
-All scripts in this directory:
-
-- Operate on the entire workspace/repository
-- Use shared utilities from `scripts/common_lib/`
-- Follow the quality standards defined in `scripts_overview.md`
-
-## Current Scripts
-
-- `build_accounts_ui.sh` - Build accounts UI bundle
-- `build_ui_bundles.sh` - Discover and build all UI bundles
-- `build_and_check_ui_bundles.sh` - Build and verify artifacts
-- `pre_push_check.sh` - Pre-push validation (checks, tests, conflicts)
-- `pre_add_review.sh` - Pre-add internal review (format, clippy, tests)
-- `setup_hooks.sh` - Install git hooks
-- `audit_security.sh` - Security audit on dependencies
-- `check_dependencies.sh` - Check for outdated/missing dependencies
-- `check_merge_conflicts.sh` - Test merge for conflicts
-- `changed_crates.sh` - List crates touched in a diff
-- `clean_artifacts.sh` - Clean build artifacts
-- `test_coverage.sh` - Generate test coverage reports
-- `release_prepare.sh` - Prepare releases with version/changelog/tag
-- `sync_docs.sh` - Documentation synchronization (placeholder)
+```plaintext
+automation/
+├── git_hooks/                      # Git hooks for commit validation and pre-push checks
+│   ├── commit-msg                  # Validates commit message format
+│   ├── pre-commit                  # Runs code formatting before commit
+│   ├── pre-push                    # Runs quality checks before push
+│   └── install_hooks.sh            # Installs git hooks
+├── audit_security.sh               # Security audit on dependencies
+├── build_accounts_ui.sh            # Build accounts UI bundle
+├── build_and_check_ui_bundles.sh   # Build and verify artifacts
+├── build_ui_bundles.sh             # Discover and build all UI bundles
+├── changed_crates.sh               # List crates touched in a diff
+├── check_dependencies.sh           # Check for outdated/missing dependencies
+├── check_merge_conflicts.sh        # Test merge for conflicts
+├── clean_artifacts.sh              # Clean build artifacts
+├── pre_add_review.sh               # Pre-add internal review (format, clippy, tests)
+├── pre_push_check.sh               # Pre-push validation (checks, tests, conflicts)
+├── release_prepare.sh              # Prepare releases with version/changelog/tag
+├── setup_hooks.sh                  # Install git hooks
+├── sync_docs.sh                    # Documentation synchronization (placeholder)
+└── test_coverage.sh                # Generate test coverage reports
+```
 
 ## Adding New Automation Scripts
 
