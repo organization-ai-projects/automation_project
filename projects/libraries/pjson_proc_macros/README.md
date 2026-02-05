@@ -25,6 +25,14 @@ pjson_proc_macros/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 This crate provides procedural macros for generating validated JSON structures at compile time using the `ast_core` crate for AST representation.
