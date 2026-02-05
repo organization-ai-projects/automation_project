@@ -25,6 +25,14 @@ common_tokenize/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 This library provides text tokenization utilities for splitting text into tokens.
