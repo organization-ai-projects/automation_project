@@ -1,6 +1,6 @@
 # Table of Contents
 
-This document provides an overview of all documentation files related to bot workflows.
+This document provides an overview of all documentation files in this directory.
 
 ## Bot Workflows
 

@@ -23,6 +23,11 @@ It interacts mainly with:
     └── TOC.md                  # Bot workflows documentation index
 ```
 
+## Files
+
+- `README.md`: Bot workflows docs index.
+- `TOC.md`: Bot workflows documentation TOC.
+
 ## Workflows
 
 - **`automation_rustfmt.yml`**: Automates code formatting checks.
