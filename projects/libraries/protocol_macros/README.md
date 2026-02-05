@@ -1,6 +1,31 @@
-# Protocol Macros
+# Protocol Macros Documentation
 
-**A robust and powerful procedural macro library for generating enum constructors and Display implementations.**
+This directory contains a robust and powerful procedural macro library for generating enum constructors and Display implementations.
+
+## Role in the Project
+
+This library is responsible for providing procedural macros that generate constructor methods, Display, and as_str() implementations for enums across the automation project. It focuses on correctness, compile-time safety, and clean error messages.
+
+It interacts mainly with:
+
+- Protocol library - For protocol enums
+- Various products - For enum convenience methods
+
+## Directory Structure
+
+```
+protocol_macros/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   ├── TOC.md
+│   ├── implementation.md
+│   ├── migration_guide.md
+│   └── usage_examples.md
+└── src/               # Source code
+    ├── lib.rs
+    └── ...
+```
 
 ## Overview
 

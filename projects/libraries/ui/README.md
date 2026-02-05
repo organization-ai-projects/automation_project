@@ -1,6 +1,29 @@
-# UI Library
+# UI Library Documentation
 
-Reusable UI components for `automation_project`.
+This directory contains reusable UI components for the automation project.
+
+## Role in the Project
+
+This library is responsible for providing shared UI components and widgets used by product UIs across the automation project. Components are built with Dioxus and designed to be compiled to WASM for use in UI bundles.
+
+It interacts mainly with:
+
+- Product UIs - For shared components
+- Central UI - For common widgets
+- Accounts UI, Varina UI - For UI elements
+
+## Directory Structure
+
+```
+ui/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    └── ...
+```
 
 ## Overview
 

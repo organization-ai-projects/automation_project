@@ -1,4 +1,34 @@
-# Protocol Library
+# Protocol Library Documentation
+
+This directory contains a Rust library for communication based on typed commands and events with validation and metadata.
+
+## Role in the Project
+
+This library is responsible for providing typed command and event communication across the automation project. It defines types for better safety and clarity, with robust validation, automatic metadata generation, and security features.
+
+It interacts mainly with:
+
+- Common library - For ID types
+- Security library - For token validation
+- All products - For command and event communication
+
+## Directory Structure
+
+```
+protocol/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── command.rs
+    ├── event.rs
+    ├── metadata.rs
+    └── ...
+```
+
+## Overview
 
 A Rust library for communication based on typed commands and events with validation and metadata.
 

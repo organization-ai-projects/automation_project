@@ -1,6 +1,33 @@
-# Symbolic Library
+# Symbolic Library Documentation
 
-Rule-based code analysis, generation, and refactoring for `automation_project`.
+This directory contains rule-based code analysis, generation, and refactoring for the automation project.
+
+## Role in the Project
+
+This library is responsible for deterministic, rule-based code manipulation across the automation project. Unlike the neural library which uses ML, symbolic processing relies on pattern matching, templates, and explicit rules for predictable results.
+
+It interacts mainly with:
+
+- AI library - As the symbolic solver component
+- Neural library - For hybrid AI approaches
+- Various products - For code analysis and generation
+
+## Directory Structure
+
+```
+symbolic/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── analyzer.rs
+    ├── rules.rs
+    ├── validator.rs
+    ├── linter.rs
+    └── ...
+```
 
 ## Overview
 

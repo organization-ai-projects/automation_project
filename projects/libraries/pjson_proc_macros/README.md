@@ -1,6 +1,29 @@
-# PJSON Proc Macros Library
+# PJSON Proc Macros Library Documentation
 
-Procedural macros for JSON handling in `automation_project`.
+This directory contains procedural macros for JSON handling in the automation project.
+
+## Role in the Project
+
+This library is responsible for providing compile-time JSON validation and code generation across the automation project. It generates validated JSON structures at compile time using the ast_core crate for AST representation.
+
+It interacts mainly with:
+
+- ast_core library - For AST representation
+- common_json library - For runtime JSON handling
+- Various products - For type-safe JSON generation
+
+## Directory Structure
+
+```
+pjson_proc_macros/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    └── ...
+```
 
 ## Overview
 
