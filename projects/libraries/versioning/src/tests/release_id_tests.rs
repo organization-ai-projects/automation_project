@@ -86,7 +86,7 @@ mod tests {
         let v1 = ReleaseId::build(1, 5, 3);
         let v2 = ReleaseId::build(2, 0, 0);
         let v3 = ReleaseId::build(2, 1, 0);
-        
+
         assert!(v1 < v2);
         assert!(v2 < v3);
         assert!(v1 < v3);

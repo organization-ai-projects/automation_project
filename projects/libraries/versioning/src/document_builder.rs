@@ -29,13 +29,23 @@ impl DocumentBuilder {
 
     fn build_markdown(&self, log: &RevisionLog) -> String {
         let mut output = String::new();
-        
-        writeln!(&mut output, "# Revision History: {}", log.get_project_title()).unwrap();
+
+        writeln!(
+            &mut output,
+            "# Revision History: {}",
+            log.get_project_title()
+        )
+        .unwrap();
         writeln!(&mut output).unwrap();
 
         for entry in log.get_entries() {
             writeln!(&mut output, "## Release {}", entry.get_release()).unwrap();
-            writeln!(&mut output, "**Date**: {}", entry.get_timestamp().format("%Y-%m-%d")).unwrap();
+            writeln!(
+                &mut output,
+                "**Date**: {}",
+                entry.get_timestamp().format("%Y-%m-%d")
+            )
+            .unwrap();
             writeln!(&mut output).unwrap();
 
             if !entry.get_contributors().is_empty() {
@@ -85,15 +95,25 @@ impl DocumentBuilder {
 
     fn build_plain_text(&self, log: &RevisionLog) -> String {
         let mut output = String::new();
-        
-        writeln!(&mut output, "REVISION HISTORY: {}", log.get_project_title().to_uppercase()).unwrap();
+
+        writeln!(
+            &mut output,
+            "REVISION HISTORY: {}",
+            log.get_project_title().to_uppercase()
+        )
+        .unwrap();
         writeln!(&mut output, "{}", "=".repeat(60)).unwrap();
         writeln!(&mut output).unwrap();
 
         for entry in log.get_entries() {
             writeln!(&mut output, "Release {}", entry.get_release()).unwrap();
-            writeln!(&mut output, "Date: {}", entry.get_timestamp().format("%Y-%m-%d")).unwrap();
-            
+            writeln!(
+                &mut output,
+                "Date: {}",
+                entry.get_timestamp().format("%Y-%m-%d")
+            )
+            .unwrap();
+
             if !entry.get_contributors().is_empty() {
                 write!(&mut output, "Contributors: ").unwrap();
                 for (idx, contributor) in entry.get_contributors().iter().enumerate() {
@@ -104,7 +124,7 @@ impl DocumentBuilder {
                 }
                 writeln!(&mut output).unwrap();
             }
-            
+
             writeln!(&mut output).unwrap();
 
             for modification in entry.get_modifications() {

@@ -62,7 +62,7 @@ impl ReleaseId {
     /// Parse from string format "X.Y.Z"
     pub fn parse_str(input: &str) -> Result<Self, ReleaseIdError> {
         let segments: Vec<&str> = input.split('.').collect();
-        
+
         if segments.len() != 3 {
             return Err(ReleaseIdError::InvalidFormat);
         }

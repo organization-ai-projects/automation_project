@@ -19,7 +19,7 @@ impl ReleaseTracker {
     pub fn initialize(project_name: String) -> Self {
         let initial_release = ReleaseId::initial();
         let mut revision_log = RevisionLog::initialize(project_name);
-        
+
         let mut entry = RevisionEntry::create(initial_release, Utc::now());
         entry.append_modification(ModificationEntry::create(
             "Initial release".to_string(),
@@ -75,15 +75,15 @@ impl ReleaseTracker {
 
     fn create_entry(&mut self, modifications: Vec<ModificationEntry>, contributors: Vec<String>) {
         let mut entry = RevisionEntry::create(self.current_release, Utc::now());
-        
+
         for modification in modifications {
             entry.append_modification(modification);
         }
-        
+
         for contributor in contributors {
             entry.append_contributor(contributor);
         }
-        
+
         self.revision_log.append_entry(entry);
     }
 
