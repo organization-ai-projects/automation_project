@@ -27,6 +27,15 @@ watcher/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `tests/`: Tests.
+
+
 ## Overview
 
 Watcher is an **independent supervisor** that runs outside the main system. It monitors core processes and ensures high availability by automatically restarting failed services with exponential backoff.
