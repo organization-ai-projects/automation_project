@@ -3,8 +3,8 @@ mod tests {
     use crate::release_id::ReleaseId;
     use crate::release_tracker::ReleaseTracker;
     use crate::revision_log::{ModificationCategory, ModificationEntry};
+    use std::env;
     use std::fs;
-    use std::path::PathBuf;
 
     #[test]
     fn can_initialize_tracker() {
@@ -101,7 +101,8 @@ mod tests {
 
     #[test]
     fn can_persist_and_load_tracker() {
-        let temp_path = PathBuf::from("/tmp/test_tracker.json");
+        let mut temp_path = env::temp_dir();
+        temp_path.push("test_tracker.json");
 
         let mut tracker = ReleaseTracker::initialize("TestProject".to_string());
         tracker.register_feature_release(
@@ -127,7 +128,8 @@ mod tests {
 
     #[test]
     fn loaded_tracker_preserves_history() {
-        let temp_path = PathBuf::from("/tmp/test_tracker_history.json");
+        let mut temp_path = env::temp_dir();
+        temp_path.push("test_tracker_history.json");
 
         let mut original = ReleaseTracker::initialize("TestProject".to_string());
         original.register_major_release(
