@@ -1,4 +1,4 @@
-# Automation Project
+# Automatic Project
 
 `automation_project` is an advanced automation workspace, designed to orchestrate multiple projects simultaneously with features such as code generation, linting, automated documentation, and workflow orchestration.
 

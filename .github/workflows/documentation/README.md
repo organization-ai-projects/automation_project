@@ -1,4 +1,4 @@
-# Workflows Documentation Documentation
+# Workflows Documentation
 
 This directory contains all documentation related to GitHub Actions workflows used in this repository. The goal is to provide clarity on their purpose, triggers, and steps.
 
