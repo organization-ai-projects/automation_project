@@ -26,6 +26,14 @@ central_ui/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 Central UI is the **main user interface** for the automation platform. It aggregates product UIs by loading their bundles at runtime, providing a unified experience without compile-time dependencies on individual products.
