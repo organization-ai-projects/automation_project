@@ -29,6 +29,14 @@ common_json/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 A custom JSON implementation providing parsing, serialization, deserialization, merging, and comparison utilities. Unlike `serde_json`, this library offers additional features like merge strategies, JSON patching, and builder patterns.
