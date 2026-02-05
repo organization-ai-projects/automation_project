@@ -1,6 +1,6 @@
 # Automatic Project
 
-`automation_project` is an advanced automation workspace, designed to orchestrate multiple projects simultaneously with features such as code generation, linting, automated documentation, and workflow orchestration.
+This directory contains the `automation_project` workspace, designed to orchestrate multiple projects simultaneously with features such as code generation, linting, automated documentation, and workflow orchestration.
 
 ## Role in the Project
 
@@ -21,12 +21,29 @@ It interacts mainly with:
 
 For details, see the architecture doc: `documentation/technical_documentation/ARCHITECTURE.md`.
 
-## Repository structure
+## Directory Structure
 
-- `projects/products/core/`: core binaries (engine, launcher, watcher, central UI).
-- `projects/products/<product>/`: product backends and UI bundles.
-- `projects/libraries/`: shared libraries (protocol, common, security, symbolic, neural, ai).
-- `documentation/`: technical documentation and guides.
+```plaintext
+./
+├── .github/              # GitHub configuration and workflows
+├── documentation/        # Technical documentation and guides
+├── projects/             # Products and libraries
+│   ├── products/         # Product backends and UI bundles
+│   └── libraries/        # Shared libraries (protocol, common, security, ai)
+├── scripts/              # Automation and versioning scripts
+├── CONTRIBUTING.md       # Contribution guidelines
+└── README.md             # This file
+```
+
+## Files
+
+- `README.md`: This file.
+- `CONTRIBUTING.md`: Contribution guidelines.
+- `LICENSE`: Repository license (if present).
+- `.github/`: GitHub configuration and workflows.
+- `documentation/`: Technical documentation and guides.
+- `projects/`: Products and libraries.
+- `scripts/`: Automation and versioning scripts.
 
 Internal documentation is available in the `documentation/` folder. Start with the [Documentation Index](documentation/TOC.md), or jump directly to the [Technical Documentation TOC](documentation/technical_documentation/TOC.md).
 
