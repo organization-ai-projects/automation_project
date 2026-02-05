@@ -24,6 +24,16 @@ feedbacks/
 └── public_api_feedback/   # Public API types
 ```
 
+## Files
+
+- `README.md`: This file.
+- `ai_feedback.rs`: Additional module or asset.
+- `conversions/`: Type conversion modules.
+- `internal/`: Internal types and helpers.
+- `mod.rs`: Module exports.
+- `public_api_feedback/`: Public API feedback types.
+
+
 ## Feedback Semantics
 
 This module defines feedback data used for training and evaluation. The meanings

@@ -25,6 +25,17 @@ conversions/
 └── tests/                         # Conversion tests
 ```
 
+## Files
+
+- `README.md`: This file.
+- `feedback_input/`: FeedbackInput conversions.
+- `feedback_verdict/`: FeedbackVerdict conversions.
+- `internal_feedback_meta/`: InternalFeedbackMeta conversions.
+- `internal_feedback_verdict/`: InternalFeedbackVerdict conversions.
+- `mod.rs`: Module exports.
+- `tests/`: Tests.
+
+
 ## Conventions
 
 This folder contains the implementations of conversions between different types used in the project. To maintain clear and consistent organization, the following conventions have been adopted:

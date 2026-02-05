@@ -27,6 +27,14 @@ ai/
     └── ...
 ```
 
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
 ## Overview
 
 The `ai` library provides a high-level API through the `AiBody` struct, which orchestrates neural and symbolic solvers to handle various AI tasks such as code generation, analysis, and refactoring.
