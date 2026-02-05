@@ -12,16 +12,6 @@ It interacts mainly with:
 - Git command-line interface
 - String manipulation and validation
 
-## Role in the Project
-
-This directory is responsible for providing reusable utility functions and abstractions that standardize common operations across all scripts.
-It interacts mainly with:
-
-- All automation and versioning scripts
-- Core system utilities (logging, file operations, network)
-- Git command-line interface
-- String manipulation and validation
-
 ## Directory Structure
 
 ```plaintext

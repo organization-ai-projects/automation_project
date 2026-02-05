@@ -13,17 +13,6 @@ It interacts mainly with:
 - Commit message conventions
 - Changed file detection system
 
-## Role in the Project
-
-This directory is responsible for enforcing code quality and commit standards through automated validation at key points in the git workflow.
-It interacts mainly with:
-
-- Git commit and push workflow
-- Cargo formatting and linting tools
-- Test infrastructure
-- Commit message conventions
-- Changed file detection system
-
 ## Directory Structure
 
 ```plaintext

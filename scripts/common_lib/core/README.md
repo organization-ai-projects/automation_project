@@ -12,16 +12,6 @@ It interacts mainly with:
 - File system operations
 - Network resources
 
-## Role in the Project
-
-This directory is responsible for providing foundational utility functions that are generic and cross-cutting, supporting all scripts with consistent logging, command execution, file operations, string manipulation, and network utilities.
-It interacts mainly with:
-
-- All automation and versioning scripts
-- System commands and shell utilities
-- File system operations
-- Network resources
-
 ## Directory Structure
 
 ```plaintext

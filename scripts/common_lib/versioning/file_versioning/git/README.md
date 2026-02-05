@@ -13,17 +13,6 @@ It interacts mainly with:
 - Local and remote branches
 - Commit history
 
-## Role in the Project
-
-This directory is responsible for providing low-level Git operation abstractions that encapsulate common repository tasks, branch management, working tree validation, commit operations, staging operations, and synchronization utilities.
-It interacts mainly with:
-
-- Git command-line interface
-- Repository state and configuration
-- Working tree and staging area
-- Local and remote branches
-- Commit history
-
 ## Directory Structure
 
 ```plaintext

@@ -12,16 +12,6 @@ It interacts mainly with:
 - Repository state and history
 - Staging area and working tree
 
-## Role in the Project
-
-This directory is responsible for providing utilities that abstract Git operations for file-level version control, including repository validation, branch management, working tree state, commit operations, and synchronization.
-It interacts mainly with:
-
-- Git command-line interface
-- Version control workflows and orchestrators
-- Repository state and history
-- Staging area and working tree
-
 ## Directory Structure
 
 ```plaintext
