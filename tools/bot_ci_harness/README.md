@@ -1,6 +1,15 @@
 # Bot CI Harness (local)
 
-This harness tests the CI script for syncing main→dev **without act**, **without GitHub**, by mocking `gh`.
+This directory contains a local harness that tests the CI script for syncing main→dev **without act**, **without GitHub**, by mocking `gh`.
+
+## Role in the Project
+
+This harness is responsible for validating the sync automation logic in a controlled, repeatable environment without external dependencies.
+It interacts mainly with:
+
+- Sync scripts under `scripts/versioning/file_versioning/orchestrators/read/`
+- Mocked GitHub CLI behaviors
+- Scenario definitions in `scenarios/`
 
 ## Run all tests
 
@@ -28,12 +37,14 @@ Create a file `tools/bot_ci_harness/scenarios/XX_name.env` with:
 - BACKGROUND_DEV_COMMIT_MSG (optional)
 - STABLE_TIMEOUT_SECS (optional, e.g., 5)
 
-## Architecture
+## Directory Structure
 
 ```plaintext
 tools/bot_ci_harness/
 ├── README.md
 ├── run_all.sh              # Main runner
+├── run_failfast.sh         # Stop on first failure
+├── run_parallel.sh         # Run scenarios in parallel
 ├── lib/
 │   ├── assert.sh           # Assertion functions
 │   └── git_sandbox.sh      # Temporary git repo creation
@@ -51,7 +62,20 @@ tools/bot_ci_harness/
 │   ├── 09_dev_advances_midrun.env
 │   └── 10_stable_timeout.env
 ├── scenario_generator.sh   # Scenario generator script
+└── show_timing.sh           # Display scenario timing summary
 ```
+
+## Files
+
+- `README.md`: This file.
+- `run_all.sh`: Main runner.
+- `run_failfast.sh`: Stop on first failure.
+- `run_parallel.sh`: Run scenarios in parallel.
+- `show_timing.sh`: Display scenario timing summary.
+- `scenario_generator.sh`: Scenario generator script.
+- `lib/`: Assertion and sandbox helpers.
+- `mocks/`: Mocked external commands.
+- `scenarios/`: Scenario definitions.
 
 ## Covered scenarios
 
