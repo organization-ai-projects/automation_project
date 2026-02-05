@@ -20,6 +20,11 @@ versioning/
     └── git/             # Git-specific operations
 ```
 
+## Files
+
+- `README.md`: This file.
+- `file_versioning/`: Utilities for file-level version control.
+
 ## Scope
 
 Utilities here support version control operations:

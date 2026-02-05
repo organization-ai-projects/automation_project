@@ -33,6 +33,12 @@ common_lib/
             └── working_tree.sh         # Working tree state
 ```
 
+## Files
+
+- `README.md`: This file.
+- `core/`: Core utilities for all scripts.
+- `versioning/`: Version control utilities.
+
 ## Organization Principle
 
 Utility libraries are organized by **scope and tool**:

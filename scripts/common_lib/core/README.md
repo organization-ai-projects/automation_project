@@ -23,6 +23,15 @@ core/
 └── string_utils.sh      # String manipulation utilities
 ```
 
+## Files
+
+- `README.md`: This file.
+- `command.sh`: Command execution and validation utilities.
+- `file_operations.sh`: File and directory operation utilities.
+- `logging.sh`: Core logging functions.
+- `network_utils.sh`: Network-related utilities.
+- `string_utils.sh`: String manipulation utilities.
+
 ## Scope
 
 This directory contains foundational utilities that:

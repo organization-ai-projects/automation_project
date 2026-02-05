@@ -1,6 +1,6 @@
 # Read-Only Orchestrator Components Documentation
 
-These are **internal scripts** called by executable orchestrators. They are not meant to be run directly, but you can if you understand what they do.
+This directory contains **internal scripts** called by executable orchestrators. They are not meant to be run directly, but you can if you understand what they do.
 
 ## Role in the Project
 
@@ -22,6 +22,14 @@ read/
 ├── create_pr.sh               # Create pull requests
 └── synch_main_dev_ci.sh       # Automated dev/main sync (bot-only)
 ```
+
+## Files
+
+- `README.md`: This file.
+- `TOC.md`: Documentation index for read orchestrators.
+- `check_priority_issues.sh`: Lists priority/security issues.
+- `create_pr.sh`: Creates pull requests.
+- `synch_main_dev_ci.sh`: Automates dev/main sync (bot-only).
 
 ## Scripts
 

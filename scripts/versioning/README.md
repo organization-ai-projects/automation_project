@@ -26,6 +26,12 @@ versioning/
     └── Root level scripts    # Hybrid git + GitHub operations
 ```
 
+## Files
+
+- `README.md`: This file.
+- `TOC.md`: Documentation index for versioning scripts.
+- `file_versioning/`: Version control workflows.
+
 ## Scope
 
 Scripts here handle:

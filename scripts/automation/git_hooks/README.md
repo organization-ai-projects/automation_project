@@ -1,6 +1,6 @@
 # Git Hooks Documentation
 
-Custom git hooks to ensure code and commit quality.
+This directory contains custom git hooks to ensure code and commit quality.
 
 ## Role in the Project
 
@@ -22,6 +22,14 @@ git_hooks/
 ├── pre-push            # Runs quality checks before push
 └── install_hooks.sh    # Installs git hooks to .git/hooks/
 ```
+
+## Files
+
+- `README.md`: This file.
+- `commit-msg`: Validates commit message format.
+- `pre-commit`: Runs formatting before commit.
+- `pre-push`: Runs quality checks before push.
+- `install_hooks.sh`: Installs hooks to `.git/hooks/`.
 
 ## Available hooks
 

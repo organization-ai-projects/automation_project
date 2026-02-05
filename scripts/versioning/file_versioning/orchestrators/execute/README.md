@@ -1,6 +1,6 @@
 # Executable Orchestrators Documentation
 
-These scripts are the **main entry points** you run directly from the command line. Each orchestrates a complete workflow.
+This directory contains the **main entry point** scripts you run directly from the command line. Each orchestrates a complete workflow.
 
 ## Role in the Project
 
@@ -22,6 +22,14 @@ execute/
 ├── ci_watch_pr.sh             # Monitor PR CI status
 └── labels_sync.sh             # Sync repository labels
 ```
+
+## Files
+
+- `README.md`: This file.
+- `TOC.md`: Documentation index for execute orchestrators.
+- `start_work.sh`: Primary workflow for starting work.
+- `ci_watch_pr.sh`: Monitor PR CI status.
+- `labels_sync.sh`: Sync repository labels.
 
 ## Scripts
 

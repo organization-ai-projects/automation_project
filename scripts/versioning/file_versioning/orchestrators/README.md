@@ -28,6 +28,13 @@ orchestrators/
     └── create_pr.sh            # Create pull requests
 ```
 
+## Files
+
+- `README.md`: This file.
+- `TOC.md`: Documentation index for orchestrators.
+- `execute/`: Interactive orchestrators (UI layer).
+- `read/`: Non-interactive orchestrators (API layer).
+
 ## Architecture: Execute vs Read
 
 We split orchestrators into two categories based on **how they're used**:

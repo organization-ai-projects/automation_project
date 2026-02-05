@@ -25,6 +25,11 @@ file_versioning/
     └── working_tree.sh    # Working tree state
 ```
 
+## Files
+
+- `README.md`: This file.
+- `git/`: Pure git operation utilities.
+
 ## Scope
 
 Utilities here support:

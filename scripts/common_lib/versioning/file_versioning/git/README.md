@@ -25,6 +25,16 @@ git/
 └── working_tree.sh     # Working tree state validation
 ```
 
+## Files
+
+- `README.md`: This file.
+- `branch.sh`: Branch management utilities.
+- `commit.sh`: Commit operations.
+- `repo.sh`: Repository validation utilities.
+- `staging.sh`: Staging/index operations.
+- `synch.sh`: Synchronization utilities.
+- `working_tree.sh`: Working tree state validation.
+
 ## Scope
 
 This directory contains foundational git functions used by other scripts:

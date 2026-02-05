@@ -38,6 +38,25 @@ automation/
 └── test_coverage.sh                # Generate test coverage reports
 ```
 
+## Files
+
+- `README.md`: This file.
+- `git_hooks/`: Git hooks for commit validation and pre-push checks.
+- `audit_security.sh`: Security audit on dependencies.
+- `build_accounts_ui.sh`: Build accounts UI bundle.
+- `build_and_check_ui_bundles.sh`: Build and verify artifacts.
+- `build_ui_bundles.sh`: Discover and build all UI bundles.
+- `changed_crates.sh`: List crates touched in a diff.
+- `check_dependencies.sh`: Check for outdated/missing dependencies.
+- `check_merge_conflicts.sh`: Test merge for conflicts.
+- `clean_artifacts.sh`: Clean build artifacts.
+- `pre_add_review.sh`: Pre-add internal review.
+- `pre_push_check.sh`: Pre-push validation.
+- `release_prepare.sh`: Prepare releases with version/changelog/tag.
+- `setup_hooks.sh`: Install git hooks.
+- `sync_docs.sh`: Documentation synchronization (placeholder).
+- `test_coverage.sh`: Generate test coverage reports.
+
 ## Adding New Automation Scripts
 
 When adding a new automation script:

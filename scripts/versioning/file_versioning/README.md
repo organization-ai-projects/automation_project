@@ -36,6 +36,14 @@ file_versioning/
 └── github/                     # GitHub-only operations (reserved, empty)
 ```
 
+## Files
+
+- `README.md`: This file.
+- `TOC.md`: Documentation index for file versioning scripts.
+- `orchestrators/`: Workflow orchestration scripts.
+- `git/`: Pure git operation scripts.
+- `github/`: GitHub-only operations (reserved).
+
 ## Architecture: Execute vs Read
 
 Scripts are organized into two clear categories for maximum clarity:

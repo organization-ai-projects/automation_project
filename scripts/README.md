@@ -23,6 +23,14 @@ scripts/
 └── README.md         # This file
 ```
 
+## Files
+
+- `README.md`: This file.
+- `TOC.md`: Documentation index for scripts.
+- `automation/`: Project-wide automation scripts.
+- `common_lib/`: Reusable script libraries.
+- `versioning/`: Version control workflows.
+
 ## Organization Principle
 
 Scripts are organized by **what they do** (responsibility), not by the tools they use:
