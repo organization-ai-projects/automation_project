@@ -1,6 +1,27 @@
-# Read-Only Orchestrator Components
+# Read-Only Orchestrator Components Documentation
 
 These are **internal scripts** called by executable orchestrators. They are not meant to be run directly, but you can if you understand what they do.
+
+## Role in the Project
+
+This directory is responsible for providing non-interactive, composable components that implement business logic for version control workflows.
+It interacts mainly with:
+
+- Execute orchestrators (called by scripts in `../execute/`)
+- Git utilities (in `../../git/` directory)
+- GitHub API (via `gh` CLI for PRs, issues)
+- CI/CD workflows (bot automation for synchronization)
+
+## Directory Structure
+
+```
+read/
+├── README.md (this file)
+├── TOC.md
+├── synch_main_dev_ci.sh       # Automated dev/main sync (bot-only)
+├── check_priority_issues.sh   # List priority/security issues
+└── create_pr.sh               # Create pull requests
+```
 
 ## Scripts
 

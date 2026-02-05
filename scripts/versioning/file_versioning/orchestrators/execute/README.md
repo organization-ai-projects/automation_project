@@ -1,6 +1,27 @@
-# Executable Orchestrators
+# Executable Orchestrators Documentation
 
 These scripts are the **main entry points** you run directly from the command line. Each orchestrates a complete workflow.
+
+## Role in the Project
+
+This directory is responsible for providing interactive, user-facing workflows that guide developers through common version control tasks.
+It interacts mainly with:
+
+- Developers (via interactive prompts and guidance)
+- Read orchestrators (in `../read/` directory)
+- Git utilities (in `../../git/` directory)
+- GitHub API (via `gh` CLI)
+
+## Directory Structure
+
+```
+execute/
+├── README.md (this file)
+├── TOC.md
+├── start_work.sh              # Primary workflow for starting work
+├── ci_watch_pr.sh             # Monitor PR CI status
+└── labels_sync.sh             # Sync repository labels
+```
 
 ## Scripts
 

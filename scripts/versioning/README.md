@@ -1,6 +1,30 @@
-# Versioning Scripts
+# Versioning Documentation
 
 This directory contains scripts for managing versions at different levels.
+
+## Role in the Project
+
+This directory is responsible for version management across file-level and system-level operations.
+It interacts mainly with:
+
+- Git repositories (local and remote operations)
+- GitHub APIs (via `gh` CLI)
+- CI/CD workflows (automated synchronization and PR management)
+
+## Directory Structure
+
+```
+versioning/
+├── README.md (this file)
+├── TOC.md
+└── file_versioning/          # Version control workflows
+    ├── git/                  # Pure git operations
+    ├── github/               # GitHub CLI operations (reserved)
+    ├── orchestrators/        # Workflow orchestration
+    │   ├── execute/          # Interactive entry points
+    │   └── read/             # Non-interactive components
+    └── Root level scripts    # Hybrid git + GitHub operations
+```
 
 ## Scope
 

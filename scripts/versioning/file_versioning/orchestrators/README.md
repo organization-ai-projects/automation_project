@@ -1,6 +1,32 @@
-# Orchestrators
+# Orchestrators Documentation
 
 This directory contains orchestrator scripts organized by execution mode and interactivity.
+
+## Role in the Project
+
+This directory is responsible for orchestrating complete workflows by coordinating git operations, GitHub API calls, and user interactions.
+It interacts mainly with:
+
+- Git utility scripts (in `git/` directory)
+- GitHub API (via `gh` CLI)
+- Developers (interactive prompts and guidance)
+- CI/CD automation (bot-triggered synchronization)
+
+## Directory Structure
+
+```
+orchestrators/
+├── README.md (this file)
+├── TOC.md
+├── execute/                    # Interactive orchestrators (UI layer)
+│   ├── start_work.sh           # Main workflow for starting work
+│   ├── ci_watch_pr.sh          # Monitor PR CI status
+│   └── labels_sync.sh          # Sync repository labels
+└── read/                       # Non-interactive orchestrators (API layer)
+    ├── synch_main_dev_ci.sh    # Automated dev/main sync (bot-only)
+    ├── check_priority_issues.sh # List priority/security issues
+    └── create_pr.sh            # Create pull requests
+```
 
 ## Architecture: Execute vs Read
 
