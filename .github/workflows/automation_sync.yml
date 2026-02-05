@@ -1,0 +1,45 @@
+name: Automation - Sync main to dev
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: sync-main-to-dev
+  cancel-in-progress: false
+
+jobs:
+  sync-main-to-dev:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.BOT_APP_ID }}
+          private_key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+      - name: Export tokens
+        run: |
+          echo "APP_GH_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_ENV
+          echo "GH_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_ENV
+
+      - name: Run sync script
+        run: |
+          chmod +x scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh
+          scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh
