@@ -37,6 +37,7 @@ const E_INNER_PAYLOAD_MISSING: i32 = 1102;
 const E_PAYLOAD_JSON_INVALID: i32 = 1103;
 
 const E_HANDLER_FAILED: i32 = 1200;
+#[allow(dead_code)]
 const E_AUTOPILOT_FAILED: i32 = 1300;
 
 const E_SERIALIZE_MESSAGE: i32 = 1400;
@@ -284,4 +285,160 @@ fn err(cmd: &Command, http_code: u16, desc: &str, code: i32, msg: &str) -> Comma
 /// Strongly recommended: derive Clone on Metadata in protocol.
 fn meta(cmd: &Command) -> Metadata {
     cmd.metadata.clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use common_json::to_value;
+    use protocol::{CommandType, ProtocolId};
+
+    fn create_test_metadata() -> Metadata {
+        Metadata {
+            request_id: ProtocolId::default(),
+            job_id: None,
+            product_id: None,
+            client_id: None,
+            timestamp_ms: None,
+            schema_version: None,
+        }
+    }
+
+    #[test]
+    fn test_run_git_autopilot_with_invalid_path() {
+        let req = RunRequest {
+            request_id: ProtocolId::default(),
+            repo_path: Some("/etc/../../../etc/passwd".to_string()),
+        };
+
+        let result = run_git_autopilot(req);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Path traversal"));
+    }
+
+    #[test]
+    fn test_run_git_autopilot_with_empty_path() {
+        let req = RunRequest {
+            request_id: ProtocolId::default(),
+            repo_path: Some("".to_string()),
+        };
+
+        let result = run_git_autopilot(req);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_run_git_autopilot_with_non_whitelisted_path() {
+        let req = RunRequest {
+            request_id: ProtocolId::default(),
+            repo_path: Some("/etc/config".to_string()),
+        };
+
+        let result = run_git_autopilot(req);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not in the whitelist"));
+    }
+
+    #[test]
+    fn test_run_git_autopilot_with_no_path_uses_fallback() {
+        let req = RunRequest {
+            request_id: ProtocolId::default(),
+            repo_path: None,
+        };
+
+        // This should not fail validation since it uses the fallback
+        // The actual autopilot execution might fail, but not due to validation
+        let result = run_git_autopilot(req);
+        // We expect either success or an autopilot error (not a validation error)
+        if let Err(e) = result {
+            // Should not be a validation error
+            assert!(!e.contains("Path traversal"));
+            assert!(!e.contains("not in the whitelist"));
+            assert!(!e.contains("cannot be empty"));
+        }
+    }
+
+    #[test]
+    fn test_handle_command_with_missing_action() {
+        let cmd = Command {
+            metadata: create_test_metadata(),
+            command_type: CommandType::Execute,
+            action: None,
+            payload: None,
+        };
+
+        let response = handle_command(cmd);
+        assert_eq!(response.status.code, 400);
+        assert!(response.error.is_some());
+        let error = response.error.unwrap();
+        assert_eq!(error.code, E_ACTION_MISSING);
+    }
+
+    #[test]
+    fn test_handle_command_with_empty_action() {
+        let cmd = Command {
+            metadata: create_test_metadata(),
+            command_type: CommandType::Execute,
+            action: Some("   ".to_string()),
+            payload: None,
+        };
+
+        let response = handle_command(cmd);
+        assert_eq!(response.status.code, 400);
+        assert!(response.error.is_some());
+        let error = response.error.unwrap();
+        assert_eq!(error.code, E_ACTION_MISSING);
+    }
+
+    #[test]
+    fn test_handle_command_with_unsupported_action() {
+        let cmd = Command {
+            metadata: create_test_metadata(),
+            command_type: CommandType::Execute,
+            action: Some("unsupported.action".to_string()),
+            payload: None,
+        };
+
+        let response = handle_command(cmd);
+        assert_eq!(response.status.code, 404);
+        assert!(response.error.is_some());
+        let error = response.error.unwrap();
+        assert_eq!(error.code, E_ACTION_UNSUPPORTED);
+    }
+
+    #[test]
+    fn test_handle_command_with_missing_payload() {
+        let cmd = Command {
+            metadata: create_test_metadata(),
+            command_type: CommandType::Execute,
+            action: Some(ACTION_GIT_AUTOPILOT_PREVIEW.to_string()),
+            payload: None,
+        };
+
+        let response = handle_command(cmd);
+        assert_eq!(response.status.code, 400);
+        assert!(response.error.is_some());
+        let error = response.error.unwrap();
+        assert_eq!(error.code, E_PAYLOAD_MISSING);
+    }
+
+    #[test]
+    fn test_handle_command_with_invalid_payload_type() {
+        let cmd = Command {
+            metadata: create_test_metadata(),
+            command_type: CommandType::Execute,
+            action: Some(ACTION_GIT_AUTOPILOT_PREVIEW.to_string()),
+            payload: Some(Payload {
+                payload_type: Some("invalid/type".to_string()),
+                payload: Some(to_value(&"{}").unwrap()),
+            }),
+        };
+
+        let response = handle_command(cmd);
+        assert_eq!(response.status.code, 415);
+        assert!(response.error.is_some());
+        let error = response.error.unwrap();
+        assert_eq!(error.code, E_PAYLOAD_TYPE_INVALID);
+    }
 }
