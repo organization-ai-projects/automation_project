@@ -69,8 +69,7 @@ else
   
   cd "$ROOT_DIR"
   if ! cargo test --workspace; then
-    die "❌ Tests failed. Please fix test failures before creating a PR.
-Use --skip-tests to bypass this check (not recommended)."
+    die "❌ Tests failed. Please fix test failures before creating a PR. Use --skip-tests to bypass this check (not recommended)."
   fi
   
   info "✓ All tests passed."
