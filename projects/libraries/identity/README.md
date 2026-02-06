@@ -1,6 +1,38 @@
-# Identity Library
+# Identity Library Documentation
 
-User identity primitives and in-memory storage for `automation_project`.
+This directory contains user identity primitives and in-memory storage for the automation project.
+
+## Role in the Project
+
+This library is responsible for user identity and storage concerns. It provides user-related types and in-memory storage without mixing into the security crate, while relying on security for password hashing and role definitions.
+
+It interacts mainly with:
+
+- Security library - For password hashing and role definitions
+- Common library - For ID types
+- Protocol library - For ProtocolId
+- Products - For user management
+
+## Directory Structure
+
+```
+identity/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+└── src/               # Source code
+    ├── lib.rs
+    ├── user_id.rs
+    ├── store.rs
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `src/`: Source code.
+- `tests/`: Tests.
+
 
 ## Overview
 

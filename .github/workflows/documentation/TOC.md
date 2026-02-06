@@ -1,6 +1,6 @@
 # Table of Contents
 
-This document provides an overview of all workflow documentation files in this directory.
+This document provides an overview of all documentation files in this directory.
 
 ## CI Workflows
 

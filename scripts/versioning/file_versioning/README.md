@@ -1,6 +1,48 @@
-# File Versioning Scripts
+# File Versioning Documentation
 
 This directory contains scripts for version control workflows, branch management, and GitHub operations.
+
+## Role in the Project
+
+This directory is responsible for managing version control workflows including branch operations, pull request automation, and repository synchronization.
+It interacts mainly with:
+
+- Git repositories (local branch management, commits, pushes)
+- GitHub API (via `gh` CLI for PRs, issues, labels)
+- CI/CD workflows (automated dev/main synchronization)
+- Repository developers (interactive workflow orchestration)
+
+## Directory Structure
+
+```
+file_versioning/
+├── README.md (this file)
+├── TOC.md
+├── orchestrators/              # Workflow orchestration
+│   ├── execute/                # Interactive entry points (user-facing)
+│   │   ├── start_work.sh       # Main workflow: sync, issues, branch
+│   │   ├── ci_watch_pr.sh      # Monitor PR CI status
+│   │   └── labels_sync.sh      # Sync repository labels
+│   └── read/                   # Non-interactive components (API layer)
+│       ├── synch_main_dev_ci.sh  # Bot automation for dev sync
+│       ├── check_priority_issues.sh  # List priority issues
+│       └── create_pr.sh        # Create pull requests
+├── git/                        # Pure git operations (10 scripts)
+│   ├── create_branch.sh        # Create branches with validation
+│   ├── delete_branch.sh        # Delete branches
+│   ├── push_branch.sh          # Push branches
+│   ├── clean_branches.sh       # Clean obsolete branches
+│   └── ...                     # Additional git utilities
+└── github/                     # GitHub-only operations (reserved, empty)
+```
+
+## Files
+
+- `README.md`: This file.
+- `TOC.md`: Documentation index for file versioning scripts.
+- `orchestrators/`: Workflow orchestration scripts.
+- `git/`: Pure git operation scripts.
+- `github/`: GitHub-only operations (reserved).
 
 ## Architecture: Execute vs Read
 

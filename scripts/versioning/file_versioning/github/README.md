@@ -1,6 +1,29 @@
-# GitHub Scripts
+# GitHub Scripts Documentation
 
-This directory is reserved for scripts that use **only** the `gh` (GitHub CLI) tool.
+This directory contains scripts that use **only** the `gh` (GitHub CLI) tool.
+
+## Role in the Project
+
+This directory is reserved for pure GitHub platform operations that don't require git commands.
+It interacts mainly with:
+
+- GitHub API (via `gh` CLI)
+- Repository settings and configurations
+- GitHub Actions workflows
+- Organization and team management
+
+## Directory Structure
+
+```
+github/
+├── README.md (this file)
+└── TOC.md
+```
+
+## Files
+
+- `README.md`: This file.
+- `TOC.md`: Documentation index for GitHub-only scripts.
 
 ## Scope
 

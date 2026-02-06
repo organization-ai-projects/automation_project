@@ -1,6 +1,43 @@
-# Hybrid Arena Library
+# Hybrid Arena Library Documentation
 
-High-performance arena allocators for `automation_project`.
+This directory contains high-performance arena allocators for the automation project.
+
+## Role in the Project
+
+This library is responsible for providing efficient memory allocation strategies for the automation project. It offers two arena allocator types optimized for different use cases: BumpArena for append-only allocation and SlotArena for generational allocation with removal support.
+
+It interacts mainly with:
+
+- AI library - For memory management
+- Symbolic library - For AST node allocation
+- Various products - For entity management
+
+## Directory Structure
+
+```
+hybrid_arena/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   ├── TOC.md
+│   ├── bump_arena.md
+│   ├── slot_arena.md
+│   └── hybrid_arena.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── bump.rs
+    ├── slot.rs
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `benches/`: Benchmarks.
+
 
 ## Overview
 

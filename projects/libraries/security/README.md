@@ -1,6 +1,41 @@
-# Security Library
+# Security Library Documentation
 
-Role-based access control (RBAC) and token authentication for `automation_project`.
+This directory contains role-based access control (RBAC) and token authentication for the automation project.
+
+## Role in the Project
+
+This library is responsible for security primitives across the automation project. It provides roles, permissions, token-based authentication, and password hashing. User management and storage are intentionally out of scope (handled by the identity crate).
+
+It interacts mainly with:
+
+- Identity library - For user management
+- Protocol library - For ProtocolId types
+- Engine product - For authorization enforcement
+- All products - For authentication and authorization
+
+## Directory Structure
+
+```
+security/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── role.rs
+    ├── permission.rs
+    ├── token.rs
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
 
 ## Overview
 

@@ -1,4 +1,8 @@
-# Common Documentation Index
+# Table of Contents
 
-- [Back to common README](../README.md)
-- [Custom UUID](custom_uuid.md)
+This document provides an overview of all documentation files in this directory.
+
+## Reference
+
+- [Back to common README](../README.md): Main library documentation
+- [Custom UUID](custom_uuid.md): Custom UUID implementation documentation

@@ -1,6 +1,34 @@
-# File Versioning Utilities
+# File Versioning Utilities Documentation
 
 This directory contains reusable utilities for file-level version control workflows.
+
+## Role in the Project
+
+This directory is responsible for providing utilities that abstract Git operations for file-level version control, including repository validation, branch management, working tree state, commit operations, and synchronization.
+It interacts mainly with:
+
+- Git command-line interface
+- Version control workflows and orchestrators
+- Repository state and history
+- Staging area and working tree
+
+## Directory Structure
+
+```plaintext
+file_versioning/
+└── git/                   # Pure git operation utilities
+    ├── branch.sh          # Branch management
+    ├── commit.sh          # Commit operations
+    ├── repo.sh            # Repository validation
+    ├── staging.sh         # Staging/index operations
+    ├── synch.sh           # Synchronization utilities
+    └── working_tree.sh    # Working tree state
+```
+
+## Files
+
+- `README.md`: This file.
+- `git/`: Pure git operation utilities.
 
 ## Scope
 

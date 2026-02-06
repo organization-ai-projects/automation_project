@@ -1,4 +1,42 @@
-# Conventions for Conversions
+# Conversions Documentation
+
+This directory contains implementations of conversions between different types used in the AI library feedback system.
+
+## Role in the Project
+
+This module is responsible for centralizing all type conversions between different domains (public ↔ internal, public ↔ symbolic, etc.) in the feedback system. It ensures consistent and maintainable conversion logic across the AI library.
+
+It interacts mainly with:
+
+- Public API feedback types
+- Internal feedback types
+- Symbolic feedback types
+
+## Directory Structure
+
+```
+conversions/
+├── README.md                      # This file
+├── mod.rs                         # Module exports
+├── feedback_input/                # FeedbackInput conversions
+├── feedback_verdict/              # FeedbackVerdict conversions
+├── internal_feedback_meta/        # InternalFeedbackMeta conversions
+├── internal_feedback_verdict/     # InternalFeedbackVerdict conversions
+└── tests/                         # Conversion tests
+```
+
+## Files
+
+- `README.md`: This file.
+- `feedback_input/`: FeedbackInput conversions.
+- `feedback_verdict/`: FeedbackVerdict conversions.
+- `internal_feedback_meta/`: InternalFeedbackMeta conversions.
+- `internal_feedback_verdict/`: InternalFeedbackVerdict conversions.
+- `mod.rs`: Module exports.
+- `tests/`: Tests.
+
+
+## Conventions
 
 This folder contains the implementations of conversions between different types used in the project. To maintain clear and consistent organization, the following conventions have been adopted:
 
