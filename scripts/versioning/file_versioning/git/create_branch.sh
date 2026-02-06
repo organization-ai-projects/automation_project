@@ -43,7 +43,8 @@ if string_contains "$BRANCH_NAME" " "; then
 fi
 
 # Validate branch naming convention
-ALLOWED_PREFIXES=("feature/" "feat/" "fix/" "fixture/" "doc/" "docs/" "refactor/" "test/" "tests/" "chore/")
+# Prefixes documented in CONTRIBUTING.md, with common plural variants
+ALLOWED_PREFIXES=("feat/" "fix/" "doc/" "docs/" "refactor/" "test/" "tests/" "chore/")
 has_valid_prefix=false
 for prefix in "${ALLOWED_PREFIXES[@]}"; do
   if [[ "$BRANCH_NAME" == "$prefix"* ]]; then
@@ -53,7 +54,17 @@ for prefix in "${ALLOWED_PREFIXES[@]}"; do
 done
 
 if [[ "$has_valid_prefix" == false ]]; then
-  die "Invalid branch name: must start with one of: ${ALLOWED_PREFIXES[*]}"
+  error "Invalid branch name: '$BRANCH_NAME'"
+  error "Branch names must start with one of: ${ALLOWED_PREFIXES[*]}"
+  error ""
+  error "Examples:"
+  error "  - feat/user-authentication"
+  error "  - fix/json-parser-panic"
+  error "  - doc/update-api-docs"
+  error "  - refactor/simplify-error-handling"
+  error "  - test/add-integration-tests"
+  error "  - chore/update-dependencies"
+  die ""
 fi
 
 info "Creating branch: $BRANCH_NAME (base: $BASE_BRANCH)"

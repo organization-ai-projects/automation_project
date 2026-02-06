@@ -17,7 +17,7 @@ It interacts mainly with:
 git/
 ├── README.md (this file)
 ├── TOC.md
-├── create_branch.sh           # Create branches with validation
+├── create_branch.sh           # Create branches with naming validation (enforced)
 ├── delete_branch.sh           # Delete branches
 ├── push_branch.sh             # Push branches to remote
 ├── clean_branches.sh          # Clean obsolete branches
@@ -33,7 +33,7 @@ git/
 
 - `README.md`: This file.
 - `TOC.md`: Documentation index for git scripts.
-- `create_branch.sh`: Create branches with validation.
+- `create_branch.sh`: Create branches with enforced naming validation.
 - `delete_branch.sh`: Delete branches.
 - `push_branch.sh`: Push branches to remote.
 - `clean_branches.sh`: Clean obsolete branches.
