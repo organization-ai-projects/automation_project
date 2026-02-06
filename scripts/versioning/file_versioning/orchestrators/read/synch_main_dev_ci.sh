@@ -34,6 +34,21 @@ SYNC_BRANCH="sync/main-into-dev"
 # Fetch branches
 git fetch "$REMOTE"
 
+# Check if dev is already up to date with main
+MAIN_SHA=$(git rev-parse "$REMOTE/$MAIN")
+DEV_SHA=$(git rev-parse "$REMOTE/$DEV")
+
+if [[ "$MAIN_SHA" == "$DEV_SHA" ]]; then
+  info "ℹ️ No sync needed - dev is already up to date with main"
+  exit 0
+fi
+
+# Check if dev is ahead of main (meaning all main commits are in dev)
+if git merge-base --is-ancestor "$REMOTE/$MAIN" "$REMOTE/$DEV" 2>/dev/null; then
+  info "ℹ️ No sync needed - dev already contains all commits from main"
+  exit 0
+fi
+
 # Clean up existing sync branch if it exists
 if git show-ref --verify --quiet "refs/heads/$SYNC_BRANCH"; then
   info "Removing existing local sync branch..."
@@ -93,6 +108,15 @@ while true; do
 
   sleep 5
 done
+
+# Check if PR is actually mergeable
+if [[ "$MERGEABLE" == "CONFLICTING" ]]; then
+  echo "❌ PR has merge conflicts. Cannot proceed with auto-merge." >&2
+  exit 1
+elif [[ "$MERGEABLE" != "MERGEABLE" ]]; then
+  echo "❌ PR is not mergeable (status: $MERGEABLE). Cannot proceed with auto-merge." >&2
+  exit 1
+fi
 
 # Enable auto-merge
 gh pr merge "$PR_URL" --auto --merge
