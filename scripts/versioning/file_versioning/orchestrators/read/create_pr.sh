@@ -66,12 +66,10 @@ if [[ "$SKIP_TESTS" == true ]]; then
 else
   info "Running workspace tests before creating PR..."
   info "To skip this check, use --skip-tests flag (not recommended)."
-  
   cd "$ROOT_DIR"
   if ! cargo test --workspace; then
     die "❌ Tests failed. Please fix test failures before creating a PR. Use --skip-tests to bypass this check (not recommended)."
   fi
-  
   info "✓ All tests passed."
 fi
 
