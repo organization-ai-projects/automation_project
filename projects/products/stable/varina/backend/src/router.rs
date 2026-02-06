@@ -11,6 +11,7 @@ use protocol::{
 use crate::automation::run_git_autopilot_in_repo;
 use crate::autopilot::{AutopilotMode, AutopilotPolicy};
 use crate::autopilot::{handle_apply_git_autopilot, handle_preview_git_autopilot};
+use crate::handler_error::HandlerError;
 use crate::repo_path_validator::RepoPathValidator;
 
 // ---------- Routing constants (future proof) ----------
@@ -26,6 +27,7 @@ const PAYLOAD_TYPE_RUN_V1: &str = "git_autopilot/run/v1";
 // Response payload types
 const RESPONSE_TYPE_PREVIEW: &str = "preview_response";
 const RESPONSE_TYPE_APPLY: &str = "apply_response";
+const RESPONSE_TYPE_RUN: &str = "run_response";
 
 // ---------- Error codes (stable internal codes) ----------
 const E_ACTION_MISSING: i32 = 1000;
@@ -74,7 +76,7 @@ pub fn handle_command(cmd: Command) -> CommandResponse {
             &cmd,
             Some(PAYLOAD_TYPE_RUN_V1),
             run_git_autopilot,
-            RESPONSE_TYPE_APPLY,
+            RESPONSE_TYPE_RUN,
         ),
         _ => err(
             &cmd,
@@ -100,7 +102,7 @@ fn handle_json<Req, Handler, Res>(
 where
     Req: DeserializeOwned,
     Res: Serialize + Clone,
-    Handler: FnOnce(Req) -> Result<Res, String>,
+    Handler: FnOnce(Req) -> Result<Res, HandlerError>,
 {
     let payload = match cmd.payload.as_ref() {
         Some(p) => p,
@@ -176,13 +178,13 @@ where
     let res = match handler(req) {
         Ok(r) => r,
         Err(e) => {
-            println!("[error] handle_json: Handler error: {e}");
+            println!("[error] handle_json: Handler error: {}", e.message);
             return err(
                 cmd,
-                500,
-                "Internal Server Error",
-                E_HANDLER_FAILED,
-                &format!("Handler error: {e}"),
+                e.http_code,
+                if e.http_code == 400 { "Bad Request" } else { "Internal Server Error" },
+                e.error_code,
+                &e.message,
             );
         }
     };
@@ -190,14 +192,14 @@ where
     ok(cmd, 200, "Success", response_payload_type, &res)
 }
 
-fn run_git_autopilot(req: RunRequest) -> Result<String, String> {
+fn run_git_autopilot(req: RunRequest) -> Result<String, HandlerError> {
     // Validate and resolve the repository path
     let repo_path = match req.repo_path {
         Some(path) => {
-            // Validate the provided path using the whitelist
-            let validator = RepoPathValidator::default();
+            // Create validator with whitelist from environment or default
+            let validator = create_repo_path_validator();
             validator.validate(&path).map_err(|e| {
-                format!("Repository path validation failed: {}", e.message)
+                HandlerError::validation_error(e.code, format!("Repository path validation failed: {}", e.message))
             })?
         }
         None => {
@@ -211,8 +213,32 @@ fn run_git_autopilot(req: RunRequest) -> Result<String, String> {
 
     match run_git_autopilot_in_repo(&repo_path, mode, &policy) {
         Ok(report) => Ok(format!("Success: {:?}", report)),
-        Err(e) => Err(format!("Autopilot error: {}", e)),
+        Err(e) => Err(HandlerError::internal_error(E_HANDLER_FAILED, format!("Autopilot error: {}", e))),
     }
+}
+
+/// Create a RepoPathValidator with whitelist from environment or default
+fn create_repo_path_validator() -> RepoPathValidator {
+    use std::env;
+    use std::path::PathBuf;
+
+    // Check for VARINA_REPO_WHITELIST environment variable
+    // Format: comma-separated paths like "/home,/tmp,/workspace"
+    if let Ok(whitelist_str) = env::var("VARINA_REPO_WHITELIST") {
+        let whitelist: Vec<PathBuf> = whitelist_str
+            .split(',')
+            .map(|s| PathBuf::from(s.trim()))
+            .filter(|p| !p.as_os_str().is_empty())
+            .collect();
+        
+        if !whitelist.is_empty() {
+            println!("[info] Using repo path whitelist from VARINA_REPO_WHITELIST: {:?}", whitelist);
+            return RepoPathValidator::new(whitelist);
+        }
+    }
+
+    // Fall back to default whitelist
+    RepoPathValidator::default()
 }
 
 /// Success response builder (no unwrap, full error mapping)
@@ -292,6 +318,7 @@ mod tests {
     use super::*;
     use common_json::to_value;
     use protocol::{CommandType, ProtocolId};
+    use crate::validation_error::{E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED};
 
     fn create_test_metadata() -> Metadata {
         Metadata {
@@ -317,9 +344,9 @@ mod tests {
         // The path may be canonicalized which would resolve the traversal
         // So we check for either path traversal or whitelist error
         assert!(
-            err.contains("Path traversal") || err.contains("not in the whitelist"),
+            err.message.contains("Path traversal") || err.message.contains("not in the whitelist"),
             "Expected path traversal or whitelist error, got: {}",
-            err
+            err.message
         );
     }
 
@@ -332,7 +359,7 @@ mod tests {
 
         let result = run_git_autopilot(req);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("cannot be empty"));
+        assert!(result.unwrap_err().message.contains("cannot be empty"));
     }
 
     #[test]
@@ -344,7 +371,7 @@ mod tests {
 
         let result = run_git_autopilot(req);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("not in the whitelist"));
+        assert!(result.unwrap_err().message.contains("not in the whitelist"));
     }
 
     #[test]
@@ -360,9 +387,9 @@ mod tests {
         // We expect either success or an autopilot error (not a validation error)
         if let Err(e) = result {
             // Should not be a validation error
-            assert!(!e.contains("Path traversal"));
-            assert!(!e.contains("not in the whitelist"));
-            assert!(!e.contains("cannot be empty"));
+            assert!(!e.message.contains("Path traversal"));
+            assert!(!e.message.contains("not in the whitelist"));
+            assert!(!e.message.contains("cannot be empty"));
         }
     }
 
@@ -447,5 +474,85 @@ mod tests {
         assert!(response.error.is_some());
         let error = response.error.unwrap();
         assert_eq!(error.code, E_PAYLOAD_TYPE_INVALID);
+    }
+
+    // Router-level validation tests
+
+    #[test]
+    fn test_handle_command_run_with_empty_repo_path() {
+        let run_req = RunRequest {
+            request_id: ProtocolId::default(),
+            repo_path: Some("".to_string()),
+        };
+        
+        let cmd = Command {
+            metadata: create_test_metadata(),
+            command_type: CommandType::Execute,
+            action: Some(ACTION_GIT_AUTOPILOT_RUN.to_string()),
+            payload: Some(Payload {
+                payload_type: Some(PAYLOAD_TYPE_RUN_V1.to_string()),
+                payload: Some(to_value(&run_req).unwrap()),
+            }),
+        };
+
+        let response = handle_command(cmd);
+        assert_eq!(response.status.code, 400, "Expected 400 Bad Request for empty path");
+        assert!(response.error.is_some());
+        let error = response.error.unwrap();
+        assert_eq!(error.code, E_REPO_PATH_INVALID_FORMAT, "Expected E_REPO_PATH_INVALID_FORMAT error code");
+        assert!(error.message.contains("cannot be empty"), "Error message should mention empty path");
+    }
+
+    #[test]
+    fn test_handle_command_run_with_non_whitelisted_path() {
+        let run_req = RunRequest {
+            request_id: ProtocolId::default(),
+            repo_path: Some("/etc/config".to_string()),
+        };
+        
+        let cmd = Command {
+            metadata: create_test_metadata(),
+            command_type: CommandType::Execute,
+            action: Some(ACTION_GIT_AUTOPILOT_RUN.to_string()),
+            payload: Some(Payload {
+                payload_type: Some(PAYLOAD_TYPE_RUN_V1.to_string()),
+                payload: Some(to_value(&run_req).unwrap()),
+            }),
+        };
+
+        let response = handle_command(cmd);
+        assert_eq!(response.status.code, 400, "Expected 400 Bad Request for non-whitelisted path");
+        assert!(response.error.is_some());
+        let error = response.error.unwrap();
+        assert_eq!(error.code, E_REPO_PATH_NOT_WHITELISTED, "Expected E_REPO_PATH_NOT_WHITELISTED error code");
+        assert!(error.message.contains("not in the whitelist"), "Error message should mention whitelist");
+    }
+
+    #[test]
+    fn test_handle_command_run_with_valid_whitelisted_path() {
+        let run_req = RunRequest {
+            request_id: ProtocolId::default(),
+            repo_path: Some("/tmp/test-repo".to_string()),
+        };
+        
+        let cmd = Command {
+            metadata: create_test_metadata(),
+            command_type: CommandType::Execute,
+            action: Some(ACTION_GIT_AUTOPILOT_RUN.to_string()),
+            payload: Some(Payload {
+                payload_type: Some(PAYLOAD_TYPE_RUN_V1.to_string()),
+                payload: Some(to_value(&run_req).unwrap()),
+            }),
+        };
+
+        let response = handle_command(cmd);
+        // Should not get validation error (might get autopilot error if path doesn't exist)
+        if response.status.code == 400 {
+            let error = response.error.unwrap();
+            assert!(
+                error.code != E_REPO_PATH_INVALID_FORMAT && error.code != E_REPO_PATH_NOT_WHITELISTED,
+                "Should not get validation error for whitelisted path"
+            );
+        }
     }
 }

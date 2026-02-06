@@ -5,12 +5,13 @@ use protocol::{ApplyRequest, ApplyResponse, PreviewRequest, PreviewResponse};
 use crate::automation::run_git_autopilot;
 use crate::autopilot::{AutopilotMode, AutopilotPolicy};
 use crate::git_github::suggest_policy_from_report;
+use crate::handler_error::HandlerError;
 use crate::pre_checks::PreChecks;
 
 /// Preview = DryRun.
 /// Does NOT make any random policy mutations.
 /// Starts with AutopilotPolicy::default() (robust).
-pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewResponse, String> {
+pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewResponse, HandlerError> {
     let policy = AutopilotPolicy {
         fail_on_unrelated_changes: false, // Disabled for testing
         ..AutopilotPolicy::default()
@@ -25,7 +26,7 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
         Ok(r) => r,
         Err(e) => {
             println!("[error] handle_preview_git_autopilot: Error running autopilot: {e}");
-            return Err(format!("Autopilot execution failed: {e}")); // More precise error message
+            return Err(HandlerError::internal_error(1200, format!("Autopilot execution failed: {e}"))); // More precise error message
         }
     };
 
@@ -43,7 +44,7 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
 
 /// Apply = ApplySafe.
 /// Always uses the default policy (push disabled by default).
-pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, String> {
+pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, HandlerError> {
     let policy = AutopilotPolicy {
         fail_on_unrelated_changes: false,
         pre_checks: PreChecks::None,
@@ -59,7 +60,7 @@ pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, S
         Ok(r) => r,
         Err(e) => {
             println!("[error] handle_apply_git_autopilot: Error running autopilot: {e}");
-            return Err(e.to_string());
+            return Err(HandlerError::internal_error(1200, e.to_string()));
         }
     };
 

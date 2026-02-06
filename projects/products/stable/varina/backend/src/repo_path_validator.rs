@@ -18,6 +18,18 @@ impl RepoPathValidator {
     /// Create a new validator with the given whitelist of allowed paths
     #[allow(dead_code)]
     pub fn new(whitelist: Vec<PathBuf>) -> Self {
+        // Canonicalize whitelist paths to handle symlinks correctly
+        let whitelist = whitelist
+            .into_iter()
+            .filter_map(|path| {
+                if path.exists() {
+                    path.canonicalize().ok()
+                } else {
+                    // Keep non-existent paths as-is for flexibility
+                    Some(path)
+                }
+            })
+            .collect();
         Self { whitelist }
     }
 
@@ -29,7 +41,7 @@ impl RepoPathValidator {
             PathBuf::from("/tmp"),
             PathBuf::from("/workspace"),
         ];
-        Self { whitelist }
+        Self::new(whitelist)
     }
 
     /// Validate and normalize a repository path
