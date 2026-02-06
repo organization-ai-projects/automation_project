@@ -4,12 +4,12 @@ use common_time::timestamp_utils::current_timestamp_ms;
 use security::{Permission, Role};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
-use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 
 use crate::store::account_record::AccountRecord;
 use crate::store::account_store_error::AccountStoreError;
 use crate::store::accounts_file::AccountsFile;
+use crate::store::audit_buffer::{AuditBuffer, AuditBufferConfig};
 use crate::store::audit_entry::AuditEntry;
 use protocol::ProtocolId;
 use protocol::accounts::AccountStatus;
@@ -22,6 +22,7 @@ pub struct AccountManager {
     audit_path: PathBuf,
     state: Arc<RwLock<HashMap<ProtocolId, AccountRecord>>>,
     dirty: Arc<AtomicBool>,
+    audit_buffer: Arc<AuditBuffer>,
 }
 
 impl AccountManager {
@@ -33,6 +34,13 @@ impl AccountManager {
     }
 
     pub async fn load(data_dir: PathBuf) -> Result<Self, AccountStoreError> {
+        Self::load_with_config(data_dir, AuditBufferConfig::default()).await
+    }
+
+    pub async fn load_with_config(
+        data_dir: PathBuf,
+        audit_config: AuditBufferConfig,
+    ) -> Result<Self, AccountStoreError> {
         if !data_dir.exists() {
             tokio::fs::create_dir_all(&data_dir).await?;
         }
@@ -53,12 +61,15 @@ impl AccountManager {
             HashMap::new()
         };
 
+        let audit_buffer = Arc::new(AuditBuffer::new(audit_path.clone(), audit_config));
+
         Ok(Self {
             data_dir,
             accounts_path,
             audit_path,
             state: Arc::new(RwLock::new(users)),
             dirty: Arc::new(AtomicBool::new(false)),
+            audit_buffer,
         })
     }
 
@@ -319,16 +330,11 @@ impl AccountManager {
     }
 
     async fn append_audit(&self, entry: AuditEntry) -> Result<(), AccountStoreError> {
-        let line = to_string(&entry).map_err(|e| AccountStoreError::Json(e.to_string()))?;
-        let mut payload = line;
-        payload.push('\n');
-        tokio::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.audit_path)
-            .await?
-            .write_all(payload.as_bytes())
-            .await?;
-        Ok(())
+        self.audit_buffer.append(entry).await
+    }
+
+    /// Manually flush the audit buffer to disk
+    pub async fn flush_audit(&self) -> Result<(), AccountStoreError> {
+        self.audit_buffer.flush().await
     }
 }

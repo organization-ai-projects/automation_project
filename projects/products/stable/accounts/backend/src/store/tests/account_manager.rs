@@ -2,11 +2,13 @@
 #[cfg(test)]
 mod tests {
     use crate::store::account_manager::AccountManager;
+    use crate::store::audit_buffer::AuditBufferConfig;
     use common_time::timestamp_utils::current_timestamp_ms;
     use protocol::ProtocolId;
     use security::Role;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
+    use tokio::time::{sleep, Duration};
 
     // Shared counter for unique test directory names
     static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -20,6 +22,23 @@ mod tests {
         let temp_dir = create_unique_temp_dir();
         tokio::fs::create_dir_all(&temp_dir).await.unwrap();
         AccountManager::load(temp_dir).await.unwrap()
+    }
+
+    async fn create_test_manager_with_config(config: AuditBufferConfig) -> AccountManager {
+        let temp_dir = create_unique_temp_dir();
+        tokio::fs::create_dir_all(&temp_dir).await.unwrap();
+        AccountManager::load_with_config(temp_dir, config)
+            .await
+            .unwrap()
+    }
+
+    async fn read_audit_log(data_dir: &PathBuf) -> Vec<String> {
+        let audit_path = data_dir.join("audit.log");
+        if !audit_path.exists() {
+            return vec![];
+        }
+        let content = tokio::fs::read_to_string(&audit_path).await.unwrap();
+        content.lines().map(|s| s.to_string()).collect()
     }
 
     #[tokio::test]
@@ -152,5 +171,153 @@ mod tests {
 
         // Cleanup
         tokio::fs::remove_dir_all(&temp_dir).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_audit_entries_batched() {
+        let config = AuditBufferConfig {
+            max_batch_size: 3,
+            flush_interval_secs: 3600, // Long interval to test batch size
+        };
+        let manager = create_test_manager_with_config(config).await;
+        let user_id1 = ProtocolId::default();
+        let user_id2 = ProtocolId::new(common::Id128::new(1, Some(0), Some(0)));
+
+        // Create first user - adds 1 audit entry
+        manager
+            .create(user_id1, "password1", Role::User, vec![], "admin")
+            .await
+            .unwrap();
+
+        // Small delay to ensure async operations complete
+        sleep(Duration::from_millis(50)).await;
+
+        // Create second user - adds 2nd audit entry
+        manager
+            .create(user_id2, "password2", Role::User, vec![], "admin")
+            .await
+            .unwrap();
+
+        // Small delay to ensure async operations complete
+        sleep(Duration::from_millis(50)).await;
+
+        // Check audit log - should still be buffered (only 2 entries)
+        let lines = read_audit_log(manager.data_dir()).await;
+        assert_eq!(
+            lines.len(),
+            0,
+            "Should not flush before batch size threshold"
+        );
+
+        // Login to trigger 3rd audit entry and flush
+        manager
+            .authenticate(&user_id1, "password1")
+            .await
+            .unwrap();
+
+        // Small delay to ensure flush completes
+        sleep(Duration::from_millis(100)).await;
+
+        // Now should have flushed all 3 entries
+        let lines = read_audit_log(manager.data_dir()).await;
+        assert_eq!(lines.len(), 3, "Should flush all 3 entries at threshold");
+
+        // Cleanup
+        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_audit_manual_flush() {
+        let config = AuditBufferConfig {
+            max_batch_size: 1000,
+            flush_interval_secs: 3600,
+        };
+        let manager = create_test_manager_with_config(config).await;
+        let user_id = ProtocolId::default();
+
+        // Create user
+        manager
+            .create(user_id, "password", Role::User, vec![], "admin")
+            .await
+            .unwrap();
+
+        // Should still be buffered
+        let lines = read_audit_log(manager.data_dir()).await;
+        assert_eq!(lines.len(), 0);
+
+        // Manual flush
+        manager.flush_audit().await.unwrap();
+
+        // Should now be written
+        let lines = read_audit_log(manager.data_dir()).await;
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains("create"));
+
+        // Cleanup
+        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_audit_periodic_flush() {
+        let config = AuditBufferConfig {
+            max_batch_size: 1000,
+            flush_interval_secs: 2, // 2 seconds
+        };
+        let manager = create_test_manager_with_config(config).await;
+        let user_id = ProtocolId::default();
+
+        // Create user
+        manager
+            .create(user_id, "password", Role::User, vec![], "admin")
+            .await
+            .unwrap();
+
+        // Should still be buffered
+        let lines = read_audit_log(manager.data_dir()).await;
+        assert_eq!(lines.len(), 0);
+
+        // Wait for periodic flush
+        sleep(Duration::from_secs(3)).await;
+
+        // Should have flushed
+        let lines = read_audit_log(manager.data_dir()).await;
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains("create"));
+
+        // Cleanup
+        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_audit_entries_maintain_order() {
+        let config = AuditBufferConfig {
+            max_batch_size: 1000,
+            flush_interval_secs: 3600,
+        };
+        let manager = create_test_manager_with_config(config).await;
+
+        // Create multiple users with different IDs
+        for i in 1..=5 {
+            let user_id = ProtocolId::new(common::Id128::new(i as u16, Some(0), Some(0)));
+            manager
+                .create(user_id, "password", Role::User, vec![], "admin")
+                .await
+                .unwrap();
+        }
+
+        // Flush manually
+        manager.flush_audit().await.unwrap();
+
+        // Verify order - all entries should be present
+        let lines = read_audit_log(manager.data_dir()).await;
+        assert_eq!(lines.len(), 5);
+
+        // All entries should contain "create" action
+        for line in &lines {
+            assert!(line.contains("create"), "Each entry should be a create action");
+        }
+
+        // Cleanup
+        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
     }
 }
