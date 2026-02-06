@@ -35,7 +35,7 @@ Examples:
   ./cleanup_after_pr.sh --delete-only
 
 For complete workflow documentation, see:
-  sync_after_pr.md - Manual vs automated cleanup guide
+  scripts/versioning/file_versioning/git/sync_after_pr.md - Manual vs automated cleanup guide
 EOF
       exit 0
       ;;
