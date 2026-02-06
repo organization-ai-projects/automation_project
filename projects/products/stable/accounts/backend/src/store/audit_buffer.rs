@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 
 /// Buffered audit log writer that batches writes to reduce I/O overhead
 pub struct AuditBuffer {
@@ -21,12 +21,12 @@ pub struct AuditBuffer {
 impl AuditBuffer {
     pub fn new(audit_path: PathBuf, config: AuditBufferConfig) -> Self {
         let buffer = Arc::new(Mutex::new(Vec::new()));
-        
+
         // Start periodic flush task
         let buffer_clone = buffer.clone();
         let audit_path_clone = audit_path.clone();
         let flush_interval = config.flush_interval_secs;
-        
+
         let flush_task = tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(flush_interval));
             // Skip the first immediate tick
@@ -38,7 +38,7 @@ impl AuditBuffer {
                 }
             }
         });
-        
+
         Self {
             audit_path,
             buffer,
@@ -71,7 +71,7 @@ impl AuditBuffer {
         audit_path: &PathBuf,
     ) -> Result<(), AccountStoreError> {
         let mut buffer = buffer.lock().await;
-        
+
         if buffer.is_empty() {
             return Ok(());
         }
@@ -104,7 +104,7 @@ impl Drop for AuditBuffer {
     fn drop(&mut self) {
         // Cancel the periodic flush task to prevent resource leaks
         self.flush_task.abort();
-        
+
         // Note: Audit entries may be lost if AuditBuffer is dropped without an explicit
         // flush() call. For guaranteed durability on shutdown, call flush() before
         // dropping the AuditBuffer. The periodic flush task provides some protection

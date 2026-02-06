@@ -5,7 +5,7 @@ use crate::store::audit_entry::AuditEntry;
 use common_time::timestamp_utils::current_timestamp_ms;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 // Shared counter for unique test directory names
 static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -17,7 +17,7 @@ fn create_unique_temp_dir() -> PathBuf {
 
 async fn read_audit_log(path: &PathBuf) -> Vec<String> {
     if !path.exists() {
-    return vec![];
+        return vec![];
     }
     let content = tokio::fs::read_to_string(path).await.unwrap();
     content.lines().map(|s| s.to_string()).collect()
@@ -62,7 +62,11 @@ async fn test_batch_flush_on_size_threshold() {
 
     // Should not have flushed yet
     let lines = read_audit_log(&audit_path).await;
-    assert_eq!(lines.len(), 0, "Should not flush before batch size threshold");
+    assert_eq!(
+        lines.len(),
+        0,
+        "Should not flush before batch size threshold"
+    );
 
     // Add 3rd entry - should trigger flush
     buffer
@@ -85,7 +89,7 @@ async fn test_batch_flush_on_size_threshold() {
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();
-    }
+}
 
 #[tokio::test]
 async fn test_periodic_flush() {
@@ -95,7 +99,7 @@ async fn test_periodic_flush() {
 
     // Configure short flush interval for testing
     let config = AuditBufferConfig {
-        max_batch_size: 1000, // Large batch to test periodic flush only
+        max_batch_size: 1000,   // Large batch to test periodic flush only
         flush_interval_secs: 2, // 2 seconds
     };
 
@@ -143,7 +147,7 @@ async fn test_periodic_flush() {
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();
-    }
+}
 
 #[tokio::test]
 async fn test_manual_flush() {
@@ -184,7 +188,7 @@ async fn test_manual_flush() {
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();
-    }
+}
 
 #[tokio::test]
 async fn test_entries_maintain_order() {
@@ -229,7 +233,7 @@ async fn test_entries_maintain_order() {
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();
-    }
+}
 
 #[tokio::test]
 async fn test_empty_flush_is_safe() {
@@ -249,7 +253,7 @@ async fn test_empty_flush_is_safe() {
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();
-    }
+}
 
 #[tokio::test]
 async fn test_multiple_flushes() {
@@ -324,5 +328,4 @@ async fn test_multiple_flushes() {
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();
-    }
-
+}
