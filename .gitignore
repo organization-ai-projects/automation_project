@@ -3,6 +3,10 @@
 **/*.rs.bk
 
 # Logs
+# Runtime logs (including watcher.log, etc.) should be written to:
+# - Root directory (ignored by *.log)
+# - /var/log/ (system-wide)
+# - A dedicated logs/ directory
 logs/
 *.log
 
