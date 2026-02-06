@@ -21,8 +21,15 @@ COLOR_RESET='\033[0m'     # Reset
 USE_COLORS=${USE_COLORS:-true}
 
 # Get timestamp in ISO 8601 format
+# Note: Uses GNU date format. For portability, falls back to second precision on non-GNU systems.
 _log_timestamp() {
-  date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
+  # Try GNU date format first (Linux)
+  if date -u +"%Y-%m-%dT%H:%M:%S.%3NZ" 2>/dev/null | grep -q "\."; then
+    date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
+  else
+    # Fallback for macOS/BSD (no millisecond support)
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
+  fi
 }
 
 # Internal log function
