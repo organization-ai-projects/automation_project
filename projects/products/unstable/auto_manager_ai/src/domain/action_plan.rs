@@ -33,3 +33,41 @@ impl ActionPlan {
         self.actions.push(action);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use common_json::{to_string_pretty, from_str};
+
+    #[test]
+    fn test_action_plan_new() {
+        let plan = ActionPlan::new("Test plan".to_string());
+        assert_eq!(plan.version, "0.1.0");
+        assert_eq!(plan.summary, "Test plan");
+        assert_eq!(plan.actions.len(), 0);
+    }
+
+    #[test]
+    fn test_action_plan_serialization() {
+        let plan = ActionPlan::new("Test plan".to_string());
+        
+        let json = to_string_pretty(&plan).expect("Failed to serialize");
+        assert!(json.contains("version"));
+        assert!(json.contains("generated_at"));
+        assert!(json.contains("actions"));
+        assert!(json.contains("summary"));
+        
+        let _deserialized: ActionPlan = from_str(&json).expect("Failed to deserialize");
+    }
+
+    #[test]
+    fn test_action_plan_round_trip() {
+        let plan = ActionPlan::new("Round trip test".to_string());
+        let json = to_string_pretty(&plan).expect("Failed to serialize");
+        let deserialized: ActionPlan = from_str(&json).expect("Failed to deserialize");
+        
+        assert_eq!(plan.version, deserialized.version);
+        assert_eq!(plan.summary, deserialized.summary);
+        assert_eq!(plan.actions.len(), deserialized.actions.len());
+    }
+}

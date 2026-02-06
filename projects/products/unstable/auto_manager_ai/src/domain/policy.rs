@@ -82,3 +82,107 @@ impl Policy {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::{ActionStatus, ActionTarget, RiskLevel};
+
+    fn create_test_action(action_type: &str, confidence: f64) -> Action {
+        Action {
+            id: "test_001".to_string(),
+            action_type: action_type.to_string(),
+            status: ActionStatus::Proposed,
+            target: ActionTarget::Repo {
+                reference: "test/repo".to_string(),
+            },
+            justification: "Test action".to_string(),
+            risk_level: RiskLevel::Low,
+            required_checks: vec![],
+            confidence,
+            evidence: vec![],
+            depends_on: None,
+            missing_inputs: None,
+            dry_run: None,
+        }
+    }
+
+    #[test]
+    fn test_policy_default_deny_writes() {
+        let policy = Policy::default();
+        let action = create_test_action("create_issue", 0.9);
+        
+        let decision = policy.evaluate(&action);
+        
+        assert_eq!(decision.decision, PolicyDecisionType::Deny);
+        assert!(decision.reason.contains("forbidden") || decision.reason.contains("V0"));
+    }
+
+    #[test]
+    fn test_policy_allows_read_only() {
+        let policy = Policy::default();
+        let action = create_test_action("analyze_repository", 0.9);
+        
+        let decision = policy.evaluate(&action);
+        
+        assert_eq!(decision.decision, PolicyDecisionType::Allow);
+    }
+
+    #[test]
+    fn test_policy_confidence_threshold() {
+        let policy = Policy::default();
+        let action = create_test_action("analyze_repository", 0.3);
+        
+        let decision = policy.evaluate(&action);
+        
+        assert_eq!(decision.decision, PolicyDecisionType::Deny);
+        assert!(decision.reason.contains("Confidence") || decision.reason.contains("threshold"));
+    }
+
+    #[test]
+    fn test_policy_missing_inputs() {
+        let policy = Policy::default();
+        let mut action = create_test_action("analyze_repository", 0.9);
+        action.missing_inputs = Some(vec!["user_input".to_string()]);
+        
+        let decision = policy.evaluate(&action);
+        
+        assert_eq!(decision.decision, PolicyDecisionType::NeedsInput);
+        assert!(decision.reason.contains("Missing inputs"));
+    }
+
+    #[test]
+    fn test_all_write_actions_denied() {
+        let policy = Policy::default();
+        let write_actions = vec![
+            "create_issue",
+            "create_branch",
+            "open_draft_pr",
+            "post_pr_comment",
+            "commit",
+            "push",
+            "merge",
+            "force_push",
+            "write_file",
+            "delete_file",
+        ];
+        
+        for action_type in write_actions {
+            let action = create_test_action(action_type, 0.9);
+            let decision = policy.evaluate(&action);
+            
+            assert_eq!(
+                decision.decision, 
+                PolicyDecisionType::Deny,
+                "Write action '{}' should be denied",
+                action_type
+            );
+        }
+    }
+
+    #[test]
+    fn test_confidence_threshold_default() {
+        let policy = Policy::default();
+        assert_eq!(policy.min_confidence, 0.6);
+    }
+}

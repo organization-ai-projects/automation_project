@@ -3,93 +3,20 @@
 mod domain;
 mod adapters;
 mod ai;
+mod config;
+mod plan_generator;
+mod plan_evaluator;
+mod output_writer;
 
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process;
-use std::fs;
-use common_json::to_string_pretty;
 
-use domain::{ActionPlan, Policy, PolicyDecision, RunReport};
-use adapters::{RepoAdapter, GhAdapter, CiAdapter};
-use ai::{Planner, PlanningContext};
-
-/// Configuration for the automation manager
-#[derive(Debug, Clone)]
-struct Config {
-    repo_path: PathBuf,
-    output_dir: PathBuf,
-    policy: Policy,
-}
-
-impl Config {
-    /// Create a new configuration
-    fn new(repo_path: PathBuf, output_dir: PathBuf) -> Self {
-        Self {
-            repo_path,
-            output_dir,
-            policy: Policy::default(),
-        }
-    }
-}
-
-/// Generate an action plan based on repository and GitHub context
-fn generate_action_plan(config: &Config) -> Result<ActionPlan, String> {
-    // Create adapters
-    let repo_adapter = RepoAdapter::new(config.repo_path.clone());
-    let gh_adapter = GhAdapter::new();
-    let ci_adapter = CiAdapter::new();
-
-    // Gather context
-    let repo_ctx = repo_adapter.get_context()?;
-    let gh_ctx = gh_adapter.get_context()?;
-    let ci_ctx = ci_adapter.get_context()?;
-
-    // Create planning context
-    let planning_ctx = PlanningContext {
-        repo: repo_ctx,
-        gh: gh_ctx,
-        ci: ci_ctx,
-    };
-
-    // Generate plan
-    Ok(Planner::generate_plan(&planning_ctx))
-}
-
-/// Evaluate an action plan against policy
-fn evaluate_plan(plan: &ActionPlan, policy: &Policy) -> Vec<PolicyDecision> {
-    plan.actions
-        .iter()
-        .map(|action| policy.evaluate(action))
-        .collect()
-}
-
-/// Write outputs to the output directory
-fn write_outputs(
-    plan: &ActionPlan,
-    report: &RunReport,
-    out_dir: &Path,
-) -> Result<(), String> {
-    // Create output directory if it doesn't exist
-    fs::create_dir_all(out_dir)
-        .map_err(|e| format!("Failed to create output directory: {}", e))?;
-
-    // Write action plan
-    let action_plan_path = out_dir.join("action_plan.json");
-    let action_plan_json = to_string_pretty(plan)
-        .map_err(|e| format!("Failed to serialize action plan: {:?}", e))?;
-    fs::write(&action_plan_path, action_plan_json)
-        .map_err(|e| format!("Failed to write action plan: {}", e))?;
-
-    // Write run report
-    let run_report_path = out_dir.join("run_report.json");
-    let run_report_json = to_string_pretty(report)
-        .map_err(|e| format!("Failed to serialize run report: {:?}", e))?;
-    fs::write(&run_report_path, run_report_json)
-        .map_err(|e| format!("Failed to write run report: {}", e))?;
-
-    Ok(())
-}
+use config::Config;
+use domain::{ActionPlan, RunReport};
+use plan_generator::generate_action_plan;
+use plan_evaluator::evaluate_plan;
+use output_writer::write_outputs;
 
 fn main() {
     // Parse command line arguments
