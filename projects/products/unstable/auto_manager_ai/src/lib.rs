@@ -1,3 +1,6 @@
+// projects/products/unstable/auto_manager_ai/src/lib.rs
+// Test-only library interface
+
 pub mod domain;
 pub mod adapters;
 pub mod ai;
@@ -6,12 +9,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use common_json::to_string_pretty;
 
-pub use domain::{
-    Action, ActionPlan, ActionStatus, ActionTarget, 
-    DryRun, DryRunStep, Evidence, RiskLevel,
-    Policy, PolicyDecision, PolicyDecisionType,
-    RunReport, RunStatus, RunOutput
-};
+pub use domain::{Action, ActionPlan, ActionStatus, ActionTarget, Policy, PolicyDecision, PolicyDecisionType, RiskLevel, RunReport};
 pub use adapters::{RepoAdapter, GhAdapter, CiAdapter};
 pub use ai::{Planner, PlanningContext};
 

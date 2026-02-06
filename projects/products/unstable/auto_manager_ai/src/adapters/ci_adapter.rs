@@ -1,9 +1,6 @@
-/// CI context information
-#[derive(Debug, Clone)]
-pub struct CiContext {
-    pub available: bool,
-    pub info: String,
-}
+// projects/products/unstable/auto_manager_ai/src/adapters/ci_adapter.rs
+
+use super::ci_context::CiContext;
 
 /// CI adapter (read-only in V0)
 #[derive(Debug)]

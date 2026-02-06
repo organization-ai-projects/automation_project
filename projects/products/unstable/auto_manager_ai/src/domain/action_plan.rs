@@ -1,25 +1,7 @@
-use serde::{Deserialize, Serialize};
-use super::types::{ActionStatus, ActionTarget, DryRun, Evidence, RiskLevel};
+// projects/products/unstable/auto_manager_ai/src/domain/action_plan.rs
 
-/// An action in the action plan
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Action {
-    pub id: String,
-    pub action_type: String,
-    pub status: ActionStatus,
-    pub target: ActionTarget,
-    pub justification: String,
-    pub risk_level: RiskLevel,
-    pub required_checks: Vec<String>,
-    pub confidence: f64,
-    pub evidence: Vec<Evidence>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub depends_on: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub missing_inputs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dry_run: Option<DryRun>,
-}
+use serde::{Deserialize, Serialize};
+use super::action::Action;
 
 /// The complete action plan
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

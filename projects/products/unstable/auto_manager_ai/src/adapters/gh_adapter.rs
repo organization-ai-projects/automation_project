@@ -1,9 +1,6 @@
-/// GitHub context information
-#[derive(Debug, Clone)]
-pub struct GhContext {
-    pub available: bool,
-    pub info: String,
-}
+// projects/products/unstable/auto_manager_ai/src/adapters/gh_adapter.rs
+
+use super::gh_context::GhContext;
 
 /// GitHub adapter (read-only in V0)
 #[derive(Debug)]

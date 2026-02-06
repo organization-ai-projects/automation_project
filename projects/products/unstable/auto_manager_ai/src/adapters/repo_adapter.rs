@@ -1,12 +1,8 @@
+// projects/products/unstable/auto_manager_ai/src/adapters/repo_adapter.rs
+
 use std::path::{Path, PathBuf};
 use std::fs;
-
-/// Context about the repository
-#[derive(Debug, Clone)]
-pub struct RepoContext {
-    pub root: PathBuf,
-    pub tracked_files: Vec<String>,
-}
+use super::repo_context::RepoContext;
 
 /// Repository adapter (read-only in V0)
 #[derive(Debug)]

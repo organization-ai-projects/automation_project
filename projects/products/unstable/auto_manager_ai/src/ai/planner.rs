@@ -1,12 +1,7 @@
-use crate::domain::{Action, ActionPlan, ActionStatus, ActionTarget, Evidence, RiskLevel};
-use crate::adapters::{RepoContext, GhContext, CiContext};
+// projects/products/unstable/auto_manager_ai/src/ai/planner.rs
 
-/// Context for planning
-pub struct PlanningContext {
-    pub repo: RepoContext,
-    pub gh: GhContext,
-    pub ci: CiContext,
-}
+use crate::domain::{Action, ActionPlan, ActionStatus, ActionTarget, Evidence, RiskLevel};
+use super::planning_context::PlanningContext;
 
 /// AI planner (template-based for V0)
 pub struct Planner;

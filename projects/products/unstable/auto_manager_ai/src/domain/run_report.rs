@@ -1,22 +1,10 @@
+// projects/products/unstable/auto_manager_ai/src/domain/run_report.rs
+
 use serde::{Deserialize, Serialize};
-use super::policy::PolicyDecision;
-
-/// Status of the run
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RunStatus {
-    Success,
-    Failure,
-}
-
-/// Output information from the run
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RunOutput {
-    pub actions_proposed: usize,
-    pub actions_allowed: usize,
-    pub actions_denied: usize,
-    pub actions_needs_input: usize,
-}
+use super::policy_decision::PolicyDecision;
+use super::policy_decision_type::PolicyDecisionType;
+use super::run_status::RunStatus;
+use super::run_output::RunOutput;
 
 /// Complete run report
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -58,7 +46,6 @@ impl RunReport {
 
     /// Add a policy decision to the report
     pub fn add_decision(&mut self, decision: PolicyDecision) {
-        use super::policy::PolicyDecisionType;
         match decision.decision {
             PolicyDecisionType::Allow => self.output.actions_allowed += 1,
             PolicyDecisionType::Deny => self.output.actions_denied += 1,

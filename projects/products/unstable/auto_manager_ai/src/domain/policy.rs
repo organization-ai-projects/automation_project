@@ -1,23 +1,8 @@
-use serde::{Deserialize, Serialize};
-use super::action_plan::Action;
+// projects/products/unstable/auto_manager_ai/src/domain/policy.rs
 
-/// Policy decision for an action
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum PolicyDecisionType {
-    Allow,
-    Deny,
-    #[serde(rename = "needs_input")]
-    NeedsInput,
-}
-
-/// A policy decision with reasoning
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PolicyDecision {
-    pub action_id: String,
-    pub decision: PolicyDecisionType,
-    pub reason: String,
-}
+use super::action::Action;
+use super::policy_decision::PolicyDecision;
+use super::policy_decision_type::PolicyDecisionType;
 
 /// Policy rules for evaluating actions
 #[derive(Debug, Clone)]
