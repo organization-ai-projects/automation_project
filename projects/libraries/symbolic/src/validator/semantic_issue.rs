@@ -1,4 +1,5 @@
 // projects/libraries/symbolic/src/validator/semantic_issue.rs
+use std::fmt;
 
 /// Severity level of a semantic issue
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,8 +36,6 @@ pub enum SemanticIssueType {
     DeadCode,
     /// Type inconsistency or mismatch
     TypeInconsistency,
-    /// Shadowed variable
-    ShadowedVariable,
 }
 
 impl SemanticIssue {
@@ -54,9 +53,10 @@ impl SemanticIssue {
             line,
         }
     }
+}
 
-    /// Converts the issue to a formatted string
-    pub fn to_string(&self) -> String {
+impl fmt::Display for SemanticIssue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let severity_str = match self.severity {
             Severity::Error => "error",
             Severity::Warning => "warning",
@@ -64,9 +64,9 @@ impl SemanticIssue {
         };
 
         if let Some(line) = self.line {
-            format!("[{}] Line {}: {}", severity_str, line, self.message)
+            write!(f, "[{}] Line {}: {}", severity_str, line, self.message)
         } else {
-            format!("[{}] {}", severity_str, self.message)
+            write!(f, "[{}] {}", severity_str, self.message)
         }
     }
 }

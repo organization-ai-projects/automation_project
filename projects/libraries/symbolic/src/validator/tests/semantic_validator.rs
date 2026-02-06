@@ -348,3 +348,112 @@ fn test_variable_detection_with_similar_names() {
         "Should not report map as unused despite being substring of HashMap"
     );
 }
+
+#[test]
+fn test_tuple_destructuring_detection() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = r#"
+        fn main() {
+            let (a, b) = (1, 2);
+            let (unused_x, used_y) = (3, 4);
+            println!("{} {}", a, b);
+            println!("{}", used_y);
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+    
+    // Should warn about unused_x but not about a, b, or used_y
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("'unused_x'") && w.contains("never used")),
+        "Should detect unused_x from tuple destructuring"
+    );
+    
+    assert!(
+        !validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("'a'") && w.contains("never used")),
+        "Should not report a as unused"
+    );
+    
+    assert!(
+        !validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("'b'") && w.contains("never used")),
+        "Should not report b as unused"
+    );
+    
+    assert!(
+        !validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("'used_y'") && w.contains("never used")),
+        "Should not report used_y as unused"
+    );
+}
+
+#[test]
+fn test_if_match_dead_code_detection() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = r#"
+        fn main() {
+            let x = 5;
+            if x > 0 {
+                return;
+            } else {
+                return;
+            }
+            let dead = "unreachable";
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+    
+    // Should detect dead code after if-else that both return
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("Unreachable") || w.contains("dead")),
+        "Should detect dead code after if-else where both branches terminate"
+    );
+}
+
+#[test]
+fn test_import_in_type_position() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = r#"
+        use std::collections::HashMap;
+        
+        fn process(map: HashMap<String, i32>) -> usize {
+            map.len()
+        }
+        
+        fn main() {
+            let m = HashMap::new();
+            println!("{}", process(m));
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+    
+    // HashMap should not be reported as unused (it's used in type position)
+    assert!(
+        !validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("'HashMap'") && w.contains("never used")),
+        "Should not report HashMap as unused when used in type positions"
+    );
+}

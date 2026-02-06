@@ -121,7 +121,7 @@ impl CodeValidator {
             let message = issue.to_string();
             match issue.severity {
                 Severity::Error => {
-                    // In strict mode, semantic warnings become errors
+                    // Semantic issues are always added to warnings; severity indicates error-level vs warning-level
                     warnings.push(message);
                 }
                 Severity::Warning => {
