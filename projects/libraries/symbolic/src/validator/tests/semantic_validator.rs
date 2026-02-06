@@ -475,7 +475,7 @@ fn test_type_inconsistency_in_assignment() {
     let validator = CodeValidator::new().expect("Failed to create CodeValidator");
     let code = r#"
         fn main() {
-            let x: i32 = 42;
+            let mut x: i32 = 42;
             x = "not an integer";
         }
     "#;

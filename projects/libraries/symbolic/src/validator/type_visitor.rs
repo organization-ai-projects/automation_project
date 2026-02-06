@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use syn::visit::Visit;
 use syn::{Expr, Local, Pat, Stmt, Type};
 
+/// Common integer types for compatibility checking
+const INT_TYPES: &[&str] = &["i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize"];
+
 /// Visitor to detect type inconsistencies
 pub struct TypeVisitor {
     /// Map of variable names to their declared types
@@ -81,7 +84,7 @@ impl TypeVisitor {
     fn infer_type_from_expr(&self, expr: &Expr) -> String {
         match expr {
             Expr::Lit(expr_lit) => match &expr_lit.lit {
-                syn::Lit::Str(_) => "String".to_string(),
+                syn::Lit::Str(_) => "&str".to_string(),
                 syn::Lit::Int(_) => "i32".to_string(),
                 syn::Lit::Float(_) => "f64".to_string(),
                 syn::Lit::Bool(_) => "bool".to_string(),
@@ -140,8 +143,7 @@ impl TypeVisitor {
         }
 
         // Integer types can be compatible
-        let int_types = ["i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize"];
-        if int_types.contains(&declared) && int_types.contains(&inferred) {
+        if INT_TYPES.contains(&declared) && INT_TYPES.contains(&inferred) {
             return true;
         }
 
