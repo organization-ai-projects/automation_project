@@ -1,6 +1,41 @@
-# Common JSON Library
+# Common JSON Library Documentation
 
-Comprehensive JSON library for `automation_project` with ergonomic APIs and rich utilities.
+This directory contains a comprehensive JSON library for the automation project with ergonomic APIs and rich utilities.
+
+## Role in the Project
+
+This library is responsible for providing JSON parsing, serialization, deserialization, merging, and comparison utilities across the automation project. Unlike serde_json, it offers additional features like merge strategies, JSON patching, and builder patterns.
+
+It interacts mainly with:
+
+- Configuration management systems
+- API data handling
+- Protocol libraries - For structured data exchange
+- Various products - For JSON processing
+
+## Directory Structure
+
+```
+common_json/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── value.rs
+    ├── parse.rs
+    ├── serialize.rs
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
 
 ## Overview
 

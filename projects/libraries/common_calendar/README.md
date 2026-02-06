@@ -1,6 +1,36 @@
-# Common Calendar Library
+# Common Calendar Library Documentation
 
-Calendar utilities for `automation_project`.
+This directory contains calendar utilities for the automation project.
+
+## Role in the Project
+
+This library is responsible for providing date and calendar utilities across the automation project. It includes leap year detection, month day counting, and date parsing functionality.
+
+It interacts mainly with:
+
+- Common time library - For timestamp operations
+- Various products - For date handling and scheduling
+
+## Directory Structure
+
+```
+common_calendar/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
 
 ## Overview
 

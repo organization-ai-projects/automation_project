@@ -2,6 +2,16 @@
 
 This directory contains all documentation related to GitHub Actions workflows used in this repository. The goal is to provide clarity on their purpose, triggers, and steps.
 
+## Role in the Project
+
+This directory is responsible for maintaining comprehensive documentation for all GitHub Actions workflows used in the repository. It ensures that workflow configurations are well-documented, maintainable, and understandable for all contributors.
+
+It interacts mainly with:
+
+- `.github/workflows/`: The actual workflow configuration files
+- `.github/`: Parent directory for GitHub-related configuration
+- Root repository documentation for overall project context
+
 ## Directory Structure
 
 ```plaintext
@@ -23,6 +33,18 @@ This directory contains all documentation related to GitHub Actions workflows us
     │   └── TOC.md       # Bot workflows documentation TOC
     └── README.md        # This file
 ```
+
+## Files
+
+- `README.md`: Documentation index for workflows.
+- `TOC.md`: Table of contents for workflow documentation.
+- `ci_main.md`: Documentation for the `ci_main.yml` workflow.
+- `ci_dev.md`: Documentation for the `ci_dev.yml` workflow.
+- `ci_reusable.md`: Documentation for the `ci_reusable.yml` workflow.
+- `automation_rustfmt.md`: Documentation for the `automation_rustfmt.yml` workflow.
+- `automation_sync.md`: Documentation for the `automation_sync.yml` workflow.
+- `bot/README.md`: Bot workflow docs index.
+- `bot/TOC.md`: Bot workflows documentation TOC.
 
 ## Organization Principle
 

@@ -1,4 +1,39 @@
-# Command Runner
+# Command Runner Documentation
+
+This directory contains a Rust library designed to execute system commands in a robust and ergonomic way.
+
+## Role in the Project
+
+This library is responsible for executing system commands safely and reliably across the automation project. It provides standardized error handling, output capture, and execution logging for all command-line operations.
+
+It interacts mainly with:
+
+- Version control tools (git operations)
+- Build systems and testing frameworks
+- Any product or script that needs to run external commands
+
+## Directory Structure
+
+```
+command_runner/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
+
+## Description
 
 `command_runner` is a Rust library designed to execute system commands in a robust and ergonomic way. It provides tools to handle errors, capture outputs, and log executions.
 

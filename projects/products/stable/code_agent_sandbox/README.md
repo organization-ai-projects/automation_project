@@ -1,4 +1,43 @@
-# Code Agent Sandbox
+# Code Agent Sandbox Documentation
+
+This directory contains a robust and modular infrastructure for executing various actions in a controlled environment.
+
+## Role in the Project
+
+This product is responsible for providing a secure sandbox environment for executing code and commands. It includes security policy management, secure execution of sensitive commands, sandboxed file system management, and action logging.
+
+It interacts mainly with:
+
+- AI library - For code generation and execution
+- Security library - For policy enforcement
+- Command runner library - For command execution
+
+## Directory Structure
+
+```
+code_agent_sandbox/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   ├── TOC.md
+│   ├── PROJECT_OVERVIEW.md
+│   └── BUNKER_EXECUTION.md
+├── src/               # Source code
+│   ├── lib.rs
+│   ├── executor/
+│   ├── filesystem/
+│   └── ...
+└── tests/             # Integration tests
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `tests/`: Tests.
+
 
 ## Description
 

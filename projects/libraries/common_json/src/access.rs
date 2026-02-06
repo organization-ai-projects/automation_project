@@ -2,8 +2,8 @@
 use crate::Json;
 use crate::json_access::JsonAccess;
 use crate::json_access_mut::JsonAccessMut;
-use crate::json_error::JsonErrorCode;
 use crate::json_error::{JsonError, JsonResult};
+use crate::json_error_code::JsonErrorCode;
 use crate::value::{JsonArray, JsonObject};
 
 impl JsonAccess for Json {

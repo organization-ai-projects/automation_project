@@ -1,4 +1,43 @@
-# `ast_core`
+# AST Core Documentation
+
+This directory contains a generic library for representing, validating, and transforming Abstract Syntax Trees (ASTs).
+
+## Role in the Project
+
+This library is responsible for providing generic AST data structures for use across runtime tools, compile-time tools (proc-macros), and AI systems. It provides the foundational types and operations for working with structured data trees.
+
+It interacts mainly with:
+
+- AI library - For AST rewriting and validation
+- Proc-macro libraries - For compile-time AST manipulation
+- Protocol libraries - For structured data representation
+
+## Directory Structure
+
+```
+ast_core/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+├── benches/           # Performance benchmarks
+├── src/               # Source code
+│   ├── lib.rs
+│   ├── ast_node.rs
+│   ├── builder.rs
+│   └── ...
+└── tests/             # Integration tests
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `tests/`: Tests.
+- `benches/`: Benchmarks.
+
 
 ## Description
 

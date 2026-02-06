@@ -1,21 +1,24 @@
-# Common Libraries TOC
+# Table of Contents
 
-- [Back to Scripts TOC](../TOC.md)
+This document provides an overview of all documentation files in this directory.
 
-## Overview
+## Documentation
 
-- [Common Lib README](README.md)
-- [Core Libraries](core/README.md)
-- [Versioning Libraries](versioning/README.md)
+- [README.md](README.md): Main documentation for common libraries
+
+## Subdirectories
+
+- [core/README.md](core/README.md): Core utilities for all scripts
+- [versioning/README.md](versioning/README.md): Version control utilities
 
 ## Core Libraries
 
-- [command.sh](core/command.sh)
-- [file_operations.sh](core/file_operations.sh)
-- [logging.sh](core/logging.sh)
-- [network_utils.sh](core/network_utils.sh)
-- [string_utils.sh](core/string_utils.sh)
+- [core/command.sh](core/command.sh): Command execution and validation utilities
+- [core/file_operations.sh](core/file_operations.sh): File and directory operation utilities
+- [core/logging.sh](core/logging.sh): Core logging functions with consistent formatting
+- [core/network_utils.sh](core/network_utils.sh): Network-related utilities
+- [core/string_utils.sh](core/string_utils.sh): String manipulation utilities
 
 ## Versioning Libraries
 
-- [file_versioning](versioning/file_versioning/TOC.md)
+- [versioning/file_versioning/TOC.md](versioning/file_versioning/TOC.md): File versioning utilities

@@ -1,4 +1,44 @@
-# Autopilot Module
+# Autopilot Module Documentation
+
+This directory contains the autopilot module designed to automate Git tasks while adhering to strict security policies.
+
+## Role in the Project
+
+This module is responsible for providing secure Git automation within the Varina backend. It generates action plans, enforces security policies, and executes Git operations (stage, commit, push) in a controlled manner.
+
+It interacts mainly with:
+
+- Varina backend - As a Git automation component
+- Command runner library - For Git command execution
+- Security policies - For safe operation enforcement
+
+## Directory Structure
+
+```
+autopilot/
+├── README.md               # This file
+├── mod.rs                  # Module exports
+├── autopilot_error.rs      # Error handling
+├── autopilot_mode.rs       # Execution modes
+├── autopilot_plan.rs       # Action planning
+├── autopilot_policy.rs     # Security policies
+└── autopilot_report.rs     # Execution reporting
+```
+
+## Files
+
+- `README.md`: This file.
+- `autopilot_error.rs`: Additional module or asset.
+- `autopilot_mode.rs`: Additional module or asset.
+- `autopilot_plan.rs`: Additional module or asset.
+- `autopilot_policy.rs`: Additional module or asset.
+- `autopilot_report.rs`: Additional module or asset.
+- `compiled_autopilot_policy.rs`: Additional module or asset.
+- `handlers.rs`: Additional module or asset.
+- `mod.rs`: Module exports.
+
+
+## Description
 
 The `autopilot` module is designed to automate Git tasks while adhering to strict security policies. This document explains the different parts of the module and their roles.
 

@@ -27,6 +27,7 @@ members = [
   "projects/libraries/ast_core",
   "projects/libraries/pjson_proc_macros",
   "projects/libraries/hybrid_arena",
+  "projects/libraries/versioning",
 ]
 resolver = "2"
 
@@ -61,3 +62,4 @@ protocol_macros = { path = "projects/libraries/protocol_macros" }
 ast_core = { path = "projects/libraries/ast_core" }
 ai = { path = "projects/libraries/ai" }
 hybrid_arena = { path = "projects/libraries/hybrid_arena" }
+versioning = { path = "projects/libraries/versioning" }

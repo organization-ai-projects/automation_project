@@ -1,6 +1,36 @@
-# Core Utilities
+# Core Utilities Documentation
 
 Essential utility functions used across all scripts in the project.
+
+## Role in the Project
+
+This directory is responsible for providing foundational utility functions that are generic and cross-cutting, supporting all scripts with consistent logging, command execution, file operations, string manipulation, and network utilities.
+It interacts mainly with:
+
+- All automation and versioning scripts
+- System commands and shell utilities
+- File system operations
+- Network resources
+
+## Directory Structure
+
+```plaintext
+core/
+├── command.sh           # Command execution and validation utilities
+├── file_operations.sh   # File and directory operation utilities
+├── logging.sh           # Core logging functions with consistent formatting
+├── network_utils.sh     # Network-related utilities
+└── string_utils.sh      # String manipulation utilities
+```
+
+## Files
+
+- `README.md`: This file.
+- `command.sh`: Command execution and validation utilities.
+- `file_operations.sh`: File and directory operation utilities.
+- `logging.sh`: Core logging functions.
+- `network_utils.sh`: Network-related utilities.
+- `string_utils.sh`: String manipulation utilities.
 
 ## Scope
 

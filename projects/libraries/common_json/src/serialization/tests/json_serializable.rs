@@ -3,7 +3,8 @@
 mod tests {
     use crate::JsonSerializable;
     use crate::json::Json;
-    use crate::json_error::{JsonError, JsonErrorCode};
+    use crate::json_error::JsonError;
+    use crate::json_error_code::JsonErrorCode;
     use std::error::Error;
     use std::io::Write;
 

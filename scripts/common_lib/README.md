@@ -1,6 +1,43 @@
-# Common Utility Libraries
+# Common Lib Documentation
 
-This directory contains **reusable function libraries** sourced by other scripts.
+This directory contains reusable function libraries sourced by other scripts.
+
+## Role in the Project
+
+This directory is responsible for providing reusable utility functions and abstractions that standardize common operations across all scripts.
+It interacts mainly with:
+
+- All automation and versioning scripts
+- Core system utilities (logging, file operations, network)
+- Git command-line interface
+- String manipulation and validation
+
+## Directory Structure
+
+```plaintext
+common_lib/
+├── core/                               # Core utilities for all scripts
+│   ├── command.sh                      # Command execution and validation
+│   ├── file_operations.sh              # File and directory operations
+│   ├── logging.sh                      # Consistent logging functions
+│   ├── network_utils.sh                # Network-related utilities
+│   └── string_utils.sh                 # String manipulation utilities
+└── versioning/                         # Version control utilities
+    └── file_versioning/                # File-level version control
+        └── git/                        # Git-specific operations
+            ├── branch.sh               # Branch management
+            ├── commit.sh               # Commit operations
+            ├── repo.sh                 # Repository validation
+            ├── staging.sh              # Staging/index operations
+            ├── synch.sh                # Synchronization utilities
+            └── working_tree.sh         # Working tree state
+```
+
+## Files
+
+- `README.md`: This file.
+- `core/`: Core utilities for all scripts.
+- `versioning/`: Version control utilities.
 
 ## Organization Principle
 

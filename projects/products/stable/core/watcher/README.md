@@ -1,6 +1,40 @@
-# Watcher
+# Watcher Documentation
 
-External supervisor process for `automation_project` core services.
+This directory contains the external supervisor process for core services in the automation project.
+
+## Role in the Project
+
+This product is responsible for being an independent supervisor that runs outside the main system. It monitors core processes (Engine, Central UI, backends) and ensures high availability by automatically restarting failed services with exponential backoff.
+
+It interacts mainly with:
+
+- Engine - Monitors and restarts if needed
+- Central UI - Monitors and restarts if needed
+- Product backends - Monitors and restarts if needed
+- Launcher - Started by launcher after Engine
+
+## Directory Structure
+
+```
+watcher/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   ├── TOC.md
+│   └── supervision.md
+└── src/               # Source code
+    ├── main.rs
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+- `tests/`: Tests.
+
 
 ## Overview
 

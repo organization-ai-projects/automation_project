@@ -1,6 +1,38 @@
-# Central UI
+# Central UI Documentation
 
-Desktop cockpit for `automation_project`.
+This directory contains the desktop cockpit for the automation project.
+
+## Role in the Project
+
+This product is responsible for providing the main user interface for the automation platform. It aggregates product UIs by loading their bundles at runtime, provides a unified experience without compile-time dependencies on individual products, and manages communication with Engine.
+
+It interacts mainly with:
+
+- Engine - Single WebSocket connection for commands and events
+- Product UI bundles - Loads at runtime
+- User - Provides interface and navigation
+
+## Directory Structure
+
+```
+central_ui/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   ├── TOC.md
+│   └── usage.md
+└── src/               # Source code
+    ├── main.rs
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
 
 ## Overview
 

@@ -1,5 +1,6 @@
 // projects/libraries/common_json/src/serialization/key_serializer.rs
-use crate::json_error::{JsonError, JsonErrorCode};
+use crate::json_error::JsonError;
+use crate::json_error_code::JsonErrorCode;
 use serde::ser::{self, Serialize};
 
 pub(crate) struct KeySerializer;
