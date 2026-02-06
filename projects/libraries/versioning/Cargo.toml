@@ -7,4 +7,4 @@ edition = "2024"
 serde = { workspace = true }
 thiserror = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
-serde_json = "1.0"
+common_json = { workspace = true }

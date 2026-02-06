@@ -1,11 +1,12 @@
 // projects/libraries/versioning/src/release_id.rs
 
+use crate::release_id_error::ReleaseIdError;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Custom version identifier using a three-tier numbering scheme
 /// Tier 1: Major changes (breaking compatibility)
-/// Tier 2: Feature additions (backward compatible)  
+/// Tier 2: Feature additions (backward compatible)
 /// Tier 3: Corrections and refinements
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ReleaseId {
@@ -98,12 +99,4 @@ impl std::str::FromStr for ReleaseId {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::parse_str(s)
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ReleaseIdError {
-    #[error("Invalid format - expected X.Y.Z")]
-    InvalidFormat,
-    #[error("Invalid number in version")]
-    InvalidNumber,
 }

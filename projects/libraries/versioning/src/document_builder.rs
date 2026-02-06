@@ -1,17 +1,13 @@
 // projects/libraries/versioning/src/document_builder.rs
 
-use crate::revision_log::{ModificationCategory, RevisionLog};
+use crate::modification_category::ModificationCategory;
+use crate::output_format::OutputFormat;
+use crate::revision_log::RevisionLog;
 use std::fmt::Write;
 
 /// Builds documentation for revision history
 pub struct DocumentBuilder {
     format_style: OutputFormat,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum OutputFormat {
-    Markdown,
-    PlainText,
 }
 
 impl DocumentBuilder {

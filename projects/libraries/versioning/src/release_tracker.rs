@@ -1,8 +1,13 @@
 // projects/libraries/versioning/src/release_tracker.rs
 
+use crate::modification_category::ModificationCategory;
+use crate::modification_entry::ModificationEntry;
 use crate::release_id::ReleaseId;
-use crate::revision_log::{ModificationEntry, RevisionEntry, RevisionLog};
+use crate::revision_entry::RevisionEntry;
+use crate::revision_log::RevisionLog;
 use chrono::Utc;
+use common_json::json_error::JsonErrorCode;
+use common_json::{JsonError, from_str, to_string_pretty};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -23,7 +28,7 @@ impl ReleaseTracker {
         let mut entry = RevisionEntry::create(initial_release, Utc::now());
         entry.append_modification(ModificationEntry::create(
             "Initial release".to_string(),
-            crate::revision_log::ModificationCategory::NewCapability,
+            ModificationCategory::NewCapability,
         ));
         revision_log.append_entry(entry);
 
@@ -88,16 +93,18 @@ impl ReleaseTracker {
     }
 
     /// Save tracker state to file
-    pub fn persist_to_file<P: AsRef<Path>>(&self, path: P) -> std::io::Result<()> {
-        let serialized = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        fs::write(path, serialized)
+    pub fn persist_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), JsonError> {
+        let serialized = to_string_pretty(self)?;
+        fs::write(path, serialized).map_err(|e| {
+            JsonError::new(JsonErrorCode::Io).context(format!("Failed to write file: {}", e))
+        })
     }
 
     /// Load tracker state from file
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> std::io::Result<Self> {
-        let content = fs::read_to_string(path)?;
-        serde_json::from_str(&content)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, JsonError> {
+        let content = fs::read_to_string(path).map_err(|e| {
+            JsonError::new(JsonErrorCode::Io).context(format!("Failed to read file: {}", e))
+        })?;
+        from_str(&content)
     }
 }
