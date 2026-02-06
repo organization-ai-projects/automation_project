@@ -21,9 +21,14 @@ No external dependencies like Docker or GitHub authentication are required.
 
 ## Quick Start
 
-Run all tests:
+Run all integration tests:
 ```bash
 tools/bot_ci_harness/run_all.sh
+```
+
+Run unit tests:
+```bash
+tools/bot_ci_harness/tests/unit_tests.sh
 ```
 
 Run a specific scenario:
