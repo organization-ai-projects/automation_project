@@ -2,6 +2,12 @@
 
 This directory contains scripts that use **only** the `git` command-line tool.
 
+## Workflows
+
+For complete workflow documentation, see:
+
+- **[Sync After PR Merge](sync_after_pr.md)** - Learn how to update your local branches after a PR merges, with both manual steps and automated cleanup via `cleanup_after_pr.sh`
+
 ## Role in the Project
 
 This directory is responsible for pure git operations that are platform-agnostic and work with any git hosting service.
@@ -17,7 +23,8 @@ It interacts mainly with:
 git/
 ├── README.md (this file)
 ├── TOC.md
-├── create_branch.sh           # Create branches with naming validation (enforced)
+├── sync_after_pr.md           # Workflow: sync branches after PR merge
+├── create_branch.sh           # Create branches with validation
 ├── delete_branch.sh           # Delete branches
 ├── push_branch.sh             # Push branches to remote
 ├── clean_branches.sh          # Clean obsolete branches
@@ -33,7 +40,8 @@ git/
 
 - `README.md`: This file.
 - `TOC.md`: Documentation index for git scripts.
-- `create_branch.sh`: Create branches with enforced naming validation.
+- `sync_after_pr.md`: Workflow documentation for syncing branches after PR merge.
+- `create_branch.sh`: Create branches with validation.
 - `delete_branch.sh`: Delete branches.
 - `push_branch.sh`: Push branches to remote.
 - `clean_branches.sh`: Clean obsolete branches.
