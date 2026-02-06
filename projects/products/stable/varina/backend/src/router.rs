@@ -5,12 +5,13 @@ use serde::de::DeserializeOwned;
 use common_json::{from_value, to_string, to_value};
 use protocol::{
     Command, CommandResponse, Metadata, ProtocolError, ResponseStatus, apply_request::ApplyRequest,
-    payload::Payload, preview_request::PreviewRequest,
+    payload::Payload, preview_request::PreviewRequest, run_request::RunRequest,
 };
 
 use crate::automation::run_git_autopilot_in_repo;
 use crate::autopilot::{AutopilotMode, AutopilotPolicy};
 use crate::autopilot::{handle_apply_git_autopilot, handle_preview_git_autopilot};
+use crate::repo_path_validator::RepoPathValidator;
 
 // ---------- Routing constants (future proof) ----------
 pub const ACTION_GIT_AUTOPILOT_PREVIEW: &str = "git_autopilot/preview";
@@ -20,6 +21,7 @@ const ACTION_GIT_AUTOPILOT_RUN: &str = "git_autopilot.run";
 // Payload type (v2 ready). Activate them when you want strict versioning.
 const PAYLOAD_TYPE_PREVIEW_V1: &str = "git_autopilot/preview/v1";
 const PAYLOAD_TYPE_APPLY_V1: &str = "git_autopilot/apply/v1";
+const PAYLOAD_TYPE_RUN_V1: &str = "git_autopilot/run/v1";
 
 // Response payload types
 const RESPONSE_TYPE_PREVIEW: &str = "preview_response";
@@ -67,7 +69,12 @@ pub fn handle_command(cmd: Command) -> CommandResponse {
             handle_apply_git_autopilot,
             RESPONSE_TYPE_APPLY,
         ),
-        ACTION_GIT_AUTOPILOT_RUN => run_git_autopilot(&cmd),
+        ACTION_GIT_AUTOPILOT_RUN => handle_json::<RunRequest, _, _>(
+            &cmd,
+            Some(PAYLOAD_TYPE_RUN_V1),
+            run_git_autopilot,
+            RESPONSE_TYPE_APPLY,
+        ),
         _ => err(
             &cmd,
             404,
@@ -182,30 +189,28 @@ where
     ok(cmd, 200, "Success", response_payload_type, &res)
 }
 
-fn run_git_autopilot(cmd: &Command) -> CommandResponse {
-    // TODO future proof: repo path in payload + validation + whitelist
-    let repo_path = crate::automation::resolve_repo_path();
+fn run_git_autopilot(req: RunRequest) -> Result<String, String> {
+    // Validate and resolve the repository path
+    let repo_path = match req.repo_path {
+        Some(path) => {
+            // Validate the provided path using the whitelist
+            let validator = RepoPathValidator::default();
+            validator.validate(&path).map_err(|e| {
+                format!("Repository path validation failed: {}", e.message)
+            })?
+        }
+        None => {
+            // Fallback to environment variable or current directory (existing behavior)
+            crate::automation::resolve_repo_path()
+        }
+    };
+
     let mode = AutopilotMode::ApplySafe;
     let policy = AutopilotPolicy::default();
 
     match run_git_autopilot_in_repo(&repo_path, mode, &policy) {
-        Ok(report) => CommandResponse {
-            metadata: meta(cmd),
-            status: ResponseStatus {
-                code: 200,
-                description: "Success".to_string(),
-            },
-            message: Some(format!("Success: {:?}", report)),
-            payload: None,
-            error: None,
-        },
-        Err(e) => err(
-            cmd,
-            500,
-            "Internal Server Error",
-            E_AUTOPILOT_FAILED,
-            &format!("Autopilot error: {e}"),
-        ),
+        Ok(report) => Ok(format!("Success: {:?}", report)),
+        Err(e) => Err(format!("Autopilot error: {}", e)),
     }
 }
 
