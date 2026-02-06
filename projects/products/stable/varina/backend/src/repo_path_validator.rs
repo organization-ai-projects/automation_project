@@ -87,15 +87,6 @@ impl RepoPathValidator {
             self.normalize_non_existent_path(&normalized)?
         };
 
-        // Check for path traversal after normalization
-        // This catches cases where the normalized path tries to escape allowed directories
-        if canonical.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
-            return Err(ValidationError::new(
-                E_REPO_PATH_TRAVERSAL,
-                "Path traversal detected: normalized path contains parent directory references".to_string(),
-            ));
-        }
-
         // Check against whitelist
         if !self.is_whitelisted(&canonical) {
             return Err(ValidationError::new(
@@ -116,10 +107,15 @@ impl RepoPathValidator {
         for component in path.components() {
             match component {
                 std::path::Component::ParentDir => {
-                    return Err(ValidationError::new(
-                        E_REPO_PATH_TRAVERSAL,
-                        "Path traversal detected: '..' not allowed in repository path".to_string(),
-                    ));
+                    // Pop the last component instead of rejecting
+                    // This allows paths like /home/user/../user/repo to work
+                    if !normalized.pop() {
+                        // Can't go beyond root, this is a traversal attempt
+                        return Err(ValidationError::new(
+                            E_REPO_PATH_TRAVERSAL,
+                            "Path traversal detected: attempt to navigate above root directory".to_string(),
+                        ));
+                    }
                 }
                 _ => normalized.push(component),
             }
@@ -152,11 +148,12 @@ mod tests {
     #[test]
     fn test_path_traversal_rejected() {
         let validator = RepoPathValidator::default();
-        let result = validator.validate("/home/user/../etc/passwd");
+        // This path tries to escape to /opt which is not in the default whitelist
+        let result = validator.validate("/home/user/../../opt/config");
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(err.code, E_REPO_PATH_TRAVERSAL);
-        assert!(err.message.contains("Path traversal"));
+        // After normalization, this should be caught by whitelist check
+        assert_eq!(err.code, E_REPO_PATH_NOT_WHITELISTED);
     }
 
     #[test]
@@ -215,5 +212,27 @@ mod tests {
         let validator = RepoPathValidator::default();
         let result = validator.validate("/workspace/project");
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_legitimate_parent_dir_navigation_accepted() {
+        let validator = RepoPathValidator::new(vec![PathBuf::from("/home")]);
+        // Legitimate path with parent dir that stays within whitelist
+        let result = validator.validate("/home/user/../user/repo");
+        assert!(result.is_ok());
+        // Verify it normalizes to the expected path
+        let path = result.unwrap();
+        assert_eq!(path, PathBuf::from("/home/user/repo"));
+    }
+
+    #[test]
+    fn test_traversal_above_root_rejected() {
+        let validator = RepoPathValidator::new(vec![PathBuf::from("/home")]);
+        // Path that tries to traverse above root - these normalize but may be rejected by whitelist
+        let result = validator.validate("/../../etc/passwd");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        // This will either be traversal (above root) or whitelist error
+        assert!(err.code == E_REPO_PATH_TRAVERSAL || err.code == E_REPO_PATH_NOT_WHITELISTED);
     }
 }

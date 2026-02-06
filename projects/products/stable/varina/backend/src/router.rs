@@ -312,12 +312,15 @@ mod tests {
         };
 
         let result = run_git_autopilot(req);
-        assert!(result.is_err());
+        assert!(result.is_err(), "Expected validation to fail for path: /etc/../../../etc/passwd");
         let err = result.unwrap_err();
-        println!("Actual error: {}", err);
         // The path may be canonicalized which would resolve the traversal
         // So we check for either path traversal or whitelist error
-        assert!(err.contains("Path traversal") || err.contains("not in the whitelist"));
+        assert!(
+            err.contains("Path traversal") || err.contains("not in the whitelist"),
+            "Expected path traversal or whitelist error, got: {}",
+            err
+        );
     }
 
     #[test]
