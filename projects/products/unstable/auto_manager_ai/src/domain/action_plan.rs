@@ -36,7 +36,7 @@ impl ActionPlan {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::domain::action_plan::ActionPlan;
     use common_json::{from_str, to_string_pretty};
 
     #[test]

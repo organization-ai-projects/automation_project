@@ -11,7 +11,7 @@ pub enum PreChecks {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pre_checks::PreChecks;
 
     #[test]
     fn test_pre_checks_usage() {

@@ -85,7 +85,9 @@ impl Policy {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::domain::action::Action;
+    use crate::domain::policy::Policy;
+    use crate::domain::policy_decision_type::PolicyDecisionType;
     use crate::domain::{ActionStatus, ActionTarget, RiskLevel};
 
     fn create_test_action(action_type: &str, confidence: f64) -> Action {

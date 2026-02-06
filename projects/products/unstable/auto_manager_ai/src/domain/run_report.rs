@@ -63,7 +63,10 @@ impl RunReport {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::domain::policy_decision::PolicyDecision;
+    use crate::domain::policy_decision_type::PolicyDecisionType;
+    use crate::domain::run_report::RunReport;
+    use crate::domain::run_status::RunStatus;
     use common_json::{from_str, to_string_pretty};
 
     #[test]
