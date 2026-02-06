@@ -1,7 +1,7 @@
 // projects/products/unstable/auto_manager_ai/src/ai/planner.rs
 
-use crate::domain::{Action, ActionPlan, ActionStatus, ActionTarget, Evidence, RiskLevel};
 use super::planning_context::PlanningContext;
+use crate::domain::{Action, ActionPlan, ActionStatus, ActionTarget, Evidence, RiskLevel};
 
 /// AI planner (template-based for V0)
 pub struct Planner;
@@ -9,9 +9,8 @@ pub struct Planner;
 impl Planner {
     /// Generate an action plan based on context
     pub fn generate_plan(ctx: &PlanningContext) -> ActionPlan {
-        let mut plan = ActionPlan::new(
-            "V0 template-based action plan - read-only analysis only".to_string()
-        );
+        let mut plan =
+            ActionPlan::new("V0 template-based action plan - read-only analysis only".to_string());
 
         // V0: Generate a simple template-based action
         // In a real implementation, this would use AI/ML to analyze the context

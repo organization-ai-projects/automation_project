@@ -1,7 +1,7 @@
 // projects/products/unstable/auto_manager_ai/src/domain/dry_run.rs
 
-use serde::{Deserialize, Serialize};
 use super::dry_run_step::DryRunStep;
+use serde::{Deserialize, Serialize};
 
 /// Dry-run information for an action
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

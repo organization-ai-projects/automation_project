@@ -1,11 +1,11 @@
 // projects/products/unstable/auto_manager_ai/src/domain/action.rs
 
-use serde::{Deserialize, Serialize};
 use super::action_status::ActionStatus;
 use super::action_target::ActionTarget;
 use super::dry_run::DryRun;
 use super::evidence::Evidence;
 use super::risk_level::RiskLevel;
+use serde::{Deserialize, Serialize};
 
 /// An action in the action plan
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

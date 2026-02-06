@@ -1,6 +1,6 @@
 // projects/products/unstable/auto_manager_ai/src/ai/planning_context.rs
 
-use crate::adapters::{RepoContext, GhContext, CiContext};
+use crate::adapters::{CiContext, GhContext, RepoContext};
 
 /// Context for planning
 pub struct PlanningContext {

@@ -1,10 +1,10 @@
 // projects/products/unstable/auto_manager_ai/src/domain/run_report.rs
 
-use serde::{Deserialize, Serialize};
 use super::policy_decision::PolicyDecision;
 use super::policy_decision_type::PolicyDecisionType;
-use super::run_status::RunStatus;
 use super::run_output::RunOutput;
+use super::run_status::RunStatus;
+use serde::{Deserialize, Serialize};
 
 /// Complete run report
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -64,7 +64,7 @@ impl RunReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common_json::{to_string_pretty, from_str};
+    use common_json::{from_str, to_string_pretty};
 
     #[test]
     fn test_run_report_new() {
@@ -79,13 +79,13 @@ mod tests {
     #[test]
     fn test_run_report_serialization() {
         let report = RunReport::new("test_run_123".to_string());
-        
+
         let json = to_string_pretty(&report).expect("Failed to serialize");
         assert!(json.contains("product"));
         assert!(json.contains("auto_manager_ai"));
         assert!(json.contains("run_id"));
         assert!(json.contains("test_run_123"));
-        
+
         let _deserialized: RunReport = from_str(&json).expect("Failed to deserialize");
     }
 
@@ -93,9 +93,9 @@ mod tests {
     fn test_run_report_add_error() {
         let mut report = RunReport::new("test".to_string());
         assert_eq!(report.status, RunStatus::Success);
-        
+
         report.add_error("Test error".to_string());
-        
+
         assert_eq!(report.status, RunStatus::Failure);
         assert_eq!(report.errors.len(), 1);
         assert_eq!(report.errors[0], "Test error");
@@ -104,15 +104,15 @@ mod tests {
     #[test]
     fn test_run_report_add_decision() {
         let mut report = RunReport::new("test".to_string());
-        
+
         let decision = PolicyDecision {
             action_id: "action_001".to_string(),
             decision: PolicyDecisionType::Allow,
             reason: "Test".to_string(),
         };
-        
+
         report.add_decision(decision);
-        
+
         assert_eq!(report.output.actions_allowed, 1);
         assert_eq!(report.policy_decisions.len(), 1);
     }

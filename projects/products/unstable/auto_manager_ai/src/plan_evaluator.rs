@@ -39,6 +39,9 @@ mod tests {
         let decisions = evaluate_plan(&plan, &policy);
 
         assert_eq!(decisions.len(), 1);
-        assert_eq!(decisions[0].decision, crate::domain::PolicyDecisionType::Allow);
+        assert_eq!(
+            decisions[0].decision,
+            crate::domain::PolicyDecisionType::Allow
+        );
     }
 }

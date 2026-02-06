@@ -1,7 +1,7 @@
 // projects/products/unstable/auto_manager_ai/src/config.rs
 
-use std::path::PathBuf;
 use crate::domain::Policy;
+use std::path::PathBuf;
 
 /// Configuration for the automation manager
 #[derive(Debug, Clone)]

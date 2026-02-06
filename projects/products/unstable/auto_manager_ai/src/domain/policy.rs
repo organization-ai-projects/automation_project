@@ -16,7 +16,7 @@ impl Default for Policy {
     fn default() -> Self {
         Self {
             min_confidence: 0.6,
-            allow_repo_writes: false,  // V0: no repo writes
+            allow_repo_writes: false,   // V0: no repo writes
             allow_github_writes: false, // V0: no GitHub writes
         }
     }
@@ -111,9 +111,9 @@ mod tests {
     fn test_policy_default_deny_writes() {
         let policy = Policy::default();
         let action = create_test_action("create_issue", 0.9);
-        
+
         let decision = policy.evaluate(&action);
-        
+
         assert_eq!(decision.decision, PolicyDecisionType::Deny);
         assert!(decision.reason.contains("forbidden") || decision.reason.contains("V0"));
     }
@@ -122,9 +122,9 @@ mod tests {
     fn test_policy_allows_read_only() {
         let policy = Policy::default();
         let action = create_test_action("analyze_repository", 0.9);
-        
+
         let decision = policy.evaluate(&action);
-        
+
         assert_eq!(decision.decision, PolicyDecisionType::Allow);
     }
 
@@ -132,9 +132,9 @@ mod tests {
     fn test_policy_confidence_threshold() {
         let policy = Policy::default();
         let action = create_test_action("analyze_repository", 0.3);
-        
+
         let decision = policy.evaluate(&action);
-        
+
         assert_eq!(decision.decision, PolicyDecisionType::Deny);
         assert!(decision.reason.contains("Confidence") || decision.reason.contains("threshold"));
     }
@@ -144,9 +144,9 @@ mod tests {
         let policy = Policy::default();
         let mut action = create_test_action("analyze_repository", 0.9);
         action.missing_inputs = Some(vec!["user_input".to_string()]);
-        
+
         let decision = policy.evaluate(&action);
-        
+
         assert_eq!(decision.decision, PolicyDecisionType::NeedsInput);
         assert!(decision.reason.contains("Missing inputs"));
     }
@@ -166,13 +166,13 @@ mod tests {
             "write_file",
             "delete_file",
         ];
-        
+
         for action_type in write_actions {
             let action = create_test_action(action_type, 0.9);
             let decision = policy.evaluate(&action);
-            
+
             assert_eq!(
-                decision.decision, 
+                decision.decision,
                 PolicyDecisionType::Deny,
                 "Write action '{}' should be denied",
                 action_type

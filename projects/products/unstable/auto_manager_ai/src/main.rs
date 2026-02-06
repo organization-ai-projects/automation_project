@@ -1,12 +1,12 @@
 // projects/products/unstable/auto_manager_ai/src/main.rs
 
-mod domain;
 mod adapters;
 mod ai;
 mod config;
-mod plan_generator;
-mod plan_evaluator;
+mod domain;
 mod output_writer;
+mod plan_evaluator;
+mod plan_generator;
 
 use std::env;
 use std::path::PathBuf;
@@ -14,14 +14,14 @@ use std::process;
 
 use config::Config;
 use domain::{ActionPlan, RunReport};
-use plan_generator::generate_action_plan;
-use plan_evaluator::evaluate_plan;
 use output_writer::write_outputs;
+use plan_evaluator::evaluate_plan;
+use plan_generator::generate_action_plan;
 
 fn main() {
     // Parse command line arguments
     let args: Vec<String> = env::args().collect();
-    
+
     let repo_path = if args.len() > 1 {
         PathBuf::from(&args[1])
     } else {
@@ -43,10 +43,13 @@ fn main() {
     let config = Config::new(repo_path, output_dir.clone());
 
     // Generate run ID
-    let run_id = format!("run_{}", std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs());
+    let run_id = format!(
+        "run_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    );
 
     // Create run report
     let mut report = RunReport::new(run_id);
@@ -62,7 +65,11 @@ fn main() {
         Err(e) => {
             eprintln!("Error generating action plan: {}", e);
             report.add_error(e);
-            if let Err(write_err) = write_outputs(&ActionPlan::new("Error".to_string()), &report, &config.output_dir) {
+            if let Err(write_err) = write_outputs(
+                &ActionPlan::new("Error".to_string()),
+                &report,
+                &config.output_dir,
+            ) {
                 eprintln!("Failed to write error report: {}", write_err);
             }
             process::exit(1);
@@ -72,7 +79,7 @@ fn main() {
     // Evaluate plan against policy
     println!("Evaluating actions against policy...");
     let decisions = evaluate_plan(&plan, &config.policy);
-    
+
     for decision in decisions {
         report.add_decision(decision);
     }

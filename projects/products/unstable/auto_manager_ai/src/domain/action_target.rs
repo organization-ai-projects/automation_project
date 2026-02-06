@@ -7,28 +7,28 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum ActionTarget {
     #[serde(rename = "repo")]
-    Repo { 
+    Repo {
         #[serde(rename = "ref")]
-        reference: String 
+        reference: String,
     },
     #[serde(rename = "pr")]
-    Pr { 
+    Pr {
         #[serde(rename = "ref")]
-        reference: String 
+        reference: String,
     },
     #[serde(rename = "issue")]
-    Issue { 
+    Issue {
         #[serde(rename = "ref")]
-        reference: String 
+        reference: String,
     },
     #[serde(rename = "branch")]
-    Branch { 
+    Branch {
         #[serde(rename = "ref")]
-        reference: String 
+        reference: String,
     },
     #[serde(rename = "workflow_run")]
-    WorkflowRun { 
+    WorkflowRun {
         #[serde(rename = "ref")]
-        reference: String 
+        reference: String,
     },
 }

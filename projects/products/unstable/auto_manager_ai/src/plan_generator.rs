@@ -1,9 +1,9 @@
 // projects/products/unstable/auto_manager_ai/src/plan_generator.rs
 
-use crate::domain::ActionPlan;
-use crate::adapters::{RepoAdapter, GhAdapter, CiAdapter};
+use crate::adapters::{CiAdapter, GhAdapter, RepoAdapter};
 use crate::ai::{Planner, PlanningContext};
 use crate::config::Config;
+use crate::domain::ActionPlan;
 
 /// Generate an action plan based on repository and GitHub context
 pub fn generate_action_plan(config: &Config) -> Result<ActionPlan, String> {
@@ -31,25 +31,27 @@ pub fn generate_action_plan(config: &Config) -> Result<ActionPlan, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn test_generate_action_plan() {
-        let temp_dir = std::env::temp_dir().join(format!("auto_manager_ai_test_{}", 
+        let temp_dir = std::env::temp_dir().join(format!(
+            "auto_manager_ai_test_{}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_secs()));
-        
+                .as_secs()
+        ));
+
         fs::create_dir_all(&temp_dir).expect("Failed to create temp dir");
-        
+
         let out_dir = temp_dir.join("out");
         let config = Config::new(temp_dir.clone(), out_dir);
-        
+
         let result = generate_action_plan(&config);
         assert!(result.is_ok());
-        
+
         fs::remove_dir_all(&temp_dir).ok();
     }
 }

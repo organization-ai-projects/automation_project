@@ -1,7 +1,7 @@
 // projects/products/unstable/auto_manager_ai/src/domain/action_plan.rs
 
-use serde::{Deserialize, Serialize};
 use super::action::Action;
+use serde::{Deserialize, Serialize};
 
 /// The complete action plan
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -37,7 +37,7 @@ impl ActionPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common_json::{to_string_pretty, from_str};
+    use common_json::{from_str, to_string_pretty};
 
     #[test]
     fn test_action_plan_new() {
@@ -50,13 +50,13 @@ mod tests {
     #[test]
     fn test_action_plan_serialization() {
         let plan = ActionPlan::new("Test plan".to_string());
-        
+
         let json = to_string_pretty(&plan).expect("Failed to serialize");
         assert!(json.contains("version"));
         assert!(json.contains("generated_at"));
         assert!(json.contains("actions"));
         assert!(json.contains("summary"));
-        
+
         let _deserialized: ActionPlan = from_str(&json).expect("Failed to deserialize");
     }
 
@@ -65,7 +65,7 @@ mod tests {
         let plan = ActionPlan::new("Round trip test".to_string());
         let json = to_string_pretty(&plan).expect("Failed to serialize");
         let deserialized: ActionPlan = from_str(&json).expect("Failed to deserialize");
-        
+
         assert_eq!(plan.version, deserialized.version);
         assert_eq!(plan.summary, deserialized.summary);
         assert_eq!(plan.actions.len(), deserialized.actions.len());
