@@ -29,7 +29,7 @@ impl AutopilotPlan {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::autopilot::autopilot_plan::AutopilotPlan;
 
     #[test]
     fn test_autopilot_plan_usage() {

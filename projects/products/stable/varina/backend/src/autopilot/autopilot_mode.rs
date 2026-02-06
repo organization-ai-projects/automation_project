@@ -12,7 +12,7 @@ pub enum AutopilotMode {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::autopilot::autopilot_mode::AutopilotMode;
 
     #[test]
     fn test_autopilot_mode_usage() {

@@ -59,7 +59,7 @@ impl Default for AutopilotPolicy {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::autopilot::autopilot_policy::AutopilotPolicy;
 
     #[test]
     fn test_default_policy() {

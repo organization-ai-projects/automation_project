@@ -30,7 +30,10 @@ impl AutopilotReport {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::autopilot::autopilot_mode::AutopilotMode;
+    use crate::autopilot::autopilot_plan::AutopilotPlan;
+    use crate::autopilot::autopilot_report::AutopilotReport;
+    use crate::classified_changes::ClassifiedChanges;
 
     #[test]
     fn test_autopilot_report_usage() {
