@@ -1,27 +1,13 @@
 // projects/products/stable/varina/backend/src/repo_path_validator.rs
 use std::path::{Path, PathBuf};
 
-/// Error codes for repo path validation failures
-pub const E_REPO_PATH_INVALID_FORMAT: i32 = 1500;
-pub const E_REPO_PATH_NOT_WHITELISTED: i32 = 1501;
-pub const E_REPO_PATH_TRAVERSAL: i32 = 1502;
+use crate::validation_error::{
+    ValidationError, E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED,
+    E_REPO_PATH_TRAVERSAL,
+};
 
 /// Result type for repo path validation
 pub type ValidationResult<T> = Result<T, ValidationError>;
-
-/// Validation error with code and message
-#[derive(Debug, Clone)]
-pub struct ValidationError {
-    #[allow(dead_code)]
-    pub code: i32,
-    pub message: String,
-}
-
-impl ValidationError {
-    pub fn new(code: i32, message: String) -> Self {
-        Self { code, message }
-    }
-}
 
 /// Repository path validator with whitelist support
 pub struct RepoPathValidator {
