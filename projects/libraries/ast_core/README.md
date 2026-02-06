@@ -105,6 +105,35 @@ assert_eq!(config.get("name").expect("Missing 'name' key").as_str(), Some("my-ap
 assert_eq!(config.get("version").expect("Missing 'version' key").as_number().expect("'version' is not a number").as_i64(), Some(1));
 ```
 
+### Declarative Macros
+
+For even more ergonomic AST construction, use the `ast_macros` crate (re-exported by `ast_core`):
+
+```rust
+use ast_core::past;
+use ast_macros::{value, build_object};
+
+// Simple values
+let num = value!(42);
+let text = value!("hello");
+let arr = value!([1, 2, 3]);
+
+// Objects with ergonomic syntax
+let config = build_object!({
+    name: "my-app",
+    version: 1,
+    tags: ["production", "stable"]
+});
+
+// High-level past! macro with validation and metadata
+let node = past!({
+    name: "test",
+    data: [1, 2, 3]
+}, origin: ai("gpt"), validate: preset: strict);
+```
+
+The macros have been extracted into the separate `ast_macros` crate for reusability across projects while maintaining backward compatibility through re-exports.
+
 ### Validation
 
 Validation concerns the **structure** of the AST:
