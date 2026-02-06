@@ -84,7 +84,7 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
             "projects/libraries/symbolic/".to_string(),
             "projects/libraries/ui/".to_string(),
             "projects/products/stable/core/".to_string(),
-            "projects/products/varina/".to_string(),
+            "projects/products/stable/varina/".to_string(),
         ],
         ..CompiledAutopilotPolicy::from(policy)
     };
