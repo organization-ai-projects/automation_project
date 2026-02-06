@@ -21,8 +21,8 @@ pub struct SemanticIssue {
     pub severity: Severity,
     /// Human-readable message describing the issue
     pub message: String,
-    /// Optional line number where the issue occurs
-    pub line: Option<usize>,
+    /// Optional statement index where the issue occurs
+    pub stmt_index: Option<usize>,
 }
 
 /// Types of semantic issues that can be detected
@@ -44,13 +44,13 @@ impl SemanticIssue {
         issue_type: SemanticIssueType,
         severity: Severity,
         message: String,
-        line: Option<usize>,
+        stmt_index: Option<usize>,
     ) -> Self {
         Self {
             issue_type,
             severity,
             message,
-            line,
+            stmt_index,
         }
     }
 }
@@ -63,8 +63,12 @@ impl fmt::Display for SemanticIssue {
             Severity::Info => "info",
         };
 
-        if let Some(line) = self.line {
-            write!(f, "[{}] Line {}: {}", severity_str, line, self.message)
+        if let Some(stmt_index) = self.stmt_index {
+            write!(
+                f,
+                "[{}] Stmt {}: {}",
+                severity_str, stmt_index, self.message
+            )
         } else {
             write!(f, "[{}] {}", severity_str, self.message)
         }

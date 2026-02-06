@@ -47,6 +47,6 @@ The bundle should include:
 - `ui_dist/index.html`
 - `ui_dist/ui_manifest.ron`
 
-`ui_manifest.ron` is sourced from `projects/products/accounts/ui/ui_manifest.ron`.
+`ui_manifest.ron` is sourced from `projects/products/stable/accounts/ui/ui_manifest.ron`.
 
 Central UI serves the `ui_dist/` folder at runtime.

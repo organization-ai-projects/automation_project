@@ -2,8 +2,7 @@ use crate::modification_category::ModificationCategory;
 use crate::modification_entry::ModificationEntry;
 use crate::release_id::ReleaseId;
 use crate::release_tracker::ReleaseTracker;
-use std::env;
-use std::fs;
+use tempfile::NamedTempFile;
 
 #[test]
 fn can_initialize_tracker() {
@@ -100,8 +99,8 @@ fn multiple_releases_tracked() {
 
 #[test]
 fn can_persist_and_load_tracker() {
-    let mut temp_path = env::temp_dir();
-    temp_path.push("test_tracker.json");
+    let temp_file = NamedTempFile::new().unwrap();
+    let temp_path = temp_file.path();
 
     let mut tracker = ReleaseTracker::initialize("TestProject".to_string());
     tracker.register_feature_release(
@@ -112,23 +111,20 @@ fn can_persist_and_load_tracker() {
         vec!["Dev1".to_string()],
     );
 
-    tracker.persist_to_file(&temp_path).unwrap();
+    tracker.persist_to_file(temp_path).unwrap();
 
-    let loaded = ReleaseTracker::load_from_file(&temp_path).unwrap();
+    let loaded = ReleaseTracker::load_from_file(temp_path).unwrap();
     assert_eq!(loaded.active_release(), tracker.active_release());
     assert_eq!(
         loaded.log().get_entries().len(),
         tracker.log().get_entries().len()
     );
-
-    // Cleanup
-    let _ = fs::remove_file(temp_path);
 }
 
 #[test]
 fn loaded_tracker_preserves_history() {
-    let mut temp_path = env::temp_dir();
-    temp_path.push("test_tracker_history.json");
+    let temp_file = NamedTempFile::new().unwrap();
+    let temp_path = temp_file.path();
 
     let mut original = ReleaseTracker::initialize("TestProject".to_string());
     original.register_major_release(
@@ -146,12 +142,9 @@ fn loaded_tracker_preserves_history() {
         vec!["Bob".to_string()],
     );
 
-    original.persist_to_file(&temp_path).unwrap();
-    let loaded = ReleaseTracker::load_from_file(&temp_path).unwrap();
+    original.persist_to_file(temp_path).unwrap();
+    let loaded = ReleaseTracker::load_from_file(temp_path).unwrap();
 
     assert_eq!(loaded.log().get_entries().len(), 3); // Initial + 2 new
     assert_eq!(loaded.active_release().to_string(), "2.1.0");
-
-    // Cleanup
-    let _ = fs::remove_file(temp_path);
 }
