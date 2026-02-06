@@ -29,9 +29,12 @@ pub fn write_outputs(plan: &ActionPlan, report: &RunReport, out_dir: &Path) -> R
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
-    use std::path::PathBuf;
+
+    use crate::{
+        domain::{ActionPlan, RunReport},
+        output_writer::write_outputs,
+    };
 
     #[test]
     fn test_write_outputs() {

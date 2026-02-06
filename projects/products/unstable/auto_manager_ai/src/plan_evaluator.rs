@@ -12,8 +12,13 @@ pub fn evaluate_plan(plan: &ActionPlan, policy: &Policy) -> Vec<PolicyDecision> 
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::{Action, ActionStatus, ActionTarget, Evidence, RiskLevel};
+    use crate::{
+        domain::{
+            Action, ActionPlan, ActionStatus, ActionTarget, Policy, RiskLevel,
+            policy_decision_type::PolicyDecisionType,
+        },
+        plan_evaluator::evaluate_plan,
+    };
 
     #[test]
     fn test_evaluate_plan_allows_read_only() {
@@ -39,9 +44,6 @@ mod tests {
         let decisions = evaluate_plan(&plan, &policy);
 
         assert_eq!(decisions.len(), 1);
-        assert_eq!(
-            decisions[0].decision,
-            crate::domain::PolicyDecisionType::Allow
-        );
+        assert_eq!(decisions[0].decision, PolicyDecisionType::Allow);
     }
 }

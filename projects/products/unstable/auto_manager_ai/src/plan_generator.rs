@@ -30,9 +30,9 @@ pub fn generate_action_plan(config: &Config) -> Result<ActionPlan, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
-    use std::path::PathBuf;
+
+    use crate::{config::Config, plan_generator::generate_action_plan};
 
     #[test]
     fn test_generate_action_plan() {

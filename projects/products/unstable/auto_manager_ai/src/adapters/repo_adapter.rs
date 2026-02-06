@@ -55,10 +55,10 @@ impl RepoAdapter {
             let path = entry.path();
 
             // Skip hidden files and directories
-            if let Some(name) = path.file_name() {
-                if name.to_string_lossy().starts_with('.') {
-                    continue;
-                }
+            if let Some(name) = path.file_name()
+                && name.to_string_lossy().starts_with('.')
+            {
+                continue;
             }
 
             if path.is_file() {
@@ -74,6 +74,7 @@ impl RepoAdapter {
     }
 
     /// Read a file from the repository (read-only)
+    #[allow(dead_code)] // Reserved for future use in planners and diagnostics
     pub fn read_file(&self, path: &str) -> Result<String, String> {
         let full_path = self.repo_path.join(path);
         fs::read_to_string(&full_path)
