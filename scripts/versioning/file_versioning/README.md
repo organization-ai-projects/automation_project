@@ -118,6 +118,8 @@ After your PR merges, clean up your local branches:
 ./scripts/versioning/file_versioning/git/cleanup_after_pr.sh
 ```
 
+⚠️ **Warning:** This script may force-delete local branches (using `git branch -D`) when safe deletion fails. Before running it, ensure the target branches are fully merged or no longer needed, or use the manual workflow for selective/safer cleanup.
+
 **See [Sync After PR Workflow](git/sync_after_pr.md)** for complete documentation on manual vs automated cleanup.
 
 ## Current Components

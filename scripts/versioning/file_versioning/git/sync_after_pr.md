@@ -141,6 +141,7 @@ REMOTE=upstream BASE_BRANCH=main ./cleanup_after_pr.sh --delete-only
    - Attempts safe delete (`git branch -d`)
    - Falls back to force delete if needed (`git branch -D`)
    - Removes remote branches if they exist
+   - ⚠️ **Warning:** Force delete (`git branch -D`) will delete branches with unmerged commits. Ensure branches are fully merged or abandoned before running the script.
 5. **Recreates branches (default):** Creates new branches from updated base
 6. **Restores context:** Returns to your original branch when complete
 
@@ -199,6 +200,8 @@ Both manual and automated approaches include safety features:
 - **Safe delete first** - Tries safe delete before force delete
 - **Branch restoration** - Returns to original branch after completion
 - **Error handling** - Uses `set -euo pipefail` for strict error checking
+
+⚠️ **Important:** The script will force-delete (`git branch -D`) branches when safe delete fails. This can remove branches with unmerged local commits. Before running the script, verify that target branches are fully merged or no longer needed. For selective/safer cleanup, use the manual workflow instead.
 
 ## Troubleshooting
 
