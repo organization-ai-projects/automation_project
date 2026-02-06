@@ -19,10 +19,12 @@ code_agent_sandbox/
 ├── Cargo.toml          # Package configuration
 ├── README.md           # This file
 ├── .gitignore          # Local ignore rules for runtime outputs
-├── data/               # Runtime outputs (not versioned)
-│   ├── README.md       # Versioning policy
-│   ├── runs/           # Per-run outputs
-│   └── models/         # Neural models
+├── data/               # Runtime outputs directory
+│   ├── README.md       # Versioning policy (versioned)
+│   └── runs/           # All runtime outputs (not versioned)
+│       ├── {RUN_ID}/   # Per-run journals and logs
+│       ├── models/     # Neural models
+│       └── replay.jsonl # Training replay log
 ├── documentation/      # Additional documentation
 │   ├── TOC.md
 │   ├── PROJECT_OVERVIEW.md

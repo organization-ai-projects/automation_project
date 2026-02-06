@@ -51,16 +51,17 @@ The `Journal` module tracks all executed actions, recording:
 
 ## Outputs and Artifacts
 
-Runtime outputs (journals, logs, generated code) are written to the `data/` directory structure:
+Runtime outputs (journals, logs, generated code) are written to the `data/runs/` directory:
 
 ```
-data/
-├── runs/              # Per-run outputs (not versioned)
-│   └── {RUN_ID}/     # Unique run identifier (timestamp_UUID)
-│       ├── journal.jsonl
-│       ├── agent_memory.jsonl
-│       └── ...
-└── models/            # Neural models (not versioned)
+data/runs/
+├── {RUN_ID}/         # Per-run outputs (timestamp_UUID format)
+│   ├── journal.jsonl
+│   ├── agent_memory.jsonl
+│   ├── worktree/     # Git worktree (Learn mode)
+│   └── ...
+├── models/           # Neural models (shared)
+└── replay.jsonl      # Training replay log
 ```
 
 All runtime outputs are excluded from version control via `.gitignore` rules to:

@@ -54,6 +54,7 @@ ANALYSE_COHERENCE_WORKFLOWS_SCRIPTS.md
 
 # Code Agent Sandbox runtime outputs
 **/code_agent_sandbox/data/runs/
-**/code_agent_sandbox/data/models/
-# ProtocolId-format directories (UUID pattern)
-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/
+# UUID-format directories (simplified pattern: *-*-*-*-*/)
+**/code_agent_sandbox/*-*-*-*-*/
+# Replay logs
+**/code_agent_sandbox/replay.jsonl

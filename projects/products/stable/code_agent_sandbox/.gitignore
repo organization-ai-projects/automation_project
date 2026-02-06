@@ -1,14 +1,16 @@
 # Runtime outputs - never commit these
 data/runs/
-data/models/
 
-# Temporary run directories (if created in product root)
+# Temporary run directories (if created in product root by mistake)
 */journal.jsonl
 */agent_memory.jsonl
 */policy_overrides.toml
 
-# Any UUID-named directories (ProtocolId format)
-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/
+# Any UUID-named directories (simplified pattern for common UUID format)
+*-*-*-*-*/
 
-# Timestamped run directories
+# Timestamped run directories (format: YYYYMMDD_HHMMSS_mmm_*)
 20[0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9]_*/
+
+# Replay logs
+replay.jsonl
