@@ -1,48 +1,46 @@
 // projects/products/stable/accounts/backend/src/store/tests/account_manager.rs
-#[cfg(test)]
-mod tests {
-    use crate::store::account_manager::AccountManager;
-    use crate::store::audit_buffer::AuditBufferConfig;
-    use common_time::timestamp_utils::current_timestamp_ms;
-    use protocol::ProtocolId;
-    use security::Role;
-    use std::path::PathBuf;
-    use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
-    use tokio::time::{sleep, Duration};
+use crate::store::account_manager::AccountManager;
+use crate::store::audit_buffer_config::AuditBufferConfig;
+use common_time::timestamp_utils::current_timestamp_ms;
+use protocol::ProtocolId;
+use security::Role;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
+use tokio::time::{sleep, Duration};
 
-    // Shared counter for unique test directory names
-    static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+// Shared counter for unique test directory names
+static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-    fn create_unique_temp_dir() -> PathBuf {
-        let id = TEST_DIR_COUNTER.fetch_add(1, AtomicOrdering::Relaxed);
-        std::env::temp_dir().join(format!("accounts_test_{}_{}", current_timestamp_ms(), id))
+fn create_unique_temp_dir() -> PathBuf {
+    let id = TEST_DIR_COUNTER.fetch_add(1, AtomicOrdering::Relaxed);
+    std::env::temp_dir().join(format!("accounts_test_{}_{}", current_timestamp_ms(), id))
+}
+
+async fn create_test_manager() -> AccountManager {
+    let temp_dir = create_unique_temp_dir();
+    tokio::fs::create_dir_all(&temp_dir).await.unwrap();
+    AccountManager::load(temp_dir).await.unwrap()
+}
+
+async fn create_test_manager_with_config(config: AuditBufferConfig) -> AccountManager {
+    let temp_dir = create_unique_temp_dir();
+    tokio::fs::create_dir_all(&temp_dir).await.unwrap();
+    AccountManager::load_with_config(temp_dir, config)
+        .await
+        .unwrap()
+}
+
+async fn read_audit_log(data_dir: &PathBuf) -> Vec<String> {
+    let audit_path = data_dir.join("audit.log");
+    if !audit_path.exists() {
+        return vec![];
     }
+    let content = tokio::fs::read_to_string(&audit_path).await.unwrap();
+    content.lines().map(|s| s.to_string()).collect()
+}
 
-    async fn create_test_manager() -> AccountManager {
-        let temp_dir = create_unique_temp_dir();
-        tokio::fs::create_dir_all(&temp_dir).await.unwrap();
-        AccountManager::load(temp_dir).await.unwrap()
-    }
-
-    async fn create_test_manager_with_config(config: AuditBufferConfig) -> AccountManager {
-        let temp_dir = create_unique_temp_dir();
-        tokio::fs::create_dir_all(&temp_dir).await.unwrap();
-        AccountManager::load_with_config(temp_dir, config)
-            .await
-            .unwrap()
-    }
-
-    async fn read_audit_log(data_dir: &PathBuf) -> Vec<String> {
-        let audit_path = data_dir.join("audit.log");
-        if !audit_path.exists() {
-            return vec![];
-        }
-        let content = tokio::fs::read_to_string(&audit_path).await.unwrap();
-        content.lines().map(|s| s.to_string()).collect()
-    }
-
-    #[tokio::test]
-    async fn test_login_sets_dirty_flag() {
+#[tokio::test]
+async fn test_login_sets_dirty_flag() {
         let manager = create_test_manager().await;
         let user_id = ProtocolId::default();
 
@@ -65,12 +63,12 @@ mod tests {
         // Check that dirty flag is set
         assert!(manager.is_dirty(), "Dirty flag should be true after login");
 
-        // Cleanup
-        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
-    }
+    // Cleanup
+    tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+}
 
-    #[tokio::test]
-    async fn test_flush_if_dirty_saves_data() {
+#[tokio::test]
+async fn test_flush_if_dirty_saves_data() {
         let manager = create_test_manager().await;
         let user_id = ProtocolId::default();
 
@@ -112,12 +110,12 @@ mod tests {
             "last_login_ms should persist across reload"
         );
 
-        // Cleanup
-        tokio::fs::remove_dir_all(&data_dir).await.ok();
-    }
+    // Cleanup
+    tokio::fs::remove_dir_all(&data_dir).await.ok();
+}
 
-    #[tokio::test]
-    async fn test_flush_if_dirty_skips_when_clean() {
+#[tokio::test]
+async fn test_flush_if_dirty_skips_when_clean() {
         let manager = create_test_manager().await;
 
         // Ensure dirty flag is false
@@ -126,12 +124,12 @@ mod tests {
         // Call flush_if_dirty when clean - should not error
         manager.flush_if_dirty().await.unwrap();
 
-        // Cleanup
-        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
-    }
+    // Cleanup
+    tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+}
 
-    #[tokio::test]
-    async fn test_last_login_survives_restart() {
+#[tokio::test]
+async fn test_last_login_survives_restart() {
         let temp_dir = create_unique_temp_dir();
         tokio::fs::create_dir_all(&temp_dir).await.unwrap();
 
@@ -169,12 +167,12 @@ mod tests {
             );
         }
 
-        // Cleanup
-        tokio::fs::remove_dir_all(&temp_dir).await.ok();
-    }
+    // Cleanup
+    tokio::fs::remove_dir_all(&temp_dir).await.ok();
+}
 
-    #[tokio::test]
-    async fn test_audit_entries_batched() {
+#[tokio::test]
+async fn test_audit_entries_batched() {
         let config = AuditBufferConfig {
             max_batch_size: 3,
             flush_interval_secs: 3600, // Long interval to test batch size
@@ -222,12 +220,12 @@ mod tests {
         let lines = read_audit_log(manager.data_dir()).await;
         assert_eq!(lines.len(), 3, "Should flush all 3 entries at threshold");
 
-        // Cleanup
-        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
-    }
+    // Cleanup
+    tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+}
 
-    #[tokio::test]
-    async fn test_audit_manual_flush() {
+#[tokio::test]
+async fn test_audit_manual_flush() {
         let config = AuditBufferConfig {
             max_batch_size: 1000,
             flush_interval_secs: 3600,
@@ -253,12 +251,12 @@ mod tests {
         assert_eq!(lines.len(), 1);
         assert!(lines[0].contains("create"));
 
-        // Cleanup
-        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
-    }
+    // Cleanup
+    tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+}
 
-    #[tokio::test]
-    async fn test_audit_periodic_flush() {
+#[tokio::test]
+async fn test_audit_periodic_flush() {
         let config = AuditBufferConfig {
             max_batch_size: 1000,
             flush_interval_secs: 2, // 2 seconds
@@ -284,12 +282,12 @@ mod tests {
         assert_eq!(lines.len(), 1);
         assert!(lines[0].contains("create"));
 
-        // Cleanup
-        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
-    }
+    // Cleanup
+    tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+}
 
-    #[tokio::test]
-    async fn test_audit_entries_maintain_order() {
+#[tokio::test]
+async fn test_audit_entries_maintain_order() {
         let config = AuditBufferConfig {
             max_batch_size: 1000,
             flush_interval_secs: 3600,
@@ -317,7 +315,6 @@ mod tests {
             assert!(line.contains("create"), "Each entry should be a create action");
         }
 
-        // Cleanup
-        tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
-    }
+    // Cleanup
+    tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
 }
