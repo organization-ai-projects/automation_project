@@ -1,6 +1,13 @@
-# protocol_macros Documentation Index
+# Table of Contents
 
-- [Back to protocol_macros README](../README.md)
-- [Implementation Details](implementation.md)
-- [Migration Guide](migration_guide.md)
-- [Usage Examples](usage_examples.md)
+This document provides an overview of all documentation files in this directory.
+
+## Guides
+
+- [Back to protocol_macros README](../README.md): Main library documentation
+- [Usage Examples](usage_examples.md): Practical usage examples
+- [Migration Guide](migration_guide.md): Guide for migrating to protocol_macros
+
+## Reference
+
+- [Implementation Details](implementation.md): Internal implementation documentation

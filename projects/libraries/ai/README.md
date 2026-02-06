@@ -1,6 +1,39 @@
-# AI Library - Public API Documentation
+# AI Library Documentation
 
-A Rust library providing a unified interface for neuro-symbolic AI operations, combining neural networks with symbolic reasoning.
+This directory contains a Rust library providing a unified interface for neuro-symbolic AI operations, combining neural networks with symbolic reasoning.
+
+## Role in the Project
+
+This library is responsible for providing AI capabilities across the entire automation project. It orchestrates neural and symbolic solvers to handle various AI tasks such as code generation, analysis, and refactoring.
+
+It interacts mainly with:
+
+- `neural` library - Neural network solver
+- `symbolic` library - Symbolic reasoning solver
+- Product modules that require AI capabilities
+
+## Directory Structure
+
+```
+ai/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── ai_body.rs
+    ├── feedbacks/
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
 
 ## Overview
 

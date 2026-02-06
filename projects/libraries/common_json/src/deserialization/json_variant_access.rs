@@ -6,7 +6,7 @@ use super::helpers::type_error;
 use super::json_deserializer::JsonDeserializer;
 use super::json_map_access::JsonMapAccess;
 use super::json_seq_access::JsonSeqAccess;
-use crate::json_error::JsonErrorCode;
+use crate::json_error_code::JsonErrorCode;
 
 pub(crate) struct JsonVariantAccess<'de> {
     pub(crate) value: Option<&'de Json>,

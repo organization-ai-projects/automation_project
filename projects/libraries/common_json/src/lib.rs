@@ -12,7 +12,7 @@ pub mod json_access_mut;
 pub mod json_array_builder;
 pub mod json_comparison;
 pub mod json_error;
-mod json_error_code;
+pub mod json_error_code;
 mod json_number;
 mod json_number_visitor;
 pub mod json_object_builder;

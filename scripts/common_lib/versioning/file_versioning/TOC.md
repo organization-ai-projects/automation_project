@@ -1,16 +1,16 @@
-# Common Lib (Versioning) TOC
+# Table of Contents
 
-- [Back to Common Libraries TOC](../../TOC.md)
+This document provides an overview of all documentation files in this directory.
 
-## Overview
+## Documentation
 
-- [file_versioning README](README.md)
+- [README.md](README.md): Main documentation for file versioning utilities
 
 ## Git Helpers
 
-- [branch.sh](git/branch.sh)
-- [commit.sh](git/commit.sh)
-- [repo.sh](git/repo.sh)
-- [staging.sh](git/staging.sh)
-- [synch.sh](git/synch.sh)
-- [working_tree.sh](git/working_tree.sh)
+- [git/branch.sh](git/branch.sh): Branch management utilities
+- [git/commit.sh](git/commit.sh): Commit operations
+- [git/repo.sh](git/repo.sh): Repository validation utilities
+- [git/staging.sh](git/staging.sh): Staging/index operations
+- [git/synch.sh](git/synch.sh): Synchronization utilities
+- [git/working_tree.sh](git/working_tree.sh): Working tree state validation

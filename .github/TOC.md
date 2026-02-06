@@ -1,6 +1,6 @@
-# GitHub TOC
+# Table of Contents
 
-This table of contents provides an overview of the GitHub-related files and documentation in this repository.
+This document provides an overview of all documentation files in this directory.
 
 ## Workflows
 

@@ -1,6 +1,29 @@
-# Versioning Utilities
+# Versioning Utilities Documentation
 
 This directory contains reusable utility functions specific to version control workflows.
+
+## Role in the Project
+
+This directory is responsible for providing reusable abstractions for version control operations, primarily focused on Git repository management, branch operations, and working tree state.
+It interacts mainly with:
+
+- Git version control system
+- Automation and versioning scripts
+- Repository state and history
+- Branch and commit management
+
+## Directory Structure
+
+```plaintext
+versioning/
+└── file_versioning/     # Utilities for file-level version control
+    └── git/             # Git-specific operations
+```
+
+## Files
+
+- `README.md`: This file.
+- `file_versioning/`: Utilities for file-level version control.
 
 ## Scope
 

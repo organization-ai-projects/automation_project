@@ -1,6 +1,7 @@
 // projects/libraries/common_json/src/serialization/helpers.rs
 use crate::Json;
-use crate::json_error::{JsonError, JsonErrorCode, JsonResult};
+use crate::json_error::{JsonError, JsonResult};
+use crate::json_error_code::JsonErrorCode;
 use crate::serialization::const_values::INDENT_WIDTH;
 use crate::serialization::json_serializer::JsonSerializer;
 use serde::ser::Serialize;

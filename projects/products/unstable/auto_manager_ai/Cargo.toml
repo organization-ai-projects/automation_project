@@ -1,0 +1,10 @@
+[package]
+name = "auto_manager_ai"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+common_json = { workspace = true }
+
+[dev-dependencies]

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-UI_DIR="$ROOT_DIR/projects/products/accounts/ui"
+UI_DIR="$ROOT_DIR/projects/products/stable/accounts/ui"
 OUT_DIR="$UI_DIR/ui_dist"
 UI_MANIFEST="ui_manifest.ron"
 

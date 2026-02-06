@@ -1,5 +1,6 @@
 // projects/libraries/common_json/src/tests/json_error.rs
-use crate::json_error::{JsonError, JsonErrorCode};
+use crate::json_error::JsonError;
+use crate::json_error_code::JsonErrorCode;
 
 #[cfg(test)]
 #[test]

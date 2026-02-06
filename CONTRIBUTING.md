@@ -114,6 +114,45 @@ See [Versioning TOC](scripts/versioning/file_versioning/TOC.md) for details.
 
 - Ensure CI passes on your PR.
 
+### Test Import Style
+
+**Use explicit imports in test modules.** Avoid `use super::*` in favor of explicit `use crate::` or `use super::` imports for specific items.
+
+**Good:**
+
+```rust
+#[cfg(test)]
+mod tests {
+    use crate::MyStruct;
+    use crate::MyEnum;
+    // or
+    use super::MyStruct;
+    use super::MyEnum;
+
+    #[test]
+    fn test_something() {
+        let s = MyStruct::new();
+        // ...
+    }
+}
+```
+
+**Avoid:**
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;  // Avoid this
+
+    #[test]
+    fn test_something() {
+        // ...
+    }
+}
+```
+
+**Rationale:** Explicit imports improve code clarity, make dependencies obvious, and reduce ambiguity during code review.
+
 ---
 
 ## Code Quality

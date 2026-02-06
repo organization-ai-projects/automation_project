@@ -1,6 +1,39 @@
-# Common Parsing Library
+# Common Parsing Library Documentation
 
-Text parsing utilities for `automation_project`.
+This directory contains text parsing utilities for the automation project.
+
+## Role in the Project
+
+This library is responsible for providing parsing utilities across the automation project. It includes cursor-based text parsing, unified diff parsing, and date validation functionality.
+
+It interacts mainly with:
+
+- Version control tools - For diff parsing
+- Common calendar library - For date parsing
+- Various products - For text processing needs
+
+## Directory Structure
+
+```
+common_parsing/
+├── Cargo.toml          # Package configuration
+├── README.md           # This file
+├── documentation/      # Additional documentation
+│   └── TOC.md
+└── src/               # Source code
+    ├── lib.rs
+    ├── cursor.rs
+    ├── diff.rs
+    └── ...
+```
+
+## Files
+
+- `README.md`: This file.
+- `Cargo.toml`: Package configuration.
+- `documentation/`: Additional documentation.
+- `src/`: Source code.
+
 
 ## Overview
 

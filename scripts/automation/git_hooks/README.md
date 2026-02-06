@@ -1,6 +1,35 @@
-# Git Hooks
+# Git Hooks Documentation
 
-Custom git hooks to ensure code and commit quality.
+This directory contains custom git hooks to ensure code and commit quality.
+
+## Role in the Project
+
+This directory is responsible for enforcing code quality and commit standards through automated validation at key points in the git workflow.
+It interacts mainly with:
+
+- Git commit and push workflow
+- Cargo formatting and linting tools
+- Test infrastructure
+- Commit message conventions
+- Changed file detection system
+
+## Directory Structure
+
+```plaintext
+git_hooks/
+├── commit-msg          # Validates commit message format
+├── pre-commit          # Runs code formatting before commit
+├── pre-push            # Runs quality checks before push
+└── install_hooks.sh    # Installs git hooks to .git/hooks/
+```
+
+## Files
+
+- `README.md`: This file.
+- `commit-msg`: Validates commit message format.
+- `pre-commit`: Runs formatting before commit.
+- `pre-push`: Runs quality checks before push.
+- `install_hooks.sh`: Installs hooks to `.git/hooks/`.
 
 ## Available hooks
 
@@ -72,9 +101,9 @@ Runs quality checks before each push, **with smart scope detection**:
 The hook analyzes changed files and only tests the impacted crates:
 
 ```plaintext
-projects/products/accounts/backend/src/...  → tests accounts-backend
-projects/libraries/security/src/...         → tests security
-projects/products/core/engine/src/...       → tests engine
+projects/products/stable/accounts/backend/src/...  → tests accounts-backend
+projects/libraries/security/src/...                → tests security
+projects/products/stable/core/engine/src/...       → tests engine
 ```
 
 If no changes are detected, a full workspace test is run.
