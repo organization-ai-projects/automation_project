@@ -115,6 +115,7 @@ impl CodeValidator {
         // Create semantic analyzer with current strict mode setting
         let analyzer = SemanticAnalyzer::new(self.strict_mode);
         let issues = analyzer.analyze(syntax_tree);
+        let issue_count = issues.len();
 
         // Process semantic issues
         for issue in issues {
@@ -133,10 +134,7 @@ impl CodeValidator {
             }
         }
 
-        tracing::debug!(
-            "Semantic validation complete with {} issues",
-            warnings.len()
-        );
+        tracing::debug!("Semantic validation complete with {} issues", issue_count);
     }
 
     /// Checks for common issues

@@ -8,3 +8,6 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
 common_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

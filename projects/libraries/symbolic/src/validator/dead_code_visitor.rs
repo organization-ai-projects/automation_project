@@ -66,6 +66,13 @@ impl DeadCodeVisitor {
 }
 
 impl<'ast> Visit<'ast> for DeadCodeVisitor {
+    fn visit_block(&mut self, block: &'ast syn::Block) {
+        let prev = self.found_terminator;
+        self.found_terminator = false;
+        syn::visit::visit_block(self, block);
+        self.found_terminator = prev;
+    }
+
     fn visit_stmt(&mut self, stmt: &'ast Stmt) {
         self.current_line += 1;
 
