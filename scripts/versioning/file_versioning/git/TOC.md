@@ -8,7 +8,7 @@ This document provides an overview of all documentation files in this directory.
 
 ## Scripts
 
-- [add_commit_push.sh](add_commit_push.sh): Add, commit, and push changes in one operation
+- [add_commit_push.sh](add_commit_push.sh): Add, commit, and push changes with message validation
 - [clean_branches.sh](clean_branches.sh): Clean obsolete branches from repository
 - [clean_local_gone.sh](clean_local_gone.sh): Remove local branches with gone remotes
 - [cleanup_after_pr.sh](cleanup_after_pr.sh): Update branches after PR merge

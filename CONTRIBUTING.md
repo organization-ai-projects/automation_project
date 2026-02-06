@@ -44,9 +44,55 @@ Use descriptive branch names with a type prefix:
 
 ## Commit Guidelines
 
+### Commit Message Format (Enforced)
+
+All commit messages **must** follow the conventional commit format:
+
+```text
+<type>(<scope>): <summary>
+```
+
+or
+
+```text
+<type>: <summary>
+```
+
+**Required Types**:
+
+- `feat` – New feature
+- `fix` – Bug fix
+- `docs` – Documentation changes
+- `style` – Code style/formatting (no functional changes)
+- `refactor` – Code refactoring
+- `test` – Adding or updating tests
+- `chore` – Maintenance tasks
+
+**Examples**:
+
+- `feat(auth): add user authentication`
+- `feat(ci,scripts): add workflows and sync script`
+- `fix: resolve null pointer exception`
+- `docs(readme): update installation instructions`
+- `style: format code according to style guide`
+- `refactor(api): simplify error handling`
+- `test: add unit tests for validator`
+- `chore: update dependencies`
+
+**Scope** (optional): Component or module affected (e.g., `auth`, `api`, `ci`)
+
+**Summary**: Clear, concise description of the change
+
+**Enforcement**:
+- The `add_commit_push.sh` script validates commit messages
+- Git commit hooks validate commit messages (when installed)
+- Non-conforming messages are rejected with clear error messages
+- Bypass only for emergencies: use `--no-verify` flag
+
+### Additional Guidelines
+
 - Keep commits small and focused on a single change.
-- Use clear, descriptive commit messages.
-- Reference issues when applicable: `fix: Resolve panic in parser (#42)`
+- Reference issues when applicable: `fix: resolve panic in parser (#42)`
 
 See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details.
 
