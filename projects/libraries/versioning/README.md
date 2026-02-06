@@ -29,10 +29,15 @@ versioning/
 ├── documentation/          # Additional documentation
 └── src/
     ├── lib.rs             # Library root and public exports
-    ├── release_id.rs      # Release identifier implementation
-    ├── revision_log.rs    # Changelog and modification tracking
-    ├── release_tracker.rs # Version state management
     ├── document_builder.rs # Documentation generation
+    ├── modification_category.rs # Modification category enum
+    ├── modification_entry.rs # Individual changelog entries
+    ├── output_format.rs   # Output format enum
+    ├── release_id.rs      # Release identifier implementation
+    ├── release_id_error.rs # Release identifier parsing errors
+    ├── release_tracker.rs # Version state management
+    ├── revision_entry.rs  # Release revision entries
+    ├── revision_log.rs    # Changelog and modification tracking
     └── tests/             # Test modules
         ├── mod.rs
         ├── release_id_tests.rs
@@ -46,10 +51,15 @@ versioning/
 ### Core Modules
 
 - **lib.rs**: Public API surface and module exports for the library
-- **release_id.rs**: Defines `ReleaseId` structure for three-tier version identifiers with parsing, formatting, and advancement logic
-- **revision_log.rs**: Implements `RevisionLog`, `RevisionEntry`, `ModificationEntry`, and `ModificationCategory` for tracking changes
-- **release_tracker.rs**: Provides `ReleaseTracker` for managing version state and release registration with file persistence
 - **document_builder.rs**: Contains `DocumentBuilder` for generating formatted changelog documents in Markdown or plain text
+- **modification_category.rs**: Defines `ModificationCategory` enum for changelog classification
+- **modification_entry.rs**: Defines `ModificationEntry` for individual change records
+- **output_format.rs**: Defines `OutputFormat` enum for document generation
+- **release_id.rs**: Defines `ReleaseId` structure for three-tier version identifiers with parsing, formatting, and advancement logic
+- **release_id_error.rs**: Defines `ReleaseIdError` for version parsing failures
+- **release_tracker.rs**: Provides `ReleaseTracker` for managing version state and release registration with file persistence
+- **revision_entry.rs**: Defines `RevisionEntry` for per-release change groups
+- **revision_log.rs**: Implements `RevisionLog` for tracking the release history
 
 ### Features
 
