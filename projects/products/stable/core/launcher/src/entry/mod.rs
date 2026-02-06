@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/entry/mod.rs
+// projects/products/stable/core/launcher/src/entry/mod.rs
 mod entry_main;
 mod paths;
 

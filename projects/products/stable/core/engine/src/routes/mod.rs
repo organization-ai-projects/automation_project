@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/routes/mod.rs
+// projects/products/stable/core/engine/src/routes/mod.rs
 
 // Module declarations
 pub(crate) mod accounts;

@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/bootstrap/mod.rs
+// projects/products/stable/core/engine/src/bootstrap/mod.rs
 
 // Module declarations
 mod bootstrap_error;

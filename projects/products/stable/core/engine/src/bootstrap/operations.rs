@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/bootstrap/operations.rs
+// projects/products/stable/core/engine/src/bootstrap/operations.rs
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;

@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/parsing.rs
+// projects/products/stable/core/launcher/src/parsing.rs
 use std::collections::HashSet;
 
 pub(crate) fn parse_csv(v: &Option<String>) -> Option<HashSet<String>> {

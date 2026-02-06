@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/router/mod.rs
+// projects/products/stable/accounts/backend/src/router/mod.rs
 pub mod accounts;
 pub mod auth;
 pub mod command_router;

@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/workspace.rs
+// projects/products/stable/core/launcher/src/workspace.rs
 use serde::Deserialize;
 use std::path::PathBuf;
 

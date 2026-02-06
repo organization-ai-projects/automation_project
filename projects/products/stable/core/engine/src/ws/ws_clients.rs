@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/ws/ws_clients.rs
+// projects/products/stable/core/engine/src/ws/ws_clients.rs
 use anyhow::Result;
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};

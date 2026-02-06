@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/ws/mod.rs
+// projects/products/stable/core/engine/src/ws/mod.rs
 mod backend_registration;
 mod router;
 pub(crate) mod ws_event_args;

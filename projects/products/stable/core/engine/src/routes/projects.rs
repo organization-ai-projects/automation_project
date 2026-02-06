@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/routes/projects.rs
+// projects/products/stable/core/engine/src/routes/projects.rs
 use warp::Reply;
 
 use crate::EngineState;

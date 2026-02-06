@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/bootstrap/owner_claim.rs
+// projects/products/stable/core/engine/src/bootstrap/owner_claim.rs
 use serde::{Deserialize, Serialize};
 
 // use common_time for created_at and expires_at

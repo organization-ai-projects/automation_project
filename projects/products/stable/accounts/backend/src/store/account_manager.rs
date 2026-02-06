@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/store/account_manager.rs
+// projects/products/stable/accounts/backend/src/store/account_manager.rs
 use common_json::{from_json_str, to_string};
 use common_time::timestamp_utils::current_timestamp_ms;
 use security::{Permission, Role};

@@ -10,7 +10,7 @@ pub(crate) fn accounts_ui_route() -> impl Filter<Extract = (impl Reply,), Error 
     let ui_dist = std::env::var("CENTRAL_UI_ACCOUNTS_UI_DIST")
         .ok()
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("projects/products/accounts/ui/ui_dist"));
+        .unwrap_or_else(|| PathBuf::from("projects/products/stable/accounts/ui/ui_dist"));
     let ui_public = ui_dist.join("public");
 
     if let Err(missing) = validate_bundle(&ui_dist) {

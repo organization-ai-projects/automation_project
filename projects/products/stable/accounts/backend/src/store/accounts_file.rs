@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/store/accounts_file.rs
+// projects/products/stable/accounts/backend/src/store/accounts_file.rs
 use crate::store::account_record::AccountRecord;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

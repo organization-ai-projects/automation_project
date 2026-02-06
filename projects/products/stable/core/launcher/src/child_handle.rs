@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/child_handle.rs
+// projects/products/stable/core/launcher/src/child_handle.rs
 use std::{
     process::Child,
     sync::{Arc, Mutex},

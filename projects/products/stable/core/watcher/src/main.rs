@@ -1,4 +1,4 @@
-// projects/products/core/watcher/src/main.rs
+// projects/products/stable/core/watcher/src/main.rs
 mod config;
 mod supervisor;
 

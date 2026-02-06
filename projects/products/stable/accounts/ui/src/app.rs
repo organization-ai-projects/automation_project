@@ -1,4 +1,4 @@
-// projects/products/accounts/ui/src/app.rs
+// projects/products/stable/accounts/ui/src/app.rs
 use dioxus::prelude::*;
 use protocol::accounts::AccountSummary;
 

@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/router/auth.rs
+// projects/products/stable/accounts/backend/src/router/auth.rs
 use protocol::accounts::{LoginRequest, LoginResponse};
 use protocol::{Command, Event, Metadata, ProtocolId};
 use security::TokenService;

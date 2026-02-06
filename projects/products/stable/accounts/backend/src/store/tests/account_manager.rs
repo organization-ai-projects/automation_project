@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/store/tests/account_manager.rs
+// projects/products/stable/accounts/backend/src/store/tests/account_manager.rs
 #[cfg(test)]
 mod tests {
     use crate::store::account_manager::AccountManager;

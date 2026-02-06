@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/routes/accounts.rs
+// projects/products/stable/core/engine/src/routes/accounts.rs
 use common_json::pjson;
 use warp::{Reply, http::StatusCode};
 

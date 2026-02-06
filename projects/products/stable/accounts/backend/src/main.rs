@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/main.rs
+// projects/products/stable/accounts/backend/src/main.rs
 mod router;
 mod store;
 

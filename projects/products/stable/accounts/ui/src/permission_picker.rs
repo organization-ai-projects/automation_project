@@ -1,4 +1,4 @@
-// projects/products/accounts/ui/src/permission_picker.rs
+// projects/products/stable/accounts/ui/src/permission_picker.rs
 use dioxus::prelude::*;
 
 /// Permission selector with pill buttons for toggling

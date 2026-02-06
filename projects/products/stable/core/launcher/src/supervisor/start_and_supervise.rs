@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/supervisor/start_and_supervise.rs
+// projects/products/stable/core/launcher/src/supervisor/start_and_supervise.rs
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},

@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/process.rs
+// projects/products/stable/core/launcher/src/process.rs
 use std::{
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},

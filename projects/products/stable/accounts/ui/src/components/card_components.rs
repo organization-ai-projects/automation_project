@@ -1,4 +1,4 @@
-// projects/products/accounts/ui/src/card_components.rs
+// projects/products/stable/accounts/ui/src/card_components.rs
 use dioxus::prelude::*;
 use gloo_net::http::Request;
 use protocol::ProtocolId;

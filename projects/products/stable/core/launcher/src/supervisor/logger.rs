@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/supervisor/logger.rs
+// projects/products/stable/core/launcher/src/supervisor/logger.rs
 use std::{
     io::{BufRead, BufReader},
     thread,

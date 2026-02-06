@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/supervisor/readiness.rs
+// projects/products/stable/core/launcher/src/supervisor/readiness.rs
 use std::{
     thread,
     time::{Duration, Instant},

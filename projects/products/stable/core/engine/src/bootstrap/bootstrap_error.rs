@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/bootstrap/bootstrap_error.rs
+// projects/products/stable/core/engine/src/bootstrap/bootstrap_error.rs
 
 /// Errors during bootstrap/setup operations
 #[derive(Debug, thiserror::Error)]

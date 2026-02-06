@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/shutdown.rs
+// projects/products/stable/core/launcher/src/shutdown.rs
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},

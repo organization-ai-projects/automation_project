@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/routes/helpers.rs
+// projects/products/stable/core/engine/src/routes/helpers.rs
 use warp::{http::StatusCode, reply::WithStatus};
 
 use protocol::{Event, EventType};

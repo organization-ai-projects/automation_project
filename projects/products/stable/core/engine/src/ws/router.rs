@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/ws/router.rs
+// projects/products/stable/core/engine/src/ws/router.rs
 use common_json::{pjson, to_value};
 use protocol::{Command, Event, ProjectMetadata};
 use security::{Permission, Token};

@@ -1,4 +1,4 @@
-// projects/products/core/watcher/tests/config_tests.rs
+// projects/products/stable/core/watcher/tests/config_tests.rs
 use std::fs;
 use std::process::{Command, Stdio};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

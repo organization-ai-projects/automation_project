@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/store/account_record.rs
+// projects/products/stable/accounts/backend/src/store/account_record.rs
 use protocol::ProtocolId;
 use protocol::accounts::AccountStatus;
 use security::{Permission, Role};

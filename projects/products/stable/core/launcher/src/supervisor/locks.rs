@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/supervisor/locks.rs
+// projects/products/stable/core/launcher/src/supervisor/locks.rs
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::logging::log_message;
