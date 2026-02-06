@@ -1,5 +1,7 @@
 // projects/libraries/symbolic/src/validator/code_validator.rs
 use crate::validator::ValidationError;
+use crate::validator::semantic_analyzer::SemanticAnalyzer;
+use crate::validator::semantic_issue::Severity;
 use crate::validator::validation_result::ValidationResult;
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
@@ -109,15 +111,32 @@ impl CodeValidator {
     }
 
     /// Additional semantic validations
-    fn validate_semantics(&self, _syntax_tree: &syn::File, warnings: &mut Vec<String>) {
-        // TODO: Add more advanced semantic validations
-        // - Check for unused imports
-        // - Check for unused variables
-        // - Check for inconsistent types
+    fn validate_semantics(&self, syntax_tree: &syn::File, warnings: &mut Vec<String>) {
+        // Create semantic analyzer with current strict mode setting
+        let analyzer = SemanticAnalyzer::new(self.strict_mode);
+        let issues = analyzer.analyze(syntax_tree);
 
-        if self.strict_mode {
-            warnings.push("Strict mode enabled: additional checks not yet implemented".to_string());
+        // Process semantic issues
+        for issue in issues {
+            let message = issue.to_string();
+            match issue.severity {
+                Severity::Error => {
+                    // Semantic issues are always added to warnings; severity indicates error-level vs warning-level
+                    warnings.push(message);
+                }
+                Severity::Warning => {
+                    warnings.push(message);
+                }
+                Severity::Info => {
+                    tracing::debug!("Semantic info: {}", message);
+                }
+            }
         }
+
+        tracing::debug!(
+            "Semantic validation complete with {} issues",
+            warnings.len()
+        );
     }
 
     /// Checks for common issues

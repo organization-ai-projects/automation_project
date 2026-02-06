@@ -101,14 +101,29 @@ fn test_strict_mode() {
     let validator = CodeValidator::new()
         .expect("Failed to create CodeValidator")
         .with_strict_mode(true);
-    let result = validator.validate("fn main() {}");
+
+    // Test with code that has semantic issues
+    let code = r#"
+        fn main() {
+            let unused_var = 42;
+        }
+    "#;
+
+    let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
+
+    // In strict mode, unused variables should be reported as errors
+    assert!(
+        !validation.warnings.is_empty(),
+        "Expected warnings in strict mode"
+    );
     assert!(
         validation
             .warnings
             .iter()
-            .any(|warning| warning.contains("Strict mode enabled"))
+            .any(|warning| warning.contains("unused_var") || warning.contains("error")),
+        "Expected error-level warning for unused variable in strict mode"
     );
 }
 
