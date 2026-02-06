@@ -23,7 +23,7 @@ data/
 
 ### Files Tracked in Version Control
 
-- **README.md**: This documentation file (parent directory)
+- **README.md**: This documentation file
 
 ### Files Ignored by Version Control
 
@@ -69,7 +69,7 @@ In CI/CD pipelines, the sandbox should be configured to write to temporary direc
 Old run directories can be safely deleted when no longer needed:
 ```bash
 # Remove runs older than 7 days (excluding models/ and replay.jsonl)
-find data/runs/ -maxdepth 1 -type d -name "20*" -mtime +7 -exec rm -rf {} \;
+find data/runs/ -maxdepth 1 -type d -name "20*" -mtime +7 -exec rm -rf {} +
 ```
 
 ## Usage
