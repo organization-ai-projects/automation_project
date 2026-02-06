@@ -38,7 +38,7 @@ const E_PAYLOAD_TYPE_INVALID: i32 = 1101;
 const E_INNER_PAYLOAD_MISSING: i32 = 1102;
 const E_PAYLOAD_JSON_INVALID: i32 = 1103;
 
-const E_HANDLER_FAILED: i32 = 1200;
+pub const E_HANDLER_FAILED: i32 = 1200;
 #[allow(dead_code)]
 const E_AUTOPILOT_FAILED: i32 = 1300;
 
@@ -217,7 +217,15 @@ fn run_git_autopilot(req: RunRequest) -> Result<String, HandlerError> {
     }
 }
 
-/// Create a RepoPathValidator with whitelist from environment or default
+/// Create a RepoPathValidator with whitelist from environment or default.
+///
+/// Checks for `VARINA_REPO_WHITELIST` environment variable which should contain
+/// comma-separated absolute paths (e.g., "/home,/tmp,/workspace").
+///
+/// Falls back to default whitelist (/home, /tmp, /workspace) if:
+/// - Environment variable is not set
+/// - Environment variable is empty
+/// - All paths in environment variable are empty after trimming
 fn create_repo_path_validator() -> RepoPathValidator {
     use std::env;
     use std::path::PathBuf;

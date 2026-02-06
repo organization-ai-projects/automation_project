@@ -37,6 +37,7 @@ impl HandlerError {
 
 impl From<String> for HandlerError {
     fn from(message: String) -> Self {
-        Self::internal_error(1200, message)
+        // Use E_HANDLER_FAILED for generic internal errors
+        Self::internal_error(crate::router::E_HANDLER_FAILED, message)
     }
 }
