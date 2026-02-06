@@ -62,4 +62,3 @@ fn test_run_report_round_trip() {
     assert_eq!(report.run_id, deserialized.run_id);
     assert_eq!(report.status, deserialized.status);
 }
-
