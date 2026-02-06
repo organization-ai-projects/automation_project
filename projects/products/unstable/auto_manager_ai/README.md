@@ -158,22 +158,22 @@ This product produces output in the **structured JSON file** format:
 
 1. **No repository writes**: V0 cannot modify tracked files
    - Enforced by policy (all write actions denied)
-   - Tested by `tests/no_repo_mutation.rs`
+   - Covered by unit tests in `src/domain/policy.rs` (test_policy_default_deny_writes, test_all_write_actions_denied)
 
 2. **No GitHub writes**: V0 cannot create issues, PRs, or comments
    - Enforced by policy
-   - Tested by `tests/policy_guardrails.rs`
+   - Covered by unit tests in `src/domain/policy.rs` and `src/plan_evaluator.rs`
 
 3. **Schema validation**: All outputs must be valid JSON
-   - Tested by `tests/schema_validation.rs`
+   - Covered by unit tests in `src/domain/action_plan.rs` (test_action_plan_serialization, test_action_plan_round_trip) and `src/domain/run_report.rs` (test_run_report_serialization)
 
 4. **Confidence threshold**: Actions below 0.6 confidence are denied
    - Enforced by policy
-   - Tested by `tests/confidence_threshold.rs`
+   - Covered by unit tests in `src/domain/policy.rs` (test_policy_confidence_threshold, test_confidence_threshold_default)
 
 5. **Output isolation**: Only `./out/` directory can be written
    - Enforced by implementation
-   - Tested by `tests/no_repo_mutation.rs`
+   - Covered by unit tests in `src/output_writer.rs` (test_write_outputs) and `src/plan_generator.rs`
 
 ### Action Lifecycle
 
@@ -230,18 +230,26 @@ V0 Note: All actions are proposals only. No mutations were performed.
 
 ## Testing
 
-Run the guardrail tests:
+Run all unit tests:
 
 ```bash
 cd projects/products/unstable/auto_manager_ai
 cargo test
 
-# Run specific test suites
-cargo test schema_validation
-cargo test policy_guardrails
-cargo test no_repo_mutation
-cargo test confidence_threshold
+# Run tests for specific modules
+cargo test domain::policy::tests
+cargo test plan_generator::tests
+cargo test output_writer::tests
 ```
+
+All tests are unit tests embedded within modules using `#[cfg(test)]`. Key test modules:
+
+- `src/domain/policy.rs`: Policy guardrails (6 tests)
+- `src/domain/action_plan.rs`: Schema validation (3 tests)
+- `src/domain/run_report.rs`: Report generation (4 tests)
+- `src/plan_generator.rs`: Action plan generation (1 test)
+- `src/plan_evaluator.rs`: Policy evaluation (1 test)
+- `src/output_writer.rs`: Output writing (1 test)
 
 All tests must pass to ensure V0 safety guarantees.
 
@@ -252,33 +260,47 @@ projects/products/unstable/auto_manager_ai/
   Cargo.toml
   README.md
   src/
-    lib.rs              # Public API
+    main.rs             # Binary CLI entrypoint (binary-only crate, no lib.rs)
+    config.rs           # Config struct
+    plan_generator.rs   # Action plan generation logic
+    plan_evaluator.rs   # Policy evaluation logic
+    output_writer.rs    # JSON output writing
     domain/
       mod.rs
-      types.rs          # Core types (RiskLevel, ActionTarget, etc.)
-      action_plan.rs    # ActionPlan and Action structs
-      policy.rs         # Policy and PolicyDecision
-      report.rs         # RunReport
+      # One struct/enum per file pattern:
+      action.rs              # Action struct
+      action_plan.rs         # ActionPlan struct
+      action_status.rs       # ActionStatus enum
+      action_target.rs       # ActionTarget enum
+      dry_run.rs             # DryRun struct
+      dry_run_step.rs        # DryRunStep struct
+      evidence.rs            # Evidence struct
+      policy.rs              # Policy struct
+      policy_decision.rs     # PolicyDecision struct
+      policy_decision_type.rs # PolicyDecisionType enum
+      risk_level.rs          # RiskLevel enum
+      run_output.rs          # RunOutput struct
+      run_report.rs          # RunReport struct
+      run_status.rs          # RunStatus enum
     adapters/
       mod.rs
-      repo.rs           # Repository adapter (read-only)
-      gh.rs             # GitHub adapter (stub in V0)
-      ci.rs             # CI adapter (stub in V0)
+      # One struct/enum per file pattern:
+      repo_context.rs    # RepoContext struct
+      repo_adapter.rs    # RepoAdapter struct (read-only)
+      gh_context.rs      # GhContext struct
+      gh_adapter.rs      # GhAdapter struct (stub in V0)
+      ci_context.rs      # CiContext struct
+      ci_adapter.rs      # CiAdapter struct (stub in V0)
     ai/
       mod.rs
-      planner.rs        # Template-based planner (V0)
-    bin/
-      auto_manager_ai.rs  # CLI entrypoint
+      planning_context.rs  # PlanningContext struct
+      planner.rs           # Planner struct (template-based for V0)
   schemas/
     action_plan.schema.json
     run_report.schema.json
-  tests/
-    mod.rs
-    schema_validation.rs
-    policy_guardrails.rs
-    no_repo_mutation.rs
-    confidence_threshold.rs
 ```
+
+Note: This is a **binary-only crate** following the one-struct-per-file pattern. All tests are unit tests embedded within modules using `#[cfg(test)]`.
 
 ## Public API
 
