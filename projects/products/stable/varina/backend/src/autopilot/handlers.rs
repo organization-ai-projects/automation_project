@@ -27,7 +27,10 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
         Ok(r) => r,
         Err(e) => {
             println!("[error] handle_preview_git_autopilot: Error running autopilot: {e}");
-            return Err(HandlerError::internal_error(E_HANDLER_FAILED, format!("Autopilot execution failed: {e}")));
+            return Err(HandlerError::internal_error(
+                E_HANDLER_FAILED,
+                format!("Autopilot execution failed: {e}"),
+            ));
         }
     };
 
@@ -61,7 +64,10 @@ pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, H
         Ok(r) => r,
         Err(e) => {
             println!("[error] handle_apply_git_autopilot: Error running autopilot: {e}");
-            return Err(HandlerError::internal_error(E_HANDLER_FAILED, e.to_string()));
+            return Err(HandlerError::internal_error(
+                E_HANDLER_FAILED,
+                e.to_string(),
+            ));
         }
     };
 

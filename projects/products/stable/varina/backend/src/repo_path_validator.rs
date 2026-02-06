@@ -2,8 +2,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::validation_error::{
-    ValidationError, E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED,
-    E_REPO_PATH_TRAVERSAL,
+    E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED, E_REPO_PATH_TRAVERSAL, ValidationError,
 };
 
 /// Result type for repo path validation
@@ -111,7 +110,8 @@ impl RepoPathValidator {
                         // Can't go beyond root, this is a traversal attempt
                         return Err(ValidationError::new(
                             E_REPO_PATH_TRAVERSAL,
-                            "Path traversal detected: attempt to navigate above root directory".to_string(),
+                            "Path traversal detected: attempt to navigate above root directory"
+                                .to_string(),
                         ));
                     }
                 }
@@ -129,7 +129,9 @@ impl RepoPathValidator {
         }
 
         // Only allow paths that are children of whitelisted directories
-        self.whitelist.iter().any(|allowed| path.starts_with(allowed))
+        self.whitelist
+            .iter()
+            .any(|allowed| path.starts_with(allowed))
     }
 }
 

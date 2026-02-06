@@ -182,7 +182,11 @@ where
             return err(
                 cmd,
                 e.http_code,
-                if e.http_code == 400 { "Bad Request" } else { "Internal Server Error" },
+                if e.http_code == 400 {
+                    "Bad Request"
+                } else {
+                    "Internal Server Error"
+                },
                 e.error_code,
                 &e.message,
             );
@@ -199,7 +203,10 @@ fn run_git_autopilot(req: RunRequest) -> Result<String, HandlerError> {
             // Create validator with whitelist from environment or default
             let validator = create_repo_path_validator();
             validator.validate(&path).map_err(|e| {
-                HandlerError::validation_error(e.code, format!("Repository path validation failed: {}", e.message))
+                HandlerError::validation_error(
+                    e.code,
+                    format!("Repository path validation failed: {}", e.message),
+                )
             })?
         }
         None => {
@@ -213,7 +220,10 @@ fn run_git_autopilot(req: RunRequest) -> Result<String, HandlerError> {
 
     match run_git_autopilot_in_repo(&repo_path, mode, &policy) {
         Ok(report) => Ok(format!("Success: {:?}", report)),
-        Err(e) => Err(HandlerError::internal_error(E_HANDLER_FAILED, format!("Autopilot error: {}", e))),
+        Err(e) => Err(HandlerError::internal_error(
+            E_HANDLER_FAILED,
+            format!("Autopilot error: {}", e),
+        )),
     }
 }
 
@@ -238,9 +248,12 @@ fn create_repo_path_validator() -> RepoPathValidator {
             .map(|s| PathBuf::from(s.trim()))
             .filter(|p| !p.as_os_str().is_empty())
             .collect();
-        
+
         if !whitelist.is_empty() {
-            println!("[info] Using repo path whitelist from VARINA_REPO_WHITELIST: {:?}", whitelist);
+            println!(
+                "[info] Using repo path whitelist from VARINA_REPO_WHITELIST: {:?}",
+                whitelist
+            );
             return RepoPathValidator::new(whitelist);
         }
     }
@@ -324,9 +337,9 @@ fn meta(cmd: &Command) -> Metadata {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::validation_error::{E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED};
     use common_json::to_value;
     use protocol::{CommandType, ProtocolId};
-    use crate::validation_error::{E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED};
 
     fn create_test_metadata() -> Metadata {
         Metadata {
@@ -347,7 +360,10 @@ mod tests {
         };
 
         let result = run_git_autopilot(req);
-        assert!(result.is_err(), "Expected validation to fail for path: /etc/../../../etc/passwd");
+        assert!(
+            result.is_err(),
+            "Expected validation to fail for path: /etc/../../../etc/passwd"
+        );
         let err = result.unwrap_err();
         // The path may be canonicalized which would resolve the traversal
         // So we check for either path traversal or whitelist error
@@ -492,7 +508,7 @@ mod tests {
             request_id: ProtocolId::default(),
             repo_path: Some("".to_string()),
         };
-        
+
         let cmd = Command {
             metadata: create_test_metadata(),
             command_type: CommandType::Execute,
@@ -504,11 +520,20 @@ mod tests {
         };
 
         let response = handle_command(cmd);
-        assert_eq!(response.status.code, 400, "Expected 400 Bad Request for empty path");
+        assert_eq!(
+            response.status.code, 400,
+            "Expected 400 Bad Request for empty path"
+        );
         assert!(response.error.is_some());
         let error = response.error.unwrap();
-        assert_eq!(error.code, E_REPO_PATH_INVALID_FORMAT, "Expected E_REPO_PATH_INVALID_FORMAT error code");
-        assert!(error.message.contains("cannot be empty"), "Error message should mention empty path");
+        assert_eq!(
+            error.code, E_REPO_PATH_INVALID_FORMAT,
+            "Expected E_REPO_PATH_INVALID_FORMAT error code"
+        );
+        assert!(
+            error.message.contains("cannot be empty"),
+            "Error message should mention empty path"
+        );
     }
 
     #[test]
@@ -517,7 +542,7 @@ mod tests {
             request_id: ProtocolId::default(),
             repo_path: Some("/etc/config".to_string()),
         };
-        
+
         let cmd = Command {
             metadata: create_test_metadata(),
             command_type: CommandType::Execute,
@@ -529,11 +554,20 @@ mod tests {
         };
 
         let response = handle_command(cmd);
-        assert_eq!(response.status.code, 400, "Expected 400 Bad Request for non-whitelisted path");
+        assert_eq!(
+            response.status.code, 400,
+            "Expected 400 Bad Request for non-whitelisted path"
+        );
         assert!(response.error.is_some());
         let error = response.error.unwrap();
-        assert_eq!(error.code, E_REPO_PATH_NOT_WHITELISTED, "Expected E_REPO_PATH_NOT_WHITELISTED error code");
-        assert!(error.message.contains("not in the whitelist"), "Error message should mention whitelist");
+        assert_eq!(
+            error.code, E_REPO_PATH_NOT_WHITELISTED,
+            "Expected E_REPO_PATH_NOT_WHITELISTED error code"
+        );
+        assert!(
+            error.message.contains("not in the whitelist"),
+            "Error message should mention whitelist"
+        );
     }
 
     #[test]
@@ -542,7 +576,7 @@ mod tests {
             request_id: ProtocolId::default(),
             repo_path: Some("/tmp/test-repo".to_string()),
         };
-        
+
         let cmd = Command {
             metadata: create_test_metadata(),
             command_type: CommandType::Execute,
@@ -558,7 +592,8 @@ mod tests {
         if response.status.code == 400 {
             let error = response.error.unwrap();
             assert!(
-                error.code != E_REPO_PATH_INVALID_FORMAT && error.code != E_REPO_PATH_NOT_WHITELISTED,
+                error.code != E_REPO_PATH_INVALID_FORMAT
+                    && error.code != E_REPO_PATH_NOT_WHITELISTED,
                 "Should not get validation error for whitelisted path"
             );
         }
