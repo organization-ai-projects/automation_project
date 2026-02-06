@@ -25,7 +25,7 @@ Use descriptive branch names with a type prefix:
 <type>/<short-description>
 ```
 
-**Types** (both singular and plural forms are accepted):
+**Types** (the following prefixes are accepted, including aliases and variants):
 
 - `feature/` or `feat/` – New feature
 - `fix/` – Bug fix
