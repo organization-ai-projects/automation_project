@@ -110,6 +110,16 @@ This orchestrator:
 
 **Interactive**: Guides you through the complete process
 
+## After PR Merge: cleanup_after_pr.sh
+
+After your PR merges, clean up your local branches:
+
+```bash
+./scripts/versioning/file_versioning/git/cleanup_after_pr.sh
+```
+
+**See [Sync After PR Workflow](git/sync_after_pr.md)** for complete documentation on manual vs automated cleanup.
+
 ## Current Components
 
 ### Git-only Components (`git/`)
