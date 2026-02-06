@@ -56,7 +56,6 @@ done
 if [[ "$has_valid_prefix" == false ]]; then
   log_message "ERROR" "Invalid branch name: '$BRANCH_NAME'"
   log_message "ERROR" "Branch names must start with one of: ${ALLOWED_PREFIXES[*]}"
-  log_message "ERROR" ""
   log_message "ERROR" "Examples:"
   log_message "ERROR" "  - feat/user-authentication"
   log_message "ERROR" "  - feature/user-dashboard"
