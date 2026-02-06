@@ -43,7 +43,7 @@ if string_contains "$BRANCH_NAME" " "; then
 fi
 
 # Validate branch naming convention
-# Prefixes documented in CONTRIBUTING.md, with common plural variants
+# Prefixes documented in CONTRIBUTING.md, with plural variants for doc/test
 ALLOWED_PREFIXES=("feat/" "fix/" "doc/" "docs/" "refactor/" "test/" "tests/" "chore/")
 has_valid_prefix=false
 for prefix in "${ALLOWED_PREFIXES[@]}"; do

@@ -4,7 +4,7 @@ set -euo pipefail
 # Create a clean work branch from dev with naming conventions
 # Usage: ./create_work_branch.sh <type> <description>
 # Types: feat, fix, chore, refactor, doc, test
-# Note: Use 'doc' or 'test' (singular); 'docs' and 'tests' are also valid in manual branch creation
+# Note: This script uses singular forms. For plural variants (docs/, tests/), use create_branch.sh directly.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
