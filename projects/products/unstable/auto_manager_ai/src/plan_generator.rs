@@ -20,8 +20,8 @@ pub fn generate_action_plan(config: &Config) -> Result<ActionPlan, String> {
     // Create planning context
     let planning_ctx = PlanningContext {
         repo: repo_ctx,
-        gh: gh_ctx,
-        ci: ci_ctx,
+        _gh: gh_ctx,
+        _ci: ci_ctx,
     };
 
     // Generate plan
@@ -30,9 +30,9 @@ pub fn generate_action_plan(config: &Config) -> Result<ActionPlan, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
-    use std::path::PathBuf;
+
+    use crate::{config::Config, plan_generator::generate_action_plan};
 
     #[test]
     fn test_generate_action_plan() {

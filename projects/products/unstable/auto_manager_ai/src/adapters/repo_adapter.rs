@@ -74,6 +74,7 @@ impl RepoAdapter {
     }
 
     /// Read a file from the repository (read-only)
+    #[allow(dead_code)] // Reserved for future use in planners and diagnostics
     pub fn read_file(&self, path: &str) -> Result<String, String> {
         let full_path = self.repo_path.join(path);
         fs::read_to_string(&full_path)
