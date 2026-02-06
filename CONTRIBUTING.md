@@ -76,6 +76,29 @@ See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details
    cargo clippy --workspace
    ```
 
+### Creating a PR
+
+The `create_pr.sh` script automates PR creation and **automatically runs tests** before creating the PR to ensure code quality:
+
+```bash
+./scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
+```
+
+**Test enforcement:**
+- By default, `create_pr.sh` runs `cargo test --workspace` before creating the PR
+- If tests fail, the PR will not be created
+- To skip tests (not recommended), use the `--skip-tests` flag:
+  ```bash
+  ./scripts/versioning/file_versioning/orchestrators/read/create_pr.sh --skip-tests
+  ```
+- Skipping tests will display a warning reminder to ensure proper testing before merging
+
+**Additional options:**
+- `--base <branch>`: Specify the base branch (default: `dev`)
+- `--title <title>`: Custom PR title
+- `--body <body>`: Custom PR description
+- `--draft`: Create as draft PR
+
 ### PR Requirements
 
 - **Title**: Use the same convention as branch names (`feat:`, `fix:`, etc.)

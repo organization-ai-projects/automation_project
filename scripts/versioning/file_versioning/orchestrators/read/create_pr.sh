@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Automate the creation of a pull request with smart defaults
-# Usage: ./create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft]
+# Usage: ./create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] [--skip-tests]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
@@ -18,12 +18,14 @@ source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
 
 require_git_repo
 require_cmd gh
+require_cmd cargo
 
 CURRENT_BRANCH="$(get_current_branch)"
 BASE_BRANCH="${BASE_BRANCH:-dev}"
 TITLE=""
 BODY=""
 DRAFT=false
+SKIP_TESTS=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -44,6 +46,10 @@ while [[ $# -gt 0 ]]; do
       DRAFT=true
       shift
       ;;
+    --skip-tests)
+      SKIP_TESTS=true
+      shift
+      ;;
     *)
       die "Unknown argument: $1"
       ;;
@@ -52,6 +58,23 @@ done
 
 # Safety: cannot create PR from protected branches
 require_non_protected_branch "$CURRENT_BRANCH"
+
+# Run tests unless explicitly skipped
+if [[ "$SKIP_TESTS" == true ]]; then
+  warn "⚠ Skipping tests (--skip-tests flag used)."
+  warn "⚠ Please ensure your changes are properly tested before merging."
+else
+  info "Running workspace tests before creating PR..."
+  info "To skip this check, use --skip-tests flag (not recommended)."
+  
+  cd "$ROOT_DIR"
+  if ! cargo test --workspace; then
+    die "❌ Tests failed. Please fix test failures before creating a PR.
+Use --skip-tests to bypass this check (not recommended)."
+  fi
+  
+  info "✓ All tests passed."
+fi
 
 info "Creating PR for branch: $CURRENT_BRANCH → $BASE_BRANCH"
 
