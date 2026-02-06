@@ -43,8 +43,8 @@ if string_contains "$BRANCH_NAME" " "; then
 fi
 
 # Validate branch naming convention
-# Prefixes documented in CONTRIBUTING.md, with plural variants for doc/test
-ALLOWED_PREFIXES=("feat/" "fix/" "doc/" "docs/" "refactor/" "test/" "tests/" "chore/")
+# Prefixes documented in CONTRIBUTING.md
+ALLOWED_PREFIXES=("feature/" "feat/" "fix/" "fixture/" "doc/" "docs/" "refactor/" "test/" "tests/" "chore/")
 has_valid_prefix=false
 for prefix in "${ALLOWED_PREFIXES[@]}"; do
   if [[ "$BRANCH_NAME" == "$prefix"* ]]; then
@@ -59,10 +59,14 @@ if [[ "$has_valid_prefix" == false ]]; then
   error ""
   error "Examples:"
   error "  - feat/user-authentication"
+  error "  - feature/user-dashboard"
   error "  - fix/json-parser-panic"
+  error "  - fixture/test-data"
   error "  - doc/update-api-docs"
+  error "  - docs/add-examples"
   error "  - refactor/simplify-error-handling"
   error "  - test/add-integration-tests"
+  error "  - tests/unit-coverage"
   error "  - chore/update-dependencies"
   die ""
 fi

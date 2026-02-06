@@ -27,8 +27,9 @@ Use descriptive branch names with a type prefix:
 
 **Types** (both singular and plural forms are accepted):
 
-- `feat/` – New feature
+- `feature/` or `feat/` – New feature
 - `fix/` – Bug fix
+- `fixture/` – Test fixtures or data
 - `doc/` or `docs/` – Documentation changes
 - `refactor/` – Code refactoring
 - `test/` or `tests/` – Adding or updating tests
@@ -37,10 +38,14 @@ Use descriptive branch names with a type prefix:
 **Examples**:
 
 - `feat/user-authentication`
+- `feature/user-dashboard`
 - `fix/json-parser-panic`
+- `fixture/test-data`
 - `doc/update-api-docs`
+- `docs/add-examples`
 - `refactor/simplify-error-handling`
 - `test/add-integration-tests`
+- `tests/unit-coverage`
 - `chore/update-dependencies`
 
 **Note**: Branch naming is enforced by the `create_branch.sh` script. Invalid branch names will be rejected with a clear error message.
