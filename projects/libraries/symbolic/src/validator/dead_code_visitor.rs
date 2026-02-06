@@ -46,13 +46,22 @@ impl DeadCodeVisitor {
 
     /// Check if a block definitely terminates control flow
     fn block_terminates(&self, block: &syn::Block) -> bool {
-        block.stmts.iter().any(|stmt| {
-            if let Stmt::Expr(expr, _) = stmt {
+        let mut found_terminator = false;
+
+        for stmt in &block.stmts {
+            let is_terminator = if let Stmt::Expr(expr, _) = stmt {
                 self.expr_terminates(expr)
             } else {
                 false
+            };
+
+            if is_terminator {
+                found_terminator = true;
+                break;
             }
-        })
+        }
+
+        found_terminator
     }
 }
 
