@@ -93,7 +93,11 @@ impl<'ast> Visit<'ast> for DeadCodeVisitor {
     fn visit_expr(&mut self, expr: &'ast Expr) {
         // Reset terminator flag when entering a new block, function, or loop
         match expr {
-            Expr::Block(_) | Expr::Closure(_) | Expr::Loop(_) | Expr::While(_) | Expr::ForLoop(_) => {
+            Expr::Block(_)
+            | Expr::Closure(_)
+            | Expr::Loop(_)
+            | Expr::While(_)
+            | Expr::ForLoop(_) => {
                 let prev = self.found_terminator;
                 self.found_terminator = false;
                 syn::visit::visit_expr(self, expr);

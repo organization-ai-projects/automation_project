@@ -15,28 +15,25 @@ fn test_unused_variable_detection() {
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
     assert!(validation.is_valid);
-    
+
     // Should warn about unused_var (check for exact variable name in quotes)
     let has_unused_var_warning = validation
         .warnings
         .iter()
         .any(|w| w.contains("'unused_var'") && w.contains("never used"));
-    
+
     assert!(
         has_unused_var_warning,
         "Expected warning for unused variable"
     );
-    
+
     // Should not warn about used_var (check for exact variable name in quotes)
     let has_used_var_warning = validation
         .warnings
         .iter()
         .any(|w| w.contains("'used_var'") && w.contains("never used"));
-    
-    assert!(
-        !has_used_var_warning,
-        "Should not warn about used variable"
-    );
+
+    assert!(!has_used_var_warning, "Should not warn about used variable");
 }
 
 #[test]
@@ -51,13 +48,10 @@ fn test_unused_variable_with_underscore_prefix() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // Variables starting with underscore should not trigger warnings
     assert!(
-        !validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("_unused")),
+        !validation.warnings.iter().any(|w| w.contains("_unused")),
         "Should not warn about variables prefixed with underscore"
     );
 }
@@ -77,16 +71,13 @@ fn test_unused_import_detection() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // Should warn about unused Vec import
     assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("Vec")),
+        validation.warnings.iter().any(|w| w.contains("Vec")),
         "Expected warning for unused import Vec"
     );
-    
+
     // Should not warn about used HashMap
     assert!(
         !validation
@@ -110,7 +101,7 @@ fn test_dead_code_detection() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // Should warn about dead code after return
     assert!(
         validation
@@ -136,7 +127,7 @@ fn test_dead_code_with_break() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // Should warn about dead code after break
     assert!(
         validation
@@ -152,7 +143,7 @@ fn test_strict_mode_unused_variable() {
     let validator = CodeValidator::new()
         .expect("Failed to create CodeValidator")
         .with_strict_mode(true);
-    
+
     let code = r#"
         fn main() {
             let unused = 42;
@@ -162,7 +153,7 @@ fn test_strict_mode_unused_variable() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // In strict mode, semantic issues should be reported as errors
     assert!(
         validation
@@ -178,7 +169,7 @@ fn test_strict_mode_unused_import() {
     let validator = CodeValidator::new()
         .expect("Failed to create CodeValidator")
         .with_strict_mode(true);
-    
+
     let code = r#"
         use std::collections::HashMap;
         
@@ -188,7 +179,7 @@ fn test_strict_mode_unused_import() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // In strict mode, unused imports should be reported as errors
     assert!(
         validation
@@ -204,7 +195,7 @@ fn test_strict_mode_dead_code() {
     let validator = CodeValidator::new()
         .expect("Failed to create CodeValidator")
         .with_strict_mode(true);
-    
+
     let code = r#"
         fn main() {
             return;
@@ -215,7 +206,7 @@ fn test_strict_mode_dead_code() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // In strict mode, dead code should be reported as errors
     assert!(
         validation
@@ -242,7 +233,7 @@ fn test_multiple_semantic_issues() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // Should have multiple warnings
     assert!(
         validation.warnings.len() >= 2,
@@ -266,16 +257,14 @@ fn test_no_semantic_issues() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // Should not have semantic warnings (may have other warnings like println!)
     let semantic_warnings: Vec<_> = validation
         .warnings
         .iter()
-        .filter(|w| {
-            w.contains("unused") || w.contains("Unreachable") || w.contains("dead")
-        })
+        .filter(|w| w.contains("unused") || w.contains("Unreachable") || w.contains("dead"))
         .collect();
-    
+
     assert!(
         semantic_warnings.is_empty(),
         "Should not have semantic warnings for valid code"
@@ -299,20 +288,20 @@ fn test_dead_code_in_loop_doesnt_propagate() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // Should have dead code warning for x but not for y
     let dead_code_warnings: Vec<_> = validation
         .warnings
         .iter()
         .filter(|w| w.contains("Unreachable") || w.contains("dead"))
         .collect();
-    
+
     // Should have at least one warning for the dead code inside the loop
     assert!(
         !dead_code_warnings.is_empty(),
         "Should detect dead code in loop"
     );
-    
+
     // y should not be reported as unused (it's used in println!)
     assert!(
         !validation
@@ -338,7 +327,7 @@ fn test_variable_detection_with_similar_names() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // map should not be reported as unused (it's used in println!)
     assert!(
         !validation
@@ -364,7 +353,7 @@ fn test_tuple_destructuring_detection() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // Should warn about unused_x but not about a, b, or used_y
     assert!(
         validation
@@ -373,7 +362,7 @@ fn test_tuple_destructuring_detection() {
             .any(|w| w.contains("'unused_x'") && w.contains("never used")),
         "Should detect unused_x from tuple destructuring"
     );
-    
+
     assert!(
         !validation
             .warnings
@@ -381,7 +370,7 @@ fn test_tuple_destructuring_detection() {
             .any(|w| w.contains("'a'") && w.contains("never used")),
         "Should not report a as unused"
     );
-    
+
     assert!(
         !validation
             .warnings
@@ -389,7 +378,7 @@ fn test_tuple_destructuring_detection() {
             .any(|w| w.contains("'b'") && w.contains("never used")),
         "Should not report b as unused"
     );
-    
+
     assert!(
         !validation
             .warnings
@@ -417,7 +406,7 @@ fn test_if_match_dead_code_detection() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // Should detect dead code after if-else that both return
     assert!(
         validation
@@ -447,7 +436,7 @@ fn test_import_in_type_position() {
     let result = validator.validate(code);
     assert!(result.is_ok());
     let validation = result.expect("Validation failed");
-    
+
     // HashMap should not be reported as unused (it's used in type position)
     assert!(
         !validation

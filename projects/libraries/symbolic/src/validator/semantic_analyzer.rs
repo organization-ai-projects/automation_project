@@ -1,11 +1,11 @@
 // projects/libraries/symbolic/src/validator/semantic_analyzer.rs
+use crate::validator::dead_code_visitor::DeadCodeVisitor;
+use crate::validator::import_visitor::ImportVisitor;
 use crate::validator::semantic_issue::{SemanticIssue, SemanticIssueType, Severity};
 use crate::validator::variable_collector::VariableCollector;
 use crate::validator::variable_visitor::VariableVisitor;
-use crate::validator::import_visitor::ImportVisitor;
-use crate::validator::dead_code_visitor::DeadCodeVisitor;
-use syn::visit::Visit;
 use syn::File;
+use syn::visit::Visit;
 use tracing;
 
 /// Analyzer for semantic issues in Rust code
@@ -37,11 +37,11 @@ impl SemanticAnalyzer {
     /// Checks for unused variables in the syntax tree
     fn check_unused_variables(&self, syntax_tree: &File) -> Vec<SemanticIssue> {
         let mut issues = Vec::new();
-        
+
         // First pass: collect all declared variables
         let mut collector = VariableCollector::new();
         collector.visit_file(syntax_tree);
-        
+
         // Second pass: check usage with the collected variables
         let mut visitor = VariableVisitor::new(collector.declared_variables);
         visitor.visit_file(syntax_tree);

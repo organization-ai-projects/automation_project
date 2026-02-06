@@ -1,8 +1,8 @@
 // projects/libraries/symbolic/src/validator/variable_visitor.rs
+use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use syn::visit::Visit;
 use syn::{Expr, Stmt};
-use regex::Regex;
 
 /// Visitor to track variable usage
 pub struct VariableVisitor {

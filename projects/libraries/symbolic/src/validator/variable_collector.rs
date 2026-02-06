@@ -22,8 +22,7 @@ impl VariableCollector {
         match pat {
             Pat::Ident(pat_ident) => {
                 let var_name = pat_ident.ident.to_string();
-                self.declared_variables
-                    .insert(var_name, self.current_line);
+                self.declared_variables.insert(var_name, self.current_line);
             }
             Pat::Tuple(pat_tuple) => {
                 for elem in &pat_tuple.elems {

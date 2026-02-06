@@ -1,8 +1,8 @@
 // projects/libraries/symbolic/src/validator/code_validator.rs
 use crate::validator::ValidationError;
-use crate::validator::validation_result::ValidationResult;
 use crate::validator::semantic_analyzer::SemanticAnalyzer;
 use crate::validator::semantic_issue::Severity;
+use crate::validator::validation_result::ValidationResult;
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
 use regex::Regex;
@@ -133,7 +133,10 @@ impl CodeValidator {
             }
         }
 
-        tracing::debug!("Semantic validation complete with {} issues", warnings.len());
+        tracing::debug!(
+            "Semantic validation complete with {} issues",
+            warnings.len()
+        );
     }
 
     /// Checks for common issues
