@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
+use tokio::task::JoinHandle;
 
 /// Configuration for audit buffer behavior
 #[derive(Clone)]
@@ -31,6 +32,7 @@ pub struct AuditBuffer {
     audit_path: PathBuf,
     buffer: Arc<Mutex<Vec<AuditEntry>>>,
     config: AuditBufferConfig,
+    flush_task: JoinHandle<()>,
 }
 
 impl AuditBuffer {
@@ -42,7 +44,7 @@ impl AuditBuffer {
         let audit_path_clone = audit_path.clone();
         let flush_interval = config.flush_interval_secs;
         
-        tokio::spawn(async move {
+        let flush_task = tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(flush_interval));
             // Skip the first immediate tick
             interval.tick().await;
@@ -58,6 +60,7 @@ impl AuditBuffer {
             audit_path,
             buffer,
             config,
+            flush_task,
         }
     }
 
@@ -116,20 +119,12 @@ impl AuditBuffer {
 
 impl Drop for AuditBuffer {
     fn drop(&mut self) {
-        // Best effort flush on drop
-        // We can't use async in Drop, so we use blocking approach
-        let buffer = self.buffer.clone();
-        let audit_path = self.audit_path.clone();
+        // Cancel the periodic flush task to prevent resource leaks
+        self.flush_task.abort();
         
-        std::thread::spawn(move || {
-            let rt = tokio::runtime::Handle::try_current();
-            if let Ok(handle) = rt {
-                handle.block_on(async move {
-                    if let Err(e) = Self::flush_internal(&buffer, &audit_path).await {
-                        eprintln!("Failed to flush audit buffer on drop: {}", e);
-                    }
-                });
-            }
-        });
+        // Note: Audit entries may be lost if AuditBuffer is dropped without an explicit
+        // flush() call. For guaranteed durability on shutdown, call flush() before
+        // dropping the AuditBuffer. The periodic flush task provides some protection
+        // against data loss during normal operation.
     }
 }
