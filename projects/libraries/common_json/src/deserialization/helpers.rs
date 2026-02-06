@@ -1,7 +1,8 @@
 // projects/libraries/common_json/src/deserialization/helpers.rs
 use crate::{
     Json,
-    json_error::{JsonError, JsonErrorCode, JsonResult},
+    json_error::{JsonError, JsonResult},
+    json_error_code::JsonErrorCode,
 };
 
 pub(crate) fn json_type_name(value: &Json) -> &'static str {

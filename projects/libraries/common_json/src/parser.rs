@@ -1,6 +1,7 @@
 // projects/libraries/common_json/src/parser.rs
 use crate::Json;
-use crate::json_error::{JsonError, JsonErrorCode, JsonResult};
+use crate::json_error::{JsonError, JsonResult};
+use crate::json_error_code::JsonErrorCode;
 use crate::value::{JsonMap, JsonNumber};
 use common_parsing::Cursor;
 use std::io::Read;

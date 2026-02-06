@@ -1,5 +1,5 @@
 // projects/libraries/common_json/src/deserialization/json_map_access.rs
-use crate::{Json, json_error::JsonError, json_error::JsonErrorCode};
+use crate::{Json, json_error::JsonError, json_error_code::JsonErrorCode};
 use serde::de::{DeserializeSeed, IntoDeserializer, MapAccess};
 
 use super::json_deserializer::JsonDeserializer;

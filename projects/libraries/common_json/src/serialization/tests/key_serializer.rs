@@ -1,5 +1,6 @@
 // projects/libraries/common_json/src/serialization/tests/key_serializer.rs
-use crate::json_error::{JsonError, JsonErrorCode};
+use crate::json_error::JsonError;
+use crate::json_error_code::JsonErrorCode;
 #[cfg(test)]
 use crate::serialization::key_serializer::KeySerializer;
 use serde::ser::Serializer;
