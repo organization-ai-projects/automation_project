@@ -94,6 +94,6 @@ while true; do
   sleep 5
 done
 
-# Enable auto-merge
-gh pr merge "$PR_URL" --auto --merge
-info "Auto-merge enabled for PR: $PR_URL"
+# Enable auto-merge with branch deletion
+gh pr merge "$PR_URL" --auto --merge --delete-branch
+info "Auto-merge enabled for PR: $PR_URL (branch will be deleted after merge)"
