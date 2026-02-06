@@ -36,7 +36,7 @@ impl RepoPathValidator {
     }
 
     /// Create a validator with default whitelist
-    pub fn default() -> Self {
+    pub fn with_default_whitelist() -> Self {
         // Default whitelist allows common development directories
         let whitelist = vec![
             PathBuf::from("/home"),
@@ -48,14 +48,6 @@ impl RepoPathValidator {
 
     /// Validate and normalize a repository path
     pub fn validate(&self, repo_path: &str) -> ValidationResult<PathBuf> {
-        // Check for path traversal attempts
-        if repo_path.contains("..") {
-            return Err(ValidationError::new(
-                E_REPO_PATH_TRAVERSAL,
-                "Path traversal detected: '..' not allowed in repository path".to_string(),
-            ));
-        }
-
         // Check for empty or whitespace-only paths
         if repo_path.trim().is_empty() {
             return Err(ValidationError::new(
@@ -64,7 +56,7 @@ impl RepoPathValidator {
             ));
         }
 
-        // Normalize the path
+        // Normalize the path first
         let path = Path::new(repo_path);
         let normalized = if path.is_absolute() {
             path.to_path_buf()
@@ -80,7 +72,8 @@ impl RepoPathValidator {
                 .join(path)
         };
 
-        // Canonicalize if the path exists
+        // Canonicalize to resolve symlinks and detect path traversal
+        // This is more robust than string-based checks for '..'
         let canonical = if normalized.exists() {
             normalized.canonicalize().map_err(|e| {
                 ValidationError::new(
@@ -89,8 +82,19 @@ impl RepoPathValidator {
                 )
             })?
         } else {
-            normalized
+            // For non-existent paths, we still need to detect path traversal
+            // Normalize components to detect traversal without filesystem access
+            self.normalize_non_existent_path(&normalized)?
         };
+
+        // Check for path traversal after normalization
+        // This catches cases where the normalized path tries to escape allowed directories
+        if canonical.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+            return Err(ValidationError::new(
+                E_REPO_PATH_TRAVERSAL,
+                "Path traversal detected: normalized path contains parent directory references".to_string(),
+            ));
+        }
 
         // Check against whitelist
         if !self.is_whitelisted(&canonical) {
@@ -106,6 +110,23 @@ impl RepoPathValidator {
         Ok(canonical)
     }
 
+    /// Normalize a non-existent path to detect traversal attempts
+    fn normalize_non_existent_path(&self, path: &Path) -> ValidationResult<PathBuf> {
+        let mut normalized = PathBuf::new();
+        for component in path.components() {
+            match component {
+                std::path::Component::ParentDir => {
+                    return Err(ValidationError::new(
+                        E_REPO_PATH_TRAVERSAL,
+                        "Path traversal detected: '..' not allowed in repository path".to_string(),
+                    ));
+                }
+                _ => normalized.push(component),
+            }
+        }
+        Ok(normalized)
+    }
+
     /// Check if a path is within any whitelisted directory
     fn is_whitelisted(&self, path: &Path) -> bool {
         if self.whitelist.is_empty() {
@@ -113,9 +134,14 @@ impl RepoPathValidator {
             return true;
         }
 
-        self.whitelist.iter().any(|allowed| {
-            path.starts_with(allowed) || allowed.starts_with(path)
-        })
+        // Only allow paths that are children of whitelisted directories
+        self.whitelist.iter().any(|allowed| path.starts_with(allowed))
+    }
+}
+
+impl Default for RepoPathValidator {
+    fn default() -> Self {
+        Self::with_default_whitelist()
     }
 }
 
