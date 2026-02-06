@@ -2,6 +2,7 @@
 use crate::validator::dead_code_visitor::DeadCodeVisitor;
 use crate::validator::import_visitor::ImportVisitor;
 use crate::validator::semantic_issue::{SemanticIssue, SemanticIssueType, Severity};
+use crate::validator::type_visitor::TypeVisitor;
 use crate::validator::variable_collector::VariableCollector;
 use crate::validator::variable_visitor::VariableVisitor;
 use syn::File;
@@ -30,6 +31,9 @@ impl SemanticAnalyzer {
 
         // Check for dead code
         issues.extend(self.check_dead_code(syntax_tree));
+
+        // Check for type inconsistencies
+        issues.extend(self.check_type_inconsistencies(syntax_tree));
 
         issues
     }
@@ -126,6 +130,31 @@ impl SemanticAnalyzer {
         }
 
         tracing::debug!("Found {} dead code issues", issues.len());
+        issues
+    }
+
+    /// Checks for type inconsistencies
+    fn check_type_inconsistencies(&self, syntax_tree: &File) -> Vec<SemanticIssue> {
+        let mut issues = Vec::new();
+        let mut visitor = TypeVisitor::new();
+        visitor.visit_file(syntax_tree);
+
+        for (message, line) in visitor.inconsistencies.iter() {
+            let severity = if self.strict_mode {
+                Severity::Error
+            } else {
+                Severity::Warning
+            };
+
+            issues.push(SemanticIssue::new(
+                SemanticIssueType::TypeInconsistency,
+                severity,
+                message.clone(),
+                Some(*line),
+            ));
+        }
+
+        tracing::debug!("Found {} type inconsistency issues", issues.len());
         issues
     }
 }
