@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/routes/orchestration.rs
+// projects/products/stable/core/engine/src/routes/orchestration.rs
 use std::{collections::HashMap, convert::Infallible};
 
 use warp::{Filter, Reply, http::StatusCode};

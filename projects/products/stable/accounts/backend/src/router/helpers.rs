@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/router/helpers.rs
+// projects/products/stable/accounts/backend/src/router/helpers.rs
 use std::str::FromStr;
 
 use common_json::{Json, JsonMap, from_value, to_json_string, to_value};

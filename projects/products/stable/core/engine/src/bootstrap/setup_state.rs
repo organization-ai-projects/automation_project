@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/bootstrap/setup_state.rs
+// projects/products/stable/core/engine/src/bootstrap/setup_state.rs
 use std::path::PathBuf;
 
 //use common_time to expires_at

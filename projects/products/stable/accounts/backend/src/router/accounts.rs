@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/router/accounts.rs
+// projects/products/stable/accounts/backend/src/router/accounts.rs
 use std::str::FromStr;
 
 use protocol::accounts::{

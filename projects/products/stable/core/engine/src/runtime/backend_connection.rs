@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/runtime/backend_connection.rs
+// projects/products/stable/core/engine/src/runtime/backend_connection.rs
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Clone)]

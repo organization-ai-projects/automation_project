@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/store/error.rs
+// projects/products/stable/accounts/backend/src/store/error.rs
 
 #[derive(Debug, thiserror::Error)]
 pub enum AccountStoreError {

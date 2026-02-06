@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/config.rs
+// projects/products/stable/core/engine/src/config.rs
 use std::{env, net::IpAddr, path::PathBuf};
 
 use anyhow::bail;

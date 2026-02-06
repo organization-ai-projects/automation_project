@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/supervisor/mod.rs
+// projects/products/stable/core/launcher/src/supervisor/mod.rs
 mod locks;
 mod log_stream;
 mod logger;

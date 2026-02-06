@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/config.rs
+// projects/products/stable/core/launcher/src/config.rs
 use serde::Deserialize;
 
 use crate::{build::Build, launcher::Launcher, service::Service, workspace::Workspace};

@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/runtime/mod.rs
+// projects/products/stable/core/engine/src/runtime/mod.rs
 pub(crate) mod backend_connection;
 mod backend_info;
 mod backend_registry;

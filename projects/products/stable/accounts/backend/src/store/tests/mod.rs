@@ -1,2 +1,2 @@
-// projects/products/accounts/backend/src/store/tests/mod.rs
+// projects/products/stable/accounts/backend/src/store/tests/mod.rs
 mod account_manager;

@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/entry/paths.rs
+// projects/products/stable/core/launcher/src/entry/paths.rs
 use std::path::PathBuf;
 
 use crate::workspace::Workspace;

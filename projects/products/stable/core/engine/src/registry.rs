@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/registry.rs
+// projects/products/stable/core/engine/src/registry.rs
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;

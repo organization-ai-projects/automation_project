@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/const_values.rs
+// projects/products/stable/core/engine/src/const_values.rs
 use std::time::Duration;
 
 pub(crate) const WS_MAX_MESSAGE_BYTES: usize = 256 * 1024; // 256 KiB

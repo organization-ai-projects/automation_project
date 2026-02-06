@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/requires.rs
+// projects/products/stable/core/engine/src/requires.rs
 use protocol::Command;
 use security::{Permission, Token};
 

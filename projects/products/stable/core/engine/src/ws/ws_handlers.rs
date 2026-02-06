@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/ws/ws_handlers.rs
+// projects/products/stable/core/engine/src/ws/ws_handlers.rs
 use crate::{
     EngineState, WS_IDLE_TIMEOUT, WS_MAX_MESSAGE_BYTES, WS_PING_EVERY,
     ws::{BackendRegistration, route_command, ws_event_error, ws_event_ok},

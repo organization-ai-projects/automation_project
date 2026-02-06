@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/runtime/backend_registry_impl.rs
+// projects/products/stable/core/engine/src/runtime/backend_registry_impl.rs
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
 

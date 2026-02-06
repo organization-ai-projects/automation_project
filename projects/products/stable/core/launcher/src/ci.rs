@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/ci.rs
+// projects/products/stable/core/launcher/src/ci.rs
 use clap::Parser;
 
 #[derive(Parser, Debug)]

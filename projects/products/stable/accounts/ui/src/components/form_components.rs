@@ -1,4 +1,4 @@
-// projects/products/accounts/ui/src/form_components.rs
+// projects/products/stable/accounts/ui/src/form_components.rs
 use dioxus::prelude::*;
 
 /// Text input field component

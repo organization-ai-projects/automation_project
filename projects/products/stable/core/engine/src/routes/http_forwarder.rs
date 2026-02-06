@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/routes/http_forwarder.rs
+// projects/products/stable/core/engine/src/routes/http_forwarder.rs
 //! Forward HTTP requests to backends via WS Commands through route_command.
 //!
 //! This module adapts HTTP request/response to the Command/Event protocol.

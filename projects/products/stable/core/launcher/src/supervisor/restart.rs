@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/supervisor/restart.rs
+// projects/products/stable/core/launcher/src/supervisor/restart.rs
 use std::{
     collections::HashMap,
     path::Path,

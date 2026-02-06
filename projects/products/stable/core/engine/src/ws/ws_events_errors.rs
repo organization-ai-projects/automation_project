@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/ws/ws_events_errors.rs
+// projects/products/stable/core/engine/src/ws/ws_events_errors.rs
 use protocol::{Event, EventType, EventVariant, Metadata, ProtocolId};
 use std::str::FromStr;
 

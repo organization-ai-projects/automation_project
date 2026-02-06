@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/routes/auth.rs
+// projects/products/stable/core/engine/src/routes/auth.rs
 use identity::UserId;
 use protocol::ProtocolId;
 use std::str::FromStr;

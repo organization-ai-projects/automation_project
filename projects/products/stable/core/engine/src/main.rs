@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/main.rs
+// projects/products/stable/core/engine/src/main.rs
 mod bootstrap;
 mod const_values;
 mod cors_config;

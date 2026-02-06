@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/supervisor/supervise_loop.rs
+// projects/products/stable/core/launcher/src/supervisor/supervise_loop.rs
 use std::{
     collections::HashMap,
     path::PathBuf,

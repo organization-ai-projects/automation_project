@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/router/setup.rs
+// projects/products/stable/accounts/backend/src/router/setup.rs
 use protocol::accounts::{SetupAdminRequest, SetupAdminResponse, SetupStatusResponse};
 use protocol::{Command, Event, Metadata};
 use security::Role;

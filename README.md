@@ -8,7 +8,7 @@ This repository serves as the main workspace for the automation project. It is r
 
 It interacts mainly with:
 
-- `projects/products/core/`: Core binaries including engine, launcher, watcher, and central UI
+- `projects/products/stable/core/`: Core binaries including engine, launcher, watcher, and central UI
 - `projects/libraries/`: Shared libraries for protocol, common utilities, security, and AI
 - `documentation/`: Technical documentation and architectural guides
 - `.github/workflows/`: CI/CD automation and workflow orchestration

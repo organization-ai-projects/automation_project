@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/build.rs
+// projects/products/stable/core/launcher/src/build.rs
 use serde::Deserialize;
 
 use crate::defaults::default_profile;

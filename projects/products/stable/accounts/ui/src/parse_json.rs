@@ -1,4 +1,4 @@
-// projects/products/accounts/ui/src/parse_json.rs
+// projects/products/stable/accounts/ui/src/parse_json.rs
 use gloo_net::http::Response;
 
 /// Parse JSON response from HTTP request

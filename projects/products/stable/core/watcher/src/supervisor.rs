@@ -1,4 +1,4 @@
-// projects/products/core/watcher/src/supervisor.rs
+// projects/products/stable/core/watcher/src/supervisor.rs
 use std::sync::Arc;
 use std::time::Duration;
 

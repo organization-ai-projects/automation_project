@@ -1,4 +1,4 @@
-// projects/products/accounts/ui/src/user_actions.rs
+// projects/products/stable/accounts/ui/src/user_actions.rs
 use dioxus::prelude::*;
 use gloo_net::http::Request;
 use protocol::ProtocolId;

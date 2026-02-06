@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/routes/setup.rs
+// projects/products/stable/core/engine/src/routes/setup.rs
 use common_json::pjson;
 use tracing::warn;
 use warp::{Reply, http::StatusCode};

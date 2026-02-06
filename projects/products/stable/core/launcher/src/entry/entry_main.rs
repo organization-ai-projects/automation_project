@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/entry/entry_main.rs
+// projects/products/stable/core/launcher/src/entry/entry_main.rs
 use std::{
     collections::HashMap,
     fs,

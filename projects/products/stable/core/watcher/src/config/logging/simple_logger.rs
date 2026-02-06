@@ -1,4 +1,4 @@
-// projects/products/core/watcher/src/logger.rs
+// projects/products/stable/core/watcher/src/logger.rs
 // Log implementation for the watcher
 use log::LevelFilter;
 use std::fs::OpenOptions;

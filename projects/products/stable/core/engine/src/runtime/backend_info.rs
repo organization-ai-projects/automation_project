@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/runtime/backend_info.rs
+// projects/products/stable/core/engine/src/runtime/backend_info.rs
 use protocol::protocol_id::ProtocolId;
 
 /// Information about a registered backend service

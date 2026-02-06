@@ -101,9 +101,9 @@ Runs quality checks before each push, **with smart scope detection**:
 The hook analyzes changed files and only tests the impacted crates:
 
 ```plaintext
-projects/products/accounts/backend/src/...  → tests accounts-backend
-projects/libraries/security/src/...         → tests security
-projects/products/core/engine/src/...       → tests engine
+projects/products/stable/accounts/backend/src/...  → tests accounts-backend
+projects/libraries/security/src/...                → tests security
+projects/products/stable/core/engine/src/...       → tests engine
 ```
 
 If no changes are detected, a full workspace test is run.

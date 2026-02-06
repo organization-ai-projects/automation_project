@@ -1,4 +1,4 @@
-// projects/products/accounts/ui/src/setup_admin_input.rs
+// projects/products/stable/accounts/ui/src/setup_admin_input.rs
 use protocol::ProtocolId;
 use serde::Serialize;
 

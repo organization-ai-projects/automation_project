@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/router/command_router.rs
+// projects/products/stable/accounts/backend/src/router/command_router.rs
 use protocol::{Command, Event};
 use security::TokenService;
 

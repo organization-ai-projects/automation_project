@@ -1,4 +1,4 @@
-// projects/products/core/watcher/src/config/mod.rs
+// projects/products/stable/core/watcher/src/config/mod.rs
 mod component_config;
 mod logging;
 mod ping_config;

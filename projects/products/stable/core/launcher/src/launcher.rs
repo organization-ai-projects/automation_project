@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/launcher.rs
+// projects/products/stable/core/launcher/src/launcher.rs
 use serde::Deserialize;
 
 #[derive(Debug, Default, Deserialize)]

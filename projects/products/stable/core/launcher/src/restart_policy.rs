@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/restart_policy.rs
+// projects/products/stable/core/launcher/src/restart_policy.rs
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]

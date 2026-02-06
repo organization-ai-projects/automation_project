@@ -1,4 +1,4 @@
-// projects/products/core/engine/src/ws/backend_registration.rs
+// projects/products/stable/core/engine/src/ws/backend_registration.rs
 use protocol::protocol_id::ProtocolId;
 use serde::Deserialize;
 

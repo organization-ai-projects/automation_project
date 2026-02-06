@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/normalizer.rs
+// projects/products/stable/core/launcher/src/normalizer.rs
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 

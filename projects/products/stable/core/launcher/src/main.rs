@@ -1,4 +1,4 @@
-// projects/products/core/launcher/src/main.rs
+// projects/products/stable/core/launcher/src/main.rs
 mod build;
 mod cargo_commands;
 mod child_handle;

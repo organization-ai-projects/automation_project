@@ -1,4 +1,4 @@
-// projects/products/accounts/backend/src/store/audit_entry.rs
+// projects/products/stable/accounts/backend/src/store/audit_entry.rs
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AuditEntry {
