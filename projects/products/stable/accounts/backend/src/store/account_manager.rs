@@ -19,7 +19,6 @@ use protocol::accounts::AccountSummary;
 pub struct AccountManager {
     data_dir: PathBuf,
     accounts_path: PathBuf,
-    audit_path: PathBuf,
     state: Arc<RwLock<HashMap<ProtocolId, AccountRecord>>>,
     dirty: Arc<AtomicBool>,
     audit_buffer: Arc<AuditBuffer>,
@@ -66,7 +65,6 @@ impl AccountManager {
         Ok(Self {
             data_dir,
             accounts_path,
-            audit_path,
             state: Arc::new(RwLock::new(users)),
             dirty: Arc::new(AtomicBool::new(false)),
             audit_buffer,
