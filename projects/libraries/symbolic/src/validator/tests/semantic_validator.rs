@@ -281,3 +281,70 @@ fn test_no_semantic_issues() {
         "Should not have semantic warnings for valid code"
     );
 }
+
+#[test]
+fn test_dead_code_in_loop_doesnt_propagate() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = r#"
+        fn main() {
+            loop {
+                break;
+                let x = 1;
+            }
+            let y = 2;
+            println!("{}", y);
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+    
+    // Should have dead code warning for x but not for y
+    let dead_code_warnings: Vec<_> = validation
+        .warnings
+        .iter()
+        .filter(|w| w.contains("Unreachable") || w.contains("dead"))
+        .collect();
+    
+    // Should have at least one warning for the dead code inside the loop
+    assert!(
+        !dead_code_warnings.is_empty(),
+        "Should detect dead code in loop"
+    );
+    
+    // y should not be reported as unused (it's used in println!)
+    assert!(
+        !validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("'y'") && w.contains("never used")),
+        "Should not report y as unused"
+    );
+}
+
+#[test]
+fn test_variable_detection_with_similar_names() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = r#"
+        use std::collections::HashMap;
+        
+        fn main() {
+            let map = HashMap::new();
+            println!("{:?}", map);
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+    
+    // map should not be reported as unused (it's used in println!)
+    assert!(
+        !validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("'map'") && w.contains("never used")),
+        "Should not report map as unused despite being substring of HashMap"
+    );
+}

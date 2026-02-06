@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use syn::visit::Visit;
 use syn::{Expr, File, Item, Local, Pat, Stmt, UseTree};
 use tracing;
+use regex;
 
 /// Analyzer for semantic issues in Rust code
 pub struct SemanticAnalyzer {
@@ -212,10 +213,19 @@ impl<'ast> Visit<'ast> for VariableVisitor {
             Expr::Macro(expr_macro) => {
                 // Track identifiers in macro arguments
                 let tokens = expr_macro.mac.tokens.to_string();
-                // Simple heuristic: extract words that match declared variables
+                // Check for exact identifier matches using word boundaries
                 for (var_name, _) in self.declared_variables.iter() {
-                    if tokens.contains(var_name) {
-                        self.used_variables.insert(var_name.clone());
+                    // Use word boundary checks: look for variable name not preceded/followed by alphanumeric or underscore
+                    let pattern = format!(r"\b{}\b", regex::escape(var_name));
+                    if let Ok(re) = regex::Regex::new(&pattern) {
+                        if re.is_match(&tokens) {
+                            self.used_variables.insert(var_name.clone());
+                        }
+                    } else {
+                        // Fallback to simple contains check if regex fails
+                        if tokens.contains(var_name) {
+                            self.used_variables.insert(var_name.clone());
+                        }
                     }
                 }
             }
@@ -228,9 +238,18 @@ impl<'ast> Visit<'ast> for VariableVisitor {
         // Also check for macro statements (like println!)
         if let Stmt::Macro(stmt_macro) = stmt {
             let tokens = stmt_macro.mac.tokens.to_string();
+            // Check for exact identifier matches using word boundaries
             for (var_name, _) in self.declared_variables.iter() {
-                if tokens.contains(var_name) {
-                    self.used_variables.insert(var_name.clone());
+                let pattern = format!(r"\b{}\b", regex::escape(var_name));
+                if let Ok(re) = regex::Regex::new(&pattern) {
+                    if re.is_match(&tokens) {
+                        self.used_variables.insert(var_name.clone());
+                    }
+                } else {
+                    // Fallback to simple contains check if regex fails
+                    if tokens.contains(var_name) {
+                        self.used_variables.insert(var_name.clone());
+                    }
                 }
             }
         }
@@ -322,29 +341,31 @@ impl<'ast> Visit<'ast> for DeadCodeVisitor {
     fn visit_stmt(&mut self, stmt: &'ast Stmt) {
         self.current_line += 1;
 
-        // Check if we already found a terminator (return, break, continue)
-        if self.found_terminator {
+        // Check if this statement is a terminator first (before checking if it's dead)
+        let is_terminator = if let Stmt::Expr(expr, _) = stmt {
+            matches!(expr, Expr::Return(_) | Expr::Break(_) | Expr::Continue(_))
+        } else {
+            false
+        };
+
+        // If we already found a terminator, mark this as dead code
+        if self.found_terminator && !is_terminator {
             // This statement is dead code
             self.dead_code_lines.push(self.current_line);
         }
 
-        // Check if this statement is a terminator
-        if let Stmt::Expr(expr, _) = stmt {
-            match expr {
-                Expr::Return(_) | Expr::Break(_) | Expr::Continue(_) => {
-                    self.found_terminator = true;
-                }
-                _ => {}
-            }
+        // Set the terminator flag after checking
+        if is_terminator {
+            self.found_terminator = true;
         }
 
         syn::visit::visit_stmt(self, stmt);
     }
 
     fn visit_expr(&mut self, expr: &'ast Expr) {
-        // Reset terminator flag when entering a new block or function
+        // Reset terminator flag when entering a new block, function, or loop
         match expr {
-            Expr::Block(_) | Expr::Closure(_) => {
+            Expr::Block(_) | Expr::Closure(_) | Expr::Loop(_) | Expr::While(_) | Expr::ForLoop(_) => {
                 let prev = self.found_terminator;
                 self.found_terminator = false;
                 syn::visit::visit_expr(self, expr);
