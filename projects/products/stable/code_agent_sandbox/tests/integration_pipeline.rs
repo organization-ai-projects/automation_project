@@ -1,4 +1,4 @@
-// projects/products/code_agent_sandbox/tests/integration_pipeline.rs
+// projects/products/stable/code_agent_sandbox/tests/integration_pipeline.rs
 use common_json::{Json, from_json_str, pjson, to_string};
 use std::io::Write;
 use std::process::{Command, Stdio};

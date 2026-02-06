@@ -29,11 +29,22 @@ For details, see the architecture doc: `documentation/technical_documentation/AR
 ├── documentation/        # Technical documentation and guides
 ├── projects/             # Products and libraries
 │   ├── products/         # Product backends and UI bundles
+│   │   ├── stable/        # Production-ready products (core + stable products)
+│   │   └── unstable/      # MVP products for rapid experimentation
 │   └── libraries/        # Shared libraries (protocol, common, security, ai)
 ├── scripts/              # Automation and versioning scripts
 ├── CONTRIBUTING.md       # Contribution guidelines
 └── README.md             # This file
 ```
+
+## Products Layout
+
+- `projects/products/stable/`: production-ready products following all architectural principles
+  - `stable/core/`: core binaries (engine, launcher, watcher, central UI)
+  - `stable/<product>/`: stable product backends and UI bundles
+- `projects/products/unstable/`: MVP products for rapid experimentation (may break principles)
+
+See [projects/products/README.md](projects/products/README.md) for details on stable vs unstable products.
 
 ## Files
 

@@ -1,0 +1,36 @@
+name: Check Stable Dependencies
+
+on:
+  pull_request:
+    paths:
+      - 'projects/products/**'
+      - 'Cargo.toml'
+      - '.github/workflows/check_stable_deps.yml'
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'projects/products/**'
+      - 'Cargo.toml'
+  workflow_dispatch:
+
+jobs:
+  check-stable-deps:
+    name: Verify stable products don't depend on unstable
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run dependency checker
+        run: |
+          chmod +x scripts/checks/check_stable_deps.sh
+          ./scripts/checks/check_stable_deps.sh
+      
+      - name: Report results
+        if: always()
+        run: |
+          echo "Dependency check complete"
+          echo "See job output for details"

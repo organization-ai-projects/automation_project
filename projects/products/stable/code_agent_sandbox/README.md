@@ -50,7 +50,7 @@ The **Code Agent Sandbox** crate provides a robust and modular infrastructure fo
 
 ## Documentation
 
-For detailed documentation, please refer to the [documentation/ folder](https://github.com/organization-ai-projects/automation_project/tree/main/projects/products/code_agent_sandbox/documentation) or the [Project Overview](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/code_agent_sandbox/documentation/PROJECT_OVERVIEW.md).
+For detailed documentation, please refer to the [documentation/ folder](https://github.com/organization-ai-projects/automation_project/tree/main/projects/products/stable/code_agent_sandbox/documentation) or the [Project Overview](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/stable/code_agent_sandbox/documentation/PROJECT_OVERVIEW.md).
 
 ## Installation
 
