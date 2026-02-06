@@ -5,6 +5,7 @@ This document provides an overview of all documentation files in this directory.
 ## Documentation
 
 - [README.md](README.md): Main documentation for git utility scripts
+- [sync_after_pr.md](sync_after_pr.md): Workflow for syncing branches after PR merge
 
 ## Scripts
 
