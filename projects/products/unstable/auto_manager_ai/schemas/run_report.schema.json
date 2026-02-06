@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RunReport",
+  "description": "V0 AI Automation Manager Run Report",
+  "type": "object",
+  "required": [
+    "product",
+    "version",
+    "run_id",
+    "timestamp",
+    "status",
+    "output",
+    "policy_decisions",
+    "errors"
+  ],
+  "properties": {
+    "product": {
+      "type": "string",
+      "description": "Product name"
+    },
+    "version": {
+      "type": "string",
+      "description": "Product version"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique run identifier"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Run timestamp"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failure"],
+      "description": "Overall run status"
+    },
+    "output": {
+      "$ref": "#/definitions/RunOutput"
+    },
+    "policy_decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PolicyDecision"
+      },
+      "description": "Policy decisions for each action"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Errors encountered during run"
+    }
+  },
+  "definitions": {
+    "RunOutput": {
+      "type": "object",
+      "required": [
+        "actions_proposed",
+        "actions_allowed",
+        "actions_denied",
+        "actions_needs_input"
+      ],
+      "properties": {
+        "actions_proposed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of actions proposed"
+        },
+        "actions_allowed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of actions allowed"
+        },
+        "actions_denied": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of actions denied"
+        },
+        "actions_needs_input": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of actions needing input"
+        }
+      }
+    },
+    "PolicyDecision": {
+      "type": "object",
+      "required": ["action_id", "decision", "reason"],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "description": "ID of the action being evaluated"
+        },
+        "decision": {
+          "type": "string",
+          "enum": ["allow", "deny", "needs_input"],
+          "description": "Policy decision"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Reason for the decision"
+        }
+      }
+    }
+  }
+}

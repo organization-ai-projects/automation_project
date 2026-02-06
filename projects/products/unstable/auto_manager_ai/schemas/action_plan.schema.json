@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ActionPlan",
+  "description": "V0 AI Automation Manager Action Plan",
+  "type": "object",
+  "required": ["version", "generated_at", "actions", "summary"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version"
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "Timestamp when plan was generated"
+    },
+    "actions": {
+      "type": "array",
+      "description": "List of proposed actions",
+      "items": {
+        "$ref": "#/definitions/Action"
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "Summary of the action plan"
+    }
+  },
+  "definitions": {
+    "Action": {
+      "type": "object",
+      "required": [
+        "id",
+        "action_type",
+        "status",
+        "target",
+        "justification",
+        "risk_level",
+        "required_checks",
+        "confidence",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the action"
+        },
+        "action_type": {
+          "type": "string",
+          "description": "Type of action to perform"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["proposed", "needs_input", "blocked_by_policy"],
+          "description": "Status of the action"
+        },
+        "target": {
+          "$ref": "#/definitions/ActionTarget"
+        },
+        "justification": {
+          "type": "string",
+          "description": "Explanation of why this action is needed"
+        },
+        "risk_level": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "Risk level of the action"
+        },
+        "required_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Required checks before action can be performed"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Confidence score (0.0 - 1.0)"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Evidence"
+          },
+          "description": "Evidence supporting this action"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "IDs of actions this depends on"
+        },
+        "missing_inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Required inputs that are missing"
+        },
+        "dry_run": {
+          "$ref": "#/definitions/DryRun"
+        }
+      }
+    },
+    "ActionTarget": {
+      "type": "object",
+      "required": ["type", "ref"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["repo", "pr", "issue", "branch", "workflow_run"],
+          "description": "Type of target"
+        },
+        "ref": {
+          "type": "string",
+          "description": "Reference to the target"
+        }
+      }
+    },
+    "Evidence": {
+      "type": "object",
+      "required": ["source", "pointer"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Source of evidence"
+        },
+        "pointer": {
+          "type": "string",
+          "description": "Pointer to specific evidence"
+        }
+      }
+    },
+    "DryRun": {
+      "type": "object",
+      "required": ["steps"],
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DryRunStep"
+          }
+        }
+      }
+    },
+    "DryRunStep": {
+      "type": "object",
+      "required": ["tool", "command", "expected", "failure_modes"],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "description": "Tool to use (gh, git, cargo, etc.)"
+        },
+        "command": {
+          "type": "string",
+          "description": "Command to execute"
+        },
+        "expected": {
+          "type": "string",
+          "description": "Expected result"
+        },
+        "failure_modes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Possible failure modes"
+        }
+      }
+    }
+  }
+}
