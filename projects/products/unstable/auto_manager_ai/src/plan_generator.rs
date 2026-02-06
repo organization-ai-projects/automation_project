@@ -20,8 +20,8 @@ pub fn generate_action_plan(config: &Config) -> Result<ActionPlan, String> {
     // Create planning context
     let planning_ctx = PlanningContext {
         repo: repo_ctx,
-        _gh: gh_ctx,
-        _ci: ci_ctx,
+        gh: gh_ctx,
+        ci: ci_ctx,
     };
 
     // Generate plan
