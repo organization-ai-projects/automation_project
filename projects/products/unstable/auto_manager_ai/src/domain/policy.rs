@@ -8,16 +8,16 @@ use super::policy_decision_type::PolicyDecisionType;
 #[derive(Debug, Clone)]
 pub struct Policy {
     pub min_confidence: f64,
-    pub allow_repo_writes: bool,
-    pub allow_github_writes: bool,
+    pub _allow_repo_writes: bool,
+    pub _allow_github_writes: bool,
 }
 
 impl Default for Policy {
     fn default() -> Self {
         Self {
             min_confidence: 0.6,
-            allow_repo_writes: false,   // V0: no repo writes
-            allow_github_writes: false, // V0: no GitHub writes
+            _allow_repo_writes: false,   // V0: no repo writes
+            _allow_github_writes: false, // V0: no GitHub writes
         }
     }
 }
@@ -38,14 +38,14 @@ impl Policy {
         }
 
         // Check for missing inputs
-        if let Some(missing) = &action.missing_inputs {
-            if !missing.is_empty() {
-                return PolicyDecision {
-                    action_id: action.id.clone(),
-                    decision: PolicyDecisionType::NeedsInput,
-                    reason: format!("Missing inputs: {}", missing.join(", ")),
-                };
-            }
+        if let Some(missing) = &action.missing_inputs
+            && !missing.is_empty()
+        {
+            return PolicyDecision {
+                action_id: action.id.clone(),
+                decision: PolicyDecisionType::NeedsInput,
+                reason: format!("Missing inputs: {}", missing.join(", ")),
+            };
         }
 
         // V0: Deny all write operations by default
