@@ -18,14 +18,19 @@ It interacts mainly with:
 code_agent_sandbox/
 ├── Cargo.toml          # Package configuration
 ├── README.md           # This file
+├── .gitignore          # Local ignore rules for runtime outputs
+├── data/               # Runtime outputs (not versioned)
+│   ├── README.md       # Versioning policy
+│   ├── runs/           # Per-run outputs
+│   └── models/         # Neural models
 ├── documentation/      # Additional documentation
 │   ├── TOC.md
 │   ├── PROJECT_OVERVIEW.md
 │   └── BUNKER_EXECUTION.md
 ├── src/               # Source code
-│   ├── lib.rs
-│   ├── executor/
-│   ├── filesystem/
+│   ├── main.rs
+│   ├── actions/
+│   ├── sandbox_engine/
 │   └── ...
 └── tests/             # Integration tests
 ```

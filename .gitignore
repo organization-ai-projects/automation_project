@@ -51,3 +51,9 @@ ANALYSE_COHERENCE_WORKFLOWS_SCRIPTS.md
 
 # Ignore ui_dist files
 **/ui_dist/
+
+# Code Agent Sandbox runtime outputs
+**/code_agent_sandbox/data/runs/
+**/code_agent_sandbox/data/models/
+# ProtocolId-format directories (UUID pattern)
+[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/

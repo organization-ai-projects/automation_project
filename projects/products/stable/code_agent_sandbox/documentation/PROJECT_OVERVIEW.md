@@ -51,8 +51,24 @@ The `Journal` module tracks all executed actions, recording:
 
 ## Outputs and Artifacts
 
-Currently, runtime journals may be written under per-run UUID folders inside the product directory.
-A dedicated `data/` output location is planned to standardize storage and avoid accidental commits.
+Runtime outputs (journals, logs, generated code) are written to the `data/` directory structure:
+
+```
+data/
+├── runs/              # Per-run outputs (not versioned)
+│   └── {RUN_ID}/     # Unique run identifier (timestamp_UUID)
+│       ├── journal.jsonl
+│       ├── agent_memory.jsonl
+│       └── ...
+└── models/            # Neural models (not versioned)
+```
+
+All runtime outputs are excluded from version control via `.gitignore` rules to:
+- Prevent sensitive data leaks
+- Avoid repository bloat
+- Keep the repository focused on source code
+
+See `data/README.md` for detailed versioning policy and team workflow guidelines.
 
 ## Use Cases
 
