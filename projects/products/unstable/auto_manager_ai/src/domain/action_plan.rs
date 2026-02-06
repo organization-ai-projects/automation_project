@@ -40,7 +40,7 @@ impl ActionPlan {
             .as_secs();
         Self {
             version: "0.1.0".to_string(),
-            generated_at: format!("{}", timestamp),
+            generated_at: timestamp.to_string(),
             actions: Vec::new(),
             summary,
         }

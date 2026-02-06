@@ -43,7 +43,7 @@ impl RunReport {
             product: "auto_manager_ai".to_string(),
             version: "0.1.0".to_string(),
             run_id,
-            timestamp: format!("{}", timestamp),
+            timestamp: timestamp.to_string(),
             status: RunStatus::Success,
             output: RunOutput {
                 actions_proposed: 0,
