@@ -1,8 +1,8 @@
 // projects/libraries/symbolic/src/tests/symbolic_solver.rs
 use crate::symbolic_error::SymbolicError;
 use crate::symbolic_solver::SymbolicSolver;
+use super::test_helpers::TestResult;
 
-type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]
 fn test_solver_initialization() -> TestResult {

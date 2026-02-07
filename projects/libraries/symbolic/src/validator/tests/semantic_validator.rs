@@ -1,8 +1,13 @@
 use crate::validator::CodeValidator;
+use super::test_helpers::{
+    create_validator, create_strict_validator, assert_valid, assert_warn_contains,
+    assert_warn_not_contains, assert_warn_contains_all, assert_min_warnings, TestResult,
+};
+
 
 #[test]
-fn test_unused_variable_detection() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_unused_variable_detection() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             let unused_var = 42;
@@ -11,54 +16,36 @@ fn test_unused_variable_detection() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
-    assert!(validation.is_valid);
+    let validation = validator.validate(code)?;
+    assert_valid(&validation);
 
-    // Should warn about unused_var (check for exact variable name in quotes)
-    let has_unused_var_warning = validation
-        .warnings
-        .iter()
-        .any(|w| w.contains("'unused_var'") && w.contains("never used"));
+    // Should warn about unused_var
+    assert_warn_contains_all(&validation, &["unused_var", "never used"]);
 
-    assert!(
-        has_unused_var_warning,
-        "Expected warning for unused variable"
-    );
-
-    // Should not warn about used_var (check for exact variable name in quotes)
-    let has_used_var_warning = validation
-        .warnings
-        .iter()
-        .any(|w| w.contains("'used_var'") && w.contains("never used"));
-
-    assert!(!has_used_var_warning, "Should not warn about used variable");
+    // Should not warn about used_var
+    assert_warn_not_contains(&validation, "used_var");
+    Ok(())
 }
 
 #[test]
-fn test_unused_variable_with_underscore_prefix() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_unused_variable_with_underscore_prefix() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             let _unused = 42;
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Variables starting with underscore should not trigger warnings
-    assert!(
-        !validation.warnings.iter().any(|w| w.contains("_unused")),
-        "Should not warn about variables prefixed with underscore"
-    );
+    assert_warn_not_contains(&validation, "_unused");
+    Ok(())
 }
 
 #[test]
-fn test_unused_import_detection() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_unused_import_detection() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         use std::collections::HashMap;
         use std::vec::Vec;
@@ -68,29 +55,19 @@ fn test_unused_import_detection() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should warn about unused Vec import
-    assert!(
-        validation.warnings.iter().any(|w| w.contains("Vec")),
-        "Expected warning for unused import Vec"
-    );
+    assert_warn_contains(&validation, "Vec");
 
     // Should not warn about used HashMap
-    assert!(
-        !validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("HashMap") && w.contains("never used")),
-        "Should not warn about used HashMap import"
-    );
+    assert_warn_not_contains(&validation, "HashMap");
+    Ok(())
 }
 
 #[test]
-fn test_dead_code_detection() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_dead_code_detection() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             return;
@@ -98,23 +75,16 @@ fn test_dead_code_detection() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should warn about dead code after return
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("Unreachable") || w.contains("dead")),
-        "Expected warning for dead code after return"
-    );
+    assert_warn_contains(&validation, "Unreachable");
+    Ok(())
 }
 
 #[test]
-fn test_dead_code_with_break() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_dead_code_with_break() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             loop {
@@ -124,25 +94,17 @@ fn test_dead_code_with_break() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should warn about dead code after break
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("Unreachable") || w.contains("dead")),
-        "Expected warning for dead code after break"
-    );
+    assert_warn_contains(&validation, "Unreachable");
+    Ok(())
 }
 
+
 #[test]
-fn test_strict_mode_unused_variable() {
-    let validator = CodeValidator::new()
-        .expect("Failed to create CodeValidator")
-        .with_strict_mode(true);
+fn test_strict_mode_unused_variable() -> TestResult {
+    let validator = create_strict_validator();
 
     let code = r#"
         fn main() {
@@ -150,25 +112,16 @@ fn test_strict_mode_unused_variable() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // In strict mode, semantic issues should be reported as errors
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("error") && w.contains("unused")),
-        "Expected error-level warning in strict mode"
-    );
+    assert_warn_contains_all(&validation, &["error", "unused"]);
+    Ok(())
 }
 
 #[test]
-fn test_strict_mode_unused_import() {
-    let validator = CodeValidator::new()
-        .expect("Failed to create CodeValidator")
-        .with_strict_mode(true);
+fn test_strict_mode_unused_import() -> TestResult {
+    let validator = create_strict_validator();
 
     let code = r#"
         use std::collections::HashMap;
@@ -176,25 +129,16 @@ fn test_strict_mode_unused_import() {
         fn main() {}
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // In strict mode, unused imports should be reported as errors
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("error") && w.contains("HashMap")),
-        "Expected error-level warning for unused import in strict mode"
-    );
+    assert_warn_contains_all(&validation, &["error", "HashMap"]);
+    Ok(())
 }
 
 #[test]
-fn test_strict_mode_dead_code() {
-    let validator = CodeValidator::new()
-        .expect("Failed to create CodeValidator")
-        .with_strict_mode(true);
+fn test_strict_mode_dead_code() -> TestResult {
+    let validator = create_strict_validator();
 
     let code = r#"
         fn main() {
@@ -203,23 +147,17 @@ fn test_strict_mode_dead_code() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // In strict mode, dead code should be reported as errors
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("error") && (w.contains("Unreachable") || w.contains("dead"))),
-        "Expected error-level warning for dead code in strict mode"
-    );
+    assert_warn_contains(&validation, "error");
+    assert_warn_contains(&validation, "Unreachable");
+    Ok(())
 }
 
 #[test]
-fn test_multiple_semantic_issues() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_multiple_semantic_issues() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         use std::collections::HashMap;
         
@@ -230,20 +168,16 @@ fn test_multiple_semantic_issues() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should have multiple warnings
-    assert!(
-        validation.warnings.len() >= 2,
-        "Expected multiple semantic warnings"
-    );
+    assert_min_warnings(&validation, 2);
+    Ok(())
 }
 
 #[test]
-fn test_no_semantic_issues() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_no_semantic_issues() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         use std::collections::HashMap;
         
@@ -254,9 +188,7 @@ fn test_no_semantic_issues() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should not have semantic warnings (may have other warnings like println!)
     let semantic_warnings: Vec<_> = validation
@@ -269,11 +201,13 @@ fn test_no_semantic_issues() {
         semantic_warnings.is_empty(),
         "Should not have semantic warnings for valid code"
     );
+    Ok(())
 }
 
+
 #[test]
-fn test_dead_code_in_loop_doesnt_propagate() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_dead_code_in_loop_doesnt_propagate() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             loop {
@@ -285,36 +219,19 @@ fn test_dead_code_in_loop_doesnt_propagate() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should have dead code warning for x but not for y
-    let dead_code_warnings: Vec<_> = validation
-        .warnings
-        .iter()
-        .filter(|w| w.contains("Unreachable") || w.contains("dead"))
-        .collect();
-
-    // Should have at least one warning for the dead code inside the loop
-    assert!(
-        !dead_code_warnings.is_empty(),
-        "Should detect dead code in loop"
-    );
+    assert_warn_contains(&validation, "Unreachable");
 
     // y should not be reported as unused (it's used in println!)
-    assert!(
-        !validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("'y'") && w.contains("never used")),
-        "Should not report y as unused"
-    );
+    assert_warn_not_contains(&validation, "'y'");
+    Ok(())
 }
 
 #[test]
-fn test_variable_detection_with_similar_names() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_variable_detection_with_similar_names() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         use std::collections::HashMap;
         
@@ -324,23 +241,16 @@ fn test_variable_detection_with_similar_names() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // map should not be reported as unused (it's used in println!)
-    assert!(
-        !validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("'map'") && w.contains("never used")),
-        "Should not report map as unused despite being substring of HashMap"
-    );
+    assert_warn_not_contains(&validation, "'map'");
+    Ok(())
 }
 
 #[test]
-fn test_tuple_destructuring_detection() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_tuple_destructuring_detection() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             let (a, b) = (1, 2);
@@ -350,47 +260,19 @@ fn test_tuple_destructuring_detection() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should warn about unused_x but not about a, b, or used_y
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("'unused_x'") && w.contains("never used")),
-        "Should detect unused_x from tuple destructuring"
-    );
-
-    assert!(
-        !validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("'a'") && w.contains("never used")),
-        "Should not report a as unused"
-    );
-
-    assert!(
-        !validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("'b'") && w.contains("never used")),
-        "Should not report b as unused"
-    );
-
-    assert!(
-        !validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("'used_y'") && w.contains("never used")),
-        "Should not report used_y as unused"
-    );
+    assert_warn_contains_all(&validation, &["unused_x", "never used"]);
+    assert_warn_not_contains(&validation, "'a'");
+    assert_warn_not_contains(&validation, "'b'");
+    assert_warn_not_contains(&validation, "used_y");
+    Ok(())
 }
 
 #[test]
-fn test_if_match_dead_code_detection() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_if_match_dead_code_detection() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             let x = 5;
@@ -403,23 +285,16 @@ fn test_if_match_dead_code_detection() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should detect dead code after if-else that both return
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("Unreachable") || w.contains("dead")),
-        "Should detect dead code after if-else where both branches terminate"
-    );
+    assert_warn_contains(&validation, "Unreachable");
+    Ok(())
 }
 
 #[test]
-fn test_import_in_type_position() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_import_in_type_position() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         use std::collections::HashMap;
         
@@ -433,46 +308,33 @@ fn test_import_in_type_position() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // HashMap should not be reported as unused (it's used in type position)
-    assert!(
-        !validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("'HashMap'") && w.contains("never used")),
-        "Should not report HashMap as unused when used in type positions"
-    );
+    assert_warn_not_contains(&validation, "HashMap");
+    Ok(())
 }
 
+
 #[test]
-fn test_type_inconsistency_detection() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_type_inconsistency_detection() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             let x: i32 = "hello";
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should warn about type mismatch
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("Type mismatch") && w.contains("'x'")),
-        "Expected warning for type inconsistency"
-    );
+    assert_warn_contains_all(&validation, &["Type mismatch", "'x'"]);
+    Ok(())
 }
 
 #[test]
-fn test_type_inconsistency_in_assignment() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_type_inconsistency_in_assignment() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             let mut x: i32 = 42;
@@ -480,23 +342,16 @@ fn test_type_inconsistency_in_assignment() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should warn about type mismatch in assignment
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("Type mismatch") && w.contains("'x'")),
-        "Expected warning for type mismatch in assignment"
-    );
+    assert_warn_contains_all(&validation, &["Type mismatch", "'x'"]);
+    Ok(())
 }
 
 #[test]
-fn test_compatible_types_no_warning() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_compatible_types_no_warning() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             let x: i32 = 42;
@@ -504,9 +359,7 @@ fn test_compatible_types_no_warning() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should not warn about compatible integer types
     let type_warnings: Vec<_> = validation
@@ -519,13 +372,12 @@ fn test_compatible_types_no_warning() {
         type_warnings.is_empty(),
         "Should not warn about compatible integer types"
     );
+    Ok(())
 }
 
 #[test]
-fn test_strict_mode_type_inconsistency() {
-    let validator = CodeValidator::new()
-        .expect("Failed to create CodeValidator")
-        .with_strict_mode(true);
+fn test_strict_mode_type_inconsistency() -> TestResult {
+    let validator = create_strict_validator();
 
     let code = r#"
         fn main() {
@@ -533,23 +385,17 @@ fn test_strict_mode_type_inconsistency() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // In strict mode, type inconsistencies should be reported as errors
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("error") && w.contains("Type mismatch")),
-        "Expected error-level warning for type inconsistency in strict mode"
-    );
+    assert_warn_contains(&validation, "error");
+    assert_warn_contains(&validation, "Type mismatch");
+    Ok(())
 }
 
 #[test]
-fn test_multiple_validation_types() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_multiple_validation_types() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         use std::collections::HashMap;
         
@@ -561,32 +407,12 @@ fn test_multiple_validation_types() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // Should have all types of warnings
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("unused") || w.contains("never used")),
-        "Expected unused variable/import warning"
-    );
-
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("Type mismatch")),
-        "Expected type mismatch warning"
-    );
-
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|w| w.contains("Unreachable") || w.contains("dead")),
-        "Expected dead code warning"
-    );
+    assert_warn_contains(&validation, "unused");
+    assert_warn_contains(&validation, "Type mismatch");
+    assert_warn_contains(&validation, "Unreachable");
+    Ok(())
 }
+

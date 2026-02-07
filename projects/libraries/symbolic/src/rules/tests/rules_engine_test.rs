@@ -1,4 +1,11 @@
 use crate::rules::{RulesEngine, RulesError};
+use super::test_helpers::TestResult;
+
+/// Helper to create a RulesEngine, panicking with helpful message if creation fails.
+fn create_engine() -> RulesEngine {
+    RulesEngine::new().expect("Failed to create RulesEngine")
+}
+
 
 #[test]
 fn test_rules_engine_creation() {
@@ -7,41 +14,38 @@ fn test_rules_engine_creation() {
 }
 
 #[test]
-fn test_struct_generation() {
-    let engine = RulesEngine::new().expect("rules engine");
-    let result = engine.generate("create struct User with name and email", None);
+fn test_struct_generation() -> TestResult {
+    let engine = create_engine();
+    let code = engine.generate("create struct User with name and email", None)?;
 
-    assert!(result.is_ok());
-    let code = result.expect("generate code");
     assert!(code.contains("struct User"));
     assert!(code.contains("pub name"));
     assert!(code.contains("pub email"));
+    Ok(())
 }
 
 #[test]
-fn test_enum_generation() {
-    let engine = RulesEngine::new().expect("rules engine");
-    let result = engine.generate("create enum Status", None);
+fn test_enum_generation() -> TestResult {
+    let engine = create_engine();
+    let code = engine.generate("create enum Status", None)?;
 
-    assert!(result.is_ok());
-    let code = result.expect("generate code");
     assert!(code.contains("enum Status"));
+    Ok(())
 }
 
 #[test]
-fn test_function_generation() {
-    let engine = RulesEngine::new().expect("rules engine");
-    let result = engine.generate("create function calculate", None);
+fn test_function_generation() -> TestResult {
+    let engine = create_engine();
+    let code = engine.generate("create function calculate", None)?;
 
-    assert!(result.is_ok());
-    let code = result.expect("generate code");
     assert!(code.contains("fn calculate"));
     assert!(code.contains("todo!()"));
+    Ok(())
 }
 
 #[test]
 fn test_match_confidence() {
-    let engine = RulesEngine::new().expect("rules engine");
+    let engine = create_engine();
 
     let confidence = engine.match_confidence("create struct User");
     assert!(confidence > 0.8);
@@ -51,43 +55,41 @@ fn test_match_confidence() {
 }
 
 #[test]
-fn test_extract_name_via_public_interface() {
-    let engine = RulesEngine::new().expect("rules engine");
+fn test_extract_name_via_public_interface() -> TestResult {
+    let engine = create_engine();
 
-    let result = engine.generate("create struct User", None);
-    assert!(result.is_ok());
-    let code = result.expect("generate code");
+    let code = engine.generate("create struct User", None)?;
     assert!(code.contains("struct User"));
+    Ok(())
 }
 
 #[test]
-fn test_extract_fields_via_public_interface() {
-    let engine = RulesEngine::new().expect("rules engine");
+fn test_extract_fields_via_public_interface() -> TestResult {
+    let engine = create_engine();
 
-    let result = engine.generate("create struct User", None);
-    assert!(result.is_ok());
-    let code = result.expect("generate code");
+    let code = engine.generate("create struct User", None)?;
     assert!(code.contains("struct User"));
+    Ok(())
 }
 
 #[test]
-fn test_refactoring() {
-    let engine = RulesEngine::new().expect("rules engine");
+fn test_refactoring() -> TestResult {
+    let engine = create_engine();
 
     let code = "struct User {\n    name: String,\n}";
-    let result = engine.apply_refactoring(code, "add debug derive");
+    let refactored = engine.apply_refactoring(code, "add debug derive")?;
 
-    assert!(result.is_ok());
-    let refactored = result.expect("refactoring");
     assert!(refactored.code.contains("#[derive(Debug)]"));
     assert!(!refactored.changes_applied.is_empty());
+    Ok(())
 }
 
 #[test]
 fn test_template_not_found() {
-    let engine = RulesEngine::new().expect("rules engine");
+    let engine = create_engine();
     let result = engine.generate("something completely random", None);
 
     assert!(result.is_err());
     assert!(matches!(result, Err(RulesError::TemplateNotFound(_))));
 }
+
