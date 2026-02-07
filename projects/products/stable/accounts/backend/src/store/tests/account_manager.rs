@@ -6,6 +6,7 @@ use lazy_static::lazy_static;
 use protocol::ProtocolId;
 use security::Role;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::time::Duration;
 
 lazy_static! {
@@ -45,13 +46,18 @@ struct TestPasswords {
 
 impl TestPasswords {
     fn new() -> Self {
+        // Use namespaced environment variables and fallback to random generated values
+        // to avoid CodeQL hard-coded credential warnings
+        let timestamp = current_timestamp_ms();
+        let counter = TEST_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
+        
         Self {
-            test_password: std::env::var("TEST_PASSWORD")
-                .unwrap_or_else(|_| "default_test_password".to_string()),
-            password1: std::env::var("PASSWORD1")
-                .unwrap_or_else(|_| "default_password1".to_string()),
-            password2: std::env::var("PASSWORD2")
-                .unwrap_or_else(|_| "default_password2".to_string()),
+            test_password: std::env::var("ACCOUNTS_BACKEND_TEST_PASSWORD")
+                .unwrap_or_else(|_| format!("test_pw_{}_{}", timestamp, counter)),
+            password1: std::env::var("ACCOUNTS_BACKEND_PASSWORD1")
+                .unwrap_or_else(|_| format!("pw1_{}_{}", timestamp, counter)),
+            password2: std::env::var("ACCOUNTS_BACKEND_PASSWORD2")
+                .unwrap_or_else(|_| format!("pw2_{}_{}", timestamp, counter)),
         }
     }
 }
@@ -185,7 +191,7 @@ async fn test_flush_if_dirty_skips_when_clean() {
 
 #[tokio::test]
 async fn test_last_login_survives_restart() -> Result<(), Box<dyn std::error::Error>> {
-    let temp_dir = create_unique_temp_dir();
+    let temp_dir = create_unique_temp_dir("accounts_test");
     tokio::fs::create_dir_all(&temp_dir).await?;
 
     let user_id = ProtocolId::default();
@@ -345,7 +351,7 @@ async fn test_audit_periodic_flush() {
 
     // Create user
     manager
-        .create(user_id, "password", Role::User, vec![], "admin")
+        .create(user_id, &PASSWORDS.test_password, Role::User, vec![], "admin")
         .await
         .expect("Failed to create test user");
 
@@ -401,7 +407,7 @@ async fn test_audit_entries_maintain_order() {
     for i in 1..=5 {
         let user_id = ProtocolId::new(common::Id128::new(i as u16, Some(0), Some(0)));
         manager
-            .create(user_id, "password", Role::User, vec![], "admin")
+            .create(user_id, &PASSWORDS.test_password, Role::User, vec![], "admin")
             .await
             .expect("Failed to create test user in order test");
     }
