@@ -45,7 +45,7 @@ fn test_autopilot_plan_usage() {
     assert_eq!(plan.commit_message, "Initial commit");
     assert!(plan.will_push);
     assert_eq!(plan.notes.len(), 1);
-    }
+}
 #[test]
 fn test_autopilot_plan_validation() {
     let mut plan = AutopilotPlanBuilder::new()
@@ -60,13 +60,12 @@ fn test_autopilot_plan_validation() {
         Some("Branch name cannot be empty".to_string())
     );
 
-plan.branch = "main".to_string();
-assert_eq!(
-    plan.validate().err(),
-    Some("Commit message cannot be empty".to_string())
-);
+    plan.branch = "main".to_string();
+    assert_eq!(
+        plan.validate().err(),
+        Some("Commit message cannot be empty".to_string())
+    );
 
     plan.commit_message = "Initial commit".to_string();
     assert!(plan.validate().is_ok());
 }
-
