@@ -4,7 +4,7 @@ use crate::store::audit_buffer_config::AuditBufferConfig;
 use common_time::timestamp_utils::current_timestamp_ms;
 use protocol::ProtocolId;
 use security::Role;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 use tokio::time::{Duration, sleep};
 
@@ -16,39 +16,41 @@ fn create_unique_temp_dir() -> PathBuf {
     std::env::temp_dir().join(format!("accounts_test_{}_{}", current_timestamp_ms(), id))
 }
 
-async fn create_test_manager() -> AccountManager {
+async fn create_test_manager() -> Result<AccountManager, Box<dyn std::error::Error>> {
     let temp_dir = create_unique_temp_dir();
-    tokio::fs::create_dir_all(&temp_dir).await.unwrap();
-    AccountManager::load(temp_dir).await.unwrap()
+    tokio::fs::create_dir_all(&temp_dir).await?;
+    Ok(AccountManager::load(temp_dir).await?)
 }
 
-async fn create_test_manager_with_config(config: AuditBufferConfig) -> AccountManager {
+async fn create_test_manager_with_config(
+    config: AuditBufferConfig,
+) -> Result<AccountManager, Box<dyn std::error::Error>> {
     let temp_dir = create_unique_temp_dir();
-    tokio::fs::create_dir_all(&temp_dir).await.unwrap();
-    AccountManager::load_with_config(temp_dir, config)
-        .await
-        .unwrap()
+    tokio::fs::create_dir_all(&temp_dir).await?;
+    Ok(AccountManager::load_with_config(temp_dir, config).await?)
 }
 
-async fn read_audit_log(data_dir: &PathBuf) -> Vec<String> {
-    let audit_path = data_dir.join("audit.log");
+async fn read_audit_log(data_dir: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let audit_path: PathBuf = data_dir.join("audit.log");
     if !audit_path.exists() {
-        return vec![];
+        return Ok(vec![]);
     }
-    let content = tokio::fs::read_to_string(&audit_path).await.unwrap();
-    content.lines().map(|s| s.to_string()).collect()
+    let content: String = tokio::fs::read_to_string(&audit_path).await?;
+    Ok(content.lines().map(|s: &str| s.to_string()).collect())
 }
 
 #[tokio::test]
 async fn test_login_sets_dirty_flag() {
-    let manager = create_test_manager().await;
+    let manager = create_test_manager()
+        .await
+        .expect("Failed to create test manager");
     let user_id = ProtocolId::default();
 
     // Create a test user
     manager
         .create(user_id, "test_password", Role::User, vec![], "test_actor")
         .await
-        .unwrap();
+        .expect("Failed to create user");
 
     // Clear dirty flag after create
     manager.set_dirty(false);
@@ -58,7 +60,7 @@ async fn test_login_sets_dirty_flag() {
     manager
         .authenticate(&user_id, "test_password")
         .await
-        .unwrap();
+        .expect("Failed to authenticate user");
 
     // Check that dirty flag is set
     assert!(manager.is_dirty(), "Dirty flag should be true after login");
@@ -69,20 +71,22 @@ async fn test_login_sets_dirty_flag() {
 
 #[tokio::test]
 async fn test_flush_if_dirty_saves_data() {
-    let manager = create_test_manager().await;
+    let manager = create_test_manager()
+        .await
+        .expect("Failed to create test manager");
     let user_id = ProtocolId::default();
 
     // Create a test user
     manager
         .create(user_id, "test_password", Role::User, vec![], "test_actor")
         .await
-        .unwrap();
+        .expect("Failed to create user");
 
     // Authenticate to update last_login_ms
     manager
         .authenticate(&user_id, "test_password")
         .await
-        .unwrap();
+        .expect("Failed to authenticate user");
 
     // Get last_login_ms before flush
     let user_before = manager.get(&user_id).await.unwrap();
@@ -116,7 +120,9 @@ async fn test_flush_if_dirty_saves_data() {
 
 #[tokio::test]
 async fn test_flush_if_dirty_skips_when_clean() {
-    let manager = create_test_manager().await;
+    let manager = create_test_manager()
+        .await
+        .expect("Failed to create test manager");
 
     // Ensure dirty flag is false
     manager.set_dirty(false);
@@ -177,7 +183,9 @@ async fn test_audit_entries_batched() {
         max_batch_size: 3,
         flush_interval_secs: 3600, // Long interval to test batch size
     };
-    let manager = create_test_manager_with_config(config).await;
+    let manager = create_test_manager_with_config(config)
+        .await
+        .expect("Failed to create test manager with config");
     let user_id1 = ProtocolId::default();
     let user_id2 = ProtocolId::new(common::Id128::new(1, Some(0), Some(0)));
 
@@ -185,7 +193,7 @@ async fn test_audit_entries_batched() {
     manager
         .create(user_id1, "password1", Role::User, vec![], "admin")
         .await
-        .unwrap();
+        .expect("Failed to create first user");
 
     // Small delay to ensure async operations complete
     sleep(Duration::from_millis(50)).await;
@@ -194,13 +202,15 @@ async fn test_audit_entries_batched() {
     manager
         .create(user_id2, "password2", Role::User, vec![], "admin")
         .await
-        .unwrap();
+        .expect("Failed to create second user");
 
     // Small delay to ensure async operations complete
     sleep(Duration::from_millis(50)).await;
 
     // Check audit log - should still be buffered (only 2 entries)
-    let lines = read_audit_log(manager.data_dir()).await;
+    let lines = read_audit_log(manager.data_dir())
+        .await
+        .expect("Failed to read audit log");
     assert_eq!(
         lines.len(),
         0,
@@ -208,13 +218,18 @@ async fn test_audit_entries_batched() {
     );
 
     // Login to trigger 3rd audit entry and flush
-    manager.authenticate(&user_id1, "password1").await.unwrap();
+    manager
+        .authenticate(&user_id1, "password1")
+        .await
+        .expect("Failed to authenticate user");
 
     // Small delay to ensure flush completes
     sleep(Duration::from_millis(100)).await;
 
     // Now should have flushed all 3 entries
-    let lines = read_audit_log(manager.data_dir()).await;
+    let lines = read_audit_log(manager.data_dir())
+        .await
+        .expect("Failed to read audit log");
     assert_eq!(lines.len(), 3, "Should flush all 3 entries at threshold");
 
     // Cleanup
@@ -227,24 +242,30 @@ async fn test_audit_manual_flush() {
         max_batch_size: 1000,
         flush_interval_secs: 3600,
     };
-    let manager = create_test_manager_with_config(config).await;
+    let manager = create_test_manager_with_config(config)
+        .await
+        .expect("Failed to create test manager with config");
     let user_id = ProtocolId::default();
 
     // Create user
     manager
         .create(user_id, "password", Role::User, vec![], "admin")
         .await
-        .unwrap();
+        .expect("Failed to create user");
 
     // Should still be buffered
-    let lines = read_audit_log(manager.data_dir()).await;
+    let lines = read_audit_log(manager.data_dir())
+        .await
+        .expect("Failed to read audit log");
     assert_eq!(lines.len(), 0);
 
     // Manual flush
-    manager.flush_audit().await.unwrap();
+    manager.flush_audit().await.expect("Failed to flush audit");
 
     // Should now be written
-    let lines = read_audit_log(manager.data_dir()).await;
+    let lines = read_audit_log(manager.data_dir())
+        .await
+        .expect("Failed to read audit log");
     assert_eq!(lines.len(), 1);
     assert!(lines[0].contains("create"));
 
@@ -258,24 +279,30 @@ async fn test_audit_periodic_flush() {
         max_batch_size: 1000,
         flush_interval_secs: 2, // 2 seconds
     };
-    let manager = create_test_manager_with_config(config).await;
+    let manager = create_test_manager_with_config(config)
+        .await
+        .expect("Failed to create test manager with config");
     let user_id = ProtocolId::default();
 
     // Create user
     manager
         .create(user_id, "password", Role::User, vec![], "admin")
         .await
-        .unwrap();
+        .expect("Failed to create user");
 
     // Should still be buffered
-    let lines = read_audit_log(manager.data_dir()).await;
+    let lines = read_audit_log(manager.data_dir())
+        .await
+        .expect("Failed to read audit log");
     assert_eq!(lines.len(), 0);
 
     // Wait for periodic flush
     sleep(Duration::from_secs(3)).await;
 
     // Should have flushed
-    let lines = read_audit_log(manager.data_dir()).await;
+    let lines = read_audit_log(manager.data_dir())
+        .await
+        .expect("Failed to read audit log");
     assert_eq!(lines.len(), 1);
     assert!(lines[0].contains("create"));
 
@@ -289,7 +316,9 @@ async fn test_audit_entries_maintain_order() {
         max_batch_size: 1000,
         flush_interval_secs: 3600,
     };
-    let manager = create_test_manager_with_config(config).await;
+    let manager = create_test_manager_with_config(config)
+        .await
+        .expect("Failed to create test manager with config");
 
     // Create multiple users with different IDs
     for i in 1..=5 {
@@ -297,14 +326,16 @@ async fn test_audit_entries_maintain_order() {
         manager
             .create(user_id, "password", Role::User, vec![], "admin")
             .await
-            .unwrap();
+            .expect("Failed to create user");
     }
 
     // Flush manually
-    manager.flush_audit().await.unwrap();
+    manager.flush_audit().await.expect("Failed to flush audit");
 
     // Verify order - all entries should be present
-    let lines = read_audit_log(manager.data_dir()).await;
+    let lines = read_audit_log(manager.data_dir())
+        .await
+        .expect("Failed to read audit log");
     assert_eq!(lines.len(), 5);
 
     // All entries should contain "create" action
