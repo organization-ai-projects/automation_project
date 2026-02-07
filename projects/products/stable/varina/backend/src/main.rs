@@ -13,6 +13,9 @@ mod repo_path_validator;
 mod router;
 mod validation_error;
 
+#[cfg(test)]
+mod tests;
+
 fn main() -> anyhow::Result<()> {
     app::run_backend()
 }
