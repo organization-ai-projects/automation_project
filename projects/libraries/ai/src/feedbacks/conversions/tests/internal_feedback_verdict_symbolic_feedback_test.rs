@@ -1,4 +1,4 @@
-use crate::feedbacks::conversions::tests::test_explaination_payload::TestExpectationPayload;
+use crate::feedbacks::conversions::tests::test_explanation_payload::TestExpectationPayload;
 use crate::feedbacks::conversions::tests::test_helpers::*;
 use crate::feedbacks::internal::internal_feedback_verdict::InternalFeedbackVerdict;
 use symbolic::feedback_symbolic::SymbolicFeedback;
@@ -10,7 +10,7 @@ fn test_internal_feedback_verdict_to_symbolic_feedback() {
         (
             "Correct verdict",
             InternalFeedbackVerdict::Correct,
-            TestExpectationPayload::PositiveWhithout,
+            TestExpectationPayload::PositiveWithout,
         ),
         (
             "Rejected verdict",
@@ -41,7 +41,7 @@ fn test_internal_feedback_verdict_to_symbolic_feedback() {
     for (_name, internal_verdict, expectation) in cases {
         let symbolic_feedback: SymbolicFeedback = internal_verdict.into();
         match expectation {
-            TestExpectationPayload::PositiveWhithout => {
+            TestExpectationPayload::PositiveWithout => {
                 assert_positive_no_payload(&symbolic_feedback);
             }
             TestExpectationPayload::NegativeWithout => {

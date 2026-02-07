@@ -12,7 +12,10 @@ pub type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
 /// Shared counter for unique test directory names.
 static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-/// Creates a unique temporary directory for test isolation.
+/// Generates a unique temporary directory path for test isolation.
+///
+/// **Note:** This function only returns a path and does not create the directory.
+/// Callers are responsible for creating the directory if needed.
 ///
 /// Uses a combination of timestamp and atomic counter to ensure uniqueness
 /// even when tests run in parallel.

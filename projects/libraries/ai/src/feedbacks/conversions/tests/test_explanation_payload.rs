@@ -1,5 +1,5 @@
 pub enum TestExpectationPayload {
-    PositiveWhithout,
+    PositiveWithout,
     NegativeWithout,
     NegativeWith(&'static str),
 }

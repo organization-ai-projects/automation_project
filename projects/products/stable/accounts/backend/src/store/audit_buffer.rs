@@ -20,6 +20,13 @@ pub struct AuditBuffer {
 
 impl AuditBuffer {
     pub fn new(audit_path: PathBuf, config: AuditBufferConfig) -> Self {
+        // Validate config
+        if config.flush_interval_secs == 0 {
+            panic!(
+                "flush_interval_secs must be greater than 0 to avoid tokio::time::interval panic"
+            );
+        }
+
         let buffer = Arc::new(Mutex::new(Vec::new()));
 
         // Start periodic flush task
@@ -70,21 +77,25 @@ impl AuditBuffer {
         buffer: &Arc<Mutex<Vec<AuditEntry>>>,
         audit_path: &PathBuf,
     ) -> Result<(), AccountStoreError> {
-        let mut buffer = buffer.lock().await;
+        // Drain buffer into local Vec while holding lock briefly
+        let entries = {
+            let mut buffer = buffer.lock().await;
+            if buffer.is_empty() {
+                return Ok(());
+            }
+            std::mem::take(&mut *buffer)
+        };
+        // Lock is released here
 
-        if buffer.is_empty() {
-            return Ok(());
-        }
-
-        // Serialize all entries
+        // Serialize all entries (without holding lock)
         let mut payload = String::new();
-        for entry in buffer.iter() {
+        for entry in entries.iter() {
             let line = to_string(entry).map_err(|e| AccountStoreError::Json(e.to_string()))?;
             payload.push_str(&line);
             payload.push('\n');
         }
 
-        // Write all entries in one operation
+        // Write all entries in one operation (without holding lock)
         let mut file = tokio::fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -93,9 +104,7 @@ impl AuditBuffer {
         file.write_all(payload.as_bytes()).await?;
         file.flush().await?;
 
-        // Clear buffer after successful write
-        buffer.clear();
-
+        // Buffer was already cleared by mem::take, so no need to re-lock
         Ok(())
     }
 }

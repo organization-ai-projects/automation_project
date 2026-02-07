@@ -3,5 +3,5 @@ mod feedback_verdict_feedback_type_test;
 mod feedback_verdict_symbolic_feedback_test;
 mod internal_feedback_verdict_feedback_type_test;
 mod internal_feedback_verdict_symbolic_feedback_test;
-mod test_explaination_payload;
+mod test_explanation_payload;
 mod test_helpers;

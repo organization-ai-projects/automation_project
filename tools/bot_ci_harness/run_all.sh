@@ -157,9 +157,9 @@ run_one() {
   export MAIN="main"
   export DEV="dev"
   export STABLE_TIMEOUT_SECS="${STABLE_TIMEOUT_SECS:-120}"
-  # Set mock GH_TOKEN for test environment
-  export GH_TOKEN="${GH_TOKEN:-mock_token}"
-  export APP_GH_TOKEN="${APP_GH_TOKEN:-mock_token}"
+  # Set mock GH_TOKEN for test environment (always override to ensure isolation)
+  export GH_TOKEN="mock_token"
+  export APP_GH_TOKEN="mock_token"
 
   set +e
   bash "$SCRIPT_UNDER_TEST" 2>&1 | tee "$SANDBOX/script_output.log"

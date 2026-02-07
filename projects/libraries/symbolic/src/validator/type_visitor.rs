@@ -10,8 +10,9 @@ const INT_TYPES: &[&str] = &[
 
 /// Visitor to detect type inconsistencies
 pub struct TypeVisitor {
-    /// Map of variable names to their declared types
-    pub variable_types: HashMap<String, String>,
+    /// Stack of scopes, each scope is a map of variable names to their declared types
+    /// The last element is the current (innermost) scope
+    scope_stack: Vec<HashMap<String, String>>,
     /// Detected type inconsistencies with statement index
     pub inconsistencies: Vec<(String, usize)>,
     /// Current statement index
@@ -21,9 +22,38 @@ pub struct TypeVisitor {
 impl TypeVisitor {
     pub fn new() -> Self {
         Self {
-            variable_types: HashMap::new(),
+            scope_stack: vec![HashMap::new()], // Start with one global scope
             inconsistencies: Vec::new(),
             current_stmt_index: 0,
+        }
+    }
+
+    /// Get the type of a variable by searching from innermost to outermost scope
+    fn get_variable_type(&self, var_name: &str) -> Option<String> {
+        for scope in self.scope_stack.iter().rev() {
+            if let Some(ty) = scope.get(var_name) {
+                return Some(ty.clone());
+            }
+        }
+        None
+    }
+
+    /// Insert or update a variable type in the current scope
+    fn set_variable_type(&mut self, var_name: String, ty: String) {
+        if let Some(current_scope) = self.scope_stack.last_mut() {
+            current_scope.insert(var_name, ty);
+        }
+    }
+
+    /// Push a new scope onto the stack
+    fn push_scope(&mut self) {
+        self.scope_stack.push(HashMap::new());
+    }
+
+    /// Pop the current scope from the stack
+    fn pop_scope(&mut self) {
+        if self.scope_stack.len() > 1 {
+            self.scope_stack.pop();
         }
     }
 
@@ -63,15 +93,15 @@ impl TypeVisitor {
 
     /// Check for type inconsistencies in assignment
     fn check_assignment(&mut self, var_name: &str, expr: &Expr) {
-        if let Some(declared_type) = self.variable_types.get(var_name) {
+        if let Some(declared_type) = self.get_variable_type(var_name) {
             let inferred_type = self.infer_type_from_expr(expr);
 
             // Check for obvious mismatches
             if !inferred_type.is_empty()
                 && inferred_type != "unknown"
                 && declared_type != "unknown"
-                && declared_type != &inferred_type
-                && !self.are_compatible_types(declared_type, &inferred_type)
+                && declared_type != inferred_type
+                && !self.are_compatible_types(&declared_type, &inferred_type)
             {
                 let msg = format!(
                     "Type mismatch for '{}': expected '{}' but found '{}'",
@@ -97,8 +127,8 @@ impl TypeVisitor {
                 if let Some(ident) = expr_path.path.get_ident() {
                     let ident_str = ident.to_string();
                     // Check if it's a known variable
-                    if let Some(var_type) = self.variable_types.get(&ident_str) {
-                        return var_type.clone();
+                    if let Some(var_type) = self.get_variable_type(&ident_str) {
+                        return var_type;
                     }
                 }
                 "unknown".to_string()
@@ -176,12 +206,12 @@ impl<'ast> Visit<'ast> for TypeVisitor {
             // Get declared type if explicitly specified
             if let Pat::Type(pat_type) = &local.pat {
                 let type_str = self.type_to_string(&pat_type.ty);
-                self.variable_types.insert(var_name.clone(), type_str);
+                self.set_variable_type(var_name.clone(), type_str);
             } else if let Some(init) = &local.init {
                 // Infer type from initialization
                 let inferred_type = self.infer_type_from_expr(&init.expr);
                 if !inferred_type.is_empty() && inferred_type != "unknown" {
-                    self.variable_types.insert(var_name.clone(), inferred_type);
+                    self.set_variable_type(var_name.clone(), inferred_type);
                 }
             }
 
@@ -206,6 +236,14 @@ impl<'ast> Visit<'ast> for TypeVisitor {
         }
 
         syn::visit::visit_local(self, local);
+    }
+
+    fn visit_block(&mut self, block: &'ast syn::Block) {
+        // Push a new scope when entering a block
+        self.push_scope();
+        syn::visit::visit_block(self, block);
+        // Pop the scope when exiting the block
+        self.pop_scope();
     }
 
     fn visit_expr(&mut self, expr: &'ast Expr) {
