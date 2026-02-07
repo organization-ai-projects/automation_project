@@ -228,6 +228,11 @@ impl AutopilotReportBuilder {
         self
     }
 
+    pub fn logs(mut self, logs: Vec<String>) -> Self {
+        self.logs = logs;
+        self
+    }
+
     pub fn build(self) -> AutopilotReport {
         AutopilotReport {
             mode: self.mode,

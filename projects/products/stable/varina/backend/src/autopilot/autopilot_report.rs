@@ -55,6 +55,7 @@ mod tests {
             })
             .plan(plan)
             .applied(true)
+            .logs(vec!["Log entry".to_string()])
             .build();
 
         assert_eq!(report.mode, AutopilotMode::DryRun);
@@ -62,7 +63,7 @@ mod tests {
         assert!(!report.detached_head);
         assert!(report.changes.is_empty());
         assert!(report.applied);
-        assert_eq!(report.logs.len(), 0);
+        assert_eq!(report.logs.len(), 1);
 
         // Using the classified and plan fields
         assert_eq!(report.classified.blocked[0], "blocked_file.rs");

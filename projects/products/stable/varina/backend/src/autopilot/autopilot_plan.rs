@@ -53,7 +53,9 @@ mod tests {
     fn test_autopilot_plan_validation() {
         let mut plan = AutopilotPlanBuilder::new()
             .branch("")
+            .will_commit(true)
             .commit_message("")
+            .will_push(true)
             .build();
 
         assert_eq!(
