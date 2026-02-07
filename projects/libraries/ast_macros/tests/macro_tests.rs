@@ -5,17 +5,17 @@ use ast_macros::{apply_cfg, build_array, build_object, key, validate_preset, val
 
 // Helper functions for common assertions
 fn assert_array_len(node: &AstNode, expected_len: usize) {
-    assert!(matches!(node.kind, AstKind::Array(_)), "Expected array");
-    if let AstKind::Array(elements) = &node.kind {
-        assert_eq!(elements.len(), expected_len);
-    }
+    let AstKind::Array(elements) = &node.kind else {
+        panic!("Expected array, got {:?}", node.kind);
+    };
+    assert_eq!(elements.len(), expected_len);
 }
 
 fn assert_object_len(node: &AstNode, expected_len: usize) {
-    assert!(matches!(node.kind, AstKind::Object(_)), "Expected object");
-    if let AstKind::Object(fields) = &node.kind {
-        assert_eq!(fields.len(), expected_len);
-    }
+    let AstKind::Object(fields) = &node.kind else {
+        panic!("Expected object, got {:?}", node.kind);
+    };
+    assert_eq!(fields.len(), expected_len);
 }
 
 #[test]
