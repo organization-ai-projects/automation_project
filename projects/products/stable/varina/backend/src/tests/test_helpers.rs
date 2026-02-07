@@ -1,8 +1,8 @@
 // projects/products/stable/varina/backend/src/tests/test_helpers.rs
-use common_json::{to_value, Json};
-use protocol::{Command, CommandType, Metadata, Payload, ProtocolId, run_request::RunRequest};
 use crate::autopilot::{AutopilotMode, AutopilotPlan, AutopilotReport};
 use crate::classified_changes::ClassifiedChanges;
+use common_json::{Json, to_value};
+use protocol::{Command, CommandType, Metadata, Payload, ProtocolId, run_request::RunRequest};
 
 /// Create a test metadata with default values for testing
 pub fn test_metadata() -> Metadata {
@@ -279,14 +279,12 @@ pub fn assert_status_code(response: &protocol::CommandResponse, expected_code: u
 
 /// Assert that an error message contains a specific substring
 pub fn assert_error_contains(response: &protocol::CommandResponse, expected_substring: &str) {
-    assert!(
-        response.error.is_some(),
-        "Expected error but got none"
-    );
+    assert!(response.error.is_some(), "Expected error but got none");
     let error = response.error.as_ref().unwrap();
     assert!(
         error.message.contains(expected_substring),
         "Expected error message to contain '{}' but got: '{}'",
-        expected_substring, error.message
+        expected_substring,
+        error.message
     );
 }

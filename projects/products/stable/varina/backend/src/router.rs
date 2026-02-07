@@ -386,9 +386,7 @@ mod tests {
 
     #[test]
     fn test_run_git_autopilot_with_empty_path() {
-        let req = RunRequestBuilder::new()
-            .repo_path("")
-            .build();
+        let req = RunRequestBuilder::new().repo_path("").build();
 
         let result = run_git_autopilot(req);
         assert!(result.is_err());
@@ -397,9 +395,7 @@ mod tests {
 
     #[test]
     fn test_run_git_autopilot_with_non_whitelisted_path() {
-        let req = RunRequestBuilder::new()
-            .repo_path("/etc/config")
-            .build();
+        let req = RunRequestBuilder::new().repo_path("/etc/config").build();
 
         let result = run_git_autopilot(req);
         assert!(result.is_err());
@@ -428,9 +424,7 @@ mod tests {
 
     #[test]
     fn test_handle_command_with_empty_action() {
-        let cmd = CommandBuilder::new()
-            .action("   ")
-            .build();
+        let cmd = CommandBuilder::new().action("   ").build();
 
         let response = handle_command(cmd);
         assert_status_code(&response, 400);
@@ -439,9 +433,7 @@ mod tests {
 
     #[test]
     fn test_handle_command_with_unsupported_action() {
-        let cmd = CommandBuilder::new()
-            .action("unsupported.action")
-            .build();
+        let cmd = CommandBuilder::new().action("unsupported.action").build();
 
         let response = handle_command(cmd);
         assert_status_code(&response, 404);
@@ -475,9 +467,7 @@ mod tests {
 
     #[test]
     fn test_handle_command_run_with_empty_repo_path() {
-        let run_req = RunRequestBuilder::new()
-            .repo_path("")
-            .build();
+        let run_req = RunRequestBuilder::new().repo_path("").build();
 
         let cmd = CommandBuilder::new()
             .action(ACTION_GIT_AUTOPILOT_RUN)
@@ -492,9 +482,7 @@ mod tests {
 
     #[test]
     fn test_handle_command_run_with_non_whitelisted_path() {
-        let run_req = RunRequestBuilder::new()
-            .repo_path("/etc/config")
-            .build();
+        let run_req = RunRequestBuilder::new().repo_path("/etc/config").build();
 
         let cmd = CommandBuilder::new()
             .action(ACTION_GIT_AUTOPILOT_RUN)

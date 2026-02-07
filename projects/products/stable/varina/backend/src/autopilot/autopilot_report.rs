@@ -30,9 +30,9 @@ impl AutopilotReport {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::test_helpers::*;
-    use crate::classified_changes::ClassifiedChanges;
     use crate::autopilot::AutopilotMode;
+    use crate::classified_changes::ClassifiedChanges;
+    use crate::tests::test_helpers::*;
 
     #[test]
     fn test_autopilot_report_usage() {
