@@ -1,7 +1,7 @@
 // projects/libraries/hybrid_arena/src/tests/slot_arena_test.rs
 use crate::{Id, SlotArena};
 
-use super::helpers::{assert_empty, assert_len, ArenaTestHelpers};
+use super::helpers::{ArenaTestHelpers, assert_empty, assert_len};
 
 #[test]
 fn test_alloc_and_get() {

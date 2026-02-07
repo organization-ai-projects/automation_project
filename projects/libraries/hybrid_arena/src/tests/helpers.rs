@@ -36,7 +36,8 @@ impl<T> ArenaTestHelpers<T> for crate::BumpArena<T> {
     where
         I: IntoIterator<Item = T>,
     {
-        self.alloc_extend(iter).expect("alloc_extend should succeed")
+        self.alloc_extend(iter)
+            .expect("alloc_extend should succeed")
     }
 }
 
@@ -57,7 +58,8 @@ impl<T> ArenaTestHelpers<T> for crate::SlotArena<T> {
     where
         I: IntoIterator<Item = T>,
     {
-        self.alloc_extend(iter).expect("alloc_extend should succeed")
+        self.alloc_extend(iter)
+            .expect("alloc_extend should succeed")
     }
 }
 
