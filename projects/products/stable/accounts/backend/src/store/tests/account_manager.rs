@@ -18,7 +18,6 @@ fn create_unique_temp_dir() -> PathBuf {
 
 async fn create_test_manager() -> Result<AccountManager, Box<dyn std::error::Error>> {
     let temp_dir = create_unique_temp_dir();
-    tokio::fs::create_dir_all(&temp_dir).await?;
     Ok(AccountManager::load(temp_dir).await?)
 }
 
@@ -26,16 +25,16 @@ async fn create_test_manager_with_config(
     config: AuditBufferConfig,
 ) -> Result<AccountManager, Box<dyn std::error::Error>> {
     let temp_dir = create_unique_temp_dir();
-    tokio::fs::create_dir_all(&temp_dir).await?;
     Ok(AccountManager::load_with_config(temp_dir, config).await?)
 }
 
 async fn read_audit_log(data_dir: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let audit_path: PathBuf = data_dir.join("audit.log");
-    if !audit_path.exists() {
-        return Ok(vec![]);
-    }
-    let content: String = tokio::fs::read_to_string(&audit_path).await?;
+    let content: String = match tokio::fs::read_to_string(&audit_path).await {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+        Err(e) => return Err(Box::new(e)),
+    };
     Ok(content.lines().map(|s: &str| s.to_string()).collect())
 }
 
