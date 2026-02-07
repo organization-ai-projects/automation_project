@@ -5,43 +5,43 @@ use crate::{AstBuilder, AstErrorKind, AstKey, AstNode, ValidateLimits, past};
 
 #[test]
 fn test_deeply_nested_structure() {
-        let depth = 1000;
-        let mut nested = past!(null);
+    let depth = 1000;
+    let mut nested = past!(null);
 
-        for _ in 0..depth {
-            nested = past!({ "key": nested });
-        }
-
-        assert!(nested.is_object());
+    for _ in 0..depth {
+        nested = past!({ "key": nested });
     }
+
+    assert!(nested.is_object());
+}
 
 #[test]
 fn test_very_deeply_nested_structure() {
-        let depth = 10_000; // Augmentation de la profondeur
-        let mut nested = past!(null);
+    let depth = 10_000; // Augmentation de la profondeur
+    let mut nested = past!(null);
 
-        for _ in 0..depth {
-            nested = past!({ "key": nested });
-        }
-
-        let limits = ValidateLimits::unbounded();
-        assert!(nested.validate_iterative(&limits).is_ok());
+    for _ in 0..depth {
+        nested = past!({ "key": nested });
     }
+
+    let limits = ValidateLimits::unbounded();
+    assert!(nested.validate_iterative(&limits).is_ok());
+}
 
 #[test]
 fn validate_cuts_before_stack_overflow() {
-        let mut nested = past!(null);
-        for _ in 0..10_000 {
-            nested = past!({ "key": nested });
-        }
-
-        let limits = ValidateLimits {
-            max_depth: 256,
-            max_size: 100_000,
-        };
-        let err = nested.validate_iterative(&limits).unwrap_err();
-        assert!(matches!(err.kind, AstErrorKind::MaxDepth { .. }));
+    let mut nested = past!(null);
+    for _ in 0..10_000 {
+        nested = past!({ "key": nested });
     }
+
+    let limits = ValidateLimits {
+        max_depth: 256,
+        max_size: 100_000,
+    };
+    let err = nested.validate_iterative(&limits).unwrap_err();
+    assert!(matches!(err.kind, AstErrorKind::MaxDepth { .. }));
+}
 
 #[test]
 fn validate_large_wide_tree() {

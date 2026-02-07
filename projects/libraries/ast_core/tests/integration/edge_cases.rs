@@ -1,6 +1,6 @@
 // projects/libraries/ast_core/tests/integration/edge_cases.rs
-use ast_core::{AstKey, AstKind, AstNode, Number, ValidateLimits};
 use crate::helpers::assert_error_matches;
+use ast_core::{AstKey, AstKind, AstNode, Number, ValidateLimits};
 
 #[test]
 fn test_integration_empty_object() {

@@ -1,6 +1,6 @@
 // projects/libraries/ast_core/tests/integration/macro_tests.rs
+use crate::helpers::{assert_bool_key, assert_int_key, assert_nested_string, assert_string_key};
 use ast_core::past;
-use crate::helpers::{assert_string_key, assert_int_key, assert_bool_key, assert_nested_string};
 
 #[test]
 fn test_macro_build_object() {
@@ -94,7 +94,8 @@ fn test_macro_nested_structures() {
 
     assert!(node.is_object());
     // Verify the nested structure exists
-    let level3 = node.get("level1")
+    let level3 = node
+        .get("level1")
         .and_then(|l1| l1.get("level2"))
         .and_then(|l2| l2.get("level3"))
         .expect("Missing nested keys");
@@ -171,7 +172,11 @@ fn test_macro_large_nested_structure() {
     });
 
     assert!(node.is_object());
-    assert_nested_string(&node, &["level1", "level2", "level3", "level4", "level5", "key"], "deep_value");
+    assert_nested_string(
+        &node,
+        &["level1", "level2", "level3", "level4", "level5", "key"],
+        "deep_value",
+    );
 }
 
 #[test]

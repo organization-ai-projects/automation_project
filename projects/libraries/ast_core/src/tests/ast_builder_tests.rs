@@ -1,6 +1,6 @@
 // projects/libraries/ast_core/src/tests/ast_builder_tests.rs
+use super::test_helpers::{assert_bool_key, assert_int_key, assert_string_key};
 use crate::AstBuilder;
-use super::test_helpers::{assert_string_key, assert_int_key, assert_bool_key};
 
 #[test]
 fn test_builder_basics() {

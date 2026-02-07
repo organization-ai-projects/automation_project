@@ -1,6 +1,6 @@
 // projects/libraries/ast_core/tests/integration/duplicate_keys.rs
-use ast_core::{AstKey, AstKind, AstNode, ValidateLimits};
 use crate::helpers::assert_error_matches;
+use ast_core::{AstKey, AstKind, AstNode, ValidateLimits};
 
 #[test]
 fn test_integration_duplicate_keys() {

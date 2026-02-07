@@ -1,6 +1,6 @@
 // projects/libraries/ast_core/tests/integration/depth_and_size.rs
-use ast_core::{AstKind, AstNode, ValidateLimits};
 use crate::helpers::assert_error_matches;
+use ast_core::{AstKind, AstNode, ValidateLimits};
 
 #[test]
 fn test_integration_depth_and_size() {
@@ -32,7 +32,8 @@ fn test_integration_depth_and_size() {
     assert!(
         error_message.contains("Exceeded maximum depth")
             || error_message.contains("Exceeded maximum size"),
-        "Error message should mention depth or size: {}", error_message
+        "Error message should mention depth or size: {}",
+        error_message
     );
 }
 
