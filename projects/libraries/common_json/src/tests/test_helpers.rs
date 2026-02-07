@@ -8,22 +8,6 @@ use std::error::Error;
 pub type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 
 /// Assert that a Json value is an object, returning a helpful error message if not
-pub fn assert_json_object(json: &Json) {
-    assert!(
-        json.is_object(),
-        "Expected Json::Object but got: {:?}",
-        json
-    );
-}
-
-/// Assert that a Json value is an array, returning a helpful error message if not
-pub fn assert_json_array(json: &Json) {
-    assert!(json.is_array(), "Expected Json::Array but got: {:?}", json);
-}
-
-/// Assert that a Json value is a number, returning a helpful error message if not
-pub fn assert_json_number(json: &Json) {
-/// Assert that a Json value is an object, returning a helpful error message if not
 #[track_caller]
 pub fn assert_json_object(json: &Json) {
     assert!(json.is_object(), "Expected Json::Object but got: {:?}", json);
