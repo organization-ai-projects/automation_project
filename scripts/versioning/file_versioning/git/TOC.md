@@ -14,7 +14,7 @@ This document provides an overview of all documentation files in this directory.
 - [clean_local_gone.sh](clean_local_gone.sh): Remove local branches with gone remotes
 - [cleanup_after_pr.sh](cleanup_after_pr.sh): Update branches after PR merge
 - [create_after_delete.sh](create_after_delete.sh): Recreate branch from base after deletion
-- [create_branch.sh](create_branch.sh): Create branches with naming validation
+- [create_branch.sh](create_branch.sh): Create branches with enforced naming validation
 - [create_work_branch.sh](create_work_branch.sh): Create work branches following conventions
 - [delete_branch.sh](delete_branch.sh): Delete local and remote branches
 - [finish_branch.sh](finish_branch.sh): Close work branches and cleanup
