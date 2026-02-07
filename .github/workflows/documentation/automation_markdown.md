@@ -49,7 +49,7 @@ Contributors can run markdown linting locally:
 
 ```bash
 # Install pnpm (if not already installed)
-dlx install -g pnpm
+npm install -g pnpm
 
 # Install dependencies (first time only)
 pnpm install
