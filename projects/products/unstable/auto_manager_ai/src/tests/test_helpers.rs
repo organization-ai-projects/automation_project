@@ -38,23 +38,3 @@ pub(crate) fn build_test_action(action_type: &str, confidence: f64) -> Action {
         dry_run: None,
     }
 }
-
-/// Build a test Action with custom ID
-pub(crate) fn build_test_action_with_id(id: &str, action_type: &str, confidence: f64) -> Action {
-    Action {
-        id: id.to_string(),
-        action_type: action_type.to_string(),
-        status: ActionStatus::Proposed,
-        target: ActionTarget::Repo {
-            reference: "test/repo".to_string(),
-        },
-        justification: "Test action".to_string(),
-        risk_level: RiskLevel::Low,
-        required_checks: vec![],
-        confidence,
-        evidence: vec![],
-        depends_on: None,
-        missing_inputs: None,
-        dry_run: None,
-    }
-}

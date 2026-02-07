@@ -37,7 +37,7 @@ impl ActionPlan {
 #[cfg(test)]
 mod tests {
     use crate::domain::action_plan::ActionPlan;
-    use common_json::{from_str, to_string_pretty, Json};
+    use common_json::{from_str, to_string_pretty, Json, JsonAccess};
 
     #[test]
     fn test_action_plan_new() {
@@ -55,16 +55,20 @@ mod tests {
         let parsed: Json = from_str(&json).expect("Failed to parse JSON");
         
         // Verify specific fields exist and have correct types
-        assert!(parsed["version"].is_string(), "version should be a string");
-        assert_eq!(parsed["version"].as_str(), Some("0.1.0"), "version should be 0.1.0");
+        let version = parsed.get_field("version").expect("version field should exist");
+        assert!(matches!(version, Json::String(_)), "version should be a string");
+        assert_eq!(version.as_str(), Some("0.1.0"), "version should be 0.1.0");
         
-        assert!(parsed["generated_at"].is_string(), "generated_at should be a string");
+        let generated_at = parsed.get_field("generated_at").expect("generated_at field should exist");
+        assert!(matches!(generated_at, Json::String(_)), "generated_at should be a string");
         
-        assert!(parsed["actions"].is_array(), "actions should be an array");
-        assert_eq!(parsed["actions"].as_array().map(|a| a.len()), Some(0), "actions should be empty");
+        let actions = parsed.get_field("actions").expect("actions field should exist");
+        assert!(matches!(actions, Json::Array(_)), "actions should be an array");
+        assert_eq!(actions.as_array().map(|a| a.len()), Some(0), "actions should be empty");
         
-        assert!(parsed["summary"].is_string(), "summary should be a string");
-        assert_eq!(parsed["summary"].as_str(), Some("Test plan"), "summary should match");
+        let summary = parsed.get_field("summary").expect("summary field should exist");
+        assert!(matches!(summary, Json::String(_)), "summary should be a string");
+        assert_eq!(summary.as_str(), Some("Test plan"), "summary should match");
 
         let _deserialized: ActionPlan = from_str(&json).expect("Failed to deserialize");
     }
