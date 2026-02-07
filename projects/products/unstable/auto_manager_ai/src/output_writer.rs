@@ -34,18 +34,12 @@ mod tests {
     use crate::{
         domain::{ActionPlan, RunReport},
         output_writer::write_outputs,
+        tests::test_helpers::create_unique_temp_dir,
     };
 
     #[test]
     fn test_write_outputs() {
-        let temp_dir = std::env::temp_dir().join(format!(
-            "auto_manager_ai_output_test_{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        ));
-
+        let temp_dir = create_unique_temp_dir("auto_manager_ai_output_test");
         let out_dir = temp_dir.join("out");
 
         let plan = ActionPlan::new("Test".to_string());
