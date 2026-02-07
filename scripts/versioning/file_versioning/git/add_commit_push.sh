@@ -7,21 +7,21 @@ set -euo pipefail
 # The script enforces conventional commit message format:
 #   <type>(<scope>): <message> or <type>: <message>
 #
-# Allowed types: feat, fix, docs, style, refactor, test, chore
+# Allowed types: feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore
 #
 # Use --no-verify to bypass validation (not recommended)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 
 # shellcheck source=scripts/common_lib/core/logging.sh
-source "$ROOT_DIR/common_lib/core/logging.sh"
+source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
-source "$ROOT_DIR/common_lib/versioning/file_versioning/git/repo.sh"
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/staging.sh
-source "$ROOT_DIR/common_lib/versioning/file_versioning/git/staging.sh"
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/staging.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit.sh
-source "$ROOT_DIR/common_lib/versioning/file_versioning/git/commit.sh"
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit.sh"
 
 require_git_repo
 
@@ -29,8 +29,8 @@ require_git_repo
 validate_commit_message() {
   local message="$1"
   
-  # Allowed types (aligned with project conventions)
-  local allowed_types="^(feat|fix|docs|style|refactor|test|chore)"
+  # Allowed types (aligned with commit-msg hook)
+  local allowed_types="^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)"
   
   # Validate format: <type>(<scope>): <message> or <type>: <message>
   # Allows multiple scopes separated by commas: feat(ci,scripts): message
@@ -43,14 +43,13 @@ validate_commit_message() {
     echo "  <type>: <message>" >&2
     echo "" >&2
     echo "Allowed types:" >&2
-    echo "  feat, fix, docs, style, refactor, test, chore" >&2
+    echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore" >&2
     echo "" >&2
     echo "Examples:" >&2
     echo "  feat(auth): add user authentication" >&2
     echo "  feat(ci,scripts): add workflows and sync script" >&2
     echo "  fix: resolve null pointer exception" >&2
     echo "  docs(readme): update installation instructions" >&2
-    echo "  style: format code according to style guide" >&2
     echo "  refactor(api): simplify error handling" >&2
     echo "  test: add unit tests for validator" >&2
     echo "  chore: update dependencies" >&2
@@ -58,7 +57,9 @@ validate_commit_message() {
     echo "Your commit message:" >&2
     echo "  $message" >&2
     echo "" >&2
-    echo "To bypass validation (not recommended): $0 \"$message\" --no-verify" >&2
+    echo "To bypass validation (not recommended):" >&2
+    echo "  $0 \"$message\" --no-verify" >&2
+    echo "  or: SKIP_COMMIT_VALIDATION=1 git commit -m \"$message\"" >&2
     return 1
   fi
   return 0

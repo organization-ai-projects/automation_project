@@ -60,12 +60,12 @@ or
 
 **Required Types**:
 
-- `feat` – New feature
+- `feature`, `feat` – New feature
 - `fix` – Bug fix
-- `docs` – Documentation changes
-- `style` – Code style/formatting (no functional changes)
+- `fixture` – Test data or fixtures
+- `doc`, `docs` – Documentation changes
 - `refactor` – Code refactoring
-- `test` – Adding or updating tests
+- `test`, `tests` – Adding or updating tests
 - `chore` – Maintenance tasks
 
 **Examples**:
@@ -74,7 +74,6 @@ or
 - `feat(ci,scripts): add workflows and sync script`
 - `fix: resolve null pointer exception`
 - `docs(readme): update installation instructions`
-- `style: format code according to style guide`
 - `refactor(api): simplify error handling`
 - `test: add unit tests for validator`
 - `chore: update dependencies`
@@ -85,9 +84,11 @@ or
 
 **Enforcement**:
 - The `add_commit_push.sh` script validates commit messages
-- Git commit hooks validate commit messages (when installed)
+- Git commit hooks validate commit messages (when installed via `scripts/automation/git_hooks/install_hooks.sh`)
 - Non-conforming messages are rejected with clear error messages
-- Bypass only for emergencies: use `--no-verify` flag
+- Bypass only for emergencies:
+  - Use `--no-verify` flag with `add_commit_push.sh`
+  - Use `SKIP_COMMIT_VALIDATION=1 git commit -m "message"` with git directly
 
 ### Additional Guidelines
 

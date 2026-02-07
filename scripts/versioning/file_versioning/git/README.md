@@ -51,16 +51,18 @@ The `add_commit_push.sh` script enforces conventional commit message format:
 
 **Format**: `<type>(<scope>): <message>` or `<type>: <message>`
 
-**Allowed types**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+**Allowed types**: `feature`, `feat`, `fix`, `fixture`, `doc`, `docs`, `refactor`, `test`, `tests`, `chore`
 
 **Examples**:
 - `feat(auth): add user authentication`
 - `fix: resolve null pointer exception`
 - `docs(readme): update installation instructions`
 
-**Bypass** (not recommended): Use `--no-verify` flag
+**Bypass** (not recommended):
+- Use `--no-verify` flag with the script: `./add_commit_push.sh "message" --no-verify`
+- Use `SKIP_COMMIT_VALIDATION=1` with git directly: `SKIP_COMMIT_VALIDATION=1 git commit -m "message"`
 
-See [CONTRIBUTING.md](../../../../CONTRIBUTING.md) for full commit guidelines.
+See [CONTRIBUTING.md](../../../../CONTRIBUTING.md) and [commit-msg hook](../../../automation/git_hooks/commit-msg) for full details.
 
 ## Scope
 
