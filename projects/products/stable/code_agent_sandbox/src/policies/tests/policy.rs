@@ -14,14 +14,17 @@ type TestResult = Result<(), Box<dyn Error>>;
 /// Helper to create a temporary override file with the given content.
 /// Returns the path to the file.
 fn create_temp_override_file(content: &str) -> Result<PathBuf, Box<dyn Error>> {
-    let mut overrides_path = std::env::temp_dir();
-    overrides_path.push(format!(
-        "policy_overrides_{}.toml",
-        std::time::SystemTime::now()
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)?
-            .as_nanos()
-    ));
-    std::fs::write(&overrides_path, content)?;
+    // Use `tempfile` to create a uniquely named file in the global temp directory.
+    let named_file = tempfile::Builder::new()
+        .prefix("policy_overrides_")
+        .suffix(".toml")
+        .tempfile_in(std::env::temp_dir())?;
+
+    // Write the provided content into the temporary file.
+    std::fs::write(named_file.path(), content)?;
+
+    // Persist the file and obtain its final path.
+    let (_file, overrides_path) = named_file.keep()?;
     Ok(overrides_path)
 }
 
