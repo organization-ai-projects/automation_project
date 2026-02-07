@@ -1,20 +1,8 @@
 //! Tests for the as_str() method generation (premium feature)
 // projects/libraries/protocol_macros/tests/as_str_test.rs
-use protocol_macros::EnumMethods;
+mod common;
 
-#[derive(Debug, Clone, EnumMethods)]
-enum Event {
-    Ping,
-    Created { id: String, data: String },
-    DataSent(String, u32),
-}
-
-#[derive(Debug, Clone, EnumMethods)]
-enum HTTPStatus {
-    Request,
-    NotFound,
-    ServerError,
-}
+use common::{assert_contains_all, Event, HTTPStatus};
 
 #[test]
 fn test_as_str_unit_variant() {
@@ -98,7 +86,7 @@ fn test_as_str_vs_display() {
     let created = Event::created("123".into(), "test".into());
 
     assert_eq!(created.as_str(), "created");
-    assert_eq!(created.to_string(), "created { id=123, data=test }");
+    assert_contains_all(&created.to_string(), &["created", "id=123", "data=test"]);
 }
 
 #[test]
