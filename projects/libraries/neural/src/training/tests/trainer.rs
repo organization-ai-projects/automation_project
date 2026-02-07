@@ -14,7 +14,7 @@ fn test_tokenization() {
     assert!(
         tokens
             .iter()
-            .all(|&t| t.is_finite() && t >= 0.0 && t <= 1.0),
+            .all(|&t| t.is_finite() && (0.0..=1.0).contains(&t)),
         "all tokens should be finite and in the range [0.0, 1.0]"
     );
 }
@@ -33,11 +33,11 @@ fn test_parse_data() {
     assert_eq!(examples[0].target, 1.0, "first target should be 1.0");
     assert_eq!(examples[1].target, 0.5, "second target should be 0.5");
     assert!(
-        examples[0].input.len() > 0,
+        !examples[0].input.is_empty(),
         "first example should have input tokens"
     );
     assert!(
-        examples[1].input.len() > 0,
+        !examples[1].input.is_empty(),
         "second example should have input tokens"
     );
 }
