@@ -54,9 +54,56 @@ Use descriptive branch names with a type prefix:
 
 ## Commit Guidelines
 
+### Commit Message Format (Enforced)
+
+All commit messages **must** follow the conventional commit format:
+
+```text
+<type>(<scope>): <summary>
+```
+
+or
+
+```text
+<type>: <summary>
+```
+
+**Required Types**:
+
+- `feature`, `feat` – New feature
+- `fix` – Bug fix
+- `fixture` – Test data or fixtures
+- `doc`, `docs` – Documentation changes
+- `refactor` – Code refactoring
+- `test`, `tests` – Adding or updating tests
+- `chore` – Maintenance tasks
+
+**Examples**:
+
+- `feat(auth): add user authentication`
+- `feat(ci,scripts): add workflows and sync script`
+- `fix: resolve null pointer exception`
+- `docs(readme): update installation instructions`
+- `refactor(api): simplify error handling`
+- `test: add unit tests for validator`
+- `chore: update dependencies`
+
+**Scope** (optional): Component or module affected (e.g., `auth`, `api`, `ci`)
+
+**Summary**: Clear, concise description of the change
+
+**Enforcement**:
+- The `add_commit_push.sh` script validates commit messages
+- Git commit hooks validate commit messages (when installed via `scripts/automation/git_hooks/install_hooks.sh`)
+- Non-conforming messages are rejected with clear error messages
+- Bypass only for emergencies:
+  - Use `--no-verify` flag with `add_commit_push.sh`
+  - Use `SKIP_COMMIT_VALIDATION=1 git commit -m "message"` with git directly
+
+### Additional Guidelines
+
 - Keep commits small and focused on a single change.
-- Use clear, descriptive commit messages.
-- Reference issues when applicable: `fix: Resolve panic in parser (#42)`
+- Reference issues when applicable: `fix: resolve panic in parser (#42)`
 
 See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details.
 
