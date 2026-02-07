@@ -356,154 +356,153 @@ fn meta(cmd: &Command) -> Metadata {
     cmd.metadata.clone()
 }
 
-    use super::*;
-    use crate::tests::test_helpers::*;
-    use crate::validation_error::{E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED};
-    use common_json::to_value;
+use super::*;
+use crate::tests::test_helpers::*;
+use crate::validation_error::{E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED};
+use common_json::to_value;
 
-    #[test]
-    fn test_run_git_autopilot_with_invalid_path() {
-        let req = RunRequestBuilder::new()
-            .repo_path("/etc/../../../etc/passwd")
-            .build();
+#[test]
+fn test_run_git_autopilot_with_invalid_path() {
+    let req = RunRequestBuilder::new()
+        .repo_path("/etc/../../../etc/passwd")
+        .build();
 
-        let result = run_git_autopilot(req);
-        assert!(
-            result.is_err(),
-            "Expected validation to fail for path: /etc/../../../etc/passwd"
-        );
-        let err = result.unwrap_err();
-        // The path may be canonicalized which would resolve the traversal
-        // So we check for either path traversal or whitelist error
-        assert!(
-            err.message.contains("Path traversal") || err.message.contains("not in the whitelist"),
-            "Expected path traversal or whitelist error, got: {}",
-            err.message
-        );
-    }
+    let result = run_git_autopilot(req);
+    assert!(
+        result.is_err(),
+        "Expected validation to fail for path: /etc/../../../etc/passwd"
+    );
+    let err = result.unwrap_err();
+    // The path may be canonicalized which would resolve the traversal
+    // So we check for either path traversal or whitelist error
+    assert!(
+        err.message.contains("Path traversal") || err.message.contains("not in the whitelist"),
+        "Expected path traversal or whitelist error, got: {}",
+        err.message
+    );
+}
 
-    #[test]
-    fn test_run_git_autopilot_with_empty_path() {
-        let req = RunRequestBuilder::new().repo_path("").build();
+#[test]
+fn test_run_git_autopilot_with_empty_path() {
+    let req = RunRequestBuilder::new().repo_path("").build();
 
-        let result = run_git_autopilot(req);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().message.contains("cannot be empty"));
-    }
+    let result = run_git_autopilot(req);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().message.contains("cannot be empty"));
+}
 
-    #[test]
-    fn test_run_git_autopilot_with_non_whitelisted_path() {
-        let req = RunRequestBuilder::new().repo_path("/etc/config").build();
+#[test]
+fn test_run_git_autopilot_with_non_whitelisted_path() {
+    let req = RunRequestBuilder::new().repo_path("/etc/config").build();
 
-        let result = run_git_autopilot(req);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().message.contains("not in the whitelist"));
-    }
+    let result = run_git_autopilot(req);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().message.contains("not in the whitelist"));
+}
 
-    #[test]
-    fn test_run_git_autopilot_with_no_path_uses_fallback() {
-        // Test that RunRequest with no repo_path doesn't trigger validation
-        // (actual autopilot execution is tested elsewhere)
-        let req = RunRequestBuilder::new().build();
+#[test]
+fn test_run_git_autopilot_with_no_path_uses_fallback() {
+    // Test that RunRequest with no repo_path doesn't trigger validation
+    // (actual autopilot execution is tested elsewhere)
+    let req = RunRequestBuilder::new().build();
 
-        // This test only verifies that None repo_path is valid from validation perspective
-        // We don't actually run autopilot here to avoid environment dependencies
-        assert!(req.repo_path.is_none(), "repo_path should be None");
-    }
+    // This test only verifies that None repo_path is valid from validation perspective
+    // We don't actually run autopilot here to avoid environment dependencies
+    assert!(req.repo_path.is_none(), "repo_path should be None");
+}
 
-    #[test]
-    fn test_handle_command_with_missing_action() {
-        let cmd = CommandBuilder::new().build();
+#[test]
+fn test_handle_command_with_missing_action() {
+    let cmd = CommandBuilder::new().build();
 
-        let response = handle_command(cmd);
-        assert_status_code(&response, 400);
-        assert_error_code(&response, E_ACTION_MISSING);
-    }
+    let response = handle_command(cmd);
+    assert_status_code(&response, 400);
+    assert_error_code(&response, E_ACTION_MISSING);
+}
 
-    #[test]
-    fn test_handle_command_with_empty_action() {
-        let cmd = CommandBuilder::new().action("   ").build();
+#[test]
+fn test_handle_command_with_empty_action() {
+    let cmd = CommandBuilder::new().action("   ").build();
 
-        let response = handle_command(cmd);
-        assert_status_code(&response, 400);
-        assert_error_code(&response, E_ACTION_MISSING);
-    }
+    let response = handle_command(cmd);
+    assert_status_code(&response, 400);
+    assert_error_code(&response, E_ACTION_MISSING);
+}
 
-    #[test]
-    fn test_handle_command_with_unsupported_action() {
-        let cmd = CommandBuilder::new().action("unsupported.action").build();
+#[test]
+fn test_handle_command_with_unsupported_action() {
+    let cmd = CommandBuilder::new().action("unsupported.action").build();
 
-        let response = handle_command(cmd);
-        assert_status_code(&response, 404);
-        assert_error_code(&response, E_ACTION_UNSUPPORTED);
-    }
+    let response = handle_command(cmd);
+    assert_status_code(&response, 404);
+    assert_error_code(&response, E_ACTION_UNSUPPORTED);
+}
 
-    #[test]
-    fn test_handle_command_with_missing_payload() {
-        let cmd = CommandBuilder::new()
-            .action(ACTION_GIT_AUTOPILOT_PREVIEW)
-            .build();
+#[test]
+fn test_handle_command_with_missing_payload() {
+    let cmd = CommandBuilder::new()
+        .action(ACTION_GIT_AUTOPILOT_PREVIEW)
+        .build();
 
-        let response = handle_command(cmd);
-        assert_status_code(&response, 400);
-        assert_error_code(&response, E_PAYLOAD_MISSING);
-    }
+    let response = handle_command(cmd);
+    assert_status_code(&response, 400);
+    assert_error_code(&response, E_PAYLOAD_MISSING);
+}
 
-    #[test]
-    fn test_handle_command_with_invalid_payload_type() {
-        let cmd = CommandBuilder::new()
-            .action(ACTION_GIT_AUTOPILOT_PREVIEW)
-            .payload_with_type("invalid/type", to_value(&"{}").unwrap())
-            .build();
+#[test]
+fn test_handle_command_with_invalid_payload_type() {
+    let cmd = CommandBuilder::new()
+        .action(ACTION_GIT_AUTOPILOT_PREVIEW)
+        .payload_with_type("invalid/type", to_value(&"{}").unwrap())
+        .build();
 
-        let response = handle_command(cmd);
-        assert_status_code(&response, 415);
-        assert_error_code(&response, E_PAYLOAD_TYPE_INVALID);
-    }
+    let response = handle_command(cmd);
+    assert_status_code(&response, 415);
+    assert_error_code(&response, E_PAYLOAD_TYPE_INVALID);
+}
 
-    // Router-level validation tests
+// Router-level validation tests
 
-    #[test]
-    fn test_handle_command_run_with_empty_repo_path() {
-        let run_req = RunRequestBuilder::new().repo_path("").build();
+#[test]
+fn test_handle_command_run_with_empty_repo_path() {
+    let run_req = RunRequestBuilder::new().repo_path("").build();
 
-        let cmd = CommandBuilder::new()
-            .action(ACTION_GIT_AUTOPILOT_RUN)
-            .payload_with_type(PAYLOAD_TYPE_RUN_V1, to_value(&run_req).unwrap())
-            .build();
+    let cmd = CommandBuilder::new()
+        .action(ACTION_GIT_AUTOPILOT_RUN)
+        .payload_with_type(PAYLOAD_TYPE_RUN_V1, to_value(&run_req).unwrap())
+        .build();
 
-        let response = handle_command(cmd);
-        assert_status_code(&response, 400);
-        assert_error_code(&response, E_REPO_PATH_INVALID_FORMAT);
-        assert_error_contains(&response, "cannot be empty");
-    }
+    let response = handle_command(cmd);
+    assert_status_code(&response, 400);
+    assert_error_code(&response, E_REPO_PATH_INVALID_FORMAT);
+    assert_error_contains(&response, "cannot be empty");
+}
 
-    #[test]
-    fn test_handle_command_run_with_non_whitelisted_path() {
-        let run_req = RunRequestBuilder::new().repo_path("/etc/config").build();
+#[test]
+fn test_handle_command_run_with_non_whitelisted_path() {
+    let run_req = RunRequestBuilder::new().repo_path("/etc/config").build();
 
-        let cmd = CommandBuilder::new()
-            .action(ACTION_GIT_AUTOPILOT_RUN)
-            .payload_with_type(PAYLOAD_TYPE_RUN_V1, to_value(&run_req).unwrap())
-            .build();
+    let cmd = CommandBuilder::new()
+        .action(ACTION_GIT_AUTOPILOT_RUN)
+        .payload_with_type(PAYLOAD_TYPE_RUN_V1, to_value(&run_req).unwrap())
+        .build();
 
-        let response = handle_command(cmd);
-        assert_status_code(&response, 400);
-        assert_error_code(&response, E_REPO_PATH_NOT_WHITELISTED);
-        assert_error_contains(&response, "not in the whitelist");
-    }
+    let response = handle_command(cmd);
+    assert_status_code(&response, 400);
+    assert_error_code(&response, E_REPO_PATH_NOT_WHITELISTED);
+    assert_error_contains(&response, "not in the whitelist");
+}
 
-    #[test]
-    fn test_handle_command_run_with_valid_whitelisted_path() {
-        // Test validation passes for whitelisted path without executing autopilot
-        let repo_path = "/tmp/test-repo".to_string();
+#[test]
+fn test_handle_command_run_with_valid_whitelisted_path() {
+    // Test validation passes for whitelisted path without executing autopilot
+    let repo_path = "/tmp/test-repo".to_string();
 
-        // Use the cached validator to test that this path is accepted as whitelisted
-        let result = REPO_PATH_VALIDATOR.validate(&repo_path);
+    // Use the cached validator to test that this path is accepted as whitelisted
+    let result = REPO_PATH_VALIDATOR.validate(&repo_path);
 
-        assert!(
-            result.is_ok(),
-            "Expected /tmp/test-repo to be accepted as a whitelisted repo path"
-        );
-    }
-
+    assert!(
+        result.is_ok(),
+        "Expected /tmp/test-repo to be accepted as a whitelisted repo path"
+    );
+}
