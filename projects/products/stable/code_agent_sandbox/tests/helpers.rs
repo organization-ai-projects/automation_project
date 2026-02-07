@@ -2,7 +2,7 @@
 //
 // Shared test helpers for integration tests.
 
-use common_json::{from_json_str, Json};
+use common_json::{Json, from_json_str};
 use std::io::Write;
 use std::process::{Command, Output, Stdio};
 
