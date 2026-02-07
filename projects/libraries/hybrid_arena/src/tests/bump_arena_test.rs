@@ -1,15 +1,17 @@
 // projects/libraries/hybrid_arena/src/tests/bump_arena_test.rs
 use crate::{BumpArena, Id};
 
+use super::helpers::{ArenaTestHelpers, assert_empty, assert_len};
+
 #[test]
 fn test_alloc_and_get() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    let id1 = arena.alloc(10).expect("alloc 10");
-    let id2 = arena.alloc(20).expect("alloc 20");
+    let id1 = arena.test_alloc(10);
+    let id2 = arena.test_alloc(20);
 
     assert_eq!(arena.get(id1), Some(&10));
     assert_eq!(arena.get(id2), Some(&20));
-    assert_eq!(arena.len(), 2);
+    assert_len(&arena, 2);
 }
 
 #[test]
@@ -19,9 +21,7 @@ fn test_alloc_with() {
         value: i32,
     }
     let mut arena: BumpArena<Node> = BumpArena::new();
-    let id = arena
-        .alloc_with(|id| Node { id, value: 42 })
-        .expect("alloc node");
+    let id = arena.test_alloc_with(|id| Node { id, value: 42 });
     assert_eq!(arena[id].id, id);
     assert_eq!(arena[id].value, 42);
 }
@@ -29,7 +29,7 @@ fn test_alloc_with() {
 #[test]
 fn test_alloc_extend() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    let ids = arena.alloc_extend([1, 2, 3, 4, 5]).expect("alloc extend");
+    let ids = arena.test_alloc_extend([1, 2, 3, 4, 5]);
 
     assert_eq!(ids.len(), 5);
     for (i, id) in ids.iter().enumerate() {
@@ -40,8 +40,8 @@ fn test_alloc_extend() {
 #[test]
 fn test_get2_mut() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    let id1 = arena.alloc(10).expect("alloc 10");
-    let id2 = arena.alloc(20).expect("alloc 20");
+    let id1 = arena.test_alloc(10);
+    let id2 = arena.test_alloc(20);
 
     let (a, b) = arena.get2_mut(id1, id2);
     let a = a.expect("id1 present");
@@ -57,14 +57,14 @@ fn test_get2_mut() {
 #[should_panic(expected = "cannot borrow the same item twice")]
 fn test_get2_mut_same_id_panics() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    let id = arena.alloc(10).expect("alloc 10");
+    let id = arena.test_alloc(10);
     let _ = arena.get2_mut(id, id);
 }
 
 #[test]
 fn test_invalid_generation() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    let id = arena.alloc(42).expect("alloc 42");
+    let id = arena.test_alloc(42);
 
     // Create an ID with generation 1 (invalid for BumpArena)
     let bad_id = Id::new(id.index(), 1);
@@ -74,7 +74,7 @@ fn test_invalid_generation() {
 #[test]
 fn test_iter() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    arena.alloc_extend([1, 2, 3]).expect("alloc extend");
+    arena.test_alloc_extend([1, 2, 3]);
 
     let sum: i32 = arena.iter().sum();
     assert_eq!(sum, 6);
@@ -83,7 +83,7 @@ fn test_iter() {
 #[test]
 fn test_iter_mut() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    arena.alloc_extend([1, 2, 3]).expect("alloc extend");
+    arena.test_alloc_extend([1, 2, 3]);
 
     for item in arena.iter_mut() {
         *item *= 2;
@@ -96,7 +96,7 @@ fn test_iter_mut() {
 #[test]
 fn test_into_iter() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    arena.alloc_extend([1, 2, 3]).expect("alloc extend");
+    arena.test_alloc_extend([1, 2, 3]);
 
     let items: Vec<_> = arena.into_iter().collect();
     assert_eq!(items, vec![1, 2, 3]);
@@ -105,17 +105,17 @@ fn test_into_iter() {
 #[test]
 fn test_drain() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    arena.alloc_extend([1, 2, 3]).expect("alloc extend");
+    arena.test_alloc_extend([1, 2, 3]);
 
     let drained: Vec<_> = arena.drain().collect();
     assert_eq!(drained, vec![1, 2, 3]);
-    assert!(arena.is_empty());
+    assert_empty(&arena);
 }
 
 #[test]
 fn test_from_iter() {
     let arena: BumpArena<i32> = [1, 2, 3].into_iter().collect();
-    assert_eq!(arena.len(), 3);
+    assert_len(&arena, 3);
 }
 
 #[test]
@@ -123,15 +123,15 @@ fn test_extend() {
     let mut arena: BumpArena<i32> = BumpArena::new();
     arena.extend([1, 2, 3]);
     arena.extend([4, 5]);
-    assert_eq!(arena.len(), 5);
+    assert_len(&arena, 5);
 }
 
 #[test]
 fn test_clear() {
     let mut arena: BumpArena<i32> = BumpArena::new();
-    arena.alloc_extend([1, 2, 3]).expect("alloc extend");
+    arena.test_alloc_extend([1, 2, 3]);
     arena.clear();
-    assert!(arena.is_empty());
+    assert_empty(&arena);
 }
 
 #[test]
