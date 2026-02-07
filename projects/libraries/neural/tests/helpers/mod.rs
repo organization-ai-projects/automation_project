@@ -66,7 +66,6 @@ pub fn create_code_tokenizer() -> RustTokenizer {
         "Hello".to_string(),
         ",".to_string(),
         "world".to_string(),
-        "\"".to_string(),
         ";".to_string(),
     ])
 }

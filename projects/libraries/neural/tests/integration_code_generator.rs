@@ -19,5 +19,4 @@ fn test_code_generator_integration() {
     assert!(result.is_ok(), "code generation should succeed");
     let generated_code = result.expect("generation should return valid code");
     assert!(!generated_code.is_empty(), "generated code should not be empty");
-    assert!(generated_code.len() > 0, "generated code should have non-zero length");
 }
