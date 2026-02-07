@@ -4,7 +4,7 @@
 use crate::ProtocolId;
 
 /// Helper to validate that a ProtocolId has proper hex formatting
-pub fn assert_valid_protocol_id_hex(id: &ProtocolId) {
+pub(crate) fn assert_valid_protocol_id_hex(id: &ProtocolId) {
     let hex = id.to_hex();
     assert_eq!(hex.len(), 32, "Protocol ID should be 32 hex characters");
     assert!(
