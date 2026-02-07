@@ -37,7 +37,7 @@ fn test_feedback_verdict_to_symbolic_feedback() {
         ),
     ];
 
-    for (name, verdict, expectation) in cases {
+    for (_name, verdict, expectation) in cases {
         let symbolic_feedback: SymbolicFeedback = verdict.into();
         match expectation {
             TestExpectation::PositiveNoPayload => {
@@ -50,10 +50,6 @@ fn test_feedback_verdict_to_symbolic_feedback() {
                 assert_negative_with_payload(&symbolic_feedback, payload);
             }
         }
-        // Add context for better error messages
-        if symbolic_feedback.is_positive() != expectation.is_positive() {
-            panic!("Test case '{}' failed", name);
-        }
     }
 }
 
@@ -61,10 +57,4 @@ enum TestExpectation {
     PositiveNoPayload,
     NegativeNoPayload,
     NegativeWithPayload(&'static str),
-}
-
-impl TestExpectation {
-    fn is_positive(&self) -> bool {
-        matches!(self, TestExpectation::PositiveNoPayload)
-    }
 }

@@ -37,7 +37,7 @@ fn test_internal_feedback_verdict_to_feedback_type() {
         ),
     ];
 
-    for (name, internal_verdict, expectation) in cases {
+    for (_name, internal_verdict, expectation) in cases {
         let feedback_type: FeedbackType = internal_verdict.into();
         match expectation {
             FeedbackTypeExpectation::Correct => {
@@ -50,10 +50,6 @@ fn test_internal_feedback_verdict_to_feedback_type() {
                 assert_feedback_partial(&feedback_type, correction);
             }
         }
-        // Add context for better error messages on failure
-        if !expectation.matches(&feedback_type) {
-            panic!("Test case '{}' failed", name);
-        }
     }
 }
 
@@ -61,23 +57,4 @@ enum FeedbackTypeExpectation {
     Correct,
     Incorrect(&'static str),
     Partial(&'static str),
-}
-
-impl FeedbackTypeExpectation {
-    fn matches(&self, feedback: &FeedbackType) -> bool {
-        match (self, feedback) {
-            (FeedbackTypeExpectation::Correct, FeedbackType::Correct { .. }) => true,
-            (
-                FeedbackTypeExpectation::Incorrect(expected),
-                FeedbackType::Incorrect {
-                    expected_output, ..
-                },
-            ) => expected_output == expected,
-            (
-                FeedbackTypeExpectation::Partial(expected),
-                FeedbackType::Partial { correction, .. },
-            ) => correction == expected,
-            _ => false,
-        }
-    }
 }

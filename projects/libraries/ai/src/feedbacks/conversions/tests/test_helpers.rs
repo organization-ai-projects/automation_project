@@ -14,7 +14,7 @@ pub(crate) fn assert_negative_no_payload(feedback: &SymbolicFeedback) {
     assert!(feedback.metadata.is_none());
 }
 
-/// Helper function to assert that a SymbolicFeedback is negative with a specific metadata
+/// Helper function to assert that a SymbolicFeedback is negative with a specific metadata payload
 pub(crate) fn assert_negative_with_payload(feedback: &SymbolicFeedback, expected_metadata: &str) {
     assert!(!feedback.is_positive());
     assert_eq!(feedback.metadata, Some(expected_metadata.to_string()));
