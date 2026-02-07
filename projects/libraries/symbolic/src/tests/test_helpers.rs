@@ -40,23 +40,26 @@ pub fn assert_warn_contains(validation: &ValidationResult, substring: &str) {
 
 /// Asserts that a validation result does NOT contain a warning matching a substring.
 pub fn assert_warn_not_contains(validation: &ValidationResult, substring: &str) {
-    // For variable names, check if they appear in quotes to avoid partial matches
-    let pattern = if substring.chars().all(|c| c.is_alphanumeric() || c == '_') {
-        format!("'{}'", substring)
+    // For identifier-like names, check both the raw and quoted forms to avoid missing matches.
+    let patterns: Vec<String> = if substring.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        vec![substring.to_string(), format!("'{}'", substring)]
     } else {
-        substring.to_string()
+        vec![substring.to_string()]
     };
 
-    let found = validation.warnings.iter().any(|w| w.contains(&pattern));
+    let found = validation
+        .warnings
+        .iter()
+        .any(|w| patterns.iter().any(|p| w.contains(p)));
 
     assert!(
         !found,
-        "Expected no warning containing '{}', but found: {:?}",
-        pattern,
+        "Expected no warning containing '{}' (or its quoted form), but found: {:?}",
+        substring,
         validation
             .warnings
             .iter()
-            .filter(|w| w.contains(&pattern))
+            .filter(|w| patterns.iter().any(|p| w.contains(p)))
             .collect::<Vec<_>>()
     );
 }
