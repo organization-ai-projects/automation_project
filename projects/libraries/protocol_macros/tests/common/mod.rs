@@ -60,3 +60,33 @@ pub fn assert_contains_all(actual: &str, expected_parts: &[&str]) {
         );
     }
 }
+
+/// Helper to validate empty struct variant formatting
+/// Ensures the variant has braces with only whitespace between them
+pub fn assert_empty_struct_format(display: &str, variant_name: &str) {
+    assert!(
+        display.starts_with(variant_name),
+        "Expected display to start with '{}', got: '{}'",
+        variant_name,
+        display
+    );
+    assert!(
+        display.contains('{') && display.contains('}'),
+        "Expected '{}' to contain braces",
+        display
+    );
+
+    // Verify content between braces is only whitespace
+    let content = display
+        .split('{')
+        .nth(1)
+        .unwrap()
+        .split('}')
+        .next()
+        .unwrap();
+    assert!(
+        content.trim().is_empty(),
+        "Empty struct should only contain whitespace between braces, but found: '{}'",
+        content
+    );
+}

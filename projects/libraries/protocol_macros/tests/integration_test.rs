@@ -2,7 +2,7 @@
 // projects/libraries/protocol_macros/tests/integration_test.rs
 mod common;
 
-use common::{assert_contains_all, BinaryEvent, DebugEvent, TestEvent};
+use common::{assert_contains_all, assert_empty_struct_format, BinaryEvent, DebugEvent, TestEvent};
 use protocol_macros::EnumMethods;
 
 #[test]
@@ -178,20 +178,8 @@ fn test_empty_struct_edge_case() {
     }
 
     let empty = EdgeCase::empty();
-    // Verify empty struct format - should have braces with only whitespace
-    let display = empty.to_string();
-    assert!(display.starts_with("empty"));
-    assert!(display.contains("{"));
-    assert!(display.contains("}"));
-    // Verify content between braces is only whitespace
-    let content = display
-        .split('{')
-        .nth(1)
-        .unwrap()
-        .split('}')
-        .next()
-        .unwrap();
-    assert!(content.trim().is_empty(), "Empty struct should only contain whitespace between braces");
+    // Verify empty struct format using helper function
+    assert_empty_struct_format(&empty.to_string(), "empty");
 
     let unit = EdgeCase::unit();
     assert_eq!(unit.to_string(), "unit");

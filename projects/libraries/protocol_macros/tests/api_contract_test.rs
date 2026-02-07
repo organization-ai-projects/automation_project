@@ -5,7 +5,7 @@
 // projects/libraries/protocol_macros/tests/api_contract_test.rs
 mod common;
 
-use common::assert_contains_all;
+use common::{assert_contains_all, assert_empty_struct_format};
 use protocol_macros::EnumMethods;
 
 /// Test 1: Debug mode actually uses Debug formatting
@@ -199,20 +199,8 @@ fn test_empty_struct_variant() {
     }
 
     let empty = Event::empty();
-    // Verify empty struct format - should have braces with only whitespace
-    let display = empty.to_string();
-    assert!(display.starts_with("empty"));
-    assert!(display.contains("{"));
-    assert!(display.contains("}"));
-    // Verify content between braces is only whitespace
-    let content = display
-        .split('{')
-        .nth(1)
-        .unwrap()
-        .split('}')
-        .next()
-        .unwrap();
-    assert!(content.trim().is_empty(), "Empty struct should only contain whitespace between braces");
+    // Verify empty struct format using helper function
+    assert_empty_struct_format(&empty.to_string(), "empty");
 }
 
 /// Test 10: Multiple constructors work independently
