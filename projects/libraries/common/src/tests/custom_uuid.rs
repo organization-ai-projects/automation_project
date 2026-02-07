@@ -25,7 +25,7 @@ fn no_duplicates_multithread() {
     // (8 threads × 10_000 = 80_000 total IDs, down from 400_000)
     const ITERATIONS_PER_THREAD: usize = 10_000;
     const THREAD_COUNT: usize = 8;
-    
+
     let set = Arc::new(Mutex::new(HashSet::new()));
     let mut handles = vec![];
 
