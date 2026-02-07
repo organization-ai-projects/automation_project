@@ -446,3 +446,147 @@ fn test_import_in_type_position() {
         "Should not report HashMap as unused when used in type positions"
     );
 }
+
+#[test]
+fn test_type_inconsistency_detection() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = r#"
+        fn main() {
+            let x: i32 = "hello";
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+
+    // Should warn about type mismatch
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("Type mismatch") && w.contains("'x'")),
+        "Expected warning for type inconsistency"
+    );
+}
+
+#[test]
+fn test_type_inconsistency_in_assignment() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = r#"
+        fn main() {
+            let mut x: i32 = 42;
+            x = "not an integer";
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+
+    // Should warn about type mismatch in assignment
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("Type mismatch") && w.contains("'x'")),
+        "Expected warning for type mismatch in assignment"
+    );
+}
+
+#[test]
+fn test_compatible_types_no_warning() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = r#"
+        fn main() {
+            let x: i32 = 42;
+            let y: i64 = 100;
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+
+    // Should not warn about compatible integer types
+    let type_warnings: Vec<_> = validation
+        .warnings
+        .iter()
+        .filter(|w| w.contains("Type mismatch"))
+        .collect();
+
+    assert!(
+        type_warnings.is_empty(),
+        "Should not warn about compatible integer types"
+    );
+}
+
+#[test]
+fn test_strict_mode_type_inconsistency() {
+    let validator = CodeValidator::new()
+        .expect("Failed to create CodeValidator")
+        .with_strict_mode(true);
+
+    let code = r#"
+        fn main() {
+            let x: bool = 123;
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+
+    // In strict mode, type inconsistencies should be reported as errors
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("error") && w.contains("Type mismatch")),
+        "Expected error-level warning for type inconsistency in strict mode"
+    );
+}
+
+#[test]
+fn test_multiple_validation_types() {
+    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let code = r#"
+        use std::collections::HashMap;
+        
+        fn main() {
+            let unused_var = 42;
+            let x: bool = 10;
+            return;
+            let dead = 1;
+        }
+    "#;
+
+    let result = validator.validate(code);
+    assert!(result.is_ok());
+    let validation = result.expect("Validation failed");
+
+    // Should have all types of warnings
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("unused") || w.contains("never used")),
+        "Expected unused variable/import warning"
+    );
+
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("Type mismatch")),
+        "Expected type mismatch warning"
+    );
+
+    assert!(
+        validation
+            .warnings
+            .iter()
+            .any(|w| w.contains("Unreachable") || w.contains("dead")),
+        "Expected dead code warning"
+    );
+}
