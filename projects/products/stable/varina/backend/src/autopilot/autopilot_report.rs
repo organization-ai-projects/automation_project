@@ -28,8 +28,6 @@ impl AutopilotReport {
     }
 }
 
-#[cfg(test)]
-mod tests {
     use crate::autopilot::AutopilotMode;
     use crate::classified_changes::ClassifiedChanges;
     use crate::tests::test_helpers::*;
@@ -76,4 +74,4 @@ mod tests {
         assert!(report.plan.will_push);
         assert_eq!(report.plan.notes.len(), 1);
     }
-}
+
