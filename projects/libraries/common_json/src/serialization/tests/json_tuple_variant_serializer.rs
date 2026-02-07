@@ -2,10 +2,8 @@
 mod tests {
     use crate::Json;
     use crate::serialization::json_tuple_variant_serializer::JsonTupleVariantSerializer;
+    use crate::tests::test_helpers::TestResult;
     use serde::ser::SerializeTupleVariant;
-    use std::error::Error;
-
-    type TestResult = Result<(), Box<dyn Error>>;
 
     #[test]
     fn test_serialize_field() -> TestResult {

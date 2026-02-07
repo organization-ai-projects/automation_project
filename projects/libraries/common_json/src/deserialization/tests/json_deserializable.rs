@@ -3,9 +3,7 @@
 mod tests {
     use crate::deserialization::{from_json, from_str};
     use crate::json::Json;
-    use std::error::Error;
-
-    type TestResult = Result<(), Box<dyn Error>>;
+    use crate::tests::test_helpers::TestResult;
 
     #[test]
     fn test_from_json() -> TestResult {

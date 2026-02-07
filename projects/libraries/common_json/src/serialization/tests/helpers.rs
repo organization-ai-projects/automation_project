@@ -1,9 +1,7 @@
 // projects/libraries/common_json/src/serialization/tests/helpers.rs
 use crate::Json;
 use crate::serialization::helpers::{json_to_string, serialize_to_json};
-use std::error::Error;
-
-type TestResult = Result<(), Box<dyn Error>>;
+use crate::tests::test_helpers::TestResult;
 
 #[test]
 fn test_serialize_to_json() -> TestResult {

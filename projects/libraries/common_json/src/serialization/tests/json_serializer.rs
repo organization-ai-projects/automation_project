@@ -2,10 +2,8 @@
 use crate::Json;
 use crate::JsonNumber;
 use crate::serialization::json_serializer::JsonSerializer;
+use crate::tests::test_helpers::TestResult;
 use serde::ser::Serializer;
-use std::error::Error;
-
-type TestResult = Result<(), Box<dyn Error>>;
 
 #[test]
 fn test_serialize_bool() -> TestResult {

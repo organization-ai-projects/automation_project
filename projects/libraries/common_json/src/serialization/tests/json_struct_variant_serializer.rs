@@ -1,10 +1,8 @@
 // projects/libraries/common_json/src/serialization/tests/json_struct_variant_serializer.rs
 use crate::Json;
 use crate::serialization::json_struct_variant_serializer::JsonStructVariantSerializer;
+use crate::tests::test_helpers::TestResult;
 use serde::ser::SerializeStructVariant;
-use std::error::Error;
-
-type TestResult = Result<(), Box<dyn Error>>;
 
 #[test]
 fn test_serialize_field() -> TestResult {

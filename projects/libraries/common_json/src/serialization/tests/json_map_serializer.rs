@@ -3,11 +3,9 @@
 mod tests {
     use crate::Json;
     use crate::serialization::json_map_serializer::JsonMapSerializer;
+    use crate::tests::test_helpers::TestResult;
     use serde::ser::SerializeMap;
     use serde::ser::SerializeStruct;
-    use std::error::Error;
-
-    type TestResult = Result<(), Box<dyn Error>>;
 
     #[test]
     fn test_json_map_serializer() -> TestResult {

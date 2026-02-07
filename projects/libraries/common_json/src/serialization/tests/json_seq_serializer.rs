@@ -1,10 +1,8 @@
 // projects/libraries/common_json/src/serialization/tests/json_seq_serializer.rs
 use crate::Json;
 use crate::serialization::json_seq_serializer::JsonSeqSerializer;
+use crate::tests::test_helpers::TestResult;
 use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct};
-use std::error::Error;
-
-type TestResult = Result<(), Box<dyn Error>>;
 
 #[test]
 fn test_serialize_element() -> TestResult {
