@@ -11,6 +11,23 @@ use crate::{
 
 type TestResult = Result<(), Box<dyn Error>>;
 
+/// Helper to create a temporary override file with the given content.
+/// Returns the path to the file.
+fn create_temp_override_file(content: &str) -> Result<PathBuf, Box<dyn Error>> {
+    // Use `tempfile` to create a uniquely named file in the global temp directory.
+    let named_file = tempfile::Builder::new()
+        .prefix("policy_overrides_")
+        .suffix(".toml")
+        .tempfile_in(std::env::temp_dir())?;
+
+    // Write the provided content into the temporary file.
+    std::fs::write(named_file.path(), content)?;
+
+    // Persist the file and obtain its final path.
+    let (_file, overrides_path) = named_file.keep()?;
+    Ok(overrides_path)
+}
+
 fn make_policy(
     forbid_globs: Vec<String>,
     allow_read_globs: Vec<String>,
@@ -46,26 +63,21 @@ fn test_forbid_wins_over_allow() {
     );
 
     // Path is allowed by `allow_read_globs` but forbidden by `forbid_globs`
-    match policy.resolve_work_path_for_read("src/forbidden/file.txt") {
-        Ok(_) => panic!("Expected an error, but got Ok"),
-        Err(err) => {
-            assert!(err.to_string().contains("forbidden path by policy"));
-        }
-    }
+    let result = policy.resolve_work_path_for_read("src/forbidden/file.txt");
+    assert!(result.is_err(), "Expected an error, but got Ok");
+    let err = result.unwrap_err();
+    assert!(err.to_string().contains("forbidden path by policy"));
 
     // Path is allowed by `allow_read_globs` and not forbidden
-    match policy.resolve_work_path_for_read("src/allowed/file.txt") {
-        Ok(_) => (),
-        Err(err) => panic!("Expected Ok, but got error: {}", err),
-    }
+    policy
+        .resolve_work_path_for_read("src/allowed/file.txt")
+        .expect("Expected Ok for allowed path");
 
     // Path is not specified in any glob
-    match policy.resolve_work_path_for_read("unknown/file.txt") {
-        Ok(_) => panic!("Expected an error, but got Ok"),
-        Err(err) => {
-            assert!(err.to_string().contains("not allowed by policy"));
-        }
-    }
+    let result = policy.resolve_work_path_for_read("unknown/file.txt");
+    assert!(result.is_err(), "Expected an error for unknown path");
+    let err = result.unwrap_err();
+    assert!(err.to_string().contains("not allowed by policy"));
 }
 
 #[test]
@@ -124,19 +136,11 @@ fn test_load_with_overrides_adds_forbid_globs() -> TestResult {
     let policy = make_policy(vec![], vec!["read/**".into()], vec![]);
     let cfg = policy.config().clone();
 
-    let mut overrides_path = std::env::temp_dir();
-    overrides_path.push(format!(
-        "policy_overrides_{}.toml",
-        std::time::SystemTime::now()
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)?
-            .as_nanos()
-    ));
-
     let content = r#"
         forbid_globs = ["read/blocked/**"]
         allow_read_globs = ["ignored/**"]
     "#;
-    std::fs::write(&overrides_path, content)?;
+    let overrides_path = create_temp_override_file(content)?;
 
     let policy = Policy::load_with_overrides(cfg, &overrides_path)?;
 

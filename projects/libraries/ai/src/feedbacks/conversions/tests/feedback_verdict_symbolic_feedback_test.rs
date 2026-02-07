@@ -1,47 +1,55 @@
-#[cfg(test)]
-mod tests {
-    use super::*;
+use crate::feedbacks::conversions::tests::test_explaination_payload::TestExpectationPayload;
+use crate::feedbacks::conversions::tests::test_helpers::*;
+use crate::feedbacks::public_api_feedback::FeedbackVerdict;
+use symbolic::feedback_symbolic::SymbolicFeedback;
 
-    #[test]
-    fn test_feedback_verdict_to_symbolic_feedback() {
-        // Test case: Correct verdict
-        let verdict = FeedbackVerdict::Correct;
-        let symbolic_feedback: SymbolicFeedback = verdict.into();
-        assert!(symbolic_feedback.is_positive());
-        assert!(symbolic_feedback.payload.is_none());
+#[test]
+fn test_feedback_verdict_to_symbolic_feedback() {
+    // Table-driven test cases
+    let cases = [
+        (
+            "Correct verdict",
+            FeedbackVerdict::Correct,
+            TestExpectationPayload::PositiveWhithout,
+        ),
+        (
+            "Rejected verdict",
+            FeedbackVerdict::Rejected,
+            TestExpectationPayload::NegativeWithout,
+        ),
+        (
+            "NoFeedback verdict",
+            FeedbackVerdict::NoFeedback,
+            TestExpectationPayload::NegativeWithout,
+        ),
+        (
+            "Incorrect verdict",
+            FeedbackVerdict::Incorrect {
+                expected_output: "Expected output".into(),
+            },
+            TestExpectationPayload::NegativeWith("Expected output"),
+        ),
+        (
+            "Partial verdict",
+            FeedbackVerdict::Partial {
+                correction: "Correction details".into(),
+            },
+            TestExpectationPayload::NegativeWith("Correction details"),
+        ),
+    ];
 
-        // Test case: Rejected verdict
-        let verdict = FeedbackVerdict::Rejected;
+    for (_name, verdict, expectation) in cases {
         let symbolic_feedback: SymbolicFeedback = verdict.into();
-        assert!(!symbolic_feedback.is_positive());
-        assert!(symbolic_feedback.payload.is_none());
-
-        // Test case: NoFeedback verdict
-        let verdict = FeedbackVerdict::NoFeedback;
-        let symbolic_feedback: SymbolicFeedback = verdict.into();
-        assert!(!symbolic_feedback.is_positive());
-        assert!(symbolic_feedback.payload.is_none());
-
-        // Test case: Incorrect verdict
-        let verdict = FeedbackVerdict::Incorrect {
-            expected_output: "Expected output".into(),
-        };
-        let symbolic_feedback: SymbolicFeedback = verdict.into();
-        assert!(!symbolic_feedback.is_positive());
-        assert_eq!(
-            symbolic_feedback.payload,
-            Some("Expected output".to_string())
-        );
-
-        // Test case: Partial verdict
-        let verdict = FeedbackVerdict::Partial {
-            correction: "Correction details".into(),
-        };
-        let symbolic_feedback: SymbolicFeedback = verdict.into();
-        assert!(!symbolic_feedback.is_positive());
-        assert_eq!(
-            symbolic_feedback.payload,
-            Some("Correction details".to_string())
-        );
+        match expectation {
+            TestExpectationPayload::PositiveWhithout => {
+                assert_positive_no_payload(&symbolic_feedback);
+            }
+            TestExpectationPayload::NegativeWithout => {
+                assert_negative_no_payload(&symbolic_feedback);
+            }
+            TestExpectationPayload::NegativeWith(payload) => {
+                assert_negative_with_payload(&symbolic_feedback, payload);
+            }
+        }
     }
 }

@@ -2,10 +2,8 @@
 mod tests {
     use crate::Json;
     use crate::serialization::json_tuple_variant_serializer::JsonTupleVariantSerializer;
+    use crate::tests::test_helpers::TestResult;
     use serde::ser::SerializeTupleVariant;
-    use std::error::Error;
-
-    type TestResult = Result<(), Box<dyn Error>>;
 
     #[test]
     fn test_serialize_field() -> TestResult {
@@ -34,18 +32,17 @@ mod tests {
         };
 
         let result = serializer.end()?;
-        if let Json::Object(map) = result {
-            assert!(map.contains_key("TestVariant"));
-            if let Some(Json::Array(elements)) = map.get("TestVariant") {
-                assert_eq!(elements.len(), 2);
-                assert_eq!(elements[0], Json::String("value1".to_string()));
-                assert_eq!(elements[1], Json::String("value2".to_string()));
-            } else {
-                panic!("Expected Json::Array");
-            }
-        } else {
+
+        let Json::Object(map) = result else {
             panic!("Expected Json::Object");
-        }
+        };
+        assert!(map.contains_key("TestVariant"));
+        let Some(Json::Array(elements)) = map.get("TestVariant") else {
+            panic!("Expected Json::Array");
+        };
+        assert_eq!(elements.len(), 2);
+        assert_eq!(elements[0], Json::String("value1".to_string()));
+        assert_eq!(elements[1], Json::String("value2".to_string()));
         Ok(())
     }
 }
