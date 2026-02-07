@@ -93,6 +93,7 @@ or
 **Summary**: Clear, concise description of the change
 
 **Enforcement**:
+
 - The `add_commit_push.sh` script validates commit messages
 - Git commit hooks validate commit messages (when installed via `scripts/automation/git_hooks/install_hooks.sh`)
 - Non-conforming messages are rejected with clear error messages
@@ -131,6 +132,7 @@ See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details
    ```bash
    cargo fmt --check
    cargo clippy --workspace
+   pnpm run lint-md  # Markdown linting (requires pnpm install)
    ```
 
 ### Creating a PR
@@ -142,15 +144,19 @@ bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
 ```
 
 **Test enforcement:**
+
 - By default, `create_pr.sh` runs `cargo test --workspace` before creating the PR
 - If tests fail, the PR will not be created
 - To skip tests (not recommended), use the `--skip-tests` flag:
+
   ```bash
   bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh --skip-tests
   ```
+
 - Skipping tests will display a warning reminder to ensure proper testing before merging
 
 **Additional options:**
+
 - `--base <branch>`: Specify the base branch (default: `dev`)
 - `--title <title>`: Custom PR title
 - `--body <body>`: Custom PR description
@@ -242,6 +248,7 @@ mod tests {
 - Avoid breaking public APIs without a clear migration path.
 - Follow existing code style and patterns.
 - Use `cargo fmt` for formatting and `cargo clippy` for lints.
+- Use `pnpm run lint-md` for markdown linting and `pnpm run lint-md-fix` for auto-fixing markdown issues.
 
 ---
 
