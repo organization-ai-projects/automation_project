@@ -62,7 +62,10 @@ fn can_append_contributors() {
     entry.append_contributor(CONTRIBUTOR_BOB.to_string());
 
     assert_eq!(entry.get_contributors().len(), 2);
-    assert!(entry.get_contributors().contains(&CONTRIBUTOR_ALICE.to_string()));
+    assert!(entry
+        .get_contributors()
+        .iter()
+        .any(|c| c == CONTRIBUTOR_ALICE));
 }
 
 #[test]
