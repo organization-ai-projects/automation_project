@@ -37,7 +37,7 @@ impl ActionPlan {
 #[cfg(test)]
 mod tests {
     use crate::domain::action_plan::ActionPlan;
-    use common_json::{from_str, to_string_pretty};
+    use common_json::{from_str, to_string_pretty, Json};
 
     #[test]
     fn test_action_plan_new() {
@@ -52,10 +52,19 @@ mod tests {
         let plan = ActionPlan::new("Test plan".to_string());
 
         let json = to_string_pretty(&plan).expect("Failed to serialize");
-        assert!(json.contains("version"));
-        assert!(json.contains("generated_at"));
-        assert!(json.contains("actions"));
-        assert!(json.contains("summary"));
+        let parsed: Json = from_str(&json).expect("Failed to parse JSON");
+        
+        // Verify specific fields exist and have correct types
+        assert!(parsed["version"].is_string(), "version should be a string");
+        assert_eq!(parsed["version"].as_str(), Some("0.1.0"), "version should be 0.1.0");
+        
+        assert!(parsed["generated_at"].is_string(), "generated_at should be a string");
+        
+        assert!(parsed["actions"].is_array(), "actions should be an array");
+        assert_eq!(parsed["actions"].as_array().map(|a| a.len()), Some(0), "actions should be empty");
+        
+        assert!(parsed["summary"].is_string(), "summary should be a string");
+        assert_eq!(parsed["summary"].as_str(), Some("Test plan"), "summary should match");
 
         let _deserialized: ActionPlan = from_str(&json).expect("Failed to deserialize");
     }

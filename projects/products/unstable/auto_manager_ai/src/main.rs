@@ -8,6 +8,9 @@ mod output_writer;
 mod plan_evaluator;
 mod plan_generator;
 
+#[cfg(test)]
+mod tests;
+
 use std::env;
 use std::path::PathBuf;
 use std::process;
