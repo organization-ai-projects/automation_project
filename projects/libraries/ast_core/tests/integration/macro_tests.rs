@@ -176,7 +176,7 @@ fn test_macro_large_nested_structure() {
 
 #[test]
 fn test_macro_large_object() {
-    // Note: The 1000-key HashMap was not actually used, simplifying to just test macro with 10 keys
+    // Note: The 1000-key HashMap was not actually used, simplified to just test macro with 10 keys
     let node = past!({
         key0: 0,
         key1: 1,
