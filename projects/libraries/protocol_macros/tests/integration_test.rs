@@ -178,8 +178,20 @@ fn test_empty_struct_edge_case() {
     }
 
     let empty = EdgeCase::empty();
-    // Allow any whitespace formatting in empty structs
-    assert_contains_all(&empty.to_string(), &["empty", "{", "}"]);
+    // Verify empty struct format - should have braces with only whitespace
+    let display = empty.to_string();
+    assert!(display.starts_with("empty"));
+    assert!(display.contains("{"));
+    assert!(display.contains("}"));
+    // Verify content between braces is only whitespace
+    let content = display
+        .split('{')
+        .nth(1)
+        .unwrap()
+        .split('}')
+        .next()
+        .unwrap();
+    assert!(content.trim().is_empty(), "Empty struct should only contain whitespace between braces");
 
     let unit = EdgeCase::unit();
     assert_eq!(unit.to_string(), "unit");

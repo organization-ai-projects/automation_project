@@ -199,8 +199,20 @@ fn test_empty_struct_variant() {
     }
 
     let empty = Event::empty();
-    // Allow flexible whitespace formatting
-    assert_contains_all(&empty.to_string(), &["empty", "{", "}"]);
+    // Verify empty struct format - should have braces with only whitespace
+    let display = empty.to_string();
+    assert!(display.starts_with("empty"));
+    assert!(display.contains("{"));
+    assert!(display.contains("}"));
+    // Verify content between braces is only whitespace
+    let content = display
+        .split('{')
+        .nth(1)
+        .unwrap()
+        .split('}')
+        .next()
+        .unwrap();
+    assert!(content.trim().is_empty(), "Empty struct should only contain whitespace between braces");
 }
 
 /// Test 10: Multiple constructors work independently
