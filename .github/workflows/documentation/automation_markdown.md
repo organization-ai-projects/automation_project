@@ -19,17 +19,19 @@ This automation workflow automatically fixes Markdown formatting issues in pull 
    - Checks out the PR branch with write permissions to allow auto-commits.
 2. **Ensure local branch**:
    - Creates or switches to the local branch for the PR.
-3. **Setup Node.js**:
-   - Installs Node.js version 20 with npm caching for faster subsequent runs.
-4. **Install Dependencies**:
-   - Installs markdownlint-cli2 and its dependencies using `npm ci`.
-5. **Check for markdown issues**:
+3. **Setup pnpm**:
+   - Installs pnpm version 9 for dependency management.
+4. **Setup Node.js**:
+   - Installs Node.js version 20 with pnpm caching for faster subsequent runs.
+5. **Install Dependencies**:
+   - Installs markdownlint-cli2 and its dependencies using `pnpm install --frozen-lockfile`.
+6. **Check for markdown issues**:
    - Identifies modified `.md` files in the PR
-   - Runs `npm run lint-md` to check for linting issues
+   - Runs markdownlint-cli2 directly on the modified files only
    - Sets `needs_fixing=true` if issues are found
-6. **Run markdownlint-cli2 --fix**:
-   - Applies automatic fixes using `npm run lint-md-fix` if issues were detected
-7. **Auto-commit markdownlint changes**:
+7. **Run markdownlint-cli2 --fix**:
+   - Applies automatic fixes using markdownlint-cli2 --fix on modified files only
+8. **Auto-commit markdownlint changes**:
    - Commits and pushes the fixes back to the PR branch with message "chore: apply markdownlint fixes"
 
 ## Configuration
@@ -46,23 +48,34 @@ This automation workflow automatically fixes Markdown formatting issues in pull 
 Contributors can run markdown linting locally:
 
 ```bash
+# Install pnpm (if not already installed)
+npm install -g pnpm
+
 # Install dependencies (first time only)
-npm install
+pnpm install
 
 # Lint all markdown files
-npm run lint-md
+pnpm run lint-md
 
 # Auto-fix markdown issues
-npm run lint-md-fix
+pnpm run lint-md-fix
+
+# Lint specific files
+pnpm run lint-md-files file1.md file2.md
+
+# Auto-fix specific files
+pnpm run lint-md-fix-files file1.md file2.md
 ```
 
 ## Pre-Push Integration
 
-Markdown linting is integrated into the pre-push hook via `scripts/automation/pre_push_check.sh`. It will run automatically before push if npm is available. Can be bypassed with `SKIP_PRE_PUSH=1 git push` if needed.
+Markdown linting is integrated into the Git pre-push hook defined at `scripts/automation/git_hooks/pre-push`. That hook invokes `scripts/automation/pre_push_check.sh` and, if pnpm is available and dependencies are installed, runs the markdown checks automatically before each push. The hook respects `SKIP_PRE_PUSH=1 git push` to bypass these checks when needed.
+
+If dependencies are not installed, the pre-push hook will skip markdown linting and display a message to run `pnpm install`.
 
 ## Behavior
 
-This workflow automatically fixes formatting issues when documentation is edited directly on GitHub or through PRs, ensuring consistent markdown formatting without manual intervention.
+This workflow automatically fixes formatting issues when documentation is edited directly on GitHub or through PRs, ensuring consistent markdown formatting without manual intervention. The workflow only processes markdown files that were actually modified in the PR, avoiding unintended changes to unrelated files.
 
 ## Related Files
 

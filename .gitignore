@@ -21,7 +21,6 @@ Thumbs.db
 
 # Dependencies
 node_modules/
-package-lock.json
 
 # Build artifacts
 *.out
