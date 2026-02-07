@@ -80,6 +80,9 @@ where
 }
 
 /// Trait for types that have len() and is_empty() methods.
+///
+/// This trait enables generic assertion helpers like `assert_len` and `assert_empty`
+/// to work with both `BumpArena` and `SlotArena` without duplicating the assertion logic.
 pub trait HasLen {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
