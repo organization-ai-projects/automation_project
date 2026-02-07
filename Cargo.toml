@@ -45,6 +45,7 @@ reqwest = { version = "0.13.1", features = ["json", "default-tls"] }
 tokio-tungstenite = { version = "0.28" }
 bytes = "1.11"
 tokio = { version = "1", default-features = false, features = ["full"] }
+lazy_static = "1.4"
 
 pjson_proc_macros = { path = "projects/libraries/pjson_proc_macros" }
 common = { path = "projects/libraries/common" }

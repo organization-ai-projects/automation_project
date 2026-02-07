@@ -2,11 +2,16 @@
 use crate::store::account_manager::AccountManager;
 use crate::store::audit_buffer_config::AuditBufferConfig;
 use common_time::timestamp_utils::current_timestamp_ms;
+use lazy_static::lazy_static;
 use protocol::ProtocolId;
 use security::Role;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 use tokio::time::{Duration, sleep};
+
+lazy_static! {
+    static ref PASSWORDS: TestPasswords = TestPasswords::new();
+}
 
 // Shared counter for unique test directory names
 static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -38,6 +43,26 @@ async fn read_audit_log(data_dir: &Path) -> Result<Vec<String>, Box<dyn std::err
     Ok(content.lines().map(|s: &str| s.to_string()).collect())
 }
 
+// Centralize all passwords in a single global structure
+struct TestPasswords {
+    test_password: String,
+    password1: String,
+    password2: String,
+}
+
+impl TestPasswords {
+    fn new() -> Self {
+        Self {
+            test_password: std::env::var("TEST_PASSWORD")
+                .unwrap_or_else(|_| "default_test_password".to_string()),
+            password1: std::env::var("PASSWORD1")
+                .unwrap_or_else(|_| "default_password1".to_string()),
+            password2: std::env::var("PASSWORD2")
+                .unwrap_or_else(|_| "default_password2".to_string()),
+        }
+    }
+}
+
 #[tokio::test]
 async fn test_login_sets_dirty_flag() {
     let manager = create_test_manager()
@@ -47,7 +72,13 @@ async fn test_login_sets_dirty_flag() {
 
     // Create a test user
     manager
-        .create(user_id, "test_password", Role::User, vec![], "test_actor")
+        .create(
+            user_id,
+            &PASSWORDS.test_password,
+            Role::User,
+            vec![],
+            "test_actor",
+        )
         .await
         .expect("Failed to create user");
 
@@ -57,7 +88,7 @@ async fn test_login_sets_dirty_flag() {
 
     // Authenticate (login)
     manager
-        .authenticate(&user_id, "test_password")
+        .authenticate(&user_id, &PASSWORDS.test_password)
         .await
         .expect("Failed to authenticate user");
 
@@ -77,13 +108,19 @@ async fn test_flush_if_dirty_saves_data() {
 
     // Create a test user
     manager
-        .create(user_id, "test_password", Role::User, vec![], "test_actor")
+        .create(
+            user_id,
+            &PASSWORDS.test_password,
+            Role::User,
+            vec![],
+            "test_actor",
+        )
         .await
         .expect("Failed to create user");
 
     // Authenticate to update last_login_ms
     manager
-        .authenticate(&user_id, "test_password")
+        .authenticate(&user_id, &PASSWORDS.test_password)
         .await
         .expect("Failed to authenticate user");
 
@@ -134,38 +171,42 @@ async fn test_flush_if_dirty_skips_when_clean() {
 }
 
 #[tokio::test]
-async fn test_last_login_survives_restart() {
+async fn test_last_login_survives_restart() -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = create_unique_temp_dir();
-    tokio::fs::create_dir_all(&temp_dir).await.unwrap();
+    tokio::fs::create_dir_all(&temp_dir).await?;
 
     let user_id = ProtocolId::default();
 
     // First session: create user and login
     {
-        let manager = AccountManager::load(temp_dir.clone()).await.unwrap();
+        let manager = AccountManager::load(temp_dir.clone()).await?;
         manager
-            .create(user_id, "test_password", Role::User, vec![], "test_actor")
-            .await
-            .unwrap();
+            .create(
+                user_id,
+                &PASSWORDS.test_password,
+                Role::User,
+                vec![],
+                "test_actor",
+            )
+            .await?;
 
         manager
-            .authenticate(&user_id, "test_password")
-            .await
-            .unwrap();
-        let user = manager.get(&user_id).await.unwrap();
+            .authenticate(&user_id, &PASSWORDS.test_password)
+            .await?;
+        let user = manager.get(&user_id).await?;
         assert!(
             user.last_login_ms.is_some(),
             "last_login_ms should be set after login"
         );
 
         // Flush to disk (simulate periodic flush)
-        manager.flush_if_dirty().await.unwrap();
+        manager.flush_if_dirty().await?;
     }
 
     // Second session: reload and verify persistence
     {
-        let manager = AccountManager::load(temp_dir.clone()).await.unwrap();
-        let user = manager.get(&user_id).await.unwrap();
+        let manager = AccountManager::load(temp_dir.clone()).await?;
+        let user = manager.get(&user_id).await?;
         assert!(
             user.last_login_ms.is_some(),
             "last_login_ms should survive restart after flush"
@@ -174,6 +215,7 @@ async fn test_last_login_survives_restart() {
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();
+    Ok(())
 }
 
 #[tokio::test]
@@ -190,7 +232,7 @@ async fn test_audit_entries_batched() {
 
     // Create first user - adds 1 audit entry
     manager
-        .create(user_id1, "password1", Role::User, vec![], "admin")
+        .create(user_id1, &PASSWORDS.password1, Role::User, vec![], "admin")
         .await
         .expect("Failed to create first user");
 
@@ -199,7 +241,7 @@ async fn test_audit_entries_batched() {
 
     // Create second user - adds 2nd audit entry
     manager
-        .create(user_id2, "password2", Role::User, vec![], "admin")
+        .create(user_id2, &PASSWORDS.password2, Role::User, vec![], "admin")
         .await
         .expect("Failed to create second user");
 
@@ -218,7 +260,7 @@ async fn test_audit_entries_batched() {
 
     // Login to trigger 3rd audit entry and flush
     manager
-        .authenticate(&user_id1, "password1")
+        .authenticate(&user_id1, &PASSWORDS.password1) // Use the same password as during creation
         .await
         .expect("Failed to authenticate user");
 
@@ -236,40 +278,40 @@ async fn test_audit_entries_batched() {
 }
 
 #[tokio::test]
-async fn test_audit_manual_flush() {
+async fn test_audit_manual_flush() -> Result<(), Box<dyn std::error::Error>> {
     let config = AuditBufferConfig {
         max_batch_size: 1000,
         flush_interval_secs: 3600,
     };
-    let manager = create_test_manager_with_config(config)
-        .await
-        .expect("Failed to create test manager with config");
+    let manager = create_test_manager_with_config(config).await?;
     let user_id = ProtocolId::default();
 
     // Create user
     manager
-        .create(user_id, "password", Role::User, vec![], "admin")
-        .await
-        .expect("Failed to create user");
+        .create(
+            user_id,
+            &PASSWORDS.test_password,
+            Role::User,
+            vec![],
+            "admin",
+        )
+        .await?;
 
     // Should still be buffered
-    let lines = read_audit_log(manager.data_dir())
-        .await
-        .expect("Failed to read audit log");
+    let lines = read_audit_log(manager.data_dir()).await?;
     assert_eq!(lines.len(), 0);
 
     // Manual flush
-    manager.flush_audit().await.expect("Failed to flush audit");
+    manager.flush_audit().await?;
 
     // Should now be written
-    let lines = read_audit_log(manager.data_dir())
-        .await
-        .expect("Failed to read audit log");
+    let lines = read_audit_log(manager.data_dir()).await?;
     assert_eq!(lines.len(), 1);
     assert!(lines[0].contains("create"));
 
     // Cleanup
     tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
+    Ok(())
 }
 
 #[tokio::test]
