@@ -113,23 +113,6 @@ pub(crate) fn revision_entry_with_contributors(
     entry
 }
 
-/// Creates a RevisionEntry with both modifications and contributors
-#[allow(dead_code)] // May be used in future tests
-pub(crate) fn revision_entry_full(
-    release: ReleaseId,
-    modifications: Vec<ModificationEntry>,
-    contributors: Vec<String>,
-) -> RevisionEntry {
-    let mut entry = basic_revision_entry(release);
-    for modification in modifications {
-        entry.append_modification(modification);
-    }
-    for contributor in contributors {
-        entry.append_contributor(contributor);
-    }
-    entry
-}
-
 // ============================================================================
 // Helper Functions for RevisionLog
 // ============================================================================
