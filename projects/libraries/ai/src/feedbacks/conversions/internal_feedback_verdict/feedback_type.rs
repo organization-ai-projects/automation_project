@@ -10,13 +10,13 @@ impl<'a> From<InternalFeedbackVerdict<'a>> for FeedbackType {
                 return FeedbackType::Incorrect {
                     expected_output: "Rejected".to_string(),
                     metadata: Default::default(),
-                }
+                };
             }
             InternalFeedbackVerdict::NoFeedback => {
                 return FeedbackType::Incorrect {
                     expected_output: "NoFeedback".to_string(),
                     metadata: Default::default(),
-                }
+                };
             }
             _ => {}
         }
