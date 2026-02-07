@@ -113,7 +113,10 @@ backoff_max_secs = 60
         .output()
         .expect("run watcher");
 
-    assert!(!output.status.success(), "expected watcher to fail with invalid ping_interval");
+    assert!(
+        !output.status.success(),
+        "expected watcher to fail with invalid ping_interval"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         !stderr.is_empty(),
@@ -144,7 +147,10 @@ log_level = "not_a_level"
         .output()
         .expect("run watcher");
 
-    assert!(!output.status.success(), "expected watcher to fail with invalid log_level");
+    assert!(
+        !output.status.success(),
+        "expected watcher to fail with invalid log_level"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         !stderr.is_empty(),
