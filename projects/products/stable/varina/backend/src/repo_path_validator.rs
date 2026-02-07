@@ -126,11 +126,11 @@ impl RepoPathValidator {
     fn canonicalize_non_existent_path(&self, path: &Path) -> ValidationResult<PathBuf> {
         // First normalize the components to handle .. correctly
         let normalized = self.normalize_non_existent_path(path)?;
-        
+
         // Find the nearest existing ancestor
         let mut ancestor = normalized.as_path();
         let mut remainder = PathBuf::new();
-        
+
         while !ancestor.exists() {
             if let Some(file_name) = ancestor.file_name() {
                 let mut new_remainder = PathBuf::from(file_name);
@@ -142,7 +142,7 @@ impl RepoPathValidator {
                 return Ok(normalized);
             }
         }
-        
+
         // Canonicalize the existing ancestor
         let canonical_ancestor = ancestor.canonicalize().map_err(|e| {
             ValidationError::new(
@@ -150,7 +150,7 @@ impl RepoPathValidator {
                 format!("Failed to canonicalize ancestor: {}", e),
             )
         })?;
-        
+
         // Join with the non-existent remainder
         Ok(canonical_ancestor.join(remainder))
     }
