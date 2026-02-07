@@ -37,8 +37,8 @@ fn no_duplicates_multithread() {
                 let mut s = set
                     .lock()
                     .expect("Failed to acquire lock on set in multithreaded test");
-                if !s.insert(id.clone()) {
-                    panic!("Duplicate ID generated: {}", id);
+                if let Some(dup) = s.replace(id) {
+                    panic!("Duplicate ID generated: {}", dup);
                 }
             }
         }));
