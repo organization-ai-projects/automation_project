@@ -1,5 +1,6 @@
 // projects/libraries/ast_core/src/tests/ast_builder_tests.rs
 use crate::AstBuilder;
+use super::test_helpers::{assert_string_key, assert_int_key, assert_bool_key};
 
 #[test]
 fn test_builder_basics() {
@@ -10,20 +11,7 @@ fn test_builder_basics() {
     ]);
 
     assert!(node.is_object());
-    assert_eq!(
-        node.get("name").expect("Missing 'name'").as_string(),
-        Some("test")
-    );
-    assert_eq!(
-        node.get("value")
-            .expect("Missing 'value'")
-            .as_number()
-            .expect("'value' is not a number")
-            .as_i64(),
-        Some(42)
-    );
-    assert_eq!(
-        node.get("active").expect("Missing 'active'").as_bool(),
-        Some(true)
-    );
+    assert_string_key(&node, "name", "test");
+    assert_int_key(&node, "value", 42);
+    assert_bool_key(&node, "active", true);
 }

@@ -1,5 +1,6 @@
 // projects/libraries/ast_core/tests/integration/edge_cases.rs
 use ast_core::{AstKey, AstKind, AstNode, Number, ValidateLimits};
+use crate::helpers::assert_error_matches;
 
 #[test]
 fn test_integration_empty_object() {
@@ -49,9 +50,5 @@ fn test_integration_large_structure() {
     };
 
     let result = node.validate_with(&limits);
-    assert!(result.is_err());
-    assert_eq!(
-        format!("{}", result.unwrap_err()),
-        "Exceeded maximum size for object: 50"
-    );
+    assert_error_matches(result, "Exceeded maximum size for object: 50");
 }
