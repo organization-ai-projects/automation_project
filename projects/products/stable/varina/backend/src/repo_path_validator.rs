@@ -79,9 +79,9 @@ impl RepoPathValidator {
                 )
             })?
         } else {
-            // For non-existent paths, we still need to detect path traversal
-            // Normalize components to detect traversal without filesystem access
-            self.normalize_non_existent_path(&normalized)?
+            // For non-existent paths, canonicalize the nearest existing ancestor
+            // and join the non-existent remainder to handle symlinked whitelist roots
+            self.canonicalize_non_existent_path(&normalized)?
         };
 
         // Check against whitelist
@@ -115,10 +115,44 @@ impl RepoPathValidator {
                         ));
                     }
                 }
-                _ => normalized.push(component),
+                _ => normalized.push(component.as_os_str()),
             }
         }
         Ok(normalized)
+    }
+
+    /// Canonicalize a non-existent path by finding the nearest existing ancestor
+    /// and joining the non-existent remainder. This handles symlinked whitelist roots.
+    fn canonicalize_non_existent_path(&self, path: &Path) -> ValidationResult<PathBuf> {
+        // First normalize the components to handle .. correctly
+        let normalized = self.normalize_non_existent_path(path)?;
+        
+        // Find the nearest existing ancestor
+        let mut ancestor = normalized.as_path();
+        let mut remainder = PathBuf::new();
+        
+        while !ancestor.exists() {
+            if let Some(file_name) = ancestor.file_name() {
+                let mut new_remainder = PathBuf::from(file_name);
+                new_remainder.push(&remainder);
+                remainder = new_remainder;
+                ancestor = ancestor.parent().unwrap_or_else(|| Path::new("/"));
+            } else {
+                // Reached root without finding existing ancestor, use normalized path
+                return Ok(normalized);
+            }
+        }
+        
+        // Canonicalize the existing ancestor
+        let canonical_ancestor = ancestor.canonicalize().map_err(|e| {
+            ValidationError::new(
+                E_REPO_PATH_INVALID_FORMAT,
+                format!("Failed to canonicalize ancestor: {}", e),
+            )
+        })?;
+        
+        // Join with the non-existent remainder
+        Ok(canonical_ancestor.join(remainder))
     }
 
     /// Check if a path is within any whitelisted directory
