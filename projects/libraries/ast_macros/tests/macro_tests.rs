@@ -1,7 +1,7 @@
 // Integration tests for ast_macros
 
-use ast_core::{AstBuilder, AstKey, AstKind, AstNode};
-use ast_macros::{build_array, build_object, key, value};
+use ast_core::{AstKey, AstKind, ValidateLimits};
+use ast_macros::{apply_cfg, build_array, build_object, key, validate_preset, value};
 
 #[test]
 fn test_key_macro() {
@@ -88,4 +88,43 @@ fn test_nested_structures() {
     });
     
     assert!(matches!(nested.kind, AstKind::Object(_)));
+}
+
+#[test]
+fn test_validate_preset_macro() {
+    // Test default preset
+    let node = value!({ small: true });
+    let result = validate_preset!(node, default);
+    assert!(result.is_ok());
+
+    // Test strict preset
+    let node = value!({ data: [1, 2, 3] });
+    let result = validate_preset!(node, strict);
+    assert!(result.is_ok());
+
+    // Test unbounded preset
+    let large_node = value!({
+        items: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    });
+    let result = validate_preset!(large_node, unbounded);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_apply_cfg_macro() {
+    // Test apply_cfg with max_depth
+    let mut limits = ValidateLimits::default();
+    apply_cfg!(limits, max_depth: 5);
+    assert_eq!(limits.max_depth, 5);
+
+    // Test apply_cfg with max_size
+    let mut limits = ValidateLimits::default();
+    apply_cfg!(limits, max_size: 50);
+    assert_eq!(limits.max_size, 50);
+
+    // Test apply_cfg with both settings
+    let mut limits = ValidateLimits::default();
+    apply_cfg!(limits, max_depth: 10, max_size: 100);
+    assert_eq!(limits.max_depth, 10);
+    assert_eq!(limits.max_size, 100);
 }

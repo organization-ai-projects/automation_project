@@ -52,9 +52,9 @@ let k = key!(field_name);
 
 These macros use fully qualified paths to reference `ast_core` types (e.g., `::ast_core::AstNode`). This means:
 
-- You must have `ast_core` in your dependencies to use these macros
+- You must have `ast_core` in your dependencies under the crate name `ast_core` to use these macros (do not dependency-rename it, or re-export your renamed crate as `ast_core`)
 - The macros maintain compatibility with `ast_core` types without creating circular dependencies
-- You can use these macros in any crate that depends on `ast_core`
+- You can use these macros in any crate that depends on `ast_core` under the crate name `ast_core` (see the note above on dependency renaming)
 
 ## Note
 

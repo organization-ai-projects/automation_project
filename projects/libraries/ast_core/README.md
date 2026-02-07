@@ -107,11 +107,10 @@ assert_eq!(config.get("version").expect("Missing 'version' key").as_number().exp
 
 ### Declarative Macros
 
-For even more ergonomic AST construction, use the `ast_macros` crate (re-exported by `ast_core`):
+For even more ergonomic AST construction, use the macros re-exported by `ast_core`:
 
 ```rust
-use ast_core::past;
-use ast_macros::{value, build_object};
+use ast_core::{past, value, build_object};
 
 // Simple values
 let num = value!(42);
