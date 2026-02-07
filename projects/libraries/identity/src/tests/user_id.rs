@@ -5,10 +5,12 @@ use protocol::ProtocolId;
 
 use crate::UserId;
 
+use super::helpers::create_test_user_id;
+
 #[test]
 fn test_user_id_new_valid() {
     let id = Id128::from_bytes_unchecked([1u8; 16]);
-    let user_id = UserId::new(ProtocolId::new(id)).expect("user id");
+    let user_id = UserId::new(ProtocolId::new(id)).expect("failed to create user id");
     assert_eq!(user_id.value(), ProtocolId::new(id));
 }
 
@@ -20,13 +22,9 @@ fn test_user_id_new_invalid() {
 
 #[test]
 fn test_user_id_equality() {
-    let id1 = Id128::from_bytes_unchecked([1u8; 16]);
-    let id2 = Id128::from_bytes_unchecked([1u8; 16]);
-    let id3 = Id128::from_bytes_unchecked([2u8; 16]);
-
-    let user_id1 = UserId::new(ProtocolId::new(id1)).expect("user id1");
-    let user_id2 = UserId::new(ProtocolId::new(id2)).expect("user id2");
-    let user_id3 = UserId::new(ProtocolId::new(id3)).expect("user id3");
+    let user_id1 = create_test_user_id(1);
+    let user_id2 = create_test_user_id(1);
+    let user_id3 = create_test_user_id(2);
 
     assert_eq!(user_id1, user_id2);
     assert_ne!(user_id1, user_id3);
@@ -35,7 +33,7 @@ fn test_user_id_equality() {
 #[test]
 fn test_user_id_display() {
     let id = Id128::from_bytes_unchecked([42u8; 16]);
-    let user_id = UserId::new(ProtocolId::new(id)).expect("user id");
+    let user_id = UserId::new(ProtocolId::new(id)).expect("failed to create user id");
     assert_eq!(format!("{}", user_id), id.to_string());
 }
 

@@ -3,18 +3,19 @@
 mod tests {
     use crate::deserialization::{from_json, from_str};
     use crate::json::Json;
+    use crate::tests::test_helpers::TestResult;
 
     #[test]
-    fn test_from_json() {
+    fn test_from_json() -> TestResult {
         let json = Json::Object(Default::default());
-        let result: Result<Json, _> = from_json(&json);
-        assert!(result.is_ok());
+        let _result: Json = from_json(&json)?;
+        Ok(())
     }
 
     #[test]
-    fn test_from_str() {
+    fn test_from_str() -> TestResult {
         let json_str = "{\"key\":\"value\"}";
-        let result: Result<Json, _> = from_str(json_str);
-        assert!(result.is_ok());
+        let _result: Json = from_str(json_str)?;
+        Ok(())
     }
 }

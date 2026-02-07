@@ -1,75 +1,46 @@
 // projects/libraries/identity/src/tests/user_store.rs
-use common::Id128;
-use protocol::ProtocolId;
-use security::Role;
+// Unit tests for UserStore - internal testing only
+// Integration tests in tests/user_store.rs cover the main scenarios
 
-use crate::{IdentityError, UserId, UserStore};
+use super::helpers::create_test_user_id;
+use crate::UserStore;
 
 #[tokio::test]
-async fn test_add_and_authenticate_user() {
+async fn test_user_store_new_is_empty() {
+    // Test that a new UserStore is empty
     let store = UserStore::new();
-    let user_id = UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16])))
-        .expect("create user id for test");
+    assert_eq!(store.user_count().await, 0);
+}
+
+#[tokio::test]
+async fn test_user_store_concurrent_access() {
+    // Test thread-safe concurrent access to UserStore
+    use security::Role;
+
+    let store = UserStore::new();
+    let user_id = create_test_user_id(1);
 
     store
-        .add_user(user_id.clone(), "secure_password", Role::User)
+        .add_user(user_id.clone(), "password", Role::User)
         .await
-        .expect("add user");
+        .expect("failed to add user");
 
-    let role = store
-        .authenticate(&user_id, "secure_password")
-        .await
-        .expect("authenticate user");
-    assert_eq!(role, Role::User);
-}
+    // Simulate concurrent reads and verify correctness
+    let store_clone1 = store.clone();
+    let store_clone2 = store.clone();
+    let user_id_clone1 = user_id.clone();
+    let user_id_clone2 = user_id.clone();
 
-#[tokio::test]
-async fn test_invalid_password() {
-    let store = UserStore::new();
-    let user_id = UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16])))
-        .expect("create user id for test");
+    let handle1 = tokio::spawn(async move {
+        let exists = store_clone1.user_exists(&user_id_clone1).await;
+        assert!(exists, "user should exist in task 1");
+    });
 
-    store
-        .add_user(user_id.clone(), "correct_password", Role::User)
-        .await
-        .expect("add user");
+    let handle2 = tokio::spawn(async move {
+        let exists = store_clone2.user_exists(&user_id_clone2).await;
+        assert!(exists, "user should exist in task 2");
+    });
 
-    let result = store.authenticate(&user_id, "wrong_password").await;
-    assert!(matches!(result, Err(IdentityError::InvalidCredentials)));
-}
-
-#[tokio::test]
-async fn test_user_not_found() {
-    let store = UserStore::new();
-    let user_id = UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16])))
-        .expect("create user id for test");
-
-    let result = store.authenticate(&user_id, "any_password").await;
-    assert!(matches!(result, Err(IdentityError::InvalidCredentials)));
-}
-
-#[tokio::test]
-async fn test_empty_password() {
-    let store = UserStore::new();
-    let user_id = UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16])))
-        .expect("create user id for test");
-
-    let result = store.add_user(user_id, "", Role::User).await;
-    assert!(matches!(result, Err(IdentityError::EmptyPassword)));
-}
-
-#[tokio::test]
-async fn test_user_exists() {
-    let store = UserStore::new();
-    let user_id = UserId::new(ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16])))
-        .expect("create user id for test");
-
-    assert!(!store.user_exists(&user_id).await);
-
-    store
-        .add_user(user_id.clone(), "password", Role::Admin)
-        .await
-        .expect("add user");
-
-    assert!(store.user_exists(&user_id).await);
+    handle1.await.expect("task 1 panicked");
+    handle2.await.expect("task 2 panicked");
 }
