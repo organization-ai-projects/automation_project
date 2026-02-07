@@ -1,8 +1,8 @@
 use super::test_helpers::{
-    TestResult, assert_min_warnings, assert_valid, assert_warn_contains, assert_warn_contains_all,
-    assert_warn_not_contains, create_strict_validator, create_validator,
+    assert_min_warnings, assert_valid, assert_warn_contains, assert_warn_contains_all,
+    assert_warn_not_contains, create_strict_validator, create_validator, TestResult,
 };
-use crate::validator::CodeValidator;
+
 
 #[test]
 fn test_unused_variable_detection() -> TestResult {

@@ -116,6 +116,7 @@ pub fn assert_invalid(validation: &ValidationResult) {
 }
 
 /// Asserts that a validation result contains an error matching a substring.
+#[allow(dead_code)] // This helper is provided for future use
 pub fn assert_error_contains(validation: &ValidationResult, substring: &str) {
     let found = validation.errors.iter().any(|e| e.contains(substring));
 
