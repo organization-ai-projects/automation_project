@@ -4,7 +4,9 @@ use syn::visit::Visit;
 use syn::{Expr, Local, Pat, Stmt, Type};
 
 /// Common integer types for compatibility checking
-const INT_TYPES: &[&str] = &["i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize"];
+const INT_TYPES: &[&str] = &[
+    "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize",
+];
 
 /// Visitor to detect type inconsistencies
 pub struct TypeVisitor {
@@ -37,15 +39,13 @@ impl TypeVisitor {
     /// Extract type as string
     fn type_to_string(&self, ty: &Type) -> String {
         match ty {
-            Type::Path(type_path) => {
-                type_path
-                    .path
-                    .segments
-                    .iter()
-                    .map(|seg| seg.ident.to_string())
-                    .collect::<Vec<_>>()
-                    .join("::")
-            }
+            Type::Path(type_path) => type_path
+                .path
+                .segments
+                .iter()
+                .map(|seg| seg.ident.to_string())
+                .collect::<Vec<_>>()
+                .join("::"),
             Type::Reference(type_ref) => {
                 format!("&{}", self.type_to_string(&type_ref.elem))
             }
@@ -65,13 +65,14 @@ impl TypeVisitor {
     fn check_assignment(&mut self, var_name: &str, expr: &Expr) {
         if let Some(declared_type) = self.variable_types.get(var_name) {
             let inferred_type = self.infer_type_from_expr(expr);
-            
+
             // Check for obvious mismatches
-            if !inferred_type.is_empty() 
+            if !inferred_type.is_empty()
                 && inferred_type != "unknown"
                 && declared_type != "unknown"
                 && declared_type != &inferred_type
-                && !self.are_compatible_types(declared_type, &inferred_type) {
+                && !self.are_compatible_types(declared_type, &inferred_type)
+            {
                 let msg = format!(
                     "Type mismatch for '{}': expected '{}' but found '{}'",
                     var_name, declared_type, inferred_type
@@ -188,12 +189,13 @@ impl<'ast> Visit<'ast> for TypeVisitor {
                 if let Some(init) = &local.init {
                     let declared_type = self.type_to_string(&pat_type.ty);
                     let inferred_type = self.infer_type_from_expr(&init.expr);
-                    
-                    if !inferred_type.is_empty() 
+
+                    if !inferred_type.is_empty()
                         && inferred_type != "unknown"
                         && declared_type != "unknown"
                         && declared_type != inferred_type
-                        && !self.are_compatible_types(&declared_type, &inferred_type) {
+                        && !self.are_compatible_types(&declared_type, &inferred_type)
+                    {
                         let msg = format!(
                             "Type mismatch in declaration of '{}': declared as '{}' but initialized with '{}'",
                             var_name, declared_type, inferred_type

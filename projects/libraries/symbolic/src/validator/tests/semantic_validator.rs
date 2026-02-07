@@ -573,7 +573,7 @@ fn test_multiple_validation_types() {
             .any(|w| w.contains("unused") || w.contains("never used")),
         "Expected unused variable/import warning"
     );
-    
+
     assert!(
         validation
             .warnings
@@ -581,7 +581,7 @@ fn test_multiple_validation_types() {
             .any(|w| w.contains("Type mismatch")),
         "Expected type mismatch warning"
     );
-    
+
     assert!(
         validation
             .warnings
