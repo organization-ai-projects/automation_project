@@ -21,7 +21,8 @@ fn ordering_is_mostly_time_sorted() {
 
 #[test]
 fn no_duplicates_multithread() {
-    // Reduced iteration count from 50_000 to 10_000 to speed up CI
+    // Reduced iteration count from 50_000 to 10_000 per thread to speed up CI
+    // (8 threads × 10_000 = 80_000 total IDs, down from 400_000)
     const ITERATIONS_PER_THREAD: usize = 10_000;
     const THREAD_COUNT: usize = 8;
     
