@@ -5,119 +5,85 @@ use common_time::timestamp_utils::current_timestamp_ms;
 
 use crate::{Role, Token, TokenError};
 
-fn build_token(role: Role, subject_id: ProtocolId, expires_at_ms: u64) -> Token {
-    let issued_at_ms = current_timestamp_ms();
-    Token {
-        value: ProtocolId::new(Id128::from_bytes_unchecked([7u8; 16])),
-        subject_id,
-        role,
-        issued_at_ms,
-        expires_at_ms,
-        session_id: None,
-    }
-}
+use super::helpers::{build_expired_token, build_test_token, build_token_expires_in, test_protocol_id};
 
 #[test]
 fn test_is_expired() {
-    let id = ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16]));
-    let token = build_token(Role::User, id, current_timestamp_ms().saturating_sub(1));
+    let id = test_protocol_id(1);
+    let token = build_expired_token(Role::User, id);
     assert!(token.is_expired());
 }
 
 #[test]
 fn test_is_expired_with_grace() {
-    let id = ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16]));
+    let id = test_protocol_id(1);
+    
+    // Test token that expired 50ms ago
     let now = current_timestamp_ms();
-    let token = build_token(Role::User, id, now.saturating_add(50));
-    std::thread::sleep(std::time::Duration::from_millis(60));
-
-    // Expired without grace
-    assert!(token.is_expired());
-
-    // Not expired with 100ms grace
-    assert!(!token.is_expired_with_grace(100));
+    let recently_expired = build_test_token(Role::User, id, now.saturating_sub(50));
+    
+    // Should be expired without grace
+    assert!(recently_expired.is_expired());
+    
+    // Should NOT be expired with 200ms grace (50ms + 200ms grace = still in future)
+    assert!(!recently_expired.is_expired_with_grace(200));
+    
+    // Should be expired with only 10ms grace (50ms ago > 10ms grace)
+    assert!(recently_expired.is_expired_with_grace(10));
 }
 
 #[test]
 fn test_time_until_expiry() {
-    let id = ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16]));
-    let token = build_token(Role::User, id, current_timestamp_ms().saturating_add(5000));
+    let id = test_protocol_id(1);
+    let token = build_token_expires_in(Role::User, id, 5000);
     let remaining = token.time_until_expiry_ms();
     assert!(remaining > 4500 && remaining <= 5000);
 }
 
 #[test]
 fn test_validate_token() {
-    let id_valid = ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16]));
-    let valid = build_token(
-        Role::User,
-        id_valid,
-        current_timestamp_ms().saturating_add(5000),
-    );
+    let id_valid = test_protocol_id(1);
+    let valid = build_token_expires_in(Role::User, id_valid, 5000);
     assert!(valid.validate_token().is_ok());
 
-    let id_expired = ProtocolId::new(Id128::from_bytes_unchecked([2u8; 16]));
-    let expired = build_token(
-        Role::User,
-        id_expired,
-        current_timestamp_ms().saturating_sub(1),
-    );
+    let id_expired = test_protocol_id(2);
+    let expired = build_expired_token(Role::User, id_expired);
     assert!(matches!(expired.validate_token(), Err(TokenError::Expired)));
+
+    // Test invalid token with zero ID
+    let zero_id = ProtocolId::new(Id128::from_bytes_unchecked([0u8; 16]));
+    let invalid = build_token_expires_in(Role::User, zero_id, 5000);
+    assert!(matches!(
+        invalid.validate_token(),
+        Err(TokenError::InvalidToken)
+    ));
 }
 
 #[test]
 fn test_token_creation() {
-    let id = ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16]));
-    let token = build_token(
-        Role::User,
-        id,
-        current_timestamp_ms().saturating_add(3600000),
-    );
+    let id = test_protocol_id(1);
+    let token = build_token_expires_in(Role::User, id, 3600000);
     assert_eq!(token.subject_id, id);
 }
 
 #[test]
 fn test_token_with_session() {
-    let id = ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16]));
+    let id = test_protocol_id(1);
     let issued_at_ms = current_timestamp_ms();
     let token = Token {
-        value: ProtocolId::new(Id128::from_bytes_unchecked([7u8; 16])),
+        value: test_protocol_id(7),
         subject_id: id,
         role: Role::Admin,
         issued_at_ms,
         expires_at_ms: issued_at_ms.saturating_add(3600000),
-        session_id: Some(ProtocolId::new(Id128::from_bytes_unchecked([9u8; 16]))),
+        session_id: Some(test_protocol_id(9)),
     };
-    assert_eq!(
-        token.session_id,
-        Some(ProtocolId::new(Id128::from_bytes_unchecked([9u8; 16])))
-    );
-}
-
-#[test]
-fn test_token_expired() {
-    let id = ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16]));
-    let token = build_token(Role::User, id, current_timestamp_ms().saturating_sub(1));
-    assert!(token.is_expired());
-}
-
-#[test]
-fn test_validate_token_valid() {
-    let id = ProtocolId::new(Id128::from_bytes_unchecked([1u8; 16]));
-    let token = build_token(Role::User, id, current_timestamp_ms().saturating_add(5000));
-    assert!(token.validate_token().is_ok());
-}
-
-#[test]
-fn test_validate_token_invalid() {
-    let id = ProtocolId::new(Id128::from_bytes_unchecked([0u8; 16]));
-    let token = build_token(Role::User, id, current_timestamp_ms().saturating_add(5000));
-    assert!(token.validate_token().is_err());
+    assert_eq!(token.session_id, Some(test_protocol_id(9)));
 }
 
 #[test]
 fn test_token_creation_with_id128() {
-    let id = ProtocolId::new(Id128::from_bytes_unchecked([123u8; 16]));
-    let token = build_token(Role::User, id, current_timestamp_ms().saturating_add(5000));
+    let id = test_protocol_id(123);
+    let token = build_token_expires_in(Role::User, id, 5000);
     assert_eq!(token.subject_id, id);
 }
