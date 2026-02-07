@@ -1,6 +1,6 @@
 use super::test_helpers::{
-    assert_min_warnings, assert_valid, assert_warn_contains, assert_warn_contains_all,
-    assert_warn_not_contains, create_strict_validator, create_validator, TestResult,
+    TestResult, assert_min_warnings, assert_valid, assert_warn_contains, assert_warn_contains_all,
+    assert_warn_not_contains, create_strict_validator, create_validator,
 };
 
 #[test]
