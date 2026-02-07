@@ -1,44 +1,19 @@
 // projects/libraries/neural/tests/integration_training.rs
-use neural::{
-    generation::{GenerationConfig, code_generator::CodeGenerator},
-    network::{Activation, LayerConfig, WeightInit, neural_network::NeuralNetwork},
-    tokenization::RustTokenizer,
-};
+mod helpers;
+
+use neural::generation::{GenerationConfig, code_generator::CodeGenerator};
+use helpers::{create_test_network, create_basic_tokenizer, create_sample_training_data};
 
 #[test]
 fn test_code_generator_training() {
-    // Mock objects for NeuralNetwork and RustTokenizer
-    let layers = vec![
-        LayerConfig {
-            input_size: 4,
-            output_size: 8,
-            activation: Activation::ReLU,
-            weight_init: WeightInit::Xavier,
-        },
-        LayerConfig {
-            input_size: 8,
-            output_size: 4,
-            activation: Activation::Sigmoid,
-            weight_init: WeightInit::He,
-        },
-    ];
-    let mock_model = NeuralNetwork::new(layers).expect("network init");
-    let mock_tokenizer = RustTokenizer::new(vec![
-        "<PAD>".to_string(),
-        "<EOS>".to_string(),
-        "<BOS>".to_string(),
-        "<UNK>".to_string(),
-    ]);
+    let mock_model = create_test_network().expect("network creation should succeed");
+    let mock_tokenizer = create_basic_tokenizer();
     let config = GenerationConfig::default();
 
     let mut generator = CodeGenerator::new(mock_model, mock_tokenizer, config);
-
-    let training_data = vec![
-        "fn add(a: i32, b: i32) -> i32 { a + b }".to_string(),
-        "fn subtract(a: i32, b: i32) -> i32 { a - b }".to_string(),
-    ];
+    let training_data = create_sample_training_data();
 
     let result = generator.train(training_data);
 
-    assert!(result.is_ok());
+    assert!(result.is_ok(), "training should succeed without errors");
 }
