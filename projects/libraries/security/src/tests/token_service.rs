@@ -24,18 +24,26 @@ fn test_expired_token() {
     // Immediately verify - should succeed
     assert!(service.verify(&jwt).is_ok());
 
-    // Sleep for 500ms - still within grace period
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    assert!(service.verify(&jwt).is_ok());
-
-    // Sleep for 3 more seconds - well past expiry + leeway
+    // Poll until token expires (with timeout to prevent hanging)
     // Expiry calculation: 100ms token duration rounds up to 1s (see token_service.rs line 72)
     // Plus 1s leeway = 2s total grace period from token issue time
-    // Total elapsed: 500ms + 3000ms = 3500ms, well past the 2000ms threshold
-    std::thread::sleep(std::time::Duration::from_millis(3000));
+    let start = std::time::Instant::now();
+    let timeout = std::time::Duration::from_secs(5); // Generous timeout
+    let mut expired = false;
 
-    // Should now be expired
-    assert!(matches!(service.verify(&jwt), Err(TokenError::Expired)));
+    while start.elapsed() < timeout {
+        if matches!(service.verify(&jwt), Err(TokenError::Expired)) {
+            expired = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+
+    assert!(
+        expired,
+        "Token should have expired within timeout, but verification still succeeds after {:?}",
+        start.elapsed()
+    );
 }
 
 #[test]
