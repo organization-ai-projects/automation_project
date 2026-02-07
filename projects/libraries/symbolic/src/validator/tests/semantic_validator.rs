@@ -3,7 +3,6 @@ use super::test_helpers::{
     assert_warn_not_contains, create_strict_validator, create_validator, TestResult,
 };
 
-
 #[test]
 fn test_unused_variable_detection() -> TestResult {
     let validator = create_validator();
@@ -148,8 +147,7 @@ fn test_strict_mode_dead_code() -> TestResult {
     let validation = validator.validate(code)?;
 
     // In strict mode, dead code should be reported as errors
-    assert_warn_contains(&validation, "error");
-    assert_warn_contains(&validation, "Unreachable");
+    assert_warn_contains_all(&validation, &["error", "Unreachable"]);
     Ok(())
 }
 

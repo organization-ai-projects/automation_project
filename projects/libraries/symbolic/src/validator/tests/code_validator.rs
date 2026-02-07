@@ -56,8 +56,8 @@ fn test_warnings() -> TestResult {
 
     let validation = validator.validate(code)?;
     assert_valid(&validation);
-    assert_warn_contains(&validation, "expect");
-    assert_warn_contains(&validation, "try");
+    assert_warn_contains(&validation, "expect calls");
+    assert_warn_contains(&validation, "try! macro");
     Ok(())
 }
 
