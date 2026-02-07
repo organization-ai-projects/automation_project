@@ -1,12 +1,10 @@
 // projects/libraries/ast_core/src/tests/ast_macro_tests.rs
 // Tests for the `past!` macro
 
-#[cfg(test)]
-mod tests {
-    use crate::{AstBuilder, AstErrorKind, AstKey, AstNode, ValidateLimits, past};
+use crate::{AstBuilder, AstErrorKind, AstKey, AstNode, ValidateLimits, past};
 
-    #[test]
-    fn test_deeply_nested_structure() {
+#[test]
+fn test_deeply_nested_structure() {
         let depth = 1000;
         let mut nested = past!(null);
 
@@ -17,8 +15,8 @@ mod tests {
         assert!(nested.is_object());
     }
 
-    #[test]
-    fn test_very_deeply_nested_structure() {
+#[test]
+fn test_very_deeply_nested_structure() {
         let depth = 10_000; // Augmentation de la profondeur
         let mut nested = past!(null);
 
@@ -30,8 +28,8 @@ mod tests {
         assert!(nested.validate_iterative(&limits).is_ok());
     }
 
-    #[test]
-    fn validate_cuts_before_stack_overflow() {
+#[test]
+fn validate_cuts_before_stack_overflow() {
         let mut nested = past!(null);
         for _ in 0..10_000 {
             nested = past!({ "key": nested });
@@ -45,8 +43,8 @@ mod tests {
         assert!(matches!(err.kind, AstErrorKind::MaxDepth { .. }));
     }
 
-    #[test]
-    fn validate_large_wide_tree() {
+#[test]
+fn validate_large_wide_tree() {
         let mut fields = Vec::new();
         for i in 0..50_000 {
             fields.push(((format!("k{i}")), past!(i as i64)));
@@ -63,8 +61,8 @@ mod tests {
         node.validate_with(&limits).expect("validate wide tree");
     }
 
-    #[test]
-    fn drop_deep_tree_on_small_stack() {
+#[test]
+fn drop_deep_tree_on_small_stack() {
         let depth = 10_000;
         let handle = std::thread::Builder::new()
             .stack_size(256 * 1024)
@@ -78,5 +76,4 @@ mod tests {
             .expect("spawn test thread");
 
         handle.join().expect("join test thread");
-    }
 }
