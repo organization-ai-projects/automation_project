@@ -50,7 +50,7 @@ impl TestPasswords {
         // to avoid CodeQL hard-coded credential warnings
         let timestamp = current_timestamp_ms();
         let counter = TEST_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
-        
+
         Self {
             test_password: std::env::var("ACCOUNTS_BACKEND_TEST_PASSWORD")
                 .unwrap_or_else(|_| format!("test_pw_{}_{}", timestamp, counter)),
@@ -351,7 +351,13 @@ async fn test_audit_periodic_flush() {
 
     // Create user
     manager
-        .create(user_id, &PASSWORDS.test_password, Role::User, vec![], "admin")
+        .create(
+            user_id,
+            &PASSWORDS.test_password,
+            Role::User,
+            vec![],
+            "admin",
+        )
         .await
         .expect("Failed to create test user");
 
@@ -407,7 +413,13 @@ async fn test_audit_entries_maintain_order() {
     for i in 1..=5 {
         let user_id = ProtocolId::new(common::Id128::new(i as u16, Some(0), Some(0)));
         manager
-            .create(user_id, &PASSWORDS.test_password, Role::User, vec![], "admin")
+            .create(
+                user_id,
+                &PASSWORDS.test_password,
+                Role::User,
+                vec![],
+                "admin",
+            )
             .await
             .expect("Failed to create test user in order test");
     }
