@@ -27,49 +27,46 @@ impl AutopilotPlan {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::tests::test_helpers::AutopilotPlanBuilder;
+use crate::tests::test_helpers::AutopilotPlanBuilder;
 
-    #[test]
-    fn test_autopilot_plan_usage() {
-        let plan = AutopilotPlanBuilder::new()
-            .branch("main")
-            .will_stage(vec!["file1.rs".to_string()])
-            .will_commit(true)
-            .commit_message("Initial commit")
-            .will_push(true)
-            .notes(vec!["Note 1".to_string()])
-            .build();
+#[test]
+fn test_autopilot_plan_usage() {
+    let plan = AutopilotPlanBuilder::new()
+        .branch("main")
+        .will_stage(vec!["file1.rs".to_string()])
+        .will_commit(true)
+        .commit_message("Initial commit")
+        .will_push(true)
+        .notes(vec!["Note 1".to_string()])
+        .build();
 
-        assert_eq!(plan.branch, "main");
-        assert!(plan.will_commit);
-        assert_eq!(plan.commit_message, "Initial commit");
-        assert!(plan.will_push);
-        assert_eq!(plan.notes.len(), 1);
+    assert_eq!(plan.branch, "main");
+    assert!(plan.will_commit);
+    assert_eq!(plan.commit_message, "Initial commit");
+    assert!(plan.will_push);
+    assert_eq!(plan.notes.len(), 1);
     }
+#[test]
+fn test_autopilot_plan_validation() {
+    let mut plan = AutopilotPlanBuilder::new()
+        .branch("")
+        .will_commit(true)
+        .commit_message("")
+        .will_push(true)
+        .build();
 
-    #[test]
-    fn test_autopilot_plan_validation() {
-        let mut plan = AutopilotPlanBuilder::new()
-            .branch("")
-            .will_commit(true)
-            .commit_message("")
-            .will_push(true)
-            .build();
+    assert_eq!(
+        plan.validate().err(),
+        Some("Branch name cannot be empty".to_string())
+    );
 
-        assert_eq!(
-            plan.validate().err(),
-            Some("Branch name cannot be empty".to_string())
-        );
+plan.branch = "main".to_string();
+assert_eq!(
+    plan.validate().err(),
+    Some("Commit message cannot be empty".to_string())
+);
 
-        plan.branch = "main".to_string();
-        assert_eq!(
-            plan.validate().err(),
-            Some("Commit message cannot be empty".to_string())
-        );
-
-        plan.commit_message = "Initial commit".to_string();
-        assert!(plan.validate().is_ok());
-    }
+    plan.commit_message = "Initial commit".to_string();
+    assert!(plan.validate().is_ok());
 }
+
