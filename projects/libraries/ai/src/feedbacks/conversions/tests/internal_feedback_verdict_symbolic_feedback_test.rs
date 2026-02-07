@@ -1,3 +1,4 @@
+use crate::feedbacks::conversions::tests::test_explaination_payload::TestExpectationPayload;
 use crate::feedbacks::conversions::tests::test_helpers::*;
 use crate::feedbacks::internal::internal_feedback_verdict::InternalFeedbackVerdict;
 use symbolic::feedback_symbolic::SymbolicFeedback;
@@ -9,52 +10,46 @@ fn test_internal_feedback_verdict_to_symbolic_feedback() {
         (
             "Correct verdict",
             InternalFeedbackVerdict::Correct,
-            TestExpectation::PositiveNoPayload,
+            TestExpectationPayload::PositiveWhithout,
         ),
         (
             "Rejected verdict",
             InternalFeedbackVerdict::Rejected,
-            TestExpectation::NegativeNoPayload,
+            TestExpectationPayload::NegativeWithout,
         ),
         (
             "NoFeedback verdict",
             InternalFeedbackVerdict::NoFeedback,
-            TestExpectation::NegativeNoPayload,
+            TestExpectationPayload::NegativeWithout,
         ),
         (
             "Incorrect verdict",
             InternalFeedbackVerdict::Incorrect {
                 expected_output: "Expected output".into(),
             },
-            TestExpectation::NegativeWithPayload("Expected output"),
+            TestExpectationPayload::NegativeWith("Expected output"),
         ),
         (
             "Partial verdict",
             InternalFeedbackVerdict::Partial {
                 correction: "Correction details".into(),
             },
-            TestExpectation::NegativeWithPayload("Correction details"),
+            TestExpectationPayload::NegativeWith("Correction details"),
         ),
     ];
 
     for (_name, internal_verdict, expectation) in cases {
         let symbolic_feedback: SymbolicFeedback = internal_verdict.into();
         match expectation {
-            TestExpectation::PositiveNoPayload => {
+            TestExpectationPayload::PositiveWhithout => {
                 assert_positive_no_payload(&symbolic_feedback);
             }
-            TestExpectation::NegativeNoPayload => {
+            TestExpectationPayload::NegativeWithout => {
                 assert_negative_no_payload(&symbolic_feedback);
             }
-            TestExpectation::NegativeWithPayload(payload) => {
+            TestExpectationPayload::NegativeWith(payload) => {
                 assert_negative_with_payload(&symbolic_feedback, payload);
             }
         }
     }
-}
-
-enum TestExpectation {
-    PositiveNoPayload,
-    NegativeNoPayload,
-    NegativeWithPayload(&'static str),
 }

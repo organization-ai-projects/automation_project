@@ -1,3 +1,4 @@
+use crate::feedbacks::conversions::tests::feedback_type_expectation::FeedbackTypeExpectation;
 use crate::feedbacks::conversions::tests::test_helpers::*;
 use crate::feedbacks::public_api_feedback::FeedbackVerdict;
 use neural::feedback::FeedbackType;
@@ -51,10 +52,4 @@ fn test_feedback_verdict_to_feedback_type() {
             }
         }
     }
-}
-
-enum FeedbackTypeExpectation {
-    Correct,
-    Incorrect(&'static str),
-    Partial(&'static str),
 }
