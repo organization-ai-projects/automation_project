@@ -7,8 +7,16 @@ fn test_tokenization() {
     let trainer = Trainer::new(10, 1, config);
 
     let result = trainer.tokenize("test");
-    assert!(result.is_ok());
-    assert_eq!(result.expect("tokenize succeeds").len(), 4);
+    assert!(result.is_ok(), "tokenization should succeed");
+
+    let tokens = result.expect("tokenization should return valid tokens");
+    assert_eq!(tokens.len(), 4, "tokenized output should have 4 tokens");
+    assert!(
+        tokens
+            .iter()
+            .all(|&t| t.is_finite() && (0.0..=1.0).contains(&t)),
+        "all tokens should be finite and in the range [0.0, 1.0]"
+    );
 }
 
 #[test]
@@ -17,9 +25,19 @@ fn test_parse_data() {
     let trainer = Trainer::new(10, 1, config);
 
     let data = "hello|1.0\nworld|0.5";
-    let examples = trainer.parse_data(data).expect("parse data succeeds");
+    let examples = trainer
+        .parse_data(data)
+        .expect("data parsing should succeed");
 
-    assert_eq!(examples.len(), 2);
-    assert_eq!(examples[0].target, 1.0);
-    assert_eq!(examples[1].target, 0.5);
+    assert_eq!(examples.len(), 2, "should parse 2 examples");
+    assert_eq!(examples[0].target, 1.0, "first target should be 1.0");
+    assert_eq!(examples[1].target, 0.5, "second target should be 0.5");
+    assert!(
+        !examples[0].input.is_empty(),
+        "first example should have input tokens"
+    );
+    assert!(
+        !examples[1].input.is_empty(),
+        "second example should have input tokens"
+    );
 }
