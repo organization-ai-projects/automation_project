@@ -22,21 +22,25 @@ No external dependencies like Docker or GitHub authentication are required.
 ## Quick Start
 
 Run all integration tests:
+
 ```bash
 tools/bot_ci_harness/run_all.sh
 ```
 
 Run unit tests:
+
 ```bash
 tools/bot_ci_harness/tests/unit_tests.sh
 ```
 
 Run a specific scenario:
+
 ```bash
 tools/bot_ci_harness/run_all.sh --scenario 2
 ```
 
 Run with verbose output:
+
 ```bash
 tools/bot_ci_harness/run_all.sh --verbose
 ```
@@ -119,21 +123,25 @@ tools/bot_ci_harness/
 ## Key Features
 
 ### Sandbox Isolation
+
 - Each test runs in a completely isolated temporary Git repository
 - No interference with the actual repository or external systems
 - Automatic cleanup after each test
 
 ### Structured Logging
+
 - Timestamps for all log messages
 - Log levels (DEBUG, INFO, WARN, ERROR)
 - Optional verbose mode for detailed debugging
 
 ### Mock GitHub CLI
+
 - Simulates all GitHub PR operations (create, view, merge, list)
 - Supports various PR states (mergeable, conflicting, unknown)
 - Configurable via scenario environment variables
 
 ### Modular Design
+
 - Common operations extracted into reusable library functions
 - Clean separation of concerns
 - Easy to extend with new test scenarios

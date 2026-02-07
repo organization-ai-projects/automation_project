@@ -105,18 +105,19 @@ impl TypeVisitor {
             }
             Expr::Call(expr_call) => {
                 // Try to infer from function name
-                if let Expr::Path(path) = expr_call.func.as_ref() {
-                    if let Some(segment) = path.path.segments.last() {
-                        let func_name = segment.ident.to_string();
-                        // Common constructors
-                        if func_name == "String" || func_name == "to_string" {
-                            return "String".to_string();
-                        }
-                        if func_name == "Vec" {
-                            return "Vec".to_string();
-                        }
+                if let Expr::Path(func_path) = expr_call.func.as_ref()
+                    && let Some(segment) = func_path.path.segments.last()
+                {
+                    let func_name = segment.ident.to_string();
+                    // Common constructors
+                    if func_name == "String" || func_name == "to_string" {
+                        return "String".to_string();
+                    }
+                    if func_name == "Vec" {
+                        return "Vec".to_string();
                     }
                 }
+
                 "unknown".to_string()
             }
             Expr::MethodCall(method_call) => {
@@ -185,23 +186,21 @@ impl<'ast> Visit<'ast> for TypeVisitor {
             }
 
             // Check for type mismatch if both declared and initialized
-            if let Pat::Type(pat_type) = &local.pat {
-                if let Some(init) = &local.init {
-                    let declared_type = self.type_to_string(&pat_type.ty);
-                    let inferred_type = self.infer_type_from_expr(&init.expr);
+            if let (Pat::Type(pat_type), Some(init)) = (&local.pat, &local.init) {
+                let declared_type = self.type_to_string(&pat_type.ty);
+                let inferred_type = self.infer_type_from_expr(&init.expr);
 
-                    if !inferred_type.is_empty()
-                        && inferred_type != "unknown"
-                        && declared_type != "unknown"
-                        && declared_type != inferred_type
-                        && !self.are_compatible_types(&declared_type, &inferred_type)
-                    {
-                        let msg = format!(
-                            "Type mismatch in declaration of '{}': declared as '{}' but initialized with '{}'",
-                            var_name, declared_type, inferred_type
-                        );
-                        self.inconsistencies.push((msg, self.current_stmt_index));
-                    }
+                if !inferred_type.is_empty()
+                    && inferred_type != "unknown"
+                    && declared_type != "unknown"
+                    && declared_type != inferred_type
+                    && !self.are_compatible_types(&declared_type, &inferred_type)
+                {
+                    let msg = format!(
+                        "Type mismatch in declaration of '{}': declared as '{}' but initialized with '{}'",
+                        var_name, declared_type, inferred_type
+                    );
+                    self.inconsistencies.push((msg, self.current_stmt_index));
                 }
             }
         }
@@ -211,13 +210,12 @@ impl<'ast> Visit<'ast> for TypeVisitor {
 
     fn visit_expr(&mut self, expr: &'ast Expr) {
         // Check for assignments
-        if let Expr::Assign(assign) = expr {
-            if let Expr::Path(path) = assign.left.as_ref() {
-                if let Some(ident) = path.path.get_ident() {
-                    let var_name = ident.to_string();
-                    self.check_assignment(&var_name, &assign.right);
-                }
-            }
+        if let Expr::Assign(assign_expr) = expr
+            && let Expr::Path(left_path) = assign_expr.left.as_ref()
+            && let Some(ident) = left_path.path.get_ident()
+        {
+            let var_name = ident.to_string();
+            self.check_assignment(&var_name, &assign_expr.right);
         }
 
         syn::visit::visit_expr(self, expr);
