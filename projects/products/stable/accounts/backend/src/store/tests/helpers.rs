@@ -44,17 +44,27 @@ where
 {
     let start = tokio::time::Instant::now();
     let mut delay = initial_delay;
-    
+    let mut attempts: u64 = 0;
+
     while start.elapsed() < timeout {
         if condition() {
             return Ok(());
         }
+        attempts += 1;
         tokio::time::sleep(delay).await;
         // Exponential backoff with max of 500ms
         delay = std::cmp::min(delay * 2, Duration::from_millis(500));
     }
-    
-    Err("Timeout waiting for condition".into())
+
+    let elapsed = start.elapsed();
+    Err(format!(
+        "Timeout waiting for condition: timeout={:?}, initial_delay={:?}, attempts={}, elapsed={:?}",
+        timeout,
+        initial_delay,
+        attempts,
+        elapsed,
+    )
+    .into())
 }
 
 /// Polls an async condition with exponential backoff until it returns true or times out.
