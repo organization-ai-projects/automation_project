@@ -359,27 +359,15 @@ fn meta(cmd: &Command) -> Metadata {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::test_helpers::*;
     use crate::validation_error::{E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED};
     use common_json::to_value;
-    use protocol::{CommandType, ProtocolId};
-
-    fn create_test_metadata() -> Metadata {
-        Metadata {
-            request_id: ProtocolId::default(),
-            job_id: None,
-            product_id: None,
-            client_id: None,
-            timestamp_ms: None,
-            schema_version: None,
-        }
-    }
 
     #[test]
     fn test_run_git_autopilot_with_invalid_path() {
-        let req = RunRequest {
-            request_id: ProtocolId::default(),
-            repo_path: Some("/etc/../../../etc/passwd".to_string()),
-        };
+        let req = RunRequestBuilder::new()
+            .repo_path("/etc/../../../etc/passwd")
+            .build();
 
         let result = run_git_autopilot(req);
         assert!(
@@ -398,10 +386,9 @@ mod tests {
 
     #[test]
     fn test_run_git_autopilot_with_empty_path() {
-        let req = RunRequest {
-            request_id: ProtocolId::default(),
-            repo_path: Some("".to_string()),
-        };
+        let req = RunRequestBuilder::new()
+            .repo_path("")
+            .build();
 
         let result = run_git_autopilot(req);
         assert!(result.is_err());
@@ -410,10 +397,9 @@ mod tests {
 
     #[test]
     fn test_run_git_autopilot_with_non_whitelisted_path() {
-        let req = RunRequest {
-            request_id: ProtocolId::default(),
-            repo_path: Some("/etc/config".to_string()),
-        };
+        let req = RunRequestBuilder::new()
+            .repo_path("/etc/config")
+            .build();
 
         let result = run_git_autopilot(req);
         assert!(result.is_err());
@@ -424,10 +410,7 @@ mod tests {
     fn test_run_git_autopilot_with_no_path_uses_fallback() {
         // Test that RunRequest with no repo_path doesn't trigger validation
         // (actual autopilot execution is tested elsewhere)
-        let req = RunRequest {
-            request_id: ProtocolId::default(),
-            repo_path: None,
-        };
+        let req = RunRequestBuilder::new().build();
 
         // This test only verifies that None repo_path is valid from validation perspective
         // We don't actually run autopilot here to avoid environment dependencies
@@ -436,155 +419,92 @@ mod tests {
 
     #[test]
     fn test_handle_command_with_missing_action() {
-        let cmd = Command {
-            metadata: create_test_metadata(),
-            command_type: CommandType::Execute,
-            action: None,
-            payload: None,
-        };
+        let cmd = CommandBuilder::new().build();
 
         let response = handle_command(cmd);
-        assert_eq!(response.status.code, 400);
-        assert!(response.error.is_some());
-        let error = response.error.unwrap();
-        assert_eq!(error.code, E_ACTION_MISSING);
+        assert_status_code(&response, 400);
+        assert_error_code(&response, E_ACTION_MISSING);
     }
 
     #[test]
     fn test_handle_command_with_empty_action() {
-        let cmd = Command {
-            metadata: create_test_metadata(),
-            command_type: CommandType::Execute,
-            action: Some("   ".to_string()),
-            payload: None,
-        };
+        let cmd = CommandBuilder::new()
+            .action("   ")
+            .build();
 
         let response = handle_command(cmd);
-        assert_eq!(response.status.code, 400);
-        assert!(response.error.is_some());
-        let error = response.error.unwrap();
-        assert_eq!(error.code, E_ACTION_MISSING);
+        assert_status_code(&response, 400);
+        assert_error_code(&response, E_ACTION_MISSING);
     }
 
     #[test]
     fn test_handle_command_with_unsupported_action() {
-        let cmd = Command {
-            metadata: create_test_metadata(),
-            command_type: CommandType::Execute,
-            action: Some("unsupported.action".to_string()),
-            payload: None,
-        };
+        let cmd = CommandBuilder::new()
+            .action("unsupported.action")
+            .build();
 
         let response = handle_command(cmd);
-        assert_eq!(response.status.code, 404);
-        assert!(response.error.is_some());
-        let error = response.error.unwrap();
-        assert_eq!(error.code, E_ACTION_UNSUPPORTED);
+        assert_status_code(&response, 404);
+        assert_error_code(&response, E_ACTION_UNSUPPORTED);
     }
 
     #[test]
     fn test_handle_command_with_missing_payload() {
-        let cmd = Command {
-            metadata: create_test_metadata(),
-            command_type: CommandType::Execute,
-            action: Some(ACTION_GIT_AUTOPILOT_PREVIEW.to_string()),
-            payload: None,
-        };
+        let cmd = CommandBuilder::new()
+            .action(ACTION_GIT_AUTOPILOT_PREVIEW)
+            .build();
 
         let response = handle_command(cmd);
-        assert_eq!(response.status.code, 400);
-        assert!(response.error.is_some());
-        let error = response.error.unwrap();
-        assert_eq!(error.code, E_PAYLOAD_MISSING);
+        assert_status_code(&response, 400);
+        assert_error_code(&response, E_PAYLOAD_MISSING);
     }
 
     #[test]
     fn test_handle_command_with_invalid_payload_type() {
-        let cmd = Command {
-            metadata: create_test_metadata(),
-            command_type: CommandType::Execute,
-            action: Some(ACTION_GIT_AUTOPILOT_PREVIEW.to_string()),
-            payload: Some(Payload {
-                payload_type: Some("invalid/type".to_string()),
-                payload: Some(to_value(&"{}").unwrap()),
-            }),
-        };
+        let cmd = CommandBuilder::new()
+            .action(ACTION_GIT_AUTOPILOT_PREVIEW)
+            .payload_with_type("invalid/type", to_value(&"{}").unwrap())
+            .build();
 
         let response = handle_command(cmd);
-        assert_eq!(response.status.code, 415);
-        assert!(response.error.is_some());
-        let error = response.error.unwrap();
-        assert_eq!(error.code, E_PAYLOAD_TYPE_INVALID);
+        assert_status_code(&response, 415);
+        assert_error_code(&response, E_PAYLOAD_TYPE_INVALID);
     }
 
     // Router-level validation tests
 
     #[test]
     fn test_handle_command_run_with_empty_repo_path() {
-        let run_req = RunRequest {
-            request_id: ProtocolId::default(),
-            repo_path: Some("".to_string()),
-        };
+        let run_req = RunRequestBuilder::new()
+            .repo_path("")
+            .build();
 
-        let cmd = Command {
-            metadata: create_test_metadata(),
-            command_type: CommandType::Execute,
-            action: Some(ACTION_GIT_AUTOPILOT_RUN.to_string()),
-            payload: Some(Payload {
-                payload_type: Some(PAYLOAD_TYPE_RUN_V1.to_string()),
-                payload: Some(to_value(&run_req).unwrap()),
-            }),
-        };
+        let cmd = CommandBuilder::new()
+            .action(ACTION_GIT_AUTOPILOT_RUN)
+            .payload_with_type(PAYLOAD_TYPE_RUN_V1, to_value(&run_req).unwrap())
+            .build();
 
         let response = handle_command(cmd);
-        assert_eq!(
-            response.status.code, 400,
-            "Expected 400 Bad Request for empty path"
-        );
-        assert!(response.error.is_some());
-        let error = response.error.unwrap();
-        assert_eq!(
-            error.code, E_REPO_PATH_INVALID_FORMAT,
-            "Expected E_REPO_PATH_INVALID_FORMAT error code"
-        );
-        assert!(
-            error.message.contains("cannot be empty"),
-            "Error message should mention empty path"
-        );
+        assert_status_code(&response, 400);
+        assert_error_code(&response, E_REPO_PATH_INVALID_FORMAT);
+        assert_error_contains(&response, "cannot be empty");
     }
 
     #[test]
     fn test_handle_command_run_with_non_whitelisted_path() {
-        let run_req = RunRequest {
-            request_id: ProtocolId::default(),
-            repo_path: Some("/etc/config".to_string()),
-        };
+        let run_req = RunRequestBuilder::new()
+            .repo_path("/etc/config")
+            .build();
 
-        let cmd = Command {
-            metadata: create_test_metadata(),
-            command_type: CommandType::Execute,
-            action: Some(ACTION_GIT_AUTOPILOT_RUN.to_string()),
-            payload: Some(Payload {
-                payload_type: Some(PAYLOAD_TYPE_RUN_V1.to_string()),
-                payload: Some(to_value(&run_req).unwrap()),
-            }),
-        };
+        let cmd = CommandBuilder::new()
+            .action(ACTION_GIT_AUTOPILOT_RUN)
+            .payload_with_type(PAYLOAD_TYPE_RUN_V1, to_value(&run_req).unwrap())
+            .build();
 
         let response = handle_command(cmd);
-        assert_eq!(
-            response.status.code, 400,
-            "Expected 400 Bad Request for non-whitelisted path"
-        );
-        assert!(response.error.is_some());
-        let error = response.error.unwrap();
-        assert_eq!(
-            error.code, E_REPO_PATH_NOT_WHITELISTED,
-            "Expected E_REPO_PATH_NOT_WHITELISTED error code"
-        );
-        assert!(
-            error.message.contains("not in the whitelist"),
-            "Error message should mention whitelist"
-        );
+        assert_status_code(&response, 400);
+        assert_error_code(&response, E_REPO_PATH_NOT_WHITELISTED);
+        assert_error_contains(&response, "not in the whitelist");
     }
 
     #[test]

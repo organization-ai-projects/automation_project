@@ -29,18 +29,18 @@ impl AutopilotPlan {
 
 #[cfg(test)]
 mod tests {
-    use crate::autopilot::autopilot_plan::AutopilotPlan;
+    use crate::tests::test_helpers::AutopilotPlanBuilder;
 
     #[test]
     fn test_autopilot_plan_usage() {
-        let plan = AutopilotPlan {
-            branch: "main".to_string(),
-            will_stage: vec!["file1.rs".to_string()],
-            will_commit: true,
-            commit_message: "Initial commit".to_string(),
-            will_push: true,
-            notes: vec!["Note 1".to_string()],
-        };
+        let plan = AutopilotPlanBuilder::new()
+            .branch("main")
+            .will_stage(vec!["file1.rs".to_string()])
+            .will_commit(true)
+            .commit_message("Initial commit")
+            .will_push(true)
+            .notes(vec!["Note 1".to_string()])
+            .build();
 
         assert_eq!(plan.branch, "main");
         assert!(plan.will_commit);
@@ -51,14 +51,10 @@ mod tests {
 
     #[test]
     fn test_autopilot_plan_validation() {
-        let mut plan = AutopilotPlan {
-            branch: "".to_string(),
-            will_stage: vec![],
-            will_commit: true,
-            commit_message: "".to_string(),
-            will_push: true,
-            notes: vec![],
-        };
+        let mut plan = AutopilotPlanBuilder::new()
+            .branch("")
+            .commit_message("")
+            .build();
 
         assert_eq!(
             plan.validate().err(),

@@ -30,41 +30,39 @@ impl AutopilotReport {
 
 #[cfg(test)]
 mod tests {
-    use crate::autopilot::autopilot_mode::AutopilotMode;
-    use crate::autopilot::autopilot_plan::AutopilotPlan;
-    use crate::autopilot::autopilot_report::AutopilotReport;
+    use crate::tests::test_helpers::*;
     use crate::classified_changes::ClassifiedChanges;
+    use crate::autopilot::AutopilotMode;
 
     #[test]
     fn test_autopilot_report_usage() {
-        let report = AutopilotReport {
-            mode: AutopilotMode::DryRun,
-            branch: "main".to_string(),
-            detached_head: false,
-            changes: vec![],
-            classified: ClassifiedChanges {
+        let plan = AutopilotPlanBuilder::new()
+            .branch("main")
+            .will_stage(vec!["file1.rs".to_string()])
+            .will_commit(true)
+            .commit_message("Initial commit")
+            .will_push(true)
+            .notes(vec!["Note 1".to_string()])
+            .build();
+
+        let report = AutopilotReportBuilder::new()
+            .mode(AutopilotMode::DryRun)
+            .branch("main")
+            .classified(ClassifiedChanges {
                 blocked: vec!["blocked_file.rs".to_string()],
                 relevant: vec!["relevant_file.rs".to_string()],
                 unrelated: vec!["unrelated_file.rs".to_string()],
-            },
-            plan: AutopilotPlan {
-                branch: "main".to_string(),
-                will_stage: vec!["file1.rs".to_string()],
-                will_commit: true,
-                commit_message: "Initial commit".to_string(),
-                will_push: true,
-                notes: vec!["Note 1".to_string()],
-            },
-            applied: true,
-            logs: vec!["Log entry".to_string()],
-        };
+            })
+            .plan(plan)
+            .applied(true)
+            .build();
 
         assert_eq!(report.mode, AutopilotMode::DryRun);
         assert_eq!(report.branch, "main");
         assert!(!report.detached_head);
         assert!(report.changes.is_empty());
         assert!(report.applied);
-        assert_eq!(report.logs.len(), 1);
+        assert_eq!(report.logs.len(), 0);
 
         // Using the classified and plan fields
         assert_eq!(report.classified.blocked[0], "blocked_file.rs");
