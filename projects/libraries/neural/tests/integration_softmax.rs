@@ -28,7 +28,7 @@ fn test_integration_softmax() {
     // All probabilities should be non-negative and <= 1.0
     for (i, &prob) in probs.iter().enumerate() {
         assert!(
-            prob >= 0.0 && prob <= 1.0,
+            (0.0..=1.0).contains(&prob),
             "probability at index {} should be in [0, 1], got {}",
             i,
             prob
