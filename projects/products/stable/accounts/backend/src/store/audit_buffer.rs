@@ -22,7 +22,9 @@ impl AuditBuffer {
     pub fn new(audit_path: PathBuf, config: AuditBufferConfig) -> Self {
         // Validate config
         if config.flush_interval_secs == 0 {
-            panic!("flush_interval_secs must be greater than 0 to avoid tokio::time::interval panic");
+            panic!(
+                "flush_interval_secs must be greater than 0 to avoid tokio::time::interval panic"
+            );
         }
 
         let buffer = Arc::new(Mutex::new(Vec::new()));
