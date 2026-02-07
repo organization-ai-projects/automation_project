@@ -18,14 +18,21 @@ It interacts mainly with:
 code_agent_sandbox/
 ├── Cargo.toml          # Package configuration
 ├── README.md           # This file
+├── .gitignore          # Local ignore rules for runtime outputs
+├── data/               # Runtime outputs directory
+│   ├── README.md       # Versioning policy (versioned)
+│   └── runs/           # All runtime outputs (not versioned)
+│       ├── {RUN_ID}/   # Per-run journals and logs
+│       ├── models/     # Neural models
+│       └── replay.jsonl # Training replay log
 ├── documentation/      # Additional documentation
 │   ├── TOC.md
 │   ├── PROJECT_OVERVIEW.md
 │   └── BUNKER_EXECUTION.md
 ├── src/               # Source code
-│   ├── lib.rs
-│   ├── executor/
-│   ├── filesystem/
+│   ├── main.rs
+│   ├── actions/
+│   ├── sandbox_engine/
 │   └── ...
 └── tests/             # Integration tests
 ```

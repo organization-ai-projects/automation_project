@@ -25,20 +25,30 @@ Use descriptive branch names with a type prefix:
 <type>/<short-description>
 ```
 
-**Types**:
+**Types** (the following prefixes are accepted, including aliases and variants):
 
-- `feat/` – New feature
+- `feature/` or `feat/` – New feature
 - `fix/` – Bug fix
-- `doc/` – Documentation changes
+- `fixture/` – Test fixtures or data
+- `doc/` or `docs/` – Documentation changes
 - `refactor/` – Code refactoring
-- `test/` – Adding or updating tests
+- `test/` or `tests/` – Adding or updating tests
 - `chore/` – Maintenance tasks
 
 **Examples**:
 
 - `feat/user-authentication`
+- `feature/user-dashboard`
 - `fix/json-parser-panic`
+- `fixture/test-data`
 - `doc/update-api-docs`
+- `docs/add-examples`
+- `refactor/simplify-error-handling`
+- `test/add-integration-tests`
+- `tests/unit-coverage`
+- `chore/update-dependencies`
+
+**Note**: Branch naming is enforced by the `create_branch.sh` script. Invalid branch names will be rejected with a clear error message.
 
 ---
 
@@ -75,6 +85,29 @@ See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details
    cargo fmt --check
    cargo clippy --workspace
    ```
+
+### Creating a PR
+
+The `create_pr.sh` script automates PR creation and **automatically runs tests** before creating the PR to ensure code quality:
+
+```bash
+bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
+```
+
+**Test enforcement:**
+- By default, `create_pr.sh` runs `cargo test --workspace` before creating the PR
+- If tests fail, the PR will not be created
+- To skip tests (not recommended), use the `--skip-tests` flag:
+  ```bash
+  bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh --skip-tests
+  ```
+- Skipping tests will display a warning reminder to ensure proper testing before merging
+
+**Additional options:**
+- `--base <branch>`: Specify the base branch (default: `dev`)
+- `--title <title>`: Custom PR title
+- `--body <body>`: Custom PR description
+- `--draft`: Create as draft PR
 
 ### PR Requirements
 

@@ -26,7 +26,10 @@ async fn flush_and_stop_periodic_task(
 ) {
     flush_handle.abort();
     if let Err(err) = manager.flush_if_dirty().await {
-        warn!(%err, "Failed to flush {}", context);
+        warn!(%err, "Failed to flush accounts {}", context);
+    }
+    if let Err(err) = manager.flush_audit().await {
+        warn!(%err, "Failed to flush audit log {}", context);
     }
 }
 
