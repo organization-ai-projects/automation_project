@@ -356,8 +356,6 @@ fn meta(cmd: &Command) -> Metadata {
     cmd.metadata.clone()
 }
 
-#[cfg(test)]
-mod tests {
     use super::*;
     use crate::tests::test_helpers::*;
     use crate::validation_error::{E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED};
@@ -508,4 +506,4 @@ mod tests {
             "Expected /tmp/test-repo to be accepted as a whitelisted repo path"
         );
     }
-}
+
