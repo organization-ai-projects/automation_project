@@ -132,6 +132,7 @@ See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details
    ```bash
    cargo fmt --check
    cargo clippy --workspace
+   npm run lint-md  # Markdown linting (requires npm install)
    ```
 
 ### Creating a PR
@@ -247,6 +248,7 @@ mod tests {
 - Avoid breaking public APIs without a clear migration path.
 - Follow existing code style and patterns.
 - Use `cargo fmt` for formatting and `cargo clippy` for lints.
+- Use `npm run lint-md` for markdown linting and `npm run lint-md-fix` for auto-fixing markdown issues.
 
 ---
 
