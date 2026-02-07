@@ -5,7 +5,9 @@
   "description": "Markdown linting configuration for automation_project",
   "scripts": {
     "lint-md": "markdownlint-cli2 \"**/*.md\" \"#target\" \"#node_modules\"",
-    "lint-md-fix": "markdownlint-cli2 --fix \"**/*.md\" \"#target\" \"#node_modules\""
+    "lint-md-fix": "markdownlint-cli2 --fix \"**/*.md\" \"#target\" \"#node_modules\"",
+    "lint-md-files": "markdownlint-cli2 \"#target\" \"#node_modules\"",
+    "lint-md-fix-files": "markdownlint-cli2 --fix \"#target\" \"#node_modules\""
   },
   "devDependencies": {
     "markdownlint-cli2": "^0.13.0"
