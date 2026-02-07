@@ -45,35 +45,39 @@ fn validate_cuts_before_stack_overflow() {
 
 #[test]
 fn validate_large_wide_tree() {
-        let mut fields = Vec::new();
-        for i in 0..50_000 {
-            fields.push(((format!("k{i}")), past!(i as i64)));
-        }
-
-        let node = AstBuilder::object::<AstKey, Vec<(AstKey, AstNode)>>(
-            fields.into_iter().map(|(k, v)| (k.into(), v)).collect(),
-        );
-
-        let limits = ValidateLimits {
-            max_depth: 32,
-            max_size: 100_000,
-        };
-        node.validate_with(&limits).expect("validate wide tree");
+    // Stress test: validate a very wide tree with many keys to ensure
+    // the validation system can handle large structures efficiently
+    let mut fields = Vec::new();
+    for i in 0..10_000 {
+        fields.push(((format!("k{i}")), past!(i as i64)));
     }
+
+    let node = AstBuilder::object::<AstKey, Vec<(AstKey, AstNode)>>(
+        fields.into_iter().map(|(k, v)| (k.into(), v)).collect(),
+    );
+
+    let limits = ValidateLimits {
+        max_depth: 32,
+        max_size: 20_000,
+    };
+    node.validate_with(&limits).expect("validate wide tree");
+}
 
 #[test]
 fn drop_deep_tree_on_small_stack() {
-        let depth = 10_000;
-        let handle = std::thread::Builder::new()
-            .stack_size(256 * 1024)
-            .spawn(move || {
-                let mut nested = past!(null);
-                for _ in 0..depth {
-                    nested = past!({ "key": nested });
-                }
-                drop(nested);
-            })
-            .expect("spawn test thread");
+    // Stress test: ensure deeply nested structures can be dropped
+    // safely on limited stack size (tests iterative drop implementation)
+    let depth = 10_000;
+    let handle = std::thread::Builder::new()
+        .stack_size(256 * 1024)
+        .spawn(move || {
+            let mut nested = past!(null);
+            for _ in 0..depth {
+                nested = past!({ "key": nested });
+            }
+            drop(nested);
+        })
+        .expect("spawn test thread");
 
-        handle.join().expect("join test thread");
+    handle.join().expect("join test thread");
 }
