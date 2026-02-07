@@ -49,6 +49,7 @@ url = "2"
 tokio-tungstenite = { version = "0.28" }
 bytes = "1.11"
 tokio = { version = "1", default-features = false, features = ["full"] }
+lazy_static = "1.5"
 anyhow = "1.0.101"
 tracing-subscriber = "0.3"
 
