@@ -122,8 +122,9 @@ if [[ "$cmd" == "pr" && "$sub" == "create" ]]; then
   # If both branches specified, check if they're identical
   if [[ -n "$base_branch" && -n "$head_branch" ]]; then
     # Get the commit SHAs for comparison
-    base_sha=$(git rev-parse "origin/$base_branch" 2>/dev/null || echo "")
-    head_sha=$(git rev-parse "origin/$head_branch" 2>/dev/null || echo "")
+    # Try local ref first, then fall back to origin/<ref>
+    base_sha=$(git rev-parse "$base_branch" 2>/dev/null || git rev-parse "origin/$base_branch" 2>/dev/null || echo "")
+    head_sha=$(git rev-parse "$head_branch" 2>/dev/null || git rev-parse "origin/$head_branch" 2>/dev/null || echo "")
     
     if [[ -n "$base_sha" && -n "$head_sha" && "$base_sha" == "$head_sha" ]]; then
       # Branches are identical - no commits between them

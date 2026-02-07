@@ -11,7 +11,7 @@ git_branch_exists_local() {
 git_branch_exists_remote() {
   local remote="$1"
   local branch="$2"
-  git ls-remote --heads "$remote" "$branch" | grep -q "$branch"
+  git ls-remote --exit-code --heads "$remote" "$branch" >/dev/null 2>&1
 }
 
 # Delete local branch if it exists

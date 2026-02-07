@@ -51,9 +51,9 @@ _log() {
   local prefix="[$timestamp] [$level]"
   
   if [[ "$USE_COLORS" == "true" ]]; then
-    echo -e "${color}${prefix}${COLOR_RESET} ${message}" >&2
+    printf '%b%s%b %s\n' "$color" "$prefix" "$COLOR_RESET" "$message" >&2
   else
-    echo "${prefix} ${message}" >&2
+    printf '%s %s\n' "$prefix" "$message" >&2
   fi
 }
 
