@@ -8,13 +8,25 @@ fn test_integration_apply_top_k() {
     let filtered = apply_top_k(&probs, 2);
 
     // Top 2 probabilities should be preserved
-    assert!(filtered[3] > 0.0, "highest probability (0.4) should be preserved");
-    assert!(filtered[2] > 0.0, "second highest probability (0.3) should be preserved");
-    
+    assert!(
+        filtered[3] > 0.0,
+        "highest probability (0.4) should be preserved"
+    );
+    assert!(
+        filtered[2] > 0.0,
+        "second highest probability (0.3) should be preserved"
+    );
+
     // Lower probabilities should be zeroed out
-    assert_eq!(filtered[1], 0.0, "third probability should be filtered to 0.0");
-    assert_eq!(filtered[0], 0.0, "lowest probability should be filtered to 0.0");
-    
+    assert_eq!(
+        filtered[1], 0.0,
+        "third probability should be filtered to 0.0"
+    );
+    assert_eq!(
+        filtered[0], 0.0,
+        "lowest probability should be filtered to 0.0"
+    );
+
     // Filtered result should still be valid probabilities
     for &val in filtered.iter() {
         assert!(val >= 0.0, "filtered probability should be non-negative");
@@ -28,12 +40,18 @@ fn test_integration_sample_categorical() {
 
     // With probability 1.0 at index 1, should always sample index 1
     assert_eq!(token, 1, "should sample the token with probability 1.0");
-    
+
     // Test with uniform distribution
     let uniform_probs = Array1::from_vec(vec![0.33, 0.34, 0.33]);
     let result = sample_categorical(&uniform_probs);
-    assert!(result.is_ok(), "sampling from uniform distribution should succeed");
-    
+    assert!(
+        result.is_ok(),
+        "sampling from uniform distribution should succeed"
+    );
+
     let sampled_token = result.expect("should return valid token");
-    assert!(sampled_token < 3, "sampled token should be within valid range");
+    assert!(
+        sampled_token < 3,
+        "sampled token should be within valid range"
+    );
 }

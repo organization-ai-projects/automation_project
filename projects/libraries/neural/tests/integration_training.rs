@@ -1,8 +1,8 @@
 // projects/libraries/neural/tests/integration_training.rs
 mod helpers;
 
+use helpers::{create_basic_tokenizer, create_sample_training_data, create_test_network};
 use neural::generation::{GenerationConfig, code_generator::CodeGenerator};
-use helpers::{create_test_network, create_basic_tokenizer, create_sample_training_data};
 
 #[test]
 fn test_code_generator_training() {
