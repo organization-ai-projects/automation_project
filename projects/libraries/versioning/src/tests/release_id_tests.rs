@@ -24,7 +24,7 @@ fn can_format_as_string() {
 
 #[test]
 fn can_parse_from_string() {
-    let parsed = ReleaseId::parse_str("4.2.1").unwrap();
+    let parsed = ReleaseId::parse_str("4.2.1").expect("failed to parse release id");
     assert_eq!(parsed.first_tier(), 4);
     assert_eq!(parsed.second_tier(), 2);
     assert_eq!(parsed.third_tier(), 1);
@@ -34,7 +34,7 @@ fn can_parse_from_string() {
 fn roundtrip_conversion() {
     let original = ReleaseId::build(6, 11, 3);
     let as_string = original.to_string();
-    let parsed: ReleaseId = as_string.parse().unwrap();
+    let parsed: ReleaseId = as_string.parse().expect("failed to parse release id");
     assert_eq!(original, parsed);
 }
 
