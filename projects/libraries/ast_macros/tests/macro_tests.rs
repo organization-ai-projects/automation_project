@@ -52,7 +52,7 @@ fn test_value_macro() {
 #[test]
 fn test_build_array_macro() {
     let arr = build_array!([1, 2, 3]);
-    
+
     match &arr.kind {
         AstKind::Array(elements) => {
             assert_eq!(elements.len(), 3);
@@ -67,7 +67,7 @@ fn test_build_object_macro() {
         name: "test",
         count: 42
     });
-    
+
     match &obj.kind {
         AstKind::Object(fields) => {
             assert_eq!(fields.len(), 2);
@@ -86,7 +86,7 @@ fn test_nested_structures() {
             }
         }
     });
-    
+
     assert!(matches!(nested.kind, AstKind::Object(_)));
 }
 
