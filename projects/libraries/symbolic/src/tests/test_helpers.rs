@@ -1,8 +1,8 @@
 // projects/libraries/symbolic/src/tests/test_helpers.rs
 //! Shared test utilities and helpers to reduce boilerplate across test modules.
 
-use crate::validator::CodeValidator;
 use crate::validation_result::ValidationResult;
+use crate::validator::CodeValidator;
 
 /// Standard test result type for consistent error handling across test modules.
 pub type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
@@ -29,11 +29,8 @@ pub fn create_strict_validator() -> CodeValidator {
 /// assert_warn_contains(&validation, "Type mismatch");
 /// ```
 pub fn assert_warn_contains(validation: &ValidationResult, substring: &str) {
-    let found = validation
-        .warnings
-        .iter()
-        .any(|w| w.contains(substring));
-    
+    let found = validation.warnings.iter().any(|w| w.contains(substring));
+
     assert!(
         found,
         "Expected warning containing '{}', but found warnings: {:?}",
@@ -49,17 +46,18 @@ pub fn assert_warn_not_contains(validation: &ValidationResult, substring: &str) 
     } else {
         substring.to_string()
     };
-    
-    let found = validation
-        .warnings
-        .iter()
-        .any(|w| w.contains(&pattern));
-    
+
+    let found = validation.warnings.iter().any(|w| w.contains(&pattern));
+
     assert!(
         !found,
         "Expected no warning containing '{}', but found: {:?}",
         pattern,
-        validation.warnings.iter().filter(|w| w.contains(&pattern)).collect::<Vec<_>>()
+        validation
+            .warnings
+            .iter()
+            .filter(|w| w.contains(&pattern))
+            .collect::<Vec<_>>()
     );
 }
 
@@ -77,7 +75,7 @@ pub fn assert_warn_contains_all(validation: &ValidationResult, substrings: &[&st
         .warnings
         .iter()
         .any(|w| substrings.iter().all(|s| w.contains(s)));
-    
+
     assert!(
         found,
         "Expected warning containing all of {:?}, but found warnings: {:?}",
@@ -90,7 +88,9 @@ pub fn assert_min_warnings(validation: &ValidationResult, min_count: usize) {
     assert!(
         validation.warnings.len() >= min_count,
         "Expected at least {} warnings, but found {}: {:?}",
-        min_count, validation.warnings.len(), validation.warnings
+        min_count,
+        validation.warnings.len(),
+        validation.warnings
     );
 }
 
@@ -117,11 +117,8 @@ pub fn assert_invalid(validation: &ValidationResult) {
 
 /// Asserts that a validation result contains an error matching a substring.
 pub fn assert_error_contains(validation: &ValidationResult, substring: &str) {
-    let found = validation
-        .errors
-        .iter()
-        .any(|e| e.contains(substring));
-    
+    let found = validation.errors.iter().any(|e| e.contains(substring));
+
     assert!(
         found,
         "Expected error containing '{}', but found errors: {:?}",

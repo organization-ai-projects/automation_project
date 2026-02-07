@@ -1,11 +1,10 @@
-use crate::rules::{RulesEngine, RulesError};
 use super::test_helpers::TestResult;
+use crate::rules::{RulesEngine, RulesError};
 
 /// Helper to create a RulesEngine, panicking with helpful message if creation fails.
 fn create_engine() -> RulesEngine {
     RulesEngine::new().expect("Failed to create RulesEngine")
 }
-
 
 #[test]
 fn test_rules_engine_creation() {
@@ -92,4 +91,3 @@ fn test_template_not_found() {
     assert!(result.is_err());
     assert!(matches!(result, Err(RulesError::TemplateNotFound(_))));
 }
-

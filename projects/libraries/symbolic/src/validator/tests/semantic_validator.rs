@@ -1,9 +1,8 @@
-use crate::validator::CodeValidator;
 use super::test_helpers::{
-    create_validator, create_strict_validator, assert_valid, assert_warn_contains,
-    assert_warn_not_contains, assert_warn_contains_all, assert_min_warnings, TestResult,
+    TestResult, assert_min_warnings, assert_valid, assert_warn_contains, assert_warn_contains_all,
+    assert_warn_not_contains, create_strict_validator, create_validator,
 };
-
+use crate::validator::CodeValidator;
 
 #[test]
 fn test_unused_variable_detection() -> TestResult {
@@ -100,7 +99,6 @@ fn test_dead_code_with_break() -> TestResult {
     assert_warn_contains(&validation, "Unreachable");
     Ok(())
 }
-
 
 #[test]
 fn test_strict_mode_unused_variable() -> TestResult {
@@ -203,7 +201,6 @@ fn test_no_semantic_issues() -> TestResult {
     );
     Ok(())
 }
-
 
 #[test]
 fn test_dead_code_in_loop_doesnt_propagate() -> TestResult {
@@ -315,7 +312,6 @@ fn test_import_in_type_position() -> TestResult {
     Ok(())
 }
 
-
 #[test]
 fn test_type_inconsistency_detection() -> TestResult {
     let validator = create_validator();
@@ -415,4 +411,3 @@ fn test_multiple_validation_types() -> TestResult {
     assert_warn_contains(&validation, "Unreachable");
     Ok(())
 }
-

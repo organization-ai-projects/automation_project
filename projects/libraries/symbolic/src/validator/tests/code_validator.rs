@@ -1,6 +1,8 @@
+use super::test_helpers::{
+    TestResult, assert_invalid, assert_valid, assert_warn_contains, create_strict_validator,
+    create_validator,
+};
 use crate::validator::CodeValidator;
-use super::test_helpers::{create_validator, create_strict_validator, assert_valid, assert_invalid, assert_warn_contains, TestResult};
-
 
 #[test]
 fn test_validator_creation() {
@@ -58,7 +60,6 @@ fn test_warnings() -> TestResult {
     assert_warn_contains(&validation, "try");
     Ok(())
 }
-
 
 #[test]
 fn test_suggest_fix_semicolon() {
@@ -130,4 +131,3 @@ fn test_suggest_fix_no_match() {
 
     assert!(fix.is_none());
 }
-
