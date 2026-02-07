@@ -30,11 +30,11 @@ async fn create_test_manager_with_config(
 
 async fn read_audit_log(data_dir: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let audit_path: PathBuf = data_dir.join("audit.log");
-    let exists = tokio::fs::try_exists(&audit_path).await?;
-    if !exists {
-        return Ok(vec![]);
-    }
-    let content: String = tokio::fs::read_to_string(&audit_path).await?;
+    let content: String = match tokio::fs::read_to_string(&audit_path).await {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+        Err(e) => return Err(Box::new(e)),
+    };
     Ok(content.lines().map(|s: &str| s.to_string()).collect())
 }
 
