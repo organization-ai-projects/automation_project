@@ -8,12 +8,11 @@ fn test_patch_op_add() {
         path: "/path".to_string(),
         value: Json::String("value".to_string()),
     };
-    if let PatchOp::Add { path, value } = op {
-        assert_eq!(path, "/path");
-        assert_eq!(value, Json::String("value".to_string()));
-    } else {
+    let PatchOp::Add { path, value } = op else {
         panic!("Expected Add operation");
-    }
+    };
+    assert_eq!(path, "/path");
+    assert_eq!(value, Json::String("value".to_string()));
 }
 
 #[test]
@@ -21,11 +20,10 @@ fn test_patch_op_remove() {
     let op = PatchOp::Remove {
         path: "/path".to_string(),
     };
-    if let PatchOp::Remove { path } = op {
-        assert_eq!(path, "/path");
-    } else {
+    let PatchOp::Remove { path } = op else {
         panic!("Expected Remove operation");
-    }
+    };
+    assert_eq!(path, "/path");
 }
 
 #[test]
@@ -34,12 +32,11 @@ fn test_patch_op_replace() {
         path: "/path".to_string(),
         value: Json::String("new_value".to_string()),
     };
-    if let PatchOp::Replace { path, value } = op {
-        assert_eq!(path, "/path");
-        assert_eq!(value, Json::String("new_value".to_string()));
-    } else {
+    let PatchOp::Replace { path, value } = op else {
         panic!("Expected Replace operation");
-    }
+    };
+    assert_eq!(path, "/path");
+    assert_eq!(value, Json::String("new_value".to_string()));
 }
 
 #[test]

@@ -6,8 +6,7 @@ use lazy_static::lazy_static;
 use protocol::ProtocolId;
 use security::Role;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
-use tokio::time::{Duration, sleep};
+use tokio::time::Duration;
 
 lazy_static! {
     static ref PASSWORDS: TestPasswords = TestPasswords::new();
@@ -15,25 +14,19 @@ lazy_static! {
 
 // Shared counter for unique test directory names
 static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+use super::helpers::{TestResult, create_unique_temp_dir, poll_until_async};
 
-fn create_unique_temp_dir() -> PathBuf {
-    let id = TEST_DIR_COUNTER.fetch_add(1, AtomicOrdering::Relaxed);
-    std::env::temp_dir().join(format!("accounts_test_{}_{}", current_timestamp_ms(), id))
-}
-
-async fn create_test_manager() -> Result<AccountManager, Box<dyn std::error::Error>> {
-    let temp_dir = create_unique_temp_dir();
+async fn create_test_manager() -> TestResult<AccountManager> {
+    let temp_dir = create_unique_temp_dir("accounts_test");
     Ok(AccountManager::load(temp_dir).await?)
 }
 
-async fn create_test_manager_with_config(
-    config: AuditBufferConfig,
-) -> Result<AccountManager, Box<dyn std::error::Error>> {
-    let temp_dir = create_unique_temp_dir();
+async fn create_test_manager_with_config(config: AuditBufferConfig) -> TestResult<AccountManager> {
+    let temp_dir = create_unique_temp_dir("accounts_test");
     Ok(AccountManager::load_with_config(temp_dir, config).await?)
 }
 
-async fn read_audit_log(data_dir: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+async fn read_audit_log(data_dir: &Path) -> TestResult<Vec<String>> {
     let audit_path: PathBuf = data_dir.join("audit.log");
     let content: String = match tokio::fs::read_to_string(&audit_path).await {
         Ok(c) => c,
@@ -80,17 +73,20 @@ async fn test_login_sets_dirty_flag() {
             "test_actor",
         )
         .await
-        .expect("Failed to create user");
+        .expect("Failed to create test user");
 
     // Clear dirty flag after create
     manager.set_dirty(false);
-    assert!(!manager.is_dirty(), "Dirty flag should be false initially");
+    assert!(
+        !manager.is_dirty(),
+        "Dirty flag should be false after clearing"
+    );
 
     // Authenticate (login)
     manager
         .authenticate(&user_id, &PASSWORDS.test_password)
         .await
-        .expect("Failed to authenticate user");
+        .expect("Failed to authenticate test user");
 
     // Check that dirty flag is set
     assert!(manager.is_dirty(), "Dirty flag should be true after login");
@@ -116,34 +112,48 @@ async fn test_flush_if_dirty_saves_data() {
             "test_actor",
         )
         .await
-        .expect("Failed to create user");
+        .expect("Failed to create test user");
 
     // Authenticate to update last_login_ms
     manager
         .authenticate(&user_id, &PASSWORDS.test_password)
         .await
-        .expect("Failed to authenticate user");
+        .expect("Failed to authenticate test user");
 
     // Get last_login_ms before flush
-    let user_before = manager.get(&user_id).await.unwrap();
+    let user_before = manager
+        .get(&user_id)
+        .await
+        .expect("Failed to get user before flush");
     assert!(
         user_before.last_login_ms.is_some(),
-        "last_login_ms should be set"
+        "last_login_ms should be set after authentication"
     );
     let login_time = user_before.last_login_ms.unwrap();
 
     // Flush the dirty data
-    assert!(manager.is_dirty(), "Should be dirty before flush");
-    manager.flush_if_dirty().await.unwrap();
-    assert!(!manager.is_dirty(), "Should not be dirty after flush");
+    assert!(manager.is_dirty(), "Manager should be dirty before flush");
+    manager
+        .flush_if_dirty()
+        .await
+        .expect("Failed to flush dirty data");
+    assert!(
+        !manager.is_dirty(),
+        "Manager should not be dirty after flush"
+    );
 
     // Reload from disk
     let data_dir = manager.data_dir().clone();
     drop(manager);
-    let reloaded = AccountManager::load(data_dir.clone()).await.unwrap();
+    let reloaded = AccountManager::load(data_dir.clone())
+        .await
+        .expect("Failed to reload manager from disk");
 
     // Verify last_login_ms persisted
-    let user_after = reloaded.get(&user_id).await.unwrap();
+    let user_after = reloaded
+        .get(&user_id)
+        .await
+        .expect("Failed to get user after reload");
     assert_eq!(
         user_after.last_login_ms,
         Some(login_time),
@@ -164,7 +174,10 @@ async fn test_flush_if_dirty_skips_when_clean() {
     manager.set_dirty(false);
 
     // Call flush_if_dirty when clean - should not error
-    manager.flush_if_dirty().await.unwrap();
+    manager
+        .flush_if_dirty()
+        .await
+        .expect("flush_if_dirty should not error when clean");
 
     // Cleanup
     tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
@@ -234,24 +247,18 @@ async fn test_audit_entries_batched() {
     manager
         .create(user_id1, &PASSWORDS.password1, Role::User, vec![], "admin")
         .await
-        .expect("Failed to create first user");
-
-    // Small delay to ensure async operations complete
-    sleep(Duration::from_millis(50)).await;
+        .expect("Failed to create first test user");
 
     // Create second user - adds 2nd audit entry
     manager
         .create(user_id2, &PASSWORDS.password2, Role::User, vec![], "admin")
         .await
-        .expect("Failed to create second user");
-
-    // Small delay to ensure async operations complete
-    sleep(Duration::from_millis(50)).await;
+        .expect("Failed to create second test user");
 
     // Check audit log - should still be buffered (only 2 entries)
     let lines = read_audit_log(manager.data_dir())
         .await
-        .expect("Failed to read audit log");
+        .expect("Failed to read audit log before threshold");
     assert_eq!(
         lines.len(),
         0,
@@ -262,15 +269,26 @@ async fn test_audit_entries_batched() {
     manager
         .authenticate(&user_id1, &PASSWORDS.password1) // Use the same password as during creation
         .await
-        .expect("Failed to authenticate user");
+        .expect("Failed to authenticate test user");
 
-    // Small delay to ensure flush completes
-    sleep(Duration::from_millis(100)).await;
+    // Poll until flush completes (with timeout)
+    poll_until_async(
+        || async {
+            read_audit_log(manager.data_dir())
+                .await
+                .map(|lines| lines.len() == 3)
+                .unwrap_or(false)
+        },
+        Duration::from_secs(2),
+        Duration::from_millis(10),
+    )
+    .await
+    .expect("Audit log should flush all 3 entries at threshold");
 
-    // Now should have flushed all 3 entries
+    // Verify final state
     let lines = read_audit_log(manager.data_dir())
         .await
-        .expect("Failed to read audit log");
+        .expect("Failed to read audit log after threshold");
     assert_eq!(lines.len(), 3, "Should flush all 3 entries at threshold");
 
     // Cleanup
@@ -329,23 +347,41 @@ async fn test_audit_periodic_flush() {
     manager
         .create(user_id, "password", Role::User, vec![], "admin")
         .await
-        .expect("Failed to create user");
+        .expect("Failed to create test user");
 
     // Should still be buffered
     let lines = read_audit_log(manager.data_dir())
         .await
-        .expect("Failed to read audit log");
-    assert_eq!(lines.len(), 0);
+        .expect("Failed to read audit log before periodic flush");
+    assert_eq!(
+        lines.len(),
+        0,
+        "Audit entries should be buffered before periodic flush"
+    );
 
-    // Wait for periodic flush
-    sleep(Duration::from_secs(3)).await;
+    // Poll for periodic flush (2s interval + buffer time)
+    poll_until_async(
+        || async {
+            read_audit_log(manager.data_dir())
+                .await
+                .map(|lines| lines.len() == 1)
+                .unwrap_or(false)
+        },
+        Duration::from_secs(5),
+        Duration::from_millis(100),
+    )
+    .await
+    .expect("Audit log should contain 1 entry after periodic flush");
 
-    // Should have flushed
+    // Verify final state
     let lines = read_audit_log(manager.data_dir())
         .await
-        .expect("Failed to read audit log");
-    assert_eq!(lines.len(), 1);
-    assert!(lines[0].contains("create"));
+        .expect("Failed to read audit log after periodic flush");
+    assert_eq!(lines.len(), 1, "Should have 1 entry after periodic flush");
+    assert!(
+        lines[0].contains("create"),
+        "Entry should contain create action"
+    );
 
     // Cleanup
     tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
@@ -367,23 +403,40 @@ async fn test_audit_entries_maintain_order() {
         manager
             .create(user_id, "password", Role::User, vec![], "admin")
             .await
-            .expect("Failed to create user");
+            .expect("Failed to create test user in order test");
     }
 
     // Flush manually
-    manager.flush_audit().await.expect("Failed to flush audit");
+    manager
+        .flush_audit()
+        .await
+        .expect("Failed to manually flush audit in order test");
+
+    // Poll until flush completes
+    poll_until_async(
+        || async {
+            read_audit_log(manager.data_dir())
+                .await
+                .map(|lines| lines.len() == 5)
+                .unwrap_or(false)
+        },
+        Duration::from_secs(2),
+        Duration::from_millis(10),
+    )
+    .await
+    .expect("Audit log should contain 5 entries after manual flush");
 
     // Verify order - all entries should be present
     let lines = read_audit_log(manager.data_dir())
         .await
-        .expect("Failed to read audit log");
-    assert_eq!(lines.len(), 5);
+        .expect("Failed to read audit log for order verification");
+    assert_eq!(lines.len(), 5, "Should have 5 audit entries");
 
     // All entries should contain "create" action
     for line in &lines {
         assert!(
             line.contains("create"),
-            "Each entry should be a create action"
+            "Each audit entry should be a create action"
         );
     }
 

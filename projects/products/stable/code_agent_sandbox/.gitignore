@@ -6,8 +6,8 @@ data/runs/
 */agent_memory.jsonl
 */policy_overrides.toml
 
-# Any UUID-named directories (simplified pattern for common UUID format)
-*-*-*-*-*/
+# Any UUID-named directories under data/runs/ (scoped pattern)
+data/runs/*-*-*-*-*/
 
 # Timestamped run directories (format: YYYYMMDD_HHMMSS_mmm_*)
 20[0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9]_*/

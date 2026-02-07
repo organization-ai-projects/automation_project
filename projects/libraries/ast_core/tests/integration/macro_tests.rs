@@ -1,4 +1,5 @@
 // projects/libraries/ast_core/tests/integration/macro_tests.rs
+use crate::helpers::{assert_bool_key, assert_int_key, assert_nested_string, assert_string_key};
 use ast_core::past;
 
 #[test]
@@ -10,22 +11,9 @@ fn test_macro_build_object() {
     });
 
     assert!(node.is_object());
-    assert_eq!(
-        node.get("name").expect("Missing 'name' key").as_string(),
-        Some("test")
-    );
-    assert_eq!(
-        node.get("value")
-            .expect("Missing 'value' key")
-            .as_number()
-            .expect("'value' is not a number")
-            .as_i64(),
-        Some(42)
-    );
-    assert_eq!(
-        node.get("active").expect("Missing 'active' key").as_bool(),
-        Some(true)
-    );
+    assert_string_key(&node, "name", "test");
+    assert_int_key(&node, "value", 42);
+    assert_bool_key(&node, "active", true);
 }
 
 #[test]
@@ -35,27 +23,9 @@ fn test_macro_build_array() {
     assert!(node.is_array());
     let arr = node.as_array().expect("Node is not an array");
     assert_eq!(arr.len(), 3);
-    assert_eq!(
-        arr[0]
-            .as_number()
-            .expect("Element 0 is not a number")
-            .as_i64(),
-        Some(1)
-    );
-    assert_eq!(
-        arr[1]
-            .as_number()
-            .expect("Element 1 is not a number")
-            .as_i64(),
-        Some(2)
-    );
-    assert_eq!(
-        arr[2]
-            .as_number()
-            .expect("Element 2 is not a number")
-            .as_i64(),
-        Some(3)
-    );
+    assert_eq!(arr[0].as_number().and_then(|n| n.as_i64()), Some(1));
+    assert_eq!(arr[1].as_number().and_then(|n| n.as_i64()), Some(2));
+    assert_eq!(arr[2].as_number().and_then(|n| n.as_i64()), Some(3));
 }
 
 #[test]
@@ -123,27 +93,14 @@ fn test_macro_nested_structures() {
     });
 
     assert!(node.is_object());
-    assert!(
-        node.get("level1")
-            .expect("Missing 'level1' key")
-            .get("level2")
-            .expect("Missing 'level2' key")
-            .get("level3")
-            .expect("Missing 'level3' key")
-            .is_object()
-    );
-    assert_eq!(
-        node.get("level1")
-            .expect("Missing 'level1' key")
-            .get("level2")
-            .expect("Missing 'level2' key")
-            .get("level3")
-            .expect("Missing 'level3' key")
-            .get("key")
-            .expect("Missing 'key' key")
-            .as_string(),
-        Some("value")
-    );
+    // Verify the nested structure exists
+    let level3 = node
+        .get("level1")
+        .and_then(|l1| l1.get("level2"))
+        .and_then(|l2| l2.get("level3"))
+        .expect("Missing nested keys");
+    assert!(level3.is_object());
+    assert_nested_string(&node, &["level1", "level2", "level3", "key"], "value");
 }
 
 #[test]
@@ -215,31 +172,16 @@ fn test_macro_large_nested_structure() {
     });
 
     assert!(node.is_object());
-    assert_eq!(
-        node.get("level1")
-            .expect("Missing 'level1' key")
-            .get("level2")
-            .expect("Missing 'level2' key")
-            .get("level3")
-            .expect("Missing 'level3' key")
-            .get("level4")
-            .expect("Missing 'level4' key")
-            .get("level5")
-            .expect("Missing 'level5' key")
-            .get("key")
-            .expect("Missing 'key' key")
-            .as_string(),
-        Some("deep_value")
+    assert_nested_string(
+        &node,
+        &["level1", "level2", "level3", "level4", "level5", "key"],
+        "deep_value",
     );
 }
 
 #[test]
 fn test_macro_large_object() {
-    let mut large_object = std::collections::HashMap::new();
-    for i in 0..1000 {
-        large_object.insert(format!("key{}", i), i);
-    }
-
+    // Note: The 1000-key HashMap was not actually used, simplified to just test macro with 10 keys
     let node = past!({
         key0: 0,
         key1: 1,

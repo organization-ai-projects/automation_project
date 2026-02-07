@@ -13,32 +13,15 @@ pub fn evaluate_plan(plan: &ActionPlan, policy: &Policy) -> Vec<PolicyDecision> 
 #[cfg(test)]
 mod tests {
     use crate::{
-        domain::{
-            Action, ActionPlan, ActionStatus, ActionTarget, Policy, RiskLevel,
-            policy_decision_type::PolicyDecisionType,
-        },
+        domain::{ActionPlan, Policy, policy_decision_type::PolicyDecisionType},
         plan_evaluator::evaluate_plan,
+        tests::test_helpers::build_test_action,
     };
 
     #[test]
     fn test_evaluate_plan_allows_read_only() {
         let mut plan = ActionPlan::new("Test".to_string());
-        plan.add_action(Action {
-            id: "test_001".to_string(),
-            action_type: "analyze_repository".to_string(),
-            status: ActionStatus::Proposed,
-            target: ActionTarget::Repo {
-                reference: "test/repo".to_string(),
-            },
-            justification: "Test".to_string(),
-            risk_level: RiskLevel::Low,
-            required_checks: vec![],
-            confidence: 0.9,
-            evidence: vec![],
-            depends_on: None,
-            missing_inputs: None,
-            dry_run: None,
-        });
+        plan.add_action(build_test_action("analyze_repository", 0.9));
 
         let policy = Policy::default();
         let decisions = evaluate_plan(&plan, &policy);
