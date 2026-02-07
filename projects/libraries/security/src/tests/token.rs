@@ -5,7 +5,9 @@ use common_time::timestamp_utils::current_timestamp_ms;
 
 use crate::{Role, Token, TokenError};
 
-use super::helpers::{build_expired_token, build_test_token, build_token_expires_in, test_protocol_id};
+use super::helpers::{
+    build_expired_token, build_test_token, build_token_expires_in, test_protocol_id,
+};
 
 #[test]
 fn test_is_expired() {
@@ -17,17 +19,17 @@ fn test_is_expired() {
 #[test]
 fn test_is_expired_with_grace() {
     let id = test_protocol_id(1);
-    
+
     // Test token that expired 50ms ago
     let now = current_timestamp_ms();
     let recently_expired = build_test_token(Role::User, id, now.saturating_sub(50));
-    
+
     // Should be expired without grace
     assert!(recently_expired.is_expired());
-    
+
     // Should NOT be expired with 200ms grace (50ms + 200ms grace = still in future)
     assert!(!recently_expired.is_expired_with_grace(200));
-    
+
     // Should be expired with only 10ms grace (50ms ago > 10ms grace)
     assert!(recently_expired.is_expired_with_grace(10));
 }

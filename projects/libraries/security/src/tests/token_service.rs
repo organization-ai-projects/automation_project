@@ -15,7 +15,7 @@ fn test_expired_token() {
     // Use a 1-second leeway for clock skew handling
     let service =
         TokenService::new_hs256_with_leeway(&"a".repeat(32), 1).expect("token service init");
-    
+
     // Issue a very short-lived token (100ms actual duration)
     let jwt = service
         .issue(test_protocol_id(1), Role::User, 100, None)
