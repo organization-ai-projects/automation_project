@@ -1,6 +1,4 @@
 // projects/libraries/common_json/src/serialization/tests/mod.rs
-// Import shared TestResult type from root tests module
-use crate::tests::test_helpers::TestResult;
 
 mod helpers;
 mod json_map_serializer;
