@@ -11,7 +11,10 @@ fn test_tokenization() {
     
     let tokens = result.expect("tokenization should return valid tokens");
     assert_eq!(tokens.len(), 4, "tokenized output should have 4 tokens");
-    assert!(tokens.iter().all(|&t| t < 10.0), "all tokens should be within vocab size");
+    assert!(
+        tokens.iter().all(|&t| t.is_finite() && t >= 0.0 && t <= 1.0),
+        "all tokens should be finite and in the range [0.0, 1.0]"
+    );
 }
 
 #[test]
