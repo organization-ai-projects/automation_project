@@ -1,47 +1,70 @@
-#[cfg(test)]
-mod tests {
-    use super::*;
+use crate::feedbacks::conversions::tests::test_helpers::*;
+use crate::feedbacks::internal::internal_feedback_verdict::InternalFeedbackVerdict;
+use symbolic::feedback_symbolic::SymbolicFeedback;
 
-    #[test]
-    fn test_internal_feedback_verdict_to_symbolic_feedback() {
-        // Test case: Correct verdict
-        let internal_verdict = InternalFeedbackVerdict::Correct;
-        let symbolic_feedback: SymbolicFeedback = internal_verdict.into();
-        assert!(symbolic_feedback.is_positive());
-        assert!(symbolic_feedback.payload.is_none());
+#[test]
+fn test_internal_feedback_verdict_to_symbolic_feedback() {
+    // Table-driven test cases
+    let cases = [
+        (
+            "Correct verdict",
+            InternalFeedbackVerdict::Correct,
+            TestExpectation::PositiveNoPayload,
+        ),
+        (
+            "Rejected verdict",
+            InternalFeedbackVerdict::Rejected,
+            TestExpectation::NegativeNoPayload,
+        ),
+        (
+            "NoFeedback verdict",
+            InternalFeedbackVerdict::NoFeedback,
+            TestExpectation::NegativeNoPayload,
+        ),
+        (
+            "Incorrect verdict",
+            InternalFeedbackVerdict::Incorrect {
+                expected_output: "Expected output".into(),
+            },
+            TestExpectation::NegativeWithPayload("Expected output"),
+        ),
+        (
+            "Partial verdict",
+            InternalFeedbackVerdict::Partial {
+                correction: "Correction details".into(),
+            },
+            TestExpectation::NegativeWithPayload("Correction details"),
+        ),
+    ];
 
-        // Test case: Rejected verdict
-        let internal_verdict = InternalFeedbackVerdict::Rejected;
+    for (name, internal_verdict, expectation) in cases {
         let symbolic_feedback: SymbolicFeedback = internal_verdict.into();
-        assert!(!symbolic_feedback.is_positive());
-        assert!(symbolic_feedback.payload.is_none());
+        match expectation {
+            TestExpectation::PositiveNoPayload => {
+                assert_positive_no_payload(&symbolic_feedback);
+            }
+            TestExpectation::NegativeNoPayload => {
+                assert_negative_no_payload(&symbolic_feedback);
+            }
+            TestExpectation::NegativeWithPayload(payload) => {
+                assert_negative_with_payload(&symbolic_feedback, payload);
+            }
+        }
+        // Add context for better error messages
+        if symbolic_feedback.is_positive() != expectation.is_positive() {
+            panic!("Test case '{}' failed", name);
+        }
+    }
+}
 
-        // Test case: NoFeedback verdict
-        let internal_verdict = InternalFeedbackVerdict::NoFeedback;
-        let symbolic_feedback: SymbolicFeedback = internal_verdict.into();
-        assert!(!symbolic_feedback.is_positive());
-        assert!(symbolic_feedback.payload.is_none());
+enum TestExpectation {
+    PositiveNoPayload,
+    NegativeNoPayload,
+    NegativeWithPayload(&'static str),
+}
 
-        // Test case: Incorrect verdict
-        let internal_verdict = InternalFeedbackVerdict::Incorrect {
-            expected_output: "Expected output".to_string(),
-        };
-        let symbolic_feedback: SymbolicFeedback = internal_verdict.into();
-        assert!(!symbolic_feedback.is_positive());
-        assert_eq!(
-            symbolic_feedback.payload,
-            Some("Expected output".to_string())
-        );
-
-        // Test case: Partial verdict
-        let internal_verdict = InternalFeedbackVerdict::Partial {
-            correction: "Correction details".to_string(),
-        };
-        let symbolic_feedback: SymbolicFeedback = internal_verdict.into();
-        assert!(!symbolic_feedback.is_positive());
-        assert_eq!(
-            symbolic_feedback.payload,
-            Some("Correction details".to_string())
-        );
+impl TestExpectation {
+    fn is_positive(&self) -> bool {
+        matches!(self, TestExpectation::PositiveNoPayload)
     }
 }
