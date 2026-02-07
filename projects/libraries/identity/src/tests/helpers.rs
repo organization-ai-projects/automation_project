@@ -1,4 +1,3 @@
-// projects/libraries/identity/src/tests/helpers.rs
 // Shared test helpers to reduce duplication
 
 use common::Id128;

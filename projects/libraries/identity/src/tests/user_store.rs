@@ -25,18 +25,20 @@ async fn test_user_store_concurrent_access() {
         .await
         .expect("failed to add user");
 
-    // Simulate concurrent reads
+    // Simulate concurrent reads and verify correctness
     let store_clone1 = store.clone();
     let store_clone2 = store.clone();
     let user_id_clone1 = user_id.clone();
     let user_id_clone2 = user_id.clone();
 
     let handle1 = tokio::spawn(async move {
-        assert!(store_clone1.user_exists(&user_id_clone1).await);
+        let exists = store_clone1.user_exists(&user_id_clone1).await;
+        assert!(exists, "user should exist in task 1");
     });
 
     let handle2 = tokio::spawn(async move {
-        assert!(store_clone2.user_exists(&user_id_clone2).await);
+        let exists = store_clone2.user_exists(&user_id_clone2).await;
+        assert!(exists, "user should exist in task 2");
     });
 
     handle1.await.expect("task 1 panicked");

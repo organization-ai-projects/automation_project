@@ -1,4 +1,3 @@
-// projects/libraries/identity/tests/helpers/mod.rs
 // Shared test helpers for integration tests
 
 use common::Id128;
