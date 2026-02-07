@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Automate the creation of a pull request with smart defaults
-# Usage: ./create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] [--skip-tests]
+# Usage: bash create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] [--skip-tests]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
@@ -18,7 +18,6 @@ source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
 
 require_git_repo
 require_cmd gh
-require_cmd cargo
 
 CURRENT_BRANCH="$(get_current_branch)"
 BASE_BRANCH="${BASE_BRANCH:-dev}"
@@ -64,6 +63,8 @@ if [[ "$SKIP_TESTS" == true ]]; then
   warn "⚠ Skipping tests (--skip-tests flag used)."
   warn "⚠ Please ensure your changes are properly tested before merging."
 else
+  # Only require cargo if tests will actually run
+  require_cmd cargo
   info "Running workspace tests before creating PR..."
   info "To skip this check, use --skip-tests flag (not recommended)."
   cd "$ROOT_DIR"

@@ -81,7 +81,7 @@ See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details
 The `create_pr.sh` script automates PR creation and **automatically runs tests** before creating the PR to ensure code quality:
 
 ```bash
-./scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
+bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
 ```
 
 **Test enforcement:**
@@ -89,7 +89,7 @@ The `create_pr.sh` script automates PR creation and **automatically runs tests**
 - If tests fail, the PR will not be created
 - To skip tests (not recommended), use the `--skip-tests` flag:
   ```bash
-  ./scripts/versioning/file_versioning/orchestrators/read/create_pr.sh --skip-tests
+  bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh --skip-tests
   ```
 - Skipping tests will display a warning reminder to ensure proper testing before merging
 
