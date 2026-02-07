@@ -68,7 +68,8 @@ impl TypeVisitor {
             
             // Check for obvious mismatches
             if !inferred_type.is_empty() 
-                && inferred_type != "unknown" 
+                && inferred_type != "unknown"
+                && declared_type != "unknown"
                 && declared_type != &inferred_type
                 && !self.are_compatible_types(declared_type, &inferred_type) {
                 let msg = format!(
@@ -119,7 +120,7 @@ impl TypeVisitor {
             }
             Expr::MethodCall(method_call) => {
                 let method_name = method_call.method.to_string();
-                if method_name == "to_string" || method_name == "into" {
+                if method_name == "to_string" {
                     return "String".to_string();
                 }
                 "unknown".to_string()
@@ -159,11 +160,6 @@ impl TypeVisitor {
 impl<'ast> Visit<'ast> for TypeVisitor {
     fn visit_stmt(&mut self, stmt: &'ast Stmt) {
         self.current_stmt_index += 1;
-
-        if let Stmt::Local(local) = stmt {
-            self.visit_local(local);
-        }
-        
         syn::visit::visit_stmt(self, stmt);
     }
 
@@ -194,7 +190,8 @@ impl<'ast> Visit<'ast> for TypeVisitor {
                     let inferred_type = self.infer_type_from_expr(&init.expr);
                     
                     if !inferred_type.is_empty() 
-                        && inferred_type != "unknown" 
+                        && inferred_type != "unknown"
+                        && declared_type != "unknown"
                         && declared_type != inferred_type
                         && !self.are_compatible_types(&declared_type, &inferred_type) {
                         let msg = format!(

@@ -139,7 +139,7 @@ impl SemanticAnalyzer {
         let mut visitor = TypeVisitor::new();
         visitor.visit_file(syntax_tree);
 
-        for (message, line) in visitor.inconsistencies.iter() {
+        for (message, stmt_index) in visitor.inconsistencies.iter() {
             let severity = if self.strict_mode {
                 Severity::Error
             } else {
@@ -150,7 +150,7 @@ impl SemanticAnalyzer {
                 SemanticIssueType::TypeInconsistency,
                 severity,
                 message.clone(),
-                Some(*line),
+                Some(*stmt_index),
             ));
         }
 
