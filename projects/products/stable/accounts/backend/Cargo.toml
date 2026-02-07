@@ -15,7 +15,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
 bytes = { workspace = true }
-futures-util = "0.3"
-url = "2"
+futures-util = { workspace = true }
+url = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = "0.3"
+tracing-subscriber = { workspace = true }
