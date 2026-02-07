@@ -18,10 +18,11 @@ pub fn run_sandbox_with_stdin(repo_root: &str, runs_root: &str, input: &str) -> 
         .expect("Failed to spawn code_agent_sandbox binary");
 
     {
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        let mut stdin = child.stdin.take().expect("Failed to open stdin");
         stdin
             .write_all(input.as_bytes())
             .expect("Failed to write request JSON to stdin");
+        // `stdin` is dropped here, sending EOF to the child process.
     }
 
     child.wait_with_output().expect("Failed to wait for output")
