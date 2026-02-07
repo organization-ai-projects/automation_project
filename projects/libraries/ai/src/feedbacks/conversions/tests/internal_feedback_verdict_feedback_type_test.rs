@@ -14,12 +14,12 @@ fn test_internal_feedback_verdict_to_feedback_type() {
         (
             "Rejected verdict",
             InternalFeedbackVerdict::Rejected,
-            FeedbackTypeExpectation::Incorrect("Invalid Feedback"),
+            FeedbackTypeExpectation::Incorrect("Rejected"),
         ),
         (
             "NoFeedback verdict",
             InternalFeedbackVerdict::NoFeedback,
-            FeedbackTypeExpectation::Incorrect("Invalid Feedback"),
+            FeedbackTypeExpectation::Incorrect("NoFeedback"),
         ),
         (
             "Incorrect verdict",
