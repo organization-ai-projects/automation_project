@@ -42,12 +42,8 @@ pub fn create_network_with_vocab(vocab_size: usize) -> TestResult<NeuralNetwork>
 /// Creates a basic RustTokenizer with essential special tokens
 #[allow(dead_code)]
 pub fn create_basic_tokenizer() -> RustTokenizer {
-    RustTokenizer::new(vec![
-        "<PAD>".to_string(),
-        "<EOS>".to_string(),
-        "<BOS>".to_string(),
-        "<UNK>".to_string(),
-    ])
+    // RustTokenizer::new() automatically adds <PAD>, <EOS>, <BOS>, and <UNK>
+    RustTokenizer::new(vec![])
 }
 
 /// Creates a RustTokenizer with a rich vocabulary for code generation
