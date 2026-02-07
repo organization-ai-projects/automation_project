@@ -62,10 +62,12 @@ fn can_append_contributors() {
     entry.append_contributor(CONTRIBUTOR_BOB.to_string());
 
     assert_eq!(entry.get_contributors().len(), 2);
-    assert!(entry
-        .get_contributors()
-        .iter()
-        .any(|c| c == CONTRIBUTOR_ALICE));
+    assert!(
+        entry
+            .get_contributors()
+            .iter()
+            .any(|c| c == CONTRIBUTOR_ALICE)
+    );
 }
 
 #[test]
@@ -124,7 +126,10 @@ fn can_find_specific_entry() {
 
     let found = log.find_entry(&target_release);
     assert!(found.is_some());
-    assert_eq!(found.expect("entry should exist").get_release(), &target_release);
+    assert_eq!(
+        found.expect("entry should exist").get_release(),
+        &target_release
+    );
 }
 
 #[test]

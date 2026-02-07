@@ -67,7 +67,10 @@ pub(crate) fn bug_fix_mod(description: impl Into<String>) -> ModificationEntry {
 
 /// Creates a breaking change modification with a custom description
 pub(crate) fn breaking_mod(description: impl Into<String>) -> ModificationEntry {
-    ModificationEntry::create(description.into(), ModificationCategory::BreakingModification)
+    ModificationEntry::create(
+        description.into(),
+        ModificationCategory::BreakingModification,
+    )
 }
 
 /// Creates an enhancement modification with a custom description

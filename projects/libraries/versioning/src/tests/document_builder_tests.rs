@@ -72,7 +72,10 @@ fn can_create_plaintext_builder() {
     let log = basic_revision_log();
     let output = builder.generate_document(&log);
 
-    assert!(output.contains(&format!("REVISION HISTORY: {}", TEST_PROJECT_NAME.to_uppercase())));
+    assert!(output.contains(&format!(
+        "REVISION HISTORY: {}",
+        TEST_PROJECT_NAME.to_uppercase()
+    )));
 }
 
 #[test]
@@ -96,10 +99,8 @@ fn plaintext_shows_category_labels() {
     let builder = DocumentBuilder::with_format(OutputFormat::PlainText);
     let mut log = basic_revision_log();
 
-    let entry = revision_entry_with_mods(
-        release_id_1_0_0(),
-        vec![security_mod(MOD_SECURITY_PATCH)],
-    );
+    let entry =
+        revision_entry_with_mods(release_id_1_0_0(), vec![security_mod(MOD_SECURITY_PATCH)]);
     log.append_entry(entry);
 
     let output = builder.generate_document(&log);
@@ -126,9 +127,15 @@ fn multiple_releases_in_order() {
     ]);
 
     let output = builder.generate_document(&log);
-    let pos_2_0_0 = output.find("## Release 2.0.0").expect("should find release 2.0.0");
-    let pos_1_5_0 = output.find("## Release 1.5.0").expect("should find release 1.5.0");
-    let pos_1_0_0 = output.find("## Release 1.0.0").expect("should find release 1.0.0");
+    let pos_2_0_0 = output
+        .find("## Release 2.0.0")
+        .expect("should find release 2.0.0");
+    let pos_1_5_0 = output
+        .find("## Release 1.5.0")
+        .expect("should find release 1.5.0");
+    let pos_1_0_0 = output
+        .find("## Release 1.0.0")
+        .expect("should find release 1.0.0");
 
     assert!(pos_2_0_0 < pos_1_5_0);
     assert!(pos_1_5_0 < pos_1_0_0);

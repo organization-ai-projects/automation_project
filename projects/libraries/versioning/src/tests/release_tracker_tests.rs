@@ -80,7 +80,9 @@ fn can_persist_and_load_tracker() {
         vec!["Dev1".to_string()],
     );
 
-    tracker.persist_to_file(temp_path).expect("failed to persist tracker");
+    tracker
+        .persist_to_file(temp_path)
+        .expect("failed to persist tracker");
 
     let loaded = ReleaseTracker::load_from_file(temp_path).expect("failed to load tracker");
     assert_eq!(loaded.active_release(), tracker.active_release());
@@ -105,7 +107,9 @@ fn loaded_tracker_preserves_history() {
         vec![CONTRIBUTOR_BOB.to_string()],
     );
 
-    original.persist_to_file(temp_path).expect("failed to persist tracker");
+    original
+        .persist_to_file(temp_path)
+        .expect("failed to persist tracker");
     let loaded = ReleaseTracker::load_from_file(temp_path).expect("failed to load tracker");
 
     assert_eq!(loaded.log().get_entries().len(), 3); // Initial + 2 new
