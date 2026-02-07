@@ -1,7 +1,22 @@
 // Integration tests for ast_macros
 
-use ast_core::{AstKey, AstKind, ValidateLimits};
+use ast_core::{AstKey, AstKind, AstNode, ValidateLimits};
 use ast_macros::{apply_cfg, build_array, build_object, key, validate_preset, value};
+
+// Helper functions for common assertions
+fn assert_array_len(node: &AstNode, expected_len: usize) {
+    let AstKind::Array(elements) = &node.kind else {
+        panic!("Expected array, got {:?}", node.kind);
+    };
+    assert_eq!(elements.len(), expected_len);
+}
+
+fn assert_object_len(node: &AstNode, expected_len: usize) {
+    let AstKind::Object(fields) = &node.kind else {
+        panic!("Expected object, got {:?}", node.kind);
+    };
+    assert_eq!(fields.len(), expected_len);
+}
 
 #[test]
 fn test_key_macro() {
@@ -52,13 +67,7 @@ fn test_value_macro() {
 #[test]
 fn test_build_array_macro() {
     let arr = build_array!([1, 2, 3]);
-
-    match &arr.kind {
-        AstKind::Array(elements) => {
-            assert_eq!(elements.len(), 3);
-        }
-        _ => panic!("Expected array"),
-    }
+    assert_array_len(&arr, 3);
 }
 
 #[test]
@@ -67,13 +76,7 @@ fn test_build_object_macro() {
         name: "test",
         count: 42
     });
-
-    match &obj.kind {
-        AstKind::Object(fields) => {
-            assert_eq!(fields.len(), 2);
-        }
-        _ => panic!("Expected object"),
-    }
+    assert_object_len(&obj, 2);
 }
 
 #[test]

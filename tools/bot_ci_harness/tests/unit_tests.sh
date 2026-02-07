@@ -124,7 +124,7 @@ test_validate_enum_fail() {
 test_git_branches_identical() {
   # Create temporary git repo
   local tmpdir
-  tmpdir=$(mktemp -d)
+  tmpdir=$(mktemp -d -t bot_ci_harness.XXXXXX 2>/dev/null || mktemp -d)
   pushd "$tmpdir" >/dev/null
   
   git init >/dev/null 2>&1
@@ -151,7 +151,7 @@ test_git_branches_identical() {
 test_git_get_sha() {
   # Create temporary git repo
   local tmpdir
-  tmpdir=$(mktemp -d)
+  tmpdir=$(mktemp -d -t bot_ci_harness.XXXXXX 2>/dev/null || mktemp -d)
   pushd "$tmpdir" >/dev/null
   
   git init >/dev/null 2>&1

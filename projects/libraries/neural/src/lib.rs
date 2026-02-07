@@ -7,5 +7,8 @@ pub mod solver;
 pub mod tokenization;
 pub mod training;
 
+#[cfg(test)]
+mod tests;
+
 pub use solver::NeuralSolver;
 pub use solver::{NeuralError, SolverResult};

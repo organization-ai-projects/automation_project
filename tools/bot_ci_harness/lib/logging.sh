@@ -23,9 +23,11 @@ USE_COLORS=${USE_COLORS:-true}
 # Get timestamp in ISO 8601 format
 # Note: Uses GNU date format. For portability, falls back to second precision on non-GNU systems.
 _log_timestamp() {
-  # Try GNU date format first (Linux)
-  if date -u +"%Y-%m-%dT%H:%M:%S.%3NZ" 2>/dev/null | grep -q "\."; then
-    date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
+  # Try GNU date format first (Linux) - check that %N was actually expanded
+  local test_output
+  test_output=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ" 2>/dev/null)
+  if echo "$test_output" | grep -qv '[%N]' && echo "$test_output" | grep -q '\.'; then
+    echo "$test_output"
   else
     # Fallback for macOS/BSD (no millisecond support)
     date -u +"%Y-%m-%dT%H:%M:%SZ"

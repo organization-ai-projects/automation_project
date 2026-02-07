@@ -3,6 +3,9 @@ pub mod commands;
 pub mod git_parser;
 pub mod policy_suggestions;
 
+#[cfg(test)]
+mod tests;
+
 pub(crate) use commands::{
     current_branch, ensure_git_repo, git_add_paths, git_commit, git_commit_dry_run,
     git_push_current_branch, git_reset, git_status_porcelain_z,

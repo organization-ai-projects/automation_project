@@ -32,18 +32,14 @@ pub fn generate_action_plan(config: &Config) -> Result<ActionPlan, String> {
 mod tests {
     use std::fs;
 
-    use crate::{config::Config, plan_generator::generate_action_plan};
+    use crate::{
+        config::Config, plan_generator::generate_action_plan,
+        tests::test_helpers::create_unique_temp_dir,
+    };
 
     #[test]
     fn test_generate_action_plan() {
-        let temp_dir = std::env::temp_dir().join(format!(
-            "auto_manager_ai_test_{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        ));
-
+        let temp_dir = create_unique_temp_dir("auto_manager_ai_test");
         fs::create_dir_all(&temp_dir).expect("Failed to create temp dir");
 
         let out_dir = temp_dir.join("out");
