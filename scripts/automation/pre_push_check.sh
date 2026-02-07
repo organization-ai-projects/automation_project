@@ -24,6 +24,23 @@ info "Running pre-push checks..."
 
 ISSUES=0
 
+# 0. Markdown lint (if pnpm is available and dependencies are installed)
+if command -v pnpm &> /dev/null && [[ -f "$ROOT_DIR/package.json" ]]; then
+  if [[ -d "$ROOT_DIR/node_modules" ]] && [[ -f "$ROOT_DIR/node_modules/.bin/markdownlint-cli2" ]]; then
+    info "Checking markdown formatting..."
+    if pnpm run lint-md; then
+      info "✓ Markdown lint passed."
+    else
+      warn "⚠ Markdown lint failed."
+      ISSUES=$((ISSUES + 1))
+    fi
+  else
+    info "ℹ Skipping markdown lint (dependencies not installed). Run 'pnpm install' to enable."
+  fi
+else
+  info "ℹ Skipping markdown lint (pnpm not available or package.json missing)."
+fi
+
 # 1. Cargo check
 info "Checking workspace..."
 if cargo check --workspace --all-targets; then

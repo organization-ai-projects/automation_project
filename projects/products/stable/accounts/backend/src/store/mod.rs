@@ -3,6 +3,8 @@ pub mod account_manager;
 pub mod account_record;
 pub mod account_store_error;
 pub mod accounts_file;
+pub mod audit_buffer;
+pub mod audit_buffer_config;
 pub mod audit_entry;
 
 #[cfg(test)]

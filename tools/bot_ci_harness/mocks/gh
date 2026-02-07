@@ -114,6 +114,26 @@ if [[ "$cmd" == "pr" && "$sub" == "list" ]]; then
 fi
 
 if [[ "$cmd" == "pr" && "$sub" == "create" ]]; then
+  # Check if branches are identical (noop case)
+  # Extract --base and --head from arguments
+  base_branch=$(arg_after --base "$@")
+  head_branch=$(arg_after --head "$@")
+  
+  # If both branches specified, check if they're identical
+  if [[ -n "$base_branch" && -n "$head_branch" ]]; then
+    # Get the commit SHAs for comparison
+    # Try local ref first, then fall back to origin/<ref>
+    base_sha=$(git rev-parse "$base_branch" 2>/dev/null || git rev-parse "origin/$base_branch" 2>/dev/null || echo "")
+    head_sha=$(git rev-parse "$head_branch" 2>/dev/null || git rev-parse "origin/$head_branch" 2>/dev/null || echo "")
+    
+    if [[ -n "$base_sha" && -n "$head_sha" && "$base_sha" == "$head_sha" ]]; then
+      # Branches are identical - no commits between them
+      error_msg="pull request create failed: No commits between $base_branch and $head_branch"
+      echo "$error_msg" >&2
+      exit_with_code 1 "pr create" "$*" "$error_msg"
+    fi
+  fi
+  
   # Returns URL
   exit_with_code 0 "pr create" "$*" "$PR_URL"
 fi

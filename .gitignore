@@ -51,3 +51,10 @@ ANALYSE_COHERENCE_WORKFLOWS_SCRIPTS.md
 
 # Ignore ui_dist files
 **/ui_dist/
+
+# Code Agent Sandbox runtime outputs
+**/code_agent_sandbox/data/runs/
+# UUID-format directories (simplified pattern: *-*-*-*-*/)
+**/code_agent_sandbox/*-*-*-*-*/
+# Replay logs
+**/code_agent_sandbox/replay.jsonl

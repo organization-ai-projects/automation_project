@@ -9,11 +9,13 @@ This directory contains validation and check scripts for the repository.
 **Purpose**: Enforces Rule 2 of the stable/unstable product structure - prevents stable products from depending on unstable products.
 
 **Usage**:
+
 ```bash
 ./scripts/checks/check_stable_deps.sh
 ```
 
 **What it does**:
+
 - Scans all `Cargo.toml` files in `projects/products/stable/`
 - Looks for path dependencies pointing to `projects/products/unstable/`
 - Reports any violations found
@@ -26,6 +28,7 @@ This directory contains validation and check scripts for the repository.
 ## Adding New Checks
 
 When adding new validation scripts:
+
 1. Create the script in this directory
 2. Make it executable: `chmod +x script_name.sh`
 3. Add documentation here in this README

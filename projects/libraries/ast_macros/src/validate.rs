@@ -1,8 +1,8 @@
-// projects/libraries/ast_core/src/macros/validate.rs
+// projects/libraries/ast_macros/src/validate.rs
 #[macro_export]
 macro_rules! validate_preset {
-    ($node:expr, strict) => {{ ($node).validate_with(&$crate::ValidateLimits::strict()) }};
-    ($node:expr, unbounded) => {{ ($node).validate_with(&$crate::ValidateLimits::unbounded()) }};
+    ($node:expr, strict) => {{ ($node).validate_with(&::ast_core::ValidateLimits::strict()) }};
+    ($node:expr, unbounded) => {{ ($node).validate_with(&::ast_core::ValidateLimits::unbounded()) }};
     ($node:expr, default) => {{ ($node).validate() }};
     ($node:expr, $unknown:ident) => {{
         ::std::compile_error!(::std::concat!(

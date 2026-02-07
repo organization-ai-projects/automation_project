@@ -82,21 +82,37 @@ Shows issue number, title, and GitHub URL for each priority issue.
 
 ### `create_pr.sh`
 
-**Create a pull request from current branch.**
+**Create a pull request from current branch with automated test validation.**
 
 Can be called standalone or by other scripts.
 
 **Usage (if run directly):**
 
 ```bash
-bash create_pr.sh
+bash create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] [--skip-tests]
 ```
 
 **What it does:**
 
-- Creates PR from current branch to configured base branch
-- Allows title and description customization
-- Handles PR creation via GitHub CLI
+1. Validates current branch is not protected
+2. **Runs workspace tests** (`cargo test --workspace`) by default
+3. Creates PR from current branch to configured base branch (default: `dev`)
+4. Auto-generates title from branch name if not provided
+5. Auto-generates body with commit list and checklist
+6. Adds labels based on branch type prefix
+7. Handles PR creation via GitHub CLI
+
+**Options:**
+
+- `--base <branch>`: Target base branch (default: `dev`)
+- `--title <title>`: Custom PR title (auto-generated if not provided)
+- `--body <body>`: Custom PR description (auto-generated if not provided)
+- `--draft`: Create as draft PR
+- `--skip-tests`: Skip test execution (not recommended, shows warning)
+
+**Test Enforcement:**
+
+By default, this script runs `cargo test --workspace` before creating the PR. If tests fail, the PR creation is aborted. Use `--skip-tests` to bypass this check, but a warning will be displayed reminding you to ensure proper testing before merging.
 
 ## When to Run These Directly?
 

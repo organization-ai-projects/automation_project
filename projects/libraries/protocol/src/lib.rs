@@ -16,6 +16,7 @@ pub mod preview_response;
 pub mod protocol_error;
 pub mod protocol_id;
 pub mod response_status;
+pub mod run_request;
 pub mod validation_error;
 
 pub use accounts::*;
@@ -35,6 +36,7 @@ pub use preview_response::PreviewResponse;
 pub use protocol_error::ProtocolError;
 pub use protocol_id::ProtocolId;
 pub use response_status::ResponseStatus;
+pub use run_request::RunRequest;
 pub use validation_error::ValidationError;
 
 #[cfg(test)]

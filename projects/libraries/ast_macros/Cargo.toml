@@ -1,0 +1,11 @@
+[package]
+name = "ast_macros"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Note: This crate provides macros that reference ast_core types.
+# Users of these macros must have ast_core as a dependency.
+
+[dev-dependencies]
+ast_core.workspace = true

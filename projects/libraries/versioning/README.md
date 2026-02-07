@@ -9,6 +9,7 @@ The versioning library provides a standalone version tracking system designed sp
 ## Role in Project
 
 This library enables projects to:
+
 - Track release versions using a custom identifier format
 - Maintain detailed revision histories with categorized modifications
 - Generate formatted documentation of changes
@@ -16,6 +17,7 @@ This library enables projects to:
 - Manage releases without Git dependency
 
 The versioning system uses a three-tier numbering approach (e.g., 2.5.8) where:
+
 - **Tier 1**: Breaking changes that affect compatibility
 - **Tier 2**: New features and capabilities (backward compatible)
 - **Tier 3**: Corrections, refinements, and minor updates
@@ -96,6 +98,7 @@ let entry = ModificationEntry::create(
 ```
 
 Available categories:
+
 - `BreakingModification` - Changes that break compatibility
 - `NewCapability` - New features added
 - `Enhancement` - Improvements to existing features
@@ -238,6 +241,7 @@ cargo test -p versioning -- --nocapture
 ## Thread Safety
 
 All types in this library are thread-safe when used appropriately:
+
 - `ReleaseId` is `Copy` and can be freely shared
 - `ReleaseTracker` and `RevisionLog` should be protected with `Mutex` or similar for concurrent modifications
 

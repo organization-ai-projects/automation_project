@@ -42,6 +42,7 @@ scripts/automation/build_accounts_ui.sh
 ```
 
 The bundle should include:
+
 - `ui_dist/ui.wasm`
 - `ui_dist/ui.js`
 - `ui_dist/index.html`
