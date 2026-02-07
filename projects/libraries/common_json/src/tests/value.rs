@@ -1,7 +1,7 @@
 // projects/libraries/common_json/src/tests/value.rs
+use super::test_helpers::TestResult;
 use crate::value::{array, null, object};
 use crate::{Json, boolean, number_f64, number_i64, number_u64, string};
-use super::test_helpers::TestResult;
 use serde::Serialize;
 
 #[test]
@@ -92,7 +92,9 @@ fn test_value_from_char() {
 #[test]
 fn test_value_from_option() {
     let some_value: Json = Some(42).into();
-    let num = some_value.as_i64().expect("Error extracting i64 value from Some");
+    let num = some_value
+        .as_i64()
+        .expect("Error extracting i64 value from Some");
     assert_eq!(num, 42);
 
     let none_value: Json = None::<i32>.into();

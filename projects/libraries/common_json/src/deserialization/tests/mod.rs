@@ -1,5 +1,5 @@
 // projects/libraries/common_json/src/deserialization/tests/mod.rs
-// Import shared TestResult type from root tests module  
+// Import shared TestResult type from root tests module
 use crate::tests::test_helpers::TestResult;
 
 mod json_deserializable;

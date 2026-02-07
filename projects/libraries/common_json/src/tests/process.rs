@@ -1,6 +1,6 @@
 // projects/libraries/common_json/src/tests/process.rs
-use crate::process::parse_json_stdout;
 use super::test_helpers::{TestResult, assert_json_object};
+use crate::process::parse_json_stdout;
 use std::process::Command;
 
 #[test]

@@ -32,7 +32,7 @@ mod tests {
         };
 
         let result = serializer.end()?;
-        
+
         let Json::Object(map) = result else {
             panic!("Expected Json::Object");
         };

@@ -1,7 +1,7 @@
 // projects/libraries/common_json/src/tests/json_number_visitor.rs
+use super::test_helpers::TestResult;
 use crate::json_number::JsonNumber;
 use crate::json_number_visitor::JsonNumberVisitor;
-use super::test_helpers::TestResult;
 use serde::de::Visitor;
 use serde::de::value::Error as SerdeError;
 

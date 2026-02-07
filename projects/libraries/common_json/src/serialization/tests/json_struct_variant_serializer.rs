@@ -40,7 +40,7 @@ fn test_end() -> TestResult {
     };
 
     let result = serializer.end()?;
-    
+
     let Json::Object(wrapper) = result else {
         panic!("Expected Json::Object");
     };

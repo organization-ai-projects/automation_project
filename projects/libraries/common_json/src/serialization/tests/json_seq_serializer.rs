@@ -29,7 +29,7 @@ fn test_end() -> TestResult {
     };
 
     let result = SerializeSeq::end(serializer)?;
-    
+
     let Json::Array(elements) = result else {
         panic!("Expected Json::Array");
     };

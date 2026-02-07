@@ -1,6 +1,6 @@
 // projects/libraries/common_json/src/tests/json_object_builder.rs
-use crate::json_object_builder::JsonObjectBuilder;
 use super::test_helpers::assert_json_object;
+use crate::json_object_builder::JsonObjectBuilder;
 
 #[test]
 fn test_json_object_builder_add_field() {

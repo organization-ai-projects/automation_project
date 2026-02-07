@@ -1,6 +1,6 @@
 // projects/libraries/common_json/src/tests/parser.rs
-use crate::parser::{parse_bytes, parse_reader, parse_str};
 use super::test_helpers::{TestResult, assert_json_object};
+use crate::parser::{parse_bytes, parse_reader, parse_str};
 
 #[test]
 fn test_parse_str() -> TestResult {
