@@ -6,7 +6,7 @@ use common_time::timestamp_utils::current_timestamp_ms;
 use std::path::PathBuf;
 use tokio::time::Duration;
 
-use super::helpers::{create_unique_temp_dir, poll_until_async, TestResult};
+use super::helpers::{TestResult, create_unique_temp_dir, poll_until_async};
 
 async fn read_audit_log(path: &PathBuf) -> TestResult<Vec<String>> {
     if !path.exists() {
@@ -19,7 +19,9 @@ async fn read_audit_log(path: &PathBuf) -> TestResult<Vec<String>> {
 #[tokio::test]
 async fn test_batch_flush_on_size_threshold() {
     let temp_dir = create_unique_temp_dir("audit_test");
-    tokio::fs::create_dir_all(&temp_dir).await.expect("Failed to create test directory");
+    tokio::fs::create_dir_all(&temp_dir)
+        .await
+        .expect("Failed to create test directory");
     let audit_path = temp_dir.join("audit.log");
 
     // Configure small batch size for testing
@@ -54,7 +56,9 @@ async fn test_batch_flush_on_size_threshold() {
         .expect("Failed to append second audit entry");
 
     // Should not have flushed yet
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log before threshold");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log before threshold");
     assert_eq!(
         lines.len(),
         0,
@@ -74,11 +78,22 @@ async fn test_batch_flush_on_size_threshold() {
         .expect("Failed to append third audit entry");
 
     // Should have flushed all 3 entries
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log after threshold");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log after threshold");
     assert_eq!(lines.len(), 3, "Should flush all 3 entries at threshold");
-    assert!(lines[0].contains("user1"), "First entry should contain user1");
-    assert!(lines[1].contains("user2"), "Second entry should contain user2");
-    assert!(lines[2].contains("user3"), "Third entry should contain user3");
+    assert!(
+        lines[0].contains("user1"),
+        "First entry should contain user1"
+    );
+    assert!(
+        lines[1].contains("user2"),
+        "Second entry should contain user2"
+    );
+    assert!(
+        lines[2].contains("user3"),
+        "Third entry should contain user3"
+    );
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();
@@ -87,7 +102,9 @@ async fn test_batch_flush_on_size_threshold() {
 #[tokio::test]
 async fn test_periodic_flush() {
     let temp_dir = create_unique_temp_dir("audit_test");
-    tokio::fs::create_dir_all(&temp_dir).await.expect("Failed to create test directory");
+    tokio::fs::create_dir_all(&temp_dir)
+        .await
+        .expect("Failed to create test directory");
     let audit_path = temp_dir.join("audit.log");
 
     // Configure short flush interval for testing
@@ -122,7 +139,9 @@ async fn test_periodic_flush() {
         .expect("Failed to append second audit entry");
 
     // Should not have flushed immediately
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log before periodic flush");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log before periodic flush");
     assert_eq!(
         lines.len(),
         0,
@@ -144,10 +163,18 @@ async fn test_periodic_flush() {
     .expect("Audit log should contain 2 entries after periodic flush");
 
     // Verify final state
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log after periodic flush");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log after periodic flush");
     assert_eq!(lines.len(), 2, "Should flush after periodic interval");
-    assert!(lines[0].contains("user1"), "First entry should contain user1");
-    assert!(lines[1].contains("user2"), "Second entry should contain user2");
+    assert!(
+        lines[0].contains("user1"),
+        "First entry should contain user1"
+    );
+    assert!(
+        lines[1].contains("user2"),
+        "Second entry should contain user2"
+    );
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();
@@ -156,7 +183,9 @@ async fn test_periodic_flush() {
 #[tokio::test]
 async fn test_manual_flush() {
     let temp_dir = create_unique_temp_dir("audit_test");
-    tokio::fs::create_dir_all(&temp_dir).await.expect("Failed to create test directory");
+    tokio::fs::create_dir_all(&temp_dir)
+        .await
+        .expect("Failed to create test directory");
     let audit_path = temp_dir.join("audit.log");
 
     let config = AuditBufferConfig {
@@ -179,14 +208,21 @@ async fn test_manual_flush() {
         .expect("Failed to append audit entry");
 
     // Should not have flushed
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log before manual flush");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log before manual flush");
     assert_eq!(lines.len(), 0, "Should not flush before manual flush");
 
     // Manual flush
-    buffer.flush().await.expect("Failed to manually flush audit buffer");
+    buffer
+        .flush()
+        .await
+        .expect("Failed to manually flush audit buffer");
 
     // Should have flushed
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log after manual flush");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log after manual flush");
     assert_eq!(lines.len(), 1, "Should have 1 entry after manual flush");
     assert!(lines[0].contains("user1"), "Entry should contain user1");
 
@@ -197,7 +233,9 @@ async fn test_manual_flush() {
 #[tokio::test]
 async fn test_entries_maintain_order() {
     let temp_dir = create_unique_temp_dir("audit_test");
-    tokio::fs::create_dir_all(&temp_dir).await.expect("Failed to create test directory");
+    tokio::fs::create_dir_all(&temp_dir)
+        .await
+        .expect("Failed to create test directory");
     let audit_path = temp_dir.join("audit.log");
 
     let config = AuditBufferConfig {
@@ -222,7 +260,9 @@ async fn test_entries_maintain_order() {
     }
 
     // Should flush on 5th entry
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log for order verification");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log for order verification");
     assert_eq!(lines.len(), 5, "Should have 5 entries after batch flush");
 
     // Verify order is maintained
@@ -243,17 +283,24 @@ async fn test_entries_maintain_order() {
 #[tokio::test]
 async fn test_empty_flush_is_safe() {
     let temp_dir = create_unique_temp_dir("audit_test");
-    tokio::fs::create_dir_all(&temp_dir).await.expect("Failed to create test directory");
+    tokio::fs::create_dir_all(&temp_dir)
+        .await
+        .expect("Failed to create test directory");
     let audit_path = temp_dir.join("audit.log");
 
     let config = AuditBufferConfig::default();
     let buffer = AuditBuffer::new(audit_path.clone(), config);
 
     // Flush empty buffer - should not error
-    buffer.flush().await.expect("Flushing empty buffer should not error");
+    buffer
+        .flush()
+        .await
+        .expect("Flushing empty buffer should not error");
 
     // File should not be created if nothing to write
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log after empty flush");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log after empty flush");
     assert_eq!(lines.len(), 0, "Empty flush should not create entries");
 
     // Cleanup
@@ -263,7 +310,9 @@ async fn test_empty_flush_is_safe() {
 #[tokio::test]
 async fn test_multiple_flushes() {
     let temp_dir = create_unique_temp_dir("audit_test");
-    tokio::fs::create_dir_all(&temp_dir).await.expect("Failed to create test directory");
+    tokio::fs::create_dir_all(&temp_dir)
+        .await
+        .expect("Failed to create test directory");
     let audit_path = temp_dir.join("audit.log");
 
     let config = AuditBufferConfig {
@@ -297,7 +346,9 @@ async fn test_multiple_flushes() {
         .expect("Failed to append second entry of first batch");
 
     // Should have 2 entries
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log after first batch");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log after first batch");
     assert_eq!(lines.len(), 2, "Should have 2 entries after first batch");
 
     // Second batch
@@ -324,12 +375,30 @@ async fn test_multiple_flushes() {
         .expect("Failed to append second entry of second batch");
 
     // Should have 4 entries total (appended, not replaced)
-    let lines = read_audit_log(&audit_path).await.expect("Failed to read audit log after second batch");
-    assert_eq!(lines.len(), 4, "Should have 4 entries total after second batch");
-    assert!(lines[0].contains("user1"), "First entry should contain user1");
-    assert!(lines[1].contains("user2"), "Second entry should contain user2");
-    assert!(lines[2].contains("user3"), "Third entry should contain user3");
-    assert!(lines[3].contains("user4"), "Fourth entry should contain user4");
+    let lines = read_audit_log(&audit_path)
+        .await
+        .expect("Failed to read audit log after second batch");
+    assert_eq!(
+        lines.len(),
+        4,
+        "Should have 4 entries total after second batch"
+    );
+    assert!(
+        lines[0].contains("user1"),
+        "First entry should contain user1"
+    );
+    assert!(
+        lines[1].contains("user2"),
+        "Second entry should contain user2"
+    );
+    assert!(
+        lines[2].contains("user3"),
+        "Third entry should contain user3"
+    );
+    assert!(
+        lines[3].contains("user4"),
+        "Fourth entry should contain user4"
+    );
 
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.ok();

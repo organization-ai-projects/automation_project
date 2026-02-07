@@ -6,16 +6,14 @@ use security::Role;
 use std::path::{Path, PathBuf};
 use tokio::time::Duration;
 
-use super::helpers::{create_unique_temp_dir, poll_until_async, TestResult};
+use super::helpers::{TestResult, create_unique_temp_dir, poll_until_async};
 
 async fn create_test_manager() -> TestResult<AccountManager> {
     let temp_dir = create_unique_temp_dir("accounts_test");
     Ok(AccountManager::load(temp_dir).await?)
 }
 
-async fn create_test_manager_with_config(
-    config: AuditBufferConfig,
-) -> TestResult<AccountManager> {
+async fn create_test_manager_with_config(config: AuditBufferConfig) -> TestResult<AccountManager> {
     let temp_dir = create_unique_temp_dir("accounts_test");
     Ok(AccountManager::load_with_config(temp_dir, config).await?)
 }
@@ -45,7 +43,10 @@ async fn test_login_sets_dirty_flag() {
 
     // Clear dirty flag after create
     manager.set_dirty(false);
-    assert!(!manager.is_dirty(), "Dirty flag should be false after clearing");
+    assert!(
+        !manager.is_dirty(),
+        "Dirty flag should be false after clearing"
+    );
 
     // Authenticate (login)
     manager
@@ -80,7 +81,10 @@ async fn test_flush_if_dirty_saves_data() {
         .expect("Failed to authenticate test user");
 
     // Get last_login_ms before flush
-    let user_before = manager.get(&user_id).await.expect("Failed to get user before flush");
+    let user_before = manager
+        .get(&user_id)
+        .await
+        .expect("Failed to get user before flush");
     assert!(
         user_before.last_login_ms.is_some(),
         "last_login_ms should be set after authentication"
@@ -89,16 +93,27 @@ async fn test_flush_if_dirty_saves_data() {
 
     // Flush the dirty data
     assert!(manager.is_dirty(), "Manager should be dirty before flush");
-    manager.flush_if_dirty().await.expect("Failed to flush dirty data");
-    assert!(!manager.is_dirty(), "Manager should not be dirty after flush");
+    manager
+        .flush_if_dirty()
+        .await
+        .expect("Failed to flush dirty data");
+    assert!(
+        !manager.is_dirty(),
+        "Manager should not be dirty after flush"
+    );
 
     // Reload from disk
     let data_dir = manager.data_dir().clone();
     drop(manager);
-    let reloaded = AccountManager::load(data_dir.clone()).await.expect("Failed to reload manager from disk");
+    let reloaded = AccountManager::load(data_dir.clone())
+        .await
+        .expect("Failed to reload manager from disk");
 
     // Verify last_login_ms persisted
-    let user_after = reloaded.get(&user_id).await.expect("Failed to get user after reload");
+    let user_after = reloaded
+        .get(&user_id)
+        .await
+        .expect("Failed to get user after reload");
     assert_eq!(
         user_after.last_login_ms,
         Some(login_time),
@@ -119,7 +134,10 @@ async fn test_flush_if_dirty_skips_when_clean() {
     manager.set_dirty(false);
 
     // Call flush_if_dirty when clean - should not error
-    manager.flush_if_dirty().await.expect("flush_if_dirty should not error when clean");
+    manager
+        .flush_if_dirty()
+        .await
+        .expect("flush_if_dirty should not error when clean");
 
     // Cleanup
     tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
@@ -128,13 +146,17 @@ async fn test_flush_if_dirty_skips_when_clean() {
 #[tokio::test]
 async fn test_last_login_survives_restart() {
     let temp_dir = create_unique_temp_dir("accounts_test");
-    tokio::fs::create_dir_all(&temp_dir).await.expect("Failed to create test directory");
+    tokio::fs::create_dir_all(&temp_dir)
+        .await
+        .expect("Failed to create test directory");
 
     let user_id = ProtocolId::default();
 
     // First session: create user and login
     {
-        let manager = AccountManager::load(temp_dir.clone()).await.expect("Failed to load manager in first session");
+        let manager = AccountManager::load(temp_dir.clone())
+            .await
+            .expect("Failed to load manager in first session");
         manager
             .create(user_id, "test_password", Role::User, vec![], "test_actor")
             .await
@@ -144,20 +166,31 @@ async fn test_last_login_survives_restart() {
             .authenticate(&user_id, "test_password")
             .await
             .expect("Failed to authenticate test user in first session");
-        let user = manager.get(&user_id).await.expect("Failed to get user in first session");
+        let user = manager
+            .get(&user_id)
+            .await
+            .expect("Failed to get user in first session");
         assert!(
             user.last_login_ms.is_some(),
             "last_login_ms should be set after login"
         );
 
         // Flush to disk (simulate periodic flush)
-        manager.flush_if_dirty().await.expect("Failed to flush in first session");
+        manager
+            .flush_if_dirty()
+            .await
+            .expect("Failed to flush in first session");
     }
 
     // Second session: reload and verify persistence
     {
-        let manager = AccountManager::load(temp_dir.clone()).await.expect("Failed to load manager in second session");
-        let user = manager.get(&user_id).await.expect("Failed to get user in second session");
+        let manager = AccountManager::load(temp_dir.clone())
+            .await
+            .expect("Failed to load manager in second session");
+        let user = manager
+            .get(&user_id)
+            .await
+            .expect("Failed to get user in second session");
         assert!(
             user.last_login_ms.is_some(),
             "last_login_ms should survive restart after flush"
@@ -253,10 +286,17 @@ async fn test_audit_manual_flush() {
     let lines = read_audit_log(manager.data_dir())
         .await
         .expect("Failed to read audit log before flush");
-    assert_eq!(lines.len(), 0, "Audit entries should be buffered before flush");
+    assert_eq!(
+        lines.len(),
+        0,
+        "Audit entries should be buffered before flush"
+    );
 
     // Manual flush
-    manager.flush_audit().await.expect("Failed to manually flush audit");
+    manager
+        .flush_audit()
+        .await
+        .expect("Failed to manually flush audit");
 
     // Poll until flush completes
     poll_until_async(
@@ -277,7 +317,10 @@ async fn test_audit_manual_flush() {
         .await
         .expect("Failed to read audit log after flush");
     assert_eq!(lines.len(), 1, "Should have 1 entry after manual flush");
-    assert!(lines[0].contains("create"), "Entry should contain create action");
+    assert!(
+        lines[0].contains("create"),
+        "Entry should contain create action"
+    );
 
     // Cleanup
     tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
@@ -304,7 +347,11 @@ async fn test_audit_periodic_flush() {
     let lines = read_audit_log(manager.data_dir())
         .await
         .expect("Failed to read audit log before periodic flush");
-    assert_eq!(lines.len(), 0, "Audit entries should be buffered before periodic flush");
+    assert_eq!(
+        lines.len(),
+        0,
+        "Audit entries should be buffered before periodic flush"
+    );
 
     // Poll for periodic flush (2s interval + buffer time)
     poll_until_async(
@@ -325,7 +372,10 @@ async fn test_audit_periodic_flush() {
         .await
         .expect("Failed to read audit log after periodic flush");
     assert_eq!(lines.len(), 1, "Should have 1 entry after periodic flush");
-    assert!(lines[0].contains("create"), "Entry should contain create action");
+    assert!(
+        lines[0].contains("create"),
+        "Entry should contain create action"
+    );
 
     // Cleanup
     tokio::fs::remove_dir_all(manager.data_dir()).await.ok();
@@ -351,7 +401,10 @@ async fn test_audit_entries_maintain_order() {
     }
 
     // Flush manually
-    manager.flush_audit().await.expect("Failed to manually flush audit in order test");
+    manager
+        .flush_audit()
+        .await
+        .expect("Failed to manually flush audit in order test");
 
     // Poll until flush completes
     poll_until_async(
