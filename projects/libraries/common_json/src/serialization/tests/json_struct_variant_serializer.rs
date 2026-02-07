@@ -42,17 +42,16 @@ fn test_end() -> TestResult {
     };
 
     let result = serializer.end()?;
-    if let Json::Object(wrapper) = result {
-        assert!(wrapper.contains_key("TestStructVariant"));
-        if let Some(Json::Object(map)) = wrapper.get("TestStructVariant") {
-            assert_eq!(map.len(), 2);
-            assert_eq!(map.get("key1"), Some(&Json::String("value1".to_string())));
-            assert_eq!(map.get("key2"), Some(&Json::String("value2".to_string())));
-        } else {
-            panic!("Expected Json::Object");
-        }
-    } else {
+    
+    let Json::Object(wrapper) = result else {
         panic!("Expected Json::Object");
-    }
+    };
+    assert!(wrapper.contains_key("TestStructVariant"));
+    let Some(Json::Object(map)) = wrapper.get("TestStructVariant") else {
+        panic!("Expected Json::Object");
+    };
+    assert_eq!(map.len(), 2);
+    assert_eq!(map.get("key1"), Some(&Json::String("value1".to_string())));
+    assert_eq!(map.get("key2"), Some(&Json::String("value2".to_string())));
     Ok(())
 }

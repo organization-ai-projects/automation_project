@@ -3,18 +3,15 @@ use crate::Json;
 use crate::JsonObject;
 use crate::json_access::JsonAccess;
 use crate::json_access_mut::JsonAccessMut;
+use super::test_helpers::TestResult;
 
-#[cfg(test)]
 #[test]
-fn test_json_access() {
+fn test_json_access() -> TestResult {
     let mut json = Json::Object(JsonObject::new());
-    if let Err(e) = json.set_field("key", Json::String("value".to_string())) {
-        panic!("Error setting field: {:?}", e);
-    }
+    json.set_field("key", Json::String("value".to_string()))?;
 
-    match json.get_field("key") {
-        Ok(value) => assert_eq!(value, &Json::String("value".to_string())),
-        Err(e) => panic!("Error accessing field: {:?}", e),
-    }
+    let value = json.get_field("key")?;
+    assert_eq!(value, &Json::String("value".to_string()));
     assert!(json.get_field("nonexistent").is_err());
+    Ok(())
 }

@@ -2,7 +2,6 @@
 use crate::json::Json;
 use crate::json_comparison::JsonComparison;
 
-#[cfg(test)]
 #[test]
 fn test_json_comparison_new() {
     let comparison = JsonComparison::new();

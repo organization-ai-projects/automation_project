@@ -31,13 +31,13 @@ fn test_end() -> TestResult {
     };
 
     let result = SerializeSeq::end(serializer)?;
-    if let Json::Array(elements) = result {
-        assert_eq!(elements.len(), 2);
-        assert_eq!(elements[0], Json::String("value1".to_string()));
-        assert_eq!(elements[1], Json::String("value2".to_string()));
-    } else {
+    
+    let Json::Array(elements) = result else {
         panic!("Expected Json::Array");
-    }
+    };
+    assert_eq!(elements.len(), 2);
+    assert_eq!(elements[0], Json::String("value1".to_string()));
+    assert_eq!(elements[1], Json::String("value2".to_string()));
     Ok(())
 }
 
