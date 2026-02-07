@@ -2,35 +2,34 @@
 use crate::Json;
 use crate::json_access::JsonAccess;
 use crate::json_access_mut::JsonAccessMut;
+use super::test_helpers::TestResult;
 use std::collections::HashMap;
 
 #[test]
-fn test_get_field() {
+fn test_get_field() -> TestResult {
     let json = Json::Object(HashMap::from_iter(vec![(
         "key".to_string(),
         Json::from("value"),
     )]));
 
-    match json.get_field("key") {
-        Ok(value) => assert_eq!(value, &Json::from("value")),
-        Err(e) => panic!("Error accessing field: {:?}", e),
-    }
+    let value = json.get_field("key")?;
+    assert_eq!(value, &Json::from("value"));
     assert!(json.get_field("missing").is_err());
+    Ok(())
 }
 
 #[test]
-fn test_get_index() {
+fn test_get_index() -> TestResult {
     let json = Json::Array(vec![Json::from(1), Json::from(2), Json::from(3)]);
 
-    match json.get_index(1) {
-        Ok(value) => assert_eq!(value, &Json::from(2)),
-        Err(e) => panic!("Error accessing index: {:?}", e),
-    }
+    let value = json.get_index(1)?;
+    assert_eq!(value, &Json::from(2));
     assert!(json.get_index(5).is_err());
+    Ok(())
 }
 
 #[test]
-fn test_get_path() {
+fn test_get_path() -> TestResult {
     let json = Json::Object(HashMap::from_iter(vec![(
         "nested".to_string(),
         Json::Object(HashMap::from_iter(vec![(
@@ -39,78 +38,64 @@ fn test_get_path() {
         )])),
     )]));
 
-    match json.get_path("nested.key") {
-        Ok(value) => assert_eq!(value, &Json::from("value")),
-        Err(e) => panic!("Error accessing path: {:?}", e),
-    }
+    let value = json.get_path("nested.key")?;
+    assert_eq!(value, &Json::from("value"));
     assert!(json.get_path("nested.missing").is_err());
+    Ok(())
 }
 
 #[test]
-fn test_set_field() {
+fn test_set_field() -> TestResult {
     let mut json = Json::Object(HashMap::new());
-    if let Err(e) = json.set_field("key", "value") {
-        panic!("Error setting field: {:?}", e);
-    }
+    json.set_field("key", "value")?;
 
-    match json.get_field("key") {
-        Ok(value) => assert_eq!(value, &Json::from("value")),
-        Err(e) => panic!("Error accessing field: {:?}", e),
-    }
+    let value = json.get_field("key")?;
+    assert_eq!(value, &Json::from("value"));
+    Ok(())
 }
 
 #[test]
-fn test_remove_field() {
+fn test_remove_field() -> TestResult {
     let mut json = Json::Object(HashMap::from_iter(vec![(
         "key".to_string(),
         Json::from("value"),
     )]));
 
-    match json.remove_field("key") {
-        Ok(value) => assert_eq!(value, Some(Json::from("value"))),
-        Err(e) => panic!("Error removing field: {:?}", e),
-    }
+    let value = json.remove_field("key")?;
+    assert_eq!(value, Some(Json::from("value")));
     assert!(json.get_field("key").is_err());
+    Ok(())
 }
 
 #[test]
-fn test_push() {
+fn test_push() -> TestResult {
     let mut json = Json::Array(vec![]);
-    if let Err(err) = json.push(1) {
-        panic!("Error pushing value: {:?}", err);
-    }
+    json.push(1)?;
 
-    match json.get_index(0) {
-        Ok(value) => assert_eq!(value, &Json::from(1)),
-        Err(err) => panic!("Error accessing index: {:?}", err),
-    }
+    let value = json.get_index(0)?;
+    assert_eq!(value, &Json::from(1));
+    Ok(())
 }
 
 #[test]
-fn test_insert_at() {
+fn test_insert_at() -> TestResult {
     let mut json = Json::Array(vec![Json::from(1), Json::from(3)]);
-    if let Err(err) = json.insert_at(1, 2) {
-        panic!("Error inserting value: {:?}", err);
-    }
+    json.insert_at(1, 2)?;
 
-    match json.get_index(1) {
-        Ok(value) => assert_eq!(value, &Json::from(2)),
-        Err(err) => panic!("Error accessing index: {:?}", err),
-    }
+    let value = json.get_index(1)?;
+    assert_eq!(value, &Json::from(2));
+    Ok(())
 }
 
 #[test]
-fn test_remove_at() {
+fn test_remove_at() -> TestResult {
     let mut json = Json::Array(vec![Json::from(1), Json::from(2), Json::from(3)]);
-    match json.remove_at(1) {
-        Ok(value) => assert_eq!(value, Json::from(2)),
-        Err(err) => panic!("Error removing value: {:?}", err),
-    }
+    let removed = json.remove_at(1)?;
+    assert_eq!(removed, Json::from(2));
 
-    match json.get_index(1) {
-        Ok(value) => assert_eq!(value, &Json::from(3)),
-        Err(err) => panic!("Error accessing index: {:?}", err),
-    }
+    let value = json.get_index(1)?;
+    assert_eq!(value, &Json::from(3));
+    Ok(())
 }
 
 #[test]

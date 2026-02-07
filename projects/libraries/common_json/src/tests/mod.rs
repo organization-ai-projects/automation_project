@@ -1,4 +1,6 @@
 // projects/libraries/common_json/src/tests/mod.rs
+mod test_helpers;
+
 mod access;
 mod json;
 mod json_access;

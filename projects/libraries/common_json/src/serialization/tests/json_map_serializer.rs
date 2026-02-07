@@ -1,5 +1,4 @@
 // projects/libraries/common_json/src/serialization/tests/json_map_serializer.rs
-
 #[cfg(test)]
 mod tests {
     use crate::Json;
@@ -29,12 +28,11 @@ mod tests {
         serializer.serialize_value("value2")?;
         let result = SerializeMap::end(serializer)?;
 
-        if let Json::Object(map) = result {
-            assert_eq!(map.get("key1"), Some(&Json::String("value1".to_string())));
-            assert_eq!(map.get("key2"), Some(&Json::String("value2".to_string())));
-        } else {
+        let Json::Object(map) = result else {
             panic!("Expected Json::Object");
-        }
+        };
+        assert_eq!(map.get("key1"), Some(&Json::String("value1".to_string())));
+        assert_eq!(map.get("key2"), Some(&Json::String("value2".to_string())));
         Ok(())
     }
 
@@ -44,11 +42,10 @@ mod tests {
         serializer.serialize_field("field1", "value1")?;
         let result = SerializeStruct::end(serializer)?;
 
-        if let Json::Object(map) = result {
-            assert_eq!(map.get("field1"), Some(&Json::String("value1".to_string())));
-        } else {
+        let Json::Object(map) = result else {
             panic!("Expected Json::Object");
-        }
+        };
+        assert_eq!(map.get("field1"), Some(&Json::String("value1".to_string())));
         Ok(())
     }
 }
