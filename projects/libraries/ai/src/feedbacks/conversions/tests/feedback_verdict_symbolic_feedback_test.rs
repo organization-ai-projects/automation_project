@@ -9,52 +9,52 @@ fn test_feedback_verdict_to_symbolic_feedback() {
         (
             "Correct verdict",
             FeedbackVerdict::Correct,
-            TestExpectation::PositiveNoPayload,
+            TestExpectation::PositiveWhithout,
         ),
         (
             "Rejected verdict",
             FeedbackVerdict::Rejected,
-            TestExpectation::NegativeNoPayload,
+            TestExpectation::NegativeWithout,
         ),
         (
             "NoFeedback verdict",
             FeedbackVerdict::NoFeedback,
-            TestExpectation::NegativeNoPayload,
+            TestExpectation::NegativeWithout,
         ),
         (
             "Incorrect verdict",
             FeedbackVerdict::Incorrect {
                 expected_output: "Expected output".into(),
             },
-            TestExpectation::NegativeWithPayload("Expected output"),
+            TestExpectation::NegativeWith("Expected output"),
         ),
         (
             "Partial verdict",
             FeedbackVerdict::Partial {
                 correction: "Correction details".into(),
             },
-            TestExpectation::NegativeWithPayload("Correction details"),
+            TestExpectation::NegativeWith("Correction details"),
         ),
     ];
 
     for (_name, verdict, expectation) in cases {
         let symbolic_feedback: SymbolicFeedback = verdict.into();
         match expectation {
-            TestExpectation::PositiveNoPayload => {
+            TestExpectation::PositiveWhithout => {
                 assert_positive_no_payload(&symbolic_feedback);
             }
-            TestExpectation::NegativeNoPayload => {
+            TestExpectation::NegativeWithout => {
                 assert_negative_no_payload(&symbolic_feedback);
             }
-            TestExpectation::NegativeWithPayload(payload) => {
+            TestExpectation::NegativeWith(payload) => {
                 assert_negative_with_payload(&symbolic_feedback, payload);
             }
         }
     }
 }
 
-enum TestExpectation {
-    PositiveNoPayload,
-    NegativeNoPayload,
-    NegativeWithPayload(&'static str),
+enum TestExpectationPayload {
+    PositiveWhithout,
+    NegativeWithout,
+    NegativeWith(&'static str),
 }
