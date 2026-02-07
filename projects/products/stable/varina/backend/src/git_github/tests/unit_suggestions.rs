@@ -1,5 +1,4 @@
 // projects/products/varina/backend/src/git_github/tests/unit_suggestions.rs
-mod unit_tests {
     use crate::autopilot::AutopilotPolicy;
     use crate::classified_changes::ClassifiedChanges;
     use crate::git_github::policy_suggestions::suggest_policy_from_report;
@@ -33,4 +32,3 @@ mod unit_tests {
             suggestion.notes
         );
     }
-}
