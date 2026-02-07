@@ -1,0 +1,74 @@
+name: Auto markdownlint
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  markdownlint:
+    name: Apply markdownlint
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'sync/main-into-dev'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Ensure local branch
+        run: git checkout -B "${{ github.head_ref }}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for markdown issues
+        id: check_md
+        run: |
+          echo "needs_fixing=false" >> $GITHUB_OUTPUT
+          MODIFIED_FILES=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}..HEAD | grep '\.md$' || true)
+          if [ -z "$MODIFIED_FILES" ]; then
+            echo "No Markdown files modified. Skipping linting."
+            exit 0
+          fi
+
+          MODIFIED_FILES=$(echo "$MODIFIED_FILES" | xargs -I{} bash -lc 'test -f "$1" && echo "$1"' _ {} || true)
+          if [ -z "$MODIFIED_FILES" ]; then
+            echo "No existing Markdown files to lint after filtering. Skipping."
+            exit 0
+          fi
+
+          {
+            echo "modified_files<<EOF"
+            echo "$MODIFIED_FILES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Checking markdown formatting for modified files..."
+          if ! npm run lint-md; then
+            echo "needs_fixing=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run markdownlint-cli2 --fix on modified files
+        if: steps.check_md.outputs.needs_fixing == 'true'
+        run: npm run lint-md-fix
+
+      - name: Auto-commit markdownlint changes
+        if: steps.check_md.outputs.needs_fixing == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: apply markdownlint fixes"
+          branch: ${{ github.head_ref }}
