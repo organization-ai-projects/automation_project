@@ -1,15 +1,6 @@
 // projects/libraries/protocol/src/metadatas/tests/metadata.rs
+use crate::tests::test_helpers::assert_valid_protocol_id_hex;
 use crate::{Metadata, ProtocolId, ValidationError};
-
-/// Helper to validate that a ProtocolId has proper hex formatting
-fn assert_valid_protocol_id_hex(id: &ProtocolId) {
-    let hex = id.to_hex();
-    assert_eq!(hex.len(), 32, "Protocol ID should be 32 hex characters");
-    assert!(
-        hex.chars().all(|c| c.is_ascii_hexdigit()),
-        "Protocol ID should be valid hex"
-    );
-}
 
 #[test]
 fn test_metadata_validate_future_timestamp_rejected() {
@@ -21,10 +12,15 @@ fn test_metadata_validate_future_timestamp_rejected() {
         ..Default::default()
     };
 
-    match metadata.validate() {
-        Ok(_) => panic!("Expected validation error for future timestamp"),
-        Err(err) => assert!(matches!(err, ValidationError::InvalidTimestamp(_))),
-    }
+    let result = metadata.validate();
+    assert!(
+        result.is_err(),
+        "Expected validation error for future timestamp"
+    );
+    assert!(matches!(
+        result.unwrap_err(),
+        ValidationError::InvalidTimestamp(_)
+    ));
 }
 
 #[test]

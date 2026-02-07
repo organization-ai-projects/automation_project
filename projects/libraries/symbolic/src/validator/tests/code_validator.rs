@@ -1,3 +1,7 @@
+use super::test_helpers::{
+    TestResult, assert_invalid, assert_valid, assert_warn_contains, create_strict_validator,
+    create_validator,
+};
 use crate::validator::CodeValidator;
 
 #[test]
@@ -7,45 +11,40 @@ fn test_validator_creation() {
 }
 
 #[test]
-fn test_valid_code() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_valid_code() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             println!("Hello, world!");
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
-    assert!(validation.is_valid);
+    let validation = validator.validate(code)?;
+    assert_valid(&validation);
+    Ok(())
 }
 
 #[test]
-fn test_invalid_syntax() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_invalid_syntax() -> TestResult {
+    let validator = create_validator();
     let code = "fn main( {"; // Missing closing paren
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
-    assert!(!validation.is_valid);
-    assert!(!validation.errors.is_empty());
+    let validation = validator.validate(code)?;
+    assert_invalid(&validation);
+    Ok(())
 }
 
 #[test]
-fn test_empty_code() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
-    let result = validator.validate("");
-
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
-    assert!(!validation.is_valid);
+fn test_empty_code() -> TestResult {
+    let validator = create_validator();
+    let validation = validator.validate("")?;
+    assert_invalid(&validation);
+    Ok(())
 }
 
 #[test]
-fn test_warnings() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_warnings() -> TestResult {
+    let validator = create_validator();
     let code = r#"
         fn main() {
             println!("test");
@@ -55,27 +54,16 @@ fn test_warnings() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
-    assert!(validation.is_valid);
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|warning| warning.contains("expect calls"))
-    );
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|warning| warning.contains("deprecated try! macro"))
-    );
+    let validation = validator.validate(code)?;
+    assert_valid(&validation);
+    assert_warn_contains(&validation, "expect calls");
+    assert_warn_contains(&validation, "try! macro");
+    Ok(())
 }
 
 #[test]
 fn test_suggest_fix_semicolon() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let validator = create_validator();
     let code = "let x = 5";
 
     let errors = vec!["expected `;`".to_string()];
@@ -87,7 +75,7 @@ fn test_suggest_fix_semicolon() {
 
 #[test]
 fn test_suggest_fix_delimiters() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let validator = create_validator();
     let code = "fn main() { println!(\"test\"";
 
     let errors = vec!["unclosed delimiter".to_string()];
@@ -97,10 +85,8 @@ fn test_suggest_fix_delimiters() {
 }
 
 #[test]
-fn test_strict_mode() {
-    let validator = CodeValidator::new()
-        .expect("Failed to create CodeValidator")
-        .with_strict_mode(true);
+fn test_strict_mode() -> TestResult {
+    let validator = create_strict_validator();
 
     // Test with code that has semantic issues
     let code = r#"
@@ -109,46 +95,35 @@ fn test_strict_mode() {
         }
     "#;
 
-    let result = validator.validate(code);
-    assert!(result.is_ok());
-    let validation = result.expect("Validation failed");
+    let validation = validator.validate(code)?;
 
     // In strict mode, unused variables should be reported as errors
-    assert!(
-        !validation.warnings.is_empty(),
-        "Expected warnings in strict mode"
-    );
-    assert!(
-        validation
-            .warnings
-            .iter()
-            .any(|warning| warning.contains("unused_var") || warning.contains("error")),
-        "Expected error-level warning for unused variable in strict mode"
-    );
+    assert_warn_contains(&validation, "unused_var");
+    assert_warn_contains(&validation, "error");
+    Ok(())
 }
 
 #[test]
-fn test_validate_syntax_only() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+fn test_validate_syntax_only() -> TestResult {
+    let validator = create_validator();
     let code = "fn test() {}";
 
-    let result = validator.validate_syntax(code);
-    assert!(result.is_ok());
-    assert!(result.expect("Validation failed").is_valid);
+    let validation = validator.validate_syntax(code)?;
+    assert_valid(&validation);
+    Ok(())
 }
 
 #[test]
-fn test_validate_syntax_only_empty_code() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
-    let result = validator.validate_syntax("");
-
-    assert!(result.is_ok());
-    assert!(!result.expect("Validation failed").is_valid);
+fn test_validate_syntax_only_empty_code() -> TestResult {
+    let validator = create_validator();
+    let validation = validator.validate_syntax("")?;
+    assert_invalid(&validation);
+    Ok(())
 }
 
 #[test]
 fn test_suggest_fix_no_match() {
-    let validator = CodeValidator::new().expect("Failed to create CodeValidator");
+    let validator = create_validator();
     let code = "fn main() {}";
 
     let errors = vec!["some other error".to_string()];
