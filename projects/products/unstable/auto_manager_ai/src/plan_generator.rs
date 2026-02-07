@@ -32,7 +32,10 @@ pub fn generate_action_plan(config: &Config) -> Result<ActionPlan, String> {
 mod tests {
     use std::fs;
 
-    use crate::{config::Config, plan_generator::generate_action_plan, tests::test_helpers::create_unique_temp_dir};
+    use crate::{
+        config::Config, plan_generator::generate_action_plan,
+        tests::test_helpers::create_unique_temp_dir,
+    };
 
     #[test]
     fn test_generate_action_plan() {

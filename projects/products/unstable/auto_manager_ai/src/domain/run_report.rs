@@ -67,7 +67,7 @@ mod tests {
     use crate::domain::policy_decision_type::PolicyDecisionType;
     use crate::domain::run_report::RunReport;
     use crate::domain::run_status::RunStatus;
-    use common_json::{from_str, to_string_pretty, JsonAccess};
+    use common_json::{JsonAccess, from_str, to_string_pretty};
 
     #[test]
     fn test_run_report_new() {
@@ -85,34 +85,78 @@ mod tests {
 
         let json = to_string_pretty(&report).expect("Failed to serialize");
         let parsed: common_json::Json = from_str(&json).expect("Failed to parse JSON");
-        
+
         // Verify specific fields exist and have correct values
-        let product = parsed.get_field("product").expect("product field should exist");
-        assert!(matches!(product, common_json::Json::String(_)), "product should be a string");
-        assert_eq!(product.as_str(), Some("auto_manager_ai"), "product should match");
-        
-        let version = parsed.get_field("version").expect("version field should exist");
-        assert!(matches!(version, common_json::Json::String(_)), "version should be a string");
+        let product = parsed
+            .get_field("product")
+            .expect("product field should exist");
+        assert!(
+            matches!(product, common_json::Json::String(_)),
+            "product should be a string"
+        );
+        assert_eq!(
+            product.as_str(),
+            Some("auto_manager_ai"),
+            "product should match"
+        );
+
+        let version = parsed
+            .get_field("version")
+            .expect("version field should exist");
+        assert!(
+            matches!(version, common_json::Json::String(_)),
+            "version should be a string"
+        );
         assert_eq!(version.as_str(), Some("0.1.0"), "version should be 0.1.0");
-        
-        let run_id = parsed.get_field("run_id").expect("run_id field should exist");
-        assert!(matches!(run_id, common_json::Json::String(_)), "run_id should be a string");
+
+        let run_id = parsed
+            .get_field("run_id")
+            .expect("run_id field should exist");
+        assert!(
+            matches!(run_id, common_json::Json::String(_)),
+            "run_id should be a string"
+        );
         assert_eq!(run_id.as_str(), Some("test_run_123"), "run_id should match");
-        
-        let timestamp = parsed.get_field("timestamp").expect("timestamp field should exist");
-        assert!(matches!(timestamp, common_json::Json::String(_)), "timestamp should be a string");
-        
-        let status = parsed.get_field("status").expect("status field should exist");
-        assert!(matches!(status, common_json::Json::String(_)), "status should be a string");
-        
-        let output = parsed.get_field("output").expect("output field should exist");
-        assert!(matches!(output, common_json::Json::Object(_)), "output should be an object");
-        
-        let policy_decisions = parsed.get_field("policy_decisions").expect("policy_decisions field should exist");
-        assert!(matches!(policy_decisions, common_json::Json::Array(_)), "policy_decisions should be an array");
-        
-        let errors = parsed.get_field("errors").expect("errors field should exist");
-        assert!(matches!(errors, common_json::Json::Array(_)), "errors should be an array");
+
+        let timestamp = parsed
+            .get_field("timestamp")
+            .expect("timestamp field should exist");
+        assert!(
+            matches!(timestamp, common_json::Json::String(_)),
+            "timestamp should be a string"
+        );
+
+        let status = parsed
+            .get_field("status")
+            .expect("status field should exist");
+        assert!(
+            matches!(status, common_json::Json::String(_)),
+            "status should be a string"
+        );
+
+        let output = parsed
+            .get_field("output")
+            .expect("output field should exist");
+        assert!(
+            matches!(output, common_json::Json::Object(_)),
+            "output should be an object"
+        );
+
+        let policy_decisions = parsed
+            .get_field("policy_decisions")
+            .expect("policy_decisions field should exist");
+        assert!(
+            matches!(policy_decisions, common_json::Json::Array(_)),
+            "policy_decisions should be an array"
+        );
+
+        let errors = parsed
+            .get_field("errors")
+            .expect("errors field should exist");
+        assert!(
+            matches!(errors, common_json::Json::Array(_)),
+            "errors should be an array"
+        );
 
         let _deserialized: RunReport = from_str(&json).expect("Failed to deserialize");
     }
