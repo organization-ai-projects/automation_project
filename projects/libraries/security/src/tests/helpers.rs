@@ -25,11 +25,16 @@ pub fn build_test_token(role: Role, subject_id: ProtocolId, expires_at_ms: u64) 
 
 /// Helper to build a token that expires after a given number of milliseconds
 pub fn build_token_expires_in(role: Role, subject_id: ProtocolId, duration_ms: u64) -> Token {
-    build_test_token(
-        role,
+    let issued_at_ms = current_timestamp_ms();
+    let expires_at_ms = issued_at_ms.saturating_add(duration_ms);
+    Token {
+        value: test_protocol_id(7),
         subject_id,
-        current_timestamp_ms().saturating_add(duration_ms),
-    )
+        role,
+        issued_at_ms,
+        expires_at_ms,
+        session_id: None,
+    }
 }
 
 /// Helper to build an already expired token
