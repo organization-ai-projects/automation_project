@@ -90,18 +90,18 @@ pub trait HasLen {
 
 impl<T> HasLen for crate::BumpArena<T> {
     fn len(&self) -> usize {
-        self.len()
+        <crate::BumpArena<T>>::len(self)
     }
     fn is_empty(&self) -> bool {
-        self.is_empty()
+        <crate::BumpArena<T>>::is_empty(self)
     }
 }
 
 impl<T> HasLen for crate::SlotArena<T> {
     fn len(&self) -> usize {
-        self.len()
+        <crate::SlotArena<T>>::len(self)
     }
     fn is_empty(&self) -> bool {
-        self.is_empty()
+        <crate::SlotArena<T>>::is_empty(self)
     }
 }
