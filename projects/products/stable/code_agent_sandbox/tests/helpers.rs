@@ -24,7 +24,7 @@ pub fn run_sandbox_with_stdin(repo_root: &str, runs_root: &str, input: &str) -> 
             .expect("Failed to write request JSON to stdin");
     }
 
-    child.wait_with_output().expect("Failed to wait output")
+    child.wait_with_output().expect("Failed to wait for output")
 }
 
 /// Parses the stdout of a process output as JSON, or panics with diagnostic info.
