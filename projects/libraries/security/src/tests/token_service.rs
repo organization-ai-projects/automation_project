@@ -28,9 +28,10 @@ fn test_expired_token() {
     std::thread::sleep(std::time::Duration::from_millis(500));
     assert!(service.verify(&jwt).is_ok());
 
-    // Sleep for 3 more seconds - well past expiry + leeway with very comfortable margin
-    // Token rounds to 1s expiry, leeway is 1s, so should expire around 2s
-    // We wait 3.5s total to have plenty of margin for slow CI and timing variations
+    // Sleep for 3 more seconds - well past expiry + leeway
+    // Expiry calculation: 100ms token duration rounds up to 1s (see token_service.rs line 72)
+    // Plus 1s leeway = 2s total grace period from token issue time
+    // Total elapsed: 500ms + 3000ms = 3500ms, well past the 2000ms threshold
     std::thread::sleep(std::time::Duration::from_millis(3000));
 
     // Should now be expired
