@@ -1,20 +1,11 @@
 // projects/libraries/protocol/src/tests/event.rs
+use super::test_helpers::assert_valid_protocol_id_hex;
 use crate::event::{MAX_EVENT_DATA_SIZE, MAX_EVENT_NAME_LENGTH};
 use crate::{
     Event, EventType, EventVariant, LogLevel, Metadata, Payload, ProtocolId, ValidationError,
 };
 use common::custom_uuid::Id128;
 use common_json::Json;
-
-/// Helper to validate that a ProtocolId has proper hex formatting
-fn assert_valid_protocol_id_hex(id: &ProtocolId) {
-    let hex = id.to_hex();
-    assert_eq!(hex.len(), 32, "Protocol ID should be 32 hex characters");
-    assert!(
-        hex.chars().all(|c| c.is_ascii_hexdigit()),
-        "Protocol ID should be valid hex"
-    );
-}
 
 fn base_metadata() -> Metadata {
     Metadata {
@@ -80,50 +71,63 @@ fn test_event_with_variant_sets_metadata() {
 #[test]
 fn test_event_validate_empty_name() {
     let event = build_event_with_metadata(base_metadata(), "".to_string(), "data".to_string());
-    match event.validate() {
-        Ok(_) => panic!("Expected validation error for empty name"),
-        Err(err) => assert!(matches!(err, ValidationError::EmptyName)),
-    }
+    let result = event.validate();
+    assert!(result.is_err(), "Expected validation error for empty name");
+    assert!(matches!(result.unwrap_err(), ValidationError::EmptyName));
 }
 
 #[test]
 fn test_event_validate_invalid_name_format() {
     let event =
         build_event_with_metadata(base_metadata(), "bad name!".to_string(), "data".to_string());
-    match event.validate() {
-        Ok(_) => panic!("Expected validation error for invalid name"),
-        Err(err) => assert!(matches!(err, ValidationError::InvalidNameFormat(_))),
-    }
+    let result = event.validate();
+    assert!(
+        result.is_err(),
+        "Expected validation error for invalid name"
+    );
+    assert!(matches!(
+        result.unwrap_err(),
+        ValidationError::InvalidNameFormat(_)
+    ));
 }
 
 #[test]
 fn test_event_validate_name_too_long() {
     let name = "a".repeat(MAX_EVENT_NAME_LENGTH + 1);
     let event = build_event_with_metadata(base_metadata(), name, "data".to_string());
-    match event.validate() {
-        Ok(_) => panic!("Expected validation error for name length"),
-        Err(err) => assert!(matches!(err, ValidationError::NameTooLong { .. })),
-    }
+    let result = event.validate();
+    assert!(result.is_err(), "Expected validation error for name length");
+    assert!(matches!(
+        result.unwrap_err(),
+        ValidationError::NameTooLong { .. }
+    ));
 }
 
 #[test]
 fn test_event_validate_empty_payload() {
     let event =
         build_event_with_metadata(base_metadata(), "valid_name".to_string(), "   ".to_string());
-    match event.validate() {
-        Ok(_) => panic!("Expected validation error for empty payload"),
-        Err(err) => assert!(matches!(err, ValidationError::EmptyPayload)),
-    }
+    let result = event.validate();
+    assert!(
+        result.is_err(),
+        "Expected validation error for empty payload"
+    );
+    assert!(matches!(result.unwrap_err(), ValidationError::EmptyPayload));
 }
 
 #[test]
 fn test_event_validate_payload_too_large() {
     let data = "a".repeat(MAX_EVENT_DATA_SIZE + 1);
     let event = build_event_with_metadata(base_metadata(), "valid_name".to_string(), data);
-    match event.validate() {
-        Ok(_) => panic!("Expected validation error for payload size"),
-        Err(err) => assert!(matches!(err, ValidationError::PayloadTooLarge { .. })),
-    }
+    let result = event.validate();
+    assert!(
+        result.is_err(),
+        "Expected validation error for payload size"
+    );
+    assert!(matches!(
+        result.unwrap_err(),
+        ValidationError::PayloadTooLarge { .. }
+    ));
 }
 
 #[test]
@@ -133,9 +137,12 @@ fn test_event_validate_allowed_characters() {
         "valid_name-1.2".to_string(),
         "data".to_string(),
     );
-    if let Err(err) = event.validate() {
-        panic!("Expected valid event name, got error: {}", err);
-    }
+    let result = event.validate();
+    assert!(
+        result.is_ok(),
+        "Expected valid event name, got error: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -205,8 +212,10 @@ fn test_event_validate_variant_error() {
         },
     };
 
-    match event.validate() {
-        Ok(_) => panic!("Expected validation error for variant"),
-        Err(err) => assert!(matches!(err, ValidationError::InvalidVariant(_))),
-    }
+    let result = event.validate();
+    assert!(result.is_err(), "Expected validation error for variant");
+    assert!(matches!(
+        result.unwrap_err(),
+        ValidationError::InvalidVariant(_)
+    ));
 }
