@@ -80,10 +80,10 @@ pub fn assert_empty_struct_format(display: &str, variant_name: &str) {
     let content = display
         .split('{')
         .nth(1)
-        .unwrap()
+        .expect("Expected to find content after opening brace")
         .split('}')
         .next()
-        .unwrap();
+        .expect("Expected to find content before closing brace");
     assert!(
         content.trim().is_empty(),
         "Empty struct should only contain whitespace between braces, but found: '{}'",
