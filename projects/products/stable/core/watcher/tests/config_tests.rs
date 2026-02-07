@@ -71,8 +71,16 @@ log_level = "info"
     let mut attempts = 0;
     let max_attempts = 30; // 30 attempts * 10ms = 300ms max
     loop {
-        if let Ok(Some(status)) = child.try_wait() {
-            panic!("watcher exited early: {status}");
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                panic!("watcher exited early: {status}");
+            }
+            Ok(None) => {
+                // still running, continue retry loop
+            }
+            Err(e) => {
+                panic!("failed to wait on watcher process: {e}");
+            }
         }
         attempts += 1;
         if attempts >= max_attempts {
