@@ -24,6 +24,19 @@ info "Running pre-push checks..."
 
 ISSUES=0
 
+# 0. Markdown lint (if npm is available)
+if command -v npm &> /dev/null && [[ -f "$ROOT_DIR/package.json" ]]; then
+  info "Checking markdown formatting..."
+  if npm run lint-md; then
+    info "✓ Markdown lint passed."
+  else
+    warn "⚠ Markdown lint failed."
+    ISSUES=$((ISSUES + 1))
+  fi
+else
+  info "ℹ Skipping markdown lint (npm not available or package.json missing)."
+fi
+
 # 1. Cargo check
 info "Checking workspace..."
 if cargo check --workspace --all-targets; then

@@ -1,27 +1,34 @@
 # Bot CI Harness Refactoring Summary
 
 ## Overview
+
 This document summarizes the refactoring work done on the bot_ci_harness test framework to address critical issues and improve maintainability.
 
 ## Problems Addressed
 
 ### 1. Sandbox Isolation Issues
+
 **Problem**: Scripts struggled to maintain isolated sandbox environments, leading to potential conflicts.
-**Solution**: 
+**Solution**:
+
 - Fixed GH_TOKEN/APP_GH_TOKEN environment variables to use mock tokens in tests
 - Improved sandbox cleanup with proper trap handling
 - Each test now runs in a completely isolated temporary Git repository
 
 ### 2. Git Repository Redirection Issues
+
 **Problem**: Redirecting Git repositories to simulated local repositories was error-prone.
 **Solution**:
+
 - Created git_operations.sh library with robust Git utility functions
 - Added early check to skip sync when branches are already identical
 - Enhanced mock gh to detect identical branches and return appropriate errors
 
 ### 3. Script Complexity
+
 **Problem**: Scripts were becoming increasingly complex and hard to maintain.
 **Solution**:
+
 - Extracted common functionality into modular libraries:
   - logging.sh - Structured logging
   - git_operations.sh - Git operations
@@ -34,26 +41,31 @@ This document summarizes the refactoring work done on the bot_ci_harness test fr
 ## Critical Bug Fixes
 
 ### 1. Assertion Exit Bug
+
 **Issue**: The fail() function called `exit 1`, terminating the entire script instead of just the current test.
 **Fix**: Changed fail() to use `return 1`, allowing the test runner to continue.
 **Impact**: All tests can now run to completion instead of stopping at the first failure.
 
 ### 2. Arithmetic Expression Bug
+
 **Issue**: `((counter++))` with set -e caused script to exit when incrementing from 0.
 **Fix**: Added `|| true` to arithmetic expressions: `((counter++)) || true`
 **Impact**: Test counters now work correctly throughout test execution.
 
 ### 3. Missing assert_ne Function
+
 **Issue**: assert_ne was referenced but not defined.
 **Fix**: Added assert_ne function to lib/assert.sh
 **Impact**: Tests can now properly assert inequality.
 
 ### 4. Merge Conflict Detection
+
 **Issue**: Script didn't check if PR was CONFLICTING after waiting for stable state.
 **Fix**: Added check for MERGEABLE status after stabilization
 **Impact**: Merge conflicts are now properly detected and cause the script to fail as expected.
 
 ### 5. Inefficient Branch Creation
+
 **Issue**: Script created and pushed sync branch even when no sync was needed.
 **Fix**: Added early check to compare main and dev SHAs before creating branches
 **Impact**: Noop scenarios now exit immediately without unnecessary Git operations.
@@ -61,6 +73,7 @@ This document summarizes the refactoring work done on the bot_ci_harness test fr
 ## Architecture Improvements
 
 ### New Library Structure
+
 ```
 lib/
 ├── assert.sh           # Test assertions (enhanced)
@@ -72,6 +85,7 @@ lib/
 ```
 
 ### Testing Infrastructure
+
 ```
 tests/
 ├── README.md           # Test documentation
@@ -131,11 +145,13 @@ tests/
 ## Testing Results
 
 ### Before Refactoring
+
 - Tests were failing due to assertion bugs
 - Script would exit on first test failure
 - No unit tests for library functions
 
 ### After Refactoring
+
 - ✅ All 10 integration test scenarios pass
 - ✅ All 12 unit tests pass
 - ✅ Test runner continues through all tests
@@ -202,6 +218,7 @@ Potential areas for further improvement:
 ## Conclusion
 
 This refactoring successfully addresses all identified issues:
+
 - ✅ Sandbox isolation improved
 - ✅ Git repository redirection more robust
 - ✅ Script complexity reduced through modularity

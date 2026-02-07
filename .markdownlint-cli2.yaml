@@ -1,0 +1,26 @@
+# markdownlint-cli2 configuration
+# See: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Globs to ignore
+ignores:
+  - "target/**"
+  - "node_modules/**"
+  - "**/ui_dist/**"
+  - "**/code_agent_sandbox/**"
+
+# Rule configuration
+config:
+  # MD013/line-length - Relaxed line length for technical docs
+  MD013:
+    line_length: 150
+    code_blocks: false
+    tables: false
+  
+  # MD033/no-inline-html - Allow inline HTML (common in GitHub markdown)
+  MD033: false
+  
+  # MD041/first-line-heading - Not all markdown files start with H1
+  MD041: false
+  
+  # MD012/no-multiple-blanks - Allow multiple blank lines for readability
+  MD012: false

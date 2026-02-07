@@ -12,14 +12,14 @@ After a PR merges into the base branch (typically `dev`), your local branches ma
 
 ## When to Use Each Approach
 
-### Use Manual Cleanup When:
+### Use Manual Cleanup When
 
 - **Learning the workflow** - Understanding each step helps build familiarity
 - **Single branch cleanup** - You only need to update one or two specific branches
 - **Custom requirements** - You need selective control over which branches to update
 - **Troubleshooting** - Investigating issues requires step-by-step execution
 
-### Use Automated Cleanup When:
+### Use Automated Cleanup When
 
 - **Multiple outdated branches** - You have many branches that need updating
 - **Regular maintenance** - Performing routine cleanup after PR merges
@@ -103,6 +103,7 @@ cd scripts/versioning/file_versioning/git
 ```
 
 This will:
+
 1. Update your base branch (default: `dev`)
 2. Detect all local branches behind the base branch
 3. Delete outdated branches (local and remote)
@@ -214,6 +215,7 @@ error: The branch '<branch-name>' is not fully merged.
 ```
 
 This means the branch has commits not in the base branch. Options:
+
 - Verify the commits are merged (check PR status)
 - Use force delete: `git branch -D <branch-name>` (only if you're certain)
 
@@ -226,6 +228,7 @@ The script may show:
 ```
 
 This is usually due to:
+
 - Branch protection rules on the remote
 - Insufficient permissions
 - The remote branch was already deleted

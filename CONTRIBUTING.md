@@ -93,6 +93,7 @@ or
 **Summary**: Clear, concise description of the change
 
 **Enforcement**:
+
 - The `add_commit_push.sh` script validates commit messages
 - Git commit hooks validate commit messages (when installed via `scripts/automation/git_hooks/install_hooks.sh`)
 - Non-conforming messages are rejected with clear error messages
@@ -142,15 +143,19 @@ bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
 ```
 
 **Test enforcement:**
+
 - By default, `create_pr.sh` runs `cargo test --workspace` before creating the PR
 - If tests fail, the PR will not be created
 - To skip tests (not recommended), use the `--skip-tests` flag:
+
   ```bash
   bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh --skip-tests
   ```
+
 - Skipping tests will display a warning reminder to ensure proper testing before merging
 
 **Additional options:**
+
 - `--base <branch>`: Specify the base branch (default: `dev`)
 - `--title <title>`: Custom PR title
 - `--body <body>`: Custom PR description

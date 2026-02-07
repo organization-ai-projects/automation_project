@@ -27,6 +27,7 @@ To add a new unit test:
 3. Return 0 for success, 1 for failure
 
 Example:
+
 ```bash
 test_my_new_function() {
   if my_function "input"; then

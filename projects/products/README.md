@@ -27,6 +27,7 @@ projects/products/
 **Location**: `projects/products/stable/`
 
 Stable products are production-ready implementations that follow all project principles and best practices:
+
 - Follow the architecture patterns defined in `documentation/technical_documentation/ARCHITECTURE.md`
 - Integrate with the Engine through the protocol
 - Use the security and identity libraries for authentication and authorization
@@ -35,6 +36,7 @@ Stable products are production-ready implementations that follow all project pri
 - Have well-defined APIs and contracts
 
 Current stable products:
+
 - `core/` - Core system binaries (engine, launcher, watcher, central UI)
 - `accounts/` - User account management
 - `varina/` - Varina product
@@ -54,10 +56,10 @@ Every unstable product **MUST** include a `README.md` with a **"Architectural Co
 
 1. **Allowed violations**: What principles or patterns are being violated and why
    - Examples: "Direct filesystem access instead of protocol", "No registry integration", "No permission checks"
-   
+
 2. **Exit criteria**: What needs to be done to promote to stable
    - Examples: "Implement protocol integration", "Add permission checks", "Refactor to use registry"
-   
+
 3. **Target date** (optional): When the product should be promoted or sunset
 
 **Example compliance section:**
@@ -100,10 +102,12 @@ stable → unstable ✗ (blocked: stable cannot use unstable)
 ```
 
 **Enforcement:**
+
 - Manual code review (required)
 - CI dependency checker (optional, see `.github/workflows/check_stable_deps.yml`)
 
 **Exception handling:**
+
 - If an unstable feature is needed by stable code, promote the feature to stable first
 - Extract the needed functionality into a stable library if appropriate
 
@@ -114,6 +118,7 @@ Each unstable product must produce output in a standardized format to ensure obs
 **Required output format** (choose one):
 
 1. **Structured JSON output**: `run_report.json` with standard fields
+
    ```json
    {
      "product": "example_mvp",
@@ -127,6 +132,7 @@ Each unstable product must produce output in a standardized format to ensure obs
    ```
 
 2. **Artifact directory**: `artifacts/<run_id>/` with structured subdirectories
+
    ```
    artifacts/
      <run_id>/
@@ -136,6 +142,7 @@ Each unstable product must produce output in a standardized format to ensure obs
    ```
 
 3. **Structured stdout**: JSON lines format for streaming output
+
    ```json
    {"type": "start", "timestamp": "...", "product": "..."}
    {"type": "log", "level": "info", "message": "..."}
@@ -144,6 +151,7 @@ Each unstable product must produce output in a standardized format to ensure obs
    ```
 
 This standardization enables:
+
 - Automated testing and validation
 - Centralized log aggregation
 - Debugging and troubleshooting
@@ -182,6 +190,7 @@ The repository includes optional CI checks to enforce these rules:
 ## Questions?
 
 For questions about product structure, architecture, or promotion process:
+
 - See [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - See [ARCHITECTURE.md](../../documentation/technical_documentation/ARCHITECTURE.md)
 - Open an issue for discussion
