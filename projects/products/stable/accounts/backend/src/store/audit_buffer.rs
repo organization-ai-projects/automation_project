@@ -85,13 +85,13 @@ impl AuditBuffer {
         }
 
         // Write all entries in one operation
-        tokio::fs::OpenOptions::new()
+        let mut file = tokio::fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(audit_path)
-            .await?
-            .write_all(payload.as_bytes())
             .await?;
+        file.write_all(payload.as_bytes()).await?;
+        file.flush().await?;
 
         // Clear buffer after successful write
         buffer.clear();
