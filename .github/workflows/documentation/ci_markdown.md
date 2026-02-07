@@ -25,10 +25,10 @@ This workflow enforces Markdown formatting and linting standards across the repo
 - **Config File**: `.markdownlint-cli2.yaml` in the repository root
 - **Ignored Paths**: `target/`, `node_modules/`, `ui_dist/`, `code_agent_sandbox/`
 - **Rule Adjustments**:
-  - Line length relaxed to 150 characters (excluding code blocks and tables)
-  - Inline HTML allowed (common in GitHub Markdown)
-  - Multiple blank lines allowed for readability
-  - First line heading requirement disabled
+  - Baseline configuration currently has relaxed rules to accommodate existing documentation
+  - Line length, code block language specification, and inline HTML checks are disabled
+  - Rules can be progressively tightened as documentation is updated
+  - Multiple blank lines and emphasis as headings are allowed for readability
 
 ## Local Usage
 
@@ -47,7 +47,7 @@ npm run lint-md-fix
 
 ## Pre-Push Integration
 
-Markdown linting is integrated into the pre-push hook via `scripts/automation/pre_push_check.sh`. It will run automatically before push if npm is available.
+Markdown linting is integrated into the pre-push hook via `scripts/automation/pre_push_check.sh`. It will run automatically before push if npm is available. Can be bypassed with `SKIP_PRE_PUSH=1 git push` if needed.
 
 ## Related Files
 
