@@ -1,3 +1,4 @@
+mod helpers;
 mod password;
 mod permissions;
 mod role;
