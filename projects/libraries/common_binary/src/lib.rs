@@ -11,35 +11,25 @@
 //!
 //! ```rust
 //! use common_binary::{BinaryOptions, BinaryEncode, BinaryDecode, write_binary, read_binary};
+//! use serde::{Serialize, Deserialize};
 //! use std::path::Path;
 //!
-//! #[derive(Debug, PartialEq, bincode::Encode, bincode::Decode)]
+//! #[derive(Debug, PartialEq, Serialize, Deserialize)]
 //! struct MyData {
 //!     value: u64,
 //!     name: String,
 //! }
 //!
-//! impl BinaryEncode for MyData {
-//!     fn encode_binary(&self, out: &mut Vec<u8>) -> Result<(), common_binary::BinaryError> {
-//!         bincode::encode_into_std_write(self, out, bincode::config::standard())
-//!             .map(|_| ())
-//!             .map_err(|e| common_binary::BinaryError::Encode(Box::leak(e.to_string().into_boxed_str())))
-//!     }
-//! }
-//!
-//! impl BinaryDecode for MyData {
-//!     fn decode_binary(input: &[u8]) -> Result<Self, common_binary::BinaryError> {
-//!         bincode::decode_from_slice(input, bincode::config::standard())
-//!             .map(|(data, _)| data)
-//!             .map_err(|e| common_binary::BinaryError::Decode(Box::leak(e.to_string().into_boxed_str())))
-//!     }
-//! }
+//! // BinaryEncode and BinaryDecode are automatically implemented
+//! // for any type that implements Serialize and Deserialize
 //! ```
 
+mod deserializer;
 mod error;
 mod header;
 mod io;
 mod options;
+mod serializer;
 mod traits;
 
 pub use error::BinaryError;

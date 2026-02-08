@@ -20,14 +20,10 @@ use std::path::Path;
 ///
 /// ```rust,no_run
 /// use common_binary::{BinaryOptions, write_binary};
-/// # use common_binary::{BinaryEncode, BinaryError};
 /// # use serde::Serialize;
 /// # #[derive(Serialize)]
 /// # struct MyData;
-/// # impl BinaryEncode for MyData {
-/// #     fn encode_binary(&self, out: &mut Vec<u8>) -> Result<(), BinaryError> { Ok(()) }
-/// # }
-/// # fn example() -> Result<(), BinaryError> {
+/// # fn example() -> Result<(), common_binary::BinaryError> {
 /// let data = MyData;
 /// let opts = BinaryOptions {
 ///     magic: *b"MYDT",
@@ -79,14 +75,10 @@ pub fn write_binary<T: BinaryEncode>(
 ///
 /// ```rust,no_run
 /// use common_binary::{BinaryOptions, read_binary};
-/// # use common_binary::{BinaryDecode, BinaryError};
 /// # use serde::Deserialize;
 /// # #[derive(Deserialize)]
 /// # struct MyData;
-/// # impl BinaryDecode for MyData {
-/// #     fn decode_binary(input: &[u8]) -> Result<Self, BinaryError> { Ok(MyData) }
-/// # }
-/// # fn example() -> Result<(), BinaryError> {
+/// # fn example() -> Result<(), common_binary::BinaryError> {
 /// let opts = BinaryOptions {
 ///     magic: *b"MYDT",
 ///     container_version: 1,

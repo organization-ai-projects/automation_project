@@ -1,32 +1,16 @@
-use crate::{BinaryDecode, BinaryEncode, BinaryError, BinaryOptions, read_binary, write_binary};
+use crate::{BinaryError, BinaryOptions, read_binary, write_binary};
+use serde::{Deserialize, Serialize};
 use std::fs;
 
-// Test data structure with bincode derives
-#[derive(Debug, PartialEq, Clone, bincode::Encode, bincode::Decode)]
+// Test data structure with serde derives
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 struct TestData {
     id: u64,
     name: String,
     values: Vec<i32>,
 }
 
-// Note: Box::leak is used here to convert dynamic error messages to &'static str.
-// This is the recommended pattern for BinaryError when wrapping backend errors,
-// as errors are infrequent and the small memory cost is acceptable.
-impl BinaryEncode for TestData {
-    fn encode_binary(&self, out: &mut Vec<u8>) -> Result<(), BinaryError> {
-        bincode::encode_into_std_write(self, out, bincode::config::standard())
-            .map(|_| ())
-            .map_err(|e| BinaryError::Encode(Box::leak(e.to_string().into_boxed_str())))
-    }
-}
-
-impl BinaryDecode for TestData {
-    fn decode_binary(input: &[u8]) -> Result<Self, BinaryError> {
-        bincode::decode_from_slice(input, bincode::config::standard())
-            .map(|(data, _)| data)
-            .map_err(|e| BinaryError::Decode(Box::leak(e.to_string().into_boxed_str())))
-    }
-}
+// BinaryEncode and BinaryDecode are automatically implemented via blanket impl
 
 #[test]
 fn test_write_read_round_trip() {
@@ -239,25 +223,10 @@ fn test_empty_data() {
     let temp_dir = std::env::temp_dir();
     let path = temp_dir.join("test_empty.bin");
 
-    #[derive(Debug, PartialEq, bincode::Encode, bincode::Decode)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct EmptyData {}
 
-    // Box::leak pattern for converting backend errors (see TestData impl above)
-    impl BinaryEncode for EmptyData {
-        fn encode_binary(&self, out: &mut Vec<u8>) -> Result<(), BinaryError> {
-            bincode::encode_into_std_write(self, out, bincode::config::standard())
-                .map(|_| ())
-                .map_err(|e| BinaryError::Encode(Box::leak(e.to_string().into_boxed_str())))
-        }
-    }
-
-    impl BinaryDecode for EmptyData {
-        fn decode_binary(input: &[u8]) -> Result<Self, BinaryError> {
-            bincode::decode_from_slice(input, bincode::config::standard())
-                .map(|(data, _)| data)
-                .map_err(|e| BinaryError::Decode(Box::leak(e.to_string().into_boxed_str())))
-        }
-    }
+    // BinaryEncode and BinaryDecode are automatically implemented
 
     let data = EmptyData {};
 
