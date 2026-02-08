@@ -479,7 +479,7 @@ fi
 
 {
   echo "### Description"
-  echo "This pull request merges the \`${head_ref}\` branch into \`${base_ref}\`, with ${pr_count} merged pull requests and ${issue_count} explicitly resolved issues."
+  echo "This pull request merges the \`${head_ref}\` branch into \`${base_ref}\` and summarizes merged pull requests and resolved issues."
   echo ""
   echo "### Issues Resolved"
   echo "This PR resolves the following issues:"
