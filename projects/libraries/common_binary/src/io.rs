@@ -1,5 +1,5 @@
-use crate::{BinaryDecode, BinaryEncode, BinaryError, BinaryOptions};
 use crate::header::Header;
+use crate::{BinaryDecode, BinaryEncode, BinaryError, BinaryOptions};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;

@@ -43,9 +43,9 @@ mod options;
 mod traits;
 
 pub use error::BinaryError;
+pub use io::{read_binary, write_binary};
 pub use options::BinaryOptions;
 pub use traits::{BinaryDecode, BinaryEncode};
-pub use io::{read_binary, write_binary};
 
 #[cfg(test)]
 mod tests;

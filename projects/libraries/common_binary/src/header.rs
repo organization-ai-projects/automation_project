@@ -40,25 +40,25 @@ impl Header {
     /// Serialize header to bytes (little-endian)
     pub fn to_bytes(self) -> [u8; Self::SIZE] {
         let mut bytes = [0u8; Self::SIZE];
-        
+
         // magic (4 bytes)
         bytes[0..4].copy_from_slice(&self.magic);
-        
+
         // container_version (2 bytes)
         bytes[4..6].copy_from_slice(&self.container_version.to_le_bytes());
-        
+
         // flags (2 bytes)
         bytes[6..8].copy_from_slice(&self.flags.to_le_bytes());
-        
+
         // schema_id (8 bytes)
         bytes[8..16].copy_from_slice(&self.schema_id.to_le_bytes());
-        
+
         // payload_len (8 bytes)
         bytes[16..24].copy_from_slice(&self.payload_len.to_le_bytes());
-        
+
         // checksum (8 bytes)
         bytes[24..32].copy_from_slice(&self.checksum.to_le_bytes());
-        
+
         bytes
     }
 
@@ -73,15 +73,15 @@ impl Header {
 
         let container_version = u16::from_le_bytes([bytes[4], bytes[5]]);
         let flags = u16::from_le_bytes([bytes[6], bytes[7]]);
-        
+
         let mut schema_id_bytes = [0u8; 8];
         schema_id_bytes.copy_from_slice(&bytes[8..16]);
         let schema_id = u64::from_le_bytes(schema_id_bytes);
-        
+
         let mut payload_len_bytes = [0u8; 8];
         payload_len_bytes.copy_from_slice(&bytes[16..24]);
         let payload_len = u64::from_le_bytes(payload_len_bytes);
-        
+
         let mut checksum_bytes = [0u8; 8];
         checksum_bytes.copy_from_slice(&bytes[24..32]);
         let checksum = u64::from_le_bytes(checksum_bytes);
@@ -152,11 +152,11 @@ mod tests {
             verify_checksum: true,
         };
         let payload = b"hello world";
-        
+
         let header = Header::new(&opts, payload);
         let bytes = header.to_bytes();
         let decoded = Header::from_bytes(&bytes).unwrap();
-        
+
         assert_eq!(header.magic, decoded.magic);
         assert_eq!(header.container_version, decoded.container_version);
         assert_eq!(header.schema_id, decoded.schema_id);
@@ -173,7 +173,7 @@ mod tests {
             verify_checksum: true,
         };
         let payload = b"hello world";
-        
+
         let header = Header::new(&opts, payload);
         assert!(header.validate(&opts).is_ok());
         assert!(header.validate_checksum(payload).is_ok());
@@ -194,7 +194,7 @@ mod tests {
             verify_checksum: true,
         };
         let payload = b"hello world";
-        
+
         let header = Header::new(&opts1, payload);
         assert!(matches!(
             header.validate(&opts2),
@@ -217,7 +217,7 @@ mod tests {
             verify_checksum: true,
         };
         let payload = b"hello world";
-        
+
         let header = Header::new(&opts1, payload);
         assert!(matches!(
             header.validate(&opts2),
@@ -235,7 +235,7 @@ mod tests {
         };
         let payload = b"hello world";
         let wrong_payload = b"hello earth";
-        
+
         let header = Header::new(&opts, payload);
         assert!(matches!(
             header.validate_checksum(wrong_payload),
@@ -248,11 +248,11 @@ mod tests {
         let data1 = b"hello world";
         let data2 = b"hello world";
         let data3 = b"hello earth";
-        
+
         let hash1 = compute_checksum(data1);
         let hash2 = compute_checksum(data2);
         let hash3 = compute_checksum(data3);
-        
+
         assert_eq!(hash1, hash2);
         assert_ne!(hash1, hash3);
     }

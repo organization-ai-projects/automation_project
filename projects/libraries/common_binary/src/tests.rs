@@ -1,4 +1,4 @@
-use crate::{read_binary, write_binary, BinaryDecode, BinaryEncode, BinaryError, BinaryOptions};
+use crate::{BinaryDecode, BinaryEncode, BinaryError, BinaryOptions, read_binary, write_binary};
 use std::fs;
 
 #[derive(Debug, PartialEq, Clone, bincode::Encode, bincode::Decode)]
@@ -86,7 +86,7 @@ fn test_invalid_magic_rejected() {
     // Try to read with different magic
     let result: Result<TestData, BinaryError> = read_binary(&path, &read_opts);
     assert!(matches!(result, Err(BinaryError::Incompatible(_))));
-    
+
     if let Err(BinaryError::Incompatible(msg)) = result {
         assert_eq!(msg, "Magic mismatch");
     }
@@ -126,7 +126,7 @@ fn test_invalid_schema_id_rejected() {
     // Try to read with different schema_id
     let result: Result<TestData, BinaryError> = read_binary(&path, &read_opts);
     assert!(matches!(result, Err(BinaryError::Incompatible(_))));
-    
+
     if let Err(BinaryError::Incompatible(msg)) = result {
         assert_eq!(msg, "Schema ID mismatch");
     }
@@ -166,7 +166,7 @@ fn test_corrupted_payload_detected() {
     // Try to read corrupted data
     let result: Result<TestData, BinaryError> = read_binary(&path, &opts);
     assert!(matches!(result, Err(BinaryError::Corrupt(_))));
-    
+
     if let Err(BinaryError::Corrupt(msg)) = result {
         assert_eq!(msg, "Checksum mismatch");
     }
@@ -360,7 +360,7 @@ fn test_truncated_header() {
     let path = temp_dir.join("test_truncated.bin");
 
     // Write a file with only partial header
-    fs::write(&path, &[1, 2, 3, 4, 5]).unwrap();
+    fs::write(&path, [1, 2, 3, 4, 5]).unwrap();
 
     let opts = BinaryOptions::default();
 
