@@ -1,4 +1,7 @@
 #[cfg(test)]
+mod test_helpers;
+
+#[cfg(test)]
 mod document_builder_tests;
 #[cfg(test)]
 mod release_id_tests;

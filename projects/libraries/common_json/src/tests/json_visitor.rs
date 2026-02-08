@@ -1,4 +1,5 @@
 // projects/libraries/common_json/src/tests/json_visitor.rs
+use super::test_helpers::{TestResult, assert_json_number};
 use crate::Json;
 use crate::JsonError;
 use crate::json_visitor::JsonVisitor;
@@ -8,53 +9,43 @@ use serde::de::value::Error as SerdeError;
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 
 #[test]
-fn test_visit_unit() {
+fn test_visit_unit() -> TestResult {
     let visitor = JsonVisitor;
-    let result = visitor.visit_unit::<SerdeError>();
-    match result {
-        Ok(json) => assert_eq!(json, Json::Null),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor.visit_unit::<SerdeError>()?;
+    assert_eq!(json, Json::Null);
+    Ok(())
 }
 
 #[test]
-fn test_visit_bool() {
+fn test_visit_bool() -> TestResult {
     let visitor = JsonVisitor;
-    let result = visitor.visit_bool::<SerdeError>(true);
-    match result {
-        Ok(json) => assert_eq!(json, Json::Bool(true)),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor.visit_bool::<SerdeError>(true)?;
+    assert_eq!(json, Json::Bool(true));
+    Ok(())
 }
 
 #[test]
-fn test_visit_i64() {
+fn test_visit_i64() -> TestResult {
     let visitor = JsonVisitor;
-    let result = visitor.visit_i64::<SerdeError>(42);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Number(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor.visit_i64::<SerdeError>(42)?;
+    assert_json_number(&json);
+    Ok(())
 }
 
 #[test]
-fn test_visit_u64() {
+fn test_visit_u64() -> TestResult {
     let visitor = JsonVisitor;
-    let result = visitor.visit_u64::<SerdeError>(42);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Number(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor.visit_u64::<SerdeError>(42)?;
+    assert_json_number(&json);
+    Ok(())
 }
 
 #[test]
-fn test_visit_f64_valid() {
+fn test_visit_f64_valid() -> TestResult {
     let visitor = JsonVisitor;
-    let result = visitor.visit_f64::<SerdeError>(42.0);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Number(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor.visit_f64::<SerdeError>(42.0)?;
+    assert_json_number(&json);
+    Ok(())
 }
 
 #[test]
@@ -65,32 +56,28 @@ fn test_visit_f64_invalid() {
 }
 
 #[test]
-fn test_visit_str() {
+fn test_visit_str() -> TestResult {
     let visitor = JsonVisitor;
-    let result = visitor.visit_str::<SerdeError>("hello");
-    match result {
-        Ok(json) => assert_eq!(json, Json::String("hello".to_string())),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor.visit_str::<SerdeError>("hello")?;
+    assert_eq!(json, Json::String("hello".to_string()));
+    Ok(())
 }
 
 #[test]
-fn test_visit_seq() {
+fn test_visit_seq() -> TestResult {
     let visitor = JsonVisitor;
     let seq = vec!["true", "null"];
     let deserializer = SeqDeserializer::new(
         seq.into_iter()
             .map(<&str as IntoDeserializer<'_, JsonError>>::into_deserializer),
     );
-    let result = visitor.visit_seq(deserializer);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Array(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor.visit_seq(deserializer)?;
+    assert!(matches!(json, Json::Array(_)));
+    Ok(())
 }
 
 #[test]
-fn test_visit_map() {
+fn test_visit_map() -> TestResult {
     let visitor = JsonVisitor;
     let map = vec![("key", "true")];
     let deserializer = MapDeserializer::new(map.into_iter().map(|(k, v)| {
@@ -99,9 +86,7 @@ fn test_visit_map() {
             <&str as IntoDeserializer<'_, JsonError>>::into_deserializer(v),
         )
     }));
-    let result = visitor.visit_map(deserializer);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Object(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor.visit_map(deserializer)?;
+    assert!(matches!(json, Json::Object(_)));
+    Ok(())
 }

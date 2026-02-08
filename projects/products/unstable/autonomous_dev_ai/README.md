@@ -110,6 +110,7 @@ The agent optimizes multiple objectives simultaneously:
 ## Symbolic vs Neural Responsibilities
 
 ### Symbolic (Authoritative)
+
 - Agent state machine
 - Goal management & prioritization
 - Multi-objective scoring
@@ -119,6 +120,7 @@ The agent optimizes multiple objectives simultaneously:
 - Git/GitHub workflow logic
 
 ### Neural (Advisory)
+
 - Intent parsing (NL → structured intent)
 - Plan proposals
 - Code patch proposals
@@ -128,11 +130,13 @@ The agent optimizes multiple objectives simultaneously:
 ## Tools
 
 All tools are symbolic wrappers with:
+
 - Allowlist enforcement
 - Action logging
 - Reversibility tracking
 
 Available tools:
+
 - `read_file`: Repository reader
 - `search_code`: Code search
 - `apply_patch`: Patch applier
@@ -145,6 +149,7 @@ Available tools:
 ## Audit & Traceability
 
 Every action is logged to the audit file:
+
 - State transitions
 - Tool executions
 - Neural suggestions
@@ -155,6 +160,7 @@ Every action is logged to the audit file:
 ## Testing
 
 Run tests:
+
 ```bash
 cargo test -p autonomous_dev_ai
 ```

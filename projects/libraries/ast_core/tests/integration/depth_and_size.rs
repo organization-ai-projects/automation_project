@@ -1,4 +1,5 @@
 // projects/libraries/ast_core/tests/integration/depth_and_size.rs
+use crate::helpers::assert_error_matches;
 use ast_core::{AstKind, AstNode, ValidateLimits};
 
 #[test]
@@ -26,11 +27,13 @@ fn test_integration_depth_and_size() {
     };
 
     let result = node.validate_with(&limits);
-    assert!(result.is_err());
+    assert!(result.is_err(), "Expected validation error");
     let error_message = format!("{}", result.unwrap_err());
     assert!(
         error_message.contains("Exceeded maximum depth")
-            || error_message.contains("Exceeded maximum size")
+            || error_message.contains("Exceeded maximum size"),
+        "Error message should mention depth or size: {}",
+        error_message
     );
 }
 
@@ -55,9 +58,7 @@ fn test_integration_max_depth() {
     };
 
     let result = node.validate_with(&limits);
-    assert!(result.is_err());
-    let error_message = format!("{}", result.unwrap_err());
-    assert!(error_message.contains("Exceeded maximum depth: 10 (got: 11)"));
+    assert_error_matches(result, "Exceeded maximum depth: 10 (got: 11)");
 }
 
 #[test]
@@ -82,9 +83,5 @@ fn test_integration_max_size() {
     };
 
     let result = node.validate_with(&limits);
-    assert!(result.is_err());
-    assert_eq!(
-        format!("{}", result.unwrap_err()),
-        "Exceeded maximum size for object: 100"
-    );
+    assert_error_matches(result, "Exceeded maximum size for object: 100");
 }

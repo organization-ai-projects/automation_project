@@ -1,4 +1,5 @@
 // projects/libraries/common_json/src/tests/merge.rs
+use super::test_helpers::assert_json_object;
 use crate::merge::{contains, merge};
 use crate::{MergeStrategy, object};
 
@@ -7,7 +8,7 @@ fn test_merge() {
     let target = object();
     let source = object();
     let result = merge(&target, &source, MergeStrategy::Replace);
-    assert!(result.is_object());
+    assert_json_object(&result);
 }
 
 #[test]
