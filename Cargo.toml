@@ -26,6 +26,7 @@ members = [
   "projects/products/stable/accounts/ui",
   "projects/products/stable/code_agent_sandbox",
   "projects/products/unstable/auto_manager_ai",
+  "projects/products/unstable/autonomous_dev_ai",
   "projects/libraries/ast_core",
   "projects/libraries/ast_macros",
   "projects/libraries/pjson_proc_macros",
