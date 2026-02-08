@@ -1,6 +1,7 @@
 use crate::{BinaryDecode, BinaryEncode, BinaryError, BinaryOptions, read_binary, write_binary};
 use std::fs;
 
+// Test data structure with bincode derives
 #[derive(Debug, PartialEq, Clone, bincode::Encode, bincode::Decode)]
 struct TestData {
     id: u64,
@@ -8,6 +9,9 @@ struct TestData {
     values: Vec<i32>,
 }
 
+// Note: Box::leak is used here to convert dynamic error messages to &'static str.
+// This is the recommended pattern for BinaryError when wrapping backend errors,
+// as errors are infrequent and the small memory cost is acceptable.
 impl BinaryEncode for TestData {
     fn encode_binary(&self, out: &mut Vec<u8>) -> Result<(), BinaryError> {
         bincode::encode_into_std_write(self, out, bincode::config::standard())
@@ -238,6 +242,7 @@ fn test_empty_data() {
     #[derive(Debug, PartialEq, bincode::Encode, bincode::Decode)]
     struct EmptyData {}
 
+    // Box::leak pattern for converting backend errors (see TestData impl above)
     impl BinaryEncode for EmptyData {
         fn encode_binary(&self, out: &mut Vec<u8>) -> Result<(), BinaryError> {
             bincode::encode_into_std_write(self, out, bincode::config::standard())
