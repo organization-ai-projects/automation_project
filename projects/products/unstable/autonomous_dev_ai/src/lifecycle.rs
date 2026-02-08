@@ -12,7 +12,7 @@ use crate::state::AgentState;
 use crate::symbolic::SymbolicController;
 use crate::symbolic::planner::Plan;
 use crate::symbolic::policy::PolicyEngine;
-use crate::tools::{GitWrapper, RepoReader, TestRunner, ToolRegistry};
+use crate::tools::{GitWrapper, PrDescriptionGenerator, RepoReader, TestRunner, ToolRegistry};
 
 /// Agent lifecycle manager
 pub struct LifecycleManager {
@@ -48,6 +48,7 @@ impl LifecycleManager {
         tools.register(Box::new(RepoReader));
         tools.register(Box::new(TestRunner));
         tools.register(Box::new(GitWrapper));
+        tools.register(Box::new(PrDescriptionGenerator));
 
         Self {
             state: AgentState::Idle,
@@ -280,7 +281,7 @@ impl LifecycleManager {
             .unwrap_or(&"No goal".to_string())
             .clone();
 
-        let pr_body = format!(
+        let default_pr_body = format!(
             "## Goal\n{}\n\n## Plan\n{}\n\n## Iterations\n{}\n\n## Risk\nLow",
             goal,
             self.current_plan
@@ -289,6 +290,43 @@ impl LifecycleManager {
                 .unwrap_or_else(|| "No plan".to_string()),
             self.iteration
         );
+
+        let main_pr_number =
+            std::env::var("AUTONOMOUS_MAIN_PR_NUMBER").unwrap_or_else(|_| "234".to_string());
+        let output_file = std::env::var("AUTONOMOUS_PR_DESCRIPTION_OUTPUT")
+            .unwrap_or_else(|_| "pr_description.md".to_string());
+
+        let mut pr_body = default_pr_body;
+        let tool_name = "generate_pr_description";
+        let tool_args = vec![main_pr_number.clone(), output_file.clone()];
+
+        if self.policy.is_tool_allowed(tool_name)
+            && let Some(tool) = self.tools.get_tool(tool_name)
+        {
+            let result = tool.execute(&tool_args)?;
+            self.audit
+                .log_tool_execution(tool_name, &tool_args, result.success)
+                .map_err(|e| AgentError::State(e.to_string()))?;
+
+            if result.success {
+                if let Ok(generated) = std::fs::read_to_string(&output_file) {
+                    pr_body = generated;
+                    self.audit
+                        .log_file_modified(&output_file)
+                        .map_err(|e| AgentError::State(e.to_string()))?;
+                    self.memory
+                        .metadata
+                        .insert("generated_pr_description".to_string(), output_file.clone());
+                }
+            } else if let Some(error) = result.error {
+                self.memory.add_failure(
+                    self.iteration,
+                    "generate_pr_description tool failed".to_string(),
+                    error,
+                    Some("fallback to default PR body".to_string()),
+                );
+            }
+        }
 
         self.audit
             .log_symbolic_decision("create_pr", &pr_body)
