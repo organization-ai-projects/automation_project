@@ -162,7 +162,7 @@ fn classify_latent(title: &str, body: &str) -> (IssueCategory, f64) {
         1.0,
     );
 
-    let mut candidates = vec![
+    let mut candidates = [
         (IssueCategory::Security, sec),
         (IssueCategory::BugFixes, bug),
         (IssueCategory::Refactoring, rf),
