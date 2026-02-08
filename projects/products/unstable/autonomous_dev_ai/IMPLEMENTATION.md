@@ -16,6 +16,7 @@ Successfully implemented a fully autonomous, goal-driven developer AI capable of
 ## Architecture Implemented
 
 ### 1. Symbolic Control Layer (Authoritative)
+
 **Location**: `src/symbolic/`
 
 - **State Machine**: 13 states (Idle → Done/Blocked/Failed)
@@ -25,11 +26,13 @@ Successfully implemented a fully autonomous, goal-driven developer AI capable of
 - **Validator**: Ensures all actions comply with rules
 
 **Key Features**:
+
 - CPU-only, deterministic, reproducible
 - Final authority on all decisions
 - Can completely disable neural layer
 
 ### 2. Neural Computation Layer (Advisory)
+
 **Location**: `src/neural/`
 
 - **Proposal System**: Suggests actions with confidence scores
@@ -38,11 +41,13 @@ Successfully implemented a fully autonomous, goal-driven developer AI capable of
 - **Hot-swappable Models**: Can switch between model versions
 
 **Key Features**:
+
 - Never executes directly
 - All outputs validated by symbolic layer
 - Can be completely disabled (tested in symbolic-only mode)
 
 ### 3. Configuration System
+
 **Location**: `src/config.rs`
 
 - **Dual Format**: `.ron` (human-readable) and `.bin` (efficient)
@@ -50,12 +55,14 @@ Successfully implemented a fully autonomous, goal-driven developer AI capable of
 - **Deterministic Rebuild**: .ron → .bin conversion
 
 **Configuration Includes**:
+
 - Agent name and execution mode
 - Neural settings (enabled, GPU preference, models)
 - Symbolic settings (strict validation, deterministic)
 - Objectives with weights, thresholds, hard/soft flags
 
 ### 4. Memory Graph
+
 **Location**: `src/memory.rs`
 
 - **Explored Files**: Tracks repository navigation
@@ -67,9 +74,11 @@ Successfully implemented a fully autonomous, goal-driven developer AI capable of
 **Serialization**: Both .ron and .bin formats
 
 ### 5. Multi-Objective System
+
 **Location**: `src/objectives.rs`
 
 **Default Objectives**:
+
 1. `task_completion` (weight: 1.0, hard, threshold: 1.0)
 2. `policy_safety` (weight: 1.0, hard, threshold: 1.0)
 3. `tests_pass` (weight: 0.9, hard, threshold: 1.0)
@@ -77,28 +86,34 @@ Successfully implemented a fully autonomous, goal-driven developer AI capable of
 5. `time_budget` (weight: 0.4, soft)
 
 **Features**:
+
 - Hard constraints cannot be violated
 - Weighted scoring for soft objectives
 - Per-iteration evaluation tracking
 
 ### 6. Tool System
+
 **Location**: `src/tools/`
 
 **Implemented Tools**:
+
 - `RepoReader`: Read repository files
 - `TestRunner`: Execute tests
 - `GitWrapper`: Git operations (no force-push)
 
 **Tool Properties**:
+
 - Allowlist-based execution
 - Reversibility tracking
 - Action logging
 - Policy validation
 
 ### 7. Audit System
+
 **Location**: `src/audit.rs`
 
 **Logged Events**:
+
 - State transitions
 - Tool executions
 - Neural suggestions
@@ -109,9 +124,11 @@ Successfully implemented a fully autonomous, goal-driven developer AI capable of
 **Format**: JSON lines for easy parsing
 
 ### 8. Agent Lifecycle
+
 **Location**: `src/lifecycle.rs`
 
 **Lifecycle Flow**:
+
 1. LoadConfig → LoadMemory → ReceiveGoal
 2. ExploreRepository → GeneratePlan
 3. ExecuteStep → Verify → EvaluateObjectives
@@ -119,6 +136,7 @@ Successfully implemented a fully autonomous, goal-driven developer AI capable of
 5. ReviewFeedback → Done
 
 **Features**:
+
 - Autonomous iteration (minimum 2 iterations)
 - Retry on hard objective failure
 - CI can stop execution
@@ -139,17 +157,20 @@ Successfully implemented a fully autonomous, goal-driven developer AI capable of
 ## Safety Features
 
 ### Policy Enforcement
+
 - Forbidden patterns: `force-push`, `rm -rf`, `/etc/`, `sudo`
 - Allowlist of tools
 - Symbolic validation of all neural proposals
 
 ### Hard Constraints
+
 - Task completion must be achieved
 - Policy safety must be maintained
 - Tests must pass
 - Agent cannot bypass these
 
 ### Audit Trail
+
 - Every action logged with timestamp
 - Neural suggestions logged separately from symbolic decisions
 - Complete state transitions tracked
@@ -172,6 +193,7 @@ cargo run -p autonomous_dev_ai -- \
 ## Testing
 
 **Integration Tests** (7 tests, all passing):
+
 1. `test_agent_creation`: Basic agent instantiation
 2. `test_config_serialization`: .ron/.bin config handling
 3. `test_state_save_and_load`: State persistence
@@ -210,6 +232,7 @@ While the core architecture is complete, future work could include:
 ## Conclusion
 
 This implementation provides a solid foundation for an autonomous developer AI that is:
+
 - **Safe**: Policy-bound, audit-logged, constraint-respecting
 - **Autonomous**: Makes decisions, iterates, handles failures
 - **Transparent**: Complete audit trail, human-readable state
