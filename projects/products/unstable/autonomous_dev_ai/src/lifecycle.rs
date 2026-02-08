@@ -256,12 +256,10 @@ impl LifecycleManager {
             );
             self.iteration += 1;
 
-            // Check iteration limit (for acceptance criteria: at least 2 iterations)
-            if self.iteration >= 2 {
-                self.transition_to(AgentState::PrCreation)?;
-            } else {
-                self.transition_to(AgentState::GeneratePlan)?;
-            }
+            // When hard objectives are not satisfied, always retry by generating a new plan.
+            // This enforces the design that hard objectives cannot be violated on the path
+            // to PR creation or completion.
+            self.transition_to(AgentState::GeneratePlan)?;
         } else {
             self.transition_to(AgentState::ExecuteStep)?;
         }
