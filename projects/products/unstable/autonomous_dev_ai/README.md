@@ -144,6 +144,7 @@ Available tools:
 - `format_code`: Formatter/linter
 - `git_commit`: Git wrapper (no force-push)
 - `create_pr`: PR creation
+- `generate_pr_description`: Generate PR description via `scripts/versioning/file_versioning/github/generate_pr_description.sh`
 
 ## Audit & Traceability
 

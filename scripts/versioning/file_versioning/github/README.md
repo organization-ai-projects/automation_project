@@ -17,13 +17,15 @@ It interacts mainly with:
 ```
 github/
 ├── README.md (this file)
-└── TOC.md
+├── TOC.md
+└── generate_pr_description.sh
 ```
 
 ## Files
 
 - `README.md`: This file.
 - `TOC.md`: Documentation index for GitHub-only scripts.
+- `generate_pr_description.sh`: Generate structured merge PR descriptions from GitHub metadata.
 
 ## Scope
 
@@ -33,13 +35,14 @@ Scripts in this directory should:
 - Perform pure GitHub platform operations
 - Work exclusively with GitHub's API/features
 
-## Examples (Future)
+## Scripts
 
-- Repository settings management
-- GitHub Actions workflows management
-- Organization/team management
-- Security/policy configuration
+### `generate_pr_description.sh`
 
-## Current Status
+Generates a ready-to-paste PR description (e.g., `dev -> main`) by analyzing child PRs and resolved issues through `gh`.
 
-Currently **empty**. All existing GitHub-related scripts also use `git` commands, so they remain as hybrid scripts at the parent level (`file_versioning/`).
+Usage:
+
+```bash
+bash generate_pr_description.sh [--keep-artifacts] [MAIN_PR_NUMBER] [OUTPUT_FILE]
+```

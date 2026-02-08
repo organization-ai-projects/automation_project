@@ -21,6 +21,7 @@ impl PolicyEngine {
                 "git_commit".to_string(),
                 "git_branch".to_string(),
                 "create_pr".to_string(),
+                "generate_pr_description".to_string(),
             ],
             forbidden_patterns: vec![
                 "force-push".to_string(),

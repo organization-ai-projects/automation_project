@@ -33,7 +33,8 @@ file_versioning/
 │   ├── push_branch.sh          # Push branches
 │   ├── clean_branches.sh       # Clean obsolete branches
 │   └── ...                     # Additional git utilities
-└── github/                     # GitHub-only operations (reserved, empty)
+└── github/                     # GitHub-only operations
+    └── generate_pr_description.sh # Generate merge PR description
 ```
 
 ## Files
@@ -42,7 +43,7 @@ file_versioning/
 - `TOC.md`: Documentation index for file versioning scripts.
 - `orchestrators/`: Workflow orchestration scripts.
 - `git/`: Pure git operation scripts.
-- `github/`: GitHub-only operations (reserved).
+- `github/`: GitHub-only operations.
 
 ## Architecture: Execute vs Read
 
@@ -141,9 +142,9 @@ Pure git operations (10 components):
 
 ### GitHub Components (`github/`)
 
-Currently empty. Reserved for scripts using only `gh` commands.
+- `generate_pr_description.sh` - Generate merge PR description from PR/issue metadata
 
-### Hybrid Components (root level)
+### Hybrid Components (orchestrators/read)
 
 - `check_priority_issues.sh` - List high priority/security issues
 - `synch_main_dev_ci.sh` - Synchronize main→dev via automated PR (bot-only, called by GitHub Actions)
