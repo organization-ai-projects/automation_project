@@ -1,0 +1,21 @@
+[package]
+name = "autonomous_dev_ai"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+ron = { workspace = true }
+bincode = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = "0.3"
+serde_json = "1.0"
+
+# Workspace libraries
+symbolic = { workspace = true }
+neural = { workspace = true }
+ai = { workspace = true }
+common = { workspace = true }
+
+[dev-dependencies]
