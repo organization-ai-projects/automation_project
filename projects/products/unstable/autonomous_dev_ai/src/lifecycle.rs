@@ -30,6 +30,26 @@ pub struct LifecycleManager {
 }
 
 impl LifecycleManager {
+    fn extract_pr_number_from_goal(goal: &str) -> Option<String> {
+        let bytes = goal.as_bytes();
+        let mut i = 0usize;
+
+        while i < bytes.len() {
+            if bytes[i] == b'#' {
+                let start = i + 1;
+                let mut end = start;
+                while end < bytes.len() && bytes[end].is_ascii_digit() {
+                    end += 1;
+                }
+                if end > start {
+                    return Some(goal[start..end].to_string());
+                }
+            }
+            i += 1;
+        }
+        None
+    }
+
     pub fn new(config: AgentConfig, audit_log_path: &str) -> Self {
         let evaluator = ObjectiveEvaluator::new(config.objectives.clone());
         let symbolic = SymbolicController::new(
@@ -291,18 +311,25 @@ impl LifecycleManager {
             self.iteration
         );
 
-        let main_pr_number =
-            std::env::var("AUTONOMOUS_MAIN_PR_NUMBER").unwrap_or_else(|_| "234".to_string());
+        let main_pr_number = std::env::var("AUTONOMOUS_MAIN_PR_NUMBER")
+            .ok()
+            .or_else(|| Self::extract_pr_number_from_goal(&goal));
         let output_file = std::env::var("AUTONOMOUS_PR_DESCRIPTION_OUTPUT")
             .unwrap_or_else(|_| "pr_description.md".to_string());
 
         let mut pr_body = default_pr_body;
         let tool_name = "generate_pr_description";
-        let tool_args = vec![main_pr_number.clone(), output_file.clone()];
+        let tool_args = if let Some(ref pr_num) = main_pr_number {
+            vec![pr_num.clone(), output_file.clone()]
+        } else {
+            Vec::new()
+        };
 
-        if self.policy.is_tool_allowed(tool_name)
-            && let Some(tool) = self.tools.get_tool(tool_name)
-        {
+        if self.policy.is_tool_allowed(tool_name) && !tool_args.is_empty() {
+            let tool = self
+                .tools
+                .get_tool(tool_name)
+                .ok_or_else(|| AgentError::Tool(format!("Tool {} not found", tool_name)))?;
             let result = tool.execute(&tool_args)?;
             self.audit
                 .log_tool_execution(tool_name, &tool_args, result.success)
@@ -326,6 +353,14 @@ impl LifecycleManager {
                     Some("fallback to default PR body".to_string()),
                 );
             }
+        } else if main_pr_number.is_none() {
+            self.memory.add_failure(
+                self.iteration,
+                "generate_pr_description skipped".to_string(),
+                "No main PR number provided. Set AUTONOMOUS_MAIN_PR_NUMBER or include #<number> in goal."
+                    .to_string(),
+                Some("fallback to default PR body".to_string()),
+            );
         }
 
         self.audit

@@ -124,8 +124,9 @@ impl Tool for PrDescriptionGenerator {
     fn execute(&self, args: &[String]) -> AgentResult<ToolResult> {
         let script_path = "scripts/versioning/file_versioning/github/generate_pr_description.sh";
 
-        // Defaults: main PR number + output file path
-        let main_pr = args.first().cloned().unwrap_or_else(|| "234".to_string());
+        let main_pr = args.first().cloned().ok_or_else(|| {
+            AgentError::Tool("Missing main PR number for generate_pr_description".to_string())
+        })?;
         let output_file = args
             .get(1)
             .cloned()

@@ -2,12 +2,14 @@
 
 //! Symbolic control layer - authoritative decision maker
 
+pub mod issue_taxonomy;
 pub mod planner;
 pub mod policy;
 pub mod validator;
 
 use crate::error::AgentResult;
 use crate::objectives::ObjectiveEvaluator;
+use crate::symbolic::issue_taxonomy::{CategoryDecision, IssueClassificationInput, classify_issue};
 use serde::{Deserialize, Serialize};
 
 /// Symbolic controller - makes all final decisions
@@ -57,6 +59,15 @@ impl SymbolicController {
                 None
             },
         })
+    }
+
+    /// Deterministic-first category decision with latent fallback.
+    pub fn resolve_issue_category(
+        &self,
+        input: &IssueClassificationInput,
+        latent_threshold: f64,
+    ) -> CategoryDecision {
+        classify_issue(input, latent_threshold)
     }
 }
 
