@@ -3,12 +3,12 @@
 set -u
 
 # Usage:
-#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] [MAIN_PR_NUMBER] [OUTPUT_FILE]
+#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]
 # Example:
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh 234 pr_description.md
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --keep-artifacts 234 pr_description.md
 
-main_pr_number="234"
+main_pr_number=""
 output_file="pr_description.md"
 keep_artifacts="false"
 
@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "Usage: ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] [MAIN_PR_NUMBER] [OUTPUT_FILE]"
+      echo "Usage: ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]"
       exit 0
       ;;
     *)
@@ -35,6 +35,12 @@ if [[ ${#positionals[@]} -ge 1 ]]; then
 fi
 if [[ ${#positionals[@]} -ge 2 ]]; then
   output_file="${positionals[1]}"
+fi
+
+if [[ -z "$main_pr_number" ]]; then
+  echo "Erreur: MAIN_PR_NUMBER est requis." >&2
+  echo "Usage: ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]" >&2
+  exit 1
 fi
 
 if [[ "$keep_artifacts" == "true" ]]; then
@@ -65,15 +71,45 @@ fi
 
 extract_child_prs() {
   local commit_headlines
+  local main_pr_body
+  local main_pr_comments
+  local repo_owner_name
+  local timeline_pr_refs
 
-  commit_headlines="$(gh pr view "$main_pr_number" --json commits -q '.commits[].messageHeadline' 2>/dev/null || true)"
-  if [[ -z "$commit_headlines" ]]; then
+  repo_owner_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+
+  # IMPORTANT: gh pr view --json commits is often capped (e.g. 100 items).
+  # Use REST API with --paginate to collect all commit first lines.
+  commit_headlines=""
+  if [[ -n "$repo_owner_name" ]]; then
+    commit_headlines="$(gh api "repos/${repo_owner_name}/pulls/${main_pr_number}/commits" --paginate \
+      --jq '.[].commit.message | split("\n")[0]' 2>/dev/null || true)"
+  fi
+
+  main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
+  main_pr_comments="$(gh pr view "$main_pr_number" --json comments -q '.comments[].body' 2>/dev/null || true)"
+  timeline_pr_refs=""
+  if [[ -n "$repo_owner_name" ]]; then
+    timeline_pr_refs="$(gh api "repos/${repo_owner_name}/issues/${main_pr_number}/timeline" --paginate \
+      --jq '.[] | select(.event=="cross-referenced") | select(.source.issue.pull_request.url != null) | .source.issue.number' 2>/dev/null \
+      | sed -E 's/^/#/' || true)"
+  fi
+
+  if [[ -z "$commit_headlines" && -z "$main_pr_body" && -z "$main_pr_comments" && -z "$timeline_pr_refs" ]]; then
     return 1
   fi
 
   {
     echo "$commit_headlines" | sed -nE 's/.*Merge pull request #([0-9]+).*/#\1/p'
     echo "$commit_headlines" | sed -nE 's/.*\(#([0-9]+)\)\s*$/#\1/p'
+    # Capture PR references from main PR body/comments (e.g. /pull/306 or "PR #306")
+    echo "$main_pr_body" | grep -oE '/pull/[0-9]+' | sed -E 's#^/pull/([0-9]+)$#\#\1#'
+    echo "$main_pr_body" | sed -nE 's/.*\bPR[[:space:]]*#([0-9]+).*/#\1/ip'
+    echo "$main_pr_body" | sed -nE 's/.*pull request #([0-9]+).*/#\1/ip'
+    echo "$main_pr_comments" | grep -oE '/pull/[0-9]+' | sed -E 's#^/pull/([0-9]+)$#\#\1#'
+    echo "$main_pr_comments" | sed -nE 's/.*\bPR[[:space:]]*#([0-9]+).*/#\1/ip'
+    echo "$main_pr_comments" | sed -nE 's/.*pull request #([0-9]+).*/#\1/ip'
+    echo "$timeline_pr_refs"
   } | sort -u | grep -v "^#${main_pr_number}$" > "$extracted_prs_file"
 
   return 0
@@ -84,31 +120,43 @@ classify_pr() {
   local title="$2"
   local title_lc
   local bullet
+  local category
 
   title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
   bullet="- ${title} (${pr_ref})"
 
   # Prefer conventional commit prefixes when present.
   if [[ "$title_lc" =~ ^fix(\(|:|!|[[:space:]]) ]]; then
+    category="Bug Fixes"
     echo "$bullet" >> "$bugs_tmp"
+    echo "$category"
     return
   fi
   if [[ "$title_lc" =~ ^refactor(\(|:|!|[[:space:]]) ]] || [[ "$title_lc" =~ ^chore(\(|:|!|[[:space:]]) ]]; then
+    category="Refactoring"
     echo "$bullet" >> "$refactors_tmp"
+    echo "$category"
     return
   fi
   if [[ "$title_lc" =~ ^feat(\(|:|!|[[:space:]]) ]]; then
+    category="Features"
     echo "$bullet" >> "$features_tmp"
+    echo "$category"
     return
   fi
 
   if [[ "$title_lc" =~ (fix|bug|hotfix|regression|failure|error) ]]; then
+    category="Bug Fixes"
     echo "$bullet" >> "$bugs_tmp"
   elif [[ "$title_lc" =~ (refactor|cleanup|extract|modular|rework|batch|maintainability) ]]; then
+    category="Refactoring"
     echo "$bullet" >> "$refactors_tmp"
   else
+    category="Features"
     echo "$bullet" >> "$features_tmp"
   fi
+
+  echo "$category"
 }
 
 write_section_from_file() {
@@ -129,6 +177,86 @@ write_section_from_file() {
 issue_title() {
   local issue_number="$1"
   gh issue view "$issue_number" --json title -q '.title' 2>/dev/null || true
+}
+
+issue_title_and_labels() {
+  local issue_number="$1"
+  gh issue view "$issue_number" --json title,labels \
+    -q '[.title, (.labels | map(.name) | join("||"))] | @tsv' 2>/dev/null || true
+}
+
+issue_category_from_labels() {
+  local labels_raw="$1"
+  local labels
+  local has_security=0
+  local has_bug=0
+  local has_refactor=0
+  local has_feature=0
+  local has_testing=0
+  local has_automation=0
+  local has_docs=0
+
+  labels="$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')"
+
+  # Security is a first-class category and must not be downgraded to bug fixes.
+  if [[ "$labels" =~ (security|sec|codeql|cve|vuln|vulnerability|sast) ]]; then
+    has_security=1
+  fi
+  if [[ "$labels" =~ (bug|defect|regression|incident) ]]; then
+    has_bug=1
+  fi
+  if [[ "$labels" =~ (refactor|cleanup|chore|mainten|tech[[:space:]_-]*debt) ]]; then
+    has_refactor=1
+  fi
+  if [[ "$labels" =~ (feature|enhancement|feat) ]]; then
+    has_feature=1
+  fi
+  if [[ "$labels" =~ (testing|tests|test) ]]; then
+    has_testing=1
+  fi
+  if [[ "$labels" =~ (automation|automation-failed|sync_branch|scripts|linting|workflow|ci) ]]; then
+    has_automation=1
+  fi
+  if [[ "$labels" =~ (documentation|docs|readme|translation) ]]; then
+    has_docs=1
+  fi
+
+  if [[ "$has_security" -eq 1 ]]; then
+    echo "Security"
+    return
+  fi
+  if [[ "$has_automation" -eq 1 ]]; then
+    echo "Automation"
+    return
+  fi
+  if [[ "$has_testing" -eq 1 ]]; then
+    echo "Testing"
+    return
+  fi
+  if [[ "$has_docs" -eq 1 ]]; then
+    echo "Docs"
+    return
+  fi
+
+  count=$((has_bug + has_refactor + has_feature))
+  if [[ "$count" -ge 2 ]]; then
+    echo "Mixed"
+    return
+  fi
+  if [[ "$has_bug" -eq 1 ]]; then
+    echo "Bug Fixes"
+    return
+  fi
+  if [[ "$has_refactor" -eq 1 ]]; then
+    echo "Refactoring"
+    return
+  fi
+  if [[ "$has_feature" -eq 1 ]]; then
+    echo "Features"
+    return
+  fi
+
+  echo "Unknown"
 }
 
 parse_issue_refs_from_body() {
@@ -169,8 +297,94 @@ if ! extract_child_prs; then
 fi
 
 declare -A seen_issue
+declare -A issue_category
+declare -A issue_action
+declare -A issue_name_map
 pr_count=0
 issue_count=0
+base_ref="$(gh pr view "$main_pr_number" --json baseRefName -q '.baseRefName' 2>/dev/null || echo "main")"
+head_ref="$(gh pr view "$main_pr_number" --json headRefName -q '.headRefName' 2>/dev/null || echo "dev")"
+
+normalize_issue_action() {
+  local action="$1"
+  local category="$2"
+  local lower
+
+  lower="$(echo "$action" | tr '[:upper:]' '[:lower:]')"
+
+  # Keep closure semantics explicit.
+  if [[ "$category" == "Security" ]]; then
+    echo "Closes"
+    return
+  fi
+
+  if [[ "$category" == "Bug Fixes" ]]; then
+    echo "Fixes"
+    return
+  fi
+
+  if [[ "$category" == "Mixed" ]]; then
+    echo "Closes"
+    return
+  fi
+
+  if [[ "$category" == "Automation" || "$category" == "Testing" || "$category" == "Docs" ]]; then
+    echo "Closes"
+    return
+  fi
+
+  if [[ "$category" == "Unknown" ]]; then
+    # Keep original keyword when classification is unknown.
+    if [[ "$lower" =~ ^fix ]]; then
+      echo "Fixes"
+    elif [[ "$lower" =~ ^resolve ]]; then
+      echo "Resolves"
+    else
+      echo "Closes"
+    fi
+    return
+  fi
+
+  # Default verb for Features/Refactoring is "Closes".
+  echo "Closes"
+}
+
+add_issue_entry() {
+  local action="$1"
+  local issue_key="$2"
+  local category="${3:-Unknown}"
+  local issue_number
+  local issue_name labels_tsv labels_raw label_category
+  local final_category
+  local normalized_action
+
+  [[ -z "$issue_key" ]] && return
+  issue_number="${issue_key//#/}"
+
+  if [[ -n "${seen_issue[$issue_key]:-}" ]]; then
+    return
+  fi
+  seen_issue["$issue_key"]=1
+
+  labels_tsv="$(issue_title_and_labels "$issue_number")"
+  issue_name="$(echo "$labels_tsv" | awk -F'\t' '{print $1}')"
+  labels_raw="$(echo "$labels_tsv" | awk -F'\t' '{print $2}')"
+  label_category="$(issue_category_from_labels "$labels_raw")"
+
+  if [[ -z "$issue_name" ]]; then
+    issue_name="$(issue_title "$issue_number")"
+    if [[ -z "$issue_name" ]]; then
+      issue_name="Issue #${issue_number}"
+    fi
+  fi
+
+  final_category="$label_category"
+
+  issue_category["$issue_key"]="$final_category"
+  issue_name_map["$issue_key"]="$issue_name"
+  normalized_action="$(normalize_issue_action "$action" "$final_category")"
+  issue_action["$issue_key"]="$normalized_action"
+}
 
 if [[ -s "$extracted_prs_file" ]]; then
   while read -r pr_ref; do
@@ -184,60 +398,88 @@ if [[ -s "$extracted_prs_file" ]]; then
       pr_title="PR #${pr_number}"
     fi
 
-    classify_pr "$pr_ref" "$pr_title"
+    pr_category="$(classify_pr "$pr_ref" "$pr_title")"
     pr_count=$((pr_count + 1))
 
+    if [[ -n "$pr_body" ]]; then
+      while IFS='|' read -r action issue_key; do
+        add_issue_entry "$action" "$issue_key" "$pr_category"
+      done < <(parse_issue_refs_from_body "$pr_body")
+    fi
+
     while read -r issue_key; do
-      [[ -z "$issue_key" ]] && continue
-
-      if [[ -n "${seen_issue[$issue_key]:-}" ]]; then
-        continue
-      fi
-      seen_issue["$issue_key"]=1
-
-      issue_number="${issue_key//#/}"
-      issue_name="$(issue_title "$issue_number")"
-      if [[ -z "$issue_name" ]]; then
-        issue_name="Issue #${issue_number}"
-      fi
-
-      echo "${issue_number}|Closes|${issue_key}|${issue_name}" >> "$issues_tmp"
+      add_issue_entry "Closes" "$issue_key" "$pr_category"
     done < <(
-      {
-        if [[ -n "$pr_body" ]]; then
-          while IFS='|' read -r action issue_key; do
-            [[ -z "$issue_key" ]] && continue
-
-            if [[ -n "${seen_issue[$issue_key]:-}" ]]; then
-              continue
-            fi
-            seen_issue["$issue_key"]=1
-
-            issue_number="${issue_key//#/}"
-            issue_name="$(issue_title "$issue_number")"
-            if [[ -z "$issue_name" ]]; then
-              issue_name="Issue #${issue_number}"
-            fi
-            echo "${issue_number}|${action}|${issue_key}|${issue_name}" >> "$issues_tmp"
-          done < <(parse_issue_refs_from_body "$pr_body")
-        fi
-
-        gh pr view "$pr_number" --json closingIssuesReferences -q \
-          '.closingIssuesReferences[]? | "#\(.number)"' 2>/dev/null || true
-      } | sort -u
+      gh pr view "$pr_number" --json closingIssuesReferences -q \
+        '.closingIssuesReferences[]? | "#\(.number)"' 2>/dev/null || true
     )
   done < "$extracted_prs_file"
 fi
 
+# Also include issues closed directly by the main PR itself.
+main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
+if [[ -n "$main_pr_body" ]]; then
+  while IFS='|' read -r action issue_key; do
+    add_issue_entry "$action" "$issue_key" "Mixed"
+  done < <(parse_issue_refs_from_body "$main_pr_body")
+fi
+
+while read -r issue_key; do
+  add_issue_entry "Closes" "$issue_key" "Mixed"
+done < <(
+  gh pr view "$main_pr_number" --json closingIssuesReferences -q \
+    '.closingIssuesReferences[]? | "#\(.number)"' 2>/dev/null || true
+)
+
+echo -n > "$issues_tmp"
+for issue_key in "${!seen_issue[@]}"; do
+  issue_number="${issue_key//#/}"
+  echo "${issue_number}|${issue_category[$issue_key]}|${issue_action[$issue_key]}|${issue_key}|${issue_name_map[$issue_key]}" >> "$issues_tmp"
+done
+
 if [[ -s "$issues_tmp" ]]; then
   sort -t'|' -k1,1n "$issues_tmp" \
-    | awk -F'|' '{ print "- " $2 " " $3 ": " $4 }' > "$resolved_issues_file"
-  issue_count="$(wc -l < "$resolved_issues_file" | tr -d '[:space:]')"
+    | awk -F'|' '
+      BEGIN {
+        cats[1] = "Security"
+        cats[2] = "Features"
+        cats[3] = "Bug Fixes"
+        cats[4] = "Refactoring"
+        cats[5] = "Automation"
+        cats[6] = "Testing"
+        cats[7] = "Docs"
+        cats[8] = "Mixed"
+        cats[9] = "Unknown"
+      }
+      {
+        lines[NR] = $0
+      }
+      END {
+        for (c = 1; c <= 9; c++) {
+          cat = cats[c]
+          found = 0
+          for (i = 1; i <= NR; i++) {
+            split(lines[i], parts, "|")
+            if (parts[2] == cat) {
+              if (!found) {
+                print "#### " cat
+                found = 1
+              }
+              print "- " parts[3] " " parts[4] ": " parts[5]
+            }
+          }
+          if (found) {
+            print ""
+          }
+        }
+      }
+    ' > "$resolved_issues_file"
+  issue_count="${#seen_issue[@]}"
 fi
 
 {
   echo "### Description"
-  echo "This pull request merges the \`dev\` branch into \`main\`, with ${pr_count} merged pull requests and ${issue_count} explicitly resolved issues."
+  echo "This pull request merges the \`${head_ref}\` branch into \`${base_ref}\`, with ${pr_count} merged pull requests and ${issue_count} explicitly resolved issues."
   echo ""
   echo "### Issues Resolved"
   echo "This PR resolves the following issues:"
