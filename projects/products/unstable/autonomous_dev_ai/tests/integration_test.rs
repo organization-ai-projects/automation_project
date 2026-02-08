@@ -14,7 +14,7 @@ fn test_agent_creation() {
 
     // Create default config
     let config = AgentConfig::default();
-    save_ron(&format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path), &config).unwrap();
 
     // Create agent
     let agent = AutonomousAgent::new(&config_path, &audit_path);
@@ -33,7 +33,7 @@ fn test_config_serialization() {
 
     // Create and save config
     let config = AgentConfig::default();
-    save_ron(&format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path), &config).unwrap();
 
     // Load config
     let loaded = load_config(&config_path).unwrap();
@@ -56,7 +56,7 @@ fn test_state_save_and_load() {
 
     // Create config
     let config = AgentConfig::default();
-    save_ron(&format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path), &config).unwrap();
 
     // Create agent and add some data
     let mut agent = AutonomousAgent::new(&config_path, &audit_path).unwrap();
@@ -96,7 +96,7 @@ fn test_symbolic_only_mode() {
     // Create config with neural enabled
     let mut config = AgentConfig::default();
     config.neural.enabled = true;
-    save_ron(&format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path), &config).unwrap();
 
     // Create agent
     let mut agent = AutonomousAgent::new(&config_path, &audit_path).unwrap();
@@ -127,7 +127,7 @@ fn test_autonomous_iterations() {
 
     // Create config
     let config = AgentConfig::default();
-    save_ron(&format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path), &config).unwrap();
 
     // Create and run agent
     let mut agent = AutonomousAgent::new(&config_path, &audit_path).unwrap();
@@ -162,7 +162,7 @@ fn test_policy_enforcement() {
 
     // Create config
     let config = AgentConfig::default();
-    save_ron(&format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path), &config).unwrap();
 
     let agent = AutonomousAgent::new(&config_path, &audit_path).unwrap();
 
