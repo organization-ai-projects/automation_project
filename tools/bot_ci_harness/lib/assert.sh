@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Global flag for test failures
+TEST_FAILED=0
+
 fail() {
   echo "❌ ASSERT FAIL: $*" >&2
-  exit 1
+  TEST_FAILED=1
+  return 1
 }
 
 assert_eq() {
@@ -11,6 +15,13 @@ assert_eq() {
   local expected="$2"
   local msg="${3:-}"
   [[ "$got" == "$expected" ]] || fail "${msg} (got='$got', expected='$expected')"
+}
+
+assert_ne() {
+  local got="$1"
+  local unexpected="$2"
+  local msg="${3:-}"
+  [[ "$got" != "$unexpected" ]] || fail "${msg} (got='$got', should not equal='$unexpected')"
 }
 
 assert_contains() {

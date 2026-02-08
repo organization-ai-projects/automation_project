@@ -2,7 +2,6 @@
 use crate::json_error::JsonError;
 use crate::json_error_code::JsonErrorCode;
 
-#[cfg(test)]
 #[test]
 fn test_json_error_new() {
     let error = JsonError::new(JsonErrorCode::TypeMismatch);

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Create a clean work branch from dev with naming conventions
 # Usage: ./create_work_branch.sh <type> <description>
-# Types: feat, fix, chore, refactor, docs, test
+# Types: feature, feat, fixture, fix, chore, refactor, doc, docs, test, tests
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -21,7 +21,7 @@ source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/synch.sh"
 
 if [[ "$#" -lt 2 ]]; then
   echo "Usage: $0 <type> <description>" >&2
-  echo "Types: feat, fix, chore, refactor, docs, test" >&2
+  echo "Types: feature, feat, fixture, fix, chore, refactor, doc, docs, test, tests" >&2
   echo "Example: $0 feat add-user-authentication" >&2
   exit 1
 fi
@@ -33,10 +33,10 @@ BASE_BRANCH="${BASE_BRANCH:-dev}"
 
 # Validate type
 case "$TYPE" in
-  feat|fix|chore|refactor|docs|test)
+  feature|feat|fixture|fix|chore|refactor|doc|docs|test|tests)
     ;;
   *)
-    die "Invalid type: $TYPE. Must be one of: feat, fix, chore, refactor, docs, test"
+    die "Invalid type: $TYPE. Must be one of: feature, feat, fixture, fix, chore, refactor, doc, docs, test, tests"
     ;;
 esac
 

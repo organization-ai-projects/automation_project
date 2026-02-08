@@ -15,7 +15,6 @@ mod ast_validation_error;
 mod conversions;
 mod ext_id;
 mod frame;
-mod macros;
 mod number;
 mod opaque_value;
 mod origin;
@@ -38,6 +37,9 @@ pub use opaque_value::OpaqueValue;
 pub use origin::Origin;
 pub use path_item::PathItem;
 pub use validate_limits::ValidateLimits;
+
+// Re-export macros from ast_macros for backward compatibility
+pub use ast_macros::{apply_cfg, build_array, build_object, key, validate_preset, value};
 
 #[cfg(test)]
 mod tests;
