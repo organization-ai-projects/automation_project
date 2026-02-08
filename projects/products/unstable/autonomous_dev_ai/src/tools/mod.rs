@@ -82,7 +82,7 @@ pub struct GitWrapper;
 
 impl Tool for GitWrapper {
     fn name(&self) -> &str {
-        "git"
+        "git_commit"
     }
 
     fn execute(&self, args: &[String]) -> AgentResult<ToolResult> {
