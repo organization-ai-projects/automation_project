@@ -49,7 +49,7 @@ pub fn assert_warn_not_contains(validation: &ValidationResult, substring: &str) 
         let quoted = format!("'{}'", identifier);
         // Split on whitespace and punctuation to isolate tokens
         warning.split(|c: char| c.is_whitespace() || (c.is_ascii_punctuation() && c != '\'' && c != '_'))
-            .any(|token| token == quoted)
+            .any(|token| token == identifier || token == quoted)
     };
     
     let found = if is_identifier {
