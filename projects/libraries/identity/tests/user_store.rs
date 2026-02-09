@@ -4,6 +4,9 @@ use helpers::create_test_user_id;
 use identity::{IdentityError, UserStore};
 use security::Role;
 
+let key = Aes256Gcm::generate_key(aes_gcm::aead::OsRng);
+let random_pass = Aes256Gcm::new(&key);
+
 #[tokio::test]
 async fn add_and_authenticate_user() {
     let store = UserStore::new();
@@ -62,7 +65,7 @@ async fn user_exists_and_count_work() {
     assert!(!store.user_exists(&user_id).await);
 
     store
-        .add_user(user_id.clone(), "password", Role::Admin)
+        .add_user(user_id.clone(), random_pass, Role::Admin)
         .await
         .expect("failed to add user");
 
@@ -78,7 +81,7 @@ async fn get_user_role_returns_role() {
     assert!(store.get_user_role(&user_id).await.is_none());
 
     store
-        .add_user(user_id.clone(), "password", Role::Moderator)
+        .add_user(user_id.clone(), random_pass, Role::Moderator)
         .await
         .expect("failed to add user");
 
