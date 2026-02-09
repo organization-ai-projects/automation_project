@@ -7,9 +7,7 @@ use security::Role;
 /// Generate a random 16-character alphanumeric password (A–Z, a–z, 0–9) for testing.
 fn random_password() -> String {
     use rand::Rng;
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-                            abcdefghijklmnopqrstuvwxyz\
-                            0123456789";
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let mut rng = rand::rng();
     (0..16)
         .map(|_| {
