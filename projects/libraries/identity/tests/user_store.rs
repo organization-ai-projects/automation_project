@@ -4,7 +4,7 @@ use helpers::create_test_user_id;
 use identity::{IdentityError, UserStore};
 use security::Role;
 
-/// Generate a random password for testing
+/// Generate a random 16-character alphanumeric password (A–Z, a–z, 0–9) for testing.
 fn random_password() -> String {
     use rand::Rng;
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
