@@ -16,6 +16,6 @@ fn test_parse_json_stdout() -> crate::JsonResult<()> {
     let output = temp_output;
 
     let parsed = parse_json_stdout(&output, "")?;
-    assert!(matches!(parsed, Json::Object(_)));
+    assert!(matches!(parsed, Json::Object(_)), "Unexpected parsed JSON: {:?}", parsed);
     Ok(())
 }
