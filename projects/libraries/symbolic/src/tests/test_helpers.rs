@@ -44,17 +44,19 @@ pub fn assert_warn_not_contains(validation: &ValidationResult, substring: &str) 
     // false positives from substring matches (e.g., "used_var" matching within "unused_var")
     let is_identifier = substring.chars().all(|c| c.is_alphanumeric() || c == '_');
     
+    // Helper to check if a warning contains an exact identifier match
+    let matches_identifier = |warning: &str, identifier: &str| -> bool {
+        let quoted = format!("'{}'", identifier);
+        // Split on whitespace and punctuation to isolate tokens
+        warning.split(|c: char| c.is_whitespace() || (c.is_ascii_punctuation() && c != '\'' && c != '_'))
+            .any(|token| token == quoted)
+    };
+    
     let found = if is_identifier {
-        // For identifiers, check for exact quoted matches with word boundaries
-        let quoted_pattern = format!("'{}'", substring);
         validation
             .warnings
             .iter()
-            .any(|w| {
-                // Look for the exact quoted identifier, ensuring it's not part of a larger identifier
-                w.split_whitespace()
-                    .any(|word| word.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '\'') == quoted_pattern)
-            })
+            .any(|w| matches_identifier(w, substring))
     } else {
         // For non-identifiers, use simple substring matching
         validation.warnings.iter().any(|w| w.contains(substring))
@@ -69,9 +71,7 @@ pub fn assert_warn_not_contains(validation: &ValidationResult, substring: &str) 
             .iter()
             .filter(|w| {
                 if is_identifier {
-                    let quoted_pattern = format!("'{}'", substring);
-                    w.split_whitespace()
-                        .any(|word| word.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '\'') == quoted_pattern)
+                    matches_identifier(w, substring)
                 } else {
                     w.contains(substring)
                 }
