@@ -40,26 +40,42 @@ pub fn assert_warn_contains(validation: &ValidationResult, substring: &str) {
 
 /// Asserts that a validation result does NOT contain a warning matching a substring.
 pub fn assert_warn_not_contains(validation: &ValidationResult, substring: &str) {
-    // For identifier-like names, check both the raw and quoted forms to avoid missing matches.
-    let patterns: Vec<String> = if substring.chars().all(|c| c.is_alphanumeric() || c == '_') {
-        vec![substring.to_string(), format!("'{}'", substring)]
+    // For identifier-like names, check for exact matches with word boundaries to avoid
+    // false positives from substring matches (e.g., "used_var" matching within "unused_var")
+    let is_identifier = substring.chars().all(|c| c.is_alphanumeric() || c == '_');
+    
+    let found = if is_identifier {
+        // For identifiers, check for exact quoted matches with word boundaries
+        let quoted_pattern = format!("'{}'", substring);
+        validation
+            .warnings
+            .iter()
+            .any(|w| {
+                // Look for the exact quoted identifier, ensuring it's not part of a larger identifier
+                w.split_whitespace()
+                    .any(|word| word.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '\'') == quoted_pattern)
+            })
     } else {
-        vec![substring.to_string()]
+        // For non-identifiers, use simple substring matching
+        validation.warnings.iter().any(|w| w.contains(substring))
     };
-
-    let found = validation
-        .warnings
-        .iter()
-        .any(|w| patterns.iter().any(|p| w.contains(p)));
 
     assert!(
         !found,
-        "Expected no warning containing '{}' (or its quoted form), but found: {:?}",
+        "Expected no warning containing '{}', but found: {:?}",
         substring,
         validation
             .warnings
             .iter()
-            .filter(|w| patterns.iter().any(|p| w.contains(p)))
+            .filter(|w| {
+                if is_identifier {
+                    let quoted_pattern = format!("'{}'", substring);
+                    w.split_whitespace()
+                        .any(|word| word.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '\'') == quoted_pattern)
+                } else {
+                    w.contains(substring)
+                }
+            })
             .collect::<Vec<_>>()
     );
 }
