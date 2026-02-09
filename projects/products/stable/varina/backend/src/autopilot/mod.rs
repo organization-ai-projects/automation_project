@@ -6,6 +6,8 @@ pub mod autopilot_policy;
 pub mod autopilot_report;
 pub mod compiled_autopilot_policy;
 pub mod handlers;
+#[cfg(test)]
+mod tests;
 
 pub use autopilot_error::AutopilotError;
 pub use autopilot_mode::AutopilotMode;

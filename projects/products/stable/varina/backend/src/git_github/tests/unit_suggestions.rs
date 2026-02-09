@@ -2,18 +2,30 @@
 use crate::autopilot::AutopilotPolicy;
 use crate::classified_changes::ClassifiedChanges;
 use crate::git_github::policy_suggestions::suggest_policy_from_report;
-use crate::tests::test_helpers::AutopilotReportBuilder;
 
 #[test]
 fn test_suggestion_with_unrelated_changes() {
-    let report = AutopilotReportBuilder::new()
-        .branch("main")
-        .classified(ClassifiedChanges {
+    let report = crate::autopilot::AutopilotReport {
+        mode: crate::autopilot::AutopilotMode::DryRun,
+        branch: "main".to_string(),
+        detached_head: false,
+        changes: vec![],
+        classified: ClassifiedChanges {
             relevant: vec![],
             unrelated: vec!["unrelated/file.rs".to_string()],
             blocked: vec![],
-        })
-        .build();
+        },
+        plan: crate::autopilot::AutopilotPlan {
+            branch: "main".to_string(),
+            will_stage: vec![],
+            will_commit: false,
+            commit_message: String::new(),
+            will_push: false,
+            notes: vec![],
+        },
+        applied: false,
+        logs: vec![],
+    };
 
     let policy = AutopilotPolicy::default();
     let suggestion = suggest_policy_from_report(&report, &policy);
