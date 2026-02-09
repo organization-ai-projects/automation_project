@@ -1,12 +1,11 @@
 // projects/libraries/common_json/src/tests/access.rs
-use super::test_helpers::TestResult;
 use crate::Json;
 use crate::json_access::JsonAccess;
 use crate::json_access_mut::JsonAccessMut;
 use std::collections::HashMap;
 
 #[test]
-fn test_get_field() -> TestResult {
+fn test_get_field() -> crate::JsonResult<()> {
     let json = Json::Object(HashMap::from_iter(vec![(
         "key".to_string(),
         Json::from("value"),
@@ -19,7 +18,7 @@ fn test_get_field() -> TestResult {
 }
 
 #[test]
-fn test_get_index() -> TestResult {
+fn test_get_index() -> crate::JsonResult<()> {
     let json = Json::Array(vec![Json::from(1), Json::from(2), Json::from(3)]);
 
     let value = json.get_index(1)?;
@@ -29,7 +28,7 @@ fn test_get_index() -> TestResult {
 }
 
 #[test]
-fn test_get_path() -> TestResult {
+fn test_get_path() -> crate::JsonResult<()> {
     let json = Json::Object(HashMap::from_iter(vec![(
         "nested".to_string(),
         Json::Object(HashMap::from_iter(vec![(
@@ -45,7 +44,7 @@ fn test_get_path() -> TestResult {
 }
 
 #[test]
-fn test_set_field() -> TestResult {
+fn test_set_field() -> crate::JsonResult<()> {
     let mut json = Json::Object(HashMap::new());
     json.set_field("key", "value")?;
 
@@ -55,7 +54,7 @@ fn test_set_field() -> TestResult {
 }
 
 #[test]
-fn test_remove_field() -> TestResult {
+fn test_remove_field() -> crate::JsonResult<()> {
     let mut json = Json::Object(HashMap::from_iter(vec![(
         "key".to_string(),
         Json::from("value"),
@@ -68,7 +67,7 @@ fn test_remove_field() -> TestResult {
 }
 
 #[test]
-fn test_push() -> TestResult {
+fn test_push() -> crate::JsonResult<()> {
     let mut json = Json::Array(vec![]);
     json.push(1)?;
 
@@ -78,7 +77,7 @@ fn test_push() -> TestResult {
 }
 
 #[test]
-fn test_insert_at() -> TestResult {
+fn test_insert_at() -> crate::JsonResult<()> {
     let mut json = Json::Array(vec![Json::from(1), Json::from(3)]);
     json.insert_at(1, 2)?;
 
@@ -88,7 +87,7 @@ fn test_insert_at() -> TestResult {
 }
 
 #[test]
-fn test_remove_at() -> TestResult {
+fn test_remove_at() -> crate::JsonResult<()> {
     let mut json = Json::Array(vec![Json::from(1), Json::from(2), Json::from(3)]);
     let removed = json.remove_at(1)?;
     assert_eq!(removed, Json::from(2));

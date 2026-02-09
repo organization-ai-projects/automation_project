@@ -3,7 +3,7 @@
 mod tests {
     use crate::deserialization::{from_json, from_str};
     use crate::json::Json;
-    use crate::tests::test_helpers::TestResult;
+    type TestResult = crate::JsonResult<()>;
 
     #[test]
     fn test_from_json() -> TestResult {

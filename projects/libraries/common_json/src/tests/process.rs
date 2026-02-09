@@ -1,10 +1,10 @@
 // projects/libraries/common_json/src/tests/process.rs
-use super::test_helpers::{TestResult, assert_json_object};
+use crate::Json;
 use crate::process::parse_json_stdout;
 use std::process::Command;
 
 #[test]
-fn test_parse_json_stdout() -> TestResult {
+fn test_parse_json_stdout() -> crate::JsonResult<()> {
     // Use an actual command to obtain a valid ExitStatus, then override stdout/stderr
     // Using cargo --version is more portable than echo (which behaves differently on Windows)
     let mut temp_output = Command::new("cargo")
@@ -16,6 +16,6 @@ fn test_parse_json_stdout() -> TestResult {
     let output = temp_output;
 
     let parsed = parse_json_stdout(&output, "")?;
-    assert_json_object(&parsed);
+    assert!(matches!(parsed, Json::Object(_)));
     Ok(())
 }

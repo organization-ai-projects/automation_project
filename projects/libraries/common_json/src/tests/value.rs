@@ -1,5 +1,4 @@
 // projects/libraries/common_json/src/tests/value.rs
-use super::test_helpers::TestResult;
 use crate::value::{array, null, object};
 use crate::{Json, boolean, number_f64, number_i64, number_u64, string};
 use serde::Serialize;
@@ -58,7 +57,7 @@ fn test_value_number_f64() {
 }
 
 #[test]
-fn test_value_from_serialize() -> TestResult {
+fn test_value_from_serialize() -> crate::JsonResult<()> {
     #[derive(Serialize)]
     struct TestStruct {
         field: String,
