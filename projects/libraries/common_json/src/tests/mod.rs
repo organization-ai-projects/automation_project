@@ -1,6 +1,4 @@
 // projects/libraries/common_json/src/tests/mod.rs
-pub(crate) mod test_helpers;
-
 mod access;
 mod json;
 mod json_access;

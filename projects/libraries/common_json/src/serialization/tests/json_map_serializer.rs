@@ -3,7 +3,7 @@
 mod tests {
     use crate::Json;
     use crate::serialization::json_map_serializer::JsonMapSerializer;
-    use crate::tests::test_helpers::TestResult;
+    type TestResult = crate::JsonResult<()>;
     use serde::ser::SerializeMap;
     use serde::ser::SerializeStruct;
 

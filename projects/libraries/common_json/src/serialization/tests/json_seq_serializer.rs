@@ -1,7 +1,7 @@
 // projects/libraries/common_json/src/serialization/tests/json_seq_serializer.rs
 use crate::Json;
 use crate::serialization::json_seq_serializer::JsonSeqSerializer;
-use crate::tests::test_helpers::TestResult;
+type TestResult = crate::JsonResult<()>;
 use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct};
 
 #[test]

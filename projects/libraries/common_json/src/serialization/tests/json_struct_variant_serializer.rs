@@ -1,7 +1,7 @@
 // projects/libraries/common_json/src/serialization/tests/json_struct_variant_serializer.rs
 use crate::Json;
 use crate::serialization::json_struct_variant_serializer::JsonStructVariantSerializer;
-use crate::tests::test_helpers::TestResult;
+type TestResult = crate::JsonResult<()>;
 use serde::ser::SerializeStructVariant;
 
 #[test]

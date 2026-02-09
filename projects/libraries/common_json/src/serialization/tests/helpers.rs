@@ -1,7 +1,7 @@
 // projects/libraries/common_json/src/serialization/tests/helpers.rs
 use crate::Json;
 use crate::serialization::helpers::{json_to_string, serialize_to_json};
-use crate::tests::test_helpers::TestResult;
+type TestResult = crate::JsonResult<()>;
 
 #[test]
 fn test_serialize_to_json() -> TestResult {

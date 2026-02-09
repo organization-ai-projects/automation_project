@@ -2,7 +2,7 @@
 use crate::json_error::JsonError;
 use crate::json_error_code::JsonErrorCode;
 use crate::serialization::key_serializer::KeySerializer;
-use crate::tests::test_helpers::TestResult;
+type TestResult = crate::JsonResult<()>;
 use serde::ser::Serializer;
 
 #[test]

@@ -5,7 +5,7 @@ mod tests {
     use crate::json::Json;
     use crate::json_error::JsonError;
     use crate::json_error_code::JsonErrorCode;
-    use crate::tests::test_helpers::TestResult;
+    type TestResult = crate::JsonResult<()>;
     use std::io::Write;
 
     struct TestStruct {

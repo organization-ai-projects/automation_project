@@ -1,12 +1,11 @@
 // projects/libraries/common_json/src/tests/json_access.rs
-use super::test_helpers::TestResult;
 use crate::Json;
 use crate::JsonObject;
 use crate::json_access::JsonAccess;
 use crate::json_access_mut::JsonAccessMut;
 
 #[test]
-fn test_json_access() -> TestResult {
+fn test_json_access() -> crate::JsonResult<()> {
     let mut json = Json::Object(JsonObject::new());
     json.set_field("key", Json::String("value".to_string()))?;
 

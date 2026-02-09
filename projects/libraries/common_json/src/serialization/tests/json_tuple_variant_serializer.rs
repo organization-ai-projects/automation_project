@@ -2,7 +2,7 @@
 mod tests {
     use crate::Json;
     use crate::serialization::json_tuple_variant_serializer::JsonTupleVariantSerializer;
-    use crate::tests::test_helpers::TestResult;
+    type TestResult = crate::JsonResult<()>;
     use serde::ser::SerializeTupleVariant;
 
     #[test]
