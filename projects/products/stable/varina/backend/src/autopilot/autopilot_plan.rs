@@ -27,10 +27,9 @@ impl AutopilotPlan {
     }
 }
 
-use crate::tests::test_helpers::AutopilotPlanBuilder;
-
 #[test]
 fn test_autopilot_plan_usage() {
+    use crate::tests::test_helpers::AutopilotPlanBuilder;
     let plan = AutopilotPlanBuilder::new()
         .branch("main")
         .will_stage(vec!["file1.rs".to_string()])
@@ -48,6 +47,7 @@ fn test_autopilot_plan_usage() {
 }
 #[test]
 fn test_autopilot_plan_validation() {
+    use crate::tests::test_helpers::AutopilotPlanBuilder;
     let mut plan = AutopilotPlanBuilder::new()
         .branch("")
         .will_commit(true)

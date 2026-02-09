@@ -28,12 +28,10 @@ impl AutopilotReport {
     }
 }
 
-use crate::autopilot::AutopilotMode;
-use crate::classified_changes::ClassifiedChanges;
-use crate::tests::test_helpers::*;
-
 #[test]
 fn test_autopilot_report_usage() {
+    use crate::tests::test_helpers::AutopilotPlanBuilder;
+    use crate::tests::test_helpers::AutopilotReportBuilder;
     let plan = AutopilotPlanBuilder::new()
         .branch("main")
         .will_stage(vec!["file1.rs".to_string()])

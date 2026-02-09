@@ -356,13 +356,9 @@ fn meta(cmd: &Command) -> Metadata {
     cmd.metadata.clone()
 }
 
-use super::*;
-use crate::tests::test_helpers::*;
-use crate::validation_error::{E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED};
-use common_json::to_value;
-
 #[test]
 fn test_run_git_autopilot_with_invalid_path() {
+    use crate::tests::test_helpers::RunRequestBuilder;
     let req = RunRequestBuilder::new()
         .repo_path("/etc/../../../etc/passwd")
         .build();
@@ -384,6 +380,7 @@ fn test_run_git_autopilot_with_invalid_path() {
 
 #[test]
 fn test_run_git_autopilot_with_empty_path() {
+    use crate::tests::test_helpers::RunRequestBuilder;
     let req = RunRequestBuilder::new().repo_path("").build();
 
     let result = run_git_autopilot(req);
@@ -393,6 +390,7 @@ fn test_run_git_autopilot_with_empty_path() {
 
 #[test]
 fn test_run_git_autopilot_with_non_whitelisted_path() {
+    use crate::tests::test_helpers::RunRequestBuilder;
     let req = RunRequestBuilder::new().repo_path("/etc/config").build();
 
     let result = run_git_autopilot(req);
@@ -402,6 +400,7 @@ fn test_run_git_autopilot_with_non_whitelisted_path() {
 
 #[test]
 fn test_run_git_autopilot_with_no_path_uses_fallback() {
+    use crate::tests::test_helpers::RunRequestBuilder;
     // Test that RunRequest with no repo_path doesn't trigger validation
     // (actual autopilot execution is tested elsewhere)
     let req = RunRequestBuilder::new().build();
@@ -413,8 +412,10 @@ fn test_run_git_autopilot_with_no_path_uses_fallback() {
 
 #[test]
 fn test_handle_command_with_missing_action() {
+    use crate::tests::test_helpers::CommandBuilder;
+    use crate::tests::test_helpers::assert_error_code;
+    use crate::tests::test_helpers::assert_status_code;
     let cmd = CommandBuilder::new().build();
-
     let response = handle_command(cmd);
     assert_status_code(&response, 400);
     assert_error_code(&response, E_ACTION_MISSING);
@@ -422,6 +423,9 @@ fn test_handle_command_with_missing_action() {
 
 #[test]
 fn test_handle_command_with_empty_action() {
+    use crate::tests::test_helpers::CommandBuilder;
+    use crate::tests::test_helpers::assert_error_code;
+    use crate::tests::test_helpers::assert_status_code;
     let cmd = CommandBuilder::new().action("   ").build();
 
     let response = handle_command(cmd);
@@ -431,6 +435,9 @@ fn test_handle_command_with_empty_action() {
 
 #[test]
 fn test_handle_command_with_unsupported_action() {
+    use crate::tests::test_helpers::CommandBuilder;
+    use crate::tests::test_helpers::assert_error_code;
+    use crate::tests::test_helpers::assert_status_code;
     let cmd = CommandBuilder::new().action("unsupported.action").build();
 
     let response = handle_command(cmd);
@@ -440,6 +447,9 @@ fn test_handle_command_with_unsupported_action() {
 
 #[test]
 fn test_handle_command_with_missing_payload() {
+    use crate::tests::test_helpers::CommandBuilder;
+    use crate::tests::test_helpers::assert_error_code;
+    use crate::tests::test_helpers::assert_status_code;
     let cmd = CommandBuilder::new()
         .action(ACTION_GIT_AUTOPILOT_PREVIEW)
         .build();
@@ -451,6 +461,9 @@ fn test_handle_command_with_missing_payload() {
 
 #[test]
 fn test_handle_command_with_invalid_payload_type() {
+    use crate::tests::test_helpers::CommandBuilder;
+    use crate::tests::test_helpers::assert_error_code;
+    use crate::tests::test_helpers::assert_status_code;
     let cmd = CommandBuilder::new()
         .action(ACTION_GIT_AUTOPILOT_PREVIEW)
         .payload_with_type("invalid/type", to_value(&"{}").unwrap())
@@ -465,6 +478,12 @@ fn test_handle_command_with_invalid_payload_type() {
 
 #[test]
 fn test_handle_command_run_with_empty_repo_path() {
+    use crate::tests::test_helpers::CommandBuilder;
+    use crate::tests::test_helpers::RunRequestBuilder;
+    use crate::tests::test_helpers::assert_error_code;
+    use crate::tests::test_helpers::assert_error_contains;
+    use crate::tests::test_helpers::assert_status_code;
+    use crate::validation_error::E_REPO_PATH_INVALID_FORMAT;
     let run_req = RunRequestBuilder::new().repo_path("").build();
 
     let cmd = CommandBuilder::new()
@@ -480,6 +499,12 @@ fn test_handle_command_run_with_empty_repo_path() {
 
 #[test]
 fn test_handle_command_run_with_non_whitelisted_path() {
+    use crate::tests::test_helpers::CommandBuilder;
+    use crate::tests::test_helpers::RunRequestBuilder;
+    use crate::tests::test_helpers::assert_error_code;
+    use crate::tests::test_helpers::assert_error_contains;
+    use crate::tests::test_helpers::assert_status_code;
+    use crate::validation_error::E_REPO_PATH_NOT_WHITELISTED;
     let run_req = RunRequestBuilder::new().repo_path("/etc/config").build();
 
     let cmd = CommandBuilder::new()
