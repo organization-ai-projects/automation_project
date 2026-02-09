@@ -40,6 +40,11 @@ pub enum AuditEvent {
         scores: Vec<(String, f64)>,
         timestamp: u64,
     },
+    FinalState {
+        state: String,
+        iteration: usize,
+        timestamp: u64,
+    },
 }
 
 /// Audit logger
@@ -134,6 +139,15 @@ impl AuditLogger {
         self.log(AuditEvent::ObjectiveEvaluation {
             iteration,
             scores,
+            timestamp: Self::timestamp(),
+        })
+    }
+
+    /// Log final lifecycle state.
+    pub fn log_final_state(&self, state: &str, iteration: usize) -> std::io::Result<()> {
+        self.log(AuditEvent::FinalState {
+            state: state.to_string(),
+            iteration,
             timestamp: Self::timestamp(),
         })
     }

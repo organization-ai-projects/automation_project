@@ -50,12 +50,15 @@ impl Default for SymbolicConfig {
 
 /// Agent configuration
 #[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
+#[serde(default)]
 pub struct AgentConfig {
     pub agent_name: String,
     pub execution_mode: String,
     pub neural: NeuralConfig,
     pub symbolic: SymbolicConfig,
     pub objectives: Vec<Objective>,
+    pub max_iterations: usize,
+    pub timeout_seconds: Option<u64>,
 }
 
 impl Default for AgentConfig {
@@ -66,6 +69,8 @@ impl Default for AgentConfig {
             neural: NeuralConfig::default(),
             symbolic: SymbolicConfig::default(),
             objectives: default_objectives(),
+            max_iterations: 100,
+            timeout_seconds: Some(3600),
         }
     }
 }
