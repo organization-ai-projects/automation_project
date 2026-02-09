@@ -43,15 +43,18 @@ pub fn assert_warn_not_contains(validation: &ValidationResult, substring: &str) 
     // For identifier-like names, check for exact matches with word boundaries to avoid
     // false positives from substring matches (e.g., "used_var" matching within "unused_var")
     let is_identifier = substring.chars().all(|c| c.is_alphanumeric() || c == '_');
-    
+
     // Helper to check if a warning contains an exact identifier match
     let matches_identifier = |warning: &str, identifier: &str| -> bool {
         let quoted = format!("'{}'", identifier);
         // Split on whitespace and punctuation to isolate tokens
-        warning.split(|c: char| c.is_whitespace() || (c.is_ascii_punctuation() && c != '\'' && c != '_'))
+        warning
+            .split(|c: char| {
+                c.is_whitespace() || (c.is_ascii_punctuation() && c != '\'' && c != '_')
+            })
             .any(|token| token == identifier || token == quoted)
     };
-    
+
     let found = if is_identifier {
         validation
             .warnings
