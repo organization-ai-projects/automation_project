@@ -11,6 +11,40 @@ It interacts mainly with:
 - Mocked GitHub CLI behaviors
 - Scenario definitions in `scenarios/`
 
+## Prerequisites
+
+- Bash 4.0 or later
+- Git 2.0 or later
+- Standard Unix utilities (mktemp, date, grep, sed, etc.)
+
+No external dependencies like Docker or GitHub authentication are required.
+
+## Quick Start
+
+Run all integration tests:
+
+```bash
+tools/bot_ci_harness/run_all.sh
+```
+
+Run unit tests:
+
+```bash
+tools/bot_ci_harness/tests/unit_tests.sh
+```
+
+Run a specific scenario:
+
+```bash
+tools/bot_ci_harness/run_all.sh --scenario 2
+```
+
+Run with verbose output:
+
+```bash
+tools/bot_ci_harness/run_all.sh --verbose
+```
+
 ## Run all tests
 
 ```bash
@@ -47,7 +81,10 @@ tools/bot_ci_harness/
 ├── run_parallel.sh         # Run scenarios in parallel
 ├── lib/
 │   ├── assert.sh           # Assertion functions
-│   └── git_sandbox.sh      # Temporary git repo creation
+│   ├── git_sandbox.sh      # Temporary git repo creation
+│   ├── git_operations.sh   # Common git operations (NEW)
+│   ├── logging.sh          # Structured logging (NEW)
+│   └── mock_setup.sh       # Mock environment setup (NEW)
 ├── mocks/
 │   └── gh                  # Mock GitHub CLI
 ├── scenarios/              # Scenario definitions
@@ -67,15 +104,47 @@ tools/bot_ci_harness/
 
 ## Files
 
-- `README.md`: This file.
-- `run_all.sh`: Main runner.
-- `run_failfast.sh`: Stop on first failure.
-- `run_parallel.sh`: Run scenarios in parallel.
-- `show_timing.sh`: Display scenario timing summary.
-- `scenario_generator.sh`: Scenario generator script.
-- `lib/`: Assertion and sandbox helpers.
-- `mocks/`: Mocked external commands.
-- `scenarios/`: Scenario definitions.
+- `README.md`: This file - comprehensive documentation for the test harness
+- `run_all.sh`: Main test runner with filtering and verbosity options
+- `run_failfast.sh`: Test runner that stops on first failure
+- `run_parallel.sh`: Parallel test runner for faster execution
+- `show_timing.sh`: Display timing summary for all scenarios
+- `scenario_generator.sh`: Interactive tool to create new test scenarios
+- `lib/`: Shared library functions
+  - `assert.sh`: Assertion functions for test validation
+  - `git_sandbox.sh`: Git repository sandbox creation and manipulation
+  - `git_operations.sh`: Common git operations (branch checks, SHA comparisons, etc.)
+  - `logging.sh`: Structured logging with timestamps and log levels
+  - `mock_setup.sh`: Mock environment configuration and setup
+- `mocks/`: Mocked external commands
+  - `gh`: Mock GitHub CLI that simulates PR operations
+- `scenarios/`: Test scenario definitions (see below for details)
+
+## Key Features
+
+### Sandbox Isolation
+
+- Each test runs in a completely isolated temporary Git repository
+- No interference with the actual repository or external systems
+- Automatic cleanup after each test
+
+### Structured Logging
+
+- Timestamps for all log messages
+- Log levels (DEBUG, INFO, WARN, ERROR)
+- Optional verbose mode for detailed debugging
+
+### Mock GitHub CLI
+
+- Simulates all GitHub PR operations (create, view, merge, list)
+- Supports various PR states (mergeable, conflicting, unknown)
+- Configurable via scenario environment variables
+
+### Modular Design
+
+- Common operations extracted into reusable library functions
+- Clean separation of concerns
+- Easy to extend with new test scenarios
 
 ## Covered scenarios
 

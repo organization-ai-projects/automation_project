@@ -9,17 +9,3 @@ pub enum AutopilotMode {
     DryRun,
     ApplySafe,
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::autopilot::autopilot_mode::AutopilotMode;
-
-    #[test]
-    fn test_autopilot_mode_usage() {
-        let mode = AutopilotMode::DryRun;
-        assert_eq!(mode, AutopilotMode::DryRun);
-
-        let mode = AutopilotMode::ApplySafe;
-        assert_eq!(mode, AutopilotMode::ApplySafe);
-    }
-}

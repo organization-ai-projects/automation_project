@@ -5,6 +5,7 @@ A minimal viable product demonstrating unstable product structure and compliance
 ## Purpose
 
 This is an example MVP that generates simple reports from data files. It demonstrates:
+
 - How to structure an unstable product
 - How to document architectural violations
 - How to define exit criteria for promotion to stable
@@ -80,6 +81,7 @@ This product produces output in the **structured JSON file** format:
 **Output file**: `/tmp/reports_output/run_report.json`
 
 **Format**:
+
 ```json
 {
   "product": "example_report_generator",
@@ -111,6 +113,7 @@ cargo run -- --input /tmp/reports_input --output /tmp/reports_output
 ## Future (Stable)
 
 Once promoted to stable, this product will:
+
 - Be launched and managed by the Engine
 - Integrate with the central UI
 - Follow all architectural patterns
@@ -120,6 +123,7 @@ Once promoted to stable, this product will:
 ## Development
 
 This is a minimal example. For a real unstable product:
+
 1. Copy this structure
 2. Update the README with your specific violations and exit criteria
 3. Implement your MVP functionality

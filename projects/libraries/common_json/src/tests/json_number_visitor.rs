@@ -7,31 +7,29 @@ use serde::de::value::Error as SerdeError;
 #[test]
 fn test_visit_i64() {
     let visitor = JsonNumberVisitor;
-    match visitor.visit_i64::<SerdeError>(42i64) {
-        Ok(result) => assert_eq!(result, JsonNumber::from(42i64)),
-        Err(e) => panic!("Error visiting i64: {:?}", e),
-    }
+    let result = visitor
+        .visit_i64::<SerdeError>(42i64)
+        .expect("visit_i64 should succeed");
+    assert_eq!(result, JsonNumber::from(42i64));
 }
 
 #[test]
 fn test_visit_u64() {
     let visitor = JsonNumberVisitor;
-    match visitor.visit_u64::<SerdeError>(42u64) {
-        Ok(result) => assert_eq!(result, JsonNumber::from(42u64)),
-        Err(e) => panic!("Error visiting u64: {:?}", e),
-    }
+    let result = visitor
+        .visit_u64::<SerdeError>(42u64)
+        .expect("visit_u64 should succeed");
+    assert_eq!(result, JsonNumber::from(42u64));
 }
 
 #[test]
 fn test_visit_f64_valid() {
     let visitor = JsonNumberVisitor;
-    match visitor.visit_f64::<SerdeError>(42.0) {
-        Ok(result) => {
-            let expected = JsonNumber::from_f64(42.0).expect("Valid value");
-            assert_eq!(result, expected);
-        }
-        Err(e) => panic!("Error visiting f64: {:?}", e),
-    }
+    let result = visitor
+        .visit_f64::<SerdeError>(42.0)
+        .expect("visit_f64 should succeed for finite value");
+    let expected = JsonNumber::from_f64(42.0).expect("Valid value");
+    assert_eq!(result, expected);
 }
 
 #[test]

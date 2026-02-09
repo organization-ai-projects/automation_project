@@ -1,13 +1,13 @@
 // projects/libraries/common_json/src/tests/merge.rs
 use crate::merge::{contains, merge};
-use crate::{MergeStrategy, object};
+use crate::{Json, MergeStrategy, object};
 
 #[test]
 fn test_merge() {
     let target = object();
     let source = object();
     let result = merge(&target, &source, MergeStrategy::Replace);
-    assert!(result.is_object());
+    assert!(matches!(result, Json::Object(_)));
 }
 
 #[test]

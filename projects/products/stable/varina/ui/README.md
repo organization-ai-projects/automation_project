@@ -40,6 +40,7 @@ ui/
 - Avoids direct coupling with the backend.
 
 For architecture context, see `documentation/technical_documentation/ARCHITECTURE.md`.
+
 ## Documentation
 
 - [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/products/stable/varina/ui/documentation/TOC.md)

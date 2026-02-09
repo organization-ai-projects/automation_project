@@ -5,10 +5,8 @@ mod tests {
     use crate::json::Json;
     use crate::json_error::JsonError;
     use crate::json_error_code::JsonErrorCode;
-    use std::error::Error;
+    type TestResult = crate::JsonResult<()>;
     use std::io::Write;
-
-    type TestResult = Result<(), Box<dyn Error>>;
 
     struct TestStruct {
         field: String,

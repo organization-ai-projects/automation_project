@@ -10,51 +10,46 @@ use serde::de::value::{MapDeserializer, SeqDeserializer};
 #[test]
 fn test_visit_unit() {
     let visitor = JsonVisitor;
-    let result = visitor.visit_unit::<SerdeError>();
-    match result {
-        Ok(json) => assert_eq!(json, Json::Null),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor
+        .visit_unit::<SerdeError>()
+        .expect("visit_unit should succeed");
+    assert_eq!(json, Json::Null);
 }
 
 #[test]
 fn test_visit_bool() {
     let visitor = JsonVisitor;
-    let result = visitor.visit_bool::<SerdeError>(true);
-    match result {
-        Ok(json) => assert_eq!(json, Json::Bool(true)),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor
+        .visit_bool::<SerdeError>(true)
+        .expect("visit_bool should succeed");
+    assert_eq!(json, Json::Bool(true));
 }
 
 #[test]
 fn test_visit_i64() {
     let visitor = JsonVisitor;
-    let result = visitor.visit_i64::<SerdeError>(42);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Number(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor
+        .visit_i64::<SerdeError>(42)
+        .expect("visit_i64 should succeed");
+    assert!(matches!(json, Json::Number(_)));
 }
 
 #[test]
 fn test_visit_u64() {
     let visitor = JsonVisitor;
-    let result = visitor.visit_u64::<SerdeError>(42);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Number(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor
+        .visit_u64::<SerdeError>(42)
+        .expect("visit_u64 should succeed");
+    assert!(matches!(json, Json::Number(_)));
 }
 
 #[test]
 fn test_visit_f64_valid() {
     let visitor = JsonVisitor;
-    let result = visitor.visit_f64::<SerdeError>(42.0);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Number(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor
+        .visit_f64::<SerdeError>(42.0)
+        .expect("visit_f64 should succeed for finite value");
+    assert!(matches!(json, Json::Number(_)));
 }
 
 #[test]
@@ -67,11 +62,10 @@ fn test_visit_f64_invalid() {
 #[test]
 fn test_visit_str() {
     let visitor = JsonVisitor;
-    let result = visitor.visit_str::<SerdeError>("hello");
-    match result {
-        Ok(json) => assert_eq!(json, Json::String("hello".to_string())),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor
+        .visit_str::<SerdeError>("hello")
+        .expect("visit_str should succeed");
+    assert_eq!(json, Json::String("hello".to_string()));
 }
 
 #[test]
@@ -82,11 +76,10 @@ fn test_visit_seq() {
         seq.into_iter()
             .map(<&str as IntoDeserializer<'_, JsonError>>::into_deserializer),
     );
-    let result = visitor.visit_seq(deserializer);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Array(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor
+        .visit_seq(deserializer)
+        .expect("visit_seq should succeed");
+    assert!(matches!(json, Json::Array(_)));
 }
 
 #[test]
@@ -99,9 +92,8 @@ fn test_visit_map() {
             <&str as IntoDeserializer<'_, JsonError>>::into_deserializer(v),
         )
     }));
-    let result = visitor.visit_map(deserializer);
-    match result {
-        Ok(json) => assert!(matches!(json, Json::Object(_))),
-        Err(err) => panic!("Error occurred: {:?}", err),
-    }
+    let json = visitor
+        .visit_map(deserializer)
+        .expect("visit_map should succeed");
+    assert!(matches!(json, Json::Object(_)));
 }

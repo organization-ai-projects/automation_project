@@ -8,11 +8,11 @@ fn test_json_array_builder() {
     builder = builder.element("value1");
     builder = builder.element("value2");
     let array = builder.build();
-    if let Json::Array(arr) = array {
-        assert_eq!(arr.len(), 2);
-        assert!(arr.contains(&Json::from("value1")));
-        assert!(arr.contains(&Json::from("value2")));
-    } else {
-        panic!("Result is not a JSON array");
-    }
+
+    let Json::Array(arr) = array else {
+        panic!("Result is not a JSON array: {array:?}");
+    };
+    assert_eq!(arr.len(), 2);
+    assert!(arr.contains(&Json::from("value1")));
+    assert!(arr.contains(&Json::from("value2")));
 }

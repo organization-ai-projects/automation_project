@@ -33,7 +33,8 @@ file_versioning/
 │   ├── push_branch.sh          # Push branches
 │   ├── clean_branches.sh       # Clean obsolete branches
 │   └── ...                     # Additional git utilities
-└── github/                     # GitHub-only operations (reserved, empty)
+└── github/                     # GitHub-only operations
+    └── generate_pr_description.sh # Generate merge PR description
 ```
 
 ## Files
@@ -42,7 +43,7 @@ file_versioning/
 - `TOC.md`: Documentation index for file versioning scripts.
 - `orchestrators/`: Workflow orchestration scripts.
 - `git/`: Pure git operation scripts.
-- `github/`: GitHub-only operations (reserved).
+- `github/`: GitHub-only operations.
 
 ## Architecture: Execute vs Read
 
@@ -110,6 +111,18 @@ This orchestrator:
 
 **Interactive**: Guides you through the complete process
 
+## After PR Merge: cleanup_after_pr.sh
+
+After your PR merges, clean up your local branches:
+
+```bash
+./scripts/versioning/file_versioning/git/cleanup_after_pr.sh
+```
+
+⚠️ **Warning:** This script may force-delete local branches (using `git branch -D`) when safe deletion fails. Before running it, ensure the target branches are fully merged or no longer needed, or use the manual workflow for selective/safer cleanup.
+
+**See [Sync After PR Workflow](git/sync_after_pr.md)** for complete documentation on manual vs automated cleanup.
+
 ## Current Components
 
 ### Git-only Components (`git/`)
@@ -129,9 +142,9 @@ Pure git operations (10 components):
 
 ### GitHub Components (`github/`)
 
-Currently empty. Reserved for scripts using only `gh` commands.
+- `generate_pr_description.sh` - Generate merge PR description from PR/issue metadata
 
-### Hybrid Components (root level)
+### Hybrid Components (orchestrators/read)
 
 - `check_priority_issues.sh` - List high priority/security issues
 - `synch_main_dev_ci.sh` - Synchronize main→dev via automated PR (bot-only, called by GitHub Actions)

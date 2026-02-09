@@ -3,14 +3,17 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use common_json::{from_value, to_string, to_value};
+use lazy_static::lazy_static;
 use protocol::{
     Command, CommandResponse, Metadata, ProtocolError, ResponseStatus, apply_request::ApplyRequest,
-    payload::Payload, preview_request::PreviewRequest,
+    payload::Payload, preview_request::PreviewRequest, run_request::RunRequest,
 };
 
 use crate::automation::run_git_autopilot_in_repo;
 use crate::autopilot::{AutopilotMode, AutopilotPolicy};
 use crate::autopilot::{handle_apply_git_autopilot, handle_preview_git_autopilot};
+use crate::handler_error::HandlerError;
+use crate::repo_path_validator::RepoPathValidator;
 
 // ---------- Routing constants (future proof) ----------
 pub const ACTION_GIT_AUTOPILOT_PREVIEW: &str = "git_autopilot/preview";
@@ -20,10 +23,12 @@ const ACTION_GIT_AUTOPILOT_RUN: &str = "git_autopilot.run";
 // Payload type (v2 ready). Activate them when you want strict versioning.
 const PAYLOAD_TYPE_PREVIEW_V1: &str = "git_autopilot/preview/v1";
 const PAYLOAD_TYPE_APPLY_V1: &str = "git_autopilot/apply/v1";
+const PAYLOAD_TYPE_RUN_V1: &str = "git_autopilot/run/v1";
 
 // Response payload types
 const RESPONSE_TYPE_PREVIEW: &str = "preview_response";
 const RESPONSE_TYPE_APPLY: &str = "apply_response";
+const RESPONSE_TYPE_RUN: &str = "run_response";
 
 // ---------- Error codes (stable internal codes) ----------
 const E_ACTION_MISSING: i32 = 1000;
@@ -34,11 +39,17 @@ const E_PAYLOAD_TYPE_INVALID: i32 = 1101;
 const E_INNER_PAYLOAD_MISSING: i32 = 1102;
 const E_PAYLOAD_JSON_INVALID: i32 = 1103;
 
-const E_HANDLER_FAILED: i32 = 1200;
+pub const E_HANDLER_FAILED: i32 = 1200;
+#[allow(dead_code)]
 const E_AUTOPILOT_FAILED: i32 = 1300;
 
 const E_SERIALIZE_MESSAGE: i32 = 1400;
 const E_SERIALIZE_PAYLOAD: i32 = 1401;
+
+// Cached validator to avoid repeated initialization on every request
+lazy_static! {
+    static ref REPO_PATH_VALIDATOR: RepoPathValidator = create_repo_path_validator();
+}
 
 pub fn handle_command(cmd: Command) -> CommandResponse {
     let action = match cmd.action.as_deref().map(str::trim) {
@@ -67,7 +78,12 @@ pub fn handle_command(cmd: Command) -> CommandResponse {
             handle_apply_git_autopilot,
             RESPONSE_TYPE_APPLY,
         ),
-        ACTION_GIT_AUTOPILOT_RUN => run_git_autopilot(&cmd),
+        ACTION_GIT_AUTOPILOT_RUN => handle_json::<RunRequest, _, _>(
+            &cmd,
+            Some(PAYLOAD_TYPE_RUN_V1),
+            run_git_autopilot,
+            RESPONSE_TYPE_RUN,
+        ),
         _ => err(
             &cmd,
             404,
@@ -92,7 +108,7 @@ fn handle_json<Req, Handler, Res>(
 where
     Req: DeserializeOwned,
     Res: Serialize + Clone,
-    Handler: FnOnce(Req) -> Result<Res, String>,
+    Handler: FnOnce(Req) -> Result<Res, HandlerError>,
 {
     let payload = match cmd.payload.as_ref() {
         Some(p) => p,
@@ -168,13 +184,17 @@ where
     let res = match handler(req) {
         Ok(r) => r,
         Err(e) => {
-            println!("[error] handle_json: Handler error: {e}");
+            println!("[error] handle_json: Handler error: {}", e.message);
             return err(
                 cmd,
-                500,
-                "Internal Server Error",
-                E_HANDLER_FAILED,
-                &format!("Handler error: {e}"),
+                e.http_code,
+                if e.http_code == 400 {
+                    "Bad Request"
+                } else {
+                    "Internal Server Error"
+                },
+                e.error_code,
+                &e.message,
             );
         }
     };
@@ -182,31 +202,86 @@ where
     ok(cmd, 200, "Success", response_payload_type, &res)
 }
 
-fn run_git_autopilot(cmd: &Command) -> CommandResponse {
-    // TODO future proof: repo path in payload + validation + whitelist
-    let repo_path = crate::automation::resolve_repo_path();
+fn run_git_autopilot(req: RunRequest) -> Result<String, HandlerError> {
+    // Validate and resolve the repository path
+    let repo_path = match req.repo_path {
+        Some(path) => {
+            // Use cached validator for efficiency
+            REPO_PATH_VALIDATOR.validate(&path).map_err(|e| {
+                HandlerError::validation_error(
+                    e.code,
+                    format!("Repository path validation failed: {}", e.message),
+                )
+            })?
+        }
+        None => {
+            // Fallback to environment variable or current directory (existing behavior)
+            crate::automation::resolve_repo_path()
+        }
+    };
+
     let mode = AutopilotMode::ApplySafe;
     let policy = AutopilotPolicy::default();
 
     match run_git_autopilot_in_repo(&repo_path, mode, &policy) {
-        Ok(report) => CommandResponse {
-            metadata: meta(cmd),
-            status: ResponseStatus {
-                code: 200,
-                description: "Success".to_string(),
-            },
-            message: Some(format!("Success: {:?}", report)),
-            payload: None,
-            error: None,
-        },
-        Err(e) => err(
-            cmd,
-            500,
-            "Internal Server Error",
-            E_AUTOPILOT_FAILED,
-            &format!("Autopilot error: {e}"),
-        ),
+        Ok(report) => Ok(format!("Success: {:?}", report)),
+        Err(e) => Err(HandlerError::internal_error(
+            E_HANDLER_FAILED,
+            format!("Autopilot error: {}", e),
+        )),
     }
+}
+
+/// Create a RepoPathValidator with whitelist from environment or default.
+///
+/// Checks for `VARINA_REPO_WHITELIST` environment variable which should contain
+/// comma-separated absolute paths (e.g., "/home,/tmp,/workspace").
+///
+/// Falls back to default whitelist (/home, /tmp, /workspace) if:
+/// - Environment variable is not set
+/// - Environment variable is empty
+/// - All paths in environment variable are empty after trimming
+fn create_repo_path_validator() -> RepoPathValidator {
+    use std::env;
+    use std::path::PathBuf;
+
+    // Check for VARINA_REPO_WHITELIST environment variable
+    // Format: comma-separated absolute paths like "/home,/tmp,/workspace"
+    if let Ok(whitelist_str) = env::var("VARINA_REPO_WHITELIST") {
+        let whitelist: Vec<PathBuf> = whitelist_str
+            .split(',')
+            .map(|s| PathBuf::from(s.trim()))
+            .filter(|p| {
+                if p.as_os_str().is_empty() {
+                    return false;
+                }
+                // Only accept absolute paths
+                if !p.is_absolute() {
+                    println!(
+                        "[warn] Ignoring relative path in VARINA_REPO_WHITELIST: {:?}",
+                        p
+                    );
+                    return false;
+                }
+                true
+            })
+            .collect();
+
+        if !whitelist.is_empty() {
+            println!(
+                "[info] Using repo path whitelist from VARINA_REPO_WHITELIST: {:?}",
+                whitelist
+            );
+            return RepoPathValidator::new(whitelist);
+        } else {
+            println!(
+                "[warn] VARINA_REPO_WHITELIST contained no valid absolute paths, using defaults"
+            );
+        }
+    }
+
+    // Fall back to default whitelist
+    RepoPathValidator::default()
 }
 
 /// Success response builder (no unwrap, full error mapping)

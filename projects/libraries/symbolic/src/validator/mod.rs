@@ -5,6 +5,7 @@ mod dead_code_visitor;
 mod import_visitor;
 pub mod semantic_analyzer;
 pub mod semantic_issue;
+mod type_visitor;
 pub mod validation_error;
 pub mod validation_result;
 mod variable_collector;

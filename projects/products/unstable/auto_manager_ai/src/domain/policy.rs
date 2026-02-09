@@ -85,34 +85,14 @@ impl Policy {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::action::Action;
     use crate::domain::policy::Policy;
     use crate::domain::policy_decision_type::PolicyDecisionType;
-    use crate::domain::{ActionStatus, ActionTarget, RiskLevel};
-
-    fn create_test_action(action_type: &str, confidence: f64) -> Action {
-        Action {
-            id: "test_001".to_string(),
-            action_type: action_type.to_string(),
-            status: ActionStatus::Proposed,
-            target: ActionTarget::Repo {
-                reference: "test/repo".to_string(),
-            },
-            justification: "Test action".to_string(),
-            risk_level: RiskLevel::Low,
-            required_checks: vec![],
-            confidence,
-            evidence: vec![],
-            depends_on: None,
-            missing_inputs: None,
-            dry_run: None,
-        }
-    }
+    use crate::tests::test_helpers::build_test_action;
 
     #[test]
     fn test_policy_default_deny_writes() {
         let policy = Policy::default();
-        let action = create_test_action("create_issue", 0.9);
+        let action = build_test_action("create_issue", 0.9);
 
         let decision = policy.evaluate(&action);
 
@@ -123,7 +103,7 @@ mod tests {
     #[test]
     fn test_policy_allows_read_only() {
         let policy = Policy::default();
-        let action = create_test_action("analyze_repository", 0.9);
+        let action = build_test_action("analyze_repository", 0.9);
 
         let decision = policy.evaluate(&action);
 
@@ -133,7 +113,7 @@ mod tests {
     #[test]
     fn test_policy_confidence_threshold() {
         let policy = Policy::default();
-        let action = create_test_action("analyze_repository", 0.3);
+        let action = build_test_action("analyze_repository", 0.3);
 
         let decision = policy.evaluate(&action);
 
@@ -144,7 +124,7 @@ mod tests {
     #[test]
     fn test_policy_missing_inputs() {
         let policy = Policy::default();
-        let mut action = create_test_action("analyze_repository", 0.9);
+        let mut action = build_test_action("analyze_repository", 0.9);
         action.missing_inputs = Some(vec!["user_input".to_string()]);
 
         let decision = policy.evaluate(&action);
@@ -170,7 +150,7 @@ mod tests {
         ];
 
         for action_type in write_actions {
-            let action = create_test_action(action_type, 0.9);
+            let action = build_test_action(action_type, 0.9);
             let decision = policy.evaluate(&action);
 
             assert_eq!(

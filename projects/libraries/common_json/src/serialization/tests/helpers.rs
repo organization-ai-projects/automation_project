@@ -1,10 +1,8 @@
 // projects/libraries/common_json/src/serialization/tests/helpers.rs
 use crate::Json;
-#[cfg(test)]
 use crate::serialization::helpers::{json_to_string, serialize_to_json};
-use std::error::Error;
+type TestResult = crate::JsonResult<()>;
 
-type TestResult = Result<(), Box<dyn Error>>;
 #[test]
 fn test_serialize_to_json() -> TestResult {
     let value = Json::Object(
@@ -15,11 +13,10 @@ fn test_serialize_to_json() -> TestResult {
     );
     let result = serialize_to_json(&value)?;
 
-    if let Json::Object(map) = result {
-        assert_eq!(map.get("key"), Some(&Json::String("value".to_string())));
-    } else {
+    let Json::Object(map) = result else {
         panic!("Expected Json::Object");
-    }
+    };
+    assert_eq!(map.get("key"), Some(&Json::String("value".to_string())));
     Ok(())
 }
 

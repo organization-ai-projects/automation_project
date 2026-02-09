@@ -5,6 +5,7 @@ A V0 AI Automation Manager that analyzes repository and GitHub context and outpu
 ## Purpose
 
 This unstable product implements a safe-by-default AI automation assistant for repository management. V0 focuses on:
+
 - Read-only analysis of repository files and metadata
 - Generating action plans (proposals only, never executed)
 - Policy-based guardrails to prevent unsafe operations
@@ -99,11 +100,13 @@ To promote this product to stable, the following must be completed:
 
 This product produces output in the **structured JSON file** format:
 
-**Output files**: 
+**Output files**:
+
 - `./out/action_plan.json` - The generated action plan
 - `./out/run_report.json` - Run report with policy decisions
 
 **action_plan.json format**:
+
 ```json
 {
   "version": "0.1.0",
@@ -134,6 +137,7 @@ This product produces output in the **structured JSON file** format:
 ```
 
 **run_report.json format**:
+
 ```json
 {
   "product": "auto_manager_ai",
@@ -178,6 +182,7 @@ This product produces output in the **structured JSON file** format:
 ### Action Lifecycle
 
 All actions in V0 are **proposals only**:
+
 - Actions are generated with status `proposed`, `needs_input`, or `blocked_by_policy`
 - Policy evaluates each action and returns `allow`, `deny`, or `needs_input`
 - **No actions are executed** - execution is out of scope for V0
@@ -318,6 +323,7 @@ write_outputs(&plan, &report, &out_dir)?;
 ## Future (Stable)
 
 Once promoted to stable, this product will:
+
 - Be launched and managed by the Engine
 - Integrate with the central UI
 - Use actual AI/ML for intelligent planning
@@ -334,6 +340,7 @@ See [CONTRIBUTING.md](../../../../CONTRIBUTING.md) for general guidelines.
 ## Schema Documentation
 
 JSON schemas are available in the `schemas/` directory:
+
 - `action_plan.schema.json` - Schema for action plans
 - `run_report.schema.json` - Schema for run reports
 
