@@ -13,8 +13,8 @@ lazy_static! {
     static ref PASSWORDS: TestPasswords = TestPasswords::new();
 }
 
-// Shared counter for unique test directory names
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+// Shared counter used to make deterministic fallback test passwords unique.
+static PASSWORD_COUNTER: AtomicU64 = AtomicU64::new(0);
 use super::helpers::{TestResult, create_unique_temp_dir, poll_until_async};
 
 async fn create_test_manager() -> TestResult<AccountManager> {
@@ -46,10 +46,10 @@ struct TestPasswords {
 
 impl TestPasswords {
     fn new() -> Self {
-        // Use namespaced environment variables and fallback to random generated values
+        // Use namespaced environment variables and deterministic fallback values.
         // to avoid CodeQL hard-coded credential warnings
         let timestamp = current_timestamp_ms();
-        let counter = TEST_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let counter = PASSWORD_COUNTER.fetch_add(1, Ordering::Relaxed);
 
         Self {
             test_password: std::env::var("ACCOUNTS_BACKEND_TEST_PASSWORD")
@@ -190,7 +190,7 @@ async fn test_flush_if_dirty_skips_when_clean() {
 }
 
 #[tokio::test]
-async fn test_last_login_survives_restart() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_last_login_survives_restart() -> TestResult<()> {
     let temp_dir = create_unique_temp_dir("accounts_test");
     tokio::fs::create_dir_all(&temp_dir).await?;
 
@@ -342,7 +342,7 @@ async fn test_audit_manual_flush() -> Result<(), Box<dyn std::error::Error>> {
 async fn test_audit_periodic_flush() {
     let config = AuditBufferConfig {
         max_batch_size: 1000,
-        flush_interval_secs: 2, // 2 seconds
+        flush_interval_secs: 1, // Keep tests fast while still exercising periodic flush
     };
     let manager = create_test_manager_with_config(config)
         .await
@@ -371,7 +371,7 @@ async fn test_audit_periodic_flush() {
         "Audit entries should be buffered before periodic flush"
     );
 
-    // Poll for periodic flush (2s interval + buffer time)
+    // Poll for periodic flush (1s interval + buffer time)
     poll_until_async(
         || async {
             read_audit_log(manager.data_dir())
@@ -379,7 +379,7 @@ async fn test_audit_periodic_flush() {
                 .map(|lines| lines.len() == 1)
                 .unwrap_or(false)
         },
-        Duration::from_secs(5),
+        Duration::from_secs(2),
         Duration::from_millis(100),
     )
     .await

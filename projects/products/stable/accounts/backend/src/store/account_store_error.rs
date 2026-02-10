@@ -22,4 +22,6 @@ pub enum AccountStoreError {
     Json(String),
     #[error("password error: {0}")]
     Password(String),
+    #[error("invalid configuration: {0}")]
+    InvalidConfig(String),
 }

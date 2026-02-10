@@ -19,12 +19,12 @@ pub struct AuditBuffer {
 }
 
 impl AuditBuffer {
-    pub fn new(audit_path: PathBuf, config: AuditBufferConfig) -> Self {
+    pub fn new(audit_path: PathBuf, config: AuditBufferConfig) -> Result<Self, AccountStoreError> {
         // Validate config
         if config.flush_interval_secs == 0 {
-            panic!(
-                "flush_interval_secs must be greater than 0 to avoid tokio::time::interval panic"
-            );
+            return Err(AccountStoreError::InvalidConfig(
+                "flush_interval_secs must be greater than 0".to_string(),
+            ));
         }
 
         let buffer = Arc::new(Mutex::new(Vec::new()));
@@ -46,12 +46,12 @@ impl AuditBuffer {
             }
         });
 
-        Self {
+        Ok(Self {
             audit_path,
             buffer,
             config,
             flush_task,
-        }
+        })
     }
 
     /// Add an audit entry to the buffer
@@ -77,7 +77,7 @@ impl AuditBuffer {
         buffer: &Arc<Mutex<Vec<AuditEntry>>>,
         audit_path: &PathBuf,
     ) -> Result<(), AccountStoreError> {
-        // Drain buffer into local Vec while holding lock briefly
+        // Drain buffered entries while holding the lock briefly.
         let entries = {
             let mut buffer = buffer.lock().await;
             if buffer.is_empty() {
@@ -85,27 +85,53 @@ impl AuditBuffer {
             }
             std::mem::take(&mut *buffer)
         };
-        // Lock is released here
+        // Lock is released here.
 
-        // Serialize all entries (without holding lock)
+        // Serialize all entries without holding the lock.
+        let payload = match Self::serialize_entries(&entries) {
+            Ok(payload) => payload,
+            Err(e) => {
+                Self::requeue_entries(buffer, entries).await;
+                return Err(e);
+            }
+        };
+
+        // Write all entries in one operation without holding the lock.
+        let mut file = match tokio::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(audit_path)
+            .await
+        {
+            Ok(file) => file,
+            Err(e) => {
+                Self::requeue_entries(buffer, entries).await;
+                return Err(AccountStoreError::Io(e));
+            }
+        };
+
+        if let Err(e) = file.write_all(payload.as_bytes()).await {
+            Self::requeue_entries(buffer, entries).await;
+            return Err(AccountStoreError::Io(e));
+        }
+
+        Ok(())
+    }
+
+    fn serialize_entries(entries: &[AuditEntry]) -> Result<String, AccountStoreError> {
         let mut payload = String::new();
-        for entry in entries.iter() {
+        for entry in entries {
             let line = to_string(entry).map_err(|e| AccountStoreError::Json(e.to_string()))?;
             payload.push_str(&line);
             payload.push('\n');
         }
+        Ok(payload)
+    }
 
-        // Write all entries in one operation (without holding lock)
-        let mut file = tokio::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(audit_path)
-            .await?;
-        file.write_all(payload.as_bytes()).await?;
-        file.flush().await?;
-
-        // Buffer was already cleared by mem::take, so no need to re-lock
-        Ok(())
+    async fn requeue_entries(buffer: &Arc<Mutex<Vec<AuditEntry>>>, mut entries: Vec<AuditEntry>) {
+        let mut pending = buffer.lock().await;
+        entries.append(&mut *pending);
+        *pending = entries;
     }
 }
 
