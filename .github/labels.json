@@ -1,62 +1,312 @@
 [
   {
+    "name": "architecture",
+    "color": "7C3AED",
+    "description": "Architectural decisions, large-scale design changes, or cross-cutting structure"
+  },
+  {
+    "name": "automation",
+    "color": "0969DA",
+    "description": "Automation scripts, workflows, or automated processes"
+  },
+  {
+    "name": "automation-failed",
+    "color": "CF222E",
+    "description": "Issues caused by or related to failed automation or sync runs"
+  },
+  {
+    "name": "breaking",
+    "color": "B60205",
+    "description": "Changes that break existing APIs, behavior, or compatibility"
+  },
+  {
     "name": "bug",
-    "color": "d73a4a",
-    "description": "Something isn't working"
-  },
-  {
-    "name": "feature",
-    "color": "a2eeef",
-    "description": "New feature or request"
-  },
-  {
-    "name": "enhancement",
-    "color": "84b6eb",
-    "description": "Improvement to existing feature"
-  },
-  {
-    "name": "documentation",
-    "color": "0075ca",
-    "description": "Improvements or additions to documentation"
+    "color": "D73A4A",
+    "description": "Incorrect or broken behavior that needs fixing"
   },
   {
     "name": "chore",
-    "color": "fef2c0",
-    "description": "Maintenance and housekeeping tasks"
+    "color": "8C959F",
+    "description": "Maintenance tasks, cleanup, formatting, or non-functional changes"
+  },
+  {
+    "name": "documentation",
+    "color": "0075CA",
+    "description": "Documentation updates, clarifications, examples, or guides"
+  },
+  {
+    "name": "duplicate",
+    "color": "CFD3D7",
+    "description": "Duplicate of an existing issue or pull request"
+  },
+  {
+    "name": "enhancement",
+    "color": "A2EEEF",
+    "description": "Incremental improvements to existing functionality"
+  },
+  {
+    "name": "feature",
+    "color": "1B7F83",
+    "description": "New functionality or major capability additions"
+  },
+  {
+    "name": "fix",
+    "color": "FB8500",
+    "description": "Correctness, robustness, or safety fixes (including latent or edge-case bugs)"
+  },
+  {
+    "name": "good first issue",
+    "color": "7057FF",
+    "description": "Suitable for first-time contributors"
+  },
+  {
+    "name": "help wanted",
+    "color": "0E8A16",
+    "description": "Extra help or external contribution welcome"
+  },
+  {
+    "name": "high priority",
+    "color": "8B0000",
+    "description": "High-impact or urgent issue requiring immediate attention"
+  },
+  {
+    "name": "invalid",
+    "color": "EDEDED",
+    "description": "Invalid issue or request (cannot be reproduced or not applicable)"
+  },
+  {
+    "name": "Linting",
+    "color": "BFDADC",
+    "description": "Lint rules, formatting enforcement, or static analysis issues"
+  },
+  {
+    "name": "logging",
+    "color": "9A6700",
+    "description": "Logging improvements, diagnostics, or observability"
+  },
+  {
+    "name": "projects/libraries/ai",
+    "color": "1F77B4",
+    "description": "Changes in the `projects/libraries/ai` crate"
+  },
+  {
+    "name": "projects/libraries/ast_core",
+    "color": "FF7F0E",
+    "description": "Changes in the `projects/libraries/ast_core` crate"
+  },
+  {
+    "name": "projects/libraries/ast_macros",
+    "color": "2CA02C",
+    "description": "Changes in the `projects/libraries/ast_macros` crate"
+  },
+  {
+    "name": "projects/libraries/command_runner",
+    "color": "17A2B8",
+    "description": "Changes in the `projects/libraries/command_runner` crate"
+  },
+  {
+    "name": "projects/libraries/common",
+    "color": "9467BD",
+    "description": "Changes in the shared `common` library"
+  },
+  {
+    "name": "projects/libraries/common_binary",
+    "color": "8C564B",
+    "description": "Changes related to binary persistence / ABI helpers"
+  },
+  {
+    "name": "projects/libraries/common_calendar",
+    "color": "E377C2",
+    "description": "Calendar and time-related utilities"
+  },
+  {
+    "name": "projects/libraries/common_json",
+    "color": "7F7F7F",
+    "description": "JSON handling and serialization utilities"
+  },
+  {
+    "name": "projects/libraries/common_parsing",
+    "color": "00A6D6",
+    "description": "Changes in the `projects/libraries/common_parsing` crate"
+  },
+  {
+    "name": "projects/libraries/common_time",
+    "color": "B58900",
+    "description": "Changes in the `projects/libraries/common_time` crate"
+  },
+  {
+    "name": "projects/libraries/common_tokenize",
+    "color": "66A61E",
+    "description": "Changes in the `projects/libraries/common_tokenize` crate"
+  },
+  {
+    "name": "projects/libraries/git_lib",
+    "color": "FF1493",
+    "description": "Git abstraction and command handling library"
+  },
+  {
+    "name": "projects/libraries/hybrid_arena",
+    "color": "00B894",
+    "description": "Changes in the `projects/libraries/hybrid_arena` crate"
+  },
+  {
+    "name": "projects/libraries/identity",
+    "color": "6A3D9A",
+    "description": "Identity, user, or identifier-related logic"
+  },
+  {
+    "name": "projects/libraries/neural",
+    "color": "FF6F61",
+    "description": "Neural / ML-related components"
+  },
+  {
+    "name": "projects/libraries/pjson_proc_macros",
+    "color": "20B2AA",
+    "description": "Changes in the `projects/libraries/pjson_proc_macros` crate"
+  },
+  {
+    "name": "projects/libraries/protocol",
+    "color": "F4B400",
+    "description": "Protocol definitions and communication formats"
+  },
+  {
+    "name": "projects/libraries/protocol_macros",
+    "color": "4285F4",
+    "description": "Changes in the `projects/libraries/protocol_macros` crate"
+  },
+  {
+    "name": "projects/libraries/security",
+    "color": "5B21B6",
+    "description": "Changes in the `projects/libraries/security` crate"
+  },
+  {
+    "name": "projects/libraries/symbolic",
+    "color": "2E8B57",
+    "description": "Symbolic reasoning or rule-based logic"
+  },
+  {
+    "name": "projects/libraries/ui",
+    "color": "0077CC",
+    "description": "Changes in the `projects/libraries/ui` crate"
+  },
+  {
+    "name": "projects/libraries/versioning",
+    "color": "795548",
+    "description": "Versioning, revisions, and history management"
+  },
+  {
+    "name": "projects/products/stable/accounts/backend",
+    "color": "006D77",
+    "description": "Backend of the stable accounts product"
+  },
+  {
+    "name": "projects/products/stable/accounts/ui",
+    "color": "83C5BE",
+    "description": "UI of the stable accounts product"
+  },
+  {
+    "name": "projects/products/stable/code_agent_sandbox",
+    "color": "7B2CBF",
+    "description": "Stable code_agent_sandbox product"
+  },
+  {
+    "name": "projects/products/stable/core/central_ui",
+    "color": "264653",
+    "description": "Stable core central_ui component"
+  },
+  {
+    "name": "projects/products/stable/core/engine",
+    "color": "E76F51",
+    "description": "Stable core engine component"
+  },
+  {
+    "name": "projects/products/stable/core/launcher",
+    "color": "E9C46A",
+    "description": "Stable core launcher component"
+  },
+  {
+    "name": "projects/products/stable/core/watcher",
+    "color": "2A9D8F",
+    "description": "Stable core watcher component"
+  },
+  {
+    "name": "projects/products/stable/varina",
+    "color": "0052CC",
+    "description": "Stable Varina product"
+  },
+  {
+    "name": "projects/products/stable/varina/backend",
+    "color": "0052CC",
+    "description": "Backend of the Varina product"
+  },
+  {
+    "name": "projects/products/stable/varina/ui",
+    "color": "0052CC",
+    "description": "UI of the Varina product"
+  },
+  {
+    "name": "projects/products/unstable/auto_manager_ai",
+    "color": "D97706",
+    "description": "Experimental auto_manager_ai product"
+  },
+  {
+    "name": "projects/products/unstable/autonomous_dev_ai",
+    "color": "9A3412",
+    "description": "Experimental autonomous development AI"
+  },
+  {
+    "name": "question",
+    "color": "D876E3",
+    "description": "Questions, clarifications needed, or discussion-only issues"
   },
   {
     "name": "refactor",
-    "color": "fbca04",
-    "description": "Code refactoring"
+    "color": "C5DEF5",
+    "description": "Internal code restructuring without changing external behavior"
   },
   {
-    "name": "test",
-    "color": "1d76db",
-    "description": "Testing related changes"
+    "name": "review",
+    "color": "2DA44E",
+    "description": "Code review feedback, follow-ups, or review-driven changes"
   },
   {
-    "name": "sync_branch",
-    "color": "ededed",
-    "description": "Automated branch synchronization"
-  },
-  {
-    "name": "dependencies",
-    "color": "0366d6",
-    "description": "Dependencies updates"
-  },
-  {
-    "name": "ci",
-    "color": "28a745",
-    "description": "CI/CD related changes"
+    "name": "scripts",
+    "color": "D4A72C",
+    "description": "Shell scripts or repository automation scripts"
   },
   {
     "name": "security",
-    "color": "ee0701",
-    "description": "Security related issues or improvements"
+    "color": "EE0701",
+    "description": "Security-related fixes, hardening, or security tests"
   },
   {
-    "name": "performance",
-    "color": "ff6b6b",
-    "description": "Performance improvements"
+    "name": "sync_branch",
+    "color": "BDBDBD",
+    "description": "Branch synchronization tasks (main/dev sync, automation-driven merges)"
+  },
+  {
+    "name": "testing",
+    "color": "0EA5E9",
+    "description": "Test additions, fixes, reliability, or coverage improvements"
+  },
+  {
+    "name": "tools/bot_ci_harness",
+    "color": "57606A",
+    "description": "CI harness tooling and local CI test infrastructure"
+  },
+  {
+    "name": "translation",
+    "color": "F9D0C4",
+    "description": "Translation or internationalization (i18n) related changes"
+  },
+  {
+    "name": "wontfix",
+    "color": "6E7781",
+    "description": "Will not be worked on"
+  },
+  {
+    "name": "workspace",
+    "color": "E4E669",
+    "description": "Workspace-wide changes that span multiple crates or areas"
   }
 ]
