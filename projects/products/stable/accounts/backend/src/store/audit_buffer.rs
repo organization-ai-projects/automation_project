@@ -82,7 +82,8 @@ impl AuditBuffer {
     /// Add an audit entry to the buffer
     pub async fn append(&self, entry: AuditEntry) -> Result<(), AccountStoreError> {
         let mut buffer = self.buffer.lock().await;
-        let pending_total = buffer.len() + self.pending_in_flight.load(Ordering::Relaxed);
+        let pending_in_flight = self.pending_in_flight.load(Ordering::Relaxed);
+        let pending_total = buffer.len().saturating_add(pending_in_flight);
         if pending_total >= self.config.max_pending_entries {
             return Err(AccountStoreError::BufferFull {
                 max_pending_entries: self.config.max_pending_entries,
@@ -125,11 +126,12 @@ impl AuditBuffer {
             if buffer.is_empty() {
                 return Ok(());
             }
-            std::mem::take(&mut *buffer)
+            let entries = std::mem::take(&mut *buffer);
+            pending_in_flight.fetch_add(entries.len(), Ordering::Relaxed);
+            entries
         };
         // Lock is released here.
 
-        pending_in_flight.fetch_add(entries.len(), Ordering::Relaxed);
         let _in_flight_guard = InFlightGuard {
             counter: pending_in_flight.clone(),
             count: entries.len(),
