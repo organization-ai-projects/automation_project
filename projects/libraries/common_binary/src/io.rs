@@ -60,6 +60,8 @@ pub fn write_binary<T: BinaryEncode>(
         file.sync_all()?;
         Ok(())
     })() {
+        // Ensure the file handle is closed before attempting to remove the temp file.
+        drop(file);
         let _ = fs::remove_file(&temp_path);
         return Err(err);
     }
