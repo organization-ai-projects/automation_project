@@ -5,6 +5,7 @@ use crate::store::audit_entry::AuditEntry;
 use common_json::to_string;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -14,23 +15,38 @@ use tokio::time::{Duration, interval};
 pub struct AuditBuffer {
     audit_path: PathBuf,
     buffer: Arc<Mutex<Vec<AuditEntry>>>,
+    flush_lock: Arc<Mutex<()>>,
+    pending_in_flight: Arc<AtomicUsize>,
     config: AuditBufferConfig,
     flush_task: JoinHandle<()>,
 }
 
 impl AuditBuffer {
-    pub fn new(audit_path: PathBuf, config: AuditBufferConfig) -> Self {
+    pub fn new(audit_path: PathBuf, config: AuditBufferConfig) -> Result<Self, AccountStoreError> {
         // Validate config
-        if config.flush_interval_secs == 0 {
-            panic!(
-                "flush_interval_secs must be greater than 0 to avoid tokio::time::interval panic"
-            );
+        if config.max_batch_size == 0 {
+            return Err(AccountStoreError::InvalidConfig(
+                "max_batch_size must be greater than 0".to_string(),
+            ));
         }
-
+        if config.flush_interval_secs == 0 {
+            return Err(AccountStoreError::InvalidConfig(
+                "flush_interval_secs must be greater than 0".to_string(),
+            ));
+        }
+        if config.max_pending_entries == 0 {
+            return Err(AccountStoreError::InvalidConfig(
+                "max_pending_entries must be greater than 0".to_string(),
+            ));
+        }
         let buffer = Arc::new(Mutex::new(Vec::new()));
+        let flush_lock = Arc::new(Mutex::new(()));
+        let pending_in_flight = Arc::new(AtomicUsize::new(0));
 
         // Start periodic flush task
         let buffer_clone = buffer.clone();
+        let flush_lock_clone = flush_lock.clone();
+        let pending_in_flight_clone = pending_in_flight.clone();
         let audit_path_clone = audit_path.clone();
         let flush_interval = config.flush_interval_secs;
 
@@ -40,23 +56,39 @@ impl AuditBuffer {
             interval.tick().await;
             loop {
                 interval.tick().await;
-                if let Err(e) = Self::flush_internal(&buffer_clone, &audit_path_clone).await {
+                if let Err(e) = Self::flush_internal(
+                    &buffer_clone,
+                    &flush_lock_clone,
+                    &pending_in_flight_clone,
+                    &audit_path_clone,
+                )
+                .await
+                {
                     tracing::error!("Periodic audit flush failed: {}", e);
                 }
             }
         });
 
-        Self {
+        Ok(Self {
             audit_path,
             buffer,
+            flush_lock,
+            pending_in_flight,
             config,
             flush_task,
-        }
+        })
     }
 
     /// Add an audit entry to the buffer
     pub async fn append(&self, entry: AuditEntry) -> Result<(), AccountStoreError> {
         let mut buffer = self.buffer.lock().await;
+        let pending_in_flight = self.pending_in_flight.load(Ordering::Relaxed);
+        let pending_total = buffer.len().saturating_add(pending_in_flight);
+        if pending_total >= self.config.max_pending_entries {
+            return Err(AccountStoreError::BufferFull {
+                max_pending_entries: self.config.max_pending_entries,
+            });
+        }
         buffer.push(entry);
         let should_flush = buffer.len() >= self.config.max_batch_size;
         drop(buffer);
@@ -70,42 +102,102 @@ impl AuditBuffer {
 
     /// Flush all buffered entries to disk
     pub async fn flush(&self) -> Result<(), AccountStoreError> {
-        Self::flush_internal(&self.buffer, &self.audit_path).await
+        Self::flush_internal(
+            &self.buffer,
+            &self.flush_lock,
+            &self.pending_in_flight,
+            &self.audit_path,
+        )
+        .await
     }
 
     async fn flush_internal(
         buffer: &Arc<Mutex<Vec<AuditEntry>>>,
+        flush_lock: &Arc<Mutex<()>>,
+        pending_in_flight: &Arc<AtomicUsize>,
         audit_path: &PathBuf,
     ) -> Result<(), AccountStoreError> {
-        // Drain buffer into local Vec while holding lock briefly
+        // Serialize all flushes while keeping buffer lock free for append().
+        let _flush_guard = flush_lock.lock().await;
+
+        // Drain buffered entries while holding the lock briefly.
         let entries = {
             let mut buffer = buffer.lock().await;
             if buffer.is_empty() {
                 return Ok(());
             }
-            std::mem::take(&mut *buffer)
+            let entries = std::mem::take(&mut *buffer);
+            pending_in_flight.fetch_add(entries.len(), Ordering::Relaxed);
+            entries
         };
-        // Lock is released here
+        // Lock is released here.
 
-        // Serialize all entries (without holding lock)
-        let mut payload = String::new();
-        for entry in entries.iter() {
-            let line = to_string(entry).map_err(|e| AccountStoreError::Json(e.to_string()))?;
-            payload.push_str(&line);
-            payload.push('\n');
-        }
+        let _in_flight_guard = InFlightGuard {
+            counter: pending_in_flight.clone(),
+            count: entries.len(),
+        };
 
-        // Write all entries in one operation (without holding lock)
-        let mut file = tokio::fs::OpenOptions::new()
+        let serialized_lines = match Self::serialize_entries(&entries) {
+            Ok(lines) => lines,
+            Err(e) => {
+                Self::requeue_from_index(buffer, entries, 0).await;
+                return Err(e);
+            }
+        };
+
+        let mut file = match tokio::fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(audit_path)
-            .await?;
-        file.write_all(payload.as_bytes()).await?;
-        file.flush().await?;
+            .await
+        {
+            Ok(file) => file,
+            Err(e) => {
+                Self::requeue_from_index(buffer, entries, 0).await;
+                return Err(AccountStoreError::Io(e));
+            }
+        };
 
-        // Buffer was already cleared by mem::take, so no need to re-lock
+        for (idx, line) in serialized_lines.iter().enumerate() {
+            if let Err(e) = file.write_all(line.as_bytes()).await {
+                Self::requeue_from_index(buffer, entries, idx).await;
+                return Err(AccountStoreError::Io(e));
+            }
+        }
+
         Ok(())
+    }
+
+    fn serialize_entries(entries: &[AuditEntry]) -> Result<Vec<String>, AccountStoreError> {
+        let mut lines = Vec::with_capacity(entries.len());
+        for entry in entries {
+            let mut line = to_string(entry).map_err(|e| AccountStoreError::Json(e.to_string()))?;
+            line.push('\n');
+            lines.push(line);
+        }
+        Ok(lines)
+    }
+
+    async fn requeue_from_index(
+        buffer: &Arc<Mutex<Vec<AuditEntry>>>,
+        mut entries: Vec<AuditEntry>,
+        start_idx: usize,
+    ) {
+        let mut remaining = entries.split_off(start_idx);
+        let mut pending = buffer.lock().await;
+        remaining.append(&mut *pending);
+        *pending = remaining;
+    }
+}
+
+struct InFlightGuard {
+    counter: Arc<AtomicUsize>,
+    count: usize,
+}
+
+impl Drop for InFlightGuard {
+    fn drop(&mut self) {
+        self.counter.fetch_sub(self.count, Ordering::Relaxed);
     }
 }
 
