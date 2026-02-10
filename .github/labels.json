@@ -75,7 +75,7 @@
     "description": "Invalid issue or request (cannot be reproduced or not applicable)"
   },
   {
-    "name": "Linting",
+    "name": "linting",
     "color": "BFDADC",
     "description": "Lint rules, formatting enforcement, or static analysis issues"
   },
@@ -193,6 +193,11 @@
     "name": "projects/libraries/versioning",
     "color": "795548",
     "description": "Versioning, revisions, and history management"
+  },
+  {
+    "name": "projects/products/stable/accounts",
+    "color": "118AB2",
+    "description": "Stable accounts product"
   },
   {
     "name": "projects/products/stable/accounts/backend",
