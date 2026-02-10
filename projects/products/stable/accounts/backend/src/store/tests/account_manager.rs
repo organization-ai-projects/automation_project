@@ -241,7 +241,8 @@ async fn test_last_login_survives_restart() -> TestResult<()> {
 async fn test_audit_entries_batched() {
     let config = AuditBufferConfig {
         max_batch_size: 3,
-        flush_interval_secs: 3600, // Long interval to test batch size
+        flush_interval_secs: 3600,
+        max_pending_entries: 10_000, // Long interval to test batch size
     };
     let manager = create_test_manager_with_config(config)
         .await
@@ -306,6 +307,7 @@ async fn test_audit_manual_flush() -> Result<(), Box<dyn std::error::Error>> {
     let config = AuditBufferConfig {
         max_batch_size: 1000,
         flush_interval_secs: 3600,
+        max_pending_entries: 10_000,
     };
     let manager = create_test_manager_with_config(config).await?;
     let user_id = ProtocolId::default();
@@ -342,7 +344,8 @@ async fn test_audit_manual_flush() -> Result<(), Box<dyn std::error::Error>> {
 async fn test_audit_periodic_flush() {
     let config = AuditBufferConfig {
         max_batch_size: 1000,
-        flush_interval_secs: 1, // Keep tests fast while still exercising periodic flush
+        flush_interval_secs: 1,
+        max_pending_entries: 10_000, // Keep tests fast while still exercising periodic flush
     };
     let manager = create_test_manager_with_config(config)
         .await
@@ -404,6 +407,7 @@ async fn test_audit_entries_maintain_order() {
     let config = AuditBufferConfig {
         max_batch_size: 1000,
         flush_interval_secs: 3600,
+        max_pending_entries: 10_000,
     };
     let manager = create_test_manager_with_config(config)
         .await

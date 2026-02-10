@@ -24,4 +24,6 @@ pub enum AccountStoreError {
     Password(String),
     #[error("invalid configuration: {0}")]
     InvalidConfig(String),
+    #[error("audit buffer is full (max pending entries: {max_pending_entries})")]
+    BufferFull { max_pending_entries: usize },
 }

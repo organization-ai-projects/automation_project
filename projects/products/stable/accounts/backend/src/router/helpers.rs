@@ -116,8 +116,9 @@ pub fn map_store_error(meta: &Metadata, err: AccountStoreError) -> Event {
         AccountStoreError::Io(e) => err_event(meta, 500, &format!("IO error: {e}")),
         AccountStoreError::Json(e) => err_event(meta, 500, &format!("JSON error: {e}")),
         AccountStoreError::Password(e) => err_event(meta, 500, &format!("Password error: {e}")),
-        AccountStoreError::InvalidConfig(e) => {
-            err_event(meta, 400, &format!("Invalid configuration: {e}"))
+        AccountStoreError::InvalidConfig(_) => err_event(meta, 500, "Server configuration error"),
+        AccountStoreError::BufferFull { .. } => {
+            err_event(meta, 503, "Audit subsystem temporarily unavailable")
         }
     }
 }
