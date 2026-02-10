@@ -87,8 +87,8 @@ async fn test_batch_flush_on_size_threshold() {
     // Configure small batch size for testing
     let config = AuditBufferConfig {
         max_batch_size: 3,
-        flush_interval_secs: 3600,
-        max_pending_entries: 10_000, // Long interval to test batch size only
+        flush_interval_secs: 3600, // Long interval to test batch size only
+        max_pending_entries: 10_000,
     };
 
     let buffer =
@@ -139,7 +139,20 @@ async fn test_batch_flush_on_size_threshold() {
         .await
         .expect("Failed to append third audit entry");
 
-    // Should have flushed all 3 entries
+    // Wait until all 3 entries are visible on disk.
+    poll_until_async(
+        || async {
+            read_audit_log(&audit_path)
+                .await
+                .map(|lines| lines.len() == 3)
+                .unwrap_or(false)
+        },
+        Duration::from_secs(2),
+        Duration::from_millis(20),
+    )
+    .await
+    .expect("Audit log should contain 3 entries after threshold flush");
+
     let lines = read_audit_log(&audit_path)
         .await
         .expect("Failed to read audit log after threshold");
