@@ -303,7 +303,7 @@ async fn test_audit_entries_batched() {
 }
 
 #[tokio::test]
-async fn test_audit_manual_flush() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_audit_manual_flush() -> TestResult<()> {
     let config = AuditBufferConfig {
         max_batch_size: 1000,
         flush_interval_secs: 3600,

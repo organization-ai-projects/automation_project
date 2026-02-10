@@ -87,8 +87,8 @@ async fn test_batch_flush_on_size_threshold() {
     // Configure small batch size for testing
     let config = AuditBufferConfig {
         max_batch_size: 3,
-        flush_interval_secs: 3600,
-        max_pending_entries: 10_000, // Long interval to test batch size only
+        flush_interval_secs: 3600, // Long interval to test batch size only
+        max_pending_entries: 10_000,
     };
 
     let buffer =
