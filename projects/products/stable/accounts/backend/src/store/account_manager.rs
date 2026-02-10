@@ -61,7 +61,7 @@ impl AccountManager {
             HashMap::new()
         };
 
-        let audit_buffer = Arc::new(AuditBuffer::new(audit_path.clone(), audit_config));
+        let audit_buffer = Arc::new(AuditBuffer::new(audit_path.clone(), audit_config)?);
 
         Ok(Self {
             data_dir,

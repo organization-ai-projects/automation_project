@@ -1,18 +1,78 @@
 // projects/products/stable/accounts/backend/src/store/tests/audit_buffer.rs
+use crate::store::account_store_error::AccountStoreError;
 use crate::store::audit_buffer::AuditBuffer;
 use crate::store::audit_buffer_config::AuditBufferConfig;
 use crate::store::audit_entry::AuditEntry;
 use common_time::timestamp_utils::current_timestamp_ms;
-use std::path::PathBuf;
+use std::path::Path;
 use tokio::time::Duration;
 
 use super::helpers::{TestResult, create_unique_temp_dir, poll_until_async};
 
-async fn read_audit_log(path: &PathBuf) -> TestResult<Vec<String>> {
-    if !path.exists() {
-        return Ok(vec![]);
-    }
-    let content = tokio::fs::read_to_string(path).await?;
+#[test]
+fn test_new_rejects_zero_flush_interval() {
+    let path = std::env::temp_dir().join("audit_invalid_config.log");
+    let config = AuditBufferConfig {
+        max_batch_size: 10,
+        flush_interval_secs: 0,
+        max_pending_entries: 10_000,
+    };
+
+    let result = AuditBuffer::new(path, config);
+    assert!(
+        matches!(result, Err(AccountStoreError::InvalidConfig(_))),
+        "Expected InvalidConfig when flush_interval_secs is zero"
+    );
+}
+
+#[tokio::test]
+async fn test_append_returns_error_when_buffer_is_full() {
+    let path = std::env::temp_dir().join("audit_buffer_full.log");
+    let config = AuditBufferConfig {
+        max_batch_size: 1000,
+        flush_interval_secs: 3600,
+        max_pending_entries: 1,
+    };
+    let buffer = AuditBuffer::new(path, config).expect("Failed to create audit buffer");
+
+    buffer
+        .append(AuditEntry {
+            timestamp_ms: current_timestamp_ms(),
+            actor: "user1".to_string(),
+            action: "login".to_string(),
+            target: "target1".to_string(),
+            details: None,
+        })
+        .await
+        .expect("First append should succeed");
+
+    let result = buffer
+        .append(AuditEntry {
+            timestamp_ms: current_timestamp_ms(),
+            actor: "user2".to_string(),
+            action: "login".to_string(),
+            target: "target2".to_string(),
+            details: None,
+        })
+        .await;
+
+    assert!(
+        matches!(
+            result,
+            Err(AccountStoreError::BufferFull {
+                max_pending_entries: 1
+            })
+        ),
+        "Expected BufferFull error when max_pending_entries is reached"
+    );
+}
+
+async fn read_audit_log(path: &Path) -> TestResult<Vec<String>> {
+    let content = match tokio::fs::read_to_string(path).await {
+        Ok(content) => content,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+        Err(e) => return Err(Box::new(e)),
+    };
     Ok(content.lines().map(|s| s.to_string()).collect())
 }
 
@@ -27,10 +87,12 @@ async fn test_batch_flush_on_size_threshold() {
     // Configure small batch size for testing
     let config = AuditBufferConfig {
         max_batch_size: 3,
-        flush_interval_secs: 3600, // Long interval to test batch size only
+        flush_interval_secs: 3600,
+        max_pending_entries: 10_000, // Long interval to test batch size only
     };
 
-    let buffer = AuditBuffer::new(audit_path.clone(), config);
+    let buffer =
+        AuditBuffer::new(audit_path.clone(), config).expect("Failed to create audit buffer");
 
     // Add 2 entries - should not flush yet
     buffer
@@ -109,11 +171,13 @@ async fn test_periodic_flush() {
 
     // Configure short flush interval for testing
     let config = AuditBufferConfig {
-        max_batch_size: 1000,   // Large batch to test periodic flush only
-        flush_interval_secs: 2, // 2 seconds
+        max_batch_size: 1000, // Large batch to test periodic flush only
+        flush_interval_secs: 1,
+        max_pending_entries: 10_000, // Keep tests fast while still exercising periodic flush
     };
 
-    let buffer = AuditBuffer::new(audit_path.clone(), config);
+    let buffer =
+        AuditBuffer::new(audit_path.clone(), config).expect("Failed to create audit buffer");
 
     // Add entries
     buffer
@@ -148,7 +212,7 @@ async fn test_periodic_flush() {
         "Should not flush immediately before interval"
     );
 
-    // Poll for periodic flush (2s interval + buffer)
+    // Poll for periodic flush (1s interval + buffer)
     poll_until_async(
         || async {
             read_audit_log(&audit_path)
@@ -156,7 +220,7 @@ async fn test_periodic_flush() {
                 .map(|lines| lines.len() == 2)
                 .unwrap_or(false)
         },
-        Duration::from_secs(5),
+        Duration::from_secs(2),
         Duration::from_millis(100),
     )
     .await
@@ -190,10 +254,12 @@ async fn test_manual_flush() {
 
     let config = AuditBufferConfig {
         max_batch_size: 1000,
-        flush_interval_secs: 3600, // Long interval
+        flush_interval_secs: 3600,
+        max_pending_entries: 10_000, // Long interval
     };
 
-    let buffer = AuditBuffer::new(audit_path.clone(), config);
+    let buffer =
+        AuditBuffer::new(audit_path.clone(), config).expect("Failed to create audit buffer");
 
     // Add entry
     buffer
@@ -241,9 +307,11 @@ async fn test_entries_maintain_order() {
     let config = AuditBufferConfig {
         max_batch_size: 5,
         flush_interval_secs: 3600,
+        max_pending_entries: 10_000,
     };
 
-    let buffer = AuditBuffer::new(audit_path.clone(), config);
+    let buffer =
+        AuditBuffer::new(audit_path.clone(), config).expect("Failed to create audit buffer");
 
     // Add entries in specific order
     for i in 1..=5 {
@@ -289,7 +357,8 @@ async fn test_empty_flush_is_safe() {
     let audit_path = temp_dir.join("audit.log");
 
     let config = AuditBufferConfig::default();
-    let buffer = AuditBuffer::new(audit_path.clone(), config);
+    let buffer =
+        AuditBuffer::new(audit_path.clone(), config).expect("Failed to create audit buffer");
 
     // Flush empty buffer - should not error
     buffer
@@ -318,9 +387,11 @@ async fn test_multiple_flushes() {
     let config = AuditBufferConfig {
         max_batch_size: 2,
         flush_interval_secs: 3600,
+        max_pending_entries: 10_000,
     };
 
-    let buffer = AuditBuffer::new(audit_path.clone(), config);
+    let buffer =
+        AuditBuffer::new(audit_path.clone(), config).expect("Failed to create audit buffer");
 
     // First batch
     buffer

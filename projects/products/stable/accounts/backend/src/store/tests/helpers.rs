@@ -86,17 +86,24 @@ where
 {
     let start = tokio::time::Instant::now();
     let mut delay = initial_delay;
+    let mut attempts: u64 = 0;
 
     while start.elapsed() < timeout {
         if condition().await {
             return Ok(());
         }
+        attempts += 1;
         tokio::time::sleep(delay).await;
         // Exponential backoff with max of 500ms
         delay = std::cmp::min(delay * 2, Duration::from_millis(500));
     }
 
-    Err("Timeout waiting for async condition".into())
+    let elapsed = start.elapsed();
+    Err(format!(
+        "Timeout waiting for async condition: timeout={:?}, initial_delay={:?}, attempts={}, elapsed={:?}",
+        timeout, initial_delay, attempts, elapsed,
+    )
+    .into())
 }
 
 #[cfg(test)]
