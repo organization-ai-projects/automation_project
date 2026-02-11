@@ -81,7 +81,15 @@ Manages GitHub labels based on a config file.
 
 ```bash
 ./labels_sync.sh
+./labels_sync.sh --prune
+./labels_sync.sh --prune path/to/labels.json
 ```
+
+Behavior:
+
+- default mode: create/update labels declared in `.github/labels.json`
+- `--prune`: additionally delete repository labels that are not present in the config
+- prune mode keeps a protected allowlist of default GitHub labels (e.g. `bug`, `documentation`, `question`, `wontfix`)
 
 ## Common Usage
 
