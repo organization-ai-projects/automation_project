@@ -605,6 +605,17 @@ if [[ -s "$extracted_prs_file" ]]; then
   done < "$extracted_prs_file"
 fi
 
+if [[ "$dry_run" == "true" ]]; then
+  # In branch dry-run mode, also parse issue refs from commit messages/footers
+  # (e.g. "Closes #123") so issue detection works without child PR references.
+  dry_commit_messages="$(git log --format=%B "${base_ref}..${head_ref}" 2>/dev/null || true)"
+  if [[ -n "$dry_commit_messages" ]]; then
+    while IFS='|' read -r action issue_key; do
+      add_issue_entry "$action" "$issue_key" "Mixed"
+    done < <(parse_issue_refs_from_body "$dry_commit_messages")
+  fi
+fi
+
 if [[ "$dry_run" == "false" ]]; then
   # Also include issues closed directly by the main PR itself.
   main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
