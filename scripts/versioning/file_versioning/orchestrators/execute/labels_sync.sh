@@ -96,7 +96,13 @@ if [[ "$PRUNE" == true ]]; then
   # or set LABELS_SYNC_PROTECTED_LABELS="" to disable protection.
   protected_labels=()
   if [[ -n "${LABELS_SYNC_PROTECTED_LABELS+x}" ]]; then
-    IFS=',' read -r -a protected_labels <<< "${LABELS_SYNC_PROTECTED_LABELS}"
+    IFS=',' read -r -a raw_protected_labels <<< "${LABELS_SYNC_PROTECTED_LABELS}"
+    for label in "${raw_protected_labels[@]}"; do
+      # Trim leading/trailing whitespace to support values like "bug, documentation".
+      label="${label#"${label%%[![:space:]]*}"}"
+      label="${label%"${label##*[![:space:]]}"}"
+      [[ -n "$label" ]] && protected_labels+=("$label")
+    done
   else
     protected_labels=(
       "bug"
