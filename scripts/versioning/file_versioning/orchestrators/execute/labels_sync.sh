@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Sync GitHub labels from a labels.json file
-# Usage: ./labels_sync.sh [labels-file]
+# Usage: ./labels_sync.sh [--prune] [labels-file]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
@@ -18,13 +18,50 @@ require_git_repo
 require_cmd gh
 require_cmd jq
 
-LABELS_FILE="${1:-$ROOT_DIR/.github/labels.json}"
+PRUNE=false
+LABELS_FILE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prune)
+      PRUNE=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: ./labels_sync.sh [--prune] [labels-file]"
+      exit 0
+      ;;
+    *)
+      if [[ -n "$LABELS_FILE" ]]; then
+        die "Unexpected argument: $1"
+      fi
+      LABELS_FILE="$1"
+      shift
+      ;;
+  esac
+done
+
+LABELS_FILE="${LABELS_FILE:-$ROOT_DIR/.github/labels.json}"
 
 if [[ ! -f "$LABELS_FILE" ]]; then
   die "Labels file not found: $LABELS_FILE"
 fi
 
 info "Syncing labels from: $LABELS_FILE"
+
+has_label() {
+  local needle="$1"
+  shift
+  local label
+  for label in "$@"; do
+    if [[ "$label" == "$needle" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+mapfile -t existing_labels < <(gh label list --limit 1000 --json name --jq '.[].name')
 
 # Read and process each label
 jq -c '.[]' "$LABELS_FILE" | while read -r label; do
@@ -35,13 +72,50 @@ jq -c '.[]' "$LABELS_FILE" | while read -r label; do
   info "Processing label: $NAME"
 
   # Check if label exists
-  if gh label list --json name --jq ".[].name" | grep -qx "$NAME"; then
+  if has_label "$NAME" "${existing_labels[@]}"; then
     info "  Updating existing label..."
     gh label edit "$NAME" --color "$COLOR" --description "$DESCRIPTION" || warn "Failed to update $NAME"
   else
     info "  Creating new label..."
-    gh label create "$NAME" --color "$COLOR" --description "$DESCRIPTION" || warn "Failed to create $NAME"
+    if gh label create "$NAME" --color "$COLOR" --description "$DESCRIPTION"; then
+      existing_labels+=("$NAME")
+    else
+      warn "Failed to create $NAME"
+    fi
   fi
 done
+
+if [[ "$PRUNE" == true ]]; then
+  info "Pruning labels that are not present in labels.json..."
+  desired_labels_file="$(mktemp)"
+  trap 'rm -f "$desired_labels_file"' EXIT
+  jq -r '.[].name' "$LABELS_FILE" | sort -u > "$desired_labels_file"
+
+  # Built-in labels to keep even if absent from labels.json.
+  protected_labels=(
+    "bug"
+    "documentation"
+    "duplicate"
+    "enhancement"
+    "good first issue"
+    "help wanted"
+    "invalid"
+    "question"
+    "wontfix"
+  )
+
+  mapfile -t repo_labels < <(gh label list --limit 1000 --json name --jq '.[].name')
+  for repo_label in "${repo_labels[@]}"; do
+    if grep -Fqx "$repo_label" "$desired_labels_file"; then
+      continue
+    fi
+    if has_label "$repo_label" "${protected_labels[@]}"; then
+      info "  Keeping protected label: $repo_label"
+      continue
+    fi
+    info "  Deleting obsolete label: $repo_label"
+    gh label delete "$repo_label" --yes || warn "Failed to delete $repo_label"
+  done
+fi
 
 info "✅ Label sync complete."

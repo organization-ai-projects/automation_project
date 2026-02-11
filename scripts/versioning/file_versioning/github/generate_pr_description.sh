@@ -54,10 +54,11 @@ fi
 features_tmp="$(mktemp)"
 bugs_tmp="$(mktemp)"
 refactors_tmp="$(mktemp)"
+sync_tmp="$(mktemp)"
 issues_tmp="$(mktemp)"
 
 cleanup() {
-  rm -f "$features_tmp" "$bugs_tmp" "$refactors_tmp" "$issues_tmp"
+  rm -f "$features_tmp" "$bugs_tmp" "$refactors_tmp" "$sync_tmp" "$issues_tmp"
   if [[ "$keep_artifacts" != "true" ]]; then
     rm -f "$extracted_prs_file" "$resolved_issues_file"
   fi
@@ -124,6 +125,14 @@ classify_pr() {
 
   title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
   bullet="- ${title} (${pr_ref})"
+
+  # Keep synchronization PRs in a dedicated category.
+  if [[ "$title_lc" =~ (sync|merge) ]] && [[ "$title_lc" =~ main ]] && [[ "$title_lc" =~ dev ]]; then
+    category="Synchronization"
+    echo "$bullet" >> "$sync_tmp"
+    echo "$category"
+    return
+  fi
 
   # Prefer conventional commit prefixes when present.
   if [[ "$title_lc" =~ ^fix(\(|:|!|[[:space:]]) ]]; then
@@ -490,6 +499,11 @@ fi
   fi
   echo ""
   echo "### Key Changes"
+  if [[ -s "$sync_tmp" ]]; then
+    echo "#### Synchronization"
+    write_section_from_file "$sync_tmp"
+    echo ""
+  fi
   echo "#### Features"
   write_section_from_file "$features_tmp"
   echo ""
