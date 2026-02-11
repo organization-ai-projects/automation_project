@@ -245,21 +245,21 @@ classify_pr() {
   local title_lc
   local bullet
   local category
+  local starts_sync_or_merge=0
 
   title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
   bullet="- ${title} (${pr_ref})"
 
-  # Keep synchronization PRs in a dedicated category.
-  # Require branch-like source/target markers to avoid classifying feature merges.
-  if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] && \
-    [[ "$title_lc" =~ (main|dev|master|staging|release[^[:space:]]*)[^[:alnum:]_/-]+(into|->|→)[^[:alnum:]_/-]+(main|dev|master|staging|release[^[:space:]]*) ]]; then
-    category="Synchronization"
-    echo "$bullet" >> "$sync_tmp"
-    echo "$category"
-    return
+  if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] \
+    || [[ "$title_lc" =~ ^[[:space:]]*(chore|refactor|fix|feat|docs|test|tests)[^:]*:[[:space:]]*(sync|merge) ]]; then
+    starts_sync_or_merge=1
   fi
-  # Backward-compatible fallback for explicit main/dev sync/merge wording.
-  if [[ "$title_lc" =~ (sync|merge) ]] && [[ "$title_lc" =~ main ]] && [[ "$title_lc" =~ dev ]]; then
+
+  # Keep synchronization PRs in a dedicated category.
+  # Allow an optional conventional prefix (e.g. "chore:" / "chore(scope):")
+  # and require explicit branch-flow markers to avoid false positives.
+  if [[ "$starts_sync_or_merge" -eq 1 ]] \
+    && [[ "$title_lc" =~ (main|dev|master|staging|release[^[:space:]]*)[^[:alnum:]_/-]+(into|->|→)[^[:alnum:]_/-]+(main|dev|master|staging|release[^[:space:]]*) ]]; then
     category="Synchronization"
     echo "$bullet" >> "$sync_tmp"
     echo "$category"
