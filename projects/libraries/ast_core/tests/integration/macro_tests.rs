@@ -181,7 +181,7 @@ fn test_macro_large_nested_structure() {
 
 #[test]
 fn test_macro_large_object() {
-    // Note: The 1000-key HashMap was not actually used, simplified to just test macro with 10 keys
+    // Keep this case moderately large to exercise macro expansion beyond the 10-key test above.
     let node = past!({
         key0: 0,
         key1: 1,
@@ -193,8 +193,33 @@ fn test_macro_large_object() {
         key7: 7,
         key8: 8,
         key9: 9,
+        key10: 10,
+        key11: 11,
+        key12: 12,
+        key13: 13,
+        key14: 14,
+        key15: 15,
+        key16: 16,
+        key17: 17,
+        key18: 18,
+        key19: 19,
+        key20: 20,
+        key21: 21,
+        key22: 22,
+        key23: 23,
+        key24: 24,
+        key25: 25,
+        key26: 26,
+        key27: 27,
+        key28: 28,
+        key29: 29,
+        key30: 30,
+        key31: 31,
     });
 
     assert!(node.is_object());
-    assert!(node.as_object().expect("Node is not an object").len() >= 10);
+    let object = node.as_object().expect("Node is not an object");
+    assert_eq!(object.len(), 32);
+    assert_int_key(&node, "key0", 0);
+    assert_int_key(&node, "key31", 31);
 }
