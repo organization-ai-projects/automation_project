@@ -95,9 +95,7 @@ impl Tool for GitWrapper {
         let command = &args[0];
 
         // Forbidden commands
-        if is_force_push_action(&args.join(" "))
-            || (command == "push" && args.contains(&"-f".to_string()))
-        {
+        if is_force_push_action(&args.join(" ")) {
             return Err(AgentError::PolicyViolation(format!(
                 "{FORCE_PUSH_FORBIDDEN} is not allowed"
             )));

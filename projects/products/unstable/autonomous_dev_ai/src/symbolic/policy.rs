@@ -6,9 +6,22 @@ pub const FORCE_PUSH_FORBIDDEN: &str = "force-push";
 
 pub fn is_force_push_action(action: &str) -> bool {
     let lower = action.to_ascii_lowercase();
-    lower.contains("force-push")
-        || lower.contains("force_push")
-        || (lower.contains("push") && (lower.contains("--force") || lower.contains(" -f")))
+    if lower.contains("force-push") || lower.contains("force_push") {
+        return true;
+    }
+
+    let mut has_push = false;
+    let mut has_force_flag = false;
+    for token in lower.split_whitespace() {
+        if token == "push" {
+            has_push = true;
+        }
+        if token == "--force" || token == "-f" {
+            has_force_flag = true;
+        }
+    }
+
+    has_push && has_force_flag
 }
 
 /// Policy engine for validating actions
@@ -33,7 +46,6 @@ impl PolicyEngine {
                 "generate_pr_description".to_string(),
             ],
             forbidden_patterns: vec![
-                FORCE_PUSH_FORBIDDEN.to_string(),
                 "rm -rf".to_string(),
                 "/etc/".to_string(),
                 "sudo ".to_string(),

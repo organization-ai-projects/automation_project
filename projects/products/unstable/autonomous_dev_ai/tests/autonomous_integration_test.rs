@@ -8,7 +8,23 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-fn create_unique_test_dir(label: &str) -> PathBuf {
+struct TestDirGuard {
+    path: PathBuf,
+}
+
+impl TestDirGuard {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for TestDirGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
+}
+
+fn create_unique_test_dir(label: &str) -> TestDirGuard {
     let sequence = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
     let timestamp_nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -22,14 +38,14 @@ fn create_unique_test_dir(label: &str) -> PathBuf {
         sequence
     ));
     fs::create_dir_all(&path).expect("create test directory");
-    path
+    TestDirGuard { path }
 }
 
 #[test]
 fn test_agent_creation() {
     let test_dir = create_unique_test_dir("creation");
-    let config_path = test_dir.join("test_config");
-    let audit_path = test_dir.join("test_audit.log");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
     let config_path_str = config_path.to_string_lossy().into_owned();
     let audit_path_str = audit_path.to_string_lossy().into_owned();
 
@@ -40,15 +56,12 @@ fn test_agent_creation() {
     // Create agent
     let agent = AutonomousAgent::new(&config_path_str, &audit_path_str);
     assert!(agent.is_ok());
-
-    // Cleanup
-    fs::remove_dir_all(&test_dir).ok();
 }
 
 #[test]
 fn test_config_serialization() {
     let test_dir = create_unique_test_dir("config");
-    let config_path = test_dir.join("test_config");
+    let config_path = test_dir.path().join("test_config");
     let config_path_str = config_path.to_string_lossy().into_owned();
 
     // Create and save config
@@ -61,16 +74,13 @@ fn test_config_serialization() {
     assert_eq!(loaded.agent_name, config.agent_name);
     assert_eq!(loaded.execution_mode, config.execution_mode);
     assert_eq!(loaded.objectives.len(), config.objectives.len());
-
-    // Cleanup
-    fs::remove_dir_all(&test_dir).ok();
 }
 
 #[test]
 fn test_state_save_and_load() {
     let test_dir = create_unique_test_dir("state");
-    let config_path = test_dir.join("test_config");
-    let audit_path = test_dir.join("test_audit.log");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
     let config_path_str = config_path.to_string_lossy().into_owned();
     let audit_path_str = audit_path.to_string_lossy().into_owned();
 
@@ -100,16 +110,13 @@ fn test_state_save_and_load() {
 
     assert_eq!(agent2.lifecycle.memory.explored_files.len(), 1);
     assert_eq!(agent2.lifecycle.memory.decisions.len(), 1);
-
-    // Cleanup
-    fs::remove_dir_all(&test_dir).ok();
 }
 
 #[test]
 fn test_symbolic_only_mode() {
     let test_dir = create_unique_test_dir("symbolic");
-    let config_path = test_dir.join("test_config");
-    let audit_path = test_dir.join("test_audit.log");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
     let config_path_str = config_path.to_string_lossy().into_owned();
     let audit_path_str = audit_path.to_string_lossy().into_owned();
 
@@ -132,16 +139,13 @@ fn test_symbolic_only_mode() {
 
     // Neural should be disabled
     assert!(!agent.lifecycle.neural.enabled);
-
-    // Cleanup
-    fs::remove_dir_all(&test_dir).ok();
 }
 
 #[test]
 fn test_autonomous_iterations() {
     let test_dir = create_unique_test_dir("iterations");
-    let config_path = test_dir.join("test_config");
-    let audit_path = test_dir.join("test_audit.log");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
     let config_path_str = config_path.to_string_lossy().into_owned();
     let audit_path_str = audit_path.to_string_lossy().into_owned();
 
@@ -167,16 +171,13 @@ fn test_autonomous_iterations() {
 
     // Should have audit log
     assert!(Path::new(&audit_path_str).exists());
-
-    // Cleanup
-    fs::remove_dir_all(&test_dir).ok();
 }
 
 #[test]
 fn test_policy_enforcement() {
     let test_dir = create_unique_test_dir("policy");
-    let config_path = test_dir.join("test_config");
-    let audit_path = test_dir.join("test_audit.log");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
     let config_path_str = config_path.to_string_lossy().into_owned();
     let audit_path_str = audit_path.to_string_lossy().into_owned();
 
@@ -190,11 +191,11 @@ fn test_policy_enforcement() {
     assert!(!agent.lifecycle.policy.validate_action("force-push"));
     assert!(!agent.lifecycle.policy.validate_action("force_push"));
     assert!(!agent.lifecycle.policy.validate_action("git push --force"));
+    assert!(!agent.lifecycle.policy.validate_action("git push -f"));
+    assert!(!agent.lifecycle.policy.validate_action("push -f"));
+    assert!(!agent.lifecycle.policy.validate_action("FORCE-PUSH"));
     assert!(!agent.lifecycle.policy.validate_action("rm -rf /"));
     assert!(agent.lifecycle.policy.validate_action("git commit"));
-
-    // Cleanup
-    fs::remove_dir_all(&test_dir).ok();
 }
 
 #[test]
