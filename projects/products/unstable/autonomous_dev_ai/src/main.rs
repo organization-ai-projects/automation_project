@@ -2,32 +2,49 @@
 
 use autonomous_dev_ai::{AutonomousAgent, load_config, save_ron};
 use std::env;
+use std::io::IsTerminal;
 use std::process;
 
 fn main() {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
-    let args: Vec<String> = env::args().collect();
+    let raw_args: Vec<String> = env::args().collect();
+    let program_name = raw_args[0].clone();
+    let mut args: Vec<String> = raw_args.into_iter().skip(1).collect();
+    let pretty_requested = if let Some(pos) = args.iter().position(|arg| arg == "--pretty") {
+        args.remove(pos);
+        true
+    } else {
+        false
+    };
 
-    if args.len() < 2 {
-        eprintln!("Usage: {} <goal> [config_path] [audit_log]", args[0]);
+    if args.is_empty() {
+        eprintln!(
+            "Usage: {} [--pretty] <goal> [config_path] [audit_log]",
+            program_name
+        );
         eprintln!("\nExample:");
         eprintln!(
-            "  {} \"Fix the failing tests\" ./agent_config ./audit.log",
-            args[0]
+            "  {} --pretty \"Fix the failing tests\" ./agent_config ./audit.log",
+            program_name
         );
         process::exit(1);
     }
 
-    let goal = &args[1];
-    let config_path = if args.len() > 2 {
-        args[2].clone()
+    let use_pretty_icons = pretty_requested && std::io::stdout().is_terminal();
+    let ok_icon = if use_pretty_icons { "✓" } else { "[ok]" };
+    let run_icon = if use_pretty_icons { "🚀" } else { "[run]" };
+    let err_icon = if use_pretty_icons { "✗" } else { "[error]" };
+
+    let goal = &args[0];
+    let config_path = if args.len() > 1 {
+        args[1].clone()
     } else {
         "./agent_config".to_string()
     };
-    let audit_log = if args.len() > 3 {
-        args[3].clone()
+    let audit_log = if args.len() > 2 {
+        args[2].clone()
     } else {
         "./agent_audit.log".to_string()
     };
@@ -43,7 +60,7 @@ fn main() {
     // Ensure config exists
     match load_config(&config_path) {
         Ok(config) => {
-            println!("✓ Config loaded: {}", config.agent_name);
+            println!("{ok_icon} Config loaded: {}", config.agent_name);
             println!("  Execution mode: {}", config.execution_mode);
             println!("  Neural enabled: {}", config.neural.enabled);
             println!("  Objectives: {}", config.objectives.len());
@@ -55,7 +72,7 @@ fn main() {
                 eprintln!("Failed to create config: {}", e);
                 process::exit(1);
             }
-            println!("✓ Created default config at {}.ron", config_path);
+            println!("{ok_icon} Created default config at {}.ron", config_path);
         }
     }
 
@@ -68,12 +85,12 @@ fn main() {
         }
     };
 
-    println!("\n🚀 Starting agent execution...\n");
+    println!("\n{run_icon} Starting agent execution...\n");
 
     // Run agent
     match agent.run(goal) {
         Ok(()) => {
-            println!("\n✓ Agent completed successfully");
+            println!("\n{ok_icon} Agent completed successfully");
 
             // Save state
             if let Err(e) = agent.save_state() {
@@ -96,7 +113,7 @@ fn main() {
             println!("Audit log written to: {}", audit_log);
         }
         Err(e) => {
-            eprintln!("\n✗ Agent failed: {}", e);
+            eprintln!("\n{err_icon} Agent failed: {}", e);
 
             // Try to save state even on failure
             let _ = agent.save_state();
