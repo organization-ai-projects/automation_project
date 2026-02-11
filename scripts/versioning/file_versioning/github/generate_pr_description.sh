@@ -212,7 +212,7 @@ extract_child_prs() {
   if [[ -n "$repo_owner_name" ]]; then
     timeline_pr_refs="$(gh api "repos/${repo_owner_name}/issues/${main_pr_number}/timeline" --paginate \
       --jq '.[] | select(.event=="cross-referenced") | select(.source.issue.pull_request.url != null) | .source.issue.number' 2>/dev/null \
-      | sed -E 's/^/#/' || true)"
+      | sed -nE 's/^([0-9]+)$/#\1/p' || true)"
   fi
 
   if [[ -z "$commit_headlines" && -z "$main_pr_body" && -z "$main_pr_comments" && -z "$timeline_pr_refs" ]]; then
@@ -230,7 +230,7 @@ extract_child_prs() {
     echo "$main_pr_comments" | sed -nE 's/.*\bPR[[:space:]]*#([0-9]+).*/#\1/ip'
     echo "$main_pr_comments" | sed -nE 's/.*pull request #([0-9]+).*/#\1/ip'
     echo "$timeline_pr_refs"
-  } | sort -u | grep -v "^#${main_pr_number}$" > "$extracted_prs_file"
+  } | grep -E '^#[0-9]+$' | sort -u | grep -v "^#${main_pr_number}$" > "$extracted_prs_file"
 
   return 0
 }
