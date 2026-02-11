@@ -79,7 +79,7 @@ info "Creating PR for branch: $CURRENT_BRANCH → $BASE_BRANCH"
 # Auto-generate title if not provided
 if [[ -z "$TITLE" ]]; then
   # Extract type and description from branch name (e.g., feat/add-login → Add login)
-  if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test)/(.+)$ ]]; then
+  if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test|tests)/(.+)$ ]]; then
     TYPE="${BASH_REMATCH[1]}"
     DESC="${BASH_REMATCH[2]}"
     # Capitalize first letter and replace hyphens with spaces
@@ -128,9 +128,25 @@ PR_URL=$(gh pr create "${PR_ARGS[@]}")
 info "✅ PR created: $PR_URL"
 
 # Auto-add labels based on branch type
-if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test)/ ]]; then
-  LABELS=("$(echo "$CURRENT_BRANCH" | sed -E 's|/.*||')")
-  gh pr edit "$PR_URL" --add-label "${LABELS[@]}"
+if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test|tests)/ ]]; then
+  BRANCH_PREFIX="$(echo "$CURRENT_BRANCH" | sed -E 's|/.*||')"
+  case "$BRANCH_PREFIX" in
+    feat)
+      BRANCH_LABEL="feature"
+      ;;
+    docs)
+      BRANCH_LABEL="documentation"
+      ;;
+    test|tests)
+      BRANCH_LABEL="testing"
+      ;;
+    *)
+      BRANCH_LABEL="$BRANCH_PREFIX"
+      ;;
+  esac
+  if ! gh pr edit "$PR_URL" --add-label "$BRANCH_LABEL"; then
+    warn "Failed to add label '$BRANCH_LABEL' to PR $PR_URL; continuing without label."
+  fi
 fi
 
 info "PR URL: $PR_URL"
