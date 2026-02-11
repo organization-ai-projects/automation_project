@@ -61,7 +61,8 @@ fn markdown_includes_contributors() {
     log.append_entry(entry);
 
     let output = builder.generate_document(&log);
-    assert!(output.contains("**Contributors**: Alice, Bob"));
+    let expected_line = format!("**Contributors**: {}, {}", CONTRIBUTOR_ALICE, CONTRIBUTOR_BOB);
+    assert!(output.lines().any(|line| line == expected_line));
 }
 
 #[test]
