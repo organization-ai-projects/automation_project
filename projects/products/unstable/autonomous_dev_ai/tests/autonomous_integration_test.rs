@@ -2,64 +2,94 @@
 
 use autonomous_dev_ai::{AutonomousAgent, config::AgentConfig, load_config, save_ron};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+struct TestDirGuard {
+    path: PathBuf,
+}
+
+impl TestDirGuard {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for TestDirGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
+}
+
+fn create_unique_test_dir(label: &str) -> TestDirGuard {
+    let sequence = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let timestamp_nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let mut path = std::env::temp_dir();
+    path.push(format!(
+        "autonomous_dev_ai_{label}_{}_{}_{}",
+        std::process::id(),
+        timestamp_nanos,
+        sequence
+    ));
+    fs::create_dir_all(&path).expect("create test directory");
+    TestDirGuard { path }
+}
 
 #[test]
 fn test_agent_creation() {
-    let test_dir = "/tmp/autonomous_dev_ai_test_creation";
-    fs::create_dir_all(test_dir).unwrap();
-
-    let config_path = format!("{}/test_config", test_dir);
-    let audit_path = format!("{}/test_audit.log", test_dir);
+    let test_dir = create_unique_test_dir("creation");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
+    let config_path_str = config_path.to_string_lossy().into_owned();
+    let audit_path_str = audit_path.to_string_lossy().into_owned();
 
     // Create default config
     let config = AgentConfig::default();
-    save_ron(format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path_str), &config).unwrap();
 
     // Create agent
-    let agent = AutonomousAgent::new(&config_path, &audit_path);
+    let agent = AutonomousAgent::new(&config_path_str, &audit_path_str);
     assert!(agent.is_ok());
-
-    // Cleanup
-    fs::remove_dir_all(test_dir).ok();
 }
 
 #[test]
 fn test_config_serialization() {
-    let test_dir = "/tmp/autonomous_dev_ai_test_config";
-    fs::create_dir_all(test_dir).unwrap();
-
-    let config_path = format!("{}/test_config", test_dir);
+    let test_dir = create_unique_test_dir("config");
+    let config_path = test_dir.path().join("test_config");
+    let config_path_str = config_path.to_string_lossy().into_owned();
 
     // Create and save config
     let config = AgentConfig::default();
-    save_ron(format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path_str), &config).unwrap();
 
     // Load config
-    let loaded = load_config(&config_path).unwrap();
+    let loaded = load_config(&config_path_str).unwrap();
 
     assert_eq!(loaded.agent_name, config.agent_name);
     assert_eq!(loaded.execution_mode, config.execution_mode);
     assert_eq!(loaded.objectives.len(), config.objectives.len());
-
-    // Cleanup
-    fs::remove_dir_all(test_dir).ok();
 }
 
 #[test]
 fn test_state_save_and_load() {
-    let test_dir = "/tmp/autonomous_dev_ai_test_state";
-    fs::create_dir_all(test_dir).unwrap();
-
-    let config_path = format!("{}/test_config", test_dir);
-    let audit_path = format!("{}/test_audit.log", test_dir);
+    let test_dir = create_unique_test_dir("state");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
+    let config_path_str = config_path.to_string_lossy().into_owned();
+    let audit_path_str = audit_path.to_string_lossy().into_owned();
 
     // Create config
     let config = AgentConfig::default();
-    save_ron(format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path_str), &config).unwrap();
 
     // Create agent and add some data
-    let mut agent = AutonomousAgent::new(&config_path, &audit_path).unwrap();
+    let mut agent = AutonomousAgent::new(&config_path_str, &audit_path_str).unwrap();
     agent
         .lifecycle
         .memory
@@ -75,31 +105,28 @@ fn test_state_save_and_load() {
     agent.save_state().unwrap();
 
     // Create new agent and load state
-    let mut agent2 = AutonomousAgent::new(&config_path, &audit_path).unwrap();
+    let mut agent2 = AutonomousAgent::new(&config_path_str, &audit_path_str).unwrap();
     agent2.load_state().unwrap();
 
     assert_eq!(agent2.lifecycle.memory.explored_files.len(), 1);
     assert_eq!(agent2.lifecycle.memory.decisions.len(), 1);
-
-    // Cleanup
-    fs::remove_dir_all(test_dir).ok();
 }
 
 #[test]
 fn test_symbolic_only_mode() {
-    let test_dir = "/tmp/autonomous_dev_ai_test_symbolic";
-    fs::create_dir_all(test_dir).unwrap();
-
-    let config_path = format!("{}/test_config", test_dir);
-    let audit_path = format!("{}/test_audit.log", test_dir);
+    let test_dir = create_unique_test_dir("symbolic");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
+    let config_path_str = config_path.to_string_lossy().into_owned();
+    let audit_path_str = audit_path.to_string_lossy().into_owned();
 
     // Create config with neural enabled
     let mut config = AgentConfig::default();
     config.neural.enabled = true;
-    save_ron(format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path_str), &config).unwrap();
 
     // Create agent
-    let mut agent = AutonomousAgent::new(&config_path, &audit_path).unwrap();
+    let mut agent = AutonomousAgent::new(&config_path_str, &audit_path_str).unwrap();
 
     // Verify neural is initially enabled
     assert!(agent.lifecycle.neural.enabled);
@@ -112,25 +139,22 @@ fn test_symbolic_only_mode() {
 
     // Neural should be disabled
     assert!(!agent.lifecycle.neural.enabled);
-
-    // Cleanup
-    fs::remove_dir_all(test_dir).ok();
 }
 
 #[test]
 fn test_autonomous_iterations() {
-    let test_dir = "/tmp/autonomous_dev_ai_test_iterations";
-    fs::create_dir_all(test_dir).unwrap();
-
-    let config_path = format!("{}/test_config", test_dir);
-    let audit_path = format!("{}/test_audit.log", test_dir);
+    let test_dir = create_unique_test_dir("iterations");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
+    let config_path_str = config_path.to_string_lossy().into_owned();
+    let audit_path_str = audit_path.to_string_lossy().into_owned();
 
     // Create config
     let config = AgentConfig::default();
-    save_ron(format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path_str), &config).unwrap();
 
     // Create and run agent
-    let mut agent = AutonomousAgent::new(&config_path, &audit_path).unwrap();
+    let mut agent = AutonomousAgent::new(&config_path_str, &audit_path_str).unwrap();
     let result = agent.run("test goal: fix issues");
 
     // Should complete
@@ -146,33 +170,32 @@ fn test_autonomous_iterations() {
     assert!(agent.lifecycle.state.is_terminal());
 
     // Should have audit log
-    assert!(Path::new(&audit_path).exists());
-
-    // Cleanup
-    fs::remove_dir_all(test_dir).ok();
+    assert!(Path::new(&audit_path_str).exists());
 }
 
 #[test]
 fn test_policy_enforcement() {
-    let test_dir = "/tmp/autonomous_dev_ai_test_policy";
-    fs::create_dir_all(test_dir).unwrap();
-
-    let config_path = format!("{}/test_config", test_dir);
-    let audit_path = format!("{}/test_audit.log", test_dir);
+    let test_dir = create_unique_test_dir("policy");
+    let config_path = test_dir.path().join("test_config");
+    let audit_path = test_dir.path().join("test_audit.log");
+    let config_path_str = config_path.to_string_lossy().into_owned();
+    let audit_path_str = audit_path.to_string_lossy().into_owned();
 
     // Create config
     let config = AgentConfig::default();
-    save_ron(format!("{}.ron", config_path), &config).unwrap();
+    save_ron(format!("{}.ron", config_path_str), &config).unwrap();
 
-    let agent = AutonomousAgent::new(&config_path, &audit_path).unwrap();
+    let agent = AutonomousAgent::new(&config_path_str, &audit_path_str).unwrap();
 
     // Test policy engine
     assert!(!agent.lifecycle.policy.validate_action("force-push"));
+    assert!(!agent.lifecycle.policy.validate_action("force_push"));
+    assert!(!agent.lifecycle.policy.validate_action("git push --force"));
+    assert!(!agent.lifecycle.policy.validate_action("git push -f"));
+    assert!(!agent.lifecycle.policy.validate_action("push -f"));
+    assert!(!agent.lifecycle.policy.validate_action("FORCE-PUSH"));
     assert!(!agent.lifecycle.policy.validate_action("rm -rf /"));
     assert!(agent.lifecycle.policy.validate_action("git commit"));
-
-    // Cleanup
-    fs::remove_dir_all(test_dir).ok();
 }
 
 #[test]
