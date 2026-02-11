@@ -92,17 +92,24 @@ if [[ "$PRUNE" == true ]]; then
   jq -r '.[].name' "$LABELS_FILE" | sort -u > "$desired_labels_file"
 
   # Built-in labels to keep even if absent from labels.json.
-  protected_labels=(
-    "bug"
-    "documentation"
-    "duplicate"
-    "enhancement"
-    "good first issue"
-    "help wanted"
-    "invalid"
-    "question"
-    "wontfix"
-  )
+  # Override with LABELS_SYNC_PROTECTED_LABELS (comma-separated),
+  # or set LABELS_SYNC_PROTECTED_LABELS="" to disable protection.
+  protected_labels=()
+  if [[ -n "${LABELS_SYNC_PROTECTED_LABELS+x}" ]]; then
+    IFS=',' read -r -a protected_labels <<< "${LABELS_SYNC_PROTECTED_LABELS}"
+  else
+    protected_labels=(
+      "bug"
+      "documentation"
+      "duplicate"
+      "enhancement"
+      "good first issue"
+      "help wanted"
+      "invalid"
+      "question"
+      "wontfix"
+    )
+  fi
 
   mapfile -t repo_labels < <(gh label list --limit 1000 --json name --jq '.[].name')
   for repo_label in "${repo_labels[@]}"; do
