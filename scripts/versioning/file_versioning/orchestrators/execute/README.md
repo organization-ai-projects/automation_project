@@ -14,7 +14,7 @@ It interacts mainly with:
 
 ## Directory Structure
 
-```
+```text
 execute/
 ├── README.md (this file)
 ├── TOC.md
@@ -82,6 +82,7 @@ Manages GitHub labels based on a config file.
 ```bash
 ./labels_sync.sh
 ./labels_sync.sh --prune
+./labels_sync.sh --prune path/to/labels.json
 ```
 
 Behavior:
@@ -92,6 +93,7 @@ Behavior:
   - unset: use built-in safety allowlist,
   - comma-separated value: custom allowlist,
   - empty string (`""`): disable protection (strict prune).
+- In prune mode, built-in defaults still protect core GitHub labels (for example `bug`, `documentation`, `question`, `wontfix`) unless overridden by `LABELS_SYNC_PROTECTED_LABELS`.
 
 ## Common Usage
 

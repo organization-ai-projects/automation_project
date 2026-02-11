@@ -2,15 +2,30 @@
 
 set -u
 
+# Exit codes (stable contract for automation)
+E_USAGE=2
+E_DEPENDENCY=3
+E_GIT=4
+E_NO_DATA=5
+E_PARTIAL=6
+
 # Usage:
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]
+#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]
 # Example:
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh 234 pr_description.md
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --keep-artifacts 234 pr_description.md
+#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run --base main --head dev pr_description.md
 
 main_pr_number=""
 output_file="pr_description.md"
 keep_artifacts="false"
+dry_run="false"
+base_ref=""
+head_ref=""
+create_pr="false"
+allow_partial_create="false"
+assume_yes="false"
 
 positionals=()
 while [[ $# -gt 0 ]]; do
@@ -19,8 +34,45 @@ while [[ $# -gt 0 ]]; do
       keep_artifacts="true"
       shift
       ;;
+    --dry-run)
+      dry_run="true"
+      shift
+      ;;
+    --base)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "Erreur: --base requiert une valeur." >&2
+        exit "$E_USAGE"
+      fi
+      base_ref="${2:-}"
+      shift 2
+      ;;
+    --head)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "Erreur: --head requiert une valeur." >&2
+        exit "$E_USAGE"
+      fi
+      head_ref="${2:-}"
+      shift 2
+      ;;
+    --create-pr)
+      create_pr="true"
+      shift
+      ;;
+    --allow-partial-create)
+      allow_partial_create="true"
+      shift
+      ;;
+    --yes)
+      assume_yes="true"
+      shift
+      ;;
     -h|--help)
       echo "Usage: ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]"
+      echo "       ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]"
+      echo
+      echo "Notes:"
+      echo "  --dry-run       Extract PRs from local git history (base..head)."
+      echo "  --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR."
       exit 0
       ;;
     *)
@@ -30,17 +82,31 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ${#positionals[@]} -ge 1 ]]; then
+if [[ "$dry_run" == "false" && ${#positionals[@]} -ge 1 ]]; then
   main_pr_number="${positionals[0]}"
 fi
-if [[ ${#positionals[@]} -ge 2 ]]; then
+if [[ "$dry_run" == "false" && ${#positionals[@]} -ge 2 ]]; then
   output_file="${positionals[1]}"
 fi
+if [[ "$dry_run" == "true" && ${#positionals[@]} -ge 1 ]]; then
+  output_file="${positionals[0]}"
+fi
 
-if [[ -z "$main_pr_number" ]]; then
+if [[ "$dry_run" == "false" && -z "$main_pr_number" ]]; then
   echo "Erreur: MAIN_PR_NUMBER est requis." >&2
   echo "Usage: ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]" >&2
-  exit 1
+  echo "       ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]" >&2
+  exit "$E_USAGE"
+fi
+
+if [[ "$create_pr" == "true" && "$dry_run" != "true" ]]; then
+  echo "Erreur: --create-pr est uniquement supporté avec --dry-run." >&2
+  exit "$E_USAGE"
+fi
+
+if [[ "$allow_partial_create" == "true" && "$create_pr" != "true" ]]; then
+  echo "Erreur: --allow-partial-create nécessite --create-pr." >&2
+  exit "$E_USAGE"
 fi
 
 if [[ "$keep_artifacts" == "true" ]]; then
@@ -56,6 +122,9 @@ bugs_tmp="$(mktemp)"
 refactors_tmp="$(mktemp)"
 sync_tmp="$(mktemp)"
 issues_tmp="$(mktemp)"
+declare -A pr_title_hint
+online_enrich="false"
+pr_enrich_failed=0
 
 cleanup() {
   rm -f "$features_tmp" "$bugs_tmp" "$refactors_tmp" "$sync_tmp" "$issues_tmp"
@@ -67,7 +136,35 @@ trap cleanup EXIT
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "Erreur: la commande 'gh' est introuvable." >&2
-  exit 1
+  exit "$E_DEPENDENCY"
+fi
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Erreur: la commande 'jq' est introuvable." >&2
+  exit "$E_DEPENDENCY"
+fi
+
+if [[ "$dry_run" == "true" ]]; then
+  if ! command -v git >/dev/null 2>&1; then
+    echo "Erreur: la commande 'git' est introuvable." >&2
+    exit "$E_GIT"
+  fi
+  if [[ -z "$head_ref" ]]; then
+    head_ref="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  fi
+  if [[ -z "$base_ref" ]]; then
+    base_ref="dev"
+  fi
+  if [[ -z "$head_ref" ]]; then
+    echo "Erreur: impossible de déterminer la branche head en mode --dry-run." >&2
+    exit "$E_GIT"
+  fi
+else
+  base_ref="$(gh pr view "$main_pr_number" --json baseRefName -q '.baseRefName' 2>/dev/null || echo "main")"
+  head_ref="$(gh pr view "$main_pr_number" --json headRefName -q '.headRefName' 2>/dev/null || echo "dev")"
+fi
+
+if [[ "$dry_run" == "true" && "$create_pr" == "true" ]]; then
+  online_enrich="true"
 fi
 
 extract_child_prs() {
@@ -116,19 +213,52 @@ extract_child_prs() {
   return 0
 }
 
+extract_child_prs_dry() {
+  local commit_headlines
+  local message
+  commit_headlines="$(git log --oneline "${base_ref}..${head_ref}" 2>/dev/null || true)"
+  if [[ -z "$commit_headlines" ]]; then
+    return 1
+  fi
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    message="$(echo "$line" | cut -d' ' -f2-)"
+    if [[ "$message" =~ Merge\ pull\ request\ \#([0-9]+) ]]; then
+      pr_title_hint["#${BASH_REMATCH[1]}"]="$message"
+    elif [[ "$message" =~ \(\#([0-9]+)\)[[:space:]]*$ ]]; then
+      pr_title_hint["#${BASH_REMATCH[1]}"]="$message"
+    fi
+  done <<< "$commit_headlines"
+
+  {
+    echo "$commit_headlines" | sed -nE 's/.*Merge pull request #([0-9]+).*/#\1/p'
+    echo "$commit_headlines" | sed -nE 's/.*\(#([0-9]+)\)\s*$/#\1/p'
+  } | sort -u > "$extracted_prs_file"
+
+  return 0
+}
+
 classify_pr() {
   local pr_ref="$1"
   local title="$2"
   local title_lc
   local bullet
   local category
+  local starts_sync_or_merge=0
 
   title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
   bullet="- ${title} (${pr_ref})"
 
-  # Keep synchronization PRs in a dedicated category.
-  # Match explicit branch-flow patterns to avoid false positives.
   if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] \
+    || [[ "$title_lc" =~ ^[[:space:]]*(chore|refactor|fix|feat|docs|test|tests)[^:]*:[[:space:]]*(sync|merge) ]]; then
+    starts_sync_or_merge=1
+  fi
+
+  # Keep synchronization PRs in a dedicated category.
+  # Allow an optional conventional prefix (e.g. "chore:" / "chore(scope):")
+  # and require explicit branch-flow markers to avoid false positives.
+  if [[ "$starts_sync_or_merge" -eq 1 ]] \
     && [[ "$title_lc" =~ (main|dev|master|staging|release[^[:space:]]*)[^[:alnum:]_/-]+(into|->|→)[^[:alnum:]_/-]+(main|dev|master|staging|release[^[:space:]]*) ]]; then
     category="Synchronization"
     echo "$bullet" >> "$sync_tmp"
@@ -183,6 +313,40 @@ write_section_from_file() {
   else
     echo "- No significant items detected."
   fi
+}
+
+build_dynamic_pr_title() {
+  local categories=()
+  local summary
+
+  if [[ -s "$sync_tmp" ]]; then
+    categories+=("Synchronization")
+  fi
+  if [[ -s "$features_tmp" ]]; then
+    categories+=("Features")
+  fi
+  if [[ -s "$bugs_tmp" ]]; then
+    categories+=("Bug Fixes")
+  fi
+  if [[ -s "$refactors_tmp" ]]; then
+    categories+=("Refactoring")
+  fi
+
+  if [[ ${#categories[@]} -eq 0 ]]; then
+    summary="Changes"
+  elif [[ ${#categories[@]} -eq 1 ]]; then
+    summary="${categories[0]}"
+  elif [[ ${#categories[@]} -eq 2 ]]; then
+    summary="${categories[0]} and ${categories[1]}"
+  else
+    summary="${categories[0]}"
+    for ((i = 1; i < ${#categories[@]} - 1; i++)); do
+      summary+=", ${categories[i]}"
+    done
+    summary+=", and ${categories[${#categories[@]}-1]}"
+  fi
+
+  echo "Merge ${head_ref} into ${base_ref}: ${summary}"
 }
 
 issue_title() {
@@ -303,8 +467,14 @@ parse_issue_refs_from_body() {
 echo -n > "$extracted_prs_file"
 echo -n > "$resolved_issues_file"
 
-if ! extract_child_prs; then
-  echo "Avertissement: impossible de récupérer les commits de la PR #${main_pr_number} (API indisponible ou PR introuvable)." >&2
+if [[ "$dry_run" == "true" ]]; then
+  if ! extract_child_prs_dry; then
+    echo "Avertissement: impossible d'extraire des PR depuis ${base_ref}..${head_ref}." >&2
+  fi
+else
+  if ! extract_child_prs; then
+    echo "Avertissement: impossible de récupérer les commits de la PR #${main_pr_number} (API indisponible ou PR introuvable)." >&2
+  fi
 fi
 
 declare -A seen_issue
@@ -313,8 +483,6 @@ declare -A issue_action
 declare -A issue_name_map
 pr_count=0
 issue_count=0
-base_ref="$(gh pr view "$main_pr_number" --json baseRefName -q '.baseRefName' 2>/dev/null || echo "main")"
-head_ref="$(gh pr view "$main_pr_number" --json headRefName -q '.headRefName' 2>/dev/null || echo "dev")"
 
 normalize_issue_action() {
   local action="$1"
@@ -401,12 +569,27 @@ if [[ -s "$extracted_prs_file" ]]; then
   while read -r pr_ref; do
     [[ -z "$pr_ref" ]] && continue
     pr_number="${pr_ref//#/}"
+    pr_view_json=""
 
-    pr_title="$(gh pr view "$pr_number" --json title -q '.title' 2>/dev/null || true)"
-    pr_body="$(gh pr view "$pr_number" --json body -q '.body' 2>/dev/null || true)"
+    if [[ "$dry_run" == "true" && "$online_enrich" != "true" ]]; then
+      pr_title="${pr_title_hint[$pr_ref]:-PR #${pr_number}}"
+      pr_body=""
+    else
+      pr_view_json="$(gh pr view "$pr_number" --json title,body 2>/dev/null || true)"
+      if [[ -n "$pr_view_json" ]]; then
+        pr_title="$(echo "$pr_view_json" | jq -r '.title // ""')"
+        pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
+      else
+        pr_title=""
+        pr_body=""
+        if [[ "$online_enrich" == "true" ]]; then
+          pr_enrich_failed=$((pr_enrich_failed + 1))
+        fi
+      fi
+    fi
 
     if [[ -z "$pr_title" ]]; then
-      pr_title="PR #${pr_number}"
+      pr_title="${pr_title_hint[$pr_ref]:-PR #${pr_number}}"
     fi
 
     pr_category="$(classify_pr "$pr_ref" "$pr_title")"
@@ -418,29 +601,20 @@ if [[ -s "$extracted_prs_file" ]]; then
       done < <(parse_issue_refs_from_body "$pr_body")
     fi
 
-    while read -r issue_key; do
-      add_issue_entry "Closes" "$issue_key" "$pr_category"
-    done < <(
-      gh pr view "$pr_number" --json closingIssuesReferences -q \
-        '.closingIssuesReferences[]? | "#\(.number)"' 2>/dev/null || true
-    )
+    :
   done < "$extracted_prs_file"
 fi
 
-# Also include issues closed directly by the main PR itself.
-main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
-if [[ -n "$main_pr_body" ]]; then
-  while IFS='|' read -r action issue_key; do
-    add_issue_entry "$action" "$issue_key" "Mixed"
-  done < <(parse_issue_refs_from_body "$main_pr_body")
-fi
+if [[ "$dry_run" == "false" ]]; then
+  # Also include issues closed directly by the main PR itself.
+  main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
+  if [[ -n "$main_pr_body" ]]; then
+    while IFS='|' read -r action issue_key; do
+      add_issue_entry "$action" "$issue_key" "Mixed"
+    done < <(parse_issue_refs_from_body "$main_pr_body")
+  fi
 
-while read -r issue_key; do
-  add_issue_entry "Closes" "$issue_key" "Mixed"
-done < <(
-  gh pr view "$main_pr_number" --json closingIssuesReferences -q \
-    '.closingIssuesReferences[]? | "#\(.number)"' 2>/dev/null || true
-)
+fi
 
 echo -n > "$issues_tmp"
 for issue_key in "${!seen_issue[@]}"; do
@@ -530,4 +704,43 @@ echo "Fichier généré: $output_file"
 if [[ "$keep_artifacts" == "true" ]]; then
   echo "PR extraites: $extracted_prs_file"
   echo "Issues résolues: $resolved_issues_file"
+fi
+
+if [[ "$create_pr" == "true" ]]; then
+  if [[ "$online_enrich" == "true" && "$pr_enrich_failed" -gt 0 && "$allow_partial_create" != "true" ]]; then
+    echo "Erreur: enrichissement GitHub partiel (${pr_enrich_failed} PR non lues)." >&2
+    echo "Le body peut être incomplet. Corrige le réseau/auth puis relance, ou utilise --allow-partial-create." >&2
+    exit "$E_PARTIAL"
+  fi
+
+  default_title="$(build_dynamic_pr_title)"
+  create_now="false"
+
+  if [[ "$assume_yes" == "true" ]]; then
+    create_now="true"
+  else
+    echo
+    echo "Dry-run complete."
+    echo "Base: ${base_ref}"
+    echo "Head: ${head_ref}"
+    echo "Body file: ${output_file}"
+    read -r -p "Create PR now with generated body? [y/N] " answer
+    case "$answer" in
+      y|Y|yes|YES)
+        create_now="true"
+        ;;
+    esac
+  fi
+
+  if [[ "$create_now" == "true" ]]; then
+    pr_url="$(gh pr create --base "$base_ref" --head "$head_ref" --title "$default_title" --body-file "$output_file")"
+    echo "PR créée: $pr_url"
+  else
+    echo "PR creation skipped."
+  fi
+fi
+
+# Non-fatal generation outcome for humans, but explicit signal for automation.
+if [[ "$dry_run" == "true" && "$create_pr" == "true" && ! -s "$extracted_prs_file" ]]; then
+  exit "$E_NO_DATA"
 fi
