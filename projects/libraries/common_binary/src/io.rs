@@ -1,8 +1,10 @@
 use crate::header::Header;
 use crate::{BinaryDecode, BinaryEncode, BinaryError, BinaryOptions};
-use std::fs::File;
+use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Write a value to a file in binary format.
 ///
@@ -48,11 +50,30 @@ pub fn write_binary<T: BinaryEncode>(
     let header = Header::new(opts, &payload);
     let header_bytes = header.to_bytes();
 
-    // Write to file
-    let mut file = File::create(path)?;
-    file.write_all(&header_bytes)?;
-    file.write_all(&payload)?;
-    file.sync_all()?;
+    // Write to a temp file first, then atomically rename.
+    let target_path = path.as_ref();
+    let (mut file, temp_path) = create_temp_file_near(target_path)?;
+
+    if let Err(err) = (|| -> Result<(), BinaryError> {
+        file.write_all(&header_bytes)?;
+        file.write_all(&payload)?;
+        file.sync_all()?;
+        Ok(())
+    })() {
+        // Ensure the file handle is closed before attempting to remove the temp file.
+        drop(file);
+        let _ = fs::remove_file(&temp_path);
+        return Err(err);
+    }
+
+    drop(file);
+    if let Err(err) = replace_file(&temp_path, target_path) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(BinaryError::Io(err));
+    }
+
+    // Best-effort directory sync improves rename durability on filesystems that require it.
+    sync_parent_dir(target_path);
 
     Ok(())
 }
@@ -110,7 +131,11 @@ pub fn read_binary<T: BinaryDecode>(
 
     // Extract payload
     let payload_start = Header::SIZE;
-    let payload_end = payload_start + header.payload_len as usize;
+    let payload_len = usize::try_from(header.payload_len)
+        .map_err(|_| BinaryError::Corrupt("Payload length does not fit platform usize"))?;
+    let payload_end = payload_start
+        .checked_add(payload_len)
+        .ok_or(BinaryError::Corrupt("Payload length overflow"))?;
 
     if contents.len() < payload_end {
         return Err(BinaryError::Corrupt("File too short for payload"));
@@ -126,3 +151,96 @@ pub fn read_binary<T: BinaryDecode>(
     // Decode payload
     T::decode_binary(payload)
 }
+
+fn create_temp_file_near(target_path: &Path) -> Result<(File, PathBuf), BinaryError> {
+    let parent = target_path.parent().unwrap_or(Path::new("."));
+    let file_name = target_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("binary");
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+
+    for attempt in 0..32 {
+        let temp_name = format!(".{file_name}.tmp-{}-{timestamp}-{attempt}", process::id());
+        let temp_path = parent.join(temp_name);
+
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+        {
+            Ok(file) => return Ok((file, temp_path)),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(BinaryError::Io(err)),
+        }
+    }
+
+    Err(BinaryError::Io(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "failed to create unique temp file",
+    )))
+}
+
+fn replace_file(src: &Path, dst: &Path) -> std::io::Result<()> {
+    #[cfg(windows)]
+    {
+        match fs::rename(src, dst) {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                // Move destination aside first to avoid losing data if replacing fails.
+                let mut backup = dst.to_path_buf();
+                let mut found_backup = false;
+                for i in 0..16 {
+                    let candidate = if i == 0 {
+                        backup.with_extension("bak")
+                    } else {
+                        backup.with_extension(format!("bak{i}"))
+                    };
+                    if !candidate.exists() {
+                        backup = candidate;
+                        found_backup = true;
+                        break;
+                    }
+                }
+
+                if !found_backup {
+                    return Err(err);
+                }
+
+                fs::rename(dst, &backup)?;
+                match fs::rename(src, dst) {
+                    Ok(()) => {
+                        let _ = fs::remove_file(&backup);
+                        Ok(())
+                    }
+                    Err(replace_err) => {
+                        let _ = fs::rename(&backup, dst);
+                        Err(replace_err)
+                    }
+                }
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        fs::rename(src, dst)
+    }
+}
+
+#[cfg(unix)]
+fn sync_parent_dir(target_path: &Path) {
+    if let Some(parent) = target_path.parent()
+        && let Ok(dir) = File::open(parent)
+    {
+        let _ = dir.sync_all();
+    }
+}
+
+#[cfg(not(unix))]
+fn sync_parent_dir(_target_path: &Path) {}

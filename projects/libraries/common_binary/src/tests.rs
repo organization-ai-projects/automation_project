@@ -1,6 +1,9 @@
+use crate::header::Header;
 use crate::{BinaryError, BinaryOptions, read_binary, write_binary};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::path::PathBuf;
+use tempfile::TempDir;
 
 // Test data structure with serde derives
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -10,12 +13,17 @@ struct TestData {
     values: Vec<i32>,
 }
 
+fn test_file_path(file_name: &str) -> (TempDir, PathBuf) {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let path = temp_dir.path().join(file_name);
+    (temp_dir, path)
+}
+
 // BinaryEncode and BinaryDecode are automatically implemented via blanket impl
 
 #[test]
 fn test_write_read_round_trip() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("test_round_trip.bin");
+    let (_temp_dir, path) = test_file_path("test_round_trip.bin");
 
     let data = TestData {
         id: 42,
@@ -30,23 +38,15 @@ fn test_write_read_round_trip() {
         verify_checksum: true,
     };
 
-    // Write
     write_binary(&data, &path, &opts).unwrap();
-
-    // Read
     let loaded: TestData = read_binary(&path, &opts).unwrap();
 
-    // Verify
     assert_eq!(data, loaded);
-
-    // Cleanup
-    let _ = fs::remove_file(&path);
 }
 
 #[test]
 fn test_invalid_magic_rejected() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("test_invalid_magic.bin");
+    let (_temp_dir, path) = test_file_path("test_invalid_magic.bin");
 
     let data = TestData {
         id: 42,
@@ -68,25 +68,19 @@ fn test_invalid_magic_rejected() {
         verify_checksum: true,
     };
 
-    // Write with one magic
     write_binary(&data, &path, &write_opts).unwrap();
 
-    // Try to read with different magic
     let result: Result<TestData, BinaryError> = read_binary(&path, &read_opts);
     assert!(matches!(result, Err(BinaryError::Incompatible(_))));
 
     if let Err(BinaryError::Incompatible(msg)) = result {
         assert_eq!(msg, "Magic mismatch");
     }
-
-    // Cleanup
-    let _ = fs::remove_file(&path);
 }
 
 #[test]
 fn test_invalid_schema_id_rejected() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("test_invalid_schema.bin");
+    let (_temp_dir, path) = test_file_path("test_invalid_schema.bin");
 
     let data = TestData {
         id: 42,
@@ -108,25 +102,19 @@ fn test_invalid_schema_id_rejected() {
         verify_checksum: true,
     };
 
-    // Write with one schema_id
     write_binary(&data, &path, &write_opts).unwrap();
 
-    // Try to read with different schema_id
     let result: Result<TestData, BinaryError> = read_binary(&path, &read_opts);
     assert!(matches!(result, Err(BinaryError::Incompatible(_))));
 
     if let Err(BinaryError::Incompatible(msg)) = result {
         assert_eq!(msg, "Schema ID mismatch");
     }
-
-    // Cleanup
-    let _ = fs::remove_file(&path);
 }
 
 #[test]
 fn test_corrupted_payload_detected() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("test_corrupted.bin");
+    let (_temp_dir, path) = test_file_path("test_corrupted.bin");
 
     let data = TestData {
         id: 42,
@@ -141,32 +129,25 @@ fn test_corrupted_payload_detected() {
         verify_checksum: true,
     };
 
-    // Write valid data
     write_binary(&data, &path, &opts).unwrap();
 
-    // Corrupt the file by modifying a byte in the payload
     let mut contents = fs::read(&path).unwrap();
-    if contents.len() > 32 {
-        contents[32] ^= 0xFF; // Flip all bits in first payload byte
+    if contents.len() > Header::SIZE {
+        contents[Header::SIZE] ^= 0xFF;
         fs::write(&path, contents).unwrap();
     }
 
-    // Try to read corrupted data
     let result: Result<TestData, BinaryError> = read_binary(&path, &opts);
     assert!(matches!(result, Err(BinaryError::Corrupt(_))));
 
     if let Err(BinaryError::Corrupt(msg)) = result {
         assert_eq!(msg, "Checksum mismatch");
     }
-
-    // Cleanup
-    let _ = fs::remove_file(&path);
 }
 
 #[test]
 fn test_checksum_validation_optional() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("test_no_checksum.bin");
+    let (_temp_dir, path) = test_file_path("test_no_checksum.bin");
 
     let data = TestData {
         id: 42,
@@ -192,41 +173,31 @@ fn test_checksum_validation_optional() {
         magic: *b"TEST",
         container_version: 1,
         schema_id: 100,
-        verify_checksum: false, // Don't verify checksum
+        verify_checksum: false,
     };
 
-    // Write valid data
     write_binary(&data, &path, &write_opts).unwrap();
 
-    // Corrupt the file by changing the checksum in the header (not the payload)
     let mut contents = fs::read(&path).unwrap();
-    if contents.len() >= 32 {
-        // Corrupt the checksum field (last 8 bytes of header, bytes 24-31)
-        contents[24] ^= 0xFF;
+    if contents.len() >= Header::SIZE {
+        let checksum_offset = Header::SIZE - std::mem::size_of::<u64>();
+        contents[checksum_offset] ^= 0xFF;
         fs::write(&path, contents).unwrap();
     }
 
-    // Reading with checksum verification should fail
     let result_verify: Result<TestData, BinaryError> = read_binary(&path, &read_opts_verify);
     assert!(matches!(result_verify, Err(BinaryError::Corrupt(_))));
 
-    // Reading without checksum verification should succeed (payload is still valid)
     let result_no_verify: Result<TestData, BinaryError> = read_binary(&path, &read_opts_no_verify);
     assert!(result_no_verify.is_ok());
-
-    // Cleanup
-    let _ = fs::remove_file(&path);
 }
 
 #[test]
 fn test_empty_data() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("test_empty.bin");
+    let (_temp_dir, path) = test_file_path("test_empty.bin");
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct EmptyData {}
-
-    // BinaryEncode and BinaryDecode are automatically implemented
 
     let data = EmptyData {};
 
@@ -237,23 +208,15 @@ fn test_empty_data() {
         verify_checksum: true,
     };
 
-    // Write
     write_binary(&data, &path, &opts).unwrap();
-
-    // Read
     let loaded: EmptyData = read_binary(&path, &opts).unwrap();
 
-    // Verify
     assert_eq!(data, loaded);
-
-    // Cleanup
-    let _ = fs::remove_file(&path);
 }
 
 #[test]
 fn test_large_data() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("test_large.bin");
+    let (_temp_dir, path) = test_file_path("test_large.bin");
 
     let data = TestData {
         id: u64::MAX,
@@ -268,23 +231,15 @@ fn test_large_data() {
         verify_checksum: true,
     };
 
-    // Write
     write_binary(&data, &path, &opts).unwrap();
-
-    // Read
     let loaded: TestData = read_binary(&path, &opts).unwrap();
 
-    // Verify
     assert_eq!(data, loaded);
-
-    // Cleanup
-    let _ = fs::remove_file(&path);
 }
 
 #[test]
 fn test_different_container_versions() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("test_version.bin");
+    let (_temp_dir, path) = test_file_path("test_version.bin");
 
     let data = TestData {
         id: 42,
@@ -306,21 +261,15 @@ fn test_different_container_versions() {
         verify_checksum: true,
     };
 
-    // Write with version 1
     write_binary(&data, &path, &write_opts).unwrap();
 
-    // Try to read with version 2
     let result: Result<TestData, BinaryError> = read_binary(&path, &read_opts);
     assert!(matches!(result, Err(BinaryError::Incompatible(_))));
-
-    // Cleanup
-    let _ = fs::remove_file(&path);
 }
 
 #[test]
 fn test_file_not_found() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("nonexistent_file.bin");
+    let (_temp_dir, path) = test_file_path("nonexistent_file.bin");
 
     let opts = BinaryOptions::default();
 
@@ -330,19 +279,39 @@ fn test_file_not_found() {
 
 #[test]
 fn test_truncated_header() {
-    let temp_dir = std::env::temp_dir();
-    let path = temp_dir.join("test_truncated.bin");
+    let (_temp_dir, path) = test_file_path("test_truncated.bin");
 
-    // Write a file with only partial header
     fs::write(&path, [1, 2, 3, 4, 5]).unwrap();
 
     let opts = BinaryOptions::default();
 
     let result: Result<TestData, BinaryError> = read_binary(&path, &opts);
     assert!(matches!(result, Err(BinaryError::Corrupt(_))));
+}
 
-    // Cleanup
-    let _ = fs::remove_file(&path);
+#[test]
+fn test_payload_length_overflow_rejected() {
+    let (_temp_dir, path) = test_file_path("test_payload_overflow.bin");
+
+    const MAGIC_END: usize = 4;
+    const VERSION_END: usize = MAGIC_END + 2;
+    const SCHEMA_ID_START: usize = 8;
+    const SCHEMA_ID_END: usize = SCHEMA_ID_START + 8;
+    const PAYLOAD_LEN_START: usize = SCHEMA_ID_END;
+    const PAYLOAD_LEN_END: usize = PAYLOAD_LEN_START + 8;
+    let checksum_offset = Header::SIZE - std::mem::size_of::<u64>();
+
+    let mut header = [0u8; Header::SIZE];
+    header[..MAGIC_END].copy_from_slice(b"CBIN");
+    header[MAGIC_END..VERSION_END].copy_from_slice(&1u16.to_le_bytes());
+    header[SCHEMA_ID_START..SCHEMA_ID_END].copy_from_slice(&0u64.to_le_bytes());
+    header[PAYLOAD_LEN_START..PAYLOAD_LEN_END].copy_from_slice(&u64::MAX.to_le_bytes());
+    header[checksum_offset..].copy_from_slice(&0u64.to_le_bytes());
+    fs::write(&path, header).unwrap();
+
+    let opts = BinaryOptions::default();
+    let result: Result<TestData, BinaryError> = read_binary(&path, &opts);
+    assert!(matches!(result, Err(BinaryError::Corrupt(_))));
 }
 
 #[test]
