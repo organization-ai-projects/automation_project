@@ -168,6 +168,8 @@ fn test_policy_enforcement() {
 
     // Test policy engine
     assert!(!agent.lifecycle.policy.validate_action("force-push"));
+    assert!(!agent.lifecycle.policy.validate_action("force_push"));
+    assert!(!agent.lifecycle.policy.validate_action("git push --force"));
     assert!(!agent.lifecycle.policy.validate_action("rm -rf /"));
     assert!(agent.lifecycle.policy.validate_action("git commit"));
 

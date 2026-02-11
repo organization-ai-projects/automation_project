@@ -2,6 +2,15 @@
 
 use serde::{Deserialize, Serialize};
 
+pub const FORCE_PUSH_FORBIDDEN: &str = "force-push";
+
+pub fn is_force_push_action(action: &str) -> bool {
+    let lower = action.to_ascii_lowercase();
+    lower.contains("force-push")
+        || lower.contains("force_push")
+        || (lower.contains("push") && (lower.contains("--force") || lower.contains(" -f")))
+}
+
 /// Policy engine for validating actions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyEngine {
@@ -24,7 +33,7 @@ impl PolicyEngine {
                 "generate_pr_description".to_string(),
             ],
             forbidden_patterns: vec![
-                "force-push".to_string(),
+                FORCE_PUSH_FORBIDDEN.to_string(),
                 "rm -rf".to_string(),
                 "/etc/".to_string(),
                 "sudo ".to_string(),
@@ -33,9 +42,15 @@ impl PolicyEngine {
     }
 
     pub fn validate_action(&self, action: &str) -> bool {
+        if is_force_push_action(action) {
+            return false;
+        }
+
+        let action_lc = action.to_ascii_lowercase();
+
         // Check for forbidden patterns
         for pattern in &self.forbidden_patterns {
-            if action.contains(pattern) {
+            if action_lc.contains(&pattern.to_ascii_lowercase()) {
                 return false;
             }
         }
