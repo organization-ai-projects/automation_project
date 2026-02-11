@@ -1,3 +1,4 @@
+use crate::header::Header;
 use crate::{BinaryError, BinaryOptions, read_binary, write_binary};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -131,8 +132,8 @@ fn test_corrupted_payload_detected() {
     write_binary(&data, &path, &opts).unwrap();
 
     let mut contents = fs::read(&path).unwrap();
-    if contents.len() > 32 {
-        contents[32] ^= 0xFF;
+    if contents.len() > Header::SIZE {
+        contents[Header::SIZE] ^= 0xFF;
         fs::write(&path, contents).unwrap();
     }
 
@@ -178,8 +179,9 @@ fn test_checksum_validation_optional() {
     write_binary(&data, &path, &write_opts).unwrap();
 
     let mut contents = fs::read(&path).unwrap();
-    if contents.len() >= 32 {
-        contents[24] ^= 0xFF;
+    if contents.len() >= Header::SIZE {
+        let checksum_offset = Header::SIZE - std::mem::size_of::<u64>();
+        contents[checksum_offset] ^= 0xFF;
         fs::write(&path, contents).unwrap();
     }
 
@@ -291,7 +293,7 @@ fn test_truncated_header() {
 fn test_payload_length_overflow_rejected() {
     let (_temp_dir, path) = test_file_path("test_payload_overflow.bin");
 
-    let mut header = [0u8; 32];
+    let mut header = [0u8; Header::SIZE];
     header[0..4].copy_from_slice(b"CBIN");
     header[4..6].copy_from_slice(&1u16.to_le_bytes());
     header[8..16].copy_from_slice(&0u64.to_le_bytes());

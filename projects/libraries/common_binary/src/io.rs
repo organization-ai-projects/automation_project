@@ -67,10 +67,13 @@ pub fn write_binary<T: BinaryEncode>(
     }
 
     drop(file);
-    if let Err(err) = fs::rename(&temp_path, target_path) {
+    if let Err(err) = replace_file(&temp_path, target_path) {
         let _ = fs::remove_file(&temp_path);
         return Err(BinaryError::Io(err));
     }
+
+    // Best-effort directory sync improves rename durability on filesystems that require it.
+    sync_parent_dir(target_path);
 
     Ok(())
 }
@@ -180,4 +183,34 @@ fn create_temp_file_near(target_path: &Path) -> Result<(File, PathBuf), BinaryEr
         std::io::ErrorKind::AlreadyExists,
         "failed to create unique temp file",
     )))
+}
+
+fn replace_file(src: &Path, dst: &Path) -> std::io::Result<()> {
+    #[cfg(windows)]
+    {
+        match fs::rename(src, dst) {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                fs::remove_file(dst)?;
+                fs::rename(src, dst)
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        fs::rename(src, dst)
+    }
+}
+
+fn sync_parent_dir(target_path: &Path) {
+    #[cfg(unix)]
+    {
+        if let Some(parent) = target_path.parent()
+            && let Ok(dir) = File::open(parent)
+        {
+            let _ = dir.sync_all();
+        }
+    }
 }
