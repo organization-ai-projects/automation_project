@@ -12,10 +12,12 @@ E_PARTIAL=6
 # Usage:
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]
+#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--yes]
 # Example:
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh 234 pr_description.md
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --keep-artifacts 234 pr_description.md
 #   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run --base main --head dev pr_description.md
+#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --auto --base dev --head feature/my-branch
 
 main_pr_number=""
 output_file="pr_description.md"
@@ -26,6 +28,7 @@ head_ref=""
 create_pr="false"
 allow_partial_create="false"
 assume_yes="false"
+auto_mode="false"
 
 positionals=()
 while [[ $# -gt 0 ]]; do
@@ -66,13 +69,19 @@ while [[ $# -gt 0 ]]; do
       assume_yes="true"
       shift
       ;;
+    --auto)
+      auto_mode="true"
+      shift
+      ;;
     -h|--help)
       echo "Usage: ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]"
       echo "       ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]"
+      echo "       ./scripts/versioning/file_versioning/github/generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--yes]"
       echo
       echo "Notes:"
       echo "  --dry-run       Extract PRs from local git history (base..head)."
       echo "  --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR."
+      echo "  --auto          RAM-first mode: dry-run + create-pr, body kept in memory."
       exit 0
       ;;
     *)
@@ -88,8 +97,17 @@ fi
 if [[ "$dry_run" == "false" && ${#positionals[@]} -ge 2 ]]; then
   output_file="${positionals[1]}"
 fi
-if [[ "$dry_run" == "true" && ${#positionals[@]} -ge 1 ]]; then
+if [[ "$dry_run" == "true" && "$auto_mode" != "true" && ${#positionals[@]} -ge 1 ]]; then
   output_file="${positionals[0]}"
+fi
+
+if [[ "$auto_mode" == "true" ]]; then
+  dry_run="true"
+  create_pr="true"
+  if [[ ${#positionals[@]} -gt 0 ]]; then
+    echo "Erreur: --auto ne prend pas d'OUTPUT_FILE positional." >&2
+    exit "$E_USAGE"
+  fi
 fi
 
 if [[ "$dry_run" == "false" && -z "$main_pr_number" ]]; then
@@ -125,6 +143,10 @@ issues_tmp="$(mktemp)"
 declare -A pr_title_hint
 online_enrich="false"
 pr_enrich_failed=0
+
+is_human_interactive_terminal() {
+  [[ -t 0 && -t 1 && -z "${CI:-}" ]]
+}
 
 cleanup() {
   rm -f "$features_tmp" "$bugs_tmp" "$refactors_tmp" "$sync_tmp" "$issues_tmp"
@@ -190,7 +212,7 @@ extract_child_prs() {
   if [[ -n "$repo_owner_name" ]]; then
     timeline_pr_refs="$(gh api "repos/${repo_owner_name}/issues/${main_pr_number}/timeline" --paginate \
       --jq '.[] | select(.event=="cross-referenced") | select(.source.issue.pull_request.url != null) | .source.issue.number' 2>/dev/null \
-      | sed -E 's/^/#/' || true)"
+      | sed -nE 's/^([0-9]+)$/#\1/p' || true)"
   fi
 
   if [[ -z "$commit_headlines" && -z "$main_pr_body" && -z "$main_pr_comments" && -z "$timeline_pr_refs" ]]; then
@@ -208,7 +230,7 @@ extract_child_prs() {
     echo "$main_pr_comments" | sed -nE 's/.*\bPR[[:space:]]*#([0-9]+).*/#\1/ip'
     echo "$main_pr_comments" | sed -nE 's/.*pull request #([0-9]+).*/#\1/ip'
     echo "$timeline_pr_refs"
-  } | sort -u | grep -v "^#${main_pr_number}$" > "$extracted_prs_file"
+  } | grep -E '^#[0-9]+$' | sort -u | grep -v "^#${main_pr_number}$" > "$extracted_prs_file"
 
   return 0
 }
@@ -605,6 +627,17 @@ if [[ -s "$extracted_prs_file" ]]; then
   done < "$extracted_prs_file"
 fi
 
+if [[ "$dry_run" == "true" ]]; then
+  # In branch dry-run mode, also parse issue refs from commit messages/footers
+  # (e.g. "Closes #123") so issue detection works without child PR references.
+  dry_commit_messages="$(git log --format=%B "${base_ref}..${head_ref}" 2>/dev/null || true)"
+  if [[ -n "$dry_commit_messages" ]]; then
+    while IFS='|' read -r action issue_key; do
+      add_issue_entry "$action" "$issue_key" "Mixed"
+    done < <(parse_issue_refs_from_body "$dry_commit_messages")
+  fi
+fi
+
 if [[ "$dry_run" == "false" ]]; then
   # Also include issues closed directly by the main PR itself.
   main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
@@ -662,7 +695,7 @@ if [[ -s "$issues_tmp" ]]; then
   issue_count="${#seen_issue[@]}"
 fi
 
-{
+body_content="$({
   echo "### Description"
   echo "This pull request merges the \`${head_ref}\` branch into \`${base_ref}\` and summarizes merged pull requests and resolved issues."
   echo ""
@@ -698,9 +731,14 @@ fi
 - Documentation and PR summaries should be aligned with the resolved issues listed above.
 - This generated description can be edited to add domain-specific details before submission.
 EOF
-} > "$output_file"
+})"
 
-echo "Fichier généré: $output_file"
+if [[ "$auto_mode" != "true" ]]; then
+  printf "%s\n" "$body_content" > "$output_file"
+  echo "Fichier généré: $output_file"
+else
+  echo "Description PR générée en mémoire (mode --auto)."
+fi
 if [[ "$keep_artifacts" == "true" ]]; then
   echo "PR extraites: $extracted_prs_file"
   echo "Issues résolues: $resolved_issues_file"
@@ -718,12 +756,19 @@ if [[ "$create_pr" == "true" ]]; then
 
   if [[ "$assume_yes" == "true" ]]; then
     create_now="true"
+  elif [[ "$auto_mode" == "true" ]] && ! is_human_interactive_terminal; then
+    # In non-interactive contexts (agent/CI), --auto should not block on prompt.
+    create_now="true"
   else
     echo
     echo "Dry-run complete."
     echo "Base: ${base_ref}"
     echo "Head: ${head_ref}"
-    echo "Body file: ${output_file}"
+    if [[ "$auto_mode" != "true" ]]; then
+      echo "Body file: ${output_file}"
+    else
+      echo "Body: in-memory"
+    fi
     read -r -p "Create PR now with generated body? [y/N] " answer
     case "$answer" in
       y|Y|yes|YES)
@@ -733,7 +778,11 @@ if [[ "$create_pr" == "true" ]]; then
   fi
 
   if [[ "$create_now" == "true" ]]; then
-    pr_url="$(gh pr create --base "$base_ref" --head "$head_ref" --title "$default_title" --body-file "$output_file")"
+    if [[ "$auto_mode" == "true" ]]; then
+      pr_url="$(gh pr create --base "$base_ref" --head "$head_ref" --title "$default_title" --body "$body_content")"
+    else
+      pr_url="$(gh pr create --base "$base_ref" --head "$head_ref" --title "$default_title" --body-file "$output_file")"
+    fi
     echo "PR créée: $pr_url"
   else
     echo "PR creation skipped."
