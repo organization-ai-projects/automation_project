@@ -20,18 +20,18 @@ fn test_is_expired() {
 fn test_is_expired_with_grace() {
     let id = test_protocol_id(1);
 
-    // Test token that expired 50ms ago
+    // Keep wide margins to avoid timing flakiness on contended CI runners.
     let now = current_timestamp_ms();
-    let recently_expired = build_test_token(Role::User, id, now.saturating_sub(50));
+    let recently_expired = build_test_token(Role::User, id, now.saturating_sub(1_000));
 
     // Should be expired without grace
     assert!(recently_expired.is_expired());
 
-    // Should NOT be expired with 200ms grace (50ms + 200ms grace = still in future)
-    assert!(!recently_expired.is_expired_with_grace(200));
+    // Should NOT be expired with 2s grace (1s expired + 2s grace = still valid).
+    assert!(!recently_expired.is_expired_with_grace(2_000));
 
-    // Should be expired with only 10ms grace (50ms ago > 10ms grace)
-    assert!(recently_expired.is_expired_with_grace(10));
+    // Should be expired with only 100ms grace (1s ago > 100ms grace).
+    assert!(recently_expired.is_expired_with_grace(100));
 }
 
 #[test]
