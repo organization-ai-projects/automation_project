@@ -48,6 +48,7 @@ Usage:
 ```bash
 bash generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]
 bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]
+bash generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--yes]
 ```
 
 Key options:
@@ -57,13 +58,14 @@ Key options:
 - `--create-pr`: In dry-run mode, optionally create the PR with the generated body.
 - `--allow-partial-create`: Allow PR creation even if GitHub enrichment is incomplete.
 - `--yes`: Non-interactive confirmation when `--create-pr` is used.
+- `--auto`: RAM-first flow (`--dry-run` + `--create-pr`) with in-memory body.
 - `--keep-artifacts`: Keep extracted PR/issue intermediate files.
 
 Exit codes (automation contract):
 
 - `0`: Success
 - `2`: Usage/arguments error
-- `3`: Missing dependency (`gh`)
+- `3`: Missing dependency (`gh`/`jq`)
 - `4`: Git context error (e.g. missing branch context)
 - `5`: No extracted PR data in dry-run
 - `6`: Partial GitHub enrichment blocked PR creation

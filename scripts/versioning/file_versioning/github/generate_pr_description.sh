@@ -97,8 +97,16 @@ fi
 if [[ "$dry_run" == "false" && ${#positionals[@]} -ge 2 ]]; then
   output_file="${positionals[1]}"
 fi
+if [[ "$dry_run" == "false" && ${#positionals[@]} -gt 2 ]]; then
+  echo "Erreur: Trop d'arguments positionnels. Utilisation attendue: MAIN_PR_NUMBER [OUTPUT_FILE]." >&2
+  exit "$E_USAGE"
+fi
 if [[ "$dry_run" == "true" && "$auto_mode" != "true" && ${#positionals[@]} -ge 1 ]]; then
   output_file="${positionals[0]}"
+fi
+if [[ "$dry_run" == "true" && "$auto_mode" != "true" && ${#positionals[@]} -gt 1 ]]; then
+  echo "Erreur: Trop d'arguments positionnels pour --dry-run. Seul OUTPUT_FILE est autorisé." >&2
+  exit "$E_USAGE"
 fi
 
 if [[ "$auto_mode" == "true" ]]; then
@@ -160,7 +168,12 @@ if ! command -v gh >/dev/null 2>&1; then
   echo "Erreur: la commande 'gh' est introuvable." >&2
   exit "$E_DEPENDENCY"
 fi
-if ! command -v jq >/dev/null 2>&1; then
+
+need_jq="false"
+if [[ "$dry_run" == "false" || "$create_pr" == "true" ]]; then
+  need_jq="true"
+fi
+if [[ "$need_jq" == "true" ]] && ! command -v jq >/dev/null 2>&1; then
   echo "Erreur: la commande 'jq' est introuvable." >&2
   exit "$E_DEPENDENCY"
 fi
