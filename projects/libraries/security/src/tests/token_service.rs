@@ -47,3 +47,26 @@ fn test_valid_token() {
     let token = service.verify(&jwt).expect("verify token");
     assert_eq!(token.subject_id, test_protocol_id(123));
 }
+
+#[test]
+fn test_issue_sets_expected_iat_exp_relationship() {
+    let service = TokenService::new_hs256(&"a".repeat(32)).expect("token service init");
+    let jwt = service
+        .issue(test_protocol_id(7), Role::User, 100, None)
+        .expect("issue token");
+
+    let claims = jsonwebtoken::dangerous::insecure_decode::<Claims>(&jwt)
+        .expect("decode claims")
+        .claims;
+
+    // `issue()` stores iat in seconds and rounds expiration up with +1 second.
+    // For a very short token (100ms), exp should be at least iat+1 and at most iat+2
+    // when issuance happens close to a second boundary.
+    assert!(claims.exp > claims.iat);
+    let exp_delta = claims.exp.saturating_sub(claims.iat);
+    assert!(
+        (1..=2).contains(&exp_delta),
+        "unexpected exp/iat delta for short duration token: {}",
+        exp_delta
+    );
+}
