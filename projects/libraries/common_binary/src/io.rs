@@ -191,8 +191,37 @@ fn replace_file(src: &Path, dst: &Path) -> std::io::Result<()> {
         match fs::rename(src, dst) {
             Ok(()) => Ok(()),
             Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-                fs::remove_file(dst)?;
-                fs::rename(src, dst)
+                // Move destination aside first to avoid losing data if replacing fails.
+                let mut backup = dst.to_path_buf();
+                let mut found_backup = false;
+                for i in 0..16 {
+                    let candidate = if i == 0 {
+                        backup.with_extension("bak")
+                    } else {
+                        backup.with_extension(format!("bak{i}"))
+                    };
+                    if !candidate.exists() {
+                        backup = candidate;
+                        found_backup = true;
+                        break;
+                    }
+                }
+
+                if !found_backup {
+                    return Err(err);
+                }
+
+                fs::rename(dst, &backup)?;
+                match fs::rename(src, dst) {
+                    Ok(()) => {
+                        let _ = fs::remove_file(&backup);
+                        Ok(())
+                    }
+                    Err(replace_err) => {
+                        let _ = fs::rename(&backup, dst);
+                        Err(replace_err)
+                    }
+                }
             }
             Err(err) => Err(err),
         }
@@ -204,13 +233,14 @@ fn replace_file(src: &Path, dst: &Path) -> std::io::Result<()> {
     }
 }
 
+#[cfg(unix)]
 fn sync_parent_dir(target_path: &Path) {
-    #[cfg(unix)]
+    if let Some(parent) = target_path.parent()
+        && let Ok(dir) = File::open(parent)
     {
-        if let Some(parent) = target_path.parent()
-            && let Ok(dir) = File::open(parent)
-        {
-            let _ = dir.sync_all();
-        }
+        let _ = dir.sync_all();
     }
 }
+
+#[cfg(not(unix))]
+fn sync_parent_dir(_target_path: &Path) {}

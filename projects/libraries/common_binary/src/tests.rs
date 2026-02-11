@@ -293,12 +293,20 @@ fn test_truncated_header() {
 fn test_payload_length_overflow_rejected() {
     let (_temp_dir, path) = test_file_path("test_payload_overflow.bin");
 
+    const MAGIC_END: usize = 4;
+    const VERSION_END: usize = MAGIC_END + 2;
+    const SCHEMA_ID_START: usize = 8;
+    const SCHEMA_ID_END: usize = SCHEMA_ID_START + 8;
+    const PAYLOAD_LEN_START: usize = SCHEMA_ID_END;
+    const PAYLOAD_LEN_END: usize = PAYLOAD_LEN_START + 8;
+    let checksum_offset = Header::SIZE - std::mem::size_of::<u64>();
+
     let mut header = [0u8; Header::SIZE];
-    header[0..4].copy_from_slice(b"CBIN");
-    header[4..6].copy_from_slice(&1u16.to_le_bytes());
-    header[8..16].copy_from_slice(&0u64.to_le_bytes());
-    header[16..24].copy_from_slice(&u64::MAX.to_le_bytes());
-    header[24..32].copy_from_slice(&0u64.to_le_bytes());
+    header[..MAGIC_END].copy_from_slice(b"CBIN");
+    header[MAGIC_END..VERSION_END].copy_from_slice(&1u16.to_le_bytes());
+    header[SCHEMA_ID_START..SCHEMA_ID_END].copy_from_slice(&0u64.to_le_bytes());
+    header[PAYLOAD_LEN_START..PAYLOAD_LEN_END].copy_from_slice(&u64::MAX.to_le_bytes());
+    header[checksum_offset..].copy_from_slice(&0u64.to_le_bytes());
     fs::write(&path, header).unwrap();
 
     let opts = BinaryOptions::default();
