@@ -81,7 +81,17 @@ Manages GitHub labels based on a config file.
 
 ```bash
 ./labels_sync.sh
+./labels_sync.sh --prune
 ```
+
+Behavior:
+
+- Default mode: create/update labels declared in `.github/labels.json`.
+- `--prune`: additionally delete repository labels not present in the config.
+- Protected labels can be controlled via `LABELS_SYNC_PROTECTED_LABELS`:
+  - unset: use built-in safety allowlist,
+  - comma-separated value: custom allowlist,
+  - empty string (`""`): disable protection (strict prune).
 
 ## Common Usage
 

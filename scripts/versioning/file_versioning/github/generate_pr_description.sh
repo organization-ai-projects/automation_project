@@ -127,7 +127,9 @@ classify_pr() {
   bullet="- ${title} (${pr_ref})"
 
   # Keep synchronization PRs in a dedicated category.
-  if [[ "$title_lc" =~ (sync|merge) ]] && [[ "$title_lc" =~ main ]] && [[ "$title_lc" =~ dev ]]; then
+  # Match explicit branch-flow patterns to avoid false positives.
+  if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] \
+    && [[ "$title_lc" =~ (main|dev|master|staging|release[^[:space:]]*)[^[:alnum:]_/-]+(into|->|→)[^[:alnum:]_/-]+(main|dev|master|staging|release[^[:space:]]*) ]]; then
     category="Synchronization"
     echo "$bullet" >> "$sync_tmp"
     echo "$category"
