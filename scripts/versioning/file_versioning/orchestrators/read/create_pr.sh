@@ -131,6 +131,12 @@ info "✅ PR created: $PR_URL"
 if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test|tests)/ ]]; then
   BRANCH_PREFIX="$(echo "$CURRENT_BRANCH" | sed -E 's|/.*||')"
   case "$BRANCH_PREFIX" in
+    feat)
+      BRANCH_LABEL="feature"
+      ;;
+    docs)
+      BRANCH_LABEL="documentation"
+      ;;
     test|tests)
       BRANCH_LABEL="testing"
       ;;
@@ -138,7 +144,9 @@ if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test|tests)/ ]]; then
       BRANCH_LABEL="$BRANCH_PREFIX"
       ;;
   esac
-  gh pr edit "$PR_URL" --add-label "$BRANCH_LABEL"
+  if ! gh pr edit "$PR_URL" --add-label "$BRANCH_LABEL"; then
+    warn "Failed to add label '$BRANCH_LABEL' to PR $PR_URL; continuing without label."
+  fi
 fi
 
 info "PR URL: $PR_URL"
