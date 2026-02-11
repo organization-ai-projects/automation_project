@@ -7,7 +7,7 @@ use crate::modification_entry::ModificationEntry;
 use crate::release_id::ReleaseId;
 use crate::revision_entry::RevisionEntry;
 use crate::revision_log::RevisionLog;
-use chrono::Utc;
+use chrono::{DateTime, TimeZone, Utc};
 
 // ============================================================================
 // Common Test Constants
@@ -89,7 +89,14 @@ pub(crate) fn security_mod(description: impl Into<String>) -> ModificationEntry 
 
 /// Creates a basic RevisionEntry with the given release ID
 pub(crate) fn basic_revision_entry(release: ReleaseId) -> RevisionEntry {
-    RevisionEntry::create(release, Utc::now())
+    RevisionEntry::create(release, fixed_test_timestamp())
+}
+
+/// Fixed timestamp used by helpers to keep tests deterministic.
+pub(crate) fn fixed_test_timestamp() -> DateTime<Utc> {
+    Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0)
+        .single()
+        .expect("valid fixed test timestamp")
 }
 
 /// Creates a RevisionEntry with modifications

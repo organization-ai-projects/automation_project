@@ -110,6 +110,15 @@ bash create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] 
 - `--draft`: Create as draft PR
 - `--skip-tests`: Skip test execution (not recommended, shows warning)
 
+**Label mapping (auto-apply):**
+
+- `feat/*` -> `feature`
+- `docs/*` -> `documentation`
+- `test/*` and `tests/*` -> `testing`
+- other supported prefixes map to themselves (`fix`, `chore`, `refactor`)
+
+If label application fails, the script now warns and continues (does not abort PR creation).
+
 **Test Enforcement:**
 
 By default, this script runs `cargo test --workspace` before creating the PR. If tests fail, the PR creation is aborted. Use `--skip-tests` to bypass this check, but a warning will be displayed reminding you to ensure proper testing before merging.

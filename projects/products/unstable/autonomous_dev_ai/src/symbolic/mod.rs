@@ -10,6 +10,7 @@ pub mod validator;
 use crate::error::AgentResult;
 use crate::objectives::ObjectiveEvaluator;
 use crate::symbolic::issue_taxonomy::{CategoryDecision, IssueClassificationInput, classify_issue};
+use crate::symbolic::policy::{FORCE_PUSH_FORBIDDEN, is_force_push_action};
 use serde::{Deserialize, Serialize};
 
 /// Symbolic controller - makes all final decisions
@@ -39,8 +40,8 @@ impl SymbolicController {
         let mut issues = Vec::new();
 
         // Check policy compliance
-        if proposal.action == "force_push" {
-            issues.push("force_push is not allowed".to_string());
+        if is_force_push_action(&proposal.action) {
+            issues.push(format!("{FORCE_PUSH_FORBIDDEN} is not allowed"));
         }
 
         // Check for unsafe operations

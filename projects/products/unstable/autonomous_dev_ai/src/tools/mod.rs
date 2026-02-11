@@ -3,6 +3,7 @@
 //! Tool system - all tools are symbolic wrappers
 
 use crate::error::{AgentError, AgentResult};
+use crate::symbolic::policy::{FORCE_PUSH_FORBIDDEN, is_force_push_action};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
@@ -94,10 +95,10 @@ impl Tool for GitWrapper {
         let command = &args[0];
 
         // Forbidden commands
-        if command == "push" && args.contains(&"--force".to_string()) {
-            return Err(AgentError::PolicyViolation(
-                "force-push is not allowed".to_string(),
-            ));
+        if is_force_push_action(&args.join(" ")) {
+            return Err(AgentError::PolicyViolation(format!(
+                "{FORCE_PUSH_FORBIDDEN} is not allowed"
+            )));
         }
 
         // Stub: would actually execute git
