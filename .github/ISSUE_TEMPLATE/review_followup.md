@@ -21,6 +21,6 @@ Done when :
 
 _Originally posted by @reviewer in `review_comment_url`_
 
-<!-- This template is one issue per file. Keep `File : <path>` as the final line after all comments for that file. -->
+<!-- This template is one issue per file. Keep `File : path/to/file` as the final line after all comments for that file. -->
 
 File : path/to/file
