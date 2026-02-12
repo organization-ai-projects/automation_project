@@ -42,6 +42,15 @@ Scripts in this directory should:
 
 Generates a ready-to-paste PR description (e.g., `dev -> main`) by analyzing child PRs and resolved issues.
 Supports both PR-number mode (GitHub-enriched) and local dry-run mode.
+Generated body includes:
+
+- `### Description`
+- `### Scope`
+- `### Compatibility`
+- `### Issues Resolved`
+- `### Key Changes`
+- `### Testing`
+- `### Additional Notes`
 
 Usage:
 
@@ -60,6 +69,21 @@ Key options:
 - `--yes`: Non-interactive confirmation when `--create-pr` is used.
 - `--auto`: RAM-first flow (`--dry-run` + `--create-pr`) with in-memory body.
 - `--keep-artifacts`: Keep extracted PR/issue intermediate files.
+
+Compatibility behavior:
+
+- Default output is non-breaking:
+  - `- [ ] Breaking change`
+  - `- [x] Non-breaking change`
+- Compatibility switches to breaking when explicit signals are detected in analyzed data:
+  - conventional-commit breaking marker (`!`) in PR/commit titles
+  - `breaking change` keyword in analyzed PR/commit body text
+  - `breaking` label on linked PRs/issues (when available via GitHub enrichment)
+
+Scope behavior:
+
+- `Scope` is always emitted with deterministic fallback:
+  - `- Not explicitly provided.`
 
 Exit codes (automation contract):
 
