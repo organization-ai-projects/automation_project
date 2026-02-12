@@ -712,7 +712,7 @@ if [[ -s "$issues_tmp" ]]; then
                 print "#### " cat
                 found = 1
               }
-              print "- " parts[3] " " parts[4] ": " parts[5]
+              print "- " parts[3] " " parts[4]
             }
           }
           if (found) {
