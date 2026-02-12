@@ -1,7 +1,7 @@
 ---
 name: Direct issue
 about: Track work raised outside PR review flow
-title: '<type>: <short summary>'
+title: 'type: short summary'
 # Type convention: fix | refactor | chore | doc/docs | test/tests | feature/feat
 labels: []
 # Labels: choose from `.github/labels.json`
@@ -20,8 +20,8 @@ What is currently wrong / missing.
 
 Done when :
 
-- <clear verification point 1>
-- <clear verification point 2>
+- [clear verification point 1]
+- [clear verification point 2]
 
 ## References
 
