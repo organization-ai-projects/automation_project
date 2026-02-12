@@ -151,6 +151,7 @@ issues_tmp="$(mktemp)"
 declare -A pr_title_hint
 online_enrich="false"
 pr_enrich_failed=0
+breaking_detected=0
 
 is_human_interactive_terminal() {
   [[ -t 0 && -t 1 && -z "${CI:-}" ]]
@@ -477,7 +478,6 @@ parse_issue_refs_from_body() {
       line = $0
       lower = tolower($0)
       action = ""
-      line_has_ref = 0
       if (match(lower, /(closes?|closed|fixes?|fixed|resolves?|resolved)/)) {
         token = substr(lower, RSTART, RLENGTH)
         if (token ~ /^clos/) {
@@ -487,30 +487,35 @@ parse_issue_refs_from_body() {
         } else {
           action = "Resolves"
         }
-      }
 
-      while (match(line, /([[:alnum:]_.-]+\/)?#[0-9]+/)) {
-        issue_ref = substr(line, RSTART, RLENGTH)
-        sub(/^[[:alnum:]_.-]+\//, "", issue_ref)
-        effective_action = action
-        if (effective_action == "" && pending_action != "") {
-          effective_action = pending_action
+        while (match(line, /([[:alnum:]_.-]+\/)?#[0-9]+/)) {
+          issue_ref = substr(line, RSTART, RLENGTH)
+          sub(/^[[:alnum:]_.-]+\//, "", issue_ref)
+          print action "|" issue_ref
+          line = substr(line, RSTART + RLENGTH)
         }
-        if (effective_action != "") {
-          print effective_action "|" issue_ref
-          line_has_ref = 1
-        }
-        line = substr(line, RSTART + RLENGTH)
-      }
-
-      if (line_has_ref) {
-        pending_action = ""
-      } else if (action != "") {
-        pending_action = action
       }
     }
   ' \
     | sort -u
+}
+
+text_indicates_breaking() {
+  local text="${1:-}"
+  local lower
+  local cc_breaking_re
+
+  lower="$(echo "$text" | tr '[:upper:]' '[:lower:]')"
+  cc_breaking_re='^[[:space:]]*(feat|feature|fix|refactor|chore|doc|docs|test|tests)(\([a-z0-9_./,-]+\))?!:'
+
+  if [[ "$lower" =~ breaking[[:space:]_-]*change ]]; then
+    return 0
+  fi
+  if [[ "$lower" =~ $cc_breaking_re ]]; then
+    return 0
+  fi
+
+  return 1
 }
 
 normalize_issue_key() {
@@ -615,6 +620,9 @@ add_issue_entry() {
   issue_name="$(echo "$labels_tsv" | awk -F'\t' '{print $1}')"
   labels_raw="$(echo "$labels_tsv" | awk -F'\t' '{print $2}')"
   label_category="$(issue_category_from_labels "$labels_raw")"
+  if [[ "$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
+    breaking_detected=1
+  fi
 
   if [[ -z "$issue_name" ]]; then
     issue_name="$(issue_title "$issue_number")"
@@ -636,15 +644,20 @@ if [[ -s "$extracted_prs_file" ]]; then
     [[ -z "$pr_ref" ]] && continue
     pr_number="${pr_ref//#/}"
     pr_view_json=""
+    pr_labels_raw=""
 
     if [[ "$dry_run" == "true" && "$online_enrich" != "true" ]]; then
       pr_title="${pr_title_hint[$pr_ref]:-PR #${pr_number}}"
       pr_body=""
     else
-      pr_view_json="$(gh pr view "$pr_number" --json title,body 2>/dev/null || true)"
+      pr_view_json="$(gh pr view "$pr_number" --json title,body,labels 2>/dev/null || true)"
       if [[ -n "$pr_view_json" ]]; then
         pr_title="$(echo "$pr_view_json" | jq -r '.title // ""')"
         pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
+        pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
+        if [[ "$(echo "$pr_labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
+          breaking_detected=1
+        fi
       else
         pr_title=""
         pr_body=""
@@ -657,11 +670,17 @@ if [[ -s "$extracted_prs_file" ]]; then
     if [[ -z "$pr_title" ]]; then
       pr_title="${pr_title_hint[$pr_ref]:-PR #${pr_number}}"
     fi
+    if text_indicates_breaking "$pr_title"; then
+      breaking_detected=1
+    fi
 
     pr_category="$(classify_pr "$pr_ref" "$pr_title")"
     pr_count=$((pr_count + 1))
 
     if [[ -n "$pr_body" ]]; then
+      if text_indicates_breaking "$pr_body"; then
+        breaking_detected=1
+      fi
       while IFS='|' read -r action issue_key; do
         add_issue_entry "$action" "$issue_key" "$pr_category"
       done < <(parse_issue_refs_from_body "$pr_body")
@@ -676,6 +695,9 @@ if [[ "$dry_run" == "true" ]]; then
   # (e.g. "Closes #123") so issue detection works without child PR references.
   dry_commit_messages="$(git log --format=%B "${base_ref}..${head_ref}" 2>/dev/null || true)"
   if [[ -n "$dry_commit_messages" ]]; then
+    if text_indicates_breaking "$dry_commit_messages"; then
+      breaking_detected=1
+    fi
     while IFS='|' read -r action issue_key; do
       add_issue_entry "$action" "$issue_key" "Mixed"
     done < <(parse_issue_refs_from_body "$dry_commit_messages")
@@ -686,6 +708,9 @@ if [[ "$dry_run" == "false" ]]; then
   # Also include issues closed directly by the main PR itself.
   main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
   if [[ -n "$main_pr_body" ]]; then
+    if text_indicates_breaking "$main_pr_body"; then
+      breaking_detected=1
+    fi
     while IFS='|' read -r action issue_key; do
       add_issue_entry "$action" "$issue_key" "Mixed"
     done < <(parse_issue_refs_from_body "$main_pr_body")
@@ -727,7 +752,7 @@ if [[ -s "$issues_tmp" ]]; then
                 print "#### " cat
                 found = 1
               }
-              print "- " parts[3] " " parts[4]
+              print "- " parts[3] " " parts[4] ": " parts[5]
             }
           }
           if (found) {
@@ -742,6 +767,18 @@ fi
 body_content="$({
   echo "### Description"
   echo "This pull request merges the \`${head_ref}\` branch into \`${base_ref}\` and summarizes merged pull requests and resolved issues."
+  echo ""
+  echo "### Scope"
+  echo "- Not explicitly provided."
+  echo ""
+  echo "### Compatibility"
+  if [[ "$breaking_detected" -eq 1 ]]; then
+    echo "- [x] Breaking change"
+    echo "- [ ] Non-breaking change"
+  else
+    echo "- [ ] Breaking change"
+    echo "- [x] Non-breaking change"
+  fi
   echo ""
   echo "### Issues Resolved"
   echo "This PR resolves the following issues:"
