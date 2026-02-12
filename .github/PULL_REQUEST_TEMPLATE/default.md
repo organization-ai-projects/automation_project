@@ -41,6 +41,13 @@ This PR resolves the following issues:
 - Ensure all project tests are executed before merge (for example: `cargo test`, script-specific checks, and CI workflow validation).
 - Validate manually the automation workflows impacted by merged PRs.
 
+### Validation Checklist
+
+- [ ] Scope validated (affected crate/product)
+- [ ] Tests executed, or explicit reason provided for not running
+- [ ] Breaking changes identified (if applicable)
+- [ ] Correct references used (`Fixes` / `Closes` / `Related to`)
+
 ### Additional Notes
 
 - Documentation and PR summaries should be aligned with the resolved issues listed above.
