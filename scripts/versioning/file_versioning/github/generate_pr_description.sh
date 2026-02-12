@@ -499,6 +499,19 @@ parse_issue_refs_from_body() {
     | sort -u
 }
 
+normalize_issue_key() {
+  local raw="${1:-}"
+  local normalized
+
+  normalized="$(echo "$raw" | sed -nE 's/.*#([0-9]+).*/#\1/p')"
+  if [[ "$normalized" =~ ^#[0-9]+$ ]]; then
+    echo "$normalized"
+    return
+  fi
+
+  echo ""
+}
+
 echo -n > "$extracted_prs_file"
 echo -n > "$resolved_issues_file"
 
@@ -567,12 +580,15 @@ add_issue_entry() {
   local action="$1"
   local issue_key="$2"
   local category="${3:-Unknown}"
+  local normalized_issue_key
   local issue_number
   local issue_name labels_tsv labels_raw label_category
   local final_category
   local normalized_action
 
-  [[ -z "$issue_key" ]] && return
+  normalized_issue_key="$(normalize_issue_key "$issue_key")"
+  [[ -z "$normalized_issue_key" ]] && return
+  issue_key="$normalized_issue_key"
   issue_number="${issue_key//#/}"
 
   if [[ -n "${seen_issue[$issue_key]:-}" ]]; then
