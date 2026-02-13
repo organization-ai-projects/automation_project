@@ -502,18 +502,35 @@ parse_issue_refs_from_body() {
 
 text_indicates_breaking() {
   local text="${1:-}"
+  local line
   local lower
-  local cc_breaking_re
+  # Conventional commit breaking marker, generic type support:
+  # type!: ... OR type(scope)!: ...
+  local cc_breaking_re='^[[:space:]]*[a-z][a-z0-9_-]*(\([a-z0-9_./,-]+\))?!:[[:space:]]+'
 
-  lower="$(echo "$text" | tr '[:upper:]' '[:lower:]')"
-  cc_breaking_re='^[[:space:]]*(feat|feature|fix|refactor|chore|doc|docs|test|tests)(\([a-z0-9_./,-]+\))?!:'
+  while IFS= read -r line; do
+    lower="$(echo "$line" | tr '[:upper:]' '[:lower:]')"
 
-  if [[ "$lower" =~ breaking[[:space:]_-]*change ]]; then
-    return 0
-  fi
-  if [[ "$lower" =~ $cc_breaking_re ]]; then
-    return 0
-  fi
+    # Explicitly ignore "non-breaking change" phrasing.
+    if [[ "$lower" =~ non[[:space:]-]?breaking[[:space:]_-]*change ]]; then
+      continue
+    fi
+
+    # Explicit checklist signal in generated/template PR bodies.
+    if [[ "$lower" =~ ^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*breaking[[:space:]_-]*change([[:space:]]|$) ]]; then
+      return 0
+    fi
+
+    # Conventional BREAKING CHANGE footer signal.
+    if [[ "$lower" =~ ^[[:space:]]*breaking[[:space:]_-]*change[[:space:]]*: ]]; then
+      return 0
+    fi
+
+    # Conventional commit header with breaking marker.
+    if [[ "$lower" =~ $cc_breaking_re ]]; then
+      return 0
+    fi
+  done <<< "$text"
 
   return 1
 }
