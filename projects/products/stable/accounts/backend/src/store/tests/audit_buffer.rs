@@ -429,6 +429,20 @@ async fn test_multiple_flushes() {
         .await
         .expect("Failed to append second entry of first batch");
 
+    // Wait until first batch is visible on disk.
+    poll_until_async(
+        || async {
+            read_audit_log(&audit_path)
+                .await
+                .map(|lines| lines.len() == 2)
+                .unwrap_or(false)
+        },
+        Duration::from_secs(2),
+        Duration::from_millis(20),
+    )
+    .await
+    .expect("Audit log should contain 2 entries after first batch");
+
     // Should have 2 entries
     let lines = read_audit_log(&audit_path)
         .await
@@ -457,6 +471,20 @@ async fn test_multiple_flushes() {
         })
         .await
         .expect("Failed to append second entry of second batch");
+
+    // Wait until second batch append is visible on disk.
+    poll_until_async(
+        || async {
+            read_audit_log(&audit_path)
+                .await
+                .map(|lines| lines.len() == 4)
+                .unwrap_or(false)
+        },
+        Duration::from_secs(2),
+        Duration::from_millis(20),
+    )
+    .await
+    .expect("Audit log should contain 4 entries after second batch");
 
     // Should have 4 entries total (appended, not replaced)
     let lines = read_audit_log(&audit_path)
