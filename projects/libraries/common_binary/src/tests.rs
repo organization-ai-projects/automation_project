@@ -45,6 +45,36 @@ fn test_write_read_round_trip() {
 }
 
 #[test]
+fn test_overwrite_existing_file_preserves_latest_data() {
+    let (_temp_dir, path) = test_file_path("test_overwrite_existing.bin");
+
+    let first = TestData {
+        id: 1,
+        name: "first".to_string(),
+        values: vec![1, 2, 3],
+    };
+
+    let second = TestData {
+        id: 2,
+        name: "second".to_string(),
+        values: vec![9, 8, 7],
+    };
+
+    let opts = BinaryOptions {
+        magic: *b"TEST",
+        container_version: 1,
+        schema_id: 100,
+        verify_checksum: true,
+    };
+
+    write_binary(&first, &path, &opts).unwrap();
+    write_binary(&second, &path, &opts).unwrap();
+
+    let loaded: TestData = read_binary(&path, &opts).unwrap();
+    assert_eq!(second, loaded);
+}
+
+#[test]
 fn test_invalid_magic_rejected() {
     let (_temp_dir, path) = test_file_path("test_invalid_magic.bin");
 
