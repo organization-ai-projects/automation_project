@@ -66,6 +66,7 @@ The `add_commit_push.sh` script enforces conventional commit message format:
 - `feat(auth): add user authentication`
 - `fix: resolve null pointer exception`
 - `docs(readme): update installation instructions`
+- `docs(.github): add default PR template`
 
 **Bypass** (not recommended):
 
