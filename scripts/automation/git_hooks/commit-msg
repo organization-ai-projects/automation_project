@@ -15,8 +15,8 @@ fi
 ALLOWED_TYPES="^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)"
 
 # Validate format: <type>(<scope>): <message> or <type>: <message>
-# Allows multiple scopes separated by commas: feat(ci,scripts/versioning): message
-if [[ ! "$COMMIT_MSG" =~ $ALLOWED_TYPES(\([a-zA-Z0-9_/,-]+\))?:\ .+ ]]; then
+# Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
+if [[ ! "$COMMIT_MSG" =~ $ALLOWED_TYPES(\([a-zA-Z0-9_./,-]+\))?:\ .+ ]]; then
   echo "❌ Invalid commit message format!"
   echo ""
   echo "Expected format:"
@@ -30,6 +30,7 @@ if [[ ! "$COMMIT_MSG" =~ $ALLOWED_TYPES(\([a-zA-Z0-9_/,-]+\))?:\ .+ ]]; then
   echo "Examples:"
   echo "  feat(auth): add user authentication"
   echo "  feat(ci,scripts): add workflows and sync script"
+  echo "  docs(.github): add default PR template"
   echo "  fix: resolve null pointer exception"
   echo "  docs(readme): update installation instructions"
   echo ""

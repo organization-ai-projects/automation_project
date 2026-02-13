@@ -33,8 +33,8 @@ validate_commit_message() {
   local allowed_types="^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)"
   
   # Validate format: <type>(<scope>): <message> or <type>: <message>
-  # Allows multiple scopes separated by commas: feat(ci,scripts): message
-  if [[ ! "$message" =~ $allowed_types(\([a-zA-Z0-9_/,-]+\))?:\ .+ ]]; then
+  # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
+  if [[ ! "$message" =~ $allowed_types(\([a-zA-Z0-9_./,-]+\))?:\ .+ ]]; then
     echo "❌ Invalid commit message format!" >&2
     echo "" >&2
     echo "Expected format:" >&2
@@ -48,6 +48,7 @@ validate_commit_message() {
     echo "Examples:" >&2
     echo "  feat(auth): add user authentication" >&2
     echo "  feat(ci,scripts): add workflows and sync script" >&2
+    echo "  docs(.github): add default PR template" >&2
     echo "  fix: resolve null pointer exception" >&2
     echo "  docs(readme): update installation instructions" >&2
     echo "  refactor(api): simplify error handling" >&2
