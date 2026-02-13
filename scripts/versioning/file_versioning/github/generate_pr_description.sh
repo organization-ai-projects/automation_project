@@ -387,11 +387,28 @@ build_dynamic_pr_title() {
 
 issue_title() {
   local issue_number="$1"
+  local repo_name_with_owner
+  repo_name_with_owner="$(get_repo_name_with_owner)"
+
+  if [[ -n "$repo_name_with_owner" ]]; then
+    gh issue view "$issue_number" -R "$repo_name_with_owner" --json title -q '.title' 2>/dev/null || true
+    return
+  fi
+
   gh issue view "$issue_number" --json title -q '.title' 2>/dev/null || true
 }
 
 issue_title_and_labels() {
   local issue_number="$1"
+  local repo_name_with_owner
+  repo_name_with_owner="$(get_repo_name_with_owner)"
+
+  if [[ -n "$repo_name_with_owner" ]]; then
+    gh issue view "$issue_number" -R "$repo_name_with_owner" --json title,labels \
+      -q '[.title, (.labels | map(.name) | join("||"))] | @tsv' 2>/dev/null || true
+    return
+  fi
+
   gh issue view "$issue_number" --json title,labels \
     -q '[.title, (.labels | map(.name) | join("||"))] | @tsv' 2>/dev/null || true
 }
@@ -565,6 +582,8 @@ declare -A seen_issue
 declare -A issue_category
 declare -A issue_action
 declare -A issue_name_map
+declare -A pr_ref_cache
+repo_name_with_owner_cache=""
 pr_count=0
 issue_count=0
 
@@ -612,6 +631,45 @@ normalize_issue_action() {
   echo "Closes"
 }
 
+get_repo_name_with_owner() {
+  if [[ -n "$repo_name_with_owner_cache" ]]; then
+    echo "$repo_name_with_owner_cache"
+    return
+  fi
+
+  if [[ -n "${GH_REPO:-}" ]]; then
+    repo_name_with_owner_cache="$GH_REPO"
+    echo "$repo_name_with_owner_cache"
+    return
+  fi
+
+  repo_name_with_owner_cache="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  echo "$repo_name_with_owner_cache"
+}
+
+is_pull_request_ref() {
+  local issue_number="$1"
+  local cache_key="#${issue_number}"
+  local repo_name_with_owner
+
+  if [[ -n "${pr_ref_cache[$cache_key]:-}" ]]; then
+    [[ "${pr_ref_cache[$cache_key]}" == "1" ]]
+    return
+  fi
+
+  repo_name_with_owner="$(get_repo_name_with_owner)"
+
+  # Use REST pulls/{number}: reliable 404 for non-PR issue numbers.
+  if [[ -n "$repo_name_with_owner" ]] \
+    && gh api "repos/${repo_name_with_owner}/pulls/${issue_number}" >/dev/null 2>&1; then
+    pr_ref_cache["$cache_key"]="1"
+    return 0
+  fi
+
+  pr_ref_cache["$cache_key"]="0"
+  return 1
+}
+
 add_issue_entry() {
   local action="$1"
   local issue_key="$2"
@@ -627,6 +685,11 @@ add_issue_entry() {
   fi
   issue_key="$normalized_issue_key"
   issue_number="${issue_key//#/}"
+
+  # Issues Resolved must only contain GitHub issues, not PR references.
+  if is_pull_request_ref "$issue_number"; then
+    return
+  fi
 
   if [[ -n "${seen_issue[$issue_key]:-}" ]]; then
     return
@@ -649,6 +712,9 @@ add_issue_entry() {
   fi
 
   final_category="$label_category"
+  if [[ "$final_category" == "Unknown" && "$category" != "Unknown" ]]; then
+    final_category="$category"
+  fi
 
   issue_category["$issue_key"]="$final_category"
   issue_name_map["$issue_key"]="$issue_name"
@@ -769,7 +835,7 @@ if [[ -s "$issues_tmp" ]]; then
                 print "#### " cat
                 found = 1
               }
-              print "- " parts[3] " " parts[4] ": " parts[5]
+              print "- " parts[3] " " parts[4]
             }
           }
           if (found) {
