@@ -22,6 +22,42 @@ build_pr_bullet() {
   fi
 }
 
+extract_merge_source_ref() {
+  local title_lc="$1"
+  echo "$title_lc" | sed -nE 's/.*merge[[:space:]]+pull[[:space:]]+request[[:space:]]*#[0-9]+[[:space:]]+from[[:space:]]+([^[:space:]]+).*/\1/p'
+}
+
+classify_merge_by_source_ref() {
+  local merge_source_ref="$1"
+  local merge_branch
+
+  merge_branch="${merge_source_ref##*/}"
+
+  if [[ "$merge_source_ref" =~ /sync/ ]] \
+    || [[ "$merge_branch" =~ (main|dev|master|staging|release[^[:space:]]*)-?(into|to)-?(main|dev|master|staging|release[^[:space:]]*) ]]; then
+    echo "Synchronization"
+    return
+  fi
+
+  if [[ "$merge_source_ref" =~ /fix/ ]]; then
+    echo "Bug Fixes"
+    return
+  fi
+
+  if [[ "$merge_source_ref" =~ /(refactor|chore|docs|doc|test|tests)/ ]]; then
+    echo "Refactoring"
+    return
+  fi
+
+  if [[ "$merge_source_ref" =~ /(feat|feature|enhancement)/ ]]; then
+    echo "Features"
+    return
+  fi
+
+  # Safer default for merge commits: avoid over-classifying as Features.
+  echo "Refactoring"
+}
+
 classify_pr() {
   local pr_ref="$1"
   local title="$2"
@@ -29,6 +65,8 @@ classify_pr() {
   local bullet
   local category
   local starts_sync_or_merge=0
+  local merge_source_ref=""
+  local merge_category=""
 
   title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
   bullet="$(build_pr_bullet "$title" "$pr_ref")"
@@ -36,6 +74,29 @@ classify_pr() {
   if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] \
     || [[ "$title_lc" =~ ^[[:space:]]*(chore|refactor|fix|feat|docs|test|tests)[^:]*:[[:space:]]*(sync|merge) ]]; then
     starts_sync_or_merge=1
+  fi
+
+  if [[ "$title_lc" =~ ^[[:space:]]*merge[[:space:]]+pull[[:space:]]+request[[:space:]]*#[0-9]+[[:space:]]+from[[:space:]]+ ]]; then
+    merge_source_ref="$(extract_merge_source_ref "$title_lc")"
+    merge_category="$(classify_merge_by_source_ref "$merge_source_ref")"
+
+    case "$merge_category" in
+      Synchronization)
+        echo "$bullet" >> "$sync_tmp"
+        ;;
+      "Bug Fixes")
+        echo "$bullet" >> "$bugs_tmp"
+        ;;
+      Refactoring)
+        echo "$bullet" >> "$refactors_tmp"
+        ;;
+      *)
+        echo "$bullet" >> "$features_tmp"
+        ;;
+    esac
+    debug_log "classify_pr: ${pr_ref} -> ${merge_category} (merge source: ${merge_source_ref})"
+    echo "$merge_category"
+    return
   fi
 
   # Keep synchronization PRs in a dedicated category.
