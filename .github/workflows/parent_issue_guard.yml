@@ -32,18 +32,18 @@ jobs:
         run: |
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
             --issue "${{ github.event.issue.number }}" \
-            --strict-guard false
+            --strict-guard true
 
       - name: Evaluate parent candidates from changed child
         if: github.event_name == 'issues'
         run: |
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
             --child "${{ github.event.issue.number }}" \
-            --strict-guard false
+            --strict-guard true
 
       - name: Manual parent evaluation
         if: github.event_name == 'workflow_dispatch' && inputs.issue_number != ''
         run: |
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
             --issue "${{ inputs.issue_number }}" \
-            --strict-guard false
+            --strict-guard true
