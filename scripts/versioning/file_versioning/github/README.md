@@ -58,9 +58,9 @@ Generated body includes:
 Usage:
 
 ```bash
-bash generate_pr_description.sh [--keep-artifacts] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
-bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
-bash generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--yes]
+bash generate_pr_description.sh [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
+bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
+bash generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
 ```
 
 Key options:
@@ -70,7 +70,9 @@ Key options:
 - `--create-pr`: In dry-run mode, optionally create the PR with the generated body.
 - `--allow-partial-create`: Allow PR creation even if GitHub enrichment is incomplete.
 - `--auto-edit PR_NUMBER`: Generate body in memory and update an existing PR directly (no output file).
+- `--duplicate-mode MODE`: Duplicate handling mode (`safe` or `auto-close`).
 - `--yes`: Non-interactive confirmation when `--create-pr` is used.
+- `--debug`: Enable extraction and classification traces on stderr.
 - `--auto`: RAM-first flow (`--dry-run` + `--create-pr`) with in-memory body.
 - `--keep-artifacts`: Keep extracted PR/issue intermediate files.
 
@@ -90,6 +92,22 @@ Scope behavior:
 
 - `Scope` is always emitted with deterministic fallback:
   - `- Not explicitly provided.`
+
+Duplicate handling:
+
+- Default: disabled (no duplicate comment/closure action).
+- `--duplicate-mode safe`: posts a standardized comment on detected duplicate issue references.
+- `--duplicate-mode auto-close`: posts duplicate comment and closes duplicate issue.
+- In `--dry-run`, duplicate mode is simulation-only (deterministic output, no mutation).
+
+Dependency behavior:
+
+- `gh` is required for:
+  - main PR mode
+  - `--create-pr`
+  - `--auto-edit`
+  - duplicate actions outside dry-run
+- Pure local dry-run (`--dry-run` without online actions) works without `gh`.
 
 Exit codes (automation contract):
 

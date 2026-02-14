@@ -13,9 +13,9 @@ SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description
 
 print_usage() {
   cat <<EOF
-Usage: ${SCRIPT_PATH} [--keep-artifacts] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
-       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
-       ${SCRIPT_PATH} --auto [--base BRANCH] [--head BRANCH] [--yes]
+Usage: ${SCRIPT_PATH} [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
+       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
+       ${SCRIPT_PATH} --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
 EOF
 }
 
@@ -27,6 +27,8 @@ Notes:
   --dry-run       Extract PRs from local git history (base..head).
   --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR.
   --auto-edit     Generate body in memory and update an existing PR directly.
+  --duplicate-mode  Duplicate handling mode: safe | auto-close.
+  --debug         Print extraction/classification trace to stderr.
   --auto          RAM-first mode: dry-run + create-pr, body kept in memory.
 EOF
 }
@@ -57,6 +59,8 @@ allow_partial_create="false"
 assume_yes="false"
 auto_mode="false"
 auto_edit_pr_number=""
+debug_mode="false"
+duplicate_mode=""
 
 positionals=()
 while [[ $# -gt 0 ]]; do
@@ -100,6 +104,15 @@ while [[ $# -gt 0 ]]; do
       auto_edit_pr_number="${2:-}"
       shift 2
       ;;
+    --duplicate-mode)
+      require_option_value "--duplicate-mode" "${2:-}"
+      duplicate_mode="${2:-}"
+      shift 2
+      ;;
+    --debug)
+      debug_mode="true"
+      shift
+      ;;
     -h|--help)
       print_help
       exit 0
@@ -111,6 +124,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+debug_log() {
+  if [[ "$debug_mode" == "true" ]]; then
+    echo "[debug] $*" >&2
+  fi
+}
+
 if [[ "$auto_mode" == "true" ]]; then
   dry_run="true"
   create_pr="true"
@@ -121,6 +140,10 @@ fi
 
 if [[ -n "$auto_edit_pr_number" ]] && [[ ! "$auto_edit_pr_number" =~ ^[0-9]+$ ]]; then
   usage_error "--auto-edit requiert un PR_NUMBER numérique."
+fi
+
+if [[ -n "$duplicate_mode" ]] && [[ "$duplicate_mode" != "safe" && "$duplicate_mode" != "auto-close" ]]; then
+  usage_error "--duplicate-mode doit être 'safe' ou 'auto-close'."
 fi
 
 if [[ "$create_pr" == "true" && "$dry_run" != "true" ]]; then
@@ -193,7 +216,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if ! command -v gh >/dev/null 2>&1; then
+has_gh="false"
+if command -v gh >/dev/null 2>&1; then
+  has_gh="true"
+fi
+
+need_gh="false"
+if [[ "$dry_run" == "false" || "$create_pr" == "true" || -n "$auto_edit_pr_number" ]]; then
+  need_gh="true"
+fi
+if [[ -n "$duplicate_mode" && "$dry_run" != "true" ]]; then
+  need_gh="true"
+fi
+if [[ "$need_gh" == "true" && "$has_gh" != "true" ]]; then
   echo "Erreur: la commande 'gh' est introuvable." >&2
   exit "$E_DEPENDENCY"
 fi
@@ -229,6 +264,10 @@ fi
 
 if [[ "$dry_run" == "true" && "$create_pr" == "true" ]]; then
   online_enrich="true"
+fi
+
+if [[ "$has_gh" != "true" && "$dry_run" == "true" && "$create_pr" != "true" ]]; then
+  debug_log "Running pure local dry-run without gh dependency."
 fi
 
 extract_child_prs() {
@@ -273,6 +312,7 @@ extract_child_prs() {
     echo "$main_pr_comments" | sed -nE 's/.*pull request #([0-9]+).*/#\1/ip'
     echo "$timeline_pr_refs"
   } | grep -E '^#[0-9]+$' | sort -u | grep -v "^#${main_pr_number}$" > "$extracted_prs_file"
+  debug_log "extract_child_prs(main=#${main_pr_number}) => $(tr '\n' ' ' < "$extracted_prs_file")"
 
   return 0
 }
@@ -282,6 +322,7 @@ extract_child_prs_dry() {
   local message
   commit_headlines="$(git log --oneline "${base_ref}..${head_ref}" 2>/dev/null || true)"
   if [[ -z "$commit_headlines" ]]; then
+    debug_log "extract_child_prs_dry(${base_ref}..${head_ref}) => no commits found"
     return 1
   fi
 
@@ -299,6 +340,7 @@ extract_child_prs_dry() {
     echo "$commit_headlines" | sed -nE 's/.*Merge pull request #([0-9]+).*/#\1/p'
     echo "$commit_headlines" | sed -nE 's/.*\(#([0-9]+)\)\s*$/#\1/p'
   } | sort -u > "$extracted_prs_file"
+  debug_log "extract_child_prs_dry(${base_ref}..${head_ref}) => $(tr '\n' ' ' < "$extracted_prs_file")"
 
   return 0
 }
@@ -326,6 +368,7 @@ classify_pr() {
     && [[ "$title_lc" =~ (main|dev|master|staging|release[^[:space:]]*)[^[:alnum:]_/-]+(into|->|→)[^[:alnum:]_/-]+(main|dev|master|staging|release[^[:space:]]*) ]]; then
     category="Synchronization"
     echo "$bullet" >> "$sync_tmp"
+    debug_log "classify_pr: ${pr_ref} -> ${category}"
     echo "$category"
     return
   fi
@@ -334,18 +377,21 @@ classify_pr() {
   if [[ "$title_lc" =~ ^fix(\(|:|!|[[:space:]]) ]]; then
     category="Bug Fixes"
     echo "$bullet" >> "$bugs_tmp"
+    debug_log "classify_pr: ${pr_ref} -> ${category}"
     echo "$category"
     return
   fi
   if [[ "$title_lc" =~ ^refactor(\(|:|!|[[:space:]]) ]] || [[ "$title_lc" =~ ^chore(\(|:|!|[[:space:]]) ]]; then
     category="Refactoring"
     echo "$bullet" >> "$refactors_tmp"
+    debug_log "classify_pr: ${pr_ref} -> ${category}"
     echo "$category"
     return
   fi
   if [[ "$title_lc" =~ ^feat(\(|:|!|[[:space:]]) ]]; then
     category="Features"
     echo "$bullet" >> "$features_tmp"
+    debug_log "classify_pr: ${pr_ref} -> ${category}"
     echo "$category"
     return
   fi
@@ -361,6 +407,7 @@ classify_pr() {
     echo "$bullet" >> "$features_tmp"
   fi
 
+  debug_log "classify_pr: ${pr_ref} -> ${category}"
   echo "$category"
 }
 
@@ -416,6 +463,13 @@ build_dynamic_pr_title() {
 issue_labels() {
   local issue_number="$1"
   local repo_name_with_owner
+
+  if [[ "$has_gh" != "true" ]]; then
+    debug_log "issue_labels(#${issue_number}): gh unavailable, fallback empty labels."
+    echo ""
+    return
+  fi
+
   repo_name_with_owner="$(get_repo_name_with_owner)"
 
   if [[ -n "$repo_name_with_owner" ]]; then
@@ -532,6 +586,25 @@ parse_issue_refs_from_body() {
     | sort -u
 }
 
+parse_duplicate_refs_from_text() {
+  local body="$1"
+  echo "$body" | awk '
+    BEGIN { IGNORECASE = 1 }
+    {
+      line = $0
+      while (match(line, /#([0-9]+)[[:space:]]+duplicate[[:space:]]+of[[:space:]]+#([0-9]+)/)) {
+        matched = substr(line, RSTART, RLENGTH)
+        gsub(/[^0-9]+/, " ", matched)
+        split(matched, nums, " ")
+        if (nums[1] != "" && nums[2] != "") {
+          print "#" nums[1] "|" "#" nums[2]
+        }
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' | sort -u
+}
+
 text_indicates_breaking() {
   local text="${1:-}"
   local line
@@ -597,6 +670,7 @@ declare -A seen_issue
 declare -A issue_category
 declare -A issue_action
 declare -A pr_ref_cache
+declare -A duplicate_targets
 repo_name_with_owner_cache=""
 pr_count=0
 issue_count=0
@@ -646,6 +720,11 @@ normalize_issue_action() {
 }
 
 get_repo_name_with_owner() {
+  if [[ "$has_gh" != "true" ]]; then
+    echo ""
+    return
+  fi
+
   if [[ -n "$repo_name_with_owner_cache" ]]; then
     echo "$repo_name_with_owner_cache"
     return
@@ -669,6 +748,12 @@ is_pull_request_ref() {
   if [[ -n "${pr_ref_cache[$cache_key]:-}" ]]; then
     [[ "${pr_ref_cache[$cache_key]}" == "1" ]]
     return
+  fi
+
+  if [[ "$has_gh" != "true" ]]; then
+    debug_log "is_pull_request_ref(#${issue_number}): gh unavailable, assume issue."
+    pr_ref_cache["$cache_key"]="0"
+    return 1
   fi
 
   repo_name_with_owner="$(get_repo_name_with_owner)"
@@ -709,6 +794,7 @@ add_issue_entry() {
 
   # Issues Resolved must only contain GitHub issues, not PR references.
   if is_pull_request_ref "$issue_number"; then
+    debug_log "discard_issue_ref_as_pr: ${issue_key}"
     return
   fi
 
@@ -731,6 +817,27 @@ add_issue_entry() {
   issue_category["$issue_key"]="$final_category"
   normalized_action="$(normalize_issue_action "$action" "$final_category")"
   issue_action["$issue_key"]="$normalized_action"
+  debug_log "issue_entry: key=${issue_key} action=${normalized_action} category=${final_category}"
+}
+
+add_duplicate_entry() {
+  local duplicate_issue_key_raw="$1"
+  local canonical_issue_key_raw="$2"
+  local duplicate_issue_key
+  local canonical_issue_key
+
+  if ! duplicate_issue_key="$(normalize_issue_key "$duplicate_issue_key_raw")"; then
+    return
+  fi
+  if ! canonical_issue_key="$(normalize_issue_key "$canonical_issue_key_raw")"; then
+    return
+  fi
+  if [[ "$duplicate_issue_key" == "$canonical_issue_key" ]]; then
+    return
+  fi
+
+  duplicate_targets["$duplicate_issue_key"]="$canonical_issue_key"
+  debug_log "duplicate_entry: ${duplicate_issue_key} -> ${canonical_issue_key}"
 }
 
 if [[ -s "$extracted_prs_file" ]]; then
@@ -757,6 +864,7 @@ if [[ -s "$extracted_prs_file" ]]; then
         pr_body=""
         if [[ "$online_enrich" == "true" ]]; then
           pr_enrich_failed=$((pr_enrich_failed + 1))
+          debug_log "enrich_fallback: failed to read PR ${pr_ref} via gh pr view"
         fi
       fi
     fi
@@ -776,8 +884,12 @@ if [[ -s "$extracted_prs_file" ]]; then
         breaking_detected=1
       fi
       while IFS='|' read -r action issue_key; do
+        debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
         add_issue_entry "$action" "$issue_key" "$pr_category"
       done < <(parse_issue_refs_from_body "$pr_body")
+      while IFS='|' read -r duplicate_issue canonical_issue; do
+        add_duplicate_entry "$duplicate_issue" "$canonical_issue"
+      done < <(parse_duplicate_refs_from_text "$pr_body")
     fi
 
     :
@@ -793,8 +905,12 @@ if [[ "$dry_run" == "true" ]]; then
       breaking_detected=1
     fi
     while IFS='|' read -r action issue_key; do
+      debug_log "parsed_issue_ref(dry commits): ${action}|${issue_key}"
       add_issue_entry "$action" "$issue_key" "Mixed"
     done < <(parse_issue_refs_from_body "$dry_commit_messages")
+    while IFS='|' read -r duplicate_issue canonical_issue; do
+      add_duplicate_entry "$duplicate_issue" "$canonical_issue"
+    done < <(parse_duplicate_refs_from_text "$dry_commit_messages")
   fi
 fi
 
@@ -806,8 +922,12 @@ if [[ "$dry_run" == "false" ]]; then
       breaking_detected=1
     fi
     while IFS='|' read -r action issue_key; do
+      debug_log "parsed_issue_ref(main pr): ${action}|${issue_key}"
       add_issue_entry "$action" "$issue_key" "Mixed"
     done < <(parse_issue_refs_from_body "$main_pr_body")
+    while IFS='|' read -r duplicate_issue canonical_issue; do
+      add_duplicate_entry "$duplicate_issue" "$canonical_issue"
+    done < <(parse_duplicate_refs_from_text "$main_pr_body")
   fi
 
 fi
@@ -857,6 +977,71 @@ if [[ -s "$issues_tmp" ]]; then
     ' > "$resolved_issues_file"
   issue_count="${#seen_issue[@]}"
 fi
+
+process_duplicate_mode() {
+  local duplicate_issue_key
+  local canonical_issue_key
+  local duplicate_issue_number
+  local repo_name_with_owner
+  local comment_body
+
+  if [[ -z "$duplicate_mode" ]]; then
+    return
+  fi
+
+  local duplicate_count=0
+  for duplicate_issue_key in "${!duplicate_targets[@]}"; do
+    duplicate_count=$((duplicate_count + 1))
+  done
+
+  if [[ "$duplicate_count" -eq 0 ]]; then
+    echo "Duplicate mode (${duplicate_mode}): no duplicate declarations detected."
+    return
+  fi
+
+  echo "Duplicate mode (${duplicate_mode}): ${duplicate_count} duplicate declaration(s) detected."
+
+  if [[ "$dry_run" == "true" ]]; then
+    for duplicate_issue_key in "${!duplicate_targets[@]}"; do
+      canonical_issue_key="${duplicate_targets[$duplicate_issue_key]}"
+      echo "Duplicate mode (${duplicate_mode}) [dry-run]: ${duplicate_issue_key} -> ${canonical_issue_key}"
+    done
+    return
+  fi
+
+  if [[ "$has_gh" != "true" ]]; then
+    echo "Erreur: --duplicate-mode requiert gh en mode non dry-run." >&2
+    exit "$E_DEPENDENCY"
+  fi
+
+  repo_name_with_owner="$(get_repo_name_with_owner)"
+  if [[ -z "$repo_name_with_owner" ]]; then
+    echo "Erreur: impossible de déterminer le dépôt GitHub pour --duplicate-mode." >&2
+    exit "$E_DEPENDENCY"
+  fi
+
+  for duplicate_issue_key in "${!duplicate_targets[@]}"; do
+    canonical_issue_key="${duplicate_targets[$duplicate_issue_key]}"
+    duplicate_issue_number="${duplicate_issue_key//#/}"
+
+    if [[ "$duplicate_mode" == "safe" ]]; then
+      comment_body="Potential duplicate detected by PR generation workflow: ${duplicate_issue_key} may duplicate ${canonical_issue_key}. Please review manually."
+    else
+      # GitHub recognizes this phrase for duplicate intent.
+      comment_body="Duplicate of ${canonical_issue_key}"
+    fi
+
+    gh api "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}/comments" \
+      -f body="${comment_body}" >/dev/null
+    echo "Duplicate mode (${duplicate_mode}): commented on ${duplicate_issue_key} (target ${canonical_issue_key})."
+
+    if [[ "$duplicate_mode" == "auto-close" ]]; then
+      gh api -X PATCH "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}" \
+        -f state="closed" -f state_reason="not_planned" >/dev/null
+      echo "Duplicate mode (${duplicate_mode}): closed ${duplicate_issue_key}."
+    fi
+  done
+}
 
 body_content="$({
   echo "### Description"
@@ -925,6 +1110,8 @@ if [[ "$keep_artifacts" == "true" ]]; then
   echo "PR extraites: $extracted_prs_file"
   echo "Issues résolues: $resolved_issues_file"
 fi
+
+process_duplicate_mode
 
 if [[ "$create_pr" == "true" ]]; then
   if [[ "$online_enrich" == "true" && "$pr_enrich_failed" -gt 0 && "$allow_partial_create" != "true" ]]; then

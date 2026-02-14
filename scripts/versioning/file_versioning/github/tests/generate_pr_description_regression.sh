@@ -141,6 +141,7 @@ main() {
   run_case "missing-main-pr" 2 "MAIN_PR_NUMBER est requis" mock
   run_case "base-missing-value" 2 "--base requiert une valeur" mock --base
   run_case "head-missing-value" 2 "--head requiert une valeur" mock --head
+  run_case "duplicate-mode-invalid" 2 "--duplicate-mode doit être 'safe' ou 'auto-close'" mock --duplicate-mode invalid --dry-run
   run_case "auto-edit-missing-value" 2 "--auto-edit requiert une valeur" mock --auto-edit
   run_case "auto-edit-non-numeric" 2 "--auto-edit requiert un PR_NUMBER numérique" mock --auto-edit abc --dry-run
   run_case "create-pr-without-dry-run" 2 "--create-pr est uniquement supporté avec --dry-run" mock --create-pr 42
@@ -152,7 +153,10 @@ main() {
   run_case "dry-run-too-many-positionals" 2 "Trop d'arguments positionnels pour --dry-run" mock --dry-run out.md extra.md
   run_case "dry-run-minimal" 0 "Fichier généré:" mock --dry-run --base dev --head test-head /tmp/pr_description_test.md
   run_case "auto-edit-dry-run-in-memory" 0 "mode --auto-edit" mock --dry-run --auto-edit 400 --base dev --head test-head --yes
-  run_case "missing-gh-dependency" 3 "la commande 'gh' est introuvable" no_gh --dry-run --base dev --head test-head
+  run_case "dry-run-without-gh" 0 "Fichier généré:" no_gh --dry-run --base dev --head test-head /tmp/pr_description_test_no_gh.md
+  run_case "missing-gh-required-main-mode" 3 "la commande 'gh' est introuvable" no_gh 42
+  run_case "duplicate-mode-dry-run-output" 0 "Duplicate mode \\(safe\\): no duplicate declarations detected" mock --dry-run --base dev --head test-head --duplicate-mode safe
+  run_case "debug-flag-emits-trace" 0 "\\[debug\\] extract_child_prs_dry" mock --dry-run --base dev --head test-head --debug
 
   TESTS_RUN=$((TESTS_RUN + 1))
   tmp="$(mktemp_compat)"
