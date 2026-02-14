@@ -16,8 +16,8 @@ source "${SCRIPT_DIR}/lib/rendering.sh"
 
 print_usage() {
   cat <<EOF
-Usage: ${SCRIPT_PATH} [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
-       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
+Usage: ${SCRIPT_PATH} [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] [--refresh-pr PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
+       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER|--refresh-pr PR_NUMBER] [--yes] [OUTPUT_FILE]
        ${SCRIPT_PATH} --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
 EOF
 }
@@ -30,6 +30,7 @@ Notes:
   --dry-run       Extract PRs from local git history (base..head).
   --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR.
   --auto-edit     Generate body in memory and update an existing PR directly.
+  --refresh-pr    Alias of --auto-edit.
   --duplicate-mode  Duplicate handling mode: safe | auto-close.
   --debug         Print extraction/classification trace to stderr.
   --auto          RAM-first mode: dry-run + create-pr, body kept in memory.
@@ -62,6 +63,7 @@ allow_partial_create="false"
 assume_yes="false"
 auto_mode="false"
 auto_edit_pr_number=""
+refresh_pr_used="false"
 debug_mode="false"
 duplicate_mode=""
 
@@ -107,6 +109,15 @@ while [[ $# -gt 0 ]]; do
       auto_edit_pr_number="${2:-}"
       shift 2
       ;;
+    --refresh-pr)
+      require_option_value "--refresh-pr" "${2:-}"
+      if [[ -n "$auto_edit_pr_number" && "$auto_edit_pr_number" != "${2:-}" ]]; then
+        usage_error "--refresh-pr et --auto-edit doivent cibler le même PR_NUMBER."
+      fi
+      auto_edit_pr_number="${2:-}"
+      refresh_pr_used="true"
+      shift 2
+      ;;
     --duplicate-mode)
       require_option_value "--duplicate-mode" "${2:-}"
       duplicate_mode="${2:-}"
@@ -142,6 +153,9 @@ if [[ "$auto_mode" == "true" ]]; then
 fi
 
 if [[ -n "$auto_edit_pr_number" ]] && [[ ! "$auto_edit_pr_number" =~ ^[0-9]+$ ]]; then
+  if [[ "$refresh_pr_used" == "true" ]]; then
+    usage_error "--refresh-pr requiert un PR_NUMBER numérique."
+  fi
   usage_error "--auto-edit requiert un PR_NUMBER numérique."
 fi
 
