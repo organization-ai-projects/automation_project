@@ -9,15 +9,41 @@ E_GIT=4
 E_NO_DATA=5
 E_PARTIAL=6
 
-# Usage:
-#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]
-#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]
-#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--yes]
-# Example:
-#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh 234 pr_description.md
-#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --keep-artifacts 234 pr_description.md
-#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run --base main --head dev pr_description.md
-#   ./scripts/versioning/file_versioning/github/generate_pr_description.sh --auto --base dev --head feature/my-branch
+SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description.sh"
+
+print_usage() {
+  cat <<EOF
+Usage: ${SCRIPT_PATH} [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]
+       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]
+       ${SCRIPT_PATH} --auto [--base BRANCH] [--head BRANCH] [--yes]
+EOF
+}
+
+print_help() {
+  print_usage
+  cat <<EOF
+
+Notes:
+  --dry-run       Extract PRs from local git history (base..head).
+  --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR.
+  --auto          RAM-first mode: dry-run + create-pr, body kept in memory.
+EOF
+}
+
+usage_error() {
+  local message="$1"
+  echo "Erreur: ${message}" >&2
+  print_usage >&2
+  exit "$E_USAGE"
+}
+
+require_option_value() {
+  local option_name="$1"
+  local option_value="${2:-}"
+  if [[ -z "$option_value" || "$option_value" == --* ]]; then
+    usage_error "${option_name} requiert une valeur."
+  fi
+}
 
 main_pr_number=""
 output_file="pr_description.md"
@@ -42,18 +68,12 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --base)
-      if [[ $# -lt 2 || -z "${2:-}" ]]; then
-        echo "Erreur: --base requiert une valeur." >&2
-        exit "$E_USAGE"
-      fi
+      require_option_value "--base" "${2:-}"
       base_ref="${2:-}"
       shift 2
       ;;
     --head)
-      if [[ $# -lt 2 || -z "${2:-}" ]]; then
-        echo "Erreur: --head requiert une valeur." >&2
-        exit "$E_USAGE"
-      fi
+      require_option_value "--head" "${2:-}"
       head_ref="${2:-}"
       shift 2
       ;;
@@ -74,14 +94,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "Usage: ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]"
-      echo "       ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]"
-      echo "       ./scripts/versioning/file_versioning/github/generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--yes]"
-      echo
-      echo "Notes:"
-      echo "  --dry-run       Extract PRs from local git history (base..head)."
-      echo "  --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR."
-      echo "  --auto          RAM-first mode: dry-run + create-pr, body kept in memory."
+      print_help
       exit 0
       ;;
     *)
@@ -91,48 +104,42 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$dry_run" == "false" && ${#positionals[@]} -ge 1 ]]; then
-  main_pr_number="${positionals[0]}"
-fi
-if [[ "$dry_run" == "false" && ${#positionals[@]} -ge 2 ]]; then
-  output_file="${positionals[1]}"
-fi
-if [[ "$dry_run" == "false" && ${#positionals[@]} -gt 2 ]]; then
-  echo "Erreur: Trop d'arguments positionnels. Utilisation attendue: MAIN_PR_NUMBER [OUTPUT_FILE]." >&2
-  exit "$E_USAGE"
-fi
-if [[ "$dry_run" == "true" && "$auto_mode" != "true" && ${#positionals[@]} -ge 1 ]]; then
-  output_file="${positionals[0]}"
-fi
-if [[ "$dry_run" == "true" && "$auto_mode" != "true" && ${#positionals[@]} -gt 1 ]]; then
-  echo "Erreur: Trop d'arguments positionnels pour --dry-run. Seul OUTPUT_FILE est autorisé." >&2
-  exit "$E_USAGE"
-fi
-
 if [[ "$auto_mode" == "true" ]]; then
   dry_run="true"
   create_pr="true"
   if [[ ${#positionals[@]} -gt 0 ]]; then
-    echo "Erreur: --auto ne prend pas d'OUTPUT_FILE positional." >&2
-    exit "$E_USAGE"
+    usage_error "--auto ne prend pas d'OUTPUT_FILE positional."
   fi
 fi
 
-if [[ "$dry_run" == "false" && -z "$main_pr_number" ]]; then
-  echo "Erreur: MAIN_PR_NUMBER est requis." >&2
-  echo "Usage: ./scripts/versioning/file_versioning/github/generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]" >&2
-  echo "       ./scripts/versioning/file_versioning/github/generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]" >&2
-  exit "$E_USAGE"
-fi
-
 if [[ "$create_pr" == "true" && "$dry_run" != "true" ]]; then
-  echo "Erreur: --create-pr est uniquement supporté avec --dry-run." >&2
-  exit "$E_USAGE"
+  usage_error "--create-pr est uniquement supporté avec --dry-run."
 fi
 
 if [[ "$allow_partial_create" == "true" && "$create_pr" != "true" ]]; then
-  echo "Erreur: --allow-partial-create nécessite --create-pr." >&2
-  exit "$E_USAGE"
+  usage_error "--allow-partial-create nécessite --create-pr."
+fi
+
+if [[ "$dry_run" == "false" ]]; then
+  if [[ ${#positionals[@]} -gt 2 ]]; then
+    usage_error "Trop d'arguments positionnels. Utilisation attendue: MAIN_PR_NUMBER [OUTPUT_FILE]."
+  fi
+  if [[ ${#positionals[@]} -ge 1 ]]; then
+    main_pr_number="${positionals[0]}"
+  fi
+  if [[ ${#positionals[@]} -ge 2 ]]; then
+    output_file="${positionals[1]}"
+  fi
+  if [[ -z "$main_pr_number" ]]; then
+    usage_error "MAIN_PR_NUMBER est requis."
+  fi
+else
+  if [[ "$auto_mode" != "true" && ${#positionals[@]} -gt 1 ]]; then
+    usage_error "Trop d'arguments positionnels pour --dry-run. Seul OUTPUT_FILE est autorisé."
+  fi
+  if [[ "$auto_mode" != "true" && ${#positionals[@]} -ge 1 ]]; then
+    output_file="${positionals[0]}"
+  fi
 fi
 
 if [[ "$keep_artifacts" == "true" ]]; then
