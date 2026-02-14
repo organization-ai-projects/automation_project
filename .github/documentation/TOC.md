@@ -9,6 +9,10 @@ This document provides an overview of all documentation files in this directory.
 - [templates/README.md](templates/README.md): Main documentation for GitHub issue and pull request templates.
 - [templates/TOC.md](templates/TOC.md): Templates documentation index.
 
+## Related Governance Docs (Technical Documentation)
+
+- [branch_naming_convention.md](../../documentation/technical_documentation/branch_naming_convention.md): Branch naming standard with examples and anti-examples.
+
 ## Navigation
 
 - [Back to GitHub TOC](../TOC.md)

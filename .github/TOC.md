@@ -15,3 +15,7 @@ This document provides an overview of all documentation files in this directory.
 - [GitHub Documentation TOC](documentation/TOC.md): Index for GitHub-specific documentation.
 - [Workflows Overview](documentation/workflows_overview.md): General overview of the workflows.
 - [Workflows Documentation](workflows/documentation/README.md): Detailed documentation for each workflow.
+
+## Related Governance Docs
+
+- [Branch Naming Convention](../documentation/technical_documentation/branch_naming_convention.md): Formal branch naming policy and examples.

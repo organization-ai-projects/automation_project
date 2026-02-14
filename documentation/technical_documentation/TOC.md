@@ -5,6 +5,7 @@ This document provides an overview of all documentation files in this directory.
 ## Documentation Files
 
 - [Automated Documentation](documentation.md): Details on how documentation is generated and maintained
+- [Branch Naming Convention](branch_naming_convention.md): Repository branch naming rules and examples
 - [System Processes](system_processes.md): How core processes are launched and supervised
 - [Architecture](ARCHITECTURE.md): Description of the overall architecture of the project
 - [Metadata](metadata.md): Information about metadata used in the project
