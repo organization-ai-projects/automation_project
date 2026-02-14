@@ -21,3 +21,4 @@ This document provides an overview of all documentation files in this directory.
 - [Branch Naming Convention](../documentation/technical_documentation/branch_naming_convention.md): Formal branch naming policy and examples.
 - [Commit Footer Policy](../documentation/technical_documentation/commit_footer_policy.md): Rules for `Closes`/`Fixes`/`Related to`/`Part of`.
 - [Documentation Ownership Map](../documentation/technical_documentation/documentation_ownership_map.md): Ownership responsibilities for documentation areas.
+- [Labels Taxonomy](../documentation/technical_documentation/labels_taxonomy.md): Label policy for issues and pull requests.

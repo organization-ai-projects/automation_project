@@ -14,6 +14,7 @@ This document provides an overview of all documentation files in this directory.
 - [branch_naming_convention.md](../../documentation/technical_documentation/branch_naming_convention.md): Branch naming standard with examples and anti-examples.
 - [commit_footer_policy.md](../../documentation/technical_documentation/commit_footer_policy.md): Source of truth for commit footer keywords and issue references.
 - [documentation_ownership_map.md](../../documentation/technical_documentation/documentation_ownership_map.md): Documentation zones mapped to ownership roles and maintenance expectations.
+- [labels_taxonomy.md](../../documentation/technical_documentation/labels_taxonomy.md): Label taxonomy for issues and pull requests sourced from `.github/labels.json`.
 
 ## Navigation
 
