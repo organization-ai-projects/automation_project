@@ -246,16 +246,32 @@ if [[ "$need_jq" == "true" ]] && ! command -v jq >/dev/null 2>&1; then
   exit "$E_DEPENDENCY"
 fi
 
+preferred_ref_with_origin() {
+  local ref_name="$1"
+  if [[ -z "$ref_name" || "$ref_name" == "HEAD" ]]; then
+    echo "$ref_name"
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/remotes/origin/${ref_name}"; then
+    echo "origin/${ref_name}"
+    return
+  fi
+
+  echo "$ref_name"
+}
+
 if [[ "$dry_run" == "true" ]]; then
   if ! command -v git >/dev/null 2>&1; then
     echo "Erreur: la commande 'git' est introuvable." >&2
     exit "$E_GIT"
   fi
   if [[ -z "$head_ref" ]]; then
-    head_ref="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    head_ref="$(preferred_ref_with_origin "$current_branch")"
   fi
   if [[ -z "$base_ref" ]]; then
-    base_ref="dev"
+    base_ref="$(preferred_ref_with_origin "dev")"
   fi
   if [[ -z "$head_ref" ]]; then
     echo "Erreur: impossible de déterminer la branche head en mode --dry-run." >&2
