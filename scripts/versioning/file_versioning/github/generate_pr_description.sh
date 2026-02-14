@@ -151,6 +151,7 @@ issues_tmp="$(mktemp)"
 declare -A pr_title_hint
 online_enrich="false"
 pr_enrich_failed=0
+breaking_detected=0
 
 is_human_interactive_terminal() {
   [[ -t 0 && -t 1 && -z "${CI:-}" ]]
@@ -384,15 +385,19 @@ build_dynamic_pr_title() {
   echo "Merge ${head_ref} into ${base_ref}: ${summary}"
 }
 
-issue_title() {
+issue_labels() {
   local issue_number="$1"
-  gh issue view "$issue_number" --json title -q '.title' 2>/dev/null || true
-}
+  local repo_name_with_owner
+  repo_name_with_owner="$(get_repo_name_with_owner)"
 
-issue_title_and_labels() {
-  local issue_number="$1"
-  gh issue view "$issue_number" --json title,labels \
-    -q '[.title, (.labels | map(.name) | join("||"))] | @tsv' 2>/dev/null || true
+  if [[ -n "$repo_name_with_owner" ]]; then
+    gh issue view "$issue_number" -R "$repo_name_with_owner" --json labels \
+      -q '.labels | map(.name) | join("||")' 2>/dev/null || true
+    return
+  fi
+
+  gh issue view "$issue_number" --json labels \
+    -q '.labels | map(.name) | join("||")' 2>/dev/null || true
 }
 
 issue_category_from_labels() {
@@ -499,6 +504,54 @@ parse_issue_refs_from_body() {
     | sort -u
 }
 
+text_indicates_breaking() {
+  local text="${1:-}"
+  local line
+  local lower
+  # Conventional commit breaking marker, generic type support:
+  # type!: ... OR type(scope)!: ...
+  local cc_breaking_re='^[[:space:]]*[a-z][a-z0-9_-]*(\([a-z0-9_./,-]+\))?!:[[:space:]]+'
+
+  while IFS= read -r line; do
+    lower="$(echo "$line" | tr '[:upper:]' '[:lower:]')"
+
+    # Explicitly ignore "non-breaking change" phrasing.
+    if [[ "$lower" =~ non[[:space:]-]?breaking[[:space:]_-]*change ]]; then
+      continue
+    fi
+
+    # Explicit checklist signal in generated/template PR bodies.
+    if [[ "$lower" =~ ^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*breaking[[:space:]_-]*change([[:space:]]|$) ]]; then
+      return 0
+    fi
+
+    # Conventional BREAKING CHANGE footer signal.
+    if [[ "$lower" =~ ^[[:space:]]*breaking[[:space:]_-]*change[[:space:]]*: ]]; then
+      return 0
+    fi
+
+    # Conventional commit header with breaking marker.
+    if [[ "$lower" =~ $cc_breaking_re ]]; then
+      return 0
+    fi
+  done <<< "$text"
+
+  return 1
+}
+
+normalize_issue_key() {
+  local raw="${1:-}"
+  local normalized
+
+  normalized="$(echo "$raw" | sed -nE 's/.*#([0-9]+).*/#\1/p')"
+  if [[ "$normalized" =~ ^#[0-9]+$ ]]; then
+    echo "$normalized"
+    return 0
+  fi
+
+  return 1
+}
+
 echo -n > "$extracted_prs_file"
 echo -n > "$resolved_issues_file"
 
@@ -515,7 +568,8 @@ fi
 declare -A seen_issue
 declare -A issue_category
 declare -A issue_action
-declare -A issue_name_map
+declare -A pr_ref_cache
+repo_name_with_owner_cache=""
 pr_count=0
 issue_count=0
 
@@ -563,39 +617,90 @@ normalize_issue_action() {
   echo "Closes"
 }
 
+get_repo_name_with_owner() {
+  if [[ -n "$repo_name_with_owner_cache" ]]; then
+    echo "$repo_name_with_owner_cache"
+    return
+  fi
+
+  if [[ -n "${GH_REPO:-}" ]]; then
+    repo_name_with_owner_cache="$GH_REPO"
+    echo "$repo_name_with_owner_cache"
+    return
+  fi
+
+  repo_name_with_owner_cache="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  echo "$repo_name_with_owner_cache"
+}
+
+is_pull_request_ref() {
+  local issue_number="$1"
+  local cache_key="#${issue_number}"
+  local repo_name_with_owner
+
+  if [[ -n "${pr_ref_cache[$cache_key]:-}" ]]; then
+    [[ "${pr_ref_cache[$cache_key]}" == "1" ]]
+    return
+  fi
+
+  repo_name_with_owner="$(get_repo_name_with_owner)"
+
+  # Use REST pulls/{number}: reliable 404 for non-PR issue numbers.
+  if [[ -n "$repo_name_with_owner" ]] \
+    && gh api "repos/${repo_name_with_owner}/pulls/${issue_number}" >/dev/null 2>&1; then
+    pr_ref_cache["$cache_key"]="1"
+    return 0
+  fi
+
+  # Fallback for contexts where nameWithOwner cannot be resolved.
+  if [[ -z "$repo_name_with_owner" ]] \
+    && gh pr view "${issue_number}" >/dev/null 2>&1; then
+    pr_ref_cache["$cache_key"]="1"
+    return 0
+  fi
+
+  pr_ref_cache["$cache_key"]="0"
+  return 1
+}
+
 add_issue_entry() {
   local action="$1"
   local issue_key="$2"
   local category="${3:-Unknown}"
+  local normalized_issue_key
   local issue_number
-  local issue_name labels_tsv labels_raw label_category
+  local labels_raw label_category
   local final_category
   local normalized_action
 
-  [[ -z "$issue_key" ]] && return
+  if ! normalized_issue_key="$(normalize_issue_key "$issue_key")"; then
+    return
+  fi
+  issue_key="$normalized_issue_key"
   issue_number="${issue_key//#/}"
+
+  # Issues Resolved must only contain GitHub issues, not PR references.
+  if is_pull_request_ref "$issue_number"; then
+    return
+  fi
 
   if [[ -n "${seen_issue[$issue_key]:-}" ]]; then
     return
   fi
   seen_issue["$issue_key"]=1
 
-  labels_tsv="$(issue_title_and_labels "$issue_number")"
-  issue_name="$(echo "$labels_tsv" | awk -F'\t' '{print $1}')"
-  labels_raw="$(echo "$labels_tsv" | awk -F'\t' '{print $2}')"
+  labels_raw="$(issue_labels "$issue_number")"
   label_category="$(issue_category_from_labels "$labels_raw")"
-
-  if [[ -z "$issue_name" ]]; then
-    issue_name="$(issue_title "$issue_number")"
-    if [[ -z "$issue_name" ]]; then
-      issue_name="Issue #${issue_number}"
-    fi
+  if [[ "$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
+    breaking_detected=1
   fi
 
   final_category="$label_category"
+  if [[ "$final_category" == "Unknown" && "$category" != "Unknown" ]]; then
+    final_category="$category"
+  fi
 
   issue_category["$issue_key"]="$final_category"
-  issue_name_map["$issue_key"]="$issue_name"
   normalized_action="$(normalize_issue_action "$action" "$final_category")"
   issue_action["$issue_key"]="$normalized_action"
 }
@@ -605,15 +710,20 @@ if [[ -s "$extracted_prs_file" ]]; then
     [[ -z "$pr_ref" ]] && continue
     pr_number="${pr_ref//#/}"
     pr_view_json=""
+    pr_labels_raw=""
 
     if [[ "$dry_run" == "true" && "$online_enrich" != "true" ]]; then
       pr_title="${pr_title_hint[$pr_ref]:-PR #${pr_number}}"
       pr_body=""
     else
-      pr_view_json="$(gh pr view "$pr_number" --json title,body 2>/dev/null || true)"
+      pr_view_json="$(gh pr view "$pr_number" --json title,body,labels 2>/dev/null || true)"
       if [[ -n "$pr_view_json" ]]; then
         pr_title="$(echo "$pr_view_json" | jq -r '.title // ""')"
         pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
+        pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
+        if [[ "$(echo "$pr_labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
+          breaking_detected=1
+        fi
       else
         pr_title=""
         pr_body=""
@@ -626,11 +736,17 @@ if [[ -s "$extracted_prs_file" ]]; then
     if [[ -z "$pr_title" ]]; then
       pr_title="${pr_title_hint[$pr_ref]:-PR #${pr_number}}"
     fi
+    if text_indicates_breaking "$pr_title"; then
+      breaking_detected=1
+    fi
 
     pr_category="$(classify_pr "$pr_ref" "$pr_title")"
     pr_count=$((pr_count + 1))
 
     if [[ -n "$pr_body" ]]; then
+      if text_indicates_breaking "$pr_body"; then
+        breaking_detected=1
+      fi
       while IFS='|' read -r action issue_key; do
         add_issue_entry "$action" "$issue_key" "$pr_category"
       done < <(parse_issue_refs_from_body "$pr_body")
@@ -645,6 +761,9 @@ if [[ "$dry_run" == "true" ]]; then
   # (e.g. "Closes #123") so issue detection works without child PR references.
   dry_commit_messages="$(git log --format=%B "${base_ref}..${head_ref}" 2>/dev/null || true)"
   if [[ -n "$dry_commit_messages" ]]; then
+    if text_indicates_breaking "$dry_commit_messages"; then
+      breaking_detected=1
+    fi
     while IFS='|' read -r action issue_key; do
       add_issue_entry "$action" "$issue_key" "Mixed"
     done < <(parse_issue_refs_from_body "$dry_commit_messages")
@@ -655,6 +774,9 @@ if [[ "$dry_run" == "false" ]]; then
   # Also include issues closed directly by the main PR itself.
   main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
   if [[ -n "$main_pr_body" ]]; then
+    if text_indicates_breaking "$main_pr_body"; then
+      breaking_detected=1
+    fi
     while IFS='|' read -r action issue_key; do
       add_issue_entry "$action" "$issue_key" "Mixed"
     done < <(parse_issue_refs_from_body "$main_pr_body")
@@ -665,7 +787,7 @@ fi
 echo -n > "$issues_tmp"
 for issue_key in "${!seen_issue[@]}"; do
   issue_number="${issue_key//#/}"
-  echo "${issue_number}|${issue_category[$issue_key]}|${issue_action[$issue_key]}|${issue_key}|${issue_name_map[$issue_key]}" >> "$issues_tmp"
+  echo "${issue_number}|${issue_category[$issue_key]}|${issue_action[$issue_key]}|${issue_key}" >> "$issues_tmp"
 done
 
 if [[ -s "$issues_tmp" ]]; then
@@ -696,7 +818,7 @@ if [[ -s "$issues_tmp" ]]; then
                 print "#### " cat
                 found = 1
               }
-              print "- " parts[3] " " parts[4] ": " parts[5]
+              print "- " parts[3] " " parts[4]
             }
           }
           if (found) {
@@ -711,6 +833,18 @@ fi
 body_content="$({
   echo "### Description"
   echo "This pull request merges the \`${head_ref}\` branch into \`${base_ref}\` and summarizes merged pull requests and resolved issues."
+  echo ""
+  echo "### Scope"
+  echo "- Not explicitly provided."
+  echo ""
+  echo "### Compatibility"
+  if [[ "$breaking_detected" -eq 1 ]]; then
+    echo "- [x] Breaking change"
+    echo "- [ ] Non-breaking change"
+  else
+    echo "- [ ] Breaking change"
+    echo "- [x] Non-breaking change"
+  fi
   echo ""
   echo "### Issues Resolved"
   echo "This PR resolves the following issues:"
@@ -739,6 +873,11 @@ body_content="$({
 ### Testing
 - Ensure all project tests are executed before merge (for example: \`cargo test\`, script-specific checks, and CI workflow validation).
 - Validate manually the automation workflows impacted by merged PRs.
+
+### Validation Checklist
+- [ ] Tests have been added or updated, and all tests pass.
+- [ ] Documentation has been updated as needed.
+- [ ] Breaking changes (if any) are clearly documented above.
 
 ### Additional Notes
 - Documentation and PR summaries should be aligned with the resolved issues listed above.

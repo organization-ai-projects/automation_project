@@ -66,6 +66,7 @@ feat(auth): add user authentication
 fix: resolve null pointer exception
 docs(readme): update installation instructions
 refactor(api): simplify error handling
+docs(.github): add default PR template
 ```
 
 **Bypass (emergency only):**

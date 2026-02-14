@@ -4,10 +4,10 @@ use std::{path::Path, process};
 use crate::autopilot::AutopilotError;
 
 /// Pushes the current branch to the remote repository.
+/// Force push is intentionally disallowed in backend automation.
 pub fn git_push_current_branch(
     repo_path: &Path,
     branch: &str,
-    force: bool,
     logs: &mut Vec<String>,
 ) -> Result<(), AutopilotError> {
     let mut command = process::Command::new("git");
@@ -17,10 +17,6 @@ pub fn git_push_current_branch(
         .arg("push")
         .arg("origin")
         .arg(branch);
-
-    if force {
-        command.arg("--force");
-    }
 
     let output = command
         .output()

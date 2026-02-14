@@ -295,7 +295,7 @@ pub fn run_git_autopilot_in_repo(
 
             // Push (optional)
             if policy.allow_push {
-                git_push_current_branch(&repo_path, &branch, true, &mut logs)?;
+                git_push_current_branch(&repo_path, &branch, &mut logs)?;
             }
         } else {
             logs.push("[apply] no relevant files to commit; no action".into());
