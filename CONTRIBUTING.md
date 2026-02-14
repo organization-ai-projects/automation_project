@@ -258,3 +258,10 @@ mod tests {
 ## Questions?
 
 If you have questions about contributing, open an issue or reach out to the maintainers.
+
+---
+
+## Community Health Files
+
+- [SECURITY.md](SECURITY.md): Vulnerability disclosure and coordinated response policy.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): Community behavior expectations and enforcement guidelines.
