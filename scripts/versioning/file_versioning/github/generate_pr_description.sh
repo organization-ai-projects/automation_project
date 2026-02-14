@@ -261,6 +261,17 @@ preferred_ref_with_origin() {
   echo "$ref_name"
 }
 
+normalize_branch_display_ref() {
+  local raw_ref="$1"
+  local normalized
+
+  normalized="${raw_ref#refs/remotes/}"
+  normalized="${normalized#refs/heads/}"
+  normalized="${normalized#remotes/}"
+  normalized="${normalized#origin/}"
+  echo "$normalized"
+}
+
 if [[ "$dry_run" == "true" ]]; then
   if ! command -v git >/dev/null 2>&1; then
     echo "Erreur: la commande 'git' est introuvable." >&2
@@ -281,6 +292,9 @@ else
   base_ref="$(gh pr view "$main_pr_number" --json baseRefName -q '.baseRefName' 2>/dev/null || echo "main")"
   head_ref="$(gh pr view "$main_pr_number" --json headRefName -q '.headRefName' 2>/dev/null || echo "dev")"
 fi
+
+base_ref_display="$(normalize_branch_display_ref "$base_ref")"
+head_ref_display="$(normalize_branch_display_ref "$head_ref")"
 
 if [[ "$dry_run" == "true" && "$create_pr" == "true" ]]; then
   online_enrich="true"
@@ -832,7 +846,7 @@ process_duplicate_mode() {
 
 body_content="$({
   echo "### Description"
-  echo "This pull request merges the \`${head_ref}\` branch into \`${base_ref}\` and summarizes merged pull requests and resolved issues."
+  echo "This pull request merges the \`${head_ref_display}\` branch into \`${base_ref_display}\` and summarizes merged pull requests and resolved issues."
   echo ""
   echo "### Scope"
   echo "- Not explicitly provided."
