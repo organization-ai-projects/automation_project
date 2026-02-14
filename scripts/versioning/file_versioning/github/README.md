@@ -75,9 +75,10 @@ Compatibility behavior:
 - Default output is non-breaking:
   - `- [ ] Breaking change`
   - `- [x] Non-breaking change`
-- Compatibility switches to breaking when explicit signals are detected in analyzed data:
+- Compatibility switches to breaking only when explicit signals are detected in analyzed data:
+  - checked `- [x] Breaking change` in PR body content
   - conventional-commit breaking marker (`!`) in PR/commit titles
-  - `breaking change` keyword in analyzed PR/commit body text
+  - `BREAKING CHANGE:` footer in analyzed PR/commit body text
   - `breaking` label on linked PRs/issues (when available via GitHub enrichment)
 
 Scope behavior:

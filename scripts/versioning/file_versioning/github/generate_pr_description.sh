@@ -385,32 +385,19 @@ build_dynamic_pr_title() {
   echo "Merge ${head_ref} into ${base_ref}: ${summary}"
 }
 
-issue_title() {
+issue_labels() {
   local issue_number="$1"
   local repo_name_with_owner
   repo_name_with_owner="$(get_repo_name_with_owner)"
 
   if [[ -n "$repo_name_with_owner" ]]; then
-    gh issue view "$issue_number" -R "$repo_name_with_owner" --json title -q '.title' 2>/dev/null || true
+    gh issue view "$issue_number" -R "$repo_name_with_owner" --json labels \
+      -q '.labels | map(.name) | join("||")' 2>/dev/null || true
     return
   fi
 
-  gh issue view "$issue_number" --json title -q '.title' 2>/dev/null || true
-}
-
-issue_title_and_labels() {
-  local issue_number="$1"
-  local repo_name_with_owner
-  repo_name_with_owner="$(get_repo_name_with_owner)"
-
-  if [[ -n "$repo_name_with_owner" ]]; then
-    gh issue view "$issue_number" -R "$repo_name_with_owner" --json title,labels \
-      -q '[.title, (.labels | map(.name) | join("||"))] | @tsv' 2>/dev/null || true
-    return
-  fi
-
-  gh issue view "$issue_number" --json title,labels \
-    -q '[.title, (.labels | map(.name) | join("||"))] | @tsv' 2>/dev/null || true
+  gh issue view "$issue_number" --json labels \
+    -q '.labels | map(.name) | join("||")' 2>/dev/null || true
 }
 
 issue_category_from_labels() {
@@ -581,7 +568,6 @@ fi
 declare -A seen_issue
 declare -A issue_category
 declare -A issue_action
-declare -A issue_name_map
 declare -A pr_ref_cache
 repo_name_with_owner_cache=""
 pr_count=0
@@ -666,6 +652,13 @@ is_pull_request_ref() {
     return 0
   fi
 
+  # Fallback for contexts where nameWithOwner cannot be resolved.
+  if [[ -z "$repo_name_with_owner" ]] \
+    && gh pr view "${issue_number}" >/dev/null 2>&1; then
+    pr_ref_cache["$cache_key"]="1"
+    return 0
+  fi
+
   pr_ref_cache["$cache_key"]="0"
   return 1
 }
@@ -676,7 +669,7 @@ add_issue_entry() {
   local category="${3:-Unknown}"
   local normalized_issue_key
   local issue_number
-  local issue_name labels_tsv labels_raw label_category
+  local labels_raw label_category
   local final_category
   local normalized_action
 
@@ -696,19 +689,10 @@ add_issue_entry() {
   fi
   seen_issue["$issue_key"]=1
 
-  labels_tsv="$(issue_title_and_labels "$issue_number")"
-  issue_name="$(echo "$labels_tsv" | awk -F'\t' '{print $1}')"
-  labels_raw="$(echo "$labels_tsv" | awk -F'\t' '{print $2}')"
+  labels_raw="$(issue_labels "$issue_number")"
   label_category="$(issue_category_from_labels "$labels_raw")"
   if [[ "$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
     breaking_detected=1
-  fi
-
-  if [[ -z "$issue_name" ]]; then
-    issue_name="$(issue_title "$issue_number")"
-    if [[ -z "$issue_name" ]]; then
-      issue_name="Issue #${issue_number}"
-    fi
   fi
 
   final_category="$label_category"
@@ -717,7 +701,6 @@ add_issue_entry() {
   fi
 
   issue_category["$issue_key"]="$final_category"
-  issue_name_map["$issue_key"]="$issue_name"
   normalized_action="$(normalize_issue_action "$action" "$final_category")"
   issue_action["$issue_key"]="$normalized_action"
 }
@@ -804,7 +787,7 @@ fi
 echo -n > "$issues_tmp"
 for issue_key in "${!seen_issue[@]}"; do
   issue_number="${issue_key//#/}"
-  echo "${issue_number}|${issue_category[$issue_key]}|${issue_action[$issue_key]}|${issue_key}|${issue_name_map[$issue_key]}" >> "$issues_tmp"
+  echo "${issue_number}|${issue_category[$issue_key]}|${issue_action[$issue_key]}|${issue_key}" >> "$issues_tmp"
 done
 
 if [[ -s "$issues_tmp" ]]; then
@@ -890,6 +873,11 @@ body_content="$({
 ### Testing
 - Ensure all project tests are executed before merge (for example: \`cargo test\`, script-specific checks, and CI workflow validation).
 - Validate manually the automation workflows impacted by merged PRs.
+
+### Validation Checklist
+- [ ] Tests have been added or updated, and all tests pass.
+- [ ] Documentation has been updated as needed.
+- [ ] Breaking changes (if any) are clearly documented above.
 
 ### Additional Notes
 - Documentation and PR summaries should be aligned with the resolved issues listed above.
