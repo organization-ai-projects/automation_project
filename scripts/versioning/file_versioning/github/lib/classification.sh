@@ -1,5 +1,27 @@
 #!/usr/bin/env bash
 
+build_pr_bullet() {
+  local title="$1"
+  local pr_ref="$2"
+  local pr_num
+  local normalized_title
+
+  pr_num="${pr_ref//#/}"
+  normalized_title="$title"
+
+  # Remove redundant trailing "(#N)" when we already have the canonical PR ref.
+  normalized_title="$(echo "$normalized_title" | sed -E "s/[[:space:]]*\\(#${pr_num}\\)//g")"
+  # Normalize merge commit headline to avoid rendering "#N" twice.
+  normalized_title="$(echo "$normalized_title" | sed -E "s/(merge[[:space:]]+pull[[:space:]]+request)[[:space:]]+#${pr_num}([[:space:]]+from)/\\1\\2/I")"
+  normalized_title="$(echo "$normalized_title" | sed -E 's/[[:space:]]+/ /g; s/[[:space:]]+$//')"
+
+  if echo "$normalized_title" | grep -Eq "(^|[^0-9])#${pr_num}([^0-9]|$)"; then
+    echo "- ${normalized_title}"
+  else
+    echo "- ${normalized_title} (${pr_ref})"
+  fi
+}
+
 classify_pr() {
   local pr_ref="$1"
   local title="$2"
@@ -9,7 +31,7 @@ classify_pr() {
   local starts_sync_or_merge=0
 
   title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
-  bullet="- ${title} (${pr_ref})"
+  bullet="$(build_pr_bullet "$title" "$pr_ref")"
 
   if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] \
     || [[ "$title_lc" =~ ^[[:space:]]*(chore|refactor|fix|feat|docs|test|tests)[^:]*:[[:space:]]*(sync|merge) ]]; then
