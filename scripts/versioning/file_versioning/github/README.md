@@ -128,3 +128,7 @@ Regression tests:
 ```bash
 bash tests/generate_pr_description_regression.sh
 ```
+
+Troubleshooting:
+
+- See `.github/documentation/pr_generator_troubleshooting.md`.
