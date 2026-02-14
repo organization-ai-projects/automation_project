@@ -19,7 +19,9 @@ It interacts mainly with:
 github/
 ├── README.md (this file)
 ├── TOC.md
-└── generate_pr_description.sh
+├── generate_pr_description.sh
+└── tests/
+    └── generate_pr_description_regression.sh
 ```
 
 ## Files
@@ -27,6 +29,7 @@ github/
 - `README.md`: This file.
 - `TOC.md`: Documentation index for GitHub-only scripts.
 - `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
+- `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 
 ## Scope
 
@@ -94,3 +97,9 @@ Exit codes (automation contract):
 - `4`: Git context error (e.g. missing branch context)
 - `5`: No extracted PR data in dry-run
 - `6`: Partial GitHub enrichment blocked PR creation
+
+Regression tests:
+
+```bash
+bash tests/generate_pr_description_regression.sh
+```
