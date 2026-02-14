@@ -40,6 +40,14 @@ if [[ "${1:-}" == "rev-parse" && "${2:-}" == "--abbrev-ref" && "${3:-}" == "HEAD
   exit 0
 fi
 if [[ "${1:-}" == "log" ]]; then
+  if [[ "${2:-}" == "--oneline" && -n "${MOCK_GIT_LOG_ONELINE:-}" ]]; then
+    printf "%s\n" "${MOCK_GIT_LOG_ONELINE}"
+    exit 0
+  fi
+  if [[ "${2:-}" == "--format=%B" && -n "${MOCK_GIT_LOG_BODY:-}" ]]; then
+    printf "%s\n" "${MOCK_GIT_LOG_BODY}"
+    exit 0
+  fi
   exit 0
 fi
 exit 0
@@ -216,6 +224,29 @@ main() {
     echo "FAIL [label-classification-keeps-explicit-security] expected Security, got: ${category_out}"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/merge.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_ONELINE="abcd123 Merge pull request #402 from organization-ai-projects/sync/main-into-dev" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
+  ) >/dev/null 2>&1; then
+    merge_line="$(grep -F -- "Merge pull request" "${out_md}" | head -n 1 || true)"
+    if [[ -n "${merge_line}" ]] && [[ "$(grep -o '#402' <<< "${merge_line}" | wc -l | tr -d ' ')" == "1" ]]; then
+      echo "PASS [no-duplicated-pr-ref-in-key-changes]"
+    else
+      echo "FAIL [no-duplicated-pr-ref-in-key-changes] duplicated or missing PR ref"
+      echo "Line: ${merge_line}"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [no-duplicated-pr-ref-in-key-changes] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
 
   echo ""
   echo "Tests run: ${TESTS_RUN}"
