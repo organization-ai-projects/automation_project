@@ -107,6 +107,7 @@ or
 
 - Keep commits small and focused on a single change.
 - Reference issues when applicable: `fix: resolve panic in parser (#42)`
+- Use explicit footer keywords for issue references (`Closes`, `Fixes`, `Resolves`, `Related to`, `Part of`) as defined in `documentation/technical_documentation/commit_footer_policy.md`.
 
 See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details.
 

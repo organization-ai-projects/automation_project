@@ -12,6 +12,7 @@ This document provides an overview of all documentation files in this directory.
 ## Related Governance Docs (Technical Documentation)
 
 - [branch_naming_convention.md](../../documentation/technical_documentation/branch_naming_convention.md): Branch naming standard with examples and anti-examples.
+- [commit_footer_policy.md](../../documentation/technical_documentation/commit_footer_policy.md): Source of truth for commit footer keywords and issue references.
 
 ## Navigation
 

@@ -19,3 +19,4 @@ This document provides an overview of all documentation files in this directory.
 ## Related Governance Docs
 
 - [Branch Naming Convention](../documentation/technical_documentation/branch_naming_convention.md): Formal branch naming policy and examples.
+- [Commit Footer Policy](../documentation/technical_documentation/commit_footer_policy.md): Rules for `Closes`/`Fixes`/`Related to`/`Part of`.

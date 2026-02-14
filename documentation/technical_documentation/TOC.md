@@ -6,6 +6,7 @@ This document provides an overview of all documentation files in this directory.
 
 - [Automated Documentation](documentation.md): Details on how documentation is generated and maintained
 - [Branch Naming Convention](branch_naming_convention.md): Repository branch naming rules and examples
+- [Commit Footer Policy](commit_footer_policy.md): Standard usage rules for issue-closing and linking footers
 - [System Processes](system_processes.md): How core processes are launched and supervised
 - [Architecture](ARCHITECTURE.md): Description of the overall architecture of the project
 - [Metadata](metadata.md): Information about metadata used in the project
