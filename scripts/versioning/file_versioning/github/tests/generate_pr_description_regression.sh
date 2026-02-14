@@ -228,6 +228,80 @@ main() {
   TESTS_RUN=$((TESTS_RUN + 1))
   tmp="$(mktemp_compat)"
   build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/merge_fix.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_ONELINE="beef001 Merge pull request #512 from organization-ai-projects/fix/scripts-classification" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
+  ) >/dev/null 2>&1; then
+    bug_section="$(awk '
+      /^#### Bug Fixes$/ { in_bug=1; next }
+      /^#### / && in_bug { exit }
+      in_bug { print }
+    ' "${out_md}")"
+    features_section="$(awk '
+      /^#### Features$/ { in_feat=1; next }
+      /^#### / && in_feat { exit }
+      in_feat { print }
+    ' "${out_md}")"
+
+    if echo "${bug_section}" | grep -q "Merge pull request from organization-ai-projects/fix/scripts-classification"; then
+      if ! echo "${features_section}" | grep -q "Merge pull request"; then
+        echo "PASS [merge-fix-classified-as-bug-fixes]"
+      else
+        echo "FAIL [merge-fix-classified-as-bug-fixes] merge line leaked into Features"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+      fi
+    else
+      echo "FAIL [merge-fix-classified-as-bug-fixes] expected merge line not found in Bug Fixes"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [merge-fix-classified-as-bug-fixes] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/merge_misc.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_ONELINE="beef777 Merge pull request #777 from organization-ai-projects/remi-bezot/sub-pr-378" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
+  ) >/dev/null 2>&1; then
+    refactor_section="$(awk '
+      /^#### Refactoring$/ { in_ref=1; next }
+      /^#### / && in_ref { exit }
+      in_ref { print }
+    ' "${out_md}")"
+    features_section="$(awk '
+      /^#### Features$/ { in_feat=1; next }
+      /^#### / && in_feat { exit }
+      in_feat { print }
+    ' "${out_md}")"
+
+    if echo "${refactor_section}" | grep -q "Merge pull request from organization-ai-projects/remi-bezot/sub-pr-378"; then
+      if ! echo "${features_section}" | grep -q "Merge pull request from organization-ai-projects/remi-bezot/sub-pr-378"; then
+        echo "PASS [merge-default-avoids-features-overclassification]"
+      else
+        echo "FAIL [merge-default-avoids-features-overclassification] merge line leaked into Features"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+      fi
+    else
+      echo "FAIL [merge-default-avoids-features-overclassification] expected merge line not found in Refactoring"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [merge-default-avoids-features-overclassification] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
   out_md="${tmp}/merge.md"
   if (
     cd "${ROOT_DIR}"
