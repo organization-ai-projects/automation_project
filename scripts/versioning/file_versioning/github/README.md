@@ -19,7 +19,12 @@ It interacts mainly with:
 github/
 ├── README.md (this file)
 ├── TOC.md
-└── generate_pr_description.sh
+├── generate_pr_description.sh
+├── lib/
+│   ├── classification.sh
+│   └── rendering.sh
+└── tests/
+    └── generate_pr_description_regression.sh
 ```
 
 ## Files
@@ -27,6 +32,9 @@ github/
 - `README.md`: This file.
 - `TOC.md`: Documentation index for GitHub-only scripts.
 - `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
+- `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
+- `lib/rendering.sh`: Output rendering helpers extracted from the main script.
+- `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 
 ## Scope
 
@@ -55,9 +63,9 @@ Generated body includes:
 Usage:
 
 ```bash
-bash generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]
-bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]
-bash generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--yes]
+bash generate_pr_description.sh [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
+bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
+bash generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
 ```
 
 Key options:
@@ -66,15 +74,19 @@ Key options:
 - `--base`, `--head`: Explicit branch range for dry-run extraction.
 - `--create-pr`: In dry-run mode, optionally create the PR with the generated body.
 - `--allow-partial-create`: Allow PR creation even if GitHub enrichment is incomplete.
+- `--auto-edit PR_NUMBER`: Generate body in memory and update an existing PR directly (no output file).
+- `--duplicate-mode MODE`: Duplicate handling mode (`safe` or `auto-close`).
 - `--yes`: Non-interactive confirmation when `--create-pr` is used.
+- `--debug`: Enable extraction and classification traces on stderr.
 - `--auto`: RAM-first flow (`--dry-run` + `--create-pr`) with in-memory body.
 - `--keep-artifacts`: Keep extracted PR/issue intermediate files.
 
 Compatibility behavior:
 
 - Default output is non-breaking:
-  - `- [ ] Breaking change`
-  - `- [x] Non-breaking change`
+  - `- Non-breaking change.`
+- When breaking signals are detected:
+  - `- Breaking change.`
 - Compatibility switches to breaking only when explicit signals are detected in analyzed data:
   - checked `- [x] Breaking change` in PR body content
   - conventional-commit breaking marker (`!`) in PR/commit titles
@@ -86,6 +98,22 @@ Scope behavior:
 - `Scope` is always emitted with deterministic fallback:
   - `- Not explicitly provided.`
 
+Duplicate handling:
+
+- Default: disabled (no duplicate comment/closure action).
+- `--duplicate-mode safe`: posts a standardized comment on detected duplicate issue references.
+- `--duplicate-mode auto-close`: posts duplicate comment and closes duplicate issue.
+- In `--dry-run`, duplicate mode is simulation-only (deterministic output, no mutation).
+
+Dependency behavior:
+
+- `gh` is required for:
+  - main PR mode
+  - `--create-pr`
+  - `--auto-edit`
+  - duplicate actions outside dry-run
+- Pure local dry-run (`--dry-run` without online actions) works without `gh`.
+
 Exit codes (automation contract):
 
 - `0`: Success
@@ -94,3 +122,9 @@ Exit codes (automation contract):
 - `4`: Git context error (e.g. missing branch context)
 - `5`: No extracted PR data in dry-run
 - `6`: Partial GitHub enrichment blocked PR creation
+
+Regression tests:
+
+```bash
+bash tests/generate_pr_description_regression.sh
+```
