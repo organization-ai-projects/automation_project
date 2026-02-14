@@ -10,6 +10,9 @@ E_NO_DATA=5
 E_PARTIAL=6
 
 SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/classification.sh"
+source "${SCRIPT_DIR}/lib/rendering.sh"
 
 print_usage() {
   cat <<EOF
@@ -345,121 +348,6 @@ extract_child_prs_dry() {
   return 0
 }
 
-classify_pr() {
-  local pr_ref="$1"
-  local title="$2"
-  local title_lc
-  local bullet
-  local category
-  local starts_sync_or_merge=0
-
-  title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
-  bullet="- ${title} (${pr_ref})"
-
-  if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] \
-    || [[ "$title_lc" =~ ^[[:space:]]*(chore|refactor|fix|feat|docs|test|tests)[^:]*:[[:space:]]*(sync|merge) ]]; then
-    starts_sync_or_merge=1
-  fi
-
-  # Keep synchronization PRs in a dedicated category.
-  # Allow an optional conventional prefix (e.g. "chore:" / "chore(scope):")
-  # and require explicit branch-flow markers to avoid false positives.
-  if [[ "$starts_sync_or_merge" -eq 1 ]] \
-    && [[ "$title_lc" =~ (main|dev|master|staging|release[^[:space:]]*)[^[:alnum:]_/-]+(into|->|→)[^[:alnum:]_/-]+(main|dev|master|staging|release[^[:space:]]*) ]]; then
-    category="Synchronization"
-    echo "$bullet" >> "$sync_tmp"
-    debug_log "classify_pr: ${pr_ref} -> ${category}"
-    echo "$category"
-    return
-  fi
-
-  # Prefer conventional commit prefixes when present.
-  if [[ "$title_lc" =~ ^fix(\(|:|!|[[:space:]]) ]]; then
-    category="Bug Fixes"
-    echo "$bullet" >> "$bugs_tmp"
-    debug_log "classify_pr: ${pr_ref} -> ${category}"
-    echo "$category"
-    return
-  fi
-  if [[ "$title_lc" =~ ^refactor(\(|:|!|[[:space:]]) ]] || [[ "$title_lc" =~ ^chore(\(|:|!|[[:space:]]) ]]; then
-    category="Refactoring"
-    echo "$bullet" >> "$refactors_tmp"
-    debug_log "classify_pr: ${pr_ref} -> ${category}"
-    echo "$category"
-    return
-  fi
-  if [[ "$title_lc" =~ ^feat(\(|:|!|[[:space:]]) ]]; then
-    category="Features"
-    echo "$bullet" >> "$features_tmp"
-    debug_log "classify_pr: ${pr_ref} -> ${category}"
-    echo "$category"
-    return
-  fi
-
-  if [[ "$title_lc" =~ (fix|bug|hotfix|regression|failure|error) ]]; then
-    category="Bug Fixes"
-    echo "$bullet" >> "$bugs_tmp"
-  elif [[ "$title_lc" =~ (refactor|cleanup|extract|modular|rework|batch|maintainability) ]]; then
-    category="Refactoring"
-    echo "$bullet" >> "$refactors_tmp"
-  else
-    category="Features"
-    echo "$bullet" >> "$features_tmp"
-  fi
-
-  debug_log "classify_pr: ${pr_ref} -> ${category}"
-  echo "$category"
-}
-
-write_section_from_file() {
-  local file="$1"
-  if [[ -s "$file" ]]; then
-    while IFS= read -r line; do
-      pr_num="$(echo "$line" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')"
-      if [[ -z "$pr_num" ]]; then
-        pr_num=999999
-      fi
-      printf "%06d|%s\n" "$pr_num" "$line"
-    done < "$file" | sort -t'|' -k1,1n -k2,2 | cut -d'|' -f2-
-  else
-    echo "- No significant items detected."
-  fi
-}
-
-build_dynamic_pr_title() {
-  local categories=()
-  local summary
-
-  if [[ -s "$sync_tmp" ]]; then
-    categories+=("Synchronization")
-  fi
-  if [[ -s "$features_tmp" ]]; then
-    categories+=("Features")
-  fi
-  if [[ -s "$bugs_tmp" ]]; then
-    categories+=("Bug Fixes")
-  fi
-  if [[ -s "$refactors_tmp" ]]; then
-    categories+=("Refactoring")
-  fi
-
-  if [[ ${#categories[@]} -eq 0 ]]; then
-    summary="Changes"
-  elif [[ ${#categories[@]} -eq 1 ]]; then
-    summary="${categories[0]}"
-  elif [[ ${#categories[@]} -eq 2 ]]; then
-    summary="${categories[0]} and ${categories[1]}"
-  else
-    summary="${categories[0]}"
-    for ((i = 1; i < ${#categories[@]} - 1; i++)); do
-      summary+=", ${categories[i]}"
-    done
-    summary+=", and ${categories[${#categories[@]}-1]}"
-  fi
-
-  echo "Merge ${head_ref} into ${base_ref}: ${summary}"
-}
-
 issue_labels() {
   local issue_number="$1"
   local repo_name_with_owner
@@ -480,80 +368,6 @@ issue_labels() {
 
   gh issue view "$issue_number" --json labels \
     -q '.labels | map(.name) | join("||")' 2>/dev/null || true
-}
-
-issue_category_from_labels() {
-  local labels_raw="$1"
-  local labels
-  local has_security=0
-  local has_bug=0
-  local has_refactor=0
-  local has_feature=0
-  local has_testing=0
-  local has_automation=0
-  local has_docs=0
-
-  labels="$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')"
-
-  # Security is a first-class category and must not be downgraded to bug fixes.
-  if [[ "$labels" =~ (security|sec|codeql|cve|vuln|vulnerability|sast) ]]; then
-    has_security=1
-  fi
-  if [[ "$labels" =~ (bug|defect|regression|incident) ]]; then
-    has_bug=1
-  fi
-  if [[ "$labels" =~ (refactor|cleanup|chore|mainten|tech[[:space:]_-]*debt) ]]; then
-    has_refactor=1
-  fi
-  if [[ "$labels" =~ (feature|enhancement|feat) ]]; then
-    has_feature=1
-  fi
-  if [[ "$labels" =~ (testing|tests|test) ]]; then
-    has_testing=1
-  fi
-  if [[ "$labels" =~ (automation|automation-failed|sync_branch|scripts|linting|workflow|ci) ]]; then
-    has_automation=1
-  fi
-  if [[ "$labels" =~ (documentation|docs|readme|translation) ]]; then
-    has_docs=1
-  fi
-
-  if [[ "$has_security" -eq 1 ]]; then
-    echo "Security"
-    return
-  fi
-  if [[ "$has_automation" -eq 1 ]]; then
-    echo "Automation"
-    return
-  fi
-  if [[ "$has_testing" -eq 1 ]]; then
-    echo "Testing"
-    return
-  fi
-  if [[ "$has_docs" -eq 1 ]]; then
-    echo "Docs"
-    return
-  fi
-
-  count=$((has_bug + has_refactor + has_feature))
-  if [[ "$count" -ge 2 ]]; then
-    echo "Mixed"
-    return
-  fi
-  if [[ "$has_bug" -eq 1 ]]; then
-    echo "Bug Fixes"
-    return
-  fi
-  if [[ "$has_refactor" -eq 1 ]]; then
-    echo "Refactoring"
-    return
-  fi
-  if [[ "$has_feature" -eq 1 ]]; then
-    echo "Features"
-    return
-  fi
-
-  echo "Unknown"
 }
 
 parse_issue_refs_from_body() {
@@ -674,50 +488,6 @@ declare -A duplicate_targets
 repo_name_with_owner_cache=""
 pr_count=0
 issue_count=0
-
-normalize_issue_action() {
-  local action="$1"
-  local category="$2"
-  local lower
-
-  lower="$(echo "$action" | tr '[:upper:]' '[:lower:]')"
-
-  # Keep closure semantics explicit.
-  if [[ "$category" == "Security" ]]; then
-    echo "Closes"
-    return
-  fi
-
-  if [[ "$category" == "Bug Fixes" ]]; then
-    echo "Fixes"
-    return
-  fi
-
-  if [[ "$category" == "Mixed" ]]; then
-    echo "Closes"
-    return
-  fi
-
-  if [[ "$category" == "Automation" || "$category" == "Testing" || "$category" == "Docs" ]]; then
-    echo "Closes"
-    return
-  fi
-
-  if [[ "$category" == "Unknown" ]]; then
-    # Keep original keyword when classification is unknown.
-    if [[ "$lower" =~ ^fix ]]; then
-      echo "Fixes"
-    elif [[ "$lower" =~ ^resolve ]]; then
-      echo "Resolves"
-    else
-      echo "Closes"
-    fi
-    return
-  fi
-
-  # Default verb for Features/Refactoring is "Closes".
-  echo "Closes"
-}
 
 get_repo_name_with_owner() {
   if [[ "$has_gh" != "true" ]]; then
