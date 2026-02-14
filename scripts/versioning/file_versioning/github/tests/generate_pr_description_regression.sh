@@ -148,6 +148,34 @@ main() {
   run_case "dry-run-minimal" 0 "Fichier généré:" mock --dry-run --base dev --head test-head /tmp/pr_description_test.md
   run_case "missing-gh-dependency" 3 "la commande 'gh' est introuvable" no_gh --dry-run --base dev --head test-head
 
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/body.md"
+  if (
+    cd "${ROOT_DIR}"
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
+  ) >/dev/null 2>&1; then
+    compat_section="$(awk '
+      /^### Compatibility$/ { in_compat=1; next }
+      /^### / && in_compat { exit }
+      in_compat { print }
+    ' "${out_md}")"
+    if echo "${compat_section}" | grep -q -- "^- Non-breaking change\\.$" \
+      && ! echo "${compat_section}" | grep -q -- "\\[x\\]\\|\\[ \\]"; then
+      echo "PASS [compatibility-single-status-line]"
+    else
+      echo "FAIL [compatibility-single-status-line] compatibility section is not normalized"
+      echo "Compatibility section:"
+      echo "${compat_section}"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [compatibility-single-status-line] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
   echo ""
   echo "Tests run: ${TESTS_RUN}"
   echo "Tests failed: ${TESTS_FAILED}"

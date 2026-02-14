@@ -846,11 +846,9 @@ body_content="$({
   echo ""
   echo "### Compatibility"
   if [[ "$breaking_detected" -eq 1 ]]; then
-    echo "- [x] Breaking change"
-    echo "- [ ] Non-breaking change"
+    echo "- Breaking change."
   else
-    echo "- [ ] Breaking change"
-    echo "- [x] Non-breaking change"
+    echo "- Non-breaking change."
   fi
   echo ""
   echo "### Issues Resolved"

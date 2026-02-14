@@ -76,8 +76,9 @@ Key options:
 Compatibility behavior:
 
 - Default output is non-breaking:
-  - `- [ ] Breaking change`
-  - `- [x] Non-breaking change`
+  - `- Non-breaking change.`
+- When breaking signals are detected:
+  - `- Breaking change.`
 - Compatibility switches to breaking only when explicit signals are detected in analyzed data:
   - checked `- [x] Breaking change` in PR body content
   - conventional-commit breaking marker (`!`) in PR/commit titles
