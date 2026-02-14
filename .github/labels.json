@@ -75,6 +75,11 @@
     "description": "Invalid issue or request (cannot be reproduced or not applicable)"
   },
   {
+    "name": "issue",
+    "color": "5319E7",
+    "description": "Issue workflow, triage process, or issue-governance focused work"
+  },
+  {
     "name": "linting",
     "color": "BFDADC",
     "description": "Lint rules, formatting enforcement, or static analysis issues"
@@ -263,6 +268,11 @@
     "name": "question",
     "color": "D876E3",
     "description": "Questions, clarifications needed, or discussion-only issues"
+  },
+  {
+    "name": "pull-request",
+    "color": "1D76DB",
+    "description": "Pull request workflow, template, or PR-automation focused work"
   },
   {
     "name": "refactor",
