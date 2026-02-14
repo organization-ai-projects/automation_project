@@ -206,6 +206,7 @@ declare -A pr_title_hint
 online_enrich="false"
 pr_enrich_failed=0
 breaking_detected=0
+pr_created_successfully="false"
 
 is_human_interactive_terminal() {
   [[ -t 0 && -t 1 && -z "${CI:-}" ]]
@@ -922,6 +923,7 @@ if [[ "$create_pr" == "true" ]]; then
     else
       pr_url="$(gh pr create --base "$base_ref" --head "$head_ref" --title "$default_title" --body-file "$output_file")"
     fi
+    pr_created_successfully="true"
     echo "PR créée: $pr_url"
   else
     echo "PR creation skipped."
@@ -961,6 +963,6 @@ if [[ -n "$auto_edit_pr_number" ]]; then
 fi
 
 # Non-fatal generation outcome for humans, but explicit signal for automation.
-if [[ "$dry_run" == "true" && "$create_pr" == "true" && ! -s "$extracted_prs_file" ]]; then
+if [[ "$dry_run" == "true" && "$create_pr" == "true" && "$pr_created_successfully" != "true" && ! -s "$extracted_prs_file" ]]; then
   exit "$E_NO_DATA"
 fi

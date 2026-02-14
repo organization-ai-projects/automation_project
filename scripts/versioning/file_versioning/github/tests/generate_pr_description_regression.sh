@@ -24,6 +24,10 @@ if [[ "${1:-}" == "repo" && "${2:-}" == "view" ]]; then
   echo "owner/repo"
   exit 0
 fi
+if [[ "${1:-}" == "pr" && "${2:-}" == "create" ]]; then
+  echo "https://github.com/owner/repo/pull/999"
+  exit 0
+fi
 exit 0
 EOF
   chmod +x "${mock_dir}/gh"
@@ -152,6 +156,7 @@ main() {
   run_case "auto-edit-main-forbids-output-file" 2 "En mode --auto-edit \\(MAIN_PR_NUMBER\\), OUTPUT_FILE positional n'est pas autorisé" mock --auto-edit 400 42 out.md
   run_case "dry-run-too-many-positionals" 2 "Trop d'arguments positionnels pour --dry-run" mock --dry-run out.md extra.md
   run_case "dry-run-minimal" 0 "Fichier généré:" mock --dry-run --base dev --head test-head /tmp/pr_description_test.md
+  run_case "auto-create-success-does-not-return-no-data" 0 "PR créée:" mock --auto --base dev --head test-head --yes
   run_case "auto-edit-dry-run-in-memory" 0 "mode --auto-edit" mock --dry-run --auto-edit 400 --base dev --head test-head --yes
   run_case "dry-run-without-gh" 0 "Fichier généré:" no_gh --dry-run --base dev --head test-head /tmp/pr_description_test_no_gh.md
   run_case "missing-gh-required-main-mode" 3 "la commande 'gh' est introuvable" no_gh 42
