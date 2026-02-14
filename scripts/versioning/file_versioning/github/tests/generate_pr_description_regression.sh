@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
 TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/generate_pr_description.sh"
+SNAPSHOT_DIR="${SCRIPT_DIR}/golden"
 
 TESTS_RUN=0
 TESTS_FAILED=0
@@ -292,6 +293,49 @@ main() {
     fi
   else
     echo "FAIL [no-duplicated-pr-ref-in-key-changes] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/snapshot_non_breaking.md"
+  if (
+    cd "${ROOT_DIR}"
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run "${out_md}"
+  ) >/dev/null 2>&1; then
+    if diff -u "${SNAPSHOT_DIR}/dry_run_non_breaking.md" "${out_md}" >/dev/null; then
+      echo "PASS [golden-snapshot-dry-run-non-breaking]"
+    else
+      echo "FAIL [golden-snapshot-dry-run-non-breaking] snapshot mismatch"
+      diff -u "${SNAPSHOT_DIR}/dry_run_non_breaking.md" "${out_md}" || true
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [golden-snapshot-dry-run-non-breaking] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/snapshot_breaking.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_BODY="BREAKING CHANGE: api changed" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run "${out_md}"
+  ) >/dev/null 2>&1; then
+    if diff -u "${SNAPSHOT_DIR}/dry_run_breaking.md" "${out_md}" >/dev/null; then
+      echo "PASS [golden-snapshot-dry-run-breaking]"
+    else
+      echo "FAIL [golden-snapshot-dry-run-breaking] snapshot mismatch"
+      diff -u "${SNAPSHOT_DIR}/dry_run_breaking.md" "${out_md}" || true
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [golden-snapshot-dry-run-breaking] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"
