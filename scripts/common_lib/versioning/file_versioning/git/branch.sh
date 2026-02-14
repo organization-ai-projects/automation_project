@@ -2,7 +2,18 @@
 
 # Functions related to Git branches
 
-LAST_DELETED_BRANCH_FILE="/tmp/last_deleted_branch"
+last_deleted_branch_file() {
+  local git_dir
+  git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+
+  if [[ -n "$git_dir" ]]; then
+    echo "${git_dir}/last_deleted_branch"
+    return
+  fi
+
+  # Fallback path when repository metadata is temporarily unavailable.
+  echo "/tmp/last_deleted_branch"
+}
 
 # Check if branch exists locally
 branch_exists_local() {
@@ -39,17 +50,24 @@ require_non_protected_branch() {
 # Save last deleted branch name for recreation
 save_last_deleted_branch() {
   local branch="$1"
-  echo "$branch" > "$LAST_DELETED_BRANCH_FILE"
+  local state_file
+
+  state_file="$(last_deleted_branch_file)"
+  mkdir -p "$(dirname "$state_file")"
+  echo "$branch" > "$state_file"
 }
 
 # Get last deleted branch name
 get_last_deleted_branch() {
-  if [[ ! -f "$LAST_DELETED_BRANCH_FILE" ]]; then
+  local state_file
+  state_file="$(last_deleted_branch_file)"
+
+  if [[ ! -f "$state_file" ]]; then
     return 1
   fi
 
   local branch
-  branch="$(cat "$LAST_DELETED_BRANCH_FILE" | head -n 1 | xargs)"
+  branch="$(cat "$state_file" | head -n 1 | xargs)"
 
   if [[ -z "$branch" ]]; then
     return 1
