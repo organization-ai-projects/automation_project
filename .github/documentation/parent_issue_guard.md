@@ -27,6 +27,7 @@ Required children are currently read from parent task-list lines in issue body:
 
 ## Guard Behavior
 
+- Strict guard is enabled in workflow configuration.
 - If open required children remain:
   - parent status comment is updated with remaining children.
   - if parent is closed, it is reopened (`strict guard`).

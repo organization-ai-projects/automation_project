@@ -26,7 +26,7 @@ require_number() {
 
 issue_arg=""
 child_arg=""
-strict_guard="false"
+strict_guard="true"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
