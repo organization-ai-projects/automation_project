@@ -13,8 +13,8 @@ SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description
 
 print_usage() {
   cat <<EOF
-Usage: ${SCRIPT_PATH} [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]
-       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]
+Usage: ${SCRIPT_PATH} [--keep-artifacts] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
+       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
        ${SCRIPT_PATH} --auto [--base BRANCH] [--head BRANCH] [--yes]
 EOF
 }
@@ -26,6 +26,7 @@ print_help() {
 Notes:
   --dry-run       Extract PRs from local git history (base..head).
   --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR.
+  --auto-edit     Generate body in memory and update an existing PR directly.
   --auto          RAM-first mode: dry-run + create-pr, body kept in memory.
 EOF
 }
@@ -55,6 +56,7 @@ create_pr="false"
 allow_partial_create="false"
 assume_yes="false"
 auto_mode="false"
+auto_edit_pr_number=""
 
 positionals=()
 while [[ $# -gt 0 ]]; do
@@ -93,6 +95,11 @@ while [[ $# -gt 0 ]]; do
       auto_mode="true"
       shift
       ;;
+    --auto-edit)
+      require_option_value "--auto-edit" "${2:-}"
+      auto_edit_pr_number="${2:-}"
+      shift 2
+      ;;
     -h|--help)
       print_help
       exit 0
@@ -112,6 +119,10 @@ if [[ "$auto_mode" == "true" ]]; then
   fi
 fi
 
+if [[ -n "$auto_edit_pr_number" ]] && [[ ! "$auto_edit_pr_number" =~ ^[0-9]+$ ]]; then
+  usage_error "--auto-edit requiert un PR_NUMBER numérique."
+fi
+
 if [[ "$create_pr" == "true" && "$dry_run" != "true" ]]; then
   usage_error "--create-pr est uniquement supporté avec --dry-run."
 fi
@@ -120,24 +131,34 @@ if [[ "$allow_partial_create" == "true" && "$create_pr" != "true" ]]; then
   usage_error "--allow-partial-create nécessite --create-pr."
 fi
 
+if [[ -n "$auto_edit_pr_number" && "$create_pr" == "true" ]]; then
+  usage_error "--auto-edit ne peut pas être combiné avec --create-pr/--auto."
+fi
+
 if [[ "$dry_run" == "false" ]]; then
-  if [[ ${#positionals[@]} -gt 2 ]]; then
+  if [[ -n "$auto_edit_pr_number" && ${#positionals[@]} -gt 1 ]]; then
+    usage_error "En mode --auto-edit (MAIN_PR_NUMBER), OUTPUT_FILE positional n'est pas autorisé."
+  fi
+  if [[ -z "$auto_edit_pr_number" && ${#positionals[@]} -gt 2 ]]; then
     usage_error "Trop d'arguments positionnels. Utilisation attendue: MAIN_PR_NUMBER [OUTPUT_FILE]."
   fi
   if [[ ${#positionals[@]} -ge 1 ]]; then
     main_pr_number="${positionals[0]}"
   fi
-  if [[ ${#positionals[@]} -ge 2 ]]; then
+  if [[ -z "$auto_edit_pr_number" && ${#positionals[@]} -ge 2 ]]; then
     output_file="${positionals[1]}"
   fi
   if [[ -z "$main_pr_number" ]]; then
     usage_error "MAIN_PR_NUMBER est requis."
   fi
 else
-  if [[ "$auto_mode" != "true" && ${#positionals[@]} -gt 1 ]]; then
+  if [[ -n "$auto_edit_pr_number" && "$auto_mode" != "true" && ${#positionals[@]} -gt 0 ]]; then
+    usage_error "En mode --auto-edit (dry-run), OUTPUT_FILE positional n'est pas autorisé."
+  fi
+  if [[ -z "$auto_edit_pr_number" && "$auto_mode" != "true" && ${#positionals[@]} -gt 1 ]]; then
     usage_error "Trop d'arguments positionnels pour --dry-run. Seul OUTPUT_FILE est autorisé."
   fi
-  if [[ "$auto_mode" != "true" && ${#positionals[@]} -ge 1 ]]; then
+  if [[ -z "$auto_edit_pr_number" && "$auto_mode" != "true" && ${#positionals[@]} -ge 1 ]]; then
     output_file="${positionals[0]}"
   fi
 fi
@@ -890,11 +911,15 @@ body_content="$({
 EOF
 })"
 
-if [[ "$auto_mode" != "true" ]]; then
+if [[ "$auto_mode" != "true" && -z "$auto_edit_pr_number" ]]; then
   printf "%s\n" "$body_content" > "$output_file"
   echo "Fichier généré: $output_file"
 else
-  echo "Description PR générée en mémoire (mode --auto)."
+  if [[ "$auto_mode" == "true" ]]; then
+    echo "Description PR générée en mémoire (mode --auto)."
+  else
+    echo "Description PR générée en mémoire (mode --auto-edit)."
+  fi
 fi
 if [[ "$keep_artifacts" == "true" ]]; then
   echo "PR extraites: $extracted_prs_file"
@@ -943,6 +968,38 @@ if [[ "$create_pr" == "true" ]]; then
     echo "PR créée: $pr_url"
   else
     echo "PR creation skipped."
+  fi
+fi
+
+if [[ -n "$auto_edit_pr_number" ]]; then
+  update_now="false"
+
+  if [[ "$assume_yes" == "true" ]]; then
+    update_now="true"
+  elif ! is_human_interactive_terminal; then
+    usage_error "--auto-edit nécessite --yes en contexte non interactif."
+  else
+    echo
+    echo "Body generated for update."
+    read -r -p "Update PR #${auto_edit_pr_number} now with generated body? [y/N] " answer
+    case "$answer" in
+      y|Y|yes|YES)
+        update_now="true"
+        ;;
+    esac
+  fi
+
+  if [[ "$update_now" == "true" ]]; then
+    repo_name_with_owner="$(get_repo_name_with_owner)"
+    if [[ -z "$repo_name_with_owner" ]]; then
+      echo "Erreur: impossible de déterminer le dépôt GitHub pour --auto-edit." >&2
+      exit "$E_DEPENDENCY"
+    fi
+    gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
+      --raw-field body="$body_content" >/dev/null
+    echo "PR mise à jour: #${auto_edit_pr_number}"
+  else
+    echo "PR update skipped."
   fi
 fi
 

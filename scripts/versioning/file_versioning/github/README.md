@@ -58,8 +58,8 @@ Generated body includes:
 Usage:
 
 ```bash
-bash generate_pr_description.sh [--keep-artifacts] MAIN_PR_NUMBER [OUTPUT_FILE]
-bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--yes] [OUTPUT_FILE]
+bash generate_pr_description.sh [--keep-artifacts] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
+bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
 bash generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--yes]
 ```
 
@@ -69,6 +69,7 @@ Key options:
 - `--base`, `--head`: Explicit branch range for dry-run extraction.
 - `--create-pr`: In dry-run mode, optionally create the PR with the generated body.
 - `--allow-partial-create`: Allow PR creation even if GitHub enrichment is incomplete.
+- `--auto-edit PR_NUMBER`: Generate body in memory and update an existing PR directly (no output file).
 - `--yes`: Non-interactive confirmation when `--create-pr` is used.
 - `--auto`: RAM-first flow (`--dry-run` + `--create-pr`) with in-memory body.
 - `--keep-artifacts`: Keep extracted PR/issue intermediate files.
