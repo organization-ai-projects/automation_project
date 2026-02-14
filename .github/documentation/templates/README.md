@@ -45,6 +45,10 @@ Template definitions are maintained in:
 
 This directory documents how those templates are organized and used.
 
+For issue decomposition strategy (parent/sub-issues vs standalone issues), see:
+
+- `.github/documentation/issue_decomposition_conventions.md`
+
 ## Conventions
 
 - PR template placeholders use editable `<...>` syntax.
