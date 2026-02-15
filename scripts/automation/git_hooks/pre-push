@@ -24,8 +24,38 @@ if [[ -z "$UPSTREAM_BRANCH" ]]; then
   UPSTREAM_BRANCH="origin/dev"
 fi
 
-commits=$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null)
-changed_files=$(git diff --name-only "$UPSTREAM_BRANCH"..HEAD 2>/dev/null || true)
+commits=$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null || true)
+
+compute_changed_files() {
+  local upstream="$1"
+  local files=""
+
+  # Standard case: upstream tracking branch exists.
+  files=$(git diff --name-only "${upstream}"..HEAD 2>/dev/null || true)
+  if [[ -n "$files" ]]; then
+    printf '%s\n' "$files"
+    return 0
+  fi
+
+  # First push / missing upstream locally: compare from merge-base with origin/dev.
+  if git rev-parse --verify --quiet origin/dev >/dev/null; then
+    local base
+    base=$(git merge-base origin/dev HEAD 2>/dev/null || true)
+    if [[ -n "$base" ]]; then
+      files=$(git diff --name-only "${base}"..HEAD 2>/dev/null || true)
+      if [[ -n "$files" ]]; then
+        printf '%s\n' "$files"
+        return 0
+      fi
+    fi
+  fi
+
+  # Final fallback: changed files in the latest commit only.
+  files=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)
+  printf '%s\n' "$files"
+}
+
+changed_files=$(compute_changed_files "$UPSTREAM_BRANCH")
 
 is_docs_or_scripts_only_change() {
   local files="$1"
