@@ -212,9 +212,11 @@ See [Versioning TOC](scripts/versioning/file_versioning/TOC.md) for details.
 ```rust
 #[cfg(test)]
 mod tests {
-    use crate::MyStruct;
-    use crate::MyEnum;
-    // or
+    // For types defined in a submodule:
+    use crate::some_module::MyStruct;
+    use crate::some_module::MyEnum;
+
+    // Or, for types defined in the same file as this test module:
     use super::MyStruct;
     use super::MyEnum;
 
