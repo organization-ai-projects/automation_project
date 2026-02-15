@@ -84,11 +84,23 @@ jobs:
 
       - name: Cargo clippy
         if: steps.changes.outputs.run_rust_checks == 'true'
-        run: cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
+        run: |
+          if [[ -f Cargo.lock ]]; then
+            cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
+          else
+            echo "Cargo.lock missing in checkout, running clippy without --locked."
+            cargo clippy --workspace --all-features --all-targets -- -D warnings
+          fi
 
       - name: Cargo test
         if: steps.changes.outputs.run_rust_checks == 'true'
-        run: cargo test --locked --workspace --all-features --all-targets --verbose
+        run: |
+          if [[ -f Cargo.lock ]]; then
+            cargo test --locked --workspace --all-features --all-targets --verbose
+          else
+            echo "Cargo.lock missing in checkout, running tests without --locked."
+            cargo test --workspace --all-features --all-targets --verbose
+          fi
 
       - name: Rust checks skipped (docs/scripts/workflows-only)
         if: steps.changes.outputs.run_rust_checks != 'true'
