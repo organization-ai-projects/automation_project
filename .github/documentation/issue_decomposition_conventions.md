@@ -91,6 +91,25 @@ In those cases, use:
 
 ---
 
+## Examples Matrix
+
+| Situation | Recommended Structure | Why |
+|---|---|---|
+| Script behavior changes and related docs/tests must stay aligned | Bundle (parent) + required child issues | Partial delivery would leave behavior and guidance inconsistent |
+| Two review comments on the same file | One review follow-up issue | Review convention is one issue per file |
+| Review comments across different files | One issue per file | Preserves strict file-level ownership and closure clarity |
+| Independent low-risk docs edits in different areas | Standalone issues (can share one PR) | No functional dependency between tasks |
+| Multiple tasks targeted for the same release window only | Milestone only (no bundle) | Time grouping is a milestone concern, not dependency |
+| Breaking API change + mandatory consumer updates | Bundle (parent) + blocking children | Change is not correct until all consumers are adapted |
+
+### Anti-Examples
+
+- Do not create a bundle only because issues share the same directory.
+- Do not use a bundle as a backlog container for unrelated future work.
+- Do not replace milestone planning with parent/child links when tasks are independent.
+
+---
+
 ## Review Follow-up Convention (Strict Scope)
 
 This section applies **only** to issues created from pull request review comments.
