@@ -83,7 +83,7 @@ run_shell_syntax_checks() {
 
   while IFS= read -r file; do
     [[ -z "$file" ]] && continue
-    if [[ "$file" == *.sh ]] || [[ "$file" == scripts/automation/git_hooks/* ]]; then
+    if [[ "$file" == *.sh ]] || [[ "$file" == scripts/automation/git_hooks/* && -x "$file" ]]; then
       if [[ -f "$file" ]]; then
         echo "   - bash -n $file"
         bash -n "$file"
