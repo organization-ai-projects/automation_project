@@ -2,7 +2,21 @@ use super::*;
 use crate::config::{AgentConfig, NeuralConfig, SymbolicConfig};
 use crate::objectives::Objective;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
+
+static TEST_AUDIT_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn create_portable_test_audit_log_path() -> String {
+    let id = TEST_AUDIT_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let path = std::env::temp_dir().join(format!(
+        "autonomous_dev_ai_lifecycle_test_{}_{}_{}.log",
+        std::process::id(),
+        std::thread::current().name().unwrap_or("thread"),
+        id
+    ));
+    path.to_string_lossy().to_string()
+}
 
 fn create_test_config() -> AgentConfig {
     AgentConfig {
@@ -113,10 +127,13 @@ fn test_retry_strategy() {
 #[test]
 fn test_lifecycle_manager_creation() {
     let config = create_test_config();
-    let manager = LifecycleManager::new(config, "/tmp/test_audit.log");
+    let audit_log_path = create_portable_test_audit_log_path();
+    let manager = LifecycleManager::new(config, &audit_log_path);
 
     assert_eq!(manager.current_state(), AgentState::Idle);
     assert_eq!(manager.current_iteration(), 1);
+
+    let _ = std::fs::remove_file(audit_log_path);
 }
 
 #[test]
