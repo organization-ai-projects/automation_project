@@ -51,7 +51,7 @@ The `Journal` module tracks all executed actions, recording:
 
 ## Outputs and Artifacts
 
-Runtime outputs (journals, logs, generated code) are written to the `data/runs/` directory:
+Runtime outputs (journals, logs, generated code) are written under the configured `runs_root` directory. We recommend using `data/runs/` as `runs_root`; the example layout below assumes that configuration:
 
 ```
 data/runs/

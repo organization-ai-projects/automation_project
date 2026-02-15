@@ -1,8 +1,22 @@
 use common_json::{object, to_value};
 use protocol::{Command, CommandType, Metadata, Payload, RunRequest};
+use serde::Serialize;
 
 use crate::router::{ACTION_GIT_AUTOPILOT_PREVIEW, handle_command};
 use crate::validation_error::{E_REPO_PATH_INVALID_FORMAT, E_REPO_PATH_NOT_WHITELISTED};
+
+fn payload_with_type<T: Serialize>(payload_type: &str, payload_value: &T) -> Payload {
+    Payload {
+        payload_type: Some(payload_type.to_string()),
+        payload: Some(to_value(payload_value).expect("valid json payload")),
+    }
+}
+
+#[track_caller]
+fn assert_error_message_contains(response: &protocol::CommandResponse, expected: &str) {
+    let err = response.error.as_ref().expect("error should be present");
+    assert!(err.message.contains(expected));
+}
 
 #[test]
 fn handle_command_returns_400_when_action_is_missing() {
@@ -14,8 +28,7 @@ fn handle_command_returns_400_when_action_is_missing() {
     });
 
     assert_eq!(response.status.code, 400);
-    let err = response.error.expect("error should be present");
-    assert!(err.message.contains("action is missing"));
+    assert_error_message_contains(&response, "action is missing");
 }
 
 #[test]
@@ -28,8 +41,7 @@ fn handle_command_returns_400_when_action_is_blank() {
     });
 
     assert_eq!(response.status.code, 400);
-    let err = response.error.expect("error should be present");
-    assert!(err.message.contains("action is missing"));
+    assert_error_message_contains(&response, "action is missing");
 }
 
 #[test]
@@ -42,8 +54,7 @@ fn handle_command_returns_404_on_unsupported_action() {
     });
 
     assert_eq!(response.status.code, 404);
-    let err = response.error.expect("error should be present");
-    assert!(err.message.contains("Unsupported command"));
+    assert_error_message_contains(&response, "Unsupported command");
 }
 
 #[test]
@@ -56,8 +67,7 @@ fn handle_command_returns_400_when_preview_payload_is_missing() {
     });
 
     assert_eq!(response.status.code, 400);
-    let err = response.error.expect("error should be present");
-    assert!(err.message.contains("Payload is missing"));
+    assert_error_message_contains(&response, "Payload is missing");
 }
 
 #[test]
@@ -66,15 +76,11 @@ fn handle_command_returns_415_when_payload_type_is_invalid() {
         metadata: Metadata::default(),
         command_type: CommandType::StartJob,
         action: Some(ACTION_GIT_AUTOPILOT_PREVIEW.to_string()),
-        payload: Some(Payload {
-            payload_type: Some("invalid/type".to_string()),
-            payload: Some(object()),
-        }),
+        payload: Some(payload_with_type("invalid/type", &object())),
     });
 
     assert_eq!(response.status.code, 415);
-    let err = response.error.expect("error should be present");
-    assert!(err.message.contains("Invalid payload_type"));
+    assert_error_message_contains(&response, "Invalid payload_type");
 }
 
 #[test]
@@ -87,14 +93,11 @@ fn handle_command_run_rejects_empty_repo_path() {
         metadata: Metadata::default(),
         command_type: CommandType::StartJob,
         action: Some("git_autopilot.run".to_string()),
-        payload: Some(Payload {
-            payload_type: Some("git_autopilot/run/v1".to_string()),
-            payload: Some(to_value(&run_req).expect("valid json")),
-        }),
+        payload: Some(payload_with_type("git_autopilot/run/v1", &run_req)),
     });
 
     assert_eq!(response.status.code, 400);
-    let err = response.error.expect("error should be present");
+    let err = response.error.as_ref().expect("error should be present");
     assert_eq!(err.code, E_REPO_PATH_INVALID_FORMAT);
     assert!(err.message.contains("cannot be empty"));
 }
@@ -109,14 +112,11 @@ fn handle_command_run_rejects_non_whitelisted_repo_path() {
         metadata: Metadata::default(),
         command_type: CommandType::StartJob,
         action: Some("git_autopilot.run".to_string()),
-        payload: Some(Payload {
-            payload_type: Some("git_autopilot/run/v1".to_string()),
-            payload: Some(to_value(&run_req).expect("valid json")),
-        }),
+        payload: Some(payload_with_type("git_autopilot/run/v1", &run_req)),
     });
 
     assert_eq!(response.status.code, 400);
-    let err = response.error.expect("error should be present");
+    let err = response.error.as_ref().expect("error should be present");
     assert_eq!(err.code, E_REPO_PATH_NOT_WHITELISTED);
     assert!(err.message.contains("not in the whitelist"));
 }
