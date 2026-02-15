@@ -22,6 +22,24 @@ This reusable workflow centralizes common CI steps such as linting, formatting, 
 5. **Run Tests**:
    - Executes `cargo test` for the entire workspace with locked dependency resolution.
 
+## Policy Decisions
+
+### Job Structure Decision
+
+- Current policy keeps `fmt`, `clippy`, and `test` in a single job.
+- Rationale:
+  - preserves simple ordering and failure interpretation during stabilization,
+  - avoids extra orchestration complexity while selective checks logic is still evolving.
+- Revisit trigger:
+  - splitting into parallel jobs can be re-evaluated once CI signal quality and flaky-test rate are stable.
+
+### Workflow-Only Change Policy
+
+- Changes limited to `.github/workflows/*` are intentionally treated as non-Rust changes in `ci_reusable.yml`.
+- Expected validation path for workflow-only changes:
+  - workflow review in pull request,
+  - at least one manual workflow run (`workflow_dispatch`) when behavior is materially changed.
+
 ## Related Files
 
 - [ci_main.yml](ci_main.md)
