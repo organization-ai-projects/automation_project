@@ -1,5 +1,63 @@
 #!/usr/bin/env bash
 
+build_pr_bullet() {
+  local title="$1"
+  local pr_ref="$2"
+  local pr_num
+  local normalized_title
+
+  pr_num="${pr_ref//#/}"
+  normalized_title="$title"
+
+  # Remove redundant trailing "(#N)" when we already have the canonical PR ref.
+  normalized_title="$(echo "$normalized_title" | sed -E "s/[[:space:]]*\\(#${pr_num}\\)//g")"
+  # Normalize merge commit headline to avoid rendering "#N" twice.
+  normalized_title="$(echo "$normalized_title" | sed -E "s/(merge[[:space:]]+pull[[:space:]]+request)[[:space:]]+#${pr_num}([[:space:]]+from)/\\1\\2/I")"
+  normalized_title="$(echo "$normalized_title" | sed -E 's/[[:space:]]+/ /g; s/[[:space:]]+$//')"
+
+  if echo "$normalized_title" | grep -Eq "(^|[^0-9])#${pr_num}([^0-9]|$)"; then
+    echo "- ${normalized_title}"
+  else
+    echo "- ${normalized_title} (${pr_ref})"
+  fi
+}
+
+extract_merge_source_ref() {
+  local title_lc="$1"
+  echo "$title_lc" | sed -nE 's/.*merge[[:space:]]+pull[[:space:]]+request[[:space:]]*#[0-9]+[[:space:]]+from[[:space:]]+([^[:space:]]+).*/\1/p'
+}
+
+classify_merge_by_source_ref() {
+  local merge_source_ref="$1"
+  local merge_branch
+
+  merge_branch="${merge_source_ref##*/}"
+
+  if [[ "$merge_source_ref" =~ /sync/ ]] \
+    || [[ "$merge_branch" =~ (main|dev|master|staging|release[^[:space:]]*)-?(into|to)-?(main|dev|master|staging|release[^[:space:]]*) ]]; then
+    echo "Synchronization"
+    return
+  fi
+
+  if [[ "$merge_source_ref" =~ /fix/ ]]; then
+    echo "Bug Fixes"
+    return
+  fi
+
+  if [[ "$merge_source_ref" =~ /(refactor|chore|docs|doc|test|tests)/ ]]; then
+    echo "Refactoring"
+    return
+  fi
+
+  if [[ "$merge_source_ref" =~ /(feat|feature|enhancement)/ ]]; then
+    echo "Features"
+    return
+  fi
+
+  # Safer default for merge commits: avoid over-classifying as Features.
+  echo "Refactoring"
+}
+
 classify_pr() {
   local pr_ref="$1"
   local title="$2"
@@ -7,13 +65,38 @@ classify_pr() {
   local bullet
   local category
   local starts_sync_or_merge=0
+  local merge_source_ref=""
+  local merge_category=""
 
   title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
-  bullet="- ${title} (${pr_ref})"
+  bullet="$(build_pr_bullet "$title" "$pr_ref")"
 
   if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] \
     || [[ "$title_lc" =~ ^[[:space:]]*(chore|refactor|fix|feat|docs|test|tests)[^:]*:[[:space:]]*(sync|merge) ]]; then
     starts_sync_or_merge=1
+  fi
+
+  if [[ "$title_lc" =~ ^[[:space:]]*merge[[:space:]]+pull[[:space:]]+request[[:space:]]*#[0-9]+[[:space:]]+from[[:space:]]+ ]]; then
+    merge_source_ref="$(extract_merge_source_ref "$title_lc")"
+    merge_category="$(classify_merge_by_source_ref "$merge_source_ref")"
+
+    case "$merge_category" in
+      Synchronization)
+        echo "$bullet" >> "$sync_tmp"
+        ;;
+      "Bug Fixes")
+        echo "$bullet" >> "$bugs_tmp"
+        ;;
+      Refactoring)
+        echo "$bullet" >> "$refactors_tmp"
+        ;;
+      *)
+        echo "$bullet" >> "$features_tmp"
+        ;;
+    esac
+    debug_log "classify_pr: ${pr_ref} -> ${merge_category} (merge source: ${merge_source_ref})"
+    echo "$merge_category"
+    return
   fi
 
   # Keep synchronization PRs in a dedicated category.
@@ -69,6 +152,7 @@ classify_pr() {
 issue_category_from_labels() {
   local labels_raw="$1"
   local labels
+  local label
   local has_security=0
   local has_bug=0
   local has_refactor=0
@@ -79,28 +163,39 @@ issue_category_from_labels() {
 
   labels="$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')"
 
-  # Security is a first-class category and must not be downgraded to bug fixes.
-  if [[ "$labels" =~ (security|sec|codeql|cve|vuln|vulnerability|sast) ]]; then
-    has_security=1
-  fi
-  if [[ "$labels" =~ (bug|defect|regression|incident) ]]; then
-    has_bug=1
-  fi
-  if [[ "$labels" =~ (refactor|cleanup|chore|mainten|tech[[:space:]_-]*debt) ]]; then
-    has_refactor=1
-  fi
-  if [[ "$labels" =~ (feature|enhancement|feat) ]]; then
-    has_feature=1
-  fi
-  if [[ "$labels" =~ (testing|tests|test) ]]; then
-    has_testing=1
-  fi
-  if [[ "$labels" =~ (automation|automation-failed|sync_branch|scripts|linting|workflow|ci) ]]; then
-    has_automation=1
-  fi
-  if [[ "$labels" =~ (documentation|docs|readme|translation) ]]; then
-    has_docs=1
-  fi
+  # Analyze each label token independently to avoid cross-label false positives.
+  # labels_raw format is "label1||label2||..."
+  IFS='||' read -r -a labels_arr <<< "$labels"
+  for label in "${labels_arr[@]}"; do
+    [[ -z "$label" ]] && continue
+
+    # Security is a first-class category and must not be downgraded.
+    case "$label" in
+      security|sec|codeql|cve|vuln|vulnerability|sast)
+        has_security=1
+        ;;
+      bug|defect|regression|incident)
+        has_bug=1
+        ;;
+      refactor|cleanup|chore|maintainability|maintenance|tech-debt|tech_debt|technical-debt|technical_debt)
+        has_refactor=1
+        ;;
+      feature|enhancement|feat)
+        has_feature=1
+        ;;
+      testing|tests|test)
+        has_testing=1
+        ;;
+      automation|automation-failed|sync_branch|scripts|linting|workflow|ci)
+        has_automation=1
+        ;;
+      documentation|docs|readme|translation)
+        has_docs=1
+        ;;
+      *)
+        ;;
+    esac
+  done
 
   if [[ "$has_security" -eq 1 ]]; then
     echo "Security"

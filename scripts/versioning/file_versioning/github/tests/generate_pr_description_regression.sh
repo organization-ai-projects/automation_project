@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
 TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/generate_pr_description.sh"
+SNAPSHOT_DIR="${SCRIPT_DIR}/golden"
 
 TESTS_RUN=0
 TESTS_FAILED=0
@@ -24,6 +25,10 @@ if [[ "${1:-}" == "repo" && "${2:-}" == "view" ]]; then
   echo "owner/repo"
   exit 0
 fi
+if [[ "${1:-}" == "pr" && "${2:-}" == "create" ]]; then
+  echo "https://github.com/owner/repo/pull/999"
+  exit 0
+fi
 exit 0
 EOF
   chmod +x "${mock_dir}/gh"
@@ -36,6 +41,14 @@ if [[ "${1:-}" == "rev-parse" && "${2:-}" == "--abbrev-ref" && "${3:-}" == "HEAD
   exit 0
 fi
 if [[ "${1:-}" == "log" ]]; then
+  if [[ "${2:-}" == "--oneline" && -n "${MOCK_GIT_LOG_ONELINE:-}" ]]; then
+    printf "%s\n" "${MOCK_GIT_LOG_ONELINE}"
+    exit 0
+  fi
+  if [[ "${2:-}" == "--format=%B" && -n "${MOCK_GIT_LOG_BODY:-}" ]]; then
+    printf "%s\n" "${MOCK_GIT_LOG_BODY}"
+    exit 0
+  fi
   exit 0
 fi
 exit 0
@@ -152,6 +165,7 @@ main() {
   run_case "auto-edit-main-forbids-output-file" 2 "En mode --auto-edit \\(MAIN_PR_NUMBER\\), OUTPUT_FILE positional n'est pas autorisé" mock --auto-edit 400 42 out.md
   run_case "dry-run-too-many-positionals" 2 "Trop d'arguments positionnels pour --dry-run" mock --dry-run out.md extra.md
   run_case "dry-run-minimal" 0 "Fichier généré:" mock --dry-run --base dev --head test-head /tmp/pr_description_test.md
+  run_case "auto-create-success-does-not-return-no-data" 0 "PR créée:" mock --auto --base dev --head test-head --yes
   run_case "auto-edit-dry-run-in-memory" 0 "mode --auto-edit" mock --dry-run --auto-edit 400 --base dev --head test-head --yes
   run_case "dry-run-without-gh" 0 "Fichier généré:" no_gh --dry-run --base dev --head test-head /tmp/pr_description_test_no_gh.md
   run_case "missing-gh-required-main-mode" 3 "la commande 'gh' est introuvable" no_gh 42
@@ -182,6 +196,172 @@ main() {
     fi
   else
     echo "FAIL [compatibility-single-status-line] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  category_out="$(bash -c '
+    set -euo pipefail
+    source "'"${ROOT_DIR}"'/scripts/versioning/file_versioning/github/lib/classification.sh"
+    issue_category_from_labels "documentation||community-health-files"
+  ' 2>/dev/null || true)"
+  if [[ "${category_out}" == "Docs" ]]; then
+    echo "PASS [label-classification-does-not-false-positive-security]"
+  else
+    echo "FAIL [label-classification-does-not-false-positive-security] expected Docs, got: ${category_out}"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  category_out="$(bash -c '
+    set -euo pipefail
+    source "'"${ROOT_DIR}"'/scripts/versioning/file_versioning/github/lib/classification.sh"
+    issue_category_from_labels "documentation||security"
+  ' 2>/dev/null || true)"
+  if [[ "${category_out}" == "Security" ]]; then
+    echo "PASS [label-classification-keeps-explicit-security]"
+  else
+    echo "FAIL [label-classification-keeps-explicit-security] expected Security, got: ${category_out}"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/merge_fix.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_ONELINE="beef001 Merge pull request #512 from organization-ai-projects/fix/scripts-classification" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
+  ) >/dev/null 2>&1; then
+    bug_section="$(awk '
+      /^#### Bug Fixes$/ { in_bug=1; next }
+      /^#### / && in_bug { exit }
+      in_bug { print }
+    ' "${out_md}")"
+    features_section="$(awk '
+      /^#### Features$/ { in_feat=1; next }
+      /^#### / && in_feat { exit }
+      in_feat { print }
+    ' "${out_md}")"
+
+    if echo "${bug_section}" | grep -q "Merge pull request from organization-ai-projects/fix/scripts-classification"; then
+      if ! echo "${features_section}" | grep -q "Merge pull request"; then
+        echo "PASS [merge-fix-classified-as-bug-fixes]"
+      else
+        echo "FAIL [merge-fix-classified-as-bug-fixes] merge line leaked into Features"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+      fi
+    else
+      echo "FAIL [merge-fix-classified-as-bug-fixes] expected merge line not found in Bug Fixes"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [merge-fix-classified-as-bug-fixes] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/merge_misc.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_ONELINE="beef777 Merge pull request #777 from organization-ai-projects/remi-bezot/sub-pr-378" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
+  ) >/dev/null 2>&1; then
+    refactor_section="$(awk '
+      /^#### Refactoring$/ { in_ref=1; next }
+      /^#### / && in_ref { exit }
+      in_ref { print }
+    ' "${out_md}")"
+    features_section="$(awk '
+      /^#### Features$/ { in_feat=1; next }
+      /^#### / && in_feat { exit }
+      in_feat { print }
+    ' "${out_md}")"
+
+    if echo "${refactor_section}" | grep -q "Merge pull request from organization-ai-projects/remi-bezot/sub-pr-378"; then
+      if ! echo "${features_section}" | grep -q "Merge pull request from organization-ai-projects/remi-bezot/sub-pr-378"; then
+        echo "PASS [merge-default-avoids-features-overclassification]"
+      else
+        echo "FAIL [merge-default-avoids-features-overclassification] merge line leaked into Features"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+      fi
+    else
+      echo "FAIL [merge-default-avoids-features-overclassification] expected merge line not found in Refactoring"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [merge-default-avoids-features-overclassification] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/merge.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_ONELINE="abcd123 Merge pull request #402 from organization-ai-projects/sync/main-into-dev" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
+  ) >/dev/null 2>&1; then
+    merge_line="$(grep -F -- "Merge pull request" "${out_md}" | head -n 1 || true)"
+    if [[ -n "${merge_line}" ]] && [[ "$(grep -o '#402' <<< "${merge_line}" | wc -l | tr -d ' ')" == "1" ]]; then
+      echo "PASS [no-duplicated-pr-ref-in-key-changes]"
+    else
+      echo "FAIL [no-duplicated-pr-ref-in-key-changes] duplicated or missing PR ref"
+      echo "Line: ${merge_line}"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [no-duplicated-pr-ref-in-key-changes] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/snapshot_non_breaking.md"
+  if (
+    cd "${ROOT_DIR}"
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run "${out_md}"
+  ) >/dev/null 2>&1; then
+    if diff -u "${SNAPSHOT_DIR}/dry_run_non_breaking.md" "${out_md}" >/dev/null; then
+      echo "PASS [golden-snapshot-dry-run-non-breaking]"
+    else
+      echo "FAIL [golden-snapshot-dry-run-non-breaking] snapshot mismatch"
+      diff -u "${SNAPSHOT_DIR}/dry_run_non_breaking.md" "${out_md}" || true
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [golden-snapshot-dry-run-non-breaking] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/snapshot_breaking.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_BODY="BREAKING CHANGE: api changed" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run "${out_md}"
+  ) >/dev/null 2>&1; then
+    if diff -u "${SNAPSHOT_DIR}/dry_run_breaking.md" "${out_md}" >/dev/null; then
+      echo "PASS [golden-snapshot-dry-run-breaking]"
+    else
+      echo "FAIL [golden-snapshot-dry-run-breaking] snapshot mismatch"
+      diff -u "${SNAPSHOT_DIR}/dry_run_breaking.md" "${out_md}" || true
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [golden-snapshot-dry-run-breaking] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"

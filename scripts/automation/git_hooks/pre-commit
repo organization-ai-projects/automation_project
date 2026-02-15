@@ -16,6 +16,17 @@ echo ""
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 1
 
+# Protect integration branches from direct commits.
+# Use ALLOW_PROTECTED_BRANCH_COMMIT=1 only for exceptional maintenance work.
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [[ "${ALLOW_PROTECTED_BRANCH_COMMIT:-}" != "1" ]] \
+  && [[ "$CURRENT_BRANCH" == "dev" || "$CURRENT_BRANCH" == "main" ]]; then
+  echo "❌ Direct commits on protected branch '$CURRENT_BRANCH' are blocked."
+  echo "   Create a feature/fix/docs branch, then open a PR."
+  echo "   Temporary bypass (exception only): ALLOW_PROTECTED_BRANCH_COMMIT=1 git commit ..."
+  exit 1
+fi
+
 # Detect affected crates from staged changes
 detect_affected_crates() {
   local changed_files

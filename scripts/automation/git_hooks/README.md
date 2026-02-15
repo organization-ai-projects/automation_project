@@ -79,7 +79,8 @@ SKIP_COMMIT_VALIDATION=1 git commit -m "emergency fix"
 
 Runs code formatting before each commit:
 
-1. **Formatting**: `cargo fmt --all`
+1. **Protected branch guard**: blocks direct commits on `dev` and `main`
+2. **Formatting**: `cargo fmt --all`
 
 Automatically adds formatted files to staging.
 
@@ -87,6 +88,7 @@ Automatically adds formatted files to staging.
 
 ```bash
 SKIP_PRE_COMMIT=1 git commit -m "message"
+ALLOW_PROTECTED_BRANCH_COMMIT=1 git commit -m "message"
 ```
 
 ### `pre-push`
