@@ -69,6 +69,7 @@ classify_pr() {
 issue_category_from_labels() {
   local labels_raw="$1"
   local labels
+  local label
   local has_security=0
   local has_bug=0
   local has_refactor=0
@@ -79,28 +80,39 @@ issue_category_from_labels() {
 
   labels="$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')"
 
-  # Security is a first-class category and must not be downgraded to bug fixes.
-  if [[ "$labels" =~ (security|sec|codeql|cve|vuln|vulnerability|sast) ]]; then
-    has_security=1
-  fi
-  if [[ "$labels" =~ (bug|defect|regression|incident) ]]; then
-    has_bug=1
-  fi
-  if [[ "$labels" =~ (refactor|cleanup|chore|mainten|tech[[:space:]_-]*debt) ]]; then
-    has_refactor=1
-  fi
-  if [[ "$labels" =~ (feature|enhancement|feat) ]]; then
-    has_feature=1
-  fi
-  if [[ "$labels" =~ (testing|tests|test) ]]; then
-    has_testing=1
-  fi
-  if [[ "$labels" =~ (automation|automation-failed|sync_branch|scripts|linting|workflow|ci) ]]; then
-    has_automation=1
-  fi
-  if [[ "$labels" =~ (documentation|docs|readme|translation) ]]; then
-    has_docs=1
-  fi
+  # Analyze each label token independently to avoid cross-label false positives.
+  # labels_raw format is "label1||label2||..."
+  IFS='||' read -r -a labels_arr <<< "$labels"
+  for label in "${labels_arr[@]}"; do
+    [[ -z "$label" ]] && continue
+
+    # Security is a first-class category and must not be downgraded.
+    case "$label" in
+      security|sec|codeql|cve|vuln|vulnerability|sast)
+        has_security=1
+        ;;
+      bug|defect|regression|incident)
+        has_bug=1
+        ;;
+      refactor|cleanup|chore|maintainability|maintenance|tech-debt|tech_debt|technical-debt|technical_debt)
+        has_refactor=1
+        ;;
+      feature|enhancement|feat)
+        has_feature=1
+        ;;
+      testing|tests|test)
+        has_testing=1
+        ;;
+      automation|automation-failed|sync_branch|scripts|linting|workflow|ci)
+        has_automation=1
+        ;;
+      documentation|docs|readme|translation)
+        has_docs=1
+        ;;
+      *)
+        ;;
+    esac
+  done
 
   if [[ "$has_security" -eq 1 ]]; then
     echo "Security"

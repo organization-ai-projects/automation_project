@@ -186,6 +186,32 @@ main() {
   fi
   rm -rf "${tmp}"
 
+  TESTS_RUN=$((TESTS_RUN + 1))
+  category_out="$(bash -c '
+    set -euo pipefail
+    source "'"${ROOT_DIR}"'/scripts/versioning/file_versioning/github/lib/classification.sh"
+    issue_category_from_labels "documentation||community-health-files"
+  ' 2>/dev/null || true)"
+  if [[ "${category_out}" == "Docs" ]]; then
+    echo "PASS [label-classification-does-not-false-positive-security]"
+  else
+    echo "FAIL [label-classification-does-not-false-positive-security] expected Docs, got: ${category_out}"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  category_out="$(bash -c '
+    set -euo pipefail
+    source "'"${ROOT_DIR}"'/scripts/versioning/file_versioning/github/lib/classification.sh"
+    issue_category_from_labels "documentation||security"
+  ' 2>/dev/null || true)"
+  if [[ "${category_out}" == "Security" ]]; then
+    echo "PASS [label-classification-keeps-explicit-security]"
+  else
+    echo "FAIL [label-classification-keeps-explicit-security] expected Security, got: ${category_out}"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+
   echo ""
   echo "Tests run: ${TESTS_RUN}"
   echo "Tests failed: ${TESTS_FAILED}"
