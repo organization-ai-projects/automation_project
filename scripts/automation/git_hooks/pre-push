@@ -35,6 +35,8 @@ is_docs_or_scripts_only_change() {
 
   while IFS= read -r file; do
     [[ -z "$file" ]] && continue
+    # Intentionally treat workflow-only changes as non-Rust changes for pre-push.
+    # Workflow logic is validated in CI/automation workflows and review.
     if [[ "$file" =~ \.md$ ]] || [[ "$file" == documentation/* ]] || [[ "$file" == .github/documentation/* ]] || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] || [[ "$file" == scripts/* ]] || [[ "$file" == .github/workflows/* ]]; then
       continue
     fi
