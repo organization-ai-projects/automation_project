@@ -39,6 +39,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
+          # Evaluate the changed issue itself as a potential parent.
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
             --issue "$ISSUE_NUMBER" \
             --strict-guard true
@@ -50,6 +51,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
+          # Re-evaluate any parent impacted by the changed child issue state.
+          # This intentionally runs for opened/edited/reopened/closed events.
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
             --child "$ISSUE_NUMBER" \
             --strict-guard true
