@@ -2,9 +2,17 @@
 # Git hook: commit-msg
 # Validates commit message format
 # Bypass: SKIP_COMMIT_VALIDATION=1 git commit ...
+set -euo pipefail
 
 COMMIT_MSG_FILE="$1"
-COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+if [[ -z "${COMMIT_MSG_FILE:-}" || ! -f "$COMMIT_MSG_FILE" ]]; then
+  echo "❌ commit-msg hook: missing or invalid commit message file" >&2
+  exit 1
+fi
+
+# Only validate the commit subject line; body/footer are handled separately.
+COMMIT_SUBJECT=$(head -n1 "$COMMIT_MSG_FILE")
 
 # Allow bypass for emergency situations
 if [[ "${SKIP_COMMIT_VALIDATION:-}" == "1" ]]; then
@@ -14,31 +22,128 @@ fi
 # Allowed prefixes
 ALLOWED_TYPES="^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)"
 
+extract_scopes_from_commit_message() {
+  local message="$1"
+  local scope_re='^[a-z]+\(([^)]+)\):'
+  local scope
+  if [[ ! "$message" =~ $scope_re ]]; then
+    return 0
+  fi
+  IFS=',' read -r -a scopes <<< "${BASH_REMATCH[1]}"
+  for scope in "${scopes[@]}"; do
+    # Trim leading/trailing spaces to support "scope1, scope2" syntax.
+    scope="${scope#"${scope%%[![:space:]]*}"}"
+    scope="${scope%"${scope##*[![:space:]]}"}"
+    [[ -n "$scope" ]] && printf '%s\n' "$scope"
+  done
+}
+
+detect_required_scopes_from_staged_files() {
+  local files
+  files=$(git diff --cached --name-only)
+  local required=()
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+
+    if [[ "$file" =~ ^projects/libraries/([^/]+)/ ]]; then
+      local scope="projects/libraries/${BASH_REMATCH[1]}"
+      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
+        required+=("$scope")
+      fi
+      continue
+    fi
+
+    if [[ "$file" =~ ^projects/products/[^/]+/([^/]+)/ ]]; then
+      local product_name="${BASH_REMATCH[1]}"
+      local component=""
+      if [[ "$file" =~ ^projects/products/[^/]+/[^/]+/(ui|backend)/ ]]; then
+        component="${BASH_REMATCH[1]}"
+      fi
+
+      local scope="projects/products/${product_name}"
+      if [[ -n "$component" ]]; then
+        scope="${scope}/${component}"
+      fi
+
+      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
+        required+=("$scope")
+      fi
+    fi
+  done <<< "$files"
+
+  printf '%s\n' "${required[@]}"
+}
+
 # Validate format: <type>(<scope>): <message> or <type>: <message>
 # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
-if [[ ! "$COMMIT_MSG" =~ $ALLOWED_TYPES(\([a-zA-Z0-9_./,-]+\))?:\ .+ ]]; then
-  echo "❌ Invalid commit message format!"
-  echo ""
-  echo "Expected format:"
-  echo "  <type>(<scope>): <message>"
-  echo "  or"
-  echo "  <type>: <message>"
-  echo ""
-  echo "Allowed types:"
-  echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore"
-  echo ""
-  echo "Examples:"
-  echo "  feat(auth): add user authentication"
-  echo "  feat(ci,scripts): add workflows and sync script"
-  echo "  docs(.github): add default PR template"
-  echo "  fix: resolve null pointer exception"
-  echo "  docs(readme): update installation instructions"
-  echo ""
-  echo "Your commit message:"
-  echo "  $COMMIT_MSG"
-  echo ""
-  echo "Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..."
+if [[ ! "$COMMIT_SUBJECT" =~ $ALLOWED_TYPES(\([a-zA-Z0-9_./,-]+\))?:[[:space:]].+$ ]]; then
+  echo "❌ Invalid commit message format!" >&2
+  echo "" >&2
+  echo "Expected format:" >&2
+  echo "  <type>(<scope>): <message>" >&2
+  echo "  or" >&2
+  echo "  <type>: <message>" >&2
+  echo "" >&2
+  echo "Allowed types:" >&2
+  echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore" >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  feat(projects/libraries/security): add user authentication" >&2
+  echo "  feat(ci,scripts): add workflows and sync script" >&2
+  echo "  docs(.github): add default PR template" >&2
+  echo "  fix: resolve null pointer exception" >&2
+  echo "  docs(readme): update installation instructions" >&2
+  echo "  refactor(projects/products/accounts/backend): improve audit flush handling" >&2
+  echo "" >&2
+  echo "Your commit message:" >&2
+  echo "  $COMMIT_SUBJECT" >&2
+  echo "" >&2
+  echo "Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
   exit 1
+fi
+
+required_scopes=$(detect_required_scopes_from_staged_files)
+if [[ -n "$required_scopes" ]]; then
+  commit_scopes=$(extract_scopes_from_commit_message "$COMMIT_SUBJECT")
+
+  if [[ -z "$commit_scopes" ]]; then
+    echo "❌ Missing required scope in commit message." >&2
+    echo "" >&2
+    echo "Detected changed files requiring scope:" >&2
+    while IFS= read -r scope; do
+      [[ -n "$scope" ]] && echo "  - $scope" >&2
+    done <<< "$required_scopes"
+    echo "" >&2
+    echo "Expected format example:" >&2
+    echo "  fix(projects/libraries/<library_name>): ..." >&2
+    echo "  fix(projects/products/<product_name>): ..." >&2
+    echo "  fix(projects/products/<product_name>/backend): ..." >&2
+    exit 1
+  fi
+
+  missing_scopes=()
+  while IFS= read -r required_scope; do
+    [[ -z "$required_scope" ]] && continue
+    if ! grep -Fxq "$required_scope" <<< "$commit_scopes"; then
+      missing_scopes+=("$required_scope")
+    fi
+  done <<< "$required_scopes"
+
+  if [[ "${#missing_scopes[@]}" -gt 0 ]]; then
+    echo "❌ Commit scope does not match touched files." >&2
+    echo "" >&2
+    echo "Missing required scope(s):" >&2
+    for scope in "${missing_scopes[@]}"; do
+      echo "  - $scope" >&2
+    done
+    echo "" >&2
+    echo "Commit scopes found:" >&2
+    while IFS= read -r scope; do
+      [[ -n "$scope" ]] && echo "  - $scope" >&2
+    done <<< "$commit_scopes"
+    exit 1
+  fi
 fi
 
 exit 0
