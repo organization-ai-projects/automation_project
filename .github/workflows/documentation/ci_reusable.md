@@ -13,13 +13,14 @@ This reusable workflow centralizes common CI steps such as linting, formatting, 
 1. **Checkout**:
    - Checks out the repository code.
 2. **Install Rust**:
-   - Installs the Rust toolchain with components like `rustfmt` and `clippy`.
+   - Installs the repository toolchain policy defined in `rust-toolchain.toml`.
+   - Ensures `rustfmt` and `clippy` are available.
 3. **Cache Cargo**:
    - Caches dependencies to speed up builds.
 4. **Run Checks**:
-   - Runs `cargo check`, `cargo fmt`, and `cargo clippy`.
+   - Runs `cargo fmt` and `cargo clippy` with locked dependency resolution.
 5. **Run Tests**:
-   - Executes `cargo test` for the entire workspace.
+   - Executes `cargo test` for the entire workspace with locked dependency resolution.
 
 ## Related Files
 

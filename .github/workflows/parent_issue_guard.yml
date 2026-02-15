@@ -7,7 +7,7 @@ on:
     inputs:
       issue_number:
         description: "Issue number to evaluate as parent"
-        required: false
+        required: true
 
 permissions:
   issues: write
@@ -17,33 +17,61 @@ jobs:
   parent-issue-status:
     if: github.event.issue.pull_request == null
     runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/versioning/file_versioning/github/
+          sparse-checkout-cone-mode: false
 
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Ensure jq is available
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq
+          else
+            jq --version
+          fi
 
       - name: Evaluate issue as parent candidate
         if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
+          # Evaluate the changed issue itself as a potential parent.
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
-            --issue "${{ github.event.issue.number }}" \
+            --issue "$ISSUE_NUMBER" \
             --strict-guard true
 
       - name: Evaluate parent candidates from changed child
         if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
+          # Re-evaluate any parent impacted by the changed child issue state.
+          # This intentionally runs for opened/edited/reopened/closed events.
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
-            --child "${{ github.event.issue.number }}" \
+            --child "$ISSUE_NUMBER" \
             --strict-guard true
 
       - name: Manual parent evaluation
-        if: github.event_name == 'workflow_dispatch' && inputs.issue_number != ''
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
+          if [[ -z "$ISSUE_NUMBER" ]]; then
+            echo "Missing issue_number for workflow_dispatch." >&2
+            exit 1
+          fi
+          if [[ ! "$ISSUE_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid issue_number '$ISSUE_NUMBER' (expected positive integer)." >&2
+            exit 1
+          fi
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
-            --issue "${{ inputs.issue_number }}" \
+            --issue "$ISSUE_NUMBER" \
             --strict-guard true
