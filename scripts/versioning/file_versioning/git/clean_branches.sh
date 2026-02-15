@@ -26,13 +26,21 @@ info "Cleaning up stale branches..."
 git_fetch_prune "$REMOTE"
 
 # Find branches marked as [gone]
-GONE_BRANCHES=$(git branch -vv | awk '/: gone]/{print $1}' || true)
+mapfile -t GONE_BRANCHES < <(
+  git branch -vv | awk '$0 ~ /\[.*: gone\]/ {
+    branch=$1
+    if (branch == "*") {
+      branch=$2
+    }
+    print branch
+  }'
+)
 
-if [[ -z "$GONE_BRANCHES" ]]; then
+if [[ "${#GONE_BRANCHES[@]}" -eq 0 ]]; then
   info "✓ No local branches with gone remotes."
 else
   info "Found local branches with gone remotes:"
-  echo "$GONE_BRANCHES" | sed 's/^/  - /'
+  printf '%s\n' "${GONE_BRANCHES[@]}" | sed 's/^/  - /'
 
   # Delete each gone branch (avoid pipe subshell to preserve shell semantics)
   while read -r branch; do
@@ -50,7 +58,7 @@ else
     else
       warn "⚠ Failed to delete $branch"
     fi
-  done <<< "$GONE_BRANCHES"
+  done <<< "$(printf '%s\n' "${GONE_BRANCHES[@]}")"
 fi
 
 # Optional: List merged branches that could be cleaned up
