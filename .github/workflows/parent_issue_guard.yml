@@ -17,9 +17,6 @@ jobs:
   parent-issue-status:
     if: github.event.issue.pull_request == null
     runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +26,9 @@ jobs:
 
       - name: Evaluate issue as parent candidate
         if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
             --issue "${{ github.event.issue.number }}" \
@@ -36,6 +36,9 @@ jobs:
 
       - name: Evaluate parent candidates from changed child
         if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
             --child "${{ github.event.issue.number }}" \
@@ -43,6 +46,9 @@ jobs:
 
       - name: Manual parent evaluation
         if: github.event_name == 'workflow_dispatch' && inputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
             --issue "${{ inputs.issue_number }}" \
