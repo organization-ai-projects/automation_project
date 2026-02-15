@@ -82,13 +82,23 @@ run_shell_syntax_checks() {
   local file
 
   while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    if [[ "$file" == *.sh ]] || [[ "$file" == scripts/automation/git_hooks/* && -x "$file" ]]; then
-      if [[ -f "$file" ]]; then
-        echo "   - bash -n $file"
-        bash -n "$file"
-        checked=1
+    [[ -z "$file" || ! -f "$file" ]] && continue
+
+    local is_shell=false
+    if [[ "$file" == *.sh ]]; then
+      is_shell=true
+    elif [[ -x "$file" ]]; then
+      local shebang
+      shebang=$(head -n1 "$file" 2>/dev/null || true)
+      if [[ "$shebang" =~ ^#!.*(ba)?sh([[:space:]]|$) ]]; then
+        is_shell=true
       fi
+    fi
+
+    if [[ "$is_shell" == true ]]; then
+      echo "   - bash -n $file"
+      bash -n "$file"
+      checked=1
     fi
   done <<< "$files"
 
@@ -112,7 +122,8 @@ fi
 
 # Extract crate names from commit scopes
 detect_crates_from_scopes() {
-  local crates=()
+  local commits_input="$1"
+  local -a crates=()
   local invalid_scopes=0
   local scope_re='^[a-z]+\(([^)]+)\):'
 
@@ -123,77 +134,93 @@ detect_crates_from_scopes() {
   while IFS= read -r line; do
     # Match pattern: type(scope):
     if [[ $line =~ $scope_re ]]; then
-      local scope="${BASH_REMATCH[1]}"
+      local -a raw_scopes=()
+      local raw_scope
+      IFS=',' read -r -a raw_scopes <<< "${BASH_REMATCH[1]}"
 
-      local cargo_toml=""
-      if [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
-        cargo_toml="projects/libraries/${BASH_REMATCH[1]}/Cargo.toml"
-      elif [[ $scope =~ ^projects/products/([^/]+)(/(ui|backend))?$ ]]; then
-        local product="${BASH_REMATCH[1]}"
-        local component="${BASH_REMATCH[3]:-}"
-        local matches=()
-        while IFS= read -r match; do
-          [[ -n "$match" ]] && matches+=("$match")
-        done < <(find projects/products -type f -path "*/${product}/${component:+$component/}Cargo.toml")
+      for raw_scope in "${raw_scopes[@]}"; do
+        local scope="${raw_scope#"${raw_scope%%[![:space:]]*}"}"
+        scope="${scope%"${scope##*[![:space:]]}"}"
+        [[ -z "$scope" ]] && continue
 
-        if [[ ${#matches[@]} -eq 1 ]]; then
-          cargo_toml="${matches[0]}"
-        elif [[ ${#matches[@]} -gt 1 ]]; then
-          invalid_scopes=$((invalid_scopes + 1))
-          continue
-        fi
-      fi
+        local cargo_toml=""
+        if [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
+          cargo_toml="projects/libraries/${BASH_REMATCH[1]}/Cargo.toml"
+        elif [[ $scope =~ ^projects/products/([^/]+)(/(ui|backend))?$ ]]; then
+          local product="${BASH_REMATCH[1]}"
+          local component="${BASH_REMATCH[3]:-}"
+          local -a matches=()
+          local match
+          while IFS= read -r match; do
+            [[ -n "$match" ]] && matches+=("$match")
+          done < <(find projects/products -type f -path "*/${product}/${component:+$component/}Cargo.toml")
 
-      if [[ -n "$cargo_toml" ]]; then
-        if [[ ! -f "$cargo_toml" ]]; then
-          invalid_scopes=$((invalid_scopes + 1))
-          continue
-        fi
-
-        local crate_name
-        crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
-        if [[ -z "$crate_name" ]]; then
-          invalid_scopes=$((invalid_scopes + 1))
-          continue
+          if [[ ${#matches[@]} -eq 1 ]]; then
+            cargo_toml="${matches[0]}"
+          elif [[ ${#matches[@]} -gt 1 ]]; then
+            echo "⚠️  Scope '$scope' matches multiple Cargo.toml files; falling back to workspace:"
+            printf '   - %s\n' "${matches[@]}"
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
         fi
 
-        if [[ ! " ${crates[@]} " =~ " ${crate_name} " ]]; then
-          crates+=("$crate_name")
+        if [[ -n "$cargo_toml" ]]; then
+          if [[ ! -f "$cargo_toml" ]]; then
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
+
+          local crate_name
+          crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
+          if [[ -z "$crate_name" ]]; then
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
+
+          if [[ ! " ${crates[*]} " =~ " ${crate_name} " ]]; then
+            crates+=("$crate_name")
+          fi
         fi
-      fi
+      done
     fi
-  done <<< "$commits"
+  done <<< "$commits_input"
 
   # If there were invalid scopes, return empty (force full workspace test)
   if [[ $invalid_scopes -gt 0 ]]; then
     return 1
   fi
 
-  printf '%s\n' "${crates[@]}"
+  printf '%s\n' "${crates[@]+"${crates[@]}"}"
 }
 
 # Get affected crates from commit scopes
-AFFECTED=$(detect_crates_from_scopes)
+AFFECTED=$(detect_crates_from_scopes "$commits")
 SCOPE_VALID=$?
+
+LOCKED_ARGS=()
+if [[ -f Cargo.lock ]]; then
+  LOCKED_ARGS=(--locked)
+fi
 
 if [[ $SCOPE_VALID -ne 0 ]] || [[ -z "$AFFECTED" ]]; then
   echo "⚠️  Invalid or missing crate scope(s) in commits - testing full workspace"
   echo "   (Use scopes like 'refactor(projects/libraries/security):' or 'fix(projects/products/accounts/backend):')"
   echo ""
-  CLIPPY_ARGS="--all-targets --all-features"
-  TEST_ARGS="--workspace"
+  CLIPPY_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
+  TEST_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
 else
   echo "🎯 Crates from commit scopes:"
   echo "$AFFECTED" | sed 's/^/   - /'
   echo ""
 
   # Build clippy/test args for affected crates
-  CLIPPY_ARGS=""
-  TEST_ARGS=""
+  CLIPPY_ARGS=("${LOCKED_ARGS[@]}" --all-targets --all-features)
+  TEST_ARGS=("${LOCKED_ARGS[@]}" --all-targets --all-features)
   while IFS= read -r crate; do
     [[ -z "$crate" ]] && continue
-    CLIPPY_ARGS+=" -p $crate"
-    TEST_ARGS+=" -p $crate"
+    CLIPPY_ARGS+=(-p "$crate")
+    TEST_ARGS+=(-p "$crate")
   done <<< "$AFFECTED"
 fi
 
@@ -215,11 +242,10 @@ fi
 
 # 2. Run clippy on affected crates
 echo "🔎 Running clippy..."
-# shellcheck disable=SC2086
-if ! cargo clippy $CLIPPY_ARGS -- -D warnings; then
+if ! cargo clippy "${CLIPPY_ARGS[@]}" -- -D warnings; then
   echo ""
   echo "❌ Clippy found issues!"
-  echo "   Run: cargo clippy $CLIPPY_ARGS -- -D warnings"
+  echo "   Run: cargo clippy ${CLIPPY_ARGS[*]} -- -D warnings"
   echo ""
   FAILED=1
 else
@@ -229,11 +255,10 @@ fi
 
 # 3. Run tests on affected crates
 echo "🧪 Running tests..."
-# shellcheck disable=SC2086
-if ! cargo test $TEST_ARGS; then
+if ! cargo test "${TEST_ARGS[@]}"; then
   echo ""
   echo "❌ Tests failed!"
-  echo "   Run: cargo test $TEST_ARGS"
+  echo "   Run: cargo test ${TEST_ARGS[*]}"
   echo ""
   FAILED=1
 else
