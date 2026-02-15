@@ -13,6 +13,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+PUSH_SCRIPT="$SCRIPT_DIR/push_branch.sh"
 
 # shellcheck source=scripts/common_lib/core/logging.sh
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
@@ -26,6 +27,14 @@ source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit_format.sh"
 
 require_git_repo
+
+if [[ ! -f "$PUSH_SCRIPT" ]]; then
+  die "push_branch.sh not found at: $PUSH_SCRIPT"
+fi
+
+if [[ ! -x "$PUSH_SCRIPT" ]]; then
+  die "push_branch.sh is not executable. Run: chmod +x $PUSH_SCRIPT"
+fi
 
 # Validate commit message format
 validate_commit_message() {
@@ -100,6 +109,6 @@ else
 fi
 
 info "Pushing via push_branch.sh..."
-"$SCRIPT_DIR/push_branch.sh"
+"$PUSH_SCRIPT"
 
 info "✅ Commit and push completed successfully."
