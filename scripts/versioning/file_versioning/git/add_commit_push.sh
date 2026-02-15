@@ -33,7 +33,7 @@ validate_commit_message() {
 
   # Validate format: <type>(<scope>): <message> or <type>: <message>
   # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
-  if ! validate_commit_message_format "$message" '\ '; then
+  if ! validate_commit_message_format "$message" '[[:space:]]'; then
     echo "❌ Invalid commit message format!" >&2
     echo "" >&2
     echo "Expected format:" >&2
