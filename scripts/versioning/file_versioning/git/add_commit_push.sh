@@ -87,7 +87,7 @@ NO_VERIFY=false
 if [[ "$#" -eq 2 ]]; then
   if [[ "$2" == "--no-verify" ]]; then
     NO_VERIFY=true
-    warn "⚠️  WARNING: Bypassing commit message validation. This is not recommended."
+    warn "⚠️  WARNING: Bypassing ALL git hooks (including pre-commit and commit-msg). This is not recommended."
   else
     die "Invalid option: $2. Use --no-verify to bypass validation."
   fi
