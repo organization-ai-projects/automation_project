@@ -40,31 +40,40 @@ detect_crates_from_scopes() {
     if [[ $line =~ $scope_re ]]; then
       local scope="${BASH_REMATCH[1]}"
 
-      # Parse scope: products/accounts/backend → accounts-backend
-      if [[ $scope =~ ^(libraries|products)/([^/]+)(/([^/]+))?$ ]]; then
-        local crate_path="${BASH_REMATCH[2]}"
-        if [[ -n "${BASH_REMATCH[4]}" ]]; then
-          crate_path="${crate_path}/${BASH_REMATCH[4]}"
+      local cargo_toml=""
+      if [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
+        cargo_toml="projects/libraries/${BASH_REMATCH[1]}/Cargo.toml"
+      elif [[ $scope =~ ^projects/products/([^/]+)(/(ui|backend))?$ ]]; then
+        local product="${BASH_REMATCH[1]}"
+        local component="${BASH_REMATCH[3]:-}"
+        local matches=()
+        while IFS= read -r match; do
+          [[ -n "$match" ]] && matches+=("$match")
+        done < <(find projects/products -type f -path "*/${product}/${component:+$component/}Cargo.toml")
+
+        if [[ ${#matches[@]} -eq 1 ]]; then
+          cargo_toml="${matches[0]}"
+        elif [[ ${#matches[@]} -gt 1 ]]; then
+          invalid_scopes=$((invalid_scopes + 1))
+          continue
+        fi
+      fi
+
+      if [[ -n "$cargo_toml" ]]; then
+        if [[ ! -f "$cargo_toml" ]]; then
+          invalid_scopes=$((invalid_scopes + 1))
+          continue
         fi
 
-        # Validate that crate exists in Cargo.toml (has Cargo.toml file)
-        local cargo_toml="projects/$scope/Cargo.toml"
-        if [[ ! -f "$cargo_toml" ]]; then
-          # Crate doesn't exist
+        local crate_name
+        crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
+        if [[ -z "$crate_name" ]]; then
           invalid_scopes=$((invalid_scopes + 1))
-        else
-          # Resolve actual crate name from Cargo.toml
-          local crate_name
-          crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
-          if [[ -z "$crate_name" ]]; then
-            invalid_scopes=$((invalid_scopes + 1))
-            continue
-          fi
+          continue
+        fi
 
-          # Avoid duplicates
-          if [[ ! " ${crates[@]} " =~ " ${crate_name} " ]]; then
-            crates+=("$crate_name")
-          fi
+        if [[ ! " ${crates[@]} " =~ " ${crate_name} " ]]; then
+          crates+=("$crate_name")
         fi
       fi
     fi
@@ -84,7 +93,7 @@ SCOPE_VALID=$?
 
 if [[ $SCOPE_VALID -ne 0 ]] || [[ -z "$AFFECTED" ]]; then
   echo "⚠️  Invalid or missing crate scope(s) in commits - testing full workspace"
-  echo "   (Use scopes like 'refactor(products/accounts/backend):' pointing to existing crates)"
+  echo "   (Use scopes like 'refactor(projects/libraries/security):' or 'fix(projects/products/accounts/backend):')"
   echo ""
   CLIPPY_ARGS="--all-targets --all-features"
   TEST_ARGS="--workspace"

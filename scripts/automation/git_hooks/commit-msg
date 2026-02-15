@@ -14,6 +14,55 @@ fi
 # Allowed prefixes
 ALLOWED_TYPES="^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)"
 
+extract_scopes_from_commit_message() {
+  local message="$1"
+  local scope_re='^[a-z]+\(([^)]+)\):'
+  if [[ ! "$message" =~ $scope_re ]]; then
+    return 0
+  fi
+  IFS=',' read -r -a scopes <<< "${BASH_REMATCH[1]}"
+  for scope in "${scopes[@]}"; do
+    printf '%s\n' "$scope"
+  done
+}
+
+detect_required_scopes_from_staged_files() {
+  local files
+  files=$(git diff --cached --name-only)
+  local required=()
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+
+    if [[ "$file" =~ ^projects/libraries/([^/]+)/ ]]; then
+      local scope="projects/libraries/${BASH_REMATCH[1]}"
+      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
+        required+=("$scope")
+      fi
+      continue
+    fi
+
+    if [[ "$file" =~ ^projects/products/[^/]+/([^/]+)/ ]]; then
+      local product_name="${BASH_REMATCH[1]}"
+      local component=""
+      if [[ "$file" =~ ^projects/products/[^/]+/[^/]+/(ui|backend)/ ]]; then
+        component="${BASH_REMATCH[1]}"
+      fi
+
+      local scope="projects/products/${product_name}"
+      if [[ -n "$component" ]]; then
+        scope="${scope}/${component}"
+      fi
+
+      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
+        required+=("$scope")
+      fi
+    fi
+  done <<< "$files"
+
+  printf '%s\n' "${required[@]}"
+}
+
 # Validate format: <type>(<scope>): <message> or <type>: <message>
 # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
 if [[ ! "$COMMIT_MSG" =~ $ALLOWED_TYPES(\([a-zA-Z0-9_./,-]+\))?:\ .+ ]]; then
@@ -28,17 +77,61 @@ if [[ ! "$COMMIT_MSG" =~ $ALLOWED_TYPES(\([a-zA-Z0-9_./,-]+\))?:\ .+ ]]; then
   echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore"
   echo ""
   echo "Examples:"
-  echo "  feat(auth): add user authentication"
+  echo "  feat(projects/libraries/security): add user authentication"
   echo "  feat(ci,scripts): add workflows and sync script"
   echo "  docs(.github): add default PR template"
   echo "  fix: resolve null pointer exception"
   echo "  docs(readme): update installation instructions"
+  echo "  refactor(projects/products/accounts/backend): improve audit flush handling"
   echo ""
   echo "Your commit message:"
   echo "  $COMMIT_MSG"
   echo ""
   echo "Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..."
   exit 1
+fi
+
+required_scopes=$(detect_required_scopes_from_staged_files)
+if [[ -n "$required_scopes" ]]; then
+  commit_scopes=$(extract_scopes_from_commit_message "$COMMIT_MSG")
+
+  if [[ -z "$commit_scopes" ]]; then
+    echo "❌ Missing required scope in commit message."
+    echo ""
+    echo "Detected changed files requiring scope:"
+    while IFS= read -r scope; do
+      [[ -n "$scope" ]] && echo "  - $scope"
+    done <<< "$required_scopes"
+    echo ""
+    echo "Expected format example:"
+    echo "  fix(projects/libraries/<library_name>): ..."
+    echo "  fix(projects/products/<product_name>): ..."
+    echo "  fix(projects/products/<product_name>/backend): ..."
+    exit 1
+  fi
+
+  missing_scopes=()
+  while IFS= read -r required_scope; do
+    [[ -z "$required_scope" ]] && continue
+    if ! grep -Fxq "$required_scope" <<< "$commit_scopes"; then
+      missing_scopes+=("$required_scope")
+    fi
+  done <<< "$required_scopes"
+
+  if [[ "${#missing_scopes[@]}" -gt 0 ]]; then
+    echo "❌ Commit scope does not match touched files."
+    echo ""
+    echo "Missing required scope(s):"
+    for scope in "${missing_scopes[@]}"; do
+      echo "  - $scope"
+    done
+    echo ""
+    echo "Commit scopes found:"
+    while IFS= read -r scope; do
+      [[ -n "$scope" ]] && echo "  - $scope"
+    done <<< "$commit_scopes"
+    exit 1
+  fi
 fi
 
 exit 0
