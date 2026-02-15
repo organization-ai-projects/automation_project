@@ -6,6 +6,10 @@ write_section_from_file() {
     while IFS= read -r line; do
       pr_num="$(echo "$line" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')"
       if [[ -z "$pr_num" ]]; then
+        # Fallback when bullet keeps inline refs (e.g. merge headlines with #N).
+        pr_num="$(echo "$line" | sed -nE 's/.*#([0-9]+).*/\1/p')"
+      fi
+      if [[ -z "$pr_num" ]]; then
         pr_num=999999
       fi
       printf "%06d|%s\n" "$pr_num" "$line"

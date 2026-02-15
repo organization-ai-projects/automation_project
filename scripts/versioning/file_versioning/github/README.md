@@ -20,6 +20,7 @@ github/
 ├── README.md (this file)
 ├── TOC.md
 ├── generate_pr_description.sh
+├── parent_issue_guard.sh
 ├── lib/
 │   ├── classification.sh
 │   └── rendering.sh
@@ -32,6 +33,7 @@ github/
 - `README.md`: This file.
 - `TOC.md`: Documentation index for GitHub-only scripts.
 - `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
+- `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
@@ -128,3 +130,7 @@ Regression tests:
 ```bash
 bash tests/generate_pr_description_regression.sh
 ```
+
+Troubleshooting:
+
+- See `.github/documentation/pr_generator_troubleshooting.md`.

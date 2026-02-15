@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Usage: ./delete_branch.sh <branch-name> [--force]
 # Deletes a local branch (safe by default) and deletes remote branch if it exists.
-# Stores the deleted branch name into /tmp/last_deleted_branch.
+# Stores the deleted branch name in repo-scoped git metadata.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"

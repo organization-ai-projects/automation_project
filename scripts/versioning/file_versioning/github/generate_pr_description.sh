@@ -16,8 +16,8 @@ source "${SCRIPT_DIR}/lib/rendering.sh"
 
 print_usage() {
   cat <<EOF
-Usage: ${SCRIPT_PATH} [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
-       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
+Usage: ${SCRIPT_PATH} [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] [--refresh-pr PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
+       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER|--refresh-pr PR_NUMBER] [--yes] [OUTPUT_FILE]
        ${SCRIPT_PATH} --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
 EOF
 }
@@ -30,6 +30,7 @@ Notes:
   --dry-run       Extract PRs from local git history (base..head).
   --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR.
   --auto-edit     Generate body in memory and update an existing PR directly.
+  --refresh-pr    Alias of --auto-edit.
   --duplicate-mode  Duplicate handling mode: safe | auto-close.
   --debug         Print extraction/classification trace to stderr.
   --auto          RAM-first mode: dry-run + create-pr, body kept in memory.
@@ -62,6 +63,7 @@ allow_partial_create="false"
 assume_yes="false"
 auto_mode="false"
 auto_edit_pr_number=""
+refresh_pr_used="false"
 debug_mode="false"
 duplicate_mode=""
 
@@ -107,6 +109,15 @@ while [[ $# -gt 0 ]]; do
       auto_edit_pr_number="${2:-}"
       shift 2
       ;;
+    --refresh-pr)
+      require_option_value "--refresh-pr" "${2:-}"
+      if [[ -n "$auto_edit_pr_number" && "$auto_edit_pr_number" != "${2:-}" ]]; then
+        usage_error "--refresh-pr et --auto-edit doivent cibler le même PR_NUMBER."
+      fi
+      auto_edit_pr_number="${2:-}"
+      refresh_pr_used="true"
+      shift 2
+      ;;
     --duplicate-mode)
       require_option_value "--duplicate-mode" "${2:-}"
       duplicate_mode="${2:-}"
@@ -142,6 +153,9 @@ if [[ "$auto_mode" == "true" ]]; then
 fi
 
 if [[ -n "$auto_edit_pr_number" ]] && [[ ! "$auto_edit_pr_number" =~ ^[0-9]+$ ]]; then
+  if [[ "$refresh_pr_used" == "true" ]]; then
+    usage_error "--refresh-pr requiert un PR_NUMBER numérique."
+  fi
   usage_error "--auto-edit requiert un PR_NUMBER numérique."
 fi
 
@@ -206,6 +220,7 @@ declare -A pr_title_hint
 online_enrich="false"
 pr_enrich_failed=0
 breaking_detected=0
+pr_created_successfully="false"
 
 is_human_interactive_terminal() {
   [[ -t 0 && -t 1 && -z "${CI:-}" ]]
@@ -245,16 +260,43 @@ if [[ "$need_jq" == "true" ]] && ! command -v jq >/dev/null 2>&1; then
   exit "$E_DEPENDENCY"
 fi
 
+preferred_ref_with_origin() {
+  local ref_name="$1"
+  if [[ -z "$ref_name" || "$ref_name" == "HEAD" ]]; then
+    echo "$ref_name"
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/remotes/origin/${ref_name}"; then
+    echo "origin/${ref_name}"
+    return
+  fi
+
+  echo "$ref_name"
+}
+
+normalize_branch_display_ref() {
+  local raw_ref="$1"
+  local normalized
+
+  normalized="${raw_ref#refs/remotes/}"
+  normalized="${normalized#refs/heads/}"
+  normalized="${normalized#remotes/}"
+  normalized="${normalized#origin/}"
+  echo "$normalized"
+}
+
 if [[ "$dry_run" == "true" ]]; then
   if ! command -v git >/dev/null 2>&1; then
     echo "Erreur: la commande 'git' est introuvable." >&2
     exit "$E_GIT"
   fi
   if [[ -z "$head_ref" ]]; then
-    head_ref="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    head_ref="$(preferred_ref_with_origin "$current_branch")"
   fi
   if [[ -z "$base_ref" ]]; then
-    base_ref="dev"
+    base_ref="$(preferred_ref_with_origin "dev")"
   fi
   if [[ -z "$head_ref" ]]; then
     echo "Erreur: impossible de déterminer la branche head en mode --dry-run." >&2
@@ -264,6 +306,9 @@ else
   base_ref="$(gh pr view "$main_pr_number" --json baseRefName -q '.baseRefName' 2>/dev/null || echo "main")"
   head_ref="$(gh pr view "$main_pr_number" --json headRefName -q '.headRefName' 2>/dev/null || echo "dev")"
 fi
+
+base_ref_display="$(normalize_branch_display_ref "$base_ref")"
+head_ref_display="$(normalize_branch_display_ref "$head_ref")"
 
 if [[ "$dry_run" == "true" && "$create_pr" == "true" ]]; then
   online_enrich="true"
@@ -815,7 +860,7 @@ process_duplicate_mode() {
 
 body_content="$({
   echo "### Description"
-  echo "This pull request merges the \`${head_ref}\` branch into \`${base_ref}\` and summarizes merged pull requests and resolved issues."
+  echo "This pull request merges the \`${head_ref_display}\` branch into \`${base_ref_display}\` and summarizes merged pull requests and resolved issues."
   echo ""
   echo "### Scope"
   echo "- Not explicitly provided."
@@ -922,6 +967,7 @@ if [[ "$create_pr" == "true" ]]; then
     else
       pr_url="$(gh pr create --base "$base_ref" --head "$head_ref" --title "$default_title" --body-file "$output_file")"
     fi
+    pr_created_successfully="true"
     echo "PR créée: $pr_url"
   else
     echo "PR creation skipped."
@@ -961,6 +1007,6 @@ if [[ -n "$auto_edit_pr_number" ]]; then
 fi
 
 # Non-fatal generation outcome for humans, but explicit signal for automation.
-if [[ "$dry_run" == "true" && "$create_pr" == "true" && ! -s "$extracted_prs_file" ]]; then
+if [[ "$dry_run" == "true" && "$create_pr" == "true" && "$pr_created_successfully" != "true" && ! -s "$extracted_prs_file" ]]; then
   exit "$E_NO_DATA"
 fi

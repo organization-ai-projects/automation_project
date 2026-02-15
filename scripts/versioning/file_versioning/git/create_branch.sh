@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Usage: ./create_branch.sh <branch-name>
-# If branch-name is omitted, tries to reuse /tmp/last_deleted_branch.
+# If branch-name is omitted, tries to reuse the repo-scoped last deleted branch.
 # Creates branch from dev and optionally pushes it.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
