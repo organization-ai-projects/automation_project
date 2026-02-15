@@ -63,11 +63,21 @@ fi
 
 # Optional: List merged branches that could be cleaned up
 info "Checking for fully merged local branches..."
-MERGED_BRANCHES=$(git branch --merged "${BASE_BRANCH:-dev}" | grep -v "^\*" | grep -v "dev" | grep -v "main" || true)
+mapfile -t MERGED_BRANCHES < <(
+  git branch --merged "${BASE_BRANCH:-dev}" | while read -r line; do
+    [[ -z "$line" ]] && continue
+    [[ "$line" == \** ]] && continue
 
-if [[ -n "$MERGED_BRANCHES" ]]; then
+    branch="${line#"${line%%[![:space:]]*}"}"
+    if [[ -n "$branch" ]] && ! is_protected_branch "$branch"; then
+      printf '%s\n' "$branch"
+    fi
+  done
+)
+
+if [[ "${#MERGED_BRANCHES[@]}" -gt 0 ]]; then
   info "Local branches fully merged into ${BASE_BRANCH:-dev}:"
-  echo "$MERGED_BRANCHES" | sed 's/^/  - /'
+  printf '%s\n' "${MERGED_BRANCHES[@]}" | sed 's/^/  - /'
   info "To delete these, run: git branch -d <branch-name>"
 else
   info "✓ No additional merged branches to clean up."
