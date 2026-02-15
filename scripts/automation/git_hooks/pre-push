@@ -2,6 +2,7 @@
 # Git hook: pre-push
 # Runs scope-aware formatting, linting, and tests before push
 # Bypass: SKIP_PRE_PUSH=1 git push ...
+set -euo pipefail
 
 # Allow bypass for emergency situations
 if [[ "${SKIP_PRE_PUSH:-}" == "1" ]]; then
@@ -24,6 +25,58 @@ if [[ -z "$UPSTREAM_BRANCH" ]]; then
 fi
 
 commits=$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null)
+changed_files=$(git diff --name-only "$UPSTREAM_BRANCH"..HEAD 2>/dev/null || true)
+
+is_docs_or_scripts_only_change() {
+  local files="$1"
+  local file
+
+  [[ -z "$files" ]] && return 1
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if [[ "$file" =~ \.md$ ]] || [[ "$file" == documentation/* ]] || [[ "$file" == .github/documentation/* ]] || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] || [[ "$file" == scripts/* ]] || [[ "$file" == .github/workflows/* ]]; then
+      continue
+    fi
+    return 1
+  done <<< "$files"
+
+  return 0
+}
+
+run_shell_syntax_checks() {
+  local files="$1"
+  local checked=0
+  local file
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if [[ "$file" == *.sh ]] || [[ "$file" == scripts/automation/git_hooks/* ]]; then
+      if [[ -f "$file" ]]; then
+        echo "   - bash -n $file"
+        bash -n "$file"
+        checked=1
+      fi
+    fi
+  done <<< "$files"
+
+  if [[ $checked -eq 0 ]]; then
+    echo "   (no shell scripts changed)"
+  fi
+}
+
+if is_docs_or_scripts_only_change "$changed_files"; then
+  echo "📄 Docs/scripts-only changes detected."
+  echo "🧪 Skipping Rust fmt/clippy/tests for this push."
+  echo "🔎 Running lightweight shell syntax checks..."
+  run_shell_syntax_checks "$changed_files"
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "✅ Pre-push checks PASSED (docs/scripts-only mode)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  exit 0
+fi
 
 # Extract crate names from commit scopes
 detect_crates_from_scopes() {
