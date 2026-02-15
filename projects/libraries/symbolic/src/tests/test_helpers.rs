@@ -38,7 +38,12 @@ pub fn assert_warn_contains(validation: &ValidationResult, substring: &str) {
     );
 }
 
-/// Asserts that a validation result does NOT contain a warning matching a substring.
+/// Asserts that a validation result does NOT contain a matching warning.
+///
+/// Matching behavior:
+/// - For identifier-like inputs (`[A-Za-z0-9_]+`), this checks exact token matches
+///   for either `identifier` or `'identifier'`.
+/// - For non-identifier inputs, this uses substring matching.
 pub fn assert_warn_not_contains(validation: &ValidationResult, substring: &str) {
     // For identifier-like names, check for exact matches with word boundaries to avoid
     // false positives from substring matches (e.g., "used_var" matching within "unused_var")
@@ -65,21 +70,28 @@ pub fn assert_warn_not_contains(validation: &ValidationResult, substring: &str) 
         validation.warnings.iter().any(|w| w.contains(substring))
     };
 
+    let matching_warnings: Vec<_> = validation
+        .warnings
+        .iter()
+        .filter(|w| {
+            if is_identifier {
+                matches_identifier(w, substring)
+            } else {
+                w.contains(substring)
+            }
+        })
+        .collect();
+
     assert!(
         !found,
-        "Expected no warning containing '{}', but found: {:?}",
+        "{} '{}', but found: {:?}",
+        if is_identifier {
+            "Expected no warning matching identifier token"
+        } else {
+            "Expected no warning containing substring"
+        },
         substring,
-        validation
-            .warnings
-            .iter()
-            .filter(|w| {
-                if is_identifier {
-                    matches_identifier(w, substring)
-                } else {
-                    w.contains(substring)
-                }
-            })
-            .collect::<Vec<_>>()
+        matching_warnings
     );
 }
 
