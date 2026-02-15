@@ -44,6 +44,8 @@ else
 
   # Delete each gone branch (avoid pipe subshell to preserve shell semantics)
   while read -r branch; do
+    [[ -z "$branch" || "$branch" == "*" ]] && continue
+
     # Skip if it's a protected branch
     if is_protected_branch "$branch"; then
       warn "Skipping protected branch: $branch"
