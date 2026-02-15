@@ -104,9 +104,9 @@ In those cases, use:
 
 ### Anti-Examples
 
-- Do not create a bundle only because issues share the same directory.
-- Do not use a bundle as a backlog container for unrelated future work.
-- Do not replace milestone planning with parent/child links when tasks are independent.
+* Do not create a bundle only because issues share the same directory.
+* Do not use a bundle as a backlog container for unrelated future work.
+* Do not replace milestone planning with parent/child links when tasks are independent.
 
 ---
 
