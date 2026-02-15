@@ -21,6 +21,8 @@ source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/staging.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/staging.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit_format.sh
@@ -97,6 +99,9 @@ if [[ "$NO_VERIFY" == false ]]; then
     exit 1
   fi
 fi
+
+CURRENT_BRANCH="$(get_current_branch)"
+require_non_protected_branch "$CURRENT_BRANCH"
 
 info "Adding all changes..."
 git_add_all
