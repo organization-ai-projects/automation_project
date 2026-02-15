@@ -26,6 +26,86 @@ fi
 
 commits=$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null || true)
 
+extract_closing_issue_refs_from_commits() {
+  local commits_input="$1"
+  echo "$commits_input" | awk '
+    BEGIN { IGNORECASE = 1 }
+    {
+      line = $0
+      while (match(line, /(closes|fixes|resolves)[[:space:]]+#[0-9]+/)) {
+        ref = substr(line, RSTART, RLENGTH)
+        if (match(ref, /#[0-9]+/)) {
+          print substr(ref, RSTART + 1, RLENGTH - 1)
+        }
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' | sort -u
+}
+
+issue_has_required_children_tasklist() {
+  local issue_body="$1"
+  echo "$issue_body" | awk '
+    /-[[:space:]]*\[[xX ]\]/ {
+      if (match($0, /#[0-9]+/)) {
+        found = 1
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+validate_parent_closure_footers() {
+  local commits_input="$1"
+  local refs
+  refs=$(extract_closing_issue_refs_from_commits "$commits_input")
+  [[ -z "$refs" ]] && return 0
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "❌ Cannot validate closing footers on parent issues: 'gh' CLI is required."
+    echo "   Install gh, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
+    return 1
+  fi
+
+  local repo_name
+  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  if [[ -z "$repo_name" ]]; then
+    echo "❌ Cannot resolve GitHub repository for footer validation."
+    echo "   Ensure gh auth/network is available, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
+    return 1
+  fi
+
+  local parent_refs=()
+  local issue_number
+  while IFS= read -r issue_number; do
+    [[ -z "$issue_number" ]] && continue
+    local issue_body
+    issue_body="$(gh issue view "$issue_number" -R "$repo_name" --json body -q '.body' 2>/dev/null || true)"
+
+    if [[ -z "$issue_body" ]]; then
+      echo "❌ Unable to validate issue #$issue_number from closing footer."
+      echo "   Ensure issue is readable and network is available, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
+      return 1
+    fi
+
+    if issue_has_required_children_tasklist "$issue_body"; then
+      parent_refs+=("$issue_number")
+    fi
+  done <<< "$refs"
+
+  if [[ ${#parent_refs[@]} -gt 0 ]]; then
+    echo "❌ Closing footer targets parent issue(s):"
+    printf '   - #%s\n' "${parent_refs[@]}"
+    echo "   Attention: referenced issue is a parent. No direct closure is authorized via commit footer."
+    echo "   Use child issues for Closes/Fixes/Resolves; use Related to/Part of for parent tracking."
+    return 1
+  fi
+}
+
+if ! validate_parent_closure_footers "$commits"; then
+  exit 1
+fi
+
 compute_changed_files() {
   local upstream="$1"
   local files=""
