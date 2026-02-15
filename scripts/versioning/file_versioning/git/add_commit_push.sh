@@ -22,19 +22,18 @@ source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/staging.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit_format.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit_format.sh"
 
 require_git_repo
 
 # Validate commit message format
 validate_commit_message() {
   local message="$1"
-  
-  # Allowed types (aligned with commit-msg hook)
-  local allowed_types="^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)"
-  
+
   # Validate format: <type>(<scope>): <message> or <type>: <message>
   # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
-  if [[ ! "$message" =~ $allowed_types(\([a-zA-Z0-9_./,-]+\))?:\ .+ ]]; then
+  if ! validate_commit_message_format "$message" '\ '; then
     echo "❌ Invalid commit message format!" >&2
     echo "" >&2
     echo "Expected format:" >&2

@@ -5,6 +5,7 @@
 set -euo pipefail
 
 COMMIT_MSG_FILE="$1"
+ROOT_DIR="$(git rev-parse --show-toplevel)"
 
 if [[ -z "${COMMIT_MSG_FILE:-}" || ! -f "$COMMIT_MSG_FILE" ]]; then
   echo "❌ commit-msg hook: missing or invalid commit message file" >&2
@@ -19,8 +20,8 @@ if [[ "${SKIP_COMMIT_VALIDATION:-}" == "1" ]]; then
   exit 0
 fi
 
-# Allowed prefixes
-ALLOWED_TYPES="^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit_format.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit_format.sh"
 
 extract_scopes_from_commit_message() {
   local message="$1"
@@ -77,7 +78,7 @@ detect_required_scopes_from_staged_files() {
 
 # Validate format: <type>(<scope>): <message> or <type>: <message>
 # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
-if [[ ! "$COMMIT_SUBJECT" =~ $ALLOWED_TYPES(\([a-zA-Z0-9_./,-]+\))?:[[:space:]].+$ ]]; then
+if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
   echo "❌ Invalid commit message format!" >&2
   echo "" >&2
   echo "Expected format:" >&2
