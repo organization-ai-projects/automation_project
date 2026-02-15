@@ -4,6 +4,7 @@ use ast_core::{AstKey, AstKind, AstNode, ValidateLimits};
 use ast_macros::{apply_cfg, build_array, build_object, key, validate_preset, value};
 
 // Helper functions for common assertions
+#[track_caller]
 fn assert_array_len(node: &AstNode, expected_len: usize) {
     let AstKind::Array(elements) = &node.kind else {
         panic!("Expected array, got {:?}", node.kind);
@@ -11,6 +12,7 @@ fn assert_array_len(node: &AstNode, expected_len: usize) {
     assert_eq!(elements.len(), expected_len);
 }
 
+#[track_caller]
 fn assert_object_len(node: &AstNode, expected_len: usize) {
     let AstKind::Object(fields) = &node.kind else {
         panic!("Expected object, got {:?}", node.kind);
