@@ -106,6 +106,16 @@ require_non_protected_branch "$CURRENT_BRANCH"
 info "Adding all changes..."
 git_add_all
 
+STAGED_FILES="$(git diff --cached --name-only)"
+if [[ -z "$STAGED_FILES" ]]; then
+  warn "Nothing to commit — working tree is clean."
+  exit 0
+fi
+
+info "Files to be committed:"
+echo "$STAGED_FILES" | sed 's/^/  - /'
+echo ""
+
 info "Committing with message: $COMMIT_MESSAGE"
 if [[ "$NO_VERIFY" == true ]]; then
   git commit --no-verify -m "$COMMIT_MESSAGE"
