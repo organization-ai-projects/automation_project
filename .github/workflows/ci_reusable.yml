@@ -84,12 +84,12 @@ jobs:
 
       - name: Cargo clippy
         if: steps.changes.outputs.run_rust_checks == 'true'
-        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
 
       - name: Cargo test
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: cargo test --locked --workspace --all-features --all-targets --verbose
 
-      - name: Rust checks skipped (docs/scripts-only)
+      - name: Rust checks skipped (docs/scripts/workflows-only)
         if: steps.changes.outputs.run_rust_checks != 'true'
-        run: echo "Docs/scripts-only change detected. Rust checks intentionally skipped."
+        run: echo "Docs/scripts/workflows-only change detected. Rust checks intentionally skipped."
