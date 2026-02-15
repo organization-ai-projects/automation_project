@@ -38,9 +38,9 @@ fn test_feedback_verdict_to_symbolic_feedback() {
         ),
     ];
 
-    for (_name, verdict, expectation) in cases {
+    for (name, verdict, expectation) in cases {
         let symbolic_feedback: SymbolicFeedback = verdict.into();
-        match expectation {
+        let result = std::panic::catch_unwind(|| match expectation {
             TestExpectationPayload::PositiveWithout => {
                 assert_positive_no_payload(&symbolic_feedback);
             }
@@ -50,6 +50,10 @@ fn test_feedback_verdict_to_symbolic_feedback() {
             TestExpectationPayload::NegativeWith(payload) => {
                 assert_negative_with_payload(&symbolic_feedback, payload);
             }
+        });
+
+        if result.is_err() {
+            panic!("table test case '{name}' failed");
         }
     }
 }
