@@ -19,8 +19,24 @@ source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/synch.sh"
 require_git_repo
 
 REMOTE="${REMOTE:-origin}"
+DRY_RUN=false
+
+if [[ "$#" -gt 1 ]]; then
+  die "Usage: $0 [--dry-run]"
+fi
+
+if [[ "$#" -eq 1 ]]; then
+  if [[ "$1" == "--dry-run" ]]; then
+    DRY_RUN=true
+  else
+    die "Unknown argument: $1 (expected: --dry-run)"
+  fi
+fi
 
 info "Cleaning up stale branches..."
+if [[ "$DRY_RUN" == true ]]; then
+  warn "DRY-RUN mode enabled: no branch will be deleted."
+fi
 
 # Fetch with prune to update remote tracking
 git_fetch_prune "$REMOTE"
@@ -49,6 +65,11 @@ else
     # Skip if it's a protected branch
     if is_protected_branch "$branch"; then
       warn "Skipping protected branch: $branch"
+      continue
+    fi
+
+    if [[ "$DRY_RUN" == true ]]; then
+      info "[DRY-RUN] Would delete local branch: $branch"
       continue
     fi
 
