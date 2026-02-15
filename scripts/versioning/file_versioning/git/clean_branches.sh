@@ -5,7 +5,7 @@ set -euo pipefail
 # Removes local branches marked as [gone] and optionally stale remote branches
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 
 # shellcheck source=scripts/common_lib/core/logging.sh
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
@@ -34,8 +34,8 @@ else
   info "Found local branches with gone remotes:"
   echo "$GONE_BRANCHES" | sed 's/^/  - /'
 
-  # Delete each gone branch
-  echo "$GONE_BRANCHES" | while read -r branch; do
+  # Delete each gone branch (avoid pipe subshell to preserve shell semantics)
+  while read -r branch; do
     # Skip if it's a protected branch
     if is_protected_branch "$branch"; then
       warn "Skipping protected branch: $branch"
@@ -50,7 +50,7 @@ else
     else
       warn "⚠ Failed to delete $branch"
     fi
-  done
+  done <<< "$GONE_BRANCHES"
 fi
 
 # Optional: List merged branches that could be cleaned up
