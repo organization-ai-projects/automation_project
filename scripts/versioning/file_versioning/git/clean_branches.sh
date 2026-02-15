@@ -52,6 +52,10 @@ mapfile -t GONE_BRANCHES < <(
   }'
 )
 
+deleted_count=0
+skipped_count=0
+failed_count=0
+
 if [[ "${#GONE_BRANCHES[@]}" -eq 0 ]]; then
   info "✓ No local branches with gone remotes."
 else
@@ -65,6 +69,7 @@ else
     # Skip if it's a protected branch
     if is_protected_branch "$branch"; then
       warn "Skipping protected branch: $branch"
+      skipped_count=$((skipped_count + 1))
       continue
     fi
 
@@ -76,10 +81,13 @@ else
     info "Deleting local branch: $branch"
     if git branch -d "$branch" 2>/dev/null; then
       info "✓ Deleted $branch (safe)"
+      deleted_count=$((deleted_count + 1))
     elif git branch -D "$branch" 2>/dev/null; then
       warn "⚠ Deleted $branch (forced)"
+      deleted_count=$((deleted_count + 1))
     else
       warn "⚠ Failed to delete $branch"
+      failed_count=$((failed_count + 1))
     fi
   done <<< "$(printf '%s\n' "${GONE_BRANCHES[@]}")"
 fi
@@ -106,4 +114,8 @@ else
   info "✓ No additional merged branches to clean up."
 fi
 
-info "✅ Branch cleanup complete."
+if [[ "$DRY_RUN" == true ]]; then
+  info "✅ Branch cleanup dry-run complete."
+else
+  info "✅ Branch cleanup complete (deleted=$deleted_count, skipped=$skipped_count, failed=$failed_count)."
+fi
