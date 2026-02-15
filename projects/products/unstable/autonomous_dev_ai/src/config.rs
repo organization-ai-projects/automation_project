@@ -2,6 +2,7 @@
 
 use crate::error::{AgentError, AgentResult};
 use crate::objectives::{Objective, default_objectives};
+use common_ron::{read_ron, write_ron};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -126,8 +127,7 @@ fn load_bin<P: AsRef<Path>>(path: P) -> AgentResult<AgentConfig> {
 
 /// Load configuration from .ron file
 fn load_ron<P: AsRef<Path>>(path: P) -> AgentResult<AgentConfig> {
-    let content = fs::read_to_string(path)?;
-    ron::from_str(&content).map_err(|e| AgentError::Ron(e.to_string()))
+    read_ron(path).map_err(|e| AgentError::Ron(e.to_string()))
 }
 
 /// Save configuration to .bin file
@@ -140,8 +140,5 @@ pub fn save_bin<P: AsRef<Path>>(path: P, config: &AgentConfig) -> AgentResult<()
 
 /// Save configuration to .ron file
 pub fn save_ron<P: AsRef<Path>>(path: P, config: &AgentConfig) -> AgentResult<()> {
-    let content = ron::ser::to_string_pretty(config, ron::ser::PrettyConfig::default())
-        .map_err(|e| AgentError::Ron(e.to_string()))?;
-    fs::write(path, content)?;
-    Ok(())
+    write_ron(path, config).map_err(|e| AgentError::Ron(e.to_string()))
 }
