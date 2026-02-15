@@ -43,13 +43,8 @@ fn test_integration_sample_categorical() {
 
     // Test with uniform distribution
     let uniform_probs = Array1::from_vec(vec![0.33, 0.34, 0.33]);
-    let result = sample_categorical(&uniform_probs);
-    assert!(
-        result.is_ok(),
-        "sampling from uniform distribution should succeed"
-    );
-
-    let sampled_token = result.expect("should return valid token");
+    let sampled_token = sample_categorical(&uniform_probs)
+        .expect("sampling from uniform distribution should succeed");
     assert!(
         sampled_token < 3,
         "sampled token should be within valid range"
