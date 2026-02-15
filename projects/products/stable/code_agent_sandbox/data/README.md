@@ -55,7 +55,7 @@ Runtime outputs may contain:
 
 When running the sandbox locally, specify the runs_root as `data/runs`:
 ```bash
-./code_agent_sandbox <repo_root> <sandbox_dir>/data/runs
+./target/debug/code_agent_sandbox <repo_root> <sandbox_dir>/data/runs
 ```
 
 Outputs will be written to `data/runs/{RUN_ID}/`. The `.gitignore` rules ensure these files are never accidentally committed.
