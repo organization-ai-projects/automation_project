@@ -17,6 +17,7 @@ This document provides an overview of all documentation files in this directory.
 - [commit_footer_policy.md](../../documentation/technical_documentation/commit_footer_policy.md): Source of truth for commit footer keywords and issue references.
 - [documentation_ownership_map.md](../../documentation/technical_documentation/documentation_ownership_map.md): Documentation zones mapped to ownership roles and maintenance expectations.
 - [labels_taxonomy.md](../../documentation/technical_documentation/labels_taxonomy.md): Label taxonomy for issues and pull requests sourced from `.github/labels.json`.
+- [documentation_template_standard.md](../../documentation/technical_documentation/documentation_template_standard.md): Canonical README.md/TOC.md template rules.
 
 ## Navigation
 
