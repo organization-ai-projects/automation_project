@@ -29,9 +29,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
-            --issue "${{ github.event.issue.number }}" \
+            --issue "$ISSUE_NUMBER" \
             --strict-guard true
 
       - name: Evaluate parent candidates from changed child
@@ -39,9 +40,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
-            --child "${{ github.event.issue.number }}" \
+            --child "$ISSUE_NUMBER" \
             --strict-guard true
 
       - name: Manual parent evaluation
@@ -49,7 +51,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
+          if [[ ! "$ISSUE_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid issue_number '$ISSUE_NUMBER' (expected positive integer)." >&2
+            exit 1
+          fi
           bash scripts/versioning/file_versioning/github/parent_issue_guard.sh \
-            --issue "${{ inputs.issue_number }}" \
+            --issue "$ISSUE_NUMBER" \
             --strict-guard true
