@@ -1,7 +1,11 @@
 // projects/products/stable/core/watcher/tests/config_tests.rs
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::process::{Command, Stdio};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 struct TempDir {
     path: std::path::PathBuf,
@@ -13,9 +17,26 @@ impl TempDir {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_else(|_| Duration::from_secs(0))
             .as_nanos();
-        let path = std::env::temp_dir().join(format!("watcher_test_{nanos}"));
-        fs::create_dir_all(&path).expect("create temp dir");
-        Self { path }
+        let pid = std::process::id();
+        let counter = TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let thread_hash = {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            std::thread::current().id().hash(&mut hasher);
+            hasher.finish()
+        };
+
+        for collision_retry in 0..8 {
+            let path = std::env::temp_dir().join(format!(
+                "watcher_test_{nanos}_{pid}_{thread_hash}_{counter}_{collision_retry}"
+            ));
+            match fs::create_dir(&path) {
+                Ok(()) => return Self { path },
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) => panic!("create temp dir failed: {e}"),
+            }
+        }
+
+        panic!("failed to create unique temp dir after retries");
     }
 
     fn path(&self) -> &std::path::Path {
@@ -67,9 +88,9 @@ log_level = "info"
     let (_dir, config_path) = write_config(config);
     let mut child = spawn_watcher(&config_path);
 
-    // Use retry loop instead of fixed sleep to check if process is still running
-    let mut attempts = 0;
-    let max_attempts = 30; // 30 attempts * 10ms = 300ms max
+    // Wait up to 300ms and fail early if the process exits.
+    let max_wait = Duration::from_millis(300);
+    let started_at = Instant::now();
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
@@ -82,8 +103,7 @@ log_level = "info"
                 panic!("failed to wait on watcher process: {e}");
             }
         }
-        attempts += 1;
-        if attempts >= max_attempts {
+        if started_at.elapsed() >= max_wait {
             break;
         }
         std::thread::sleep(Duration::from_millis(10));
