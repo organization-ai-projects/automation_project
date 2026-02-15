@@ -1,0 +1,51 @@
+name: Dependency Security Scan
+
+on:
+  pull_request:
+    paths:
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - '**/Cargo.toml'
+      - '.github/workflows/dependency_security_scan.yml'
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - '**/Cargo.toml'
+      - '.github/workflows/dependency_security_scan.yml'
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-audit:
+    name: Cargo Audit (report-only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Run cargo audit (report-only policy)
+        run: |
+          set +e
+          cargo audit
+          status=$?
+          if [[ $status -ne 0 ]]; then
+            echo "::warning::cargo audit reported vulnerabilities (report-only policy)."
+          fi
+          exit 0
