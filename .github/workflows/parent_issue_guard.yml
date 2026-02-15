@@ -7,7 +7,7 @@ on:
     inputs:
       issue_number:
         description: "Issue number to evaluate as parent"
-        required: false
+        required: true
 
 permissions:
   issues: write
@@ -47,12 +47,16 @@ jobs:
             --strict-guard true
 
       - name: Manual parent evaluation
-        if: github.event_name == 'workflow_dispatch' && inputs.issue_number != ''
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
+          if [[ -z "$ISSUE_NUMBER" ]]; then
+            echo "Missing issue_number for workflow_dispatch." >&2
+            exit 1
+          fi
           if [[ ! "$ISSUE_NUMBER" =~ ^[0-9]+$ ]]; then
             echo "Invalid issue_number '$ISSUE_NUMBER' (expected positive integer)." >&2
             exit 1
