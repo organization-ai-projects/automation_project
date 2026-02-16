@@ -1,15 +1,18 @@
 # Workspace Library Layer Taxonomy
 
 ## Purpose
+
 Define a single layer model for all workspace crates and enforce dependency direction rules.
 
 ## Layer Model
+
 - `L0 Foundation`: shared primitives, format helpers, macros, parsing/tokenizing/time/calendar, and core infra utilities.
 - `L1 Domain`: business/domain libraries built on foundation crates.
 - `L2 Interface`: interface and boundary libraries (contracts/UI-level abstractions).
 - `L3 Applications`: runnable products/components (stable and unstable products).
 
 ## Dependency Direction Rules
+
 - `L0` may depend only on `L0`.
 - `L1` may depend on `L0` and `L1`.
 - `L2` may depend on `L0`, `L1`, and `L2`.
@@ -17,11 +20,13 @@ Define a single layer model for all workspace crates and enforce dependency dire
 - Upward dependencies are forbidden (for example: `L0 -> L1/L2/L3`, `L1 -> L2/L3`, `L2 -> L3`).
 
 ## Allowed Dependency Examples
+
 1. `projects/libraries/symbolic` (`L1`) -> `projects/libraries/common` (`L0`)
 2. `projects/libraries/ui` (`L2`) -> `projects/libraries/protocol` (`L2`)
 3. `projects/products/stable/accounts/backend` (`L3`) -> `projects/libraries/security` (`L1`)
 
 ## Forbidden Dependency Examples
+
 1. `projects/libraries/common` (`L0`) -> `projects/libraries/symbolic` (`L1`)
 2. `projects/libraries/protocol` (`L2`) -> `projects/products/stable/core/engine` (`L3`)
 3. `projects/libraries/identity` (`L1`) -> `projects/libraries/ui` (`L2`)
@@ -67,4 +72,5 @@ Each workspace member is assigned to exactly one layer.
 | `projects/products/unstable/autonomous_dev_ai` | `L3 Applications` |
 
 ## Enforcement Follow-up
+
 This document defines the policy baseline. Automated CI boundary checks are handled in the dedicated enforcement follow-up issue.
