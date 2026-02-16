@@ -213,7 +213,10 @@ pub enum {name} {{
         if let Some(fields) = self.extract_fields(prompt, context) {
             data.insert("fields".to_string(), fields);
         } else {
-            data.insert("fields".to_string(), "    // TODO: Add fields".to_string());
+            data.insert(
+                "fields".to_string(),
+                "    pub field1: String,\n    pub field2: String,".to_string(),
+            );
         }
 
         // Extract the variants for enum
@@ -236,10 +239,11 @@ pub enum {name} {{
         data.insert("return_type".to_string(), "()".to_string());
 
         // Methods for trait
-        data.insert(
-            "methods".to_string(),
-            "    // TODO: Add methods".to_string(),
-        );
+        if let Some(methods) = self.extract_methods(prompt, context) {
+            data.insert("methods".to_string(), methods);
+        } else {
+            data.insert("methods".to_string(), "    fn execute(&self);".to_string());
+        }
 
         Ok(data)
     }
@@ -330,6 +334,45 @@ pub enum {name} {{
         }
 
         Some("    Variant1,\n    Variant2,".to_string())
+    }
+
+    /// Extracts trait methods from the prompt.
+    /// Supports formats such as:
+    /// - "with methods: start, stop"
+    /// - "methods: run, cancel"
+    fn extract_methods(&self, prompt: &str, context: Option<&str>) -> Option<String> {
+        let prompt_lower = prompt.to_lowercase();
+        let methods_start = prompt_lower
+            .find("with methods:")
+            .map(|idx| idx + "with methods:".len())
+            .or_else(|| {
+                prompt_lower
+                    .find("methods:")
+                    .map(|idx| idx + "methods:".len())
+            });
+
+        if let Some(start) = methods_start {
+            let methods_text = &prompt[start..];
+            let methods: Vec<String> = methods_text
+                .split(',')
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .map(|name| format!("    fn {}(&self);", name))
+                .collect();
+
+            if !methods.is_empty() {
+                return Some(methods.join("\n"));
+            }
+        }
+
+        if let Some(ctx) = context {
+            let ctx_trimmed = ctx.trim();
+            if !ctx_trimmed.is_empty() {
+                return Some(format!("    // {}", ctx_trimmed));
+            }
+        }
+
+        Some("    fn execute(&self);".to_string())
     }
 
     /// Calculates the confidence of the match for a prompt
