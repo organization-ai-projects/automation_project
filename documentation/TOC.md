@@ -1,18 +1,15 @@
-# Table of Contents
+# Documentation Index
 
-This document provides an overview of all documentation files in this directory.
+This directory uses local language folders.
 
-## Documentation Files
+## Language Navigation
 
-- [Documentation Entry Point](README.md): Language switch entrypoint for EN/FR documentation
-- [English TOC (Phase 1)](en/TOC.md): English documentation navigation for migrated scope
-- [French TOC (Phase 1)](fr/TOC.md): French documentation navigation for migrated scope
-- [Technical TOC](technical_documentation/TOC.md): Entry point for technical documentation including architecture, projects, and system processes
-- [Contributing](../CONTRIBUTING.md): Guidelines for contributing to the project
-- [Documentation Template Standard](technical_documentation/en/documentation_template_standard.md): Canonical README.md/TOC.md structure rules
-- [Documentation EN/FR Policy](technical_documentation/en/documentation_i18n_policy.md): Canonical bilingual documentation structure and migration rules
-- [Documentation Ownership Map](technical_documentation/en/documentation_ownership_map.md): Ownership and maintenance responsibilities for documentation zones
-- [Workspace Layer Taxonomy](technical_documentation/en/library_layer_taxonomy.md): Layer model and crate-to-layer mapping for architecture governance
+- [English](en/TOC.md): English documentation index
+- [Francais](fr/TOC.md): French documentation index
+
+## Shared Zones
+
+- [Technical Documentation](technical_documentation/TOC.md): EN/FR technical documentation index
 
 ## Navigation
 

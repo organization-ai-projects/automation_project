@@ -2,7 +2,7 @@
 
 This file is a French translation of the English documentation. If it becomes outdated, refer to the English version.
 
-- [Retour a l'index projets](TOC.md)
+- [Retour a l'index projets](../TOC.md)
 
 ## 1. Role detaille des composants
 

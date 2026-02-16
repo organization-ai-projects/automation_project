@@ -21,8 +21,6 @@ Langue : [English](../en/TOC.md) | **Francais**
 - [Metadonnees](metadata.md) : role et structure du fichier `metadata.ron`
 - [Registre](registry.md) : role du registre et format des identifiants
 - [Index projets (FR)](projects/TOC.md) : navigation des documents produits/bibliotheques
-- [Bibliotheques et composants symboliques](projects/projects_libraries.md) : details bibliotheques partagees
-- [Produits et composants workspace](projects/projects_products.md) : details des produits coeur et interfaces
 
 ## Documents encore disponibles en anglais
 
