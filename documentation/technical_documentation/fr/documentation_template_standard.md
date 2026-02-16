@@ -50,7 +50,7 @@ Sections optionnelles :
 
 ## Regle de localisation canonique
 
-- Ce fichier (`documentation/technical_documentation/documentation_template_standard.md`) est la source unique de verite pour la structure des templates.
+- Ce fichier (`documentation/technical_documentation/en/documentation_template_standard.md`) est la source unique de verite pour la structure des templates.
 - Les autres documents peuvent resumer ou referencer ce standard, mais ne doivent pas redefinir de regles contradictoires.
 
 ## Regle d'adoption

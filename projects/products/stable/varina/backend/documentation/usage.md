@@ -13,4 +13,4 @@ Varina backend handles product-specific commands and workflows. It communicates 
 
 ## Notes
 
-For architecture context, see `documentation/technical_documentation/ARCHITECTURE.md`.
+For architecture context, see `documentation/technical_documentation/en/ARCHITECTURE.md`.

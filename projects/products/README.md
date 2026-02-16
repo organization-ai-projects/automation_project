@@ -28,7 +28,7 @@ projects/products/
 
 Stable products are production-ready implementations that follow all project principles and best practices:
 
-- Follow the architecture patterns defined in `documentation/technical_documentation/ARCHITECTURE.md`
+- Follow the architecture patterns defined in `documentation/technical_documentation/en/ARCHITECTURE.md`
 - Integrate with the Engine through the protocol
 - Use the security and identity libraries for authentication and authorization
 - Follow proper error handling and logging patterns
@@ -192,5 +192,5 @@ The repository includes optional CI checks to enforce these rules:
 For questions about product structure, architecture, or promotion process:
 
 - See [CONTRIBUTING.md](../../CONTRIBUTING.md)
-- See [ARCHITECTURE.md](../../documentation/technical_documentation/ARCHITECTURE.md)
+- See [ARCHITECTURE.md](../../documentation/technical_documentation/en/ARCHITECTURE.md)
 - Open an issue for discussion

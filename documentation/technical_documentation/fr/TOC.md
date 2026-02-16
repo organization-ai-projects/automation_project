@@ -2,7 +2,7 @@
 
 This file is a French translation of the English documentation. If it becomes outdated, refer to the English version.
 
-Langue : [English](../../technical_documentation/TOC.md) | **Francais**
+Langue : [English](../en/TOC.md) | **Francais**
 
 ## Documents disponibles en francais
 
@@ -14,18 +14,19 @@ Langue : [English](../../technical_documentation/TOC.md) | **Francais**
 - [Politique EN/FR de documentation](documentation_i18n_policy.md) : structure bilingue et regles de migration
 - [Taxonomie des labels](labels_taxonomy.md) : conventions de labels issues/PR
 - [Guide de stabilisation des tests flaky](flaky_tests.md) : inventaire et workflow de remediation
+- [Frontieres des couches de bibliotheques](library_layer_boundaries.md) : regles CI des dependances interdites
+- [Taxonomie des couches de bibliotheques](library_layer_taxonomy.md) : modele de couches et regles de direction
+- [Processus systeme](system_processes.md) : demarrage, supervision, flux commandes/evenements
+- [Architecture](ARCHITECTURE.md) : principes d'architecture et topologie des composants
 - [Metadonnees](metadata.md) : role et structure du fichier `metadata.ron`
 - [Registre](registry.md) : role du registre et format des identifiants
+- [Index projets (FR)](projects/TOC.md) : navigation des documents produits/bibliotheques
+- [Bibliotheques et composants symboliques](projects/projects_libraries.md) : details bibliotheques partagees
+- [Produits et composants workspace](projects/projects_products.md) : details des produits coeur et interfaces
 
 ## Documents encore disponibles en anglais
 
-- [Library Layer Boundaries](../../technical_documentation/library_layer_boundaries.md)
-- [Workspace Library Layer Taxonomy](../../technical_documentation/library_layer_taxonomy.md)
-- [System Processes](../../technical_documentation/system_processes.md)
-- [Architecture](../../technical_documentation/ARCHITECTURE.md)
-- [Libraries and Symbolic Components](../../technical_documentation/projects/projects_libraries.md)
-- [Products and Workspace Components](../../technical_documentation/projects/projects_products.md)
-- [Projects Index](../../technical_documentation/projects/TOC.md)
+- Aucun pour ce sous-ensemble technique cible.
 
 ## Documentation associee
 

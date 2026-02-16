@@ -39,7 +39,7 @@ ui/
 - Sends commands and receives events via the Engine.
 - Avoids direct coupling with the backend.
 
-For architecture context, see `documentation/technical_documentation/ARCHITECTURE.md`.
+For architecture context, see `documentation/technical_documentation/en/ARCHITECTURE.md`.
 
 ## Documentation
 

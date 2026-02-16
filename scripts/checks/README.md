@@ -45,7 +45,7 @@ This directory contains validation and check scripts for the repository.
 
 **CI Integration**: Runs automatically in `.github/workflows/ci_reusable.yml`.
 
-**Related Documentation**: See `documentation/technical_documentation/library_layer_boundaries.md`.
+**Related Documentation**: See `documentation/technical_documentation/en/library_layer_boundaries.md`.
 
 ## Adding New Checks
 

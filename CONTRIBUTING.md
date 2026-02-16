@@ -78,7 +78,7 @@ Use descriptive branch names with a type prefix:
 
 **Note**: Branch naming is enforced by the `create_branch.sh` script. Invalid branch names will be rejected with a clear error message.
 
-**Source of truth**: `documentation/technical_documentation/branch_naming_convention.md`
+**Source of truth**: `documentation/technical_documentation/en/branch_naming_convention.md`
 
 ---
 
@@ -146,7 +146,7 @@ For cross-cutting changes spanning multiple unrelated areas, use multiple scopes
 
 - Keep commits small and focused on a single change.
 - Reference issues when applicable: `fix: resolve panic in parser (#42)`
-- Use explicit footer keywords for issue references (`Closes`, `Fixes`, `Resolves`, `Related to`, `Part of`) as defined in `documentation/technical_documentation/commit_footer_policy.md`.
+- Use explicit footer keywords for issue references (`Closes`, `Fixes`, `Resolves`, `Related to`, `Part of`) as defined in `documentation/technical_documentation/en/commit_footer_policy.md`.
 
 See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details.
 

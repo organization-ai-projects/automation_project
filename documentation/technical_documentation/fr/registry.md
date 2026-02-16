@@ -55,5 +55,5 @@ La structure exacte peut evoluer, mais les IDs restent des chaines hex ProtocolI
 ## Documents lies
 
 - [Metadata](metadata.md)
-- [Architecture](../../technical_documentation/ARCHITECTURE.md)
-- [Products and Workspace Components](../../technical_documentation/projects/projects_products.md)
+- [Architecture](ARCHITECTURE.md)
+- [Produits et composants workspace](projects/projects_products.md)

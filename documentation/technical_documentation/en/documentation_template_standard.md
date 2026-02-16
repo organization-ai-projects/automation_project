@@ -50,7 +50,7 @@ Optional sections:
 
 ## Canonical Location Rule
 
-- This file (`documentation/technical_documentation/documentation_template_standard.md`)
+- This file (`documentation/technical_documentation/en/documentation_template_standard.md`)
   is the single source of truth for template structure.
 - Other docs may summarize or reference this standard, but must not redefine
   conflicting rules.
