@@ -24,7 +24,7 @@ This document provides an overview of all documentation files in this directory.
 
 ## Related Documentation
 
-- [Scripts TOC](../../scripts/TOC.md): Entry point for automation + versioning + common_lib
+- [Scripts TOC](../../../scripts/TOC.md): Entry point for automation + versioning + common_lib
 
 ## Navigation
 

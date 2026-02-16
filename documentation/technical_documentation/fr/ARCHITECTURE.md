@@ -95,7 +95,7 @@ Chemin commande : UI -> central_ui -> engine -> backend. Chemin evenement : back
 
 Note bootstrap (phase de demarrage) : `launcher` demarre les services coeur (`engine`, `central_ui`, `watcher`). Apres bootstrap, le flux normal commande/evenement commence.
 
-![Bootstrap (startup)](assets/architecture_bootstrap.png)
+![Bootstrap (startup)](../assets/architecture_bootstrap.png)
 
 ```plaintext
                              +---------+
