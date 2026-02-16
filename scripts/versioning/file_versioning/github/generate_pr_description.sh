@@ -241,16 +241,9 @@ if command -v gh >/dev/null 2>&1; then
   has_gh="true"
 fi
 
-need_gh="false"
-if [[ "$dry_run" == "true" || "$create_pr" == "true" || -n "$auto_edit_pr_number" ]]; then
-  need_gh="true"
-fi
-if [[ "$dry_run" == "false" ]]; then
-  need_gh="true"
-fi
-if [[ -n "$duplicate_mode" && "$dry_run" != "true" ]]; then
-  need_gh="true"
-fi
+# This script is API-first in all modes (including --dry-run compare),
+# so gh is always required.
+need_gh="true"
 if [[ "$need_gh" == "true" && "$has_gh" != "true" ]]; then
   echo "Erreur: la commande 'gh' est introuvable." >&2
   exit "$E_DEPENDENCY"
