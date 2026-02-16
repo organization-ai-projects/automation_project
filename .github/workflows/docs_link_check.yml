@@ -1,0 +1,40 @@
+name: Docs Link Check
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "README.fr.md"
+      - "CONTRIBUTING.md"
+      - "CONTRIBUTING.fr.md"
+      - "documentation/**"
+      - ".github/workflows/docs_link_check.yml"
+      - ".github/workflows/documentation/docs_link_check.md"
+      - ".github/workflows/documentation/TOC.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs-links:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Link check EN/FR documentation scope
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: >-
+            --no-progress
+            --verbose
+            README.md
+            README.fr.md
+            CONTRIBUTING.md
+            CONTRIBUTING.fr.md
+            documentation/README.md
+            documentation/TOC.md
+            documentation/en/TOC.md
+            documentation/fr/TOC.md
