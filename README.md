@@ -1,6 +1,6 @@
 # Automatic Project
 
-Language: **English** | [Français](README.fr.md)
+Language: **English** | [Français](./README.fr.md)
 
 This directory contains the `automation_project` workspace, designed to orchestrate multiple projects simultaneously with features such as code generation, linting, automated documentation, and workflow orchestration.
 
@@ -60,13 +60,13 @@ See [projects/products/README.md](projects/products/README.md) for details on st
 
 Internal documentation is available in the `documentation/` folder. Start with the [Documentation Index](documentation/TOC.md), or jump directly to the [Technical Documentation TOC](documentation/technical_documentation/TOC.md).
 
-Scripts documentation is indexed in [scripts/TOC.md](scripts/TOC.md).
+Scripts documentation is indexed in [scripts/TOC.md](./scripts/TOC.md).
 
 ## Contribute
 
 Contributions are welcome! Please open an issue or a pull request on the GitHub repository.
 
-For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+For contribution guidelines, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Licenses
 
