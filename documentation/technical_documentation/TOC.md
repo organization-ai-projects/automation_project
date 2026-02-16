@@ -11,6 +11,7 @@ This document provides an overview of all documentation files in this directory.
 - [Documentation EN/FR Policy](documentation_i18n_policy.md): Deterministic bilingual structure and migration rules
 - [Documentation Ownership Map](documentation_ownership_map.md): Ownership and maintenance expectations by documentation zone
 - [Flaky Test Stabilization Guide](flaky_tests.md): Workspace inventory and remediation workflow for flaky tests
+- [Library Layer Boundaries](library_layer_boundaries.md): CI-enforced dependency direction between libraries and products
 - [Labels Taxonomy](labels_taxonomy.md): Label naming and usage policy for issues and pull requests
 - [System Processes](system_processes.md): How core processes are launched and supervised
 - [Architecture](ARCHITECTURE.md): Description of the overall architecture of the project
