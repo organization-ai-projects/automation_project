@@ -978,8 +978,8 @@ if [[ "$create_pr" == "true" ]]; then
   else
     echo
     echo "Dry-run complete."
-    echo "Base: ${base_ref}"
-    echo "Head: ${head_ref}"
+    echo "Base: ${base_ref_display}"
+    echo "Head: ${head_ref_display}"
     if [[ "$auto_mode" != "true" ]]; then
       echo "Body file: ${output_file}"
     else
@@ -995,9 +995,9 @@ if [[ "$create_pr" == "true" ]]; then
 
   if [[ "$create_now" == "true" ]]; then
     if [[ "$auto_mode" == "true" ]]; then
-      pr_url="$(gh pr create --base "$base_ref" --head "$head_ref" --title "$default_title" --body "$body_content")"
+      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body "$body_content")"
     else
-      pr_url="$(gh pr create --base "$base_ref" --head "$head_ref" --title "$default_title" --body-file "$output_file")"
+      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body-file "$output_file")"
     fi
     pr_created_successfully="true"
     echo "PR créée: $pr_url"
