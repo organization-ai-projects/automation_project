@@ -78,6 +78,10 @@ jobs:
         if: steps.changes.outputs.run_rust_checks == 'true'
         uses: Swatinem/rust-cache@v2
 
+      - name: Check layer dependency boundaries
+        if: steps.changes.outputs.run_rust_checks == 'true'
+        run: ./scripts/checks/check_layer_boundaries.sh
+
       - name: Cargo fmt
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: cargo fmt --all -- --check

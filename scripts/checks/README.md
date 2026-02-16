@@ -25,6 +25,28 @@ This directory contains validation and check scripts for the repository.
 
 **Related Documentation**: See `projects/products/README.md` for the complete stable/unstable product structure rules.
 
+### check_layer_boundaries.sh
+
+**Purpose**: Enforces workspace layer dependency boundaries to prevent architectural drift.
+
+**Usage**:
+
+```bash
+./scripts/checks/check_layer_boundaries.sh
+```
+
+**What it does**:
+
+- Runs `cargo metadata` to inspect workspace crate dependency edges
+- Classifies crates by path:
+  - `projects/libraries/*` => `library`
+  - `projects/products/*` => `product`
+- Fails when a `library -> product` dependency edge is detected
+
+**CI Integration**: Runs automatically in `.github/workflows/ci_reusable.yml`.
+
+**Related Documentation**: See `documentation/technical_documentation/library_layer_boundaries.md`.
+
 ## Adding New Checks
 
 When adding new validation scripts:
