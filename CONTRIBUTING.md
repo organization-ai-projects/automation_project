@@ -10,6 +10,32 @@ For detailed workflow documentation, see the [scripts TOC](./scripts/TOC.md).
 
 ---
 
+## Prerequisites
+
+Install and configure these tools before contributing:
+
+- `git` (latest stable)
+- `rustup` + Rust `stable` toolchain (pinned by `rust-toolchain.toml`)
+- Rust components: `rustfmt`, `clippy`
+- `node` (active LTS recommended)
+- `pnpm` (latest stable, via Corepack recommended)
+- GitHub CLI `gh` (required for issue/PR automation scripts)
+
+Quick verification:
+
+```bash
+git --version
+rustup --version
+cargo --version
+rustfmt --version
+cargo clippy --version
+node --version
+pnpm --version
+gh --version
+```
+
+---
+
 ## Getting Started
 
 1. Fork the repository (external contributors) or clone directly (team members).
@@ -178,6 +204,25 @@ bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
 - `--body <body>`: Custom PR description
 - `--draft`: Create as draft PR
 
+### PR Description Example
+
+Use a concrete, reviewable structure:
+
+```md
+## Why
+- Fixes intermittent failure in account audit flush tests.
+
+## What
+- Stabilize test timing using deterministic flush trigger.
+- Keep production behavior unchanged.
+
+## Validation
+- cargo test -p accounts-backend --bin accounts-backend
+- cargo test --workspace
+
+Closes #<issue-number>
+```
+
 ### PR Requirements
 
 - **Title**: Use the same convention as branch names (`feat:`, `fix:`, etc.)
@@ -186,6 +231,17 @@ bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
 - **Tests**: Include tests for new functionality
 
 See [Versioning TOC](scripts/versioning/file_versioning/TOC.md) for details.
+
+---
+
+## Script Reference
+
+Frequently used scripts in this guide:
+
+- `scripts/versioning/file_versioning/git/create_branch.sh`: Creates a new branch and validates naming convention.
+- `scripts/versioning/file_versioning/git/add_commit_push.sh`: Stages changes, validates commit message format, commits, and pushes.
+- `scripts/versioning/file_versioning/orchestrators/read/create_pr.sh`: Creates a PR to `dev` (with tests by default).
+- `scripts/automation/git_hooks/install_hooks.sh`: Installs repository git hooks (commit-msg, pre-push, etc.).
 
 ---
 
@@ -269,6 +325,32 @@ mod tests {
 - Use `pnpm run lint-md` for markdown linting and `pnpm run lint-md-fix` for auto-fixing markdown issues.
 
 ---
+
+## FAQ
+
+### Why is my commit rejected?
+
+Your commit message likely does not match required conventional format, or hooks detected failing checks. Use `add_commit_push.sh` for guided validation.
+
+### When should I use `Closes #...` vs `Related to #...`?
+
+Use `Closes #...` only when the work in this branch fully resolves the issue. Use `Related to #...` when linked context is helpful but not fully resolved here.
+
+### Why does push fail even when tests pass locally?
+
+Branch protection may require PR-based changes and CI success on GitHub before merge.
+
+### Should I commit directly to `main` or `dev`?
+
+No. Work from a topic branch and open a PR to `dev`.
+
+### Is there a French contributor guide?
+
+Yes: [CONTRIBUTING.fr.md](./CONTRIBUTING.fr.md).
+
+### What is the i18n strategy for contributor docs?
+
+Current approach is bilingual (EN/FR) for major contributor entrypoints. New sections should be mirrored in `CONTRIBUTING.fr.md` when relevant to keep guidance aligned.
 
 ## Questions?
 
