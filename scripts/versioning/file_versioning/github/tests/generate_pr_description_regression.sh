@@ -400,6 +400,40 @@ main() {
   rm -rf "${tmp}"
 
   TESTS_RUN=$((TESTS_RUN + 1))
+  parse_out="$(echo "Commit b5fffa6 closed #520, but the correct footer should be closes #518" | awk '
+    BEGIN { IGNORECASE = 1 }
+    {
+      line = $0
+      while (match(line, /(^|[^[:alnum:]_])(close|closes|fix|fixes|resolve|resolves)[[:space:]]+([[:alnum:]_.-]+\/)?#[0-9]+/)) {
+        matched = substr(line, RSTART, RLENGTH)
+        sub(/^[^[:alnum:]_]/, "", matched)
+        split(matched, parts, /[[:space:]]+/)
+        token = tolower(parts[1])
+        issue_ref = parts[2]
+        sub(/^[[:alnum:]_.-]+\//, "", issue_ref)
+        if (token ~ /^clos/) {
+          action = "Closes"
+        } else if (token ~ /^fix/) {
+          action = "Fixes"
+        } else {
+          action = "Resolves"
+        }
+        if (issue_ref ~ /^#[0-9]+$/) {
+          print action "|" issue_ref
+        }
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' | sort -u)"
+
+  if [[ "${parse_out}" == "Closes|#518" ]]; then
+    echo "PASS [closure-keyword-strictness-ignores-closed]"
+  else
+    echo "FAIL [closure-keyword-strictness-ignores-closed] expected Closes|#518, got: ${parse_out}"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+
+  TESTS_RUN=$((TESTS_RUN + 1))
   tmp="$(mktemp_compat)"
   build_mock_bin "${tmp}/bin"
   out_md="${tmp}/snapshot_breaking.md"
