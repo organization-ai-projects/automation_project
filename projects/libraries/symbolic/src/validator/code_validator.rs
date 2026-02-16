@@ -6,7 +6,6 @@ use crate::validator::validation_result::ValidationResult;
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
 use regex::Regex;
-use tracing;
 
 /// Rust code validator
 pub struct CodeValidator {
@@ -38,9 +37,11 @@ impl CodeValidator {
     pub fn validate(&self, code: &str) -> Result<ValidationResult, ValidationError> {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
+        tracing::info!("code_validator.validate start");
 
         // Basic validation
         if !CommonID::is_valid(Id128::new(0, None, None)) {
+            tracing::error!("code_validator.validate invalid CommonID baseline check");
             return Ok(ValidationResult::invalid(vec!["Invalid ID".to_string()]));
         }
 
@@ -54,6 +55,7 @@ impl CodeValidator {
                 self.validate_semantics(&syntax_tree, &mut warnings);
             }
             Err(e) => {
+                tracing::error!("code_validator.validate syntax error={}", e);
                 errors.push(format!("Syntax error: {}", e));
                 return Ok(ValidationResult::invalid(errors));
             }
@@ -61,6 +63,7 @@ impl CodeValidator {
 
         // Explicitly invalidate empty code after syntax validation
         if code.trim().is_empty() {
+            tracing::warn!("code_validator.validate received empty code");
             errors.push("Code is empty".to_string());
             return Ok(ValidationResult::invalid(errors));
         }
@@ -69,8 +72,17 @@ impl CodeValidator {
         self.check_common_issues(code, &mut warnings);
 
         if errors.is_empty() {
+            tracing::info!(
+                "code_validator.validate finished valid warnings_count={}",
+                warnings.len()
+            );
             Ok(ValidationResult::valid().with_warnings(warnings))
         } else {
+            tracing::warn!(
+                "code_validator.validate finished invalid errors_count={} warnings_count={}",
+                errors.len(),
+                warnings.len()
+            );
             Ok(ValidationResult::invalid(errors).with_warnings(warnings))
         }
     }
@@ -78,15 +90,19 @@ impl CodeValidator {
     /// Validates syntax only (faster)
     pub fn validate_syntax(&self, code: &str) -> Result<ValidationResult, ValidationError> {
         if code.trim().is_empty() {
+            tracing::warn!("code_validator.validate_syntax received empty code");
             return Ok(ValidationResult::invalid(vec!["Code is empty".to_string()]));
         }
 
         match syn::parse_file(code) {
             Ok(_) => Ok(ValidationResult::valid()),
-            Err(e) => Ok(ValidationResult::invalid(vec![format!(
-                "Syntax error: {}",
-                e
-            )])),
+            Err(e) => {
+                tracing::error!("code_validator.validate_syntax syntax error={}", e);
+                Ok(ValidationResult::invalid(vec![format!(
+                    "Syntax error: {}",
+                    e
+                )]))
+            }
         }
     }
 

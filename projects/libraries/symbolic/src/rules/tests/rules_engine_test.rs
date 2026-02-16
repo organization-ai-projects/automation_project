@@ -68,6 +68,30 @@ fn test_extract_fields_via_public_interface() -> TestResult {
 
     let code = engine.generate("create struct User", None)?;
     assert!(code.contains("struct User"));
+    assert!(!code.contains("TODO"));
+    assert!(code.contains("pub field1"));
+    Ok(())
+}
+
+#[test]
+fn test_trait_generation_has_default_method_without_todo() -> TestResult {
+    let engine = create_engine();
+    let code = engine.generate("create trait Runner", None)?;
+
+    assert!(code.contains("trait Runner"));
+    assert!(code.contains("fn execute(&self);"));
+    assert!(!code.contains("TODO"));
+    Ok(())
+}
+
+#[test]
+fn test_trait_generation_extracts_methods_from_prompt() -> TestResult {
+    let engine = create_engine();
+    let code = engine.generate("create trait Runner with methods: start, stop", None)?;
+
+    assert!(code.contains("fn start(&self);"));
+    assert!(code.contains("fn stop(&self);"));
+    assert!(!code.contains("TODO"));
     Ok(())
 }
 

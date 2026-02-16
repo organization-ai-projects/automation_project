@@ -155,17 +155,27 @@ pub enum {name} {{
     pub fn generate(&self, prompt: &str, context: Option<&str>) -> Result<String, RulesError> {
         let prompt_lower = prompt.to_lowercase();
 
-        tracing::debug!("Generating code for prompt: {}", prompt);
+        tracing::info!("rules_engine.generate start");
+        tracing::debug!("rules_engine.generate prompt={}", prompt);
 
         // Find the template that matches
         for (category, templates) in &self.templates {
             for template in templates {
                 if prompt_lower.contains(&template.pattern) {
+                    tracing::info!(
+                        "rules_engine.generate template matched category={} pattern={}",
+                        category,
+                        template.pattern
+                    );
                     return self.fill_template(&template.template, prompt, context, Some(category));
                 }
             }
         }
 
+        tracing::warn!(
+            "rules_engine.generate no template matched prompt={}",
+            prompt
+        );
         Err(RulesError::TemplateNotFound(format!(
             "No template found for prompt: {}",
             prompt
@@ -213,7 +223,10 @@ pub enum {name} {{
         if let Some(fields) = self.extract_fields(prompt, context) {
             data.insert("fields".to_string(), fields);
         } else {
-            data.insert("fields".to_string(), "    // TODO: Add fields".to_string());
+            data.insert(
+                "fields".to_string(),
+                "    pub field1: String,\n    pub field2: String,".to_string(),
+            );
         }
 
         // Extract the variants for enum
@@ -236,10 +249,11 @@ pub enum {name} {{
         data.insert("return_type".to_string(), "()".to_string());
 
         // Methods for trait
-        data.insert(
-            "methods".to_string(),
-            "    // TODO: Add methods".to_string(),
-        );
+        if let Some(methods) = self.extract_methods(prompt, context) {
+            data.insert("methods".to_string(), methods);
+        } else {
+            data.insert("methods".to_string(), "    fn execute(&self);".to_string());
+        }
 
         Ok(data)
     }
@@ -332,6 +346,45 @@ pub enum {name} {{
         Some("    Variant1,\n    Variant2,".to_string())
     }
 
+    /// Extracts trait methods from the prompt.
+    /// Supports formats such as:
+    /// - "with methods: start, stop"
+    /// - "methods: run, cancel"
+    fn extract_methods(&self, prompt: &str, context: Option<&str>) -> Option<String> {
+        let prompt_lower = prompt.to_lowercase();
+        let methods_start = prompt_lower
+            .find("with methods:")
+            .map(|idx| idx + "with methods:".len())
+            .or_else(|| {
+                prompt_lower
+                    .find("methods:")
+                    .map(|idx| idx + "methods:".len())
+            });
+
+        if let Some(start) = methods_start {
+            let methods_text = &prompt[start..];
+            let methods: Vec<String> = methods_text
+                .split(',')
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .map(|name| format!("    fn {}(&self);", name))
+                .collect();
+
+            if !methods.is_empty() {
+                return Some(methods.join("\n"));
+            }
+        }
+
+        if let Some(ctx) = context {
+            let ctx_trimmed = ctx.trim();
+            if !ctx_trimmed.is_empty() {
+                return Some(format!("    // {}", ctx_trimmed));
+            }
+        }
+
+        Some("    fn execute(&self);".to_string())
+    }
+
     /// Calculates the confidence of the match for a prompt
     pub fn match_confidence(&self, prompt: &str) -> f64 {
         let prompt_lower = prompt.to_lowercase();
@@ -361,8 +414,14 @@ pub enum {name} {{
         for rule in &self.refactoring_rules {
             if instruction_lower.contains(&rule.name.replace('_', " ")) {
                 // Apply the rule (advanced regex)
-                let re = Regex::new(&rule.pattern)
-                    .map_err(|e| RulesError::InvalidPattern(e.to_string()))?;
+                let re = Regex::new(&rule.pattern).map_err(|e| {
+                    tracing::error!(
+                        "rules_engine.apply_refactoring invalid regex pattern={} error={}",
+                        rule.pattern,
+                        e
+                    );
+                    RulesError::InvalidPattern(e.to_string())
+                })?;
                 if re.is_match(&result_code) {
                     result_code = re.replace(&result_code, &rule.replacement).to_string();
                     changes.push(rule.description.clone());
@@ -377,12 +436,20 @@ pub enum {name} {{
         tracing::debug!("Code after refactoring: {}", result_code);
 
         if changes.is_empty() {
+            tracing::warn!(
+                "rules_engine.apply_refactoring no matching rule instruction={}",
+                instruction
+            );
             return Err(RulesError::GenerationFailed(format!(
                 "No applicable refactoring rules for: {}",
                 instruction
             )));
         }
 
+        tracing::info!(
+            "rules_engine.apply_refactoring success changes_applied={}",
+            changes.len()
+        );
         Ok(RefactoringResult {
             code: result_code,
             confidence: 0.85,

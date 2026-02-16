@@ -127,9 +127,7 @@ run_one() {
       create_merge_conflict
       ;;
     *)
-      if ! fail "unknown SETUP: $SETUP"; then
-        return 1
-      fi
+      fail "unknown SETUP: $SETUP"
       ;;
   esac
 
