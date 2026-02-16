@@ -1,15 +1,19 @@
-# Documentation Index
+# Documentation Index (EN)
 
-This directory uses local language folders.
+Language: **English** | [Francais](i18n/fr/TOC.md)
 
-## Language Navigation
+## Root Documentation
 
-- [English](en/TOC.md): English documentation index
-- [Francais](fr/TOC.md): French documentation index
+- [Repository README](../README.md)
+- [Contributing Guide](../CONTRIBUTING.md)
+- [Documentation Entry Point](README.md)
 
-## Shared Zones
+## Technical Documentation (EN Canonical)
 
-- [Technical Documentation](technical_documentation/TOC.md): EN/FR technical documentation index
+- [Technical Documentation Index](technical_documentation/TOC.md)
+- [Architecture](technical_documentation/ARCHITECTURE.md)
+- [System Processes](technical_documentation/system_processes.md)
+- [Projects Index](technical_documentation/projects/TOC.md)
 
 ## Navigation
 

@@ -66,4 +66,4 @@ Invalid:
 
 ## References
 
-- [CONTRIBUTING.md](../../../CONTRIBUTING.md)
+- [CONTRIBUTING.md](../../CONTRIBUTING.md)

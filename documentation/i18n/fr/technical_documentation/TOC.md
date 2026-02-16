@@ -2,7 +2,7 @@
 
 This file is a French translation of the English documentation. If it becomes outdated, refer to the English version.
 
-Langue : [English](../en/TOC.md) | **Francais**
+Langue : [English](../../../technical_documentation/TOC.md) | **Francais**
 
 ## Documents disponibles en francais
 
@@ -28,7 +28,7 @@ Langue : [English](../en/TOC.md) | **Francais**
 
 ## Documentation associee
 
-- [TOC scripts](../../../scripts/TOC.md) : point d'entree automation + versioning + common_lib
+- [TOC scripts](../../../../scripts/TOC.md) : point d'entree automation + versioning + common_lib
 
 ## Navigation
 

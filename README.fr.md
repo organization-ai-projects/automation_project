@@ -21,7 +21,7 @@ Il interagit principalement avec :
 - Les backends produits sont des processus séparés ; les UIs sont chargées dynamiquement à l'exécution.
 - L'UI centrale agrège les UIs produits sans couplage à la compilation.
 
-Pour les détails, voir le document d'architecture : `documentation/technical_documentation/en/ARCHITECTURE.md`.
+Pour les détails, voir le document d'architecture : `documentation/technical_documentation/ARCHITECTURE.md`.
 
 ## Structure du répertoire
 

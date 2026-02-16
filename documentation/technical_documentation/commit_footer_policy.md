@@ -45,4 +45,4 @@ Part of #403
 
 ## References
 
-- [CONTRIBUTING.md](../../../CONTRIBUTING.md)
+- [CONTRIBUTING.md](../../CONTRIBUTING.md)

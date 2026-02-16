@@ -13,4 +13,4 @@ Varina UI is the product interface loaded by Central UI at runtime as a UI bundl
 
 ## Notes
 
-For architecture context, see `documentation/technical_documentation/en/ARCHITECTURE.md`.
+For architecture context, see `documentation/technical_documentation/ARCHITECTURE.md`.

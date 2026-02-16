@@ -21,7 +21,7 @@ It interacts mainly with:
 - Product backends are separate processes; UIs are runtime-loaded bundles.
 - Central UI aggregates product UIs without compile-time coupling.
 
-For details, see the architecture doc: `documentation/technical_documentation/en/ARCHITECTURE.md`.
+For details, see the architecture doc: `documentation/technical_documentation/ARCHITECTURE.md`.
 
 ## Directory Structure
 

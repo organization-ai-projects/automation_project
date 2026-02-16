@@ -40,7 +40,7 @@ backend/
 - Communicates exclusively with the Engine.
 - Emits events and logs for the central UI to display.
 
-For architecture context, see `documentation/technical_documentation/en/ARCHITECTURE.md`.
+For architecture context, see `documentation/technical_documentation/ARCHITECTURE.md`.
 
 ## Documentation
 

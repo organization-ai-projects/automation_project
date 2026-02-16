@@ -78,7 +78,7 @@ Utilisez des noms descriptifs avec un préfixe de type :
 
 **Note** : le nommage des branches est contrôlé par `create_branch.sh`. Les noms invalides sont rejetés avec un message explicite.
 
-**Source de vérité** : `documentation/technical_documentation/en/branch_naming_convention.md`
+**Source de vérité** : `documentation/technical_documentation/branch_naming_convention.md`
 
 ---
 
@@ -146,7 +146,7 @@ Pour les changements transverses, utilisez plusieurs scopes (séparés par des v
 
 - Gardez des commits petits et focalisés.
 - Référencez les issues si applicable : `fix: resolve panic in parser (#42)`
-- Utilisez des mots-clés de footer explicites (`Closes`, `Fixes`, `Resolves`, `Related to`, `Part of`) selon `documentation/technical_documentation/en/commit_footer_policy.md`.
+- Utilisez des mots-clés de footer explicites (`Closes`, `Fixes`, `Resolves`, `Related to`, `Part of`) selon `documentation/technical_documentation/commit_footer_policy.md`.
 
 Voir le [TOC des scripts Git](scripts/versioning/file_versioning/git/TOC.md) pour plus de détails.
 
