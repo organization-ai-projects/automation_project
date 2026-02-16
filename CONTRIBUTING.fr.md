@@ -2,10 +2,10 @@
 
 This file is a French translation of the English documentation. If it becomes outdated, refer to the English version.
 
-Langue : [English](CONTRIBUTING.md) | **Français**
+Langue : [English](./CONTRIBUTING.md) | **Français**
 
 Ce document donne les règles de contribution en version française.  
-La version canonique reste : [CONTRIBUTING.md](CONTRIBUTING.md).
+La version canonique reste : [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Règles principales
 
@@ -16,5 +16,5 @@ La version canonique reste : [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Références
 
-- Guide canonique : [CONTRIBUTING.md](CONTRIBUTING.md)
-- Index scripts : [scripts/TOC.md](scripts/TOC.md)
+- Guide canonique : [CONTRIBUTING.md](./CONTRIBUTING.md)
+- Index scripts : [scripts/TOC.md](./scripts/TOC.md)
