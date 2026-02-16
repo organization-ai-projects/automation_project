@@ -1,5 +1,7 @@
 # Automatic Project
 
+Language: **English** | [Français](README.fr.md)
+
 This directory contains the `automation_project` workspace, designed to orchestrate multiple projects simultaneously with features such as code generation, linting, automated documentation, and workflow orchestration.
 
 ## Role in the Project
