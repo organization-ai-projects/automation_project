@@ -13,6 +13,7 @@ This document provides an overview of all documentation files in this directory.
 - [Flaky Test Stabilization Guide](flaky_tests.md): Workspace inventory and remediation workflow for flaky tests
 - [Library Layer Boundaries](library_layer_boundaries.md): CI-enforced dependency direction between libraries and products
 - [Labels Taxonomy](labels_taxonomy.md): Label naming and usage policy for issues and pull requests
+- [Workspace Library Layer Taxonomy](library_layer_taxonomy.md): Canonical layer model and crate mapping for dependency direction governance
 - [System Processes](system_processes.md): How core processes are launched and supervised
 - [Architecture](ARCHITECTURE.md): Description of the overall architecture of the project
 - [Metadata](metadata.md): Information about metadata used in the project
