@@ -221,6 +221,8 @@ online_enrich="false"
 pr_enrich_failed=0
 breaking_detected=0
 pr_created_successfully="false"
+dry_compare_commit_messages=""
+dry_compare_commit_headlines=""
 
 is_human_interactive_terminal() {
   [[ -t 0 && -t 1 && -z "${CI:-}" ]]
@@ -240,7 +242,10 @@ if command -v gh >/dev/null 2>&1; then
 fi
 
 need_gh="false"
-if [[ "$dry_run" == "false" || "$create_pr" == "true" || -n "$auto_edit_pr_number" ]]; then
+if [[ "$dry_run" == "true" || "$create_pr" == "true" || -n "$auto_edit_pr_number" ]]; then
+  need_gh="true"
+fi
+if [[ "$dry_run" == "false" ]]; then
   need_gh="true"
 fi
 if [[ -n "$duplicate_mode" && "$dry_run" != "true" ]]; then
@@ -260,7 +265,7 @@ if [[ "$need_jq" == "true" ]] && ! command -v jq >/dev/null 2>&1; then
   exit "$E_DEPENDENCY"
 fi
 
-preferred_ref_with_origin() {
+preferred_base_ref_with_origin() {
   local ref_name="$1"
   if [[ -z "$ref_name" || "$ref_name" == "HEAD" ]]; then
     echo "$ref_name"
@@ -293,11 +298,12 @@ if [[ "$dry_run" == "true" ]]; then
   fi
   if [[ -z "$head_ref" ]]; then
     current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
-    head_ref="$(preferred_ref_with_origin "$current_branch")"
+    head_ref="$current_branch"
   fi
   if [[ -z "$base_ref" ]]; then
-    base_ref="$(preferred_ref_with_origin "dev")"
+    base_ref="dev"
   fi
+  base_ref="$(preferred_base_ref_with_origin "$base_ref")"
   if [[ -z "$head_ref" ]]; then
     echo "Erreur: impossible de déterminer la branche head en mode --dry-run." >&2
     exit "$E_GIT"
@@ -312,10 +318,6 @@ head_ref_display="$(normalize_branch_display_ref "$head_ref")"
 
 if [[ "$dry_run" == "true" && "$create_pr" == "true" ]]; then
   online_enrich="true"
-fi
-
-if [[ "$has_gh" != "true" && "$dry_run" == "true" && "$create_pr" != "true" ]]; then
-  debug_log "Running pure local dry-run without gh dependency."
 fi
 
 extract_child_prs() {
@@ -365,18 +367,47 @@ extract_child_prs() {
   return 0
 }
 
+load_dry_compare_commits() {
+  local repo_name_with_owner
+
+  if [[ -n "${GH_REPO:-}" ]]; then
+    repo_name_with_owner="$GH_REPO"
+  else
+    repo_name_with_owner="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$repo_name_with_owner" ]]; then
+    echo "Erreur: impossible de déterminer le dépôt GitHub pour l'analyse --dry-run." >&2
+    exit "$E_NO_DATA"
+  fi
+
+  dry_compare_commit_messages="$(gh api "repos/${repo_name_with_owner}/compare/${base_ref_display}...${head_ref_display}" \
+    --jq '.commits[]?.commit.message' 2>/dev/null || true)"
+  if [[ -z "$dry_compare_commit_messages" ]]; then
+    echo "Erreur: impossible de récupérer les commits via GitHub compare (${base_ref_display}...${head_ref_display})." >&2
+    echo "Vérifie que la branche head existe sur le distant et que la base est correcte." >&2
+    exit "$E_NO_DATA"
+  fi
+
+  dry_compare_commit_headlines="$(echo "$dry_compare_commit_messages" | sed -n '1~2p' || true)"
+}
+
 extract_child_prs_dry() {
   local commit_headlines
   local message
-  commit_headlines="$(git log --oneline "${base_ref}..${head_ref}" 2>/dev/null || true)"
+  commit_headlines="$dry_compare_commit_headlines"
   if [[ -z "$commit_headlines" ]]; then
-    debug_log "extract_child_prs_dry(${base_ref}..${head_ref}) => no commits found"
+    debug_log "extract_child_prs_dry(compare ${base_ref_display}...${head_ref_display}) => no commits found"
     return 1
   fi
 
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
-    message="$(echo "$line" | cut -d' ' -f2-)"
+    if [[ "$line" =~ ^[0-9a-f]{7,40}[[:space:]]+(.+)$ ]]; then
+      message="${BASH_REMATCH[1]}"
+    else
+      message="$line"
+    fi
     if [[ "$message" =~ Merge\ pull\ request\ \#([0-9]+) ]]; then
       pr_title_hint["#${BASH_REMATCH[1]}"]="$message"
     elif [[ "$message" =~ \(\#([0-9]+)\)[[:space:]]*$ ]]; then
@@ -388,7 +419,7 @@ extract_child_prs_dry() {
     echo "$commit_headlines" | sed -nE 's/.*Merge pull request #([0-9]+).*/#\1/p'
     echo "$commit_headlines" | sed -nE 's/.*\(#([0-9]+)\)\s*$/#\1/p'
   } | sort -u > "$extracted_prs_file"
-  debug_log "extract_child_prs_dry(${base_ref}..${head_ref}) => $(tr '\n' ' ' < "$extracted_prs_file")"
+  debug_log "extract_child_prs_dry(compare ${base_ref_display}...${head_ref_display}) => $(tr '\n' ' ' < "$extracted_prs_file")"
 
   return 0
 }
@@ -516,8 +547,9 @@ echo -n > "$extracted_prs_file"
 echo -n > "$resolved_issues_file"
 
 if [[ "$dry_run" == "true" ]]; then
+  load_dry_compare_commits
   if ! extract_child_prs_dry; then
-    echo "Avertissement: impossible d'extraire des PR depuis ${base_ref}..${head_ref}." >&2
+    echo "Avertissement: impossible d'extraire des PR depuis compare ${base_ref_display}...${head_ref_display}." >&2
   fi
 else
   if ! extract_child_prs; then
@@ -714,7 +746,7 @@ fi
 if [[ "$dry_run" == "true" ]]; then
   # In branch dry-run mode, also parse issue refs from commit messages/footers
   # (e.g. "Closes #123") so issue detection works without child PR references.
-  dry_commit_messages="$(git log --format=%B "${base_ref}..${head_ref}" 2>/dev/null || true)"
+  dry_commit_messages="$dry_compare_commit_messages"
   if [[ -n "$dry_commit_messages" ]]; then
     if text_indicates_breaking "$dry_commit_messages"; then
       breaking_detected=1
