@@ -330,6 +330,20 @@ async fn test_audit_manual_flush() -> TestResult<()> {
     // Manual flush
     manager.flush_audit().await?;
 
+    // Flush writes can be observed with slight delay on CI filesystems.
+    poll_until_async(
+        || async {
+            read_audit_log(manager.data_dir())
+                .await
+                .map(|lines| lines.len() == 1)
+                .unwrap_or(false)
+        },
+        Duration::from_secs(2),
+        Duration::from_millis(20),
+    )
+    .await
+    .expect("Audit log should contain 1 entry after manual flush");
+
     // Should now be written
     let lines = read_audit_log(manager.data_dir()).await?;
     assert_eq!(lines.len(), 1);
