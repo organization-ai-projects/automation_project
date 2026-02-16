@@ -155,17 +155,27 @@ pub enum {name} {{
     pub fn generate(&self, prompt: &str, context: Option<&str>) -> Result<String, RulesError> {
         let prompt_lower = prompt.to_lowercase();
 
-        tracing::debug!("Generating code for prompt: {}", prompt);
+        tracing::info!("rules_engine.generate start");
+        tracing::debug!("rules_engine.generate prompt={}", prompt);
 
         // Find the template that matches
         for (category, templates) in &self.templates {
             for template in templates {
                 if prompt_lower.contains(&template.pattern) {
+                    tracing::info!(
+                        "rules_engine.generate template matched category={} pattern={}",
+                        category,
+                        template.pattern
+                    );
                     return self.fill_template(&template.template, prompt, context, Some(category));
                 }
             }
         }
 
+        tracing::warn!(
+            "rules_engine.generate no template matched prompt={}",
+            prompt
+        );
         Err(RulesError::TemplateNotFound(format!(
             "No template found for prompt: {}",
             prompt
@@ -404,8 +414,14 @@ pub enum {name} {{
         for rule in &self.refactoring_rules {
             if instruction_lower.contains(&rule.name.replace('_', " ")) {
                 // Apply the rule (advanced regex)
-                let re = Regex::new(&rule.pattern)
-                    .map_err(|e| RulesError::InvalidPattern(e.to_string()))?;
+                let re = Regex::new(&rule.pattern).map_err(|e| {
+                    tracing::error!(
+                        "rules_engine.apply_refactoring invalid regex pattern={} error={}",
+                        rule.pattern,
+                        e
+                    );
+                    RulesError::InvalidPattern(e.to_string())
+                })?;
                 if re.is_match(&result_code) {
                     result_code = re.replace(&result_code, &rule.replacement).to_string();
                     changes.push(rule.description.clone());
@@ -420,12 +436,20 @@ pub enum {name} {{
         tracing::debug!("Code after refactoring: {}", result_code);
 
         if changes.is_empty() {
+            tracing::warn!(
+                "rules_engine.apply_refactoring no matching rule instruction={}",
+                instruction
+            );
             return Err(RulesError::GenerationFailed(format!(
                 "No applicable refactoring rules for: {}",
                 instruction
             )));
         }
 
+        tracing::info!(
+            "rules_engine.apply_refactoring success changes_applied={}",
+            changes.len()
+        );
         Ok(RefactoringResult {
             code: result_code,
             confidence: 0.85,
