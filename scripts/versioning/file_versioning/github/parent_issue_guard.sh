@@ -87,6 +87,8 @@ if [[ -z "$REPO_NAME" ]]; then
   echo "Erreur: impossible de déterminer le repository (GH_REPO)." >&2
   exit 3
 fi
+REPO_OWNER="${REPO_NAME%%/*}"
+REPO_SHORT_NAME="${REPO_NAME#*/}"
 
 extract_tasklist_issue_refs() {
   local body="$1"
@@ -102,6 +104,26 @@ extract_tasklist_issue_refs() {
       }
     ' \
     | sort -u
+}
+
+extract_subissue_refs_from_github() {
+  local parent_number="$1"
+  gh api graphql \
+    -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){subIssues(first:100){nodes{number}}}}}' \
+    -f owner="$REPO_OWNER" \
+    -f name="$REPO_SHORT_NAME" \
+    -F number="$parent_number" \
+    --jq '.data.repository.issue.subIssues.nodes[]?.number | "#"+tostring' 2>/dev/null || true
+}
+
+extract_parent_ref_from_github() {
+  local child_number="$1"
+  gh api graphql \
+    -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){parent{number}}}}' \
+    -f owner="$REPO_OWNER" \
+    -f name="$REPO_SHORT_NAME" \
+    -F number="$child_number" \
+    --jq '.data.repository.issue.parent.number // empty | "#"+tostring' 2>/dev/null || true
 }
 
 build_status_comment() {
@@ -175,7 +197,10 @@ evaluate_parent_issue() {
   local body
   body="$(echo "$issue_json" | jq -r '.body // ""')"
 
-  mapfile -t child_refs < <(extract_tasklist_issue_refs "$body")
+  mapfile -t child_refs < <(extract_subissue_refs_from_github "$parent_number")
+  if [[ ${#child_refs[@]} -eq 0 ]]; then
+    mapfile -t child_refs < <(extract_tasklist_issue_refs "$body")
+  fi
   if [[ ${#child_refs[@]} -eq 0 ]]; then
     return
   fi
@@ -225,11 +250,14 @@ fi
 
 require_number "--child" "$child_arg"
 
-mapfile -t parent_candidates < <(
-  gh api "search/issues" \
-    -f q="repo:${REPO_NAME} is:issue \"#${child_arg}\"" \
-    --jq '.items[].number' 2>/dev/null | sort -u
-)
+mapfile -t parent_candidates < <(extract_parent_ref_from_github "$child_arg" | sed 's/^#//')
+if [[ ${#parent_candidates[@]} -eq 0 ]]; then
+  mapfile -t parent_candidates < <(
+    gh api "search/issues" \
+      -f q="repo:${REPO_NAME} is:issue \"#${child_arg}\"" \
+      --jq '.items[].number' 2>/dev/null | sort -u
+  )
+fi
 
 for parent_number in "${parent_candidates[@]}"; do
   [[ -z "$parent_number" ]] && continue

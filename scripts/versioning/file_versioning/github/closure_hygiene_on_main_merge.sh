@@ -19,6 +19,8 @@ if [[ -z "$REPO_NAME" ]]; then
   echo "Error: unable to resolve repository name." >&2
   exit 3
 fi
+REPO_OWNER="${REPO_NAME%%/*}"
+REPO_SHORT_NAME="${REPO_NAME#*/}"
 
 extract_tasklist_issue_refs() {
   local body="$1"
@@ -34,6 +36,16 @@ extract_tasklist_issue_refs() {
       }
     ' \
     | sort -u
+}
+
+extract_subissue_refs_from_github() {
+  local parent_number="$1"
+  gh api graphql \
+    -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){subIssues(first:100){nodes{number}}}}}' \
+    -f owner="$REPO_OWNER" \
+    -f name="$REPO_SHORT_NAME" \
+    -F number="$parent_number" \
+    --jq '.data.repository.issue.subIssues.nodes[]?.number | "#"+tostring' 2>/dev/null || true
 }
 
 build_status_comment() {
@@ -103,7 +115,10 @@ evaluate_and_close_parent_if_ready() {
   parent_state="$(echo "$parent_json" | jq -r '.state')"
   parent_body="$(echo "$parent_json" | jq -r '.body // ""')"
 
-  mapfile -t child_refs < <(extract_tasklist_issue_refs "$parent_body")
+  mapfile -t child_refs < <(extract_subissue_refs_from_github "$parent_number")
+  if [[ ${#child_refs[@]} -eq 0 ]]; then
+    mapfile -t child_refs < <(extract_tasklist_issue_refs "$parent_body")
+  fi
   if [[ ${#child_refs[@]} -eq 0 ]]; then
     return 0
   fi
