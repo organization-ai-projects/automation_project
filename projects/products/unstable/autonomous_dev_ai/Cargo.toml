@@ -17,5 +17,6 @@ symbolic = { workspace = true }
 neural = { workspace = true }
 ai = { workspace = true }
 common = { workspace = true }
+common_ron = { workspace = true }
 
 [dev-dependencies]

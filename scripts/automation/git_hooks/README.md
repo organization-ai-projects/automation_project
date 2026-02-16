@@ -93,23 +93,20 @@ ALLOW_PROTECTED_BRANCH_COMMIT=1 git commit -m "message"
 
 ### `pre-push`
 
-Runs quality checks before each push, **with smart scope detection**:
+Runs quality checks before each push, with selective execution:
 
 1. **Formatting**: `cargo fmt --all --check`
 2. **Linting**: `cargo clippy` (only on affected crates)
 3. **Tests**: `cargo test` (only on affected crates)
+4. **Docs/scripts-only mode**: skips Rust checks and runs lightweight shell syntax checks
 
-#### Scope detection
+#### Selection logic
 
-The hook analyzes changed files and only tests the impacted crates:
+The hook uses two layers:
 
-```plaintext
-projects/products/stable/accounts/backend/src/...  → tests accounts-backend
-projects/libraries/security/src/...                → tests security
-projects/products/stable/core/engine/src/...       → tests engine
-```
-
-If no changes are detected, a full workspace test is run.
+- If the push only changes docs/scripts/workflow files, Rust checks are skipped.
+- Otherwise, commit scopes are used to target specific crates.
+- If scopes are invalid/missing, it falls back to full workspace checks.
 
 **Bypass (emergency only):**
 

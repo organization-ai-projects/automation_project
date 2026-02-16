@@ -1,0 +1,9 @@
+[package]
+name = "common_ron"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ron = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

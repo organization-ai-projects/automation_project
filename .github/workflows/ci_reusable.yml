@@ -5,6 +5,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: short
 
 permissions:
   contents: read
@@ -16,23 +18,90 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect if Rust checks are required
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_ref="${{ github.base_ref }}"
+            changed_files="$(git diff --name-only "origin/${base_ref}"...HEAD)"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            before_sha="${{ github.event.before }}"
+            if [[ -n "$before_sha" && "$before_sha" != "0000000000000000000000000000000000000000" ]]; then
+              changed_files="$(git diff --name-only "$before_sha" "${{ github.sha }}")"
+            else
+              changed_files=""
+            fi
+          else
+            changed_files=""
+          fi
+
+          echo "Changed files:"
+          echo "$changed_files"
+
+          if [[ -z "$changed_files" ]]; then
+            # Conservative fallback: run full checks when diff is unclear.
+            echo "run_rust_checks=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          docs_or_scripts_only=true
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            # Intentionally exclude workflow-only changes from Rust jobs.
+            # CI workflow edits should be validated in dedicated automation workflows/review.
+            if [[ "$file" =~ \.md$ ]] || [[ "$file" == documentation/* ]] || [[ "$file" == .github/documentation/* ]] || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] || [[ "$file" == scripts/* ]] || [[ "$file" == .github/workflows/* ]]; then
+              continue
+            fi
+            docs_or_scripts_only=false
+            break
+          done <<< "$changed_files"
+
+          if [[ "$docs_or_scripts_only" == "true" ]]; then
+            echo "run_rust_checks=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_rust_checks=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install Rust
+        if: steps.changes.outputs.run_rust_checks == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
       - name: Cache cargo
+        if: steps.changes.outputs.run_rust_checks == 'true'
         uses: Swatinem/rust-cache@v2
 
-      - name: Cargo check
-        run: cargo check --workspace --all-targets
-
       - name: Cargo fmt
+        if: steps.changes.outputs.run_rust_checks == 'true'
         run: cargo fmt --all -- --check
 
       - name: Cargo clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        if: steps.changes.outputs.run_rust_checks == 'true'
+        run: |
+          if [[ -f Cargo.lock ]]; then
+            cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
+          else
+            echo "Cargo.lock missing in checkout, running clippy without --locked."
+            cargo clippy --workspace --all-features --all-targets -- -D warnings
+          fi
 
       - name: Cargo test
-        run: cargo test --workspace --all-features --verbose
+        if: steps.changes.outputs.run_rust_checks == 'true'
+        run: |
+          if [[ -f Cargo.lock ]]; then
+            cargo test --locked --workspace --all-features --all-targets --verbose
+          else
+            echo "Cargo.lock missing in checkout, running tests without --locked."
+            cargo test --workspace --all-features --all-targets --verbose
+          fi
+
+      - name: Rust checks skipped (docs/scripts/workflows-only)
+        if: steps.changes.outputs.run_rust_checks != 'true'
+        run: echo "Docs/scripts/workflows-only change detected. Rust checks intentionally skipped."

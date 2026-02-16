@@ -1,0 +1,35 @@
+name: Automation - Closure Hygiene on Main Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: closure-hygiene-main-merge
+  cancel-in-progress: false
+
+jobs:
+  closure-hygiene:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run closure hygiene script
+        run: |
+          chmod +x scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge.sh
+          bash scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge.sh

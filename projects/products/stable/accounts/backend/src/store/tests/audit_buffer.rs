@@ -298,6 +298,20 @@ async fn test_manual_flush() {
         .await
         .expect("Failed to manually flush audit buffer");
 
+    // Flush writes are async; wait until the entry is visible on disk.
+    poll_until_async(
+        || async {
+            read_audit_log(&audit_path)
+                .await
+                .map(|lines| lines.len() == 1)
+                .unwrap_or(false)
+        },
+        Duration::from_secs(2),
+        Duration::from_millis(20),
+    )
+    .await
+    .expect("Audit log should contain 1 entry after manual flush");
+
     // Should have flushed
     let lines = read_audit_log(&audit_path)
         .await

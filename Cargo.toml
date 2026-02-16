@@ -15,6 +15,7 @@ members = [
   "projects/libraries/command_runner",
   "projects/libraries/common_calendar",
   "projects/libraries/common_time",
+  "projects/libraries/common_ron",
   "projects/libraries/protocol_macros",
   "projects/products/stable/core/central_ui",
   "projects/products/stable/core/engine",
@@ -68,6 +69,7 @@ ui = { path = "projects/libraries/ui" }
 command_runner = { path = "projects/libraries/command_runner" }
 common_calendar = { path = "projects/libraries/common_calendar" }
 common_time = { path = "projects/libraries/common_time" }
+common_ron = { path = "projects/libraries/common_ron" }
 common_parsing = { path = "projects/libraries/common_parsing" }
 common_tokenize = { path = "projects/libraries/common_tokenize" }
 protocol_macros = { path = "projects/libraries/protocol_macros" }

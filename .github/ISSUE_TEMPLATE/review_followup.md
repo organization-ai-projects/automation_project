@@ -12,6 +12,9 @@ assignees: []
 [Copy the review comment text here]
 [Add all relevant review comments for this same file here]
 
+PR : #<pr_number>
+Review Comment ID : <comment_id>
+
 Type : fix | refactor | chore | doc/docs | test/tests | feature/feat
 
 Done when :

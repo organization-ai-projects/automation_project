@@ -49,6 +49,10 @@ For issue decomposition strategy (parent/sub-issues vs standalone issues), see:
 
 - `.github/documentation/issue_decomposition_conventions.md`
 
+For canonical README.md and TOC.md template structure rules, see:
+
+- `documentation/technical_documentation/documentation_template_standard.md`
+
 ## Conventions
 
 - PR template placeholders use editable `<...>` syntax.

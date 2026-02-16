@@ -13,6 +13,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+PUSH_SCRIPT="$SCRIPT_DIR/push_branch.sh"
 
 # shellcheck source=scripts/common_lib/core/logging.sh
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
@@ -20,21 +21,30 @@ source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/staging.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/staging.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit_format.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit_format.sh"
 
 require_git_repo
+
+if [[ ! -f "$PUSH_SCRIPT" ]]; then
+  die "push_branch.sh not found at: $PUSH_SCRIPT"
+fi
+
+if [[ ! -x "$PUSH_SCRIPT" ]]; then
+  die "push_branch.sh is not executable. Run: chmod +x $PUSH_SCRIPT"
+fi
 
 # Validate commit message format
 validate_commit_message() {
   local message="$1"
-  
-  # Allowed types (aligned with commit-msg hook)
-  local allowed_types="^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)"
-  
+
   # Validate format: <type>(<scope>): <message> or <type>: <message>
   # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
-  if [[ ! "$message" =~ $allowed_types(\([a-zA-Z0-9_./,-]+\))?:\ .+ ]]; then
+  if ! validate_commit_message_format "$message" '[[:space:]]'; then
     echo "❌ Invalid commit message format!" >&2
     echo "" >&2
     echo "Expected format:" >&2
@@ -46,12 +56,12 @@ validate_commit_message() {
     echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore" >&2
     echo "" >&2
     echo "Examples:" >&2
-    echo "  feat(auth): add user authentication" >&2
+    echo "  feat(projects/libraries/security): add token validation helper" >&2
     echo "  feat(ci,scripts): add workflows and sync script" >&2
     echo "  docs(.github): add default PR template" >&2
     echo "  fix: resolve null pointer exception" >&2
     echo "  docs(readme): update installation instructions" >&2
-    echo "  refactor(api): simplify error handling" >&2
+    echo "  refactor(projects/products/accounts/backend): simplify error handling" >&2
     echo "  test: add unit tests for validator" >&2
     echo "  chore: update dependencies" >&2
     echo "" >&2
@@ -77,7 +87,7 @@ NO_VERIFY=false
 if [[ "$#" -eq 2 ]]; then
   if [[ "$2" == "--no-verify" ]]; then
     NO_VERIFY=true
-    warn "⚠️  WARNING: Bypassing commit message validation. This is not recommended."
+    warn "⚠️  WARNING: Bypassing ALL git hooks (including pre-commit and commit-msg). This is not recommended."
   else
     die "Invalid option: $2. Use --no-verify to bypass validation."
   fi
@@ -90,8 +100,21 @@ if [[ "$NO_VERIFY" == false ]]; then
   fi
 fi
 
+CURRENT_BRANCH="$(get_current_branch)"
+require_non_protected_branch "$CURRENT_BRANCH"
+
 info "Adding all changes..."
 git_add_all
+
+STAGED_FILES="$(git diff --cached --name-only)"
+if [[ -z "$STAGED_FILES" ]]; then
+  warn "Nothing to commit — working tree is clean."
+  exit 0
+fi
+
+info "Files to be committed:"
+echo "$STAGED_FILES" | sed 's/^/  - /'
+echo ""
 
 info "Committing with message: $COMMIT_MESSAGE"
 if [[ "$NO_VERIFY" == true ]]; then
@@ -101,6 +124,6 @@ else
 fi
 
 info "Pushing via push_branch.sh..."
-"$SCRIPT_DIR/push_branch.sh"
+"$PUSH_SCRIPT"
 
 info "✅ Commit and push completed successfully."

@@ -90,7 +90,18 @@ or
 - `test: add unit tests for validator`
 - `chore: update dependencies`
 
-**Scope** (optional): Component or module affected (e.g., `auth`, `api`, `ci`)
+**Scope** (optional but required for `projects/libraries` and `projects/products` changes): component/module affected.
+
+### Scope Mapping from Touched Files
+
+When changes touch product/library code, scope must map to touched paths:
+
+- `projects/libraries/<library_name>/...` → `projects/libraries/<library_name>`
+- `projects/products/.../<product_name>/ui/...` → `projects/products/<product_name>/ui`
+- `projects/products/.../<product_name>/backend/...` → `projects/products/<product_name>/backend`
+- `projects/products/.../<product_name>/...` (root-level product files) → `projects/products/<product_name>`
+
+For cross-cutting changes spanning multiple unrelated areas, use multiple scopes (comma-separated) or `workspace` only when a single product/library scope is not representative.
 
 **Summary**: Clear, concise description of the change
 
@@ -212,9 +223,11 @@ See [Versioning TOC](scripts/versioning/file_versioning/TOC.md) for details.
 ```rust
 #[cfg(test)]
 mod tests {
-    use crate::MyStruct;
-    use crate::MyEnum;
-    // or
+    // For types defined in a submodule:
+    use crate::some_module::MyStruct;
+    use crate::some_module::MyEnum;
+
+    // Or, for types defined in the same file as this test module:
     use super::MyStruct;
     use super::MyEnum;
 

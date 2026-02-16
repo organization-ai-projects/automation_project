@@ -21,8 +21,31 @@ build_mock_bin() {
   cat > "${mock_dir}/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ -n "${MOCK_GH_ARGS_LOG:-}" ]]; then
+  printf "%s\n" "$*" >> "${MOCK_GH_ARGS_LOG}"
+fi
 if [[ "${1:-}" == "repo" && "${2:-}" == "view" ]]; then
   echo "owner/repo"
+  exit 0
+fi
+if [[ "${1:-}" == "api" && "${2:-}" == "repos/owner/repo/compare/dev...test-head" ]]; then
+  first_line="fix(test): synthetic change"
+  if [[ -n "${MOCK_GIT_LOG_ONELINE:-}" ]]; then
+    first_line="$(echo "${MOCK_GIT_LOG_ONELINE}" | cut -d' ' -f2-)"
+  fi
+  full_message="${first_line}"
+  if [[ -n "${MOCK_GIT_LOG_BODY:-}" ]]; then
+    full_message="${full_message}
+
+${MOCK_GIT_LOG_BODY}"
+  fi
+
+  if [[ "${3:-}" == "--jq" ]]; then
+    printf "%s\n" "${full_message}"
+  else
+    escaped="$(printf "%s" "${full_message}" | sed ':a;N;$!ba;s/\n/\\n/g')"
+    printf '{"commits":[{"commit":{"message":"%s"}}]}\n' "${escaped}"
+  fi
   exit 0
 fi
 if [[ "${1:-}" == "pr" && "${2:-}" == "create" ]]; then
@@ -36,6 +59,15 @@ EOF
   cat > "${mock_dir}/git" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ -n "${MOCK_GIT_ARGS_LOG:-}" ]]; then
+  printf "%s\n" "$*" >> "${MOCK_GIT_ARGS_LOG}"
+fi
+if [[ "${1:-}" == "show-ref" ]]; then
+  if [[ "${MOCK_GIT_SHOW_REF_EXIT:-0}" -ne 0 ]]; then
+    exit "${MOCK_GIT_SHOW_REF_EXIT}"
+  fi
+  exit 0
+fi
 if [[ "${1:-}" == "rev-parse" && "${2:-}" == "--abbrev-ref" && "${3:-}" == "HEAD" ]]; then
   echo "test-head"
   exit 0
@@ -167,7 +199,7 @@ main() {
   run_case "dry-run-minimal" 0 "Fichier généré:" mock --dry-run --base dev --head test-head /tmp/pr_description_test.md
   run_case "auto-create-success-does-not-return-no-data" 0 "PR créée:" mock --auto --base dev --head test-head --yes
   run_case "auto-edit-dry-run-in-memory" 0 "mode --auto-edit" mock --dry-run --auto-edit 400 --base dev --head test-head --yes
-  run_case "dry-run-without-gh" 0 "Fichier généré:" no_gh --dry-run --base dev --head test-head /tmp/pr_description_test_no_gh.md
+  run_case "dry-run-without-gh" 3 "la commande 'gh' est introuvable" no_gh --dry-run --base dev --head test-head /tmp/pr_description_test_no_gh.md
   run_case "missing-gh-required-main-mode" 3 "la commande 'gh' est introuvable" no_gh 42
   run_case "duplicate-mode-dry-run-output" 0 "Duplicate mode \\(safe\\): no duplicate declarations detected" mock --dry-run --base dev --head test-head --duplicate-mode safe
   run_case "debug-flag-emits-trace" 0 "\\[debug\\] extract_child_prs_dry" mock --dry-run --base dev --head test-head --debug
@@ -196,6 +228,29 @@ main() {
     fi
   else
     echo "FAIL [compatibility-single-status-line] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/range.md"
+  args_log="${tmp}/gh_args.log"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GH_ARGS_LOG="${args_log}" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --debug --base dev --head test-head "${out_md}"
+  ) >/dev/null 2>&1; then
+    if grep -q -- "api repos/owner/repo/compare/dev...test-head" "${args_log}"; then
+      echo "PASS [dry-run-uses-github-compare-api]"
+    else
+      echo "FAIL [dry-run-uses-github-compare-api] expected compare API call"
+      sed -n '1,80p' "${args_log}"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [dry-run-uses-github-compare-api] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"

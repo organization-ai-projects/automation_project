@@ -2,6 +2,7 @@
 # Git hook: pre-push
 # Runs scope-aware formatting, linting, and tests before push
 # Bypass: SKIP_PRE_PUSH=1 git push ...
+set -euo pipefail
 
 # Allow bypass for emergency situations
 if [[ "${SKIP_PRE_PUSH:-}" == "1" ]]; then
@@ -23,11 +24,186 @@ if [[ -z "$UPSTREAM_BRANCH" ]]; then
   UPSTREAM_BRANCH="origin/dev"
 fi
 
-commits=$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null)
+commits=$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null || true)
+
+extract_closing_issue_refs_from_commits() {
+  local commits_input="$1"
+  echo "$commits_input" | awk '
+    BEGIN { IGNORECASE = 1 }
+    {
+      line = $0
+      while (match(line, /(closes|fixes|resolves)[[:space:]]+#[0-9]+/)) {
+        ref = substr(line, RSTART, RLENGTH)
+        if (match(ref, /#[0-9]+/)) {
+          print substr(ref, RSTART + 1, RLENGTH - 1)
+        }
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' | sort -u
+}
+
+issue_has_required_children_tasklist() {
+  local issue_body="$1"
+  echo "$issue_body" | awk '
+    /-[[:space:]]*\[[xX ]\]/ {
+      if (match($0, /#[0-9]+/)) {
+        found = 1
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+validate_parent_closure_footers() {
+  local commits_input="$1"
+  local refs
+  refs=$(extract_closing_issue_refs_from_commits "$commits_input")
+  [[ -z "$refs" ]] && return 0
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "❌ Cannot validate closing footers on parent issues: 'gh' CLI is required."
+    echo "   Install gh, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
+    return 1
+  fi
+
+  local repo_name
+  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  if [[ -z "$repo_name" ]]; then
+    echo "❌ Cannot resolve GitHub repository for footer validation."
+    echo "   Ensure gh auth/network is available, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
+    return 1
+  fi
+
+  local parent_refs=()
+  local issue_number
+  while IFS= read -r issue_number; do
+    [[ -z "$issue_number" ]] && continue
+    local issue_body
+    issue_body="$(gh issue view "$issue_number" -R "$repo_name" --json body -q '.body' 2>/dev/null || true)"
+
+    if [[ -z "$issue_body" ]]; then
+      echo "❌ Unable to validate issue #$issue_number from closing footer."
+      echo "   Ensure issue is readable and network is available, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
+      return 1
+    fi
+
+    if issue_has_required_children_tasklist "$issue_body"; then
+      parent_refs+=("$issue_number")
+    fi
+  done <<< "$refs"
+
+  if [[ ${#parent_refs[@]} -gt 0 ]]; then
+    echo "❌ Closing footer targets parent issue(s):"
+    printf '   - #%s\n' "${parent_refs[@]}"
+    echo "   Attention: referenced issue is a parent. No direct closure is authorized via commit footer."
+    echo "   Use child issues for Closes/Fixes/Resolves; use Related to/Part of for parent tracking."
+    return 1
+  fi
+}
+
+if ! validate_parent_closure_footers "$commits"; then
+  exit 1
+fi
+
+compute_changed_files() {
+  local upstream="$1"
+  local files=""
+
+  # Standard case: upstream tracking branch exists.
+  files=$(git diff --name-only "${upstream}"..HEAD 2>/dev/null || true)
+  if [[ -n "$files" ]]; then
+    printf '%s\n' "$files"
+    return 0
+  fi
+
+  # First push / missing upstream locally: compare from merge-base with origin/dev.
+  if git rev-parse --verify --quiet origin/dev >/dev/null; then
+    local base
+    base=$(git merge-base origin/dev HEAD 2>/dev/null || true)
+    if [[ -n "$base" ]]; then
+      files=$(git diff --name-only "${base}"..HEAD 2>/dev/null || true)
+      if [[ -n "$files" ]]; then
+        printf '%s\n' "$files"
+        return 0
+      fi
+    fi
+  fi
+
+  # Final fallback: changed files in the latest commit only.
+  files=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)
+  printf '%s\n' "$files"
+}
+
+changed_files=$(compute_changed_files "$UPSTREAM_BRANCH")
+
+is_docs_or_scripts_only_change() {
+  local files="$1"
+  local file
+
+  [[ -z "$files" ]] && return 1
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    # Intentionally treat workflow-only changes as non-Rust changes for pre-push.
+    # Workflow logic is validated in CI/automation workflows and review.
+    if [[ "$file" =~ \.md$ ]] || [[ "$file" == documentation/* ]] || [[ "$file" == .github/documentation/* ]] || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] || [[ "$file" == scripts/* ]] || [[ "$file" == .github/workflows/* ]]; then
+      continue
+    fi
+    return 1
+  done <<< "$files"
+
+  return 0
+}
+
+run_shell_syntax_checks() {
+  local files="$1"
+  local checked=0
+  local file
+
+  while IFS= read -r file; do
+    [[ -z "$file" || ! -f "$file" ]] && continue
+
+    local is_shell=false
+    if [[ "$file" == *.sh ]]; then
+      is_shell=true
+    elif [[ -x "$file" ]]; then
+      local shebang
+      shebang=$(head -n1 "$file" 2>/dev/null || true)
+      if [[ "$shebang" =~ ^#!.*(ba)?sh([[:space:]]|$) ]]; then
+        is_shell=true
+      fi
+    fi
+
+    if [[ "$is_shell" == true ]]; then
+      echo "   - bash -n $file"
+      bash -n "$file"
+      checked=1
+    fi
+  done <<< "$files"
+
+  if [[ $checked -eq 0 ]]; then
+    echo "   (no shell scripts changed)"
+  fi
+}
+
+if is_docs_or_scripts_only_change "$changed_files"; then
+  echo "📄 Docs/scripts-only changes detected."
+  echo "🧪 Skipping Rust fmt/clippy/tests for this push."
+  echo "🔎 Running lightweight shell syntax checks..."
+  run_shell_syntax_checks "$changed_files"
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "✅ Pre-push checks PASSED (docs/scripts-only mode)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  exit 0
+fi
 
 # Extract crate names from commit scopes
 detect_crates_from_scopes() {
-  local crates=()
+  local commits_input="$1"
+  local -a crates=()
   local invalid_scopes=0
   local scope_re='^[a-z]+\(([^)]+)\):'
 
@@ -38,22 +214,43 @@ detect_crates_from_scopes() {
   while IFS= read -r line; do
     # Match pattern: type(scope):
     if [[ $line =~ $scope_re ]]; then
-      local scope="${BASH_REMATCH[1]}"
+      local -a raw_scopes=()
+      local raw_scope
+      IFS=',' read -r -a raw_scopes <<< "${BASH_REMATCH[1]}"
 
-      # Parse scope: products/accounts/backend → accounts-backend
-      if [[ $scope =~ ^(libraries|products)/([^/]+)(/([^/]+))?$ ]]; then
-        local crate_path="${BASH_REMATCH[2]}"
-        if [[ -n "${BASH_REMATCH[4]}" ]]; then
-          crate_path="${crate_path}/${BASH_REMATCH[4]}"
+      for raw_scope in "${raw_scopes[@]}"; do
+        local scope="${raw_scope#"${raw_scope%%[![:space:]]*}"}"
+        scope="${scope%"${scope##*[![:space:]]}"}"
+        [[ -z "$scope" ]] && continue
+
+        local cargo_toml=""
+        if [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
+          cargo_toml="projects/libraries/${BASH_REMATCH[1]}/Cargo.toml"
+        elif [[ $scope =~ ^projects/products/([^/]+)(/(ui|backend))?$ ]]; then
+          local product="${BASH_REMATCH[1]}"
+          local component="${BASH_REMATCH[3]:-}"
+          local -a matches=()
+          local match
+          while IFS= read -r match; do
+            [[ -n "$match" ]] && matches+=("$match")
+          done < <(find projects/products -type f -path "*/${product}/${component:+$component/}Cargo.toml")
+
+          if [[ ${#matches[@]} -eq 1 ]]; then
+            cargo_toml="${matches[0]}"
+          elif [[ ${#matches[@]} -gt 1 ]]; then
+            echo "⚠️  Scope '$scope' matches multiple Cargo.toml files; falling back to workspace:"
+            printf '   - %s\n' "${matches[@]}"
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
         fi
 
-        # Validate that crate exists in Cargo.toml (has Cargo.toml file)
-        local cargo_toml="projects/$scope/Cargo.toml"
-        if [[ ! -f "$cargo_toml" ]]; then
-          # Crate doesn't exist
-          invalid_scopes=$((invalid_scopes + 1))
-        else
-          # Resolve actual crate name from Cargo.toml
+        if [[ -n "$cargo_toml" ]]; then
+          if [[ ! -f "$cargo_toml" ]]; then
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
+
           local crate_name
           crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
           if [[ -z "$crate_name" ]]; then
@@ -61,45 +258,49 @@ detect_crates_from_scopes() {
             continue
           fi
 
-          # Avoid duplicates
-          if [[ ! " ${crates[@]} " =~ " ${crate_name} " ]]; then
+          if [[ ! " ${crates[*]} " =~ " ${crate_name} " ]]; then
             crates+=("$crate_name")
           fi
         fi
-      fi
+      done
     fi
-  done <<< "$commits"
+  done <<< "$commits_input"
 
   # If there were invalid scopes, return empty (force full workspace test)
   if [[ $invalid_scopes -gt 0 ]]; then
     return 1
   fi
 
-  printf '%s\n' "${crates[@]}"
+  printf '%s\n' "${crates[@]+"${crates[@]}"}"
 }
 
 # Get affected crates from commit scopes
-AFFECTED=$(detect_crates_from_scopes)
+AFFECTED=$(detect_crates_from_scopes "$commits")
 SCOPE_VALID=$?
+
+LOCKED_ARGS=()
+if [[ -f Cargo.lock ]]; then
+  LOCKED_ARGS=(--locked)
+fi
 
 if [[ $SCOPE_VALID -ne 0 ]] || [[ -z "$AFFECTED" ]]; then
   echo "⚠️  Invalid or missing crate scope(s) in commits - testing full workspace"
-  echo "   (Use scopes like 'refactor(products/accounts/backend):' pointing to existing crates)"
+  echo "   (Use scopes like 'refactor(projects/libraries/security):' or 'fix(projects/products/accounts/backend):')"
   echo ""
-  CLIPPY_ARGS="--all-targets --all-features"
-  TEST_ARGS="--workspace"
+  CLIPPY_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
+  TEST_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
 else
   echo "🎯 Crates from commit scopes:"
   echo "$AFFECTED" | sed 's/^/   - /'
   echo ""
 
   # Build clippy/test args for affected crates
-  CLIPPY_ARGS=""
-  TEST_ARGS=""
+  CLIPPY_ARGS=("${LOCKED_ARGS[@]}" --all-targets --all-features)
+  TEST_ARGS=("${LOCKED_ARGS[@]}" --all-targets --all-features)
   while IFS= read -r crate; do
     [[ -z "$crate" ]] && continue
-    CLIPPY_ARGS+=" -p $crate"
-    TEST_ARGS+=" -p $crate"
+    CLIPPY_ARGS+=(-p "$crate")
+    TEST_ARGS+=(-p "$crate")
   done <<< "$AFFECTED"
 fi
 
@@ -121,11 +322,10 @@ fi
 
 # 2. Run clippy on affected crates
 echo "🔎 Running clippy..."
-# shellcheck disable=SC2086
-if ! cargo clippy $CLIPPY_ARGS -- -D warnings; then
+if ! cargo clippy "${CLIPPY_ARGS[@]}" -- -D warnings; then
   echo ""
   echo "❌ Clippy found issues!"
-  echo "   Run: cargo clippy $CLIPPY_ARGS -- -D warnings"
+  echo "   Run: cargo clippy ${CLIPPY_ARGS[*]} -- -D warnings"
   echo ""
   FAILED=1
 else
@@ -135,11 +335,10 @@ fi
 
 # 3. Run tests on affected crates
 echo "🧪 Running tests..."
-# shellcheck disable=SC2086
-if ! cargo test $TEST_ARGS; then
+if ! cargo test "${TEST_ARGS[@]}"; then
   echo ""
   echo "❌ Tests failed!"
-  echo "   Run: cargo test $TEST_ARGS"
+  echo "   Run: cargo test ${TEST_ARGS[*]}"
   echo ""
   FAILED=1
 else
