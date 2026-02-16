@@ -6,7 +6,6 @@ use crate::validator::validation_result::ValidationResult;
 use common::common_id::CommonID;
 use common::custom_uuid::Id128;
 use regex::Regex;
-use tracing;
 
 /// Rust code validator
 pub struct CodeValidator {

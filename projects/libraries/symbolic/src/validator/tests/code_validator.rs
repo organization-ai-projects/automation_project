@@ -48,8 +48,25 @@ fn test_warnings() -> TestResult {
     let code = r#"
         fn main() {
             println!("test");
-            let x = Some(5).expect ("Option was None");
+            let x = Some(5).expect("Option was None");
             todo!();
+            let _ = try!(Ok::<_, ()>(()));
+        }
+    "#;
+
+    let validation = validator.validate(code)?;
+    assert_valid(&validation);
+    assert_warn_contains(&validation, "expect calls");
+    assert_warn_contains(&validation, "try! macro");
+    Ok(())
+}
+
+#[test]
+fn test_warnings_with_spaced_deprecated_patterns() -> TestResult {
+    let validator = create_validator();
+    let code = r#"
+        fn main() {
+            let x = Some(5).expect ("Option was None");
             let _ = try ! (Ok::<_, ()>(()));
         }
     "#;
