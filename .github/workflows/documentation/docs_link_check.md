@@ -23,8 +23,7 @@ Current checked files:
 - `CONTRIBUTING.fr.md`
 - `documentation/README.md`
 - `documentation/TOC.md`
-- `documentation/en/TOC.md`
-- `documentation/fr/TOC.md`
+- `documentation/i18n/fr/TOC.md`
 
 ## Notes
 

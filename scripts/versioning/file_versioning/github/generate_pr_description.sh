@@ -442,13 +442,27 @@ issue_labels() {
 parse_issue_refs_from_body() {
   local body="$1"
   echo "$body" | awk '
-    BEGIN { IGNORECASE = 1 }
     {
       line = $0
       lower = tolower($0)
-      action = ""
-      if (match(lower, /(closes?|closed|fixes?|fixed|resolves?|resolved)/)) {
-        token = substr(lower, RSTART, RLENGTH)
+      # Parse only canonical closure keywords directly followed by an issue ref.
+      # Intentionally excludes non-canonical verbs like "closed".
+      while (match(lower, /(closes|close|fixes|fix|resolves|resolve)[[:space:]]+([[:alnum:]_.-]+\/)?#[0-9]+/)) {
+        # Enforce keyword boundary: avoid matching within larger words.
+        if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
+          lower = substr(lower, RSTART + 1)
+          line = substr(line, RSTART + 1)
+          continue
+        }
+
+        matched = substr(line, RSTART, RLENGTH)
+        matched_lower = substr(lower, RSTART, RLENGTH)
+        n = split(matched, parts, /[[:space:]]+/)
+        split(matched_lower, parts_lower, /[[:space:]]+/)
+        token = parts_lower[1]
+        issue_ref = parts[2]
+        sub(/^[[:alnum:]_.-]+\//, "", issue_ref)
+
         if (token ~ /^clos/) {
           action = "Closes"
         } else if (token ~ /^fix/) {
@@ -457,12 +471,12 @@ parse_issue_refs_from_body() {
           action = "Resolves"
         }
 
-        while (match(line, /([[:alnum:]_.-]+\/)?#[0-9]+/)) {
-          issue_ref = substr(line, RSTART, RLENGTH)
-          sub(/^[[:alnum:]_.-]+\//, "", issue_ref)
+        if (issue_ref ~ /^#[0-9]+$/) {
           print action "|" issue_ref
-          line = substr(line, RSTART + RLENGTH)
         }
+
+        lower = substr(lower, RSTART + RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
       }
     }
   ' \

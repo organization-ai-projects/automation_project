@@ -1,6 +1,6 @@
 # Libraries and Symbolic Components
 
-- [Back to Projects Index](TOC.md)
+- [Back to Projects Index](../TOC.md)
 
 ## 1. Detailed Role of Components
 

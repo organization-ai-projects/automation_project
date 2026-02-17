@@ -1,6 +1,6 @@
-# Table of Contents
+# Technical Documentation Index (EN)
 
-This document provides an overview of all documentation files in this directory.
+Language: **English** | [Francais](../i18n/fr/technical_documentation/TOC.md)
 
 ## Documentation Files
 
@@ -18,9 +18,11 @@ This document provides an overview of all documentation files in this directory.
 - [Architecture](ARCHITECTURE.md): Description of the overall architecture of the project
 - [Metadata](metadata.md): Information about metadata used in the project
 - [Registry](registry.md): Registry structure, IDs, and discovery rules
-- [Libraries and Symbolic Components](projects/projects_libraries.md): Information about shared libraries and symbolic components
-- [Products and Workspace Components](projects/projects_products.md): Details on the products and components within the workspace
 - [Projects Index](projects/TOC.md): A comprehensive index of all project-related documentation
+
+## Shared Assets
+
+- `assets/`: Shared diagrams and binary assets used by both languages
 
 ## Related Documentation
 
