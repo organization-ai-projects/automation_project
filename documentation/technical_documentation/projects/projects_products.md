@@ -1,6 +1,6 @@
 # Products and Workspace Components
 
-- [Back to Projects Index](TOC.md)
+- [Back to Projects Index](../TOC.md)
 
 ## Product Definition
 
