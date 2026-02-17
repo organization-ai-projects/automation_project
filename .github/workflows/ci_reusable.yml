@@ -84,7 +84,12 @@ jobs:
 
       - name: Check layer dependency boundaries
         if: steps.changes.outputs.run_rust_checks == 'true'
-        run: ./scripts/checks/check_layer_boundaries.sh
+        run: |
+          if [[ ! -f ./scripts/checks/check_layer_boundaries.sh ]]; then
+            echo "❌ check_layer_boundaries.sh not found" >&2
+            exit 1
+          fi
+          bash ./scripts/checks/check_layer_boundaries.sh
 
       - name: Cargo fmt
         if: steps.changes.outputs.run_rust_checks == 'true'
