@@ -31,6 +31,8 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             base_ref="${{ github.base_ref }}"
+            # Ensure the base reference is available locally
+            git fetch origin "$base_ref" --depth=1 2>/dev/null || true
             changed_files="$(git diff --name-only "origin/${base_ref}"...HEAD)"
           elif [[ "${{ github.event_name }}" == "push" ]]; then
             before_sha="${{ github.event.before }}"
