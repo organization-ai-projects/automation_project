@@ -19,6 +19,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # fetch-depth: 0 required for git diff origin/${base_ref}...HEAD
+          # on PRs where the base may be several commits behind.
           fetch-depth: 0
 
       - name: Detect if Rust checks are required
@@ -29,6 +31,8 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             base_ref="${{ github.base_ref }}"
+            # Ensure the base reference is available locally
+            git fetch origin "$base_ref" --depth=1 2>/dev/null || true
             changed_files="$(git diff --name-only "origin/${base_ref}"...HEAD)"
           elif [[ "${{ github.event_name }}" == "push" ]]; then
             before_sha="${{ github.event.before }}"
@@ -80,21 +84,29 @@ jobs:
 
       - name: Check layer dependency boundaries
         if: steps.changes.outputs.run_rust_checks == 'true'
-        run: ./scripts/checks/check_layer_boundaries.sh
+        run: |
+          if [[ ! -f ./scripts/checks/check_layer_boundaries.sh ]]; then
+            echo "❌ check_layer_boundaries.sh not found" >&2
+            exit 1
+          fi
+          bash ./scripts/checks/check_layer_boundaries.sh
 
       - name: Cargo fmt
         if: steps.changes.outputs.run_rust_checks == 'true'
-        run: cargo fmt --all -- --check
+        run: |
+          # Note: --locked is not necessary for cargo fmt as it does not involve compilation.
+          cargo fmt --all -- --check
 
       - name: Cargo clippy
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: |
-          if [[ -f Cargo.lock ]]; then
-            cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
-          else
-            echo "Cargo.lock missing in checkout, running clippy without --locked."
-            cargo clippy --workspace --all-features --all-targets -- -D warnings
+          if [[ ! -f Cargo.lock ]]; then
+            echo "❌ Cargo.lock not found." >&2
+            echo "   For binary/application crates: commit Cargo.lock to the repository." >&2
+            echo "   For library-only workspaces: this is expected — remove this check." >&2
+            exit 1
           fi
+          cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
 
       - name: Cargo test
         if: steps.changes.outputs.run_rust_checks == 'true'
