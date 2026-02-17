@@ -93,7 +93,9 @@ jobs:
 
       - name: Cargo fmt
         if: steps.changes.outputs.run_rust_checks == 'true'
-        run: cargo fmt --all -- --check
+        run: |
+          # Note: --locked is not necessary for cargo fmt as it does not involve compilation.
+          cargo fmt --all -- --check
 
       - name: Cargo clippy
         if: steps.changes.outputs.run_rust_checks == 'true'
