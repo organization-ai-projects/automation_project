@@ -19,6 +19,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # fetch-depth: 0 required for git diff origin/${base_ref}...HEAD
+          # on PRs where the base may be several commits behind.
           fetch-depth: 0
 
       - name: Detect if Rust checks are required
