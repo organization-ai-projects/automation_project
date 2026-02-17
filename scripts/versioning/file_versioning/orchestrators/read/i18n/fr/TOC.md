@@ -1,12 +1,19 @@
-# TOC (FR)
+# Table des matieres
 
 Langue : [English](../../TOC.md) | **Francais**
 
-## Statut
+Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossier.
 
-Traduction FR en cours pour ce document.
-Le contenu canonique reste la version anglaise.
+## Documentation
 
-## Source canonique
+- [README.md](../../README.md) : documentation principale des composants orchestrateurs en lecture
 
-- [Version anglaise](../../TOC.md)
+## Scripts
+
+- [check_priority_issues.sh](../../check_priority_issues.sh) : liste les issues GitHub haute priorite/securite
+- [create_pr.sh](../../create_pr.sh) : creation de pull requests depuis la branche courante
+- [synch_main_dev_ci.sh](../../synch_main_dev_ci.sh) : synchronisation dev/main via PR automatisee
+
+## Navigation
+
+- [Retour au TOC orchestrators](../../TOC.md)

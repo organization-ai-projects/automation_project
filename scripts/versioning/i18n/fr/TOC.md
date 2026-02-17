@@ -1,12 +1,17 @@
-# TOC (FR)
+# Table des matieres
 
 Langue : [English](../../TOC.md) | **Francais**
 
-## Statut
+Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossier.
 
-Traduction FR en cours pour ce document.
-Le contenu canonique reste la version anglaise.
+## Documentation
 
-## Source canonique
+- [README.md](../../README.md) : documentation principale des scripts de versioning
 
-- [Version anglaise](../../TOC.md)
+## Sous-repertoires
+
+- [file_versioning/TOC.md](../../file_versioning/TOC.md) : workflows et operations de controle de versions fichier
+
+## Navigation
+
+- [Retour au TOC scripts](../../../TOC.md)

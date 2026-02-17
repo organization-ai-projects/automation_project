@@ -1,12 +1,16 @@
-# TOC (FR)
+# Table des matieres
 
 Langue : [English](../../TOC.md) | **Francais**
 
-## Statut
+Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossier.
 
-Traduction FR en cours pour ce document.
-Le contenu canonique reste la version anglaise.
+## Documentation
 
-## Source canonique
+- [README.md](../../README.md) : documentation principale des hooks Git
 
-- [Version anglaise](../../TOC.md)
+## Hooks
+
+- [commit-msg](../../commit-msg) : valide le format des messages de commit
+- [pre-commit](../../pre-commit) : lance le formatage avant commit
+- [pre-push](../../pre-push) : lance les checks qualite avant push
+- [install_hooks.sh](../../install_hooks.sh) : installe les hooks dans .git/hooks/

@@ -1,12 +1,19 @@
-# TOC (FR)
+# Table des matieres
 
 Langue : [English](../../TOC.md) | **Francais**
 
-## Statut
+Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossier.
 
-Traduction FR en cours pour ce document.
-Le contenu canonique reste la version anglaise.
+## Documentation
 
-## Source canonique
+- [README.md](../../README.md) : documentation principale des orchestrateurs executables
 
-- [Version anglaise](../../TOC.md)
+## Scripts
+
+- [start_work.sh](../../start_work.sh) : workflow principal de demarrage du travail
+- [ci_watch_pr.sh](../../ci_watch_pr.sh) : surveillance du statut CI des pull requests
+- [labels_sync.sh](../../labels_sync.sh) : synchronisation des labels depuis la configuration
+
+## Navigation
+
+- [Retour au TOC orchestrators](../../TOC.md)

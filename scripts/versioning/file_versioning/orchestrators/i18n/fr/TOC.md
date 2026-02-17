@@ -1,12 +1,18 @@
-# TOC (FR)
+# Table des matieres
 
 Langue : [English](../../TOC.md) | **Francais**
 
-## Statut
+Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossier.
 
-Traduction FR en cours pour ce document.
-Le contenu canonique reste la version anglaise.
+## Documentation
 
-## Source canonique
+- [README.md](../../README.md) : documentation principale des scripts orchestrateurs
 
-- [Version anglaise](../../TOC.md)
+## Sous-repertoires
+
+- [execute/TOC.md](../../execute/TOC.md) : orchestrateurs interactifs executables
+- [read/TOC.md](../../read/TOC.md) : composants non interactifs pour composition de scripts
+
+## Navigation
+
+- [Retour au TOC file_versioning](../../TOC.md)
