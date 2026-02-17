@@ -9,7 +9,6 @@ Language: **English** | [Francais](../i18n/fr/technical_documentation/TOC.md)
 - [Commit Footer Policy](commit_footer_policy.md): Standard usage rules for issue-closing and linking footers
 - [Documentation Template Standard](documentation_template_standard.md): Canonical template rules for README.md and TOC.md roles/sections
 - [Documentation EN/FR Policy](documentation_i18n_policy.md): Deterministic bilingual structure and migration rules
-- [i18n Conformance Report (#39)](i18n_conformance_report_issue_39.md): Final structure verification report for issues #549/#550
 - [Documentation Ownership Map](documentation_ownership_map.md): Ownership and maintenance expectations by documentation zone
 - [Flaky Test Stabilization Guide](flaky_tests.md): Workspace inventory and remediation workflow for flaky tests
 - [Library Layer Boundaries](library_layer_boundaries.md): CI-enforced dependency direction between libraries and products
