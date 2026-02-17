@@ -33,7 +33,18 @@ jobs:
             base_ref="${{ github.base_ref }}"
             # Ensure the base reference is available locally
             git fetch origin "$base_ref" --depth=1 2>/dev/null || true
-            changed_files="$(git diff --name-only "origin/${base_ref}"...HEAD)"
+
+            if git rev-parse --verify -q "origin/${base_ref}" >/dev/null; then
+              if git merge-base "origin/${base_ref}" HEAD >/dev/null 2>&1; then
+                changed_files="$(git diff --name-only "origin/${base_ref}"...HEAD)"
+              else
+                echo "⚠️ No merge-base for origin/${base_ref}...HEAD, falling back to two-dot diff."
+                changed_files="$(git diff --name-only "origin/${base_ref}"..HEAD || true)"
+              fi
+            else
+              echo "⚠️ Base ref origin/${base_ref} not available locally."
+              changed_files=""
+            fi
           elif [[ "${{ github.event_name }}" == "push" ]]; then
             before_sha="${{ github.event.before }}"
             if [[ -n "$before_sha" && "$before_sha" != "0000000000000000000000000000000000000000" ]]; then
