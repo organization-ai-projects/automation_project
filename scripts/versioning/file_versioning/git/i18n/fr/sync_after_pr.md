@@ -15,7 +15,7 @@ Il faut:
 
 ## Quand choisir chaque approche
 
-### Nettoyage manuel
+### Cas d'usage du nettoyage manuel
 
 - Pour apprendre le workflow pas a pas
 - Pour une ou deux branches seulement
