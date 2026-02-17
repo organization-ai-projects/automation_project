@@ -13,7 +13,7 @@ The `metadata.ron` file is purely declarative. It does not trigger any actions b
 ```ron
 (
   schema_version: 1,
-  generated_at: "2026-01-04T12:00:00Z",
+  generated_at: 1767528000000,
   id: "4fb1f3633c504d8d82accf829a854ea4",
   name: "Dev Forge Desktop",
   kind: "product", // product | library
@@ -50,6 +50,7 @@ The `metadata.ron` file is purely declarative. It does not trigger any actions b
 > Convention:
 >
 > - `id`: Stable, unique, and machine-friendly (hex ProtocolId).
+> - `generated_at`: UNIX timestamp in milliseconds (`u64`).
 > - `name`: Human-readable and intended for user interfaces.
 > - `entrypoints.ui[*].id`: ProtocolId (hex).
 > - `domains[*].id`: ProtocolId (hex).

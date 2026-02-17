@@ -1,14 +1,14 @@
 (
   schema_version: 1,
-  generated_at: "2026-01-27T00:00:00Z",
-  id: "accounts",
+  generated_at: 1769472000000,
+  id: "1a4e3f7c9b2d4a6f8e0c1b3d5f7a9c2e",
   name: "Accounts",
   kind: "product",
   version: "0.1.0",
 
   entrypoints: (
     ui: [
-      (id: "accounts", title: "Accounts", role: "user"),
+      (id: "2b5f4d8e0a1c3f7b9d6e4a2c8f1b3d5a", title: "Accounts", role: "user"),
     ],
   ),
 
@@ -18,7 +18,7 @@
   ],
 
   domains: [
-    (id: "accounts", desc: "account bootstrap and login"),
+    (id: "3c6a5e9f1b2d4f8a0c7e5b3d9a1f4c6b", desc: "account bootstrap and login"),
   ],
 
   ai_hints: (
