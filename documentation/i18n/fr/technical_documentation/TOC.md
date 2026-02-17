@@ -12,7 +12,6 @@ Langue : [English](../../../technical_documentation/TOC.md) | **Francais**
 - [Standard de template documentaire](documentation_template_standard.md) : roles et sections obligatoires de `README.md` et `TOC.md`
 - [Carte de responsabilites documentation](documentation_ownership_map.md) : ownership et attentes de maintenance par zone
 - [Politique EN/FR de documentation](documentation_i18n_policy.md) : structure bilingue et regles de migration
-- [Rapport de conformite i18n (#39)](i18n_conformance_report_issue_39.md) : verification finale de structure pour #549/#550
 - [Taxonomie des labels](labels_taxonomy.md) : conventions de labels issues/PR
 - [Guide de stabilisation des tests flaky](flaky_tests.md) : inventaire et workflow de remediation
 - [Frontieres des couches de bibliotheques](library_layer_boundaries.md) : regles CI des dependances interdites
