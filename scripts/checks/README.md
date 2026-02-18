@@ -47,6 +47,35 @@ This directory contains validation and check scripts for the repository.
 
 **Related Documentation**: See `documentation/technical_documentation/library_layer_boundaries.md`.
 
+### analyze_layer_anomalies.sh
+
+**Purpose**: Semi-automated architectural analysis helper for strict adjacent-only layering decisions.
+
+**Usage**:
+
+```bash
+./scripts/checks/analyze_layer_anomalies.sh \
+  --protocol-layer UNDECIDED \
+  --json-out /tmp/layer_anomalies.json
+```
+
+Optional:
+
+- `--map-file <path>` to override provisional crate-to-layer assumptions.
+- `--fail-on-anomaly true` to use it as a failing check in experimentation pipelines.
+
+**What it does**:
+
+- Runs `cargo metadata` and extracts workspace dependency edges
+- Builds a provisional layer view (optionally overridden by map file)
+- Reports:
+  - `library -> product` edges
+  - foundation internal dependencies
+  - lateral / upward / non-adjacent edges
+  - unmapped crates and ambiguous hotspots
+  - cycle signals (`tsort`-based signal)
+- Can emit both human-readable output and JSON.
+
 ## Adding New Checks
 
 When adding new validation scripts:
