@@ -116,6 +116,11 @@ jq -r '
   | . as $node
   | $node.deps[]?
   | select($ws[.pkg] == true)
+  | (
+      [(.dep_kinds[]?.kind // "normal")]
+      | if length == 0 then ["normal"] else . end
+    ) as $kinds
+  | select(any($kinds[]; . != "dev"))
   | [
       $node.id,
       ($pkg[$node.id].name // ""),
@@ -144,6 +149,10 @@ if [[ -n "$map_file" ]]; then
   ' "$map_file" > "$override_tsv"
 else
   : > "$override_tsv"
+fi
+
+if [[ -z "$map_file" ]]; then
+  echo "⚠️ Using built-in provisional mapping. Prefer --map-file for canonical runs." >&2
 fi
 
 default_layer_for() {
@@ -289,26 +298,57 @@ awk -F'\t' '
 ' "$edges_tsv" | sort -u > "$lib_edges_for_tsort"
 
 if [[ -s "$lib_edges_for_tsort" ]]; then
-  if ! tsort "$lib_edges_for_tsort" >/dev/null 2>"$cycle_signals"; then
+  if ! tr '\t' ' ' < "$lib_edges_for_tsort" | tsort >/dev/null 2>"$cycle_signals"; then
     true
   fi
 fi
 
 # Mixed profile signal: crates with both product consumers and library consumers.
-while IFS=$'\t' read -r crate _layer; do
-  prod_in="$(awk -F'\t' -v c="$crate" '
-    $6 ~ /\/projects\/libraries\// && $5 == c && $3 ~ /\/projects\/products\// {print $2}
-  ' "$edges_tsv" | sort -u | wc -l | tr -d ' ')"
-  lib_in="$(awk -F'\t' -v c="$crate" '
-    $6 ~ /\/projects\/libraries\// && $5 == c && $3 ~ /\/projects\/libraries\// {print $2}
-  ' "$edges_tsv" | sort -u | wc -l | tr -d ' ')"
-  lib_out="$(awk -F'\t' -v c="$crate" '
-    $3 ~ /\/projects\/libraries\// && $2 == c && $6 ~ /\/projects\/libraries\// {print $5}
-  ' "$edges_tsv" | sort -u | wc -l | tr -d ' ')"
+stats_tsv="$tmpdir/mixed_stats.tsv"
+awk -F'\t' '
+  # library -> library
+  $3 ~ /\/projects\/libraries\// && $6 ~ /\/projects\/libraries\// {
+    out_pair = $2 SUBSEP $5
+    if (!(out_pair in seen_out)) {
+      seen_out[out_pair] = 1
+      lib_out[$2]++
+    }
+    in_pair = $5 SUBSEP $2
+    if (!(in_pair in seen_in_lib)) {
+      seen_in_lib[in_pair] = 1
+      lib_in[$5]++
+    }
+  }
+  # product -> library
+  $3 ~ /\/projects\/products\// && $6 ~ /\/projects\/libraries\// {
+    p_pair = $5 SUBSEP $2
+    if (!(p_pair in seen_in_prod)) {
+      seen_in_prod[p_pair] = 1
+      prod_in[$5]++
+    }
+  }
+  END {
+    for (c in prod_in) {
+      printf "%s\t%d\t%d\t%d\n", c, prod_in[c], lib_in[c] + 0, lib_out[c] + 0
+    }
+    for (c in lib_in) {
+      if (!(c in prod_in)) {
+        printf "%s\t%d\t%d\t%d\n", c, 0, lib_in[c], lib_out[c] + 0
+      }
+    }
+    for (c in lib_out) {
+      if (!(c in prod_in) && !(c in lib_in)) {
+        printf "%s\t%d\t%d\t%d\n", c, 0, 0, lib_out[c]
+      }
+    }
+  }
+' "$edges_tsv" | sort -u > "$stats_tsv"
+
+while IFS=$'\t' read -r crate prod_in lib_in lib_out; do
   if [[ "$prod_in" -gt 0 && "$lib_in" -gt 0 && "$lib_out" -gt 0 ]]; then
     printf "%s\tproduct_in=%s\tlibrary_in=%s\tlibrary_out=%s\n" "$crate" "$prod_in" "$lib_in" "$lib_out" >> "$mixed_profile"
   fi
-done < "$layer_tsv"
+done < "$stats_tsv"
 sort -u "$mixed_profile" -o "$mixed_profile"
 
 count_file_lines() {
@@ -470,4 +510,3 @@ if [[ "$fail_on_anomaly" == "true" && "$total_anomalies" -gt 0 ]]; then
 fi
 
 exit 0
-
