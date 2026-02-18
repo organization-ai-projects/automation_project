@@ -207,6 +207,28 @@ main() {
   TESTS_RUN=$((TESTS_RUN + 1))
   tmp="$(mktemp_compat)"
   build_mock_bin "${tmp}/bin"
+  args_log="${tmp}/gh_args_label.log"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GH_ARGS_LOG="${args_log}" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --auto --base dev --head test-head --yes
+  ) >/dev/null 2>&1; then
+    if grep -q -- "--label pull-request" "${args_log}"; then
+      echo "PASS [auto-create-adds-pull-request-label]"
+    else
+      echo "FAIL [auto-create-adds-pull-request-label] expected --label pull-request in gh pr create args"
+      cat "${args_log}" || true
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [auto-create-adds-pull-request-label] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(mktemp_compat)"
+  build_mock_bin "${tmp}/bin"
   out_md="${tmp}/body.md"
   if (
     cd "${ROOT_DIR}"
