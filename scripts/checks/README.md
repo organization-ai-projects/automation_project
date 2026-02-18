@@ -27,7 +27,7 @@ This directory contains validation and check scripts for the repository.
 
 ### check_layer_boundaries.sh
 
-**Purpose**: Enforces workspace layer dependency boundaries to prevent architectural drift.
+**Purpose**: Enforces strict adjacent-only workspace layer dependency boundaries.
 
 **Usage**:
 
@@ -35,13 +35,27 @@ This directory contains validation and check scripts for the repository.
 ./scripts/checks/check_layer_boundaries.sh
 ```
 
+Strict mode:
+
+```bash
+./scripts/checks/check_layer_boundaries.sh --strict
+```
+
 **What it does**:
 
 - Runs `cargo metadata` to inspect workspace crate dependency edges
-- Classifies crates by path:
-  - `projects/libraries/*` => `library`
-  - `projects/products/*` => `product`
-- Fails when a `library -> product` dependency edge is detected
+- Default mode enforces:
+  - `library -> product` forbidden
+- `--strict` mode additionally enforces:
+  - `library -> product` forbidden
+  - `L0 -> no workspace deps`
+  - `L1 -> L0` only
+  - `L2 -> L1` only
+  - `L3 -> L2` only
+  - no lateral/upward/non-adjacent edges by default
+- Uses:
+  - `scripts/checks/layer_map.txt` (canonical `crate -> layer`)
+  - `scripts/checks/layer_whitelist.txt` (governed temporary exceptions)
 
 **CI Integration**: Runs automatically in `.github/workflows/ci_reusable.yml`.
 
