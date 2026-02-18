@@ -10,6 +10,7 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 
 ## Scripts
 
+- [auto_link_parent_issue.sh](../../auto_link_parent_issue.sh) : auto-liaison parent/enfant depuis le champ `Parent:` du corps d'issue
 - [generate_pr_description.sh](../../generate_pr_description.sh) : generation de descriptions de PR merge structurees
 - [parent_issue_guard.sh](../../parent_issue_guard.sh) : garde de fermeture parent/enfant et resume de statut
 - [lib/classification.sh](../../lib/classification.sh) : helpers de classification/actions issue

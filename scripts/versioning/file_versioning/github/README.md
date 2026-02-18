@@ -19,6 +19,7 @@ It interacts mainly with:
 github/
 ├── README.md (this file)
 ├── TOC.md
+├── auto_link_parent_issue.sh
 ├── generate_pr_description.sh
 ├── parent_issue_guard.sh
 ├── lib/
@@ -33,6 +34,7 @@ github/
 - `README.md`: This file.
 - `TOC.md`: Documentation index for GitHub-only scripts.
 - `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
+- `auto_link_parent_issue.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
 - `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.

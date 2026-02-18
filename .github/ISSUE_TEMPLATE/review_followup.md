@@ -17,6 +17,10 @@ Review Comment ID : <comment_id>
 
 Type : fix | refactor | chore | doc/docs | test/tests | feature/feat
 
+## Hierarchy
+
+Parent: #<issue_number>
+
 Done when :
 
 - [clear verification point 1]
