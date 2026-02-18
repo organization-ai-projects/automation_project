@@ -4,7 +4,7 @@ This file is a French translation of the English documentation. If it becomes ou
 
 Ce document definit la frontiere de dependances enforcee automatiquement en CI.
 
-## Regle enforcee
+## Regle actuellement enforcee
 
 - Les crates sous `projects/libraries/` ne doivent pas dependre des crates sous `projects/products/`.
 
@@ -15,6 +15,29 @@ Direction autorisee :
 Direction interdite :
 
 - `projects/libraries/*` -> `projects/products/*`
+
+## Regles strictes cibles (adjacent-only)
+
+Pour les bibliotheques du workspace, la direction des dependances est:
+
+- `L0` -> aucune dependance workspace
+- `L1` -> `L0` uniquement
+- `L2` -> `L1` uniquement
+- `L3` -> `L2` uniquement
+
+Contraintes additionnelles:
+
+- aucune dependance montante
+- aucune dependance laterale par defaut (sauf whitelist explicite)
+- exceptions explicites, temporaires et gouvernees
+
+## Scope du checker
+
+- Evaluer uniquement les aretes entre crates du workspace.
+- Ignorer les aretes vers crates externes pour les regles de couches.
+- Traiter les dependances `path`/workspace comme les dependances workspace nommees.
+- Inclure `dependencies` et `build-dependencies` par defaut.
+- Exclure `dev-dependencies` par defaut.
 
 ## Validation
 
