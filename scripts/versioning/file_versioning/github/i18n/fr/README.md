@@ -20,6 +20,7 @@ Il interagit principalement avec:
 github/
 ├── README.md (ce fichier, version EN canonique)
 ├── TOC.md
+├── auto_link_parent_issue.sh
 ├── generate_pr_description.sh
 ├── parent_issue_guard.sh
 ├── lib/
@@ -33,6 +34,7 @@ github/
 
 - `README.md`: Ce document.
 - `TOC.md`: Index des scripts GitHub-only.
+- `auto_link_parent_issue.sh`: Auto-lie une issue enfant a son parent via le champ `Parent:`.
 - `generate_pr_description.sh`: Genere une description PR structuree.
 - `parent_issue_guard.sh`: Verifie les regles parent/enfant avant fermeture.
 - `lib/classification.sh`: Aides de classification PR/issues.

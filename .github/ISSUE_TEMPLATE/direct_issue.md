@@ -23,6 +23,10 @@ Done when :
 - [clear verification point 1]
 - [clear verification point 2]
 
+## Hierarchy
+
+Parent: none
+
 ## References
 
 - Related issue(s) :
