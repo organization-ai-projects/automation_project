@@ -55,19 +55,20 @@ This directory contains validation and check scripts for the repository.
 
 ```bash
 ./scripts/checks/analyze_layer_anomalies.sh \
-  --protocol-layer UNDECIDED \
   --json-out /tmp/layer_anomalies.json
 ```
 
 Optional:
 
-- `--map-file <path>` to override provisional crate-to-layer assumptions.
+- `--map-file <path>` to override canonical crate-to-layer assumptions.
+- `--protocol-layer <L1|L2|UNDECIDED>` when no map file is provided.
 - `--fail-on-anomaly true` to use it as a failing check in experimentation pipelines.
 
 **What it does**:
 
 - Runs `cargo metadata` and extracts workspace dependency edges
-- Builds a provisional layer view (optionally overridden by map file)
+- Builds a layer view from `scripts/checks/layer_map.txt` when present
+- Falls back to provisional built-in mapping when no map file is available
 - Reports:
   - `library -> product` edges
   - foundation internal dependencies
@@ -75,6 +76,18 @@ Optional:
   - unmapped crates and ambiguous hotspots
   - cycle signals (`tsort`-based signal)
 - Can emit both human-readable output and JSON.
+
+### layer_map.txt
+
+**Purpose**: Canonical machine-readable `crate -> layer` mapping for workspace libraries.
+
+**Format**:
+
+```text
+crate_name=L0|L1|L2|L3|UNMAPPED
+```
+
+**Current location**: `scripts/checks/layer_map.txt`
 
 ## Adding New Checks
 
