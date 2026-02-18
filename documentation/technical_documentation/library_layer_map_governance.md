@@ -34,9 +34,9 @@ When updating the map:
 ./scripts/checks/analyze_layer_anomalies.sh --map-file scripts/checks/layer_map.txt
 ```
 
-2. Confirm map completeness (no missing workspace libraries).
-3. Confirm no malformed entries (only `L0|L1|L2|L3|UNMAPPED`).
-4. Capture key anomalies impacted by the mapping change in the PR description.
+1. Confirm map completeness (no missing workspace libraries).
+2. Confirm no malformed entries (only `L0|L1|L2|L3|UNMAPPED`).
+3. Capture key anomalies impacted by the mapping change in the PR description.
 
 ## UNMAPPED Policy
 
