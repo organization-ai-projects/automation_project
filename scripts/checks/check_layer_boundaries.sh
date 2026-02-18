@@ -265,28 +265,67 @@ else
 fi
 
 print_violations() {
-  local title="$1"
-  local file="$2"
-  local format="${3:-pair}"
+  local class_name="$1"
+  local title="$2"
+  local file="$3"
+  local suggestion="$4"
+  local format="${5:-pair}"
   if [[ ! -s "$file" ]]; then
     return 0
   fi
   echo ""
-  echo "❌ $title"
+  echo "❌ $title [class=$class_name]"
   if [[ "$format" == "edge4" ]]; then
-    awk -F'\t' '{print "   - " $1 " (" $2 ") -> " $3 " (" $4 ")"}' "$file"
+    awk -F'\t' -v class_name="$class_name" -v suggestion="$suggestion" '
+      {
+        print "   - VIOLATION class=" class_name " edge=" $1 "(" $2 ")->" $3 "(" $4 ") suggestion=\"" suggestion "\""
+      }
+    ' "$file"
   else
-    awk -F'\t' '{print "   - " $1 " -> " $2}' "$file"
+    awk -F'\t' -v class_name="$class_name" -v suggestion="$suggestion" '
+      {
+        print "   - VIOLATION class=" class_name " edge=" $1 "->" $2 " suggestion=\"" suggestion "\""
+      }
+    ' "$file"
   fi
 }
 
-print_violations "Forbidden dependencies (library -> product)" "$library_to_product"
+print_violations \
+  "library-to-product" \
+  "Forbidden dependencies (library -> product)" \
+  "$library_to_product" \
+  "Move shared code to projects/libraries and invert dependency direction (product -> library)."
 if [[ "$strict_mode" == "true" ]]; then
-  print_violations "Foundation internal dependencies (L0 must have none)" "$foundation_internal" "edge4"
-  print_violations "Lateral dependencies (forbidden by default)" "$lateral" "edge4"
-  print_violations "Upward dependencies (forbidden)" "$upward" "edge4"
-  print_violations "Non-adjacent dependencies (forbidden)" "$non_adjacent" "edge4"
-  print_violations "Edges with unmapped crate layer(s)" "$unmapped" "edge4"
+  print_violations \
+    "foundation-internal" \
+    "Foundation internal dependencies (L0 must have none)" \
+    "$foundation_internal" \
+    "Move shared logic downward (or split crate responsibilities) so L0 has no workspace dependency." \
+    "edge4"
+  print_violations \
+    "lateral" \
+    "Lateral dependencies (forbidden by default)" \
+    "$lateral" \
+    "Extract shared contract/adapter to lower layer, then depend on that lower layer only." \
+    "edge4"
+  print_violations \
+    "upward" \
+    "Upward dependencies (forbidden)" \
+    "$upward" \
+    "Invert dependency: move needed abstraction downward and keep higher layer free of upward coupling." \
+    "edge4"
+  print_violations \
+    "non-adjacent" \
+    "Non-adjacent dependencies (forbidden)" \
+    "$non_adjacent" \
+    "Route dependency through immediate lower layer (adjacent-only), introducing adapter if needed." \
+    "edge4"
+  print_violations \
+    "unmapped" \
+    "Edges with unmapped crate layer(s)" \
+    "$unmapped" \
+    "Map all involved crates in scripts/checks/layer_map.txt before enforcing strict boundaries." \
+    "edge4"
 fi
 
 total=$((c_library_to_product + c_foundation_internal + c_lateral + c_upward + c_non_adjacent + c_unmapped))
