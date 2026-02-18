@@ -27,6 +27,7 @@ protocol_layer="UNDECIDED"
 map_file=""
 json_out=""
 fail_on_anomaly="false"
+canonical_map_file="scripts/checks/layer_map.txt"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -69,6 +70,10 @@ fi
 if [[ -n "$map_file" && ! -f "$map_file" ]]; then
   echo "Map file not found: $map_file" >&2
   exit 2
+fi
+
+if [[ -z "$map_file" && -f "$canonical_map_file" ]]; then
+  map_file="$canonical_map_file"
 fi
 
 if ! command -v cargo >/dev/null 2>&1; then
@@ -152,7 +157,9 @@ else
 fi
 
 if [[ -z "$map_file" ]]; then
-  echo "⚠️ Using built-in provisional mapping. Prefer --map-file for canonical runs." >&2
+  echo "⚠️ Using built-in provisional mapping. Prefer scripts/checks/layer_map.txt or --map-file for canonical runs." >&2
+else
+  echo "ℹ️ Using map file: $map_file" >&2
 fi
 
 default_layer_for() {
