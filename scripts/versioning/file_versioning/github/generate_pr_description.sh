@@ -1002,9 +1002,9 @@ if [[ "$create_pr" == "true" ]]; then
 
   if [[ "$create_now" == "true" ]]; then
     if [[ "$auto_mode" == "true" ]]; then
-      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body "$body_content")"
+      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body "$body_content" --label "pull-request")"
     else
-      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body-file "$output_file")"
+      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body-file "$output_file" --label "pull-request")"
     fi
     pr_created_successfully="true"
     echo "PR créée: $pr_url"
