@@ -38,14 +38,31 @@ else
   echo "⚠️  pre-push hook not found"
 fi
 
+# Install pre-branch-create hook
+if [[ -f "$SCRIPT_DIR/pre-branch-create" ]]; then
+  cp "$SCRIPT_DIR/pre-branch-create" "$GIT_HOOKS_DIR/pre-branch-create"
+  chmod +x "$GIT_HOOKS_DIR/pre-branch-create"
+  echo "✅ Installed pre-branch-create hook"
+else
+  echo "⚠️  pre-branch-create hook not found"
+fi
+
+# Install branch-creation-check hook
+if [[ -f "$SCRIPT_DIR/branch-creation-check.sh" ]]; then
+  cp "$SCRIPT_DIR/branch-creation-check.sh" "$GIT_HOOKS_DIR/branch-creation-check"
+  chmod +x "$GIT_HOOKS_DIR/branch-creation-check"
+  echo "✅ Installed branch-creation-check hook"
+else
+  echo "⚠️  branch-creation-check.sh not found"
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ Git hooks installed successfully!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "Hooks installed:"
-echo "  • commit-msg  - Validates commit message format"
-echo "  • pre-push    - Runs fmt, clippy, tests before push"
+echo "  • branch-creation-check - Validates branch creation rules"
 echo ""
 echo "Bypass options (emergency only):"
 echo "  • SKIP_COMMIT_VALIDATION=1 git commit ..."

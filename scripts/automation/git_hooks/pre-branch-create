@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Standalone hook for branch creation validation
+# Usage: ./pre-branch <branch-name>
+
+BRANCH="${1:-}"
+
+if [[ -z "$BRANCH" ]]; then
+    echo "❌ No branch name provided." >&2
+    echo "   Usage: $0 <branch-name>" >&2
+    exit 1
+fi
+
+# ✅ Regex plus permissive — autorise chiffres, majuscules
+if ! [[ "$BRANCH" =~ ^(feature|fix|hotfix|release)/[a-zA-Z0-9_-]+$ ]]; then
+    echo "❌ Invalid branch name: '$BRANCH'" >&2
+    echo "   Must follow: (feature|fix|hotfix|release)/<name>" >&2
+    echo "   Example: feature/add-login, fix/bug-123" >&2
+    exit 1
+fi
+
+# Check if branch exists locally
+if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    echo "❌ Branch '$BRANCH' already exists locally." >&2
+    exit 1
+fi
+
+# ✅ Check if in use by a worktree (fixed string match)
+if git worktree list | grep -qF "[$BRANCH]"; then
+    echo "❌ Branch '$BRANCH' is in use by another worktree." >&2
+    git worktree list | grep -F "[$BRANCH]"
+    exit 1
+fi
+
+echo "✅ Branch name '$BRANCH' is valid."
+exit 0
