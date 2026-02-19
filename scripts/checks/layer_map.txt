@@ -2,7 +2,7 @@
 # Valid layers: L0, L1, L2, L3, UNMAPPED.
 #
 # Notes:
-# - protocol placement is finalized to L1 (technical contract layer).
+# - protocol is checker-classified as core/contracts (not a layer level).
 # - ui-lib canonical crate identity is mapped to L2.
 
 ai=L3
@@ -21,7 +21,7 @@ hybrid_arena=L0
 identity=L2
 neural=L2
 pjson_proc_macros=L0
-protocol=L1
+protocol=UNMAPPED
 protocol_macros=L0
 security=L2
 symbolic=L2
