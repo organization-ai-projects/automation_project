@@ -55,6 +55,7 @@ Strict mode:
   - no lateral/upward/non-adjacent edges by default
 - Uses:
   - `scripts/checks/layer_map.txt` (canonical `crate -> layer`)
+  - built-in checker core overlay (`foundation|contracts|none`, script-managed)
   - `scripts/checks/layer_whitelist.txt` (governed temporary exceptions)
 - Emits stable actionable diagnostics:
   - `VIOLATION class=<class> edge=<from>(<layer>)-><to>(<layer>) suggestion="<remediation>"`
