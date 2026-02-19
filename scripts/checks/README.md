@@ -56,10 +56,13 @@ Strict mode:
 - Uses:
   - `scripts/checks/layer_map.txt` (canonical `crate -> layer`)
   - built-in checker core overlay (`foundation|contracts|none`, script-managed)
+    - `layer -> core` allowed
+    - `core -> layer` forbidden
+    - `core -> core` allowed
   - `scripts/checks/layer_whitelist.txt` (governed temporary exceptions)
 - Emits stable actionable diagnostics:
   - `VIOLATION class=<class> edge=<from>(<layer>)-><to>(<layer>) suggestion="<remediation>"`
-  - Classes include `library-to-product`, `foundation-internal`, `lateral`, `upward`, `non-adjacent`, `unmapped`
+  - Classes include `library-to-product`, `core-to-layer`, `foundation-internal`, `lateral`, `upward`, `non-adjacent`, `unmapped`
 
 **CI Integration**: Runs automatically in `.github/workflows/ci_reusable.yml`.
 

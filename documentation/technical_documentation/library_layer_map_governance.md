@@ -10,6 +10,10 @@ Define governance rules for the canonical workspace `crate -> layer` mapping art
 - Format: `crate_name=L0|L1|L2|L3|UNMAPPED`
 - Scope: workspace crates under `projects/libraries/`
 - Core overlay is checker-managed (no separate artifact file).
+- Core overlay policy:
+  - `layer -> core` allowed
+  - `core -> layer` forbidden
+  - `core -> core` allowed
 
 ## Ownership
 
