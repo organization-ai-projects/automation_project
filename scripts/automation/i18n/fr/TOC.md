@@ -15,6 +15,7 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 ## Scripts
 
 - [audit_security.sh](../../audit_security.sh) : audit securite des dependances
+- [audit_issue_status.sh](../../audit_issue_status.sh) : audit des issues ouvertes vs references commits
 - [build_accounts_ui.sh](../../build_accounts_ui.sh) : build du bundle UI accounts
 - [build_and_check_ui_bundles.sh](../../build_and_check_ui_bundles.sh) : build et verification des artefacts
 - [build_ui_bundles.sh](../../build_ui_bundles.sh) : decouverte et build de tous les bundles UI

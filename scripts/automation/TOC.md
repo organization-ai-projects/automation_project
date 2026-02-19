@@ -15,6 +15,7 @@ This document provides an overview of all documentation files in this directory.
 ## Scripts
 
 - [audit_security.sh](audit_security.sh): Security audit on dependencies
+- [audit_issue_status.sh](audit_issue_status.sh): Audit open issues vs commit references
 - [build_accounts_ui.sh](build_accounts_ui.sh): Build accounts UI bundle
 - [build_and_check_ui_bundles.sh](build_and_check_ui_bundles.sh): Build and verify artifacts
 - [build_ui_bundles.sh](build_ui_bundles.sh): Discover and build all UI bundles
