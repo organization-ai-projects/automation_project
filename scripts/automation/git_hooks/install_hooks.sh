@@ -20,6 +20,24 @@ fi
 # Create hooks directory if it doesn't exist
 mkdir -p "$GIT_HOOKS_DIR"
 
+# Install pre-commit hook
+if [[ -f "$SCRIPT_DIR/pre-commit" ]]; then
+  cp "$SCRIPT_DIR/pre-commit" "$GIT_HOOKS_DIR/pre-commit"
+  chmod +x "$GIT_HOOKS_DIR/pre-commit"
+  echo "✅ Installed pre-commit hook"
+else
+  echo "⚠️  pre-commit hook not found"
+fi
+
+# Install prepare-commit-msg hook
+if [[ -f "$SCRIPT_DIR/prepare-commit-msg" ]]; then
+  cp "$SCRIPT_DIR/prepare-commit-msg" "$GIT_HOOKS_DIR/prepare-commit-msg"
+  chmod +x "$GIT_HOOKS_DIR/prepare-commit-msg"
+  echo "✅ Installed prepare-commit-msg hook"
+else
+  echo "⚠️  prepare-commit-msg hook not found"
+fi
+
 # Install commit-msg hook
 if [[ -f "$SCRIPT_DIR/commit-msg" ]]; then
   cp "$SCRIPT_DIR/commit-msg" "$GIT_HOOKS_DIR/commit-msg"
@@ -62,9 +80,15 @@ echo "✅ Git hooks installed successfully!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "Hooks installed:"
+echo "  • pre-commit  - Runs formatting and branch checks before commit"
+echo "  • prepare-commit-msg - Auto-generates conventional commit subject"
+echo "  • commit-msg  - Validates commit message format"
+echo "  • pre-push    - Runs fmt, clippy, tests before push"
 echo "  • branch-creation-check - Validates branch creation rules"
 echo ""
 echo "Bypass options (emergency only):"
+echo "  • SKIP_PRE_COMMIT=1 git commit ..."
+echo "  • SKIP_PREPARE_COMMIT_MSG=1 git commit ..."
 echo "  • SKIP_COMMIT_VALIDATION=1 git commit ..."
 echo "  • SKIP_PRE_PUSH=1 git push"
 echo ""

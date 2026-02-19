@@ -22,6 +22,7 @@ automation/
 ├── git_hooks/                      # Hooks Git pour la validation commit/push
 │   ├── commit-msg                  # Verifie le format du message de commit
 │   ├── pre-commit                  # Lance le formatage avant commit
+│   ├── prepare-commit-msg          # Genere automatiquement le sujet de commit
 │   ├── pre-push                    # Lance les checks qualite avant push
 │   └── install_hooks.sh            # Installe les hooks Git
 ├── audit_security.sh               # Audit securite des dependances
@@ -32,6 +33,7 @@ automation/
 ├── check_dependencies.sh           # Detecte dependances obsoletes/manquantes
 ├── check_merge_conflicts.sh        # Teste les conflits de merge
 ├── clean_artifacts.sh              # Nettoie les artefacts de build
+├── git_add_guard.sh                # Ajout securise avec regles de split
 ├── pre_add_review.sh               # Pre-check interne avant review
 ├── pre_push_check.sh               # Validation avant push (checks/tests/conflicts)
 ├── release_prepare.sh              # Preparation release (version/changelog/tag)
@@ -52,6 +54,7 @@ automation/
 - `check_dependencies.sh`: Verification des dependances.
 - `check_merge_conflicts.sh`: Detection des conflits de merge.
 - `clean_artifacts.sh`: Nettoyage des artefacts.
+- `git_add_guard.sh`: Ajout securise avec regles de split.
 - `pre_add_review.sh`: Verification avant review interne.
 - `pre_push_check.sh`: Validation pre-push.
 - `release_prepare.sh`: Preparation release.

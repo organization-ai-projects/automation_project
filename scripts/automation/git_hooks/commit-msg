@@ -76,6 +76,76 @@ detect_required_scopes_from_staged_files() {
   printf '%s\n' "${required[@]}"
 }
 
+validate_and_normalize_issue_refs_footer() {
+  local issue_ref_re='(^|[[:space:]])(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#[0-9]+([[:space:]]|$)'
+  local trailer_line_re='^[[:space:]]*(Closes|Fixes|Resolves|Part[[:space:]]+of|Related[[:space:]]+to)[[:space:]]+#[0-9]+[[:space:]]*$'
+  local subject_lower
+  subject_lower="$(printf '%s' "$COMMIT_SUBJECT" | tr '[:upper:]' '[:lower:]')"
+
+  if [[ "$subject_lower" =~ $issue_ref_re ]]; then
+    echo "❌ Issue references must be in commit footer, not in subject." >&2
+    echo "   Move 'Closes/Fixes/Resolves/Part of/Related to #...' to footer lines." >&2
+    return 1
+  fi
+
+  mapfile -t message_lines < <(sed '/^[[:space:]]*#/d' "$COMMIT_MSG_FILE")
+  [[ ${#message_lines[@]} -eq 0 ]] && return 0
+
+  local -a trailers=()
+  local -a content_lines=()
+  local line normalized
+
+  # Keep subject as-is; normalize only body/footer lines.
+  content_lines+=("${message_lines[0]}")
+  for line in "${message_lines[@]:1}"; do
+    if [[ "$line" =~ $trailer_line_re ]]; then
+      normalized="$(echo "$line" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+      if [[ ! " ${trailers[*]} " =~ " ${normalized} " ]]; then
+        trailers+=("$normalized")
+      fi
+      continue
+    fi
+    content_lines+=("$line")
+  done
+
+  [[ ${#trailers[@]} -eq 0 ]] && return 0
+
+  # Trim trailing blank lines before appending a dedicated trailer footer block.
+  while [[ ${#content_lines[@]} -gt 0 ]]; do
+    line="${content_lines[$((${#content_lines[@]} - 1))]}"
+    [[ "$line" =~ ^[[:space:]]*$ ]] || break
+    unset "content_lines[$((${#content_lines[@]} - 1))]"
+  done
+
+  # Collapse repeated blank lines in body after trailer extraction.
+  local -a compact_lines=()
+  local prev_blank=false
+  for line in "${content_lines[@]}"; do
+    if [[ "$line" =~ ^[[:space:]]*$ ]]; then
+      if [[ "$prev_blank" == true ]]; then
+        continue
+      fi
+      prev_blank=true
+    else
+      prev_blank=false
+    fi
+    compact_lines+=("$line")
+  done
+
+  {
+    local i
+    for i in "${!compact_lines[@]}"; do
+      echo "${compact_lines[$i]}"
+    done
+    echo
+    for line in "${trailers[@]}"; do
+      echo "$line"
+    done
+  } > "$COMMIT_MSG_FILE"
+
+  return 0
+}
+
 # Validate format: <type>(<scope>): <message> or <type>: <message>
 # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
 if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
@@ -101,6 +171,10 @@ if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
   echo "  $COMMIT_SUBJECT" >&2
   echo "" >&2
   echo "Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
+  exit 1
+fi
+
+if ! validate_and_normalize_issue_refs_footer; then
   exit 1
 fi
 

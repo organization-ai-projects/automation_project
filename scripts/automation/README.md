@@ -20,6 +20,7 @@ automation/
 ├── git_hooks/                      # Git hooks for commit validation and pre-push checks
 │   ├── commit-msg                  # Validates commit message format
 │   ├── pre-commit                  # Runs code formatting before commit
+│   ├── prepare-commit-msg          # Auto-generates commit subject
 │   ├── pre-push                    # Runs quality checks before push
 │   └── install_hooks.sh            # Installs git hooks
 ├── audit_security.sh               # Security audit on dependencies
@@ -30,6 +31,8 @@ automation/
 ├── check_dependencies.sh           # Check for outdated/missing dependencies
 ├── check_merge_conflicts.sh        # Test merge for conflicts
 ├── clean_artifacts.sh              # Clean build artifacts
+├── git_add_command_override.sh     # Shell override for git add -> staging guard
+├── git_add_guard.sh                # Guarded staging with split-policy checks
 ├── pre_add_review.sh               # Pre-add internal review (format, clippy, tests)
 ├── pre_push_check.sh               # Pre-push validation (checks, tests, conflicts)
 ├── release_prepare.sh              # Prepare releases with version/changelog/tag
@@ -50,7 +53,20 @@ automation/
 - `check_dependencies.sh`: Check for outdated/missing dependencies.
 - `check_merge_conflicts.sh`: Test merge for conflicts.
 - `clean_artifacts.sh`: Clean build artifacts.
+- `git_add_command_override.sh`: Shell override for `git add` to use guarded staging.
+- `git_add_guard.sh`: Guarded staging with split-policy checks.
 - `pre_add_review.sh`: Pre-add internal review.
+
+## Optional shell override for `git add`
+
+If you want to keep using `git add ...` (without a custom alias), source:
+
+```bash
+source /absolute/path/to/repo/scripts/automation/git_add_command_override.sh
+```
+
+After sourcing, only `git add` is overridden; all other `git` commands are unchanged.
+
 - `pre_push_check.sh`: Pre-push validation.
 - `release_prepare.sh`: Prepare releases with version/changelog/tag.
 - `setup_hooks.sh`: Install git hooks.
