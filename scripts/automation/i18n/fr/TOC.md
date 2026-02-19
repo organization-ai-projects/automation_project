@@ -22,6 +22,7 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 - [check_dependencies.sh](../../check_dependencies.sh) : verification dependances obsoletes/manquantes
 - [check_merge_conflicts.sh](../../check_merge_conflicts.sh) : test de merge pour conflits
 - [clean_artifacts.sh](../../clean_artifacts.sh) : nettoyage des artefacts de build
+- [git_add_guard.sh](../../git_add_guard.sh) : ajout securise avec regles de split
 - [pre_add_review.sh](../../pre_add_review.sh) : revue interne pre-add (format, clippy, tests)
 - [pre_push_check.sh](../../pre_push_check.sh) : validation pre-push (checks, tests, conflits)
 - [release_prepare.sh](../../release_prepare.sh) : preparation release (version/changelog/tag)

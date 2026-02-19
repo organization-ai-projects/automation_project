@@ -20,6 +20,7 @@ Il interagit principalement avec:
 git_hooks/
 ├── commit-msg          # Valide le format du message de commit
 ├── pre-commit          # Lance le formatage avant commit
+├── prepare-commit-msg  # Genere un sujet de commit automatiquement
 ├── pre-push            # Lance les checks qualite avant push
 └── install_hooks.sh    # Installe les hooks dans .git/hooks/
 ```
@@ -29,6 +30,7 @@ git_hooks/
 - `README.md`: Ce document (version EN canonique).
 - `commit-msg`: Validation format commit.
 - `pre-commit`: Formatage avant commit.
+- `prepare-commit-msg`: Generation automatique du sujet de commit.
 - `pre-push`: Quality checks avant push.
 - `install_hooks.sh`: Installation des hooks dans `.git/hooks/`.
 
@@ -92,6 +94,28 @@ SKIP_PRE_COMMIT=1 git commit -m "message"
 ALLOW_PROTECTED_BRANCH_COMMIT=1 git commit -m "message"
 ```
 
+### `prepare-commit-msg`
+
+Genere automatiquement un sujet de commit conventionnel quand le message est vide.
+
+Sources utilisees:
+
+1. Prefixe de branche (`feat/`, `fix/`, `docs/`, etc.) pour deduire le type
+2. Fichiers stages pour deduire les scopes requis et le fallback de type
+3. Slug de branche pour produire une description lisible
+
+Le hook ne remplace pas:
+
+- Les messages explicites via `git commit -m`
+- Les commits merge/squash/amend
+- Les templates deja non vides
+
+**Bypass (urgence uniquement):**
+
+```bash
+SKIP_PREPARE_COMMIT_MSG=1 git commit
+```
+
 ### `pre-push`
 
 Checks executes avant chaque push (selectifs):
@@ -116,7 +140,7 @@ SKIP_PRE_PUSH=1 git push
 ## Installation
 
 ```bash
-./scripts/git_hooks/install_hooks.sh
+./scripts/automation/git_hooks/install_hooks.sh
 ```
 
 Le script copie les hooks dans `.git/hooks/` et les rend executables.
@@ -136,7 +160,7 @@ Les hooks sont:
 Pour mettre a jour les hooks apres modification:
 
 ```bash
-./scripts/git_hooks/install_hooks.sh
+./scripts/automation/git_hooks/install_hooks.sh
 ```
 
 Desactivation temporaire:
