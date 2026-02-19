@@ -21,7 +21,7 @@ git_hooks/
 ├── pre-commit          # Runs code formatting before commit
 ├── prepare-commit-msg  # Auto-generates commit subject from context
 ├── pre-push            # Runs quality checks before push
-└── install_hooks.sh    # Installs git hooks to .git/hooks/
+└── install_hooks.sh    # Installs git hooks (worktree-aware)
 ```
 
 ## Files
@@ -31,7 +31,7 @@ git_hooks/
 - `pre-commit`: Runs formatting before commit.
 - `prepare-commit-msg`: Auto-generates commit subject from branch/staged files.
 - `pre-push`: Runs quality checks before push.
-- `install_hooks.sh`: Installs hooks to `.git/hooks/`.
+- `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
 
 ## Available hooks
 
@@ -146,7 +146,7 @@ Run the installation script:
 ./scripts/automation/git_hooks/install_hooks.sh
 ```
 
-This script copies the hooks into `.git/hooks/` and makes them executable.
+This script copies the hooks into the git hooks directory (resolved via `git rev-parse --git-path hooks`, supporting both standard clones and worktrees) and makes them executable.
 
 ## Architecture
 
@@ -169,12 +169,14 @@ To update the hooks after changes:
 To temporarily disable a hook:
 
 ```bash
-# Rename the hook in .git/hooks/
-mv .git/hooks/pre-push .git/hooks/pre-push.disabled
+# Rename the hook in the git hooks directory (resolved via git rev-parse --git-path hooks)
+GIT_HOOKS_DIR="$(git rev-parse --git-path hooks)"
+mv "$GIT_HOOKS_DIR/pre-push" "$GIT_HOOKS_DIR/pre-push.disabled"
 ```
 
 To re-enable it:
 
 ```bash
-mv .git/hooks/pre-push.disabled .git/hooks/pre-push
+GIT_HOOKS_DIR="$(git rev-parse --git-path hooks)"
+mv "$GIT_HOOKS_DIR/pre-push.disabled" "$GIT_HOOKS_DIR/pre-push"
 ```

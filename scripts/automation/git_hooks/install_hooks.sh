@@ -2,20 +2,24 @@
 set -euo pipefail
 
 # Usage: ./install_hooks.sh
-# Installs git hooks into .git/hooks/
+# Installs git hooks into the git hooks directory (supports standard clones and worktrees)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-GIT_HOOKS_DIR="$ROOT_DIR/.git/hooks"
 
 echo "🔧 Installing git hooks..."
 echo ""
 
-# Check if we're in a git repository
-if [[ ! -d "$ROOT_DIR/.git" ]]; then
+# Check if we're in a git repository (works in both standard clones and worktrees)
+if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
   echo "❌ Error: Not in a git repository root"
   exit 1
 fi
+
+# Resolve the hooks directory via git (works for standard clones and worktrees)
+GIT_HOOKS_DIR="$(git -C "$ROOT_DIR" rev-parse --git-path hooks)"
+# Make absolute if relative (standard clone returns relative path; worktree returns absolute)
+[[ "$GIT_HOOKS_DIR" == /* ]] || GIT_HOOKS_DIR="$ROOT_DIR/$GIT_HOOKS_DIR"
 
 # Create hooks directory if it doesn't exist
 mkdir -p "$GIT_HOOKS_DIR"
