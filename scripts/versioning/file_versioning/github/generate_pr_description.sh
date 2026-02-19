@@ -12,6 +12,7 @@ E_PARTIAL=6
 SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/classification.sh"
+source "${SCRIPT_DIR}/lib/issue_refs.sh"
 source "${SCRIPT_DIR}/lib/rendering.sh"
 
 print_usage() {
@@ -475,69 +476,6 @@ issue_labels() {
     -q '.labels | map(.name) | join("||")' 2>/dev/null || true
 }
 
-parse_issue_refs_from_body() {
-  local body="$1"
-  echo "$body" | awk '
-    {
-      line = $0
-      lower = tolower($0)
-      # Parse only canonical closure keywords directly followed by an issue ref.
-      # Intentionally excludes non-canonical verbs like "closed".
-      while (match(lower, /(closes|close|fixes|fix|resolves|resolve)[[:space:]]+([[:alnum:]_.-]+\/)?#[0-9]+/)) {
-        # Enforce keyword boundary: avoid matching within larger words.
-        if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
-          lower = substr(lower, RSTART + 1)
-          line = substr(line, RSTART + 1)
-          continue
-        }
-
-        matched = substr(line, RSTART, RLENGTH)
-        matched_lower = substr(lower, RSTART, RLENGTH)
-        n = split(matched, parts, /[[:space:]]+/)
-        split(matched_lower, parts_lower, /[[:space:]]+/)
-        token = parts_lower[1]
-        issue_ref = parts[2]
-        sub(/^[[:alnum:]_.-]+\//, "", issue_ref)
-
-        if (token ~ /^clos/) {
-          action = "Closes"
-        } else if (token ~ /^fix/) {
-          action = "Fixes"
-        } else {
-          action = "Resolves"
-        }
-
-        if (issue_ref ~ /^#[0-9]+$/) {
-          print action "|" issue_ref
-        }
-
-        lower = substr(lower, RSTART + RLENGTH)
-        line = substr(line, RSTART + RLENGTH)
-      }
-    }
-  ' \
-    | sort -u
-}
-
-parse_duplicate_refs_from_text() {
-  local body="$1"
-  echo "$body" | awk '
-    BEGIN { IGNORECASE = 1 }
-    {
-      line = $0
-      while (match(line, /#([0-9]+)[[:space:]]+duplicate[[:space:]]+of[[:space:]]+#([0-9]+)/)) {
-        matched = substr(line, RSTART, RLENGTH)
-        gsub(/[^0-9]+/, " ", matched)
-        split(matched, nums, " ")
-        if (nums[1] != "" && nums[2] != "") {
-          print "#" nums[1] "|" "#" nums[2]
-        }
-        line = substr(line, RSTART + RLENGTH)
-      }
-    }
-  ' | sort -u
-}
-
 text_indicates_breaking() {
   local text="${1:-}"
   local line
@@ -569,19 +507,6 @@ text_indicates_breaking() {
       return 0
     fi
   done <<< "$text"
-
-  return 1
-}
-
-normalize_issue_key() {
-  local raw="${1:-}"
-  local normalized
-
-  normalized="$(echo "$raw" | sed -nE 's/.*#([0-9]+).*/#\1/p')"
-  if [[ "$normalized" =~ ^#[0-9]+$ ]]; then
-    echo "$normalized"
-    return 0
-  fi
 
   return 1
 }
@@ -776,7 +701,7 @@ if [[ -s "$extracted_prs_file" ]]; then
       while IFS='|' read -r action issue_key; do
         debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
         add_issue_entry "$action" "$issue_key" "$pr_category"
-      done < <(parse_issue_refs_from_body "$pr_body")
+      done < <(parse_closing_issue_refs_from_text "$pr_body")
       while IFS='|' read -r duplicate_issue canonical_issue; do
         add_duplicate_entry "$duplicate_issue" "$canonical_issue"
       done < <(parse_duplicate_refs_from_text "$pr_body")
@@ -797,7 +722,7 @@ if [[ "$dry_run" == "true" ]]; then
     while IFS='|' read -r action issue_key; do
       debug_log "parsed_issue_ref(dry commits): ${action}|${issue_key}"
       add_issue_entry "$action" "$issue_key" "Mixed"
-    done < <(parse_issue_refs_from_body "$dry_commit_messages")
+    done < <(parse_closing_issue_refs_from_text "$dry_commit_messages")
     while IFS='|' read -r duplicate_issue canonical_issue; do
       add_duplicate_entry "$duplicate_issue" "$canonical_issue"
     done < <(parse_duplicate_refs_from_text "$dry_commit_messages")
@@ -814,7 +739,7 @@ if [[ "$dry_run" == "false" ]]; then
     while IFS='|' read -r action issue_key; do
       debug_log "parsed_issue_ref(main pr): ${action}|${issue_key}"
       add_issue_entry "$action" "$issue_key" "Mixed"
-    done < <(parse_issue_refs_from_body "$main_pr_body")
+    done < <(parse_closing_issue_refs_from_text "$main_pr_body")
     while IFS='|' read -r duplicate_issue canonical_issue; do
       add_duplicate_entry "$duplicate_issue" "$canonical_issue"
     done < <(parse_duplicate_refs_from_text "$main_pr_body")

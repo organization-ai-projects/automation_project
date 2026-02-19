@@ -11,6 +11,9 @@ set -euo pipefail
 # Usage:
 #   scripts/automation/audit_issue_status.sh [--repo OWNER/REPO] [--base origin/main] [--head origin/dev] [--limit 200] [--output /tmp/issue_audit.md]
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../versioning/file_versioning/github/lib/issue_refs.sh"
+
 REPO=""
 BASE_REF="origin/main"
 HEAD_REF="origin/dev"
@@ -98,11 +101,19 @@ gh issue list -R "$REPO" --state open --limit "$LIMIT" --json number,title,url,b
 
 git log "$RANGE" --format=%B > "$messages_file"
 
-grep -ioE '(closes|fixes|resolves)[[:space:]]+#[0-9]+' "$messages_file" \
-  | grep -ioE '#[0-9]+' | tr -d '#' | sort -u > "$closing_refs" || true
+closing_lines="$(parse_closing_issue_refs_from_text "$(cat "$messages_file")" || true)"
+if [[ -n "$closing_lines" ]]; then
+  echo "$closing_lines" | awk -F'|' '{ gsub(/^#/, "", $2); print $2 }' | sort -u > "$closing_refs"
+else
+  : > "$closing_refs"
+fi
 
-grep -ioE '(part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#[0-9]+' "$messages_file" \
-  | grep -ioE '#[0-9]+' | tr -d '#' | sort -u > "$part_refs" || true
+part_lines="$(parse_non_closing_issue_refs_from_text "$(cat "$messages_file")" || true)"
+if [[ -n "$part_lines" ]]; then
+  echo "$part_lines" | awk -F'|' '{ gsub(/^#/, "", $2); print $2 }' | sort -u > "$part_refs"
+else
+  : > "$part_refs"
+fi
 
 report="$tmpdir/report.md"
 {
