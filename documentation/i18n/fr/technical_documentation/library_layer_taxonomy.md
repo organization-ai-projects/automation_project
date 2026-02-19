@@ -36,6 +36,23 @@ Definir le modele strict et deterministe de couches pour les bibliotheques du wo
 - Les contrats orientes domaine vont en `L2`.
 - `L3` reste orchestration uniquement et doit consommer les contrats `L2`, pas les details internes `L1`.
 
+## Decisions de placement finalisees
+
+Les decisions suivantes sont finalisees et doivent etre traitees comme politique d'architecture:
+
+- `protocol` est fixe en `L1` (couche de contrats techniques).
+- `ui-lib` (crate sous `projects/libraries/ui`) est fixe en `L2`.
+- Les crates techniques partagees sont fixees comme suit:
+  - `L0`: `common_time`, `common_calendar`, `common_binary`, `common_parsing`, `common_tokenize`, `hybrid_arena`, `ast_core`, `ast_macros`, `pjson_proc_macros`, `protocol_macros`.
+  - `L1`: `common`, `common_json`, `common_ron`, `command_runner`, `protocol`.
+- `ai` reste en `L3` et doit consommer uniquement des contrats/facades `L2`.
+  Cible de migration: supprimer les aretes directes `L3 -> L1` (notamment vers `common_json` et `protocol`) via des frontieres `L2`.
+
+## Impact de migration (vague courante)
+
+- Les anomalies directes `L3 -> L1` et `L2 -> L0` sont de la dette de migration, pas une ambiguite de politique.
+- Les refactors de suivi doivent aligner le code sur ce placement final sans redefinir les couches.
+
 ## Gouvernance des exceptions
 
 - Les exceptions doivent etre explicites, minimales et temporaires.

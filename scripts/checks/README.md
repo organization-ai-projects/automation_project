@@ -78,7 +78,7 @@ Strict mode:
 Optional:
 
 - `--map-file <path>` to override canonical crate-to-layer assumptions.
-- `--protocol-layer <L1|L2|UNDECIDED>` when no map file is provided.
+- `--protocol-layer <L1|L2|UNDECIDED>` when no map file is provided (default assumption is `L1`).
 - `--fail-on-anomaly true` to use it as a failing check in experimentation pipelines.
 
 **What it does**:

@@ -43,6 +43,7 @@ When updating the map:
 - `UNMAPPED` is allowed only as a temporary decision state.
 - New crates must be mapped before strict enforcement is enabled for their path.
 - `UNMAPPED` entries require a follow-up issue with owner and expected resolution window.
+- `protocol` and `ui-lib` are finalized mappings and must not be reverted to `UNMAPPED`.
 
 ## Exception and Whitelist Alignment
 
