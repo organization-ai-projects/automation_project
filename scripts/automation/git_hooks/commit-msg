@@ -88,70 +88,60 @@ validate_and_normalize_issue_refs_footer() {
     return 1
   fi
 
-  # Collect action trailers from non-comment lines (excluding subject line).
-  mapfile -t all_action_trailers < <(
-    sed '/^[[:space:]]*#/d' "$COMMIT_MSG_FILE" \
-      | tail -n +2 \
-      | sed -nE 's/^[[:space:]]*((Closes|Fixes|Resolves|Part[[:space:]]+of|Related[[:space:]]+to)[[:space:]]+#[0-9]+)[[:space:]]*$/\1/p' \
-      | awk '!seen[$0]++'
-  )
-
-  [[ ${#all_action_trailers[@]} -eq 0 ]] && return 0
-
   mapfile -t message_lines < <(sed '/^[[:space:]]*#/d' "$COMMIT_MSG_FILE")
+  [[ ${#message_lines[@]} -eq 0 ]] && return 0
 
-  local last_non_empty=-1
-  local i line
+  local -a trailers=()
+  local -a content_lines=()
+  local line normalized
 
-  for i in "${!message_lines[@]}"; do
-    line="${message_lines[$i]}"
-    if [[ "$line" =~ [^[:space:]] ]]; then
-      last_non_empty=$i
+  # Keep subject as-is; normalize only body/footer lines.
+  content_lines+=("${message_lines[0]}")
+  for line in "${message_lines[@]:1}"; do
+    if [[ "$line" =~ $trailer_line_re ]]; then
+      normalized="$(echo "$line" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+      if [[ ! " ${trailers[*]} " =~ " ${normalized} " ]]; then
+        trailers+=("$normalized")
+      fi
+      continue
     fi
+    content_lines+=("$line")
   done
 
-  declare -A footer_trailers=()
-  if (( last_non_empty > 0 )); then
-    # A footer is treated as the trailing block of trailer lines at the end
-    # of the message (excluding subject and comments).
-    i=$last_non_empty
-    while (( i > 0 )); do
-      line="${message_lines[$i]}"
-      if [[ "$line" =~ ^[[:space:]]*$ ]]; then
-        i=$((i - 1))
+  [[ ${#trailers[@]} -eq 0 ]] && return 0
+
+  # Trim trailing blank lines before appending a dedicated trailer footer block.
+  while [[ ${#content_lines[@]} -gt 0 ]]; do
+    line="${content_lines[$((${#content_lines[@]} - 1))]}"
+    [[ "$line" =~ ^[[:space:]]*$ ]] || break
+    unset "content_lines[$((${#content_lines[@]} - 1))]"
+  done
+
+  # Collapse repeated blank lines in body after trailer extraction.
+  local -a compact_lines=()
+  local prev_blank=false
+  for line in "${content_lines[@]}"; do
+    if [[ "$line" =~ ^[[:space:]]*$ ]]; then
+      if [[ "$prev_blank" == true ]]; then
         continue
       fi
-      if [[ "$line" =~ $trailer_line_re ]]; then
-        line="$(echo "$line" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-        footer_trailers["$line"]=1
-        i=$((i - 1))
-        continue
-      fi
-      break
+      prev_blank=true
+    else
+      prev_blank=false
+    fi
+    compact_lines+=("$line")
+  done
+
+  {
+    local i
+    for i in "${!compact_lines[@]}"; do
+      echo "${compact_lines[$i]}"
     done
-  fi
-
-  local -a missing_trailers=()
-  for line in "${all_action_trailers[@]}"; do
-    line="$(echo "$line" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-    if [[ -z "${footer_trailers[$line]:-}" ]]; then
-      missing_trailers+=("$line")
-    fi
-  done
-
-  [[ ${#missing_trailers[@]} -eq 0 ]] && return 0
-
-  # Ensure a footer separator before appending missing trailers.
-  if [[ -s "$COMMIT_MSG_FILE" ]]; then
-    if ! tail -n1 "$COMMIT_MSG_FILE" | grep -qE '^[[:space:]]*$'; then
-      echo >> "$COMMIT_MSG_FILE"
-    fi
-  fi
-  echo >> "$COMMIT_MSG_FILE"
-
-  for line in "${missing_trailers[@]}"; do
-    echo "$line" >> "$COMMIT_MSG_FILE"
-  done
+    echo
+    for line in "${trailers[@]}"; do
+      echo "$line"
+    done
+  } > "$COMMIT_MSG_FILE"
 
   return 0
 }
