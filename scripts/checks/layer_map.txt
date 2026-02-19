@@ -24,6 +24,7 @@ pjson_proc_macros=L0
 protocol=L1
 protocol_macros=L0
 security=L2
+security_core=L1
 symbolic=L2
 ui-lib=L2
 versioning=L2
