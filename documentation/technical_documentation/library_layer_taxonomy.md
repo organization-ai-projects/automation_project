@@ -38,13 +38,13 @@ Define the strict, deterministic layer model for workspace libraries.
 
 The following decisions are finalized and should be treated as architecture policy:
 
-- `protocol` is fixed to `L1` (technical contract layer).
+- `protocol` is fixed as a `core/contracts` crate (not a layer level).
 - `ui-lib` (crate under `projects/libraries/ui`) is fixed to `L2`.
 - Shared technical crates are fixed as:
   - `L0`: `common_time`, `common_calendar`, `common_binary`, `common_parsing`, `common_tokenize`, `hybrid_arena`, `ast_core`, `ast_macros`, `pjson_proc_macros`, `protocol_macros`.
-  - `L1`: `common`, `common_json`, `common_ron`, `command_runner`, `protocol`.
+  - `L1`: `common`, `common_json`, `common_ron`, `command_runner`.
 - `ai` remains `L3` and must consume `L2` contracts/facades only.
-  Migration target: remove direct `L3 -> L1` edges (notably to `common_json` and `protocol`) via `L2` boundaries before strict closure of migration issues.
+  Migration target: remove direct `L3 -> L1` edges (notably to `common_json`) via `L2` boundaries before strict closure of migration issues.
 
 ## Migration Impact (Current Wave)
 

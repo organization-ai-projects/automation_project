@@ -40,13 +40,13 @@ Definir le modele strict et deterministe de couches pour les bibliotheques du wo
 
 Les decisions suivantes sont finalisees et doivent etre traitees comme politique d'architecture:
 
-- `protocol` est fixe en `L1` (couche de contrats techniques).
+- `protocol` est fixe comme crate `core/contracts` (pas un niveau de couche).
 - `ui-lib` (crate sous `projects/libraries/ui`) est fixe en `L2`.
 - Les crates techniques partagees sont fixees comme suit:
   - `L0`: `common_time`, `common_calendar`, `common_binary`, `common_parsing`, `common_tokenize`, `hybrid_arena`, `ast_core`, `ast_macros`, `pjson_proc_macros`, `protocol_macros`.
-  - `L1`: `common`, `common_json`, `common_ron`, `command_runner`, `protocol`.
+  - `L1`: `common`, `common_json`, `common_ron`, `command_runner`.
 - `ai` reste en `L3` et doit consommer uniquement des contrats/facades `L2`.
-  Cible de migration: supprimer les aretes directes `L3 -> L1` (notamment vers `common_json` et `protocol`) via des frontieres `L2`.
+  Cible de migration: supprimer les aretes directes `L3 -> L1` (notamment vers `common_json`) via des frontieres `L2`.
 
 ## Impact de migration (vague courante)
 
