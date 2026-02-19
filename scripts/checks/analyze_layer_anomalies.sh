@@ -10,7 +10,7 @@ Usage:
   ./scripts/checks/analyze_layer_anomalies.sh [options]
 
 Options:
-  --protocol-layer L1|L2|UNDECIDED   Provisional placement for crate "protocol" (default: UNDECIDED)
+  --protocol-layer L1|L2|UNDECIDED   Placement assumption for crate "protocol" (default: L1)
   --map-file PATH                    Optional override map file (format: crate=L0|L1|L2|L3|UNMAPPED)
   --json-out PATH                    Optional JSON report output path
   --fail-on-anomaly true|false       Exit non-zero if anomalies are found (default: false)
@@ -23,7 +23,7 @@ Notes:
 USAGE
 }
 
-protocol_layer="UNDECIDED"
+protocol_layer="L1"
 map_file=""
 json_out=""
 fail_on_anomaly="false"
@@ -174,7 +174,7 @@ default_layer_for() {
       echo "L1"
       ;;
     # L2 Domain candidates
-    identity|neural|security|symbolic|ui|versioning)
+    identity|neural|security|symbolic|ui|ui-lib|versioning)
       echo "L2"
       ;;
     # L3 Orchestration candidate
@@ -183,7 +183,7 @@ default_layer_for() {
       ;;
     protocol)
       if [[ "$protocol_layer" == "UNDECIDED" ]]; then
-        echo "UNMAPPED"
+        echo "L1"
       else
         echo "$protocol_layer"
       fi

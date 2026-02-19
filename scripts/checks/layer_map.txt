@@ -2,8 +2,8 @@
 # Valid layers: L0, L1, L2, L3, UNMAPPED.
 #
 # Notes:
-# - protocol is currently mapped to L1 to keep the map complete for checker consumption.
-# - ui-lib is currently mapped to L2 to keep the map complete for checker consumption.
+# - protocol placement is finalized to L1 (technical contract layer).
+# - ui-lib canonical crate identity is mapped to L2.
 
 ai=L3
 ast_core=L0

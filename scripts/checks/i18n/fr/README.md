@@ -57,13 +57,14 @@ Ce repertoire contient les scripts de validation et de controle pour le reposito
 
 ```bash
 ./scripts/checks/analyze_layer_anomalies.sh \
-  --protocol-layer UNDECIDED \
+  --protocol-layer L1 \
   --json-out /tmp/layer_anomalies.json
 ```
 
 Options utiles:
 
 - `--map-file <path>` pour surcharger les hypotheses provisoires crate->couche.
+- `--protocol-layer <L1|L2|UNDECIDED>` en l'absence de map-file (hypothese par defaut: `L1`).
 - `--fail-on-anomaly true` pour l'utiliser en mode bloquant experimental.
 
 **Comportement**:
