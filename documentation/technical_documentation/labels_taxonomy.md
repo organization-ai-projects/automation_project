@@ -19,6 +19,7 @@ This document defines how labels are used across Issues and Pull Requests.
 
 - Type: `bug`, `fix`, `enhancement`, `feature`, `refactor`, `chore`, `documentation`, `testing`, `security`.
 - Workflow: `automation`, `automation-failed`, `review`, `sync_branch`.
+- Status: `done-in-dev` (implemented on `dev`, pending final closure on `main`).
 - Scope: `projects/...`, `tools/...`, `workspace`, `scripts`.
 - Triage: `high priority`, `question`, `duplicate`, `invalid`, `wontfix`, `help wanted`, `good first issue`.
 - Artifact target: `issue`, `pull-request`.
@@ -28,6 +29,7 @@ This document defines how labels are used across Issues and Pull Requests.
 - Issues:
   - Use one type label and relevant scope/workflow labels.
   - Use triage labels only when needed.
+  - Use `done-in-dev` only as a temporary visibility status while the issue remains open before `main` closure.
   - Optional: use `issue` when explicitly tracking issue-process work.
 - Pull Requests:
   - Mirror the dominant type and scope labels from resolved work.

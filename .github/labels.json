@@ -35,6 +35,11 @@
     "description": "Documentation updates, clarifications, examples, or guides"
   },
   {
+    "name": "done-in-dev",
+    "color": "0E8A16",
+    "description": "Work is implemented in dev and pending final closure on main"
+  },
+  {
     "name": "duplicate",
     "color": "CFD3D7",
     "description": "Duplicate of an existing issue or pull request"
