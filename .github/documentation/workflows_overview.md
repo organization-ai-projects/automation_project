@@ -10,6 +10,7 @@ This document provides a general overview of the GitHub Actions workflows used i
 - **automation_rustfmt.yml**: Applies rustfmt to modified Rust files in PRs.
 - **automation_markdown.yml**: Applies markdownlint fixes to modified Markdown files in PRs.
 - **automation_sync.yml**: Syncs `main` into `dev` after merge.
+- **issue_done_in_dev_status.yml**: Maintains `done-in-dev` issue status labels from `dev` merge to issue closure.
 
 ## Purpose
 
@@ -28,3 +29,4 @@ The workflows are designed to ensure code quality, automate testing, and streaml
 - [automation_rustfmt.yml Documentation](../workflows/documentation/automation_rustfmt.md)
 - [automation_markdown.yml Documentation](../workflows/documentation/automation_markdown.md)
 - [automation_sync.yml Documentation](../workflows/documentation/automation_sync.md)
+- [issue_done_in_dev_status.yml Documentation](../workflows/documentation/issue_done_in_dev_status.md)

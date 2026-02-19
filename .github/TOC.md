@@ -9,6 +9,7 @@ This document provides an overview of all documentation files in this directory.
 - [ci_reusable.yml](workflows/ci_reusable.yml): A reusable workflow for common CI steps.
 - [automation_rustfmt.yml](workflows/automation_rustfmt.yml): Applies rustfmt on PRs.
 - [automation_sync.yml](workflows/automation_sync.yml): Syncs `main` into `dev` after merge.
+- [issue_done_in_dev_status.yml](workflows/issue_done_in_dev_status.yml): Adds/removes `done-in-dev` label based on dev merges and issue closures.
 
 ## Documentation
 

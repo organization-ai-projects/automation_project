@@ -21,6 +21,7 @@ It interacts mainly with:
 ├── ci_reusable.yml       # Reusable workflow for common CI steps
 ├── automation_rustfmt.yml # Automates code formatting checks
 ├── automation_sync.yml   # Syncs main into dev after merge
+├── issue_done_in_dev_status.yml # Maintains done-in-dev issue status label lifecycle
 └── documentation/
     ├── TOC.md           # Table of contents for workflow documentation
     ├── ci_main.md       # Documentation for the ci_main.yml workflow
@@ -28,6 +29,7 @@ It interacts mainly with:
     ├── ci_reusable.md   # Documentation for the ci_reusable.yml workflow
     ├── automation_rustfmt.md # Documentation for the automation_rustfmt.yml workflow
     ├── automation_sync.md # Documentation for the automation_sync.yml workflow
+    ├── issue_done_in_dev_status.md # Documentation for issue_done_in_dev_status.yml
     ├── bot/
     │   ├── README.md    # Bot workflows docs index
     │   └── TOC.md       # Bot workflows documentation TOC
@@ -43,6 +45,7 @@ It interacts mainly with:
 - `ci_reusable.md`: Documentation for the `ci_reusable.yml` workflow.
 - `automation_rustfmt.md`: Documentation for the `automation_rustfmt.yml` workflow.
 - `automation_sync.md`: Documentation for the `automation_sync.yml` workflow.
+- `issue_done_in_dev_status.md`: Documentation for the `issue_done_in_dev_status.yml` workflow.
 - `bot/README.md`: Bot workflow docs index.
 - `bot/TOC.md`: Bot workflows documentation TOC.
 
@@ -58,6 +61,7 @@ Workflows are organized into two categories:
 - **Automation Workflows**:
   - `automation_rustfmt.yml`: Automates code formatting checks.
   - `automation_sync.yml`: Syncs main into dev after merge.
+  - `issue_done_in_dev_status.yml`: Maintains done-in-dev issue status label lifecycle.
 
 ## Adding New Workflows
 
