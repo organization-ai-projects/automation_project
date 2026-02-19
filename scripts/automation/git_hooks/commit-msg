@@ -6,6 +6,7 @@ set -euo pipefail
 
 COMMIT_MSG_FILE="$1"
 ROOT_DIR="$(git rev-parse --show-toplevel)"
+HOOKS_DIR="$ROOT_DIR/scripts/automation/git_hooks"
 
 if [[ -z "${COMMIT_MSG_FILE:-}" || ! -f "$COMMIT_MSG_FILE" ]]; then
   echo "❌ commit-msg hook: missing or invalid commit message file" >&2
@@ -22,6 +23,8 @@ fi
 
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit_format.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit_format.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/issue_parent_guard.sh
+source "$HOOKS_DIR/lib/issue_parent_guard.sh"
 
 extract_scopes_from_commit_message() {
   local message="$1"
@@ -146,6 +149,46 @@ validate_and_normalize_issue_refs_footer() {
   return 0
 }
 
+extract_trailer_issue_refs() {
+  extract_issue_refs_from_text "$(sed '/^[[:space:]]*#/d' "$COMMIT_MSG_FILE")" || true
+}
+
+validate_no_root_parent_refs_in_footer() {
+  local refs
+  local action
+  local issue_number
+  local repo
+  local root_parent_refs=()
+
+  if ! command -v gh >/dev/null 2>&1; then
+    return 0
+  fi
+
+  refs="$(extract_trailer_issue_refs)"
+  [[ -z "$refs" ]] && return 0
+
+  repo="$(resolve_repo_name_with_owner)"
+  [[ -z "$repo" ]] && return 0
+
+  while IFS='|' read -r action issue_number; do
+    [[ -z "$issue_number" ]] && continue
+    if issue_is_root_parent "$issue_number" "$repo"; then
+      root_parent_refs+=("${action} #${issue_number}")
+    fi
+  done <<< "$refs"
+
+  if [[ ${#root_parent_refs[@]} -gt 0 ]]; then
+    echo "❌ Invalid issue footer usage in commit message." >&2
+    echo "   Root parent issue references are not allowed in commit trailers: ${root_parent_refs[*]}" >&2
+    echo "   Use issue refs on child issues only (Part of/Closes/Fixes/Resolves #<child-issue>)." >&2
+    echo "   Parent closure should be handled by child completion workflow, not direct commit trailers." >&2
+    echo "   Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
+    return 1
+  fi
+
+  return 0
+}
+
 # Validate format: <type>(<scope>): <message> or <type>: <message>
 # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
 if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
@@ -175,6 +218,10 @@ if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
 fi
 
 if ! validate_and_normalize_issue_refs_footer; then
+  exit 1
+fi
+
+if ! validate_no_root_parent_refs_in_footer; then
   exit 1
 fi
 

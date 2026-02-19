@@ -60,6 +60,15 @@ else
   echo "⚠️  pre-push hook not found"
 fi
 
+# Install post-checkout hook
+if [[ -f "$SCRIPT_DIR/post-checkout" ]]; then
+  cp "$SCRIPT_DIR/post-checkout" "$GIT_HOOKS_DIR/post-checkout"
+  chmod +x "$GIT_HOOKS_DIR/post-checkout"
+  echo "✅ Installed post-checkout hook"
+else
+  echo "⚠️  post-checkout hook not found"
+fi
+
 # Install pre-branch-create hook
 if [[ -f "$SCRIPT_DIR/pre-branch-create" ]]; then
   cp "$SCRIPT_DIR/pre-branch-create" "$GIT_HOOKS_DIR/pre-branch-create"
@@ -88,11 +97,14 @@ echo "  • pre-commit  - Runs formatting and branch checks before commit"
 echo "  • prepare-commit-msg - Auto-generates conventional commit subject"
 echo "  • commit-msg  - Validates commit message format"
 echo "  • pre-push    - Runs fmt, clippy, tests before push"
+echo "  • post-checkout - Warns on root-parent issue refs in branch history"
 echo "  • branch-creation-check - Validates branch creation rules"
 echo ""
 echo "Bypass options (emergency only):"
 echo "  • SKIP_PRE_COMMIT=1 git commit ..."
 echo "  • SKIP_PREPARE_COMMIT_MSG=1 git commit ..."
 echo "  • SKIP_COMMIT_VALIDATION=1 git commit ..."
+echo "  • SKIP_POST_CHECKOUT_CONVENTION_WARN=1 git checkout ..."
 echo "  • SKIP_PRE_PUSH=1 git push"
+echo "  • ALLOW_PART_OF_ONLY_PUSH=1 git push"
 echo ""
