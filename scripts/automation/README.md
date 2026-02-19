@@ -27,6 +27,7 @@ automation/
 ├── build_accounts_ui.sh            # Build accounts UI bundle
 ├── build_and_check_ui_bundles.sh   # Build and verify artifacts
 ├── build_ui_bundles.sh             # Discover and build all UI bundles
+├── audit_issue_status.sh           # Audit open issues vs commit references
 ├── changed_crates.sh               # List crates touched in a diff
 ├── check_dependencies.sh           # Check for outdated/missing dependencies
 ├── check_merge_conflicts.sh        # Test merge for conflicts
@@ -49,6 +50,7 @@ automation/
 - `build_accounts_ui.sh`: Build accounts UI bundle.
 - `build_and_check_ui_bundles.sh`: Build and verify artifacts.
 - `build_ui_bundles.sh`: Discover and build all UI bundles.
+- `audit_issue_status.sh`: Audit open issues vs commit references in a branch range.
 - `changed_crates.sh`: List crates touched in a diff.
 - `check_dependencies.sh`: Check for outdated/missing dependencies.
 - `check_merge_conflicts.sh`: Test merge for conflicts.

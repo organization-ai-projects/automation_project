@@ -26,6 +26,7 @@ automation/
 │   ├── pre-push                    # Lance les checks qualite avant push
 │   └── install_hooks.sh            # Installe les hooks Git
 ├── audit_security.sh               # Audit securite des dependances
+├── audit_issue_status.sh           # Audit des issues ouvertes vs references commits
 ├── build_accounts_ui.sh            # Build du bundle UI accounts
 ├── build_and_check_ui_bundles.sh   # Build + verification des artefacts UI
 ├── build_ui_bundles.sh             # Detection + build de tous les bundles UI
@@ -47,6 +48,7 @@ automation/
 - `README.md`: Ce document (version EN canonique).
 - `git_hooks/`: Hooks Git de validation commit/push.
 - `audit_security.sh`: Audit securite des dependances.
+- `audit_issue_status.sh`: Audit des issues ouvertes vs references commits sur un range de branches.
 - `build_accounts_ui.sh`: Build UI accounts.
 - `build_and_check_ui_bundles.sh`: Build + verification artefacts UI.
 - `build_ui_bundles.sh`: Decouverte + build de tous les bundles UI.
