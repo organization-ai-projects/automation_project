@@ -97,7 +97,7 @@ messages_file="$tmpdir/commit_messages.txt"
 closing_refs="$tmpdir/closing_refs.txt"
 part_refs="$tmpdir/part_refs.txt"
 
-gh issue list -R "$REPO" --state open --limit "$LIMIT" --json number,title,url,body,state > "$open_json"
+gh issue list -R "$REPO" --state open --limit "$LIMIT" --json number,title,url,body,state,labels > "$open_json"
 
 git log "$RANGE" --format=%B > "$messages_file"
 
@@ -129,19 +129,23 @@ total_open="$(jq 'length' "$open_json")"
 would_close=0
 part_only=0
 unreferenced=0
+done_in_dev=0
 
 would_close_items="$tmpdir/would_close.md"
 part_only_items="$tmpdir/part_only.md"
 unreferenced_items="$tmpdir/unreferenced.md"
+done_in_dev_items="$tmpdir/done_in_dev.md"
 : > "$would_close_items"
 : > "$part_only_items"
 : > "$unreferenced_items"
+: > "$done_in_dev_items"
 
 jq -c '.[]' "$open_json" | while IFS= read -r row; do
   num="$(echo "$row" | jq -r '.number')"
   title="$(echo "$row" | jq -r '.title')"
   url="$(echo "$row" | jq -r '.url')"
   body="$(echo "$row" | jq -r '.body // ""')"
+  labels_csv="$(echo "$row" | jq -r '.labels // [] | map(.name | ascii_downcase) | join(",")')"
 
   parent="(none)"
   parent_line="$(printf '%s\n' "$body" | grep -iE '^[[:space:]]*Parent:[[:space:]]*(#?[0-9]+|none)[[:space:]]*$' | tail -n1 || true)"
@@ -149,7 +153,10 @@ jq -c '.[]' "$open_json" | while IFS= read -r row; do
     parent="$(echo "$parent_line" | sed -E 's/^[[:space:]]*Parent:[[:space:]]*//I')"
   fi
 
-  if grep -Fxq "$num" "$closing_refs"; then
+  if [[ "$labels_csv" == *"done-in-dev"* ]]; then
+    done_in_dev=$((done_in_dev + 1))
+    printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >> "$done_in_dev_items"
+  elif grep -Fxq "$num" "$closing_refs"; then
     would_close=$((would_close + 1))
     printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >> "$would_close_items"
   elif grep -Fxq "$num" "$part_refs"; then
@@ -167,14 +174,25 @@ would_close="$(wc -l < "$would_close_items" | tr -d ' ')"
 part_only="$(wc -l < "$part_only_items" | tr -d ' ')"
 # shellcheck disable=SC2034
 unreferenced="$(wc -l < "$unreferenced_items" | tr -d ' ')"
+# shellcheck disable=SC2034
+done_in_dev="$(wc -l < "$done_in_dev_items" | tr -d ' ')"
 
 {
   echo "## Summary"
   echo
   echo "- Open issues fetched: $total_open"
   echo "- Would close on merge: $would_close"
+  echo "- Done in dev (label): $done_in_dev"
   echo "- Part-of-only (not closing): $part_only"
   echo "- Unreferenced in range: $unreferenced"
+  echo
+  echo "## Done In Dev (Label)"
+  echo
+  if [[ -s "$done_in_dev_items" ]]; then
+    cat "$done_in_dev_items"
+  else
+    echo "- None"
+  fi
   echo
   echo "## Would Close On Merge"
   echo
