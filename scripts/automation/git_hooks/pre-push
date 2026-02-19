@@ -223,8 +223,35 @@ detect_crates_from_scopes() {
         [[ -z "$scope" ]] && continue
 
         local cargo_toml=""
-        if [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
+        if [[ $scope =~ ^projects/libraries/core$ ]]; then
+          local -a core_matches=()
+          local core_match
+          while IFS= read -r core_match; do
+            [[ -n "$core_match" ]] && core_matches+=("$core_match")
+          done < <(find projects/libraries/core -mindepth 2 -maxdepth 2 -type f -name Cargo.toml)
+
+          if [[ ${#core_matches[@]} -eq 0 ]]; then
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
+
+          local cm
+          for cm in "${core_matches[@]}"; do
+            local core_crate_name
+            core_crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cm" | head -n1)
+            if [[ -z "$core_crate_name" ]]; then
+              invalid_scopes=$((invalid_scopes + 1))
+              continue
+            fi
+            if [[ ! " ${crates[*]} " =~ " ${core_crate_name} " ]]; then
+              crates+=("$core_crate_name")
+            fi
+          done
+          continue
+        elif [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
           cargo_toml="projects/libraries/${BASH_REMATCH[1]}/Cargo.toml"
+        elif [[ $scope =~ ^projects/libraries/core/([^/]+)$ ]]; then
+          cargo_toml="projects/libraries/core/${BASH_REMATCH[1]}/Cargo.toml"
         elif [[ $scope =~ ^projects/products/([^/]+)(/(ui|backend))?$ ]]; then
           local product="${BASH_REMATCH[1]}"
           local component="${BASH_REMATCH[3]:-}"
