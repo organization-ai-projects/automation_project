@@ -111,11 +111,44 @@ jobs:
       - name: Check strict layer dependency boundaries
         if: steps.changes.outputs.run_layer_checks == 'true'
         run: |
+          set -euo pipefail
+
           if [[ ! -f ./scripts/checks/check_layer_boundaries.sh ]]; then
             echo "❌ check_layer_boundaries.sh not found" >&2
             exit 1
           fi
-          bash ./scripts/checks/check_layer_boundaries.sh --strict
+
+          mkdir -p /tmp/layer-check
+          strict_log="/tmp/layer-check/strict-layer.log"
+          anomaly_log="/tmp/layer-check/analyze-layer-anomalies.log"
+          anomaly_json="/tmp/layer-check/layer-anomalies.json"
+
+          set +e
+          bash ./scripts/checks/check_layer_boundaries.sh --strict 2>&1 | tee "$strict_log"
+          strict_status=${PIPESTATUS[0]}
+          set -e
+
+          if [[ $strict_status -ne 0 ]]; then
+            echo "::group::Strict layer diagnostics (tail)"
+            tail -n 200 "$strict_log" || true
+            echo "::endgroup::"
+
+            if [[ -f ./scripts/checks/analyze_layer_anomalies.sh ]]; then
+              echo "::group::Layer anomaly analysis snapshot"
+              bash ./scripts/checks/analyze_layer_anomalies.sh --json-out "$anomaly_json" 2>&1 | tee "$anomaly_log" || true
+              echo "::endgroup::"
+            fi
+
+            exit "$strict_status"
+          fi
+
+      - name: Upload strict-layer diagnostics artifact
+        if: always() && steps.changes.outputs.run_layer_checks == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: strict-layer-diagnostics
+          path: /tmp/layer-check/
+          if-no-files-found: ignore
 
       - name: Cargo fmt
         if: steps.changes.outputs.run_rust_checks == 'true'
