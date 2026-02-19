@@ -1,5 +1,5 @@
 // projects/libraries/identity/src/user.rs
-use security::Role;
+use security_core::Role;
 
 use crate::UserId;
 

@@ -15,7 +15,7 @@ async fn test_user_store_new_is_empty() {
 #[tokio::test]
 async fn test_user_store_concurrent_access() {
     // Test thread-safe concurrent access to UserStore
-    use security::Role;
+    use security_core::Role;
 
     let store = UserStore::new();
     let user_id = create_test_user_id(1);

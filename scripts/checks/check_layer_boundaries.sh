@@ -167,7 +167,7 @@ core_of() {
     ast_core|ast_macros|command_runner|common|common_binary|common_calendar|common_json|common_parsing|common_ron|common_time|common_tokenize|hybrid_arena|pjson_proc_macros|protocol_macros)
       echo "foundation"
       ;;
-    protocol)
+    protocol|security_core)
       echo "contracts"
       ;;
     *)

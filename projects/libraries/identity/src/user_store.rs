@@ -4,7 +4,7 @@ use std::sync::{Arc, OnceLock};
 use tokio::sync::RwLock;
 
 use rand::RngCore;
-use security::{PasswordError, Role, password};
+use security_core::{PasswordError, Role, password};
 
 use crate::{IdentityError, User, UserId};
 

@@ -2,7 +2,7 @@ mod helpers;
 
 use helpers::create_test_user_id;
 use identity::{IdentityError, UserStore};
-use security::Role;
+use security_core::Role;
 
 /// Generate a random 16-character alphanumeric password (A–Z, a–z, 0–9) for testing.
 fn random_password() -> String {

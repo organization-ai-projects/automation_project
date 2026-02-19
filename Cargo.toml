@@ -8,6 +8,7 @@ members = [
   "projects/libraries/protocol",
   "projects/libraries/identity",
   "projects/libraries/security",
+  "projects/libraries/core/security_core",
   "projects/libraries/symbolic",
   "projects/libraries/ui",
   "projects/libraries/common_parsing",
@@ -64,6 +65,7 @@ neural = { path = "projects/libraries/neural" }
 protocol = { path = "projects/libraries/protocol" }
 identity = { path = "projects/libraries/identity" }
 security = { path = "projects/libraries/security" }
+security_core = { path = "projects/libraries/core/security_core" }
 symbolic = { path = "projects/libraries/symbolic" }
 ui = { path = "projects/libraries/ui" }
 command_runner = { path = "projects/libraries/command_runner" }
