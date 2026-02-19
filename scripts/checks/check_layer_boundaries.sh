@@ -177,6 +177,7 @@ core_of() {
 }
 
 library_to_product="$tmpdir/library_to_product.tsv"
+core_to_layer="$tmpdir/core_to_layer.tsv"
 foundation_internal="$tmpdir/foundation_internal.tsv"
 lateral="$tmpdir/lateral.tsv"
 upward="$tmpdir/upward.tsv"
@@ -185,6 +186,7 @@ unmapped="$tmpdir/unmapped.tsv"
 whitelist_used="$tmpdir/whitelist_used.tsv"
 
 : > "$library_to_product"
+: > "$core_to_layer"
 : > "$foundation_internal"
 : > "$lateral"
 : > "$upward"
@@ -218,6 +220,22 @@ while IFS=$'\t' read -r from_name from_manifest to_name to_manifest; do
   to_layer="$(layer_of "$to_name")"
   from_core="$(core_of "$from_name")"
   to_core="$(core_of "$to_name")"
+
+  # Core overlay policy:
+  # - layer -> core: allowed
+  # - core -> layer: forbidden
+  # - core -> core: allowed
+  if [[ "$from_core" != "none" || "$to_core" != "none" ]]; then
+    if [[ "$from_core" != "none" && "$to_core" == "none" ]]; then
+      printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$core_to_layer"
+      continue
+    fi
+    if [[ "$from_core" == "none" && "$to_core" != "none" ]]; then
+      continue
+    fi
+    continue
+  fi
+
   from_rank="$(rank_of "$from_layer")"
   to_rank="$(rank_of "$to_layer")"
 
@@ -252,6 +270,7 @@ while IFS=$'\t' read -r from_name from_manifest to_name to_manifest; do
 done < "$edges_tsv"
 
 sort -u "$library_to_product" -o "$library_to_product"
+sort -u "$core_to_layer" -o "$core_to_layer"
 sort -u "$foundation_internal" -o "$foundation_internal"
 sort -u "$lateral" -o "$lateral"
 sort -u "$upward" -o "$upward"
@@ -265,6 +284,7 @@ count_lines() {
 }
 
 c_library_to_product="$(count_lines "$library_to_product")"
+c_core_to_layer=0
 c_foundation_internal=0
 c_lateral=0
 c_upward=0
@@ -272,6 +292,7 @@ c_non_adjacent=0
 c_unmapped=0
 c_whitelist_used=0
 if [[ "$strict_mode" == "true" ]]; then
+  c_core_to_layer="$(count_lines "$core_to_layer")"
   c_foundation_internal="$(count_lines "$foundation_internal")"
   c_lateral="$(count_lines "$lateral")"
   c_upward="$(count_lines "$upward")"
@@ -323,6 +344,12 @@ print_violations \
   "Move shared code to projects/libraries and invert dependency direction (product -> library)."
 if [[ "$strict_mode" == "true" ]]; then
   print_violations \
+    "core-to-layer" \
+    "Forbidden dependencies (core -> layer)" \
+    "$core_to_layer" \
+    "Core crates must not depend on L0..L3 crates; move dependency to core or invert edge direction." \
+    "edge4"
+  print_violations \
     "foundation-internal" \
     "Foundation internal dependencies (L0 must have none)" \
     "$foundation_internal" \
@@ -354,7 +381,7 @@ if [[ "$strict_mode" == "true" ]]; then
     "edge4"
 fi
 
-total=$((c_library_to_product + c_foundation_internal + c_lateral + c_upward + c_non_adjacent + c_unmapped))
+total=$((c_library_to_product + c_core_to_layer + c_foundation_internal + c_lateral + c_upward + c_non_adjacent + c_unmapped))
 
 if [[ "$total" -eq 0 ]]; then
   echo "✅ Layer boundaries OK: no forbidden dependencies found."
@@ -365,6 +392,7 @@ echo ""
 echo "Summary:"
 echo "- library->product: $c_library_to_product"
 if [[ "$strict_mode" == "true" ]]; then
+  echo "- core-to-layer: $c_core_to_layer"
   echo "- foundation-internal: $c_foundation_internal"
   echo "- lateral: $c_lateral"
   echo "- upward: $c_upward"
