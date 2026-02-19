@@ -21,7 +21,10 @@ git_hooks/
 ├── pre-commit          # Runs code formatting before commit
 ├── prepare-commit-msg  # Auto-generates commit subject from context
 ├── pre-push            # Runs quality checks before push
-└── install_hooks.sh    # Installs git hooks (worktree-aware)
+├── install_hooks.sh    # Installs git hooks (worktree-aware)
+└── tests/
+    ├── convention_guardrails_regression.sh  # Regression tests for issue trailer guardrails
+    └── fixtures/                             # Commit message fixtures for allow/block cases
 ```
 
 ## Files
@@ -32,6 +35,7 @@ git_hooks/
 - `prepare-commit-msg`: Auto-generates commit subject from branch/staged files.
 - `pre-push`: Runs quality checks before push.
 - `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
+- `tests/convention_guardrails_regression.sh`: Regression suite for issue trailer guardrails in `commit-msg`, `pre-push`, and `post-checkout`.
 
 ## Available hooks
 
@@ -164,6 +168,12 @@ To update the hooks after changes:
 
 ```bash
 ./scripts/automation/git_hooks/install_hooks.sh
+```
+
+To run guardrail regression tests:
+
+```bash
+./scripts/automation/git_hooks/tests/convention_guardrails_regression.sh
 ```
 
 To temporarily disable a hook:

@@ -14,3 +14,7 @@ This document provides an overview of all documentation files in this directory.
 - [pre-commit](pre-commit): Runs code formatting before commit
 - [pre-push](pre-push): Runs quality checks before push
 - [install_hooks.sh](install_hooks.sh): Installs git hooks to .git/hooks/
+
+## Tests
+
+- [tests/convention_guardrails_regression.sh](tests/convention_guardrails_regression.sh): Regression tests for commit-msg/pre-push/post-checkout convention guardrails
