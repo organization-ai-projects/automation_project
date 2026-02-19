@@ -76,6 +76,86 @@ detect_required_scopes_from_staged_files() {
   printf '%s\n' "${required[@]}"
 }
 
+validate_and_normalize_issue_refs_footer() {
+  local issue_ref_re='(^|[[:space:]])(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#[0-9]+([[:space:]]|$)'
+  local trailer_line_re='^[[:space:]]*(Closes|Fixes|Resolves|Part[[:space:]]+of|Related[[:space:]]+to)[[:space:]]+#[0-9]+[[:space:]]*$'
+  local subject_lower
+  subject_lower="$(printf '%s' "$COMMIT_SUBJECT" | tr '[:upper:]' '[:lower:]')"
+
+  if [[ "$subject_lower" =~ $issue_ref_re ]]; then
+    echo "❌ Issue references must be in commit footer, not in subject." >&2
+    echo "   Move 'Closes/Fixes/Resolves/Part of/Related to #...' to footer lines." >&2
+    return 1
+  fi
+
+  # Collect action trailers from non-comment lines (excluding subject line).
+  mapfile -t all_action_trailers < <(
+    sed '/^[[:space:]]*#/d' "$COMMIT_MSG_FILE" \
+      | tail -n +2 \
+      | sed -nE 's/^[[:space:]]*((Closes|Fixes|Resolves|Part[[:space:]]+of|Related[[:space:]]+to)[[:space:]]+#[0-9]+)[[:space:]]*$/\1/p' \
+      | awk '!seen[$0]++'
+  )
+
+  [[ ${#all_action_trailers[@]} -eq 0 ]] && return 0
+
+  mapfile -t message_lines < <(sed '/^[[:space:]]*#/d' "$COMMIT_MSG_FILE")
+
+  local last_non_empty=-1
+  local i line
+
+  for i in "${!message_lines[@]}"; do
+    line="${message_lines[$i]}"
+    if [[ "$line" =~ [^[:space:]] ]]; then
+      last_non_empty=$i
+    fi
+  done
+
+  declare -A footer_trailers=()
+  if (( last_non_empty > 0 )); then
+    # A footer is treated as the trailing block of trailer lines at the end
+    # of the message (excluding subject and comments).
+    i=$last_non_empty
+    while (( i > 0 )); do
+      line="${message_lines[$i]}"
+      if [[ "$line" =~ ^[[:space:]]*$ ]]; then
+        i=$((i - 1))
+        continue
+      fi
+      if [[ "$line" =~ $trailer_line_re ]]; then
+        line="$(echo "$line" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+        footer_trailers["$line"]=1
+        i=$((i - 1))
+        continue
+      fi
+      break
+    done
+  fi
+
+  local -a missing_trailers=()
+  for line in "${all_action_trailers[@]}"; do
+    line="$(echo "$line" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+    if [[ -z "${footer_trailers[$line]:-}" ]]; then
+      missing_trailers+=("$line")
+    fi
+  done
+
+  [[ ${#missing_trailers[@]} -eq 0 ]] && return 0
+
+  # Ensure a footer separator before appending missing trailers.
+  if [[ -s "$COMMIT_MSG_FILE" ]]; then
+    if ! tail -n1 "$COMMIT_MSG_FILE" | grep -qE '^[[:space:]]*$'; then
+      echo >> "$COMMIT_MSG_FILE"
+    fi
+  fi
+  echo >> "$COMMIT_MSG_FILE"
+
+  for line in "${missing_trailers[@]}"; do
+    echo "$line" >> "$COMMIT_MSG_FILE"
+  done
+
+  return 0
+}
+
 # Validate format: <type>(<scope>): <message> or <type>: <message>
 # Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
 if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
@@ -101,6 +181,10 @@ if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
   echo "  $COMMIT_SUBJECT" >&2
   echo "" >&2
   echo "Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
+  exit 1
+fi
+
+if ! validate_and_normalize_issue_refs_footer; then
   exit 1
 fi
 

@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# Git hook: prepare-commit-msg
+# Auto-generates a conventional commit subject from branch name and staged files.
+# Bypass: SKIP_PREPARE_COMMIT_MSG=1 git commit ...
+set -euo pipefail
+
+COMMIT_MSG_FILE="${1:-}"
+COMMIT_SOURCE="${2:-}"
+
+if [[ -z "$COMMIT_MSG_FILE" || ! -f "$COMMIT_MSG_FILE" ]]; then
+  exit 0
+fi
+
+# Keep explicit user messages and special commit flows untouched.
+if [[ "$COMMIT_SOURCE" == "message" || "$COMMIT_SOURCE" == "merge" || "$COMMIT_SOURCE" == "squash" || "$COMMIT_SOURCE" == "commit" ]]; then
+  exit 0
+fi
+
+if [[ "${SKIP_PREPARE_COMMIT_MSG:-}" == "1" ]]; then
+  exit 0
+fi
+
+# Do not override non-empty messages (ignoring comments and blank lines).
+if grep -Eq '^[[:space:]]*[^#[:space:]].*$' "$COMMIT_MSG_FILE"; then
+  exit 0
+fi
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+if [[ -z "$BRANCH" || "$BRANCH" == "HEAD" ]]; then
+  exit 0
+fi
+
+map_branch_type() {
+  local branch="$1"
+  local prefix="${branch%%/*}"
+  case "$prefix" in
+    feat|feature) echo "feat" ;;
+    fix|hotfix|bugfix) echo "fix" ;;
+    docs|doc) echo "docs" ;;
+    refactor) echo "refactor" ;;
+    test|tests) echo "test" ;;
+    chore) echo "chore" ;;
+    ci) echo "ci" ;;
+    perf) echo "perf" ;;
+    build) echo "build" ;;
+    *) echo "" ;;
+  esac
+}
+
+is_docs_only_change() {
+  local files="$1"
+  local file
+
+  [[ -z "$files" ]] && return 1
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if [[ "$file" == documentation/* ]] || [[ "$file" == .github/documentation/* ]] || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] || [[ "$file" == *.md ]]; then
+      continue
+    fi
+    return 1
+  done <<< "$files"
+
+  return 0
+}
+
+is_tests_only_change() {
+  local files="$1"
+  local file
+
+  [[ -z "$files" ]] && return 1
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if [[ "$file" == *"/tests/"* ]] || [[ "$file" == *"_test.rs" ]] || [[ "$file" == *"/tests.rs" ]]; then
+      continue
+    fi
+    return 1
+  done <<< "$files"
+
+  return 0
+}
+
+detect_required_scopes_from_staged_files() {
+  local files
+  files="$(git diff --cached --name-only --diff-filter=ACMRU)"
+  local required=()
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+
+    if [[ "$file" =~ ^projects/libraries/([^/]+)/ ]]; then
+      local scope="projects/libraries/${BASH_REMATCH[1]}"
+      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
+        required+=("$scope")
+      fi
+      continue
+    fi
+
+    if [[ "$file" =~ ^projects/products/[^/]+/([^/]+)/ ]]; then
+      local product_name="${BASH_REMATCH[1]}"
+      local component=""
+      if [[ "$file" =~ ^projects/products/[^/]+/[^/]+/(ui|backend)/ ]]; then
+        component="${BASH_REMATCH[1]}"
+      fi
+
+      local scope="projects/products/${product_name}"
+      if [[ -n "$component" ]]; then
+        scope="${scope}/${component}"
+      fi
+
+      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
+        required+=("$scope")
+      fi
+    fi
+  done <<< "$files"
+
+  printf '%s\n' "${required[@]}"
+}
+
+join_scopes_csv() {
+  local scopes="$1"
+  local csv=""
+  local scope
+  while IFS= read -r scope; do
+    [[ -z "$scope" ]] && continue
+    if [[ -z "$csv" ]]; then
+      csv="$scope"
+    else
+      csv="${csv},${scope}"
+    fi
+  done <<< "$scopes"
+  printf '%s' "$csv"
+}
+
+slug_to_words() {
+  local input="$1"
+  local output="$input"
+  output="${output//\// }"
+  output="${output//_/ }"
+  output="${output//-/ }"
+  output="$(echo "$output" | sed -E 's/[[:space:]]+/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')"
+  printf '%s' "$output"
+}
+
+derive_description() {
+  local branch="$1"
+  local files="$2"
+  local name="$branch"
+
+  # Drop known prefixes and optional ticket id prefix.
+  name="$(echo "$name" | sed -E 's#^(feat|feature|fix|hotfix|bugfix|docs|doc|refactor|test|tests|chore|ci|perf|build)/##')"
+  name="$(echo "$name" | sed -E 's#^[A-Za-z]+-[0-9]+[-_/]##')"
+  name="$(slug_to_words "$name")"
+
+  if [[ -n "$name" ]]; then
+    printf '%s' "$name"
+    return 0
+  fi
+
+  local first_file
+  first_file="$(echo "$files" | head -n1)"
+  if [[ -n "$first_file" ]]; then
+    local stem
+    stem="$(basename "$first_file")"
+    stem="${stem%.*}"
+    stem="$(slug_to_words "$stem")"
+    if [[ -n "$stem" ]]; then
+      printf 'update %s' "$stem"
+      return 0
+    fi
+  fi
+
+  printf 'update changes'
+}
+
+STAGED_FILES="$(git diff --cached --name-only --diff-filter=ACMRU)"
+if [[ -z "$STAGED_FILES" ]]; then
+  exit 0
+fi
+
+# Prioritize staged-file intent over branch prefix so one branch can host
+# multiple commit types (e.g., docs + test + feat commits).
+if is_docs_only_change "$STAGED_FILES"; then
+  TYPE="docs"
+elif is_tests_only_change "$STAGED_FILES"; then
+  TYPE="test"
+else
+  TYPE="$(map_branch_type "$BRANCH")"
+  [[ -z "$TYPE" ]] && TYPE="chore"
+fi
+
+SCOPES="$(detect_required_scopes_from_staged_files)"
+SCOPES_CSV="$(join_scopes_csv "$SCOPES")"
+DESCRIPTION="$(derive_description "$BRANCH" "$STAGED_FILES")"
+
+if [[ -z "$SCOPES_CSV" ]]; then
+  SCOPES_CSV="workspace"
+fi
+
+SUBJECT="${TYPE}(${SCOPES_CSV}): ${DESCRIPTION}"
+
+{
+  echo "$SUBJECT"
+  echo
+  echo "# Auto-generated from branch '$BRANCH' and staged files."
+  echo "# Edit freely before saving this commit."
+} > "$COMMIT_MSG_FILE"
+
+exit 0
