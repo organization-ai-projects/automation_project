@@ -66,6 +66,7 @@ source /absolute/path/to/repo/scripts/automation/git_add_command_override.sh
 ```
 
 After sourcing, only `git add` is overridden; all other `git` commands are unchanged.
+
 - `pre_push_check.sh`: Pre-push validation.
 - `release_prepare.sh`: Prepare releases with version/changelog/tag.
 - `setup_hooks.sh`: Install git hooks.
