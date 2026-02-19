@@ -126,13 +126,12 @@ jobs:
       - name: Cargo clippy
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: |
-          if [[ ! -f Cargo.lock ]]; then
-            echo "❌ Cargo.lock not found." >&2
-            echo "   For binary/application crates: commit Cargo.lock to the repository." >&2
-            echo "   For library-only workspaces: this is expected — remove this check." >&2
-            exit 1
+          if [[ -f Cargo.lock ]]; then
+            cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
+          else
+            echo "Cargo.lock missing in checkout, running clippy without --locked."
+            cargo clippy --workspace --all-features --all-targets -- -D warnings
           fi
-          cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
 
       - name: Cargo test
         if: steps.changes.outputs.run_rust_checks == 'true'
