@@ -24,7 +24,7 @@ Langue : [English](../../../technical_documentation/TOC.md) | **Francais**
 
 ## Documents encore disponibles en anglais
 
-- Aucun pour ce sous-ensemble technique cible.
+- [Core Zone Architecture Model (Draft RFC)](../../../technical_documentation/core_zone_architecture_model.md) : proposition de modele foundation/contracts/domain/orchestration (EN seulement)
 
 ## Documentation associee
 
