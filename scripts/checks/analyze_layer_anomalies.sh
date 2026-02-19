@@ -10,7 +10,7 @@ Usage:
   ./scripts/checks/analyze_layer_anomalies.sh [options]
 
 Options:
-  --protocol-layer L1|L2|UNDECIDED   Placement assumption for crate "protocol" (default: L1)
+  --protocol-layer L1|L2|UNDECIDED   Deprecated. Kept for backward compatibility (ignored).
   --map-file PATH                    Optional override map file (format: crate=L0|L1|L2|L3|UNMAPPED)
   --json-out PATH                    Optional JSON report output path
   --fail-on-anomaly true|false       Exit non-zero if anomalies are found (default: false)
@@ -23,7 +23,7 @@ Notes:
 USAGE
 }
 
-protocol_layer="L1"
+protocol_layer="UNDECIDED"
 map_file=""
 json_out=""
 fail_on_anomaly="false"
@@ -182,11 +182,7 @@ default_layer_for() {
       echo "L3"
       ;;
     protocol)
-      if [[ "$protocol_layer" == "UNDECIDED" ]]; then
-        echo "L1"
-      else
-        echo "$protocol_layer"
-      fi
+      echo "UNMAPPED"
       ;;
     *)
       echo "UNMAPPED"
@@ -209,6 +205,21 @@ layer_of() {
   awk -F'\t' -v c="$crate" '$1==c{print $2; found=1; exit} END{if(!found) print "UNMAPPED"}' "$layer_tsv"
 }
 
+core_of() {
+  local crate="$1"
+  case "$crate" in
+    ast_core|ast_macros|command_runner|common|common_binary|common_calendar|common_json|common_parsing|common_ron|common_time|common_tokenize|hybrid_arena|pjson_proc_macros|protocol_macros)
+      echo "foundation"
+      ;;
+    protocol|security_core)
+      echo "contracts"
+      ;;
+    *)
+      echo "none"
+      ;;
+  esac
+}
+
 layer_rank() {
   local layer="$1"
   case "$layer" in
@@ -226,6 +237,7 @@ upward_edges="$tmpdir/upward.tsv"
 non_adjacent_edges="$tmpdir/non_adjacent.tsv"
 foundation_internal_edges="$tmpdir/foundation_internal.tsv"
 unknown_edges="$tmpdir/unknown.tsv"
+core_to_layer_edges="$tmpdir/core_to_layer.tsv"
 cycle_signals="$tmpdir/cycle_signals.txt"
 unmapped_crates="$tmpdir/unmapped.tsv"
 mixed_profile="$tmpdir/mixed_profile.tsv"
@@ -236,6 +248,7 @@ mixed_profile="$tmpdir/mixed_profile.tsv"
 : > "$non_adjacent_edges"
 : > "$foundation_internal_edges"
 : > "$unknown_edges"
+: > "$core_to_layer_edges"
 : > "$cycle_signals"
 : > "$mixed_profile"
 
@@ -260,8 +273,18 @@ while IFS=$'\t' read -r _fid from_name from_manifest _tid to_name to_manifest; d
 
   from_layer="$(layer_of "$from_name")"
   to_layer="$(layer_of "$to_name")"
+  from_core="$(core_of "$from_name")"
+  to_core="$(core_of "$to_name")"
   from_rank="$(layer_rank "$from_layer")"
   to_rank="$(layer_rank "$to_layer")"
+
+  if [[ "$from_core" != "none" || "$to_core" != "none" ]]; then
+    if [[ "$from_core" != "none" && "$to_core" == "none" ]]; then
+      printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$core_to_layer_edges"
+      continue
+    fi
+    continue
+  fi
 
   if [[ "$from_rank" -lt 0 || "$to_rank" -lt 0 ]]; then
     printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$unknown_edges"
@@ -295,6 +318,7 @@ sort -u "$upward_edges" -o "$upward_edges"
 sort -u "$non_adjacent_edges" -o "$non_adjacent_edges"
 sort -u "$foundation_internal_edges" -o "$foundation_internal_edges"
 sort -u "$unknown_edges" -o "$unknown_edges"
+sort -u "$core_to_layer_edges" -o "$core_to_layer_edges"
 
 # Potential cycle signals from library-only graph (tsort is a quick signal, not full SCC report).
 lib_edges_for_tsort="$tmpdir/lib_edges_for_tsort.tsv"
@@ -373,11 +397,12 @@ c_upward="$(count_file_lines "$upward_edges")"
 c_non_adjacent="$(count_file_lines "$non_adjacent_edges")"
 c_foundation_internal="$(count_file_lines "$foundation_internal_edges")"
 c_unknown="$(count_file_lines "$unknown_edges")"
+c_core_to_layer="$(count_file_lines "$core_to_layer_edges")"
 c_unmapped="$(count_file_lines "$unmapped_crates")"
 c_mixed="$(count_file_lines "$mixed_profile")"
 
 echo "=== Layer Anomaly Analysis (semi-automated) ==="
-echo "Protocol layer assumption: $protocol_layer"
+echo "Protocol placement: core/contracts (checker-aligned)"
 echo "Map overrides: ${map_file:-none}"
 echo ""
 echo "Library crates by provisional layer:"
@@ -389,6 +414,7 @@ echo "- foundation internal deps (L0 -> workspace): $c_foundation_internal"
 echo "- lateral edges: $c_lateral"
 echo "- upward edges: $c_upward"
 echo "- non-adjacent edges: $c_non_adjacent"
+echo "- core->layer edges: $c_core_to_layer"
 echo "- edges with UNMAPPED layers: $c_unknown"
 echo "- unmapped crates: $c_unmapped"
 echo "- mixed consumer profile crates: $c_mixed"
@@ -425,6 +451,7 @@ print_section "foundation internal dependencies (L0 must have none)" "$foundatio
 print_section "lateral edges" "$lateral_edges" "edge4"
 print_section "upward edges" "$upward_edges" "edge4"
 print_section "non-adjacent edges" "$non_adjacent_edges" "edge4"
+print_section "core->layer edges" "$core_to_layer_edges" "edge4"
 print_section "edges with UNMAPPED layers" "$unknown_edges" "edge4"
 print_section "UNMAPPED crates" "$unmapped_crates" "raw"
 print_section "mixed consumer profile (decision hotspots)" "$mixed_profile" "raw"
@@ -477,6 +504,12 @@ if [[ -n "$json_out" ]]; then
         map(split("\t")) | map({from: .[0], from_layer: .[1], to: .[2], to_layer: .[3]})
       ' "$unknown_edges"
     )" \
+    --argjson core_to_layer "$(
+      jq -R -s '
+        split("\n") | map(select(length>0)) |
+        map(split("\t")) | map({from: .[0], from_layer: .[1], to: .[2], to_layer: .[3]})
+      ' "$core_to_layer_edges"
+    )" \
     --argjson unmapped_crates "$(
       jq -R -s 'split("\n") | map(select(length>0))' "$unmapped_crates"
     )" \
@@ -493,7 +526,7 @@ if [[ -n "$json_out" ]]; then
       ' "$layer_tsv"
     )" \
     '{
-      protocol_layer_assumption: $protocol_layer,
+      protocol_layer_assumption: "core/contracts",
       map_file: (if $map_file == "" then null else $map_file end),
       provisional_layers: $provisional_layers,
       anomalies: {
@@ -502,6 +535,7 @@ if [[ -n "$json_out" ]]; then
         lateral: $lateral,
         upward: $upward,
         non_adjacent: $non_adjacent,
+        core_to_layer: $core_to_layer,
         unknown_edges: $unknown_edges,
         unmapped_crates: $unmapped_crates,
         mixed_profile: $mixed_profile,
@@ -511,7 +545,7 @@ if [[ -n "$json_out" ]]; then
   echo "JSON report written to: $json_out"
 fi
 
-total_anomalies=$((c_library_to_product + c_foundation_internal + c_lateral + c_upward + c_non_adjacent + c_unknown + c_unmapped))
+total_anomalies=$((c_library_to_product + c_foundation_internal + c_lateral + c_upward + c_non_adjacent + c_core_to_layer + c_unknown + c_unmapped))
 if [[ "$fail_on_anomaly" == "true" && "$total_anomalies" -gt 0 ]]; then
   exit 1
 fi
