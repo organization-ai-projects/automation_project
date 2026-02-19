@@ -9,6 +9,7 @@ Define governance rules for the canonical workspace `crate -> layer` mapping art
 - Primary artifact: `scripts/checks/layer_map.txt`
 - Format: `crate_name=L0|L1|L2|L3|UNMAPPED`
 - Scope: workspace crates under `projects/libraries/`
+- Core overlay is checker-managed (no separate artifact file).
 
 ## Ownership
 

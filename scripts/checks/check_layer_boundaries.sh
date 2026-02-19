@@ -161,6 +161,21 @@ is_whitelisted() {
   awk -F'\t' -v f="$from" -v t="$to" '$1==f && $2==t{found=1; exit} END{exit(found?0:1)}' "$whitelist_tsv"
 }
 
+core_of() {
+  local crate="$1"
+  case "$crate" in
+    ast_core|ast_macros|command_runner|common|common_binary|common_calendar|common_json|common_parsing|common_ron|common_time|common_tokenize|hybrid_arena|pjson_proc_macros|protocol_macros)
+      echo "foundation"
+      ;;
+    protocol)
+      echo "contracts"
+      ;;
+    *)
+      echo "none"
+      ;;
+  esac
+}
+
 library_to_product="$tmpdir/library_to_product.tsv"
 foundation_internal="$tmpdir/foundation_internal.tsv"
 lateral="$tmpdir/lateral.tsv"
@@ -201,6 +216,8 @@ while IFS=$'\t' read -r from_name from_manifest to_name to_manifest; do
 
   from_layer="$(layer_of "$from_name")"
   to_layer="$(layer_of "$to_name")"
+  from_core="$(core_of "$from_name")"
+  to_core="$(core_of "$to_name")"
   from_rank="$(rank_of "$from_layer")"
   to_rank="$(rank_of "$to_layer")"
 
@@ -209,6 +226,10 @@ while IFS=$'\t' read -r from_name from_manifest to_name to_manifest; do
     continue
   fi
   if [[ "$from_layer" == "L0" ]]; then
+    # Core foundation overlay: allow controlled L0->L0 edges inside the foundation set.
+    if [[ "$from_core" == "foundation" && "$to_core" == "foundation" && "$to_layer" == "L0" ]]; then
+      continue
+    fi
     printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$foundation_internal"
     continue
   fi
@@ -217,6 +238,10 @@ while IFS=$'\t' read -r from_name from_manifest to_name to_manifest; do
     continue
   fi
   if [[ "$to_rank" -eq "$from_rank" ]]; then
+    # Core contracts overlay: allow protocol/contracts to consume foundation crates in L1.
+    if [[ "$from_core" == "contracts" && "$to_core" == "foundation" && "$from_layer" == "L1" && "$to_layer" == "L1" ]]; then
+      continue
+    fi
     printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$lateral"
     continue
   fi
@@ -258,6 +283,7 @@ fi
 if [[ "$strict_mode" == "true" ]]; then
   echo "Checking strict workspace layer dependency boundaries..."
   echo "- map file: $MAP_FILE"
+  echo "- core overlay: built-in (checker-managed)"
   echo "- whitelist file: $WHITELIST_FILE"
   echo "- whitelist edges applied: $c_whitelist_used"
 else
