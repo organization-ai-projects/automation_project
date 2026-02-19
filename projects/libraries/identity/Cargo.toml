@@ -7,7 +7,7 @@ edition = "2024"
 thiserror = { workspace = true }
 serde = { workspace = true }
 common = { workspace = true }
-security = { workspace = true }
+security_core = { workspace = true }
 protocol = { workspace = true }
 tokio = { version = "1", features = ["full"] }
 rand = { workspace = true }
