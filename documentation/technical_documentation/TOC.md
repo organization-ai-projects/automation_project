@@ -7,6 +7,7 @@ Language: **English** | [Francais](../i18n/fr/technical_documentation/TOC.md)
 - [Automated Documentation](documentation.md): Details on how documentation is generated and maintained
 - [Branch Naming Convention](branch_naming_convention.md): Repository branch naming rules and examples
 - [Commit Footer Policy](commit_footer_policy.md): Standard usage rules for issue-closing and linking footers
+- [Core Zone Architecture Model (Draft RFC)](core_zone_architecture_model.md): Proposed foundation/contracts/domain/orchestration architecture model
 - [Documentation Template Standard](documentation_template_standard.md): Canonical template rules for README.md and TOC.md roles/sections
 - [Documentation EN/FR Policy](documentation_i18n_policy.md): Deterministic bilingual structure and migration rules
 - [Documentation Ownership Map](documentation_ownership_map.md): Ownership and maintenance expectations by documentation zone
