@@ -33,7 +33,7 @@ source "$HOOKS_DIR/lib/commit_message_policy.sh"
 source "$HOOKS_DIR/lib/issue_footer_policy.sh"
 
 # Validate format: <type>(<scope>): <message> or <type>: <message>
-# Allows multiple scopes separated by commas and dot-scopes: feat(ci,.github): message
+# Allows multiple scopes separated by commas and dot-scopes: feat(.github,scripts): message
 if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
   echo "❌ Invalid commit message format!" >&2
   echo "" >&2
@@ -43,11 +43,11 @@ if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
   echo "  <type>: <message>" >&2
   echo "" >&2
   echo "Allowed types:" >&2
-  echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore, ci, perf, build" >&2
+  echo "  feature, feat, fix, doc, docs, refactor, test, tests, chore, perf" >&2
   echo "" >&2
   echo "Examples:" >&2
   echo "  feat(projects/libraries/security): add user authentication" >&2
-  echo "  feat(ci,scripts): add workflows and sync script" >&2
+  echo "  chore(scripts): add workflows and sync script" >&2
   echo "  docs(.github): add default PR template" >&2
   echo "  fix: resolve null pointer exception" >&2
   echo "  docs(readme): update installation instructions" >&2

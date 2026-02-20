@@ -51,11 +51,11 @@ SCOPES="$(detect_required_scopes_from_staged_files)"
 SCOPES_CSV="$(join_scopes_csv "$SCOPES")"
 DESCRIPTION="$(derive_description "$BRANCH" "$STAGED_FILES")"
 
-if [[ -z "$SCOPES_CSV" ]]; then
-  SCOPES_CSV="workspace"
+if [[ -n "$SCOPES_CSV" ]]; then
+  SUBJECT="${TYPE}(${SCOPES_CSV}): ${DESCRIPTION}"
+else
+  SUBJECT="${TYPE}(workspace): ${DESCRIPTION}"
 fi
-
-SUBJECT="${TYPE}(${SCOPES_CSV}): ${DESCRIPTION}"
 
 {
   echo "$SUBJECT"
