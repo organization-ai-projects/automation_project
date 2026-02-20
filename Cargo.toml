@@ -29,7 +29,7 @@ members = [
   "projects/products/stable/code_agent_sandbox",
   "projects/products/unstable/auto_manager_ai",
   "projects/products/unstable/autonomous_dev_ai",
-  "projects/libraries/ast_core",
+  "projects/libraries/core/foundation/ast_core",
   "projects/libraries/ast_macros",
   "projects/libraries/pjson_proc_macros",
   "projects/libraries/hybrid_arena",
@@ -75,7 +75,7 @@ common_ron = { path = "projects/libraries/core/foundation/common_ron" }
 common_parsing = { path = "projects/libraries/core/foundation/common_parsing" }
 common_tokenize = { path = "projects/libraries/core/foundation/common_tokenize" }
 protocol_macros = { path = "projects/libraries/protocol_macros" }
-ast_core = { path = "projects/libraries/ast_core" }
+ast_core = { path = "projects/libraries/core/foundation/ast_core" }
 ast_macros = { path = "projects/libraries/ast_macros" }
 ai = { path = "projects/libraries/ai" }
 hybrid_arena = { path = "projects/libraries/hybrid_arena" }
