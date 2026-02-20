@@ -2,15 +2,6 @@
 
 # Shared scope/crate resolver helpers for git hooks and staging guards.
 
-is_docs_file() {
-  local file="$1"
-  [[ "$file" == documentation/* ]] \
-    || [[ "$file" == .github/documentation/* ]] \
-    || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] \
-    || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] \
-    || [[ "$file" == *.md ]]
-}
-
 resolve_scope_from_path() {
   local file="$1"
 

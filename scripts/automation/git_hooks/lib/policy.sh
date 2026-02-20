@@ -5,6 +5,15 @@
 # shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
 source "$(git rev-parse --show-toplevel)/scripts/automation/git_hooks/lib/scope_resolver.sh"
 
+is_docs_file() {
+  local file="$1"
+  [[ "$file" == documentation/* ]] \
+    || [[ "$file" == .github/documentation/* ]] \
+    || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] \
+    || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] \
+    || [[ "$file" == *.md ]]
+}
+
 is_docs_or_scripts_file() {
   local file="$1"
   is_docs_file "$file" \
