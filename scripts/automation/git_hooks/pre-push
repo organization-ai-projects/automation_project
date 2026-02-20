@@ -18,24 +18,24 @@ HOOKS_DIR="$REPO_ROOT/scripts/automation/git_hooks"
 # shellcheck source=scripts/automation/git_hooks/lib/push_policy.sh
 source "$HOOKS_DIR/lib/push_policy.sh"
 
-UPSTREAM_BRANCH="$(resolve_upstream_branch)"
-commits="$(collect_push_commits "$UPSTREAM_BRANCH")"
+UPSTREAM_BRANCH="$(hook_utils_resolve_upstream_branch)"
+commits="$(hook_utils_collect_push_commits "$UPSTREAM_BRANCH")"
 
-if ! validate_no_root_parent_issue_refs "$commits"; then
+if ! push_policy_validate_no_root_parent_issue_refs "$commits"; then
   exit 1
 fi
 
-if ! validate_part_of_only_push "$commits"; then
+if ! push_policy_validate_part_of_only_push "$commits"; then
   exit 1
 fi
 
-changed_files="$(compute_changed_files "$UPSTREAM_BRANCH")"
+changed_files="$(hook_utils_compute_changed_files "$UPSTREAM_BRANCH")"
 
 if is_docs_or_scripts_only_change "$changed_files"; then
   echo "📄 Docs/scripts-only changes detected."
   echo "🧪 Skipping Rust fmt/clippy/tests for this push."
   echo "🔎 Running lightweight shell syntax checks..."
-  run_shell_syntax_checks "$changed_files"
+  hook_utils_run_shell_syntax_checks "$changed_files"
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "✅ Pre-push checks PASSED (docs/scripts-only mode)"
@@ -44,7 +44,7 @@ if is_docs_or_scripts_only_change "$changed_files"; then
   exit 0
 fi
 
-AFFECTED="$(detect_crates_from_scopes "$commits")"
+AFFECTED="$(push_policy_detect_crates_from_scopes "$commits")"
 SCOPE_VALID=$?
 
 LOCKED_ARGS=()

@@ -25,6 +25,7 @@ git_hooks/
 ├── lib/policy.sh       # Shared predicates (docs-only/tests-only/docs+scripts/mixed/mono-scope)
 ├── lib/commit_message_policy.sh # Shared commit message generation policy helpers
 ├── lib/issue_footer_policy.sh # Shared footer normalization/validation for issue refs
+├── lib/hook_utils.sh  # Generic non-policy helpers (git ranges, shell syntax scan)
 ├── lib/push_policy.sh  # Shared pre-push policy helpers (range/refs/scope parsing/shell checks)
 ├── install_hooks.sh    # Installs git hooks (worktree-aware)
 └── tests/
@@ -43,7 +44,8 @@ git_hooks/
 - `lib/policy.sh`: Shared predicates (`docs-only`, `tests-only`, `docs/scripts-only`, mixed docs/code detection, multi-scope detection) to keep hooks aligned.
 - `lib/commit_message_policy.sh`: Shared commit message helpers (type mapping, description/scopes formatting, scope extraction).
 - `lib/issue_footer_policy.sh`: Shared issue footer normalization and parent-reference validation used by `commit-msg`.
-- `lib/push_policy.sh`: Shared pre-push helpers (upstream range detection, trailer guardrails, changed-files selection, scope -> crate resolution, shell syntax checks).
+- `lib/hook_utils.sh`: Generic reusable helpers (upstream/range resolution and shell syntax checks).
+- `lib/push_policy.sh`: Shared pre-push policy helpers (trailer guardrails and scope -> crate resolution for targeted checks).
 - `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
 - `tests/convention_guardrails_regression.sh`: Regression suite for issue trailer guardrails in `commit-msg`, `pre-push`, and `post-checkout`.
 

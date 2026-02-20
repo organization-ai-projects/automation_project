@@ -11,23 +11,10 @@ source "$HOOKS_DIR/lib/issue_parent_guard.sh"
 source "$HOOKS_DIR/lib/scope_resolver.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/policy.sh
 source "$HOOKS_DIR/lib/policy.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/hook_utils.sh
+source "$HOOKS_DIR/lib/hook_utils.sh"
 
-resolve_upstream_branch() {
-  local upstream
-  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")"
-  if [[ -z "$upstream" ]]; then
-    echo "⚠️  No upstream branch detected. Falling back to origin/dev for scope detection." >&2
-    upstream="origin/dev"
-  fi
-  printf '%s\n' "$upstream"
-}
-
-collect_push_commits() {
-  local upstream="$1"
-  git log "$upstream"..HEAD --format=%B 2>/dev/null || true
-}
-
-validate_no_root_parent_issue_refs() {
+push_policy_validate_no_root_parent_issue_refs() {
   local commits_input="$1"
   local refs
   refs="$(extract_issue_refs_from_text "$commits_input" || true)"
@@ -66,7 +53,7 @@ validate_no_root_parent_issue_refs() {
   fi
 }
 
-validate_part_of_only_push() {
+push_policy_validate_part_of_only_push() {
   local commits_input="$1"
   local refs
   local action
@@ -95,64 +82,7 @@ validate_part_of_only_push() {
   fi
 }
 
-compute_changed_files() {
-  local upstream="$1"
-  local files=""
-
-  files=$(git diff --name-only "${upstream}"..HEAD 2>/dev/null || true)
-  if [[ -n "$files" ]]; then
-    printf '%s\n' "$files"
-    return 0
-  fi
-
-  if git rev-parse --verify --quiet origin/dev >/dev/null; then
-    local base
-    base=$(git merge-base origin/dev HEAD 2>/dev/null || true)
-    if [[ -n "$base" ]]; then
-      files=$(git diff --name-only "${base}"..HEAD 2>/dev/null || true)
-      if [[ -n "$files" ]]; then
-        printf '%s\n' "$files"
-        return 0
-      fi
-    fi
-  fi
-
-  files=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)
-  printf '%s\n' "$files"
-}
-
-run_shell_syntax_checks() {
-  local files="$1"
-  local checked=0
-  local file
-
-  while IFS= read -r file; do
-    [[ -z "$file" || ! -f "$file" ]] && continue
-
-    local is_shell=false
-    if [[ "$file" == *.sh ]]; then
-      is_shell=true
-    elif [[ -x "$file" ]]; then
-      local shebang
-      shebang=$(head -n1 "$file" 2>/dev/null || true)
-      if [[ "$shebang" =~ ^#!.*(ba)?sh([[:space:]]|$) ]]; then
-        is_shell=true
-      fi
-    fi
-
-    if [[ "$is_shell" == true ]]; then
-      echo "   - bash -n $file"
-      bash -n "$file"
-      checked=1
-    fi
-  done <<< "$files"
-
-  if [[ $checked -eq 0 ]]; then
-    echo "   (no shell scripts changed)"
-  fi
-}
-
-detect_crates_from_scopes() {
+push_policy_detect_crates_from_scopes() {
   local commits_input="$1"
   local -a crates=()
   local invalid_scopes=0
