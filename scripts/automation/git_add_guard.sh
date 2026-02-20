@@ -22,6 +22,8 @@ source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
 source "$ROOT_DIR/scripts/automation/git_hooks/lib/scope_resolver.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/policy.sh
+source "$ROOT_DIR/scripts/automation/git_hooks/lib/policy.sh"
 
 require_git_repo
 cd "$ROOT_DIR"
@@ -82,14 +84,14 @@ while IFS= read -r file; do
 done <<< "$PROJECTED_STAGED_FILES"
 
 if [[ "${ALLOW_MIXED_STAGE:-}" != "1" ]]; then
-  if [[ $DOC_COUNT -gt 0 && $NON_DOC_COUNT -gt 0 ]]; then
+  if is_mixed_docs_and_non_docs_change "$PROJECTED_STAGED_FILES"; then
     echo "❌ Staging policy violation: mixed docs + non-doc files in index." >&2
     echo "   Split into separate commits." >&2
     echo "   Bypass (exception): ALLOW_MIXED_STAGE=1 scripts/automation/git_add_guard.sh <paths...>" >&2
     exit 1
   fi
 
-  if [[ ${#CRATES[@]} -gt 1 ]]; then
+  if has_multiple_scopes_in_files "$PROJECTED_STAGED_FILES"; then
     echo "❌ Staging policy violation: multiple crates detected in index." >&2
     echo "   Detected crates/scopes:" >&2
     for crate in "${!CRATES[@]}"; do

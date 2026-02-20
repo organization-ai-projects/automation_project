@@ -22,6 +22,7 @@ git_hooks/
 ├── prepare-commit-msg  # Auto-generates commit subject from context
 ├── pre-push            # Runs quality checks before push
 ├── lib/scope_resolver.sh # Shared scope/crate detection used by hooks/guards
+├── lib/policy.sh       # Shared policy rules (docs/scripts mode, mixed staging, mono-scope)
 ├── install_hooks.sh    # Installs git hooks (worktree-aware)
 └── tests/
     ├── convention_guardrails_regression.sh  # Regression tests for issue trailer guardrails
@@ -36,6 +37,7 @@ git_hooks/
 - `prepare-commit-msg`: Auto-generates commit subject from branch/staged files.
 - `pre-push`: Runs quality checks before push.
 - `lib/scope_resolver.sh`: Shared path -> scope and files -> crates resolver used by `prepare-commit-msg`, `commit-msg`, `pre-push`, and staging guards.
+- `lib/policy.sh`: Shared policy helpers (docs/scripts-only mode, mixed docs/code detection, multi-scope detection) to keep hooks aligned.
 - `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
 - `tests/convention_guardrails_regression.sh`: Regression suite for issue trailer guardrails in `commit-msg`, `pre-push`, and `post-checkout`.
 
