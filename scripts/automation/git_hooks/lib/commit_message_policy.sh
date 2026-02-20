@@ -20,6 +20,27 @@ map_branch_type() {
   esac
 }
 
+detect_commit_type_from_context() {
+  local staged_files="$1"
+  local branch="$2"
+  local type=""
+  local warning=""
+
+  if is_docs_only_change "$staged_files"; then
+    type="docs"
+  elif is_tests_only_change "$staged_files"; then
+    type="test"
+  else
+    type="$(map_branch_type "$branch")"
+    if [[ -z "$type" ]]; then
+      type="chore"
+      warning="# WARNING: branch prefix not recognized; defaulted type to 'chore'."
+    fi
+  fi
+
+  printf '%s|%s\n' "$type" "$warning"
+}
+
 join_scopes_csv() {
   local scopes="$1"
   local csv=""

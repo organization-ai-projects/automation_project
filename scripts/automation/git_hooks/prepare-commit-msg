@@ -43,19 +43,9 @@ if [[ -z "$STAGED_FILES" ]]; then
   exit 0
 fi
 
-# Prioritize staged-file intent over branch prefix so one branch can host
-# multiple commit types (e.g., docs + test + feat commits).
-if is_docs_only_change "$STAGED_FILES"; then
-  TYPE="docs"
-elif is_tests_only_change "$STAGED_FILES"; then
-  TYPE="test"
-else
-  TYPE="$(map_branch_type "$BRANCH")"
-  if [[ -z "$TYPE" ]]; then
-    TYPE="chore"
-    TYPE_FALLBACK_WARNING="# WARNING: branch prefix not recognized; defaulted type to 'chore'."
-  fi
-fi
+type_context="$(detect_commit_type_from_context "$STAGED_FILES" "$BRANCH")"
+TYPE="${type_context%%|*}"
+TYPE_FALLBACK_WARNING="${type_context#*|}"
 
 SCOPES="$(detect_required_scopes_from_staged_files)"
 SCOPES_CSV="$(join_scopes_csv "$SCOPES")"
