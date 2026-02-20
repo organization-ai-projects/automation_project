@@ -135,7 +135,7 @@
     "description": "Calendar and time-related utilities"
   },
   {
-    "name": "projects/libraries/common_json",
+    "name": "projects/libraries/core/foundation/common_json",
     "color": "7F7F7F",
     "description": "JSON handling and serialization utilities"
   },
