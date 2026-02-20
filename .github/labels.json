@@ -130,7 +130,7 @@
     "description": "Changes related to binary persistence / ABI helpers"
   },
   {
-    "name": "projects/libraries/common_calendar",
+    "name": "projects/libraries/core/foundation/common_calendar",
     "color": "E377C2",
     "description": "Calendar and time-related utilities"
   },
