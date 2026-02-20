@@ -180,7 +180,7 @@
     "description": "Changes in the `projects/libraries/pjson_proc_macros` crate"
   },
   {
-    "name": "projects/libraries/core/protocol",
+    "name": "projects/libraries/core/contracts/protocol",
     "color": "F4B400",
     "description": "Protocol definitions and communication formats"
   },
