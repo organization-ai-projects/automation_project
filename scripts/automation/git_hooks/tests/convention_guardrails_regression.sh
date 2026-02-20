@@ -191,19 +191,19 @@ main() {
     "commit-msg-requires-scope-for-library-change" \
     1 \
     "Missing required scope in commit message" \
-    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && printf 'fix: patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix: patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-rejects-wrong-scope-for-library-change" \
     1 \
     "Commit scope does not match touched files" \
-    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && printf 'fix(projects/libraries/other): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/other): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-allows-correct-scope-for-library-change" \
     0 \
     "" \
-    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && printf 'fix(projects/libraries/security): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers/domain/security): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-rejects-parent-product-scope-for-ui-and-backend-mix" \
@@ -215,13 +215,13 @@ main() {
     "commit-msg-requires-scope-for-staged-deletions" \
     1 \
     "Missing required scope in commit message" \
-    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/security/src/lib.rs && printf 'fix: remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/layers/domain/security/src/lib.rs && printf 'fix: remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-allows-scope-for-staged-deletions" \
     0 \
     "" \
-    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/security/src/lib.rs && printf 'fix(projects/libraries/security): remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers/domain/security): remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-allows-parent-product-scope-for-parent-only-change" \
@@ -305,7 +305,7 @@ main() {
     "commit-msg-blocks-mixed-rust-and-shell" \
     1 \
     "Mixed file format categories are not allowed" \
-    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add projects/libraries/security/src/lib.rs helper.sh && printf 'fix(projects/libraries/security): mixed change\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add projects/libraries/layers/domain/security/src/lib.rs helper.sh && printf 'fix(projects/libraries/layers/domain/security): mixed change\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "pre-commit-docs-only-ignores-unstaged-rust-syntax-errors" \

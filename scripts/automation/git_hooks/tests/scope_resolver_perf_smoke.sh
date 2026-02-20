@@ -15,7 +15,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 FILE_LIST="$TMP_DIR/files.txt"
 for i in $(seq 1 1200); do
-  printf 'projects/libraries/security/src/file_%04d.rs\n' "$i" >> "$FILE_LIST"
+  printf 'projects/libraries/layers/domain/security/src/file_%04d.rs\n' "$i" >> "$FILE_LIST"
 done
 
 FILES="$(cat "$FILE_LIST")"
