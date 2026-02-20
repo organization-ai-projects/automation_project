@@ -17,6 +17,8 @@ cd "$REPO_ROOT" || exit 1
 HOOKS_DIR="$REPO_ROOT/scripts/automation/git_hooks"
 # shellcheck source=scripts/automation/git_hooks/lib/push_policy.sh
 source "$HOOKS_DIR/lib/push_policy.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/rust_checks.sh
+source "$HOOKS_DIR/lib/rust_checks.sh"
 
 UPSTREAM_BRANCH="$(hook_utils_resolve_upstream_branch)"
 commits="$(hook_utils_collect_push_commits "$UPSTREAM_BRANCH")"
@@ -48,7 +50,7 @@ AFFECTED="$(push_policy_detect_crates_from_scopes "$commits")"
 SCOPE_VALID=$?
 
 LOCKED_ARGS=()
-if [[ -f Cargo.lock ]]; then
+if rust_checks_has_lockfile; then
   LOCKED_ARGS=(--locked)
 fi
 
@@ -92,7 +94,7 @@ fi
 FAILED=0
 
 echo "📝 Checking code formatting..."
-if ! cargo fmt --all --check; then
+if ! rust_checks_run_fmt_check; then
   echo ""
   echo "❌ Code formatting check failed!"
   echo "   Run: cargo fmt --all"
@@ -104,7 +106,7 @@ else
 fi
 
 echo "🔎 Running clippy..."
-if ! cargo clippy "${CLIPPY_ARGS[@]}" -- -D warnings; then
+if ! rust_checks_run_clippy "${CLIPPY_ARGS[@]}"; then
   echo ""
   echo "❌ Clippy found issues!"
   echo "   Run: cargo clippy ${CLIPPY_ARGS[*]} -- -D warnings"
@@ -116,7 +118,7 @@ else
 fi
 
 echo "🧪 Running tests..."
-if ! cargo test "${TEST_ARGS[@]}"; then
+if ! rust_checks_run_tests "${TEST_ARGS[@]}"; then
   echo ""
   echo "❌ Tests failed!"
   echo "   Run: cargo test ${TEST_ARGS[*]}"
