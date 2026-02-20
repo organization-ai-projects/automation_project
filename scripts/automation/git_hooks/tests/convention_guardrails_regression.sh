@@ -206,9 +206,9 @@ main() {
     "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && printf 'fix(projects/libraries/security): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
-    "commit-msg-allows-parent-product-scope-for-ui-and-backend" \
-    0 \
-    "" \
+    "commit-msg-rejects-parent-product-scope-for-ui-and-backend-mix" \
+    1 \
+    "Commit scope does not match touched files" \
     "mkdir -p projects/products/stable/varina/ui/src projects/products/stable/varina/backend/src && echo 'pub fn ui() {}' > projects/products/stable/varina/ui/src/lib.rs && echo 'pub fn api() {}' > projects/products/stable/varina/backend/src/lib.rs && git add projects/products/stable/varina/ui/src/lib.rs projects/products/stable/varina/backend/src/lib.rs && printf 'fix(projects/products/stable/varina): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
@@ -222,6 +222,12 @@ main() {
     0 \
     "" \
     "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/security/src/lib.rs && printf 'fix(projects/libraries/security): remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-parent-product-scope-for-parent-only-change" \
+    0 \
+    "" \
+    "mkdir -p projects/products/stable/varina && echo '# Varina' > projects/products/stable/varina/README.md && git add projects/products/stable/varina/README.md && printf 'docs(projects/products/stable/varina): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "pre-commit-docs-only-ignores-unstaged-rust-syntax-errors" \
