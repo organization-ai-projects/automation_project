@@ -1,4 +1,4 @@
-// projects/libraries/common_time/src/time_span.rs
+// projects/libraries/core/foundation/common_time/src/time_span.rs
 use std::fmt;
 use std::time::Duration;
 

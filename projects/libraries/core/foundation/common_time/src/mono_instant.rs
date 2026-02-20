@@ -1,4 +1,4 @@
-// projects/libraries/common_time/src/mono_instant.rs
+// projects/libraries/core/foundation/common_time/src/mono_instant.rs
 use std::time::Instant;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

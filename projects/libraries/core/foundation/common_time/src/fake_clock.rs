@@ -1,6 +1,6 @@
 //! This module provides an implementation of `Clock` intended for testing purposes only.
 //! It should not be used in production code.
-// projects/libraries/common_time/src/fake_clock.rs
+// projects/libraries/core/foundation/common_time/src/fake_clock.rs
 use std::sync::{Arc, Mutex};
 
 use crate::{Clock, MonoInstant, TimeSpan, fake_clock_state::FakeClockState};

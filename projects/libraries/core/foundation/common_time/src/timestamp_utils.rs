@@ -1,4 +1,4 @@
-// projects/libraries/common_time/src/timestamp_utils.rs
+// projects/libraries/core/foundation/common_time/src/timestamp_utils.rs
 use chrono::{TimeZone, Utc};
 use std::time::{SystemTime, UNIX_EPOCH};
 

@@ -127,7 +127,7 @@ This project is licensed under the MIT License. See [License](https://github.com
 
 ## Documentation
 
-- [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/common_time/documentation/TOC.md)
+- [Documentation Index](https://github.com/organization-ai-projects/automation_project/blob/main/projects/libraries/core/foundation/common_time/documentation/TOC.md)
 
 ## Contributing
 

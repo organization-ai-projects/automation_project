@@ -1,4 +1,4 @@
-// projects/libraries/common_time/src/backoff.rs
+// projects/libraries/core/foundation/common_time/src/backoff.rs
 use crate::{TimeSpan, units};
 
 #[derive(Clone, Copy, Debug)]

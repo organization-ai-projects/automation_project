@@ -1,4 +1,4 @@
-// projects/libraries/common_time/src/system_clock.rs
+// projects/libraries/core/foundation/common_time/src/system_clock.rs
 use crate::{Clock, MonoInstant, TimeSpan};
 use chrono::{DateTime, Utc};
 

@@ -1,4 +1,4 @@
-// projects/libraries/common_time/src/timeout.rs
+// projects/libraries/core/foundation/common_time/src/timeout.rs
 use crate::{Clock, TimeSpan};
 use std::future::Future;
 use std::marker::PhantomPinned;

@@ -1,4 +1,4 @@
-// projects/libraries/common_time/src/units.rs
+// projects/libraries/core/foundation/common_time/src/units.rs
 use crate::TimeSpan;
 
 /// Units in seconds (u64) to construct TimeSpan cleanly.
