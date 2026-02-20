@@ -5,7 +5,7 @@ members = [
   "projects/libraries/common_binary",
   "projects/libraries/core/foundation/common_json",
   "projects/libraries/neural",
-  "projects/libraries/core/protocol",
+  "projects/libraries/core/contracts/protocol",
   "projects/libraries/identity",
   "projects/libraries/security",
   "projects/libraries/core/security_core",
@@ -62,7 +62,7 @@ common = { path = "projects/libraries/common" }
 common_binary = { path = "projects/libraries/common_binary" }
 common_json = { path = "projects/libraries/core/foundation/common_json" }
 neural = { path = "projects/libraries/neural" }
-protocol = { path = "projects/libraries/core/protocol" }
+protocol = { path = "projects/libraries/core/contracts/protocol" }
 identity = { path = "projects/libraries/identity" }
 security = { path = "projects/libraries/security" }
 security_core = { path = "projects/libraries/core/security_core" }
