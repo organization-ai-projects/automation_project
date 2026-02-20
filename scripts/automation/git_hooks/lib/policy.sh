@@ -16,47 +16,29 @@ is_docs_or_scripts_file() {
 
 is_docs_or_scripts_only_change() {
   local files="$1"
-  local file
-
-  [[ -z "$files" ]] && return 1
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    if is_docs_or_scripts_file "$file"; then
-      continue
-    fi
-    return 1
-  done <<< "$files"
-
-  return 0
+  is_only_change_matching "$files" is_docs_or_scripts_file
 }
 
 is_docs_only_change() {
   local files="$1"
-  local file
-
-  [[ -z "$files" ]] && return 1
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    if is_docs_file "$file"; then
-      continue
-    fi
-    return 1
-  done <<< "$files"
-
-  return 0
+  is_only_change_matching "$files" is_docs_file
 }
 
 is_tests_only_change() {
   local files="$1"
+  is_only_change_matching "$files" is_test_file
+}
+
+is_only_change_matching() {
+  local files="$1"
+  local predicate="$2"
   local file
 
   [[ -z "$files" ]] && return 1
 
   while IFS= read -r file; do
     [[ -z "$file" ]] && continue
-    if is_test_file "$file"; then
+    if "$predicate" "$file"; then
       continue
     fi
     return 1
