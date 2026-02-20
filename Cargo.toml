@@ -12,7 +12,7 @@ members = [
   "projects/libraries/symbolic",
   "projects/libraries/ui",
   "projects/libraries/core/foundation/common_parsing",
-  "projects/libraries/common_tokenize",
+  "projects/libraries/core/foundation/common_tokenize",
   "projects/libraries/command_runner",
   "projects/libraries/core/foundation/common_calendar",
   "projects/libraries/core/foundation/common_time",
@@ -73,7 +73,7 @@ common_calendar = { path = "projects/libraries/core/foundation/common_calendar" 
 common_time = { path = "projects/libraries/core/foundation/common_time" }
 common_ron = { path = "projects/libraries/common_ron" }
 common_parsing = { path = "projects/libraries/core/foundation/common_parsing" }
-common_tokenize = { path = "projects/libraries/common_tokenize" }
+common_tokenize = { path = "projects/libraries/core/foundation/common_tokenize" }
 protocol_macros = { path = "projects/libraries/protocol_macros" }
 ast_core = { path = "projects/libraries/ast_core" }
 ast_macros = { path = "projects/libraries/ast_macros" }
