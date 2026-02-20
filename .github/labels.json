@@ -185,9 +185,9 @@
     "description": "Protocol definitions and communication formats"
   },
   {
-    "name": "projects/libraries/protocol_macros",
+    "name": "projects/libraries/core/foundation/protocol_macros",
     "color": "4285F4",
-    "description": "Changes in the `projects/libraries/protocol_macros` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/protocol_macros` crate"
   },
   {
     "name": "projects/libraries/security",
