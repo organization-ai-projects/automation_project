@@ -242,6 +242,12 @@ main() {
     "mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina/ui): patch ui files\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
+    "commit-msg-detects-nonstandard-product-crate-by-cargo" \
+    0 \
+    "" \
+    "mkdir -p projects/products/stable/varina/worker/src && printf '[package]\nname = \"varina-worker\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/worker/Cargo.toml && echo 'pub fn work() {}' > projects/products/stable/varina/worker/src/lib.rs && git add projects/products/stable/varina/worker/Cargo.toml projects/products/stable/varina/worker/src/lib.rs && printf 'fix(projects/products/stable/varina/worker): patch worker crate\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
     "pre-commit-docs-only-ignores-unstaged-rust-syntax-errors" \
     0 \
     "Pre-commit checks passed" \

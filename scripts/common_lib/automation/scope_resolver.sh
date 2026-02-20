@@ -2,42 +2,126 @@
 
 # Shared scope/crate resolver helpers used by hooks and automation scripts.
 
-resolve_product_scope() {
-  local stability="$1"
-  local product="$2"
-  local component="${3:-}"
-  local product_root="projects/products/${stability}/${product}"
+scope_resolver_workspace_member_dirs() {
+  local repo_root
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  [[ -n "$repo_root" ]] || return 1
 
-  if [[ -n "$component" && -f "${product_root}/${component}/Cargo.toml" ]]; then
-    printf '%s/%s\n' "$product_root" "$component"
+  # cargo metadata is the workspace source of truth for member crates.
+  # We only extract manifest paths and map them to repo-relative crate dirs.
+  cargo metadata --no-deps --format-version 1 2>/dev/null \
+    | tr ',' '\n' \
+    | sed -n 's/.*"manifest_path":"\([^"]*\)".*/\1/p' \
+    | sed 's#\\/#/#g' \
+    | while IFS= read -r manifest_path; do
+        [[ -z "$manifest_path" ]] && continue
+        local crate_dir="${manifest_path%/Cargo.toml}"
+        local rel_dir="$crate_dir"
+        case "$crate_dir" in
+          "$repo_root"/*) rel_dir="${crate_dir#"$repo_root"/}" ;;
+        esac
+        [[ "$rel_dir" == projects/* ]] && printf '%s\n' "$rel_dir"
+      done \
+    | sort -u
+}
+
+scope_resolver_load_workspace_dirs() {
+  if [[ -n "${SCOPE_RESOLVER_WORKSPACE_DIRS_LOADED:-}" ]]; then
     return 0
   fi
 
-  printf '%s\n' "$product_root"
-  return 0
+  SCOPE_RESOLVER_WORKSPACE_DIRS="$(scope_resolver_workspace_member_dirs || true)"
+  SCOPE_RESOLVER_WORKSPACE_DIRS_LOADED=1
+}
+
+resolve_scope_from_workspace_members() {
+  local file="$1"
+  local dir="$file"
+
+  scope_resolver_load_workspace_dirs
+  [[ -n "${SCOPE_RESOLVER_WORKSPACE_DIRS:-}" ]] || return 1
+
+  if [[ ! -d "$dir" ]]; then
+    dir="$(dirname "$file")"
+  fi
+
+  while :; do
+    if grep -Fxq "$dir" <<< "$SCOPE_RESOLVER_WORKSPACE_DIRS"; then
+      printf '%s\n' "$dir"
+      return 0
+    fi
+    [[ "$dir" == "." || "$dir" == "/" ]] && break
+    dir="$(dirname "$dir")"
+  done
+
+  return 1
+}
+
+resolve_nearest_scope_with_cargo() {
+  local file="$1"
+  local boundary="$2"
+  local dir="$file"
+
+  if [[ ! -d "$dir" ]]; then
+    dir="$(dirname "$file")"
+  fi
+
+  while :; do
+    if [[ -f "${dir}/Cargo.toml" ]]; then
+      printf '%s\n' "$dir"
+      return 0
+    fi
+
+    if [[ "$dir" == "$boundary" || "$dir" == "." || "$dir" == "/" ]]; then
+      break
+    fi
+
+    dir="$(dirname "$dir")"
+  done
+
+  return 1
 }
 
 resolve_scope_from_path() {
   local file="$1"
+  local scope=""
 
-  # Products: infer ui/backend scope only when corresponding crate exists.
-  if [[ "$file" =~ ^projects/products/([^/]+)/([^/]+)/(ui|backend)/ ]]; then
-    resolve_product_scope "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
-    return 0
+  # Workspace members are the primary source of truth for crate boundaries.
+  if [[ "$file" =~ ^projects/(libraries|products)/ ]]; then
+    if scope="$(resolve_scope_from_workspace_members "$file")"; then
+      printf '%s\n' "$scope"
+      return 0
+    fi
   fi
 
   if [[ "$file" =~ ^projects/products/([^/]+)/([^/]+)/ ]]; then
-    resolve_product_scope "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+    local product_root="projects/products/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    if scope="$(resolve_nearest_scope_with_cargo "$file" "$product_root")"; then
+      printf '%s\n' "$scope"
+      return 0
+    fi
+    # Fallback for product-level non-crate files (README, docs, configs).
+    printf '%s\n' "$product_root"
     return 0
   fi
 
   if [[ "$file" =~ ^projects/libraries/core/([^/]+)/ ]]; then
-    printf 'projects/libraries/core/%s\n' "${BASH_REMATCH[1]}"
+    local core_root="projects/libraries/core/${BASH_REMATCH[1]}"
+    if scope="$(resolve_nearest_scope_with_cargo "$file" "$core_root")"; then
+      printf '%s\n' "$scope"
+      return 0
+    fi
+    printf '%s\n' "$core_root"
     return 0
   fi
 
   if [[ "$file" =~ ^projects/libraries/([^/]+)/ ]]; then
-    printf 'projects/libraries/%s\n' "${BASH_REMATCH[1]}"
+    local library_root="projects/libraries/${BASH_REMATCH[1]}"
+    if scope="$(resolve_nearest_scope_with_cargo "$file" "$library_root")"; then
+      printf '%s\n' "$scope"
+      return 0
+    fi
+    printf '%s\n' "$library_root"
     return 0
   fi
 
