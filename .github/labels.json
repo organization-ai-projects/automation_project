@@ -125,7 +125,7 @@
     "description": "Changes in the shared `common` library"
   },
   {
-    "name": "projects/libraries/common_binary",
+    "name": "projects/libraries/core/foundation/common_binary",
     "color": "8C564B",
     "description": "Changes related to binary persistence / ABI helpers"
   },
