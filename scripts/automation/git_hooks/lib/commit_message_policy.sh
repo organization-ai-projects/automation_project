@@ -2,43 +2,6 @@
 
 # Shared commit message policy helpers.
 
-# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
-source "$(git rev-parse --show-toplevel)/scripts/automation/git_hooks/lib/scope_resolver.sh"
-
-is_docs_only_change() {
-  local files="$1"
-  local file
-
-  [[ -z "$files" ]] && return 1
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    if is_docs_file "$file"; then
-      continue
-    fi
-    return 1
-  done <<< "$files"
-
-  return 0
-}
-
-is_tests_only_change() {
-  local files="$1"
-  local file
-
-  [[ -z "$files" ]] && return 1
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    if [[ "$file" == *"/tests/"* ]] || [[ "$file" == *"_test.rs" ]] || [[ "$file" == *"/tests.rs" ]]; then
-      continue
-    fi
-    return 1
-  done <<< "$files"
-
-  return 0
-}
-
 map_branch_type() {
   local branch="$1"
   local prefix="${branch%%/*}"

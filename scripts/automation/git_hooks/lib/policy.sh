@@ -29,6 +29,40 @@ is_docs_or_scripts_only_change() {
   return 0
 }
 
+is_docs_only_change() {
+  local files="$1"
+  local file
+
+  [[ -z "$files" ]] && return 1
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if is_docs_file "$file"; then
+      continue
+    fi
+    return 1
+  done <<< "$files"
+
+  return 0
+}
+
+is_tests_only_change() {
+  local files="$1"
+  local file
+
+  [[ -z "$files" ]] && return 1
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if [[ "$file" == *"/tests/"* ]] || [[ "$file" == *"_test.rs" ]] || [[ "$file" == *"/tests.rs" ]]; then
+      continue
+    fi
+    return 1
+  done <<< "$files"
+
+  return 0
+}
+
 is_mixed_docs_and_non_docs_change() {
   local files="$1"
   local file

@@ -35,6 +35,8 @@ fi
 source "$ROOT_DIR/scripts/automation/git_hooks/lib/commit_message_policy.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
 source "$ROOT_DIR/scripts/automation/git_hooks/lib/scope_resolver.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/policy.sh
+source "$ROOT_DIR/scripts/automation/git_hooks/lib/policy.sh"
 
 STAGED_FILES="$(git diff --cached --name-only --diff-filter=ACMRU)"
 if [[ -z "$STAGED_FILES" ]]; then
