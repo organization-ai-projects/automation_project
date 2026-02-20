@@ -20,6 +20,8 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
+source "$ROOT_DIR/scripts/automation/git_hooks/lib/scope_resolver.sh"
 
 require_git_repo
 cd "$ROOT_DIR"
@@ -27,36 +29,6 @@ cd "$ROOT_DIR"
 if [[ $# -eq 0 ]]; then
   die "Usage: scripts/automation/git_add_guard.sh <pathspec...>"
 fi
-
-is_docs_file() {
-  local file="$1"
-  [[ "$file" == documentation/* ]] \
-    || [[ "$file" == .github/documentation/* ]] \
-    || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] \
-    || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] \
-    || [[ "$file" == *.md ]]
-}
-
-extract_crate_scope() {
-  local file="$1"
-
-  if [[ "$file" =~ ^projects/libraries/([^/]+)/ ]]; then
-    echo "projects/libraries/${BASH_REMATCH[1]}"
-    return 0
-  fi
-
-  if [[ "$file" =~ ^projects/products/[^/]+/([^/]+)/(ui|backend)/ ]]; then
-    echo "projects/products/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
-    return 0
-  fi
-
-  if [[ "$file" =~ ^projects/products/[^/]+/([^/]+)/ ]]; then
-    echo "projects/products/${BASH_REMATCH[1]}"
-    return 0
-  fi
-
-  return 1
-}
 
 check_broad_args() {
   local arg
@@ -104,7 +76,7 @@ while IFS= read -r file; do
     NON_DOC_COUNT=$((NON_DOC_COUNT + 1))
   fi
 
-  if crate_scope="$(extract_crate_scope "$file")"; then
+  if crate_scope="$(resolve_scope_from_path "$file")"; then
     CRATES["$crate_scope"]=1
   fi
 done <<< "$PROJECTED_STAGED_FILES"

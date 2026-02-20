@@ -19,6 +19,8 @@ cd "$REPO_ROOT" || exit 1
 HOOKS_DIR="$REPO_ROOT/scripts/automation/git_hooks"
 # shellcheck source=scripts/automation/git_hooks/lib/issue_parent_guard.sh
 source "$HOOKS_DIR/lib/issue_parent_guard.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
+source "$HOOKS_DIR/lib/scope_resolver.sh"
 
 # Get commit messages from commits being pushed
 UPSTREAM_BRANCH="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")"
@@ -349,39 +351,6 @@ detect_crates_from_scopes() {
   printf '%s\n' "${crates[@]+"${crates[@]}"}"
 }
 
-detect_crates_from_changed_files() {
-  local files="$1"
-  local -a crates=()
-  local file
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-
-    local path="$file"
-    local dir
-    if [[ -d "$path" ]]; then
-      dir="$path"
-    else
-      dir="$(dirname "$path")"
-    fi
-
-    while [[ "$dir" != "." && "$dir" != "/" ]]; do
-      local cargo_toml="${dir}/Cargo.toml"
-      if [[ -f "$cargo_toml" ]]; then
-        local crate_name
-        crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
-        if [[ -n "$crate_name" ]] && [[ ! " ${crates[*]} " =~ " ${crate_name} " ]]; then
-          crates+=("$crate_name")
-        fi
-        break
-      fi
-      dir="$(dirname "$dir")"
-    done
-  done <<< "$files"
-
-  printf '%s\n' "${crates[@]+"${crates[@]}"}"
-}
-
 # Get affected crates from commit scopes
 AFFECTED=$(detect_crates_from_scopes "$commits")
 SCOPE_VALID=$?
@@ -392,7 +361,7 @@ if [[ -f Cargo.lock ]]; then
 fi
 
 if [[ $SCOPE_VALID -ne 0 ]] || [[ -z "$AFFECTED" ]]; then
-  AFFECTED="$(detect_crates_from_changed_files "$changed_files")"
+  AFFECTED="$(collect_crates_from_files "$changed_files")"
   if [[ -n "$AFFECTED" ]]; then
     echo "⚠️  Missing/invalid commit scopes - using changed files to infer crates."
     if [[ "${SCOPES_HAD_INVALID:-0}" -eq 1 ]]; then

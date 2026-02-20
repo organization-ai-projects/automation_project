@@ -25,6 +25,8 @@ fi
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit_format.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/issue_parent_guard.sh
 source "$HOOKS_DIR/lib/issue_parent_guard.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
+source "$HOOKS_DIR/lib/scope_resolver.sh"
 
 extract_scopes_from_commit_message() {
   local message="$1"
@@ -44,39 +46,8 @@ extract_scopes_from_commit_message() {
 
 detect_required_scopes_from_staged_files() {
   local files
-  files=$(git diff --cached --name-only)
-  local required=()
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-
-    if [[ "$file" =~ ^projects/libraries/([^/]+)/ ]]; then
-      local scope="projects/libraries/${BASH_REMATCH[1]}"
-      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
-        required+=("$scope")
-      fi
-      continue
-    fi
-
-    if [[ "$file" =~ ^projects/products/[^/]+/([^/]+)/ ]]; then
-      local product_name="${BASH_REMATCH[1]}"
-      local component=""
-      if [[ "$file" =~ ^projects/products/[^/]+/[^/]+/(ui|backend)/ ]]; then
-        component="${BASH_REMATCH[1]}"
-      fi
-
-      local scope="projects/products/${product_name}"
-      if [[ -n "$component" ]]; then
-        scope="${scope}/${component}"
-      fi
-
-      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
-        required+=("$scope")
-      fi
-    fi
-  done <<< "$files"
-
-  printf '%s\n' "${required[@]}"
+  files=$(git diff --cached --name-only --diff-filter=ACMRU)
+  collect_scopes_from_files "$files"
 }
 
 validate_and_normalize_issue_refs_footer() {
@@ -257,8 +228,8 @@ if [[ -n "$required_scopes" ]]; then
     echo "" >&2
     echo "Expected format example:" >&2
     echo "  fix(projects/libraries/<library_name>): ..." >&2
-    echo "  fix(projects/products/<product_name>): ..." >&2
-    echo "  fix(projects/products/<product_name>/backend): ..." >&2
+    echo "  fix(projects/products/<stable_or_unstable>/<product_name>): ..." >&2
+    echo "  fix(projects/products/<stable_or_unstable>/<product_name>/backend): ..." >&2
     exit 1
   fi
 
