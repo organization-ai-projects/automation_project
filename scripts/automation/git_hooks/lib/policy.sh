@@ -2,23 +2,16 @@
 
 # Shared policy helpers for hooks and staging guards.
 
+# shellcheck source=scripts/automation/git_hooks/lib/file_types.sh
+source "$(git rev-parse --show-toplevel)/scripts/automation/git_hooks/lib/file_types.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
 source "$(git rev-parse --show-toplevel)/scripts/automation/git_hooks/lib/scope_resolver.sh"
-
-is_docs_file() {
-  local file="$1"
-  [[ "$file" == documentation/* ]] \
-    || [[ "$file" == .github/documentation/* ]] \
-    || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] \
-    || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] \
-    || [[ "$file" == *.md ]]
-}
 
 is_docs_or_scripts_file() {
   local file="$1"
   is_docs_file "$file" \
-    || [[ "$file" == scripts/* ]] \
-    || [[ "$file" == .github/workflows/* ]]
+    || is_script_path_file "$file" \
+    || is_workflow_file "$file"
 }
 
 is_docs_or_scripts_only_change() {
@@ -63,7 +56,7 @@ is_tests_only_change() {
 
   while IFS= read -r file; do
     [[ -z "$file" ]] && continue
-    if [[ "$file" == *"/tests/"* ]] || [[ "$file" == *"_test.rs" ]] || [[ "$file" == *"/tests.rs" ]]; then
+    if is_test_file "$file"; then
       continue
     fi
     return 1

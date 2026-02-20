@@ -21,6 +21,7 @@ git_hooks/
 ├── pre-commit          # Runs code formatting before commit
 ├── prepare-commit-msg  # Auto-generates commit subject from context
 ├── pre-push            # Runs quality checks before push
+├── lib/file_types.sh   # Shared file classifiers (docs/tests/shell/workflow/scripts)
 ├── lib/scope_resolver.sh # Shared scope/crate detection used by hooks/guards
 ├── lib/policy.sh       # Shared predicates (docs-only/tests-only/docs+scripts/mixed/mono-scope)
 ├── lib/commit_message_policy.sh # Shared commit message generation policy helpers
@@ -40,6 +41,7 @@ git_hooks/
 - `pre-commit`: Runs formatting before commit.
 - `prepare-commit-msg`: Auto-generates commit subject from branch/staged files.
 - `pre-push`: Runs quality checks before push.
+- `lib/file_types.sh`: Shared file classifiers (docs/tests/shell/workflow/scripts paths and patterns).
 - `lib/scope_resolver.sh`: Shared path -> scope and files -> crates resolver used by `prepare-commit-msg`, `commit-msg`, `pre-push`, and staging guards.
 - `lib/policy.sh`: Shared predicates (`docs-only`, `tests-only`, `docs/scripts-only`, mixed docs/code detection, multi-scope detection) to keep hooks aligned.
 - `lib/commit_message_policy.sh`: Shared commit message helpers (type mapping, description/scopes formatting, scope extraction).

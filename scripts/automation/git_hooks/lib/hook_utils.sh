@@ -2,6 +2,9 @@
 
 # Generic hook utilities (non-policy helpers).
 
+# shellcheck source=scripts/automation/git_hooks/lib/file_types.sh
+source "$(git rev-parse --show-toplevel)/scripts/automation/git_hooks/lib/file_types.sh"
+
 hook_utils_resolve_upstream_branch() {
   local upstream
   upstream="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")"
@@ -49,20 +52,7 @@ hook_utils_run_shell_syntax_checks() {
   local file
 
   while IFS= read -r file; do
-    [[ -z "$file" || ! -f "$file" ]] && continue
-
-    local is_shell=false
-    if [[ "$file" == *.sh ]]; then
-      is_shell=true
-    elif [[ -x "$file" ]]; then
-      local shebang
-      shebang=$(head -n1 "$file" 2>/dev/null || true)
-      if [[ "$shebang" =~ ^#!.*(ba)?sh([[:space:]]|$) ]]; then
-        is_shell=true
-      fi
-    fi
-
-    if [[ "$is_shell" == true ]]; then
+    if is_shell_file "$file"; then
       echo "   - bash -n $file"
       bash -n "$file"
       checked=1
