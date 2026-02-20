@@ -25,7 +25,7 @@ For workspace libraries, dependency direction follows:
 
 Layer intent:
 
-- `L1` is for non-core technical building blocks used by `L2` domains.
+- `L1` is for technical building blocks used by `L2` domains.
 - `core/*` (`core/foundation`, `core/contracts`) is outside `L0..L3` and governed by the core overlay rules below.
 
 Additional constraints:

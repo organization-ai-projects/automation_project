@@ -6,8 +6,8 @@ Define the strict, deterministic layer model for workspace libraries.
 
 ## Layer Model
 
-- `L0 Foundation`: optional non-core ultra-generic technical primitives and utilities.
-- `L1 Technical Building Blocks`: non-core technical building blocks used to compose domain crates (`L2`), still not business-domain.
+- `L0 Foundation`: optional ultra-generic technical primitives and utilities.
+- `L1 Technical Building Blocks`: technical building blocks used to compose domain crates (`L2`), still not business-domain.
 - `L2 Domain`: domain libraries and domain-facing public APIs/contracts.
 - `L3 Orchestration`: the only layer allowed to compose/cross multiple domains.
 

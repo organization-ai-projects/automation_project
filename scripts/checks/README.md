@@ -53,7 +53,7 @@ Strict mode:
   - `L2 -> L1` only
   - `L3 -> L2` only
   - no lateral/upward/non-adjacent edges by default
-  - `L1` semantics: non-core technical building blocks for `L2` domains
+  - `L1` semantics: technical building blocks for `L2` domains
 - Uses:
   - `scripts/checks/layer_map.txt` (canonical `crate -> layer`)
   - built-in checker core overlay (`foundation|contracts|none`, script-managed)
