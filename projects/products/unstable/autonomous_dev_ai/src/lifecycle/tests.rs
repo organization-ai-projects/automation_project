@@ -1,6 +1,7 @@
 use super::*;
 use crate::config::{AgentConfig, NeuralConfig, SymbolicConfig};
 use crate::objectives::Objective;
+use crate::state::AgentState;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;

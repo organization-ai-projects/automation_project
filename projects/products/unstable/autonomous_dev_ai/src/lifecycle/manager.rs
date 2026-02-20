@@ -1,4 +1,8 @@
 //! Agent lifecycle implementation - production-grade flow.
+use super::{
+    CircuitBreaker, ExecutionContext, IterationNumber, LifecycleError, LifecycleMetrics,
+    LifecycleResult, MaxIterations, MetricsCollector, ResourceType, RetryStrategy, StepIndex,
+};
 
 use crate::audit::AuditLogger;
 use crate::config::AgentConfig;
@@ -16,22 +20,6 @@ use crate::tools::{
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-
-mod errors;
-mod metrics;
-mod resilience;
-mod types;
-
-pub use errors::{LifecycleError, LifecycleResult, ResourceType};
-pub use metrics::{LifecycleMetrics, MetricsCollector};
-pub use resilience::{
-    ActionBoundary, Checkpoint, CircuitBreaker, CircuitState, CompensationKind, ResourceBudget,
-    RetryStrategy, RollbackManager,
-};
-pub use types::{ExecutionContext, IterationNumber, MaxIterations, StepIndex};
-
-#[cfg(test)]
-mod tests;
 
 /// Agent lifecycle manager.
 pub struct LifecycleManager {
@@ -67,7 +55,7 @@ pub struct LifecycleManager {
 }
 
 impl LifecycleManager {
-    fn extract_pr_number_from_goal(goal: &str) -> Option<String> {
+    pub(crate) fn extract_pr_number_from_goal(goal: &str) -> Option<String> {
         let bytes = goal.as_bytes();
         let mut i = 0usize;
 
