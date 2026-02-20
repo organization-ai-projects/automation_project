@@ -25,6 +25,7 @@ Current modules:
 ## Debug Helper
 
 Use `scripts/automation/explain_scope.sh` to inspect:
+
 - staged files
 - per-file resolved scope/candidate
 - detected format categories

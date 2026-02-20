@@ -125,12 +125,14 @@ Inputs used:
 3. Branch slug to derive a readable short description
 
 Scope fallback policy:
+
 - `shell` for shell-only commits
 - `markdown` for markdown-only commits
 - for non-Rust commits that are neither shell-only nor markdown-only: auto common-path scope
 - `workspace` is used when only root-level files are staged
 
 Type fallback policy:
+
 - if type cannot be inferred from staged files, `prepare-commit-msg` writes `type(...)` and adds a warning comment
 - this forces explicit human choice for semantic types like `feat` vs `fix`
 
