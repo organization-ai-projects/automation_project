@@ -54,22 +54,27 @@ has_multiple_scopes_in_files() {
 
 count_non_empty_lines() {
   local lines="$1"
-  local count=0
-  local line
-  while IFS= read -r line; do
-    [[ -n "$line" ]] && count=$((count + 1))
-  done <<< "$lines"
-  printf '%s\n' "$count"
+  count_matching_lines "$lines" policy_line_is_non_empty
 }
 
 count_files_matching() {
   local files="$1"
   local predicate="$2"
+  count_matching_lines "$files" "$predicate"
+}
+
+count_matching_lines() {
+  local lines="$1"
+  local predicate="$2"
   local count=0
-  local file
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    "$predicate" "$file" && count=$((count + 1))
-  done <<< "$files"
+  local line
+  while IFS= read -r line; do
+    "$predicate" "$line" && count=$((count + 1))
+  done <<< "$lines"
   printf '%s\n' "$count"
+}
+
+policy_line_is_non_empty() {
+  local line="$1"
+  [[ -n "$line" ]]
 }
