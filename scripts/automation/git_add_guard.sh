@@ -22,8 +22,8 @@ source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/automation/scope_resolver.sh
 source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/policy.sh
-source "$ROOT_DIR/scripts/automation/git_hooks/lib/policy.sh"
+# shellcheck source=scripts/common_lib/automation/change_policy.sh
+source "$ROOT_DIR/scripts/common_lib/automation/change_policy.sh"
 
 require_git_repo
 cd "$ROOT_DIR"
