@@ -145,9 +145,9 @@
     "description": "Changes in the `projects/libraries/common_parsing` crate"
   },
   {
-    "name": "projects/libraries/common_time",
+    "name": "projects/libraries/core/foundation/common_time",
     "color": "B58900",
-    "description": "Changes in the `projects/libraries/common_time` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/common_time` crate"
   },
   {
     "name": "projects/libraries/common_tokenize",
