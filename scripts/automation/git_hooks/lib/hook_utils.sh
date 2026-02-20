@@ -2,8 +2,8 @@
 
 # Generic hook utilities (non-policy helpers).
 
-# shellcheck source=scripts/automation/git_hooks/lib/file_types.sh
-source "$(git rev-parse --show-toplevel)/scripts/automation/git_hooks/lib/file_types.sh"
+# shellcheck source=scripts/common_lib/automation/file_types.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/automation/file_types.sh"
 
 hook_utils_resolve_upstream_branch() {
   local upstream

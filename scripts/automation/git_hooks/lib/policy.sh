@@ -2,10 +2,10 @@
 
 # Shared policy helpers for hooks and staging guards.
 
-# shellcheck source=scripts/automation/git_hooks/lib/file_types.sh
-source "$(git rev-parse --show-toplevel)/scripts/automation/git_hooks/lib/file_types.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
-source "$(git rev-parse --show-toplevel)/scripts/automation/git_hooks/lib/scope_resolver.sh"
+# shellcheck source=scripts/common_lib/automation/file_types.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/automation/file_types.sh"
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/automation/scope_resolver.sh"
 
 is_docs_or_scripts_file() {
   local file="$1"

@@ -153,13 +153,13 @@ jobs:
       - name: Cargo fmt
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: |
-          source ./scripts/automation/lib/rust_checks.sh
+          source ./scripts/common_lib/automation/rust_checks.sh
           rust_checks_run_fmt_check
 
       - name: Cargo clippy
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: |
-          source ./scripts/automation/lib/rust_checks.sh
+          source ./scripts/common_lib/automation/rust_checks.sh
           LOCKED_ARGS=()
           if rust_checks_has_lockfile; then
             LOCKED_ARGS=(--locked)
@@ -171,7 +171,7 @@ jobs:
       - name: Cargo test
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: |
-          source ./scripts/automation/lib/rust_checks.sh
+          source ./scripts/common_lib/automation/rust_checks.sh
           LOCKED_ARGS=()
           if rust_checks_has_lockfile; then
             LOCKED_ARGS=(--locked)

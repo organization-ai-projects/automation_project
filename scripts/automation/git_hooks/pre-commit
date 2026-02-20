@@ -15,8 +15,8 @@ echo ""
 # Get the root of the git repository
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 1
-# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
-source "$REPO_ROOT/scripts/automation/git_hooks/lib/scope_resolver.sh"
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$REPO_ROOT/scripts/common_lib/automation/scope_resolver.sh"
 
 # Protect integration branches from direct commits.
 # Use ALLOW_PROTECTED_BRANCH_COMMIT=1 only for exceptional maintenance work.

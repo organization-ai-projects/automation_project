@@ -7,8 +7,8 @@ HOOKS_DIR="$ROOT_DIR/scripts/automation/git_hooks"
 
 # shellcheck source=scripts/automation/git_hooks/lib/issue_parent_guard.sh
 source "$HOOKS_DIR/lib/issue_parent_guard.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
-source "$HOOKS_DIR/lib/scope_resolver.sh"
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/policy.sh
 source "$HOOKS_DIR/lib/policy.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/hook_utils.sh

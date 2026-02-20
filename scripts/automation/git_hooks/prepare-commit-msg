@@ -33,8 +33,8 @@ fi
 
 # shellcheck source=scripts/automation/git_hooks/lib/commit_message_policy.sh
 source "$ROOT_DIR/scripts/automation/git_hooks/lib/commit_message_policy.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
-source "$ROOT_DIR/scripts/automation/git_hooks/lib/scope_resolver.sh"
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/policy.sh
 source "$ROOT_DIR/scripts/automation/git_hooks/lib/policy.sh"
 

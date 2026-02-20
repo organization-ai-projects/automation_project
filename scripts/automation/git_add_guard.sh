@@ -20,8 +20,8 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
-source "$ROOT_DIR/scripts/automation/git_hooks/lib/scope_resolver.sh"
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/policy.sh
 source "$ROOT_DIR/scripts/automation/git_hooks/lib/policy.sh"
 

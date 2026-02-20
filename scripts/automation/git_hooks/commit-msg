@@ -25,8 +25,8 @@ fi
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit_format.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/issue_parent_guard.sh
 source "$HOOKS_DIR/lib/issue_parent_guard.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
-source "$HOOKS_DIR/lib/scope_resolver.sh"
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/commit_message_policy.sh
 source "$HOOKS_DIR/lib/commit_message_policy.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/issue_footer_policy.sh
