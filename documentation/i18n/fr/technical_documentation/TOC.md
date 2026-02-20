@@ -15,6 +15,7 @@ Langue : [English](../../../technical_documentation/TOC.md) | **Francais**
 - [Taxonomie des labels](labels_taxonomy.md) : conventions de labels issues/PR
 - [Guide de stabilisation des tests flaky](flaky_tests.md) : inventaire et workflow de remediation
 - [Frontieres des couches de bibliotheques](library_layer_boundaries.md) : regles CI des dependances interdites
+- [Gouvernance de la carte des couches](library_layer_map_governance.md) : ownership, politique de mise a jour, validation de `layer_map.txt`
 - [Taxonomie des couches de bibliotheques](library_layer_taxonomy.md) : modele de couches et regles de direction
 - [Processus systeme](system_processes.md) : demarrage, supervision, flux commandes/evenements
 - [Architecture](ARCHITECTURE.md) : principes d'architecture et topologie des composants

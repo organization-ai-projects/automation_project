@@ -11,6 +11,19 @@ Define the strict, deterministic layer model for workspace libraries.
 - `L2 Domain`: domain libraries and domain-facing public APIs/contracts.
 - `L3 Orchestration`: the only layer allowed to compose/cross multiple domains.
 
+## Core Overlay Model
+
+The checker also applies a core overlay that is orthogonal to numeric layers.
+
+- `core/foundation`: shared internal technical building blocks.
+- `core/contracts`: shared cross-cutting contracts/protocol crates.
+
+Overlay enforcement:
+
+- `layer -> core` allowed
+- `core -> layer` forbidden
+- `core -> core` allowed
+
 ## Strict Dependency Rules (Adjacent-only)
 
 - `L0` must not depend on any workspace crate.
@@ -39,6 +52,7 @@ Define the strict, deterministic layer model for workspace libraries.
 The following decisions are finalized and should be treated as architecture policy:
 
 - `protocol` is fixed as a `core/contracts` crate (not a layer level).
+- `security_core` is fixed as a `core/contracts` crate (not a layer level).
 - `ui-lib` (crate under `projects/libraries/ui`) is fixed to `L2`.
 - Shared technical crates are fixed as:
   - `L0`: `common_time`, `common_calendar`, `common_binary`, `common_parsing`, `common_tokenize`, `hybrid_arena`, `ast_core`, `ast_macros`, `pjson_proc_macros`, `protocol_macros`.

@@ -29,6 +29,23 @@ Additional constraints:
 - no lateral dependencies by default (unless explicitly whitelisted)
 - exceptions must be explicit, temporary, and governed
 
+## Core Overlay (Checker-managed)
+
+Strict checks also apply a checker-managed core overlay for selected crates.
+
+Overlay policy:
+
+- `layer -> core`: allowed
+- `core -> layer`: forbidden
+- `core -> core`: allowed
+
+Current core groups:
+
+- `core/foundation`: `ast_core`, `ast_macros`, `command_runner`, `common`, `common_binary`, `common_calendar`, `common_json`, `common_parsing`, `common_ron`, `common_time`, `common_tokenize`, `hybrid_arena`, `pjson_proc_macros`, `protocol_macros`
+- `core/contracts`: `protocol`, `security_core`
+
+If violated, the checker reports class `core-to-layer`.
+
 ## Checker Scope
 
 - Evaluate workspace crate edges only.
