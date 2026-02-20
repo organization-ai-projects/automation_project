@@ -95,6 +95,11 @@
     "description": "Logging improvements, diagnostics, or observability"
   },
   {
+    "name": "performance",
+    "color": "C2E0C6",
+    "description": "Performance optimization, latency reduction, or resource-efficiency improvements"
+  },
+  {
     "name": "projects/libraries/ai",
     "color": "1F77B4",
     "description": "Changes in the `projects/libraries/ai` crate"

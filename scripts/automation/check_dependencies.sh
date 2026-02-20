@@ -12,6 +12,8 @@ source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 source "$ROOT_DIR/scripts/common_lib/core/command.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
+# shellcheck source=scripts/common_lib/automation/rust_checks.sh
+source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
 
 require_git_repo
 require_cmd cargo
@@ -31,7 +33,7 @@ fi
 
 # Check for missing dependencies (cargo check)
 info "Verifying dependencies are resolvable..."
-if cargo check --workspace --all-targets; then
+if rust_checks_run_check --workspace --all-targets; then
   info "✓ All dependencies are resolvable."
 else
   die "Dependency check failed. Some dependencies may be missing or incompatible."

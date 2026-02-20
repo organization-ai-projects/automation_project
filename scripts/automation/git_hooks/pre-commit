@@ -2,6 +2,7 @@
 # Git hook: pre-commit
 # Formats code before commit
 # Bypass: SKIP_PRE_COMMIT=1 git commit ...
+set -euo pipefail
 
 # Allow bypass for emergency situations
 if [[ "${SKIP_PRE_COMMIT:-}" == "1" ]]; then
@@ -15,6 +16,8 @@ echo ""
 # Get the root of the git repository
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 1
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$REPO_ROOT/scripts/common_lib/automation/scope_resolver.sh"
 
 # Protect integration branches from direct commits.
 # Use ALLOW_PROTECTED_BRANCH_COMMIT=1 only for exceptional maintenance work.
@@ -27,36 +30,9 @@ if [[ "${ALLOW_PROTECTED_BRANCH_COMMIT:-}" != "1" ]] \
   exit 1
 fi
 
-# Detect affected crates from staged changes
-detect_affected_crates() {
-  local changed_files
-  changed_files=$(git diff --cached --name-only --diff-filter=ACMRU)
-
-  local affected_crates=()
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-
-    if [[ $file =~ ^projects/(libraries|products)/([^/]+)(/[^/]+)?(/src|/tests|/Cargo\.toml) ]]; then
-      local crate_name="${BASH_REMATCH[2]}"
-      if [[ "${BASH_REMATCH[3]}" =~ ^/([^/]+)$ ]]; then
-        crate_name="${crate_name}/${BASH_REMATCH[1]}"
-        crate_name="${crate_name//'/'/-}"
-      else
-        crate_name="${crate_name//'_'/'-'}"
-      fi
-
-      if [[ ! " ${affected_crates[@]} " =~ " ${crate_name} " ]]; then
-        affected_crates+=("$crate_name")
-      fi
-    fi
-  done <<< "$changed_files"
-
-  printf '%s\n' "${affected_crates[@]}"
-}
-
 # Get affected crates
-AFFECTED=$(detect_affected_crates)
+STAGED_CHANGED_FILES="$(git diff --cached --name-only --diff-filter=ACMRU)"
+AFFECTED="$(collect_crates_from_files "$STAGED_CHANGED_FILES")"
 if [[ -z "$AFFECTED" ]]; then
   echo "🎯 No Rust crates detected, checking all files"
 else
@@ -65,25 +41,27 @@ else
   echo ""
 fi
 
-# 1. Check orchestrator script permissions
+# 1. Check orchestrator script permissions on staged orchestrator files only.
 echo "🔒 Checking orchestrator script permissions..."
 PERMISSION_ERRORS=0
+STAGED_ORCHESTRATOR_FILES="$(printf '%s\n' "$STAGED_CHANGED_FILES" | grep -E '^scripts/versioning/file_versioning/orchestrators/(read|execute)/.*\.sh$' || true)"
 
-# Check read/ scripts (must NOT be executable)
-while IFS= read -r -d '' script; do
-  if [[ -x "$script" ]]; then
-    echo "   ❌ $script should NOT be executable (use chmod 644)"
-    PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+while IFS= read -r script; do
+  [[ -z "$script" ]] && continue
+  if [[ "$script" == scripts/versioning/file_versioning/orchestrators/read/* ]]; then
+    if [[ -x "$script" ]]; then
+      echo "   ❌ $script should NOT be executable (use chmod 644)"
+      PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+    fi
+    continue
   fi
-done < <(find scripts/versioning/file_versioning/orchestrators/read -name '*.sh' -type f -print0 2>/dev/null)
-
-# Check execute/ scripts (must BE executable)
-while IFS= read -r -d '' script; do
-  if [[ ! -x "$script" ]]; then
-    echo "   ❌ $script should be executable (use chmod 755)"
-    PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+  if [[ "$script" == scripts/versioning/file_versioning/orchestrators/execute/* ]]; then
+    if [[ ! -x "$script" ]]; then
+      echo "   ❌ $script should be executable (use chmod 755)"
+      PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+    fi
   fi
-done < <(find scripts/versioning/file_versioning/orchestrators/execute -name '*.sh' -type f -print0 2>/dev/null)
+done <<< "$STAGED_ORCHESTRATOR_FILES"
 
 if [[ $PERMISSION_ERRORS -gt 0 ]]; then
   echo ""
@@ -92,12 +70,16 @@ if [[ $PERMISSION_ERRORS -gt 0 ]]; then
   exit 1
 fi
 
-# 2. Format staged files
-echo "✨ Formatting code..."
-if ! cargo fmt --all; then
-  echo ""
-  echo "❌ Formatting failed!"
-  exit 1
+# 2. Format Rust files only when Rust sources are staged.
+if printf '%s\n' "$STAGED_CHANGED_FILES" | grep -qE '\.rs$'; then
+  echo "✨ Formatting code..."
+  if ! cargo fmt --all; then
+    echo ""
+    echo "❌ Formatting failed!"
+    exit 1
+  fi
+else
+  echo "✨ Skipping Rust formatting (no staged Rust files)"
 fi
 
 # Re-add only files that were already staged (avoid scooping unrelated changes)

@@ -10,8 +10,18 @@ This document provides an overview of all documentation files in this directory.
 
 ## Subdirectories
 
+- [automation/README.md](automation/README.md): Shared automation helpers for hooks/CI/scripts
 - [core/README.md](core/README.md): Core utilities for all scripts
 - [versioning/README.md](versioning/README.md): Version control utilities
+
+## Automation Libraries
+
+- [automation/file_types.sh](automation/file_types.sh): File classifiers (docs/tests/scripts/workflows/shell)
+- [automation/scope_resolver.sh](automation/scope_resolver.sh): Scope and crate resolution helpers
+- [automation/workspace_rust.sh](automation/workspace_rust.sh): Workspace-members based Rust scope resolver
+- [automation/non_workspace_rust.sh](automation/non_workspace_rust.sh): Fallback nearest-Cargo.toml scope resolver
+- [automation/change_policy.sh](automation/change_policy.sh): Shared changed-file policy predicates
+- [automation/rust_checks.sh](automation/rust_checks.sh): Shared Rust check/fmt/clippy/test runners
 
 ## Core Libraries
 

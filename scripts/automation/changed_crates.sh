@@ -12,10 +12,8 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
-# shellcheck source=scripts/common_lib/core/logging.sh
-source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 
 require_git_repo
 
@@ -41,20 +39,13 @@ if [[ -z "$CHANGED_FILES" ]]; then
   exit 0
 fi
 
-# Extract crate paths from changed files
-# Crates are in projects/libraries/* and projects/products/*
-CRATE_PATHS=$(echo "$CHANGED_FILES" | grep -E "^projects/(libraries|products)/" | \
-  while read -r file; do
-    # Find the directory containing Cargo.toml
-    dir=$(dirname "$file")
-    while [[ "$dir" != "." && "$dir" != "/" ]]; do
-      if [[ -f "$ROOT_DIR/$dir/Cargo.toml" ]]; then
-        echo "$dir"
-        break
-      fi
-      dir=$(dirname "$dir")
-    done
-  done | sort -u || true)
+# Extract crate paths from changed files.
+CRATE_PATHS=$(while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+  if crate_dir="$(resolve_scope_from_path "$file")"; then
+    echo "$crate_dir"
+  fi
+done <<< "$CHANGED_FILES" | sort -u || true)
 
 if [[ -z "$CRATE_PATHS" ]]; then
   info "No crates affected."

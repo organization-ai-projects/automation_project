@@ -5,7 +5,7 @@
 #   <type>(<scope>): <message>
 #   <type>: <message>
 
-COMMIT_ALLOWED_TYPES_REGEX='^(feature|feat|fix|fixture|doc|docs|refactor|test|tests|chore)'
+COMMIT_ALLOWED_TYPES_REGEX='^(feature|feat|fix|doc|docs|refactor|test|tests|chore|perf)'
 COMMIT_SCOPE_REGEX='(\([a-zA-Z0-9_./,-]+\))?'
 COMMIT_MESSAGE_BODY_REGEX='.+'
 
