@@ -32,52 +32,44 @@ is_tests_only_change() {
 is_only_change_matching() {
   local files="$1"
   local predicate="$2"
-  local file
-
-  [[ -z "$files" ]] && return 1
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    if "$predicate" "$file"; then
-      continue
-    fi
-    return 1
-  done <<< "$files"
-
-  return 0
+  [[ -n "$files" ]] || return 1
+  [[ "$(count_files_matching "$files" "$predicate")" -eq "$(count_non_empty_lines "$files")" ]]
 }
 
 is_mixed_docs_and_non_docs_change() {
   local files="$1"
-  local file
-  local has_docs=0
-  local has_non_docs=0
-
-  [[ -z "$files" ]] && return 1
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    if is_docs_file "$file"; then
-      has_docs=1
-    else
-      has_non_docs=1
-    fi
-  done <<< "$files"
-
-  [[ $has_docs -eq 1 && $has_non_docs -eq 1 ]]
+  local total docs
+  [[ -n "$files" ]] || return 1
+  total="$(count_non_empty_lines "$files")"
+  docs="$(count_files_matching "$files" is_docs_file)"
+  [[ "$docs" -gt 0 && "$docs" -lt "$total" ]]
 }
 
 has_multiple_scopes_in_files() {
   local files="$1"
   local scopes
-  local count=0
-
   scopes="$(collect_scopes_from_files "$files")"
-  [[ -z "$scopes" ]] && return 1
+  [[ "$(count_non_empty_lines "$scopes")" -gt 1 ]]
+}
 
-  while IFS= read -r _; do
-    [[ -n "$_" ]] && count=$((count + 1))
-  done <<< "$scopes"
+count_non_empty_lines() {
+  local lines="$1"
+  local count=0
+  local line
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && count=$((count + 1))
+  done <<< "$lines"
+  printf '%s\n' "$count"
+}
 
-  [[ $count -gt 1 ]]
+count_files_matching() {
+  local files="$1"
+  local predicate="$2"
+  local count=0
+  local file
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    "$predicate" "$file" && count=$((count + 1))
+  done <<< "$files"
+  printf '%s\n' "$count"
 }
