@@ -2,6 +2,9 @@
 
 # Shared commit message policy helpers.
 
+# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
+source "$(git rev-parse --show-toplevel)/scripts/automation/git_hooks/lib/scope_resolver.sh"
+
 is_docs_only_change() {
   local files="$1"
   local file
@@ -10,7 +13,7 @@ is_docs_only_change() {
 
   while IFS= read -r file; do
     [[ -z "$file" ]] && continue
-    if [[ "$file" == documentation/* ]] || [[ "$file" == .github/documentation/* ]] || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] || [[ "$file" == *.md ]]; then
+    if is_docs_file "$file"; then
       continue
     fi
     return 1
