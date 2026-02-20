@@ -31,6 +31,7 @@ git_hooks/
 ├── install_hooks.sh    # Installs git hooks (worktree-aware)
 └── tests/
     ├── convention_guardrails_regression.sh  # Regression tests for issue trailer guardrails
+    ├── scope_resolver_perf_smoke.sh         # Perf smoke test for scope resolver
     └── fixtures/                             # Commit message fixtures for allow/block cases
 ```
 
@@ -51,6 +52,7 @@ git_hooks/
 - `lib/push_policy.sh`: Shared pre-push policy helpers (trailer guardrails and scope -> crate resolution for targeted checks).
 - `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
 - `tests/convention_guardrails_regression.sh`: Regression suite for issue trailer guardrails in `commit-msg`, `pre-push`, and `post-checkout`.
+- `tests/scope_resolver_perf_smoke.sh`: Basic performance smoke test for scope resolution over a large staged-file set.
 
 ## Available hooks
 
@@ -193,6 +195,12 @@ To run guardrail regression tests:
 
 ```bash
 ./scripts/automation/git_hooks/tests/convention_guardrails_regression.sh
+```
+
+To run scope resolver perf smoke test:
+
+```bash
+./scripts/automation/git_hooks/tests/scope_resolver_perf_smoke.sh
 ```
 
 To temporarily disable a hook:
