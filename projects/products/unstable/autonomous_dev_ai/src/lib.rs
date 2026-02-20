@@ -23,6 +23,15 @@ pub mod lifecycle;
 // Audit
 pub mod audit;
 
+// Security, identity, and policy governance
+pub mod security;
+
+// Observability, SLOs, and incident operations
+pub mod ops;
+
+// Autonomous PR/review/merge orchestration
+pub mod pr_flow;
+
 // Re-exports
 pub use agent::AutonomousAgent;
 pub use config::{AgentConfig, load_config, save_ron};
