@@ -1,5 +1,5 @@
 # Canonical workspace library layer map (crate=layer).
-# Valid layers: L0, L1, L2, L3, UNMAPPED.
+# Valid layers: L1, L2, L3, UNMAPPED.
 #
 # Notes:
 # - Crates classified as core/foundation or core/contracts must be UNMAPPED here.
