@@ -36,25 +36,6 @@ source "$ROOT_DIR/scripts/automation/git_hooks/lib/commit_message_policy.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
 source "$ROOT_DIR/scripts/automation/git_hooks/lib/scope_resolver.sh"
 
-detect_required_scopes_from_staged_files() {
-  local files="$1"
-  local required=()
-  local scope=""
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-
-    if declare -F resolve_scope_from_path >/dev/null \
-      && scope="$(resolve_scope_from_path "$file")"; then
-      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
-        required+=("$scope")
-      fi
-    fi
-  done <<< "$files"
-
-  printf '%s\n' "${required[@]}"
-}
-
 STAGED_FILES="$(git diff --cached --name-only --diff-filter=ACMRU)"
 if [[ -z "$STAGED_FILES" ]]; then
   exit 0
@@ -74,7 +55,7 @@ else
   fi
 fi
 
-SCOPES="$(detect_required_scopes_from_staged_files "$STAGED_FILES")"
+SCOPES="$(detect_required_scopes_from_staged_files)"
 SCOPES_CSV="$(join_scopes_csv "$SCOPES")"
 DESCRIPTION="$(derive_description "$BRANCH" "$STAGED_FILES")"
 

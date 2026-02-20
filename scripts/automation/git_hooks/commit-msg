@@ -44,12 +44,6 @@ extract_scopes_from_commit_message() {
   done
 }
 
-detect_required_scopes_from_staged_files() {
-  local files
-  files=$(git diff --cached --name-only --diff-filter=ACMRU)
-  collect_scopes_from_files "$files"
-}
-
 validate_and_normalize_issue_refs_footer() {
   local issue_ref_re='(^|[[:space:]])(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#[0-9]+([[:space:]]|$)'
   local trailer_line_re='^[[:space:]]*(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#[0-9]+[[:space:]]*$'

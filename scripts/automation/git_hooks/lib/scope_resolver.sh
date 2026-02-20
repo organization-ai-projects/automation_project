@@ -55,6 +55,12 @@ collect_scopes_from_files() {
   printf '%s\n' "${scopes[@]+"${scopes[@]}"}"
 }
 
+detect_required_scopes_from_staged_files() {
+  local files
+  files="$(git diff --cached --name-only --diff-filter=ACMRU)"
+  collect_scopes_from_files "$files"
+}
+
 resolve_crate_name_from_file() {
   local file="$1"
   local dir
