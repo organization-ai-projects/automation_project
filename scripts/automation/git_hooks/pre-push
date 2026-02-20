@@ -59,7 +59,7 @@ if [[ $SCOPE_VALID -ne 0 ]] || [[ -z "$AFFECTED" ]]; then
   if [[ -n "$AFFECTED" ]]; then
     echo "⚠️  Missing/invalid commit scopes - using changed files to infer crates."
     if [[ "${SCOPES_HAD_INVALID:-0}" -eq 1 ]]; then
-      echo "   Tip: use scopes like 'refactor(projects/libraries/security):' or 'fix(projects/products/stable/accounts/backend):'"
+      echo "   Tip: use scopes like 'refactor(projects/libraries/layers/domain/security):' or 'fix(projects/products/stable/accounts/backend):'"
     fi
     echo "🎯 Crates inferred from changed files:"
     echo "$AFFECTED" | sed 's/^/   - /'
@@ -73,7 +73,7 @@ if [[ $SCOPE_VALID -ne 0 ]] || [[ -z "$AFFECTED" ]]; then
     done <<< "$AFFECTED"
   else
     echo "⚠️  Could not infer affected crates - testing full workspace."
-    echo "   (Use scopes like 'refactor(projects/libraries/security):' or 'fix(projects/products/stable/accounts/backend):')"
+    echo "   (Use scopes like 'refactor(projects/libraries/layers/domain/security):' or 'fix(projects/products/stable/accounts/backend):')"
     echo ""
     CLIPPY_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
     TEST_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
