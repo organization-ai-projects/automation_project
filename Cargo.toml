@@ -1,16 +1,16 @@
 [workspace]
 members = [
-  "projects/libraries/ai",
+  "projects/libraries/layers/orchestration/ai",
   "projects/libraries/core/foundation/common",
   "projects/libraries/core/foundation/common_binary",
   "projects/libraries/core/foundation/common_json",
-  "projects/libraries/neural",
+  "projects/libraries/layers/domain/neural",
   "projects/libraries/core/contracts/protocol",
-  "projects/libraries/identity",
-  "projects/libraries/security",
+  "projects/libraries/layers/domain/identity",
+  "projects/libraries/layers/domain/security",
   "projects/libraries/core/contracts/security_core",
-  "projects/libraries/symbolic",
-  "projects/libraries/ui",
+  "projects/libraries/layers/domain/symbolic",
+  "projects/libraries/layers/domain/ui",
   "projects/libraries/core/foundation/common_parsing",
   "projects/libraries/core/foundation/common_tokenize",
   "projects/libraries/core/foundation/command_runner",
@@ -33,7 +33,7 @@ members = [
   "projects/libraries/core/foundation/ast_macros",
   "projects/libraries/core/foundation/pjson_proc_macros",
   "projects/libraries/core/foundation/hybrid_arena",
-  "projects/libraries/versioning",
+  "projects/libraries/layers/domain/versioning",
 ]
 resolver = "2"
 
@@ -61,13 +61,13 @@ pjson_proc_macros = { path = "projects/libraries/core/foundation/pjson_proc_macr
 common = { path = "projects/libraries/core/foundation/common" }
 common_binary = { path = "projects/libraries/core/foundation/common_binary" }
 common_json = { path = "projects/libraries/core/foundation/common_json" }
-neural = { path = "projects/libraries/neural" }
+neural = { path = "projects/libraries/layers/domain/neural" }
 protocol = { path = "projects/libraries/core/contracts/protocol" }
-identity = { path = "projects/libraries/identity" }
-security = { path = "projects/libraries/security" }
+identity = { path = "projects/libraries/layers/domain/identity" }
+security = { path = "projects/libraries/layers/domain/security" }
 security_core = { path = "projects/libraries/core/contracts/security_core" }
-symbolic = { path = "projects/libraries/symbolic" }
-ui = { path = "projects/libraries/ui" }
+symbolic = { path = "projects/libraries/layers/domain/symbolic" }
+ui = { path = "projects/libraries/layers/domain/ui" }
 command_runner = { path = "projects/libraries/core/foundation/command_runner" }
 common_calendar = { path = "projects/libraries/core/foundation/common_calendar" }
 common_time = { path = "projects/libraries/core/foundation/common_time" }
@@ -77,6 +77,6 @@ common_tokenize = { path = "projects/libraries/core/foundation/common_tokenize" 
 protocol_macros = { path = "projects/libraries/core/foundation/protocol_macros" }
 ast_core = { path = "projects/libraries/core/foundation/ast_core" }
 ast_macros = { path = "projects/libraries/core/foundation/ast_macros" }
-ai = { path = "projects/libraries/ai" }
+ai = { path = "projects/libraries/layers/orchestration/ai" }
 hybrid_arena = { path = "projects/libraries/core/foundation/hybrid_arena" }
-versioning = { path = "projects/libraries/versioning" }
+versioning = { path = "projects/libraries/layers/domain/versioning" }
