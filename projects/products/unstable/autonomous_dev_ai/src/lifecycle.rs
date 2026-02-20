@@ -24,7 +24,10 @@ mod types;
 
 pub use errors::{LifecycleError, LifecycleResult, ResourceType};
 pub use metrics::{LifecycleMetrics, MetricsCollector};
-pub use resilience::{CircuitBreaker, CircuitState, RetryStrategy};
+pub use resilience::{
+    ActionBoundary, Checkpoint, CircuitBreaker, CircuitState, CompensationKind, ResourceBudget,
+    RetryStrategy, RollbackManager,
+};
 pub use types::{ExecutionContext, IterationNumber, MaxIterations, StepIndex};
 
 #[cfg(test)]

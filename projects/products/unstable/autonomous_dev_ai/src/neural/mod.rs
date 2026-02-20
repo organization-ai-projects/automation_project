@@ -2,6 +2,8 @@
 
 //! Neural computation layer - advisory only
 
+pub mod governance;
+
 use crate::error::{AgentError, AgentResult};
 use crate::symbolic::NeuralProposal;
 use serde::{Deserialize, Serialize};
