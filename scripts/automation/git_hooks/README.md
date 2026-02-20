@@ -134,7 +134,8 @@ The hook uses two layers:
 
 - If the push only changes docs/scripts/workflow files, Rust checks are skipped.
 - Otherwise, commit scopes are used to target specific crates.
-- If scopes are invalid/missing, it falls back to full workspace checks.
+- If scopes are invalid/missing, it first infers crates from changed files.
+- Full workspace checks are used only when crate inference is not possible.
 
 **Bypass (emergency only):**
 

@@ -205,6 +205,7 @@ detect_crates_from_scopes() {
   local -a crates=()
   local invalid_scopes=0
   local scope_re='^[a-z]+\(([^)]+)\):'
+  SCOPES_HAD_INVALID=0
 
   # Extract scope from "type(scope): message" format
   # scope can be: products/accounts/backend → accounts-backend
@@ -252,6 +253,50 @@ detect_crates_from_scopes() {
           cargo_toml="projects/libraries/${BASH_REMATCH[1]}/Cargo.toml"
         elif [[ $scope =~ ^projects/libraries/core/([^/]+)$ ]]; then
           cargo_toml="projects/libraries/core/${BASH_REMATCH[1]}/Cargo.toml"
+        elif [[ $scope =~ ^projects/products/([^/]+)/([^/]+)/(ui|backend)$ ]]; then
+          local tier="${BASH_REMATCH[1]}"
+          local product="${BASH_REMATCH[2]}"
+          local component="${BASH_REMATCH[3]}"
+          local -a matches=()
+          local match
+          while IFS= read -r match; do
+            [[ -n "$match" ]] && matches+=("$match")
+          done < <(find projects/products -type f -path "*/${tier}/${product}/${component}/Cargo.toml")
+
+          if [[ ${#matches[@]} -eq 1 ]]; then
+            cargo_toml="${matches[0]}"
+          elif [[ ${#matches[@]} -gt 1 ]]; then
+            echo "⚠️  Scope '$scope' matches multiple Cargo.toml files; falling back to changed-file inference:"
+            printf '   - %s\n' "${matches[@]}"
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
+        elif [[ $scope =~ ^projects/products/([^/]+)/([^/]+)$ ]]; then
+          local tier_or_product="${BASH_REMATCH[1]}"
+          local product_or_component="${BASH_REMATCH[2]}"
+          local -a matches=()
+          local match
+
+          # Prefer explicit tier/product form first.
+          while IFS= read -r match; do
+            [[ -n "$match" ]] && matches+=("$match")
+          done < <(find projects/products -type f -path "*/${tier_or_product}/${product_or_component}/Cargo.toml")
+
+          # Backward-compatible fallback for legacy product/component scope.
+          if [[ ${#matches[@]} -eq 0 ]]; then
+            while IFS= read -r match; do
+              [[ -n "$match" ]] && matches+=("$match")
+            done < <(find projects/products -type f -path "*/${tier_or_product}/${product_or_component}/Cargo.toml")
+          fi
+
+          if [[ ${#matches[@]} -eq 1 ]]; then
+            cargo_toml="${matches[0]}"
+          elif [[ ${#matches[@]} -gt 1 ]]; then
+            echo "⚠️  Scope '$scope' matches multiple Cargo.toml files; falling back to changed-file inference:"
+            printf '   - %s\n' "${matches[@]}"
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
         elif [[ $scope =~ ^projects/products/([^/]+)(/(ui|backend))?$ ]]; then
           local product="${BASH_REMATCH[1]}"
           local component="${BASH_REMATCH[3]:-}"
@@ -264,7 +309,7 @@ detect_crates_from_scopes() {
           if [[ ${#matches[@]} -eq 1 ]]; then
             cargo_toml="${matches[0]}"
           elif [[ ${#matches[@]} -gt 1 ]]; then
-            echo "⚠️  Scope '$scope' matches multiple Cargo.toml files; falling back to workspace:"
+            echo "⚠️  Scope '$scope' matches multiple Cargo.toml files; falling back to changed-file inference:"
             printf '   - %s\n' "${matches[@]}"
             invalid_scopes=$((invalid_scopes + 1))
             continue
@@ -292,10 +337,47 @@ detect_crates_from_scopes() {
     fi
   done <<< "$commits_input"
 
-  # If there were invalid scopes, return empty (force full workspace test)
   if [[ $invalid_scopes -gt 0 ]]; then
+    SCOPES_HAD_INVALID=1
+  fi
+
+  # If no crate could be resolved from commit scopes, return non-zero so caller can infer from files.
+  if [[ ${#crates[@]} -eq 0 ]]; then
     return 1
   fi
+
+  printf '%s\n' "${crates[@]+"${crates[@]}"}"
+}
+
+detect_crates_from_changed_files() {
+  local files="$1"
+  local -a crates=()
+  local file
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+
+    local path="$file"
+    local dir
+    if [[ -d "$path" ]]; then
+      dir="$path"
+    else
+      dir="$(dirname "$path")"
+    fi
+
+    while [[ "$dir" != "." && "$dir" != "/" ]]; do
+      local cargo_toml="${dir}/Cargo.toml"
+      if [[ -f "$cargo_toml" ]]; then
+        local crate_name
+        crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
+        if [[ -n "$crate_name" ]] && [[ ! " ${crates[*]} " =~ " ${crate_name} " ]]; then
+          crates+=("$crate_name")
+        fi
+        break
+      fi
+      dir="$(dirname "$dir")"
+    done
+  done <<< "$files"
 
   printf '%s\n' "${crates[@]+"${crates[@]}"}"
 }
@@ -310,11 +392,29 @@ if [[ -f Cargo.lock ]]; then
 fi
 
 if [[ $SCOPE_VALID -ne 0 ]] || [[ -z "$AFFECTED" ]]; then
-  echo "⚠️  Invalid or missing crate scope(s) in commits - testing full workspace"
-  echo "   (Use scopes like 'refactor(projects/libraries/security):' or 'fix(projects/products/accounts/backend):')"
-  echo ""
-  CLIPPY_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
-  TEST_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
+  AFFECTED="$(detect_crates_from_changed_files "$changed_files")"
+  if [[ -n "$AFFECTED" ]]; then
+    echo "⚠️  Missing/invalid commit scopes - using changed files to infer crates."
+    if [[ "${SCOPES_HAD_INVALID:-0}" -eq 1 ]]; then
+      echo "   Tip: use scopes like 'refactor(projects/libraries/security):' or 'fix(projects/products/stable/accounts/backend):'"
+    fi
+    echo "🎯 Crates inferred from changed files:"
+    echo "$AFFECTED" | sed 's/^/   - /'
+    echo ""
+    CLIPPY_ARGS=("${LOCKED_ARGS[@]}" --all-targets --all-features)
+    TEST_ARGS=("${LOCKED_ARGS[@]}" --all-targets --all-features)
+    while IFS= read -r crate; do
+      [[ -z "$crate" ]] && continue
+      CLIPPY_ARGS+=(-p "$crate")
+      TEST_ARGS+=(-p "$crate")
+    done <<< "$AFFECTED"
+  else
+    echo "⚠️  Could not infer affected crates - testing full workspace."
+    echo "   (Use scopes like 'refactor(projects/libraries/security):' or 'fix(projects/products/stable/accounts/backend):')"
+    echo ""
+    CLIPPY_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
+    TEST_ARGS=("${LOCKED_ARGS[@]}" --workspace --all-targets --all-features)
+  fi
 else
   echo "🎯 Crates from commit scopes:"
   echo "$AFFECTED" | sed 's/^/   - /'
