@@ -16,6 +16,10 @@ It interacts mainly with:
 
 ```plaintext
 common_lib/
+├── automation/                         # Shared automation helpers (hooks/CI/scripts)
+│   ├── file_types.sh                  # Docs/tests/scripts/workflow classifiers
+│   ├── scope_resolver.sh              # Scope and crate resolution helpers
+│   └── rust_checks.sh                 # Shared cargo fmt/clippy/test runners
 ├── core/                               # Core utilities for all scripts
 │   ├── command.sh                      # Command execution and validation
 │   ├── file_operations.sh              # File and directory operations
@@ -37,12 +41,14 @@ common_lib/
 
 - `README.md`: This file.
 - `core/`: Core utilities for all scripts.
+- `automation/`: Shared automation helpers for hooks/CI/scripts.
 - `versioning/`: Version control utilities.
 
 ## Organization Principle
 
 Utility libraries are organized by **scope and tool**:
 
+- **`automation/`** - Shared automation policy primitives (file classifiers, scope/crate resolution, Rust checks)
 - **`core/`** - Core utilities used across all scripts (logging, commands, files, strings, network)
 - **`versioning/file_versioning/git/`** - Git-specific utilities (repository, branches, commits, etc.)
 
