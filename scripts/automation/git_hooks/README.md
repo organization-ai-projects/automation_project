@@ -43,7 +43,7 @@ git_hooks/
 - `pre-push`: Runs quality checks before push.
 - `lib/file_types.sh`: Shared file classifiers (docs/tests/shell/workflow/scripts paths and patterns).
 - `lib/scope_resolver.sh`: Shared path -> scope and files -> crates resolver used by `prepare-commit-msg`, `commit-msg`, `pre-push`, and staging guards.
-- `lib/policy.sh`: Shared predicates (`docs-only`, `tests-only`, `docs/scripts-only`, mixed docs/code detection, multi-scope detection) to keep hooks aligned.
+- `lib/policy.sh`: Compatibility shim to shared predicates in `../../common_lib/automation/change_policy.sh` (`docs-only`, `tests-only`, mixed docs/code, multi-scope).
 - `lib/commit_message_policy.sh`: Shared commit message helpers (type mapping, description/scopes formatting, scope extraction).
 - `lib/issue_footer_policy.sh`: Shared issue footer normalization and parent-reference validation used by `commit-msg`.
 - `lib/hook_utils.sh`: Generic reusable helpers (upstream/range resolution and shell syntax checks).

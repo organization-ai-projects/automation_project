@@ -19,7 +19,8 @@ common_lib/
 ├── automation/                         # Shared automation helpers (hooks/CI/scripts)
 │   ├── file_types.sh                  # Docs/tests/scripts/workflow classifiers
 │   ├── scope_resolver.sh              # Scope and crate resolution helpers
-│   └── rust_checks.sh                 # Shared cargo fmt/clippy/test runners
+│   ├── change_policy.sh               # Shared predicates for changed-file policies
+│   └── rust_checks.sh                 # Shared cargo check/fmt/clippy/test runners
 ├── core/                               # Core utilities for all scripts
 │   ├── command.sh                      # Command execution and validation
 │   ├── file_operations.sh              # File and directory operations

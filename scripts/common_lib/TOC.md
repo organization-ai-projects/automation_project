@@ -18,7 +18,8 @@ This document provides an overview of all documentation files in this directory.
 
 - [automation/file_types.sh](automation/file_types.sh): File classifiers (docs/tests/scripts/workflows/shell)
 - [automation/scope_resolver.sh](automation/scope_resolver.sh): Scope and crate resolution helpers
-- [automation/rust_checks.sh](automation/rust_checks.sh): Shared Rust fmt/clippy/test runners
+- [automation/change_policy.sh](automation/change_policy.sh): Shared changed-file policy predicates
+- [automation/rust_checks.sh](automation/rust_checks.sh): Shared Rust check/fmt/clippy/test runners
 
 ## Core Libraries
 

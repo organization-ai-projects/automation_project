@@ -7,4 +7,5 @@ Current modules:
 
 - `file_types.sh`: file classifiers (docs, tests, workflows, scripts, shell).
 - `scope_resolver.sh`: path-to-scope and path-to-crate resolution helpers.
-- `rust_checks.sh`: shared cargo check runners (`fmt`, `clippy`, `test`).
+- `change_policy.sh`: shared predicates for staged/changed files (docs-only, mixed changes, multi-scope).
+- `rust_checks.sh`: shared cargo check runners (`check`, `fmt`, `clippy`, `test`).
