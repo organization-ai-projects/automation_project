@@ -1,7 +1,7 @@
 [workspace]
 members = [
   "projects/libraries/ai",
-  "projects/libraries/common",
+  "projects/libraries/core/foundation/common",
   "projects/libraries/core/foundation/common_binary",
   "projects/libraries/core/foundation/common_json",
   "projects/libraries/neural",
@@ -58,7 +58,7 @@ anyhow = "1.0.101"
 tracing-subscriber = "0.3"
 
 pjson_proc_macros = { path = "projects/libraries/core/foundation/pjson_proc_macros" }
-common = { path = "projects/libraries/common" }
+common = { path = "projects/libraries/core/foundation/common" }
 common_binary = { path = "projects/libraries/core/foundation/common_binary" }
 common_json = { path = "projects/libraries/core/foundation/common_json" }
 neural = { path = "projects/libraries/neural" }
