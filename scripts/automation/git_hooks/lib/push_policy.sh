@@ -101,35 +101,44 @@ push_policy_detect_crates_from_scopes() {
         [[ -z "$scope" ]] && continue
 
         local cargo_toml=""
+        local -a cargo_tomls=()
         if [[ $scope =~ ^projects/libraries/core$ ]]; then
           local -a core_matches=()
           local core_match
           while IFS= read -r core_match; do
             [[ -n "$core_match" ]] && core_matches+=("$core_match")
-          done < <(find projects/libraries/core -mindepth 2 -maxdepth 2 -type f -name Cargo.toml)
+          done < <(find projects/libraries/core -mindepth 2 -maxdepth 3 -type f -name Cargo.toml)
 
           if [[ ${#core_matches[@]} -eq 0 ]]; then
             invalid_scopes=$((invalid_scopes + 1))
             continue
           fi
 
-          local cm
-          for cm in "${core_matches[@]}"; do
-            local core_crate_name
-            core_crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cm" | head -n1)
-            if [[ -z "$core_crate_name" ]]; then
-              invalid_scopes=$((invalid_scopes + 1))
-              continue
-            fi
-            if [[ ! " ${crates[*]} " =~ " ${core_crate_name} " ]]; then
-              crates+=("$core_crate_name")
-            fi
-          done
-          continue
+          cargo_tomls=("${core_matches[@]}")
         elif [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
           cargo_toml="projects/libraries/${BASH_REMATCH[1]}/Cargo.toml"
+        elif [[ $scope =~ ^projects/libraries/core/([^/]+)/([^/]+)$ ]]; then
+          cargo_toml="projects/libraries/core/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}/Cargo.toml"
         elif [[ $scope =~ ^projects/libraries/core/([^/]+)$ ]]; then
-          cargo_toml="projects/libraries/core/${BASH_REMATCH[1]}/Cargo.toml"
+          local core_segment="${BASH_REMATCH[1]}"
+          local direct_core_cargo_toml="projects/libraries/core/${core_segment}/Cargo.toml"
+          if [[ -f "$direct_core_cargo_toml" ]]; then
+            cargo_toml="$direct_core_cargo_toml"
+          else
+            local -a nested_core_matches=()
+            local nested_core_match
+            while IFS= read -r nested_core_match; do
+              [[ -n "$nested_core_match" ]] && nested_core_matches+=("$nested_core_match")
+            done < <(find "projects/libraries/core/${core_segment}" -mindepth 1 -maxdepth 1 -type f -name Cargo.toml 2>/dev/null)
+
+            if [[ ${#nested_core_matches[@]} -eq 0 ]]; then
+              while IFS= read -r nested_core_match; do
+                [[ -n "$nested_core_match" ]] && nested_core_matches+=("$nested_core_match")
+              done < <(find "projects/libraries/core/${core_segment}" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml 2>/dev/null)
+            fi
+
+            cargo_tomls=("${nested_core_matches[@]}")
+          fi
         elif [[ $scope =~ ^projects/products/([^/]+)/([^/]+)/(ui|backend)$ ]]; then
           local tier="${BASH_REMATCH[1]}"
           local product="${BASH_REMATCH[2]}"
@@ -192,21 +201,28 @@ push_policy_detect_crates_from_scopes() {
         fi
 
         if [[ -n "$cargo_toml" ]]; then
-          if [[ ! -f "$cargo_toml" ]]; then
-            invalid_scopes=$((invalid_scopes + 1))
-            continue
-          fi
+          cargo_tomls+=("$cargo_toml")
+        fi
 
-          local crate_name
-          crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
-          if [[ -z "$crate_name" ]]; then
-            invalid_scopes=$((invalid_scopes + 1))
-            continue
-          fi
+        if [[ ${#cargo_tomls[@]} -gt 0 ]]; then
+          local ct
+          for ct in "${cargo_tomls[@]}"; do
+            if [[ ! -f "$ct" ]]; then
+              invalid_scopes=$((invalid_scopes + 1))
+              continue
+            fi
 
-          if [[ ! " ${crates[*]} " =~ " ${crate_name} " ]]; then
-            crates+=("$crate_name")
-          fi
+            local crate_name
+            crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$ct" | head -n1)
+            if [[ -z "$crate_name" ]]; then
+              invalid_scopes=$((invalid_scopes + 1))
+              continue
+            fi
+
+            if [[ ! " ${crates[*]} " =~ " ${crate_name} " ]]; then
+              crates+=("$crate_name")
+            fi
+          done
         fi
       done
     fi
