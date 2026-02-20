@@ -116,7 +116,7 @@ log_level = "info"
 - **Namespace** : Contains the main executables (launcher, engine, central_ui).
 - **Rules** :
   - Each sub-folder is a distinct binary crate.
-  - Shared dependencies via `projects/libraries/common` and `projects/libraries/core/contracts/protocol`.
+  - Shared dependencies via `projects/libraries/core/foundation/common` and `projects/libraries/core/contracts/protocol`.
 
 This architecture ensures robust supervision and reduces single points of failure (SPOF) by isolating responsibilities between components.
 
