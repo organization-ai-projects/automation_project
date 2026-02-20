@@ -222,7 +222,9 @@ automation_project/
 |   |   |       `-- ui_dist/     # packaged artifacts (wasm + assets + manifest)
 |   `-- libraries/
 |       |-- common/
-|       |-- protocol/
+|       |-- core/
+|       |   |-- protocol/
+|       |   `-- security_core/
 |       |-- security/
 |       |-- symbolic/
 |       |-- neural/
