@@ -229,10 +229,10 @@ impl ModelGovernance {
         }
 
         // Check per-model threshold
-        if let Some(mv) = self.registry.get(model_name) {
-            if confidence < mv.confidence_threshold {
-                return false;
-            }
+        if let Some(mv) = self.registry.get(model_name)
+            && confidence < mv.confidence_threshold
+        {
+            return false;
         }
 
         self.confidence_gate.passes(confidence)
