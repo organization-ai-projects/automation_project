@@ -18,7 +18,9 @@ It interacts mainly with:
 common_lib/
 ├── automation/                         # Shared automation helpers (hooks/CI/scripts)
 │   ├── file_types.sh                  # Docs/tests/scripts/workflow classifiers
-│   ├── scope_resolver.sh              # Scope and crate resolution helpers
+│   ├── scope_resolver.sh              # Scope resolver entrypoint
+│   ├── workspace_rust.sh              # Workspace-members based Rust scope resolver
+│   ├── non_workspace_rust.sh          # Fallback nearest-Cargo.toml scope resolver
 │   ├── change_policy.sh               # Shared predicates for changed-file policies
 │   └── rust_checks.sh                 # Shared cargo check/fmt/clippy/test runners
 ├── core/                               # Core utilities for all scripts
