@@ -2,23 +2,45 @@
 set -euo pipefail
 
 # Usage: ./install_hooks.sh
-# Installs git hooks into .git/hooks/
+# Installs git hooks into the git hooks directory (supports standard clones and worktrees)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-GIT_HOOKS_DIR="$ROOT_DIR/.git/hooks"
 
 echo "🔧 Installing git hooks..."
 echo ""
 
-# Check if we're in a git repository
-if [[ ! -d "$ROOT_DIR/.git" ]]; then
+# Check if we're in a git repository (works in both standard clones and worktrees)
+if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
   echo "❌ Error: Not in a git repository root"
   exit 1
 fi
 
+# Resolve the hooks directory via git (works for standard clones and worktrees)
+GIT_HOOKS_DIR="$(git -C "$ROOT_DIR" rev-parse --git-path hooks)"
+# Make absolute if relative (standard clone returns relative path; worktree returns absolute)
+[[ "$GIT_HOOKS_DIR" == /* ]] || GIT_HOOKS_DIR="$ROOT_DIR/$GIT_HOOKS_DIR"
+
 # Create hooks directory if it doesn't exist
 mkdir -p "$GIT_HOOKS_DIR"
+
+# Install pre-commit hook
+if [[ -f "$SCRIPT_DIR/pre-commit" ]]; then
+  cp "$SCRIPT_DIR/pre-commit" "$GIT_HOOKS_DIR/pre-commit"
+  chmod +x "$GIT_HOOKS_DIR/pre-commit"
+  echo "✅ Installed pre-commit hook"
+else
+  echo "⚠️  pre-commit hook not found"
+fi
+
+# Install prepare-commit-msg hook
+if [[ -f "$SCRIPT_DIR/prepare-commit-msg" ]]; then
+  cp "$SCRIPT_DIR/prepare-commit-msg" "$GIT_HOOKS_DIR/prepare-commit-msg"
+  chmod +x "$GIT_HOOKS_DIR/prepare-commit-msg"
+  echo "✅ Installed prepare-commit-msg hook"
+else
+  echo "⚠️  prepare-commit-msg hook not found"
+fi
 
 # Install commit-msg hook
 if [[ -f "$SCRIPT_DIR/commit-msg" ]]; then
@@ -38,16 +60,51 @@ else
   echo "⚠️  pre-push hook not found"
 fi
 
+# Install post-checkout hook
+if [[ -f "$SCRIPT_DIR/post-checkout" ]]; then
+  cp "$SCRIPT_DIR/post-checkout" "$GIT_HOOKS_DIR/post-checkout"
+  chmod +x "$GIT_HOOKS_DIR/post-checkout"
+  echo "✅ Installed post-checkout hook"
+else
+  echo "⚠️  post-checkout hook not found"
+fi
+
+# Install pre-branch-create hook
+if [[ -f "$SCRIPT_DIR/pre-branch-create" ]]; then
+  cp "$SCRIPT_DIR/pre-branch-create" "$GIT_HOOKS_DIR/pre-branch-create"
+  chmod +x "$GIT_HOOKS_DIR/pre-branch-create"
+  echo "✅ Installed pre-branch-create hook"
+else
+  echo "⚠️  pre-branch-create hook not found"
+fi
+
+# Install branch-creation-check hook
+if [[ -f "$SCRIPT_DIR/branch-creation-check.sh" ]]; then
+  cp "$SCRIPT_DIR/branch-creation-check.sh" "$GIT_HOOKS_DIR/branch-creation-check"
+  chmod +x "$GIT_HOOKS_DIR/branch-creation-check"
+  echo "✅ Installed branch-creation-check hook"
+else
+  echo "⚠️  branch-creation-check.sh not found"
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ Git hooks installed successfully!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "Hooks installed:"
+echo "  • pre-commit  - Runs formatting and branch checks before commit"
+echo "  • prepare-commit-msg - Auto-generates conventional commit subject"
 echo "  • commit-msg  - Validates commit message format"
 echo "  • pre-push    - Runs fmt, clippy, tests before push"
+echo "  • post-checkout - Warns on root-parent issue refs in branch history"
+echo "  • branch-creation-check - Validates branch creation rules"
 echo ""
 echo "Bypass options (emergency only):"
+echo "  • SKIP_PRE_COMMIT=1 git commit ..."
+echo "  • SKIP_PREPARE_COMMIT_MSG=1 git commit ..."
 echo "  • SKIP_COMMIT_VALIDATION=1 git commit ..."
+echo "  • SKIP_POST_CHECKOUT_CONVENTION_WARN=1 git checkout ..."
 echo "  • SKIP_PRE_PUSH=1 git push"
+echo "  • ALLOW_PART_OF_ONLY_PUSH=1 git push"
 echo ""

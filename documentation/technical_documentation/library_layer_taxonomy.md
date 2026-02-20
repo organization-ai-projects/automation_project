@@ -2,75 +2,73 @@
 
 ## Purpose
 
-Define a single layer model for all workspace crates and enforce dependency direction rules.
+Define the strict, deterministic layer model for workspace libraries.
 
 ## Layer Model
 
-- `L0 Foundation`: shared primitives, format helpers, macros, parsing/tokenizing/time/calendar, and core infra utilities.
-- `L1 Domain`: business/domain libraries built on foundation crates.
-- `L2 Interface`: interface and boundary libraries (contracts/UI-level abstractions).
-- `L3 Applications`: runnable products/components (stable and unstable products).
+- `L0 Foundation`: ultra-generic technical primitives and utilities.
+- `L1 Technical Specialization`: technical adapters/specializations built on `L0` (still not business-domain).
+- `L2 Domain`: domain libraries and domain-facing public APIs/contracts.
+- `L3 Orchestration`: the only layer allowed to compose/cross multiple domains.
 
-## Dependency Direction Rules
+## Core Overlay Model
 
-- `L0` may depend only on `L0`.
-- `L1` may depend on `L0` and `L1`.
-- `L2` may depend on `L0`, `L1`, and `L2`.
-- `L3` may depend on `L0`, `L1`, and `L2`.
-- Upward dependencies are forbidden (for example: `L0 -> L1/L2/L3`, `L1 -> L2/L3`, `L2 -> L3`).
+The checker also applies a core overlay that is orthogonal to numeric layers.
 
-## Allowed Dependency Examples
+- `core/foundation`: shared internal technical building blocks.
+- `core/contracts`: shared cross-cutting contracts/protocol crates.
 
-1. `projects/libraries/symbolic` (`L1`) -> `projects/libraries/common` (`L0`)
-2. `projects/libraries/ui` (`L2`) -> `projects/libraries/protocol` (`L2`)
-3. `projects/products/stable/accounts/backend` (`L3`) -> `projects/libraries/security` (`L1`)
+Overlay enforcement:
 
-## Forbidden Dependency Examples
+- `layer -> core` allowed
+- `core -> layer` forbidden
+- `core -> core` allowed
 
-1. `projects/libraries/common` (`L0`) -> `projects/libraries/symbolic` (`L1`)
-2. `projects/libraries/protocol` (`L2`) -> `projects/products/stable/core/engine` (`L3`)
-3. `projects/libraries/identity` (`L1`) -> `projects/libraries/ui` (`L2`)
+## Strict Dependency Rules (Adjacent-only)
 
-## Workspace Crate-to-Layer Mapping
+- `L0` must not depend on any workspace crate.
+- `L1` may depend on `L0` only.
+- `L2` may depend on `L1` only.
+- `L3` may depend on `L2` only.
+- Upward dependencies are forbidden.
+- Lateral dependencies are forbidden by default (`L1 -> L1`, `L2 -> L2`, `L3 -> L3`), unless explicitly whitelisted.
 
-Each workspace member is assigned to exactly one layer.
+## Checker Behavior Contract
 
-| Workspace member | Layer |
-|---|---|
-| `projects/libraries/ai` | `L1 Domain` |
-| `projects/libraries/ast_core` | `L0 Foundation` |
-| `projects/libraries/ast_macros` | `L0 Foundation` |
-| `projects/libraries/command_runner` | `L0 Foundation` |
-| `projects/libraries/common` | `L0 Foundation` |
-| `projects/libraries/common_binary` | `L0 Foundation` |
-| `projects/libraries/common_calendar` | `L0 Foundation` |
-| `projects/libraries/common_json` | `L0 Foundation` |
-| `projects/libraries/common_parsing` | `L0 Foundation` |
-| `projects/libraries/common_ron` | `L0 Foundation` |
-| `projects/libraries/common_time` | `L0 Foundation` |
-| `projects/libraries/common_tokenize` | `L0 Foundation` |
-| `projects/libraries/hybrid_arena` | `L0 Foundation` |
-| `projects/libraries/identity` | `L1 Domain` |
-| `projects/libraries/neural` | `L1 Domain` |
-| `projects/libraries/pjson_proc_macros` | `L0 Foundation` |
-| `projects/libraries/protocol` | `L2 Interface` |
-| `projects/libraries/protocol_macros` | `L0 Foundation` |
-| `projects/libraries/security` | `L1 Domain` |
-| `projects/libraries/symbolic` | `L1 Domain` |
-| `projects/libraries/ui` | `L2 Interface` |
-| `projects/libraries/versioning` | `L1 Domain` |
-| `projects/products/stable/accounts/backend` | `L3 Applications` |
-| `projects/products/stable/accounts/ui` | `L3 Applications` |
-| `projects/products/stable/code_agent_sandbox` | `L3 Applications` |
-| `projects/products/stable/core/central_ui` | `L3 Applications` |
-| `projects/products/stable/core/engine` | `L3 Applications` |
-| `projects/products/stable/core/launcher` | `L3 Applications` |
-| `projects/products/stable/core/watcher` | `L3 Applications` |
-| `projects/products/stable/varina/backend` | `L3 Applications` |
-| `projects/products/stable/varina/ui` | `L3 Applications` |
-| `projects/products/unstable/auto_manager_ai` | `L3 Applications` |
-| `projects/products/unstable/autonomous_dev_ai` | `L3 Applications` |
+- Layer checks evaluate workspace crate edges only.
+- External crates are ignored for layer-direction rules.
+- `path`/workspace dependencies are treated exactly like named workspace dependencies.
+- Enforcement scope targets `dependencies` and `build-dependencies` by default.
+- `dev-dependencies` are excluded by default.
 
-## Enforcement Follow-up
+## Layer Placement Guidance
 
-This document defines the policy baseline. Automated CI boundary checks are handled in the dedicated enforcement follow-up issue.
+- Purely technical/shared contracts belong to `L1`.
+- Domain-facing contracts belong to `L2`.
+- `L3` stays orchestration-only and should consume `L2` contracts, not internal `L1` implementation details.
+
+## Resolved Placement Decisions
+
+The following decisions are finalized and should be treated as architecture policy:
+
+- `protocol` is fixed as a `core/contracts` crate (not a layer level).
+- `security_core` is fixed as a `core/contracts` crate (not a layer level).
+- `ui-lib` (crate under `projects/libraries/ui`) is fixed to `L2`.
+- Shared technical crates are fixed as:
+  - `L0`: `common_time`, `common_calendar`, `common_binary`, `common_parsing`, `common_tokenize`, `hybrid_arena`, `ast_core`, `ast_macros`, `pjson_proc_macros`, `protocol_macros`.
+  - `L1`: `common`, `common_json`, `common_ron`, `command_runner`.
+- `ai` remains `L3` and must consume `L2` contracts/facades only.
+  Migration target: remove direct `L3 -> L1` edges (notably to `common_json`) via `L2` boundaries before strict closure of migration issues.
+
+## Migration Impact (Current Wave)
+
+- Existing direct `L3 -> L1` and `L2 -> L0` anomalies are migration debt, not policy ambiguity.
+- Follow-up refactors must align code to this finalized placement without redefining layers.
+
+## Exception Governance
+
+- Exceptions must be explicit, minimal, and temporary.
+- Each whitelist entry must include:
+  - a reason,
+  - an owner,
+  - a review/expiry date.

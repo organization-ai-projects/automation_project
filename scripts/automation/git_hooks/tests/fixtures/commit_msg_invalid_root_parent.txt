@@ -1,0 +1,3 @@
+docs: update hook policy wording
+
+Part of #617

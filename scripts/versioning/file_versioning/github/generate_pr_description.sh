@@ -12,6 +12,7 @@ E_PARTIAL=6
 SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/classification.sh"
+source "${SCRIPT_DIR}/lib/issue_refs.sh"
 source "${SCRIPT_DIR}/lib/rendering.sh"
 
 print_usage() {
@@ -39,7 +40,7 @@ EOF
 
 usage_error() {
   local message="$1"
-  echo "Erreur: ${message}" >&2
+  echo "Error: ${message}" >&2
   print_usage >&2
   exit "$E_USAGE"
 }
@@ -48,7 +49,7 @@ require_option_value() {
   local option_name="$1"
   local option_value="${2:-}"
   if [[ -z "$option_value" || "$option_value" == --* ]]; then
-    usage_error "${option_name} requiert une valeur."
+    usage_error "${option_name} requires a value."
   fi
 }
 
@@ -112,7 +113,7 @@ while [[ $# -gt 0 ]]; do
     --refresh-pr)
       require_option_value "--refresh-pr" "${2:-}"
       if [[ -n "$auto_edit_pr_number" && "$auto_edit_pr_number" != "${2:-}" ]]; then
-        usage_error "--refresh-pr et --auto-edit doivent cibler le même PR_NUMBER."
+        usage_error "--refresh-pr and --auto-edit must target the same PR_NUMBER."
       fi
       auto_edit_pr_number="${2:-}"
       refresh_pr_used="true"
@@ -148,39 +149,39 @@ if [[ "$auto_mode" == "true" ]]; then
   dry_run="true"
   create_pr="true"
   if [[ ${#positionals[@]} -gt 0 ]]; then
-    usage_error "--auto ne prend pas d'OUTPUT_FILE positional."
+    usage_error "--auto does not accept a positional OUTPUT_FILE."
   fi
 fi
 
 if [[ -n "$auto_edit_pr_number" ]] && [[ ! "$auto_edit_pr_number" =~ ^[0-9]+$ ]]; then
   if [[ "$refresh_pr_used" == "true" ]]; then
-    usage_error "--refresh-pr requiert un PR_NUMBER numérique."
+    usage_error "--refresh-pr requires a numeric PR_NUMBER."
   fi
-  usage_error "--auto-edit requiert un PR_NUMBER numérique."
+  usage_error "--auto-edit requires a numeric PR_NUMBER."
 fi
 
 if [[ -n "$duplicate_mode" ]] && [[ "$duplicate_mode" != "safe" && "$duplicate_mode" != "auto-close" ]]; then
-  usage_error "--duplicate-mode doit être 'safe' ou 'auto-close'."
+  usage_error "--duplicate-mode must be 'safe' or 'auto-close'."
 fi
 
 if [[ "$create_pr" == "true" && "$dry_run" != "true" ]]; then
-  usage_error "--create-pr est uniquement supporté avec --dry-run."
+  usage_error "--create-pr is only supported with --dry-run."
 fi
 
 if [[ "$allow_partial_create" == "true" && "$create_pr" != "true" ]]; then
-  usage_error "--allow-partial-create nécessite --create-pr."
+  usage_error "--allow-partial-create requires --create-pr."
 fi
 
 if [[ -n "$auto_edit_pr_number" && "$create_pr" == "true" ]]; then
-  usage_error "--auto-edit ne peut pas être combiné avec --create-pr/--auto."
+  usage_error "--auto-edit cannot be combined with --create-pr/--auto."
 fi
 
 if [[ "$dry_run" == "false" ]]; then
   if [[ -n "$auto_edit_pr_number" && ${#positionals[@]} -gt 1 ]]; then
-    usage_error "En mode --auto-edit (MAIN_PR_NUMBER), OUTPUT_FILE positional n'est pas autorisé."
+    usage_error "In --auto-edit mode (MAIN_PR_NUMBER), positional OUTPUT_FILE is not allowed."
   fi
   if [[ -z "$auto_edit_pr_number" && ${#positionals[@]} -gt 2 ]]; then
-    usage_error "Trop d'arguments positionnels. Utilisation attendue: MAIN_PR_NUMBER [OUTPUT_FILE]."
+    usage_error "Too many positional arguments. Expected usage: MAIN_PR_NUMBER [OUTPUT_FILE]."
   fi
   if [[ ${#positionals[@]} -ge 1 ]]; then
     main_pr_number="${positionals[0]}"
@@ -193,10 +194,10 @@ if [[ "$dry_run" == "false" ]]; then
   fi
 else
   if [[ -n "$auto_edit_pr_number" && "$auto_mode" != "true" && ${#positionals[@]} -gt 0 ]]; then
-    usage_error "En mode --auto-edit (dry-run), OUTPUT_FILE positional n'est pas autorisé."
+    usage_error "In --auto-edit dry-run mode, positional OUTPUT_FILE is not allowed."
   fi
   if [[ -z "$auto_edit_pr_number" && "$auto_mode" != "true" && ${#positionals[@]} -gt 1 ]]; then
-    usage_error "Trop d'arguments positionnels pour --dry-run. Seul OUTPUT_FILE est autorisé."
+    usage_error "Too many positional arguments for --dry-run. Only OUTPUT_FILE is allowed."
   fi
   if [[ -z "$auto_edit_pr_number" && "$auto_mode" != "true" && ${#positionals[@]} -ge 1 ]]; then
     output_file="${positionals[0]}"
@@ -245,7 +246,7 @@ fi
 # so gh is always required.
 need_gh="true"
 if [[ "$need_gh" == "true" && "$has_gh" != "true" ]]; then
-  echo "Erreur: la commande 'gh' est introuvable." >&2
+  echo "Error: command 'gh' not found." >&2
   exit "$E_DEPENDENCY"
 fi
 
@@ -254,7 +255,7 @@ if [[ "$dry_run" == "false" || "$create_pr" == "true" ]]; then
   need_jq="true"
 fi
 if [[ "$need_jq" == "true" ]] && ! command -v jq >/dev/null 2>&1; then
-  echo "Erreur: la commande 'jq' est introuvable." >&2
+  echo "Error: command 'jq' not found." >&2
   exit "$E_DEPENDENCY"
 fi
 
@@ -286,7 +287,7 @@ normalize_branch_display_ref() {
 
 if [[ "$dry_run" == "true" ]]; then
   if ! command -v git >/dev/null 2>&1; then
-    echo "Erreur: la commande 'git' est introuvable." >&2
+    echo "Error: command 'git' not found." >&2
     exit "$E_GIT"
   fi
   if [[ -z "$head_ref" ]]; then
@@ -298,7 +299,7 @@ if [[ "$dry_run" == "true" ]]; then
   fi
   base_ref="$(preferred_base_ref_with_origin "$base_ref")"
   if [[ -z "$head_ref" ]]; then
-    echo "Erreur: impossible de déterminer la branche head en mode --dry-run." >&2
+    echo "Error: unable to determine head branch in --dry-run mode." >&2
     exit "$E_GIT"
   fi
 else
@@ -362,6 +363,12 @@ extract_child_prs() {
 
 load_dry_compare_commits() {
   local repo_name_with_owner
+  local compare_range
+  local compare_err_file
+  local compare_err
+  local attempt
+  local max_attempts=3
+  local compare_ok=0
 
   if [[ -n "${GH_REPO:-}" ]]; then
     repo_name_with_owner="$GH_REPO"
@@ -370,17 +377,47 @@ load_dry_compare_commits() {
   fi
 
   if [[ -z "$repo_name_with_owner" ]]; then
-    echo "Erreur: impossible de déterminer le dépôt GitHub pour l'analyse --dry-run." >&2
+    echo "Error: unable to determine GitHub repository for --dry-run analysis." >&2
     exit "$E_NO_DATA"
   fi
 
-  dry_compare_commit_messages="$(gh api "repos/${repo_name_with_owner}/compare/${base_ref_display}...${head_ref_display}" \
-    --jq '.commits[]?.commit.message' 2>/dev/null || true)"
-  if [[ -z "$dry_compare_commit_messages" ]]; then
-    echo "Erreur: impossible de récupérer les commits via GitHub compare (${base_ref_display}...${head_ref_display})." >&2
-    echo "Vérifie que la branche head existe sur le distant et que la base est correcte." >&2
-    exit "$E_NO_DATA"
+  compare_range="${base_ref_display}...${head_ref_display}"
+  compare_err_file="$(mktemp)"
+
+  for attempt in $(seq 1 "$max_attempts"); do
+    dry_compare_commit_messages="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
+      --jq '.commits[]?.commit.message' 2>"$compare_err_file" || true)"
+
+    if [[ -n "$dry_compare_commit_messages" ]]; then
+      compare_ok=1
+      break
+    fi
+
+    compare_err="$(cat "$compare_err_file" 2>/dev/null || true)"
+    # Retry transient network/API connectivity failures.
+    if echo "$compare_err" | grep -qiE 'error connecting to api.github.com|timeout|temporarily unavailable'; then
+      sleep 1
+      continue
+    fi
+    break
+  done
+
+  if [[ $compare_ok -ne 1 ]]; then
+    compare_err="$(cat "$compare_err_file" 2>/dev/null || true)"
+    echo "Warning: GitHub compare failed (${compare_range}). Falling back to local git history." >&2
+    if [[ -n "$compare_err" ]]; then
+      echo "Detail: ${compare_err}" >&2
+    fi
+
+    # Fallback: local compare history remains deterministic for dry-run generation.
+    dry_compare_commit_messages="$(git log --format=%B "${base_ref_display}..${head_ref_display}" 2>/dev/null || true)"
+    if [[ -z "$dry_compare_commit_messages" ]]; then
+      echo "Error: unable to retrieve commits via GitHub compare (${compare_range}) and local git (${base_ref_display}..${head_ref_display})." >&2
+      exit "$E_NO_DATA"
+    fi
   fi
+
+  rm -f "$compare_err_file"
 
   dry_compare_commit_headlines="$(echo "$dry_compare_commit_messages" | sed -n '1~2p' || true)"
 }
@@ -439,69 +476,6 @@ issue_labels() {
     -q '.labels | map(.name) | join("||")' 2>/dev/null || true
 }
 
-parse_issue_refs_from_body() {
-  local body="$1"
-  echo "$body" | awk '
-    {
-      line = $0
-      lower = tolower($0)
-      # Parse only canonical closure keywords directly followed by an issue ref.
-      # Intentionally excludes non-canonical verbs like "closed".
-      while (match(lower, /(closes|close|fixes|fix|resolves|resolve)[[:space:]]+([[:alnum:]_.-]+\/)?#[0-9]+/)) {
-        # Enforce keyword boundary: avoid matching within larger words.
-        if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
-          lower = substr(lower, RSTART + 1)
-          line = substr(line, RSTART + 1)
-          continue
-        }
-
-        matched = substr(line, RSTART, RLENGTH)
-        matched_lower = substr(lower, RSTART, RLENGTH)
-        n = split(matched, parts, /[[:space:]]+/)
-        split(matched_lower, parts_lower, /[[:space:]]+/)
-        token = parts_lower[1]
-        issue_ref = parts[2]
-        sub(/^[[:alnum:]_.-]+\//, "", issue_ref)
-
-        if (token ~ /^clos/) {
-          action = "Closes"
-        } else if (token ~ /^fix/) {
-          action = "Fixes"
-        } else {
-          action = "Resolves"
-        }
-
-        if (issue_ref ~ /^#[0-9]+$/) {
-          print action "|" issue_ref
-        }
-
-        lower = substr(lower, RSTART + RLENGTH)
-        line = substr(line, RSTART + RLENGTH)
-      }
-    }
-  ' \
-    | sort -u
-}
-
-parse_duplicate_refs_from_text() {
-  local body="$1"
-  echo "$body" | awk '
-    BEGIN { IGNORECASE = 1 }
-    {
-      line = $0
-      while (match(line, /#([0-9]+)[[:space:]]+duplicate[[:space:]]+of[[:space:]]+#([0-9]+)/)) {
-        matched = substr(line, RSTART, RLENGTH)
-        gsub(/[^0-9]+/, " ", matched)
-        split(matched, nums, " ")
-        if (nums[1] != "" && nums[2] != "") {
-          print "#" nums[1] "|" "#" nums[2]
-        }
-        line = substr(line, RSTART + RLENGTH)
-      }
-    }
-  ' | sort -u
-}
-
 text_indicates_breaking() {
   local text="${1:-}"
   local line
@@ -537,30 +511,17 @@ text_indicates_breaking() {
   return 1
 }
 
-normalize_issue_key() {
-  local raw="${1:-}"
-  local normalized
-
-  normalized="$(echo "$raw" | sed -nE 's/.*#([0-9]+).*/#\1/p')"
-  if [[ "$normalized" =~ ^#[0-9]+$ ]]; then
-    echo "$normalized"
-    return 0
-  fi
-
-  return 1
-}
-
 echo -n > "$extracted_prs_file"
 echo -n > "$resolved_issues_file"
 
 if [[ "$dry_run" == "true" ]]; then
   load_dry_compare_commits
   if ! extract_child_prs_dry; then
-    echo "Avertissement: impossible d'extraire des PR depuis compare ${base_ref_display}...${head_ref_display}." >&2
+    echo "Warning: unable to extract PRs from compare ${base_ref_display}...${head_ref_display}." >&2
   fi
 else
   if ! extract_child_prs; then
-    echo "Avertissement: impossible de récupérer les commits de la PR #${main_pr_number} (API indisponible ou PR introuvable)." >&2
+    echo "Warning: unable to fetch commits for PR #${main_pr_number} (API unavailable or PR not found)." >&2
   fi
 fi
 
@@ -740,7 +701,7 @@ if [[ -s "$extracted_prs_file" ]]; then
       while IFS='|' read -r action issue_key; do
         debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
         add_issue_entry "$action" "$issue_key" "$pr_category"
-      done < <(parse_issue_refs_from_body "$pr_body")
+      done < <(parse_closing_issue_refs_from_text "$pr_body")
       while IFS='|' read -r duplicate_issue canonical_issue; do
         add_duplicate_entry "$duplicate_issue" "$canonical_issue"
       done < <(parse_duplicate_refs_from_text "$pr_body")
@@ -761,7 +722,7 @@ if [[ "$dry_run" == "true" ]]; then
     while IFS='|' read -r action issue_key; do
       debug_log "parsed_issue_ref(dry commits): ${action}|${issue_key}"
       add_issue_entry "$action" "$issue_key" "Mixed"
-    done < <(parse_issue_refs_from_body "$dry_commit_messages")
+    done < <(parse_closing_issue_refs_from_text "$dry_commit_messages")
     while IFS='|' read -r duplicate_issue canonical_issue; do
       add_duplicate_entry "$duplicate_issue" "$canonical_issue"
     done < <(parse_duplicate_refs_from_text "$dry_commit_messages")
@@ -778,7 +739,7 @@ if [[ "$dry_run" == "false" ]]; then
     while IFS='|' read -r action issue_key; do
       debug_log "parsed_issue_ref(main pr): ${action}|${issue_key}"
       add_issue_entry "$action" "$issue_key" "Mixed"
-    done < <(parse_issue_refs_from_body "$main_pr_body")
+    done < <(parse_closing_issue_refs_from_text "$main_pr_body")
     while IFS='|' read -r duplicate_issue canonical_issue; do
       add_duplicate_entry "$duplicate_issue" "$canonical_issue"
     done < <(parse_duplicate_refs_from_text "$main_pr_body")
@@ -864,13 +825,13 @@ process_duplicate_mode() {
   fi
 
   if [[ "$has_gh" != "true" ]]; then
-    echo "Erreur: --duplicate-mode requiert gh en mode non dry-run." >&2
+    echo "Error: --duplicate-mode requires gh outside dry-run mode." >&2
     exit "$E_DEPENDENCY"
   fi
 
   repo_name_with_owner="$(get_repo_name_with_owner)"
   if [[ -z "$repo_name_with_owner" ]]; then
-    echo "Erreur: impossible de déterminer le dépôt GitHub pour --duplicate-mode." >&2
+    echo "Error: unable to determine GitHub repository for --duplicate-mode." >&2
     exit "$E_DEPENDENCY"
   fi
 
@@ -952,25 +913,25 @@ EOF
 
 if [[ "$auto_mode" != "true" && -z "$auto_edit_pr_number" ]]; then
   printf "%s\n" "$body_content" > "$output_file"
-  echo "Fichier généré: $output_file"
+  echo "Generated file: $output_file"
 else
   if [[ "$auto_mode" == "true" ]]; then
-    echo "Description PR générée en mémoire (mode --auto)."
+    echo "PR description generated in memory (--auto mode)."
   else
-    echo "Description PR générée en mémoire (mode --auto-edit)."
+    echo "PR description generated in memory (--auto-edit mode)."
   fi
 fi
 if [[ "$keep_artifacts" == "true" ]]; then
   echo "PR extraites: $extracted_prs_file"
-  echo "Issues résolues: $resolved_issues_file"
+  echo "Resolved issues: $resolved_issues_file"
 fi
 
 process_duplicate_mode
 
 if [[ "$create_pr" == "true" ]]; then
   if [[ "$online_enrich" == "true" && "$pr_enrich_failed" -gt 0 && "$allow_partial_create" != "true" ]]; then
-    echo "Erreur: enrichissement GitHub partiel (${pr_enrich_failed} PR non lues)." >&2
-    echo "Le body peut être incomplet. Corrige le réseau/auth puis relance, ou utilise --allow-partial-create." >&2
+    echo "Error: partial GitHub enrichment (${pr_enrich_failed} PRs unread)." >&2
+    echo "The body may be incomplete. Fix network/auth and retry, or use --allow-partial-create." >&2
     exit "$E_PARTIAL"
   fi
 
@@ -1002,12 +963,12 @@ if [[ "$create_pr" == "true" ]]; then
 
   if [[ "$create_now" == "true" ]]; then
     if [[ "$auto_mode" == "true" ]]; then
-      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body "$body_content")"
+      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body "$body_content" --label "pull-request")"
     else
-      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body-file "$output_file")"
+      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body-file "$output_file" --label "pull-request")"
     fi
     pr_created_successfully="true"
-    echo "PR créée: $pr_url"
+    echo "PR created: $pr_url"
   else
     echo "PR creation skipped."
   fi
@@ -1019,7 +980,7 @@ if [[ -n "$auto_edit_pr_number" ]]; then
   if [[ "$assume_yes" == "true" ]]; then
     update_now="true"
   elif ! is_human_interactive_terminal; then
-    usage_error "--auto-edit nécessite --yes en contexte non interactif."
+    usage_error "--auto-edit requires --yes in non-interactive context."
   else
     echo
     echo "Body generated for update."
@@ -1034,12 +995,12 @@ if [[ -n "$auto_edit_pr_number" ]]; then
   if [[ "$update_now" == "true" ]]; then
     repo_name_with_owner="$(get_repo_name_with_owner)"
     if [[ -z "$repo_name_with_owner" ]]; then
-      echo "Erreur: impossible de déterminer le dépôt GitHub pour --auto-edit." >&2
+      echo "Error: unable to determine GitHub repository for --auto-edit." >&2
       exit "$E_DEPENDENCY"
     fi
     gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
       --raw-field body="$body_content" >/dev/null
-    echo "PR mise à jour: #${auto_edit_pr_number}"
+    echo "PR updated: #${auto_edit_pr_number}"
   else
     echo "PR update skipped."
   fi

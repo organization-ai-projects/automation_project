@@ -1,0 +1,64 @@
+name: Issue Parent Autolink
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to evaluate for Parent field autolink"
+        required: true
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  parent-autolink:
+    if: github.event_name == 'workflow_dispatch' || github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/versioning/file_versioning/github/
+          sparse-checkout-cone-mode: false
+
+      - name: Ensure jq is available
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq
+          else
+            jq --version
+          fi
+
+      - name: Evaluate issue Parent field (issues event)
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          chmod +x scripts/versioning/file_versioning/github/auto_link_parent_issue.sh
+          bash scripts/versioning/file_versioning/github/auto_link_parent_issue.sh \
+            --issue "$ISSUE_NUMBER"
+
+      - name: Evaluate issue Parent field (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          if [[ -z "$ISSUE_NUMBER" ]]; then
+            echo "Missing issue_number for workflow_dispatch." >&2
+            exit 1
+          fi
+          if [[ ! "$ISSUE_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid issue_number '$ISSUE_NUMBER' (expected positive integer)." >&2
+            exit 1
+          fi
+          chmod +x scripts/versioning/file_versioning/github/auto_link_parent_issue.sh
+          bash scripts/versioning/file_versioning/github/auto_link_parent_issue.sh \
+            --issue "$ISSUE_NUMBER"
+

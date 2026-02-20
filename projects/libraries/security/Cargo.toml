@@ -8,7 +8,7 @@ thiserror = { workspace = true }
 serde = { workspace = true }
 common = { workspace = true }
 protocol = { workspace = true }
+security_core = { workspace = true }
 chrono = "0.4"
 common_time = { workspace = true }
 jsonwebtoken = { version = "10.2.0", features = ["rust_crypto"] }
-argon2 = { version = "0.5", features = ["std"] }

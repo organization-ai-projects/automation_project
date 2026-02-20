@@ -1,0 +1,8 @@
+# Strict layer checker whitelist.
+# Format:
+#   from_crate->to_crate|reason|owner|review_date
+#
+# Example:
+#   identity->security|Temporary bridge during split|team-architecture|2026-03-31
+#
+# Keep entries minimal and temporary.

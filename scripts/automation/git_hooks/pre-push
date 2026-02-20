@@ -16,6 +16,9 @@ echo ""
 # Get the root of the git repository
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 1
+HOOKS_DIR="$REPO_ROOT/scripts/automation/git_hooks"
+# shellcheck source=scripts/automation/git_hooks/lib/issue_parent_guard.sh
+source "$HOOKS_DIR/lib/issue_parent_guard.sh"
 
 # Get commit messages from commits being pushed
 UPSTREAM_BRANCH="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")"
@@ -26,49 +29,20 @@ fi
 
 commits=$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null || true)
 
-extract_closing_issue_refs_from_commits() {
-  local commits_input="$1"
-  echo "$commits_input" | awk '
-    BEGIN { IGNORECASE = 1 }
-    {
-      line = $0
-      while (match(line, /(closes|fixes|resolves)[[:space:]]+#[0-9]+/)) {
-        ref = substr(line, RSTART, RLENGTH)
-        if (match(ref, /#[0-9]+/)) {
-          print substr(ref, RSTART + 1, RLENGTH - 1)
-        }
-        line = substr(line, RSTART + RLENGTH)
-      }
-    }
-  ' | sort -u
-}
-
-issue_has_required_children_tasklist() {
-  local issue_body="$1"
-  echo "$issue_body" | awk '
-    /-[[:space:]]*\[[xX ]\]/ {
-      if (match($0, /#[0-9]+/)) {
-        found = 1
-      }
-    }
-    END { exit(found ? 0 : 1) }
-  '
-}
-
-validate_parent_closure_footers() {
+validate_no_root_parent_issue_refs() {
   local commits_input="$1"
   local refs
-  refs=$(extract_closing_issue_refs_from_commits "$commits_input")
+  refs="$(extract_issue_refs_from_text "$commits_input" || true)"
   [[ -z "$refs" ]] && return 0
 
   if ! command -v gh >/dev/null 2>&1; then
-    echo "❌ Cannot validate closing footers on parent issues: 'gh' CLI is required."
+    echo "❌ Cannot validate root parent issue references: 'gh' CLI is required."
     echo "   Install gh, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
     return 1
   fi
 
   local repo_name
-  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_name="$(resolve_repo_name_with_owner)"
   if [[ -z "$repo_name" ]]; then
     echo "❌ Cannot resolve GitHub repository for footer validation."
     echo "   Ensure gh auth/network is available, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
@@ -76,33 +50,58 @@ validate_parent_closure_footers() {
   fi
 
   local parent_refs=()
+  local action
   local issue_number
-  while IFS= read -r issue_number; do
+  while IFS='|' read -r action issue_number; do
     [[ -z "$issue_number" ]] && continue
-    local issue_body
-    issue_body="$(gh issue view "$issue_number" -R "$repo_name" --json body -q '.body' 2>/dev/null || true)"
-
-    if [[ -z "$issue_body" ]]; then
-      echo "❌ Unable to validate issue #$issue_number from closing footer."
-      echo "   Ensure issue is readable and network is available, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
-      return 1
-    fi
-
-    if issue_has_required_children_tasklist "$issue_body"; then
-      parent_refs+=("$issue_number")
+    if issue_is_root_parent "$issue_number" "$repo_name"; then
+      parent_refs+=("${action} #${issue_number}")
     fi
   done <<< "$refs"
 
   if [[ ${#parent_refs[@]} -gt 0 ]]; then
-    echo "❌ Closing footer targets parent issue(s):"
-    printf '   - #%s\n' "${parent_refs[@]}"
-    echo "   Attention: referenced issue is a parent. No direct closure is authorized via commit footer."
-    echo "   Use child issues for Closes/Fixes/Resolves; use Related to/Part of for parent tracking."
+    echo "❌ Root parent issue references detected in commits being pushed:"
+    printf '   - %s\n' "${parent_refs[@]}"
+    echo "   Root parent refs are forbidden in commit trailers (Part of/Related to/Closes/Fixes/Resolves)."
+    echo "   Reference child issues instead."
     return 1
   fi
 }
 
-if ! validate_parent_closure_footers "$commits"; then
+validate_part_of_only_push() {
+  local commits_input="$1"
+  local refs
+  local action
+  local has_tracking=0
+  local has_closing=0
+
+  refs="$(extract_issue_refs_from_text "$commits_input" || true)"
+  [[ -z "$refs" ]] && return 0
+
+  while IFS='|' read -r action _; do
+    [[ -z "$action" ]] && continue
+    if [[ "$action" == "closes" || "$action" == "fixes" || "$action" == "resolves" ]]; then
+      has_closing=1
+    fi
+    if [[ "$action" == "part of" || "$action" == "related to" ]]; then
+      has_tracking=1
+    fi
+  done <<< "$refs"
+
+  if [[ $has_tracking -eq 1 && $has_closing -eq 0 && "${ALLOW_PART_OF_ONLY_PUSH:-}" != "1" ]]; then
+    echo "❌ Push blocked: commit range contains tracking refs (Part of/Related to) without any closing ref."
+    echo "   This usually indicates incomplete issue lifecycle updates."
+    echo "   Fix by adding proper child issue closures when done, or confirm exceptional push with:"
+    echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
+    return 1
+  fi
+}
+
+if ! validate_no_root_parent_issue_refs "$commits"; then
+  exit 1
+fi
+
+if ! validate_part_of_only_push "$commits"; then
   exit 1
 fi
 
@@ -224,8 +223,35 @@ detect_crates_from_scopes() {
         [[ -z "$scope" ]] && continue
 
         local cargo_toml=""
-        if [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
+        if [[ $scope =~ ^projects/libraries/core$ ]]; then
+          local -a core_matches=()
+          local core_match
+          while IFS= read -r core_match; do
+            [[ -n "$core_match" ]] && core_matches+=("$core_match")
+          done < <(find projects/libraries/core -mindepth 2 -maxdepth 2 -type f -name Cargo.toml)
+
+          if [[ ${#core_matches[@]} -eq 0 ]]; then
+            invalid_scopes=$((invalid_scopes + 1))
+            continue
+          fi
+
+          local cm
+          for cm in "${core_matches[@]}"; do
+            local core_crate_name
+            core_crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cm" | head -n1)
+            if [[ -z "$core_crate_name" ]]; then
+              invalid_scopes=$((invalid_scopes + 1))
+              continue
+            fi
+            if [[ ! " ${crates[*]} " =~ " ${core_crate_name} " ]]; then
+              crates+=("$core_crate_name")
+            fi
+          done
+          continue
+        elif [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
           cargo_toml="projects/libraries/${BASH_REMATCH[1]}/Cargo.toml"
+        elif [[ $scope =~ ^projects/libraries/core/([^/]+)$ ]]; then
+          cargo_toml="projects/libraries/core/${BASH_REMATCH[1]}/Cargo.toml"
         elif [[ $scope =~ ^projects/products/([^/]+)(/(ui|backend))?$ ]]; then
           local product="${BASH_REMATCH[1]}"
           local component="${BASH_REMATCH[3]:-}"

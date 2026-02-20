@@ -62,12 +62,26 @@ jobs:
           if [[ -z "$changed_files" ]]; then
             # Conservative fallback: run full checks when diff is unclear.
             echo "run_rust_checks=true" >> "$GITHUB_OUTPUT"
+            echo "run_layer_checks=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           docs_or_scripts_only=true
+          run_layer_checks=false
           while IFS= read -r file; do
             [[ -z "$file" ]] && continue
+
+            if [[ "$file" == projects/libraries/* ]] \
+              || [[ "$file" == projects/products/*/Cargo.toml ]] \
+              || [[ "$file" == Cargo.toml ]] \
+              || [[ "$file" == Cargo.lock ]] \
+              || [[ "$file" == scripts/checks/check_layer_boundaries.sh ]] \
+              || [[ "$file" == scripts/checks/layer_map.txt ]] \
+              || [[ "$file" == scripts/checks/layer_whitelist.txt ]] \
+              || [[ "$file" == .github/workflows/ci_reusable.yml ]]; then
+              run_layer_checks=true
+            fi
+
             # Intentionally exclude workflow-only changes from Rust jobs.
             # CI workflow edits should be validated in dedicated automation workflows/review.
             if [[ "$file" =~ \.md$ ]] || [[ "$file" == documentation/* ]] || [[ "$file" == .github/documentation/* ]] || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] || [[ "$file" == scripts/* ]] || [[ "$file" == .github/workflows/* ]]; then
@@ -82,25 +96,59 @@ jobs:
           else
             echo "run_rust_checks=true" >> "$GITHUB_OUTPUT"
           fi
+          echo "run_layer_checks=${run_layer_checks}" >> "$GITHUB_OUTPUT"
 
       - name: Install Rust
-        if: steps.changes.outputs.run_rust_checks == 'true'
+        if: steps.changes.outputs.run_rust_checks == 'true' || steps.changes.outputs.run_layer_checks == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
       - name: Cache cargo
-        if: steps.changes.outputs.run_rust_checks == 'true'
+        if: steps.changes.outputs.run_rust_checks == 'true' || steps.changes.outputs.run_layer_checks == 'true'
         uses: Swatinem/rust-cache@v2
 
-      - name: Check layer dependency boundaries
-        if: steps.changes.outputs.run_rust_checks == 'true'
+      - name: Check strict layer dependency boundaries
+        if: steps.changes.outputs.run_layer_checks == 'true'
         run: |
+          set -euo pipefail
+
           if [[ ! -f ./scripts/checks/check_layer_boundaries.sh ]]; then
             echo "❌ check_layer_boundaries.sh not found" >&2
             exit 1
           fi
-          bash ./scripts/checks/check_layer_boundaries.sh
+
+          mkdir -p /tmp/layer-check
+          strict_log="/tmp/layer-check/strict-layer.log"
+          anomaly_log="/tmp/layer-check/analyze-layer-anomalies.log"
+          anomaly_json="/tmp/layer-check/layer-anomalies.json"
+
+          set +e
+          bash ./scripts/checks/check_layer_boundaries.sh --strict 2>&1 | tee "$strict_log"
+          strict_status=${PIPESTATUS[0]}
+          set -e
+
+          if [[ $strict_status -ne 0 ]]; then
+            echo "::group::Strict layer diagnostics (tail)"
+            tail -n 200 "$strict_log" || true
+            echo "::endgroup::"
+
+            if [[ -f ./scripts/checks/analyze_layer_anomalies.sh ]]; then
+              echo "::group::Layer anomaly analysis snapshot"
+              bash ./scripts/checks/analyze_layer_anomalies.sh --json-out "$anomaly_json" 2>&1 | tee "$anomaly_log" || true
+              echo "::endgroup::"
+            fi
+
+            exit "$strict_status"
+          fi
+
+      - name: Upload strict-layer diagnostics artifact
+        if: always() && steps.changes.outputs.run_layer_checks == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: strict-layer-diagnostics
+          path: /tmp/layer-check/
+          if-no-files-found: ignore
 
       - name: Cargo fmt
         if: steps.changes.outputs.run_rust_checks == 'true'
@@ -111,13 +159,12 @@ jobs:
       - name: Cargo clippy
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: |
-          if [[ ! -f Cargo.lock ]]; then
-            echo "❌ Cargo.lock not found." >&2
-            echo "   For binary/application crates: commit Cargo.lock to the repository." >&2
-            echo "   For library-only workspaces: this is expected — remove this check." >&2
-            exit 1
+          if [[ -f Cargo.lock ]]; then
+            cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
+          else
+            echo "Cargo.lock missing in checkout, running clippy without --locked."
+            cargo clippy --workspace --all-features --all-targets -- -D warnings
           fi
-          cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
 
       - name: Cargo test
         if: steps.changes.outputs.run_rust_checks == 'true'
@@ -132,3 +179,7 @@ jobs:
       - name: Rust checks skipped (docs/scripts/workflows-only)
         if: steps.changes.outputs.run_rust_checks != 'true'
         run: echo "Docs/scripts/workflows-only change detected. Rust checks intentionally skipped."
+
+      - name: Strict layer checks skipped
+        if: steps.changes.outputs.run_layer_checks != 'true'
+        run: echo "No layer-impacting change detected. Strict layer checks intentionally skipped."

@@ -22,9 +22,11 @@ automation/
 ├── git_hooks/                      # Hooks Git pour la validation commit/push
 │   ├── commit-msg                  # Verifie le format du message de commit
 │   ├── pre-commit                  # Lance le formatage avant commit
+│   ├── prepare-commit-msg          # Genere automatiquement le sujet de commit
 │   ├── pre-push                    # Lance les checks qualite avant push
 │   └── install_hooks.sh            # Installe les hooks Git
 ├── audit_security.sh               # Audit securite des dependances
+├── audit_issue_status.sh           # Audit des issues ouvertes vs references commits
 ├── build_accounts_ui.sh            # Build du bundle UI accounts
 ├── build_and_check_ui_bundles.sh   # Build + verification des artefacts UI
 ├── build_ui_bundles.sh             # Detection + build de tous les bundles UI
@@ -32,6 +34,7 @@ automation/
 ├── check_dependencies.sh           # Detecte dependances obsoletes/manquantes
 ├── check_merge_conflicts.sh        # Teste les conflits de merge
 ├── clean_artifacts.sh              # Nettoie les artefacts de build
+├── git_add_guard.sh                # Ajout securise avec regles de split
 ├── pre_add_review.sh               # Pre-check interne avant review
 ├── pre_push_check.sh               # Validation avant push (checks/tests/conflicts)
 ├── release_prepare.sh              # Preparation release (version/changelog/tag)
@@ -45,6 +48,7 @@ automation/
 - `README.md`: Ce document (version EN canonique).
 - `git_hooks/`: Hooks Git de validation commit/push.
 - `audit_security.sh`: Audit securite des dependances.
+- `audit_issue_status.sh`: Audit des issues ouvertes vs references commits sur un range de branches.
 - `build_accounts_ui.sh`: Build UI accounts.
 - `build_and_check_ui_bundles.sh`: Build + verification artefacts UI.
 - `build_ui_bundles.sh`: Decouverte + build de tous les bundles UI.
@@ -52,6 +56,7 @@ automation/
 - `check_dependencies.sh`: Verification des dependances.
 - `check_merge_conflicts.sh`: Detection des conflits de merge.
 - `clean_artifacts.sh`: Nettoyage des artefacts.
+- `git_add_guard.sh`: Ajout securise avec regles de split.
 - `pre_add_review.sh`: Verification avant review interne.
 - `pre_push_check.sh`: Validation pre-push.
 - `release_prepare.sh`: Preparation release.

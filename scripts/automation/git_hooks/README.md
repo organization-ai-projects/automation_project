@@ -19,8 +19,12 @@ It interacts mainly with:
 git_hooks/
 ├── commit-msg          # Validates commit message format
 ├── pre-commit          # Runs code formatting before commit
+├── prepare-commit-msg  # Auto-generates commit subject from context
 ├── pre-push            # Runs quality checks before push
-└── install_hooks.sh    # Installs git hooks to .git/hooks/
+├── install_hooks.sh    # Installs git hooks (worktree-aware)
+└── tests/
+    ├── convention_guardrails_regression.sh  # Regression tests for issue trailer guardrails
+    └── fixtures/                             # Commit message fixtures for allow/block cases
 ```
 
 ## Files
@@ -28,8 +32,10 @@ git_hooks/
 - `README.md`: This file.
 - `commit-msg`: Validates commit message format.
 - `pre-commit`: Runs formatting before commit.
+- `prepare-commit-msg`: Auto-generates commit subject from branch/staged files.
 - `pre-push`: Runs quality checks before push.
-- `install_hooks.sh`: Installs hooks to `.git/hooks/`.
+- `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
+- `tests/convention_guardrails_regression.sh`: Regression suite for issue trailer guardrails in `commit-msg`, `pre-push`, and `post-checkout`.
 
 ## Available hooks
 
@@ -91,6 +97,28 @@ SKIP_PRE_COMMIT=1 git commit -m "message"
 ALLOW_PROTECTED_BRANCH_COMMIT=1 git commit -m "message"
 ```
 
+### `prepare-commit-msg`
+
+Auto-generates a conventional commit subject when the commit message is empty.
+
+Inputs used:
+
+1. Branch naming prefix (`feat/`, `fix/`, `docs/`, etc.) to infer type
+2. Staged files to infer required scopes and fallback type
+3. Branch slug to derive a readable short description
+
+It does not override:
+
+- Explicit messages provided with `git commit -m`
+- Merge/squash/amend commit messages
+- Non-empty commit message templates
+
+**Bypass (emergency only):**
+
+```bash
+SKIP_PREPARE_COMMIT_MSG=1 git commit
+```
+
 ### `pre-push`
 
 Runs quality checks before each push, with selective execution:
@@ -119,10 +147,10 @@ SKIP_PRE_PUSH=1 git push
 Run the installation script:
 
 ```bash
-./scripts/git_hooks/install_hooks.sh
+./scripts/automation/git_hooks/install_hooks.sh
 ```
 
-This script copies the hooks into `.git/hooks/` and makes them executable.
+This script copies the hooks into the git hooks directory (resolved via `git rev-parse --git-path hooks`, supporting both standard clones and worktrees) and makes them executable.
 
 ## Architecture
 
@@ -139,18 +167,26 @@ The hooks are:
 To update the hooks after changes:
 
 ```bash
-./scripts/git_hooks/install_hooks.sh
+./scripts/automation/git_hooks/install_hooks.sh
+```
+
+To run guardrail regression tests:
+
+```bash
+./scripts/automation/git_hooks/tests/convention_guardrails_regression.sh
 ```
 
 To temporarily disable a hook:
 
 ```bash
-# Rename the hook in .git/hooks/
-mv .git/hooks/pre-push .git/hooks/pre-push.disabled
+# Rename the hook in the git hooks directory (resolved via git rev-parse --git-path hooks)
+GIT_HOOKS_DIR="$(git rev-parse --git-path hooks)"
+mv "$GIT_HOOKS_DIR/pre-push" "$GIT_HOOKS_DIR/pre-push.disabled"
 ```
 
 To re-enable it:
 
 ```bash
-mv .git/hooks/pre-push.disabled .git/hooks/pre-push
+GIT_HOOKS_DIR="$(git rev-parse --git-path hooks)"
+mv "$GIT_HOOKS_DIR/pre-push.disabled" "$GIT_HOOKS_DIR/pre-push"
 ```

@@ -1,0 +1,99 @@
+name: Issue Status - Done in Dev
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [dev]
+  issues:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Execution mode: dev_merge or issue_closed"
+        required: true
+        type: choice
+        options:
+          - dev_merge
+          - issue_closed
+      pr_number:
+        description: "PR number (required for dev_merge)"
+        required: false
+      issue_number:
+        description: "Issue number (required for issue_closed)"
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  update-done-in-dev-status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/versioning/file_versioning/github/
+          sparse-checkout-cone-mode: false
+
+      - name: Ensure jq is available
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq
+          else
+            jq --version
+          fi
+
+      - name: Label issues on merged PR into dev
+        if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          bash scripts/versioning/file_versioning/github/issue_done_in_dev_status.sh \
+            --on-dev-merge \
+            --pr "$PR_NUMBER"
+
+      - name: Remove done-in-dev on issue close
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          bash scripts/versioning/file_versioning/github/issue_done_in_dev_status.sh \
+            --on-issue-closed \
+            --issue "$ISSUE_NUMBER"
+
+      - name: Manual dispatch - dev merge mode
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'dev_merge'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          if [[ -z "$PR_NUMBER" || ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid or missing pr_number for dev_merge mode." >&2
+            exit 1
+          fi
+          bash scripts/versioning/file_versioning/github/issue_done_in_dev_status.sh \
+            --on-dev-merge \
+            --pr "$PR_NUMBER"
+
+      - name: Manual dispatch - issue closed mode
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'issue_closed'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          if [[ -z "$ISSUE_NUMBER" || ! "$ISSUE_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid or missing issue_number for issue_closed mode." >&2
+            exit 1
+          fi
+          bash scripts/versioning/file_versioning/github/issue_done_in_dev_status.sh \
+            --on-issue-closed \
+            --issue "$ISSUE_NUMBER"

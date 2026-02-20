@@ -18,6 +18,7 @@ It interacts mainly with:
 .github/workflows/
 ├── automation_rustfmt.yml      # Automates code formatting checks
 ├── automation_sync.yml         # Syncs main into dev after merge
+├── issue_done_in_dev_status.yml # Maintains done-in-dev issue status labels
 └── documentation/bot/
     ├── README.md               # This file
     └── TOC.md                  # Bot workflows documentation index
@@ -32,8 +33,10 @@ It interacts mainly with:
 
 - **`automation_rustfmt.yml`**: Automates code formatting checks.
 - **`automation_sync.yml`**: Syncs main into dev after merge.
+- **`issue_done_in_dev_status.yml`**: Adds/removes `done-in-dev` label through issue lifecycle events.
 
 For detailed documentation, see:
 
 - [automation_rustfmt.yml Documentation](../automation_rustfmt.md)
 - [automation_sync.yml Documentation](../automation_sync.md)
+- [issue_done_in_dev_status.yml Documentation](../issue_done_in_dev_status.md)
