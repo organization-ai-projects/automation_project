@@ -54,9 +54,10 @@ The following decisions are finalized and should be treated as architecture poli
 
 - `protocol` is fixed as a `core/contracts` crate (not a layer level).
 - `security_core` is fixed as a `core/contracts` crate (not a layer level).
-- `ui-lib` (crate under `projects/libraries/ui`) is fixed to `L2`.
+- `ui-lib` (crate under `projects/libraries/layers/domain/ui`) is fixed to `L2`.
 - Shared technical crates previously mapped as low-level layers are now treated as `core/foundation` (not layer levels).
 - `ai` remains `L3` and must consume `L2` contracts/facades only.
+- Product-facing policy: products should depend on `ai` for AI workflows; direct product dependencies on `neural` or `symbolic` are not part of the target architecture.
   Migration target: remove direct `L3 -> L1` edges (notably to `common_json`) via `L2` boundaries before strict closure of migration issues.
 
 ## Migration Impact (Current Wave)

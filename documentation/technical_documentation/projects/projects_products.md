@@ -102,7 +102,7 @@ log_level = "info"
 ### Dedicated UIs for Products
 
 - Each product (e.g., `app`) includes a **dedicated UI** for its specific features.
-- A **common library** in `projects/libraries/ui` provides reusable components for all UIs.
+- A **common library** in `projects/libraries/layers/domain/ui` provides reusable components for all UIs.
 - A **registry mechanism** centralizes the list of products and their available UIs (see [Registry](../registry.md)).
 - A **central UI** (global dashboard) allows:
   - Product administration.
@@ -122,3 +122,8 @@ This architecture ensures robust supervision and reduces single points of failur
 
 Execution hierarchy:
 launcher -> (starts engine, central_ui, watcher) -> watcher supervises core -> engine orchestrates products and UIs
+
+## 4. AI Consumption Rule
+
+- Products that need AI capabilities should depend on `projects/libraries/layers/orchestration/ai`.
+- Direct product dependencies on `projects/libraries/layers/domain/neural` or `projects/libraries/layers/domain/symbolic` are discouraged by architecture and should be avoided in favor of the orchestrator path.

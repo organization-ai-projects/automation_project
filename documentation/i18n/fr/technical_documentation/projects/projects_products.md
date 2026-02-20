@@ -104,7 +104,7 @@ log_level = "info"
 ### UIs dediees pour les produits
 
 - Chaque produit (ex : `app`) inclut une **UI dediee** a ses fonctionnalites specifiques.
-- Une **bibliotheque commune** dans `projects/libraries/ui` fournit des composants reutilisables pour toutes les UIs.
+- Une **bibliotheque commune** dans `projects/libraries/layers/domain/ui` fournit des composants reutilisables pour toutes les UIs.
 - Un **mecanisme de registre** centralise la liste des produits et leurs UIs disponibles (voir [Registry](../registry.md)).
 - Une **UI centrale** (dashboard global) permet :
   - l'administration des produits,
@@ -118,9 +118,14 @@ log_level = "info"
 - **Namespace** : contient les executables principaux (launcher, engine, central_ui).
 - **Regles** :
   - Chaque sous-dossier est une crate binaire distincte.
-  - Dependances partagees via `libraries/common` et `libraries/protocol`.
+  - Dependances partagees via `projects/libraries/core/foundation/common` et `projects/libraries/core/contracts/protocol`.
 
 Cette architecture assure une supervision robuste et reduit les points uniques de defaillance (SPOF) en isolant les responsabilites entre composants.
 
 Hierarchie d'execution :
 launcher -> (demarre engine, central_ui, watcher) -> watcher supervise le coeur -> engine orchestre produits et UIs
+
+## 4. Regle de consommation IA
+
+- Les produits qui ont besoin de capacites IA doivent dependre de `projects/libraries/layers/orchestration/ai`.
+- Les dependances produit directes vers `projects/libraries/layers/domain/neural` ou `projects/libraries/layers/domain/symbolic` sont decouragees par l'architecture et doivent etre evitees au profit du chemin orchestrateur.
