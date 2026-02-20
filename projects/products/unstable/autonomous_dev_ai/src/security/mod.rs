@@ -124,12 +124,7 @@ impl AuthzEngine {
             }
             Some(required_role) => {
                 let role_order = Self::role_level(required_role);
-                let actor_level = actor
-                    .roles
-                    .iter()
-                    .map(Self::role_level)
-                    .max()
-                    .unwrap_or(0);
+                let actor_level = actor.roles.iter().map(Self::role_level).max().unwrap_or(0);
 
                 if actor_level >= role_order {
                     AuthzDecision::Allow
@@ -183,7 +178,11 @@ impl PolicyPack {
     pub fn new(version: impl Into<String>) -> Self {
         Self {
             version: version.into(),
-            forbidden_patterns: vec!["rm -rf".to_string(), "/etc/".to_string(), "sudo ".to_string()],
+            forbidden_patterns: vec![
+                "rm -rf".to_string(),
+                "/etc/".to_string(),
+                "sudo ".to_string(),
+            ],
             allowed_tools: vec![
                 "read_file".to_string(),
                 "search_code".to_string(),

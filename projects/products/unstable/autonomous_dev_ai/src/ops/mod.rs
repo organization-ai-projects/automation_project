@@ -112,10 +112,7 @@ impl SloEvaluator {
         self.slos
             .iter()
             .map(|slo| {
-                let observed = observations
-                    .get(&slo.sli.name)
-                    .copied()
-                    .unwrap_or(0.0);
+                let observed = observations.get(&slo.sli.name).copied().unwrap_or(0.0);
                 let met = if slo.higher_is_better {
                     observed >= slo.target
                 } else {
@@ -229,10 +226,13 @@ impl IncidentRunbook {
                 RunbookEntry {
                     scenario: "Policy violation detected".to_string(),
                     severity: IncidentSeverity::High,
-                    detection: "AuditEvent::SymbolicDecision with policy=deny, or PolicyViolation error".to_string(),
+                    detection:
+                        "AuditEvent::SymbolicDecision with policy=deny, or PolicyViolation error"
+                            .to_string(),
                     remediation_steps: vec![
                         "Inspect audit log for the violating action".to_string(),
-                        "Confirm the PolicyEngine forbidden_patterns list is up-to-date".to_string(),
+                        "Confirm the PolicyEngine forbidden_patterns list is up-to-date"
+                            .to_string(),
                         "If false positive, update policy pack version and re-sign".to_string(),
                         "Re-trigger the autonomous run after remediation".to_string(),
                     ],
@@ -251,7 +251,8 @@ impl IncidentRunbook {
                 RunbookEntry {
                     scenario: "Circuit breaker open".to_string(),
                     severity: IncidentSeverity::High,
-                    detection: "CircuitState::Open logged for a tool name in lifecycle metrics".to_string(),
+                    detection: "CircuitState::Open logged for a tool name in lifecycle metrics"
+                        .to_string(),
                     remediation_steps: vec![
                         "Identify the tool whose circuit is open from the metrics log".to_string(),
                         "Fix or restart the underlying service/binary".to_string(),
@@ -262,7 +263,8 @@ impl IncidentRunbook {
                 RunbookEntry {
                     scenario: "Neural model drift detected".to_string(),
                     severity: IncidentSeverity::Medium,
-                    detection: "DriftDetector::observe returns true; model auto-rolled-back".to_string(),
+                    detection: "DriftDetector::observe returns true; model auto-rolled-back"
+                        .to_string(),
                     remediation_steps: vec![
                         "Inspect rolling confidence averages in the governance log".to_string(),
                         "Run offline evaluation on the affected model".to_string(),
@@ -273,7 +275,8 @@ impl IncidentRunbook {
                 RunbookEntry {
                     scenario: "Agent stuck in non-terminal state".to_string(),
                     severity: IncidentSeverity::High,
-                    detection: "Global timeout exceeded; state is not Done/Blocked/Failed".to_string(),
+                    detection: "Global timeout exceeded; state is not Done/Blocked/Failed"
+                        .to_string(),
                     remediation_steps: vec![
                         "Check audit log for last state transition and tool execution".to_string(),
                         "Restore from latest checkpoint if available".to_string(),

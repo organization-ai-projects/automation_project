@@ -82,7 +82,8 @@ impl ModelRegistry {
     /// Advance a model from Pending → Canary after passing offline evaluation.
     pub fn promote_to_canary(&mut self, name: &str) -> bool {
         if self.rollout_states.get(name) == Some(&RolloutState::Pending) {
-            self.rollout_states.insert(name.to_string(), RolloutState::Canary);
+            self.rollout_states
+                .insert(name.to_string(), RolloutState::Canary);
             if let Some(m) = self.models.get_mut(name) {
                 m.active = true;
             }
@@ -222,7 +223,8 @@ impl ModelGovernance {
     pub fn accept(&mut self, model_name: &str, confidence: f64) -> bool {
         let drift_detected = self.drift_detector.observe(confidence);
         if drift_detected {
-            self.registry.rollback(model_name, "drift detected by sliding-window monitor");
+            self.registry
+                .rollback(model_name, "drift detected by sliding-window monitor");
             return false;
         }
 
@@ -315,7 +317,10 @@ mod tests {
         gov.accept("codegen", 0.3);
         // Third observation fills the 3-slot window and triggers drift → rollback.
         let result = gov.accept("codegen", 0.3);
-        assert!(!result, "symbolic override must be used when drift is detected");
+        assert!(
+            !result,
+            "symbolic override must be used when drift is detected"
+        );
         assert_eq!(
             gov.registry.state("codegen"),
             Some(RolloutState::RolledBack)

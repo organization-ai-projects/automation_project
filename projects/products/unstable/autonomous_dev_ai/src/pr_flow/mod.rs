@@ -219,7 +219,11 @@ pub struct PrOrchestrator {
 }
 
 impl PrOrchestrator {
-    pub fn new(title: impl Into<String>, body: impl Into<String>, max_review_iterations: usize) -> Self {
+    pub fn new(
+        title: impl Into<String>,
+        body: impl Into<String>,
+        max_review_iterations: usize,
+    ) -> Self {
         Self {
             metadata: PrMetadata::new(title, body),
             review_ingester: ReviewFeedbackIngester::new(max_review_iterations),

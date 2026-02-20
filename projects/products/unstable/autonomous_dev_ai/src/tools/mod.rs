@@ -10,7 +10,16 @@ use std::time::Duration;
 
 /// Allowed git subcommands (allowlist — deny-by-default for all others).
 const GIT_ALLOWED_SUBCOMMANDS: &[&str] = &[
-    "status", "diff", "log", "show", "add", "commit", "checkout", "branch", "fetch", "stash",
+    "status",
+    "diff",
+    "log",
+    "show",
+    "add",
+    "commit",
+    "checkout",
+    "branch",
+    "fetch",
+    "stash",
     "rev-parse",
 ];
 
@@ -83,7 +92,10 @@ impl Tool for TestRunner {
                 .split_whitespace()
                 .map(|s| s.to_string())
                 .collect();
-            let prog = parts.first().cloned().unwrap_or_else(|| "cargo".to_string());
+            let prog = parts
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "cargo".to_string());
             let mut cmd_args = parts[1..].to_vec();
             cmd_args.extend_from_slice(args);
             return run_with_timeout(
@@ -241,7 +253,11 @@ fn run_with_timeout(program: &str, args: &[String], timeout: Duration) -> AgentR
             Ok(ToolResult {
                 success: output.status.success(),
                 output: stdout,
-                error: if stderr.is_empty() { None } else { Some(stderr) },
+                error: if stderr.is_empty() {
+                    None
+                } else {
+                    Some(stderr)
+                },
             })
         }
         Ok(Err(e)) => Err(AgentError::Tool(format!("wait_with_output error: {e}"))),
@@ -253,9 +269,9 @@ fn run_with_timeout(program: &str, args: &[String], timeout: Duration) -> AgentR
                 timeout.as_secs()
             )),
         }),
-        Err(mpsc::RecvTimeoutError::Disconnected) => {
-            Err(AgentError::Tool("unexpected channel disconnect".to_string()))
-        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => Err(AgentError::Tool(
+            "unexpected channel disconnect".to_string(),
+        )),
     }
 }
 

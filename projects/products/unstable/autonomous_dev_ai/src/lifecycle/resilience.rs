@@ -205,7 +205,11 @@ pub struct Checkpoint {
 }
 
 impl Checkpoint {
-    pub fn new(run_id: impl Into<String>, iteration: usize, state_label: impl Into<String>) -> Self {
+    pub fn new(
+        run_id: impl Into<String>,
+        iteration: usize,
+        state_label: impl Into<String>,
+    ) -> Self {
         Self {
             run_id: run_id.into(),
             iteration,
