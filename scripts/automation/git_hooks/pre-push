@@ -4,7 +4,6 @@
 # Bypass: SKIP_PRE_PUSH=1 git push ...
 set -euo pipefail
 
-# Allow bypass for emergency situations
 if [[ "${SKIP_PRE_PUSH:-}" == "1" ]]; then
   echo "⚠️  Pre-push checks skipped (SKIP_PRE_PUSH=1)"
   exit 0
@@ -13,93 +12,14 @@ fi
 echo "🔍 Running pre-push checks..."
 echo ""
 
-# Get the root of the git repository
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 1
 HOOKS_DIR="$REPO_ROOT/scripts/automation/git_hooks"
-# shellcheck source=scripts/automation/git_hooks/lib/issue_parent_guard.sh
-source "$HOOKS_DIR/lib/issue_parent_guard.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
-source "$HOOKS_DIR/lib/scope_resolver.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/policy.sh
-source "$HOOKS_DIR/lib/policy.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/push_policy.sh
+source "$HOOKS_DIR/lib/push_policy.sh"
 
-# Get commit messages from commits being pushed
-UPSTREAM_BRANCH="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")"
-if [[ -z "$UPSTREAM_BRANCH" ]]; then
-  echo "⚠️  No upstream branch detected. Falling back to origin/dev for scope detection."
-  UPSTREAM_BRANCH="origin/dev"
-fi
-
-commits=$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null || true)
-
-validate_no_root_parent_issue_refs() {
-  local commits_input="$1"
-  local refs
-  refs="$(extract_issue_refs_from_text "$commits_input" || true)"
-  [[ -z "$refs" ]] && return 0
-
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "❌ Cannot validate root parent issue references: 'gh' CLI is required."
-    echo "   Install gh, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
-    return 1
-  fi
-
-  local repo_name
-  repo_name="$(resolve_repo_name_with_owner)"
-  if [[ -z "$repo_name" ]]; then
-    echo "❌ Cannot resolve GitHub repository for footer validation."
-    echo "   Ensure gh auth/network is available, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
-    return 1
-  fi
-
-  local parent_refs=()
-  local action
-  local issue_number
-  while IFS='|' read -r action issue_number; do
-    [[ -z "$issue_number" ]] && continue
-    if issue_is_root_parent "$issue_number" "$repo_name"; then
-      parent_refs+=("${action} #${issue_number}")
-    fi
-  done <<< "$refs"
-
-  if [[ ${#parent_refs[@]} -gt 0 ]]; then
-    echo "❌ Root parent issue references detected in commits being pushed:"
-    printf '   - %s\n' "${parent_refs[@]}"
-    echo "   Root parent refs are forbidden in commit trailers (Part of/Related to/Closes/Fixes/Resolves)."
-    echo "   Reference child issues instead."
-    return 1
-  fi
-}
-
-validate_part_of_only_push() {
-  local commits_input="$1"
-  local refs
-  local action
-  local has_tracking=0
-  local has_closing=0
-
-  refs="$(extract_issue_refs_from_text "$commits_input" || true)"
-  [[ -z "$refs" ]] && return 0
-
-  while IFS='|' read -r action _; do
-    [[ -z "$action" ]] && continue
-    if [[ "$action" == "closes" || "$action" == "fixes" || "$action" == "resolves" ]]; then
-      has_closing=1
-    fi
-    if [[ "$action" == "part of" || "$action" == "related to" ]]; then
-      has_tracking=1
-    fi
-  done <<< "$refs"
-
-  if [[ $has_tracking -eq 1 && $has_closing -eq 0 && "${ALLOW_PART_OF_ONLY_PUSH:-}" != "1" ]]; then
-    echo "❌ Push blocked: commit range contains tracking refs (Part of/Related to) without any closing ref."
-    echo "   This usually indicates incomplete issue lifecycle updates."
-    echo "   Fix by adding proper child issue closures when done, or confirm exceptional push with:"
-    echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
-    return 1
-  fi
-}
+UPSTREAM_BRANCH="$(resolve_upstream_branch)"
+commits="$(collect_push_commits "$UPSTREAM_BRANCH")"
 
 if ! validate_no_root_parent_issue_refs "$commits"; then
   exit 1
@@ -109,67 +29,7 @@ if ! validate_part_of_only_push "$commits"; then
   exit 1
 fi
 
-compute_changed_files() {
-  local upstream="$1"
-  local files=""
-
-  # Standard case: upstream tracking branch exists.
-  files=$(git diff --name-only "${upstream}"..HEAD 2>/dev/null || true)
-  if [[ -n "$files" ]]; then
-    printf '%s\n' "$files"
-    return 0
-  fi
-
-  # First push / missing upstream locally: compare from merge-base with origin/dev.
-  if git rev-parse --verify --quiet origin/dev >/dev/null; then
-    local base
-    base=$(git merge-base origin/dev HEAD 2>/dev/null || true)
-    if [[ -n "$base" ]]; then
-      files=$(git diff --name-only "${base}"..HEAD 2>/dev/null || true)
-      if [[ -n "$files" ]]; then
-        printf '%s\n' "$files"
-        return 0
-      fi
-    fi
-  fi
-
-  # Final fallback: changed files in the latest commit only.
-  files=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)
-  printf '%s\n' "$files"
-}
-
-changed_files=$(compute_changed_files "$UPSTREAM_BRANCH")
-
-run_shell_syntax_checks() {
-  local files="$1"
-  local checked=0
-  local file
-
-  while IFS= read -r file; do
-    [[ -z "$file" || ! -f "$file" ]] && continue
-
-    local is_shell=false
-    if [[ "$file" == *.sh ]]; then
-      is_shell=true
-    elif [[ -x "$file" ]]; then
-      local shebang
-      shebang=$(head -n1 "$file" 2>/dev/null || true)
-      if [[ "$shebang" =~ ^#!.*(ba)?sh([[:space:]]|$) ]]; then
-        is_shell=true
-      fi
-    fi
-
-    if [[ "$is_shell" == true ]]; then
-      echo "   - bash -n $file"
-      bash -n "$file"
-      checked=1
-    fi
-  done <<< "$files"
-
-  if [[ $checked -eq 0 ]]; then
-    echo "   (no shell scripts changed)"
-  fi
-}
+changed_files="$(compute_changed_files "$UPSTREAM_BRANCH")"
 
 if is_docs_or_scripts_only_change "$changed_files"; then
   echo "📄 Docs/scripts-only changes detected."
@@ -184,158 +44,7 @@ if is_docs_or_scripts_only_change "$changed_files"; then
   exit 0
 fi
 
-# Extract crate names from commit scopes
-detect_crates_from_scopes() {
-  local commits_input="$1"
-  local -a crates=()
-  local invalid_scopes=0
-  local scope_re='^[a-z]+\(([^)]+)\):'
-  SCOPES_HAD_INVALID=0
-
-  # Extract scope from "type(scope): message" format
-  # scope can be: products/accounts/backend → accounts-backend
-  # or: products/core/engine → engine
-  # or: scripts/... → (skip, not a crate)
-  while IFS= read -r line; do
-    # Match pattern: type(scope):
-    if [[ $line =~ $scope_re ]]; then
-      local -a raw_scopes=()
-      local raw_scope
-      IFS=',' read -r -a raw_scopes <<< "${BASH_REMATCH[1]}"
-
-      for raw_scope in "${raw_scopes[@]}"; do
-        local scope="${raw_scope#"${raw_scope%%[![:space:]]*}"}"
-        scope="${scope%"${scope##*[![:space:]]}"}"
-        [[ -z "$scope" ]] && continue
-
-        local cargo_toml=""
-        if [[ $scope =~ ^projects/libraries/core$ ]]; then
-          local -a core_matches=()
-          local core_match
-          while IFS= read -r core_match; do
-            [[ -n "$core_match" ]] && core_matches+=("$core_match")
-          done < <(find projects/libraries/core -mindepth 2 -maxdepth 2 -type f -name Cargo.toml)
-
-          if [[ ${#core_matches[@]} -eq 0 ]]; then
-            invalid_scopes=$((invalid_scopes + 1))
-            continue
-          fi
-
-          local cm
-          for cm in "${core_matches[@]}"; do
-            local core_crate_name
-            core_crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cm" | head -n1)
-            if [[ -z "$core_crate_name" ]]; then
-              invalid_scopes=$((invalid_scopes + 1))
-              continue
-            fi
-            if [[ ! " ${crates[*]} " =~ " ${core_crate_name} " ]]; then
-              crates+=("$core_crate_name")
-            fi
-          done
-          continue
-        elif [[ $scope =~ ^projects/libraries/([^/]+)$ ]]; then
-          cargo_toml="projects/libraries/${BASH_REMATCH[1]}/Cargo.toml"
-        elif [[ $scope =~ ^projects/libraries/core/([^/]+)$ ]]; then
-          cargo_toml="projects/libraries/core/${BASH_REMATCH[1]}/Cargo.toml"
-        elif [[ $scope =~ ^projects/products/([^/]+)/([^/]+)/(ui|backend)$ ]]; then
-          local tier="${BASH_REMATCH[1]}"
-          local product="${BASH_REMATCH[2]}"
-          local component="${BASH_REMATCH[3]}"
-          local -a matches=()
-          local match
-          while IFS= read -r match; do
-            [[ -n "$match" ]] && matches+=("$match")
-          done < <(find projects/products -type f -path "*/${tier}/${product}/${component}/Cargo.toml")
-
-          if [[ ${#matches[@]} -eq 1 ]]; then
-            cargo_toml="${matches[0]}"
-          elif [[ ${#matches[@]} -gt 1 ]]; then
-            echo "⚠️  Scope '$scope' matches multiple Cargo.toml files; falling back to changed-file inference:"
-            printf '   - %s\n' "${matches[@]}"
-            invalid_scopes=$((invalid_scopes + 1))
-            continue
-          fi
-        elif [[ $scope =~ ^projects/products/([^/]+)/([^/]+)$ ]]; then
-          local tier_or_product="${BASH_REMATCH[1]}"
-          local product_or_component="${BASH_REMATCH[2]}"
-          local -a matches=()
-          local match
-
-          # Prefer explicit tier/product form first.
-          while IFS= read -r match; do
-            [[ -n "$match" ]] && matches+=("$match")
-          done < <(find projects/products -type f -path "*/${tier_or_product}/${product_or_component}/Cargo.toml")
-
-          # Backward-compatible fallback for legacy product/component scope.
-          if [[ ${#matches[@]} -eq 0 ]]; then
-            while IFS= read -r match; do
-              [[ -n "$match" ]] && matches+=("$match")
-            done < <(find projects/products -type f -path "*/${tier_or_product}/${product_or_component}/Cargo.toml")
-          fi
-
-          if [[ ${#matches[@]} -eq 1 ]]; then
-            cargo_toml="${matches[0]}"
-          elif [[ ${#matches[@]} -gt 1 ]]; then
-            echo "⚠️  Scope '$scope' matches multiple Cargo.toml files; falling back to changed-file inference:"
-            printf '   - %s\n' "${matches[@]}"
-            invalid_scopes=$((invalid_scopes + 1))
-            continue
-          fi
-        elif [[ $scope =~ ^projects/products/([^/]+)(/(ui|backend))?$ ]]; then
-          local product="${BASH_REMATCH[1]}"
-          local component="${BASH_REMATCH[3]:-}"
-          local -a matches=()
-          local match
-          while IFS= read -r match; do
-            [[ -n "$match" ]] && matches+=("$match")
-          done < <(find projects/products -type f -path "*/${product}/${component:+$component/}Cargo.toml")
-
-          if [[ ${#matches[@]} -eq 1 ]]; then
-            cargo_toml="${matches[0]}"
-          elif [[ ${#matches[@]} -gt 1 ]]; then
-            echo "⚠️  Scope '$scope' matches multiple Cargo.toml files; falling back to changed-file inference:"
-            printf '   - %s\n' "${matches[@]}"
-            invalid_scopes=$((invalid_scopes + 1))
-            continue
-          fi
-        fi
-
-        if [[ -n "$cargo_toml" ]]; then
-          if [[ ! -f "$cargo_toml" ]]; then
-            invalid_scopes=$((invalid_scopes + 1))
-            continue
-          fi
-
-          local crate_name
-          crate_name=$(sed -n 's/^name[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cargo_toml" | head -n1)
-          if [[ -z "$crate_name" ]]; then
-            invalid_scopes=$((invalid_scopes + 1))
-            continue
-          fi
-
-          if [[ ! " ${crates[*]} " =~ " ${crate_name} " ]]; then
-            crates+=("$crate_name")
-          fi
-        fi
-      done
-    fi
-  done <<< "$commits_input"
-
-  if [[ $invalid_scopes -gt 0 ]]; then
-    SCOPES_HAD_INVALID=1
-  fi
-
-  # If no crate could be resolved from commit scopes, return non-zero so caller can infer from files.
-  if [[ ${#crates[@]} -eq 0 ]]; then
-    return 1
-  fi
-
-  printf '%s\n' "${crates[@]+"${crates[@]}"}"
-}
-
-# Get affected crates from commit scopes
-AFFECTED=$(detect_crates_from_scopes "$commits")
+AFFECTED="$(detect_crates_from_scopes "$commits")"
 SCOPE_VALID=$?
 
 LOCKED_ARGS=()
@@ -371,8 +80,6 @@ else
   echo "🎯 Crates from commit scopes:"
   echo "$AFFECTED" | sed 's/^/   - /'
   echo ""
-
-  # Build clippy/test args for affected crates
   CLIPPY_ARGS=("${LOCKED_ARGS[@]}" --all-targets --all-features)
   TEST_ARGS=("${LOCKED_ARGS[@]}" --all-targets --all-features)
   while IFS= read -r crate; do
@@ -382,10 +89,8 @@ else
   done <<< "$AFFECTED"
 fi
 
-# Track overall status
 FAILED=0
 
-# 1. Check formatting
 echo "📝 Checking code formatting..."
 if ! cargo fmt --all --check; then
   echo ""
@@ -398,7 +103,6 @@ else
   echo ""
 fi
 
-# 2. Run clippy on affected crates
 echo "🔎 Running clippy..."
 if ! cargo clippy "${CLIPPY_ARGS[@]}" -- -D warnings; then
   echo ""
@@ -411,7 +115,6 @@ else
   echo ""
 fi
 
-# 3. Run tests on affected crates
 echo "🧪 Running tests..."
 if ! cargo test "${TEST_ARGS[@]}"; then
   echo ""
@@ -424,7 +127,6 @@ else
   echo ""
 fi
 
-# Final result
 if [[ $FAILED -eq 1 ]]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "❌ Pre-push checks FAILED"
