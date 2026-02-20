@@ -21,9 +21,9 @@
 - **Linting Rules**: Application of best practices.
 - **Static Analysis**: Verification of structure, conventions, and patterns.
 - **Rule and Decision Engine**: Management of symbolic workflows.
-- **Symbolic Orchestration**: Coordination of specialized submodules.
+- **Symbolic Domain Logic**: Domain-level symbolic analysis and validation capabilities.
 
-> `symbolic` is an **aggregator** of specialized symbolic submodules.
+> `symbolic` is a domain library. Product-level AI orchestration is handled by `ai`.
 
 ---
 
@@ -33,7 +33,7 @@
 - **Rust Code Generation**: Automatic code creation.
 - **Feedback-based Adjustment**: Continuous improvement based on feedback.
 - **Training and Inference**: Use of **Burn** for neural models.
-- The `neural` component is never called directly by products. It is invoked only via the `ai` orchestrator.
+- The `neural` component is not intended as a direct product dependency. It is consumed through the `ai` orchestrator.
 
 > Activation via feature flag only.
 
@@ -43,24 +43,15 @@
 
 Current libraries under `projects/libraries`:
 
-- `ai`: Orchestrator for symbolic + neural flows.
-- `ast_core`: AST structures and parsing utilities.
-- `command_runner`: Execute commands with structured results.
-- `common`: Shared types, errors, and utilities.
-- `common_calendar`: Calendar/date utilities.
-- `common_json`: JSON model + helpers.
-- `common_parsing`: Parsing helpers for shared formats.
-- `common_time`: Time utilities.
-- `common_tokenize`: Tokenization utilities.
-- `hybrid_arena`: Arena-style storage with hybrid indexing.
-- `identity`: Identity types and store helpers.
-- `neural`: Neural inference/training component.
-- `pjson_proc_macros`: Proc-macros for JSON tooling.
-- `protocol`: Wire contracts and protocol types.
-- `protocol_macros`: Proc-macros for protocol helpers.
-- `security`: Auth, tokens, claims, and verification helpers.
-- `symbolic`: Symbolic analysis/validation engine.
-- `ui`: Shared UI components for product UIs.
+- `core/foundation/*`: Internal technical libraries and shared primitives.
+- `core/contracts/*`: Cross-cutting contracts and protocol crates.
+- `layers/domain/identity`: Identity types and store helpers.
+- `layers/domain/security`: Auth, tokens, claims, and verification helpers.
+- `layers/domain/symbolic`: Symbolic analysis/validation domain.
+- `layers/domain/neural`: Neural domain (training/inference/generation).
+- `layers/domain/ui`: Shared UI components for product UIs.
+- `layers/domain/versioning`: Versioning and revision helpers.
+- `layers/orchestration/ai`: Orchestrator for symbolic + neural workflows.
 
 ---
 

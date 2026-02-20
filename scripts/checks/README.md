@@ -48,21 +48,22 @@ Strict mode:
   - `library -> product` forbidden
 - `--strict` mode additionally enforces:
   - `library -> product` forbidden
-  - `L0 -> no workspace deps`
-  - `L1 -> L0` only
+  - `L1 -> no layer dependency`
   - `L2 -> L1` only
   - `L3 -> L2` only
   - no lateral/upward/non-adjacent edges by default
+  - `L1` semantics: technical building blocks for `L2` domains
 - Uses:
   - `scripts/checks/layer_map.txt` (canonical `crate -> layer`)
   - built-in checker core overlay (`foundation|contracts|none`, script-managed)
+    - core is outside numeric layering (`L1..L3`)
     - `layer -> core` allowed
     - `core -> layer` forbidden
     - `core -> core` allowed
   - `scripts/checks/layer_whitelist.txt` (governed temporary exceptions)
 - Emits stable actionable diagnostics:
   - `VIOLATION class=<class> edge=<from>(<layer>)-><to>(<layer>) suggestion="<remediation>"`
-  - Classes include `library-to-product`, `core-to-layer`, `foundation-internal`, `lateral`, `upward`, `non-adjacent`, `unmapped`
+  - Classes include `library-to-product`, `core-to-layer`, `lateral`, `upward`, `non-adjacent`, `unmapped`
 
 **CI Integration**: Runs automatically in `.github/workflows/ci_reusable.yml`.
 
@@ -92,7 +93,6 @@ Optional:
 - Falls back to provisional built-in mapping when no map file is available
 - Reports:
   - `library -> product` edges
-  - foundation internal dependencies
   - lateral / upward / non-adjacent edges
   - unmapped crates and ambiguous hotspots
   - cycle signals (`tsort`-based signal)
@@ -105,7 +105,7 @@ Optional:
 **Format**:
 
 ```text
-crate_name=L0|L1|L2|L3|UNMAPPED
+crate_name=L1|L2|L3|UNMAPPED
 ```
 
 **Current location**: `scripts/checks/layer_map.txt`

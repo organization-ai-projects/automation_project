@@ -105,54 +105,54 @@
     "description": "Changes in the `projects/libraries/ai` crate"
   },
   {
-    "name": "projects/libraries/ast_core",
+    "name": "projects/libraries/core/foundation/ast_core",
     "color": "FF7F0E",
-    "description": "Changes in the `projects/libraries/ast_core` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/ast_core` crate"
   },
   {
-    "name": "projects/libraries/ast_macros",
+    "name": "projects/libraries/core/foundation/ast_macros",
     "color": "2CA02C",
-    "description": "Changes in the `projects/libraries/ast_macros` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/ast_macros` crate"
   },
   {
-    "name": "projects/libraries/command_runner",
+    "name": "projects/libraries/core/foundation/command_runner",
     "color": "17A2B8",
-    "description": "Changes in the `projects/libraries/command_runner` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/command_runner` crate"
   },
   {
-    "name": "projects/libraries/common",
+    "name": "projects/libraries/core/foundation/common",
     "color": "9467BD",
     "description": "Changes in the shared `common` library"
   },
   {
-    "name": "projects/libraries/common_binary",
+    "name": "projects/libraries/core/foundation/common_binary",
     "color": "8C564B",
     "description": "Changes related to binary persistence / ABI helpers"
   },
   {
-    "name": "projects/libraries/common_calendar",
+    "name": "projects/libraries/core/foundation/common_calendar",
     "color": "E377C2",
     "description": "Calendar and time-related utilities"
   },
   {
-    "name": "projects/libraries/common_json",
+    "name": "projects/libraries/core/foundation/common_json",
     "color": "7F7F7F",
     "description": "JSON handling and serialization utilities"
   },
   {
-    "name": "projects/libraries/common_parsing",
+    "name": "projects/libraries/core/foundation/common_parsing",
     "color": "00A6D6",
-    "description": "Changes in the `projects/libraries/common_parsing` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/common_parsing` crate"
   },
   {
-    "name": "projects/libraries/common_time",
+    "name": "projects/libraries/core/foundation/common_time",
     "color": "B58900",
-    "description": "Changes in the `projects/libraries/common_time` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/common_time` crate"
   },
   {
-    "name": "projects/libraries/common_tokenize",
+    "name": "projects/libraries/core/foundation/common_tokenize",
     "color": "66A61E",
-    "description": "Changes in the `projects/libraries/common_tokenize` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/common_tokenize` crate"
   },
   {
     "name": "projects/libraries/git_lib",
@@ -160,9 +160,9 @@
     "description": "Git abstraction and command handling library"
   },
   {
-    "name": "projects/libraries/hybrid_arena",
+    "name": "projects/libraries/core/foundation/hybrid_arena",
     "color": "00B894",
-    "description": "Changes in the `projects/libraries/hybrid_arena` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/hybrid_arena` crate"
   },
   {
     "name": "projects/libraries/identity",
@@ -175,19 +175,19 @@
     "description": "Neural / ML-related components"
   },
   {
-    "name": "projects/libraries/pjson_proc_macros",
+    "name": "projects/libraries/core/foundation/pjson_proc_macros",
     "color": "20B2AA",
-    "description": "Changes in the `projects/libraries/pjson_proc_macros` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/pjson_proc_macros` crate"
   },
   {
-    "name": "projects/libraries/core/protocol",
+    "name": "projects/libraries/core/contracts/protocol",
     "color": "F4B400",
     "description": "Protocol definitions and communication formats"
   },
   {
-    "name": "projects/libraries/protocol_macros",
+    "name": "projects/libraries/core/foundation/protocol_macros",
     "color": "4285F4",
-    "description": "Changes in the `projects/libraries/protocol_macros` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/protocol_macros` crate"
   },
   {
     "name": "projects/libraries/security",

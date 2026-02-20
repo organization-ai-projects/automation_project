@@ -72,7 +72,6 @@ Options utiles:
 - Construit une vue provisoire des couches (surchageable par map-file)
 - Remonte:
   - dependances `library -> product`
-  - dependances internes foundation
   - aretes laterales / montantes / non-adjacentes
   - crates non mappees et hotspots ambigus
   - signaux de cycle (signal base sur `tsort`)

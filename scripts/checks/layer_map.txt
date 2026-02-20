@@ -1,30 +1,31 @@
 # Canonical workspace library layer map (crate=layer).
-# Valid layers: L0, L1, L2, L3, UNMAPPED.
+# Valid layers: L1, L2, L3, UNMAPPED.
 #
 # Notes:
-# - protocol is checker-classified as core/contracts (not a layer level).
+# - Crates classified as core/foundation or core/contracts must be UNMAPPED here.
+# - They are governed by core overlay rules in check_layer_boundaries.sh.
 # - ui-lib canonical crate identity is mapped to L2.
 
 ai=L3
-ast_core=L0
-ast_macros=L0
-command_runner=L1
-common=L1
-common_binary=L0
-common_calendar=L0
-common_json=L1
-common_parsing=L0
-common_ron=L1
-common_time=L0
-common_tokenize=L0
-hybrid_arena=L0
+ast_core=UNMAPPED
+ast_macros=UNMAPPED
+command_runner=UNMAPPED
+common=UNMAPPED
+common_binary=UNMAPPED
+common_calendar=UNMAPPED
+common_json=UNMAPPED
+common_parsing=UNMAPPED
+common_ron=UNMAPPED
+common_time=UNMAPPED
+common_tokenize=UNMAPPED
+hybrid_arena=UNMAPPED
 identity=L2
 neural=L2
-pjson_proc_macros=L0
+pjson_proc_macros=UNMAPPED
 protocol=UNMAPPED
-protocol_macros=L0
+protocol_macros=UNMAPPED
 security=L2
-security_core=L1
+security_core=UNMAPPED
 symbolic=L2
 ui-lib=L2
 versioning=L2
