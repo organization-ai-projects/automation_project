@@ -6,8 +6,8 @@ Define the strict, deterministic layer model for workspace libraries.
 
 ## Layer Model
 
-- `L0 Foundation`: ultra-generic technical primitives and utilities.
-- `L1 Technical Specialization`: technical adapters/specializations built on `L0` (still not business-domain).
+- `L0 Foundation`: optional non-core ultra-generic technical primitives and utilities.
+- `L1 Technical Building Blocks`: non-core technical building blocks used to compose domain crates (`L2`), still not business-domain.
 - `L2 Domain`: domain libraries and domain-facing public APIs/contracts.
 - `L3 Orchestration`: the only layer allowed to compose/cross multiple domains.
 
@@ -17,6 +17,8 @@ The checker also applies a core overlay that is orthogonal to numeric layers.
 
 - `core/foundation`: shared internal technical building blocks.
 - `core/contracts`: shared cross-cutting contracts/protocol crates.
+
+Core is outside numeric layering (`L0..L3`): it is not above or below the layered model.
 
 Overlay enforcement:
 
@@ -46,6 +48,7 @@ Overlay enforcement:
 - Purely technical/shared contracts belong to `L1`.
 - Domain-facing contracts belong to `L2`.
 - `L3` stays orchestration-only and should consume `L2` contracts, not internal `L1` implementation details.
+- `L1` should expose reusable technical components that help implement `L2` domains.
 
 ## Resolved Placement Decisions
 
@@ -54,9 +57,7 @@ The following decisions are finalized and should be treated as architecture poli
 - `protocol` is fixed as a `core/contracts` crate (not a layer level).
 - `security_core` is fixed as a `core/contracts` crate (not a layer level).
 - `ui-lib` (crate under `projects/libraries/ui`) is fixed to `L2`.
-- Shared technical crates are fixed as:
-  - `L0`: `common_time`, `common_calendar`, `common_binary`, `common_parsing`, `common_tokenize`, `hybrid_arena`, `ast_core`, `ast_macros`, `pjson_proc_macros`, `protocol_macros`.
-  - `L1`: `common`, `common_json`, `common_ron`, `command_runner`.
+- Shared technical crates previously mapped to `L0/L1` are now treated as `core/foundation` (not layer levels).
 - `ai` remains `L3` and must consume `L2` contracts/facades only.
   Migration target: remove direct `L3 -> L1` edges (notably to `common_json`) via `L2` boundaries before strict closure of migration issues.
 
