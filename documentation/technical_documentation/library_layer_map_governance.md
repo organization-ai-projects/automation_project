@@ -7,7 +7,7 @@ Define governance rules for the canonical workspace `crate -> layer` mapping art
 ## Canonical Artifact
 
 - Primary artifact: `scripts/checks/layer_map.txt`
-- Format: `crate_name=L0|L1|L2|L3|UNMAPPED`
+- Format: `crate_name=L1|L2|L3|UNMAPPED`
 - Scope: workspace crates under `projects/libraries/`
 - Core overlay is checker-managed (no separate artifact file).
 - Core overlay policy:
@@ -40,7 +40,7 @@ When updating the map:
 ```
 
 1. Confirm map completeness (no missing workspace libraries).
-2. Confirm no malformed entries (only `L0|L1|L2|L3|UNMAPPED`).
+2. Confirm no malformed entries (only `L1|L2|L3|UNMAPPED`).
 3. Capture key anomalies impacted by the mapping change in the PR description.
 
 ## UNMAPPED Policy

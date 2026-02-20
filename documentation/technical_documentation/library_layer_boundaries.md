@@ -18,15 +18,14 @@ Forbidden direction:
 
 For workspace libraries, dependency direction follows:
 
-- `L0` -> no workspace dependencies
-- `L1` -> `L0` only
+- `L1` -> no layer dependency
 - `L2` -> `L1` only
 - `L3` -> `L2` only
 
 Layer intent:
 
 - `L1` is for technical building blocks used by `L2` domains.
-- `core/*` (`core/foundation`, `core/contracts`) is outside `L0..L3` and governed by the core overlay rules below.
+- `core/*` (`core/foundation`, `core/contracts`) is outside `L1..L3` and governed by the core overlay rules below.
 
 Additional constraints:
 
