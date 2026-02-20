@@ -2,8 +2,7 @@
 # Enforce strict workspace library dependency boundaries.
 # Rules:
 # - library -> product is forbidden
-# - L0 -> no workspace dependencies
-# - L1 -> L0 only
+# - L1 -> no layer dependency
 # - L2 -> L1 only
 # - L3 -> L2 only
 # - no upward or lateral edges by default
@@ -63,7 +62,7 @@ if [[ "$strict_mode" == "true" ]]; then
     {
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
-      if ($2 !~ /^(L0|L1|L2|L3|UNMAPPED)$/) {
+      if ($2 !~ /^(L1|L2|L3|UNMAPPED)$/) {
         printf "invalid layer in map: %s=%s\n", $1, $2 > "/dev/stderr"
         exit 2
       }
@@ -147,7 +146,6 @@ layer_of() {
 
 rank_of() {
   case "$1" in
-    L0) echo 0 ;;
     L1) echo 1 ;;
     L2) echo 2 ;;
     L3) echo 3 ;;
@@ -178,7 +176,6 @@ core_of() {
 
 library_to_product="$tmpdir/library_to_product.tsv"
 core_to_layer="$tmpdir/core_to_layer.tsv"
-foundation_internal="$tmpdir/foundation_internal.tsv"
 lateral="$tmpdir/lateral.tsv"
 upward="$tmpdir/upward.tsv"
 non_adjacent="$tmpdir/non_adjacent.tsv"
@@ -187,7 +184,6 @@ whitelist_used="$tmpdir/whitelist_used.tsv"
 
 : > "$library_to_product"
 : > "$core_to_layer"
-: > "$foundation_internal"
 : > "$lateral"
 : > "$upward"
 : > "$non_adjacent"
@@ -243,14 +239,6 @@ while IFS=$'\t' read -r from_name from_manifest to_name to_manifest; do
     printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$unmapped"
     continue
   fi
-  if [[ "$from_layer" == "L0" ]]; then
-    # Core foundation overlay: allow controlled L0->L0 edges inside the foundation set.
-    if [[ "$from_core" == "foundation" && "$to_core" == "foundation" && "$to_layer" == "L0" ]]; then
-      continue
-    fi
-    printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$foundation_internal"
-    continue
-  fi
   if [[ "$to_rank" -gt "$from_rank" ]]; then
     printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$upward"
     continue
@@ -271,7 +259,6 @@ done < "$edges_tsv"
 
 sort -u "$library_to_product" -o "$library_to_product"
 sort -u "$core_to_layer" -o "$core_to_layer"
-sort -u "$foundation_internal" -o "$foundation_internal"
 sort -u "$lateral" -o "$lateral"
 sort -u "$upward" -o "$upward"
 sort -u "$non_adjacent" -o "$non_adjacent"
@@ -285,7 +272,6 @@ count_lines() {
 
 c_library_to_product="$(count_lines "$library_to_product")"
 c_core_to_layer=0
-c_foundation_internal=0
 c_lateral=0
 c_upward=0
 c_non_adjacent=0
@@ -293,7 +279,6 @@ c_unmapped=0
 c_whitelist_used=0
 if [[ "$strict_mode" == "true" ]]; then
   c_core_to_layer="$(count_lines "$core_to_layer")"
-  c_foundation_internal="$(count_lines "$foundation_internal")"
   c_lateral="$(count_lines "$lateral")"
   c_upward="$(count_lines "$upward")"
   c_non_adjacent="$(count_lines "$non_adjacent")"
@@ -347,13 +332,7 @@ if [[ "$strict_mode" == "true" ]]; then
     "core-to-layer" \
     "Forbidden dependencies (core -> layer)" \
     "$core_to_layer" \
-    "Core crates must not depend on L0..L3 crates; move dependency to core or invert edge direction." \
-    "edge4"
-  print_violations \
-    "foundation-internal" \
-    "Foundation internal dependencies (L0 must have none)" \
-    "$foundation_internal" \
-    "Move shared logic downward (or split crate responsibilities) so L0 has no workspace dependency." \
+    "Core crates must not depend on L1..L3 crates; move dependency to core or invert edge direction." \
     "edge4"
   print_violations \
     "lateral" \
@@ -381,7 +360,7 @@ if [[ "$strict_mode" == "true" ]]; then
     "edge4"
 fi
 
-total=$((c_library_to_product + c_core_to_layer + c_foundation_internal + c_lateral + c_upward + c_non_adjacent + c_unmapped))
+total=$((c_library_to_product + c_core_to_layer + c_lateral + c_upward + c_non_adjacent + c_unmapped))
 
 if [[ "$total" -eq 0 ]]; then
   echo "✅ Layer boundaries OK: no forbidden dependencies found."
@@ -393,7 +372,6 @@ echo "Summary:"
 echo "- library->product: $c_library_to_product"
 if [[ "$strict_mode" == "true" ]]; then
   echo "- core-to-layer: $c_core_to_layer"
-  echo "- foundation-internal: $c_foundation_internal"
   echo "- lateral: $c_lateral"
   echo "- upward: $c_upward"
   echo "- non-adjacent: $c_non_adjacent"

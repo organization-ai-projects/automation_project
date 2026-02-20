@@ -42,6 +42,16 @@ non_workspace_rust_resolve_scope_fallback() {
     return 0
   fi
 
+  if [[ "$file" =~ ^projects/libraries/core/([^/]+)/([^/]+)/ ]]; then
+    local core_nested_root="projects/libraries/core/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    if scope="$(non_workspace_rust_resolve_nearest_scope_with_cargo "$file" "$core_nested_root")"; then
+      printf '%s\n' "$scope"
+      return 0
+    fi
+    printf '%s\n' "$core_nested_root"
+    return 0
+  fi
+
   if [[ "$file" =~ ^projects/libraries/core/([^/]+)/ ]]; then
     local core_root="projects/libraries/core/${BASH_REMATCH[1]}"
     if scope="$(non_workspace_rust_resolve_nearest_scope_with_cargo "$file" "$core_root")"; then

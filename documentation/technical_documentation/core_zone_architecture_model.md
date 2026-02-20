@@ -6,7 +6,7 @@ Define a practical architecture model that matches real workspace usage better t
 
 ## Problem
 
-The current `L0/L1/L2/L3` adjacent-only model is too rigid for shared internal-publishable libraries such as:
+The current `L1/L2/L3` adjacent-only model is too rigid for shared internal-publishable libraries such as:
 
 - `common_json` (internal JSON abstraction)
 - `common_time` (internal time abstraction)

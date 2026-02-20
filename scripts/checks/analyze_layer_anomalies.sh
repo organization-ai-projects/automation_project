@@ -11,7 +11,7 @@ Usage:
 
 Options:
   --protocol-layer L1|L2|UNDECIDED   Deprecated. Kept for backward compatibility (ignored).
-  --map-file PATH                    Optional override map file (format: crate=L0|L1|L2|L3|UNMAPPED)
+  --map-file PATH                    Optional override map file (format: crate=L1|L2|L3|UNMAPPED)
   --json-out PATH                    Optional JSON report output path
   --fail-on-anomaly true|false       Exit non-zero if anomalies are found (default: false)
   -h, --help                         Show this help
@@ -147,7 +147,7 @@ if [[ -n "$map_file" ]]; then
     {
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
-      if ($2 ~ /^(L0|L1|L2|L3|UNMAPPED)$/) {
+      if ($2 ~ /^(L1|L2|L3|UNMAPPED)$/) {
         print $1 "\t" $2
       }
     }
@@ -165,11 +165,7 @@ fi
 default_layer_for() {
   local crate="$1"
   case "$crate" in
-    # L0 Foundation candidates
-    ast_core|ast_macros|common_binary|common_calendar|common_parsing|common_time|common_tokenize|hybrid_arena|pjson_proc_macros|protocol_macros)
-      echo "L0"
-      ;;
-    # L1 Technical specialization candidates
+    # L1 Technical building blocks candidates
     command_runner|common|common_json|common_ron)
       echo "L1"
       ;;
@@ -223,7 +219,6 @@ core_of() {
 layer_rank() {
   local layer="$1"
   case "$layer" in
-    L0) echo 0 ;;
     L1) echo 1 ;;
     L2) echo 2 ;;
     L3) echo 3 ;;
@@ -235,7 +230,6 @@ library_to_product="$tmpdir/library_to_product.tsv"
 lateral_edges="$tmpdir/lateral.tsv"
 upward_edges="$tmpdir/upward.tsv"
 non_adjacent_edges="$tmpdir/non_adjacent.tsv"
-foundation_internal_edges="$tmpdir/foundation_internal.tsv"
 unknown_edges="$tmpdir/unknown.tsv"
 core_to_layer_edges="$tmpdir/core_to_layer.tsv"
 cycle_signals="$tmpdir/cycle_signals.txt"
@@ -246,7 +240,6 @@ mixed_profile="$tmpdir/mixed_profile.tsv"
 : > "$lateral_edges"
 : > "$upward_edges"
 : > "$non_adjacent_edges"
-: > "$foundation_internal_edges"
 : > "$unknown_edges"
 : > "$core_to_layer_edges"
 : > "$cycle_signals"
@@ -291,11 +284,6 @@ while IFS=$'\t' read -r _fid from_name from_manifest _tid to_name to_manifest; d
     continue
   fi
 
-  if [[ "$from_layer" == "L0" ]]; then
-    printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$foundation_internal_edges"
-    continue
-  fi
-
   if [[ "$to_rank" -gt "$from_rank" ]]; then
     printf "%s\t%s\t%s\t%s\n" "$from_name" "$from_layer" "$to_name" "$to_layer" >> "$upward_edges"
     continue
@@ -316,7 +304,6 @@ sort -u "$library_to_product" -o "$library_to_product"
 sort -u "$lateral_edges" -o "$lateral_edges"
 sort -u "$upward_edges" -o "$upward_edges"
 sort -u "$non_adjacent_edges" -o "$non_adjacent_edges"
-sort -u "$foundation_internal_edges" -o "$foundation_internal_edges"
 sort -u "$unknown_edges" -o "$unknown_edges"
 sort -u "$core_to_layer_edges" -o "$core_to_layer_edges"
 
@@ -395,7 +382,6 @@ c_library_to_product="$(count_file_lines "$library_to_product")"
 c_lateral="$(count_file_lines "$lateral_edges")"
 c_upward="$(count_file_lines "$upward_edges")"
 c_non_adjacent="$(count_file_lines "$non_adjacent_edges")"
-c_foundation_internal="$(count_file_lines "$foundation_internal_edges")"
 c_unknown="$(count_file_lines "$unknown_edges")"
 c_core_to_layer="$(count_file_lines "$core_to_layer_edges")"
 c_unmapped="$(count_file_lines "$unmapped_crates")"
@@ -410,7 +396,6 @@ awk -F'\t' '{print "- " $1 ": " $2}' "$layer_tsv"
 echo ""
 echo "Summary:"
 echo "- library->product edges: $c_library_to_product"
-echo "- foundation internal deps (L0 -> workspace): $c_foundation_internal"
 echo "- lateral edges: $c_lateral"
 echo "- upward edges: $c_upward"
 echo "- non-adjacent edges: $c_non_adjacent"
@@ -447,7 +432,6 @@ print_section() {
 }
 
 print_section "library->product (forbidden)" "$library_to_product" "pairs"
-print_section "foundation internal dependencies (L0 must have none)" "$foundation_internal_edges" "edge4"
 print_section "lateral edges" "$lateral_edges" "edge4"
 print_section "upward edges" "$upward_edges" "edge4"
 print_section "non-adjacent edges" "$non_adjacent_edges" "edge4"
@@ -473,12 +457,6 @@ if [[ -n "$json_out" ]]; then
         split("\n") | map(select(length>0)) |
         map(split("\t")) | map({from: .[0], to: .[1]})
       ' "$library_to_product"
-    )" \
-    --argjson foundation_internal "$(
-      jq -R -s '
-        split("\n") | map(select(length>0)) |
-        map(split("\t")) | map({from: .[0], from_layer: .[1], to: .[2], to_layer: .[3]})
-      ' "$foundation_internal_edges"
     )" \
     --argjson lateral "$(
       jq -R -s '
@@ -531,7 +509,6 @@ if [[ -n "$json_out" ]]; then
       provisional_layers: $provisional_layers,
       anomalies: {
         library_to_product: $library_to_product,
-        foundation_internal: $foundation_internal,
         lateral: $lateral,
         upward: $upward,
         non_adjacent: $non_adjacent,
@@ -545,7 +522,7 @@ if [[ -n "$json_out" ]]; then
   echo "JSON report written to: $json_out"
 fi
 
-total_anomalies=$((c_library_to_product + c_foundation_internal + c_lateral + c_upward + c_non_adjacent + c_core_to_layer + c_unknown + c_unmapped))
+total_anomalies=$((c_library_to_product + c_lateral + c_upward + c_non_adjacent + c_core_to_layer + c_unknown + c_unmapped))
 if [[ "$fail_on_anomaly" == "true" && "$total_anomalies" -gt 0 ]]; then
   exit 1
 fi

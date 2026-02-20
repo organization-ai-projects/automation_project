@@ -56,7 +56,7 @@ validate_commit_message() {
     echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore" >&2
     echo "" >&2
     echo "Examples:" >&2
-    echo "  feat(projects/libraries/security): add token validation helper" >&2
+    echo "  feat(projects/libraries/layers/domain/security): add token validation helper" >&2
     echo "  feat(ci,scripts): add workflows and sync script" >&2
     echo "  docs(.github): add default PR template" >&2
     echo "  fix: resolve null pointer exception" >&2

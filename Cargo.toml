@@ -1,23 +1,23 @@
 [workspace]
 members = [
-  "projects/libraries/ai",
-  "projects/libraries/common",
-  "projects/libraries/common_binary",
-  "projects/libraries/common_json",
-  "projects/libraries/neural",
-  "projects/libraries/core/protocol",
-  "projects/libraries/identity",
-  "projects/libraries/security",
-  "projects/libraries/core/security_core",
-  "projects/libraries/symbolic",
-  "projects/libraries/ui",
-  "projects/libraries/common_parsing",
-  "projects/libraries/common_tokenize",
-  "projects/libraries/command_runner",
-  "projects/libraries/common_calendar",
-  "projects/libraries/common_time",
-  "projects/libraries/common_ron",
-  "projects/libraries/protocol_macros",
+  "projects/libraries/layers/orchestration/ai",
+  "projects/libraries/core/foundation/common",
+  "projects/libraries/core/foundation/common_binary",
+  "projects/libraries/core/foundation/common_json",
+  "projects/libraries/layers/domain/neural",
+  "projects/libraries/core/contracts/protocol",
+  "projects/libraries/layers/domain/identity",
+  "projects/libraries/layers/domain/security",
+  "projects/libraries/core/contracts/security_core",
+  "projects/libraries/layers/domain/symbolic",
+  "projects/libraries/layers/domain/ui",
+  "projects/libraries/core/foundation/common_parsing",
+  "projects/libraries/core/foundation/common_tokenize",
+  "projects/libraries/core/foundation/command_runner",
+  "projects/libraries/core/foundation/common_calendar",
+  "projects/libraries/core/foundation/common_time",
+  "projects/libraries/core/foundation/common_ron",
+  "projects/libraries/core/foundation/protocol_macros",
   "projects/products/stable/core/central_ui",
   "projects/products/stable/core/engine",
   "projects/products/stable/core/launcher",
@@ -29,11 +29,11 @@ members = [
   "projects/products/stable/code_agent_sandbox",
   "projects/products/unstable/auto_manager_ai",
   "projects/products/unstable/autonomous_dev_ai",
-  "projects/libraries/ast_core",
-  "projects/libraries/ast_macros",
-  "projects/libraries/pjson_proc_macros",
-  "projects/libraries/hybrid_arena",
-  "projects/libraries/versioning",
+  "projects/libraries/core/foundation/ast_core",
+  "projects/libraries/core/foundation/ast_macros",
+  "projects/libraries/core/foundation/pjson_proc_macros",
+  "projects/libraries/core/foundation/hybrid_arena",
+  "projects/libraries/layers/domain/versioning",
 ]
 resolver = "2"
 
@@ -57,26 +57,26 @@ lazy_static = "1.5"
 anyhow = "1.0.101"
 tracing-subscriber = "0.3"
 
-pjson_proc_macros = { path = "projects/libraries/pjson_proc_macros" }
-common = { path = "projects/libraries/common" }
-common_binary = { path = "projects/libraries/common_binary" }
-common_json = { path = "projects/libraries/common_json" }
-neural = { path = "projects/libraries/neural" }
-protocol = { path = "projects/libraries/core/protocol" }
-identity = { path = "projects/libraries/identity" }
-security = { path = "projects/libraries/security" }
-security_core = { path = "projects/libraries/core/security_core" }
-symbolic = { path = "projects/libraries/symbolic" }
-ui = { path = "projects/libraries/ui" }
-command_runner = { path = "projects/libraries/command_runner" }
-common_calendar = { path = "projects/libraries/common_calendar" }
-common_time = { path = "projects/libraries/common_time" }
-common_ron = { path = "projects/libraries/common_ron" }
-common_parsing = { path = "projects/libraries/common_parsing" }
-common_tokenize = { path = "projects/libraries/common_tokenize" }
-protocol_macros = { path = "projects/libraries/protocol_macros" }
-ast_core = { path = "projects/libraries/ast_core" }
-ast_macros = { path = "projects/libraries/ast_macros" }
-ai = { path = "projects/libraries/ai" }
-hybrid_arena = { path = "projects/libraries/hybrid_arena" }
-versioning = { path = "projects/libraries/versioning" }
+pjson_proc_macros = { path = "projects/libraries/core/foundation/pjson_proc_macros" }
+common = { path = "projects/libraries/core/foundation/common" }
+common_binary = { path = "projects/libraries/core/foundation/common_binary" }
+common_json = { path = "projects/libraries/core/foundation/common_json" }
+neural = { path = "projects/libraries/layers/domain/neural" }
+protocol = { path = "projects/libraries/core/contracts/protocol" }
+identity = { path = "projects/libraries/layers/domain/identity" }
+security = { path = "projects/libraries/layers/domain/security" }
+security_core = { path = "projects/libraries/core/contracts/security_core" }
+symbolic = { path = "projects/libraries/layers/domain/symbolic" }
+ui = { path = "projects/libraries/layers/domain/ui" }
+command_runner = { path = "projects/libraries/core/foundation/command_runner" }
+common_calendar = { path = "projects/libraries/core/foundation/common_calendar" }
+common_time = { path = "projects/libraries/core/foundation/common_time" }
+common_ron = { path = "projects/libraries/core/foundation/common_ron" }
+common_parsing = { path = "projects/libraries/core/foundation/common_parsing" }
+common_tokenize = { path = "projects/libraries/core/foundation/common_tokenize" }
+protocol_macros = { path = "projects/libraries/core/foundation/protocol_macros" }
+ast_core = { path = "projects/libraries/core/foundation/ast_core" }
+ast_macros = { path = "projects/libraries/core/foundation/ast_macros" }
+ai = { path = "projects/libraries/layers/orchestration/ai" }
+hybrid_arena = { path = "projects/libraries/core/foundation/hybrid_arena" }
+versioning = { path = "projects/libraries/layers/domain/versioning" }
