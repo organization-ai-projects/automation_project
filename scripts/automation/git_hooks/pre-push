@@ -17,8 +17,8 @@ cd "$REPO_ROOT" || exit 1
 HOOKS_DIR="$REPO_ROOT/scripts/automation/git_hooks"
 # shellcheck source=scripts/automation/git_hooks/lib/push_policy.sh
 source "$HOOKS_DIR/lib/push_policy.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/rust_checks.sh
-source "$HOOKS_DIR/lib/rust_checks.sh"
+# shellcheck source=scripts/automation/lib/rust_checks.sh
+source "$REPO_ROOT/scripts/automation/lib/rust_checks.sh"
 
 UPSTREAM_BRANCH="$(hook_utils_resolve_upstream_branch)"
 commits="$(hook_utils_collect_push_commits "$UPSTREAM_BRANCH")"
