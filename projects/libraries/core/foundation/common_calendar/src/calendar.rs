@@ -1,4 +1,4 @@
-// projects/libraries/common_calendar/src/calendar.rs
+// projects/libraries/core/foundation/common_calendar/src/calendar.rs
 use chrono::NaiveDate;
 
 /// Represents a simple calendar utility.
