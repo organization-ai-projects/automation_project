@@ -72,6 +72,43 @@ collect_format_categories_from_files() {
   printf '%s\n' "${categories[@]+"${categories[@]}"}"
 }
 
+resolve_common_path_scope_from_files() {
+  local files="$1"
+  local file
+  local dir
+  local common=""
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+
+    if [[ "$file" == */* ]]; then
+      dir="${file%/*}"
+    else
+      dir="."
+    fi
+
+    if [[ -z "$common" ]]; then
+      common="$dir"
+      continue
+    fi
+
+    while [[ "$dir" != "$common" && "$dir" != "$common/"* ]]; do
+      if [[ "$common" == "." ]]; then
+        break
+      fi
+      common="$(dirname "$common")"
+    done
+  done <<< "$files"
+
+  [[ -z "$common" ]] && return 1
+  if [[ "$common" == "." ]]; then
+    printf 'workspace\n'
+    return 0
+  fi
+
+  printf '%s\n' "$common"
+}
+
 detect_required_scopes_from_staged_files() {
   local files
   local scopes
@@ -102,7 +139,14 @@ detect_required_scopes_from_staged_files() {
 
   if [[ $only_markdown -eq 1 && -n "$files" ]]; then
     printf 'markdown\n'
+    return 0
   fi
+
+  if [[ -n "$files" ]]; then
+    resolve_common_path_scope_from_files "$files"
+  fi
+
+  return 0
 }
 
 resolve_crate_name_from_file() {

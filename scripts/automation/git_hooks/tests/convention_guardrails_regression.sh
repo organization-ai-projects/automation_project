@@ -272,6 +272,30 @@ main() {
     "echo '# title' > README.md && git add README.md && printf 'docs(markdown): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
+    "commit-msg-requires-workspace-scope-for-root-level-non-rust-non-shell-non-markdown-change" \
+    1 \
+    "Missing required scope in commit message" \
+    "echo 'x=1' > settings.toml && git add settings.toml && printf 'chore: add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-rejects-wrong-scope-for-root-level-non-rust-non-shell-non-markdown-change" \
+    1 \
+    "Commit scope does not match touched files" \
+    "echo 'x=1' > settings.toml && git add settings.toml && printf 'chore(config): add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-workspace-scope-for-non-rust-non-shell-non-markdown-change" \
+    0 \
+    "" \
+    "echo 'x=1' > settings.toml && git add settings.toml && printf 'chore(workspace): add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-common-path-scope-for-non-rust-non-shell-non-markdown-nested-change" \
+    0 \
+    "" \
+    "mkdir -p configs/env && echo 'x=1' > configs/env/app.toml && git add configs/env/app.toml && printf 'chore(configs/env): add app config\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
     "commit-msg-blocks-mixed-shell-and-markdown" \
     1 \
     "Mixed file format categories are not allowed" \

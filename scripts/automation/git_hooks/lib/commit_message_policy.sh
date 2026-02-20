@@ -2,27 +2,9 @@
 
 # Shared commit message policy helpers.
 
-map_branch_type() {
-  local branch="$1"
-  local prefix="${branch%%/*}"
-  prefix="$(printf '%s' "$prefix" | tr '[:upper:]' '[:lower:]')"
-  case "$prefix" in
-    feat|feature) echo "feat" ;;
-    fix|hotfix|bugfix) echo "fix" ;;
-    docs|doc) echo "docs" ;;
-    refactor) echo "refactor" ;;
-    test|tests) echo "test" ;;
-    chore) echo "chore" ;;
-    ci) echo "ci" ;;
-    perf) echo "perf" ;;
-    build) echo "build" ;;
-    *) echo "" ;;
-  esac
-}
-
 detect_commit_type_from_context() {
   local staged_files="$1"
-  local branch="$2"
+  local _branch="${2:-}"
   local type=""
   local warning=""
 
@@ -31,11 +13,8 @@ detect_commit_type_from_context() {
   elif is_tests_only_change "$staged_files"; then
     type="test"
   else
-    type="$(map_branch_type "$branch")"
-    if [[ -z "$type" ]]; then
-      type="chore"
-      warning="# WARNING: branch prefix not recognized; defaulted type to 'chore'."
-    fi
+    type="type"
+    warning="# WARNING: type not inferred from staged files; replace 'type' with feat/fix/refactor/chore/etc."
   fi
 
   printf '%s|%s\n' "$type" "$warning"
@@ -71,7 +50,7 @@ derive_description() {
   local files="$2"
   local name="$branch"
 
-  name="$(echo "$name" | sed -E 's#^(feat|feature|fix|hotfix|bugfix|docs|doc|refactor|test|tests|chore|ci|perf|build)/##')"
+  name="$(echo "$name" | sed -E 's#^(feat|feature|fix|hotfix|bugfix|docs|doc|refactor|test|tests|chore|perf)/##')"
   name="$(echo "$name" | sed -E 's#^[A-Za-z]+-[0-9]+[-_/]##')"
   name="$(slug_to_words "$name")"
 
