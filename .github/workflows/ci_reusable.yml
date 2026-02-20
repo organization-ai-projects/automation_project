@@ -153,28 +153,32 @@ jobs:
       - name: Cargo fmt
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: |
-          # Note: --locked is not necessary for cargo fmt as it does not involve compilation.
-          cargo fmt --all -- --check
+          source ./scripts/common_lib/automation/rust_checks.sh
+          rust_checks_run_fmt_check
 
       - name: Cargo clippy
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: |
-          if [[ -f Cargo.lock ]]; then
-            cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
+          source ./scripts/common_lib/automation/rust_checks.sh
+          LOCKED_ARGS=()
+          if rust_checks_has_lockfile; then
+            LOCKED_ARGS=(--locked)
           else
             echo "Cargo.lock missing in checkout, running clippy without --locked."
-            cargo clippy --workspace --all-features --all-targets -- -D warnings
           fi
+          rust_checks_run_clippy "${LOCKED_ARGS[@]}" --workspace --all-features --all-targets
 
       - name: Cargo test
         if: steps.changes.outputs.run_rust_checks == 'true'
         run: |
-          if [[ -f Cargo.lock ]]; then
-            cargo test --locked --workspace --all-features --all-targets --verbose
+          source ./scripts/common_lib/automation/rust_checks.sh
+          LOCKED_ARGS=()
+          if rust_checks_has_lockfile; then
+            LOCKED_ARGS=(--locked)
           else
             echo "Cargo.lock missing in checkout, running tests without --locked."
-            cargo test --workspace --all-features --all-targets --verbose
           fi
+          rust_checks_run_tests "${LOCKED_ARGS[@]}" --workspace --all-features --all-targets --verbose
 
       - name: Rust checks skipped (docs/scripts/workflows-only)
         if: steps.changes.outputs.run_rust_checks != 'true'

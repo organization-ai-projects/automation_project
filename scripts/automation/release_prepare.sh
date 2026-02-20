@@ -17,6 +17,8 @@ source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/working_tree.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
+# shellcheck source=scripts/common_lib/automation/rust_checks.sh
+source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
 
 require_git_repo
 require_clean_tree
@@ -59,7 +61,7 @@ fi
 
 # 2. Ensure all tests pass
 info "Running tests..."
-if ! cargo test --workspace; then
+if ! rust_checks_run_tests --workspace; then
   die "Tests failed. Fix tests before releasing."
 fi
 

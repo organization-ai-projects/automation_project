@@ -205,6 +205,126 @@ main() {
     "" \
     "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && printf 'fix(projects/libraries/security): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
+  run_case \
+    "commit-msg-rejects-parent-product-scope-for-ui-and-backend-mix" \
+    1 \
+    "Commit scope does not match touched files" \
+    "mkdir -p projects/products/stable/varina/ui/src projects/products/stable/varina/backend/src && printf '[package]\nname = \"varina-ui\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/ui/Cargo.toml && printf '[package]\nname = \"varina-backend\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/backend/Cargo.toml && echo 'pub fn ui() {}' > projects/products/stable/varina/ui/src/lib.rs && echo 'pub fn api() {}' > projects/products/stable/varina/backend/src/lib.rs && git add projects/products/stable/varina/ui/Cargo.toml projects/products/stable/varina/backend/Cargo.toml projects/products/stable/varina/ui/src/lib.rs projects/products/stable/varina/backend/src/lib.rs && printf 'fix(projects/products/stable/varina): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-requires-scope-for-staged-deletions" \
+    1 \
+    "Missing required scope in commit message" \
+    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/security/src/lib.rs && printf 'fix: remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-scope-for-staged-deletions" \
+    0 \
+    "" \
+    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/security/src/lib.rs && printf 'fix(projects/libraries/security): remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-parent-product-scope-for-parent-only-change" \
+    0 \
+    "" \
+    "mkdir -p projects/products/stable/varina && echo '# Varina' > projects/products/stable/varina/README.md && git add projects/products/stable/varina/README.md && printf 'docs(projects/products/stable/varina): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-falls-back-to-parent-scope-when-ui-is-not-a-crate" \
+    0 \
+    "" \
+    "mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina): patch ui files\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-rejects-ui-scope-when-ui-is-not-a-crate" \
+    1 \
+    "Commit scope does not match touched files" \
+    "mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina/ui): patch ui files\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-detects-nonstandard-product-crate-by-cargo" \
+    0 \
+    "" \
+    "mkdir -p projects/products/stable/varina/worker/src && printf '[package]\nname = \"varina-worker\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/worker/Cargo.toml && echo 'pub fn work() {}' > projects/products/stable/varina/worker/src/lib.rs && git add projects/products/stable/varina/worker/Cargo.toml projects/products/stable/varina/worker/src/lib.rs && printf 'fix(projects/products/stable/varina/worker): patch worker crate\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-requires-shell-scope-for-shell-only-change" \
+    1 \
+    "Commit scope does not match touched files" \
+    "printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add helper.sh && printf 'chore(workspace): add helper script\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-shell-scope-for-shell-only-change" \
+    0 \
+    "" \
+    "printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add helper.sh && printf 'chore(shell): add helper script\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-requires-markdown-scope-for-markdown-only-change" \
+    1 \
+    "Commit scope does not match touched files" \
+    "echo '# title' > README.md && git add README.md && printf 'docs(workspace): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-markdown-scope-for-markdown-only-change" \
+    0 \
+    "" \
+    "echo '# title' > README.md && git add README.md && printf 'docs(markdown): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-requires-workspace-scope-for-root-level-non-rust-non-shell-non-markdown-change" \
+    1 \
+    "Missing required scope in commit message" \
+    "echo 'x=1' > settings.toml && git add settings.toml && printf 'chore: add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-rejects-wrong-scope-for-root-level-non-rust-non-shell-non-markdown-change" \
+    1 \
+    "Commit scope does not match touched files" \
+    "echo 'x=1' > settings.toml && git add settings.toml && printf 'chore(config): add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-workspace-scope-for-non-rust-non-shell-non-markdown-change" \
+    0 \
+    "" \
+    "echo 'x=1' > settings.toml && git add settings.toml && printf 'chore(workspace): add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-common-path-scope-for-non-rust-non-shell-non-markdown-nested-change" \
+    0 \
+    "" \
+    "mkdir -p configs/env && echo 'x=1' > configs/env/app.toml && git add configs/env/app.toml && printf 'chore(configs/env): add app config\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-blocks-mixed-shell-and-markdown" \
+    1 \
+    "Mixed file format categories are not allowed" \
+    "printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && echo '# title' > README.md && git add helper.sh README.md && printf 'chore(shell): mixed change\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-blocks-mixed-rust-and-shell" \
+    1 \
+    "Mixed file format categories are not allowed" \
+    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add projects/libraries/security/src/lib.rs helper.sh && printf 'fix(projects/libraries/security): mixed change\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "pre-commit-docs-only-ignores-unstaged-rust-syntax-errors" \
+    0 \
+    "Pre-commit checks passed" \
+    "mkdir -p src documentation && printf '[package]\nname = \"tmp\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > Cargo.toml && printf 'fn main() { println!(\"ok\"); }\n' > src/main.rs && git add Cargo.toml src/main.rs && git commit -m 'chore: add minimal rust crate' >/dev/null && printf 'fn main( {\n' > src/main.rs && echo 'note' > documentation/precommit.md && git add documentation/precommit.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
+
+  run_case \
+    "pre-commit-ignores-unstaged-orchestrator-permission-mismatches" \
+    0 \
+    "Pre-commit checks passed" \
+    "rm scripts && mkdir -p scripts/common_lib/automation scripts/versioning/file_versioning/orchestrators/read scripts/versioning/file_versioning/orchestrators/execute documentation && cp '${ROOT_DIR}/scripts/common_lib/automation/scope_resolver.sh' scripts/common_lib/automation/scope_resolver.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/file_types.sh' scripts/common_lib/automation/file_types.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/workspace_rust.sh' scripts/common_lib/automation/workspace_rust.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/non_workspace_rust.sh' scripts/common_lib/automation/non_workspace_rust.sh && printf '#!/usr/bin/env bash\necho read\n' > scripts/versioning/file_versioning/orchestrators/read/check.sh && chmod 644 scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/common_lib/automation/scope_resolver.sh scripts/common_lib/automation/file_types.sh scripts/common_lib/automation/workspace_rust.sh scripts/common_lib/automation/non_workspace_rust.sh scripts/versioning/file_versioning/orchestrators/read/check.sh && git commit -m 'chore: add local scripts tree' >/dev/null && chmod +x scripts/versioning/file_versioning/orchestrators/read/check.sh && echo 'note' > documentation/precommit_perm.md && git add documentation/precommit_perm.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
+
+  run_case \
+    "pre-commit-blocks-staged-orchestrator-permission-mismatches" \
+    1 \
+    "Script permission errors detected" \
+    "rm scripts && mkdir -p scripts/common_lib/automation scripts/versioning/file_versioning/orchestrators/read scripts/versioning/file_versioning/orchestrators/execute && cp '${ROOT_DIR}/scripts/common_lib/automation/scope_resolver.sh' scripts/common_lib/automation/scope_resolver.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/file_types.sh' scripts/common_lib/automation/file_types.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/workspace_rust.sh' scripts/common_lib/automation/workspace_rust.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/non_workspace_rust.sh' scripts/common_lib/automation/non_workspace_rust.sh && printf '#!/usr/bin/env bash\necho read\n' > scripts/versioning/file_versioning/orchestrators/read/check.sh && chmod 644 scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/common_lib/automation/scope_resolver.sh scripts/common_lib/automation/file_types.sh scripts/common_lib/automation/workspace_rust.sh scripts/common_lib/automation/non_workspace_rust.sh scripts/versioning/file_versioning/orchestrators/read/check.sh && git commit -m 'chore: add local scripts tree' >/dev/null && chmod +x scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/versioning/file_versioning/orchestrators/read/check.sh && /bin/bash '${HOOKS_DIR}/pre-commit'"
+
   # pre-push: block tracking-only push unless explicit override.
   run_case \
     "pre-push-blocks-part-of-only" \

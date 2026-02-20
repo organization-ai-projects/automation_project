@@ -15,6 +15,8 @@ source "$ROOT_DIR/scripts/common_lib/core/command.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
+# shellcheck source=scripts/common_lib/automation/rust_checks.sh
+source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
 
 require_git_repo
 require_cmd gh
@@ -68,7 +70,7 @@ else
   info "Running workspace tests before creating PR..."
   info "To skip this check, use --skip-tests flag (not recommended)."
   cd "$ROOT_DIR"
-  if ! cargo test --workspace; then
+  if ! rust_checks_run_tests --workspace; then
     die "❌ Tests failed. Please fix test failures before creating a PR. Use --skip-tests to bypass this check (not recommended)."
   fi
   info "✓ All tests passed."

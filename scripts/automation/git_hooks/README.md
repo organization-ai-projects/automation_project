@@ -21,9 +21,17 @@ git_hooks/
 ├── pre-commit          # Runs code formatting before commit
 ├── prepare-commit-msg  # Auto-generates commit subject from context
 ├── pre-push            # Runs quality checks before push
+├── lib/file_types.sh   # Shared file classifiers (docs/tests/shell/workflow/scripts)
+├── lib/scope_resolver.sh # Shared scope/crate detection used by hooks/guards
+├── lib/policy.sh       # Shared predicates (docs-only/tests-only/docs+scripts/mixed/mono-scope)
+├── lib/commit_message_policy.sh # Shared commit message generation policy helpers
+├── lib/issue_footer_policy.sh # Shared footer normalization/validation for issue refs
+├── lib/hook_utils.sh  # Generic non-policy helpers (git ranges, shell syntax scan)
+├── lib/push_policy.sh  # Shared pre-push policy helpers (range/refs/scope parsing/shell checks)
 ├── install_hooks.sh    # Installs git hooks (worktree-aware)
 └── tests/
     ├── convention_guardrails_regression.sh  # Regression tests for issue trailer guardrails
+    ├── scope_resolver_perf_smoke.sh         # Perf smoke test for scope resolver
     └── fixtures/                             # Commit message fixtures for allow/block cases
 ```
 
@@ -34,8 +42,17 @@ git_hooks/
 - `pre-commit`: Runs formatting before commit.
 - `prepare-commit-msg`: Auto-generates commit subject from branch/staged files.
 - `pre-push`: Runs quality checks before push.
+- `lib/file_types.sh`: Shared file classifiers (docs/tests/shell/workflow/scripts paths and patterns).
+- `lib/scope_resolver.sh`: Shared path -> scope and files -> crates resolver used by `prepare-commit-msg`, `commit-msg`, `pre-push`, and staging guards.
+- `lib/policy.sh`: Compatibility shim to shared predicates in `../../common_lib/automation/change_policy.sh` (`docs-only`, `tests-only`, mixed docs/code, multi-scope).
+- `lib/commit_message_policy.sh`: Shared commit message helpers (type mapping, description/scopes formatting, scope extraction).
+- `lib/issue_footer_policy.sh`: Shared issue footer normalization and parent-reference validation used by `commit-msg`.
+- `lib/hook_utils.sh`: Generic reusable helpers (upstream/range resolution and shell syntax checks).
+- `../../common_lib/automation/rust_checks.sh`: Shared Rust check runners used by `pre-push` and CI (`fmt`, `clippy`, `test`).
+- `lib/push_policy.sh`: Shared pre-push policy helpers (trailer guardrails and scope -> crate resolution for targeted checks).
 - `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
 - `tests/convention_guardrails_regression.sh`: Regression suite for issue trailer guardrails in `commit-msg`, `pre-push`, and `post-checkout`.
+- `tests/scope_resolver_perf_smoke.sh`: Basic performance smoke test for scope resolution over a large staged-file set.
 
 ## Available hooks
 
@@ -59,11 +76,11 @@ or
 
 - `feature`, `feat` - New feature
 - `fix` - Bug fix
-- `fixture` - Test data or fixtures
 - `doc`, `docs` - Documentation
 - `refactor` - Refactoring
 - `test`, `tests` - Tests
 - `chore` - Maintenance tasks
+- `perf` - Performance improvements
 
 **Valid examples:**
 
@@ -103,9 +120,21 @@ Auto-generates a conventional commit subject when the commit message is empty.
 
 Inputs used:
 
-1. Branch naming prefix (`feat/`, `fix/`, `docs/`, etc.) to infer type
-2. Staged files to infer required scopes and fallback type
+1. Staged files to infer required scopes
+2. Staged files to infer deterministic types (`docs`, `test`)
 3. Branch slug to derive a readable short description
+
+Scope fallback policy:
+
+- `shell` for shell-only commits
+- `markdown` for markdown-only commits
+- for non-Rust commits that are neither shell-only nor markdown-only: auto common-path scope
+- `workspace` is used when only root-level files are staged
+
+Type fallback policy:
+
+- if type cannot be inferred from staged files, `prepare-commit-msg` writes `type(...)` and adds a warning comment
+- this forces explicit human choice for semantic types like `feat` vs `fix`
 
 It does not override:
 
@@ -134,7 +163,8 @@ The hook uses two layers:
 
 - If the push only changes docs/scripts/workflow files, Rust checks are skipped.
 - Otherwise, commit scopes are used to target specific crates.
-- If scopes are invalid/missing, it falls back to full workspace checks.
+- If scopes are invalid/missing, it first infers crates from changed files.
+- Full workspace checks are used only when crate inference is not possible.
 
 **Bypass (emergency only):**
 
@@ -174,6 +204,12 @@ To run guardrail regression tests:
 
 ```bash
 ./scripts/automation/git_hooks/tests/convention_guardrails_regression.sh
+```
+
+To run scope resolver perf smoke test:
+
+```bash
+./scripts/automation/git_hooks/tests/scope_resolver_perf_smoke.sh
 ```
 
 To temporarily disable a hook:

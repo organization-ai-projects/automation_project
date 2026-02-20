@@ -31,166 +31,31 @@ if [[ -z "$BRANCH" || "$BRANCH" == "HEAD" ]]; then
   exit 0
 fi
 
-if [[ -n "$ROOT_DIR" ]] && [[ -f "$ROOT_DIR/scripts/automation/git_hooks/prepare_commit_msg_config.sh" ]]; then
-  # shellcheck source=scripts/automation/git_hooks/prepare_commit_msg_config.sh
-  source "$ROOT_DIR/scripts/automation/git_hooks/prepare_commit_msg_config.sh"
-fi
-
-map_branch_type() {
-  local branch="$1"
-  local prefix="${branch%%/*}"
-  prefix="$(printf '%s' "$prefix" | tr '[:upper:]' '[:lower:]')"
-  case "$prefix" in
-    feat|feature) echo "feat" ;;
-    fix|hotfix|bugfix) echo "fix" ;;
-    docs|doc) echo "docs" ;;
-    refactor) echo "refactor" ;;
-    test|tests) echo "test" ;;
-    chore) echo "chore" ;;
-    ci) echo "ci" ;;
-    perf) echo "perf" ;;
-    build) echo "build" ;;
-    *) echo "" ;;
-  esac
-}
-
-is_docs_only_change() {
-  local files="$1"
-  local file
-
-  [[ -z "$files" ]] && return 1
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    if [[ "$file" == documentation/* ]] || [[ "$file" == .github/documentation/* ]] || [[ "$file" == .github/ISSUE_TEMPLATE/* ]] || [[ "$file" == .github/PULL_REQUEST_TEMPLATE/* ]] || [[ "$file" == *.md ]]; then
-      continue
-    fi
-    return 1
-  done <<< "$files"
-
-  return 0
-}
-
-is_tests_only_change() {
-  local files="$1"
-  local file
-
-  [[ -z "$files" ]] && return 1
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-    if [[ "$file" == *"/tests/"* ]] || [[ "$file" == *"_test.rs" ]] || [[ "$file" == *"/tests.rs" ]]; then
-      continue
-    fi
-    return 1
-  done <<< "$files"
-
-  return 0
-}
-
-detect_required_scopes_from_staged_files() {
-  local files="$1"
-  local required=()
-  local scope=""
-
-  while IFS= read -r file; do
-    [[ -z "$file" ]] && continue
-
-    if declare -F resolve_scope_from_path >/dev/null \
-      && scope="$(resolve_scope_from_path "$file")"; then
-      if [[ ! " ${required[*]} " =~ " ${scope} " ]]; then
-        required+=("$scope")
-      fi
-    fi
-  done <<< "$files"
-
-  printf '%s\n' "${required[@]}"
-}
-
-join_scopes_csv() {
-  local scopes="$1"
-  local csv=""
-  local scope
-  while IFS= read -r scope; do
-    [[ -z "$scope" ]] && continue
-    if [[ -z "$csv" ]]; then
-      csv="$scope"
-    else
-      csv="${csv},${scope}"
-    fi
-  done <<< "$scopes"
-  printf '%s' "$csv"
-}
-
-slug_to_words() {
-  local input="$1"
-  local output="$input"
-  output="${output//\// }"
-  output="${output//_/ }"
-  output="${output//-/ }"
-  output="$(echo "$output" | sed -E 's/[[:space:]]+/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')"
-  printf '%s' "$output"
-}
-
-derive_description() {
-  local branch="$1"
-  local files="$2"
-  local name="$branch"
-
-  # Drop known prefixes and optional ticket id prefix.
-  name="$(echo "$name" | sed -E 's#^(feat|feature|fix|hotfix|bugfix|docs|doc|refactor|test|tests|chore|ci|perf|build)/##')"
-  name="$(echo "$name" | sed -E 's#^[A-Za-z]+-[0-9]+[-_/]##')"
-  name="$(slug_to_words "$name")"
-
-  if [[ -n "$name" ]]; then
-    printf '%s' "$name"
-    return 0
-  fi
-
-  local first_file
-  first_file="$(echo "$files" | head -n1)"
-  if [[ -n "$first_file" ]]; then
-    local stem
-    stem="$(basename "$first_file")"
-    stem="${stem%.*}"
-    stem="$(slug_to_words "$stem")"
-    if [[ -n "$stem" ]]; then
-      printf 'update %s' "$stem"
-      return 0
-    fi
-  fi
-
-  printf 'update changes'
-}
+# shellcheck source=scripts/automation/git_hooks/lib/commit_message_policy.sh
+source "$ROOT_DIR/scripts/automation/git_hooks/lib/commit_message_policy.sh"
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/policy.sh
+source "$ROOT_DIR/scripts/automation/git_hooks/lib/policy.sh"
 
 STAGED_FILES="$(git diff --cached --name-only --diff-filter=ACMRU)"
 if [[ -z "$STAGED_FILES" ]]; then
   exit 0
 fi
 
-# Prioritize staged-file intent over branch prefix so one branch can host
-# multiple commit types (e.g., docs + test + feat commits).
-if is_docs_only_change "$STAGED_FILES"; then
-  TYPE="docs"
-elif is_tests_only_change "$STAGED_FILES"; then
-  TYPE="test"
-else
-  TYPE="$(map_branch_type "$BRANCH")"
-  if [[ -z "$TYPE" ]]; then
-    TYPE="chore"
-    TYPE_FALLBACK_WARNING="# WARNING: branch prefix not recognized; defaulted type to 'chore'."
-  fi
-fi
+type_context="$(detect_commit_type_from_context "$STAGED_FILES" "$BRANCH")"
+TYPE="${type_context%%|*}"
+TYPE_FALLBACK_WARNING="${type_context#*|}"
 
-SCOPES="$(detect_required_scopes_from_staged_files "$STAGED_FILES")"
+SCOPES="$(detect_required_scopes_from_staged_files)"
 SCOPES_CSV="$(join_scopes_csv "$SCOPES")"
 DESCRIPTION="$(derive_description "$BRANCH" "$STAGED_FILES")"
 
-if [[ -z "$SCOPES_CSV" ]]; then
-  SCOPES_CSV="workspace"
+if [[ -n "$SCOPES_CSV" ]]; then
+  SUBJECT="${TYPE}(${SCOPES_CSV}): ${DESCRIPTION}"
+else
+  SUBJECT="${TYPE}(workspace): ${DESCRIPTION}"
 fi
-
-SUBJECT="${TYPE}(${SCOPES_CSV}): ${DESCRIPTION}"
 
 {
   echo "$SUBJECT"

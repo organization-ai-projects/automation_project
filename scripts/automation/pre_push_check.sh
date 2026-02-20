@@ -14,6 +14,8 @@ source "$ROOT_DIR/scripts/common_lib/core/command.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
+# shellcheck source=scripts/common_lib/automation/rust_checks.sh
+source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
 
 require_git_repo
 require_cmd cargo
@@ -43,7 +45,7 @@ fi
 
 # 1. Cargo check
 info "Checking workspace..."
-if cargo check --workspace --all-targets; then
+if rust_checks_run_check --workspace --all-targets; then
   info "✓ Cargo check passed."
 else
   warn "⚠ Cargo check failed."
@@ -52,7 +54,7 @@ fi
 
 # 2. Format check
 info "Checking code formatting..."
-if cargo fmt --all -- --check; then
+if rust_checks_run_fmt_check; then
   info "✓ Formatting check passed."
 else
   warn "⚠ Formatting issues detected."
@@ -61,7 +63,7 @@ fi
 
 # 3. Clippy
 info "Running clippy..."
-if cargo clippy --workspace --all-targets -- -D warnings; then
+if rust_checks_run_clippy --workspace --all-targets; then
   info "✓ Clippy passed."
 else
   warn "⚠ Clippy warnings detected."
@@ -89,7 +91,7 @@ fi
 
 # 5. Run tests
 info "Running tests..."
-if cargo test --workspace; then
+if rust_checks_run_tests --workspace; then
   info "✓ All tests passed."
 else
   warn "⚠ Some tests failed."
