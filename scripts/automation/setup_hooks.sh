@@ -11,10 +11,6 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
-# shellcheck source=scripts/common_lib/core/logging.sh
-source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 
 require_git_repo
 
@@ -29,15 +25,18 @@ cat > "$HOOKS_DIR/pre-commit" << 'EOF'
 set -euo pipefail
 
 echo "Running pre-commit checks..."
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+# shellcheck source=scripts/common_lib/automation/rust_checks.sh
+source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
 
 # Check formatting
-if ! cargo fmt --check; then
+if ! rust_checks_run_fmt_check; then
   echo "Error: Code is not formatted. Run: cargo fmt" >&2
   exit 1
 fi
 
 # Run clippy on staged files
-if ! cargo clippy --workspace --all-targets -- -D warnings; then
+if ! rust_checks_run_clippy --workspace --all-targets; then
   echo "Error: Clippy warnings detected." >&2
   exit 1
 fi
@@ -55,9 +54,12 @@ cat > "$HOOKS_DIR/pre-push" << 'EOF'
 set -euo pipefail
 
 echo "Running pre-push checks..."
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+# shellcheck source=scripts/common_lib/automation/rust_checks.sh
+source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
 
 # Run tests
-if ! cargo test --workspace; then
+if ! rust_checks_run_tests --workspace; then
   echo "Error: Tests failed." >&2
   exit 1
 fi

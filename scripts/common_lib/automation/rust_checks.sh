@@ -6,6 +6,10 @@ rust_checks_has_lockfile() {
   [[ -f Cargo.lock ]]
 }
 
+rust_checks_run_check() {
+  cargo check "$@"
+}
+
 rust_checks_run_fmt_check() {
   cargo fmt --all -- --check
 }

@@ -9,8 +9,14 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # shellcheck source=scripts/common_lib/core/logging.sh
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
+# shellcheck source=scripts/common_lib/core/command.sh
+source "$ROOT_DIR/scripts/common_lib/core/command.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
+# shellcheck source=scripts/common_lib/automation/rust_checks.sh
+source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
+# shellcheck source=scripts/common_lib/automation/scope_resolver.sh
+source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 
 require_git_repo
 require_cmd cargo
@@ -23,7 +29,7 @@ ISSUES=0
 
 # 1. Check formatting
 info "Checking code formatting..."
-if cargo fmt --all -- --check; then
+if rust_checks_run_fmt_check; then
   info "✓ Code is properly formatted."
 else
   warn "⚠ Code formatting issues detected. Run: cargo fmt"
@@ -32,7 +38,7 @@ fi
 
 # 2. Run clippy
 info "Running clippy..."
-if cargo clippy --workspace --all-targets -- -D warnings; then
+if rust_checks_run_clippy --workspace --all-targets; then
   info "✓ No clippy warnings."
 else
   warn "⚠ Clippy warnings detected."
@@ -41,7 +47,7 @@ fi
 
 # 3. Run tests
 info "Running tests..."
-if cargo test --workspace; then
+if rust_checks_run_tests --workspace; then
   info "✓ All tests passed."
 else
   warn "⚠ Some tests failed."
@@ -71,7 +77,7 @@ fi
 
 # 5. Summarize touched crates
 info "Summarizing touched crates..."
-TOUCHED_CRATES=$(git diff --cached --name-only | grep -E "^projects/(libraries|products)/" | cut -d/ -f1-4 | sort -u || true)
+TOUCHED_CRATES="$(collect_scopes_from_files "$(git diff --cached --name-only --diff-filter=ACMRU)")"
 
 if [[ -n "$TOUCHED_CRATES" ]]; then
   info "Touched crates:"
