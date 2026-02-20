@@ -74,7 +74,7 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
             "tests/".to_string(),
             "projects/libraries/ai/".to_string(),
             "projects/libraries/core/foundation/command_runner/".to_string(),
-            "projects/libraries/common/".to_string(),
+            "projects/libraries/core/foundation/common/".to_string(),
             "projects/libraries/core/foundation/common_calendar/".to_string(),
             "projects/libraries/core/foundation/common_time/".to_string(),
             "projects/libraries/git_lib/".to_string(),
