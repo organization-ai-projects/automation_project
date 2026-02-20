@@ -32,7 +32,7 @@ members = [
   "projects/libraries/core/foundation/ast_core",
   "projects/libraries/core/foundation/ast_macros",
   "projects/libraries/pjson_proc_macros",
-  "projects/libraries/hybrid_arena",
+  "projects/libraries/core/foundation/hybrid_arena",
   "projects/libraries/versioning",
 ]
 resolver = "2"
@@ -78,5 +78,5 @@ protocol_macros = { path = "projects/libraries/protocol_macros" }
 ast_core = { path = "projects/libraries/core/foundation/ast_core" }
 ast_macros = { path = "projects/libraries/core/foundation/ast_macros" }
 ai = { path = "projects/libraries/ai" }
-hybrid_arena = { path = "projects/libraries/hybrid_arena" }
+hybrid_arena = { path = "projects/libraries/core/foundation/hybrid_arena" }
 versioning = { path = "projects/libraries/versioning" }
