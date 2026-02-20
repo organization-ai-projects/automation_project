@@ -19,6 +19,7 @@ Current modules:
 | Files mapped to Rust workspace members under `projects/**` | Matching crate/product scope from resolver |
 | Shell-only files (`*.sh`) with no Rust scope | `shell` |
 | Markdown-only files (`*.md`) with no Rust scope | `markdown` |
+| Non-Rust files that are neither shell-only nor markdown-only | Auto common-path scope (`workspace` when only root-level files) |
 | Mixed categories (`rust/shell/markdown/other`) | Blocked by `commit-msg` policy |
 
 ## Debug Helper

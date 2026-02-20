@@ -76,14 +76,11 @@ or
 
 - `feature`, `feat` - New feature
 - `fix` - Bug fix
-- `fixture` - Test data or fixtures
 - `doc`, `docs` - Documentation
 - `refactor` - Refactoring
 - `test`, `tests` - Tests
 - `chore` - Maintenance tasks
-- `ci` - CI/workflow changes
 - `perf` - Performance improvements
-- `build` - Build/tooling changes
 
 **Valid examples:**
 
@@ -123,9 +120,19 @@ Auto-generates a conventional commit subject when the commit message is empty.
 
 Inputs used:
 
-1. Branch naming prefix (`feat/`, `fix/`, `docs/`, etc.) to infer type
-2. Staged files to infer required scopes and fallback type
+1. Staged files to infer required scopes
+2. Staged files to infer deterministic types (`docs`, `test`)
 3. Branch slug to derive a readable short description
+
+Scope fallback policy:
+- `shell` for shell-only commits
+- `markdown` for markdown-only commits
+- for non-Rust commits that are neither shell-only nor markdown-only: auto common-path scope
+- `workspace` is used when only root-level files are staged
+
+Type fallback policy:
+- if type cannot be inferred from staged files, `prepare-commit-msg` writes `type(...)` and adds a warning comment
+- this forces explicit human choice for semantic types like `feat` vs `fix`
 
 It does not override:
 
