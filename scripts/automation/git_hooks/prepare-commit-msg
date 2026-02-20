@@ -31,12 +31,10 @@ if [[ -z "$BRANCH" || "$BRANCH" == "HEAD" ]]; then
   exit 0
 fi
 
-if [[ -n "$ROOT_DIR" ]] && [[ -f "$ROOT_DIR/scripts/automation/git_hooks/prepare_commit_msg_config.sh" ]]; then
-  # shellcheck source=scripts/automation/git_hooks/prepare_commit_msg_config.sh
-  source "$ROOT_DIR/scripts/automation/git_hooks/prepare_commit_msg_config.sh"
-fi
 # shellcheck source=scripts/automation/git_hooks/lib/commit_message_policy.sh
 source "$ROOT_DIR/scripts/automation/git_hooks/lib/commit_message_policy.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
+source "$ROOT_DIR/scripts/automation/git_hooks/lib/scope_resolver.sh"
 
 detect_required_scopes_from_staged_files() {
   local files="$1"
