@@ -40,6 +40,16 @@ is_shell_file() {
   return 1
 }
 
+is_shell_path_file() {
+  local file="$1"
+  [[ "$file" == *.sh ]]
+}
+
+is_markdown_path_file() {
+  local file="$1"
+  [[ "$file" == *.md ]]
+}
+
 is_test_file() {
   local file="$1"
   [[ "$file" == *"/tests/"* ]] \

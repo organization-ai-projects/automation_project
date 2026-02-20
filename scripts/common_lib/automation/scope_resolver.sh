@@ -2,6 +2,8 @@
 
 # Shared scope/crate resolver helpers used by hooks and automation scripts.
 
+# shellcheck source=scripts/common_lib/automation/file_types.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/automation/file_types.sh"
 # shellcheck source=scripts/common_lib/automation/workspace_rust.sh
 source "$(git rev-parse --show-toplevel)/scripts/common_lib/automation/workspace_rust.sh"
 # shellcheck source=scripts/common_lib/automation/non_workspace_rust.sh
@@ -41,10 +43,66 @@ collect_scopes_from_files() {
   printf '%s\n' "${scopes[@]+"${scopes[@]}"}"
 }
 
+collect_format_categories_from_files() {
+  local files="$1"
+  local -a categories=()
+  local file
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+
+    if resolve_scope_from_path "$file" >/dev/null 2>&1; then
+      [[ ! " ${categories[*]} " =~ " rust " ]] && categories+=("rust")
+      continue
+    fi
+
+    if is_shell_path_file "$file"; then
+      [[ ! " ${categories[*]} " =~ " shell " ]] && categories+=("shell")
+      continue
+    fi
+
+    if is_markdown_path_file "$file"; then
+      [[ ! " ${categories[*]} " =~ " markdown " ]] && categories+=("markdown")
+      continue
+    fi
+
+    [[ ! " ${categories[*]} " =~ " other " ]] && categories+=("other")
+  done <<< "$files"
+
+  printf '%s\n' "${categories[@]+"${categories[@]}"}"
+}
+
 detect_required_scopes_from_staged_files() {
   local files
+  local scopes
+  local only_shell=1
+  local only_markdown=1
+  local file
   files="$(git diff --cached --name-only --diff-filter=ACMRUD)"
-  collect_scopes_from_files "$files"
+  scopes="$(collect_scopes_from_files "$files")"
+  if [[ -n "$scopes" ]]; then
+    printf '%s\n' "$scopes"
+    return 0
+  fi
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if ! is_shell_path_file "$file"; then
+      only_shell=0
+    fi
+    if ! is_markdown_path_file "$file"; then
+      only_markdown=0
+    fi
+  done <<< "$files"
+
+  if [[ $only_shell -eq 1 && -n "$files" ]]; then
+    printf 'shell\n'
+    return 0
+  fi
+
+  if [[ $only_markdown -eq 1 && -n "$files" ]]; then
+    printf 'markdown\n'
+  fi
 }
 
 resolve_crate_name_from_file() {

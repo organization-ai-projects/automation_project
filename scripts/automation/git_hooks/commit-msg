@@ -68,6 +68,21 @@ if ! validate_no_root_parent_refs_in_footer_file "$COMMIT_MSG_FILE"; then
   exit 1
 fi
 
+staged_files="$(git diff --cached --name-only --diff-filter=ACMRUD)"
+format_categories="$(collect_format_categories_from_files "$staged_files")"
+format_category_count="$(printf '%s\n' "$format_categories" | awk 'NF{count++} END{print count+0}')"
+if [[ "$format_category_count" -gt 1 ]]; then
+  echo "❌ Mixed file format categories are not allowed in a single commit." >&2
+  echo "" >&2
+  echo "Detected categories:" >&2
+  while IFS= read -r category; do
+    [[ -n "$category" ]] && echo "  - $category" >&2
+  done <<< "$format_categories"
+  echo "" >&2
+  echo "Split this commit so it contains only one category (rust, shell, markdown, or other)." >&2
+  exit 1
+fi
+
 required_scopes=$(detect_required_scopes_from_staged_files)
 if [[ -n "$required_scopes" ]]; then
   commit_scopes=$(extract_scopes_from_commit_message "$COMMIT_SUBJECT")
