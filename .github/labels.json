@@ -150,9 +150,9 @@
     "description": "Changes in the `projects/libraries/core/foundation/common_time` crate"
   },
   {
-    "name": "projects/libraries/common_tokenize",
+    "name": "projects/libraries/core/foundation/common_tokenize",
     "color": "66A61E",
-    "description": "Changes in the `projects/libraries/common_tokenize` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/common_tokenize` crate"
   },
   {
     "name": "projects/libraries/git_lib",
