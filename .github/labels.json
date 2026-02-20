@@ -160,9 +160,9 @@
     "description": "Git abstraction and command handling library"
   },
   {
-    "name": "projects/libraries/hybrid_arena",
+    "name": "projects/libraries/core/foundation/hybrid_arena",
     "color": "00B894",
-    "description": "Changes in the `projects/libraries/hybrid_arena` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/hybrid_arena` crate"
   },
   {
     "name": "projects/libraries/identity",
