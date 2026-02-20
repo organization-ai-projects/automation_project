@@ -31,7 +31,7 @@ members = [
   "projects/products/unstable/autonomous_dev_ai",
   "projects/libraries/core/foundation/ast_core",
   "projects/libraries/core/foundation/ast_macros",
-  "projects/libraries/pjson_proc_macros",
+  "projects/libraries/core/foundation/pjson_proc_macros",
   "projects/libraries/core/foundation/hybrid_arena",
   "projects/libraries/versioning",
 ]
@@ -57,7 +57,7 @@ lazy_static = "1.5"
 anyhow = "1.0.101"
 tracing-subscriber = "0.3"
 
-pjson_proc_macros = { path = "projects/libraries/pjson_proc_macros" }
+pjson_proc_macros = { path = "projects/libraries/core/foundation/pjson_proc_macros" }
 common = { path = "projects/libraries/common" }
 common_binary = { path = "projects/libraries/core/foundation/common_binary" }
 common_json = { path = "projects/libraries/core/foundation/common_json" }
