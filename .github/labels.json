@@ -175,9 +175,9 @@
     "description": "Neural / ML-related components"
   },
   {
-    "name": "projects/libraries/pjson_proc_macros",
+    "name": "projects/libraries/core/foundation/pjson_proc_macros",
     "color": "20B2AA",
-    "description": "Changes in the `projects/libraries/pjson_proc_macros` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/pjson_proc_macros` crate"
   },
   {
     "name": "projects/libraries/core/contracts/protocol",
