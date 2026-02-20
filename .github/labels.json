@@ -115,9 +115,9 @@
     "description": "Changes in the `projects/libraries/ast_macros` crate"
   },
   {
-    "name": "projects/libraries/command_runner",
+    "name": "projects/libraries/core/foundation/command_runner",
     "color": "17A2B8",
-    "description": "Changes in the `projects/libraries/command_runner` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/command_runner` crate"
   },
   {
     "name": "projects/libraries/common",
