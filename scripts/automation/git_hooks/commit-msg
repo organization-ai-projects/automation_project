@@ -27,22 +27,8 @@ source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit_forma
 source "$HOOKS_DIR/lib/issue_parent_guard.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/scope_resolver.sh
 source "$HOOKS_DIR/lib/scope_resolver.sh"
-
-extract_scopes_from_commit_message() {
-  local message="$1"
-  local scope_re='^[a-z]+\(([^)]+)\):'
-  local scope
-  if [[ ! "$message" =~ $scope_re ]]; then
-    return 0
-  fi
-  IFS=',' read -r -a scopes <<< "${BASH_REMATCH[1]}"
-  for scope in "${scopes[@]}"; do
-    # Trim leading/trailing spaces to support "scope1, scope2" syntax.
-    scope="${scope#"${scope%%[![:space:]]*}"}"
-    scope="${scope%"${scope##*[![:space:]]}"}"
-    [[ -n "$scope" ]] && printf '%s\n' "$scope"
-  done
-}
+# shellcheck source=scripts/automation/git_hooks/lib/commit_message_policy.sh
+source "$HOOKS_DIR/lib/commit_message_policy.sh"
 
 validate_and_normalize_issue_refs_footer() {
   local issue_ref_re='(^|[[:space:]])(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#[0-9]+([[:space:]]|$)'
@@ -183,7 +169,7 @@ if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
   echo "  <type>: <message>" >&2
   echo "" >&2
   echo "Allowed types:" >&2
-  echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore" >&2
+  echo "  feature, feat, fix, fixture, doc, docs, refactor, test, tests, chore, ci, perf, build" >&2
   echo "" >&2
   echo "Examples:" >&2
   echo "  feat(projects/libraries/security): add user authentication" >&2

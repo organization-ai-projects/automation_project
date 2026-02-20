@@ -108,3 +108,20 @@ derive_description() {
 
   printf 'update changes'
 }
+
+extract_scopes_from_commit_message() {
+  local message="$1"
+  local scope_re='^[a-z]+\(([^)]+)\):'
+  local scope
+
+  if [[ ! "$message" =~ $scope_re ]]; then
+    return 0
+  fi
+
+  IFS=',' read -r -a scopes <<< "${BASH_REMATCH[1]}"
+  for scope in "${scopes[@]}"; do
+    scope="${scope#"${scope%%[![:space:]]*}"}"
+    scope="${scope%"${scope##*[![:space:]]}"}"
+    [[ -n "$scope" ]] && printf '%s\n' "$scope"
+  done
+}
