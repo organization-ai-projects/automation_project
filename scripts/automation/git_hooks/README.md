@@ -23,6 +23,7 @@ git_hooks/
 ├── pre-push            # Runs quality checks before push
 ├── lib/scope_resolver.sh # Shared scope/crate detection used by hooks/guards
 ├── lib/policy.sh       # Shared policy rules (docs/scripts mode, mixed staging, mono-scope)
+├── lib/commit_message_policy.sh # Shared commit message generation policy helpers
 ├── install_hooks.sh    # Installs git hooks (worktree-aware)
 └── tests/
     ├── convention_guardrails_regression.sh  # Regression tests for issue trailer guardrails
@@ -38,6 +39,7 @@ git_hooks/
 - `pre-push`: Runs quality checks before push.
 - `lib/scope_resolver.sh`: Shared path -> scope and files -> crates resolver used by `prepare-commit-msg`, `commit-msg`, `pre-push`, and staging guards.
 - `lib/policy.sh`: Shared policy helpers (docs/scripts-only mode, mixed docs/code detection, multi-scope detection) to keep hooks aligned.
+- `lib/commit_message_policy.sh`: Shared commit message policy helpers (type mapping, docs/tests-only detection, description/scopes formatting).
 - `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
 - `tests/convention_guardrails_regression.sh`: Regression suite for issue trailer guardrails in `commit-msg`, `pre-push`, and `post-checkout`.
 
@@ -68,6 +70,9 @@ or
 - `refactor` - Refactoring
 - `test`, `tests` - Tests
 - `chore` - Maintenance tasks
+- `ci` - CI/workflow changes
+- `perf` - Performance improvements
+- `build` - Build/tooling changes
 
 **Valid examples:**
 
