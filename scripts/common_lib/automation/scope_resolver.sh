@@ -2,8 +2,34 @@
 
 # Shared scope/crate resolver helpers used by hooks and automation scripts.
 
+resolve_product_scope() {
+  local stability="$1"
+  local product="$2"
+  local component="${3:-}"
+  local product_root="projects/products/${stability}/${product}"
+
+  if [[ -n "$component" && -f "${product_root}/${component}/Cargo.toml" ]]; then
+    printf '%s/%s\n' "$product_root" "$component"
+    return 0
+  fi
+
+  printf '%s\n' "$product_root"
+  return 0
+}
+
 resolve_scope_from_path() {
   local file="$1"
+
+  # Products: infer ui/backend scope only when corresponding crate exists.
+  if [[ "$file" =~ ^projects/products/([^/]+)/([^/]+)/(ui|backend)/ ]]; then
+    resolve_product_scope "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
+    return 0
+  fi
+
+  if [[ "$file" =~ ^projects/products/([^/]+)/([^/]+)/ ]]; then
+    resolve_product_scope "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+    return 0
+  fi
 
   if [[ "$file" =~ ^projects/libraries/core/([^/]+)/ ]]; then
     printf 'projects/libraries/core/%s\n' "${BASH_REMATCH[1]}"
@@ -12,16 +38,6 @@ resolve_scope_from_path() {
 
   if [[ "$file" =~ ^projects/libraries/([^/]+)/ ]]; then
     printf 'projects/libraries/%s\n' "${BASH_REMATCH[1]}"
-    return 0
-  fi
-
-  if [[ "$file" =~ ^projects/products/([^/]+)/([^/]+)/(ui|backend)/ ]]; then
-    printf 'projects/products/%s/%s/%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
-    return 0
-  fi
-
-  if [[ "$file" =~ ^projects/products/([^/]+)/([^/]+)/ ]]; then
-    printf 'projects/products/%s/%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
     return 0
   fi
 

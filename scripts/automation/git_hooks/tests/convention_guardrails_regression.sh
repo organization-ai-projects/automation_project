@@ -209,7 +209,7 @@ main() {
     "commit-msg-rejects-parent-product-scope-for-ui-and-backend-mix" \
     1 \
     "Commit scope does not match touched files" \
-    "mkdir -p projects/products/stable/varina/ui/src projects/products/stable/varina/backend/src && echo 'pub fn ui() {}' > projects/products/stable/varina/ui/src/lib.rs && echo 'pub fn api() {}' > projects/products/stable/varina/backend/src/lib.rs && git add projects/products/stable/varina/ui/src/lib.rs projects/products/stable/varina/backend/src/lib.rs && printf 'fix(projects/products/stable/varina): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "mkdir -p projects/products/stable/varina/ui/src projects/products/stable/varina/backend/src && printf '[package]\nname = \"varina-ui\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/ui/Cargo.toml && printf '[package]\nname = \"varina-backend\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/backend/Cargo.toml && echo 'pub fn ui() {}' > projects/products/stable/varina/ui/src/lib.rs && echo 'pub fn api() {}' > projects/products/stable/varina/backend/src/lib.rs && git add projects/products/stable/varina/ui/Cargo.toml projects/products/stable/varina/backend/Cargo.toml projects/products/stable/varina/ui/src/lib.rs projects/products/stable/varina/backend/src/lib.rs && printf 'fix(projects/products/stable/varina): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-requires-scope-for-staged-deletions" \
@@ -228,6 +228,18 @@ main() {
     0 \
     "" \
     "mkdir -p projects/products/stable/varina && echo '# Varina' > projects/products/stable/varina/README.md && git add projects/products/stable/varina/README.md && printf 'docs(projects/products/stable/varina): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-falls-back-to-parent-scope-when-ui-is-not-a-crate" \
+    0 \
+    "" \
+    "mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina): patch ui files\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-rejects-ui-scope-when-ui-is-not-a-crate" \
+    1 \
+    "Commit scope does not match touched files" \
+    "mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina/ui): patch ui files\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "pre-commit-docs-only-ignores-unstaged-rust-syntax-errors" \
