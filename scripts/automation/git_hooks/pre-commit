@@ -2,6 +2,7 @@
 # Git hook: pre-commit
 # Formats code before commit
 # Bypass: SKIP_PRE_COMMIT=1 git commit ...
+set -euo pipefail
 
 # Allow bypass for emergency situations
 if [[ "${SKIP_PRE_COMMIT:-}" == "1" ]]; then
@@ -40,25 +41,27 @@ else
   echo ""
 fi
 
-# 1. Check orchestrator script permissions
+# 1. Check orchestrator script permissions on staged orchestrator files only.
 echo "🔒 Checking orchestrator script permissions..."
 PERMISSION_ERRORS=0
+STAGED_ORCHESTRATOR_FILES="$(printf '%s\n' "$STAGED_CHANGED_FILES" | grep -E '^scripts/versioning/file_versioning/orchestrators/(read|execute)/.*\.sh$' || true)"
 
-# Check read/ scripts (must NOT be executable)
-while IFS= read -r -d '' script; do
-  if [[ -x "$script" ]]; then
-    echo "   ❌ $script should NOT be executable (use chmod 644)"
-    PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+while IFS= read -r script; do
+  [[ -z "$script" ]] && continue
+  if [[ "$script" == scripts/versioning/file_versioning/orchestrators/read/* ]]; then
+    if [[ -x "$script" ]]; then
+      echo "   ❌ $script should NOT be executable (use chmod 644)"
+      PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+    fi
+    continue
   fi
-done < <(find scripts/versioning/file_versioning/orchestrators/read -name '*.sh' -type f -print0 2>/dev/null)
-
-# Check execute/ scripts (must BE executable)
-while IFS= read -r -d '' script; do
-  if [[ ! -x "$script" ]]; then
-    echo "   ❌ $script should be executable (use chmod 755)"
-    PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+  if [[ "$script" == scripts/versioning/file_versioning/orchestrators/execute/* ]]; then
+    if [[ ! -x "$script" ]]; then
+      echo "   ❌ $script should be executable (use chmod 755)"
+      PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+    fi
   fi
-done < <(find scripts/versioning/file_versioning/orchestrators/execute -name '*.sh' -type f -print0 2>/dev/null)
+done <<< "$STAGED_ORCHESTRATOR_FILES"
 
 if [[ $PERMISSION_ERRORS -gt 0 ]]; then
   echo ""
@@ -67,12 +70,16 @@ if [[ $PERMISSION_ERRORS -gt 0 ]]; then
   exit 1
 fi
 
-# 2. Format staged files
-echo "✨ Formatting code..."
-if ! cargo fmt --all; then
-  echo ""
-  echo "❌ Formatting failed!"
-  exit 1
+# 2. Format Rust files only when Rust sources are staged.
+if printf '%s\n' "$STAGED_CHANGED_FILES" | grep -qE '\.rs$'; then
+  echo "✨ Formatting code..."
+  if ! cargo fmt --all; then
+    echo ""
+    echo "❌ Formatting failed!"
+    exit 1
+  fi
+else
+  echo "✨ Skipping Rust formatting (no staged Rust files)"
 fi
 
 # Re-add only files that were already staged (avoid scooping unrelated changes)

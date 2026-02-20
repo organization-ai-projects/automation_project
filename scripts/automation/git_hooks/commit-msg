@@ -90,7 +90,15 @@ if [[ -n "$required_scopes" ]]; then
   missing_scopes=()
   while IFS= read -r required_scope; do
     [[ -z "$required_scope" ]] && continue
-    if ! grep -Fxq "$required_scope" <<< "$commit_scopes"; then
+    covered=0
+    while IFS= read -r commit_scope; do
+      [[ -z "$commit_scope" ]] && continue
+      if scope_covers_required_scope "$commit_scope" "$required_scope"; then
+        covered=1
+        break
+      fi
+    done <<< "$commit_scopes"
+    if [[ $covered -ne 1 ]]; then
       missing_scopes+=("$required_scope")
     fi
   done <<< "$required_scopes"

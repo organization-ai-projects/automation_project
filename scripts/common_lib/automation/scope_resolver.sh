@@ -48,7 +48,7 @@ collect_scopes_from_files() {
 
 detect_required_scopes_from_staged_files() {
   local files
-  files="$(git diff --cached --name-only --diff-filter=ACMRU)"
+  files="$(git diff --cached --name-only --diff-filter=ACMRUD)"
   collect_scopes_from_files "$files"
 }
 

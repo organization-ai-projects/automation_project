@@ -112,3 +112,20 @@ extract_scopes_from_commit_message() {
     [[ -n "$scope" ]] && printf '%s\n' "$scope"
   done
 }
+
+scope_covers_required_scope() {
+  local commit_scope="$1"
+  local required_scope="$2"
+
+  if [[ "$commit_scope" == "$required_scope" ]]; then
+    return 0
+  fi
+
+  # Allow product parent scope to cover backend/ui sub-scopes.
+  if [[ "$required_scope" =~ ^projects/products/([^/]+)/([^/]+)/(ui|backend)$ ]]; then
+    local parent_scope="projects/products/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    [[ "$commit_scope" == "$parent_scope" ]] && return 0
+  fi
+
+  return 1
+}

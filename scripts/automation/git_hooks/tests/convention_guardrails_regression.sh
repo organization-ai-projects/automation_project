@@ -205,6 +205,42 @@ main() {
     "" \
     "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && printf 'fix(projects/libraries/security): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
+  run_case \
+    "commit-msg-allows-parent-product-scope-for-ui-and-backend" \
+    0 \
+    "" \
+    "mkdir -p projects/products/stable/varina/ui/src projects/products/stable/varina/backend/src && echo 'pub fn ui() {}' > projects/products/stable/varina/ui/src/lib.rs && echo 'pub fn api() {}' > projects/products/stable/varina/backend/src/lib.rs && git add projects/products/stable/varina/ui/src/lib.rs projects/products/stable/varina/backend/src/lib.rs && printf 'fix(projects/products/stable/varina): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-requires-scope-for-staged-deletions" \
+    1 \
+    "Missing required scope in commit message" \
+    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/security/src/lib.rs && printf 'fix: remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-scope-for-staged-deletions" \
+    0 \
+    "" \
+    "mkdir -p projects/libraries/security/src && echo 'pub fn x() {}' > projects/libraries/security/src/lib.rs && git add projects/libraries/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/security/src/lib.rs && printf 'fix(projects/libraries/security): remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "pre-commit-docs-only-ignores-unstaged-rust-syntax-errors" \
+    0 \
+    "Pre-commit checks passed" \
+    "mkdir -p src documentation && printf '[package]\nname = \"tmp\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > Cargo.toml && printf 'fn main() { println!(\"ok\"); }\n' > src/main.rs && git add Cargo.toml src/main.rs && git commit -m 'chore: add minimal rust crate' >/dev/null && printf 'fn main( {\n' > src/main.rs && echo 'note' > documentation/precommit.md && git add documentation/precommit.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
+
+  run_case \
+    "pre-commit-ignores-unstaged-orchestrator-permission-mismatches" \
+    0 \
+    "Pre-commit checks passed" \
+    "rm scripts && mkdir -p scripts/common_lib/automation scripts/versioning/file_versioning/orchestrators/read scripts/versioning/file_versioning/orchestrators/execute documentation && cp '${ROOT_DIR}/scripts/common_lib/automation/scope_resolver.sh' scripts/common_lib/automation/scope_resolver.sh && printf '#!/usr/bin/env bash\necho read\n' > scripts/versioning/file_versioning/orchestrators/read/check.sh && chmod 644 scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/common_lib/automation/scope_resolver.sh scripts/versioning/file_versioning/orchestrators/read/check.sh && git commit -m 'chore: add local scripts tree' >/dev/null && chmod +x scripts/versioning/file_versioning/orchestrators/read/check.sh && echo 'note' > documentation/precommit_perm.md && git add documentation/precommit_perm.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
+
+  run_case \
+    "pre-commit-blocks-staged-orchestrator-permission-mismatches" \
+    1 \
+    "Script permission errors detected" \
+    "rm scripts && mkdir -p scripts/common_lib/automation scripts/versioning/file_versioning/orchestrators/read scripts/versioning/file_versioning/orchestrators/execute && cp '${ROOT_DIR}/scripts/common_lib/automation/scope_resolver.sh' scripts/common_lib/automation/scope_resolver.sh && printf '#!/usr/bin/env bash\necho read\n' > scripts/versioning/file_versioning/orchestrators/read/check.sh && chmod 644 scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/common_lib/automation/scope_resolver.sh scripts/versioning/file_versioning/orchestrators/read/check.sh && git commit -m 'chore: add local scripts tree' >/dev/null && chmod +x scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/versioning/file_versioning/orchestrators/read/check.sh && /bin/bash '${HOOKS_DIR}/pre-commit'"
+
   # pre-push: block tracking-only push unless explicit override.
   run_case \
     "pre-push-blocks-part-of-only" \
