@@ -140,9 +140,9 @@
     "description": "JSON handling and serialization utilities"
   },
   {
-    "name": "projects/libraries/common_parsing",
+    "name": "projects/libraries/core/foundation/common_parsing",
     "color": "00A6D6",
-    "description": "Changes in the `projects/libraries/common_parsing` crate"
+    "description": "Changes in the `projects/libraries/core/foundation/common_parsing` crate"
   },
   {
     "name": "projects/libraries/core/foundation/common_time",
