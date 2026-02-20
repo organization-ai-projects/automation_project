@@ -2,7 +2,7 @@
 members = [
   "projects/libraries/ai",
   "projects/libraries/common",
-  "projects/libraries/common_binary",
+  "projects/libraries/core/foundation/common_binary",
   "projects/libraries/core/foundation/common_json",
   "projects/libraries/neural",
   "projects/libraries/core/contracts/protocol",
@@ -59,7 +59,7 @@ tracing-subscriber = "0.3"
 
 pjson_proc_macros = { path = "projects/libraries/pjson_proc_macros" }
 common = { path = "projects/libraries/common" }
-common_binary = { path = "projects/libraries/common_binary" }
+common_binary = { path = "projects/libraries/core/foundation/common_binary" }
 common_json = { path = "projects/libraries/core/foundation/common_json" }
 neural = { path = "projects/libraries/neural" }
 protocol = { path = "projects/libraries/core/contracts/protocol" }
