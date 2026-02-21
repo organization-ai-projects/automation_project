@@ -873,6 +873,12 @@ impl LifecycleManager {
             .get("previous_state_top_failure_tool")
             .cloned()
             .unwrap_or_default();
+        let top_decision_action = self
+            .memory
+            .metadata
+            .get("previous_state_top_decision_action")
+            .cloned()
+            .unwrap_or_default();
 
         if previous_failures > 0 {
             plan.add_step(PlanStep {
@@ -942,15 +948,32 @@ impl LifecycleManager {
                 verification: "learning_test_harness_stable".to_string(),
             });
         }
+        if top_decision_action.starts_with("read_file:") && previous_failures > 0 {
+            plan.add_step(PlanStep {
+                description: "Learning adaptation: prioritize validation over repeated exploration"
+                    .to_string(),
+                tool: "run_tests".to_string(),
+                args: vec![
+                    "cargo".to_string(),
+                    "check".to_string(),
+                    "-p".to_string(),
+                    self.config.agent_name.clone(),
+                    "--bin".to_string(),
+                    self.config.agent_name.clone(),
+                ],
+                verification: "learning_prioritized_validation".to_string(),
+            });
+        }
 
         self.run_replay.record(
             "learning.adaptation",
             format!(
-                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} plan_steps={}",
+                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} top_decision_action={} plan_steps={}",
                 previous_failures,
                 previous_max_iteration,
                 top_failure_kind,
                 top_failure_tool,
+                top_decision_action,
                 plan.steps.len()
             ),
         );
