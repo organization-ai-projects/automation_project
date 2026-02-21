@@ -31,7 +31,7 @@ use crate::timeout::Timeout;
 use crate::tools::{
     GitWrapper, PrDescriptionGenerator, RepoReader, TestRunner, ToolRegistry, ToolResult,
 };
-use crate::value_types::ActionOutcomeSummary;
+use crate::value_types::{ActionOutcomeSummary, StateLabel};
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -578,21 +578,23 @@ impl LifecycleManager {
 
     pub fn transition_to(&mut self, new_state: AgentState) -> AgentResult<()> {
         let old_state = format!("{:?}", self.state);
-        let new_state_str = format!("{:?}", new_state);
+        let new_state_label = StateLabel::new(format!("{:?}", new_state)).unwrap_or_else(|| {
+            StateLabel::new("UnknownState").expect("static state must be valid")
+        });
 
         tracing::debug!(
             "State transition: {} -> {} (iteration {})",
             old_state,
-            new_state_str,
+            new_state_label,
             self.current_iteration_number
         );
 
         self.audit
-            .log_state_transition(&old_state, &new_state_str)
+            .log_state_transition(&old_state, &new_state_label.to_string())
             .map_err(|e| AgentError::State(e.to_string()))?;
         self.run_replay.record(
             "state.transition",
-            format!("{old_state} -> {new_state_str}"),
+            format!("{old_state} -> {new_state_label}"),
         );
 
         self.metrics.record_state_transition();
@@ -601,7 +603,7 @@ impl LifecycleManager {
         let checkpoint = Checkpoint::new(
             self.actor.run_id.clone(),
             self.current_iteration_number.get(),
-            new_state_str,
+            new_state_label,
         );
         if let Err(e) = checkpoint.save(&self.checkpoint_path) {
             tracing::warn!(

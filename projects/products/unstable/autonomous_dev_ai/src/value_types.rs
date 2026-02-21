@@ -75,6 +75,27 @@ impl std::fmt::Display for ActionName {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct StateLabel(String);
+
+impl StateLabel {
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        if value.trim().is_empty() {
+            None
+        } else {
+            Some(Self(value))
+        }
+    }
+}
+
+impl std::fmt::Display for StateLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ActionOutcomeSummary {
     pub action: ActionName,
