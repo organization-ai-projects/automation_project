@@ -1966,10 +1966,23 @@ impl LifecycleManager {
             .log_tool_execution("create_pr", &audit_args, output.status.success());
 
         if !output.status.success() {
+            let details = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                stderr.clone()
+            };
+            let failure_class = classify_tool_failure(&details);
+            self.record_replay(
+                "tool.failure_class",
+                format!("tool=create_pr class={}", failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("create_pr:{}", failure_class),
+            );
             return Err(AgentError::Tool(format!(
                 "gh pr create failed (status={}): {}",
-                output.status,
-                if stderr.is_empty() { stdout } else { stderr }
+                output.status, details
             )));
         }
 
@@ -2095,9 +2108,17 @@ impl LifecycleManager {
             .map_err(|e| AgentError::State(e.to_string()))?;
 
         if !result.success {
-            return Err(AgentError::Tool(
-                result.error.unwrap_or_else(|| "Unknown error".to_string()),
-            ));
+            let details = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            let failure_class = classify_tool_failure(&details);
+            self.run_replay.record(
+                "tool.failure_class",
+                format!("tool={} class={}", tool_name, failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("{}:{}", tool_name, failure_class),
+            );
+            return Err(AgentError::Tool(details));
         }
 
         let generated = std::fs::read_to_string(output_file).map_err(|e| {
@@ -2581,10 +2602,33 @@ fn compensation_for_tool(tool: &str) -> CompensationKind {
 }
 
 fn extract_pr_number_from_text(text: &str) -> Option<u64> {
-    let marker = "/pull/";
-    let (_, suffix) = text.rsplit_once(marker)?;
-    let digits: String = suffix.chars().take_while(|c| c.is_ascii_digit()).collect();
-    digits.parse::<u64>().ok()
+    // Preferred pattern from GitHub URLs: .../pull/<number>
+    if let Some((_, suffix)) = text.rsplit_once("/pull/") {
+        let digits: String = suffix.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(parsed) = digits.parse::<u64>() {
+            return Some(parsed);
+        }
+    }
+
+    // Fallback pattern: any "#<number>" token in plain output.
+    let bytes = text.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b'#' {
+            let start = i + 1;
+            let mut end = start;
+            while end < bytes.len() && bytes[end].is_ascii_digit() {
+                end += 1;
+            }
+            if end > start
+                && let Ok(parsed) = text[start..end].parse::<u64>()
+            {
+                return Some(parsed);
+            }
+        }
+        i += 1;
+    }
+    None
 }
 
 fn classify_tool_failure(error_text: &str) -> &'static str {
