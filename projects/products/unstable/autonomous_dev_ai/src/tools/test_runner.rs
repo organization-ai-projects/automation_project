@@ -1,6 +1,6 @@
 // projects/products/unstable/autonomous_dev_ai/src/tools/test_runner.rs
 use super::{Tool, ToolResult, run_with_timeout::run_with_timeout};
-use crate::error::AgentResult;
+use crate::error::{AgentError, AgentResult};
 use std::time::Duration;
 
 use super::constants::DEFAULT_TOOL_TIMEOUT_SECS;
@@ -23,6 +23,11 @@ impl Tool for TestRunner {
                 .first()
                 .cloned()
                 .unwrap_or_else(|| "cargo".to_string());
+            if !is_allowed_test_program(&prog) {
+                return Err(AgentError::PolicyViolation(format!(
+                    "test program '{prog}' is not allowed"
+                )));
+            }
             let mut cmd_args = parts[1..].to_vec();
             cmd_args.extend_from_slice(args);
             return run_with_timeout(
@@ -33,6 +38,11 @@ impl Tool for TestRunner {
         }
 
         if let Some(program) = args.first() {
+            if !is_allowed_test_program(program) {
+                return Err(AgentError::PolicyViolation(format!(
+                    "test program '{program}' is not allowed"
+                )));
+            }
             let cmd_args = args[1..].to_vec();
             return run_with_timeout(
                 program,
@@ -52,4 +62,14 @@ impl Tool for TestRunner {
     fn is_reversible(&self) -> bool {
         true
     }
+}
+
+fn is_allowed_test_program(program: &str) -> bool {
+    let configured = std::env::var("AUTONOMOUS_ALLOWED_TEST_PROGRAMS")
+        .unwrap_or_else(|_| "cargo,pytest".to_string());
+    configured
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .any(|allowed| allowed == program)
 }

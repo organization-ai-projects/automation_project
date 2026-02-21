@@ -956,6 +956,28 @@ impl LifecycleManager {
         }
 
         self.enforce_authz_for_action(&step.tool)?;
+        if !is_tool_execution_allowed(&self.config.execution_mode, &step.tool) {
+            self.run_replay.record(
+                "tool.execution_denied",
+                format!(
+                    "tool={} reason=mutating tool requires AUTONOMOUS_ALLOW_MUTATING_TOOLS=true",
+                    step.tool
+                ),
+            );
+            self.memory.add_failure(
+                self.iteration,
+                "Tool execution denied by safe mode".to_string(),
+                format!(
+                    "mutating tool '{}' denied in mode '{}'",
+                    step.tool, self.config.execution_mode
+                ),
+                Some("Set AUTONOMOUS_ALLOW_MUTATING_TOOLS=true for explicit opt-in".to_string()),
+            );
+            return Err(AgentError::PolicyViolation(format!(
+                "mutating tool '{}' denied by safe mode",
+                step.tool
+            )));
+        }
         let compensation = self
             .tools
             .get_tool(&step.tool)
@@ -1337,6 +1359,21 @@ impl LifecycleManager {
 
         let pr_number =
             Self::extract_pr_number_from_goal(&goal).and_then(|v| v.parse::<u64>().ok());
+        let issue_body = self
+            .memory
+            .metadata
+            .get("issue_body")
+            .cloned()
+            .or_else(|| std::env::var("AUTONOMOUS_ISSUE_BODY").ok())
+            .unwrap_or_default();
+        let issue_title = self
+            .memory
+            .metadata
+            .get("issue_title")
+            .cloned()
+            .or_else(|| std::env::var("AUTONOMOUS_ISSUE_TITLE").ok())
+            .unwrap_or_else(|| goal.clone());
+        let issue_compliance = evaluate_issue_compliance(&issue_title, &issue_body);
         let mut pr_orchestrator =
             PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);
         if let Some(n) = pr_number {
@@ -1354,11 +1391,7 @@ impl LifecycleManager {
             .iter()
             .any(|f| f.description.to_ascii_lowercase().contains("policy"));
         pr_orchestrator.set_policy_compliant(policy_ok);
-        pr_orchestrator.set_issue_compliance(if pr_number.is_some() {
-            IssueComplianceStatus::Compliant
-        } else {
-            IssueComplianceStatus::Unknown
-        });
+        pr_orchestrator.set_issue_compliance(issue_compliance.clone());
         pr_orchestrator.update_body(pr_body.clone());
 
         let readiness = pr_orchestrator.merge_readiness();
@@ -1370,6 +1403,8 @@ impl LifecycleManager {
         let rendered_body = pr_orchestrator.metadata.render_body();
         self.run_replay
             .record("pr.readiness", readiness_msg.clone());
+        self.run_replay
+            .record("issue.compliance", format!("{:?}", issue_compliance));
         self.run_replay
             .record("pr.rendered_body", format!("chars={}", rendered_body.len()));
         self.pr_orchestrator = Some(pr_orchestrator);
@@ -1678,6 +1713,104 @@ fn parse_issue_labels_from_env() -> Vec<String> {
 
 fn score_value(scores: &[(String, f64)], key: &str) -> Option<f64> {
     scores.iter().find(|(k, _)| k == key).map(|(_, v)| *v)
+}
+
+fn is_tool_execution_allowed(execution_mode: &str, tool: &str) -> bool {
+    let low_risk = matches!(
+        tool,
+        "read_file" | "search_code" | "run_tests" | "generate_pr_description"
+    );
+    if low_risk {
+        return true;
+    }
+
+    let explicit_opt_in = std::env::var("AUTONOMOUS_ALLOW_MUTATING_TOOLS")
+        .ok()
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if explicit_opt_in {
+        return true;
+    }
+
+    !execution_mode.eq_ignore_ascii_case("safe")
+}
+
+fn evaluate_issue_compliance(title: &str, body: &str) -> IssueComplianceStatus {
+    if body.trim().is_empty() {
+        return IssueComplianceStatus::Unknown;
+    }
+
+    if let Some(reason) = validate_required_issue_fields(body) {
+        return IssueComplianceStatus::NonCompliant { reason };
+    }
+
+    let require_typed_title = std::env::var("AUTONOMOUS_REQUIRE_TYPED_ISSUE_TITLE")
+        .ok()
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if require_typed_title && !looks_like_typed_issue_title(title) {
+        return IssueComplianceStatus::NonCompliant {
+            reason: "title must match type(scope): summary".to_string(),
+        };
+    }
+
+    IssueComplianceStatus::Compliant
+}
+
+fn validate_required_issue_fields(body: &str) -> Option<String> {
+    let required_fields =
+        std::env::var("AUTONOMOUS_REQUIRED_ISSUE_FIELDS").unwrap_or_else(|_| "Parent".to_string());
+
+    for raw_field in required_fields.split(',') {
+        let field = raw_field.trim();
+        if field.is_empty() {
+            continue;
+        }
+        let needle = format!("{field}:");
+        let has_field = body
+            .lines()
+            .any(|line| line.trim_start().starts_with(&needle));
+        if !has_field {
+            return Some(format!("missing required field: {field}:"));
+        }
+    }
+
+    let parent_line = body
+        .lines()
+        .find(|line| line.trim_start().starts_with("Parent:"))
+        .map(|line| {
+            line.trim_start()
+                .trim_start_matches("Parent:")
+                .trim()
+                .to_string()
+        });
+
+    if let Some(parent) = parent_line {
+        if parent.eq_ignore_ascii_case("none") {
+            return None;
+        }
+        if !parent.starts_with('#') || parent[1..].chars().any(|c| !c.is_ascii_digit()) {
+            return Some("Parent must be '#<number>' or 'none'".to_string());
+        }
+    }
+
+    None
+}
+
+fn looks_like_typed_issue_title(title: &str) -> bool {
+    let Some(colon_pos) = title.find(':') else {
+        return false;
+    };
+    if colon_pos == 0 || colon_pos + 1 >= title.len() {
+        return false;
+    }
+    let prefix = &title[..colon_pos];
+    let has_scope = prefix.contains('(') && prefix.ends_with(')');
+    let has_type = prefix
+        .chars()
+        .take_while(|c| *c != '(')
+        .all(|c| c.is_ascii_lowercase() || c == '_' || c == '-');
+    has_scope && has_type && !title[colon_pos + 1..].trim().is_empty()
 }
 
 fn compensation_for_tool(tool: &str) -> CompensationKind {

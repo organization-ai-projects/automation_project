@@ -38,10 +38,19 @@ impl PrMetadata {
 
     /// Render a deterministic PR description that embeds issue closure refs.
     pub fn render_body(&self) -> String {
+        let closure_keyword =
+            std::env::var("AUTONOMOUS_CLOSURE_KEYWORD").unwrap_or_else(|_| "Closes".to_string());
+        let neutralize = !matches!(self.issue_compliance, IssueComplianceStatus::Compliant);
         let closes_lines: Vec<String> = self
             .closes_issues
             .iter()
-            .map(|n| format!("Closes #{n}"))
+            .map(|n| {
+                if neutralize {
+                    format!("{closure_keyword} Rejected #{n}")
+                } else {
+                    format!("{closure_keyword} #{n}")
+                }
+            })
             .collect();
 
         let footer = if closes_lines.is_empty() {
