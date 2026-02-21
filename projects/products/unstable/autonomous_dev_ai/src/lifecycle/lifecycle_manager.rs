@@ -2062,12 +2062,17 @@ impl LifecycleManager {
 
         if !self.policy.is_tool_allowed(tool_name) {
             tracing::debug!("Tool '{}' not allowed by policy", tool_name);
+            self.record_replay(
+                "pr.description.fallback",
+                "policy_disallowed_generate_pr_description".to_string(),
+            );
             return Some(default_body.to_string());
         }
         if let Err(error) = self
             .enforce_authz_for_action(tool_name)
             .and_then(|_| self.enforce_risk_gate(tool_name, &[]))
         {
+            self.record_replay("pr.description.fallback", format!("gated: {}", error));
             self.memory.add_failure(
                 self.iteration,
                 "PR description generation blocked by policy gate".to_string(),
@@ -2081,8 +2086,18 @@ impl LifecycleManager {
         let tool_args = vec![main_pr_number, output_file.clone()];
 
         match self.generate_pr_description(&tool_args, &output_file) {
-            Ok(generated) => Some(generated),
+            Ok(generated) => {
+                self.record_replay(
+                    "pr.description.generated",
+                    format!("output_file={}", output_file),
+                );
+                Some(generated)
+            }
             Err(err) => {
+                self.record_replay(
+                    "pr.description.fallback",
+                    format!("generation_failed: {}", err),
+                );
                 self.memory.add_failure(
                     self.iteration,
                     "PR description generation failed".to_string(),
