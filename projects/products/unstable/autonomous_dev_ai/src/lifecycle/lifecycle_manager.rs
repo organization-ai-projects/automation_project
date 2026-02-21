@@ -1744,10 +1744,14 @@ impl LifecycleManager {
         let pr_body = append_issue_compliance_note(&pr_body, &issue_compliance);
         let mut pr_orchestrator =
             PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);
+        if let Ok(pr_number_raw) = std::env::var("AUTONOMOUS_PR_NUMBER")
+            && let Ok(parsed) = pr_number_raw.parse::<u64>()
+            && let Some(prn) = PrNumber::new(parsed)
+        {
+            pr_orchestrator.open(prn);
+        }
         if let Some(n) = issue_number {
-            if let Some(prn) = PrNumber::new(n.get()) {
-                pr_orchestrator.open(prn);
-            }
+            self.record_replay("issue.reference", format!("issue_number={}", n.get()));
             pr_orchestrator.metadata.close_issue(n);
         }
         pr_orchestrator.set_ci_status(match self.memory.metadata.get("last_validation_success") {
@@ -1929,16 +1933,6 @@ impl LifecycleManager {
                 resolved: false,
             });
         }
-        if std::env::var("AUTONOMOUS_REVIEW_REQUESTED").ok().as_deref() == Some("true")
-            && comments.is_empty()
-        {
-            comments.push(ReviewComment {
-                reviewer: "review-bot".to_string(),
-                body: "Please adjust implementation details".to_string(),
-                resolved: false,
-            });
-        }
-
         let outcome = orchestrator.ingest_review(comments);
         self.run_replay
             .record("review.outcome", format!("{:?}", outcome));
@@ -1958,7 +1952,7 @@ impl LifecycleManager {
                 );
 
                 let auto_resolve = std::env::var("AUTONOMOUS_AUTO_RESOLVE_REVIEW")
-                    .unwrap_or_else(|_| "true".to_string())
+                    .unwrap_or_else(|_| "false".to_string())
                     == "true";
                 if auto_resolve {
                     for reviewer in pending_reviewers {
