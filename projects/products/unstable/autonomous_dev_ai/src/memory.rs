@@ -1,5 +1,6 @@
 // projects/products/unstable/autonomous_dev_ai/src/memory.rs
 
+use crate::value_types::ActionName;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
@@ -7,7 +8,7 @@ pub struct DecisionEntry {
     pub iteration: usize,
     pub description: String,
     pub neural_suggestion: Option<String>,
-    pub symbolic_decision: String,
+    pub symbolic_decision: ActionName,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]

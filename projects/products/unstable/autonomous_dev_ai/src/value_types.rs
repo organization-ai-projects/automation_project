@@ -50,7 +50,7 @@ impl LearningWindow {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
 #[serde(transparent)]
 pub struct ActionName(String);
 

@@ -31,7 +31,7 @@ use crate::timeout::Timeout;
 use crate::tools::{
     GitWrapper, PrDescriptionGenerator, RepoReader, TestRunner, ToolRegistry, ToolResult,
 };
-use crate::value_types::{ActionOutcomeSummary, StateLabel};
+use crate::value_types::{ActionName, ActionOutcomeSummary, StateLabel};
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -1308,7 +1308,8 @@ impl LifecycleManager {
             self.iteration,
             format!("Execute {}", step.tool),
             None,
-            "Tool executed successfully".to_string(),
+            ActionName::new("tool_executed_successfully")
+                .expect("static action name must be valid"),
         );
 
         self.current_step_index = self.current_step_index.increment();

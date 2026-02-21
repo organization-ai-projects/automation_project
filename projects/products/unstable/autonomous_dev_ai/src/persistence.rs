@@ -505,7 +505,7 @@ fn infer_decision_action(entry: &DecisionEntry) -> String {
     let text = format!(
         "{} {}",
         entry.description.to_ascii_lowercase(),
-        entry.symbolic_decision.to_ascii_lowercase()
+        entry.symbolic_decision.as_str().to_ascii_lowercase()
     );
     for action in [
         "run_tests",

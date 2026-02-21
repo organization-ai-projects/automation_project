@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     memory::{DecisionEntry, FailureEntry, ObjectiveEvaluationEntry},
     plan_entry::PlanEntry,
+    value_types::ActionName,
 };
 
 /// Memory graph for agent
@@ -60,7 +61,7 @@ impl MemoryGraph {
         iteration: usize,
         description: String,
         neural_suggestion: Option<String>,
-        symbolic_decision: String,
+        symbolic_decision: ActionName,
     ) {
         self.decisions.push(DecisionEntry {
             iteration,
