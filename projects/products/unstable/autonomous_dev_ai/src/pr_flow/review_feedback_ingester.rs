@@ -21,6 +21,9 @@ impl ReviewFeedbackIngester {
 
     /// Ingest a batch of new review comments.
     pub fn ingest(&mut self, comments: Vec<ReviewComment>) {
+        if comments.is_empty() {
+            return;
+        }
         self.comments.extend(comments);
         self.iteration = self.iteration.saturating_add(1);
     }
