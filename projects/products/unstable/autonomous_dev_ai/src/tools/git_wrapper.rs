@@ -20,8 +20,9 @@ impl Tool for GitWrapper {
         }
 
         let command = &args[0];
+        let cmdline = args.join(" ");
 
-        if is_force_push_action(&args.join(" ")) {
+        if is_force_push_action(&cmdline) {
             return Err(AgentError::PolicyViolation(format!(
                 "{FORCE_PUSH_FORBIDDEN} is not allowed"
             )));
@@ -33,10 +34,33 @@ impl Tool for GitWrapper {
             )));
         }
 
+        if let Some(flag) = first_forbidden_flag(args) {
+            return Err(AgentError::PolicyViolation(format!(
+                "forbidden git flag '{flag}' is not allowed"
+            )));
+        }
+
         run_with_timeout("git", args, Duration::from_secs(DEFAULT_TOOL_TIMEOUT_SECS))
     }
 
     fn is_reversible(&self) -> bool {
         false
     }
+}
+
+fn first_forbidden_flag(args: &[String]) -> Option<&str> {
+    const FORBIDDEN_FLAGS: &[&str] = &[
+        "--force",
+        "-f",
+        "--force-with-lease",
+        "--hard",
+        "-D",
+        "--delete",
+        "--orphan",
+    ];
+
+    args.iter()
+        .skip(1)
+        .map(|s| s.as_str())
+        .find(|arg| FORBIDDEN_FLAGS.contains(arg))
 }
