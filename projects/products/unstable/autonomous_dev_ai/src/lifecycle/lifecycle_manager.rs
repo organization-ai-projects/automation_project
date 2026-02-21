@@ -12,7 +12,11 @@ use crate::error::{AgentError, AgentResult};
 use crate::memory_graph::MemoryGraph;
 use crate::neural::NeuralLayer;
 use crate::objective_evaluator::ObjectiveEvaluator;
-use crate::security::{ActorIdentity, AuthzDecision, AuthzEngine};
+use crate::ops::{IncidentRunbook, RunReplay, SloEvaluator};
+use crate::pr_flow::{
+    CiStatus, IssueComplianceStatus, MergeReadiness, PrOrchestrator, ReviewComment, ReviewOutcome,
+};
+use crate::security::{ActorIdentity, AuthzDecision, AuthzEngine, PolicyPack, SecurityAuditRecord};
 use crate::state::AgentState;
 use crate::symbolic::{Plan, PlanStep, PolicyEngine, SymbolicController};
 use crate::tools::{
@@ -33,6 +37,7 @@ pub struct LifecycleManager {
     pub policy: PolicyEngine,
     pub authz: AuthzEngine,
     pub actor: ActorIdentity,
+    pub pr_orchestrator: Option<PrOrchestrator>,
     pub tools: ToolRegistry,
     pub audit: AuditLogger,
     pub iteration: usize,
@@ -50,6 +55,10 @@ pub struct LifecycleManager {
     circuit_breakers: HashMap<String, CircuitBreaker>,
     retry_strategy: RetryStrategy,
     metrics: MetricsCollector,
+    run_replay: RunReplay,
+    slo_evaluator: SloEvaluator,
+    incident_runbook: IncidentRunbook,
+    policy_pack: PolicyPack,
 
     // Timeouts.
     global_timeout: Duration,
@@ -100,6 +109,10 @@ impl LifecycleManager {
         let policy = PolicyEngine::new();
         let authz = AuthzEngine::new();
         let actor = ActorIdentity::default();
+        let run_replay = RunReplay::new(actor.run_id.clone());
+        let slo_evaluator = SloEvaluator::new(SloEvaluator::default_slos());
+        let incident_runbook = IncidentRunbook::default_runbook();
+        let policy_pack = PolicyPack::default();
 
         let mut tools = ToolRegistry::new();
         tools.register(Box::new(RepoReader));
@@ -118,6 +131,7 @@ impl LifecycleManager {
             policy,
             authz,
             actor,
+            pr_orchestrator: None,
             tools,
             audit: AuditLogger::new(audit_log_path),
             iteration: IterationNumber::first().get(),
@@ -131,6 +145,10 @@ impl LifecycleManager {
             circuit_breakers: HashMap::new(),
             retry_strategy: RetryStrategy::default(),
             metrics: MetricsCollector::new(),
+            run_replay,
+            slo_evaluator,
+            incident_runbook,
+            policy_pack,
             global_timeout,
             iteration_timeout: Duration::from_secs(300),
             tool_timeout: Duration::from_secs(30),
@@ -141,11 +159,14 @@ impl LifecycleManager {
     pub fn run(&mut self, goal: &str) -> LifecycleResult<()> {
         let start_time = Instant::now();
 
+        self.run_replay = RunReplay::new(self.actor.run_id.clone());
         self.current_iteration_number = IterationNumber::first();
         self.iteration = self.current_iteration_number.get();
         self.current_plan = None;
         self.current_step_index = StepIndex::zero();
         self.current_step = self.current_step_index.get();
+        self.pr_orchestrator = None;
+        self.run_replay.record("lifecycle.start", goal);
 
         tracing::info!("=== Starting Agent Lifecycle ===");
         tracing::info!("Goal: {}", goal);
@@ -186,6 +207,16 @@ impl LifecycleManager {
             .log_final_state(&format!("{:?}", self.state), self.iteration)
         {
             tracing::error!("Failed to log final state: {}", e);
+        }
+
+        let replay_path = std::env::var("AUTONOMOUS_RUN_REPLAY_PATH")
+            .unwrap_or_else(|_| "agent_run_replay.json".to_string());
+        if let Err(e) = self.run_replay.persist(&replay_path) {
+            tracing::warn!("Failed to persist run replay '{}': {}", replay_path, e);
+        } else {
+            self.memory
+                .metadata
+                .insert("run_replay_path".to_string(), replay_path);
         }
 
         tracing::info!("=== Agent Lifecycle Complete ===");
@@ -278,6 +309,7 @@ impl LifecycleManager {
                         }
 
                         tracing::error!("Recoverable error exhausted retries: {}", err);
+                        self.record_runbook_hint_for_error(&err.to_string());
                     }
 
                     return Err(err);
@@ -365,6 +397,10 @@ impl LifecycleManager {
         self.audit
             .log_state_transition(&old_state, &new_state_str)
             .map_err(|e| AgentError::State(e.to_string()))?;
+        self.run_replay.record(
+            "state.transition",
+            format!("{old_state} -> {new_state_str}"),
+        );
 
         self.metrics.record_state_transition();
         self.state = new_state;
@@ -429,6 +465,14 @@ impl LifecycleManager {
         let mut plan = Plan::new(goal.clone());
         self.build_plan_steps(&mut plan, &goal, neural_suggestion.as_ref())?;
         self.validate_plan(&plan)?;
+        self.run_replay.record(
+            "plan.generated",
+            format!(
+                "iteration={} steps={}",
+                self.current_iteration_number,
+                plan.steps.len()
+            ),
+        );
 
         let plan_description = format!(
             "Plan for iteration {} ({} steps)",
@@ -480,7 +524,9 @@ impl LifecycleManager {
             );
         }
 
-        if let Some(command_plan) = select_validation_command(goal, &self.config.agent_name) {
+        if let Some(command_plan) =
+            select_validation_command(goal, &self.config.agent_name, &self.config.execution_mode)
+        {
             plan.add_step(PlanStep {
                 description: command_plan.description,
                 tool: "run_tests".to_string(),
@@ -492,7 +538,13 @@ impl LifecycleManager {
         Ok(())
     }
 
-    fn validate_plan(&self, plan: &Plan) -> AgentResult<()> {
+    fn validate_plan(&mut self, plan: &Plan) -> AgentResult<()> {
+        if !self.policy_pack.verify() {
+            return Err(AgentError::PolicyViolation(
+                "Policy pack signature verification failed".to_string(),
+            ));
+        }
+
         for (idx, step) in plan.steps.iter().enumerate() {
             if !self.policy.is_tool_allowed(&step.tool) {
                 return Err(AgentError::PolicyViolation(format!(
@@ -508,6 +560,14 @@ impl LifecycleManager {
                     "Step {}: action '{}' violates policy patterns",
                     idx + 1,
                     action
+                )));
+            }
+
+            if !self.policy_pack.allowed_tools.contains(&step.tool) {
+                return Err(AgentError::PolicyViolation(format!(
+                    "Step {}: Tool '{}' not allowed by signed policy pack",
+                    idx + 1,
+                    step.tool
                 )));
             }
 
@@ -610,6 +670,15 @@ impl LifecycleManager {
         let tool_start = Instant::now();
         let result = self.execute_tool_with_timeout(&step.tool, &step.args)?;
         let tool_duration = tool_start.elapsed();
+        self.run_replay.record(
+            "tool.execute",
+            format!(
+                "tool={} success={} duration_ms={}",
+                step.tool,
+                result.success,
+                tool_duration.as_millis()
+            ),
+        );
 
         self.metrics
             .record_tool_execution(&step.tool, result.success, tool_duration);
@@ -633,6 +702,11 @@ impl LifecycleManager {
 
         if !result.success {
             let error_detail = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            if step.tool == "run_tests" {
+                self.memory
+                    .metadata
+                    .insert("last_validation_success".to_string(), "false".to_string());
+            }
 
             tracing::warn!(
                 "Tool '{}' failed: {} (duration: {:?})",
@@ -652,6 +726,12 @@ impl LifecycleManager {
                 "Tool '{}' execution failed: {}",
                 step.tool, error_detail
             )));
+        }
+
+        if step.tool == "run_tests" {
+            self.memory
+                .metadata
+                .insert("last_validation_success".to_string(), "true".to_string());
         }
 
         self.memory.add_decision(
@@ -691,8 +771,18 @@ impl LifecycleManager {
         Ok(result)
     }
 
-    fn enforce_authz_for_action(&self, action: &str) -> AgentResult<()> {
-        match self.authz.check(&self.actor, action) {
+    fn enforce_authz_for_action(&mut self, action: &str) -> AgentResult<()> {
+        let decision = self.authz.check(&self.actor, action);
+        let security_audit = SecurityAuditRecord::new(&self.actor, action, &decision);
+        let security_payload = serde_json::to_string(&security_audit)
+            .unwrap_or_else(|_| format!("authz action={} decision={:?}", action, decision));
+
+        let _ = self
+            .audit
+            .log_symbolic_decision("security_authz", &security_payload);
+        self.run_replay.record("security.authz", security_payload);
+
+        match decision {
             AuthzDecision::Allow => Ok(()),
             AuthzDecision::Deny { reason } => Err(AgentError::PolicyViolation(format!(
                 "Authorization denied for action '{}': {}",
@@ -799,20 +889,81 @@ impl LifecycleManager {
     }
 
     fn compute_objective_scores(&self) -> AgentResult<Vec<(String, f64)>> {
-        // Simulate progress across iterations: iteration 1 fails task_completion,
-        // iteration >= 2 succeeds hard objectives.
-        let task_completion = if self.current_iteration_number.get() >= 2 {
+        let metrics = self.metrics.snapshot();
+        let step_ratio = self.current_plan.as_ref().map_or(0.0, |plan| {
+            if plan.steps.is_empty() {
+                0.0
+            } else {
+                (self.current_step_index.get().min(plan.steps.len()) as f64)
+                    / (plan.steps.len() as f64)
+            }
+        });
+        let task_completion = step_ratio.max(if self.state == AgentState::Done {
+            1.0
+        } else {
+            0.0
+        });
+
+        let has_policy_failure = self.memory.failures.iter().any(|f| {
+            let d = f.description.to_ascii_lowercase();
+            let e = f.error.to_ascii_lowercase();
+            d.contains("policy") || d.contains("authorization") || e.contains("policy")
+        });
+        let policy_safety = if has_policy_failure { 0.0 } else { 1.0 };
+
+        let tests_pass = self
+            .memory
+            .metadata
+            .get("last_validation_success")
+            .map(|v| if v == "true" { 1.0 } else { 0.0 })
+            .unwrap_or(0.7);
+
+        let minimal_diff = if self.memory.explored_files.len() <= 20 {
             1.0
         } else {
             0.6
         };
 
+        let avg_secs = metrics.average_iteration_duration.as_secs_f64();
+        let time_budget = if avg_secs <= 60.0 {
+            1.0
+        } else if avg_secs <= 120.0 {
+            0.7
+        } else {
+            0.4
+        };
+
+        let mut observations = HashMap::new();
+        observations.insert(
+            "run_success_rate".to_string(),
+            if self.state == AgentState::Done {
+                1.0
+            } else {
+                0.8
+            },
+        );
+        observations.insert("policy_violation_rate".to_string(), policy_safety);
+        observations.insert("iteration_latency_p95_secs".to_string(), avg_secs);
+        observations.insert("test_pass_rate".to_string(), tests_pass);
+        observations.insert(
+            "recovery_time_secs".to_string(),
+            (metrics.iterations_failed as f64) * 30.0,
+        );
+
+        let slo_eval = self.slo_evaluator.evaluate(&observations);
+        let slo_compliance = if slo_eval.is_empty() {
+            0.0
+        } else {
+            (slo_eval.iter().filter(|e| e.met).count() as f64) / (slo_eval.len() as f64)
+        };
+
         Ok(vec![
             ("task_completion".to_string(), task_completion),
-            ("policy_safety".to_string(), 1.0),
-            ("tests_pass".to_string(), 1.0),
-            ("minimal_diff".to_string(), 0.8),
-            ("time_budget".to_string(), 0.7),
+            ("policy_safety".to_string(), policy_safety),
+            ("tests_pass".to_string(), tests_pass),
+            ("minimal_diff".to_string(), minimal_diff),
+            ("time_budget".to_string(), time_budget),
+            ("slo_compliance".to_string(), slo_compliance),
         ])
     }
 
@@ -837,8 +988,46 @@ impl LifecycleManager {
             .try_generate_enhanced_pr_description(&goal, &default_pr_body)
             .unwrap_or(default_pr_body);
 
+        let pr_number =
+            Self::extract_pr_number_from_goal(&goal).and_then(|v| v.parse::<u64>().ok());
+        let mut pr_orchestrator =
+            PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);
+        if let Some(n) = pr_number {
+            pr_orchestrator.open(n);
+            pr_orchestrator.metadata.close_issue(&n.to_string());
+        }
+        pr_orchestrator.set_ci_status(match self.memory.metadata.get("last_validation_success") {
+            Some(v) if v == "true" => CiStatus::Passing,
+            Some(_) => CiStatus::Failing,
+            None => CiStatus::Unknown,
+        });
+        let policy_ok = !self
+            .memory
+            .failures
+            .iter()
+            .any(|f| f.description.to_ascii_lowercase().contains("policy"));
+        pr_orchestrator.set_policy_compliant(policy_ok);
+        pr_orchestrator.set_issue_compliance(if pr_number.is_some() {
+            IssueComplianceStatus::Compliant
+        } else {
+            IssueComplianceStatus::Unknown
+        });
+        pr_orchestrator.update_body(pr_body.clone());
+
+        let readiness = pr_orchestrator.merge_readiness();
+        let readiness_msg = match &readiness {
+            MergeReadiness::Ready => "ready".to_string(),
+            MergeReadiness::NotReady { reasons } => format!("not_ready: {}", reasons.join(" | ")),
+        };
+        self.run_replay
+            .record("pr.readiness", readiness_msg.clone());
+        self.pr_orchestrator = Some(pr_orchestrator);
+
         self.audit
             .log_symbolic_decision("create_pr", &pr_body)
+            .map_err(|e| AgentError::State(e.to_string()))?;
+        self.audit
+            .log_symbolic_decision("merge_readiness", &readiness_msg)
             .map_err(|e| AgentError::State(e.to_string()))?;
 
         tracing::info!("PR would be created with body ({} chars)", pr_body.len());
@@ -969,8 +1158,52 @@ impl LifecycleManager {
             "Iteration {}: Handling review feedback",
             self.current_iteration_number
         );
+        let Some(orchestrator) = self.pr_orchestrator.as_mut() else {
+            self.run_replay
+                .record("review.skip", "no_pr_orchestrator".to_string());
+            return self.transition_to(AgentState::Done);
+        };
 
-        self.transition_to(AgentState::Done)
+        let mut comments = Vec::new();
+        if let Ok(body) = std::env::var("AUTONOMOUS_REVIEW_COMMENT") {
+            comments.push(ReviewComment {
+                reviewer: "review-bot".to_string(),
+                body,
+                resolved: false,
+            });
+        }
+        if std::env::var("AUTONOMOUS_REVIEW_REQUESTED").ok().as_deref() == Some("true")
+            && comments.is_empty()
+        {
+            comments.push(ReviewComment {
+                reviewer: "review-bot".to_string(),
+                body: "Please adjust implementation details".to_string(),
+                resolved: false,
+            });
+        }
+
+        let outcome = orchestrator.ingest_review(comments);
+        self.run_replay
+            .record("review.outcome", format!("{:?}", outcome));
+
+        match outcome {
+            ReviewOutcome::Approved => self.transition_to(AgentState::Done),
+            ReviewOutcome::ChangesRequested => {
+                let Some(next_iteration) = self.current_iteration_number.try_next() else {
+                    return self.transition_to(AgentState::Blocked);
+                };
+                if next_iteration.exceeds(self.max_iterations_limit) {
+                    return self.transition_to(AgentState::Blocked);
+                }
+                self.current_iteration_number = next_iteration;
+                self.iteration = next_iteration.get();
+                self.current_plan = None;
+                self.current_step_index = StepIndex::zero();
+                self.current_step = self.current_step_index.get();
+                self.transition_to(AgentState::GeneratePlan)
+            }
+            ReviewOutcome::Timeout => self.transition_to(AgentState::Blocked),
+        }
     }
 
     pub fn metrics(&self) -> LifecycleMetrics {
@@ -983,6 +1216,33 @@ impl LifecycleManager {
 
     pub fn current_iteration(&self) -> usize {
         self.current_iteration_number.get()
+    }
+
+    fn record_runbook_hint_for_error(&mut self, error_text: &str) {
+        let keyword = if error_text.to_ascii_lowercase().contains("policy") {
+            "policy"
+        } else if error_text.to_ascii_lowercase().contains("timeout") {
+            "timeout"
+        } else if error_text.to_ascii_lowercase().contains("circuit") {
+            "circuit"
+        } else {
+            return;
+        };
+
+        let entries = self.incident_runbook.lookup(keyword);
+        if let Some(entry) = entries.first() {
+            let remediation = entry.remediation_steps.join(" | ");
+            self.memory.add_failure(
+                self.iteration,
+                format!("Runbook hint ({})", entry.scenario),
+                error_text.to_string(),
+                Some(remediation.clone()),
+            );
+            self.run_replay.record(
+                "runbook.hint",
+                format!("{} => {}", entry.scenario, remediation),
+            );
+        }
     }
 }
 
