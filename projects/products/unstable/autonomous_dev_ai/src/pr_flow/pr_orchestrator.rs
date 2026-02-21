@@ -3,6 +3,7 @@ use super::{
     CiStatus, IssueComplianceStatus, MergeReadiness, MergeReadinessChecker, PrMetadata,
     ReviewComment, ReviewFeedbackIngester, ReviewOutcome,
 };
+use crate::ids::PrNumber;
 use serde::{Deserialize, Serialize};
 
 /// Orchestrates the full PR lifecycle: open -> review loop -> merge readiness.
@@ -25,7 +26,7 @@ impl PrOrchestrator {
     }
 
     /// "Open" the PR (in a real integration this would call the GitHub API).
-    pub fn open(&mut self, pr_number: u64) {
+    pub fn open(&mut self, pr_number: PrNumber) {
         self.metadata.pr_number = Some(pr_number);
         tracing::info!("PR #{} opened: {}", pr_number, self.metadata.title);
     }

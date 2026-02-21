@@ -1,16 +1,17 @@
 // projects/products/unstable/autonomous_dev_ai/src/pr_flow/pr_metadata.rs
 use super::{CiStatus, IssueComplianceStatus};
+use crate::ids::{IssueNumber, PrNumber};
 use serde::{Deserialize, Serialize};
 
 /// Metadata for a pull request managed by the autonomous agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrMetadata {
     /// PR number (None until the PR has been created on the remote).
-    pub pr_number: Option<u64>,
+    pub pr_number: Option<PrNumber>,
     pub title: String,
     pub body: String,
     /// Branches this PR closes (issue numbers as strings).
-    pub closes_issues: Vec<String>,
+    pub closes_issues: Vec<IssueNumber>,
     pub ci_status: CiStatus,
     pub policy_compliant: bool,
     pub issue_compliance: IssueComplianceStatus,
@@ -30,9 +31,9 @@ impl PrMetadata {
     }
 
     /// Add a `Closes #N` reference to the PR body.
-    pub fn close_issue(&mut self, issue_number: &str) {
-        if !self.closes_issues.contains(&issue_number.to_string()) {
-            self.closes_issues.push(issue_number.to_string());
+    pub fn close_issue(&mut self, issue_number: IssueNumber) {
+        if !self.closes_issues.contains(&issue_number) {
+            self.closes_issues.push(issue_number);
         }
     }
 

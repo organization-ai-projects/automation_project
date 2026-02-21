@@ -5,6 +5,7 @@ mod audit_logger;
 mod autonomous_agent;
 mod config_loader;
 mod error;
+mod ids;
 mod lifecycle;
 mod memory;
 mod memory_graph;

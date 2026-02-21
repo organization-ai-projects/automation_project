@@ -10,6 +10,7 @@ use super::{
 use crate::agent_config::AgentConfig;
 use crate::audit_logger::AuditLogger;
 use crate::error::{AgentError, AgentResult};
+use crate::ids::{IssueNumber, ParentRef, PrNumber};
 use crate::lifecycle::ActionRiskLevel;
 use crate::memory_graph::MemoryGraph;
 use crate::neural::{
@@ -80,7 +81,7 @@ pub struct LifecycleManager {
 }
 
 impl LifecycleManager {
-    pub(crate) fn extract_pr_number_from_goal(goal: &str) -> Option<String> {
+    pub(crate) fn extract_issue_number_from_goal(goal: &str) -> Option<IssueNumber> {
         let bytes = goal.as_bytes();
         let mut i = 0usize;
 
@@ -92,7 +93,8 @@ impl LifecycleManager {
                     end += 1;
                 }
                 if end > start {
-                    return Some(goal[start..end].to_string());
+                    let raw = goal[start..end].parse::<u64>().ok()?;
+                    return IssueNumber::new(raw);
                 }
             }
             i += 1;
@@ -1722,8 +1724,7 @@ impl LifecycleManager {
             .try_generate_enhanced_pr_description(&goal, &default_pr_body)
             .unwrap_or(default_pr_body);
 
-        let pr_number =
-            Self::extract_pr_number_from_goal(&goal).and_then(|v| v.parse::<u64>().ok());
+        let issue_number = Self::extract_issue_number_from_goal(&goal);
         let issue_body = self
             .memory
             .metadata
@@ -1742,9 +1743,11 @@ impl LifecycleManager {
         let pr_body = append_issue_compliance_note(&pr_body, &issue_compliance);
         let mut pr_orchestrator =
             PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);
-        if let Some(n) = pr_number {
-            pr_orchestrator.open(n);
-            pr_orchestrator.metadata.close_issue(&n.to_string());
+        if let Some(n) = issue_number {
+            if let Some(prn) = PrNumber::new(n.get()) {
+                pr_orchestrator.open(prn);
+            }
+            pr_orchestrator.metadata.close_issue(n);
         }
         pr_orchestrator.set_ci_status(match self.memory.metadata.get("last_validation_success") {
             Some(v) if v == "true" => CiStatus::Passing,
@@ -1834,7 +1837,7 @@ impl LifecycleManager {
     ) -> Option<String> {
         let main_pr_number = std::env::var("AUTONOMOUS_MAIN_PR_NUMBER")
             .ok()
-            .or_else(|| Self::extract_pr_number_from_goal(goal));
+            .or_else(|| Self::extract_issue_number_from_goal(goal).map(|n| n.to_string()));
 
         let output_file = std::env::var("AUTONOMOUS_PR_DESCRIPTION_OUTPUT")
             .unwrap_or_else(|_| "pr_description.md".to_string());
@@ -2269,30 +2272,33 @@ fn validate_required_issue_fields(body: &str) -> Option<String> {
         });
 
     if let Some(parent) = parent_line {
-        if parent.eq_ignore_ascii_case("none") {
-            return None;
-        }
-        if !parent.starts_with('#') || parent[1..].chars().any(|c| !c.is_ascii_digit()) {
+        let Some(parent_ref) = ParentRef::parse(&parent) else {
             return Some("Parent must be '#<number>' or 'none'".to_string());
-        }
+        };
 
-        let parent_id = parent[1..].to_string();
-        if let Ok(issue_number) = std::env::var("AUTONOMOUS_ISSUE_NUMBER")
-            && issue_number == parent_id
-        {
-            return Some("Parent cannot reference the issue itself".to_string());
-        }
+        if let ParentRef::Issue(parent_issue) = parent_ref {
+            if let Ok(issue_number) = std::env::var("AUTONOMOUS_ISSUE_NUMBER")
+                && issue_number == parent_issue.to_string()
+            {
+                return Some("Parent cannot reference the issue itself".to_string());
+            }
 
-        if let Ok(existing_raw) = std::env::var("AUTONOMOUS_EXISTING_ISSUE_NUMBERS") {
-            let exists = existing_raw
-                .split(',')
-                .map(|s| s.trim().trim_start_matches('#'))
-                .filter(|s| !s.is_empty())
-                .any(|n| n == parent_id);
-            if !exists {
-                return Some(format!(
-                    "Parent #{parent_id} does not exist in known issue set"
-                ));
+            if let Ok(existing_raw) = std::env::var("AUTONOMOUS_EXISTING_ISSUE_NUMBERS") {
+                let exists = existing_raw
+                    .split(',')
+                    .map(|s| s.trim())
+                    .filter_map(ParentRef::parse)
+                    .filter_map(|r| match r {
+                        ParentRef::Issue(n) => Some(n),
+                        ParentRef::None => None,
+                    })
+                    .any(|n| n == parent_issue);
+                if !exists {
+                    return Some(format!(
+                        "Parent #{} does not exist in known issue set",
+                        parent_issue
+                    ));
+                }
             }
         }
     }
