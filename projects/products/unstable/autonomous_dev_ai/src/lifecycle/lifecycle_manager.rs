@@ -529,6 +529,16 @@ impl LifecycleManager {
             })
     }
 
+    fn record_replay(&mut self, kind: &str, payload: impl Into<String>) {
+        self.run_replay.record(kind, payload);
+    }
+
+    fn log_symbolic_decision_safe(&self, decision: &str, details: &str) -> AgentResult<()> {
+        self.audit
+            .log_symbolic_decision(decision, details)
+            .map_err(|e| AgentError::State(e.to_string()))
+    }
+
     fn execute_current_state(&mut self) -> LifecycleResult<()> {
         self.execution_context = Some(ExecutionContext::new(
             self.current_iteration_number,
@@ -1750,20 +1760,13 @@ impl LifecycleManager {
             MergeReadiness::NotReady { reasons } => format!("not_ready: {}", reasons.join(" | ")),
         };
         let rendered_body = pr_orchestrator.metadata.render_body();
-        self.run_replay
-            .record("pr.readiness", readiness_msg.clone());
-        self.run_replay
-            .record("issue.compliance", format!("{:?}", issue_compliance));
-        self.run_replay
-            .record("pr.rendered_body", format!("chars={}", rendered_body.len()));
+        self.record_replay("pr.readiness", readiness_msg.clone());
+        self.record_replay("issue.compliance", format!("{:?}", issue_compliance));
+        self.record_replay("pr.rendered_body", format!("chars={}", rendered_body.len()));
         self.pr_orchestrator = Some(pr_orchestrator);
 
-        self.audit
-            .log_symbolic_decision("create_pr", &rendered_body)
-            .map_err(|e| AgentError::State(e.to_string()))?;
-        self.audit
-            .log_symbolic_decision("merge_readiness", &readiness_msg)
-            .map_err(|e| AgentError::State(e.to_string()))?;
+        self.log_symbolic_decision_safe("create_pr", &rendered_body)?;
+        self.log_symbolic_decision_safe("merge_readiness", &readiness_msg)?;
         if !readiness_ok {
             self.memory.add_failure(
                 self.iteration,
