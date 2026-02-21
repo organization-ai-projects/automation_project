@@ -21,7 +21,6 @@ use crate::security::{ActorIdentity, AuthzDecision, AuthzEngine, PolicyPack, Sec
 use crate::state::AgentState;
 use crate::symbolic::{
     IssueClassificationInput, Plan, PlanStep, PolicyEngine, SymbolicController, Validator,
-    classify_issue,
 };
 use crate::tools::{
     GitWrapper, PrDescriptionGenerator, RepoReader, TestRunner, ToolRegistry, ToolResult,
@@ -169,7 +168,8 @@ impl LifecycleManager {
             current_step_index: StepIndex::zero(),
             execution_context: None,
             circuit_breakers: HashMap::new(),
-            retry_strategy: RetryStrategy::default(),
+            retry_strategy: RetryStrategy::default()
+                .with_delays(Duration::from_millis(200), Duration::from_secs(5)),
             metrics: MetricsCollector::new(),
             run_replay,
             slo_evaluator,
@@ -201,6 +201,13 @@ impl LifecycleManager {
         self.run_replay.record("lifecycle.start", goal);
         self.run_replay
             .record("lifecycle.checkpoint_path", self.checkpoint_path.clone());
+        self.run_replay.record(
+            "symbolic.mode",
+            format!(
+                "strict_validation={} deterministic={}",
+                self.symbolic.strict_validation, self.symbolic.deterministic
+            ),
+        );
         if let Some(state) = self.model_governance.registry.state("default-neural") {
             self.run_replay
                 .record("neural.rollout_state", format!("{:?}", state));
@@ -496,11 +503,13 @@ impl LifecycleManager {
         if let Some(ctx) = &self.execution_context
             && ctx.is_timed_out()
         {
+            let remaining = ctx.remaining_time().unwrap_or_default();
             return Err(AgentError::State(format!(
-                "Iteration {} timed out: {:?} > {:?}",
+                "Iteration {} timed out: {:?} > {:?} (remaining {:?})",
                 ctx.iteration.get(),
                 ctx.start_time.elapsed(),
-                ctx.timeout
+                ctx.timeout,
+                remaining
             )));
         }
         Ok(())
@@ -606,7 +615,7 @@ impl LifecycleManager {
                 .cloned()
                 .unwrap_or_default(),
         };
-        let issue_category = classify_issue(&issue_input, 0.6);
+        let issue_category = self.symbolic.resolve_issue_category(&issue_input, 0.6);
         self.memory.metadata.insert(
             "issue_category".to_string(),
             format!("{:?}", issue_category.category),
@@ -628,8 +637,11 @@ impl LifecycleManager {
                         self.run_replay.record(
                             "neural.runtime",
                             format!(
-                                "confidence={:.3} uncertainty={:.3} cpu_fallback={}",
-                                suggested.confidence, uncertainty, cpu_fallback
+                                "confidence={:.3} uncertainty={:.3} prefer_gpu={} cpu_fallback={}",
+                                suggested.confidence,
+                                uncertainty,
+                                self.neural.prefer_gpu,
+                                cpu_fallback
                             ),
                         );
 
@@ -911,14 +923,16 @@ impl LifecycleManager {
                 .or_insert_with(|| CircuitBreaker::new(3, 2, Duration::from_secs(60)));
 
             if !breaker.should_allow_request() {
+                let state = breaker.state();
                 tracing::warn!(
-                    "Circuit breaker open for tool '{}', skipping execution",
-                    step.tool
+                    "Circuit breaker not allowing tool '{}' (state: {:?}), skipping execution",
+                    step.tool,
+                    state
                 );
 
                 return Err(AgentError::Tool(format!(
-                    "Circuit breaker open for tool '{}'",
-                    step.tool
+                    "Circuit breaker blocked tool '{}' in state {:?}",
+                    step.tool, state
                 )));
             }
         }
@@ -1029,6 +1043,7 @@ impl LifecycleManager {
 
     fn enforce_authz_for_action(&mut self, action: &str) -> AgentResult<()> {
         let decision = self.authz.check(&self.actor, action);
+        let actor_has_dev_role = self.actor.has_role(&crate::security::ActorRole::Developer);
         let security_audit = SecurityAuditRecord::new(&self.actor, action, &decision);
         let security_payload = serde_json::to_string(&security_audit)
             .unwrap_or_else(|_| format!("authz action={} decision={:?}", action, decision));
@@ -1038,8 +1053,18 @@ impl LifecycleManager {
             .log_symbolic_decision("security_authz", &security_payload);
         self.run_replay.record("security.authz", security_payload);
 
+        if !actor_has_dev_role {
+            return Err(AgentError::PolicyViolation(format!(
+                "Actor '{}' is missing required Developer role for action '{}'",
+                self.actor.id, action
+            )));
+        }
+
+        if decision.is_allowed() {
+            return Ok(());
+        }
+
         match decision {
-            AuthzDecision::Allow => Ok(()),
             AuthzDecision::Deny { reason } => Err(AgentError::PolicyViolation(format!(
                 "Authorization denied for action '{}': {}",
                 action, reason
@@ -1050,6 +1075,7 @@ impl LifecycleManager {
                     action, required_role
                 )))
             }
+            AuthzDecision::Allow => Ok(()),
         }
     }
 
