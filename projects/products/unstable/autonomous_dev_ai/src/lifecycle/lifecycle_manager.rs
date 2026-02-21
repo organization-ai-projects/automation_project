@@ -363,123 +363,7 @@ impl LifecycleManager {
         let mut recoverable_attempts = 0usize;
 
         while !self.state.is_terminal() {
-            if start_time.elapsed() > self.global_timeout.duration {
-                tracing::error!("Global timeout exceeded: {:?}", start_time.elapsed());
-                self.metrics.record_iteration_failure(start_time.elapsed());
-
-                return Err(LifecycleError::Timeout {
-                    iteration: self.iteration,
-                    elapsed: start_time.elapsed(),
-                    limit: self.global_timeout,
-                });
-            }
-
-            let metrics_snapshot = self.metrics.snapshot();
-            let memory_entries = self.memory.explored_files.len()
-                + self.memory.plans.len()
-                + self.memory.decisions.len()
-                + self.memory.failures.len()
-                + self.memory.objective_evaluations.len();
-            let memory_budget = std::env::var("AUTONOMOUS_MAX_MEMORY_ENTRIES")
-                .ok()
-                .and_then(|s| s.parse::<usize>().ok())
-                .unwrap_or(10_000);
-            if memory_entries >= memory_budget {
-                self.memory.add_failure(
-                    self.iteration,
-                    "Resource budget exceeded".to_string(),
-                    format!(
-                        "memory budget exceeded: entries={} budget={}",
-                        memory_entries, memory_budget
-                    ),
-                    Some(
-                        "reduce retained memory or increase AUTONOMOUS_MAX_MEMORY_ENTRIES"
-                            .to_string(),
-                    ),
-                );
-                self.transition_to(AgentState::Failed)
-                    .map_err(|e| LifecycleError::Fatal {
-                        iteration: self.iteration,
-                        error: e,
-                        context: "Failed to transition to Failed state".to_string(),
-                    })?;
-                return Err(LifecycleError::ResourceExhausted {
-                    resource: ResourceType::Memory,
-                    limit: memory_budget,
-                    current: memory_entries,
-                });
-            }
-
-            if let Some(limit_reason) = self.resource_budget.is_exceeded(
-                start_time.elapsed(),
-                self.current_iteration_number.get(),
-                metrics_snapshot.tool_executions_total,
-            ) {
-                let resource = match limit_reason {
-                    "runtime budget exceeded" => ResourceType::Time,
-                    "tool execution budget exceeded" => ResourceType::ToolExecutions,
-                    _ => ResourceType::Iterations,
-                };
-                self.memory.add_failure(
-                    self.iteration,
-                    "Resource budget exceeded".to_string(),
-                    limit_reason.to_string(),
-                    Some("reduce run scope or increase configured budget".to_string()),
-                );
-                self.transition_to(AgentState::Failed)
-                    .map_err(|e| LifecycleError::Fatal {
-                        iteration: self.iteration,
-                        error: e,
-                        context: "Failed to transition to Failed state".to_string(),
-                    })?;
-                return Err(LifecycleError::ResourceExhausted {
-                    resource,
-                    limit: match resource {
-                        ResourceType::Time => self.resource_budget.max_runtime.as_secs() as usize,
-                        ResourceType::ToolExecutions => self.resource_budget.max_tool_executions,
-                        _ => self.resource_budget.max_iterations,
-                    },
-                    current: match resource {
-                        ResourceType::Time => start_time.elapsed().as_secs() as usize,
-                        ResourceType::ToolExecutions => metrics_snapshot.tool_executions_total,
-                        _ => self.current_iteration_number.get(),
-                    },
-                });
-            }
-
-            if self
-                .current_iteration_number
-                .exceeds(self.max_iterations_limit)
-            {
-                tracing::error!(
-                    "Maximum iterations exceeded: {} > {}",
-                    self.current_iteration_number,
-                    self.max_iterations_limit.get()
-                );
-
-                self.memory.add_failure(
-                    self.iteration,
-                    "Maximum iterations exceeded".to_string(),
-                    format!(
-                        "Agent exceeded maximum allowed iterations ({})",
-                        self.max_iterations_limit.get()
-                    ),
-                    None,
-                );
-
-                self.transition_to(AgentState::Failed)
-                    .map_err(|e| LifecycleError::Fatal {
-                        iteration: self.iteration,
-                        error: e,
-                        context: "Failed to transition to Failed state".to_string(),
-                    })?;
-
-                return Err(LifecycleError::ResourceExhausted {
-                    resource: ResourceType::Iterations,
-                    limit: self.max_iterations_limit.get(),
-                    current: self.iteration,
-                });
-            }
+            self.check_resource_budgets(start_time)?;
 
             let iteration_start = Instant::now();
             self.metrics.record_iteration_start();
@@ -520,6 +404,127 @@ impl LifecycleManager {
                     return Err(err);
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    fn check_resource_budgets(&mut self, start_time: Instant) -> LifecycleResult<()> {
+        if start_time.elapsed() > self.global_timeout.duration {
+            tracing::error!("Global timeout exceeded: {:?}", start_time.elapsed());
+            self.metrics.record_iteration_failure(start_time.elapsed());
+
+            return Err(LifecycleError::Timeout {
+                iteration: self.iteration,
+                elapsed: start_time.elapsed(),
+                limit: self.global_timeout,
+            });
+        }
+
+        let metrics_snapshot = self.metrics.snapshot();
+        let memory_entries = self.memory.explored_files.len()
+            + self.memory.plans.len()
+            + self.memory.decisions.len()
+            + self.memory.failures.len()
+            + self.memory.objective_evaluations.len();
+        let memory_budget = std::env::var("AUTONOMOUS_MAX_MEMORY_ENTRIES")
+            .ok()
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(10_000);
+        if memory_entries >= memory_budget {
+            self.memory.add_failure(
+                self.iteration,
+                "Resource budget exceeded".to_string(),
+                format!(
+                    "memory budget exceeded: entries={} budget={}",
+                    memory_entries, memory_budget
+                ),
+                Some(
+                    "reduce retained memory or increase AUTONOMOUS_MAX_MEMORY_ENTRIES".to_string(),
+                ),
+            );
+            self.transition_to(AgentState::Failed)
+                .map_err(|e| LifecycleError::Fatal {
+                    iteration: self.iteration,
+                    error: e,
+                    context: "Failed to transition to Failed state".to_string(),
+                })?;
+            return Err(LifecycleError::ResourceExhausted {
+                resource: ResourceType::Memory,
+                limit: memory_budget,
+                current: memory_entries,
+            });
+        }
+
+        if let Some(limit_reason) = self.resource_budget.is_exceeded(
+            start_time.elapsed(),
+            self.current_iteration_number.get(),
+            metrics_snapshot.tool_executions_total,
+        ) {
+            let resource = match limit_reason {
+                "runtime budget exceeded" => ResourceType::Time,
+                "tool execution budget exceeded" => ResourceType::ToolExecutions,
+                _ => ResourceType::Iterations,
+            };
+            self.memory.add_failure(
+                self.iteration,
+                "Resource budget exceeded".to_string(),
+                limit_reason.to_string(),
+                Some("reduce run scope or increase configured budget".to_string()),
+            );
+            self.transition_to(AgentState::Failed)
+                .map_err(|e| LifecycleError::Fatal {
+                    iteration: self.iteration,
+                    error: e,
+                    context: "Failed to transition to Failed state".to_string(),
+                })?;
+            return Err(LifecycleError::ResourceExhausted {
+                resource,
+                limit: match resource {
+                    ResourceType::Time => self.resource_budget.max_runtime.as_secs() as usize,
+                    ResourceType::ToolExecutions => self.resource_budget.max_tool_executions,
+                    _ => self.resource_budget.max_iterations,
+                },
+                current: match resource {
+                    ResourceType::Time => start_time.elapsed().as_secs() as usize,
+                    ResourceType::ToolExecutions => metrics_snapshot.tool_executions_total,
+                    _ => self.current_iteration_number.get(),
+                },
+            });
+        }
+
+        if self
+            .current_iteration_number
+            .exceeds(self.max_iterations_limit)
+        {
+            tracing::error!(
+                "Maximum iterations exceeded: {} > {}",
+                self.current_iteration_number,
+                self.max_iterations_limit.get()
+            );
+
+            self.memory.add_failure(
+                self.iteration,
+                "Maximum iterations exceeded".to_string(),
+                format!(
+                    "Agent exceeded maximum allowed iterations ({})",
+                    self.max_iterations_limit.get()
+                ),
+                None,
+            );
+
+            self.transition_to(AgentState::Failed)
+                .map_err(|e| LifecycleError::Fatal {
+                    iteration: self.iteration,
+                    error: e,
+                    context: "Failed to transition to Failed state".to_string(),
+                })?;
+
+            return Err(LifecycleError::ResourceExhausted {
+                resource: ResourceType::Iterations,
+                limit: self.max_iterations_limit.get(),
+                current: self.iteration,
+            });
         }
 
         Ok(())
