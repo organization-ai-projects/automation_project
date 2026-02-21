@@ -4,9 +4,10 @@ use crate::config_loader::load_config;
 use crate::error::AgentResult;
 use crate::lifecycle::LifecycleManager;
 use crate::persistence::{
-    LearningSnapshot, append_learning_snapshot, load_decision_inverted_index,
-    load_failure_inverted_index, load_memory_state_index, load_memory_state_with_fallback,
-    load_recent_learning_snapshots, memory_transaction_completed, save_memory_state_transactional,
+    LearningSnapshot, append_learning_snapshot, load_action_outcome_index,
+    load_decision_inverted_index, load_failure_inverted_index, load_memory_state_index,
+    load_memory_state_with_fallback, load_recent_learning_snapshots, memory_transaction_completed,
+    save_memory_state_transactional,
 };
 
 //Autonomous developer AI agent
@@ -110,6 +111,20 @@ impl AutonomousAgent {
                 self.lifecycle.memory.metadata.insert(
                     "previous_state_latest_decision_iteration".to_string(),
                     iteration.to_string(),
+                );
+            }
+        }
+        if let Some(action_outcome_index) = load_action_outcome_index(&self.state_path)? {
+            if let Some((action, stats)) = select_worst_action_outcome(&action_outcome_index) {
+                self.lifecycle.memory.metadata.insert(
+                    "previous_state_worst_action_outcome".to_string(),
+                    format!("{}:{:.3}:{}", action, stats.pass_rate, stats.total),
+                );
+            }
+            if let Some((action, stats)) = select_best_action_outcome(&action_outcome_index) {
+                self.lifecycle.memory.metadata.insert(
+                    "previous_state_best_action_outcome".to_string(),
+                    format!("{}:{:.3}:{}", action, stats.pass_rate, stats.total),
                 );
             }
         }
@@ -220,4 +235,34 @@ fn learning_recency_decay() -> f64 {
         .and_then(|v| v.parse::<f64>().ok())
         .filter(|v| *v > 0.0 && *v <= 1.0)
         .unwrap_or(0.85)
+}
+
+fn select_worst_action_outcome(
+    index: &crate::persistence::ActionOutcomeIndex,
+) -> Option<(String, crate::persistence::ActionOutcomeStats)> {
+    index
+        .by_action
+        .iter()
+        .filter(|(_, stats)| stats.total >= 2)
+        .min_by(|a, b| {
+            a.1.pass_rate
+                .partial_cmp(&b.1.pass_rate)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(action, stats)| (action.clone(), stats.clone()))
+}
+
+fn select_best_action_outcome(
+    index: &crate::persistence::ActionOutcomeIndex,
+) -> Option<(String, crate::persistence::ActionOutcomeStats)> {
+    index
+        .by_action
+        .iter()
+        .filter(|(_, stats)| stats.total >= 2)
+        .max_by(|a, b| {
+            a.1.pass_rate
+                .partial_cmp(&b.1.pass_rate)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(action, stats)| (action.clone(), stats.clone()))
 }

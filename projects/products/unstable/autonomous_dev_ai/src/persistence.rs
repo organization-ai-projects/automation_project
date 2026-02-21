@@ -77,6 +77,21 @@ pub struct LearningSnapshot {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionOutcomeStats {
+    pub total: usize,
+    pub passed: usize,
+    pub failed: usize,
+    pub unknown: usize,
+    pub pass_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionOutcomeIndex {
+    pub generated_at_secs: u64,
+    pub by_action: std::collections::HashMap<String, ActionOutcomeStats>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct MemoryTransactionJournal {
     state: String,
     started_at_secs: u64,
@@ -185,6 +200,48 @@ impl LearningSnapshot {
     }
 }
 
+impl ActionOutcomeIndex {
+    pub fn from_memory(memory: &MemoryGraph) -> Self {
+        let mut outcome_by_iteration = std::collections::HashMap::new();
+        for evaluation in &memory.objective_evaluations {
+            outcome_by_iteration.insert(evaluation.iteration, evaluation.passed);
+        }
+
+        let mut by_action: std::collections::HashMap<String, ActionOutcomeStats> =
+            std::collections::HashMap::new();
+        for decision in &memory.decisions {
+            let action = infer_decision_action(decision);
+            let stats = by_action.entry(action).or_insert(ActionOutcomeStats {
+                total: 0,
+                passed: 0,
+                failed: 0,
+                unknown: 0,
+                pass_rate: 0.0,
+            });
+            stats.total = stats.total.saturating_add(1);
+            match outcome_by_iteration.get(&decision.iteration).copied() {
+                Some(true) => stats.passed = stats.passed.saturating_add(1),
+                Some(false) => stats.failed = stats.failed.saturating_add(1),
+                None => stats.unknown = stats.unknown.saturating_add(1),
+            }
+        }
+
+        for stats in by_action.values_mut() {
+            let observed = stats.passed.saturating_add(stats.failed);
+            stats.pass_rate = if observed == 0 {
+                0.0
+            } else {
+                stats.passed as f64 / observed as f64
+            };
+        }
+
+        Self {
+            generated_at_secs: now_secs(),
+            by_action,
+        }
+    }
+}
+
 pub fn save_memory_state_transactional<P: AsRef<Path>>(
     base_path: P,
     memory: &MemoryGraph,
@@ -195,6 +252,7 @@ pub fn save_memory_state_transactional<P: AsRef<Path>>(
     let idx_path = base.with_extension("idx.json");
     let fail_idx_path = base.with_extension("fail_idx.json");
     let decision_idx_path = base.with_extension("decision_idx.json");
+    let action_outcome_idx_path = base.with_extension("action_outcome_idx.json");
     let txn_path = base.with_extension("txn.json");
 
     let files = vec![
@@ -203,6 +261,7 @@ pub fn save_memory_state_transactional<P: AsRef<Path>>(
         idx_path.display().to_string(),
         fail_idx_path.display().to_string(),
         decision_idx_path.display().to_string(),
+        action_outcome_idx_path.display().to_string(),
     ];
     let start_journal = MemoryTransactionJournal {
         state: "started".to_string(),
@@ -226,6 +285,8 @@ pub fn save_memory_state_transactional<P: AsRef<Path>>(
     write_json_atomic(&fail_idx_path, &failure_index)?;
     let decision_index = DecisionInvertedIndex::from_decisions(&memory.decisions);
     write_json_atomic(&decision_idx_path, &decision_index)?;
+    let action_outcome_index = ActionOutcomeIndex::from_memory(memory);
+    write_json_atomic(&action_outcome_idx_path, &action_outcome_index)?;
 
     let done_journal = MemoryTransactionJournal {
         state: "completed".to_string(),
@@ -297,6 +358,19 @@ pub fn load_decision_inverted_index<P: AsRef<Path>>(
     }
     let content = fs::read_to_string(&idx_path)?;
     let index: DecisionInvertedIndex =
+        serde_json::from_str(&content).map_err(|e| AgentError::Serialization(e.to_string()))?;
+    Ok(Some(index))
+}
+
+pub fn load_action_outcome_index<P: AsRef<Path>>(
+    base_path: P,
+) -> AgentResult<Option<ActionOutcomeIndex>> {
+    let idx_path = base_path.as_ref().with_extension("action_outcome_idx.json");
+    if !idx_path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&idx_path)?;
+    let index: ActionOutcomeIndex =
         serde_json::from_str(&content).map_err(|e| AgentError::Serialization(e.to_string()))?;
     Ok(Some(index))
 }
