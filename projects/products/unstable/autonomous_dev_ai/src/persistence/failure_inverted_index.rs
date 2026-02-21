@@ -1,3 +1,6 @@
+// projects/products/unstable/autonomous_dev_ai/src/persistence/failure_inverted_index.rs
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::memory::FailureEntry;
@@ -7,17 +10,17 @@ use super::utils;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailureInvertedIndex {
     pub generated_at_secs: u64,
-    pub by_kind: std::collections::HashMap<String, usize>,
-    pub by_tool: std::collections::HashMap<String, usize>,
-    pub by_iteration: std::collections::HashMap<usize, usize>,
+    pub by_kind: HashMap<String, usize>,
+    pub by_tool: HashMap<String, usize>,
+    pub by_iteration: HashMap<usize, usize>,
     pub latest_failure_iteration: Option<usize>,
 }
 
 impl FailureInvertedIndex {
     pub fn from_failures(failures: &[FailureEntry]) -> Self {
-        let mut by_kind = std::collections::HashMap::new();
-        let mut by_tool = std::collections::HashMap::new();
-        let mut by_iteration = std::collections::HashMap::new();
+        let mut by_kind = HashMap::new();
+        let mut by_tool = HashMap::new();
+        let mut by_iteration = HashMap::new();
         let mut latest_failure_iteration = None;
 
         for failure in failures {
