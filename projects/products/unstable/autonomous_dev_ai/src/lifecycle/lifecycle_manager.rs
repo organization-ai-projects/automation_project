@@ -389,6 +389,7 @@ impl LifecycleManager {
                     .get("created_pr_number")
                     .and_then(|s| s.parse::<u64>().ok())
             });
+        let last_failure = self.memory.failures.last();
         let report = RunReport {
             generated_at_secs: RunReport::now_secs(),
             run_id: self.actor.run_id.to_string(),
@@ -408,6 +409,8 @@ impl LifecycleManager {
             pr_number,
             pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
             issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
+            last_failure_description: last_failure.map(|f| f.description.clone()),
+            last_failure_error: last_failure.map(|f| f.error.clone()),
         };
 
         let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")
