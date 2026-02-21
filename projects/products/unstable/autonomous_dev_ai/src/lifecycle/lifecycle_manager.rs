@@ -1744,11 +1744,23 @@ impl LifecycleManager {
         let pr_body = append_issue_compliance_note(&pr_body, &issue_compliance);
         let mut pr_orchestrator =
             PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);
+        let mut opened_pr = false;
         if let Ok(pr_number_raw) = std::env::var("AUTONOMOUS_PR_NUMBER")
             && let Ok(parsed) = pr_number_raw.parse::<u64>()
             && let Some(prn) = PrNumber::new(parsed)
         {
             pr_orchestrator.open(prn);
+            opened_pr = true;
+        }
+        let require_pr_number = std::env::var("AUTONOMOUS_REQUIRE_PR_NUMBER")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if require_pr_number && !opened_pr {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_PR_NUMBER=true but AUTONOMOUS_PR_NUMBER is missing or invalid"
+                    .to_string(),
+            ));
         }
         if let Some(n) = issue_number {
             self.record_replay("issue.reference", format!("issue_number={}", n.get()));
@@ -1766,7 +1778,8 @@ impl LifecycleManager {
             .any(|f| f.description.to_ascii_lowercase().contains("policy"));
         pr_orchestrator.set_policy_compliant(policy_ok);
         pr_orchestrator.set_issue_compliance(issue_compliance.clone());
-        pr_orchestrator.update_body(pr_body.clone());
+        let rendered_body = pr_orchestrator.metadata.render_body();
+        pr_orchestrator.update_body(rendered_body.clone());
 
         let readiness = pr_orchestrator.merge_readiness();
         let readiness_ok = readiness.is_ready();
@@ -1774,7 +1787,6 @@ impl LifecycleManager {
             MergeReadiness::Ready => "ready".to_string(),
             MergeReadiness::NotReady { reasons } => format!("not_ready: {}", reasons.join(" | ")),
         };
-        let rendered_body = pr_orchestrator.metadata.render_body();
         self.record_replay("pr.readiness", readiness_msg.clone());
         self.record_replay("issue.compliance", format!("{:?}", issue_compliance));
         self.record_replay("pr.rendered_body", format!("chars={}", rendered_body.len()));
