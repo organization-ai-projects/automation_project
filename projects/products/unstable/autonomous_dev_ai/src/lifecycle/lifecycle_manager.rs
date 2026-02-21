@@ -432,9 +432,7 @@ impl LifecycleManager {
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(10_000);
         if memory_entries >= memory_budget {
-            self.memory.add_failure(
-                self.iteration,
-                "Resource budget exceeded".to_string(),
+            self.record_resource_budget_failure(
                 format!(
                     "memory budget exceeded: entries={} budget={}",
                     memory_entries, memory_budget
@@ -443,12 +441,7 @@ impl LifecycleManager {
                     "reduce retained memory or increase AUTONOMOUS_MAX_MEMORY_ENTRIES".to_string(),
                 ),
             );
-            self.transition_to(AgentState::Failed)
-                .map_err(|e| LifecycleError::Fatal {
-                    iteration: self.iteration,
-                    error: e,
-                    context: "Failed to transition to Failed state".to_string(),
-                })?;
+            self.transition_to_failed_state()?;
             return Err(LifecycleError::ResourceExhausted {
                 resource: ResourceType::Memory,
                 limit: memory_budget,
@@ -466,18 +459,11 @@ impl LifecycleManager {
                 "tool execution budget exceeded" => ResourceType::ToolExecutions,
                 _ => ResourceType::Iterations,
             };
-            self.memory.add_failure(
-                self.iteration,
-                "Resource budget exceeded".to_string(),
+            self.record_resource_budget_failure(
                 limit_reason.to_string(),
                 Some("reduce run scope or increase configured budget".to_string()),
             );
-            self.transition_to(AgentState::Failed)
-                .map_err(|e| LifecycleError::Fatal {
-                    iteration: self.iteration,
-                    error: e,
-                    context: "Failed to transition to Failed state".to_string(),
-                })?;
+            self.transition_to_failed_state()?;
             return Err(LifecycleError::ResourceExhausted {
                 resource,
                 limit: match resource {
@@ -513,12 +499,7 @@ impl LifecycleManager {
                 None,
             );
 
-            self.transition_to(AgentState::Failed)
-                .map_err(|e| LifecycleError::Fatal {
-                    iteration: self.iteration,
-                    error: e,
-                    context: "Failed to transition to Failed state".to_string(),
-                })?;
+            self.transition_to_failed_state()?;
 
             return Err(LifecycleError::ResourceExhausted {
                 resource: ResourceType::Iterations,
@@ -528,6 +509,24 @@ impl LifecycleManager {
         }
 
         Ok(())
+    }
+
+    fn record_resource_budget_failure(&mut self, error: String, recovery: Option<String>) {
+        self.memory.add_failure(
+            self.iteration,
+            "Resource budget exceeded".to_string(),
+            error,
+            recovery,
+        );
+    }
+
+    fn transition_to_failed_state(&mut self) -> LifecycleResult<()> {
+        self.transition_to(AgentState::Failed)
+            .map_err(|e| LifecycleError::Fatal {
+                iteration: self.iteration,
+                error: e,
+                context: "Failed to transition to Failed state".to_string(),
+            })
     }
 
     fn execute_current_state(&mut self) -> LifecycleResult<()> {
