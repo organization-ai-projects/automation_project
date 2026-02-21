@@ -14,5 +14,8 @@ pub struct MetricsInner {
     pub iterations_failed: usize,
     pub tool_executions: HashMap<String, ToolMetrics>,
     pub state_transitions: usize,
+    pub risk_gate_allows: usize,
+    pub risk_gate_denies: usize,
+    pub risk_gate_high_approvals: usize,
     pub iteration_durations: Vec<Duration>,
 }

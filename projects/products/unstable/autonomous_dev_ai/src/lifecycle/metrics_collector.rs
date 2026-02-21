@@ -22,6 +22,9 @@ impl MetricsCollector {
                 iterations_failed: 0,
                 tool_executions: HashMap::new(),
                 state_transitions: 0,
+                risk_gate_allows: 0,
+                risk_gate_denies: 0,
+                risk_gate_high_approvals: 0,
                 iteration_durations: Vec::new(),
             })),
         }
@@ -70,6 +73,21 @@ impl MetricsCollector {
         inner.state_transitions = inner.state_transitions.saturating_add(1);
     }
 
+    pub fn record_risk_gate_allow(&self) {
+        let mut inner = self.lock_inner();
+        inner.risk_gate_allows = inner.risk_gate_allows.saturating_add(1);
+    }
+
+    pub fn record_risk_gate_deny(&self) {
+        let mut inner = self.lock_inner();
+        inner.risk_gate_denies = inner.risk_gate_denies.saturating_add(1);
+    }
+
+    pub fn record_risk_gate_high_approval(&self) {
+        let mut inner = self.lock_inner();
+        inner.risk_gate_high_approvals = inner.risk_gate_high_approvals.saturating_add(1);
+    }
+
     pub fn snapshot(&self) -> LifecycleMetrics {
         let inner = self.lock_inner();
 
@@ -94,6 +112,9 @@ impl MetricsCollector {
             tool_executions_total: inner.tool_executions.values().map(|m| m.executions).sum(),
             tool_executions_failed: inner.tool_executions.values().map(|m| m.failures).sum(),
             state_transitions_total: inner.state_transitions,
+            risk_gate_allows: inner.risk_gate_allows,
+            risk_gate_denies: inner.risk_gate_denies,
+            risk_gate_high_approvals: inner.risk_gate_high_approvals,
             total_duration,
             average_iteration_duration,
             tool_execution_times,
@@ -117,6 +138,12 @@ impl MetricsCollector {
             metrics.tool_executions_failed
         );
         tracing::info!("State transitions: {}", metrics.state_transitions_total);
+        tracing::info!(
+            "Risk gate: {} allows, {} denies, {} high-risk approvals",
+            metrics.risk_gate_allows,
+            metrics.risk_gate_denies,
+            metrics.risk_gate_high_approvals
+        );
         tracing::info!(
             "Average iteration duration: {:?}",
             metrics.average_iteration_duration

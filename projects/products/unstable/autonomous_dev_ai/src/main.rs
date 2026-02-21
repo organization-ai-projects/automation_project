@@ -173,6 +173,9 @@ fn main() {
             println!("Failures: {}", agent.lifecycle.memory.failures.len());
             println!("Tool executions: {}", metrics.tool_executions_total);
             println!("Failed tool executions: {}", metrics.tool_executions_failed);
+            println!("Risk gate allows: {}", metrics.risk_gate_allows);
+            println!("Risk gate denies: {}", metrics.risk_gate_denies);
+            println!("High-risk approvals: {}", metrics.risk_gate_high_approvals);
             println!(
                 "Average iteration duration: {:?}",
                 metrics.average_iteration_duration

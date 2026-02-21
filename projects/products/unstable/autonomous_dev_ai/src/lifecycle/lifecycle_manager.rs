@@ -1163,6 +1163,7 @@ impl LifecycleManager {
 
         match risk {
             ActionRiskLevel::Low => {
+                self.metrics.record_risk_gate_allow();
                 let _ = self
                     .audit
                     .log_symbolic_decision("risk_gate_allow", &format!("tool={tool} risk=low"));
@@ -1170,12 +1171,14 @@ impl LifecycleManager {
             }
             ActionRiskLevel::Medium => {
                 if is_medium_risk_allowed(&self.config.execution_mode) {
+                    self.metrics.record_risk_gate_allow();
                     let _ = self.audit.log_symbolic_decision(
                         "risk_gate_allow",
                         &format!("tool={tool} risk=medium"),
                     );
                     Ok(())
                 } else {
+                    self.metrics.record_risk_gate_deny();
                     self.memory.add_failure(
                         self.iteration,
                         "Tool execution denied by risk gate".to_string(),
@@ -1203,6 +1206,7 @@ impl LifecycleManager {
             }
             ActionRiskLevel::High => {
                 if !is_medium_risk_allowed(&self.config.execution_mode) {
+                    self.metrics.record_risk_gate_deny();
                     self.memory.add_failure(
                         self.iteration,
                         "Tool execution denied by risk gate".to_string(),
@@ -1225,6 +1229,8 @@ impl LifecycleManager {
                 }
 
                 if has_valid_high_risk_approval_token() {
+                    self.metrics.record_risk_gate_allow();
+                    self.metrics.record_risk_gate_high_approval();
                     self.run_replay.record(
                         "tool.high_risk_approved",
                         format!("tool={} token_check=passed", tool),
@@ -1235,6 +1241,7 @@ impl LifecycleManager {
                     );
                     Ok(())
                 } else {
+                    self.metrics.record_risk_gate_deny();
                     self.memory.add_failure(
                         self.iteration,
                         "High-risk approval missing".to_string(),
