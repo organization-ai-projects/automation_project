@@ -18,7 +18,10 @@ use crate::pr_flow::{
 };
 use crate::security::{ActorIdentity, AuthzDecision, AuthzEngine, PolicyPack, SecurityAuditRecord};
 use crate::state::AgentState;
-use crate::symbolic::{Plan, PlanStep, PolicyEngine, SymbolicController};
+use crate::symbolic::{
+    IssueClassificationInput, Plan, PlanStep, PolicyEngine, SymbolicController, Validator,
+    classify_issue,
+};
 use crate::tools::{
     GitWrapper, PrDescriptionGenerator, RepoReader, TestRunner, ToolRegistry, ToolResult,
 };
@@ -236,6 +239,19 @@ impl LifecycleManager {
             self.memory
                 .metadata
                 .insert("run_replay_path".to_string(), replay_path);
+        }
+        let replay_text_path = std::env::var("AUTONOMOUS_RUN_REPLAY_TEXT_PATH")
+            .unwrap_or_else(|_| "agent_run_replay.txt".to_string());
+        if let Err(e) = std::fs::write(&replay_text_path, self.run_replay.reconstruct()) {
+            tracing::warn!(
+                "Failed to persist run replay text '{}': {}",
+                replay_text_path,
+                e
+            );
+        } else {
+            self.memory
+                .metadata
+                .insert("run_replay_text_path".to_string(), replay_text_path);
         }
 
         tracing::info!("=== Agent Lifecycle Complete ===");
@@ -455,6 +471,28 @@ impl LifecycleManager {
             .get("goal")
             .ok_or_else(|| AgentError::State("No goal set".to_string()))?
             .clone();
+        let issue_input = IssueClassificationInput {
+            labels: parse_issue_labels_from_env(),
+            title: goal.clone(),
+            body: self
+                .memory
+                .metadata
+                .get("issue_body")
+                .cloned()
+                .unwrap_or_default(),
+        };
+        let issue_category = classify_issue(&issue_input, 0.6);
+        self.memory.metadata.insert(
+            "issue_category".to_string(),
+            format!("{:?}", issue_category.category),
+        );
+        self.run_replay.record(
+            "issue.classification",
+            format!(
+                "category={:?} source={:?} confidence={:.2}",
+                issue_category.category, issue_category.source, issue_category.confidence
+            ),
+        );
 
         let neural_suggestion = if self.neural.enabled {
             match self.neural.propose_action(&goal) {
@@ -523,7 +561,12 @@ impl LifecycleManager {
         };
 
         let mut plan = Plan::new(goal.clone());
-        self.build_plan_steps(&mut plan, &goal, neural_suggestion.as_ref())?;
+        self.build_plan_steps(
+            &mut plan,
+            &goal,
+            neural_suggestion.as_ref(),
+            &format!("{:?}", issue_category.category),
+        )?;
         self.validate_plan(&plan)?;
         self.run_replay.record(
             "plan.generated",
@@ -564,6 +607,7 @@ impl LifecycleManager {
         plan: &mut Plan,
         goal: &str,
         neural_suggestion: Option<&crate::symbolic::NeuralProposal>,
+        issue_category: &str,
     ) -> AgentResult<()> {
         plan.add_step(PlanStep {
             description: format!(
@@ -595,10 +639,27 @@ impl LifecycleManager {
             });
         }
 
+        if issue_category.eq_ignore_ascii_case("security") {
+            plan.add_step(PlanStep {
+                description: "Security-oriented validation pass".to_string(),
+                tool: "run_tests".to_string(),
+                args: vec![
+                    "cargo".to_string(),
+                    "clippy".to_string(),
+                    "-p".to_string(),
+                    self.config.agent_name.clone(),
+                    "--bin".to_string(),
+                    self.config.agent_name.clone(),
+                ],
+                verification: "security_validation_passes".to_string(),
+            });
+        }
+
         Ok(())
     }
 
     fn validate_plan(&mut self, plan: &Plan) -> AgentResult<()> {
+        let validator = Validator::new(self.config.symbolic.strict_validation);
         if !self.policy_pack.verify() {
             return Err(AgentError::PolicyViolation(
                 "Policy pack signature verification failed".to_string(),
@@ -611,6 +672,14 @@ impl LifecycleManager {
                     "Step {}: Tool '{}' not allowed by policy",
                     idx + 1,
                     step.tool
+                )));
+            }
+            if !validator.validate_plan_step(&step.tool, &step.args)? {
+                return Err(AgentError::PolicyViolation(format!(
+                    "Step {} failed symbolic validation: tool='{}' args='{}'",
+                    idx + 1,
+                    step.tool,
+                    step.args.join(" ")
                 )));
             }
 
@@ -1312,4 +1381,17 @@ fn build_action_from_step(step: &PlanStep) -> String {
     } else {
         format!("{} {}", step.tool, step.args.join(" "))
     }
+}
+
+fn parse_issue_labels_from_env() -> Vec<String> {
+    std::env::var("AUTONOMOUS_ISSUE_LABELS")
+        .ok()
+        .map(|raw| {
+            raw.split(',')
+                .map(|v| v.trim())
+                .filter(|v| !v.is_empty())
+                .map(|v| v.to_string())
+                .collect()
+        })
+        .unwrap_or_default()
 }
