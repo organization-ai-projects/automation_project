@@ -3,7 +3,7 @@
 use super::{
     Checkpoint, CircuitBreaker, CompensationKind, ExecutionContext, IterationNumber,
     LifecycleError, LifecycleMetrics, LifecycleResult, MaxIterations, MetricsCollector,
-    ResourceBudget, ResourceType, RetryStrategy, RollbackManager, StepIndex,
+    ResourceBudget, ResourceType, RetryStrategy, RollbackManager, RunReport, StepIndex,
     validation_strategy::select_validation_command,
 };
 
@@ -278,6 +278,7 @@ impl LifecycleManager {
         }
 
         self.persist_run_replay_artifacts();
+        self.persist_run_report_artifact();
 
         tracing::info!("=== Agent Lifecycle Complete ===");
         tracing::info!("Final state: {:?}", self.state);
@@ -361,6 +362,45 @@ impl LifecycleManager {
             self.memory
                 .metadata
                 .insert("run_replay_text_path".to_string(), replay_text_path);
+        }
+    }
+
+    fn persist_run_report_artifact(&mut self) {
+        let weighted_objective_score = self
+            .memory
+            .metadata
+            .get("weighted_objective_score")
+            .and_then(|v| v.parse::<f64>().ok());
+        let report = RunReport {
+            generated_at_secs: RunReport::now_secs(),
+            run_id: self.actor.run_id.to_string(),
+            final_state: format!("{:?}", self.state),
+            total_iterations: self.current_iteration_number.get(),
+            max_iterations: self.max_iterations_limit.get(),
+            total_decisions: self.memory.decisions.len(),
+            total_failures: self.memory.failures.len(),
+            total_objective_evaluations: self.memory.objective_evaluations.len(),
+            last_objective_passed: self.memory.objective_evaluations.last().map(|e| e.passed),
+            weighted_objective_score,
+            run_replay_path: self.memory.metadata.get("run_replay_path").cloned(),
+            run_replay_text_path: self.memory.metadata.get("run_replay_text_path").cloned(),
+        };
+
+        let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")
+            .unwrap_or_else(|_| "agent_run_report.json".to_string());
+        match serde_json::to_string_pretty(&report) {
+            Ok(json) => {
+                if let Err(e) = std::fs::write(&report_path, json) {
+                    tracing::warn!("Failed to persist run report '{}': {}", report_path, e);
+                } else {
+                    self.memory
+                        .metadata
+                        .insert("run_report_path".to_string(), report_path);
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to serialize run report: {}", e);
+            }
         }
     }
 
