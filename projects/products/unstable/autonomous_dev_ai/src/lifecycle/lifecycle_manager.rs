@@ -891,6 +891,12 @@ impl LifecycleManager {
             .get("previous_recent_top_failure_kind")
             .cloned()
             .unwrap_or_default();
+        let recent_top_failure_kind_confidence = self
+            .memory
+            .metadata
+            .get("previous_recent_top_failure_kind_confidence")
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or(0.0);
 
         if previous_failures > 0 {
             plan.add_step(PlanStep {
@@ -976,7 +982,10 @@ impl LifecycleManager {
                 verification: "learning_prioritized_validation".to_string(),
             });
         }
-        if recent_avg_failures >= 2.0 || recent_top_failure_kind.starts_with("timeout:") {
+        if recent_avg_failures >= 2.0
+            || (recent_top_failure_kind.starts_with("timeout:")
+                && recent_top_failure_kind_confidence >= 0.45)
+        {
             plan.add_step(PlanStep {
                 description:
                     "Learning adaptation: short deterministic validation after recent instability"
@@ -997,7 +1006,7 @@ impl LifecycleManager {
         self.run_replay.record(
             "learning.adaptation",
             format!(
-                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} top_decision_action={} recent_avg_failures={:.2} recent_top_failure_kind={} plan_steps={}",
+                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} top_decision_action={} recent_avg_failures={:.2} recent_top_failure_kind={} recent_top_failure_kind_confidence={:.3} plan_steps={}",
                 previous_failures,
                 previous_max_iteration,
                 top_failure_kind,
@@ -1005,6 +1014,7 @@ impl LifecycleManager {
                 top_decision_action,
                 recent_avg_failures,
                 recent_top_failure_kind,
+                recent_top_failure_kind_confidence,
                 plan.steps.len()
             ),
         );
