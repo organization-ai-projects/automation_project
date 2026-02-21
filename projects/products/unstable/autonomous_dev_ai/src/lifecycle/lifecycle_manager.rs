@@ -1277,29 +1277,39 @@ impl LifecycleManager {
 
         if !result.success {
             let error_detail = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            let error_class = classify_tool_failure(&error_detail);
+            self.run_replay.record(
+                "tool.failure_class",
+                format!("tool={} class={}", step.tool, error_class),
+            );
             if step.tool == "run_tests" {
                 self.memory
                     .metadata
                     .insert("last_validation_success".to_string(), "false".to_string());
             }
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("{}:{}", step.tool, error_class),
+            );
 
             tracing::warn!(
-                "Tool '{}' failed: {} (duration: {:?})",
+                "Tool '{}' failed [{}]: {} (duration: {:?})",
                 step.tool,
+                error_class,
                 error_detail,
                 tool_duration
             );
 
             self.memory.add_failure(
                 self.iteration,
-                format!("Tool execution failed: {}", step.tool),
+                format!("Tool execution failed [{}]: {}", error_class, step.tool),
                 error_detail.clone(),
                 Some("Will retry in next iteration".to_string()),
             );
 
             return Err(AgentError::Tool(format!(
-                "Tool '{}' execution failed: {}",
-                step.tool, error_detail
+                "Tool '{}' execution failed [{}]: {}",
+                step.tool, error_class, error_detail
             )));
         }
 
@@ -2520,6 +2530,23 @@ fn extract_pr_number_from_text(text: &str) -> Option<u64> {
     let (_, suffix) = text.rsplit_once(marker)?;
     let digits: String = suffix.chars().take_while(|c| c.is_ascii_digit()).collect();
     digits.parse::<u64>().ok()
+}
+
+fn classify_tool_failure(error_text: &str) -> &'static str {
+    let lower = error_text.to_ascii_lowercase();
+    if lower.contains("timed out") || lower.contains("timeout") {
+        return "timeout";
+    }
+    if lower.contains("not allowed") || lower.contains("policy") || lower.contains("forbidden") {
+        return "policy";
+    }
+    if lower.contains("not found") || lower.contains("no such file") || lower.contains("spawn") {
+        return "environment";
+    }
+    if lower.contains("exited with code") {
+        return "execution";
+    }
+    "unknown"
 }
 
 fn load_review_comments_from_env() -> AgentResult<Vec<ReviewComment>> {

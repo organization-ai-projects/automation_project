@@ -1,7 +1,9 @@
 // projects/products/unstable/autonomous_dev_ai/src/tools/pr_description_generator.rs
+use super::constants::DEFAULT_TOOL_TIMEOUT_SECS;
+use super::run_with_timeout::run_with_timeout;
 use super::{Tool, ToolResult};
 use crate::error::{AgentError, AgentResult};
-use std::process::Command;
+use std::time::Duration;
 
 /// PR description generator tool.
 pub struct PrDescriptionGenerator;
@@ -22,44 +24,11 @@ impl Tool for PrDescriptionGenerator {
             .cloned()
             .unwrap_or_else(|| "pr_description.md".to_string());
 
-        let output = Command::new(script_path)
-            .arg(main_pr)
-            .arg(output_file)
-            .output();
-
-        match output {
-            Ok(out) => {
-                let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-
-                if out.status.success() {
-                    Ok(ToolResult {
-                        success: true,
-                        output: stdout,
-                        error: if stderr.is_empty() {
-                            None
-                        } else {
-                            Some(stderr)
-                        },
-                    })
-                } else {
-                    Ok(ToolResult {
-                        success: false,
-                        output: stdout,
-                        error: Some(if stderr.is_empty() {
-                            format!("generate_pr_description failed with status {}", out.status)
-                        } else {
-                            stderr
-                        }),
-                    })
-                }
-            }
-            Err(e) => Ok(ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some(format!("failed to execute {}: {}", script_path, e)),
-            }),
-        }
+        run_with_timeout(
+            script_path,
+            &[main_pr, output_file],
+            Duration::from_secs(DEFAULT_TOOL_TIMEOUT_SECS),
+        )
     }
 
     fn is_reversible(&self) -> bool {
