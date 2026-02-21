@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::agent_config::AgentConfig;
 use crate::error::{AgentError, AgentResult};
-use crate::memory::FailureEntry;
+use crate::memory::{DecisionEntry, FailureEntry};
 use crate::memory_graph::MemoryGraph;
 // Load configuration from .bin file
 pub fn load_bin<P: AsRef<Path>>(path: P) -> AgentResult<AgentConfig> {
@@ -55,6 +55,14 @@ pub struct FailureInvertedIndex {
     pub by_tool: std::collections::HashMap<String, usize>,
     pub by_iteration: std::collections::HashMap<usize, usize>,
     pub latest_failure_iteration: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecisionInvertedIndex {
+    pub generated_at_secs: u64,
+    pub by_action: std::collections::HashMap<String, usize>,
+    pub by_iteration: std::collections::HashMap<usize, usize>,
+    pub latest_decision_iteration: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,6 +130,32 @@ impl FailureInvertedIndex {
     }
 }
 
+impl DecisionInvertedIndex {
+    pub fn from_decisions(decisions: &[DecisionEntry]) -> Self {
+        let mut by_action = std::collections::HashMap::new();
+        let mut by_iteration = std::collections::HashMap::new();
+        let mut latest_decision_iteration = None;
+
+        for decision in decisions {
+            let action = infer_decision_action(decision);
+            *by_action.entry(action).or_insert(0) += 1;
+            *by_iteration.entry(decision.iteration).or_insert(0) += 1;
+            latest_decision_iteration = Some(
+                latest_decision_iteration
+                    .map(|v: usize| v.max(decision.iteration))
+                    .unwrap_or(decision.iteration),
+            );
+        }
+
+        Self {
+            generated_at_secs: now_secs(),
+            by_action,
+            by_iteration,
+            latest_decision_iteration,
+        }
+    }
+}
+
 pub fn save_memory_state_transactional<P: AsRef<Path>>(
     base_path: P,
     memory: &MemoryGraph,
@@ -131,6 +165,7 @@ pub fn save_memory_state_transactional<P: AsRef<Path>>(
     let bin_path = base.with_extension("bin");
     let idx_path = base.with_extension("idx.json");
     let fail_idx_path = base.with_extension("fail_idx.json");
+    let decision_idx_path = base.with_extension("decision_idx.json");
     let txn_path = base.with_extension("txn.json");
 
     let files = vec![
@@ -138,6 +173,7 @@ pub fn save_memory_state_transactional<P: AsRef<Path>>(
         bin_path.display().to_string(),
         idx_path.display().to_string(),
         fail_idx_path.display().to_string(),
+        decision_idx_path.display().to_string(),
     ];
     let start_journal = MemoryTransactionJournal {
         state: "started".to_string(),
@@ -159,6 +195,8 @@ pub fn save_memory_state_transactional<P: AsRef<Path>>(
     write_json_atomic(&idx_path, &index)?;
     let failure_index = FailureInvertedIndex::from_failures(&memory.failures);
     write_json_atomic(&fail_idx_path, &failure_index)?;
+    let decision_index = DecisionInvertedIndex::from_decisions(&memory.decisions);
+    write_json_atomic(&decision_idx_path, &decision_index)?;
 
     let done_journal = MemoryTransactionJournal {
         state: "completed".to_string(),
@@ -217,6 +255,19 @@ pub fn load_failure_inverted_index<P: AsRef<Path>>(
     }
     let content = fs::read_to_string(&idx_path)?;
     let index: FailureInvertedIndex =
+        serde_json::from_str(&content).map_err(|e| AgentError::Serialization(e.to_string()))?;
+    Ok(Some(index))
+}
+
+pub fn load_decision_inverted_index<P: AsRef<Path>>(
+    base_path: P,
+) -> AgentResult<Option<DecisionInvertedIndex>> {
+    let idx_path = base_path.as_ref().with_extension("decision_idx.json");
+    if !idx_path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&idx_path)?;
+    let index: DecisionInvertedIndex =
         serde_json::from_str(&content).map_err(|e| AgentError::Serialization(e.to_string()))?;
     Ok(Some(index))
 }
@@ -309,4 +360,27 @@ fn infer_failure_tool(entry: &FailureEntry) -> String {
         }
     }
     "unknown".to_string()
+}
+
+fn infer_decision_action(entry: &DecisionEntry) -> String {
+    let text = format!(
+        "{} {}",
+        entry.description.to_ascii_lowercase(),
+        entry.symbolic_decision.to_ascii_lowercase()
+    );
+    for action in [
+        "run_tests",
+        "read_file",
+        "git_commit",
+        "generate_pr_description",
+        "apply_patch",
+        "format_code",
+        "git_branch",
+        "create_pr",
+    ] {
+        if text.contains(action) {
+            return action.to_string();
+        }
+    }
+    "other".to_string()
 }
