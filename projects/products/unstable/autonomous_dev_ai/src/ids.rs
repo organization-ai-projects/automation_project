@@ -77,3 +77,23 @@ impl Default for RunId {
         Self::new("default_run").expect("static run id must be valid")
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ActorId(String);
+
+impl ActorId {
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        if value.trim().is_empty() {
+            None
+        } else {
+            Some(Self(value))
+        }
+    }
+}
+
+impl std::fmt::Display for ActorId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}

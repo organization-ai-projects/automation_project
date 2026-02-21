@@ -1,6 +1,6 @@
 // projects/products/unstable/autonomous_dev_ai/src/security/security_audit_record.rs
 use super::{ActorIdentity, AuthzDecision};
-use crate::ids::RunId;
+use crate::ids::{ActorId, RunId};
 use crate::value_types::ActionName;
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityAuditRecord {
     pub run_id: RunId,
-    pub actor_id: String,
+    pub actor_id: ActorId,
     pub action: ActionName,
     pub decision: String,
     pub timestamp_secs: u64,
