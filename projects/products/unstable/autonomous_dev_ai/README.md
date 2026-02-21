@@ -51,6 +51,18 @@ Implemented tool wrappers include:
 
 `run_tests` executes real commands (with timeout control), and `git_commit` is restricted by allowlist plus forbidden action checks.
 
+## Non-Interactive Controls
+
+Useful runtime controls for CI-like runs:
+
+- `AUTONOMOUS_CREATE_PR=true`: attempt real `gh pr create`
+- `AUTONOMOUS_CREATE_PR_REQUIRED=true`: fail if real PR creation fails
+- `AUTONOMOUS_PR_NUMBER=<n>`: inject existing PR number
+- `AUTONOMOUS_REQUIRE_PR_NUMBER=true`: require a real/known PR number before continuing
+- `AUTONOMOUS_REVIEW_COMMENTS_JSON='[...]'`: provide structured review feedback
+- `AUTONOMOUS_REVIEW_REQUIRED=true`: block if no review feedback is available
+- `AUTONOMOUS_AUTO_RESOLVE_REVIEW=true`: auto-resolve pending feedback (off by default)
+
 ## Development Notes
 
 - Keep claims in this file strictly aligned with current code behavior.
