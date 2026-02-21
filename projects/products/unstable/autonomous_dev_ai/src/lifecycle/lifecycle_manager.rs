@@ -10,7 +10,7 @@ use crate::agent_config::AgentConfig;
 use crate::audit_logger::AuditLogger;
 use crate::error::{AgentError, AgentResult};
 use crate::memory_graph::MemoryGraph;
-use crate::neural::NeuralLayer;
+use crate::neural::{ModelGovernance, ModelVersion, NeuralLayer};
 use crate::objective_evaluator::ObjectiveEvaluator;
 use crate::ops::{IncidentRunbook, RunReplay, SloEvaluator};
 use crate::pr_flow::{
@@ -34,6 +34,7 @@ pub struct LifecycleManager {
     pub memory: MemoryGraph,
     pub symbolic: SymbolicController,
     pub neural: NeuralLayer,
+    pub model_governance: ModelGovernance,
     pub policy: PolicyEngine,
     pub authz: AuthzEngine,
     pub actor: ActorIdentity,
@@ -105,6 +106,19 @@ impl LifecycleManager {
             config.neural.prefer_gpu,
             config.neural.cpu_fallback,
         );
+        let mut model_governance = ModelGovernance::new();
+        model_governance.registry.register(ModelVersion::new(
+            "default-neural",
+            "0.1.0",
+            "builtin://heuristic",
+            0.7,
+        ));
+        let _ = model_governance
+            .registry
+            .promote_to_canary("default-neural");
+        let _ = model_governance
+            .registry
+            .promote_to_production("default-neural");
 
         let policy = PolicyEngine::new();
         let authz = AuthzEngine::new();
@@ -128,6 +142,7 @@ impl LifecycleManager {
             memory: MemoryGraph::new(),
             symbolic,
             neural,
+            model_governance,
             policy,
             authz,
             actor,
@@ -167,6 +182,10 @@ impl LifecycleManager {
         self.current_step = self.current_step_index.get();
         self.pr_orchestrator = None;
         self.run_replay.record("lifecycle.start", goal);
+        if let Some(state) = self.model_governance.registry.state("default-neural") {
+            self.run_replay
+                .record("neural.rollout_state", format!("{:?}", state));
+        }
 
         tracing::info!("=== Starting Agent Lifecycle ===");
         tracing::info!("Goal: {}", goal);
@@ -440,18 +459,59 @@ impl LifecycleManager {
         let neural_suggestion = if self.neural.enabled {
             match self.neural.propose_action(&goal) {
                 Ok(suggestion) => {
-                    if let Some(ref suggested) = suggestion {
-                        tracing::debug!(
-                            "Neural suggestion: {} (confidence: {:.2})",
-                            suggested.action,
-                            suggested.confidence
+                    if let Some(suggested) = suggestion {
+                        let uncertainty = self.neural.estimate_uncertainty(&goal).unwrap_or(0.5);
+                        let cpu_fallback = self.neural.use_cpu_fallback();
+                        self.run_replay.record(
+                            "neural.runtime",
+                            format!(
+                                "confidence={:.3} uncertainty={:.3} cpu_fallback={}",
+                                suggested.confidence, uncertainty, cpu_fallback
+                            ),
                         );
 
-                        self.audit
-                            .log_neural_suggestion(&suggested.action, suggested.confidence)
-                            .map_err(|e| AgentError::State(e.to_string()))?;
+                        let governance_ok = self
+                            .model_governance
+                            .accept("default-neural", suggested.confidence);
+                        let validation = self.symbolic.validate_proposal(&suggested)?;
+
+                        self.run_replay.record(
+                            "neural.governance",
+                            format!(
+                                "accepted={} symbolic_valid={} issues={}",
+                                governance_ok,
+                                validation.is_valid,
+                                validation.issues.join(" | ")
+                            ),
+                        );
+
+                        if !governance_ok || !validation.is_valid {
+                            self.memory.add_failure(
+                                self.iteration,
+                                "Neural suggestion rejected".to_string(),
+                                format!(
+                                    "governance_ok={} symbolic_valid={}",
+                                    governance_ok, validation.is_valid
+                                ),
+                                Some("fallback to deterministic symbolic planning".to_string()),
+                            );
+                            None
+                        } else {
+                            tracing::debug!(
+                                "Neural suggestion: {} (confidence: {:.2})",
+                                suggested.action,
+                                suggested.confidence
+                            );
+
+                            self.audit
+                                .log_neural_suggestion(&suggested.action, suggested.confidence)
+                                .map_err(|e| AgentError::State(e.to_string()))?;
+
+                            Some(suggested)
+                        }
+                    } else {
+                        None
                     }
-                    suggestion
                 }
                 Err(err) => {
                     tracing::warn!("Neural layer failed to propose action: {}", err);
