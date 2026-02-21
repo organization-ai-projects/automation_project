@@ -25,6 +25,7 @@ use crate::state::AgentState;
 use crate::symbolic::{
     IssueClassificationInput, Plan, PlanStep, PolicyEngine, SymbolicController, Validator,
 };
+use crate::timeout::Timeout;
 use crate::tools::{
     GitWrapper, PrDescriptionGenerator, RepoReader, TestRunner, ToolRegistry, ToolResult,
 };
@@ -73,9 +74,9 @@ pub struct LifecycleManager {
     drift_detector: DriftDetector,
 
     // Timeouts.
-    global_timeout: Duration,
-    iteration_timeout: Duration,
-    tool_timeout: Duration,
+    global_timeout: Timeout,
+    iteration_timeout: Timeout,
+    tool_timeout: Timeout,
 }
 
 impl LifecycleManager {
@@ -102,7 +103,7 @@ impl LifecycleManager {
     pub fn new(config: AgentConfig, audit_log_path: &str) -> Self {
         let max_iterations_limit =
             MaxIterations::new(config.max_iterations).unwrap_or_else(MaxIterations::default_value);
-        let global_timeout = Duration::from_secs(config.timeout_seconds.unwrap_or(3600));
+        let global_timeout = Timeout::from_secs(config.timeout_seconds.unwrap_or(3600));
 
         let objectives = config.objectives.clone();
         let evaluator = ObjectiveEvaluator::new(objectives);
@@ -139,7 +140,8 @@ impl LifecycleManager {
         let slo_evaluator = SloEvaluator::new(SloEvaluator::default_slos());
         let incident_runbook = IncidentRunbook::default_runbook();
         let policy_pack = PolicyPack::default();
-        let resource_budget = ResourceBudget::new(global_timeout, max_iterations_limit.get(), 500);
+        let resource_budget =
+            ResourceBudget::new(global_timeout.duration, max_iterations_limit.get(), 500);
         let rollback_manager = RollbackManager::new();
         let checkpoint_path = std::env::var("AUTONOMOUS_CHECKPOINT_PATH")
             .unwrap_or_else(|_| "agent_checkpoint.json".to_string());
@@ -186,8 +188,8 @@ impl LifecycleManager {
             last_intent: None,
             drift_detector,
             global_timeout,
-            iteration_timeout: Duration::from_secs(300),
-            tool_timeout: Duration::from_secs(30),
+            iteration_timeout: Timeout::from_secs(300),
+            tool_timeout: Timeout::from_secs(30),
         }
     }
 
@@ -338,7 +340,7 @@ impl LifecycleManager {
         let mut recoverable_attempts = 0usize;
 
         while !self.state.is_terminal() {
-            if start_time.elapsed() > self.global_timeout {
+            if start_time.elapsed() > self.global_timeout.duration {
                 tracing::error!("Global timeout exceeded: {:?}", start_time.elapsed());
                 self.metrics.record_iteration_failure(start_time.elapsed());
 
@@ -1207,7 +1209,7 @@ impl LifecycleManager {
             let breaker = self
                 .circuit_breakers
                 .entry(step.tool.clone())
-                .or_insert_with(|| CircuitBreaker::new(3, 2, Duration::from_secs(60)));
+                .or_insert_with(|| CircuitBreaker::new(3, 2, Timeout::from_secs(60)));
 
             if !breaker.should_allow_request() {
                 let state = breaker.state();
@@ -1244,7 +1246,7 @@ impl LifecycleManager {
             let breaker = self
                 .circuit_breakers
                 .entry(step.tool.clone())
-                .or_insert_with(|| CircuitBreaker::new(3, 2, Duration::from_secs(60)));
+                .or_insert_with(|| CircuitBreaker::new(3, 2, Timeout::from_secs(60)));
 
             if result.success {
                 breaker.record_success();
@@ -1317,11 +1319,11 @@ impl LifecycleManager {
         let start = Instant::now();
         let mut result = tool.execute(args)?;
 
-        if start.elapsed() > self.tool_timeout {
+        if start.elapsed() > self.tool_timeout.duration {
             result.success = false;
             result.error = Some(format!(
                 "Tool '{}' timed out after {:?}",
-                tool_name, self.tool_timeout
+                tool_name, self.tool_timeout.duration
             ));
         }
 

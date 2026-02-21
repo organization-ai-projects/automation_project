@@ -1,14 +1,14 @@
 // projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_error.rs
 use std::time::Duration;
 
-use crate::{error::AgentError, lifecycle::ResourceType};
+use crate::{error::AgentError, lifecycle::ResourceType, timeout::Timeout};
 
 #[derive(Debug)]
 pub enum LifecycleError {
     Recoverable {
         iteration: usize,
         error: AgentError,
-        retry_after: Option<Duration>,
+        retry_after: Option<Timeout>,
     },
     Fatal {
         iteration: usize,
@@ -23,7 +23,7 @@ pub enum LifecycleError {
     Timeout {
         iteration: usize,
         elapsed: Duration,
-        limit: Duration,
+        limit: Timeout,
     },
 }
 
@@ -34,7 +34,7 @@ impl LifecycleError {
 
     pub fn retry_delay(&self) -> Option<Duration> {
         match self {
-            Self::Recoverable { retry_after, .. } => *retry_after,
+            Self::Recoverable { retry_after, .. } => retry_after.map(|t| t.duration),
             _ => None,
         }
     }
@@ -111,7 +111,7 @@ impl From<LifecycleError> for AgentError {
                 limit,
             } => AgentError::State(format!(
                 "Timeout at iteration {}: {:?} > {:?}",
-                iteration, elapsed, limit
+                iteration, elapsed, limit.duration
             )),
         }
     }

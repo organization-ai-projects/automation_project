@@ -1,7 +1,7 @@
 // projects/products/unstable/autonomous_dev_ai/src/lifecycle/circuit_breaker.rs
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
-use crate::lifecycle::CircuitState;
+use crate::{lifecycle::CircuitState, timeout::Timeout};
 
 #[derive(Debug)]
 pub struct CircuitBreaker {
@@ -10,12 +10,12 @@ pub struct CircuitBreaker {
     half_open_success_count: usize,
     failure_threshold: usize,
     success_threshold: usize,
-    timeout: Duration,
+    timeout: Timeout,
     last_failure_time: Option<Instant>,
 }
 
 impl CircuitBreaker {
-    pub fn new(failure_threshold: usize, success_threshold: usize, timeout: Duration) -> Self {
+    pub fn new(failure_threshold: usize, success_threshold: usize, timeout: Timeout) -> Self {
         Self {
             state: CircuitState::Closed,
             failure_count: 0,
@@ -32,7 +32,7 @@ impl CircuitBreaker {
             CircuitState::Closed => true,
             CircuitState::Open => {
                 if let Some(last_failure) = self.last_failure_time {
-                    if last_failure.elapsed() > self.timeout {
+                    if last_failure.elapsed() > self.timeout.duration {
                         tracing::info!("Circuit breaker transitioning to HalfOpen");
                         self.state = CircuitState::HalfOpen;
                         self.half_open_success_count = 0;
