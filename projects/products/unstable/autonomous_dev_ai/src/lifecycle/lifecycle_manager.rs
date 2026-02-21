@@ -1868,7 +1868,19 @@ impl LifecycleManager {
             );
         }
 
-        tracing::info!("PR would be created with body ({} chars)", pr_body.len());
+        if opened_pr {
+            tracing::info!("PR is tracked with body ({} chars)", pr_body.len());
+        } else if create_pr_enabled {
+            tracing::info!(
+                "PR creation requested but no PR number available (body {} chars)",
+                pr_body.len()
+            );
+        } else {
+            tracing::info!(
+                "PR creation not enabled; metadata prepared with body ({} chars)",
+                pr_body.len()
+            );
+        }
 
         self.transition_to(AgentState::ReviewFeedback)
     }
