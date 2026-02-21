@@ -44,6 +44,7 @@ pub(crate) fn run_with_timeout(
                         "'{program}' timed out after {}s and was terminated",
                         timeout.as_secs()
                     ));
+                    result.exit_code = None;
                     return Ok(result);
                 }
                 std::thread::sleep(Duration::from_millis(25));
@@ -78,5 +79,6 @@ fn build_tool_result(output: std::process::Output) -> ToolResult {
         success,
         output: stdout,
         error,
+        exit_code: status.code(),
     }
 }

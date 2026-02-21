@@ -411,6 +411,11 @@ impl LifecycleManager {
             issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
             last_failure_description: last_failure.map(|f| f.description.clone()),
             last_failure_error: last_failure.map(|f| f.error.clone()),
+            last_tool_exit_code: self
+                .memory
+                .metadata
+                .get("last_tool_exit_code")
+                .and_then(|v| v.parse::<i32>().ok()),
         };
 
         let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")
@@ -1274,9 +1279,10 @@ impl LifecycleManager {
         self.run_replay.record(
             "tool.execute",
             format!(
-                "tool={} success={} duration_ms={}",
+                "tool={} success={} exit_code={:?} duration_ms={}",
                 step.tool,
                 result.success,
+                result.exit_code,
                 tool_duration.as_millis()
             ),
         );
@@ -1317,6 +1323,15 @@ impl LifecycleManager {
                 "last_tool_failure_class".to_string(),
                 format!("{}:{}", step.tool, error_class),
             );
+            if let Some(exit_code) = result.exit_code {
+                self.memory
+                    .metadata
+                    .insert("last_tool_exit_code".to_string(), exit_code.to_string());
+            } else {
+                self.memory
+                    .metadata
+                    .insert("last_tool_exit_code".to_string(), "none".to_string());
+            }
 
             tracing::warn!(
                 "Tool '{}' failed [{}]: {} (duration: {:?})",
@@ -2143,6 +2158,15 @@ impl LifecycleManager {
                 "last_tool_failure_class".to_string(),
                 format!("{}:{}", tool_name, failure_class),
             );
+            if let Some(exit_code) = result.exit_code {
+                self.memory
+                    .metadata
+                    .insert("last_tool_exit_code".to_string(), exit_code.to_string());
+            } else {
+                self.memory
+                    .metadata
+                    .insert("last_tool_exit_code".to_string(), "none".to_string());
+            }
             return Err(AgentError::Tool(details));
         }
 

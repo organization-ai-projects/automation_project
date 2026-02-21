@@ -7,4 +7,5 @@ pub struct ToolResult {
     pub success: bool,
     pub output: String,
     pub error: Option<String>,
+    pub exit_code: Option<i32>,
 }

@@ -21,11 +21,13 @@ impl Tool for RepoReader {
                 success: true,
                 output: content,
                 error: None,
+                exit_code: None,
             }),
             Err(e) => Ok(ToolResult {
                 success: false,
                 output: String::new(),
                 error: Some(e.to_string()),
+                exit_code: None,
             }),
         }
     }
