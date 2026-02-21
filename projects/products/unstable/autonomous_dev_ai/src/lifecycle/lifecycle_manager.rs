@@ -34,6 +34,7 @@ use crate::tools::{
 use crate::value_types::{ActionName, ActionOutcomeSummary, StateLabel};
 
 use std::collections::HashMap;
+use std::process::Command;
 use std::time::{Duration, Instant};
 
 /// Agent lifecycle manager.
@@ -1762,16 +1763,6 @@ impl LifecycleManager {
             pr_orchestrator.open(prn);
             opened_pr = true;
         }
-        let require_pr_number = std::env::var("AUTONOMOUS_REQUIRE_PR_NUMBER")
-            .ok()
-            .map(|v| v.eq_ignore_ascii_case("true"))
-            .unwrap_or(false);
-        if require_pr_number && !opened_pr {
-            return Err(AgentError::State(
-                "AUTONOMOUS_REQUIRE_PR_NUMBER=true but AUTONOMOUS_PR_NUMBER is missing or invalid"
-                    .to_string(),
-            ));
-        }
         if let Some(n) = issue_number {
             self.record_replay("issue.reference", format!("issue_number={}", n.get()));
             pr_orchestrator.metadata.close_issue(n);
@@ -1790,6 +1781,47 @@ impl LifecycleManager {
         pr_orchestrator.set_issue_compliance(issue_compliance.clone());
         let rendered_body = pr_orchestrator.metadata.render_body();
         pr_orchestrator.update_body(rendered_body.clone());
+        let create_pr_enabled = std::env::var("AUTONOMOUS_CREATE_PR")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let create_pr_required = std::env::var("AUTONOMOUS_CREATE_PR_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if create_pr_enabled && !opened_pr {
+            match self.try_create_real_pr(&pr_orchestrator.metadata.title, &rendered_body) {
+                Ok(Some(real_pr)) => {
+                    pr_orchestrator.open(real_pr);
+                    opened_pr = true;
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    if create_pr_required {
+                        return Err(error);
+                    }
+                    self.memory.add_failure(
+                        self.iteration,
+                        "Real PR creation failed".to_string(),
+                        error.to_string(),
+                        Some(
+                            "Set AUTONOMOUS_CREATE_PR_REQUIRED=true to fail-closed on PR creation"
+                                .to_string(),
+                        ),
+                    );
+                }
+            }
+        }
+        let require_pr_number = std::env::var("AUTONOMOUS_REQUIRE_PR_NUMBER")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if require_pr_number && !opened_pr {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_PR_NUMBER=true but no valid PR number is available (AUTONOMOUS_PR_NUMBER or real creation)"
+                    .to_string(),
+            ));
+        }
 
         let readiness = pr_orchestrator.merge_readiness();
         let readiness_ok = readiness.is_ready();
@@ -1816,6 +1848,59 @@ impl LifecycleManager {
         tracing::info!("PR would be created with body ({} chars)", pr_body.len());
 
         self.transition_to(AgentState::ReviewFeedback)
+    }
+
+    fn try_create_real_pr(&mut self, title: &str, body: &str) -> AgentResult<Option<PrNumber>> {
+        let mut command = Command::new("gh");
+        command.arg("pr").arg("create").arg("--title").arg(title);
+        command.arg("--body").arg(body);
+
+        if let Ok(base) = std::env::var("AUTONOMOUS_PR_BASE")
+            && !base.trim().is_empty()
+        {
+            command.arg("--base").arg(base);
+        }
+        if let Ok(head) = std::env::var("AUTONOMOUS_PR_HEAD")
+            && !head.trim().is_empty()
+        {
+            command.arg("--head").arg(head);
+        }
+        if let Ok(repo) = std::env::var("AUTONOMOUS_REPO")
+            && !repo.trim().is_empty()
+        {
+            command.arg("--repo").arg(repo);
+        }
+
+        let output = command
+            .output()
+            .map_err(|e| AgentError::Tool(format!("failed to execute gh pr create: {e}")))?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+
+        if !output.status.success() {
+            return Err(AgentError::Tool(format!(
+                "gh pr create failed (status={}): {}",
+                output.status,
+                if stderr.is_empty() { stdout } else { stderr }
+            )));
+        }
+
+        let pr_number = extract_pr_number_from_text(&stdout)
+            .or_else(|| extract_pr_number_from_text(&stderr))
+            .and_then(PrNumber::new);
+        if let Some(pr) = pr_number {
+            self.record_replay("pr.created", format!("number={}", pr));
+            self.memory
+                .metadata
+                .insert("created_pr_number".to_string(), pr.to_string());
+            return Ok(Some(pr));
+        }
+
+        self.record_replay(
+            "pr.created",
+            "number_unavailable_from_gh_output".to_string(),
+        );
+        Ok(None)
     }
 
     fn build_default_pr_body(&self, goal: &str) -> String {
@@ -2376,6 +2461,13 @@ fn compensation_for_tool(tool: &str) -> CompensationKind {
             description: "Manual review of side effects required".to_string(),
         },
     }
+}
+
+fn extract_pr_number_from_text(text: &str) -> Option<u64> {
+    let marker = "/pull/";
+    let (_, suffix) = text.rsplit_once(marker)?;
+    let digits: String = suffix.chars().take_while(|c| c.is_ascii_digit()).collect();
+    digits.parse::<u64>().ok()
 }
 
 fn load_review_comments_from_env() -> AgentResult<Vec<ReviewComment>> {
