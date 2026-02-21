@@ -4,8 +4,8 @@ use crate::config_loader::load_config;
 use crate::error::AgentResult;
 use crate::lifecycle::LifecycleManager;
 use crate::persistence::{
-    load_memory_state_index, load_memory_state_with_fallback, memory_transaction_completed,
-    save_memory_state_transactional,
+    load_failure_inverted_index, load_memory_state_index, load_memory_state_with_fallback,
+    memory_transaction_completed, save_memory_state_transactional,
 };
 
 //Autonomous developer AI agent
@@ -73,6 +73,26 @@ impl AutonomousAgent {
                 "previous_state_decisions_count".to_string(),
                 index.decisions_count.to_string(),
             );
+        }
+        if let Some(failure_index) = load_failure_inverted_index(&self.state_path)? {
+            if let Some((kind, count)) = failure_index.by_kind.iter().max_by_key(|(_, v)| *v) {
+                self.lifecycle.memory.metadata.insert(
+                    "previous_state_top_failure_kind".to_string(),
+                    format!("{kind}:{count}"),
+                );
+            }
+            if let Some((tool, count)) = failure_index.by_tool.iter().max_by_key(|(_, v)| *v) {
+                self.lifecycle.memory.metadata.insert(
+                    "previous_state_top_failure_tool".to_string(),
+                    format!("{tool}:{count}"),
+                );
+            }
+            if let Some(iteration) = failure_index.latest_failure_iteration {
+                self.lifecycle.memory.metadata.insert(
+                    "previous_state_latest_failure_iteration".to_string(),
+                    iteration.to_string(),
+                );
+            }
         }
         tracing::info!("State loaded from transactional base '{}'", self.state_path);
         Ok(())

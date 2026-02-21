@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::agent_config::AgentConfig;
 use crate::error::{AgentError, AgentResult};
+use crate::memory::FailureEntry;
 use crate::memory_graph::MemoryGraph;
 // Load configuration from .bin file
 pub fn load_bin<P: AsRef<Path>>(path: P) -> AgentResult<AgentConfig> {
@@ -48,6 +49,15 @@ pub struct MemoryStateIndex {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailureInvertedIndex {
+    pub generated_at_secs: u64,
+    pub by_kind: std::collections::HashMap<String, usize>,
+    pub by_tool: std::collections::HashMap<String, usize>,
+    pub by_iteration: std::collections::HashMap<usize, usize>,
+    pub latest_failure_iteration: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct MemoryTransactionJournal {
     state: String,
     started_at_secs: u64,
@@ -80,6 +90,38 @@ impl MemoryStateIndex {
     }
 }
 
+impl FailureInvertedIndex {
+    pub fn from_failures(failures: &[FailureEntry]) -> Self {
+        let mut by_kind = std::collections::HashMap::new();
+        let mut by_tool = std::collections::HashMap::new();
+        let mut by_iteration = std::collections::HashMap::new();
+        let mut latest_failure_iteration = None;
+
+        for failure in failures {
+            let kind = infer_failure_kind(failure);
+            *by_kind.entry(kind).or_insert(0) += 1;
+
+            let tool = infer_failure_tool(failure);
+            *by_tool.entry(tool).or_insert(0) += 1;
+
+            *by_iteration.entry(failure.iteration).or_insert(0) += 1;
+            latest_failure_iteration = Some(
+                latest_failure_iteration
+                    .map(|v: usize| v.max(failure.iteration))
+                    .unwrap_or(failure.iteration),
+            );
+        }
+
+        Self {
+            generated_at_secs: now_secs(),
+            by_kind,
+            by_tool,
+            by_iteration,
+            latest_failure_iteration,
+        }
+    }
+}
+
 pub fn save_memory_state_transactional<P: AsRef<Path>>(
     base_path: P,
     memory: &MemoryGraph,
@@ -88,12 +130,14 @@ pub fn save_memory_state_transactional<P: AsRef<Path>>(
     let ron_path = base.with_extension("ron");
     let bin_path = base.with_extension("bin");
     let idx_path = base.with_extension("idx.json");
+    let fail_idx_path = base.with_extension("fail_idx.json");
     let txn_path = base.with_extension("txn.json");
 
     let files = vec![
         ron_path.display().to_string(),
         bin_path.display().to_string(),
         idx_path.display().to_string(),
+        fail_idx_path.display().to_string(),
     ];
     let start_journal = MemoryTransactionJournal {
         state: "started".to_string(),
@@ -113,6 +157,8 @@ pub fn save_memory_state_transactional<P: AsRef<Path>>(
 
     let index = MemoryStateIndex::from_memory(memory);
     write_json_atomic(&idx_path, &index)?;
+    let failure_index = FailureInvertedIndex::from_failures(&memory.failures);
+    write_json_atomic(&fail_idx_path, &failure_index)?;
 
     let done_journal = MemoryTransactionJournal {
         state: "completed".to_string(),
@@ -162,6 +208,19 @@ pub fn load_memory_state_index<P: AsRef<Path>>(
     Ok(Some(index))
 }
 
+pub fn load_failure_inverted_index<P: AsRef<Path>>(
+    base_path: P,
+) -> AgentResult<Option<FailureInvertedIndex>> {
+    let idx_path = base_path.as_ref().with_extension("fail_idx.json");
+    if !idx_path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&idx_path)?;
+    let index: FailureInvertedIndex =
+        serde_json::from_str(&content).map_err(|e| AgentError::Serialization(e.to_string()))?;
+    Ok(Some(index))
+}
+
 pub fn memory_transaction_completed<P: AsRef<Path>>(base_path: P) -> AgentResult<bool> {
     let txn_path = base_path.as_ref().with_extension("txn.json");
     if !txn_path.exists() {
@@ -199,4 +258,55 @@ fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+fn infer_failure_kind(entry: &FailureEntry) -> String {
+    let text = format!(
+        "{} {}",
+        entry.description.to_ascii_lowercase(),
+        entry.error.to_ascii_lowercase()
+    );
+
+    if text.contains("policy") || text.contains("authorization") {
+        return "policy".to_string();
+    }
+    if text.contains("timeout") {
+        return "timeout".to_string();
+    }
+    if text.contains("circuit") {
+        return "circuit_breaker".to_string();
+    }
+    if text.contains("resource") || text.contains("budget") {
+        return "resource".to_string();
+    }
+    if text.contains("test") || text.contains("validation") {
+        return "validation".to_string();
+    }
+    if text.contains("tool") {
+        return "tool".to_string();
+    }
+    "other".to_string()
+}
+
+fn infer_failure_tool(entry: &FailureEntry) -> String {
+    let text = format!(
+        "{} {}",
+        entry.description.to_ascii_lowercase(),
+        entry.error.to_ascii_lowercase()
+    );
+    for tool in [
+        "run_tests",
+        "read_file",
+        "git_commit",
+        "generate_pr_description",
+        "apply_patch",
+        "format_code",
+        "git_branch",
+        "create_pr",
+    ] {
+        if text.contains(tool) {
+            return tool.to_string();
+        }
+    }
+    "unknown".to_string()
 }
