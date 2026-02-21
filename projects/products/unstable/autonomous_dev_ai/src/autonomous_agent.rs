@@ -149,17 +149,29 @@ impl AutonomousAgent {
             format!("{avg_failures:.2}"),
         );
 
-        if let Some(value) = dominant_recent(&snapshots, |s| s.top_failure_kind.clone()) {
+        if let Some((value, confidence)) =
+            dominant_recent_weighted(&snapshots, |s| s.top_failure_kind.clone())
+        {
             self.lifecycle
                 .memory
                 .metadata
                 .insert("previous_recent_top_failure_kind".to_string(), value);
+            self.lifecycle.memory.metadata.insert(
+                "previous_recent_top_failure_kind_confidence".to_string(),
+                format!("{confidence:.3}"),
+            );
         }
-        if let Some(value) = dominant_recent(&snapshots, |s| s.top_decision_action.clone()) {
+        if let Some((value, confidence)) =
+            dominant_recent_weighted(&snapshots, |s| s.top_decision_action.clone())
+        {
             self.lifecycle
                 .memory
                 .metadata
                 .insert("previous_recent_top_decision_action".to_string(), value);
+            self.lifecycle.memory.metadata.insert(
+                "previous_recent_top_decision_action_confidence".to_string(),
+                format!("{confidence:.3}"),
+            );
         }
         Ok(())
     }
@@ -172,18 +184,40 @@ fn learning_window_size() -> usize {
         .unwrap_or(20)
 }
 
-fn dominant_recent<F>(snapshots: &[LearningSnapshot], pick: F) -> Option<String>
+fn dominant_recent_weighted<F>(snapshots: &[LearningSnapshot], pick: F) -> Option<(String, f64)>
 where
     F: Fn(&LearningSnapshot) -> Option<String>,
 {
-    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-    for snapshot in snapshots {
+    let decay = learning_recency_decay();
+    let mut weights: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    let mut total_weight = 0.0f64;
+    for (idx, snapshot) in snapshots.iter().enumerate() {
+        // More recent snapshots (higher idx) receive higher weight.
+        let reverse_age = (snapshots.len() - 1 - idx) as i32;
+        let weight = decay.powi(reverse_age);
+        total_weight += weight;
         if let Some(key) = pick(snapshot) {
-            *counts.entry(key).or_insert(0) += 1;
+            *weights.entry(key).or_insert(0.0) += weight;
         }
     }
-    counts
+
+    weights
         .into_iter()
-        .max_by_key(|(_, count)| *count)
-        .map(|(key, _)| key)
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|(key, score)| {
+            let confidence = if total_weight > 0.0 {
+                score / total_weight
+            } else {
+                0.0
+            };
+            (key, confidence)
+        })
+}
+
+fn learning_recency_decay() -> f64 {
+    std::env::var("AUTONOMOUS_LEARNING_RECENCY_DECAY")
+        .ok()
+        .and_then(|v| v.parse::<f64>().ok())
+        .filter(|v| *v > 0.0 && *v <= 1.0)
+        .unwrap_or(0.85)
 }
