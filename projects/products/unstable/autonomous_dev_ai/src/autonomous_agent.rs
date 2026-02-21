@@ -9,6 +9,7 @@ use crate::persistence::{
     load_memory_state_with_fallback, load_recent_learning_snapshots, memory_transaction_completed,
     save_memory_state_transactional,
 };
+use crate::value_types::{ConfidenceScore, LearningWindow};
 
 //Autonomous developer AI agent
 pub struct AutonomousAgent {
@@ -44,8 +45,11 @@ impl AutonomousAgent {
     pub fn save_state(&self) -> AgentResult<()> {
         let index = save_memory_state_transactional(&self.state_path, &self.lifecycle.memory)?;
         let learning_window = learning_window_size();
-        let learning_snapshot =
-            append_learning_snapshot(&self.state_path, &self.lifecycle.memory, learning_window)?;
+        let learning_snapshot = append_learning_snapshot(
+            &self.state_path,
+            &self.lifecycle.memory,
+            learning_window.get(),
+        )?;
         tracing::info!(
             "State saved transactionally at base '{}' (max_iteration={}, decisions={}, failures={}, learning_top_failure_kind={:?})",
             self.state_path,
@@ -118,13 +122,13 @@ impl AutonomousAgent {
             if let Some((action, stats)) = select_worst_action_outcome(&action_outcome_index) {
                 self.lifecycle.memory.metadata.insert(
                     "previous_state_worst_action_outcome".to_string(),
-                    format!("{}:{:.3}:{}", action, stats.pass_rate, stats.total),
+                    format!("{}:{:.3}:{}", action, stats.pass_rate.get(), stats.total),
                 );
             }
             if let Some((action, stats)) = select_best_action_outcome(&action_outcome_index) {
                 self.lifecycle.memory.metadata.insert(
                     "previous_state_best_action_outcome".to_string(),
-                    format!("{}:{:.3}:{}", action, stats.pass_rate, stats.total),
+                    format!("{}:{:.3}:{}", action, stats.pass_rate.get(), stats.total),
                 );
             }
         }
@@ -148,7 +152,7 @@ impl AutonomousAgent {
 
     fn inject_recent_learning_metadata(&mut self) -> AgentResult<()> {
         let learning_window = learning_window_size();
-        let snapshots = load_recent_learning_snapshots(&self.state_path, learning_window)?;
+        let snapshots = load_recent_learning_snapshots(&self.state_path, learning_window.get())?;
         if snapshots.is_empty() {
             return Ok(());
         }
@@ -173,7 +177,7 @@ impl AutonomousAgent {
                 .insert("previous_recent_top_failure_kind".to_string(), value);
             self.lifecycle.memory.metadata.insert(
                 "previous_recent_top_failure_kind_confidence".to_string(),
-                format!("{confidence:.3}"),
+                format!("{:.3}", confidence.get()),
             );
         }
         if let Some((value, confidence)) =
@@ -185,21 +189,26 @@ impl AutonomousAgent {
                 .insert("previous_recent_top_decision_action".to_string(), value);
             self.lifecycle.memory.metadata.insert(
                 "previous_recent_top_decision_action_confidence".to_string(),
-                format!("{confidence:.3}"),
+                format!("{:.3}", confidence.get()),
             );
         }
         Ok(())
     }
 }
 
-fn learning_window_size() -> usize {
-    std::env::var("AUTONOMOUS_LEARNING_WINDOW")
+fn learning_window_size() -> LearningWindow {
+    let raw = std::env::var("AUTONOMOUS_LEARNING_WINDOW")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
-        .unwrap_or(20)
+        .unwrap_or(20);
+    LearningWindow::new(raw)
+        .unwrap_or_else(|| LearningWindow::new(20).expect("default window must be valid"))
 }
 
-fn dominant_recent_weighted<F>(snapshots: &[LearningSnapshot], pick: F) -> Option<(String, f64)>
+fn dominant_recent_weighted<F>(
+    snapshots: &[LearningSnapshot],
+    pick: F,
+) -> Option<(String, ConfidenceScore)>
 where
     F: Fn(&LearningSnapshot) -> Option<String>,
 {
@@ -220,11 +229,14 @@ where
         .into_iter()
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
         .map(|(key, score)| {
-            let confidence = if total_weight > 0.0 {
+            let confidence_raw = if total_weight > 0.0 {
                 score / total_weight
             } else {
                 0.0
             };
+            let confidence = ConfidenceScore::new(confidence_raw).unwrap_or_else(|| {
+                ConfidenceScore::new(0.0).expect("0.0 must be a valid confidence")
+            });
             (key, confidence)
         })
 }
@@ -246,7 +258,8 @@ fn select_worst_action_outcome(
         .filter(|(_, stats)| stats.total >= 2)
         .min_by(|a, b| {
             a.1.pass_rate
-                .partial_cmp(&b.1.pass_rate)
+                .get()
+                .partial_cmp(&b.1.pass_rate.get())
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
         .map(|(action, stats)| (action.clone(), stats.clone()))
@@ -261,7 +274,8 @@ fn select_best_action_outcome(
         .filter(|(_, stats)| stats.total >= 2)
         .max_by(|a, b| {
             a.1.pass_rate
-                .partial_cmp(&b.1.pass_rate)
+                .get()
+                .partial_cmp(&b.1.pass_rate.get())
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
         .map(|(action, stats)| (action.clone(), stats.clone()))

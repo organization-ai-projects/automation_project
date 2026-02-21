@@ -24,6 +24,7 @@ mod symbolic;
 mod symbolic_config;
 mod timeout;
 mod tools;
+mod value_types;
 
 use std::env;
 use std::io::IsTerminal;

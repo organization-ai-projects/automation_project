@@ -10,6 +10,7 @@ use crate::agent_config::AgentConfig;
 use crate::error::{AgentError, AgentResult};
 use crate::memory::{DecisionEntry, FailureEntry};
 use crate::memory_graph::MemoryGraph;
+use crate::value_types::PassRate;
 // Load configuration from .bin file
 pub fn load_bin<P: AsRef<Path>>(path: P) -> AgentResult<AgentConfig> {
     let bytes = fs::read(path)?;
@@ -82,7 +83,7 @@ pub struct ActionOutcomeStats {
     pub passed: usize,
     pub failed: usize,
     pub unknown: usize,
-    pub pass_rate: f64,
+    pub pass_rate: PassRate,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,7 +217,7 @@ impl ActionOutcomeIndex {
                 passed: 0,
                 failed: 0,
                 unknown: 0,
-                pass_rate: 0.0,
+                pass_rate: PassRate::new(0.0).expect("0.0 must be a valid pass rate"),
             });
             stats.total = stats.total.saturating_add(1);
             match outcome_by_iteration.get(&decision.iteration).copied() {
@@ -228,11 +229,13 @@ impl ActionOutcomeIndex {
 
         for stats in by_action.values_mut() {
             let observed = stats.passed.saturating_add(stats.failed);
-            stats.pass_rate = if observed == 0 {
+            let raw = if observed == 0 {
                 0.0
             } else {
                 stats.passed as f64 / observed as f64
             };
+            stats.pass_rate = PassRate::new(raw)
+                .unwrap_or_else(|| PassRate::new(0.0).expect("0.0 must be a valid pass rate"));
         }
 
         Self {
