@@ -1432,6 +1432,7 @@ impl LifecycleManager {
             .or_else(|| std::env::var("AUTONOMOUS_ISSUE_TITLE").ok())
             .unwrap_or_else(|| goal.clone());
         let issue_compliance = evaluate_issue_compliance(&issue_title, &issue_body);
+        let pr_body = append_issue_compliance_note(&pr_body, &issue_compliance);
         let mut pr_orchestrator =
             PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);
         if let Some(n) = pr_number {
@@ -1924,6 +1925,15 @@ fn looks_like_typed_issue_title(title: &str) -> bool {
         .take_while(|c| *c != '(')
         .all(|c| c.is_ascii_lowercase() || c == '_' || c == '-');
     has_scope && has_type && !title[colon_pos + 1..].trim().is_empty()
+}
+
+fn append_issue_compliance_note(body: &str, status: &IssueComplianceStatus) -> String {
+    match status {
+        IssueComplianceStatus::Compliant | IssueComplianceStatus::Unknown => body.to_string(),
+        IssueComplianceStatus::NonCompliant { reason } => format!(
+            "{body}\n\n---\nIssue compliance: non-compliant\nReason: {reason}\nRemediation: fix required issue fields (e.g., Parent: #<id> or Parent: none), then update PR keyword line."
+        ),
+    }
 }
 
 fn compensation_for_tool(tool: &str) -> CompensationKind {
