@@ -1157,11 +1157,23 @@ impl LifecycleManager {
         let risk = action_risk_level(tool, args, &self.policy_pack);
         self.run_replay
             .record("tool.risk_level", format!("tool={} risk={:?}", tool, risk));
+        let _ = self
+            .audit
+            .log_symbolic_decision("risk_gate_level", &format!("tool={} risk={:?}", tool, risk));
 
         match risk {
-            ActionRiskLevel::Low => Ok(()),
+            ActionRiskLevel::Low => {
+                let _ = self
+                    .audit
+                    .log_symbolic_decision("risk_gate_allow", &format!("tool={tool} risk=low"));
+                Ok(())
+            }
             ActionRiskLevel::Medium => {
                 if is_medium_risk_allowed(&self.config.execution_mode) {
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_allow",
+                        &format!("tool={tool} risk=medium"),
+                    );
                     Ok(())
                 } else {
                     self.memory.add_failure(
@@ -1174,6 +1186,13 @@ impl LifecycleManager {
                         Some(
                             "Set AUTONOMOUS_ALLOW_MUTATING_TOOLS=true for explicit opt-in"
                                 .to_string(),
+                        ),
+                    );
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_deny",
+                        &format!(
+                            "tool={tool} risk=medium mode={}",
+                            self.config.execution_mode
                         ),
                     );
                     Err(AgentError::PolicyViolation(format!(
@@ -1195,6 +1214,10 @@ impl LifecycleManager {
                             "Enable mutating tools explicitly before high-risk actions".to_string(),
                         ),
                     );
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_deny",
+                        &format!("tool={tool} risk=high mode={}", self.config.execution_mode),
+                    );
                     return Err(AgentError::PolicyViolation(format!(
                         "high-risk tool '{}' denied by safe mode",
                         tool
@@ -1206,6 +1229,10 @@ impl LifecycleManager {
                         "tool.high_risk_approved",
                         format!("tool={} token_check=passed", tool),
                     );
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_allow",
+                        &format!("tool={tool} risk=high approval=token"),
+                    );
                     Ok(())
                 } else {
                     self.memory.add_failure(
@@ -1215,6 +1242,10 @@ impl LifecycleManager {
                         Some(
                             "Set AUTONOMOUS_HIGH_RISK_APPROVAL_TOKEN and AUTONOMOUS_EXPECTED_APPROVAL_TOKEN to matching values".to_string(),
                         ),
+                    );
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_deny",
+                        &format!("tool={tool} risk=high approval=missing_or_invalid"),
                     );
                     Err(AgentError::PolicyViolation(format!(
                         "high-risk tool '{}' requires approval token",
