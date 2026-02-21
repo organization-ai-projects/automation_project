@@ -1146,7 +1146,7 @@ impl LifecycleManager {
     }
 
     fn enforce_risk_gate(&mut self, tool: &str, args: &[String]) -> AgentResult<()> {
-        let risk = action_risk_level(tool, args);
+        let risk = action_risk_level(tool, args, &self.policy_pack);
         self.run_replay
             .record("tool.risk_level", format!("tool={} risk={:?}", tool, risk));
 
@@ -1785,7 +1785,13 @@ fn is_medium_risk_allowed(execution_mode: &str) -> bool {
     !execution_mode.eq_ignore_ascii_case("safe")
 }
 
-fn action_risk_level(tool: &str, args: &[String]) -> ActionRiskLevel {
+fn action_risk_level(tool: &str, args: &[String], policy_pack: &PolicyPack) -> ActionRiskLevel {
+    if let Some(override_value) = policy_pack.risk_override(tool)
+        && let Some(parsed) = parse_risk_level(override_value)
+    {
+        return parsed;
+    }
+
     if matches!(
         tool,
         "read_file" | "search_code" | "generate_pr_description"
@@ -1802,6 +1808,15 @@ fn action_risk_level(tool: &str, args: &[String]) -> ActionRiskLevel {
         return ActionRiskLevel::High;
     }
     ActionRiskLevel::Medium
+}
+
+fn parse_risk_level(value: &str) -> Option<ActionRiskLevel> {
+    match value.to_ascii_lowercase().as_str() {
+        "low" => Some(ActionRiskLevel::Low),
+        "medium" => Some(ActionRiskLevel::Medium),
+        "high" => Some(ActionRiskLevel::High),
+        _ => None,
+    }
 }
 
 fn has_valid_high_risk_approval_token() -> bool {

@@ -1,5 +1,6 @@
 // projects/products/unstable/autonomous_dev_ai/src/security/policy_pack.rs
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// A versioned, signable policy pack loaded at runtime.
 ///
@@ -12,12 +13,23 @@ pub struct PolicyPack {
     pub version: String,
     pub forbidden_patterns: Vec<String>,
     pub allowed_tools: Vec<String>,
-    /// Optional SHA-256 hex digest of the serialized forbidden_patterns + allowed_tools.
+    /// Optional per-tool risk overrides: low | medium | high
+    pub tool_risk_overrides: HashMap<String, String>,
+    /// Optional SHA-256 hex digest of the serialized policy content.
     pub signature: Option<String>,
 }
 
 impl PolicyPack {
     pub fn new(version: impl Into<String>) -> Self {
+        let mut tool_risk_overrides = HashMap::new();
+        tool_risk_overrides.insert("read_file".to_string(), "low".to_string());
+        tool_risk_overrides.insert("search_code".to_string(), "low".to_string());
+        tool_risk_overrides.insert("generate_pr_description".to_string(), "low".to_string());
+        tool_risk_overrides.insert("git_commit".to_string(), "high".to_string());
+        tool_risk_overrides.insert("deploy".to_string(), "high".to_string());
+        tool_risk_overrides.insert("modify_policy".to_string(), "high".to_string());
+        tool_risk_overrides.insert("delete_branch".to_string(), "high".to_string());
+
         Self {
             version: version.into(),
             forbidden_patterns: vec![
@@ -36,6 +48,7 @@ impl PolicyPack {
                 "create_pr".to_string(),
                 "generate_pr_description".to_string(),
             ],
+            tool_risk_overrides,
             signature: None,
         }
     }
@@ -63,6 +76,12 @@ impl PolicyPack {
         for tool in &self.allowed_tools {
             feed(&mut hash, tool.as_bytes());
         }
+        let mut entries: Vec<(&String, &String)> = self.tool_risk_overrides.iter().collect();
+        entries.sort_by(|(ka, _), (kb, _)| ka.cmp(kb));
+        for (tool, risk) in entries {
+            feed(&mut hash, tool.as_bytes());
+            feed(&mut hash, risk.as_bytes());
+        }
         format!("{hash:016x}")
     }
 
@@ -77,6 +96,10 @@ impl PolicyPack {
             None => false,
             Some(sig) => *sig == self.fingerprint(),
         }
+    }
+
+    pub fn risk_override(&self, tool: &str) -> Option<&str> {
+        self.tool_risk_overrides.get(tool).map(|v| v.as_str())
     }
 }
 
