@@ -277,28 +277,7 @@ impl LifecycleManager {
             tracing::error!("Failed to log final state: {}", e);
         }
 
-        let replay_path = std::env::var("AUTONOMOUS_RUN_REPLAY_PATH")
-            .unwrap_or_else(|_| "agent_run_replay.json".to_string());
-        if let Err(e) = self.run_replay.persist(&replay_path) {
-            tracing::warn!("Failed to persist run replay '{}': {}", replay_path, e);
-        } else {
-            self.memory
-                .metadata
-                .insert("run_replay_path".to_string(), replay_path);
-        }
-        let replay_text_path = std::env::var("AUTONOMOUS_RUN_REPLAY_TEXT_PATH")
-            .unwrap_or_else(|_| "agent_run_replay.txt".to_string());
-        if let Err(e) = std::fs::write(&replay_text_path, self.run_replay.reconstruct()) {
-            tracing::warn!(
-                "Failed to persist run replay text '{}': {}",
-                replay_text_path,
-                e
-            );
-        } else {
-            self.memory
-                .metadata
-                .insert("run_replay_text_path".to_string(), replay_text_path);
-        }
+        self.persist_run_replay_artifacts();
 
         tracing::info!("=== Agent Lifecycle Complete ===");
         tracing::info!("Final state: {:?}", self.state);
@@ -357,6 +336,32 @@ impl LifecycleManager {
     fn advance_step_index(&mut self) {
         self.current_step_index = self.current_step_index.increment();
         self.current_step = self.current_step_index.get();
+    }
+
+    fn persist_run_replay_artifacts(&mut self) {
+        let replay_path = std::env::var("AUTONOMOUS_RUN_REPLAY_PATH")
+            .unwrap_or_else(|_| "agent_run_replay.json".to_string());
+        if let Err(e) = self.run_replay.persist(&replay_path) {
+            tracing::warn!("Failed to persist run replay '{}': {}", replay_path, e);
+        } else {
+            self.memory
+                .metadata
+                .insert("run_replay_path".to_string(), replay_path);
+        }
+
+        let replay_text_path = std::env::var("AUTONOMOUS_RUN_REPLAY_TEXT_PATH")
+            .unwrap_or_else(|_| "agent_run_replay.txt".to_string());
+        if let Err(e) = std::fs::write(&replay_text_path, self.run_replay.reconstruct()) {
+            tracing::warn!(
+                "Failed to persist run replay text '{}': {}",
+                replay_text_path,
+                e
+            );
+        } else {
+            self.memory
+                .metadata
+                .insert("run_replay_text_path".to_string(), replay_text_path);
+        }
     }
 
     fn execute_main_loop(&mut self, start_time: Instant) -> LifecycleResult<()> {
