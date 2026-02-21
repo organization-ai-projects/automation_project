@@ -372,6 +372,10 @@ impl LifecycleManager {
             .metadata
             .get("weighted_objective_score")
             .and_then(|v| v.parse::<f64>().ok());
+        let review_required = std::env::var("AUTONOMOUS_REVIEW_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
         let report = RunReport {
             generated_at_secs: RunReport::now_secs(),
             run_id: self.actor.run_id.to_string(),
@@ -385,6 +389,8 @@ impl LifecycleManager {
             weighted_objective_score,
             run_replay_path: self.memory.metadata.get("run_replay_path").cloned(),
             run_replay_text_path: self.memory.metadata.get("run_replay_text_path").cloned(),
+            last_tool_failure_class: self.memory.metadata.get("last_tool_failure_class").cloned(),
+            review_required,
         };
 
         let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")

@@ -15,6 +15,8 @@ pub struct RunReport {
     pub weighted_objective_score: Option<f64>,
     pub run_replay_path: Option<String>,
     pub run_replay_text_path: Option<String>,
+    pub last_tool_failure_class: Option<String>,
+    pub review_required: bool,
 }
 
 impl RunReport {
