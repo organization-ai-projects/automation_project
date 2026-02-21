@@ -5,6 +5,7 @@
 use crate::error::{AgentError, AgentResult};
 use crate::neural::NeuralModel;
 use crate::symbolic::NeuralProposal;
+use crate::value_types::ActionName;
 
 /// Neural layer - provides suggestions, never executes directly
 #[derive(Debug)]
@@ -31,7 +32,9 @@ impl NeuralLayer {
 
         // Stub implementation - would use actual neural model
         Ok(Some(NeuralProposal {
-            action: format!("fix_based_on_context: {}", context),
+            action: ActionName::new(format!("fix_based_on_context: {}", context)).unwrap_or_else(
+                || ActionName::new("fallback_fix").expect("static action is valid"),
+            ),
             confidence: 0.85,
             reasoning: "Neural heuristic suggestion".to_string(),
         }))

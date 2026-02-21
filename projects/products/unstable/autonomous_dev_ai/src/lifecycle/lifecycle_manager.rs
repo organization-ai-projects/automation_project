@@ -745,7 +745,7 @@ impl LifecycleManager {
                         );
 
                         self.audit
-                            .log_neural_suggestion(&suggested.action, suggested.confidence)
+                            .log_neural_suggestion(suggested.action.as_str(), suggested.confidence)
                             .map_err(|e| AgentError::State(e.to_string()))?;
 
                         Some(suggested)

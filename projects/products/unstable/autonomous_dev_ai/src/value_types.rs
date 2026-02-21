@@ -63,6 +63,10 @@ impl ActionName {
             Some(Self(value))
         }
     }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 impl std::fmt::Display for ActionName {

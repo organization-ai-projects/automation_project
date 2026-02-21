@@ -28,7 +28,7 @@ impl SymbolicController {
 
     /// Validate a neural proposal against symbolic rules.
     pub fn validate_proposal(&self, proposal: &NeuralProposal) -> AgentResult<ValidationResult> {
-        if proposal.action.trim().is_empty() {
+        if proposal.action.as_str().trim().is_empty() {
             return Err(AgentError::Symbolic(
                 "Neural proposal action cannot be empty".to_string(),
             ));
@@ -36,11 +36,11 @@ impl SymbolicController {
 
         let mut issues = Vec::new();
 
-        if is_force_push_action(&proposal.action) {
+        if is_force_push_action(proposal.action.as_str()) {
             issues.push(format!("{FORCE_PUSH_FORBIDDEN} is not allowed"));
         }
 
-        if proposal.action.contains("rm -rf") {
+        if proposal.action.as_str().contains("rm -rf") {
             issues.push("destructive operations require explicit approval".to_string());
         }
 
