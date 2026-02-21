@@ -484,34 +484,7 @@ impl LifecycleManager {
             });
         }
 
-        if self
-            .current_iteration_number
-            .exceeds(self.max_iterations_limit)
-        {
-            tracing::error!(
-                "Maximum iterations exceeded: {} > {}",
-                self.current_iteration_number,
-                self.max_iterations_limit.get()
-            );
-
-            self.memory.add_failure(
-                self.iteration,
-                "Maximum iterations exceeded".to_string(),
-                format!(
-                    "Agent exceeded maximum allowed iterations ({})",
-                    self.max_iterations_limit.get()
-                ),
-                None,
-            );
-
-            self.transition_to_failed_state()?;
-
-            return Err(LifecycleError::ResourceExhausted {
-                resource: ResourceType::Iterations,
-                limit: self.max_iterations_limit.get(),
-                current: self.iteration,
-            });
-        }
+        self.check_iteration_budget()?;
 
         Ok(())
     }
@@ -532,6 +505,39 @@ impl LifecycleManager {
                 error: e,
                 context: "Failed to transition to Failed state".to_string(),
             })
+    }
+
+    fn check_iteration_budget(&mut self) -> LifecycleResult<()> {
+        if !self
+            .current_iteration_number
+            .exceeds(self.max_iterations_limit)
+        {
+            return Ok(());
+        }
+
+        tracing::error!(
+            "Maximum iterations exceeded: {} > {}",
+            self.current_iteration_number,
+            self.max_iterations_limit.get()
+        );
+
+        self.memory.add_failure(
+            self.iteration,
+            "Maximum iterations exceeded".to_string(),
+            format!(
+                "Agent exceeded maximum allowed iterations ({})",
+                self.max_iterations_limit.get()
+            ),
+            None,
+        );
+
+        self.transition_to_failed_state()?;
+
+        Err(LifecycleError::ResourceExhausted {
+            resource: ResourceType::Iterations,
+            limit: self.max_iterations_limit.get(),
+            current: self.iteration,
+        })
     }
 
     fn record_replay(&mut self, kind: &str, payload: impl Into<String>) {
