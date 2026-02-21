@@ -5,12 +5,13 @@ use super::{
     LifecycleResult, MaxIterations, MetricsCollector, ResourceType, RetryStrategy, StepIndex,
 };
 
-use crate::audit::AuditLogger;
-use crate::config::AgentConfig;
+use crate::agent_config::AgentConfig;
+use crate::audit_logger::AuditLogger;
 use crate::error::{AgentError, AgentResult};
-use crate::memory::MemoryGraph;
+use crate::memory_graph::MemoryGraph;
 use crate::neural::NeuralLayer;
-use crate::objectives::ObjectiveEvaluator;
+use crate::objective_evaluator::ObjectiveEvaluator;
+use crate::security::{ActorIdentity, AuthzDecision, AuthzEngine};
 use crate::state::AgentState;
 use crate::symbolic::{Plan, PlanStep, PolicyEngine, SymbolicController};
 use crate::tools::{
@@ -29,6 +30,8 @@ pub struct LifecycleManager {
     pub symbolic: SymbolicController,
     pub neural: NeuralLayer,
     pub policy: PolicyEngine,
+    pub authz: AuthzEngine,
+    pub actor: ActorIdentity,
     pub tools: ToolRegistry,
     pub audit: AuditLogger,
     pub iteration: usize,
@@ -94,6 +97,8 @@ impl LifecycleManager {
         );
 
         let policy = PolicyEngine::new();
+        let authz = AuthzEngine::new();
+        let actor = ActorIdentity::default();
 
         let mut tools = ToolRegistry::new();
         tools.register(Box::new(RepoReader));
@@ -110,6 +115,8 @@ impl LifecycleManager {
             symbolic,
             neural,
             policy,
+            authz,
+            actor,
             tools,
             audit: AuditLogger::new(audit_log_path),
             iteration: IterationNumber::first().get(),
@@ -493,6 +500,17 @@ impl LifecycleManager {
                     step.tool
                 )));
             }
+
+            let action = build_action_from_step(step);
+            if !self.policy.validate_action(&action) {
+                return Err(AgentError::PolicyViolation(format!(
+                    "Step {}: action '{}' violates policy patterns",
+                    idx + 1,
+                    action
+                )));
+            }
+
+            self.enforce_authz_for_action(&step.tool)?;
         }
         Ok(())
     }
@@ -549,6 +567,25 @@ impl LifecycleManager {
 
             return Err(AgentError::PolicyViolation(error_msg));
         }
+
+        let action = build_action_from_step(&step);
+        if !self.policy.validate_action(&action) {
+            let error_msg = format!(
+                "Action '{}' violates policy patterns (step {})",
+                action,
+                self.current_step_index.get() + 1
+            );
+            tracing::error!("{}", error_msg);
+            self.memory.add_failure(
+                self.iteration,
+                "Policy action validation failed".to_string(),
+                error_msg.clone(),
+                None,
+            );
+            return Err(AgentError::PolicyViolation(error_msg));
+        }
+
+        self.enforce_authz_for_action(&step.tool)?;
 
         {
             let breaker = self
@@ -651,6 +688,22 @@ impl LifecycleManager {
         }
 
         Ok(result)
+    }
+
+    fn enforce_authz_for_action(&self, action: &str) -> AgentResult<()> {
+        match self.authz.check(&self.actor, action) {
+            AuthzDecision::Allow => Ok(()),
+            AuthzDecision::Deny { reason } => Err(AgentError::PolicyViolation(format!(
+                "Authorization denied for action '{}': {}",
+                action, reason
+            ))),
+            AuthzDecision::RequiresEscalation { required_role } => {
+                Err(AgentError::PolicyViolation(format!(
+                    "Action '{}' requires escalation: {}",
+                    action, required_role
+                )))
+            }
+        }
     }
 
     fn verify_step(&mut self) -> AgentResult<()> {
@@ -929,5 +982,13 @@ impl LifecycleManager {
 
     pub fn current_iteration(&self) -> usize {
         self.current_iteration_number.get()
+    }
+}
+
+fn build_action_from_step(step: &PlanStep) -> String {
+    if step.args.is_empty() {
+        step.tool.clone()
+    } else {
+        format!("{} {}", step.tool, step.args.join(" "))
     }
 }
