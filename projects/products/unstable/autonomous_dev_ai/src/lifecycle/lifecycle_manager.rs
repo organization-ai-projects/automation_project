@@ -1965,9 +1965,7 @@ impl LifecycleManager {
             audit_args.push(repo);
         }
 
-        let output = command
-            .output()
-            .map_err(|e| AgentError::Tool(format!("failed to execute gh pr create: {e}")))?;
+        let output = run_command_with_timeout(command, self.tool_timeout.duration, "gh pr create")?;
         let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
         let _ = self
@@ -2655,6 +2653,45 @@ fn classify_tool_failure(error_text: &str) -> &'static str {
         return "execution";
     }
     "unknown"
+}
+
+fn run_command_with_timeout(
+    mut command: Command,
+    timeout: Duration,
+    label: &str,
+) -> AgentResult<std::process::Output> {
+    let mut child = command
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| AgentError::Tool(format!("failed to spawn '{label}': {e}")))?;
+
+    let start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                return child.wait_with_output().map_err(|e| {
+                    AgentError::Tool(format!("wait_with_output for '{label}' failed: {e}"))
+                });
+            }
+            Ok(None) => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    let _ = child.wait_with_output();
+                    return Err(AgentError::Tool(format!(
+                        "'{label}' timed out after {}s",
+                        timeout.as_secs()
+                    )));
+                }
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            Err(e) => {
+                return Err(AgentError::Tool(format!(
+                    "try_wait for '{label}' failed: {e}"
+                )));
+            }
+        }
+    }
 }
 
 fn load_review_comments_from_env() -> AgentResult<Vec<ReviewComment>> {
