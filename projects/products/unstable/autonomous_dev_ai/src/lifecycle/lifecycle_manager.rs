@@ -31,6 +31,13 @@ use crate::tools::{
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ActionRiskLevel {
+    Low,
+    Medium,
+    High,
+}
+
 /// Agent lifecycle manager.
 pub struct LifecycleManager {
     // Public fields preserved for compatibility with existing callers/tests.
@@ -956,28 +963,7 @@ impl LifecycleManager {
         }
 
         self.enforce_authz_for_action(&step.tool)?;
-        if !is_tool_execution_allowed(&self.config.execution_mode, &step.tool) {
-            self.run_replay.record(
-                "tool.execution_denied",
-                format!(
-                    "tool={} reason=mutating tool requires AUTONOMOUS_ALLOW_MUTATING_TOOLS=true",
-                    step.tool
-                ),
-            );
-            self.memory.add_failure(
-                self.iteration,
-                "Tool execution denied by safe mode".to_string(),
-                format!(
-                    "mutating tool '{}' denied in mode '{}'",
-                    step.tool, self.config.execution_mode
-                ),
-                Some("Set AUTONOMOUS_ALLOW_MUTATING_TOOLS=true for explicit opt-in".to_string()),
-            );
-            return Err(AgentError::PolicyViolation(format!(
-                "mutating tool '{}' denied by safe mode",
-                step.tool
-            )));
-        }
+        self.enforce_risk_gate(&step.tool, &step.args)?;
         let compensation = self
             .tools
             .get_tool(&step.tool)
@@ -1156,6 +1142,78 @@ impl LifecycleManager {
                 )))
             }
             AuthzDecision::Allow => Ok(()),
+        }
+    }
+
+    fn enforce_risk_gate(&mut self, tool: &str, args: &[String]) -> AgentResult<()> {
+        let risk = action_risk_level(tool, args);
+        self.run_replay
+            .record("tool.risk_level", format!("tool={} risk={:?}", tool, risk));
+
+        match risk {
+            ActionRiskLevel::Low => Ok(()),
+            ActionRiskLevel::Medium => {
+                if is_medium_risk_allowed(&self.config.execution_mode) {
+                    Ok(())
+                } else {
+                    self.memory.add_failure(
+                        self.iteration,
+                        "Tool execution denied by risk gate".to_string(),
+                        format!(
+                            "medium-risk tool '{}' denied in mode '{}'",
+                            tool, self.config.execution_mode
+                        ),
+                        Some(
+                            "Set AUTONOMOUS_ALLOW_MUTATING_TOOLS=true for explicit opt-in"
+                                .to_string(),
+                        ),
+                    );
+                    Err(AgentError::PolicyViolation(format!(
+                        "medium-risk tool '{}' denied by safe mode",
+                        tool
+                    )))
+                }
+            }
+            ActionRiskLevel::High => {
+                if !is_medium_risk_allowed(&self.config.execution_mode) {
+                    self.memory.add_failure(
+                        self.iteration,
+                        "Tool execution denied by risk gate".to_string(),
+                        format!(
+                            "high-risk tool '{}' denied in mode '{}'",
+                            tool, self.config.execution_mode
+                        ),
+                        Some(
+                            "Enable mutating tools explicitly before high-risk actions".to_string(),
+                        ),
+                    );
+                    return Err(AgentError::PolicyViolation(format!(
+                        "high-risk tool '{}' denied by safe mode",
+                        tool
+                    )));
+                }
+
+                if has_valid_high_risk_approval_token() {
+                    self.run_replay.record(
+                        "tool.high_risk_approved",
+                        format!("tool={} token_check=passed", tool),
+                    );
+                    Ok(())
+                } else {
+                    self.memory.add_failure(
+                        self.iteration,
+                        "High-risk approval missing".to_string(),
+                        format!("tool '{}' requires explicit approval token", tool),
+                        Some(
+                            "Set AUTONOMOUS_HIGH_RISK_APPROVAL_TOKEN and AUTONOMOUS_EXPECTED_APPROVAL_TOKEN to matching values".to_string(),
+                        ),
+                    );
+                    Err(AgentError::PolicyViolation(format!(
+                        "high-risk tool '{}' requires approval token",
+                        tool
+                    )))
+                }
+            }
         }
     }
 
@@ -1715,15 +1773,7 @@ fn score_value(scores: &[(String, f64)], key: &str) -> Option<f64> {
     scores.iter().find(|(k, _)| k == key).map(|(_, v)| *v)
 }
 
-fn is_tool_execution_allowed(execution_mode: &str, tool: &str) -> bool {
-    let low_risk = matches!(
-        tool,
-        "read_file" | "search_code" | "run_tests" | "generate_pr_description"
-    );
-    if low_risk {
-        return true;
-    }
-
+fn is_medium_risk_allowed(execution_mode: &str) -> bool {
     let explicit_opt_in = std::env::var("AUTONOMOUS_ALLOW_MUTATING_TOOLS")
         .ok()
         .map(|v| v.eq_ignore_ascii_case("true"))
@@ -1733,6 +1783,34 @@ fn is_tool_execution_allowed(execution_mode: &str, tool: &str) -> bool {
     }
 
     !execution_mode.eq_ignore_ascii_case("safe")
+}
+
+fn action_risk_level(tool: &str, args: &[String]) -> ActionRiskLevel {
+    if matches!(
+        tool,
+        "read_file" | "search_code" | "generate_pr_description"
+    ) {
+        return ActionRiskLevel::Low;
+    }
+    if tool == "run_tests" && args.first().map(|v| v == "cargo").unwrap_or(false) {
+        return ActionRiskLevel::Low;
+    }
+    if matches!(
+        tool,
+        "git_commit" | "deploy" | "modify_policy" | "delete_branch"
+    ) {
+        return ActionRiskLevel::High;
+    }
+    ActionRiskLevel::Medium
+}
+
+fn has_valid_high_risk_approval_token() -> bool {
+    let provided = std::env::var("AUTONOMOUS_HIGH_RISK_APPROVAL_TOKEN").ok();
+    let expected = std::env::var("AUTONOMOUS_EXPECTED_APPROVAL_TOKEN").ok();
+    match (provided, expected) {
+        (Some(p), Some(e)) => !p.is_empty() && p == e,
+        _ => false,
+    }
 }
 
 fn evaluate_issue_compliance(title: &str, body: &str) -> IssueComplianceStatus {
