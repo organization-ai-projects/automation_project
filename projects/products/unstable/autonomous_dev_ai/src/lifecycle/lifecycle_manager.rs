@@ -1790,17 +1790,39 @@ impl LifecycleManager {
             .map(|v| v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
         if create_pr_enabled && !opened_pr {
-            match self.try_create_real_pr(&pr_orchestrator.metadata.title, &rendered_body) {
-                Ok(Some(real_pr)) => {
-                    pr_orchestrator.open(real_pr);
-                    opened_pr = true;
+            let precheck_result = if !self.policy.is_tool_allowed("create_pr") {
+                Err(AgentError::PolicyViolation(
+                    "Tool 'create_pr' is not allowed by policy".to_string(),
+                ))
+            } else {
+                self.enforce_authz_for_action("create_pr")
+                    .and_then(|_| self.enforce_risk_gate("create_pr", &[]))
+            };
+            if let Err(error) = precheck_result {
+                if create_pr_required {
+                    return Err(error);
                 }
-                Ok(None) => {}
-                Err(error) => {
-                    if create_pr_required {
-                        return Err(error);
+                self.memory.add_failure(
+                    self.iteration,
+                    "Real PR creation blocked by policy gate".to_string(),
+                    error.to_string(),
+                    Some(
+                        "Adjust policy/authz/risk settings or disable AUTONOMOUS_CREATE_PR"
+                            .to_string(),
+                    ),
+                );
+            } else {
+                match self.try_create_real_pr(&pr_orchestrator.metadata.title, &rendered_body) {
+                    Ok(Some(real_pr)) => {
+                        pr_orchestrator.open(real_pr);
+                        opened_pr = true;
                     }
-                    self.memory.add_failure(
+                    Ok(None) => {}
+                    Err(error) => {
+                        if create_pr_required {
+                            return Err(error);
+                        }
+                        self.memory.add_failure(
                         self.iteration,
                         "Real PR creation failed".to_string(),
                         error.to_string(),
@@ -1809,6 +1831,7 @@ impl LifecycleManager {
                                 .to_string(),
                         ),
                     );
+                    }
                 }
             }
         }
