@@ -127,14 +127,25 @@ fn main() {
             println!("\n========================================");
             println!("Execution Summary");
             println!("========================================");
-            println!("Iterations: {}", agent.lifecycle.iteration);
-            println!("Final state: {:?}", agent.lifecycle.state);
+            let metrics = agent.lifecycle.metrics();
+            println!("Iterations: {}", agent.lifecycle.current_iteration());
+            println!("Final state: {:?}", agent.lifecycle.current_state());
+            println!(
+                "Max iterations configured: {}",
+                agent.lifecycle.max_iterations
+            );
             println!(
                 "Explored files: {}",
                 agent.lifecycle.memory.explored_files.len()
             );
             println!("Decisions made: {}", agent.lifecycle.memory.decisions.len());
             println!("Failures: {}", agent.lifecycle.memory.failures.len());
+            println!("Tool executions: {}", metrics.tool_executions_total);
+            println!("Failed tool executions: {}", metrics.tool_executions_failed);
+            println!(
+                "Average iteration duration: {:?}",
+                metrics.average_iteration_duration
+            );
             println!("========================================\n");
 
             println!("Audit log written to: {}", audit_log);

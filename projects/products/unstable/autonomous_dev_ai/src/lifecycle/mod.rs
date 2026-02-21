@@ -22,7 +22,6 @@ mod tool_metrics;
 mod validation_strategy;
 
 pub use action_boundary::ActionBoundary;
-pub use checkpoint::Checkpoint;
 pub use circuit_breaker::CircuitBreaker;
 pub use circuit_state::CircuitState;
 pub use compensation_kind::CompensationKind;
@@ -34,9 +33,7 @@ pub use lifecycle_metrics::LifecycleMetrics;
 pub use max_iterations::MaxIterations;
 pub use metrics_collector::MetricsCollector;
 pub use metrics_inner::MetricsInner;
-pub use resource_budget::ResourceBudget;
 pub use resource_type::ResourceType;
 pub use retry_strategy::RetryStrategy;
-pub use rollback_manager::RollbackManager;
 pub use step_index::StepIndex;
 pub use tool_metrics::ToolMetrics;
