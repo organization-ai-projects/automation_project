@@ -12,9 +12,7 @@ use crate::memory::MemoryGraph;
 use crate::neural::NeuralLayer;
 use crate::objectives::ObjectiveEvaluator;
 use crate::state::AgentState;
-use crate::symbolic::SymbolicController;
-use crate::symbolic::planner::{Plan, PlanStep};
-use crate::symbolic::policy::PolicyEngine;
+use crate::symbolic::{Plan, PlanStep, PolicyEngine, SymbolicController};
 use crate::tools::{
     GitWrapper, PrDescriptionGenerator, RepoReader, TestRunner, ToolRegistry, ToolResult,
 };

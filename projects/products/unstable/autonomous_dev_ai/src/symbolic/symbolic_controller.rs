@@ -1,8 +1,8 @@
-use super::issue_taxonomy::{CategoryDecision, IssueClassificationInput, classify_issue};
 use super::policy::{FORCE_PUSH_FORBIDDEN, is_force_push_action};
 use super::{NeuralProposal, ValidationResult};
 use crate::error::AgentResult;
 use crate::objectives::ObjectiveEvaluator;
+use crate::symbolic::{CategoryDecision, IssueClassificationInput, classify_issue};
 
 /// Symbolic controller - makes all final decisions.
 #[derive(Debug)]

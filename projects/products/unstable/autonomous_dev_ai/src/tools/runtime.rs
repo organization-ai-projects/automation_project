@@ -3,7 +3,7 @@
 //! Tool system - all tools are symbolic wrappers
 
 use crate::error::{AgentError, AgentResult};
-use crate::symbolic::policy::{FORCE_PUSH_FORBIDDEN, is_force_push_action};
+use crate::symbolic::{FORCE_PUSH_FORBIDDEN, is_force_push_action};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::time::Duration;
