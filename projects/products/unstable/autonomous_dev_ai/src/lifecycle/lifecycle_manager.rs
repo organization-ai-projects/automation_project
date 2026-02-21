@@ -861,6 +861,18 @@ impl LifecycleManager {
             .get("previous_state_max_iteration")
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(0);
+        let top_failure_kind = self
+            .memory
+            .metadata
+            .get("previous_state_top_failure_kind")
+            .cloned()
+            .unwrap_or_default();
+        let top_failure_tool = self
+            .memory
+            .metadata
+            .get("previous_state_top_failure_tool")
+            .cloned()
+            .unwrap_or_default();
 
         if previous_failures > 0 {
             plan.add_step(PlanStep {
@@ -897,13 +909,48 @@ impl LifecycleManager {
                 verification: "learning_strict_lint_passes".to_string(),
             });
         }
+        if top_failure_kind.starts_with("policy:") {
+            plan.add_step(PlanStep {
+                description: "Learning adaptation: policy-focused validation after policy failures"
+                    .to_string(),
+                tool: "run_tests".to_string(),
+                args: vec![
+                    "cargo".to_string(),
+                    "clippy".to_string(),
+                    "-p".to_string(),
+                    self.config.agent_name.clone(),
+                    "--bin".to_string(),
+                    self.config.agent_name.clone(),
+                ],
+                verification: "learning_policy_gate_passes".to_string(),
+            });
+        }
+        if top_failure_tool.starts_with("run_tests:") {
+            plan.add_step(PlanStep {
+                description: "Learning adaptation: stabilize test harness execution path"
+                    .to_string(),
+                tool: "run_tests".to_string(),
+                args: vec![
+                    "cargo".to_string(),
+                    "test".to_string(),
+                    "-p".to_string(),
+                    self.config.agent_name.clone(),
+                    "--bin".to_string(),
+                    self.config.agent_name.clone(),
+                    "--no-fail-fast".to_string(),
+                ],
+                verification: "learning_test_harness_stable".to_string(),
+            });
+        }
 
         self.run_replay.record(
             "learning.adaptation",
             format!(
-                "previous_failures={} previous_max_iteration={} plan_steps={}",
+                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} plan_steps={}",
                 previous_failures,
                 previous_max_iteration,
+                top_failure_kind,
+                top_failure_tool,
                 plan.steps.len()
             ),
         );
