@@ -1,6 +1,7 @@
 // projects/products/unstable/autonomous_dev_ai/src/lifecycle/mod.rs
 // Lifecycle module surface (no business logic here).
 mod action_boundary;
+mod action_risk_level;
 mod checkpoint;
 mod circuit_breaker;
 mod circuit_state;
@@ -22,6 +23,7 @@ mod tool_metrics;
 mod validation_strategy;
 
 pub use action_boundary::ActionBoundary;
+pub use action_risk_level::ActionRiskLevel;
 pub use checkpoint::Checkpoint;
 pub use circuit_breaker::CircuitBreaker;
 pub use circuit_state::CircuitState;

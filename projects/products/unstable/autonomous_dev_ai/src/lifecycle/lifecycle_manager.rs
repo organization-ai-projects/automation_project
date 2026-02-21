@@ -10,6 +10,7 @@ use super::{
 use crate::agent_config::AgentConfig;
 use crate::audit_logger::AuditLogger;
 use crate::error::{AgentError, AgentResult};
+use crate::lifecycle::ActionRiskLevel;
 use crate::memory_graph::MemoryGraph;
 use crate::neural::{
     DriftDetector, IntentInterpretation, ModelGovernance, ModelVersion, NeuralLayer, NeuralModel,
@@ -30,13 +31,6 @@ use crate::tools::{
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ActionRiskLevel {
-    Low,
-    Medium,
-    High,
-}
 
 /// Agent lifecycle manager.
 pub struct LifecycleManager {
@@ -762,6 +756,7 @@ impl LifecycleManager {
             neural_suggestion.as_ref(),
             &format!("{:?}", issue_category.category),
         )?;
+        self.apply_learning_adaptations(&mut plan);
         self.validate_plan(&plan)?;
         self.run_replay.record(
             "plan.generated",
@@ -851,6 +846,67 @@ impl LifecycleManager {
         }
 
         Ok(())
+    }
+
+    fn apply_learning_adaptations(&mut self, plan: &mut Plan) {
+        let previous_failures = self
+            .memory
+            .metadata
+            .get("previous_state_failures_count")
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(0);
+        let previous_max_iteration = self
+            .memory
+            .metadata
+            .get("previous_state_max_iteration")
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(0);
+
+        if previous_failures > 0 {
+            plan.add_step(PlanStep {
+                description: format!(
+                    "Learning adaptation: rerun deterministic validation (previous_failures={})",
+                    previous_failures
+                ),
+                tool: "run_tests".to_string(),
+                args: vec![
+                    "cargo".to_string(),
+                    "check".to_string(),
+                    "-p".to_string(),
+                    self.config.agent_name.clone(),
+                    "--bin".to_string(),
+                    self.config.agent_name.clone(),
+                ],
+                verification: "learning_validation_passes".to_string(),
+            });
+        }
+
+        if previous_failures >= 3 || previous_max_iteration >= self.max_iterations_limit.get() / 2 {
+            plan.add_step(PlanStep {
+                description: "Learning adaptation: strict lint gate after unstable runs"
+                    .to_string(),
+                tool: "run_tests".to_string(),
+                args: vec![
+                    "cargo".to_string(),
+                    "clippy".to_string(),
+                    "-p".to_string(),
+                    self.config.agent_name.clone(),
+                    "--bin".to_string(),
+                    self.config.agent_name.clone(),
+                ],
+                verification: "learning_strict_lint_passes".to_string(),
+            });
+        }
+
+        self.run_replay.record(
+            "learning.adaptation",
+            format!(
+                "previous_failures={} previous_max_iteration={} plan_steps={}",
+                previous_failures,
+                previous_max_iteration,
+                plan.steps.len()
+            ),
+        );
     }
 
     fn validate_plan(&mut self, plan: &Plan) -> AgentResult<()> {
@@ -1751,6 +1807,14 @@ impl LifecycleManager {
             return Ok(());
         }
 
+        let allow_unknown = std::env::var("AUTONOMOUS_ALLOW_UNKNOWN_RISK_OVERRIDE_TOOLS")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if !allow_unknown {
+            validate_override_tool_names(&overrides, |tool| self.is_known_tool(tool))?;
+        }
+
         let applied = self
             .policy_pack
             .apply_risk_overrides_str(&overrides)
@@ -1772,6 +1836,11 @@ impl LifecycleManager {
             format!("entries={applied}"),
         );
         Ok(())
+    }
+
+    fn is_known_tool(&self, tool: &str) -> bool {
+        self.policy.allowed_tools.contains(&tool.to_string())
+            || matches!(tool, "deploy" | "modify_policy" | "delete_branch")
     }
 
     fn record_runbook_hint_for_error(&mut self, error_text: &str) {
@@ -1904,6 +1973,36 @@ fn has_valid_high_risk_approval_token() -> bool {
         (Some(p), Some(e)) => !p.is_empty() && p == e,
         _ => false,
     }
+}
+
+fn validate_override_tool_names<F>(overrides: &str, is_known_tool: F) -> AgentResult<()>
+where
+    F: Fn(&str) -> bool,
+{
+    for entry in overrides
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        let (tool, _) = entry.split_once('=').ok_or_else(|| {
+            AgentError::PolicyViolation(format!(
+                "Invalid risk override entry '{entry}', expected tool=risk"
+            ))
+        })?;
+        let tool = tool.trim();
+        if tool.is_empty() {
+            return Err(AgentError::PolicyViolation(
+                "Risk override tool name cannot be empty".to_string(),
+            ));
+        }
+        if !is_known_tool(tool) {
+            return Err(AgentError::PolicyViolation(format!(
+                "Unknown tool '{}' in AUTONOMOUS_TOOL_RISK_OVERRIDES",
+                tool
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn evaluate_issue_compliance(title: &str, body: &str) -> IssueComplianceStatus {
