@@ -39,6 +39,19 @@ fn main() {
     let raw_args: Vec<String> = env::args().collect();
     let program_name = raw_args[0].clone();
     let mut args: Vec<String> = raw_args.into_iter().skip(1).collect();
+    let resume_requested = if let Some(pos) = args.iter().position(|arg| arg == "--resume") {
+        args.remove(pos);
+        true
+    } else {
+        false
+    };
+    let symbolic_only_requested =
+        if let Some(pos) = args.iter().position(|arg| arg == "--symbolic-only") {
+            args.remove(pos);
+            true
+        } else {
+            false
+        };
     let pretty_requested = if let Some(pos) = args.iter().position(|arg| arg == "--pretty") {
         args.remove(pos);
         true
@@ -48,7 +61,7 @@ fn main() {
 
     if args.is_empty() {
         eprintln!(
-            "Usage: {} [--pretty] <goal> [config_path] [audit_log]",
+            "Usage: {} [--pretty] [--resume] [--symbolic-only] <goal> [config_path] [audit_log]",
             program_name
         );
         eprintln!("\nExample:");
@@ -82,6 +95,8 @@ fn main() {
     println!("Goal: {}", goal);
     println!("Config: {}", config_path);
     println!("Audit Log: {}", audit_log);
+    println!("Resume state: {}", resume_requested);
+    println!("Symbolic only: {}", symbolic_only_requested);
     println!("========================================\n");
 
     // Ensure config exists
@@ -114,8 +129,24 @@ fn main() {
 
     println!("\n{run_icon} Starting agent execution...\n");
 
+    if resume_requested {
+        match agent.load_state() {
+            Ok(()) => {
+                if let Err(e) = agent.lifecycle.load_checkpoint_if_present() {
+                    eprintln!("Warning: Failed to load lifecycle checkpoint: {}", e);
+                }
+            }
+            Err(e) => eprintln!("Warning: Failed to resume previous state: {}", e),
+        }
+    }
+
     // Run agent
-    match agent.run(goal) {
+    let run_result = if symbolic_only_requested {
+        agent.run_symbolic_only(goal)
+    } else {
+        agent.run(goal)
+    };
+    match run_result {
         Ok(()) => {
             println!("\n{ok_icon} Agent completed successfully");
 

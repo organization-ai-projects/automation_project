@@ -1,8 +1,9 @@
 //projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_manager.rs
 // Agent lifecycle implementation - production-grade flow.
 use super::{
-    CircuitBreaker, ExecutionContext, IterationNumber, LifecycleError, LifecycleMetrics,
-    LifecycleResult, MaxIterations, MetricsCollector, ResourceType, RetryStrategy, StepIndex,
+    Checkpoint, CircuitBreaker, CompensationKind, ExecutionContext, IterationNumber,
+    LifecycleError, LifecycleMetrics, LifecycleResult, MaxIterations, MetricsCollector,
+    ResourceBudget, ResourceType, RetryStrategy, RollbackManager, StepIndex,
     validation_strategy::select_validation_command,
 };
 
@@ -10,7 +11,7 @@ use crate::agent_config::AgentConfig;
 use crate::audit_logger::AuditLogger;
 use crate::error::{AgentError, AgentResult};
 use crate::memory_graph::MemoryGraph;
-use crate::neural::{ModelGovernance, ModelVersion, NeuralLayer};
+use crate::neural::{IntentInterpretation, ModelGovernance, ModelVersion, NeuralLayer};
 use crate::objective_evaluator::ObjectiveEvaluator;
 use crate::ops::{IncidentRunbook, RunReplay, SloEvaluator};
 use crate::pr_flow::{
@@ -63,6 +64,10 @@ pub struct LifecycleManager {
     slo_evaluator: SloEvaluator,
     incident_runbook: IncidentRunbook,
     policy_pack: PolicyPack,
+    resource_budget: ResourceBudget,
+    rollback_manager: RollbackManager,
+    checkpoint_path: String,
+    last_intent: Option<IntentInterpretation>,
 
     // Timeouts.
     global_timeout: Duration,
@@ -94,6 +99,7 @@ impl LifecycleManager {
     pub fn new(config: AgentConfig, audit_log_path: &str) -> Self {
         let max_iterations_limit =
             MaxIterations::new(config.max_iterations).unwrap_or_else(MaxIterations::default_value);
+        let global_timeout = Duration::from_secs(config.timeout_seconds.unwrap_or(3600));
 
         let objectives = config.objectives.clone();
         let evaluator = ObjectiveEvaluator::new(objectives);
@@ -130,14 +136,16 @@ impl LifecycleManager {
         let slo_evaluator = SloEvaluator::new(SloEvaluator::default_slos());
         let incident_runbook = IncidentRunbook::default_runbook();
         let policy_pack = PolicyPack::default();
+        let resource_budget = ResourceBudget::new(global_timeout, max_iterations_limit.get(), 500);
+        let rollback_manager = RollbackManager::new();
+        let checkpoint_path = std::env::var("AUTONOMOUS_CHECKPOINT_PATH")
+            .unwrap_or_else(|_| "agent_checkpoint.json".to_string());
 
         let mut tools = ToolRegistry::new();
         tools.register(Box::new(RepoReader));
         tools.register(Box::new(TestRunner));
         tools.register(Box::new(GitWrapper));
         tools.register(Box::new(PrDescriptionGenerator));
-
-        let global_timeout = Duration::from_secs(config.timeout_seconds.unwrap_or(3600));
 
         Self {
             state: AgentState::Idle,
@@ -167,6 +175,10 @@ impl LifecycleManager {
             slo_evaluator,
             incident_runbook,
             policy_pack,
+            resource_budget,
+            rollback_manager,
+            checkpoint_path,
+            last_intent: None,
             global_timeout,
             iteration_timeout: Duration::from_secs(300),
             tool_timeout: Duration::from_secs(30),
@@ -184,7 +196,11 @@ impl LifecycleManager {
         self.current_step_index = StepIndex::zero();
         self.current_step = self.current_step_index.get();
         self.pr_orchestrator = None;
+        self.rollback_manager = RollbackManager::new();
+        self.last_intent = None;
         self.run_replay.record("lifecycle.start", goal);
+        self.run_replay
+            .record("lifecycle.checkpoint_path", self.checkpoint_path.clone());
         if let Some(state) = self.model_governance.registry.state("default-neural") {
             self.run_replay
                 .record("neural.rollout_state", format!("{:?}", state));
@@ -258,8 +274,42 @@ impl LifecycleManager {
         tracing::info!("Final state: {:?}", self.state);
         tracing::info!("Total iterations: {}", self.iteration);
         tracing::info!("Total duration: {:?}", start_time.elapsed());
+        let reversible = self.rollback_manager.reversible_actions().len();
+        let irreversible = self.rollback_manager.irreversible_actions().len();
+        self.run_replay.record(
+            "rollback.summary",
+            format!("reversible={} irreversible={}", reversible, irreversible),
+        );
+        tracing::info!(
+            "Rollback boundaries recorded: reversible={} irreversible={}",
+            reversible,
+            irreversible
+        );
 
         result
+    }
+
+    pub fn load_checkpoint_if_present(&mut self) -> AgentResult<bool> {
+        match Checkpoint::load(&self.checkpoint_path) {
+            Ok(checkpoint) => {
+                self.current_iteration_number = IterationNumber::from_usize(checkpoint.iteration)
+                    .unwrap_or_else(IterationNumber::first);
+                self.iteration = self.current_iteration_number.get();
+                self.run_replay.record(
+                    "checkpoint.loaded",
+                    format!(
+                        "run_id={} iteration={} state={}",
+                        checkpoint.run_id, checkpoint.iteration, checkpoint.state_label
+                    ),
+                );
+                Ok(true)
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(err) => Err(AgentError::State(format!(
+                "Failed to load checkpoint '{}': {}",
+                self.checkpoint_path, err
+            ))),
+        }
     }
 
     fn execute_main_loop(&mut self, start_time: Instant) -> LifecycleResult<()> {
@@ -274,6 +324,44 @@ impl LifecycleManager {
                     iteration: self.iteration,
                     elapsed: start_time.elapsed(),
                     limit: self.global_timeout,
+                });
+            }
+
+            let metrics_snapshot = self.metrics.snapshot();
+            if let Some(limit_reason) = self.resource_budget.is_exceeded(
+                start_time.elapsed(),
+                self.current_iteration_number.get(),
+                metrics_snapshot.tool_executions_total,
+            ) {
+                let resource = match limit_reason {
+                    "runtime budget exceeded" => ResourceType::Time,
+                    "tool execution budget exceeded" => ResourceType::ToolExecutions,
+                    _ => ResourceType::Iterations,
+                };
+                self.memory.add_failure(
+                    self.iteration,
+                    "Resource budget exceeded".to_string(),
+                    limit_reason.to_string(),
+                    Some("reduce run scope or increase configured budget".to_string()),
+                );
+                self.transition_to(AgentState::Failed)
+                    .map_err(|e| LifecycleError::Fatal {
+                        iteration: self.iteration,
+                        error: e,
+                        context: "Failed to transition to Failed state".to_string(),
+                    })?;
+                return Err(LifecycleError::ResourceExhausted {
+                    resource,
+                    limit: match resource {
+                        ResourceType::Time => self.resource_budget.max_runtime.as_secs() as usize,
+                        ResourceType::ToolExecutions => self.resource_budget.max_tool_executions,
+                        _ => self.resource_budget.max_iterations,
+                    },
+                    current: match resource {
+                        ResourceType::Time => start_time.elapsed().as_secs() as usize,
+                        ResourceType::ToolExecutions => metrics_snapshot.tool_executions_total,
+                        _ => self.current_iteration_number.get(),
+                    },
                 });
             }
 
@@ -439,6 +527,19 @@ impl LifecycleManager {
 
         self.metrics.record_state_transition();
         self.state = new_state;
+
+        let checkpoint = Checkpoint::new(
+            self.actor.run_id.clone(),
+            self.current_iteration_number.get(),
+            new_state_str,
+        );
+        if let Err(e) = checkpoint.save(&self.checkpoint_path) {
+            tracing::warn!(
+                "Failed to write checkpoint '{}': {}",
+                self.checkpoint_path,
+                e
+            );
+        }
         Ok(())
     }
 
@@ -471,6 +572,30 @@ impl LifecycleManager {
             .get("goal")
             .ok_or_else(|| AgentError::State("No goal set".to_string()))?
             .clone();
+        let intent = IntentInterpretation {
+            goal: goal.clone(),
+            constraints: vec![
+                format!("max_iterations={}", self.max_iterations_limit.get()),
+                format!("tool_timeout_secs={}", self.tool_timeout.as_secs()),
+                format!("global_timeout_secs={}", self.global_timeout.as_secs()),
+            ],
+            confidence: if self.neural.enabled { 0.75 } else { 1.0 },
+        };
+        self.last_intent = Some(intent.clone());
+        self.memory.metadata.insert(
+            "last_intent_confidence".to_string(),
+            format!("{:.2}", intent.confidence),
+        );
+        self.run_replay.record(
+            "intent.interpreted",
+            format!(
+                "goal={} constraints={} confidence={:.2}",
+                intent.goal,
+                intent.constraints.join(" | "),
+                intent.confidence
+            ),
+        );
+
         let issue_input = IssueClassificationInput {
             labels: parse_issue_labels_from_env(),
             title: goal.clone(),
@@ -776,6 +901,8 @@ impl LifecycleManager {
         }
 
         self.enforce_authz_for_action(&step.tool)?;
+        self.rollback_manager
+            .record(step.tool.clone(), compensation_for_tool(&step.tool));
 
         {
             let breaker = self
@@ -1456,4 +1583,19 @@ fn parse_issue_labels_from_env() -> Vec<String> {
 
 fn score_value(scores: &[(String, f64)], key: &str) -> Option<f64> {
     scores.iter().find(|(k, _)| k == key).map(|(_, v)| *v)
+}
+
+fn compensation_for_tool(tool: &str) -> CompensationKind {
+    match tool {
+        "read_file" | "run_tests" => CompensationKind::None,
+        "generate_pr_description" => CompensationKind::Reversible {
+            description: "Remove generated PR description artifact".to_string(),
+        },
+        "git_commit" => CompensationKind::Irreversible {
+            warning: "Commit already recorded in git history".to_string(),
+        },
+        _ => CompensationKind::Reversible {
+            description: "Manual review of side effects required".to_string(),
+        },
+    }
 }

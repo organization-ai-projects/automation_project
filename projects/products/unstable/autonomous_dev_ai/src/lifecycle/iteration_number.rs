@@ -8,6 +8,10 @@ use crate::lifecycle::MaxIterations;
 pub struct IterationNumber(NonZeroUsize);
 
 impl IterationNumber {
+    pub fn from_usize(value: usize) -> Option<Self> {
+        NonZeroUsize::new(value).map(Self)
+    }
+
     pub fn first() -> Self {
         Self(NonZeroUsize::MIN)
     }
