@@ -1,5 +1,4 @@
-// projects/products/unstable/autonomous_dev_ai/src/state.rs
-
+//projects/products/unstable/autonomous_dev_ai/src/state.rs
 use serde::{Deserialize, Serialize};
 
 /// Agent state machine states

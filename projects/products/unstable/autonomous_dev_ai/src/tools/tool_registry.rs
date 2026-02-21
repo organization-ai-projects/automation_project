@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/tools/tool_registry.rs
+// projects/products/unstable/autonomous_dev_ai/src/tools/tool_registry.rs
 use super::Tool;
 
 pub struct ToolRegistry {

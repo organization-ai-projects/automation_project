@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/ops/incident_severity.rs
+// projects/products/unstable/autonomous_dev_ai/src/ops/incident_severity.rs
 use serde::{Deserialize, Serialize};
 
 /// Incident severity levels.

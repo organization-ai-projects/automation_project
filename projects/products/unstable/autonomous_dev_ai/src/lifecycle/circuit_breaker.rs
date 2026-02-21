@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/circuit_breaker.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/circuit_breaker.rs
 use std::time::{Duration, Instant};
 
 use crate::lifecycle::CircuitState;

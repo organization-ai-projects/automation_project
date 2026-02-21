@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/pr_flow/merge_readiness_checker.rs
+// projects/products/unstable/autonomous_dev_ai/src/pr_flow/merge_readiness_checker.rs
 use super::{CiStatus, IssueComplianceStatus, MergeReadiness, PrMetadata};
 use serde::{Deserialize, Serialize};
 

@@ -1,9 +1,36 @@
 // projects/products/unstable/autonomous_dev_ai/src/main.rs
+mod agent_config;
+mod audit_event;
+mod audit_logger;
+mod autonomous_agent;
+mod config_loader;
+mod error;
+mod lifecycle;
+mod memory;
+mod memory_graph;
+mod neural;
+mod neural_config;
+mod objectif_score;
+mod objective_evaluator;
+mod objectives;
+mod ops;
+mod persistence;
+mod plan_entry;
+mod pr_flow;
+mod security;
+mod state;
+mod symbolic;
+mod symbolic_config;
+mod tools;
 
-use autonomous_dev_ai::{AutonomousAgent, load_config, save_ron};
 use std::env;
 use std::io::IsTerminal;
 use std::process;
+
+use crate::agent_config::AgentConfig;
+use crate::autonomous_agent::AutonomousAgent;
+use crate::config_loader::load_config;
+use crate::persistence::save_ron;
 
 fn main() {
     // Initialize tracing
@@ -67,7 +94,7 @@ fn main() {
         }
         Err(_) => {
             println!("Config not found, creating default configuration...");
-            let config = autonomous_dev_ai::config::AgentConfig::default();
+            let config = AgentConfig::default();
             if let Err(e) = save_ron(format!("{}.ron", config_path), &config) {
                 eprintln!("Failed to create config: {}", e);
                 process::exit(1);

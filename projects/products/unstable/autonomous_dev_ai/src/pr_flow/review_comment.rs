@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/pr_flow/review_comment.rs
+// projects/products/unstable/autonomous_dev_ai/src/pr_flow/review_comment.rs
 use serde::{Deserialize, Serialize};
 
 /// A single piece of review feedback from a reviewer.

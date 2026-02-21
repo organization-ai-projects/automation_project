@@ -1,3 +1,4 @@
+// projects/products/unstable/autonomous_dev_ai/src/neural/model_registry.rs
 use super::{ModelVersion, RolloutState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

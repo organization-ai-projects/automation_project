@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/rollback_manager.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/rollback_manager.rs
 use serde::{Deserialize, Serialize};
 
 use crate::lifecycle::{ActionBoundary, CompensationKind};

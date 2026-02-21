@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/security/actor_role.rs
+// projects/products/unstable/autonomous_dev_ai/src/security/actor_role.rs
 use serde::{Deserialize, Serialize};
 
 /// Roles an actor can hold.

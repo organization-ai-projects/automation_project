@@ -1,13 +1,11 @@
-// projects/products/unstable/autonomous_dev_ai/src/agent.rs
-
-//! Main agent implementation
-
-use crate::config::load_config;
+use crate::config_loader::load_config;
+//projects/products/unstable/autonomous_dev_ai/src/autonomous_agent.rs
+//Main agent implementation
 use crate::error::{AgentError, AgentResult};
 use crate::lifecycle::LifecycleManager;
 use std::path::Path;
 
-/// Autonomous developer AI agent
+//Autonomous developer AI agent
 pub struct AutonomousAgent {
     pub lifecycle: LifecycleManager,
     state_path: String,

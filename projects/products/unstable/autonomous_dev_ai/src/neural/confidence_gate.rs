@@ -1,6 +1,7 @@
+// projects/products/unstable/autonomous_dev_ai/src/neural/confidence_gate.rs
 use serde::{Deserialize, Serialize};
 
-/// Validates a model output's confidence and decides whether to use it or fall back.
+// Validates a model output's confidence and decides whether to use it or fall back.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfidenceGate {
     /// Overall minimum confidence required to use the neural suggestion.

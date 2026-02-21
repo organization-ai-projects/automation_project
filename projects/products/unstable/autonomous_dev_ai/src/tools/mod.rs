@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/tools/mod.rs
+// projects/products/unstable/autonomous_dev_ai/src/tools/mod.rs
 // Tool system public module surface.
 
 mod constants;

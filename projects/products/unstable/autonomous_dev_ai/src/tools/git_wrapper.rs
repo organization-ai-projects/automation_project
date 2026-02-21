@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/tools/git_wrapper.rs
+// projects/products/unstable/autonomous_dev_ai/src/tools/git_wrapper.rs
 use super::constants::{DEFAULT_TOOL_TIMEOUT_SECS, GIT_ALLOWED_SUBCOMMANDS};
 use super::run_with_timeout::run_with_timeout;
 use super::{Tool, ToolResult};

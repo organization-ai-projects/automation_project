@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/metrics_collector.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/metrics_collector.rs
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, MutexGuard},

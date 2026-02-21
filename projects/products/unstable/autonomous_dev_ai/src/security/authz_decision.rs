@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/security/authz_decision.rs
+// projects/products/unstable/autonomous_dev_ai/src/security/authz_decision.rs
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

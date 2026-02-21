@@ -1,6 +1,6 @@
 // projects/products/unstable/autonomous_dev_ai/src/neural/layer.rs
 
-//! Neural layer implementation.
+// Neural layer implementation.
 
 use crate::error::{AgentError, AgentResult};
 use crate::symbolic::NeuralProposal;

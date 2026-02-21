@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/pr_flow/mod.rs
+// projects/products/unstable/autonomous_dev_ai/src/pr_flow/mod.rs
 // Autonomous PR/review/merge orchestration module surface.
 
 mod ci_status;

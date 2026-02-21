@@ -1,51 +1,10 @@
-// projects/products/unstable/autonomous_dev_ai/src/audit.rs
-
-//! Audit and traceability system
-
-use serde::{Deserialize, Serialize};
+// projects/products/unstable/autonomous_dev_ai/src/audit_logger.rs
+// Audit and traceability system
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 
-/// Audit event types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum AuditEvent {
-    StateTransition {
-        from: String,
-        to: String,
-        timestamp: u64,
-    },
-    ToolExecution {
-        tool: String,
-        args: Vec<String>,
-        success: bool,
-        timestamp: u64,
-    },
-    NeuralSuggestion {
-        suggestion: String,
-        confidence: f64,
-        timestamp: u64,
-    },
-    SymbolicDecision {
-        decision: String,
-        reasoning: String,
-        timestamp: u64,
-    },
-    FileModified {
-        path: String,
-        timestamp: u64,
-    },
-    ObjectiveEvaluation {
-        iteration: usize,
-        scores: Vec<(String, f64)>,
-        timestamp: u64,
-    },
-    FinalState {
-        state: String,
-        iteration: usize,
-        timestamp: u64,
-    },
-}
+use crate::audit_event::AuditEvent;
 
 /// Audit logger
 pub struct AuditLogger {

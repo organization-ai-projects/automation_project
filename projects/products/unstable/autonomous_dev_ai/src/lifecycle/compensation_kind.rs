@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/compensation_kind.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/compensation_kind.rs
 use serde::{Deserialize, Serialize};
 
 /// Describes whether an action can be undone and the compensation strategy.

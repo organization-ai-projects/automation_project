@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomous_dev_ai/src/symbolic/validator.rs
-
 use crate::error::AgentResult;
 
 /// Validator for symbolic layer

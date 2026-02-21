@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/metrics_inner.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/metrics_inner.rs
 use std::{
     collections::HashMap,
     time::{Duration, Instant},

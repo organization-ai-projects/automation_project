@@ -1,3 +1,4 @@
+// projects/products/unstable/autonomous_dev_ai/src/symbolic/issue_classifier.rs
 use super::{CategoryDecision, CategorySource, IssueCategory, IssueClassificationInput};
 
 pub fn classify_issue(input: &IssueClassificationInput, latent_threshold: f64) -> CategoryDecision {

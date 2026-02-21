@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/security/security_audit_record.rs
+// projects/products/unstable/autonomous_dev_ai/src/security/security_audit_record.rs
 use super::{ActorIdentity, AuthzDecision};
 use serde::{Deserialize, Serialize};
 

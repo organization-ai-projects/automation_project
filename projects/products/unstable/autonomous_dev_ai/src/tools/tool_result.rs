@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/tools/tool_result.rs
+// projects/products/unstable/autonomous_dev_ai/src/tools/tool_result.rs
 use serde::{Deserialize, Serialize};
 
 /// Tool execution result.

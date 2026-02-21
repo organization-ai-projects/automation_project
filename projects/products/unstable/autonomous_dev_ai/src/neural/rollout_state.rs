@@ -1,3 +1,4 @@
+// projects/products/unstable/autonomous_dev_ai/src/neural/rollout_state.rs
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

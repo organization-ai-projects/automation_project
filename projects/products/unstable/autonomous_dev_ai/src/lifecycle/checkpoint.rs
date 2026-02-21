@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/checkpoint.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/checkpoint.rs
 use serde::{Deserialize, Serialize};
 
 /// Saved checkpoint that allows the agent to resume after a crash/restart.

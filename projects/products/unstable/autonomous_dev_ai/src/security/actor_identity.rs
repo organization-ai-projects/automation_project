@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/security/actor_identity.rs
+// projects/products/unstable/autonomous_dev_ai/src/security/actor_identity.rs
 use super::ActorRole;
 use serde::{Deserialize, Serialize};
 

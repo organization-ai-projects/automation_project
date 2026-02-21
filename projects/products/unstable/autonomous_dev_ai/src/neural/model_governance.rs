@@ -1,3 +1,4 @@
+// projects/products/unstable/autonomous_dev_ai/src/neural/model_governance.rs
 use super::{ConfidenceGate, DriftDetector, ModelRegistry};
 use serde::{Deserialize, Serialize};
 

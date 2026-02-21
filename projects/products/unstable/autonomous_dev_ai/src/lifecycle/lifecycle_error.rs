@@ -1,7 +1,7 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_error.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_error.rs
 use std::time::Duration;
 
-use crate::{AgentError, lifecycle::ResourceType};
+use crate::{error::AgentError, lifecycle::ResourceType};
 
 #[derive(Debug)]
 pub enum LifecycleError {

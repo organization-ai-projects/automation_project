@@ -1,3 +1,4 @@
+// projects/products/unstable/autonomous_dev_ai/src/neural/drift_detector.rs
 use serde::{Deserialize, Serialize};
 
 /// Simple sliding-window drift detector based on rolling confidence averages.

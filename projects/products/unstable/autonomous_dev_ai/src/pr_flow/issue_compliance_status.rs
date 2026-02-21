@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/pr_flow/issue_compliance_status.rs
+// projects/products/unstable/autonomous_dev_ai/src/pr_flow/issue_compliance_status.rs
 use serde::{Deserialize, Serialize};
 
 /// Compliance state relative to repository rules.

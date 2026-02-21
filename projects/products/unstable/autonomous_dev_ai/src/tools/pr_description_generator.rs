@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/tools/pr_description_generator.rs
+// projects/products/unstable/autonomous_dev_ai/src/tools/pr_description_generator.rs
 use super::{Tool, ToolResult};
 use crate::error::{AgentError, AgentResult};
 use std::process::Command;

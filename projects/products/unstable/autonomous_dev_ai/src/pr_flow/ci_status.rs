@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/pr_flow/ci_status.rs
+// projects/products/unstable/autonomous_dev_ai/src/pr_flow/ci_status.rs
 use serde::{Deserialize, Serialize};
 
 /// Status of a CI check for a given PR.

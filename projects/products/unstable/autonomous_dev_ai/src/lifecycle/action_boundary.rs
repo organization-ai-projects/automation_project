@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/action_boundary.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/action_boundary.rs
 use serde::{Deserialize, Serialize};
 
 use crate::lifecycle::CompensationKind;

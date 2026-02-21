@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/retry_strategy.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/retry_strategy.rs
 use std::time::Duration;
 
 #[derive(Debug, Clone)]

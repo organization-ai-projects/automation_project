@@ -1,3 +1,4 @@
+// projects/products/unstable/autonomous_dev_ai/src/neural/model_version.rs
 use serde::{Deserialize, Serialize};
 
 /// A pinned model version entry in the registry.

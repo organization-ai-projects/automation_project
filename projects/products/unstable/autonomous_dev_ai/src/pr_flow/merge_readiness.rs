@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/pr_flow/merge_readiness.rs
+// projects/products/unstable/autonomous_dev_ai/src/pr_flow/merge_readiness.rs
 use serde::{Deserialize, Serialize};
 
 /// Aggregated merge-readiness verdict.

@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/lifecycle/resource_budget.rs
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/resource_budget.rs
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};

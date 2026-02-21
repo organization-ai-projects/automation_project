@@ -1,4 +1,4 @@
-//projects/products/unstable/autonomous_dev_ai/src/tools/tool_trait.rs
+// projects/products/unstable/autonomous_dev_ai/src/tools/tool_trait.rs
 use super::ToolResult;
 use crate::error::AgentResult;
 

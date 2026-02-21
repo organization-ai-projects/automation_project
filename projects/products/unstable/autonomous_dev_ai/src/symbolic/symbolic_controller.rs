@@ -1,7 +1,8 @@
-use super::policy::{FORCE_PUSH_FORBIDDEN, is_force_push_action};
+// projects/products/unstable/autonomous_dev_ai/src/symbolic/symbolic_controller.rs
+use super::policy_engine::{FORCE_PUSH_FORBIDDEN, is_force_push_action};
 use super::{NeuralProposal, ValidationResult};
 use crate::error::AgentResult;
-use crate::objectives::ObjectiveEvaluator;
+use crate::objective_evaluator::ObjectiveEvaluator;
 use crate::symbolic::{CategoryDecision, IssueClassificationInput, classify_issue};
 
 /// Symbolic controller - makes all final decisions.
