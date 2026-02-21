@@ -1,16 +1,9 @@
 // projects/products/unstable/autonomous_dev_ai/src/neural/layer.rs
 
-//! Neural computation layer - advisory only
+//! Neural layer implementation.
 
 use crate::error::{AgentError, AgentResult};
 use crate::symbolic::NeuralProposal;
-use serde::{Deserialize, Serialize};
-
-/// Neural model interface
-pub trait NeuralModel {
-    fn infer(&self, input: &str) -> AgentResult<NeuralProposal>;
-    fn confidence(&self) -> f64;
-}
 
 /// Neural layer - provides suggestions, never executes directly
 #[derive(Debug)]
@@ -63,12 +56,4 @@ impl NeuralLayer {
     pub fn use_cpu_fallback(&self) -> bool {
         self.cpu_fallback && !self.is_gpu_available()
     }
-}
-
-/// Intent interpretation result
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IntentInterpretation {
-    pub goal: String,
-    pub constraints: Vec<String>,
-    pub confidence: f64,
 }
