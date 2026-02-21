@@ -11,7 +11,7 @@ use crate::agent_config::AgentConfig;
 use crate::audit_logger::AuditLogger;
 use crate::error::{AgentError, AgentResult};
 use crate::ids::{IssueNumber, ParentRef, PrNumber};
-use crate::lifecycle::ActionRiskLevel;
+use crate::lifecycle::{ActionRiskLevel, LearningContext};
 use crate::memory_graph::MemoryGraph;
 use crate::neural::{
     DriftDetector, IntentInterpretation, ModelGovernance, ModelVersion, NeuralLayer, NeuralModel,
@@ -35,62 +35,6 @@ use crate::value_types::{ActionName, ActionOutcomeSummary, StateLabel};
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-
-#[derive(Debug, Clone, Default)]
-struct LearningContext {
-    previous_failures: usize,
-    previous_max_iteration: usize,
-    top_failure_kind: String,
-    top_failure_tool: String,
-    top_decision_action: String,
-    recent_avg_failures: f64,
-    recent_top_failure_kind: String,
-    recent_top_failure_kind_confidence: f64,
-    worst_action_outcome: String,
-}
-
-impl LearningContext {
-    fn from_metadata(metadata: &HashMap<String, String>) -> Self {
-        Self {
-            previous_failures: metadata
-                .get("previous_state_failures_count")
-                .and_then(|v| v.parse::<usize>().ok())
-                .unwrap_or(0),
-            previous_max_iteration: metadata
-                .get("previous_state_max_iteration")
-                .and_then(|v| v.parse::<usize>().ok())
-                .unwrap_or(0),
-            top_failure_kind: metadata
-                .get("previous_state_top_failure_kind")
-                .cloned()
-                .unwrap_or_default(),
-            top_failure_tool: metadata
-                .get("previous_state_top_failure_tool")
-                .cloned()
-                .unwrap_or_default(),
-            top_decision_action: metadata
-                .get("previous_state_top_decision_action")
-                .cloned()
-                .unwrap_or_default(),
-            recent_avg_failures: metadata
-                .get("previous_recent_avg_failures")
-                .and_then(|v| v.parse::<f64>().ok())
-                .unwrap_or(0.0),
-            recent_top_failure_kind: metadata
-                .get("previous_recent_top_failure_kind")
-                .cloned()
-                .unwrap_or_default(),
-            recent_top_failure_kind_confidence: metadata
-                .get("previous_recent_top_failure_kind_confidence")
-                .and_then(|v| v.parse::<f64>().ok())
-                .unwrap_or(0.0),
-            worst_action_outcome: metadata
-                .get("previous_state_worst_action_outcome")
-                .cloned()
-                .unwrap_or_default(),
-        }
-    }
-}
 
 /// Agent lifecycle manager.
 pub struct LifecycleManager {
