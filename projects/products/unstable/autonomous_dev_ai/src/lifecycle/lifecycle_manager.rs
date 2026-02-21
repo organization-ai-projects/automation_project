@@ -1805,6 +1805,11 @@ impl LifecycleManager {
             .ok()
             .map(|v| v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
+        if create_pr_required && !create_pr_enabled {
+            return Err(AgentError::State(
+                "AUTONOMOUS_CREATE_PR_REQUIRED=true requires AUTONOMOUS_CREATE_PR=true".to_string(),
+            ));
+        }
         if create_pr_enabled && !opened_pr {
             let precheck_result = if !self.policy.is_tool_allowed("create_pr") {
                 Err(AgentError::PolicyViolation(
