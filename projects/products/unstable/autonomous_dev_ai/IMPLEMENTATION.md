@@ -26,6 +26,7 @@ Still partial:
 ## Recent Progress (during #647 hardening)
 
 - `run_tests` no longer returns synthetic success fallback; it now resolves to real command execution path with timeout.
+- tool execution now propagates exit code information through lifecycle metadata and run report artifacts.
 - `git_commit` wrapper received stricter safety checks (forbidden force/destructive flags).
 - tool timeout execution now attempts explicit process termination on timeout and returns clearer diagnostics.
 - lifecycle PR/review flow reduced simulated behavior:
