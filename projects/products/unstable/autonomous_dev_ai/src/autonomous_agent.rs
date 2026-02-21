@@ -3,7 +3,10 @@ use crate::config_loader::load_config;
 //Main agent implementation
 use crate::error::AgentResult;
 use crate::lifecycle::LifecycleManager;
-use crate::persistence::{load_memory_state_with_fallback, save_memory_state_transactional};
+use crate::persistence::{
+    load_memory_state_index, load_memory_state_with_fallback, memory_transaction_completed,
+    save_memory_state_transactional,
+};
 
 //Autonomous developer AI agent
 pub struct AutonomousAgent {
@@ -50,7 +53,27 @@ impl AutonomousAgent {
 
     /// Load agent state
     pub fn load_state(&mut self) -> AgentResult<()> {
+        if !memory_transaction_completed(&self.state_path)? {
+            tracing::warn!(
+                "Previous state transaction was not completed cleanly for base '{}'",
+                self.state_path
+            );
+        }
         self.lifecycle.memory = load_memory_state_with_fallback(&self.state_path)?;
+        if let Some(index) = load_memory_state_index(&self.state_path)? {
+            self.lifecycle.memory.metadata.insert(
+                "previous_state_max_iteration".to_string(),
+                index.max_iteration_seen.to_string(),
+            );
+            self.lifecycle.memory.metadata.insert(
+                "previous_state_failures_count".to_string(),
+                index.failures_count.to_string(),
+            );
+            self.lifecycle.memory.metadata.insert(
+                "previous_state_decisions_count".to_string(),
+                index.decisions_count.to_string(),
+            );
+        }
         tracing::info!("State loaded from transactional base '{}'", self.state_path);
         Ok(())
     }

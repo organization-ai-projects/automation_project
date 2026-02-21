@@ -149,6 +149,30 @@ pub fn load_memory_state_with_fallback<P: AsRef<Path>>(base_path: P) -> AgentRes
     Err(AgentError::State("No saved state found".to_string()))
 }
 
+pub fn load_memory_state_index<P: AsRef<Path>>(
+    base_path: P,
+) -> AgentResult<Option<MemoryStateIndex>> {
+    let idx_path = base_path.as_ref().with_extension("idx.json");
+    if !idx_path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&idx_path)?;
+    let index: MemoryStateIndex =
+        serde_json::from_str(&content).map_err(|e| AgentError::Serialization(e.to_string()))?;
+    Ok(Some(index))
+}
+
+pub fn memory_transaction_completed<P: AsRef<Path>>(base_path: P) -> AgentResult<bool> {
+    let txn_path = base_path.as_ref().with_extension("txn.json");
+    if !txn_path.exists() {
+        return Ok(true);
+    }
+    let content = fs::read_to_string(txn_path)?;
+    let journal: MemoryTransactionJournal =
+        serde_json::from_str(&content).map_err(|e| AgentError::Serialization(e.to_string()))?;
+    Ok(journal.state == "completed" && journal.completed_at_secs.is_some())
+}
+
 fn write_json_atomic<P: AsRef<Path>, T: Serialize>(path: P, value: &T) -> AgentResult<()> {
     let content = serde_json::to_string_pretty(value)
         .map_err(|e| AgentError::Serialization(e.to_string()))?;
