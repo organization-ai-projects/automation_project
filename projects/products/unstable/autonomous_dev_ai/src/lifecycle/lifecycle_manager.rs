@@ -913,8 +913,23 @@ impl LifecycleManager {
         }
 
         self.enforce_authz_for_action(&step.tool)?;
+        let compensation = self
+            .tools
+            .get_tool(&step.tool)
+            .map(|tool| {
+                if tool.is_reversible() {
+                    CompensationKind::Reversible {
+                        description: format!("revert side effects for '{}'", step.tool),
+                    }
+                } else {
+                    CompensationKind::Irreversible {
+                        warning: format!("manual remediation required for '{}'", step.tool),
+                    }
+                }
+            })
+            .unwrap_or_else(|| compensation_for_tool(&step.tool));
         self.rollback_manager
-            .record(step.tool.clone(), compensation_for_tool(&step.tool));
+            .record(step.tool.clone(), compensation);
 
         {
             let breaker = self
@@ -1101,6 +1116,7 @@ impl LifecycleManager {
 
         let scores = self.compute_objective_scores()?;
         let objective_scores = self.symbolic.evaluator.evaluate(&scores);
+        let weighted_objective_score = self.symbolic.evaluator.weighted_score(&objective_scores);
         let hard_satisfied = self
             .symbolic
             .evaluator
@@ -1117,6 +1133,14 @@ impl LifecycleManager {
 
         self.memory
             .add_objective_evaluation(self.iteration, scores.clone(), hard_satisfied);
+        self.memory.metadata.insert(
+            "weighted_objective_score".to_string(),
+            format!("{:.3}", weighted_objective_score),
+        );
+        self.run_replay.record(
+            "objectives.weighted_score",
+            format!("{:.3}", weighted_objective_score),
+        );
 
         if !hard_satisfied || !slo_all_met {
             tracing::warn!(
