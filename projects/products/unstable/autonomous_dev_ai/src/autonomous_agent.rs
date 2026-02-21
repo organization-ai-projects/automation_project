@@ -10,7 +10,7 @@ use crate::persistence::{
     load_memory_state_with_fallback, load_recent_learning_snapshots, memory_transaction_completed,
     save_memory_state_transactional,
 };
-use crate::value_types::{ActionOutcomeSummary, ConfidenceScore, LearningWindow};
+use crate::value_types::{ActionName, ActionOutcomeSummary, ConfidenceScore, LearningWindow};
 
 //Autonomous developer AI agent
 pub struct AutonomousAgent {
@@ -124,7 +124,9 @@ impl AutonomousAgent {
         if let Some(action_outcome_index) = load_action_outcome_index(&self.state_path)? {
             if let Some((action, stats)) = select_worst_action_outcome(&action_outcome_index) {
                 let summary = ActionOutcomeSummary {
-                    action,
+                    action: ActionName::new(action).unwrap_or_else(|| {
+                        ActionName::new("unknown_action").expect("static action is valid")
+                    }),
                     pass_rate: stats.pass_rate,
                     total: stats.total,
                 };
@@ -142,7 +144,9 @@ impl AutonomousAgent {
             }
             if let Some((action, stats)) = select_best_action_outcome(&action_outcome_index) {
                 let summary = ActionOutcomeSummary {
-                    action,
+                    action: ActionName::new(action).unwrap_or_else(|| {
+                        ActionName::new("unknown_action").expect("static action is valid")
+                    }),
                     pass_rate: stats.pass_rate,
                     total: stats.total,
                 };

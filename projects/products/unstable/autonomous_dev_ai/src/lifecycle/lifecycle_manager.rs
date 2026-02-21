@@ -2183,7 +2183,11 @@ fn parse_risk_level(value: &str) -> Option<ActionRiskLevel> {
 
 fn parse_action_outcome_triplet(value: &str) -> Option<(String, f64, usize)> {
     if let Ok(summary) = serde_json::from_str::<ActionOutcomeSummary>(value) {
-        return Some((summary.action, summary.pass_rate.get(), summary.total));
+        return Some((
+            summary.action.to_string(),
+            summary.pass_rate.get(),
+            summary.total,
+        ));
     }
 
     let mut parts = value.split(':');

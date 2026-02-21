@@ -50,9 +50,30 @@ impl LearningWindow {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ActionName(String);
+
+impl ActionName {
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        if value.trim().is_empty() {
+            None
+        } else {
+            Some(Self(value))
+        }
+    }
+}
+
+impl std::fmt::Display for ActionName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ActionOutcomeSummary {
-    pub action: String,
+    pub action: ActionName,
     pub pass_rate: PassRate,
     pub total: usize,
 }
