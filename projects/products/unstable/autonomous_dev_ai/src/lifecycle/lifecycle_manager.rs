@@ -879,6 +879,18 @@ impl LifecycleManager {
             .get("previous_state_top_decision_action")
             .cloned()
             .unwrap_or_default();
+        let recent_avg_failures = self
+            .memory
+            .metadata
+            .get("previous_recent_avg_failures")
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or(0.0);
+        let recent_top_failure_kind = self
+            .memory
+            .metadata
+            .get("previous_recent_top_failure_kind")
+            .cloned()
+            .unwrap_or_default();
 
         if previous_failures > 0 {
             plan.add_step(PlanStep {
@@ -964,16 +976,35 @@ impl LifecycleManager {
                 verification: "learning_prioritized_validation".to_string(),
             });
         }
+        if recent_avg_failures >= 2.0 || recent_top_failure_kind.starts_with("timeout:") {
+            plan.add_step(PlanStep {
+                description:
+                    "Learning adaptation: short deterministic validation after recent instability"
+                        .to_string(),
+                tool: "run_tests".to_string(),
+                args: vec![
+                    "cargo".to_string(),
+                    "check".to_string(),
+                    "-p".to_string(),
+                    self.config.agent_name.clone(),
+                    "--bin".to_string(),
+                    self.config.agent_name.clone(),
+                ],
+                verification: "learning_recent_stability_probe".to_string(),
+            });
+        }
 
         self.run_replay.record(
             "learning.adaptation",
             format!(
-                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} top_decision_action={} plan_steps={}",
+                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} top_decision_action={} recent_avg_failures={:.2} recent_top_failure_kind={} plan_steps={}",
                 previous_failures,
                 previous_max_iteration,
                 top_failure_kind,
                 top_failure_tool,
                 top_decision_action,
+                recent_avg_failures,
+                recent_top_failure_kind,
                 plan.steps.len()
             ),
         );
