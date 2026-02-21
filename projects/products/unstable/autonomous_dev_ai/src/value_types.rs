@@ -49,3 +49,10 @@ impl LearningWindow {
         self.0
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ActionOutcomeSummary {
+    pub action: String,
+    pub pass_rate: PassRate,
+    pub total: usize,
+}

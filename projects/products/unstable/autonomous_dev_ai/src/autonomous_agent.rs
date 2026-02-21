@@ -9,7 +9,7 @@ use crate::persistence::{
     load_memory_state_with_fallback, load_recent_learning_snapshots, memory_transaction_completed,
     save_memory_state_transactional,
 };
-use crate::value_types::{ConfidenceScore, LearningWindow};
+use crate::value_types::{ActionOutcomeSummary, ConfidenceScore, LearningWindow};
 
 //Autonomous developer AI agent
 pub struct AutonomousAgent {
@@ -120,15 +120,39 @@ impl AutonomousAgent {
         }
         if let Some(action_outcome_index) = load_action_outcome_index(&self.state_path)? {
             if let Some((action, stats)) = select_worst_action_outcome(&action_outcome_index) {
+                let summary = ActionOutcomeSummary {
+                    action,
+                    pass_rate: stats.pass_rate,
+                    total: stats.total,
+                };
                 self.lifecycle.memory.metadata.insert(
                     "previous_state_worst_action_outcome".to_string(),
-                    format!("{}:{:.3}:{}", action, stats.pass_rate.get(), stats.total),
+                    serde_json::to_string(&summary).unwrap_or_else(|_| {
+                        format!(
+                            "{}:{:.3}:{}",
+                            summary.action,
+                            summary.pass_rate.get(),
+                            summary.total
+                        )
+                    }),
                 );
             }
             if let Some((action, stats)) = select_best_action_outcome(&action_outcome_index) {
+                let summary = ActionOutcomeSummary {
+                    action,
+                    pass_rate: stats.pass_rate,
+                    total: stats.total,
+                };
                 self.lifecycle.memory.metadata.insert(
                     "previous_state_best_action_outcome".to_string(),
-                    format!("{}:{:.3}:{}", action, stats.pass_rate.get(), stats.total),
+                    serde_json::to_string(&summary).unwrap_or_else(|_| {
+                        format!(
+                            "{}:{:.3}:{}",
+                            summary.action,
+                            summary.pass_rate.get(),
+                            summary.total
+                        )
+                    }),
                 );
             }
         }

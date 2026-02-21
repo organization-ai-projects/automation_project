@@ -30,6 +30,7 @@ use crate::timeout::Timeout;
 use crate::tools::{
     GitWrapper, PrDescriptionGenerator, RepoReader, TestRunner, ToolRegistry, ToolResult,
 };
+use crate::value_types::ActionOutcomeSummary;
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -2174,9 +2175,13 @@ fn parse_risk_level(value: &str) -> Option<ActionRiskLevel> {
     }
 }
 
-fn parse_action_outcome_triplet(value: &str) -> Option<(&str, f64, usize)> {
+fn parse_action_outcome_triplet(value: &str) -> Option<(String, f64, usize)> {
+    if let Ok(summary) = serde_json::from_str::<ActionOutcomeSummary>(value) {
+        return Some((summary.action, summary.pass_rate.get(), summary.total));
+    }
+
     let mut parts = value.split(':');
-    let action = parts.next()?;
+    let action = parts.next()?.to_string();
     let pass_rate = parts.next()?.parse::<f64>().ok()?;
     let total = parts.next()?.parse::<usize>().ok()?;
     Some((action, pass_rate, total))
