@@ -66,6 +66,17 @@ pub struct DecisionInvertedIndex {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LearningSnapshot {
+    pub generated_at_secs: u64,
+    pub failures_count: usize,
+    pub decisions_count: usize,
+    pub max_iteration_seen: usize,
+    pub top_failure_kind: Option<String>,
+    pub top_failure_tool: Option<String>,
+    pub top_decision_action: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct MemoryTransactionJournal {
     state: String,
     started_at_secs: u64,
@@ -152,6 +163,24 @@ impl DecisionInvertedIndex {
             by_action,
             by_iteration,
             latest_decision_iteration,
+        }
+    }
+}
+
+impl LearningSnapshot {
+    pub fn from_memory(memory: &MemoryGraph) -> Self {
+        let failure_index = FailureInvertedIndex::from_failures(&memory.failures);
+        let decision_index = DecisionInvertedIndex::from_decisions(&memory.decisions);
+        let state_index = MemoryStateIndex::from_memory(memory);
+
+        Self {
+            generated_at_secs: now_secs(),
+            failures_count: memory.failures.len(),
+            decisions_count: memory.decisions.len(),
+            max_iteration_seen: state_index.max_iteration_seen,
+            top_failure_kind: top_entry_key(&failure_index.by_kind),
+            top_failure_tool: top_entry_key(&failure_index.by_tool),
+            top_decision_action: top_entry_key(&decision_index.by_action),
         }
     }
 }
@@ -283,6 +312,39 @@ pub fn memory_transaction_completed<P: AsRef<Path>>(base_path: P) -> AgentResult
     Ok(journal.state == "completed" && journal.completed_at_secs.is_some())
 }
 
+pub fn append_learning_snapshot<P: AsRef<Path>>(
+    base_path: P,
+    memory: &MemoryGraph,
+    window_size: usize,
+) -> AgentResult<LearningSnapshot> {
+    let learning_path = base_path.as_ref().with_extension("learning.json");
+    let mut snapshots = load_learning_snapshots_internal(&learning_path)?;
+    let snapshot = LearningSnapshot::from_memory(memory);
+    snapshots.push(snapshot.clone());
+
+    let keep = window_size.max(1);
+    if snapshots.len() > keep {
+        let drop_count = snapshots.len() - keep;
+        snapshots.drain(0..drop_count);
+    }
+    write_json_atomic(&learning_path, &snapshots)?;
+    Ok(snapshot)
+}
+
+pub fn load_recent_learning_snapshots<P: AsRef<Path>>(
+    base_path: P,
+    window_size: usize,
+) -> AgentResult<Vec<LearningSnapshot>> {
+    let learning_path = base_path.as_ref().with_extension("learning.json");
+    let snapshots = load_learning_snapshots_internal(&learning_path)?;
+    let keep = window_size.max(1);
+    if snapshots.len() <= keep {
+        return Ok(snapshots);
+    }
+    let start = snapshots.len() - keep;
+    Ok(snapshots[start..].to_vec())
+}
+
 fn write_json_atomic<P: AsRef<Path>, T: Serialize>(path: P, value: &T) -> AgentResult<()> {
     let content = serde_json::to_string_pretty(value)
         .map_err(|e| AgentError::Serialization(e.to_string()))?;
@@ -383,4 +445,20 @@ fn infer_decision_action(entry: &DecisionEntry) -> String {
         }
     }
     "other".to_string()
+}
+
+fn load_learning_snapshots_internal(path: &Path) -> AgentResult<Vec<LearningSnapshot>> {
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path)?;
+    let snapshots: Vec<LearningSnapshot> =
+        serde_json::from_str(&content).map_err(|e| AgentError::Serialization(e.to_string()))?;
+    Ok(snapshots)
+}
+
+fn top_entry_key(map: &std::collections::HashMap<String, usize>) -> Option<String> {
+    map.iter()
+        .max_by_key(|(_, v)| *v)
+        .map(|(k, v)| format!("{k}:{v}"))
 }

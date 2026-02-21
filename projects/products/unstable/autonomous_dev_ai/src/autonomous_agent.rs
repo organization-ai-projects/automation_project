@@ -4,8 +4,9 @@ use crate::config_loader::load_config;
 use crate::error::AgentResult;
 use crate::lifecycle::LifecycleManager;
 use crate::persistence::{
-    load_decision_inverted_index, load_failure_inverted_index, load_memory_state_index,
-    load_memory_state_with_fallback, memory_transaction_completed, save_memory_state_transactional,
+    LearningSnapshot, append_learning_snapshot, load_decision_inverted_index,
+    load_failure_inverted_index, load_memory_state_index, load_memory_state_with_fallback,
+    load_recent_learning_snapshots, memory_transaction_completed, save_memory_state_transactional,
 };
 
 //Autonomous developer AI agent
@@ -41,12 +42,16 @@ impl AutonomousAgent {
     /// Save agent state
     pub fn save_state(&self) -> AgentResult<()> {
         let index = save_memory_state_transactional(&self.state_path, &self.lifecycle.memory)?;
+        let learning_window = learning_window_size();
+        let learning_snapshot =
+            append_learning_snapshot(&self.state_path, &self.lifecycle.memory, learning_window)?;
         tracing::info!(
-            "State saved transactionally at base '{}' (max_iteration={}, decisions={}, failures={})",
+            "State saved transactionally at base '{}' (max_iteration={}, decisions={}, failures={}, learning_top_failure_kind={:?})",
             self.state_path,
             index.max_iteration_seen,
             index.decisions_count,
-            index.failures_count
+            index.failures_count,
+            learning_snapshot.top_failure_kind
         );
         Ok(())
     }
@@ -108,6 +113,7 @@ impl AutonomousAgent {
                 );
             }
         }
+        self.inject_recent_learning_metadata()?;
         tracing::info!("State loaded from transactional base '{}'", self.state_path);
         Ok(())
     }
@@ -124,4 +130,60 @@ impl AutonomousAgent {
         tracing::info!("Symbolic-only mode completed successfully");
         Ok(())
     }
+
+    fn inject_recent_learning_metadata(&mut self) -> AgentResult<()> {
+        let learning_window = learning_window_size();
+        let snapshots = load_recent_learning_snapshots(&self.state_path, learning_window)?;
+        if snapshots.is_empty() {
+            return Ok(());
+        }
+
+        self.lifecycle.memory.metadata.insert(
+            "previous_recent_runs_count".to_string(),
+            snapshots.len().to_string(),
+        );
+        let avg_failures = (snapshots.iter().map(|s| s.failures_count).sum::<usize>() as f64)
+            / (snapshots.len() as f64);
+        self.lifecycle.memory.metadata.insert(
+            "previous_recent_avg_failures".to_string(),
+            format!("{avg_failures:.2}"),
+        );
+
+        if let Some(value) = dominant_recent(&snapshots, |s| s.top_failure_kind.clone()) {
+            self.lifecycle
+                .memory
+                .metadata
+                .insert("previous_recent_top_failure_kind".to_string(), value);
+        }
+        if let Some(value) = dominant_recent(&snapshots, |s| s.top_decision_action.clone()) {
+            self.lifecycle
+                .memory
+                .metadata
+                .insert("previous_recent_top_decision_action".to_string(), value);
+        }
+        Ok(())
+    }
+}
+
+fn learning_window_size() -> usize {
+    std::env::var("AUTONOMOUS_LEARNING_WINDOW")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(20)
+}
+
+fn dominant_recent<F>(snapshots: &[LearningSnapshot], pick: F) -> Option<String>
+where
+    F: Fn(&LearningSnapshot) -> Option<String>,
+{
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for snapshot in snapshots {
+        if let Some(key) = pick(snapshot) {
+            *counts.entry(key).or_insert(0) += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(key, _)| key)
 }
