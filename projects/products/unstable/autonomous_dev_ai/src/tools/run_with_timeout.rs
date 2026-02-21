@@ -3,6 +3,7 @@ use super::ToolResult;
 use crate::error::{AgentError, AgentResult};
 use std::process::Command;
 use std::time::Duration;
+use std::time::Instant;
 
 /// Spawn `program` with `args`, wait for it (up to `timeout`), and return a
 /// `ToolResult` capturing stdout, stderr, and exit status.
@@ -11,47 +12,71 @@ pub(crate) fn run_with_timeout(
     args: &[String],
     timeout: Duration,
 ) -> AgentResult<ToolResult> {
-    use std::sync::mpsc;
-    use std::thread;
-
-    let child = Command::new(program)
+    let mut child = Command::new(program)
         .args(args)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(|e| AgentError::Tool(format!("failed to spawn '{program}': {e}")))?;
 
-    let (tx, rx) = mpsc::channel::<std::io::Result<std::process::Output>>();
-
-    let _handle = thread::spawn(move || {
-        let _ = tx.send(child.wait_with_output());
-    });
-
-    match rx.recv_timeout(timeout) {
-        Ok(Ok(output)) => {
-            let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-            let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-            Ok(ToolResult {
-                success: output.status.success(),
-                output: stdout,
-                error: if stderr.is_empty() {
-                    None
-                } else {
-                    Some(stderr)
-                },
-            })
+    let start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                let output = child
+                    .wait_with_output()
+                    .map_err(|e| AgentError::Tool(format!("wait_with_output error: {e}")))?;
+                return Ok(build_tool_result(output));
+            }
+            Ok(None) => {
+                if start.elapsed() >= timeout {
+                    if let Err(e) = child.kill() {
+                        return Err(AgentError::Tool(format!(
+                            "failed to terminate '{program}' after timeout: {e}"
+                        )));
+                    }
+                    let output = child.wait_with_output().map_err(|e| {
+                        AgentError::Tool(format!("wait_with_output after kill error: {e}"))
+                    })?;
+                    let mut result = build_tool_result(output);
+                    result.success = false;
+                    result.error = Some(format!(
+                        "'{program}' timed out after {}s and was terminated",
+                        timeout.as_secs()
+                    ));
+                    return Ok(result);
+                }
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            Err(e) => return Err(AgentError::Tool(format!("try_wait error: {e}"))),
         }
-        Ok(Err(e)) => Err(AgentError::Tool(format!("wait_with_output error: {e}"))),
-        Err(mpsc::RecvTimeoutError::Timeout) => Ok(ToolResult {
-            success: false,
-            output: String::new(),
-            error: Some(format!(
-                "'{program}' timed out after {}s",
-                timeout.as_secs()
-            )),
-        }),
-        Err(mpsc::RecvTimeoutError::Disconnected) => Err(AgentError::Tool(
-            "unexpected channel disconnect".to_string(),
-        )),
+    }
+}
+
+fn build_tool_result(output: std::process::Output) -> ToolResult {
+    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    let status = output.status;
+    let success = status.success();
+    let code = status
+        .code()
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "signal".to_string());
+    let error = if success {
+        if stderr.is_empty() {
+            None
+        } else {
+            Some(stderr)
+        }
+    } else if stderr.is_empty() {
+        Some(format!("process exited with code {code}"))
+    } else {
+        Some(format!("process exited with code {code}: {stderr}"))
+    };
+
+    ToolResult {
+        success,
+        output: stdout,
+        error,
     }
 }
