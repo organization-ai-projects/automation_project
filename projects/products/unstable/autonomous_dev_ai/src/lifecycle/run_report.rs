@@ -19,6 +19,8 @@ pub struct RunReport {
     pub review_required: bool,
     pub create_pr_enabled: bool,
     pub pr_number: Option<u64>,
+    pub pr_readiness: Option<String>,
+    pub issue_compliance: Option<String>,
 }
 
 impl RunReport {

@@ -406,6 +406,8 @@ impl LifecycleManager {
             review_required,
             create_pr_enabled,
             pr_number,
+            pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
+            issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
         };
 
         let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")
@@ -1888,6 +1890,13 @@ impl LifecycleManager {
             MergeReadiness::Ready => "ready".to_string(),
             MergeReadiness::NotReady { reasons } => format!("not_ready: {}", reasons.join(" | ")),
         };
+        self.memory
+            .metadata
+            .insert("pr_readiness".to_string(), readiness_msg.clone());
+        self.memory.metadata.insert(
+            "issue_compliance".to_string(),
+            format!("{:?}", issue_compliance),
+        );
         self.record_replay("pr.readiness", readiness_msg.clone());
         self.record_replay("issue.compliance", format!("{:?}", issue_compliance));
         self.record_replay("pr.rendered_body", format!("chars={}", rendered_body.len()));
