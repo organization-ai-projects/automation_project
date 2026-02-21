@@ -1,4 +1,5 @@
-//! Agent lifecycle implementation - production-grade flow.
+//projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_manager.rs
+// Agent lifecycle implementation - production-grade flow.
 use super::{
     CircuitBreaker, ExecutionContext, IterationNumber, LifecycleError, LifecycleMetrics,
     LifecycleResult, MaxIterations, MetricsCollector, ResourceType, RetryStrategy, StepIndex,

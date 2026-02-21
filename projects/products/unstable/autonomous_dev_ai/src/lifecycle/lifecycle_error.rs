@@ -1,7 +1,7 @@
-//! Enhanced lifecycle error handling.
-
-use crate::error::AgentError;
+//projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_error.rs
 use std::time::Duration;
+
+use crate::{AgentError, lifecycle::ResourceType};
 
 #[derive(Debug)]
 pub enum LifecycleError {
@@ -25,14 +25,6 @@ pub enum LifecycleError {
         elapsed: Duration,
         limit: Duration,
     },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ResourceType {
-    Iterations,
-    Time,
-    Memory,
-    ToolExecutions,
 }
 
 impl LifecycleError {

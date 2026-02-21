@@ -1,43 +1,15 @@
-//! Metrics collection for lifecycle observability.
+//projects/products/unstable/autonomous_dev_ai/src/lifecycle/metrics_collector.rs
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, MutexGuard},
+    time::{Duration, Instant},
+};
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::{Duration, Instant};
-
-#[derive(Debug, Clone, Default)]
-pub struct LifecycleMetrics {
-    pub iterations_total: usize,
-    pub iterations_successful: usize,
-    pub iterations_failed: usize,
-    pub tool_executions_total: usize,
-    pub tool_executions_failed: usize,
-    pub state_transitions_total: usize,
-    pub total_duration: Duration,
-    pub average_iteration_duration: Duration,
-    pub tool_execution_times: HashMap<String, Vec<Duration>>,
-}
+use crate::lifecycle::{LifecycleMetrics, MetricsInner};
 
 #[derive(Debug, Clone)]
 pub struct MetricsCollector {
     inner: Arc<Mutex<MetricsInner>>,
-}
-
-#[derive(Debug)]
-struct MetricsInner {
-    start_time: Instant,
-    iterations_total: usize,
-    iterations_successful: usize,
-    iterations_failed: usize,
-    tool_executions: HashMap<String, ToolMetrics>,
-    state_transitions: usize,
-    iteration_durations: Vec<Duration>,
-}
-
-#[derive(Debug, Default)]
-struct ToolMetrics {
-    executions: usize,
-    failures: usize,
-    execution_times: Vec<Duration>,
 }
 
 impl MetricsCollector {
