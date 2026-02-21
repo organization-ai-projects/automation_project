@@ -884,14 +884,7 @@ impl LifecycleManager {
             plan.add_step(PlanStep {
                 description: "Security-oriented validation pass".to_string(),
                 tool: "run_tests".to_string(),
-                args: vec![
-                    "cargo".to_string(),
-                    "clippy".to_string(),
-                    "-p".to_string(),
-                    self.config.agent_name.clone(),
-                    "--bin".to_string(),
-                    self.config.agent_name.clone(),
-                ],
+                args: self.cargo_clippy_args(),
                 verification: "security_validation_passes".to_string(),
             });
         }
@@ -918,14 +911,7 @@ impl LifecycleManager {
                     previous_failures
                 ),
                 tool: "run_tests".to_string(),
-                args: vec![
-                    "cargo".to_string(),
-                    "check".to_string(),
-                    "-p".to_string(),
-                    self.config.agent_name.clone(),
-                    "--bin".to_string(),
-                    self.config.agent_name.clone(),
-                ],
+                args: self.cargo_check_args(),
                 verification: "learning_validation_passes".to_string(),
             });
         }
@@ -935,14 +921,7 @@ impl LifecycleManager {
                 description: "Learning adaptation: strict lint gate after unstable runs"
                     .to_string(),
                 tool: "run_tests".to_string(),
-                args: vec![
-                    "cargo".to_string(),
-                    "clippy".to_string(),
-                    "-p".to_string(),
-                    self.config.agent_name.clone(),
-                    "--bin".to_string(),
-                    self.config.agent_name.clone(),
-                ],
+                args: self.cargo_clippy_args(),
                 verification: "learning_strict_lint_passes".to_string(),
             });
         }
@@ -951,14 +930,7 @@ impl LifecycleManager {
                 description: "Learning adaptation: policy-focused validation after policy failures"
                     .to_string(),
                 tool: "run_tests".to_string(),
-                args: vec![
-                    "cargo".to_string(),
-                    "clippy".to_string(),
-                    "-p".to_string(),
-                    self.config.agent_name.clone(),
-                    "--bin".to_string(),
-                    self.config.agent_name.clone(),
-                ],
+                args: self.cargo_clippy_args(),
                 verification: "learning_policy_gate_passes".to_string(),
             });
         }
@@ -967,15 +939,7 @@ impl LifecycleManager {
                 description: "Learning adaptation: stabilize test harness execution path"
                     .to_string(),
                 tool: "run_tests".to_string(),
-                args: vec![
-                    "cargo".to_string(),
-                    "test".to_string(),
-                    "-p".to_string(),
-                    self.config.agent_name.clone(),
-                    "--bin".to_string(),
-                    self.config.agent_name.clone(),
-                    "--no-fail-fast".to_string(),
-                ],
+                args: self.cargo_test_args(),
                 verification: "learning_test_harness_stable".to_string(),
             });
         }
@@ -984,14 +948,7 @@ impl LifecycleManager {
                 description: "Learning adaptation: prioritize validation over repeated exploration"
                     .to_string(),
                 tool: "run_tests".to_string(),
-                args: vec![
-                    "cargo".to_string(),
-                    "check".to_string(),
-                    "-p".to_string(),
-                    self.config.agent_name.clone(),
-                    "--bin".to_string(),
-                    self.config.agent_name.clone(),
-                ],
+                args: self.cargo_check_args(),
                 verification: "learning_prioritized_validation".to_string(),
             });
         }
@@ -1004,14 +961,7 @@ impl LifecycleManager {
                     "Learning adaptation: short deterministic validation after recent instability"
                         .to_string(),
                 tool: "run_tests".to_string(),
-                args: vec![
-                    "cargo".to_string(),
-                    "check".to_string(),
-                    "-p".to_string(),
-                    self.config.agent_name.clone(),
-                    "--bin".to_string(),
-                    self.config.agent_name.clone(),
-                ],
+                args: self.cargo_check_args(),
                 verification: "learning_recent_stability_probe".to_string(),
             });
         }
@@ -1026,14 +976,7 @@ impl LifecycleManager {
                         "Learning adaptation: preflight check before full tests for unstable action"
                             .to_string(),
                     tool: "run_tests".to_string(),
-                    args: vec![
-                        "cargo".to_string(),
-                        "check".to_string(),
-                        "-p".to_string(),
-                        self.config.agent_name.clone(),
-                        "--bin".to_string(),
-                        self.config.agent_name.clone(),
-                    ],
+                    args: self.cargo_check_args(),
                     verification: "learning_action_preflight".to_string(),
                 });
             } else if action == "read_file" {
@@ -1042,14 +985,7 @@ impl LifecycleManager {
                         "Learning adaptation: reduce exploration-heavy loop with deterministic validation"
                             .to_string(),
                     tool: "run_tests".to_string(),
-                    args: vec![
-                        "cargo".to_string(),
-                        "check".to_string(),
-                        "-p".to_string(),
-                        self.config.agent_name.clone(),
-                        "--bin".to_string(),
-                        self.config.agent_name.clone(),
-                    ],
+                    args: self.cargo_check_args(),
                     verification: "learning_reduce_exploration_loop".to_string(),
                 });
             }
@@ -1071,6 +1007,40 @@ impl LifecycleManager {
                 plan.steps.len()
             ),
         );
+    }
+
+    fn cargo_check_args(&self) -> Vec<String> {
+        vec![
+            "cargo".to_string(),
+            "check".to_string(),
+            "-p".to_string(),
+            self.config.agent_name.clone(),
+            "--bin".to_string(),
+            self.config.agent_name.clone(),
+        ]
+    }
+
+    fn cargo_clippy_args(&self) -> Vec<String> {
+        vec![
+            "cargo".to_string(),
+            "clippy".to_string(),
+            "-p".to_string(),
+            self.config.agent_name.clone(),
+            "--bin".to_string(),
+            self.config.agent_name.clone(),
+        ]
+    }
+
+    fn cargo_test_args(&self) -> Vec<String> {
+        vec![
+            "cargo".to_string(),
+            "test".to_string(),
+            "-p".to_string(),
+            self.config.agent_name.clone(),
+            "--bin".to_string(),
+            self.config.agent_name.clone(),
+            "--no-fail-fast".to_string(),
+        ]
     }
 
     fn validate_plan(&mut self, plan: &Plan) -> AgentResult<()> {
