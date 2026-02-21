@@ -2049,7 +2049,25 @@ impl LifecycleManager {
             "Iteration {}: Handling review feedback",
             self.current_iteration_number
         );
+        let review_required = std::env::var("AUTONOMOUS_REVIEW_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
         let Some(orchestrator) = self.pr_orchestrator.as_mut() else {
+            if review_required {
+                self.run_replay.record(
+                    "review.blocked",
+                    "review_required_but_no_pr_orchestrator".to_string(),
+                );
+                self.memory.add_failure(
+                    self.iteration,
+                    "Review feedback required".to_string(),
+                    "AUTONOMOUS_REVIEW_REQUIRED=true but no PR orchestrator is available"
+                        .to_string(),
+                    Some("Ensure PR creation stage completed before review stage".to_string()),
+                );
+                return self.transition_to(AgentState::Blocked);
+            }
             self.run_replay
                 .record("review.skip", "no_pr_orchestrator".to_string());
             return self.transition_to(AgentState::Done);
@@ -2057,10 +2075,6 @@ impl LifecycleManager {
 
         let comments = load_review_comments_from_env()?;
         if comments.is_empty() {
-            let review_required = std::env::var("AUTONOMOUS_REVIEW_REQUIRED")
-                .ok()
-                .map(|v| v.eq_ignore_ascii_case("true"))
-                .unwrap_or(false);
             if review_required {
                 self.run_replay.record(
                     "review.blocked",
@@ -2078,6 +2092,9 @@ impl LifecycleManager {
                 );
                 return self.transition_to(AgentState::Blocked);
             }
+            self.run_replay
+                .record("review.skip", "no_feedback_provided".to_string());
+            return self.transition_to(AgentState::Done);
         }
         let outcome = orchestrator.ingest_review(comments);
         self.run_replay
