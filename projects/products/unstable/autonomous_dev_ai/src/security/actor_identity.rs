@@ -1,5 +1,6 @@
 // projects/products/unstable/autonomous_dev_ai/src/security/actor_identity.rs
 use super::ActorRole;
+use crate::ids::RunId;
 use serde::{Deserialize, Serialize};
 
 /// Identity of the actor driving autonomous actions.
@@ -7,15 +8,15 @@ use serde::{Deserialize, Serialize};
 pub struct ActorIdentity {
     pub id: String,
     pub roles: Vec<ActorRole>,
-    pub run_id: String,
+    pub run_id: RunId,
 }
 
 impl ActorIdentity {
-    pub fn new(id: impl Into<String>, roles: Vec<ActorRole>, run_id: impl Into<String>) -> Self {
+    pub fn new(id: impl Into<String>, roles: Vec<ActorRole>, run_id: RunId) -> Self {
         Self {
             id: id.into(),
             roles,
-            run_id: run_id.into(),
+            run_id,
         }
     }
 
@@ -29,7 +30,7 @@ impl Default for ActorIdentity {
         Self::new(
             "autonomous_dev_ai",
             vec![ActorRole::Developer],
-            "default_run",
+            RunId::new("default_run").expect("static run id must be valid"),
         )
     }
 }

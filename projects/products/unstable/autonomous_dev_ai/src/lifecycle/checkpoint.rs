@@ -1,24 +1,21 @@
 // projects/products/unstable/autonomous_dev_ai/src/lifecycle/checkpoint.rs
+use crate::ids::RunId;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// Saved checkpoint that allows the agent to resume after a crash/restart.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Checkpoint {
-    pub run_id: String,
+    pub run_id: RunId,
     pub iteration: usize,
     pub state_label: String,
     pub timestamp_secs: u64,
 }
 
 impl Checkpoint {
-    pub fn new(
-        run_id: impl Into<String>,
-        iteration: usize,
-        state_label: impl Into<String>,
-    ) -> Self {
+    pub fn new(run_id: RunId, iteration: usize, state_label: impl Into<String>) -> Self {
         Self {
-            run_id: run_id.into(),
+            run_id,
             iteration,
             state_label: state_label.into(),
             timestamp_secs: std::time::SystemTime::now()

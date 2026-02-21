@@ -1,11 +1,12 @@
 // projects/products/unstable/autonomous_dev_ai/src/security/security_audit_record.rs
 use super::{ActorIdentity, AuthzDecision};
+use crate::ids::RunId;
 use serde::{Deserialize, Serialize};
 
 /// Audit record for an authorization or policy decision.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityAuditRecord {
-    pub run_id: String,
+    pub run_id: RunId,
     pub actor_id: String,
     pub action: String,
     pub decision: String,

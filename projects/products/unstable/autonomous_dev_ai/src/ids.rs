@@ -51,3 +51,29 @@ impl ParentRef {
         Some(Self::Issue(IssueNumber::new(num)?))
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RunId(String);
+
+impl RunId {
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        if value.trim().is_empty() {
+            None
+        } else {
+            Some(Self(value))
+        }
+    }
+}
+
+impl std::fmt::Display for RunId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Default for RunId {
+    fn default() -> Self {
+        Self::new("default_run").expect("static run id must be valid")
+    }
+}

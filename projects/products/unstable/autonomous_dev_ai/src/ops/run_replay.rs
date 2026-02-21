@@ -1,19 +1,20 @@
 // projects/products/unstable/autonomous_dev_ai/src/ops/run_replay.rs
 use serde::{Deserialize, Serialize};
 
+use crate::ids::RunId;
 use crate::ops::ReplayEvent;
 
 /// Replay log that can reconstruct the full causal run timeline.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RunReplay {
-    pub run_id: String,
+    pub run_id: RunId,
     pub events: Vec<ReplayEvent>,
 }
 
 impl RunReplay {
-    pub fn new(run_id: impl Into<String>) -> Self {
+    pub fn new(run_id: RunId) -> Self {
         Self {
-            run_id: run_id.into(),
+            run_id,
             events: Vec::new(),
         }
     }
