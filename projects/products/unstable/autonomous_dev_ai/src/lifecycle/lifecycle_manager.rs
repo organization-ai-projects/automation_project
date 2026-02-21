@@ -18,6 +18,7 @@ use crate::neural::{
 };
 use crate::objective_evaluator::ObjectiveEvaluator;
 use crate::ops::{IncidentRunbook, RunReplay, SloEvaluator};
+use crate::path_types::CheckpointPath;
 use crate::pr_flow::{
     CiStatus, IssueComplianceStatus, MergeReadiness, PrOrchestrator, ReviewComment, ReviewOutcome,
 };
@@ -71,7 +72,7 @@ pub struct LifecycleManager {
     policy_pack: PolicyPack,
     resource_budget: ResourceBudget,
     rollback_manager: RollbackManager,
-    checkpoint_path: String,
+    checkpoint_path: CheckpointPath,
     last_intent: Option<IntentInterpretation>,
     drift_detector: DriftDetector,
 
@@ -147,7 +148,11 @@ impl LifecycleManager {
             ResourceBudget::new(global_timeout.duration, max_iterations_limit.get(), 500);
         let rollback_manager = RollbackManager::new();
         let checkpoint_path = std::env::var("AUTONOMOUS_CHECKPOINT_PATH")
-            .unwrap_or_else(|_| "agent_checkpoint.json".to_string());
+            .ok()
+            .and_then(CheckpointPath::new)
+            .unwrap_or_else(|| {
+                CheckpointPath::new("agent_checkpoint.json").expect("static path is valid")
+            });
         let drift_detector = DriftDetector::default();
 
         let mut tools = ToolRegistry::new();
@@ -212,7 +217,7 @@ impl LifecycleManager {
         self.drift_detector = DriftDetector::default();
         self.run_replay.record("lifecycle.start", goal);
         self.run_replay
-            .record("lifecycle.checkpoint_path", self.checkpoint_path.clone());
+            .record("lifecycle.checkpoint_path", self.checkpoint_path.as_str());
         self.run_replay.record(
             "symbolic.mode",
             format!(
@@ -334,7 +339,8 @@ impl LifecycleManager {
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
             Err(err) => Err(AgentError::State(format!(
                 "Failed to load checkpoint '{}': {}",
-                self.checkpoint_path, err
+                self.checkpoint_path.as_str(),
+                err
             ))),
         }
     }
@@ -600,7 +606,7 @@ impl LifecycleManager {
         if let Err(e) = checkpoint.save(&self.checkpoint_path) {
             tracing::warn!(
                 "Failed to write checkpoint '{}': {}",
-                self.checkpoint_path,
+                self.checkpoint_path.as_str(),
                 e
             );
         }

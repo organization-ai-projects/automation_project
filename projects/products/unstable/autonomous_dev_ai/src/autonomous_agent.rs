@@ -3,6 +3,7 @@ use crate::config_loader::load_config;
 //Main agent implementation
 use crate::error::AgentResult;
 use crate::lifecycle::LifecycleManager;
+use crate::path_types::StatePath;
 use crate::persistence::{
     LearningSnapshot, append_learning_snapshot, load_action_outcome_index,
     load_decision_inverted_index, load_failure_inverted_index, load_memory_state_index,
@@ -14,7 +15,7 @@ use crate::value_types::{ActionOutcomeSummary, ConfidenceScore, LearningWindow};
 //Autonomous developer AI agent
 pub struct AutonomousAgent {
     pub lifecycle: LifecycleManager,
-    state_path: String,
+    state_path: StatePath,
 }
 
 impl AutonomousAgent {
@@ -23,7 +24,9 @@ impl AutonomousAgent {
         let config = load_config(config_path)?;
         let lifecycle = LifecycleManager::new(config, audit_log_path);
 
-        let state_path = format!("{}_state", config_path);
+        let raw_state_path = format!("{}_state", config_path);
+        let state_path = StatePath::new(raw_state_path)
+            .unwrap_or_else(|| StatePath::new("agent_state").expect("static path is valid"));
 
         Ok(Self {
             lifecycle,
@@ -52,7 +55,7 @@ impl AutonomousAgent {
         )?;
         tracing::info!(
             "State saved transactionally at base '{}' (max_iteration={}, decisions={}, failures={}, learning_top_failure_kind={:?})",
-            self.state_path,
+            self.state_path.as_str(),
             index.max_iteration_seen,
             index.decisions_count,
             index.failures_count,
@@ -66,7 +69,7 @@ impl AutonomousAgent {
         if !memory_transaction_completed(&self.state_path)? {
             tracing::warn!(
                 "Previous state transaction was not completed cleanly for base '{}'",
-                self.state_path
+                self.state_path.as_str()
             );
         }
         self.lifecycle.memory = load_memory_state_with_fallback(&self.state_path)?;
@@ -157,7 +160,10 @@ impl AutonomousAgent {
             }
         }
         self.inject_recent_learning_metadata()?;
-        tracing::info!("State loaded from transactional base '{}'", self.state_path);
+        tracing::info!(
+            "State loaded from transactional base '{}'",
+            self.state_path.as_str()
+        );
         Ok(())
     }
 
