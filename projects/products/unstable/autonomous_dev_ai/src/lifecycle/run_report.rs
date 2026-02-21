@@ -17,6 +17,8 @@ pub struct RunReport {
     pub run_replay_text_path: Option<String>,
     pub last_tool_failure_class: Option<String>,
     pub review_required: bool,
+    pub create_pr_enabled: bool,
+    pub pr_number: Option<u64>,
 }
 
 impl RunReport {

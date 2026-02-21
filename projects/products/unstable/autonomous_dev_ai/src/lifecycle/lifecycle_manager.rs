@@ -376,6 +376,19 @@ impl LifecycleManager {
             .ok()
             .map(|v| v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
+        let create_pr_enabled = std::env::var("AUTONOMOUS_CREATE_PR")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let pr_number = std::env::var("AUTONOMOUS_PR_NUMBER")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .or_else(|| {
+                self.memory
+                    .metadata
+                    .get("created_pr_number")
+                    .and_then(|s| s.parse::<u64>().ok())
+            });
         let report = RunReport {
             generated_at_secs: RunReport::now_secs(),
             run_id: self.actor.run_id.to_string(),
@@ -391,6 +404,8 @@ impl LifecycleManager {
             run_replay_text_path: self.memory.metadata.get("run_replay_text_path").cloned(),
             last_tool_failure_class: self.memory.metadata.get("last_tool_failure_class").cloned(),
             review_required,
+            create_pr_enabled,
+            pr_number,
         };
 
         let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")
