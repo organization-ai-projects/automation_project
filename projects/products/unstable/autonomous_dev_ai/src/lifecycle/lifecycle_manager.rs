@@ -1367,12 +1367,22 @@ impl LifecycleManager {
     }
 
     fn enforce_risk_gate(&mut self, tool: &str, args: &[String]) -> AgentResult<()> {
-        let risk = action_risk_level(tool, args, &self.policy_pack);
-        self.run_replay
-            .record("tool.risk_level", format!("tool={} risk={:?}", tool, risk));
-        let _ = self
-            .audit
-            .log_symbolic_decision("risk_gate_level", &format!("tool={} risk={:?}", tool, risk));
+        let base_risk = action_risk_level(tool, args, &self.policy_pack);
+        let risk = self.adapt_risk_level(base_risk);
+        self.run_replay.record(
+            "tool.risk_level",
+            format!(
+                "tool={} base_risk={:?} effective_risk={:?}",
+                tool, base_risk, risk
+            ),
+        );
+        let _ = self.audit.log_symbolic_decision(
+            "risk_gate_level",
+            &format!(
+                "tool={} base_risk={:?} effective_risk={:?}",
+                tool, base_risk, risk
+            ),
+        );
 
         match risk {
             ActionRiskLevel::Low => {
@@ -1473,6 +1483,42 @@ impl LifecycleManager {
                     )))
                 }
             }
+        }
+    }
+
+    fn adapt_risk_level(&self, base: ActionRiskLevel) -> ActionRiskLevel {
+        let recent_avg_failures = self
+            .memory
+            .metadata
+            .get("previous_recent_avg_failures")
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or(0.0);
+        let recent_top_failure_kind = self
+            .memory
+            .metadata
+            .get("previous_recent_top_failure_kind")
+            .cloned()
+            .unwrap_or_default();
+        let recent_top_failure_kind_confidence = self
+            .memory
+            .metadata
+            .get("previous_recent_top_failure_kind_confidence")
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or(0.0);
+
+        let should_harden = recent_avg_failures >= 3.0
+            || (recent_top_failure_kind.starts_with("timeout:")
+                && recent_top_failure_kind_confidence >= 0.6)
+            || (recent_top_failure_kind.starts_with("policy:")
+                && recent_top_failure_kind_confidence >= 0.6);
+        if !should_harden {
+            return base;
+        }
+
+        match base {
+            ActionRiskLevel::Low => ActionRiskLevel::Low,
+            ActionRiskLevel::Medium => ActionRiskLevel::High,
+            ActionRiskLevel::High => ActionRiskLevel::High,
         }
     }
 
