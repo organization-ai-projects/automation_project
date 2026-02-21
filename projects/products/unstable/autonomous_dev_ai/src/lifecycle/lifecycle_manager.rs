@@ -1907,13 +1907,29 @@ impl LifecycleManager {
             return self.transition_to(AgentState::Done);
         };
 
-        let mut comments = Vec::new();
-        if let Ok(body) = std::env::var("AUTONOMOUS_REVIEW_COMMENT") {
-            comments.push(ReviewComment {
-                reviewer: "review-bot".to_string(),
-                body,
-                resolved: false,
-            });
+        let comments = load_review_comments_from_env()?;
+        if comments.is_empty() {
+            let review_required = std::env::var("AUTONOMOUS_REVIEW_REQUIRED")
+                .ok()
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false);
+            if review_required {
+                self.run_replay.record(
+                    "review.blocked",
+                    "review_required_but_no_feedback".to_string(),
+                );
+                self.memory.add_failure(
+                    self.iteration,
+                    "Review feedback required".to_string(),
+                    "AUTONOMOUS_REVIEW_REQUIRED=true but no review comments were provided"
+                        .to_string(),
+                    Some(
+                        "Provide AUTONOMOUS_REVIEW_COMMENT or AUTONOMOUS_REVIEW_COMMENTS_JSON"
+                            .to_string(),
+                    ),
+                );
+                return self.transition_to(AgentState::Blocked);
+            }
         }
         let outcome = orchestrator.ingest_review(comments);
         self.run_replay
@@ -2320,4 +2336,25 @@ fn compensation_for_tool(tool: &str) -> CompensationKind {
             description: "Manual review of side effects required".to_string(),
         },
     }
+}
+
+fn load_review_comments_from_env() -> AgentResult<Vec<ReviewComment>> {
+    if let Ok(raw_json) = std::env::var("AUTONOMOUS_REVIEW_COMMENTS_JSON") {
+        let comments: Vec<ReviewComment> = serde_json::from_str(&raw_json).map_err(|e| {
+            AgentError::State(format!(
+                "AUTONOMOUS_REVIEW_COMMENTS_JSON must be valid JSON array of review comments: {e}"
+            ))
+        })?;
+        return Ok(comments);
+    }
+
+    if let Ok(body) = std::env::var("AUTONOMOUS_REVIEW_COMMENT") {
+        return Ok(vec![ReviewComment {
+            reviewer: "review-bot".to_string(),
+            body,
+            resolved: false,
+        }]);
+    }
+
+    Ok(Vec::new())
 }
