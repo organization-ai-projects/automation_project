@@ -897,6 +897,12 @@ impl LifecycleManager {
             .get("previous_recent_top_failure_kind_confidence")
             .and_then(|v| v.parse::<f64>().ok())
             .unwrap_or(0.0);
+        let worst_action_outcome = self
+            .memory
+            .metadata
+            .get("previous_state_worst_action_outcome")
+            .cloned()
+            .unwrap_or_default();
 
         if previous_failures > 0 {
             plan.add_step(PlanStep {
@@ -1002,11 +1008,50 @@ impl LifecycleManager {
                 verification: "learning_recent_stability_probe".to_string(),
             });
         }
+        if let Some((action, pass_rate, total)) =
+            parse_action_outcome_triplet(&worst_action_outcome)
+            && total >= 3
+            && pass_rate < 0.5
+        {
+            if action == "run_tests" {
+                plan.add_step(PlanStep {
+                    description:
+                        "Learning adaptation: preflight check before full tests for unstable action"
+                            .to_string(),
+                    tool: "run_tests".to_string(),
+                    args: vec![
+                        "cargo".to_string(),
+                        "check".to_string(),
+                        "-p".to_string(),
+                        self.config.agent_name.clone(),
+                        "--bin".to_string(),
+                        self.config.agent_name.clone(),
+                    ],
+                    verification: "learning_action_preflight".to_string(),
+                });
+            } else if action == "read_file" {
+                plan.add_step(PlanStep {
+                    description:
+                        "Learning adaptation: reduce exploration-heavy loop with deterministic validation"
+                            .to_string(),
+                    tool: "run_tests".to_string(),
+                    args: vec![
+                        "cargo".to_string(),
+                        "check".to_string(),
+                        "-p".to_string(),
+                        self.config.agent_name.clone(),
+                        "--bin".to_string(),
+                        self.config.agent_name.clone(),
+                    ],
+                    verification: "learning_reduce_exploration_loop".to_string(),
+                });
+            }
+        }
 
         self.run_replay.record(
             "learning.adaptation",
             format!(
-                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} top_decision_action={} recent_avg_failures={:.2} recent_top_failure_kind={} recent_top_failure_kind_confidence={:.3} plan_steps={}",
+                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} top_decision_action={} recent_avg_failures={:.2} recent_top_failure_kind={} recent_top_failure_kind_confidence={:.3} worst_action_outcome={} plan_steps={}",
                 previous_failures,
                 previous_max_iteration,
                 top_failure_kind,
@@ -1015,6 +1060,7 @@ impl LifecycleManager {
                 recent_avg_failures,
                 recent_top_failure_kind,
                 recent_top_failure_kind_confidence,
+                worst_action_outcome,
                 plan.steps.len()
             ),
         );
@@ -2075,6 +2121,14 @@ fn parse_risk_level(value: &str) -> Option<ActionRiskLevel> {
         "high" => Some(ActionRiskLevel::High),
         _ => None,
     }
+}
+
+fn parse_action_outcome_triplet(value: &str) -> Option<(&str, f64, usize)> {
+    let mut parts = value.split(':');
+    let action = parts.next()?;
+    let pass_rate = parts.next()?.parse::<f64>().ok()?;
+    let total = parts.next()?.parse::<usize>().ok()?;
+    Some((action, pass_rate, total))
 }
 
 fn has_valid_high_risk_approval_token() -> bool {
