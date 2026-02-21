@@ -225,6 +225,14 @@ impl LifecycleManager {
             self.run_replay
                 .record("neural.rollout_state", format!("{:?}", state));
         }
+        self.configure_policy_pack_from_env()
+            .map_err(|e| LifecycleError::Fatal {
+                iteration: 0,
+                error: e,
+                context: "Failed to configure policy pack from runtime overrides".to_string(),
+            })?;
+        self.run_replay
+            .record("policy_pack.fingerprint", self.policy_pack.fingerprint());
 
         tracing::info!("=== Starting Agent Lifecycle ===");
         tracing::info!("Goal: {}", goal);
@@ -1695,6 +1703,37 @@ impl LifecycleManager {
 
     pub fn current_iteration(&self) -> usize {
         self.current_iteration_number.get()
+    }
+
+    fn configure_policy_pack_from_env(&mut self) -> AgentResult<()> {
+        let Some(overrides) = std::env::var("AUTONOMOUS_TOOL_RISK_OVERRIDES").ok() else {
+            return Ok(());
+        };
+        if overrides.trim().is_empty() {
+            return Ok(());
+        }
+
+        let applied = self
+            .policy_pack
+            .apply_risk_overrides_str(&overrides)
+            .map_err(AgentError::PolicyViolation)?;
+        let auto_sign = std::env::var("AUTONOMOUS_POLICY_PACK_AUTO_SIGN")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if !auto_sign {
+            return Err(AgentError::PolicyViolation(
+                "AUTONOMOUS_TOOL_RISK_OVERRIDES requires AUTONOMOUS_POLICY_PACK_AUTO_SIGN=true"
+                    .to_string(),
+            ));
+        }
+
+        self.policy_pack.sign();
+        self.run_replay.record(
+            "policy_pack.overrides_applied",
+            format!("entries={applied}"),
+        );
+        Ok(())
     }
 
     fn record_runbook_hint_for_error(&mut self, error_text: &str) {

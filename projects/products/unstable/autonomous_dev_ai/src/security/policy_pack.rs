@@ -101,6 +101,30 @@ impl PolicyPack {
     pub fn risk_override(&self, tool: &str) -> Option<&str> {
         self.tool_risk_overrides.get(tool).map(|v| v.as_str())
     }
+
+    /// Apply overrides from `tool=risk` pairs separated by commas.
+    /// Example: `git_commit=high,run_tests=low`
+    pub fn apply_risk_overrides_str(&mut self, raw: &str) -> Result<usize, String> {
+        let mut applied = 0usize;
+        for entry in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let (tool, risk) = entry.split_once('=').ok_or_else(|| {
+                format!("Invalid risk override entry '{entry}', expected tool=risk")
+            })?;
+            let tool = tool.trim();
+            let risk = risk.trim().to_ascii_lowercase();
+            if tool.is_empty() {
+                return Err("Risk override tool name cannot be empty".to_string());
+            }
+            if !matches!(risk.as_str(), "low" | "medium" | "high") {
+                return Err(format!(
+                    "Invalid risk level '{risk}' for tool '{tool}', expected low|medium|high"
+                ));
+            }
+            self.tool_risk_overrides.insert(tool.to_string(), risk);
+            applied = applied.saturating_add(1);
+        }
+        Ok(applied)
+    }
 }
 
 impl Default for PolicyPack {
