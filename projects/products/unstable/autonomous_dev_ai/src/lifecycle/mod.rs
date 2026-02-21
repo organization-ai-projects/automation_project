@@ -19,6 +19,7 @@ mod retry_strategy;
 mod rollback_manager;
 mod step_index;
 mod tool_metrics;
+mod validation_strategy;
 
 pub use action_boundary::ActionBoundary;
 pub use checkpoint::Checkpoint;

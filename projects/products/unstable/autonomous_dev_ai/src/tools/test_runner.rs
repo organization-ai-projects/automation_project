@@ -32,6 +32,15 @@ impl Tool for TestRunner {
             );
         }
 
+        if let Some(program) = args.first() {
+            let cmd_args = args[1..].to_vec();
+            return run_with_timeout(
+                program,
+                &cmd_args,
+                Duration::from_secs(DEFAULT_TOOL_TIMEOUT_SECS),
+            );
+        }
+
         let filter = args.first().map(|s| s.as_str()).unwrap_or("all");
         Ok(ToolResult {
             success: true,

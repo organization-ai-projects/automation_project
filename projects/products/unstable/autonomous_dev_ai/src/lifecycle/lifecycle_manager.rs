@@ -3,6 +3,7 @@
 use super::{
     CircuitBreaker, ExecutionContext, IterationNumber, LifecycleError, LifecycleMetrics,
     LifecycleResult, MaxIterations, MetricsCollector, ResourceType, RetryStrategy, StepIndex,
+    validation_strategy::select_validation_command,
 };
 
 use crate::agent_config::AgentConfig;
@@ -479,12 +480,12 @@ impl LifecycleManager {
             );
         }
 
-        if goal.contains("test") || goal.contains("Tests") {
+        if let Some(command_plan) = select_validation_command(goal, &self.config.agent_name) {
             plan.add_step(PlanStep {
-                description: "Run test suite".to_string(),
+                description: command_plan.description,
                 tool: "run_tests".to_string(),
-                args: vec![],
-                verification: "tests_pass".to_string(),
+                args: command_plan.command_tokens,
+                verification: "validation_passes".to_string(),
             });
         }
 
