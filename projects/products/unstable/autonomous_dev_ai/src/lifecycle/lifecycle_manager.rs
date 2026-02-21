@@ -1885,6 +1885,26 @@ fn validate_required_issue_fields(body: &str) -> Option<String> {
         if !parent.starts_with('#') || parent[1..].chars().any(|c| !c.is_ascii_digit()) {
             return Some("Parent must be '#<number>' or 'none'".to_string());
         }
+
+        let parent_id = parent[1..].to_string();
+        if let Ok(issue_number) = std::env::var("AUTONOMOUS_ISSUE_NUMBER")
+            && issue_number == parent_id
+        {
+            return Some("Parent cannot reference the issue itself".to_string());
+        }
+
+        if let Ok(existing_raw) = std::env::var("AUTONOMOUS_EXISTING_ISSUE_NUMBERS") {
+            let exists = existing_raw
+                .split(',')
+                .map(|s| s.trim().trim_start_matches('#'))
+                .filter(|s| !s.is_empty())
+                .any(|n| n == parent_id);
+            if !exists {
+                return Some(format!(
+                    "Parent #{parent_id} does not exist in known issue set"
+                ));
+            }
+        }
     }
 
     None
