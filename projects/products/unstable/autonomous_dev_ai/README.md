@@ -60,6 +60,7 @@ Useful runtime controls for CI-like runs:
 - `AUTONOMOUS_PR_NUMBER=<n>`: inject existing PR number
 - `AUTONOMOUS_REQUIRE_PR_NUMBER=true`: require a real/known PR number before continuing
 - `AUTONOMOUS_REVIEW_COMMENTS_JSON='[...]'`: provide structured review feedback
+- `AUTONOMOUS_REVIEW_COMMENTS_FILE=/path/to/comments.json`: structured review feedback from file
 - `AUTONOMOUS_REVIEW_REQUIRED=true`: block if no review feedback is available
 - `AUTONOMOUS_AUTO_RESOLVE_REVIEW=true`: auto-resolve pending feedback (off by default)
 

@@ -2590,6 +2590,21 @@ fn classify_tool_failure(error_text: &str) -> &'static str {
 }
 
 fn load_review_comments_from_env() -> AgentResult<Vec<ReviewComment>> {
+    if let Ok(path) = std::env::var("AUTONOMOUS_REVIEW_COMMENTS_FILE") {
+        let raw = std::fs::read_to_string(&path).map_err(|e| {
+            AgentError::State(format!(
+                "Failed to read AUTONOMOUS_REVIEW_COMMENTS_FILE '{}': {}",
+                path, e
+            ))
+        })?;
+        let comments: Vec<ReviewComment> = serde_json::from_str(&raw).map_err(|e| {
+            AgentError::State(format!(
+                "AUTONOMOUS_REVIEW_COMMENTS_FILE must contain a valid JSON array of review comments: {e}"
+            ))
+        })?;
+        return Ok(comments);
+    }
+
     if let Ok(raw_json) = std::env::var("AUTONOMOUS_REVIEW_COMMENTS_JSON") {
         let comments: Vec<ReviewComment> = serde_json::from_str(&raw_json).map_err(|e| {
             AgentError::State(format!(
