@@ -206,11 +206,9 @@ impl LifecycleManager {
         let start_time = Instant::now();
 
         self.run_replay = RunReplay::new(self.actor.run_id.clone());
-        self.current_iteration_number = IterationNumber::first();
-        self.iteration = self.current_iteration_number.get();
+        self.set_iteration_number(IterationNumber::first());
         self.current_plan = None;
-        self.current_step_index = StepIndex::zero();
-        self.current_step = self.current_step_index.get();
+        self.reset_step_index();
         self.pr_orchestrator = None;
         self.rollback_manager = RollbackManager::new();
         self.last_intent = None;
@@ -324,9 +322,10 @@ impl LifecycleManager {
     pub fn load_checkpoint_if_present(&mut self) -> AgentResult<bool> {
         match Checkpoint::load(&self.checkpoint_path) {
             Ok(checkpoint) => {
-                self.current_iteration_number = IterationNumber::from_usize(checkpoint.iteration)
-                    .unwrap_or_else(IterationNumber::first);
-                self.iteration = self.current_iteration_number.get();
+                self.set_iteration_number(
+                    IterationNumber::from_usize(checkpoint.iteration)
+                        .unwrap_or_else(IterationNumber::first),
+                );
                 self.run_replay.record(
                     "checkpoint.loaded",
                     format!(
@@ -343,6 +342,21 @@ impl LifecycleManager {
                 err
             ))),
         }
+    }
+
+    fn set_iteration_number(&mut self, value: IterationNumber) {
+        self.current_iteration_number = value;
+        self.iteration = value.get();
+    }
+
+    fn reset_step_index(&mut self) {
+        self.current_step_index = StepIndex::zero();
+        self.current_step = self.current_step_index.get();
+    }
+
+    fn advance_step_index(&mut self) {
+        self.current_step_index = self.current_step_index.increment();
+        self.current_step = self.current_step_index.get();
     }
 
     fn execute_main_loop(&mut self, start_time: Instant) -> LifecycleResult<()> {
@@ -799,8 +813,7 @@ impl LifecycleManager {
         );
 
         self.current_plan = Some(plan);
-        self.current_step_index = StepIndex::zero();
-        self.current_step = self.current_step_index.get();
+        self.reset_step_index();
 
         self.transition_to(AgentState::ExecuteStep)
     }
@@ -1312,8 +1325,7 @@ impl LifecycleManager {
                 .expect("static action name must be valid"),
         );
 
-        self.current_step_index = self.current_step_index.increment();
-        self.current_step = self.current_step_index.get();
+        self.advance_step_index();
 
         self.transition_to(AgentState::Verify)
     }
@@ -1629,11 +1641,9 @@ impl LifecycleManager {
                 )),
             );
 
-            self.current_iteration_number = next_iteration;
-            self.iteration = next_iteration.get();
+            self.set_iteration_number(next_iteration);
             self.current_plan = None;
-            self.current_step_index = StepIndex::zero();
-            self.current_step = self.current_step_index.get();
+            self.reset_step_index();
 
             self.transition_to(AgentState::GeneratePlan)?;
         } else {
@@ -1994,11 +2004,9 @@ impl LifecycleManager {
                 if next_iteration.exceeds(self.max_iterations_limit) {
                     return self.transition_to(AgentState::Blocked);
                 }
-                self.current_iteration_number = next_iteration;
-                self.iteration = next_iteration.get();
+                self.set_iteration_number(next_iteration);
                 self.current_plan = None;
-                self.current_step_index = StepIndex::zero();
-                self.current_step = self.current_step_index.get();
+                self.reset_step_index();
                 self.transition_to(AgentState::GeneratePlan)
             }
             ReviewOutcome::Timeout => self.transition_to(AgentState::Blocked),
