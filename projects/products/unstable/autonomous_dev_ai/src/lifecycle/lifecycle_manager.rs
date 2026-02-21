@@ -1910,21 +1910,35 @@ impl LifecycleManager {
         let mut command = Command::new("gh");
         command.arg("pr").arg("create").arg("--title").arg(title);
         command.arg("--body").arg(body);
+        let mut audit_args = vec![
+            "pr".to_string(),
+            "create".to_string(),
+            "--title".to_string(),
+            title.to_string(),
+            "--body".to_string(),
+            "<omitted>".to_string(),
+        ];
 
         if let Ok(base) = std::env::var("AUTONOMOUS_PR_BASE")
             && !base.trim().is_empty()
         {
             command.arg("--base").arg(base);
+            audit_args.push("--base".to_string());
+            audit_args.push("<set>".to_string());
         }
         if let Ok(head) = std::env::var("AUTONOMOUS_PR_HEAD")
             && !head.trim().is_empty()
         {
             command.arg("--head").arg(head);
+            audit_args.push("--head".to_string());
+            audit_args.push("<set>".to_string());
         }
         if let Ok(repo) = std::env::var("AUTONOMOUS_REPO")
             && !repo.trim().is_empty()
         {
-            command.arg("--repo").arg(repo);
+            command.arg("--repo").arg(&repo);
+            audit_args.push("--repo".to_string());
+            audit_args.push(repo);
         }
 
         let output = command
@@ -1932,6 +1946,9 @@ impl LifecycleManager {
             .map_err(|e| AgentError::Tool(format!("failed to execute gh pr create: {e}")))?;
         let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let _ = self
+            .audit
+            .log_tool_execution("create_pr", &audit_args, output.status.success());
 
         if !output.status.success() {
             return Err(AgentError::Tool(format!(
@@ -2007,6 +2024,18 @@ impl LifecycleManager {
 
         if !self.policy.is_tool_allowed(tool_name) {
             tracing::debug!("Tool '{}' not allowed by policy", tool_name);
+            return Some(default_body.to_string());
+        }
+        if let Err(error) = self
+            .enforce_authz_for_action(tool_name)
+            .and_then(|_| self.enforce_risk_gate(tool_name, &[]))
+        {
+            self.memory.add_failure(
+                self.iteration,
+                "PR description generation blocked by policy gate".to_string(),
+                error.to_string(),
+                Some("Using default PR body".to_string()),
+            );
             return Some(default_body.to_string());
         }
 
