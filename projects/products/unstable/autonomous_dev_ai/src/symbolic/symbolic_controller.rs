@@ -1,7 +1,7 @@
 // projects/products/unstable/autonomous_dev_ai/src/symbolic/symbolic_controller.rs
 use super::policy_engine::{FORCE_PUSH_FORBIDDEN, is_force_push_action};
 use super::{NeuralProposal, ValidationResult};
-use crate::error::AgentResult;
+use crate::error::{AgentError, AgentResult};
 use crate::objective_evaluator::ObjectiveEvaluator;
 use crate::symbolic::{CategoryDecision, IssueClassificationInput, classify_issue};
 
@@ -28,6 +28,12 @@ impl SymbolicController {
 
     /// Validate a neural proposal against symbolic rules.
     pub fn validate_proposal(&self, proposal: &NeuralProposal) -> AgentResult<ValidationResult> {
+        if proposal.action.trim().is_empty() {
+            return Err(AgentError::Symbolic(
+                "Neural proposal action cannot be empty".to_string(),
+            ));
+        }
+
         let mut issues = Vec::new();
 
         if is_force_push_action(&proposal.action) {

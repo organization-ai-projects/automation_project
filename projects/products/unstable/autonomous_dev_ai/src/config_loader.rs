@@ -1,6 +1,6 @@
 // projects/products/unstable/autonomous_dev_ai/src/config_loader.rs
 use crate::agent_config::AgentConfig;
-use crate::error::AgentResult;
+use crate::error::{AgentError, AgentResult};
 use crate::persistence::{load_bin, load_ron, save_bin, save_ron};
 use std::path::Path;
 
@@ -10,6 +10,11 @@ use std::path::Path;
 /// 3. Rebuild .bin deterministically
 pub fn load_config<P: AsRef<Path>>(base_path: P) -> AgentResult<AgentConfig> {
     let base = base_path.as_ref();
+    if base.as_os_str().is_empty() {
+        return Err(AgentError::Config(
+            "Config path cannot be empty".to_string(),
+        ));
+    }
     let bin_path = base.with_extension("bin");
     let ron_path = base.with_extension("ron");
 
@@ -25,7 +30,9 @@ pub fn load_config<P: AsRef<Path>>(base_path: P) -> AgentResult<AgentConfig> {
 
     // Fall back to .ron
     if ron_path.exists() {
-        let config = load_ron(&ron_path)?;
+        let config = load_ron(&ron_path).map_err(|e| {
+            AgentError::Serialization(format!("Failed to deserialize RON config: {e}"))
+        })?;
 
         // Try to rebuild .bin
         if let Err(e) = save_bin(&bin_path, &config) {
@@ -38,8 +45,11 @@ pub fn load_config<P: AsRef<Path>>(base_path: P) -> AgentResult<AgentConfig> {
         let config = AgentConfig::default();
 
         // Save both formats
-        save_ron(&ron_path, &config)?;
-        save_bin(&bin_path, &config)?;
+        save_ron(&ron_path, &config)
+            .map_err(|e| AgentError::Serialization(format!("Failed to write RON config: {e}")))?;
+        save_bin(&bin_path, &config).map_err(|e| {
+            AgentError::Serialization(format!("Failed to write binary config: {e}"))
+        })?;
 
         Ok(config)
     }

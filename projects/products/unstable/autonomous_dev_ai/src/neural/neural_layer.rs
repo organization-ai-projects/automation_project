@@ -3,6 +3,7 @@
 // Neural layer implementation.
 
 use crate::error::{AgentError, AgentResult};
+use crate::neural::NeuralModel;
 use crate::symbolic::NeuralProposal;
 
 /// Neural layer - provides suggestions, never executes directly
@@ -55,5 +56,16 @@ impl NeuralLayer {
     /// Use CPU fallback
     pub fn use_cpu_fallback(&self) -> bool {
         self.cpu_fallback && !self.is_gpu_available()
+    }
+}
+
+impl NeuralModel for NeuralLayer {
+    fn infer(&self, input: &str) -> AgentResult<NeuralProposal> {
+        self.propose_action(input)?
+            .ok_or_else(|| AgentError::Neural("No proposal generated".to_string()))
+    }
+
+    fn confidence(&self) -> f64 {
+        0.85
     }
 }

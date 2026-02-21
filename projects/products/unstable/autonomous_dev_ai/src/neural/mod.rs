@@ -17,4 +17,5 @@ pub use model_governance::ModelGovernance;
 pub use model_registry::ModelRegistry;
 pub use model_version::ModelVersion;
 pub use neural_layer::NeuralLayer;
+pub use neural_model::NeuralModel;
 pub use rollout_state::RolloutState;

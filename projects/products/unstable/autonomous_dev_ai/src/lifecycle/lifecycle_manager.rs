@@ -11,7 +11,9 @@ use crate::agent_config::AgentConfig;
 use crate::audit_logger::AuditLogger;
 use crate::error::{AgentError, AgentResult};
 use crate::memory_graph::MemoryGraph;
-use crate::neural::{IntentInterpretation, ModelGovernance, ModelVersion, NeuralLayer};
+use crate::neural::{
+    DriftDetector, IntentInterpretation, ModelGovernance, ModelVersion, NeuralLayer, NeuralModel,
+};
 use crate::objective_evaluator::ObjectiveEvaluator;
 use crate::ops::{IncidentRunbook, RunReplay, SloEvaluator};
 use crate::pr_flow::{
@@ -67,6 +69,7 @@ pub struct LifecycleManager {
     rollback_manager: RollbackManager,
     checkpoint_path: String,
     last_intent: Option<IntentInterpretation>,
+    drift_detector: DriftDetector,
 
     // Timeouts.
     global_timeout: Duration,
@@ -139,6 +142,7 @@ impl LifecycleManager {
         let rollback_manager = RollbackManager::new();
         let checkpoint_path = std::env::var("AUTONOMOUS_CHECKPOINT_PATH")
             .unwrap_or_else(|_| "agent_checkpoint.json".to_string());
+        let drift_detector = DriftDetector::default();
 
         let mut tools = ToolRegistry::new();
         tools.register(Box::new(RepoReader));
@@ -179,6 +183,7 @@ impl LifecycleManager {
             rollback_manager,
             checkpoint_path,
             last_intent: None,
+            drift_detector,
             global_timeout,
             iteration_timeout: Duration::from_secs(300),
             tool_timeout: Duration::from_secs(30),
@@ -198,6 +203,7 @@ impl LifecycleManager {
         self.pr_orchestrator = None;
         self.rollback_manager = RollbackManager::new();
         self.last_intent = None;
+        self.drift_detector = DriftDetector::default();
         self.run_replay.record("lifecycle.start", goal);
         self.run_replay
             .record("lifecycle.checkpoint_path", self.checkpoint_path.clone());
@@ -335,6 +341,41 @@ impl LifecycleManager {
             }
 
             let metrics_snapshot = self.metrics.snapshot();
+            let memory_entries = self.memory.explored_files.len()
+                + self.memory.plans.len()
+                + self.memory.decisions.len()
+                + self.memory.failures.len()
+                + self.memory.objective_evaluations.len();
+            let memory_budget = std::env::var("AUTONOMOUS_MAX_MEMORY_ENTRIES")
+                .ok()
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(10_000);
+            if memory_entries >= memory_budget {
+                self.memory.add_failure(
+                    self.iteration,
+                    "Resource budget exceeded".to_string(),
+                    format!(
+                        "memory budget exceeded: entries={} budget={}",
+                        memory_entries, memory_budget
+                    ),
+                    Some(
+                        "reduce retained memory or increase AUTONOMOUS_MAX_MEMORY_ENTRIES"
+                            .to_string(),
+                    ),
+                );
+                self.transition_to(AgentState::Failed)
+                    .map_err(|e| LifecycleError::Fatal {
+                        iteration: self.iteration,
+                        error: e,
+                        context: "Failed to transition to Failed state".to_string(),
+                    })?;
+                return Err(LifecycleError::ResourceExhausted {
+                    resource: ResourceType::Memory,
+                    limit: memory_budget,
+                    current: memory_entries,
+                });
+            }
+
             if let Some(limit_reason) = self.resource_budget.is_exceeded(
                 start_time.elapsed(),
                 self.current_iteration_number.get(),
@@ -629,63 +670,65 @@ impl LifecycleManager {
         );
 
         let neural_suggestion = if self.neural.enabled {
-            match self.neural.propose_action(&goal) {
-                Ok(suggestion) => {
-                    if let Some(suggested) = suggestion {
-                        let uncertainty = self.neural.estimate_uncertainty(&goal).unwrap_or(0.5);
-                        let cpu_fallback = self.neural.use_cpu_fallback();
-                        self.run_replay.record(
+            match self.neural.infer(&goal) {
+                Ok(suggested) => {
+                    let uncertainty = self.neural.estimate_uncertainty(&goal).unwrap_or(0.5);
+                    let cpu_fallback = self.neural.use_cpu_fallback();
+                    let model_confidence = self.neural.confidence();
+                    let detected_drift = self.drift_detector.observe(suggested.confidence);
+                    let rolling_avg = self.drift_detector.rolling_average().unwrap_or(0.0);
+                    self.run_replay.record(
                             "neural.runtime",
                             format!(
-                                "confidence={:.3} uncertainty={:.3} prefer_gpu={} cpu_fallback={}",
+                                "confidence={:.3} model_confidence={:.3} uncertainty={:.3} prefer_gpu={} cpu_fallback={} drift_detected={} rolling_avg={:.3}",
                                 suggested.confidence,
+                                model_confidence,
                                 uncertainty,
                                 self.neural.prefer_gpu,
-                                cpu_fallback
+                                cpu_fallback,
+                                detected_drift,
+                                rolling_avg
                             ),
                         );
 
-                        let governance_ok = self
-                            .model_governance
-                            .accept("default-neural", suggested.confidence);
-                        let validation = self.symbolic.validate_proposal(&suggested)?;
+                    let governance_ok = self
+                        .model_governance
+                        .accept("default-neural", suggested.confidence);
+                    let validation = self.symbolic.validate_proposal(&suggested)?;
 
-                        self.run_replay.record(
-                            "neural.governance",
+                    self.run_replay.record(
+                        "neural.governance",
+                        format!(
+                            "accepted={} symbolic_valid={} issues={}",
+                            governance_ok,
+                            validation.is_valid,
+                            validation.issues.join(" | ")
+                        ),
+                    );
+
+                    if !governance_ok || !validation.is_valid {
+                        self.memory.add_failure(
+                            self.iteration,
+                            "Neural suggestion rejected".to_string(),
                             format!(
-                                "accepted={} symbolic_valid={} issues={}",
-                                governance_ok,
-                                validation.is_valid,
-                                validation.issues.join(" | ")
+                                "governance_ok={} symbolic_valid={}",
+                                governance_ok, validation.is_valid
                             ),
+                            Some("fallback to deterministic symbolic planning".to_string()),
+                        );
+                        None
+                    } else {
+                        tracing::debug!(
+                            "Neural suggestion: {} (confidence: {:.2})",
+                            suggested.action,
+                            suggested.confidence
                         );
 
-                        if !governance_ok || !validation.is_valid {
-                            self.memory.add_failure(
-                                self.iteration,
-                                "Neural suggestion rejected".to_string(),
-                                format!(
-                                    "governance_ok={} symbolic_valid={}",
-                                    governance_ok, validation.is_valid
-                                ),
-                                Some("fallback to deterministic symbolic planning".to_string()),
-                            );
-                            None
-                        } else {
-                            tracing::debug!(
-                                "Neural suggestion: {} (confidence: {:.2})",
-                                suggested.action,
-                                suggested.confidence
-                            );
+                        self.audit
+                            .log_neural_suggestion(&suggested.action, suggested.confidence)
+                            .map_err(|e| AgentError::State(e.to_string()))?;
 
-                            self.audit
-                                .log_neural_suggestion(&suggested.action, suggested.confidence)
-                                .map_err(|e| AgentError::State(e.to_string()))?;
-
-                            Some(suggested)
-                        }
-                    } else {
-                        None
+                        Some(suggested)
                     }
                 }
                 Err(err) => {
@@ -1168,7 +1211,9 @@ impl LifecycleManager {
                 );
 
                 self.transition_to(AgentState::Failed)?;
-                return Ok(());
+                return Err(AgentError::ObjectiveViolation(
+                    "Hard objectives not satisfied within iteration budget".to_string(),
+                ));
             }
 
             self.memory.add_failure(
