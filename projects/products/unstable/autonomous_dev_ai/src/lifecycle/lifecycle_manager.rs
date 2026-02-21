@@ -952,6 +952,11 @@ impl LifecycleManager {
             .symbolic
             .evaluator
             .hard_objectives_satisfied(&objective_scores);
+        let policy_safety = score_value(&scores, "policy_safety").unwrap_or(0.0);
+        let tests_pass = score_value(&scores, "tests_pass").unwrap_or(0.0);
+        let observations = self.build_slo_observations(policy_safety, tests_pass);
+        let slo_evaluations = self.slo_evaluator.evaluate(&observations);
+        let slo_all_met = self.slo_evaluator.all_met(&slo_evaluations);
 
         self.audit
             .log_objective_evaluation(self.iteration, scores.clone())
@@ -960,10 +965,12 @@ impl LifecycleManager {
         self.memory
             .add_objective_evaluation(self.iteration, scores.clone(), hard_satisfied);
 
-        if !hard_satisfied {
+        if !hard_satisfied || !slo_all_met {
             tracing::warn!(
-                "Iteration {}: Hard objectives not satisfied",
-                self.current_iteration_number
+                "Iteration {}: objectives not satisfied (hard_ok={} slo_ok={})",
+                self.current_iteration_number,
+                hard_satisfied,
+                slo_all_met
             );
 
             let Some(next_iteration) = self.current_iteration_number.try_next() else {
@@ -989,8 +996,11 @@ impl LifecycleManager {
 
             self.memory.add_failure(
                 self.iteration,
-                "Hard objectives not satisfied".to_string(),
-                format!("Objective scores: {:?}", scores),
+                "Objectives or SLOs not satisfied".to_string(),
+                format!(
+                    "Objective scores: {:?}; SLO all met: {}",
+                    scores, slo_all_met
+                ),
                 Some(format!(
                     "Retry with adjusted approach (attempt {}/{})",
                     next_iteration,
@@ -1063,21 +1073,7 @@ impl LifecycleManager {
         };
 
         let mut observations = HashMap::new();
-        observations.insert(
-            "run_success_rate".to_string(),
-            if self.state == AgentState::Done {
-                1.0
-            } else {
-                0.8
-            },
-        );
-        observations.insert("policy_violation_rate".to_string(), policy_safety);
-        observations.insert("iteration_latency_p95_secs".to_string(), avg_secs);
-        observations.insert("test_pass_rate".to_string(), tests_pass);
-        observations.insert(
-            "recovery_time_secs".to_string(),
-            (metrics.iterations_failed as f64) * 30.0,
-        );
+        observations.extend(self.build_slo_observations(policy_safety, tests_pass));
 
         let slo_eval = self.slo_evaluator.evaluate(&observations);
         let slo_compliance = if slo_eval.is_empty() {
@@ -1144,20 +1140,32 @@ impl LifecycleManager {
         pr_orchestrator.update_body(pr_body.clone());
 
         let readiness = pr_orchestrator.merge_readiness();
+        let readiness_ok = readiness.is_ready();
         let readiness_msg = match &readiness {
             MergeReadiness::Ready => "ready".to_string(),
             MergeReadiness::NotReady { reasons } => format!("not_ready: {}", reasons.join(" | ")),
         };
+        let rendered_body = pr_orchestrator.metadata.render_body();
         self.run_replay
             .record("pr.readiness", readiness_msg.clone());
+        self.run_replay
+            .record("pr.rendered_body", format!("chars={}", rendered_body.len()));
         self.pr_orchestrator = Some(pr_orchestrator);
 
         self.audit
-            .log_symbolic_decision("create_pr", &pr_body)
+            .log_symbolic_decision("create_pr", &rendered_body)
             .map_err(|e| AgentError::State(e.to_string()))?;
         self.audit
             .log_symbolic_decision("merge_readiness", &readiness_msg)
             .map_err(|e| AgentError::State(e.to_string()))?;
+        if !readiness_ok {
+            self.memory.add_failure(
+                self.iteration,
+                "PR merge readiness not met".to_string(),
+                readiness_msg.clone(),
+                Some("continue through review loop for remediation".to_string()),
+            );
+        }
 
         tracing::info!("PR would be created with body ({} chars)", pr_body.len());
 
@@ -1318,6 +1326,32 @@ impl LifecycleManager {
         match outcome {
             ReviewOutcome::Approved => self.transition_to(AgentState::Done),
             ReviewOutcome::ChangesRequested => {
+                let pending_reviewers: Vec<String> = orchestrator
+                    .review_ingester
+                    .pending_feedback()
+                    .into_iter()
+                    .map(|c| c.reviewer.clone())
+                    .collect();
+                self.run_replay.record(
+                    "review.pending_feedback",
+                    format!("count={}", pending_reviewers.len()),
+                );
+
+                let auto_resolve = std::env::var("AUTONOMOUS_AUTO_RESOLVE_REVIEW")
+                    .unwrap_or_else(|_| "true".to_string())
+                    == "true";
+                if auto_resolve {
+                    for reviewer in pending_reviewers {
+                        orchestrator.review_ingester.resolve(&reviewer);
+                    }
+                    let post_outcome = orchestrator.review_ingester.outcome();
+                    self.run_replay
+                        .record("review.post_resolve_outcome", format!("{:?}", post_outcome));
+                    if post_outcome == ReviewOutcome::Approved {
+                        return self.transition_to(AgentState::Done);
+                    }
+                }
+
                 let Some(next_iteration) = self.current_iteration_number.try_next() else {
                     return self.transition_to(AgentState::Blocked);
                 };
@@ -1373,6 +1407,30 @@ impl LifecycleManager {
             );
         }
     }
+
+    fn build_slo_observations(&self, policy_safety: f64, tests_pass: f64) -> HashMap<String, f64> {
+        let metrics = self.metrics.snapshot();
+        let mut observations = HashMap::new();
+        observations.insert(
+            "run_success_rate".to_string(),
+            if self.state == AgentState::Done {
+                1.0
+            } else {
+                0.8
+            },
+        );
+        observations.insert("policy_violation_rate".to_string(), policy_safety);
+        observations.insert(
+            "iteration_latency_p95_secs".to_string(),
+            metrics.average_iteration_duration.as_secs_f64(),
+        );
+        observations.insert("test_pass_rate".to_string(), tests_pass);
+        observations.insert(
+            "recovery_time_secs".to_string(),
+            (metrics.iterations_failed as f64) * 30.0,
+        );
+        observations
+    }
 }
 
 fn build_action_from_step(step: &PlanStep) -> String {
@@ -1394,4 +1452,8 @@ fn parse_issue_labels_from_env() -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn score_value(scores: &[(String, f64)], key: &str) -> Option<f64> {
+    scores.iter().find(|(k, _)| k == key).map(|(_, v)| *v)
 }
