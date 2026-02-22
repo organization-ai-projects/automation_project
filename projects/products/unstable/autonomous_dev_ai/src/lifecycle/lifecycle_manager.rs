@@ -1786,6 +1786,25 @@ impl LifecycleManager {
         let pr_body = self
             .try_generate_enhanced_pr_description(&goal, &default_pr_body)
             .unwrap_or(default_pr_body);
+        let require_generated_pr_description =
+            std::env::var("AUTONOMOUS_REQUIRE_GENERATED_PR_DESCRIPTION")
+                .ok()
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false);
+        if require_generated_pr_description {
+            let source = self
+                .memory
+                .metadata
+                .get("pr_description_source")
+                .cloned()
+                .unwrap_or_else(|| "unknown".to_string());
+            if source != "generated" {
+                return Err(AgentError::State(format!(
+                    "AUTONOMOUS_REQUIRE_GENERATED_PR_DESCRIPTION=true but source is '{}'",
+                    source
+                )));
+            }
+        }
 
         let issue_number = Self::extract_issue_number_from_goal(&goal);
         let issue_body = self
@@ -2081,6 +2100,10 @@ impl LifecycleManager {
                 "pr.description.fallback",
                 "policy_disallowed_generate_pr_description".to_string(),
             );
+            self.memory.metadata.insert(
+                "pr_description_source".to_string(),
+                "default_policy_disallowed".to_string(),
+            );
             return Some(default_body.to_string());
         }
         if let Err(error) = self
@@ -2094,10 +2117,24 @@ impl LifecycleManager {
                 error.to_string(),
                 Some("Using default PR body".to_string()),
             );
+            self.memory.metadata.insert(
+                "pr_description_source".to_string(),
+                "default_gated".to_string(),
+            );
             return Some(default_body.to_string());
         }
 
-        let main_pr_number = main_pr_number?;
+        let Some(main_pr_number) = main_pr_number else {
+            self.record_replay(
+                "pr.description.fallback",
+                "missing_main_pr_reference".to_string(),
+            );
+            self.memory.metadata.insert(
+                "pr_description_source".to_string(),
+                "default_missing_main_pr_reference".to_string(),
+            );
+            return Some(default_body.to_string());
+        };
         let tool_args = vec![main_pr_number, output_file.clone()];
 
         match self.generate_pr_description(&tool_args, &output_file) {
@@ -2106,6 +2143,9 @@ impl LifecycleManager {
                     "pr.description.generated",
                     format!("output_file={}", output_file),
                 );
+                self.memory
+                    .metadata
+                    .insert("pr_description_source".to_string(), "generated".to_string());
                 Some(generated)
             }
             Err(err) => {
@@ -2118,6 +2158,10 @@ impl LifecycleManager {
                     "PR description generation failed".to_string(),
                     err.to_string(),
                     Some("Using default PR body".to_string()),
+                );
+                self.memory.metadata.insert(
+                    "pr_description_source".to_string(),
+                    "default_generation_failed".to_string(),
                 );
                 None
             }
