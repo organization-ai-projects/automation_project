@@ -28,17 +28,19 @@ Binary invocation contract:
 cargo run -p autonomy_orchestrator_ai -- ./out \
   --timeout-ms 30000 \
   --manager-bin ./target/release/auto_manager_ai \
+  --manager-env AUTONOMOUS_REPO_ROOT=. \
   --manager-arg . \
   --manager-arg ./out/manager \
   --manager-expected-artifact ./out/manager/action_plan.json \
   --manager-expected-artifact ./out/manager/run_report.json \
   --executor-bin ./target/debug/autonomous_dev_ai \
+  --executor-env AUTONOMOUS_REQUIRE_PR_NUMBER=true \
   --executor-arg "Fix failing tests for issue #123" \
   --executor-arg ./agent_config \
   --executor-arg ./agent_audit.log
 ```
 
-If a configured binary fails to spawn, exits non-zero, times out, or misses expected artifacts, the orchestrator fails closed with terminal state `failed` or `timeout`.
+If a configured binary fails to spawn, exits non-zero, times out, misses expected artifacts, or produces malformed expected JSON artifacts, the orchestrator fails closed with terminal state `failed` or `timeout`.
 
 ## Output
 
