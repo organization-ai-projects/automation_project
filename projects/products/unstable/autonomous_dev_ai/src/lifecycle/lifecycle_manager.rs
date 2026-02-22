@@ -654,6 +654,10 @@ impl LifecycleManager {
             .ok()
             .map(|v| v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
+        let require_issue_compliance = std::env::var("AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
 
         if create_pr_required && !create_pr_enabled {
             return Err(AgentError::State(
@@ -688,7 +692,7 @@ impl LifecycleManager {
         self.run_replay.record(
             "runtime.requirements",
             format!(
-                "create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={} fetch_pr_ci_status={} fetch_pr_ci_status_required={} fetch_issue_context_from_gh={} fetch_issue_context_required={}",
+                "create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={} fetch_pr_ci_status={} fetch_pr_ci_status_required={} fetch_issue_context_from_gh={} fetch_issue_context_required={} require_issue_compliance={}",
                 create_pr_enabled,
                 create_pr_required,
                 require_real_pr_creation,
@@ -697,7 +701,8 @@ impl LifecycleManager {
                 fetch_pr_ci_status,
                 fetch_pr_ci_status_required,
                 fetch_issue_context_from_gh,
-                fetch_issue_context_required
+                fetch_issue_context_required,
+                require_issue_compliance
             ),
         );
         self.memory.metadata.insert(
@@ -2035,6 +2040,17 @@ impl LifecycleManager {
         );
         self.record_replay("issue.context_source", issue_context_source);
         let issue_compliance = evaluate_issue_compliance(&issue_title, &issue_body);
+        let require_issue_compliance = std::env::var("AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if require_issue_compliance && !matches!(issue_compliance, IssueComplianceStatus::Compliant)
+        {
+            return Err(AgentError::State(format!(
+                "AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true but issue compliance is {:?}",
+                issue_compliance
+            )));
+        }
         let pr_body = append_issue_compliance_note(&pr_body, &issue_compliance);
         let mut pr_orchestrator =
             PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);

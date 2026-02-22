@@ -45,6 +45,7 @@ Still partial:
 - a reproducible CI-like fixture scenario is available via `scripts/run_ci_like_fixture.sh` and emits run-report/replay/audit artifacts for manual validation
 - objective evaluation now enforces SLO gating only when explicitly requested (`AUTONOMOUS_ENFORCE_SLO_DURING_OBJECTIVE_EVAL=true`) to prevent iterative pre-terminal deadlocks
 - PR creation path can now fetch issue context (`title/body`) from GitHub (`AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH=true`) with optional fail-closed mode (`AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED=true`), and reports context provenance
+- strict issue compliance gating is now available during PR stage (`AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true`) to block non-conformant issue metadata from proceeding
 
 ## Known Gaps vs #647 Acceptance Criteria
 
