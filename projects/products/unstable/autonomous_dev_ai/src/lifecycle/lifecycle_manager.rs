@@ -748,6 +748,10 @@ impl LifecycleManager {
             .unwrap_or(64);
         match list_repository_entries(&repo_root, max_entries) {
             Ok(entries) => {
+                let require_explored_files = std::env::var("AUTONOMOUS_REQUIRE_EXPLORED_FILES")
+                    .ok()
+                    .map(|v| v.eq_ignore_ascii_case("true"))
+                    .unwrap_or(false);
                 if entries.is_empty() {
                     self.memory.add_failure(
                         self.iteration,
@@ -755,6 +759,12 @@ impl LifecycleManager {
                         format!("root='{}'", repo_root),
                         Some("Check AUTONOMOUS_REPO_ROOT path".to_string()),
                     );
+                    if require_explored_files {
+                        return Err(AgentError::State(format!(
+                            "AUTONOMOUS_REQUIRE_EXPLORED_FILES=true but no entries were discovered in '{}'",
+                            repo_root
+                        )));
+                    }
                 }
                 for entry in entries {
                     self.memory.add_explored_file(entry);
