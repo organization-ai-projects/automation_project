@@ -7,12 +7,11 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
 TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/generate_pr_description.sh"
 SNAPSHOT_DIR="${SCRIPT_DIR}/golden"
 
+# shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
+source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
+
 TESTS_RUN=0
 TESTS_FAILED=0
-
-mktemp_compat() {
-  mktemp -d 2>/dev/null || mktemp -d -t pr_desc_tests
-}
 
 build_mock_bin() {
   local mock_dir="$1"
@@ -87,12 +86,7 @@ exit 0
 EOF
   chmod +x "${mock_dir}/git"
 
-  cat > "${mock_dir}/jq" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-cat
-EOF
-  chmod +x "${mock_dir}/jq"
+  shell_test_write_passthrough_jq_mock "${mock_dir}"
 }
 
 build_no_gh_bin() {
@@ -113,12 +107,7 @@ exit 0
 EOF
   chmod +x "${mock_dir}/git"
 
-  cat > "${mock_dir}/jq" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-cat
-EOF
-  chmod +x "${mock_dir}/jq"
+  shell_test_write_passthrough_jq_mock "${mock_dir}"
 }
 
 run_case() {
@@ -131,7 +120,7 @@ run_case() {
   TESTS_RUN=$((TESTS_RUN + 1))
 
   local tmp
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
   local out_file="${tmp}/out.txt"
   local err_file="${tmp}/err.txt"
   local status
@@ -205,7 +194,7 @@ main() {
   run_case "debug-flag-emits-trace" 0 "\\[debug\\] extract_child_prs_dry" mock --dry-run --base dev --head test-head --debug
 
   TESTS_RUN=$((TESTS_RUN + 1))
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
   build_mock_bin "${tmp}/bin"
   args_log="${tmp}/gh_args_label.log"
   if (
@@ -227,7 +216,7 @@ main() {
   rm -rf "${tmp}"
 
   TESTS_RUN=$((TESTS_RUN + 1))
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
   build_mock_bin "${tmp}/bin"
   out_md="${tmp}/body.md"
   if (
@@ -255,7 +244,7 @@ main() {
   rm -rf "${tmp}"
 
   TESTS_RUN=$((TESTS_RUN + 1))
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
   build_mock_bin "${tmp}/bin"
   out_md="${tmp}/range.md"
   args_log="${tmp}/gh_args.log"
@@ -304,7 +293,7 @@ main() {
   fi
 
   TESTS_RUN=$((TESTS_RUN + 1))
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
   build_mock_bin "${tmp}/bin"
   out_md="${tmp}/merge_fix.md"
   if (
@@ -341,7 +330,7 @@ main() {
   rm -rf "${tmp}"
 
   TESTS_RUN=$((TESTS_RUN + 1))
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
   build_mock_bin "${tmp}/bin"
   out_md="${tmp}/merge_misc.md"
   if (
@@ -378,7 +367,7 @@ main() {
   rm -rf "${tmp}"
 
   TESTS_RUN=$((TESTS_RUN + 1))
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
   build_mock_bin "${tmp}/bin"
   out_md="${tmp}/merge.md"
   if (
@@ -401,7 +390,7 @@ main() {
   rm -rf "${tmp}"
 
   TESTS_RUN=$((TESTS_RUN + 1))
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
   build_mock_bin "${tmp}/bin"
   out_md="${tmp}/snapshot_non_breaking.md"
   if (
@@ -456,7 +445,7 @@ main() {
   fi
 
   TESTS_RUN=$((TESTS_RUN + 1))
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
   build_mock_bin "${tmp}/bin"
   out_md="${tmp}/snapshot_breaking.md"
   if (
