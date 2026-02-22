@@ -740,10 +740,32 @@ impl LifecycleManager {
             "Iteration {}: Exploring repository",
             self.current_iteration_number
         );
-
-        self.memory.add_explored_file("README.md".to_string());
-        self.memory.add_explored_file("src/main.rs".to_string());
-        self.memory.add_explored_file("Cargo.toml".to_string());
+        let repo_root = std::env::var("AUTONOMOUS_REPO_ROOT").unwrap_or_else(|_| ".".to_string());
+        let max_entries = std::env::var("AUTONOMOUS_EXPLORE_MAX_ENTRIES")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(64);
+        match list_repository_entries(&repo_root, max_entries) {
+            Ok(entries) => {
+                if entries.is_empty() {
+                    self.memory.add_failure(
+                        self.iteration,
+                        "Repository exploration returned no entries".to_string(),
+                        format!("root='{}'", repo_root),
+                        Some("Check AUTONOMOUS_REPO_ROOT path".to_string()),
+                    );
+                }
+                for entry in entries {
+                    self.memory.add_explored_file(entry);
+                }
+            }
+            Err(e) => {
+                return Err(AgentError::State(format!(
+                    "Failed to explore repository root '{}': {}",
+                    repo_root, e
+                )));
+            }
+        }
 
         self.transition_to(AgentState::GeneratePlan)
     }
@@ -2575,6 +2597,34 @@ fn parse_action_outcome_triplet(value: &str) -> Option<(String, f64, usize)> {
     let pass_rate = parts.next()?.parse::<f64>().ok()?;
     let total = parts.next()?.parse::<usize>().ok()?;
     Some((action, pass_rate, total))
+}
+
+fn list_repository_entries(root: &str, max_entries: usize) -> std::io::Result<Vec<String>> {
+    let mut entries = Vec::new();
+    let mut dir_entries = std::fs::read_dir(root)?
+        .flatten()
+        .map(|e| e.path())
+        .collect::<Vec<_>>();
+    dir_entries.sort();
+
+    for path in dir_entries.into_iter().take(max_entries.max(1)) {
+        let rel = path
+            .strip_prefix(root)
+            .ok()
+            .and_then(|p| p.to_str())
+            .map(|s| {
+                s.trim_start_matches('/')
+                    .trim_start_matches('\\')
+                    .to_string()
+            })
+            .filter(|s| !s.is_empty())
+            .or_else(|| path.to_str().map(|s| s.to_string()));
+        if let Some(value) = rel {
+            entries.push(value);
+        }
+    }
+
+    Ok(entries)
 }
 
 fn has_valid_high_risk_approval_token() -> bool {
