@@ -216,3 +216,51 @@ fn binary_blocks_pr_stage_when_issue_compliance_is_required_and_invalid() {
 
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn binary_fails_fast_on_unknown_non_interactive_profile() {
+    let (output, out_dir) = run_binary(
+        "Validate unknown non-interactive profile for issue #649",
+        &[("AUTONOMOUS_NON_INTERACTIVE_PROFILE", "unknown_profile")],
+    );
+
+    assert!(
+        !output.status.success(),
+        "binary unexpectedly succeeded. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Unsupported AUTONOMOUS_NON_INTERACTIVE_PROFILE"),
+        "unexpected stderr:\n{}",
+        stderr
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn binary_fails_fast_when_orchestrator_profile_is_missing_prerequisites() {
+    let (output, out_dir) = run_binary(
+        "Validate orchestrator profile prerequisites for issue #649",
+        &[("AUTONOMOUS_NON_INTERACTIVE_PROFILE", "orchestrator_v1")],
+    );
+
+    assert!(
+        !output.status.success(),
+        "binary unexpectedly succeeded. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1 requires AUTONOMOUS_REQUIRE_PR_NUMBER=true"),
+        "unexpected stderr:\n{}",
+        stderr
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}

@@ -3,8 +3,23 @@
   "title": "ActionPlan",
   "description": "V0 AI Automation Manager Action Plan",
   "type": "object",
-  "required": ["version", "generated_at", "actions", "summary"],
+  "required": [
+    "schema_version",
+    "producer",
+    "version",
+    "generated_at",
+    "actions",
+    "summary"
+  ],
   "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Artifact schema contract version"
+    },
+    "producer": {
+      "type": "string",
+      "description": "Producer identity for provenance tracking"
+    },
     "version": {
       "type": "string",
       "description": "Schema version"

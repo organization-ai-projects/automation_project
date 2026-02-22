@@ -6,6 +6,7 @@ members = [
   "projects/libraries/core/foundation/common_json",
   "projects/libraries/layers/domain/neural",
   "projects/libraries/core/contracts/protocol",
+  "projects/libraries/core/contracts/protocol_accounts",
   "projects/libraries/layers/domain/identity",
   "projects/libraries/layers/domain/security",
   "projects/libraries/core/contracts/security_core",
@@ -28,6 +29,7 @@ members = [
   "projects/products/stable/accounts/ui",
   "projects/products/stable/code_agent_sandbox",
   "projects/products/unstable/auto_manager_ai",
+  "projects/products/unstable/autonomy_orchestrator_ai",
   "projects/products/unstable/autonomous_dev_ai",
   "projects/libraries/core/foundation/ast_core",
   "projects/libraries/core/foundation/ast_macros",
@@ -63,6 +65,7 @@ common_binary = { path = "projects/libraries/core/foundation/common_binary" }
 common_json = { path = "projects/libraries/core/foundation/common_json" }
 neural = { path = "projects/libraries/layers/domain/neural" }
 protocol = { path = "projects/libraries/core/contracts/protocol" }
+protocol_accounts = { path = "projects/libraries/core/contracts/protocol_accounts" }
 identity = { path = "projects/libraries/layers/domain/identity" }
 security = { path = "projects/libraries/layers/domain/security" }
 security_core = { path = "projects/libraries/core/contracts/security_core" }

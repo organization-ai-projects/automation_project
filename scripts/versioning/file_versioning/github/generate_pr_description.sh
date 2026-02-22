@@ -362,11 +362,14 @@ extract_child_prs() {
   return 0
 }
 
-load_dry_compare_commits() {
+load_compare_commit_messages() {
+  local compare_base="$1"
+  local compare_head="$2"
   local repo_name_with_owner
   local compare_range
   local compare_err_file
   local compare_err
+  local compare_messages
   local attempt
   local max_attempts=3
   local compare_ok=0
@@ -377,31 +380,28 @@ load_dry_compare_commits() {
     repo_name_with_owner="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
   fi
 
-  if [[ -z "$repo_name_with_owner" ]]; then
-    echo "Error: unable to determine GitHub repository for --dry-run analysis." >&2
-    exit "$E_NO_DATA"
-  fi
-
-  compare_range="${base_ref_display}...${head_ref_display}"
+  compare_range="${compare_base}...${compare_head}"
   compare_err_file="$(mktemp)"
 
-  for attempt in $(seq 1 "$max_attempts"); do
-    dry_compare_commit_messages="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
-      --jq '.commits[]?.commit.message' 2>"$compare_err_file" || true)"
+  if [[ -n "$repo_name_with_owner" ]]; then
+    for attempt in $(seq 1 "$max_attempts"); do
+      compare_messages="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
+        --jq '.commits[]?.commit.message' 2>"$compare_err_file" || true)"
 
-    if [[ -n "$dry_compare_commit_messages" ]]; then
-      compare_ok=1
+      if [[ -n "$compare_messages" ]]; then
+        compare_ok=1
+        break
+      fi
+
+      compare_err="$(cat "$compare_err_file" 2>/dev/null || true)"
+      # Retry transient network/API connectivity failures.
+      if echo "$compare_err" | grep -qiE 'error connecting to api.github.com|timeout|temporarily unavailable'; then
+        sleep 1
+        continue
+      fi
       break
-    fi
-
-    compare_err="$(cat "$compare_err_file" 2>/dev/null || true)"
-    # Retry transient network/API connectivity failures.
-    if echo "$compare_err" | grep -qiE 'error connecting to api.github.com|timeout|temporarily unavailable'; then
-      sleep 1
-      continue
-    fi
-    break
-  done
+    done
+  fi
 
   if [[ $compare_ok -ne 1 ]]; then
     compare_err="$(cat "$compare_err_file" 2>/dev/null || true)"
@@ -410,15 +410,25 @@ load_dry_compare_commits() {
       echo "Detail: ${compare_err}" >&2
     fi
 
-    # Fallback: local compare history remains deterministic for dry-run generation.
-    dry_compare_commit_messages="$(git log --format=%B "${base_ref_display}..${head_ref_display}" 2>/dev/null || true)"
-    if [[ -z "$dry_compare_commit_messages" ]]; then
-      echo "Error: unable to retrieve commits via GitHub compare (${compare_range}) and local git (${base_ref_display}..${head_ref_display})." >&2
-      exit "$E_NO_DATA"
+    # Fallback: local compare history remains deterministic for branch analysis.
+    compare_messages="$(git log --format=%B "${compare_base}..${compare_head}" 2>/dev/null || true)"
+    if [[ -z "$compare_messages" ]]; then
+      echo "Error: unable to retrieve commits via GitHub compare (${compare_range}) and local git (${compare_base}..${compare_head})." >&2
+      rm -f "$compare_err_file"
+      return 1
     fi
   fi
 
   rm -f "$compare_err_file"
+  printf "%s" "$compare_messages"
+}
+
+load_dry_compare_commits() {
+  dry_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
+  if [[ -z "$dry_compare_commit_messages" ]]; then
+    echo "Error: unable to determine commit messages for --dry-run compare ${base_ref_display}...${head_ref_display}." >&2
+    exit "$E_NO_DATA"
+  fi
 
   dry_compare_commit_headlines="$(echo "$dry_compare_commit_messages" | sed -n '1~2p' || true)"
 }
@@ -804,6 +814,20 @@ if [[ "$dry_run" == "false" ]]; then
     while IFS='|' read -r duplicate_issue canonical_issue; do
       add_duplicate_entry "$duplicate_issue" "$canonical_issue"
     done < <(parse_duplicate_refs_from_text "$main_pr_body")
+  fi
+
+  if [[ -n "$auto_edit_pr_number" ]]; then
+    # Keep --refresh-pr behavior aligned with --dry-run issue extraction.
+    refresh_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
+    if [[ -n "$refresh_compare_commit_messages" ]]; then
+      while IFS='|' read -r action issue_key; do
+        debug_log "parsed_issue_ref(refresh commits): ${action}|${issue_key}"
+        add_issue_entry "$action" "$issue_key" "Mixed"
+      done < <(parse_closing_issue_refs_from_text "$refresh_compare_commit_messages")
+      while IFS='|' read -r duplicate_issue canonical_issue; do
+        add_duplicate_entry "$duplicate_issue" "$canonical_issue"
+      done < <(parse_duplicate_refs_from_text "$refresh_compare_commit_messages")
+    fi
   fi
 
 fi

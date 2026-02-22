@@ -1,7 +1,7 @@
-// projects/libraries/protocol/src/accounts/accounts_list_response.rs
+// projects/libraries/core/contracts/protocol_accounts/src/accounts/accounts_list_response.rs
 use serde::{Deserialize, Serialize};
 
-use crate::accounts::AccountSummary;
+use crate::AccountSummary;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccountsListResponse {

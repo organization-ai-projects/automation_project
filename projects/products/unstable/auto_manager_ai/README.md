@@ -1,76 +1,46 @@
-# Auto Manager AI (V0 - Safe-by-Default)
+# Auto Manager AI (Unstable - Engine-Mediated, Safe-by-Default)
 
-A V0 AI Automation Manager that analyzes repository and GitHub context and outputs strict, schema-validated JSON action plans. The AI **never executes privileged actions directly** - it only proposes actions that are evaluated by a policy/gatekeeper.
+An unstable AI Automation Manager that analyzes repository, GitHub, and CI context and outputs strict, schema-validated JSON artifacts. The runtime is fail-closed in default mode when Engine is unavailable, and only executes low-risk allowlisted actions after policy and authorization gates.
 
 ## Purpose
 
-This unstable product implements a safe-by-default AI automation assistant for repository management. V0 focuses on:
+This unstable product implements a safe-by-default AI automation assistant for repository management. Current focus:
 
-- Read-only analysis of repository files and metadata
-- Generating action plans (proposals only, never executed)
-- Policy-based guardrails to prevent unsafe operations
+- Engine-mediated repository context in default mode (`AUTO_MANAGER_ENGINE_AVAILABLE=true`)
+- Deterministic fallback mode (`AUTO_MANAGER_RUN_MODE=deterministic_fallback`) when explicit
+- Policy + authz gated execution for low-risk allowlisted actions only
 - Schema-validated JSON outputs
 
 ## Architectural Compliance
 
-### Current Violations
+### Remaining Gaps
 
-1. **Direct filesystem access**: Bypasses the Engine protocol for file operations
-   - **Reason**: V0 MVP focused on proving the action plan concept
-   - **Impact**: Limited to read-only repository analysis and write to `./out/` only
-   - **Risk**: Low - enforced read-only operations with comprehensive tests
+1. **Engine transport is local simulation**
+   - **Reason**: Protocol contracts are in place, but remote Engine transport is not wired yet
+   - **Impact**: Lifecycle and query commands are built/validated via `protocol` but not sent over network
 
-2. **No registry integration**: Product doesn't register with Engine
-   - **Reason**: Standalone CLI tool for V0 to validate architecture
-   - **Impact**: Cannot be discovered or managed by central UI
-   - **Risk**: Low - intended for direct CLI usage in V0
+2. **Permission model is runtime-local**
+   - **Reason**: Actor identity/role checks exist but are not yet delegated to shared identity/security services
+   - **Impact**: Strong local guardrails, no centralized identity federation yet
 
-3. **No permission checks**: No authentication or authorization
-   - **Reason**: V0 focused on core planning and policy logic
-   - **Impact**: Anyone with filesystem access can run analysis
-   - **Risk**: Low for V0 (read-only), Medium for future versions with write capabilities
-
-4. **Template-based planning**: Uses simple heuristics instead of AI/ML
-   - **Reason**: V0 proves the action plan architecture and guardrails
-   - **Impact**: Limited intelligence in action generation
-   - **Risk**: Low - clearly documented as template-based
-
-5. **No structured logging**: Uses println! for output
-   - **Reason**: Simple debugging during V0 development
-   - **Impact**: Logs not captured by central logging system
-   - **Risk**: Low - easy to add in future versions
-
-6. **Stub adapters**: GitHub and CI adapters are not fully implemented
-   - **Reason**: V0 focuses on repository analysis only
-   - **Impact**: Cannot analyze GitHub PRs/issues or CI failures
-   - **Risk**: Low - clearly marked as stubs
+3. **Structured tracing backend not integrated**
+   - **Reason**: Audit traces are captured in `run_report`, but `tracing` sink integration is pending
 
 ### Exit Criteria
 
 To promote this product to stable, the following must be completed:
 
-- [ ] **Protocol integration**: Implement Engine protocol for file access
-  - Use `protocol` library for message passing
-  - Register with Engine on startup
-  - Handle Engine shutdown signals
+- [ ] **Engine transport integration**: connect protocol commands to actual Engine transport
+  - Keep fail-closed semantics in default mode
+  - Keep deterministic fallback explicit only
 
-- [ ] **Permission system**: Integrate with identity/security libraries
-  - Check user permissions before generating plans
-  - Audit log all plan generation activities
+- [ ] **Permission federation**: integrate authn/authz with shared identity/security libraries
 
-- [ ] **AI/ML integration**: Replace template-based planner with actual AI
-  - Integrate with `ai` library or external AI service
-  - Implement context analysis and reasoning
-  - Add learning from feedback
+- [ ] **Planning intelligence**: upgrade from heuristics to richer planning logic with stronger evidence ranking
 
-- [ ] **Complete adapters**: Fully implement GitHub and CI adapters
-  - Use `gh --json` for structured GitHub data
-  - Parse CI logs and failures
-  - Support multiple CI systems
+- [ ] **Adapter enrichment**: improve GH/CI coverage and normalized failure taxonomy
 
-- [ ] **Structured logging**: Replace println! with tracing
-  - Use workspace `tracing` dependency
-  - Emit structured events for monitoring
+- [ ] **Structured tracing**: integrate `tracing` backend and central sinks
 
 - [ ] **Configuration system**: Support config files and environment
   - Use protocol for configuration
@@ -87,14 +57,12 @@ To promote this product to stable, the following must be completed:
   - Document all action types
   - Create usage examples
 
-- [ ] **Action execution**: Implement safe action execution (post-V0)
-  - Add executor module with strict safety checks
-  - Implement dry-run verification
-  - Add rollback capabilities
+- [ ] **Execution compensation**: add rollback/compensation flows for reversible actions
 
-### Target Promotion Date
+### Run Modes
 
-**Q3 2026** - Contingent on AI integration and protocol stabilization
+- `EngineRequired` (default): requires `AUTO_MANAGER_ENGINE_AVAILABLE=true`; otherwise fails closed.
+- `DeterministicFallback`: set `AUTO_MANAGER_RUN_MODE=deterministic_fallback`; allows local deterministic context fallback.
 
 ## Standardized Output
 
@@ -109,6 +77,8 @@ This product produces output in the **structured JSON file** format:
 
 ```json
 {
+  "schema_version": "1",
+  "producer": "auto_manager_ai",
   "version": "0.1.0",
   "generated_at": "timestamp",
   "actions": [
@@ -140,6 +110,8 @@ This product produces output in the **structured JSON file** format:
 
 ```json
 {
+  "schema_version": "1",
+  "producer": "auto_manager_ai",
   "product": "auto_manager_ai",
   "version": "0.1.0",
   "run_id": "run_123",
@@ -156,7 +128,23 @@ This product produces output in the **structured JSON file** format:
 }
 ```
 
-## V0 Safety Guarantees
+### Artifact Contract Compatibility Policy
+
+- `schema_version` and `producer` are required contract fields for orchestrator handoff.
+- Current contract baseline:
+  - `schema_version = "1"`
+  - `producer = "auto_manager_ai"`
+- Backward compatibility rule:
+  - Adding optional fields is allowed in the same `schema_version`.
+  - Removing required fields or changing required-field semantics requires a new `schema_version`.
+- Fail-closed enforcement:
+  - Non-compliant artifacts are rejected before write with deterministic error codes:
+    - `ARTIFACT_CONTRACT_ACTION_PLAN_SCHEMA_VERSION_INVALID`
+    - `ARTIFACT_CONTRACT_ACTION_PLAN_PRODUCER_INVALID`
+    - `ARTIFACT_CONTRACT_RUN_REPORT_SCHEMA_VERSION_INVALID`
+    - `ARTIFACT_CONTRACT_RUN_REPORT_PRODUCER_INVALID`
+
+## Safety Guarantees
 
 ### Hard Constraints
 

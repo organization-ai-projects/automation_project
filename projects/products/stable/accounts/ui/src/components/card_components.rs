@@ -2,7 +2,7 @@
 use dioxus::prelude::*;
 use gloo_net::http::Request;
 use protocol::ProtocolId;
-use protocol::accounts::{AccountSummary, LoginRequest, LoginResponse};
+use protocol_accounts::{AccountSummary, LoginRequest, LoginResponse};
 use std::str::FromStr;
 
 use crate::{

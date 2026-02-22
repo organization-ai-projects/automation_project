@@ -173,23 +173,23 @@ main() {
 
   run_case "help" 0 "Usage:" mock --help
   run_case "missing-main-pr" 2 "MAIN_PR_NUMBER est requis" mock
-  run_case "base-missing-value" 2 "--base requiert une valeur" mock --base
-  run_case "head-missing-value" 2 "--head requiert une valeur" mock --head
-  run_case "duplicate-mode-invalid" 2 "--duplicate-mode doit être 'safe' ou 'auto-close'" mock --duplicate-mode invalid --dry-run
-  run_case "auto-edit-missing-value" 2 "--auto-edit requiert une valeur" mock --auto-edit
-  run_case "auto-edit-non-numeric" 2 "--auto-edit requiert un PR_NUMBER numérique" mock --auto-edit abc --dry-run
-  run_case "create-pr-without-dry-run" 2 "--create-pr est uniquement supporté avec --dry-run" mock --create-pr 42
-  run_case "allow-partial-without-create-pr" 2 "--allow-partial-create nécessite --create-pr" mock --allow-partial-create 42
-  run_case "auto-edit-conflicts-with-create-pr" 2 "--auto-edit ne peut pas être combiné avec --create-pr/--auto" mock --dry-run --create-pr --auto-edit 400
-  run_case "auto-forbids-positional" 2 "--auto ne prend pas d'OUTPUT_FILE positional" mock --auto output.md
-  run_case "auto-edit-dry-run-forbids-positional" 2 "En mode --auto-edit \\(dry-run\\), OUTPUT_FILE positional n'est pas autorisé" mock --dry-run --auto-edit 400 output.md
-  run_case "auto-edit-main-forbids-output-file" 2 "En mode --auto-edit \\(MAIN_PR_NUMBER\\), OUTPUT_FILE positional n'est pas autorisé" mock --auto-edit 400 42 out.md
-  run_case "dry-run-too-many-positionals" 2 "Trop d'arguments positionnels pour --dry-run" mock --dry-run out.md extra.md
-  run_case "dry-run-minimal" 0 "Fichier généré:" mock --dry-run --base dev --head test-head /tmp/pr_description_test.md
-  run_case "auto-create-success-does-not-return-no-data" 0 "PR créée:" mock --auto --base dev --head test-head --yes
-  run_case "auto-edit-dry-run-in-memory" 0 "mode --auto-edit" mock --dry-run --auto-edit 400 --base dev --head test-head --yes
-  run_case "dry-run-without-gh" 3 "la commande 'gh' est introuvable" no_gh --dry-run --base dev --head test-head /tmp/pr_description_test_no_gh.md
-  run_case "missing-gh-required-main-mode" 3 "la commande 'gh' est introuvable" no_gh 42
+  run_case "base-missing-value" 2 "--base requires a value" mock --base
+  run_case "head-missing-value" 2 "--head requires a value" mock --head
+  run_case "duplicate-mode-invalid" 2 "--duplicate-mode must be 'safe' or 'auto-close'" mock --duplicate-mode invalid --dry-run
+  run_case "auto-edit-missing-value" 2 "--auto-edit requires a value" mock --auto-edit
+  run_case "auto-edit-non-numeric" 2 "--auto-edit requires a numeric PR_NUMBER" mock --auto-edit abc --dry-run
+  run_case "create-pr-without-dry-run" 2 "--create-pr is only supported with --dry-run" mock --create-pr 42
+  run_case "allow-partial-without-create-pr" 2 "--allow-partial-create requires --create-pr" mock --allow-partial-create 42
+  run_case "auto-edit-conflicts-with-create-pr" 2 "--auto-edit cannot be combined with --create-pr/--auto" mock --dry-run --create-pr --auto-edit 400
+  run_case "auto-forbids-positional" 2 "--auto does not accept a positional OUTPUT_FILE" mock --auto output.md
+  run_case "auto-edit-dry-run-forbids-positional" 2 "In --auto-edit dry-run mode, positional OUTPUT_FILE is not allowed" mock --dry-run --auto-edit 400 output.md
+  run_case "auto-edit-main-forbids-output-file" 2 "In --auto-edit mode \\(MAIN_PR_NUMBER\\), positional OUTPUT_FILE is not allowed" mock --auto-edit 400 42 out.md
+  run_case "dry-run-too-many-positionals" 2 "Too many positional arguments for --dry-run" mock --dry-run out.md extra.md
+  run_case "dry-run-minimal" 0 "Generated file:" mock --dry-run --base dev --head test-head /tmp/pr_description_test.md
+  run_case "auto-create-success-does-not-return-no-data" 0 "PR created:" mock --auto --base dev --head test-head --yes
+  run_case "auto-edit-dry-run-in-memory" 0 "--auto-edit mode" mock --dry-run --auto-edit 400 --base dev --head test-head --yes
+  run_case "dry-run-without-gh" 3 "command 'gh' not found" no_gh --dry-run --base dev --head test-head /tmp/pr_description_test_no_gh.md
+  run_case "missing-gh-required-main-mode" 3 "command 'gh' not found" no_gh 42
   run_case "duplicate-mode-dry-run-output" 0 "Duplicate mode \\(safe\\): no duplicate declarations detected" mock --dry-run --base dev --head test-head --duplicate-mode safe
   run_case "debug-flag-emits-trace" 0 "\\[debug\\] extract_child_prs_dry" mock --dry-run --base dev --head test-head --debug
 

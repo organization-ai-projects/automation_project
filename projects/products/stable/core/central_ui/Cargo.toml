@@ -10,4 +10,5 @@ reqwest = { workspace = true }
 serde = { workspace = true }
 bytes = { workspace = true }
 protocol = { workspace = true }
+protocol_accounts = { workspace = true }
 common_json = { workspace = true }

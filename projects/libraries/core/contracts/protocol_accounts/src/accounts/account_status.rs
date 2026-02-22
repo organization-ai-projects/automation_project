@@ -1,4 +1,4 @@
-// projects/libraries/protocol/src/accounts/account_status.rs
+// projects/libraries/core/contracts/protocol_accounts/src/accounts/account_status.rs
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

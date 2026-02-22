@@ -1,6 +1,6 @@
 // projects/products/stable/accounts/backend/src/router/auth.rs
-use protocol::accounts::{LoginRequest, LoginResponse};
 use protocol::{Command, Event, Metadata, ProtocolId};
+use protocol_accounts::{LoginRequest, LoginResponse};
 use security::TokenService;
 
 use crate::router::helpers::{err_event, ok_payload, payload_as};

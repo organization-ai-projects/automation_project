@@ -76,6 +76,7 @@ Useful runtime controls for CI-like runs:
 - `AUTONOMOUS_AUTO_RESOLVE_REVIEW=true`: auto-resolve pending feedback (off by default)
 - `AUTONOMOUS_FETCH_REVIEW_FROM_GH=true`: fetch review feedback from `gh pr view` when PR number is known
 - `AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true`: fail unless review feedback source is real GitHub PR context
+- `AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1`: enable strict orchestrator-facing profile validation (requires explicit output paths and strict closure flags)
 
 ## Development Notes
 
@@ -94,3 +95,4 @@ projects/products/unstable/autonomous_dev_ai/scripts/run_ci_like_fixture.sh
 Scenario details: `projects/products/unstable/autonomous_dev_ai/scenarios/ci_like_fixture/README.md`.
 
 The run report artifact also exposes failure-distribution and recovery-hint fields to support safer autonomous supervision.
+It now also includes explicit artifact provenance/version fields and closure-gate summary fields for binary orchestrator consumption.

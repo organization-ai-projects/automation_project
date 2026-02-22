@@ -2,8 +2,12 @@
 
 mod adapters;
 mod ai;
+mod artifact_contract;
+mod authz;
 mod config;
 mod domain;
+mod engine_gateway;
+mod executor;
 mod output_writer;
 mod plan_evaluator;
 mod plan_generator;
@@ -17,6 +21,8 @@ use std::process;
 
 use config::Config;
 use domain::{ActionPlan, RunReport};
+use engine_gateway::EngineGateway;
+use executor::execute_allowed_actions;
 use output_writer::write_outputs;
 use plan_evaluator::evaluate_plan;
 use plan_generator::generate_action_plan;
@@ -37,7 +43,7 @@ fn main() {
         PathBuf::from("./out")
     };
 
-    println!("Auto Manager AI V0 (Safe-by-Default)");
+    println!("Auto Manager AI (Engine-Mediated, Safe-by-Default)");
     println!("Repository: {:?}", repo_path);
     println!("Output: {:?}", output_dir);
     println!();
@@ -56,6 +62,33 @@ fn main() {
 
     // Create run report
     let mut report = RunReport::new(run_id);
+    report.record_lifecycle(format!("run_mode={:?}", config.run_mode));
+
+    if let Err(authn_error) = authz::ensure_authenticated_actor(&config.actor) {
+        eprintln!("Authentication failed: {authn_error}");
+        report.add_error(authn_error);
+        let _ = write_outputs(
+            &ActionPlan::new("Authentication failed".to_string()),
+            &report,
+            &config.output_dir,
+        );
+        process::exit(1);
+    }
+
+    let engine = EngineGateway::new(config.run_mode);
+    if let Err(e) = engine.register_startup() {
+        eprintln!("Engine startup registration failed: {}", e.render());
+        report.add_error(e.render());
+        let _ = write_outputs(
+            &ActionPlan::new("Engine startup registration failed".to_string()),
+            &report,
+            &config.output_dir,
+        );
+        process::exit(1);
+    }
+    if let Ok(event) = engine.record_health() {
+        report.record_lifecycle(event);
+    }
 
     // Generate action plan
     println!("Generating action plan...");
@@ -83,15 +116,22 @@ fn main() {
     println!("Evaluating actions against policy...");
     let decisions = evaluate_plan(&plan, &config.policy);
 
-    for decision in decisions {
+    for decision in decisions.clone() {
         report.add_decision(decision);
     }
+
+    execute_allowed_actions(&plan, &decisions, &config, &mut report);
 
     println!("Policy evaluation complete:");
     println!("  Allowed: {}", report.output.actions_allowed);
     println!("  Denied: {}", report.output.actions_denied);
     println!("  Needs input: {}", report.output.actions_needs_input);
+    println!("  Executed: {}", report.output.actions_executed);
     println!();
+
+    if let Ok(event) = engine.register_shutdown() {
+        report.record_lifecycle(event);
+    }
 
     // Write outputs
     println!("Writing outputs to {:?}...", config.output_dir);
@@ -105,5 +145,5 @@ fn main() {
     println!("  - {:?}/action_plan.json", config.output_dir);
     println!("  - {:?}/run_report.json", config.output_dir);
     println!();
-    println!("V0 Note: All actions are proposals only. No mutations were performed.");
+    println!("Safety note: only low-risk allowlisted actions can execute.");
 }

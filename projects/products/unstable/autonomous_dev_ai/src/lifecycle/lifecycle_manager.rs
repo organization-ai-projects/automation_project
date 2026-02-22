@@ -572,9 +572,28 @@ impl LifecycleManager {
             .unwrap_or_else(|_| "test_artifacts/agent_ops_dashboard.json".to_string());
         let dashboard_markdown_path = std::env::var("AUTONOMOUS_OPS_DASHBOARD_MD_PATH")
             .unwrap_or_else(|_| "test_artifacts/agent_ops_dashboard.md".to_string());
+        let non_interactive_profile = self.memory.metadata.get("non_interactive_profile").cloned();
+        let runtime_requirements_validated = self
+            .memory
+            .metadata
+            .get("runtime_requirements.validated")
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let pr_readiness = self.memory.metadata.get("pr_readiness").cloned();
+        let issue_compliance = self.memory.metadata.get("issue_compliance").cloned();
+        let pr_ci_status = self.memory.metadata.get("pr_ci_status").cloned();
+        let last_review_outcome = self.memory.metadata.get("last_review_outcome").cloned();
+        let closure_gates_satisfied = pr_readiness.as_deref() == Some("ready")
+            && issue_compliance.as_deref() == Some("compliant")
+            && pr_ci_status.as_deref() == Some("success")
+            && (!review_required || last_review_outcome.as_deref() == Some("approved"));
         let mut report = RunReport {
+            artifact_schema_version: "1".to_string(),
+            artifact_producer: "autonomous_dev_ai".to_string(),
             generated_at_secs: RunReport::now_secs(),
             run_id: self.actor.run_id.to_string(),
+            non_interactive_profile,
+            runtime_requirements_validated,
             actor_id: self.actor.id.to_string(),
             actor_roles: self
                 .actor
@@ -606,12 +625,13 @@ impl LifecycleManager {
                 .unwrap_or(false),
             pr_number,
             pr_number_source: self.memory.metadata.get("pr_number_source").cloned(),
-            pr_ci_status: self.memory.metadata.get("pr_ci_status").cloned(),
-            pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
-            issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
+            pr_ci_status,
+            pr_readiness,
+            issue_compliance,
+            closure_gates_satisfied,
             issue_context_source: self.memory.metadata.get("issue_context_source").cloned(),
             pr_description_source: self.memory.metadata.get("pr_description_source").cloned(),
-            last_review_outcome: self.memory.metadata.get("last_review_outcome").cloned(),
+            last_review_outcome,
             last_review_input_source: self
                 .memory
                 .metadata
@@ -921,6 +941,10 @@ impl LifecycleManager {
     }
 
     fn validate_runtime_requirements(&mut self) -> AgentResult<()> {
+        let non_interactive_profile = std::env::var("AUTONOMOUS_NON_INTERACTIVE_PROFILE")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty());
         let create_pr_enabled = std::env::var("AUTONOMOUS_CREATE_PR")
             .ok()
             .map(|v| v.eq_ignore_ascii_case("true"))
@@ -961,6 +985,14 @@ impl LifecycleManager {
             .ok()
             .map(|v| v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
+        let review_required = std::env::var("AUTONOMOUS_REVIEW_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let require_pr_number = std::env::var("AUTONOMOUS_REQUIRE_PR_NUMBER")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
 
         if create_pr_required && !create_pr_enabled {
             return Err(AgentError::State(
@@ -991,11 +1023,47 @@ impl LifecycleManager {
                     .to_string(),
             ));
         }
+        if let Some(profile) = &non_interactive_profile {
+            if profile != "orchestrator_v1" {
+                return Err(AgentError::State(format!(
+                    "Unsupported AUTONOMOUS_NON_INTERACTIVE_PROFILE='{}'. Supported profile: orchestrator_v1",
+                    profile
+                )));
+            }
+            require_env_non_empty("AUTONOMOUS_RUN_REPORT_PATH")?;
+            require_env_non_empty("AUTONOMOUS_RUN_REPLAY_PATH")?;
+            require_env_non_empty("AUTONOMOUS_RUN_REPLAY_TEXT_PATH")?;
+            if !require_pr_number {
+                return Err(AgentError::State(
+                    "AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1 requires AUTONOMOUS_REQUIRE_PR_NUMBER=true"
+                        .to_string(),
+                ));
+            }
+            if !fetch_pr_ci_status_required {
+                return Err(AgentError::State(
+                    "AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1 requires AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true"
+                        .to_string(),
+                ));
+            }
+            if !review_required {
+                return Err(AgentError::State(
+                    "AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1 requires AUTONOMOUS_REVIEW_REQUIRED=true"
+                        .to_string(),
+                ));
+            }
+            if !require_issue_compliance {
+                return Err(AgentError::State(
+                    "AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1 requires AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true"
+                        .to_string(),
+                ));
+            }
+        }
 
         self.run_replay.record(
             "runtime.requirements",
             format!(
-                "create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={} fetch_pr_ci_status={} fetch_pr_ci_status_required={} fetch_issue_context_from_gh={} fetch_issue_context_required={} require_issue_compliance={}",
+                "non_interactive_profile={:?} create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={} fetch_pr_ci_status={} fetch_pr_ci_status_required={} fetch_issue_context_from_gh={} fetch_issue_context_required={} require_issue_compliance={} review_required={} require_pr_number={}",
+                non_interactive_profile,
                 create_pr_enabled,
                 create_pr_required,
                 require_real_pr_creation,
@@ -1005,9 +1073,16 @@ impl LifecycleManager {
                 fetch_pr_ci_status_required,
                 fetch_issue_context_from_gh,
                 fetch_issue_context_required,
-                require_issue_compliance
+                require_issue_compliance,
+                review_required,
+                require_pr_number
             ),
         );
+        if let Some(profile) = non_interactive_profile {
+            self.memory
+                .metadata
+                .insert("non_interactive_profile".to_string(), profile);
+        }
         self.memory.metadata.insert(
             "runtime_requirements.validated".to_string(),
             "true".to_string(),
@@ -3487,6 +3562,22 @@ fn env_u64_or(key: &str, default: u64) -> u64 {
         .ok()
         .and_then(|raw| raw.trim().parse::<u64>().ok())
         .unwrap_or(default)
+}
+
+fn require_env_non_empty(key: &str) -> AgentResult<String> {
+    let value = std::env::var(key).map_err(|_| {
+        AgentError::State(format!(
+            "AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1 requires {} to be set",
+            key
+        ))
+    })?;
+    if value.trim().is_empty() {
+        return Err(AgentError::State(format!(
+            "AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1 requires {} to be non-empty",
+            key
+        )));
+    }
+    Ok(value)
 }
 
 fn ensure_parent_dir_exists(path: &str) -> std::io::Result<()> {

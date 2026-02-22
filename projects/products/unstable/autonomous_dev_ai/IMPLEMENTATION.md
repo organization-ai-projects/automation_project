@@ -47,6 +47,8 @@ Still partial:
 - PR creation path can now fetch issue context (`title/body`) from GitHub (`AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH=true`) with optional fail-closed mode (`AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED=true`), and reports context provenance
 - strict issue compliance gating is now available during PR stage (`AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true`) to block non-conformant issue metadata from proceeding
 - run report now includes failure distribution telemetry (`failure_kind_counts`, `top_failure_kind`) and last recovery hint (`last_failure_recovery_action`) for safer autonomous operations
+- non-interactive profile contract is now explicit for orchestrator integration (`AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1`) with fail-fast prerequisite validation for required outputs and closure gates
+- run report now includes explicit artifact contract metadata (`artifact_schema_version`, `artifact_producer`), runtime profile trace (`non_interactive_profile`, `runtime_requirements_validated`), and closure gate summary (`closure_gates_satisfied`)
 
 ## Neural Governance Progress (issue #651)
 
@@ -111,6 +113,18 @@ Implemented:
 - policy pack runtime override flow remains signed/verified, with fingerprint recorded in run report
 - escalation approval pathway is now explicit (`AUTONOMOUS_ESCALATION_APPROVAL_ROLE`, `AUTONOMOUS_ESCALATION_APPROVAL_TOKEN`, `AUTONOMOUS_EXPECTED_ESCALATION_TOKEN`)
 - security-focused tests now cover read-only actor privilege denial and external action guard bypass attempt
+
+## Orchestrator Contract Progress (issue #674)
+
+Implemented:
+
+- explicit non-interactive profile contract for orchestrator usage (`AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1`)
+- fail-fast validation for required strict profile prerequisites (output paths and closure-gate related strict flags)
+- run report contract fields for orchestrator consumption:
+  - artifact provenance/version (`artifact_schema_version`, `artifact_producer`)
+  - runtime profile trace (`non_interactive_profile`, `runtime_requirements_validated`)
+  - closure gate summary (`closure_gates_satisfied`)
+- strict-flag binary tests now cover unknown profile rejection and missing-prerequisite rejection
 
 ## Known Gaps vs #647 Acceptance Criteria
 

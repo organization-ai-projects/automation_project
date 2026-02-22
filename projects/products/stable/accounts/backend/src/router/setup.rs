@@ -1,6 +1,6 @@
 // projects/products/stable/accounts/backend/src/router/setup.rs
-use protocol::accounts::{SetupAdminRequest, SetupAdminResponse, SetupStatusResponse};
 use protocol::{Command, Event, Metadata};
+use protocol_accounts::{SetupAdminRequest, SetupAdminResponse, SetupStatusResponse};
 use security::Role;
 
 use crate::router::helpers::{err_event, map_store_error, ok_payload, payload_as};

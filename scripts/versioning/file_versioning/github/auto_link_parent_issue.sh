@@ -36,6 +36,16 @@ trim() {
   printf "%s" "$s"
 }
 
+graphql_has_errors() {
+  local payload="${1:-}"
+  jq -e '((.errors // []) | length) > 0' >/dev/null 2>&1 <<< "$payload"
+}
+
+graphql_error_messages() {
+  local payload="${1:-}"
+  jq -r '(.errors // []) | map(.message // "unknown GraphQL error") | join("; ")' <<< "$payload" 2>/dev/null || true
+}
+
 extract_parent_field_value() {
   local body="${1:-}"
   awk '
@@ -247,6 +257,16 @@ if [[ -z "$relation_json" ]]; then
   exit 0
 fi
 
+if graphql_has_errors "$relation_json"; then
+  relation_errors="$(graphql_error_messages "$relation_json")"
+  set_runtime_error_state \
+    "GitHub GraphQL query returned errors while reading relation state." \
+    "API errors: ${relation_errors}
+
+Retry later. If this persists, link the issue manually in GitHub UI."
+  exit 0
+fi
+
 current_parent_number="$(echo "$relation_json" | jq -r '.data.repository.child.parent.number // empty')"
 child_node_id="$(echo "$relation_json" | jq -r '.data.repository.child.id // empty')"
 parent_node_id="$(echo "$relation_json" | jq -r '.data.repository.parent.id // empty')"
@@ -279,6 +299,24 @@ if [[ -z "$link_result" ]]; then
   set_runtime_error_state \
     "GitHub API mutation failed while linking child to parent." \
     "Link manually in GitHub UI, then keep \`Parent: #${parent_number}\` in issue body for traceability."
+  exit 0
+fi
+
+if graphql_has_errors "$link_result"; then
+  link_errors="$(graphql_error_messages "$link_result")"
+  set_runtime_error_state \
+    "GitHub GraphQL mutation returned errors while linking child to parent." \
+    "API errors: ${link_errors}
+
+Link manually in GitHub UI, then keep \`Parent: #${parent_number}\` in issue body for traceability."
+  exit 0
+fi
+
+linked_child_number="$(echo "$link_result" | jq -r '.data.addSubIssue.issue.subIssues.nodes[0].number // empty')"
+if [[ -z "$linked_child_number" ]]; then
+  set_runtime_error_state \
+    "GitHub mutation returned no linked sub-issue confirmation." \
+    "Retry later. If this persists, link manually in GitHub UI and keep \`Parent: #${parent_number}\` in issue body."
   exit 0
 fi
 

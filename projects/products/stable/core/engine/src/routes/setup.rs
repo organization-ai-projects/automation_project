@@ -7,7 +7,7 @@ use super::auth::validate_user_id;
 use super::helpers::{event_to_http, http_error};
 use crate::routes::http_forwarder::{accounts_product_id, forward_to_backend, payload_from};
 use crate::{BootstrapError, EngineState, consume_claim, setup_complete, validate_claim};
-use protocol::accounts::{SetupAdminRequest, SetupStatusResponse};
+use protocol_accounts::{SetupAdminRequest, SetupStatusResponse};
 
 /// Health check endpoint
 pub(crate) async fn health() -> Result<impl Reply, warp::Rejection> {
