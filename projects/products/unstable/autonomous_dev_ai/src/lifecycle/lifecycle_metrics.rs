@@ -15,4 +15,6 @@ pub struct LifecycleMetrics {
     pub total_duration: Duration,
     pub average_iteration_duration: Duration,
     pub tool_execution_times: HashMap<String, Vec<Duration>>,
+    pub tool_execution_counts: HashMap<String, usize>,
+    pub tool_execution_failures: HashMap<String, usize>,
 }

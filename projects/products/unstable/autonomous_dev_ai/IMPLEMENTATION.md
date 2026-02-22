@@ -70,6 +70,23 @@ Still partial:
 - offline/online evaluation currently uses local score gates and not yet external benchmark/production telemetry feeds
 - rollout policy remains single-model default (`default-neural`) and needs extension for multi-model runtime governance
 
+## Ops / Observability Progress (issue #652)
+
+Implemented:
+
+- run report now carries queryable action-level metrics (`tool_metrics`) with executions, failures, avg/p95/max durations
+- SLO/SLI definitions and evaluator are active for run success, policy safety, latency, test pass, and recovery time
+- run replay persists full causal timeline in both JSON and reconstructed text forms
+- incident runbook covers top autonomous failure classes (policy, timeout, circuit breaker, drift, stuck states)
+- operational dashboard artifacts are generated each run:
+  - JSON dashboard (`AUTONOMOUS_OPS_DASHBOARD_JSON_PATH`)
+  - Markdown dashboard (`AUTONOMOUS_OPS_DASHBOARD_MD_PATH`)
+- alert signals are computed from run metrics (`alerts` in run report/dashboard) for policy violations, authz denials, risk gate denials, and non-Done terminal states
+
+Still partial:
+
+- alerting remains artifact/telemetry-driven and not yet wired to an external pager/notification backend in this crate
+
 ## Known Gaps vs #647 Acceptance Criteria
 
 - full non-interactive PR flow with real platform integration still incomplete

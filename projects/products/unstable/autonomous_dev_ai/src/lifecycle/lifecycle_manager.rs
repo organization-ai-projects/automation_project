@@ -1,5 +1,6 @@
 //projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_manager.rs
 // Agent lifecycle implementation - production-grade flow.
+use super::run_report::{OpsAlert, ToolMetricSnapshot};
 use super::{
     Checkpoint, CircuitBreaker, CompensationKind, ExecutionContext, IterationNumber,
     LifecycleError, LifecycleMetrics, LifecycleResult, MaxIterations, MetricsCollector,
@@ -441,6 +442,7 @@ impl LifecycleManager {
 
     fn persist_run_report_artifact(&mut self) {
         let metrics_snapshot = self.metrics.snapshot();
+        let tool_metrics = build_tool_metric_snapshots(&metrics_snapshot);
         let weighted_objective_score = self
             .memory
             .metadata
@@ -492,7 +494,11 @@ impl LifecycleManager {
                     || f.error.contains("Policy")
             })
             .count();
-        let report = RunReport {
+        let dashboard_json_path = std::env::var("AUTONOMOUS_OPS_DASHBOARD_JSON_PATH")
+            .unwrap_or_else(|_| "agent_ops_dashboard.json".to_string());
+        let dashboard_markdown_path = std::env::var("AUTONOMOUS_OPS_DASHBOARD_MD_PATH")
+            .unwrap_or_else(|_| "agent_ops_dashboard.md".to_string());
+        let mut report = RunReport {
             generated_at_secs: RunReport::now_secs(),
             run_id: self.actor.run_id.to_string(),
             final_state: format!("{:?}", self.state),
@@ -551,7 +557,12 @@ impl LifecycleManager {
             risk_gate_high_approvals: metrics_snapshot.risk_gate_high_approvals,
             authz_denials_total,
             policy_violations_total,
+            tool_metrics,
+            alerts: Vec::new(),
+            dashboard_json_path: Some(dashboard_json_path.clone()),
+            dashboard_markdown_path: Some(dashboard_markdown_path.clone()),
         };
+        report.alerts = build_ops_alerts(&report);
 
         let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")
             .unwrap_or_else(|_| "agent_run_report.json".to_string());
@@ -568,6 +579,75 @@ impl LifecycleManager {
             Err(e) => {
                 tracing::warn!("Failed to serialize run report: {}", e);
             }
+        }
+
+        self.persist_ops_dashboard_artifacts(
+            &report,
+            &dashboard_json_path,
+            &dashboard_markdown_path,
+        );
+    }
+
+    fn persist_ops_dashboard_artifacts(
+        &mut self,
+        report: &RunReport,
+        dashboard_json_path: &str,
+        dashboard_markdown_path: &str,
+    ) {
+        match serde_json::to_string_pretty(report) {
+            Ok(json) => {
+                if let Err(e) = std::fs::write(dashboard_json_path, json) {
+                    tracing::warn!(
+                        "Failed to persist ops dashboard JSON '{}': {}",
+                        dashboard_json_path,
+                        e
+                    );
+                } else {
+                    self.memory.metadata.insert(
+                        "ops_dashboard_json_path".to_string(),
+                        dashboard_json_path.to_string(),
+                    );
+                }
+            }
+            Err(e) => tracing::warn!("Failed to serialize ops dashboard JSON: {}", e),
+        }
+
+        let md = format!(
+            "# Autonomous Ops Dashboard\n\n\
+            - Run ID: `{}`\n\
+            - Final State: `{}`\n\
+            - Iterations: `{}` / `{}`\n\
+            - Total Failures: `{}`\n\
+            - Policy Violations: `{}`\n\
+            - Authz Denials: `{}`\n\
+            - Risk Gate Denies: `{}`\n\
+            - Top Failure Kind: `{}`\n\n\
+            ## Alerts\n{}\n\n\
+            ## Tool Metrics\n{}\n",
+            report.run_id,
+            report.final_state,
+            report.total_iterations,
+            report.max_iterations,
+            report.total_failures,
+            report.policy_violations_total,
+            report.authz_denials_total,
+            report.risk_gate_denies,
+            report.top_failure_kind.as_deref().unwrap_or("none"),
+            render_ops_alerts_markdown(&report.alerts),
+            render_tool_metrics_markdown(&report.tool_metrics)
+        );
+
+        if let Err(e) = std::fs::write(dashboard_markdown_path, md) {
+            tracing::warn!(
+                "Failed to persist ops dashboard Markdown '{}': {}",
+                dashboard_markdown_path,
+                e
+            );
+        } else {
+            self.memory.metadata.insert(
+                "ops_dashboard_markdown_path".to_string(),
+                dashboard_markdown_path.to_string(),
+            );
         }
     }
 
@@ -3255,6 +3335,147 @@ fn env_f64_or(key: &str, default: f64) -> f64 {
         .ok()
         .and_then(|raw| raw.trim().parse::<f64>().ok())
         .unwrap_or(default)
+}
+
+fn build_tool_metric_snapshots(metrics: &LifecycleMetrics) -> HashMap<String, ToolMetricSnapshot> {
+    let mut result = HashMap::new();
+    for (tool, durations) in &metrics.tool_execution_times {
+        let executions = metrics
+            .tool_execution_counts
+            .get(tool)
+            .copied()
+            .unwrap_or(0);
+        let failures = metrics
+            .tool_execution_failures
+            .get(tool)
+            .copied()
+            .unwrap_or(0);
+
+        if durations.is_empty() {
+            result.insert(
+                tool.clone(),
+                ToolMetricSnapshot {
+                    executions,
+                    failures,
+                    avg_duration_ms: 0,
+                    p95_duration_ms: 0,
+                    max_duration_ms: 0,
+                },
+            );
+            continue;
+        }
+
+        let mut millis: Vec<u128> = durations.iter().map(|d| d.as_millis()).collect();
+        millis.sort_unstable();
+        let sum: u128 = millis.iter().copied().sum();
+        let avg_duration_ms = sum / (millis.len() as u128);
+        let max_duration_ms = *millis.last().unwrap_or(&0);
+        let p95_idx = ((millis.len().saturating_sub(1)) * 95) / 100;
+        let p95_duration_ms = millis.get(p95_idx).copied().unwrap_or(0);
+
+        result.insert(
+            tool.clone(),
+            ToolMetricSnapshot {
+                executions,
+                failures,
+                avg_duration_ms,
+                p95_duration_ms,
+                max_duration_ms,
+            },
+        );
+    }
+    result
+}
+
+fn render_tool_metrics_markdown(tool_metrics: &HashMap<String, ToolMetricSnapshot>) -> String {
+    if tool_metrics.is_empty() {
+        return "- No tool metrics recorded.".to_string();
+    }
+
+    let mut rows: Vec<(&String, &ToolMetricSnapshot)> = tool_metrics.iter().collect();
+    rows.sort_by(|a, b| a.0.cmp(b.0));
+
+    let mut out = String::from(
+        "| Tool | Executions | Failures | Avg ms | P95 ms | Max ms |\n|---|---:|---:|---:|---:|---:|\n",
+    );
+    for (tool, stats) in rows {
+        out.push_str(&format!(
+            "| `{}` | {} | {} | {} | {} | {} |\n",
+            tool,
+            stats.executions,
+            stats.failures,
+            stats.avg_duration_ms,
+            stats.p95_duration_ms,
+            stats.max_duration_ms
+        ));
+    }
+    out
+}
+
+fn build_ops_alerts(report: &RunReport) -> Vec<OpsAlert> {
+    let mut alerts = Vec::new();
+
+    if report.final_state != "Done" {
+        alerts.push(OpsAlert {
+            severity: "high".to_string(),
+            code: "RUN_NOT_DONE".to_string(),
+            message: format!("run ended in non-success state '{}'", report.final_state),
+        });
+    }
+    if report.policy_violations_total > 0 {
+        alerts.push(OpsAlert {
+            severity: "high".to_string(),
+            code: "POLICY_VIOLATIONS".to_string(),
+            message: format!(
+                "{} policy violation(s) detected in this run",
+                report.policy_violations_total
+            ),
+        });
+    }
+    if report.authz_denials_total > 0 {
+        alerts.push(OpsAlert {
+            severity: "medium".to_string(),
+            code: "AUTHZ_DENIALS".to_string(),
+            message: format!(
+                "{} authorization denial(s) detected in this run",
+                report.authz_denials_total
+            ),
+        });
+    }
+    if report.risk_gate_denies > 0 {
+        alerts.push(OpsAlert {
+            severity: "medium".to_string(),
+            code: "RISK_GATE_DENIES".to_string(),
+            message: format!("{} risk gate denial(s) recorded", report.risk_gate_denies),
+        });
+    }
+    if report.total_failures > 0 {
+        alerts.push(OpsAlert {
+            severity: "medium".to_string(),
+            code: "RUN_FAILURES".to_string(),
+            message: format!(
+                "{} failure(s) recorded in run memory",
+                report.total_failures
+            ),
+        });
+    }
+
+    alerts
+}
+
+fn render_ops_alerts_markdown(alerts: &[OpsAlert]) -> String {
+    if alerts.is_empty() {
+        return "- No active alerts.".to_string();
+    }
+
+    let mut lines = String::new();
+    for alert in alerts {
+        lines.push_str(&format!(
+            "- [{}] `{}` {}\n",
+            alert.severity, alert.code, alert.message
+        ));
+    }
+    lines
 }
 
 fn is_medium_risk_allowed(execution_mode: &str) -> bool {

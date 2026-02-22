@@ -3,6 +3,22 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolMetricSnapshot {
+    pub executions: usize,
+    pub failures: usize,
+    pub avg_duration_ms: u128,
+    pub p95_duration_ms: u128,
+    pub max_duration_ms: u128,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpsAlert {
+    pub severity: String,
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunReport {
     pub generated_at_secs: u64,
     pub run_id: String,
@@ -49,6 +65,10 @@ pub struct RunReport {
     pub risk_gate_high_approvals: usize,
     pub authz_denials_total: usize,
     pub policy_violations_total: usize,
+    pub tool_metrics: HashMap<String, ToolMetricSnapshot>,
+    pub alerts: Vec<OpsAlert>,
+    pub dashboard_json_path: Option<String>,
+    pub dashboard_markdown_path: Option<String>,
 }
 
 impl RunReport {
