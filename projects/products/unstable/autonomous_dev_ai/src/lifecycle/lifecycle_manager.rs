@@ -569,9 +569,9 @@ impl LifecycleManager {
             })
             .count();
         let dashboard_json_path = std::env::var("AUTONOMOUS_OPS_DASHBOARD_JSON_PATH")
-            .unwrap_or_else(|_| "agent_ops_dashboard.json".to_string());
+            .unwrap_or_else(|_| "test_artifacts/agent_ops_dashboard.json".to_string());
         let dashboard_markdown_path = std::env::var("AUTONOMOUS_OPS_DASHBOARD_MD_PATH")
-            .unwrap_or_else(|_| "agent_ops_dashboard.md".to_string());
+            .unwrap_or_else(|_| "test_artifacts/agent_ops_dashboard.md".to_string());
         let mut report = RunReport {
             generated_at_secs: RunReport::now_secs(),
             run_id: self.actor.run_id.to_string(),
@@ -675,6 +675,21 @@ impl LifecycleManager {
         dashboard_json_path: &str,
         dashboard_markdown_path: &str,
     ) {
+        if let Err(e) = ensure_parent_dir_exists(dashboard_json_path) {
+            tracing::warn!(
+                "Failed to create ops dashboard JSON parent directory for '{}': {}",
+                dashboard_json_path,
+                e
+            );
+        }
+        if let Err(e) = ensure_parent_dir_exists(dashboard_markdown_path) {
+            tracing::warn!(
+                "Failed to create ops dashboard Markdown parent directory for '{}': {}",
+                dashboard_markdown_path,
+                e
+            );
+        }
+
         match serde_json::to_string_pretty(report) {
             Ok(json) => {
                 if let Err(e) = std::fs::write(dashboard_json_path, json) {
@@ -3472,6 +3487,16 @@ fn env_u64_or(key: &str, default: u64) -> u64 {
         .ok()
         .and_then(|raw| raw.trim().parse::<u64>().ok())
         .unwrap_or(default)
+}
+
+fn ensure_parent_dir_exists(path: &str) -> std::io::Result<()> {
+    let p = std::path::Path::new(path);
+    if let Some(parent) = p.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+    Ok(())
 }
 
 fn build_tool_metric_snapshots(metrics: &LifecycleMetrics) -> HashMap<String, ToolMetricSnapshot> {
