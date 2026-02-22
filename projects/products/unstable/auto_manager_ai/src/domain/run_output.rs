@@ -9,4 +9,12 @@ pub struct RunOutput {
     pub actions_allowed: usize,
     pub actions_denied: usize,
     pub actions_needs_input: usize,
+    #[serde(default)]
+    pub actions_executed: usize,
+    #[serde(default)]
+    pub actions_blocked_authz: usize,
+    #[serde(default)]
+    pub actions_blocked_execution: usize,
+    #[serde(default)]
+    pub adapter_errors: usize,
 }

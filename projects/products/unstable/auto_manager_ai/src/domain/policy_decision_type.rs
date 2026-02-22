@@ -11,3 +11,13 @@ pub enum PolicyDecisionType {
     #[serde(rename = "needs_input")]
     NeedsInput,
 }
+
+impl PolicyDecisionType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Allow => "allow",
+            Self::Deny => "deny",
+            Self::NeedsInput => "needs_input",
+        }
+    }
+}
