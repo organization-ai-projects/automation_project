@@ -47,6 +47,8 @@ Still partial:
 - PR creation path can now fetch issue context (`title/body`) from GitHub (`AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH=true`) with optional fail-closed mode (`AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED=true`), and reports context provenance
 - strict issue compliance gating is now available during PR stage (`AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true`) to block non-conformant issue metadata from proceeding
 - run report now includes failure distribution telemetry (`failure_kind_counts`, `top_failure_kind`) and last recovery hint (`last_failure_recovery_action`) for safer autonomous operations
+- non-interactive profile contract is now explicit for orchestrator integration (`AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1`) with fail-fast prerequisite validation for required outputs and closure gates
+- run report now includes explicit artifact contract metadata (`artifact_schema_version`, `artifact_producer`), runtime profile trace (`non_interactive_profile`, `runtime_requirements_validated`), and closure gate summary (`closure_gates_satisfied`)
 
 ## Neural Governance Progress (issue #651)
 
