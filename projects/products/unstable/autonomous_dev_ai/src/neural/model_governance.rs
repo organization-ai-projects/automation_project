@@ -116,4 +116,21 @@ mod tests {
             Some(RolloutState::RolledBack)
         );
     }
+
+    #[test]
+    fn symbolic_override_stays_authoritative_when_model_not_promoted() {
+        let mut governance = ModelGovernance::new();
+        governance.registry.register(ModelVersion::new(
+            "default-neural",
+            "1.0.0",
+            "builtin://default",
+            0.7,
+        ));
+
+        assert_eq!(
+            governance.registry.state("default-neural"),
+            Some(RolloutState::Pending)
+        );
+        assert!(!governance.accept("default-neural", 0.99));
+    }
 }
