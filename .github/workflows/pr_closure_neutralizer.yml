@@ -3,6 +3,8 @@ name: PR Closure Neutralizer
 on:
   pull_request_target:
     types: [opened, edited, reopened, synchronize]
+  issues:
+    types: [edited]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -16,6 +18,7 @@ permissions:
 
 jobs:
   neutralize-closure-refs:
+    if: github.event_name != 'issues'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,8 +39,31 @@ jobs:
             fi
           done
 
+      - name: Check if PR body edit should be skipped
+        id: skip_check
+        if: >
+          github.event_name == 'pull_request_target' &&
+          github.event.action == 'edited' &&
+          github.event.changes.body != null
+        env:
+          PREV_BODY: ${{ github.event.changes.body.from }}
+          CURR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          normalize() {
+            printf '%s' "$1" \
+              | sed 's/- \[[ xX]\]/- [_]/g' \
+              | perl -0777 -pe 's/\b(closes?|fixes?|resolves?)\s+rejected\s+(#[0-9]+)\b/$1 $2/ig'
+          }
+          prev_norm="$(normalize "$PREV_BODY")"
+          curr_norm="$(normalize "$CURR_BODY")"
+          if [[ "$prev_norm" == "$curr_norm" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Neutralize closure refs (pull_request_target)
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && steps.skip_check.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -62,4 +88,37 @@ jobs:
           chmod +x scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh
           bash scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh \
             --pr "$PR_NUMBER" \
+            --repo "$GH_REPO"
+
+  reevaluate-prs-on-issue-edit:
+    if: github.event_name == 'issues' && github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/issue_required_fields.conf
+            scripts/versioning/file_versioning/github/
+          sparse-checkout-cone-mode: false
+
+      - name: Ensure dependencies
+        run: |
+          for cmd in gh jq perl; do
+            if ! command -v "$cmd" >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y jq perl
+              break
+            fi
+          done
+
+      - name: Re-evaluate PRs referencing edited issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          chmod +x scripts/versioning/file_versioning/github/reevaluate_prs_on_issue_edit.sh
+          bash scripts/versioning/file_versioning/github/reevaluate_prs_on_issue_edit.sh \
+            --issue "$ISSUE_NUMBER" \
             --repo "$GH_REPO"

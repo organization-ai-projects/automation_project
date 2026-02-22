@@ -190,6 +190,39 @@ while IFS='|' read -r action issue_key; do
   neutralized_count=$((neutralized_count + 1))
 done < <(parse_closing_issue_refs_from_text "$original_body")
 
+# Second pass: handle already-neutralized "Closes rejected #N" refs.
+# Un-neutralize if the issue is now compliant; track if still non-compliant.
+while IFS='|' read -r action issue_key; do
+  issue_key="$(trim "$issue_key")"
+  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+  issue_number="${issue_key//#/}"
+  dedupe_key="${action}|${issue_key}"
+  if [[ -n "${seen_ref[$dedupe_key]:-}" ]]; then
+    continue
+  fi
+  seen_ref["$dedupe_key"]=1
+
+  reason="$(issue_non_compliance_reason "$issue_number")"
+
+  keyword_pattern="$(keyword_pattern_from_action "$action")"
+  [[ -n "$keyword_pattern" ]] || continue
+
+  escaped_issue_key="$(printf '%s' "$issue_key" | sed 's/[^^]/[&]/g; s/\^/\\^/g')"
+
+  if [[ -n "$reason" ]]; then
+    # Still non-compliant: record for status comment (body already has "rejected").
+    neutralized_reason["$issue_key"]="$reason"
+    neutralized_action["$issue_key"]="$action"
+    neutralized_count=$((neutralized_count + 1))
+  else
+    # Now compliant: remove the "rejected" marker to restore auto-close.
+    updated_body="$(
+      perl -0777 -pe "s/\\b((?:${keyword_pattern}))\\b(\\s+)rejected\\s+([^\\s]*${escaped_issue_key})\\b/\\\$1\\\$2\\\$3/ig" \
+        <<< "$updated_body"
+    )"
+  fi
+done < <(parse_neutralized_closing_issue_refs_from_text "$original_body")
+
 if [[ "$updated_body" != "$original_body" ]]; then
   gh pr edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
 fi
