@@ -77,7 +77,7 @@ fn write_test_config(config_ron_path: &Path) {
     fs::write(config_ron_path, content).expect("failed to write test config");
 }
 
-fn run_with_env(goal: &str, extra_env: &[(&str, &str)]) -> (Output, PathBuf, PathBuf) {
+fn run_with_env(goal: &str, extra_env: &[(&str, &str)]) -> (Output, PathBuf, PathBuf, PathBuf) {
     let bin = env!("CARGO_BIN_EXE_autonomous_dev_ai");
     let fixture = fixture_repo_dir();
     let out_dir = unique_temp_dir("run_report");
@@ -128,12 +128,12 @@ fn run_with_env(goal: &str, extra_env: &[(&str, &str)]) -> (Output, PathBuf, Pat
         .output()
         .expect("failed to execute autonomous_dev_ai binary");
 
-    (output, run_report, out_dir)
+    (output, run_report, run_replay, out_dir)
 }
 
 #[test]
 fn run_report_contains_extended_fields_on_successful_run() {
-    let (output, run_report, out_dir) =
+    let (output, run_report, _run_replay, out_dir) =
         run_with_env("Validate run report fields for issue #649 with tests", &[]);
 
     assert!(
@@ -159,7 +159,7 @@ fn run_report_contains_extended_fields_on_successful_run() {
 
 #[test]
 fn run_report_captures_failure_telemetry_on_failing_run() {
-    let (output, run_report, out_dir) = run_with_env(
+    let (output, run_report, _run_replay, out_dir) = run_with_env(
         "Validate strict issue compliance failure for issue #649",
         &[
             ("AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE", "true"),
@@ -208,6 +208,75 @@ fn run_report_captures_failure_telemetry_on_failing_run() {
             .is_empty(),
         "missing last_failure_recovery_action: {}",
         raw
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn run_replay_records_neural_eval_file_source_for_active_model() {
+    let eval_file = unique_temp_dir("neural_eval").join("neural_eval.json");
+    let eval_raw = r#"{
+  "models": [
+    { "model_name": "default-neural", "offline_score": 0.10, "online_score": 0.10 },
+    { "model_name": "alt-neural", "offline_score": 0.95, "online_score": 0.96 }
+  ]
+}"#;
+    fs::write(&eval_file, eval_raw).expect("failed to write eval snapshot");
+    let eval_file_value: &'static str =
+        Box::leak(eval_file.to_string_lossy().to_string().into_boxed_str());
+
+    let (output, run_report, run_replay, out_dir) = run_with_env(
+        "Validate neural eval file source for active model",
+        &[
+            ("AUTONOMOUS_NEURAL_MODEL_NAME", "alt-neural"),
+            ("AUTONOMOUS_NEURAL_EVAL_FILE", eval_file_value),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "binary failed. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let report_raw = fs::read_to_string(&run_report).expect("missing run report");
+    let report_json: serde_json::Value =
+        serde_json::from_str(&report_raw).expect("run report is not valid JSON");
+    assert_eq!(report_json["final_state"], "Done");
+
+    let replay_raw = fs::read_to_string(&run_replay).expect("missing run replay");
+    let replay_json: serde_json::Value =
+        serde_json::from_str(&replay_raw).expect("run replay is not valid JSON");
+    let events = replay_json["events"]
+        .as_array()
+        .expect("events should be an array");
+
+    let has_eval_file_source = events.iter().any(|event| {
+        event["kind"] == "neural.rollout_eval_source"
+            && event["payload"]
+                .as_str()
+                .map(|p| p.starts_with("file:"))
+                .unwrap_or(false)
+    });
+    assert!(
+        has_eval_file_source,
+        "expected neural.rollout_eval_source with file: payload in replay: {}",
+        replay_raw
+    );
+
+    let has_active_model_gate_trace = events.iter().any(|event| {
+        event["kind"] == "neural.rollout_gates"
+            && event["payload"]
+                .as_str()
+                .map(|p| p.contains("model=alt-neural"))
+                .unwrap_or(false)
+    });
+    assert!(
+        has_active_model_gate_trace,
+        "expected neural.rollout_gates trace for alt-neural in replay: {}",
+        replay_raw
     );
 
     let _ = fs::remove_dir_all(out_dir);
