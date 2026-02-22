@@ -104,6 +104,16 @@ impl MetricsCollector {
             .iter()
             .map(|(name, metrics)| (name.clone(), metrics.execution_times.clone()))
             .collect();
+        let tool_execution_counts = inner
+            .tool_executions
+            .iter()
+            .map(|(name, metrics)| (name.clone(), metrics.executions))
+            .collect();
+        let tool_execution_failures = inner
+            .tool_executions
+            .iter()
+            .map(|(name, metrics)| (name.clone(), metrics.failures))
+            .collect();
 
         LifecycleMetrics {
             iterations_total: inner.iterations_total,
@@ -118,6 +128,8 @@ impl MetricsCollector {
             total_duration,
             average_iteration_duration,
             tool_execution_times,
+            tool_execution_counts,
+            tool_execution_failures,
         }
     }
 

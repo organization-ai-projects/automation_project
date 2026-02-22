@@ -281,3 +281,73 @@ fn run_replay_records_neural_eval_file_source_for_active_model() {
 
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn run_report_exposes_queryable_tool_metrics_and_dashboard_artifacts() {
+    let dashboard_dir = unique_temp_dir("ops_dashboard");
+    let dashboard_json = dashboard_dir.join("ops_dashboard.json");
+    let dashboard_md = dashboard_dir.join("ops_dashboard.md");
+    let dashboard_json_value: &'static str = Box::leak(
+        dashboard_json
+            .to_string_lossy()
+            .to_string()
+            .into_boxed_str(),
+    );
+    let dashboard_md_value: &'static str =
+        Box::leak(dashboard_md.to_string_lossy().to_string().into_boxed_str());
+
+    let (output, run_report, _run_replay, out_dir) = run_with_env(
+        "Validate ops dashboard and tool metrics exposure",
+        &[
+            ("AUTONOMOUS_OPS_DASHBOARD_JSON_PATH", dashboard_json_value),
+            ("AUTONOMOUS_OPS_DASHBOARD_MD_PATH", dashboard_md_value),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "binary failed. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let report_raw = fs::read_to_string(&run_report).expect("missing run report");
+    let report_json: serde_json::Value =
+        serde_json::from_str(&report_raw).expect("run report is not valid JSON");
+
+    let tool_metrics = report_json["tool_metrics"]
+        .as_object()
+        .expect("tool_metrics should be an object");
+    assert!(
+        !tool_metrics.is_empty(),
+        "expected non-empty tool metrics in run report: {}",
+        report_raw
+    );
+    assert!(report_json["alerts"].is_array());
+    assert!(report_json["dashboard_json_path"].is_string());
+    assert!(report_json["dashboard_markdown_path"].is_string());
+
+    assert!(
+        dashboard_json.exists(),
+        "ops dashboard JSON not generated at {:?}",
+        dashboard_json
+    );
+    assert!(
+        dashboard_md.exists(),
+        "ops dashboard Markdown not generated at {:?}",
+        dashboard_md
+    );
+
+    let dashboard_md_raw =
+        fs::read_to_string(&dashboard_md).expect("failed to read generated dashboard markdown");
+    assert!(
+        dashboard_md_raw.contains("Autonomous Ops Dashboard")
+            && dashboard_md_raw.contains("Alerts")
+            && dashboard_md_raw.contains("Tool Metrics"),
+        "unexpected dashboard markdown content:\n{}",
+        dashboard_md_raw
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+    let _ = fs::remove_dir_all(dashboard_dir);
+}
