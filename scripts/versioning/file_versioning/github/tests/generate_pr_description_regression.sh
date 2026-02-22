@@ -40,16 +40,55 @@ ${MOCK_GIT_LOG_BODY}"
   fi
 
   if [[ "${3:-}" == "--jq" ]]; then
-    printf "%s\n" "${full_message}"
+    jq_expr="${4:-}"
+    if [[ "${jq_expr}" == *'split("\\n")[0]'* ]]; then
+      printf "%s\n" "${first_line}"
+    else
+      printf "%s\n" "${full_message}"
+    fi
   else
     escaped="$(printf "%s" "${full_message}" | sed ':a;N;$!ba;s/\n/\\n/g')"
     printf '{"commits":[{"commit":{"message":"%s"}}]}\n' "${escaped}"
   fi
   exit 0
 fi
+if [[ "${1:-}" == "api" && "${2:-}" == "repos/owner/repo/pulls/42/commits" ]]; then
+  if [[ "${3:-}" == "--paginate" && "${4:-}" == "--jq" ]]; then
+    if [[ -n "${MOCK_MAIN_PR_COMMIT_HEADLINES:-}" ]]; then
+      printf "%s\n" "${MOCK_MAIN_PR_COMMIT_HEADLINES}"
+    fi
+    exit 0
+  fi
+fi
 if [[ "${1:-}" == "pr" && "${2:-}" == "create" ]]; then
   echo "https://github.com/owner/repo/pull/999"
   exit 0
+fi
+if [[ "${1:-}" == "pr" && "${2:-}" == "view" && "${3:-}" == "42" ]]; then
+  if [[ "${4:-}" == "--json" && "${5:-}" == "body" && "${6:-}" == "-q" ]]; then
+    echo ""
+    exit 0
+  fi
+  if [[ "${4:-}" == "--json" && "${5:-}" == "comments" && "${6:-}" == "-q" ]]; then
+    echo ""
+    exit 0
+  fi
+  if [[ "${4:-}" == "--json" && "${5:-}" == "baseRefName" && "${6:-}" == "-q" ]]; then
+    echo "main"
+    exit 0
+  fi
+  if [[ "${4:-}" == "--json" && "${5:-}" == "headRefName" && "${6:-}" == "-q" ]]; then
+    echo "dev"
+    exit 0
+  fi
+fi
+if [[ "${1:-}" == "pr" && "${2:-}" == "view" && "${3:-}" == "693" ]]; then
+  if [[ "${4:-}" == "--json" && "${5:-}" == "title,body,labels" ]]; then
+    cat <<'JSON'
+{"title":"feat(automation): re-evaluate PR closure neutralization on issue edit","body":"Closes #690","labels":[{"name":"automation"}]}
+JSON
+    exit 0
+  fi
 fi
 exit 0
 EOF
@@ -211,6 +250,28 @@ main() {
     fi
   else
     echo "FAIL [auto-create-adds-pull-request-label] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/main_parity.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_MAIN_PR_COMMIT_HEADLINES="Merge pull request #693 from organization-ai-projects/copilot/fix-pr-closure-neutralization" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" 42 "${out_md}"
+  ) >/dev/null 2>&1; then
+    if grep -q -- "#693" "${out_md}" && grep -q -- "Closes #690" "${out_md}"; then
+      echo "PASS [main-mode-detects-merge-pr-and-closure-ref]"
+    else
+      echo "FAIL [main-mode-detects-merge-pr-and-closure-ref] expected #693 and Closes #690"
+      sed -n '1,220p' "${out_md}"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [main-mode-detects-merge-pr-and-closure-ref] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"
