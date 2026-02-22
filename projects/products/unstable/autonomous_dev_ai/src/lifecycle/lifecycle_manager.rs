@@ -394,6 +394,8 @@ impl LifecycleManager {
             generated_at_secs: RunReport::now_secs(),
             run_id: self.actor.run_id.to_string(),
             final_state: format!("{:?}", self.state),
+            execution_mode: self.config.execution_mode.clone(),
+            neural_enabled: self.neural.enabled,
             total_iterations: self.current_iteration_number.get(),
             max_iterations: self.max_iterations_limit.get(),
             total_decisions: self.memory.decisions.len(),
@@ -418,6 +420,8 @@ impl LifecycleManager {
                 .metadata
                 .get("last_tool_exit_code")
                 .and_then(|v| v.parse::<i32>().ok()),
+            policy_pack_fingerprint: self.memory.metadata.get("policy_pack.fingerprint").cloned(),
+            checkpoint_path: Some(self.checkpoint_path.as_str().to_string()),
         };
 
         let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")

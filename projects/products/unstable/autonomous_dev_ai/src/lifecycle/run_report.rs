@@ -6,6 +6,8 @@ pub struct RunReport {
     pub generated_at_secs: u64,
     pub run_id: String,
     pub final_state: String,
+    pub execution_mode: String,
+    pub neural_enabled: bool,
     pub total_iterations: usize,
     pub max_iterations: usize,
     pub total_decisions: usize,
@@ -26,6 +28,8 @@ pub struct RunReport {
     pub last_failure_description: Option<String>,
     pub last_failure_error: Option<String>,
     pub last_tool_exit_code: Option<i32>,
+    pub policy_pack_fingerprint: Option<String>,
+    pub checkpoint_path: Option<String>,
 }
 
 impl RunReport {
