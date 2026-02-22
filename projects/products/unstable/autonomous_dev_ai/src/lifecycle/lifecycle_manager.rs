@@ -12,6 +12,7 @@ use crate::audit_logger::AuditLogger;
 use crate::error::{AgentError, AgentResult};
 use crate::ids::{IssueNumber, ParentRef, PrNumber};
 use crate::lifecycle::{ActionRiskLevel, LearningContext};
+use crate::memory::FailureEntry;
 use crate::memory_graph::MemoryGraph;
 use crate::neural::{
     DriftDetector, IntentInterpretation, ModelGovernance, ModelVersion, NeuralLayer, NeuralModel,
@@ -397,6 +398,15 @@ impl LifecycleManager {
                     .and_then(|s| s.parse::<u64>().ok())
             });
         let last_failure = self.memory.failures.last();
+        let mut failure_kind_counts: HashMap<String, usize> = HashMap::new();
+        for failure in &self.memory.failures {
+            let kind = classify_failure_entry(failure);
+            *failure_kind_counts.entry(kind).or_insert(0) += 1;
+        }
+        let top_failure_kind = failure_kind_counts
+            .iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(kind, count)| format!("{}:{}", kind, count));
         let authz_denials_total = self
             .memory
             .failures
@@ -456,6 +466,9 @@ impl LifecycleManager {
                 .cloned(),
             last_failure_description: last_failure.map(|f| f.description.clone()),
             last_failure_error: last_failure.map(|f| f.error.clone()),
+            last_failure_recovery_action: last_failure.and_then(|f| f.recovery_action.clone()),
+            failure_kind_counts,
+            top_failure_kind,
             last_tool_exit_code: self
                 .memory
                 .metadata
@@ -3457,6 +3470,33 @@ fn classify_tool_failure(error_text: &str) -> &'static str {
         return "execution";
     }
     "unknown"
+}
+
+fn classify_failure_entry(entry: &FailureEntry) -> String {
+    let text = format!(
+        "{} {}",
+        entry.description.to_ascii_lowercase(),
+        entry.error.to_ascii_lowercase()
+    );
+    if text.contains("policy") || text.contains("authorization") {
+        return "policy".to_string();
+    }
+    if text.contains("timeout") {
+        return "timeout".to_string();
+    }
+    if text.contains("circuit") {
+        return "circuit_breaker".to_string();
+    }
+    if text.contains("resource") || text.contains("budget") {
+        return "resource".to_string();
+    }
+    if text.contains("test") || text.contains("validation") {
+        return "validation".to_string();
+    }
+    if text.contains("tool") {
+        return "tool".to_string();
+    }
+    "other".to_string()
 }
 
 fn validate_tool_result_contract(tool: &str, result: &ToolResult) -> AgentResult<()> {

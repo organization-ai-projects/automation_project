@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,6 +34,9 @@ pub struct RunReport {
     pub last_review_input_source: Option<String>,
     pub last_failure_description: Option<String>,
     pub last_failure_error: Option<String>,
+    pub last_failure_recovery_action: Option<String>,
+    pub failure_kind_counts: HashMap<String, usize>,
+    pub top_failure_kind: Option<String>,
     pub last_tool_exit_code: Option<i32>,
     pub last_tool_name: Option<String>,
     pub policy_pack_fingerprint: Option<String>,

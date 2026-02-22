@@ -92,3 +92,5 @@ projects/products/unstable/autonomous_dev_ai/scripts/run_ci_like_fixture.sh
 ```
 
 Scenario details: `projects/products/unstable/autonomous_dev_ai/scenarios/ci_like_fixture/README.md`.
+
+The run report artifact also exposes failure-distribution and recovery-hint fields to support safer autonomous supervision.
