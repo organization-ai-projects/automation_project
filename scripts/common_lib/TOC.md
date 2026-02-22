@@ -12,6 +12,7 @@ This document provides an overview of all documentation files in this directory.
 
 - [automation/README.md](automation/README.md): Shared automation helpers for hooks/CI/scripts
 - [core/README.md](core/README.md): Core utilities for all scripts
+- [testing/README.md](testing/README.md): Shared shell test helpers
 - [versioning/README.md](versioning/README.md): Version control utilities
 
 ## Automation Libraries
@@ -34,3 +35,7 @@ This document provides an overview of all documentation files in this directory.
 ## Versioning Libraries
 
 - [versioning/file_versioning/TOC.md](versioning/file_versioning/TOC.md): File versioning utilities
+
+## Testing Libraries
+
+- [testing/shell_test_helpers.sh](testing/shell_test_helpers.sh): Shared shell test helper functions

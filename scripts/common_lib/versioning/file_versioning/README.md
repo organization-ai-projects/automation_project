@@ -16,19 +16,22 @@ It interacts mainly with:
 
 ```plaintext
 file_versioning/
-└── git/                   # Pure git operation utilities
-    ├── branch.sh          # Branch management
-    ├── commit.sh          # Commit operations
-    ├── repo.sh            # Repository validation
-    ├── staging.sh         # Staging/index operations
-    ├── synch.sh           # Synchronization utilities
-    └── working_tree.sh    # Working tree state
+├── git/                   # Pure git operation utilities
+│   ├── branch.sh          # Branch management
+│   ├── commit.sh          # Commit operations
+│   ├── repo.sh            # Repository validation
+│   ├── staging.sh         # Staging/index operations
+│   ├── synch.sh           # Synchronization utilities
+│   └── working_tree.sh    # Working tree state
+└── github/                # Shared GitHub automation helpers
+    └── issue_helpers.sh   # Shared issue reference/status comment helpers
 ```
 
 ## Files
 
 - `README.md`: This file.
 - `git/`: Pure git operation utilities.
+- `github/`: Shared GitHub automation helpers.
 
 ## Scope
 
@@ -46,6 +49,10 @@ Utilities here support:
   - Working tree operations
   - Commit operations
   - Synchronization utilities
+- **`github/`** - Shared GitHub automation helpers
+  - Issue task-list reference extraction
+  - Sub-issue lookup via GraphQL
+  - Marker-based status comment upsert
 
 For details, see `git/README.md`
 

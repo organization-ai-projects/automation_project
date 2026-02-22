@@ -7,6 +7,7 @@ This document provides an overview of all documentation files in this directory.
 ## Documentation
 
 - [README.md](README.md): Main documentation for file versioning utilities
+- [github/README.md](github/README.md): Documentation for shared GitHub issue helper functions
 
 ## Git Helpers
 
@@ -16,3 +17,7 @@ This document provides an overview of all documentation files in this directory.
 - [git/staging.sh](git/staging.sh): Staging/index operations
 - [git/synch.sh](git/synch.sh): Synchronization utilities
 - [git/working_tree.sh](git/working_tree.sh): Working tree state validation
+
+## GitHub Helpers
+
+- [github/issue_helpers.sh](github/issue_helpers.sh): Shared issue reference parsing and marker-comment upsert helpers

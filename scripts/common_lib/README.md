@@ -29,15 +29,19 @@ common_lib/
 │   ├── logging.sh                      # Consistent logging functions
 │   ├── network_utils.sh                # Network-related utilities
 │   └── string_utils.sh                 # String manipulation utilities
+├── testing/                            # Shared shell test helpers
+│   └── shell_test_helpers.sh           # mktemp + jq mock helpers for regression tests
 └── versioning/                         # Version control utilities
     └── file_versioning/                # File-level version control
-        └── git/                        # Git-specific operations
-            ├── branch.sh               # Branch management
-            ├── commit.sh               # Commit operations
-            ├── repo.sh                 # Repository validation
-            ├── staging.sh              # Staging/index operations
-            ├── synch.sh                # Synchronization utilities
-            └── working_tree.sh         # Working tree state
+        ├── git/                        # Git-specific operations
+        │   ├── branch.sh               # Branch management
+        │   ├── commit.sh               # Commit operations
+        │   ├── repo.sh                 # Repository validation
+        │   ├── staging.sh              # Staging/index operations
+        │   ├── synch.sh                # Synchronization utilities
+        │   └── working_tree.sh         # Working tree state
+        └── github/                     # GitHub issue/PR helper functions
+            └── issue_helpers.sh        # Shared issue linking/status comment helpers
 ```
 
 ## Files
@@ -53,7 +57,9 @@ Utility libraries are organized by **scope and tool**:
 
 - **`automation/`** - Shared automation policy primitives (file classifiers, scope/crate resolution, Rust checks)
 - **`core/`** - Core utilities used across all scripts (logging, commands, files, strings, network)
+- **`testing/`** - Shared shell test utilities for regression scripts
 - **`versioning/file_versioning/git/`** - Git-specific utilities (repository, branches, commits, etc.)
+- **`versioning/file_versioning/github/`** - Shared GitHub issue/PR helper functions for automation scripts
 
 ## Scope
 
