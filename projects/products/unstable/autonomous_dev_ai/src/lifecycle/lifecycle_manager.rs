@@ -1464,10 +1464,21 @@ impl LifecycleManager {
         self.run_replay.record("security.authz", security_payload);
 
         if !actor_has_dev_role {
-            return Err(AgentError::PolicyViolation(format!(
+            let error = format!(
                 "Actor '{}' is missing required Developer role for action '{}'",
                 self.actor.id, action
-            )));
+            );
+            self.memory.add_failure(
+                self.iteration,
+                "Authorization denied".to_string(),
+                error.clone(),
+                Some("Use an actor identity with Developer role".to_string()),
+            );
+            self.run_replay.record(
+                "security.authz.denied",
+                format!("action={} reason=missing_role", action),
+            );
+            return Err(AgentError::PolicyViolation(error));
         }
 
         if decision.is_allowed() {
@@ -1475,15 +1486,33 @@ impl LifecycleManager {
         }
 
         match decision {
-            AuthzDecision::Deny { reason } => Err(AgentError::PolicyViolation(format!(
-                "Authorization denied for action '{}': {}",
-                action, reason
-            ))),
+            AuthzDecision::Deny { reason } => {
+                let error = format!("Authorization denied for action '{}': {}", action, reason);
+                self.memory.add_failure(
+                    self.iteration,
+                    "Authorization denied".to_string(),
+                    error.clone(),
+                    Some("Adjust policy pack/actor permissions for this action".to_string()),
+                );
+                self.run_replay.record(
+                    "security.authz.denied",
+                    format!("action={} reason=deny", action),
+                );
+                Err(AgentError::PolicyViolation(error))
+            }
             AuthzDecision::RequiresEscalation { required_role } => {
-                Err(AgentError::PolicyViolation(format!(
-                    "Action '{}' requires escalation: {}",
-                    action, required_role
-                )))
+                let error = format!("Action '{}' requires escalation: {}", action, required_role);
+                self.memory.add_failure(
+                    self.iteration,
+                    "Authorization escalation required".to_string(),
+                    error.clone(),
+                    Some("Run with required escalation role".to_string()),
+                );
+                self.run_replay.record(
+                    "security.authz.denied",
+                    format!("action={} reason=requires_escalation", action),
+                );
+                Err(AgentError::PolicyViolation(error))
             }
             AuthzDecision::Allow => Ok(()),
         }
