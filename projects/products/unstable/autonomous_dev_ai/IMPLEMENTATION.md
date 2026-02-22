@@ -1,242 +1,124 @@
-# Autonomous Developer AI - Implementation Summary
+# Autonomous Developer AI - Implementation Status
+
+## Scope
+
+This document tracks real implementation status for `projects/products/unstable/autonomous_dev_ai`, with emphasis on issue `#647`.
+
+It intentionally avoids forward-looking claims presented as already completed.
+
+## Current Reality
+
+Implemented today:
+
+- lifecycle core with retries, failure handling, checkpoints, and terminal states
+- symbolic policy validation + authz checks before tool execution
+- risk gates (low/medium/high) and explicit high-risk approval token path
+- tool wrappers for repository read, tests, git operations, and PR description generation
+- run replay + audit logs + memory/persistence indices
+- PR/review orchestration primitives and merge-readiness evaluation
+
+Still partial:
+
+- full real GitHub PR/review execution path remains incomplete
+- acceptance-level integration/regression matrix for `#647` remains pending
+- some operational hardening tracks are still in progress (see issues `#651`-`#655`)
+
+## Recent Progress (during #647 hardening)
+
+- `run_tests` no longer returns synthetic success fallback; it now resolves to real command execution path with timeout.
+- tool execution now propagates exit code information through lifecycle metadata and run report artifacts.
+- `git_commit` wrapper received stricter safety checks (forbidden force/destructive flags).
+- tool timeout execution now attempts explicit process termination on timeout and returns clearer diagnostics.
+- repository exploration now inspects real filesystem entries (configurable root + bounded entry count), with optional fail-closed mode.
+- post-execution tool result contract checks now enforce `success/exit_code/error` consistency.
+- lifecycle PR/review flow reduced simulated behavior:
+  - no synthetic PR number derived from issue number
+  - strict mode can require explicit PR number (`AUTONOMOUS_REQUIRE_PR_NUMBER=true`)
+  - review loop no longer consumes budget on empty feedback batches
+- review loop can optionally fetch structured feedback from real PR context via `gh pr view` (`AUTONOMOUS_FETCH_REVIEW_FROM_GH=true`) when a PR number is available, with explicit source tracking in run metadata
+- strict fail-closed controls added for non-interactive operation:
+  - `AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true` enforces a PR actually created by runtime (not only injected number)
+  - `AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true` enforces review input from GitHub PR context
+- runtime requirements are now validated fail-fast at run start to reject inconsistent settings before state execution
+- PR metadata can now optionally ingest CI/check status from GitHub (`AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH=true`) with optional fail-closed enforcement (`AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true`)
+- run report now exposes PR provenance (`real_pr_created`, `pr_number_source`, `pr_ci_status`) for stricter auditability
+- a reproducible CI-like fixture scenario is available via `scripts/run_ci_like_fixture.sh` and emits run-report/replay/audit artifacts for manual validation
+- objective evaluation now enforces SLO gating only when explicitly requested (`AUTONOMOUS_ENFORCE_SLO_DURING_OBJECTIVE_EVAL=true`) to prevent iterative pre-terminal deadlocks
+- PR creation path can now fetch issue context (`title/body`) from GitHub (`AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH=true`) with optional fail-closed mode (`AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED=true`), and reports context provenance
+- strict issue compliance gating is now available during PR stage (`AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true`) to block non-conformant issue metadata from proceeding
+- run report now includes failure distribution telemetry (`failure_kind_counts`, `top_failure_kind`) and last recovery hint (`last_failure_recovery_action`) for safer autonomous operations
+
+## Neural Governance Progress (issue #651)
+
+Implemented:
+
+- model rollout now enforces explicit offline and online evaluation gates before serving/promotion (`Pending -> Canary -> Production`)
+- rollout thresholds/scores are runtime-configurable (`AUTONOMOUS_NEURAL_OFFLINE_MIN_SCORE`, `AUTONOMOUS_NEURAL_ONLINE_MIN_SCORE`, `AUTONOMOUS_NEURAL_MIN_CONFIDENCE`, `AUTONOMOUS_NEURAL_OFFLINE_SCORE`, `AUTONOMOUS_NEURAL_ONLINE_SCORE`)
+- rollout scores can be sourced from a JSON snapshot file (`AUTONOMOUS_NEURAL_EVAL_FILE`) for less synthetic governance inputs, with env fallback
+- active governed model is now selectable at runtime (`AUTONOMOUS_NEURAL_MODEL_NAME`) instead of hardcoded `default-neural`
+- JSON snapshot input supports single-model object and multi-model payloads (array or `{ "models": [...] }`)
+- neural serving path now fails closed to symbolic fallback when a model is not promoted or confidence is below thresholds
+- drift detection triggers immediate rollback to `RolledBack` and disables serving for the impacted model
+- rollout gate states and rollback reason are traced in run replay for auditability
+- unit tests now cover:
+  - gate enforcement before canary/production promotion
+  - fallback on low confidence and non-promoted state
+  - rollback behavior on drift detection
+
+Still partial:
+
+- offline/online evaluation currently uses local score gates and not yet external benchmark/production telemetry feeds
+- rollout policy remains single-model default (`default-neural`) and needs extension for multi-model runtime governance
+
+## Ops / Observability Progress (issue #652)
+
+Implemented:
+
+- run report now carries queryable action-level metrics (`tool_metrics`) with executions, failures, avg/p95/max durations
+- SLO/SLI definitions and evaluator are active for run success, policy safety, latency, test pass, and recovery time
+- run replay persists full causal timeline in both JSON and reconstructed text forms
+- incident runbook covers top autonomous failure classes (policy, timeout, circuit breaker, drift, stuck states)
+- operational dashboard artifacts are generated each run:
+  - JSON dashboard (`AUTONOMOUS_OPS_DASHBOARD_JSON_PATH`)
+  - Markdown dashboard (`AUTONOMOUS_OPS_DASHBOARD_MD_PATH`)
+- alert signals are computed from run metrics (`alerts` in run report/dashboard) for policy violations, authz denials, risk gate denials, and non-Done terminal states
+
+Still partial:
+
+- alerting remains artifact/telemetry-driven and not yet wired to an external pager/notification backend in this crate
+
+## PR Flow Progress (issue #653)
+
+Implemented:
+
+- deterministic PR metadata path with rendered closure footer and explicit metadata provenance in run report (`pr_number_source`, `issue_context_source`, `pr_readiness`)
+- issue-noncompliance closure neutralization path (`<keyword> Rejected #<issue>`) with keyword preservation (`Closes`, `Fixes`, etc.)
+- review feedback ingestion supports iterative loops with explicit stop criteria (`Timeout` after review iteration budget)
+- merge readiness aggregation gates CI status, policy compliance, and issue compliance
+- end-to-end binary tests now cover:
+  - multi-iteration review loop with timeout/blocked termination
+  - nominal review-approved path with merge readiness resolving to `ready`
+
+## Security / Authz Progress (issue #654)
 
-## Overview
+Implemented:
 
-Successfully implemented a fully autonomous, goal-driven developer AI capable of replacing a human developer for scoped tasks. The implementation follows the strict requirements outlined in the issue, including cognitive autonomy, execution constraints, neuro-symbolic architecture, multi-objective reasoning, and serializable cognition.
+- actor identity now supports runtime propagation (`AUTONOMOUS_ACTOR_ID`, `AUTONOMOUS_ACTOR_ROLES`, `AUTONOMOUS_RUN_ID`) and is reported in run artifacts (`actor_id`, `actor_roles`)
+- fine-grained authz checks now guard:
+  - unsafe file path access attempts for `read_file`
+  - forbidden git flags on `git_*` and `run_tests` execution paths
+  - external actions (`create_pr`, `generate_pr_description`) behind explicit opt-in (`AUTONOMOUS_ALLOW_EXTERNAL_ACTIONS=true`)
+- policy pack runtime override flow remains signed/verified, with fingerprint recorded in run report
+- escalation approval pathway is now explicit (`AUTONOMOUS_ESCALATION_APPROVAL_ROLE`, `AUTONOMOUS_ESCALATION_APPROVAL_TOKEN`, `AUTONOMOUS_EXPECTED_ESCALATION_TOKEN`)
+- security-focused tests now cover read-only actor privilege denial and external action guard bypass attempt
 
-## Key Statistics
+## Known Gaps vs #647 Acceptance Criteria
 
-- **Lines of Code**: ~1,793 lines
-- **Files Created**: 20 files
-- **Tests Written**: 7 integration tests
-- **Test Pass Rate**: 100%
-- **Clippy Warnings**: 0
-- **Acceptance Criteria Met**: 7/7 (100%)
+- full non-interactive PR flow with real platform integration still incomplete
+- required integration/regression test matrix is not yet finalized (by plan, tests are handled last in this branch phase)
+- README/implementation docs must continue to be updated whenever behavior changes
 
-## Architecture Implemented
+## Working Rule
 
-### 1. Symbolic Control Layer (Authoritative)
-
-**Location**: `src/symbolic/`
-
-- **State Machine**: 13 states (Idle → Done/Blocked/Failed)
-- **Policy Engine**: Validates all actions, blocks forbidden operations
-- **Multi-Objective Evaluator**: Scores against 5 objectives (3 hard, 2 soft)
-- **Planner**: Creates and validates execution plans
-- **Validator**: Ensures all actions comply with rules
-
-**Key Features**:
-
-- CPU-only, deterministic, reproducible
-- Final authority on all decisions
-- Can completely disable neural layer
-
-### 2. Neural Computation Layer (Advisory)
-
-**Location**: `src/neural/`
-
-- **Proposal System**: Suggests actions with confidence scores
-- **GPU/CPU Fallback**: Automatic fallback when GPU unavailable
-- **Uncertainty Estimation**: Provides confidence metrics
-- **Hot-swappable Models**: Can switch between model versions
-
-**Key Features**:
-
-- Never executes directly
-- All outputs validated by symbolic layer
-- Can be completely disabled (tested in symbolic-only mode)
-
-### 3. Configuration System
-
-**Location**: `src/config.rs`
-
-- **Dual Format**: `.ron` (human-readable) and `.bin` (efficient)
-- **Fallback Mechanism**: Automatic .bin → .ron → default
-- **Deterministic Rebuild**: .ron → .bin conversion
-
-**Configuration Includes**:
-
-- Agent name and execution mode
-- Neural settings (enabled, GPU preference, models)
-- Symbolic settings (strict validation, deterministic)
-- Objectives with weights, thresholds, hard/soft flags
-
-### 4. Memory Graph
-
-**Location**: `src/memory.rs`
-
-- **Explored Files**: Tracks repository navigation
-- **Plans**: Records all generated plans
-- **Decisions**: Logs neural suggestions vs symbolic choices
-- **Failures**: Records errors and recovery actions
-- **Objective Evaluations**: Tracks scores per iteration
-
-**Serialization**: Both .ron and .bin formats
-
-### 5. Multi-Objective System
-
-**Location**: `src/objectives.rs`
-
-**Default Objectives**:
-
-1. `task_completion` (weight: 1.0, hard, threshold: 1.0)
-2. `policy_safety` (weight: 1.0, hard, threshold: 1.0)
-3. `tests_pass` (weight: 0.9, hard, threshold: 1.0)
-4. `minimal_diff` (weight: 0.6, soft)
-5. `time_budget` (weight: 0.4, soft)
-
-**Features**:
-
-- Hard constraints cannot be violated
-- Weighted scoring for soft objectives
-- Per-iteration evaluation tracking
-
-### 6. Tool System
-
-**Location**: `src/tools/`
-
-**Implemented Tools**:
-
-- `RepoReader`: Read repository files
-- `TestRunner`: Execute tests
-- `GitWrapper`: Git operations (no force-push)
-
-**Tool Properties**:
-
-- Allowlist-based execution
-- Reversibility tracking
-- Action logging
-- Policy validation
-
-### 7. Audit System
-
-**Location**: `src/audit.rs`
-
-**Logged Events**:
-
-- State transitions
-- Tool executions
-- Neural suggestions
-- Symbolic decisions
-- File modifications
-- Objective evaluations
-
-**Format**: JSON lines for easy parsing
-
-### 8. Agent Lifecycle
-
-**Location**: `src/lifecycle.rs`
-
-**Lifecycle Flow**:
-
-1. LoadConfig → LoadMemory → ReceiveGoal
-2. ExploreRepository → GeneratePlan
-3. ExecuteStep → Verify → EvaluateObjectives
-4. Loop or proceed to PrCreation
-5. ReviewFeedback → Done
-
-**Features**:
-
-- Autonomous iteration (minimum 2 iterations)
-- Retry on hard objective failure
-- CI can stop execution
-- Complete state preservation
-
-## Acceptance Criteria Status
-
-✅ **All 7 criteria met:**
-
-1. ✅ **Complete 2+ autonomous fix iterations**: Tested in `test_autonomous_iterations`
-2. ✅ **Open PR without human intervention**: Implemented in lifecycle, creates PR with metadata
-3. ✅ **Respect all hard objectives**: Policy engine enforces, tested in `test_objectives_evaluation`
-4. ✅ **Serialize/reload full state**: Tested in `test_state_save_and_load` with .ron and .bin
-5. ✅ **Run with neural disabled**: Tested in `test_symbolic_only_mode`
-6. ✅ **CI can stop the agent**: State machine respects terminal states
-7. ✅ **Logs sufficient to replay reasoning**: Comprehensive audit trail with all events
-
-## Safety Features
-
-### Policy Enforcement
-
-- Forbidden patterns: `force-push`, `rm -rf`, `/etc/`, `sudo`
-- Allowlist of tools
-- Symbolic validation of all neural proposals
-
-### Hard Constraints
-
-- Task completion must be achieved
-- Policy safety must be maintained
-- Tests must pass
-- Agent cannot bypass these
-
-### Audit Trail
-
-- Every action logged with timestamp
-- Neural suggestions logged separately from symbolic decisions
-- Complete state transitions tracked
-- File modifications recorded
-
-## Example Usage
-
-```bash
-# Run the agent
-cargo run -p autonomous_dev_ai -- \
-  "Fix the failing tests" \
-  ./agent_config \
-  ./audit.log
-
-# Configuration is auto-generated on first run
-# State is saved to agent_config_state.{ron,bin}
-# Audit log written to audit.log
-```
-
-## Testing
-
-**Integration Tests** (7 tests, all passing):
-
-1. `test_agent_creation`: Basic agent instantiation
-2. `test_config_serialization`: .ron/.bin config handling
-3. `test_state_save_and_load`: State persistence
-4. `test_symbolic_only_mode`: Neural-disabled operation
-5. `test_autonomous_iterations`: 2+ iteration requirement
-6. `test_policy_enforcement`: Forbidden action blocking
-7. `test_objectives_evaluation`: Multi-objective scoring
-
-## Code Quality
-
-- **Cargo check**: ✅ Passes
-- **Cargo test**: ✅ All tests pass
-- **Cargo clippy**: ✅ 0 warnings
-- **Cargo fmt**: ✅ Properly formatted
-- **Workspace integration**: ✅ No conflicts
-
-## Future Enhancements
-
-While the core architecture is complete, future work could include:
-
-1. **Real Neural Models**: Integrate actual LLM/code generation models
-2. **Git/GitHub API**: Real git operations and PR creation
-3. **Advanced Tools**: More sophisticated code analysis and modification
-4. **CI Integration**: Actual GitHub Actions integration
-5. **Plan Optimization**: More sophisticated planning algorithms
-6. **Parallel Execution**: Run multiple actions concurrently
-
-## Design Principles Satisfied
-
-✅ **Cognitive Autonomy**: Agent decides next steps without prompts
-✅ **Execution Non-Freedom**: All actions through policies/hooks/audit
-✅ **Neuro-Symbolic Split**: Clear separation with symbolic authority
-✅ **Multi-Objective Reasoning**: 5 competing objectives optimized
-✅ **Serializable Cognition**: Full state in .ron/.bin formats
-
-## Conclusion
-
-This implementation provides a solid foundation for an autonomous developer AI that is:
-
-- **Safe**: Policy-bound, audit-logged, constraint-respecting
-- **Autonomous**: Makes decisions, iterates, handles failures
-- **Transparent**: Complete audit trail, human-readable state
-- **Testable**: Comprehensive test coverage
-- **Extensible**: Clear architecture for future enhancements
-
-The system is production-ready for the unstable products directory and can serve as a proof-of-concept for more advanced autonomous development systems.
+Any claim in this file must be backed by current code behavior in this crate.  
+If a capability is partial, it must be labeled partial.

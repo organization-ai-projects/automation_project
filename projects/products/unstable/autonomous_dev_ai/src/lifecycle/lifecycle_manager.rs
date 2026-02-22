@@ -1,0 +1,4233 @@
+//projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_manager.rs
+// Agent lifecycle implementation - production-grade flow.
+use super::process_usage::ProcessUsage;
+use super::run_report::{OpsAlert, ToolMetricSnapshot};
+use super::{
+    Checkpoint, CircuitBreaker, CompensationKind, ExecutionContext, IterationNumber,
+    LifecycleError, LifecycleMetrics, LifecycleResult, MaxIterations, MetricsCollector,
+    ResourceBudget, ResourceType, RetryStrategy, RollbackManager, RunReport, StepIndex,
+    validation_strategy::select_validation_command,
+};
+
+use crate::agent_config::AgentConfig;
+use crate::audit_logger::AuditLogger;
+use crate::error::{AgentError, AgentResult};
+use crate::ids::{IssueNumber, ParentRef, PrNumber};
+use crate::lifecycle::{ActionRiskLevel, LearningContext};
+use crate::memory::FailureEntry;
+use crate::memory_graph::MemoryGraph;
+use crate::neural::{
+    DriftDetector, IntentInterpretation, ModelEvaluationSnapshot, ModelGovernance, ModelVersion,
+    NeuralLayer, NeuralModel,
+};
+use crate::objective_evaluator::ObjectiveEvaluator;
+use crate::ops::{IncidentRunbook, RunReplay, SloEvaluator};
+use crate::path_types::CheckpointPath;
+use crate::pr_flow::{
+    CiStatus, IssueComplianceStatus, MergeReadiness, PrOrchestrator, ReviewComment, ReviewOutcome,
+};
+use crate::runtime_lock::RuntimeLockGuard;
+use crate::security::{ActorIdentity, AuthzDecision, AuthzEngine, PolicyPack, SecurityAuditRecord};
+use crate::state::AgentState;
+use crate::symbolic::{
+    IssueClassificationInput, Plan, PlanStep, PolicyEngine, SymbolicController, Validator,
+};
+use crate::timeout::Timeout;
+use crate::tools::{
+    GitWrapper, PrDescriptionGenerator, RepoReader, TestRunner, ToolRegistry, ToolResult,
+};
+use crate::value_types::{ActionName, ActionOutcomeSummary, StateLabel};
+
+use std::collections::HashMap;
+use std::process::Command;
+use std::time::{Duration, Instant};
+
+/// Agent lifecycle manager.
+pub struct LifecycleManager {
+    // Public fields preserved for compatibility with existing callers/tests.
+    pub state: AgentState,
+    pub config: AgentConfig,
+    pub memory: MemoryGraph,
+    pub symbolic: SymbolicController,
+    pub neural: NeuralLayer,
+    pub model_governance: ModelGovernance,
+    pub policy: PolicyEngine,
+    pub authz: AuthzEngine,
+    pub actor: ActorIdentity,
+    pub pr_orchestrator: Option<PrOrchestrator>,
+    pub tools: ToolRegistry,
+    pub audit: AuditLogger,
+    pub iteration: usize,
+    pub current_plan: Option<Plan>,
+    pub current_step: usize,
+    pub max_iterations: usize,
+
+    // Typed execution state.
+    current_iteration_number: IterationNumber,
+    max_iterations_limit: MaxIterations,
+    current_step_index: StepIndex,
+    execution_context: Option<ExecutionContext>,
+
+    // Resilience and observability.
+    circuit_breakers: HashMap<String, CircuitBreaker>,
+    retry_strategy: RetryStrategy,
+    metrics: MetricsCollector,
+    run_replay: RunReplay,
+    slo_evaluator: SloEvaluator,
+    incident_runbook: IncidentRunbook,
+    policy_pack: PolicyPack,
+    resource_budget: ResourceBudget,
+    rollback_manager: RollbackManager,
+    checkpoint_path: CheckpointPath,
+    last_intent: Option<IntentInterpretation>,
+    drift_detector: DriftDetector,
+    neural_eval_source: String,
+    active_neural_model_name: String,
+
+    // Timeouts.
+    global_timeout: Timeout,
+    iteration_timeout: Timeout,
+    tool_timeout: Timeout,
+}
+
+impl LifecycleManager {
+    pub(crate) fn extract_issue_number_from_goal(goal: &str) -> Option<IssueNumber> {
+        let bytes = goal.as_bytes();
+        let mut i = 0usize;
+
+        while i < bytes.len() {
+            if bytes[i] == b'#' {
+                let start = i + 1;
+                let mut end = start;
+                while end < bytes.len() && bytes[end].is_ascii_digit() {
+                    end += 1;
+                }
+                if end > start {
+                    let raw = goal[start..end].parse::<u64>().ok()?;
+                    return IssueNumber::new(raw);
+                }
+            }
+            i += 1;
+        }
+        None
+    }
+
+    pub fn new(config: AgentConfig, audit_log_path: &str) -> Self {
+        let max_iterations_limit =
+            MaxIterations::new(config.max_iterations).unwrap_or_else(MaxIterations::default_value);
+        let global_timeout = Timeout::from_secs(config.timeout_seconds.unwrap_or(3600));
+
+        let objectives = config.objectives.clone();
+        let evaluator = ObjectiveEvaluator::new(objectives);
+
+        let symbolic = SymbolicController::new(
+            evaluator,
+            config.symbolic.strict_validation,
+            config.symbolic.deterministic,
+        );
+
+        let neural = NeuralLayer::new(
+            config.neural.enabled,
+            config.neural.prefer_gpu,
+            config.neural.cpu_fallback,
+        );
+        let mut model_governance = ModelGovernance::new();
+        let active_neural_model_name = std::env::var("AUTONOMOUS_NEURAL_MODEL_NAME")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| "default-neural".to_string());
+        model_governance.registry.register(ModelVersion::new(
+            active_neural_model_name.clone(),
+            "0.1.0",
+            "builtin://heuristic",
+            0.7,
+        ));
+        let offline_min = env_f64_or("AUTONOMOUS_NEURAL_OFFLINE_MIN_SCORE", 0.8);
+        let online_min = env_f64_or("AUTONOMOUS_NEURAL_ONLINE_MIN_SCORE", 0.85);
+        let confidence_min = env_f64_or("AUTONOMOUS_NEURAL_MIN_CONFIDENCE", 0.7);
+        model_governance.offline_eval_min_score = offline_min;
+        model_governance.online_eval_min_score = online_min;
+        model_governance.confidence_gate.min_confidence = confidence_min;
+
+        let mut neural_eval_source = "env".to_string();
+        let mut offline_score = env_f64_or("AUTONOMOUS_NEURAL_OFFLINE_SCORE", 1.0);
+        let mut online_score = env_f64_or("AUTONOMOUS_NEURAL_ONLINE_SCORE", 1.0);
+        if let Ok(path) = std::env::var("AUTONOMOUS_NEURAL_EVAL_FILE")
+            && !path.trim().is_empty()
+        {
+            match ModelEvaluationSnapshot::load_scores_for_model(&path, &active_neural_model_name) {
+                Ok(Some((offline, online))) => {
+                    offline_score = offline;
+                    online_score = online;
+                    neural_eval_source = format!("file:{path}");
+                }
+                Ok(None) => {
+                    tracing::warn!(
+                        "No neural evaluation snapshot found for model '{}' in '{}', using env scores",
+                        active_neural_model_name,
+                        path
+                    );
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        "Failed to load AUTONOMOUS_NEURAL_EVAL_FILE '{}': {}. Falling back to env scores.",
+                        path,
+                        err
+                    );
+                }
+            }
+        }
+
+        let _ = model_governance.evaluate_offline(&active_neural_model_name, offline_score);
+        let _ = model_governance.promote_after_offline_gate(&active_neural_model_name);
+
+        let _ = model_governance.evaluate_online(&active_neural_model_name, online_score);
+        let _ = model_governance.promote_after_online_gate(&active_neural_model_name);
+
+        let policy = PolicyEngine::new();
+        let authz = AuthzEngine::new();
+        let actor = ActorIdentity::from_env_or_default();
+        let run_replay = RunReplay::new(actor.run_id.clone());
+        let slo_evaluator = SloEvaluator::new(SloEvaluator::default_slos());
+        let incident_runbook = IncidentRunbook::default_runbook();
+        let policy_pack = PolicyPack::default();
+        let max_cpu_seconds = env_u64_or(
+            "AUTONOMOUS_MAX_CPU_SECONDS",
+            global_timeout.duration.as_secs(),
+        );
+        let max_rss_mb = env_u64_or("AUTONOMOUS_MAX_RSS_MB", 2048);
+        let max_rss_bytes = usize::try_from(max_rss_mb)
+            .ok()
+            .and_then(|mb| mb.checked_mul(1024 * 1024))
+            .unwrap_or(usize::MAX);
+        let resource_budget = ResourceBudget::new(
+            global_timeout.duration,
+            Duration::from_secs(max_cpu_seconds),
+            max_rss_bytes,
+            max_iterations_limit.get(),
+            500,
+        );
+        let rollback_manager = RollbackManager::new();
+        let checkpoint_path = std::env::var("AUTONOMOUS_CHECKPOINT_PATH")
+            .ok()
+            .and_then(CheckpointPath::new)
+            .unwrap_or_else(|| {
+                CheckpointPath::new("agent_checkpoint.json").expect("static path is valid")
+            });
+        let drift_detector = DriftDetector::default();
+
+        let mut tools = ToolRegistry::new();
+        tools.register(Box::new(RepoReader));
+        tools.register(Box::new(TestRunner));
+        tools.register(Box::new(GitWrapper));
+        tools.register(Box::new(PrDescriptionGenerator));
+
+        Self {
+            state: AgentState::Idle,
+            config,
+            memory: MemoryGraph::new(),
+            symbolic,
+            neural,
+            model_governance,
+            policy,
+            authz,
+            actor,
+            pr_orchestrator: None,
+            tools,
+            audit: AuditLogger::new(audit_log_path),
+            iteration: IterationNumber::first().get(),
+            current_plan: None,
+            current_step: StepIndex::zero().get(),
+            max_iterations: max_iterations_limit.get(),
+            current_iteration_number: IterationNumber::first(),
+            max_iterations_limit,
+            current_step_index: StepIndex::zero(),
+            execution_context: None,
+            circuit_breakers: HashMap::new(),
+            retry_strategy: RetryStrategy::default()
+                .with_delays(Duration::from_millis(200), Duration::from_secs(5)),
+            metrics: MetricsCollector::new(),
+            run_replay,
+            slo_evaluator,
+            incident_runbook,
+            policy_pack,
+            resource_budget,
+            rollback_manager,
+            checkpoint_path,
+            last_intent: None,
+            drift_detector,
+            neural_eval_source,
+            active_neural_model_name,
+            global_timeout,
+            iteration_timeout: Timeout::from_secs(300),
+            tool_timeout: Timeout::from_secs(30),
+        }
+    }
+
+    /// Run the lifecycle with typed errors, retries, and metrics.
+    pub fn run(&mut self, goal: &str) -> LifecycleResult<()> {
+        let start_time = Instant::now();
+        let runtime_lock_path = std::env::var("AUTONOMOUS_RUNTIME_LOCK_PATH")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| format!("{}.runtime.lock", self.checkpoint_path.as_str()));
+        let run_id = self.actor.run_id.to_string();
+        let _runtime_lock =
+            RuntimeLockGuard::acquire(&runtime_lock_path, &run_id).map_err(|e| {
+                LifecycleError::Fatal {
+                    iteration: 0,
+                    error: AgentError::State(format!(
+                        "Failed to acquire runtime lock '{}': {}",
+                        runtime_lock_path, e
+                    )),
+                    context: "Runtime lock acquisition failed".to_string(),
+                }
+            })?;
+
+        self.run_replay = RunReplay::new(self.actor.run_id.clone());
+        let resumed_from_checkpoint = self
+            .memory
+            .metadata
+            .get("checkpoint.loaded")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+        if !resumed_from_checkpoint {
+            self.set_iteration_number(IterationNumber::first());
+        }
+        self.current_plan = None;
+        self.reset_step_index();
+        self.pr_orchestrator = None;
+        self.rollback_manager = RollbackManager::new();
+        self.last_intent = None;
+        self.drift_detector = DriftDetector::default();
+        self.run_replay.record("lifecycle.start", goal);
+        if resumed_from_checkpoint {
+            let resumed_iteration = self
+                .memory
+                .metadata
+                .get("checkpoint.loaded_iteration")
+                .cloned()
+                .unwrap_or_else(|| self.current_iteration_number.get().to_string());
+            self.run_replay.record(
+                "checkpoint.loaded",
+                format!("resume=true iteration={}", resumed_iteration),
+            );
+        }
+        self.run_replay.record(
+            "runtime.lock.acquired",
+            _runtime_lock.path().display().to_string(),
+        );
+        self.memory.metadata.insert(
+            "runtime_lock_path".to_string(),
+            _runtime_lock.path().display().to_string(),
+        );
+        if let Some(hold_ms) = std::env::var("AUTONOMOUS_HOLD_LOCK_MS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .filter(|v| *v > 0)
+        {
+            std::thread::sleep(Duration::from_millis(hold_ms));
+        }
+        self.run_replay
+            .record("lifecycle.checkpoint_path", self.checkpoint_path.as_str());
+        self.run_replay.record(
+            "symbolic.mode",
+            format!(
+                "strict_validation={} deterministic={}",
+                self.symbolic.strict_validation, self.symbolic.deterministic
+            ),
+        );
+        if let Some(state) = self
+            .model_governance
+            .registry
+            .state(&self.active_neural_model_name)
+        {
+            self.run_replay
+                .record("neural.rollout_state", format!("{:?}", state));
+        }
+        self.run_replay.record(
+            "neural.rollout_gates",
+            format!(
+                "model={} offline_passed={} online_passed={}",
+                self.active_neural_model_name,
+                self.model_governance
+                    .registry
+                    .offline_gate_passed(&self.active_neural_model_name),
+                self.model_governance
+                    .registry
+                    .online_gate_passed(&self.active_neural_model_name)
+            ),
+        );
+        self.run_replay.record(
+            "neural.rollout_eval_source",
+            self.neural_eval_source.clone(),
+        );
+        self.configure_policy_pack_from_env()
+            .map_err(|e| LifecycleError::Fatal {
+                iteration: 0,
+                error: e,
+                context: "Failed to configure policy pack from runtime overrides".to_string(),
+            })?;
+        self.validate_runtime_requirements()
+            .map_err(|e| LifecycleError::Fatal {
+                iteration: 0,
+                error: e,
+                context: "Failed runtime requirement validation".to_string(),
+            })?;
+        self.run_replay
+            .record("policy_pack.fingerprint", self.policy_pack.fingerprint());
+
+        tracing::info!("=== Starting Agent Lifecycle ===");
+        tracing::info!("Goal: {}", goal);
+        tracing::info!("Max iterations: {}", self.max_iterations_limit.get());
+        tracing::info!("Global timeout: {:?}", self.global_timeout);
+
+        self.transition_to(AgentState::LoadConfig)
+            .map_err(|e| LifecycleError::Fatal {
+                iteration: 0,
+                error: e,
+                context: "Failed to load config".to_string(),
+            })?;
+
+        self.transition_to(AgentState::LoadMemory)
+            .map_err(|e| LifecycleError::Fatal {
+                iteration: 0,
+                error: e,
+                context: "Failed to load memory".to_string(),
+            })?;
+
+        self.transition_to(AgentState::ReceiveGoal)
+            .map_err(|e| LifecycleError::Fatal {
+                iteration: 0,
+                error: e,
+                context: "Failed to receive goal".to_string(),
+            })?;
+
+        self.memory
+            .metadata
+            .insert("goal".to_string(), goal.to_string());
+
+        let result = self.execute_main_loop(start_time);
+
+        self.metrics.log_summary();
+
+        if let Err(e) = self
+            .audit
+            .log_final_state(&format!("{:?}", self.state), self.iteration)
+        {
+            tracing::error!("Failed to log final state: {}", e);
+        }
+
+        self.persist_run_replay_artifacts();
+        self.persist_run_report_artifact();
+
+        tracing::info!("=== Agent Lifecycle Complete ===");
+        tracing::info!("Final state: {:?}", self.state);
+        tracing::info!("Total iterations: {}", self.iteration);
+        tracing::info!("Total duration: {:?}", start_time.elapsed());
+        let reversible = self.rollback_manager.reversible_actions().len();
+        let irreversible = self.rollback_manager.irreversible_actions().len();
+        self.run_replay.record(
+            "rollback.summary",
+            format!("reversible={} irreversible={}", reversible, irreversible),
+        );
+        tracing::info!(
+            "Rollback boundaries recorded: reversible={} irreversible={}",
+            reversible,
+            irreversible
+        );
+
+        result
+    }
+
+    pub fn load_checkpoint_if_present(&mut self) -> AgentResult<bool> {
+        match Checkpoint::load(&self.checkpoint_path) {
+            Ok(checkpoint) => {
+                self.set_iteration_number(
+                    IterationNumber::from_usize(checkpoint.iteration)
+                        .unwrap_or_else(IterationNumber::first),
+                );
+                self.memory
+                    .metadata
+                    .insert("checkpoint.loaded".to_string(), "true".to_string());
+                self.memory.metadata.insert(
+                    "checkpoint.loaded_iteration".to_string(),
+                    checkpoint.iteration.to_string(),
+                );
+                self.run_replay.record(
+                    "checkpoint.loaded",
+                    format!(
+                        "run_id={} iteration={} state={}",
+                        checkpoint.run_id, checkpoint.iteration, checkpoint.state_label
+                    ),
+                );
+                Ok(true)
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(err) => Err(AgentError::State(format!(
+                "Failed to load checkpoint '{}': {}",
+                self.checkpoint_path.as_str(),
+                err
+            ))),
+        }
+    }
+
+    fn set_iteration_number(&mut self, value: IterationNumber) {
+        self.current_iteration_number = value;
+        self.iteration = value.get();
+    }
+
+    fn reset_step_index(&mut self) {
+        self.current_step_index = StepIndex::zero();
+        self.current_step = self.current_step_index.get();
+    }
+
+    fn advance_step_index(&mut self) {
+        self.current_step_index = self.current_step_index.increment();
+        self.current_step = self.current_step_index.get();
+    }
+
+    fn persist_run_replay_artifacts(&mut self) {
+        let replay_path = std::env::var("AUTONOMOUS_RUN_REPLAY_PATH")
+            .unwrap_or_else(|_| "agent_run_replay.json".to_string());
+        if let Err(e) = self.run_replay.persist(&replay_path) {
+            tracing::warn!("Failed to persist run replay '{}': {}", replay_path, e);
+        } else {
+            self.memory
+                .metadata
+                .insert("run_replay_path".to_string(), replay_path);
+        }
+
+        let replay_text_path = std::env::var("AUTONOMOUS_RUN_REPLAY_TEXT_PATH")
+            .unwrap_or_else(|_| "agent_run_replay.txt".to_string());
+        if let Err(e) = std::fs::write(&replay_text_path, self.run_replay.reconstruct()) {
+            tracing::warn!(
+                "Failed to persist run replay text '{}': {}",
+                replay_text_path,
+                e
+            );
+        } else {
+            self.memory
+                .metadata
+                .insert("run_replay_text_path".to_string(), replay_text_path);
+        }
+    }
+
+    fn persist_run_report_artifact(&mut self) {
+        let metrics_snapshot = self.metrics.snapshot();
+        let tool_metrics = build_tool_metric_snapshots(&metrics_snapshot);
+        let weighted_objective_score = self
+            .memory
+            .metadata
+            .get("weighted_objective_score")
+            .and_then(|v| v.parse::<f64>().ok());
+        let review_required = std::env::var("AUTONOMOUS_REVIEW_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let create_pr_enabled = std::env::var("AUTONOMOUS_CREATE_PR")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let pr_number = std::env::var("AUTONOMOUS_PR_NUMBER")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .or_else(|| {
+                self.memory
+                    .metadata
+                    .get("created_pr_number")
+                    .and_then(|s| s.parse::<u64>().ok())
+            });
+        let last_failure = self.memory.failures.last();
+        let mut failure_kind_counts: HashMap<String, usize> = HashMap::new();
+        for failure in &self.memory.failures {
+            let kind = classify_failure_entry(failure);
+            *failure_kind_counts.entry(kind).or_insert(0) += 1;
+        }
+        let top_failure_kind = failure_kind_counts
+            .iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(kind, count)| format!("{}:{}", kind, count));
+        let authz_denials_total = self
+            .memory
+            .failures
+            .iter()
+            .filter(|f| {
+                f.description == "Authorization denied"
+                    || f.description == "Authorization escalation required"
+            })
+            .count();
+        let policy_violations_total = self
+            .memory
+            .failures
+            .iter()
+            .filter(|f| {
+                f.description.contains("Policy")
+                    || f.error.contains("policy")
+                    || f.error.contains("Policy")
+            })
+            .count();
+        let dashboard_json_path = std::env::var("AUTONOMOUS_OPS_DASHBOARD_JSON_PATH")
+            .unwrap_or_else(|_| "test_artifacts/agent_ops_dashboard.json".to_string());
+        let dashboard_markdown_path = std::env::var("AUTONOMOUS_OPS_DASHBOARD_MD_PATH")
+            .unwrap_or_else(|_| "test_artifacts/agent_ops_dashboard.md".to_string());
+        let mut report = RunReport {
+            generated_at_secs: RunReport::now_secs(),
+            run_id: self.actor.run_id.to_string(),
+            actor_id: self.actor.id.to_string(),
+            actor_roles: self
+                .actor
+                .roles
+                .iter()
+                .map(|r| format!("{:?}", r))
+                .collect(),
+            final_state: format!("{:?}", self.state),
+            execution_mode: self.config.execution_mode.clone(),
+            neural_enabled: self.neural.enabled,
+            total_iterations: self.current_iteration_number.get(),
+            max_iterations: self.max_iterations_limit.get(),
+            total_decisions: self.memory.decisions.len(),
+            total_failures: self.memory.failures.len(),
+            total_objective_evaluations: self.memory.objective_evaluations.len(),
+            explored_files_count: self.memory.explored_files.len(),
+            last_objective_passed: self.memory.objective_evaluations.last().map(|e| e.passed),
+            weighted_objective_score,
+            run_replay_path: self.memory.metadata.get("run_replay_path").cloned(),
+            run_replay_text_path: self.memory.metadata.get("run_replay_text_path").cloned(),
+            last_tool_failure_class: self.memory.metadata.get("last_tool_failure_class").cloned(),
+            review_required,
+            create_pr_enabled,
+            real_pr_created: self
+                .memory
+                .metadata
+                .get("real_pr_created")
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false),
+            pr_number,
+            pr_number_source: self.memory.metadata.get("pr_number_source").cloned(),
+            pr_ci_status: self.memory.metadata.get("pr_ci_status").cloned(),
+            pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
+            issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
+            issue_context_source: self.memory.metadata.get("issue_context_source").cloned(),
+            pr_description_source: self.memory.metadata.get("pr_description_source").cloned(),
+            last_review_outcome: self.memory.metadata.get("last_review_outcome").cloned(),
+            last_review_input_source: self
+                .memory
+                .metadata
+                .get("last_review_input_source")
+                .cloned(),
+            last_failure_description: last_failure.map(|f| f.description.clone()),
+            last_failure_error: last_failure.map(|f| f.error.clone()),
+            last_failure_recovery_action: last_failure.and_then(|f| f.recovery_action.clone()),
+            failure_kind_counts,
+            top_failure_kind,
+            last_tool_exit_code: self
+                .memory
+                .metadata
+                .get("last_tool_exit_code")
+                .and_then(|v| v.parse::<i32>().ok()),
+            last_tool_name: self.memory.metadata.get("last_tool_name").cloned(),
+            policy_pack_fingerprint: self.memory.metadata.get("policy_pack.fingerprint").cloned(),
+            checkpoint_path: Some(self.checkpoint_path.as_str().to_string()),
+            state_transitions_total: metrics_snapshot.state_transitions_total,
+            tool_executions_total: metrics_snapshot.tool_executions_total,
+            tool_executions_failed: metrics_snapshot.tool_executions_failed,
+            risk_gate_allows: metrics_snapshot.risk_gate_allows,
+            risk_gate_denies: metrics_snapshot.risk_gate_denies,
+            risk_gate_high_approvals: metrics_snapshot.risk_gate_high_approvals,
+            authz_denials_total,
+            policy_violations_total,
+            tool_metrics,
+            alerts: Vec::new(),
+            dashboard_json_path: Some(dashboard_json_path.clone()),
+            dashboard_markdown_path: Some(dashboard_markdown_path.clone()),
+        };
+        report.alerts = build_ops_alerts(&report);
+
+        let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")
+            .unwrap_or_else(|_| "agent_run_report.json".to_string());
+        match serde_json::to_string_pretty(&report) {
+            Ok(json) => {
+                if let Err(e) = std::fs::write(&report_path, json) {
+                    tracing::warn!("Failed to persist run report '{}': {}", report_path, e);
+                } else {
+                    self.memory
+                        .metadata
+                        .insert("run_report_path".to_string(), report_path);
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to serialize run report: {}", e);
+            }
+        }
+
+        self.persist_ops_dashboard_artifacts(
+            &report,
+            &dashboard_json_path,
+            &dashboard_markdown_path,
+        );
+    }
+
+    fn persist_ops_dashboard_artifacts(
+        &mut self,
+        report: &RunReport,
+        dashboard_json_path: &str,
+        dashboard_markdown_path: &str,
+    ) {
+        if let Err(e) = ensure_parent_dir_exists(dashboard_json_path) {
+            tracing::warn!(
+                "Failed to create ops dashboard JSON parent directory for '{}': {}",
+                dashboard_json_path,
+                e
+            );
+        }
+        if let Err(e) = ensure_parent_dir_exists(dashboard_markdown_path) {
+            tracing::warn!(
+                "Failed to create ops dashboard Markdown parent directory for '{}': {}",
+                dashboard_markdown_path,
+                e
+            );
+        }
+
+        match serde_json::to_string_pretty(report) {
+            Ok(json) => {
+                if let Err(e) = std::fs::write(dashboard_json_path, json) {
+                    tracing::warn!(
+                        "Failed to persist ops dashboard JSON '{}': {}",
+                        dashboard_json_path,
+                        e
+                    );
+                } else {
+                    self.memory.metadata.insert(
+                        "ops_dashboard_json_path".to_string(),
+                        dashboard_json_path.to_string(),
+                    );
+                }
+            }
+            Err(e) => tracing::warn!("Failed to serialize ops dashboard JSON: {}", e),
+        }
+
+        let md = format!(
+            "# Autonomous Ops Dashboard\n\n\
+            - Run ID: `{}`\n\
+            - Final State: `{}`\n\
+            - Iterations: `{}` / `{}`\n\
+            - Total Failures: `{}`\n\
+            - Policy Violations: `{}`\n\
+            - Authz Denials: `{}`\n\
+            - Risk Gate Denies: `{}`\n\
+            - Top Failure Kind: `{}`\n\n\
+            ## Alerts\n{}\n\n\
+            ## Tool Metrics\n{}\n",
+            report.run_id,
+            report.final_state,
+            report.total_iterations,
+            report.max_iterations,
+            report.total_failures,
+            report.policy_violations_total,
+            report.authz_denials_total,
+            report.risk_gate_denies,
+            report.top_failure_kind.as_deref().unwrap_or("none"),
+            render_ops_alerts_markdown(&report.alerts),
+            render_tool_metrics_markdown(&report.tool_metrics)
+        );
+
+        if let Err(e) = std::fs::write(dashboard_markdown_path, md) {
+            tracing::warn!(
+                "Failed to persist ops dashboard Markdown '{}': {}",
+                dashboard_markdown_path,
+                e
+            );
+        } else {
+            self.memory.metadata.insert(
+                "ops_dashboard_markdown_path".to_string(),
+                dashboard_markdown_path.to_string(),
+            );
+        }
+    }
+
+    fn execute_main_loop(&mut self, start_time: Instant) -> LifecycleResult<()> {
+        let mut recoverable_attempts = 0usize;
+
+        while !self.state.is_terminal() {
+            self.check_resource_budgets(start_time)?;
+
+            let iteration_start = Instant::now();
+            self.metrics.record_iteration_start();
+
+            let result = self.execute_current_state();
+            let duration = iteration_start.elapsed();
+
+            match result {
+                Ok(()) => {
+                    recoverable_attempts = 0;
+                    self.metrics.record_iteration_success(duration);
+                }
+                Err(err) => {
+                    self.metrics.record_iteration_failure(duration);
+
+                    if err.is_recoverable() {
+                        let delay = err.retry_delay().or_else(|| {
+                            self.retry_strategy.delay_for_attempt(recoverable_attempts)
+                        });
+
+                        if let Some(delay) = delay {
+                            recoverable_attempts = recoverable_attempts.saturating_add(1);
+                            tracing::warn!(
+                                "Recoverable error (attempt {}/{}), retrying in {:?}: {}",
+                                recoverable_attempts,
+                                self.retry_strategy.max_attempts(),
+                                delay,
+                                err
+                            );
+                            std::thread::sleep(delay);
+                            continue;
+                        }
+
+                        tracing::error!("Recoverable error exhausted retries: {}", err);
+                        self.record_runbook_hint_for_error(&err.to_string());
+                    }
+
+                    return Err(err);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn check_resource_budgets(&mut self, start_time: Instant) -> LifecycleResult<()> {
+        if start_time.elapsed() > self.global_timeout.duration {
+            tracing::error!("Global timeout exceeded: {:?}", start_time.elapsed());
+            self.metrics.record_iteration_failure(start_time.elapsed());
+
+            return Err(LifecycleError::Timeout {
+                iteration: self.iteration,
+                elapsed: start_time.elapsed(),
+                limit: self.global_timeout,
+            });
+        }
+
+        let metrics_snapshot = self.metrics.snapshot();
+        if let Some(process_usage) = ProcessUsage::sample() {
+            if process_usage.cpu_time >= self.resource_budget.max_cpu_time {
+                self.record_resource_budget_failure(
+                    format!(
+                        "cpu budget exceeded: cpu_secs={} budget_secs={}",
+                        process_usage.cpu_time.as_secs(),
+                        self.resource_budget.max_cpu_time.as_secs()
+                    ),
+                    Some("reduce workload or increase AUTONOMOUS_MAX_CPU_SECONDS".to_string()),
+                );
+                self.transition_to_failed_state()?;
+                return Err(LifecycleError::ResourceExhausted {
+                    resource: ResourceType::CpuTime,
+                    limit: self.resource_budget.max_cpu_time.as_secs() as usize,
+                    current: process_usage.cpu_time.as_secs() as usize,
+                });
+            }
+
+            if process_usage.rss_bytes >= self.resource_budget.max_rss_bytes {
+                self.record_resource_budget_failure(
+                    format!(
+                        "rss budget exceeded: rss_bytes={} budget_bytes={}",
+                        process_usage.rss_bytes, self.resource_budget.max_rss_bytes
+                    ),
+                    Some("reduce memory pressure or increase AUTONOMOUS_MAX_RSS_MB".to_string()),
+                );
+                self.transition_to_failed_state()?;
+                return Err(LifecycleError::ResourceExhausted {
+                    resource: ResourceType::Memory,
+                    limit: self.resource_budget.max_rss_bytes,
+                    current: process_usage.rss_bytes,
+                });
+            }
+        } else {
+            self.run_replay.record(
+                "runtime.process_usage.unavailable",
+                "CPU/RSS sampling unavailable; skipping cpu/rss budget checks",
+            );
+        }
+
+        let memory_entries = self.memory.explored_files.len()
+            + self.memory.plans.len()
+            + self.memory.decisions.len()
+            + self.memory.failures.len()
+            + self.memory.objective_evaluations.len();
+        let memory_budget = std::env::var("AUTONOMOUS_MAX_MEMORY_ENTRIES")
+            .ok()
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(10_000);
+        if memory_entries >= memory_budget {
+            self.record_resource_budget_failure(
+                format!(
+                    "memory budget exceeded: entries={} budget={}",
+                    memory_entries, memory_budget
+                ),
+                Some(
+                    "reduce retained memory or increase AUTONOMOUS_MAX_MEMORY_ENTRIES".to_string(),
+                ),
+            );
+            self.transition_to_failed_state()?;
+            return Err(LifecycleError::ResourceExhausted {
+                resource: ResourceType::Memory,
+                limit: memory_budget,
+                current: memory_entries,
+            });
+        }
+
+        if let Some(limit_reason) = self.resource_budget.is_exceeded(
+            start_time.elapsed(),
+            self.current_iteration_number.get(),
+            metrics_snapshot.tool_executions_total,
+        ) {
+            let resource = match limit_reason {
+                "runtime budget exceeded" => ResourceType::Time,
+                "tool execution budget exceeded" => ResourceType::ToolExecutions,
+                _ => ResourceType::Iterations,
+            };
+            self.record_resource_budget_failure(
+                limit_reason.to_string(),
+                Some("reduce run scope or increase configured budget".to_string()),
+            );
+            self.transition_to_failed_state()?;
+            return Err(LifecycleError::ResourceExhausted {
+                resource,
+                limit: match resource {
+                    ResourceType::Time => self.resource_budget.max_runtime.as_secs() as usize,
+                    ResourceType::CpuTime => self.resource_budget.max_cpu_time.as_secs() as usize,
+                    ResourceType::Memory => self.resource_budget.max_rss_bytes,
+                    ResourceType::ToolExecutions => self.resource_budget.max_tool_executions,
+                    _ => self.resource_budget.max_iterations,
+                },
+                current: match resource {
+                    ResourceType::Time => start_time.elapsed().as_secs() as usize,
+                    ResourceType::CpuTime => ProcessUsage::sample()
+                        .map(|usage| usage.cpu_time.as_secs() as usize)
+                        .unwrap_or_default(),
+                    ResourceType::Memory => ProcessUsage::sample()
+                        .map(|usage| usage.rss_bytes)
+                        .unwrap_or_default(),
+                    ResourceType::ToolExecutions => metrics_snapshot.tool_executions_total,
+                    _ => self.current_iteration_number.get(),
+                },
+            });
+        }
+
+        self.check_iteration_budget()?;
+
+        Ok(())
+    }
+
+    fn validate_runtime_requirements(&mut self) -> AgentResult<()> {
+        let create_pr_enabled = std::env::var("AUTONOMOUS_CREATE_PR")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let create_pr_required = std::env::var("AUTONOMOUS_CREATE_PR_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let require_real_pr_creation = std::env::var("AUTONOMOUS_REQUIRE_REAL_PR_CREATION")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_review_from_gh = std::env::var("AUTONOMOUS_FETCH_REVIEW_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let require_gh_review_source = std::env::var("AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_pr_ci_status = std::env::var("AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_pr_ci_status_required = std::env::var("AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_issue_context_from_gh = std::env::var("AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_issue_context_required = std::env::var("AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let require_issue_compliance = std::env::var("AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+
+        if create_pr_required && !create_pr_enabled {
+            return Err(AgentError::State(
+                "AUTONOMOUS_CREATE_PR_REQUIRED=true requires AUTONOMOUS_CREATE_PR=true".to_string(),
+            ));
+        }
+        if require_real_pr_creation && !create_pr_enabled {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true requires AUTONOMOUS_CREATE_PR=true"
+                    .to_string(),
+            ));
+        }
+        if require_gh_review_source && !fetch_review_from_gh {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true requires AUTONOMOUS_FETCH_REVIEW_FROM_GH=true"
+                    .to_string(),
+            ));
+        }
+        if fetch_pr_ci_status_required && !fetch_pr_ci_status {
+            return Err(AgentError::State(
+                "AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true requires AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH=true"
+                    .to_string(),
+            ));
+        }
+        if fetch_issue_context_required && !fetch_issue_context_from_gh {
+            return Err(AgentError::State(
+                "AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED=true requires AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH=true"
+                    .to_string(),
+            ));
+        }
+
+        self.run_replay.record(
+            "runtime.requirements",
+            format!(
+                "create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={} fetch_pr_ci_status={} fetch_pr_ci_status_required={} fetch_issue_context_from_gh={} fetch_issue_context_required={} require_issue_compliance={}",
+                create_pr_enabled,
+                create_pr_required,
+                require_real_pr_creation,
+                fetch_review_from_gh,
+                require_gh_review_source,
+                fetch_pr_ci_status,
+                fetch_pr_ci_status_required,
+                fetch_issue_context_from_gh,
+                fetch_issue_context_required,
+                require_issue_compliance
+            ),
+        );
+        self.memory.metadata.insert(
+            "runtime_requirements.validated".to_string(),
+            "true".to_string(),
+        );
+        Ok(())
+    }
+
+    fn record_resource_budget_failure(&mut self, error: String, recovery: Option<String>) {
+        self.memory.add_failure(
+            self.iteration,
+            "Resource budget exceeded".to_string(),
+            error,
+            recovery,
+        );
+    }
+
+    fn transition_to_failed_state(&mut self) -> LifecycleResult<()> {
+        self.transition_to(AgentState::Failed)
+            .map_err(|e| LifecycleError::Fatal {
+                iteration: self.iteration,
+                error: e,
+                context: "Failed to transition to Failed state".to_string(),
+            })
+    }
+
+    fn check_iteration_budget(&mut self) -> LifecycleResult<()> {
+        if !self
+            .current_iteration_number
+            .exceeds(self.max_iterations_limit)
+        {
+            return Ok(());
+        }
+
+        tracing::error!(
+            "Maximum iterations exceeded: {} > {}",
+            self.current_iteration_number,
+            self.max_iterations_limit.get()
+        );
+
+        self.memory.add_failure(
+            self.iteration,
+            "Maximum iterations exceeded".to_string(),
+            format!(
+                "Agent exceeded maximum allowed iterations ({})",
+                self.max_iterations_limit.get()
+            ),
+            None,
+        );
+
+        self.transition_to_failed_state()?;
+
+        Err(LifecycleError::ResourceExhausted {
+            resource: ResourceType::Iterations,
+            limit: self.max_iterations_limit.get(),
+            current: self.iteration,
+        })
+    }
+
+    fn record_replay(&mut self, kind: &str, payload: impl Into<String>) {
+        self.run_replay.record(kind, payload);
+    }
+
+    fn log_symbolic_decision_safe(&self, decision: &str, details: &str) -> AgentResult<()> {
+        self.audit
+            .log_symbolic_decision(decision, details)
+            .map_err(|e| AgentError::State(e.to_string()))
+    }
+
+    fn execute_current_state(&mut self) -> LifecycleResult<()> {
+        self.execution_context = Some(ExecutionContext::new(
+            self.current_iteration_number,
+            self.iteration_timeout,
+        ));
+
+        tracing::debug!(
+            "Executing state {:?} (iteration {})",
+            self.state,
+            self.current_iteration_number
+        );
+
+        let result = match self.state {
+            AgentState::ExploreRepository => self.explore_repository(),
+            AgentState::GeneratePlan => self.generate_plan(),
+            AgentState::ExecuteStep => self.execute_step(),
+            AgentState::Verify => self.verify_step(),
+            AgentState::EvaluateObjectives => self.evaluate_objectives(),
+            AgentState::PrCreation => self.create_pr(),
+            AgentState::ReviewFeedback => self.handle_review(),
+            _ => {
+                if let Some(next) = self.state.next_on_success() {
+                    self.transition_to(next)
+                        .map_err(|error| LifecycleError::Fatal {
+                            iteration: self.iteration,
+                            error,
+                            context: "State transition failed".to_string(),
+                        })?;
+                }
+                Ok(())
+            }
+        };
+
+        self.execution_context = None;
+
+        result.map_err(|error| match error {
+            AgentError::PolicyViolation(_) => LifecycleError::Fatal {
+                iteration: self.iteration,
+                error,
+                context: "Policy violation during state execution".to_string(),
+            },
+            _ => LifecycleError::Recoverable {
+                iteration: self.iteration,
+                error,
+                retry_after: None,
+            },
+        })
+    }
+
+    fn check_timeout(&self) -> AgentResult<()> {
+        if let Some(ctx) = &self.execution_context
+            && ctx.is_timed_out()
+        {
+            let remaining = ctx.remaining_time().unwrap_or_default();
+            return Err(AgentError::State(format!(
+                "Iteration {} timed out: {:?} > {:?} (remaining {:?})",
+                ctx.iteration.get(),
+                ctx.start_time.elapsed(),
+                ctx.timeout,
+                remaining
+            )));
+        }
+        Ok(())
+    }
+
+    pub fn transition_to(&mut self, new_state: AgentState) -> AgentResult<()> {
+        let old_state = format!("{:?}", self.state);
+        let new_state_label = StateLabel::new(format!("{:?}", new_state)).unwrap_or_else(|| {
+            StateLabel::new("UnknownState").expect("static state must be valid")
+        });
+
+        tracing::debug!(
+            "State transition: {} -> {} (iteration {})",
+            old_state,
+            new_state_label,
+            self.current_iteration_number
+        );
+
+        self.audit
+            .log_state_transition(&old_state, &new_state_label.to_string())
+            .map_err(|e| AgentError::State(e.to_string()))?;
+        self.run_replay.record(
+            "state.transition",
+            format!("{old_state} -> {new_state_label}"),
+        );
+
+        self.metrics.record_state_transition();
+        self.state = new_state;
+
+        let checkpoint = Checkpoint::new(
+            self.actor.run_id.clone(),
+            self.current_iteration_number.get(),
+            new_state_label,
+        );
+        if let Err(e) = checkpoint.save(&self.checkpoint_path) {
+            tracing::warn!(
+                "Failed to write checkpoint '{}': {}",
+                self.checkpoint_path.as_str(),
+                e
+            );
+        }
+        Ok(())
+    }
+
+    fn explore_repository(&mut self) -> AgentResult<()> {
+        self.check_timeout()?;
+
+        tracing::info!(
+            "Iteration {}: Exploring repository",
+            self.current_iteration_number
+        );
+        let repo_root = std::env::var("AUTONOMOUS_REPO_ROOT").unwrap_or_else(|_| ".".to_string());
+        let max_entries = std::env::var("AUTONOMOUS_EXPLORE_MAX_ENTRIES")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(64);
+        match list_repository_entries(&repo_root, max_entries) {
+            Ok(entries) => {
+                let require_explored_files = std::env::var("AUTONOMOUS_REQUIRE_EXPLORED_FILES")
+                    .ok()
+                    .map(|v| v.eq_ignore_ascii_case("true"))
+                    .unwrap_or(false);
+                if entries.is_empty() {
+                    self.memory.add_failure(
+                        self.iteration,
+                        "Repository exploration returned no entries".to_string(),
+                        format!("root='{}'", repo_root),
+                        Some("Check AUTONOMOUS_REPO_ROOT path".to_string()),
+                    );
+                    if require_explored_files {
+                        return Err(AgentError::State(format!(
+                            "AUTONOMOUS_REQUIRE_EXPLORED_FILES=true but no entries were discovered in '{}'",
+                            repo_root
+                        )));
+                    }
+                }
+                for entry in entries {
+                    self.memory.add_explored_file(entry);
+                }
+            }
+            Err(e) => {
+                return Err(AgentError::State(format!(
+                    "Failed to explore repository root '{}': {}",
+                    repo_root, e
+                )));
+            }
+        }
+
+        self.transition_to(AgentState::GeneratePlan)
+    }
+
+    fn generate_plan(&mut self) -> AgentResult<()> {
+        self.check_timeout()?;
+
+        tracing::info!(
+            "Iteration {}: Generating execution plan",
+            self.current_iteration_number
+        );
+
+        let goal = self
+            .memory
+            .metadata
+            .get("goal")
+            .ok_or_else(|| AgentError::State("No goal set".to_string()))?
+            .clone();
+        let intent = IntentInterpretation {
+            goal: goal.clone(),
+            constraints: vec![
+                format!("max_iterations={}", self.max_iterations_limit.get()),
+                format!("tool_timeout_secs={}", self.tool_timeout.as_secs()),
+                format!("global_timeout_secs={}", self.global_timeout.as_secs()),
+            ],
+            confidence: if self.neural.enabled { 0.75 } else { 1.0 },
+        };
+        self.last_intent = Some(intent.clone());
+        self.memory.metadata.insert(
+            "last_intent_confidence".to_string(),
+            format!("{:.2}", intent.confidence),
+        );
+        self.run_replay.record(
+            "intent.interpreted",
+            format!(
+                "goal={} constraints={} confidence={:.2}",
+                intent.goal,
+                intent.constraints.join(" | "),
+                intent.confidence
+            ),
+        );
+
+        let issue_input = IssueClassificationInput {
+            labels: parse_issue_labels_from_env(),
+            title: goal.clone(),
+            body: self
+                .memory
+                .metadata
+                .get("issue_body")
+                .cloned()
+                .unwrap_or_default(),
+        };
+        let issue_category = self.symbolic.resolve_issue_category(&issue_input, 0.6);
+        self.memory.metadata.insert(
+            "issue_category".to_string(),
+            format!("{:?}", issue_category.category),
+        );
+        self.run_replay.record(
+            "issue.classification",
+            format!(
+                "category={:?} source={:?} confidence={:.2}",
+                issue_category.category, issue_category.source, issue_category.confidence
+            ),
+        );
+
+        let neural_suggestion = if self.neural.enabled {
+            match self.neural.infer(&goal) {
+                Ok(suggested) => {
+                    let uncertainty = self.neural.estimate_uncertainty(&goal).unwrap_or(0.5);
+                    let cpu_fallback = self.neural.use_cpu_fallback();
+                    let model_confidence = self.neural.confidence();
+                    let detected_drift = self.drift_detector.observe(suggested.confidence);
+                    let rolling_avg = self.drift_detector.rolling_average().unwrap_or(0.0);
+                    self.run_replay.record(
+                            "neural.runtime",
+                            format!(
+                                "confidence={:.3} model_confidence={:.3} uncertainty={:.3} prefer_gpu={} cpu_fallback={} drift_detected={} rolling_avg={:.3}",
+                                suggested.confidence,
+                                model_confidence,
+                                uncertainty,
+                                self.neural.prefer_gpu,
+                                cpu_fallback,
+                                detected_drift,
+                                rolling_avg
+                            ),
+                        );
+
+                    let governance_ok = self
+                        .model_governance
+                        .accept(&self.active_neural_model_name, suggested.confidence);
+                    let validation = self.symbolic.validate_proposal(&suggested)?;
+                    let rollout_state = self
+                        .model_governance
+                        .registry
+                        .state(&self.active_neural_model_name)
+                        .map(|s| format!("{:?}", s))
+                        .unwrap_or_else(|| "Unknown".to_string());
+                    let rollback_reason = self
+                        .model_governance
+                        .registry
+                        .rollback_reason(&self.active_neural_model_name)
+                        .unwrap_or("none");
+
+                    self.run_replay.record(
+                        "neural.governance",
+                        format!(
+                            "accepted={} symbolic_valid={} rollout_state={} rollback_reason={} issues={}",
+                            governance_ok,
+                            validation.is_valid,
+                            rollout_state,
+                            rollback_reason,
+                            validation.issues.join(" | ")
+                        ),
+                    );
+
+                    if !governance_ok || !validation.is_valid {
+                        self.memory.add_failure(
+                            self.iteration,
+                            "Neural suggestion rejected".to_string(),
+                            format!(
+                                "governance_ok={} symbolic_valid={}",
+                                governance_ok, validation.is_valid
+                            ),
+                            Some("fallback to deterministic symbolic planning".to_string()),
+                        );
+                        None
+                    } else {
+                        tracing::debug!(
+                            "Neural suggestion: {} (confidence: {:.2})",
+                            suggested.action,
+                            suggested.confidence
+                        );
+
+                        self.audit
+                            .log_neural_suggestion(suggested.action.as_str(), suggested.confidence)
+                            .map_err(|e| AgentError::State(e.to_string()))?;
+
+                        Some(suggested)
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!("Neural layer failed to propose action: {}", err);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        let mut plan = Plan::new(goal.clone());
+        self.build_plan_steps(
+            &mut plan,
+            &goal,
+            neural_suggestion.as_ref(),
+            &format!("{:?}", issue_category.category),
+        )?;
+        self.apply_learning_adaptations(&mut plan);
+        self.validate_plan(&plan)?;
+        self.run_replay.record(
+            "plan.generated",
+            format!(
+                "iteration={} steps={}",
+                self.current_iteration_number,
+                plan.steps.len()
+            ),
+        );
+
+        let plan_description = format!(
+            "Plan for iteration {} ({} steps)",
+            self.current_iteration_number,
+            plan.steps.len()
+        );
+
+        self.memory.add_plan(
+            self.iteration,
+            plan_description,
+            plan.steps.iter().map(|s| s.description.clone()).collect(),
+        );
+
+        tracing::info!(
+            "Generated plan with {} steps for iteration {}",
+            plan.steps.len(),
+            self.current_iteration_number
+        );
+
+        self.current_plan = Some(plan);
+        self.reset_step_index();
+
+        self.transition_to(AgentState::ExecuteStep)
+    }
+
+    fn build_plan_steps(
+        &self,
+        plan: &mut Plan,
+        goal: &str,
+        neural_suggestion: Option<&crate::symbolic::NeuralProposal>,
+        issue_category: &str,
+    ) -> AgentResult<()> {
+        plan.add_step(PlanStep {
+            description: format!(
+                "Read repository structure (iteration {})",
+                self.current_iteration_number
+            ),
+            tool: "read_file".to_string(),
+            args: vec!["Cargo.toml".to_string()],
+            verification: "file_exists".to_string(),
+        });
+
+        if let Some(suggestion) = neural_suggestion
+            && suggestion.confidence > 0.7
+        {
+            tracing::debug!(
+                "Including neural suggestion in planning: {}",
+                suggestion.action
+            );
+        }
+
+        if let Some(command_plan) =
+            select_validation_command(goal, &self.config.agent_name, &self.config.execution_mode)
+        {
+            plan.add_step(PlanStep {
+                description: command_plan.description,
+                tool: "run_tests".to_string(),
+                args: command_plan.command_tokens,
+                verification: "validation_passes".to_string(),
+            });
+        }
+
+        if issue_category.eq_ignore_ascii_case("security") {
+            plan.add_step(PlanStep {
+                description: "Security-oriented validation pass".to_string(),
+                tool: "run_tests".to_string(),
+                args: self.cargo_clippy_args(),
+                verification: "security_validation_passes".to_string(),
+            });
+        }
+
+        Ok(())
+    }
+
+    fn apply_learning_adaptations(&mut self, plan: &mut Plan) {
+        let learning_ctx = LearningContext::from_metadata(&self.memory.metadata);
+        let previous_failures = learning_ctx.previous_failures;
+        let previous_max_iteration = learning_ctx.previous_max_iteration;
+        let top_failure_kind = learning_ctx.top_failure_kind;
+        let top_failure_tool = learning_ctx.top_failure_tool;
+        let top_decision_action = learning_ctx.top_decision_action;
+        let recent_avg_failures = learning_ctx.recent_avg_failures;
+        let recent_top_failure_kind = learning_ctx.recent_top_failure_kind;
+        let recent_top_failure_kind_confidence = learning_ctx.recent_top_failure_kind_confidence;
+        let worst_action_outcome = learning_ctx.worst_action_outcome;
+
+        if previous_failures > 0 {
+            plan.add_step(PlanStep {
+                description: format!(
+                    "Learning adaptation: rerun deterministic validation (previous_failures={})",
+                    previous_failures
+                ),
+                tool: "run_tests".to_string(),
+                args: self.cargo_check_args(),
+                verification: "learning_validation_passes".to_string(),
+            });
+        }
+
+        if previous_failures >= 3 || previous_max_iteration >= self.max_iterations_limit.get() / 2 {
+            plan.add_step(PlanStep {
+                description: "Learning adaptation: strict lint gate after unstable runs"
+                    .to_string(),
+                tool: "run_tests".to_string(),
+                args: self.cargo_clippy_args(),
+                verification: "learning_strict_lint_passes".to_string(),
+            });
+        }
+        if top_failure_kind.starts_with("policy:") {
+            plan.add_step(PlanStep {
+                description: "Learning adaptation: policy-focused validation after policy failures"
+                    .to_string(),
+                tool: "run_tests".to_string(),
+                args: self.cargo_clippy_args(),
+                verification: "learning_policy_gate_passes".to_string(),
+            });
+        }
+        if top_failure_tool.starts_with("run_tests:") {
+            plan.add_step(PlanStep {
+                description: "Learning adaptation: stabilize test harness execution path"
+                    .to_string(),
+                tool: "run_tests".to_string(),
+                args: self.cargo_test_args(),
+                verification: "learning_test_harness_stable".to_string(),
+            });
+        }
+        if top_decision_action.starts_with("read_file:") && previous_failures > 0 {
+            plan.add_step(PlanStep {
+                description: "Learning adaptation: prioritize validation over repeated exploration"
+                    .to_string(),
+                tool: "run_tests".to_string(),
+                args: self.cargo_check_args(),
+                verification: "learning_prioritized_validation".to_string(),
+            });
+        }
+        if recent_avg_failures >= 2.0
+            || (recent_top_failure_kind.starts_with("timeout:")
+                && recent_top_failure_kind_confidence >= 0.45)
+        {
+            plan.add_step(PlanStep {
+                description:
+                    "Learning adaptation: short deterministic validation after recent instability"
+                        .to_string(),
+                tool: "run_tests".to_string(),
+                args: self.cargo_check_args(),
+                verification: "learning_recent_stability_probe".to_string(),
+            });
+        }
+        if let Some((action, pass_rate, total)) =
+            parse_action_outcome_triplet(&worst_action_outcome)
+            && total >= 3
+            && pass_rate < 0.5
+        {
+            if action == "run_tests" {
+                plan.add_step(PlanStep {
+                    description:
+                        "Learning adaptation: preflight check before full tests for unstable action"
+                            .to_string(),
+                    tool: "run_tests".to_string(),
+                    args: self.cargo_check_args(),
+                    verification: "learning_action_preflight".to_string(),
+                });
+            } else if action == "read_file" {
+                plan.add_step(PlanStep {
+                    description:
+                        "Learning adaptation: reduce exploration-heavy loop with deterministic validation"
+                            .to_string(),
+                    tool: "run_tests".to_string(),
+                    args: self.cargo_check_args(),
+                    verification: "learning_reduce_exploration_loop".to_string(),
+                });
+            }
+        }
+
+        self.run_replay.record(
+            "learning.adaptation",
+            format!(
+                "previous_failures={} previous_max_iteration={} top_failure_kind={} top_failure_tool={} top_decision_action={} recent_avg_failures={:.2} recent_top_failure_kind={} recent_top_failure_kind_confidence={:.3} worst_action_outcome={} plan_steps={}",
+                previous_failures,
+                previous_max_iteration,
+                top_failure_kind,
+                top_failure_tool,
+                top_decision_action,
+                recent_avg_failures,
+                recent_top_failure_kind,
+                recent_top_failure_kind_confidence,
+                worst_action_outcome,
+                plan.steps.len()
+            ),
+        );
+    }
+
+    fn cargo_check_args(&self) -> Vec<String> {
+        vec![
+            "cargo".to_string(),
+            "check".to_string(),
+            "-p".to_string(),
+            self.config.agent_name.clone(),
+            "--bin".to_string(),
+            self.config.agent_name.clone(),
+        ]
+    }
+
+    fn cargo_clippy_args(&self) -> Vec<String> {
+        vec![
+            "cargo".to_string(),
+            "clippy".to_string(),
+            "-p".to_string(),
+            self.config.agent_name.clone(),
+            "--bin".to_string(),
+            self.config.agent_name.clone(),
+        ]
+    }
+
+    fn cargo_test_args(&self) -> Vec<String> {
+        vec![
+            "cargo".to_string(),
+            "test".to_string(),
+            "-p".to_string(),
+            self.config.agent_name.clone(),
+            "--bin".to_string(),
+            self.config.agent_name.clone(),
+            "--no-fail-fast".to_string(),
+        ]
+    }
+
+    fn validate_plan(&mut self, plan: &Plan) -> AgentResult<()> {
+        let validator = Validator::new(self.config.symbolic.strict_validation);
+        if !self.policy_pack.verify() {
+            return Err(AgentError::PolicyViolation(
+                "Policy pack signature verification failed".to_string(),
+            ));
+        }
+
+        for (idx, step) in plan.steps.iter().enumerate() {
+            if !self.policy.is_tool_allowed(&step.tool) {
+                return Err(AgentError::PolicyViolation(format!(
+                    "Step {}: Tool '{}' not allowed by policy",
+                    idx + 1,
+                    step.tool
+                )));
+            }
+            if !validator.validate_plan_step(&step.tool, &step.args)? {
+                return Err(AgentError::PolicyViolation(format!(
+                    "Step {} failed symbolic validation: tool='{}' args='{}'",
+                    idx + 1,
+                    step.tool,
+                    step.args.join(" ")
+                )));
+            }
+
+            let action = build_action_from_step(step);
+            if !self.policy.validate_action(&action) {
+                return Err(AgentError::PolicyViolation(format!(
+                    "Step {}: action '{}' violates policy patterns",
+                    idx + 1,
+                    action
+                )));
+            }
+
+            if !self.policy_pack.allowed_tools.contains(&step.tool) {
+                return Err(AgentError::PolicyViolation(format!(
+                    "Step {}: Tool '{}' not allowed by signed policy pack",
+                    idx + 1,
+                    step.tool
+                )));
+            }
+
+            self.enforce_authz_for_action(&step.tool, &step.args)?;
+        }
+        Ok(())
+    }
+
+    fn execute_step(&mut self) -> AgentResult<()> {
+        self.check_timeout()?;
+
+        let steps_len = self
+            .current_plan
+            .as_ref()
+            .ok_or_else(|| AgentError::State("No plan available".to_string()))?
+            .steps
+            .len();
+
+        if self.current_step_index.get() >= steps_len {
+            tracing::info!(
+                "Iteration {}: All {} steps completed successfully",
+                self.current_iteration_number,
+                steps_len
+            );
+            self.transition_to(AgentState::PrCreation)?;
+            return Ok(());
+        }
+
+        let step = self
+            .current_plan
+            .as_ref()
+            .ok_or_else(|| AgentError::State("No plan available".to_string()))?
+            .steps[self.current_step_index.get()]
+        .clone();
+
+        tracing::info!(
+            "Iteration {}: Executing step {}/{}: {}",
+            self.current_iteration_number,
+            self.current_step_index.get() + 1,
+            steps_len,
+            step.description
+        );
+
+        if !self.policy.is_tool_allowed(&step.tool) {
+            let error_msg = format!(
+                "Tool '{}' not allowed by policy (step {})",
+                step.tool,
+                self.current_step_index.get() + 1
+            );
+            tracing::error!("{}", error_msg);
+
+            self.memory.add_failure(
+                self.iteration,
+                "Policy violation during execution".to_string(),
+                error_msg.clone(),
+                Some("Plan validation should have caught this".to_string()),
+            );
+
+            return Err(AgentError::PolicyViolation(error_msg));
+        }
+
+        let action = build_action_from_step(&step);
+        if !self.policy.validate_action(&action) {
+            let error_msg = format!(
+                "Action '{}' violates policy patterns (step {})",
+                action,
+                self.current_step_index.get() + 1
+            );
+            tracing::error!("{}", error_msg);
+            self.memory.add_failure(
+                self.iteration,
+                "Policy action validation failed".to_string(),
+                error_msg.clone(),
+                None,
+            );
+            return Err(AgentError::PolicyViolation(error_msg));
+        }
+
+        self.enforce_authz_for_action(&step.tool, &step.args)?;
+        self.enforce_risk_gate(&step.tool, &step.args)?;
+        let compensation = self
+            .tools
+            .get_tool(&step.tool)
+            .map(|tool| {
+                if tool.is_reversible() {
+                    CompensationKind::Reversible {
+                        description: format!("revert side effects for '{}'", step.tool),
+                    }
+                } else {
+                    CompensationKind::Irreversible {
+                        warning: format!("manual remediation required for '{}'", step.tool),
+                    }
+                }
+            })
+            .unwrap_or_else(|| compensation_for_tool(&step.tool));
+        self.rollback_manager
+            .record(step.tool.clone(), compensation);
+
+        {
+            let breaker = self
+                .circuit_breakers
+                .entry(step.tool.clone())
+                .or_insert_with(|| CircuitBreaker::new(3, 2, Timeout::from_secs(60)));
+
+            if !breaker.should_allow_request() {
+                let state = breaker.state();
+                tracing::warn!(
+                    "Circuit breaker not allowing tool '{}' (state: {:?}), skipping execution",
+                    step.tool,
+                    state
+                );
+
+                return Err(AgentError::Tool(format!(
+                    "Circuit breaker blocked tool '{}' in state {:?}",
+                    step.tool, state
+                )));
+            }
+        }
+
+        let tool_start = Instant::now();
+        self.memory
+            .metadata
+            .insert("last_tool_name".to_string(), step.tool.clone());
+        let result = self.execute_tool_with_timeout(&step.tool, &step.args)?;
+        validate_tool_result_contract(&step.tool, &result)?;
+        let tool_duration = tool_start.elapsed();
+        self.run_replay.record(
+            "tool.execute",
+            format!(
+                "tool={} state={:?} iteration={} step={} success={} exit_code={:?} duration_ms={}",
+                step.tool,
+                self.state,
+                self.current_iteration_number,
+                self.current_step_index.get(),
+                result.success,
+                result.exit_code,
+                tool_duration.as_millis()
+            ),
+        );
+
+        self.metrics
+            .record_tool_execution(&step.tool, result.success, tool_duration);
+
+        {
+            let breaker = self
+                .circuit_breakers
+                .entry(step.tool.clone())
+                .or_insert_with(|| CircuitBreaker::new(3, 2, Timeout::from_secs(60)));
+
+            if result.success {
+                breaker.record_success();
+            } else {
+                breaker.record_failure();
+            }
+        }
+
+        self.audit
+            .log_tool_execution(&step.tool, &step.args, result.success)
+            .map_err(|e| AgentError::State(e.to_string()))?;
+
+        if !result.success {
+            let error_detail = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            let error_class = classify_tool_failure(&error_detail);
+            self.run_replay.record(
+                "tool.failure_class",
+                format!("tool={} class={}", step.tool, error_class),
+            );
+            if step.tool == "run_tests" {
+                self.memory
+                    .metadata
+                    .insert("last_validation_success".to_string(), "false".to_string());
+            }
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("{}:{}", step.tool, error_class),
+            );
+            if let Some(exit_code) = result.exit_code {
+                self.memory
+                    .metadata
+                    .insert("last_tool_exit_code".to_string(), exit_code.to_string());
+            } else {
+                self.memory
+                    .metadata
+                    .insert("last_tool_exit_code".to_string(), "none".to_string());
+            }
+
+            tracing::warn!(
+                "Tool '{}' failed [{}]: {} (duration: {:?})",
+                step.tool,
+                error_class,
+                error_detail,
+                tool_duration
+            );
+
+            self.memory.add_failure(
+                self.iteration,
+                format!("Tool execution failed [{}]: {}", error_class, step.tool),
+                error_detail.clone(),
+                Some("Will retry in next iteration".to_string()),
+            );
+
+            return Err(AgentError::Tool(format!(
+                "Tool '{}' execution failed [{}]: {}",
+                step.tool, error_class, error_detail
+            )));
+        }
+
+        if step.tool == "run_tests" {
+            self.memory
+                .metadata
+                .insert("last_validation_success".to_string(), "true".to_string());
+        }
+
+        self.memory.add_decision(
+            self.iteration,
+            format!("Execute {}", step.tool),
+            None,
+            ActionName::new("tool_executed_successfully")
+                .expect("static action name must be valid"),
+        );
+
+        self.advance_step_index();
+
+        self.transition_to(AgentState::Verify)
+    }
+
+    fn execute_tool_with_timeout(
+        &self,
+        tool_name: &str,
+        args: &[String],
+    ) -> AgentResult<ToolResult> {
+        let tool = self
+            .tools
+            .get_tool(tool_name)
+            .ok_or_else(|| AgentError::Tool(format!("Tool '{}' not found", tool_name)))?;
+
+        let start = Instant::now();
+        let mut result = tool.execute(args)?;
+
+        if start.elapsed() > self.tool_timeout.duration {
+            result.success = false;
+            result.error = Some(format!(
+                "Tool '{}' timed out after {:?}",
+                tool_name, self.tool_timeout.duration
+            ));
+        }
+
+        Ok(result)
+    }
+
+    fn enforce_authz_for_action(&mut self, action: &str, args: &[String]) -> AgentResult<()> {
+        let decision = self.authz.check_with_args(&self.actor, action, args);
+        let security_audit = SecurityAuditRecord::new(&self.actor, action, &decision);
+        let security_payload = serde_json::to_string(&security_audit)
+            .unwrap_or_else(|_| format!("authz action={} decision={:?}", action, decision));
+
+        let _ = self
+            .audit
+            .log_symbolic_decision("security_authz", &security_payload);
+        self.run_replay.record("security.authz", security_payload);
+
+        if decision.is_allowed() {
+            return Ok(());
+        }
+
+        match decision {
+            AuthzDecision::Deny { reason } => {
+                let error = format!("Authorization denied for action '{}': {}", action, reason);
+                self.memory.add_failure(
+                    self.iteration,
+                    "Authorization denied".to_string(),
+                    error.clone(),
+                    Some("Adjust policy pack/actor permissions for this action".to_string()),
+                );
+                self.run_replay.record(
+                    "security.authz.denied",
+                    format!("action={} reason=deny", action),
+                );
+                Err(AgentError::PolicyViolation(error))
+            }
+            AuthzDecision::RequiresEscalation { required_role } => {
+                if has_valid_escalation_approval(&required_role) {
+                    self.run_replay.record(
+                        "security.authz.escalation_approved",
+                        format!("action={} required_role={}", action, required_role),
+                    );
+                    return Ok(());
+                }
+                let error = format!("Action '{}' requires escalation: {}", action, required_role);
+                self.memory.add_failure(
+                    self.iteration,
+                    "Authorization escalation required".to_string(),
+                    error.clone(),
+                    Some("Run with required escalation role".to_string()),
+                );
+                self.run_replay.record(
+                    "security.authz.denied",
+                    format!("action={} reason=requires_escalation", action),
+                );
+                Err(AgentError::PolicyViolation(error))
+            }
+            AuthzDecision::Allow => Ok(()),
+        }
+    }
+
+    fn enforce_risk_gate(&mut self, tool: &str, args: &[String]) -> AgentResult<()> {
+        let base_risk = action_risk_level(tool, args, &self.policy_pack);
+        let risk = self.adapt_risk_level(base_risk);
+        self.run_replay.record(
+            "tool.risk_level",
+            format!(
+                "tool={} base_risk={:?} effective_risk={:?}",
+                tool, base_risk, risk
+            ),
+        );
+        let _ = self.audit.log_symbolic_decision(
+            "risk_gate_level",
+            &format!(
+                "tool={} base_risk={:?} effective_risk={:?}",
+                tool, base_risk, risk
+            ),
+        );
+
+        match risk {
+            ActionRiskLevel::Low => {
+                self.metrics.record_risk_gate_allow();
+                let _ = self
+                    .audit
+                    .log_symbolic_decision("risk_gate_allow", &format!("tool={tool} risk=low"));
+                Ok(())
+            }
+            ActionRiskLevel::Medium => {
+                if is_medium_risk_allowed(&self.config.execution_mode) {
+                    self.metrics.record_risk_gate_allow();
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_allow",
+                        &format!("tool={tool} risk=medium"),
+                    );
+                    Ok(())
+                } else {
+                    self.metrics.record_risk_gate_deny();
+                    self.memory.add_failure(
+                        self.iteration,
+                        "Tool execution denied by risk gate".to_string(),
+                        format!(
+                            "medium-risk tool '{}' denied in mode '{}'",
+                            tool, self.config.execution_mode
+                        ),
+                        Some(
+                            "Set AUTONOMOUS_ALLOW_MUTATING_TOOLS=true for explicit opt-in"
+                                .to_string(),
+                        ),
+                    );
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_deny",
+                        &format!(
+                            "tool={tool} risk=medium mode={}",
+                            self.config.execution_mode
+                        ),
+                    );
+                    Err(AgentError::PolicyViolation(format!(
+                        "medium-risk tool '{}' denied by safe mode",
+                        tool
+                    )))
+                }
+            }
+            ActionRiskLevel::High => {
+                if !is_medium_risk_allowed(&self.config.execution_mode) {
+                    self.metrics.record_risk_gate_deny();
+                    self.memory.add_failure(
+                        self.iteration,
+                        "Tool execution denied by risk gate".to_string(),
+                        format!(
+                            "high-risk tool '{}' denied in mode '{}'",
+                            tool, self.config.execution_mode
+                        ),
+                        Some(
+                            "Enable mutating tools explicitly before high-risk actions".to_string(),
+                        ),
+                    );
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_deny",
+                        &format!("tool={tool} risk=high mode={}", self.config.execution_mode),
+                    );
+                    return Err(AgentError::PolicyViolation(format!(
+                        "high-risk tool '{}' denied by safe mode",
+                        tool
+                    )));
+                }
+
+                if has_valid_high_risk_approval_token() {
+                    self.metrics.record_risk_gate_allow();
+                    self.metrics.record_risk_gate_high_approval();
+                    self.run_replay.record(
+                        "tool.high_risk_approved",
+                        format!("tool={} token_check=passed", tool),
+                    );
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_allow",
+                        &format!("tool={tool} risk=high approval=token"),
+                    );
+                    Ok(())
+                } else {
+                    self.metrics.record_risk_gate_deny();
+                    self.memory.add_failure(
+                        self.iteration,
+                        "High-risk approval missing".to_string(),
+                        format!("tool '{}' requires explicit approval token", tool),
+                        Some(
+                            "Set AUTONOMOUS_HIGH_RISK_APPROVAL_TOKEN and AUTONOMOUS_EXPECTED_APPROVAL_TOKEN to matching values".to_string(),
+                        ),
+                    );
+                    let _ = self.audit.log_symbolic_decision(
+                        "risk_gate_deny",
+                        &format!("tool={tool} risk=high approval=missing_or_invalid"),
+                    );
+                    Err(AgentError::PolicyViolation(format!(
+                        "high-risk tool '{}' requires approval token",
+                        tool
+                    )))
+                }
+            }
+        }
+    }
+
+    fn adapt_risk_level(&self, base: ActionRiskLevel) -> ActionRiskLevel {
+        let recent_avg_failures = self
+            .memory
+            .metadata
+            .get("previous_recent_avg_failures")
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or(0.0);
+        let recent_top_failure_kind = self
+            .memory
+            .metadata
+            .get("previous_recent_top_failure_kind")
+            .cloned()
+            .unwrap_or_default();
+        let recent_top_failure_kind_confidence = self
+            .memory
+            .metadata
+            .get("previous_recent_top_failure_kind_confidence")
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or(0.0);
+
+        let should_harden = recent_avg_failures >= 3.0
+            || (recent_top_failure_kind.starts_with("timeout:")
+                && recent_top_failure_kind_confidence >= 0.6)
+            || (recent_top_failure_kind.starts_with("policy:")
+                && recent_top_failure_kind_confidence >= 0.6);
+        if !should_harden {
+            return base;
+        }
+
+        match base {
+            ActionRiskLevel::Low => ActionRiskLevel::Low,
+            ActionRiskLevel::Medium => ActionRiskLevel::High,
+            ActionRiskLevel::High => ActionRiskLevel::High,
+        }
+    }
+
+    fn verify_step(&mut self) -> AgentResult<()> {
+        self.check_timeout()?;
+
+        tracing::info!(
+            "Iteration {}: Verifying step {} execution",
+            self.current_iteration_number,
+            self.current_step_index.get()
+        );
+
+        self.transition_to(AgentState::EvaluateObjectives)
+    }
+
+    fn evaluate_objectives(&mut self) -> AgentResult<()> {
+        self.check_timeout()?;
+
+        tracing::info!(
+            "Iteration {}: Evaluating objectives",
+            self.current_iteration_number
+        );
+
+        let scores = self.compute_objective_scores()?;
+        let objective_scores = self.symbolic.evaluator.evaluate(&scores);
+        let weighted_objective_score = self.symbolic.evaluator.weighted_score(&objective_scores);
+        let hard_satisfied = self
+            .symbolic
+            .evaluator
+            .hard_objectives_satisfied(&objective_scores);
+        let policy_safety = score_value(&scores, "policy_safety").unwrap_or(0.0);
+        let tests_pass = score_value(&scores, "tests_pass").unwrap_or(0.0);
+        let observations = self.build_slo_observations(policy_safety, tests_pass);
+        let slo_evaluations = self.slo_evaluator.evaluate(&observations);
+        let slo_all_met = self.slo_evaluator.all_met(&slo_evaluations);
+        let enforce_slo_during_objective_eval =
+            std::env::var("AUTONOMOUS_ENFORCE_SLO_DURING_OBJECTIVE_EVAL")
+                .ok()
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false);
+
+        self.audit
+            .log_objective_evaluation(self.iteration, scores.clone())
+            .map_err(|e| AgentError::State(e.to_string()))?;
+
+        self.memory
+            .add_objective_evaluation(self.iteration, scores.clone(), hard_satisfied);
+        self.memory.metadata.insert(
+            "weighted_objective_score".to_string(),
+            format!("{:.3}", weighted_objective_score),
+        );
+        self.run_replay.record(
+            "objectives.weighted_score",
+            format!("{:.3}", weighted_objective_score),
+        );
+
+        if !hard_satisfied || (enforce_slo_during_objective_eval && !slo_all_met) {
+            tracing::warn!(
+                "Iteration {}: objectives not satisfied (hard_ok={} slo_ok={} enforce_slo={})",
+                self.current_iteration_number,
+                hard_satisfied,
+                slo_all_met,
+                enforce_slo_during_objective_eval
+            );
+
+            let Some(next_iteration) = self.current_iteration_number.try_next() else {
+                self.transition_to(AgentState::Failed)?;
+                return Err(AgentError::State("Iteration counter overflow".to_string()));
+            };
+
+            if next_iteration.exceeds(self.max_iterations_limit) {
+                self.memory.add_failure(
+                    self.iteration,
+                    "Hard objectives not satisfied - max iterations reached".to_string(),
+                    format!(
+                        "Failed after {} iterations with scores: {:?}",
+                        self.current_iteration_number.get(),
+                        scores
+                    ),
+                    None,
+                );
+
+                self.transition_to(AgentState::Failed)?;
+                return Err(AgentError::ObjectiveViolation(
+                    "Hard objectives not satisfied within iteration budget".to_string(),
+                ));
+            }
+
+            self.memory.add_failure(
+                self.iteration,
+                "Objectives or SLOs not satisfied".to_string(),
+                format!(
+                    "Objective scores: {:?}; SLO all met: {}; enforce_slo_during_objective_eval={}",
+                    scores, slo_all_met, enforce_slo_during_objective_eval
+                ),
+                Some(format!(
+                    "Retry with adjusted approach (attempt {}/{})",
+                    next_iteration,
+                    self.max_iterations_limit.get()
+                )),
+            );
+
+            self.set_iteration_number(next_iteration);
+            self.current_plan = None;
+            self.reset_step_index();
+
+            self.transition_to(AgentState::GeneratePlan)?;
+        } else {
+            tracing::info!(
+                "Iteration {}: All hard objectives satisfied",
+                self.current_iteration_number
+            );
+
+            self.transition_to(AgentState::ExecuteStep)?;
+        }
+
+        Ok(())
+    }
+
+    fn compute_objective_scores(&self) -> AgentResult<Vec<(String, f64)>> {
+        let metrics = self.metrics.snapshot();
+        let step_ratio = self.current_plan.as_ref().map_or(0.0, |plan| {
+            if plan.steps.is_empty() {
+                0.0
+            } else {
+                (self.current_step_index.get().min(plan.steps.len()) as f64)
+                    / (plan.steps.len() as f64)
+            }
+        });
+        let task_completion = step_ratio.max(if self.state == AgentState::Done {
+            1.0
+        } else {
+            0.0
+        });
+
+        let has_policy_failure = self.memory.failures.iter().any(|f| {
+            let d = f.description.to_ascii_lowercase();
+            let e = f.error.to_ascii_lowercase();
+            d.contains("policy") || d.contains("authorization") || e.contains("policy")
+        });
+        let policy_safety = if has_policy_failure { 0.0 } else { 1.0 };
+
+        let tests_pass = self
+            .memory
+            .metadata
+            .get("last_validation_success")
+            .map(|v| if v == "true" { 1.0 } else { 0.0 })
+            .unwrap_or(0.7);
+
+        let minimal_diff = if self.memory.explored_files.len() <= 20 {
+            1.0
+        } else {
+            0.6
+        };
+
+        let avg_secs = metrics.average_iteration_duration.as_secs_f64();
+        let time_budget = if avg_secs <= 60.0 {
+            1.0
+        } else if avg_secs <= 120.0 {
+            0.7
+        } else {
+            0.4
+        };
+
+        let mut observations = HashMap::new();
+        observations.extend(self.build_slo_observations(policy_safety, tests_pass));
+
+        let slo_eval = self.slo_evaluator.evaluate(&observations);
+        let slo_compliance = if slo_eval.is_empty() {
+            0.0
+        } else {
+            (slo_eval.iter().filter(|e| e.met).count() as f64) / (slo_eval.len() as f64)
+        };
+
+        Ok(vec![
+            ("task_completion".to_string(), task_completion),
+            ("policy_safety".to_string(), policy_safety),
+            ("tests_pass".to_string(), tests_pass),
+            ("minimal_diff".to_string(), minimal_diff),
+            ("time_budget".to_string(), time_budget),
+            ("slo_compliance".to_string(), slo_compliance),
+        ])
+    }
+
+    fn create_pr(&mut self) -> AgentResult<()> {
+        self.check_timeout()?;
+
+        tracing::info!(
+            "Iteration {}: Creating pull request",
+            self.current_iteration_number
+        );
+
+        let goal = self
+            .memory
+            .metadata
+            .get("goal")
+            .unwrap_or(&"No goal".to_string())
+            .clone();
+
+        let default_pr_body = self.build_default_pr_body(&goal);
+
+        let pr_body = self
+            .try_generate_enhanced_pr_description(&goal, &default_pr_body)
+            .unwrap_or(default_pr_body);
+        let require_generated_pr_description =
+            std::env::var("AUTONOMOUS_REQUIRE_GENERATED_PR_DESCRIPTION")
+                .ok()
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false);
+        if require_generated_pr_description {
+            let source = self
+                .memory
+                .metadata
+                .get("pr_description_source")
+                .cloned()
+                .unwrap_or_else(|| "unknown".to_string());
+            if source != "generated" {
+                return Err(AgentError::State(format!(
+                    "AUTONOMOUS_REQUIRE_GENERATED_PR_DESCRIPTION=true but source is '{}'",
+                    source
+                )));
+            }
+        }
+
+        let issue_number = Self::extract_issue_number_from_goal(&goal);
+        let (issue_title, issue_body, issue_context_source) =
+            self.load_issue_context(issue_number, &goal)?;
+        self.memory.metadata.insert(
+            "issue_context_source".to_string(),
+            issue_context_source.clone(),
+        );
+        self.record_replay("issue.context_source", issue_context_source);
+        let issue_compliance = evaluate_issue_compliance(&issue_title, &issue_body);
+        let require_issue_compliance = std::env::var("AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if require_issue_compliance && !matches!(issue_compliance, IssueComplianceStatus::Compliant)
+        {
+            return Err(AgentError::State(format!(
+                "AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true but issue compliance is {:?}",
+                issue_compliance
+            )));
+        }
+        let pr_body = append_issue_compliance_note(&pr_body, &issue_compliance);
+        let mut pr_orchestrator = if let Some(mut existing) = self.pr_orchestrator.take() {
+            existing.metadata.title = format!("Autonomous update: {}", goal);
+            existing.metadata.body = pr_body.clone();
+            existing
+        } else {
+            PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3)
+        };
+        let mut opened_pr = pr_orchestrator.metadata.pr_number.is_some();
+        let mut real_pr_created = false;
+        let mut pr_number_source = if opened_pr {
+            self.memory
+                .metadata
+                .get("pr_number_source")
+                .cloned()
+                .unwrap_or_else(|| "existing_orchestrator".to_string())
+        } else {
+            "none".to_string()
+        };
+        if let Ok(pr_number_raw) = std::env::var("AUTONOMOUS_PR_NUMBER")
+            && let Ok(parsed) = pr_number_raw.parse::<u64>()
+            && let Some(prn) = PrNumber::new(parsed)
+        {
+            pr_orchestrator.open(prn);
+            opened_pr = true;
+            pr_number_source = "env_injected".to_string();
+        }
+        if let Some(n) = issue_number {
+            self.record_replay("issue.reference", format!("issue_number={}", n.get()));
+            pr_orchestrator.metadata.close_issue(n);
+        }
+        pr_orchestrator.set_ci_status(match self.memory.metadata.get("last_validation_success") {
+            Some(v) if v == "true" => CiStatus::Passing,
+            Some(_) => CiStatus::Failing,
+            None => CiStatus::Unknown,
+        });
+        let fetch_pr_ci_status = std::env::var("AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_pr_ci_status_required = std::env::var("AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let policy_ok = !self
+            .memory
+            .failures
+            .iter()
+            .any(|f| f.description.to_ascii_lowercase().contains("policy"));
+        pr_orchestrator.set_policy_compliant(policy_ok);
+        pr_orchestrator.set_issue_compliance(issue_compliance.clone());
+        let rendered_body = pr_orchestrator.metadata.render_body();
+        pr_orchestrator.update_body(rendered_body.clone());
+        let create_pr_enabled = std::env::var("AUTONOMOUS_CREATE_PR")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let create_pr_required = std::env::var("AUTONOMOUS_CREATE_PR_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if create_pr_required && !create_pr_enabled {
+            return Err(AgentError::State(
+                "AUTONOMOUS_CREATE_PR_REQUIRED=true requires AUTONOMOUS_CREATE_PR=true".to_string(),
+            ));
+        }
+        if create_pr_enabled && !opened_pr {
+            let precheck_result = if !self.policy.is_tool_allowed("create_pr") {
+                Err(AgentError::PolicyViolation(
+                    "Tool 'create_pr' is not allowed by policy".to_string(),
+                ))
+            } else {
+                self.enforce_authz_for_action("create_pr", &[])
+                    .and_then(|_| self.enforce_risk_gate("create_pr", &[]))
+            };
+            if let Err(error) = precheck_result {
+                if create_pr_required {
+                    return Err(error);
+                }
+                self.memory.add_failure(
+                    self.iteration,
+                    "Real PR creation blocked by policy gate".to_string(),
+                    error.to_string(),
+                    Some(
+                        "Adjust policy/authz/risk settings or disable AUTONOMOUS_CREATE_PR"
+                            .to_string(),
+                    ),
+                );
+            } else {
+                match self.try_create_real_pr(&pr_orchestrator.metadata.title, &rendered_body) {
+                    Ok(Some(real_pr)) => {
+                        pr_orchestrator.open(real_pr);
+                        opened_pr = true;
+                        real_pr_created = true;
+                        pr_number_source = "gh_created".to_string();
+                    }
+                    Ok(None) => {}
+                    Err(error) => {
+                        if create_pr_required {
+                            return Err(error);
+                        }
+                        self.memory.add_failure(
+                        self.iteration,
+                        "Real PR creation failed".to_string(),
+                        error.to_string(),
+                        Some(
+                            "Set AUTONOMOUS_CREATE_PR_REQUIRED=true to fail-closed on PR creation"
+                                .to_string(),
+                        ),
+                    );
+                    }
+                }
+            }
+        }
+        let require_real_pr_creation = std::env::var("AUTONOMOUS_REQUIRE_REAL_PR_CREATION")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if require_real_pr_creation && !create_pr_enabled {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true requires AUTONOMOUS_CREATE_PR=true"
+                    .to_string(),
+            ));
+        }
+        if require_real_pr_creation && !real_pr_created {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true but no PR was created via GitHub API path"
+                    .to_string(),
+            ));
+        }
+
+        let require_pr_number = std::env::var("AUTONOMOUS_REQUIRE_PR_NUMBER")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if require_pr_number && !opened_pr {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_PR_NUMBER=true but no valid PR number is available (AUTONOMOUS_PR_NUMBER or real creation)"
+                    .to_string(),
+            ));
+        }
+        if fetch_pr_ci_status {
+            if let Some(pr_number) = pr_orchestrator.metadata.pr_number {
+                match self.fetch_pr_ci_status_from_gh(pr_number) {
+                    Ok(ci_status) => {
+                        pr_orchestrator.set_ci_status(ci_status.clone());
+                        self.memory
+                            .metadata
+                            .insert("pr_ci_status".to_string(), format!("{:?}", ci_status));
+                    }
+                    Err(error) => {
+                        if fetch_pr_ci_status_required {
+                            return Err(error);
+                        }
+                        self.memory.add_failure(
+                            self.iteration,
+                            "PR CI status retrieval failed".to_string(),
+                            error.to_string(),
+                            Some(
+                                "Set AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true to fail-closed"
+                                    .to_string(),
+                            ),
+                        );
+                    }
+                }
+            } else if fetch_pr_ci_status_required {
+                return Err(AgentError::State(
+                    "AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true but no PR number is available"
+                        .to_string(),
+                ));
+            }
+        }
+
+        let readiness = pr_orchestrator.merge_readiness();
+        let readiness_ok = readiness.is_ready();
+        let readiness_msg = match &readiness {
+            MergeReadiness::Ready => "ready".to_string(),
+            MergeReadiness::NotReady { reasons } => format!("not_ready: {}", reasons.join(" | ")),
+        };
+        self.memory
+            .metadata
+            .insert("pr_readiness".to_string(), readiness_msg.clone());
+        self.memory.metadata.insert(
+            "pr_ci_status".to_string(),
+            format!("{:?}", pr_orchestrator.metadata.ci_status),
+        );
+        self.memory.metadata.insert(
+            "real_pr_created".to_string(),
+            if real_pr_created { "true" } else { "false" }.to_string(),
+        );
+        self.memory
+            .metadata
+            .insert("pr_number_source".to_string(), pr_number_source);
+        self.memory.metadata.insert(
+            "issue_compliance".to_string(),
+            format!("{:?}", issue_compliance),
+        );
+        self.record_replay("pr.readiness", readiness_msg.clone());
+        self.record_replay("issue.compliance", format!("{:?}", issue_compliance));
+        self.record_replay("pr.rendered_body", format!("chars={}", rendered_body.len()));
+        self.pr_orchestrator = Some(pr_orchestrator);
+
+        self.log_symbolic_decision_safe("create_pr", &rendered_body)?;
+        self.log_symbolic_decision_safe("merge_readiness", &readiness_msg)?;
+        if !readiness_ok {
+            self.memory.add_failure(
+                self.iteration,
+                "PR merge readiness not met".to_string(),
+                readiness_msg.clone(),
+                Some("continue through review loop for remediation".to_string()),
+            );
+        }
+
+        if opened_pr {
+            tracing::info!("PR is tracked with body ({} chars)", pr_body.len());
+        } else if create_pr_enabled {
+            tracing::info!(
+                "PR creation requested but no PR number available (body {} chars)",
+                pr_body.len()
+            );
+        } else {
+            tracing::info!(
+                "PR creation not enabled; metadata prepared with body ({} chars)",
+                pr_body.len()
+            );
+        }
+
+        self.transition_to(AgentState::ReviewFeedback)
+    }
+
+    fn try_create_real_pr(&mut self, title: &str, body: &str) -> AgentResult<Option<PrNumber>> {
+        let mut command = Command::new("gh");
+        command.arg("pr").arg("create").arg("--title").arg(title);
+        command.arg("--body").arg(body);
+        let mut audit_args = vec![
+            "pr".to_string(),
+            "create".to_string(),
+            "--title".to_string(),
+            title.to_string(),
+            "--body".to_string(),
+            "<omitted>".to_string(),
+        ];
+
+        if let Ok(base) = std::env::var("AUTONOMOUS_PR_BASE")
+            && !base.trim().is_empty()
+        {
+            command.arg("--base").arg(base);
+            audit_args.push("--base".to_string());
+            audit_args.push("<set>".to_string());
+        }
+        if let Ok(head) = std::env::var("AUTONOMOUS_PR_HEAD")
+            && !head.trim().is_empty()
+        {
+            command.arg("--head").arg(head);
+            audit_args.push("--head".to_string());
+            audit_args.push("<set>".to_string());
+        }
+        if let Ok(repo) = std::env::var("AUTONOMOUS_REPO")
+            && !repo.trim().is_empty()
+        {
+            command.arg("--repo").arg(&repo);
+            audit_args.push("--repo".to_string());
+            audit_args.push(repo);
+        }
+
+        let output = run_command_with_timeout(command, self.tool_timeout.duration, "gh pr create")?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let _ = self
+            .audit
+            .log_tool_execution("create_pr", &audit_args, output.status.success());
+
+        if !output.status.success() {
+            let details = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                stderr.clone()
+            };
+            let failure_class = classify_tool_failure(&details);
+            self.record_replay(
+                "tool.failure_class",
+                format!("tool=create_pr class={}", failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("create_pr:{}", failure_class),
+            );
+            return Err(AgentError::Tool(format!(
+                "gh pr create failed (status={}): {}",
+                output.status, details
+            )));
+        }
+
+        let pr_number = extract_pr_number_from_text(&stdout)
+            .or_else(|| extract_pr_number_from_text(&stderr))
+            .and_then(PrNumber::new);
+        if let Some(pr) = pr_number {
+            self.record_replay("pr.created", format!("number={}", pr));
+            self.memory
+                .metadata
+                .insert("created_pr_number".to_string(), pr.to_string());
+            return Ok(Some(pr));
+        }
+
+        self.record_replay(
+            "pr.created",
+            "number_unavailable_from_gh_output".to_string(),
+        );
+        Ok(None)
+    }
+
+    fn load_issue_context(
+        &mut self,
+        issue_number: Option<IssueNumber>,
+        goal: &str,
+    ) -> AgentResult<(String, String, String)> {
+        let fallback_body = self
+            .memory
+            .metadata
+            .get("issue_body")
+            .cloned()
+            .or_else(|| std::env::var("AUTONOMOUS_ISSUE_BODY").ok())
+            .unwrap_or_default();
+        let fallback_title = self
+            .memory
+            .metadata
+            .get("issue_title")
+            .cloned()
+            .or_else(|| std::env::var("AUTONOMOUS_ISSUE_TITLE").ok())
+            .unwrap_or_else(|| goal.to_string());
+
+        let fetch_issue_context_from_gh = std::env::var("AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_issue_context_required = std::env::var("AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+
+        if !fetch_issue_context_from_gh {
+            return Ok((fallback_title, fallback_body, "env_or_goal".to_string()));
+        }
+
+        let Some(issue_number) = issue_number else {
+            if fetch_issue_context_required {
+                return Err(AgentError::State(
+                    "AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED=true but goal does not provide issue number"
+                        .to_string(),
+                ));
+            }
+            self.run_replay.record(
+                "issue.context.fetch.skip",
+                "gh_enabled_but_missing_issue_number".to_string(),
+            );
+            return Ok((
+                fallback_title,
+                fallback_body,
+                "fallback_no_issue_number".to_string(),
+            ));
+        };
+
+        match self.fetch_issue_context_from_gh(issue_number) {
+            Ok((title, body)) => Ok((title, body, "gh_issue_view".to_string())),
+            Err(error) => {
+                if fetch_issue_context_required {
+                    return Err(error);
+                }
+                self.memory.add_failure(
+                    self.iteration,
+                    "Issue context retrieval failed".to_string(),
+                    error.to_string(),
+                    Some(
+                        "Provide AUTONOMOUS_ISSUE_TITLE/AUTONOMOUS_ISSUE_BODY fallback".to_string(),
+                    ),
+                );
+                self.run_replay
+                    .record("issue.context.fetch.failed", error.to_string());
+                Ok((
+                    fallback_title,
+                    fallback_body,
+                    "fallback_fetch_failed".to_string(),
+                ))
+            }
+        }
+    }
+
+    fn fetch_issue_context_from_gh(
+        &mut self,
+        issue_number: IssueNumber,
+    ) -> AgentResult<(String, String)> {
+        let mut command = Command::new("gh");
+        command
+            .arg("issue")
+            .arg("view")
+            .arg(issue_number.to_string())
+            .arg("--json")
+            .arg("title,body");
+        let mut audit_args = vec![
+            "issue".to_string(),
+            "view".to_string(),
+            issue_number.to_string(),
+            "--json".to_string(),
+            "title,body".to_string(),
+        ];
+        if let Ok(repo) = std::env::var("AUTONOMOUS_REPO")
+            && !repo.trim().is_empty()
+        {
+            command.arg("--repo").arg(&repo);
+            audit_args.push("--repo".to_string());
+            audit_args.push(repo);
+        }
+
+        let output =
+            run_command_with_timeout(command, self.tool_timeout.duration, "gh issue view context")?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let _ = self.audit.log_tool_execution(
+            "fetch_issue_context",
+            &audit_args,
+            output.status.success(),
+        );
+
+        if !output.status.success() {
+            let details = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                stderr.clone()
+            };
+            let failure_class = classify_tool_failure(&details);
+            self.record_replay(
+                "tool.failure_class",
+                format!("tool=fetch_issue_context class={}", failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("fetch_issue_context:{}", failure_class),
+            );
+            return Err(AgentError::Tool(format!(
+                "gh issue view failed (status={}): {}",
+                output.status, details
+            )));
+        }
+
+        let root: serde_json::Value = serde_json::from_str(&stdout).map_err(|e| {
+            AgentError::State(format!(
+                "Failed to parse gh issue context payload as JSON: {}",
+                e
+            ))
+        })?;
+        let title = root
+            .get("title")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| {
+                AgentError::State("gh issue context missing non-empty title".to_string())
+            })?
+            .to_string();
+        let body = root
+            .get("body")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        self.run_replay.record(
+            "issue.context.fetched",
+            format!("issue_number={}", issue_number),
+        );
+        Ok((title, body))
+    }
+
+    fn build_default_pr_body(&self, goal: &str) -> String {
+        let plan_summary = self
+            .current_plan
+            .as_ref()
+            .map(|p| format!("{} steps executed", p.steps.len()))
+            .unwrap_or_else(|| "No plan".to_string());
+
+        let metrics = self.metrics.snapshot();
+
+        format!(
+            "## Goal\n\
+             {}\n\n\
+             ## Execution Summary\n\
+             - Iterations: {}\n\
+             - Plan: {}\n\
+             - Tool executions: {} ({} failed)\n\
+             - Duration: {:?}\n\n\
+             ## Risk Assessment\n\
+             Low - All hard objectives satisfied\n\n\
+             ## Verification\n\
+             - [ ] Tests pass\n\
+             - [ ] No policy violations\n\
+             - [ ] Code review complete",
+            goal,
+            self.current_iteration_number,
+            plan_summary,
+            metrics.tool_executions_total,
+            metrics.tool_executions_failed,
+            metrics.total_duration,
+        )
+    }
+
+    fn try_generate_enhanced_pr_description(
+        &mut self,
+        goal: &str,
+        default_body: &str,
+    ) -> Option<String> {
+        let main_pr_number = std::env::var("AUTONOMOUS_MAIN_PR_NUMBER")
+            .ok()
+            .or_else(|| Self::extract_issue_number_from_goal(goal).map(|n| n.to_string()));
+
+        let output_file = std::env::var("AUTONOMOUS_PR_DESCRIPTION_OUTPUT")
+            .unwrap_or_else(|_| "pr_description.md".to_string());
+
+        let tool_name = "generate_pr_description";
+
+        if !self.policy.is_tool_allowed(tool_name) {
+            tracing::debug!("Tool '{}' not allowed by policy", tool_name);
+            self.record_replay(
+                "pr.description.fallback",
+                "policy_disallowed_generate_pr_description".to_string(),
+            );
+            self.memory.metadata.insert(
+                "pr_description_source".to_string(),
+                "default_policy_disallowed".to_string(),
+            );
+            return Some(default_body.to_string());
+        }
+        if let Err(error) = self
+            .enforce_authz_for_action(tool_name, &[])
+            .and_then(|_| self.enforce_risk_gate(tool_name, &[]))
+        {
+            self.record_replay("pr.description.fallback", format!("gated: {}", error));
+            self.memory.add_failure(
+                self.iteration,
+                "PR description generation blocked by policy gate".to_string(),
+                error.to_string(),
+                Some("Using default PR body".to_string()),
+            );
+            self.memory.metadata.insert(
+                "pr_description_source".to_string(),
+                "default_gated".to_string(),
+            );
+            return Some(default_body.to_string());
+        }
+
+        let Some(main_pr_number) = main_pr_number else {
+            self.record_replay(
+                "pr.description.fallback",
+                "missing_main_pr_reference".to_string(),
+            );
+            self.memory.metadata.insert(
+                "pr_description_source".to_string(),
+                "default_missing_main_pr_reference".to_string(),
+            );
+            return Some(default_body.to_string());
+        };
+        let tool_args = vec![main_pr_number, output_file.clone()];
+
+        match self.generate_pr_description(&tool_args, &output_file) {
+            Ok(generated) => {
+                self.record_replay(
+                    "pr.description.generated",
+                    format!("output_file={}", output_file),
+                );
+                self.memory
+                    .metadata
+                    .insert("pr_description_source".to_string(), "generated".to_string());
+                Some(generated)
+            }
+            Err(err) => {
+                self.record_replay(
+                    "pr.description.fallback",
+                    format!("generation_failed: {}", err),
+                );
+                self.memory.add_failure(
+                    self.iteration,
+                    "PR description generation failed".to_string(),
+                    err.to_string(),
+                    Some("Using default PR body".to_string()),
+                );
+                self.memory.metadata.insert(
+                    "pr_description_source".to_string(),
+                    "default_generation_failed".to_string(),
+                );
+                None
+            }
+        }
+    }
+
+    fn generate_pr_description(
+        &mut self,
+        tool_args: &[String],
+        output_file: &str,
+    ) -> AgentResult<String> {
+        let tool_name = "generate_pr_description";
+        let tool_start = Instant::now();
+
+        let tool = self
+            .tools
+            .get_tool(tool_name)
+            .ok_or_else(|| AgentError::Tool(format!("Tool '{}' not found", tool_name)))?;
+
+        let result = tool.execute(tool_args)?;
+        validate_tool_result_contract(tool_name, &result)?;
+        let tool_duration = tool_start.elapsed();
+        self.memory
+            .metadata
+            .insert("last_tool_name".to_string(), tool_name.to_string());
+
+        self.metrics
+            .record_tool_execution(tool_name, result.success, tool_duration);
+        self.run_replay.record(
+            "tool.execute",
+            format!(
+                "tool={} state={:?} iteration={} step=na success={} exit_code={:?} duration_ms={}",
+                tool_name,
+                self.state,
+                self.current_iteration_number,
+                result.success,
+                result.exit_code,
+                tool_duration.as_millis()
+            ),
+        );
+
+        self.audit
+            .log_tool_execution(tool_name, tool_args, result.success)
+            .map_err(|e| AgentError::State(e.to_string()))?;
+
+        if !result.success {
+            let details = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            let failure_class = classify_tool_failure(&details);
+            self.run_replay.record(
+                "tool.failure_class",
+                format!("tool={} class={}", tool_name, failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("{}:{}", tool_name, failure_class),
+            );
+            if let Some(exit_code) = result.exit_code {
+                self.memory
+                    .metadata
+                    .insert("last_tool_exit_code".to_string(), exit_code.to_string());
+            } else {
+                self.memory
+                    .metadata
+                    .insert("last_tool_exit_code".to_string(), "none".to_string());
+            }
+            return Err(AgentError::Tool(details));
+        }
+
+        let generated = std::fs::read_to_string(output_file).map_err(|e| {
+            AgentError::Tool(format!(
+                "Failed to read generated PR description from '{}': {}",
+                output_file, e
+            ))
+        })?;
+
+        self.audit
+            .log_file_modified(output_file)
+            .map_err(|e| AgentError::State(e.to_string()))?;
+
+        self.memory.metadata.insert(
+            "generated_pr_description".to_string(),
+            output_file.to_string(),
+        );
+
+        Ok(generated)
+    }
+
+    fn handle_review(&mut self) -> AgentResult<()> {
+        self.check_timeout()?;
+
+        tracing::info!(
+            "Iteration {}: Handling review feedback",
+            self.current_iteration_number
+        );
+        let review_required = std::env::var("AUTONOMOUS_REVIEW_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let pr_number = self
+            .pr_orchestrator
+            .as_ref()
+            .and_then(|o| o.metadata.pr_number);
+        let (comments, review_input_source) = self.load_review_comments(pr_number)?;
+        let require_gh_review_source = std::env::var("AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if require_gh_review_source && review_input_source != "gh_pr_view" {
+            self.run_replay.record(
+                "review.blocked",
+                format!("required_gh_source_but_got_{}", review_input_source),
+            );
+            self.memory.add_failure(
+                self.iteration,
+                "Review source requirement not satisfied".to_string(),
+                format!(
+                    "AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true but source was '{}'",
+                    review_input_source
+                ),
+                Some(
+                    "Enable AUTONOMOUS_FETCH_REVIEW_FROM_GH=true and ensure PR number is available"
+                        .to_string(),
+                ),
+            );
+            self.memory.metadata.insert(
+                "last_review_outcome".to_string(),
+                "blocked_review_source_requirement".to_string(),
+            );
+            return self.transition_to(AgentState::Blocked);
+        }
+        self.run_replay
+            .record("review.input_source", review_input_source.clone());
+        self.memory
+            .metadata
+            .insert("last_review_input_source".to_string(), review_input_source);
+
+        let Some(orchestrator) = self.pr_orchestrator.as_mut() else {
+            if review_required {
+                self.run_replay.record(
+                    "review.blocked",
+                    "review_required_but_no_pr_orchestrator".to_string(),
+                );
+                self.memory.add_failure(
+                    self.iteration,
+                    "Review feedback required".to_string(),
+                    "AUTONOMOUS_REVIEW_REQUIRED=true but no PR orchestrator is available"
+                        .to_string(),
+                    Some("Ensure PR creation stage completed before review stage".to_string()),
+                );
+                self.memory.metadata.insert(
+                    "last_review_outcome".to_string(),
+                    "blocked_no_pr_orchestrator".to_string(),
+                );
+                return self.transition_to(AgentState::Blocked);
+            }
+            self.run_replay
+                .record("review.skip", "no_pr_orchestrator".to_string());
+            self.memory.metadata.insert(
+                "last_review_outcome".to_string(),
+                "skipped_no_pr_orchestrator".to_string(),
+            );
+            return self.transition_to(AgentState::Done);
+        };
+        if comments.is_empty() {
+            if review_required {
+                self.run_replay.record(
+                    "review.blocked",
+                    "review_required_but_no_feedback".to_string(),
+                );
+                self.memory.add_failure(
+                    self.iteration,
+                    "Review feedback required".to_string(),
+                    "AUTONOMOUS_REVIEW_REQUIRED=true but no review comments were provided"
+                        .to_string(),
+                    Some(
+                        "Provide AUTONOMOUS_REVIEW_COMMENT/AUTONOMOUS_REVIEW_COMMENTS_JSON or enable AUTONOMOUS_FETCH_REVIEW_FROM_GH=true".to_string(),
+                    ),
+                );
+                self.memory.metadata.insert(
+                    "last_review_outcome".to_string(),
+                    "blocked_no_feedback".to_string(),
+                );
+                return self.transition_to(AgentState::Blocked);
+            }
+            self.run_replay
+                .record("review.skip", "no_feedback_provided".to_string());
+            self.memory.metadata.insert(
+                "last_review_outcome".to_string(),
+                "skipped_no_feedback".to_string(),
+            );
+            return self.transition_to(AgentState::Done);
+        }
+        let outcome = orchestrator.ingest_review(comments);
+        self.run_replay
+            .record("review.outcome", format!("{:?}", outcome));
+        self.memory
+            .metadata
+            .insert("last_review_outcome".to_string(), format!("{:?}", outcome));
+
+        match outcome {
+            ReviewOutcome::Approved => self.transition_to(AgentState::Done),
+            ReviewOutcome::ChangesRequested => {
+                let pending_reviewers: Vec<String> = orchestrator
+                    .review_ingester
+                    .pending_feedback()
+                    .into_iter()
+                    .map(|c| c.reviewer.clone())
+                    .collect();
+                self.run_replay.record(
+                    "review.pending_feedback",
+                    format!("count={}", pending_reviewers.len()),
+                );
+
+                let auto_resolve = std::env::var("AUTONOMOUS_AUTO_RESOLVE_REVIEW")
+                    .unwrap_or_else(|_| "false".to_string())
+                    == "true";
+                if auto_resolve {
+                    for reviewer in pending_reviewers {
+                        orchestrator.review_ingester.resolve(&reviewer);
+                    }
+                    let post_outcome = orchestrator.review_ingester.outcome();
+                    self.run_replay
+                        .record("review.post_resolve_outcome", format!("{:?}", post_outcome));
+                    if post_outcome == ReviewOutcome::Approved {
+                        return self.transition_to(AgentState::Done);
+                    }
+                }
+
+                let Some(next_iteration) = self.current_iteration_number.try_next() else {
+                    return self.transition_to(AgentState::Blocked);
+                };
+                if next_iteration.exceeds(self.max_iterations_limit) {
+                    return self.transition_to(AgentState::Blocked);
+                }
+                self.set_iteration_number(next_iteration);
+                self.current_plan = None;
+                self.reset_step_index();
+                self.transition_to(AgentState::GeneratePlan)
+            }
+            ReviewOutcome::Timeout => self.transition_to(AgentState::Blocked),
+        }
+    }
+
+    fn load_review_comments(
+        &mut self,
+        pr_number: Option<PrNumber>,
+    ) -> AgentResult<(Vec<ReviewComment>, String)> {
+        let (comments, source) = load_review_comments_from_env()?;
+        if !comments.is_empty() {
+            return Ok((comments, source.to_string()));
+        }
+
+        let fetch_from_gh = std::env::var("AUTONOMOUS_FETCH_REVIEW_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if !fetch_from_gh {
+            return Ok((Vec::new(), "none".to_string()));
+        }
+
+        let Some(pr_number) = pr_number else {
+            self.run_replay.record(
+                "review.fetch.skip",
+                "gh_enabled_but_missing_pr_number".to_string(),
+            );
+            return Ok((Vec::new(), "gh_skip_missing_pr_number".to_string()));
+        };
+
+        match self.fetch_review_comments_from_gh(pr_number) {
+            Ok(comments) => Ok((comments, "gh_pr_view".to_string())),
+            Err(error) => {
+                self.memory.add_failure(
+                    self.iteration,
+                    "Review feedback retrieval failed".to_string(),
+                    error.to_string(),
+                    Some("Provide review comments via env/file fallback".to_string()),
+                );
+                self.run_replay
+                    .record("review.fetch.failed", error.to_string());
+                Ok((Vec::new(), "gh_fetch_failed".to_string()))
+            }
+        }
+    }
+
+    fn fetch_review_comments_from_gh(
+        &mut self,
+        pr_number: PrNumber,
+    ) -> AgentResult<Vec<ReviewComment>> {
+        let mut command = Command::new("gh");
+        command
+            .arg("pr")
+            .arg("view")
+            .arg(pr_number.to_string())
+            .arg("--json")
+            .arg("reviews,comments");
+        let mut audit_args = vec![
+            "pr".to_string(),
+            "view".to_string(),
+            pr_number.to_string(),
+            "--json".to_string(),
+            "reviews,comments".to_string(),
+        ];
+        if let Ok(repo) = std::env::var("AUTONOMOUS_REPO")
+            && !repo.trim().is_empty()
+        {
+            command.arg("--repo").arg(&repo);
+            audit_args.push("--repo".to_string());
+            audit_args.push(repo);
+        }
+
+        let output =
+            run_command_with_timeout(command, self.tool_timeout.duration, "gh pr view reviews")?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let _ = self.audit.log_tool_execution(
+            "fetch_review_comments",
+            &audit_args,
+            output.status.success(),
+        );
+
+        if !output.status.success() {
+            let details = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                stderr.clone()
+            };
+            let failure_class = classify_tool_failure(&details);
+            self.record_replay(
+                "tool.failure_class",
+                format!("tool=fetch_review_comments class={}", failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("fetch_review_comments:{}", failure_class),
+            );
+            return Err(AgentError::Tool(format!(
+                "gh pr view failed (status={}): {}",
+                output.status, details
+            )));
+        }
+
+        parse_review_comments_from_gh_json(&stdout)
+    }
+
+    fn fetch_pr_ci_status_from_gh(&mut self, pr_number: PrNumber) -> AgentResult<CiStatus> {
+        let mut command = Command::new("gh");
+        command
+            .arg("pr")
+            .arg("view")
+            .arg(pr_number.to_string())
+            .arg("--json")
+            .arg("statusCheckRollup");
+        let mut audit_args = vec![
+            "pr".to_string(),
+            "view".to_string(),
+            pr_number.to_string(),
+            "--json".to_string(),
+            "statusCheckRollup".to_string(),
+        ];
+        if let Ok(repo) = std::env::var("AUTONOMOUS_REPO")
+            && !repo.trim().is_empty()
+        {
+            command.arg("--repo").arg(&repo);
+            audit_args.push("--repo".to_string());
+            audit_args.push(repo);
+        }
+
+        let output =
+            run_command_with_timeout(command, self.tool_timeout.duration, "gh pr view checks")?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let _ = self.audit.log_tool_execution(
+            "fetch_pr_ci_status",
+            &audit_args,
+            output.status.success(),
+        );
+
+        if !output.status.success() {
+            let details = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                stderr.clone()
+            };
+            let failure_class = classify_tool_failure(&details);
+            self.record_replay(
+                "tool.failure_class",
+                format!("tool=fetch_pr_ci_status class={}", failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("fetch_pr_ci_status:{}", failure_class),
+            );
+            return Err(AgentError::Tool(format!(
+                "gh pr view (statusCheckRollup) failed (status={}): {}",
+                output.status, details
+            )));
+        }
+
+        infer_ci_status_from_gh_json(&stdout)
+    }
+
+    pub fn metrics(&self) -> LifecycleMetrics {
+        self.metrics.snapshot()
+    }
+
+    pub fn current_state(&self) -> AgentState {
+        self.state
+    }
+
+    pub fn current_iteration(&self) -> usize {
+        self.current_iteration_number.get()
+    }
+
+    fn configure_policy_pack_from_env(&mut self) -> AgentResult<()> {
+        let Some(overrides) = std::env::var("AUTONOMOUS_TOOL_RISK_OVERRIDES").ok() else {
+            return Ok(());
+        };
+        if overrides.trim().is_empty() {
+            return Ok(());
+        }
+
+        let allow_unknown = std::env::var("AUTONOMOUS_ALLOW_UNKNOWN_RISK_OVERRIDE_TOOLS")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if !allow_unknown {
+            validate_override_tool_names(&overrides, |tool| self.is_known_tool(tool))?;
+        }
+
+        let applied = self
+            .policy_pack
+            .apply_risk_overrides_str(&overrides)
+            .map_err(AgentError::PolicyViolation)?;
+        let auto_sign = std::env::var("AUTONOMOUS_POLICY_PACK_AUTO_SIGN")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if !auto_sign {
+            return Err(AgentError::PolicyViolation(
+                "AUTONOMOUS_TOOL_RISK_OVERRIDES requires AUTONOMOUS_POLICY_PACK_AUTO_SIGN=true"
+                    .to_string(),
+            ));
+        }
+
+        self.policy_pack.sign();
+        self.run_replay.record(
+            "policy_pack.overrides_applied",
+            format!("entries={applied}"),
+        );
+        Ok(())
+    }
+
+    fn is_known_tool(&self, tool: &str) -> bool {
+        self.policy.allowed_tools.contains(&tool.to_string())
+            || matches!(tool, "deploy" | "modify_policy" | "delete_branch")
+    }
+
+    fn record_runbook_hint_for_error(&mut self, error_text: &str) {
+        let keyword = if error_text.to_ascii_lowercase().contains("policy") {
+            "policy"
+        } else if error_text.to_ascii_lowercase().contains("timeout") {
+            "timeout"
+        } else if error_text.to_ascii_lowercase().contains("circuit") {
+            "circuit"
+        } else {
+            return;
+        };
+
+        let entries = self.incident_runbook.lookup(keyword);
+        if let Some(entry) = entries.first() {
+            let remediation = entry.remediation_steps.join(" | ");
+            self.memory.add_failure(
+                self.iteration,
+                format!("Runbook hint ({})", entry.scenario),
+                error_text.to_string(),
+                Some(remediation.clone()),
+            );
+            self.run_replay.record(
+                "runbook.hint",
+                format!("{} => {}", entry.scenario, remediation),
+            );
+        }
+    }
+
+    fn build_slo_observations(&self, policy_safety: f64, tests_pass: f64) -> HashMap<String, f64> {
+        let metrics = self.metrics.snapshot();
+        let mut observations = HashMap::new();
+        observations.insert(
+            "run_success_rate".to_string(),
+            if self.state == AgentState::Done {
+                1.0
+            } else {
+                0.8
+            },
+        );
+        observations.insert("policy_violation_rate".to_string(), policy_safety);
+        observations.insert(
+            "iteration_latency_p95_secs".to_string(),
+            metrics.average_iteration_duration.as_secs_f64(),
+        );
+        observations.insert("test_pass_rate".to_string(), tests_pass);
+        observations.insert(
+            "recovery_time_secs".to_string(),
+            (metrics.iterations_failed as f64) * 30.0,
+        );
+        observations
+    }
+}
+
+fn build_action_from_step(step: &PlanStep) -> String {
+    if step.args.is_empty() {
+        step.tool.clone()
+    } else {
+        format!("{} {}", step.tool, step.args.join(" "))
+    }
+}
+
+fn parse_issue_labels_from_env() -> Vec<String> {
+    std::env::var("AUTONOMOUS_ISSUE_LABELS")
+        .ok()
+        .map(|raw| {
+            raw.split(',')
+                .map(|v| v.trim())
+                .filter(|v| !v.is_empty())
+                .map(|v| v.to_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn score_value(scores: &[(String, f64)], key: &str) -> Option<f64> {
+    scores.iter().find(|(k, _)| k == key).map(|(_, v)| *v)
+}
+
+fn env_f64_or(key: &str, default: f64) -> f64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|raw| raw.trim().parse::<f64>().ok())
+        .unwrap_or(default)
+}
+
+fn env_u64_or(key: &str, default: u64) -> u64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .unwrap_or(default)
+}
+
+fn ensure_parent_dir_exists(path: &str) -> std::io::Result<()> {
+    let p = std::path::Path::new(path);
+    if let Some(parent) = p.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+    Ok(())
+}
+
+fn build_tool_metric_snapshots(metrics: &LifecycleMetrics) -> HashMap<String, ToolMetricSnapshot> {
+    let mut result = HashMap::new();
+    for (tool, durations) in &metrics.tool_execution_times {
+        let executions = metrics
+            .tool_execution_counts
+            .get(tool)
+            .copied()
+            .unwrap_or(0);
+        let failures = metrics
+            .tool_execution_failures
+            .get(tool)
+            .copied()
+            .unwrap_or(0);
+
+        if durations.is_empty() {
+            result.insert(
+                tool.clone(),
+                ToolMetricSnapshot {
+                    executions,
+                    failures,
+                    avg_duration_ms: 0,
+                    p95_duration_ms: 0,
+                    max_duration_ms: 0,
+                },
+            );
+            continue;
+        }
+
+        let mut millis: Vec<u128> = durations.iter().map(|d| d.as_millis()).collect();
+        millis.sort_unstable();
+        let sum: u128 = millis.iter().copied().sum();
+        let avg_duration_ms = sum / (millis.len() as u128);
+        let max_duration_ms = *millis.last().unwrap_or(&0);
+        let p95_idx = ((millis.len().saturating_sub(1)) * 95) / 100;
+        let p95_duration_ms = millis.get(p95_idx).copied().unwrap_or(0);
+
+        result.insert(
+            tool.clone(),
+            ToolMetricSnapshot {
+                executions,
+                failures,
+                avg_duration_ms,
+                p95_duration_ms,
+                max_duration_ms,
+            },
+        );
+    }
+    result
+}
+
+fn render_tool_metrics_markdown(tool_metrics: &HashMap<String, ToolMetricSnapshot>) -> String {
+    if tool_metrics.is_empty() {
+        return "- No tool metrics recorded.".to_string();
+    }
+
+    let mut rows: Vec<(&String, &ToolMetricSnapshot)> = tool_metrics.iter().collect();
+    rows.sort_by(|a, b| a.0.cmp(b.0));
+
+    let mut out = String::from(
+        "| Tool | Executions | Failures | Avg ms | P95 ms | Max ms |\n|---|---:|---:|---:|---:|---:|\n",
+    );
+    for (tool, stats) in rows {
+        out.push_str(&format!(
+            "| `{}` | {} | {} | {} | {} | {} |\n",
+            tool,
+            stats.executions,
+            stats.failures,
+            stats.avg_duration_ms,
+            stats.p95_duration_ms,
+            stats.max_duration_ms
+        ));
+    }
+    out
+}
+
+fn build_ops_alerts(report: &RunReport) -> Vec<OpsAlert> {
+    let mut alerts = Vec::new();
+
+    if report.final_state != "Done" {
+        alerts.push(OpsAlert {
+            severity: "high".to_string(),
+            code: "RUN_NOT_DONE".to_string(),
+            message: format!("run ended in non-success state '{}'", report.final_state),
+        });
+    }
+    if report.policy_violations_total > 0 {
+        alerts.push(OpsAlert {
+            severity: "high".to_string(),
+            code: "POLICY_VIOLATIONS".to_string(),
+            message: format!(
+                "{} policy violation(s) detected in this run",
+                report.policy_violations_total
+            ),
+        });
+    }
+    if report.authz_denials_total > 0 {
+        alerts.push(OpsAlert {
+            severity: "medium".to_string(),
+            code: "AUTHZ_DENIALS".to_string(),
+            message: format!(
+                "{} authorization denial(s) detected in this run",
+                report.authz_denials_total
+            ),
+        });
+    }
+    if report.risk_gate_denies > 0 {
+        alerts.push(OpsAlert {
+            severity: "medium".to_string(),
+            code: "RISK_GATE_DENIES".to_string(),
+            message: format!("{} risk gate denial(s) recorded", report.risk_gate_denies),
+        });
+    }
+    if report.total_failures > 0 {
+        alerts.push(OpsAlert {
+            severity: "medium".to_string(),
+            code: "RUN_FAILURES".to_string(),
+            message: format!(
+                "{} failure(s) recorded in run memory",
+                report.total_failures
+            ),
+        });
+    }
+
+    alerts
+}
+
+fn render_ops_alerts_markdown(alerts: &[OpsAlert]) -> String {
+    if alerts.is_empty() {
+        return "- No active alerts.".to_string();
+    }
+
+    let mut lines = String::new();
+    for alert in alerts {
+        lines.push_str(&format!(
+            "- [{}] `{}` {}\n",
+            alert.severity, alert.code, alert.message
+        ));
+    }
+    lines
+}
+
+fn is_medium_risk_allowed(execution_mode: &str) -> bool {
+    let explicit_opt_in = std::env::var("AUTONOMOUS_ALLOW_MUTATING_TOOLS")
+        .ok()
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if explicit_opt_in {
+        return true;
+    }
+
+    !execution_mode.eq_ignore_ascii_case("safe")
+}
+
+fn action_risk_level(tool: &str, args: &[String], policy_pack: &PolicyPack) -> ActionRiskLevel {
+    if let Some(override_value) = policy_pack.risk_override(tool)
+        && let Some(parsed) = parse_risk_level(override_value)
+    {
+        return parsed;
+    }
+
+    if matches!(
+        tool,
+        "read_file" | "search_code" | "generate_pr_description"
+    ) {
+        return ActionRiskLevel::Low;
+    }
+    if tool == "run_tests" && args.first().map(|v| v == "cargo").unwrap_or(false) {
+        return ActionRiskLevel::Low;
+    }
+    if matches!(
+        tool,
+        "git_commit" | "deploy" | "modify_policy" | "delete_branch"
+    ) {
+        return ActionRiskLevel::High;
+    }
+    ActionRiskLevel::Medium
+}
+
+fn parse_risk_level(value: &str) -> Option<ActionRiskLevel> {
+    match value.to_ascii_lowercase().as_str() {
+        "low" => Some(ActionRiskLevel::Low),
+        "medium" => Some(ActionRiskLevel::Medium),
+        "high" => Some(ActionRiskLevel::High),
+        _ => None,
+    }
+}
+
+fn parse_action_outcome_triplet(value: &str) -> Option<(String, f64, usize)> {
+    if let Ok(summary) = serde_json::from_str::<ActionOutcomeSummary>(value) {
+        return Some((
+            summary.action.to_string(),
+            summary.pass_rate.get(),
+            summary.total,
+        ));
+    }
+
+    let mut parts = value.split(':');
+    let action = parts.next()?.to_string();
+    let pass_rate = parts.next()?.parse::<f64>().ok()?;
+    let total = parts.next()?.parse::<usize>().ok()?;
+    Some((action, pass_rate, total))
+}
+
+fn list_repository_entries(root: &str, max_entries: usize) -> std::io::Result<Vec<String>> {
+    let mut entries = Vec::new();
+    let mut dir_entries = std::fs::read_dir(root)?
+        .flatten()
+        .map(|e| e.path())
+        .collect::<Vec<_>>();
+    dir_entries.sort();
+
+    for path in dir_entries.into_iter().take(max_entries.max(1)) {
+        let rel = path
+            .strip_prefix(root)
+            .ok()
+            .and_then(|p| p.to_str())
+            .map(|s| {
+                s.trim_start_matches('/')
+                    .trim_start_matches('\\')
+                    .to_string()
+            })
+            .filter(|s| !s.is_empty())
+            .or_else(|| path.to_str().map(|s| s.to_string()));
+        if let Some(value) = rel {
+            entries.push(value);
+        }
+    }
+
+    Ok(entries)
+}
+
+fn has_valid_high_risk_approval_token() -> bool {
+    let provided = std::env::var("AUTONOMOUS_HIGH_RISK_APPROVAL_TOKEN").ok();
+    let expected = std::env::var("AUTONOMOUS_EXPECTED_APPROVAL_TOKEN").ok();
+    match (provided, expected) {
+        (Some(p), Some(e)) => !p.is_empty() && p == e,
+        _ => false,
+    }
+}
+
+fn has_valid_escalation_approval(required_role: &str) -> bool {
+    let approved_role = std::env::var("AUTONOMOUS_ESCALATION_APPROVAL_ROLE").ok();
+    let provided_token = std::env::var("AUTONOMOUS_ESCALATION_APPROVAL_TOKEN").ok();
+    let expected_token = std::env::var("AUTONOMOUS_EXPECTED_ESCALATION_TOKEN").ok();
+
+    match (approved_role, provided_token, expected_token) {
+        (Some(role), Some(provided), Some(expected)) => {
+            !role.is_empty()
+                && role == required_role
+                && !provided.is_empty()
+                && provided == expected
+        }
+        _ => false,
+    }
+}
+
+fn validate_override_tool_names<F>(overrides: &str, is_known_tool: F) -> AgentResult<()>
+where
+    F: Fn(&str) -> bool,
+{
+    for entry in overrides
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        let (tool, _) = entry.split_once('=').ok_or_else(|| {
+            AgentError::PolicyViolation(format!(
+                "Invalid risk override entry '{entry}', expected tool=risk"
+            ))
+        })?;
+        let tool = tool.trim();
+        if tool.is_empty() {
+            return Err(AgentError::PolicyViolation(
+                "Risk override tool name cannot be empty".to_string(),
+            ));
+        }
+        if !is_known_tool(tool) {
+            return Err(AgentError::PolicyViolation(format!(
+                "Unknown tool '{}' in AUTONOMOUS_TOOL_RISK_OVERRIDES",
+                tool
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn evaluate_issue_compliance(title: &str, body: &str) -> IssueComplianceStatus {
+    if body.trim().is_empty() {
+        return IssueComplianceStatus::Unknown;
+    }
+
+    if let Some(reason) = validate_required_issue_fields(body) {
+        return IssueComplianceStatus::NonCompliant { reason };
+    }
+
+    let require_typed_title = std::env::var("AUTONOMOUS_REQUIRE_TYPED_ISSUE_TITLE")
+        .ok()
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if require_typed_title && !looks_like_typed_issue_title(title) {
+        return IssueComplianceStatus::NonCompliant {
+            reason: "title must match type(scope): summary".to_string(),
+        };
+    }
+
+    IssueComplianceStatus::Compliant
+}
+
+fn validate_required_issue_fields(body: &str) -> Option<String> {
+    let required_fields =
+        std::env::var("AUTONOMOUS_REQUIRED_ISSUE_FIELDS").unwrap_or_else(|_| "Parent".to_string());
+
+    for raw_field in required_fields.split(',') {
+        let field = raw_field.trim();
+        if field.is_empty() {
+            continue;
+        }
+        let needle = format!("{field}:");
+        let has_field = body
+            .lines()
+            .any(|line| line.trim_start().starts_with(&needle));
+        if !has_field {
+            return Some(format!("missing required field: {field}:"));
+        }
+    }
+
+    let parent_line = body
+        .lines()
+        .find(|line| line.trim_start().starts_with("Parent:"))
+        .map(|line| {
+            line.trim_start()
+                .trim_start_matches("Parent:")
+                .trim()
+                .to_string()
+        });
+
+    if let Some(parent) = parent_line {
+        let Some(parent_ref) = ParentRef::parse(&parent) else {
+            return Some("Parent must be '#<number>' or 'none'".to_string());
+        };
+
+        if let ParentRef::Issue(parent_issue) = parent_ref {
+            if let Ok(issue_number) = std::env::var("AUTONOMOUS_ISSUE_NUMBER")
+                && issue_number == parent_issue.to_string()
+            {
+                return Some("Parent cannot reference the issue itself".to_string());
+            }
+
+            if let Ok(existing_raw) = std::env::var("AUTONOMOUS_EXISTING_ISSUE_NUMBERS") {
+                let exists = existing_raw
+                    .split(',')
+                    .map(|s| s.trim())
+                    .filter_map(ParentRef::parse)
+                    .filter_map(|r| match r {
+                        ParentRef::Issue(n) => Some(n),
+                        ParentRef::None => None,
+                    })
+                    .any(|n| n == parent_issue);
+                if !exists {
+                    return Some(format!(
+                        "Parent #{} does not exist in known issue set",
+                        parent_issue
+                    ));
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn looks_like_typed_issue_title(title: &str) -> bool {
+    let Some(colon_pos) = title.find(':') else {
+        return false;
+    };
+    if colon_pos == 0 || colon_pos + 1 >= title.len() {
+        return false;
+    }
+    let prefix = &title[..colon_pos];
+    let has_scope = prefix.contains('(') && prefix.ends_with(')');
+    let has_type = prefix
+        .chars()
+        .take_while(|c| *c != '(')
+        .all(|c| c.is_ascii_lowercase() || c == '_' || c == '-');
+    has_scope && has_type && !title[colon_pos + 1..].trim().is_empty()
+}
+
+fn append_issue_compliance_note(body: &str, status: &IssueComplianceStatus) -> String {
+    match status {
+        IssueComplianceStatus::Compliant | IssueComplianceStatus::Unknown => body.to_string(),
+        IssueComplianceStatus::NonCompliant { reason } => format!(
+            "{body}\n\n---\nIssue compliance: non-compliant\nReason: {reason}\nRemediation: fix required issue fields (e.g., Parent: #<id> or Parent: none), then update PR keyword line."
+        ),
+    }
+}
+
+fn compensation_for_tool(tool: &str) -> CompensationKind {
+    match tool {
+        "read_file" | "run_tests" => CompensationKind::None,
+        "generate_pr_description" => CompensationKind::Reversible {
+            description: "Remove generated PR description artifact".to_string(),
+        },
+        "git_commit" => CompensationKind::Irreversible {
+            warning: "Commit already recorded in git history".to_string(),
+        },
+        _ => CompensationKind::Reversible {
+            description: "Manual review of side effects required".to_string(),
+        },
+    }
+}
+
+fn extract_pr_number_from_text(text: &str) -> Option<u64> {
+    // Preferred pattern from GitHub URLs: .../pull/<number>
+    if let Some((_, suffix)) = text.rsplit_once("/pull/") {
+        let digits: String = suffix.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(parsed) = digits.parse::<u64>() {
+            return Some(parsed);
+        }
+    }
+
+    // Fallback pattern: any "#<number>" token in plain output.
+    let bytes = text.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b'#' {
+            let start = i + 1;
+            let mut end = start;
+            while end < bytes.len() && bytes[end].is_ascii_digit() {
+                end += 1;
+            }
+            if end > start
+                && let Ok(parsed) = text[start..end].parse::<u64>()
+            {
+                return Some(parsed);
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+fn classify_tool_failure(error_text: &str) -> &'static str {
+    let lower = error_text.to_ascii_lowercase();
+    if lower.contains("timed out") || lower.contains("timeout") {
+        return "timeout";
+    }
+    if lower.contains("not allowed") || lower.contains("policy") || lower.contains("forbidden") {
+        return "policy";
+    }
+    if lower.contains("not found") || lower.contains("no such file") || lower.contains("spawn") {
+        return "environment";
+    }
+    if lower.contains("exited with code") {
+        return "execution";
+    }
+    "unknown"
+}
+
+fn classify_failure_entry(entry: &FailureEntry) -> String {
+    let text = format!(
+        "{} {}",
+        entry.description.to_ascii_lowercase(),
+        entry.error.to_ascii_lowercase()
+    );
+    if text.contains("policy") || text.contains("authorization") {
+        return "policy".to_string();
+    }
+    if text.contains("timeout") {
+        return "timeout".to_string();
+    }
+    if text.contains("circuit") {
+        return "circuit_breaker".to_string();
+    }
+    if text.contains("resource") || text.contains("budget") {
+        return "resource".to_string();
+    }
+    if text.contains("test") || text.contains("validation") {
+        return "validation".to_string();
+    }
+    if text.contains("tool") {
+        return "tool".to_string();
+    }
+    "other".to_string()
+}
+
+fn validate_tool_result_contract(tool: &str, result: &ToolResult) -> AgentResult<()> {
+    match (result.success, result.exit_code) {
+        (true, Some(code)) if code != 0 => {
+            return Err(AgentError::Tool(format!(
+                "tool '{}' returned success=true with non-zero exit code {}",
+                tool, code
+            )));
+        }
+        (false, Some(0)) => {
+            return Err(AgentError::Tool(format!(
+                "tool '{}' returned success=false with exit code 0",
+                tool
+            )));
+        }
+        _ => {}
+    }
+
+    if !result.success && result.error.as_deref().unwrap_or("").trim().is_empty() {
+        return Err(AgentError::Tool(format!(
+            "tool '{}' returned success=false without error details",
+            tool
+        )));
+    }
+
+    Ok(())
+}
+
+fn run_command_with_timeout(
+    mut command: Command,
+    timeout: Duration,
+    label: &str,
+) -> AgentResult<std::process::Output> {
+    let mut child = command
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| AgentError::Tool(format!("failed to spawn '{label}': {e}")))?;
+
+    let start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                return child.wait_with_output().map_err(|e| {
+                    AgentError::Tool(format!("wait_with_output for '{label}' failed: {e}"))
+                });
+            }
+            Ok(None) => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    let _ = child.wait_with_output();
+                    return Err(AgentError::Tool(format!(
+                        "'{label}' timed out after {}s",
+                        timeout.as_secs()
+                    )));
+                }
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            Err(e) => {
+                return Err(AgentError::Tool(format!(
+                    "try_wait for '{label}' failed: {e}"
+                )));
+            }
+        }
+    }
+}
+
+fn load_review_comments_from_env() -> AgentResult<(Vec<ReviewComment>, &'static str)> {
+    if let Ok(path) = std::env::var("AUTONOMOUS_REVIEW_COMMENTS_FILE") {
+        let raw = std::fs::read_to_string(&path).map_err(|e| {
+            AgentError::State(format!(
+                "Failed to read AUTONOMOUS_REVIEW_COMMENTS_FILE '{}': {}",
+                path, e
+            ))
+        })?;
+        let comments: Vec<ReviewComment> = serde_json::from_str(&raw).map_err(|e| {
+            AgentError::State(format!(
+                "AUTONOMOUS_REVIEW_COMMENTS_FILE must contain a valid JSON array of review comments: {e}"
+            ))
+        })?;
+        return Ok((comments, "env_file"));
+    }
+
+    if let Ok(raw_json) = std::env::var("AUTONOMOUS_REVIEW_COMMENTS_JSON") {
+        let comments: Vec<ReviewComment> = serde_json::from_str(&raw_json).map_err(|e| {
+            AgentError::State(format!(
+                "AUTONOMOUS_REVIEW_COMMENTS_JSON must be valid JSON array of review comments: {e}"
+            ))
+        })?;
+        return Ok((comments, "env_json"));
+    }
+
+    if let Ok(body) = std::env::var("AUTONOMOUS_REVIEW_COMMENT") {
+        return Ok((
+            vec![ReviewComment {
+                reviewer: "review-bot".to_string(),
+                body,
+                resolved: false,
+            }],
+            "env_single",
+        ));
+    }
+
+    Ok((Vec::new(), "none"))
+}
+
+fn parse_review_comments_from_gh_json(raw: &str) -> AgentResult<Vec<ReviewComment>> {
+    let root: serde_json::Value = serde_json::from_str(raw).map_err(|e| {
+        AgentError::State(format!("Failed to parse gh review payload as JSON: {}", e))
+    })?;
+
+    let mut comments = Vec::new();
+
+    if let Some(reviews) = root.get("reviews").and_then(|v| v.as_array()) {
+        for review in reviews {
+            let state = review
+                .get("state")
+                .and_then(|v| v.as_str())
+                .unwrap_or("UNKNOWN");
+            let reviewer = review
+                .get("author")
+                .and_then(|v| v.get("login"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("reviewer")
+                .to_string();
+            let body = review
+                .get("body")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let resolved = !state.eq_ignore_ascii_case("CHANGES_REQUESTED");
+
+            if body.is_empty() {
+                if state.eq_ignore_ascii_case("CHANGES_REQUESTED") {
+                    comments.push(ReviewComment {
+                        reviewer,
+                        body: "Changes requested (no details provided)".to_string(),
+                        resolved,
+                    });
+                }
+                continue;
+            }
+
+            comments.push(ReviewComment {
+                reviewer,
+                body,
+                resolved,
+            });
+        }
+    }
+
+    if let Some(pr_comments) = root.get("comments").and_then(|v| v.as_array()) {
+        for comment in pr_comments {
+            let body = comment
+                .get("body")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if body.is_empty() {
+                continue;
+            }
+            let reviewer = comment
+                .get("author")
+                .and_then(|v| v.get("login"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("commenter")
+                .to_string();
+            comments.push(ReviewComment {
+                reviewer,
+                body,
+                // Plain PR comments are informational by default.
+                resolved: true,
+            });
+        }
+    }
+
+    Ok(comments)
+}
+
+fn infer_ci_status_from_gh_json(raw: &str) -> AgentResult<CiStatus> {
+    let root: serde_json::Value = serde_json::from_str(raw).map_err(|e| {
+        AgentError::State(format!(
+            "Failed to parse gh statusCheckRollup payload as JSON: {}",
+            e
+        ))
+    })?;
+
+    let Some(items) = root.get("statusCheckRollup").and_then(|v| v.as_array()) else {
+        return Ok(CiStatus::Unknown);
+    };
+    if items.is_empty() {
+        return Ok(CiStatus::Unknown);
+    }
+
+    let mut any_pending = false;
+    let mut any_failing = false;
+    let mut any_success = false;
+    let mut any_known = false;
+
+    for item in items {
+        for key in ["state", "status", "conclusion"] {
+            let Some(value) = item.get(key).and_then(|v| v.as_str()) else {
+                continue;
+            };
+            any_known = true;
+            let normalized = value.to_ascii_uppercase();
+            if matches!(
+                normalized.as_str(),
+                "FAILURE"
+                    | "FAILED"
+                    | "ERROR"
+                    | "TIMED_OUT"
+                    | "CANCELLED"
+                    | "ACTION_REQUIRED"
+                    | "STARTUP_FAILURE"
+            ) {
+                any_failing = true;
+            } else if matches!(
+                normalized.as_str(),
+                "PENDING" | "IN_PROGRESS" | "QUEUED" | "WAITING" | "REQUESTED" | "EXPECTED"
+            ) {
+                any_pending = true;
+            } else if matches!(
+                normalized.as_str(),
+                "SUCCESS" | "PASSED" | "COMPLETED" | "NEUTRAL" | "SKIPPED"
+            ) {
+                any_success = true;
+            }
+        }
+    }
+
+    if any_failing {
+        return Ok(CiStatus::Failing);
+    }
+    if any_pending {
+        return Ok(CiStatus::Pending);
+    }
+    if any_success {
+        return Ok(CiStatus::Passing);
+    }
+    if any_known {
+        return Ok(CiStatus::Unknown);
+    }
+
+    Ok(CiStatus::Unknown)
+}
