@@ -132,12 +132,10 @@ impl LifecycleManager {
             "builtin://heuristic",
             0.7,
         ));
-        let _ = model_governance
-            .registry
-            .promote_to_canary("default-neural");
-        let _ = model_governance
-            .registry
-            .promote_to_production("default-neural");
+        let _ = model_governance.evaluate_offline("default-neural", 1.0);
+        let _ = model_governance.promote_after_offline_gate("default-neural");
+        let _ = model_governance.evaluate_online("default-neural", 1.0);
+        let _ = model_governance.promote_after_online_gate("default-neural");
 
         let policy = PolicyEngine::new();
         let authz = AuthzEngine::new();
@@ -229,6 +227,18 @@ impl LifecycleManager {
             self.run_replay
                 .record("neural.rollout_state", format!("{:?}", state));
         }
+        self.run_replay.record(
+            "neural.rollout_gates",
+            format!(
+                "offline_passed={} online_passed={}",
+                self.model_governance
+                    .registry
+                    .offline_gate_passed("default-neural"),
+                self.model_governance
+                    .registry
+                    .online_gate_passed("default-neural")
+            ),
+        );
         self.configure_policy_pack_from_env()
             .map_err(|e| LifecycleError::Fatal {
                 iteration: 0,
@@ -1024,13 +1034,26 @@ impl LifecycleManager {
                         .model_governance
                         .accept("default-neural", suggested.confidence);
                     let validation = self.symbolic.validate_proposal(&suggested)?;
+                    let rollout_state = self
+                        .model_governance
+                        .registry
+                        .state("default-neural")
+                        .map(|s| format!("{:?}", s))
+                        .unwrap_or_else(|| "Unknown".to_string());
+                    let rollback_reason = self
+                        .model_governance
+                        .registry
+                        .rollback_reason("default-neural")
+                        .unwrap_or("none");
 
                     self.run_replay.record(
                         "neural.governance",
                         format!(
-                            "accepted={} symbolic_valid={} issues={}",
+                            "accepted={} symbolic_valid={} rollout_state={} rollback_reason={} issues={}",
                             governance_ok,
                             validation.is_valid,
+                            rollout_state,
+                            rollback_reason,
                             validation.issues.join(" | ")
                         ),
                     );
