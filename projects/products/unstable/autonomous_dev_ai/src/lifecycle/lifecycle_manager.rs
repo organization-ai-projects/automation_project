@@ -15,7 +15,8 @@ use crate::lifecycle::{ActionRiskLevel, LearningContext};
 use crate::memory::FailureEntry;
 use crate::memory_graph::MemoryGraph;
 use crate::neural::{
-    DriftDetector, IntentInterpretation, ModelGovernance, ModelVersion, NeuralLayer, NeuralModel,
+    DriftDetector, IntentInterpretation, ModelEvaluationSnapshot, ModelGovernance, ModelVersion,
+    NeuralLayer, NeuralModel,
 };
 use crate::objective_evaluator::ObjectiveEvaluator;
 use crate::ops::{IncidentRunbook, RunReplay, SloEvaluator};
@@ -77,6 +78,7 @@ pub struct LifecycleManager {
     checkpoint_path: CheckpointPath,
     last_intent: Option<IntentInterpretation>,
     drift_detector: DriftDetector,
+    neural_eval_source: String,
 
     // Timeouts.
     global_timeout: Timeout,
@@ -139,11 +141,37 @@ impl LifecycleManager {
         model_governance.online_eval_min_score = online_min;
         model_governance.confidence_gate.min_confidence = confidence_min;
 
-        let offline_score = env_f64_or("AUTONOMOUS_NEURAL_OFFLINE_SCORE", 1.0);
+        let mut neural_eval_source = "env".to_string();
+        let mut offline_score = env_f64_or("AUTONOMOUS_NEURAL_OFFLINE_SCORE", 1.0);
+        let mut online_score = env_f64_or("AUTONOMOUS_NEURAL_ONLINE_SCORE", 1.0);
+        if let Ok(path) = std::env::var("AUTONOMOUS_NEURAL_EVAL_FILE")
+            && !path.trim().is_empty()
+        {
+            match ModelEvaluationSnapshot::load_from_path(&path) {
+                Ok(snapshot) if snapshot.model_name == "default-neural" => {
+                    offline_score = snapshot.offline_score;
+                    online_score = snapshot.online_score;
+                    neural_eval_source = format!("file:{path}");
+                }
+                Ok(snapshot) => {
+                    tracing::warn!(
+                        "Ignoring neural evaluation snapshot for unexpected model '{}'",
+                        snapshot.model_name
+                    );
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        "Failed to load AUTONOMOUS_NEURAL_EVAL_FILE '{}': {}. Falling back to env scores.",
+                        path,
+                        err
+                    );
+                }
+            }
+        }
+
         let _ = model_governance.evaluate_offline("default-neural", offline_score);
         let _ = model_governance.promote_after_offline_gate("default-neural");
 
-        let online_score = env_f64_or("AUTONOMOUS_NEURAL_ONLINE_SCORE", 1.0);
         let _ = model_governance.evaluate_online("default-neural", online_score);
         let _ = model_governance.promote_after_online_gate("default-neural");
 
@@ -205,6 +233,7 @@ impl LifecycleManager {
             checkpoint_path,
             last_intent: None,
             drift_detector,
+            neural_eval_source,
             global_timeout,
             iteration_timeout: Timeout::from_secs(300),
             tool_timeout: Timeout::from_secs(30),
@@ -248,6 +277,10 @@ impl LifecycleManager {
                     .registry
                     .online_gate_passed("default-neural")
             ),
+        );
+        self.run_replay.record(
+            "neural.rollout_eval_source",
+            self.neural_eval_source.clone(),
         );
         self.configure_policy_pack_from_env()
             .map_err(|e| LifecycleError::Fatal {
