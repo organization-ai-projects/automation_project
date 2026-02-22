@@ -6,12 +6,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
 TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/issue_done_in_dev_status.sh"
 
+# shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
+source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
+
 TESTS_RUN=0
 TESTS_FAILED=0
-
-mktemp_compat() {
-  mktemp -d 2>/dev/null || mktemp -d -t done_in_dev_tests
-}
 
 build_mock_bin() {
   local mock_dir="$1"
@@ -90,12 +89,7 @@ exit 0
 EOF
   chmod +x "${mock_dir}/gh"
 
-  cat > "${mock_dir}/jq" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-cat
-EOF
-  chmod +x "${mock_dir}/jq"
+  shell_test_write_passthrough_jq_mock "${mock_dir}"
 }
 
 run_case() {
@@ -108,7 +102,7 @@ run_case() {
   TESTS_RUN=$((TESTS_RUN + 1))
 
   local tmp
-  tmp="$(mktemp_compat)"
+  tmp="$(shell_test_mktemp_dir "done_in_dev_tests")"
   local out_file="${tmp}/out.txt"
   local err_file="${tmp}/err.txt"
   local merged="${tmp}/merged.txt"

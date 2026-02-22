@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
+
 usage() {
   cat <<USAGE
 Usage:
@@ -90,32 +93,6 @@ fi
 REPO_OWNER="${REPO_NAME%%/*}"
 REPO_SHORT_NAME="${REPO_NAME#*/}"
 
-extract_tasklist_issue_refs() {
-  local body="$1"
-  echo "$body" \
-    | awk '
-      /-[[:space:]]*\[[xX ]\]/ {
-        line = $0
-        while (match(line, /#[0-9]+/)) {
-          ref = substr(line, RSTART, RLENGTH)
-          print ref
-          line = substr(line, RSTART + RLENGTH)
-        }
-      }
-    ' \
-    | sort -u
-}
-
-extract_subissue_refs_from_github() {
-  local parent_number="$1"
-  gh api graphql \
-    -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){subIssues(first:100){nodes{number}}}}}' \
-    -f owner="$REPO_OWNER" \
-    -f name="$REPO_SHORT_NAME" \
-    -F number="$parent_number" \
-    --jq '.data.repository.issue.subIssues.nodes[]?.number | "#"+tostring' 2>/dev/null || true
-}
-
 extract_parent_ref_from_github() {
   local child_number="$1"
   gh api graphql \
@@ -156,32 +133,6 @@ build_status_comment() {
   fi
 }
 
-upsert_status_comment() {
-  local issue_number="$1"
-  local body="$2"
-  local marker="<!-- parent-issue-status:${issue_number} -->"
-
-  local comment_id
-  comment_id="$({
-    gh api "repos/${REPO_NAME}/issues/${issue_number}/comments" --paginate
-  } | jq -r --arg marker "$marker" '
-      map(select((.body // "") | contains($marker)))
-      | sort_by(.updated_at)
-      | last
-      | .id // empty
-    ' 2>/dev/null || true)"
-
-  if [[ -n "$comment_id" ]]; then
-    gh api -X PATCH "repos/${REPO_NAME}/issues/comments/${comment_id}" \
-      -f body="$body" >/dev/null
-    echo "Updated parent status comment on #${issue_number}."
-  else
-    gh api "repos/${REPO_NAME}/issues/${issue_number}/comments" \
-      -f body="$body" >/dev/null
-    echo "Posted parent status comment on #${issue_number}."
-  fi
-}
-
 evaluate_parent_issue() {
   local parent_number="$1"
 
@@ -197,9 +148,9 @@ evaluate_parent_issue() {
   local body
   body="$(echo "$issue_json" | jq -r '.body // ""')"
 
-  mapfile -t child_refs < <(extract_subissue_refs_from_github "$parent_number")
+  mapfile -t child_refs < <(github_issue_extract_subissue_refs "$REPO_OWNER" "$REPO_SHORT_NAME" "$parent_number")
   if [[ ${#child_refs[@]} -eq 0 ]]; then
-    mapfile -t child_refs < <(extract_tasklist_issue_refs "$body")
+    mapfile -t child_refs < <(github_issue_extract_tasklist_refs "$body")
   fi
   if [[ ${#child_refs[@]} -eq 0 ]]; then
     return
@@ -234,7 +185,12 @@ evaluate_parent_issue() {
 
   local comment_body
   comment_body="$(build_status_comment "$parent_number" "$parent_state" "$total" "$closed_count" "$open_count" "$open_lines")"
-  upsert_status_comment "$parent_number" "$comment_body"
+  github_issue_upsert_marker_comment \
+    "$REPO_NAME" \
+    "$parent_number" \
+    "<!-- parent-issue-status:${parent_number} -->" \
+    "$comment_body" \
+    "true"
 
   if [[ "$strict_guard" == "true" && "$parent_state" == "CLOSED" && "$open_count" -gt 0 ]]; then
     gh issue reopen "$parent_number" -R "$REPO_NAME" >/dev/null
