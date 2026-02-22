@@ -35,6 +35,7 @@ Still partial:
   - no synthetic PR number derived from issue number
   - strict mode can require explicit PR number (`AUTONOMOUS_REQUIRE_PR_NUMBER=true`)
   - review loop no longer consumes budget on empty feedback batches
+- review loop can optionally fetch structured feedback from real PR context via `gh pr view` (`AUTONOMOUS_FETCH_REVIEW_FROM_GH=true`) when a PR number is available, with explicit source tracking in run metadata
 
 ## Known Gaps vs #647 Acceptance Criteria
 

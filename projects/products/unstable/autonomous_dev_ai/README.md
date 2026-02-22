@@ -67,6 +67,7 @@ Useful runtime controls for CI-like runs:
 - `AUTONOMOUS_REVIEW_COMMENTS_FILE=/path/to/comments.json`: structured review feedback from file
 - `AUTONOMOUS_REVIEW_REQUIRED=true`: block if no review feedback is available
 - `AUTONOMOUS_AUTO_RESOLVE_REVIEW=true`: auto-resolve pending feedback (off by default)
+- `AUTONOMOUS_FETCH_REVIEW_FROM_GH=true`: fetch review feedback from `gh pr view` when PR number is known
 
 ## Development Notes
 

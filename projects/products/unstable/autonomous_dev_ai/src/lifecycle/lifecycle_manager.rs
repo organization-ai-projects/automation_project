@@ -2364,6 +2364,17 @@ impl LifecycleManager {
             .ok()
             .map(|v| v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
+        let pr_number = self
+            .pr_orchestrator
+            .as_ref()
+            .and_then(|o| o.metadata.pr_number);
+        let (comments, review_input_source) = self.load_review_comments(pr_number)?;
+        self.run_replay
+            .record("review.input_source", review_input_source.clone());
+        self.memory
+            .metadata
+            .insert("last_review_input_source".to_string(), review_input_source);
+
         let Some(orchestrator) = self.pr_orchestrator.as_mut() else {
             if review_required {
                 self.run_replay.record(
@@ -2391,8 +2402,6 @@ impl LifecycleManager {
             );
             return self.transition_to(AgentState::Done);
         };
-
-        let comments = load_review_comments_from_env()?;
         if comments.is_empty() {
             if review_required {
                 self.run_replay.record(
@@ -2405,8 +2414,7 @@ impl LifecycleManager {
                     "AUTONOMOUS_REVIEW_REQUIRED=true but no review comments were provided"
                         .to_string(),
                     Some(
-                        "Provide AUTONOMOUS_REVIEW_COMMENT or AUTONOMOUS_REVIEW_COMMENTS_JSON"
-                            .to_string(),
+                        "Provide AUTONOMOUS_REVIEW_COMMENT/AUTONOMOUS_REVIEW_COMMENTS_JSON or enable AUTONOMOUS_FETCH_REVIEW_FROM_GH=true".to_string(),
                     ),
                 );
                 self.memory.metadata.insert(
@@ -2472,6 +2480,107 @@ impl LifecycleManager {
             }
             ReviewOutcome::Timeout => self.transition_to(AgentState::Blocked),
         }
+    }
+
+    fn load_review_comments(
+        &mut self,
+        pr_number: Option<PrNumber>,
+    ) -> AgentResult<(Vec<ReviewComment>, String)> {
+        let (comments, source) = load_review_comments_from_env()?;
+        if !comments.is_empty() {
+            return Ok((comments, source.to_string()));
+        }
+
+        let fetch_from_gh = std::env::var("AUTONOMOUS_FETCH_REVIEW_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if !fetch_from_gh {
+            return Ok((Vec::new(), "none".to_string()));
+        }
+
+        let Some(pr_number) = pr_number else {
+            self.run_replay.record(
+                "review.fetch.skip",
+                "gh_enabled_but_missing_pr_number".to_string(),
+            );
+            return Ok((Vec::new(), "gh_skip_missing_pr_number".to_string()));
+        };
+
+        match self.fetch_review_comments_from_gh(pr_number) {
+            Ok(comments) => Ok((comments, "gh_pr_view".to_string())),
+            Err(error) => {
+                self.memory.add_failure(
+                    self.iteration,
+                    "Review feedback retrieval failed".to_string(),
+                    error.to_string(),
+                    Some("Provide review comments via env/file fallback".to_string()),
+                );
+                self.run_replay
+                    .record("review.fetch.failed", error.to_string());
+                Ok((Vec::new(), "gh_fetch_failed".to_string()))
+            }
+        }
+    }
+
+    fn fetch_review_comments_from_gh(
+        &mut self,
+        pr_number: PrNumber,
+    ) -> AgentResult<Vec<ReviewComment>> {
+        let mut command = Command::new("gh");
+        command
+            .arg("pr")
+            .arg("view")
+            .arg(pr_number.to_string())
+            .arg("--json")
+            .arg("reviews,comments");
+        let mut audit_args = vec![
+            "pr".to_string(),
+            "view".to_string(),
+            pr_number.to_string(),
+            "--json".to_string(),
+            "reviews,comments".to_string(),
+        ];
+        if let Ok(repo) = std::env::var("AUTONOMOUS_REPO")
+            && !repo.trim().is_empty()
+        {
+            command.arg("--repo").arg(&repo);
+            audit_args.push("--repo".to_string());
+            audit_args.push(repo);
+        }
+
+        let output =
+            run_command_with_timeout(command, self.tool_timeout.duration, "gh pr view reviews")?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let _ = self.audit.log_tool_execution(
+            "fetch_review_comments",
+            &audit_args,
+            output.status.success(),
+        );
+
+        if !output.status.success() {
+            let details = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                stderr.clone()
+            };
+            let failure_class = classify_tool_failure(&details);
+            self.record_replay(
+                "tool.failure_class",
+                format!("tool=fetch_review_comments class={}", failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("fetch_review_comments:{}", failure_class),
+            );
+            return Err(AgentError::Tool(format!(
+                "gh pr view failed (status={}): {}",
+                output.status, details
+            )));
+        }
+
+        parse_review_comments_from_gh_json(&stdout)
     }
 
     pub fn metrics(&self) -> LifecycleMetrics {
@@ -2974,7 +3083,7 @@ fn run_command_with_timeout(
     }
 }
 
-fn load_review_comments_from_env() -> AgentResult<Vec<ReviewComment>> {
+fn load_review_comments_from_env() -> AgentResult<(Vec<ReviewComment>, &'static str)> {
     if let Ok(path) = std::env::var("AUTONOMOUS_REVIEW_COMMENTS_FILE") {
         let raw = std::fs::read_to_string(&path).map_err(|e| {
             AgentError::State(format!(
@@ -2987,7 +3096,7 @@ fn load_review_comments_from_env() -> AgentResult<Vec<ReviewComment>> {
                 "AUTONOMOUS_REVIEW_COMMENTS_FILE must contain a valid JSON array of review comments: {e}"
             ))
         })?;
-        return Ok(comments);
+        return Ok((comments, "env_file"));
     }
 
     if let Ok(raw_json) = std::env::var("AUTONOMOUS_REVIEW_COMMENTS_JSON") {
@@ -2996,16 +3105,94 @@ fn load_review_comments_from_env() -> AgentResult<Vec<ReviewComment>> {
                 "AUTONOMOUS_REVIEW_COMMENTS_JSON must be valid JSON array of review comments: {e}"
             ))
         })?;
-        return Ok(comments);
+        return Ok((comments, "env_json"));
     }
 
     if let Ok(body) = std::env::var("AUTONOMOUS_REVIEW_COMMENT") {
-        return Ok(vec![ReviewComment {
-            reviewer: "review-bot".to_string(),
-            body,
-            resolved: false,
-        }]);
+        return Ok((
+            vec![ReviewComment {
+                reviewer: "review-bot".to_string(),
+                body,
+                resolved: false,
+            }],
+            "env_single",
+        ));
     }
 
-    Ok(Vec::new())
+    Ok((Vec::new(), "none"))
+}
+
+fn parse_review_comments_from_gh_json(raw: &str) -> AgentResult<Vec<ReviewComment>> {
+    let root: serde_json::Value = serde_json::from_str(raw).map_err(|e| {
+        AgentError::State(format!("Failed to parse gh review payload as JSON: {}", e))
+    })?;
+
+    let mut comments = Vec::new();
+
+    if let Some(reviews) = root.get("reviews").and_then(|v| v.as_array()) {
+        for review in reviews {
+            let state = review
+                .get("state")
+                .and_then(|v| v.as_str())
+                .unwrap_or("UNKNOWN");
+            let reviewer = review
+                .get("author")
+                .and_then(|v| v.get("login"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("reviewer")
+                .to_string();
+            let body = review
+                .get("body")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let resolved = !state.eq_ignore_ascii_case("CHANGES_REQUESTED");
+
+            if body.is_empty() {
+                if state.eq_ignore_ascii_case("CHANGES_REQUESTED") {
+                    comments.push(ReviewComment {
+                        reviewer,
+                        body: "Changes requested (no details provided)".to_string(),
+                        resolved,
+                    });
+                }
+                continue;
+            }
+
+            comments.push(ReviewComment {
+                reviewer,
+                body,
+                resolved,
+            });
+        }
+    }
+
+    if let Some(pr_comments) = root.get("comments").and_then(|v| v.as_array()) {
+        for comment in pr_comments {
+            let body = comment
+                .get("body")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if body.is_empty() {
+                continue;
+            }
+            let reviewer = comment
+                .get("author")
+                .and_then(|v| v.get("login"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("commenter")
+                .to_string();
+            comments.push(ReviewComment {
+                reviewer,
+                body,
+                // Plain PR comments are informational by default.
+                resolved: true,
+            });
+        }
+    }
+
+    Ok(comments)
 }
