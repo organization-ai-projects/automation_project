@@ -401,6 +401,7 @@ impl LifecycleManager {
             total_decisions: self.memory.decisions.len(),
             total_failures: self.memory.failures.len(),
             total_objective_evaluations: self.memory.objective_evaluations.len(),
+            explored_files_count: self.memory.explored_files.len(),
             last_objective_passed: self.memory.objective_evaluations.last().map(|e| e.passed),
             weighted_objective_score,
             run_replay_path: self.memory.metadata.get("run_replay_path").cloned(),

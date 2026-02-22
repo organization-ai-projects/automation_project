@@ -13,6 +13,7 @@ pub struct RunReport {
     pub total_decisions: usize,
     pub total_failures: usize,
     pub total_objective_evaluations: usize,
+    pub explored_files_count: usize,
     pub last_objective_passed: Option<bool>,
     pub weighted_objective_score: Option<f64>,
     pub run_replay_path: Option<String>,
