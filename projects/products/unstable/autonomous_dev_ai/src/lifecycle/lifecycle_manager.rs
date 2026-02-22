@@ -79,6 +79,7 @@ pub struct LifecycleManager {
     last_intent: Option<IntentInterpretation>,
     drift_detector: DriftDetector,
     neural_eval_source: String,
+    active_neural_model_name: String,
 
     // Timeouts.
     global_timeout: Timeout,
@@ -128,8 +129,13 @@ impl LifecycleManager {
             config.neural.cpu_fallback,
         );
         let mut model_governance = ModelGovernance::new();
+        let active_neural_model_name = std::env::var("AUTONOMOUS_NEURAL_MODEL_NAME")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| "default-neural".to_string());
         model_governance.registry.register(ModelVersion::new(
-            "default-neural",
+            active_neural_model_name.clone(),
             "0.1.0",
             "builtin://heuristic",
             0.7,
@@ -147,16 +153,17 @@ impl LifecycleManager {
         if let Ok(path) = std::env::var("AUTONOMOUS_NEURAL_EVAL_FILE")
             && !path.trim().is_empty()
         {
-            match ModelEvaluationSnapshot::load_from_path(&path) {
-                Ok(snapshot) if snapshot.model_name == "default-neural" => {
-                    offline_score = snapshot.offline_score;
-                    online_score = snapshot.online_score;
+            match ModelEvaluationSnapshot::load_scores_for_model(&path, &active_neural_model_name) {
+                Ok(Some((offline, online))) => {
+                    offline_score = offline;
+                    online_score = online;
                     neural_eval_source = format!("file:{path}");
                 }
-                Ok(snapshot) => {
+                Ok(None) => {
                     tracing::warn!(
-                        "Ignoring neural evaluation snapshot for unexpected model '{}'",
-                        snapshot.model_name
+                        "No neural evaluation snapshot found for model '{}' in '{}', using env scores",
+                        active_neural_model_name,
+                        path
                     );
                 }
                 Err(err) => {
@@ -169,11 +176,11 @@ impl LifecycleManager {
             }
         }
 
-        let _ = model_governance.evaluate_offline("default-neural", offline_score);
-        let _ = model_governance.promote_after_offline_gate("default-neural");
+        let _ = model_governance.evaluate_offline(&active_neural_model_name, offline_score);
+        let _ = model_governance.promote_after_offline_gate(&active_neural_model_name);
 
-        let _ = model_governance.evaluate_online("default-neural", online_score);
-        let _ = model_governance.promote_after_online_gate("default-neural");
+        let _ = model_governance.evaluate_online(&active_neural_model_name, online_score);
+        let _ = model_governance.promote_after_online_gate(&active_neural_model_name);
 
         let policy = PolicyEngine::new();
         let authz = AuthzEngine::new();
@@ -234,6 +241,7 @@ impl LifecycleManager {
             last_intent: None,
             drift_detector,
             neural_eval_source,
+            active_neural_model_name,
             global_timeout,
             iteration_timeout: Timeout::from_secs(300),
             tool_timeout: Timeout::from_secs(30),
@@ -262,20 +270,25 @@ impl LifecycleManager {
                 self.symbolic.strict_validation, self.symbolic.deterministic
             ),
         );
-        if let Some(state) = self.model_governance.registry.state("default-neural") {
+        if let Some(state) = self
+            .model_governance
+            .registry
+            .state(&self.active_neural_model_name)
+        {
             self.run_replay
                 .record("neural.rollout_state", format!("{:?}", state));
         }
         self.run_replay.record(
             "neural.rollout_gates",
             format!(
-                "offline_passed={} online_passed={}",
+                "model={} offline_passed={} online_passed={}",
+                self.active_neural_model_name,
                 self.model_governance
                     .registry
-                    .offline_gate_passed("default-neural"),
+                    .offline_gate_passed(&self.active_neural_model_name),
                 self.model_governance
                     .registry
-                    .online_gate_passed("default-neural")
+                    .online_gate_passed(&self.active_neural_model_name)
             ),
         );
         self.run_replay.record(
@@ -1075,18 +1088,18 @@ impl LifecycleManager {
 
                     let governance_ok = self
                         .model_governance
-                        .accept("default-neural", suggested.confidence);
+                        .accept(&self.active_neural_model_name, suggested.confidence);
                     let validation = self.symbolic.validate_proposal(&suggested)?;
                     let rollout_state = self
                         .model_governance
                         .registry
-                        .state("default-neural")
+                        .state(&self.active_neural_model_name)
                         .map(|s| format!("{:?}", s))
                         .unwrap_or_else(|| "Unknown".to_string());
                     let rollback_reason = self
                         .model_governance
                         .registry
-                        .rollback_reason("default-neural")
+                        .rollback_reason(&self.active_neural_model_name)
                         .unwrap_or("none");
 
                     self.run_replay.record(
