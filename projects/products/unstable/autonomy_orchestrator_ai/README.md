@@ -8,6 +8,7 @@ For bootstrap V0, this crate provides:
 - explicit terminal states (`done`, `blocked`, `failed`, `timeout`)
 - deterministic transition recording with run identifier and timestamp
 - JSON run report artifact for audit/replay style supervision
+- typed stage execution records for binary invocations (exit code, duration, timeout, artifact checks)
 
 ## Usage
 
@@ -21,8 +22,27 @@ Optional blocked simulation:
 cargo run -p autonomy_orchestrator_ai -- [output_dir] --simulate-blocked
 ```
 
+Binary invocation contract:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --timeout-ms 30000 \
+  --manager-bin ./target/release/auto_manager_ai \
+  --manager-arg . \
+  --manager-arg ./out/manager \
+  --manager-expected-artifact ./out/manager/action_plan.json \
+  --manager-expected-artifact ./out/manager/run_report.json \
+  --executor-bin ./target/debug/autonomous_dev_ai \
+  --executor-arg "Fix failing tests for issue #123" \
+  --executor-arg ./agent_config \
+  --executor-arg ./agent_audit.log
+```
+
+If a configured binary fails to spawn, exits non-zero, times out, or misses expected artifacts, the orchestrator fails closed with terminal state `failed` or `timeout`.
+
 ## Output
 
 - `orchestrator_run_report.json`
 
 This report includes machine-readable stage transitions and terminal outcome.
+It also includes `stage_executions` records for every configured binary execution.
