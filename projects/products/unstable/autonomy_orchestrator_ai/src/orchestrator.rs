@@ -128,6 +128,7 @@ mod tests {
             stage: Stage::Planning,
             command: "__missing_binary__".to_string(),
             args: Vec::new(),
+            env: Vec::new(),
             timeout_ms: 100,
             expected_artifacts: Vec::new(),
         };

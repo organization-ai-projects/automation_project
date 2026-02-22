@@ -19,9 +19,11 @@ fn main() {
     let mut timeout_ms: u64 = 30_000;
     let mut manager_bin: Option<String> = None;
     let mut manager_args: Vec<String> = Vec::new();
+    let mut manager_env: Vec<(String, String)> = Vec::new();
     let mut manager_expected_artifacts: Vec<String> = Vec::new();
     let mut executor_bin: Option<String> = None;
     let mut executor_args: Vec<String> = Vec::new();
+    let mut executor_env: Vec<(String, String)> = Vec::new();
     let mut executor_expected_artifacts: Vec<String> = Vec::new();
 
     let args: Vec<String> = env::args().skip(1).collect();
@@ -56,6 +58,13 @@ fn main() {
                 manager_args.push(args[i + 1].clone());
                 i += 2;
             }
+            "--manager-env" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                manager_env.push(parse_env_pair(&args[i + 1]));
+                i += 2;
+            }
             "--manager-expected-artifact" => {
                 if i + 1 >= args.len() {
                     usage_and_exit();
@@ -75,6 +84,13 @@ fn main() {
                     usage_and_exit();
                 }
                 executor_args.push(args[i + 1].clone());
+                i += 2;
+            }
+            "--executor-env" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                executor_env.push(parse_env_pair(&args[i + 1]));
                 i += 2;
             }
             "--executor-expected-artifact" => {
@@ -100,6 +116,7 @@ fn main() {
         stage: Stage::Planning,
         command,
         args: manager_args,
+        env: manager_env,
         timeout_ms,
         expected_artifacts: manager_expected_artifacts,
     });
@@ -107,6 +124,7 @@ fn main() {
         stage: Stage::Execution,
         command,
         args: executor_args,
+        env: executor_env,
         timeout_ms,
         expected_artifacts: executor_expected_artifacts,
     });
@@ -167,9 +185,22 @@ fn usage_and_exit() -> ! {
     eprintln!("  --timeout-ms <millis>");
     eprintln!("  --manager-bin <path>");
     eprintln!("  --manager-arg <value>                    (repeatable)");
+    eprintln!("  --manager-env <KEY=VALUE>               (repeatable)");
     eprintln!("  --manager-expected-artifact <path>       (repeatable)");
     eprintln!("  --executor-bin <path>");
     eprintln!("  --executor-arg <value>                   (repeatable)");
+    eprintln!("  --executor-env <KEY=VALUE>              (repeatable)");
     eprintln!("  --executor-expected-artifact <path>      (repeatable)");
     process::exit(2);
+}
+
+fn parse_env_pair(raw: &str) -> (String, String) {
+    let mut split = raw.splitn(2, '=');
+    let key = split.next().unwrap_or_default().trim();
+    let value = split.next();
+    if key.is_empty() || value.is_none() {
+        eprintln!("Invalid env pair '{}', expected KEY=VALUE", raw);
+        process::exit(2);
+    }
+    (key.to_string(), value.unwrap_or_default().to_string())
 }

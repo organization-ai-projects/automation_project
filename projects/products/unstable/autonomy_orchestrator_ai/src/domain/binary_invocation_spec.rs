@@ -7,6 +7,7 @@ pub struct BinaryInvocationSpec {
     pub stage: Stage,
     pub command: String,
     pub args: Vec<String>,
+    pub env: Vec<(String, String)>,
     pub timeout_ms: u64,
     pub expected_artifacts: Vec<String>,
 }
