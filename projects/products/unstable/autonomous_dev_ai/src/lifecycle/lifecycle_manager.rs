@@ -429,6 +429,12 @@ impl LifecycleManager {
             last_tool_failure_class: self.memory.metadata.get("last_tool_failure_class").cloned(),
             review_required,
             create_pr_enabled,
+            real_pr_created: self
+                .memory
+                .metadata
+                .get("real_pr_created")
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false),
             pr_number,
             pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
             issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
@@ -1935,6 +1941,7 @@ impl LifecycleManager {
         let mut pr_orchestrator =
             PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);
         let mut opened_pr = false;
+        let mut real_pr_created = false;
         if let Ok(pr_number_raw) = std::env::var("AUTONOMOUS_PR_NUMBER")
             && let Ok(parsed) = pr_number_raw.parse::<u64>()
             && let Some(prn) = PrNumber::new(parsed)
@@ -2000,6 +2007,7 @@ impl LifecycleManager {
                     Ok(Some(real_pr)) => {
                         pr_orchestrator.open(real_pr);
                         opened_pr = true;
+                        real_pr_created = true;
                     }
                     Ok(None) => {}
                     Err(error) => {
@@ -2019,6 +2027,23 @@ impl LifecycleManager {
                 }
             }
         }
+        let require_real_pr_creation = std::env::var("AUTONOMOUS_REQUIRE_REAL_PR_CREATION")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if require_real_pr_creation && !create_pr_enabled {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true requires AUTONOMOUS_CREATE_PR=true"
+                    .to_string(),
+            ));
+        }
+        if require_real_pr_creation && !real_pr_created {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true but no PR was created via GitHub API path"
+                    .to_string(),
+            ));
+        }
+
         let require_pr_number = std::env::var("AUTONOMOUS_REQUIRE_PR_NUMBER")
             .ok()
             .map(|v| v.eq_ignore_ascii_case("true"))
@@ -2039,6 +2064,10 @@ impl LifecycleManager {
         self.memory
             .metadata
             .insert("pr_readiness".to_string(), readiness_msg.clone());
+        self.memory.metadata.insert(
+            "real_pr_created".to_string(),
+            if real_pr_created { "true" } else { "false" }.to_string(),
+        );
         self.memory.metadata.insert(
             "issue_compliance".to_string(),
             format!("{:?}", issue_compliance),
@@ -2374,6 +2403,33 @@ impl LifecycleManager {
             .as_ref()
             .and_then(|o| o.metadata.pr_number);
         let (comments, review_input_source) = self.load_review_comments(pr_number)?;
+        let require_gh_review_source = std::env::var("AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if require_gh_review_source && review_input_source != "gh_pr_view" {
+            self.run_replay.record(
+                "review.blocked",
+                format!("required_gh_source_but_got_{}", review_input_source),
+            );
+            self.memory.add_failure(
+                self.iteration,
+                "Review source requirement not satisfied".to_string(),
+                format!(
+                    "AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true but source was '{}'",
+                    review_input_source
+                ),
+                Some(
+                    "Enable AUTONOMOUS_FETCH_REVIEW_FROM_GH=true and ensure PR number is available"
+                        .to_string(),
+                ),
+            );
+            self.memory.metadata.insert(
+                "last_review_outcome".to_string(),
+                "blocked_review_source_requirement".to_string(),
+            );
+            return self.transition_to(AgentState::Blocked);
+        }
         self.run_replay
             .record("review.input_source", review_input_source.clone());
         self.memory

@@ -36,6 +36,9 @@ Still partial:
   - strict mode can require explicit PR number (`AUTONOMOUS_REQUIRE_PR_NUMBER=true`)
   - review loop no longer consumes budget on empty feedback batches
 - review loop can optionally fetch structured feedback from real PR context via `gh pr view` (`AUTONOMOUS_FETCH_REVIEW_FROM_GH=true`) when a PR number is available, with explicit source tracking in run metadata
+- strict fail-closed controls added for non-interactive operation:
+  - `AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true` enforces a PR actually created by runtime (not only injected number)
+  - `AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true` enforces review input from GitHub PR context
 
 ## Known Gaps vs #647 Acceptance Criteria
 

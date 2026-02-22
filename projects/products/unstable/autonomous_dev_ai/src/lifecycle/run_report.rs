@@ -21,6 +21,7 @@ pub struct RunReport {
     pub last_tool_failure_class: Option<String>,
     pub review_required: bool,
     pub create_pr_enabled: bool,
+    pub real_pr_created: bool,
     pub pr_number: Option<u64>,
     pub pr_readiness: Option<String>,
     pub issue_compliance: Option<String>,
