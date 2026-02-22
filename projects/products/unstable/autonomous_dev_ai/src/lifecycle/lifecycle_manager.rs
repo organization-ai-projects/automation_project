@@ -1,5 +1,6 @@
 //projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_manager.rs
 // Agent lifecycle implementation - production-grade flow.
+use super::process_usage::ProcessUsage;
 use super::run_report::{OpsAlert, ToolMetricSnapshot};
 use super::{
     Checkpoint, CircuitBreaker, CompensationKind, ExecutionContext, IterationNumber,
@@ -25,6 +26,7 @@ use crate::path_types::CheckpointPath;
 use crate::pr_flow::{
     CiStatus, IssueComplianceStatus, MergeReadiness, PrOrchestrator, ReviewComment, ReviewOutcome,
 };
+use crate::runtime_lock::RuntimeLockGuard;
 use crate::security::{ActorIdentity, AuthzDecision, AuthzEngine, PolicyPack, SecurityAuditRecord};
 use crate::state::AgentState;
 use crate::symbolic::{
@@ -190,8 +192,22 @@ impl LifecycleManager {
         let slo_evaluator = SloEvaluator::new(SloEvaluator::default_slos());
         let incident_runbook = IncidentRunbook::default_runbook();
         let policy_pack = PolicyPack::default();
-        let resource_budget =
-            ResourceBudget::new(global_timeout.duration, max_iterations_limit.get(), 500);
+        let max_cpu_seconds = env_u64_or(
+            "AUTONOMOUS_MAX_CPU_SECONDS",
+            global_timeout.duration.as_secs(),
+        );
+        let max_rss_mb = env_u64_or("AUTONOMOUS_MAX_RSS_MB", 2048);
+        let max_rss_bytes = usize::try_from(max_rss_mb)
+            .ok()
+            .and_then(|mb| mb.checked_mul(1024 * 1024))
+            .unwrap_or(usize::MAX);
+        let resource_budget = ResourceBudget::new(
+            global_timeout.duration,
+            Duration::from_secs(max_cpu_seconds),
+            max_rss_bytes,
+            max_iterations_limit.get(),
+            500,
+        );
         let rollback_manager = RollbackManager::new();
         let checkpoint_path = std::env::var("AUTONOMOUS_CHECKPOINT_PATH")
             .ok()
@@ -252,9 +268,33 @@ impl LifecycleManager {
     /// Run the lifecycle with typed errors, retries, and metrics.
     pub fn run(&mut self, goal: &str) -> LifecycleResult<()> {
         let start_time = Instant::now();
+        let runtime_lock_path = std::env::var("AUTONOMOUS_RUNTIME_LOCK_PATH")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| format!("{}.runtime.lock", self.checkpoint_path.as_str()));
+        let run_id = self.actor.run_id.to_string();
+        let _runtime_lock =
+            RuntimeLockGuard::acquire(&runtime_lock_path, &run_id).map_err(|e| {
+                LifecycleError::Fatal {
+                    iteration: 0,
+                    error: AgentError::State(format!(
+                        "Failed to acquire runtime lock '{}': {}",
+                        runtime_lock_path, e
+                    )),
+                    context: "Runtime lock acquisition failed".to_string(),
+                }
+            })?;
 
         self.run_replay = RunReplay::new(self.actor.run_id.clone());
-        self.set_iteration_number(IterationNumber::first());
+        let resumed_from_checkpoint = self
+            .memory
+            .metadata
+            .get("checkpoint.loaded")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+        if !resumed_from_checkpoint {
+            self.set_iteration_number(IterationNumber::first());
+        }
         self.current_plan = None;
         self.reset_step_index();
         self.pr_orchestrator = None;
@@ -262,6 +302,33 @@ impl LifecycleManager {
         self.last_intent = None;
         self.drift_detector = DriftDetector::default();
         self.run_replay.record("lifecycle.start", goal);
+        if resumed_from_checkpoint {
+            let resumed_iteration = self
+                .memory
+                .metadata
+                .get("checkpoint.loaded_iteration")
+                .cloned()
+                .unwrap_or_else(|| self.current_iteration_number.get().to_string());
+            self.run_replay.record(
+                "checkpoint.loaded",
+                format!("resume=true iteration={}", resumed_iteration),
+            );
+        }
+        self.run_replay.record(
+            "runtime.lock.acquired",
+            _runtime_lock.path().display().to_string(),
+        );
+        self.memory.metadata.insert(
+            "runtime_lock_path".to_string(),
+            _runtime_lock.path().display().to_string(),
+        );
+        if let Some(hold_ms) = std::env::var("AUTONOMOUS_HOLD_LOCK_MS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .filter(|v| *v > 0)
+        {
+            std::thread::sleep(Duration::from_millis(hold_ms));
+        }
         self.run_replay
             .record("lifecycle.checkpoint_path", self.checkpoint_path.as_str());
         self.run_replay.record(
@@ -380,6 +447,13 @@ impl LifecycleManager {
                 self.set_iteration_number(
                     IterationNumber::from_usize(checkpoint.iteration)
                         .unwrap_or_else(IterationNumber::first),
+                );
+                self.memory
+                    .metadata
+                    .insert("checkpoint.loaded".to_string(), "true".to_string());
+                self.memory.metadata.insert(
+                    "checkpoint.loaded_iteration".to_string(),
+                    checkpoint.iteration.to_string(),
                 );
                 self.run_replay.record(
                     "checkpoint.loaded",
@@ -721,6 +795,46 @@ impl LifecycleManager {
         }
 
         let metrics_snapshot = self.metrics.snapshot();
+        if let Some(process_usage) = ProcessUsage::sample() {
+            if process_usage.cpu_time >= self.resource_budget.max_cpu_time {
+                self.record_resource_budget_failure(
+                    format!(
+                        "cpu budget exceeded: cpu_secs={} budget_secs={}",
+                        process_usage.cpu_time.as_secs(),
+                        self.resource_budget.max_cpu_time.as_secs()
+                    ),
+                    Some("reduce workload or increase AUTONOMOUS_MAX_CPU_SECONDS".to_string()),
+                );
+                self.transition_to_failed_state()?;
+                return Err(LifecycleError::ResourceExhausted {
+                    resource: ResourceType::CpuTime,
+                    limit: self.resource_budget.max_cpu_time.as_secs() as usize,
+                    current: process_usage.cpu_time.as_secs() as usize,
+                });
+            }
+
+            if process_usage.rss_bytes >= self.resource_budget.max_rss_bytes {
+                self.record_resource_budget_failure(
+                    format!(
+                        "rss budget exceeded: rss_bytes={} budget_bytes={}",
+                        process_usage.rss_bytes, self.resource_budget.max_rss_bytes
+                    ),
+                    Some("reduce memory pressure or increase AUTONOMOUS_MAX_RSS_MB".to_string()),
+                );
+                self.transition_to_failed_state()?;
+                return Err(LifecycleError::ResourceExhausted {
+                    resource: ResourceType::Memory,
+                    limit: self.resource_budget.max_rss_bytes,
+                    current: process_usage.rss_bytes,
+                });
+            }
+        } else {
+            self.run_replay.record(
+                "runtime.process_usage.unavailable",
+                "CPU/RSS sampling unavailable; skipping cpu/rss budget checks",
+            );
+        }
+
         let memory_entries = self.memory.explored_files.len()
             + self.memory.plans.len()
             + self.memory.decisions.len()
@@ -767,11 +881,19 @@ impl LifecycleManager {
                 resource,
                 limit: match resource {
                     ResourceType::Time => self.resource_budget.max_runtime.as_secs() as usize,
+                    ResourceType::CpuTime => self.resource_budget.max_cpu_time.as_secs() as usize,
+                    ResourceType::Memory => self.resource_budget.max_rss_bytes,
                     ResourceType::ToolExecutions => self.resource_budget.max_tool_executions,
                     _ => self.resource_budget.max_iterations,
                 },
                 current: match resource {
                     ResourceType::Time => start_time.elapsed().as_secs() as usize,
+                    ResourceType::CpuTime => ProcessUsage::sample()
+                        .map(|usage| usage.cpu_time.as_secs() as usize)
+                        .unwrap_or_default(),
+                    ResourceType::Memory => ProcessUsage::sample()
+                        .map(|usage| usage.rss_bytes)
+                        .unwrap_or_default(),
                     ResourceType::ToolExecutions => metrics_snapshot.tool_executions_total,
                     _ => self.current_iteration_number.get(),
                 },
@@ -3342,6 +3464,13 @@ fn env_f64_or(key: &str, default: f64) -> f64 {
     std::env::var(key)
         .ok()
         .and_then(|raw| raw.trim().parse::<f64>().ok())
+        .unwrap_or(default)
+}
+
+fn env_u64_or(key: &str, default: u64) -> u64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
         .unwrap_or(default)
 }
 

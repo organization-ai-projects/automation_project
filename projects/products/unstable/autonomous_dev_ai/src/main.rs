@@ -19,6 +19,7 @@ mod path_types;
 mod persistence;
 mod plan_entry;
 mod pr_flow;
+mod runtime_lock;
 mod security;
 mod state;
 mod symbolic;

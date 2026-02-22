@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 pub struct ResourceBudget {
     /// Maximum wall-clock runtime for the entire run.
     pub max_runtime: Duration,
+    /// Maximum cumulative process CPU time for the entire run.
+    pub max_cpu_time: Duration,
+    /// Maximum resident set size in bytes for the running process.
+    pub max_rss_bytes: usize,
     /// Maximum number of lifecycle iterations.
     pub max_iterations: usize,
     /// Maximum number of tool executions across the run.
@@ -16,9 +20,17 @@ pub struct ResourceBudget {
 }
 
 impl ResourceBudget {
-    pub fn new(max_runtime: Duration, max_iterations: usize, max_tool_executions: usize) -> Self {
+    pub fn new(
+        max_runtime: Duration,
+        max_cpu_time: Duration,
+        max_rss_bytes: usize,
+        max_iterations: usize,
+        max_tool_executions: usize,
+    ) -> Self {
         Self {
             max_runtime,
+            max_cpu_time,
+            max_rss_bytes,
             max_iterations,
             max_tool_executions,
         }
@@ -46,6 +58,12 @@ impl ResourceBudget {
 
 impl Default for ResourceBudget {
     fn default() -> Self {
-        Self::new(Duration::from_secs(3600), 100, 500)
+        Self::new(
+            Duration::from_secs(3600),
+            Duration::from_secs(1800),
+            2 * 1024 * 1024 * 1024,
+            100,
+            500,
+        )
     }
 }
