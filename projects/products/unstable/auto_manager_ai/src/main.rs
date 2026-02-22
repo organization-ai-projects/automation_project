@@ -2,6 +2,7 @@
 
 mod adapters;
 mod ai;
+mod artifact_contract;
 mod config;
 mod domain;
 mod output_writer;
