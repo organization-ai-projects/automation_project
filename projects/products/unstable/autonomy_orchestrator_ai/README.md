@@ -49,6 +49,7 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
 
 If a configured binary fails to spawn, exits non-zero, times out, misses expected artifacts, or produces malformed expected JSON artifacts, the orchestrator fails closed with terminal state `failed` or `timeout`.
 When `--resume` is used, stages already marked completed in checkpoint are skipped idempotently. Stage idempotency keys are tracked as `stage:<StageName>` in execution records.
+Resume behavior is covered by binary regression tests in `tests/binary_resume_tests.rs`.
 
 ## Output
 
