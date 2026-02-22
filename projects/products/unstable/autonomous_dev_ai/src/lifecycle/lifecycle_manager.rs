@@ -410,6 +410,7 @@ impl LifecycleManager {
             pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
             issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
             pr_description_source: self.memory.metadata.get("pr_description_source").cloned(),
+            last_review_outcome: self.memory.metadata.get("last_review_outcome").cloned(),
             last_failure_description: last_failure.map(|f| f.description.clone()),
             last_failure_error: last_failure.map(|f| f.error.clone()),
             last_tool_exit_code: self
@@ -2258,10 +2259,18 @@ impl LifecycleManager {
                         .to_string(),
                     Some("Ensure PR creation stage completed before review stage".to_string()),
                 );
+                self.memory.metadata.insert(
+                    "last_review_outcome".to_string(),
+                    "blocked_no_pr_orchestrator".to_string(),
+                );
                 return self.transition_to(AgentState::Blocked);
             }
             self.run_replay
                 .record("review.skip", "no_pr_orchestrator".to_string());
+            self.memory.metadata.insert(
+                "last_review_outcome".to_string(),
+                "skipped_no_pr_orchestrator".to_string(),
+            );
             return self.transition_to(AgentState::Done);
         };
 
@@ -2282,15 +2291,26 @@ impl LifecycleManager {
                             .to_string(),
                     ),
                 );
+                self.memory.metadata.insert(
+                    "last_review_outcome".to_string(),
+                    "blocked_no_feedback".to_string(),
+                );
                 return self.transition_to(AgentState::Blocked);
             }
             self.run_replay
                 .record("review.skip", "no_feedback_provided".to_string());
+            self.memory.metadata.insert(
+                "last_review_outcome".to_string(),
+                "skipped_no_feedback".to_string(),
+            );
             return self.transition_to(AgentState::Done);
         }
         let outcome = orchestrator.ingest_review(comments);
         self.run_replay
             .record("review.outcome", format!("{:?}", outcome));
+        self.memory
+            .metadata
+            .insert("last_review_outcome".to_string(), format!("{:?}", outcome));
 
         match outcome {
             ReviewOutcome::Approved => self.transition_to(AgentState::Done),
