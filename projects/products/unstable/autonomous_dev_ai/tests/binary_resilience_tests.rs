@@ -262,3 +262,44 @@ fn policy_deny_path_blocks_execution_with_risk_gate() {
 
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn forbidden_force_push_pattern_is_blocked_by_policy_validation() {
+    let (output, run_report_path, out_dir) = run_binary(
+        "Validate test command safety for force push operation",
+        false,
+        &[
+            ("AUTONOMOUS_TEST_COMMAND", "git push --force"),
+            ("AUTONOMOUS_ALLOWED_TEST_PROGRAMS", "git"),
+        ],
+    );
+
+    assert!(
+        !output.status.success(),
+        "binary unexpectedly succeeded. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        combined.contains("violates policy patterns") || combined.contains("Policy violation"),
+        "missing policy violation signal in output:\n{}",
+        combined
+    );
+    assert!(
+        !combined.contains("Recoverable error (attempt"),
+        "force-push policy violation should be fatal (no retries):\n{}",
+        combined
+    );
+
+    let raw = fs::read_to_string(&run_report_path).expect("missing run report");
+    let json: serde_json::Value = serde_json::from_str(&raw).expect("run report invalid");
+    assert_ne!(json["final_state"], "Done");
+
+    let _ = fs::remove_dir_all(out_dir);
+}

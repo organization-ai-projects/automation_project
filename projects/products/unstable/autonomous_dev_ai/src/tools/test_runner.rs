@@ -1,6 +1,7 @@
 // projects/products/unstable/autonomous_dev_ai/src/tools/test_runner.rs
 use super::{Tool, ToolResult, run_with_timeout::run_with_timeout};
 use crate::error::{AgentError, AgentResult};
+use crate::symbolic::is_force_push_action;
 use std::time::Duration;
 
 use super::constants::DEFAULT_TOOL_TIMEOUT_SECS;
@@ -15,6 +16,13 @@ impl Tool for TestRunner {
 
     fn execute(&self, args: &[String]) -> AgentResult<ToolResult> {
         let (program, cmd_args) = build_test_command(args)?;
+        let runtime_action = build_runtime_action(&program, &cmd_args);
+        if is_force_push_action(&runtime_action) {
+            return Err(AgentError::PolicyViolation(
+                "force-push action is forbidden for run_tests".to_string(),
+            ));
+        }
+
         if !is_allowed_test_program(&program) {
             return Err(AgentError::PolicyViolation(format!(
                 "test program '{program}' is not allowed"
@@ -65,4 +73,12 @@ fn build_test_command(args: &[String]) -> AgentResult<(String, Vec<String>)> {
         "cargo".to_string(),
         vec!["test".to_string(), "--all-targets".to_string()],
     ))
+}
+
+fn build_runtime_action(program: &str, args: &[String]) -> String {
+    if args.is_empty() {
+        program.to_string()
+    } else {
+        format!("{program} {}", args.join(" "))
+    }
 }
