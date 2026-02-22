@@ -73,8 +73,7 @@ mod tests {
             result
                 .as_ref()
                 .err()
-                .map(|e| e
-                    .contains(ArtifactContractErrorCode::ActionPlanSchemaVersionInvalid.as_str()))
+                .map(|e| e.contains(ArtifactContractErrorCode::ActionPlanSchemaVersion.as_str()))
                 .unwrap_or(false),
             "unexpected result: {:?}",
             result
@@ -99,7 +98,7 @@ mod tests {
             result
                 .as_ref()
                 .err()
-                .map(|e| e.contains(ArtifactContractErrorCode::RunReportProducerInvalid.as_str()))
+                .map(|e| e.contains(ArtifactContractErrorCode::RunReportProducer.as_str()))
                 .unwrap_or(false),
             "unexpected result: {:?}",
             result

@@ -7,23 +7,19 @@ const EXPECTED_PRODUCER: &str = "auto_manager_ai";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArtifactContractErrorCode {
-    ActionPlanSchemaVersionInvalid,
-    ActionPlanProducerInvalid,
-    RunReportSchemaVersionInvalid,
-    RunReportProducerInvalid,
+    ActionPlanSchemaVersion,
+    ActionPlanProducer,
+    RunReportSchemaVersion,
+    RunReportProducer,
 }
 
 impl ArtifactContractErrorCode {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::ActionPlanSchemaVersionInvalid => {
-                "ARTIFACT_CONTRACT_ACTION_PLAN_SCHEMA_VERSION_INVALID"
-            }
-            Self::ActionPlanProducerInvalid => "ARTIFACT_CONTRACT_ACTION_PLAN_PRODUCER_INVALID",
-            Self::RunReportSchemaVersionInvalid => {
-                "ARTIFACT_CONTRACT_RUN_REPORT_SCHEMA_VERSION_INVALID"
-            }
-            Self::RunReportProducerInvalid => "ARTIFACT_CONTRACT_RUN_REPORT_PRODUCER_INVALID",
+            Self::ActionPlanSchemaVersion => "ARTIFACT_CONTRACT_ACTION_PLAN_SCHEMA_VERSION_INVALID",
+            Self::ActionPlanProducer => "ARTIFACT_CONTRACT_ACTION_PLAN_PRODUCER_INVALID",
+            Self::RunReportSchemaVersion => "ARTIFACT_CONTRACT_RUN_REPORT_SCHEMA_VERSION_INVALID",
+            Self::RunReportProducer => "ARTIFACT_CONTRACT_RUN_REPORT_PRODUCER_INVALID",
         }
     }
 }
@@ -43,7 +39,7 @@ impl ArtifactContractError {
 pub fn validate_action_plan_contract(plan: &ActionPlan) -> Result<(), ArtifactContractError> {
     if plan.schema_version != EXPECTED_SCHEMA_VERSION {
         return Err(ArtifactContractError {
-            code: ArtifactContractErrorCode::ActionPlanSchemaVersionInvalid,
+            code: ArtifactContractErrorCode::ActionPlanSchemaVersion,
             message: format!(
                 "Expected schema_version='{}', got '{}'",
                 EXPECTED_SCHEMA_VERSION, plan.schema_version
@@ -52,7 +48,7 @@ pub fn validate_action_plan_contract(plan: &ActionPlan) -> Result<(), ArtifactCo
     }
     if plan.producer != EXPECTED_PRODUCER {
         return Err(ArtifactContractError {
-            code: ArtifactContractErrorCode::ActionPlanProducerInvalid,
+            code: ArtifactContractErrorCode::ActionPlanProducer,
             message: format!(
                 "Expected producer='{}', got '{}'",
                 EXPECTED_PRODUCER, plan.producer
@@ -65,7 +61,7 @@ pub fn validate_action_plan_contract(plan: &ActionPlan) -> Result<(), ArtifactCo
 pub fn validate_run_report_contract(report: &RunReport) -> Result<(), ArtifactContractError> {
     if report.schema_version != EXPECTED_SCHEMA_VERSION {
         return Err(ArtifactContractError {
-            code: ArtifactContractErrorCode::RunReportSchemaVersionInvalid,
+            code: ArtifactContractErrorCode::RunReportSchemaVersion,
             message: format!(
                 "Expected schema_version='{}', got '{}'",
                 EXPECTED_SCHEMA_VERSION, report.schema_version
@@ -74,7 +70,7 @@ pub fn validate_run_report_contract(report: &RunReport) -> Result<(), ArtifactCo
     }
     if report.producer != EXPECTED_PRODUCER {
         return Err(ArtifactContractError {
-            code: ArtifactContractErrorCode::RunReportProducerInvalid,
+            code: ArtifactContractErrorCode::RunReportProducer,
             message: format!(
                 "Expected producer='{}', got '{}'",
                 EXPECTED_PRODUCER, report.producer
