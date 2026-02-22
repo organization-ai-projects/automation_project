@@ -2224,11 +2224,24 @@ impl LifecycleManager {
             )));
         }
         let pr_body = append_issue_compliance_note(&pr_body, &issue_compliance);
-        let mut pr_orchestrator =
-            PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);
-        let mut opened_pr = false;
+        let mut pr_orchestrator = if let Some(mut existing) = self.pr_orchestrator.take() {
+            existing.metadata.title = format!("Autonomous update: {}", goal);
+            existing.metadata.body = pr_body.clone();
+            existing
+        } else {
+            PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3)
+        };
+        let mut opened_pr = pr_orchestrator.metadata.pr_number.is_some();
         let mut real_pr_created = false;
-        let mut pr_number_source = "none".to_string();
+        let mut pr_number_source = if opened_pr {
+            self.memory
+                .metadata
+                .get("pr_number_source")
+                .cloned()
+                .unwrap_or_else(|| "existing_orchestrator".to_string())
+        } else {
+            "none".to_string()
+        };
         if let Ok(pr_number_raw) = std::env::var("AUTONOMOUS_PR_NUMBER")
             && let Ok(parsed) = pr_number_raw.parse::<u64>()
             && let Some(prn) = PrNumber::new(parsed)
