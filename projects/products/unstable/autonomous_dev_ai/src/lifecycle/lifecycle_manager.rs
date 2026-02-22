@@ -132,9 +132,19 @@ impl LifecycleManager {
             "builtin://heuristic",
             0.7,
         ));
-        let _ = model_governance.evaluate_offline("default-neural", 1.0);
+        let offline_min = env_f64_or("AUTONOMOUS_NEURAL_OFFLINE_MIN_SCORE", 0.8);
+        let online_min = env_f64_or("AUTONOMOUS_NEURAL_ONLINE_MIN_SCORE", 0.85);
+        let confidence_min = env_f64_or("AUTONOMOUS_NEURAL_MIN_CONFIDENCE", 0.7);
+        model_governance.offline_eval_min_score = offline_min;
+        model_governance.online_eval_min_score = online_min;
+        model_governance.confidence_gate.min_confidence = confidence_min;
+
+        let offline_score = env_f64_or("AUTONOMOUS_NEURAL_OFFLINE_SCORE", 1.0);
+        let _ = model_governance.evaluate_offline("default-neural", offline_score);
         let _ = model_governance.promote_after_offline_gate("default-neural");
-        let _ = model_governance.evaluate_online("default-neural", 1.0);
+
+        let online_score = env_f64_or("AUTONOMOUS_NEURAL_ONLINE_SCORE", 1.0);
+        let _ = model_governance.evaluate_online("default-neural", online_score);
         let _ = model_governance.promote_after_online_gate("default-neural");
 
         let policy = PolicyEngine::new();
@@ -3192,6 +3202,13 @@ fn parse_issue_labels_from_env() -> Vec<String> {
 
 fn score_value(scores: &[(String, f64)], key: &str) -> Option<f64> {
     scores.iter().find(|(k, _)| k == key).map(|(_, v)| *v)
+}
+
+fn env_f64_or(key: &str, default: f64) -> f64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|raw| raw.trim().parse::<f64>().ok())
+        .unwrap_or(default)
 }
 
 fn is_medium_risk_allowed(execution_mode: &str) -> bool {

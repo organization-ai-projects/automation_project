@@ -133,4 +133,42 @@ mod tests {
         );
         assert!(!governance.accept("default-neural", 0.99));
     }
+
+    #[test]
+    fn offline_gate_failure_prevents_canary_promotion() {
+        let mut governance = ModelGovernance::new();
+        governance.registry.register(ModelVersion::new(
+            "default-neural",
+            "1.0.0",
+            "builtin://default",
+            0.7,
+        ));
+
+        assert!(!governance.evaluate_offline("default-neural", 0.4));
+        assert!(!governance.promote_after_offline_gate("default-neural"));
+        assert_eq!(
+            governance.registry.state("default-neural"),
+            Some(RolloutState::Pending)
+        );
+    }
+
+    #[test]
+    fn online_gate_failure_prevents_production_promotion() {
+        let mut governance = ModelGovernance::new();
+        governance.registry.register(ModelVersion::new(
+            "default-neural",
+            "1.0.0",
+            "builtin://default",
+            0.7,
+        ));
+
+        assert!(governance.evaluate_offline("default-neural", 1.0));
+        assert!(governance.promote_after_offline_gate("default-neural"));
+        assert!(!governance.evaluate_online("default-neural", 0.2));
+        assert!(!governance.promote_after_online_gate("default-neural"));
+        assert_eq!(
+            governance.registry.state("default-neural"),
+            Some(RolloutState::Canary)
+        );
+    }
 }
