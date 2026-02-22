@@ -28,6 +28,7 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
         Err(err) => {
             return StageExecutionRecord {
                 stage: spec.stage,
+                idempotency_key: Some(format!("stage:{:?}", spec.stage)),
                 command: spec.command.clone(),
                 args: spec.args.clone(),
                 env_keys,
@@ -74,6 +75,7 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
 
                 return StageExecutionRecord {
                     stage: spec.stage,
+                    idempotency_key: Some(format!("stage:{:?}", spec.stage)),
                     command: spec.command.clone(),
                     args: spec.args.clone(),
                     env_keys,
@@ -92,6 +94,7 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                     let _ = child.wait();
                     return StageExecutionRecord {
                         stage: spec.stage,
+                        idempotency_key: Some(format!("stage:{:?}", spec.stage)),
                         command: spec.command.clone(),
                         args: spec.args.clone(),
                         env_keys,
@@ -109,6 +112,7 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
             Err(err) => {
                 return StageExecutionRecord {
                     stage: spec.stage,
+                    idempotency_key: Some(format!("stage:{:?}", spec.stage)),
                     command: spec.command.clone(),
                     args: spec.args.clone(),
                     env_keys,
@@ -183,6 +187,7 @@ mod tests {
 
         let result = invoke_binary(&spec);
         assert_eq!(result.status, StageExecutionStatus::SpawnFailed);
+        assert_eq!(result.idempotency_key, Some("stage:Planning".to_string()));
     }
 
     #[test]

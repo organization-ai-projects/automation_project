@@ -1,11 +1,13 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/main.rs
 
 mod binary_runner;
+mod checkpoint_store;
 mod domain;
 mod orchestrator;
 mod output_writer;
 
-use crate::domain::{BinaryInvocationSpec, Stage, TerminalState};
+use crate::checkpoint_store::load_checkpoint;
+use crate::domain::{BinaryInvocationSpec, OrchestratorCheckpoint, Stage, TerminalState};
 use crate::orchestrator::Orchestrator;
 use crate::output_writer::write_run_report;
 use std::env;
@@ -16,7 +18,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn main() {
     let mut output_dir = PathBuf::from("./out");
     let mut simulate_blocked = false;
+    let mut resume = false;
     let mut timeout_ms: u64 = 30_000;
+    let mut checkpoint_path_override: Option<PathBuf> = None;
     let mut manager_bin: Option<String> = None;
     let mut manager_args: Vec<String> = Vec::new();
     let mut manager_env: Vec<(String, String)> = Vec::new();
@@ -34,6 +38,10 @@ fn main() {
                 simulate_blocked = true;
                 i += 1;
             }
+            "--resume" => {
+                resume = true;
+                i += 1;
+            }
             "--timeout-ms" => {
                 if i + 1 >= args.len() {
                     usage_and_exit();
@@ -42,6 +50,13 @@ fn main() {
                     eprintln!("Invalid --timeout-ms value: {}", args[i + 1]);
                     process::exit(2);
                 });
+                i += 2;
+            }
+            "--checkpoint-path" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                checkpoint_path_override = Some(PathBuf::from(args[i + 1].clone()));
                 i += 2;
             }
             "--manager-bin" => {
@@ -111,7 +126,24 @@ fn main() {
         }
     }
 
-    let run_id = format!("run_{}", unix_timestamp_secs());
+    let checkpoint_path = checkpoint_path_override
+        .clone()
+        .unwrap_or_else(|| output_dir.join("orchestrator_checkpoint.json"));
+    let checkpoint = if resume {
+        match load_checkpoint(&checkpoint_path) {
+            Ok(cp) => Some(cp),
+            Err(err) => {
+                eprintln!("Failed to resume checkpoint: {err}");
+                process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
+    let run_id = checkpoint
+        .as_ref()
+        .map(|cp: &OrchestratorCheckpoint| cp.run_id.clone())
+        .unwrap_or_else(|| format!("run_{}", unix_timestamp_secs()));
     let planning_invocation = manager_bin.map(|command| BinaryInvocationSpec {
         stage: Stage::Planning,
         command,
@@ -132,6 +164,8 @@ fn main() {
     println!("Autonomy Orchestrator AI V0");
     println!("Run ID: {}", run_id);
     println!("Output: {}", output_dir.display());
+    println!("Resume: {}", resume);
+    println!("Checkpoint path: {}", checkpoint_path.display());
     println!("Simulate blocked: {}", simulate_blocked);
     println!("Timeout ms: {}", timeout_ms);
     println!(
@@ -149,6 +183,8 @@ fn main() {
         simulate_blocked,
         planning_invocation,
         execution_invocation,
+        checkpoint,
+        Some(checkpoint_path),
     )
     .execute();
 
@@ -181,6 +217,8 @@ fn usage_and_exit() -> ! {
     eprintln!("  autonomy_orchestrator_ai [output_dir] [options]");
     eprintln!();
     eprintln!("Options:");
+    eprintln!("  --resume");
+    eprintln!("  --checkpoint-path <path>");
     eprintln!("  --simulate-blocked");
     eprintln!("  --timeout-ms <millis>");
     eprintln!("  --manager-bin <path>");

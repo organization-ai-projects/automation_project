@@ -7,6 +7,7 @@ use crate::domain::{Stage, StageExecutionStatus};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StageExecutionRecord {
     pub stage: Stage,
+    pub idempotency_key: Option<String>,
     pub command: String,
     pub args: Vec<String>,
     pub env_keys: Vec<String>,
