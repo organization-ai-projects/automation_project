@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
+
 usage() {
   cat <<'USAGE'
 Usage:
@@ -41,11 +45,23 @@ trim() {
 require_template_contract() {
   local template_path="$1"
   [[ -f "$template_path" ]] || die "Template not found: $template_path"
-  grep -q '^## Context$' "$template_path" || die "Template missing section: ## Context"
-  grep -q '^## Problem$' "$template_path" || die "Template missing section: ## Problem"
-  grep -q '^## Acceptance Criteria$' "$template_path" || die "Template missing section: ## Acceptance Criteria"
-  grep -q '^## Hierarchy$' "$template_path" || die "Template missing section: ## Hierarchy"
-  grep -q '^Parent:$' "$template_path" || die "Template missing required Parent field line: Parent:"
+  issue_contract_load || die "Unable to load issue contract"
+
+  local section
+  while IFS= read -r section; do
+    section="$(trim_whitespace "$section")"
+    [[ -z "$section" ]] && continue
+    grep -qF "$section" "$template_path" || die "Template missing section: ${section}"
+  done <<< "${ISSUE_REQUIRED_SECTIONS:-}"
+
+  local rule field_name
+  while IFS= read -r rule; do
+    [[ -z "$rule" ]] && continue
+    IFS=$'\t' read -r field_name _ _ <<< "$rule"
+    field_name="$(trim_whitespace "${field_name:-}")"
+    [[ -z "$field_name" ]] && continue
+    grep -q "^${field_name}:$" "$template_path" || die "Template missing required field line: ${field_name}:"
+  done <<< "${ISSUE_REQUIRED_FIELDS:-}"
 }
 
 template_path=".github/ISSUE_TEMPLATE/direct_issue.md"
@@ -85,8 +101,9 @@ done
 [[ -n "$(trim "$problem")" ]] || die "--problem is required"
 [[ ${#acceptance_criteria[@]} -gt 0 ]] || die "At least one --acceptance is required"
 
-if [[ ! "$parent" =~ ^(none|#[0-9]+)$ ]]; then
-  die "--parent must be 'none' or '#<issue_number>'"
+title_validation="$(issue_validate_title "$title" || true)"
+if [[ -n "$title_validation" ]]; then
+  die "Invalid --title. Expected conventional issue format (e.g. feat(scope): summary)"
 fi
 
 require_template_contract "$template_path"
@@ -129,6 +146,16 @@ if [[ ${#related_issues[@]} -gt 0 || ${#related_prs[@]} -gt 0 ]]; then
   if [[ ${#related_prs[@]} -gt 0 ]]; then
     body+=$'\nRelated PR(s):'" $(printf '%s ' "${related_prs[@]}")"
   fi
+fi
+
+body_validation="$(issue_validate_body "$body" || true)"
+if [[ -n "$body_validation" ]]; then
+  echo "Issue body validation failed against required-fields contract:" >&2
+  while IFS='|' read -r kind field message; do
+    [[ -z "$message" ]] && continue
+    echo " - [${kind}] ${message}" >&2
+  done <<< "$body_validation"
+  die "Issue body is non-compliant with required issue format."
 fi
 
 cmd=(gh issue create --title "$title" --body "$body")
