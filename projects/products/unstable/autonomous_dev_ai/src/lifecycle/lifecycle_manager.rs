@@ -434,6 +434,11 @@ impl LifecycleManager {
             issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
             pr_description_source: self.memory.metadata.get("pr_description_source").cloned(),
             last_review_outcome: self.memory.metadata.get("last_review_outcome").cloned(),
+            last_review_input_source: self
+                .memory
+                .metadata
+                .get("last_review_input_source")
+                .cloned(),
             last_failure_description: last_failure.map(|f| f.description.clone()),
             last_failure_error: last_failure.map(|f| f.error.clone()),
             last_tool_exit_code: self
