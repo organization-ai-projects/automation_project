@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
+
 usage() {
   cat <<USAGE
 Usage:
@@ -96,29 +99,6 @@ MARKER="<!-- parent-field-autolink:${ISSUE_NUMBER} -->"
 LABEL_INVALID="invalid"
 LABEL_AUTOMATION_FAILED="automation-failed"
 
-upsert_status_comment() {
-  local issue_number="$1"
-  local body="$2"
-
-  local comment_id
-  comment_id="$({
-    gh api "repos/${REPO_NAME}/issues/${issue_number}/comments" --paginate
-  } | jq -r --arg marker "$MARKER" '
-      map(select((.body // "") | contains($marker)))
-      | sort_by(.updated_at)
-      | last
-      | .id // empty
-    ' 2>/dev/null || true)"
-
-  if [[ -n "$comment_id" ]]; then
-    gh api -X PATCH "repos/${REPO_NAME}/issues/comments/${comment_id}" \
-      -f body="$body" >/dev/null
-  else
-    gh api "repos/${REPO_NAME}/issues/${issue_number}/comments" \
-      -f body="$body" >/dev/null
-  fi
-}
-
 add_label() {
   local issue_number="$1"
   local label="$2"
@@ -145,7 +125,7 @@ $help_text
 "
   add_label "$ISSUE_NUMBER" "$LABEL_INVALID"
   add_label "$ISSUE_NUMBER" "$LABEL_AUTOMATION_FAILED"
-  upsert_status_comment "$ISSUE_NUMBER" "$body"
+  github_issue_upsert_marker_comment "$REPO_NAME" "$ISSUE_NUMBER" "$MARKER" "$body"
 }
 
 set_success_state() {
@@ -158,7 +138,7 @@ set_success_state() {
 "
   remove_label "$ISSUE_NUMBER" "$LABEL_INVALID"
   remove_label "$ISSUE_NUMBER" "$LABEL_AUTOMATION_FAILED"
-  upsert_status_comment "$ISSUE_NUMBER" "$body"
+  github_issue_upsert_marker_comment "$REPO_NAME" "$ISSUE_NUMBER" "$MARKER" "$body"
 }
 
 issue_json="$(gh issue view "$ISSUE_NUMBER" -R "$REPO_NAME" --json number,title,body,state,url 2>/dev/null || true)"
@@ -268,4 +248,3 @@ fi
 
 set_success_state "Linked this issue as child of #${parent_number}."
 echo "Linked issue #${ISSUE_NUMBER} to parent #${parent_number}."
-
