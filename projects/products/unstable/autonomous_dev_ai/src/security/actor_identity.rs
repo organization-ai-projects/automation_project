@@ -15,10 +15,6 @@ impl ActorIdentity {
     pub fn new(id: ActorId, roles: Vec<ActorRole>, run_id: RunId) -> Self {
         Self { id, roles, run_id }
     }
-
-    pub fn has_role(&self, role: &ActorRole) -> bool {
-        self.roles.contains(role)
-    }
 }
 
 impl Default for ActorIdentity {
@@ -28,5 +24,49 @@ impl Default for ActorIdentity {
             vec![ActorRole::Developer],
             RunId::new("default_run").expect("static run id must be valid"),
         )
+    }
+}
+
+impl ActorIdentity {
+    pub fn from_env_or_default() -> Self {
+        let mut actor = Self::default();
+
+        if let Ok(id) = std::env::var("AUTONOMOUS_ACTOR_ID")
+            && let Some(parsed) = ActorId::new(id.trim())
+        {
+            actor.id = parsed;
+        }
+
+        if let Ok(run_id) = std::env::var("AUTONOMOUS_RUN_ID")
+            && let Some(parsed) = RunId::new(run_id.trim())
+        {
+            actor.run_id = parsed;
+        }
+
+        if let Ok(raw_roles) = std::env::var("AUTONOMOUS_ACTOR_ROLES") {
+            let mut parsed_roles = Vec::new();
+            for role in raw_roles
+                .split(',')
+                .map(|r| r.trim().to_ascii_lowercase())
+                .filter(|r| !r.is_empty())
+            {
+                let mapped = match role.as_str() {
+                    "readonly" | "read_only" => Some(ActorRole::ReadOnly),
+                    "developer" => Some(ActorRole::Developer),
+                    "reviewer" => Some(ActorRole::Reviewer),
+                    "operator" => Some(ActorRole::Operator),
+                    "admin" => Some(ActorRole::Admin),
+                    _ => None,
+                };
+                if let Some(role) = mapped {
+                    parsed_roles.push(role);
+                }
+            }
+            if !parsed_roles.is_empty() {
+                actor.roles = parsed_roles;
+            }
+        }
+
+        actor
     }
 }

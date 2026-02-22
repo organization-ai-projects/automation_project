@@ -58,7 +58,7 @@ fn write_test_config(config_ron_path: &Path) {
             threshold: Some(0.7),
         ),
     ],
-    max_iterations: 20,
+    max_iterations: 12,
     timeout_seconds: Some(600),
 )
 "#;
@@ -68,7 +68,7 @@ fn write_test_config(config_ron_path: &Path) {
 fn run_with_env(goal: &str, extra_env: &[(&str, &str)]) -> (Output, PathBuf, PathBuf) {
     let bin = env!("CARGO_BIN_EXE_autonomous_dev_ai");
     let fixture = fixture_repo_dir();
-    let out_dir = unique_temp_dir("pr_flow");
+    let out_dir = unique_temp_dir("security");
 
     let config_base = out_dir.join("agent_config");
     let config_ron = config_base.with_extension("ron");
@@ -94,15 +94,19 @@ fn run_with_env(goal: &str, extra_env: &[(&str, &str)]) -> (Output, PathBuf, Pat
         .env("AUTONOMOUS_REQUIRE_EXPLORED_FILES", "true")
         .env(
             "AUTONOMOUS_ISSUE_TITLE",
-            "feat(autonomous_dev_ai): pr flow test",
+            "feat(autonomous_dev_ai): security test",
         )
         .env(
             "AUTONOMOUS_ISSUE_BODY",
-            "Context\nPR flow integration test\n\nHierarchy\nParent: none",
+            "Context\nSecurity integration test\n\nHierarchy\nParent: none",
         )
-        .env("AUTONOMOUS_PR_NUMBER", "653")
-        .env("AUTONOMOUS_PR_DESCRIPTION_OUTPUT", &pr_description)
-        .env("AUTONOMOUS_REVIEW_REQUIRED", "true");
+        .env("AUTONOMOUS_REVIEW_REQUIRED", "true")
+        .env(
+            "AUTONOMOUS_REVIEW_COMMENTS_JSON",
+            "[{\"reviewer\":\"security-bot\",\"body\":\"approved\",\"resolved\":true}]",
+        )
+        .env("AUTONOMOUS_PR_NUMBER", "654")
+        .env("AUTONOMOUS_PR_DESCRIPTION_OUTPUT", &pr_description);
 
     for (k, v) in extra_env {
         cmd.env(k, v);
@@ -115,60 +119,65 @@ fn run_with_env(goal: &str, extra_env: &[(&str, &str)]) -> (Output, PathBuf, Pat
 }
 
 #[test]
-fn review_loop_times_out_after_multiple_iterations() {
-    let unresolved = r#"[{"reviewer":"reviewer-a","body":"please fix","resolved":false}]"#;
-    let (_output, run_report, out_dir) = run_with_env(
-        "Validate PR review loop timeout behavior for issue #653 with tests",
-        &[
-            ("AUTONOMOUS_REVIEW_COMMENTS_JSON", unresolved),
-            ("AUTONOMOUS_AUTO_RESOLVE_REVIEW", "false"),
-        ],
-    );
-
-    let raw = fs::read_to_string(&run_report).expect("missing run report");
-    let json: serde_json::Value = serde_json::from_str(&raw).expect("run report invalid");
-    let final_state = json["final_state"].as_str().unwrap_or_default();
-    assert!(
-        matches!(final_state, "Blocked" | "Failed"),
-        "expected Blocked or Failed final state for timeout path, got '{}' in report: {}",
-        final_state,
-        raw
-    );
-    assert_eq!(json["last_review_outcome"], "Timeout");
-    assert!(
-        json["total_iterations"].as_u64().unwrap_or(0) >= 3,
-        "expected >=3 iterations to hit review timeout, report: {}",
-        raw
-    );
-
-    let _ = fs::remove_dir_all(out_dir);
-}
-
-#[test]
-fn merge_readiness_resolves_successfully_on_nominal_review_path() {
-    let approved = r#"[{"reviewer":"reviewer-a","body":"looks good","resolved":true}]"#;
+fn read_only_actor_cannot_execute_developer_tools() {
     let (output, run_report, out_dir) = run_with_env(
-        "Validate PR merge readiness happy path for issue #653 with tests",
-        &[
-            ("AUTONOMOUS_REVIEW_COMMENTS_JSON", approved),
-            ("AUTONOMOUS_ALLOW_EXTERNAL_ACTIONS", "true"),
-        ],
+        "Validate authz denial for read-only actor with tests",
+        &[("AUTONOMOUS_ACTOR_ROLES", "read_only")],
     );
 
     assert!(
-        output.status.success(),
-        "binary failed. stdout:\n{}\nstderr:\n{}",
+        !output.status.success(),
+        "binary unexpectedly succeeded. stdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
 
     let raw = fs::read_to_string(&run_report).expect("missing run report");
     let json: serde_json::Value = serde_json::from_str(&raw).expect("run report invalid");
-    assert_eq!(json["final_state"], "Done");
-    assert_eq!(json["last_review_outcome"], "Approved");
-    assert_eq!(json["pr_readiness"], "ready");
-    assert_eq!(json["pr_number_source"], "env_injected");
-    assert_eq!(json["issue_compliance"], "Compliant");
+    assert!(
+        json["authz_denials_total"].as_u64().unwrap_or(0) > 0,
+        "expected authz denials in report: {}",
+        raw
+    );
+    assert_eq!(json["actor_roles"][0], "ReadOnly");
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn external_action_is_blocked_without_explicit_opt_in() {
+    let (output, run_report, out_dir) = run_with_env(
+        "Validate external action guard for PR creation",
+        &[
+            ("AUTONOMOUS_PR_NUMBER", ""),
+            ("AUTONOMOUS_CREATE_PR", "true"),
+            ("AUTONOMOUS_CREATE_PR_REQUIRED", "true"),
+            ("AUTONOMOUS_ALLOW_EXTERNAL_ACTIONS", "false"),
+        ],
+    );
+
+    assert!(
+        !output.status.success(),
+        "binary unexpectedly succeeded. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("external actions require AUTONOMOUS_ALLOW_EXTERNAL_ACTIONS=true"),
+        "unexpected stderr:\n{}",
+        stderr
+    );
+
+    let raw = fs::read_to_string(&run_report).expect("missing run report");
+    let json: serde_json::Value = serde_json::from_str(&raw).expect("run report invalid");
+    assert!(
+        json["authz_denials_total"].as_u64().unwrap_or(0) > 0
+            || json["policy_violations_total"].as_u64().unwrap_or(0) > 0,
+        "expected security denial signal in report: {}",
+        raw
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
