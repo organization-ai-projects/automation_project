@@ -1318,6 +1318,7 @@ impl LifecycleManager {
             .metadata
             .insert("last_tool_name".to_string(), step.tool.clone());
         let result = self.execute_tool_with_timeout(&step.tool, &step.args)?;
+        validate_tool_result_contract(&step.tool, &result)?;
         let tool_duration = tool_start.elapsed();
         self.run_replay.record(
             "tool.execute",
@@ -2228,6 +2229,7 @@ impl LifecycleManager {
             .ok_or_else(|| AgentError::Tool(format!("Tool '{}' not found", tool_name)))?;
 
         let result = tool.execute(tool_args)?;
+        validate_tool_result_contract(tool_name, &result)?;
         let tool_duration = tool_start.elapsed();
         self.memory
             .metadata
@@ -2847,6 +2849,33 @@ fn classify_tool_failure(error_text: &str) -> &'static str {
         return "execution";
     }
     "unknown"
+}
+
+fn validate_tool_result_contract(tool: &str, result: &ToolResult) -> AgentResult<()> {
+    match (result.success, result.exit_code) {
+        (true, Some(code)) if code != 0 => {
+            return Err(AgentError::Tool(format!(
+                "tool '{}' returned success=true with non-zero exit code {}",
+                tool, code
+            )));
+        }
+        (false, Some(0)) => {
+            return Err(AgentError::Tool(format!(
+                "tool '{}' returned success=false with exit code 0",
+                tool
+            )));
+        }
+        _ => {}
+    }
+
+    if !result.success && result.error.as_deref().unwrap_or("").trim().is_empty() {
+        return Err(AgentError::Tool(format!(
+            "tool '{}' returned success=false without error details",
+            tool
+        )));
+    }
+
+    Ok(())
 }
 
 fn run_command_with_timeout(
