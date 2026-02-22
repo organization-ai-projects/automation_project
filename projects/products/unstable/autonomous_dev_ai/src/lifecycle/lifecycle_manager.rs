@@ -185,7 +185,7 @@ impl LifecycleManager {
 
         let policy = PolicyEngine::new();
         let authz = AuthzEngine::new();
-        let actor = ActorIdentity::default();
+        let actor = ActorIdentity::from_env_or_default();
         let run_replay = RunReplay::new(actor.run_id.clone());
         let slo_evaluator = SloEvaluator::new(SloEvaluator::default_slos());
         let incident_runbook = IncidentRunbook::default_runbook();
@@ -501,6 +501,13 @@ impl LifecycleManager {
         let mut report = RunReport {
             generated_at_secs: RunReport::now_secs(),
             run_id: self.actor.run_id.to_string(),
+            actor_id: self.actor.id.to_string(),
+            actor_roles: self
+                .actor
+                .roles
+                .iter()
+                .map(|r| format!("{:?}", r))
+                .collect(),
             final_state: format!("{:?}", self.state),
             execution_mode: self.config.execution_mode.clone(),
             neural_enabled: self.neural.enabled,
@@ -1512,7 +1519,7 @@ impl LifecycleManager {
                 )));
             }
 
-            self.enforce_authz_for_action(&step.tool)?;
+            self.enforce_authz_for_action(&step.tool, &step.args)?;
         }
         Ok(())
     }
@@ -1587,7 +1594,7 @@ impl LifecycleManager {
             return Err(AgentError::PolicyViolation(error_msg));
         }
 
-        self.enforce_authz_for_action(&step.tool)?;
+        self.enforce_authz_for_action(&step.tool, &step.args)?;
         self.enforce_risk_gate(&step.tool, &step.args)?;
         let compensation = self
             .tools
@@ -1759,9 +1766,8 @@ impl LifecycleManager {
         Ok(result)
     }
 
-    fn enforce_authz_for_action(&mut self, action: &str) -> AgentResult<()> {
-        let decision = self.authz.check(&self.actor, action);
-        let actor_has_dev_role = self.actor.has_role(&crate::security::ActorRole::Developer);
+    fn enforce_authz_for_action(&mut self, action: &str, args: &[String]) -> AgentResult<()> {
+        let decision = self.authz.check_with_args(&self.actor, action, args);
         let security_audit = SecurityAuditRecord::new(&self.actor, action, &decision);
         let security_payload = serde_json::to_string(&security_audit)
             .unwrap_or_else(|_| format!("authz action={} decision={:?}", action, decision));
@@ -1770,24 +1776,6 @@ impl LifecycleManager {
             .audit
             .log_symbolic_decision("security_authz", &security_payload);
         self.run_replay.record("security.authz", security_payload);
-
-        if !actor_has_dev_role {
-            let error = format!(
-                "Actor '{}' is missing required Developer role for action '{}'",
-                self.actor.id, action
-            );
-            self.memory.add_failure(
-                self.iteration,
-                "Authorization denied".to_string(),
-                error.clone(),
-                Some("Use an actor identity with Developer role".to_string()),
-            );
-            self.run_replay.record(
-                "security.authz.denied",
-                format!("action={} reason=missing_role", action),
-            );
-            return Err(AgentError::PolicyViolation(error));
-        }
 
         if decision.is_allowed() {
             return Ok(());
@@ -1809,6 +1797,13 @@ impl LifecycleManager {
                 Err(AgentError::PolicyViolation(error))
             }
             AuthzDecision::RequiresEscalation { required_role } => {
+                if has_valid_escalation_approval(&required_role) {
+                    self.run_replay.record(
+                        "security.authz.escalation_approved",
+                        format!("action={} required_role={}", action, required_role),
+                    );
+                    return Ok(());
+                }
                 let error = format!("Action '{}' requires escalation: {}", action, required_role);
                 self.memory.add_failure(
                     self.iteration,
@@ -2295,7 +2290,7 @@ impl LifecycleManager {
                     "Tool 'create_pr' is not allowed by policy".to_string(),
                 ))
             } else {
-                self.enforce_authz_for_action("create_pr")
+                self.enforce_authz_for_action("create_pr", &[])
                     .and_then(|_| self.enforce_risk_gate("create_pr", &[]))
             };
             if let Err(error) = precheck_result {
@@ -2754,7 +2749,7 @@ impl LifecycleManager {
             return Some(default_body.to_string());
         }
         if let Err(error) = self
-            .enforce_authz_for_action(tool_name)
+            .enforce_authz_for_action(tool_name, &[])
             .and_then(|_| self.enforce_risk_gate(tool_name, &[]))
         {
             self.record_replay("pr.description.fallback", format!("gated: {}", error));
@@ -3586,6 +3581,22 @@ fn has_valid_high_risk_approval_token() -> bool {
     let expected = std::env::var("AUTONOMOUS_EXPECTED_APPROVAL_TOKEN").ok();
     match (provided, expected) {
         (Some(p), Some(e)) => !p.is_empty() && p == e,
+        _ => false,
+    }
+}
+
+fn has_valid_escalation_approval(required_role: &str) -> bool {
+    let approved_role = std::env::var("AUTONOMOUS_ESCALATION_APPROVAL_ROLE").ok();
+    let provided_token = std::env::var("AUTONOMOUS_ESCALATION_APPROVAL_TOKEN").ok();
+    let expected_token = std::env::var("AUTONOMOUS_EXPECTED_ESCALATION_TOKEN").ok();
+
+    match (approved_role, provided_token, expected_token) {
+        (Some(role), Some(provided), Some(expected)) => {
+            !role.is_empty()
+                && role == required_role
+                && !provided.is_empty()
+                && provided == expected
+        }
         _ => false,
     }
 }

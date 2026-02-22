@@ -70,6 +70,46 @@ impl AuthzEngine {
         }
     }
 
+    pub fn check_with_args(
+        &self,
+        actor: &ActorIdentity,
+        action: &str,
+        args: &[String],
+    ) -> AuthzDecision {
+        let base = self.check(actor, action);
+        if !base.is_allowed() {
+            return base;
+        }
+
+        if action == "read_file" && args.iter().any(|arg| is_unsafe_file_path(arg)) {
+            return AuthzDecision::Deny {
+                reason: "read_file attempted to access unsafe path".to_string(),
+            };
+        }
+
+        if matches!(action, "git_commit" | "git_branch" | "run_tests")
+            && args.iter().any(|arg| is_forbidden_git_flag(arg))
+        {
+            return AuthzDecision::Deny {
+                reason: "git operation contains forbidden flags".to_string(),
+            };
+        }
+
+        if matches!(action, "create_pr" | "generate_pr_description")
+            && !std::env::var("AUTONOMOUS_ALLOW_EXTERNAL_ACTIONS")
+                .ok()
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false)
+        {
+            return AuthzDecision::Deny {
+                reason: "external actions require AUTONOMOUS_ALLOW_EXTERNAL_ACTIONS=true"
+                    .to_string(),
+            };
+        }
+
+        AuthzDecision::Allow
+    }
+
     fn role_level(role: &ActorRole) -> usize {
         match role {
             ActorRole::ReadOnly => 1,
@@ -81,8 +121,71 @@ impl AuthzEngine {
     }
 }
 
+fn is_unsafe_file_path(path: &str) -> bool {
+    let normalized = path.trim().replace('\\', "/");
+    normalized.starts_with("/etc/")
+        || normalized.contains("../")
+        || normalized.starts_with("/proc/")
+        || normalized.starts_with("/sys/")
+}
+
+fn is_forbidden_git_flag(flag: &str) -> bool {
+    matches!(
+        flag,
+        "--force" | "-f" | "--force-with-lease" | "--mirror" | "--delete" | "-D"
+    )
+}
+
 impl Default for AuthzEngine {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ids::{ActorId, RunId};
+
+    fn actor_with_role(role: ActorRole) -> ActorIdentity {
+        ActorIdentity::new(
+            ActorId::new("security-test").expect("valid actor id"),
+            vec![role],
+            RunId::new("security-test-run").expect("valid run id"),
+        )
+    }
+
+    #[test]
+    fn denies_unsafe_read_file_paths() {
+        let engine = AuthzEngine::new();
+        let actor = actor_with_role(ActorRole::Developer);
+        let decision = engine.check_with_args(&actor, "read_file", &[String::from("/etc/passwd")]);
+        assert!(matches!(decision, AuthzDecision::Deny { .. }));
+    }
+
+    #[test]
+    fn denies_forbidden_git_flags() {
+        let engine = AuthzEngine::new();
+        let actor = actor_with_role(ActorRole::Developer);
+        let decision = engine.check_with_args(
+            &actor,
+            "run_tests",
+            &[
+                String::from("git"),
+                String::from("push"),
+                String::from("--force"),
+            ],
+        );
+        assert!(matches!(decision, AuthzDecision::Deny { .. }));
+    }
+
+    #[test]
+    fn denies_external_actions_without_opt_in() {
+        let engine = AuthzEngine::new();
+        let actor = actor_with_role(ActorRole::Developer);
+        // SAFETY: test controls process env for this case.
+        unsafe { std::env::remove_var("AUTONOMOUS_ALLOW_EXTERNAL_ACTIONS") };
+        let decision = engine.check_with_args(&actor, "create_pr", &[]);
+        assert!(matches!(decision, AuthzDecision::Deny { .. }));
     }
 }

@@ -22,6 +22,8 @@ pub struct OpsAlert {
 pub struct RunReport {
     pub generated_at_secs: u64,
     pub run_id: String,
+    pub actor_id: String,
+    pub actor_roles: Vec<String>,
     pub final_state: String,
     pub execution_mode: String,
     pub neural_enabled: bool,

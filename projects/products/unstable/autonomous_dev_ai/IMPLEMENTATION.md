@@ -99,6 +99,19 @@ Implemented:
   - multi-iteration review loop with timeout/blocked termination
   - nominal review-approved path with merge readiness resolving to `ready`
 
+## Security / Authz Progress (issue #654)
+
+Implemented:
+
+- actor identity now supports runtime propagation (`AUTONOMOUS_ACTOR_ID`, `AUTONOMOUS_ACTOR_ROLES`, `AUTONOMOUS_RUN_ID`) and is reported in run artifacts (`actor_id`, `actor_roles`)
+- fine-grained authz checks now guard:
+  - unsafe file path access attempts for `read_file`
+  - forbidden git flags on `git_*` and `run_tests` execution paths
+  - external actions (`create_pr`, `generate_pr_description`) behind explicit opt-in (`AUTONOMOUS_ALLOW_EXTERNAL_ACTIONS=true`)
+- policy pack runtime override flow remains signed/verified, with fingerprint recorded in run report
+- escalation approval pathway is now explicit (`AUTONOMOUS_ESCALATION_APPROVAL_ROLE`, `AUTONOMOUS_ESCALATION_APPROVAL_TOKEN`, `AUTONOMOUS_EXPECTED_ESCALATION_TOKEN`)
+- security-focused tests now cover read-only actor privilege denial and external action guard bypass attempt
+
 ## Known Gaps vs #647 Acceptance Criteria
 
 - full non-interactive PR flow with real platform integration still incomplete
