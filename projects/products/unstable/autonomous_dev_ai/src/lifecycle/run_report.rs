@@ -28,6 +28,7 @@ pub struct RunReport {
     pub last_failure_description: Option<String>,
     pub last_failure_error: Option<String>,
     pub last_tool_exit_code: Option<i32>,
+    pub last_tool_name: Option<String>,
     pub policy_pack_fingerprint: Option<String>,
     pub checkpoint_path: Option<String>,
 }

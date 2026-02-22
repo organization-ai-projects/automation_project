@@ -420,6 +420,7 @@ impl LifecycleManager {
                 .metadata
                 .get("last_tool_exit_code")
                 .and_then(|v| v.parse::<i32>().ok()),
+            last_tool_name: self.memory.metadata.get("last_tool_name").cloned(),
             policy_pack_fingerprint: self.memory.metadata.get("policy_pack.fingerprint").cloned(),
             checkpoint_path: Some(self.checkpoint_path.as_str().to_string()),
         };
@@ -1280,6 +1281,9 @@ impl LifecycleManager {
         }
 
         let tool_start = Instant::now();
+        self.memory
+            .metadata
+            .insert("last_tool_name".to_string(), step.tool.clone());
         let result = self.execute_tool_with_timeout(&step.tool, &step.args)?;
         let tool_duration = tool_start.elapsed();
         self.run_replay.record(
@@ -2192,6 +2196,9 @@ impl LifecycleManager {
 
         let result = tool.execute(tool_args)?;
         let tool_duration = tool_start.elapsed();
+        self.memory
+            .metadata
+            .insert("last_tool_name".to_string(), tool_name.to_string());
 
         self.metrics
             .record_tool_execution(tool_name, result.success, tool_duration);
