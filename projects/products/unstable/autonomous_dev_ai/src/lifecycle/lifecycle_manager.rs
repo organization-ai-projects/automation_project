@@ -446,6 +446,7 @@ impl LifecycleManager {
             pr_ci_status: self.memory.metadata.get("pr_ci_status").cloned(),
             pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
             issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
+            issue_context_source: self.memory.metadata.get("issue_context_source").cloned(),
             pr_description_source: self.memory.metadata.get("pr_description_source").cloned(),
             last_review_outcome: self.memory.metadata.get("last_review_outcome").cloned(),
             last_review_input_source: self
@@ -645,6 +646,14 @@ impl LifecycleManager {
             .ok()
             .map(|v| v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
+        let fetch_issue_context_from_gh = std::env::var("AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_issue_context_required = std::env::var("AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
 
         if create_pr_required && !create_pr_enabled {
             return Err(AgentError::State(
@@ -669,18 +678,26 @@ impl LifecycleManager {
                     .to_string(),
             ));
         }
+        if fetch_issue_context_required && !fetch_issue_context_from_gh {
+            return Err(AgentError::State(
+                "AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED=true requires AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH=true"
+                    .to_string(),
+            ));
+        }
 
         self.run_replay.record(
             "runtime.requirements",
             format!(
-                "create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={} fetch_pr_ci_status={} fetch_pr_ci_status_required={}",
+                "create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={} fetch_pr_ci_status={} fetch_pr_ci_status_required={} fetch_issue_context_from_gh={} fetch_issue_context_required={}",
                 create_pr_enabled,
                 create_pr_required,
                 require_real_pr_creation,
                 fetch_review_from_gh,
                 require_gh_review_source,
                 fetch_pr_ci_status,
-                fetch_pr_ci_status_required
+                fetch_pr_ci_status_required,
+                fetch_issue_context_from_gh,
+                fetch_issue_context_required
             ),
         );
         self.memory.metadata.insert(
@@ -2010,20 +2027,13 @@ impl LifecycleManager {
         }
 
         let issue_number = Self::extract_issue_number_from_goal(&goal);
-        let issue_body = self
-            .memory
-            .metadata
-            .get("issue_body")
-            .cloned()
-            .or_else(|| std::env::var("AUTONOMOUS_ISSUE_BODY").ok())
-            .unwrap_or_default();
-        let issue_title = self
-            .memory
-            .metadata
-            .get("issue_title")
-            .cloned()
-            .or_else(|| std::env::var("AUTONOMOUS_ISSUE_TITLE").ok())
-            .unwrap_or_else(|| goal.clone());
+        let (issue_title, issue_body, issue_context_source) =
+            self.load_issue_context(issue_number, &goal)?;
+        self.memory.metadata.insert(
+            "issue_context_source".to_string(),
+            issue_context_source.clone(),
+        );
+        self.record_replay("issue.context_source", issue_context_source);
         let issue_compliance = evaluate_issue_compliance(&issue_title, &issue_body);
         let pr_body = append_issue_compliance_note(&pr_body, &issue_compliance);
         let mut pr_orchestrator =
@@ -2321,6 +2331,167 @@ impl LifecycleManager {
             "number_unavailable_from_gh_output".to_string(),
         );
         Ok(None)
+    }
+
+    fn load_issue_context(
+        &mut self,
+        issue_number: Option<IssueNumber>,
+        goal: &str,
+    ) -> AgentResult<(String, String, String)> {
+        let fallback_body = self
+            .memory
+            .metadata
+            .get("issue_body")
+            .cloned()
+            .or_else(|| std::env::var("AUTONOMOUS_ISSUE_BODY").ok())
+            .unwrap_or_default();
+        let fallback_title = self
+            .memory
+            .metadata
+            .get("issue_title")
+            .cloned()
+            .or_else(|| std::env::var("AUTONOMOUS_ISSUE_TITLE").ok())
+            .unwrap_or_else(|| goal.to_string());
+
+        let fetch_issue_context_from_gh = std::env::var("AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_issue_context_required = std::env::var("AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+
+        if !fetch_issue_context_from_gh {
+            return Ok((fallback_title, fallback_body, "env_or_goal".to_string()));
+        }
+
+        let Some(issue_number) = issue_number else {
+            if fetch_issue_context_required {
+                return Err(AgentError::State(
+                    "AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED=true but goal does not provide issue number"
+                        .to_string(),
+                ));
+            }
+            self.run_replay.record(
+                "issue.context.fetch.skip",
+                "gh_enabled_but_missing_issue_number".to_string(),
+            );
+            return Ok((
+                fallback_title,
+                fallback_body,
+                "fallback_no_issue_number".to_string(),
+            ));
+        };
+
+        match self.fetch_issue_context_from_gh(issue_number) {
+            Ok((title, body)) => Ok((title, body, "gh_issue_view".to_string())),
+            Err(error) => {
+                if fetch_issue_context_required {
+                    return Err(error);
+                }
+                self.memory.add_failure(
+                    self.iteration,
+                    "Issue context retrieval failed".to_string(),
+                    error.to_string(),
+                    Some(
+                        "Provide AUTONOMOUS_ISSUE_TITLE/AUTONOMOUS_ISSUE_BODY fallback".to_string(),
+                    ),
+                );
+                self.run_replay
+                    .record("issue.context.fetch.failed", error.to_string());
+                Ok((
+                    fallback_title,
+                    fallback_body,
+                    "fallback_fetch_failed".to_string(),
+                ))
+            }
+        }
+    }
+
+    fn fetch_issue_context_from_gh(
+        &mut self,
+        issue_number: IssueNumber,
+    ) -> AgentResult<(String, String)> {
+        let mut command = Command::new("gh");
+        command
+            .arg("issue")
+            .arg("view")
+            .arg(issue_number.to_string())
+            .arg("--json")
+            .arg("title,body");
+        let mut audit_args = vec![
+            "issue".to_string(),
+            "view".to_string(),
+            issue_number.to_string(),
+            "--json".to_string(),
+            "title,body".to_string(),
+        ];
+        if let Ok(repo) = std::env::var("AUTONOMOUS_REPO")
+            && !repo.trim().is_empty()
+        {
+            command.arg("--repo").arg(&repo);
+            audit_args.push("--repo".to_string());
+            audit_args.push(repo);
+        }
+
+        let output =
+            run_command_with_timeout(command, self.tool_timeout.duration, "gh issue view context")?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let _ = self.audit.log_tool_execution(
+            "fetch_issue_context",
+            &audit_args,
+            output.status.success(),
+        );
+
+        if !output.status.success() {
+            let details = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                stderr.clone()
+            };
+            let failure_class = classify_tool_failure(&details);
+            self.record_replay(
+                "tool.failure_class",
+                format!("tool=fetch_issue_context class={}", failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("fetch_issue_context:{}", failure_class),
+            );
+            return Err(AgentError::Tool(format!(
+                "gh issue view failed (status={}): {}",
+                output.status, details
+            )));
+        }
+
+        let root: serde_json::Value = serde_json::from_str(&stdout).map_err(|e| {
+            AgentError::State(format!(
+                "Failed to parse gh issue context payload as JSON: {}",
+                e
+            ))
+        })?;
+        let title = root
+            .get("title")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| {
+                AgentError::State("gh issue context missing non-empty title".to_string())
+            })?
+            .to_string();
+        let body = root
+            .get("body")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        self.run_replay.record(
+            "issue.context.fetched",
+            format!("issue_number={}", issue_number),
+        );
+        Ok((title, body))
     }
 
     fn build_default_pr_body(&self, goal: &str) -> String {

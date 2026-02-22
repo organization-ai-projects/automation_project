@@ -27,6 +27,7 @@ pub struct RunReport {
     pub pr_ci_status: Option<String>,
     pub pr_readiness: Option<String>,
     pub issue_compliance: Option<String>,
+    pub issue_context_source: Option<String>,
     pub pr_description_source: Option<String>,
     pub last_review_outcome: Option<String>,
     pub last_review_input_source: Option<String>,
