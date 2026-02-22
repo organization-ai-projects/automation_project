@@ -32,6 +32,12 @@ pub struct RunReport {
     pub last_tool_name: Option<String>,
     pub policy_pack_fingerprint: Option<String>,
     pub checkpoint_path: Option<String>,
+    pub state_transitions_total: usize,
+    pub tool_executions_total: usize,
+    pub tool_executions_failed: usize,
+    pub risk_gate_allows: usize,
+    pub risk_gate_denies: usize,
+    pub risk_gate_high_approvals: usize,
 }
 
 impl RunReport {

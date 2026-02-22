@@ -367,6 +367,7 @@ impl LifecycleManager {
     }
 
     fn persist_run_report_artifact(&mut self) {
+        let metrics_snapshot = self.metrics.snapshot();
         let weighted_objective_score = self
             .memory
             .metadata
@@ -424,6 +425,12 @@ impl LifecycleManager {
             last_tool_name: self.memory.metadata.get("last_tool_name").cloned(),
             policy_pack_fingerprint: self.memory.metadata.get("policy_pack.fingerprint").cloned(),
             checkpoint_path: Some(self.checkpoint_path.as_str().to_string()),
+            state_transitions_total: metrics_snapshot.state_transitions_total,
+            tool_executions_total: metrics_snapshot.tool_executions_total,
+            tool_executions_failed: metrics_snapshot.tool_executions_failed,
+            risk_gate_allows: metrics_snapshot.risk_gate_allows,
+            risk_gate_denies: metrics_snapshot.risk_gate_denies,
+            risk_gate_high_approvals: metrics_snapshot.risk_gate_high_approvals,
         };
 
         let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")
