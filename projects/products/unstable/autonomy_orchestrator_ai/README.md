@@ -58,3 +58,8 @@ Resume behavior is covered by binary regression tests in `tests/binary_resume_te
 
 This report includes machine-readable stage transitions and terminal outcome.
 It also includes `stage_executions` records for every configured binary execution.
+
+## Delivery Notes
+
+- Issue `#676` (orchestrator bootstrap state machine) is implemented in this crate.
+- Issue `#675` (typed binary invocation contract and machine-readable execution outcomes) is implemented in this crate.
