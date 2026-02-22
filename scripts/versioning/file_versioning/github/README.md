@@ -23,9 +23,11 @@ github/
 ├── create_direct_issue.sh
 ├── generate_pr_description.sh
 ├── issue_done_in_dev_status.sh
+├── neutralize_non_compliant_closure_refs.sh
 ├── parent_issue_guard.sh
 ├── lib/
 │   ├── classification.sh
+│   ├── issue_required_fields.sh
 │   └── rendering.sh
 └── tests/
     └── generate_pr_description_regression.sh
@@ -39,8 +41,10 @@ github/
 - `auto_link_parent_issue.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
 - `create_direct_issue.sh`: Create direct GitHub issues using the canonical `.github/ISSUE_TEMPLATE/direct_issue.md` structure.
 - `issue_done_in_dev_status.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
+- `neutralize_non_compliant_closure_refs.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
 - `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
+- `lib/issue_required_fields.sh`: Shared validator for required issue title/body fields and section contract.
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 - `tests/issue_done_in_dev_status_regression.sh`: Regression checks for done-in-dev add/remove workflow behavior.

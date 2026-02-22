@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
 source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
 
@@ -96,7 +99,7 @@ REPO_SHORT_NAME="${REPO_NAME#*/}"
 ISSUE_NUMBER="$issue_arg"
 
 MARKER="<!-- parent-field-autolink:${ISSUE_NUMBER} -->"
-LABEL_INVALID="invalid"
+LABEL_REQUIRED_MISSING="issue-required-missing"
 LABEL_AUTOMATION_FAILED="automation-failed"
 
 add_label() {
@@ -112,7 +115,7 @@ remove_label() {
   gh api -X DELETE "repos/${REPO_NAME}/issues/${issue_number}/labels/${label}" >/dev/null 2>&1 || true
 }
 
-set_error_state() {
+set_validation_error_state() {
   local message="$1"
   local help_text="$2"
   local body
@@ -123,7 +126,22 @@ set_error_state() {
 
 $help_text
 "
-  add_label "$ISSUE_NUMBER" "$LABEL_INVALID"
+  add_label "$ISSUE_NUMBER" "$LABEL_REQUIRED_MISSING"
+  remove_label "$ISSUE_NUMBER" "$LABEL_AUTOMATION_FAILED"
+  github_issue_upsert_marker_comment "$REPO_NAME" "$ISSUE_NUMBER" "$MARKER" "$body"
+}
+
+set_runtime_error_state() {
+  local message="$1"
+  local help_text="$2"
+  local body
+  body="$MARKER
+### Parent Field Autolink Status
+
+⚠️ $message
+
+$help_text
+"
   add_label "$ISSUE_NUMBER" "$LABEL_AUTOMATION_FAILED"
   github_issue_upsert_marker_comment "$REPO_NAME" "$ISSUE_NUMBER" "$MARKER" "$body"
 }
@@ -136,7 +154,7 @@ set_success_state() {
 
 ✅ $message
 "
-  remove_label "$ISSUE_NUMBER" "$LABEL_INVALID"
+  remove_label "$ISSUE_NUMBER" "$LABEL_REQUIRED_MISSING"
   remove_label "$ISSUE_NUMBER" "$LABEL_AUTOMATION_FAILED"
   github_issue_upsert_marker_comment "$REPO_NAME" "$ISSUE_NUMBER" "$MARKER" "$body"
 }
@@ -147,12 +165,30 @@ if [[ -z "$issue_json" ]]; then
   exit 4
 fi
 
+issue_title="$(echo "$issue_json" | jq -r '.title // ""')"
 issue_body="$(echo "$issue_json" | jq -r '.body // ""')"
+
+contract_errors="$(issue_validate_content "$issue_title" "$issue_body" || true)"
+if [[ -n "$contract_errors" ]]; then
+  summary_lines=""
+  while IFS='|' read -r kind field message; do
+    [[ -z "$message" ]] && continue
+    summary_lines+="- ${message}"$'\n'
+  done <<< "$contract_errors"
+  set_validation_error_state \
+    "Issue body/title is non-compliant with required issue format." \
+    "Detected problems:
+
+${summary_lines}
+Expected contract source: \`.github/issue_required_fields.conf\`."
+  exit 0
+fi
+
 parent_raw="$(extract_parent_field_value "$issue_body")"
 parent_raw="$(trim "${parent_raw:-}")"
 
 if [[ -z "$parent_raw" ]]; then
-  set_error_state \
+  set_validation_error_state \
     "Missing required field \`Parent:\` in issue body." \
     "Expected format:
 \n- \`Parent: #<issue_number>\` for child issues
@@ -167,7 +203,7 @@ if [[ "$parent_raw_lc" == "none" ]]; then
 fi
 
 if [[ ! "$parent_raw" =~ ^#[0-9]+$ ]]; then
-  set_error_state \
+  set_validation_error_state \
     "Invalid \`Parent:\` value: \`${parent_raw}\`." \
     "Expected \`Parent: #<issue_number>\` or \`Parent: none\`."
   exit 0
@@ -175,7 +211,7 @@ fi
 
 parent_number="${parent_raw//#/}"
 if [[ "$parent_number" == "$ISSUE_NUMBER" ]]; then
-  set_error_state \
+  set_validation_error_state \
     "Issue cannot reference itself as parent (\`Parent: #${ISSUE_NUMBER}\`)." \
     "Use another parent issue number or \`Parent: none\`."
   exit 0
@@ -183,7 +219,7 @@ fi
 
 parent_json="$(gh issue view "$parent_number" -R "$REPO_NAME" --json number,title,state,url 2>/dev/null || true)"
 if [[ -z "$parent_json" ]]; then
-  set_error_state \
+  set_validation_error_state \
     "Parent issue \`#${parent_number}\` was not found." \
     "Use an existing issue number in \`Parent:\`."
   exit 0
@@ -191,7 +227,7 @@ fi
 
 parent_state="$(echo "$parent_json" | jq -r '.state // ""')"
 if [[ "$parent_state" != "OPEN" ]]; then
-  set_error_state \
+  set_validation_error_state \
     "Parent issue \`#${parent_number}\` is not open (state: ${parent_state})." \
     "Reopen the parent or choose another open parent issue."
   exit 0
@@ -205,7 +241,7 @@ relation_json="$(gh api graphql \
   -F parent="$parent_number" 2>/dev/null || true)"
 
 if [[ -z "$relation_json" ]]; then
-  set_error_state \
+  set_runtime_error_state \
     "Unable to query parent/child relation state from GitHub API." \
     "Retry later. If this persists, link the issue manually in GitHub UI."
   exit 0
@@ -221,14 +257,14 @@ if [[ -n "$current_parent_number" && "$current_parent_number" == "$parent_number
 fi
 
 if [[ -n "$current_parent_number" && "$current_parent_number" != "$parent_number" ]]; then
-  set_error_state \
+  set_validation_error_state \
     "Issue is already linked to another parent (\`#${current_parent_number}\`)." \
     "Please update parent linkage manually in GitHub UI before retrying automation."
   exit 0
 fi
 
 if [[ -z "$child_node_id" || -z "$parent_node_id" ]]; then
-  set_error_state \
+  set_runtime_error_state \
     "Missing GitHub node IDs required for sub-issue linking." \
     "Retry later. If this persists, link parent/child manually in GitHub UI."
   exit 0
@@ -240,7 +276,7 @@ link_result="$(gh api graphql \
   -f subIssueId="$child_node_id" 2>/dev/null || true)"
 
 if [[ -z "$link_result" ]]; then
-  set_error_state \
+  set_runtime_error_state \
     "GitHub API mutation failed while linking child to parent." \
     "Link manually in GitHub UI, then keep \`Parent: #${parent_number}\` in issue body for traceability."
   exit 0

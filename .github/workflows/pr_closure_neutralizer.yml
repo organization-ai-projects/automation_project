@@ -1,0 +1,65 @@
+name: PR Closure Neutralizer
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to evaluate"
+        required: true
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  neutralize-closure-refs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/issue_required_fields.conf
+            scripts/versioning/file_versioning/github/
+          sparse-checkout-cone-mode: false
+
+      - name: Ensure dependencies
+        run: |
+          for cmd in gh jq perl; do
+            if ! command -v "$cmd" >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y jq perl
+              break
+            fi
+          done
+
+      - name: Neutralize closure refs (pull_request_target)
+        if: github.event_name == 'pull_request_target'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          chmod +x scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh
+          bash scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh \
+            --pr "$PR_NUMBER" \
+            --repo "$GH_REPO"
+
+      - name: Neutralize closure refs (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          if [[ -z "$PR_NUMBER" || ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid pr_number: '$PR_NUMBER'" >&2
+            exit 1
+          fi
+          chmod +x scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh
+          bash scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh \
+            --pr "$PR_NUMBER" \
+            --repo "$GH_REPO"
