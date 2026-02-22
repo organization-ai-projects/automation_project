@@ -423,14 +423,49 @@ load_compare_commit_messages() {
   printf "%s" "$compare_messages"
 }
 
+load_compare_commit_headlines() {
+  local compare_base="$1"
+  local compare_head="$2"
+  local repo_name_with_owner
+  local compare_range
+  local compare_headlines
+
+  if [[ -n "${GH_REPO:-}" ]]; then
+    repo_name_with_owner="$GH_REPO"
+  else
+    repo_name_with_owner="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  fi
+
+  compare_range="${compare_base}...${compare_head}"
+  compare_headlines=""
+
+  if [[ -n "$repo_name_with_owner" ]]; then
+    compare_headlines="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
+      --jq '.commits[]?.commit.message | split("\n")[0]' 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$compare_headlines" ]]; then
+    # Fallback keeps deterministic behavior without GitHub API.
+    compare_headlines="$(git log --format=%s "${compare_base}..${compare_head}" 2>/dev/null || true)"
+  fi
+
+  printf "%s" "$compare_headlines"
+}
+
 load_dry_compare_commits() {
+  # Parity contract: dry-run must extract child PR refs from the same
+  # commit-headline source shape as main-mode extraction.
   dry_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
   if [[ -z "$dry_compare_commit_messages" ]]; then
     echo "Error: unable to determine commit messages for --dry-run compare ${base_ref_display}...${head_ref_display}." >&2
     exit "$E_NO_DATA"
   fi
 
-  dry_compare_commit_headlines="$(echo "$dry_compare_commit_messages" | sed -n '1~2p' || true)"
+  dry_compare_commit_headlines="$(load_compare_commit_headlines "$base_ref_display" "$head_ref_display" || true)"
+  if [[ -z "$dry_compare_commit_headlines" ]]; then
+    echo "Error: unable to determine commit headlines for --dry-run compare ${base_ref_display}...${head_ref_display}." >&2
+    exit "$E_NO_DATA"
+  fi
 }
 
 extract_child_prs_dry() {
