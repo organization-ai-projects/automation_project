@@ -75,6 +75,24 @@ Resume behavior is covered by binary regression tests in `tests/binary_resume_te
 This report includes machine-readable stage transitions and terminal outcome.
 It also includes `stage_executions` records for every configured binary execution, plus gate decisions and `blocked_reason_codes`.
 
+## E2E Matrix
+
+Deterministic end-to-end regression matrix:
+
+```bash
+cargo test -p autonomy_orchestrator_ai --test binary_e2e_matrix_tests
+```
+
+Local helper:
+
+```bash
+projects/products/unstable/autonomy_orchestrator_ai/scripts/run_e2e_matrix.sh
+```
+
+Scenario documentation:
+
+- `projects/products/unstable/autonomy_orchestrator_ai/scenarios/e2e_matrix/README.md`
+
 ## Delivery Notes
 
 - Issue `#676` (orchestrator bootstrap state machine) is implemented in this crate.
