@@ -171,3 +171,39 @@ impl EngineGateway {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::EngineGateway;
+    use crate::config::RunMode;
+    use crate::tests::test_helpers::create_unique_temp_dir;
+
+    #[test]
+    fn engine_required_fails_closed_when_unavailable() {
+        let gateway = EngineGateway::new(RunMode::EngineRequired);
+        let temp_dir = create_unique_temp_dir("auto_manager_ai_engine_required");
+        fs::create_dir_all(&temp_dir).expect("create temp_dir");
+        let result = gateway.fetch_repo_context(temp_dir.clone());
+        assert!(result.is_err());
+        let err = result.expect_err("expected engine failure");
+        assert_eq!(err.code, "ENGINE_UNAVAILABLE_FAIL_CLOSED");
+        fs::remove_dir_all(temp_dir).ok();
+    }
+
+    #[test]
+    fn deterministic_fallback_returns_repo_context_when_engine_unavailable() {
+        let gateway = EngineGateway::new(RunMode::DeterministicFallback);
+        let temp_dir = create_unique_temp_dir("auto_manager_ai_engine_fallback");
+        fs::create_dir_all(&temp_dir).expect("create temp_dir");
+        fs::write(temp_dir.join("README.md"), "hello").expect("write file");
+
+        let result = gateway.fetch_repo_context(temp_dir.clone());
+        assert!(result.is_ok());
+        let ctx = result.expect("context should be available in fallback mode");
+        assert!(!ctx.mediated_by_engine);
+        assert!(!ctx.tracked_files.is_empty());
+        fs::remove_dir_all(temp_dir).ok();
+    }
+}

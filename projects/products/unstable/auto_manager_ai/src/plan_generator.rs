@@ -83,6 +83,27 @@ mod tests {
 
         let result = generate_action_plan(&config);
         assert!(result.is_ok());
+        let plan = result.expect("plan");
+        assert!(!plan.actions.is_empty());
+
+        fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[test]
+    fn test_generate_action_plan_includes_missing_input_when_gh_unavailable() {
+        let temp_dir = create_unique_temp_dir("auto_manager_ai_test_missing_input");
+        fs::create_dir_all(&temp_dir).expect("Failed to create temp dir");
+
+        let out_dir = temp_dir.join("out");
+        let mut config = Config::new(temp_dir.clone(), out_dir);
+        config.run_mode = RunMode::DeterministicFallback;
+        let plan = generate_action_plan(&config).expect("plan should generate");
+
+        let has_missing_input = plan
+            .actions
+            .iter()
+            .any(|a| a.missing_inputs.as_ref().is_some_and(|m| !m.is_empty()));
+        assert!(has_missing_input);
 
         fs::remove_dir_all(&temp_dir).ok();
     }
