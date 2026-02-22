@@ -29,6 +29,22 @@ Optional blocked simulation:
 cargo run -p autonomy_orchestrator_ai -- [output_dir] --simulate-blocked
 ```
 
+Fail-closed gate controls:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved
+```
+
+If gate flags are omitted, default values are fail-closed (`policy=unknown`, `ci=missing`, `review=missing`) and the run blocks with deterministic reason codes.
+Current reason codes:
+
+- `GATE_POLICY_DENIED_OR_UNKNOWN`
+- `GATE_CI_NOT_SUCCESS`
+- `GATE_REVIEW_NOT_APPROVED`
+
 Binary invocation contract:
 
 ```bash
@@ -57,9 +73,10 @@ Resume behavior is covered by binary regression tests in `tests/binary_resume_te
 - `orchestrator_checkpoint.json` (default path: `<output_dir>/orchestrator_checkpoint.json`)
 
 This report includes machine-readable stage transitions and terminal outcome.
-It also includes `stage_executions` records for every configured binary execution.
+It also includes `stage_executions` records for every configured binary execution, plus gate decisions and `blocked_reason_codes`.
 
 ## Delivery Notes
 
 - Issue `#676` (orchestrator bootstrap state machine) is implemented in this crate.
 - Issue `#675` (typed binary invocation contract and machine-readable execution outcomes) is implemented in this crate.
+- Issue `#680` (centralized fail-closed policy/CI/review gates with deterministic blocking reason codes) is implemented in this crate.
