@@ -29,6 +29,8 @@ Still partial:
 - tool execution now propagates exit code information through lifecycle metadata and run report artifacts.
 - `git_commit` wrapper received stricter safety checks (forbidden force/destructive flags).
 - tool timeout execution now attempts explicit process termination on timeout and returns clearer diagnostics.
+- repository exploration now inspects real filesystem entries (configurable root + bounded entry count), with optional fail-closed mode.
+- post-execution tool result contract checks now enforce `success/exit_code/error` consistency.
 - lifecycle PR/review flow reduced simulated behavior:
   - no synthetic PR number derived from issue number
   - strict mode can require explicit PR number (`AUTONOMOUS_REQUIRE_PR_NUMBER=true`)
