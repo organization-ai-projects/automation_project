@@ -10,6 +10,7 @@ warp = { version = "0.4.2", features = ["websocket", "server", "test"] }
 tracing = { workspace = true }
 tracing-subscriber = "0.3"
 protocol = { workspace = true }
+protocol_accounts = { workspace = true }
 security = { workspace = true }
 identity = { workspace = true }
 common = { workspace = true }

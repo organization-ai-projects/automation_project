@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 protocol = { workspace = true }
+protocol_accounts = { workspace = true }
 common = { workspace = true }
 common_json = { workspace = true }
 common_time = { workspace = true }

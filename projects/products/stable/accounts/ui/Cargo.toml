@@ -10,6 +10,7 @@ dioxus = { version = "0.7.3", features = ["web"] }
 dioxus-web = "0.7.3"
 gloo-net = "0.6"
 protocol = { workspace = true }
+protocol_accounts = { workspace = true }
 common_json = { workspace = true }
 serde = { workspace = true }
 getrandom = { version = "0.3", features = ["wasm_js"] }
