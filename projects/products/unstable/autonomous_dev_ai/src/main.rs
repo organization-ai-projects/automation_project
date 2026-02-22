@@ -1,9 +1,40 @@
 // projects/products/unstable/autonomous_dev_ai/src/main.rs
+mod agent_config;
+mod audit_event;
+mod audit_logger;
+mod autonomous_agent;
+mod config_loader;
+mod error;
+mod ids;
+mod lifecycle;
+mod memory;
+mod memory_graph;
+mod neural;
+mod neural_config;
+mod objectif_score;
+mod objective_evaluator;
+mod objectives;
+mod ops;
+mod path_types;
+mod persistence;
+mod plan_entry;
+mod pr_flow;
+mod security;
+mod state;
+mod symbolic;
+mod symbolic_config;
+mod timeout;
+mod tools;
+mod value_types;
 
-use autonomous_dev_ai::{AutonomousAgent, load_config, save_ron};
 use std::env;
 use std::io::IsTerminal;
 use std::process;
+
+use crate::agent_config::AgentConfig;
+use crate::autonomous_agent::AutonomousAgent;
+use crate::config_loader::load_config;
+use crate::persistence::save_ron;
 
 fn main() {
     // Initialize tracing
@@ -12,6 +43,19 @@ fn main() {
     let raw_args: Vec<String> = env::args().collect();
     let program_name = raw_args[0].clone();
     let mut args: Vec<String> = raw_args.into_iter().skip(1).collect();
+    let resume_requested = if let Some(pos) = args.iter().position(|arg| arg == "--resume") {
+        args.remove(pos);
+        true
+    } else {
+        false
+    };
+    let symbolic_only_requested =
+        if let Some(pos) = args.iter().position(|arg| arg == "--symbolic-only") {
+            args.remove(pos);
+            true
+        } else {
+            false
+        };
     let pretty_requested = if let Some(pos) = args.iter().position(|arg| arg == "--pretty") {
         args.remove(pos);
         true
@@ -21,7 +65,7 @@ fn main() {
 
     if args.is_empty() {
         eprintln!(
-            "Usage: {} [--pretty] <goal> [config_path] [audit_log]",
+            "Usage: {} [--pretty] [--resume] [--symbolic-only] <goal> [config_path] [audit_log]",
             program_name
         );
         eprintln!("\nExample:");
@@ -55,6 +99,8 @@ fn main() {
     println!("Goal: {}", goal);
     println!("Config: {}", config_path);
     println!("Audit Log: {}", audit_log);
+    println!("Resume state: {}", resume_requested);
+    println!("Symbolic only: {}", symbolic_only_requested);
     println!("========================================\n");
 
     // Ensure config exists
@@ -67,7 +113,7 @@ fn main() {
         }
         Err(_) => {
             println!("Config not found, creating default configuration...");
-            let config = autonomous_dev_ai::config::AgentConfig::default();
+            let config = AgentConfig::default();
             if let Err(e) = save_ron(format!("{}.ron", config_path), &config) {
                 eprintln!("Failed to create config: {}", e);
                 process::exit(1);
@@ -87,8 +133,24 @@ fn main() {
 
     println!("\n{run_icon} Starting agent execution...\n");
 
+    if resume_requested {
+        match agent.load_state() {
+            Ok(()) => {
+                if let Err(e) = agent.lifecycle.load_checkpoint_if_present() {
+                    eprintln!("Warning: Failed to load lifecycle checkpoint: {}", e);
+                }
+            }
+            Err(e) => eprintln!("Warning: Failed to resume previous state: {}", e),
+        }
+    }
+
     // Run agent
-    match agent.run(goal) {
+    let run_result = if symbolic_only_requested {
+        agent.run_symbolic_only(goal)
+    } else {
+        agent.run(goal)
+    };
+    match run_result {
         Ok(()) => {
             println!("\n{ok_icon} Agent completed successfully");
 
@@ -100,14 +162,28 @@ fn main() {
             println!("\n========================================");
             println!("Execution Summary");
             println!("========================================");
-            println!("Iterations: {}", agent.lifecycle.iteration);
-            println!("Final state: {:?}", agent.lifecycle.state);
+            let metrics = agent.lifecycle.metrics();
+            println!("Iterations: {}", agent.lifecycle.current_iteration());
+            println!("Final state: {:?}", agent.lifecycle.current_state());
+            println!(
+                "Max iterations configured: {}",
+                agent.lifecycle.max_iterations
+            );
             println!(
                 "Explored files: {}",
                 agent.lifecycle.memory.explored_files.len()
             );
             println!("Decisions made: {}", agent.lifecycle.memory.decisions.len());
             println!("Failures: {}", agent.lifecycle.memory.failures.len());
+            println!("Tool executions: {}", metrics.tool_executions_total);
+            println!("Failed tool executions: {}", metrics.tool_executions_failed);
+            println!("Risk gate allows: {}", metrics.risk_gate_allows);
+            println!("Risk gate denies: {}", metrics.risk_gate_denies);
+            println!("High-risk approvals: {}", metrics.risk_gate_high_approvals);
+            println!(
+                "Average iteration duration: {:?}",
+                metrics.average_iteration_duration
+            );
             println!("========================================\n");
 
             println!("Audit log written to: {}", audit_log);

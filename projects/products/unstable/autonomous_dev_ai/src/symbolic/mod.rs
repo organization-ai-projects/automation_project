@@ -1,87 +1,27 @@
 // projects/products/unstable/autonomous_dev_ai/src/symbolic/mod.rs
+// Symbolic control layer - authoritative decision maker.
+mod category_decision;
+mod category_source;
+mod issue_category;
+mod issue_classification_input;
+mod issue_classifier;
+mod neural_proposal;
+mod plan;
+mod plan_step;
+mod policy_engine;
+mod symbolic_controller;
+mod validation_result;
+mod validator;
 
-//! Symbolic control layer - authoritative decision maker
-
-pub mod issue_taxonomy;
-pub mod planner;
-pub mod policy;
-pub mod validator;
-
-use crate::error::AgentResult;
-use crate::objectives::ObjectiveEvaluator;
-use crate::symbolic::issue_taxonomy::{CategoryDecision, IssueClassificationInput, classify_issue};
-use crate::symbolic::policy::{FORCE_PUSH_FORBIDDEN, is_force_push_action};
-use serde::{Deserialize, Serialize};
-
-/// Symbolic controller - makes all final decisions
-#[derive(Debug)]
-pub struct SymbolicController {
-    pub evaluator: ObjectiveEvaluator,
-    pub strict_validation: bool,
-    pub deterministic: bool,
-}
-
-impl SymbolicController {
-    pub fn new(
-        evaluator: ObjectiveEvaluator,
-        strict_validation: bool,
-        deterministic: bool,
-    ) -> Self {
-        Self {
-            evaluator,
-            strict_validation,
-            deterministic,
-        }
-    }
-
-    /// Validate a neural proposal against symbolic rules
-    pub fn validate_proposal(&self, proposal: &NeuralProposal) -> AgentResult<ValidationResult> {
-        // Symbolic validation logic
-        let mut issues = Vec::new();
-
-        // Check policy compliance
-        if is_force_push_action(&proposal.action) {
-            issues.push(format!("{FORCE_PUSH_FORBIDDEN} is not allowed"));
-        }
-
-        // Check for unsafe operations
-        if proposal.action.contains("rm -rf") {
-            issues.push("destructive operations require explicit approval".to_string());
-        }
-
-        let is_valid = issues.is_empty() || !self.strict_validation;
-
-        Ok(ValidationResult {
-            is_valid,
-            issues,
-            approved_action: if is_valid {
-                Some(proposal.action.clone())
-            } else {
-                None
-            },
-        })
-    }
-
-    /// Deterministic-first category decision with latent fallback.
-    pub fn resolve_issue_category(
-        &self,
-        input: &IssueClassificationInput,
-        latent_threshold: f64,
-    ) -> CategoryDecision {
-        classify_issue(input, latent_threshold)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NeuralProposal {
-    pub action: String,
-    pub confidence: f64,
-    pub reasoning: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidationResult {
-    pub is_valid: bool,
-    pub issues: Vec<String>,
-    pub approved_action: Option<String>,
-}
+pub use category_decision::CategoryDecision;
+pub use category_source::CategorySource;
+pub use issue_category::IssueCategory;
+pub use issue_classification_input::IssueClassificationInput;
+pub use issue_classifier::classify_issue;
+pub use neural_proposal::NeuralProposal;
+pub use plan::Plan;
+pub use plan_step::PlanStep;
+pub use policy_engine::{FORCE_PUSH_FORBIDDEN, PolicyEngine, is_force_push_action};
+pub use symbolic_controller::SymbolicController;
+pub use validation_result::ValidationResult;
+pub use validator::Validator;

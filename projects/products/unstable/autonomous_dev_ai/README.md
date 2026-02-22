@@ -1,195 +1,96 @@
 # Autonomous Developer AI
 
-A fully autonomous, goal-driven developer AI capable of replacing a human developer for scoped tasks: understanding intent, planning, coding, testing, reviewing, managing Git/GitHub workflows, and iterating until completion.
+`autonomous_dev_ai` is an unstable product focused on a safe neuro-symbolic autonomous developer workflow.
 
-## Core Design Principles
+This crate is not fully production-complete yet. It contains a functional lifecycle core, policy gates, audit/replay primitives, and controlled tool execution, but parts of end-to-end autonomy remain partial.
 
-1. **Cognitive Autonomy**: The agent decides what to do next without prompts. It loops until success, failure, or policy stop.
+## Current Status
 
-2. **Execution Non-Freedom**: Every action passes through policies, hooks, CI, and audit logs. No direct shell, FS, git, or network access.
+- Stage: unstable / iterative hardening
+- Issue track: `#647` (baseline completion) still in progress
+- Design goal: autonomous-by-default behavior with policy-first safety
 
-3. **Neuro-Symbolic Split**: Symbolic layer controls structure, safety, and orchestration. Neural layer provides generation, heuristics, and uncertainty handling. Symbolic can fully disable or replace neural outputs.
+## What Is Implemented
 
-4. **Multi-Objective Reasoning**: The agent optimizes several competing objectives and cannot bypass constraints.
+- Lifecycle state machine with retry/recovery paths and terminal states
+- Policy validation + authz gate before tool execution
+- Risk gating (low/medium/high) with explicit approval token for high-risk actions
+- Circuit breaker, rollback boundary tracking, and checkpoint persistence
+- Run replay and audit logging for post-run analysis
+- Structured persistence with transactional state/index artifacts
+- PR flow orchestration primitives (metadata, compliance/readiness states, review loop)
 
-5. **Serializable Cognition**: All internal state is loadable/savable in `.ron` (for inspection/editing) and `.bin` (for performance).
+## What Is Still Partial
 
-## Architecture
-
-```
-┌──────────────────────────────────────────┐
-│       CI / Hooks / Policy                │
-│  (hard constraints, non-bypassable)      │
-└──────────────────────────────────────────┘
-                ▲
-                │
-┌──────────────────────────────────────────┐
-│      Symbolic Control Layer              │
-│  - State Machine                         │
-│  - Multi-Objective System                │
-│  - Policy Engine                         │
-│  - Memory Graph                          │
-└──────────────────────────────────────────┘
-                ▲
-                │ (proposals)
-┌──────────────────────────────────────────┐
-│      Neural Computation Layer            │
-│  - Intent interpretation                 │
-│  - Code generation proposals             │
-│  - Heuristic evaluation                  │
-└──────────────────────────────────────────┘
-```
+- Full real GitHub integration for PR/review execution (current flow is partially environment-driven)
+- End-to-end CI-like autonomous scenario validation with strict closure criteria
+- Comprehensive test matrix requested by issue acceptance criteria
+- Final documentation/behavior lock for production-grade claims
 
 ## Usage
-
-### Running the Agent
 
 ```bash
 cargo run -p autonomous_dev_ai -- "Fix the failing tests" ./agent_config ./audit.log
 ```
 
-### Configuration
+## Safety Model
 
-The agent uses `.ron` configuration files with binary `.bin` caching:
+- No action should bypass symbolic policy and authz checks
+- Tool execution is allowlist-based and policy-constrained
+- High-risk actions require explicit approval token
+- Failures are recorded for replay and incident analysis
 
-```ron
-(
-    agent_name: "autonomous_dev_ai",
-    execution_mode: "ci_bound",
-    neural: (
-        enabled: true,
-        prefer_gpu: true,
-        cpu_fallback: true,
-        models: {
-            "intent": "intent_v1.bin",
-            "codegen": "codegen_v2.bin",
-            "review": "review_v1.bin",
-        }
-    ),
-    symbolic: (
-        strict_validation: true,
-        deterministic: true,
-    ),
-    objectives: [
-        (name: "task_completion", weight: 1.0, hard: true, threshold: Some(1.0)),
-        (name: "policy_safety", weight: 1.0, hard: true, threshold: Some(1.0)),
-        (name: "tests_pass", weight: 0.9, hard: true, threshold: Some(1.0)),
-        (name: "minimal_diff", weight: 0.6, hard: false, threshold: None),
-        (name: "time_budget", weight: 0.4, hard: false, threshold: None),
-    ],
-)
-```
+## Tooling Notes
 
-## Agent Lifecycle
+Implemented tool wrappers include:
 
-1. **LoadConfig**: Load configuration (.bin → .ron fallback)
-2. **LoadMemory**: Load previous memory state if available
-3. **ReceiveGoal**: Accept and interpret the goal
-4. **ExploreRepository**: Understand codebase structure
-5. **GeneratePlan**: Neural proposes, symbolic validates
-6. **ExecuteStep**: Run tools through policy engine
-7. **Verify**: Check step execution success
-8. **EvaluateObjectives**: Score against multi-objective system
-9. **PrCreation**: Open PR with full metadata
-10. **ReviewFeedback**: Handle review comments
-11. **Done**: Complete successfully
+- `read_file`
+- `run_tests`
+- `git_commit`
+- `generate_pr_description`
 
-## Multi-Objective System
+`run_tests` executes real commands (with timeout control), and `git_commit` is restricted by allowlist plus forbidden action checks.
 
-The agent optimizes multiple objectives simultaneously:
+## Non-Interactive Controls
 
-- **Hard Objectives** (must be satisfied):
-  - `task_completion`: Goal achieved
-  - `policy_safety`: No policy violations
-  - `tests_pass`: All tests pass
+Useful runtime controls for CI-like runs:
 
-- **Soft Objectives** (weighted preferences):
-  - `minimal_diff`: Prefer small changes
-  - `time_budget`: Complete within time limit
+- `AUTONOMOUS_CREATE_PR=true`: attempt real `gh pr create`
+- `AUTONOMOUS_CREATE_PR_REQUIRED=true`: fail if real PR creation fails
+- `AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true`: fail unless PR was created during this run via `gh pr create`
+- `AUTONOMOUS_PR_NUMBER=<n>`: inject existing PR number
+- `AUTONOMOUS_REQUIRE_PR_NUMBER=true`: require a real/known PR number before continuing
+- `AUTONOMOUS_FETCH_ISSUE_CONTEXT_FROM_GH=true`: fetch issue title/body from GitHub when issue number is known
+- `AUTONOMOUS_FETCH_ISSUE_CONTEXT_REQUIRED=true`: fail if issue context cannot be fetched from GitHub
+- `AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true`: fail PR stage when issue fields/title compliance is not satisfied
+- `AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH=true`: fetch PR CI/check status from GitHub (`statusCheckRollup`)
+- `AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true`: fail if PR CI status cannot be fetched from GitHub
+- `AUTONOMOUS_REQUIRE_GENERATED_PR_DESCRIPTION=true`: fail if PR description was not generated by tool path
+- `AUTONOMOUS_ENFORCE_SLO_DURING_OBJECTIVE_EVAL=true`: enforce SLO gates during iterative objective evaluation (off by default to avoid pre-terminal deadlocks)
+- `AUTONOMOUS_REPO_ROOT=/path`: repository root used for filesystem exploration
+- `AUTONOMOUS_EXPLORE_MAX_ENTRIES=<n>`: cap top-level entries collected during exploration
+- `AUTONOMOUS_REQUIRE_EXPLORED_FILES=true`: fail if repository exploration returns no entries
+- `AUTONOMOUS_REVIEW_COMMENTS_JSON='[...]'`: provide structured review feedback
+- `AUTONOMOUS_REVIEW_COMMENTS_FILE=/path/to/comments.json`: structured review feedback from file
+- `AUTONOMOUS_REVIEW_REQUIRED=true`: block if no review feedback is available
+- `AUTONOMOUS_AUTO_RESOLVE_REVIEW=true`: auto-resolve pending feedback (off by default)
+- `AUTONOMOUS_FETCH_REVIEW_FROM_GH=true`: fetch review feedback from `gh pr view` when PR number is known
+- `AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true`: fail unless review feedback source is real GitHub PR context
 
-## Symbolic vs Neural Responsibilities
+## Development Notes
 
-### Symbolic (Authoritative)
+- Keep claims in this file strictly aligned with current code behavior.
+- For detailed implementation status and remaining gaps, see `IMPLEMENTATION.md`.
+- Runtime requirement flags are validated at run start (fail-fast) to reject inconsistent strict-mode combinations.
 
-- Agent state machine
-- Goal management & prioritization
-- Multi-objective scoring
-- Plan validation
-- Policy enforcement
-- Tool orchestration
-- Git/GitHub workflow logic
+## CI-like Fixture Run
 
-### Neural (Advisory)
-
-- Intent parsing (NL → structured intent)
-- Plan proposals
-- Code patch proposals
-- Review heuristics
-- Confidence/uncertainty estimation
-
-## Tools
-
-All tools are symbolic wrappers with:
-
-- Allowlist enforcement
-- Action logging
-- Reversibility tracking
-
-Available tools:
-
-- `read_file`: Repository reader
-- `search_code`: Code search
-- `apply_patch`: Patch applier
-- `run_tests`: Test runner
-- `format_code`: Formatter/linter
-- `git_commit`: Git wrapper (no force-push)
-- `create_pr`: PR creation
-- `generate_pr_description`: Generate PR description via `scripts/versioning/file_versioning/github/generate_pr_description.sh`
-
-## Audit & Traceability
-
-Every action is logged to the audit file:
-
-- State transitions
-- Tool executions
-- Neural suggestions
-- Symbolic decisions
-- File modifications
-- Objective evaluations
-
-## Testing
-
-Run tests:
+Use the reproducible fixture scenario to run a non-interactive lifecycle execution and persist report/replay artifacts:
 
 ```bash
-cargo test -p autonomous_dev_ai
+projects/products/unstable/autonomous_dev_ai/scripts/run_ci_like_fixture.sh
 ```
 
-## Acceptance Criteria
+Scenario details: `projects/products/unstable/autonomous_dev_ai/scenarios/ci_like_fixture/README.md`.
 
-- [x] Complete at least 2 autonomous fix iterations
-- [x] Open PR without human intervention
-- [x] Respect all hard objectives
-- [x] Serialize and reload full state (.ron and .bin)
-- [x] Run with neural disabled (symbolic-only fallback)
-- [x] CI can stop the agent
-- [x] Logs sufficient to replay reasoning
-
-## Safety Features
-
-- **Policy Engine**: Validates all actions before execution
-- **Hard Objectives**: Agent cannot violate hard constraints
-- **Audit Logging**: Every action is traced
-- **No Direct Access**: All operations through controlled tools
-- **Symbolic Override**: Can disable neural layer entirely
-- **State Inspection**: .ron format for human-readable state
-
-## Development Status
-
-This is a V1 implementation in the unstable products directory. It demonstrates the core architecture and satisfies all acceptance criteria. Future enhancements may include:
-
-- Actual neural model integration
-- Real Git/GitHub API integration
-- Advanced plan generation
-- CI hook integration
-- More sophisticated tool implementations
+The run report artifact also exposes failure-distribution and recovery-hint fields to support safer autonomous supervision.

@@ -11,6 +11,7 @@ This document provides an overview of all documentation files in this directory.
 ## Scripts
 
 - [auto_link_parent_issue.sh](auto_link_parent_issue.sh): Auto-link child issues to parent issues from `Parent:` issue-body field
+- [create_direct_issue.sh](create_direct_issue.sh): Create direct issues from the repository issue-template contract
 - [generate_pr_description.sh](generate_pr_description.sh): Generate structured merge PR descriptions from GitHub metadata
 - [issue_done_in_dev_status.sh](issue_done_in_dev_status.sh): Manage `done-in-dev` status label on dev merges and issue closure
 - [parent_issue_guard.sh](parent_issue_guard.sh): Guard parent issue closure and publish parent/child status summaries

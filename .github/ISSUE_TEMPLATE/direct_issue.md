@@ -1,7 +1,7 @@
 ---
 name: Direct issue
 about: Track work raised outside PR review flow
-title: 'type: short summary'
+title: 'type(scope): short summary'
 # Type convention: fix | refactor | chore | doc/docs | test/tests | feature/feat
 labels: []
 # Labels: choose from `.github/labels.json`
@@ -20,14 +20,19 @@ What is currently wrong / missing.
 
 Done when :
 
-- [clear verification point 1]
-- [clear verification point 2]
+- [ ] clear verification point 1
+- [ ] clear verification point 2
 
 ## Hierarchy
 
+Parent:
+<!-- Required field. Allowed values only:
+Parent: #<issue_number>
 Parent: none
+-->
 
+<!-- Optional block (add only if needed):
 ## References
-
-- Related issue(s) :
-- Related PR(s) :
+Related issue(s): #123
+Related PR(s): #456
+-->
