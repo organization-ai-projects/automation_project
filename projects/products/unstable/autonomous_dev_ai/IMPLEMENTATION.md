@@ -87,6 +87,18 @@ Still partial:
 
 - alerting remains artifact/telemetry-driven and not yet wired to an external pager/notification backend in this crate
 
+## PR Flow Progress (issue #653)
+
+Implemented:
+
+- deterministic PR metadata path with rendered closure footer and explicit metadata provenance in run report (`pr_number_source`, `issue_context_source`, `pr_readiness`)
+- issue-noncompliance closure neutralization path (`<keyword> Rejected #<issue>`) with keyword preservation (`Closes`, `Fixes`, etc.)
+- review feedback ingestion supports iterative loops with explicit stop criteria (`Timeout` after review iteration budget)
+- merge readiness aggregation gates CI status, policy compliance, and issue compliance
+- end-to-end binary tests now cover:
+  - multi-iteration review loop with timeout/blocked termination
+  - nominal review-approved path with merge readiness resolving to `ready`
+
 ## Known Gaps vs #647 Acceptance Criteria
 
 - full non-interactive PR flow with real platform integration still incomplete

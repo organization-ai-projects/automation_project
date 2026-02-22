@@ -63,3 +63,53 @@ impl PrMetadata {
         format!("{}{}", self.body, footer)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn render_body_keeps_closure_keyword_when_issue_is_compliant() {
+        let mut metadata = PrMetadata::new("title", "body");
+        metadata.issue_compliance = IssueComplianceStatus::Compliant;
+        metadata.close_issue(IssueNumber::new(42).expect("valid issue number"));
+
+        let rendered = metadata.render_body();
+        assert!(rendered.contains("Closes #42"), "rendered body: {rendered}");
+    }
+
+    #[test]
+    fn render_body_neutralizes_closure_when_issue_non_compliant() {
+        let mut metadata = PrMetadata::new("title", "body");
+        metadata.issue_compliance = IssueComplianceStatus::NonCompliant {
+            reason: "missing Parent".to_string(),
+        };
+        metadata.close_issue(IssueNumber::new(51).expect("valid issue number"));
+
+        let rendered = metadata.render_body();
+        assert!(
+            rendered.contains("Closes Rejected #51"),
+            "rendered body: {rendered}"
+        );
+    }
+
+    #[test]
+    fn render_body_preserves_custom_keyword_while_neutralizing() {
+        let mut metadata = PrMetadata::new("title", "body");
+        metadata.issue_compliance = IssueComplianceStatus::NonCompliant {
+            reason: "missing Parent".to_string(),
+        };
+        metadata.close_issue(IssueNumber::new(64).expect("valid issue number"));
+
+        // SAFETY: test process controls env for this case only.
+        unsafe { std::env::set_var("AUTONOMOUS_CLOSURE_KEYWORD", "Fixes") };
+        let rendered = metadata.render_body();
+        // SAFETY: cleanup after test.
+        unsafe { std::env::remove_var("AUTONOMOUS_CLOSURE_KEYWORD") };
+
+        assert!(
+            rendered.contains("Fixes Rejected #64"),
+            "rendered body: {rendered}"
+        );
+    }
+}
