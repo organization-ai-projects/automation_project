@@ -1820,6 +1820,11 @@ impl LifecycleManager {
         let observations = self.build_slo_observations(policy_safety, tests_pass);
         let slo_evaluations = self.slo_evaluator.evaluate(&observations);
         let slo_all_met = self.slo_evaluator.all_met(&slo_evaluations);
+        let enforce_slo_during_objective_eval =
+            std::env::var("AUTONOMOUS_ENFORCE_SLO_DURING_OBJECTIVE_EVAL")
+                .ok()
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false);
 
         self.audit
             .log_objective_evaluation(self.iteration, scores.clone())
@@ -1836,12 +1841,13 @@ impl LifecycleManager {
             format!("{:.3}", weighted_objective_score),
         );
 
-        if !hard_satisfied || !slo_all_met {
+        if !hard_satisfied || (enforce_slo_during_objective_eval && !slo_all_met) {
             tracing::warn!(
-                "Iteration {}: objectives not satisfied (hard_ok={} slo_ok={})",
+                "Iteration {}: objectives not satisfied (hard_ok={} slo_ok={} enforce_slo={})",
                 self.current_iteration_number,
                 hard_satisfied,
-                slo_all_met
+                slo_all_met,
+                enforce_slo_during_objective_eval
             );
 
             let Some(next_iteration) = self.current_iteration_number.try_next() else {
@@ -1871,8 +1877,8 @@ impl LifecycleManager {
                 self.iteration,
                 "Objectives or SLOs not satisfied".to_string(),
                 format!(
-                    "Objective scores: {:?}; SLO all met: {}",
-                    scores, slo_all_met
+                    "Objective scores: {:?}; SLO all met: {}; enforce_slo_during_objective_eval={}",
+                    scores, slo_all_met, enforce_slo_during_objective_eval
                 ),
                 Some(format!(
                     "Retry with adjusted approach (attempt {}/{})",

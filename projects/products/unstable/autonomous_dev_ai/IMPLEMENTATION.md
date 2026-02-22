@@ -42,10 +42,11 @@ Still partial:
 - runtime requirements are now validated fail-fast at run start to reject inconsistent settings before state execution
 - PR metadata can now optionally ingest CI/check status from GitHub (`AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH=true`) with optional fail-closed enforcement (`AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true`)
 - run report now exposes PR provenance (`real_pr_created`, `pr_number_source`, `pr_ci_status`) for stricter auditability
+- a reproducible CI-like fixture scenario is available via `scripts/run_ci_like_fixture.sh` and emits run-report/replay/audit artifacts for manual validation
+- objective evaluation now enforces SLO gating only when explicitly requested (`AUTONOMOUS_ENFORCE_SLO_DURING_OBJECTIVE_EVAL=true`) to prevent iterative pre-terminal deadlocks
 
 ## Known Gaps vs #647 Acceptance Criteria
 
-- end-to-end fixture-based autonomous scenario under CI-like conditions still needs explicit validation artifacts
 - full non-interactive PR flow with real platform integration still incomplete
 - required integration/regression test matrix is not yet finalized (by plan, tests are handled last in this branch phase)
 - README/implementation docs must continue to be updated whenever behavior changes
