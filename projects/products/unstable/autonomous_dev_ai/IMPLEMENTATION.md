@@ -48,6 +48,28 @@ Still partial:
 - strict issue compliance gating is now available during PR stage (`AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true`) to block non-conformant issue metadata from proceeding
 - run report now includes failure distribution telemetry (`failure_kind_counts`, `top_failure_kind`) and last recovery hint (`last_failure_recovery_action`) for safer autonomous operations
 
+## Neural Governance Progress (issue #651)
+
+Implemented:
+
+- model rollout now enforces explicit offline and online evaluation gates before serving/promotion (`Pending -> Canary -> Production`)
+- rollout thresholds/scores are runtime-configurable (`AUTONOMOUS_NEURAL_OFFLINE_MIN_SCORE`, `AUTONOMOUS_NEURAL_ONLINE_MIN_SCORE`, `AUTONOMOUS_NEURAL_MIN_CONFIDENCE`, `AUTONOMOUS_NEURAL_OFFLINE_SCORE`, `AUTONOMOUS_NEURAL_ONLINE_SCORE`)
+- rollout scores can be sourced from a JSON snapshot file (`AUTONOMOUS_NEURAL_EVAL_FILE`) for less synthetic governance inputs, with env fallback
+- active governed model is now selectable at runtime (`AUTONOMOUS_NEURAL_MODEL_NAME`) instead of hardcoded `default-neural`
+- JSON snapshot input supports single-model object and multi-model payloads (array or `{ "models": [...] }`)
+- neural serving path now fails closed to symbolic fallback when a model is not promoted or confidence is below thresholds
+- drift detection triggers immediate rollback to `RolledBack` and disables serving for the impacted model
+- rollout gate states and rollback reason are traced in run replay for auditability
+- unit tests now cover:
+  - gate enforcement before canary/production promotion
+  - fallback on low confidence and non-promoted state
+  - rollback behavior on drift detection
+
+Still partial:
+
+- offline/online evaluation currently uses local score gates and not yet external benchmark/production telemetry feeds
+- rollout policy remains single-model default (`default-neural`) and needs extension for multi-model runtime governance
+
 ## Known Gaps vs #647 Acceptance Criteria
 
 - full non-interactive PR flow with real platform integration still incomplete

@@ -15,7 +15,8 @@ use crate::lifecycle::{ActionRiskLevel, LearningContext};
 use crate::memory::FailureEntry;
 use crate::memory_graph::MemoryGraph;
 use crate::neural::{
-    DriftDetector, IntentInterpretation, ModelGovernance, ModelVersion, NeuralLayer, NeuralModel,
+    DriftDetector, IntentInterpretation, ModelEvaluationSnapshot, ModelGovernance, ModelVersion,
+    NeuralLayer, NeuralModel,
 };
 use crate::objective_evaluator::ObjectiveEvaluator;
 use crate::ops::{IncidentRunbook, RunReplay, SloEvaluator};
@@ -77,6 +78,8 @@ pub struct LifecycleManager {
     checkpoint_path: CheckpointPath,
     last_intent: Option<IntentInterpretation>,
     drift_detector: DriftDetector,
+    neural_eval_source: String,
+    active_neural_model_name: String,
 
     // Timeouts.
     global_timeout: Timeout,
@@ -126,18 +129,58 @@ impl LifecycleManager {
             config.neural.cpu_fallback,
         );
         let mut model_governance = ModelGovernance::new();
+        let active_neural_model_name = std::env::var("AUTONOMOUS_NEURAL_MODEL_NAME")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| "default-neural".to_string());
         model_governance.registry.register(ModelVersion::new(
-            "default-neural",
+            active_neural_model_name.clone(),
             "0.1.0",
             "builtin://heuristic",
             0.7,
         ));
-        let _ = model_governance
-            .registry
-            .promote_to_canary("default-neural");
-        let _ = model_governance
-            .registry
-            .promote_to_production("default-neural");
+        let offline_min = env_f64_or("AUTONOMOUS_NEURAL_OFFLINE_MIN_SCORE", 0.8);
+        let online_min = env_f64_or("AUTONOMOUS_NEURAL_ONLINE_MIN_SCORE", 0.85);
+        let confidence_min = env_f64_or("AUTONOMOUS_NEURAL_MIN_CONFIDENCE", 0.7);
+        model_governance.offline_eval_min_score = offline_min;
+        model_governance.online_eval_min_score = online_min;
+        model_governance.confidence_gate.min_confidence = confidence_min;
+
+        let mut neural_eval_source = "env".to_string();
+        let mut offline_score = env_f64_or("AUTONOMOUS_NEURAL_OFFLINE_SCORE", 1.0);
+        let mut online_score = env_f64_or("AUTONOMOUS_NEURAL_ONLINE_SCORE", 1.0);
+        if let Ok(path) = std::env::var("AUTONOMOUS_NEURAL_EVAL_FILE")
+            && !path.trim().is_empty()
+        {
+            match ModelEvaluationSnapshot::load_scores_for_model(&path, &active_neural_model_name) {
+                Ok(Some((offline, online))) => {
+                    offline_score = offline;
+                    online_score = online;
+                    neural_eval_source = format!("file:{path}");
+                }
+                Ok(None) => {
+                    tracing::warn!(
+                        "No neural evaluation snapshot found for model '{}' in '{}', using env scores",
+                        active_neural_model_name,
+                        path
+                    );
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        "Failed to load AUTONOMOUS_NEURAL_EVAL_FILE '{}': {}. Falling back to env scores.",
+                        path,
+                        err
+                    );
+                }
+            }
+        }
+
+        let _ = model_governance.evaluate_offline(&active_neural_model_name, offline_score);
+        let _ = model_governance.promote_after_offline_gate(&active_neural_model_name);
+
+        let _ = model_governance.evaluate_online(&active_neural_model_name, online_score);
+        let _ = model_governance.promote_after_online_gate(&active_neural_model_name);
 
         let policy = PolicyEngine::new();
         let authz = AuthzEngine::new();
@@ -197,6 +240,8 @@ impl LifecycleManager {
             checkpoint_path,
             last_intent: None,
             drift_detector,
+            neural_eval_source,
+            active_neural_model_name,
             global_timeout,
             iteration_timeout: Timeout::from_secs(300),
             tool_timeout: Timeout::from_secs(30),
@@ -225,10 +270,31 @@ impl LifecycleManager {
                 self.symbolic.strict_validation, self.symbolic.deterministic
             ),
         );
-        if let Some(state) = self.model_governance.registry.state("default-neural") {
+        if let Some(state) = self
+            .model_governance
+            .registry
+            .state(&self.active_neural_model_name)
+        {
             self.run_replay
                 .record("neural.rollout_state", format!("{:?}", state));
         }
+        self.run_replay.record(
+            "neural.rollout_gates",
+            format!(
+                "model={} offline_passed={} online_passed={}",
+                self.active_neural_model_name,
+                self.model_governance
+                    .registry
+                    .offline_gate_passed(&self.active_neural_model_name),
+                self.model_governance
+                    .registry
+                    .online_gate_passed(&self.active_neural_model_name)
+            ),
+        );
+        self.run_replay.record(
+            "neural.rollout_eval_source",
+            self.neural_eval_source.clone(),
+        );
         self.configure_policy_pack_from_env()
             .map_err(|e| LifecycleError::Fatal {
                 iteration: 0,
@@ -1022,15 +1088,28 @@ impl LifecycleManager {
 
                     let governance_ok = self
                         .model_governance
-                        .accept("default-neural", suggested.confidence);
+                        .accept(&self.active_neural_model_name, suggested.confidence);
                     let validation = self.symbolic.validate_proposal(&suggested)?;
+                    let rollout_state = self
+                        .model_governance
+                        .registry
+                        .state(&self.active_neural_model_name)
+                        .map(|s| format!("{:?}", s))
+                        .unwrap_or_else(|| "Unknown".to_string());
+                    let rollback_reason = self
+                        .model_governance
+                        .registry
+                        .rollback_reason(&self.active_neural_model_name)
+                        .unwrap_or("none");
 
                     self.run_replay.record(
                         "neural.governance",
                         format!(
-                            "accepted={} symbolic_valid={} issues={}",
+                            "accepted={} symbolic_valid={} rollout_state={} rollback_reason={} issues={}",
                             governance_ok,
                             validation.is_valid,
+                            rollout_state,
+                            rollback_reason,
                             validation.issues.join(" | ")
                         ),
                     );
@@ -3169,6 +3248,13 @@ fn parse_issue_labels_from_env() -> Vec<String> {
 
 fn score_value(scores: &[(String, f64)], key: &str) -> Option<f64> {
     scores.iter().find(|(k, _)| k == key).map(|(_, v)| *v)
+}
+
+fn env_f64_or(key: &str, default: f64) -> f64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|raw| raw.trim().parse::<f64>().ok())
+        .unwrap_or(default)
 }
 
 fn is_medium_risk_allowed(execution_mode: &str) -> bool {
