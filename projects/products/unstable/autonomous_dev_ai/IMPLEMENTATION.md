@@ -39,6 +39,7 @@ Still partial:
 - strict fail-closed controls added for non-interactive operation:
   - `AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true` enforces a PR actually created by runtime (not only injected number)
   - `AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true` enforces review input from GitHub PR context
+- runtime requirements are now validated fail-fast at run start to reject inconsistent settings before state execution
 
 ## Known Gaps vs #647 Acceptance Criteria
 

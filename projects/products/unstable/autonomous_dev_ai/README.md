@@ -75,3 +75,4 @@ Useful runtime controls for CI-like runs:
 
 - Keep claims in this file strictly aligned with current code behavior.
 - For detailed implementation status and remaining gaps, see `IMPLEMENTATION.md`.
+- Runtime requirement flags are validated at run start (fail-fast) to reject inconsistent strict-mode combinations.

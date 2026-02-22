@@ -234,6 +234,12 @@ impl LifecycleManager {
                 error: e,
                 context: "Failed to configure policy pack from runtime overrides".to_string(),
             })?;
+        self.validate_runtime_requirements()
+            .map_err(|e| LifecycleError::Fatal {
+                iteration: 0,
+                error: e,
+                context: "Failed runtime requirement validation".to_string(),
+            })?;
         self.run_replay
             .record("policy_pack.fingerprint", self.policy_pack.fingerprint());
 
@@ -605,6 +611,64 @@ impl LifecycleManager {
 
         self.check_iteration_budget()?;
 
+        Ok(())
+    }
+
+    fn validate_runtime_requirements(&mut self) -> AgentResult<()> {
+        let create_pr_enabled = std::env::var("AUTONOMOUS_CREATE_PR")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let create_pr_required = std::env::var("AUTONOMOUS_CREATE_PR_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let require_real_pr_creation = std::env::var("AUTONOMOUS_REQUIRE_REAL_PR_CREATION")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_review_from_gh = std::env::var("AUTONOMOUS_FETCH_REVIEW_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let require_gh_review_source = std::env::var("AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+
+        if create_pr_required && !create_pr_enabled {
+            return Err(AgentError::State(
+                "AUTONOMOUS_CREATE_PR_REQUIRED=true requires AUTONOMOUS_CREATE_PR=true".to_string(),
+            ));
+        }
+        if require_real_pr_creation && !create_pr_enabled {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true requires AUTONOMOUS_CREATE_PR=true"
+                    .to_string(),
+            ));
+        }
+        if require_gh_review_source && !fetch_review_from_gh {
+            return Err(AgentError::State(
+                "AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true requires AUTONOMOUS_FETCH_REVIEW_FROM_GH=true"
+                    .to_string(),
+            ));
+        }
+
+        self.run_replay.record(
+            "runtime.requirements",
+            format!(
+                "create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={}",
+                create_pr_enabled,
+                create_pr_required,
+                require_real_pr_creation,
+                fetch_review_from_gh,
+                require_gh_review_source
+            ),
+        );
+        self.memory.metadata.insert(
+            "runtime_requirements.validated".to_string(),
+            "true".to_string(),
+        );
         Ok(())
     }
 
