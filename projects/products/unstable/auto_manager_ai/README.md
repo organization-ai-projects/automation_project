@@ -109,6 +109,8 @@ This product produces output in the **structured JSON file** format:
 
 ```json
 {
+  "schema_version": "1",
+  "producer": "auto_manager_ai",
   "version": "0.1.0",
   "generated_at": "timestamp",
   "actions": [
@@ -140,6 +142,8 @@ This product produces output in the **structured JSON file** format:
 
 ```json
 {
+  "schema_version": "1",
+  "producer": "auto_manager_ai",
   "product": "auto_manager_ai",
   "version": "0.1.0",
   "run_id": "run_123",
