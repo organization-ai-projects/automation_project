@@ -3,7 +3,8 @@
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
 use crate::domain::{
-    BinaryInvocationSpec, OrchestratorCheckpoint, RunReport, Stage, StageExecutionRecord,
+    BinaryInvocationSpec, CiGateStatus, GateDecision, GateInputs, OrchestratorCheckpoint,
+    PolicyGateStatus, ReviewGateStatus, RunReport, Stage, StageExecutionRecord,
     StageExecutionStatus, StageTransition, TerminalState,
 };
 use std::path::PathBuf;
@@ -14,6 +15,7 @@ pub struct Orchestrator {
     simulate_blocked: bool,
     planning_invocation: Option<BinaryInvocationSpec>,
     execution_invocation: Option<BinaryInvocationSpec>,
+    gate_inputs: GateInputs,
     checkpoint: OrchestratorCheckpoint,
     checkpoint_path: Option<PathBuf>,
 }
@@ -24,6 +26,7 @@ impl Orchestrator {
         simulate_blocked: bool,
         planning_invocation: Option<BinaryInvocationSpec>,
         execution_invocation: Option<BinaryInvocationSpec>,
+        gate_inputs: GateInputs,
         checkpoint: Option<OrchestratorCheckpoint>,
         checkpoint_path: Option<PathBuf>,
     ) -> Self {
@@ -34,6 +37,7 @@ impl Orchestrator {
             simulate_blocked,
             planning_invocation,
             execution_invocation,
+            gate_inputs,
             checkpoint,
             checkpoint_path,
         }
@@ -59,6 +63,12 @@ impl Orchestrator {
         }
 
         if !self.execute_stage(Stage::Validation, None) {
+            return self.report;
+        }
+
+        if !self.evaluate_fail_closed_gates() {
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
             return self.report;
         }
 
@@ -172,6 +182,79 @@ impl Orchestrator {
             });
         }
     }
+
+    fn evaluate_fail_closed_gates(&mut self) -> bool {
+        let mut decisions = Vec::new();
+        let mut blocked_reason_codes = Vec::new();
+
+        let (policy_passed, policy_reason) = match self.gate_inputs.policy_status {
+            PolicyGateStatus::Allow => (true, None),
+            PolicyGateStatus::Deny | PolicyGateStatus::Unknown => {
+                (false, Some("GATE_POLICY_DENIED_OR_UNKNOWN".to_string()))
+            }
+        };
+        decisions.push(GateDecision {
+            gate: "policy".to_string(),
+            status: match self.gate_inputs.policy_status {
+                PolicyGateStatus::Allow => "allow",
+                PolicyGateStatus::Deny => "deny",
+                PolicyGateStatus::Unknown => "unknown",
+            }
+            .to_string(),
+            passed: policy_passed,
+            reason_code: policy_reason.clone(),
+        });
+        if let Some(code) = policy_reason {
+            blocked_reason_codes.push(code);
+        }
+
+        let (ci_passed, ci_reason) = match self.gate_inputs.ci_status {
+            CiGateStatus::Success => (true, None),
+            CiGateStatus::Pending | CiGateStatus::Failure | CiGateStatus::Missing => {
+                (false, Some("GATE_CI_NOT_SUCCESS".to_string()))
+            }
+        };
+        decisions.push(GateDecision {
+            gate: "ci".to_string(),
+            status: match self.gate_inputs.ci_status {
+                CiGateStatus::Success => "success",
+                CiGateStatus::Pending => "pending",
+                CiGateStatus::Failure => "failure",
+                CiGateStatus::Missing => "missing",
+            }
+            .to_string(),
+            passed: ci_passed,
+            reason_code: ci_reason.clone(),
+        });
+        if let Some(code) = ci_reason {
+            blocked_reason_codes.push(code);
+        }
+
+        let (review_passed, review_reason) = match self.gate_inputs.review_status {
+            ReviewGateStatus::Approved => (true, None),
+            ReviewGateStatus::ChangesRequested | ReviewGateStatus::Missing => {
+                (false, Some("GATE_REVIEW_NOT_APPROVED".to_string()))
+            }
+        };
+        decisions.push(GateDecision {
+            gate: "review".to_string(),
+            status: match self.gate_inputs.review_status {
+                ReviewGateStatus::Approved => "approved",
+                ReviewGateStatus::ChangesRequested => "changes_requested",
+                ReviewGateStatus::Missing => "missing",
+            }
+            .to_string(),
+            passed: review_passed,
+            reason_code: review_reason.clone(),
+        });
+        if let Some(code) = review_reason {
+            blocked_reason_codes.push(code);
+        }
+
+        self.report.gate_decisions = decisions;
+        self.report.blocked_reason_codes = blocked_reason_codes;
+        self.report.blocked_reason_codes.is_empty()
+    }
 }
 
 fn unix_timestamp_secs() -> u64 {
@@ -185,13 +268,22 @@ fn unix_timestamp_secs() -> u64 {
 mod tests {
     use super::Orchestrator;
     use crate::domain::{
-        BinaryInvocationSpec, OrchestratorCheckpoint, Stage, StageExecutionStatus, TerminalState,
+        BinaryInvocationSpec, GateInputs, OrchestratorCheckpoint, PolicyGateStatus, Stage,
+        StageExecutionStatus, TerminalState,
     };
 
     #[test]
     fn executes_all_stages_and_finishes_done() {
-        let report =
-            Orchestrator::new("run_1".to_string(), false, None, None, None, None).execute();
+        let report = Orchestrator::new(
+            "run_1".to_string(),
+            false,
+            None,
+            None,
+            GateInputs::passing(),
+            None,
+            None,
+        )
+        .execute();
 
         assert_eq!(report.terminal_state, Some(TerminalState::Done));
         assert_eq!(report.current_stage, Some(Stage::Closure));
@@ -203,7 +295,16 @@ mod tests {
 
     #[test]
     fn blocked_simulation_stops_before_closure() {
-        let report = Orchestrator::new("run_2".to_string(), true, None, None, None, None).execute();
+        let report = Orchestrator::new(
+            "run_2".to_string(),
+            true,
+            None,
+            None,
+            GateInputs::passing(),
+            None,
+            None,
+        )
+        .execute();
 
         assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
         assert_eq!(report.current_stage, Some(Stage::Validation));
@@ -226,6 +327,7 @@ mod tests {
             false,
             Some(planning_invocation),
             None,
+            GateInputs::passing(),
             None,
             None,
         )
@@ -259,6 +361,7 @@ mod tests {
             false,
             Some(planning_invocation),
             None,
+            GateInputs::passing(),
             Some(checkpoint),
             None,
         )
@@ -270,5 +373,30 @@ mod tests {
             report.stage_executions[0].status,
             StageExecutionStatus::Skipped
         );
+    }
+
+    #[test]
+    fn fail_closed_policy_gate_blocks_pipeline_with_reason_code() {
+        let report = Orchestrator::new(
+            "run_5".to_string(),
+            false,
+            None,
+            None,
+            GateInputs {
+                policy_status: PolicyGateStatus::Unknown,
+                ..GateInputs::passing()
+            },
+            None,
+            None,
+        )
+        .execute();
+
+        assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+        assert!(
+            report
+                .blocked_reason_codes
+                .contains(&"GATE_POLICY_DENIED_OR_UNKNOWN".to_string())
+        );
+        assert_eq!(report.current_stage, Some(Stage::Validation));
     }
 }

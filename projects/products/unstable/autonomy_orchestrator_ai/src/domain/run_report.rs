@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::{Stage, StageExecutionRecord, StageTransition, TerminalState};
+use crate::domain::{GateDecision, Stage, StageExecutionRecord, StageTransition, TerminalState};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RunReport {
@@ -11,6 +11,8 @@ pub struct RunReport {
     pub run_id: String,
     pub current_stage: Option<Stage>,
     pub terminal_state: Option<TerminalState>,
+    pub gate_decisions: Vec<GateDecision>,
+    pub blocked_reason_codes: Vec<String>,
     pub transitions: Vec<StageTransition>,
     pub stage_executions: Vec<StageExecutionRecord>,
 }
@@ -23,6 +25,8 @@ impl RunReport {
             run_id,
             current_stage: None,
             terminal_state: None,
+            gate_decisions: Vec::new(),
+            blocked_reason_codes: Vec::new(),
             transitions: Vec::new(),
             stage_executions: Vec::new(),
         }
