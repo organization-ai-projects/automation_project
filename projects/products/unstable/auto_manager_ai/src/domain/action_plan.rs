@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 /// The complete action plan
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ActionPlan {
+    pub schema_version: String,
+    pub producer: String,
     pub version: String,
     pub generated_at: String,
     pub actions: Vec<Action>,
@@ -21,6 +23,8 @@ impl ActionPlan {
             .unwrap()
             .as_secs();
         Self {
+            schema_version: "1".to_string(),
+            producer: "auto_manager_ai".to_string(),
             version: "0.1.0".to_string(),
             generated_at: timestamp.to_string(),
             actions: Vec::new(),
@@ -42,6 +46,8 @@ mod tests {
     #[test]
     fn test_action_plan_new() {
         let plan = ActionPlan::new("Test plan".to_string());
+        assert_eq!(plan.schema_version, "1");
+        assert_eq!(plan.producer, "auto_manager_ai");
         assert_eq!(plan.version, "0.1.0");
         assert_eq!(plan.summary, "Test plan");
         assert_eq!(plan.actions.len(), 0);
@@ -55,6 +61,32 @@ mod tests {
         let parsed: Json = from_str(&json).expect("Failed to parse JSON");
 
         // Verify specific fields exist and have correct types
+        let schema_version = parsed
+            .get_field("schema_version")
+            .expect("schema_version field should exist");
+        assert!(
+            matches!(schema_version, Json::String(_)),
+            "schema_version should be a string"
+        );
+        assert_eq!(
+            schema_version.as_str(),
+            Some("1"),
+            "schema_version should be 1"
+        );
+
+        let producer = parsed
+            .get_field("producer")
+            .expect("producer field should exist");
+        assert!(
+            matches!(producer, Json::String(_)),
+            "producer should be a string"
+        );
+        assert_eq!(
+            producer.as_str(),
+            Some("auto_manager_ai"),
+            "producer should match"
+        );
+
         let version = parsed
             .get_field("version")
             .expect("version field should exist");
@@ -103,6 +135,8 @@ mod tests {
         let json = to_string_pretty(&plan).expect("Failed to serialize");
         let deserialized: ActionPlan = from_str(&json).expect("Failed to deserialize");
 
+        assert_eq!(plan.schema_version, deserialized.schema_version);
+        assert_eq!(plan.producer, deserialized.producer);
         assert_eq!(plan.version, deserialized.version);
         assert_eq!(plan.summary, deserialized.summary);
         assert_eq!(plan.actions.len(), deserialized.actions.len());
