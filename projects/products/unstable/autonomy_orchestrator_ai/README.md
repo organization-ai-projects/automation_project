@@ -9,11 +9,18 @@ For bootstrap V0, this crate provides:
 - deterministic transition recording with run identifier and timestamp
 - JSON run report artifact for audit/replay style supervision
 - typed stage execution records for binary invocations (exit code, duration, timeout, artifact checks)
+- checkpoint persistence with resume semantics to avoid re-running completed stages
 
 ## Usage
 
 ```bash
 cargo run -p autonomy_orchestrator_ai -- [output_dir]
+```
+
+Resume from persisted checkpoint:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- [output_dir] --resume
 ```
 
 Optional blocked simulation:
@@ -41,10 +48,12 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
 ```
 
 If a configured binary fails to spawn, exits non-zero, times out, misses expected artifacts, or produces malformed expected JSON artifacts, the orchestrator fails closed with terminal state `failed` or `timeout`.
+When `--resume` is used, stages already marked completed in checkpoint are skipped idempotently. Stage idempotency keys are tracked as `stage:<StageName>` in execution records.
 
 ## Output
 
 - `orchestrator_run_report.json`
+- `orchestrator_checkpoint.json` (default path: `<output_dir>/orchestrator_checkpoint.json`)
 
 This report includes machine-readable stage transitions and terminal outcome.
 It also includes `stage_executions` records for every configured binary execution.
