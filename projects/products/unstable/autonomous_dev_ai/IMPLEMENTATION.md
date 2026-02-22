@@ -114,6 +114,18 @@ Implemented:
 - escalation approval pathway is now explicit (`AUTONOMOUS_ESCALATION_APPROVAL_ROLE`, `AUTONOMOUS_ESCALATION_APPROVAL_TOKEN`, `AUTONOMOUS_EXPECTED_ESCALATION_TOKEN`)
 - security-focused tests now cover read-only actor privilege denial and external action guard bypass attempt
 
+## Orchestrator Contract Progress (issue #674)
+
+Implemented:
+
+- explicit non-interactive profile contract for orchestrator usage (`AUTONOMOUS_NON_INTERACTIVE_PROFILE=orchestrator_v1`)
+- fail-fast validation for required strict profile prerequisites (output paths and closure-gate related strict flags)
+- run report contract fields for orchestrator consumption:
+  - artifact provenance/version (`artifact_schema_version`, `artifact_producer`)
+  - runtime profile trace (`non_interactive_profile`, `runtime_requirements_validated`)
+  - closure gate summary (`closure_gates_satisfied`)
+- strict-flag binary tests now cover unknown profile rejection and missing-prerequisite rejection
+
 ## Known Gaps vs #647 Acceptance Criteria
 
 - full non-interactive PR flow with real platform integration still incomplete
