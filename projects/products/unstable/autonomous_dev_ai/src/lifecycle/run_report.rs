@@ -23,6 +23,7 @@ pub struct RunReport {
     pub create_pr_enabled: bool,
     pub real_pr_created: bool,
     pub pr_number: Option<u64>,
+    pub pr_number_source: Option<String>,
     pub pr_ci_status: Option<String>,
     pub pr_readiness: Option<String>,
     pub issue_compliance: Option<String>,

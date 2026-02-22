@@ -442,6 +442,7 @@ impl LifecycleManager {
                 .map(|v| v.eq_ignore_ascii_case("true"))
                 .unwrap_or(false),
             pr_number,
+            pr_number_source: self.memory.metadata.get("pr_number_source").cloned(),
             pr_ci_status: self.memory.metadata.get("pr_ci_status").cloned(),
             pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
             issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
@@ -2023,12 +2024,14 @@ impl LifecycleManager {
             PrOrchestrator::new(format!("Autonomous update: {}", goal), pr_body.clone(), 3);
         let mut opened_pr = false;
         let mut real_pr_created = false;
+        let mut pr_number_source = "none".to_string();
         if let Ok(pr_number_raw) = std::env::var("AUTONOMOUS_PR_NUMBER")
             && let Ok(parsed) = pr_number_raw.parse::<u64>()
             && let Some(prn) = PrNumber::new(parsed)
         {
             pr_orchestrator.open(prn);
             opened_pr = true;
+            pr_number_source = "env_injected".to_string();
         }
         if let Some(n) = issue_number {
             self.record_replay("issue.reference", format!("issue_number={}", n.get()));
@@ -2097,6 +2100,7 @@ impl LifecycleManager {
                         pr_orchestrator.open(real_pr);
                         opened_pr = true;
                         real_pr_created = true;
+                        pr_number_source = "gh_created".to_string();
                     }
                     Ok(None) => {}
                     Err(error) => {
@@ -2192,6 +2196,9 @@ impl LifecycleManager {
             "real_pr_created".to_string(),
             if real_pr_created { "true" } else { "false" }.to_string(),
         );
+        self.memory
+            .metadata
+            .insert("pr_number_source".to_string(), pr_number_source);
         self.memory.metadata.insert(
             "issue_compliance".to_string(),
             format!("{:?}", issue_compliance),
