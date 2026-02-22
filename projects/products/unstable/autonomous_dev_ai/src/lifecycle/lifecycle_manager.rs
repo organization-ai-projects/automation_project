@@ -442,6 +442,7 @@ impl LifecycleManager {
                 .map(|v| v.eq_ignore_ascii_case("true"))
                 .unwrap_or(false),
             pr_number,
+            pr_ci_status: self.memory.metadata.get("pr_ci_status").cloned(),
             pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
             issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
             pr_description_source: self.memory.metadata.get("pr_description_source").cloned(),
@@ -635,6 +636,14 @@ impl LifecycleManager {
             .ok()
             .map(|v| v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
+        let fetch_pr_ci_status = std::env::var("AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_pr_ci_status_required = std::env::var("AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
 
         if create_pr_required && !create_pr_enabled {
             return Err(AgentError::State(
@@ -653,16 +662,24 @@ impl LifecycleManager {
                     .to_string(),
             ));
         }
+        if fetch_pr_ci_status_required && !fetch_pr_ci_status {
+            return Err(AgentError::State(
+                "AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true requires AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH=true"
+                    .to_string(),
+            ));
+        }
 
         self.run_replay.record(
             "runtime.requirements",
             format!(
-                "create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={}",
+                "create_pr_enabled={} create_pr_required={} require_real_pr_creation={} fetch_review_from_gh={} require_gh_review_source={} fetch_pr_ci_status={} fetch_pr_ci_status_required={}",
                 create_pr_enabled,
                 create_pr_required,
                 require_real_pr_creation,
                 fetch_review_from_gh,
-                require_gh_review_source
+                require_gh_review_source,
+                fetch_pr_ci_status,
+                fetch_pr_ci_status_required
             ),
         );
         self.memory.metadata.insert(
@@ -2022,6 +2039,14 @@ impl LifecycleManager {
             Some(_) => CiStatus::Failing,
             None => CiStatus::Unknown,
         });
+        let fetch_pr_ci_status = std::env::var("AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let fetch_pr_ci_status_required = std::env::var("AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED")
+            .ok()
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
         let policy_ok = !self
             .memory
             .failures
@@ -2118,6 +2143,37 @@ impl LifecycleManager {
                     .to_string(),
             ));
         }
+        if fetch_pr_ci_status {
+            if let Some(pr_number) = pr_orchestrator.metadata.pr_number {
+                match self.fetch_pr_ci_status_from_gh(pr_number) {
+                    Ok(ci_status) => {
+                        pr_orchestrator.set_ci_status(ci_status.clone());
+                        self.memory
+                            .metadata
+                            .insert("pr_ci_status".to_string(), format!("{:?}", ci_status));
+                    }
+                    Err(error) => {
+                        if fetch_pr_ci_status_required {
+                            return Err(error);
+                        }
+                        self.memory.add_failure(
+                            self.iteration,
+                            "PR CI status retrieval failed".to_string(),
+                            error.to_string(),
+                            Some(
+                                "Set AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true to fail-closed"
+                                    .to_string(),
+                            ),
+                        );
+                    }
+                }
+            } else if fetch_pr_ci_status_required {
+                return Err(AgentError::State(
+                    "AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true but no PR number is available"
+                        .to_string(),
+                ));
+            }
+        }
 
         let readiness = pr_orchestrator.merge_readiness();
         let readiness_ok = readiness.is_ready();
@@ -2128,6 +2184,10 @@ impl LifecycleManager {
         self.memory
             .metadata
             .insert("pr_readiness".to_string(), readiness_msg.clone());
+        self.memory.metadata.insert(
+            "pr_ci_status".to_string(),
+            format!("{:?}", pr_orchestrator.metadata.ci_status),
+        );
         self.memory.metadata.insert(
             "real_pr_created".to_string(),
             if real_pr_created { "true" } else { "false" }.to_string(),
@@ -2706,6 +2766,63 @@ impl LifecycleManager {
         }
 
         parse_review_comments_from_gh_json(&stdout)
+    }
+
+    fn fetch_pr_ci_status_from_gh(&mut self, pr_number: PrNumber) -> AgentResult<CiStatus> {
+        let mut command = Command::new("gh");
+        command
+            .arg("pr")
+            .arg("view")
+            .arg(pr_number.to_string())
+            .arg("--json")
+            .arg("statusCheckRollup");
+        let mut audit_args = vec![
+            "pr".to_string(),
+            "view".to_string(),
+            pr_number.to_string(),
+            "--json".to_string(),
+            "statusCheckRollup".to_string(),
+        ];
+        if let Ok(repo) = std::env::var("AUTONOMOUS_REPO")
+            && !repo.trim().is_empty()
+        {
+            command.arg("--repo").arg(&repo);
+            audit_args.push("--repo".to_string());
+            audit_args.push(repo);
+        }
+
+        let output =
+            run_command_with_timeout(command, self.tool_timeout.duration, "gh pr view checks")?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let _ = self.audit.log_tool_execution(
+            "fetch_pr_ci_status",
+            &audit_args,
+            output.status.success(),
+        );
+
+        if !output.status.success() {
+            let details = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                stderr.clone()
+            };
+            let failure_class = classify_tool_failure(&details);
+            self.record_replay(
+                "tool.failure_class",
+                format!("tool=fetch_pr_ci_status class={}", failure_class),
+            );
+            self.memory.metadata.insert(
+                "last_tool_failure_class".to_string(),
+                format!("fetch_pr_ci_status:{}", failure_class),
+            );
+            return Err(AgentError::Tool(format!(
+                "gh pr view (statusCheckRollup) failed (status={}): {}",
+                output.status, details
+            )));
+        }
+
+        infer_ci_status_from_gh_json(&stdout)
     }
 
     pub fn metrics(&self) -> LifecycleMetrics {
@@ -3320,4 +3437,72 @@ fn parse_review_comments_from_gh_json(raw: &str) -> AgentResult<Vec<ReviewCommen
     }
 
     Ok(comments)
+}
+
+fn infer_ci_status_from_gh_json(raw: &str) -> AgentResult<CiStatus> {
+    let root: serde_json::Value = serde_json::from_str(raw).map_err(|e| {
+        AgentError::State(format!(
+            "Failed to parse gh statusCheckRollup payload as JSON: {}",
+            e
+        ))
+    })?;
+
+    let Some(items) = root.get("statusCheckRollup").and_then(|v| v.as_array()) else {
+        return Ok(CiStatus::Unknown);
+    };
+    if items.is_empty() {
+        return Ok(CiStatus::Unknown);
+    }
+
+    let mut any_pending = false;
+    let mut any_failing = false;
+    let mut any_success = false;
+    let mut any_known = false;
+
+    for item in items {
+        for key in ["state", "status", "conclusion"] {
+            let Some(value) = item.get(key).and_then(|v| v.as_str()) else {
+                continue;
+            };
+            any_known = true;
+            let normalized = value.to_ascii_uppercase();
+            if matches!(
+                normalized.as_str(),
+                "FAILURE"
+                    | "FAILED"
+                    | "ERROR"
+                    | "TIMED_OUT"
+                    | "CANCELLED"
+                    | "ACTION_REQUIRED"
+                    | "STARTUP_FAILURE"
+            ) {
+                any_failing = true;
+            } else if matches!(
+                normalized.as_str(),
+                "PENDING" | "IN_PROGRESS" | "QUEUED" | "WAITING" | "REQUESTED" | "EXPECTED"
+            ) {
+                any_pending = true;
+            } else if matches!(
+                normalized.as_str(),
+                "SUCCESS" | "PASSED" | "COMPLETED" | "NEUTRAL" | "SKIPPED"
+            ) {
+                any_success = true;
+            }
+        }
+    }
+
+    if any_failing {
+        return Ok(CiStatus::Failing);
+    }
+    if any_pending {
+        return Ok(CiStatus::Pending);
+    }
+    if any_success {
+        return Ok(CiStatus::Passing);
+    }
+    if any_known {
+        return Ok(CiStatus::Unknown);
+    }
+
+    Ok(CiStatus::Unknown)
 }

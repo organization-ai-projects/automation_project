@@ -40,6 +40,7 @@ Still partial:
   - `AUTONOMOUS_REQUIRE_REAL_PR_CREATION=true` enforces a PR actually created by runtime (not only injected number)
   - `AUTONOMOUS_REQUIRE_GH_REVIEW_SOURCE=true` enforces review input from GitHub PR context
 - runtime requirements are now validated fail-fast at run start to reject inconsistent settings before state execution
+- PR metadata can now optionally ingest CI/check status from GitHub (`AUTONOMOUS_FETCH_PR_CI_STATUS_FROM_GH=true`) with optional fail-closed enforcement (`AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true`)
 
 ## Known Gaps vs #647 Acceptance Criteria
 
