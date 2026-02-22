@@ -18,7 +18,7 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                 command: spec.command.clone(),
                 args: spec.args.clone(),
                 started_at_unix_secs,
-                duration_ms: started.elapsed().as_millis(),
+                duration_ms: duration_to_u64_ms(started.elapsed()),
                 exit_code: None,
                 status: StageExecutionStatus::SpawnFailed,
                 error: Some(format!("Failed to spawn command '{}': {err}", spec.command)),
@@ -55,7 +55,7 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                     command: spec.command.clone(),
                     args: spec.args.clone(),
                     started_at_unix_secs,
-                    duration_ms,
+                    duration_ms: u128_to_u64_ms(duration_ms),
                     exit_code,
                     status,
                     error,
@@ -71,7 +71,7 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                         command: spec.command.clone(),
                         args: spec.args.clone(),
                         started_at_unix_secs,
-                        duration_ms: started.elapsed().as_millis(),
+                        duration_ms: duration_to_u64_ms(started.elapsed()),
                         exit_code: None,
                         status: StageExecutionStatus::Timeout,
                         error: Some(format!("Command timed out after {} ms", spec.timeout_ms)),
@@ -86,7 +86,7 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                     command: spec.command.clone(),
                     args: spec.args.clone(),
                     started_at_unix_secs,
-                    duration_ms: started.elapsed().as_millis(),
+                    duration_ms: duration_to_u64_ms(started.elapsed()),
                     exit_code: None,
                     status: StageExecutionStatus::Failed,
                     error: Some(format!("Failed to wait for command: {err}")),
@@ -110,6 +110,14 @@ fn unix_timestamp_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+fn duration_to_u64_ms(duration: Duration) -> u64 {
+    u128_to_u64_ms(duration.as_millis())
+}
+
+fn u128_to_u64_ms(value: u128) -> u64 {
+    u64::try_from(value).unwrap_or(u64::MAX)
 }
 
 #[cfg(test)]

@@ -45,7 +45,7 @@ pub struct StageExecutionRecord {
     pub command: String,
     pub args: Vec<String>,
     pub started_at_unix_secs: u64,
-    pub duration_ms: u128,
+    pub duration_ms: u64,
     pub exit_code: Option<i32>,
     pub status: StageExecutionStatus,
     pub error: Option<String>,
