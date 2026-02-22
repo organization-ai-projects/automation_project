@@ -13,8 +13,8 @@ use crate::store::audit_buffer::AuditBuffer;
 use crate::store::audit_buffer_config::AuditBufferConfig;
 use crate::store::audit_entry::AuditEntry;
 use protocol::ProtocolId;
-use protocol::accounts::AccountStatus;
-use protocol::accounts::AccountSummary;
+use protocol_accounts::AccountStatus;
+use protocol_accounts::AccountSummary;
 
 #[derive(Clone)]
 pub struct AccountManager {

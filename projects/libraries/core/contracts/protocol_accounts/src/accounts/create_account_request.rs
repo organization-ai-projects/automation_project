@@ -1,7 +1,7 @@
-// projects/libraries/protocol/src/accounts/create_account_request.rs
+// projects/libraries/core/contracts/protocol_accounts/src/accounts/create_account_request.rs
 use serde::{Deserialize, Serialize};
 
-use crate::ProtocolId;
+use protocol::ProtocolId;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateAccountRequest {

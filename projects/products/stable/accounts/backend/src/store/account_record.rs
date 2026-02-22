@@ -1,6 +1,6 @@
 // projects/products/stable/accounts/backend/src/store/account_record.rs
 use protocol::ProtocolId;
-use protocol::accounts::AccountStatus;
+use protocol_accounts::AccountStatus;
 use security::{Permission, Role};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

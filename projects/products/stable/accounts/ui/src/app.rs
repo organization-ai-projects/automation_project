@@ -1,6 +1,6 @@
 // projects/products/stable/accounts/ui/src/app.rs
 use dioxus::prelude::*;
-use protocol::accounts::AccountSummary;
+use protocol_accounts::AccountSummary;
 
 use crate::components::card_components::{login_card, setup_card, users_table};
 use crate::components::form_components::{input_field, input_password, select_role, select_status};

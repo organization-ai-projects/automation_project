@@ -9,7 +9,7 @@ use super::helpers::{event_to_http, http_error};
 use crate::EngineState;
 use crate::const_values::{DEFAULT_DURATION_MS, LOGIN_MAX_DURATION_MS};
 use crate::routes::http_forwarder::{accounts_product_id, forward_to_backend, payload_from};
-use protocol::accounts::LoginRequest;
+use protocol_accounts::LoginRequest;
 
 /// Validate a ProtocolId as a user id
 pub(crate) fn validate_user_id(id: ProtocolId) -> Result<ProtocolId, &'static str> {

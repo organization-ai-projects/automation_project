@@ -4,11 +4,11 @@ This directory contains a Rust library for communication based on typed commands
 
 ## Role in the Project
 
-This library is responsible for providing typed command and event communication across the automation project. It defines types for better safety and clarity, with robust validation, automatic metadata generation, and security features.
+This library is responsible for providing typed command and event communication across the automation project. It defines transport/core protocol types for better safety and clarity, with robust validation, automatic metadata generation, and security features.
 
 It interacts mainly with:
 
-- Common library - For ID types
+- `protocol_accounts` - For account-domain request/response contracts
 - Security library - For token validation
 - All products - For command and event communication
 
@@ -52,6 +52,13 @@ Current version: **1.0.0**
 - ✅ **Serialization** - Full serde support for JSON/binary
 - ✅ **Security** - Size limits and format validation to prevent abuse
 - ✅ **Complete documentation** - Inline docs and examples
+
+## Split boundaries
+
+- `protocol` contains transport/core contracts:
+  - `Command`, `Event`, `Payload`, `ProtocolId`, metadata and validation/error types.
+- `protocol_accounts` contains account-domain contracts:
+  - login/setup/admin/account request/response DTOs.
 
 ## Installation
 

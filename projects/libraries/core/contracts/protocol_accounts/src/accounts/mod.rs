@@ -1,4 +1,4 @@
-// projects/libraries/protocol/src/accounts/mod.rs
+// projects/libraries/core/contracts/protocol_accounts/src/accounts/mod.rs
 pub mod account_status;
 pub mod account_summary;
 pub mod accounts_list_response;
