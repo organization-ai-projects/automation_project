@@ -5,7 +5,27 @@ resolve_repo_name_with_owner() {
     printf '%s\n' "$GH_REPO"
     return 0
   fi
-  gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true
+
+  local gh_repo
+  gh_repo="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  if [[ -n "$gh_repo" ]]; then
+    printf '%s\n' "$gh_repo"
+    return 0
+  fi
+
+  # Fallback: derive owner/name from origin remote URL when gh context is unavailable.
+  local remote_url
+  remote_url="$(git config --get remote.origin.url 2>/dev/null || true)"
+  if [[ -z "$remote_url" ]]; then
+    return 0
+  fi
+
+  # Supports:
+  # - https://github.com/owner/repo.git
+  # - git@github.com:owner/repo.git
+  # - ssh://git@github.com/owner/repo.git
+  printf '%s\n' "$remote_url" \
+    | sed -E 's#^(https?://[^/]+/|ssh://[^/]+/|git@[^:]+:)##; s#\.git$##'
 }
 
 normalize_parent_value() {

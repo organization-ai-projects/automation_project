@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
+
 if ! command -v gh >/dev/null 2>&1; then
   echo "Error: gh is required." >&2
   exit 3
@@ -21,32 +24,6 @@ if [[ -z "$REPO_NAME" ]]; then
 fi
 REPO_OWNER="${REPO_NAME%%/*}"
 REPO_SHORT_NAME="${REPO_NAME#*/}"
-
-extract_tasklist_issue_refs() {
-  local body="$1"
-  echo "$body" \
-    | awk '
-      /-[[:space:]]*\[[xX ]\]/ {
-        line = $0
-        while (match(line, /#[0-9]+/)) {
-          ref = substr(line, RSTART, RLENGTH)
-          print ref
-          line = substr(line, RSTART + RLENGTH)
-        }
-      }
-    ' \
-    | sort -u
-}
-
-extract_subissue_refs_from_github() {
-  local parent_number="$1"
-  gh api graphql \
-    -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){subIssues(first:100){nodes{number}}}}}' \
-    -f owner="$REPO_OWNER" \
-    -f name="$REPO_SHORT_NAME" \
-    -F number="$parent_number" \
-    --jq '.data.repository.issue.subIssues.nodes[]?.number | "#"+tostring' 2>/dev/null || true
-}
 
 build_status_comment() {
   local parent_number="$1"
@@ -73,30 +50,6 @@ build_status_comment() {
   fi
 }
 
-upsert_status_comment() {
-  local issue_number="$1"
-  local body="$2"
-  local marker="<!-- parent-issue-status:${issue_number} -->"
-
-  local comment_id
-  comment_id="$({
-    gh api "repos/${REPO_NAME}/issues/${issue_number}/comments" --paginate
-  } | jq -r --arg marker "$marker" '
-      map(select((.body // "") | contains($marker)))
-      | sort_by(.updated_at)
-      | last
-      | .id // empty
-    ' 2>/dev/null || true)"
-
-  if [[ -n "$comment_id" ]]; then
-    gh api -X PATCH "repos/${REPO_NAME}/issues/comments/${comment_id}" \
-      -f body="$body" >/dev/null
-  else
-    gh api "repos/${REPO_NAME}/issues/${issue_number}/comments" \
-      -f body="$body" >/dev/null
-  fi
-}
-
 evaluate_and_close_parent_if_ready() {
   local parent_number="$1"
   local parent_json
@@ -115,9 +68,9 @@ evaluate_and_close_parent_if_ready() {
   parent_state="$(echo "$parent_json" | jq -r '.state')"
   parent_body="$(echo "$parent_json" | jq -r '.body // ""')"
 
-  mapfile -t child_refs < <(extract_subissue_refs_from_github "$parent_number")
+  mapfile -t child_refs < <(github_issue_extract_subissue_refs "$REPO_OWNER" "$REPO_SHORT_NAME" "$parent_number")
   if [[ ${#child_refs[@]} -eq 0 ]]; then
-    mapfile -t child_refs < <(extract_tasklist_issue_refs "$parent_body")
+    mapfile -t child_refs < <(github_issue_extract_tasklist_refs "$parent_body")
   fi
   if [[ ${#child_refs[@]} -eq 0 ]]; then
     return 0
@@ -148,7 +101,11 @@ evaluate_and_close_parent_if_ready() {
     fi
   done
 
-  upsert_status_comment "$parent_number" "$(build_status_comment "$parent_number" "$total" "$closed_count" "$open_count" "$open_lines")"
+  github_issue_upsert_marker_comment \
+    "$REPO_NAME" \
+    "$parent_number" \
+    "<!-- parent-issue-status:${parent_number} -->" \
+    "$(build_status_comment "$parent_number" "$total" "$closed_count" "$open_count" "$open_lines")"
 
   if [[ "$parent_state" == "OPEN" && "$open_count" -eq 0 ]]; then
     gh issue close "$parent_number" -R "$REPO_NAME" \

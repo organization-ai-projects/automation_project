@@ -85,6 +85,11 @@
     "description": "Issue workflow, triage process, or issue-governance focused work"
   },
   {
+    "name": "issue-required-missing",
+    "color": "B60205",
+    "description": "Issue body/title is non-compliant with required format/fields contract"
+  },
+  {
     "name": "linting",
     "color": "BFDADC",
     "description": "Lint rules, formatting enforcement, or static analysis issues"

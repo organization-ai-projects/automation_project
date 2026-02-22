@@ -13,6 +13,7 @@ SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/classification.sh"
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
+source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
 source "${SCRIPT_DIR}/lib/rendering.sh"
 
 print_usage() {
@@ -476,6 +477,56 @@ issue_labels() {
     -q '.labels | map(.name) | join("||")' 2>/dev/null || true
 }
 
+issue_non_compliance_reason_for() {
+  local issue_number="$1"
+  local labels_raw="${2:-}"
+  local issue_key="#${issue_number}"
+  local lower_labels
+  local issue_json
+  local title
+  local body
+  local validations
+  local first_reason
+
+  if [[ -n "${issue_non_compliance_reason_cache[$issue_key]:-}" ]]; then
+    echo "${issue_non_compliance_reason_cache[$issue_key]}"
+    return
+  fi
+
+  lower_labels="$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$lower_labels" =~ (^|\|\|)issue-required-missing(\|\||$) ]]; then
+    issue_non_compliance_reason_cache["$issue_key"]="label issue-required-missing is set on issue"
+    echo "${issue_non_compliance_reason_cache[$issue_key]}"
+    return
+  fi
+
+  if [[ "$has_gh" != "true" ]]; then
+    issue_non_compliance_reason_cache["$issue_key"]=""
+    echo ""
+    return
+  fi
+
+  issue_json="$(gh issue view "$issue_number" --json title,body 2>/dev/null || true)"
+  if [[ -z "$issue_json" ]]; then
+    issue_non_compliance_reason_cache["$issue_key"]=""
+    echo ""
+    return
+  fi
+
+  title="$(echo "$issue_json" | jq -r '.title // ""')"
+  body="$(echo "$issue_json" | jq -r '.body // ""')"
+  validations="$(issue_validate_content "$title" "$body" || true)"
+  if [[ -z "$validations" ]]; then
+    issue_non_compliance_reason_cache["$issue_key"]=""
+    echo ""
+    return
+  fi
+
+  first_reason="$(echo "$validations" | awk -F'|' 'NF>=3 {print $3; exit}')"
+  issue_non_compliance_reason_cache["$issue_key"]="${first_reason}"
+  echo "${first_reason}"
+}
+
 text_indicates_breaking() {
   local text="${1:-}"
   local line
@@ -528,11 +579,14 @@ fi
 declare -A seen_issue
 declare -A issue_category
 declare -A issue_action
+declare -A issue_neutralization_reason
 declare -A pr_ref_cache
 declare -A duplicate_targets
+declare -A issue_non_compliance_reason_cache
 repo_name_with_owner_cache=""
 pr_count=0
 issue_count=0
+neutralized_issue_count=0
 
 get_repo_name_with_owner() {
   if [[ "$has_gh" != "true" ]]; then
@@ -600,6 +654,7 @@ add_issue_entry() {
   local labels_raw label_category
   local final_category
   local normalized_action
+  local non_compliance_reason
 
   if ! normalized_issue_key="$(normalize_issue_key "$issue_key")"; then
     return
@@ -631,6 +686,12 @@ add_issue_entry() {
 
   issue_category["$issue_key"]="$final_category"
   normalized_action="$(normalize_issue_action "$action" "$final_category")"
+  non_compliance_reason="$(issue_non_compliance_reason_for "$issue_number" "$labels_raw")"
+  if [[ -n "$non_compliance_reason" ]]; then
+    normalized_action="${normalized_action} rejected"
+    issue_neutralization_reason["$issue_key"]="$non_compliance_reason"
+    neutralized_issue_count=$((neutralized_issue_count + 1))
+  fi
   issue_action["$issue_key"]="$normalized_action"
   debug_log "issue_entry: key=${issue_key} action=${normalized_action} category=${final_category}"
 }
@@ -878,6 +939,16 @@ body_content="$({
     cat "$resolved_issues_file"
   else
     echo "- No resolved issues detected via GitHub references or PR body keywords."
+  fi
+  if [[ "$neutralized_issue_count" -gt 0 ]]; then
+    echo ""
+    echo "### Closure Neutralization Notices"
+    echo "The following closure refs were neutralized to prevent incorrect auto-close:"
+    for issue_key in "${!issue_neutralization_reason[@]}"; do
+      echo "- ${issue_key}: ${issue_neutralization_reason[$issue_key]}"
+    done
+    echo ""
+    echo "To restore standard auto-close, fix issue compliance and remove \`rejected\` from the closure line."
   fi
   echo ""
   echo "### Key Changes"

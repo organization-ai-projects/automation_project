@@ -7,12 +7,11 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 HOOKS_DIR="${ROOT_DIR}/scripts/automation/git_hooks"
 FIXTURES_DIR="${SCRIPT_DIR}/fixtures"
 
+# shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
+source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
+
 TESTS_RUN=0
 TESTS_FAILED=0
-
-mktemp_compat() {
-  mktemp -d 2>/dev/null || mktemp -d -t hook_guardrails_tests
-}
 
 build_mock_bin() {
   local mock_dir="$1"
@@ -105,7 +104,7 @@ run_case() {
   TESTS_RUN=$((TESTS_RUN + 1))
 
   local tmp_dir out_file err_file merged_file status
-  tmp_dir="$(mktemp_compat)"
+  tmp_dir="$(shell_test_mktemp_dir "hook_guardrails_tests")"
   out_file="${tmp_dir}/out.txt"
   err_file="${tmp_dir}/err.txt"
   merged_file="${tmp_dir}/merged.txt"
