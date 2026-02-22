@@ -1285,8 +1285,11 @@ impl LifecycleManager {
         self.run_replay.record(
             "tool.execute",
             format!(
-                "tool={} success={} exit_code={:?} duration_ms={}",
+                "tool={} state={:?} iteration={} step={} success={} exit_code={:?} duration_ms={}",
                 step.tool,
+                self.state,
+                self.current_iteration_number,
+                self.current_step_index.get(),
                 result.success,
                 result.exit_code,
                 tool_duration.as_millis()
@@ -2192,6 +2195,18 @@ impl LifecycleManager {
 
         self.metrics
             .record_tool_execution(tool_name, result.success, tool_duration);
+        self.run_replay.record(
+            "tool.execute",
+            format!(
+                "tool={} state={:?} iteration={} step=na success={} exit_code={:?} duration_ms={}",
+                tool_name,
+                self.state,
+                self.current_iteration_number,
+                result.success,
+                result.exit_code,
+                tool_duration.as_millis()
+            ),
+        );
 
         self.audit
             .log_tool_execution(tool_name, tool_args, result.success)
