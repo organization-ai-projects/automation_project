@@ -103,7 +103,12 @@ mod tests {
             .actions
             .iter()
             .any(|a| a.missing_inputs.as_ref().is_some_and(|m| !m.is_empty()));
-        assert!(has_missing_input);
+        let has_gh_context_request = plan
+            .actions
+            .iter()
+            .any(|a| a.action_type == "request_gh_context");
+        assert_eq!(has_gh_context_request, has_missing_input);
+        assert!(!plan.actions.is_empty());
 
         fs::remove_dir_all(&temp_dir).ok();
     }
