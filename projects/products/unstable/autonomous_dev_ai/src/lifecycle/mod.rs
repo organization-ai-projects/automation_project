@@ -15,6 +15,7 @@ mod lifecycle_metrics;
 mod max_iterations;
 mod metrics_collector;
 mod metrics_inner;
+mod process_usage;
 mod resource_budget;
 mod resource_type;
 mod retry_strategy;

@@ -3,6 +3,7 @@
 pub enum ResourceType {
     Iterations,
     Time,
+    CpuTime,
     Memory,
     ToolExecutions,
 }

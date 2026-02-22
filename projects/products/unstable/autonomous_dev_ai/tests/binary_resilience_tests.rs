@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Child, Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn unique_temp_dir(name: &str) -> PathBuf {
@@ -136,6 +136,60 @@ fn run_binary(
         .expect("failed to execute autonomous_dev_ai binary");
 
     (output, run_report, out_dir)
+}
+
+fn spawn_binary_with_lock(
+    goal: &str,
+    lock_path: &Path,
+    hold_lock_ms: u64,
+) -> (Child, PathBuf, PathBuf) {
+    let bin = env!("CARGO_BIN_EXE_autonomous_dev_ai");
+    let fixture = fixture_repo_dir();
+    let out_dir = unique_temp_dir("lock_holder");
+
+    let config_base = out_dir.join("agent_config");
+    let config_ron = config_base.with_extension("ron");
+    write_test_config(&config_ron);
+
+    let audit_log = out_dir.join("agent_audit.log");
+    let run_report = out_dir.join("agent_run_report.json");
+    let run_replay = out_dir.join("agent_run_replay.json");
+    let run_replay_txt = out_dir.join("agent_run_replay.txt");
+    let checkpoint = out_dir.join("agent_checkpoint.json");
+    let pr_description = out_dir.join("pr_description.md");
+
+    let child = Command::new(bin)
+        .current_dir(&fixture)
+        .arg(goal)
+        .arg(&config_base)
+        .arg(&audit_log)
+        .env("AUTONOMOUS_RUN_REPORT_PATH", &run_report)
+        .env("AUTONOMOUS_RUN_REPLAY_PATH", &run_replay)
+        .env("AUTONOMOUS_RUN_REPLAY_TEXT_PATH", &run_replay_txt)
+        .env("AUTONOMOUS_CHECKPOINT_PATH", &checkpoint)
+        .env("AUTONOMOUS_RUNTIME_LOCK_PATH", lock_path)
+        .env("AUTONOMOUS_HOLD_LOCK_MS", hold_lock_ms.to_string())
+        .env("AUTONOMOUS_REPO_ROOT", &fixture)
+        .env("AUTONOMOUS_REQUIRE_EXPLORED_FILES", "true")
+        .env(
+            "AUTONOMOUS_ISSUE_TITLE",
+            "feat(autonomous_dev_ai): runtime lock holder",
+        )
+        .env(
+            "AUTONOMOUS_ISSUE_BODY",
+            "Context\nResilience lock holder\n\nHierarchy\nParent: none",
+        )
+        .env("AUTONOMOUS_REVIEW_REQUIRED", "true")
+        .env(
+            "AUTONOMOUS_REVIEW_COMMENTS_JSON",
+            "[{\"reviewer\":\"ci-bot\",\"body\":\"approved\",\"resolved\":true}]",
+        )
+        .env("AUTONOMOUS_PR_NUMBER", "649")
+        .env("AUTONOMOUS_PR_DESCRIPTION_OUTPUT", &pr_description)
+        .spawn()
+        .expect("failed to spawn lock holder binary");
+
+    (child, run_report, out_dir)
 }
 
 #[test]
@@ -300,6 +354,184 @@ fn forbidden_force_push_pattern_is_blocked_by_policy_validation() {
     let raw = fs::read_to_string(&run_report_path).expect("missing run report");
     let json: serde_json::Value = serde_json::from_str(&raw).expect("run report invalid");
     assert_ne!(json["final_state"], "Done");
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn concurrent_run_is_rejected_by_runtime_lock() {
+    let shared_lock = unique_temp_dir("shared_lock").join("autonomous.runtime.lock");
+    let (mut holder, _holder_report, holder_dir) = spawn_binary_with_lock(
+        "Hold runtime lock for resilience contention test",
+        &shared_lock,
+        4000,
+    );
+
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    let lock_path_value = shared_lock.to_string_lossy().to_string();
+    let (output, _run_report_path, out_dir) = run_binary(
+        "Second run should fail on runtime lock contention",
+        false,
+        &[("AUTONOMOUS_RUNTIME_LOCK_PATH", &lock_path_value)],
+    );
+
+    assert!(
+        !output.status.success(),
+        "second run unexpectedly succeeded under lock contention. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        combined.contains("Failed to acquire runtime lock")
+            || combined.contains("runtime lock is already held"),
+        "missing runtime-lock error in output:\n{}",
+        combined
+    );
+
+    let _ = holder.kill();
+    let _ = holder.wait();
+    let _ = fs::remove_dir_all(out_dir);
+    let _ = fs::remove_dir_all(holder_dir);
+}
+
+#[test]
+fn cpu_budget_guard_triggers_fail_safe_state() {
+    let (output, run_report_path, out_dir) = run_binary(
+        "Validate cpu budget enforcement",
+        false,
+        &[("AUTONOMOUS_MAX_CPU_SECONDS", "0")],
+    );
+
+    assert!(
+        !output.status.success(),
+        "binary unexpectedly succeeded with zero cpu budget. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let raw = fs::read_to_string(&run_report_path).expect("missing run report");
+    let json: serde_json::Value = serde_json::from_str(&raw).expect("run report invalid");
+    assert_ne!(json["final_state"], "Done");
+    assert!(
+        json["total_failures"].as_u64().unwrap_or(0) >= 1,
+        "expected at least one failure in run report: {}",
+        raw
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn checkpoint_resume_recovers_after_failed_run() {
+    let bin = env!("CARGO_BIN_EXE_autonomous_dev_ai");
+    let fixture = fixture_repo_dir();
+    let out_dir = unique_temp_dir("checkpoint_resume");
+
+    let config_base = out_dir.join("agent_config");
+    let config_ron = config_base.with_extension("ron");
+    write_test_config(&config_ron);
+
+    let audit_log = out_dir.join("agent_audit.log");
+    let run_report = out_dir.join("agent_run_report.json");
+    let run_replay = out_dir.join("agent_run_replay.json");
+    let run_replay_txt = out_dir.join("agent_run_replay.txt");
+    let checkpoint = out_dir.join("agent_checkpoint.json");
+    let pr_description = out_dir.join("pr_description.md");
+
+    let first = Command::new(bin)
+        .current_dir(&fixture)
+        .arg("Force a first failure to create checkpoint")
+        .arg(&config_base)
+        .arg(&audit_log)
+        .env("AUTONOMOUS_RUN_REPORT_PATH", &run_report)
+        .env("AUTONOMOUS_RUN_REPLAY_PATH", &run_replay)
+        .env("AUTONOMOUS_RUN_REPLAY_TEXT_PATH", &run_replay_txt)
+        .env("AUTONOMOUS_CHECKPOINT_PATH", &checkpoint)
+        .env("AUTONOMOUS_REPO_ROOT", &fixture)
+        .env("AUTONOMOUS_REQUIRE_EXPLORED_FILES", "true")
+        .env(
+            "AUTONOMOUS_ISSUE_TITLE",
+            "feat(autonomous_dev_ai): checkpoint resume",
+        )
+        .env(
+            "AUTONOMOUS_ISSUE_BODY",
+            "Context\nCheckpoint resume test\n\nHierarchy\nParent: none",
+        )
+        .env("AUTONOMOUS_REVIEW_REQUIRED", "true")
+        .env(
+            "AUTONOMOUS_REVIEW_COMMENTS_JSON",
+            "[{\"reviewer\":\"ci-bot\",\"body\":\"approved\",\"resolved\":true}]",
+        )
+        .env("AUTONOMOUS_PR_NUMBER", "649")
+        .env("AUTONOMOUS_PR_DESCRIPTION_OUTPUT", &pr_description)
+        .env("AUTONOMOUS_TEST_COMMAND", "definitely_missing_test_cmd_xyz")
+        .env(
+            "AUTONOMOUS_ALLOWED_TEST_PROGRAMS",
+            "definitely_missing_test_cmd_xyz",
+        )
+        .output()
+        .expect("failed to execute first run");
+
+    assert!(
+        !first.status.success(),
+        "first run unexpectedly succeeded. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&first.stdout),
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(
+        checkpoint.exists(),
+        "checkpoint file was not created at {}",
+        checkpoint.display()
+    );
+
+    let second = Command::new(bin)
+        .current_dir(&fixture)
+        .arg("--resume")
+        .arg("Resume from checkpoint and complete")
+        .arg(&config_base)
+        .arg(&audit_log)
+        .env("AUTONOMOUS_RUN_REPORT_PATH", &run_report)
+        .env("AUTONOMOUS_RUN_REPLAY_PATH", &run_replay)
+        .env("AUTONOMOUS_RUN_REPLAY_TEXT_PATH", &run_replay_txt)
+        .env("AUTONOMOUS_CHECKPOINT_PATH", &checkpoint)
+        .env("AUTONOMOUS_REPO_ROOT", &fixture)
+        .env("AUTONOMOUS_REQUIRE_EXPLORED_FILES", "true")
+        .env(
+            "AUTONOMOUS_ISSUE_TITLE",
+            "feat(autonomous_dev_ai): checkpoint resume",
+        )
+        .env(
+            "AUTONOMOUS_ISSUE_BODY",
+            "Context\nCheckpoint resume test\n\nHierarchy\nParent: none",
+        )
+        .env("AUTONOMOUS_REVIEW_REQUIRED", "true")
+        .env(
+            "AUTONOMOUS_REVIEW_COMMENTS_JSON",
+            "[{\"reviewer\":\"ci-bot\",\"body\":\"approved\",\"resolved\":true}]",
+        )
+        .env("AUTONOMOUS_PR_NUMBER", "649")
+        .env("AUTONOMOUS_PR_DESCRIPTION_OUTPUT", &pr_description)
+        .output()
+        .expect("failed to execute resumed run");
+
+    assert!(
+        second.status.success(),
+        "resumed run failed. stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&second.stdout),
+        String::from_utf8_lossy(&second.stderr)
+    );
+
+    let replay_raw = fs::read_to_string(&run_replay).expect("missing run replay");
+    assert!(
+        replay_raw.contains("checkpoint.loaded"),
+        "checkpoint resume event missing in run replay: {}",
+        replay_raw
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
