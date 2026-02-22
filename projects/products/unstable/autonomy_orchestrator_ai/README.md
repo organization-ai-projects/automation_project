@@ -93,6 +93,10 @@ Scenario documentation:
 
 - `projects/products/unstable/autonomy_orchestrator_ai/scenarios/e2e_matrix/README.md`
 
+Operator documentation:
+
+- `projects/products/unstable/autonomy_orchestrator_ai/RUNBOOK.md`
+
 ## Delivery Notes
 
 - Issue `#676` (orchestrator bootstrap state machine) is implemented in this crate.
