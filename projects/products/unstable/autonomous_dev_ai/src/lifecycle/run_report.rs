@@ -38,6 +38,8 @@ pub struct RunReport {
     pub risk_gate_allows: usize,
     pub risk_gate_denies: usize,
     pub risk_gate_high_approvals: usize,
+    pub authz_denials_total: usize,
+    pub policy_violations_total: usize,
 }
 
 impl RunReport {

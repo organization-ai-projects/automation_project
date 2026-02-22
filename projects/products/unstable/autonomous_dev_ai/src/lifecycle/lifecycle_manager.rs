@@ -391,6 +391,25 @@ impl LifecycleManager {
                     .and_then(|s| s.parse::<u64>().ok())
             });
         let last_failure = self.memory.failures.last();
+        let authz_denials_total = self
+            .memory
+            .failures
+            .iter()
+            .filter(|f| {
+                f.description == "Authorization denied"
+                    || f.description == "Authorization escalation required"
+            })
+            .count();
+        let policy_violations_total = self
+            .memory
+            .failures
+            .iter()
+            .filter(|f| {
+                f.description.contains("Policy")
+                    || f.error.contains("policy")
+                    || f.error.contains("Policy")
+            })
+            .count();
         let report = RunReport {
             generated_at_secs: RunReport::now_secs(),
             run_id: self.actor.run_id.to_string(),
@@ -431,6 +450,8 @@ impl LifecycleManager {
             risk_gate_allows: metrics_snapshot.risk_gate_allows,
             risk_gate_denies: metrics_snapshot.risk_gate_denies,
             risk_gate_high_approvals: metrics_snapshot.risk_gate_high_approvals,
+            authz_denials_total,
+            policy_violations_total,
         };
 
         let report_path = std::env::var("AUTONOMOUS_RUN_REPORT_PATH")
