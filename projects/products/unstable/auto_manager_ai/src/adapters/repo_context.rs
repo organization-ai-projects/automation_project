@@ -7,4 +7,5 @@ use std::path::PathBuf;
 pub struct RepoContext {
     pub root: PathBuf,
     pub tracked_files: Vec<String>,
+    pub mediated_by_engine: bool,
 }

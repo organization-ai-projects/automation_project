@@ -30,6 +30,7 @@ impl RepoAdapter {
         Ok(RepoContext {
             root: self.repo_path.clone(),
             tracked_files,
+            mediated_by_engine: false,
         })
     }
 

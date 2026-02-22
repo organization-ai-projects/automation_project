@@ -2,6 +2,7 @@
 
 pub mod ci_adapter;
 pub mod ci_context;
+pub mod error;
 pub mod gh_adapter;
 pub mod gh_context;
 pub mod repo_adapter;

@@ -6,5 +6,6 @@ edition = "2024"
 [dependencies]
 serde = { workspace = true }
 common_json = { workspace = true }
+protocol = { workspace = true }
 
 [dev-dependencies]

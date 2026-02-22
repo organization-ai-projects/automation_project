@@ -14,10 +14,19 @@ pub struct RunReport {
     pub product: String,
     pub version: String,
     pub run_id: String,
+    pub correlation_id: String,
     pub timestamp: String,
     pub status: RunStatus,
     pub output: RunOutput,
     pub policy_decisions: Vec<PolicyDecision>,
+    #[serde(default)]
+    pub lifecycle_events: Vec<String>,
+    #[serde(default)]
+    pub adapter_status: Vec<String>,
+    #[serde(default)]
+    pub authz_decisions: Vec<String>,
+    #[serde(default)]
+    pub execution_results: Vec<String>,
     pub errors: Vec<String>,
 }
 
@@ -35,6 +44,7 @@ impl RunReport {
             product: "auto_manager_ai".to_string(),
             version: "0.1.0".to_string(),
             run_id,
+            correlation_id: format!("corr_{timestamp}"),
             timestamp: timestamp.to_string(),
             status: RunStatus::Success,
             output: RunOutput {
@@ -42,8 +52,16 @@ impl RunReport {
                 actions_allowed: 0,
                 actions_denied: 0,
                 actions_needs_input: 0,
+                actions_executed: 0,
+                actions_blocked_authz: 0,
+                actions_blocked_execution: 0,
+                adapter_errors: 0,
             },
             policy_decisions: Vec::new(),
+            lifecycle_events: Vec::new(),
+            adapter_status: Vec::new(),
+            authz_decisions: Vec::new(),
+            execution_results: Vec::new(),
             errors: Vec::new(),
         }
     }
@@ -63,6 +81,60 @@ impl RunReport {
         self.errors.push(error);
         self.status = RunStatus::Failure;
     }
+
+    pub fn record_lifecycle(&mut self, event: impl Into<String>) {
+        self.lifecycle_events.push(event.into());
+    }
+
+    pub fn record_authz(
+        &mut self,
+        action_id: impl Into<String>,
+        reason_code: impl Into<String>,
+        message: impl Into<String>,
+    ) {
+        let line = format!(
+            "{} {} {}",
+            action_id.into(),
+            reason_code.into(),
+            message.into()
+        );
+        self.authz_decisions.push(line);
+    }
+
+    pub fn record_execution_success(
+        &mut self,
+        action_id: impl Into<String>,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) {
+        self.output.actions_executed += 1;
+        self.execution_results.push(format!(
+            "{} {} {}",
+            action_id.into(),
+            code.into(),
+            message.into()
+        ));
+    }
+
+    pub fn record_execution_blocked(
+        &mut self,
+        action_id: impl Into<String>,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) {
+        let code_value = code.into();
+        if code_value.starts_with("EXECUTION_AUTHZ") {
+            self.output.actions_blocked_authz += 1;
+        } else {
+            self.output.actions_blocked_execution += 1;
+        }
+        self.execution_results.push(format!(
+            "{} {} {}",
+            action_id.into(),
+            code_value,
+            message.into()
+        ));
+    }
 }
 
 #[cfg(test)]
@@ -81,6 +153,7 @@ mod tests {
         assert_eq!(report.product, "auto_manager_ai");
         assert_eq!(report.version, "0.1.0");
         assert_eq!(report.run_id, "test_run_123");
+        assert!(report.correlation_id.starts_with("corr_"));
         assert_eq!(report.status, RunStatus::Success);
         assert_eq!(report.errors.len(), 0);
     }
@@ -149,6 +222,14 @@ mod tests {
             "run_id should be a string"
         );
         assert_eq!(run_id.as_str(), Some("test_run_123"), "run_id should match");
+
+        let correlation_id = parsed
+            .get_field("correlation_id")
+            .expect("correlation_id field should exist");
+        assert!(
+            matches!(correlation_id, common_json::Json::String(_)),
+            "correlation_id should be a string"
+        );
 
         let timestamp = parsed
             .get_field("timestamp")
@@ -219,5 +300,18 @@ mod tests {
 
         assert_eq!(report.output.actions_allowed, 1);
         assert_eq!(report.policy_decisions.len(), 1);
+    }
+
+    #[test]
+    fn test_run_report_records_execution_and_authz() {
+        let mut report = RunReport::new("run_exec".to_string());
+        report.record_authz("action_1", "AUTHZ_ALLOWED", "ok");
+        report.record_execution_success("action_1", "EXEC_OK", "done");
+        report.record_execution_blocked("action_2", "EXECUTION_AUTHZ_DENIED", "denied");
+
+        assert_eq!(report.output.actions_executed, 1);
+        assert_eq!(report.output.actions_blocked_authz, 1);
+        assert_eq!(report.authz_decisions.len(), 1);
+        assert_eq!(report.execution_results.len(), 2);
     }
 }
