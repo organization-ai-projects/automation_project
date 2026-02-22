@@ -409,6 +409,7 @@ impl LifecycleManager {
             pr_number,
             pr_readiness: self.memory.metadata.get("pr_readiness").cloned(),
             issue_compliance: self.memory.metadata.get("issue_compliance").cloned(),
+            pr_description_source: self.memory.metadata.get("pr_description_source").cloned(),
             last_failure_description: last_failure.map(|f| f.description.clone()),
             last_failure_error: last_failure.map(|f| f.error.clone()),
             last_tool_exit_code: self

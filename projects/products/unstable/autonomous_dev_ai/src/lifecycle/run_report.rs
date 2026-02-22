@@ -21,6 +21,7 @@ pub struct RunReport {
     pub pr_number: Option<u64>,
     pub pr_readiness: Option<String>,
     pub issue_compliance: Option<String>,
+    pub pr_description_source: Option<String>,
     pub last_failure_description: Option<String>,
     pub last_failure_error: Option<String>,
     pub last_tool_exit_code: Option<i32>,
