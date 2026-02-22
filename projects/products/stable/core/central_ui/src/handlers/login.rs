@@ -1,5 +1,5 @@
 //projects/products/core/central_ui/src/handlers/login.rs
-use protocol::accounts::LoginRequest;
+use protocol_accounts::LoginRequest;
 
 use crate::handlers::response_with_status;
 use crate::login_input::LoginInput;

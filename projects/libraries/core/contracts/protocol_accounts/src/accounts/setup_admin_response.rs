@@ -1,4 +1,4 @@
-// projects/libraries/protocol/src/accounts/setup_admin_response.rs
+// projects/libraries/core/contracts/protocol_accounts/src/accounts/setup_admin_response.rs
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]

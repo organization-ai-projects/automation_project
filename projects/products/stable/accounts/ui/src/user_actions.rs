@@ -2,7 +2,7 @@
 use dioxus::prelude::*;
 use gloo_net::http::Request;
 use protocol::ProtocolId;
-use protocol::accounts::{
+use protocol_accounts::{
     AccountSummary, AccountsListResponse, CreateAccountRequest, ResetPasswordRequest,
     UpdateAccountRequest, UpdateStatusRequest,
 };

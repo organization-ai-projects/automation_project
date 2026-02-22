@@ -1,5 +1,5 @@
 //projects/products/core/central_ui/src/handlers/setup_admin.rs
-use protocol::accounts::SetupAdminRequest;
+use protocol_accounts::SetupAdminRequest;
 
 use crate::claims::{owner_claim_path, read_claim};
 use crate::handlers::response_with_status;

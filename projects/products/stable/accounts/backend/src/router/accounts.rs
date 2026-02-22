@@ -1,11 +1,11 @@
 // projects/products/stable/accounts/backend/src/router/accounts.rs
 use std::str::FromStr;
 
-use protocol::accounts::{
+use protocol::{Command, Event, Metadata};
+use protocol_accounts::{
     AccountStatus, AccountsListResponse, CreateAccountRequest, ResetPasswordRequest,
     UpdateAccountRequest, UpdateStatusRequest,
 };
-use protocol::{Command, Event, Metadata};
 use security::Role;
 
 use crate::router::helpers::{

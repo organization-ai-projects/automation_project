@@ -1,5 +1,4 @@
 // projects/libraries/protocol/src/lib.rs
-pub mod accounts;
 pub mod apply_request;
 pub mod apply_response;
 pub mod command;
@@ -19,7 +18,6 @@ pub mod response_status;
 pub mod run_request;
 pub mod validation_error;
 
-pub use accounts::*;
 pub use apply_request::ApplyRequest;
 pub use apply_response::ApplyResponse;
 pub use command::Command;

@@ -6,7 +6,7 @@ use super::auth::{normalize_user_id, validate_user_id};
 use super::helpers::{event_to_http, http_error, require_admin};
 use crate::EngineState;
 use crate::routes::http_forwarder::{accounts_product_id, forward_to_backend, payload_from};
-use protocol::accounts::{
+use protocol_accounts::{
     CreateAccountRequest, ResetPasswordRequest, UpdateAccountRequest, UpdateStatusRequest,
 };
 
