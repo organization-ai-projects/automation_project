@@ -46,8 +46,10 @@ if is_docs_or_scripts_only_change "$changed_files"; then
   exit 0
 fi
 
+set +e
 AFFECTED="$(push_policy_detect_crates_from_scopes "$commits")"
 SCOPE_VALID=$?
+set -e
 
 LOCKED_ARGS=()
 if rust_checks_has_lockfile; then
