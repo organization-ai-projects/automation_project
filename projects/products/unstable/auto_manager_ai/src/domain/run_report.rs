@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 /// Complete run report
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RunReport {
+    pub schema_version: String,
+    pub producer: String,
     pub product: String,
     pub version: String,
     pub run_id: String,
@@ -28,6 +30,8 @@ impl RunReport {
             .unwrap()
             .as_secs();
         Self {
+            schema_version: "1".to_string(),
+            producer: "auto_manager_ai".to_string(),
             product: "auto_manager_ai".to_string(),
             version: "0.1.0".to_string(),
             run_id,
@@ -72,6 +76,8 @@ mod tests {
     #[test]
     fn test_run_report_new() {
         let report = RunReport::new("test_run_123".to_string());
+        assert_eq!(report.schema_version, "1");
+        assert_eq!(report.producer, "auto_manager_ai");
         assert_eq!(report.product, "auto_manager_ai");
         assert_eq!(report.version, "0.1.0");
         assert_eq!(report.run_id, "test_run_123");
@@ -87,6 +93,32 @@ mod tests {
         let parsed: common_json::Json = from_str(&json).expect("Failed to parse JSON");
 
         // Verify specific fields exist and have correct values
+        let schema_version = parsed
+            .get_field("schema_version")
+            .expect("schema_version field should exist");
+        assert!(
+            matches!(schema_version, common_json::Json::String(_)),
+            "schema_version should be a string"
+        );
+        assert_eq!(
+            schema_version.as_str(),
+            Some("1"),
+            "schema_version should be 1"
+        );
+
+        let producer = parsed
+            .get_field("producer")
+            .expect("producer field should exist");
+        assert!(
+            matches!(producer, common_json::Json::String(_)),
+            "producer should be a string"
+        );
+        assert_eq!(
+            producer.as_str(),
+            Some("auto_manager_ai"),
+            "producer should match"
+        );
+
         let product = parsed
             .get_field("product")
             .expect("product field should exist");

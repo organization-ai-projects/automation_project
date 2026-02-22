@@ -20,8 +20,12 @@ pub struct OpsAlert {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunReport {
+    pub artifact_schema_version: String,
+    pub artifact_producer: String,
     pub generated_at_secs: u64,
     pub run_id: String,
+    pub non_interactive_profile: Option<String>,
+    pub runtime_requirements_validated: bool,
     pub actor_id: String,
     pub actor_roles: Vec<String>,
     pub final_state: String,
@@ -46,6 +50,7 @@ pub struct RunReport {
     pub pr_ci_status: Option<String>,
     pub pr_readiness: Option<String>,
     pub issue_compliance: Option<String>,
+    pub closure_gates_satisfied: bool,
     pub issue_context_source: Option<String>,
     pub pr_description_source: Option<String>,
     pub last_review_outcome: Option<String>,
