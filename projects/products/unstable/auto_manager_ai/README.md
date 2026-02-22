@@ -160,6 +160,22 @@ This product produces output in the **structured JSON file** format:
 }
 ```
 
+### Artifact Contract Compatibility Policy
+
+- `schema_version` and `producer` are required contract fields for orchestrator handoff.
+- Current contract baseline:
+  - `schema_version = "1"`
+  - `producer = "auto_manager_ai"`
+- Backward compatibility rule:
+  - Adding optional fields is allowed in the same `schema_version`.
+  - Removing required fields or changing required-field semantics requires a new `schema_version`.
+- Fail-closed enforcement:
+  - Non-compliant artifacts are rejected before write with deterministic error codes:
+    - `ARTIFACT_CONTRACT_ACTION_PLAN_SCHEMA_VERSION_INVALID`
+    - `ARTIFACT_CONTRACT_ACTION_PLAN_PRODUCER_INVALID`
+    - `ARTIFACT_CONTRACT_RUN_REPORT_SCHEMA_VERSION_INVALID`
+    - `ARTIFACT_CONTRACT_RUN_REPORT_PRODUCER_INVALID`
+
 ## V0 Safety Guarantees
 
 ### Hard Constraints
