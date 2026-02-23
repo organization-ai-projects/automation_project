@@ -38,7 +38,8 @@ members = [
   "projects/libraries/layers/domain/versioning",
   "projects/products/unstable/platform_versioning/backend",
   "projects/products/unstable/platform_versioning/ui",
-  "projects/products/unstable/platform_ide",
+  "projects/products/unstable/platform_ide/backend",
+  "projects/products/unstable/platform_ide/ui",
 ]
 resolver = "2"
 

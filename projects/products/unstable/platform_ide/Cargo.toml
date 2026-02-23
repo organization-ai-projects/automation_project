@@ -1,21 +1,4 @@
-[package]
-name = "platform-ide"
-version = "0.1.0"
-edition = "2024"
-
-[[bin]]
-name = "platform-ide"
-path = "src/main.rs"
-
-[dependencies]
-anyhow = { workspace = true }
-serde = { workspace = true }
-serde_json = "1.0"
-thiserror = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-tokio = { workspace = true }
-reqwest = { workspace = true }
-
-[dev-dependencies]
-tokio = { workspace = true }
+# This file marks the platform_ide root as a standalone workspace so that
+# Cargo does not flag it when scanning subdirectories. The actual IDE crates
+# live in platform_ide/backend/ and platform_ide/ui/.
+[workspace]
