@@ -26,8 +26,10 @@ mod tests {
 
     #[test]
     fn set_repos_updates_list() {
-        let mut view = RepoListView::default();
-        view.loading = true;
+        let mut view = RepoListView {
+            loading: true,
+            ..RepoListView::default()
+        };
         view.set_repos(vec![RepoSummary {
             id: "my-repo".to_string(),
             name: "My Repo".to_string(),
