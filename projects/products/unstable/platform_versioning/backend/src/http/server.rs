@@ -21,12 +21,13 @@ impl Server {
         addr: &str,
         repo_store: Arc<RepoStore>,
         token_verifier: Arc<TokenVerifier>,
+        bootstrap_secret: Option<String>,
     ) -> Result<Self, PvError> {
         let listener = TcpListener::bind(addr)
             .await
             .map_err(|e| PvError::Internal(format!("bind {addr}: {e}")))?;
 
-        let router = crate::routes::build_router(repo_store, token_verifier);
+        let router = crate::routes::build_router(repo_store, token_verifier, bootstrap_secret);
 
         Ok(Self { listener, router })
     }

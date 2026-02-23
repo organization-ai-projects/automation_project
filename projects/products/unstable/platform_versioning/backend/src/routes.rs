@@ -30,16 +30,22 @@ struct AppState {
     repo_store: Arc<RepoStore>,
     token_verifier: Arc<TokenVerifier>,
     audit_log: Arc<AuditLog>,
+    bootstrap_secret: Option<String>,
 }
 
 /// Builds the Axum router for the platform-versioning API.
 ///
 /// All routes are mounted under `/v1/`.
-pub fn build_router(repo_store: Arc<RepoStore>, token_verifier: Arc<TokenVerifier>) -> Router {
+pub fn build_router(
+    repo_store: Arc<RepoStore>,
+    token_verifier: Arc<TokenVerifier>,
+    bootstrap_secret: Option<String>,
+) -> Router {
     let state = AppState {
         repo_store,
         token_verifier,
         audit_log: Arc::new(AuditLog::new()),
+        bootstrap_secret,
     };
 
     Router::new()
@@ -191,6 +197,14 @@ fn request_envelope(headers: &HeaderMap) -> RequestEnvelope {
     }
 }
 
+fn bootstrap_secret(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-pv-bootstrap-secret")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
 fn error_response<T>(err: PvError) -> (StatusCode, Json<ResponseEnvelope<T>>) {
     let status = StatusCode::from_u16(crate::http::api_error::http_status_for(&err))
         .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
@@ -310,8 +324,23 @@ async fn issue_token(
     headers: HeaderMap,
     Json(req): Json<IssueTokenRequest>,
 ) -> (StatusCode, Json<ResponseEnvelope<IssueTokenResponse>>) {
-    if let Err(err) = require_permission(&state, &headers, None, Permission::Admin, "auth.issue") {
-        return error_response(err);
+    if bearer_token(&headers).is_some() {
+        if let Err(err) =
+            require_permission(&state, &headers, None, Permission::Admin, "auth.issue")
+        {
+            return error_response(err);
+        }
+    } else {
+        let provided = bootstrap_secret(&headers);
+        let configured = state.bootstrap_secret.clone();
+        match (provided, configured) {
+            (Some(p), Some(c)) if p == c => {}
+            _ => {
+                return error_response(PvError::AuthRequired(
+                    "missing admin bearer token or valid bootstrap secret".to_string(),
+                ));
+            }
+        }
     }
 
     let repo_scope = match req.repo_id {
