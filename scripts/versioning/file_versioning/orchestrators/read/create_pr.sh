@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Automate the creation of a pull request with smart defaults
-# Usage: bash create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] [--skip-tests]
+# Internal-only PR creation helper.
+# Public entrypoint: scripts/versioning/file_versioning/github/generate_pr_description.sh
+# Legacy usage (internal): bash create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] [--skip-tests]
+
+if [[ "${CREATE_PR_INTERNAL_ALLOWED:-0}" != "1" ]]; then
+  echo "Error: create_pr.sh is internal-only and cannot be run directly." >&2
+  echo "Use: bash scripts/versioning/file_versioning/github/generate_pr_description.sh --auto --base <branch> --head <branch> --yes" >&2
+  exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
