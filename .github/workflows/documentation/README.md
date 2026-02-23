@@ -19,6 +19,7 @@ It interacts mainly with:
 ├── ci_main.yml           # Handles CI tasks for the main branch
 ├── ci_dev.yml            # Handles CI tasks for the dev branch
 ├── ci_reusable.yml       # Reusable workflow for common CI steps
+├── scripts_integrity.yml # Script integrity + shell regression gate
 ├── automation_rustfmt.yml # Automates code formatting checks
 ├── automation_sync.yml   # Syncs main into dev after merge
 ├── issue_done_in_dev_status.yml # Maintains done-in-dev issue status label lifecycle
@@ -27,6 +28,7 @@ It interacts mainly with:
     ├── ci_main.md       # Documentation for the ci_main.yml workflow
     ├── ci_dev.md        # Documentation for the ci_dev.yml workflow
     ├── ci_reusable.md   # Documentation for the ci_reusable.yml workflow
+    ├── scripts_integrity.md # Documentation for scripts_integrity.yml
     ├── automation_rustfmt.md # Documentation for the automation_rustfmt.yml workflow
     ├── automation_sync.md # Documentation for the automation_sync.yml workflow
     ├── issue_done_in_dev_status.md # Documentation for issue_done_in_dev_status.yml
@@ -43,6 +45,7 @@ It interacts mainly with:
 - `ci_main.md`: Documentation for the `ci_main.yml` workflow.
 - `ci_dev.md`: Documentation for the `ci_dev.yml` workflow.
 - `ci_reusable.md`: Documentation for the `ci_reusable.yml` workflow.
+- `scripts_integrity.md`: Documentation for the `scripts_integrity.yml` workflow.
 - `automation_rustfmt.md`: Documentation for the `automation_rustfmt.yml` workflow.
 - `automation_sync.md`: Documentation for the `automation_sync.yml` workflow.
 - `issue_done_in_dev_status.md`: Documentation for the `issue_done_in_dev_status.yml` workflow.
@@ -57,6 +60,7 @@ Workflows are organized into two categories:
   - `ci_main.yml`: Handles CI tasks for the `main` branch.
   - `ci_dev.yml`: Handles CI tasks for the `dev` branch.
   - `ci_reusable.yml`: A reusable workflow for common CI steps.
+  - `scripts_integrity.yml`: Validates script integrity and critical shell regressions.
 
 - **Automation Workflows**:
   - `automation_rustfmt.yml`: Automates code formatting checks.

@@ -21,6 +21,7 @@ This document provides an overview of all documentation files in this directory.
 - [build_ui_bundles.sh](build_ui_bundles.sh): Discover and build all UI bundles
 - [changed_crates.sh](changed_crates.sh): List crates touched in a diff
 - [check_dependencies.sh](check_dependencies.sh): Check for outdated/missing dependencies
+- [check_script_integrity.sh](check_script_integrity.sh): Validate script root-path/sourcing integrity
 - [check_merge_conflicts.sh](check_merge_conflicts.sh): Test merge for conflicts
 - [clean_artifacts.sh](clean_artifacts.sh): Clean build artifacts
 - [git_add_command_override.sh](git_add_command_override.sh): Shell override for git add
@@ -29,5 +30,7 @@ This document provides an overview of all documentation files in this directory.
 - [pre_push_check.sh](pre_push_check.sh): Pre-push validation (checks, tests, conflicts)
 - [release_prepare.sh](release_prepare.sh): Prepare releases with version/changelog/tag
 - [setup_hooks.sh](setup_hooks.sh): Install git hooks
+- [SCRIPT_WORKFLOWS.md](SCRIPT_WORKFLOWS.md): Canonical workflow inventory and supported script paths
 - [sync_docs.sh](sync_docs.sh): Documentation synchronization
 - [test_coverage.sh](test_coverage.sh): Generate test coverage reports
+- [tests/critical_workflows_regression.sh](tests/critical_workflows_regression.sh): Minimal shell regression suite for critical workflows
