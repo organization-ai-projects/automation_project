@@ -1,0 +1,33 @@
+name: Scripts Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - '.github/issue_required_fields.conf'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/workflows/scripts_integrity.yml'
+  push:
+    branches: [main, dev]
+    paths:
+      - 'scripts/**'
+      - '.github/issue_required_fields.conf'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/workflows/scripts_integrity.yml'
+
+jobs:
+  scripts-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run script integrity checks
+        run: bash scripts/automation/check_script_integrity.sh
+
+      - name: Run critical shell regression suite
+        run: bash scripts/automation/tests/critical_workflows_regression.sh

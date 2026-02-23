@@ -14,6 +14,8 @@ source "$ROOT_DIR/scripts/common_lib/core/command.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/synch.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/synch.sh"
 # shellcheck source=scripts/common_lib/automation/rust_checks.sh
 source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
 

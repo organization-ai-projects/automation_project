@@ -9,6 +9,7 @@ This document provides an overview of all documentation files in this directory.
 - [ci_reusable.md](ci_reusable.md): Documentation for the `ci_reusable.yml` workflow.
 - [dependency_security_scan.md](dependency_security_scan.md): Documentation for the `dependency_security_scan.yml` workflow.
 - [docs_link_check.md](docs_link_check.md): Documentation for the `docs_link_check.yml` workflow.
+- [scripts_integrity.md](scripts_integrity.md): Documentation for the `scripts_integrity.yml` workflow.
 
 ## Automation Workflows
 

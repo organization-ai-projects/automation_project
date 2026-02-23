@@ -36,6 +36,8 @@ members = [
   "projects/libraries/core/foundation/pjson_proc_macros",
   "projects/libraries/core/foundation/hybrid_arena",
   "projects/libraries/layers/domain/versioning",
+  "projects/products/unstable/platform_versioning/backend",
+  "projects/products/unstable/platform_versioning/ui",
 ]
 resolver = "2"
 
@@ -83,3 +85,9 @@ ast_macros = { path = "projects/libraries/core/foundation/ast_macros" }
 ai = { path = "projects/libraries/layers/orchestration/ai" }
 hybrid_arena = { path = "projects/libraries/core/foundation/hybrid_arena" }
 versioning = { path = "projects/libraries/layers/domain/versioning" }
+
+sha2 = "0.10.8"
+hex = "0.4.3"
+axum = { version = "0.8.1", features = ["json"] }
+tower = { version = "0.5", features = ["util"] }
+http = "1"

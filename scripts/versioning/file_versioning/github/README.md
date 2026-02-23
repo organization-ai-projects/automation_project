@@ -44,7 +44,7 @@ github/
 - `neutralize_non_compliant_closure_refs.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
 - `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
-- `lib/issue_required_fields.sh`: Shared validator for required issue title/body fields and section contract.
+- `lib/issue_required_fields.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 - `tests/issue_done_in_dev_status_regression.sh`: Regression checks for done-in-dev add/remove workflow behavior.
@@ -56,6 +56,11 @@ Scripts in this directory should:
 - Focus on GitHub PR/issue workflows
 - Prefer `gh` data when available
 - Provide resilient fallbacks when GitHub API is unavailable
+
+Issue contract routing:
+
+- Default issues use `.github/issue_required_fields.conf` keys `ISSUE_*`.
+- Review follow-up issues (label `review`) use `ISSUE_REVIEW_*` keys from the same contract file.
 
 ## Scripts
 
