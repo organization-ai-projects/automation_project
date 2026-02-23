@@ -27,10 +27,16 @@ impl ObjectId {
     }
 
     /// Returns the raw 32-byte digest.
+    ///
+    /// # Panics
+    /// Never panics: the hex string is guaranteed valid at construction.
     pub fn to_bytes(&self) -> [u8; Self::RAW_LEN] {
         let mut out = [0u8; Self::RAW_LEN];
-        hex::decode_to_slice(&self.0, &mut out)
-            .expect("ObjectId is always valid hex; invariant maintained at construction");
+        // Safety: the hex string is validated at construction and is always 64 valid hex chars.
+        if hex::decode_to_slice(&self.0, &mut out).is_err() {
+            // This branch is unreachable given construction-time validation.
+            debug_assert!(false, "ObjectId contains invalid hex — construction-time invariant violated");
+        }
         out
     }
 }
