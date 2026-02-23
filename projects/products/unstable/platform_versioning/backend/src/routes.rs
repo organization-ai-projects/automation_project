@@ -811,10 +811,15 @@ async fn merge(
     ) {
         return error_response(err);
     }
+    if ours == theirs {
+        return error_response(PvError::MergeConflict(
+            "cannot merge a commit into itself".to_string(),
+        ));
+    }
 
     let out = (|| -> Result<MergeResult, PvError> {
         let repo = state.repo_store.get(&repo_id)?;
-        let result = Merge::perform(
+        Merge::perform(
             &ours,
             &theirs,
             &req.author,
@@ -822,19 +827,18 @@ async fn merge(
             req.timestamp_secs.unwrap_or_else(now_secs),
             &repo.objects,
             &repo.refs,
-        )?;
-
-        if matches!(result, MergeResult::Conflicted { .. }) {
-            return Err(PvError::MergeConflict(
-                "merge produced conflicts".to_string(),
-            ));
-        }
-
-        Ok(result)
+        )
     })();
 
     match out {
-        Ok(result) => (StatusCode::OK, Json(ResponseEnvelope::ok(result))),
+        Ok(result) => {
+            let status = if matches!(result, MergeResult::Conflicted { .. }) {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::OK
+            };
+            (status, Json(ResponseEnvelope::ok(result)))
+        }
         Err(err) => error_response(err),
     }
 }
