@@ -232,6 +232,16 @@ main() {
     "" \
     env MOCK_ISSUE_COMPLIANT=0 MOCK_PR_BODY="Closes rejected #42"
 
+  # ── neutralizer: reopen marker forces neutralization even if issue compliant
+  run_case \
+    "neutralizer-reopen-forces-neutralization" \
+    0 \
+    "Closure neutralization evaluated" \
+    "$NEUTRALIZER" \
+    "--pr 1" \
+    "rejected" \
+    env MOCK_ISSUE_COMPLIANT=1 MOCK_PR_BODY=$'Closes #42\nReopen #42'
+
   # ── reevaluator: missing --issue arg ────────────────────────────────────
   run_case \
     "reevaluator-missing-issue-arg" \

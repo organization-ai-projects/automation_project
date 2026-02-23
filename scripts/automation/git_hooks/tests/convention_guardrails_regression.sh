@@ -164,7 +164,7 @@ main() {
     "commit-msg-normalizes-lowercase-and-deduplicates" \
     0 \
     "^2$" \
-    "printf 'docs: update hook policy wording\n\npart of #123\nPart of #123\nRELATED TO #456\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && grep -Ec '^(Part of #123|Related to #456)$' .git/COMMIT_EDITMSG"
+    "printf 'docs: update hook policy wording\n\npart of #123\nPart of #123\nREOPEN #456\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && grep -Ec '^(Part of #123|Reopen #456)$' .git/COMMIT_EDITMSG"
 
   # commit-msg: block issue refs in subject.
   run_case \
@@ -202,7 +202,7 @@ main() {
     "commit-msg-allows-correct-scope-for-library-change" \
     0 \
     "" \
-    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers/domain/security): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-rejects-parent-product-scope-for-ui-and-backend-mix" \
@@ -220,7 +220,7 @@ main() {
     "commit-msg-allows-scope-for-staged-deletions" \
     0 \
     "" \
-    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers/domain/security): remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers): remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-allows-parent-product-scope-for-parent-only-change" \

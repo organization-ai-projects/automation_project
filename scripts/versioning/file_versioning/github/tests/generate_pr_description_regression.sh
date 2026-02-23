@@ -90,6 +90,10 @@ JSON
     exit 0
   fi
 fi
+# pull lookup for issue numbers (used to discard PR refs): default to not-a-PR.
+if [[ "$*" =~ ^api[[:space:]]+repos/.+/pulls/[0-9]+$ ]]; then
+  exit 1
+fi
 exit 0
 EOF
   chmod +x "${mock_dir}/gh"
@@ -476,7 +480,7 @@ main() {
     BEGIN { IGNORECASE = 1 }
     {
       line = $0
-      while (match(line, /(^|[^[:alnum:]_])(close|closes|fix|fixes|resolve|resolves)[[:space:]]+([[:alnum:]_.-]+\/)?#[0-9]+/)) {
+      while (match(line, /(^|[^[:alnum:]_])(close|closes)[[:space:]]+([[:alnum:]_.-]+\/)?#[0-9]+/)) {
         matched = substr(line, RSTART, RLENGTH)
         sub(/^[^[:alnum:]_]/, "", matched)
         split(matched, parts, /[[:space:]]+/)
@@ -485,12 +489,10 @@ main() {
         sub(/^[[:alnum:]_.-]+\//, "", issue_ref)
         if (token ~ /^clos/) {
           action = "Closes"
-        } else if (token ~ /^fix/) {
-          action = "Fixes"
         } else {
-          action = "Resolves"
+          action = ""
         }
-        if (issue_ref ~ /^#[0-9]+$/) {
+        if (issue_ref ~ /^#[0-9]+$/ && action != "") {
           print action "|" issue_ref
         }
         line = substr(line, RSTART + RLENGTH)
@@ -504,6 +506,30 @@ main() {
     echo "FAIL [closure-keyword-strictness-ignores-closed] expected Closes|#518, got: ${parse_out}"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/reopen_conflict.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_BODY=$'Closes #518\nReopen #518' \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run "${out_md}"
+  ) >/dev/null 2>&1; then
+    if grep -q "Closes rejected #518" "${out_md}" \
+      && ! grep -q "Closure Neutralization Notices" "${out_md}" \
+      && ! grep -q "conflicting closure directives" "${out_md}"; then
+      echo "PASS [reopen-conflict-neutralizes-closing-ref]"
+    else
+      echo "FAIL [reopen-conflict-neutralizes-closing-ref] expected rejected close without verbose neutralization section"
+      sed -n '1,120p' "${out_md}"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [reopen-conflict-neutralizes-closing-ref] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
 
   TESTS_RUN=$((TESTS_RUN + 1))
   tmp="$(shell_test_mktemp_dir "pr_desc_tests")"

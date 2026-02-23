@@ -14,7 +14,8 @@ Usage:
   $0 --pr PR_NUMBER [--repo owner/name]
 
 Notes:
-  - Detects closure refs in PR body (Closes/Fixes/Resolves #...).
+  - Detects closure refs in PR body (Closes #...).
+  - If the same issue also has `Reopen #...`, closure is neutralized on purpose.
   - If referenced issue is non-compliant with required issue contract, inserts:
       "<keyword> rejected #<issue>"
     to neutralize GitHub auto-close behavior.
@@ -143,8 +144,6 @@ keyword_pattern_from_action() {
   local action="$1"
   case "$action" in
     Closes) echo "closes|close" ;;
-    Fixes) echo "fixes|fix" ;;
-    Resolves) echo "resolves|resolve" ;;
     *) echo "" ;;
   esac
 }
@@ -161,7 +160,14 @@ updated_body="$original_body"
 declare -A seen_ref
 declare -A neutralized_reason
 declare -A neutralized_action
+declare -A reopen_requested
 neutralized_count=0
+
+while IFS='|' read -r _ issue_key; do
+  issue_key="$(trim "$issue_key")"
+  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+  reopen_requested["$issue_key"]=1
+done < <(parse_reopen_issue_refs_from_text "$original_body")
 
 while IFS='|' read -r action issue_key; do
   issue_key="$(trim "$issue_key")"
@@ -173,7 +179,12 @@ while IFS='|' read -r action issue_key; do
   fi
   seen_ref["$dedupe_key"]=1
 
-  reason="$(issue_non_compliance_reason "$issue_number")"
+  reason=""
+  if [[ -n "${reopen_requested[$issue_key]:-}" ]]; then
+    reason="reopen directive present for ${issue_key}"
+  else
+    reason="$(issue_non_compliance_reason "$issue_number")"
+  fi
   [[ -n "$reason" ]] || continue
 
   keyword_pattern="$(keyword_pattern_from_action "$action")"
@@ -191,7 +202,7 @@ while IFS='|' read -r action issue_key; do
 done < <(parse_closing_issue_refs_from_text "$original_body")
 
 # Second pass: handle already-neutralized "Closes rejected #N" refs.
-# Un-neutralize if the issue is now compliant; track if still non-compliant.
+# Un-neutralize only when compliant and no reopen override exists.
 while IFS='|' read -r action issue_key; do
   issue_key="$(trim "$issue_key")"
   [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
@@ -202,7 +213,11 @@ while IFS='|' read -r action issue_key; do
   fi
   seen_ref["$dedupe_key"]=1
 
-  reason="$(issue_non_compliance_reason "$issue_number")"
+  if [[ -n "${reopen_requested[$issue_key]:-}" ]]; then
+    reason="reopen directive present for ${issue_key}"
+  else
+    reason="$(issue_non_compliance_reason "$issue_number")"
+  fi
 
   keyword_pattern="$(keyword_pattern_from_action "$action")"
   [[ -n "$keyword_pattern" ]] || continue
@@ -238,7 +253,8 @@ if [[ "$neutralized_count" -gt 0 ]]; then
     comment_body+="- ${neutralized_action[$issue_key]} rejected ${issue_key}: ${neutralized_reason[$issue_key]}"$'\n'
   done
   comment_body+=$'\n'"How to restore standard auto-close:"$'\n'
-  comment_body+="- Fix issue required fields/title contract."$'\n'
+  comment_body+="- Fix issue required fields/title contract (if applicable)."$'\n'
+  comment_body+="- Remove or adjust \`Reopen #...\` for issues that should close now."$'\n'
   comment_body+="- Remove \`rejected\` from closure lines in PR body."
 else
   comment_body="$MARKER
