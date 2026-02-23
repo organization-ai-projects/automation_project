@@ -26,11 +26,7 @@ pub struct Diff {
 
 impl Diff {
     /// Computes the diff between `from` and `to`.
-    pub fn compute(
-        from: &CommitId,
-        to: &CommitId,
-        store: &ObjectStore,
-    ) -> Result<Self, PvError> {
+    pub fn compute(from: &CommitId, to: &CommitId, store: &ObjectStore) -> Result<Self, PvError> {
         let from_files = flatten_commit(from, store)?;
         let to_files = flatten_commit(to, store)?;
 
@@ -85,11 +81,7 @@ fn flatten_commit(
     let obj = store.read(commit_id.as_object_id())?;
     let tree_id = match obj {
         Object::Commit(ref c) => c.tree_id.as_object_id().clone(),
-        _ => {
-            return Err(PvError::Internal(format!(
-                "{commit_id} is not a commit"
-            )))
-        }
+        _ => return Err(PvError::Internal(format!("{commit_id} is not a commit"))),
     };
     flatten_tree(&tree_id, "", store)
 }
@@ -102,11 +94,7 @@ fn flatten_tree(
     let obj = store.read(tree_id)?;
     let tree = match obj {
         Object::Tree(t) => t,
-        _ => {
-            return Err(PvError::Internal(format!(
-                "{tree_id} is not a tree"
-            )))
-        }
+        _ => return Err(PvError::Internal(format!("{tree_id} is not a tree"))),
     };
 
     let mut result = BTreeMap::new();
@@ -135,20 +123,18 @@ fn read_blob_class(blob_id: &BlobId, store: &ObjectStore) -> Result<ContentClass
     let obj = store.read(blob_id.as_object_id())?;
     match obj {
         Object::Blob(b) => Ok(ContentClass::of(&b.content)),
-        _ => Err(PvError::Internal(format!(
-            "{blob_id} is not a blob"
-        ))),
+        _ => Err(PvError::Internal(format!("{blob_id} is not a blob"))),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
     use crate::index::Index;
     use crate::objects::Blob;
     use crate::pipeline::CommitBuilder;
     use crate::refs_store::RefStore;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 

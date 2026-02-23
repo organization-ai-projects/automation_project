@@ -110,11 +110,11 @@ impl Verification {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
     use crate::index::Index;
     use crate::objects::Blob;
     use crate::pipeline::CommitBuilder;
     use crate::refs_store::RefStore;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -164,10 +164,12 @@ mod tests {
         .unwrap();
         let report = Verification::run(&obj, &refs).unwrap();
         assert!(!report.is_healthy());
-        assert!(report
-            .issues
-            .iter()
-            .any(|i| matches!(i, IntegrityIssue::DanglingRef { .. })));
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|i| matches!(i, IntegrityIssue::DanglingRef { .. }))
+        );
     }
 
     #[test]

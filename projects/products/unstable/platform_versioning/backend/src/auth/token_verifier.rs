@@ -74,12 +74,19 @@ impl TokenVerifier {
 fn base64_encode(data: &[u8]) -> String {
     use std::fmt::Write;
     let mut out = String::new();
-    const TABLE: &[u8] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const TABLE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     for chunk in data.chunks(3) {
         let b0 = chunk[0] as usize;
-        let b1 = if chunk.len() > 1 { chunk[1] as usize } else { 0 };
-        let b2 = if chunk.len() > 2 { chunk[2] as usize } else { 0 };
+        let b1 = if chunk.len() > 1 {
+            chunk[1] as usize
+        } else {
+            0
+        };
+        let b2 = if chunk.len() > 2 {
+            chunk[2] as usize
+        } else {
+            0
+        };
         let _ = write!(out, "{}", TABLE[b0 >> 2] as char);
         let _ = write!(out, "{}", TABLE[((b0 & 3) << 4) | (b1 >> 4)] as char);
         if chunk.len() > 1 {
@@ -183,10 +190,7 @@ mod tests {
         // Flip a character in the payload.
         let char_idx = token_str.len() / 2;
         let c = token_str.chars().nth(char_idx).unwrap_or('A');
-        token_str.replace_range(
-            char_idx..char_idx + 1,
-            if c == 'A' { "B" } else { "A" },
-        );
+        token_str.replace_range(char_idx..char_idx + 1, if c == 'A' { "B" } else { "A" });
         let result = v.verify(&AuthToken::new(token_str));
         assert!(result.is_err());
     }

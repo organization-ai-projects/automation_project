@@ -256,11 +256,7 @@ fn flatten_commit(
     let obj = store.read(commit_id.as_object_id())?;
     let tree_id = match obj {
         Object::Commit(ref c) => c.tree_id.as_object_id().clone(),
-        _ => {
-            return Err(PvError::Internal(format!(
-                "{commit_id} is not a commit"
-            )))
-        }
+        _ => return Err(PvError::Internal(format!("{commit_id} is not a commit"))),
     };
     flatten_tree(&tree_id, "", store)
 }
@@ -273,11 +269,7 @@ fn flatten_tree(
     let obj = store.read(tree_id)?;
     let tree = match obj {
         Object::Tree(t) => t,
-        _ => {
-            return Err(PvError::Internal(format!(
-                "{tree_id} is not a tree"
-            )))
-        }
+        _ => return Err(PvError::Internal(format!("{tree_id} is not a tree"))),
     };
 
     let mut result = BTreeMap::new();
@@ -313,9 +305,9 @@ fn read_blob_class(blob_id: &BlobId, store: &ObjectStore) -> Result<ContentClass
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
     use crate::objects::Blob;
     use crate::refs_store::RefStore;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -395,15 +387,15 @@ mod tests {
             let mut idx = Index::new();
             idx.add("file.txt".parse().unwrap(), their_blob_id);
 
-            use std::collections::BTreeMap;
             use crate::pipeline::Snapshot;
+            use std::collections::BTreeMap;
             let map: BTreeMap<_, _> = idx.entries().map(|e| (e.path, e.blob_id)).collect();
             let snapshot = Snapshot::from_map(map);
             let tree_id = snapshot.write_trees(&obj).unwrap();
 
             let commit = crate::objects::Commit::new(
                 tree_id,
-                vec![base.clone()],  // only base as parent — diverging from base
+                vec![base.clone()], // only base as parent — diverging from base
                 "user".to_string(),
                 "theirs".to_string(),
                 3,
@@ -431,8 +423,8 @@ mod tests {
             let mut idx = Index::new();
             idx.add("img.png".parse().unwrap(), their_blob_id);
 
-            use std::collections::BTreeMap;
             use crate::pipeline::Snapshot;
+            use std::collections::BTreeMap;
             let map: BTreeMap<_, _> = idx.entries().map(|e| (e.path, e.blob_id)).collect();
             let snapshot = Snapshot::from_map(map);
             let tree_id = snapshot.write_trees(&obj).unwrap();
@@ -451,9 +443,11 @@ mod tests {
 
         let result = Merge::perform(&ours, &theirs, "merger", "merge", 4, &obj, &refs).unwrap();
         if let MergeResult::Conflicted { conflicts } = result {
-            assert!(conflicts
-                .iter()
-                .any(|c| c.kind == ConflictKind::BinaryConflict));
+            assert!(
+                conflicts
+                    .iter()
+                    .any(|c| c.kind == ConflictKind::BinaryConflict)
+            );
         } else {
             panic!("expected conflict");
         }

@@ -3,8 +3,8 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::auth::{AuditOutcome, Permission, PermissionGrant, TokenClaims, TokenVerifier};
 use crate::auth::audit_entry::AuditEntry;
+use crate::auth::{AuditOutcome, Permission, PermissionGrant, TokenClaims, TokenVerifier};
 use crate::checkout::{Checkout, CheckoutPolicy};
 use crate::diff::Diff;
 use crate::history::HistoryWalker;
@@ -70,11 +70,24 @@ fn full_flow_create_commit_browse_diff_merge() {
     assert_eq!(repo.metadata.name, "Test Repo");
 
     // === Commit ===
-    let c1 = commit_files(&[("readme.md", b"# Hello"), ("src/main.rs", b"fn main() {}")], 1, &obj, &refs);
+    let c1 = commit_files(
+        &[("readme.md", b"# Hello"), ("src/main.rs", b"fn main() {}")],
+        1,
+        &obj,
+        &refs,
+    );
     assert!(obj.exists(c1.as_object_id()));
 
     // === Browse (history) ===
-    let c2 = commit_files(&[("readme.md", b"# Updated"), ("src/main.rs", b"fn main() {}")], 2, &obj, &refs);
+    let c2 = commit_files(
+        &[
+            ("readme.md", b"# Updated"),
+            ("src/main.rs", b"fn main() {}"),
+        ],
+        2,
+        &obj,
+        &refs,
+    );
     let walker = HistoryWalker::new(&obj);
     let page = walker.page(&c2, 10).unwrap();
     assert_eq!(page.entries.len(), 2);
@@ -85,7 +98,8 @@ fn full_flow_create_commit_browse_diff_merge() {
 
     // === Checkout ===
     let checkout_dir = unique_test_dir("full_flow_checkout");
-    let mat = Checkout::materialize(&c1, &obj, &checkout_dir, &CheckoutPolicy::overwrite()).unwrap();
+    let mat =
+        Checkout::materialize(&c1, &obj, &checkout_dir, &CheckoutPolicy::overwrite()).unwrap();
     assert_eq!(mat.files_written, 2);
 
     // === Merge attempt ===
@@ -101,8 +115,8 @@ fn full_flow_create_commit_browse_diff_merge() {
         let mut idx = Index::new();
         idx.add("theirs.txt".parse().unwrap(), their_blob_id);
 
-        use std::collections::BTreeMap;
         use crate::pipeline::Snapshot;
+        use std::collections::BTreeMap;
         let map: BTreeMap<_, _> = idx.entries().map(|e| (e.path, e.blob_id)).collect();
         let tree_id = Snapshot::from_map(map).write_trees(&obj2).unwrap();
 

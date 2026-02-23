@@ -33,12 +33,8 @@ impl Blob {
     pub fn compute_id(content: &[u8]) -> BlobId {
         let prefix = b"blob\x00";
         let len_bytes = (content.len() as u64).to_le_bytes();
-        let digest = HashDigest::compute_parts(&[
-            &[BLOB_FORMAT_VERSION],
-            prefix,
-            &len_bytes,
-            content,
-        ]);
+        let digest =
+            HashDigest::compute_parts(&[&[BLOB_FORMAT_VERSION], prefix, &len_bytes, content]);
         BlobId::from_bytes(&digest)
     }
 

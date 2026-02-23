@@ -3,10 +3,10 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::errors::PvError;
 use crate::ids::{BlobId, TreeId};
 use crate::index::SafePath;
 use crate::objects::{Object, ObjectStore, Tree, TreeEntry, TreeEntryKind};
-use crate::errors::PvError;
 use crate::pipeline::SnapshotEntry;
 
 /// A flat, sorted snapshot of all files in a working tree at a point in time.
@@ -103,10 +103,9 @@ impl Snapshot {
             subtree_ids.insert(dir.clone(), tree_id);
         }
 
-        subtree_ids
-            .get("")
-            .cloned()
-            .ok_or_else(|| PvError::Internal("root tree not found after snapshot write".to_string()))
+        subtree_ids.get("").cloned().ok_or_else(|| {
+            PvError::Internal("root tree not found after snapshot write".to_string())
+        })
     }
 }
 

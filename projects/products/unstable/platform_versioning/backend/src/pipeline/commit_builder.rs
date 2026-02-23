@@ -61,10 +61,8 @@ impl CommitBuilder {
         }
 
         // Build snapshot from index.
-        let map: BTreeMap<SafePath, BlobId> = index
-            .entries()
-            .map(|e| (e.path, e.blob_id))
-            .collect();
+        let map: BTreeMap<SafePath, BlobId> =
+            index.entries().map(|e| (e.path, e.blob_id)).collect();
         let snapshot = Snapshot::from_map(map);
         let root_tree_id = snapshot.write_trees(object_store)?;
 
@@ -92,12 +90,7 @@ impl CommitBuilder {
         let updated_ref = match &head {
             HeadState::Branch(branch) | HeadState::Unborn(branch) => {
                 let branch = branch.clone();
-                ref_store.write_ref(
-                    &branch,
-                    &RefTarget::Commit(commit_id.clone()),
-                    true,
-                    None,
-                )?;
+                ref_store.write_ref(&branch, &RefTarget::Commit(commit_id.clone()), true, None)?;
                 ref_store.write_head(&HeadState::Branch(branch.clone()))?;
                 Some(branch.to_string())
             }
@@ -117,8 +110,8 @@ impl CommitBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
     use crate::objects::Blob;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 

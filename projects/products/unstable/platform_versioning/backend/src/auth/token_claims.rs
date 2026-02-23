@@ -21,8 +21,7 @@ impl TokenClaims {
     pub fn has_permission(&self, repo_id: &RepoId, permission: Permission) -> bool {
         self.grants.iter().any(|g| {
             g.permission == permission
-                && (g.repo_id.is_none()
-                    || g.repo_id.as_ref() == Some(repo_id))
+                && (g.repo_id.is_none() || g.repo_id.as_ref() == Some(repo_id))
         })
     }
 

@@ -59,10 +59,7 @@ impl Tree {
     /// Validates that the stored `id` matches the recomputed address of `entries`.
     pub fn verify(&self) -> bool {
         // Entries must be sorted for the invariant to hold.
-        let sorted = self
-            .entries
-            .windows(2)
-            .all(|w| w[0].name <= w[1].name);
+        let sorted = self.entries.windows(2).all(|w| w[0].name <= w[1].name);
         sorted && Self::compute_id(&self.entries) == self.id
     }
 }

@@ -32,11 +32,7 @@ impl Checkout {
         let commit_obj = object_store.read(commit_id.as_object_id())?;
         let root_tree_id = match commit_obj {
             Object::Commit(ref c) => c.tree_id.clone(),
-            _ => {
-                return Err(PvError::Internal(format!(
-                    "{commit_id} is not a commit"
-                )))
-            }
+            _ => return Err(PvError::Internal(format!("{commit_id} is not a commit"))),
         };
 
         // Flatten the tree into path → blob_id map.
@@ -89,8 +85,7 @@ impl Checkout {
                 if !staged_set.contains(path) {
                     let file_dest = dest.join(path.as_str());
                     if file_dest.exists() {
-                        fs::remove_file(&file_dest)
-                            .map_err(|e| PvError::Io(e))?;
+                        fs::remove_file(&file_dest).map_err(|e| PvError::Io(e))?;
                         files_deleted += 1;
                     }
                 }
@@ -113,11 +108,7 @@ fn flatten_tree(
     let obj = store.read(tree_id)?;
     let tree = match obj {
         Object::Tree(t) => t,
-        _ => {
-            return Err(PvError::Internal(format!(
-                "{tree_id} is not a tree"
-            )))
-        }
+        _ => return Err(PvError::Internal(format!("{tree_id} is not a tree"))),
     };
 
     let mut result = BTreeMap::new();
@@ -185,9 +176,7 @@ fn atomic_write_file(path: &Path, data: &[u8]) -> Result<(), PvError> {
         .unwrap_or(0);
     let tmp_name = format!(
         ".{}.tmp-{}-{}",
-        path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("file"),
+        path.file_name().and_then(|n| n.to_str()).unwrap_or("file"),
         pid,
         nanos
     );
@@ -213,11 +202,11 @@ fn atomic_write_file(path: &Path, data: &[u8]) -> Result<(), PvError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
     use crate::index::Index;
     use crate::objects::Blob;
     use crate::pipeline::CommitBuilder;
     use crate::refs_store::RefStore;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -283,8 +272,7 @@ mod tests {
         let dest = unique_test_dir("dest_safe");
         fs::create_dir_all(&dest).unwrap();
         fs::write(dest.join("file.txt"), b"different content").unwrap();
-        let result =
-            Checkout::materialize(&commit_id, &obj, &dest, &CheckoutPolicy::safe());
+        let result = Checkout::materialize(&commit_id, &obj, &dest, &CheckoutPolicy::safe());
         assert!(result.is_err());
     }
 
@@ -295,8 +283,7 @@ mod tests {
         let dest = unique_test_dir("dest_clean");
         fs::create_dir_all(&dest).unwrap();
         fs::write(dest.join("extra.txt"), b"untracked").unwrap();
-        let mat =
-            Checkout::materialize(&commit_id, &obj, &dest, &CheckoutPolicy::clean()).unwrap();
+        let mat = Checkout::materialize(&commit_id, &obj, &dest, &CheckoutPolicy::clean()).unwrap();
         assert_eq!(mat.files_deleted, 1);
         assert!(!dest.join("extra.txt").exists());
     }

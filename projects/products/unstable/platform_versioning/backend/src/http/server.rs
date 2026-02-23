@@ -31,12 +31,8 @@ impl Server {
             .await
             .map_err(|e| PvError::Internal(format!("bind {addr}: {e}")))?;
 
-        let router = crate::routes::build_router(
-            repo_store,
-            object_store,
-            ref_store,
-            token_verifier,
-        );
+        let router =
+            crate::routes::build_router(repo_store, object_store, ref_store, token_verifier);
 
         Ok(Self { listener, router })
     }

@@ -75,8 +75,7 @@ impl Commit {
         message: String,
         timestamp_secs: u64,
     ) -> Self {
-        let id =
-            Self::compute_id(&tree_id, &parent_ids, &author, &message, timestamp_secs);
+        let id = Self::compute_id(&tree_id, &parent_ids, &author, &message, timestamp_secs);
         Self {
             id,
             tree_id,
@@ -138,13 +137,7 @@ mod tests {
             "First".to_string(),
             0,
         );
-        let b = Commit::new(
-            tree,
-            vec![],
-            "Alice".to_string(),
-            "Second".to_string(),
-            0,
-        );
+        let b = Commit::new(tree, vec![], "Alice".to_string(), "Second".to_string(), 0);
         assert_ne!(a.id, b.id);
     }
 

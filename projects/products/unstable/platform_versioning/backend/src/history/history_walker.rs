@@ -26,11 +26,7 @@ impl<'a> HistoryWalker<'a> {
     ///
     /// Pass the `next_cursor` from the previous [`HistoryPage`] as `start` to
     /// continue paginating.
-    pub fn page(
-        &self,
-        start: &CommitId,
-        limit: usize,
-    ) -> Result<HistoryPage, PvError> {
+    pub fn page(&self, start: &CommitId, limit: usize) -> Result<HistoryPage, PvError> {
         if limit == 0 {
             return Ok(HistoryPage {
                 entries: vec![],
@@ -53,11 +49,7 @@ impl<'a> HistoryWalker<'a> {
             let obj = self.store.read(current_id.as_object_id())?;
             let commit = match obj {
                 Object::Commit(c) => c,
-                _ => {
-                    return Err(PvError::Internal(format!(
-                        "{current_id} is not a commit"
-                    )))
-                }
+                _ => return Err(PvError::Internal(format!("{current_id} is not a commit"))),
             };
 
             for parent in &commit.parent_ids {
@@ -94,11 +86,11 @@ impl<'a> HistoryWalker<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
     use crate::index::Index;
     use crate::objects::Blob;
     use crate::pipeline::CommitBuilder;
     use crate::refs_store::RefStore;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 

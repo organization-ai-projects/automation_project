@@ -35,7 +35,10 @@ impl ObjectId {
         // Safety: the hex string is validated at construction and is always 64 valid hex chars.
         if hex::decode_to_slice(&self.0, &mut out).is_err() {
             // This branch is unreachable given construction-time validation.
-            debug_assert!(false, "ObjectId contains invalid hex — construction-time invariant violated");
+            debug_assert!(
+                false,
+                "ObjectId contains invalid hex — construction-time invariant violated"
+            );
         }
         out
     }

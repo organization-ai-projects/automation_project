@@ -138,8 +138,7 @@ impl RefStore {
             for entry in fs::read_dir(&dir)
                 .map_err(|e| PvError::Internal(format!("read refs/{prefix}: {e}")))?
             {
-                let entry =
-                    entry.map_err(|e| PvError::Internal(format!("dir entry: {e}")))?;
+                let entry = entry.map_err(|e| PvError::Internal(format!("dir entry: {e}")))?;
                 let file_name = entry.file_name();
                 let short = file_name.to_string_lossy();
                 let full = format!("{prefix}/{short}");
@@ -165,8 +164,8 @@ impl RefStore {
     }
 
     fn write_json<T: Serialize>(&self, path: &Path, value: &T) -> Result<(), PvError> {
-        let bytes = serde_json::to_vec(value)
-            .map_err(|e| PvError::Internal(format!("serialize: {e}")))?;
+        let bytes =
+            serde_json::to_vec(value).map_err(|e| PvError::Internal(format!("serialize: {e}")))?;
 
         let pid = std::process::id();
         let nanos = std::time::SystemTime::now()
@@ -175,9 +174,7 @@ impl RefStore {
             .unwrap_or(0);
         let tmp_name = format!(
             ".{}.tmp-{}-{}",
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("ref"),
+            path.file_name().and_then(|n| n.to_str()).unwrap_or("ref"),
             pid,
             nanos
         );
@@ -309,8 +306,7 @@ mod tests {
         // is_ancestor returns false because id1 != id2 and no parents can be followed).
         let obj_root = unique_test_dir();
         let obj_store = ObjectStore::open(&obj_root).unwrap();
-        let result =
-            store.write_ref(&name, &RefTarget::Commit(id2), false, Some(&obj_store));
+        let result = store.write_ref(&name, &RefTarget::Commit(id2), false, Some(&obj_store));
         assert!(matches!(result, Err(PvError::NonFastForward(_))));
     }
 }

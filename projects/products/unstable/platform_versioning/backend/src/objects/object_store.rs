@@ -34,9 +34,8 @@ impl ObjectStore {
     /// Opens (or creates) an object store rooted at `root`.
     pub fn open(root: impl AsRef<Path>) -> Result<Self, PvError> {
         let root = root.as_ref().to_path_buf();
-        fs::create_dir_all(root.join("objects")).map_err(|e| {
-            PvError::AtomicWriteFailed(format!("create objects dir: {e}"))
-        })?;
+        fs::create_dir_all(root.join("objects"))
+            .map_err(|e| PvError::AtomicWriteFailed(format!("create objects dir: {e}")))?;
         Ok(Self {
             root,
             cache: Arc::new(RwLock::new(HashMap::new())),
@@ -79,13 +78,11 @@ impl ObjectStore {
         }
 
         let path = self.object_path(id);
-        let bytes = fs::read(&path)
-            .map_err(|_| PvError::ObjectNotFound(id.to_string()))?;
+        let bytes = fs::read(&path).map_err(|_| PvError::ObjectNotFound(id.to_string()))?;
 
-        let (object, _): (Object, _) =
-            serde_json::from_slice(&bytes)
-                .map(|o| (o, ()))
-                .map_err(|e| PvError::CorruptObject(format!("decode {id}: {e}")))?;
+        let (object, _): (Object, _) = serde_json::from_slice(&bytes)
+            .map(|o| (o, ()))
+            .map_err(|e| PvError::CorruptObject(format!("decode {id}: {e}")))?;
 
         if !object.verify() {
             return Err(PvError::CorruptObject(format!(
@@ -115,9 +112,8 @@ impl ObjectStore {
 
     fn atomic_write(&self, path: &Path, data: &[u8]) -> Result<(), PvError> {
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                PvError::AtomicWriteFailed(format!("create dir: {e}"))
-            })?;
+            fs::create_dir_all(parent)
+                .map_err(|e| PvError::AtomicWriteFailed(format!("create dir: {e}")))?;
         }
 
         let pid = std::process::id();
@@ -127,9 +123,7 @@ impl ObjectStore {
             .unwrap_or(0);
         let tmp_name = format!(
             ".{}.tmp-{}-{}",
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("obj"),
+            path.file_name().and_then(|n| n.to_str()).unwrap_or("obj"),
             pid,
             nanos
         );
@@ -180,8 +174,8 @@ impl<'de> Deserialize<'de> for ObjectStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
     use crate::objects::Blob;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 

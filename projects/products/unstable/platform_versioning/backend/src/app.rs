@@ -22,8 +22,8 @@ pub struct AppConfig {
 impl AppConfig {
     /// Reads configuration from environment variables with sensible defaults.
     pub fn from_env() -> Result<Self, PvError> {
-        let bind_addr = std::env::var("PV_BIND_ADDR")
-            .unwrap_or_else(|_| "127.0.0.1:8080".to_string());
+        let bind_addr =
+            std::env::var("PV_BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
         let data_dir = std::env::var("PV_DATA_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from("./pv_data"));

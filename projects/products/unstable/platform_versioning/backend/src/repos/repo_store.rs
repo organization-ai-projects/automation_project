@@ -40,9 +40,18 @@ impl RepoStore {
     }
 
     /// Creates a new repository.
-    pub fn create(&self, id: RepoId, name: String, description: Option<String>, now_secs: u64) -> Result<Repo, PvError> {
+    pub fn create(
+        &self,
+        id: RepoId,
+        name: String,
+        description: Option<String>,
+        now_secs: u64,
+    ) -> Result<Repo, PvError> {
         if self.exists(&id) {
-            return Err(PvError::Internal(format!("repository '{}' already exists", id)));
+            return Err(PvError::Internal(format!(
+                "repository '{}' already exists",
+                id
+            )));
         }
 
         let repo_dir = self.repo_dir(&id);
@@ -66,7 +75,11 @@ impl RepoStore {
         let objects = ObjectStore::open(&repo_dir)?;
         let refs = RefStore::open(&repo_dir)?;
 
-        let repo = Repo { metadata, objects, refs };
+        let repo = Repo {
+            metadata,
+            objects,
+            refs,
+        };
 
         if let Ok(mut cache) = self.cache.write() {
             cache.insert(id, repo.clone());
@@ -96,7 +109,11 @@ impl RepoStore {
         let objects = ObjectStore::open(&repo_dir)?;
         let refs = RefStore::open(&repo_dir)?;
 
-        let repo = Repo { metadata, objects, refs };
+        let repo = Repo {
+            metadata,
+            objects,
+            refs,
+        };
 
         if let Ok(mut cache) = self.cache.write() {
             cache.insert(id.clone(), repo.clone());
@@ -193,7 +210,9 @@ mod tests {
         let dir = unique_test_dir("create");
         let store = RepoStore::open(&dir).unwrap();
         let id: RepoId = "my-repo".parse().unwrap();
-        store.create(id.clone(), "My Repo".to_string(), None, 1000).unwrap();
+        store
+            .create(id.clone(), "My Repo".to_string(), None, 1000)
+            .unwrap();
         let repo = store.get(&id).unwrap();
         assert_eq!(repo.metadata.name, "My Repo");
     }
@@ -224,8 +243,12 @@ mod tests {
         let dir = unique_test_dir("update");
         let store = RepoStore::open(&dir).unwrap();
         let id: RepoId = "my-repo".parse().unwrap();
-        store.create(id.clone(), "Old Name".to_string(), None, 1).unwrap();
-        let updated = store.update_metadata(&id, Some("New Name".to_string()), None, 2).unwrap();
+        store
+            .create(id.clone(), "Old Name".to_string(), None, 1)
+            .unwrap();
+        let updated = store
+            .update_metadata(&id, Some("New Name".to_string()), None, 2)
+            .unwrap();
         assert_eq!(updated.name, "New Name");
     }
 }
