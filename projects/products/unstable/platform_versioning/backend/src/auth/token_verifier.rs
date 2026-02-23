@@ -63,11 +63,15 @@ impl TokenVerifier {
     }
 
     fn sign(&self, data: &[u8]) -> Vec<u8> {
-        use sha2::{Digest, Sha256};
-        let mut mac = Sha256::new();
-        mac.update(&self.secret);
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+
+        type HmacSha256 = Hmac<Sha256>;
+
+        let mut mac =
+            HmacSha256::new_from_slice(&self.secret).expect("HMAC key length is validated in TokenVerifier::new");
         mac.update(data);
-        mac.finalize().to_vec()
+        mac.finalize().into_bytes().to_vec()
     }
 }
 
