@@ -65,7 +65,8 @@ Action:
 Checks:
 
 - Ensure commit/PR body contains closure keywords:
-  - `Closes #...`, `Fixes #...`, `Resolves #...`
+  - `Closes #...`
+  - optional neutralization override: `Reopen #...` on the same issue
 - Confirm references are issue numbers (not PR numbers).
 - Re-run with trace:
   - `--debug`
