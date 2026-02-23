@@ -20,7 +20,7 @@ use crate::indexes::Index;
 use crate::merges::{Merge, MergeResult};
 use crate::objects::{Blob, HashDigest, Object, ObjectKind};
 use crate::pipeline::CommitBuilder;
-use crate::refs_store::{RefKind, RefTarget};
+use crate::refs_store::{HeadState, RefKind, RefTarget};
 use crate::repos::{RepoMetadata, RepoStore};
 use crate::sync::{FetchRequest, Negotiation, RefUpdatePolicy, UploadRequest};
 use crate::verify::Verification;
@@ -308,6 +308,68 @@ fn require_permission(
     Ok(claims)
 }
 
+fn stage_tree_into_index(
+    index: &mut Index,
+    store: &crate::objects::ObjectStore,
+    tree_id: &crate::ids::ObjectId,
+    prefix: &str,
+) -> Result<(), PvError> {
+    let tree = match store.read(tree_id)? {
+        Object::Tree(t) => t,
+        _ => {
+            return Err(PvError::CorruptObject(format!(
+                "object {tree_id} expected to be tree"
+            )));
+        }
+    };
+
+    for entry in tree.entries {
+        let path = if prefix.is_empty() {
+            entry.name.clone()
+        } else {
+            format!("{prefix}/{}", entry.name)
+        };
+        match entry.kind {
+            crate::objects::TreeEntryKind::Blob => {
+                let safe = path.parse()?;
+                let _ = index.add(safe, crate::ids::BlobId::from(entry.id));
+            }
+            crate::objects::TreeEntryKind::Tree => {
+                stage_tree_into_index(index, store, &entry.id, &path)?
+            }
+        }
+    }
+    Ok(())
+}
+
+fn seed_index_from_head(index: &mut Index, repo: &crate::repos::Repo) -> Result<(), PvError> {
+    let head = repo.refs.read_head()?;
+    let commit_id = match head {
+        HeadState::Branch(branch) | HeadState::Unborn(branch) => {
+            if let Ok(target) = repo.refs.read_ref(&branch) {
+                Some(target.commit_id().clone())
+            } else {
+                None
+            }
+        }
+        HeadState::Detached(raw) => raw.parse::<CommitId>().ok(),
+    };
+
+    if let Some(commit_id) = commit_id {
+        let commit = match repo.objects.read(commit_id.as_object_id())? {
+            Object::Commit(c) => c,
+            _ => {
+                return Err(PvError::CorruptObject(format!(
+                    "object {commit_id} is not a commit"
+                )));
+            }
+        };
+        stage_tree_into_index(index, &repo.objects, commit.tree_id.as_object_id(), "")?;
+    }
+
+    Ok(())
+}
+
 async fn list_repos(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -565,9 +627,10 @@ async fn create_commit(
     let out = (|| -> Result<crate::pipeline::CommitResult, PvError> {
         let repo = state.repo_store.get(&repo_id)?;
         let mut index = Index::new();
+        seed_index_from_head(&mut index, &repo)?;
 
         for file in req.files {
-            let path = file.path.parse()?;
+            let path: crate::indexes::SafePath = file.path.parse()?;
             let _ = index.remove(&path);
             let blob = Blob::from_bytes(file.content.into_bytes());
             let _ = index.add(path.clone(), blob.id.clone());
