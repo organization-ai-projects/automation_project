@@ -868,6 +868,16 @@ async fn upload(
         let repo = state.repo_store.get(&repo_id)?;
         let mut written = 0usize;
         for obj in req.objects {
+            if !obj.verify() {
+                let object_id = match &obj {
+                    Object::Blob(b) => b.id.as_object_id().to_string(),
+                    Object::Tree(t) => t.id.as_object_id().to_string(),
+                    Object::Commit(c) => c.id.as_object_id().to_string(),
+                };
+                return Err(PvError::CorruptObject(format!(
+                    "uploaded object {object_id} failed integrity verification"
+                )));
+            }
             if let Object::Blob(blob) = &obj {
                 let digest = HashDigest::compute(&blob.content);
                 if blob.id.as_object_id().to_bytes() != digest {
