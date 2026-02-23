@@ -30,6 +30,11 @@
     "description": "Maintenance tasks, cleanup, formatting, or non-functional changes"
   },
   {
+    "name": "critical-path",
+    "color": "B60205",
+    "description": "Issue is on the delivery critical path and blocks downstream execution"
+  },
+  {
     "name": "documentation",
     "color": "0075CA",
     "description": "Documentation updates, clarifications, examples, or guides"
