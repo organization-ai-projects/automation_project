@@ -6,7 +6,7 @@ set -euo pipefail
 # Types: feature, feat, fixture, fix, chore, refactor, doc, docs, test, tests
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 
 # shellcheck source=scripts/common_lib/core/logging.sh
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
