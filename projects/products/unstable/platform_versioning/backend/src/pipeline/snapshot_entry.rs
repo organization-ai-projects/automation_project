@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::BlobId;
-use crate::index::SafePath;
+use crate::indexes::SafePath;
 
 /// A single file entry in a [`super::Snapshot`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

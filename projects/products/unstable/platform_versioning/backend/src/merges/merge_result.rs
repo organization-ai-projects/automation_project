@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::CommitId;
-use crate::merge::Conflict;
+use crate::merges::Conflict;
 
 /// The outcome of a merge attempt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

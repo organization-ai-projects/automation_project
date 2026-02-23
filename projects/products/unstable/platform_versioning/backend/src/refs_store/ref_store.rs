@@ -97,18 +97,16 @@ impl RefStore {
     ) -> Result<(), PvError> {
         let path = self.ref_path(name);
 
-        if !force {
-            if let Ok(current) = self.read_ref(name) {
-                let current_id = current.commit_id();
-                let new_id = target.commit_id();
-                if let Some(store) = object_store {
-                    if !is_ancestor(current_id, new_id, store) {
-                        return Err(PvError::NonFastForward(format!(
-                            "update of '{}' is not a fast-forward",
-                            name
-                        )));
-                    }
-                }
+        if !force && let Ok(current) = self.read_ref(name) {
+            let current_id = current.commit_id();
+            let new_id = target.commit_id();
+            if let Some(store) = object_store
+                && !is_ancestor(current_id, new_id, store)
+            {
+                return Err(PvError::NonFastForward(format!(
+                    "update of '{}' is not a fast-forward",
+                    name
+                )));
             }
         }
 
@@ -142,10 +140,10 @@ impl RefStore {
                 let file_name = entry.file_name();
                 let short = file_name.to_string_lossy();
                 let full = format!("{prefix}/{short}");
-                if let Ok(name) = full.parse::<RefName>() {
-                    if let Ok(target) = self.read_ref(&name) {
-                        out.insert(name, target);
-                    }
+                if let Ok(name) = full.parse::<RefName>()
+                    && let Ok(target) = self.read_ref(&name)
+                {
+                    out.insert(name, target);
                 }
             }
         }
@@ -159,13 +157,13 @@ impl RefStore {
     fn read_json<T: for<'de> Deserialize<'de>>(&self, path: &Path) -> Result<T, PvError> {
         let bytes = fs::read(path)
             .map_err(|e| PvError::Internal(format!("read {}: {e}", path.display())))?;
-        serde_json::from_slice(&bytes)
+        common_json::from_slice(&bytes)
             .map_err(|e| PvError::Internal(format!("parse {}: {e}", path.display())))
     }
 
     fn write_json<T: Serialize>(&self, path: &Path, value: &T) -> Result<(), PvError> {
-        let bytes =
-            serde_json::to_vec(value).map_err(|e| PvError::Internal(format!("serialize: {e}")))?;
+        let bytes = common_json::to_bytes(value)
+            .map_err(|e| PvError::Internal(format!("serialize: {e}")))?;
 
         let pid = std::process::id();
         let nanos = std::time::SystemTime::now()

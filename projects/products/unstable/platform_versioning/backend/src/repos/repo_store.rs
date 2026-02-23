@@ -67,7 +67,7 @@ impl RepoStore {
         };
 
         let meta_path = repo_dir.join("metadata.json");
-        let meta_bytes = serde_json::to_vec(&metadata)
+        let meta_bytes = common_json::to_bytes(&metadata)
             .map_err(|e| PvError::Internal(format!("serialize metadata: {e}")))?;
         fs::write(&meta_path, &meta_bytes)
             .map_err(|e| PvError::AtomicWriteFailed(format!("write metadata: {e}")))?;
@@ -90,10 +90,10 @@ impl RepoStore {
 
     /// Reads a repository by id.
     pub fn get(&self, id: &RepoId) -> Result<Repo, PvError> {
-        if let Ok(cache) = self.cache.read() {
-            if let Some(repo) = cache.get(id) {
-                return Ok(repo.clone());
-            }
+        if let Ok(cache) = self.cache.read()
+            && let Some(repo) = cache.get(id)
+        {
+            return Ok(repo.clone());
         }
 
         let repo_dir = self.repo_dir(id);
@@ -103,7 +103,7 @@ impl RepoStore {
 
         let meta_bytes = fs::read(repo_dir.join("metadata.json"))
             .map_err(|e| PvError::Internal(format!("read metadata: {e}")))?;
-        let metadata: RepoMetadata = serde_json::from_slice(&meta_bytes)
+        let metadata: RepoMetadata = common_json::from_slice(&meta_bytes)
             .map_err(|e| PvError::Internal(format!("parse metadata: {e}")))?;
 
         let objects = ObjectStore::open(&repo_dir)?;
@@ -140,7 +140,7 @@ impl RepoStore {
         repo.metadata.updated_at = now_secs;
 
         let meta_path = self.repo_dir(id).join("metadata.json");
-        let meta_bytes = serde_json::to_vec(&repo.metadata)
+        let meta_bytes = common_json::to_bytes(&repo.metadata)
             .map_err(|e| PvError::Internal(format!("serialize metadata: {e}")))?;
         fs::write(&meta_path, &meta_bytes)
             .map_err(|e| PvError::AtomicWriteFailed(format!("write metadata: {e}")))?;
@@ -163,10 +163,10 @@ impl RepoStore {
             .map_err(|e| PvError::Internal(format!("read repos dir: {e}")))?
         {
             let entry = entry.map_err(|e| PvError::Internal(format!("dir entry: {e}")))?;
-            if let Ok(name) = entry.file_name().into_string() {
-                if let Ok(id) = name.parse::<RepoId>() {
-                    ids.push(id);
-                }
+            if let Ok(name) = entry.file_name().into_string()
+                && let Ok(id) = name.parse::<RepoId>()
+            {
+                ids.push(id);
             }
         }
         ids.sort();
@@ -175,12 +175,17 @@ impl RepoStore {
 
     /// Returns `true` if a repository with `id` exists.
     pub fn exists(&self, id: &RepoId) -> bool {
-        if let Ok(cache) = self.cache.read() {
-            if cache.contains_key(id) {
-                return true;
-            }
+        if let Ok(cache) = self.cache.read()
+            && cache.contains_key(id)
+        {
+            return true;
         }
         self.repo_dir(id).exists()
+    }
+
+    /// Returns the dedicated checkout root directory for a repository.
+    pub fn checkout_root(&self, id: &RepoId) -> PathBuf {
+        self.repo_dir(id).join("checkouts")
     }
 
     fn repo_dir(&self, id: &RepoId) -> PathBuf {

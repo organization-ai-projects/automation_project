@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::PvError;
 use crate::ids::{BlobId, TreeId};
-use crate::index::SafePath;
+use crate::indexes::SafePath;
 use crate::objects::{Object, ObjectStore, Tree, TreeEntry, TreeEntryKind};
 use crate::pipeline::SnapshotEntry;
 
 /// A flat, sorted snapshot of all files in a working tree at a point in time.
 ///
-/// A `Snapshot` is built from an [`crate::index::Index`] and can materialize
+/// A `Snapshot` is built from an [`crate::indexes::Index`] and can materialize
 /// the nested [`Tree`] objects required by the commit pipeline.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snapshot {
@@ -55,7 +55,7 @@ impl Snapshot {
                     prefix.push('/');
                 }
                 prefix.push_str(component);
-                dir_entries.entry(prefix.clone()).or_insert_with(Vec::new);
+                dir_entries.entry(prefix.clone()).or_default();
             }
 
             let tree_entry = TreeEntry {
@@ -65,7 +65,7 @@ impl Snapshot {
             };
             dir_entries
                 .entry(dir.to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(tree_entry);
         }
 
@@ -86,14 +86,14 @@ impl Snapshot {
                 format!("{}/", dir)
             };
             for (sub_path, sub_id) in &subtree_ids {
-                if let Some(rest) = sub_path.strip_prefix(&dir_prefix) {
-                    if !rest.contains('/') {
-                        entries.push(TreeEntry {
-                            name: rest.to_string(),
-                            kind: TreeEntryKind::Tree,
-                            id: sub_id.as_object_id().clone(),
-                        });
-                    }
+                if let Some(rest) = sub_path.strip_prefix(&dir_prefix)
+                    && !rest.contains('/')
+                {
+                    entries.push(TreeEntry {
+                        name: rest.to_string(),
+                        kind: TreeEntryKind::Tree,
+                        id: sub_id.as_object_id().clone(),
+                    });
                 }
             }
 

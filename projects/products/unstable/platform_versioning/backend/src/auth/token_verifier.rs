@@ -27,7 +27,7 @@ impl TokenVerifier {
 
     /// Issues a signed token encoding `claims`.
     pub fn issue(&self, claims: &TokenClaims) -> Result<AuthToken, PvError> {
-        let payload = serde_json::to_string(claims)
+        let payload = common_json::to_string(claims)
             .map_err(|e| PvError::Internal(format!("serialize claims: {e}")))?;
         let sig = self.sign(payload.as_bytes());
         let encoded = format!(
@@ -57,7 +57,7 @@ impl TokenVerifier {
             return Err(PvError::AuthRequired("invalid token signature".to_string()));
         }
 
-        let claims: TokenClaims = serde_json::from_slice(&payload_bytes)
+        let claims: TokenClaims = common_json::from_slice(&payload_bytes)
             .map_err(|e| PvError::AuthRequired(format!("parse claims: {e}")))?;
         Ok(claims)
     }

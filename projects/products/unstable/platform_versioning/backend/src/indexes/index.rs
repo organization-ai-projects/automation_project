@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::PvError;
 use crate::ids::BlobId;
-use crate::index::{IndexEntry, SafePath};
+use crate::indexes::{IndexEntry, SafePath};
 
 /// Current encoding format version for the index.
 const INDEX_FORMAT_VERSION: u8 = 1;

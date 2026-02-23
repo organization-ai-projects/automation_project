@@ -60,7 +60,7 @@ impl ObjectStore {
             return Ok(id);
         }
 
-        let encoded = serde_json::to_vec(&object)
+        let encoded = common_json::to_bytes(&object)
             .map_err(|e| PvError::Internal(format!("encode object: {e}")))?;
 
         self.atomic_write(&path, &encoded)?;
@@ -71,16 +71,16 @@ impl ObjectStore {
     /// Reads and validates the object with the given `id`.
     pub fn read(&self, id: &ObjectId) -> Result<Object, PvError> {
         // Check cache first.
-        if let Ok(cache) = self.cache.read() {
-            if let Some(obj) = cache.get(id) {
-                return Ok(obj.clone());
-            }
+        if let Ok(cache) = self.cache.read()
+            && let Some(obj) = cache.get(id)
+        {
+            return Ok(obj.clone());
         }
 
         let path = self.object_path(id);
         let bytes = fs::read(&path).map_err(|_| PvError::ObjectNotFound(id.to_string()))?;
 
-        let (object, _): (Object, _) = serde_json::from_slice(&bytes)
+        let (object, _): (Object, _) = common_json::from_slice(&bytes)
             .map(|o| (o, ()))
             .map_err(|e| PvError::CorruptObject(format!("decode {id}: {e}")))?;
 
@@ -96,10 +96,10 @@ impl ObjectStore {
 
     /// Returns `true` if an object with `id` exists in the store.
     pub fn exists(&self, id: &ObjectId) -> bool {
-        if let Ok(cache) = self.cache.read() {
-            if cache.contains_key(id) {
-                return true;
-            }
+        if let Ok(cache) = self.cache.read()
+            && cache.contains_key(id)
+        {
+            return true;
         }
         self.object_path(id).exists()
     }
