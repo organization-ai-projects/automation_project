@@ -143,12 +143,15 @@ Pure git operations (10 components):
 ### GitHub Components (`github/`)
 
 - `generate_pr_description.sh` - Generate merge PR description from PR/issue metadata
-- `create_direct_issue.sh` - Create direct (non-review) issues from contract
+- `create_direct_issue.sh` - Internal contract validator used by manager_issues create flow (direct usage deprecated)
+- `manager_issues.sh` - Unified issue lifecycle router (create/update/close/reopen)
 
 Issue creation modes:
 
 - Direct issue flow uses `.github/ISSUE_TEMPLATE/direct_issue.md` + default issue contract.
 - Review follow-up flow uses `.github/ISSUE_TEMPLATE/review_followup.md` + `review` label + review issue contract.
+- Managed issue flow uses `github/manager_issues.sh` and enforces default `issue` label on create unless explicitly disabled.
+- Direct calls to `github/create_direct_issue.sh` are deprecated for user workflows; use `github/manager_issues.sh create`.
 
 ### Hybrid Components (orchestrators/read)
 

@@ -23,6 +23,7 @@ declare -a USER_FACING_ROWS=(
   "pr_creation|scripts/versioning/file_versioning/orchestrators/read/create_pr.sh|Create PR with defaults"
   "pr_creation|scripts/versioning/file_versioning/github/generate_pr_description.sh|Generate/refresh PR body or create PR"
   "issue_creation|scripts/versioning/file_versioning/github/create_direct_issue.sh|Create direct issue from contract"
+  "issue_lifecycle|scripts/versioning/file_versioning/github/manager_issues.sh|Route create/update/close/reopen issue operations"
 )
 
 print_inventory() {

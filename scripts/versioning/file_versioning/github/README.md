@@ -21,6 +21,7 @@ github/
 ├── TOC.md
 ├── auto_link_parent_issue.sh
 ├── create_direct_issue.sh
+├── manager_issues.sh
 ├── generate_pr_description.sh
 ├── issue_done_in_dev_status.sh
 ├── neutralize_non_compliant_closure_refs.sh
@@ -39,7 +40,8 @@ github/
 - `TOC.md`: Documentation index for GitHub-only scripts.
 - `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
 - `auto_link_parent_issue.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
-- `create_direct_issue.sh`: Create direct GitHub issues using the canonical `.github/ISSUE_TEMPLATE/direct_issue.md` structure.
+- `create_direct_issue.sh`: Internal create contract script used by manager routing (direct usage deprecated).
+- `manager_issues.sh`: Unified issue lifecycle entrypoint for create/update/close/reopen operations.
 - `issue_done_in_dev_status.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
 - `neutralize_non_compliant_closure_refs.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
 - `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
@@ -48,6 +50,7 @@ github/
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 - `tests/issue_done_in_dev_status_regression.sh`: Regression checks for done-in-dev add/remove workflow behavior.
+- `tests/manager_issues_regression.sh`: Regression checks for manager_issues lifecycle routing behavior.
 
 ## Scope
 
@@ -61,6 +64,8 @@ Issue contract routing:
 
 - Default issues use `.github/issue_required_fields.conf` keys `ISSUE_*`.
 - Review follow-up issues (label `review`) use `ISSUE_REVIEW_*` keys from the same contract file.
+- Direct creation through `manager_issues.sh create` routes to `create_direct_issue.sh` and applies label `issue` by default.
+- User-facing create flow must use `manager_issues.sh create` (not direct invocation of `create_direct_issue.sh`).
 
 ## Scripts
 
