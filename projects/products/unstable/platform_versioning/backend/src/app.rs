@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::auth::TokenVerifier;
+use crate::auth::{AuditLog, AuthorizationService, TokenVerifier};
 use crate::errors::PvError;
 use crate::http::Server;
+use crate::issues::IssueStore;
 use crate::repos::RepoStore;
 
 /// Configuration for the platform-versioning backend server.
@@ -45,11 +46,15 @@ impl AppConfig {
 pub async fn run(config: AppConfig) -> Result<(), PvError> {
     let repo_store = Arc::new(RepoStore::open(&config.data_dir)?);
     let token_verifier = Arc::new(TokenVerifier::new(config.token_secret)?);
+    let audit_log = Arc::new(AuditLog::new());
+    let auth_svc = Arc::new(AuthorizationService::new(token_verifier, audit_log));
+    let issue_store = Arc::new(IssueStore::new());
 
     let server = Server::bind(
         &config.bind_addr,
         repo_store,
-        token_verifier,
+        auth_svc,
+        issue_store,
         config.bootstrap_secret,
     )
     .await?;

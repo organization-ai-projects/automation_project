@@ -1,12 +1,19 @@
 // projects/products/unstable/platform_versioning/ui/src/ui_app.rs
+use crate::admin_panel::AdminPanel;
 use crate::auth_view::AuthView;
 use crate::diff_display_entry::DiffDisplayEntry;
 use crate::diff_entry_kind::DiffEntryKind;
 use crate::diff_view::DiffView;
+use crate::issue_panel::IssuePanel;
+use crate::issue_summary::IssueSummary;
+use crate::permission_entry::PermissionEntry;
+use crate::permission_panel::PermissionPanel;
 use crate::ref_entry::RefEntry;
 use crate::repo_detail_view::RepoDetailView;
 use crate::repo_list_view::RepoListView;
 use crate::repo_summary::RepoSummary;
+use crate::role_view::RoleView;
+use crate::slice_panel::SlicePanel;
 use crate::tree_browser::TreeBrowser;
 use crate::tree_browser_entry::TreeBrowserEntry;
 
@@ -20,6 +27,7 @@ pub struct UiApp {
     repo_detail: RepoDetailView,
     tree_browser: TreeBrowser,
     diff_view: DiffView,
+    admin_panel: AdminPanel,
 }
 
 impl UiApp {
@@ -30,6 +38,7 @@ impl UiApp {
             repo_detail: RepoDetailView::default(),
             tree_browser: TreeBrowser::default(),
             diff_view: DiffView::default(),
+            admin_panel: AdminPanel::default(),
         }
     }
 
@@ -72,6 +81,29 @@ impl UiApp {
         // Refresh auth state once to exercise both paths in runtime flow.
         self.auth.logout();
         self.auth.login("session-token".to_string());
+
+        // Initialise admin governance panel for an admin session.
+        self.admin_panel = AdminPanel::for_role(RoleView::Admin);
+        self.admin_panel.permission_panel.load(
+            vec![PermissionEntry {
+                subject: "alice".to_string(),
+                repo_id: "sample-repo".to_string(),
+                permission: "read".to_string(),
+            }],
+            true,
+        );
+        self.admin_panel.issue_panel.load(
+            vec![IssueSummary {
+                id: "issue-1".to_string(),
+                title: "Implement feature X".to_string(),
+                repo_id: Some("sample-repo".to_string()),
+                assignee_count: 1,
+            }],
+            true,
+        );
+        self.admin_panel
+            .slice_panel
+            .load("issue-1".to_string(), vec!["src".to_string()], true);
     }
 }
 
@@ -86,6 +118,13 @@ pub fn run() -> anyhow::Result<()> {
         app.repo_list.repos.len(),
         app.repo_detail.refs.len(),
         app.diff_view.entries.len()
+    );
+    tracing::info!(
+        "Admin panel: role={}, {} permission entries, {} issues, {} slice paths",
+        app.admin_panel.role.label(),
+        app.admin_panel.permission_panel.entries.len(),
+        app.admin_panel.issue_panel.issues.len(),
+        app.admin_panel.slice_panel.allowed_paths.len(),
     );
     Ok(())
 }

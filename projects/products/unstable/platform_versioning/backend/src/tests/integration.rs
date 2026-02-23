@@ -147,6 +147,7 @@ fn auth_denied_without_token() {
         subject: "anonymous".to_string(),
         grants: vec![],
         expires_at: None,
+        path_grants: vec![],
     };
     let repo_id: RepoId = "secret-repo".parse().unwrap();
     assert!(!claims.has_permission(&repo_id, Permission::Read));
@@ -161,6 +162,7 @@ fn auth_denied_without_token() {
             permission: Permission::Read,
         }],
         expires_at: None,
+        path_grants: vec![],
     };
     let token = verifier.issue(&claims_with_read).unwrap();
     let decoded = verifier.verify(&token).unwrap();

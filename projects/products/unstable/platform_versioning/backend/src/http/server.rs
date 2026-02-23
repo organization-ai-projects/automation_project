@@ -3,8 +3,9 @@ use std::sync::Arc;
 use axum::Router;
 use tokio::net::TcpListener;
 
-use crate::auth::TokenVerifier;
+use crate::auth::AuthorizationService;
 use crate::errors::PvError;
+use crate::issues::IssueStore;
 use crate::repos::RepoStore;
 
 /// HTTP server for the platform-versioning backend.
@@ -20,14 +21,16 @@ impl Server {
     pub async fn bind(
         addr: &str,
         repo_store: Arc<RepoStore>,
-        token_verifier: Arc<TokenVerifier>,
+        auth_svc: Arc<AuthorizationService>,
+        issue_store: Arc<IssueStore>,
         bootstrap_secret: Option<String>,
     ) -> Result<Self, PvError> {
         let listener = TcpListener::bind(addr)
             .await
             .map_err(|e| PvError::Internal(format!("bind {addr}: {e}")))?;
 
-        let router = crate::routes::build_router(repo_store, token_verifier, bootstrap_secret);
+        let router =
+            crate::routes::build_router(repo_store, auth_svc, issue_store, bootstrap_secret);
 
         Ok(Self { listener, router })
     }

@@ -170,6 +170,7 @@ mod tests {
             subject: "alice".to_string(),
             grants: vec![],
             expires_at: None,
+            path_grants: vec![],
         }
     }
 
@@ -216,6 +217,7 @@ mod tests {
                 permission: Permission::Read,
             }],
             expires_at: None,
+            path_grants: vec![],
         };
         assert!(claims.has_permission(&repo_id, Permission::Read));
         assert!(!claims.has_permission(&repo_id, Permission::Write));
