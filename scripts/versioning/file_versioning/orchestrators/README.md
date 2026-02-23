@@ -25,7 +25,7 @@ orchestrators/
 └── read/                       # Non-interactive orchestrators (API layer)
     ├── synch_main_dev_ci.sh    # Automated dev/main sync (bot-only)
     ├── check_priority_issues.sh # List priority/security issues
-    └── create_pr.sh            # Create pull requests
+    └── create_pr.sh            # Internal PR helper (guarded)
 ```
 
 ## Files
@@ -78,7 +78,7 @@ We split orchestrators into two categories based on **how they're used**:
 
 - `synch_main_dev_ci.sh` - Sync dev with main (called by bot/CI only)
 - `check_priority_issues.sh` - List priority issues (called by `start_work.sh`)
-- `create_pr.sh` - Create PR with defaults (called by other scripts)
+- `create_pr.sh` - Internal PR helper, not a public entrypoint
 
 ## Technical Contract
 
