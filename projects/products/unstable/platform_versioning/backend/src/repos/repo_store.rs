@@ -183,6 +183,11 @@ impl RepoStore {
         self.repo_dir(id).exists()
     }
 
+    /// Returns the dedicated checkout root directory for a repository.
+    pub fn checkout_root(&self, id: &RepoId) -> PathBuf {
+        self.repo_dir(id).join("checkouts")
+    }
+
     fn repo_dir(&self, id: &RepoId) -> PathBuf {
         self.root.join("repos").join(id.as_str())
     }

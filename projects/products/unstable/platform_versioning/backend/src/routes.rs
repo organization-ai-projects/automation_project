@@ -211,6 +211,27 @@ fn error_response<T>(err: PvError) -> (StatusCode, Json<ResponseEnvelope<T>>) {
     (status, Json(ResponseEnvelope::err(ApiError::from(err))))
 }
 
+fn sanitize_checkout_subdir(input: &str) -> Result<PathBuf, PvError> {
+    let path = PathBuf::from(input);
+    let mut clean = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::Normal(part) => clean.push(part),
+            _ => {
+                return Err(PvError::UnsafePath(format!(
+                    "invalid checkout destination component in '{input}'"
+                )));
+            }
+        }
+    }
+    if clean.as_os_str().is_empty() {
+        return Err(PvError::UnsafePath(
+            "checkout destination must not be empty".to_string(),
+        ));
+    }
+    Ok(clean)
+}
+
 fn record_audit(
     state: &AppState,
     subject: String,
@@ -882,7 +903,7 @@ async fn checkout_commit(
         &state,
         &headers,
         Some(&repo_id),
-        Permission::Read,
+        Permission::Write,
         "checkout",
     ) {
         return error_response(err);
@@ -890,10 +911,13 @@ async fn checkout_commit(
 
     let out = (|| -> Result<Materialized, PvError> {
         let repo = state.repo_store.get(&repo_id)?;
-        let dest = req
-            .destination
-            .map(PathBuf::from)
-            .unwrap_or_else(|| std::env::temp_dir().join(format!("pv_checkout_{}", repo_id)));
+        let checkout_root = state.repo_store.checkout_root(&repo_id);
+        std::fs::create_dir_all(&checkout_root)
+            .map_err(|e| PvError::AtomicWriteFailed(format!("create checkout root: {e}")))?;
+        let dest = match req.destination {
+            Some(raw) => checkout_root.join(sanitize_checkout_subdir(&raw)?),
+            None => checkout_root.join(format!("run-{}", now_secs())),
+        };
         let policy = match req.policy.as_deref() {
             Some("clean") => CheckoutPolicy::clean(),
             Some("safe") => CheckoutPolicy::safe(),
