@@ -44,6 +44,11 @@ pub(super) fn is_safe_path(raw: &str) -> bool {
         return false;
     }
     for component in raw.split(['/', '\\']) {
+        // Reject ".." (traversal) and "." (current directory).
+        // Manifest paths are always stored in normalized form (e.g. "src/lib.rs"),
+        // so single-dot components are never legitimate and rejecting them prevents
+        // ambiguity-based bypasses where "src/./lib.rs" != "src/lib.rs" in the
+        // HashSet membership check.
         if component == ".." || component == "." {
             return false;
         }
