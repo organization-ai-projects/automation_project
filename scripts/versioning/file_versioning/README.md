@@ -26,7 +26,7 @@ file_versioning/
 │   └── read/                   # Non-interactive components (API layer)
 │       ├── synch_main_dev_ci.sh  # Bot automation for dev sync
 │       ├── check_priority_issues.sh  # List priority issues
-│       └── create_pr.sh        # Create pull requests
+│       └── create_pr.sh        # Internal PR helper (guarded)
 ├── git/                        # Pure git operations (10 scripts)
 │   ├── create_branch.sh        # Create branches with validation
 │   ├── delete_branch.sh        # Delete branches
@@ -68,7 +68,7 @@ Complete workflows that users run directly:
 Specialized scripts called by execute scripts or bot automation:
 
 - `synch_main_dev_ci.sh` - Synchronize dev with main (bot automation only)
-- `create_pr.sh` - Create pull request
+- `create_pr.sh` - Internal PR helper (direct invocation blocked)
 - `check_priority_issues.sh` - List high priority/security issues
 
 **Usage:** Called internally by orchestrators (not meant to be run directly)
@@ -157,7 +157,7 @@ Issue creation modes:
 
 - `check_priority_issues.sh` - List high priority/security issues
 - `synch_main_dev_ci.sh` - Synchronize main→dev via automated PR (bot-only, called by GitHub Actions)
-- `create_pr.sh` - Create pull requests with auto-generated content
+- `create_pr.sh` - Internal helper used by canonical PR flow
 
 ## Branch Naming Conventions
 
