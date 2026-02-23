@@ -67,26 +67,39 @@ impl PrMetadata {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn render_body_keeps_closure_keyword_when_issue_is_compliant() {
+        let _guard = ENV_LOCK.lock().expect("env lock poisoned");
         let mut metadata = PrMetadata::new("title", "body");
         metadata.issue_compliance = IssueComplianceStatus::Compliant;
         metadata.close_issue(IssueNumber::new(42).expect("valid issue number"));
 
+        // SAFETY: test controls process env while holding ENV_LOCK.
+        unsafe { std::env::set_var("AUTONOMOUS_CLOSURE_KEYWORD", "Closes") };
         let rendered = metadata.render_body();
+        // SAFETY: cleanup after test while holding ENV_LOCK.
+        unsafe { std::env::remove_var("AUTONOMOUS_CLOSURE_KEYWORD") };
         assert!(rendered.contains("Closes #42"), "rendered body: {rendered}");
     }
 
     #[test]
     fn render_body_neutralizes_closure_when_issue_non_compliant() {
+        let _guard = ENV_LOCK.lock().expect("env lock poisoned");
         let mut metadata = PrMetadata::new("title", "body");
         metadata.issue_compliance = IssueComplianceStatus::NonCompliant {
             reason: "missing Parent".to_string(),
         };
         metadata.close_issue(IssueNumber::new(51).expect("valid issue number"));
 
+        // SAFETY: test controls process env while holding ENV_LOCK.
+        unsafe { std::env::set_var("AUTONOMOUS_CLOSURE_KEYWORD", "Closes") };
         let rendered = metadata.render_body();
+        // SAFETY: cleanup after test while holding ENV_LOCK.
+        unsafe { std::env::remove_var("AUTONOMOUS_CLOSURE_KEYWORD") };
         assert!(
             rendered.contains("Closes Rejected #51"),
             "rendered body: {rendered}"
@@ -95,6 +108,7 @@ mod tests {
 
     #[test]
     fn render_body_preserves_custom_keyword_while_neutralizing() {
+        let _guard = ENV_LOCK.lock().expect("env lock poisoned");
         let mut metadata = PrMetadata::new("title", "body");
         metadata.issue_compliance = IssueComplianceStatus::NonCompliant {
             reason: "missing Parent".to_string(),

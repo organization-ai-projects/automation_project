@@ -130,7 +130,7 @@ issue_non_compliance_reason() {
 
   title="$(echo "$issue_json" | jq -r '.title // ""')"
   body="$(echo "$issue_json" | jq -r '.body // ""')"
-  validations="$(issue_validate_content "$title" "$body" || true)"
+  validations="$(issue_validate_content "$title" "$body" "$labels" || true)"
   if [[ -z "$validations" ]]; then
     echo ""
     return

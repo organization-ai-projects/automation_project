@@ -560,7 +560,7 @@ issue_non_compliance_reason_for() {
 
   title="$(echo "$issue_json" | jq -r '.title // ""')"
   body="$(echo "$issue_json" | jq -r '.body // ""')"
-  validations="$(issue_validate_content "$title" "$body" || true)"
+  validations="$(issue_validate_content "$title" "$body" "$labels_raw" || true)"
   if [[ -z "$validations" ]]; then
     issue_non_compliance_reason_cache["$issue_key"]=""
     echo ""

@@ -169,7 +169,7 @@ set_success_state() {
   github_issue_upsert_marker_comment "$REPO_NAME" "$ISSUE_NUMBER" "$MARKER" "$body"
 }
 
-issue_json="$(gh issue view "$ISSUE_NUMBER" -R "$REPO_NAME" --json number,title,body,state,url 2>/dev/null || true)"
+issue_json="$(gh issue view "$ISSUE_NUMBER" -R "$REPO_NAME" --json number,title,body,state,url,labels 2>/dev/null || true)"
 if [[ -z "$issue_json" ]]; then
   echo "Erreur: impossible de lire l'issue #${ISSUE_NUMBER}." >&2
   exit 4
@@ -177,8 +177,9 @@ fi
 
 issue_title="$(echo "$issue_json" | jq -r '.title // ""')"
 issue_body="$(echo "$issue_json" | jq -r '.body // ""')"
+issue_labels_raw="$(echo "$issue_json" | jq -r '.labels | map(.name) | join("||")')"
 
-contract_errors="$(issue_validate_content "$issue_title" "$issue_body" || true)"
+contract_errors="$(issue_validate_content "$issue_title" "$issue_body" "$issue_labels_raw" || true)"
 if [[ -n "$contract_errors" ]]; then
   summary_lines=""
   while IFS='|' read -r kind field message; do
