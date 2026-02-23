@@ -192,6 +192,12 @@ evaluate_parent_issue() {
     "$comment_body" \
     "true"
 
+  if [[ "$open_count" -eq 0 && "$parent_state" == "OPEN" ]]; then
+    gh issue close "$parent_number" -R "$REPO_NAME" \
+      --comment "All required child issues are closed. Auto-closed by parent-issue-guard." >/dev/null
+    echo "Closed parent issue #${parent_number} because all required children are closed."
+  fi
+
   if [[ "$strict_guard" == "true" && "$parent_state" == "CLOSED" && "$open_count" -gt 0 ]]; then
     gh issue reopen "$parent_number" -R "$REPO_NAME" >/dev/null
     echo "Reopened parent issue #${parent_number} due to open required children."
