@@ -19,7 +19,7 @@ use crate::refs_store::RefStore;
 ///
 /// # Binary handling policy
 /// Binary files that differ between ours and theirs are always reported as
-/// [`ConflictKind::BinaryConflict`] — they are never auto-merged.
+/// [`ConflictKind::Binary`] — they are never auto-merged.
 pub struct Merge;
 
 impl Merge {
@@ -86,7 +86,7 @@ impl Merge {
                         // Theirs modified it while ours deleted → conflict.
                         conflicts.push(Conflict {
                             path,
-                            kind: ConflictKind::DeleteModifyConflict,
+                            kind: ConflictKind::DeleteModify,
                             base_blob,
                             ours_blob: None,
                             theirs_blob: Some(t.clone()),
@@ -102,7 +102,7 @@ impl Merge {
                         // Ours modified it while theirs deleted → conflict.
                         conflicts.push(Conflict {
                             path,
-                            kind: ConflictKind::DeleteModifyConflict,
+                            kind: ConflictKind::DeleteModify,
                             base_blob,
                             ours_blob: Some(o.clone()),
                             theirs_blob: None,
@@ -133,11 +133,11 @@ impl Merge {
                             let conflict_kind = if our_class == ContentClass::Binary
                                 || their_class == ContentClass::Binary
                             {
-                                ConflictKind::BinaryConflict
+                                ConflictKind::Binary
                             } else if base.is_none() {
-                                ConflictKind::AddAddConflict
+                                ConflictKind::AddAdd
                             } else {
-                                ConflictKind::ContentConflict
+                                ConflictKind::Content
                             };
                             conflicts.push(Conflict {
                                 path,
@@ -443,11 +443,7 @@ mod tests {
 
         let result = Merge::perform(&ours, &theirs, "merger", "merge", 4, &obj, &refs).unwrap();
         if let MergeResult::Conflicted { conflicts } = result {
-            assert!(
-                conflicts
-                    .iter()
-                    .any(|c| c.kind == ConflictKind::BinaryConflict)
-            );
+            assert!(conflicts.iter().any(|c| c.kind == ConflictKind::Binary));
         } else {
             panic!("expected conflict");
         }

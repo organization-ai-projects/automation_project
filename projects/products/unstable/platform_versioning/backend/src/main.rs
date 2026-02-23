@@ -2,6 +2,7 @@
 mod app;
 mod auth;
 mod checkout;
+mod clippy_usage;
 mod diff;
 mod errors;
 mod history;
@@ -22,6 +23,7 @@ mod tests;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    clippy_usage::touch_api_surface();
     tracing_subscriber::fmt::init();
     let config = app::AppConfig::from_env()?;
     app::run(config).await?;

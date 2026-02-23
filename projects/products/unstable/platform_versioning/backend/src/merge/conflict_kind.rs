@@ -6,11 +6,11 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ConflictKind {
     /// Both sides modified the same file with incompatible content.
-    ContentConflict,
+    Content,
     /// One side deleted the file while the other modified it.
-    DeleteModifyConflict,
+    DeleteModify,
     /// Both sides added a file at the same path with different content.
-    AddAddConflict,
+    AddAdd,
     /// A binary file has conflicting versions (cannot be auto-merged).
-    BinaryConflict,
+    Binary,
 }

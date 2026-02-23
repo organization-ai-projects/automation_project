@@ -71,10 +71,10 @@ impl ObjectStore {
     /// Reads and validates the object with the given `id`.
     pub fn read(&self, id: &ObjectId) -> Result<Object, PvError> {
         // Check cache first.
-        if let Ok(cache) = self.cache.read() {
-            if let Some(obj) = cache.get(id) {
-                return Ok(obj.clone());
-            }
+        if let Ok(cache) = self.cache.read()
+            && let Some(obj) = cache.get(id)
+        {
+            return Ok(obj.clone());
         }
 
         let path = self.object_path(id);
@@ -96,10 +96,10 @@ impl ObjectStore {
 
     /// Returns `true` if an object with `id` exists in the store.
     pub fn exists(&self, id: &ObjectId) -> bool {
-        if let Ok(cache) = self.cache.read() {
-            if cache.contains_key(id) {
-                return true;
-            }
+        if let Ok(cache) = self.cache.read()
+            && cache.contains_key(id)
+        {
+            return true;
         }
         self.object_path(id).exists()
     }
