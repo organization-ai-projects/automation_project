@@ -1,11 +1,11 @@
 // projects/products/unstable/platform_versioning/backend/src/merge/merge.rs
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::diff::ContentClass;
+use crate::diffs::ContentClass;
 use crate::errors::PvError;
 use crate::ids::{BlobId, CommitId, ObjectId};
-use crate::index::{Index, SafePath};
-use crate::merge::{Conflict, ConflictKind, MergeResult};
+use crate::indexes::{Index, SafePath};
+use crate::merges::{Conflict, ConflictKind, MergeResult};
 use crate::objects::{Object, ObjectStore, TreeEntryKind};
 use crate::pipeline::CommitBuilder;
 use crate::refs_store::RefStore;

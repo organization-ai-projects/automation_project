@@ -3,10 +3,10 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::diff::{ContentClass, DiffEntry, DiffKind};
+use crate::diffs::{ContentClass, DiffEntry, DiffKind};
 use crate::errors::PvError;
 use crate::ids::{BlobId, CommitId, ObjectId};
-use crate::index::SafePath;
+use crate::indexes::SafePath;
 use crate::objects::{Object, ObjectStore, TreeEntryKind};
 
 /// The diff between two revisions.
@@ -130,7 +130,7 @@ fn read_blob_class(blob_id: &BlobId, store: &ObjectStore) -> Result<ContentClass
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::index::Index;
+    use crate::indexes::Index;
     use crate::objects::Blob;
     use crate::pipeline::CommitBuilder;
     use crate::refs_store::RefStore;

@@ -4,10 +4,10 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-use crate::checkout::{CheckoutPolicy, Materialized};
+use crate::checkouts::{CheckoutPolicy, Materialized};
 use crate::errors::PvError;
 use crate::ids::{CommitId, ObjectId};
-use crate::index::SafePath;
+use crate::indexes::SafePath;
 use crate::objects::{Object, ObjectStore};
 
 /// Materializes a commit revision into a target directory.
@@ -199,7 +199,7 @@ fn atomic_write_file(path: &Path, data: &[u8]) -> Result<(), PvError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::index::Index;
+    use crate::indexes::Index;
     use crate::objects::Blob;
     use crate::pipeline::CommitBuilder;
     use crate::refs_store::RefStore;

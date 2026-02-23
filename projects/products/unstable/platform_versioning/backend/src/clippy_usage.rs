@@ -2,14 +2,14 @@ use crate::auth::{
     AuditEntry, AuditLog, AuditOutcome, AuthToken, Permission, PermissionGrant, TokenClaims,
     TokenVerifier,
 };
-use crate::checkout::{Checkout, CheckoutPolicy, Materialized};
-use crate::diff::{ContentClass, Diff, DiffEntry, DiffKind};
+use crate::checkouts::{Checkout, CheckoutPolicy, Materialized};
+use crate::diffs::{ContentClass, Diff, DiffEntry, DiffKind};
 use crate::errors::PvError;
 use crate::history::{HistoryEntry, HistoryPage, HistoryWalker};
 use crate::http::{ApiError, ApiVersion, RequestEnvelope, ResponseEnvelope};
 use crate::ids::{BlobId, CommitId, ObjectId, RefId, RepoId, TreeId};
-use crate::index::{Index, IndexEntry, SafePath};
-use crate::merge::{Conflict, ConflictKind, Merge, MergeResult};
+use crate::indexes::{Index, IndexEntry, SafePath};
+use crate::merges::{Conflict, ConflictKind, Merge, MergeResult};
 use crate::objects::{
     Blob, Commit, Object, ObjectKind, ObjectStore, Tree, TreeEntry, TreeEntryKind,
 };

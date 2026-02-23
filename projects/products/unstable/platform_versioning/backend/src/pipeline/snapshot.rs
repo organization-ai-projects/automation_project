@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::PvError;
 use crate::ids::{BlobId, TreeId};
-use crate::index::SafePath;
+use crate::indexes::SafePath;
 use crate::objects::{Object, ObjectStore, Tree, TreeEntry, TreeEntryKind};
 use crate::pipeline::SnapshotEntry;
 
 /// A flat, sorted snapshot of all files in a working tree at a point in time.
 ///
-/// A `Snapshot` is built from an [`crate::index::Index`] and can materialize
+/// A `Snapshot` is built from an [`crate::indexes::Index`] and can materialize
 /// the nested [`Tree`] objects required by the commit pipeline.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snapshot {

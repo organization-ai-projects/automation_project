@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 use crate::errors::PvError;
 use crate::ids::BlobId;
-use crate::index::{Index, SafePath};
+use crate::indexes::{Index, SafePath};
 use crate::objects::{Commit, Object, ObjectStore};
 use crate::pipeline::{CommitResult, Snapshot};
 use crate::refs_store::{HeadState, RefStore, RefTarget};

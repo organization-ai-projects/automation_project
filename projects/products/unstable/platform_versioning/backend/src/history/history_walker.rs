@@ -86,7 +86,7 @@ impl<'a> HistoryWalker<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::index::Index;
+    use crate::indexes::Index;
     use crate::objects::Blob;
     use crate::pipeline::CommitBuilder;
     use crate::refs_store::RefStore;

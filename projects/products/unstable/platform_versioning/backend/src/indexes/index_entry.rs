@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::BlobId;
-use crate::index::SafePath;
+use crate::indexes::SafePath;
 
 /// A single entry in the staging index.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

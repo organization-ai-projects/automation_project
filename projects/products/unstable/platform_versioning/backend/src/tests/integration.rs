@@ -5,12 +5,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::auth::audit_entry::AuditEntry;
 use crate::auth::{AuditOutcome, Permission, PermissionGrant, TokenClaims, TokenVerifier};
-use crate::checkout::{Checkout, CheckoutPolicy};
-use crate::diff::Diff;
+use crate::checkouts::{Checkout, CheckoutPolicy};
+use crate::diffs::Diff;
 use crate::history::HistoryWalker;
 use crate::ids::RepoId;
-use crate::index::Index;
-use crate::merge::{Merge, MergeResult};
+use crate::indexes::Index;
+use crate::merges::{Merge, MergeResult};
 use crate::objects::{Blob, Object, ObjectStore};
 use crate::pipeline::CommitBuilder;
 use crate::refs_store::RefStore;

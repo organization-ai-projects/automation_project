@@ -2,8 +2,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::BlobId;
-use crate::index::SafePath;
-use crate::merge::ConflictKind;
+use crate::indexes::SafePath;
+use crate::merges::ConflictKind;
 
 /// A single merge conflict for a specific file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

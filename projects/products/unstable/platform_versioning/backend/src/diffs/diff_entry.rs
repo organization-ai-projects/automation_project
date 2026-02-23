@@ -1,9 +1,9 @@
 // projects/products/unstable/platform_versioning/backend/src/diff/diff_entry.rs
 use serde::{Deserialize, Serialize};
 
-use crate::diff::{ContentClass, DiffKind};
+use crate::diffs::{ContentClass, DiffKind};
 use crate::ids::BlobId;
-use crate::index::SafePath;
+use crate::indexes::SafePath;
 
 /// A single file change in a [`super::Diff`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
