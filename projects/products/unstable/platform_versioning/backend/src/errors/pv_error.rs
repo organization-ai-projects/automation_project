@@ -115,7 +115,7 @@ mod tests {
 
     #[test]
     fn io_error_maps_to_internal_code() {
-        let io = std::io::Error::new(std::io::ErrorKind::Other, "disk full");
+        let io = std::io::Error::other("disk full");
         let err = PvError::from(io);
         assert_eq!(err.code(), ErrorCode::Internal);
         assert_eq!(err.category(), ErrorCategory::Io);

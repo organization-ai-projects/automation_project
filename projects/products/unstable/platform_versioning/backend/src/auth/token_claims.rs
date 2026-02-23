@@ -27,6 +27,6 @@ impl TokenClaims {
 
     /// Returns `true` if the token is not expired at the given Unix timestamp.
     pub fn is_valid_at(&self, now_secs: u64) -> bool {
-        self.expires_at.map_or(true, |exp| now_secs < exp)
+        self.expires_at.is_none_or(|exp| now_secs < exp)
     }
 }

@@ -69,10 +69,10 @@ impl CommitBuilder {
         // Resolve parent commits.
         let mut parent_ids = self.extra_parents;
         let head = ref_store.read_head()?;
-        if let HeadState::Branch(ref branch) = head {
-            if let Ok(target) = ref_store.read_ref(branch) {
-                parent_ids.insert(0, target.commit_id().clone());
-            }
+        if let HeadState::Branch(ref branch) = head
+            && let Ok(target) = ref_store.read_ref(branch)
+        {
+            parent_ids.insert(0, target.commit_id().clone());
         }
 
         // Create and store the commit.

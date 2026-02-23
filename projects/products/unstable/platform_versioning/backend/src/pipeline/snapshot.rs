@@ -55,7 +55,7 @@ impl Snapshot {
                     prefix.push('/');
                 }
                 prefix.push_str(component);
-                dir_entries.entry(prefix.clone()).or_insert_with(Vec::new);
+                dir_entries.entry(prefix.clone()).or_default();
             }
 
             let tree_entry = TreeEntry {
@@ -65,7 +65,7 @@ impl Snapshot {
             };
             dir_entries
                 .entry(dir.to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(tree_entry);
         }
 
@@ -86,14 +86,14 @@ impl Snapshot {
                 format!("{}/", dir)
             };
             for (sub_path, sub_id) in &subtree_ids {
-                if let Some(rest) = sub_path.strip_prefix(&dir_prefix) {
-                    if !rest.contains('/') {
-                        entries.push(TreeEntry {
-                            name: rest.to_string(),
-                            kind: TreeEntryKind::Tree,
-                            id: sub_id.as_object_id().clone(),
-                        });
-                    }
+                if let Some(rest) = sub_path.strip_prefix(&dir_prefix)
+                    && !rest.contains('/')
+                {
+                    entries.push(TreeEntry {
+                        name: rest.to_string(),
+                        kind: TreeEntryKind::Tree,
+                        id: sub_id.as_object_id().clone(),
+                    });
                 }
             }
 

@@ -51,21 +51,19 @@ impl Checkout {
         for (safe_path, blob_id) in &files {
             let file_dest = dest.join(safe_path.as_str());
 
-            if file_dest.exists() {
-                if !policy.overwrite {
-                    // Check if content differs.
-                    if let Ok(existing_bytes) = fs::read(&file_dest) {
-                        let blob_obj = object_store.read(blob_id)?;
-                        if let Object::Blob(blob) = blob_obj {
-                            if existing_bytes != blob.content {
-                                return Err(PvError::Internal(format!(
-                                    "conflict: {} exists and differs from revision",
-                                    safe_path
-                                )));
-                            }
-                            // Content identical — skip write.
-                            continue;
+            if file_dest.exists() && !policy.overwrite {
+                // Check if content differs.
+                if let Ok(existing_bytes) = fs::read(&file_dest) {
+                    let blob_obj = object_store.read(blob_id)?;
+                    if let Object::Blob(blob) = blob_obj {
+                        if existing_bytes != blob.content {
+                            return Err(PvError::Internal(format!(
+                                "conflict: {} exists and differs from revision",
+                                safe_path
+                            )));
                         }
+                        // Content identical — skip write.
+                        continue;
                     }
                 }
             }
@@ -85,7 +83,7 @@ impl Checkout {
                 if !staged_set.contains(path) {
                     let file_dest = dest.join(path.as_str());
                     if file_dest.exists() {
-                        fs::remove_file(&file_dest).map_err(|e| PvError::Io(e))?;
+                        fs::remove_file(&file_dest).map_err(PvError::Io)?;
                         files_deleted += 1;
                     }
                 }
@@ -153,12 +151,11 @@ fn collect_recursive(base: &Path, current: &Path, out: &mut Vec<SafePath>) {
             let path = entry.path();
             if path.is_dir() {
                 collect_recursive(base, &path, out);
-            } else if let Ok(rel) = path.strip_prefix(base) {
-                if let Some(s) = rel.to_str() {
-                    if let Ok(safe) = s.replace('\\', "/").parse::<SafePath>() {
-                        out.push(safe);
-                    }
-                }
+            } else if let Ok(rel) = path.strip_prefix(base)
+                && let Some(s) = rel.to_str()
+                && let Ok(safe) = s.replace('\\', "/").parse::<SafePath>()
+            {
+                out.push(safe);
             }
         }
     }

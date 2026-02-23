@@ -90,10 +90,10 @@ impl RepoStore {
 
     /// Reads a repository by id.
     pub fn get(&self, id: &RepoId) -> Result<Repo, PvError> {
-        if let Ok(cache) = self.cache.read() {
-            if let Some(repo) = cache.get(id) {
-                return Ok(repo.clone());
-            }
+        if let Ok(cache) = self.cache.read()
+            && let Some(repo) = cache.get(id)
+        {
+            return Ok(repo.clone());
         }
 
         let repo_dir = self.repo_dir(id);
@@ -163,10 +163,10 @@ impl RepoStore {
             .map_err(|e| PvError::Internal(format!("read repos dir: {e}")))?
         {
             let entry = entry.map_err(|e| PvError::Internal(format!("dir entry: {e}")))?;
-            if let Ok(name) = entry.file_name().into_string() {
-                if let Ok(id) = name.parse::<RepoId>() {
-                    ids.push(id);
-                }
+            if let Ok(name) = entry.file_name().into_string()
+                && let Ok(id) = name.parse::<RepoId>()
+            {
+                ids.push(id);
             }
         }
         ids.sort();
@@ -175,10 +175,10 @@ impl RepoStore {
 
     /// Returns `true` if a repository with `id` exists.
     pub fn exists(&self, id: &RepoId) -> bool {
-        if let Ok(cache) = self.cache.read() {
-            if cache.contains_key(id) {
-                return true;
-            }
+        if let Ok(cache) = self.cache.read()
+            && cache.contains_key(id)
+        {
+            return true;
         }
         self.repo_dir(id).exists()
     }

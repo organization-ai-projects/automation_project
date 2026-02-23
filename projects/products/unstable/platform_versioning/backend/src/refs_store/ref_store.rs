@@ -97,18 +97,16 @@ impl RefStore {
     ) -> Result<(), PvError> {
         let path = self.ref_path(name);
 
-        if !force {
-            if let Ok(current) = self.read_ref(name) {
-                let current_id = current.commit_id();
-                let new_id = target.commit_id();
-                if let Some(store) = object_store {
-                    if !is_ancestor(current_id, new_id, store) {
-                        return Err(PvError::NonFastForward(format!(
-                            "update of '{}' is not a fast-forward",
-                            name
-                        )));
-                    }
-                }
+        if !force && let Ok(current) = self.read_ref(name) {
+            let current_id = current.commit_id();
+            let new_id = target.commit_id();
+            if let Some(store) = object_store
+                && !is_ancestor(current_id, new_id, store)
+            {
+                return Err(PvError::NonFastForward(format!(
+                    "update of '{}' is not a fast-forward",
+                    name
+                )));
             }
         }
 
@@ -142,10 +140,10 @@ impl RefStore {
                 let file_name = entry.file_name();
                 let short = file_name.to_string_lossy();
                 let full = format!("{prefix}/{short}");
-                if let Ok(name) = full.parse::<RefName>() {
-                    if let Ok(target) = self.read_ref(&name) {
-                        out.insert(name, target);
-                    }
+                if let Ok(name) = full.parse::<RefName>()
+                    && let Ok(target) = self.read_ref(&name)
+                {
+                    out.insert(name, target);
                 }
             }
         }
