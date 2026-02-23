@@ -67,7 +67,7 @@ impl RepoStore {
         };
 
         let meta_path = repo_dir.join("metadata.json");
-        let meta_bytes = serde_json::to_vec(&metadata)
+        let meta_bytes = common_json::to_bytes(&metadata)
             .map_err(|e| PvError::Internal(format!("serialize metadata: {e}")))?;
         fs::write(&meta_path, &meta_bytes)
             .map_err(|e| PvError::AtomicWriteFailed(format!("write metadata: {e}")))?;
@@ -103,7 +103,7 @@ impl RepoStore {
 
         let meta_bytes = fs::read(repo_dir.join("metadata.json"))
             .map_err(|e| PvError::Internal(format!("read metadata: {e}")))?;
-        let metadata: RepoMetadata = serde_json::from_slice(&meta_bytes)
+        let metadata: RepoMetadata = common_json::from_slice(&meta_bytes)
             .map_err(|e| PvError::Internal(format!("parse metadata: {e}")))?;
 
         let objects = ObjectStore::open(&repo_dir)?;
@@ -140,7 +140,7 @@ impl RepoStore {
         repo.metadata.updated_at = now_secs;
 
         let meta_path = self.repo_dir(id).join("metadata.json");
-        let meta_bytes = serde_json::to_vec(&repo.metadata)
+        let meta_bytes = common_json::to_bytes(&repo.metadata)
             .map_err(|e| PvError::Internal(format!("serialize metadata: {e}")))?;
         fs::write(&meta_path, &meta_bytes)
             .map_err(|e| PvError::AtomicWriteFailed(format!("write metadata: {e}")))?;

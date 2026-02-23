@@ -60,7 +60,7 @@ impl ObjectStore {
             return Ok(id);
         }
 
-        let encoded = serde_json::to_vec(&object)
+        let encoded = common_json::to_bytes(&object)
             .map_err(|e| PvError::Internal(format!("encode object: {e}")))?;
 
         self.atomic_write(&path, &encoded)?;
@@ -80,7 +80,7 @@ impl ObjectStore {
         let path = self.object_path(id);
         let bytes = fs::read(&path).map_err(|_| PvError::ObjectNotFound(id.to_string()))?;
 
-        let (object, _): (Object, _) = serde_json::from_slice(&bytes)
+        let (object, _): (Object, _) = common_json::from_slice(&bytes)
             .map(|o| (o, ()))
             .map_err(|e| PvError::CorruptObject(format!("decode {id}: {e}")))?;
 

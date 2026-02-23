@@ -159,13 +159,13 @@ impl RefStore {
     fn read_json<T: for<'de> Deserialize<'de>>(&self, path: &Path) -> Result<T, PvError> {
         let bytes = fs::read(path)
             .map_err(|e| PvError::Internal(format!("read {}: {e}", path.display())))?;
-        serde_json::from_slice(&bytes)
+        common_json::from_slice(&bytes)
             .map_err(|e| PvError::Internal(format!("parse {}: {e}", path.display())))
     }
 
     fn write_json<T: Serialize>(&self, path: &Path, value: &T) -> Result<(), PvError> {
-        let bytes =
-            serde_json::to_vec(value).map_err(|e| PvError::Internal(format!("serialize: {e}")))?;
+        let bytes = common_json::to_bytes(value)
+            .map_err(|e| PvError::Internal(format!("serialize: {e}")))?;
 
         let pid = std::process::id();
         let nanos = std::time::SystemTime::now()
