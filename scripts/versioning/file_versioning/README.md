@@ -146,6 +146,7 @@ Pure git operations (10 components):
 - `create_direct_issue.sh` - Create direct (non-review) issues from contract
 
 Issue creation modes:
+
 - Direct issue flow uses `.github/ISSUE_TEMPLATE/direct_issue.md` + default issue contract.
 - Review follow-up flow uses `.github/ISSUE_TEMPLATE/review_followup.md` + `review` label + review issue contract.
 
