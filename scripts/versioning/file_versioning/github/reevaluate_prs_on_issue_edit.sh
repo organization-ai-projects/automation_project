@@ -11,7 +11,7 @@ Usage:
 
 Notes:
   - Finds all open PRs referencing the given issue number via closing keywords
-    (Closes/Fixes/Resolves #N).
+    (Closes #N).
   - Re-evaluates closure neutralization for each such PR.
   - Useful when an issue is edited and may now satisfy (or violate) compliance.
 USAGE
@@ -83,7 +83,7 @@ pr_numbers="$(
       select(
         .body != null and (
           .body | test(
-            "(?i)\\b(closes?|fixes?|resolves?)\\s+(rejected\\s+)?[^\\s]*#" + ($issue | tostring) + "\\b"
+            "(?i)\\b(closes?)\\s+(rejected\\s+)?[^\\s]*#" + ($issue | tostring) + "\\b"
           )
         )
       ) |

@@ -236,45 +236,8 @@ issue_category_from_labels() {
 }
 
 normalize_issue_action() {
-  local action="$1"
-  local category="$2"
-  local lower
-
-  lower="$(echo "$action" | tr '[:upper:]' '[:lower:]')"
-
-  # Keep closure semantics explicit.
-  if [[ "$category" == "Security" ]]; then
-    echo "Closes"
-    return
-  fi
-
-  if [[ "$category" == "Bug Fixes" ]]; then
-    echo "Fixes"
-    return
-  fi
-
-  if [[ "$category" == "Mixed" ]]; then
-    echo "Closes"
-    return
-  fi
-
-  if [[ "$category" == "Automation" || "$category" == "Testing" || "$category" == "Docs" ]]; then
-    echo "Closes"
-    return
-  fi
-
-  if [[ "$category" == "Unknown" ]]; then
-    # Keep original keyword when classification is unknown.
-    if [[ "$lower" =~ ^fix ]]; then
-      echo "Fixes"
-    elif [[ "$lower" =~ ^resolve ]]; then
-      echo "Resolves"
-    else
-      echo "Closes"
-    fi
-    return
-  fi
-
-  # Default verb for Features/Refactoring is "Closes".
+  local _action="$1"
+  local _category="$2"
+  # Footer/PR policy standardization: use a single closing verb.
   echo "Closes"
 }

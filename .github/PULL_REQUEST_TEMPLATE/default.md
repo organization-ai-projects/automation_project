@@ -46,7 +46,7 @@ This PR resolves the following issues:
 - [ ] Scope validated (affected crate/product)
 - [ ] Tests executed, or explicit reason provided for not running
 - [ ] Breaking changes identified (if applicable)
-- [ ] Correct references used (`Fixes` / `Closes` / `Related to`)
+- [ ] Correct references used (`Part of` / `Closes`, and `Reopen` when needed)
 
 ### Additional Notes
 

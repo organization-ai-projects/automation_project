@@ -50,7 +50,7 @@ if [[ "$args" == pr\ view* && "$args" == *"--json body"* ]]; then
 fi
 
 if [[ "$args" == api\ repos/*/pulls/*/commits* ]]; then
-  printf "%s\n" "${MOCK_PR_COMMITS:-feat: update\n\nFixes #102}"
+  printf "%s\n" "${MOCK_PR_COMMITS:-feat: update\n\nCloses #102}"
   exit 0
 fi
 

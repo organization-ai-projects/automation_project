@@ -11,18 +11,15 @@ Conserver un suivi d'issues deterministe et eviter les comportements de fermetur
 ## Mots-cles de footer
 
 - `Closes #<issue>` : utiliser quand le changement ferme completement une issue.
-- `Fixes #<issue>` : utiliser pour des corrections de bug qui resolvent un comportement incorrect.
-- `Resolves #<issue>` : utiliser quand ce n'est pas strictement un bug fix mais que l'issue est entierement traitee.
-- `Related to #<issue>` : utiliser pour un contexte lie sans fermeture.
 - `Part of #<issue>` : utiliser quand un commit contribue a une issue plus large sans la fermer.
+- `Reopen #<issue>` : utiliser pour bloquer explicitement la fermeture quand une issue a ete fermee trop tot.
 
 ## Regles
 
 - Utiliser au maximum un mot-cle de fermeture par issue referencee dans le meme commit.
 - Ne pas melanger mot-cle de fermeture et non-fermeture pour la meme issue dans un commit.
-- Preferer `Closes` pour les issues documentation/gouvernance/process.
-- Preferer `Fixes` pour les defects confirmes.
-- Utiliser `Related to` ou `Part of` quand le travail est partiel.
+- Utiliser `Part of` quand le travail est partiel.
+- Utiliser `Reopen` avec la meme issue pour neutraliser explicitement une fermeture.
 
 ## Exemples
 
@@ -30,14 +27,14 @@ Conserver un suivi d'issues deterministe et eviter les comportements de fermetur
 docs(governance): define branch naming convention
 
 Closes #417
-Related to #410
+Part of #410
 ```
 
 ```text
-fix(scripts/versioning/file_versioning/github): avoid false positive breaking detection
+fix(scripts/versioning/file_versioning/github): avoid premature close on out-of-sync issue state
 
-Fixes #389
-Part of #403
+Part of #389
+Reopen #389
 ```
 
 ## Source de verite

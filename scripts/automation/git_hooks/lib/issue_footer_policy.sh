@@ -10,14 +10,14 @@ extract_trailer_issue_refs_from_file() {
 validate_and_normalize_issue_refs_footer_in_file() {
   local commit_msg_file="$1"
   local commit_subject="$2"
-  local issue_ref_re='(^|[[:space:]])(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#[0-9]+([[:space:]]|$)'
-  local trailer_line_re='^[[:space:]]*(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#[0-9]+[[:space:]]*$'
+  local issue_ref_re='(^|[[:space:]])(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+([[:space:]]|$)'
+  local trailer_line_re='^[[:space:]]*(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+[[:space:]]*$'
   local subject_lower
   subject_lower="$(printf '%s' "$commit_subject" | tr '[:upper:]' '[:lower:]')"
 
   if [[ "$subject_lower" =~ $issue_ref_re ]]; then
     echo "❌ Issue references must be in commit footer, not in subject." >&2
-    echo "   Move 'Closes/Fixes/Resolves/Part of/Related to #...' to footer lines." >&2
+    echo "   Move 'Closes/Part of/Reopen #...' to footer lines." >&2
     return 1
   fi
 
@@ -34,16 +34,14 @@ validate_and_normalize_issue_refs_footer_in_file() {
     normalized="$(echo "$line" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
     normalized_lower="$(printf '%s' "$normalized" | tr '[:upper:]' '[:lower:]')"
     if [[ "$normalized_lower" =~ $trailer_line_re ]]; then
-      if [[ "$normalized_lower" =~ ^(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#([0-9]+)$ ]]; then
+      if [[ "$normalized_lower" =~ ^(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#([0-9]+)$ ]]; then
         keyword="$(printf '%s' "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
         issue_number="${BASH_REMATCH[2]}"
 
         case "$keyword" in
           closes) canonical="Closes #${issue_number}" ;;
-          fixes) canonical="Fixes #${issue_number}" ;;
-          resolves) canonical="Resolves #${issue_number}" ;;
           "part of") canonical="Part of #${issue_number}" ;;
-          "related to") canonical="Related to #${issue_number}" ;;
+          reopen|reopens) canonical="Reopen #${issue_number}" ;;
           *) canonical="$normalized" ;;
         esac
 
@@ -122,7 +120,7 @@ validate_no_root_parent_refs_in_footer_file() {
   if [[ ${#root_parent_refs[@]} -gt 0 ]]; then
     echo "❌ Invalid issue footer usage in commit message." >&2
     echo "   Root parent issue references are not allowed in commit trailers: ${root_parent_refs[*]}" >&2
-    echo "   Use issue refs on child issues only (Part of/Closes/Fixes/Resolves #<child-issue>)." >&2
+    echo "   Use issue refs on child issues only (Part of/Closes/Reopen #<child-issue>)." >&2
     echo "   Parent closure should be handled by child completion workflow, not direct commit trailers." >&2
     echo "   Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
     return 1

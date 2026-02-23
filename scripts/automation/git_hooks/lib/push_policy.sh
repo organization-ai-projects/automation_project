@@ -47,7 +47,7 @@ push_policy_validate_no_root_parent_issue_refs() {
   if [[ ${#parent_refs[@]} -gt 0 ]]; then
     echo "❌ Root parent issue references detected in commits being pushed:"
     printf '   - %s\n' "${parent_refs[@]}"
-    echo "   Root parent refs are forbidden in commit trailers (Part of/Related to/Closes/Fixes/Resolves)."
+    echo "   Root parent refs are forbidden in commit trailers (Part of/Closes/Reopen)."
     echo "   Reference child issues instead."
     return 1
   fi
@@ -65,16 +65,16 @@ push_policy_validate_part_of_only_push() {
 
   while IFS='|' read -r action _; do
     [[ -z "$action" ]] && continue
-    if [[ "$action" == "closes" || "$action" == "fixes" || "$action" == "resolves" ]]; then
+    if [[ "$action" == "closes" ]]; then
       has_closing=1
     fi
-    if [[ "$action" == "part of" || "$action" == "related to" ]]; then
+    if [[ "$action" == "part of" ]]; then
       has_tracking=1
     fi
   done <<< "$refs"
 
   if [[ $has_tracking -eq 1 && $has_closing -eq 0 && "${ALLOW_PART_OF_ONLY_PUSH:-}" != "1" ]]; then
-    echo "❌ Push blocked: commit range contains tracking refs (Part of/Related to) without any closing ref."
+    echo "❌ Push blocked: commit range contains tracking refs (Part of) without any closing ref."
     echo "   This usually indicates incomplete issue lifecycle updates."
     echo "   Fix by adding proper child issue closures when done, or confirm exceptional push with:"
     echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
