@@ -1045,16 +1045,16 @@ async fn list_issues(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> (StatusCode, Json<ResponseEnvelope<Vec<Issue>>>) {
-    let claims = match require_permission(&state, &headers, None, Permission::Read, "issue.list") {
+    let claims = match state.auth_svc.authenticate(&headers, "issue.list") {
         Ok(c) => c,
         Err(err) => return error_response(err),
     };
 
-    let is_admin = if let Ok(global) = "global".parse::<RepoId>() {
-        claims.has_permission(&global, Permission::Admin)
-    } else {
-        false
-    };
+    // Admin is determined by having Admin permission on the global scope.
+    let is_admin = "global"
+        .parse::<RepoId>()
+        .map(|g| claims.has_permission(&g, Permission::Admin))
+        .unwrap_or(false);
     let visibility = IssueVisibility::for_role(is_admin);
 
     match state.issue_store.list(&claims.subject, visibility) {
@@ -1068,7 +1068,7 @@ async fn get_issue(
     headers: HeaderMap,
     Path(issue_id_raw): Path<String>,
 ) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
-    let claims = match require_permission(&state, &headers, None, Permission::Read, "issue.get") {
+    let claims = match state.auth_svc.authenticate(&headers, "issue.get") {
         Ok(c) => c,
         Err(err) => return error_response(err),
     };
@@ -1180,11 +1180,10 @@ async fn get_slice_manifest(
     headers: HeaderMap,
     Path(issue_id_raw): Path<String>,
 ) -> (StatusCode, Json<ResponseEnvelope<SliceManifest>>) {
-    let claims =
-        match require_permission(&state, &headers, None, Permission::Read, "slice.get") {
-            Ok(c) => c,
-            Err(err) => return error_response(err),
-        };
+    let claims = match state.auth_svc.authenticate(&headers, "slice.get") {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
 
     let out = (|| -> Result<SliceManifest, PvError> {
         let id: IssueId = issue_id_raw

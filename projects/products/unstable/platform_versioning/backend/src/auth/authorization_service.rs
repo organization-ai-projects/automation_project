@@ -149,6 +149,30 @@ impl AuthorizationService {
         self.verifier.issue(claims)
     }
 
+    /// Verifies the bearer token and returns the decoded claims without
+    /// checking any specific permission.
+    ///
+    /// Use this when any authenticated caller is allowed to reach an endpoint
+    /// (visibility filtering is applied at the data layer, not the auth layer).
+    pub fn authenticate(&self, headers: &HeaderMap, action: &str) -> Result<TokenClaims, PvError> {
+        let token_str = Self::bearer_token(headers)
+            .ok_or_else(|| PvError::AuthRequired("missing bearer token".to_string()))?;
+
+        let claims = self.verifier.verify(&AuthToken::new(token_str))?;
+
+        if !claims.is_valid_at(Self::now_secs()) {
+            self.record(
+                claims.subject.clone(),
+                action,
+                None,
+                AuditOutcome::Denied,
+            );
+            return Err(PvError::AuthRequired("token expired".to_string()));
+        }
+
+        Ok(claims)
+    }
+
     /// Records a permission change event in the audit log.
     ///
     /// `actor` is the admin making the change; `target_subject` is the user whose
