@@ -1,4 +1,3 @@
-// projects/products/unstable/platform_versioning/backend/src/http/server.rs
 use std::sync::Arc;
 
 use axum::Router;
@@ -6,8 +5,6 @@ use tokio::net::TcpListener;
 
 use crate::auth::TokenVerifier;
 use crate::errors::PvError;
-use crate::objects::ObjectStore;
-use crate::refs_store::RefStore;
 use crate::repos::RepoStore;
 
 /// HTTP server for the platform-versioning backend.
@@ -23,16 +20,13 @@ impl Server {
     pub async fn bind(
         addr: &str,
         repo_store: Arc<RepoStore>,
-        object_store: Arc<ObjectStore>,
-        ref_store: Arc<RefStore>,
         token_verifier: Arc<TokenVerifier>,
     ) -> Result<Self, PvError> {
         let listener = TcpListener::bind(addr)
             .await
             .map_err(|e| PvError::Internal(format!("bind {addr}: {e}")))?;
 
-        let router =
-            crate::routes::build_router(repo_store, object_store, ref_store, token_verifier);
+        let router = crate::routes::build_router(repo_store, token_verifier);
 
         Ok(Self { listener, router })
     }

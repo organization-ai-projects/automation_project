@@ -1,12 +1,9 @@
-// projects/products/unstable/platform_versioning/backend/src/app.rs
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::auth::TokenVerifier;
 use crate::errors::PvError;
 use crate::http::Server;
-use crate::objects::ObjectStore;
-use crate::refs_store::RefStore;
 use crate::repos::RepoStore;
 
 /// Configuration for the platform-versioning backend server.
@@ -41,18 +38,9 @@ impl AppConfig {
 /// Starts the platform-versioning backend server.
 pub async fn run(config: AppConfig) -> Result<(), PvError> {
     let repo_store = Arc::new(RepoStore::open(&config.data_dir)?);
-    let object_store = Arc::new(ObjectStore::open(&config.data_dir)?);
-    let ref_store = Arc::new(RefStore::open(&config.data_dir)?);
     let token_verifier = Arc::new(TokenVerifier::new(config.token_secret)?);
 
-    let server = Server::bind(
-        &config.bind_addr,
-        repo_store,
-        object_store,
-        ref_store,
-        token_verifier,
-    )
-    .await?;
+    let server = Server::bind(&config.bind_addr, repo_store, token_verifier).await?;
 
     let addr = server.local_addr()?;
     tracing::info!("Platform Versioning backend listening on {addr}");
