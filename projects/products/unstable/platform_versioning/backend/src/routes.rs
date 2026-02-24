@@ -79,8 +79,14 @@ fn v1_routes() -> Router<AppState> {
         .route("/issues/{issue_id}", get(get_issue))
         .route("/issues/{issue_id}/assign", post(assign_issue))
         .route("/issues/{issue_id}/share", post(share_issue))
-        .route("/issues/{issue_id}/slice", get(get_slice_manifest).post(set_slice_definition))
-        .route("/verify/{repo_id}/slice/{issue_id}", post(verify_with_slice))
+        .route(
+            "/issues/{issue_id}/slice",
+            get(get_slice_manifest).post(set_slice_definition),
+        )
+        .route(
+            "/verify/{repo_id}/slice/{issue_id}",
+            post(verify_with_slice),
+        )
 }
 
 #[derive(Debug, Deserialize)]
@@ -268,7 +274,6 @@ fn require_permission(
         .auth_svc
         .require_permission(headers, repo_id, permission, action)
 }
-
 
 fn stage_tree_into_index(
     index: &mut Index,
@@ -1117,11 +1122,11 @@ async fn assign_issue(
     Path(issue_id_raw): Path<String>,
     Json(req): Json<AssignUserRequest>,
 ) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
-    let claims =
-        match require_permission(&state, &headers, None, Permission::Admin, "issue.assign") {
-            Ok(c) => c,
-            Err(err) => return error_response(err),
-        };
+    let claims = match require_permission(&state, &headers, None, Permission::Admin, "issue.assign")
+    {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
 
     let out = (|| -> Result<Issue, PvError> {
         let id: IssueId = issue_id_raw
@@ -1148,11 +1153,11 @@ async fn share_issue(
     Path(issue_id_raw): Path<String>,
     Json(req): Json<AssignUserRequest>,
 ) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
-    let claims =
-        match require_permission(&state, &headers, None, Permission::Admin, "issue.share") {
-            Ok(c) => c,
-            Err(err) => return error_response(err),
-        };
+    let claims = match require_permission(&state, &headers, None, Permission::Admin, "issue.share")
+    {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
 
     let out = (|| -> Result<Issue, PvError> {
         let id: IssueId = issue_id_raw
@@ -1222,11 +1227,10 @@ async fn set_slice_definition(
     Path(issue_id_raw): Path<String>,
     Json(req): Json<SetSliceDefinitionRequest>,
 ) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
-    let claims =
-        match require_permission(&state, &headers, None, Permission::Admin, "slice.set") {
-            Ok(c) => c,
-            Err(err) => return error_response(err),
-        };
+    let claims = match require_permission(&state, &headers, None, Permission::Admin, "slice.set") {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
 
     let out = (|| -> Result<Issue, PvError> {
         let id: IssueId = issue_id_raw
@@ -1234,9 +1238,11 @@ async fn set_slice_definition(
             .map_err(|_| PvError::InvalidId(format!("invalid issue id '{issue_id_raw}'")))?;
         let definition = SliceDefinition::from_paths(req.paths)?;
         let issue = state.issue_store.set_slice_definition(&id, definition)?;
-        state
-            .auth_svc
-            .record_slice_created(&claims.subject, &id.to_string(), issue.repo_id.clone());
+        state.auth_svc.record_slice_created(
+            &claims.subject,
+            &id.to_string(),
+            issue.repo_id.clone(),
+        );
         Ok(issue)
     })();
 
@@ -1295,4 +1301,3 @@ async fn verify_with_slice(
         Err(err) => error_response(err),
     }
 }
-

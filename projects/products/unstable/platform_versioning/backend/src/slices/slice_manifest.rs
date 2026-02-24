@@ -32,8 +32,7 @@ impl SliceManifest {
     /// manifest.
     pub fn allows(&self, path: &str) -> bool {
         self.allowed_paths.iter().any(|allowed| {
-            path == allowed.as_str()
-                || path.starts_with(&format!("{}/", allowed.as_str()))
+            path == allowed.as_str() || path.starts_with(&format!("{}/", allowed.as_str()))
         })
     }
 

@@ -23,9 +23,9 @@ impl SliceDefinition {
     pub fn from_paths(raw: Vec<String>) -> Result<Self, PvError> {
         let mut paths = Vec::with_capacity(raw.len());
         for s in raw {
-            let safe = s.parse::<SafePath>().map_err(|e| {
-                PvError::SliceBuildFailed(format!("invalid slice path '{s}': {e}"))
-            })?;
+            let safe = s
+                .parse::<SafePath>()
+                .map_err(|e| PvError::SliceBuildFailed(format!("invalid slice path '{s}': {e}")))?;
             paths.push(safe);
         }
         paths.sort();
@@ -63,9 +63,8 @@ mod tests {
 
     #[test]
     fn valid_paths_are_accepted() {
-        let def =
-            SliceDefinition::from_paths(vec!["src".to_string(), "docs/guide.md".to_string()])
-                .unwrap();
+        let def = SliceDefinition::from_paths(vec!["src".to_string(), "docs/guide.md".to_string()])
+            .unwrap();
         assert_eq!(def.paths().len(), 2);
     }
 

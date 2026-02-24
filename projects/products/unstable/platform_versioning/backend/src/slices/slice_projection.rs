@@ -17,10 +17,7 @@ impl SliceProjection {
     /// because there is no scope to project.
     pub fn project(subject: &str, issue: &Issue) -> Result<SliceManifest, PvError> {
         let definition = issue.slice_definition.as_ref().ok_or_else(|| {
-            PvError::SliceBuildFailed(format!(
-                "issue '{}' has no slice definition",
-                issue.id
-            ))
+            PvError::SliceBuildFailed(format!("issue '{}' has no slice definition", issue.id))
         })?;
 
         Self::project_from_definition(subject, &issue.id.to_string(), definition)
@@ -118,7 +115,12 @@ mod tests {
         let manifest = SliceProjection::project("alice", &issue).unwrap();
         // Forbidden paths must not appear in the allowed_paths list.
         assert!(manifest.allowed_paths.iter().all(|p| !p.contains("secret")));
-        assert!(manifest.allowed_paths.iter().all(|p| !p.contains("passwords")));
+        assert!(
+            manifest
+                .allowed_paths
+                .iter()
+                .all(|p| !p.contains("passwords"))
+        );
         // Only "src" should be present.
         assert_eq!(manifest.allowed_paths, vec!["src".to_string()]);
     }

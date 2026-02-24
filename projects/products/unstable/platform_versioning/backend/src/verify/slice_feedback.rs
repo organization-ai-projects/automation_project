@@ -64,12 +64,13 @@ impl SliceFeedback {
                 IntegrityIssue::MissingTree { commit_id, tree_id } => {
                     // Commit/tree IDs don't map directly to user-visible paths.
                     visible_issues.push(SliceFeedbackEntry {
-                        summary: format!(
-                            "commit {commit_id} references missing tree {tree_id}"
-                        ),
+                        summary: format!("commit {commit_id} references missing tree {tree_id}"),
                     });
                 }
-                IntegrityIssue::MissingObject { tree_id, entry_name } => {
+                IntegrityIssue::MissingObject {
+                    tree_id,
+                    entry_name,
+                } => {
                     // entry_name IS a file path; only reveal if it's in the slice.
                     if manifest.allows(entry_name) {
                         visible_issues.push(SliceFeedbackEntry {

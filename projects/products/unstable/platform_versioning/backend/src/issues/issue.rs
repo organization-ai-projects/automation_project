@@ -35,8 +35,7 @@ impl Issue {
     /// Returns `true` if `subject` is assigned to this issue or has been
     /// explicitly shared access.
     pub fn is_visible_to(&self, subject: &str) -> bool {
-        self.assignees.iter().any(|a| a == subject)
-            || self.shared_with.iter().any(|s| s == subject)
+        self.assignees.iter().any(|a| a == subject) || self.shared_with.iter().any(|s| s == subject)
     }
 }
 

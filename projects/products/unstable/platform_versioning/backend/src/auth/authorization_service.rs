@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use axum::http::HeaderMap;
 
-use crate::auth::{AuditEntry, AuditLog, AuditOutcome, AuthToken, Permission, TokenClaims, TokenVerifier};
+use crate::auth::{
+    AuditEntry, AuditLog, AuditOutcome, AuthToken, Permission, TokenClaims, TokenVerifier,
+};
 use crate::errors::PvError;
 use crate::ids::RepoId;
 use crate::indexes::SafePath;
@@ -21,7 +23,10 @@ pub struct AuthorizationService {
 impl AuthorizationService {
     /// Creates a new service wrapping the given verifier and audit log.
     pub fn new(verifier: Arc<TokenVerifier>, audit_log: Arc<AuditLog>) -> Self {
-        Self { verifier, audit_log }
+        Self {
+            verifier,
+            audit_log,
+        }
     }
 
     /// Returns a shared reference to the audit log.
@@ -49,7 +54,13 @@ impl AuthorizationService {
         raw.strip_prefix("Bearer ").map(|s| s.trim().to_string())
     }
 
-    fn record(&self, subject: String, action: &str, repo_id: Option<RepoId>, outcome: AuditOutcome) {
+    fn record(
+        &self,
+        subject: String,
+        action: &str,
+        repo_id: Option<RepoId>,
+        outcome: AuditOutcome,
+    ) {
         self.audit_log.record(AuditEntry {
             timestamp_secs: Self::now_secs(),
             subject,
@@ -161,12 +172,7 @@ impl AuthorizationService {
         let claims = self.verifier.verify(&AuthToken::new(token_str))?;
 
         if !claims.is_valid_at(Self::now_secs()) {
-            self.record(
-                claims.subject.clone(),
-                action,
-                None,
-                AuditOutcome::Denied,
-            );
+            self.record(claims.subject.clone(), action, None, AuditOutcome::Denied);
             return Err(PvError::AuthRequired("token expired".to_string()));
         }
 
