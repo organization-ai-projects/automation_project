@@ -8,28 +8,30 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{
-    AuditEntry, AuditLog, AuditOutcome, Permission, PermissionGrant, TokenClaims, TokenVerifier,
+    AuditEntry, AuditOutcome, AuthorizationService, Permission, PermissionGrant, TokenClaims,
 };
 use crate::checkouts::{Checkout, CheckoutPolicy, Materialized};
 use crate::diffs::Diff;
 use crate::errors::PvError;
 use crate::history::HistoryWalker;
-use crate::http::{ApiError, ApiVersion, RequestEnvelope, ResponseEnvelope};
+use crate::http::{ApiError, ApiVersion, ResponseEnvelope};
 use crate::ids::{CommitId, RefId, RepoId};
 use crate::indexes::Index;
+use crate::issues::{Issue, IssueId, IssueStore, IssueVisibility};
 use crate::merges::{Merge, MergeResult};
 use crate::objects::{Blob, HashDigest, Object, ObjectKind};
 use crate::pipeline::CommitBuilder;
 use crate::refs_store::{HeadState, RefKind, RefTarget};
 use crate::repos::{RepoMetadata, RepoStore};
+use crate::slices::{SliceDefinition, SliceManifest, SliceProjection};
 use crate::sync::{FetchRequest, Negotiation, RefUpdatePolicy, UploadRequest};
-use crate::verify::Verification;
+use crate::verify::{SliceFeedback, Verification};
 
 #[derive(Clone)]
 struct AppState {
     repo_store: Arc<RepoStore>,
-    token_verifier: Arc<TokenVerifier>,
-    audit_log: Arc<AuditLog>,
+    auth_svc: Arc<AuthorizationService>,
+    issue_store: Arc<IssueStore>,
     bootstrap_secret: Option<String>,
 }
 
@@ -38,13 +40,14 @@ struct AppState {
 /// All routes are mounted under `/v1/`.
 pub fn build_router(
     repo_store: Arc<RepoStore>,
-    token_verifier: Arc<TokenVerifier>,
+    auth_svc: Arc<AuthorizationService>,
+    issue_store: Arc<IssueStore>,
     bootstrap_secret: Option<String>,
 ) -> Router {
     let state = AppState {
         repo_store,
-        token_verifier,
-        audit_log: Arc::new(AuditLog::new()),
+        auth_svc,
+        issue_store,
         bootstrap_secret,
     };
 
@@ -72,6 +75,18 @@ fn v1_routes() -> Router<AppState> {
             post(checkout_commit),
         )
         .route("/verify/{repo_id}", post(verify_repo))
+        .route("/issues", get(list_issues).post(create_issue))
+        .route("/issues/{issue_id}", get(get_issue))
+        .route("/issues/{issue_id}/assign", post(assign_issue))
+        .route("/issues/{issue_id}/share", post(share_issue))
+        .route(
+            "/issues/{issue_id}/slice",
+            get(get_slice_manifest).post(set_slice_definition),
+        )
+        .route(
+            "/verify/{repo_id}/slice/{issue_id}",
+            post(verify_with_slice),
+        )
 }
 
 #[derive(Debug, Deserialize)]
@@ -178,6 +193,28 @@ struct VerifySummary {
     report: crate::verify::IntegrityReport,
 }
 
+// ── Issue request/response types ────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct CreateIssueRequest {
+    id: String,
+    repo_id: Option<String>,
+    title: String,
+    description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AssignUserRequest {
+    subject: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SetSliceDefinitionRequest {
+    paths: Vec<String>,
+}
+
+// ── Shared helpers ───────────────────────────────────────────────────────────
+
 fn now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -188,13 +225,6 @@ fn now_secs() -> u64 {
 fn bearer_token(headers: &HeaderMap) -> Option<String> {
     let raw = headers.get("authorization")?.to_str().ok()?;
     raw.strip_prefix("Bearer ").map(|s| s.trim().to_string())
-}
-
-fn request_envelope(headers: &HeaderMap) -> RequestEnvelope {
-    RequestEnvelope {
-        version: ApiVersion::V1,
-        token: bearer_token(headers),
-    }
 }
 
 fn bootstrap_secret(headers: &HeaderMap) -> Option<String> {
@@ -232,22 +262,7 @@ fn sanitize_checkout_subdir(input: &str) -> Result<PathBuf, PvError> {
     Ok(clean)
 }
 
-fn record_audit(
-    state: &AppState,
-    subject: String,
-    action: &str,
-    repo_id: Option<RepoId>,
-    outcome: AuditOutcome,
-) {
-    state.audit_log.record(AuditEntry {
-        timestamp_secs: now_secs(),
-        subject,
-        action: action.to_string(),
-        repo_id,
-        outcome,
-    });
-}
-
+/// Delegates permission checking to the centralized [`AuthorizationService`].
 fn require_permission(
     state: &AppState,
     headers: &HeaderMap,
@@ -255,57 +270,9 @@ fn require_permission(
     permission: Permission,
     action: &str,
 ) -> Result<TokenClaims, PvError> {
-    let envelope = request_envelope(headers);
-    let token = envelope
-        .token
-        .ok_or_else(|| PvError::AuthRequired("missing bearer token".to_string()))?;
-
-    let claims = state
-        .token_verifier
-        .verify(&crate::auth::AuthToken::new(token))?;
-    if !claims.is_valid_at(now_secs()) {
-        record_audit(
-            state,
-            claims.subject.clone(),
-            action,
-            repo_id.cloned(),
-            AuditOutcome::Denied,
-        );
-        return Err(PvError::AuthRequired("token expired".to_string()));
-    }
-
-    let allowed = match repo_id {
-        Some(repo) => claims.has_permission(repo, permission),
-        None => {
-            if let Ok(global_repo) = "global".parse::<RepoId>() {
-                claims.has_permission(&global_repo, permission)
-            } else {
-                false
-            }
-        }
-    };
-
-    if !allowed {
-        record_audit(
-            state,
-            claims.subject.clone(),
-            action,
-            repo_id.cloned(),
-            AuditOutcome::Denied,
-        );
-        return Err(PvError::PermissionDenied(format!(
-            "permission '{permission:?}' required"
-        )));
-    }
-
-    record_audit(
-        state,
-        claims.subject.clone(),
-        action,
-        repo_id.cloned(),
-        AuditOutcome::Allowed,
-    );
-    Ok(claims)
+    state
+        .auth_svc
+        .require_permission(headers, repo_id, permission, action)
 }
 
 fn stage_tree_into_index(
@@ -392,7 +359,6 @@ async fn list_repos(
             });
         }
 
-        let _audit_count = state.audit_log.snapshot().len();
         Ok(repos)
     })();
 
@@ -441,9 +407,10 @@ async fn issue_token(
             permission: req.permission,
         }],
         expires_at: req.expires_at,
+        path_grants: vec![],
     };
 
-    match state.token_verifier.issue(&claims) {
+    match state.auth_svc.issue_token(&claims) {
         Ok(token) => (
             StatusCode::OK,
             Json(ResponseEnvelope::ok(IssueTokenResponse {
@@ -1036,6 +1003,301 @@ async fn verify_repo(
 
     match out {
         Ok(report) => (StatusCode::OK, Json(ResponseEnvelope::ok(report))),
+        Err(err) => error_response(err),
+    }
+}
+
+// ── Issue management endpoints ───────────────────────────────────────────────
+
+async fn create_issue(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<CreateIssueRequest>,
+) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
+    if let Err(err) = require_permission(&state, &headers, None, Permission::Admin, "issue.create")
+    {
+        return error_response(err);
+    }
+
+    let out = (|| -> Result<Issue, PvError> {
+        let id: IssueId = req
+            .id
+            .parse()
+            .map_err(|_| PvError::InvalidId(format!("invalid issue id '{}'", req.id)))?;
+        let repo_id = match req.repo_id {
+            Some(raw) => Some(raw.parse::<RepoId>()?),
+            None => None,
+        };
+        let issue = Issue {
+            id,
+            repo_id,
+            title: req.title,
+            description: req.description,
+            assignees: vec![],
+            shared_with: vec![],
+            slice_definition: None,
+        };
+        state.issue_store.create(issue)
+    })();
+
+    match out {
+        Ok(issue) => (StatusCode::CREATED, Json(ResponseEnvelope::ok(issue))),
+        Err(err) => error_response(err),
+    }
+}
+
+async fn list_issues(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<ResponseEnvelope<Vec<Issue>>>) {
+    let claims = match state.auth_svc.authenticate(&headers, "issue.list") {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
+
+    // Admin is determined by having Admin permission on the global scope.
+    let is_admin = "global"
+        .parse::<RepoId>()
+        .map(|g| claims.has_permission(&g, Permission::Admin))
+        .unwrap_or(false);
+    let visibility = IssueVisibility::for_role(is_admin);
+
+    match state.issue_store.list(&claims.subject, visibility) {
+        Ok(issues) => (StatusCode::OK, Json(ResponseEnvelope::ok(issues))),
+        Err(err) => error_response(err),
+    }
+}
+
+async fn get_issue(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(issue_id_raw): Path<String>,
+) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
+    let claims = match state.auth_svc.authenticate(&headers, "issue.get") {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
+
+    let out = (|| -> Result<Issue, PvError> {
+        let id: IssueId = issue_id_raw
+            .parse()
+            .map_err(|_| PvError::InvalidId(format!("invalid issue id '{issue_id_raw}'")))?;
+        let issue = state.issue_store.get(&id)?;
+
+        let is_admin = issue
+            .repo_id
+            .as_ref()
+            .map(|rid| claims.has_permission(rid, Permission::Admin))
+            .unwrap_or_else(|| {
+                "global"
+                    .parse::<RepoId>()
+                    .map(|g| claims.has_permission(&g, Permission::Admin))
+                    .unwrap_or(false)
+            });
+
+        if !is_admin && !issue.is_visible_to(&claims.subject) {
+            state.auth_svc.audit_log().record(AuditEntry {
+                timestamp_secs: now_secs(),
+                subject: claims.subject.clone(),
+                action: "issue.get".to_string(),
+                repo_id: issue.repo_id.clone(),
+                outcome: AuditOutcome::Denied,
+            });
+            return Err(PvError::PermissionDenied(
+                "issue not visible to user".to_string(),
+            ));
+        }
+        Ok(issue)
+    })();
+
+    match out {
+        Ok(issue) => (StatusCode::OK, Json(ResponseEnvelope::ok(issue))),
+        Err(err) => error_response(err),
+    }
+}
+
+async fn assign_issue(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(issue_id_raw): Path<String>,
+    Json(req): Json<AssignUserRequest>,
+) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
+    let claims = match require_permission(&state, &headers, None, Permission::Admin, "issue.assign")
+    {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
+
+    let out = (|| -> Result<Issue, PvError> {
+        let id: IssueId = issue_id_raw
+            .parse()
+            .map_err(|_| PvError::InvalidId(format!("invalid issue id '{issue_id_raw}'")))?;
+        let issue = state.issue_store.assign_user(&id, req.subject.clone())?;
+        state.auth_svc.record_permission_change(
+            &claims.subject,
+            &req.subject,
+            issue.repo_id.clone(),
+        );
+        Ok(issue)
+    })();
+
+    match out {
+        Ok(issue) => (StatusCode::OK, Json(ResponseEnvelope::ok(issue))),
+        Err(err) => error_response(err),
+    }
+}
+
+async fn share_issue(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(issue_id_raw): Path<String>,
+    Json(req): Json<AssignUserRequest>,
+) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
+    let claims = match require_permission(&state, &headers, None, Permission::Admin, "issue.share")
+    {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
+
+    let out = (|| -> Result<Issue, PvError> {
+        let id: IssueId = issue_id_raw
+            .parse()
+            .map_err(|_| PvError::InvalidId(format!("invalid issue id '{issue_id_raw}'")))?;
+        let issue = state.issue_store.share_with(&id, req.subject.clone())?;
+        state.auth_svc.record_permission_change(
+            &claims.subject,
+            &req.subject,
+            issue.repo_id.clone(),
+        );
+        Ok(issue)
+    })();
+
+    match out {
+        Ok(issue) => (StatusCode::OK, Json(ResponseEnvelope::ok(issue))),
+        Err(err) => error_response(err),
+    }
+}
+
+// ── Slice endpoints ──────────────────────────────────────────────────────────
+
+async fn get_slice_manifest(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(issue_id_raw): Path<String>,
+) -> (StatusCode, Json<ResponseEnvelope<SliceManifest>>) {
+    let claims = match state.auth_svc.authenticate(&headers, "slice.get") {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
+
+    let out = (|| -> Result<SliceManifest, PvError> {
+        let id: IssueId = issue_id_raw
+            .parse()
+            .map_err(|_| PvError::InvalidId(format!("invalid issue id '{issue_id_raw}'")))?;
+        let issue = state.issue_store.get(&id)?;
+
+        let is_admin = issue
+            .repo_id
+            .as_ref()
+            .map(|rid| claims.has_permission(rid, Permission::Admin))
+            .unwrap_or(false);
+
+        if !is_admin && !issue.is_visible_to(&claims.subject) {
+            return Err(PvError::PermissionDenied(
+                "issue not visible to user".to_string(),
+            ));
+        }
+
+        let manifest = SliceProjection::project(&claims.subject, &issue)?;
+        state
+            .auth_svc
+            .record_slice_access(&claims.subject, &id.to_string(), issue.repo_id.clone());
+        Ok(manifest)
+    })();
+
+    match out {
+        Ok(manifest) => (StatusCode::OK, Json(ResponseEnvelope::ok(manifest))),
+        Err(err) => error_response(err),
+    }
+}
+
+async fn set_slice_definition(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(issue_id_raw): Path<String>,
+    Json(req): Json<SetSliceDefinitionRequest>,
+) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
+    let claims = match require_permission(&state, &headers, None, Permission::Admin, "slice.set") {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
+
+    let out = (|| -> Result<Issue, PvError> {
+        let id: IssueId = issue_id_raw
+            .parse()
+            .map_err(|_| PvError::InvalidId(format!("invalid issue id '{issue_id_raw}'")))?;
+        let definition = SliceDefinition::from_paths(req.paths)?;
+        let issue = state.issue_store.set_slice_definition(&id, definition)?;
+        state.auth_svc.record_slice_created(
+            &claims.subject,
+            &id.to_string(),
+            issue.repo_id.clone(),
+        );
+        Ok(issue)
+    })();
+
+    match out {
+        Ok(issue) => (StatusCode::OK, Json(ResponseEnvelope::ok(issue))),
+        Err(err) => error_response(err),
+    }
+}
+
+async fn verify_with_slice(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((repo_id_raw, issue_id_raw)): Path<(String, String)>,
+) -> (StatusCode, Json<ResponseEnvelope<SliceFeedback>>) {
+    let repo_id = match repo_id_raw.parse::<RepoId>() {
+        Ok(id) => id,
+        Err(err) => return error_response(err),
+    };
+
+    let claims = match require_permission(
+        &state,
+        &headers,
+        Some(&repo_id),
+        Permission::Read,
+        "verify.slice",
+    ) {
+        Ok(c) => c,
+        Err(err) => return error_response(err),
+    };
+
+    let out = (|| -> Result<SliceFeedback, PvError> {
+        let id: IssueId = issue_id_raw
+            .parse()
+            .map_err(|_| PvError::InvalidId(format!("invalid issue id '{issue_id_raw}'")))?;
+        let issue = state.issue_store.get(&id)?;
+
+        let is_admin = claims.has_permission(&repo_id, Permission::Admin);
+        if !is_admin && !issue.is_visible_to(&claims.subject) {
+            return Err(PvError::PermissionDenied(
+                "issue not visible to user".to_string(),
+            ));
+        }
+
+        let manifest = SliceProjection::project(&claims.subject, &issue)?;
+        let repo = state.repo_store.get(&repo_id)?;
+        let report = Verification::run(&repo.objects, &repo.refs)?;
+        let feedback = SliceFeedback::for_manifest(&report, &manifest);
+        state
+            .auth_svc
+            .record_slice_access(&claims.subject, &id.to_string(), Some(repo_id));
+        Ok(feedback)
+    })();
+
+    match out {
+        Ok(feedback) => (StatusCode::OK, Json(ResponseEnvelope::ok(feedback))),
         Err(err) => error_response(err),
     }
 }

@@ -8,12 +8,14 @@ mod history;
 mod http;
 mod ids;
 mod indexes;
+mod issues;
 mod merges;
 mod objects;
 mod pipeline;
 mod refs_store;
 mod repos;
 mod routes;
+mod slices;
 mod sync;
 mod verify;
 

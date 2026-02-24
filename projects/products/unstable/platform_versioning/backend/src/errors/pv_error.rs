@@ -46,6 +46,12 @@ pub enum PvError {
     #[error("permission denied: {0}")]
     PermissionDenied(String),
 
+    #[error("issue not found: {0}")]
+    IssueNotFound(String),
+
+    #[error("slice build failed: {0}")]
+    SliceBuildFailed(String),
+
     #[error("unsupported encoding version: {0}")]
     UnsupportedVersion(String),
 
@@ -73,6 +79,8 @@ impl PvError {
             Self::AuthRequired(_) => ErrorCode::AuthRequired,
             Self::PermissionDenied(_) => ErrorCode::PermissionDenied,
             Self::UnsupportedVersion(_) => ErrorCode::UnsupportedVersion,
+            Self::IssueNotFound(_) => ErrorCode::IssueNotFound,
+            Self::SliceBuildFailed(_) => ErrorCode::SliceBuildFailed,
             Self::Io(_) => ErrorCode::Internal,
             Self::Internal(_) => ErrorCode::Internal,
         }
@@ -85,13 +93,16 @@ impl PvError {
             Self::RepoNotFound(_)
             | Self::ObjectNotFound(_)
             | Self::RefNotFound(_)
-            | Self::CommitNotFound(_) => ErrorCategory::NotFound,
+            | Self::CommitNotFound(_)
+            | Self::IssueNotFound(_) => ErrorCategory::NotFound,
             Self::CorruptObject(_) => ErrorCategory::Integrity,
             Self::AtomicWriteFailed(_) | Self::Io(_) => ErrorCategory::Io,
             Self::NonFastForward(_) | Self::MergeConflict(_) => ErrorCategory::Conflict,
             Self::AuthRequired(_) => ErrorCategory::Unauthenticated,
             Self::PermissionDenied(_) => ErrorCategory::Unauthorized,
-            Self::UnsupportedVersion(_) | Self::Internal(_) => ErrorCategory::Internal,
+            Self::UnsupportedVersion(_) | Self::SliceBuildFailed(_) | Self::Internal(_) => {
+                ErrorCategory::Internal
+            }
         }
     }
 }

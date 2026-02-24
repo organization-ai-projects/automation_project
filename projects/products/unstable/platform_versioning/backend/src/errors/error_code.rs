@@ -34,6 +34,10 @@ pub enum ErrorCode {
     PermissionDenied,
     /// The encoding format version is not supported.
     UnsupportedVersion,
+    /// The requested issue does not exist.
+    IssueNotFound,
+    /// A slice projection could not be built.
+    SliceBuildFailed,
     /// An unexpected internal error.
     Internal,
 }
