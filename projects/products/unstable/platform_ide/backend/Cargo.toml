@@ -1,0 +1,21 @@
+[package]
+name = "platform-ide-backend"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "platform-ide-backend"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+common_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
