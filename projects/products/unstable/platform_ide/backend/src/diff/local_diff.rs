@@ -53,7 +53,14 @@ impl LocalDiff {
 fn compute_diff_lines(original: &[&str], current: &[&str]) -> Vec<DiffLine> {
     let lcs = lcs_table(original, current);
     let mut result = Vec::new();
-    backtrack(&lcs, original, current, original.len(), current.len(), &mut result);
+    backtrack(
+        &lcs,
+        original,
+        current,
+        original.len(),
+        current.len(),
+        &mut result,
+    );
     result
 }
 

@@ -166,7 +166,10 @@ impl PlatformClient {
         let resp = self
             .http
             .get(&url)
-            .header("Authorization", format!("Bearer {}", session.bearer_token()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", session.bearer_token()),
+            )
             .send()
             .await?;
 
@@ -206,7 +209,10 @@ impl PlatformClient {
         let resp = self
             .http
             .get(&url)
-            .header("Authorization", format!("Bearer {}", session.bearer_token()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", session.bearer_token()),
+            )
             .send()
             .await?;
 
@@ -235,7 +241,10 @@ impl PlatformClient {
         let commit_resp = self
             .http
             .get(&commit_url)
-            .header("Authorization", format!("Bearer {}", session.bearer_token()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", session.bearer_token()),
+            )
             .send()
             .await?;
 
@@ -249,9 +258,7 @@ impl PlatformClient {
             return Err(IdeError::ApiError { code });
         }
 
-        let commit = commit_envelope
-            .data
-            .ok_or(IdeError::UnexpectedResponse)?;
+        let commit = commit_envelope.data.ok_or(IdeError::UnexpectedResponse)?;
 
         // Extract the list of file paths from the commit's index.
         let paths: Vec<String> = commit
@@ -290,7 +297,10 @@ impl PlatformClient {
         let resp = self
             .http
             .get(&url)
-            .header("Authorization", format!("Bearer {}", session.bearer_token()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", session.bearer_token()),
+            )
             .send()
             .await?;
 
@@ -332,7 +342,10 @@ impl PlatformClient {
         let resp = self
             .http
             .post(&url)
-            .header("Authorization", format!("Bearer {}", session.bearer_token()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", session.bearer_token()),
+            )
             .json(&body)
             .send()
             .await?;
@@ -369,7 +382,10 @@ impl PlatformClient {
         let resp = self
             .http
             .post(&url)
-            .header("Authorization", format!("Bearer {}", session.bearer_token()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", session.bearer_token()),
+            )
             .send()
             .await?;
 

@@ -39,7 +39,8 @@ impl UiApp {
 
     fn load_initial_state(&mut self) {
         // Auth
-        self.auth.login("session-token".to_string(), "alice".to_string());
+        self.auth
+            .login("session-token".to_string(), "alice".to_string());
 
         // Issue list (only visible issues)
         self.issue_list.set_issues(vec![IssueEntry {
@@ -55,11 +56,10 @@ impl UiApp {
         );
 
         // Editor
-        self.editor.open(
-            "src/main.rs".to_string(),
-            "fn main() {}".to_string(),
-        );
-        self.editor.edit("fn main() { println!(\"hello\"); }".to_string());
+        self.editor
+            .open("src/main.rs".to_string(), "fn main() {}".to_string());
+        self.editor
+            .edit("fn main() { println!(\"hello\"); }".to_string());
         self.slice_explorer.mark_dirty("src/main.rs");
 
         // Diff view

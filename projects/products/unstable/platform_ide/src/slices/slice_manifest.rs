@@ -76,11 +76,7 @@ mod tests {
     use super::*;
 
     fn manifest() -> SliceManifest {
-        SliceManifest::new(
-            "issue-42",
-            "abc123",
-            ["src/main.rs", "README.md"],
-        )
+        SliceManifest::new("issue-42", "abc123", ["src/main.rs", "README.md"])
     }
 
     #[test]

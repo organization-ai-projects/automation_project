@@ -64,10 +64,7 @@ mod tests {
     #[test]
     fn mark_dirty_sets_flag() {
         let mut explorer = SliceExplorer::default();
-        explorer.load(
-            "issue-42".to_string(),
-            vec!["src/main.rs".to_string()],
-        );
+        explorer.load("issue-42".to_string(), vec!["src/main.rs".to_string()]);
         explorer.mark_dirty("src/main.rs");
         assert!(explorer.entries[0].dirty);
     }

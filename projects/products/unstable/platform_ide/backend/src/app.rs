@@ -91,7 +91,10 @@ impl IdeApp {
     /// Opens a file for editing. The path is validated against the active
     /// slice manifest before any content is fetched from the platform.
     pub async fn open_file(&self, raw_path: &str) -> Result<FileBuffer, IdeError> {
-        let issue_id = self.active_issue.as_deref().ok_or(IdeError::NoSliceLoaded)?;
+        let issue_id = self
+            .active_issue
+            .as_deref()
+            .ok_or(IdeError::NoSliceLoaded)?;
         let manifest = self.manifest.as_ref().ok_or(IdeError::NoSliceLoaded)?;
         let content = self
             .client
@@ -112,7 +115,10 @@ impl IdeApp {
         change_set: &ChangeSet,
         message: impl Into<String>,
     ) -> Result<String, IdeError> {
-        let issue_id = self.active_issue.as_deref().ok_or(IdeError::NoSliceLoaded)?;
+        let issue_id = self
+            .active_issue
+            .as_deref()
+            .ok_or(IdeError::NoSliceLoaded)?;
         let result = self
             .client
             .submit_changes(&self.session, issue_id, change_set, message)
@@ -123,7 +129,10 @@ impl IdeApp {
     /// Requests a verification run for the active issue and returns a filtered
     /// result view.
     pub async fn request_verification(&self) -> Result<VerificationResultView, IdeError> {
-        let issue_id = self.active_issue.as_deref().ok_or(IdeError::NoSliceLoaded)?;
+        let issue_id = self
+            .active_issue
+            .as_deref()
+            .ok_or(IdeError::NoSliceLoaded)?;
         let manifest = self.manifest.as_ref().ok_or(IdeError::NoSliceLoaded)?;
         self.client
             .request_verification(&self.session, issue_id, manifest)

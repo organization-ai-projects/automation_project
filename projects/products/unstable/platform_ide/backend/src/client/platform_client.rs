@@ -253,9 +253,7 @@ impl PlatformClient {
             return Err(IdeError::ApiError { code });
         }
 
-        let commit = commit_envelope
-            .data
-            .ok_or(IdeError::UnexpectedResponse)?;
+        let commit = commit_envelope.data.ok_or(IdeError::UnexpectedResponse)?;
 
         let paths: Vec<String> = commit
             .index

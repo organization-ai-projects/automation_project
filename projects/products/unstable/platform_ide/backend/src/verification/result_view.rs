@@ -134,7 +134,11 @@ mod tests {
     fn allowed_path_finding_is_shown() {
         let view = VerificationResultView::from_raw(
             false,
-            [raw(FindingSeverity::Error, "syntax error", Some("src/main.rs"))],
+            [raw(
+                FindingSeverity::Error,
+                "syntax error",
+                Some("src/main.rs"),
+            )],
             &manifest(),
         );
         assert_eq!(view.findings.len(), 1);
@@ -148,7 +152,11 @@ mod tests {
     fn forbidden_path_error_finding_becomes_generic() {
         let view = VerificationResultView::from_raw(
             false,
-            [raw(FindingSeverity::Error, "secret error", Some("forbidden/internal.rs"))],
+            [raw(
+                FindingSeverity::Error,
+                "secret error",
+                Some("forbidden/internal.rs"),
+            )],
             &manifest(),
         );
         assert_eq!(view.findings.len(), 1);
@@ -156,14 +164,21 @@ mod tests {
         assert!(f.path.is_none(), "forbidden path must not appear in output");
         assert!(f.line.is_none(), "line must not appear for forbidden path");
         assert!(!f.summary.contains("forbidden"), "summary leaks path info");
-        assert!(!f.summary.contains("internal.rs"), "summary leaks path info");
+        assert!(
+            !f.summary.contains("internal.rs"),
+            "summary leaks path info"
+        );
     }
 
     #[test]
     fn forbidden_path_info_finding_is_suppressed() {
         let view = VerificationResultView::from_raw(
             true,
-            [raw(FindingSeverity::Info, "style note", Some("forbidden/internal.rs"))],
+            [raw(
+                FindingSeverity::Info,
+                "style note",
+                Some("forbidden/internal.rs"),
+            )],
             &manifest(),
         );
         assert!(view.findings.is_empty());

@@ -34,9 +34,7 @@ impl DiffView {
 
     /// Returns `true` if there are any added or removed lines.
     pub fn has_changes(&self) -> bool {
-        self.lines
-            .iter()
-            .any(|l| l.kind != DiffLineKind::Context)
+        self.lines.iter().any(|l| l.kind != DiffLineKind::Context)
     }
 }
 

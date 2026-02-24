@@ -10,7 +10,7 @@
 
 use crate::auth::Session;
 use crate::changes::ChangeSet;
-use crate::diff::{local_diff::DiffLine, LocalDiff};
+use crate::diff::{LocalDiff, local_diff::DiffLine};
 use crate::editor::FileBuffer;
 use crate::errors::IdeError;
 use crate::issues::IssueSummary;
@@ -63,7 +63,10 @@ fn manifest_rejects_unlisted_path() {
     let manifest = SliceManifest::new("issue-1", "abc", ["src/main.rs"]);
     let err = manifest.allow("src/secret.rs").unwrap_err();
     let msg = err.to_string();
-    assert!(!msg.contains("secret.rs"), "error leaks forbidden path name");
+    assert!(
+        !msg.contains("secret.rs"),
+        "error leaks forbidden path name"
+    );
     assert!(!msg.contains("main.rs"), "error leaks allowed path name");
 }
 
@@ -112,7 +115,11 @@ fn local_diff_detects_added_line() {
     buf.write(b"line1\nline2\n".to_vec());
     let diff = LocalDiff::from_buffer(&buf);
     assert!(diff.has_changes());
-    assert!(diff.lines.iter().any(|l| matches!(l, DiffLine::Added(s) if s == "line2")));
+    assert!(
+        diff.lines
+            .iter()
+            .any(|l| matches!(l, DiffLine::Added(s) if s == "line2"))
+    );
 }
 
 #[test]
