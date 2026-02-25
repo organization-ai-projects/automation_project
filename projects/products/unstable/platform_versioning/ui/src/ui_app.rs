@@ -4,16 +4,13 @@ use crate::auth_view::AuthView;
 use crate::diff_display_entry::DiffDisplayEntry;
 use crate::diff_entry_kind::DiffEntryKind;
 use crate::diff_view::DiffView;
-use crate::issue_panel::IssuePanel;
 use crate::issue_summary::IssueSummary;
 use crate::permission_entry::PermissionEntry;
-use crate::permission_panel::PermissionPanel;
 use crate::ref_entry::RefEntry;
 use crate::repo_detail_view::RepoDetailView;
 use crate::repo_list_view::RepoListView;
 use crate::repo_summary::RepoSummary;
 use crate::role_view::RoleView;
-use crate::slice_panel::SlicePanel;
 use crate::tree_browser::TreeBrowser;
 use crate::tree_browser_entry::TreeBrowserEntry;
 
@@ -92,6 +89,17 @@ impl UiApp {
             }],
             true,
         );
+        self.admin_panel
+            .permission_panel
+            .add_entry(PermissionEntry {
+                subject: "bob".to_string(),
+                repo_id: "sample-repo".to_string(),
+                permission: "write".to_string(),
+            });
+        self.admin_panel
+            .permission_panel
+            .remove_entry("bob", "sample-repo");
+
         self.admin_panel.issue_panel.load(
             vec![IssueSummary {
                 id: "issue-1".to_string(),
@@ -101,9 +109,14 @@ impl UiApp {
             }],
             true,
         );
+        self.admin_panel.issue_panel.select("issue-1".to_string());
+        self.admin_panel.issue_panel.deselect();
+
         self.admin_panel
             .slice_panel
             .load("issue-1".to_string(), vec!["src".to_string()], true);
+        self.admin_panel.slice_panel.add_path("tests".to_string());
+        self.admin_panel.slice_panel.remove_path("tests");
     }
 }
 
@@ -125,6 +138,11 @@ pub fn run() -> anyhow::Result<()> {
         app.admin_panel.permission_panel.entries.len(),
         app.admin_panel.issue_panel.issues.len(),
         app.admin_panel.slice_panel.allowed_paths.len(),
+    );
+    tracing::info!(
+        "Admin visibility: permissions={}, slices={}",
+        app.admin_panel.show_permission_panel(),
+        app.admin_panel.show_slice_panel(),
     );
     Ok(())
 }

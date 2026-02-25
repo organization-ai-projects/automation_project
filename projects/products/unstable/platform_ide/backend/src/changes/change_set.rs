@@ -78,7 +78,7 @@ impl ChangeSet {
 mod hex_bytes {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn serialize<S>(bytes: &Vec<u8>, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {

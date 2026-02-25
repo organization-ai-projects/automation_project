@@ -23,6 +23,22 @@ struct ApiErrorPayload {
     message: String,
 }
 
+fn map_api_error(code: String) -> IdeError {
+    match code.as_str() {
+        "AUTH_REQUIRED" => IdeError::SessionExpired,
+        "PERMISSION_DENIED" => IdeError::PermissionDenied,
+        "ISSUE_NOT_FOUND" => IdeError::IssueNotVisible,
+        _ => IdeError::ApiError { code },
+    }
+}
+
+fn map_auth_error(code: String) -> IdeError {
+    match code.as_str() {
+        "AUTH_REQUIRED" | "PERMISSION_DENIED" => IdeError::AuthFailed,
+        _ => IdeError::ApiError { code },
+    }
+}
+
 /// Request body for the platform token issuance endpoint.
 #[derive(Debug, Serialize)]
 struct IssueTokenRequest {
@@ -131,7 +147,7 @@ impl PlatformClient {
             .http
             .post(&url)
             .header("Content-Type", "application/json")
-            .header("X-Bootstrap-Secret", bootstrap_secret.into())
+            .header("X-PV-Bootstrap-Secret", bootstrap_secret.into())
             .body(common_json::to_string(&body).unwrap_or_else(|_| "{}".to_string()))
             .send()
             .await?;
@@ -145,7 +161,7 @@ impl PlatformClient {
                 .error
                 .map(|e| e.code)
                 .unwrap_or_else(|| "UNKNOWN".to_string());
-            return Err(IdeError::ApiError { code });
+            return Err(map_auth_error(code));
         }
 
         let data = envelope.data.ok_or(IdeError::UnexpectedResponse)?;
@@ -174,7 +190,7 @@ impl PlatformClient {
                 .error
                 .map(|e| e.code)
                 .unwrap_or_else(|| "UNKNOWN".to_string());
-            return Err(IdeError::ApiError { code });
+            return Err(map_api_error(code));
         }
 
         let repos = envelope.data.ok_or(IdeError::UnexpectedResponse)?;
@@ -217,7 +233,7 @@ impl PlatformClient {
                 .error
                 .map(|e| e.code)
                 .unwrap_or_else(|| "UNKNOWN".to_string());
-            return Err(IdeError::ApiError { code });
+            return Err(map_api_error(code));
         }
 
         let refs = envelope.data.ok_or(IdeError::UnexpectedResponse)?;
@@ -250,7 +266,7 @@ impl PlatformClient {
                 .error
                 .map(|e| e.code)
                 .unwrap_or_else(|| "UNKNOWN".to_string());
-            return Err(IdeError::ApiError { code });
+            return Err(map_api_error(code));
         }
 
         let commit = commit_envelope.data.ok_or(IdeError::UnexpectedResponse)?;
@@ -292,8 +308,14 @@ impl PlatformClient {
             .send()
             .await?;
 
-        if resp.status() == 403 || resp.status() == 401 {
-            return Err(IdeError::PermissionDenied);
+        if !resp.status().is_success() {
+            return match resp.status() {
+                reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN => {
+                    Err(IdeError::PermissionDenied)
+                }
+                reqwest::StatusCode::NOT_FOUND => Err(IdeError::PathNotAllowed),
+                _ => Err(IdeError::UnexpectedResponse),
+            };
         }
 
         Ok(resp.bytes().await?.to_vec())
@@ -348,7 +370,7 @@ impl PlatformClient {
                 .error
                 .map(|e| e.code)
                 .unwrap_or_else(|| "UNKNOWN".to_string());
-            return Err(IdeError::ApiError { code });
+            return Err(map_api_error(code));
         }
 
         let data = envelope.data.ok_or(IdeError::UnexpectedResponse)?;
@@ -385,7 +407,7 @@ impl PlatformClient {
                 .error
                 .map(|e| e.code)
                 .unwrap_or_else(|| "UNKNOWN".to_string());
-            return Err(IdeError::ApiError { code });
+            return Err(map_api_error(code));
         }
 
         let summary = envelope.data.ok_or(IdeError::UnexpectedResponse)?;

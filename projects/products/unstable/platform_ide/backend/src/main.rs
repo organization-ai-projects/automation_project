@@ -1,4 +1,6 @@
 // projects/products/unstable/platform_ide/backend/src/main.rs
+#![allow(dead_code)]
+
 mod app;
 mod auth;
 mod changes;
@@ -24,8 +26,7 @@ async fn main() -> anyhow::Result<()> {
         platform_url = %config.platform_url,
         "Platform IDE backend starting"
     );
-
-    tracing::info!("Platform IDE initialised. Connect via PLATFORM_IDE_URL.");
+    tracing::info!("Platform IDE backend initialised.");
 
     Ok(())
 }

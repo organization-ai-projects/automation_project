@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
@@ -65,6 +66,10 @@ fn v1_routes() -> Router<AppState> {
         .route("/repos/{repo_id}/refs", get(list_refs))
         .route("/repos/{repo_id}/commits", post(create_commit))
         .route("/repos/{repo_id}/commits/{commit_id}", get(get_commit))
+        .route(
+            "/repos/{repo_id}/commits/{commit_id}/file/{*path}",
+            get(get_file_content),
+        )
         .route("/repos/{repo_id}/history/{commit_id}", get(get_history))
         .route("/repos/{repo_id}/diff", post(compute_diff))
         .route("/repos/{repo_id}/merge", post(merge))
@@ -87,6 +92,7 @@ fn v1_routes() -> Router<AppState> {
             "/verify/{repo_id}/slice/{issue_id}",
             post(verify_with_slice),
         )
+        .route("/audit", get(list_audit_entries))
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,7 +129,10 @@ struct RefView {
 #[derive(Debug, Deserialize)]
 struct CreateCommitFile {
     path: String,
-    content: String,
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    content_hex: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -222,9 +231,12 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-fn bearer_token(headers: &HeaderMap) -> Option<String> {
-    let raw = headers.get("authorization")?.to_str().ok()?;
-    raw.strip_prefix("Bearer ").map(|s| s.trim().to_string())
+fn request_envelope(headers: &HeaderMap) -> crate::http::request_envelope::RequestEnvelope {
+    let has_token = AuthorizationService::has_bearer_token(headers);
+    crate::http::request_envelope::RequestEnvelope {
+        version: ApiVersion::V1,
+        token: has_token.then(|| "[present]".to_string()),
+    }
 }
 
 fn bootstrap_secret(headers: &HeaderMap) -> Option<String> {
@@ -270,9 +282,87 @@ fn require_permission(
     permission: Permission,
     action: &str,
 ) -> Result<TokenClaims, PvError> {
+    let envelope = request_envelope(headers);
+    tracing::debug!(
+        action = action,
+        version = ?envelope.version,
+        has_bearer = envelope.token.is_some(),
+        "request envelope parsed"
+    );
     state
         .auth_svc
         .require_permission(headers, repo_id, permission, action)
+}
+
+fn decode_hex_content(hex: &str) -> Result<Vec<u8>, PvError> {
+    if !hex.len().is_multiple_of(2) {
+        return Err(PvError::InvalidId(
+            "hex content length must be even".to_string(),
+        ));
+    }
+    let mut bytes = Vec::with_capacity(hex.len() / 2);
+    for i in (0..hex.len()).step_by(2) {
+        let byte = u8::from_str_radix(&hex[i..i + 2], 16)
+            .map_err(|_| PvError::InvalidId("invalid hex content".to_string()))?;
+        bytes.push(byte);
+    }
+    Ok(bytes)
+}
+
+fn read_blob_from_commit_path(
+    repo: &crate::repos::Repo,
+    commit_id: &CommitId,
+    path: &crate::indexes::SafePath,
+) -> Result<Vec<u8>, PvError> {
+    let commit_obj = repo.objects.read(commit_id.as_object_id())?;
+    let commit = match commit_obj {
+        Object::Commit(c) => c,
+        _ => return Err(PvError::CommitNotFound(commit_id.to_string())),
+    };
+
+    let mut current_tree_id = commit.tree_id.as_object_id().clone();
+    let mut components = path.as_str().split('/').peekable();
+
+    while let Some(component) = components.next() {
+        let tree_obj = repo.objects.read(&current_tree_id)?;
+        let tree = match tree_obj {
+            Object::Tree(t) => t,
+            _ => {
+                return Err(PvError::CorruptObject(format!(
+                    "{current_tree_id} is not a tree"
+                )));
+            }
+        };
+
+        let entry = tree
+            .entries
+            .into_iter()
+            .find(|e| e.name == component)
+            .ok_or_else(|| PvError::ObjectNotFound(path.to_string()))?;
+
+        let is_last = components.peek().is_none();
+        match (is_last, entry.kind) {
+            (true, crate::objects::TreeEntryKind::Blob) => {
+                let blob_obj = repo.objects.read(&entry.id)?;
+                let blob = match blob_obj {
+                    Object::Blob(b) => b,
+                    _ => {
+                        return Err(PvError::CorruptObject(format!(
+                            "{} is not a blob",
+                            entry.id
+                        )));
+                    }
+                };
+                return Ok(blob.content);
+            }
+            (false, crate::objects::TreeEntryKind::Tree) => {
+                current_tree_id = entry.id;
+            }
+            _ => return Err(PvError::ObjectNotFound(path.to_string())),
+        }
+    }
+
+    Err(PvError::ObjectNotFound(path.to_string()))
 }
 
 fn stage_tree_into_index(
@@ -373,7 +463,7 @@ async fn issue_token(
     headers: HeaderMap,
     Json(req): Json<IssueTokenRequest>,
 ) -> (StatusCode, Json<ResponseEnvelope<IssueTokenResponse>>) {
-    if bearer_token(&headers).is_some() {
+    if AuthorizationService::has_bearer_token(&headers) {
         if let Err(err) =
             require_permission(&state, &headers, None, Permission::Admin, "auth.issue")
         {
@@ -599,7 +689,21 @@ async fn create_commit(
         for file in req.files {
             let path: crate::indexes::SafePath = file.path.parse()?;
             let _ = index.remove(&path);
-            let blob = Blob::from_bytes(file.content.into_bytes());
+            let content = match (file.content, file.content_hex) {
+                (Some(raw), None) => raw.into_bytes(),
+                (None, Some(hex)) => decode_hex_content(&hex)?,
+                (Some(_), Some(_)) => {
+                    return Err(PvError::InvalidId(
+                        "commit file cannot contain both content and content_hex".to_string(),
+                    ));
+                }
+                (None, None) => {
+                    return Err(PvError::InvalidId(
+                        "commit file must contain content or content_hex".to_string(),
+                    ));
+                }
+            };
+            let blob = Blob::from_bytes(content);
             let _ = index.add(path.clone(), blob.id.clone());
             let _ = index.get(&path);
             repo.objects.write(Object::Blob(blob))?;
@@ -621,6 +725,97 @@ async fn create_commit(
     match out {
         Ok(commit) => (StatusCode::CREATED, Json(ResponseEnvelope::ok(commit))),
         Err(err) => error_response(err),
+    }
+}
+
+async fn get_file_content(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((repo_id_raw, commit_id_raw, raw_path)): Path<(String, String, String)>,
+) -> axum::response::Response {
+    let repo_id = match repo_id_raw.parse::<RepoId>() {
+        Ok(id) => id,
+        Err(err) => {
+            return (
+                StatusCode::from_u16(crate::http::api_error::http_status_for(&err))
+                    .unwrap_or(StatusCode::BAD_REQUEST),
+                err.to_string(),
+            )
+                .into_response();
+        }
+    };
+    let commit_id = match commit_id_raw.parse::<CommitId>() {
+        Ok(id) => id,
+        Err(err) => {
+            return (
+                StatusCode::from_u16(crate::http::api_error::http_status_for(&err))
+                    .unwrap_or(StatusCode::BAD_REQUEST),
+                err.to_string(),
+            )
+                .into_response();
+        }
+    };
+    let trimmed_path = raw_path.trim_start_matches('/');
+    let safe_path = match trimmed_path.parse::<crate::indexes::SafePath>() {
+        Ok(path) => path,
+        Err(err) => {
+            return (
+                StatusCode::from_u16(crate::http::api_error::http_status_for(&err))
+                    .unwrap_or(StatusCode::BAD_REQUEST),
+                err.to_string(),
+            )
+                .into_response();
+        }
+    };
+
+    let claims = match require_permission(
+        &state,
+        &headers,
+        Some(&repo_id),
+        Permission::Read,
+        "file.get",
+    ) {
+        Ok(c) => c,
+        Err(err) => {
+            return (
+                StatusCode::from_u16(crate::http::api_error::http_status_for(&err))
+                    .unwrap_or(StatusCode::UNAUTHORIZED),
+                err.to_string(),
+            )
+                .into_response();
+        }
+    };
+
+    if let Err(err) = state
+        .auth_svc
+        .check_path_access(&claims, &repo_id, &safe_path)
+    {
+        return (
+            StatusCode::from_u16(crate::http::api_error::http_status_for(&err))
+                .unwrap_or(StatusCode::FORBIDDEN),
+            err.to_string(),
+        )
+            .into_response();
+    }
+
+    let bytes = (|| -> Result<Vec<u8>, PvError> {
+        let repo = state.repo_store.get(&repo_id)?;
+        read_blob_from_commit_path(&repo, &commit_id, &safe_path)
+    })();
+
+    match bytes {
+        Ok(content) => (
+            StatusCode::OK,
+            [("content-type", "application/octet-stream")],
+            content,
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::from_u16(crate::http::api_error::http_status_for(&err))
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+            err.to_string(),
+        )
+            .into_response(),
     }
 }
 
@@ -1208,10 +1403,23 @@ async fn get_slice_manifest(
             ));
         }
 
-        let manifest = SliceProjection::project(&claims.subject, &issue)?;
+        let mut manifest = SliceProjection::project(&claims.subject, &issue)?;
+        if let Some(definition) = issue.slice_definition.as_ref() {
+            manifest.allowed_paths.retain(|raw| {
+                raw.parse::<crate::indexes::SafePath>()
+                    .is_ok_and(|safe| definition.contains(&safe))
+            });
+        }
+        if manifest.is_empty() {
+            tracing::info!(
+                subject = %claims.subject,
+                issue_id = %id,
+                "slice manifest is empty for current subject"
+            );
+        }
         state
             .auth_svc
-            .record_slice_access(&claims.subject, &id.to_string(), issue.repo_id.clone());
+            .record_slice_access(&claims.subject, id.as_str(), issue.repo_id.clone());
         Ok(manifest)
     })();
 
@@ -1238,11 +1446,9 @@ async fn set_slice_definition(
             .map_err(|_| PvError::InvalidId(format!("invalid issue id '{issue_id_raw}'")))?;
         let definition = SliceDefinition::from_paths(req.paths)?;
         let issue = state.issue_store.set_slice_definition(&id, definition)?;
-        state.auth_svc.record_slice_created(
-            &claims.subject,
-            &id.to_string(),
-            issue.repo_id.clone(),
-        );
+        state
+            .auth_svc
+            .record_slice_created(&claims.subject, id.as_str(), issue.repo_id.clone());
         Ok(issue)
     })();
 
@@ -1292,7 +1498,7 @@ async fn verify_with_slice(
         let feedback = SliceFeedback::for_manifest(&report, &manifest);
         state
             .auth_svc
-            .record_slice_access(&claims.subject, &id.to_string(), Some(repo_id));
+            .record_slice_access(&claims.subject, id.as_str(), Some(repo_id));
         Ok(feedback)
     })();
 
@@ -1300,4 +1506,15 @@ async fn verify_with_slice(
         Ok(feedback) => (StatusCode::OK, Json(ResponseEnvelope::ok(feedback))),
         Err(err) => error_response(err),
     }
+}
+
+async fn list_audit_entries(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<ResponseEnvelope<Vec<AuditEntry>>>) {
+    if let Err(err) = require_permission(&state, &headers, None, Permission::Admin, "audit.list") {
+        return error_response(err);
+    }
+    let snapshot = state.auth_svc.audit_log().snapshot();
+    (StatusCode::OK, Json(ResponseEnvelope::ok(snapshot)))
 }

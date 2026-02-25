@@ -41,6 +41,9 @@ impl UiApp {
         // Auth
         self.auth
             .login("session-token".to_string(), "alice".to_string());
+        self.auth.logout();
+        self.auth
+            .login("session-token".to_string(), "alice".to_string());
 
         // Issue list (only visible issues)
         self.issue_list.set_issues(vec![IssueEntry {
@@ -60,6 +63,11 @@ impl UiApp {
             .open("src/main.rs".to_string(), "fn main() {}".to_string());
         self.editor
             .edit("fn main() { println!(\"hello\"); }".to_string());
+        self.editor.close();
+        self.editor.open(
+            "src/main.rs".to_string(),
+            "fn main() { println!(\"hello\"); }".to_string(),
+        );
         self.slice_explorer.mark_dirty("src/main.rs");
 
         // Diff view
@@ -96,6 +104,8 @@ impl UiApp {
         );
 
         // Offline controls — hidden unless platform approves
+        self.offline_controls
+            .show(Some("Offline mode not approved.".to_string()));
         self.offline_controls.hide();
     }
 }
