@@ -1,4 +1,6 @@
 // projects/products/unstable/platform_ide/backend/src/main.rs
+#![allow(dead_code)]
+
 mod app;
 mod auth;
 mod changes;
