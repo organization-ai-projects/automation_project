@@ -10,6 +10,7 @@ For bootstrap V0, this crate provides:
 - JSON run report artifact for audit/replay style supervision
 - typed stage execution records for binary invocations (exit code, duration, timeout, artifact checks)
 - checkpoint persistence with resume semantics to avoid re-running completed stages
+- optional native planning context artifact generation (repo topology + detected validation commands)
 
 ## Usage
 
@@ -49,7 +50,10 @@ Binary invocation contract:
 
 ```bash
 cargo run -p autonomy_orchestrator_ai -- ./out \
+  --repo-root . \
+  --planning-context-artifact ./out/planning/repo_context.json \
   --timeout-ms 30000 \
+  --execution-max-iterations 3 \
   --manager-bin ./target/release/auto_manager_ai \
   --manager-env AUTONOMOUS_REPO_ROOT=. \
   --manager-arg . \
@@ -60,10 +64,34 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
   --executor-env AUTONOMOUS_REQUIRE_PR_NUMBER=true \
   --executor-arg "Fix failing tests for issue #123" \
   --executor-arg ./agent_config \
-  --executor-arg ./agent_audit.log
+  --executor-arg ./agent_audit.log \
+  --reviewer-bin ./target/release/autonomy_reviewer_ai \
+  --reviewer-env AUTONOMOUS_REVIEW_STRICT=true \
+  --reviewer-arg ./out/review \
+  --reviewer-expected-artifact ./out/review/review_report.json
 ```
 
 If a configured binary fails to spawn, exits non-zero, times out, misses expected artifacts, or produces malformed expected JSON artifacts, the orchestrator fails closed with terminal state `failed` or `timeout`.
+For `execution`, you can enable bounded retries with `--execution-max-iterations <N>` (default `1`), so the stage cannot loop forever. Each attempt receives environment variable `ORCHESTRATOR_EXECUTION_ATTEMPT=<n>`.
+If a reviewer fails and emits `next_step_plan`, you can enable bounded remediation loops with `--reviewer-remediation-max-cycles <N>` (default `0`).
+During remediation reruns, executor receives:
+
+- `ORCHESTRATOR_REMEDIATION_CYCLE=<n>`
+- `ORCHESTRATOR_REMEDIATION_STEPS=<joined reviewer next steps>`
+For `validation`, you can either:
+
+- provide a dedicated reviewer binary (`--reviewer-bin ...`)
+- run native shell validations with `--validation-command "..."` (repeatable)
+- load native validation commands detected during planning with `--validation-from-planning-context` (requires `--planning-context-artifact`)
+
+Supported invocation boundaries are currently:
+
+- `manager` at stage `planning`
+- `executor` at stage `execution`
+- `reviewer` at stage `validation`
+- native `planning.repo_context` action in stage `planning` when `--planning-context-artifact` is set
+- native `validation` command execution with `--validation-command` / `--validation-from-planning-context`
+
 When `--resume` is used, stages already marked completed in checkpoint are skipped idempotently. Stage idempotency keys are tracked as `stage:<StageName>` in execution records.
 Resume behavior is covered by binary regression tests in `tests/binary_resume_tests.rs`.
 
@@ -73,7 +101,7 @@ Resume behavior is covered by binary regression tests in `tests/binary_resume_te
 - `orchestrator_checkpoint.json` (default path: `<output_dir>/orchestrator_checkpoint.json`)
 
 This report includes machine-readable stage transitions and terminal outcome.
-It also includes `stage_executions` records for every configured binary execution, plus gate decisions and `blocked_reason_codes`.
+It also includes `stage_executions` records for every configured binary execution, plus gate decisions, `blocked_reason_codes`, and `reviewer_next_steps` when a reviewer emits a `next_step_plan`.
 
 ## E2E Matrix
 
@@ -88,6 +116,18 @@ Local helper:
 ```bash
 projects/products/unstable/autonomy_orchestrator_ai/scripts/run_e2e_matrix.sh
 ```
+
+Linked manager+executor stack helper:
+
+```bash
+projects/products/unstable/autonomy_orchestrator_ai/scripts/run_linked_ai_stack.sh [out_dir] [repo_root] [goal]
+```
+
+This helper wires:
+
+- `auto_manager_ai` as `manager` (deterministic fallback mode)
+- `autonomous_dev_ai` as `executor` (`--symbolic-only`), with bounded execution retries managed by orchestrator
+- `autonomy_reviewer_ai` as `reviewer` in `validation`
 
 Scenario documentation:
 

@@ -92,8 +92,22 @@ Typical causes:
 Remediation:
 
 - inspect `stage_executions[].error`
+- inspect `reviewer_next_steps` in `orchestrator_run_report.json` when reviewer is configured
 - fix binary path, args, env, or artifact contract
 - rerun with `--resume`
+
+### Reviewer-Driven Remediation Loop
+
+When `--reviewer-remediation-max-cycles` is greater than `0`, a failed validation with reviewer
+`next_step_plan` can trigger bounded reruns of `execution -> validation`.
+
+Operational notes:
+
+- loop is bounded by `--reviewer-remediation-max-cycles`
+- executor receives reviewer feedback through environment variables:
+  - `ORCHESTRATOR_REMEDIATION_CYCLE`
+  - `ORCHESTRATOR_REMEDIATION_STEPS`
+- if remediation budget is exhausted, run remains `failed` (fail-closed)
 
 ### Terminal State: `timeout`
 
@@ -141,6 +155,54 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
   --executor-env AUTONOMOUS_FETCH_PR_CI_STATUS_REQUIRED=true \
   --executor-env AUTONOMOUS_REVIEW_REQUIRED=true \
   --executor-env AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true
+```
+
+## Quickstart: Linked Three-AI Delegation
+
+Use the dedicated helper to wire:
+
+- `auto_manager_ai` as planning manager
+- `autonomous_dev_ai` as execution agent
+- `autonomy_reviewer_ai` as validation reviewer
+
+```bash
+projects/products/unstable/autonomy_orchestrator_ai/scripts/run_linked_ai_stack.sh \
+  ./out/orchestrator_linked_ai \
+  . \
+  "Investigate and propose safe fixes for unstable test failures"
+```
+
+By default, this helper:
+
+- builds all four binaries (orchestrator + 3 delegated AIs)
+- enables deterministic fallback for `auto_manager_ai`
+- runs `autonomous_dev_ai` in `--symbolic-only` mode for safer local validation
+- enforces expected output artifacts from delegated binaries
+- sets bounded execution retries via `--execution-max-iterations` (default: `2`)
+
+## Quickstart: Native Validation Commands
+
+When no reviewer binary is available, validation can be delegated to native shell commands:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved \
+  --validation-command "cargo check -p autonomy_orchestrator_ai" \
+  --validation-command "cargo test -p autonomy_orchestrator_ai"
+```
+
+You can also source validation commands detected during planning:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --repo-root . \
+  --planning-context-artifact ./out/planning/repo_context.json \
+  --validation-from-planning-context \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved
 ```
 
 ## Resume Operation
