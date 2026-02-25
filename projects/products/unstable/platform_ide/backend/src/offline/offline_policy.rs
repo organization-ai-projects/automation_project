@@ -11,21 +11,12 @@ use crate::errors::IdeError;
 ///
 /// No full offline implementation is required for MVP; this type is
 /// policy plumbing only.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OfflinePolicy {
     /// Whether offline mode has been admin-approved by the platform.
     pub allowed: bool,
     /// An optional message to display if offline controls are available.
     pub notice: Option<String>,
-}
-
-impl Default for OfflinePolicy {
-    fn default() -> Self {
-        Self {
-            allowed: false,
-            notice: None,
-        }
-    }
 }
 
 impl OfflinePolicy {
