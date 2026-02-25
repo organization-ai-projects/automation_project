@@ -54,11 +54,16 @@ pub(crate) fn spawn_service(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
+    let mut has_watcher_config = false;
     for kv in &svc.env {
         if let Some((k, v)) = kv.split_once('=') {
+            if k == "WATCHER_CONFIG" {
+                has_watcher_config = true;
+            }
             cmd.env(k, v);
         }
     }
+    configure_watcher_env(svc, workspace_root, has_watcher_config, &mut cmd);
 
     println!("▶ spawn {}: {:?}", svc.name, cmd);
 
@@ -69,4 +74,31 @@ pub(crate) fn spawn_service(
 
     cmd.spawn()
         .with_context(|| format!("failed to spawn `{}` from {}", svc.name, bin_path.display()))
+}
+
+fn configure_watcher_env(
+    svc: &Service,
+    workspace_root: &Path,
+    has_watcher_config: bool,
+    cmd: &mut Command,
+) {
+    if svc.name != "watcher" || has_watcher_config {
+        return;
+    }
+
+    if let Ok(explicit) = std::env::var("WATCHER_CONFIG")
+        && !explicit.trim().is_empty()
+    {
+        cmd.env("WATCHER_CONFIG", explicit);
+        return;
+    }
+
+    let mode = std::env::var("LAUNCHER_WATCHER_MODE").unwrap_or_else(|_| "prod".to_string());
+    let config_rel = if matches!(mode.as_str(), "dev" | "development") {
+        "projects/products/stable/core/watcher/watcher.dev.toml"
+    } else {
+        "projects/products/stable/core/watcher/watcher.toml"
+    };
+    let config_path = workspace_root.join(config_rel);
+    cmd.env("WATCHER_CONFIG", config_path);
 }

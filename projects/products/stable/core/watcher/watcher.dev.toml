@@ -1,0 +1,15 @@
+[logging]
+log_file = "/tmp/watcher.dev.log"
+log_level = "info"
+
+[[components]]
+name = "engine"
+ping_interval = 3
+ping = { http = { url = "http://127.0.0.1:3030/health" } }
+restart = { policy = "never", backoff_min_secs = 1, backoff_max_secs = 10 }
+
+[[components]]
+name = "central_ui"
+ping_interval = 3
+ping = { http = { url = "http://127.0.0.1:7171/api/setup/status" } }
+restart = { policy = "never", backoff_min_secs = 1, backoff_max_secs = 10 }
