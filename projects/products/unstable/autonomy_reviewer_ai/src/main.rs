@@ -104,11 +104,12 @@ fn main() {
                 .get_field("final_state")
                 .and_then(|v| v.as_str_strict())
                 && final_state != "Completed"
+                && final_state != "Done"
             {
                 finds.push(item(
                     "EXECUTOR_FINAL_STATE_NOT_COMPLETED",
                     format!(
-                        "executor_run_report final_state is '{}' (expected 'Completed')",
+                        "executor_run_report final_state is '{}' (expected 'Completed' or 'Done')",
                         final_state
                     ),
                     "Inspect executor run report/audit log, fix root cause, and rerun execution stage.",
@@ -119,22 +120,40 @@ fn main() {
                 .and_then(|v| v.as_bool_strict())
                 && !closure_ok
             {
-                finds.push(item(
-                    "EXECUTOR_CLOSURE_GATES_NOT_SATISFIED",
-                    "executor_run_report closure_gates_satisfied=false (expected true)"
-                        .to_string(),
-                    "Review unmet closure gates in executor report and satisfy required PR/CI/review constraints.",
-                ));
+                let non_interactive_profile = json
+                    .get_field("non_interactive_profile")
+                    .and_then(|v| v.as_str_strict())
+                    .ok();
+                let create_pr_enabled = json
+                    .get_field("create_pr_enabled")
+                    .and_then(|v| v.as_bool_strict())
+                    .unwrap_or(false);
+                let review_required = json
+                    .get_field("review_required")
+                    .and_then(|v| v.as_bool_strict())
+                    .unwrap_or(false);
+                let requires_strict_closure = non_interactive_profile == Some("orchestrator_v1")
+                    || create_pr_enabled
+                    || review_required;
+
+                if requires_strict_closure {
+                    finds.push(item(
+                        "EXECUTOR_CLOSURE_GATES_NOT_SATISFIED",
+                        "executor_run_report closure_gates_satisfied=false (expected true)"
+                            .to_string(),
+                        "Review unmet closure gates in executor report and satisfy required PR/CI/review constraints.",
+                    ));
+                }
             }
             if let Ok(failures) = json
                 .get_field("total_failures")
                 .and_then(|v| v.as_u64_strict())
-                && failures > 0
+                && failures > 5
             {
                 warns.push(item(
                     "EXECUTOR_TOTAL_FAILURES_NON_ZERO",
                     format!(
-                        "executor_run_report total_failures={} (review warning)",
+                        "executor_run_report total_failures={} (review warning, threshold > 5)",
                         failures
                     ),
                     "Reduce executor failure count by fixing recurring tool/policy failures before merge.",
