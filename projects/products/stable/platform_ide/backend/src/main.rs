@@ -208,22 +208,22 @@ async fn run_remote_bootstrap(config: &IdeConfig) {
         let is_empty = manifest.is_empty();
         tracing::info!(path_count, is_empty, ?first_path, "remote manifest loaded");
 
-        if let Some(path) = first_path {
-            if let Ok(mut buffer) = app.open_file(&path).await {
-                let updated = buffer.content().to_vec();
-                buffer.write(updated);
-                let mut change_set = ChangeSet::new();
-                let added = change_set.add_buffer(&buffer);
-                tracing::info!(added, staged = change_set.len(), "remote buffer staged");
+        if let Some(path) = first_path
+            && let Ok(mut buffer) = app.open_file(&path).await
+        {
+            let updated = buffer.content().to_vec();
+            buffer.write(updated);
+            let mut change_set = ChangeSet::new();
+            let added = change_set.add_buffer(&buffer);
+            tracing::info!(added, staged = change_set.len(), "remote buffer staged");
 
-                if !change_set.is_empty() {
-                    match app
-                        .submit_changes(&change_set, "chore: bootstrap submit check")
-                        .await
-                    {
-                        Ok(commit_id) => tracing::info!(%commit_id, "remote submit completed"),
-                        Err(error) => tracing::warn!(%error, "submit_changes failed"),
-                    }
+            if !change_set.is_empty() {
+                match app
+                    .submit_changes(&change_set, "chore: bootstrap submit check")
+                    .await
+                {
+                    Ok(commit_id) => tracing::info!(%commit_id, "remote submit completed"),
+                    Err(error) => tracing::warn!(%error, "submit_changes failed"),
                 }
             }
         }
