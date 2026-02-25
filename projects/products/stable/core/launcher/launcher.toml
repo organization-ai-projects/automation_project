@@ -35,7 +35,6 @@ bin = "watcher"
 args = []
 env = [
   "RUST_LOG=info",
-  "WATCHER_CONFIG=projects/products/stable/core/watcher/watcher.dev.toml",
 ]
 depends_on = ["engine"]
 restart = "on-failure"
