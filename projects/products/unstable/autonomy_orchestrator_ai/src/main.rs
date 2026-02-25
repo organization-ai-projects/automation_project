@@ -5,6 +5,7 @@ mod checkpoint_store;
 mod domain;
 mod orchestrator;
 mod output_writer;
+mod repo_context_artifact;
 
 use crate::checkpoint_store::load_checkpoint;
 use crate::domain::{
@@ -35,6 +36,17 @@ fn main() {
     let mut executor_args: Vec<String> = Vec::new();
     let mut executor_env: Vec<(String, String)> = Vec::new();
     let mut executor_expected_artifacts: Vec<String> = Vec::new();
+    let mut execution_max_iterations: u32 = 1;
+    let mut reviewer_remediation_max_cycles: u32 = 0;
+    let mut reviewer_bin: Option<String> = None;
+    let mut reviewer_args: Vec<String> = Vec::new();
+    let mut reviewer_env: Vec<(String, String)> = Vec::new();
+    let mut reviewer_expected_artifacts: Vec<String> = Vec::new();
+    let mut validation_commands: Vec<String> = Vec::new();
+    let mut validation_shell = "/bin/sh".to_string();
+    let mut validation_from_planning_context = false;
+    let mut repo_root = PathBuf::from(".");
+    let mut planning_context_artifact: Option<PathBuf> = None;
 
     let args: Vec<String> = env::args().skip(1).collect();
     let mut i = 0usize;
@@ -142,6 +154,93 @@ fn main() {
                 executor_expected_artifacts.push(args[i + 1].clone());
                 i += 2;
             }
+            "--execution-max-iterations" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                execution_max_iterations = args[i + 1].parse::<u32>().unwrap_or_else(|_| {
+                    eprintln!("Invalid --execution-max-iterations value: {}", args[i + 1]);
+                    process::exit(2);
+                });
+                if execution_max_iterations == 0 {
+                    eprintln!("Invalid --execution-max-iterations value: must be >= 1");
+                    process::exit(2);
+                }
+                i += 2;
+            }
+            "--reviewer-remediation-max-cycles" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                reviewer_remediation_max_cycles = args[i + 1].parse::<u32>().unwrap_or_else(|_| {
+                    eprintln!(
+                        "Invalid --reviewer-remediation-max-cycles value: {}",
+                        args[i + 1]
+                    );
+                    process::exit(2);
+                });
+                i += 2;
+            }
+            "--reviewer-bin" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                reviewer_bin = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--reviewer-arg" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                reviewer_args.push(args[i + 1].clone());
+                i += 2;
+            }
+            "--reviewer-env" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                reviewer_env.push(parse_env_pair(&args[i + 1]));
+                i += 2;
+            }
+            "--reviewer-expected-artifact" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                reviewer_expected_artifacts.push(args[i + 1].clone());
+                i += 2;
+            }
+            "--validation-command" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                validation_commands.push(args[i + 1].clone());
+                i += 2;
+            }
+            "--validation-shell" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                validation_shell = args[i + 1].clone();
+                i += 2;
+            }
+            "--validation-from-planning-context" => {
+                validation_from_planning_context = true;
+                i += 1;
+            }
+            "--repo-root" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                repo_root = PathBuf::from(args[i + 1].clone());
+                i += 2;
+            }
+            "--planning-context-artifact" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                planning_context_artifact = Some(PathBuf::from(args[i + 1].clone()));
+                i += 2;
+            }
             val if val.starts_with("--") => {
                 eprintln!("Unknown option: {val}");
                 usage_and_exit();
@@ -192,6 +291,14 @@ fn main() {
         timeout_ms,
         expected_artifacts: executor_expected_artifacts,
     });
+    let validation_invocation = reviewer_bin.map(|command| BinaryInvocationSpec {
+        stage: Stage::Validation,
+        command,
+        args: reviewer_args,
+        env: reviewer_env,
+        timeout_ms,
+        expected_artifacts: reviewer_expected_artifacts,
+    });
 
     println!("Autonomy Orchestrator AI V0");
     println!("Run ID: {}", run_id);
@@ -203,13 +310,35 @@ fn main() {
     println!("Policy status: {:?}", gate_inputs.policy_status);
     println!("CI status: {:?}", gate_inputs.ci_status);
     println!("Review status: {:?}", gate_inputs.review_status);
+    println!("Repo root: {}", repo_root.display());
+    println!("Execution max iterations: {}", execution_max_iterations);
+    println!(
+        "Reviewer remediation max cycles: {}",
+        reviewer_remediation_max_cycles
+    );
     println!(
         "Planning invocation configured: {}",
         planning_invocation.is_some()
     );
     println!(
+        "Planning context artifact configured: {}",
+        planning_context_artifact.is_some()
+    );
+    println!(
         "Execution invocation configured: {}",
         execution_invocation.is_some()
+    );
+    println!(
+        "Validation invocation configured: {}",
+        validation_invocation.is_some()
+    );
+    println!(
+        "Validation commands configured: {}",
+        validation_commands.len()
+    );
+    println!(
+        "Validation from planning context: {}",
+        validation_from_planning_context
     );
     println!();
 
@@ -218,6 +347,15 @@ fn main() {
         simulate_blocked,
         planning_invocation,
         execution_invocation,
+        validation_invocation,
+        execution_max_iterations,
+        reviewer_remediation_max_cycles,
+        timeout_ms,
+        repo_root,
+        planning_context_artifact,
+        validation_commands,
+        validation_shell,
+        validation_from_planning_context,
         gate_inputs,
         checkpoint,
         Some(checkpoint_path),
@@ -268,6 +406,17 @@ fn usage_and_exit() -> ! {
     eprintln!("  --executor-arg <value>                   (repeatable)");
     eprintln!("  --executor-env <KEY=VALUE>              (repeatable)");
     eprintln!("  --executor-expected-artifact <path>      (repeatable)");
+    eprintln!("  --execution-max-iterations <count>       (default: 1)");
+    eprintln!("  --reviewer-remediation-max-cycles <count> (default: 0)");
+    eprintln!("  --reviewer-bin <path>");
+    eprintln!("  --reviewer-arg <value>                   (repeatable)");
+    eprintln!("  --reviewer-env <KEY=VALUE>               (repeatable)");
+    eprintln!("  --reviewer-expected-artifact <path>      (repeatable)");
+    eprintln!("  --validation-command <shell command>     (repeatable)");
+    eprintln!("  --validation-shell <path>                (default: /bin/sh)");
+    eprintln!("  --validation-from-planning-context");
+    eprintln!("  --repo-root <path>                       (default: .)");
+    eprintln!("  --planning-context-artifact <path>");
     process::exit(2);
 }
 
