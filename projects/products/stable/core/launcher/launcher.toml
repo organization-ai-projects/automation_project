@@ -1,6 +1,6 @@
 [workspace]
-# Relative path from this file (launcher/) to the core workspace root
-root = ".."
+# Relative path from this file (launcher/) to repository root
+root = "../../../../.."
 
 [build]
 enabled = true
@@ -14,37 +14,44 @@ startup_timeout_ms = 15000
 shutdown_grace_ms = 2500
 
 [[service]]
+name = "engine"
+bin = "engine"
+args = []
+env = [
+  "RUST_LOG=info",
+  "ENGINE_ALLOW_INSECURE_SECRET=1",
+  "ENGINE_OWNER_CLAIM_DIR=/tmp/automation_engine_claim",
+  "ENGINE_PROJECTS_DIR=projects/products/stable",
+]
+depends_on = []
+restart = "on-failure"
+restart_max = 10
+restart_backoff_ms = 500
+ready_http = "http://127.0.0.1:3030/health"
+
+[[service]]
 name = "watcher"
 bin = "watcher"
 args = []
-env = []
-cwd = ".."                                  # Relative to the workspace root
-depends_on = []
-restart = "on-failure"                      # never|on-failure|always
+env = [
+  "RUST_LOG=info",
+  "WATCHER_CONFIG=projects/products/stable/core/watcher/watcher.dev.toml",
+]
+depends_on = ["engine"]
+restart = "on-failure"
 restart_max = 10
 restart_backoff_ms = 500
-ready_http = "http://127.0.0.1:8081/health"
 
 [[service]]
-name = "api"
-bin = "api"
-args = ["--port", "8080"]
-env = ["RUST_LOG=info"]
-cwd = ".."
-depends_on = ["watcher"]
-restart = "always"
-restart_max = 0                             # 0 = unlimited
-restart_backoff_ms = 800
-ready_http = "http://127.0.0.1:8080/health"
-
-[[service]]
-name = "scheduler"
-bin = "scheduler"
+name = "central_ui"
+bin = "central_ui"
 args = []
-env = []
-cwd = ".."
-depends_on = ["api"]
+env = [
+  "RUST_LOG=info",
+  "CENTRAL_UI_ENGINE_HTTP=http://127.0.0.1:3030",
+]
+depends_on = ["engine", "watcher"]
 restart = "on-failure"
 restart_max = 5
 restart_backoff_ms = 1000
-# No healthcheck => considered ready as soon as spawned
+ready_http = "http://127.0.0.1:7171/api/setup/status"
