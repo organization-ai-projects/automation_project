@@ -28,6 +28,28 @@ struct PendingValidationInvocation {
     env: Vec<(String, String)>,
 }
 
+#[derive(Clone, Debug)]
+enum ConfigLoadMode {
+    Auto(PathBuf),
+    Ron(PathBuf),
+    Bin(PathBuf),
+    Json(PathBuf),
+}
+
+#[derive(Clone, Debug)]
+enum ConfigSaveMode {
+    Auto(PathBuf),
+    Ron(PathBuf),
+    Bin(PathBuf),
+    Json(PathBuf),
+}
+
+#[derive(Clone, Debug, Default)]
+struct ConfigIoPlan {
+    load: Option<ConfigLoadMode>,
+    saves: Vec<ConfigSaveMode>,
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "autonomy_orchestrator_ai")]
 struct Cli {
@@ -256,55 +278,18 @@ fn run_orchestrator(args: RunArgs, raw_args: &[String]) -> ! {
         process::exit(2);
     }
 
-    let load_modes_selected = [
-        args.config_load_ron.is_some(),
-        args.config_load_bin.is_some(),
-        args.config_load_json.is_some(),
-        args.config_load_auto.is_some(),
-    ]
-    .into_iter()
-    .filter(|selected| *selected)
-    .count();
-    if load_modes_selected > 1 {
-        eprintln!(
-            "Only one config load mode is allowed: choose exactly one of --config-load, --config-load-ron, --config-load-bin, --config-load-json"
-        );
+    let config_io = derive_config_io_plan(&args).unwrap_or_else(|err| {
+        eprintln!("{err}");
         process::exit(2);
-    }
-
-    if args.config_save_auto.is_some()
-        && (args.config_save_ron.is_some()
-            || args.config_save_bin.is_some()
-            || args.config_save_json.is_some())
+    });
+    if args.ai_config_only_binary
+        && let Some(path) = first_non_binary_config_path(&config_io)
     {
         eprintln!(
-            "When --config-save is used, do not combine it with --config-save-ron/--config-save-bin/--config-save-json"
+            "AI binary-only mode forbids non-binary config path '{}'. Use .bin or no extension.",
+            path.display()
         );
         process::exit(2);
-    }
-
-    if args.ai_config_only_binary {
-        for path in [
-            args.config_load_auto.as_ref(),
-            args.config_load_ron.as_ref(),
-            args.config_load_bin.as_ref(),
-            args.config_load_json.as_ref(),
-            args.config_save_auto.as_ref(),
-            args.config_save_ron.as_ref(),
-            args.config_save_bin.as_ref(),
-            args.config_save_json.as_ref(),
-        ]
-        .into_iter()
-        .flatten()
-        {
-            if !is_binary_config_path(path) {
-                eprintln!(
-                    "AI binary-only mode forbids non-binary config path '{}'. Use .bin or no extension.",
-                    path.display()
-                );
-                process::exit(2);
-            }
-        }
     }
 
     let validation_pending_invocations = parse_validation_pending_invocations(raw_args)
@@ -409,55 +394,19 @@ fn run_orchestrator(args: RunArgs, raw_args: &[String]) -> ! {
         checkpoint_path: Some(checkpoint_path.clone()),
     };
 
-    if let Some(path) = &args.config_load_auto {
-        config = OrchestratorConfig::load_auto(path).unwrap_or_else(|err| {
-            eprintln!("{err}");
-            process::exit(1);
-        });
-        config.checkpoint_path = Some(checkpoint_path.clone());
-    } else if let Some(path) = &args.config_load_ron {
-        config = OrchestratorConfig::load_ron(path).unwrap_or_else(|err| {
-            eprintln!("{err}");
-            process::exit(1);
-        });
-        config.checkpoint_path = Some(checkpoint_path.clone());
-    } else if let Some(path) = &args.config_load_bin {
-        config = OrchestratorConfig::load_bin(path).unwrap_or_else(|err| {
-            eprintln!("{err}");
-            process::exit(1);
-        });
-        config.checkpoint_path = Some(checkpoint_path.clone());
-    } else if let Some(path) = &args.config_load_json {
-        config = OrchestratorConfig::load_json(path).unwrap_or_else(|err| {
+    if let Some(load_mode) = &config_io.load {
+        config = load_config_by_mode(load_mode).unwrap_or_else(|err| {
             eprintln!("{err}");
             process::exit(1);
         });
         config.checkpoint_path = Some(checkpoint_path.clone());
     }
 
-    if let Some(path) = &args.config_save_ron
-        && let Err(err) = config.save_ron(path)
-    {
-        eprintln!("{err}");
-        process::exit(1);
-    }
-    if let Some(path) = &args.config_save_bin
-        && let Err(err) = config.save_bin(path)
-    {
-        eprintln!("{err}");
-        process::exit(1);
-    }
-    if let Some(path) = &args.config_save_json
-        && let Err(err) = config.save_json(path)
-    {
-        eprintln!("{err}");
-        process::exit(1);
-    }
-    if let Some(path) = &args.config_save_auto
-        && let Err(err) = config.save_auto(path)
-    {
-        eprintln!("{err}");
-        process::exit(1);
+    for save_mode in &config_io.saves {
+        if let Err(err) = save_config_by_mode(&config, save_mode) {
+            eprintln!("{err}");
+            process::exit(1);
+        }
     }
 
     println!("Autonomy Orchestrator AI V0");
@@ -509,14 +458,50 @@ fn run_orchestrator(args: RunArgs, raw_args: &[String]) -> ! {
         "Delivery PR enabled: {}",
         config.delivery_options.pr_enabled
     );
-    println!("Config load AUTO: {}", args.config_load_auto.is_some());
-    println!("Config load RON: {}", args.config_load_ron.is_some());
-    println!("Config load BIN: {}", args.config_load_bin.is_some());
-    println!("Config load JSON: {}", args.config_load_json.is_some());
-    println!("Config save AUTO: {}", args.config_save_auto.is_some());
-    println!("Config save RON: {}", args.config_save_ron.is_some());
-    println!("Config save BIN: {}", args.config_save_bin.is_some());
-    println!("Config save JSON: {}", args.config_save_json.is_some());
+    println!(
+        "Config load AUTO: {}",
+        matches!(config_io.load.as_ref(), Some(ConfigLoadMode::Auto(_)))
+    );
+    println!(
+        "Config load RON: {}",
+        matches!(config_io.load.as_ref(), Some(ConfigLoadMode::Ron(_)))
+    );
+    println!(
+        "Config load BIN: {}",
+        matches!(config_io.load.as_ref(), Some(ConfigLoadMode::Bin(_)))
+    );
+    println!(
+        "Config load JSON: {}",
+        matches!(config_io.load.as_ref(), Some(ConfigLoadMode::Json(_)))
+    );
+    println!(
+        "Config save AUTO: {}",
+        config_io
+            .saves
+            .iter()
+            .any(|mode| matches!(mode, ConfigSaveMode::Auto(_)))
+    );
+    println!(
+        "Config save RON: {}",
+        config_io
+            .saves
+            .iter()
+            .any(|mode| matches!(mode, ConfigSaveMode::Ron(_)))
+    );
+    println!(
+        "Config save BIN: {}",
+        config_io
+            .saves
+            .iter()
+            .any(|mode| matches!(mode, ConfigSaveMode::Bin(_)))
+    );
+    println!(
+        "Config save JSON: {}",
+        config_io
+            .saves
+            .iter()
+            .any(|mode| matches!(mode, ConfigSaveMode::Json(_)))
+    );
     println!("AI config only binary: {}", args.ai_config_only_binary);
     println!();
 
@@ -596,6 +581,103 @@ fn parse_env_pair_cli(raw: &str) -> Result<(String, String), String> {
         return Err(format!("Invalid env pair '{}', expected KEY=VALUE", raw));
     }
     Ok((key.to_string(), value.unwrap_or_default().to_string()))
+}
+
+fn derive_config_io_plan(args: &RunArgs) -> Result<ConfigIoPlan, String> {
+    let mut plan = ConfigIoPlan::default();
+
+    let mut load_modes = Vec::new();
+    if let Some(path) = &args.config_load_auto {
+        load_modes.push(ConfigLoadMode::Auto(path.clone()));
+    }
+    if let Some(path) = &args.config_load_ron {
+        load_modes.push(ConfigLoadMode::Ron(path.clone()));
+    }
+    if let Some(path) = &args.config_load_bin {
+        load_modes.push(ConfigLoadMode::Bin(path.clone()));
+    }
+    if let Some(path) = &args.config_load_json {
+        load_modes.push(ConfigLoadMode::Json(path.clone()));
+    }
+    if load_modes.len() > 1 {
+        return Err(
+            "Only one config load mode is allowed: choose exactly one of --config-load, --config-load-ron, --config-load-bin, --config-load-json"
+                .to_string(),
+        );
+    }
+    plan.load = load_modes.into_iter().next();
+
+    if args.config_save_auto.is_some()
+        && (args.config_save_ron.is_some()
+            || args.config_save_bin.is_some()
+            || args.config_save_json.is_some())
+    {
+        return Err(
+            "When --config-save is used, do not combine it with --config-save-ron/--config-save-bin/--config-save-json"
+                .to_string(),
+        );
+    }
+
+    if let Some(path) = &args.config_save_auto {
+        plan.saves.push(ConfigSaveMode::Auto(path.clone()));
+    }
+    if let Some(path) = &args.config_save_ron {
+        plan.saves.push(ConfigSaveMode::Ron(path.clone()));
+    }
+    if let Some(path) = &args.config_save_bin {
+        plan.saves.push(ConfigSaveMode::Bin(path.clone()));
+    }
+    if let Some(path) = &args.config_save_json {
+        plan.saves.push(ConfigSaveMode::Json(path.clone()));
+    }
+
+    Ok(plan)
+}
+
+fn first_non_binary_config_path(plan: &ConfigIoPlan) -> Option<&Path> {
+    if let Some(load) = &plan.load {
+        let path = match load {
+            ConfigLoadMode::Auto(path)
+            | ConfigLoadMode::Ron(path)
+            | ConfigLoadMode::Bin(path)
+            | ConfigLoadMode::Json(path) => path,
+        };
+        if !is_binary_config_path(path) {
+            return Some(path);
+        }
+    }
+
+    for save in &plan.saves {
+        let path = match save {
+            ConfigSaveMode::Auto(path)
+            | ConfigSaveMode::Ron(path)
+            | ConfigSaveMode::Bin(path)
+            | ConfigSaveMode::Json(path) => path,
+        };
+        if !is_binary_config_path(path) {
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+fn load_config_by_mode(mode: &ConfigLoadMode) -> Result<OrchestratorConfig, String> {
+    match mode {
+        ConfigLoadMode::Auto(path) => OrchestratorConfig::load_auto(path),
+        ConfigLoadMode::Ron(path) => OrchestratorConfig::load_ron(path),
+        ConfigLoadMode::Bin(path) => OrchestratorConfig::load_bin(path),
+        ConfigLoadMode::Json(path) => OrchestratorConfig::load_json(path),
+    }
+}
+
+fn save_config_by_mode(config: &OrchestratorConfig, mode: &ConfigSaveMode) -> Result<(), String> {
+    match mode {
+        ConfigSaveMode::Auto(path) => config.save_auto(path),
+        ConfigSaveMode::Ron(path) => config.save_ron(path),
+        ConfigSaveMode::Bin(path) => config.save_bin(path),
+        ConfigSaveMode::Json(path) => config.save_json(path),
+    }
 }
 
 fn unix_timestamp_secs() -> u64 {
