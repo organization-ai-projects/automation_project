@@ -68,6 +68,20 @@ fi
 exit 0
 EOF
   chmod +x "${mock_dir}/gh"
+
+  cat > "${mock_dir}/pnpm" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ -n "${MOCK_PNPM_ARGS_LOG:-}" ]]; then
+  printf "%s\n" "$*" >> "${MOCK_PNPM_ARGS_LOG}"
+fi
+if [[ "${MOCK_MARKDOWNLINT_FAIL:-0}" == "1" ]]; then
+  echo "mock markdownlint failure" >&2
+  exit 1
+fi
+exit 0
+EOF
+  chmod +x "${mock_dir}/pnpm"
 }
 
 setup_repo() {
@@ -86,7 +100,16 @@ setup_repo() {
 
     git checkout -b dev >/dev/null 2>&1
     mkdir -p documentation
+    mkdir -p node_modules/.bin
     echo "base" > documentation/base.md
+    cat > package.json <<'EOF'
+{"name":"hook-tests","private":true,"scripts":{"lint-md-files":"echo lint-md-files"}}
+EOF
+    cat > node_modules/.bin/markdownlint-cli2 <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x node_modules/.bin/markdownlint-cli2
     git add documentation/base.md
     git commit -m "chore: base" >/dev/null 2>&1
     git remote add origin "${remote_dir}"
@@ -313,6 +336,18 @@ main() {
     "mkdir -p src documentation && printf '[package]\nname = \"tmp\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > Cargo.toml && printf 'fn main() { println!(\"ok\"); }\n' > src/main.rs && git add Cargo.toml src/main.rs && git commit -m 'chore: add minimal rust crate' >/dev/null && printf 'fn main( {\n' > src/main.rs && echo 'note' > documentation/precommit.md && git add documentation/precommit.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
 
   run_case \
+    "pre-commit-runs-markdownlint-on-staged-markdown" \
+    0 \
+    "Pre-commit checks passed" \
+    "echo '# markdown title' > documentation/precommit_markdownlint.md && git add documentation/precommit_markdownlint.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
+
+  run_case \
+    "pre-commit-blocks-markdownlint-failure" \
+    1 \
+    "Markdown lint failed on staged markdown files" \
+    "echo '# markdown title' > documentation/precommit_markdownlint_fail.md && git add documentation/precommit_markdownlint_fail.md && MOCK_MARKDOWNLINT_FAIL=1 /bin/bash '${HOOKS_DIR}/pre-commit'"
+
+  run_case \
     "pre-commit-ignores-unstaged-orchestrator-permission-mismatches" \
     0 \
     "Pre-commit checks passed" \
@@ -336,6 +371,18 @@ main() {
     0 \
     "Pre-push checks PASSED" \
     "echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #123' >/dev/null && ALLOW_PART_OF_ONLY_PUSH=1 /bin/bash '${HOOKS_DIR}/pre-push'"
+
+  run_case \
+    "pre-push-docs-only-runs-markdownlint" \
+    0 \
+    "Markdown lint OK" \
+    "echo '# markdown update' > documentation/markdownlint.md && git add documentation/markdownlint.md && git commit -m 'docs(markdown): add markdownlint doc file' >/dev/null && /bin/bash '${HOOKS_DIR}/pre-push'"
+
+  run_case \
+    "pre-push-docs-only-blocks-on-markdownlint-failure" \
+    1 \
+    "Markdown lint failed" \
+    "echo '# markdown update' > documentation/markdownlint_fail.md && git add documentation/markdownlint_fail.md && git commit -m 'docs(markdown): add markdownlint failing file' >/dev/null && MOCK_MARKDOWNLINT_FAIL=1 /bin/bash '${HOOKS_DIR}/pre-push'"
 
   # pre-push: block root parent refs in pushed commit range.
   run_case \
