@@ -2,7 +2,9 @@
 mod binary_runner;
 mod checkpoint_store;
 mod cli_command;
+mod cli_value_parsers;
 mod commands;
+mod config_runtime;
 mod configs;
 mod domain;
 mod fixture;
@@ -16,7 +18,8 @@ mod runtime;
 
 use crate::cli_command::Cli;
 use crate::commands::Commands;
-use crate::runtime::{run_config_canonicalize, run_config_validate, run_orchestrator};
+use crate::config_runtime::{run_config_canonicalize, run_config_validate};
+use crate::runtime::run_orchestrator;
 use clap::Parser;
 use std::process;
 
