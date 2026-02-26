@@ -16,6 +16,8 @@ pub struct RunArgs {
     #[arg(long)]
     pub simulate_blocked: bool,
     #[arg(long)]
+    pub verbose: bool,
+    #[arg(long)]
     pub resume: bool,
     #[arg(long, default_value_t = 30_000)]
     pub timeout_ms: u64,
