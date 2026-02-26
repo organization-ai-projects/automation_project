@@ -25,6 +25,7 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         gate_inputs: GateInputs::passing(),
         checkpoint_path: None,
         cycle_memory_path: None,
+        next_actions_path: None,
     }
 }
 

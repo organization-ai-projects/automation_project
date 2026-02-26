@@ -822,3 +822,63 @@ fn matrix_delivery_pr_update_dry_run_is_audited() {
 
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn matrix_next_actions_artifact_is_written() {
+    let out_dir = unique_temp_dir("next_actions_written");
+    let next_actions_path = out_dir.join("next_actions.bin");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "deny",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+        ],
+        &out_dir,
+    );
+
+    assert_eq!(output.status.code(), Some(3));
+    assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+    assert!(
+        next_actions_path.exists(),
+        "expected next_actions.bin to be emitted"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_autonomous_loop_stops_on_repeated_failure_signature() {
+    let out_dir = unique_temp_dir("autonomous_loop_repeated_failure");
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_autonomy_orchestrator_ai"));
+    cmd.arg(&out_dir)
+        .arg("--autonomous-loop")
+        .arg("--autonomous-max-runs")
+        .arg("5")
+        .arg("--autonomous-same-error-limit")
+        .arg("2")
+        .arg("--policy-status")
+        .arg("deny")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved");
+    let output = cmd.output().expect("execute autonomous loop run");
+    assert_eq!(output.status.code(), Some(3));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Autonomous loop stopped:"),
+        "expected loop stop message, got: {stdout}"
+    );
+
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+    assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+
+    let _ = fs::remove_dir_all(out_dir);
+}

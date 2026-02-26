@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/stage_execution_record.rs
-
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{Stage, StageExecutionStatus};

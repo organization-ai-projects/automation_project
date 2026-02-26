@@ -1,4 +1,8 @@
-use crate::repo_context_artifact::ValidationInvocationArtifact;
+// projects/products/unstable/autonomy_orchestrator_ai/src/planner_output.rs
+use crate::{
+    planner_outpout_artifact::PlannerOutputArtifact,
+    validation_invocation_artifact::ValidationInvocationArtifact,
+};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 
@@ -8,12 +12,6 @@ pub struct PlannerOutput {
     pub reviewer_remediation_max_cycles: Option<u32>,
     pub remediation_steps: Vec<String>,
     pub validation_commands: Vec<ValidationInvocationArtifact>,
-}
-
-#[derive(Debug, Clone)]
-pub struct PlannerOutputArtifact {
-    pub source_path: String,
-    pub payload: PlannerOutput,
 }
 
 pub fn read_planner_output_from_artifacts(

@@ -1,3 +1,4 @@
+// projects/products/unstable/autonomy_orchestrator_ai/src/domain/orchestrator_config.rs
 use crate::domain::{BinaryInvocationSpec, DeliveryOptions, GateInputs};
 use common_binary::{BinaryOptions, read_binary, write_binary};
 use common_json::{from_str, to_string_pretty};
@@ -27,6 +28,7 @@ pub struct OrchestratorConfig {
     pub gate_inputs: GateInputs,
     pub checkpoint_path: Option<PathBuf>,
     pub cycle_memory_path: Option<PathBuf>,
+    pub next_actions_path: Option<PathBuf>,
 }
 
 impl OrchestratorConfig {

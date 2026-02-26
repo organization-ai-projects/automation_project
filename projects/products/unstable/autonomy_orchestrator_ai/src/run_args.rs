@@ -8,7 +8,7 @@ use crate::{
     cli_value_parsers::parse_env_pair_cli,
 };
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 pub struct RunArgs {
     #[arg(default_value = "./out")]
     pub output_dir: PathBuf,
@@ -33,6 +33,16 @@ pub struct RunArgs {
     pub checkpoint_path: Option<PathBuf>,
     #[arg(long)]
     pub cycle_memory_path: Option<PathBuf>,
+    #[arg(long)]
+    pub next_actions_path: Option<PathBuf>,
+    #[arg(long)]
+    pub autonomous_loop: bool,
+    #[arg(long, default_value_t = 3)]
+    pub autonomous_max_runs: u32,
+    #[arg(long, default_value_t = 300_000)]
+    pub autonomous_max_duration_ms: u64,
+    #[arg(long, default_value_t = 2)]
+    pub autonomous_same_error_limit: u32,
 
     #[arg(long)]
     pub manager_bin: Option<String>,

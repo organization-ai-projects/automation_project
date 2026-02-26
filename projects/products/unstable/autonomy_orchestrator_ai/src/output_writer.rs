@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/output_writer.rs
-
 use crate::domain::RunReport;
 use common_json::to_string_pretty;
 use std::fs;

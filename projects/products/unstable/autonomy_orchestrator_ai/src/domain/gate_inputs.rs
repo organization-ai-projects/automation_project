@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/gate_inputs.rs
-
 use crate::domain::{CiGateStatus, PolicyGateStatus, ReviewGateStatus};
 use serde::{Deserialize, Serialize};
 

@@ -1,3 +1,4 @@
+// projects/products/unstable/autonomy_orchestrator_ai/src/runtime_diagnostics.rs
 use crate::configs::{ConfigIoPlan, ConfigLoadMode, ConfigSaveMode};
 use crate::domain::OrchestratorConfig;
 use std::path::Path;
@@ -19,6 +20,14 @@ pub fn print_runtime_diagnostics(
         "Cycle memory path: {}",
         config
             .cycle_memory_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "<disabled>".to_string())
+    );
+    println!(
+        "Next actions path: {}",
+        config
+            .next_actions_path
             .as_ref()
             .map(|path| path.display().to_string())
             .unwrap_or_else(|| "<disabled>".to_string())

@@ -1,17 +1,20 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/orchestrator.rs
-
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
-use crate::cycle_memory_store::{OrchestratorCycleMemory, load_cycle_memory, save_cycle_memory};
 use crate::domain::{
     BinaryInvocationSpec, CiGateStatus, DeliveryOptions, GateDecision, GateInputs,
     OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
     Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
+use crate::next_actions_store::load_next_actions;
+use crate::orchestrator_cycle_memory::{
+    OrchestratorCycleMemory, load_cycle_memory, save_cycle_memory,
+};
 use crate::planner_output::read_planner_output_from_artifacts;
 use crate::repo_context_artifact::{
-    ValidationInvocationArtifact, read_detected_validation_commands, write_repo_context_artifact,
+    read_detected_validation_commands, write_repo_context_artifact,
 };
+use crate::validation_invocation_artifact::ValidationInvocationArtifact;
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
@@ -76,6 +79,13 @@ impl Orchestrator {
                     validation_invocations.push(spec);
                 }
             }
+        }
+        if planned_remediation_steps.is_empty()
+            && let Some(path) = &config.next_actions_path
+            && let Ok(next_actions) = load_next_actions(path)
+            && !next_actions.recommended_actions.is_empty()
+        {
+            planned_remediation_steps = next_actions.recommended_actions;
         }
         let checkpoint = checkpoint.unwrap_or_else(|| {
             OrchestratorCheckpoint::new(config.run_id.clone(), unix_timestamp_secs())

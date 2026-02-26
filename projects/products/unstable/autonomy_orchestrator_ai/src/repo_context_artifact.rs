@@ -4,11 +4,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ValidationInvocationArtifact {
-    pub command: String,
-    pub args: Vec<String>,
-}
+use crate::repo_context_artifact_compact::RepoContextArtifactCompat;
+use crate::validation_invocation_artifact::ValidationInvocationArtifact;
+use crate::versioning_commands::VersioningCommands;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct RepoContextArtifact {
@@ -19,18 +17,6 @@ struct RepoContextArtifact {
     ownership_boundaries: Vec<String>,
     hot_paths: Vec<String>,
     detected_validation_commands: Vec<ValidationInvocationArtifact>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum LegacyOrCurrentValidationCommands {
-    Legacy(Vec<String>),
-    Current(Vec<ValidationInvocationArtifact>),
-}
-
-#[derive(Debug, Deserialize)]
-struct RepoContextArtifactCompat {
-    detected_validation_commands: LegacyOrCurrentValidationCommands,
 }
 
 pub fn write_repo_context_artifact(repo_root: &Path, artifact_path: &Path) -> Result<(), String> {
@@ -90,8 +76,8 @@ pub fn read_detected_validation_commands(
         )
     })?;
     Ok(match parsed.detected_validation_commands {
-        LegacyOrCurrentValidationCommands::Current(commands) => commands,
-        LegacyOrCurrentValidationCommands::Legacy(commands) => commands
+        VersioningCommands::Current(commands) => commands,
+        VersioningCommands::Legacy(commands) => commands
             .into_iter()
             .filter_map(|command| {
                 let tokens = command

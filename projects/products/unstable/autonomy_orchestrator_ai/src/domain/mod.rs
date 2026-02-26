@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/mod.rs
-
 mod binary_invocation_spec;
 mod ci_gate_status;
 mod delivery_options;

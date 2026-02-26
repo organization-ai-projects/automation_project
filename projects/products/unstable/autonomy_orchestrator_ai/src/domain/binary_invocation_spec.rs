@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/binary_invocation_spec.rs
-
 use crate::domain::Stage;
 use serde::{Deserialize, Serialize};
 

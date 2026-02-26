@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/run_report.rs
-
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{GateDecision, Stage, StageExecutionRecord, StageTransition, TerminalState};

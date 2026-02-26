@@ -1,3 +1,4 @@
+// projects/products/unstable/autonomy_orchestrator_ai/src/cli_value_parsers.rs
 pub fn parse_env_pair_cli(raw: &str) -> Result<(String, String), String> {
     let mut split = raw.splitn(2, '=');
     let key = split.next().unwrap_or_default().trim();

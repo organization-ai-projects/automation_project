@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/binary_runner.rs
-
 use crate::domain::{BinaryInvocationSpec, StageExecutionRecord, StageExecutionStatus};
 use common_json::parse_str;
 use std::fs;
