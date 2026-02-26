@@ -451,3 +451,72 @@ fn config_canonicalize_rejects_non_binary_paths_in_ai_mode() {
 
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn run_output_is_compact_by_default_without_verbose_flag() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir = unique_temp_dir("compact_output_default");
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .output()
+        .expect("execute run");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !stdout.contains("Policy status:"),
+        "default output should stay compact, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Run report:"),
+        "expected run report output, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Terminal state:"),
+        "expected terminal state output, got: {stdout}"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn run_output_includes_diagnostics_with_verbose_flag() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir = unique_temp_dir("verbose_output_enabled");
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--verbose")
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .output()
+        .expect("execute run");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Policy status:"),
+        "verbose output should include diagnostics, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Config load AUTO:"),
+        "verbose output should include config diagnostics, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Terminal state:"),
+        "expected terminal state output, got: {stdout}"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
