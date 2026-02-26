@@ -72,8 +72,10 @@ fn main() {
     let mut delivery_options = DeliveryOptions::disabled();
     let mut config_save_ron: Option<PathBuf> = None;
     let mut config_save_bin: Option<PathBuf> = None;
+    let mut config_save_json: Option<PathBuf> = None;
     let mut config_load_ron: Option<PathBuf> = None;
     let mut config_load_bin: Option<PathBuf> = None;
+    let mut config_load_json: Option<PathBuf> = None;
 
     let args = raw_args;
     let mut i = 0usize;
@@ -355,6 +357,13 @@ fn main() {
                 config_save_bin = Some(PathBuf::from(args[i + 1].clone()));
                 i += 2;
             }
+            "--config-save-json" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                config_save_json = Some(PathBuf::from(args[i + 1].clone()));
+                i += 2;
+            }
             "--config-load-ron" => {
                 if i + 1 >= args.len() {
                     usage_and_exit();
@@ -367,6 +376,13 @@ fn main() {
                     usage_and_exit();
                 }
                 config_load_bin = Some(PathBuf::from(args[i + 1].clone()));
+                i += 2;
+            }
+            "--config-load-json" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                config_load_json = Some(PathBuf::from(args[i + 1].clone()));
                 i += 2;
             }
             val if val.starts_with("--") => {
@@ -469,6 +485,12 @@ fn main() {
             process::exit(1);
         });
         config.checkpoint_path = Some(checkpoint_path.clone());
+    } else if let Some(path) = &config_load_json {
+        config = OrchestratorConfig::load_json(path).unwrap_or_else(|err| {
+            eprintln!("{err}");
+            process::exit(1);
+        });
+        config.checkpoint_path = Some(checkpoint_path.clone());
     }
 
     if let Some(path) = &config_save_ron
@@ -479,6 +501,12 @@ fn main() {
     }
     if let Some(path) = &config_save_bin
         && let Err(err) = config.save_bin(path)
+    {
+        eprintln!("{err}");
+        process::exit(1);
+    }
+    if let Some(path) = &config_save_json
+        && let Err(err) = config.save_json(path)
     {
         eprintln!("{err}");
         process::exit(1);
@@ -535,8 +563,10 @@ fn main() {
     );
     println!("Config load RON: {}", config_load_ron.is_some());
     println!("Config load BIN: {}", config_load_bin.is_some());
+    println!("Config load JSON: {}", config_load_json.is_some());
     println!("Config save RON: {}", config_save_ron.is_some());
     println!("Config save BIN: {}", config_save_bin.is_some());
+    println!("Config save JSON: {}", config_save_json.is_some());
     println!();
 
     let report = Orchestrator::new(config, checkpoint).execute();
@@ -612,8 +642,10 @@ fn usage_and_exit() -> ! {
     eprintln!("  --delivery-pr-body <body>");
     eprintln!("  --config-load-ron <path>");
     eprintln!("  --config-load-bin <path>");
+    eprintln!("  --config-load-json <path>");
     eprintln!("  --config-save-ron <path>");
     eprintln!("  --config-save-bin <path>");
+    eprintln!("  --config-save-json <path>");
     process::exit(2);
 }
 

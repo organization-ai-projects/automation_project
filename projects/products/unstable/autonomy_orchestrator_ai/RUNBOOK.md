@@ -243,7 +243,8 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
   --ci-status success \
   --review-status approved \
   --config-save-ron ./out/orchestrator_config.ron \
-  --config-save-bin ./out/orchestrator_config.bin
+  --config-save-bin ./out/orchestrator_config.bin \
+  --config-save-json ./out/orchestrator_config.json
 
-cargo run -p autonomy_orchestrator_ai -- ./out_replay --config-load-bin ./out/orchestrator_config.bin
+cargo run -p autonomy_orchestrator_ai -- ./out_replay --config-load-json ./out/orchestrator_config.json
 ```

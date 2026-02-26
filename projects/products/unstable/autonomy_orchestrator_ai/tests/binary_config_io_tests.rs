@@ -81,3 +81,37 @@ fn saves_and_loads_bin_config() {
     let _ = fs::remove_dir_all(out_dir_1);
     let _ = fs::remove_dir_all(out_dir_2);
 }
+
+#[test]
+fn saves_and_loads_json_config() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir_1 = unique_temp_dir("save_json_run_1");
+    let out_dir_2 = unique_temp_dir("save_json_run_2");
+    let config_path = out_dir_1.join("orchestrator_config.json");
+
+    let output_1 = Command::new(bin)
+        .arg(&out_dir_1)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save-json")
+        .arg(&config_path)
+        .output()
+        .expect("execute first run");
+    assert!(output_1.status.success());
+    assert!(config_path.exists(), "JSON config should be written");
+
+    let output_2 = Command::new(bin)
+        .arg(&out_dir_2)
+        .arg("--config-load-json")
+        .arg(&config_path)
+        .output()
+        .expect("execute second run");
+    assert!(output_2.status.success());
+
+    let _ = fs::remove_dir_all(out_dir_1);
+    let _ = fs::remove_dir_all(out_dir_2);
+}

@@ -1,5 +1,6 @@
 use crate::domain::{BinaryInvocationSpec, DeliveryOptions, GateInputs};
 use common_binary::{BinaryOptions, read_binary, write_binary};
+use common_json::{from_str, to_string_pretty};
 use common_ron::{read_ron, write_ron};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -93,6 +94,45 @@ impl OrchestratorConfig {
         read_binary(path, &Self::bin_options()).map_err(|e| {
             format!(
                 "Failed to parse orchestrator config BIN '{}': {e}",
+                path.display()
+            )
+        })
+    }
+
+    pub fn save_json(&self, path: &Path) -> Result<(), String> {
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent).map_err(|e| {
+                format!(
+                    "Failed to create config parent dir '{}': {}",
+                    parent.display(),
+                    e
+                )
+            })?;
+        }
+        let json = to_string_pretty(self)
+            .map_err(|e| format!("Failed to serialize orchestrator config JSON: {e:?}"))?;
+        fs::write(path, json).map_err(|e| {
+            format!(
+                "Failed to write orchestrator config JSON '{}': {}",
+                path.display(),
+                e
+            )
+        })
+    }
+
+    pub fn load_json(path: &Path) -> Result<Self, String> {
+        let raw = fs::read_to_string(path).map_err(|e| {
+            format!(
+                "Failed to read orchestrator config JSON '{}': {}",
+                path.display(),
+                e
+            )
+        })?;
+        from_str(&raw).map_err(|e| {
+            format!(
+                "Failed to parse orchestrator config JSON '{}': {e:?}",
                 path.display()
             )
         })
