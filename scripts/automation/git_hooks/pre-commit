@@ -75,7 +75,7 @@ fi
 # 2. Run markdown lint for staged markdown files.
 MARKDOWN_LINT_FILES="$(printf '%s\n' "$STAGED_CHANGED_FILES" | grep -E '\.md$' || true)"
 if [[ -n "$MARKDOWN_LINT_FILES" ]]; then
-  echo "📝 Linting markdown files..."
+  echo "📝 Auto-fixing markdown files..."
   if ! command -v pnpm >/dev/null 2>&1; then
     echo ""
     echo "❌ Markdown lint requires pnpm when markdown files are staged."
@@ -96,6 +96,13 @@ if [[ -n "$MARKDOWN_LINT_FILES" ]]; then
 
   mapfile -t MARKDOWN_FILES_ARR < <(printf '%s\n' "$MARKDOWN_LINT_FILES" | sed '/^$/d')
   if [[ ${#MARKDOWN_FILES_ARR[@]} -gt 0 ]]; then
+    if ! pnpm run -s lint-md-fix-files -- "${MARKDOWN_FILES_ARR[@]}"; then
+      echo ""
+      echo "❌ Markdown auto-fix failed on staged markdown files."
+      echo "   Run: pnpm run lint-md-fix-files -- ${MARKDOWN_FILES_ARR[*]}"
+      exit 1
+    fi
+    # Safety gate: re-validate after auto-fix.
     if ! pnpm run -s lint-md-files -- "${MARKDOWN_FILES_ARR[@]}"; then
       echo ""
       echo "❌ Markdown lint failed on staged markdown files."
