@@ -7,6 +7,7 @@ use crate::domain::{
     OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
     Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
+use crate::planner_output::read_planner_output_from_artifacts;
 use crate::repo_context_artifact::{
     ValidationInvocationArtifact, read_detected_validation_commands, write_repo_context_artifact,
 };
@@ -36,6 +37,7 @@ pub struct Orchestrator {
     checkpoint_path: Option<PathBuf>,
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
+    planned_remediation_steps: Vec<String>,
 }
 
 impl Orchestrator {
@@ -62,6 +64,7 @@ impl Orchestrator {
             checkpoint_path: config.checkpoint_path,
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
+            planned_remediation_steps: Vec::new(),
         }
     }
 
@@ -72,11 +75,19 @@ impl Orchestrator {
             return self.report;
         }
 
+        let planning_expected_artifacts = self
+            .planning_invocation
+            .as_ref()
+            .map(|spec| spec.expected_artifacts.clone())
+            .unwrap_or_default();
         let planning_was_completed = self.checkpoint.is_stage_completed(Stage::Planning);
         if !self.execute_stage(Stage::Planning, self.planning_invocation.clone()) {
             return self.report;
         }
         if !self.execute_planning_context_action(planning_was_completed) {
+            return self.report;
+        }
+        if !self.apply_planner_output_from_artifacts(&planning_expected_artifacts) {
             return self.report;
         }
 
@@ -479,9 +490,6 @@ impl Orchestrator {
         if self.remediation_cycle >= self.reviewer_remediation_max_cycles {
             return false;
         }
-        if self.report.reviewer_next_steps.is_empty() {
-            return false;
-        }
         if self.execution_invocation.is_none() {
             return false;
         }
@@ -489,8 +497,17 @@ impl Orchestrator {
             return false;
         }
 
+        let remediation_steps = if self.report.reviewer_next_steps.is_empty() {
+            self.planned_remediation_steps.clone()
+        } else {
+            self.report.reviewer_next_steps.clone()
+        };
+        if remediation_steps.is_empty() {
+            return false;
+        }
+
         self.remediation_cycle += 1;
-        self.remediation_steps = self.report.reviewer_next_steps.clone();
+        self.remediation_steps = remediation_steps;
         self.report.terminal_state = None;
         self.reset_checkpoint_stage(Stage::Execution);
         self.reset_checkpoint_stage(Stage::Validation);
@@ -794,6 +811,96 @@ impl Orchestrator {
                 false
             }
         }
+    }
+
+    fn apply_planner_output_from_artifacts(&mut self, artifacts: &[String]) -> bool {
+        let parsed = match read_planner_output_from_artifacts(artifacts) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                self.report.terminal_state = Some(TerminalState::Failed);
+                self.report.stage_executions.push(StageExecutionRecord {
+                    stage: Stage::Planning,
+                    idempotency_key: Some("stage:Planning:planner_output".to_string()),
+                    command: "planning.planner_output.apply".to_string(),
+                    args: Vec::new(),
+                    env_keys: Vec::new(),
+                    started_at_unix_secs: unix_timestamp_secs(),
+                    duration_ms: 0,
+                    exit_code: None,
+                    status: StageExecutionStatus::Failed,
+                    error: Some(err),
+                    missing_artifacts: Vec::new(),
+                    malformed_artifacts: Vec::new(),
+                });
+                self.persist_checkpoint();
+                return false;
+            }
+        };
+
+        let Some(parsed) = parsed else {
+            return true;
+        };
+
+        let source_path = parsed.source_path;
+        let payload = parsed.payload;
+        if matches!(payload.execution_max_iterations, Some(0)) {
+            self.report.terminal_state = Some(TerminalState::Failed);
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage: Stage::Planning,
+                idempotency_key: Some("stage:Planning:planner_output".to_string()),
+                command: "planning.planner_output.apply".to_string(),
+                args: vec![source_path],
+                env_keys: Vec::new(),
+                started_at_unix_secs: unix_timestamp_secs(),
+                duration_ms: 0,
+                exit_code: None,
+                status: StageExecutionStatus::Failed,
+                error: Some(
+                    "Planner output execution_max_iterations must be >= 1 when provided"
+                        .to_string(),
+                ),
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
+            self.persist_checkpoint();
+            return false;
+        }
+
+        if let Some(max_iterations) = payload.execution_max_iterations {
+            self.execution_max_iterations = max_iterations;
+        }
+        if let Some(remediation_cycles) = payload.reviewer_remediation_max_cycles {
+            self.reviewer_remediation_max_cycles = remediation_cycles;
+        }
+        if !payload.remediation_steps.is_empty() {
+            self.planned_remediation_steps = payload.remediation_steps;
+        }
+        for command in payload.validation_commands {
+            let spec = self.validation_artifact_to_spec(command);
+            if !self
+                .validation_invocations
+                .iter()
+                .any(|existing| existing.command == spec.command && existing.args == spec.args)
+            {
+                self.validation_invocations.push(spec);
+            }
+        }
+
+        self.report.stage_executions.push(StageExecutionRecord {
+            stage: Stage::Planning,
+            idempotency_key: Some("stage:Planning:planner_output".to_string()),
+            command: "planning.planner_output.apply".to_string(),
+            args: vec![source_path],
+            env_keys: Vec::new(),
+            started_at_unix_secs: unix_timestamp_secs(),
+            duration_ms: 0,
+            exit_code: Some(0),
+            status: StageExecutionStatus::Success,
+            error: None,
+            missing_artifacts: Vec::new(),
+            malformed_artifacts: Vec::new(),
+        });
+        true
     }
 
     fn persist_checkpoint(&mut self) {
