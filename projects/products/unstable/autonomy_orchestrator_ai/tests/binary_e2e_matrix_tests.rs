@@ -31,6 +31,11 @@ struct RepoContextView {
 
 #[derive(Debug, serde::Deserialize)]
 struct RepoValidationInvocation {
+    command_line: RepoValidationCommandLine,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct RepoValidationCommandLine {
     command: String,
     args: Vec<String>,
 }
@@ -367,13 +372,10 @@ fn matrix_planning_context_artifact_is_written() {
             .iter()
             .any(|p| p.contains("autonomy_orchestrator_ai/src"))
     );
-    assert!(
-        artifact
-            .detected_validation_commands
-            .iter()
-            .any(|c| c.command == "cargo"
-                && c.args == vec!["test".to_string(), "--workspace".to_string()])
-    );
+    assert!(artifact.detected_validation_commands.iter().any(|c| {
+        c.command_line.command == "cargo"
+            && c.command_line.args == vec!["test".to_string(), "--workspace".to_string()]
+    }));
     assert!(
         report
             .stage_executions

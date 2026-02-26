@@ -1,5 +1,6 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/planner_output.rs
 use crate::artifacts::{PlannerOutputArtifact, ValidationInvocationArtifact};
+use crate::domain::CommandLineSpec;
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 
@@ -124,7 +125,9 @@ fn parse_planner_payload(payload: &Json) -> Result<PlannerOutput, String> {
                         .collect::<Result<Vec<_>, String>>()?,
                     Err(_) => Vec::new(),
                 };
-                Ok(ValidationInvocationArtifact { command, args })
+                Ok(ValidationInvocationArtifact {
+                    command_line: CommandLineSpec { command, args },
+                })
             })
             .collect::<Result<Vec<_>, String>>()?,
         Err(_) => Vec::new(),

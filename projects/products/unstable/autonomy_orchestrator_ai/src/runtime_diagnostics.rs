@@ -40,11 +40,11 @@ pub fn print_runtime_diagnostics(
     println!("Repo root: {}", config.repo_root.display());
     println!(
         "Execution max iterations: {}",
-        config.execution_max_iterations
+        config.execution_policy.execution_max_iterations
     );
     println!(
         "Reviewer remediation max cycles: {}",
-        config.reviewer_remediation_max_cycles
+        config.execution_policy.reviewer_remediation_max_cycles
     );
     println!(
         "Planning invocation configured: {}",

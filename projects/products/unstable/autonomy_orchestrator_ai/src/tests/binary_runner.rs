@@ -1,5 +1,5 @@
 use crate::binary_runner::invoke_binary;
-use crate::domain::{BinaryInvocationSpec, Stage, StageExecutionStatus};
+use crate::domain::{BinaryInvocationSpec, CommandLineSpec, Stage, StageExecutionStatus};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -7,8 +7,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn missing_binary_reports_spawn_failed() {
     let spec = BinaryInvocationSpec {
         stage: Stage::Planning,
-        command: "__definitely_missing_binary__".to_string(),
-        args: Vec::new(),
+        command_line: CommandLineSpec {
+            command: "__definitely_missing_binary__".to_string(),
+            args: Vec::new(),
+        },
         env: Vec::new(),
         timeout_ms: 250,
         expected_artifacts: Vec::new(),
@@ -35,8 +37,10 @@ fn malformed_json_artifact_fails_closed() {
 
     let spec = BinaryInvocationSpec {
         stage: Stage::Planning,
-        command: "true".to_string(),
-        args: Vec::new(),
+        command_line: CommandLineSpec {
+            command: "true".to_string(),
+            args: Vec::new(),
+        },
         env: Vec::new(),
         timeout_ms: 250,
         expected_artifacts: vec![artifact_path.display().to_string()],

@@ -16,8 +16,8 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
         .map(|(key, _)| key.clone())
         .collect::<Vec<_>>();
 
-    let mut command = Command::new(&spec.command);
-    command.args(&spec.args);
+    let mut command = Command::new(&spec.command_line.command);
+    command.args(&spec.command_line.args);
     for (key, value) in &spec.env {
         command.env(key, value);
     }
@@ -28,14 +28,17 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
             return StageExecutionRecord {
                 stage: spec.stage,
                 idempotency_key: Some(format!("stage:{:?}", spec.stage)),
-                command: spec.command.clone(),
-                args: spec.args.clone(),
+                command: spec.command_line.command.clone(),
+                args: spec.command_line.args.clone(),
                 env_keys,
                 started_at_unix_secs,
                 duration_ms: duration_to_u64_ms(started.elapsed()),
                 exit_code: None,
                 status: StageExecutionStatus::SpawnFailed,
-                error: Some(format!("Failed to spawn command '{}': {err}", spec.command)),
+                error: Some(format!(
+                    "Failed to spawn command '{}': {err}",
+                    spec.command_line.command
+                )),
                 missing_artifacts: Vec::new(),
                 malformed_artifacts: Vec::new(),
             };
@@ -75,8 +78,8 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                 return StageExecutionRecord {
                     stage: spec.stage,
                     idempotency_key: Some(format!("stage:{:?}", spec.stage)),
-                    command: spec.command.clone(),
-                    args: spec.args.clone(),
+                    command: spec.command_line.command.clone(),
+                    args: spec.command_line.args.clone(),
                     env_keys,
                     started_at_unix_secs,
                     duration_ms: u128_to_u64_ms(duration_ms),
@@ -94,8 +97,8 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                     return StageExecutionRecord {
                         stage: spec.stage,
                         idempotency_key: Some(format!("stage:{:?}", spec.stage)),
-                        command: spec.command.clone(),
-                        args: spec.args.clone(),
+                        command: spec.command_line.command.clone(),
+                        args: spec.command_line.args.clone(),
                         env_keys,
                         started_at_unix_secs,
                         duration_ms: duration_to_u64_ms(started.elapsed()),
@@ -112,8 +115,8 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                 return StageExecutionRecord {
                     stage: spec.stage,
                     idempotency_key: Some(format!("stage:{:?}", spec.stage)),
-                    command: spec.command.clone(),
-                    args: spec.args.clone(),
+                    command: spec.command_line.command.clone(),
+                    args: spec.command_line.args.clone(),
                     env_keys,
                     started_at_unix_secs,
                     duration_ms: duration_to_u64_ms(started.elapsed()),

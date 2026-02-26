@@ -5,17 +5,18 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::artifacts::{RepoContextArtifactCompat, ValidationInvocationArtifact};
+use crate::domain::CommandLineSpec;
 use crate::versioning::VersioningCommands;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct RepoContextArtifact {
-    repo_root: String,
-    generated_at_unix_secs: u64,
-    top_level_entries: Vec<String>,
-    workspace_members: Vec<String>,
-    ownership_boundaries: Vec<String>,
-    hot_paths: Vec<String>,
-    detected_validation_commands: Vec<ValidationInvocationArtifact>,
+pub struct RepoContextArtifact {
+    pub repo_root: String,
+    pub generated_at_unix_secs: u64,
+    pub top_level_entries: Vec<String>,
+    pub workspace_members: Vec<String>,
+    pub ownership_boundaries: Vec<String>,
+    pub hot_paths: Vec<String>,
+    pub detected_validation_commands: Vec<ValidationInvocationArtifact>,
 }
 
 pub fn write_repo_context_artifact(repo_root: &Path, artifact_path: &Path) -> Result<(), String> {
@@ -85,8 +86,10 @@ pub fn read_detected_validation_commands(
                     .collect::<Vec<_>>();
                 let (head, tail) = tokens.split_first()?;
                 Some(ValidationInvocationArtifact {
-                    command: head.clone(),
-                    args: tail.to_vec(),
+                    command_line: CommandLineSpec {
+                        command: head.clone(),
+                        args: tail.to_vec(),
+                    },
                 })
             })
             .collect(),
@@ -108,45 +111,55 @@ fn detect_validation_commands(repo_root: &Path) -> Vec<ValidationInvocationArtif
     let mut commands = Vec::new();
     if path_exists(repo_root, "Cargo.toml") {
         commands.push(ValidationInvocationArtifact {
-            command: "cargo".to_string(),
-            args: vec!["fmt", "--all", "--", "--check"]
+            command_line: CommandLineSpec {
+                command: "cargo".to_string(),
+                args: vec!["fmt", "--all", "--", "--check"]
+                    .into_iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            },
+        });
+        commands.push(ValidationInvocationArtifact {
+            command_line: CommandLineSpec {
+                command: "cargo".to_string(),
+                args: vec![
+                    "clippy",
+                    "--workspace",
+                    "--all-targets",
+                    "--",
+                    "-D",
+                    "warnings",
+                ]
                 .into_iter()
                 .map(ToString::to_string)
                 .collect(),
+            },
         });
         commands.push(ValidationInvocationArtifact {
-            command: "cargo".to_string(),
-            args: vec![
-                "clippy",
-                "--workspace",
-                "--all-targets",
-                "--",
-                "-D",
-                "warnings",
-            ]
-            .into_iter()
-            .map(ToString::to_string)
-            .collect(),
-        });
-        commands.push(ValidationInvocationArtifact {
-            command: "cargo".to_string(),
-            args: vec!["test", "--workspace"]
-                .into_iter()
-                .map(ToString::to_string)
-                .collect(),
+            command_line: CommandLineSpec {
+                command: "cargo".to_string(),
+                args: vec!["test", "--workspace"]
+                    .into_iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            },
         });
     }
     if path_exists(repo_root, "package.json") {
         commands.push(ValidationInvocationArtifact {
-            command: "npm".to_string(),
-            args: vec!["run", "lint"]
-                .into_iter()
-                .map(ToString::to_string)
-                .collect(),
+            command_line: CommandLineSpec {
+                command: "npm".to_string(),
+                args: vec!["run", "lint"]
+                    .into_iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            },
         });
         commands.push(ValidationInvocationArtifact {
-            command: "npm".to_string(),
-            args: vec!["test"].into_iter().map(ToString::to_string).collect(),
+            command_line: CommandLineSpec {
+                command: "npm".to_string(),
+                args: vec!["test"].into_iter().map(ToString::to_string).collect(),
+            },
         });
     }
     commands

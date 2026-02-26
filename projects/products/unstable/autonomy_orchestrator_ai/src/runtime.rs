@@ -5,8 +5,9 @@ use crate::config_runtime::{
     derive_config_io_plan, first_non_binary_config_path, load_config_by_mode, save_config_by_mode,
 };
 use crate::domain::{
-    BinaryInvocationSpec, DeliveryOptions, GateInputs, OrchestratorCheckpoint, OrchestratorConfig,
-    RunReport, Stage, StageExecutionStatus, TerminalState,
+    BinaryInvocationSpec, CommandLineSpec, DeliveryOptions, ExecutionPolicy, GateInputs,
+    OrchestratorCheckpoint, OrchestratorConfig, RunReport, Stage, StageExecutionStatus,
+    TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use crate::output_writer::write_run_report;
@@ -189,8 +190,10 @@ fn run_once(
 
     let planning_invocation = args.manager_bin.map(|command| BinaryInvocationSpec {
         stage: Stage::Planning,
-        command,
-        args: args.manager_args,
+        command_line: CommandLineSpec {
+            command,
+            args: args.manager_args,
+        },
         env: args.manager_env,
         timeout_ms: args.timeout_ms,
         expected_artifacts: args.manager_expected_artifacts,
@@ -198,8 +201,10 @@ fn run_once(
 
     let execution_invocation = args.executor_bin.map(|command| BinaryInvocationSpec {
         stage: Stage::Execution,
-        command,
-        args: args.executor_args,
+        command_line: CommandLineSpec {
+            command,
+            args: args.executor_args,
+        },
         env: args.executor_env,
         timeout_ms: args.timeout_ms,
         expected_artifacts: args.executor_expected_artifacts,
@@ -207,8 +212,10 @@ fn run_once(
 
     let validation_invocation = args.reviewer_bin.map(|command| BinaryInvocationSpec {
         stage: Stage::Validation,
-        command,
-        args: args.reviewer_args,
+        command_line: CommandLineSpec {
+            command,
+            args: args.reviewer_args,
+        },
         env: args.reviewer_env,
         timeout_ms: args.timeout_ms,
         expected_artifacts: args.reviewer_expected_artifacts,
@@ -218,8 +225,10 @@ fn run_once(
         .into_iter()
         .map(|pending| BinaryInvocationSpec {
             stage: Stage::Validation,
-            command: pending.command,
-            args: pending.args,
+            command_line: CommandLineSpec {
+                command: pending.command,
+                args: pending.args,
+            },
             env: pending.env,
             timeout_ms: args.timeout_ms,
             expected_artifacts: Vec::new(),
@@ -248,8 +257,10 @@ fn run_once(
         planning_invocation,
         execution_invocation,
         validation_invocation,
-        execution_max_iterations: args.execution_max_iterations,
-        reviewer_remediation_max_cycles: args.reviewer_remediation_max_cycles,
+        execution_policy: ExecutionPolicy {
+            execution_max_iterations: args.execution_max_iterations,
+            reviewer_remediation_max_cycles: args.reviewer_remediation_max_cycles,
+        },
         timeout_ms: args.timeout_ms,
         repo_root: args.repo_root,
         planning_context_artifact: args.planning_context_artifact,

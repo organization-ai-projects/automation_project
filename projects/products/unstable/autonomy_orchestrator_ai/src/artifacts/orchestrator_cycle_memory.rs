@@ -4,15 +4,14 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-use crate::artifacts::ValidationInvocationArtifact;
+use crate::artifacts::{ExecutionPolicyOverrides, ValidationInvocationArtifact};
 
 const ORCHESTRATOR_CYCLE_MEMORY_MAGIC: [u8; 4] = *b"AOCM";
 const ORCHESTRATOR_CYCLE_MEMORY_SCHEMA_ID: u64 = 1;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OrchestratorCycleMemory {
-    pub execution_max_iterations: Option<u32>,
-    pub reviewer_remediation_max_cycles: Option<u32>,
+    pub execution_policy_overrides: ExecutionPolicyOverrides,
     pub planned_remediation_steps: Vec<String>,
     pub validation_commands: Vec<ValidationInvocationArtifact>,
     pub updated_at_unix_secs: u64,

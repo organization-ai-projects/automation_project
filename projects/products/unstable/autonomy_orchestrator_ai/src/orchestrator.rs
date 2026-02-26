@@ -1,19 +1,17 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/orchestrator.rs
 use crate::artifacts::{
-    OrchestratorCycleMemory, ValidationInvocationArtifact, load_cycle_memory, load_next_actions,
-    save_cycle_memory,
+    ExecutionPolicyOverrides, OrchestratorCycleMemory, ValidationInvocationArtifact,
+    load_cycle_memory, load_next_actions, read_detected_validation_commands, save_cycle_memory,
+    write_repo_context_artifact,
 };
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
 use crate::domain::{
-    BinaryInvocationSpec, CiGateStatus, DeliveryOptions, GateDecision, GateInputs,
+    BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DeliveryOptions, GateDecision, GateInputs,
     OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
     Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
-use crate::repo_context_artifact::{
-    read_detected_validation_commands, write_repo_context_artifact,
-};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
@@ -46,35 +44,38 @@ pub struct Orchestrator {
 
 impl Orchestrator {
     pub fn new(config: OrchestratorConfig, checkpoint: Option<OrchestratorCheckpoint>) -> Self {
-        let mut execution_max_iterations = config.execution_max_iterations;
-        let mut reviewer_remediation_max_cycles = config.reviewer_remediation_max_cycles;
+        let mut execution_max_iterations = config.execution_policy.execution_max_iterations;
+        let mut reviewer_remediation_max_cycles =
+            config.execution_policy.reviewer_remediation_max_cycles;
         let mut validation_invocations = config.validation_invocations;
         let mut planned_remediation_steps = Vec::new();
         if let Some(path) = &config.cycle_memory_path
             && let Ok(memory) = load_cycle_memory(path)
         {
-            if let Some(v) = memory.execution_max_iterations
+            if let Some(v) = memory.execution_policy_overrides.execution_max_iterations
                 && v >= 1
             {
                 execution_max_iterations = v;
             }
-            if let Some(v) = memory.reviewer_remediation_max_cycles {
+            if let Some(v) = memory
+                .execution_policy_overrides
+                .reviewer_remediation_max_cycles
+            {
                 reviewer_remediation_max_cycles = v;
             }
             planned_remediation_steps = memory.planned_remediation_steps;
             for command in memory.validation_commands {
                 let spec = BinaryInvocationSpec {
                     stage: Stage::Validation,
-                    command: command.command,
-                    args: command.args,
+                    command_line: command.command_line,
                     env: Vec::new(),
                     timeout_ms: config.timeout_ms,
                     expected_artifacts: Vec::new(),
                 };
-                if !validation_invocations
-                    .iter()
-                    .any(|existing| existing.command == spec.command && existing.args == spec.args)
-                {
+                if !validation_invocations.iter().any(|existing| {
+                    existing.command_line.command == spec.command_line.command
+                        && existing.command_line.args == spec.command_line.args
+                }) {
                     validation_invocations.push(spec);
                 }
             }
@@ -223,8 +224,8 @@ impl Orchestrator {
                 self.report.stage_executions.push(StageExecutionRecord {
                     stage,
                     idempotency_key: Some(format!("stage:{:?}", stage)),
-                    command: spec.command,
-                    args: spec.args,
+                    command: spec.command_line.command,
+                    args: spec.command_line.args,
                     env_keys: spec.env.into_iter().map(|(k, _)| k).collect(),
                     started_at_unix_secs: unix_timestamp_secs(),
                     duration_ms: 0,
@@ -259,8 +260,8 @@ impl Orchestrator {
                 self.report.stage_executions.push(StageExecutionRecord {
                     stage: Stage::Execution,
                     idempotency_key: Some("stage:Execution".to_string()),
-                    command: spec.command,
-                    args: spec.args,
+                    command: spec.command_line.command,
+                    args: spec.command_line.args,
                     env_keys: spec.env.into_iter().map(|(k, _)| k).collect(),
                     started_at_unix_secs: unix_timestamp_secs(),
                     duration_ms: 0,
@@ -392,8 +393,8 @@ impl Orchestrator {
                 self.report.stage_executions.push(StageExecutionRecord {
                     stage: Stage::Validation,
                     idempotency_key: Some("stage:Validation".to_string()),
-                    command: spec.command,
-                    args: spec.args,
+                    command: spec.command_line.command,
+                    args: spec.command_line.args,
                     env_keys: spec.env.into_iter().map(|(k, _)| k).collect(),
                     started_at_unix_secs: unix_timestamp_secs(),
                     duration_ms: 0,
@@ -572,10 +573,10 @@ impl Orchestrator {
             let from_artifact = read_detected_validation_commands(path)?;
             for item in from_artifact {
                 let spec = self.validation_artifact_to_spec(item);
-                if !invocations
-                    .iter()
-                    .any(|existing| existing.command == spec.command && existing.args == spec.args)
-                {
+                if !invocations.iter().any(|existing| {
+                    existing.command_line.command == spec.command_line.command
+                        && existing.command_line.args == spec.command_line.args
+                }) {
                     invocations.push(spec);
                 }
             }
@@ -620,8 +621,7 @@ impl Orchestrator {
     ) -> BinaryInvocationSpec {
         BinaryInvocationSpec {
             stage: Stage::Validation,
-            command: artifact.command,
-            args: artifact.args,
+            command_line: artifact.command_line,
             env: Vec::new(),
             timeout_ms: self.timeout_ms,
             expected_artifacts: Vec::new(),
@@ -922,11 +922,10 @@ impl Orchestrator {
         }
         for command in payload.validation_commands {
             let spec = self.validation_artifact_to_spec(command);
-            if !self
-                .validation_invocations
-                .iter()
-                .any(|existing| existing.command == spec.command && existing.args == spec.args)
-            {
+            if !self.validation_invocations.iter().any(|existing| {
+                existing.command_line.command == spec.command_line.command
+                    && existing.command_line.args == spec.command_line.args
+            }) {
                 self.validation_invocations.push(spec);
             }
         }
@@ -971,15 +970,19 @@ impl Orchestrator {
 
         if let Some(path) = self.cycle_memory_path.clone() {
             let memory = OrchestratorCycleMemory {
-                execution_max_iterations: Some(self.execution_max_iterations),
-                reviewer_remediation_max_cycles: Some(self.reviewer_remediation_max_cycles),
+                execution_policy_overrides: ExecutionPolicyOverrides {
+                    execution_max_iterations: Some(self.execution_max_iterations),
+                    reviewer_remediation_max_cycles: Some(self.reviewer_remediation_max_cycles),
+                },
                 planned_remediation_steps: self.planned_remediation_steps.clone(),
                 validation_commands: self
                     .validation_invocations
                     .iter()
                     .map(|spec| ValidationInvocationArtifact {
-                        command: spec.command.clone(),
-                        args: spec.args.clone(),
+                        command_line: CommandLineSpec {
+                            command: spec.command_line.command.clone(),
+                            args: spec.command_line.args.clone(),
+                        },
                     })
                     .collect(),
                 updated_at_unix_secs: unix_timestamp_secs(),

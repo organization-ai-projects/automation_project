@@ -1,6 +1,7 @@
 use crate::domain::{
-    BinaryInvocationSpec, DeliveryOptions, GateInputs, OrchestratorCheckpoint, OrchestratorConfig,
-    PolicyGateStatus, Stage, StageExecutionStatus, TerminalState,
+    BinaryInvocationSpec, CommandLineSpec, DeliveryOptions, ExecutionPolicy, GateInputs,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, Stage, StageExecutionStatus,
+    TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use std::fs;
@@ -14,8 +15,10 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         planning_invocation: None,
         execution_invocation: None,
         validation_invocation: None,
-        execution_max_iterations: 1,
-        reviewer_remediation_max_cycles: 0,
+        execution_policy: ExecutionPolicy {
+            execution_max_iterations: 1,
+            reviewer_remediation_max_cycles: 0,
+        },
         timeout_ms: 30_000,
         repo_root: PathBuf::from("."),
         planning_context_artifact: None,
@@ -56,8 +59,10 @@ fn blocked_simulation_stops_before_closure() {
 fn spawn_failure_stops_pipeline_as_failed() {
     let planning_invocation = BinaryInvocationSpec {
         stage: Stage::Planning,
-        command: "__missing_binary__".to_string(),
-        args: Vec::new(),
+        command_line: CommandLineSpec {
+            command: "__missing_binary__".to_string(),
+            args: Vec::new(),
+        },
         env: Vec::new(),
         timeout_ms: 100,
         expected_artifacts: Vec::new(),
@@ -83,8 +88,10 @@ fn resume_skips_completed_invocation_stage() {
     };
     let planning_invocation = BinaryInvocationSpec {
         stage: Stage::Planning,
-        command: "__unused__".to_string(),
-        args: vec!["x".to_string()],
+        command_line: CommandLineSpec {
+            command: "__unused__".to_string(),
+            args: vec!["x".to_string()],
+        },
         env: vec![("KEY".to_string(), "VALUE".to_string())],
         timeout_ms: 100,
         expected_artifacts: Vec::new(),
@@ -141,8 +148,10 @@ fn planner_output_can_add_validation_commands() {
     let mut config = test_config("run_6");
     config.planning_invocation = Some(BinaryInvocationSpec {
         stage: Stage::Planning,
-        command: "true".to_string(),
-        args: Vec::new(),
+        command_line: CommandLineSpec {
+            command: "true".to_string(),
+            args: Vec::new(),
+        },
         env: Vec::new(),
         timeout_ms: 100,
         expected_artifacts: vec![planner_output_path.display().to_string()],
@@ -190,8 +199,10 @@ fn planner_output_with_zero_execution_budget_fails_closed() {
     let mut config = test_config("run_7");
     config.planning_invocation = Some(BinaryInvocationSpec {
         stage: Stage::Planning,
-        command: "true".to_string(),
-        args: Vec::new(),
+        command_line: CommandLineSpec {
+            command: "true".to_string(),
+            args: Vec::new(),
+        },
         env: Vec::new(),
         timeout_ms: 100,
         expected_artifacts: vec![planner_output_path.display().to_string()],

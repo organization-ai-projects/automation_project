@@ -199,7 +199,7 @@ pub fn validate_orchestrator_config(config: &OrchestratorConfig) -> Vec<String> 
             "timeout_ms must be > 0 (fix: set --timeout-ms <millis>, e.g. 30000)".to_string(),
         );
     }
-    if config.execution_max_iterations == 0 {
+    if config.execution_policy.execution_max_iterations == 0 {
         diagnostics.push(
             "execution_max_iterations must be >= 1 (fix: set --execution-max-iterations <count>)"
                 .to_string(),

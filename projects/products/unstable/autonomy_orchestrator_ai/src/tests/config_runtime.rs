@@ -4,7 +4,7 @@ use crate::config_runtime::{
     validate_orchestrator_config,
 };
 use crate::configs::{ConfigLoadMode, ConfigSaveMode};
-use crate::domain::{DeliveryOptions, GateInputs, OrchestratorConfig};
+use crate::domain::{DeliveryOptions, ExecutionPolicy, GateInputs, OrchestratorConfig};
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -19,8 +19,10 @@ fn base_config() -> OrchestratorConfig {
         planning_invocation: None,
         execution_invocation: None,
         validation_invocation: None,
-        execution_max_iterations: 1,
-        reviewer_remediation_max_cycles: 0,
+        execution_policy: ExecutionPolicy {
+            execution_max_iterations: 1,
+            reviewer_remediation_max_cycles: 0,
+        },
         timeout_ms: 30_000,
         repo_root: PathBuf::from("."),
         planning_context_artifact: None,
@@ -122,7 +124,7 @@ fn is_binary_config_path_accepts_bin_and_extensionless_paths() {
 fn validate_orchestrator_config_reports_all_main_invariants() {
     let mut config = base_config();
     config.timeout_ms = 0;
-    config.execution_max_iterations = 0;
+    config.execution_policy.execution_max_iterations = 0;
     config.validation_from_planning_context = true;
     config.delivery_options.pr_enabled = true;
     config.delivery_options.enabled = false;

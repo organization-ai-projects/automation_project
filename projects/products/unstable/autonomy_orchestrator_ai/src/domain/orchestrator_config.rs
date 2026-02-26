@@ -1,5 +1,5 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/orchestrator_config.rs
-use crate::domain::{BinaryInvocationSpec, DeliveryOptions, GateInputs};
+use crate::domain::{BinaryInvocationSpec, DeliveryOptions, ExecutionPolicy, GateInputs};
 use common_binary::{BinaryOptions, read_binary, write_binary};
 use common_json::{from_str, to_string_pretty};
 use common_ron::{read_ron, write_ron};
@@ -10,6 +10,32 @@ use std::path::{Path, PathBuf};
 const ORCHESTRATOR_CONFIG_BIN_MAGIC: [u8; 4] = *b"AOCF";
 const ORCHESTRATOR_CONFIG_BIN_SCHEMA_ID: u64 = 1;
 
+#[derive(Debug, Deserialize)]
+struct OrchestratorConfigJsonCompat {
+    run_id: String,
+    simulate_blocked: bool,
+    planning_invocation: Option<BinaryInvocationSpec>,
+    execution_invocation: Option<BinaryInvocationSpec>,
+    validation_invocation: Option<BinaryInvocationSpec>,
+    execution_policy: ExecutionPolicyJsonCompat,
+    timeout_ms: u64,
+    repo_root: PathBuf,
+    planning_context_artifact: Option<PathBuf>,
+    validation_invocations: Vec<BinaryInvocationSpec>,
+    validation_from_planning_context: bool,
+    delivery_options: DeliveryOptions,
+    gate_inputs: GateInputs,
+    checkpoint_path: Option<PathBuf>,
+    cycle_memory_path: Option<PathBuf>,
+    next_actions_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExecutionPolicyJsonCompat {
+    execution_max_iterations: f64,
+    reviewer_remediation_max_cycles: f64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrchestratorConfig {
     pub run_id: String,
@@ -17,8 +43,7 @@ pub struct OrchestratorConfig {
     pub planning_invocation: Option<BinaryInvocationSpec>,
     pub execution_invocation: Option<BinaryInvocationSpec>,
     pub validation_invocation: Option<BinaryInvocationSpec>,
-    pub execution_max_iterations: u32,
-    pub reviewer_remediation_max_cycles: u32,
+    pub execution_policy: ExecutionPolicy,
     pub timeout_ms: u64,
     pub repo_root: PathBuf,
     pub planning_context_artifact: Option<PathBuf>,
@@ -139,11 +164,38 @@ impl OrchestratorConfig {
                 e
             )
         })?;
-        from_str(&raw).map_err(|e| {
+        let parsed: OrchestratorConfigJsonCompat = from_str(&raw).map_err(|e| {
             format!(
                 "Failed to parse orchestrator config JSON '{}': {e:?}",
                 path.display()
             )
+        })?;
+        Ok(Self {
+            run_id: parsed.run_id,
+            simulate_blocked: parsed.simulate_blocked,
+            planning_invocation: parsed.planning_invocation,
+            execution_invocation: parsed.execution_invocation,
+            validation_invocation: parsed.validation_invocation,
+            execution_policy: ExecutionPolicy {
+                execution_max_iterations: float_to_u32_compat(
+                    parsed.execution_policy.execution_max_iterations,
+                    "execution_max_iterations",
+                )?,
+                reviewer_remediation_max_cycles: float_to_u32_compat(
+                    parsed.execution_policy.reviewer_remediation_max_cycles,
+                    "reviewer_remediation_max_cycles",
+                )?,
+            },
+            timeout_ms: parsed.timeout_ms,
+            repo_root: parsed.repo_root,
+            planning_context_artifact: parsed.planning_context_artifact,
+            validation_invocations: parsed.validation_invocations,
+            validation_from_planning_context: parsed.validation_from_planning_context,
+            delivery_options: parsed.delivery_options,
+            gate_inputs: parsed.gate_inputs,
+            checkpoint_path: parsed.checkpoint_path,
+            cycle_memory_path: parsed.cycle_memory_path,
+            next_actions_path: parsed.next_actions_path,
         })
     }
 
@@ -172,4 +224,16 @@ impl OrchestratorConfig {
             )),
         }
     }
+}
+
+fn float_to_u32_compat(value: f64, field: &str) -> Result<u32, String> {
+    if !value.is_finite() || value < 0.0 || value.fract() != 0.0 {
+        return Err(format!(
+            "Failed to parse orchestrator config JSON field '{field}': expected non-negative integer-compatible number"
+        ));
+    }
+    let as_u64 = value as u64;
+    u32::try_from(as_u64).map_err(|_| {
+        format!("Failed to parse orchestrator config JSON field '{field}': value is too large")
+    })
 }
