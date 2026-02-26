@@ -85,7 +85,7 @@ fi
 if [[ "${1:-}" == "pr" && "${2:-}" == "view" && "${3:-}" == "693" ]]; then
   if [[ "${4:-}" == "--json" && "${5:-}" == "title,body,labels" ]]; then
     cat <<'JSON'
-{"title":"feat(automation): re-evaluate PR closure neutralization on issue edit","body":"Closes #690","labels":[{"name":"automation"}]}
+{"title":"feat(automation): re-evaluate PR closure neutralization on issue edit","body":"Fixes #690","labels":[{"name":"automation"}]}
 JSON
     exit 0
   fi
@@ -268,14 +268,14 @@ main() {
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" 42 "${out_md}"
   ) >/dev/null 2>&1; then
     if grep -q -- "#693" "${out_md}" && grep -q -- "Closes #690" "${out_md}"; then
-      echo "PASS [main-mode-detects-merge-pr-and-closure-ref]"
+      echo "PASS [main-mode-detects-merge-pr-and-fixes-ref]"
     else
-      echo "FAIL [main-mode-detects-merge-pr-and-closure-ref] expected #693 and Closes #690"
+      echo "FAIL [main-mode-detects-merge-pr-and-fixes-ref] expected #693 and Closes #690"
       sed -n '1,220p' "${out_md}"
       TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
   else
-    echo "FAIL [main-mode-detects-merge-pr-and-closure-ref] script execution failed"
+    echo "FAIL [main-mode-detects-merge-pr-and-fixes-ref] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"
@@ -476,7 +476,7 @@ main() {
   rm -rf "${tmp}"
 
   TESTS_RUN=$((TESTS_RUN + 1))
-  parse_out="$(echo "Commit b5fffa6 closed #520, but the correct footer should be closes #518" | awk '
+  parse_out="$(echo "Commit b5fffa6 closed #520, fixed #521, but the correct footer should be closes #518" | awk '
     BEGIN { IGNORECASE = 1 }
     {
       line = $0
@@ -504,6 +504,19 @@ main() {
     echo "PASS [closure-keyword-strictness-ignores-closed]"
   else
     echo "FAIL [closure-keyword-strictness-ignores-closed] expected Closes|#518, got: ${parse_out}"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  parse_out="$(bash -c '
+    set -euo pipefail
+    source "'"${ROOT_DIR}"'/scripts/versioning/file_versioning/github/lib/issue_refs.sh"
+    parse_pr_body_closing_issue_refs_from_text "Fixes owner/repo#519"
+  ' 2>/dev/null || true)"
+  if [[ "${parse_out}" == "Closes|#519" ]]; then
+    echo "PASS [pr-body-keyword-supports-fixes]"
+  else
+    echo "FAIL [pr-body-keyword-supports-fixes] expected Closes|#519, got: ${parse_out}"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
 

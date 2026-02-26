@@ -836,7 +836,7 @@ if [[ -s "$extracted_prs_file" ]]; then
       while IFS='|' read -r action issue_key; do
         debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
         add_issue_entry "$action" "$issue_key" "$pr_category"
-      done < <(parse_closing_issue_refs_from_text "$pr_body")
+      done < <(parse_pr_body_closing_issue_refs_from_text "$pr_body")
       while IFS='|' read -r duplicate_issue canonical_issue; do
         add_duplicate_entry "$duplicate_issue" "$canonical_issue"
       done < <(parse_duplicate_refs_from_text "$pr_body")
@@ -880,7 +880,7 @@ if [[ "$dry_run" == "false" ]]; then
     while IFS='|' read -r action issue_key; do
       debug_log "parsed_issue_ref(main pr): ${action}|${issue_key}"
       add_issue_entry "$action" "$issue_key" "Mixed"
-    done < <(parse_closing_issue_refs_from_text "$main_pr_body")
+    done < <(parse_pr_body_closing_issue_refs_from_text "$main_pr_body")
     while IFS='|' read -r duplicate_issue canonical_issue; do
       add_duplicate_entry "$duplicate_issue" "$canonical_issue"
     done < <(parse_duplicate_refs_from_text "$main_pr_body")
