@@ -176,20 +176,20 @@ By default, this helper:
 - enforces expected output artifacts from delegated binaries
 - sets bounded execution retries via `--execution-max-iterations` (default: `2`)
 
-## Quickstart: Native Validation Commands
+## Quickstart: Native Validation Invocations
 
-When no reviewer binary is available, validation can be delegated to native shell commands:
+When no reviewer binary is available, validation can be delegated to native binary invocations:
 
 ```bash
 cargo run -p autonomy_orchestrator_ai -- ./out \
   --policy-status allow \
   --ci-status success \
   --review-status approved \
-  --validation-command "cargo check -p autonomy_orchestrator_ai" \
-  --validation-command "cargo test -p autonomy_orchestrator_ai"
+  --validation-bin cargo --validation-arg check --validation-arg -p --validation-arg autonomy_orchestrator_ai \
+  --validation-bin cargo --validation-arg test --validation-arg -p --validation-arg autonomy_orchestrator_ai
 ```
 
-You can also source validation commands detected during planning:
+You can also source validation invocations detected during planning:
 
 ```bash
 cargo run -p autonomy_orchestrator_ai -- ./out \

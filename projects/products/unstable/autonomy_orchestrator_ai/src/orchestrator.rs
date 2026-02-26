@@ -8,7 +8,7 @@ use crate::domain::{
     StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::repo_context_artifact::{
-    read_detected_validation_commands, write_repo_context_artifact,
+    ValidationInvocationArtifact, read_detected_validation_commands, write_repo_context_artifact,
 };
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
@@ -27,8 +27,7 @@ pub struct Orchestrator {
     timeout_ms: u64,
     repo_root: PathBuf,
     planning_context_artifact: Option<PathBuf>,
-    validation_commands: Vec<String>,
-    validation_shell: String,
+    validation_invocations: Vec<BinaryInvocationSpec>,
     validation_from_planning_context: bool,
     gate_inputs: GateInputs,
     checkpoint: OrchestratorCheckpoint,
@@ -49,8 +48,7 @@ impl Orchestrator {
         timeout_ms: u64,
         repo_root: PathBuf,
         planning_context_artifact: Option<PathBuf>,
-        validation_commands: Vec<String>,
-        validation_shell: String,
+        validation_invocations: Vec<BinaryInvocationSpec>,
         validation_from_planning_context: bool,
         gate_inputs: GateInputs,
         checkpoint: Option<OrchestratorCheckpoint>,
@@ -69,8 +67,7 @@ impl Orchestrator {
             timeout_ms,
             repo_root,
             planning_context_artifact,
-            validation_commands,
-            validation_shell,
+            validation_invocations,
             validation_from_planning_context,
             gate_inputs,
             checkpoint,
@@ -320,8 +317,8 @@ impl Orchestrator {
     fn execute_validation_stage(&mut self) -> bool {
         self.transition_to(Stage::Validation);
 
-        let has_native_validation_commands = match self.determine_validation_commands() {
-            Ok(commands) => !commands.is_empty(),
+        let has_native_validation_commands = match self.determine_validation_invocations() {
+            Ok(invocations) => !invocations.is_empty(),
             Err(err) => {
                 self.report.terminal_state = Some(TerminalState::Failed);
                 self.report.stage_executions.push(StageExecutionRecord {
@@ -362,8 +359,8 @@ impl Orchestrator {
             } else if has_native_validation_commands {
                 self.report.stage_executions.push(StageExecutionRecord {
                     stage: Stage::Validation,
-                    idempotency_key: Some("stage:Validation:native".to_string()),
-                    command: "validation.native_commands".to_string(),
+                    idempotency_key: Some("stage:Validation:invocations".to_string()),
+                    command: "validation.invocations".to_string(),
                     args: Vec::new(),
                     env_keys: Vec::new(),
                     started_at_unix_secs: unix_timestamp_secs(),
@@ -392,9 +389,9 @@ impl Orchestrator {
             return true;
         }
 
-        match self.determine_validation_commands() {
-            Ok(commands) => {
-                if !self.execute_native_validation_commands(&commands) {
+        match self.determine_validation_invocations() {
+            Ok(invocations) => {
+                if !self.execute_native_validation_invocations(&invocations) {
                     self.persist_checkpoint();
                     return false;
                 }
@@ -514,34 +511,35 @@ impl Orchestrator {
         self.checkpoint.completed_stages.retain(|s| *s != stage);
     }
 
-    fn determine_validation_commands(&self) -> Result<Vec<String>, String> {
-        let mut commands = self.validation_commands.clone();
+    fn determine_validation_invocations(&self) -> Result<Vec<BinaryInvocationSpec>, String> {
+        let mut invocations = self.validation_invocations.clone();
         if self.validation_from_planning_context
             && let Some(path) = &self.planning_context_artifact
         {
             let from_artifact = read_detected_validation_commands(path)?;
-            for cmd in from_artifact {
-                if !commands.contains(&cmd) {
-                    commands.push(cmd);
+            for item in from_artifact {
+                let spec = self.validation_artifact_to_spec(item);
+                if !invocations
+                    .iter()
+                    .any(|existing| existing.command == spec.command && existing.args == spec.args)
+                {
+                    invocations.push(spec);
                 }
             }
         }
-        Ok(commands)
+        Ok(invocations)
     }
 
-    fn execute_native_validation_commands(&mut self, commands: &[String]) -> bool {
-        for (index, command_text) in commands.iter().enumerate() {
-            let spec = BinaryInvocationSpec {
-                stage: Stage::Validation,
-                command: self.validation_shell.clone(),
-                args: vec!["-c".to_string(), command_text.clone()],
-                env: vec![(
-                    "ORCHESTRATOR_VALIDATION_COMMAND_INDEX".to_string(),
-                    (index + 1).to_string(),
-                )],
-                timeout_ms: self.timeout_ms,
-                expected_artifacts: Vec::new(),
-            };
+    fn execute_native_validation_invocations(
+        &mut self,
+        invocations: &[BinaryInvocationSpec],
+    ) -> bool {
+        for (index, base_spec) in invocations.iter().enumerate() {
+            let mut spec = base_spec.clone();
+            spec.env.push((
+                "ORCHESTRATOR_VALIDATION_COMMAND_INDEX".to_string(),
+                (index + 1).to_string(),
+            ));
             let mut execution = invoke_binary(&spec);
             execution.idempotency_key = Some(format!("stage:Validation:command:{}", index + 1));
             let status = execution.status;
@@ -561,6 +559,20 @@ impl Orchestrator {
             }
         }
         true
+    }
+
+    fn validation_artifact_to_spec(
+        &self,
+        artifact: ValidationInvocationArtifact,
+    ) -> BinaryInvocationSpec {
+        BinaryInvocationSpec {
+            stage: Stage::Validation,
+            command: artifact.command,
+            args: artifact.args,
+            env: Vec::new(),
+            timeout_ms: self.timeout_ms,
+            expected_artifacts: Vec::new(),
+        }
     }
 
     fn mark_terminal_and_persist(&mut self, terminal_state: TerminalState) {
@@ -775,7 +787,6 @@ mod tests {
             PathBuf::from("."),
             None,
             Vec::new(),
-            "/bin/sh".to_string(),
             false,
             GateInputs::passing(),
             None,
@@ -805,7 +816,6 @@ mod tests {
             PathBuf::from("."),
             None,
             Vec::new(),
-            "/bin/sh".to_string(),
             false,
             GateInputs::passing(),
             None,
@@ -841,7 +851,6 @@ mod tests {
             PathBuf::from("."),
             None,
             Vec::new(),
-            "/bin/sh".to_string(),
             false,
             GateInputs::passing(),
             None,
@@ -884,7 +893,6 @@ mod tests {
             PathBuf::from("."),
             None,
             Vec::new(),
-            "/bin/sh".to_string(),
             false,
             GateInputs::passing(),
             Some(checkpoint),
@@ -914,7 +922,6 @@ mod tests {
             PathBuf::from("."),
             None,
             Vec::new(),
-            "/bin/sh".to_string(),
             false,
             GateInputs {
                 policy_status: PolicyGateStatus::Unknown,
@@ -948,7 +955,6 @@ mod tests {
             PathBuf::from("."),
             None,
             Vec::new(),
-            "/bin/sh".to_string(),
             false,
             GateInputs::passing(),
             None,
@@ -997,16 +1003,16 @@ mod tests {
             None,
             Some(BinaryInvocationSpec {
                 stage: Stage::Execution,
-                command: "/bin/sh".to_string(),
-                args: vec!["-c".to_string(), "exit 0".to_string()],
+                command: "true".to_string(),
+                args: Vec::new(),
                 env: Vec::new(),
                 timeout_ms: 100,
                 expected_artifacts: Vec::new(),
             }),
             Some(BinaryInvocationSpec {
                 stage: Stage::Validation,
-                command: "/bin/sh".to_string(),
-                args: vec!["-c".to_string(), "exit 1".to_string()],
+                command: "false".to_string(),
+                args: Vec::new(),
                 env: Vec::new(),
                 timeout_ms: 100,
                 expected_artifacts: Vec::new(),
@@ -1017,7 +1023,6 @@ mod tests {
             PathBuf::from("."),
             None,
             Vec::new(),
-            "/bin/sh".to_string(),
             false,
             GateInputs::passing(),
             None,

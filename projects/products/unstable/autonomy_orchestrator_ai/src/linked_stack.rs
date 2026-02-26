@@ -211,10 +211,23 @@ pub fn run(args: &[String]) -> Result<(), String> {
     for command in reviewer_validation_commands.split(";;") {
         let trimmed = command.trim();
         if !trimmed.is_empty() {
+            let tokens = trimmed
+                .split_whitespace()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            let Some((bin, args)) = tokens.split_first() else {
+                continue;
+            };
             orchestrator_args.push("--reviewer-arg".to_string());
-            orchestrator_args.push("--validation-command".to_string());
+            orchestrator_args.push("--validation-bin".to_string());
             orchestrator_args.push("--reviewer-arg".to_string());
-            orchestrator_args.push(trimmed.to_string());
+            orchestrator_args.push(bin.clone());
+            for arg in args {
+                orchestrator_args.push("--reviewer-arg".to_string());
+                orchestrator_args.push("--validation-arg".to_string());
+                orchestrator_args.push("--reviewer-arg".to_string());
+                orchestrator_args.push(arg.clone());
+            }
         }
     }
 

@@ -4,12 +4,30 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidationInvocationArtifact {
+    pub command: String,
+    pub args: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct RepoContextArtifact {
     repo_root: String,
     generated_at_unix_secs: u64,
     top_level_entries: Vec<String>,
-    detected_validation_commands: Vec<String>,
+    detected_validation_commands: Vec<ValidationInvocationArtifact>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum LegacyOrCurrentValidationCommands {
+    Legacy(Vec<String>),
+    Current(Vec<ValidationInvocationArtifact>),
+}
+
+#[derive(Debug, Deserialize)]
+struct RepoContextArtifactCompat {
+    detected_validation_commands: LegacyOrCurrentValidationCommands,
 }
 
 pub fn write_repo_context_artifact(repo_root: &Path, artifact_path: &Path) -> Result<(), String> {
@@ -45,7 +63,9 @@ pub fn write_repo_context_artifact(repo_root: &Path, artifact_path: &Path) -> Re
     })
 }
 
-pub fn read_detected_validation_commands(artifact_path: &Path) -> Result<Vec<String>, String> {
+pub fn read_detected_validation_commands(
+    artifact_path: &Path,
+) -> Result<Vec<ValidationInvocationArtifact>, String> {
     let raw = fs::read_to_string(artifact_path).map_err(|e| {
         format!(
             "Failed to read planning context artifact '{}': {}",
@@ -53,14 +73,30 @@ pub fn read_detected_validation_commands(artifact_path: &Path) -> Result<Vec<Str
             e
         )
     })?;
-    let parsed: RepoContextArtifact = from_str(&raw).map_err(|e| {
+    let parsed: RepoContextArtifactCompat = from_str(&raw).map_err(|e| {
         format!(
             "Failed to parse planning context artifact '{}': {:?}",
             artifact_path.display(),
             e
         )
     })?;
-    Ok(parsed.detected_validation_commands)
+    Ok(match parsed.detected_validation_commands {
+        LegacyOrCurrentValidationCommands::Current(commands) => commands,
+        LegacyOrCurrentValidationCommands::Legacy(commands) => commands
+            .into_iter()
+            .filter_map(|command| {
+                let tokens = command
+                    .split_whitespace()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>();
+                let (head, tail) = tokens.split_first()?;
+                Some(ValidationInvocationArtifact {
+                    command: head.clone(),
+                    args: tail.to_vec(),
+                })
+            })
+            .collect(),
+    })
 }
 
 fn list_top_level_entries(repo_root: &Path) -> Result<Vec<String>, String> {
@@ -74,16 +110,50 @@ fn list_top_level_entries(repo_root: &Path) -> Result<Vec<String>, String> {
     Ok(entries)
 }
 
-fn detect_validation_commands(repo_root: &Path) -> Vec<String> {
+fn detect_validation_commands(repo_root: &Path) -> Vec<ValidationInvocationArtifact> {
     let mut commands = Vec::new();
     if path_exists(repo_root, "Cargo.toml") {
-        commands.push("cargo fmt --all -- --check".to_string());
-        commands.push("cargo clippy --workspace --all-targets -- -D warnings".to_string());
-        commands.push("cargo test --workspace".to_string());
+        commands.push(ValidationInvocationArtifact {
+            command: "cargo".to_string(),
+            args: vec!["fmt", "--all", "--", "--check"]
+                .into_iter()
+                .map(ToString::to_string)
+                .collect(),
+        });
+        commands.push(ValidationInvocationArtifact {
+            command: "cargo".to_string(),
+            args: vec![
+                "clippy",
+                "--workspace",
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ]
+            .into_iter()
+            .map(ToString::to_string)
+            .collect(),
+        });
+        commands.push(ValidationInvocationArtifact {
+            command: "cargo".to_string(),
+            args: vec!["test", "--workspace"]
+                .into_iter()
+                .map(ToString::to_string)
+                .collect(),
+        });
     }
     if path_exists(repo_root, "package.json") {
-        commands.push("npm run lint".to_string());
-        commands.push("npm test".to_string());
+        commands.push(ValidationInvocationArtifact {
+            command: "npm".to_string(),
+            args: vec!["run", "lint"]
+                .into_iter()
+                .map(ToString::to_string)
+                .collect(),
+        });
+        commands.push(ValidationInvocationArtifact {
+            command: "npm".to_string(),
+            args: vec!["test"].into_iter().map(ToString::to_string).collect(),
+        });
     }
     commands
 }

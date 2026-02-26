@@ -22,7 +22,13 @@ struct StageExecutionView {
 #[derive(Debug, serde::Deserialize)]
 struct RepoContextView {
     repo_root: String,
-    detected_validation_commands: Vec<String>,
+    detected_validation_commands: Vec<RepoValidationInvocation>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct RepoValidationInvocation {
+    command: String,
+    args: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -72,6 +78,10 @@ fn run_orchestrator_owned(args: &[String], out_dir: &PathBuf) -> (Output, Matrix
     run_orchestrator(&as_refs, out_dir)
 }
 
+fn fixture_bin() -> &'static str {
+    env!("CARGO_BIN_EXE_autonomy_orchestrator_ai")
+}
+
 #[test]
 fn matrix_happy_path_reaches_done() {
     let out_dir = unique_temp_dir("happy_path");
@@ -85,23 +95,23 @@ fn matrix_happy_path_reaches_done() {
             "--review-status",
             "approved",
             "--manager-bin",
-            "/bin/sh",
+            fixture_bin(),
             "--manager-arg",
-            "-c",
+            "fixture",
             "--manager-arg",
-            "exit 0",
+            "success",
             "--executor-bin",
-            "/bin/sh",
+            fixture_bin(),
             "--executor-arg",
-            "-c",
+            "fixture",
             "--executor-arg",
-            "exit 0",
+            "success",
             "--reviewer-bin",
-            "/bin/sh",
+            fixture_bin(),
             "--reviewer-arg",
-            "-c",
+            "fixture",
             "--reviewer-arg",
-            "exit 0",
+            "success",
         ],
         &out_dir,
     );
@@ -222,11 +232,13 @@ fn matrix_timeout_sets_timeout_terminal_state() {
             "--timeout-ms",
             "10",
             "--manager-bin",
-            "/bin/sh",
+            fixture_bin(),
             "--manager-arg",
-            "-c",
+            "fixture",
             "--manager-arg",
-            "sleep 1",
+            "sleep-ms",
+            "--manager-arg",
+            "1000",
         ],
         &out_dir,
     );
@@ -267,11 +279,11 @@ fn matrix_crash_resume_skips_completed_stage_and_finishes() {
             "--manager-bin",
             "__missing_binary__",
             "--executor-bin",
-            "/bin/sh",
+            fixture_bin(),
             "--executor-arg",
-            "-c",
+            "fixture",
             "--executor-arg",
-            "exit 0",
+            "success",
         ],
         &out_dir,
     );
@@ -329,7 +341,8 @@ fn matrix_planning_context_artifact_is_written() {
         artifact
             .detected_validation_commands
             .iter()
-            .any(|c| c.contains("cargo test --workspace"))
+            .any(|c| c.command == "cargo"
+                && c.args == vec!["test".to_string(), "--workspace".to_string()])
     );
     assert!(
         report
@@ -345,10 +358,6 @@ fn matrix_planning_context_artifact_is_written() {
 fn matrix_execution_iteration_succeeds_before_budget_exhaustion() {
     let out_dir = unique_temp_dir("execution_retry_success");
     let state_file = out_dir.join("execution_retry_state.flag");
-    let script = format!(
-        "STATE='{}'; if [ -f \"$STATE\" ]; then exit 0; else touch \"$STATE\"; exit 1; fi",
-        state_file.display()
-    );
     let args = vec![
         "--policy-status".to_string(),
         "allow".to_string(),
@@ -359,11 +368,13 @@ fn matrix_execution_iteration_succeeds_before_budget_exhaustion() {
         "--execution-max-iterations".to_string(),
         "2".to_string(),
         "--executor-bin".to_string(),
-        "/bin/sh".to_string(),
+        fixture_bin().to_string(),
         "--executor-arg".to_string(),
-        "-c".to_string(),
+        "fixture".to_string(),
         "--executor-arg".to_string(),
-        script,
+        "fail-once".to_string(),
+        "--executor-arg".to_string(),
+        state_file.display().to_string(),
     ];
 
     let (output, report) = run_orchestrator_owned(&args, &out_dir);
@@ -402,11 +413,11 @@ fn matrix_execution_iteration_budget_exhaustion_fails_closed() {
             "--execution-max-iterations",
             "2",
             "--executor-bin",
-            "/bin/sh",
+            fixture_bin(),
             "--executor-arg",
-            "-c",
+            "fixture",
             "--executor-arg",
-            "exit 1",
+            "fail",
         ],
         &out_dir,
     );
@@ -443,8 +454,12 @@ fn matrix_native_validation_command_success_reaches_done() {
             "success",
             "--review-status",
             "approved",
-            "--validation-command",
-            "exit 0",
+            "--validation-bin",
+            fixture_bin(),
+            "--validation-arg",
+            "fixture",
+            "--validation-arg",
+            "success",
         ],
         &out_dir,
     );
@@ -473,8 +488,12 @@ fn matrix_native_validation_command_failure_fails_closed() {
             "success",
             "--review-status",
             "approved",
-            "--validation-command",
-            "exit 1",
+            "--validation-bin",
+            fixture_bin(),
+            "--validation-arg",
+            "fixture",
+            "--validation-arg",
+            "fail",
         ],
         &out_dir,
     );
@@ -499,19 +518,6 @@ fn matrix_reviewer_remediation_cycle_recovers_to_done() {
     let state_file = out_dir.join("reviewer_state.flag");
     let review_report = reviewer_dir.join("review_report.json");
 
-    let reviewer_script = format!(
-        "if [ -f \"{state}\" ]; then \
-           printf %s '{{\"next_step_plan\":[{{\"priority\":1,\"code\":\"DONE\",\"action\":\"No action\"}}]}}' > \"{report}\"; \
-           exit 0; \
-         else \
-           printf %s '{{\"next_step_plan\":[{{\"priority\":1,\"code\":\"FIX_VALIDATION\",\"action\":\"Rerun execution with reviewer feedback\"}}]}}' > \"{report}\"; \
-           touch \"{state}\"; \
-           exit 1; \
-         fi",
-        state = state_file.display(),
-        report = review_report.display()
-    );
-
     let args = vec![
         "--policy-status".to_string(),
         "allow".to_string(),
@@ -524,17 +530,21 @@ fn matrix_reviewer_remediation_cycle_recovers_to_done() {
         "--reviewer-remediation-max-cycles".to_string(),
         "1".to_string(),
         "--executor-bin".to_string(),
-        "/bin/sh".to_string(),
+        fixture_bin().to_string(),
         "--executor-arg".to_string(),
-        "-c".to_string(),
+        "fixture".to_string(),
         "--executor-arg".to_string(),
-        "exit 0".to_string(),
+        "success".to_string(),
         "--reviewer-bin".to_string(),
-        "/bin/sh".to_string(),
+        fixture_bin().to_string(),
         "--reviewer-arg".to_string(),
-        "-c".to_string(),
+        "fixture".to_string(),
         "--reviewer-arg".to_string(),
-        reviewer_script,
+        "review-remediation".to_string(),
+        "--reviewer-arg".to_string(),
+        state_file.display().to_string(),
+        "--reviewer-arg".to_string(),
+        review_report.display().to_string(),
         "--reviewer-expected-artifact".to_string(),
         review_report
             .to_str()

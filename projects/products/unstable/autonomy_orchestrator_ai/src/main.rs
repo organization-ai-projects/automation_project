@@ -3,6 +3,7 @@
 mod binary_runner;
 mod checkpoint_store;
 mod domain;
+mod fixture;
 mod linked_stack;
 mod orchestrator;
 mod output_writer;
@@ -20,8 +21,18 @@ use std::path::PathBuf;
 use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[derive(Clone, Debug)]
+struct PendingValidationInvocation {
+    command: String,
+    args: Vec<String>,
+    env: Vec<(String, String)>,
+}
+
 fn main() {
     let raw_args: Vec<String> = env::args().skip(1).collect();
+    if matches!(raw_args.first().map(String::as_str), Some("fixture")) {
+        fixture::run(&raw_args[1..]);
+    }
     if matches!(raw_args.first().map(String::as_str), Some("linked-stack")) {
         match linked_stack::run(&raw_args[1..]) {
             Ok(()) => process::exit(0),
@@ -54,8 +65,7 @@ fn main() {
     let mut reviewer_args: Vec<String> = Vec::new();
     let mut reviewer_env: Vec<(String, String)> = Vec::new();
     let mut reviewer_expected_artifacts: Vec<String> = Vec::new();
-    let mut validation_commands: Vec<String> = Vec::new();
-    let mut validation_shell = "/bin/sh".to_string();
+    let mut validation_pending_invocations: Vec<PendingValidationInvocation> = Vec::new();
     let mut validation_from_planning_context = false;
     let mut repo_root = PathBuf::from(".");
     let mut planning_context_artifact: Option<PathBuf> = None;
@@ -221,18 +231,37 @@ fn main() {
                 reviewer_expected_artifacts.push(args[i + 1].clone());
                 i += 2;
             }
-            "--validation-command" => {
+            "--validation-bin" => {
                 if i + 1 >= args.len() {
                     usage_and_exit();
                 }
-                validation_commands.push(args[i + 1].clone());
+                validation_pending_invocations.push(PendingValidationInvocation {
+                    command: args[i + 1].clone(),
+                    args: Vec::new(),
+                    env: Vec::new(),
+                });
                 i += 2;
             }
-            "--validation-shell" => {
+            "--validation-arg" => {
                 if i + 1 >= args.len() {
                     usage_and_exit();
                 }
-                validation_shell = args[i + 1].clone();
+                let Some(last) = validation_pending_invocations.last_mut() else {
+                    eprintln!("--validation-arg requires a preceding --validation-bin");
+                    process::exit(2);
+                };
+                last.args.push(args[i + 1].clone());
+                i += 2;
+            }
+            "--validation-env" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                let Some(last) = validation_pending_invocations.last_mut() else {
+                    eprintln!("--validation-env requires a preceding --validation-bin");
+                    process::exit(2);
+                };
+                last.env.push(parse_env_pair(&args[i + 1]));
                 i += 2;
             }
             "--validation-from-planning-context" => {
@@ -311,6 +340,17 @@ fn main() {
         timeout_ms,
         expected_artifacts: reviewer_expected_artifacts,
     });
+    let validation_invocations = validation_pending_invocations
+        .into_iter()
+        .map(|pending| BinaryInvocationSpec {
+            stage: Stage::Validation,
+            command: pending.command,
+            args: pending.args,
+            env: pending.env,
+            timeout_ms,
+            expected_artifacts: Vec::new(),
+        })
+        .collect::<Vec<_>>();
 
     println!("Autonomy Orchestrator AI V0");
     println!("Run ID: {}", run_id);
@@ -346,7 +386,7 @@ fn main() {
     );
     println!(
         "Validation commands configured: {}",
-        validation_commands.len()
+        validation_invocations.len()
     );
     println!(
         "Validation from planning context: {}",
@@ -365,8 +405,7 @@ fn main() {
         timeout_ms,
         repo_root,
         planning_context_artifact,
-        validation_commands,
-        validation_shell,
+        validation_invocations,
         validation_from_planning_context,
         gate_inputs,
         checkpoint,
@@ -424,8 +463,13 @@ fn usage_and_exit() -> ! {
     eprintln!("  --reviewer-arg <value>                   (repeatable)");
     eprintln!("  --reviewer-env <KEY=VALUE>               (repeatable)");
     eprintln!("  --reviewer-expected-artifact <path>      (repeatable)");
-    eprintln!("  --validation-command <shell command>     (repeatable)");
-    eprintln!("  --validation-shell <path>                (default: /bin/sh)");
+    eprintln!("  --validation-bin <path>                  (repeatable)");
+    eprintln!(
+        "  --validation-arg <value>                 (repeatable; binds to last --validation-bin)"
+    );
+    eprintln!(
+        "  --validation-env <KEY=VALUE>             (repeatable; binds to last --validation-bin)"
+    );
     eprintln!("  --validation-from-planning-context");
     eprintln!("  --repo-root <path>                       (default: .)");
     eprintln!("  --planning-context-artifact <path>");

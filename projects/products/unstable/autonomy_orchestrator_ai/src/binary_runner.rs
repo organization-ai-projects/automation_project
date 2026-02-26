@@ -206,8 +206,8 @@ mod tests {
 
         let spec = BinaryInvocationSpec {
             stage: Stage::Planning,
-            command: "/bin/sh".to_string(),
-            args: vec!["-c".to_string(), "exit 0".to_string()],
+            command: "true".to_string(),
+            args: Vec::new(),
             env: Vec::new(),
             timeout_ms: 250,
             expected_artifacts: vec![artifact_path.display().to_string()],

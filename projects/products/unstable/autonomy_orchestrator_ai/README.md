@@ -81,8 +81,8 @@ During remediation reruns, executor receives:
 For `validation`, you can either:
 
 - provide a dedicated reviewer binary (`--reviewer-bin ...`)
-- run native shell validations with `--validation-command "..."` (repeatable)
-- load native validation commands detected during planning with `--validation-from-planning-context` (requires `--planning-context-artifact`)
+- run native validation invocations with `--validation-bin ...` + `--validation-arg ...` (repeatable)
+- load native validation invocations detected during planning with `--validation-from-planning-context` (requires `--planning-context-artifact`)
 
 Supported invocation boundaries are currently:
 
@@ -90,7 +90,7 @@ Supported invocation boundaries are currently:
 - `executor` at stage `execution`
 - `reviewer` at stage `validation`
 - native `planning.repo_context` action in stage `planning` when `--planning-context-artifact` is set
-- native `validation` command execution with `--validation-command` / `--validation-from-planning-context`
+- native `validation` invocation execution with `--validation-bin` / `--validation-from-planning-context`
 
 When `--resume` is used, stages already marked completed in checkpoint are skipped idempotently. Stage idempotency keys are tracked as `stage:<StageName>` in execution records.
 Resume behavior is covered by binary regression tests in `tests/binary_resume_tests.rs`.
