@@ -344,7 +344,7 @@ main() {
   run_case \
     "pre-commit-blocks-markdownlint-failure" \
     1 \
-    "Markdown lint failed on staged markdown files" \
+    "Markdown auto-fix failed on staged markdown files" \
     "echo '# markdown title' > documentation/precommit_markdownlint_fail.md && git add documentation/precommit_markdownlint_fail.md && MOCK_MARKDOWNLINT_FAIL=1 /bin/bash '${HOOKS_DIR}/pre-commit'"
 
   run_case \
