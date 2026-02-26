@@ -16,9 +16,8 @@ use crate::domain::{
 };
 use crate::orchestrator::Orchestrator;
 use crate::output_writer::write_run_report;
-use std::env;
-use std::path::Path;
-use std::path::PathBuf;
+use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
+use std::path::{Path, PathBuf};
 use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -29,412 +28,239 @@ struct PendingValidationInvocation {
     env: Vec<(String, String)>,
 }
 
+#[derive(Parser, Debug)]
+#[command(name = "autonomy_orchestrator_ai")]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+    #[command(flatten)]
+    run: RunArgs,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    Fixture {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    LinkedStack {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    ConfigValidate(ConfigValidateArgs),
+    ConfigCanonicalize(ConfigCanonicalizeArgs),
+}
+
+#[derive(Args, Debug)]
+struct ConfigValidateArgs {
+    config_path: PathBuf,
+    #[arg(long)]
+    ai_config_only_binary: bool,
+}
+
+#[derive(Args, Debug)]
+struct ConfigCanonicalizeArgs {
+    input_config: PathBuf,
+    output_bin_config: PathBuf,
+    #[arg(long)]
+    ai_config_only_binary: bool,
+}
+
+#[derive(Args, Debug)]
+struct RunArgs {
+    #[arg(default_value = "./out")]
+    output_dir: PathBuf,
+
+    #[arg(long)]
+    simulate_blocked: bool,
+    #[arg(long)]
+    resume: bool,
+    #[arg(long, default_value_t = 30_000)]
+    timeout_ms: u64,
+
+    #[arg(long, value_enum, default_value_t = CliPolicyStatus::Unknown)]
+    policy_status: CliPolicyStatus,
+    #[arg(long, value_enum, default_value_t = CliCiStatus::Missing)]
+    ci_status: CliCiStatus,
+    #[arg(long, value_enum, default_value_t = CliReviewStatus::Missing)]
+    review_status: CliReviewStatus,
+
+    #[arg(long)]
+    checkpoint_path: Option<PathBuf>,
+
+    #[arg(long)]
+    manager_bin: Option<String>,
+    #[arg(long = "manager-arg", action = ArgAction::Append)]
+    manager_args: Vec<String>,
+    #[arg(long = "manager-env", value_parser = parse_env_pair_cli, action = ArgAction::Append)]
+    manager_env: Vec<(String, String)>,
+    #[arg(long = "manager-expected-artifact", action = ArgAction::Append)]
+    manager_expected_artifacts: Vec<String>,
+
+    #[arg(long)]
+    executor_bin: Option<String>,
+    #[arg(long = "executor-arg", action = ArgAction::Append)]
+    executor_args: Vec<String>,
+    #[arg(long = "executor-env", value_parser = parse_env_pair_cli, action = ArgAction::Append)]
+    executor_env: Vec<(String, String)>,
+    #[arg(long = "executor-expected-artifact", action = ArgAction::Append)]
+    executor_expected_artifacts: Vec<String>,
+
+    #[arg(long, default_value_t = 1)]
+    execution_max_iterations: u32,
+    #[arg(long, default_value_t = 0)]
+    reviewer_remediation_max_cycles: u32,
+
+    #[arg(long)]
+    reviewer_bin: Option<String>,
+    #[arg(long = "reviewer-arg", action = ArgAction::Append)]
+    reviewer_args: Vec<String>,
+    #[arg(long = "reviewer-env", value_parser = parse_env_pair_cli, action = ArgAction::Append)]
+    reviewer_env: Vec<(String, String)>,
+    #[arg(long = "reviewer-expected-artifact", action = ArgAction::Append)]
+    reviewer_expected_artifacts: Vec<String>,
+
+    // Parsed manually from raw argv to preserve "binds to last --validation-bin" semantics.
+    #[arg(long = "validation-bin", action = ArgAction::Append)]
+    _validation_bins: Vec<String>,
+    #[arg(long = "validation-arg", action = ArgAction::Append)]
+    _validation_args: Vec<String>,
+    #[arg(long = "validation-env", value_parser = parse_env_pair_cli, action = ArgAction::Append)]
+    _validation_env: Vec<(String, String)>,
+
+    #[arg(long)]
+    validation_from_planning_context: bool,
+
+    #[arg(long, default_value = ".")]
+    repo_root: PathBuf,
+    #[arg(long)]
+    planning_context_artifact: Option<PathBuf>,
+
+    #[arg(long)]
+    delivery_enabled: bool,
+    #[arg(long)]
+    delivery_dry_run: bool,
+    #[arg(long)]
+    delivery_branch: Option<String>,
+    #[arg(long)]
+    delivery_commit_message: Option<String>,
+    #[arg(long)]
+    delivery_pr_enabled: bool,
+    #[arg(long)]
+    delivery_pr_number: Option<String>,
+    #[arg(long)]
+    delivery_pr_base: Option<String>,
+    #[arg(long)]
+    delivery_pr_title: Option<String>,
+    #[arg(long)]
+    delivery_pr_body: Option<String>,
+
+    #[arg(long)]
+    config_save_ron: Option<PathBuf>,
+    #[arg(long)]
+    config_save_bin: Option<PathBuf>,
+    #[arg(long)]
+    config_save_json: Option<PathBuf>,
+    #[arg(long = "config-save")]
+    config_save_auto: Option<PathBuf>,
+
+    #[arg(long)]
+    config_load_ron: Option<PathBuf>,
+    #[arg(long)]
+    config_load_bin: Option<PathBuf>,
+    #[arg(long)]
+    config_load_json: Option<PathBuf>,
+    #[arg(long = "config-load")]
+    config_load_auto: Option<PathBuf>,
+
+    #[arg(long)]
+    ai_config_only_binary: bool,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum CliPolicyStatus {
+    Allow,
+    Deny,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum CliCiStatus {
+    Success,
+    Pending,
+    Failure,
+    Missing,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum CliReviewStatus {
+    Approved,
+    #[value(name = "changes_requested")]
+    ChangesRequested,
+    Missing,
+}
+
+impl From<CliPolicyStatus> for PolicyGateStatus {
+    fn from(value: CliPolicyStatus) -> Self {
+        match value {
+            CliPolicyStatus::Allow => Self::Allow,
+            CliPolicyStatus::Deny => Self::Deny,
+            CliPolicyStatus::Unknown => Self::Unknown,
+        }
+    }
+}
+
+impl From<CliCiStatus> for CiGateStatus {
+    fn from(value: CliCiStatus) -> Self {
+        match value {
+            CliCiStatus::Success => Self::Success,
+            CliCiStatus::Pending => Self::Pending,
+            CliCiStatus::Failure => Self::Failure,
+            CliCiStatus::Missing => Self::Missing,
+        }
+    }
+}
+
+impl From<CliReviewStatus> for ReviewGateStatus {
+    fn from(value: CliReviewStatus) -> Self {
+        match value {
+            CliReviewStatus::Approved => Self::Approved,
+            CliReviewStatus::ChangesRequested => Self::ChangesRequested,
+            CliReviewStatus::Missing => Self::Missing,
+        }
+    }
+}
+
 fn main() {
-    let raw_args: Vec<String> = env::args().skip(1).collect();
-    if matches!(raw_args.first().map(String::as_str), Some("fixture")) {
-        fixture::run(&raw_args[1..]);
-    }
-    if matches!(
-        raw_args.first().map(String::as_str),
-        Some("config-validate")
-    ) {
-        run_config_validate(&raw_args[1..]);
-    }
-    if matches!(
-        raw_args.first().map(String::as_str),
-        Some("config-canonicalize")
-    ) {
-        run_config_canonicalize(&raw_args[1..]);
-    }
-    if matches!(raw_args.first().map(String::as_str), Some("linked-stack")) {
-        match linked_stack::run(&raw_args[1..]) {
+    let raw_args: Vec<String> = std::env::args().skip(1).collect();
+    let cli = Cli::parse();
+
+    match cli.command {
+        Some(Commands::Fixture { args }) => fixture::run(&args),
+        Some(Commands::LinkedStack { args }) => match linked_stack::run(&args) {
             Ok(()) => process::exit(0),
             Err(error) => {
                 eprintln!("{error}");
                 process::exit(1);
             }
-        }
+        },
+        Some(Commands::ConfigValidate(args)) => run_config_validate(args),
+        Some(Commands::ConfigCanonicalize(args)) => run_config_canonicalize(args),
+        None => run_orchestrator(cli.run, &raw_args),
     }
+}
 
-    let mut output_dir = PathBuf::from("./out");
-    let mut simulate_blocked = false;
-    let mut resume = false;
-    let mut timeout_ms: u64 = 30_000;
-    let mut policy_status = PolicyGateStatus::Unknown;
-    let mut ci_status = CiGateStatus::Missing;
-    let mut review_status = ReviewGateStatus::Missing;
-    let mut checkpoint_path_override: Option<PathBuf> = None;
-    let mut manager_bin: Option<String> = None;
-    let mut manager_args: Vec<String> = Vec::new();
-    let mut manager_env: Vec<(String, String)> = Vec::new();
-    let mut manager_expected_artifacts: Vec<String> = Vec::new();
-    let mut executor_bin: Option<String> = None;
-    let mut executor_args: Vec<String> = Vec::new();
-    let mut executor_env: Vec<(String, String)> = Vec::new();
-    let mut executor_expected_artifacts: Vec<String> = Vec::new();
-    let mut execution_max_iterations: u32 = 1;
-    let mut reviewer_remediation_max_cycles: u32 = 0;
-    let mut reviewer_bin: Option<String> = None;
-    let mut reviewer_args: Vec<String> = Vec::new();
-    let mut reviewer_env: Vec<(String, String)> = Vec::new();
-    let mut reviewer_expected_artifacts: Vec<String> = Vec::new();
-    let mut validation_pending_invocations: Vec<PendingValidationInvocation> = Vec::new();
-    let mut validation_from_planning_context = false;
-    let mut repo_root = PathBuf::from(".");
-    let mut planning_context_artifact: Option<PathBuf> = None;
-    let mut delivery_options = DeliveryOptions::disabled();
-    let mut config_save_ron: Option<PathBuf> = None;
-    let mut config_save_bin: Option<PathBuf> = None;
-    let mut config_save_json: Option<PathBuf> = None;
-    let mut config_save_auto: Option<PathBuf> = None;
-    let mut config_load_ron: Option<PathBuf> = None;
-    let mut config_load_bin: Option<PathBuf> = None;
-    let mut config_load_json: Option<PathBuf> = None;
-    let mut config_load_auto: Option<PathBuf> = None;
-    let mut ai_config_only_binary = false;
-
-    let args = raw_args;
-    let mut i = 0usize;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--simulate-blocked" => {
-                simulate_blocked = true;
-                i += 1;
-            }
-            "--resume" => {
-                resume = true;
-                i += 1;
-            }
-            "--timeout-ms" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                timeout_ms = args[i + 1].parse::<u64>().unwrap_or_else(|_| {
-                    eprintln!("Invalid --timeout-ms value: {}", args[i + 1]);
-                    process::exit(2);
-                });
-                i += 2;
-            }
-            "--policy-status" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                policy_status = parse_policy_status(&args[i + 1]);
-                i += 2;
-            }
-            "--ci-status" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                ci_status = parse_ci_status(&args[i + 1]);
-                i += 2;
-            }
-            "--review-status" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                review_status = parse_review_status(&args[i + 1]);
-                i += 2;
-            }
-            "--checkpoint-path" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                checkpoint_path_override = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--manager-bin" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                manager_bin = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--manager-arg" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                manager_args.push(args[i + 1].clone());
-                i += 2;
-            }
-            "--manager-env" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                manager_env.push(parse_env_pair(&args[i + 1]));
-                i += 2;
-            }
-            "--manager-expected-artifact" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                manager_expected_artifacts.push(args[i + 1].clone());
-                i += 2;
-            }
-            "--executor-bin" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                executor_bin = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--executor-arg" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                executor_args.push(args[i + 1].clone());
-                i += 2;
-            }
-            "--executor-env" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                executor_env.push(parse_env_pair(&args[i + 1]));
-                i += 2;
-            }
-            "--executor-expected-artifact" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                executor_expected_artifacts.push(args[i + 1].clone());
-                i += 2;
-            }
-            "--execution-max-iterations" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                execution_max_iterations = args[i + 1].parse::<u32>().unwrap_or_else(|_| {
-                    eprintln!("Invalid --execution-max-iterations value: {}", args[i + 1]);
-                    process::exit(2);
-                });
-                if execution_max_iterations == 0 {
-                    eprintln!("Invalid --execution-max-iterations value: must be >= 1");
-                    process::exit(2);
-                }
-                i += 2;
-            }
-            "--reviewer-remediation-max-cycles" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                reviewer_remediation_max_cycles = args[i + 1].parse::<u32>().unwrap_or_else(|_| {
-                    eprintln!(
-                        "Invalid --reviewer-remediation-max-cycles value: {}",
-                        args[i + 1]
-                    );
-                    process::exit(2);
-                });
-                i += 2;
-            }
-            "--reviewer-bin" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                reviewer_bin = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--reviewer-arg" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                reviewer_args.push(args[i + 1].clone());
-                i += 2;
-            }
-            "--reviewer-env" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                reviewer_env.push(parse_env_pair(&args[i + 1]));
-                i += 2;
-            }
-            "--reviewer-expected-artifact" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                reviewer_expected_artifacts.push(args[i + 1].clone());
-                i += 2;
-            }
-            "--validation-bin" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                validation_pending_invocations.push(PendingValidationInvocation {
-                    command: args[i + 1].clone(),
-                    args: Vec::new(),
-                    env: Vec::new(),
-                });
-                i += 2;
-            }
-            "--validation-arg" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                let Some(last) = validation_pending_invocations.last_mut() else {
-                    eprintln!("--validation-arg requires a preceding --validation-bin");
-                    process::exit(2);
-                };
-                last.args.push(args[i + 1].clone());
-                i += 2;
-            }
-            "--validation-env" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                let Some(last) = validation_pending_invocations.last_mut() else {
-                    eprintln!("--validation-env requires a preceding --validation-bin");
-                    process::exit(2);
-                };
-                last.env.push(parse_env_pair(&args[i + 1]));
-                i += 2;
-            }
-            "--validation-from-planning-context" => {
-                validation_from_planning_context = true;
-                i += 1;
-            }
-            "--repo-root" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                repo_root = PathBuf::from(args[i + 1].clone());
-                i += 2;
-            }
-            "--planning-context-artifact" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                planning_context_artifact = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--delivery-enabled" => {
-                delivery_options.enabled = true;
-                i += 1;
-            }
-            "--delivery-dry-run" => {
-                delivery_options.dry_run = true;
-                i += 1;
-            }
-            "--delivery-branch" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                delivery_options.branch = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--delivery-commit-message" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                delivery_options.commit_message = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--delivery-pr-enabled" => {
-                delivery_options.pr_enabled = true;
-                i += 1;
-            }
-            "--delivery-pr-number" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                delivery_options.pr_number = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--delivery-pr-base" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                delivery_options.pr_base = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--delivery-pr-title" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                delivery_options.pr_title = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--delivery-pr-body" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                delivery_options.pr_body = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--config-save-ron" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                config_save_ron = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--config-save-bin" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                config_save_bin = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--config-save-json" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                config_save_json = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--config-save" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                config_save_auto = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--config-load-ron" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                config_load_ron = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--config-load-bin" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                config_load_bin = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--config-load-json" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                config_load_json = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--config-load" => {
-                if i + 1 >= args.len() {
-                    usage_and_exit();
-                }
-                config_load_auto = Some(PathBuf::from(args[i + 1].clone()));
-                i += 2;
-            }
-            "--ai-config-only-binary" => {
-                ai_config_only_binary = true;
-                i += 1;
-            }
-            val if val.starts_with("--") => {
-                eprintln!("Unknown option: {val}");
-                usage_and_exit();
-            }
-            val => {
-                output_dir = PathBuf::from(val);
-                i += 1;
-            }
-        }
+fn run_orchestrator(args: RunArgs, raw_args: &[String]) -> ! {
+    if args.execution_max_iterations == 0 {
+        eprintln!("Invalid --execution-max-iterations value: must be >= 1");
+        process::exit(2);
     }
 
     let load_modes_selected = [
-        config_load_ron.is_some(),
-        config_load_bin.is_some(),
-        config_load_json.is_some(),
-        config_load_auto.is_some(),
+        args.config_load_ron.is_some(),
+        args.config_load_bin.is_some(),
+        args.config_load_json.is_some(),
+        args.config_load_auto.is_some(),
     ]
     .into_iter()
     .filter(|selected| *selected)
@@ -446,24 +272,27 @@ fn main() {
         process::exit(2);
     }
 
-    if config_save_auto.is_some()
-        && (config_save_ron.is_some() || config_save_bin.is_some() || config_save_json.is_some())
+    if args.config_save_auto.is_some()
+        && (args.config_save_ron.is_some()
+            || args.config_save_bin.is_some()
+            || args.config_save_json.is_some())
     {
         eprintln!(
             "When --config-save is used, do not combine it with --config-save-ron/--config-save-bin/--config-save-json"
         );
         process::exit(2);
     }
-    if ai_config_only_binary {
+
+    if args.ai_config_only_binary {
         for path in [
-            config_load_auto.as_ref(),
-            config_load_ron.as_ref(),
-            config_load_bin.as_ref(),
-            config_load_json.as_ref(),
-            config_save_auto.as_ref(),
-            config_save_ron.as_ref(),
-            config_save_bin.as_ref(),
-            config_save_json.as_ref(),
+            args.config_load_auto.as_ref(),
+            args.config_load_ron.as_ref(),
+            args.config_load_bin.as_ref(),
+            args.config_load_json.as_ref(),
+            args.config_save_auto.as_ref(),
+            args.config_save_ron.as_ref(),
+            args.config_save_bin.as_ref(),
+            args.config_save_json.as_ref(),
         ]
         .into_iter()
         .flatten()
@@ -478,10 +307,18 @@ fn main() {
         }
     }
 
-    let checkpoint_path = checkpoint_path_override
+    let validation_pending_invocations = parse_validation_pending_invocations(raw_args)
+        .unwrap_or_else(|err| {
+            eprintln!("{err}");
+            process::exit(2);
+        });
+
+    let checkpoint_path = args
+        .checkpoint_path
         .clone()
-        .unwrap_or_else(|| output_dir.join("orchestrator_checkpoint.json"));
-    let checkpoint = if resume {
+        .unwrap_or_else(|| args.output_dir.join("orchestrator_checkpoint.json"));
+
+    let checkpoint = if args.resume {
         match load_checkpoint(&checkpoint_path) {
             Ok(cp) => Some(cp),
             Err(err) => {
@@ -492,35 +329,40 @@ fn main() {
     } else {
         None
     };
+
     let gate_inputs = GateInputs {
-        policy_status,
-        ci_status,
-        review_status,
+        policy_status: args.policy_status.into(),
+        ci_status: args.ci_status.into(),
+        review_status: args.review_status.into(),
     };
-    let planning_invocation = manager_bin.map(|command| BinaryInvocationSpec {
+
+    let planning_invocation = args.manager_bin.map(|command| BinaryInvocationSpec {
         stage: Stage::Planning,
         command,
-        args: manager_args,
-        env: manager_env,
-        timeout_ms,
-        expected_artifacts: manager_expected_artifacts,
+        args: args.manager_args,
+        env: args.manager_env,
+        timeout_ms: args.timeout_ms,
+        expected_artifacts: args.manager_expected_artifacts,
     });
-    let execution_invocation = executor_bin.map(|command| BinaryInvocationSpec {
+
+    let execution_invocation = args.executor_bin.map(|command| BinaryInvocationSpec {
         stage: Stage::Execution,
         command,
-        args: executor_args,
-        env: executor_env,
-        timeout_ms,
-        expected_artifacts: executor_expected_artifacts,
+        args: args.executor_args,
+        env: args.executor_env,
+        timeout_ms: args.timeout_ms,
+        expected_artifacts: args.executor_expected_artifacts,
     });
-    let validation_invocation = reviewer_bin.map(|command| BinaryInvocationSpec {
+
+    let validation_invocation = args.reviewer_bin.map(|command| BinaryInvocationSpec {
         stage: Stage::Validation,
         command,
-        args: reviewer_args,
-        env: reviewer_env,
-        timeout_ms,
-        expected_artifacts: reviewer_expected_artifacts,
+        args: args.reviewer_args,
+        env: args.reviewer_env,
+        timeout_ms: args.timeout_ms,
+        expected_artifacts: args.reviewer_expected_artifacts,
     });
+
     let validation_invocations = validation_pending_invocations
         .into_iter()
         .map(|pending| BinaryInvocationSpec {
@@ -528,52 +370,64 @@ fn main() {
             command: pending.command,
             args: pending.args,
             env: pending.env,
-            timeout_ms,
+            timeout_ms: args.timeout_ms,
             expected_artifacts: Vec::new(),
         })
         .collect::<Vec<_>>();
+
     let run_id = checkpoint
         .as_ref()
         .map(|cp: &OrchestratorCheckpoint| cp.run_id.clone())
         .unwrap_or_else(|| format!("run_{}", unix_timestamp_secs()));
 
+    let mut delivery_options = DeliveryOptions::disabled();
+    delivery_options.enabled = args.delivery_enabled;
+    delivery_options.dry_run = args.delivery_dry_run;
+    delivery_options.branch = args.delivery_branch;
+    delivery_options.commit_message = args.delivery_commit_message;
+    delivery_options.pr_enabled = args.delivery_pr_enabled;
+    delivery_options.pr_number = args.delivery_pr_number;
+    delivery_options.pr_base = args.delivery_pr_base;
+    delivery_options.pr_title = args.delivery_pr_title;
+    delivery_options.pr_body = args.delivery_pr_body;
+
     let mut config = OrchestratorConfig {
         run_id,
-        simulate_blocked,
+        simulate_blocked: args.simulate_blocked,
         planning_invocation,
         execution_invocation,
         validation_invocation,
-        execution_max_iterations,
-        reviewer_remediation_max_cycles,
-        timeout_ms,
-        repo_root,
-        planning_context_artifact,
+        execution_max_iterations: args.execution_max_iterations,
+        reviewer_remediation_max_cycles: args.reviewer_remediation_max_cycles,
+        timeout_ms: args.timeout_ms,
+        repo_root: args.repo_root,
+        planning_context_artifact: args.planning_context_artifact,
         validation_invocations,
-        validation_from_planning_context,
+        validation_from_planning_context: args.validation_from_planning_context,
         delivery_options,
         gate_inputs,
         checkpoint_path: Some(checkpoint_path.clone()),
     };
 
-    if let Some(path) = &config_load_auto {
+    if let Some(path) = &args.config_load_auto {
         config = OrchestratorConfig::load_auto(path).unwrap_or_else(|err| {
             eprintln!("{err}");
             process::exit(1);
         });
         config.checkpoint_path = Some(checkpoint_path.clone());
-    } else if let Some(path) = &config_load_ron {
+    } else if let Some(path) = &args.config_load_ron {
         config = OrchestratorConfig::load_ron(path).unwrap_or_else(|err| {
             eprintln!("{err}");
             process::exit(1);
         });
         config.checkpoint_path = Some(checkpoint_path.clone());
-    } else if let Some(path) = &config_load_bin {
+    } else if let Some(path) = &args.config_load_bin {
         config = OrchestratorConfig::load_bin(path).unwrap_or_else(|err| {
             eprintln!("{err}");
             process::exit(1);
         });
         config.checkpoint_path = Some(checkpoint_path.clone());
-    } else if let Some(path) = &config_load_json {
+    } else if let Some(path) = &args.config_load_json {
         config = OrchestratorConfig::load_json(path).unwrap_or_else(|err| {
             eprintln!("{err}");
             process::exit(1);
@@ -581,25 +435,25 @@ fn main() {
         config.checkpoint_path = Some(checkpoint_path.clone());
     }
 
-    if let Some(path) = &config_save_ron
+    if let Some(path) = &args.config_save_ron
         && let Err(err) = config.save_ron(path)
     {
         eprintln!("{err}");
         process::exit(1);
     }
-    if let Some(path) = &config_save_bin
+    if let Some(path) = &args.config_save_bin
         && let Err(err) = config.save_bin(path)
     {
         eprintln!("{err}");
         process::exit(1);
     }
-    if let Some(path) = &config_save_json
+    if let Some(path) = &args.config_save_json
         && let Err(err) = config.save_json(path)
     {
         eprintln!("{err}");
         process::exit(1);
     }
-    if let Some(path) = &config_save_auto
+    if let Some(path) = &args.config_save_auto
         && let Err(err) = config.save_auto(path)
     {
         eprintln!("{err}");
@@ -608,8 +462,8 @@ fn main() {
 
     println!("Autonomy Orchestrator AI V0");
     println!("Run ID: {}", config.run_id);
-    println!("Output: {}", output_dir.display());
-    println!("Resume: {}", resume);
+    println!("Output: {}", args.output_dir.display());
+    println!("Resume: {}", args.resume);
     println!("Checkpoint path: {}", checkpoint_path.display());
     println!("Simulate blocked: {}", config.simulate_blocked);
     println!("Timeout ms: {}", config.timeout_ms);
@@ -623,7 +477,7 @@ fn main() {
     );
     println!(
         "Reviewer remediation max cycles: {}",
-        reviewer_remediation_max_cycles
+        config.reviewer_remediation_max_cycles
     );
     println!(
         "Planning invocation configured: {}",
@@ -655,25 +509,25 @@ fn main() {
         "Delivery PR enabled: {}",
         config.delivery_options.pr_enabled
     );
-    println!("Config load AUTO: {}", config_load_auto.is_some());
-    println!("Config load RON: {}", config_load_ron.is_some());
-    println!("Config load BIN: {}", config_load_bin.is_some());
-    println!("Config load JSON: {}", config_load_json.is_some());
-    println!("Config save AUTO: {}", config_save_auto.is_some());
-    println!("Config save RON: {}", config_save_ron.is_some());
-    println!("Config save BIN: {}", config_save_bin.is_some());
-    println!("Config save JSON: {}", config_save_json.is_some());
-    println!("AI config only binary: {}", ai_config_only_binary);
+    println!("Config load AUTO: {}", args.config_load_auto.is_some());
+    println!("Config load RON: {}", args.config_load_ron.is_some());
+    println!("Config load BIN: {}", args.config_load_bin.is_some());
+    println!("Config load JSON: {}", args.config_load_json.is_some());
+    println!("Config save AUTO: {}", args.config_save_auto.is_some());
+    println!("Config save RON: {}", args.config_save_ron.is_some());
+    println!("Config save BIN: {}", args.config_save_bin.is_some());
+    println!("Config save JSON: {}", args.config_save_json.is_some());
+    println!("AI config only binary: {}", args.ai_config_only_binary);
     println!();
 
     let report = Orchestrator::new(config, checkpoint).execute();
 
-    if let Err(err) = write_run_report(&report, &output_dir) {
+    if let Err(err) = write_run_report(&report, &args.output_dir) {
         eprintln!("Failed to write run report: {err}");
         process::exit(1);
     }
 
-    let report_path = output_dir.join("orchestrator_run_report.json");
+    let report_path = args.output_dir.join("orchestrator_run_report.json");
     println!("Run report: {}", report_path.display());
     println!("Terminal state: {:?}", report.terminal_state);
 
@@ -683,6 +537,65 @@ fn main() {
         Some(TerminalState::Timeout) => process::exit(124),
         Some(TerminalState::Failed) | None => process::exit(1),
     }
+}
+
+fn parse_validation_pending_invocations(
+    raw_args: &[String],
+) -> Result<Vec<PendingValidationInvocation>, String> {
+    let mut result: Vec<PendingValidationInvocation> = Vec::new();
+    let mut i = 0usize;
+    while i < raw_args.len() {
+        match raw_args[i].as_str() {
+            "--validation-bin" => {
+                if i + 1 >= raw_args.len() {
+                    return Err("--validation-bin requires a value".to_string());
+                }
+                result.push(PendingValidationInvocation {
+                    command: raw_args[i + 1].clone(),
+                    args: Vec::new(),
+                    env: Vec::new(),
+                });
+                i += 2;
+            }
+            "--validation-arg" => {
+                if i + 1 >= raw_args.len() {
+                    return Err("--validation-arg requires a value".to_string());
+                }
+                let Some(last) = result.last_mut() else {
+                    return Err(
+                        "--validation-arg requires a preceding --validation-bin".to_string()
+                    );
+                };
+                last.args.push(raw_args[i + 1].clone());
+                i += 2;
+            }
+            "--validation-env" => {
+                if i + 1 >= raw_args.len() {
+                    return Err("--validation-env requires a value".to_string());
+                }
+                let Some(last) = result.last_mut() else {
+                    return Err(
+                        "--validation-env requires a preceding --validation-bin".to_string()
+                    );
+                };
+                let env_pair = parse_env_pair_cli(&raw_args[i + 1])?;
+                last.env.push(env_pair);
+                i += 2;
+            }
+            _ => i += 1,
+        }
+    }
+    Ok(result)
+}
+
+fn parse_env_pair_cli(raw: &str) -> Result<(String, String), String> {
+    let mut split = raw.splitn(2, '=');
+    let key = split.next().unwrap_or_default().trim();
+    let value = split.next();
+    if key.is_empty() || value.is_none() {
+        return Err(format!("Invalid env pair '{}', expected KEY=VALUE", raw));
+    }
+    Ok((key.to_string(), value.unwrap_or_default().to_string()))
 }
 
 fn unix_timestamp_secs() -> u64 {
@@ -700,112 +613,43 @@ fn is_binary_config_path(path: &Path) -> bool {
     matches!(ext.as_deref(), None | Some("bin"))
 }
 
-fn run_config_validate(args: &[String]) -> ! {
-    let mut config_path: Option<PathBuf> = None;
-    let mut ai_config_only_binary = false;
-    let mut i = 0usize;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--ai-config-only-binary" => {
-                ai_config_only_binary = true;
-                i += 1;
-            }
-            val if val.starts_with("--") => {
-                eprintln!("Unknown option for config-validate: {val}");
-                process::exit(2);
-            }
-            val => {
-                if config_path.is_some() {
-                    eprintln!("config-validate accepts exactly one config path");
-                    process::exit(2);
-                }
-                config_path = Some(PathBuf::from(val));
-                i += 1;
-            }
-        }
-    }
-
-    let Some(path) = config_path else {
-        eprintln!(
-            "Usage: autonomy_orchestrator_ai config-validate <config_path> [--ai-config-only-binary]"
-        );
-        process::exit(2);
-    };
-
-    if ai_config_only_binary && !is_binary_config_path(&path) {
+fn run_config_validate(args: ConfigValidateArgs) -> ! {
+    if args.ai_config_only_binary && !is_binary_config_path(&args.config_path) {
         eprintln!(
             "AI binary-only mode forbids non-binary config path '{}'. Use .bin or no extension.",
-            path.display()
+            args.config_path.display()
         );
         process::exit(2);
     }
 
-    let config = match OrchestratorConfig::load_auto(&path) {
+    let config = match OrchestratorConfig::load_auto(&args.config_path) {
         Ok(config) => config,
         Err(err) => {
             eprintln!("{err}");
             process::exit(1);
         }
     };
+
     let diagnostics = validate_orchestrator_config(&config);
     if diagnostics.is_empty() {
-        println!("Config validation: OK ({})", path.display());
+        println!("Config validation: OK ({})", args.config_path.display());
         process::exit(0);
     }
 
-    eprintln!("Config validation failed for '{}':", path.display());
+    eprintln!(
+        "Config validation failed for '{}':",
+        args.config_path.display()
+    );
     for diag in diagnostics {
         eprintln!("- {diag}");
     }
     process::exit(3);
 }
 
-fn run_config_canonicalize(args: &[String]) -> ! {
-    let mut input_path: Option<PathBuf> = None;
-    let mut output_path: Option<PathBuf> = None;
-    let mut ai_config_only_binary = false;
-    let mut i = 0usize;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--ai-config-only-binary" => {
-                ai_config_only_binary = true;
-                i += 1;
-            }
-            val if val.starts_with("--") => {
-                eprintln!("Unknown option for config-canonicalize: {val}");
-                process::exit(2);
-            }
-            val => {
-                if input_path.is_none() {
-                    input_path = Some(PathBuf::from(val));
-                } else if output_path.is_none() {
-                    output_path = Some(PathBuf::from(val));
-                } else {
-                    eprintln!(
-                        "config-canonicalize accepts exactly two paths: <input_config> <output_bin_config>"
-                    );
-                    process::exit(2);
-                }
-                i += 1;
-            }
-        }
-    }
-
-    let Some(input_path) = input_path else {
-        eprintln!(
-            "Usage: autonomy_orchestrator_ai config-canonicalize <input_config> <output_bin_config> [--ai-config-only-binary]"
-        );
-        process::exit(2);
-    };
-    let Some(output_path) = output_path else {
-        eprintln!(
-            "Usage: autonomy_orchestrator_ai config-canonicalize <input_config> <output_bin_config> [--ai-config-only-binary]"
-        );
-        process::exit(2);
-    };
-
-    if ai_config_only_binary
-        && (!is_binary_config_path(&input_path) || !is_binary_config_path(&output_path))
+fn run_config_canonicalize(args: ConfigCanonicalizeArgs) -> ! {
+    if args.ai_config_only_binary
+        && (!is_binary_config_path(&args.input_config)
+            || !is_binary_config_path(&args.output_bin_config))
     {
         eprintln!(
             "AI binary-only mode forbids non-binary config path(s). Use .bin or no extension."
@@ -813,7 +657,7 @@ fn run_config_canonicalize(args: &[String]) -> ! {
         process::exit(2);
     }
 
-    let config = match OrchestratorConfig::load_auto(&input_path) {
+    let config = match OrchestratorConfig::load_auto(&args.input_config) {
         Ok(config) => config,
         Err(err) => {
             eprintln!("{err}");
@@ -825,7 +669,7 @@ fn run_config_canonicalize(args: &[String]) -> ! {
     if !diagnostics.is_empty() {
         eprintln!(
             "Config canonicalization blocked, input config is invalid '{}':",
-            input_path.display()
+            args.input_config.display()
         );
         for diag in diagnostics {
             eprintln!("- {diag}");
@@ -833,15 +677,15 @@ fn run_config_canonicalize(args: &[String]) -> ! {
         process::exit(3);
     }
 
-    if let Err(err) = config.save_bin(&output_path) {
+    if let Err(err) = config.save_bin(&args.output_bin_config) {
         eprintln!("{err}");
         process::exit(1);
     }
 
     println!(
         "Canonical binary config written: {} -> {}",
-        input_path.display(),
-        output_path.display()
+        args.input_config.display(),
+        args.output_bin_config.display()
     );
     process::exit(0);
 }
@@ -872,128 +716,4 @@ fn validate_orchestrator_config(config: &OrchestratorConfig) -> Vec<String> {
         );
     }
     diagnostics
-}
-
-fn usage_and_exit() -> ! {
-    eprintln!("Usage:");
-    eprintln!("  autonomy_orchestrator_ai [output_dir] [options]");
-    eprintln!("  autonomy_orchestrator_ai config-validate <config_path> [--ai-config-only-binary]");
-    eprintln!(
-        "  autonomy_orchestrator_ai config-canonicalize <input_config> <output_bin_config> [--ai-config-only-binary]"
-    );
-    eprintln!();
-    eprintln!("Options:");
-    eprintln!("  --resume");
-    eprintln!("  --checkpoint-path <path>");
-    eprintln!("  --simulate-blocked");
-    eprintln!("  --timeout-ms <millis>");
-    eprintln!("  --policy-status <allow|deny|unknown>");
-    eprintln!("  --ci-status <success|pending|failure|missing>");
-    eprintln!("  --review-status <approved|changes_requested|missing>");
-    eprintln!("  --manager-bin <path>");
-    eprintln!("  --manager-arg <value>                    (repeatable)");
-    eprintln!("  --manager-env <KEY=VALUE>               (repeatable)");
-    eprintln!("  --manager-expected-artifact <path>       (repeatable)");
-    eprintln!("  --executor-bin <path>");
-    eprintln!("  --executor-arg <value>                   (repeatable)");
-    eprintln!("  --executor-env <KEY=VALUE>              (repeatable)");
-    eprintln!("  --executor-expected-artifact <path>      (repeatable)");
-    eprintln!("  --execution-max-iterations <count>       (default: 1)");
-    eprintln!("  --reviewer-remediation-max-cycles <count> (default: 0)");
-    eprintln!("  --reviewer-bin <path>");
-    eprintln!("  --reviewer-arg <value>                   (repeatable)");
-    eprintln!("  --reviewer-env <KEY=VALUE>               (repeatable)");
-    eprintln!("  --reviewer-expected-artifact <path>      (repeatable)");
-    eprintln!("  --validation-bin <path>                  (repeatable)");
-    eprintln!(
-        "  --validation-arg <value>                 (repeatable; binds to last --validation-bin)"
-    );
-    eprintln!(
-        "  --validation-env <KEY=VALUE>             (repeatable; binds to last --validation-bin)"
-    );
-    eprintln!("  --validation-from-planning-context");
-    eprintln!("  --repo-root <path>                       (default: .)");
-    eprintln!("  --planning-context-artifact <path>");
-    eprintln!("  --delivery-enabled");
-    eprintln!("  --delivery-dry-run");
-    eprintln!("  --delivery-branch <name>");
-    eprintln!("  --delivery-commit-message <message>");
-    eprintln!("  --delivery-pr-enabled");
-    eprintln!("  --delivery-pr-number <number>");
-    eprintln!("  --delivery-pr-base <branch>");
-    eprintln!("  --delivery-pr-title <title>");
-    eprintln!("  --delivery-pr-body <body>");
-    eprintln!(
-        "  --config-load <path>                     (.ron | .bin | .json; no extension => binary)"
-    );
-    eprintln!("  --config-load-ron <path>");
-    eprintln!("  --config-load-bin <path>");
-    eprintln!("  --config-load-json <path>");
-    eprintln!(
-        "  --config-save <path>                     (.ron | .bin | .json; no extension => binary)"
-    );
-    eprintln!("  --config-save-ron <path>");
-    eprintln!("  --config-save-bin <path>");
-    eprintln!("  --config-save-json <path>");
-    eprintln!(
-        "  --ai-config-only-binary               (allow only .bin or extensionless config paths)"
-    );
-    process::exit(2);
-}
-
-fn parse_env_pair(raw: &str) -> (String, String) {
-    let mut split = raw.splitn(2, '=');
-    let key = split.next().unwrap_or_default().trim();
-    let value = split.next();
-    if key.is_empty() || value.is_none() {
-        eprintln!("Invalid env pair '{}', expected KEY=VALUE", raw);
-        process::exit(2);
-    }
-    (key.to_string(), value.unwrap_or_default().to_string())
-}
-
-fn parse_policy_status(raw: &str) -> PolicyGateStatus {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "allow" => PolicyGateStatus::Allow,
-        "deny" => PolicyGateStatus::Deny,
-        "unknown" => PolicyGateStatus::Unknown,
-        _ => {
-            eprintln!(
-                "Invalid --policy-status '{}', expected allow|deny|unknown",
-                raw
-            );
-            process::exit(2);
-        }
-    }
-}
-
-fn parse_ci_status(raw: &str) -> CiGateStatus {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "success" => CiGateStatus::Success,
-        "pending" => CiGateStatus::Pending,
-        "failure" => CiGateStatus::Failure,
-        "missing" => CiGateStatus::Missing,
-        _ => {
-            eprintln!(
-                "Invalid --ci-status '{}', expected success|pending|failure|missing",
-                raw
-            );
-            process::exit(2);
-        }
-    }
-}
-
-fn parse_review_status(raw: &str) -> ReviewGateStatus {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "approved" => ReviewGateStatus::Approved,
-        "changes_requested" => ReviewGateStatus::ChangesRequested,
-        "missing" => ReviewGateStatus::Missing,
-        _ => {
-            eprintln!(
-                "Invalid --review-status '{}', expected approved|changes_requested|missing",
-                raw
-            );
-            process::exit(2);
-        }
-    }
 }
