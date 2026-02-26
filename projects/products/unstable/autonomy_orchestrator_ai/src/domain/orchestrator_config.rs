@@ -1,11 +1,12 @@
 use crate::domain::{BinaryInvocationSpec, DeliveryOptions, GateInputs};
-use bincode::config::standard;
-use bincode::serde::{decode_from_slice, encode_to_vec};
-use ron::de::from_str as ron_from_str;
-use ron::ser::{PrettyConfig, to_string_pretty};
+use common_binary::{BinaryOptions, read_binary, write_binary};
+use common_ron::{read_ron, write_ron};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+const ORCHESTRATOR_CONFIG_BIN_MAGIC: [u8; 4] = *b"AOCF";
+const ORCHESTRATOR_CONFIG_BIN_SCHEMA_ID: u64 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrchestratorConfig {
@@ -27,6 +28,15 @@ pub struct OrchestratorConfig {
 }
 
 impl OrchestratorConfig {
+    fn bin_options() -> BinaryOptions {
+        BinaryOptions {
+            magic: ORCHESTRATOR_CONFIG_BIN_MAGIC,
+            container_version: 1,
+            schema_id: ORCHESTRATOR_CONFIG_BIN_SCHEMA_ID,
+            verify_checksum: true,
+        }
+    }
+
     pub fn save_ron(&self, path: &Path) -> Result<(), String> {
         if let Some(parent) = path.parent()
             && !parent.as_os_str().is_empty()
@@ -39,9 +49,7 @@ impl OrchestratorConfig {
                 )
             })?;
         }
-        let text = to_string_pretty(self, PrettyConfig::new())
-            .map_err(|e| format!("Failed to serialize orchestrator config RON: {e}"))?;
-        fs::write(path, text).map_err(|e| {
+        write_ron(path, self).map_err(|e| {
             format!(
                 "Failed to write orchestrator config RON '{}': {}",
                 path.display(),
@@ -51,14 +59,7 @@ impl OrchestratorConfig {
     }
 
     pub fn load_ron(path: &Path) -> Result<Self, String> {
-        let text = fs::read_to_string(path).map_err(|e| {
-            format!(
-                "Failed to read orchestrator config RON '{}': {}",
-                path.display(),
-                e
-            )
-        })?;
-        ron_from_str(&text).map_err(|e| {
+        read_ron(path).map_err(|e| {
             format!(
                 "Failed to parse orchestrator config RON '{}': {}",
                 path.display(),
@@ -79,9 +80,7 @@ impl OrchestratorConfig {
                 )
             })?;
         }
-        let bytes = encode_to_vec(self, standard())
-            .map_err(|e| format!("Failed to serialize orchestrator config BIN: {e}"))?;
-        fs::write(path, bytes).map_err(|e| {
+        write_binary(self, path, &Self::bin_options()).map_err(|e| {
             format!(
                 "Failed to write orchestrator config BIN '{}': {}",
                 path.display(),
@@ -91,19 +90,11 @@ impl OrchestratorConfig {
     }
 
     pub fn load_bin(path: &Path) -> Result<Self, String> {
-        let bytes = fs::read(path).map_err(|e| {
-            format!(
-                "Failed to read orchestrator config BIN '{}': {}",
-                path.display(),
-                e
-            )
-        })?;
-        let (config, _): (Self, usize) = decode_from_slice(&bytes, standard()).map_err(|e| {
+        read_binary(path, &Self::bin_options()).map_err(|e| {
             format!(
                 "Failed to parse orchestrator config BIN '{}': {e}",
                 path.display()
             )
-        })?;
-        Ok(config)
+        })
     }
 }

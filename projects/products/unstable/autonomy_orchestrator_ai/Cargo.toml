@@ -6,5 +6,5 @@ edition = "2024"
 [dependencies]
 serde = { workspace = true }
 common_json = { workspace = true }
-ron = { workspace = true }
-bincode = { workspace = true, features = ["serde"] }
+common_ron = { workspace = true }
+common_binary = { workspace = true }
