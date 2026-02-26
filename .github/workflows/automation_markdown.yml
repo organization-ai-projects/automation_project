@@ -56,6 +56,14 @@ jobs:
             exit 0
           fi
 
+          # Safety: never let this bot mutate workflow files without `workflows` permission.
+          # We exclude .github/workflows markdown docs from this auto-fix pipeline.
+          MODIFIED_FILES=$(printf '%s\n' "$MODIFIED_FILES" | grep -v '^\.github/workflows/' || true)
+          if [ -z "$MODIFIED_FILES" ]; then
+            echo "Only workflow markdown files were modified. Skipping markdown auto-fix workflow."
+            exit 0
+          fi
+
           {
             echo "modified_files<<EOF"
             echo "$MODIFIED_FILES"
