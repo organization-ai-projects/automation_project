@@ -4,8 +4,8 @@ use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
 use crate::domain::{
     BinaryInvocationSpec, CiGateStatus, DeliveryOptions, GateDecision, GateInputs,
-    OrchestratorCheckpoint, PolicyGateStatus, ReviewGateStatus, RunReport, Stage,
-    StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
+    Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::repo_context_artifact::{
     ValidationInvocationArtifact, read_detected_validation_commands, write_repo_context_artifact,
@@ -39,44 +39,27 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        run_id: String,
-        simulate_blocked: bool,
-        planning_invocation: Option<BinaryInvocationSpec>,
-        execution_invocation: Option<BinaryInvocationSpec>,
-        validation_invocation: Option<BinaryInvocationSpec>,
-        execution_max_iterations: u32,
-        reviewer_remediation_max_cycles: u32,
-        timeout_ms: u64,
-        repo_root: PathBuf,
-        planning_context_artifact: Option<PathBuf>,
-        validation_invocations: Vec<BinaryInvocationSpec>,
-        validation_from_planning_context: bool,
-        delivery_options: DeliveryOptions,
-        gate_inputs: GateInputs,
-        checkpoint: Option<OrchestratorCheckpoint>,
-        checkpoint_path: Option<PathBuf>,
-    ) -> Self {
-        let checkpoint = checkpoint
-            .unwrap_or_else(|| OrchestratorCheckpoint::new(run_id.clone(), unix_timestamp_secs()));
+    pub fn new(config: OrchestratorConfig, checkpoint: Option<OrchestratorCheckpoint>) -> Self {
+        let checkpoint = checkpoint.unwrap_or_else(|| {
+            OrchestratorCheckpoint::new(config.run_id.clone(), unix_timestamp_secs())
+        });
         Self {
-            report: RunReport::new(run_id),
-            simulate_blocked,
-            planning_invocation,
-            execution_invocation,
-            validation_invocation,
-            execution_max_iterations,
-            reviewer_remediation_max_cycles,
-            timeout_ms,
-            repo_root,
-            planning_context_artifact,
-            validation_invocations,
-            validation_from_planning_context,
-            delivery_options,
-            gate_inputs,
+            report: RunReport::new(config.run_id),
+            simulate_blocked: config.simulate_blocked,
+            planning_invocation: config.planning_invocation,
+            execution_invocation: config.execution_invocation,
+            validation_invocation: config.validation_invocation,
+            execution_max_iterations: config.execution_max_iterations,
+            reviewer_remediation_max_cycles: config.reviewer_remediation_max_cycles,
+            timeout_ms: config.timeout_ms,
+            repo_root: config.repo_root,
+            planning_context_artifact: config.planning_context_artifact,
+            validation_invocations: config.validation_invocations,
+            validation_from_planning_context: config.validation_from_planning_context,
+            delivery_options: config.delivery_options,
+            gate_inputs: config.gate_inputs,
             checkpoint,
-            checkpoint_path,
+            checkpoint_path: config.checkpoint_path,
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
         }
@@ -926,33 +909,35 @@ mod tests {
     use super::Orchestrator;
     use crate::domain::{
         BinaryInvocationSpec, DeliveryOptions, GateInputs, OrchestratorCheckpoint,
-        PolicyGateStatus, Stage, StageExecutionStatus, TerminalState,
+        OrchestratorConfig, PolicyGateStatus, Stage, StageExecutionStatus, TerminalState,
     };
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    fn test_config(run_id: &str) -> OrchestratorConfig {
+        OrchestratorConfig {
+            run_id: run_id.to_string(),
+            simulate_blocked: false,
+            planning_invocation: None,
+            execution_invocation: None,
+            validation_invocation: None,
+            execution_max_iterations: 1,
+            reviewer_remediation_max_cycles: 0,
+            timeout_ms: 30_000,
+            repo_root: PathBuf::from("."),
+            planning_context_artifact: None,
+            validation_invocations: Vec::new(),
+            validation_from_planning_context: false,
+            delivery_options: DeliveryOptions::disabled(),
+            gate_inputs: GateInputs::passing(),
+            checkpoint_path: None,
+        }
+    }
+
     #[test]
     fn executes_all_stages_and_finishes_done() {
-        let report = Orchestrator::new(
-            "run_1".to_string(),
-            false,
-            None,
-            None,
-            None,
-            1,
-            0,
-            30_000,
-            PathBuf::from("."),
-            None,
-            Vec::new(),
-            false,
-            DeliveryOptions::disabled(),
-            GateInputs::passing(),
-            None,
-            None,
-        )
-        .execute();
+        let report = Orchestrator::new(test_config("run_1"), None).execute();
 
         assert_eq!(report.terminal_state, Some(TerminalState::Done));
         assert_eq!(report.current_stage, Some(Stage::Closure));
@@ -964,25 +949,9 @@ mod tests {
 
     #[test]
     fn blocked_simulation_stops_before_closure() {
-        let report = Orchestrator::new(
-            "run_2".to_string(),
-            true,
-            None,
-            None,
-            None,
-            1,
-            0,
-            30_000,
-            PathBuf::from("."),
-            None,
-            Vec::new(),
-            false,
-            DeliveryOptions::disabled(),
-            GateInputs::passing(),
-            None,
-            None,
-        )
-        .execute();
+        let mut config = test_config("run_2");
+        config.simulate_blocked = true;
+        let report = Orchestrator::new(config, None).execute();
 
         assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
         assert_eq!(report.current_stage, Some(Stage::Validation));
@@ -1000,25 +969,9 @@ mod tests {
             expected_artifacts: Vec::new(),
         };
 
-        let report = Orchestrator::new(
-            "run_3".to_string(),
-            false,
-            Some(planning_invocation),
-            None,
-            None,
-            1,
-            0,
-            30_000,
-            PathBuf::from("."),
-            None,
-            Vec::new(),
-            false,
-            DeliveryOptions::disabled(),
-            GateInputs::passing(),
-            None,
-            None,
-        )
-        .execute();
+        let mut config = test_config("run_3");
+        config.planning_invocation = Some(planning_invocation);
+        let report = Orchestrator::new(config, None).execute();
 
         assert_eq!(report.terminal_state, Some(TerminalState::Failed));
         assert_eq!(report.transitions.len(), 1);
@@ -1043,25 +996,9 @@ mod tests {
             expected_artifacts: Vec::new(),
         };
 
-        let report = Orchestrator::new(
-            "run_4".to_string(),
-            false,
-            Some(planning_invocation),
-            None,
-            None,
-            1,
-            0,
-            30_000,
-            PathBuf::from("."),
-            None,
-            Vec::new(),
-            false,
-            DeliveryOptions::disabled(),
-            GateInputs::passing(),
-            Some(checkpoint),
-            None,
-        )
-        .execute();
+        let mut config = test_config("run_4");
+        config.planning_invocation = Some(planning_invocation);
+        let report = Orchestrator::new(config, Some(checkpoint)).execute();
 
         assert_eq!(report.terminal_state, Some(TerminalState::Done));
         assert_eq!(report.stage_executions.len(), 1);
@@ -1073,28 +1010,12 @@ mod tests {
 
     #[test]
     fn fail_closed_policy_gate_blocks_pipeline_with_reason_code() {
-        let report = Orchestrator::new(
-            "run_5".to_string(),
-            false,
-            None,
-            None,
-            None,
-            1,
-            0,
-            30_000,
-            PathBuf::from("."),
-            None,
-            Vec::new(),
-            false,
-            DeliveryOptions::disabled(),
-            GateInputs {
-                policy_status: PolicyGateStatus::Unknown,
-                ..GateInputs::passing()
-            },
-            None,
-            None,
-        )
-        .execute();
+        let mut config = test_config("run_5");
+        config.gate_inputs = GateInputs {
+            policy_status: PolicyGateStatus::Unknown,
+            ..GateInputs::passing()
+        };
+        let report = Orchestrator::new(config, None).execute();
 
         assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
         assert!(
@@ -1107,24 +1028,7 @@ mod tests {
 
     #[test]
     fn collects_reviewer_next_steps_from_review_report_artifact() {
-        let mut orchestrator = Orchestrator::new(
-            "run_review_steps".to_string(),
-            false,
-            None,
-            None,
-            None,
-            1,
-            0,
-            30_000,
-            PathBuf::from("."),
-            None,
-            Vec::new(),
-            false,
-            DeliveryOptions::disabled(),
-            GateInputs::passing(),
-            None,
-            None,
-        );
+        let mut orchestrator = Orchestrator::new(test_config("run_review_steps"), None);
         let temp_file = std::env::temp_dir().join(format!(
             "orchestrator_review_steps_{}_{}.json",
             std::process::id(),
@@ -1162,38 +1066,25 @@ mod tests {
 
     #[test]
     fn schedules_reviewer_remediation_cycle_when_configured() {
-        let mut orchestrator = Orchestrator::new(
-            "run_review_remediation".to_string(),
-            false,
-            None,
-            Some(BinaryInvocationSpec {
-                stage: Stage::Execution,
-                command: "true".to_string(),
-                args: Vec::new(),
-                env: Vec::new(),
-                timeout_ms: 100,
-                expected_artifacts: Vec::new(),
-            }),
-            Some(BinaryInvocationSpec {
-                stage: Stage::Validation,
-                command: "false".to_string(),
-                args: Vec::new(),
-                env: Vec::new(),
-                timeout_ms: 100,
-                expected_artifacts: Vec::new(),
-            }),
-            1,
-            1,
-            30_000,
-            PathBuf::from("."),
-            None,
-            Vec::new(),
-            false,
-            DeliveryOptions::disabled(),
-            GateInputs::passing(),
-            None,
-            None,
-        );
+        let mut config = test_config("run_review_remediation");
+        config.execution_invocation = Some(BinaryInvocationSpec {
+            stage: Stage::Execution,
+            command: "true".to_string(),
+            args: Vec::new(),
+            env: Vec::new(),
+            timeout_ms: 100,
+            expected_artifacts: Vec::new(),
+        });
+        config.validation_invocation = Some(BinaryInvocationSpec {
+            stage: Stage::Validation,
+            command: "false".to_string(),
+            args: Vec::new(),
+            env: Vec::new(),
+            timeout_ms: 100,
+            expected_artifacts: Vec::new(),
+        });
+        config.reviewer_remediation_max_cycles = 1;
+        let mut orchestrator = Orchestrator::new(config, None);
         orchestrator.report.terminal_state = Some(TerminalState::Failed);
         orchestrator
             .report

@@ -12,7 +12,7 @@ mod repo_context_artifact;
 use crate::checkpoint_store::load_checkpoint;
 use crate::domain::{
     BinaryInvocationSpec, CiGateStatus, DeliveryOptions, GateInputs, OrchestratorCheckpoint,
-    PolicyGateStatus, ReviewGateStatus, Stage, TerminalState,
+    OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, Stage, TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use crate::output_writer::write_run_report;
@@ -70,6 +70,10 @@ fn main() {
     let mut repo_root = PathBuf::from(".");
     let mut planning_context_artifact: Option<PathBuf> = None;
     let mut delivery_options = DeliveryOptions::disabled();
+    let mut config_save_ron: Option<PathBuf> = None;
+    let mut config_save_bin: Option<PathBuf> = None;
+    let mut config_load_ron: Option<PathBuf> = None;
+    let mut config_load_bin: Option<PathBuf> = None;
 
     let args = raw_args;
     let mut i = 0usize;
@@ -337,6 +341,34 @@ fn main() {
                 delivery_options.pr_body = Some(args[i + 1].clone());
                 i += 2;
             }
+            "--config-save-ron" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                config_save_ron = Some(PathBuf::from(args[i + 1].clone()));
+                i += 2;
+            }
+            "--config-save-bin" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                config_save_bin = Some(PathBuf::from(args[i + 1].clone()));
+                i += 2;
+            }
+            "--config-load-ron" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                config_load_ron = Some(PathBuf::from(args[i + 1].clone()));
+                i += 2;
+            }
+            "--config-load-bin" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                config_load_bin = Some(PathBuf::from(args[i + 1].clone()));
+                i += 2;
+            }
             val if val.starts_with("--") => {
                 eprintln!("Unknown option: {val}");
                 usage_and_exit();
@@ -362,10 +394,6 @@ fn main() {
     } else {
         None
     };
-    let run_id = checkpoint
-        .as_ref()
-        .map(|cp: &OrchestratorCheckpoint| cp.run_id.clone())
-        .unwrap_or_else(|| format!("run_{}", unix_timestamp_secs()));
     let gate_inputs = GateInputs {
         policy_status,
         ci_status,
@@ -406,54 +434,13 @@ fn main() {
             expected_artifacts: Vec::new(),
         })
         .collect::<Vec<_>>();
+    let run_id = checkpoint
+        .as_ref()
+        .map(|cp: &OrchestratorCheckpoint| cp.run_id.clone())
+        .unwrap_or_else(|| format!("run_{}", unix_timestamp_secs()));
 
-    println!("Autonomy Orchestrator AI V0");
-    println!("Run ID: {}", run_id);
-    println!("Output: {}", output_dir.display());
-    println!("Resume: {}", resume);
-    println!("Checkpoint path: {}", checkpoint_path.display());
-    println!("Simulate blocked: {}", simulate_blocked);
-    println!("Timeout ms: {}", timeout_ms);
-    println!("Policy status: {:?}", gate_inputs.policy_status);
-    println!("CI status: {:?}", gate_inputs.ci_status);
-    println!("Review status: {:?}", gate_inputs.review_status);
-    println!("Repo root: {}", repo_root.display());
-    println!("Execution max iterations: {}", execution_max_iterations);
-    println!(
-        "Reviewer remediation max cycles: {}",
-        reviewer_remediation_max_cycles
-    );
-    println!(
-        "Planning invocation configured: {}",
-        planning_invocation.is_some()
-    );
-    println!(
-        "Planning context artifact configured: {}",
-        planning_context_artifact.is_some()
-    );
-    println!(
-        "Execution invocation configured: {}",
-        execution_invocation.is_some()
-    );
-    println!(
-        "Validation invocation configured: {}",
-        validation_invocation.is_some()
-    );
-    println!(
-        "Validation commands configured: {}",
-        validation_invocations.len()
-    );
-    println!(
-        "Validation from planning context: {}",
-        validation_from_planning_context
-    );
-    println!("Delivery enabled: {}", delivery_options.enabled);
-    println!("Delivery dry-run: {}", delivery_options.dry_run);
-    println!("Delivery PR enabled: {}", delivery_options.pr_enabled);
-    println!();
-
-    let report = Orchestrator::new(
-        run_id.clone(),
+    let mut config = OrchestratorConfig {
+        run_id,
         simulate_blocked,
         planning_invocation,
         execution_invocation,
@@ -467,10 +454,92 @@ fn main() {
         validation_from_planning_context,
         delivery_options,
         gate_inputs,
-        checkpoint,
-        Some(checkpoint_path),
-    )
-    .execute();
+        checkpoint_path: Some(checkpoint_path.clone()),
+    };
+
+    if let Some(path) = &config_load_ron {
+        config = OrchestratorConfig::load_ron(path).unwrap_or_else(|err| {
+            eprintln!("{err}");
+            process::exit(1);
+        });
+        config.checkpoint_path = Some(checkpoint_path.clone());
+    } else if let Some(path) = &config_load_bin {
+        config = OrchestratorConfig::load_bin(path).unwrap_or_else(|err| {
+            eprintln!("{err}");
+            process::exit(1);
+        });
+        config.checkpoint_path = Some(checkpoint_path.clone());
+    }
+
+    if let Some(path) = &config_save_ron
+        && let Err(err) = config.save_ron(path)
+    {
+        eprintln!("{err}");
+        process::exit(1);
+    }
+    if let Some(path) = &config_save_bin
+        && let Err(err) = config.save_bin(path)
+    {
+        eprintln!("{err}");
+        process::exit(1);
+    }
+
+    println!("Autonomy Orchestrator AI V0");
+    println!("Run ID: {}", config.run_id);
+    println!("Output: {}", output_dir.display());
+    println!("Resume: {}", resume);
+    println!("Checkpoint path: {}", checkpoint_path.display());
+    println!("Simulate blocked: {}", config.simulate_blocked);
+    println!("Timeout ms: {}", config.timeout_ms);
+    println!("Policy status: {:?}", config.gate_inputs.policy_status);
+    println!("CI status: {:?}", config.gate_inputs.ci_status);
+    println!("Review status: {:?}", config.gate_inputs.review_status);
+    println!("Repo root: {}", config.repo_root.display());
+    println!(
+        "Execution max iterations: {}",
+        config.execution_max_iterations
+    );
+    println!(
+        "Reviewer remediation max cycles: {}",
+        reviewer_remediation_max_cycles
+    );
+    println!(
+        "Planning invocation configured: {}",
+        config.planning_invocation.is_some()
+    );
+    println!(
+        "Planning context artifact configured: {}",
+        config.planning_context_artifact.is_some()
+    );
+    println!(
+        "Execution invocation configured: {}",
+        config.execution_invocation.is_some()
+    );
+    println!(
+        "Validation invocation configured: {}",
+        config.validation_invocation.is_some()
+    );
+    println!(
+        "Validation commands configured: {}",
+        config.validation_invocations.len()
+    );
+    println!(
+        "Validation from planning context: {}",
+        config.validation_from_planning_context
+    );
+    println!("Delivery enabled: {}", config.delivery_options.enabled);
+    println!("Delivery dry-run: {}", config.delivery_options.dry_run);
+    println!(
+        "Delivery PR enabled: {}",
+        config.delivery_options.pr_enabled
+    );
+    println!("Config load RON: {}", config_load_ron.is_some());
+    println!("Config load BIN: {}", config_load_bin.is_some());
+    println!("Config save RON: {}", config_save_ron.is_some());
+    println!("Config save BIN: {}", config_save_bin.is_some());
+    println!();
+
+    let report = Orchestrator::new(config, checkpoint).execute();
 
     if let Err(err) = write_run_report(&report, &output_dir) {
         eprintln!("Failed to write run report: {err}");
@@ -541,6 +610,10 @@ fn usage_and_exit() -> ! {
     eprintln!("  --delivery-pr-base <branch>");
     eprintln!("  --delivery-pr-title <title>");
     eprintln!("  --delivery-pr-body <body>");
+    eprintln!("  --config-load-ron <path>");
+    eprintln!("  --config-load-bin <path>");
+    eprintln!("  --config-save-ron <path>");
+    eprintln!("  --config-save-bin <path>");
     process::exit(2);
 }
 

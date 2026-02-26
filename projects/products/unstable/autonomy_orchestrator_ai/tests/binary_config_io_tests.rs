@@ -1,0 +1,83 @@
+use std::fs;
+use std::path::PathBuf;
+use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn unique_temp_dir(name: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let pid = std::process::id();
+    let dir = std::env::temp_dir().join(format!("autonomy_orchestrator_cfg_{name}_{pid}_{nanos}"));
+    fs::create_dir_all(&dir).expect("failed to create temp dir");
+    dir
+}
+
+#[test]
+fn saves_and_loads_ron_config() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir_1 = unique_temp_dir("save_ron_run_1");
+    let out_dir_2 = unique_temp_dir("save_ron_run_2");
+    let config_path = out_dir_1.join("orchestrator_config.ron");
+
+    let output_1 = Command::new(bin)
+        .arg(&out_dir_1)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save-ron")
+        .arg(&config_path)
+        .output()
+        .expect("execute first run");
+    assert!(output_1.status.success());
+    assert!(config_path.exists(), "RON config should be written");
+
+    let output_2 = Command::new(bin)
+        .arg(&out_dir_2)
+        .arg("--config-load-ron")
+        .arg(&config_path)
+        .output()
+        .expect("execute second run");
+    assert!(output_2.status.success());
+
+    let _ = fs::remove_dir_all(out_dir_1);
+    let _ = fs::remove_dir_all(out_dir_2);
+}
+
+#[test]
+fn saves_and_loads_bin_config() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir_1 = unique_temp_dir("save_bin_run_1");
+    let out_dir_2 = unique_temp_dir("save_bin_run_2");
+    let config_path = out_dir_1.join("orchestrator_config.bin");
+
+    let output_1 = Command::new(bin)
+        .arg(&out_dir_1)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save-bin")
+        .arg(&config_path)
+        .output()
+        .expect("execute first run");
+    assert!(output_1.status.success());
+    assert!(config_path.exists(), "BIN config should be written");
+
+    let output_2 = Command::new(bin)
+        .arg(&out_dir_2)
+        .arg("--config-load-bin")
+        .arg(&config_path)
+        .output()
+        .expect("execute second run");
+    assert!(output_2.status.success());
+
+    let _ = fs::remove_dir_all(out_dir_1);
+    let _ = fs::remove_dir_all(out_dir_2);
+}

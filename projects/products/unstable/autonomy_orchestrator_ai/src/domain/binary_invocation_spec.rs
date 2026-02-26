@@ -1,8 +1,9 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/binary_invocation_spec.rs
 
 use crate::domain::Stage;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BinaryInvocationSpec {
     pub stage: Stage,
     pub command: String,

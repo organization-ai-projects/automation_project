@@ -24,6 +24,20 @@ Resume from persisted checkpoint:
 cargo run -p autonomy_orchestrator_ai -- [output_dir] --resume
 ```
 
+Save/load orchestration config for no-code operation (`RON` + binary):
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved \
+  --config-save-ron ./out/orchestrator_config.ron \
+  --config-save-bin ./out/orchestrator_config.bin
+
+cargo run -p autonomy_orchestrator_ai -- ./out_replay \
+  --config-load-ron ./out/orchestrator_config.ron
+```
+
 Optional blocked simulation:
 
 ```bash
