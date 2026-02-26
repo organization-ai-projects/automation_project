@@ -201,6 +201,8 @@ Operator documentation:
 - `projects/products/unstable/autonomy_orchestrator_ai/RUNBOOK.md`
 - `projects/products/unstable/autonomy_orchestrator_ai/CONTRACT.md`
 
+`RUNBOOK.md` also defines operational limits (retry/timeout bounds) and rollback procedure for safe recovery after a bad autonomous run.
+
 ## Delivery Notes
 
 - Issue `#676` (orchestrator bootstrap state machine) is implemented in this crate.

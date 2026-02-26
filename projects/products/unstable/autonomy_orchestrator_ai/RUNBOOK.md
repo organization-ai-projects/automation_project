@@ -233,6 +233,31 @@ cargo run -p autonomy_orchestrator_ai -- ./out --resume
 
 Resume preserves idempotence using stage checkpoint semantics. Completed stages are skipped and tracked as skipped stage executions.
 
+## Operational Limits
+
+Hard limits to keep runs deterministic and bounded:
+
+- `--execution-max-iterations` must be `>= 1` and limits execution retries.
+- `--reviewer-remediation-max-cycles` limits reviewer-driven remediation loops.
+- `--timeout-ms` applies per delegated invocation.
+- gate defaults are fail-closed (`policy=unknown`, `ci=missing`, `review=missing`).
+
+Recommended safe profile:
+
+- start with `--delivery-enabled --delivery-dry-run`
+- keep `--execution-max-iterations` low (`1..3`)
+- increase `--timeout-ms` only when justified by command runtime
+
+## Rollback Procedure
+
+Use this sequence when an autonomous run produced incorrect or undesired changes.
+
+1. Stop autonomous loops and keep the last `orchestrator_run_report.json` + `orchestrator_checkpoint.json` as audit evidence.
+2. Inspect `stage_executions` and `reviewer_next_steps` to identify the failing or risky action.
+3. Revert repository changes using your standard VCS workflow (for example: revert commit(s) or reset local branch to known-good state).
+4. Re-run the orchestrator in dry-run mode first (`--delivery-enabled --delivery-dry-run`) to verify corrected behavior.
+5. Resume only when gates are explicitly green (`policy=allow`, `ci=success`, `review=approved`).
+
 ## Config Save/Load (No-Code Profile)
 
 Persist orchestration config and replay it without rebuilding CLI argument sets:
