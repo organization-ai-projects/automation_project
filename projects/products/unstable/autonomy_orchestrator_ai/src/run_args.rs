@@ -5,7 +5,7 @@ use clap::{ArgAction, Args};
 
 use crate::{
     cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus},
-    parse_env_pair_cli,
+    runtime::parse_env_pair_cli,
 };
 
 #[derive(Args, Debug)]
