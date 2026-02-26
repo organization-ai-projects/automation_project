@@ -115,3 +115,44 @@ fn saves_and_loads_json_config() {
     let _ = fs::remove_dir_all(out_dir_1);
     let _ = fs::remove_dir_all(out_dir_2);
 }
+
+#[test]
+fn fails_when_multiple_config_load_modes_are_set() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir = unique_temp_dir("conflicting_load_modes");
+    let config_ron = out_dir.join("orchestrator_config.ron");
+    let config_bin = out_dir.join("orchestrator_config.bin");
+
+    let setup = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save-ron")
+        .arg(&config_ron)
+        .arg("--config-save-bin")
+        .arg(&config_bin)
+        .output()
+        .expect("execute setup run");
+    assert!(setup.status.success());
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--config-load-ron")
+        .arg(&config_ron)
+        .arg("--config-load-bin")
+        .arg(&config_bin)
+        .output()
+        .expect("execute conflict run");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Only one config load mode is allowed"),
+        "unexpected stderr: {stderr}"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}

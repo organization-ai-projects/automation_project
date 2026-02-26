@@ -396,6 +396,21 @@ fn main() {
         }
     }
 
+    let load_modes_selected = [
+        config_load_ron.is_some(),
+        config_load_bin.is_some(),
+        config_load_json.is_some(),
+    ]
+    .into_iter()
+    .filter(|selected| *selected)
+    .count();
+    if load_modes_selected > 1 {
+        eprintln!(
+            "Only one config load mode is allowed: choose exactly one of --config-load-ron, --config-load-bin, --config-load-json"
+        );
+        process::exit(2);
+    }
+
     let checkpoint_path = checkpoint_path_override
         .clone()
         .unwrap_or_else(|| output_dir.join("orchestrator_checkpoint.json"));
