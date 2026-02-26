@@ -54,6 +54,12 @@ cargo run -p autonomy_orchestrator_ai -- ./out_replay \
 
 If no extension is provided with `--config-save` / `--config-load`, binary format is used by default.
 
+Preflight validation (with optional AI binary-only policy):
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- config-validate ./out/orchestrator_config.bin --ai-config-only-binary
+```
+
 Optional blocked simulation:
 
 ```bash

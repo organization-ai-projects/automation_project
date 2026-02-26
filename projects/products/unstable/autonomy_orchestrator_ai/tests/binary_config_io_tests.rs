@@ -268,3 +268,106 @@ fn auto_mode_without_extension_uses_binary_format() {
     let _ = fs::remove_dir_all(out_dir_1);
     let _ = fs::remove_dir_all(out_dir_2);
 }
+
+#[test]
+fn config_validate_accepts_valid_binary_config() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir = unique_temp_dir("config_validate_bin_ok");
+    let config_path = out_dir.join("orchestrator_config.bin");
+
+    let save_output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save-bin")
+        .arg(&config_path)
+        .output()
+        .expect("execute save run");
+    assert!(save_output.status.success());
+
+    let validate_output = Command::new(bin)
+        .arg("config-validate")
+        .arg(&config_path)
+        .arg("--ai-config-only-binary")
+        .output()
+        .expect("execute config-validate");
+    assert!(validate_output.status.success());
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn config_validate_rejects_json_in_ai_binary_mode() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir = unique_temp_dir("config_validate_json_ai_reject");
+    let config_path = out_dir.join("orchestrator_config.json");
+
+    let save_output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save-json")
+        .arg(&config_path)
+        .output()
+        .expect("execute save run");
+    assert!(save_output.status.success());
+
+    let validate_output = Command::new(bin)
+        .arg("config-validate")
+        .arg(&config_path)
+        .arg("--ai-config-only-binary")
+        .output()
+        .expect("execute config-validate");
+    assert!(!validate_output.status.success());
+    let stderr = String::from_utf8_lossy(&validate_output.stderr);
+    assert!(
+        stderr.contains("AI binary-only mode forbids non-binary config path"),
+        "unexpected stderr: {stderr}"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn config_validate_reports_actionable_diagnostics() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir = unique_temp_dir("config_validate_diagnostics");
+    let config_path = out_dir.join("orchestrator_config.json");
+
+    let save_output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--validation-from-planning-context")
+        .arg("--config-save-json")
+        .arg(&config_path)
+        .output()
+        .expect("execute save run");
+    assert!(save_output.status.success());
+
+    let validate_output = Command::new(bin)
+        .arg("config-validate")
+        .arg(&config_path)
+        .output()
+        .expect("execute config-validate");
+    assert!(!validate_output.status.success());
+    let stderr = String::from_utf8_lossy(&validate_output.stderr);
+    assert!(
+        stderr.contains("validation_from_planning_context=true requires planning_context_artifact"),
+        "unexpected stderr: {stderr}"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}

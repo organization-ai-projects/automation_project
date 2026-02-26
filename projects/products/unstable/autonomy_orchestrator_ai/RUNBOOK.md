@@ -262,3 +262,11 @@ cargo run -p autonomy_orchestrator_ai -- ./out_replay --config-load ./out/orches
 ```
 
 If no extension is provided with `--config-save` / `--config-load`, binary format is used by default.
+
+Validate config before run:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- config-validate ./out/orchestrator_config.bin --ai-config-only-binary
+```
+
+`config-validate` reports actionable diagnostics (what is wrong and how to fix it) and exits non-zero when invalid.

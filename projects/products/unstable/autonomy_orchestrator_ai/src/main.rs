@@ -17,6 +17,7 @@ use crate::domain::{
 use crate::orchestrator::Orchestrator;
 use crate::output_writer::write_run_report;
 use std::env;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -32,6 +33,12 @@ fn main() {
     let raw_args: Vec<String> = env::args().skip(1).collect();
     if matches!(raw_args.first().map(String::as_str), Some("fixture")) {
         fixture::run(&raw_args[1..]);
+    }
+    if matches!(
+        raw_args.first().map(String::as_str),
+        Some("config-validate")
+    ) {
+        run_config_validate(&raw_args[1..]);
     }
     if matches!(raw_args.first().map(String::as_str), Some("linked-stack")) {
         match linked_stack::run(&raw_args[1..]) {
@@ -78,6 +85,7 @@ fn main() {
     let mut config_load_bin: Option<PathBuf> = None;
     let mut config_load_json: Option<PathBuf> = None;
     let mut config_load_auto: Option<PathBuf> = None;
+    let mut ai_config_only_binary = false;
 
     let args = raw_args;
     let mut i = 0usize;
@@ -401,6 +409,10 @@ fn main() {
                 config_load_auto = Some(PathBuf::from(args[i + 1].clone()));
                 i += 2;
             }
+            "--ai-config-only-binary" => {
+                ai_config_only_binary = true;
+                i += 1;
+            }
             val if val.starts_with("--") => {
                 eprintln!("Unknown option: {val}");
                 usage_and_exit();
@@ -435,6 +447,29 @@ fn main() {
             "When --config-save is used, do not combine it with --config-save-ron/--config-save-bin/--config-save-json"
         );
         process::exit(2);
+    }
+    if ai_config_only_binary {
+        for path in [
+            config_load_auto.as_ref(),
+            config_load_ron.as_ref(),
+            config_load_bin.as_ref(),
+            config_load_json.as_ref(),
+            config_save_auto.as_ref(),
+            config_save_ron.as_ref(),
+            config_save_bin.as_ref(),
+            config_save_json.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if !is_binary_config_path(path) {
+                eprintln!(
+                    "AI binary-only mode forbids non-binary config path '{}'. Use .bin or no extension.",
+                    path.display()
+                );
+                process::exit(2);
+            }
+        }
     }
 
     let checkpoint_path = checkpoint_path_override
@@ -622,6 +657,7 @@ fn main() {
     println!("Config save RON: {}", config_save_ron.is_some());
     println!("Config save BIN: {}", config_save_bin.is_some());
     println!("Config save JSON: {}", config_save_json.is_some());
+    println!("AI config only binary: {}", ai_config_only_binary);
     println!();
 
     let report = Orchestrator::new(config, checkpoint).execute();
@@ -650,9 +686,106 @@ fn unix_timestamp_secs() -> u64 {
         .unwrap_or(0)
 }
 
+fn is_binary_config_path(path: &Path) -> bool {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.trim().to_ascii_lowercase());
+    matches!(ext.as_deref(), None | Some("bin"))
+}
+
+fn run_config_validate(args: &[String]) -> ! {
+    let mut config_path: Option<PathBuf> = None;
+    let mut ai_config_only_binary = false;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--ai-config-only-binary" => {
+                ai_config_only_binary = true;
+                i += 1;
+            }
+            val if val.starts_with("--") => {
+                eprintln!("Unknown option for config-validate: {val}");
+                process::exit(2);
+            }
+            val => {
+                if config_path.is_some() {
+                    eprintln!("config-validate accepts exactly one config path");
+                    process::exit(2);
+                }
+                config_path = Some(PathBuf::from(val));
+                i += 1;
+            }
+        }
+    }
+
+    let Some(path) = config_path else {
+        eprintln!(
+            "Usage: autonomy_orchestrator_ai config-validate <config_path> [--ai-config-only-binary]"
+        );
+        process::exit(2);
+    };
+
+    if ai_config_only_binary && !is_binary_config_path(&path) {
+        eprintln!(
+            "AI binary-only mode forbids non-binary config path '{}'. Use .bin or no extension.",
+            path.display()
+        );
+        process::exit(2);
+    }
+
+    let config = match OrchestratorConfig::load_auto(&path) {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("{err}");
+            process::exit(1);
+        }
+    };
+    let diagnostics = validate_orchestrator_config(&config);
+    if diagnostics.is_empty() {
+        println!("Config validation: OK ({})", path.display());
+        process::exit(0);
+    }
+
+    eprintln!("Config validation failed for '{}':", path.display());
+    for diag in diagnostics {
+        eprintln!("- {diag}");
+    }
+    process::exit(3);
+}
+
+fn validate_orchestrator_config(config: &OrchestratorConfig) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if config.timeout_ms == 0 {
+        diagnostics.push(
+            "timeout_ms must be > 0 (fix: set --timeout-ms <millis>, e.g. 30000)".to_string(),
+        );
+    }
+    if config.execution_max_iterations == 0 {
+        diagnostics.push(
+            "execution_max_iterations must be >= 1 (fix: set --execution-max-iterations <count>)"
+                .to_string(),
+        );
+    }
+    if config.validation_from_planning_context && config.planning_context_artifact.is_none() {
+        diagnostics.push(
+            "validation_from_planning_context=true requires planning_context_artifact (fix: set --planning-context-artifact <path>)"
+                .to_string(),
+        );
+    }
+    if config.delivery_options.pr_enabled && !config.delivery_options.enabled {
+        diagnostics.push(
+            "delivery_options.pr_enabled=true requires delivery_options.enabled=true (fix: add --delivery-enabled)"
+                .to_string(),
+        );
+    }
+    diagnostics
+}
+
 fn usage_and_exit() -> ! {
     eprintln!("Usage:");
     eprintln!("  autonomy_orchestrator_ai [output_dir] [options]");
+    eprintln!("  autonomy_orchestrator_ai config-validate <config_path> [--ai-config-only-binary]");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --resume");
@@ -707,6 +840,9 @@ fn usage_and_exit() -> ! {
     eprintln!("  --config-save-ron <path>");
     eprintln!("  --config-save-bin <path>");
     eprintln!("  --config-save-json <path>");
+    eprintln!(
+        "  --ai-config-only-binary               (allow only .bin or extensionless config paths)"
+    );
     process::exit(2);
 }
 
