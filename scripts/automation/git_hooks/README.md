@@ -54,6 +54,20 @@ git_hooks/
 - `tests/convention_guardrails_regression.sh`: Regression suite for issue trailer guardrails in `commit-msg`, `pre-push`, and `post-checkout`.
 - `tests/scope_resolver_perf_smoke.sh`: Basic performance smoke test for scope resolution over a large staged-file set.
 
+## Lint Responsibility Map
+
+- `pre-commit`:
+  - Markdown auto-fix + validation for staged markdown files (`pnpm run lint-md-fix-files -- ...` then `pnpm run lint-md-files -- ...`).
+  - Shell syntax checks (`bash -n`) for staged shell files.
+  - Rust formatting (`cargo fmt --all`) when staged Rust files exist.
+- `pre-push`:
+  - Markdown lint for changed markdown files (`pnpm run lint-md-files -- ...`).
+  - Rust checks (`fmt --check`, `clippy`, `test`) for non docs/scripts-only pushes.
+  - Docs/scripts-only optimization remains active, but markdownlint still runs when markdown files are changed.
+- CI / GitHub Actions:
+  - `automation_markdown.yml` can auto-fix markdownlint issues in PR branches.
+  - Rust checks continue to run in CI workflows as configured by repository pipelines.
+
 ## Available hooks
 
 ### `commit-msg`
@@ -103,7 +117,9 @@ SKIP_COMMIT_VALIDATION=1 git commit -m "emergency fix"
 Runs code formatting before each commit:
 
 1. **Protected branch guard**: blocks direct commits on `dev` and `main`
-2. **Formatting**: `cargo fmt --all`
+2. **Markdown auto-fix + lint**: `pnpm run lint-md-fix-files -- ...` then `pnpm run lint-md-files -- ...` on staged markdown files
+3. **Shell syntax checks**: `bash -n` on staged shell files
+4. **Formatting**: `cargo fmt --all` for staged Rust files
 
 Automatically adds formatted files to staging.
 
@@ -155,7 +171,8 @@ Runs quality checks before each push, with selective execution:
 1. **Formatting**: `cargo fmt --all --check`
 2. **Linting**: `cargo clippy` (only on affected crates)
 3. **Tests**: `cargo test` (only on affected crates)
-4. **Docs/scripts-only mode**: skips Rust checks and runs lightweight shell syntax checks
+4. **Markdown lint**: `pnpm run lint-md-files -- ...` on changed `.md` files
+5. **Docs/scripts-only mode**: skips Rust checks and runs markdownlint (if markdown changed) + lightweight shell syntax checks
 
 #### Selection logic
 

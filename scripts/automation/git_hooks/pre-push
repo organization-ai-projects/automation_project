@@ -32,10 +32,22 @@ if ! push_policy_validate_part_of_only_push "$commits"; then
 fi
 
 changed_files="$(hook_utils_compute_changed_files "$UPSTREAM_BRANCH")"
+markdown_files="$(hook_utils_collect_markdown_files "$changed_files")"
 
 if is_docs_or_scripts_only_change "$changed_files"; then
   echo "📄 Docs/scripts-only changes detected."
   echo "🧪 Skipping Rust fmt/clippy/tests for this push."
+  if [[ -n "$markdown_files" ]]; then
+    echo "📝 Running markdownlint on changed markdown files..."
+    if ! hook_utils_run_markdownlint_checks "$markdown_files"; then
+      echo ""
+      echo "❌ Markdown lint failed."
+      exit 1
+    fi
+    echo "✅ Markdown lint OK"
+  else
+    echo "📝 Skipping markdownlint (no markdown files changed)."
+  fi
   echo "🔎 Running lightweight shell syntax checks..."
   hook_utils_run_shell_syntax_checks "$changed_files"
   echo ""
@@ -94,6 +106,20 @@ else
 fi
 
 FAILED=0
+
+if [[ -n "$markdown_files" ]]; then
+  echo "📝 Running markdownlint on changed markdown files..."
+  if ! hook_utils_run_markdownlint_checks "$markdown_files"; then
+    echo ""
+    echo "❌ Markdown lint failed."
+    echo "   Run: pnpm run lint-md-files -- <changed .md files>"
+    echo ""
+    FAILED=1
+  else
+    echo "✅ Markdown lint OK"
+    echo ""
+  fi
+fi
 
 echo "📝 Checking code formatting..."
 if ! rust_checks_run_fmt_check; then

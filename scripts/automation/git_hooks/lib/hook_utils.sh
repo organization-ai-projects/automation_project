@@ -63,3 +63,49 @@ hook_utils_run_shell_syntax_checks() {
     echo "   (no shell scripts changed)"
   fi
 }
+
+hook_utils_collect_markdown_files() {
+  local files="$1"
+  local file
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if is_markdown_path_file "$file" && [[ -f "$file" ]]; then
+      printf '%s\n' "$file"
+    fi
+  done <<< "$files"
+}
+
+hook_utils_run_markdownlint_checks() {
+  local markdown_files="$1"
+  local -a files=()
+  local file
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    files+=("$file")
+  done <<< "$markdown_files"
+
+  if [[ ${#files[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "❌ Markdown lint requires pnpm when markdown files are changed."
+    echo "   Install: corepack enable && corepack prepare pnpm@9 --activate"
+    return 1
+  fi
+
+  if [[ ! -f package.json ]]; then
+    echo "❌ Markdown lint requires package.json at repository root."
+    return 1
+  fi
+
+  if [[ ! -f node_modules/.bin/markdownlint-cli2 ]]; then
+    echo "❌ Markdown lint dependencies are missing for changed markdown files."
+    echo "   Run: pnpm install --frozen-lockfile"
+    return 1
+  fi
+
+  pnpm run -s lint-md-files -- "${files[@]}"
+}
