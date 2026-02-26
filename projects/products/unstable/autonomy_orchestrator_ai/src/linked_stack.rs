@@ -1,23 +1,14 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode, Stdio};
+use std::process::{Command, Stdio};
 
-fn main() -> ExitCode {
-    if let Err(error) = run() {
-        eprintln!("{error}");
-        return ExitCode::from(1);
-    }
-    ExitCode::SUCCESS
-}
-
-fn run() -> Result<(), String> {
-    let args: Vec<String> = env::args().skip(1).collect();
+pub fn run(args: &[String]) -> Result<(), String> {
     if matches!(args.first().map(String::as_str), Some("-h" | "--help")) {
         print_usage();
         return Ok(());
     }
-    let mut args = args.into_iter();
+    let mut args = args.iter();
 
     let root_dir = git_toplevel()?;
     let out_dir = args
@@ -28,7 +19,7 @@ fn run() -> Result<(), String> {
         .next()
         .map(PathBuf::from)
         .unwrap_or_else(|| root_dir.clone());
-    let goal = args.next().unwrap_or_else(|| {
+    let goal = args.next().cloned().unwrap_or_else(|| {
         "Inspect the repository and produce a safe implementation plan".to_string()
     });
 
@@ -342,9 +333,8 @@ fn env_bool(name: &str, default: bool) -> bool {
 }
 
 fn print_usage() {
-    eprintln!(
-        "Usage: cargo run -p autonomy_orchestrator_ai --bin run_linked_ai_stack -- [out_dir] [repo_root] [goal]"
-    );
+    eprintln!("Usage:");
+    eprintln!("  autonomy_orchestrator_ai linked-stack [out_dir] [repo_root] [goal]");
     eprintln!();
     eprintln!("Env knobs:");
     eprintln!("  EXECUTION_MAX_ITERATIONS (default: 2)");

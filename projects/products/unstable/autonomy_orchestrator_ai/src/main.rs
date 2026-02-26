@@ -3,6 +3,7 @@
 mod binary_runner;
 mod checkpoint_store;
 mod domain;
+mod linked_stack;
 mod orchestrator;
 mod output_writer;
 mod repo_context_artifact;
@@ -20,6 +21,17 @@ use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn main() {
+    let raw_args: Vec<String> = env::args().skip(1).collect();
+    if matches!(raw_args.first().map(String::as_str), Some("linked-stack")) {
+        match linked_stack::run(&raw_args[1..]) {
+            Ok(()) => process::exit(0),
+            Err(error) => {
+                eprintln!("{error}");
+                process::exit(1);
+            }
+        }
+    }
+
     let mut output_dir = PathBuf::from("./out");
     let mut simulate_blocked = false;
     let mut resume = false;
@@ -48,7 +60,7 @@ fn main() {
     let mut repo_root = PathBuf::from(".");
     let mut planning_context_artifact: Option<PathBuf> = None;
 
-    let args: Vec<String> = env::args().skip(1).collect();
+    let args = raw_args;
     let mut i = 0usize;
     while i < args.len() {
         match args[i].as_str() {

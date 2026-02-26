@@ -120,7 +120,7 @@ cargo test -p autonomy_orchestrator_ai --test binary_e2e_matrix_tests
 Linked manager+executor stack helper (Rust runner):
 
 ```bash
-cargo run -p autonomy_orchestrator_ai --bin run_linked_ai_stack -- [out_dir] [repo_root] [goal]
+cargo run -p autonomy_orchestrator_ai -- linked-stack [out_dir] [repo_root] [goal]
 ```
 
 This helper wires:

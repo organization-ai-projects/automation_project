@@ -162,7 +162,7 @@ Use the dedicated helper to wire:
 - `autonomy_reviewer_ai` as validation reviewer
 
 ```bash
-cargo run -p autonomy_orchestrator_ai --bin run_linked_ai_stack -- \
+cargo run -p autonomy_orchestrator_ai -- linked-stack \
   ./out/orchestrator_linked_ai \
   . \
   "Investigate and propose safe fixes for unstable test failures"
