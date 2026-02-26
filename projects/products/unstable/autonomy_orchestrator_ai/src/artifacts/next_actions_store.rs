@@ -1,5 +1,6 @@
-// projects/products/unstable/autonomy_orchestrator_ai/src/next_actions_store.rs
+// projects/products/unstable/autonomy_orchestrator_ai/src/artifacts/next_actions_store.rs
 use crate::domain::TerminalState;
+use crate::versioning::RepoVersioningDelta;
 use common_binary::{BinaryOptions, read_binary, write_binary};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -15,6 +16,7 @@ pub struct NextActionsArtifact {
     pub blocked_reason_codes: Vec<String>,
     pub reviewer_next_steps: Vec<String>,
     pub recommended_actions: Vec<String>,
+    pub versioning_delta: Option<RepoVersioningDelta>,
     pub generated_at_unix_secs: u64,
 }
 

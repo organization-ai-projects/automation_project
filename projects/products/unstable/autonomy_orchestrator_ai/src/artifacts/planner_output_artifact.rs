@@ -1,4 +1,4 @@
-// projects/products/unstable/autonomy_orchestrator_ai/src/planner_outpout_artifact.rs
+// projects/products/unstable/autonomy_orchestrator_ai/src/artifacts/planner_output_artifact.rs
 use crate::planner_output::PlannerOutput;
 
 #[derive(Debug, Clone)]

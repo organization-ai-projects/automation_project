@@ -882,3 +882,76 @@ fn matrix_autonomous_loop_stops_on_repeated_failure_signature() {
 
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn matrix_autonomous_loop_no_progress_stops_with_noop_signature() {
+    let out_dir = unique_temp_dir("autonomous_loop_no_progress");
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_autonomy_orchestrator_ai"));
+    cmd.arg(&out_dir)
+        .arg("--autonomous-loop")
+        .arg("--autonomous-max-runs")
+        .arg("5")
+        .arg("--autonomous-same-error-limit")
+        .arg("10")
+        .arg("--policy-status")
+        .arg("deny")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved");
+    let output = cmd.output().expect("execute autonomous loop run");
+    assert_eq!(output.status.code(), Some(3));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Autonomous loop stopped: no-op signature repeated"),
+        "expected no-op stop message, got: {stdout}"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_autonomous_loop_progress_then_done() {
+    let out_dir = unique_temp_dir("autonomous_loop_progress_then_done");
+    let state_file = out_dir.join("autonomous_fail_once_state.flag");
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_autonomy_orchestrator_ai"));
+    cmd.arg(&out_dir)
+        .arg("--autonomous-loop")
+        .arg("--autonomous-max-runs")
+        .arg("3")
+        .arg("--autonomous-same-error-limit")
+        .arg("3")
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--execution-max-iterations")
+        .arg("1")
+        .arg("--executor-bin")
+        .arg(fixture_bin())
+        .arg("--executor-arg")
+        .arg("fixture")
+        .arg("--executor-arg")
+        .arg("fail-once")
+        .arg("--executor-arg")
+        .arg(state_file);
+    let output = cmd.output().expect("execute autonomous loop run");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+
+    let _ = fs::remove_dir_all(out_dir);
+}

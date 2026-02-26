@@ -1,4 +1,5 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/main.rs
+mod artifacts;
 mod binary_runner;
 mod checkpoint_store;
 mod cli_command;
@@ -9,21 +10,16 @@ mod configs;
 mod domain;
 mod fixture;
 mod linked_stack;
-mod next_actions_store;
 mod orchestrator;
-mod orchestrator_cycle_memory;
 mod output_writer;
 mod pending_validation_invocation;
-mod planner_outpout_artifact;
 mod planner_output;
 mod repo_context_artifact;
-mod repo_context_artifact_compact;
 mod run_args;
 mod runtime;
 mod runtime_diagnostics;
-mod validation_invocation_artifact;
 mod validation_invocation_parser;
-mod versioning_commands;
+mod versioning;
 
 #[cfg(test)]
 mod tests;

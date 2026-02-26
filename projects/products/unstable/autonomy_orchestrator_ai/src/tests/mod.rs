@@ -9,3 +9,5 @@ mod orchestrator;
 mod run_args;
 #[cfg(test)]
 mod validation_invocation_parser;
+#[cfg(test)]
+mod versioning_commands;

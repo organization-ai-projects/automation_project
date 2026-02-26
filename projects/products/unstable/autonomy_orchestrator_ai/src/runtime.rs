@@ -1,4 +1,5 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/runtime.rs
+use crate::artifacts::{NextActionsArtifact, save_next_actions};
 use crate::checkpoint_store::load_checkpoint;
 use crate::config_runtime::{
     derive_config_io_plan, first_non_binary_config_path, load_config_by_mode, save_config_by_mode,
@@ -7,15 +8,14 @@ use crate::domain::{
     BinaryInvocationSpec, DeliveryOptions, GateInputs, OrchestratorCheckpoint, OrchestratorConfig,
     RunReport, Stage, StageExecutionStatus, TerminalState,
 };
-use crate::next_actions_store::{NextActionsArtifact, save_next_actions};
 use crate::orchestrator::Orchestrator;
 use crate::output_writer::write_run_report;
 use crate::run_args::RunArgs;
 use crate::runtime_diagnostics::print_runtime_diagnostics;
 use crate::validation_invocation_parser::parse_validation_pending_invocations;
+use crate::versioning::{RepoVersioningDelta, capture_repo_snapshot, compute_repo_delta};
 use std::path::Path;
 use std::process;
-use std::process::Command;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub fn run_orchestrator(args: RunArgs, raw_args: &[String]) -> ! {
@@ -56,8 +56,8 @@ fn run_autonomous_loop(args: RunArgs, raw_args: &[String]) -> Result<i32, (i32, 
     let started = Instant::now();
     let mut previous_failure_signature: Option<String> = None;
     let mut failure_streak = 0u32;
-    let mut previous_reviewer_next_steps: Option<Vec<String>> = None;
-    let mut previous_diff_fingerprint = git_worktree_fingerprint(&args.repo_root);
+    let mut previous_noop_signature: Option<String> = None;
+    let mut noop_streak = 0u32;
     let mut last_exit_code = 1;
 
     for run_index in 1..=args.autonomous_max_runs {
@@ -96,25 +96,22 @@ fn run_autonomous_loop(args: RunArgs, raw_args: &[String]) -> Result<i32, (i32, 
             }
         }
 
-        if let Some(previous) = &previous_reviewer_next_steps
-            && *previous == outcome.report.reviewer_next_steps
-        {
-            println!("Autonomous loop stopped: no new reviewer_next_steps");
-            return Ok(last_exit_code);
-        }
-        previous_reviewer_next_steps = Some(outcome.report.reviewer_next_steps.clone());
-
-        let current_diff_fingerprint = git_worktree_fingerprint(&args.repo_root);
-        if let (Some(previous), Some(current)) = (
-            previous_diff_fingerprint.as_ref(),
-            current_diff_fingerprint.as_ref(),
-        ) && previous == current
-        {
-            println!("Autonomous loop stopped: no diff produced in repository state");
-            return Ok(last_exit_code);
-        }
-        if current_diff_fingerprint.is_some() {
-            previous_diff_fingerprint = current_diff_fingerprint;
+        let noop_signature = build_noop_signature(
+            &outcome.report,
+            outcome.recommended_actions.as_ref(),
+            outcome.versioning_delta.as_ref(),
+        );
+        if let Some(signature) = noop_signature {
+            if previous_noop_signature.as_deref() == Some(signature.as_str()) {
+                noop_streak += 1;
+            } else {
+                previous_noop_signature = Some(signature);
+                noop_streak = 1;
+            }
+            if noop_streak >= 2 {
+                println!("Autonomous loop stopped: no-op signature repeated");
+                return Ok(last_exit_code);
+            }
         }
     }
 
@@ -128,6 +125,8 @@ fn run_autonomous_loop(args: RunArgs, raw_args: &[String]) -> Result<i32, (i32, 
 struct RunOnceOutcome {
     report: RunReport,
     exit_code: i32,
+    recommended_actions: Vec<String>,
+    versioning_delta: Option<RepoVersioningDelta>,
 }
 
 fn run_once(
@@ -165,6 +164,8 @@ fn run_once(
         .unwrap_or_else(|| args.output_dir.join("next_actions.bin"));
 
     let resume_enabled = args.resume || loop_mode;
+    let version_before = capture_repo_snapshot(&args.repo_root);
+
     let checkpoint = if resume_enabled {
         if checkpoint_path.exists() {
             Some(
@@ -177,6 +178,8 @@ fn run_once(
     } else {
         None
     };
+
+    let repo_root_for_versioning = args.repo_root.clone();
 
     let gate_inputs = GateInputs {
         policy_status: args.policy_status.into(),
@@ -285,8 +288,16 @@ fn run_once(
 
     write_run_report(&report, &args.output_dir)
         .map_err(|err| (1, format!("Failed to write run report: {err}")))?;
-    persist_next_actions(&report, &next_actions_path)
-        .map_err(|err| (1, format!("Failed to write next actions artifact: {err}")))?;
+    let recommended_actions = build_recommended_actions(&report);
+    let version_after = capture_repo_snapshot(&repo_root_for_versioning);
+    let versioning_delta = compute_repo_delta(version_before.as_ref(), version_after.as_ref());
+    persist_next_actions(
+        &report,
+        &recommended_actions,
+        versioning_delta.as_ref(),
+        &next_actions_path,
+    )
+    .map_err(|err| (1, format!("Failed to write next actions artifact: {err}")))?;
 
     let report_path = args.output_dir.join("orchestrator_run_report.json");
     println!("Run report: {}", report_path.display());
@@ -295,16 +306,24 @@ fn run_once(
     Ok(RunOnceOutcome {
         exit_code: terminal_state_exit_code(report.terminal_state),
         report,
+        recommended_actions,
+        versioning_delta,
     })
 }
 
-fn persist_next_actions(report: &RunReport, path: &Path) -> Result<(), String> {
+fn persist_next_actions(
+    report: &RunReport,
+    recommended_actions: &[String],
+    versioning_delta: Option<&RepoVersioningDelta>,
+    path: &Path,
+) -> Result<(), String> {
     let artifact = NextActionsArtifact {
         run_id: report.run_id.clone(),
         terminal_state: report.terminal_state,
         blocked_reason_codes: report.blocked_reason_codes.clone(),
         reviewer_next_steps: report.reviewer_next_steps.clone(),
-        recommended_actions: build_recommended_actions(report),
+        recommended_actions: recommended_actions.to_vec(),
+        versioning_delta: versioning_delta.cloned(),
         generated_at_unix_secs: unix_timestamp_secs(),
     };
     save_next_actions(path, &artifact)
@@ -363,19 +382,21 @@ fn failure_signature(report: &RunReport) -> Option<String> {
     ))
 }
 
-fn git_worktree_fingerprint(repo_root: &Path) -> Option<String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(repo_root)
-        .arg("status")
-        .arg("--porcelain")
-        .arg("--untracked-files=all")
-        .output()
-        .ok()?;
-    if !output.status.success() {
+fn build_noop_signature(
+    report: &RunReport,
+    recommended_actions: &[String],
+    versioning_delta: Option<&RepoVersioningDelta>,
+) -> Option<String> {
+    let failure = failure_signature(report)?;
+    let delta = versioning_delta?;
+    if delta.worktree_changed {
         return None;
     }
-    Some(String::from_utf8_lossy(&output.stdout).to_string())
+    Some(format!(
+        "{failure}|{}|{}",
+        delta.touched_files.join("|"),
+        recommended_actions.join("|")
+    ))
 }
 
 fn terminal_state_exit_code(state: Option<TerminalState>) -> i32 {

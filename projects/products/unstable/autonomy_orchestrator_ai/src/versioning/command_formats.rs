@@ -1,7 +1,6 @@
-// projects/products/unstable/autonomy_orchestrator_ai/src/versioning_commands.rs
 use serde::Deserialize;
 
-use crate::validation_invocation_artifact::ValidationInvocationArtifact;
+use crate::artifacts::ValidationInvocationArtifact;
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]

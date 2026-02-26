@@ -1,8 +1,5 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/planner_output.rs
-use crate::{
-    planner_outpout_artifact::PlannerOutputArtifact,
-    validation_invocation_artifact::ValidationInvocationArtifact,
-};
+use crate::artifacts::{PlannerOutputArtifact, ValidationInvocationArtifact};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 

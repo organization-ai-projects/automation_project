@@ -4,9 +4,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::repo_context_artifact_compact::RepoContextArtifactCompat;
-use crate::validation_invocation_artifact::ValidationInvocationArtifact;
-use crate::versioning_commands::VersioningCommands;
+use crate::artifacts::{RepoContextArtifactCompat, ValidationInvocationArtifact};
+use crate::versioning::VersioningCommands;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct RepoContextArtifact {

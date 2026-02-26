@@ -1,7 +1,7 @@
-// projects/products/unstable/autonomy_orchestrator_ai/src/repo_context_artifact_compact.rs
+// projects/products/unstable/autonomy_orchestrator_ai/src/artifacts/repo_context_artifact_compact.rs
 use serde::Deserialize;
 
-use crate::versioning_commands::VersioningCommands;
+use crate::versioning::VersioningCommands;
 
 #[derive(Debug, Deserialize)]
 pub struct RepoContextArtifactCompat {
