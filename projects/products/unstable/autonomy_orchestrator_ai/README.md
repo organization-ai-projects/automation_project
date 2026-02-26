@@ -10,7 +10,7 @@ For bootstrap V0, this crate provides:
 - JSON run report artifact for audit/replay style supervision
 - typed stage execution records for binary invocations (exit code, duration, timeout, artifact checks)
 - checkpoint persistence with resume semantics to avoid re-running completed stages
-- optional native planning context artifact generation (repo topology + detected validation commands)
+- optional native planning context artifact generation (repo topology, workspace map, ownership boundaries, hot paths, detected validation invocations)
 
 ## Usage
 

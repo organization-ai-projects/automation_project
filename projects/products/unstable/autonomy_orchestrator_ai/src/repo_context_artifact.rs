@@ -15,6 +15,9 @@ struct RepoContextArtifact {
     repo_root: String,
     generated_at_unix_secs: u64,
     top_level_entries: Vec<String>,
+    workspace_members: Vec<String>,
+    ownership_boundaries: Vec<String>,
+    hot_paths: Vec<String>,
     detected_validation_commands: Vec<ValidationInvocationArtifact>,
 }
 
@@ -32,11 +35,17 @@ struct RepoContextArtifactCompat {
 
 pub fn write_repo_context_artifact(repo_root: &Path, artifact_path: &Path) -> Result<(), String> {
     let top_level_entries = list_top_level_entries(repo_root)?;
+    let workspace_members = detect_workspace_members(repo_root);
+    let ownership_boundaries = detect_ownership_boundaries(repo_root);
+    let hot_paths = detect_hot_paths(repo_root);
     let detected_validation_commands = detect_validation_commands(repo_root);
     let payload = RepoContextArtifact {
         repo_root: repo_root.display().to_string(),
         generated_at_unix_secs: unix_timestamp_secs(),
         top_level_entries,
+        workspace_members,
+        ownership_boundaries,
+        hot_paths,
         detected_validation_commands,
     };
 
@@ -156,6 +165,79 @@ fn detect_validation_commands(repo_root: &Path) -> Vec<ValidationInvocationArtif
         });
     }
     commands
+}
+
+fn detect_workspace_members(repo_root: &Path) -> Vec<String> {
+    let cargo_toml = repo_root.join("Cargo.toml");
+    let raw = match fs::read_to_string(&cargo_toml) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+    let mut members = Vec::new();
+    let mut in_workspace = false;
+    let mut in_members = false;
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            in_workspace = trimmed == "[workspace]";
+            in_members = false;
+            continue;
+        }
+        if !in_workspace {
+            continue;
+        }
+        if trimmed.starts_with("members") && trimmed.contains('[') {
+            in_members = true;
+        }
+        if in_members {
+            if let Some(start) = trimmed.find('"')
+                && let Some(end) = trimmed[start + 1..].find('"')
+            {
+                let member = &trimmed[start + 1..start + 1 + end];
+                if !member.is_empty() {
+                    members.push(member.to_string());
+                }
+            }
+            if trimmed.contains(']') {
+                in_members = false;
+            }
+        }
+    }
+    members.sort_unstable();
+    members
+}
+
+fn detect_ownership_boundaries(repo_root: &Path) -> Vec<String> {
+    let mut boundaries = Vec::new();
+    for candidate in [
+        "projects/products/stable",
+        "projects/products/unstable",
+        "projects/libraries",
+        "scripts",
+        "documentation",
+    ] {
+        if path_exists(repo_root, candidate) {
+            boundaries.push(candidate.to_string());
+        }
+    }
+    boundaries
+}
+
+fn detect_hot_paths(repo_root: &Path) -> Vec<String> {
+    let mut hot_paths = Vec::new();
+    for candidate in [
+        "projects/products/unstable/autonomy_orchestrator_ai/src",
+        "projects/products/unstable/autonomous_dev_ai/src",
+        "projects/products/unstable/auto_manager_ai/src",
+        "projects/products/unstable/autonomy_reviewer_ai/src",
+        "scripts/automation",
+    ] {
+        if path_exists(repo_root, candidate) {
+            hot_paths.push(candidate.to_string());
+        }
+    }
+    hot_paths
 }
 
 fn path_exists(root: &Path, relative: &str) -> bool {

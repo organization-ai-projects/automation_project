@@ -22,6 +22,9 @@ struct StageExecutionView {
 #[derive(Debug, serde::Deserialize)]
 struct RepoContextView {
     repo_root: String,
+    workspace_members: Vec<String>,
+    ownership_boundaries: Vec<String>,
+    hot_paths: Vec<String>,
     detected_validation_commands: Vec<RepoValidationInvocation>,
 }
 
@@ -80,6 +83,14 @@ fn run_orchestrator_owned(args: &[String], out_dir: &PathBuf) -> (Output, Matrix
 
 fn fixture_bin() -> &'static str {
     env!("CARGO_BIN_EXE_autonomy_orchestrator_ai")
+}
+
+fn workspace_root() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    for _ in 0..4 {
+        path.pop();
+    }
+    path
 }
 
 #[test]
@@ -316,7 +327,7 @@ fn matrix_planning_context_artifact_is_written() {
     let (output, report) = run_orchestrator(
         &[
             "--repo-root",
-            ".",
+            workspace_root().to_str().expect("utf-8 workspace root"),
             "--planning-context-artifact",
             artifact_path.to_str().expect("utf-8 artifact path"),
             "--policy-status",
@@ -337,6 +348,24 @@ fn matrix_planning_context_artifact_is_written() {
     let artifact: RepoContextView =
         from_str(&artifact_raw).expect("deserialize planning context artifact");
     assert!(!artifact.repo_root.is_empty());
+    assert!(
+        artifact
+            .workspace_members
+            .iter()
+            .any(|m| m == "projects/products/unstable/autonomy_orchestrator_ai")
+    );
+    assert!(
+        artifact
+            .ownership_boundaries
+            .iter()
+            .any(|b| b == "projects/products/unstable")
+    );
+    assert!(
+        artifact
+            .hot_paths
+            .iter()
+            .any(|p| p.contains("autonomy_orchestrator_ai/src"))
+    );
     assert!(
         artifact
             .detected_validation_commands

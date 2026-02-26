@@ -51,6 +51,8 @@ pub fn run(args: &[String]) -> Result<(), String> {
     let executor_run_replay_json = executor_out_dir.join("agent_run_replay.json");
     let executor_run_replay_text = executor_out_dir.join("agent_run_replay.txt");
     let executor_checkpoint = executor_out_dir.join("agent_checkpoint.json");
+    let executor_dashboard_json = executor_out_dir.join("agent_ops_dashboard.json");
+    let executor_dashboard_md = executor_out_dir.join("agent_ops_dashboard.md");
     let reviewer_report = reviewer_out_dir.join("review_report.json");
 
     create_dir(&out_dir)?;
@@ -165,6 +167,16 @@ pub fn run(args: &[String]) -> Result<(), String> {
         ),
         "--executor-env".to_string(),
         "AUTONOMOUS_ASSUME_VALIDATION_PASS_WHEN_NO_TEST_STEP=true".to_string(),
+        "--executor-env".to_string(),
+        format!(
+            "AUTONOMOUS_OPS_DASHBOARD_JSON_PATH={}",
+            executor_dashboard_json.display()
+        ),
+        "--executor-env".to_string(),
+        format!(
+            "AUTONOMOUS_OPS_DASHBOARD_MD_PATH={}",
+            executor_dashboard_md.display()
+        ),
         "--executor-arg".to_string(),
         "--symbolic-only".to_string(),
         "--executor-arg".to_string(),
@@ -315,6 +327,14 @@ pub fn run(args: &[String]) -> Result<(), String> {
         executor_run_replay_text.display()
     );
     println!("  executor_checkpoint={}", executor_checkpoint.display());
+    println!(
+        "  executor_dashboard_json={}",
+        executor_dashboard_json.display()
+    );
+    println!(
+        "  executor_dashboard_md={}",
+        executor_dashboard_md.display()
+    );
     println!("  reviewer_report={}", reviewer_report.display());
 
     if status.success() {
