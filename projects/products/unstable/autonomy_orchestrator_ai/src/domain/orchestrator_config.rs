@@ -26,6 +26,7 @@ pub struct OrchestratorConfig {
     pub delivery_options: DeliveryOptions,
     pub gate_inputs: GateInputs,
     pub checkpoint_path: Option<PathBuf>,
+    pub cycle_memory_path: Option<PathBuf>,
 }
 
 impl OrchestratorConfig {

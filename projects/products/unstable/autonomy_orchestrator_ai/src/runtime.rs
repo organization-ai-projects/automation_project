@@ -44,6 +44,10 @@ pub fn run_orchestrator(args: RunArgs, raw_args: &[String]) -> ! {
         .checkpoint_path
         .clone()
         .unwrap_or_else(|| args.output_dir.join("orchestrator_checkpoint.json"));
+    let cycle_memory_path = args
+        .cycle_memory_path
+        .clone()
+        .unwrap_or_else(|| args.output_dir.join("orchestrator_cycle_memory.bin"));
 
     let checkpoint = if args.resume {
         match load_checkpoint(&checkpoint_path) {
@@ -134,6 +138,7 @@ pub fn run_orchestrator(args: RunArgs, raw_args: &[String]) -> ! {
         delivery_options,
         gate_inputs,
         checkpoint_path: Some(checkpoint_path.clone()),
+        cycle_memory_path: Some(cycle_memory_path),
     };
 
     if let Some(load_mode) = &config_io.load {

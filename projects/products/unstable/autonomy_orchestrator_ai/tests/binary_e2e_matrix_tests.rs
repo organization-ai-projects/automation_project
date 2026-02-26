@@ -541,6 +541,75 @@ fn matrix_native_validation_command_failure_fails_closed() {
 }
 
 #[test]
+fn matrix_cycle_memory_reinjects_validation_commands_on_next_run() {
+    let out_dir = unique_temp_dir("cycle_memory_reinject_validation");
+    let planner_output_path = out_dir.join("planning").join("planner_output.json");
+    let planner_payload = format!(
+        r#"{{"planner_output":{{"validation_commands":[{{"command":"{}","args":["fixture","success"]}}]}}}}"#,
+        fixture_bin()
+    );
+
+    let first_args = vec![
+        "--policy-status".to_string(),
+        "allow".to_string(),
+        "--ci-status".to_string(),
+        "success".to_string(),
+        "--review-status".to_string(),
+        "approved".to_string(),
+        "--manager-bin".to_string(),
+        fixture_bin().to_string(),
+        "--manager-arg".to_string(),
+        "fixture".to_string(),
+        "--manager-arg".to_string(),
+        "write-file".to_string(),
+        "--manager-arg".to_string(),
+        planner_output_path.display().to_string(),
+        "--manager-arg".to_string(),
+        planner_payload,
+        "--manager-expected-artifact".to_string(),
+        planner_output_path.display().to_string(),
+    ];
+    let (first_output, first_report) = run_orchestrator_owned(&first_args, &out_dir);
+    assert!(first_output.status.success());
+    assert_eq!(first_report.terminal_state.as_deref(), Some("done"));
+    assert!(
+        first_report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "validation" && e.command == fixture_bin())
+    );
+
+    let cycle_memory_path = out_dir.join("orchestrator_cycle_memory.bin");
+    assert!(
+        cycle_memory_path.exists(),
+        "cycle memory should be persisted after first run"
+    );
+
+    let (second_output, second_report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+        ],
+        &out_dir,
+    );
+    assert!(second_output.status.success());
+    assert_eq!(second_report.terminal_state.as_deref(), Some("done"));
+    assert!(
+        second_report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "validation" && e.command == fixture_bin()),
+        "second run should reuse validation command from cycle memory"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
 fn matrix_reviewer_remediation_cycle_recovers_to_done() {
     let out_dir = unique_temp_dir("reviewer_remediation_cycle");
     let reviewer_dir = out_dir.join("reviewer");

@@ -31,6 +31,8 @@ pub struct RunArgs {
 
     #[arg(long)]
     pub checkpoint_path: Option<PathBuf>,
+    #[arg(long)]
+    pub cycle_memory_path: Option<PathBuf>,
 
     #[arg(long)]
     pub manager_bin: Option<String>,

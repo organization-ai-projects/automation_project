@@ -6,6 +6,7 @@ mod cli_value_parsers;
 mod commands;
 mod config_runtime;
 mod configs;
+mod cycle_memory_store;
 mod domain;
 mod fixture;
 mod linked_stack;

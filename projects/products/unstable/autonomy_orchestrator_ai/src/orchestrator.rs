@@ -2,6 +2,7 @@
 
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
+use crate::cycle_memory_store::{OrchestratorCycleMemory, load_cycle_memory, save_cycle_memory};
 use crate::domain::{
     BinaryInvocationSpec, CiGateStatus, DeliveryOptions, GateDecision, GateInputs,
     OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
@@ -35,6 +36,7 @@ pub struct Orchestrator {
     gate_inputs: GateInputs,
     checkpoint: OrchestratorCheckpoint,
     checkpoint_path: Option<PathBuf>,
+    cycle_memory_path: Option<PathBuf>,
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
@@ -42,6 +44,39 @@ pub struct Orchestrator {
 
 impl Orchestrator {
     pub fn new(config: OrchestratorConfig, checkpoint: Option<OrchestratorCheckpoint>) -> Self {
+        let mut execution_max_iterations = config.execution_max_iterations;
+        let mut reviewer_remediation_max_cycles = config.reviewer_remediation_max_cycles;
+        let mut validation_invocations = config.validation_invocations;
+        let mut planned_remediation_steps = Vec::new();
+        if let Some(path) = &config.cycle_memory_path
+            && let Ok(memory) = load_cycle_memory(path)
+        {
+            if let Some(v) = memory.execution_max_iterations
+                && v >= 1
+            {
+                execution_max_iterations = v;
+            }
+            if let Some(v) = memory.reviewer_remediation_max_cycles {
+                reviewer_remediation_max_cycles = v;
+            }
+            planned_remediation_steps = memory.planned_remediation_steps;
+            for command in memory.validation_commands {
+                let spec = BinaryInvocationSpec {
+                    stage: Stage::Validation,
+                    command: command.command,
+                    args: command.args,
+                    env: Vec::new(),
+                    timeout_ms: config.timeout_ms,
+                    expected_artifacts: Vec::new(),
+                };
+                if !validation_invocations
+                    .iter()
+                    .any(|existing| existing.command == spec.command && existing.args == spec.args)
+                {
+                    validation_invocations.push(spec);
+                }
+            }
+        }
         let checkpoint = checkpoint.unwrap_or_else(|| {
             OrchestratorCheckpoint::new(config.run_id.clone(), unix_timestamp_secs())
         });
@@ -51,20 +86,21 @@ impl Orchestrator {
             planning_invocation: config.planning_invocation,
             execution_invocation: config.execution_invocation,
             validation_invocation: config.validation_invocation,
-            execution_max_iterations: config.execution_max_iterations,
-            reviewer_remediation_max_cycles: config.reviewer_remediation_max_cycles,
+            execution_max_iterations,
+            reviewer_remediation_max_cycles,
             timeout_ms: config.timeout_ms,
             repo_root: config.repo_root,
             planning_context_artifact: config.planning_context_artifact,
-            validation_invocations: config.validation_invocations,
+            validation_invocations,
             validation_from_planning_context: config.validation_from_planning_context,
             delivery_options: config.delivery_options,
             gate_inputs: config.gate_inputs,
             checkpoint,
             checkpoint_path: config.checkpoint_path,
+            cycle_memory_path: config.cycle_memory_path,
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
-            planned_remediation_steps: Vec::new(),
+            planned_remediation_steps,
         }
     }
 
@@ -904,10 +940,9 @@ impl Orchestrator {
     }
 
     fn persist_checkpoint(&mut self) {
-        let Some(path) = self.checkpoint_path.clone() else {
-            return;
-        };
-        if let Err(err) = save_checkpoint(path.as_path(), &self.checkpoint) {
+        if let Some(path) = self.checkpoint_path.clone()
+            && let Err(err) = save_checkpoint(path.as_path(), &self.checkpoint)
+        {
             self.report.terminal_state = Some(TerminalState::Failed);
             self.report.stage_executions.push(StageExecutionRecord {
                 stage: self.report.current_stage.unwrap_or(Stage::Planning),
@@ -923,6 +958,39 @@ impl Orchestrator {
                 missing_artifacts: Vec::new(),
                 malformed_artifacts: Vec::new(),
             });
+        }
+
+        if let Some(path) = self.cycle_memory_path.clone() {
+            let memory = OrchestratorCycleMemory {
+                execution_max_iterations: Some(self.execution_max_iterations),
+                reviewer_remediation_max_cycles: Some(self.reviewer_remediation_max_cycles),
+                planned_remediation_steps: self.planned_remediation_steps.clone(),
+                validation_commands: self
+                    .validation_invocations
+                    .iter()
+                    .map(|spec| ValidationInvocationArtifact {
+                        command: spec.command.clone(),
+                        args: spec.args.clone(),
+                    })
+                    .collect(),
+                updated_at_unix_secs: unix_timestamp_secs(),
+            };
+            if let Err(err) = save_cycle_memory(path.as_path(), &memory) {
+                self.report.stage_executions.push(StageExecutionRecord {
+                    stage: self.report.current_stage.unwrap_or(Stage::Planning),
+                    idempotency_key: None,
+                    command: "cycle_memory.persist".to_string(),
+                    args: vec![path.display().to_string()],
+                    env_keys: Vec::new(),
+                    started_at_unix_secs: unix_timestamp_secs(),
+                    duration_ms: 0,
+                    exit_code: None,
+                    status: StageExecutionStatus::Failed,
+                    error: Some(err),
+                    missing_artifacts: Vec::new(),
+                    malformed_artifacts: Vec::new(),
+                });
+            }
         }
     }
 

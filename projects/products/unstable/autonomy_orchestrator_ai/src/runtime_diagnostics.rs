@@ -15,6 +15,14 @@ pub fn print_runtime_diagnostics(
     println!("Output: {}", output_dir.display());
     println!("Resume: {}", resume);
     println!("Checkpoint path: {}", checkpoint_path.display());
+    println!(
+        "Cycle memory path: {}",
+        config
+            .cycle_memory_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "<disabled>".to_string())
+    );
     println!("Simulate blocked: {}", config.simulate_blocked);
     println!("Timeout ms: {}", config.timeout_ms);
     println!("Policy status: {:?}", config.gate_inputs.policy_status);
