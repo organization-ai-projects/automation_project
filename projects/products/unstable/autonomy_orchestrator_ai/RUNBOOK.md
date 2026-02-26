@@ -248,3 +248,15 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
 
 cargo run -p autonomy_orchestrator_ai -- ./out_replay --config-load-json ./out/orchestrator_config.json
 ```
+
+Auto mode by extension is also available:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved \
+  --config-save ./out/orchestrator_config.json
+
+cargo run -p autonomy_orchestrator_ai -- ./out_replay --config-load ./out/orchestrator_config.json
+```

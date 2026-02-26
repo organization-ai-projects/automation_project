@@ -73,9 +73,11 @@ fn main() {
     let mut config_save_ron: Option<PathBuf> = None;
     let mut config_save_bin: Option<PathBuf> = None;
     let mut config_save_json: Option<PathBuf> = None;
+    let mut config_save_auto: Option<PathBuf> = None;
     let mut config_load_ron: Option<PathBuf> = None;
     let mut config_load_bin: Option<PathBuf> = None;
     let mut config_load_json: Option<PathBuf> = None;
+    let mut config_load_auto: Option<PathBuf> = None;
 
     let args = raw_args;
     let mut i = 0usize;
@@ -364,6 +366,13 @@ fn main() {
                 config_save_json = Some(PathBuf::from(args[i + 1].clone()));
                 i += 2;
             }
+            "--config-save" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                config_save_auto = Some(PathBuf::from(args[i + 1].clone()));
+                i += 2;
+            }
             "--config-load-ron" => {
                 if i + 1 >= args.len() {
                     usage_and_exit();
@@ -385,6 +394,13 @@ fn main() {
                 config_load_json = Some(PathBuf::from(args[i + 1].clone()));
                 i += 2;
             }
+            "--config-load" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                config_load_auto = Some(PathBuf::from(args[i + 1].clone()));
+                i += 2;
+            }
             val if val.starts_with("--") => {
                 eprintln!("Unknown option: {val}");
                 usage_and_exit();
@@ -400,13 +416,23 @@ fn main() {
         config_load_ron.is_some(),
         config_load_bin.is_some(),
         config_load_json.is_some(),
+        config_load_auto.is_some(),
     ]
     .into_iter()
     .filter(|selected| *selected)
     .count();
     if load_modes_selected > 1 {
         eprintln!(
-            "Only one config load mode is allowed: choose exactly one of --config-load-ron, --config-load-bin, --config-load-json"
+            "Only one config load mode is allowed: choose exactly one of --config-load, --config-load-ron, --config-load-bin, --config-load-json"
+        );
+        process::exit(2);
+    }
+
+    if config_save_auto.is_some()
+        && (config_save_ron.is_some() || config_save_bin.is_some() || config_save_json.is_some())
+    {
+        eprintln!(
+            "When --config-save is used, do not combine it with --config-save-ron/--config-save-bin/--config-save-json"
         );
         process::exit(2);
     }
@@ -488,7 +514,13 @@ fn main() {
         checkpoint_path: Some(checkpoint_path.clone()),
     };
 
-    if let Some(path) = &config_load_ron {
+    if let Some(path) = &config_load_auto {
+        config = OrchestratorConfig::load_auto(path).unwrap_or_else(|err| {
+            eprintln!("{err}");
+            process::exit(1);
+        });
+        config.checkpoint_path = Some(checkpoint_path.clone());
+    } else if let Some(path) = &config_load_ron {
         config = OrchestratorConfig::load_ron(path).unwrap_or_else(|err| {
             eprintln!("{err}");
             process::exit(1);
@@ -522,6 +554,12 @@ fn main() {
     }
     if let Some(path) = &config_save_json
         && let Err(err) = config.save_json(path)
+    {
+        eprintln!("{err}");
+        process::exit(1);
+    }
+    if let Some(path) = &config_save_auto
+        && let Err(err) = config.save_auto(path)
     {
         eprintln!("{err}");
         process::exit(1);
@@ -576,9 +614,11 @@ fn main() {
         "Delivery PR enabled: {}",
         config.delivery_options.pr_enabled
     );
+    println!("Config load AUTO: {}", config_load_auto.is_some());
     println!("Config load RON: {}", config_load_ron.is_some());
     println!("Config load BIN: {}", config_load_bin.is_some());
     println!("Config load JSON: {}", config_load_json.is_some());
+    println!("Config save AUTO: {}", config_save_auto.is_some());
     println!("Config save RON: {}", config_save_ron.is_some());
     println!("Config save BIN: {}", config_save_bin.is_some());
     println!("Config save JSON: {}", config_save_json.is_some());
@@ -655,9 +695,11 @@ fn usage_and_exit() -> ! {
     eprintln!("  --delivery-pr-base <branch>");
     eprintln!("  --delivery-pr-title <title>");
     eprintln!("  --delivery-pr-body <body>");
+    eprintln!("  --config-load <path>                     (.ron | .bin | .json)");
     eprintln!("  --config-load-ron <path>");
     eprintln!("  --config-load-bin <path>");
     eprintln!("  --config-load-json <path>");
+    eprintln!("  --config-save <path>                     (.ron | .bin | .json)");
     eprintln!("  --config-save-ron <path>");
     eprintln!("  --config-save-bin <path>");
     eprintln!("  --config-save-json <path>");

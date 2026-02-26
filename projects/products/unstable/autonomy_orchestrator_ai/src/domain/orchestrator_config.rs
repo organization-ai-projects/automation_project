@@ -29,6 +29,12 @@ pub struct OrchestratorConfig {
 }
 
 impl OrchestratorConfig {
+    fn extension(path: &Path) -> Option<String> {
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.trim().to_ascii_lowercase())
+    }
+
     fn bin_options() -> BinaryOptions {
         BinaryOptions {
             magic: ORCHESTRATOR_CONFIG_BIN_MAGIC,
@@ -136,5 +142,29 @@ impl OrchestratorConfig {
                 path.display()
             )
         })
+    }
+
+    pub fn save_auto(&self, path: &Path) -> Result<(), String> {
+        match Self::extension(path).as_deref() {
+            Some("ron") => self.save_ron(path),
+            Some("bin") => self.save_bin(path),
+            Some("json") => self.save_json(path),
+            _ => Err(format!(
+                "Unsupported config extension for '{}': expected .ron, .bin, or .json",
+                path.display()
+            )),
+        }
+    }
+
+    pub fn load_auto(path: &Path) -> Result<Self, String> {
+        match Self::extension(path).as_deref() {
+            Some("ron") => Self::load_ron(path),
+            Some("bin") => Self::load_bin(path),
+            Some("json") => Self::load_json(path),
+            _ => Err(format!(
+                "Unsupported config extension for '{}': expected .ron, .bin, or .json",
+                path.display()
+            )),
+        }
     }
 }

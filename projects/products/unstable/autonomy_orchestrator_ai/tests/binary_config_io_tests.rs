@@ -156,3 +156,71 @@ fn fails_when_multiple_config_load_modes_are_set() {
 
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn saves_and_loads_config_with_auto_extension_mode() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir_1 = unique_temp_dir("auto_mode_save");
+    let out_dir_2 = unique_temp_dir("auto_mode_load");
+    let config_path = out_dir_1.join("orchestrator_config.json");
+
+    let save_output = Command::new(bin)
+        .arg(&out_dir_1)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save")
+        .arg(&config_path)
+        .output()
+        .expect("execute save run");
+    assert!(save_output.status.success());
+    assert!(
+        config_path.exists(),
+        "config should be written by auto mode"
+    );
+
+    let load_output = Command::new(bin)
+        .arg(&out_dir_2)
+        .arg("--config-load")
+        .arg(&config_path)
+        .output()
+        .expect("execute load run");
+    assert!(load_output.status.success());
+
+    let _ = fs::remove_dir_all(out_dir_1);
+    let _ = fs::remove_dir_all(out_dir_2);
+}
+
+#[test]
+fn fails_when_auto_save_is_mixed_with_explicit_mode() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir = unique_temp_dir("mixed_save_modes");
+    let auto_path = out_dir.join("orchestrator_config.json");
+    let explicit_path = out_dir.join("orchestrator_config.ron");
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save")
+        .arg(&auto_path)
+        .arg("--config-save-ron")
+        .arg(&explicit_path)
+        .output()
+        .expect("execute mixed save mode run");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("When --config-save is used"),
+        "unexpected stderr: {stderr}"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
