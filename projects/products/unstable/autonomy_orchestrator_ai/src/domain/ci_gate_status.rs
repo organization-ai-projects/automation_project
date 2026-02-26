@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::cli_command::CliCiStatus;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CiGateStatus {
@@ -9,4 +11,15 @@ pub enum CiGateStatus {
     Pending,
     Failure,
     Missing,
+}
+
+impl From<CliCiStatus> for CiGateStatus {
+    fn from(value: CliCiStatus) -> Self {
+        match value {
+            CliCiStatus::Success => Self::Success,
+            CliCiStatus::Pending => Self::Pending,
+            CliCiStatus::Failure => Self::Failure,
+            CliCiStatus::Missing => Self::Missing,
+        }
+    }
 }

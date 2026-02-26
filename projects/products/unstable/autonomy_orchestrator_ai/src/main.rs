@@ -1,257 +1,36 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/main.rs
-
 mod binary_runner;
 mod checkpoint_store;
+mod cli_command;
+mod commands;
+mod configs;
 mod domain;
 mod fixture;
 mod linked_stack;
 mod orchestrator;
 mod output_writer;
+mod pending_validation_invocation;
 mod repo_context_artifact;
+mod run_args;
 
 use crate::checkpoint_store::load_checkpoint;
+use crate::cli_command::Cli;
+use crate::commands::Commands;
+use crate::configs::{
+    ConfigCanonicalizeArgs, ConfigIoPlan, ConfigLoadMode, ConfigSaveMode, ConfigValidateArgs,
+};
 use crate::domain::{
-    BinaryInvocationSpec, CiGateStatus, DeliveryOptions, GateInputs, OrchestratorCheckpoint,
-    OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, Stage, TerminalState,
+    BinaryInvocationSpec, DeliveryOptions, GateInputs, OrchestratorCheckpoint, OrchestratorConfig,
+    Stage, TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use crate::output_writer::write_run_report;
-use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
-use std::path::{Path, PathBuf};
+use crate::pending_validation_invocation::PendingValidationInvocation;
+use crate::run_args::RunArgs;
+use clap::Parser;
+use std::path::Path;
 use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-#[derive(Clone, Debug)]
-struct PendingValidationInvocation {
-    command: String,
-    args: Vec<String>,
-    env: Vec<(String, String)>,
-}
-
-#[derive(Clone, Debug)]
-enum ConfigLoadMode {
-    Auto(PathBuf),
-    Ron(PathBuf),
-    Bin(PathBuf),
-    Json(PathBuf),
-}
-
-#[derive(Clone, Debug)]
-enum ConfigSaveMode {
-    Auto(PathBuf),
-    Ron(PathBuf),
-    Bin(PathBuf),
-    Json(PathBuf),
-}
-
-#[derive(Clone, Debug, Default)]
-struct ConfigIoPlan {
-    load: Option<ConfigLoadMode>,
-    saves: Vec<ConfigSaveMode>,
-}
-
-#[derive(Parser, Debug)]
-#[command(name = "autonomy_orchestrator_ai")]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<Commands>,
-    #[command(flatten)]
-    run: RunArgs,
-}
-
-#[derive(Subcommand, Debug)]
-enum Commands {
-    Fixture {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
-    },
-    LinkedStack {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
-    },
-    ConfigValidate(ConfigValidateArgs),
-    ConfigCanonicalize(ConfigCanonicalizeArgs),
-}
-
-#[derive(Args, Debug)]
-struct ConfigValidateArgs {
-    config_path: PathBuf,
-    #[arg(long)]
-    ai_config_only_binary: bool,
-}
-
-#[derive(Args, Debug)]
-struct ConfigCanonicalizeArgs {
-    input_config: PathBuf,
-    output_bin_config: PathBuf,
-    #[arg(long)]
-    ai_config_only_binary: bool,
-}
-
-#[derive(Args, Debug)]
-struct RunArgs {
-    #[arg(default_value = "./out")]
-    output_dir: PathBuf,
-
-    #[arg(long)]
-    simulate_blocked: bool,
-    #[arg(long)]
-    resume: bool,
-    #[arg(long, default_value_t = 30_000)]
-    timeout_ms: u64,
-
-    #[arg(long, value_enum, default_value_t = CliPolicyStatus::Unknown)]
-    policy_status: CliPolicyStatus,
-    #[arg(long, value_enum, default_value_t = CliCiStatus::Missing)]
-    ci_status: CliCiStatus,
-    #[arg(long, value_enum, default_value_t = CliReviewStatus::Missing)]
-    review_status: CliReviewStatus,
-
-    #[arg(long)]
-    checkpoint_path: Option<PathBuf>,
-
-    #[arg(long)]
-    manager_bin: Option<String>,
-    #[arg(long = "manager-arg", action = ArgAction::Append)]
-    manager_args: Vec<String>,
-    #[arg(long = "manager-env", value_parser = parse_env_pair_cli, action = ArgAction::Append)]
-    manager_env: Vec<(String, String)>,
-    #[arg(long = "manager-expected-artifact", action = ArgAction::Append)]
-    manager_expected_artifacts: Vec<String>,
-
-    #[arg(long)]
-    executor_bin: Option<String>,
-    #[arg(long = "executor-arg", action = ArgAction::Append)]
-    executor_args: Vec<String>,
-    #[arg(long = "executor-env", value_parser = parse_env_pair_cli, action = ArgAction::Append)]
-    executor_env: Vec<(String, String)>,
-    #[arg(long = "executor-expected-artifact", action = ArgAction::Append)]
-    executor_expected_artifacts: Vec<String>,
-
-    #[arg(long, default_value_t = 1)]
-    execution_max_iterations: u32,
-    #[arg(long, default_value_t = 0)]
-    reviewer_remediation_max_cycles: u32,
-
-    #[arg(long)]
-    reviewer_bin: Option<String>,
-    #[arg(long = "reviewer-arg", action = ArgAction::Append)]
-    reviewer_args: Vec<String>,
-    #[arg(long = "reviewer-env", value_parser = parse_env_pair_cli, action = ArgAction::Append)]
-    reviewer_env: Vec<(String, String)>,
-    #[arg(long = "reviewer-expected-artifact", action = ArgAction::Append)]
-    reviewer_expected_artifacts: Vec<String>,
-
-    // Parsed manually from raw argv to preserve "binds to last --validation-bin" semantics.
-    #[arg(long = "validation-bin", action = ArgAction::Append)]
-    _validation_bins: Vec<String>,
-    #[arg(long = "validation-arg", action = ArgAction::Append)]
-    _validation_args: Vec<String>,
-    #[arg(long = "validation-env", value_parser = parse_env_pair_cli, action = ArgAction::Append)]
-    _validation_env: Vec<(String, String)>,
-
-    #[arg(long)]
-    validation_from_planning_context: bool,
-
-    #[arg(long, default_value = ".")]
-    repo_root: PathBuf,
-    #[arg(long)]
-    planning_context_artifact: Option<PathBuf>,
-
-    #[arg(long)]
-    delivery_enabled: bool,
-    #[arg(long)]
-    delivery_dry_run: bool,
-    #[arg(long)]
-    delivery_branch: Option<String>,
-    #[arg(long)]
-    delivery_commit_message: Option<String>,
-    #[arg(long)]
-    delivery_pr_enabled: bool,
-    #[arg(long)]
-    delivery_pr_number: Option<String>,
-    #[arg(long)]
-    delivery_pr_base: Option<String>,
-    #[arg(long)]
-    delivery_pr_title: Option<String>,
-    #[arg(long)]
-    delivery_pr_body: Option<String>,
-
-    #[arg(long)]
-    config_save_ron: Option<PathBuf>,
-    #[arg(long)]
-    config_save_bin: Option<PathBuf>,
-    #[arg(long)]
-    config_save_json: Option<PathBuf>,
-    #[arg(long = "config-save")]
-    config_save_auto: Option<PathBuf>,
-
-    #[arg(long)]
-    config_load_ron: Option<PathBuf>,
-    #[arg(long)]
-    config_load_bin: Option<PathBuf>,
-    #[arg(long)]
-    config_load_json: Option<PathBuf>,
-    #[arg(long = "config-load")]
-    config_load_auto: Option<PathBuf>,
-
-    #[arg(long)]
-    ai_config_only_binary: bool,
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-enum CliPolicyStatus {
-    Allow,
-    Deny,
-    Unknown,
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-enum CliCiStatus {
-    Success,
-    Pending,
-    Failure,
-    Missing,
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-enum CliReviewStatus {
-    Approved,
-    #[value(name = "changes_requested")]
-    ChangesRequested,
-    Missing,
-}
-
-impl From<CliPolicyStatus> for PolicyGateStatus {
-    fn from(value: CliPolicyStatus) -> Self {
-        match value {
-            CliPolicyStatus::Allow => Self::Allow,
-            CliPolicyStatus::Deny => Self::Deny,
-            CliPolicyStatus::Unknown => Self::Unknown,
-        }
-    }
-}
-
-impl From<CliCiStatus> for CiGateStatus {
-    fn from(value: CliCiStatus) -> Self {
-        match value {
-            CliCiStatus::Success => Self::Success,
-            CliCiStatus::Pending => Self::Pending,
-            CliCiStatus::Failure => Self::Failure,
-            CliCiStatus::Missing => Self::Missing,
-        }
-    }
-}
-
-impl From<CliReviewStatus> for ReviewGateStatus {
-    fn from(value: CliReviewStatus) -> Self {
-        match value {
-            CliReviewStatus::Approved => Self::Approved,
-            CliReviewStatus::ChangesRequested => Self::ChangesRequested,
-            CliReviewStatus::Missing => Self::Missing,
-        }
-    }
-}
 
 fn main() {
     let raw_args: Vec<String> = std::env::args().skip(1).collect();
