@@ -32,6 +32,7 @@ Delivery lifecycle (feature-flagged):
 - `--delivery-branch <name>`
 - `--delivery-commit-message <message>`
 - `--delivery-pr-enabled`
+- `--delivery-pr-number <number>` (when set, performs PR update instead of create)
 - `--delivery-pr-base <branch>`
 - `--delivery-pr-title <title>`
 - `--delivery-pr-body <body>`

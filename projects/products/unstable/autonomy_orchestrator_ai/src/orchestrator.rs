@@ -607,24 +607,41 @@ impl Orchestrator {
             ));
         }
         if self.delivery_options.pr_enabled {
-            let mut args = vec!["pr".to_string(), "create".to_string()];
-            if let Some(base) = self.delivery_options.pr_base.clone() {
-                args.push("--base".to_string());
-                args.push(base);
+            if let Some(number) = self.delivery_options.pr_number.clone() {
+                let mut args = vec!["pr".to_string(), "edit".to_string(), number];
+                if let Some(base) = self.delivery_options.pr_base.clone() {
+                    args.push("--base".to_string());
+                    args.push(base);
+                }
+                if let Some(title) = self.delivery_options.pr_title.clone() {
+                    args.push("--title".to_string());
+                    args.push(title);
+                }
+                if let Some(body) = self.delivery_options.pr_body.clone() {
+                    args.push("--body".to_string());
+                    args.push(body);
+                }
+                steps.push(("delivery.gh.pr.update".to_string(), "gh".to_string(), args));
+            } else {
+                let mut args = vec!["pr".to_string(), "create".to_string()];
+                if let Some(base) = self.delivery_options.pr_base.clone() {
+                    args.push("--base".to_string());
+                    args.push(base);
+                }
+                if let Some(title) = self.delivery_options.pr_title.clone() {
+                    args.push("--title".to_string());
+                    args.push(title);
+                }
+                if let Some(body) = self.delivery_options.pr_body.clone() {
+                    args.push("--body".to_string());
+                    args.push(body);
+                }
+                if let Some(head) = self.delivery_options.branch.clone() {
+                    args.push("--head".to_string());
+                    args.push(head);
+                }
+                steps.push(("delivery.gh.pr.create".to_string(), "gh".to_string(), args));
             }
-            if let Some(title) = self.delivery_options.pr_title.clone() {
-                args.push("--title".to_string());
-                args.push(title);
-            }
-            if let Some(body) = self.delivery_options.pr_body.clone() {
-                args.push("--body".to_string());
-                args.push(body);
-            }
-            if let Some(head) = self.delivery_options.branch.clone() {
-                args.push("--head".to_string());
-                args.push(head);
-            }
-            steps.push(("delivery.gh.pr.create".to_string(), "gh".to_string(), args));
         }
 
         for (index, (step_id, tool, args)) in steps.into_iter().enumerate() {

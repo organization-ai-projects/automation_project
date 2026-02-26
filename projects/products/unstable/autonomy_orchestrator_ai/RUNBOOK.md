@@ -217,6 +217,7 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
   --delivery-branch feat/example-delivery \
   --delivery-commit-message "feat: scoped fix" \
   --delivery-pr-enabled \
+  --delivery-pr-number 123 \
   --delivery-pr-base dev \
   --delivery-pr-title "Scoped fix" \
   --delivery-pr-body "Automated delivery dry-run"

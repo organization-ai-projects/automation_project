@@ -37,6 +37,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     let delivery_branch = env::var("DELIVERY_BRANCH").ok();
     let delivery_commit_message = env::var("DELIVERY_COMMIT_MESSAGE").ok();
     let delivery_pr_enabled = env_bool("DELIVERY_PR_ENABLED", false);
+    let delivery_pr_number = env::var("DELIVERY_PR_NUMBER").ok();
     let delivery_pr_base = env::var("DELIVERY_PR_BASE").ok();
     let delivery_pr_title = env::var("DELIVERY_PR_TITLE").ok();
     let delivery_pr_body = env::var("DELIVERY_PR_BODY").ok();
@@ -274,6 +275,10 @@ pub fn run(args: &[String]) -> Result<(), String> {
     if delivery_pr_enabled {
         orchestrator_args.push("--delivery-pr-enabled".to_string());
     }
+    if let Some(number) = delivery_pr_number {
+        orchestrator_args.push("--delivery-pr-number".to_string());
+        orchestrator_args.push(number);
+    }
     if let Some(base) = delivery_pr_base {
         orchestrator_args.push("--delivery-pr-base".to_string());
         orchestrator_args.push(base);
@@ -420,6 +425,7 @@ fn print_usage() {
     eprintln!("  DELIVERY_BRANCH");
     eprintln!("  DELIVERY_COMMIT_MESSAGE");
     eprintln!("  DELIVERY_PR_ENABLED (default: false)");
+    eprintln!("  DELIVERY_PR_NUMBER");
     eprintln!("  DELIVERY_PR_BASE");
     eprintln!("  DELIVERY_PR_TITLE");
     eprintln!("  DELIVERY_PR_BODY");

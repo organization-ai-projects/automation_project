@@ -17,6 +17,7 @@ struct MatrixReportView {
 struct StageExecutionView {
     stage: String,
     status: String,
+    command: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -705,6 +706,49 @@ fn matrix_delivery_dry_run_audits_steps_without_side_effects() {
             .iter()
             .any(|e| e.stage == "closure" && e.status == "success"),
         "expected closure delivery dry-run traces"
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.command.contains("delivery.gh.pr.create.dry_run"))
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_delivery_pr_update_dry_run_is_audited() {
+    let out_dir = unique_temp_dir("delivery_pr_update_dry_run");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+            "--delivery-enabled",
+            "--delivery-dry-run",
+            "--delivery-pr-enabled",
+            "--delivery-pr-number",
+            "123",
+            "--delivery-pr-title",
+            "Updated title",
+            "--delivery-pr-body",
+            "Updated body",
+        ],
+        &out_dir,
+    );
+
+    assert!(output.status.success());
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.command.contains("delivery.gh.pr.update.dry_run"))
     );
 
     let _ = fs::remove_dir_all(out_dir);

@@ -309,6 +309,13 @@ fn main() {
                 delivery_options.pr_enabled = true;
                 i += 1;
             }
+            "--delivery-pr-number" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                delivery_options.pr_number = Some(args[i + 1].clone());
+                i += 2;
+            }
             "--delivery-pr-base" => {
                 if i + 1 >= args.len() {
                     usage_and_exit();
@@ -530,6 +537,7 @@ fn usage_and_exit() -> ! {
     eprintln!("  --delivery-branch <name>");
     eprintln!("  --delivery-commit-message <message>");
     eprintln!("  --delivery-pr-enabled");
+    eprintln!("  --delivery-pr-number <number>");
     eprintln!("  --delivery-pr-base <branch>");
     eprintln!("  --delivery-pr-title <title>");
     eprintln!("  --delivery-pr-body <body>");
