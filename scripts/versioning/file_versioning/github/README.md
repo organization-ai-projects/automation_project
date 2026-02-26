@@ -83,6 +83,11 @@ Generated body includes:
 - `### Testing`
 - `### Additional Notes`
 
+Supported issue-closing keywords for resolved issue extraction:
+
+- `Closes #<n>` / `Close #<n>`
+- `Fixes #<n>` (PR body parsing support for Copilot-generated references)
+
 Usage:
 
 ```bash
