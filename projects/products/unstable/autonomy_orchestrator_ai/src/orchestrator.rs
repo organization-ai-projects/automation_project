@@ -3,9 +3,9 @@
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
 use crate::domain::{
-    BinaryInvocationSpec, CiGateStatus, GateDecision, GateInputs, OrchestratorCheckpoint,
-    PolicyGateStatus, ReviewGateStatus, RunReport, Stage, StageExecutionRecord,
-    StageExecutionStatus, StageTransition, TerminalState,
+    BinaryInvocationSpec, CiGateStatus, DeliveryOptions, GateDecision, GateInputs,
+    OrchestratorCheckpoint, PolicyGateStatus, ReviewGateStatus, RunReport, Stage,
+    StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::repo_context_artifact::{
     ValidationInvocationArtifact, read_detected_validation_commands, write_repo_context_artifact,
@@ -14,6 +14,7 @@ use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub struct Orchestrator {
@@ -29,6 +30,7 @@ pub struct Orchestrator {
     planning_context_artifact: Option<PathBuf>,
     validation_invocations: Vec<BinaryInvocationSpec>,
     validation_from_planning_context: bool,
+    delivery_options: DeliveryOptions,
     gate_inputs: GateInputs,
     checkpoint: OrchestratorCheckpoint,
     checkpoint_path: Option<PathBuf>,
@@ -50,6 +52,7 @@ impl Orchestrator {
         planning_context_artifact: Option<PathBuf>,
         validation_invocations: Vec<BinaryInvocationSpec>,
         validation_from_planning_context: bool,
+        delivery_options: DeliveryOptions,
         gate_inputs: GateInputs,
         checkpoint: Option<OrchestratorCheckpoint>,
         checkpoint_path: Option<PathBuf>,
@@ -69,6 +72,7 @@ impl Orchestrator {
             planning_context_artifact,
             validation_invocations,
             validation_from_planning_context,
+            delivery_options,
             gate_inputs,
             checkpoint,
             checkpoint_path,
@@ -113,6 +117,9 @@ impl Orchestrator {
         }
 
         if !self.execute_stage(Stage::Closure, None) {
+            return self.report;
+        }
+        if !self.execute_delivery_lifecycle() {
             return self.report;
         }
         self.report.terminal_state = Some(TerminalState::Done);
@@ -575,6 +582,140 @@ impl Orchestrator {
         }
     }
 
+    fn execute_delivery_lifecycle(&mut self) -> bool {
+        if !self.delivery_options.enabled {
+            return true;
+        }
+        let mut steps: Vec<(String, String, Vec<String>)> = Vec::new();
+        if let Some(branch) = self.delivery_options.branch.clone() {
+            steps.push((
+                "delivery.git.switch_branch".to_string(),
+                "git".to_string(),
+                vec!["switch".to_string(), "-c".to_string(), branch],
+            ));
+        }
+        steps.push((
+            "delivery.git.add".to_string(),
+            "git".to_string(),
+            vec!["add".to_string(), "-A".to_string()],
+        ));
+        if let Some(message) = self.delivery_options.commit_message.clone() {
+            steps.push((
+                "delivery.git.commit".to_string(),
+                "git".to_string(),
+                vec!["commit".to_string(), "-m".to_string(), message],
+            ));
+        }
+        if self.delivery_options.pr_enabled {
+            let mut args = vec!["pr".to_string(), "create".to_string()];
+            if let Some(base) = self.delivery_options.pr_base.clone() {
+                args.push("--base".to_string());
+                args.push(base);
+            }
+            if let Some(title) = self.delivery_options.pr_title.clone() {
+                args.push("--title".to_string());
+                args.push(title);
+            }
+            if let Some(body) = self.delivery_options.pr_body.clone() {
+                args.push("--body".to_string());
+                args.push(body);
+            }
+            if let Some(head) = self.delivery_options.branch.clone() {
+                args.push("--head".to_string());
+                args.push(head);
+            }
+            steps.push(("delivery.gh.pr.create".to_string(), "gh".to_string(), args));
+        }
+
+        for (index, (step_id, tool, args)) in steps.into_iter().enumerate() {
+            if self.delivery_options.dry_run {
+                self.report.stage_executions.push(StageExecutionRecord {
+                    stage: Stage::Closure,
+                    idempotency_key: Some(format!("stage:Closure:delivery:{}", index + 1)),
+                    command: format!("{step_id}.dry_run"),
+                    args,
+                    env_keys: Vec::new(),
+                    started_at_unix_secs: unix_timestamp_secs(),
+                    duration_ms: 0,
+                    exit_code: Some(0),
+                    status: StageExecutionStatus::Success,
+                    error: None,
+                    missing_artifacts: Vec::new(),
+                    malformed_artifacts: Vec::new(),
+                });
+                continue;
+            }
+
+            let started_at_unix_secs = unix_timestamp_secs();
+            let started = Instant::now();
+            let status = Command::new(&tool)
+                .args(&args)
+                .current_dir(&self.repo_root)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+            match status {
+                Ok(exit) if exit.success() => {
+                    self.report.stage_executions.push(StageExecutionRecord {
+                        stage: Stage::Closure,
+                        idempotency_key: Some(format!("stage:Closure:delivery:{}", index + 1)),
+                        command: step_id,
+                        args,
+                        env_keys: Vec::new(),
+                        started_at_unix_secs,
+                        duration_ms: duration_to_u64_ms(started.elapsed()),
+                        exit_code: exit.code(),
+                        status: StageExecutionStatus::Success,
+                        error: None,
+                        missing_artifacts: Vec::new(),
+                        malformed_artifacts: Vec::new(),
+                    });
+                }
+                Ok(exit) => {
+                    self.report.stage_executions.push(StageExecutionRecord {
+                        stage: Stage::Closure,
+                        idempotency_key: Some(format!("stage:Closure:delivery:{}", index + 1)),
+                        command: step_id,
+                        args,
+                        env_keys: Vec::new(),
+                        started_at_unix_secs,
+                        duration_ms: duration_to_u64_ms(started.elapsed()),
+                        exit_code: exit.code(),
+                        status: StageExecutionStatus::Failed,
+                        error: Some("Delivery command failed".to_string()),
+                        missing_artifacts: Vec::new(),
+                        malformed_artifacts: Vec::new(),
+                    });
+                    self.report.terminal_state = Some(TerminalState::Failed);
+                    self.persist_checkpoint();
+                    return false;
+                }
+                Err(err) => {
+                    self.report.stage_executions.push(StageExecutionRecord {
+                        stage: Stage::Closure,
+                        idempotency_key: Some(format!("stage:Closure:delivery:{}", index + 1)),
+                        command: step_id,
+                        args,
+                        env_keys: Vec::new(),
+                        started_at_unix_secs,
+                        duration_ms: duration_to_u64_ms(started.elapsed()),
+                        exit_code: None,
+                        status: StageExecutionStatus::SpawnFailed,
+                        error: Some(format!("Delivery command spawn failed: {err}")),
+                        missing_artifacts: Vec::new(),
+                        malformed_artifacts: Vec::new(),
+                    });
+                    self.report.terminal_state = Some(TerminalState::Failed);
+                    self.persist_checkpoint();
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
     fn mark_terminal_and_persist(&mut self, terminal_state: TerminalState) {
         self.checkpoint
             .mark_terminal(terminal_state, unix_timestamp_secs());
@@ -766,8 +907,8 @@ fn duration_to_u64_ms(duration: std::time::Duration) -> u64 {
 mod tests {
     use super::Orchestrator;
     use crate::domain::{
-        BinaryInvocationSpec, GateInputs, OrchestratorCheckpoint, PolicyGateStatus, Stage,
-        StageExecutionStatus, TerminalState,
+        BinaryInvocationSpec, DeliveryOptions, GateInputs, OrchestratorCheckpoint,
+        PolicyGateStatus, Stage, StageExecutionStatus, TerminalState,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -788,6 +929,7 @@ mod tests {
             None,
             Vec::new(),
             false,
+            DeliveryOptions::disabled(),
             GateInputs::passing(),
             None,
             None,
@@ -817,6 +959,7 @@ mod tests {
             None,
             Vec::new(),
             false,
+            DeliveryOptions::disabled(),
             GateInputs::passing(),
             None,
             None,
@@ -852,6 +995,7 @@ mod tests {
             None,
             Vec::new(),
             false,
+            DeliveryOptions::disabled(),
             GateInputs::passing(),
             None,
             None,
@@ -894,6 +1038,7 @@ mod tests {
             None,
             Vec::new(),
             false,
+            DeliveryOptions::disabled(),
             GateInputs::passing(),
             Some(checkpoint),
             None,
@@ -923,6 +1068,7 @@ mod tests {
             None,
             Vec::new(),
             false,
+            DeliveryOptions::disabled(),
             GateInputs {
                 policy_status: PolicyGateStatus::Unknown,
                 ..GateInputs::passing()
@@ -956,6 +1102,7 @@ mod tests {
             None,
             Vec::new(),
             false,
+            DeliveryOptions::disabled(),
             GateInputs::passing(),
             None,
             None,
@@ -1024,6 +1171,7 @@ mod tests {
             None,
             Vec::new(),
             false,
+            DeliveryOptions::disabled(),
             GateInputs::passing(),
             None,
             None,

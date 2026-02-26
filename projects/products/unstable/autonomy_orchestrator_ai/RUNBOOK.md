@@ -201,6 +201,29 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
   --review-status approved
 ```
 
+## Quickstart: Delivery Lifecycle (Feature-Flagged)
+
+Use delivery flags only after gates are green and outputs are verified.
+
+Dry-run (recommended first):
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved \
+  --delivery-enabled \
+  --delivery-dry-run \
+  --delivery-branch feat/example-delivery \
+  --delivery-commit-message "feat: scoped fix" \
+  --delivery-pr-enabled \
+  --delivery-pr-base dev \
+  --delivery-pr-title "Scoped fix" \
+  --delivery-pr-body "Automated delivery dry-run"
+```
+
+This records delivery actions in `stage_executions` without side effects.
+
 ## Resume Operation
 
 ```bash

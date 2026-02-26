@@ -11,8 +11,8 @@ mod repo_context_artifact;
 
 use crate::checkpoint_store::load_checkpoint;
 use crate::domain::{
-    BinaryInvocationSpec, CiGateStatus, GateInputs, OrchestratorCheckpoint, PolicyGateStatus,
-    ReviewGateStatus, Stage, TerminalState,
+    BinaryInvocationSpec, CiGateStatus, DeliveryOptions, GateInputs, OrchestratorCheckpoint,
+    PolicyGateStatus, ReviewGateStatus, Stage, TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use crate::output_writer::write_run_report;
@@ -69,6 +69,7 @@ fn main() {
     let mut validation_from_planning_context = false;
     let mut repo_root = PathBuf::from(".");
     let mut planning_context_artifact: Option<PathBuf> = None;
+    let mut delivery_options = DeliveryOptions::disabled();
 
     let args = raw_args;
     let mut i = 0usize;
@@ -282,6 +283,53 @@ fn main() {
                 planning_context_artifact = Some(PathBuf::from(args[i + 1].clone()));
                 i += 2;
             }
+            "--delivery-enabled" => {
+                delivery_options.enabled = true;
+                i += 1;
+            }
+            "--delivery-dry-run" => {
+                delivery_options.dry_run = true;
+                i += 1;
+            }
+            "--delivery-branch" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                delivery_options.branch = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--delivery-commit-message" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                delivery_options.commit_message = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--delivery-pr-enabled" => {
+                delivery_options.pr_enabled = true;
+                i += 1;
+            }
+            "--delivery-pr-base" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                delivery_options.pr_base = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--delivery-pr-title" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                delivery_options.pr_title = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--delivery-pr-body" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                delivery_options.pr_body = Some(args[i + 1].clone());
+                i += 2;
+            }
             val if val.starts_with("--") => {
                 eprintln!("Unknown option: {val}");
                 usage_and_exit();
@@ -392,6 +440,9 @@ fn main() {
         "Validation from planning context: {}",
         validation_from_planning_context
     );
+    println!("Delivery enabled: {}", delivery_options.enabled);
+    println!("Delivery dry-run: {}", delivery_options.dry_run);
+    println!("Delivery PR enabled: {}", delivery_options.pr_enabled);
     println!();
 
     let report = Orchestrator::new(
@@ -407,6 +458,7 @@ fn main() {
         planning_context_artifact,
         validation_invocations,
         validation_from_planning_context,
+        delivery_options,
         gate_inputs,
         checkpoint,
         Some(checkpoint_path),
@@ -473,6 +525,14 @@ fn usage_and_exit() -> ! {
     eprintln!("  --validation-from-planning-context");
     eprintln!("  --repo-root <path>                       (default: .)");
     eprintln!("  --planning-context-artifact <path>");
+    eprintln!("  --delivery-enabled");
+    eprintln!("  --delivery-dry-run");
+    eprintln!("  --delivery-branch <name>");
+    eprintln!("  --delivery-commit-message <message>");
+    eprintln!("  --delivery-pr-enabled");
+    eprintln!("  --delivery-pr-base <branch>");
+    eprintln!("  --delivery-pr-title <title>");
+    eprintln!("  --delivery-pr-body <body>");
     process::exit(2);
 }
 

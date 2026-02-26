@@ -96,6 +96,46 @@ pub fn run(args: &[String]) -> ! {
             });
             process::exit(1);
         }
+        "write-file" => {
+            if args.len() != 3 {
+                usage_and_exit();
+            }
+            let path = PathBuf::from(args[1].clone());
+            let content = args[2].clone();
+            if let Some(parent) = path.parent()
+                && !parent.as_os_str().is_empty()
+            {
+                fs::create_dir_all(parent).unwrap_or_else(|err| {
+                    eprintln!("Failed to create file parent directory: {err}");
+                    process::exit(1);
+                });
+            }
+            fs::write(&path, content).unwrap_or_else(|err| {
+                eprintln!("Failed to write file '{}': {err}", path.display());
+                process::exit(1);
+            });
+            process::exit(0);
+        }
+        "assert-file-contains" => {
+            if args.len() != 3 {
+                usage_and_exit();
+            }
+            let path = PathBuf::from(args[1].clone());
+            let needle = args[2].clone();
+            let content = fs::read_to_string(&path).unwrap_or_else(|err| {
+                eprintln!("Failed to read file '{}': {err}", path.display());
+                process::exit(1);
+            });
+            if content.contains(&needle) {
+                process::exit(0);
+            }
+            eprintln!(
+                "Expected file '{}' to contain '{}', but it did not",
+                path.display(),
+                needle
+            );
+            process::exit(1);
+        }
         _ => usage_and_exit(),
     }
 }
@@ -109,5 +149,7 @@ fn usage_and_exit() -> ! {
     eprintln!(
         "  autonomy_orchestrator_ai fixture review-remediation <state_file> <review_report_path>"
     );
+    eprintln!("  autonomy_orchestrator_ai fixture write-file <path> <content>");
+    eprintln!("  autonomy_orchestrator_ai fixture assert-file-contains <path> <needle>");
     process::exit(2);
 }

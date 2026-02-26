@@ -579,3 +579,104 @@ fn matrix_reviewer_remediation_cycle_recovers_to_done() {
 
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn matrix_scoped_task_modifies_repo_and_passes_validation() {
+    let out_dir = unique_temp_dir("scoped_repo_modify");
+    let repo_dir = out_dir.join("repo");
+    fs::create_dir_all(&repo_dir).expect("create repo dir");
+    let generated_file = repo_dir.join("generated_scope_file.rs");
+
+    let args = vec![
+        "--repo-root".to_string(),
+        repo_dir.display().to_string(),
+        "--policy-status".to_string(),
+        "allow".to_string(),
+        "--ci-status".to_string(),
+        "success".to_string(),
+        "--review-status".to_string(),
+        "approved".to_string(),
+        "--executor-bin".to_string(),
+        fixture_bin().to_string(),
+        "--executor-arg".to_string(),
+        "fixture".to_string(),
+        "--executor-arg".to_string(),
+        "write-file".to_string(),
+        "--executor-arg".to_string(),
+        generated_file.display().to_string(),
+        "--executor-arg".to_string(),
+        "pub fn scoped_fix() -> bool { true }".to_string(),
+        "--validation-bin".to_string(),
+        fixture_bin().to_string(),
+        "--validation-arg".to_string(),
+        "fixture".to_string(),
+        "--validation-arg".to_string(),
+        "assert-file-contains".to_string(),
+        "--validation-arg".to_string(),
+        generated_file.display().to_string(),
+        "--validation-arg".to_string(),
+        "scoped_fix".to_string(),
+    ];
+
+    let (output, report) = run_orchestrator_owned(&args, &out_dir);
+    assert!(output.status.success());
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    let content = fs::read_to_string(&generated_file).expect("read generated file");
+    assert!(content.contains("scoped_fix"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "execution" && e.status == "success")
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "validation" && e.status == "success")
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_delivery_dry_run_audits_steps_without_side_effects() {
+    let out_dir = unique_temp_dir("delivery_dry_run");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+            "--delivery-enabled",
+            "--delivery-dry-run",
+            "--delivery-branch",
+            "feat/test-delivery-dry-run",
+            "--delivery-commit-message",
+            "test: dry run delivery",
+            "--delivery-pr-enabled",
+            "--delivery-pr-base",
+            "dev",
+            "--delivery-pr-title",
+            "Dry run delivery PR",
+            "--delivery-pr-body",
+            "No side effects, only audit",
+        ],
+        &out_dir,
+    );
+
+    assert!(output.status.success());
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "closure" && e.status == "success"),
+        "expected closure delivery dry-run traces"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}

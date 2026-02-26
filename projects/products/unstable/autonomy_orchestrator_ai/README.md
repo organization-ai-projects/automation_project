@@ -91,6 +91,24 @@ Supported invocation boundaries are currently:
 - `reviewer` at stage `validation`
 - native `planning.repo_context` action in stage `planning` when `--planning-context-artifact` is set
 - native `validation` invocation execution with `--validation-bin` / `--validation-from-planning-context`
+- optional native `delivery` lifecycle actions in stage `closure` when `--delivery-enabled` is set
+
+Delivery lifecycle is feature-flagged and supports dry-run/audit-first operation:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved \
+  --delivery-enabled \
+  --delivery-dry-run \
+  --delivery-branch feat/example-delivery \
+  --delivery-commit-message "feat: apply scoped fix" \
+  --delivery-pr-enabled \
+  --delivery-pr-base dev \
+  --delivery-pr-title "Scoped fix" \
+  --delivery-pr-body "Automated dry-run delivery orchestration"
+```
 
 When `--resume` is used, stages already marked completed in checkpoint are skipped idempotently. Stage idempotency keys are tracked as `stage:<StageName>` in execution records.
 Resume behavior is covered by binary regression tests in `tests/binary_resume_tests.rs`.
@@ -136,6 +154,7 @@ Scenario documentation:
 Operator documentation:
 
 - `projects/products/unstable/autonomy_orchestrator_ai/RUNBOOK.md`
+- `projects/products/unstable/autonomy_orchestrator_ai/CONTRACT.md`
 
 ## Delivery Notes
 

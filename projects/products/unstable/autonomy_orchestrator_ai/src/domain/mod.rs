@@ -2,6 +2,7 @@
 
 mod binary_invocation_spec;
 mod ci_gate_status;
+mod delivery_options;
 mod gate_decision;
 mod gate_inputs;
 mod orchestrator_checkpoint;
@@ -16,6 +17,7 @@ mod terminal_state;
 
 pub use binary_invocation_spec::BinaryInvocationSpec;
 pub use ci_gate_status::CiGateStatus;
+pub use delivery_options::DeliveryOptions;
 pub use gate_decision::GateDecision;
 pub use gate_inputs::GateInputs;
 pub use orchestrator_checkpoint::OrchestratorCheckpoint;

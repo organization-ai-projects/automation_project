@@ -32,6 +32,14 @@ pub fn run(args: &[String]) -> Result<(), String> {
         "REVIEWER_VALIDATION_COMMANDS",
         "cargo check -p autonomy_orchestrator_ai",
     );
+    let delivery_enabled = env_bool("DELIVERY_ENABLED", false);
+    let delivery_dry_run = env_bool("DELIVERY_DRY_RUN", true);
+    let delivery_branch = env::var("DELIVERY_BRANCH").ok();
+    let delivery_commit_message = env::var("DELIVERY_COMMIT_MESSAGE").ok();
+    let delivery_pr_enabled = env_bool("DELIVERY_PR_ENABLED", false);
+    let delivery_pr_base = env::var("DELIVERY_PR_BASE").ok();
+    let delivery_pr_title = env::var("DELIVERY_PR_TITLE").ok();
+    let delivery_pr_body = env::var("DELIVERY_PR_BODY").ok();
 
     let manager_out_dir = out_dir.join("manager");
     let executor_out_dir = out_dir.join("executor");
@@ -85,6 +93,8 @@ pub fn run(args: &[String]) -> Result<(), String> {
     println!("  executor_agent_max_iterations={executor_agent_max_iterations}");
     println!("  validation_from_planning_context={validation_from_planning_context}");
     println!("  reviewer_strict={reviewer_strict}");
+    println!("  delivery_enabled={delivery_enabled}");
+    println!("  delivery_dry_run={delivery_dry_run}");
     println!("  timeout_ms={timeout_ms}");
     println!();
 
@@ -235,6 +245,36 @@ pub fn run(args: &[String]) -> Result<(), String> {
         orchestrator_args.push("--validation-from-planning-context".to_string());
     }
 
+    if delivery_enabled {
+        orchestrator_args.push("--delivery-enabled".to_string());
+    }
+    if delivery_dry_run {
+        orchestrator_args.push("--delivery-dry-run".to_string());
+    }
+    if let Some(branch) = delivery_branch {
+        orchestrator_args.push("--delivery-branch".to_string());
+        orchestrator_args.push(branch);
+    }
+    if let Some(message) = delivery_commit_message {
+        orchestrator_args.push("--delivery-commit-message".to_string());
+        orchestrator_args.push(message);
+    }
+    if delivery_pr_enabled {
+        orchestrator_args.push("--delivery-pr-enabled".to_string());
+    }
+    if let Some(base) = delivery_pr_base {
+        orchestrator_args.push("--delivery-pr-base".to_string());
+        orchestrator_args.push(base);
+    }
+    if let Some(title) = delivery_pr_title {
+        orchestrator_args.push("--delivery-pr-title".to_string());
+        orchestrator_args.push(title);
+    }
+    if let Some(body) = delivery_pr_body {
+        orchestrator_args.push("--delivery-pr-body".to_string());
+        orchestrator_args.push(body);
+    }
+
     let status = Command::new(orchestrator_bin)
         .args(&orchestrator_args)
         .current_dir(&root_dir)
@@ -355,6 +395,14 @@ fn print_usage() {
     eprintln!("  EXECUTOR_AGENT_MAX_ITERATIONS (default: 20)");
     eprintln!("  ORCH_VALIDATION_FROM_PLANNING_CONTEXT (default: false)");
     eprintln!("  REVIEWER_STRICT (default: true)");
+    eprintln!("  DELIVERY_ENABLED (default: false)");
+    eprintln!("  DELIVERY_DRY_RUN (default: true)");
+    eprintln!("  DELIVERY_BRANCH");
+    eprintln!("  DELIVERY_COMMIT_MESSAGE");
+    eprintln!("  DELIVERY_PR_ENABLED (default: false)");
+    eprintln!("  DELIVERY_PR_BASE");
+    eprintln!("  DELIVERY_PR_TITLE");
+    eprintln!("  DELIVERY_PR_BODY");
     eprintln!(
         "  REVIEWER_VALIDATION_COMMANDS (default: 'cargo check -p autonomy_orchestrator_ai', separator: ';;')"
     );
