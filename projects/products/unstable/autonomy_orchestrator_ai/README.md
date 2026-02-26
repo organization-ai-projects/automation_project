@@ -39,18 +39,20 @@ cargo run -p autonomy_orchestrator_ai -- ./out_replay \
   --config-load-json ./out/orchestrator_config.json
 ```
 
-Auto mode by extension (recommended for no-code profiles):
+Auto mode by extension (binary is recommended for AI runtime):
 
 ```bash
 cargo run -p autonomy_orchestrator_ai -- ./out \
   --policy-status allow \
   --ci-status success \
   --review-status approved \
-  --config-save ./out/orchestrator_config.json
+  --config-save ./out/orchestrator_config.bin
 
 cargo run -p autonomy_orchestrator_ai -- ./out_replay \
-  --config-load ./out/orchestrator_config.json
+  --config-load ./out/orchestrator_config.bin
 ```
+
+If no extension is provided with `--config-save` / `--config-load`, binary format is used by default.
 
 Optional blocked simulation:
 

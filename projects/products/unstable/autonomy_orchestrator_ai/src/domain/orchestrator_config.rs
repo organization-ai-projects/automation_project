@@ -146,11 +146,12 @@ impl OrchestratorConfig {
 
     pub fn save_auto(&self, path: &Path) -> Result<(), String> {
         match Self::extension(path).as_deref() {
+            None => self.save_bin(path),
             Some("ron") => self.save_ron(path),
             Some("bin") => self.save_bin(path),
             Some("json") => self.save_json(path),
             _ => Err(format!(
-                "Unsupported config extension for '{}': expected .ron, .bin, or .json",
+                "Unsupported config extension for '{}': expected .ron, .bin, or .json (or no extension for binary)",
                 path.display()
             )),
         }
@@ -158,11 +159,12 @@ impl OrchestratorConfig {
 
     pub fn load_auto(path: &Path) -> Result<Self, String> {
         match Self::extension(path).as_deref() {
+            None => Self::load_bin(path),
             Some("ron") => Self::load_ron(path),
             Some("bin") => Self::load_bin(path),
             Some("json") => Self::load_json(path),
             _ => Err(format!(
-                "Unsupported config extension for '{}': expected .ron, .bin, or .json",
+                "Unsupported config extension for '{}': expected .ron, .bin, or .json (or no extension for binary)",
                 path.display()
             )),
         }

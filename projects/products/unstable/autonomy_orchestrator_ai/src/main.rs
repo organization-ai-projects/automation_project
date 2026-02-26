@@ -695,11 +695,15 @@ fn usage_and_exit() -> ! {
     eprintln!("  --delivery-pr-base <branch>");
     eprintln!("  --delivery-pr-title <title>");
     eprintln!("  --delivery-pr-body <body>");
-    eprintln!("  --config-load <path>                     (.ron | .bin | .json)");
+    eprintln!(
+        "  --config-load <path>                     (.ron | .bin | .json; no extension => binary)"
+    );
     eprintln!("  --config-load-ron <path>");
     eprintln!("  --config-load-bin <path>");
     eprintln!("  --config-load-json <path>");
-    eprintln!("  --config-save <path>                     (.ron | .bin | .json)");
+    eprintln!(
+        "  --config-save <path>                     (.ron | .bin | .json; no extension => binary)"
+    );
     eprintln!("  --config-save-ron <path>");
     eprintln!("  --config-save-bin <path>");
     eprintln!("  --config-save-json <path>");
