@@ -60,6 +60,14 @@ Preflight validation (with optional AI binary-only policy):
 cargo run -p autonomy_orchestrator_ai -- config-validate ./out/orchestrator_config.bin --ai-config-only-binary
 ```
 
+Canonicalize to latest binary config directly:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- config-canonicalize \
+  ./out/orchestrator_config.json \
+  ./out/orchestrator_config.bin
+```
+
 Optional blocked simulation:
 
 ```bash

@@ -270,3 +270,11 @@ cargo run -p autonomy_orchestrator_ai -- config-validate ./out/orchestrator_conf
 ```
 
 `config-validate` reports actionable diagnostics (what is wrong and how to fix it) and exits non-zero when invalid.
+
+Convert any supported config input to latest canonical binary:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- config-canonicalize \
+  ./out/orchestrator_config.json \
+  ./out/orchestrator_config.bin
+```

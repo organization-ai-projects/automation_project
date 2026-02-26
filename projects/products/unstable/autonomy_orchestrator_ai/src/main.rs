@@ -40,6 +40,12 @@ fn main() {
     ) {
         run_config_validate(&raw_args[1..]);
     }
+    if matches!(
+        raw_args.first().map(String::as_str),
+        Some("config-canonicalize")
+    ) {
+        run_config_canonicalize(&raw_args[1..]);
+    }
     if matches!(raw_args.first().map(String::as_str), Some("linked-stack")) {
         match linked_stack::run(&raw_args[1..]) {
             Ok(()) => process::exit(0),
@@ -754,6 +760,92 @@ fn run_config_validate(args: &[String]) -> ! {
     process::exit(3);
 }
 
+fn run_config_canonicalize(args: &[String]) -> ! {
+    let mut input_path: Option<PathBuf> = None;
+    let mut output_path: Option<PathBuf> = None;
+    let mut ai_config_only_binary = false;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--ai-config-only-binary" => {
+                ai_config_only_binary = true;
+                i += 1;
+            }
+            val if val.starts_with("--") => {
+                eprintln!("Unknown option for config-canonicalize: {val}");
+                process::exit(2);
+            }
+            val => {
+                if input_path.is_none() {
+                    input_path = Some(PathBuf::from(val));
+                } else if output_path.is_none() {
+                    output_path = Some(PathBuf::from(val));
+                } else {
+                    eprintln!(
+                        "config-canonicalize accepts exactly two paths: <input_config> <output_bin_config>"
+                    );
+                    process::exit(2);
+                }
+                i += 1;
+            }
+        }
+    }
+
+    let Some(input_path) = input_path else {
+        eprintln!(
+            "Usage: autonomy_orchestrator_ai config-canonicalize <input_config> <output_bin_config> [--ai-config-only-binary]"
+        );
+        process::exit(2);
+    };
+    let Some(output_path) = output_path else {
+        eprintln!(
+            "Usage: autonomy_orchestrator_ai config-canonicalize <input_config> <output_bin_config> [--ai-config-only-binary]"
+        );
+        process::exit(2);
+    };
+
+    if ai_config_only_binary
+        && (!is_binary_config_path(&input_path) || !is_binary_config_path(&output_path))
+    {
+        eprintln!(
+            "AI binary-only mode forbids non-binary config path(s). Use .bin or no extension."
+        );
+        process::exit(2);
+    }
+
+    let config = match OrchestratorConfig::load_auto(&input_path) {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("{err}");
+            process::exit(1);
+        }
+    };
+
+    let diagnostics = validate_orchestrator_config(&config);
+    if !diagnostics.is_empty() {
+        eprintln!(
+            "Config canonicalization blocked, input config is invalid '{}':",
+            input_path.display()
+        );
+        for diag in diagnostics {
+            eprintln!("- {diag}");
+        }
+        process::exit(3);
+    }
+
+    if let Err(err) = config.save_bin(&output_path) {
+        eprintln!("{err}");
+        process::exit(1);
+    }
+
+    println!(
+        "Canonical binary config written: {} -> {}",
+        input_path.display(),
+        output_path.display()
+    );
+    process::exit(0);
+}
+
 fn validate_orchestrator_config(config: &OrchestratorConfig) -> Vec<String> {
     let mut diagnostics = Vec::new();
     if config.timeout_ms == 0 {
@@ -786,6 +878,9 @@ fn usage_and_exit() -> ! {
     eprintln!("Usage:");
     eprintln!("  autonomy_orchestrator_ai [output_dir] [options]");
     eprintln!("  autonomy_orchestrator_ai config-validate <config_path> [--ai-config-only-binary]");
+    eprintln!(
+        "  autonomy_orchestrator_ai config-canonicalize <input_config> <output_bin_config> [--ai-config-only-binary]"
+    );
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --resume");

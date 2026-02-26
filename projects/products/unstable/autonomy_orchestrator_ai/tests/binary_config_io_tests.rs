@@ -371,3 +371,83 @@ fn config_validate_reports_actionable_diagnostics() {
 
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn config_canonicalize_converts_json_to_binary() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir = unique_temp_dir("config_canonicalize_json_to_bin");
+    let json_path = out_dir.join("orchestrator_config.json");
+    let bin_path = out_dir.join("orchestrator_config_latest.bin");
+
+    let save_output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save-json")
+        .arg(&json_path)
+        .output()
+        .expect("execute save run");
+    assert!(save_output.status.success());
+
+    let canonicalize_output = Command::new(bin)
+        .arg("config-canonicalize")
+        .arg(&json_path)
+        .arg(&bin_path)
+        .output()
+        .expect("execute config-canonicalize");
+    assert!(canonicalize_output.status.success());
+    assert!(
+        bin_path.exists(),
+        "canonical binary config should be written"
+    );
+    let raw = fs::read(&bin_path).expect("read canonical binary config");
+    assert!(
+        raw.starts_with(b"AOCF"),
+        "expected binary config header AOCF, got bytes: {:?}",
+        &raw.get(0..4).unwrap_or_default()
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn config_canonicalize_rejects_non_binary_paths_in_ai_mode() {
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let out_dir = unique_temp_dir("config_canonicalize_ai_binary_only");
+    let json_path = out_dir.join("orchestrator_config.json");
+    let bin_path = out_dir.join("orchestrator_config_latest.bin");
+
+    let save_output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--config-save-json")
+        .arg(&json_path)
+        .output()
+        .expect("execute save run");
+    assert!(save_output.status.success());
+
+    let canonicalize_output = Command::new(bin)
+        .arg("config-canonicalize")
+        .arg(&json_path)
+        .arg(&bin_path)
+        .arg("--ai-config-only-binary")
+        .output()
+        .expect("execute config-canonicalize");
+    assert!(!canonicalize_output.status.success());
+    let stderr = String::from_utf8_lossy(&canonicalize_output.stderr);
+    assert!(
+        stderr.contains("AI binary-only mode forbids non-binary config path"),
+        "unexpected stderr: {stderr}"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
