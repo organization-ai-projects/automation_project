@@ -15,6 +15,9 @@ mod pending_validation_invocation;
 mod repo_context_artifact;
 mod run_args;
 mod runtime;
+mod runtime_diagnostics;
+mod tests;
+mod validation_invocation_parser;
 
 use crate::cli_command::Cli;
 use crate::commands::Commands;
