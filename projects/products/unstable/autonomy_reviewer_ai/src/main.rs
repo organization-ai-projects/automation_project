@@ -44,9 +44,15 @@ struct ReviewInputs {
     manager_run_report: Option<PathBuf>,
     executor_run_report: Option<PathBuf>,
     executor_audit_log: Option<PathBuf>,
-    validation_commands: Vec<String>,
-    validation_shell: String,
+    validation_invocations: Vec<ValidationInvocation>,
     strict: bool,
+}
+
+#[derive(Debug, Clone)]
+struct ValidationInvocation {
+    command: String,
+    args: Vec<String>,
+    env: Vec<(String, String)>,
 }
 
 fn main() {
@@ -192,36 +198,38 @@ fn main() {
         ));
     }
 
-    for command_text in &inputs.validation_commands {
-        executed_validation_commands.push(command_text.clone());
-        let status = Command::new(&inputs.validation_shell)
-            .arg("-c")
-            .arg(command_text)
+    for invocation in &inputs.validation_invocations {
+        let rendered_command = render_invocation(invocation);
+        executed_validation_commands.push(rendered_command.clone());
+        let mut command = Command::new(&invocation.command);
+        command
+            .args(&invocation.args)
             .current_dir(&inputs.repo_root)
-            .status();
+            .envs(invocation.env.clone());
+        let status = command.status();
         match status {
             Ok(exit) if exit.success() => {}
             Ok(exit) => {
-                failed_validation_commands.push(command_text.clone());
+                failed_validation_commands.push(rendered_command.clone());
                 findings.push(item(
                     "VALIDATION_COMMAND_FAILED",
                     format!(
-                        "validation command failed (exit={:?}): {}",
+                        "validation invocation failed (exit={:?}): {}",
                         exit.code(),
-                        command_text
+                        rendered_command
                     ),
-                    "Run the command locally, fix the failing checks, then rerun reviewer/orchestrator.",
+                    "Run the invocation locally, fix the failing checks, then rerun reviewer/orchestrator.",
                 ));
             }
             Err(err) => {
-                failed_validation_commands.push(command_text.clone());
+                failed_validation_commands.push(rendered_command.clone());
                 findings.push(item(
                     "VALIDATION_COMMAND_SPAWN_FAILED",
                     format!(
-                        "validation command spawn failed (shell='{}'): {} ({})",
-                        inputs.validation_shell, command_text, err
+                        "validation invocation spawn failed: {} ({})",
+                        rendered_command, err
                     ),
-                    "Verify --validation-shell exists and command syntax is valid.",
+                    "Verify --validation-bin exists and arguments are valid.",
                 ));
             }
         }
@@ -273,8 +281,7 @@ fn parse_args() -> ReviewInputs {
     let mut manager_run_report = None;
     let mut executor_run_report = None;
     let mut executor_audit_log = None;
-    let mut validation_commands = Vec::new();
-    let mut validation_shell = "/bin/sh".to_string();
+    let mut validation_invocations: Vec<ValidationInvocation> = Vec::new();
     let mut strict = false;
 
     let mut i = 0usize;
@@ -308,18 +315,37 @@ fn parse_args() -> ReviewInputs {
                 executor_audit_log = Some(PathBuf::from(args[i + 1].clone()));
                 i += 2;
             }
-            "--validation-command" => {
+            "--validation-bin" => {
                 if i + 1 >= args.len() {
                     usage_and_exit();
                 }
-                validation_commands.push(args[i + 1].clone());
+                validation_invocations.push(ValidationInvocation {
+                    command: args[i + 1].clone(),
+                    args: Vec::new(),
+                    env: Vec::new(),
+                });
                 i += 2;
             }
-            "--validation-shell" => {
+            "--validation-arg" => {
                 if i + 1 >= args.len() {
                     usage_and_exit();
                 }
-                validation_shell = args[i + 1].clone();
+                let Some(last) = validation_invocations.last_mut() else {
+                    eprintln!("--validation-arg requires a preceding --validation-bin");
+                    process::exit(2);
+                };
+                last.args.push(args[i + 1].clone());
+                i += 2;
+            }
+            "--validation-env" => {
+                if i + 1 >= args.len() {
+                    usage_and_exit();
+                }
+                let Some(last) = validation_invocations.last_mut() else {
+                    eprintln!("--validation-env requires a preceding --validation-bin");
+                    process::exit(2);
+                };
+                last.env.push(parse_env_pair(&args[i + 1]));
                 i += 2;
             }
             "--strict" => {
@@ -337,8 +363,7 @@ fn parse_args() -> ReviewInputs {
         manager_run_report,
         executor_run_report,
         executor_audit_log,
-        validation_commands,
-        validation_shell,
+        validation_invocations,
         strict,
     }
 }
@@ -352,10 +377,35 @@ fn usage_and_exit() -> ! {
     eprintln!("  --manager-run-report <path>");
     eprintln!("  --executor-run-report <path>");
     eprintln!("  --executor-audit-log <path>");
-    eprintln!("  --validation-command <shell command>     (repeatable)");
-    eprintln!("  --validation-shell <path>                (default: /bin/sh)");
+    eprintln!("  --validation-bin <path>                  (repeatable)");
+    eprintln!(
+        "  --validation-arg <value>                 (repeatable; binds to last --validation-bin)"
+    );
+    eprintln!(
+        "  --validation-env <KEY=VALUE>             (repeatable; binds to last --validation-bin)"
+    );
     eprintln!("  --strict");
     process::exit(2);
+}
+
+fn parse_env_pair(raw: &str) -> (String, String) {
+    let mut split = raw.splitn(2, '=');
+    let key = split.next().unwrap_or_default().trim();
+    let value = split.next();
+    if key.is_empty() || value.is_none() {
+        eprintln!("Invalid env pair '{}', expected KEY=VALUE", raw);
+        process::exit(2);
+    }
+    (key.to_string(), value.unwrap_or_default().to_string())
+}
+
+fn render_invocation(invocation: &ValidationInvocation) -> String {
+    let mut text = invocation.command.clone();
+    for arg in &invocation.args {
+        text.push(' ');
+        text.push_str(arg);
+    }
+    text
 }
 
 fn check_json_artifact<F: FnOnce(&Json, &mut Vec<ReviewItem>, &mut Vec<ReviewItem>)>(

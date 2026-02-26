@@ -23,14 +23,14 @@ Optional strict mode:
 cargo run -p autonomy_reviewer_ai -- ... --strict
 ```
 
-Optional validation command execution inside `<repo_root>`:
+Optional validation invocation execution inside `<repo_root>`:
 
 ```bash
 cargo run -p autonomy_reviewer_ai -- \
   . \
   ./out/reviewer \
-  --validation-command "cargo check -p autonomy_orchestrator_ai" \
-  --validation-command "cargo test -p autonomy_orchestrator_ai --test binary_e2e_matrix_tests"
+  --validation-bin cargo --validation-arg check --validation-arg -p --validation-arg autonomy_orchestrator_ai \
+  --validation-bin cargo --validation-arg test --validation-arg -p --validation-arg autonomy_orchestrator_ai --validation-arg --test --validation-arg binary_e2e_matrix_tests
 ```
 
 ## Output
