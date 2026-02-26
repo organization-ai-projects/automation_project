@@ -1,4 +1,4 @@
-// projects/products/unstable/autonomy_orchestrator_ai/src/cli_command/cli_reviews_status.rs
+// projects/products/unstable/autonomy_orchestrator_ai/src/cli_command/cli_review_status.rs
 use crate::domain::ReviewGateStatus;
 use clap::ValueEnum;
 
