@@ -83,6 +83,11 @@ Generated body includes:
 - `### Testing`
 - `### Additional Notes`
 
+Supported issue-closing keywords for resolved issue extraction:
+
+- `Closes #<n>` / `Close #<n>`
+- `Fixes #<n>` (PR body parsing support for Copilot-generated references)
+
 Usage:
 
 ```bash
@@ -98,6 +103,7 @@ Key options:
 - `--create-pr`: In dry-run mode, optionally create the PR with the generated body.
 - `--allow-partial-create`: Allow PR creation even if GitHub enrichment is incomplete.
 - `--auto-edit PR_NUMBER`: Generate body in memory and update an existing PR directly (no output file).
+  When updating an existing PR, the current `### Validation Checklist` section is preserved (checkbox state is kept).
 - `--duplicate-mode MODE`: Duplicate handling mode (`safe` or `auto-close`).
 - `--yes`: Non-interactive confirmation when `--create-pr` is used.
 - `--debug`: Enable extraction and classification traces on stderr.
