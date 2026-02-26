@@ -92,8 +92,22 @@ Typical causes:
 Remediation:
 
 - inspect `stage_executions[].error`
+- inspect `reviewer_next_steps` in `orchestrator_run_report.json` when reviewer is configured
 - fix binary path, args, env, or artifact contract
 - rerun with `--resume`
+
+### Reviewer-Driven Remediation Loop
+
+When `--reviewer-remediation-max-cycles` is greater than `0`, a failed validation with reviewer
+`next_step_plan` can trigger bounded reruns of `execution -> validation`.
+
+Operational notes:
+
+- loop is bounded by `--reviewer-remediation-max-cycles`
+- executor receives reviewer feedback through environment variables:
+  - `ORCHESTRATOR_REMEDIATION_CYCLE`
+  - `ORCHESTRATOR_REMEDIATION_STEPS`
+- if remediation budget is exhausted, run remains `failed` (fail-closed)
 
 ### Terminal State: `timeout`
 
@@ -114,12 +128,8 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
   --policy-status allow \
   --ci-status success \
   --review-status approved \
-  --manager-bin /bin/sh \
-  --manager-arg -c \
-  --manager-arg "exit 0" \
-  --executor-bin /bin/sh \
-  --executor-arg -c \
-  --executor-arg "exit 0"
+  --manager-bin /usr/bin/true \
+  --executor-bin /usr/bin/true
 ```
 
 ## Quickstart: CI-Like Orchestration
@@ -143,6 +153,78 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
   --executor-env AUTONOMOUS_REQUIRE_ISSUE_COMPLIANCE=true
 ```
 
+## Quickstart: Linked Three-AI Delegation
+
+Use the dedicated helper to wire:
+
+- `auto_manager_ai` as planning manager
+- `autonomous_dev_ai` as execution agent
+- `autonomy_reviewer_ai` as validation reviewer
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- linked-stack \
+  ./out/orchestrator_linked_ai \
+  . \
+  "Investigate and propose safe fixes for unstable test failures"
+```
+
+By default, this helper:
+
+- builds all four binaries (orchestrator + 3 delegated AIs)
+- enables deterministic fallback for `auto_manager_ai`
+- runs `autonomous_dev_ai` in `--symbolic-only` mode for safer local validation
+- enforces expected output artifacts from delegated binaries
+- sets bounded execution retries via `--execution-max-iterations` (default: `2`)
+
+## Quickstart: Native Validation Invocations
+
+When no reviewer binary is available, validation can be delegated to native binary invocations:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved \
+  --validation-bin cargo --validation-arg check --validation-arg -p --validation-arg autonomy_orchestrator_ai \
+  --validation-bin cargo --validation-arg test --validation-arg -p --validation-arg autonomy_orchestrator_ai
+```
+
+You can also source validation invocations detected during planning:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --repo-root . \
+  --planning-context-artifact ./out/planning/repo_context.json \
+  --validation-from-planning-context \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved
+```
+
+## Quickstart: Delivery Lifecycle (Feature-Flagged)
+
+Use delivery flags only after gates are green and outputs are verified.
+
+Dry-run (recommended first):
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved \
+  --delivery-enabled \
+  --delivery-dry-run \
+  --delivery-branch feat/example-delivery \
+  --delivery-commit-message "feat: scoped fix" \
+  --delivery-pr-enabled \
+  --delivery-pr-number 123 \
+  --delivery-pr-base dev \
+  --delivery-pr-title "Scoped fix" \
+  --delivery-pr-body "Automated delivery dry-run"
+```
+
+This records delivery actions in `stage_executions` without side effects.
+
 ## Resume Operation
 
 ```bash
@@ -150,3 +232,74 @@ cargo run -p autonomy_orchestrator_ai -- ./out --resume
 ```
 
 Resume preserves idempotence using stage checkpoint semantics. Completed stages are skipped and tracked as skipped stage executions.
+
+## Operational Limits
+
+Hard limits to keep runs deterministic and bounded:
+
+- `--execution-max-iterations` must be `>= 1` and limits execution retries.
+- `--reviewer-remediation-max-cycles` limits reviewer-driven remediation loops.
+- `--timeout-ms` applies per delegated invocation.
+- gate defaults are fail-closed (`policy=unknown`, `ci=missing`, `review=missing`).
+
+Recommended safe profile:
+
+- start with `--delivery-enabled --delivery-dry-run`
+- keep `--execution-max-iterations` low (`1..3`)
+- increase `--timeout-ms` only when justified by command runtime
+
+## Rollback Procedure
+
+Use this sequence when an autonomous run produced incorrect or undesired changes.
+
+1. Stop autonomous loops and keep the last `orchestrator_run_report.json` + `orchestrator_checkpoint.json` as audit evidence.
+2. Inspect `stage_executions` and `reviewer_next_steps` to identify the failing or risky action.
+3. Revert repository changes using your standard VCS workflow (for example: revert commit(s) or reset local branch to known-good state).
+4. Re-run the orchestrator in dry-run mode first (`--delivery-enabled --delivery-dry-run`) to verify corrected behavior.
+5. Resume only when gates are explicitly green (`policy=allow`, `ci=success`, `review=approved`).
+
+## Config Save/Load (No-Code Profile)
+
+Persist orchestration config and replay it without rebuilding CLI argument sets:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved \
+  --config-save-ron ./out/orchestrator_config.ron \
+  --config-save-bin ./out/orchestrator_config.bin \
+  --config-save-json ./out/orchestrator_config.json
+
+cargo run -p autonomy_orchestrator_ai -- ./out_replay --config-load-json ./out/orchestrator_config.json
+```
+
+Auto mode by extension is also available (binary is recommended for AI runtime):
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- ./out \
+  --policy-status allow \
+  --ci-status success \
+  --review-status approved \
+  --config-save ./out/orchestrator_config.bin
+
+cargo run -p autonomy_orchestrator_ai -- ./out_replay --config-load ./out/orchestrator_config.bin
+```
+
+If no extension is provided with `--config-save` / `--config-load`, binary format is used by default.
+
+Validate config before run:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- config-validate ./out/orchestrator_config.bin --ai-config-only-binary
+```
+
+`config-validate` reports actionable diagnostics (what is wrong and how to fix it) and exits non-zero when invalid.
+
+Convert any supported config input to latest canonical binary:
+
+```bash
+cargo run -p autonomy_orchestrator_ai -- config-canonicalize \
+  ./out/orchestrator_config.json \
+  ./out/orchestrator_config.bin
+```

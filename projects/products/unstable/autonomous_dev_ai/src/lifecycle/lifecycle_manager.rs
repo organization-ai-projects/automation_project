@@ -2198,6 +2198,16 @@ impl LifecycleManager {
             self.current_step_index.get()
         );
 
+        let has_remaining_steps = self
+            .current_plan
+            .as_ref()
+            .map(|plan| self.current_step_index.get() < plan.steps.len())
+            .unwrap_or(false);
+
+        if has_remaining_steps {
+            return self.transition_to(AgentState::ExecuteStep);
+        }
+
         self.transition_to(AgentState::EvaluateObjectives)
     }
 
@@ -2328,12 +2338,28 @@ impl LifecycleManager {
         });
         let policy_safety = if has_policy_failure { 0.0 } else { 1.0 };
 
+        let assume_validation_pass_without_test_step =
+            std::env::var("AUTONOMOUS_ASSUME_VALIDATION_PASS_WHEN_NO_TEST_STEP")
+                .ok()
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false);
+        let has_run_tests_step = self
+            .current_plan
+            .as_ref()
+            .map(|p| p.steps.iter().any(|s| s.tool == "run_tests"))
+            .unwrap_or(false);
         let tests_pass = self
             .memory
             .metadata
             .get("last_validation_success")
             .map(|v| if v == "true" { 1.0 } else { 0.0 })
-            .unwrap_or(0.7);
+            .unwrap_or_else(|| {
+                if assume_validation_pass_without_test_step && !has_run_tests_step {
+                    1.0
+                } else {
+                    0.7
+                }
+            });
 
         let minimal_diff = if self.memory.explored_files.len() <= 20 {
             1.0

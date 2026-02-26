@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/checkpoint_store.rs
-
 use crate::domain::OrchestratorCheckpoint;
 use common_json::{from_str, to_string_pretty};
 use std::fs;
