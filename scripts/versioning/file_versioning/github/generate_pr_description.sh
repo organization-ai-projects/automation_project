@@ -146,6 +146,60 @@ debug_log() {
   fi
 }
 
+extract_validation_checklist_section() {
+  local markdown_body="$1"
+  printf "%s\n" "$markdown_body" | awk '
+    BEGIN { in_section = 0; found = 0 }
+    /^### Validation Checklist$/ {
+      in_section = 1
+      found = 1
+      print
+      next
+    }
+    in_section && /^### / {
+      exit
+    }
+    in_section {
+      print
+    }
+    END {
+      if (!found) {
+        exit 1
+      }
+    }
+  '
+}
+
+inject_validation_checklist_section() {
+  local generated_body="$1"
+  local checklist_file="$2"
+  awk '
+    FNR == NR {
+      replacement = replacement $0 ORS
+      next
+    }
+    /^### Validation Checklist$/ {
+      if (!replaced) {
+        printf "%s", replacement
+        replaced = 1
+      }
+      in_section = 1
+      next
+    }
+    in_section && /^### / {
+      in_section = 0
+      print
+      next
+    }
+    in_section {
+      next
+    }
+    {
+      print
+    }
+  ' "$checklist_file" <(printf "%s\n" "$generated_body")
+}
+
 if [[ "$auto_mode" == "true" ]]; then
   dry_run="true"
   create_pr="true"
@@ -1155,6 +1209,15 @@ if [[ -n "$auto_edit_pr_number" ]]; then
     if [[ -z "$repo_name_with_owner" ]]; then
       echo "Error: unable to determine GitHub repository for --auto-edit." >&2
       exit "$E_DEPENDENCY"
+    fi
+    existing_pr_body="$(gh pr view "$auto_edit_pr_number" --json body -q '.body' 2>/dev/null || true)"
+    if [[ -n "$existing_pr_body" ]]; then
+      checklist_tmp="$(mktemp)"
+      if extract_validation_checklist_section "$existing_pr_body" > "$checklist_tmp"; then
+        preserved_body="$(inject_validation_checklist_section "$body_content" "$checklist_tmp")"
+        body_content="$preserved_body"
+      fi
+      rm -f "$checklist_tmp"
     fi
     gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
       --raw-field body="$body_content" >/dev/null

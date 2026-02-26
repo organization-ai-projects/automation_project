@@ -82,6 +82,26 @@ if [[ "${1:-}" == "pr" && "${2:-}" == "view" && "${3:-}" == "42" ]]; then
     exit 0
   fi
 fi
+if [[ "${1:-}" == "pr" && "${2:-}" == "view" && "${3:-}" == "400" ]]; then
+  if [[ "${4:-}" == "--json" && "${5:-}" == "body" && "${6:-}" == "-q" ]]; then
+    printf "%s\n" "${MOCK_EXISTING_PR_BODY:-}"
+    exit 0
+  fi
+fi
+if [[ "${1:-}" == "api" && "${2:-}" == "-X" && "${3:-}" == "PATCH" && "${4:-}" == "repos/owner/repo/pulls/400" ]]; then
+  shift 4
+  while [[ $# -gt 0 ]]; do
+    if [[ "${1:-}" == "--raw-field" ]]; then
+      value="${2:-}"
+      if [[ "$value" =~ ^body= ]]; then
+        printf "%s\n" "${value#body=}" > "${MOCK_PATCH_BODY_FILE}"
+        exit 0
+      fi
+    fi
+    shift
+  done
+  exit 0
+fi
 if [[ "${1:-}" == "pr" && "${2:-}" == "view" && "${3:-}" == "693" ]]; then
   if [[ "${4:-}" == "--json" && "${5:-}" == "title,body,labels" ]]; then
     cat <<'JSON'
@@ -254,6 +274,31 @@ main() {
     fi
   else
     echo "FAIL [auto-create-adds-pull-request-label] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
+  build_mock_bin "${tmp}/bin"
+  patched_body_file="${tmp}/patched_body.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_PATCH_BODY_FILE="${patched_body_file}" \
+    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Validation Checklist\n- [x] Tests have been added or updated, and all tests pass.\n- [x] Documentation has been updated as needed.\n- [ ] Breaking changes (if any) are clearly documented above.\n\n### Additional Notes\nkeep' \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --auto-edit 400 --yes 42
+  ) >/dev/null 2>&1; then
+    if grep -q -- "### Validation Checklist" "${patched_body_file}" \
+      && grep -q -- "- \\[x\\] Tests have been added or updated, and all tests pass\\." "${patched_body_file}" \
+      && grep -q -- "- \\[x\\] Documentation has been updated as needed\\." "${patched_body_file}"; then
+      echo "PASS [auto-edit-preserves-existing-validation-checklist]"
+    else
+      echo "FAIL [auto-edit-preserves-existing-validation-checklist] expected checked checklist items preserved"
+      sed -n '1,220p' "${patched_body_file}" || true
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [auto-edit-preserves-existing-validation-checklist] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"
