@@ -39,6 +39,7 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         run_id: String,
         simulate_blocked: bool,
