@@ -31,13 +31,16 @@ members = [
   "projects/products/unstable/auto_manager_ai",
   "projects/products/unstable/autonomy_orchestrator_ai",
   "projects/products/unstable/autonomous_dev_ai",
+  "projects/products/unstable/autonomy_reviewer_ai",
   "projects/libraries/core/foundation/ast_core",
   "projects/libraries/core/foundation/ast_macros",
   "projects/libraries/core/foundation/pjson_proc_macros",
   "projects/libraries/core/foundation/hybrid_arena",
   "projects/libraries/layers/domain/versioning",
-  "projects/products/unstable/platform_versioning/backend",
-  "projects/products/unstable/platform_versioning/ui",
+  "projects/products/stable/platform_versioning/backend",
+  "projects/products/stable/platform_versioning/ui",
+  "projects/products/stable/platform_ide/backend",
+  "projects/products/stable/platform_ide/ui",
 ]
 resolver = "2"
 

@@ -1,10 +1,13 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/mod.rs
-
 mod binary_invocation_spec;
 mod ci_gate_status;
+mod command_line_spec;
+mod delivery_options;
+mod execution_policy;
 mod gate_decision;
 mod gate_inputs;
 mod orchestrator_checkpoint;
+mod orchestrator_config;
 mod policy_gate_status;
 mod review_gate_status;
 mod run_report;
@@ -16,9 +19,13 @@ mod terminal_state;
 
 pub use binary_invocation_spec::BinaryInvocationSpec;
 pub use ci_gate_status::CiGateStatus;
+pub use command_line_spec::CommandLineSpec;
+pub use delivery_options::DeliveryOptions;
+pub use execution_policy::ExecutionPolicy;
 pub use gate_decision::GateDecision;
 pub use gate_inputs::GateInputs;
 pub use orchestrator_checkpoint::OrchestratorCheckpoint;
+pub use orchestrator_config::OrchestratorConfig;
 pub use policy_gate_status::PolicyGateStatus;
 pub use review_gate_status::ReviewGateStatus;
 pub use run_report::RunReport;

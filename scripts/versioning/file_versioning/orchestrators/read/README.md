@@ -1,6 +1,6 @@
 # Read-Only Orchestrator Components Documentation
 
-This directory contains **internal scripts** called by executable orchestrators. They are not meant to be run directly, but you can if you understand what they do.
+This directory contains **internal scripts** called by executable orchestrators. They are not meant to be run directly.
 
 ## Role in the Project
 
@@ -28,7 +28,7 @@ read/
 - `README.md`: This file.
 - `TOC.md`: Documentation index for read orchestrators.
 - `check_priority_issues.sh`: Lists priority/security issues.
-- `create_pr.sh`: Creates pull requests.
+- `create_pr.sh`: Internal PR creation helper (direct invocation is blocked).
 - `synch_main_dev_ci.sh`: Automates dev/main sync (bot-only).
 
 ## Scripts
@@ -82,14 +82,12 @@ Shows issue number, title, and GitHub URL for each priority issue.
 
 ### `create_pr.sh`
 
-**Create a pull request from current branch with automated test validation.**
+**Internal PR creation helper used by canonical GitHub PR generator flows.**
 
-Can be called standalone or by other scripts.
-
-**Usage (if run directly):**
+Direct invocation is intentionally blocked. Use:
 
 ```bash
-bash create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] [--skip-tests]
+bash scripts/versioning/file_versioning/github/generate_pr_description.sh --auto --base <branch> --head <branch> --yes
 ```
 
 **What it does:**
@@ -125,9 +123,7 @@ By default, this script runs `cargo test --workspace` before creating the PR. If
 
 ## When to Run These Directly?
 
-Generally **don't** - use the orchestrators in `execute/` instead. They ensure proper sequencing and all necessary checks.
-
-**Exception:** Debugging or special cases where you need to run one step manually.
+Generally **don't** - use canonical entrypoints in `execute/` and `github/` instead.
 
 ## Architecture Note
 

@@ -1,0 +1,4 @@
+# This file marks the platform_ide root as a standalone workspace so that
+# Cargo does not flag it when scanning subdirectories. The actual IDE crates
+# live in platform_ide/backend/ and platform_ide/ui/.
+[workspace]

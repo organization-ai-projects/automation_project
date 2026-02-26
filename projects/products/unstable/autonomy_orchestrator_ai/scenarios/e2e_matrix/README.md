@@ -33,8 +33,8 @@ Run full orchestrator test suite:
 cargo test -p autonomy_orchestrator_ai
 ```
 
-Use helper script:
+Helper command:
 
 ```bash
-projects/products/unstable/autonomy_orchestrator_ai/scripts/run_e2e_matrix.sh
+cargo test -p autonomy_orchestrator_ai --test binary_e2e_matrix_tests
 ```

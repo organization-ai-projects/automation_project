@@ -625,6 +625,7 @@ declare -A seen_issue
 declare -A issue_category
 declare -A issue_action
 declare -A issue_neutralization_reason
+declare -A issue_reopen_detected
 declare -A pr_ref_cache
 declare -A duplicate_targets
 declare -A issue_non_compliance_reason_cache
@@ -690,6 +691,27 @@ is_pull_request_ref() {
   return 1
 }
 
+mark_reopen_issue() {
+  local issue_key_raw="$1"
+  local normalized_issue_key
+  local issue_key
+  local issue_number
+
+  if ! normalized_issue_key="$(normalize_issue_key "$issue_key_raw")"; then
+    return
+  fi
+  issue_key="$normalized_issue_key"
+  issue_number="${issue_key//#/}"
+
+  # Keep parity with closure extraction: ignore PR refs.
+  if is_pull_request_ref "$issue_number"; then
+    return
+  fi
+
+  issue_reopen_detected["$issue_key"]="1"
+  debug_log "parsed_reopen_ref: ${issue_key}"
+}
+
 add_issue_entry() {
   local action="$1"
   local issue_key="$2"
@@ -731,7 +753,11 @@ add_issue_entry() {
 
   issue_category["$issue_key"]="$final_category"
   normalized_action="$(normalize_issue_action "$action" "$final_category")"
-  non_compliance_reason="$(issue_non_compliance_reason_for "$issue_number" "$labels_raw")"
+  if [[ -n "${issue_reopen_detected[$issue_key]:-}" ]]; then
+    non_compliance_reason="conflicting closure directives: Closes + Reopen detected for ${issue_key}"
+  else
+    non_compliance_reason="$(issue_non_compliance_reason_for "$issue_number" "$labels_raw")"
+  fi
   if [[ -n "$non_compliance_reason" ]]; then
     normalized_action="${normalized_action} rejected"
     issue_neutralization_reason["$issue_key"]="$non_compliance_reason"
@@ -804,6 +830,9 @@ if [[ -s "$extracted_prs_file" ]]; then
       if text_indicates_breaking "$pr_body"; then
         breaking_detected=1
       fi
+      while IFS='|' read -r _ issue_key; do
+        mark_reopen_issue "$issue_key"
+      done < <(parse_reopen_issue_refs_from_text "$pr_body")
       while IFS='|' read -r action issue_key; do
         debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
         add_issue_entry "$action" "$issue_key" "$pr_category"
@@ -825,6 +854,9 @@ if [[ "$dry_run" == "true" ]]; then
     if text_indicates_breaking "$dry_commit_messages"; then
       breaking_detected=1
     fi
+    while IFS='|' read -r _ issue_key; do
+      mark_reopen_issue "$issue_key"
+    done < <(parse_reopen_issue_refs_from_text "$dry_commit_messages")
     while IFS='|' read -r action issue_key; do
       debug_log "parsed_issue_ref(dry commits): ${action}|${issue_key}"
       add_issue_entry "$action" "$issue_key" "Mixed"
@@ -842,6 +874,9 @@ if [[ "$dry_run" == "false" ]]; then
     if text_indicates_breaking "$main_pr_body"; then
       breaking_detected=1
     fi
+    while IFS='|' read -r _ issue_key; do
+      mark_reopen_issue "$issue_key"
+    done < <(parse_reopen_issue_refs_from_text "$main_pr_body")
     while IFS='|' read -r action issue_key; do
       debug_log "parsed_issue_ref(main pr): ${action}|${issue_key}"
       add_issue_entry "$action" "$issue_key" "Mixed"
@@ -855,6 +890,9 @@ if [[ "$dry_run" == "false" ]]; then
     # Keep --refresh-pr behavior aligned with --dry-run issue extraction.
     refresh_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
     if [[ -n "$refresh_compare_commit_messages" ]]; then
+      while IFS='|' read -r _ issue_key; do
+        mark_reopen_issue "$issue_key"
+      done < <(parse_reopen_issue_refs_from_text "$refresh_compare_commit_messages")
       while IFS='|' read -r action issue_key; do
         debug_log "parsed_issue_ref(refresh commits): ${action}|${issue_key}"
         add_issue_entry "$action" "$issue_key" "Mixed"
@@ -998,16 +1036,6 @@ body_content="$({
     cat "$resolved_issues_file"
   else
     echo "- No resolved issues detected via GitHub references or PR body keywords."
-  fi
-  if [[ "$neutralized_issue_count" -gt 0 ]]; then
-    echo ""
-    echo "### Closure Neutralization Notices"
-    echo "The following closure refs were neutralized to prevent incorrect auto-close:"
-    for issue_key in "${!issue_neutralization_reason[@]}"; do
-      echo "- ${issue_key}: ${issue_neutralization_reason[$issue_key]}"
-    done
-    echo ""
-    echo "To restore standard auto-close, fix issue compliance and remove \`rejected\` from the closure line."
   fi
   echo ""
   echo "### Key Changes"

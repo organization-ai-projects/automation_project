@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/stage_transition.rs
-
 use serde::{Deserialize, Serialize};
 
 use crate::domain::Stage;

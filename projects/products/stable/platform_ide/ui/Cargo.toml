@@ -1,0 +1,17 @@
+[package]
+name = "platform-ide-ui"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "platform-ide-ui"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]

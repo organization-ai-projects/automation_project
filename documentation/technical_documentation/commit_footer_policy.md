@@ -9,18 +9,15 @@ Keep issue tracking deterministic and avoid ambiguous closure behavior.
 ## Footer Keywords
 
 - `Closes #<issue>`: Use when the change fully closes an issue.
-- `Fixes #<issue>`: Use for bug fixes that resolve incorrect behavior.
-- `Resolves #<issue>`: Use when completion is not strictly a bug fix but the issue is fully addressed.
-- `Related to #<issue>`: Use for linked context without closure.
 - `Part of #<issue>`: Use when a commit contributes to a larger parent issue but does not close it.
+- `Reopen #<issue>`: Use to explicitly prevent closure when an issue was closed prematurely and work is still ongoing.
 
 ## Rules
 
 - Use at most one closing keyword per referenced issue in the same commit.
 - Do not mix closing and non-closing keywords for the same issue in one commit.
-- Prefer `Closes` for documentation/governance/process issues.
-- Prefer `Fixes` for confirmed defects.
-- Use `Related to` or `Part of` when work is partial.
+- Use `Part of` when work is partial.
+- Use `Reopen` with the same issue number to explicitly neutralize closure in commit/PR text.
 
 ## Examples
 
@@ -28,14 +25,14 @@ Keep issue tracking deterministic and avoid ambiguous closure behavior.
 docs(governance): define branch naming convention
 
 Closes #417
-Related to #410
+Part of #410
 ```
 
 ```text
-fix(scripts/versioning/file_versioning/github): avoid false positive breaking detection
+fix(scripts/versioning/file_versioning/github): avoid premature close on out-of-sync issue state
 
-Fixes #389
-Part of #403
+Part of #389
+Reopen #389
 ```
 
 ## Source of Truth

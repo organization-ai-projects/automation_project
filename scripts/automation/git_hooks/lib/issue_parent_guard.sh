@@ -43,7 +43,7 @@ extract_issue_refs_from_text() {
     {
       line = $0
       lower = tolower($0)
-      while (match(lower, /(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to)[[:space:]]+#[0-9]+/)) {
+      while (match(lower, /(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+/)) {
         matched = substr(line, RSTART, RLENGTH)
         keyword = tolower(matched)
         gsub(/[[:space:]]+#[0-9]+$/, "", keyword)

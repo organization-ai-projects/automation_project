@@ -1,5 +1,4 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/binary_runner.rs
-
 use crate::domain::{BinaryInvocationSpec, StageExecutionRecord, StageExecutionStatus};
 use common_json::parse_str;
 use std::fs;
@@ -17,8 +16,8 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
         .map(|(key, _)| key.clone())
         .collect::<Vec<_>>();
 
-    let mut command = Command::new(&spec.command);
-    command.args(&spec.args);
+    let mut command = Command::new(&spec.command_line.command);
+    command.args(&spec.command_line.args);
     for (key, value) in &spec.env {
         command.env(key, value);
     }
@@ -29,14 +28,17 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
             return StageExecutionRecord {
                 stage: spec.stage,
                 idempotency_key: Some(format!("stage:{:?}", spec.stage)),
-                command: spec.command.clone(),
-                args: spec.args.clone(),
+                command: spec.command_line.command.clone(),
+                args: spec.command_line.args.clone(),
                 env_keys,
                 started_at_unix_secs,
                 duration_ms: duration_to_u64_ms(started.elapsed()),
                 exit_code: None,
                 status: StageExecutionStatus::SpawnFailed,
-                error: Some(format!("Failed to spawn command '{}': {err}", spec.command)),
+                error: Some(format!(
+                    "Failed to spawn command '{}': {err}",
+                    spec.command_line.command
+                )),
                 missing_artifacts: Vec::new(),
                 malformed_artifacts: Vec::new(),
             };
@@ -76,8 +78,8 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                 return StageExecutionRecord {
                     stage: spec.stage,
                     idempotency_key: Some(format!("stage:{:?}", spec.stage)),
-                    command: spec.command.clone(),
-                    args: spec.args.clone(),
+                    command: spec.command_line.command.clone(),
+                    args: spec.command_line.args.clone(),
                     env_keys,
                     started_at_unix_secs,
                     duration_ms: u128_to_u64_ms(duration_ms),
@@ -95,8 +97,8 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                     return StageExecutionRecord {
                         stage: spec.stage,
                         idempotency_key: Some(format!("stage:{:?}", spec.stage)),
-                        command: spec.command.clone(),
-                        args: spec.args.clone(),
+                        command: spec.command_line.command.clone(),
+                        args: spec.command_line.args.clone(),
                         env_keys,
                         started_at_unix_secs,
                         duration_ms: duration_to_u64_ms(started.elapsed()),
@@ -113,8 +115,8 @@ pub fn invoke_binary(spec: &BinaryInvocationSpec) -> StageExecutionRecord {
                 return StageExecutionRecord {
                     stage: spec.stage,
                     idempotency_key: Some(format!("stage:{:?}", spec.stage)),
-                    command: spec.command.clone(),
-                    args: spec.args.clone(),
+                    command: spec.command_line.command.clone(),
+                    args: spec.command_line.args.clone(),
                     env_keys,
                     started_at_unix_secs,
                     duration_ms: duration_to_u64_ms(started.elapsed()),
@@ -165,58 +167,4 @@ fn duration_to_u64_ms(duration: Duration) -> u64 {
 
 fn u128_to_u64_ms(value: u128) -> u64 {
     u64::try_from(value).unwrap_or(u64::MAX)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::invoke_binary;
-    use crate::domain::{BinaryInvocationSpec, Stage, StageExecutionStatus};
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    #[test]
-    fn missing_binary_reports_spawn_failed() {
-        let spec = BinaryInvocationSpec {
-            stage: Stage::Planning,
-            command: "__definitely_missing_binary__".to_string(),
-            args: Vec::new(),
-            env: Vec::new(),
-            timeout_ms: 250,
-            expected_artifacts: Vec::new(),
-        };
-
-        let result = invoke_binary(&spec);
-        assert_eq!(result.status, StageExecutionStatus::SpawnFailed);
-        assert_eq!(result.idempotency_key, Some("stage:Planning".to_string()));
-    }
-
-    #[test]
-    fn malformed_json_artifact_fails_closed() {
-        let temp_root = std::env::temp_dir().join(format!(
-            "autonomy_orchestrator_bad_json_{}_{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or(0)
-        ));
-        fs::create_dir_all(&temp_root).expect("create temp directory");
-        let artifact_path = temp_root.join("report.json");
-        fs::write(&artifact_path, "{bad-json").expect("write malformed artifact");
-
-        let spec = BinaryInvocationSpec {
-            stage: Stage::Planning,
-            command: "/bin/sh".to_string(),
-            args: vec!["-c".to_string(), "exit 0".to_string()],
-            env: Vec::new(),
-            timeout_ms: 250,
-            expected_artifacts: vec![artifact_path.display().to_string()],
-        };
-
-        let result = invoke_binary(&spec);
-        assert_eq!(result.status, StageExecutionStatus::ArtifactMissing);
-        assert_eq!(result.malformed_artifacts.len(), 1);
-
-        fs::remove_dir_all(&temp_root).ok();
-    }
 }
