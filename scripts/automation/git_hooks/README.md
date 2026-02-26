@@ -57,7 +57,7 @@ git_hooks/
 ## Lint Responsibility Map
 
 - `pre-commit`:
-  - Markdown lint for staged markdown files (`pnpm run lint-md-files -- ...`).
+  - Markdown auto-fix + validation for staged markdown files (`pnpm run lint-md-fix-files -- ...` then `pnpm run lint-md-files -- ...`).
   - Shell syntax checks (`bash -n`) for staged shell files.
   - Rust formatting (`cargo fmt --all`) when staged Rust files exist.
 - `pre-push`:
@@ -117,7 +117,7 @@ SKIP_COMMIT_VALIDATION=1 git commit -m "emergency fix"
 Runs code formatting before each commit:
 
 1. **Protected branch guard**: blocks direct commits on `dev` and `main`
-2. **Markdown lint**: `pnpm run lint-md-files -- ...` on staged markdown files
+2. **Markdown auto-fix + lint**: `pnpm run lint-md-fix-files -- ...` then `pnpm run lint-md-files -- ...` on staged markdown files
 3. **Shell syntax checks**: `bash -n` on staged shell files
 4. **Formatting**: `cargo fmt --all` for staged Rust files
 

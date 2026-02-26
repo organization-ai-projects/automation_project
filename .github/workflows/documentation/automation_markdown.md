@@ -12,6 +12,7 @@ This automation workflow automatically fixes Markdown formatting issues in pull 
 
 * Only runs if the PR is from the same repository (not from forks)
 * Skips the `sync/main-into-dev` branch to avoid interference with sync operations
+* Skips markdown files under `.github/workflows/` in auto-fix mode (GitHub App token lacks `workflows` permission for workflow-file updates)
 
 ## Steps
 
@@ -126,9 +127,9 @@ Markdown linting is integrated directly into the Git pre-push hook at `scripts/a
 
 Behavior:
 
-- if changed files include markdown, pre-push runs `pnpm run lint-md-files -- ...` on those files
-- if markdown dependencies are missing, pre-push fails with setup instructions (`pnpm install --frozen-lockfile`)
-- `SKIP_PRE_PUSH=1 git push` bypasses all pre-push checks (emergency-only path)
+* if changed files include markdown, pre-push runs `pnpm run lint-md-files -- ...` on those files
+* if markdown dependencies are missing, pre-push fails with setup instructions (`pnpm install --frozen-lockfile`)
+* `SKIP_PRE_PUSH=1 git push` bypasses all pre-push checks (emergency-only path)
 
 ## Pre-Commit Integration
 
