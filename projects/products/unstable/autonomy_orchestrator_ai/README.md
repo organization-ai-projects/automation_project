@@ -114,13 +114,13 @@ cargo test -p autonomy_orchestrator_ai --test binary_e2e_matrix_tests
 Local helper:
 
 ```bash
-projects/products/unstable/autonomy_orchestrator_ai/scripts/run_e2e_matrix.sh
+cargo test -p autonomy_orchestrator_ai --test binary_e2e_matrix_tests
 ```
 
-Linked manager+executor stack helper:
+Linked manager+executor stack helper (Rust runner):
 
 ```bash
-projects/products/unstable/autonomy_orchestrator_ai/scripts/run_linked_ai_stack.sh [out_dir] [repo_root] [goal]
+cargo run -p autonomy_orchestrator_ai --bin run_linked_ai_stack -- [out_dir] [repo_root] [goal]
 ```
 
 This helper wires:

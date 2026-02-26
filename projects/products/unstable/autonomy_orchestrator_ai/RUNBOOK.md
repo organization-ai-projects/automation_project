@@ -128,12 +128,8 @@ cargo run -p autonomy_orchestrator_ai -- ./out \
   --policy-status allow \
   --ci-status success \
   --review-status approved \
-  --manager-bin /bin/sh \
-  --manager-arg -c \
-  --manager-arg "exit 0" \
-  --executor-bin /bin/sh \
-  --executor-arg -c \
-  --executor-arg "exit 0"
+  --manager-bin /usr/bin/true \
+  --executor-bin /usr/bin/true
 ```
 
 ## Quickstart: CI-Like Orchestration
@@ -166,7 +162,7 @@ Use the dedicated helper to wire:
 - `autonomy_reviewer_ai` as validation reviewer
 
 ```bash
-projects/products/unstable/autonomy_orchestrator_ai/scripts/run_linked_ai_stack.sh \
+cargo run -p autonomy_orchestrator_ai --bin run_linked_ai_stack -- \
   ./out/orchestrator_linked_ai \
   . \
   "Investigate and propose safe fixes for unstable test failures"
