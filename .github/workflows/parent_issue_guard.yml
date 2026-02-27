@@ -21,7 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          sparse-checkout: scripts/versioning/file_versioning/github/
+          sparse-checkout: |
+            scripts/versioning/file_versioning/github/
+            scripts/common_lib/versioning/file_versioning/github/
           sparse-checkout-cone-mode: false
 
       - name: Ensure jq is available

@@ -177,7 +177,7 @@ fi
 
 issue_title="$(echo "$issue_json" | jq -r '.title // ""')"
 issue_body="$(echo "$issue_json" | jq -r '.body // ""')"
-issue_labels_raw="$(echo "$issue_json" | jq -r '.labels | map(.name) | join("||")')"
+issue_labels_raw="$(echo "$issue_json" | jq -r '(.labels // []) | map(.name) | join("||")')"
 
 contract_errors="$(issue_validate_content "$issue_title" "$issue_body" "$issue_labels_raw" || true)"
 if [[ -n "$contract_errors" ]]; then
