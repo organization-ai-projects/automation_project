@@ -10,7 +10,14 @@ struct MatrixReportView {
     terminal_state: Option<String>,
     blocked_reason_codes: Vec<String>,
     reviewer_next_steps: Vec<String>,
+    adaptive_policy_decisions: Vec<AdaptivePolicyDecisionView>,
     stage_executions: Vec<StageExecutionView>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct AdaptivePolicyDecisionView {
+    action: String,
+    reason_code: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -679,6 +686,67 @@ fn matrix_reviewer_remediation_cycle_recovers_to_done() {
             .iter()
             .any(|step| step.contains("P1 [DONE] No action")),
         "reviewer_next_steps should be propagated in orchestrator report"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_adaptive_remediation_budget_recovers_when_initial_budget_is_zero() {
+    let out_dir = unique_temp_dir("adaptive_remediation_budget");
+    let reviewer_dir = out_dir.join("reviewer");
+    fs::create_dir_all(&reviewer_dir).expect("create reviewer dir");
+    let state_file = out_dir.join("reviewer_state.flag");
+    let review_report = reviewer_dir.join("review_report.json");
+
+    let args = vec![
+        "--policy-status".to_string(),
+        "allow".to_string(),
+        "--ci-status".to_string(),
+        "success".to_string(),
+        "--review-status".to_string(),
+        "approved".to_string(),
+        "--execution-max-iterations".to_string(),
+        "1".to_string(),
+        "--reviewer-remediation-max-cycles".to_string(),
+        "0".to_string(),
+        "--executor-bin".to_string(),
+        fixture_bin().to_string(),
+        "--executor-arg".to_string(),
+        "fixture".to_string(),
+        "--executor-arg".to_string(),
+        "success".to_string(),
+        "--reviewer-bin".to_string(),
+        fixture_bin().to_string(),
+        "--reviewer-arg".to_string(),
+        "fixture".to_string(),
+        "--reviewer-arg".to_string(),
+        "review-remediation".to_string(),
+        "--reviewer-arg".to_string(),
+        state_file.display().to_string(),
+        "--reviewer-arg".to_string(),
+        review_report.display().to_string(),
+        "--reviewer-expected-artifact".to_string(),
+        review_report
+            .to_str()
+            .expect("utf-8 review report path")
+            .to_string(),
+    ];
+
+    let (output, report) = run_orchestrator_owned(&args, &out_dir);
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    assert!(
+        report.adaptive_policy_decisions.iter().any(|decision| {
+            decision.action == "increase_remediation_cycles"
+                && decision.reason_code == "ADAPTIVE_REMEDIATION_CYCLES_INCREASED"
+        }),
+        "expected adaptive remediation budget decision in run report"
     );
 
     let _ = fs::remove_dir_all(out_dir);
