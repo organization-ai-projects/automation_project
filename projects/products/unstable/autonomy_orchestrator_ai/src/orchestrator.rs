@@ -35,6 +35,8 @@ pub struct Orchestrator {
     timeout_ms: u64,
     repo_root: PathBuf,
     planning_context_artifact: Option<PathBuf>,
+    previous_run_report_path: Option<PathBuf>,
+    next_actions_path: Option<PathBuf>,
     validation_invocations: Vec<BinaryInvocationSpec>,
     validation_from_planning_context: bool,
     delivery_options: DeliveryOptions,
@@ -113,6 +115,8 @@ impl Orchestrator {
             timeout_ms: config.timeout_ms,
             repo_root: config.repo_root,
             planning_context_artifact: config.planning_context_artifact,
+            previous_run_report_path: config.previous_run_report_path,
+            next_actions_path: config.next_actions_path,
             validation_invocations,
             validation_from_planning_context: config.validation_from_planning_context,
             delivery_options: config.delivery_options,
@@ -950,7 +954,12 @@ impl Orchestrator {
 
         let started = Instant::now();
         let started_at_unix_secs = unix_timestamp_secs();
-        match write_repo_context_artifact(Path::new(&self.repo_root), Path::new(&artifact_path)) {
+        match write_repo_context_artifact(
+            Path::new(&self.repo_root),
+            Path::new(&artifact_path),
+            self.previous_run_report_path.as_deref(),
+            self.next_actions_path.as_deref(),
+        ) {
             Ok(()) => {
                 self.report.stage_executions.push(StageExecutionRecord {
                     stage: Stage::Planning,

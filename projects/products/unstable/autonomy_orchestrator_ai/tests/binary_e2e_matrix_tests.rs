@@ -34,6 +34,20 @@ struct RepoContextView {
     ownership_boundaries: Vec<String>,
     hot_paths: Vec<String>,
     detected_validation_commands: Vec<RepoValidationInvocation>,
+    planning_feedback: Option<PlanningFeedbackView>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PlanningFeedbackView {
+    schema_version: u32,
+    terminal_state: Option<String>,
+    recommended_actions: Vec<String>,
+    validation_outcomes: Vec<PlanningValidationOutcomeView>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PlanningValidationOutcomeView {
+    status: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -988,7 +1002,7 @@ fn matrix_autonomous_loop_stops_on_repeated_failure_signature() {
     assert_eq!(output.status.code(), Some(3));
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Autonomous loop stopped:"),
+        stdout.contains("Autonomous loop stopped: same failure signature repeated"),
         "expected loop stop message, got: {stdout}"
     );
 
@@ -996,6 +1010,77 @@ fn matrix_autonomous_loop_stops_on_repeated_failure_signature() {
     let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
     let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
     assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_planning_feedback_loop_injects_previous_validation_outcomes() {
+    let out_dir = unique_temp_dir("planning_feedback_loop");
+    let planning_context_artifact = out_dir.join("planning/repo_context.json");
+    let validation_state_file = out_dir.join("validation_fail_once.flag");
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_autonomy_orchestrator_ai"));
+    cmd.arg(&out_dir)
+        .arg("--autonomous-loop")
+        .arg("--autonomous-max-runs")
+        .arg("3")
+        .arg("--autonomous-same-error-limit")
+        .arg("3")
+        .arg("--planning-context-artifact")
+        .arg(&planning_context_artifact)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--executor-bin")
+        .arg(fixture_bin())
+        .arg("--executor-arg")
+        .arg("fixture")
+        .arg("--executor-arg")
+        .arg("success")
+        .arg("--validation-bin")
+        .arg(fixture_bin())
+        .arg("--validation-arg")
+        .arg("fixture")
+        .arg("--validation-arg")
+        .arg("fail-once")
+        .arg("--validation-arg")
+        .arg(&validation_state_file);
+    let output = cmd.output().expect("execute feedback loop run");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let artifact_raw = fs::read_to_string(&planning_context_artifact)
+        .expect("read planning context with feedback artifact");
+    let artifact: RepoContextView =
+        from_str(&artifact_raw).expect("deserialize planning context with feedback artifact");
+    let feedback = artifact
+        .planning_feedback
+        .expect("expected planning_feedback to be injected");
+    assert_eq!(feedback.schema_version, 1);
+    assert_eq!(feedback.terminal_state.as_deref(), Some("failed"));
+    assert!(
+        feedback
+            .recommended_actions
+            .iter()
+            .any(|action| action.contains("Inspect failed stage execution")),
+        "expected failure remediation recommendation in planning feedback"
+    );
+    assert!(
+        feedback
+            .validation_outcomes
+            .iter()
+            .any(|outcome| outcome.status == "failed"),
+        "expected failed validation outcome in planning feedback"
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }

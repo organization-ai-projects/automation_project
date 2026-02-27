@@ -167,16 +167,22 @@ fn run_once(
         .next_actions_path
         .clone()
         .unwrap_or_else(|| args.output_dir.join("next_actions.bin"));
+    let previous_run_report_path = args.output_dir.join("orchestrator_run_report.json");
 
     let resume_enabled = args.resume || loop_mode;
     let version_before = capture_repo_snapshot(&args.repo_root);
 
     let checkpoint = if resume_enabled {
         if checkpoint_path.exists() {
-            Some(
-                load_checkpoint(&checkpoint_path)
-                    .map_err(|err| (1, format!("Failed to resume checkpoint: {err}")))?,
-            )
+            let mut checkpoint = load_checkpoint(&checkpoint_path)
+                .map_err(|err| (1, format!("Failed to resume checkpoint: {err}")))?;
+            if loop_mode {
+                // In autonomous mode, each loop iteration must re-run planning so new outcome
+                // artifacts can feed the next planning context deterministically.
+                checkpoint.completed_stages.clear();
+                checkpoint.terminal_state = None;
+            }
+            Some(checkpoint)
         } else {
             None
         }
@@ -279,6 +285,7 @@ fn run_once(
         checkpoint_path: Some(checkpoint_path.clone()),
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
+        previous_run_report_path: Some(previous_run_report_path.clone()),
     };
 
     if let Some(load_mode) = &config_io.load {
@@ -286,6 +293,7 @@ fn run_once(
         config.checkpoint_path = Some(checkpoint_path.clone());
         config.cycle_memory_path = Some(cycle_memory_path.clone());
         config.next_actions_path = Some(next_actions_path.clone());
+        config.previous_run_report_path = Some(previous_run_report_path.clone());
     }
 
     for save_mode in &config_io.saves {

@@ -37,6 +37,7 @@ fn base_config() -> OrchestratorConfig {
         checkpoint_path: None,
         cycle_memory_path: None,
         next_actions_path: None,
+        previous_run_report_path: None,
     }
 }
 
