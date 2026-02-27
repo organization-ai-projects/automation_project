@@ -2,8 +2,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{
-    DecisionContribution, FinalDecision, GateDecision, Stage, StageExecutionRecord,
-    StageTransition, TerminalState,
+    AdaptivePolicyDecision, DecisionContribution, FinalDecision, GateDecision, Stage,
+    StageExecutionRecord, StageTransition, TerminalState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +21,7 @@ pub struct RunReport {
     pub decision_rationale_codes: Vec<String>,
     pub decision_contributions: Vec<DecisionContribution>,
     pub decision_threshold: Option<u8>,
+    pub adaptive_policy_decisions: Vec<AdaptivePolicyDecision>,
     pub transitions: Vec<StageTransition>,
     pub stage_executions: Vec<StageExecutionRecord>,
 }
@@ -41,6 +42,7 @@ impl RunReport {
             decision_rationale_codes: Vec::new(),
             decision_contributions: Vec::new(),
             decision_threshold: None,
+            adaptive_policy_decisions: Vec::new(),
             transitions: Vec::new(),
             stage_executions: Vec::new(),
         }

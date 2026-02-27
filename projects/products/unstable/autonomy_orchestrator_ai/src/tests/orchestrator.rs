@@ -1,7 +1,7 @@
 use crate::domain::{
-    BinaryInvocationSpec, CommandLineSpec, DecisionContribution, DeliveryOptions, ExecutionPolicy,
-    FinalDecision, GateInputs, OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, Stage,
-    StageExecutionStatus, TerminalState,
+    AdaptivePolicyAction, BinaryInvocationSpec, CommandLineSpec, DecisionContribution,
+    DeliveryOptions, ExecutionPolicy, FinalDecision, GateInputs, OrchestratorCheckpoint,
+    OrchestratorConfig, PolicyGateStatus, Stage, StageExecutionStatus, TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use std::fs;
@@ -268,5 +268,74 @@ fn decision_require_contributions_fails_closed_when_empty() {
         report
             .blocked_reason_codes
             .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
+    );
+}
+
+#[test]
+fn adaptive_policy_can_increase_execution_budget_once() {
+    let mut config = test_config("run_10");
+    config.execution_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Execution,
+        command_line: CommandLineSpec {
+            command: "false".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: Vec::new(),
+    });
+    config.execution_policy.execution_max_iterations = 1;
+
+    let report = Orchestrator::new(config, None).execute();
+    assert_eq!(report.terminal_state, Some(TerminalState::Failed));
+    assert!(
+        report
+            .adaptive_policy_decisions
+            .iter()
+            .any(|decision| decision.action == AdaptivePolicyAction::IncreaseExecutionBudget)
+    );
+    let execution_failures = report
+        .stage_executions
+        .iter()
+        .filter(|e| e.stage == Stage::Execution && e.status == StageExecutionStatus::Failed)
+        .count();
+    assert!(
+        execution_failures >= 2,
+        "expected at least two execution failures after adaptive budget increase, got {execution_failures}"
+    );
+}
+
+#[test]
+fn adaptive_policy_does_not_increase_execution_budget_when_cap_is_reached() {
+    let mut config = test_config("run_11");
+    config.execution_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Execution,
+        command_line: CommandLineSpec {
+            command: "false".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: Vec::new(),
+    });
+    // Matches AdaptivePolicyConfig::default() cap.
+    config.execution_policy.execution_max_iterations = 5;
+
+    let report = Orchestrator::new(config, None).execute();
+    assert_eq!(report.terminal_state, Some(TerminalState::Failed));
+    assert!(
+        report
+            .adaptive_policy_decisions
+            .iter()
+            .all(|decision| decision.action != AdaptivePolicyAction::IncreaseExecutionBudget)
+    );
+    let execution_failures = report
+        .stage_executions
+        .iter()
+        .filter(|e| e.stage == Stage::Execution && e.status == StageExecutionStatus::Failed)
+        .count();
+    assert_eq!(
+        execution_failures, 6,
+        "expected exactly 5 failed attempts + 1 budget exhaustion record"
     );
 }

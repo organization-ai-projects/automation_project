@@ -1,4 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/orchestrator.rs
+use crate::adaptive_policy::{
+    AdaptivePolicyConfig, maybe_increase_execution_budget, maybe_increase_remediation_cycles,
+};
 use crate::artifacts::{
     ExecutionPolicyOverrides, OrchestratorCycleMemory, ValidationInvocationArtifact,
     load_cycle_memory, load_next_actions, read_detected_validation_commands, save_cycle_memory,
@@ -38,6 +41,9 @@ pub struct Orchestrator {
     decision_threshold: u8,
     decision_contributions: Vec<DecisionContribution>,
     decision_require_contributions: bool,
+    adaptive_policy_config: AdaptivePolicyConfig,
+    execution_budget_adapted: bool,
+    remediation_budget_adapted: bool,
     gate_inputs: GateInputs,
     checkpoint: OrchestratorCheckpoint,
     checkpoint_path: Option<PathBuf>,
@@ -112,6 +118,9 @@ impl Orchestrator {
             decision_threshold: config.decision_threshold,
             decision_contributions: config.decision_contributions,
             decision_require_contributions: config.decision_require_contributions,
+            adaptive_policy_config: AdaptivePolicyConfig::default(),
+            execution_budget_adapted: false,
+            remediation_budget_adapted: false,
             gate_inputs: config.gate_inputs,
             checkpoint,
             checkpoint_path: config.checkpoint_path,
@@ -295,7 +304,8 @@ impl Orchestrator {
             return true;
         };
 
-        for attempt in 1..=self.execution_max_iterations {
+        let mut attempt = 1u32;
+        while attempt <= self.execution_max_iterations {
             let mut spec = base_spec.clone();
             spec.env.push((
                 "ORCHESTRATOR_EXECUTION_ATTEMPT".to_string(),
@@ -335,6 +345,11 @@ impl Orchestrator {
                 }
                 StageExecutionStatus::Failed => {
                     if attempt < self.execution_max_iterations {
+                        attempt += 1;
+                        continue;
+                    }
+                    if self.try_adapt_execution_budget_after_failure() {
+                        attempt += 1;
                         continue;
                     }
                     self.report.stage_executions.push(StageExecutionRecord {
@@ -546,9 +561,6 @@ impl Orchestrator {
         if self.validation_invocation.is_none() {
             return false;
         }
-        if self.remediation_cycle >= self.reviewer_remediation_max_cycles {
-            return false;
-        }
         if self.execution_invocation.is_none() {
             return false;
         }
@@ -564,6 +576,11 @@ impl Orchestrator {
         if remediation_steps.is_empty() {
             return false;
         }
+        if self.remediation_cycle >= self.reviewer_remediation_max_cycles
+            && !self.try_adapt_remediation_budget_after_failure()
+        {
+            return false;
+        }
 
         self.remediation_cycle += 1;
         self.remediation_steps = remediation_steps;
@@ -572,6 +589,112 @@ impl Orchestrator {
         self.reset_checkpoint_stage(Stage::Validation);
         self.persist_checkpoint();
         true
+    }
+
+    fn try_adapt_execution_budget_after_failure(&mut self) -> bool {
+        if self.execution_budget_adapted {
+            return false;
+        }
+        let Some(signature) = self.latest_failure_signature() else {
+            return false;
+        };
+        let Some(decision) = maybe_increase_execution_budget(
+            self.execution_max_iterations,
+            &signature,
+            self.adaptive_policy_config,
+        ) else {
+            return false;
+        };
+        self.execution_budget_adapted = true;
+        self.execution_max_iterations = decision.new_value;
+        self.report.adaptive_policy_decisions.push(decision.clone());
+        self.report.stage_executions.push(StageExecutionRecord {
+            stage: Stage::Execution,
+            idempotency_key: Some("stage:Execution:adaptive_policy".to_string()),
+            command: "execution.policy.adapt".to_string(),
+            args: vec![
+                decision.reason_code,
+                decision.trigger_signature,
+                decision.previous_value.to_string(),
+                decision.new_value.to_string(),
+            ],
+            env_keys: Vec::new(),
+            started_at_unix_secs: unix_timestamp_secs(),
+            duration_ms: 0,
+            exit_code: Some(0),
+            status: StageExecutionStatus::Success,
+            error: None,
+            missing_artifacts: Vec::new(),
+            malformed_artifacts: Vec::new(),
+        });
+        true
+    }
+
+    fn try_adapt_remediation_budget_after_failure(&mut self) -> bool {
+        if self.remediation_budget_adapted {
+            return false;
+        }
+        let Some(signature) = self.latest_failure_signature() else {
+            return false;
+        };
+        let Some(decision) = maybe_increase_remediation_cycles(
+            self.reviewer_remediation_max_cycles,
+            &signature,
+            self.adaptive_policy_config,
+        ) else {
+            return false;
+        };
+        self.remediation_budget_adapted = true;
+        self.reviewer_remediation_max_cycles = decision.new_value;
+        self.report.adaptive_policy_decisions.push(decision.clone());
+        self.report.stage_executions.push(StageExecutionRecord {
+            stage: Stage::Validation,
+            idempotency_key: Some("stage:Validation:adaptive_policy".to_string()),
+            command: "validation.policy.adapt".to_string(),
+            args: vec![
+                decision.reason_code,
+                decision.trigger_signature,
+                decision.previous_value.to_string(),
+                decision.new_value.to_string(),
+            ],
+            env_keys: Vec::new(),
+            started_at_unix_secs: unix_timestamp_secs(),
+            duration_ms: 0,
+            exit_code: Some(0),
+            status: StageExecutionStatus::Success,
+            error: None,
+            missing_artifacts: Vec::new(),
+            malformed_artifacts: Vec::new(),
+        });
+        true
+    }
+
+    fn latest_failure_signature(&self) -> Option<String> {
+        self.report
+            .stage_executions
+            .iter()
+            .rev()
+            .find(|execution| {
+                matches!(
+                    execution.status,
+                    StageExecutionStatus::Failed
+                        | StageExecutionStatus::SpawnFailed
+                        | StageExecutionStatus::ArtifactMissing
+                        | StageExecutionStatus::Timeout
+                )
+            })
+            .map(|execution| {
+                format!(
+                    "stage={:?};status={:?};command={};exit={}",
+                    execution.stage,
+                    execution.status,
+                    execution.command,
+                    execution
+                        .exit_code
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "none".to_string())
+                )
+            })
     }
 
     fn reset_checkpoint_stage(&mut self, stage: Stage) {
