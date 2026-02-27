@@ -8,13 +8,34 @@ COMMIT_MSG_FILE="$1"
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 HOOKS_DIR="$ROOT_DIR/scripts/automation/git_hooks"
 
+readonly COMMIT_MSG_RC_OK=0
+readonly COMMIT_MSG_RC_INVALID_FORMAT=3
+readonly COMMIT_MSG_RC_SUBJECT_TRAILER=4
+readonly COMMIT_MSG_RC_ROOT_PARENT=5
+readonly COMMIT_MSG_RC_MIXED_CATEGORY=6
+readonly COMMIT_MSG_RC_SCOPE_MISSING=7
+readonly COMMIT_MSG_RC_SCOPE_MISMATCH=8
+readonly COMMIT_MSG_RC_SUBJECT_LENGTH=9
+
 if [[ -z "${COMMIT_MSG_FILE:-}" || ! -f "$COMMIT_MSG_FILE" ]]; then
   echo "❌ commit-msg hook: missing or invalid commit message file" >&2
   exit 1
 fi
 
+read_commit_subject_line() {
+  local file="$1"
+  local line
+  while IFS= read -r line; do
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    printf '%s' "$line"
+    return 0
+  done < "$file"
+  printf ''
+}
+
 # Only validate the commit subject line; body/footer are handled separately.
-COMMIT_SUBJECT=$(head -n1 "$COMMIT_MSG_FILE")
+COMMIT_SUBJECT="$(read_commit_subject_line "$COMMIT_MSG_FILE")"
 
 # Allow bypass for emergency situations
 if [[ "${SKIP_COMMIT_VALIDATION:-}" == "1" ]]; then
@@ -31,6 +52,15 @@ source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 source "$HOOKS_DIR/lib/commit_message_policy.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/issue_footer_policy.sh
 source "$HOOKS_DIR/lib/issue_footer_policy.sh"
+
+if [[ -n "${COMMIT_MSG_SUBJECT_MAX_LEN:-}" && "${COMMIT_MSG_SUBJECT_MAX_LEN:-0}" -gt 0 ]]; then
+  subject_len="${#COMMIT_SUBJECT}"
+  if [[ "$subject_len" -gt "${COMMIT_MSG_SUBJECT_MAX_LEN}" ]]; then
+    echo "❌ Commit subject too long: ${subject_len}/${COMMIT_MSG_SUBJECT_MAX_LEN} characters." >&2
+    echo "   Set COMMIT_MSG_SUBJECT_MAX_LEN=0 to disable length enforcement." >&2
+    exit "$COMMIT_MSG_RC_SUBJECT_LENGTH"
+  fi
+fi
 
 # Validate format: <type>(<scope>): <message> or <type>: <message>
 # Allows multiple scopes separated by commas and dot-scopes: feat(.github,scripts): message
@@ -57,15 +87,19 @@ if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
   echo "  $COMMIT_SUBJECT" >&2
   echo "" >&2
   echo "Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
-  exit 1
+  exit "$COMMIT_MSG_RC_INVALID_FORMAT"
 fi
 
-if ! validate_and_normalize_issue_refs_footer_in_file "$COMMIT_MSG_FILE" "$COMMIT_SUBJECT"; then
-  exit 1
+if validate_and_normalize_issue_refs_footer_in_file "$COMMIT_MSG_FILE" "$COMMIT_SUBJECT"; then
+  :
+else
+  exit "$?"
 fi
 
-if ! validate_no_root_parent_refs_in_footer_file "$COMMIT_MSG_FILE"; then
-  exit 1
+if validate_no_root_parent_refs_in_footer_file "$COMMIT_MSG_FILE"; then
+  :
+else
+  exit "$?"
 fi
 
 staged_files="$(git diff --cached --name-only --diff-filter=ACMRUD)"
@@ -80,10 +114,10 @@ if [[ "$format_category_count" -gt 1 ]]; then
   done <<< "$format_categories"
   echo "" >&2
   echo "Split this commit so it contains only one category (rust, shell, markdown, or other)." >&2
-  exit 1
+  exit "$COMMIT_MSG_RC_MIXED_CATEGORY"
 fi
 
-required_scopes=$(detect_required_scopes_from_staged_files)
+required_scopes=$(detect_required_scopes_from_staged_files "$staged_files")
 if [[ -n "$required_scopes" ]]; then
   commit_scopes=$(extract_scopes_from_commit_message "$COMMIT_SUBJECT")
 
@@ -99,7 +133,7 @@ if [[ -n "$required_scopes" ]]; then
     echo "  fix(projects/libraries/<library_name>): ..." >&2
     echo "  fix(projects/products/<stable_or_unstable>/<product_name>): ..." >&2
     echo "  fix(projects/products/<stable_or_unstable>/<product_name>/backend): ..." >&2
-    exit 1
+    exit "$COMMIT_MSG_RC_SCOPE_MISSING"
   fi
 
   missing_scopes=()
@@ -130,7 +164,7 @@ if [[ -n "$required_scopes" ]]; then
     while IFS= read -r scope; do
       [[ -n "$scope" ]] && echo "  - $scope" >&2
     done <<< "$commit_scopes"
-    exit 1
+    exit "$COMMIT_MSG_RC_SCOPE_MISMATCH"
   fi
 fi
 

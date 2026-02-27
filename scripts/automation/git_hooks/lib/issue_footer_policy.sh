@@ -2,6 +2,9 @@
 
 # Shared issue-footer policy helpers for commit messages.
 
+: "${COMMIT_MSG_RC_SUBJECT_TRAILER:=1}"
+: "${COMMIT_MSG_RC_ROOT_PARENT:=1}"
+
 extract_trailer_issue_refs_from_file() {
   local commit_msg_file="$1"
   extract_issue_refs_from_text "$(sed '/^[[:space:]]*#/d' "$commit_msg_file")" || true
@@ -18,7 +21,7 @@ validate_and_normalize_issue_refs_footer_in_file() {
   if [[ "$subject_lower" =~ $issue_ref_re ]]; then
     echo "❌ Issue references must be in commit footer, not in subject." >&2
     echo "   Move 'Closes/Part of/Reopen #...' to footer lines." >&2
-    return 1
+    return "$COMMIT_MSG_RC_SUBJECT_TRAILER"
   fi
 
   mapfile -t message_lines < <(sed '/^[[:space:]]*#/d' "$commit_msg_file")
@@ -123,7 +126,7 @@ validate_no_root_parent_refs_in_footer_file() {
     echo "   Use issue refs on child issues only (Part of/Closes/Reopen #<child-issue>)." >&2
     echo "   Parent closure should be handled by child completion workflow, not direct commit trailers." >&2
     echo "   Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
-    return 1
+    return "$COMMIT_MSG_RC_ROOT_PARENT"
   fi
 
   return 0
