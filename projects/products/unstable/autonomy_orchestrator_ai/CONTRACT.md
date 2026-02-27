@@ -51,6 +51,13 @@ The run report contains:
 - blocked reason codes
 - reviewer next-step plan propagation
 
+Planning context artifact (`--planning-context-artifact`) may include:
+
+- `planning_feedback` (schema version `1`) extracted from previous outcome artifacts
+- sources: prior `orchestrator_run_report.json` and `next_actions.bin`
+- fields: terminal state, blocked reason codes, reviewer next steps, recommended actions, validation outcomes
+- safeguards: deterministic sort+dedupe, bounded list sizes, bounded text length
+
 ## Error Taxonomy
 
 `StageExecutionStatus` values:
