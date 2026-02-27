@@ -32,6 +32,7 @@ fn base_config() -> OrchestratorConfig {
         gate_inputs: GateInputs::passing(),
         decision_threshold: 70,
         decision_contributions: Vec::new(),
+        decision_reliability_inputs: Vec::new(),
         decision_require_contributions: false,
         checkpoint_path: None,
         cycle_memory_path: None,

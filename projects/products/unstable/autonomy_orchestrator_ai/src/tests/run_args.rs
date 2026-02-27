@@ -16,6 +16,7 @@ fn cli_run_args_have_expected_defaults() {
     assert_eq!(cli.run.decision_threshold, 70);
     assert!(!cli.run.decision_require_contributions);
     assert!(cli.run.decision_contributions.is_empty());
+    assert!(cli.run.decision_reliability_inputs.is_empty());
 }
 
 #[test]
@@ -83,4 +84,18 @@ fn cli_accepts_decision_contribution() {
     assert_eq!(c.capability, "planning");
     assert_eq!(c.reason_codes, vec!["R1".to_string(), "R2".to_string()]);
     assert_eq!(c.artifact_refs, vec!["./a.json".to_string()]);
+}
+
+#[test]
+fn cli_accepts_decision_reliability_input() {
+    let cli = Cli::parse_from([
+        "autonomy_orchestrator_ai",
+        "--decision-reliability",
+        "contributor_id=planner,capability=planning,score=82",
+    ]);
+    assert_eq!(cli.run.decision_reliability_inputs.len(), 1);
+    let input = &cli.run.decision_reliability_inputs[0];
+    assert_eq!(input.contributor_id, "planner");
+    assert_eq!(input.capability, "planning");
+    assert_eq!(input.score, 82);
 }

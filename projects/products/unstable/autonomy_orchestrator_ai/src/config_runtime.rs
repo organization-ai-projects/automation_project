@@ -228,5 +228,15 @@ pub fn validate_orchestrator_config(config: &OrchestratorConfig) -> Vec<String> 
                 .to_string(),
         );
     }
+    if config
+        .decision_reliability_inputs
+        .iter()
+        .any(|input| input.score > 100)
+    {
+        diagnostics.push(
+            "decision_reliability_inputs scores must be <= 100 (fix: set --decision-reliability ... score=0..100)"
+                .to_string(),
+        );
+    }
     diagnostics
 }

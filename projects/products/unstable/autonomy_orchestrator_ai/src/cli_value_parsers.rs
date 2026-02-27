@@ -1,5 +1,5 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/cli_value_parsers.rs
-use crate::domain::{DecisionContribution, FinalDecision};
+use crate::domain::{DecisionContribution, DecisionReliabilityInput, FinalDecision};
 
 pub fn parse_env_pair_cli(raw: &str) -> Result<(String, String), String> {
     let mut split = raw.splitn(2, '=');
@@ -105,4 +105,48 @@ fn split_pipe_list(raw: &str) -> Vec<String> {
             (!value.is_empty()).then(|| value.to_string())
         })
         .collect()
+}
+
+pub fn parse_decision_reliability_input_cli(raw: &str) -> Result<DecisionReliabilityInput, String> {
+    let mut contributor_id = None::<String>;
+    let mut capability = None::<String>;
+    let mut score = None::<u8>;
+
+    for segment in raw.split(',') {
+        let (key, value) = segment
+            .split_once('=')
+            .ok_or_else(|| format!("Invalid decision reliability segment '{segment}'"))?;
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "contributor_id" => contributor_id = Some(value.to_string()),
+            "capability" => capability = Some(value.to_string()),
+            "score" => {
+                score = Some(value.parse::<u8>().map_err(|_| {
+                    format!(
+                        "Invalid reliability score '{}', expected integer 0..100",
+                        value
+                    )
+                })?)
+            }
+            other => return Err(format!("Unknown decision reliability key '{}'", other)),
+        }
+    }
+
+    let score =
+        score.ok_or_else(|| "Missing decision reliability field 'score' (0..100)".to_string())?;
+    if score > 100 {
+        return Err(format!(
+            "Invalid reliability score '{}', expected integer 0..100",
+            score
+        ));
+    }
+
+    Ok(DecisionReliabilityInput {
+        contributor_id: contributor_id
+            .ok_or_else(|| "Missing decision reliability field 'contributor_id'".to_string())?,
+        capability: capability
+            .ok_or_else(|| "Missing decision reliability field 'capability'".to_string())?,
+        score,
+    })
 }
