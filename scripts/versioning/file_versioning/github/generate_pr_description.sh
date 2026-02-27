@@ -433,8 +433,8 @@ else
   base_ref="$(gh_optional "read base branch for PR #${main_pr_number}" pr view "$main_pr_number" --json baseRefName -q '.baseRefName')"
   head_ref="$(gh_optional "read head branch for PR #${main_pr_number}" pr view "$main_pr_number" --json headRefName -q '.headRefName')"
   if [[ -z "$base_ref" ]]; then
-    warn_optional "PR #${main_pr_number} base branch unavailable; defaulting to main."
-    base_ref="main"
+    warn_optional "PR #${main_pr_number} base branch unavailable; defaulting to dev."
+    base_ref="dev"
   fi
   if [[ -z "$head_ref" ]]; then
     warn_optional "PR #${main_pr_number} head branch unavailable; defaulting to dev."
