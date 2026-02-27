@@ -30,9 +30,14 @@ fn base_config() -> OrchestratorConfig {
         validation_from_planning_context: false,
         delivery_options: DeliveryOptions::disabled(),
         gate_inputs: GateInputs::passing(),
+        decision_threshold: 70,
+        decision_contributions: Vec::new(),
+        decision_reliability_inputs: Vec::new(),
+        decision_require_contributions: false,
         checkpoint_path: None,
         cycle_memory_path: None,
         next_actions_path: None,
+        previous_run_report_path: None,
     }
 }
 

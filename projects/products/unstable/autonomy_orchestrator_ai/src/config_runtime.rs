@@ -217,5 +217,26 @@ pub fn validate_orchestrator_config(config: &OrchestratorConfig) -> Vec<String> 
                 .to_string(),
         );
     }
+    if config.decision_threshold > 100 {
+        diagnostics.push(
+            "decision_threshold must be <= 100 (fix: set --decision-threshold 0..100)".to_string(),
+        );
+    }
+    if config.decision_require_contributions && config.decision_contributions.is_empty() {
+        diagnostics.push(
+            "decision_require_contributions=true requires at least one decision contribution (fix: add --decision-contribution ...)"
+                .to_string(),
+        );
+    }
+    if config
+        .decision_reliability_inputs
+        .iter()
+        .any(|input| input.score > 100)
+    {
+        diagnostics.push(
+            "decision_reliability_inputs scores must be <= 100 (fix: set --decision-reliability ... score=0..100)"
+                .to_string(),
+        );
+    }
     diagnostics
 }

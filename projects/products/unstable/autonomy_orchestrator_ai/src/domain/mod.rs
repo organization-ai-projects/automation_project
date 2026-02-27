@@ -1,9 +1,16 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/mod.rs
+mod adaptive_policy_decision;
 mod binary_invocation_spec;
 mod ci_gate_status;
 mod command_line_spec;
+mod decision_contribution;
+mod decision_reliability_factor;
+mod decision_reliability_input;
+mod decision_reliability_update;
+mod decision_summary;
 mod delivery_options;
 mod execution_policy;
+mod final_decision;
 mod gate_decision;
 mod gate_inputs;
 mod orchestrator_checkpoint;
@@ -17,11 +24,18 @@ mod stage_execution_status;
 mod stage_transition;
 mod terminal_state;
 
+pub use adaptive_policy_decision::{AdaptivePolicyAction, AdaptivePolicyDecision};
 pub use binary_invocation_spec::BinaryInvocationSpec;
 pub use ci_gate_status::CiGateStatus;
 pub use command_line_spec::CommandLineSpec;
+pub use decision_contribution::DecisionContribution;
+pub use decision_reliability_factor::DecisionReliabilityFactor;
+pub use decision_reliability_input::DecisionReliabilityInput;
+pub use decision_reliability_update::DecisionReliabilityUpdate;
+pub use decision_summary::DecisionSummary;
 pub use delivery_options::DeliveryOptions;
 pub use execution_policy::ExecutionPolicy;
+pub use final_decision::FinalDecision;
 pub use gate_decision::GateDecision;
 pub use gate_inputs::GateInputs;
 pub use orchestrator_checkpoint::OrchestratorCheckpoint;

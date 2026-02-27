@@ -1,4 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/orchestrator.rs
+use crate::adaptive_policy::{
+    AdaptivePolicyConfig, maybe_increase_execution_budget, maybe_increase_remediation_cycles,
+};
 use crate::artifacts::{
     ExecutionPolicyOverrides, OrchestratorCycleMemory, ValidationInvocationArtifact,
     load_cycle_memory, load_next_actions, read_detected_validation_commands, save_cycle_memory,
@@ -6,8 +9,10 @@ use crate::artifacts::{
 };
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
+use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate};
 use crate::domain::{
-    BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DeliveryOptions, GateDecision, GateInputs,
+    BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
+    DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
     OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
     Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
@@ -30,9 +35,18 @@ pub struct Orchestrator {
     timeout_ms: u64,
     repo_root: PathBuf,
     planning_context_artifact: Option<PathBuf>,
+    previous_run_report_path: Option<PathBuf>,
+    next_actions_path: Option<PathBuf>,
     validation_invocations: Vec<BinaryInvocationSpec>,
     validation_from_planning_context: bool,
     delivery_options: DeliveryOptions,
+    decision_threshold: u8,
+    decision_contributions: Vec<DecisionContribution>,
+    decision_reliability_inputs: Vec<DecisionReliabilityInput>,
+    decision_require_contributions: bool,
+    adaptive_policy_config: AdaptivePolicyConfig,
+    execution_budget_adapted: bool,
+    remediation_budget_adapted: bool,
     gate_inputs: GateInputs,
     checkpoint: OrchestratorCheckpoint,
     checkpoint_path: Option<PathBuf>,
@@ -101,9 +115,18 @@ impl Orchestrator {
             timeout_ms: config.timeout_ms,
             repo_root: config.repo_root,
             planning_context_artifact: config.planning_context_artifact,
+            previous_run_report_path: config.previous_run_report_path,
+            next_actions_path: config.next_actions_path,
             validation_invocations,
             validation_from_planning_context: config.validation_from_planning_context,
             delivery_options: config.delivery_options,
+            decision_threshold: config.decision_threshold,
+            decision_contributions: config.decision_contributions,
+            decision_reliability_inputs: config.decision_reliability_inputs,
+            decision_require_contributions: config.decision_require_contributions,
+            adaptive_policy_config: AdaptivePolicyConfig::default(),
+            execution_budget_adapted: false,
+            remediation_budget_adapted: false,
             gate_inputs: config.gate_inputs,
             checkpoint,
             checkpoint_path: config.checkpoint_path,
@@ -152,6 +175,11 @@ impl Orchestrator {
         }
 
         if self.simulate_blocked {
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
+            return self.report;
+        }
+        if !self.evaluate_final_decision() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
             return self.report;
@@ -282,7 +310,8 @@ impl Orchestrator {
             return true;
         };
 
-        for attempt in 1..=self.execution_max_iterations {
+        let mut attempt = 1u32;
+        while attempt <= self.execution_max_iterations {
             let mut spec = base_spec.clone();
             spec.env.push((
                 "ORCHESTRATOR_EXECUTION_ATTEMPT".to_string(),
@@ -322,6 +351,11 @@ impl Orchestrator {
                 }
                 StageExecutionStatus::Failed => {
                     if attempt < self.execution_max_iterations {
+                        attempt += 1;
+                        continue;
+                    }
+                    if self.try_adapt_execution_budget_after_failure() {
+                        attempt += 1;
                         continue;
                     }
                     self.report.stage_executions.push(StageExecutionRecord {
@@ -533,9 +567,6 @@ impl Orchestrator {
         if self.validation_invocation.is_none() {
             return false;
         }
-        if self.remediation_cycle >= self.reviewer_remediation_max_cycles {
-            return false;
-        }
         if self.execution_invocation.is_none() {
             return false;
         }
@@ -551,6 +582,11 @@ impl Orchestrator {
         if remediation_steps.is_empty() {
             return false;
         }
+        if self.remediation_cycle >= self.reviewer_remediation_max_cycles
+            && !self.try_adapt_remediation_budget_after_failure()
+        {
+            return false;
+        }
 
         self.remediation_cycle += 1;
         self.remediation_steps = remediation_steps;
@@ -559,6 +595,112 @@ impl Orchestrator {
         self.reset_checkpoint_stage(Stage::Validation);
         self.persist_checkpoint();
         true
+    }
+
+    fn try_adapt_execution_budget_after_failure(&mut self) -> bool {
+        if self.execution_budget_adapted {
+            return false;
+        }
+        let Some(signature) = self.latest_failure_signature() else {
+            return false;
+        };
+        let Some(decision) = maybe_increase_execution_budget(
+            self.execution_max_iterations,
+            &signature,
+            self.adaptive_policy_config,
+        ) else {
+            return false;
+        };
+        self.execution_budget_adapted = true;
+        self.execution_max_iterations = decision.new_value;
+        self.report.adaptive_policy_decisions.push(decision.clone());
+        self.report.stage_executions.push(StageExecutionRecord {
+            stage: Stage::Execution,
+            idempotency_key: Some("stage:Execution:adaptive_policy".to_string()),
+            command: "execution.policy.adapt".to_string(),
+            args: vec![
+                decision.reason_code,
+                decision.trigger_signature,
+                decision.previous_value.to_string(),
+                decision.new_value.to_string(),
+            ],
+            env_keys: Vec::new(),
+            started_at_unix_secs: unix_timestamp_secs(),
+            duration_ms: 0,
+            exit_code: Some(0),
+            status: StageExecutionStatus::Success,
+            error: None,
+            missing_artifacts: Vec::new(),
+            malformed_artifacts: Vec::new(),
+        });
+        true
+    }
+
+    fn try_adapt_remediation_budget_after_failure(&mut self) -> bool {
+        if self.remediation_budget_adapted {
+            return false;
+        }
+        let Some(signature) = self.latest_failure_signature() else {
+            return false;
+        };
+        let Some(decision) = maybe_increase_remediation_cycles(
+            self.reviewer_remediation_max_cycles,
+            &signature,
+            self.adaptive_policy_config,
+        ) else {
+            return false;
+        };
+        self.remediation_budget_adapted = true;
+        self.reviewer_remediation_max_cycles = decision.new_value;
+        self.report.adaptive_policy_decisions.push(decision.clone());
+        self.report.stage_executions.push(StageExecutionRecord {
+            stage: Stage::Validation,
+            idempotency_key: Some("stage:Validation:adaptive_policy".to_string()),
+            command: "validation.policy.adapt".to_string(),
+            args: vec![
+                decision.reason_code,
+                decision.trigger_signature,
+                decision.previous_value.to_string(),
+                decision.new_value.to_string(),
+            ],
+            env_keys: Vec::new(),
+            started_at_unix_secs: unix_timestamp_secs(),
+            duration_ms: 0,
+            exit_code: Some(0),
+            status: StageExecutionStatus::Success,
+            error: None,
+            missing_artifacts: Vec::new(),
+            malformed_artifacts: Vec::new(),
+        });
+        true
+    }
+
+    fn latest_failure_signature(&self) -> Option<String> {
+        self.report
+            .stage_executions
+            .iter()
+            .rev()
+            .find(|execution| {
+                matches!(
+                    execution.status,
+                    StageExecutionStatus::Failed
+                        | StageExecutionStatus::SpawnFailed
+                        | StageExecutionStatus::ArtifactMissing
+                        | StageExecutionStatus::Timeout
+                )
+            })
+            .map(|execution| {
+                format!(
+                    "stage={:?};status={:?};command={};exit={}",
+                    execution.stage,
+                    execution.status,
+                    execution.command,
+                    execution
+                        .exit_code
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "none".to_string())
+                )
+            })
     }
 
     fn reset_checkpoint_stage(&mut self, stage: Stage) {
@@ -812,7 +954,12 @@ impl Orchestrator {
 
         let started = Instant::now();
         let started_at_unix_secs = unix_timestamp_secs();
-        match write_repo_context_artifact(Path::new(&self.repo_root), Path::new(&artifact_path)) {
+        match write_repo_context_artifact(
+            Path::new(&self.repo_root),
+            Path::new(&artifact_path),
+            self.previous_run_report_path.as_deref(),
+            self.next_actions_path.as_deref(),
+        ) {
             Ok(()) => {
                 self.report.stage_executions.push(StageExecutionRecord {
                     stage: Stage::Planning,
@@ -1078,6 +1225,45 @@ impl Orchestrator {
         self.report.blocked_reason_codes = blocked_reason_codes;
         self.report.blocked_reason_codes.is_empty()
     }
+
+    fn evaluate_final_decision(&mut self) -> bool {
+        if self.decision_contributions.is_empty() && !self.decision_require_contributions {
+            self.report.final_decision = None;
+            self.report.decision_confidence = None;
+            self.report.decision_rationale_codes.clear();
+            self.report.decision_contributions.clear();
+            self.report.decision_threshold = None;
+            self.report.decision_reliability_factors.clear();
+            self.report.decision_reliability_updates.clear();
+            return true;
+        }
+
+        let summary = aggregate(
+            &self.decision_contributions,
+            &DecisionAggregatorConfig {
+                min_confidence_to_proceed: self.decision_threshold,
+                reliability_inputs: self.decision_reliability_inputs.clone(),
+            },
+        );
+        self.report.final_decision = Some(summary.final_decision);
+        self.report.decision_confidence = Some(summary.decision_confidence);
+        self.report.decision_rationale_codes = summary.decision_rationale_codes.clone();
+        self.report.decision_contributions = summary.contributions;
+        self.report.decision_threshold = Some(summary.threshold);
+        self.report.decision_reliability_factors = summary.reliability_factors;
+        self.report.decision_reliability_updates = summary.reliability_updates;
+
+        for code in &summary.decision_rationale_codes {
+            if !is_blocking_decision_reason_code(code) {
+                continue;
+            }
+            if !self.report.blocked_reason_codes.contains(code) {
+                self.report.blocked_reason_codes.push(code.clone());
+            }
+        }
+
+        summary.final_decision == FinalDecision::Proceed
+    }
 }
 
 fn unix_timestamp_secs() -> u64 {
@@ -1089,4 +1275,14 @@ fn unix_timestamp_secs() -> u64 {
 
 fn duration_to_u64_ms(duration: std::time::Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
+}
+
+fn is_blocking_decision_reason_code(code: &str) -> bool {
+    matches!(
+        code,
+        "DECISION_CONFIDENCE_BELOW_THRESHOLD"
+            | "DECISION_TIE_FAIL_CLOSED"
+            | "DECISION_ESCALATED"
+            | "DECISION_NO_CONTRIBUTIONS"
+    )
 }

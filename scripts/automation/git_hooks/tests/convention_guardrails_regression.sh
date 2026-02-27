@@ -189,17 +189,23 @@ main() {
     "^2$" \
     "printf 'docs: update hook policy wording\n\npart of #123\nPart of #123\nREOPEN #456\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && grep -Ec '^(Part of #123|Reopen #456)$' .git/COMMIT_EDITMSG"
 
+  run_case \
+    "commit-msg-accepts-first-nonempty-line-as-subject" \
+    0 \
+    "" \
+    "printf '\n\nfix(shell): trim leading blanks\n\nbody\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
   # commit-msg: block issue refs in subject.
   run_case \
     "commit-msg-blocks-subject-issue-ref" \
-    1 \
+    4 \
     "Issue references must be in commit footer" \
     "cp '${FIXTURES_DIR}/commit_msg_invalid_subject_ref.txt' .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   # commit-msg: block root parent refs in footer.
   run_case \
     "commit-msg-blocks-root-parent" \
-    1 \
+    5 \
     "Root parent issue references are not allowed" \
     "cp '${FIXTURES_DIR}/commit_msg_invalid_root_parent.txt' .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
@@ -211,13 +217,13 @@ main() {
 
   run_case \
     "commit-msg-requires-scope-for-library-change" \
-    1 \
+    7 \
     "Missing required scope in commit message" \
     "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix: patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-rejects-wrong-scope-for-library-change" \
-    1 \
+    8 \
     "Commit scope does not match touched files" \
     "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/other): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
@@ -229,13 +235,13 @@ main() {
 
   run_case \
     "commit-msg-rejects-parent-product-scope-for-ui-and-backend-mix" \
-    1 \
+    8 \
     "Commit scope does not match touched files" \
     "mkdir -p projects/products/stable/varina/ui/src projects/products/stable/varina/backend/src && printf '[package]\nname = \"varina-ui\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/ui/Cargo.toml && printf '[package]\nname = \"varina-backend\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/backend/Cargo.toml && echo 'pub fn ui() {}' > projects/products/stable/varina/ui/src/lib.rs && echo 'pub fn api() {}' > projects/products/stable/varina/backend/src/lib.rs && git add projects/products/stable/varina/ui/Cargo.toml projects/products/stable/varina/backend/Cargo.toml projects/products/stable/varina/ui/src/lib.rs projects/products/stable/varina/backend/src/lib.rs && printf 'fix(projects/products/stable/varina): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-requires-scope-for-staged-deletions" \
-    1 \
+    7 \
     "Missing required scope in commit message" \
     "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/layers/domain/security/src/lib.rs && printf 'fix: remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
@@ -259,7 +265,7 @@ main() {
 
   run_case \
     "commit-msg-rejects-ui-scope-when-ui-is-not-a-crate" \
-    1 \
+    8 \
     "Commit scope does not match touched files" \
     "mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina/ui): patch ui files\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
@@ -271,7 +277,7 @@ main() {
 
   run_case \
     "commit-msg-requires-shell-scope-for-shell-only-change" \
-    1 \
+    8 \
     "Commit scope does not match touched files" \
     "printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add helper.sh && printf 'chore(workspace): add helper script\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
@@ -283,7 +289,7 @@ main() {
 
   run_case \
     "commit-msg-requires-markdown-scope-for-markdown-only-change" \
-    1 \
+    8 \
     "Commit scope does not match touched files" \
     "echo '# title' > README.md && git add README.md && printf 'docs(workspace): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
@@ -295,13 +301,13 @@ main() {
 
   run_case \
     "commit-msg-requires-workspace-scope-for-root-level-non-rust-non-shell-non-markdown-change" \
-    1 \
+    7 \
     "Missing required scope in commit message" \
     "echo 'x=1' > settings.toml && git add settings.toml && printf 'chore: add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-rejects-wrong-scope-for-root-level-non-rust-non-shell-non-markdown-change" \
-    1 \
+    8 \
     "Commit scope does not match touched files" \
     "echo 'x=1' > settings.toml && git add settings.toml && printf 'chore(config): add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
@@ -319,13 +325,13 @@ main() {
 
   run_case \
     "commit-msg-blocks-mixed-shell-and-markdown" \
-    1 \
+    6 \
     "Mixed file format categories are not allowed" \
     "printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && echo '# title' > README.md && git add helper.sh README.md && printf 'chore(shell): mixed change\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-blocks-mixed-rust-and-shell" \
-    1 \
+    6 \
     "Mixed file format categories are not allowed" \
     "mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add projects/libraries/layers/domain/security/src/lib.rs helper.sh && printf 'fix(projects/libraries/layers/domain/security): mixed change\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 

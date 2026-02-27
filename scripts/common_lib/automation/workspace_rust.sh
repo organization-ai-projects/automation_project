@@ -2,6 +2,8 @@
 
 # Workspace-first Rust scope resolution helpers.
 
+declare -gA WORKSPACE_RUST_MEMBER_DIRS_SET=()
+
 workspace_rust_member_dirs() {
   local repo_root
   repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
@@ -136,6 +138,13 @@ workspace_rust_load_member_dirs() {
   fi
 
   WORKSPACE_RUST_MEMBER_DIRS="$(workspace_rust_member_dirs || true)"
+  WORKSPACE_RUST_MEMBER_DIRS_SET=()
+  if [[ -n "$WORKSPACE_RUST_MEMBER_DIRS" ]]; then
+    while IFS= read -r dir; do
+      [[ -z "$dir" ]] && continue
+      WORKSPACE_RUST_MEMBER_DIRS_SET["$dir"]=1
+    done <<< "$WORKSPACE_RUST_MEMBER_DIRS"
+  fi
   WORKSPACE_RUST_MEMBER_DIRS_LOADED=1
 }
 
@@ -151,7 +160,7 @@ workspace_rust_resolve_scope_from_members() {
   fi
 
   while :; do
-    if grep -Fxq "$dir" <<< "$WORKSPACE_RUST_MEMBER_DIRS"; then
+    if [[ -n "${WORKSPACE_RUST_MEMBER_DIRS_SET[$dir]:-}" ]]; then
       printf '%s\n' "$dir"
       return 0
     fi

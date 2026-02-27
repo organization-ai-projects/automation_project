@@ -1,5 +1,6 @@
 use crate::domain::{
-    BinaryInvocationSpec, CommandLineSpec, DeliveryOptions, ExecutionPolicy, GateInputs,
+    AdaptivePolicyAction, BinaryInvocationSpec, CommandLineSpec, DecisionContribution,
+    DecisionReliabilityInput, DeliveryOptions, ExecutionPolicy, FinalDecision, GateInputs,
     OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, Stage, StageExecutionStatus,
     TerminalState,
 };
@@ -26,9 +27,22 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         validation_from_planning_context: false,
         delivery_options: DeliveryOptions::disabled(),
         gate_inputs: GateInputs::passing(),
+        decision_threshold: 70,
+        decision_contributions: vec![DecisionContribution {
+            contributor_id: "default".to_string(),
+            capability: "governance".to_string(),
+            vote: FinalDecision::Proceed,
+            confidence: 100,
+            weight: 100,
+            reason_codes: Vec::new(),
+            artifact_refs: Vec::new(),
+        }],
+        decision_reliability_inputs: Vec::new(),
+        decision_require_contributions: false,
         checkpoint_path: None,
         cycle_memory_path: None,
         next_actions_path: None,
+        previous_run_report_path: None,
     }
 }
 
@@ -219,4 +233,160 @@ fn planner_output_with_zero_execution_budget_fails_closed() {
     }));
 
     fs::remove_dir_all(&temp_root).ok();
+}
+
+#[test]
+fn decision_contributions_can_block_closure_with_reason_code() {
+    let mut config = test_config("run_8");
+    config.decision_contributions = vec![DecisionContribution {
+        contributor_id: "reviewer".to_string(),
+        capability: "validation".to_string(),
+        vote: FinalDecision::Escalate,
+        confidence: 95,
+        weight: 80,
+        reason_codes: vec!["REVIEWER_ESCALATION".to_string()],
+        artifact_refs: Vec::new(),
+    }];
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+    assert_eq!(report.final_decision, Some(FinalDecision::Escalate));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_ESCALATED".to_string())
+    );
+}
+
+#[test]
+fn decision_require_contributions_fails_closed_when_empty() {
+    let mut config = test_config("run_9");
+    config.decision_contributions = Vec::new();
+    config.decision_require_contributions = true;
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+    assert_eq!(report.final_decision, Some(FinalDecision::Block));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
+    );
+}
+
+#[test]
+fn adaptive_policy_can_increase_execution_budget_once() {
+    let mut config = test_config("run_10");
+    config.execution_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Execution,
+        command_line: CommandLineSpec {
+            command: "false".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: Vec::new(),
+    });
+    config.execution_policy.execution_max_iterations = 1;
+
+    let report = Orchestrator::new(config, None).execute();
+    assert_eq!(report.terminal_state, Some(TerminalState::Failed));
+    assert!(
+        report
+            .adaptive_policy_decisions
+            .iter()
+            .any(|decision| decision.action == AdaptivePolicyAction::IncreaseExecutionBudget)
+    );
+    let execution_failures = report
+        .stage_executions
+        .iter()
+        .filter(|e| e.stage == Stage::Execution && e.status == StageExecutionStatus::Failed)
+        .count();
+    assert!(
+        execution_failures >= 2,
+        "expected at least two execution failures after adaptive budget increase, got {execution_failures}"
+    );
+}
+
+#[test]
+fn adaptive_policy_does_not_increase_execution_budget_when_cap_is_reached() {
+    let mut config = test_config("run_11");
+    config.execution_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Execution,
+        command_line: CommandLineSpec {
+            command: "false".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: Vec::new(),
+    });
+    // Matches AdaptivePolicyConfig::default() cap.
+    config.execution_policy.execution_max_iterations = 5;
+
+    let report = Orchestrator::new(config, None).execute();
+    assert_eq!(report.terminal_state, Some(TerminalState::Failed));
+    assert!(
+        report
+            .adaptive_policy_decisions
+            .iter()
+            .all(|decision| decision.action != AdaptivePolicyAction::IncreaseExecutionBudget)
+    );
+    let execution_failures = report
+        .stage_executions
+        .iter()
+        .filter(|e| e.stage == Stage::Execution && e.status == StageExecutionStatus::Failed)
+        .count();
+    assert_eq!(
+        execution_failures, 6,
+        "expected exactly 5 failed attempts + 1 budget exhaustion record"
+    );
+}
+
+#[test]
+fn reliability_factors_and_updates_are_persisted_in_run_report() {
+    let mut config = test_config("run_12");
+    config.decision_contributions = vec![
+        DecisionContribution {
+            contributor_id: "planner".to_string(),
+            capability: "planning".to_string(),
+            vote: FinalDecision::Proceed,
+            confidence: 80,
+            weight: 70,
+            reason_codes: Vec::new(),
+            artifact_refs: Vec::new(),
+        },
+        DecisionContribution {
+            contributor_id: "reviewer".to_string(),
+            capability: "validation".to_string(),
+            vote: FinalDecision::Block,
+            confidence: 60,
+            weight: 70,
+            reason_codes: Vec::new(),
+            artifact_refs: Vec::new(),
+        },
+    ];
+    config.decision_reliability_inputs = vec![
+        DecisionReliabilityInput {
+            contributor_id: "planner".to_string(),
+            capability: "planning".to_string(),
+            score: 90,
+        },
+        DecisionReliabilityInput {
+            contributor_id: "reviewer".to_string(),
+            capability: "validation".to_string(),
+            score: 10,
+        },
+    ];
+
+    let report = Orchestrator::new(config, None).execute();
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert_eq!(report.final_decision, Some(FinalDecision::Proceed));
+    assert_eq!(report.decision_reliability_factors.len(), 2);
+    assert_eq!(report.decision_reliability_updates.len(), 2);
+    assert!(
+        report
+            .decision_rationale_codes
+            .contains(&"DECISION_RELIABILITY_WEIGHTED".to_string())
+    );
 }

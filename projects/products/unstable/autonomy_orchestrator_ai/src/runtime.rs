@@ -37,6 +37,10 @@ fn run_orchestrator_internal(args: RunArgs, raw_args: &[String]) -> i32 {
         eprintln!("Invalid --autonomous-same-error-limit value: must be >= 1");
         return 2;
     }
+    if args.decision_threshold > 100 {
+        eprintln!("Invalid --decision-threshold value: must be <= 100");
+        return 2;
+    }
 
     if !args.autonomous_loop {
         return run_once(args, raw_args, false)
@@ -163,16 +167,22 @@ fn run_once(
         .next_actions_path
         .clone()
         .unwrap_or_else(|| args.output_dir.join("next_actions.bin"));
+    let previous_run_report_path = args.output_dir.join("orchestrator_run_report.json");
 
     let resume_enabled = args.resume || loop_mode;
     let version_before = capture_repo_snapshot(&args.repo_root);
 
     let checkpoint = if resume_enabled {
         if checkpoint_path.exists() {
-            Some(
-                load_checkpoint(&checkpoint_path)
-                    .map_err(|err| (1, format!("Failed to resume checkpoint: {err}")))?,
-            )
+            let mut checkpoint = load_checkpoint(&checkpoint_path)
+                .map_err(|err| (1, format!("Failed to resume checkpoint: {err}")))?;
+            if loop_mode {
+                // In autonomous mode, each loop iteration must re-run planning so new outcome
+                // artifacts can feed the next planning context deterministically.
+                checkpoint.completed_stages.clear();
+                checkpoint.terminal_state = None;
+            }
+            Some(checkpoint)
         } else {
             None
         }
@@ -268,9 +278,14 @@ fn run_once(
         validation_from_planning_context: args.validation_from_planning_context,
         delivery_options,
         gate_inputs,
+        decision_threshold: args.decision_threshold,
+        decision_contributions: args.decision_contributions,
+        decision_reliability_inputs: args.decision_reliability_inputs,
+        decision_require_contributions: args.decision_require_contributions,
         checkpoint_path: Some(checkpoint_path.clone()),
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
+        previous_run_report_path: Some(previous_run_report_path.clone()),
     };
 
     if let Some(load_mode) = &config_io.load {
@@ -278,6 +293,7 @@ fn run_once(
         config.checkpoint_path = Some(checkpoint_path.clone());
         config.cycle_memory_path = Some(cycle_memory_path.clone());
         config.next_actions_path = Some(next_actions_path.clone());
+        config.previous_run_report_path = Some(previous_run_report_path.clone());
     }
 
     for save_mode in &config_io.saves {
@@ -353,6 +369,19 @@ fn build_recommended_actions(report: &RunReport) -> Vec<String> {
             "GATE_CI_NOT_SUCCESS" => "Resolve CI gate: ensure CI status is success".to_string(),
             "GATE_REVIEW_NOT_APPROVED" => {
                 "Resolve review gate: obtain approved review status".to_string()
+            }
+            "DECISION_CONFIDENCE_BELOW_THRESHOLD" => {
+                "Raise decision confidence or lower threshold with explicit governance approval"
+                    .to_string()
+            }
+            "DECISION_TIE_FAIL_CLOSED" => {
+                "Resolve conflicting agent votes to remove fail-closed tie".to_string()
+            }
+            "DECISION_ESCALATED" => {
+                "Manual escalation required before closure can proceed".to_string()
+            }
+            "DECISION_NO_CONTRIBUTIONS" => {
+                "Provide at least one decision contribution for final arbitration".to_string()
             }
             other => format!("Resolve blocked reason: {other}"),
         };

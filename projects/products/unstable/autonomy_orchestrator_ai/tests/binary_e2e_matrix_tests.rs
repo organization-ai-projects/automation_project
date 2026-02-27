@@ -10,7 +10,14 @@ struct MatrixReportView {
     terminal_state: Option<String>,
     blocked_reason_codes: Vec<String>,
     reviewer_next_steps: Vec<String>,
+    adaptive_policy_decisions: Vec<AdaptivePolicyDecisionView>,
     stage_executions: Vec<StageExecutionView>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct AdaptivePolicyDecisionView {
+    action: String,
+    reason_code: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -27,6 +34,20 @@ struct RepoContextView {
     ownership_boundaries: Vec<String>,
     hot_paths: Vec<String>,
     detected_validation_commands: Vec<RepoValidationInvocation>,
+    planning_feedback: Option<PlanningFeedbackView>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PlanningFeedbackView {
+    schema_version: u32,
+    terminal_state: Option<String>,
+    recommended_actions: Vec<String>,
+    validation_outcomes: Vec<PlanningValidationOutcomeView>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PlanningValidationOutcomeView {
+    status: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -65,6 +86,9 @@ fn run_orchestrator(args: &[&str], out_dir: &PathBuf) -> (Output, MatrixReportVi
 
     let mut cmd = Command::new(bin);
     cmd.arg(out_dir);
+    cmd.arg("--decision-contribution").arg(
+        "contributor_id=matrix_default,capability=validation,vote=proceed,confidence=100,weight=100",
+    );
     for arg in args {
         cmd.arg(arg);
     }
@@ -462,13 +486,57 @@ fn matrix_execution_iteration_budget_exhaustion_fails_closed() {
             .iter()
             .filter(|e| e.stage == "execution" && e.status == "failed")
             .count(),
-        3
+        4
     );
     assert!(
         report
             .stage_executions
             .iter()
             .any(|e| e.stage == "execution" && e.status == "failed")
+    );
+    assert!(
+        report.adaptive_policy_decisions.iter().any(|d| {
+            d.action == "increase_execution_budget"
+                && d.reason_code == "ADAPTIVE_RETRY_BUDGET_INCREASED"
+        }),
+        "expected adaptive retry budget increase before final exhaustion"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_execution_budget_at_cap_does_not_adapt() {
+    let out_dir = unique_temp_dir("execution_retry_budget_at_cap");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+            "--execution-max-iterations",
+            "5",
+            "--executor-bin",
+            fixture_bin(),
+            "--executor-arg",
+            "fixture",
+            "--executor-arg",
+            "fail",
+        ],
+        &out_dir,
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(report.terminal_state.as_deref(), Some("failed"));
+    assert!(
+        report
+            .adaptive_policy_decisions
+            .iter()
+            .all(|d| d.action != "increase_execution_budget"),
+        "expected no adaptive execution budget increase at hard cap"
     );
 
     let _ = fs::remove_dir_all(out_dir);
@@ -682,6 +750,67 @@ fn matrix_reviewer_remediation_cycle_recovers_to_done() {
 }
 
 #[test]
+fn matrix_adaptive_remediation_budget_recovers_when_initial_budget_is_zero() {
+    let out_dir = unique_temp_dir("adaptive_remediation_budget");
+    let reviewer_dir = out_dir.join("reviewer");
+    fs::create_dir_all(&reviewer_dir).expect("create reviewer dir");
+    let state_file = out_dir.join("reviewer_state.flag");
+    let review_report = reviewer_dir.join("review_report.json");
+
+    let args = vec![
+        "--policy-status".to_string(),
+        "allow".to_string(),
+        "--ci-status".to_string(),
+        "success".to_string(),
+        "--review-status".to_string(),
+        "approved".to_string(),
+        "--execution-max-iterations".to_string(),
+        "1".to_string(),
+        "--reviewer-remediation-max-cycles".to_string(),
+        "0".to_string(),
+        "--executor-bin".to_string(),
+        fixture_bin().to_string(),
+        "--executor-arg".to_string(),
+        "fixture".to_string(),
+        "--executor-arg".to_string(),
+        "success".to_string(),
+        "--reviewer-bin".to_string(),
+        fixture_bin().to_string(),
+        "--reviewer-arg".to_string(),
+        "fixture".to_string(),
+        "--reviewer-arg".to_string(),
+        "review-remediation".to_string(),
+        "--reviewer-arg".to_string(),
+        state_file.display().to_string(),
+        "--reviewer-arg".to_string(),
+        review_report.display().to_string(),
+        "--reviewer-expected-artifact".to_string(),
+        review_report
+            .to_str()
+            .expect("utf-8 review report path")
+            .to_string(),
+    ];
+
+    let (output, report) = run_orchestrator_owned(&args, &out_dir);
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    assert!(
+        report.adaptive_policy_decisions.iter().any(|decision| {
+            decision.action == "increase_remediation_cycles"
+                && decision.reason_code == "ADAPTIVE_REMEDIATION_CYCLES_INCREASED"
+        }),
+        "expected adaptive remediation budget decision in run report"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
 fn matrix_scoped_task_modifies_repo_and_passes_validation() {
     let out_dir = unique_temp_dir("scoped_repo_modify");
     let repo_dir = out_dir.join("repo");
@@ -873,7 +1002,7 @@ fn matrix_autonomous_loop_stops_on_repeated_failure_signature() {
     assert_eq!(output.status.code(), Some(3));
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Autonomous loop stopped:"),
+        stdout.contains("Autonomous loop stopped: same failure signature repeated"),
         "expected loop stop message, got: {stdout}"
     );
 
@@ -881,6 +1010,77 @@ fn matrix_autonomous_loop_stops_on_repeated_failure_signature() {
     let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
     let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
     assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_planning_feedback_loop_injects_previous_validation_outcomes() {
+    let out_dir = unique_temp_dir("planning_feedback_loop");
+    let planning_context_artifact = out_dir.join("planning/repo_context.json");
+    let validation_state_file = out_dir.join("validation_fail_once.flag");
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_autonomy_orchestrator_ai"));
+    cmd.arg(&out_dir)
+        .arg("--autonomous-loop")
+        .arg("--autonomous-max-runs")
+        .arg("3")
+        .arg("--autonomous-same-error-limit")
+        .arg("3")
+        .arg("--planning-context-artifact")
+        .arg(&planning_context_artifact)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--executor-bin")
+        .arg(fixture_bin())
+        .arg("--executor-arg")
+        .arg("fixture")
+        .arg("--executor-arg")
+        .arg("success")
+        .arg("--validation-bin")
+        .arg(fixture_bin())
+        .arg("--validation-arg")
+        .arg("fixture")
+        .arg("--validation-arg")
+        .arg("fail-once")
+        .arg("--validation-arg")
+        .arg(&validation_state_file);
+    let output = cmd.output().expect("execute feedback loop run");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let artifact_raw = fs::read_to_string(&planning_context_artifact)
+        .expect("read planning context with feedback artifact");
+    let artifact: RepoContextView =
+        from_str(&artifact_raw).expect("deserialize planning context with feedback artifact");
+    let feedback = artifact
+        .planning_feedback
+        .expect("expected planning_feedback to be injected");
+    assert_eq!(feedback.schema_version, 1);
+    assert_eq!(feedback.terminal_state.as_deref(), Some("failed"));
+    assert!(
+        feedback
+            .recommended_actions
+            .iter()
+            .any(|action| action.contains("Inspect failed stage execution")),
+        "expected failure remediation recommendation in planning feedback"
+    );
+    assert!(
+        feedback
+            .validation_outcomes
+            .iter()
+            .any(|outcome| outcome.status == "failed"),
+        "expected failed validation outcome in planning feedback"
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -931,6 +1131,10 @@ fn matrix_autonomous_loop_progress_then_done() {
         .arg("success")
         .arg("--review-status")
         .arg("approved")
+        .arg("--decision-contribution")
+        .arg(
+            "contributor_id=loop_default,capability=execution,vote=proceed,confidence=100,weight=100",
+        )
         .arg("--execution-max-iterations")
         .arg("1")
         .arg("--executor-bin")
@@ -954,6 +1158,109 @@ fn matrix_autonomous_loop_progress_then_done() {
     let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
     let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_decision_conflict_tie_fail_closed() {
+    let out_dir = unique_temp_dir("decision_tie_fail_closed");
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--decision-contribution")
+        .arg("contributor_id=a,capability=planning,vote=proceed,confidence=50,weight=50")
+        .arg("--decision-contribution")
+        .arg("contributor_id=b,capability=execution,vote=block,confidence=50,weight=50")
+        .arg("--decision-contribution")
+        .arg("contributor_id=c,capability=validation,vote=escalate,confidence=50,weight=50")
+        .output()
+        .expect("execute tie fail-closed run");
+
+    assert_eq!(output.status.code(), Some(3));
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+    assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_TIE_FAIL_CLOSED".to_string())
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_decision_low_confidence_blocks() {
+    let out_dir = unique_temp_dir("decision_low_confidence");
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--decision-threshold")
+        .arg("70")
+        .arg("--decision-contribution")
+        .arg("contributor_id=a,capability=planning,vote=proceed,confidence=55,weight=1")
+        .arg("--decision-contribution")
+        .arg("contributor_id=b,capability=review,vote=block,confidence=45,weight=1")
+        .output()
+        .expect("execute low confidence run");
+
+    assert_eq!(output.status.code(), Some(3));
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+    assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_CONFIDENCE_BELOW_THRESHOLD".to_string())
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_decision_no_contributions_blocks_fail_closed() {
+    let out_dir = unique_temp_dir("decision_no_contributions");
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--decision-require-contributions")
+        .output()
+        .expect("execute no contribution run");
+
+    assert_eq!(output.status.code(), Some(3));
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+    assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
