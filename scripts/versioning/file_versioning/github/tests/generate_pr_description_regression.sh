@@ -152,6 +152,17 @@ EOF
   shell_test_write_passthrough_jq_mock "${mock_dir}"
 }
 
+build_mock_bin_without_jq() {
+  local mock_dir="$1"
+  build_mock_bin "${mock_dir}"
+  rm -f "${mock_dir}/jq"
+  for tool in awk cat cut grep head mkdir mktemp rm sed sleep sort tail tr wc; do
+    if command -v "${tool}" >/dev/null 2>&1; then
+      ln -sf "$(command -v "${tool}")" "${mock_dir}/${tool}"
+    fi
+  done
+}
+
 build_no_gh_bin() {
   local mock_dir="$1"
   mkdir -p "${mock_dir}"
@@ -194,6 +205,12 @@ run_case() {
       cd "${ROOT_DIR}"
       PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" "$@"
     ) >"${out_file}" 2>"${err_file}" || status=$?
+  elif [[ "${mode}" == "mock_no_jq" ]]; then
+    build_mock_bin_without_jq "${tmp}/bin"
+    (
+      cd "${ROOT_DIR}"
+      PATH="${tmp}/bin" /bin/bash "${TARGET_SCRIPT}" "$@"
+    ) >"${out_file}" 2>"${err_file}" || status=$?
   elif [[ "${mode}" == "no_gh" ]]; then
     build_no_gh_bin "${tmp}/bin"
     (
@@ -235,7 +252,7 @@ main() {
   echo "Running regression matrix for generate_pr_description.sh"
 
   run_case "help" 0 "Usage:" mock --help
-  run_case "missing-main-pr" 2 "MAIN_PR_NUMBER est requis" mock
+  run_case "missing-main-pr" 2 "MAIN_PR_NUMBER is required" mock
   run_case "base-missing-value" 2 "--base requires a value" mock --base
   run_case "head-missing-value" 2 "--head requires a value" mock --head
   run_case "duplicate-mode-invalid" 2 "--duplicate-mode must be 'safe' or 'auto-close'" mock --duplicate-mode invalid --dry-run
@@ -252,6 +269,7 @@ main() {
   run_case "auto-create-success-does-not-return-no-data" 0 "PR created:" mock --auto --base dev --head test-head --yes
   run_case "auto-edit-dry-run-in-memory" 0 "--auto-edit mode" mock --dry-run --auto-edit 400 --base dev --head test-head --yes
   run_case "dry-run-without-gh" 3 "command 'gh' not found" no_gh --dry-run --base dev --head test-head /tmp/pr_description_test_no_gh.md
+  run_case "dry-run-with-gh-missing-jq" 3 "command 'jq' not found" mock_no_jq --dry-run --base dev --head test-head /tmp/pr_description_test_no_jq.md
   run_case "missing-gh-required-main-mode" 3 "command 'gh' not found" no_gh 42
   run_case "duplicate-mode-dry-run-output" 0 "Duplicate mode \\(safe\\): no duplicate declarations detected" mock --dry-run --base dev --head test-head --duplicate-mode safe
   run_case "debug-flag-emits-trace" 0 "\\[debug\\] extract_child_prs_dry" mock --dry-run --base dev --head test-head --debug
@@ -349,6 +367,34 @@ main() {
     fi
   else
     echo "FAIL [compatibility-single-status-line] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
+  build_mock_bin "${tmp}/bin"
+  out_md="${tmp}/compat_negated.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_GIT_LOG_BODY="No breaking changes are expected in this iteration" \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
+  ) >/dev/null 2>&1; then
+    compat_section="$(awk '
+      /^### Compatibility$/ { in_compat=1; next }
+      /^### / && in_compat { exit }
+      in_compat { print }
+    ' "${out_md}")"
+    if echo "${compat_section}" | grep -q -- "^- Non-breaking change\\.$"; then
+      echo "PASS [compatibility-negated-breaking-signal]"
+    else
+      echo "FAIL [compatibility-negated-breaking-signal] compatibility section is not normalized for negated signal"
+      echo "Compatibility section:"
+      echo "${compat_section}"
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [compatibility-negated-breaking-signal] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"

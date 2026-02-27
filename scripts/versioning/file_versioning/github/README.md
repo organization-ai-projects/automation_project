@@ -141,7 +141,13 @@ Dependency behavior:
   - `--create-pr`
   - `--auto-edit`
   - duplicate actions outside dry-run
+- `jq` is required whenever GitHub data is parsed (all modes that have `gh` available, including dry-run).
 - Pure local dry-run (`--dry-run` without online actions) works without `gh`.
+
+Resilience:
+
+- GitHub compare lookups retry with deterministic backoff before falling back to local git history.
+- Optional timeline/enrichment reads emit warnings on failure but remain non-fatal to keep generation deterministic.
 
 Exit codes (automation contract):
 

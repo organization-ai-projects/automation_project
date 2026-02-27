@@ -68,6 +68,7 @@ auto_edit_pr_number=""
 refresh_pr_used="false"
 debug_mode="false"
 duplicate_mode=""
+repo_name_with_owner_cache=""
 
 positionals=()
 while [[ $# -gt 0 ]]; do
@@ -144,6 +145,38 @@ debug_log() {
   if [[ "$debug_mode" == "true" ]]; then
     echo "[debug] $*" >&2
   fi
+}
+
+warn_optional() {
+  local message="$1"
+  local detail="${2:-}"
+  echo "Warning: ${message}" >&2
+  if [[ -n "$detail" ]]; then
+    echo "Detail: ${detail}" >&2
+  fi
+}
+
+gh_optional() {
+  local description="$1"
+  shift
+
+  if [[ "$has_gh" != "true" ]]; then
+    debug_log "${description}: gh unavailable, skipping."
+    return 1
+  fi
+
+  local err_file
+  local output
+  err_file="$(mktemp)"
+  if ! output="$(gh "$@" 2>"$err_file")"; then
+    warn_optional "${description} failed; continuing without GitHub data." "$(cat "$err_file" 2>/dev/null || true)"
+    rm -f "$err_file"
+    return 1
+  fi
+
+  rm -f "$err_file"
+  printf "%s" "$output"
+  return 0
 }
 
 extract_validation_checklist_section() {
@@ -245,7 +278,7 @@ if [[ "$dry_run" == "false" ]]; then
     output_file="${positionals[1]}"
   fi
   if [[ -z "$main_pr_number" ]]; then
-    usage_error "MAIN_PR_NUMBER est requis."
+    usage_error "MAIN_PR_NUMBER is required."
   fi
 else
   if [[ -n "$auto_edit_pr_number" && "$auto_mode" != "true" && ${#positionals[@]} -gt 0 ]]; then
@@ -306,6 +339,9 @@ if [[ "$need_gh" == "true" && "$has_gh" != "true" ]]; then
 fi
 
 need_jq="false"
+if [[ "$has_gh" == "true" ]]; then
+  need_jq="true"
+fi
 if [[ "$dry_run" == "false" || "$create_pr" == "true" ]]; then
   need_jq="true"
 fi
@@ -340,6 +376,42 @@ normalize_branch_display_ref() {
   echo "$normalized"
 }
 
+get_repo_name_with_owner() {
+  if [[ "$has_gh" != "true" ]]; then
+    echo ""
+    return
+  fi
+
+  if [[ -n "$repo_name_with_owner_cache" ]]; then
+    echo "$repo_name_with_owner_cache"
+    return
+  fi
+
+  if [[ -n "${GH_REPO:-}" ]]; then
+    repo_name_with_owner_cache="$GH_REPO"
+    echo "$repo_name_with_owner_cache"
+    return
+  fi
+
+  repo_name_with_owner_cache="$(gh_optional "resolve repository name" repo view --json nameWithOwner -q '.nameWithOwner')"
+  echo "$repo_name_with_owner_cache"
+}
+
+seed_pr_ref_cache() {
+  local pr_ref
+
+  if [[ -n "$main_pr_number" ]]; then
+    pr_ref_cache["#${main_pr_number}"]="1"
+  fi
+
+  if [[ -s "$extracted_prs_file" ]]; then
+    while read -r pr_ref; do
+      [[ -z "$pr_ref" ]] && continue
+      pr_ref_cache["$pr_ref"]="1"
+    done < "$extracted_prs_file"
+  fi
+}
+
 if [[ "$dry_run" == "true" ]]; then
   if ! command -v git >/dev/null 2>&1; then
     echo "Error: command 'git' not found." >&2
@@ -358,8 +430,16 @@ if [[ "$dry_run" == "true" ]]; then
     exit "$E_GIT"
   fi
 else
-  base_ref="$(gh pr view "$main_pr_number" --json baseRefName -q '.baseRefName' 2>/dev/null || echo "main")"
-  head_ref="$(gh pr view "$main_pr_number" --json headRefName -q '.headRefName' 2>/dev/null || echo "dev")"
+  base_ref="$(gh_optional "read base branch for PR #${main_pr_number}" pr view "$main_pr_number" --json baseRefName -q '.baseRefName')"
+  head_ref="$(gh_optional "read head branch for PR #${main_pr_number}" pr view "$main_pr_number" --json headRefName -q '.headRefName')"
+  if [[ -z "$base_ref" ]]; then
+    warn_optional "PR #${main_pr_number} base branch unavailable; defaulting to main."
+    base_ref="main"
+  fi
+  if [[ -z "$head_ref" ]]; then
+    warn_optional "PR #${main_pr_number} head branch unavailable; defaulting to dev."
+    head_ref="dev"
+  fi
 fi
 
 base_ref_display="$(normalize_branch_display_ref "$base_ref")"
@@ -375,24 +455,27 @@ extract_child_prs() {
   local main_pr_comments
   local repo_owner_name
   local timeline_pr_refs
+  local timeline_pr_refs_raw
 
-  repo_owner_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_owner_name="$(gh_optional "resolve repository name" repo view --json nameWithOwner -q '.nameWithOwner')"
 
   # IMPORTANT: gh pr view --json commits is often capped (e.g. 100 items).
   # Use REST API with --paginate to collect all commit first lines.
   commit_headlines=""
   if [[ -n "$repo_owner_name" ]]; then
-    commit_headlines="$(gh api "repos/${repo_owner_name}/pulls/${main_pr_number}/commits" --paginate \
-      --jq '.[].commit.message | split("\n")[0]' 2>/dev/null || true)"
+    commit_headlines="$(gh_optional "fetch commits for PR #${main_pr_number}" api "repos/${repo_owner_name}/pulls/${main_pr_number}/commits" --paginate \
+      --jq '.[].commit.message | split("\n")[0]')"
   fi
 
-  main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
-  main_pr_comments="$(gh pr view "$main_pr_number" --json comments -q '.comments[].body' 2>/dev/null || true)"
+  main_pr_body="$(gh_optional "read PR #${main_pr_number} body" pr view "$main_pr_number" --json body -q '.body')"
+  main_pr_comments="$(gh_optional "read PR #${main_pr_number} comments" pr view "$main_pr_number" --json comments -q '.comments[].body')"
   timeline_pr_refs=""
   if [[ -n "$repo_owner_name" ]]; then
-    timeline_pr_refs="$(gh api "repos/${repo_owner_name}/issues/${main_pr_number}/timeline" --paginate \
-      --jq '.[] | select(.event=="cross-referenced") | select(.source.issue.pull_request.url != null) | .source.issue.number' 2>/dev/null \
-      | sed -nE 's/^([0-9]+)$/#\1/p' || true)"
+    timeline_pr_refs_raw="$(gh_optional "read cross-reference timeline for #${main_pr_number}" api "repos/${repo_owner_name}/issues/${main_pr_number}/timeline" --paginate \
+      --jq '.[] | select(.event=="cross-referenced") | select(.source.issue.pull_request.url != null) | .source.issue.number')"
+    if [[ -n "$timeline_pr_refs_raw" ]]; then
+      timeline_pr_refs="$(printf "%s\n" "$timeline_pr_refs_raw" | sed -nE 's/^([0-9]+)$/#\1/p')"
+    fi
   fi
 
   if [[ -z "$commit_headlines" && -z "$main_pr_body" && -z "$main_pr_comments" && -z "$timeline_pr_refs" ]]; then
@@ -428,11 +511,7 @@ load_compare_commit_messages() {
   local max_attempts=3
   local compare_ok=0
 
-  if [[ -n "${GH_REPO:-}" ]]; then
-    repo_name_with_owner="$GH_REPO"
-  else
-    repo_name_with_owner="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
-  fi
+  repo_name_with_owner="$(get_repo_name_with_owner)"
 
   compare_range="${compare_base}...${compare_head}"
   compare_err_file="$(mktemp)"
@@ -449,8 +528,8 @@ load_compare_commit_messages() {
 
       compare_err="$(cat "$compare_err_file" 2>/dev/null || true)"
       # Retry transient network/API connectivity failures.
-      if echo "$compare_err" | grep -qiE 'error connecting to api.github.com|timeout|temporarily unavailable'; then
-        sleep 1
+      if echo "$compare_err" | grep -qiE 'error connecting to api.github.com|timeout|temporarily unavailable|EOF|reset by peer'; then
+        sleep "$attempt"
         continue
       fi
       break
@@ -484,11 +563,7 @@ load_compare_commit_headlines() {
   local compare_range
   local compare_headlines
 
-  if [[ -n "${GH_REPO:-}" ]]; then
-    repo_name_with_owner="$GH_REPO"
-  else
-    repo_name_with_owner="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
-  fi
+  repo_name_with_owner="$(get_repo_name_with_owner)"
 
   compare_range="${compare_base}...${compare_head}"
   compare_headlines=""
@@ -641,6 +716,9 @@ text_indicates_breaking() {
     if [[ "$lower" =~ non[[:space:]-]?breaking[[:space:]_-]*change ]]; then
       continue
     fi
+    if [[ "$lower" =~ ^[[:space:]]*(no|without)[[:space:]]+breaking[[:space:]_-]*changes? ]]; then
+      continue
+    fi
 
     # Explicit checklist signal in generated/template PR bodies.
     if [[ "$lower" =~ ^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*breaking[[:space:]_-]*change([[:space:]]|$) ]]; then
@@ -683,31 +761,11 @@ declare -A issue_reopen_detected
 declare -A pr_ref_cache
 declare -A duplicate_targets
 declare -A issue_non_compliance_reason_cache
-repo_name_with_owner_cache=""
 pr_count=0
 issue_count=0
 neutralized_issue_count=0
 
-get_repo_name_with_owner() {
-  if [[ "$has_gh" != "true" ]]; then
-    echo ""
-    return
-  fi
-
-  if [[ -n "$repo_name_with_owner_cache" ]]; then
-    echo "$repo_name_with_owner_cache"
-    return
-  fi
-
-  if [[ -n "${GH_REPO:-}" ]]; then
-    repo_name_with_owner_cache="$GH_REPO"
-    echo "$repo_name_with_owner_cache"
-    return
-  fi
-
-  repo_name_with_owner_cache="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
-  echo "$repo_name_with_owner_cache"
-}
+seed_pr_ref_cache
 
 is_pull_request_ref() {
   local issue_number="$1"
@@ -852,7 +910,7 @@ if [[ -s "$extracted_prs_file" ]]; then
       pr_title="${pr_title_hint[$pr_ref]:-PR #${pr_number}}"
       pr_body=""
     else
-      pr_view_json="$(gh pr view "$pr_number" --json title,body,labels 2>/dev/null || true)"
+      pr_view_json="$(gh_optional "read PR ${pr_ref}" pr view "$pr_number" --json title,body,labels)"
       if [[ -n "$pr_view_json" ]]; then
         pr_title="$(echo "$pr_view_json" | jq -r '.title // ""')"
         pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
@@ -923,7 +981,7 @@ fi
 
 if [[ "$dry_run" == "false" ]]; then
   # Also include issues closed directly by the main PR itself.
-  main_pr_body="$(gh pr view "$main_pr_number" --json body -q '.body' 2>/dev/null || true)"
+  main_pr_body="$(gh_optional "read PR #${main_pr_number} body" pr view "$main_pr_number" --json body -q '.body')"
   if [[ -n "$main_pr_body" ]]; then
     if text_indicates_breaking "$main_pr_body"; then
       breaking_detected=1
@@ -1059,7 +1117,7 @@ process_duplicate_mode() {
     fi
 
     gh api "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}/comments" \
-      -f body="${comment_body}" >/dev/null
+      --raw-field body="${comment_body}" >/dev/null
     echo "Duplicate mode (${duplicate_mode}): commented on ${duplicate_issue_key} (target ${canonical_issue_key})."
 
     if [[ "$duplicate_mode" == "auto-close" ]]; then
@@ -1134,7 +1192,7 @@ else
   fi
 fi
 if [[ "$keep_artifacts" == "true" ]]; then
-  echo "PR extraites: $extracted_prs_file"
+  echo "Extracted PRs: $extracted_prs_file"
   echo "Resolved issues: $resolved_issues_file"
 fi
 
@@ -1210,7 +1268,7 @@ if [[ -n "$auto_edit_pr_number" ]]; then
       echo "Error: unable to determine GitHub repository for --auto-edit." >&2
       exit "$E_DEPENDENCY"
     fi
-    existing_pr_body="$(gh pr view "$auto_edit_pr_number" --json body -q '.body' 2>/dev/null || true)"
+    existing_pr_body="$(gh_optional "read existing PR #${auto_edit_pr_number} body" pr view "$auto_edit_pr_number" --json body -q '.body')"
     if [[ -n "$existing_pr_body" ]]; then
       checklist_tmp="$(mktemp)"
       if extract_validation_checklist_section "$existing_pr_body" > "$checklist_tmp"; then
