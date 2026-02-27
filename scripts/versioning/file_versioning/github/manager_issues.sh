@@ -14,6 +14,11 @@ Usage:
     Optional:
       --no-default-issue-label
 
+  manager_issues.sh read [--issue <number>] [--repo owner/name] [--json fields] [--jq filter] [--template tpl]
+    - With --issue: show a single issue (gh issue view)
+    - Without --issue: list issues (gh issue list)
+    - Machine-readable: combine --json/--jq/--template as supported by gh
+
   manager_issues.sh update --issue <number> [--repo owner/name] [edit options...]
     Edit options:
       --title "new title"
@@ -25,12 +30,12 @@ Usage:
 
   manager_issues.sh close --issue <number> [--repo owner/name] [--reason completed|not_planned]
   manager_issues.sh reopen --issue <number> [--repo owner/name]
-  manager_issues.sh delete --issue <number>
+  manager_issues.sh delete --issue <number> [--repo owner/name]
 
 Notes:
   - create is routed through create_direct_issue.sh contract validation.
   - create applies label "issue" by default (unless --no-default-issue-label is passed).
-  - delete is intentionally unsupported in GitHub issue lifecycle.
+  - delete performs a soft delete: closes the issue with reason not_planned.
 USAGE
 }
 
@@ -98,6 +103,69 @@ cmd_create() {
   fi
 
   "$CREATE_DIRECT_ISSUE_SCRIPT" "${passthrough[@]}"
+}
+
+cmd_read() {
+  local issue_number=""
+  local repo=""
+  local json_fields=""
+  local jq_filter=""
+  local template=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --issue)
+        issue_number="${2:-}"
+        shift 2
+        ;;
+      --repo)
+        repo="${2:-}"
+        shift 2
+        ;;
+      --json)
+        json_fields="${2:-}"
+        shift 2
+        ;;
+      --jq)
+        jq_filter="${2:-}"
+        shift 2
+        ;;
+      --template)
+        template="${2:-}"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        die_usage "Unknown option for read: $1"
+        ;;
+    esac
+  done
+
+  local -a cmd
+  if [[ -n "$issue_number" ]]; then
+    ensure_number "--issue" "$issue_number"
+    cmd=(gh issue view "$issue_number")
+  else
+    cmd=(gh issue list)
+  fi
+
+  if [[ -n "$repo" ]]; then
+    cmd+=(-R "$repo")
+  fi
+  if [[ -n "$json_fields" ]]; then
+    cmd+=(--json "$json_fields")
+  fi
+  if [[ -n "$jq_filter" ]]; then
+    cmd+=(--jq "$jq_filter")
+  fi
+  if [[ -n "$template" ]]; then
+    cmd+=(--template "$template")
+  fi
+
+  "${cmd[@]}"
 }
 
 cmd_update() {
@@ -221,11 +289,16 @@ cmd_reopen() {
 
 cmd_delete() {
   local issue_number=""
+  local repo=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --issue)
         issue_number="${2:-}"
+        shift 2
+        ;;
+      --repo)
+        repo="${2:-}"
         shift 2
         ;;
       -h|--help)
@@ -239,9 +312,12 @@ cmd_delete() {
   done
 
   ensure_number "--issue" "$issue_number"
-  echo "Delete is not supported for GitHub issues (#${issue_number})." >&2
-  echo "Guidance: close the issue with --reason not_planned, or reopen if needed." >&2
-  exit 2
+  local -a cmd=(gh issue close "$issue_number" --reason not_planned)
+  if [[ -n "$repo" ]]; then
+    cmd+=(-R "$repo")
+  fi
+  "${cmd[@]}" >/dev/null
+  echo "Issue #${issue_number} soft-deleted (closed with reason: not_planned)."
 }
 
 main() {
@@ -254,6 +330,7 @@ main() {
 
   case "$subcommand" in
     create) cmd_create "$@" ;;
+    read) cmd_read "$@" ;;
     update) cmd_update "$@" ;;
     close) cmd_close "$@" ;;
     reopen) cmd_reopen "$@" ;;

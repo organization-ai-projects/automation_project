@@ -108,6 +108,24 @@ main() {
     "/bin/bash '${TARGET_SCRIPT}' create --title 'feat(shell): x' --context 'ctx' --problem 'pb' --acceptance 'a1' --no-default-issue-label --dry-run && ! grep -q -- '--label issue' \"\$MOCK_CREATE_ARGS_LOG\""
 
   run_case \
+    "read-lists-issues" \
+    0 \
+    "" \
+    "/bin/bash '${TARGET_SCRIPT}' read && grep -q -- 'issue list' \"\$MOCK_GH_ARGS_LOG\""
+
+  run_case \
+    "read-views-single-issue-with-json" \
+    0 \
+    "" \
+    "/bin/bash '${TARGET_SCRIPT}' read --issue 42 --repo myorg/repo --json number,title --jq '.number' && grep -q -- 'issue view 42 -R myorg/repo --json number,title --jq .number' \"\$MOCK_GH_ARGS_LOG\""
+
+  run_case \
+    "read-rejects-non-numeric-issue" \
+    2 \
+    "must be a positive integer" \
+    "/bin/bash '${TARGET_SCRIPT}' read --issue nope"
+
+  run_case \
     "update-requires-edit-args" \
     2 \
     "update requires at least one edit option" \
@@ -132,10 +150,10 @@ main() {
     "/bin/bash '${TARGET_SCRIPT}' reopen --issue 12"
 
   run_case \
-    "delete-not-supported" \
-    2 \
-    "Delete is not supported for GitHub issues" \
-    "/bin/bash '${TARGET_SCRIPT}' delete --issue 12"
+    "delete-soft-closes-not-planned" \
+    0 \
+    "Issue #12 soft-deleted \\(closed with reason: not_planned\\)\\." \
+    "/bin/bash '${TARGET_SCRIPT}' delete --issue 12 --repo my/repo && grep -q -- 'issue close 12 --reason not_planned -R my/repo' \"\$MOCK_GH_ARGS_LOG\""
 
   echo ""
   echo "Summary: ${TESTS_RUN} run, ${TESTS_FAILED} failed."
