@@ -106,12 +106,6 @@ refactor(api): simplify error handling
 docs(.github): add default PR template
 ```
 
-**Notes:**
-
-- The hook reads the first non-empty, non-comment line to avoid blank template headers.
-- Subject length enforcement stays **opt-in** (`COMMIT_MSG_SUBJECT_MAX_LEN=<limit>`), defaulting to disabled to accommodate long scopes without blocking contributors.
-- Failure exits are structured for automation: format (3), subject trailer misuse (4), root-parent trailer (5), mixed formats (6), missing scope (7), scope mismatch (8), subject length (9).
-
 **Bypass (emergency only):**
 
 ```bash
