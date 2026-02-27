@@ -105,6 +105,10 @@ fn explicit_pass_gate_signals_reach_done() {
         .arg("success")
         .arg("--review-status")
         .arg("approved")
+        .arg("--decision-contribution")
+        .arg(
+            "contributor_id=gate_test,capability=validation,vote=proceed,confidence=100,weight=100",
+        )
         .output()
         .expect("failed to execute orchestrator");
 

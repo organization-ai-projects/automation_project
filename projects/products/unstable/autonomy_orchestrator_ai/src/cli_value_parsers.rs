@@ -1,4 +1,6 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/cli_value_parsers.rs
+use crate::domain::{DecisionContribution, FinalDecision};
+
 pub fn parse_env_pair_cli(raw: &str) -> Result<(String, String), String> {
     let mut split = raw.splitn(2, '=');
     let key = split.next().unwrap_or_default().trim();
@@ -7,4 +9,100 @@ pub fn parse_env_pair_cli(raw: &str) -> Result<(String, String), String> {
         return Err(format!("Invalid env pair '{}', expected KEY=VALUE", raw));
     }
     Ok((key.to_string(), value.unwrap_or_default().to_string()))
+}
+
+pub fn parse_decision_contribution_cli(raw: &str) -> Result<DecisionContribution, String> {
+    let mut contributor_id = None::<String>;
+    let mut capability = None::<String>;
+    let mut vote = None::<FinalDecision>;
+    let mut confidence = None::<u8>;
+    let mut weight = None::<u8>;
+    let mut reason_codes = Vec::<String>::new();
+    let mut artifact_refs = Vec::<String>::new();
+
+    for segment in raw.split(',') {
+        let (key, value) = segment
+            .split_once('=')
+            .ok_or_else(|| format!("Invalid decision contribution segment '{segment}'"))?;
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "contributor_id" => contributor_id = Some(value.to_string()),
+            "capability" => capability = Some(value.to_string()),
+            "vote" => {
+                vote = Some(parse_vote(value).ok_or_else(|| {
+                    format!(
+                        "Invalid decision vote '{}', expected proceed|block|escalate",
+                        value
+                    )
+                })?)
+            }
+            "confidence" => {
+                confidence = Some(value.parse::<u8>().map_err(|_| {
+                    format!("Invalid confidence '{}', expected integer 0..100", value)
+                })?)
+            }
+            "weight" => {
+                weight =
+                    Some(value.parse::<u8>().map_err(|_| {
+                        format!("Invalid weight '{}', expected integer 1..100", value)
+                    })?)
+            }
+            "reason_codes" => {
+                reason_codes = split_pipe_list(value);
+            }
+            "artifact_refs" => {
+                artifact_refs = split_pipe_list(value);
+            }
+            other => return Err(format!("Unknown decision contribution key '{}'", other)),
+        }
+    }
+
+    let confidence = confidence
+        .ok_or_else(|| "Missing decision contribution field 'confidence' (0..100)".to_string())?;
+    if confidence > 100 {
+        return Err(format!(
+            "Invalid confidence '{}', expected integer 0..100",
+            confidence
+        ));
+    }
+
+    let weight = weight
+        .ok_or_else(|| "Missing decision contribution field 'weight' (1..100)".to_string())?;
+    if weight == 0 || weight > 100 {
+        return Err(format!(
+            "Invalid weight '{}', expected integer 1..100",
+            weight
+        ));
+    }
+
+    Ok(DecisionContribution {
+        contributor_id: contributor_id
+            .ok_or_else(|| "Missing decision contribution field 'contributor_id'".to_string())?,
+        capability: capability
+            .ok_or_else(|| "Missing decision contribution field 'capability'".to_string())?,
+        vote: vote.ok_or_else(|| "Missing decision contribution field 'vote'".to_string())?,
+        confidence,
+        weight,
+        reason_codes,
+        artifact_refs,
+    })
+}
+
+fn parse_vote(raw: &str) -> Option<FinalDecision> {
+    match raw {
+        "proceed" => Some(FinalDecision::Proceed),
+        "block" => Some(FinalDecision::Block),
+        "escalate" => Some(FinalDecision::Escalate),
+        _ => None,
+    }
+}
+
+fn split_pipe_list(raw: &str) -> Vec<String> {
+    raw.split('|')
+        .filter_map(|v| {
+            let value = v.trim();
+            (!value.is_empty()).then(|| value.to_string())
+        })
+        .collect()
 }

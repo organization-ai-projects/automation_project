@@ -48,6 +48,10 @@ fn resume_after_completed_checkpoint_skips_side_effect_stage() {
         .arg("success")
         .arg("--review-status")
         .arg("approved")
+        .arg("--decision-contribution")
+        .arg(
+            "contributor_id=resume_test,capability=validation,vote=proceed,confidence=100,weight=100",
+        )
         .output()
         .expect("failed first run");
     assert!(
@@ -66,6 +70,10 @@ fn resume_after_completed_checkpoint_skips_side_effect_stage() {
         .arg("success")
         .arg("--review-status")
         .arg("approved")
+        .arg("--decision-contribution")
+        .arg(
+            "contributor_id=resume_test,capability=validation,vote=proceed,confidence=100,weight=100",
+        )
         .arg("--manager-bin")
         .arg("__missing_binary__")
         .output()
@@ -120,6 +128,10 @@ fn resume_from_partial_checkpoint_skips_completed_stage_and_continues() {
         .arg("success")
         .arg("--review-status")
         .arg("approved")
+        .arg("--decision-contribution")
+        .arg(
+            "contributor_id=resume_test,capability=validation,vote=proceed,confidence=100,weight=100",
+        )
         .arg("--manager-bin")
         .arg("__missing_binary__")
         .output()

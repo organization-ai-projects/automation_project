@@ -13,6 +13,9 @@ fn cli_run_args_have_expected_defaults() {
     assert_eq!(cli.run.timeout_ms, 30_000);
     assert_eq!(cli.run.execution_max_iterations, 1);
     assert_eq!(cli.run.reviewer_remediation_max_cycles, 0);
+    assert_eq!(cli.run.decision_threshold, 70);
+    assert!(!cli.run.decision_require_contributions);
+    assert!(cli.run.decision_contributions.is_empty());
 }
 
 #[test]
@@ -65,4 +68,19 @@ fn cli_rejects_invalid_env_pair_for_manager_env() {
 
     let rendered = err.to_string();
     assert!(rendered.contains("Invalid env pair 'BROKEN', expected KEY=VALUE"));
+}
+
+#[test]
+fn cli_accepts_decision_contribution() {
+    let cli = Cli::parse_from([
+        "autonomy_orchestrator_ai",
+        "--decision-contribution",
+        "contributor_id=planner,capability=planning,vote=proceed,confidence=85,weight=60,reason_codes=R1|R2,artifact_refs=./a.json",
+    ]);
+    assert_eq!(cli.run.decision_contributions.len(), 1);
+    let c = &cli.run.decision_contributions[0];
+    assert_eq!(c.contributor_id, "planner");
+    assert_eq!(c.capability, "planning");
+    assert_eq!(c.reason_codes, vec!["R1".to_string(), "R2".to_string()]);
+    assert_eq!(c.artifact_refs, vec!["./a.json".to_string()]);
 }

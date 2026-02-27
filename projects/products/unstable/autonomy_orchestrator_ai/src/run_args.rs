@@ -5,7 +5,8 @@ use clap::{ArgAction, Args};
 
 use crate::{
     cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus},
-    cli_value_parsers::parse_env_pair_cli,
+    cli_value_parsers::{parse_decision_contribution_cli, parse_env_pair_cli},
+    domain::DecisionContribution,
 };
 
 #[derive(Args, Debug, Clone)]
@@ -28,6 +29,12 @@ pub struct RunArgs {
     pub ci_status: CliCiStatus,
     #[arg(long, value_enum, default_value_t = CliReviewStatus::Missing)]
     pub review_status: CliReviewStatus,
+    #[arg(long, default_value_t = 70)]
+    pub decision_threshold: u8,
+    #[arg(long)]
+    pub decision_require_contributions: bool,
+    #[arg(long = "decision-contribution", value_parser = parse_decision_contribution_cli, action = ArgAction::Append)]
+    pub decision_contributions: Vec<DecisionContribution>,
 
     #[arg(long)]
     pub checkpoint_path: Option<PathBuf>,

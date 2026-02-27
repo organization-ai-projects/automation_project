@@ -6,10 +6,12 @@ use crate::artifacts::{
 };
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
+use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate};
 use crate::domain::{
-    BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DeliveryOptions, GateDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
-    Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
+    BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution, DeliveryOptions,
+    FinalDecision, GateDecision, GateInputs, OrchestratorCheckpoint, OrchestratorConfig,
+    PolicyGateStatus, ReviewGateStatus, RunReport, Stage, StageExecutionRecord,
+    StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
 use common_json::{Json, JsonAccess, from_str};
@@ -33,6 +35,9 @@ pub struct Orchestrator {
     validation_invocations: Vec<BinaryInvocationSpec>,
     validation_from_planning_context: bool,
     delivery_options: DeliveryOptions,
+    decision_threshold: u8,
+    decision_contributions: Vec<DecisionContribution>,
+    decision_require_contributions: bool,
     gate_inputs: GateInputs,
     checkpoint: OrchestratorCheckpoint,
     checkpoint_path: Option<PathBuf>,
@@ -104,6 +109,9 @@ impl Orchestrator {
             validation_invocations,
             validation_from_planning_context: config.validation_from_planning_context,
             delivery_options: config.delivery_options,
+            decision_threshold: config.decision_threshold,
+            decision_contributions: config.decision_contributions,
+            decision_require_contributions: config.decision_require_contributions,
             gate_inputs: config.gate_inputs,
             checkpoint,
             checkpoint_path: config.checkpoint_path,
@@ -152,6 +160,11 @@ impl Orchestrator {
         }
 
         if self.simulate_blocked {
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
+            return self.report;
+        }
+        if !self.evaluate_final_decision() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
             return self.report;
@@ -1077,6 +1090,37 @@ impl Orchestrator {
         self.report.gate_decisions = decisions;
         self.report.blocked_reason_codes = blocked_reason_codes;
         self.report.blocked_reason_codes.is_empty()
+    }
+
+    fn evaluate_final_decision(&mut self) -> bool {
+        if self.decision_contributions.is_empty() && !self.decision_require_contributions {
+            self.report.final_decision = None;
+            self.report.decision_confidence = None;
+            self.report.decision_rationale_codes.clear();
+            self.report.decision_contributions.clear();
+            self.report.decision_threshold = None;
+            return true;
+        }
+
+        let summary = aggregate(
+            &self.decision_contributions,
+            &DecisionAggregatorConfig {
+                min_confidence_to_proceed: self.decision_threshold,
+            },
+        );
+        self.report.final_decision = Some(summary.final_decision);
+        self.report.decision_confidence = Some(summary.decision_confidence);
+        self.report.decision_rationale_codes = summary.decision_rationale_codes.clone();
+        self.report.decision_contributions = summary.contributions;
+        self.report.decision_threshold = Some(summary.threshold);
+
+        for code in &summary.decision_rationale_codes {
+            if !self.report.blocked_reason_codes.contains(code) {
+                self.report.blocked_reason_codes.push(code.clone());
+            }
+        }
+
+        summary.final_decision == FinalDecision::Proceed
     }
 }
 

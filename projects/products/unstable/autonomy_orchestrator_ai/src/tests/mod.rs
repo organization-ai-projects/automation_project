@@ -4,6 +4,8 @@ mod binary_runner;
 #[cfg(test)]
 mod config_runtime;
 #[cfg(test)]
+mod decision_aggregator;
+#[cfg(test)]
 mod orchestrator;
 #[cfg(test)]
 mod run_args;
