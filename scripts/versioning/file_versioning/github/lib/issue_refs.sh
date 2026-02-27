@@ -40,6 +40,44 @@ parse_closing_issue_refs_from_text() {
   ' | sort -u
 }
 
+parse_pr_body_closing_issue_refs_from_text() {
+  local text="$1"
+  echo "$text" | awk '
+    {
+      line = $0
+      lower = tolower($0)
+      while (match(lower, /(closes|close|fixes)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
+        if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
+          lower = substr(lower, RSTART + 1)
+          line = substr(line, RSTART + 1)
+          continue
+        }
+
+        matched = substr(line, RSTART, RLENGTH)
+        matched_lower = substr(lower, RSTART, RLENGTH)
+        n = split(matched, parts, /[[:space:]]+/)
+        split(matched_lower, parts_lower, /[[:space:]]+/)
+        token = parts_lower[1]
+        issue_ref = parts[n]
+        sub(/^.*#/, "#", issue_ref)
+
+        if (token == "close" || token == "closes" || token == "fixes") {
+          action = "Closes"
+        } else {
+          action = ""
+        }
+
+        if (issue_ref ~ /^#[0-9]+$/ && action != "") {
+          print action "|" issue_ref
+        }
+
+        lower = substr(lower, RSTART + RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' | sort -u
+}
+
 parse_non_closing_issue_refs_from_text() {
   local text="$1"
   echo "$text" | awk '
