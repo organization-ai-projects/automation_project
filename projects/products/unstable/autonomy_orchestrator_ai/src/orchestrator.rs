@@ -11,10 +11,10 @@ use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
 use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate};
 use crate::domain::{
-    BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution, DeliveryOptions,
-    FinalDecision, GateDecision, GateInputs, OrchestratorCheckpoint, OrchestratorConfig,
-    PolicyGateStatus, ReviewGateStatus, RunReport, Stage, StageExecutionRecord,
-    StageExecutionStatus, StageTransition, TerminalState,
+    BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
+    DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
+    Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
 use common_json::{Json, JsonAccess, from_str};
@@ -40,6 +40,7 @@ pub struct Orchestrator {
     delivery_options: DeliveryOptions,
     decision_threshold: u8,
     decision_contributions: Vec<DecisionContribution>,
+    decision_reliability_inputs: Vec<DecisionReliabilityInput>,
     decision_require_contributions: bool,
     adaptive_policy_config: AdaptivePolicyConfig,
     execution_budget_adapted: bool,
@@ -117,6 +118,7 @@ impl Orchestrator {
             delivery_options: config.delivery_options,
             decision_threshold: config.decision_threshold,
             decision_contributions: config.decision_contributions,
+            decision_reliability_inputs: config.decision_reliability_inputs,
             decision_require_contributions: config.decision_require_contributions,
             adaptive_policy_config: AdaptivePolicyConfig::default(),
             execution_budget_adapted: false,
@@ -1222,6 +1224,8 @@ impl Orchestrator {
             self.report.decision_rationale_codes.clear();
             self.report.decision_contributions.clear();
             self.report.decision_threshold = None;
+            self.report.decision_reliability_factors.clear();
+            self.report.decision_reliability_updates.clear();
             return true;
         }
 
@@ -1229,6 +1233,7 @@ impl Orchestrator {
             &self.decision_contributions,
             &DecisionAggregatorConfig {
                 min_confidence_to_proceed: self.decision_threshold,
+                reliability_inputs: self.decision_reliability_inputs.clone(),
             },
         );
         self.report.final_decision = Some(summary.final_decision);
@@ -1236,8 +1241,13 @@ impl Orchestrator {
         self.report.decision_rationale_codes = summary.decision_rationale_codes.clone();
         self.report.decision_contributions = summary.contributions;
         self.report.decision_threshold = Some(summary.threshold);
+        self.report.decision_reliability_factors = summary.reliability_factors;
+        self.report.decision_reliability_updates = summary.reliability_updates;
 
         for code in &summary.decision_rationale_codes {
+            if !is_blocking_decision_reason_code(code) {
+                continue;
+            }
             if !self.report.blocked_reason_codes.contains(code) {
                 self.report.blocked_reason_codes.push(code.clone());
             }
@@ -1256,4 +1266,14 @@ fn unix_timestamp_secs() -> u64 {
 
 fn duration_to_u64_ms(duration: std::time::Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
+}
+
+fn is_blocking_decision_reason_code(code: &str) -> bool {
+    matches!(
+        code,
+        "DECISION_CONFIDENCE_BELOW_THRESHOLD"
+            | "DECISION_TIE_FAIL_CLOSED"
+            | "DECISION_ESCALATED"
+            | "DECISION_NO_CONTRIBUTIONS"
+    )
 }

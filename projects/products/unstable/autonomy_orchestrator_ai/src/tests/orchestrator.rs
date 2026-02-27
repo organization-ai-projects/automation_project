@@ -1,7 +1,8 @@
 use crate::domain::{
     AdaptivePolicyAction, BinaryInvocationSpec, CommandLineSpec, DecisionContribution,
-    DeliveryOptions, ExecutionPolicy, FinalDecision, GateInputs, OrchestratorCheckpoint,
-    OrchestratorConfig, PolicyGateStatus, Stage, StageExecutionStatus, TerminalState,
+    DecisionReliabilityInput, DeliveryOptions, ExecutionPolicy, FinalDecision, GateInputs,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, Stage, StageExecutionStatus,
+    TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use std::fs;
@@ -36,6 +37,7 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
             reason_codes: Vec::new(),
             artifact_refs: Vec::new(),
         }],
+        decision_reliability_inputs: Vec::new(),
         decision_require_contributions: false,
         checkpoint_path: None,
         cycle_memory_path: None,
@@ -337,5 +339,53 @@ fn adaptive_policy_does_not_increase_execution_budget_when_cap_is_reached() {
     assert_eq!(
         execution_failures, 6,
         "expected exactly 5 failed attempts + 1 budget exhaustion record"
+    );
+}
+
+#[test]
+fn reliability_factors_and_updates_are_persisted_in_run_report() {
+    let mut config = test_config("run_12");
+    config.decision_contributions = vec![
+        DecisionContribution {
+            contributor_id: "planner".to_string(),
+            capability: "planning".to_string(),
+            vote: FinalDecision::Proceed,
+            confidence: 80,
+            weight: 70,
+            reason_codes: Vec::new(),
+            artifact_refs: Vec::new(),
+        },
+        DecisionContribution {
+            contributor_id: "reviewer".to_string(),
+            capability: "validation".to_string(),
+            vote: FinalDecision::Block,
+            confidence: 60,
+            weight: 70,
+            reason_codes: Vec::new(),
+            artifact_refs: Vec::new(),
+        },
+    ];
+    config.decision_reliability_inputs = vec![
+        DecisionReliabilityInput {
+            contributor_id: "planner".to_string(),
+            capability: "planning".to_string(),
+            score: 90,
+        },
+        DecisionReliabilityInput {
+            contributor_id: "reviewer".to_string(),
+            capability: "validation".to_string(),
+            score: 10,
+        },
+    ];
+
+    let report = Orchestrator::new(config, None).execute();
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert_eq!(report.final_decision, Some(FinalDecision::Proceed));
+    assert_eq!(report.decision_reliability_factors.len(), 2);
+    assert_eq!(report.decision_reliability_updates.len(), 2);
+    assert!(
+        report
+            .decision_rationale_codes
+            .contains(&"DECISION_RELIABILITY_WEIGHTED".to_string())
     );
 }

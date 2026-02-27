@@ -274,6 +274,7 @@ fn run_once(
         gate_inputs,
         decision_threshold: args.decision_threshold,
         decision_contributions: args.decision_contributions,
+        decision_reliability_inputs: args.decision_reliability_inputs,
         decision_require_contributions: args.decision_require_contributions,
         checkpoint_path: Some(checkpoint_path.clone()),
         cycle_memory_path: Some(cycle_memory_path.clone()),

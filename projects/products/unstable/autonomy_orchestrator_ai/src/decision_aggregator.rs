@@ -1,14 +1,19 @@
-use crate::domain::{DecisionContribution, DecisionSummary, FinalDecision};
+use crate::domain::{
+    DecisionContribution, DecisionReliabilityFactor, DecisionReliabilityInput,
+    DecisionReliabilityUpdate, DecisionSummary, FinalDecision,
+};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecisionAggregatorConfig {
     pub min_confidence_to_proceed: u8,
+    pub reliability_inputs: Vec<DecisionReliabilityInput>,
 }
 
 impl Default for DecisionAggregatorConfig {
     fn default() -> Self {
         Self {
             min_confidence_to_proceed: 70,
+            reliability_inputs: Vec::new(),
         }
     }
 }
@@ -23,22 +28,45 @@ pub fn aggregate(
             decision_confidence: 0,
             decision_rationale_codes: vec!["DECISION_NO_CONTRIBUTIONS".to_string()],
             contributions: Vec::new(),
+            reliability_factors: Vec::new(),
+            reliability_updates: Vec::new(),
             threshold: cfg.min_confidence_to_proceed,
         };
     }
 
-    let mut proceed_score = 0u32;
-    let mut block_score = 0u32;
-    let mut escalate_score = 0u32;
+    let mut proceed_score = 0u64;
+    let mut block_score = 0u64;
+    let mut escalate_score = 0u64;
     let mut proceed_max_conf = 0u8;
     let mut block_max_conf = 0u8;
     let mut escalate_max_conf = 0u8;
     let mut proceed_count = 0u32;
     let mut block_count = 0u32;
     let mut escalate_count = 0u32;
+    let mut reliability_factors = Vec::<DecisionReliabilityFactor>::new();
+    let mut used_reliability_input = false;
+    let mut used_cold_start = false;
 
     for contribution in contributions {
-        let score = u32::from(contribution.confidence) * u32::from(contribution.weight);
+        let reliability_score = lookup_reliability_score(contribution, &cfg.reliability_inputs);
+        if reliability_score == 50 {
+            used_cold_start = true;
+        } else {
+            used_reliability_input = true;
+        }
+        let reliability_factor = u16::from(50u8.saturating_add(reliability_score));
+        let base_score = u64::from(contribution.confidence) * u64::from(contribution.weight);
+        let score = base_score * u64::from(reliability_factor);
+
+        reliability_factors.push(DecisionReliabilityFactor {
+            contributor_id: contribution.contributor_id.clone(),
+            capability: contribution.capability.clone(),
+            reliability_score,
+            reliability_factor,
+            base_score,
+            adjusted_score: score,
+        });
+
         match contribution.vote {
             FinalDecision::Proceed => {
                 proceed_score += score;
@@ -101,6 +129,12 @@ pub fn aggregate(
         rationale_codes.push("DECISION_TIE_FAIL_CLOSED".to_string());
         candidates.sort_by_key(|c| c.fail_closed_rank);
     }
+    if used_reliability_input {
+        rationale_codes.push("DECISION_RELIABILITY_WEIGHTED".to_string());
+    }
+    if used_cold_start {
+        rationale_codes.push("DECISION_RELIABILITY_COLD_START".to_string());
+    }
 
     let winner = candidates[0];
     let total_score = proceed_score + block_score + escalate_score;
@@ -122,12 +156,16 @@ pub fn aggregate(
     if final_decision == FinalDecision::Escalate {
         rationale_codes.push("DECISION_ESCALATED".to_string());
     }
+    let reliability_updates =
+        build_reliability_updates(contributions, final_decision, &cfg.reliability_inputs);
 
     DecisionSummary {
         final_decision,
         decision_confidence,
         decision_rationale_codes: rationale_codes,
         contributions: contributions.to_vec(),
+        reliability_factors,
+        reliability_updates,
         threshold: cfg.min_confidence_to_proceed,
     }
 }
@@ -135,8 +173,61 @@ pub fn aggregate(
 #[derive(Debug, Clone, Copy)]
 struct VoteStats {
     vote: FinalDecision,
-    score: u32,
+    score: u64,
     max_confidence: u8,
     count: u32,
     fail_closed_rank: u8,
+}
+
+fn lookup_reliability_score(
+    contribution: &DecisionContribution,
+    reliability_inputs: &[DecisionReliabilityInput],
+) -> u8 {
+    reliability_inputs
+        .iter()
+        .find(|input| {
+            input.contributor_id == contribution.contributor_id
+                && input.capability == contribution.capability
+        })
+        .map(|input| input.score)
+        .unwrap_or(50)
+}
+
+fn build_reliability_updates(
+    contributions: &[DecisionContribution],
+    final_decision: FinalDecision,
+    reliability_inputs: &[DecisionReliabilityInput],
+) -> Vec<DecisionReliabilityUpdate> {
+    contributions
+        .iter()
+        .map(|contribution| {
+            let previous_score = lookup_reliability_score(contribution, reliability_inputs);
+            let mut delta: i16 = if contribution.vote == final_decision {
+                2
+            } else {
+                -2
+            };
+            if contribution.confidence >= 80 {
+                delta += if delta.is_positive() { 1 } else { -1 };
+            }
+            let new_score = clamp_score(previous_score, delta);
+            let reason_code = if contribution.vote == final_decision {
+                "RELIABILITY_REWARD_ALIGNMENT"
+            } else {
+                "RELIABILITY_PENALIZE_DIVERGENCE"
+            };
+            DecisionReliabilityUpdate {
+                contributor_id: contribution.contributor_id.clone(),
+                capability: contribution.capability.clone(),
+                previous_score,
+                new_score,
+                reason_code: reason_code.to_string(),
+            }
+        })
+        .collect()
+}
+
+fn clamp_score(previous_score: u8, delta: i16) -> u8 {
+    let raw = i16::from(previous_score) + delta;
+    raw.clamp(0, 100) as u8
 }

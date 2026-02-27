@@ -5,8 +5,10 @@ use clap::{ArgAction, Args};
 
 use crate::{
     cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus},
-    cli_value_parsers::{parse_decision_contribution_cli, parse_env_pair_cli},
-    domain::DecisionContribution,
+    cli_value_parsers::{
+        parse_decision_contribution_cli, parse_decision_reliability_input_cli, parse_env_pair_cli,
+    },
+    domain::{DecisionContribution, DecisionReliabilityInput},
 };
 
 #[derive(Args, Debug, Clone)]
@@ -35,6 +37,8 @@ pub struct RunArgs {
     pub decision_require_contributions: bool,
     #[arg(long = "decision-contribution", value_parser = parse_decision_contribution_cli, action = ArgAction::Append)]
     pub decision_contributions: Vec<DecisionContribution>,
+    #[arg(long = "decision-reliability", value_parser = parse_decision_reliability_input_cli, action = ArgAction::Append)]
+    pub decision_reliability_inputs: Vec<DecisionReliabilityInput>,
 
     #[arg(long)]
     pub checkpoint_path: Option<PathBuf>,
