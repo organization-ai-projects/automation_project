@@ -480,6 +480,50 @@ fn matrix_execution_iteration_budget_exhaustion_fails_closed() {
             .iter()
             .any(|e| e.stage == "execution" && e.status == "failed")
     );
+    assert!(
+        report.adaptive_policy_decisions.iter().any(|d| {
+            d.action == "increase_execution_budget"
+                && d.reason_code == "ADAPTIVE_RETRY_BUDGET_INCREASED"
+        }),
+        "expected adaptive retry budget increase before final exhaustion"
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_execution_budget_at_cap_does_not_adapt() {
+    let out_dir = unique_temp_dir("execution_retry_budget_at_cap");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+            "--execution-max-iterations",
+            "5",
+            "--executor-bin",
+            fixture_bin(),
+            "--executor-arg",
+            "fixture",
+            "--executor-arg",
+            "fail",
+        ],
+        &out_dir,
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(report.terminal_state.as_deref(), Some("failed"));
+    assert!(
+        report
+            .adaptive_policy_decisions
+            .iter()
+            .all(|d| d.action != "increase_execution_budget"),
+        "expected no adaptive execution budget increase at hard cap"
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
