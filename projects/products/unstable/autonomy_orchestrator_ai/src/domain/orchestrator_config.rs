@@ -33,6 +33,7 @@ struct OrchestratorConfigJsonCompat {
     checkpoint_path: Option<PathBuf>,
     cycle_memory_path: Option<PathBuf>,
     next_actions_path: Option<PathBuf>,
+    previous_run_report_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,6 +63,7 @@ pub struct OrchestratorConfig {
     pub checkpoint_path: Option<PathBuf>,
     pub cycle_memory_path: Option<PathBuf>,
     pub next_actions_path: Option<PathBuf>,
+    pub previous_run_report_path: Option<PathBuf>,
 }
 
 impl OrchestratorConfig {
@@ -211,6 +213,7 @@ impl OrchestratorConfig {
             checkpoint_path: parsed.checkpoint_path,
             cycle_memory_path: parsed.cycle_memory_path,
             next_actions_path: parsed.next_actions_path,
+            previous_run_report_path: parsed.previous_run_report_path,
         })
     }
 
