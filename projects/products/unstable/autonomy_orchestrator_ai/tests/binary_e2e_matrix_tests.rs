@@ -465,7 +465,7 @@ fn matrix_execution_iteration_budget_exhaustion_fails_closed() {
             .iter()
             .filter(|e| e.stage == "execution" && e.status == "failed")
             .count(),
-        3
+        4
     );
     assert!(
         report
