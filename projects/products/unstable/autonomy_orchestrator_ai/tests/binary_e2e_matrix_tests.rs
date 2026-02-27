@@ -65,6 +65,9 @@ fn run_orchestrator(args: &[&str], out_dir: &PathBuf) -> (Output, MatrixReportVi
 
     let mut cmd = Command::new(bin);
     cmd.arg(out_dir);
+    cmd.arg("--decision-contribution").arg(
+        "contributor_id=matrix_default,capability=validation,vote=proceed,confidence=100,weight=100",
+    );
     for arg in args {
         cmd.arg(arg);
     }
@@ -931,6 +934,10 @@ fn matrix_autonomous_loop_progress_then_done() {
         .arg("success")
         .arg("--review-status")
         .arg("approved")
+        .arg("--decision-contribution")
+        .arg(
+            "contributor_id=loop_default,capability=execution,vote=proceed,confidence=100,weight=100",
+        )
         .arg("--execution-max-iterations")
         .arg("1")
         .arg("--executor-bin")
@@ -954,6 +961,109 @@ fn matrix_autonomous_loop_progress_then_done() {
     let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
     let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_decision_conflict_tie_fail_closed() {
+    let out_dir = unique_temp_dir("decision_tie_fail_closed");
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--decision-contribution")
+        .arg("contributor_id=a,capability=planning,vote=proceed,confidence=50,weight=50")
+        .arg("--decision-contribution")
+        .arg("contributor_id=b,capability=execution,vote=block,confidence=50,weight=50")
+        .arg("--decision-contribution")
+        .arg("contributor_id=c,capability=validation,vote=escalate,confidence=50,weight=50")
+        .output()
+        .expect("execute tie fail-closed run");
+
+    assert_eq!(output.status.code(), Some(3));
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+    assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_TIE_FAIL_CLOSED".to_string())
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_decision_low_confidence_blocks() {
+    let out_dir = unique_temp_dir("decision_low_confidence");
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--decision-threshold")
+        .arg("70")
+        .arg("--decision-contribution")
+        .arg("contributor_id=a,capability=planning,vote=proceed,confidence=55,weight=1")
+        .arg("--decision-contribution")
+        .arg("contributor_id=b,capability=review,vote=block,confidence=45,weight=1")
+        .output()
+        .expect("execute low confidence run");
+
+    assert_eq!(output.status.code(), Some(3));
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+    assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_CONFIDENCE_BELOW_THRESHOLD".to_string())
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_decision_no_contributions_blocks_fail_closed() {
+    let out_dir = unique_temp_dir("decision_no_contributions");
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--policy-status")
+        .arg("allow")
+        .arg("--ci-status")
+        .arg("success")
+        .arg("--review-status")
+        .arg("approved")
+        .arg("--decision-require-contributions")
+        .output()
+        .expect("execute no contribution run");
+
+    assert_eq!(output.status.code(), Some(3));
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+    assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }

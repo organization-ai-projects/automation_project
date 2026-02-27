@@ -1,7 +1,10 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/run_report.rs
 use serde::{Deserialize, Serialize};
 
-use crate::domain::{GateDecision, Stage, StageExecutionRecord, StageTransition, TerminalState};
+use crate::domain::{
+    DecisionContribution, FinalDecision, GateDecision, Stage, StageExecutionRecord,
+    StageTransition, TerminalState,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RunReport {
@@ -13,6 +16,11 @@ pub struct RunReport {
     pub gate_decisions: Vec<GateDecision>,
     pub blocked_reason_codes: Vec<String>,
     pub reviewer_next_steps: Vec<String>,
+    pub final_decision: Option<FinalDecision>,
+    pub decision_confidence: Option<u8>,
+    pub decision_rationale_codes: Vec<String>,
+    pub decision_contributions: Vec<DecisionContribution>,
+    pub decision_threshold: Option<u8>,
     pub transitions: Vec<StageTransition>,
     pub stage_executions: Vec<StageExecutionRecord>,
 }
@@ -28,6 +36,11 @@ impl RunReport {
             gate_decisions: Vec::new(),
             blocked_reason_codes: Vec::new(),
             reviewer_next_steps: Vec::new(),
+            final_decision: None,
+            decision_confidence: None,
+            decision_rationale_codes: Vec::new(),
+            decision_contributions: Vec::new(),
+            decision_threshold: None,
             transitions: Vec::new(),
             stage_executions: Vec::new(),
         }

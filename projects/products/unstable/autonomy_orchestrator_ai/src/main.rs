@@ -7,6 +7,7 @@ mod cli_value_parsers;
 mod commands;
 mod config_runtime;
 mod configs;
+mod decision_aggregator;
 mod domain;
 mod fixture;
 mod linked_stack;

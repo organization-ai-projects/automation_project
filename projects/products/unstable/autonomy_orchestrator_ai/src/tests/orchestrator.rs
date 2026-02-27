@@ -1,7 +1,7 @@
 use crate::domain::{
-    BinaryInvocationSpec, CommandLineSpec, DeliveryOptions, ExecutionPolicy, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, Stage, StageExecutionStatus,
-    TerminalState,
+    BinaryInvocationSpec, CommandLineSpec, DecisionContribution, DeliveryOptions, ExecutionPolicy,
+    FinalDecision, GateInputs, OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, Stage,
+    StageExecutionStatus, TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use std::fs;
@@ -26,6 +26,17 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         validation_from_planning_context: false,
         delivery_options: DeliveryOptions::disabled(),
         gate_inputs: GateInputs::passing(),
+        decision_threshold: 70,
+        decision_contributions: vec![DecisionContribution {
+            contributor_id: "default".to_string(),
+            capability: "governance".to_string(),
+            vote: FinalDecision::Proceed,
+            confidence: 100,
+            weight: 100,
+            reason_codes: Vec::new(),
+            artifact_refs: Vec::new(),
+        }],
+        decision_require_contributions: false,
         checkpoint_path: None,
         cycle_memory_path: None,
         next_actions_path: None,
@@ -219,4 +230,43 @@ fn planner_output_with_zero_execution_budget_fails_closed() {
     }));
 
     fs::remove_dir_all(&temp_root).ok();
+}
+
+#[test]
+fn decision_contributions_can_block_closure_with_reason_code() {
+    let mut config = test_config("run_8");
+    config.decision_contributions = vec![DecisionContribution {
+        contributor_id: "reviewer".to_string(),
+        capability: "validation".to_string(),
+        vote: FinalDecision::Escalate,
+        confidence: 95,
+        weight: 80,
+        reason_codes: vec!["REVIEWER_ESCALATION".to_string()],
+        artifact_refs: Vec::new(),
+    }];
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+    assert_eq!(report.final_decision, Some(FinalDecision::Escalate));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_ESCALATED".to_string())
+    );
+}
+
+#[test]
+fn decision_require_contributions_fails_closed_when_empty() {
+    let mut config = test_config("run_9");
+    config.decision_contributions = Vec::new();
+    config.decision_require_contributions = true;
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+    assert_eq!(report.final_decision, Some(FinalDecision::Block));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
+    );
 }
