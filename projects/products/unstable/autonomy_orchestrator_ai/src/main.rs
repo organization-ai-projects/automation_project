@@ -22,6 +22,7 @@ mod pending_validation_invocation;
 mod planner_output;
 mod planner_v2;
 mod pr_risk;
+mod provenance;
 mod review_ensemble;
 mod risk_classifier;
 mod rollout_orchestrator;

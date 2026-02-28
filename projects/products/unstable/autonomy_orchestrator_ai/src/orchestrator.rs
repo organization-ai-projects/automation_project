@@ -27,6 +27,7 @@ use crate::long_horizon_memory::{
 use crate::planner_output::read_planner_output_from_artifacts;
 use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
 use crate::pr_risk::compute_pr_risk;
+use crate::provenance;
 use crate::review_ensemble::{
     ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble,
 };
@@ -75,6 +76,8 @@ pub struct Orchestrator {
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
+    last_provenance_id: String,
+    provenance_seq: u32,
     rollout_config: RolloutConfig,
     autofix_loop_config: AutoFixLoopConfig,
     autofix_invocation: Option<BinaryInvocationSpec>,
@@ -147,8 +150,10 @@ impl Orchestrator {
         let checkpoint = checkpoint.unwrap_or_else(|| {
             OrchestratorCheckpoint::new(config.run_id.clone(), unix_timestamp_secs())
         });
+        let mut report = RunReport::new(config.run_id);
+        report.provenance_schema_version = provenance::SCHEMA_VERSION.to_string();
         Self {
-            report: RunReport::new(config.run_id),
+            report,
             simulate_blocked: config.simulate_blocked,
             planning_invocation: config.planning_invocation,
             execution_invocation: config.execution_invocation,
@@ -184,6 +189,8 @@ impl Orchestrator {
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
             planned_remediation_steps,
+            last_provenance_id: String::new(),
+            provenance_seq: 0,
             rollout_config: RolloutConfig {
                 enabled: config.rollout_enabled,
                 rollback_error_rate_threshold: config.rollback_error_rate_threshold,
@@ -217,6 +224,19 @@ impl Orchestrator {
     }
 
     pub fn execute(mut self) -> RunReport {
+        let run_id = self.report.run_id.clone();
+        let root_id = format!("run:{run_id}:start");
+        provenance::record_node(
+            &mut self.report.provenance_records,
+            root_id.clone(),
+            "run_start".to_string(),
+            vec![],
+            vec![],
+            vec![],
+            unix_timestamp_secs(),
+        );
+        self.last_provenance_id = root_id;
+
         // Persist risk classification evidence before any execution.
         self.report.risk_tier = self.risk_tier;
         self.report.risk_signals = self.risk_signals.clone();
@@ -397,6 +417,38 @@ impl Orchestrator {
         }
     }
 
+    fn next_provenance_id(&mut self, event_type: &str) -> String {
+        self.provenance_seq += 1;
+        format!(
+            "run:{}:{}:{}",
+            self.report.run_id, event_type, self.provenance_seq
+        )
+    }
+
+    fn emit_provenance(
+        &mut self,
+        event_type: &str,
+        reason_codes: Vec<String>,
+        artifact_refs: Vec<String>,
+    ) {
+        let id = self.next_provenance_id(event_type);
+        let parent_ids = if self.last_provenance_id.is_empty() {
+            vec![]
+        } else {
+            vec![self.last_provenance_id.clone()]
+        };
+        provenance::record_node(
+            &mut self.report.provenance_records,
+            id.clone(),
+            event_type.to_string(),
+            parent_ids,
+            reason_codes,
+            artifact_refs,
+            unix_timestamp_secs(),
+        );
+        self.last_provenance_id = id;
+    }
+
     fn transition_to(&mut self, next_stage: Stage) {
         let transition = StageTransition {
             run_id: self.report.run_id.clone(),
@@ -407,6 +459,7 @@ impl Orchestrator {
 
         self.report.current_stage = Some(next_stage);
         self.report.transitions.push(transition);
+        self.emit_provenance(&format!("stage_transition:{next_stage:?}"), vec![], vec![]);
     }
 
     fn execute_invocation_or_stop(&mut self, spec: BinaryInvocationSpec) -> bool {
@@ -1209,6 +1262,20 @@ impl Orchestrator {
     }
 
     fn mark_terminal_and_persist(&mut self, terminal_state: TerminalState) {
+        let reason_codes = vec![format!("{terminal_state:?}").to_uppercase()];
+        self.emit_provenance("terminal_state", reason_codes, vec![]);
+        if let Err(err) = provenance::validate_chain_completeness(&self.report.provenance_records) {
+            if !self
+                .report
+                .blocked_reason_codes
+                .contains(&"PROVENANCE_CHAIN_INCOMPLETE".to_string())
+            {
+                self.report
+                    .blocked_reason_codes
+                    .push("PROVENANCE_CHAIN_INCOMPLETE".to_string());
+            }
+            eprintln!("{err}");
+        }
         self.checkpoint
             .mark_terminal(terminal_state, unix_timestamp_secs());
         self.persist_checkpoint();
@@ -1633,7 +1700,10 @@ impl Orchestrator {
 
         self.report.gate_decisions = decisions;
         self.report.blocked_reason_codes = blocked_reason_codes;
-        self.report.blocked_reason_codes.is_empty()
+        let passed = self.report.blocked_reason_codes.is_empty();
+        let reason_codes = self.report.blocked_reason_codes.clone();
+        self.emit_provenance("gate_evaluation", reason_codes, vec![]);
+        passed
     }
 
     fn evaluate_final_decision(&mut self) -> bool {
@@ -1645,6 +1715,7 @@ impl Orchestrator {
             self.report.decision_threshold = None;
             self.report.decision_reliability_factors.clear();
             self.report.decision_reliability_updates.clear();
+            self.emit_provenance("final_decision", vec![], vec![]);
             return true;
         }
 
@@ -1673,6 +1744,8 @@ impl Orchestrator {
             }
         }
 
+        let reason_codes = summary.decision_rationale_codes.clone();
+        self.emit_provenance("final_decision", reason_codes, vec![]);
         summary.final_decision == FinalDecision::Proceed
     }
 
