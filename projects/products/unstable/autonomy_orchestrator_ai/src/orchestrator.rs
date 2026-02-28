@@ -1279,7 +1279,12 @@ impl Orchestrator {
             return true;
         }
 
-        let _ = missing_mandatory_specialties(&self.reviewer_verdicts);
+        // Populate reviewer_next_steps for any mandatory specialty without a verdict.
+        for specialty in missing_mandatory_specialties(&self.reviewer_verdicts) {
+            self.report
+                .reviewer_next_steps
+                .push(format!("No verdict from mandatory specialty: {specialty}"));
+        }
 
         let result = run_review_ensemble(
             &self.reviewer_verdicts,

@@ -148,7 +148,7 @@ fn ensemble_disagreement_security_rejection_blocks() {
 }
 
 #[test]
-fn ensemble_tie_disagrement_blocks_fail_closed() {
+fn ensemble_tie_disagreement_blocks_fail_closed() {
     let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
     let out_dir = unique_temp_dir("tie");
 
