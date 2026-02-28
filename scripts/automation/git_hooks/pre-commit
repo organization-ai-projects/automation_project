@@ -22,6 +22,11 @@ source "$REPO_ROOT/scripts/common_lib/automation/scope_resolver.sh"
 source "$REPO_ROOT/scripts/common_lib/automation/file_types.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/markdownlint_policy.sh
 source "$REPO_ROOT/scripts/automation/git_hooks/lib/markdownlint_policy.sh"
+PUSH_POLICY_FILE="$REPO_ROOT/scripts/automation/git_hooks/lib/push_policy.sh"
+if [[ -f "$PUSH_POLICY_FILE" ]]; then
+  # shellcheck source=scripts/automation/git_hooks/lib/push_policy.sh
+  source "$PUSH_POLICY_FILE"
+fi
 
 # Protect integration branches from direct commits.
 # Use ALLOW_PROTECTED_BRANCH_COMMIT=1 only for exceptional maintenance work.
@@ -32,6 +37,20 @@ if [[ "${ALLOW_PROTECTED_BRANCH_COMMIT:-}" != "1" ]] \
   echo "   Create a feature/fix/docs branch, then open a PR."
   echo "   Temporary bypass (exception only): ALLOW_PROTECTED_BRANCH_COMMIT=1 git commit ..."
   exit 1
+fi
+
+# Early safety net: catch assignment-policy violations already present in local push range.
+if declare -F push_policy_validate_part_of_only_push >/dev/null 2>&1; then
+  UPSTREAM_BRANCH="$(push_policy_resolve_upstream_branch)"
+  if declare -F push_policy_refresh_upstream_branch >/dev/null 2>&1; then
+    push_policy_refresh_upstream_branch "$UPSTREAM_BRANCH"
+  fi
+  PUSH_COMMITS="$(push_policy_collect_push_commits "$UPSTREAM_BRANCH")"
+  if ! push_policy_validate_part_of_only_push "$PUSH_COMMITS"; then
+    echo ""
+    echo "❌ Assignment policy check failed (early pre-commit guard)."
+    exit 1
+  fi
 fi
 
 # Get affected crates

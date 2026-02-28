@@ -16,6 +16,7 @@ readonly COMMIT_MSG_RC_MIXED_CATEGORY=6
 readonly COMMIT_MSG_RC_SCOPE_MISSING=7
 readonly COMMIT_MSG_RC_SCOPE_MISMATCH=8
 readonly COMMIT_MSG_RC_SUBJECT_LENGTH=9
+readonly COMMIT_MSG_RC_ASSIGNMENT_POLICY=10
 
 if [[ -z "${COMMIT_MSG_FILE:-}" || ! -f "$COMMIT_MSG_FILE" ]]; then
   echo "❌ commit-msg hook: missing or invalid commit message file" >&2
@@ -97,6 +98,12 @@ else
 fi
 
 if validate_no_root_parent_refs_in_footer_file "$COMMIT_MSG_FILE"; then
+  :
+else
+  exit "$?"
+fi
+
+if validate_single_assignee_requires_closes_in_footer_file "$COMMIT_MSG_FILE"; then
   :
 else
   exit "$?"
