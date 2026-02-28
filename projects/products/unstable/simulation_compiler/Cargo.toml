@@ -1,0 +1,3 @@
+# This file marks the simulation_compiler root so Cargo does not flag it when
+# scanning subdirectories. The actual crates live in backend/, ui/, and tooling/.
+[workspace]
