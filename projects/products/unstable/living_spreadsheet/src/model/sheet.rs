@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use crate::model::cell::Cell;
 use crate::model::cell_id::CellId;
 use crate::model::cell_value::CellValue;
-use crate::model::cell::Cell;
+use std::collections::HashMap;
 
 pub struct Sheet {
     cells: HashMap<CellId, Cell>,
@@ -9,7 +9,9 @@ pub struct Sheet {
 
 impl Sheet {
     pub fn new() -> Self {
-        Self { cells: HashMap::new() }
+        Self {
+            cells: HashMap::new(),
+        }
     }
 
     pub fn set_value(&mut self, id: CellId, value: CellValue) {
@@ -27,7 +29,10 @@ impl Sheet {
     }
 
     pub fn get_value(&self, id: &CellId) -> CellValue {
-        self.cells.get(id).map(|c| c.value.clone()).unwrap_or(CellValue::Empty)
+        self.cells
+            .get(id)
+            .map(|c| c.value.clone())
+            .unwrap_or(CellValue::Empty)
     }
 
     pub fn cell_ids(&self) -> impl Iterator<Item = &CellId> {

@@ -4,7 +4,7 @@ mod tests {
     use crate::engine::dependency_graph::DependencyGraph;
     use crate::formula::ast::{BinOpKind, Expr};
     use crate::formula::evaluator::Evaluator;
-    use crate::formula::parser::{extract_deps, Parser};
+    use crate::formula::parser::{Parser, extract_deps};
     use crate::model::cell_id::CellId;
     use crate::model::cell_value::CellValue;
     use crate::model::sheet::Sheet;
@@ -27,7 +27,9 @@ mod tests {
     fn parse_arithmetic() {
         let expr = Parser::parse("=A1+B1").unwrap();
         match expr {
-            Expr::BinOp { op: BinOpKind::Add, .. } => {}
+            Expr::BinOp {
+                op: BinOpKind::Add, ..
+            } => {}
             _ => panic!("expected Add"),
         }
     }
@@ -58,7 +60,9 @@ mod tests {
             Expr::FunctionCall { name, args } => {
                 assert_eq!(name, "MIN");
                 assert_eq!(args.len(), 1);
-                assert!(matches!(&args[0], Expr::RangeRef(from, to) if *from == CellId::new(0, 0) && *to == CellId::new(1, 1)));
+                assert!(
+                    matches!(&args[0], Expr::RangeRef(from, to) if *from == CellId::new(0, 0) && *to == CellId::new(1, 1))
+                );
             }
             _ => panic!("expected FunctionCall MIN"),
         }
@@ -67,7 +71,9 @@ mod tests {
             Expr::FunctionCall { name, args } => {
                 assert_eq!(name, "MAX");
                 assert_eq!(args.len(), 1);
-                assert!(matches!(&args[0], Expr::RangeRef(from, to) if *from == CellId::new(0, 0) && *to == CellId::new(1, 1)));
+                assert!(
+                    matches!(&args[0], Expr::RangeRef(from, to) if *from == CellId::new(0, 0) && *to == CellId::new(1, 1))
+                );
             }
             _ => panic!("expected FunctionCall MAX"),
         }
@@ -77,7 +83,9 @@ mod tests {
     fn parse_parens() {
         let expr = Parser::parse("=(A1+B1)*2").unwrap();
         match expr {
-            Expr::BinOp { op: BinOpKind::Mul, .. } => {}
+            Expr::BinOp {
+                op: BinOpKind::Mul, ..
+            } => {}
             _ => panic!("expected Mul at top"),
         }
     }
@@ -175,7 +183,10 @@ mod tests {
         let b1 = CellId::from_a1("B1").unwrap();
         graph.set_deps(a1.clone(), vec![b1.clone()]);
         graph.set_deps(b1.clone(), vec![a1.clone()]);
-        assert!(matches!(graph.check_cycles(), Err(SpreadsheetError::CycleDetected)));
+        assert!(matches!(
+            graph.check_cycles(),
+            Err(SpreadsheetError::CycleDetected)
+        ));
     }
 
     #[test]

@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet, VecDeque};
 use crate::diagnostics::error::SpreadsheetError;
 use crate::model::cell_id::CellId;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub struct DependencyGraph {
     deps: HashMap<CellId, HashSet<CellId>>,
@@ -28,13 +28,20 @@ impl DependencyGraph {
 
         let dep_set: HashSet<CellId> = new_deps.into_iter().collect();
         for dep in &dep_set {
-            self.rdeps.entry(dep.clone()).or_default().insert(cell.clone());
+            self.rdeps
+                .entry(dep.clone())
+                .or_default()
+                .insert(cell.clone());
         }
         self.deps.insert(cell, dep_set);
     }
 
     pub fn deps_of(&self, cell: &CellId) -> Vec<CellId> {
-        let mut result = self.deps.get(cell).map(|s| s.iter().cloned().collect::<Vec<_>>()).unwrap_or_default();
+        let mut result = self
+            .deps
+            .get(cell)
+            .map(|s| s.iter().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
         result.sort();
         result
     }
@@ -87,7 +94,8 @@ impl DependencyGraph {
             *in_degree.entry(cell.clone()).or_insert(0) += deps.len();
         }
 
-        let mut queue: VecDeque<CellId> = in_degree.iter()
+        let mut queue: VecDeque<CellId> = in_degree
+            .iter()
             .filter(|(_, deg)| **deg == 0)
             .map(|(c, _)| c.clone())
             .collect();
@@ -121,7 +129,10 @@ impl DependencyGraph {
             Err(SpreadsheetError::CycleDetected)
         } else {
             // Return only cells that have formula entries (have deps)
-            Ok(order.into_iter().filter(|c| self.deps.contains_key(c)).collect())
+            Ok(order
+                .into_iter()
+                .filter(|c| self.deps.contains_key(c))
+                .collect())
         }
     }
 

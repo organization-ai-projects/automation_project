@@ -9,14 +9,26 @@ pub struct Cell {
 
 impl Cell {
     pub fn new(id: CellId) -> Self {
-        Self { id, formula: None, value: CellValue::Empty }
+        Self {
+            id,
+            formula: None,
+            value: CellValue::Empty,
+        }
     }
 
     pub fn with_value(id: CellId, value: CellValue) -> Self {
-        Self { id, formula: None, value }
+        Self {
+            id,
+            formula: None,
+            value,
+        }
     }
 
     pub fn with_formula(id: CellId, formula: String) -> Self {
-        Self { id, formula: Some(formula), value: CellValue::Empty }
+        Self {
+            id,
+            formula: Some(formula),
+            value: CellValue::Empty,
+        }
     }
 }

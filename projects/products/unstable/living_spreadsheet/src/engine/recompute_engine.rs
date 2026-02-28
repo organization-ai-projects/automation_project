@@ -1,13 +1,13 @@
-use std::collections::HashSet;
-use runtime_core::public_api::{EventLog, Job, RuntimeId, Seed};
 use crate::diagnostics::error::SpreadsheetError;
 use crate::engine::dependency_graph::DependencyGraph;
 use crate::explain::trace::{Trace, TraceStep};
 use crate::formula::evaluator::Evaluator;
-use crate::formula::parser::{extract_deps, Parser};
+use crate::formula::parser::{Parser, extract_deps};
 use crate::model::cell_id::CellId;
 use crate::model::cell_value::CellValue;
 use crate::model::sheet::Sheet;
+use runtime_core::public_api::{EventLog, Job, RuntimeId, Seed};
+use std::collections::HashSet;
 
 pub struct RecomputeEngine {
     sheet: Sheet,
@@ -86,7 +86,9 @@ impl RecomputeEngine {
 
         let expr = Parser::parse(&formula)?;
         let evaluator = Evaluator::new(&self.sheet);
-        let value = evaluator.eval(&expr).unwrap_or_else(|e| CellValue::Error(e.to_string()));
+        let value = evaluator
+            .eval(&expr)
+            .unwrap_or_else(|e| CellValue::Error(e.to_string()));
 
         self.sheet.update_value(id, value);
 
@@ -101,9 +103,10 @@ impl RecomputeEngine {
     }
 
     pub fn trace(&self, id: &CellId) -> Result<Trace, SpreadsheetError> {
-        let cell = self.sheet.get(id).ok_or_else(|| {
-            SpreadsheetError::UnknownCell(id.to_string())
-        })?;
+        let cell = self
+            .sheet
+            .get(id)
+            .ok_or_else(|| SpreadsheetError::UnknownCell(id.to_string()))?;
 
         let mut steps = Vec::new();
 

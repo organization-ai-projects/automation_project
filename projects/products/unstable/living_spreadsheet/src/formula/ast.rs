@@ -6,8 +6,15 @@ pub enum Expr {
     Text(String),
     CellRef(CellId),
     RangeRef(CellId, CellId),
-    BinOp { op: BinOpKind, lhs: Box<Expr>, rhs: Box<Expr> },
-    FunctionCall { name: String, args: Vec<Expr> },
+    BinOp {
+        op: BinOpKind,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
+    FunctionCall {
+        name: String,
+        args: Vec<Expr>,
+    },
     Neg(Box<Expr>),
 }
 

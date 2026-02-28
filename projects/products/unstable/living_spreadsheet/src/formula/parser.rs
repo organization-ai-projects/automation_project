@@ -10,15 +10,41 @@ fn tokenize(input: &str) -> Result<Vec<Token>, SpreadsheetError> {
 
     while i < chars.len() {
         match chars[i] {
-            ' ' | '\t' | '\r' | '\n' => { i += 1; }
-            '=' => { tokens.push(Token::Equals); i += 1; }
-            '+' => { tokens.push(Token::Plus); i += 1; }
-            '-' => { tokens.push(Token::Minus); i += 1; }
-            '*' => { tokens.push(Token::Star); i += 1; }
-            '/' => { tokens.push(Token::Slash); i += 1; }
-            '(' => { tokens.push(Token::LParen); i += 1; }
-            ')' => { tokens.push(Token::RParen); i += 1; }
-            ',' => { tokens.push(Token::Comma); i += 1; }
+            ' ' | '\t' | '\r' | '\n' => {
+                i += 1;
+            }
+            '=' => {
+                tokens.push(Token::Equals);
+                i += 1;
+            }
+            '+' => {
+                tokens.push(Token::Plus);
+                i += 1;
+            }
+            '-' => {
+                tokens.push(Token::Minus);
+                i += 1;
+            }
+            '*' => {
+                tokens.push(Token::Star);
+                i += 1;
+            }
+            '/' => {
+                tokens.push(Token::Slash);
+                i += 1;
+            }
+            '(' => {
+                tokens.push(Token::LParen);
+                i += 1;
+            }
+            ')' => {
+                tokens.push(Token::RParen);
+                i += 1;
+            }
+            ',' => {
+                tokens.push(Token::Comma);
+                i += 1;
+            }
             '"' => {
                 i += 1;
                 let mut s = String::new();
@@ -27,7 +53,9 @@ fn tokenize(input: &str) -> Result<Vec<Token>, SpreadsheetError> {
                     i += 1;
                 }
                 if i >= chars.len() {
-                    return Err(SpreadsheetError::ParseError("unclosed string literal".into()));
+                    return Err(SpreadsheetError::ParseError(
+                        "unclosed string literal".into(),
+                    ));
                 }
                 i += 1;
                 tokens.push(Token::Text(s));
@@ -79,7 +107,10 @@ fn tokenize(input: &str) -> Result<Vec<Token>, SpreadsheetError> {
                 }
             }
             c => {
-                return Err(SpreadsheetError::ParseError(format!("unexpected character: {}", c)));
+                return Err(SpreadsheetError::ParseError(format!(
+                    "unexpected character: {}",
+                    c
+                )));
             }
         }
     }
@@ -94,7 +125,9 @@ pub struct Parser {
 impl Parser {
     pub fn parse(formula: &str) -> Result<Expr, SpreadsheetError> {
         if !formula.starts_with('=') {
-            return Err(SpreadsheetError::ParseError("formula must start with '='".into()));
+            return Err(SpreadsheetError::ParseError(
+                "formula must start with '='".into(),
+            ));
         }
         let rest = &formula[1..];
         let tokens = tokenize(rest)?;
@@ -102,7 +135,8 @@ impl Parser {
         let expr = parser.parse_expr()?;
         if parser.pos < parser.tokens.len() {
             return Err(SpreadsheetError::ParseError(format!(
-                "unexpected token at position {}", parser.pos
+                "unexpected token at position {}",
+                parser.pos
             )));
         }
         Ok(expr)
@@ -129,12 +163,20 @@ impl Parser {
                 Some(Token::Plus) => {
                     self.consume();
                     let rhs = self.parse_multiplicative()?;
-                    lhs = Expr::BinOp { op: BinOpKind::Add, lhs: Box::new(lhs), rhs: Box::new(rhs) };
+                    lhs = Expr::BinOp {
+                        op: BinOpKind::Add,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                    };
                 }
                 Some(Token::Minus) => {
                     self.consume();
                     let rhs = self.parse_multiplicative()?;
-                    lhs = Expr::BinOp { op: BinOpKind::Sub, lhs: Box::new(lhs), rhs: Box::new(rhs) };
+                    lhs = Expr::BinOp {
+                        op: BinOpKind::Sub,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                    };
                 }
                 _ => break,
             }
@@ -149,12 +191,20 @@ impl Parser {
                 Some(Token::Star) => {
                     self.consume();
                     let rhs = self.parse_unary()?;
-                    lhs = Expr::BinOp { op: BinOpKind::Mul, lhs: Box::new(lhs), rhs: Box::new(rhs) };
+                    lhs = Expr::BinOp {
+                        op: BinOpKind::Mul,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                    };
                 }
                 Some(Token::Slash) => {
                     self.consume();
                     let rhs = self.parse_unary()?;
-                    lhs = Expr::BinOp { op: BinOpKind::Div, lhs: Box::new(lhs), rhs: Box::new(rhs) };
+                    lhs = Expr::BinOp {
+                        op: BinOpKind::Div,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                    };
                 }
                 _ => break,
             }
@@ -207,32 +257,43 @@ impl Parser {
                             }
                         }
                         match self.peek() {
-                            Some(Token::RParen) => { self.consume(); }
+                            Some(Token::RParen) => {
+                                self.consume();
+                            }
                             _ => return Err(SpreadsheetError::ParseError("expected ')'".into())),
                         }
                         let upper = name.to_uppercase();
                         match upper.as_str() {
                             "SUM" | "MIN" | "MAX" => {}
-                            _ => return Err(SpreadsheetError::ParseError(
-                                format!("unknown function: {}", name)
-                            )),
+                            _ => {
+                                return Err(SpreadsheetError::ParseError(format!(
+                                    "unknown function: {}",
+                                    name
+                                )));
+                            }
                         }
                         Ok(Expr::FunctionCall { name: upper, args })
                     }
-                    _ => Err(SpreadsheetError::ParseError(format!("unexpected identifier: {}", name))),
+                    _ => Err(SpreadsheetError::ParseError(format!(
+                        "unexpected identifier: {}",
+                        name
+                    ))),
                 }
             }
             Some(Token::LParen) => {
                 self.consume();
                 let inner = self.parse_expr()?;
                 match self.peek() {
-                    Some(Token::RParen) => { self.consume(); }
+                    Some(Token::RParen) => {
+                        self.consume();
+                    }
                     _ => return Err(SpreadsheetError::ParseError("unclosed parenthesis".into())),
                 }
                 Ok(inner)
             }
             _ => Err(SpreadsheetError::ParseError(format!(
-                "unexpected token at position {}", self.pos
+                "unexpected token at position {}",
+                self.pos
             ))),
         }
     }

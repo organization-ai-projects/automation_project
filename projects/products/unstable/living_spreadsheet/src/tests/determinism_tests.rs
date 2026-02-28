@@ -1,16 +1,24 @@
 #[cfg(test)]
 mod tests {
-    use runtime_core::public_api::Seed;
     use crate::engine::recompute_engine::RecomputeEngine;
     use crate::model::cell_id::CellId;
     use crate::model::cell_value::CellValue;
+    use runtime_core::public_api::Seed;
 
     fn build_engine(seed: Seed) -> RecomputeEngine {
         let mut engine = RecomputeEngine::new(seed);
-        engine.set_value(CellId::from_a1("A1").unwrap(), CellValue::Number(5.0)).unwrap();
-        engine.set_value(CellId::from_a1("B1").unwrap(), CellValue::Number(3.0)).unwrap();
-        engine.set_formula(CellId::from_a1("C1").unwrap(), "=A1+B1".to_string()).unwrap();
-        engine.set_formula(CellId::from_a1("D1").unwrap(), "=C1*2".to_string()).unwrap();
+        engine
+            .set_value(CellId::from_a1("A1").unwrap(), CellValue::Number(5.0))
+            .unwrap();
+        engine
+            .set_value(CellId::from_a1("B1").unwrap(), CellValue::Number(3.0))
+            .unwrap();
+        engine
+            .set_formula(CellId::from_a1("C1").unwrap(), "=A1+B1".to_string())
+            .unwrap();
+        engine
+            .set_formula(CellId::from_a1("D1").unwrap(), "=C1*2".to_string())
+            .unwrap();
         engine.recompute_all().unwrap();
         engine
     }

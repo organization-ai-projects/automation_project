@@ -29,7 +29,9 @@ impl<'a> Evaluator<'a> {
                 let v = self.eval(inner)?;
                 match v {
                     CellValue::Number(n) => Ok(CellValue::Number(-n)),
-                    _ => Err(SpreadsheetError::TypeError("negation requires a number".into())),
+                    _ => Err(SpreadsheetError::TypeError(
+                        "negation requires a number".into(),
+                    )),
                 }
             }
             Expr::BinOp { op, lhs, rhs } => {
@@ -48,7 +50,9 @@ impl<'a> Evaluator<'a> {
                             }
                         }
                     },
-                    _ => Err(SpreadsheetError::TypeError("arithmetic requires numbers".into())),
+                    _ => Err(SpreadsheetError::TypeError(
+                        "arithmetic requires numbers".into(),
+                    )),
                 }
             }
             Expr::FunctionCall { name, args } => self.eval_function(name, args),
@@ -93,32 +97,55 @@ impl<'a> Evaluator<'a> {
                         CellValue::Error(e) => {
                             return Err(SpreadsheetError::EvalError(e.clone()));
                         }
-                        _ => return Err(SpreadsheetError::TypeError("SUM requires numbers".into())),
+                        _ => {
+                            return Err(SpreadsheetError::TypeError("SUM requires numbers".into()));
+                        }
                     }
                 }
                 Ok(CellValue::Number(sum))
             }
             "MIN" => {
-                let nums: Vec<f64> = values.iter().filter_map(|v| {
-                    if let CellValue::Number(n) = v { Some(*n) } else { None }
-                }).collect();
+                let nums: Vec<f64> = values
+                    .iter()
+                    .filter_map(|v| {
+                        if let CellValue::Number(n) = v {
+                            Some(*n)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
                 if nums.is_empty() {
                     Ok(CellValue::Number(f64::INFINITY))
                 } else {
-                    Ok(CellValue::Number(nums.iter().cloned().fold(f64::INFINITY, f64::min)))
+                    Ok(CellValue::Number(
+                        nums.iter().cloned().fold(f64::INFINITY, f64::min),
+                    ))
                 }
             }
             "MAX" => {
-                let nums: Vec<f64> = values.iter().filter_map(|v| {
-                    if let CellValue::Number(n) = v { Some(*n) } else { None }
-                }).collect();
+                let nums: Vec<f64> = values
+                    .iter()
+                    .filter_map(|v| {
+                        if let CellValue::Number(n) = v {
+                            Some(*n)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
                 if nums.is_empty() {
                     Ok(CellValue::Number(f64::NEG_INFINITY))
                 } else {
-                    Ok(CellValue::Number(nums.iter().cloned().fold(f64::NEG_INFINITY, f64::max)))
+                    Ok(CellValue::Number(
+                        nums.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+                    ))
                 }
             }
-            _ => Err(SpreadsheetError::EvalError(format!("unknown function: {}", name))),
+            _ => Err(SpreadsheetError::EvalError(format!(
+                "unknown function: {}",
+                name
+            ))),
         }
     }
 }
