@@ -2,8 +2,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{
-    AdaptivePolicyDecision, DecisionContribution, DecisionReliabilityFactor,
-    DecisionReliabilityUpdate, FinalDecision, GateDecision, PrRiskBreakdown, Stage,
+    AdaptivePolicyDecision, AutoFixAttempt, DecisionContribution, DecisionReliabilityFactor,
+    DecisionReliabilityUpdate, FinalDecision, GateDecision, HardGateResult, PlannerPathRecord,
+    PrRiskBreakdown, ReviewEnsembleResult, ReviewerVerdict, RiskSignal, RiskTier, Stage,
     StageExecutionRecord, StageTransition, TerminalState,
 };
 
@@ -15,8 +16,11 @@ pub struct RunReport {
     pub current_stage: Option<Stage>,
     pub terminal_state: Option<TerminalState>,
     pub gate_decisions: Vec<GateDecision>,
+    pub hard_gate_results: Vec<HardGateResult>,
     pub blocked_reason_codes: Vec<String>,
     pub reviewer_next_steps: Vec<String>,
+    pub reviewer_verdicts: Vec<ReviewerVerdict>,
+    pub review_ensemble_result: Option<ReviewEnsembleResult>,
     pub final_decision: Option<FinalDecision>,
     pub decision_confidence: Option<u8>,
     pub decision_rationale_codes: Vec<String>,
@@ -25,9 +29,13 @@ pub struct RunReport {
     pub decision_reliability_factors: Vec<DecisionReliabilityFactor>,
     pub decision_reliability_updates: Vec<DecisionReliabilityUpdate>,
     pub adaptive_policy_decisions: Vec<AdaptivePolicyDecision>,
+    pub auto_fix_attempts: Vec<AutoFixAttempt>,
     pub transitions: Vec<StageTransition>,
     pub stage_executions: Vec<StageExecutionRecord>,
     pub pr_risk_breakdown: Option<PrRiskBreakdown>,
+    pub planner_path_record: Option<PlannerPathRecord>,
+    pub risk_tier: Option<RiskTier>,
+    pub risk_signals: Vec<RiskSignal>,
 }
 
 impl RunReport {
@@ -39,8 +47,11 @@ impl RunReport {
             current_stage: None,
             terminal_state: None,
             gate_decisions: Vec::new(),
+            hard_gate_results: Vec::new(),
             blocked_reason_codes: Vec::new(),
             reviewer_next_steps: Vec::new(),
+            reviewer_verdicts: Vec::new(),
+            review_ensemble_result: None,
             final_decision: None,
             decision_confidence: None,
             decision_rationale_codes: Vec::new(),
@@ -49,9 +60,13 @@ impl RunReport {
             decision_reliability_factors: Vec::new(),
             decision_reliability_updates: Vec::new(),
             adaptive_policy_decisions: Vec::new(),
+            auto_fix_attempts: Vec::new(),
             transitions: Vec::new(),
             stage_executions: Vec::new(),
             pr_risk_breakdown: None,
+            planner_path_record: None,
+            risk_tier: None,
+            risk_signals: Vec::new(),
         }
     }
 }

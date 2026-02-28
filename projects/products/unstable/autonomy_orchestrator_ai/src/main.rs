@@ -1,6 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/main.rs
 mod adaptive_policy;
 mod artifacts;
+mod auto_fix_loop;
 mod binary_runner;
 mod checkpoint_store;
 mod cli_command;
@@ -11,12 +12,16 @@ mod configs;
 mod decision_aggregator;
 mod domain;
 mod fixture;
+mod hard_gates;
 mod linked_stack;
 mod orchestrator;
 mod output_writer;
 mod pending_validation_invocation;
 mod planner_output;
+mod planner_v2;
 mod pr_risk;
+mod review_ensemble;
+mod risk_classifier;
 mod run_args;
 mod runtime;
 mod runtime_diagnostics;

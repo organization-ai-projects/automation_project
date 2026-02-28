@@ -1,7 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/orchestrator_config.rs
 use crate::domain::{
     BinaryInvocationSpec, DecisionContribution, DecisionReliabilityInput, DeliveryOptions,
-    ExecutionPolicy, GateInputs,
+    ExecutionPolicy, GateInputs, ReviewerVerdict, RiskSignal, RiskTier,
 };
 use common_binary::{BinaryOptions, read_binary, write_binary};
 use common_json::{from_str, to_string_pretty};
@@ -34,10 +34,19 @@ struct OrchestratorConfigJsonCompat {
     decision_require_contributions: Option<bool>,
     pr_risk_threshold: Option<f64>,
     auto_merge_on_eligible: Option<bool>,
+    reviewer_verdicts: Option<Vec<ReviewerVerdict>>,
     checkpoint_path: Option<PathBuf>,
     cycle_memory_path: Option<PathBuf>,
     next_actions_path: Option<PathBuf>,
     previous_run_report_path: Option<PathBuf>,
+    autofix_enabled: Option<bool>,
+    autofix_bin: Option<String>,
+    autofix_args: Option<Vec<String>>,
+    autofix_max_attempts: Option<f64>,
+    hard_gates_file: Option<PathBuf>,
+    risk_tier: Option<RiskTier>,
+    risk_signals: Option<Vec<RiskSignal>>,
+    risk_allow_high: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,10 +76,24 @@ pub struct OrchestratorConfig {
     pub decision_require_contributions: bool,
     pub pr_risk_threshold: u16,
     pub auto_merge_on_eligible: bool,
+    pub reviewer_verdicts: Vec<ReviewerVerdict>,
     pub checkpoint_path: Option<PathBuf>,
     pub cycle_memory_path: Option<PathBuf>,
     pub next_actions_path: Option<PathBuf>,
     pub previous_run_report_path: Option<PathBuf>,
+    #[serde(default)]
+    pub autofix_enabled: bool,
+    #[serde(default)]
+    pub autofix_bin: Option<String>,
+    #[serde(default)]
+    pub autofix_args: Vec<String>,
+    #[serde(default = "default_autofix_max_attempts")]
+    pub autofix_max_attempts: u32,
+    pub hard_gates_file: Option<PathBuf>,
+    pub planner_fallback_max_steps: u32,
+    pub risk_tier: Option<RiskTier>,
+    pub risk_signals: Vec<RiskSignal>,
+    pub risk_allow_high: bool,
 }
 
 impl OrchestratorConfig {
@@ -224,10 +247,24 @@ impl OrchestratorConfig {
                 .transpose()?
                 .unwrap_or(40),
             auto_merge_on_eligible: parsed.auto_merge_on_eligible.unwrap_or(false),
+            reviewer_verdicts: parsed.reviewer_verdicts.unwrap_or_default(),
             checkpoint_path: parsed.checkpoint_path,
             cycle_memory_path: parsed.cycle_memory_path,
             next_actions_path: parsed.next_actions_path,
             previous_run_report_path: parsed.previous_run_report_path,
+            autofix_enabled: parsed.autofix_enabled.unwrap_or(false),
+            autofix_bin: parsed.autofix_bin,
+            autofix_args: parsed.autofix_args.unwrap_or_default(),
+            autofix_max_attempts: parsed
+                .autofix_max_attempts
+                .map(|v| float_to_u32_compat(v, "autofix_max_attempts"))
+                .transpose()?
+                .unwrap_or(default_autofix_max_attempts()),
+            hard_gates_file: parsed.hard_gates_file,
+            planner_fallback_max_steps: 3,
+            risk_tier: parsed.risk_tier,
+            risk_signals: parsed.risk_signals.unwrap_or_default(),
+            risk_allow_high: parsed.risk_allow_high.unwrap_or(false),
         })
     }
 
@@ -292,4 +329,8 @@ fn float_to_u16_compat(value: f64, field: &str) -> Result<u16, String> {
     u16::try_from(as_u64).map_err(|_| {
         format!("Failed to parse orchestrator config JSON field '{field}': value is too large")
     })
+}
+
+fn default_autofix_max_attempts() -> u32 {
+    3
 }
