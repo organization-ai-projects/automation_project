@@ -50,19 +50,28 @@ pub fn aggregate(
     let mut used_cold_start = false;
     let mut used_memory_input = false;
 
+    // Pre-compute the set of (contributor_id, capability) pairs that have an explicit
+    // reliability input to avoid O(n*m) per-contribution scan inside the loop.
+    let explicit_input_keys: Vec<(&str, &str)> = cfg
+        .reliability_inputs
+        .iter()
+        .map(|i| (i.contributor_id.as_str(), i.capability.as_str()))
+        .collect();
+
     for contribution in contributions {
         let reliability_score = lookup_reliability_score(
             contribution,
             &cfg.reliability_inputs,
             &cfg.memory_reliability_inputs,
         );
-        let from_memory = cfg.reliability_inputs.iter().all(|input| {
-            input.contributor_id != contribution.contributor_id
-                || input.capability != contribution.capability
-        }) && cfg.memory_reliability_inputs.iter().any(|input| {
-            input.contributor_id == contribution.contributor_id
-                && input.capability == contribution.capability
-        });
+        let has_explicit = explicit_input_keys
+            .iter()
+            .any(|&(id, cap)| id == contribution.contributor_id && cap == contribution.capability);
+        let from_memory = !has_explicit
+            && cfg.memory_reliability_inputs.iter().any(|input| {
+                input.contributor_id == contribution.contributor_id
+                    && input.capability == contribution.capability
+            });
         if reliability_score == 50 && !from_memory {
             used_cold_start = true;
         } else if from_memory {

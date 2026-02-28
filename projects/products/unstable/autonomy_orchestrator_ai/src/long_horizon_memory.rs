@@ -146,7 +146,8 @@ pub fn derive_reliability_inputs(
     let inputs = acc
         .into_iter()
         .map(|((contributor_id, capability), (sum, count))| {
-            let avg = (sum / i32::try_from(count).unwrap_or(1)).clamp(0, 100) as u8;
+            let divisor = i32::try_from(count).unwrap_or(i32::MAX).max(1);
+            let avg = (sum / divisor).clamp(0, 100) as u8;
             DecisionReliabilityInput {
                 contributor_id,
                 capability,
