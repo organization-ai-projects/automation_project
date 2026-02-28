@@ -49,8 +49,7 @@ mod tests {
 
     #[test]
     fn nonexistent_command_returns_minus_one() {
-        let exec =
-            CommandExec::new("__nonexistent_cmd_xyz_workflow_offline__", vec![]);
+        let exec = CommandExec::new("__nonexistent_cmd_xyz_workflow_offline__", vec![]);
         let result = exec.execute();
         assert_eq!(result.exit_code, -1);
         assert!(!result.stderr.is_empty());

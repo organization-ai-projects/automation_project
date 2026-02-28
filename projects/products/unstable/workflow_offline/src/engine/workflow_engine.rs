@@ -26,8 +26,7 @@ impl WorkflowEngine {
     /// Returns `WorkflowError::DagError` on unknown dependency references.
     fn build_graph(&self) -> Result<(Graph, HashMap<RuntimeId, String>), WorkflowError> {
         // Assign stable RuntimeIds by sorted job position for determinism.
-        let mut sorted_ids: Vec<&str> =
-            self.config.jobs.iter().map(|j| j.id.as_str()).collect();
+        let mut sorted_ids: Vec<&str> = self.config.jobs.iter().map(|j| j.id.as_str()).collect();
         sorted_ids.sort_unstable();
 
         let id_map: HashMap<&str, RuntimeId> = sorted_ids
@@ -116,8 +115,12 @@ impl WorkflowEngine {
         }
 
         // Build a lookup: job_id_string -> JobConfig
-        let job_lookup: HashMap<&str, &crate::config::job_config::JobConfig> =
-            self.config.jobs.iter().map(|j| (j.id.as_str(), j)).collect();
+        let job_lookup: HashMap<&str, &crate::config::job_config::JobConfig> = self
+            .config
+            .jobs
+            .iter()
+            .map(|j| (j.id.as_str(), j))
+            .collect();
 
         let ctx = DeterministicContext::new(Seed::new(self.seed));
         let _ = ctx.seed(); // bind seed into context; ordering is topology-driven
@@ -128,15 +131,16 @@ impl WorkflowEngine {
             let job_name = rev_map
                 .get(rid)
                 .ok_or_else(|| WorkflowError::Internal("missing id in reverse map".to_string()))?;
-            let job_cfg = job_lookup
-                .get(job_name.as_str())
-                .ok_or_else(|| WorkflowError::Internal(format!("missing config for `{job_name}`")))?;
+            let job_cfg = job_lookup.get(job_name.as_str()).ok_or_else(|| {
+                WorkflowError::Internal(format!("missing config for `{job_name}`"))
+            })?;
 
             // Record event via runtime_core EventLog adapter.
             let runtime_job = runtime_core::Job::new(RuntimeId::new(seq as u64), *rid);
             event_log.record(&runtime_job);
 
-            let result: ExecResult = CommandExec::new(&job_cfg.command, job_cfg.args.clone()).execute();
+            let result: ExecResult =
+                CommandExec::new(&job_cfg.command, job_cfg.args.clone()).execute();
 
             let failed = !result.success();
             let exit_code = result.exit_code;
@@ -191,12 +195,11 @@ mod tests {
 
     #[test]
     fn dag_build_with_missing_dep_fails() {
-        let engine = make_engine(
-            vec![make_job("b", vec!["nonexistent"])],
-            0,
-            false,
-        );
-        assert!(matches!(engine.planned_order(), Err(WorkflowError::DagError(_))));
+        let engine = make_engine(vec![make_job("b", vec!["nonexistent"])], 0, false);
+        assert!(matches!(
+            engine.planned_order(),
+            Err(WorkflowError::DagError(_))
+        ));
     }
 
     #[test]
@@ -207,7 +210,10 @@ mod tests {
         job_a.deps = vec!["b".to_string()];
         job_b.deps = vec!["a".to_string()];
         let engine = make_engine(vec![job_a, job_b], 0, false);
-        assert!(matches!(engine.planned_order(), Err(WorkflowError::DagError(_))));
+        assert!(matches!(
+            engine.planned_order(),
+            Err(WorkflowError::DagError(_))
+        ));
     }
 
     #[test]
@@ -248,6 +254,9 @@ mod tests {
             deps: vec![],
         };
         let engine = make_engine(vec![bad_job], 0, false);
-        assert!(matches!(engine.run(), Err(WorkflowError::JobFailure { .. })));
+        assert!(matches!(
+            engine.run(),
+            Err(WorkflowError::JobFailure { .. })
+        ));
     }
 }

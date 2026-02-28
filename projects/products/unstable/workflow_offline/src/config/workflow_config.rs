@@ -82,7 +82,10 @@ mod tests {
     #[test]
     fn duplicate_ids_are_rejected() {
         let cfg = make_config(vec![job("a", vec![]), job("a", vec![])]);
-        assert!(matches!(cfg.validate(), Err(WorkflowError::InvalidConfig(_))));
+        assert!(matches!(
+            cfg.validate(),
+            Err(WorkflowError::InvalidConfig(_))
+        ));
     }
 
     #[test]
@@ -97,6 +100,9 @@ mod tests {
             name: "  ".to_string(),
             jobs: vec![],
         };
-        assert!(matches!(cfg.validate(), Err(WorkflowError::InvalidConfig(_))));
+        assert!(matches!(
+            cfg.validate(),
+            Err(WorkflowError::InvalidConfig(_))
+        ));
     }
 }

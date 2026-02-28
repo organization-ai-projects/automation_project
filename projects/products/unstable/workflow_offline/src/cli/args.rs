@@ -89,7 +89,13 @@ mod tests {
     #[test]
     fn all_flags() {
         let a = parse_args_from(&args(&[
-            "wf", "run", "my.toml", "--seed", "42", "--dry-run", "--json",
+            "wf",
+            "run",
+            "my.toml",
+            "--seed",
+            "42",
+            "--dry-run",
+            "--json",
         ]))
         .unwrap();
         assert_eq!(a.seed, 42);

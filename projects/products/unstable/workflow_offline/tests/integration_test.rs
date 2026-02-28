@@ -72,10 +72,7 @@ fn three_job_workflow_json_report_ordering() {
         serde_json::from_slice(&output.stdout).expect("valid JSON from --json");
     let jobs = report["jobs"].as_array().expect("jobs array");
     assert_eq!(jobs.len(), 3);
-    let order: Vec<&str> = jobs
-        .iter()
-        .map(|j| j["job_id"].as_str().unwrap())
-        .collect();
+    let order: Vec<&str> = jobs.iter().map(|j| j["job_id"].as_str().unwrap()).collect();
     // job1 must come before job2, job2 before job3
     let pos = |name: &str| order.iter().position(|&x| x == name).unwrap();
     assert!(pos("job1") < pos("job2"));
@@ -90,8 +87,7 @@ fn three_job_workflow_run_report_snapshot() {
         .args(["run", path.to_str().unwrap(), "--json"])
         .output()
         .expect("spawn binary");
-    let report: serde_json::Value =
-        serde_json::from_slice(&output.stdout).expect("valid JSON");
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("valid JSON");
     assert_eq!(report["workflow_name"].as_str().unwrap(), "three_job_test");
     assert!(report["success"].as_bool().unwrap());
     assert_eq!(report["seed"].as_u64().unwrap(), 0);
