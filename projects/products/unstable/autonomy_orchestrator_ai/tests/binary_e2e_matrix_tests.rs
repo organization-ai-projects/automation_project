@@ -11,13 +11,32 @@ struct MatrixReportView {
     blocked_reason_codes: Vec<String>,
     reviewer_next_steps: Vec<String>,
     adaptive_policy_decisions: Vec<AdaptivePolicyDecisionView>,
+    #[serde(default)]
+    auto_fix_attempts: Vec<AutoFixAttemptView>,
+    #[serde(default)]
+    decision_rationale_codes: Vec<String>,
     stage_executions: Vec<StageExecutionView>,
+    planner_path_record: Option<PlannerPathRecordView>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PlannerPathRecordView {
+    selected_path: Vec<String>,
+    fallback_steps_used: u32,
+    reason_codes: Vec<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
 struct AdaptivePolicyDecisionView {
     action: String,
     reason_code: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct AutoFixAttemptView {
+    attempt_number: u32,
+    reason_code: String,
+    status: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -1260,6 +1279,126 @@ fn matrix_decision_no_contributions_blocks_fail_closed() {
         report
             .blocked_reason_codes
             .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_planner_v2_successful_fallback_flow() {
+    let out_dir = unique_temp_dir("planner_v2_fallback_ok");
+    let planner_output_path = out_dir.join("planner_output.json");
+    // Graph: start →(ON_FAIL) middle →(primary) end; 1 fallback within budget of 3
+    fs::write(
+        &planner_output_path,
+        r#"{
+            "planner_output": {
+                "planner_nodes": [
+                    {"id": "start", "action": "step_start"},
+                    {"id": "middle", "action": "step_middle"},
+                    {"id": "end", "action": "step_end"}
+                ],
+                "planner_edges": [
+                    {"from": "start", "to": "middle", "condition_code": "ON_FAIL"},
+                    {"from": "middle", "to": "end", "condition_code": ""}
+                ]
+            }
+        }"#,
+    )
+    .expect("write planner output artifact");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+            "--manager-bin",
+            "true",
+            "--manager-expected-artifact",
+            planner_output_path.to_str().unwrap(),
+            "--planner-fallback-max-steps",
+            "3",
+        ],
+        &out_dir,
+    );
+
+    assert_eq!(output.status.code(), Some(0), "expected exit 0");
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    let record = report
+        .planner_path_record
+        .expect("planner_path_record must be set");
+    assert_eq!(record.selected_path, vec!["start", "middle", "end"]);
+    assert_eq!(record.fallback_steps_used, 1);
+    assert!(
+        record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_STEP_APPLIED".to_string())
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_planner_v2_exhausted_fallback_budget_fails_closed() {
+    let out_dir = unique_temp_dir("planner_v2_budget_exhausted");
+    let planner_output_path = out_dir.join("planner_output.json");
+    // Graph: a →(ON_FAIL) b →(ON_FAIL) c; budget = 1 → exhausted before reaching c
+    fs::write(
+        &planner_output_path,
+        r#"{
+            "planner_output": {
+                "planner_nodes": [
+                    {"id": "a", "action": "step_a"},
+                    {"id": "b", "action": "step_b"},
+                    {"id": "c", "action": "step_c"}
+                ],
+                "planner_edges": [
+                    {"from": "a", "to": "b", "condition_code": "ON_FAIL"},
+                    {"from": "b", "to": "c", "condition_code": "ON_FAIL"}
+                ]
+            }
+        }"#,
+    )
+    .expect("write planner output artifact");
+
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--decision-contribution")
+        .arg("contributor_id=default,capability=governance,vote=proceed,confidence=100,weight=100")
+        .arg("--manager-bin")
+        .arg("true")
+        .arg("--manager-expected-artifact")
+        .arg(planner_output_path.to_str().unwrap())
+        .arg("--planner-fallback-max-steps")
+        .arg("1")
+        .output()
+        .expect("execute planner v2 budget exhausted run");
+
+    assert_eq!(output.status.code(), Some(1), "expected exit 1 (failed)");
+
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+
+    assert_eq!(report.terminal_state.as_deref(), Some("failed"));
+    let record = report
+        .planner_path_record
+        .expect("planner_path_record must be set");
+    assert_eq!(record.fallback_steps_used, 1);
+    assert!(
+        record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_BUDGET_EXHAUSTED".to_string())
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.command == "planning.planner_v2.select_path" && e.status == "failed")
     );
 
     let _ = fs::remove_dir_all(out_dir);

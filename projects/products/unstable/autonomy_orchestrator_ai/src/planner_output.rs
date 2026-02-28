@@ -1,6 +1,6 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/planner_output.rs
 use crate::artifacts::{PlannerOutputArtifact, ValidationInvocationArtifact};
-use crate::domain::CommandLineSpec;
+use crate::domain::{CommandLineSpec, PlannerEdge, PlannerNode};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 
@@ -11,6 +11,8 @@ pub struct PlannerOutput {
     pub remediation_steps: Vec<String>,
     pub validation_commands: Vec<ValidationInvocationArtifact>,
     pub memory_signal_codes: Vec<String>,
+    pub planner_nodes: Vec<PlannerNode>,
+    pub planner_edges: Vec<PlannerEdge>,
 }
 
 pub fn read_planner_output_from_artifacts(
@@ -57,6 +59,7 @@ fn parse_planner_output(root: &Json) -> Result<Option<PlannerOutput>, String> {
             || !payload.remediation_steps.is_empty()
             || !payload.validation_commands.is_empty()
             || !payload.memory_signal_codes.is_empty()
+            || !payload.planner_nodes.is_empty()
         {
             Some(payload)
         } else {
@@ -135,6 +138,59 @@ fn parse_planner_payload(payload: &Json) -> Result<PlannerOutput, String> {
         Err(_) => Vec::new(),
     };
 
+    let planner_nodes = match payload.get_field("planner_nodes") {
+        Ok(value) => value
+            .as_array_strict()
+            .map_err(|_| "planner_nodes must be an array".to_string())?
+            .iter()
+            .map(|entry| {
+                let id = entry
+                    .get_field("id")
+                    .and_then(|v| v.as_str_strict())
+                    .map(ToString::to_string)
+                    .map_err(|_| "planner_nodes[].id must be a string".to_string())?;
+                let action = entry
+                    .get_field("action")
+                    .and_then(|v| v.as_str_strict())
+                    .map(ToString::to_string)
+                    .map_err(|_| "planner_nodes[].action must be a string".to_string())?;
+                Ok(PlannerNode { id, action })
+            })
+            .collect::<Result<Vec<_>, String>>()?,
+        Err(_) => Vec::new(),
+    };
+
+    let planner_edges = match payload.get_field("planner_edges") {
+        Ok(value) => value
+            .as_array_strict()
+            .map_err(|_| "planner_edges must be an array".to_string())?
+            .iter()
+            .map(|entry| {
+                let from = entry
+                    .get_field("from")
+                    .and_then(|v| v.as_str_strict())
+                    .map(ToString::to_string)
+                    .map_err(|_| "planner_edges[].from must be a string".to_string())?;
+                let to = entry
+                    .get_field("to")
+                    .and_then(|v| v.as_str_strict())
+                    .map(ToString::to_string)
+                    .map_err(|_| "planner_edges[].to must be a string".to_string())?;
+                let condition_code = entry
+                    .get_field("condition_code")
+                    .and_then(|v| v.as_str_strict())
+                    .map(ToString::to_string)
+                    .unwrap_or_default();
+                Ok(PlannerEdge {
+                    from,
+                    to,
+                    condition_code,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?,
+        Err(_) => Vec::new(),
+    };
+
     Ok(PlannerOutput {
         execution_max_iterations,
         reviewer_remediation_max_cycles,
@@ -156,5 +212,7 @@ fn parse_planner_payload(payload: &Json) -> Result<PlannerOutput, String> {
                 .collect::<Result<Vec<_>, String>>()?,
             Err(_) => Vec::new(),
         },
+        planner_nodes,
+        planner_edges,
     })
 }
