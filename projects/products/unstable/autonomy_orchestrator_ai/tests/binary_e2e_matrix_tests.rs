@@ -11,6 +11,10 @@ struct MatrixReportView {
     blocked_reason_codes: Vec<String>,
     reviewer_next_steps: Vec<String>,
     adaptive_policy_decisions: Vec<AdaptivePolicyDecisionView>,
+    #[serde(default)]
+    auto_fix_attempts: Vec<AutoFixAttemptView>,
+    #[serde(default)]
+    decision_rationale_codes: Vec<String>,
     stage_executions: Vec<StageExecutionView>,
 }
 
@@ -18,6 +22,13 @@ struct MatrixReportView {
 struct AdaptivePolicyDecisionView {
     action: String,
     reason_code: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct AutoFixAttemptView {
+    attempt_number: u32,
+    reason_code: String,
+    status: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -1260,6 +1271,122 @@ fn matrix_decision_no_contributions_blocks_fail_closed() {
         report
             .blocked_reason_codes
             .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn autofix_convergence_fixes_failing_validation_and_reaches_done() {
+    let out_dir = unique_temp_dir("autofix_convergence");
+    let state_file = out_dir.join("autofix_convergence_state.flag");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+            "--reviewer-bin",
+            fixture_bin(),
+            "--reviewer-arg",
+            "fixture",
+            "--reviewer-arg",
+            "fail-once",
+            "--reviewer-arg",
+            state_file.to_str().expect("utf-8 state path"),
+            "--autofix-enabled",
+            "--autofix-bin",
+            fixture_bin(),
+            "--autofix-arg",
+            "fixture",
+            "--autofix-arg",
+            "success",
+            "--autofix-max-attempts",
+            "3",
+        ],
+        &out_dir,
+    );
+
+    assert!(
+        output.status.success(),
+        "expected exit 0, got {:?}",
+        output.status.code()
+    );
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    assert!(
+        report
+            .decision_rationale_codes
+            .contains(&"AUTOFIX_CONVERGENCE_REACHED".to_string()),
+        "expected AUTOFIX_CONVERGENCE_REACHED in decision_rationale_codes"
+    );
+    assert_eq!(report.auto_fix_attempts.len(), 1);
+    assert_eq!(report.auto_fix_attempts[0].attempt_number, 1);
+    assert_eq!(
+        report.auto_fix_attempts[0].reason_code,
+        "AUTOFIX_ATTEMPT_APPLIED"
+    );
+    assert_eq!(report.auto_fix_attempts[0].status, "applied");
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn autofix_max_attempts_exhausted_fails_closed() {
+    let out_dir = unique_temp_dir("autofix_exhausted");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+            "--reviewer-bin",
+            fixture_bin(),
+            "--reviewer-arg",
+            "fixture",
+            "--reviewer-arg",
+            "fail",
+            "--autofix-enabled",
+            "--autofix-bin",
+            fixture_bin(),
+            "--autofix-arg",
+            "fixture",
+            "--autofix-arg",
+            "success",
+            "--autofix-max-attempts",
+            "2",
+        ],
+        &out_dir,
+    );
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit 1 (fail-closed)"
+    );
+    assert_eq!(report.terminal_state.as_deref(), Some("failed"));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"AUTOFIX_MAX_ATTEMPTS_EXHAUSTED".to_string()),
+        "expected AUTOFIX_MAX_ATTEMPTS_EXHAUSTED in blocked_reason_codes"
+    );
+    assert_eq!(report.auto_fix_attempts.len(), 2);
+    assert!(
+        report
+            .auto_fix_attempts
+            .iter()
+            .all(|a| a.reason_code == "AUTOFIX_ATTEMPT_APPLIED")
+    );
+    assert!(
+        !report
+            .decision_rationale_codes
+            .contains(&"AUTOFIX_CONVERGENCE_REACHED".to_string())
     );
 
     let _ = fs::remove_dir_all(out_dir);

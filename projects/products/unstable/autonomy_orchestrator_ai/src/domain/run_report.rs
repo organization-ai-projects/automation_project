@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{
-    AdaptivePolicyDecision, DecisionContribution, DecisionReliabilityFactor,
+    AdaptivePolicyDecision, AutoFixAttempt, DecisionContribution, DecisionReliabilityFactor,
     DecisionReliabilityUpdate, FinalDecision, GateDecision, Stage, StageExecutionRecord,
     StageTransition, TerminalState,
 };
@@ -25,6 +25,7 @@ pub struct RunReport {
     pub decision_reliability_factors: Vec<DecisionReliabilityFactor>,
     pub decision_reliability_updates: Vec<DecisionReliabilityUpdate>,
     pub adaptive_policy_decisions: Vec<AdaptivePolicyDecision>,
+    pub auto_fix_attempts: Vec<AutoFixAttempt>,
     pub transitions: Vec<StageTransition>,
     pub stage_executions: Vec<StageExecutionRecord>,
 }
@@ -48,6 +49,7 @@ impl RunReport {
             decision_reliability_factors: Vec::new(),
             decision_reliability_updates: Vec::new(),
             adaptive_policy_decisions: Vec::new(),
+            auto_fix_attempts: Vec::new(),
             transitions: Vec::new(),
             stage_executions: Vec::new(),
         }

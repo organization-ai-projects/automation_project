@@ -7,14 +7,15 @@ use crate::artifacts::{
     load_cycle_memory, load_next_actions, read_detected_validation_commands, save_cycle_memory,
     write_repo_context_artifact,
 };
+use crate::auto_fix_loop::AutoFixLoopConfig;
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
 use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate};
 use crate::domain::{
-    BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
-    DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
-    Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
+    AutoFixAttempt, AutoFixAttemptStatus, BinaryInvocationSpec, CiGateStatus, CommandLineSpec,
+    DecisionContribution, DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision,
+    GateInputs, OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus,
+    RunReport, Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
 use common_json::{Json, JsonAccess, from_str};
@@ -54,6 +55,9 @@ pub struct Orchestrator {
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
+    autofix_loop_config: AutoFixLoopConfig,
+    autofix_invocation: Option<BinaryInvocationSpec>,
+    autofix_converged: bool,
 }
 
 impl Orchestrator {
@@ -134,6 +138,25 @@ impl Orchestrator {
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
             planned_remediation_steps,
+            autofix_loop_config: AutoFixLoopConfig {
+                enabled: config.autofix_enabled,
+                max_attempts: config.autofix_max_attempts,
+            },
+            autofix_invocation: if config.autofix_enabled {
+                config.autofix_bin.map(|bin| BinaryInvocationSpec {
+                    stage: Stage::Validation,
+                    command_line: CommandLineSpec {
+                        command: bin,
+                        args: config.autofix_args,
+                    },
+                    env: Vec::new(),
+                    timeout_ms: config.timeout_ms,
+                    expected_artifacts: Vec::new(),
+                })
+            } else {
+                None
+            },
+            autofix_converged: false,
         }
     }
 
@@ -185,6 +208,12 @@ impl Orchestrator {
             return self.report;
         }
 
+        if self.autofix_converged {
+            self.report
+                .decision_rationale_codes
+                .push("AUTOFIX_CONVERGENCE_REACHED".to_string());
+        }
+
         if !self.execute_stage(Stage::Closure, None) {
             return self.report;
         }
@@ -207,7 +236,7 @@ impl Orchestrator {
             }
 
             if !self.try_schedule_reviewer_remediation_cycle() {
-                return false;
+                return self.execute_auto_fix_loop();
             }
         }
     }
@@ -673,6 +702,73 @@ impl Orchestrator {
             malformed_artifacts: Vec::new(),
         });
         true
+    }
+
+    fn execute_auto_fix_loop(&mut self) -> bool {
+        if !self.autofix_loop_config.enabled {
+            return false;
+        }
+        let Some(fix_spec) = self.autofix_invocation.clone() else {
+            return false;
+        };
+        if !matches!(self.report.terminal_state, Some(TerminalState::Failed)) {
+            return false;
+        }
+
+        for attempt in 1..=self.autofix_loop_config.max_attempts {
+            let auto_fix_attempt = self.invoke_auto_fix_attempt(attempt, &fix_spec);
+            let spawned_ok = auto_fix_attempt.status != AutoFixAttemptStatus::SpawnFailed;
+            self.report.auto_fix_attempts.push(auto_fix_attempt);
+
+            if !spawned_ok {
+                self.report.terminal_state = Some(TerminalState::Failed);
+                return false;
+            }
+
+            self.report.terminal_state = None;
+            self.reset_checkpoint_stage(Stage::Validation);
+
+            if self.execute_validation_stage() {
+                self.autofix_converged = true;
+                return true;
+            }
+
+            if !matches!(self.report.terminal_state, Some(TerminalState::Failed)) {
+                return false;
+            }
+        }
+
+        self.report
+            .blocked_reason_codes
+            .push("AUTOFIX_MAX_ATTEMPTS_EXHAUSTED".to_string());
+        false
+    }
+
+    fn invoke_auto_fix_attempt(
+        &self,
+        attempt_number: u32,
+        spec: &BinaryInvocationSpec,
+    ) -> AutoFixAttempt {
+        let mut run_spec = spec.clone();
+        run_spec.env.push((
+            "ORCHESTRATOR_AUTOFIX_ATTEMPT".to_string(),
+            attempt_number.to_string(),
+        ));
+        let record = invoke_binary(&run_spec);
+        let status = match record.status {
+            StageExecutionStatus::Success => AutoFixAttemptStatus::Applied,
+            StageExecutionStatus::SpawnFailed => AutoFixAttemptStatus::SpawnFailed,
+            _ => AutoFixAttemptStatus::Failed,
+        };
+        AutoFixAttempt {
+            attempt_number,
+            autofix_bin: spec.command_line.command.clone(),
+            exit_code: record.exit_code,
+            status,
+            started_at_unix_secs: record.started_at_unix_secs,
+            duration_ms: record.duration_ms,
+            reason_code: "AUTOFIX_ATTEMPT_APPLIED".to_string(),
+        }
     }
 
     fn latest_failure_signature(&self) -> Option<String> {

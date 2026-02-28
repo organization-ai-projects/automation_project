@@ -142,4 +142,13 @@ pub struct RunArgs {
 
     #[arg(long)]
     pub ai_config_only_binary: bool,
+
+    #[arg(long)]
+    pub autofix_enabled: bool,
+    #[arg(long)]
+    pub autofix_bin: Option<String>,
+    #[arg(long = "autofix-arg", action = ArgAction::Append)]
+    pub autofix_args: Vec<String>,
+    #[arg(long, default_value_t = 3)]
+    pub autofix_max_attempts: u32,
 }

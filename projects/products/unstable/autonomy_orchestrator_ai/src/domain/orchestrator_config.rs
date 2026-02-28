@@ -36,6 +36,10 @@ struct OrchestratorConfigJsonCompat {
     cycle_memory_path: Option<PathBuf>,
     next_actions_path: Option<PathBuf>,
     previous_run_report_path: Option<PathBuf>,
+    autofix_enabled: Option<bool>,
+    autofix_bin: Option<String>,
+    autofix_args: Option<Vec<String>>,
+    autofix_max_attempts: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +71,14 @@ pub struct OrchestratorConfig {
     pub cycle_memory_path: Option<PathBuf>,
     pub next_actions_path: Option<PathBuf>,
     pub previous_run_report_path: Option<PathBuf>,
+    #[serde(default)]
+    pub autofix_enabled: bool,
+    #[serde(default)]
+    pub autofix_bin: Option<String>,
+    #[serde(default)]
+    pub autofix_args: Vec<String>,
+    #[serde(default = "default_autofix_max_attempts")]
+    pub autofix_max_attempts: u32,
 }
 
 impl OrchestratorConfig {
@@ -218,6 +230,14 @@ impl OrchestratorConfig {
             cycle_memory_path: parsed.cycle_memory_path,
             next_actions_path: parsed.next_actions_path,
             previous_run_report_path: parsed.previous_run_report_path,
+            autofix_enabled: parsed.autofix_enabled.unwrap_or(false),
+            autofix_bin: parsed.autofix_bin,
+            autofix_args: parsed.autofix_args.unwrap_or_default(),
+            autofix_max_attempts: parsed
+                .autofix_max_attempts
+                .map(|v| float_to_u32_compat(v, "autofix_max_attempts"))
+                .transpose()?
+                .unwrap_or(default_autofix_max_attempts()),
         })
     }
 
@@ -270,4 +290,8 @@ fn float_to_u8_compat(value: f64, field: &str) -> Result<u8, String> {
     u8::try_from(as_u64).map_err(|_| {
         format!("Failed to parse orchestrator config JSON field '{field}': value is too large")
     })
+}
+
+fn default_autofix_max_attempts() -> u32 {
+    3
 }

@@ -1,0 +1,69 @@
+{
+  "auto_fix_attempts": [],
+  "decision_confidence": null,
+  "transitions": [
+    {
+      "from_stage": null,
+      "run_id": "run_1772294400",
+      "timestamp_unix_secs": 1772294400,
+      "to_stage": "planning"
+    },
+    {
+      "run_id": "run_1772294400",
+      "to_stage": "policy_ingestion",
+      "timestamp_unix_secs": 1772294400,
+      "from_stage": "planning"
+    },
+    {
+      "to_stage": "execution",
+      "run_id": "run_1772294400",
+      "timestamp_unix_secs": 1772294400,
+      "from_stage": "policy_ingestion"
+    },
+    {
+      "to_stage": "validation",
+      "run_id": "run_1772294400",
+      "from_stage": "execution",
+      "timestamp_unix_secs": 1772294400
+    }
+  ],
+  "version": "0.1.0",
+  "product": "autonomy_orchestrator_ai",
+  "run_id": "run_1772294400",
+  "terminal_state": "blocked",
+  "blocked_reason_codes": [
+    "GATE_POLICY_DENIED_OR_UNKNOWN",
+    "GATE_CI_NOT_SUCCESS",
+    "GATE_REVIEW_NOT_APPROVED"
+  ],
+  "decision_reliability_updates": [],
+  "decision_rationale_codes": [],
+  "current_stage": "validation",
+  "stage_executions": [],
+  "final_decision": null,
+  "gate_decisions": [
+    {
+      "gate": "policy",
+      "status": "unknown",
+      "reason_code": "GATE_POLICY_DENIED_OR_UNKNOWN",
+      "passed": false
+    },
+    {
+      "gate": "ci",
+      "reason_code": "GATE_CI_NOT_SUCCESS",
+      "passed": false,
+      "status": "missing"
+    },
+    {
+      "gate": "review",
+      "passed": false,
+      "status": "missing",
+      "reason_code": "GATE_REVIEW_NOT_APPROVED"
+    }
+  ],
+  "reviewer_next_steps": [],
+  "decision_contributions": [],
+  "decision_threshold": null,
+  "decision_reliability_factors": [],
+  "adaptive_policy_decisions": []
+}

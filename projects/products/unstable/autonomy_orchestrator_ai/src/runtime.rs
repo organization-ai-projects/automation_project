@@ -286,6 +286,10 @@ fn run_once(
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
         previous_run_report_path: Some(previous_run_report_path.clone()),
+        autofix_enabled: args.autofix_enabled,
+        autofix_bin: args.autofix_bin,
+        autofix_args: args.autofix_args,
+        autofix_max_attempts: args.autofix_max_attempts,
     };
 
     if let Some(load_mode) = &config_io.load {

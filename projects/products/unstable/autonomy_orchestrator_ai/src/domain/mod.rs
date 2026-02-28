@@ -1,4 +1,5 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/mod.rs
+mod auto_fix_attempt;
 mod adaptive_policy_decision;
 mod binary_invocation_spec;
 mod ci_gate_status;
@@ -25,6 +26,7 @@ mod stage_transition;
 mod terminal_state;
 
 pub use adaptive_policy_decision::{AdaptivePolicyAction, AdaptivePolicyDecision};
+pub use auto_fix_attempt::{AutoFixAttempt, AutoFixAttemptStatus};
 pub use binary_invocation_spec::BinaryInvocationSpec;
 pub use ci_gate_status::CiGateStatus;
 pub use command_line_spec::CommandLineSpec;

@@ -43,6 +43,10 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         cycle_memory_path: None,
         next_actions_path: None,
         previous_run_report_path: None,
+        autofix_enabled: false,
+        autofix_bin: None,
+        autofix_args: Vec::new(),
+        autofix_max_attempts: 3,
     }
 }
 
@@ -389,4 +393,92 @@ fn reliability_factors_and_updates_are_persisted_in_run_report() {
             .decision_rationale_codes
             .contains(&"DECISION_RELIABILITY_WEIGHTED".to_string())
     );
+}
+
+#[test]
+fn autofix_loop_exhausts_max_attempts_when_validation_always_fails() {
+    let mut config = test_config("run_autofix_1");
+    config.validation_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Validation,
+        command_line: CommandLineSpec {
+            command: "false".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: Vec::new(),
+    });
+    config.autofix_enabled = true;
+    config.autofix_bin = Some("true".to_string());
+    config.autofix_max_attempts = 2;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Failed));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"AUTOFIX_MAX_ATTEMPTS_EXHAUSTED".to_string())
+    );
+    assert_eq!(report.auto_fix_attempts.len(), 2);
+    assert!(
+        report
+            .auto_fix_attempts
+            .iter()
+            .all(|a| a.reason_code == "AUTOFIX_ATTEMPT_APPLIED")
+    );
+    assert!(!report
+        .decision_rationale_codes
+        .contains(&"AUTOFIX_CONVERGENCE_REACHED".to_string()));
+}
+
+#[test]
+fn autofix_loop_skipped_when_disabled() {
+    let mut config = test_config("run_autofix_2");
+    config.validation_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Validation,
+        command_line: CommandLineSpec {
+            command: "false".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: Vec::new(),
+    });
+    config.autofix_enabled = false;
+    config.autofix_bin = Some("true".to_string());
+    config.autofix_max_attempts = 3;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Failed));
+    assert!(report.auto_fix_attempts.is_empty());
+    assert!(
+        !report
+            .blocked_reason_codes
+            .contains(&"AUTOFIX_MAX_ATTEMPTS_EXHAUSTED".to_string())
+    );
+}
+
+#[test]
+fn autofix_loop_skipped_when_no_bin_configured() {
+    let mut config = test_config("run_autofix_3");
+    config.validation_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Validation,
+        command_line: CommandLineSpec {
+            command: "false".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: Vec::new(),
+    });
+    config.autofix_enabled = true;
+    config.autofix_bin = None;
+    config.autofix_max_attempts = 3;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Failed));
+    assert!(report.auto_fix_attempts.is_empty());
 }
