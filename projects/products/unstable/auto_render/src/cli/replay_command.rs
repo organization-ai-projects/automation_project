@@ -1,7 +1,9 @@
 use super::CliError;
+use crate::assets::FileAssetGenerator;
 use crate::executor::Executor;
 use crate::plan::{Capability, Plan};
 use crate::policy::{ApprovalRule, Budget, CapabilitySet, PolicyEngine, PolicySnapshot};
+use crate::renderer::FrameDumpRenderer;
 use crate::world::WorldState;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -26,7 +28,14 @@ impl ReplayCommand {
         };
 
         let policy_engine = PolicyEngine::new(snapshot);
-        let executor = Executor::new(policy_engine);
+        let output_root = self
+            .plan_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("replay_output");
+        let asset_generator = Box::new(FileAssetGenerator::new(output_root.join("assets")));
+        let renderer = Box::new(FrameDumpRenderer::new(output_root.join("frames")));
+        let executor = Executor::with_backends(policy_engine, asset_generator, renderer);
         let mut world = WorldState::new();
 
         let result = executor
@@ -41,6 +50,7 @@ impl ReplayCommand {
         if self.print_fingerprint {
             println!("World fingerprint: {}", result.fingerprint);
         }
+        println!("Replay artifacts written to {}", output_root.display());
 
         Ok(())
     }
