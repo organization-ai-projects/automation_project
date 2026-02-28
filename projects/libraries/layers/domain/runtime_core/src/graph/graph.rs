@@ -137,10 +137,7 @@ mod tests {
 
     #[test]
     fn deterministic_order_with_parallel_nodes() {
-        let g = Graph::new(
-            vec![node(3), node(1), node(2)],
-            vec![],
-        );
+        let g = Graph::new(vec![node(3), node(1), node(2)], vec![]);
         let order = g.topological_order().unwrap();
         assert_eq!(order, vec![id(1), id(2), id(3)]);
     }

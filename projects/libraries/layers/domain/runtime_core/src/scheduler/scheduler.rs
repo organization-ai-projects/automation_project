@@ -56,13 +56,13 @@ mod tests {
     #[test]
     fn schedule_rejects_cyclic_graph() {
         let graph = Graph::new(
-            vec![
-                Node::new(id(1), "a"),
-                Node::new(id(2), "b"),
-            ],
+            vec![Node::new(id(1), "a"), Node::new(id(2), "b")],
             vec![Edge::new(id(1), id(2)), Edge::new(id(2), id(1))],
         );
         let scheduler = Scheduler::new(graph);
-        assert!(matches!(scheduler.schedule(), Err(RuntimeError::CyclicGraph)));
+        assert!(matches!(
+            scheduler.schedule(),
+            Err(RuntimeError::CyclicGraph)
+        ));
     }
 }
