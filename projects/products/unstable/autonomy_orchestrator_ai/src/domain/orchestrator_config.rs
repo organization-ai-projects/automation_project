@@ -67,6 +67,7 @@ pub struct OrchestratorConfig {
     pub cycle_memory_path: Option<PathBuf>,
     pub next_actions_path: Option<PathBuf>,
     pub previous_run_report_path: Option<PathBuf>,
+    pub planner_fallback_max_steps: u32,
 }
 
 impl OrchestratorConfig {
@@ -218,6 +219,7 @@ impl OrchestratorConfig {
             cycle_memory_path: parsed.cycle_memory_path,
             next_actions_path: parsed.next_actions_path,
             previous_run_report_path: parsed.previous_run_report_path,
+            planner_fallback_max_steps: 3,
         })
     }
 

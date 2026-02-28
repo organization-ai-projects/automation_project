@@ -286,6 +286,7 @@ fn run_once(
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
         previous_run_report_path: Some(previous_run_report_path.clone()),
+        planner_fallback_max_steps: args.planner_fallback_max_steps,
     };
 
     if let Some(load_mode) = &config_io.load {

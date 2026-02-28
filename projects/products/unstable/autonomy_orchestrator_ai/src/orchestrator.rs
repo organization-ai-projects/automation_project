@@ -17,6 +17,7 @@ use crate::domain::{
     Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
+use crate::planner_v2::{PlannerGraph, validate_graph, select_path};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
@@ -54,6 +55,7 @@ pub struct Orchestrator {
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
+    planner_fallback_max_steps: u32,
 }
 
 impl Orchestrator {
@@ -134,6 +136,7 @@ impl Orchestrator {
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
             planned_remediation_steps,
+            planner_fallback_max_steps: config.planner_fallback_max_steps,
         }
     }
 
@@ -1075,6 +1078,77 @@ impl Orchestrator {
             }) {
                 self.validation_invocations.push(spec);
             }
+        }
+
+        // Planner v2: validate graph and select deterministic path.
+        if !payload.planner_nodes.is_empty() {
+            if let Err(err) = validate_graph(&payload.planner_nodes, &payload.planner_edges) {
+                self.report.terminal_state = Some(TerminalState::Failed);
+                self.report.blocked_reason_codes.push(
+                    crate::planner_v2::REASON_GRAPH_INVALID.to_string(),
+                );
+                self.report.stage_executions.push(StageExecutionRecord {
+                    stage: Stage::Planning,
+                    idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),
+                    command: "planning.planner_v2.validate_graph".to_string(),
+                    args: vec![source_path],
+                    env_keys: Vec::new(),
+                    started_at_unix_secs: unix_timestamp_secs(),
+                    duration_ms: 0,
+                    exit_code: None,
+                    status: StageExecutionStatus::Failed,
+                    error: Some(err),
+                    missing_artifacts: Vec::new(),
+                    malformed_artifacts: Vec::new(),
+                });
+                self.persist_checkpoint();
+                return false;
+            }
+
+            let graph = PlannerGraph {
+                nodes: payload.planner_nodes,
+                edges: payload.planner_edges,
+            };
+            let v2_result = select_path(&graph, self.planner_fallback_max_steps);
+            self.report.planner_path_record = Some(v2_result.path_record);
+
+            if v2_result.budget_exhausted {
+                self.report.terminal_state = Some(TerminalState::Failed);
+                self.report.stage_executions.push(StageExecutionRecord {
+                    stage: Stage::Planning,
+                    idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),
+                    command: "planning.planner_v2.select_path".to_string(),
+                    args: vec![source_path],
+                    env_keys: Vec::new(),
+                    started_at_unix_secs: unix_timestamp_secs(),
+                    duration_ms: 0,
+                    exit_code: None,
+                    status: StageExecutionStatus::Failed,
+                    error: Some(format!(
+                        "Planner fallback budget exhausted (max steps: {})",
+                        self.planner_fallback_max_steps
+                    )),
+                    missing_artifacts: Vec::new(),
+                    malformed_artifacts: Vec::new(),
+                });
+                self.persist_checkpoint();
+                return false;
+            }
+
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage: Stage::Planning,
+                idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),
+                command: "planning.planner_v2.select_path".to_string(),
+                args: vec![source_path.clone()],
+                env_keys: Vec::new(),
+                started_at_unix_secs: unix_timestamp_secs(),
+                duration_ms: 0,
+                exit_code: Some(0),
+                status: StageExecutionStatus::Success,
+                error: None,
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
         }
 
         self.report.stage_executions.push(StageExecutionRecord {
