@@ -20,8 +20,7 @@ fn unique_temp_dir(name: &str) -> PathBuf {
         .unwrap_or_default()
         .as_nanos();
     let pid = std::process::id();
-    let dir =
-        std::env::temp_dir().join(format!("autonomy_orchestrator_esc_{name}_{pid}_{nanos}"));
+    let dir = std::env::temp_dir().join(format!("autonomy_orchestrator_esc_{name}_{pid}_{nanos}"));
     fs::create_dir_all(&dir).expect("failed to create temp dir");
     dir
 }
@@ -81,9 +80,7 @@ fn normal_path_does_not_write_escalation_queue_artifact() {
         .arg("--review-status")
         .arg("approved")
         .arg("--decision-contribution")
-        .arg(
-            "contributor_id=esc_test,capability=validation,vote=proceed,confidence=100,weight=100",
-        )
+        .arg("contributor_id=esc_test,capability=validation,vote=proceed,confidence=100,weight=100")
         .output()
         .expect("failed to execute orchestrator");
 
@@ -121,7 +118,10 @@ fn escalation_queue_artifact_fields_are_complete() {
 
     for case in &cases {
         assert!(!case.id.is_empty(), "case id must not be empty");
-        assert!(!case.trigger_code.is_empty(), "trigger_code must not be empty");
+        assert!(
+            !case.trigger_code.is_empty(),
+            "trigger_code must not be empty"
+        );
         assert!(
             matches!(case.severity.as_str(), "sev1" | "sev2" | "sev3"),
             "severity must be sev1, sev2, or sev3; got '{}'",

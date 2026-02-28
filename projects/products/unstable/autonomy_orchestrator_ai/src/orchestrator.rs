@@ -10,7 +10,6 @@ use crate::artifacts::{
 use crate::auto_fix_loop::AutoFixLoopConfig;
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
-use crate::escalation_router::route_escalations;
 use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate, ensemble_to_contribution};
 use crate::domain::{
     AutoFixAttempt, AutoFixAttemptStatus, BinaryInvocationSpec, CiGateStatus, CommandLineSpec,
@@ -19,6 +18,7 @@ use crate::domain::{
     ReviewGateStatus, ReviewerVerdict, RiskSignal, RiskTier, RunReport, Stage,
     StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
+use crate::escalation_router::route_escalations;
 use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
 use crate::long_horizon_memory::{
     LongHorizonMemoryStore, derive_reliability_inputs, enforce_policy, load_memory, record_run,

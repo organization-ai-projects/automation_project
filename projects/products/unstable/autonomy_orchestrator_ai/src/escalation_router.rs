@@ -15,9 +15,7 @@ pub fn route_escalations(report: &RunReport) -> Vec<EscalationCase> {
     if report.blocked_reason_codes.iter().any(|c| {
         matches!(
             c.as_str(),
-            "GATE_POLICY_DENIED_OR_UNKNOWN"
-                | "GATE_CI_NOT_SUCCESS"
-                | "GATE_REVIEW_NOT_APPROVED"
+            "GATE_POLICY_DENIED_OR_UNKNOWN" | "GATE_CI_NOT_SUCCESS" | "GATE_REVIEW_NOT_APPROVED"
         )
     }) {
         let context_artifacts = report
@@ -30,9 +28,7 @@ pub fn route_escalations(report: &RunReport) -> Vec<EscalationCase> {
             id: format!("{}:ESCALATION_TRIGGER_POLICY_BLOCK", report.run_id),
             trigger_code: "ESCALATION_TRIGGER_POLICY_BLOCK".to_string(),
             severity: EscalationSeverity::Sev2,
-            required_actions: vec![
-                "Resolve policy gate before autonomous rerun".to_string(),
-            ],
+            required_actions: vec!["Resolve policy gate before autonomous rerun".to_string()],
             context_artifacts,
         });
     }
