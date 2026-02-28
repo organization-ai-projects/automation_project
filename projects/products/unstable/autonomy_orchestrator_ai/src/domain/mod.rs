@@ -1,5 +1,6 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/mod.rs
 mod adaptive_policy_decision;
+mod escalation_case;
 mod binary_invocation_spec;
 mod ci_gate_status;
 mod command_line_spec;
@@ -25,6 +26,7 @@ mod stage_transition;
 mod terminal_state;
 
 pub use adaptive_policy_decision::{AdaptivePolicyAction, AdaptivePolicyDecision};
+pub use escalation_case::{EscalationCase, EscalationSeverity};
 pub use binary_invocation_spec::BinaryInvocationSpec;
 pub use ci_gate_status::CiGateStatus;
 pub use command_line_spec::CommandLineSpec;

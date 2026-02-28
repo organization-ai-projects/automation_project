@@ -10,6 +10,7 @@ use crate::artifacts::{
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
 use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate};
+use crate::escalation_router::route_escalations;
 use crate::domain::{
     BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
     DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
@@ -138,10 +139,16 @@ impl Orchestrator {
     }
 
     pub fn execute(mut self) -> RunReport {
+        self.execute_pipeline();
+        self.report.escalation_cases = route_escalations(&self.report);
+        self.report
+    }
+
+    fn execute_pipeline(&mut self) {
         if self.checkpoint.terminal_state == Some(TerminalState::Done) {
             self.report.terminal_state = Some(TerminalState::Done);
             self.report.current_stage = Some(Stage::Closure);
-            return self.report;
+            return;
         }
 
         let planning_expected_artifacts = self
@@ -151,49 +158,48 @@ impl Orchestrator {
             .unwrap_or_default();
         let planning_was_completed = self.checkpoint.is_stage_completed(Stage::Planning);
         if !self.execute_stage(Stage::Planning, self.planning_invocation.clone()) {
-            return self.report;
+            return;
         }
         if !self.execute_planning_context_action(planning_was_completed) {
-            return self.report;
+            return;
         }
         if !self.apply_planner_output_from_artifacts(&planning_expected_artifacts) {
-            return self.report;
+            return;
         }
 
         if !self.execute_stage(Stage::PolicyIngestion, None) {
-            return self.report;
+            return;
         }
 
         if !self.execute_execution_validation_pipeline() {
-            return self.report;
+            return;
         }
 
         if !self.evaluate_fail_closed_gates() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
         }
 
         if self.simulate_blocked {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
         }
         if !self.evaluate_final_decision() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
         }
 
         if !self.execute_stage(Stage::Closure, None) {
-            return self.report;
+            return;
         }
         if !self.execute_delivery_lifecycle() {
-            return self.report;
+            return;
         }
         self.report.terminal_state = Some(TerminalState::Done);
         self.mark_terminal_and_persist(TerminalState::Done);
-        self.report
     }
 
     fn execute_execution_validation_pipeline(&mut self) -> bool {
@@ -585,6 +591,26 @@ impl Orchestrator {
         if self.remediation_cycle >= self.reviewer_remediation_max_cycles
             && !self.try_adapt_remediation_budget_after_failure()
         {
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage: Stage::Validation,
+                idempotency_key: Some("stage:Validation:remediation_budget".to_string()),
+                command: "remediation.cycle_budget".to_string(),
+                args: vec![
+                    "max_cycles_exhausted".to_string(),
+                    self.reviewer_remediation_max_cycles.to_string(),
+                ],
+                env_keys: Vec::new(),
+                started_at_unix_secs: unix_timestamp_secs(),
+                duration_ms: 0,
+                exit_code: None,
+                status: StageExecutionStatus::Failed,
+                error: Some(format!(
+                    "Remediation cycle budget exhausted after {} cycle(s)",
+                    self.reviewer_remediation_max_cycles
+                )),
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
             return false;
         }
 

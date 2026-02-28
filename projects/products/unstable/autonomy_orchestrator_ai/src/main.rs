@@ -10,6 +10,7 @@ mod config_runtime;
 mod configs;
 mod decision_aggregator;
 mod domain;
+mod escalation_router;
 mod fixture;
 mod linked_stack;
 mod orchestrator;
