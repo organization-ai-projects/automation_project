@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use clap::{ArgAction, Args};
 
 use crate::{
-    cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus},
+    cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus, CliRiskTier},
     cli_value_parsers::{
         parse_decision_contribution_cli, parse_decision_reliability_input_cli, parse_env_pair_cli,
     },
@@ -145,4 +145,8 @@ pub struct RunArgs {
 
     #[arg(long, default_value_t = 3)]
     pub planner_fallback_max_steps: u32,
+    #[arg(long, value_enum)]
+    pub risk_tier_override: Option<CliRiskTier>,
+    #[arg(long, default_value_t = false)]
+    pub risk_allow_high: bool,
 }

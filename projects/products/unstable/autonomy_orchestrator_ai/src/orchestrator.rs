@@ -13,8 +13,9 @@ use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate};
 use crate::domain::{
     BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
     DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
-    Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RiskSignal,
+    RiskTier, RunReport, Stage, StageExecutionRecord, StageExecutionStatus, StageTransition,
+    TerminalState,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
 use crate::planner_v2::{PlannerGraph, validate_graph, select_path};
@@ -56,6 +57,9 @@ pub struct Orchestrator {
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
     planner_fallback_max_steps: u32,
+    risk_tier: Option<RiskTier>,
+    risk_signals: Vec<RiskSignal>,
+    risk_allow_high: bool,
 }
 
 impl Orchestrator {
@@ -137,10 +141,26 @@ impl Orchestrator {
             remediation_steps: Vec::new(),
             planned_remediation_steps,
             planner_fallback_max_steps: config.planner_fallback_max_steps,
+            risk_tier: config.risk_tier,
+            risk_signals: config.risk_signals,
+            risk_allow_high: config.risk_allow_high,
         }
     }
 
     pub fn execute(mut self) -> RunReport {
+        // Persist risk classification evidence before any execution.
+        self.report.risk_tier = self.risk_tier;
+        self.report.risk_signals = self.risk_signals.clone();
+
+        // Fail-closed: block high-risk runs unless explicitly allowed.
+        if self.risk_tier == Some(RiskTier::High) && !self.risk_allow_high {
+            self.report
+                .blocked_reason_codes
+                .push("RISK_TIER_HIGH_BLOCKED".to_string());
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            return self.report;
+        }
+
         if self.checkpoint.terminal_state == Some(TerminalState::Done) {
             self.report.terminal_state = Some(TerminalState::Done);
             self.report.current_stage = Some(Stage::Closure);

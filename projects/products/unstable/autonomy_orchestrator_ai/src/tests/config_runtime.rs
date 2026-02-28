@@ -39,6 +39,9 @@ fn base_config() -> OrchestratorConfig {
         next_actions_path: None,
         previous_run_report_path: None,
         planner_fallback_max_steps: 3,
+        risk_tier: None,
+        risk_signals: Vec::new(),
+        risk_allow_high: false,
     }
 }
 

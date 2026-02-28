@@ -1,8 +1,8 @@
 use crate::domain::{
     AdaptivePolicyAction, BinaryInvocationSpec, CommandLineSpec, DecisionContribution,
     DecisionReliabilityInput, DeliveryOptions, ExecutionPolicy, FinalDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, Stage, StageExecutionStatus,
-    TerminalState,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, RiskSignal, RiskTier, Stage,
+    StageExecutionStatus, TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use std::fs;
@@ -44,6 +44,9 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         next_actions_path: None,
         previous_run_report_path: None,
         planner_fallback_max_steps: 3,
+        risk_tier: None,
+        risk_signals: Vec::new(),
+        risk_allow_high: false,
     }
 }
 
@@ -623,4 +626,78 @@ fn planner_fallback_within_budget_succeeds() {
     );
 
     fs::remove_dir_all(&temp_root).ok();
+fn run_report_includes_risk_tier_and_signals() {
+    let mut config = test_config("run_risk_1");
+    config.risk_tier = Some(RiskTier::Medium);
+    config.risk_signals = vec![RiskSignal {
+        code: "DELIVERY_WRITE_ENABLED".to_string(),
+        source: "delivery_options".to_string(),
+        value: "feature/x".to_string(),
+    }];
+    config.risk_allow_high = false;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.risk_tier, Some(RiskTier::Medium));
+    assert_eq!(report.risk_signals.len(), 1);
+    assert_eq!(report.risk_signals[0].code, "DELIVERY_WRITE_ENABLED");
+    // medium risk does not block
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+}
+
+#[test]
+fn high_risk_is_blocked_by_default() {
+    let mut config = test_config("run_risk_2");
+    config.risk_tier = Some(RiskTier::High);
+    config.risk_signals = vec![RiskSignal {
+        code: "DELIVERY_TO_PROTECTED_BRANCH".to_string(),
+        source: "delivery_options".to_string(),
+        value: "main".to_string(),
+    }];
+    config.risk_allow_high = false;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+    assert_eq!(report.risk_tier, Some(RiskTier::High));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"RISK_TIER_HIGH_BLOCKED".to_string())
+    );
+}
+
+#[test]
+fn high_risk_proceeds_when_explicitly_allowed() {
+    let mut config = test_config("run_risk_3");
+    config.risk_tier = Some(RiskTier::High);
+    config.risk_signals = vec![RiskSignal {
+        code: "DELIVERY_TO_PROTECTED_BRANCH".to_string(),
+        source: "delivery_options".to_string(),
+        value: "main".to_string(),
+    }];
+    config.risk_allow_high = true;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    // high risk allowed, so execution reaches Done
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert_eq!(report.risk_tier, Some(RiskTier::High));
+    assert!(
+        !report
+            .blocked_reason_codes
+            .contains(&"RISK_TIER_HIGH_BLOCKED".to_string())
+    );
+}
+
+#[test]
+fn low_risk_run_report_has_none_tier_when_not_classified() {
+    let config = test_config("run_risk_4");
+    // risk_tier defaults to None
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.risk_tier, None);
+    assert!(report.risk_signals.is_empty());
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
 }
