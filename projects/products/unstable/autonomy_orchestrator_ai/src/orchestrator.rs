@@ -1293,7 +1293,11 @@ impl Orchestrator {
         for result in &results {
             if !result.passed {
                 any_failed = true;
-                if !self.report.blocked_reason_codes.contains(&result.reason_code) {
+                if !self
+                    .report
+                    .blocked_reason_codes
+                    .contains(&result.reason_code)
+                {
                     self.report
                         .blocked_reason_codes
                         .push(result.reason_code.clone());

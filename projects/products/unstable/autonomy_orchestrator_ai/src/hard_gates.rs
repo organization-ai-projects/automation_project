@@ -62,13 +62,8 @@ pub fn builtin_rules() -> Vec<HardGateRule> {
 }
 
 pub fn load_external_rules(path: &Path) -> Result<Vec<HardGateRule>, String> {
-    let raw = fs::read_to_string(path).map_err(|e| {
-        format!(
-            "Failed to read hard gates file '{}': {}",
-            path.display(),
-            e
-        )
-    })?;
+    let raw = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read hard gates file '{}': {}", path.display(), e))?;
     let rules: Vec<HardGateRule> = from_str(&raw).map_err(|e| {
         format!(
             "Failed to parse hard gates file '{}': {:?}",
@@ -172,7 +167,8 @@ mod tests {
     #[test]
     fn builtin_infra_destructive_rule_triggers_on_matching_token() {
         let rules = builtin_rules();
-        let results = evaluate_hard_gates(&rules, &tokens(&["terraform-destroy", "--auto-approve"]));
+        let results =
+            evaluate_hard_gates(&rules, &tokens(&["terraform-destroy", "--auto-approve"]));
         let failed: Vec<_> = results.iter().filter(|r| !r.passed).collect();
         assert!(
             failed
