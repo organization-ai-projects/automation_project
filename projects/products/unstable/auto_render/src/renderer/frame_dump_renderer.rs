@@ -1,6 +1,7 @@
 use super::{RendererBackend, RendererError};
 use crate::renderer::frame_summary::FrameSummary;
 use crate::world::WorldState;
+use common_json::to_string_pretty;
 use std::path::PathBuf;
 
 pub struct FrameDumpRenderer {
@@ -31,8 +32,7 @@ impl RendererBackend for FrameDumpRenderer {
         let output_path = self
             .output_dir
             .join(format!("frame-{}.json", summary.tick_id));
-        let payload =
-            serde_json::to_string_pretty(&summary).map_err(|_| RendererError::Unsupported)?;
+        let payload = to_string_pretty(&summary).map_err(|_| RendererError::Unsupported)?;
         std::fs::write(output_path, payload).map_err(|_| RendererError::Unsupported)
     }
 }

@@ -1,5 +1,6 @@
 use super::CliError;
 use crate::plan::Plan;
+use common_ron::read_ron;
 use std::path::PathBuf;
 
 pub struct ExplainCommand {
@@ -8,8 +9,7 @@ pub struct ExplainCommand {
 
 impl ExplainCommand {
     pub fn run(&self) -> Result<(), CliError> {
-        let content = std::fs::read_to_string(&self.plan_path)?;
-        let plan: Plan = ron::from_str(&content)
+        let plan: Plan = read_ron(&self.plan_path)
             .map_err(|e| CliError::Parse(format!("Failed to parse plan: {e}")))?;
 
         println!("Plan: {}", plan.metadata.plan_id.0);

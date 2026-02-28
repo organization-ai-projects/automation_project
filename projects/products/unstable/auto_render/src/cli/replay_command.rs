@@ -3,6 +3,7 @@ use crate::executor::Executor;
 use crate::plan::{Capability, Plan};
 use crate::policy::{ApprovalRule, Budget, CapabilitySet, PolicyEngine, PolicySnapshot};
 use crate::world::WorldState;
+use common_ron::read_ron;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -13,8 +14,7 @@ pub struct ReplayCommand {
 
 impl ReplayCommand {
     pub fn run(&self) -> Result<(), CliError> {
-        let content = std::fs::read_to_string(&self.plan_path)?;
-        let plan: Plan = ron::from_str(&content)
+        let plan: Plan = read_ron(&self.plan_path)
             .map_err(|e| CliError::Parse(format!("Failed to parse plan: {e}")))?;
 
         let snapshot = PolicySnapshot {
