@@ -1,12 +1,12 @@
+use crate::flow::flow_graph::FlowGraph;
 use crate::model::entity_id::EntityId;
 use crate::model::item::Item;
 use crate::model::machine::{Machine, MachineKind};
 use crate::model::world::World;
 use crate::persistence::world_snapshot::WorldSnapshot;
 use crate::replay::replay_engine::ReplayEngine;
-use crate::sim::sim_engine::SimEngine;
 use crate::replay::sim_event::SimEvent;
-use crate::flow::flow_graph::FlowGraph;
+use crate::sim::sim_engine::SimEngine;
 
 fn build_source_conveyor_sink_world() -> World {
     let mut world = World::new();
@@ -50,7 +50,10 @@ fn source_conveyor_sink_flow() {
     assert!(consumed > 0, "Sink should have consumed at least one item");
 
     let snapshot = WorldSnapshot::from_world(&engine.world);
-    assert!(!snapshot.checksum().is_empty(), "Checksum must not be empty");
+    assert!(
+        !snapshot.checksum().is_empty(),
+        "Checksum must not be empty"
+    );
 }
 
 /// Determinism test: same world + same tick count => identical snapshot checksum.

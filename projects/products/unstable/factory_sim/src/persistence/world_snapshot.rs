@@ -70,7 +70,9 @@ mod tests {
         world.add_machine(m.clone());
         let s1 = WorldSnapshot::from_world(&world);
 
-        world.get_machine_mut(EntityId::new(1)).unwrap()
+        world
+            .get_machine_mut(EntityId::new(1))
+            .unwrap()
             .inventory
             .add(&crate::model::item::Item::new("iron"), 5);
         let s2 = WorldSnapshot::from_world(&world);

@@ -23,10 +23,7 @@ impl World {
     }
 
     pub fn add_edge(&mut self, from: EntityId, to: EntityId) {
-        self.edges
-            .entry(from.value())
-            .or_default()
-            .push(to.value());
+        self.edges.entry(from.value()).or_default().push(to.value());
     }
 
     pub fn get_machine(&self, id: EntityId) -> Option<&Machine> {

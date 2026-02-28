@@ -45,7 +45,10 @@ mod tests {
         let mut world = World::new();
         world.add_machine(Machine::new(
             EntityId::new(1),
-            MachineKind::Source { output: Item::new("iron"), rate: 1 },
+            MachineKind::Source {
+                output: Item::new("iron"),
+                rate: 1,
+            },
         ));
         world.add_machine(Machine::new(EntityId::new(2), MachineKind::Conveyor));
         world.add_machine(Machine::new(EntityId::new(3), MachineKind::Sink));

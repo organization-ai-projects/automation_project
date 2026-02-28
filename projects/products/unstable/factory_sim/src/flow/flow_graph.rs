@@ -55,9 +55,9 @@ impl FlowGraph {
 
     /// Validates that all edge endpoints exist as nodes.
     pub fn is_consistent(&self) -> bool {
-        self.edges
-            .iter()
-            .all(|e| self.nodes.contains_key(&e.from.value()) && self.nodes.contains_key(&e.to.value()))
+        self.edges.iter().all(|e| {
+            self.nodes.contains_key(&e.from.value()) && self.nodes.contains_key(&e.to.value())
+        })
     }
 }
 
