@@ -16,6 +16,9 @@ if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
   exit 1
 fi
 
+# shellcheck source=scripts/automation/git_hooks/lib/markdownlint_policy.sh
+source "$SCRIPT_DIR/lib/markdownlint_policy.sh"
+
 # Resolve the hooks directory via git (works for standard clones and worktrees)
 GIT_HOOKS_DIR="$(git -C "$ROOT_DIR" rev-parse --git-path hooks)"
 # Make absolute if relative (standard clone returns relative path; worktree returns absolute)
@@ -108,3 +111,38 @@ echo "  • SKIP_POST_CHECKOUT_CONVENTION_WARN=1 git checkout ..."
 echo "  • SKIP_PRE_PUSH=1 git push"
 echo "  • ALLOW_PART_OF_ONLY_PUSH=1 git push"
 echo ""
+
+expected_mdl_version="$(markdownlint_policy_expected_version)"
+global_mdl_bin="$(command -v markdownlint-cli2 2>/dev/null || true)"
+global_mdl_version="$(markdownlint_policy_version_of_bin "$global_mdl_bin" || true)"
+local_mdl_bin="$ROOT_DIR/node_modules/.bin/markdownlint-cli2"
+local_mdl_version=""
+if [[ -x "$local_mdl_bin" ]]; then
+  local_mdl_version="$(markdownlint_policy_version_of_bin "$local_mdl_bin" || true)"
+fi
+
+echo "Markdown lint tool check:"
+if [[ -z "$expected_mdl_version" ]]; then
+  echo "  • expected version: not found in package.json"
+else
+  echo "  • expected version (package.json): $expected_mdl_version"
+fi
+if [[ -n "$global_mdl_bin" ]]; then
+  echo "  • global: $global_mdl_bin (version: ${global_mdl_version:-unknown})"
+else
+  echo "  • global: not found"
+fi
+if [[ -x "$local_mdl_bin" ]]; then
+  echo "  • local: $local_mdl_bin (version: ${local_mdl_version:-unknown})"
+else
+  echo "  • local: not found"
+fi
+
+if [[ -n "$expected_mdl_version" ]]; then
+  if [[ "$global_mdl_version" == "$expected_mdl_version" || "$local_mdl_version" == "$expected_mdl_version" ]]; then
+    echo "  • status: ✅ compatible markdownlint-cli2 found"
+  else
+    echo "  • status: ⚠️ no compatible markdownlint-cli2 detected"
+    echo "    Use global version $expected_mdl_version or local node_modules with that version."
+  fi
+fi

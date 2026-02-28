@@ -14,7 +14,7 @@ Usage:
   $0 --pr PR_NUMBER [--repo owner/name]
 
 Notes:
-  - Detects closure refs in PR body (Closes #...).
+  - Detects closure refs in PR body (Closes/Fixes #...).
   - If the same issue also has `Reopen #...`, closure is neutralized on purpose.
   - If referenced issue is non-compliant with required issue contract, inserts:
       "<keyword> rejected #<issue>"
@@ -143,7 +143,7 @@ issue_non_compliance_reason() {
 keyword_pattern_from_action() {
   local action="$1"
   case "$action" in
-    Closes) echo "closes|close" ;;
+    Closes) echo "closes|fixes" ;;
     *) echo "" ;;
   esac
 }

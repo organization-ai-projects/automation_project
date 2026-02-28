@@ -20,6 +20,10 @@ Conserver un suivi d'issues deterministe et eviter les comportements de fermetur
 - Ne pas melanger mot-cle de fermeture et non-fermeture pour la meme issue dans un commit.
 - Utiliser `Part of` quand le travail est partiel.
 - Utiliser `Reopen` avec la meme issue pour neutraliser explicitement une fermeture.
+- `Fixes #<issue>` est reserve aux automatismes PR/bot et n'est pas autorise dans les footers de commit locaux.
+- Regle d'assignation :
+  - si une issue a exactement un assignee et que cet assignee est le developpeur courant, `Part of #<issue>` sans `Closes #<issue>` est interdit.
+  - si une issue a plusieurs assignees, `Part of #<issue>` est autorise.
 
 ## Exemples
 

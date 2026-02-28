@@ -20,8 +20,8 @@ source "$HOOKS_DIR/lib/push_policy.sh"
 # shellcheck source=scripts/common_lib/automation/rust_checks.sh
 source "$REPO_ROOT/scripts/common_lib/automation/rust_checks.sh"
 
-UPSTREAM_BRANCH="$(hook_utils_resolve_upstream_branch)"
-commits="$(hook_utils_collect_push_commits "$UPSTREAM_BRANCH")"
+UPSTREAM_BRANCH="$(push_policy_resolve_upstream_branch)"
+commits="$(push_policy_collect_push_commits "$UPSTREAM_BRANCH")"
 
 if ! push_policy_validate_no_root_parent_issue_refs "$commits"; then
   exit 1
@@ -31,15 +31,15 @@ if ! push_policy_validate_part_of_only_push "$commits"; then
   exit 1
 fi
 
-changed_files="$(hook_utils_compute_changed_files "$UPSTREAM_BRANCH")"
-markdown_files="$(hook_utils_collect_markdown_files "$changed_files")"
+changed_files="$(push_policy_compute_changed_files "$UPSTREAM_BRANCH")"
+markdown_files="$(push_policy_collect_markdown_files "$changed_files")"
 
 if is_docs_or_scripts_only_change "$changed_files"; then
   echo "📄 Docs/scripts-only changes detected."
   echo "🧪 Skipping Rust fmt/clippy/tests for this push."
   if [[ -n "$markdown_files" ]]; then
     echo "📝 Running markdownlint on changed markdown files..."
-    if ! hook_utils_run_markdownlint_checks "$markdown_files"; then
+    if ! push_policy_run_markdownlint_checks "$markdown_files"; then
       echo ""
       echo "❌ Markdown lint failed."
       exit 1
@@ -49,7 +49,7 @@ if is_docs_or_scripts_only_change "$changed_files"; then
     echo "📝 Skipping markdownlint (no markdown files changed)."
   fi
   echo "🔎 Running lightweight shell syntax checks..."
-  hook_utils_run_shell_syntax_checks "$changed_files"
+  push_policy_run_shell_syntax_checks "$changed_files"
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "✅ Pre-push checks PASSED (docs/scripts-only mode)"
@@ -109,7 +109,7 @@ FAILED=0
 
 if [[ -n "$markdown_files" ]]; then
   echo "📝 Running markdownlint on changed markdown files..."
-  if ! hook_utils_run_markdownlint_checks "$markdown_files"; then
+  if ! push_policy_run_markdownlint_checks "$markdown_files"; then
     echo ""
     echo "❌ Markdown lint failed."
     echo "   Run: pnpm run lint-md-files -- <changed .md files>"

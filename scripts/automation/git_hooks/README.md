@@ -26,7 +26,7 @@ git_hooks/
 ├── lib/policy.sh       # Shared predicates (docs-only/tests-only/docs+scripts/mixed/mono-scope)
 ├── lib/commit_message_policy.sh # Shared commit message generation policy helpers
 ├── lib/issue_footer_policy.sh # Shared footer normalization/validation for issue refs
-├── lib/hook_utils.sh  # Generic non-policy helpers (git ranges, shell syntax scan)
+├── lib/markdownlint_policy.sh # Shared markdownlint version/bin resolution + run helpers
 ├── lib/push_policy.sh  # Shared pre-push policy helpers (range/refs/scope parsing/shell checks)
 ├── install_hooks.sh    # Installs git hooks (worktree-aware)
 └── tests/
@@ -47,7 +47,7 @@ git_hooks/
 - `lib/policy.sh`: Compatibility shim to shared predicates in `../../common_lib/automation/change_policy.sh` (`docs-only`, `tests-only`, mixed docs/code, multi-scope).
 - `lib/commit_message_policy.sh`: Shared commit message helpers (type mapping, description/scopes formatting, scope extraction).
 - `lib/issue_footer_policy.sh`: Shared issue footer normalization and parent-reference validation used by `commit-msg`.
-- `lib/hook_utils.sh`: Generic reusable helpers (upstream/range resolution and shell syntax checks).
+- `lib/markdownlint_policy.sh`: Shared helpers for markdownlint version resolution (`package.json`), global/local binary selection, and markdown lint execution.
 - `../../common_lib/automation/rust_checks.sh`: Shared Rust check runners used by `pre-push` and CI (`fmt`, `clippy`, `test`).
 - `lib/push_policy.sh`: Shared pre-push policy helpers (trailer guardrails and scope -> crate resolution for targeted checks).
 - `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
@@ -60,9 +60,11 @@ git_hooks/
   - Markdown auto-fix + validation for staged markdown files (`pnpm run lint-md-fix-files -- ...` then `pnpm run lint-md-files -- ...`).
   - Shell syntax checks (`bash -n`) for staged shell files.
   - Rust formatting (`cargo fmt --all`) when staged Rust files exist.
+  - Early assignment-policy guard using remote issue metadata (single-assignee issues require `Closes`).
 - `pre-push`:
   - Markdown lint for changed markdown files (`pnpm run lint-md-files -- ...`).
   - Rust checks (`fmt --check`, `clippy`, `test`) for non docs/scripts-only pushes.
+  - Assignment-policy guard using issue assignees (`Part of`-only is blocked for single-assignee self-owned issues).
   - Docs/scripts-only optimization remains active, but markdownlint still runs when markdown files are changed.
 - CI / GitHub Actions:
   - `automation_markdown.yml` can auto-fix markdownlint issues in PR branches.
@@ -194,6 +196,11 @@ The hook uses two layers:
 ```bash
 SKIP_PRE_PUSH=1 git push
 ```
+
+Remote/offline policy:
+
+- Default behavior is strict (`fail-closed`) when remote metadata cannot be resolved.
+- Set `HOOKS_REMOTE_POLICY=warn` (or `ALLOW_OFFLINE_REMOTE_CHECKS=1`) to degrade remote checks to warnings when offline.
 
 ## Installation
 
