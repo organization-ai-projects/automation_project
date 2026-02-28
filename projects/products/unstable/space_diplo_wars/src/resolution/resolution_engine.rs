@@ -85,8 +85,8 @@ impl ResolutionEngine {
             };
 
             let input = BattleInput {
-                attacker: attacker,
-                defender: defender,
+                attacker,
+                defender,
                 location: crate::map::star_system_id::StarSystemId(system),
             };
             let battle_report = BattleResolver::resolve(input);
