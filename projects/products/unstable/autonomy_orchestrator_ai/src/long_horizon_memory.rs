@@ -246,10 +246,12 @@ mod tests {
         report.blocked_reason_codes = vec!["GATE_CI_NOT_SUCCESS".to_string()];
         let entry = record_run(&mut store, &report, 0);
         assert!(entry.failure_signature.is_some());
-        assert!(entry
-            .failure_signature
-            .unwrap()
-            .contains("GATE_CI_NOT_SUCCESS"));
+        assert!(
+            entry
+                .failure_signature
+                .unwrap()
+                .contains("GATE_CI_NOT_SUCCESS")
+        );
     }
 
     #[test]

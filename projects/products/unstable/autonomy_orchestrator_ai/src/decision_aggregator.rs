@@ -241,8 +241,11 @@ fn build_reliability_updates(
     contributions
         .iter()
         .map(|contribution| {
-            let previous_score =
-                lookup_reliability_score(contribution, reliability_inputs, memory_reliability_inputs);
+            let previous_score = lookup_reliability_score(
+                contribution,
+                reliability_inputs,
+                memory_reliability_inputs,
+            );
             let mut delta: i16 = if contribution.vote == final_decision {
                 2
             } else {

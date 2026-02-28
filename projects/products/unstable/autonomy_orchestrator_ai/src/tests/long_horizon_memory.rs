@@ -49,7 +49,10 @@ fn memory_read_write_is_stable_across_multiple_records() {
 
     let (inputs1, codes1) = derive_reliability_inputs(&store, &policy);
     let (inputs2, codes2) = derive_reliability_inputs(&store, &policy);
-    assert_eq!(inputs1, inputs2, "derive_reliability_inputs must be deterministic");
+    assert_eq!(
+        inputs1, inputs2,
+        "derive_reliability_inputs must be deterministic"
+    );
     assert_eq!(codes1, codes2);
     assert!(codes1.contains(&"MEMORY_SIGNAL_APPLIED".to_string()));
 
@@ -177,7 +180,10 @@ fn memory_decay_limits_window_for_reliability_derivation() {
     };
     let (narrow_inputs, _) = derive_reliability_inputs(&store, &narrow_policy);
     assert_eq!(narrow_inputs.len(), 1);
-    assert_eq!(narrow_inputs[0].score, 90, "narrow window should only see high-score runs");
+    assert_eq!(
+        narrow_inputs[0].score, 90,
+        "narrow window should only see high-score runs"
+    );
 
     // Wide window includes old low-score runs
     let wide_policy = MemoryPolicy {
@@ -186,7 +192,10 @@ fn memory_decay_limits_window_for_reliability_derivation() {
     };
     let (wide_inputs, _) = derive_reliability_inputs(&store, &wide_policy);
     // (20*10 + 90*3) / 13 = (200 + 270) / 13 = 470 / 13 = 36
-    assert_eq!(wide_inputs[0].score, 36, "wide window should average all runs");
+    assert_eq!(
+        wide_inputs[0].score, 36,
+        "wide window should average all runs"
+    );
 }
 
 #[test]

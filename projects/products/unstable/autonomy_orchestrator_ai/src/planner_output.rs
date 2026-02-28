@@ -205,9 +205,7 @@ fn parse_planner_payload(payload: &Json) -> Result<PlannerOutput, String> {
                     entry
                         .as_str_strict()
                         .map(ToString::to_string)
-                        .map_err(|_| {
-                            "memory_signal_codes entries must be strings".to_string()
-                        })
+                        .map_err(|_| "memory_signal_codes entries must be strings".to_string())
                 })
                 .collect::<Result<Vec<_>, String>>()?,
             Err(_) => Vec::new(),

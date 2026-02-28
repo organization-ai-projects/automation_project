@@ -18,11 +18,11 @@ use crate::domain::{
     ReviewGateStatus, ReviewerVerdict, RiskSignal, RiskTier, RunReport, Stage,
     StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
+use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
 use crate::long_horizon_memory::{
     LongHorizonMemoryStore, derive_reliability_inputs, enforce_policy, load_memory, record_run,
     save_memory,
 };
-use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
 use crate::planner_output::read_planner_output_from_artifacts;
 use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
 use crate::pr_risk::compute_pr_risk;
