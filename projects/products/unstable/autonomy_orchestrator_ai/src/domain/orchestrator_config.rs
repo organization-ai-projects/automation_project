@@ -1,7 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/orchestrator_config.rs
 use crate::domain::{
     BinaryInvocationSpec, DecisionContribution, DecisionReliabilityInput, DeliveryOptions,
-    ExecutionPolicy, GateInputs,
+    ExecutionPolicy, GateInputs, RiskSignal, RiskTier,
 };
 use common_binary::{BinaryOptions, read_binary, write_binary};
 use common_json::{from_str, to_string_pretty};
@@ -37,6 +37,9 @@ struct OrchestratorConfigJsonCompat {
     next_actions_path: Option<PathBuf>,
     previous_run_report_path: Option<PathBuf>,
     hard_gates_file: Option<PathBuf>,
+    risk_tier: Option<RiskTier>,
+    risk_signals: Option<Vec<RiskSignal>>,
+    risk_allow_high: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +72,10 @@ pub struct OrchestratorConfig {
     pub next_actions_path: Option<PathBuf>,
     pub previous_run_report_path: Option<PathBuf>,
     pub hard_gates_file: Option<PathBuf>,
+    pub planner_fallback_max_steps: u32,
+    pub risk_tier: Option<RiskTier>,
+    pub risk_signals: Vec<RiskSignal>,
+    pub risk_allow_high: bool,
 }
 
 impl OrchestratorConfig {
@@ -221,6 +228,10 @@ impl OrchestratorConfig {
             next_actions_path: parsed.next_actions_path,
             previous_run_report_path: parsed.previous_run_report_path,
             hard_gates_file: parsed.hard_gates_file,
+            planner_fallback_max_steps: 3,
+            risk_tier: parsed.risk_tier,
+            risk_signals: parsed.risk_signals.unwrap_or_default(),
+            risk_allow_high: parsed.risk_allow_high.unwrap_or(false),
         })
     }
 
