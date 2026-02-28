@@ -43,6 +43,7 @@ members = [
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
+  "projects/products/unstable/factory_sim",
 ]
 resolver = "2"
 
@@ -90,6 +91,7 @@ ast_macros = { path = "projects/libraries/core/foundation/ast_macros" }
 ai = { path = "projects/libraries/layers/orchestration/ai" }
 hybrid_arena = { path = "projects/libraries/core/foundation/hybrid_arena" }
 versioning = { path = "projects/libraries/layers/domain/versioning" }
+runtime_core = { path = "projects/libraries/layers/domain/runtime_core" }
 
 sha2 = "0.10.8"
 hex = "0.4.3"
