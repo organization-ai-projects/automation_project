@@ -7,7 +7,11 @@ pub struct Budget {
 
 impl Budget {
     pub fn new() -> Self {
-        Self { balance: 10000, income: 0, expenses: 0 }
+        Self {
+            balance: 10000,
+            income: 0,
+            expenses: 0,
+        }
     }
 }
 

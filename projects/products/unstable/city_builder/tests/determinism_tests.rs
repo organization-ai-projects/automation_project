@@ -24,17 +24,35 @@ fn determinism_same_seed_same_report() {
     let out2 = temp_out("det2");
 
     let r1 = Command::new(bin)
-        .args(["run", "--ticks", "10", "--seed", "42",
-               "--scenario", scenario.to_str().unwrap(),
-               "--out", out1.to_str().unwrap()])
-        .status().unwrap();
+        .args([
+            "run",
+            "--ticks",
+            "10",
+            "--seed",
+            "42",
+            "--scenario",
+            scenario.to_str().unwrap(),
+            "--out",
+            out1.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
     assert_eq!(r1.code(), Some(0));
 
     let r2 = Command::new(bin)
-        .args(["run", "--ticks", "10", "--seed", "42",
-               "--scenario", scenario.to_str().unwrap(),
-               "--out", out2.to_str().unwrap()])
-        .status().unwrap();
+        .args([
+            "run",
+            "--ticks",
+            "10",
+            "--seed",
+            "42",
+            "--scenario",
+            scenario.to_str().unwrap(),
+            "--out",
+            out2.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
     assert_eq!(r2.code(), Some(0));
 
     let b1 = std::fs::read_to_string(&out1).unwrap();
@@ -52,10 +70,19 @@ fn report_has_run_hash() {
     let out = temp_out("hash");
 
     let r = Command::new(bin)
-        .args(["run", "--ticks", "5", "--seed", "1",
-               "--scenario", scenario.to_str().unwrap(),
-               "--out", out.to_str().unwrap()])
-        .status().unwrap();
+        .args([
+            "run",
+            "--ticks",
+            "5",
+            "--seed",
+            "1",
+            "--scenario",
+            scenario.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
     assert_eq!(r.code(), Some(0));
 
     let content = std::fs::read_to_string(&out).unwrap();

@@ -16,7 +16,13 @@ impl TrafficEngine {
             if let Some(v) = state.vehicles.get(&vid) {
                 let v = v.clone();
                 let path = state.road_graph.bfs_path(v.origin, v.destination);
-                state.routes.insert(vid, super::Route { vehicle_id: vid, path });
+                state.routes.insert(
+                    vid,
+                    super::Route {
+                        vehicle_id: vid,
+                        path,
+                    },
+                );
             }
         }
     }

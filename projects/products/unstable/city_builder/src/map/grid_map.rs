@@ -17,7 +17,11 @@ impl GridMap {
                 tiles.insert(id, Tile::new(id));
             }
         }
-        Self { width, height, tiles }
+        Self {
+            width,
+            height,
+            tiles,
+        }
     }
 
     pub fn get(&self, id: &TileId) -> Option<&Tile> {
@@ -32,10 +36,18 @@ impl GridMap {
         let mut result = Vec::new();
         let x = id.x;
         let y = id.y;
-        if x > 0 { result.push(TileId { x: x - 1, y }); }
-        if y > 0 { result.push(TileId { x, y: y - 1 }); }
-        if x + 1 < self.width { result.push(TileId { x: x + 1, y }); }
-        if y + 1 < self.height { result.push(TileId { x, y: y + 1 }); }
+        if x > 0 {
+            result.push(TileId { x: x - 1, y });
+        }
+        if y > 0 {
+            result.push(TileId { x, y: y - 1 });
+        }
+        if x + 1 < self.width {
+            result.push(TileId { x: x + 1, y });
+        }
+        if y + 1 < self.height {
+            result.push(TileId { x, y: y + 1 });
+        }
         result.sort();
         result
     }

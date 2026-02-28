@@ -26,6 +26,13 @@ impl Building {
             ZoneKind::Industrial => 0,
             ZoneKind::None => 0,
         };
-        Self { id, tile, kind, zone, population, happiness: 50 }
+        Self {
+            id,
+            tile,
+            kind,
+            zone,
+            population,
+            happiness: 50,
+        }
     }
 }

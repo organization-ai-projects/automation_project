@@ -10,11 +10,16 @@ pub struct CoverageMap {
 
 impl CoverageMap {
     pub fn new() -> Self {
-        Self { covered: BTreeMap::new() }
+        Self {
+            covered: BTreeMap::new(),
+        }
     }
 
     pub fn is_covered(&self, kind: ServiceKind, tile: &TileId) -> bool {
-        self.covered.get(&kind).map(|s| s.contains(tile)).unwrap_or(false)
+        self.covered
+            .get(&kind)
+            .map(|s| s.contains(tile))
+            .unwrap_or(false)
     }
 }
 

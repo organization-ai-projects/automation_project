@@ -51,38 +51,46 @@ fn main() {
     };
 
     match cli.command {
-        Commands::Run { ticks, seed, scenario, out } => {
-            match run_sim(ticks, seed, &scenario, &out) {
-                Ok(()) => std::process::exit(0),
-                Err(CityBuilderError::InvalidScenario(_)) | Err(CityBuilderError::InvalidConfig(_)) => {
-                    eprintln!("Error: invalid scenario or config");
-                    std::process::exit(3);
-                }
-                Err(CityBuilderError::ReplayMismatch(_)) => {
-                    eprintln!("Error: replay mismatch");
-                    std::process::exit(4);
-                }
-                Err(e) => {
-                    eprintln!("Error: {e}");
-                    std::process::exit(5);
-                }
+        Commands::Run {
+            ticks,
+            seed,
+            scenario,
+            out,
+        } => match run_sim(ticks, seed, &scenario, &out) {
+            Ok(()) => std::process::exit(0),
+            Err(CityBuilderError::InvalidScenario(_)) | Err(CityBuilderError::InvalidConfig(_)) => {
+                eprintln!("Error: invalid scenario or config");
+                std::process::exit(3);
             }
-        }
+            Err(CityBuilderError::ReplayMismatch(_)) => {
+                eprintln!("Error: replay mismatch");
+                std::process::exit(4);
+            }
+            Err(e) => {
+                eprintln!("Error: {e}");
+                std::process::exit(5);
+            }
+        },
     }
 }
 
-fn run_sim(ticks: u64, seed: u64, scenario_path: &PathBuf, out_path: &PathBuf) -> Result<(), CityBuilderError> {
-    use scenario::scenario_loader::ScenarioLoader;
-    use config::sim_config::SimConfig;
-    use report::sim_report::SimReport;
-    use report::tick_report::TickReport;
-    use report::run_hash::RunHash;
-    use snapshot::state_snapshot::StateSnapshot;
+fn run_sim(
+    ticks: u64,
+    seed: u64,
+    scenario_path: &PathBuf,
+    out_path: &PathBuf,
+) -> Result<(), CityBuilderError> {
     use buildings::growth_engine::GrowthEngine;
-    use services::service_engine::ServiceEngine;
-    use traffic::traffic_engine::TrafficEngine;
+    use config::sim_config::SimConfig;
     use economy::economy_engine::EconomyEngine;
     use io::json_codec::JsonCodec;
+    use report::run_hash::RunHash;
+    use report::sim_report::SimReport;
+    use report::tick_report::TickReport;
+    use scenario::scenario_loader::ScenarioLoader;
+    use services::service_engine::ServiceEngine;
+    use snapshot::state_snapshot::StateSnapshot;
+    use traffic::traffic_engine::TrafficEngine;
 
     let scenario = ScenarioLoader::load(scenario_path)?;
 
@@ -121,7 +129,8 @@ fn run_sim(ticks: u64, seed: u64, scenario_path: &PathBuf, out_path: &PathBuf) -
         for cp in &scenario.checkpoints {
             if cp.tick == t && cp.expected_hash != hash.value {
                 return Err(CityBuilderError::ReplayMismatch(format!(
-                    "Checkpoint at tick {t}: expected {}, got {}", cp.expected_hash, hash.value
+                    "Checkpoint at tick {t}: expected {}, got {}",
+                    cp.expected_hash, hash.value
                 )));
             }
         }

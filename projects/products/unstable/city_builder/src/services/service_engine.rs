@@ -34,7 +34,9 @@ impl ServiceEngine {
         visited.insert(start, 0);
 
         while let Some((cur, dist)) = queue.pop_front() {
-            if dist >= radius { continue; }
+            if dist >= radius {
+                continue;
+            }
             let neighbors = state.grid.neighbors(&cur);
             for n in neighbors {
                 if !visited.contains_key(&n) {

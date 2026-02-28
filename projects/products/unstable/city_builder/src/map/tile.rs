@@ -10,6 +10,10 @@ pub struct Tile {
 
 impl Tile {
     pub fn new(id: TileId) -> Self {
-        Self { id, zone: ZoneKind::None, has_road: false }
+        Self {
+            id,
+            zone: ZoneKind::None,
+            has_road: false,
+        }
     }
 }

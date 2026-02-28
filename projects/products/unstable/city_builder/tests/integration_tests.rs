@@ -23,10 +23,19 @@ fn run_produces_report_with_run_hash() {
     let out = temp_out("run");
 
     let status = Command::new(bin)
-        .args(["run", "--ticks", "10", "--seed", "42",
-               "--scenario", scenario.to_str().unwrap(),
-               "--out", out.to_str().unwrap()])
-        .status().unwrap();
+        .args([
+            "run",
+            "--ticks",
+            "10",
+            "--seed",
+            "42",
+            "--scenario",
+            scenario.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
     assert_eq!(status.code(), Some(0), "Expected exit 0");
 
     let content = std::fs::read_to_string(&out).unwrap();
@@ -42,11 +51,24 @@ fn invalid_scenario_returns_exit_3() {
     let bin = bin_path();
     let out = temp_out("invalid");
     let status = Command::new(bin)
-        .args(["run", "--ticks", "5", "--seed", "1",
-               "--scenario", "/nonexistent/path/scenario.json",
-               "--out", out.to_str().unwrap()])
-        .status().unwrap();
-    assert_eq!(status.code(), Some(3), "Expected exit 3 for invalid scenario");
+        .args([
+            "run",
+            "--ticks",
+            "5",
+            "--seed",
+            "1",
+            "--scenario",
+            "/nonexistent/path/scenario.json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert_eq!(
+        status.code(),
+        Some(3),
+        "Expected exit 3 for invalid scenario"
+    );
     let _ = std::fs::remove_file(&out);
 }
 
@@ -57,10 +79,19 @@ fn coverage_scenario_runs_successfully() {
     let out = temp_out("coverage");
 
     let status = Command::new(bin)
-        .args(["run", "--ticks", "5", "--seed", "10",
-               "--scenario", scenario.to_str().unwrap(),
-               "--out", out.to_str().unwrap()])
-        .status().unwrap();
+        .args([
+            "run",
+            "--ticks",
+            "5",
+            "--seed",
+            "10",
+            "--scenario",
+            scenario.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
     assert_eq!(status.code(), Some(0));
     let _ = std::fs::remove_file(&out);
 }
@@ -72,10 +103,19 @@ fn traffic_scenario_runs_successfully() {
     let out = temp_out("traffic");
 
     let status = Command::new(bin)
-        .args(["run", "--ticks", "5", "--seed", "7",
-               "--scenario", scenario.to_str().unwrap(),
-               "--out", out.to_str().unwrap()])
-        .status().unwrap();
+        .args([
+            "run",
+            "--ticks",
+            "5",
+            "--seed",
+            "7",
+            "--scenario",
+            scenario.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
     assert_eq!(status.code(), Some(0));
     let _ = std::fs::remove_file(&out);
 }
@@ -88,22 +128,43 @@ fn replay_same_seed_produces_same_report() {
     let out2 = temp_out("replay2");
 
     let s1 = Command::new(bin)
-        .args(["run", "--ticks", "8", "--seed", "99",
-               "--scenario", scenario.to_str().unwrap(),
-               "--out", out1.to_str().unwrap()])
-        .status().unwrap();
+        .args([
+            "run",
+            "--ticks",
+            "8",
+            "--seed",
+            "99",
+            "--scenario",
+            scenario.to_str().unwrap(),
+            "--out",
+            out1.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
     assert_eq!(s1.code(), Some(0));
 
     let s2 = Command::new(bin)
-        .args(["run", "--ticks", "8", "--seed", "99",
-               "--scenario", scenario.to_str().unwrap(),
-               "--out", out2.to_str().unwrap()])
-        .status().unwrap();
+        .args([
+            "run",
+            "--ticks",
+            "8",
+            "--seed",
+            "99",
+            "--scenario",
+            scenario.to_str().unwrap(),
+            "--out",
+            out2.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
     assert_eq!(s2.code(), Some(0));
 
     let c1 = std::fs::read_to_string(&out1).unwrap();
     let c2 = std::fs::read_to_string(&out2).unwrap();
-    assert_eq!(c1, c2, "Replay mismatch: identical seeds should produce identical reports");
+    assert_eq!(
+        c1, c2,
+        "Replay mismatch: identical seeds should produce identical reports"
+    );
 
     let _ = std::fs::remove_file(&out1);
     let _ = std::fs::remove_file(&out2);

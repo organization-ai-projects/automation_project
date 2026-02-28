@@ -10,7 +10,9 @@ pub struct RoadGraph {
 
 impl RoadGraph {
     pub fn new() -> Self {
-        Self { adjacency: BTreeMap::new() }
+        Self {
+            adjacency: BTreeMap::new(),
+        }
     }
 
     pub fn add_road(&mut self, road: &Road) {
@@ -40,7 +42,9 @@ impl RoadGraph {
     }
 
     pub fn bfs_path(&self, from: TileId, to: TileId) -> Vec<TileId> {
-        if from == to { return vec![from]; }
+        if from == to {
+            return vec![from];
+        }
         let mut parent: BTreeMap<TileId, TileId> = BTreeMap::new();
         let mut queue = VecDeque::new();
         queue.push_back(from);

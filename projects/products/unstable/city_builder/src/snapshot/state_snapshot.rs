@@ -39,19 +39,31 @@ impl StateSnapshot {
                 }
                 if x < ir.x2 {
                     let next = TileId { x: x + 1, y };
-                    road_graph.add_road(&crate::map::Road { from: tile_id, to: next });
+                    road_graph.add_road(&crate::map::Road {
+                        from: tile_id,
+                        to: next,
+                    });
                     x += 1;
                 } else if x > ir.x2 {
                     let next = TileId { x: x - 1, y };
-                    road_graph.add_road(&crate::map::Road { from: tile_id, to: next });
+                    road_graph.add_road(&crate::map::Road {
+                        from: tile_id,
+                        to: next,
+                    });
                     x -= 1;
                 } else if y < ir.y2 {
                     let next = TileId { x, y: y + 1 };
-                    road_graph.add_road(&crate::map::Road { from: tile_id, to: next });
+                    road_graph.add_road(&crate::map::Road {
+                        from: tile_id,
+                        to: next,
+                    });
                     y += 1;
                 } else if y > ir.y2 {
                     let next = TileId { x, y: y - 1 };
-                    road_graph.add_road(&crate::map::Road { from: tile_id, to: next });
+                    road_graph.add_road(&crate::map::Road {
+                        from: tile_id,
+                        to: next,
+                    });
                     y -= 1;
                 } else {
                     break;
@@ -62,11 +74,14 @@ impl StateSnapshot {
         let mut service_buildings = BTreeMap::new();
         for is in &scenario.initial_services {
             let tile_id = TileId { x: is.x, y: is.y };
-            service_buildings.insert(tile_id, ServiceBuilding {
-                tile: tile_id,
-                kind: is.kind,
-                coverage_radius: is.coverage_radius,
-            });
+            service_buildings.insert(
+                tile_id,
+                ServiceBuilding {
+                    tile: tile_id,
+                    kind: is.kind,
+                    coverage_radius: is.coverage_radius,
+                },
+            );
         }
 
         Self {

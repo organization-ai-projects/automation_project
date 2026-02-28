@@ -26,7 +26,12 @@ impl GrowthEngine {
             if state.buildings.contains_key(&tile_id) {
                 continue;
             }
-            let zone = state.grid.tiles.get(&tile_id).map(|t| t.zone).unwrap_or(ZoneKind::None);
+            let zone = state
+                .grid
+                .tiles
+                .get(&tile_id)
+                .map(|t| t.zone)
+                .unwrap_or(ZoneKind::None);
             if zone == ZoneKind::None {
                 continue;
             }
@@ -38,7 +43,8 @@ impl GrowthEngine {
                 continue;
             }
 
-            let mut seed = config.seed ^ (tile_id.x as u64 * 31 + tile_id.y as u64 * 17 + tick.0 * 7);
+            let mut seed =
+                config.seed ^ (tile_id.x as u64 * 31 + tile_id.y as u64 * 17 + tick.0 * 7);
             let r = SimConfig::next_rand(&mut seed);
             if r % threshold == 0 {
                 to_build.push(tile_id);
@@ -46,7 +52,12 @@ impl GrowthEngine {
         }
 
         for tile_id in to_build {
-            let zone = state.grid.tiles.get(&tile_id).map(|t| t.zone).unwrap_or(ZoneKind::None);
+            let zone = state
+                .grid
+                .tiles
+                .get(&tile_id)
+                .map(|t| t.zone)
+                .unwrap_or(ZoneKind::None);
             let id = BuildingId(self.next_id);
             self.next_id += 1;
             let building = Building::new(id, tile_id, zone);
