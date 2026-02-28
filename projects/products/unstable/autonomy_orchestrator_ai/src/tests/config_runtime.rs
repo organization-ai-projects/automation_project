@@ -154,16 +154,24 @@ fn validate_orchestrator_config_reports_all_main_invariants() {
 
     let diagnostics = validate_orchestrator_config(&config);
     assert_eq!(diagnostics.len(), 4);
-    assert!(diagnostics
-        .iter()
-        .any(|d| d.contains("timeout_ms must be > 0")));
-    assert!(diagnostics
-        .iter()
-        .any(|d| d.contains("execution_max_iterations must be >= 1")));
-    assert!(diagnostics
-        .iter()
-        .any(|d| d.contains("validation_from_planning_context=true requires")));
-    assert!(diagnostics
-        .iter()
-        .any(|d| d.contains("delivery_options.pr_enabled=true requires")));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.contains("timeout_ms must be > 0"))
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.contains("execution_max_iterations must be >= 1"))
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.contains("validation_from_planning_context=true requires"))
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.contains("delivery_options.pr_enabled=true requires"))
+    );
 }

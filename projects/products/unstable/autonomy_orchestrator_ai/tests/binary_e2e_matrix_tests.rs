@@ -198,14 +198,18 @@ fn matrix_happy_path_reaches_done() {
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     assert!(report.blocked_reason_codes.is_empty());
     assert_eq!(report.stage_executions.len(), 3);
-    assert!(report
-        .stage_executions
-        .iter()
-        .all(|e| e.status == "success"));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "validation" && e.status == "success"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .all(|e| e.status == "success")
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "validation" && e.status == "success")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -228,9 +232,11 @@ fn matrix_policy_denial_blocks_with_reason_code() {
 
     assert_eq!(output.status.code(), Some(3));
     assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"GATE_POLICY_DENIED_OR_UNKNOWN".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"GATE_POLICY_DENIED_OR_UNKNOWN".to_string())
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -253,9 +259,11 @@ fn matrix_missing_ci_signal_blocks_with_reason_code() {
 
     assert_eq!(output.status.code(), Some(3));
     assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"GATE_CI_NOT_SUCCESS".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"GATE_CI_NOT_SUCCESS".to_string())
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -278,9 +286,11 @@ fn matrix_review_rejection_blocks_with_reason_code() {
 
     assert_eq!(output.status.code(), Some(3));
     assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"GATE_REVIEW_NOT_APPROVED".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"GATE_REVIEW_NOT_APPROVED".to_string())
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -360,14 +370,18 @@ fn matrix_crash_resume_skips_completed_stage_and_finishes() {
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     assert!(report.blocked_reason_codes.is_empty());
 
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "planning" && e.status == "skipped"));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "execution" && e.status == "success"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "planning" && e.status == "skipped")
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "execution" && e.status == "success")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -401,26 +415,34 @@ fn matrix_planning_context_artifact_is_written() {
     let artifact: RepoContextView =
         from_str(&artifact_raw).expect("deserialize planning context artifact");
     assert!(!artifact.repo_root.is_empty());
-    assert!(artifact
-        .workspace_members
-        .iter()
-        .any(|m| m == "projects/products/unstable/autonomy_orchestrator_ai"));
-    assert!(artifact
-        .ownership_boundaries
-        .iter()
-        .any(|b| b == "projects/products/unstable"));
-    assert!(artifact
-        .hot_paths
-        .iter()
-        .any(|p| p.contains("autonomy_orchestrator_ai/src")));
+    assert!(
+        artifact
+            .workspace_members
+            .iter()
+            .any(|m| m == "projects/products/unstable/autonomy_orchestrator_ai")
+    );
+    assert!(
+        artifact
+            .ownership_boundaries
+            .iter()
+            .any(|b| b == "projects/products/unstable")
+    );
+    assert!(
+        artifact
+            .hot_paths
+            .iter()
+            .any(|p| p.contains("autonomy_orchestrator_ai/src"))
+    );
     assert!(artifact.detected_validation_commands.iter().any(|c| {
         c.command_line.command == "cargo"
             && c.command_line.args == vec!["test".to_string(), "--workspace".to_string()]
     }));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "planning" && e.status == "success"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "planning" && e.status == "success")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -459,10 +481,12 @@ fn matrix_execution_iteration_succeeds_before_budget_exhaustion() {
             .count(),
         2
     );
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "execution" && e.status == "success"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "execution" && e.status == "success")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -501,10 +525,12 @@ fn matrix_execution_iteration_budget_exhaustion_fails_closed() {
             .count(),
         4
     );
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "execution" && e.status == "failed"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "execution" && e.status == "failed")
+    );
     assert!(
         report.adaptive_policy_decisions.iter().any(|d| {
             d.action == "increase_execution_budget"
@@ -577,10 +603,12 @@ fn matrix_native_validation_command_success_reaches_done() {
 
     assert!(output.status.success());
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "validation" && e.status == "success"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "validation" && e.status == "success")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -609,10 +637,12 @@ fn matrix_native_validation_command_failure_fails_closed() {
 
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(report.terminal_state.as_deref(), Some("failed"));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "validation" && e.status == "failed"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "validation" && e.status == "failed")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -649,10 +679,12 @@ fn matrix_cycle_memory_reinjects_validation_commands_on_next_run() {
     let (first_output, first_report) = run_orchestrator_owned(&first_args, &out_dir);
     assert!(first_output.status.success());
     assert_eq!(first_report.terminal_state.as_deref(), Some("done"));
-    assert!(first_report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "validation" && e.command == fixture_bin()));
+    assert!(
+        first_report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "validation" && e.command == fixture_bin())
+    );
 
     let cycle_memory_path = out_dir.join("orchestrator_cycle_memory.bin");
     assert!(
@@ -858,14 +890,18 @@ fn matrix_scoped_task_modifies_repo_and_passes_validation() {
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     let content = fs::read_to_string(&generated_file).expect("read generated file");
     assert!(content.contains("scoped_fix"));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "execution" && e.status == "success"));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == "validation" && e.status == "success"));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "execution" && e.status == "success")
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == "validation" && e.status == "success")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -908,10 +944,12 @@ fn matrix_delivery_dry_run_audits_steps_without_side_effects() {
             .any(|e| e.stage == "closure" && e.status == "success"),
         "expected closure delivery dry-run traces"
     );
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.command.contains("delivery.gh.pr.create.dry_run")));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.command.contains("delivery.gh.pr.create.dry_run"))
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -943,10 +981,12 @@ fn matrix_delivery_pr_update_dry_run_is_audited() {
 
     assert!(output.status.success());
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.command.contains("delivery.gh.pr.update.dry_run")));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.command.contains("delivery.gh.pr.update.dry_run"))
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -1186,9 +1226,11 @@ fn matrix_decision_conflict_tie_fail_closed() {
     let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
     let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
     assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"DECISION_TIE_FAIL_CLOSED".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_TIE_FAIL_CLOSED".to_string())
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -1220,9 +1262,11 @@ fn matrix_decision_low_confidence_blocks() {
     let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
     let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
     assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"DECISION_CONFIDENCE_BELOW_THRESHOLD".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_CONFIDENCE_BELOW_THRESHOLD".to_string())
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -1249,9 +1293,11 @@ fn matrix_decision_no_contributions_blocks_fail_closed() {
     let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
     let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
     assert_eq!(report.terminal_state.as_deref(), Some("blocked"));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"DECISION_NO_CONTRIBUTIONS".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -1280,10 +1326,12 @@ fn matrix_rollout_enabled_healthy_progression_to_full() {
     assert_eq!(report.rollout_steps[0].phase, "canary");
     assert_eq!(report.rollout_steps[1].phase, "partial");
     assert_eq!(report.rollout_steps[2].phase, "full");
-    assert!(report
-        .rollout_steps
-        .iter()
-        .all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED"));
+    assert!(
+        report
+            .rollout_steps
+            .iter()
+            .all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -1336,9 +1384,11 @@ fn matrix_planner_v2_successful_fallback_flow() {
         .expect("planner_path_record must be set");
     assert_eq!(record.selected_path, vec!["start", "middle", "end"]);
     assert_eq!(record.fallback_steps_used, 1);
-    assert!(record
-        .reason_codes
-        .contains(&"PLANNER_FALLBACK_STEP_APPLIED".to_string()));
+    assert!(
+        record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_STEP_APPLIED".to_string())
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -1414,13 +1464,17 @@ fn matrix_planner_v2_exhausted_fallback_budget_fails_closed() {
         .planner_path_record
         .expect("planner_path_record must be set");
     assert_eq!(record.fallback_steps_used, 1);
-    assert!(record
-        .reason_codes
-        .contains(&"PLANNER_FALLBACK_BUDGET_EXHAUSTED".to_string()));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.command == "planning.planner_v2.select_path" && e.status == "failed"));
+    assert!(
+        record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_BUDGET_EXHAUSTED".to_string())
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.command == "planning.planner_v2.select_path" && e.status == "failed")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }

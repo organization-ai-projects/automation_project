@@ -1,7 +1,11 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/rollout_orchestrator.rs
 use crate::domain::{RollbackDecision, RolloutPhase, RolloutStep};
 
-const PHASES: &[RolloutPhase] = &[RolloutPhase::Canary, RolloutPhase::Partial, RolloutPhase::Full];
+const PHASES: &[RolloutPhase] = &[
+    RolloutPhase::Canary,
+    RolloutPhase::Partial,
+    RolloutPhase::Full,
+];
 
 #[derive(Clone)]
 pub struct RolloutConfig {
@@ -132,7 +136,11 @@ mod tests {
         assert_eq!(steps[0].phase, RolloutPhase::Canary);
         assert_eq!(steps[1].phase, RolloutPhase::Partial);
         assert_eq!(steps[2].phase, RolloutPhase::Full);
-        assert!(steps.iter().all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED"));
+        assert!(
+            steps
+                .iter()
+                .all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED")
+        );
     }
 
     #[test]
@@ -155,7 +163,10 @@ mod tests {
         let decision = decision.expect("rollback should be triggered");
         assert_eq!(decision.reason_code, "ROLLBACK_TRIGGER_ERROR_RATE");
         assert_eq!(decision.triggered_at_phase, RolloutPhase::Canary);
-        assert!(steps.is_empty(), "no phase should be advanced before rollback");
+        assert!(
+            steps.is_empty(),
+            "no phase should be advanced before rollback"
+        );
     }
 
     #[test]

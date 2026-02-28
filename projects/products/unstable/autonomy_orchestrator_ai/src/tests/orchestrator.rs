@@ -151,9 +151,11 @@ fn fail_closed_policy_gate_blocks_pipeline_with_reason_code() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"GATE_POLICY_DENIED_OR_UNKNOWN".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"GATE_POLICY_DENIED_OR_UNKNOWN".to_string())
+    );
     assert_eq!(report.current_stage, Some(Stage::Validation));
 }
 
@@ -189,17 +191,21 @@ fn planner_output_can_add_validation_commands() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Done));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.command == "planning.planner_output.apply"
-            && e.status == StageExecutionStatus::Success));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.stage == Stage::Validation
-            && e.command == "true"
-            && e.status == StageExecutionStatus::Success));
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.command == "planning.planner_output.apply"
+                && e.status == StageExecutionStatus::Success)
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.stage == Stage::Validation
+                && e.command == "true"
+                && e.status == StageExecutionStatus::Success)
+    );
 
     fs::remove_dir_all(&temp_root).ok();
 }
@@ -263,9 +269,11 @@ fn decision_contributions_can_block_closure_with_reason_code() {
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
     assert_eq!(report.final_decision, Some(FinalDecision::Escalate));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"DECISION_ESCALATED".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_ESCALATED".to_string())
+    );
 }
 
 #[test]
@@ -277,9 +285,11 @@ fn decision_require_contributions_fails_closed_when_empty() {
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
     assert_eq!(report.final_decision, Some(FinalDecision::Block));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"DECISION_NO_CONTRIBUTIONS".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
+    );
 }
 
 #[test]
@@ -299,10 +309,12 @@ fn adaptive_policy_can_increase_execution_budget_once() {
 
     let report = Orchestrator::new(config, None).execute();
     assert_eq!(report.terminal_state, Some(TerminalState::Failed));
-    assert!(report
-        .adaptive_policy_decisions
-        .iter()
-        .any(|decision| decision.action == AdaptivePolicyAction::IncreaseExecutionBudget));
+    assert!(
+        report
+            .adaptive_policy_decisions
+            .iter()
+            .any(|decision| decision.action == AdaptivePolicyAction::IncreaseExecutionBudget)
+    );
     let execution_failures = report
         .stage_executions
         .iter()
@@ -332,10 +344,12 @@ fn adaptive_policy_does_not_increase_execution_budget_when_cap_is_reached() {
 
     let report = Orchestrator::new(config, None).execute();
     assert_eq!(report.terminal_state, Some(TerminalState::Failed));
-    assert!(report
-        .adaptive_policy_decisions
-        .iter()
-        .all(|decision| decision.action != AdaptivePolicyAction::IncreaseExecutionBudget));
+    assert!(
+        report
+            .adaptive_policy_decisions
+            .iter()
+            .all(|decision| decision.action != AdaptivePolicyAction::IncreaseExecutionBudget)
+    );
     let execution_failures = report
         .stage_executions
         .iter()
@@ -388,9 +402,11 @@ fn reliability_factors_and_updates_are_persisted_in_run_report() {
     assert_eq!(report.final_decision, Some(FinalDecision::Proceed));
     assert_eq!(report.decision_reliability_factors.len(), 2);
     assert_eq!(report.decision_reliability_updates.len(), 2);
-    assert!(report
-        .decision_rationale_codes
-        .contains(&"DECISION_RELIABILITY_WEIGHTED".to_string()));
+    assert!(
+        report
+            .decision_rationale_codes
+            .contains(&"DECISION_RELIABILITY_WEIGHTED".to_string())
+    );
 }
 
 #[test]
@@ -420,10 +436,12 @@ fn rollout_enabled_healthy_produces_three_phase_steps_in_run_report() {
     assert_eq!(report.rollout_steps[0].phase, RolloutPhase::Canary);
     assert_eq!(report.rollout_steps[1].phase, RolloutPhase::Partial);
     assert_eq!(report.rollout_steps[2].phase, RolloutPhase::Full);
-    assert!(report
-        .rollout_steps
-        .iter()
-        .all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED"));
+    assert!(
+        report
+            .rollout_steps
+            .iter()
+            .all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED")
+    );
     assert!(report.rollback_decision.is_none());
 }
 
@@ -546,9 +564,11 @@ fn review_ensemble_security_rejection_blocks_run() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"REVIEW_ENSEMBLE_SECURITY_REJECTION".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"REVIEW_ENSEMBLE_SECURITY_REJECTION".to_string())
+    );
     let ensemble = report
         .review_ensemble_result
         .expect("ensemble result must be present");
@@ -579,9 +599,11 @@ fn review_ensemble_tie_blocks_run_fail_closed() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"REVIEW_ENSEMBLE_TIE_FAIL_CLOSED".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"REVIEW_ENSEMBLE_TIE_FAIL_CLOSED".to_string())
+    );
     let ensemble = report
         .review_ensemble_result
         .expect("ensemble result must be present");
@@ -629,9 +651,11 @@ fn invalid_planner_graph_fails_closed_with_reason_code() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Failed));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"PLANNER_GRAPH_INVALID".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"PLANNER_GRAPH_INVALID".to_string())
+    );
 
     fs::remove_dir_all(&temp_root).ok();
 }
@@ -689,14 +713,18 @@ fn planner_fallback_budget_exhaustion_fails_closed() {
         .planner_path_record
         .expect("planner_path_record must be set");
     assert_eq!(path_record.fallback_steps_used, 2);
-    assert!(path_record
-        .reason_codes
-        .contains(&"PLANNER_FALLBACK_BUDGET_EXHAUSTED".to_string()));
-    assert!(report
-        .stage_executions
-        .iter()
-        .any(|e| e.command == "planning.planner_v2.select_path"
-            && e.status == StageExecutionStatus::Failed));
+    assert!(
+        path_record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_BUDGET_EXHAUSTED".to_string())
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.command == "planning.planner_v2.select_path"
+                && e.status == StageExecutionStatus::Failed)
+    );
 
     fs::remove_dir_all(&temp_root).ok();
 }
@@ -753,9 +781,11 @@ fn planner_fallback_within_budget_succeeds() {
         .expect("planner_path_record must be set");
     assert_eq!(path_record.selected_path, vec!["a", "b", "c"]);
     assert_eq!(path_record.fallback_steps_used, 1);
-    assert!(path_record
-        .reason_codes
-        .contains(&"PLANNER_FALLBACK_STEP_APPLIED".to_string()));
+    assert!(
+        path_record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_STEP_APPLIED".to_string())
+    );
 
     fs::remove_dir_all(&temp_root).ok();
 }
@@ -795,9 +825,11 @@ fn high_risk_is_blocked_by_default() {
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
     assert_eq!(report.risk_tier, Some(RiskTier::High));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"RISK_TIER_HIGH_BLOCKED".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"RISK_TIER_HIGH_BLOCKED".to_string())
+    );
 }
 
 #[test]
@@ -816,9 +848,11 @@ fn high_risk_proceeds_when_explicitly_allowed() {
     // high risk allowed, so execution reaches Done
     assert_eq!(report.terminal_state, Some(TerminalState::Done));
     assert_eq!(report.risk_tier, Some(RiskTier::High));
-    assert!(!report
-        .blocked_reason_codes
-        .contains(&"RISK_TIER_HIGH_BLOCKED".to_string()));
+    assert!(
+        !report
+            .blocked_reason_codes
+            .contains(&"RISK_TIER_HIGH_BLOCKED".to_string())
+    );
 }
 
 #[test]
