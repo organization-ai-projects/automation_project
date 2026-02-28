@@ -33,17 +33,25 @@ members = [
   "projects/products/unstable/autonomous_dev_ai",
   "projects/products/unstable/autonomy_reviewer_ai",
   "projects/products/unstable/auto_render",
+  "projects/products/unstable/space_empire",
+  "projects/products/unstable/city_builder",
+  "projects/products/unstable/space_diplo_wars",
   "projects/libraries/core/foundation/ast_core",
   "projects/libraries/core/foundation/ast_macros",
   "projects/libraries/core/foundation/pjson_proc_macros",
   "projects/libraries/core/foundation/hybrid_arena",
   "projects/libraries/layers/domain/versioning",
   "projects/libraries/layers/domain/runtime_core",
+  "projects/products/unstable/living_spreadsheet",
   "projects/products/stable/platform_versioning/backend",
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
   "projects/products/unstable/diplo_sim",
+  "projects/products/unstable/princeps",
+  "projects/products/unstable/dev_agent",
+  "projects/products/unstable/factory_sim",
+  "projects/products/unstable/workflow_offline",
 ]
 resolver = "2"
 
@@ -91,6 +99,7 @@ ast_macros = { path = "projects/libraries/core/foundation/ast_macros" }
 ai = { path = "projects/libraries/layers/orchestration/ai" }
 hybrid_arena = { path = "projects/libraries/core/foundation/hybrid_arena" }
 versioning = { path = "projects/libraries/layers/domain/versioning" }
+runtime_core = { path = "projects/libraries/layers/domain/runtime_core" }
 
 sha2 = "0.10.8"
 hex = "0.4.3"
