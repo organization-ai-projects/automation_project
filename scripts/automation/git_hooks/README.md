@@ -60,9 +60,11 @@ git_hooks/
   - Markdown auto-fix + validation for staged markdown files (`pnpm run lint-md-fix-files -- ...` then `pnpm run lint-md-files -- ...`).
   - Shell syntax checks (`bash -n`) for staged shell files.
   - Rust formatting (`cargo fmt --all`) when staged Rust files exist.
+  - Early assignment-policy guard using remote issue metadata (single-assignee issues require `Closes`).
 - `pre-push`:
   - Markdown lint for changed markdown files (`pnpm run lint-md-files -- ...`).
   - Rust checks (`fmt --check`, `clippy`, `test`) for non docs/scripts-only pushes.
+  - Assignment-policy guard using issue assignees (`Part of`-only is blocked for single-assignee self-owned issues).
   - Docs/scripts-only optimization remains active, but markdownlint still runs when markdown files are changed.
 - CI / GitHub Actions:
   - `automation_markdown.yml` can auto-fix markdownlint issues in PR branches.
@@ -194,6 +196,11 @@ The hook uses two layers:
 ```bash
 SKIP_PRE_PUSH=1 git push
 ```
+
+Remote/offline policy:
+
+- Default behavior is strict (`fail-closed`) when remote metadata cannot be resolved.
+- Set `HOOKS_REMOTE_POLICY=warn` (or `ALLOW_OFFLINE_REMOTE_CHECKS=1`) to degrade remote checks to warnings when offline.
 
 ## Installation
 

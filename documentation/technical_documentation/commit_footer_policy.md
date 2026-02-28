@@ -9,7 +9,6 @@ Keep issue tracking deterministic and avoid ambiguous closure behavior.
 ## Footer Keywords
 
 - `Closes #<issue>`: Use when the change fully closes an issue.
-- `Fixes #<issue>`: Alternative closing keyword with the same closure semantics.
 - `Part of #<issue>`: Use when a commit contributes to a larger parent issue but does not close it.
 - `Reopen #<issue>`: Use to explicitly prevent closure when an issue was closed prematurely and work is still ongoing.
 
@@ -19,6 +18,10 @@ Keep issue tracking deterministic and avoid ambiguous closure behavior.
 - Do not mix closing and non-closing keywords for the same issue in one commit.
 - Use `Part of` when work is partial.
 - Use `Reopen` with the same issue number to explicitly neutralize closure in commit/PR text.
+- `Fixes #<issue>` is reserved for PR/bot automation inputs and is not allowed in local commit footers.
+- Assignment policy:
+  - if an issue has exactly one assignee and that assignee is the current developer, `Part of #<issue>` without `Closes #<issue>` is not allowed.
+  - if an issue has multiple assignees, `Part of #<issue>` is allowed.
 
 ## Examples
 

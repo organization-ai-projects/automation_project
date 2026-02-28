@@ -20,6 +20,7 @@ Il interagit principalement avec:
 github/
 ├── README.md (ce fichier, version EN canonique)
 ├── TOC.md
+├── auto_add_closes_on_dev_pr.sh
 ├── auto_link_parent_issue.sh
 ├── generate_pr_description.sh
 ├── issue_done_in_dev_status.sh
@@ -36,12 +37,14 @@ github/
 - `README.md`: Ce document.
 - `TOC.md`: Index des scripts GitHub-only.
 - `auto_link_parent_issue.sh`: Auto-lie une issue enfant a son parent via le champ `Parent:`.
+- `auto_add_closes_on_dev_pr.sh`: Enrichit automatiquement les PR ouvertes vers `dev` avec un bloc gere `Closes #<n>` quand une issue `Part of #<n>` est mono-assignee au meme auteur que la PR.
 - `generate_pr_description.sh`: Genere une description PR structuree.
 - `issue_done_in_dev_status.sh`: Ajoute `done-in-dev` apres merge dans `dev` (refs de fermeture) et le retire a la fermeture d'issue.
 - `parent_issue_guard.sh`: Verifie les regles parent/enfant avant fermeture.
 - `lib/classification.sh`: Aides de classification PR/issues.
 - `lib/rendering.sh`: Aides de rendu de sortie.
 - `tests/generate_pr_description_regression.sh`: Matrice de regression CLI.
+- `tests/auto_add_closes_on_dev_pr_regression.sh`: Regression de l'enrichissement auto des lignes `Closes #...` sur PR vers `dev`.
 - `tests/issue_done_in_dev_status_regression.sh`: Tests de regression du cycle add/remove du label `done-in-dev`.
 
 ## Portee

@@ -22,6 +22,7 @@ This document provides an overview of all documentation files in this directory.
 - [lib/issue_required_fields.sh](lib/issue_required_fields.sh): Shared required issue title/body contract validator
 - [lib/rendering.sh](lib/rendering.sh): Rendering helpers for sections and dynamic PR titles
 - [tests/generate_pr_description_regression.sh](tests/generate_pr_description_regression.sh): Regression matrix for CLI argument and mode behavior
+- [tests/auto_add_closes_on_dev_pr_regression.sh](tests/auto_add_closes_on_dev_pr_regression.sh): Regression tests for automatic `Closes #...` enrichment on dev-targeting PRs
 - [tests/issue_done_in_dev_status_regression.sh](tests/issue_done_in_dev_status_regression.sh): Regression tests for done-in-dev label lifecycle automation
 - [tests/manager_issues_regression.sh](tests/manager_issues_regression.sh): Regression tests for manager_issues create/read/update/close/reopen/soft-delete flows
 

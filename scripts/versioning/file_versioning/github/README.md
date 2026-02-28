@@ -52,6 +52,7 @@ github/
 - `lib/issue_required_fields.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
+- `tests/auto_add_closes_on_dev_pr_regression.sh`: Regression checks for automatic managed `Closes #...` enrichment on dev-targeting PRs.
 - `tests/issue_done_in_dev_status_regression.sh`: Regression checks for done-in-dev add/remove workflow behavior.
 - `tests/manager_issues_regression.sh`: Regression checks for manager_issues lifecycle routing behavior (create/read/update/close/reopen/soft-delete).
 
