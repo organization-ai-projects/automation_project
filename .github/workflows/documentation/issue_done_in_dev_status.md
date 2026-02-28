@@ -4,7 +4,7 @@ This workflow maintains the `done-in-dev` issue label lifecycle.
 
 ## Purpose
 
-- Add `done-in-dev` when a PR is merged into `dev` and references issue closures (`Closes #...`).
+- Add `done-in-dev` when a PR is merged into `dev` and references issue closures (`Closes/Fixes #...`).
 - Remove `done-in-dev` when an issue is closed.
 
 ## Triggers

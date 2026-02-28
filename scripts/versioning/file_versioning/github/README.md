@@ -43,6 +43,7 @@ github/
 - `create_direct_issue.sh`: Internal create contract script used by manager routing (direct usage deprecated).
 - `manager_issues.sh`: Unified issue lifecycle entrypoint for create/read/update/close/reopen operations (delete is soft-delete via close not_planned).
 - `issue_done_in_dev_status.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
+  - Supported closure refs for labeling: `Closes/Fixes #<n>`.
 - `neutralize_non_compliant_closure_refs.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
 - `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
@@ -87,8 +88,8 @@ Generated body includes:
 
 Supported issue-closing keywords for resolved issue extraction:
 
-- `Closes #<n>` / `Close #<n>`
-- `Fixes #<n>` (PR body parsing support for Copilot-generated references)
+- `Closes #<n>`
+- `Fixes #<n>`
 
 Usage:
 

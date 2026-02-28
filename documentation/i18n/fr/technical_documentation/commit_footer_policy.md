@@ -11,6 +11,7 @@ Conserver un suivi d'issues deterministe et eviter les comportements de fermetur
 ## Mots-cles de footer
 
 - `Closes #<issue>` : utiliser quand le changement ferme completement une issue.
+- `Fixes #<issue>` : mot-cle alternatif de fermeture avec la meme semantique.
 - `Part of #<issue>` : utiliser quand un commit contribue a une issue plus large sans la fermer.
 - `Reopen #<issue>` : utiliser pour bloquer explicitement la fermeture quand une issue a ete fermee trop tot.
 

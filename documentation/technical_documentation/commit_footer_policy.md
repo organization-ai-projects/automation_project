@@ -9,6 +9,7 @@ Keep issue tracking deterministic and avoid ambiguous closure behavior.
 ## Footer Keywords
 
 - `Closes #<issue>`: Use when the change fully closes an issue.
+- `Fixes #<issue>`: Alternative closing keyword with the same closure semantics.
 - `Part of #<issue>`: Use when a commit contributes to a larger parent issue but does not close it.
 - `Reopen #<issue>`: Use to explicitly prevent closure when an issue was closed prematurely and work is still ongoing.
 
