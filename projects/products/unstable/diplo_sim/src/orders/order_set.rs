@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
 use super::order::Order;
 use super::order_id::OrderId;
 use crate::model::faction_id::FactionId;
 use crate::model::unit_id::UnitId;
 use crate::orders::order_kind::OrderKind;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrderSet {
@@ -17,7 +17,11 @@ impl OrderSet {
     }
 
     /// Build an OrderSet from raw (unit_id, kind) pairs, assigning sequential OrderIds.
-    pub fn from_raw(faction_id: FactionId, raw: Vec<(UnitId, OrderKind)>, next_order_id: &mut u32) -> Self {
+    pub fn from_raw(
+        faction_id: FactionId,
+        raw: Vec<(UnitId, OrderKind)>,
+        next_order_id: &mut u32,
+    ) -> Self {
         let orders = raw
             .into_iter()
             .map(|(unit_id, kind)| {

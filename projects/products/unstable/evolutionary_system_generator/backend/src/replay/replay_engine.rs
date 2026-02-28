@@ -31,15 +31,20 @@ impl ReplayEngine {
         top_n: usize,
     ) -> Result<ReplayResult, ReplayError> {
         let started = log.events.iter().find_map(|e| {
-            if let SearchEventKind::SearchStarted { seed, population_size, max_generations } = &e.kind {
+            if let SearchEventKind::SearchStarted {
+                seed,
+                population_size,
+                max_generations,
+            } = &e.kind
+            {
                 Some((*seed, *population_size, *max_generations))
             } else {
                 None
             }
         });
 
-        let (seed, population_size, max_generations) = started
-            .ok_or(ReplayError::NoSearchStartedEvent)?;
+        let (seed, population_size, max_generations) =
+            started.ok_or(ReplayError::NoSearchStartedEvent)?;
 
         let config = SearchConfig {
             seed: Seed(seed),

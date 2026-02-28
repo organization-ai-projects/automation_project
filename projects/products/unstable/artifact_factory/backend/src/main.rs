@@ -8,7 +8,7 @@ mod public_api;
 mod render;
 
 use crate::io::json_codec::JsonCodec;
-use crate::protocol::{RequestMessage, ResponseMessage, Response};
+use crate::protocol::{RequestMessage, Response, ResponseMessage};
 use crate::public_api::BackendSession;
 use std::io::BufRead as _;
 
@@ -41,7 +41,9 @@ fn main() {
         let id = msg.id;
         let response = match session.handle(msg.request) {
             Ok(r) => r,
-            Err(e) => Response::Error { message: e.to_string() },
+            Err(e) => Response::Error {
+                message: e.to_string(),
+            },
         };
 
         let resp_msg = ResponseMessage { id, response };

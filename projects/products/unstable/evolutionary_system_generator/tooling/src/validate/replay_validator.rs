@@ -1,7 +1,9 @@
 use std::io::{BufRead, BufReader, Write};
 
 use crate::diagnostics::error::ToolingError;
-use crate::validate::determinism_validator::{ValidatorConfig, spawn_backend, extract_manifest_hash};
+use crate::validate::determinism_validator::{
+    ValidatorConfig, extract_manifest_hash, spawn_backend,
+};
 
 #[derive(Debug)]
 pub struct ReplayValidatorResult {
@@ -19,9 +21,13 @@ impl ReplayValidator {
         // Phase 1: run a search, save replay, capture manifest hash
         let original_hash = {
             let mut child = spawn_backend(backend_bin)?;
-            let stdin = child.stdin.as_mut().ok_or(ToolingError::Io(
-                std::io::Error::new(std::io::ErrorKind::BrokenPipe, "no stdin"),
-            ))?;
+            let stdin = child
+                .stdin
+                .as_mut()
+                .ok_or(ToolingError::Io(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "no stdin",
+                )))?;
             let rule_pool_json = serde_json::to_string(&config.rule_pool)
                 .map_err(|e| ToolingError::Validation(e.to_string()))?;
             writeln!(
@@ -34,9 +40,13 @@ impl ReplayValidator {
             writeln!(stdin, r#"{{"type":"GetCandidates","top_n":5}}"#)?;
             drop(child.stdin.take());
 
-            let stdout = child.stdout.take().ok_or(ToolingError::Io(
-                std::io::Error::new(std::io::ErrorKind::BrokenPipe, "no stdout"),
-            ))?;
+            let stdout = child
+                .stdout
+                .take()
+                .ok_or(ToolingError::Io(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "no stdout",
+                )))?;
             let lines: Vec<String> = BufReader::new(stdout)
                 .lines()
                 .map_while(Result::ok)
@@ -48,9 +58,13 @@ impl ReplayValidator {
         // Phase 2: load replay and get candidates
         let replayed_hash = {
             let mut child = spawn_backend(backend_bin)?;
-            let stdin = child.stdin.as_mut().ok_or(ToolingError::Io(
-                std::io::Error::new(std::io::ErrorKind::BrokenPipe, "no stdin"),
-            ))?;
+            let stdin = child
+                .stdin
+                .as_mut()
+                .ok_or(ToolingError::Io(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "no stdin",
+                )))?;
             let rule_pool_json = serde_json::to_string(&config.rule_pool)
                 .map_err(|e| ToolingError::Validation(e.to_string()))?;
             writeln!(
@@ -60,9 +74,13 @@ impl ReplayValidator {
             )?;
             drop(child.stdin.take());
 
-            let stdout = child.stdout.take().ok_or(ToolingError::Io(
-                std::io::Error::new(std::io::ErrorKind::BrokenPipe, "no stdout"),
-            ))?;
+            let stdout = child
+                .stdout
+                .take()
+                .ok_or(ToolingError::Io(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "no stdout",
+                )))?;
             let lines: Vec<String> = BufReader::new(stdout)
                 .lines()
                 .map_while(Result::ok)
@@ -71,7 +89,8 @@ impl ReplayValidator {
             extract_manifest_hash(&lines)?
         };
 
-        Ok(ReplayValidatorResult { replay_ok: original_hash == replayed_hash })
+        Ok(ReplayValidatorResult {
+            replay_ok: original_hash == replayed_hash,
+        })
     }
 }
-

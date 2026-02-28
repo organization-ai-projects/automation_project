@@ -1,2 +1,2 @@
-pub mod table_widget;
 pub mod plot_widget;
+pub mod table_widget;

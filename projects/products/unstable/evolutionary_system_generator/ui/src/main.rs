@@ -1,15 +1,15 @@
 pub mod public_api;
 
 mod app;
-mod transport;
-mod screens;
-mod widgets;
 mod diagnostics;
+mod screens;
+mod transport;
+mod widgets;
 
 use std::io::{BufRead, Write};
 
-use app::app_state::AppState;
 use app::action::Action;
+use app::app_state::AppState;
 use app::controller::Controller;
 
 fn main() {
@@ -56,7 +56,11 @@ fn parse_command(input: &str) -> Option<Action> {
             seed: 42,
             population_size: 10,
             max_generations: 5,
-            rule_pool: vec!["rule_a".to_string(), "rule_b".to_string(), "rule_c".to_string()],
+            rule_pool: vec![
+                "rule_a".to_string(),
+                "rule_b".to_string(),
+                "rule_c".to_string(),
+            ],
         }),
         "step" => Some(Action::StepGen),
         "run" => Some(Action::RunToEnd),

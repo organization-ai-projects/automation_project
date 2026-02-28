@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::replay_event::ReplayEvent;
+use serde::{Deserialize, Serialize};
 
 /// An ordered log of all replay events across all turns.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

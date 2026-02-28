@@ -38,5 +38,8 @@ fn test_replay_produces_identical_trajectory() {
     .unwrap();
 
     assert!(result.matches);
-    assert_eq!(result.manifest.manifest_hash, original_manifest.manifest_hash);
+    assert_eq!(
+        result.manifest.manifest_hash,
+        original_manifest.manifest_hash
+    );
 }

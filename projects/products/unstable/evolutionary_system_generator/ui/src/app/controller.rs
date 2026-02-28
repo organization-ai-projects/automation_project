@@ -19,18 +19,24 @@ impl Controller {
     }
 
     pub fn with_backend_bin(path: impl Into<String>) -> Self {
-        Self { child: None, backend_bin: path.into() }
+        Self {
+            child: None,
+            backend_bin: path.into(),
+        }
     }
 
     pub fn handle(&mut self, state: &mut AppState, action: Action) -> Vec<String> {
         match action {
-            Action::StartSearch { seed, population_size, max_generations, rule_pool } => {
+            Action::StartSearch {
+                seed,
+                population_size,
+                max_generations,
+                rule_pool,
+            } => {
                 let rule_pool_json = serde_json::to_string(&rule_pool).unwrap_or_default();
-                let requests = vec![
-                    format!(
-                        r#"{{"type":"NewSearch","seed":{seed},"population_size":{population_size},"max_generations":{max_generations},"rule_pool":{rule_pool_json}}}"#
-                    ),
-                ];
+                let requests = vec![format!(
+                    r#"{{"type":"NewSearch","seed":{seed},"population_size":{population_size},"max_generations":{max_generations},"rule_pool":{rule_pool_json}}}"#
+                )];
                 match self.run_requests_in_fresh_backend(&requests) {
                     Ok(lines) => {
                         if lines.iter().any(|l| l.contains(r#""type":"Ok""#)) {
@@ -48,7 +54,10 @@ impl Controller {
                 }
             }
             Action::StepGen => {
-                apply_error(state, "StepGen requires an active session; use run instead.".to_string());
+                apply_error(
+                    state,
+                    "StepGen requires an active session; use run instead.".to_string(),
+                );
                 vec!["Use 'run' to run to completion.".to_string()]
             }
             Action::RunToEnd => {
@@ -86,7 +95,10 @@ impl Controller {
         }
     }
 
-    fn run_requests_in_fresh_backend(&mut self, requests: &[String]) -> Result<Vec<String>, String> {
+    fn run_requests_in_fresh_backend(
+        &mut self,
+        requests: &[String],
+    ) -> Result<Vec<String>, String> {
         let mut child = Command::new(&self.backend_bin)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

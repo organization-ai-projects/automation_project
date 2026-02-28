@@ -24,8 +24,8 @@ fn main() {
         "validate-determinism" => {
             let seed = parse_flag(&args, "--seed").unwrap_or(42);
             let generations = parse_flag(&args, "--generations").unwrap_or(5);
-            let backend_bin = parse_str_flag(&args, "--backend-bin")
-                .unwrap_or_else(|| "evo-backend".to_string());
+            let backend_bin =
+                parse_str_flag(&args, "--backend-bin").unwrap_or_else(|| "evo-backend".to_string());
             let config = ValidatorConfig {
                 seed,
                 population_size: 10,
@@ -34,7 +34,14 @@ fn main() {
             };
             match DeterminismValidator::validate(config, &backend_bin) {
                 Ok(result) => {
-                    println!("Determinism check: {}", if result.determinism_ok { "PASS" } else { "FAIL" });
+                    println!(
+                        "Determinism check: {}",
+                        if result.determinism_ok {
+                            "PASS"
+                        } else {
+                            "FAIL"
+                        }
+                    );
                     if let Some(hash) = result.manifest_hash {
                         println!("Manifest hash: {}", hash);
                     }
@@ -50,8 +57,8 @@ fn main() {
             let generations = parse_flag(&args, "--generations").unwrap_or(5);
             let replay_path = parse_str_flag(&args, "--replay-path")
                 .unwrap_or_else(|| "/tmp/replay.json".to_string());
-            let backend_bin = parse_str_flag(&args, "--backend-bin")
-                .unwrap_or_else(|| "evo-backend".to_string());
+            let backend_bin =
+                parse_str_flag(&args, "--backend-bin").unwrap_or_else(|| "evo-backend".to_string());
             let config = ValidatorConfig {
                 seed,
                 population_size: 10,
@@ -60,7 +67,10 @@ fn main() {
             };
             match ReplayValidator::validate(config, &replay_path, &backend_bin) {
                 Ok(result) => {
-                    println!("Replay check: {}", if result.replay_ok { "PASS" } else { "FAIL" });
+                    println!(
+                        "Replay check: {}",
+                        if result.replay_ok { "PASS" } else { "FAIL" }
+                    );
                 }
                 Err(e) => {
                     eprintln!("Error: {}", e);
@@ -82,11 +92,14 @@ fn parse_flag(args: &[String], flag: &str) -> Option<u64> {
 }
 
 fn parse_str_flag(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2)
-        .find(|w| w[0] == flag)
-        .map(|w| w[1].clone())
+    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }
 
 fn default_rule_pool() -> Vec<String> {
-    vec!["rule_a".to_string(), "rule_b".to_string(), "rule_c".to_string(), "rule_d".to_string()]
+    vec![
+        "rule_a".to_string(),
+        "rule_b".to_string(),
+        "rule_c".to_string(),
+        "rule_d".to_string(),
+    ]
 }

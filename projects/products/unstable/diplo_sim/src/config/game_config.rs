@@ -10,6 +10,11 @@ pub struct GameConfig {
 
 impl GameConfig {
     pub fn new(num_turns: u32, seed: u64, num_players: u32, map_path: String) -> Self {
-        Self { num_turns, seed, num_players, map_path }
+        Self {
+            num_turns,
+            seed,
+            num_players,
+            map_path,
+        }
     }
 }

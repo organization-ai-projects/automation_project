@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::output::candidate::Candidate;
 use crate::output::manifest_hash::ManifestHash;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CandidateManifest {

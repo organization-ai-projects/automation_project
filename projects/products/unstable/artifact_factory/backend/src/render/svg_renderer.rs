@@ -22,7 +22,8 @@ impl SvgRenderer {
         svg.push('\n');
 
         // Node positions (deterministic: sorted alphabetical, row-major grid)
-        let mut positions: std::collections::BTreeMap<&str, (usize, usize)> = std::collections::BTreeMap::new();
+        let mut positions: std::collections::BTreeMap<&str, (usize, usize)> =
+            std::collections::BTreeMap::new();
         for (i, node) in nodes.iter().enumerate() {
             let col = i % cols;
             let row = i / cols;

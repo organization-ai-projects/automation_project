@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use super::faction_id::FactionId;
 use super::unit_id::UnitId;
 use crate::map::territory_id::TerritoryId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Unit {

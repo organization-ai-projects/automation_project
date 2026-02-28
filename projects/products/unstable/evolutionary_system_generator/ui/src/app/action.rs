@@ -8,6 +8,8 @@ pub enum Action {
     },
     StepGen,
     RunToEnd,
-    ShowCandidates { top_n: usize },
+    ShowCandidates {
+        top_n: usize,
+    },
     Quit,
 }

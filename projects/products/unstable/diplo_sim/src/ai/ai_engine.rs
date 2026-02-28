@@ -1,8 +1,8 @@
+use super::ai_order_generator::generate_orders_for_faction;
+use super::ai_profile::AiProfile;
 use crate::model::faction_id::FactionId;
 use crate::model::game_state::GameState;
 use crate::orders::order_set::OrderSet;
-use super::ai_profile::AiProfile;
-use super::ai_order_generator::generate_orders_for_faction;
 
 /// AI engine that generates orders for all AI-controlled factions.
 pub struct AiEngine {

@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::genome::genome::Genome;
 use crate::seed::seed::Xorshift64;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Mutation {

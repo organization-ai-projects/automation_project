@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use crate::evaluate::evaluation_report::EvaluationReport;
 use crate::evaluate::fitness::Fitness;
 use crate::genome::genome::Genome;
 use crate::genome::genome_id::GenomeId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Candidate {

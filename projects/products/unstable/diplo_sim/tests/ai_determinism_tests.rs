@@ -10,17 +10,29 @@ use diplo_sim::model::unit_id::UnitId;
 use diplo_sim::time::turn::Turn;
 
 fn make_tiny_state() -> GameState {
-    let (map, _) = load_map_from_str(
-        include_str!("fixtures/maps/tiny_triangle_map.json")
-    ).unwrap();
+    let (map, _) = load_map_from_str(include_str!("fixtures/maps/tiny_triangle_map.json")).unwrap();
     GameState {
         units: vec![
-            Unit { id: UnitId(0), faction_id: FactionId(0), territory_id: TerritoryId(0) },
-            Unit { id: UnitId(1), faction_id: FactionId(1), territory_id: TerritoryId(1) },
+            Unit {
+                id: UnitId(0),
+                faction_id: FactionId(0),
+                territory_id: TerritoryId(0),
+            },
+            Unit {
+                id: UnitId(1),
+                faction_id: FactionId(1),
+                territory_id: TerritoryId(1),
+            },
         ],
         factions: vec![
-            Faction { id: FactionId(0), name: "F0".into() },
-            Faction { id: FactionId(1), name: "F1".into() },
+            Faction {
+                id: FactionId(0),
+                name: "F0".into(),
+            },
+            Faction {
+                id: FactionId(1),
+                name: "F1".into(),
+            },
         ],
         current_turn: Turn::new(0),
         map_graph: map,
@@ -65,7 +77,8 @@ fn test_different_seeds_may_produce_different_orders() {
         let engine = AiEngine::new(seed, AiProfile::default());
         let mut oid = 0u32;
         let orders = engine.generate_all_orders(&state, &mut oid);
-        let kinds: Vec<_> = orders.iter()
+        let kinds: Vec<_> = orders
+            .iter()
             .flat_map(|os| os.orders.iter().map(|o| o.kind.clone()))
             .collect();
 

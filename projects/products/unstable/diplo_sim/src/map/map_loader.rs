@@ -1,8 +1,8 @@
-use serde::Deserialize;
-use crate::diagnostics::error::DiploSimError;
 use super::map_graph::MapGraph;
 use super::territory::Territory;
 use super::territory_id::TerritoryId;
+use crate::diagnostics::error::DiploSimError;
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct MapFile {
@@ -64,11 +64,15 @@ pub fn load_map_from_file(path: &str) -> Result<(MapGraph, Vec<StartingUnitFile>
 
 fn validate_map_file(map_file: &MapFile) -> Result<(), DiploSimError> {
     if map_file.territories.is_empty() {
-        return Err(DiploSimError::MapValidation("Map has no territories".to_string()));
+        return Err(DiploSimError::MapValidation(
+            "Map has no territories".to_string(),
+        ));
     }
     let ids: std::collections::HashSet<u32> = map_file.territories.iter().map(|t| t.id).collect();
     if ids.len() != map_file.territories.len() {
-        return Err(DiploSimError::MapValidation("Duplicate territory IDs".to_string()));
+        return Err(DiploSimError::MapValidation(
+            "Duplicate territory IDs".to_string(),
+        ));
     }
     for adj in &map_file.adjacencies {
         if !ids.contains(&adj[0]) || !ids.contains(&adj[1]) {
@@ -79,14 +83,16 @@ fn validate_map_file(map_file: &MapFile) -> Result<(), DiploSimError> {
         }
         if adj[0] == adj[1] {
             return Err(DiploSimError::MapValidation(format!(
-                "Self-adjacency for territory {}", adj[0]
+                "Self-adjacency for territory {}",
+                adj[0]
             )));
         }
     }
     for su in &map_file.starting_units {
         if !ids.contains(&su.territory_id) {
             return Err(DiploSimError::MapValidation(format!(
-                "Starting unit references unknown territory {}", su.territory_id
+                "Starting unit references unknown territory {}",
+                su.territory_id
             )));
         }
     }

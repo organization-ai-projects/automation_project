@@ -25,8 +25,14 @@ fn run_tiny_triangle() -> (MatchReport, ReplayFile) {
     let (map, starting_units) = load_map_from_str(TINY_MAP_JSON).unwrap();
 
     let factions: Vec<Faction> = vec![
-        Faction { id: FactionId(0), name: "Faction0".into() },
-        Faction { id: FactionId(1), name: "Faction1".into() },
+        Faction {
+            id: FactionId(0),
+            name: "Faction0".into(),
+        },
+        Faction {
+            id: FactionId(1),
+            name: "Faction1".into(),
+        },
     ];
     let units: Vec<Unit> = starting_units
         .iter()
@@ -96,10 +102,10 @@ fn test_replay_produces_identical_match_report() {
 
     // Compare full serialized JSON bytes using canonical JSON
     let original_json = diplo_sim::report::run_hash::canonical_json_string(
-        &common_json::to_json(&original_report).unwrap()
+        &common_json::to_json(&original_report).unwrap(),
     );
     let replayed_json = diplo_sim::report::run_hash::canonical_json_string(
-        &common_json::to_json(&replayed_report).unwrap()
+        &common_json::to_json(&replayed_report).unwrap(),
     );
     assert_eq!(
         original_json, replayed_json,

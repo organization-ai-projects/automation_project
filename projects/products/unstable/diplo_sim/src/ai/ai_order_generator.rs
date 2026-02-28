@@ -1,13 +1,13 @@
-use rand::SeedableRng;
-use rand::rngs::StdRng;
-use rand::Rng;
+use super::ai_profile::AiProfile;
 use crate::map::territory_id::TerritoryId;
 use crate::model::faction_id::FactionId;
 use crate::model::game_state::GameState;
 use crate::model::unit_id::UnitId;
 use crate::orders::order_kind::OrderKind;
 use crate::orders::order_set::OrderSet;
-use super::ai_profile::AiProfile;
+use rand::Rng;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 /// Generates orders for a single faction and turn deterministically.
 pub fn generate_orders_for_faction(
@@ -36,12 +36,14 @@ pub fn generate_orders_for_faction(
         .into_iter()
         .map(|unit| {
             let neighbors = state.map_graph.neighbors(unit.territory_id);
-            let should_move = !neighbors.is_empty()
-                && rng.random_range(0..100u32) < profile.move_probability;
+            let should_move =
+                !neighbors.is_empty() && rng.random_range(0..100u32) < profile.move_probability;
 
             let kind = if should_move {
                 let idx = rng.random_range(0..neighbors.len());
-                OrderKind::Move { target: neighbors[idx] }
+                OrderKind::Move {
+                    target: neighbors[idx],
+                }
             } else {
                 OrderKind::Hold
             };
@@ -60,5 +62,9 @@ pub fn generate_move_order(
 ) -> crate::orders::order::Order {
     let id = crate::orders::order_id::OrderId(*next_order_id);
     *next_order_id += 1;
-    crate::orders::order::Order { id, unit_id, kind: OrderKind::Move { target } }
+    crate::orders::order::Order {
+        id,
+        unit_id,
+        kind: OrderKind::Move { target },
+    }
 }

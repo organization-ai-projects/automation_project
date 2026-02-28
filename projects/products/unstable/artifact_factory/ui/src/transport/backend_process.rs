@@ -16,8 +16,14 @@ impl BackendProcess {
             .stderr(Stdio::inherit())
             .spawn()
             .map_err(|e| UiError::Transport(e.to_string()))?;
-        let stdin = child.stdin.take().ok_or_else(|| UiError::Transport("no stdin".to_string()))?;
-        let stdout = child.stdout.take().ok_or_else(|| UiError::Transport("no stdout".to_string()))?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| UiError::Transport("no stdin".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| UiError::Transport("no stdout".to_string()))?;
         Ok(Self {
             child,
             stdin,
@@ -31,7 +37,9 @@ impl BackendProcess {
 
     pub fn recv_line(&mut self) -> Result<String, UiError> {
         let mut line = String::new();
-        self.stdout.read_line(&mut line).map_err(|e| UiError::Transport(e.to_string()))?;
+        self.stdout
+            .read_line(&mut line)
+            .map_err(|e| UiError::Transport(e.to_string()))?;
         Ok(line.trim_end().to_string())
     }
 }

@@ -50,9 +50,11 @@ impl BackendSession {
                 let event_map = self.event_map.as_ref().cloned().unwrap_or_default();
                 let protocol_map = self.protocol_map.as_ref().cloned().unwrap_or_default();
                 let dep_graph = self.dep_graph.as_ref().cloned().unwrap_or_default();
-                let md = MarkdownRenderer::render(&self.inputs, &event_map, &protocol_map, &dep_graph);
+                let md =
+                    MarkdownRenderer::render(&self.inputs, &event_map, &protocol_map, &dep_graph);
                 let svg = SvgRenderer::render(&dep_graph);
-                let html = HtmlRenderer::render(&self.inputs, &event_map, &protocol_map, &dep_graph);
+                let html =
+                    HtmlRenderer::render(&self.inputs, &event_map, &protocol_map, &dep_graph);
                 let mut bundle = ArtifactBundle::new();
                 bundle.add_file("docs.md", md.into_bytes());
                 bundle.add_file("graph.svg", svg.into_bytes());
@@ -69,17 +71,15 @@ impl BackendSession {
                 self.bundle_hash = Some(hash);
                 Ok(Response::Ok)
             }
-            Request::GetBundle => {
-                match (&self.bundle, &self.bundle_hash) {
-                    (Some(bundle), Some(hash)) => Ok(Response::Bundle {
-                        hash: hash.clone(),
-                        manifest: bundle.manifest.clone(),
-                    }),
-                    _ => Ok(Response::Error {
-                        message: "no bundle available; run RenderDocs or BuildBundle first".to_string(),
-                    }),
-                }
-            }
+            Request::GetBundle => match (&self.bundle, &self.bundle_hash) {
+                (Some(bundle), Some(hash)) => Ok(Response::Bundle {
+                    hash: hash.clone(),
+                    manifest: bundle.manifest.clone(),
+                }),
+                _ => Ok(Response::Error {
+                    message: "no bundle available; run RenderDocs or BuildBundle first".to_string(),
+                }),
+            },
         }
     }
 }

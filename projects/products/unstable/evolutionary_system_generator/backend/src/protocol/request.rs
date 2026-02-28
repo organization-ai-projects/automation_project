@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::constraints::constraint::Constraint;
+use serde::{Deserialize, Serialize};
 
 fn default_top_n() -> usize {
     5

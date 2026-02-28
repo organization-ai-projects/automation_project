@@ -10,7 +10,9 @@ pub struct Xorshift64 {
 
 impl Xorshift64 {
     pub fn from_seed(seed: &Seed) -> Self {
-        Self { state: seed.0.max(1) }
+        Self {
+            state: seed.0.max(1),
+        }
     }
 
     pub fn next_u64(&mut self) -> u64 {

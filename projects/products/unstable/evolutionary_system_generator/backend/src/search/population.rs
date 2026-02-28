@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use crate::evaluate::evaluation_report::EvaluationReport;
 use crate::evaluate::fitness::Fitness;
 use crate::genome::genome::Genome;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Individual {

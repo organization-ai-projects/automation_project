@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use crate::constraints::constraint::Constraint;
 use crate::constraints::constraint_engine::ConstraintEngine;
 use crate::evaluate::evaluator::Evaluator;
@@ -14,6 +13,7 @@ use crate::replay::search_event::SearchEventKind;
 use crate::search::population::{Individual, Population};
 use crate::search::selection::tournament_select;
 use crate::seed::seed::{Seed, Xorshift64};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchConfig {
@@ -36,7 +36,10 @@ pub struct EvolutionEngine {
 impl EvolutionEngine {
     pub fn new(config: SearchConfig) -> Self {
         let rng = Xorshift64::from_seed(&config.seed);
-        let population = Population { generation: 0, individuals: Vec::new() };
+        let population = Population {
+            generation: 0,
+            individuals: Vec::new(),
+        };
         let mut engine = Self {
             config,
             rng,
@@ -90,18 +93,25 @@ impl EvolutionEngine {
 
     pub fn build_candidate_manifest(&self, top_n: usize) -> CandidateManifest {
         let mut sorted = self.population.individuals.clone();
-        sorted.sort_by(|a, b| b.fitness.0.partial_cmp(&a.fitness.0).unwrap_or(std::cmp::Ordering::Equal));
+        sorted.sort_by(|a, b| {
+            b.fitness
+                .0
+                .partial_cmp(&a.fitness.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         sorted.truncate(top_n);
 
-        let candidates: Vec<Candidate> = sorted.into_iter().enumerate().map(|(rank, ind)| {
-            Candidate {
+        let candidates: Vec<Candidate> = sorted
+            .into_iter()
+            .enumerate()
+            .map(|(rank, ind)| Candidate {
                 rank,
                 genome_id: ind.genome.id,
                 genome: ind.genome.clone(),
                 fitness: ind.fitness.clone(),
                 report: ind.report.clone(),
-            }
-        }).collect();
+            })
+            .collect();
 
         let generation = self.population.generation;
         let seed = self.config.seed.0;
@@ -122,12 +132,15 @@ impl EvolutionEngine {
     }
 
     fn create_initial_genome(&mut self, id: GenomeId) -> Genome {
-        let rules: Vec<RuleEntry> = self.config.rule_pool.iter().map(|name| {
-            RuleEntry {
+        let rules: Vec<RuleEntry> = self
+            .config
+            .rule_pool
+            .iter()
+            .map(|name| RuleEntry {
                 name: name.clone(),
                 weight: self.rng.next_range(11) as u32,
-            }
-        }).collect();
+            })
+            .collect();
         Genome { id, rules }
     }
 
@@ -147,11 +160,18 @@ impl EvolutionEngine {
                 genome_id: id.0,
                 fitness: fitness.0,
             });
-            individuals.push(Individual { genome, fitness, report });
+            individuals.push(Individual {
+                genome,
+                fitness,
+                report,
+            });
         }
         self.population.individuals = individuals;
 
-        let best = self.population.individuals.iter()
+        let best = self
+            .population
+            .individuals
+            .iter()
             .map(|i| i.fitness.0)
             .fold(f64::NEG_INFINITY, f64::max);
         self.event_log.push(SearchEventKind::GenerationComplete {
@@ -169,8 +189,12 @@ impl EvolutionEngine {
         for _ in 0..pop_size {
             let use_crossover = self.rng.next_range(2) == 0;
             let new_genome = if use_crossover && self.population.individuals.len() >= 2 {
-                let parent_a = tournament_select(&mut self.rng, &self.population).genome.clone();
-                let parent_b = tournament_select(&mut self.rng, &self.population).genome.clone();
+                let parent_a = tournament_select(&mut self.rng, &self.population)
+                    .genome
+                    .clone();
+                let parent_b = tournament_select(&mut self.rng, &self.population)
+                    .genome
+                    .clone();
                 let child_id = self.alloc_genome_id();
                 let child = uniform_crossover(&mut self.rng, &parent_a, &parent_b, child_id);
                 self.event_log.push(SearchEventKind::CrossoverApplied {
@@ -180,7 +204,9 @@ impl EvolutionEngine {
                 });
                 child
             } else {
-                let parent = tournament_select(&mut self.rng, &self.population).genome.clone();
+                let parent = tournament_select(&mut self.rng, &self.population)
+                    .genome
+                    .clone();
                 let parent_id = parent.id;
                 let child_id = self.alloc_genome_id();
                 let mut child = parent;
@@ -200,13 +226,20 @@ impl EvolutionEngine {
                 genome_id: new_genome.id.0,
                 fitness: fitness.0,
             });
-            new_individuals.push(Individual { genome: new_genome, fitness, report });
+            new_individuals.push(Individual {
+                genome: new_genome,
+                fitness,
+                report,
+            });
         }
 
         self.population.individuals = new_individuals;
         self.population.generation += 1;
 
-        let best = self.population.individuals.iter()
+        let best = self
+            .population
+            .individuals
+            .iter()
             .map(|i| i.fitness.0)
             .fold(f64::NEG_INFINITY, f64::max);
         self.event_log.push(SearchEventKind::GenerationComplete {

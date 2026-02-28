@@ -1,6 +1,6 @@
+use crate::output::candidate::Candidate;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use crate::output::candidate::Candidate;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ManifestHash(pub String);

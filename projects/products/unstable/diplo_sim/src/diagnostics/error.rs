@@ -1,7 +1,7 @@
-use thiserror::Error;
 use crate::map::territory_id::TerritoryId;
 use crate::model::unit_id::UnitId;
 use crate::orders::order_id::OrderId;
+use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DiploSimError {
@@ -9,7 +9,9 @@ pub enum DiploSimError {
     Io(String),
     #[error("Map validation error: {0}")]
     MapValidation(String),
-    #[error("Order validation error on order {order_id}: unit {unit_id} territory {territory_id} - {reason}")]
+    #[error(
+        "Order validation error on order {order_id}: unit {unit_id} territory {territory_id} - {reason}"
+    )]
     OrderValidation {
         order_id: OrderId,
         unit_id: UnitId,

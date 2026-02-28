@@ -1,15 +1,15 @@
 #![allow(unused_imports)]
+pub use crate::constraints::constraint::Constraint;
+pub use crate::evaluate::evaluation_report::EvaluationReport;
+pub use crate::evaluate::fitness::Fitness;
 pub use crate::genome::genome::{Genome, RuleEntry};
 pub use crate::genome::genome_id::GenomeId;
 pub use crate::genome::mutation::Mutation;
-pub use crate::evaluate::fitness::Fitness;
-pub use crate::evaluate::evaluation_report::EvaluationReport;
-pub use crate::search::evolution_engine::{EvolutionEngine, SearchConfig};
-pub use crate::search::population::{Population, Individual};
-pub use crate::constraints::constraint::Constraint;
-pub use crate::replay::event_log::EventLog;
-pub use crate::replay::replay_engine::{ReplayEngine, ReplayResult};
 pub use crate::output::candidate::Candidate;
 pub use crate::output::candidate_manifest::CandidateManifest;
 pub use crate::output::manifest_hash::ManifestHash;
+pub use crate::replay::event_log::EventLog;
+pub use crate::replay::replay_engine::{ReplayEngine, ReplayResult};
+pub use crate::search::evolution_engine::{EvolutionEngine, SearchConfig};
+pub use crate::search::population::{Individual, Population};
 pub use crate::seed::seed::Seed;

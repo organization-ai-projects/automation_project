@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use crate::map::territory_id::TerritoryId;
 use crate::model::unit_id::UnitId;
 use crate::time::turn::Turn;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResolutionOutcome {

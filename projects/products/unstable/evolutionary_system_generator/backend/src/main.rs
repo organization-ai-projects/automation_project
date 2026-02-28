@@ -45,11 +45,15 @@ fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response 
             Response::Ok
         }
         Request::StepGen => match engine {
-            None => Response::Error { message: "No search active".to_string() },
+            None => Response::Error {
+                message: "No search active".to_string(),
+            },
             Some(e) => {
                 let done = e.step_generation();
                 let pop = e.get_population();
-                let best = pop.individuals.iter()
+                let best = pop
+                    .individuals
+                    .iter()
                     .map(|i| i.fitness.0)
                     .fold(f64::NEG_INFINITY, f64::max);
                 Response::Report {
@@ -61,11 +65,15 @@ fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response 
             }
         },
         Request::RunToEnd => match engine {
-            None => Response::Error { message: "No search active".to_string() },
+            None => Response::Error {
+                message: "No search active".to_string(),
+            },
             Some(e) => {
                 e.run_to_end();
                 let pop = e.get_population();
-                let best = pop.individuals.iter()
+                let best = pop
+                    .individuals
+                    .iter()
                     .map(|i| i.fitness.0)
                     .fold(f64::NEG_INFINITY, f64::max);
                 Response::Report {
@@ -77,37 +85,49 @@ fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response 
             }
         },
         Request::GetCandidates { top_n } => match engine {
-            None => Response::Error { message: "No search active".to_string() },
+            None => Response::Error {
+                message: "No search active".to_string(),
+            },
             Some(e) => {
                 let manifest = e.build_candidate_manifest(top_n);
                 Response::Candidates { manifest }
             }
         },
         Request::SaveReplay { path } => match engine {
-            None => Response::Error { message: "No search active".to_string() },
-            Some(e) => {
-                match e.get_event_log().save_to_file(&path) {
-                    Ok(()) => Response::Ok,
-                    Err(err) => Response::Error { message: err.to_string() },
-                }
-            }
+            None => Response::Error {
+                message: "No search active".to_string(),
+            },
+            Some(e) => match e.get_event_log().save_to_file(&path) {
+                Ok(()) => Response::Ok,
+                Err(err) => Response::Error {
+                    message: err.to_string(),
+                },
+            },
         },
-        Request::LoadReplay { path, rule_pool, constraints } => {
-            match EventLog::load_from_file(&path) {
-                Err(err) => Response::Error { message: err.to_string() },
-                Ok(log) => {
-                    match ReplayEngine::replay_from_log(&log, rule_pool, constraints, 5) {
-                        Err(err) => Response::Error { message: err.to_string() },
-                        Ok(_result) => Response::Ok,
-                    }
-                }
-            }
+        Request::LoadReplay {
+            path,
+            rule_pool,
+            constraints,
+        } => match EventLog::load_from_file(&path) {
+            Err(err) => Response::Error {
+                message: err.to_string(),
+            },
+            Ok(log) => match ReplayEngine::replay_from_log(&log, rule_pool, constraints, 5) {
+                Err(err) => Response::Error {
+                    message: err.to_string(),
+                },
+                Ok(_result) => Response::Ok,
+            },
         },
         Request::ReplayToEnd => match engine {
-            None => Response::Error { message: "No search active".to_string() },
+            None => Response::Error {
+                message: "No search active".to_string(),
+            },
             Some(e) => {
                 let pop = e.get_population();
-                let best = pop.individuals.iter()
+                let best = pop
+                    .individuals
+                    .iter()
                     .map(|i| i.fitness.0)
                     .fold(f64::NEG_INFINITY, f64::max);
                 Response::Report {

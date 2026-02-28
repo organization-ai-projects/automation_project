@@ -9,6 +9,8 @@ pub struct AiProfile {
 
 impl Default for AiProfile {
     fn default() -> Self {
-        Self { move_probability: 50 }
+        Self {
+            move_probability: 50,
+        }
     }
 }

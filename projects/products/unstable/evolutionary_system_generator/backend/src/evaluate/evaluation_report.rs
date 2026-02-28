@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::evaluate::fitness::Fitness;
 use crate::genome::genome_id::GenomeId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluationReport {
