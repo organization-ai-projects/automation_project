@@ -4,11 +4,12 @@ use std::path::PathBuf;
 use clap::{ArgAction, Args};
 
 use crate::{
-    cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus},
+    cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus, CliRiskTier},
     cli_value_parsers::{
         parse_decision_contribution_cli, parse_decision_reliability_input_cli, parse_env_pair_cli,
+        parse_reviewer_verdict_cli,
     },
-    domain::{DecisionContribution, DecisionReliabilityInput},
+    domain::{DecisionContribution, DecisionReliabilityInput, ReviewerVerdict},
 };
 
 #[derive(Args, Debug, Clone)]
@@ -39,6 +40,8 @@ pub struct RunArgs {
     pub decision_contributions: Vec<DecisionContribution>,
     #[arg(long = "decision-reliability", value_parser = parse_decision_reliability_input_cli, action = ArgAction::Append)]
     pub decision_reliability_inputs: Vec<DecisionReliabilityInput>,
+    #[arg(long = "reviewer-verdict", value_parser = parse_reviewer_verdict_cli, action = ArgAction::Append)]
+    pub reviewer_verdicts: Vec<ReviewerVerdict>,
 
     #[arg(long)]
     pub checkpoint_path: Option<PathBuf>,
@@ -151,4 +154,11 @@ pub struct RunArgs {
     pub autofix_args: Vec<String>,
     #[arg(long, default_value_t = 3)]
     pub autofix_max_attempts: u32,
+    pub hard_gates_file: Option<PathBuf>,
+    #[arg(long, default_value_t = 3)]
+    pub planner_fallback_max_steps: u32,
+    #[arg(long, value_enum)]
+    pub risk_tier_override: Option<CliRiskTier>,
+    #[arg(long, default_value_t = false)]
+    pub risk_allow_high: bool,
 }

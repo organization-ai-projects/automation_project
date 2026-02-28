@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::{
     AdaptivePolicyDecision, AutoFixAttempt, DecisionContribution, DecisionReliabilityFactor,
-    DecisionReliabilityUpdate, FinalDecision, GateDecision, Stage, StageExecutionRecord,
+    DecisionReliabilityUpdate, FinalDecision, GateDecision, HardGateResult, PlannerPathRecord,
+    ReviewEnsembleResult, ReviewerVerdict, RiskSignal, RiskTier, Stage, StageExecutionRecord,
     StageTransition, TerminalState,
 };
 
@@ -15,8 +16,11 @@ pub struct RunReport {
     pub current_stage: Option<Stage>,
     pub terminal_state: Option<TerminalState>,
     pub gate_decisions: Vec<GateDecision>,
+    pub hard_gate_results: Vec<HardGateResult>,
     pub blocked_reason_codes: Vec<String>,
     pub reviewer_next_steps: Vec<String>,
+    pub reviewer_verdicts: Vec<ReviewerVerdict>,
+    pub review_ensemble_result: Option<ReviewEnsembleResult>,
     pub final_decision: Option<FinalDecision>,
     pub decision_confidence: Option<u8>,
     pub decision_rationale_codes: Vec<String>,
@@ -28,6 +32,9 @@ pub struct RunReport {
     pub auto_fix_attempts: Vec<AutoFixAttempt>,
     pub transitions: Vec<StageTransition>,
     pub stage_executions: Vec<StageExecutionRecord>,
+    pub planner_path_record: Option<PlannerPathRecord>,
+    pub risk_tier: Option<RiskTier>,
+    pub risk_signals: Vec<RiskSignal>,
 }
 
 impl RunReport {
@@ -39,8 +46,11 @@ impl RunReport {
             current_stage: None,
             terminal_state: None,
             gate_decisions: Vec::new(),
+            hard_gate_results: Vec::new(),
             blocked_reason_codes: Vec::new(),
             reviewer_next_steps: Vec::new(),
+            reviewer_verdicts: Vec::new(),
+            review_ensemble_result: None,
             final_decision: None,
             decision_confidence: None,
             decision_rationale_codes: Vec::new(),
@@ -52,6 +62,9 @@ impl RunReport {
             auto_fix_attempts: Vec::new(),
             transitions: Vec::new(),
             stage_executions: Vec::new(),
+            planner_path_record: None,
+            risk_tier: None,
+            risk_signals: Vec::new(),
         }
     }
 }

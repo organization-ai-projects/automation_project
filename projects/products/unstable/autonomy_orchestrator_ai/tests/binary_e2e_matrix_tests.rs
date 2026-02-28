@@ -16,6 +16,14 @@ struct MatrixReportView {
     #[serde(default)]
     decision_rationale_codes: Vec<String>,
     stage_executions: Vec<StageExecutionView>,
+    planner_path_record: Option<PlannerPathRecordView>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PlannerPathRecordView {
+    selected_path: Vec<String>,
+    fallback_steps_used: u32,
+    reason_codes: Vec<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -1277,9 +1285,27 @@ fn matrix_decision_no_contributions_blocks_fail_closed() {
 }
 
 #[test]
-fn autofix_convergence_fixes_failing_validation_and_reaches_done() {
-    let out_dir = unique_temp_dir("autofix_convergence");
-    let state_file = out_dir.join("autofix_convergence_state.flag");
+fn matrix_planner_v2_successful_fallback_flow() {
+    let out_dir = unique_temp_dir("planner_v2_fallback_ok");
+    let planner_output_path = out_dir.join("planner_output.json");
+    // Graph: start →(ON_FAIL) middle →(primary) end; 1 fallback within budget of 3
+    fs::write(
+        &planner_output_path,
+        r#"{
+            "planner_output": {
+                "planner_nodes": [
+                    {"id": "start", "action": "step_start"},
+                    {"id": "middle", "action": "step_middle"},
+                    {"id": "end", "action": "step_end"}
+                ],
+                "planner_edges": [
+                    {"from": "start", "to": "middle", "condition_code": "ON_FAIL"},
+                    {"from": "middle", "to": "end", "condition_code": ""}
+                ]
+            }
+        }"#,
+    )
+    .expect("write planner output artifact");
 
     let (output, report) = run_orchestrator(
         &[
@@ -1289,104 +1315,90 @@ fn autofix_convergence_fixes_failing_validation_and_reaches_done() {
             "success",
             "--review-status",
             "approved",
-            "--reviewer-bin",
-            fixture_bin(),
-            "--reviewer-arg",
-            "fixture",
-            "--reviewer-arg",
-            "fail-once",
-            "--reviewer-arg",
-            state_file.to_str().expect("utf-8 state path"),
-            "--autofix-enabled",
-            "--autofix-bin",
-            fixture_bin(),
-            "--autofix-arg",
-            "fixture",
-            "--autofix-arg",
-            "success",
-            "--autofix-max-attempts",
+            "--manager-bin",
+            "true",
+            "--manager-expected-artifact",
+            planner_output_path.to_str().unwrap(),
+            "--planner-fallback-max-steps",
             "3",
         ],
         &out_dir,
     );
 
-    assert!(
-        output.status.success(),
-        "expected exit 0, got {:?}",
-        output.status.code()
-    );
+    assert_eq!(output.status.code(), Some(0), "expected exit 0");
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    let record = report
+        .planner_path_record
+        .expect("planner_path_record must be set");
+    assert_eq!(record.selected_path, vec!["start", "middle", "end"]);
+    assert_eq!(record.fallback_steps_used, 1);
     assert!(
-        report
-            .decision_rationale_codes
-            .contains(&"AUTOFIX_CONVERGENCE_REACHED".to_string()),
-        "expected AUTOFIX_CONVERGENCE_REACHED in decision_rationale_codes"
+        record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_STEP_APPLIED".to_string())
     );
-    assert_eq!(report.auto_fix_attempts.len(), 1);
-    assert_eq!(report.auto_fix_attempts[0].attempt_number, 1);
-    assert_eq!(
-        report.auto_fix_attempts[0].reason_code,
-        "AUTOFIX_ATTEMPT_APPLIED"
-    );
-    assert_eq!(report.auto_fix_attempts[0].status, "applied");
 
     let _ = fs::remove_dir_all(out_dir);
 }
 
 #[test]
-fn autofix_max_attempts_exhausted_fails_closed() {
-    let out_dir = unique_temp_dir("autofix_exhausted");
+fn matrix_planner_v2_exhausted_fallback_budget_fails_closed() {
+    let out_dir = unique_temp_dir("planner_v2_budget_exhausted");
+    let planner_output_path = out_dir.join("planner_output.json");
+    // Graph: a →(ON_FAIL) b →(ON_FAIL) c; budget = 1 → exhausted before reaching c
+    fs::write(
+        &planner_output_path,
+        r#"{
+            "planner_output": {
+                "planner_nodes": [
+                    {"id": "a", "action": "step_a"},
+                    {"id": "b", "action": "step_b"},
+                    {"id": "c", "action": "step_c"}
+                ],
+                "planner_edges": [
+                    {"from": "a", "to": "b", "condition_code": "ON_FAIL"},
+                    {"from": "b", "to": "c", "condition_code": "ON_FAIL"}
+                ]
+            }
+        }"#,
+    )
+    .expect("write planner output artifact");
 
-    let (output, report) = run_orchestrator(
-        &[
-            "--policy-status",
-            "allow",
-            "--ci-status",
-            "success",
-            "--review-status",
-            "approved",
-            "--reviewer-bin",
-            fixture_bin(),
-            "--reviewer-arg",
-            "fixture",
-            "--reviewer-arg",
-            "fail",
-            "--autofix-enabled",
-            "--autofix-bin",
-            fixture_bin(),
-            "--autofix-arg",
-            "fixture",
-            "--autofix-arg",
-            "success",
-            "--autofix-max-attempts",
-            "2",
-        ],
-        &out_dir,
-    );
+    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
+    let output = Command::new(bin)
+        .arg(&out_dir)
+        .arg("--decision-contribution")
+        .arg("contributor_id=default,capability=governance,vote=proceed,confidence=100,weight=100")
+        .arg("--manager-bin")
+        .arg("true")
+        .arg("--manager-expected-artifact")
+        .arg(planner_output_path.to_str().unwrap())
+        .arg("--planner-fallback-max-steps")
+        .arg("1")
+        .output()
+        .expect("execute planner v2 budget exhausted run");
 
-    assert_eq!(
-        output.status.code(),
-        Some(1),
-        "expected exit 1 (fail-closed)"
-    );
+    assert_eq!(output.status.code(), Some(1), "expected exit 1 (failed)");
+
+    let report_path = out_dir.join("orchestrator_run_report.json");
+    let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
+
     assert_eq!(report.terminal_state.as_deref(), Some("failed"));
+    let record = report
+        .planner_path_record
+        .expect("planner_path_record must be set");
+    assert_eq!(record.fallback_steps_used, 1);
     assert!(
-        report
-            .blocked_reason_codes
-            .contains(&"AUTOFIX_MAX_ATTEMPTS_EXHAUSTED".to_string()),
-        "expected AUTOFIX_MAX_ATTEMPTS_EXHAUSTED in blocked_reason_codes"
+        record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_BUDGET_EXHAUSTED".to_string())
     );
-    assert_eq!(report.auto_fix_attempts.len(), 2);
     assert!(
         report
-            .auto_fix_attempts
+            .stage_executions
             .iter()
-            .all(|a| a.reason_code == "AUTOFIX_ATTEMPT_APPLIED")
-    );
-    assert!(
-        !report
-            .decision_rationale_codes
-            .contains(&"AUTOFIX_CONVERGENCE_REACHED".to_string())
+            .any(|e| e.command == "planning.planner_v2.select_path" && e.status == "failed")
     );
 
     let _ = fs::remove_dir_all(out_dir);

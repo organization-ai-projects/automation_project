@@ -34,6 +34,7 @@ fn base_config() -> OrchestratorConfig {
         decision_contributions: Vec::new(),
         decision_reliability_inputs: Vec::new(),
         decision_require_contributions: false,
+        reviewer_verdicts: Vec::new(),
         checkpoint_path: None,
         cycle_memory_path: None,
         next_actions_path: None,
@@ -42,6 +43,11 @@ fn base_config() -> OrchestratorConfig {
         autofix_bin: None,
         autofix_args: Vec::new(),
         autofix_max_attempts: 3,
+        hard_gates_file: None,
+        planner_fallback_max_steps: 3,
+        risk_tier: None,
+        risk_signals: Vec::new(),
+        risk_allow_high: false,
     }
 }
 

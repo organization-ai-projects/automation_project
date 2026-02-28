@@ -21,6 +21,8 @@ fn cli_run_args_have_expected_defaults() {
     assert!(cli.run.autofix_bin.is_none());
     assert!(cli.run.autofix_args.is_empty());
     assert_eq!(cli.run.autofix_max_attempts, 3);
+    assert!(cli.run.risk_tier_override.is_none());
+    assert!(!cli.run.risk_allow_high);
 }
 
 #[test]
