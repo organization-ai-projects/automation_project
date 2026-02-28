@@ -10,6 +10,8 @@ mod decision_aggregator;
 #[cfg(test)]
 mod orchestrator;
 #[cfg(test)]
+mod pr_risk;
+#[cfg(test)]
 mod run_args;
 #[cfg(test)]
 mod validation_invocation_parser;

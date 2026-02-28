@@ -40,6 +40,11 @@ pub struct RunArgs {
     #[arg(long = "decision-reliability", value_parser = parse_decision_reliability_input_cli, action = ArgAction::Append)]
     pub decision_reliability_inputs: Vec<DecisionReliabilityInput>,
 
+    #[arg(long, default_value_t = 40)]
+    pub pr_risk_threshold: u16,
+    #[arg(long)]
+    pub auto_merge_on_eligible: bool,
+
     #[arg(long)]
     pub checkpoint_path: Option<PathBuf>,
     #[arg(long)]

@@ -41,6 +41,10 @@ fn run_orchestrator_internal(args: RunArgs, raw_args: &[String]) -> i32 {
         eprintln!("Invalid --decision-threshold value: must be <= 100");
         return 2;
     }
+    if args.pr_risk_threshold > 1000 {
+        eprintln!("Invalid --pr-risk-threshold value: must be <= 1000");
+        return 2;
+    }
 
     if !args.autonomous_loop {
         return run_once(args, raw_args, false)
@@ -282,6 +286,8 @@ fn run_once(
         decision_contributions: args.decision_contributions,
         decision_reliability_inputs: args.decision_reliability_inputs,
         decision_require_contributions: args.decision_require_contributions,
+        pr_risk_threshold: args.pr_risk_threshold,
+        auto_merge_on_eligible: args.auto_merge_on_eligible,
         checkpoint_path: Some(checkpoint_path.clone()),
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
