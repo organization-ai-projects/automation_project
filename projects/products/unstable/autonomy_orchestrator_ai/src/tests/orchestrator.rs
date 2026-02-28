@@ -426,6 +426,8 @@ fn review_ensemble_result_and_verdicts_persisted_in_run_report() {
             reason_codes: Vec::new(),
         },
     ];
+}
+
 #[test]
 fn planner_path_record_is_persisted_in_run_report() {
     let temp_root = std::env::temp_dir().join(format!(
