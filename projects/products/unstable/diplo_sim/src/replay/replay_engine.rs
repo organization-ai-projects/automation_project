@@ -1,3 +1,4 @@
+use super::replay_file::ReplayFile;
 use crate::adjudication::adjudication_engine::AdjudicationEngine;
 use crate::diagnostics::error::DiploSimError;
 use crate::map::map_loader::load_map_from_str;
@@ -9,7 +10,6 @@ use crate::model::unit_id::UnitId;
 use crate::report::match_report::MatchReport;
 use crate::report::turn_report::TurnReport;
 use crate::time::turn::Turn;
-use super::replay_file::ReplayFile;
 
 /// Replay a ReplayFile to produce a MatchReport.
 pub fn replay(file: &ReplayFile) -> Result<MatchReport, DiploSimError> {
@@ -59,5 +59,9 @@ pub fn replay(file: &ReplayFile) -> Result<MatchReport, DiploSimError> {
         });
     }
 
-    Ok(MatchReport::build(file.map_name.clone(), file.seed, turn_reports))
+    Ok(MatchReport::build(
+        file.map_name.clone(),
+        file.seed,
+        turn_reports,
+    ))
 }

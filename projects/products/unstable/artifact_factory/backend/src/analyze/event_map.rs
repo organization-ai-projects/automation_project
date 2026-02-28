@@ -13,10 +13,16 @@ impl EventMap {
         for input in inputs {
             for line in input.content.lines() {
                 let trimmed = line.trim();
-                if let Some(rest) = trimmed.strip_prefix("event:").or_else(|| trimmed.strip_prefix("Event:")) {
+                if let Some(rest) = trimmed
+                    .strip_prefix("event:")
+                    .or_else(|| trimmed.strip_prefix("Event:"))
+                {
                     let event_name = rest.trim().to_string();
                     if !event_name.is_empty() {
-                        entries.entry(event_name).or_default().push(input.path.clone());
+                        entries
+                            .entry(event_name)
+                            .or_default()
+                            .push(input.path.clone());
                     }
                 }
             }

@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use super::faction::Faction;
 use super::unit::Unit;
 use crate::map::map_graph::MapGraph;
 use crate::time::turn::Turn;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameState {

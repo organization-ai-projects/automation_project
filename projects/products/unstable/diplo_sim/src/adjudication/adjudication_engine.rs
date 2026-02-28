@@ -1,10 +1,10 @@
+use super::adjudication_report::AdjudicationReport;
+use super::resolution_step::{ResolutionOutcome, ResolutionStep};
 use crate::map::territory_id::TerritoryId;
 use crate::model::game_state::GameState;
 use crate::model::unit_id::UnitId;
 use crate::orders::order_kind::OrderKind;
 use crate::orders::order_set::OrderSet;
-use super::adjudication_report::AdjudicationReport;
-use super::resolution_step::{ResolutionOutcome, ResolutionStep};
 
 pub struct AdjudicationEngine {
     pub state: GameState,
@@ -37,16 +37,17 @@ impl AdjudicationEngine {
         let turn = self.state.current_turn;
 
         // Flatten all orders into a sorted list by unit_id for determinism
-        let mut all_orders: Vec<_> = order_sets
-            .iter()
-            .flat_map(|os| os.orders.iter())
-            .collect();
+        let mut all_orders: Vec<_> = order_sets.iter().flat_map(|os| os.orders.iter()).collect();
         all_orders.sort_by_key(|o| o.unit_id);
 
         // Compute support counts as sorted Vec of ((unit_id, target), count)
         let mut support_entries: Vec<((UnitId, TerritoryId), u32)> = Vec::new();
         for order in &all_orders {
-            if let OrderKind::Support { supported_unit_id, target } = &order.kind {
+            if let OrderKind::Support {
+                supported_unit_id,
+                target,
+            } = &order.kind
+            {
                 let key = (*supported_unit_id, *target);
                 match support_entries.binary_search_by_key(&key, |e| e.0) {
                     Ok(i) => support_entries[i].1 += 1,
@@ -84,18 +85,16 @@ impl AdjudicationEngine {
             i = j;
 
             // Sort attackers by strength desc, then unit_id asc for determinism
-            let mut sorted_attackers: Vec<(UnitId, u32)> = attackers
-                .iter()
-                .map(|&(_, uid, s)| (uid, s))
-                .collect();
+            let mut sorted_attackers: Vec<(UnitId, u32)> =
+                attackers.iter().map(|&(_, uid, s)| (uid, s)).collect();
             sorted_attackers.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
 
             let best_strength = sorted_attackers[0].1;
             let best_unit = sorted_attackers[0].0;
 
             // Tie check: if second attacker has equal strength, nobody moves
-            let is_unique_best = sorted_attackers.len() == 1
-                || sorted_attackers[1].1 < best_strength;
+            let is_unique_best =
+                sorted_attackers.len() == 1 || sorted_attackers[1].1 < best_strength;
             if !is_unique_best {
                 continue;
             }
@@ -103,16 +102,18 @@ impl AdjudicationEngine {
             // Find the defender currently at target
             let defender = self.state.unit_at(target);
             // Is the defender moving away from target?
-            let defender_is_moving = defender.map(|d| {
-                move_intents.iter().any(|&(t, uid, _)| uid == d.id && t != target)
-            }).unwrap_or(false);
+            let defender_is_moving = defender
+                .map(|d| {
+                    move_intents
+                        .iter()
+                        .any(|&(t, uid, _)| uid == d.id && t != target)
+                })
+                .unwrap_or(false);
 
             let defender_strength = if let Some(def) = defender {
                 if !defender_is_moving {
-                    let def_support = Self::lookup_support(
-                        &support_entries,
-                        (def.id, def.territory_id),
-                    );
+                    let def_support =
+                        Self::lookup_support(&support_entries, (def.id, def.territory_id));
                     1 + def_support
                 } else {
                     0
@@ -139,10 +140,8 @@ impl AdjudicationEngine {
 
             match &order.kind {
                 OrderKind::Hold => {
-                    let hold_support = Self::lookup_support(
-                        &support_entries,
-                        (order.unit_id, from),
-                    );
+                    let hold_support =
+                        Self::lookup_support(&support_entries, (order.unit_id, from));
                     steps.push(ResolutionStep {
                         turn,
                         unit_id: order.unit_id,
@@ -153,10 +152,7 @@ impl AdjudicationEngine {
                     });
                 }
                 OrderKind::Move { target } => {
-                    let support = Self::lookup_support(
-                        &support_entries,
-                        (order.unit_id, *target),
-                    );
+                    let support = Self::lookup_support(&support_entries, (order.unit_id, *target));
                     let strength = 1 + support;
                     // Check if this unit is in successful_moves (sorted by unit_id)
                     let moved = successful_moves

@@ -1,11 +1,11 @@
-use serde::Deserialize;
 use crate::diagnostics::error::DiploSimError;
 use crate::model::faction_id::FactionId;
 use crate::model::unit_id::UnitId;
+use crate::orders::order::Order;
 use crate::orders::order_id::OrderId;
 use crate::orders::order_kind::OrderKind;
-use crate::orders::order::Order;
 use crate::orders::order_set::OrderSet;
+use serde::Deserialize;
 
 /// Raw JSON format for a single order (before assigning OrderId).
 #[derive(Debug, Deserialize)]
@@ -21,7 +21,10 @@ struct RawOrderSet {
     orders: Vec<RawOrder>,
 }
 
-pub fn parse_order_set_from_str(json: &str, next_order_id: &mut u32) -> Result<OrderSet, DiploSimError> {
+pub fn parse_order_set_from_str(
+    json: &str,
+    next_order_id: &mut u32,
+) -> Result<OrderSet, DiploSimError> {
     let raw: RawOrderSet = common_json::from_str(json)
         .map_err(|e| DiploSimError::Io(format!("JSON parse error: {e}")))?;
 

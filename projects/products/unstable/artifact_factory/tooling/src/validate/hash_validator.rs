@@ -11,8 +11,7 @@ impl HashValidator {
     pub fn compute_hash(bundle_dir: &Path) -> Result<String, ToolingError> {
         // Collect all files sorted deterministically
         let mut files: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-        let entries = std::fs::read_dir(bundle_dir)
-            .map_err(|e| ToolingError::Io(e.to_string()))?;
+        let entries = std::fs::read_dir(bundle_dir).map_err(|e| ToolingError::Io(e.to_string()))?;
         for entry in entries {
             let entry = entry.map_err(|e| ToolingError::Io(e.to_string()))?;
             let name = entry.file_name().to_string_lossy().to_string();

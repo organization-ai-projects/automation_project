@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::event_log::EventLog;
+use serde::{Deserialize, Serialize};
 
 /// Complete replay file: everything needed to reproduce a match.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

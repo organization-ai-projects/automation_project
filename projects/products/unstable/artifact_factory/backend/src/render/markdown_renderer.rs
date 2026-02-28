@@ -47,7 +47,14 @@ impl MarkdownRenderer {
             if deps.is_empty() {
                 out.push_str(&format!("- `{}` (no dependencies)\n", node));
             } else {
-                out.push_str(&format!("- `{}` → {}\n", node, deps.iter().map(|d| format!("`{d}`")).collect::<Vec<_>>().join(", ")));
+                out.push_str(&format!(
+                    "- `{}` → {}\n",
+                    node,
+                    deps.iter()
+                        .map(|d| format!("`{d}`"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
             }
         }
         out.push('\n');

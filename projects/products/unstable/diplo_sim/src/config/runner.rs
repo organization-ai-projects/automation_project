@@ -8,12 +8,12 @@ use crate::model::faction_id::FactionId;
 use crate::model::game_state::GameState;
 use crate::model::unit::Unit;
 use crate::model::unit_id::UnitId;
-use crate::report::match_report::MatchReport;
-use crate::report::run_hash::compute_run_hash_from_json;
-use crate::report::turn_report::TurnReport;
 use crate::replay::event_log::EventLog;
 use crate::replay::replay_event::ReplayEvent;
 use crate::replay::replay_file::ReplayFile;
+use crate::report::match_report::MatchReport;
+use crate::report::run_hash::compute_run_hash_from_json;
+use crate::report::turn_report::TurnReport;
 use crate::time::turn::Turn;
 
 pub fn run_simulation(
@@ -33,10 +33,7 @@ pub fn run_simulation(
     let mut faction_ids: Vec<u32> = starting_units.iter().map(|su| su.faction_id).collect();
     faction_ids.sort();
     faction_ids.dedup();
-    let faction_ids: Vec<u32> = faction_ids
-        .into_iter()
-        .take(num_players as usize)
-        .collect();
+    let faction_ids: Vec<u32> = faction_ids.into_iter().take(num_players as usize).collect();
 
     let factions: Vec<Faction> = faction_ids
         .iter()
@@ -110,8 +107,9 @@ pub fn run_simulation(
         };
         let replay_json = common_json::to_json_string(&replay_file)
             .map_err(|e| DiploSimError::Internal(format!("Replay serialize error: {e}")))?;
-        std::fs::write(replay_path, &replay_json)
-            .map_err(|e| DiploSimError::Io(format!("Cannot write replay '{}': {}", replay_path, e)))?;
+        std::fs::write(replay_path, &replay_json).map_err(|e| {
+            DiploSimError::Io(format!("Cannot write replay '{}': {}", replay_path, e))
+        })?;
     }
 
     tracing::info!("Run complete. RunHash: {}", match_report.run_hash);
@@ -150,7 +148,8 @@ pub fn validate_orders_cmd(map_path: &str, orders_path: &str) -> Result<(), Dipl
         .map_err(|e| DiploSimError::Io(format!("Cannot read orders '{}': {}", orders_path, e)))?;
 
     let mut next_order_id: u32 = 0;
-    let order_set = crate::orders::order_parser::parse_order_set_from_str(&orders_json, &mut next_order_id)?;
+    let order_set =
+        crate::orders::order_parser::parse_order_set_from_str(&orders_json, &mut next_order_id)?;
 
     let (map_graph, _) = load_map_from_file(map_path)?;
     let factions: Vec<Faction> = starting_units
@@ -158,7 +157,10 @@ pub fn validate_orders_cmd(map_path: &str, orders_path: &str) -> Result<(), Dipl
         .map(|su| su.faction_id)
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
-        .map(|fid| Faction { id: FactionId(fid), name: format!("Faction{}", fid) })
+        .map(|fid| Faction {
+            id: FactionId(fid),
+            name: format!("Faction{}", fid),
+        })
         .collect();
 
     let units: Vec<Unit> = starting_units

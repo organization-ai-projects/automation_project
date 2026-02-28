@@ -64,7 +64,10 @@ pub fn validate_order_set(
                     });
                 }
             }
-            OrderKind::Support { supported_unit_id, target } => {
+            OrderKind::Support {
+                supported_unit_id,
+                target,
+            } => {
                 if state.unit_by_id(*supported_unit_id).is_none() {
                     errors.push(DiploSimError::OrderValidation {
                         order_id: order.id,

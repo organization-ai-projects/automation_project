@@ -11,7 +11,9 @@ impl Turn {
     }
 
     pub fn next(self) -> Self {
-        Self { number: self.number + 1 }
+        Self {
+            number: self.number + 1,
+        }
     }
 }
 
