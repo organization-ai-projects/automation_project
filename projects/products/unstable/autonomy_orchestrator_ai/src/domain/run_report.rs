@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use crate::domain::{
     AdaptivePolicyDecision, AutoFixAttempt, DecisionContribution, DecisionReliabilityFactor,
     DecisionReliabilityUpdate, FinalDecision, GateDecision, HardGateResult, PlannerPathRecord,
-    ReviewEnsembleResult, ReviewerVerdict, RiskSignal, RiskTier, Stage, StageExecutionRecord,
-    StageTransition, TerminalState,
+    PrRiskBreakdown, ReviewEnsembleResult, ReviewerVerdict, RiskSignal, RiskTier, Stage,
+    StageExecutionRecord, StageTransition, TerminalState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,6 +32,7 @@ pub struct RunReport {
     pub auto_fix_attempts: Vec<AutoFixAttempt>,
     pub transitions: Vec<StageTransition>,
     pub stage_executions: Vec<StageExecutionRecord>,
+    pub pr_risk_breakdown: Option<PrRiskBreakdown>,
     pub planner_path_record: Option<PlannerPathRecord>,
     pub risk_tier: Option<RiskTier>,
     pub risk_signals: Vec<RiskSignal>,
@@ -62,6 +63,7 @@ impl RunReport {
             auto_fix_attempts: Vec::new(),
             transitions: Vec::new(),
             stage_executions: Vec::new(),
+            pr_risk_breakdown: None,
             planner_path_record: None,
             risk_tier: None,
             risk_signals: Vec::new(),

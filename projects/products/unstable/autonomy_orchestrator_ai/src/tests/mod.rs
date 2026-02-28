@@ -10,6 +10,7 @@ mod decision_aggregator;
 #[cfg(test)]
 mod orchestrator;
 #[cfg(test)]
+mod pr_risk;
 mod review_ensemble;
 #[cfg(test)]
 mod run_args;

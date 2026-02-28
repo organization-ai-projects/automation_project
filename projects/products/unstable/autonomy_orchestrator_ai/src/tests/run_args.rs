@@ -17,6 +17,8 @@ fn cli_run_args_have_expected_defaults() {
     assert!(!cli.run.decision_require_contributions);
     assert!(cli.run.decision_contributions.is_empty());
     assert!(cli.run.decision_reliability_inputs.is_empty());
+    assert_eq!(cli.run.pr_risk_threshold, 40);
+    assert!(!cli.run.auto_merge_on_eligible);
     assert!(!cli.run.autofix_enabled);
     assert!(cli.run.autofix_bin.is_none());
     assert!(cli.run.autofix_args.is_empty());

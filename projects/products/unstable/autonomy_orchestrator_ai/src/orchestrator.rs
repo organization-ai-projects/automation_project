@@ -21,6 +21,7 @@ use crate::domain::{
 use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
 use crate::planner_output::read_planner_output_from_artifacts;
 use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
+use crate::pr_risk::compute_pr_risk;
 use crate::review_ensemble::{
     ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble,
 };
@@ -56,6 +57,8 @@ pub struct Orchestrator {
     execution_budget_adapted: bool,
     remediation_budget_adapted: bool,
     gate_inputs: GateInputs,
+    pr_risk_threshold: u16,
+    auto_merge_on_eligible: bool,
     checkpoint: OrchestratorCheckpoint,
     checkpoint_path: Option<PathBuf>,
     cycle_memory_path: Option<PathBuf>,
@@ -145,6 +148,8 @@ impl Orchestrator {
             execution_budget_adapted: false,
             remediation_budget_adapted: false,
             gate_inputs: config.gate_inputs,
+            pr_risk_threshold: config.pr_risk_threshold,
+            auto_merge_on_eligible: config.auto_merge_on_eligible,
             checkpoint,
             checkpoint_path: config.checkpoint_path,
             cycle_memory_path: config.cycle_memory_path,
@@ -192,16 +197,40 @@ impl Orchestrator {
             return self.report;
         }
 
+        self.execute_pipeline();
+
+        let breakdown = compute_pr_risk(&self.report, self.pr_risk_threshold);
+        if self.auto_merge_on_eligible {
+            if breakdown.eligible_for_auto_merge {
+                let code = "PR_RISK_ELIGIBLE_FOR_AUTO_MERGE".to_string();
+                if !self.report.decision_rationale_codes.contains(&code) {
+                    self.report.decision_rationale_codes.push(code);
+                }
+            } else {
+                let code = "PR_RISK_ABOVE_THRESHOLD".to_string();
+                if !self.report.blocked_reason_codes.contains(&code) {
+                    self.report.blocked_reason_codes.push(code);
+                }
+                if self.report.terminal_state == Some(TerminalState::Done) {
+                    self.report.terminal_state = Some(TerminalState::Blocked);
+                }
+            }
+        }
+        self.report.pr_risk_breakdown = Some(breakdown);
+        self.report
+    }
+
+    fn execute_pipeline(&mut self) {
         if self.checkpoint.terminal_state == Some(TerminalState::Done) {
             self.report.terminal_state = Some(TerminalState::Done);
             self.report.current_stage = Some(Stage::Closure);
-            return self.report;
+            return;
         }
 
         if !self.evaluate_hard_gates_prerun() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
         }
 
         let planning_expected_artifacts = self
@@ -211,44 +240,44 @@ impl Orchestrator {
             .unwrap_or_default();
         let planning_was_completed = self.checkpoint.is_stage_completed(Stage::Planning);
         if !self.execute_stage(Stage::Planning, self.planning_invocation.clone()) {
-            return self.report;
+            return;
         }
         if !self.execute_planning_context_action(planning_was_completed) {
-            return self.report;
+            return;
         }
         if !self.apply_planner_output_from_artifacts(&planning_expected_artifacts) {
-            return self.report;
+            return;
         }
 
         if !self.execute_stage(Stage::PolicyIngestion, None) {
-            return self.report;
+            return;
         }
 
         if !self.execute_execution_validation_pipeline() {
-            return self.report;
+            return;
         }
 
         if !self.evaluate_fail_closed_gates() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
         }
 
         if !self.evaluate_review_ensemble() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
         }
 
         if self.simulate_blocked {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
         }
         if !self.evaluate_final_decision() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
         }
 
         if self.autofix_converged {
@@ -258,14 +287,13 @@ impl Orchestrator {
         }
 
         if !self.execute_stage(Stage::Closure, None) {
-            return self.report;
+            return;
         }
         if !self.execute_delivery_lifecycle() {
-            return self.report;
+            return;
         }
         self.report.terminal_state = Some(TerminalState::Done);
         self.mark_terminal_and_persist(TerminalState::Done);
-        self.report
     }
 
     fn execute_execution_validation_pipeline(&mut self) -> bool {

@@ -43,6 +43,11 @@ pub struct RunArgs {
     #[arg(long = "reviewer-verdict", value_parser = parse_reviewer_verdict_cli, action = ArgAction::Append)]
     pub reviewer_verdicts: Vec<ReviewerVerdict>,
 
+    #[arg(long, default_value_t = 40)]
+    pub pr_risk_threshold: u16,
+    #[arg(long)]
+    pub auto_merge_on_eligible: bool,
+
     #[arg(long)]
     pub checkpoint_path: Option<PathBuf>,
     #[arg(long)]

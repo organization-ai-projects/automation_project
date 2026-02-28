@@ -32,6 +32,8 @@ struct OrchestratorConfigJsonCompat {
     decision_contributions: Option<Vec<DecisionContribution>>,
     decision_reliability_inputs: Option<Vec<DecisionReliabilityInput>>,
     decision_require_contributions: Option<bool>,
+    pr_risk_threshold: Option<f64>,
+    auto_merge_on_eligible: Option<bool>,
     reviewer_verdicts: Option<Vec<ReviewerVerdict>>,
     checkpoint_path: Option<PathBuf>,
     cycle_memory_path: Option<PathBuf>,
@@ -72,6 +74,8 @@ pub struct OrchestratorConfig {
     pub decision_contributions: Vec<DecisionContribution>,
     pub decision_reliability_inputs: Vec<DecisionReliabilityInput>,
     pub decision_require_contributions: bool,
+    pub pr_risk_threshold: u16,
+    pub auto_merge_on_eligible: bool,
     pub reviewer_verdicts: Vec<ReviewerVerdict>,
     pub checkpoint_path: Option<PathBuf>,
     pub cycle_memory_path: Option<PathBuf>,
@@ -237,6 +241,12 @@ impl OrchestratorConfig {
             decision_contributions: parsed.decision_contributions.unwrap_or_default(),
             decision_reliability_inputs: parsed.decision_reliability_inputs.unwrap_or_default(),
             decision_require_contributions: parsed.decision_require_contributions.unwrap_or(false),
+            pr_risk_threshold: parsed
+                .pr_risk_threshold
+                .map(|v| float_to_u16_compat(v, "pr_risk_threshold"))
+                .transpose()?
+                .unwrap_or(40),
+            auto_merge_on_eligible: parsed.auto_merge_on_eligible.unwrap_or(false),
             reviewer_verdicts: parsed.reviewer_verdicts.unwrap_or_default(),
             checkpoint_path: parsed.checkpoint_path,
             cycle_memory_path: parsed.cycle_memory_path,
@@ -305,6 +315,18 @@ fn float_to_u8_compat(value: f64, field: &str) -> Result<u8, String> {
     }
     let as_u64 = value as u64;
     u8::try_from(as_u64).map_err(|_| {
+        format!("Failed to parse orchestrator config JSON field '{field}': value is too large")
+    })
+}
+
+fn float_to_u16_compat(value: f64, field: &str) -> Result<u16, String> {
+    if !value.is_finite() || value < 0.0 || value.fract() != 0.0 {
+        return Err(format!(
+            "Failed to parse orchestrator config JSON field '{field}': expected integer 0..65535"
+        ));
+    }
+    let as_u64 = value as u64;
+    u16::try_from(as_u64).map_err(|_| {
         format!("Failed to parse orchestrator config JSON field '{field}': value is too large")
     })
 }

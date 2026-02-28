@@ -39,6 +39,8 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         }],
         decision_reliability_inputs: Vec::new(),
         decision_require_contributions: false,
+        pr_risk_threshold: 40,
+        auto_merge_on_eligible: false,
         reviewer_verdicts: Vec::new(),
         checkpoint_path: None,
         cycle_memory_path: None,
