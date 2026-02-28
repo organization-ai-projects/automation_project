@@ -12,7 +12,10 @@ impl ValidatorEmitter {
             schema.name, schema.version
         ));
         for msg in schema.sorted_messages() {
-            out.push_str(&format!("pub fn validate_{}(msg: &{}) -> bool {{\n", msg.name, msg.name));
+            out.push_str(&format!(
+                "pub fn validate_{}(msg: &{}) -> bool {{\n",
+                msg.name, msg.name
+            ));
             for field in &msg.fields {
                 out.push_str(&format!("    let _ = &msg.{};\n", field.name));
             }

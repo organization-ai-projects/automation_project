@@ -1,5 +1,5 @@
 // projects/products/unstable/protocol_builder/ui/src/transport/ipc_client.rs
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Write};
 
@@ -20,8 +20,13 @@ enum IpcRequest {
 #[serde(tag = "type")]
 enum IpcResponse {
     Ok,
-    Error { message: String },
-    GenerateReport { manifest_hash: String, report_json: String },
+    Error {
+        message: String,
+    },
+    GenerateReport {
+        manifest_hash: String,
+        report_json: String,
+    },
 }
 
 pub struct IpcClient {
@@ -45,7 +50,9 @@ impl IpcClient {
     }
 
     pub fn send_load_schema(&mut self, path: &str) -> Result<()> {
-        match self.send(&IpcRequest::LoadSchema { path: path.to_string() })? {
+        match self.send(&IpcRequest::LoadSchema {
+            path: path.to_string(),
+        })? {
             IpcResponse::Ok => Ok(()),
             IpcResponse::Error { message } => Err(anyhow!("LoadSchema error: {}", message)),
             _ => Err(anyhow!("unexpected response")),
@@ -61,10 +68,13 @@ impl IpcClient {
     }
 
     pub fn send_generate_write(&mut self, out_dir: &str) -> Result<(String, String)> {
-        match self.send(&IpcRequest::GenerateWrite { out_dir: out_dir.to_string() })? {
-            IpcResponse::GenerateReport { manifest_hash, report_json } => {
-                Ok((manifest_hash, report_json))
-            }
+        match self.send(&IpcRequest::GenerateWrite {
+            out_dir: out_dir.to_string(),
+        })? {
+            IpcResponse::GenerateReport {
+                manifest_hash,
+                report_json,
+            } => Ok((manifest_hash, report_json)),
             IpcResponse::Error { message } => Err(anyhow!("GenerateWrite error: {}", message)),
             _ => Err(anyhow!("unexpected response")),
         }

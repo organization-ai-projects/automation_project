@@ -1,8 +1,8 @@
 // projects/products/unstable/protocol_builder/tooling/src/validate/emitted_validator.rs
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmittedManifest {

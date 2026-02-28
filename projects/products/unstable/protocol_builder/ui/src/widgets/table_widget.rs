@@ -7,7 +7,9 @@ pub struct TableWidget {
 
 impl TableWidget {
     pub fn new() -> Self {
-        Self { rows: BTreeMap::new() }
+        Self {
+            rows: BTreeMap::new(),
+        }
     }
 
     pub fn insert(&mut self, key: impl Into<String>, value: impl Into<String>) {

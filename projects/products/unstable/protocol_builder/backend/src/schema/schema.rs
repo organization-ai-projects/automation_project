@@ -2,8 +2,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use super::message_spec::MessageSpec;
 use super::endpoint_spec::EndpointSpec;
+use super::message_spec::MessageSpec;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProtocolSchema {
@@ -23,8 +23,11 @@ impl ProtocolSchema {
 
     /// Returns endpoints sorted by name for deterministic output.
     pub fn sorted_endpoints(&self) -> Vec<&EndpointSpec> {
-        let mut map: BTreeMap<&str, &EndpointSpec> =
-            self.endpoints.iter().map(|e| (e.name.as_str(), e)).collect();
+        let mut map: BTreeMap<&str, &EndpointSpec> = self
+            .endpoints
+            .iter()
+            .map(|e| (e.name.as_str(), e))
+            .collect();
         map.values().copied().collect()
     }
 }

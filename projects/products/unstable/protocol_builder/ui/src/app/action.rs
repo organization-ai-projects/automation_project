@@ -4,7 +4,10 @@
 pub enum Action {
     SetSchemaPath(String),
     SetOutDir(String),
-    SetReport { manifest_hash: String, report_json: String },
+    SetReport {
+        manifest_hash: String,
+        report_json: String,
+    },
     SetError(String),
     ClearError,
 }

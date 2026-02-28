@@ -19,6 +19,10 @@ impl BackendProcess {
         let stdin = child.stdin.take().expect("stdin not captured");
         let stdout = child.stdout.take().expect("stdout not captured");
         let reader = BufReader::new(stdout);
-        Ok(Self { child, stdin, reader })
+        Ok(Self {
+            child,
+            stdin,
+            reader,
+        })
     }
 }

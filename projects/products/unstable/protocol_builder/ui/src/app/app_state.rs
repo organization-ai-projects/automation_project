@@ -19,7 +19,10 @@ impl AppState {
         match action {
             Action::SetSchemaPath(path) => self.schema_path = Some(path),
             Action::SetOutDir(dir) => self.out_dir = Some(dir),
-            Action::SetReport { manifest_hash, report_json } => {
+            Action::SetReport {
+                manifest_hash,
+                report_json,
+            } => {
                 self.manifest_hash = Some(manifest_hash);
                 self.report_json = Some(report_json);
                 self.last_error = None;

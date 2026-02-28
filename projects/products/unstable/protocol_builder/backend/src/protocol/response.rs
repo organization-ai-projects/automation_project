@@ -5,6 +5,11 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type")]
 pub enum IpcResponse {
     Ok,
-    Error { message: String },
-    GenerateReport { manifest_hash: String, report_json: String },
+    Error {
+        message: String,
+    },
+    GenerateReport {
+        manifest_hash: String,
+        report_json: String,
+    },
 }

@@ -20,7 +20,10 @@ impl Controller {
     }
 
     pub fn generate(&mut self, schema_path: &str, out_dir: &str) -> Result<()> {
-        reduce(&mut self.state, Action::SetSchemaPath(schema_path.to_string()));
+        reduce(
+            &mut self.state,
+            Action::SetSchemaPath(schema_path.to_string()),
+        );
         reduce(&mut self.state, Action::SetOutDir(out_dir.to_string()));
 
         self.client.send_load_schema(schema_path)?;
@@ -28,7 +31,10 @@ impl Controller {
         let (manifest_hash, report_json) = self.client.send_generate_write(out_dir)?;
         reduce(
             &mut self.state,
-            Action::SetReport { manifest_hash, report_json },
+            Action::SetReport {
+                manifest_hash,
+                report_json,
+            },
         );
         self.client.send_shutdown()?;
         Ok(())

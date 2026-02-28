@@ -3,7 +3,7 @@ mod diagnostics;
 mod public_api;
 mod validate;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
