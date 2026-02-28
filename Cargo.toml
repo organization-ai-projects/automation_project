@@ -44,6 +44,9 @@ members = [
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
   "projects/products/unstable/workflow_offline",
+  "projects/products/unstable/simulation_compiler/backend",
+  "projects/products/unstable/simulation_compiler/ui",
+  "projects/products/unstable/simulation_compiler/tooling",
 ]
 resolver = "2"
 
