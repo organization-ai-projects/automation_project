@@ -7,7 +7,8 @@ use crate::diagnostics::error::FactoryError;
 use crate::input::artifact_input::ArtifactInput;
 use crate::input::input_loader::InputLoader;
 use crate::protocol::request::Request;
-use crate::protocol::response::Response;use crate::render::html_renderer::HtmlRenderer;
+use crate::protocol::response::Response;
+use crate::render::html_renderer::HtmlRenderer;
 use crate::render::markdown_renderer::MarkdownRenderer;
 use crate::render::svg_renderer::SvgRenderer;
 
