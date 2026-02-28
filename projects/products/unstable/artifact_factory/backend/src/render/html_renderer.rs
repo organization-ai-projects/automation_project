@@ -18,7 +18,10 @@ impl HtmlRenderer {
         let markdown_body = MarkdownRenderer::render(inputs, event_map, protocol_map, dep_graph);
         let svg_graph = SvgRenderer::render(dep_graph);
         // Convert minimal markdown to HTML (just wrap in <pre> for simplicity — deterministic)
-        let html_body = markdown_body.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
+        let html_body = markdown_body
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;");
 
         format!(
             r#"<!DOCTYPE html>

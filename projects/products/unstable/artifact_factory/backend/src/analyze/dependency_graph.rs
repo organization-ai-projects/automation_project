@@ -13,7 +13,10 @@ impl DependencyGraph {
         for input in inputs {
             for line in input.content.lines() {
                 let trimmed = line.trim();
-                if let Some(rest) = trimmed.strip_prefix("depends_on:").or_else(|| trimmed.strip_prefix("DependsOn:")) {
+                if let Some(rest) = trimmed
+                    .strip_prefix("depends_on:")
+                    .or_else(|| trimmed.strip_prefix("DependsOn:"))
+                {
                     let dep = rest.trim().to_string();
                     if !dep.is_empty() {
                         edges.entry(input.path.clone()).or_default().push(dep);

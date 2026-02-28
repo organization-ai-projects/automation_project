@@ -31,7 +31,13 @@ fn main() -> Result<(), UiError> {
     let input_paths: Vec<String> = args
         .iter()
         .position(|a| a == "--inputs")
-        .map(|i| args[i + 1..].iter().take_while(|a| !a.starts_with("--")).cloned().collect())
+        .map(|i| {
+            args[i + 1..]
+                .iter()
+                .take_while(|a| !a.starts_with("--"))
+                .cloned()
+                .collect()
+        })
         .unwrap_or_default();
 
     run_headless(&backend_bin, input_paths)

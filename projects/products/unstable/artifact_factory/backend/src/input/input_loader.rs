@@ -7,8 +7,8 @@ impl InputLoader {
     pub fn load_from_paths(paths: &[String]) -> Result<Vec<ArtifactInput>, FactoryError> {
         let mut inputs = Vec::new();
         for path in paths {
-            let content = std::fs::read_to_string(path)
-                .map_err(|e| FactoryError::Io(e.to_string()))?;
+            let content =
+                std::fs::read_to_string(path).map_err(|e| FactoryError::Io(e.to_string()))?;
             let kind = classify_path(path);
             inputs.push(ArtifactInput {
                 path: path.clone(),

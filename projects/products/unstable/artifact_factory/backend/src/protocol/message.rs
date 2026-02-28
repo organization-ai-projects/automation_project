@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::protocol::{Request, Response};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestMessage {

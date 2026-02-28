@@ -13,10 +13,16 @@ impl ProtocolMap {
         for input in inputs {
             for line in input.content.lines() {
                 let trimmed = line.trim();
-                if let Some(rest) = trimmed.strip_prefix("protocol:").or_else(|| trimmed.strip_prefix("Protocol:")) {
+                if let Some(rest) = trimmed
+                    .strip_prefix("protocol:")
+                    .or_else(|| trimmed.strip_prefix("Protocol:"))
+                {
                     let proto_id = rest.trim().to_string();
                     if !proto_id.is_empty() {
-                        entries.entry(proto_id).or_default().push(input.path.clone());
+                        entries
+                            .entry(proto_id)
+                            .or_default()
+                            .push(input.path.clone());
                     }
                 }
             }

@@ -10,7 +10,10 @@ pub struct IpcClient {
 
 impl IpcClient {
     pub fn new(process: BackendProcess) -> Self {
-        Self { process, next_id: 1 }
+        Self {
+            process,
+            next_id: 1,
+        }
     }
 
     fn next_id(&mut self) -> u64 {
@@ -99,7 +102,11 @@ fn extract_string_array_field(json: &str, field: &str) -> Vec<String> {
                     .split(',')
                     .filter_map(|s| {
                         let s = s.trim().trim_matches('"');
-                        if s.is_empty() { None } else { Some(s.to_string()) }
+                        if s.is_empty() {
+                            None
+                        } else {
+                            Some(s.to_string())
+                        }
                     })
                     .collect();
             }
