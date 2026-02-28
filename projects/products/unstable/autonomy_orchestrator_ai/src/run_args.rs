@@ -143,6 +143,8 @@ pub struct RunArgs {
     #[arg(long)]
     pub ai_config_only_binary: bool,
 
+    #[arg(long)]
+    pub hard_gates_file: Option<PathBuf>,
     #[arg(long, default_value_t = 3)]
     pub planner_fallback_max_steps: u32,
     #[arg(long, value_enum)]

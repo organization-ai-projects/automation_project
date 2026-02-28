@@ -296,6 +296,7 @@ fn run_once(
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
         previous_run_report_path: Some(previous_run_report_path.clone()),
+        hard_gates_file: args.hard_gates_file,
         planner_fallback_max_steps: args.planner_fallback_max_steps,
         risk_tier: Some(risk_classification.tier),
         risk_signals: risk_classification.signals,
@@ -396,6 +397,19 @@ fn build_recommended_actions(report: &RunReport) -> Vec<String> {
             }
             "DECISION_NO_CONTRIBUTIONS" => {
                 "Provide at least one decision contribution for final arbitration".to_string()
+            }
+            "HARD_GATE_SECRET_POLICY_VIOLATION" => {
+                "Remove secrets exposure operation from invocation before rerun".to_string()
+            }
+            "HARD_GATE_AUTH_POLICY_VIOLATION" => {
+                "Remove auth/authz mutation operation from invocation before rerun".to_string()
+            }
+            "HARD_GATE_GIT_HISTORY_REWRITE_FORBIDDEN" => {
+                "Remove git history rewrite operation from invocation before rerun".to_string()
+            }
+            "HARD_GATE_INFRA_DESTRUCTIVE_OPERATION" => {
+                "Remove destructive infrastructure operation from invocation before rerun"
+                    .to_string()
             }
             other => format!("Resolve blocked reason: {other}"),
         };

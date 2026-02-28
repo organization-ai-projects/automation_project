@@ -43,6 +43,7 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         cycle_memory_path: None,
         next_actions_path: None,
         previous_run_report_path: None,
+        hard_gates_file: None,
         planner_fallback_max_steps: 3,
         risk_tier: None,
         risk_signals: Vec::new(),

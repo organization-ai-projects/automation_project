@@ -11,6 +11,7 @@ mod configs;
 mod decision_aggregator;
 mod domain;
 mod fixture;
+mod hard_gates;
 mod linked_stack;
 mod orchestrator;
 mod output_writer;
