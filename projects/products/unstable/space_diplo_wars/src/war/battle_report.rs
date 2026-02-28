@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use crate::map::star_system_id::StarSystemId;
 use crate::model::empire_id::EmpireId;
 use crate::model::fleet_id::FleetId;
-use crate::map::star_system_id::StarSystemId;
 
 /// Canonical battle outcome (ordered by attacker_fleet_id for determinism).
 #[derive(Debug, Clone, Serialize, Deserialize)]

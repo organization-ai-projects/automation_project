@@ -20,18 +20,12 @@ impl ResolutionEngine {
     /// 3. ResolveCombat   - deterministic battle resolution; tie-breaker = attacker empire_id string
     /// 4. UpdateEconomy   - apply economy tick
     /// 5. EmitEvents      - collect all events into ResolutionReport
-    pub fn resolve_turn(
-        state: &mut SimState,
-        orders: &[Order],
-        turn: u64,
-    ) -> ResolutionReport {
+    pub fn resolve_turn(state: &mut SimState, orders: &[Order], turn: u64) -> ResolutionReport {
         let mut report = ResolutionReport::new(turn);
 
         // 1. Validate orders; keep only valid ones (sort for determinism: empire_id then order_id)
         let mut sorted_orders: Vec<&Order> = orders.iter().collect();
-        sorted_orders.sort_by(|a, b| {
-            a.empire_id.0.cmp(&b.empire_id.0).then(a.id.0.cmp(&b.id.0))
-        });
+        sorted_orders.sort_by(|a, b| a.empire_id.0.cmp(&b.empire_id.0).then(a.id.0.cmp(&b.id.0)));
 
         let mut valid_orders: Vec<&Order> = Vec::new();
         for order in &sorted_orders {
@@ -44,10 +38,15 @@ impl ResolutionEngine {
         // 2. Apply diplomacy
         let diplo_orders: Vec<Order> = valid_orders
             .iter()
-            .filter(|o| matches!(
-                o.kind,
-                OrderKind::OfferTreaty | OrderKind::AcceptTreaty | OrderKind::RejectTreaty | OrderKind::Embargo
-            ))
+            .filter(|o| {
+                matches!(
+                    o.kind,
+                    OrderKind::OfferTreaty
+                        | OrderKind::AcceptTreaty
+                        | OrderKind::RejectTreaty
+                        | OrderKind::Embargo
+                )
+            })
             .map(|o| (*o).clone())
             .collect();
         let diplo_events = DiplomacyEngine::apply_turn(&diplo_orders, state, turn);

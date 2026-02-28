@@ -10,6 +10,9 @@ pub struct OrderSet {
 
 impl OrderSet {
     pub fn new(turn: u64) -> Self {
-        Self { turn, orders: Vec::new() }
+        Self {
+            turn,
+            orders: Vec::new(),
+        }
     }
 }

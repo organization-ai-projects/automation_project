@@ -2,27 +2,27 @@ use std::collections::BTreeMap;
 
 use space_diplo_wars::config::game_config::GameConfig;
 use space_diplo_wars::diagnostics::error::SpaceDiploWarsError;
+use space_diplo_wars::diplomacy::treaty_kind::TreatyKind;
+use space_diplo_wars::economy::resource_wallet::ResourceWallet;
 use space_diplo_wars::fleets::fleet::Fleet;
 use space_diplo_wars::fleets::ship_kind::ShipKind;
 use space_diplo_wars::io::json_codec::JsonCodec;
 use space_diplo_wars::map::star_map::StarMap;
+use space_diplo_wars::map::star_system_id::StarSystemId;
 use space_diplo_wars::model::empire_id::EmpireId;
 use space_diplo_wars::model::fleet_id::FleetId;
 use space_diplo_wars::model::game_id::GameId;
 use space_diplo_wars::model::sim_state::{Empire, SimState};
-use space_diplo_wars::economy::resource_wallet::ResourceWallet;
-use space_diplo_wars::tech::tech_tree::TechTree;
-use space_diplo_wars::orders::order::{Order};
+use space_diplo_wars::orders::order::Order;
 use space_diplo_wars::orders::order_id::OrderId;
 use space_diplo_wars::orders::order_kind::OrderKind;
 use space_diplo_wars::orders::order_validator::OrderValidator;
-use space_diplo_wars::resolution::resolution_engine::ResolutionEngine;
-use space_diplo_wars::diplomacy::treaty_kind::TreatyKind;
-use space_diplo_wars::war::battle_input::BattleInput;
-use space_diplo_wars::war::battle_resolver::BattleResolver;
-use space_diplo_wars::map::star_system_id::StarSystemId;
 use space_diplo_wars::report::run_report::RunReport;
 use space_diplo_wars::report::turn_report::TurnReport;
+use space_diplo_wars::resolution::resolution_engine::ResolutionEngine;
+use space_diplo_wars::tech::tech_tree::TechTree;
+use space_diplo_wars::war::battle_input::BattleInput;
+use space_diplo_wars::war::battle_resolver::BattleResolver;
 
 fn make_state_with_empire(empire_id: &str) -> SimState {
     let mut state = SimState::new(GameId("test".into()), StarMap::new());
@@ -86,7 +86,9 @@ fn test_resolution_tie_breaker_deterministic() {
     let fleet2 = make_fleet("fleet_1", "empire_a", "sys_alpha", 5);
     state2.fleets.insert(FleetId("fleet_1".into()), fleet2);
 
-    let orders = vec![make_move_order("order_1", "empire_a", "fleet_1", "sys_beta")];
+    let orders = vec![make_move_order(
+        "order_1", "empire_a", "fleet_1", "sys_beta",
+    )];
 
     let report1 = ResolutionEngine::resolve_turn(&mut state1, &orders, 1);
     let report2 = ResolutionEngine::resolve_turn(&mut state2, &orders, 1);

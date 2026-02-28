@@ -35,7 +35,9 @@ fn main() {
             eprintln!("Invalid CLI: {}", msg);
             process::exit(2);
         }
-        Err(SpaceDiploWarsError::InvalidScenario(msg) | SpaceDiploWarsError::InvalidOrders(msg)) => {
+        Err(
+            SpaceDiploWarsError::InvalidScenario(msg) | SpaceDiploWarsError::InvalidOrders(msg),
+        ) => {
             eprintln!("Invalid scenario/config/orders: {}", msg);
             process::exit(3);
         }
@@ -63,37 +65,55 @@ fn run_command(args: &[String]) -> Result<(), SpaceDiploWarsError> {
         match args[i].as_str() {
             "--turns" => {
                 i += 1;
-                turns = args.get(i)
-                    .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--turns requires value".into()))?
+                turns = args
+                    .get(i)
+                    .ok_or_else(|| {
+                        SpaceDiploWarsError::InvalidCli("--turns requires value".into())
+                    })?
                     .parse()
-                    .map_err(|_| SpaceDiploWarsError::InvalidCli("--turns must be a number".into()))?;
+                    .map_err(|_| {
+                        SpaceDiploWarsError::InvalidCli("--turns must be a number".into())
+                    })?;
             }
             "--ticks-per-turn" => {
                 i += 1;
-                ticks_per_turn = args.get(i)
-                    .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--ticks-per-turn requires value".into()))?
+                ticks_per_turn = args
+                    .get(i)
+                    .ok_or_else(|| {
+                        SpaceDiploWarsError::InvalidCli("--ticks-per-turn requires value".into())
+                    })?
                     .parse()
-                    .map_err(|_| SpaceDiploWarsError::InvalidCli("--ticks-per-turn must be a number".into()))?;
+                    .map_err(|_| {
+                        SpaceDiploWarsError::InvalidCli("--ticks-per-turn must be a number".into())
+                    })?;
             }
             "--seed" => {
                 i += 1;
-                seed = args.get(i)
+                seed = args
+                    .get(i)
                     .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--seed requires value".into()))?
                     .parse()
-                    .map_err(|_| SpaceDiploWarsError::InvalidCli("--seed must be a number".into()))?;
+                    .map_err(|_| {
+                        SpaceDiploWarsError::InvalidCli("--seed must be a number".into())
+                    })?;
             }
             "--scenario" => {
                 i += 1;
-                scenario_path = Some(PathBuf::from(args.get(i)
-                    .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--scenario requires value".into()))?));
+                scenario_path = Some(PathBuf::from(args.get(i).ok_or_else(|| {
+                    SpaceDiploWarsError::InvalidCli("--scenario requires value".into())
+                })?));
             }
             "--out" => {
                 i += 1;
-                out_path = Some(PathBuf::from(args.get(i)
-                    .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--out requires value".into()))?));
+                out_path = Some(PathBuf::from(args.get(i).ok_or_else(|| {
+                    SpaceDiploWarsError::InvalidCli("--out requires value".into())
+                })?));
             }
             flag => {
-                return Err(SpaceDiploWarsError::InvalidCli(format!("Unknown flag: {}", flag)));
+                return Err(SpaceDiploWarsError::InvalidCli(format!(
+                    "Unknown flag: {}",
+                    flag
+                )));
             }
         }
         i += 1;
@@ -105,7 +125,11 @@ fn run_command(args: &[String]) -> Result<(), SpaceDiploWarsError> {
     let scenario = ScenarioLoader::load_from_file(&scenario_file)
         .map_err(|e| SpaceDiploWarsError::InvalidScenario(e.to_string()))?;
 
-    let config = GameConfig { turns, ticks_per_turn, seed };
+    let config = GameConfig {
+        turns,
+        ticks_per_turn,
+        seed,
+    };
     let (run_report, replay_file) = execute_run(&scenario, &config)?;
 
     // Compute run hash
@@ -156,7 +180,9 @@ fn execute_run(
             turn,
             orders: orders.clone(),
         };
-        replay_file.orders_per_turn.insert(turn.to_string(), order_set);
+        replay_file
+            .orders_per_turn
+            .insert(turn.to_string(), order_set);
 
         let res_report = ResolutionEngine::resolve_turn(&mut state, &orders, turn);
 

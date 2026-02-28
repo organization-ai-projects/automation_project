@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
+use crate::diagnostics::error::SpaceDiploWarsError;
 use crate::model::sim_state::SimState;
 use crate::orders::order::Order;
-use crate::diagnostics::error::SpaceDiploWarsError;
 
 use super::treaty::Treaty;
 use super::treaty_id::TreatyId;
@@ -32,21 +32,16 @@ impl DiplomacyEngine {
 
     /// Apply all diplomacy orders for a turn, mutating state.
     /// Tie-breaker: orders sorted by empire_id then order_id (ascending string order).
-    pub fn apply_turn(
-        orders: &[Order],
-        state: &mut SimState,
-        current_turn: u64,
-    ) -> Vec<String> {
+    pub fn apply_turn(orders: &[Order], state: &mut SimState, current_turn: u64) -> Vec<String> {
         let mut events = Vec::new();
         let mut sorted_orders: Vec<&Order> = orders.iter().collect();
         // Tie-breaker: sort by empire_id then order_id
-        sorted_orders.sort_by(|a, b| {
-            a.empire_id.0.cmp(&b.empire_id.0).then(a.id.0.cmp(&b.id.0))
-        });
+        sorted_orders.sort_by(|a, b| a.empire_id.0.cmp(&b.empire_id.0).then(a.id.0.cmp(&b.id.0)));
 
         use crate::orders::order_kind::OrderKind;
         // Collect offers first, indexed by a canonical treaty id
-        let mut pending_offers: BTreeMap<String, (String, TreatyKind, Option<u64>)> = BTreeMap::new();
+        let mut pending_offers: BTreeMap<String, (String, TreatyKind, Option<u64>)> =
+            BTreeMap::new();
 
         for order in &sorted_orders {
             match &order.kind {
@@ -54,7 +49,9 @@ impl DiplomacyEngine {
                     let target = order.params.get("target").cloned().unwrap_or_default();
                     let kind_str = order.params.get("treaty_kind").cloned().unwrap_or_default();
                     let kind = parse_treaty_kind(&kind_str);
-                    let end_turn = order.params.get("end_turn")
+                    let end_turn = order
+                        .params
+                        .get("end_turn")
                         .and_then(|s| s.parse::<u64>().ok());
                     // Canonical treaty id: sorted empire ids + offer turn
                     let mut ids = vec![order.empire_id.0.clone(), target.clone()];
@@ -93,7 +90,9 @@ impl DiplomacyEngine {
         }
 
         // Remove expired treaties
-        let expired: Vec<String> = state.treaties.iter()
+        let expired: Vec<String> = state
+            .treaties
+            .iter()
             .filter(|(_, t)| t.end_turn.map_or(false, |e| e < current_turn))
             .map(|(k, _)| k.clone())
             .collect();

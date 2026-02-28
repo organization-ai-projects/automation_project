@@ -12,7 +12,8 @@ pub struct StateSnapshot {
     pub fleet_count: usize,
     pub treaty_count: usize,
     /// Sorted empire resource totals for canonical comparison.
-    pub empire_resources: std::collections::BTreeMap<String, std::collections::BTreeMap<String, i64>>,
+    pub empire_resources:
+        std::collections::BTreeMap<String, std::collections::BTreeMap<String, i64>>,
 }
 
 impl StateSnapshot {

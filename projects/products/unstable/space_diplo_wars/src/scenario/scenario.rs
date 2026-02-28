@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::economy::resource_kind::ResourceKind;
+use crate::economy::resource_wallet::ResourceWallet;
 use crate::fleets::fleet::Fleet;
 use crate::fleets::ship_kind::ShipKind;
 use crate::map::route::Route;
@@ -12,12 +14,10 @@ use crate::model::empire_id::EmpireId;
 use crate::model::fleet_id::FleetId;
 use crate::model::game_id::GameId;
 use crate::model::sim_state::{Empire, SimState};
-use crate::economy::resource_wallet::ResourceWallet;
-use crate::economy::resource_kind::ResourceKind;
-use crate::tech::tech_tree::TechTree;
 use crate::orders::order::Order;
-use crate::orders::order_kind::OrderKind;
 use crate::orders::order_id::OrderId;
+use crate::orders::order_kind::OrderKind;
+use crate::tech::tech_tree::TechTree;
 
 /// Raw empire data as loaded from scenario JSON.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -102,7 +102,9 @@ impl Scenario {
                 planets: sys.planets.clone(),
                 owner: sys.owner.clone(),
             };
-            star_map.systems.insert(StarSystemId(sys.id.clone()), system);
+            star_map
+                .systems
+                .insert(StarSystemId(sys.id.clone()), system);
         }
         for route in &self.star_map.routes {
             star_map.routes.push(Route {

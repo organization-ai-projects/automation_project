@@ -21,7 +21,11 @@ fn run_scenario(scenario_file: &str, turns: u64) -> (RunReport, ReplayFile) {
     let path = fixtures_dir().join(scenario_file);
     let scenario = ScenarioLoader::load_from_file(&path).expect("load scenario");
 
-    let config = GameConfig { turns, ticks_per_turn: 4, seed: 42 };
+    let config = GameConfig {
+        turns,
+        ticks_per_turn: 4,
+        seed: 42,
+    };
 
     let mut state = scenario.build_initial_state();
     let mut turn_reports = Vec::new();
@@ -35,7 +39,10 @@ fn run_scenario(scenario_file: &str, turns: u64) -> (RunReport, ReplayFile) {
 
     for turn in 1..=turns {
         let orders = scenario.orders_for_turn(turn);
-        let order_set = space_diplo_wars::orders::order_set::OrderSet { turn, orders: orders.clone() };
+        let order_set = space_diplo_wars::orders::order_set::OrderSet {
+            turn,
+            orders: orders.clone(),
+        };
         replay.orders_per_turn.insert(turn.to_string(), order_set);
 
         let res = ResolutionEngine::resolve_turn(&mut state, &orders, turn);
@@ -106,7 +113,11 @@ fn test_snapshot_hash_at_checkpoint() {
     let path = fixtures_dir().join("border_war_small.json");
     let scenario = ScenarioLoader::load_from_file(&path).unwrap();
 
-    let config = GameConfig { turns: 2, ticks_per_turn: 4, seed: 42 };
+    let config = GameConfig {
+        turns: 2,
+        ticks_per_turn: 4,
+        seed: 42,
+    };
     let mut state = scenario.build_initial_state();
 
     let mut snap_hashes: Vec<(u64, String)> = Vec::new();
@@ -141,7 +152,10 @@ fn test_snapshot_hash_at_checkpoint() {
         }
     }
 
-    assert_eq!(snap_hashes, snap_hashes2, "Snapshot hashes must be deterministic");
+    assert_eq!(
+        snap_hashes, snap_hashes2,
+        "Snapshot hashes must be deterministic"
+    );
 }
 
 #[test]

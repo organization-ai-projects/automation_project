@@ -22,7 +22,9 @@ impl OrderValidator {
         match &order.kind {
             OrderKind::MoveFleet | OrderKind::AttackFleet => {
                 let fleet_id_str = order.params.get("fleet_id").ok_or_else(|| {
-                    SpaceDiploWarsError::InvalidOrders("MoveFleet/AttackFleet requires fleet_id param".into())
+                    SpaceDiploWarsError::InvalidOrders(
+                        "MoveFleet/AttackFleet requires fleet_id param".into(),
+                    )
                 })?;
                 let fleet_id = crate::model::fleet_id::FleetId(fleet_id_str.clone());
                 let fleet = state.fleets.get(&fleet_id).ok_or_else(|| {
