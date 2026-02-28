@@ -39,13 +39,16 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         }],
         decision_reliability_inputs: Vec::new(),
         decision_require_contributions: false,
-        pr_risk_threshold: 40,
-        auto_merge_on_eligible: false,
         reviewer_verdicts: Vec::new(),
         checkpoint_path: None,
         cycle_memory_path: None,
         next_actions_path: None,
         previous_run_report_path: None,
+        rollout_enabled: false,
+        rollback_error_rate_threshold: 0.05,
+        rollback_latency_threshold_ms: 5_000,
+        pr_risk_threshold: 40,
+        auto_merge_on_eligible: false,
         memory_path: None,
         memory_max_entries: 500,
         memory_decay_window_runs: 100,
@@ -407,6 +410,42 @@ fn reliability_factors_and_updates_are_persisted_in_run_report() {
 }
 
 #[test]
+fn rollout_disabled_produces_no_rollout_steps_in_run_report() {
+    let mut config = test_config("run_rollout_disabled");
+    config.rollout_enabled = false;
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert!(report.rollout_steps.is_empty());
+    assert!(report.rollback_decision.is_none());
+}
+
+#[test]
+fn rollout_enabled_healthy_produces_three_phase_steps_in_run_report() {
+    use crate::domain::RolloutPhase;
+
+    let mut config = test_config("run_rollout_healthy");
+    config.rollout_enabled = true;
+    config.rollback_error_rate_threshold = 0.05;
+    config.rollback_latency_threshold_ms = 5_000;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert_eq!(report.rollout_steps.len(), 3);
+    assert_eq!(report.rollout_steps[0].phase, RolloutPhase::Canary);
+    assert_eq!(report.rollout_steps[1].phase, RolloutPhase::Partial);
+    assert_eq!(report.rollout_steps[2].phase, RolloutPhase::Full);
+    assert!(
+        report
+            .rollout_steps
+            .iter()
+            .all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED")
+    );
+    assert!(report.rollback_decision.is_none());
+}
+
+#[test]
 fn review_ensemble_result_and_verdicts_persisted_in_run_report() {
     let mut config = test_config("run_13");
     config.reviewer_verdicts = vec![
@@ -435,6 +474,16 @@ fn review_ensemble_result_and_verdicts_persisted_in_run_report() {
             reason_codes: Vec::new(),
         },
     ];
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert_eq!(report.reviewer_verdicts.len(), 3);
+    let ensemble = report
+        .review_ensemble_result
+        .expect("ensemble result must be present");
+    assert!(ensemble.passed);
+    assert!(ensemble.reason_codes.is_empty());
 }
 
 #[test]
@@ -480,12 +529,14 @@ fn planner_path_record_is_persisted_in_run_report() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Done));
-    assert_eq!(report.reviewer_verdicts.len(), 3);
-    let ensemble = report
-        .review_ensemble_result
-        .expect("ensemble result must be present");
-    assert!(ensemble.passed);
-    assert!(ensemble.reason_codes.is_empty());
+    let path_record = report
+        .planner_path_record
+        .expect("planner_path_record must be set");
+    assert_eq!(path_record.selected_path, vec!["start", "end"]);
+    assert_eq!(path_record.fallback_steps_used, 0);
+    assert!(path_record.reason_codes.is_empty());
+
+    fs::remove_dir_all(&temp_root).ok();
 }
 
 #[test]
@@ -545,14 +596,18 @@ fn review_ensemble_tie_blocks_run_fail_closed() {
             reason_codes: Vec::new(),
         },
     ];
-    let path_record = report
-        .planner_path_record
-        .expect("planner_path_record must be set");
-    assert_eq!(path_record.selected_path, vec!["start", "end"]);
-    assert_eq!(path_record.fallback_steps_used, 0);
-    assert!(path_record.reason_codes.is_empty());
+    let report = Orchestrator::new(config, None).execute();
 
-    fs::remove_dir_all(&temp_root).ok();
+    assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"REVIEW_ENSEMBLE_TIE_FAIL_CLOSED".to_string())
+    );
+    let ensemble = report
+        .review_ensemble_result
+        .expect("ensemble result must be present");
+    assert!(!ensemble.passed);
 }
 
 #[test]
@@ -769,11 +824,6 @@ fn high_risk_is_blocked_by_default() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
-    assert!(
-        report
-            .blocked_reason_codes
-            .contains(&"REVIEW_ENSEMBLE_TIE_FAIL_CLOSED".to_string())
-    );
     assert_eq!(report.risk_tier, Some(RiskTier::High));
     assert!(
         report

@@ -23,6 +23,7 @@ mod planner_v2;
 mod pr_risk;
 mod review_ensemble;
 mod risk_classifier;
+mod rollout_orchestrator;
 mod run_args;
 mod runtime;
 mod runtime_diagnostics;
