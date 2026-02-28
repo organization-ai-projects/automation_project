@@ -103,10 +103,18 @@ setup_repo() {
     mkdir -p node_modules/.bin
     echo "base" > documentation/base.md
     cat > package.json <<'EOF'
-{"name":"hook-tests","private":true,"scripts":{"lint-md-files":"echo lint-md-files"}}
+{"name":"hook-tests","private":true,"scripts":{"lint-md-files":"echo lint-md-files"},"devDependencies":{"markdownlint-cli2":"0.21.0"}}
 EOF
     cat > node_modules/.bin/markdownlint-cli2 <<'EOF'
 #!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+  echo "0.21.0"
+  exit 0
+fi
+if [[ "${MOCK_MARKDOWNLINT_FAIL:-0}" == "1" ]]; then
+  echo "mock markdownlint failure" >&2
+  exit 1
+fi
 exit 0
 EOF
     chmod +x node_modules/.bin/markdownlint-cli2
@@ -356,20 +364,20 @@ main() {
   run_case \
     "pre-commit-blocks-markdownlint-failure" \
     1 \
-    "Markdown auto-fix failed on staged markdown files" \
+    "Markdown lint failed on staged markdown files" \
     "echo '# markdown title' > documentation/precommit_markdownlint_fail.md && git add documentation/precommit_markdownlint_fail.md && MOCK_MARKDOWNLINT_FAIL=1 /bin/bash '${HOOKS_DIR}/pre-commit'"
 
   run_case \
     "pre-commit-ignores-unstaged-orchestrator-permission-mismatches" \
     0 \
     "Pre-commit checks passed" \
-    "rm scripts && mkdir -p scripts/common_lib/automation scripts/versioning/file_versioning/orchestrators/read scripts/versioning/file_versioning/orchestrators/execute documentation && cp '${ROOT_DIR}/scripts/common_lib/automation/scope_resolver.sh' scripts/common_lib/automation/scope_resolver.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/file_types.sh' scripts/common_lib/automation/file_types.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/workspace_rust.sh' scripts/common_lib/automation/workspace_rust.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/non_workspace_rust.sh' scripts/common_lib/automation/non_workspace_rust.sh && printf '#!/usr/bin/env bash\necho read\n' > scripts/versioning/file_versioning/orchestrators/read/check.sh && chmod 644 scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/common_lib/automation/scope_resolver.sh scripts/common_lib/automation/file_types.sh scripts/common_lib/automation/workspace_rust.sh scripts/common_lib/automation/non_workspace_rust.sh scripts/versioning/file_versioning/orchestrators/read/check.sh && git commit -m 'chore: add local scripts tree' >/dev/null && chmod +x scripts/versioning/file_versioning/orchestrators/read/check.sh && echo 'note' > documentation/precommit_perm.md && git add documentation/precommit_perm.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
+    "rm scripts && mkdir -p scripts/common_lib/automation scripts/automation/git_hooks/lib scripts/versioning/file_versioning/orchestrators/read scripts/versioning/file_versioning/orchestrators/execute documentation && cp '${ROOT_DIR}/scripts/common_lib/automation/scope_resolver.sh' scripts/common_lib/automation/scope_resolver.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/file_types.sh' scripts/common_lib/automation/file_types.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/workspace_rust.sh' scripts/common_lib/automation/workspace_rust.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/non_workspace_rust.sh' scripts/common_lib/automation/non_workspace_rust.sh && cp '${ROOT_DIR}/scripts/automation/git_hooks/lib/markdownlint_policy.sh' scripts/automation/git_hooks/lib/markdownlint_policy.sh && printf '#!/usr/bin/env bash\necho read\n' > scripts/versioning/file_versioning/orchestrators/read/check.sh && chmod 644 scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/common_lib/automation/scope_resolver.sh scripts/common_lib/automation/file_types.sh scripts/common_lib/automation/workspace_rust.sh scripts/common_lib/automation/non_workspace_rust.sh scripts/automation/git_hooks/lib/markdownlint_policy.sh scripts/versioning/file_versioning/orchestrators/read/check.sh && git commit -m 'chore: add local scripts tree' >/dev/null && chmod +x scripts/versioning/file_versioning/orchestrators/read/check.sh && echo 'note' > documentation/precommit_perm.md && git add documentation/precommit_perm.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
 
   run_case \
     "pre-commit-blocks-staged-orchestrator-permission-mismatches" \
     1 \
     "Script permission errors detected" \
-    "rm scripts && mkdir -p scripts/common_lib/automation scripts/versioning/file_versioning/orchestrators/read scripts/versioning/file_versioning/orchestrators/execute && cp '${ROOT_DIR}/scripts/common_lib/automation/scope_resolver.sh' scripts/common_lib/automation/scope_resolver.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/file_types.sh' scripts/common_lib/automation/file_types.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/workspace_rust.sh' scripts/common_lib/automation/workspace_rust.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/non_workspace_rust.sh' scripts/common_lib/automation/non_workspace_rust.sh && printf '#!/usr/bin/env bash\necho read\n' > scripts/versioning/file_versioning/orchestrators/read/check.sh && chmod 644 scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/common_lib/automation/scope_resolver.sh scripts/common_lib/automation/file_types.sh scripts/common_lib/automation/workspace_rust.sh scripts/common_lib/automation/non_workspace_rust.sh scripts/versioning/file_versioning/orchestrators/read/check.sh && git commit -m 'chore: add local scripts tree' >/dev/null && chmod +x scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/versioning/file_versioning/orchestrators/read/check.sh && /bin/bash '${HOOKS_DIR}/pre-commit'"
+    "rm scripts && mkdir -p scripts/common_lib/automation scripts/automation/git_hooks/lib scripts/versioning/file_versioning/orchestrators/read scripts/versioning/file_versioning/orchestrators/execute && cp '${ROOT_DIR}/scripts/common_lib/automation/scope_resolver.sh' scripts/common_lib/automation/scope_resolver.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/file_types.sh' scripts/common_lib/automation/file_types.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/workspace_rust.sh' scripts/common_lib/automation/workspace_rust.sh && cp '${ROOT_DIR}/scripts/common_lib/automation/non_workspace_rust.sh' scripts/common_lib/automation/non_workspace_rust.sh && cp '${ROOT_DIR}/scripts/automation/git_hooks/lib/markdownlint_policy.sh' scripts/automation/git_hooks/lib/markdownlint_policy.sh && printf '#!/usr/bin/env bash\necho read\n' > scripts/versioning/file_versioning/orchestrators/read/check.sh && chmod 644 scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/common_lib/automation/scope_resolver.sh scripts/common_lib/automation/file_types.sh scripts/common_lib/automation/workspace_rust.sh scripts/common_lib/automation/non_workspace_rust.sh scripts/automation/git_hooks/lib/markdownlint_policy.sh scripts/versioning/file_versioning/orchestrators/read/check.sh && git commit -m 'chore: add local scripts tree' >/dev/null && chmod +x scripts/versioning/file_versioning/orchestrators/read/check.sh && git add scripts/versioning/file_versioning/orchestrators/read/check.sh && /bin/bash '${HOOKS_DIR}/pre-commit'"
 
   # pre-push: block tracking-only push unless explicit override.
   run_case \

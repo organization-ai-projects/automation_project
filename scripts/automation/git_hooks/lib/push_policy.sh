@@ -11,8 +11,85 @@ source "$HOOKS_DIR/lib/issue_parent_guard.sh"
 source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/policy.sh
 source "$HOOKS_DIR/lib/policy.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/hook_utils.sh
-source "$HOOKS_DIR/lib/hook_utils.sh"
+# shellcheck source=scripts/common_lib/automation/file_types.sh
+source "$ROOT_DIR/scripts/common_lib/automation/file_types.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/markdownlint_policy.sh
+source "$HOOKS_DIR/lib/markdownlint_policy.sh"
+
+push_policy_resolve_upstream_branch() {
+  local upstream
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")"
+  if [[ -z "$upstream" ]]; then
+    echo "⚠️  No upstream branch detected. Falling back to origin/dev for scope detection." >&2
+    upstream="origin/dev"
+  fi
+  printf '%s\n' "$upstream"
+}
+
+push_policy_collect_push_commits() {
+  local upstream="$1"
+  git log "$upstream"..HEAD --format=%B 2>/dev/null || true
+}
+
+push_policy_compute_changed_files() {
+  local upstream="$1"
+  local files=""
+
+  files=$(git diff --name-only "${upstream}"..HEAD 2>/dev/null || true)
+  if [[ -n "$files" ]]; then
+    printf '%s\n' "$files"
+    return 0
+  fi
+
+  if git rev-parse --verify --quiet origin/dev >/dev/null; then
+    local base
+    base=$(git merge-base origin/dev HEAD 2>/dev/null || true)
+    if [[ -n "$base" ]]; then
+      files=$(git diff --name-only "${base}"..HEAD 2>/dev/null || true)
+      if [[ -n "$files" ]]; then
+        printf '%s\n' "$files"
+        return 0
+      fi
+    fi
+  fi
+
+  files=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)
+  printf '%s\n' "$files"
+}
+
+push_policy_collect_markdown_files() {
+  local files="$1"
+  local file
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if is_markdown_path_file "$file" && [[ -f "$file" ]]; then
+      printf '%s\n' "$file"
+    fi
+  done <<< "$files"
+}
+
+push_policy_run_shell_syntax_checks() {
+  local files="$1"
+  local checked=0
+  local file
+
+  while IFS= read -r file; do
+    if is_shell_file "$file"; then
+      echo "   - bash -n $file"
+      bash -n "$file"
+      checked=1
+    fi
+  done <<< "$files"
+
+  if [[ $checked -eq 0 ]]; then
+    echo "   (no shell scripts changed)"
+  fi
+}
+
+push_policy_run_markdownlint_checks() {
+  markdownlint_policy_run_checks "$1"
+}
 
 push_policy_validate_no_root_parent_issue_refs() {
   local commits_input="$1"
