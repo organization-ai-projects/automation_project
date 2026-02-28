@@ -1,6 +1,6 @@
 use super::{RendererBackend, RendererError};
+use crate::renderer::frame_summary::FrameSummary;
 use crate::world::WorldState;
-use serde::Serialize;
 use std::path::PathBuf;
 
 pub struct FrameDumpRenderer {
@@ -13,14 +13,6 @@ impl FrameDumpRenderer {
     }
 }
 
-#[derive(Serialize)]
-struct FrameSummary {
-    tick_id: u64,
-    entity_count: usize,
-    camera_fov_deg: f64,
-    light_count: usize,
-}
-
 impl RendererBackend for FrameDumpRenderer {
     fn render_frame(&self, world: &WorldState) -> Result<(), RendererError> {
         if self.output_dir.as_os_str().is_empty() {
@@ -31,9 +23,9 @@ impl RendererBackend for FrameDumpRenderer {
 
         let summary = FrameSummary {
             tick_id: world.tick_id,
-            entity_count: world.entities.len(),
-            camera_fov_deg: world.camera.fov_deg,
-            light_count: world.lighting.lights.len(),
+            entity_count: world.query_entities().len(),
+            camera_fov_deg: world.get_camera().fov_deg,
+            light_count: world.get_lighting().lights.len(),
         };
 
         let output_path = self

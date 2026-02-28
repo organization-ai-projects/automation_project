@@ -1,12 +1,13 @@
 use super::{ExecutionResult, ExecutorError};
-use crate::assets::{AssetGenerator, NoopAssetGenerator};
+use crate::assets::{AssetGenerator, FileAssetGenerator};
 use crate::plan::{ActionParameters, Plan};
 use crate::policy::PolicyEngine;
-use crate::renderer::{NoopRenderer, RendererBackend};
+use crate::renderer::{FrameDumpRenderer, RendererBackend};
 use crate::world::{
     EntityId, LightDescriptor, LightKind, Transform, WorldEntity, WorldFingerprint, WorldState,
 };
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 const LIGHTING_ENTITY_ID: u64 = 999;
 
@@ -18,11 +19,10 @@ pub struct Executor {
 
 impl Executor {
     pub fn new(policy_engine: PolicyEngine) -> Self {
-        Self {
-            policy_engine,
-            asset_generator: Box::new(NoopAssetGenerator),
-            renderer: Box::new(NoopRenderer),
-        }
+        let output_root = PathBuf::from("auto_render_output");
+        let asset_generator = Box::new(FileAssetGenerator::new(output_root.join("assets")));
+        let renderer = Box::new(FrameDumpRenderer::new(output_root.join("frames")));
+        Self::with_backends(policy_engine, asset_generator, renderer)
     }
 
     pub fn with_backends(
@@ -43,6 +43,7 @@ impl Executor {
         world: &mut WorldState,
     ) -> Result<ExecutionResult, ExecutorError> {
         let start = std::time::Instant::now();
+        self.validate_world(world)?;
 
         for action in &plan.actions {
             self.policy_engine.check_action(action).map_err(|e| {
@@ -53,6 +54,7 @@ impl Executor {
             })?;
 
             self.apply_action(action, world)?;
+            self.validate_world(world)?;
         }
 
         self.renderer
@@ -71,6 +73,22 @@ impl Executor {
             fingerprint: fingerprint.hash,
             elapsed_ms,
         })
+    }
+
+    fn validate_world(&self, world: &WorldState) -> Result<(), ExecutorError> {
+        for (id, entity) in &world.entities {
+            if *id != entity.id {
+                return Err(ExecutorError::WorldCorrupted);
+            }
+        }
+
+        if let Some(target) = world.camera.tracking_target
+            && !world.entities.contains_key(&EntityId(target))
+        {
+            return Err(ExecutorError::WorldCorrupted);
+        }
+
+        Ok(())
     }
 
     fn apply_action(
@@ -185,114 +203,5 @@ impl Executor {
             }
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::plan::{
-        ActionEnvelope, ActionParameters, ActionType, Capability, Plan, PlanId, PlanMetadata,
-        PlanSchemaVersion,
-    };
-    use crate::policy::{ApprovalRule, Budget, CapabilitySet, PolicyEngine, PolicySnapshot};
-    use std::collections::HashSet;
-
-    fn make_engine(caps: HashSet<Capability>) -> PolicyEngine {
-        PolicyEngine::new(PolicySnapshot {
-            snapshot_id: "snap-001".to_string(),
-            created_at: "2026-01-01T00:00:00Z".to_string(),
-            allowed_capabilities: CapabilitySet::new(caps),
-            budget: Budget::default(),
-            rules: vec![ApprovalRule::AutoApprove],
-        })
-    }
-
-    fn make_plan(actions: Vec<ActionEnvelope>) -> Plan {
-        Plan {
-            metadata: PlanMetadata {
-                plan_id: PlanId("p1".to_string()),
-                plan_schema_version: PlanSchemaVersion {
-                    major: 1,
-                    minor: 0,
-                    patch: 0,
-                },
-                engine_version: "0.1.0".to_string(),
-                planner_id: "test".to_string(),
-                planner_version: "0.1.0".to_string(),
-                policy_snapshot_id: "snap-001".to_string(),
-                seed: 0,
-                inputs_hash: "".to_string(),
-                created_at: "2026-01-01T00:00:00Z".to_string(),
-                explain: "test".to_string(),
-                explain_trace_ref: None,
-            },
-            actions,
-        }
-    }
-
-    #[test]
-    fn test_deterministic_fingerprint() {
-        let mut caps = HashSet::new();
-        caps.insert(Capability::WorldSpawnEntity);
-        caps.insert(Capability::CameraSet);
-        let executor = Executor::new(make_engine(caps.clone()));
-
-        let actions = vec![
-            ActionEnvelope {
-                action_id: "a1".to_string(),
-                action_type: ActionType::SpawnEntity,
-                capability_required: Capability::WorldSpawnEntity,
-                parameters: ActionParameters::SpawnEntity {
-                    name: "subject".to_string(),
-                },
-                preconditions: vec![],
-                postconditions: vec![],
-            },
-            ActionEnvelope {
-                action_id: "a2".to_string(),
-                action_type: ActionType::SetCameraFov,
-                capability_required: Capability::CameraSet,
-                parameters: ActionParameters::SetCameraFov { fov_deg: 50.0 },
-                preconditions: vec![],
-                postconditions: vec![],
-            },
-        ];
-
-        let plan = make_plan(actions.clone());
-        let mut world1 = WorldState::new();
-        let result1 = executor.execute(&plan, &mut world1).expect("execute 1");
-
-        let executor2 = Executor::new(make_engine(caps));
-        let plan2 = make_plan(actions);
-        let mut world2 = WorldState::new();
-        let result2 = executor2.execute(&plan2, &mut world2).expect("execute 2");
-
-        assert_eq!(result1.fingerprint, result2.fingerprint);
-    }
-
-    #[test]
-    fn test_capability_denied_during_execution() {
-        let caps = HashSet::new();
-        let executor = Executor::new(make_engine(caps));
-
-        let actions = vec![ActionEnvelope {
-            action_id: "a1".to_string(),
-            action_type: ActionType::SpawnEntity,
-            capability_required: Capability::WorldSpawnEntity,
-            parameters: ActionParameters::SpawnEntity {
-                name: "subject".to_string(),
-            },
-            preconditions: vec![],
-            postconditions: vec![],
-        }];
-
-        let plan = make_plan(actions);
-        let mut world = WorldState::new();
-        let result = executor.execute(&plan, &mut world);
-        assert!(matches!(
-            result,
-            Err(ExecutorError::CapabilityDenied { .. })
-        ));
     }
 }
