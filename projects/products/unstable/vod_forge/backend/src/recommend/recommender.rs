@@ -1,7 +1,7 @@
-use std::collections::HashSet;
 use crate::catalog::Catalog;
 use crate::playback::History;
 use crate::recommend::recommend_rule::RecommendRule;
+use std::collections::HashSet;
 
 pub struct Recommender;
 

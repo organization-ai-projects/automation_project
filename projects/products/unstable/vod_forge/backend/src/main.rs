@@ -41,7 +41,9 @@ fn main() {
         let response: IpcResponse = match JsonCodec::decode::<IpcRequest>(line) {
             Err(e) => IpcResponse {
                 id: 0,
-                payload: ResponsePayload::Error { message: format!("decode error: {}", e) },
+                payload: ResponsePayload::Error {
+                    message: format!("decode error: {}", e),
+                },
             },
             Ok(req) => api.handle_request(req),
         };

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::analytics::analytics_event::AnalyticsEvent;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnalyticsLog {

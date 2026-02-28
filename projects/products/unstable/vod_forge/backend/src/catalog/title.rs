@@ -1,7 +1,7 @@
+use crate::catalog::season::Season;
+use crate::catalog::title_id::TitleId;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use crate::catalog::title_id::TitleId;
-use crate::catalog::season::Season;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Title {

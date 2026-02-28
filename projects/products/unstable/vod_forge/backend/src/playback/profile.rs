@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::playback::profile_id::ProfileId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {

@@ -23,11 +23,27 @@ struct IpcResponse {
 #[serde(tag = "type")]
 enum ResponsePayload {
     Ok,
-    Error { message: String },
-    CatalogData { titles: Vec<TitleViewRaw> },
-    PackageResult { bundle_hash: String, chunk_count: usize },
-    PlaybackState { session_id: String, tick: u32, progress_pct: f32, done: bool },
-    AnalyticsReport { total_watch_ticks: u64, completion_rate_pct: f32, episodes_watched: usize },
+    Error {
+        message: String,
+    },
+    CatalogData {
+        titles: Vec<TitleViewRaw>,
+    },
+    PackageResult {
+        bundle_hash: String,
+        chunk_count: usize,
+    },
+    PlaybackState {
+        session_id: String,
+        tick: u32,
+        progress_pct: f32,
+        done: bool,
+    },
+    AnalyticsReport {
+        total_watch_ticks: u64,
+        completion_rate_pct: f32,
+        episodes_watched: usize,
+    },
 }
 
 #[derive(Deserialize)]
@@ -43,7 +59,9 @@ pub struct Controller {
 
 impl Controller {
     pub fn new() -> Self {
-        Controller { ipc: IpcClient::new() }
+        Controller {
+            ipc: IpcClient::new(),
+        }
     }
 
     pub fn catalog_list<W: std::io::Write, R: std::io::BufRead>(
@@ -51,11 +69,17 @@ impl Controller {
         writer: &mut W,
         reader: &mut R,
     ) -> Result<Vec<CatalogEntry>, UiError> {
-        let resp: IpcResponse = self.ipc.send_request(writer, reader, &Request::CatalogList)?;
+        let resp: IpcResponse = self
+            .ipc
+            .send_request(writer, reader, &Request::CatalogList)?;
         match resp.payload {
             ResponsePayload::CatalogData { titles } => Ok(titles
                 .into_iter()
-                .map(|t| CatalogEntry { id: t.id, name: t.name, year: t.year })
+                .map(|t| CatalogEntry {
+                    id: t.id,
+                    name: t.name,
+                    year: t.year,
+                })
                 .collect()),
             ResponsePayload::Error { message } => Err(UiError::Ipc(message)),
             _ => Err(UiError::Ipc("unexpected response".to_string())),
@@ -75,9 +99,17 @@ impl Controller {
         };
         let resp: IpcResponse = self.ipc.send_request(writer, reader, &req)?;
         match resp.payload {
-            ResponsePayload::PlaybackState { session_id, tick, progress_pct, done } => {
-                Ok(PlaybackView { session_id, tick, progress_pct, done })
-            }
+            ResponsePayload::PlaybackState {
+                session_id,
+                tick,
+                progress_pct,
+                done,
+            } => Ok(PlaybackView {
+                session_id,
+                tick,
+                progress_pct,
+                done,
+            }),
             ResponsePayload::Error { message } => Err(UiError::Ipc(message)),
             _ => Err(UiError::Ipc("unexpected response".to_string())),
         }
@@ -96,9 +128,17 @@ impl Controller {
         };
         let resp: IpcResponse = self.ipc.send_request(writer, reader, &req)?;
         match resp.payload {
-            ResponsePayload::PlaybackState { session_id, tick, progress_pct, done } => {
-                Ok(PlaybackView { session_id, tick, progress_pct, done })
-            }
+            ResponsePayload::PlaybackState {
+                session_id,
+                tick,
+                progress_pct,
+                done,
+            } => Ok(PlaybackView {
+                session_id,
+                tick,
+                progress_pct,
+                done,
+            }),
             ResponsePayload::Error { message } => Err(UiError::Ipc(message)),
             _ => Err(UiError::Ipc("unexpected response".to_string())),
         }
@@ -110,14 +150,20 @@ impl Controller {
         reader: &mut R,
         profile: &str,
     ) -> Result<AnalyticsView, UiError> {
-        let req = Request::AnalyticsReport { profile: profile.to_string() };
+        let req = Request::AnalyticsReport {
+            profile: profile.to_string(),
+        };
         let resp: IpcResponse = self.ipc.send_request(writer, reader, &req)?;
         match resp.payload {
             ResponsePayload::AnalyticsReport {
                 total_watch_ticks,
                 completion_rate_pct,
                 episodes_watched,
-            } => Ok(AnalyticsView { total_watch_ticks, completion_rate_pct, episodes_watched }),
+            } => Ok(AnalyticsView {
+                total_watch_ticks,
+                completion_rate_pct,
+                episodes_watched,
+            }),
             ResponsePayload::Error { message } => Err(UiError::Ipc(message)),
             _ => Err(UiError::Ipc("unexpected response".to_string())),
         }

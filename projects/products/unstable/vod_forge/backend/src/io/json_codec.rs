@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::diagnostics::BackendError;
+use serde::{Deserialize, Serialize};
 
 pub struct JsonCodec;
 

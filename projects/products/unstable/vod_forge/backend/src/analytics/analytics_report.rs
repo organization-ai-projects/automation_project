@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::analytics::analytics_log::AnalyticsLog;
 use crate::playback::profile_id::ProfileId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalyticsReport {

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::protocol::serde_helpers::{deser_u16, deser_u32};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IpcRequest {

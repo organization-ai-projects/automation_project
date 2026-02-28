@@ -1,6 +1,6 @@
-use serde::Deserialize;
 use crate::app::app_state::CatalogEntry;
 use crate::diagnostics::UiError;
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct FixtureCatalog {
@@ -25,7 +25,11 @@ impl FixtureLoader {
         Ok(catalog
             .titles
             .into_iter()
-            .map(|t| CatalogEntry { id: t.id, name: t.name, year: t.year })
+            .map(|t| CatalogEntry {
+                id: t.id,
+                name: t.name,
+                year: t.year,
+            })
             .collect())
     }
 }
