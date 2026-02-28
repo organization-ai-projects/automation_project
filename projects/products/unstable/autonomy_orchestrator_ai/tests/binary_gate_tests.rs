@@ -324,6 +324,7 @@ fn external_hard_gate_file_appends_and_blocks() {
     let bin = bin_path();
     let run = Command::new(bin)
         .arg(&out_dir)
+        .arg(&rules_file)
         .arg("--policy-status")
         .arg("allow")
         .arg("--ci-status")
@@ -334,8 +335,6 @@ fn external_hard_gate_file_appends_and_blocks() {
         .arg("true")
         .arg("--executor-arg")
         .arg("custom-destroy")
-        .arg("--hard-gates-file")
-        .arg(&rules_file)
         .output()
         .expect("failed to execute orchestrator");
 

@@ -1,8 +1,12 @@
+mod common;
+
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Output};
-use std::time::{SystemTime, UNIX_EPOCH};
 
+use common::json_fields::{json_field_array, json_field_str, json_field_u64};
+use common::path_factory::{unique_temp_dir, workspace_root_from_manifest};
+use common::process_runner::run_autonomy_orchestrator;
 use common_json::{Json, JsonAccess, from_str};
 
 #[derive(Debug, serde::Deserialize)]
@@ -28,43 +32,13 @@ struct CheckpointFixture {
     updated_at_unix_secs: u64,
 }
 
-fn json_field_str<'a>(value: &'a Json, key: &str) -> Option<&'a str> {
-    value.get_field(key).and_then(|v| v.as_str_strict()).ok()
-}
-
-fn json_field_u64(value: &Json, key: &str) -> Option<u64> {
-    value.get_field(key).and_then(|v| v.as_u64_strict()).ok()
-}
-
-fn json_field_array<'a>(value: &'a Json, key: &str) -> Option<&'a Vec<Json>> {
-    value.get_field(key).and_then(|v| v.as_array_strict()).ok()
-}
-
-fn unique_temp_dir(name: &str) -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let pid = std::process::id();
-    let dir =
-        std::env::temp_dir().join(format!("autonomy_orchestrator_matrix_{name}_{pid}_{nanos}"));
-    fs::create_dir_all(&dir).expect("failed to create temp dir");
-    dir
-}
-
 fn run_orchestrator(args: &[&str], out_dir: &PathBuf) -> (Output, MatrixReportView) {
-    let bin = env!("CARGO_BIN_EXE_autonomy_orchestrator_ai");
-
-    let mut cmd = Command::new(bin);
-    cmd.arg(out_dir);
-    cmd.arg("--decision-contribution").arg(
+    let mut full_args = vec![
+        "--decision-contribution",
         "contributor_id=matrix_default,capability=validation,vote=proceed,confidence=100,weight=100",
-    );
-    for arg in args {
-        cmd.arg(arg);
-    }
-
-    let output = cmd.output().expect("failed to execute orchestrator binary");
+    ];
+    full_args.extend_from_slice(args);
+    let output = run_autonomy_orchestrator(out_dir, &full_args);
 
     let report_path = out_dir.join("orchestrator_run_report.json");
     assert!(report_path.exists(), "run report is missing");
@@ -87,11 +61,7 @@ fn fixture_bin() -> &'static str {
 }
 
 fn workspace_root() -> PathBuf {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    for _ in 0..4 {
-        path.pop();
-    }
-    path
+    workspace_root_from_manifest()
 }
 
 fn run_with_default_gates(extra_args: &[&str], out_dir: &PathBuf) -> (Output, MatrixReportView) {
@@ -861,7 +831,10 @@ fn matrix_delivery_dry_run_audits_steps_without_side_effects() {
         "expected closure delivery dry-run traces"
     );
     assert!(report.stage_executions.iter().any(|e| {
-        json_field_str(e, "command").is_some_and(|c| c.contains("delivery.gh.pr.create.dry_run"))
+        matches!(
+            json_field_str(e, "command"),
+            Some(command) if command.contains("delivery.gh.pr.create.dry_run")
+        )
     }));
 
     let _ = fs::remove_dir_all(out_dir);
@@ -895,7 +868,10 @@ fn matrix_delivery_pr_update_dry_run_is_audited() {
     assert!(output.status.success());
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     assert!(report.stage_executions.iter().any(|e| {
-        json_field_str(e, "command").is_some_and(|c| c.contains("delivery.gh.pr.update.dry_run"))
+        matches!(
+            json_field_str(e, "command"),
+            Some(command) if command.contains("delivery.gh.pr.update.dry_run")
+        )
     }));
 
     let _ = fs::remove_dir_all(out_dir);
@@ -1328,15 +1304,16 @@ fn matrix_planner_v2_successful_fallback_flow() {
     assert_eq!(
         selected_path
             .iter()
-            .map(|v| v.as_str_strict().expect("selected_path item string"))
+            .map(|v: &Json| v.as_str_strict().expect("selected_path item string"))
             .collect::<Vec<_>>(),
         vec!["start", "middle", "end"]
     );
     assert_eq!(json_field_u64(&record, "fallback_steps_used"), Some(1));
+    let reason_codes = json_field_array(&record, "reason_codes").expect("reason_codes array");
     assert!(
-        json_field_array(&record, "reason_codes").is_some_and(|codes| codes
+        reason_codes
             .iter()
-            .any(|v| v.as_str_strict().ok() == Some("PLANNER_FALLBACK_STEP_APPLIED")))
+            .any(|v: &Json| v.as_str_strict().ok() == Some("PLANNER_FALLBACK_STEP_APPLIED"))
     );
 
     let _ = fs::remove_dir_all(out_dir);
@@ -1413,10 +1390,11 @@ fn matrix_planner_v2_exhausted_fallback_budget_fails_closed() {
         .planner_path_record
         .expect("planner_path_record must be set");
     assert_eq!(json_field_u64(&record, "fallback_steps_used"), Some(1));
+    let reason_codes = json_field_array(&record, "reason_codes").expect("reason_codes array");
     assert!(
-        json_field_array(&record, "reason_codes").is_some_and(|codes| codes
+        reason_codes
             .iter()
-            .any(|v| v.as_str_strict().ok() == Some("PLANNER_FALLBACK_BUDGET_EXHAUSTED")))
+            .any(|v: &Json| v.as_str_strict().ok() == Some("PLANNER_FALLBACK_BUDGET_EXHAUSTED"))
     );
     assert!(report.stage_executions.iter().any(|e| {
         json_field_str(e, "command") == Some("planning.planner_v2.select_path")
