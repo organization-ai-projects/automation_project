@@ -128,6 +128,24 @@ impl CinematographyPlanner {
                 }],
             },
             ActionEnvelope {
+                action_id: format!("{label}-set-asset-spec"),
+                action_type: ActionType::SetAssetSpec,
+                capability_required: Capability::AssetSpecify,
+                parameters: ActionParameters::SetAssetSpec {
+                    entity_id: 1,
+                    spec: format!(
+                        "subject={} background={}",
+                        payload.subject_description, payload.background
+                    ),
+                },
+                preconditions: vec![Precondition {
+                    description: "Subject entity exists".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Asset specification generated for subject".to_string(),
+                }],
+            },
+            ActionEnvelope {
                 action_id: format!("{label}-set-tracking"),
                 action_type: ActionType::SetTrackingConstraint,
                 capability_required: Capability::CameraSet,

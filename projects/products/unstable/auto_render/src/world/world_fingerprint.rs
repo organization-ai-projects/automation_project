@@ -15,6 +15,9 @@ impl WorldFingerprint {
             let py = (entity.transform.position[1] * 1000.0).round() as i64;
             let pz = (entity.transform.position[2] * 1000.0).round() as i64;
             hasher.update(format!("pos:{},{},{}", px, py, pz));
+            for (key, value) in &entity.components {
+                hasher.update(format!("comp:{}={}", key, value));
+            }
         }
         let cam = &world.camera;
         let cx = (cam.transform.position[0] * 1000.0).round() as i64;
@@ -52,6 +55,7 @@ mod tests {
                 id: EntityId(1),
                 transform: Transform::default(),
                 name: "entity1".to_string(),
+                components: std::collections::BTreeMap::new(),
             },
         );
         let f1 = WorldFingerprint::compute(&world1);

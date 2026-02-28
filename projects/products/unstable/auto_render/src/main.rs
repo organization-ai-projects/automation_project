@@ -1,4 +1,15 @@
-use auto_render::cli::{CliError, ExplainCommand, PlanCommand, ReplayCommand};
+mod assets;
+mod cli;
+mod error;
+mod executor;
+mod intent;
+mod plan;
+mod planner;
+mod policy;
+mod renderer;
+mod world;
+
+use crate::cli::{CliError, ExplainCommand, PlanCommand, ReplayCommand};
 use std::path::PathBuf;
 
 fn main() -> Result<(), CliError> {

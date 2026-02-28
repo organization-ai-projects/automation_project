@@ -1,19 +1,40 @@
 use super::{ExecutionResult, ExecutorError};
+use crate::assets::{AssetGenerator, NoopAssetGenerator};
 use crate::plan::{ActionParameters, Plan};
 use crate::policy::PolicyEngine;
+use crate::renderer::{NoopRenderer, RendererBackend};
 use crate::world::{
     EntityId, LightDescriptor, LightKind, Transform, WorldEntity, WorldFingerprint, WorldState,
 };
+use std::collections::BTreeMap;
 
 const LIGHTING_ENTITY_ID: u64 = 999;
 
 pub struct Executor {
     pub policy_engine: PolicyEngine,
+    asset_generator: Box<dyn AssetGenerator + Send + Sync>,
+    renderer: Box<dyn RendererBackend + Send + Sync>,
 }
 
 impl Executor {
     pub fn new(policy_engine: PolicyEngine) -> Self {
-        Self { policy_engine }
+        Self {
+            policy_engine,
+            asset_generator: Box::new(NoopAssetGenerator),
+            renderer: Box::new(NoopRenderer),
+        }
+    }
+
+    pub fn with_backends(
+        policy_engine: PolicyEngine,
+        asset_generator: Box<dyn AssetGenerator + Send + Sync>,
+        renderer: Box<dyn RendererBackend + Send + Sync>,
+    ) -> Self {
+        Self {
+            policy_engine,
+            asset_generator,
+            renderer,
+        }
     }
 
     pub fn execute(
@@ -33,6 +54,13 @@ impl Executor {
 
             self.apply_action(action, world)?;
         }
+
+        self.renderer
+            .render_frame(world)
+            .map_err(|e| ExecutorError::ActionFailed {
+                action_id: "render_frame".to_string(),
+                reason: e.to_string(),
+            })?;
 
         let fingerprint = WorldFingerprint::compute(world);
         let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -59,6 +87,7 @@ impl Executor {
                         id,
                         transform: Transform::default(),
                         name: name.clone(),
+                        components: BTreeMap::new(),
                     },
                 );
             }
@@ -104,8 +133,38 @@ impl Executor {
                     intensity: *intensity,
                 });
             }
-            ActionParameters::SetComponent { .. } => {}
-            ActionParameters::SetAssetSpec { .. } => {}
+            ActionParameters::SetComponent {
+                entity_id,
+                component_name,
+                value,
+            } => {
+                let eid = EntityId(*entity_id);
+                let Some(entity) = world.entities.get_mut(&eid) else {
+                    return Err(ExecutorError::PreconditionFailed {
+                        action_id: action.action_id.clone(),
+                        condition: format!("entity {entity_id} does not exist"),
+                    });
+                };
+                entity
+                    .components
+                    .insert(component_name.clone(), value.clone());
+            }
+            ActionParameters::SetAssetSpec { entity_id, spec } => {
+                let eid = EntityId(*entity_id);
+                if !world.entities.contains_key(&eid) {
+                    return Err(ExecutorError::PreconditionFailed {
+                        action_id: action.action_id.clone(),
+                        condition: format!("entity {entity_id} does not exist"),
+                    });
+                }
+
+                self.asset_generator
+                    .generate(spec)
+                    .map_err(|e| ExecutorError::ActionFailed {
+                        action_id: action.action_id.clone(),
+                        reason: e.to_string(),
+                    })?;
+            }
         }
         Ok(())
     }
