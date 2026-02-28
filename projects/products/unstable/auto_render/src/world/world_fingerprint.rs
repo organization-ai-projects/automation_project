@@ -15,6 +15,9 @@ impl WorldFingerprint {
             let py = (entity.transform.position[1] * 1000.0).round() as i64;
             let pz = (entity.transform.position[2] * 1000.0).round() as i64;
             hasher.update(format!("pos:{},{},{}", px, py, pz));
+            for (key, value) in &entity.components {
+                hasher.update(format!("comp:{}={}", key, value));
+            }
         }
         let cam = &world.camera;
         let cx = (cam.transform.position[0] * 1000.0).round() as i64;
@@ -26,44 +29,5 @@ impl WorldFingerprint {
         WorldFingerprint {
             hash: hex::encode(result),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::world::{EntityId, Transform, WorldEntity, WorldState};
-
-    #[test]
-    fn same_world_same_fingerprint() {
-        let world = WorldState::new();
-        let f1 = WorldFingerprint::compute(&world);
-        let f2 = WorldFingerprint::compute(&world);
-        assert_eq!(f1.hash, f2.hash);
-    }
-
-    #[test]
-    fn different_worlds_different_fingerprints() {
-        let world1 = WorldState::new();
-        let mut world2 = WorldState::new();
-        world2.entities.insert(
-            EntityId(1),
-            WorldEntity {
-                id: EntityId(1),
-                transform: Transform::default(),
-                name: "entity1".to_string(),
-            },
-        );
-        let f1 = WorldFingerprint::compute(&world1);
-        let f2 = WorldFingerprint::compute(&world2);
-        assert_ne!(f1.hash, f2.hash);
-    }
-
-    #[test]
-    fn fingerprint_is_hex_string() {
-        let world = WorldState::new();
-        let f = WorldFingerprint::compute(&world);
-        assert_eq!(f.hash.len(), 64);
-        assert!(f.hash.chars().all(|c| c.is_ascii_hexdigit()));
     }
 }

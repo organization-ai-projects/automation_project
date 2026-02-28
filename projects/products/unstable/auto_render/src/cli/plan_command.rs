@@ -3,6 +3,8 @@ use crate::intent::Intent;
 use crate::plan::Capability;
 use crate::planner::{CinematographyPlanner, PlannerInput, WorldSnapshot};
 use crate::policy::{ApprovalRule, Budget, CapabilitySet, PolicyEngine, PolicySnapshot};
+use common_json::to_string_pretty;
+use common_ron::{read_ron, write_ron};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -15,8 +17,7 @@ pub struct PlanCommand {
 impl PlanCommand {
     pub fn run(&self) -> Result<(), CliError> {
         for intent_path in &self.intent_paths {
-            let content = std::fs::read_to_string(intent_path)?;
-            let intent: Intent = ron::from_str(&content)
+            let intent: Intent = read_ron(intent_path)
                 .map_err(|e| CliError::Parse(format!("Failed to parse intent: {e}")))?;
 
             tracing::info!("Planning for intent: {:?}", intent.intent_id);
@@ -54,9 +55,6 @@ impl PlanCommand {
                 .approve_plan_candidate(&best)
                 .map_err(crate::error::EngineError::Policy)?;
 
-            let out = ron::to_string(&plan)
-                .map_err(|e| crate::error::EngineError::Serialization(e.to_string()))?;
-
             let out_path = if self.intent_paths.len() == 1 {
                 self.out_path.clone()
             } else {
@@ -69,11 +67,12 @@ impl PlanCommand {
                 std::fs::create_dir_all(parent)?;
             }
 
-            std::fs::write(&out_path, out)?;
+            write_ron(&out_path, &plan)
+                .map_err(|e| crate::error::EngineError::Serialization(e.to_string()))?;
             println!("Plan written to {}", out_path.display());
 
             if let Some(trace_path) = &self.trace_path {
-                let trace = serde_json::to_string_pretty(&best.explanation_trace)
+                let trace = to_string_pretty(&best.explanation_trace)
                     .map_err(|e| crate::error::EngineError::Serialization(e.to_string()))?;
                 if let Some(parent) = trace_path.parent().filter(|p| !p.as_os_str().is_empty()) {
                     std::fs::create_dir_all(parent)?;

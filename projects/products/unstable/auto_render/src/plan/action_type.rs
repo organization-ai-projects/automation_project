@@ -10,4 +10,5 @@ pub enum ActionType {
     SetComponent,
     SetLighting,
     SetAssetSpec,
+    GenerateAsset,
 }

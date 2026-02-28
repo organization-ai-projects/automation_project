@@ -14,6 +14,7 @@ impl CinematographyPlanner {
 
     pub fn plan(&self, input: &PlannerInput) -> Result<Vec<PlanCandidate>, PlannerError> {
         let IntentPayload::Cinematography(ref payload) = input.intent.payload;
+        self.validate_input(input, payload)?;
 
         let fov = payload
             .fov_deg
@@ -26,6 +27,40 @@ impl CinematographyPlanner {
         let candidate2 = self.build_candidate(input, fov * 1.1, distance * 1.05, 1, "alternate")?;
 
         Ok(vec![candidate1, candidate2])
+    }
+
+    fn validate_input(
+        &self,
+        input: &PlannerInput,
+        payload: &crate::intent::CinematographyPayload,
+    ) -> Result<(), PlannerError> {
+        if input.policy_snapshot.budget.max_planner_iterations == 0 {
+            return Err(PlannerError::BudgetExceeded);
+        }
+
+        if !input.world_snapshot.camera_fov.is_finite() || input.world_snapshot.camera_fov <= 0.0 {
+            return Err(PlannerError::WorldQueryFailed);
+        }
+
+        if payload.subject_description.trim().is_empty() {
+            return Err(PlannerError::ConstraintUnsatisfiable);
+        }
+
+        if !matches!(payload.shot_type.as_str(), "close_up" | "wide" | "medium") {
+            return Err(PlannerError::ConstraintUnsatisfiable);
+        }
+
+        if !matches!(
+            payload.lighting_style.as_str(),
+            "soft_studio" | "natural" | "dramatic"
+        ) {
+            return Err(PlannerError::InternalError(format!(
+                "unsupported lighting style: {}",
+                payload.lighting_style
+            )));
+        }
+
+        Ok(())
     }
 
     fn default_fov(shot_type: &str) -> f64 {
@@ -125,6 +160,36 @@ impl CinematographyPlanner {
                 }],
                 postconditions: vec![Postcondition {
                     description: "Lighting applied".to_string(),
+                }],
+            },
+            ActionEnvelope {
+                action_id: format!("{label}-set-asset-spec"),
+                action_type: ActionType::SetAssetSpec,
+                capability_required: Capability::AssetSpecify,
+                parameters: ActionParameters::SetAssetSpec {
+                    entity_id: 1,
+                    spec: format!(
+                        "subject={} background={}",
+                        payload.subject_description, payload.background
+                    ),
+                },
+                preconditions: vec![Precondition {
+                    description: "Subject entity exists".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Asset specification generated for subject".to_string(),
+                }],
+            },
+            ActionEnvelope {
+                action_id: format!("{label}-generate-asset"),
+                action_type: ActionType::GenerateAsset,
+                capability_required: Capability::AssetGenerate,
+                parameters: ActionParameters::GenerateAsset { entity_id: 1 },
+                preconditions: vec![Precondition {
+                    description: "Subject entity has asset specification".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Asset generated from specification".to_string(),
                 }],
             },
             ActionEnvelope {
