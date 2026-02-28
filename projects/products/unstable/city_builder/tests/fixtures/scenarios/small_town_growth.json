@@ -1,0 +1,18 @@
+{
+  "name": "small_town_growth",
+  "grid_width": 10,
+  "grid_height": 10,
+  "initial_zones": [
+    {"x": 1, "y": 1, "kind": "Residential"},
+    {"x": 2, "y": 1, "kind": "Residential"},
+    {"x": 1, "y": 2, "kind": "Residential"},
+    {"x": 2, "y": 2, "kind": "Commercial"}
+  ],
+  "initial_roads": [
+    {"x1": 0, "y1": 0, "x2": 5, "y2": 0},
+    {"x1": 0, "y1": 0, "x2": 0, "y2": 5}
+  ],
+  "initial_services": [],
+  "scripted_actions": [],
+  "checkpoints": []
+}

@@ -1,0 +1,39 @@
+{
+  "game_id": "non_aggression_then_betrayal",
+  "empires": [
+    {"id": "empire_x", "name": "Xeno Empire", "home_system": "sys_x", "resources": {"Metal": 200, "Energy": 150, "Food": 80, "Research": 20}, "tech_levels": {}},
+    {"id": "empire_y", "name": "Ymir Empire", "home_system": "sys_y", "resources": {"Metal": 180, "Energy": 130, "Food": 70, "Research": 25}, "tech_levels": {}}
+  ],
+  "star_map": {
+    "systems": [
+      {"id": "sys_x", "name": "Xeno", "planets": [], "owner": "empire_x"},
+      {"id": "sys_y", "name": "Ymir", "planets": [], "owner": "empire_y"},
+      {"id": "sys_border", "name": "Border", "planets": [], "owner": null}
+    ],
+    "routes": [
+      {"from": "sys_x", "to": "sys_border", "distance": 1},
+      {"from": "sys_border", "to": "sys_y", "distance": 1}
+    ]
+  },
+  "initial_fleets": [
+    {"id": "fleet_x1", "empire_id": "empire_x", "location": "sys_x", "ships": {"Fighter": 8, "Cruiser": 2}},
+    {"id": "fleet_y1", "empire_id": "empire_y", "location": "sys_y", "ships": {"Fighter": 6, "Cruiser": 3}}
+  ],
+  "scripted_orders": {
+    "1": [
+      {"id": "order_x_na", "empire_id": "empire_x", "kind": "OfferTreaty", "params": {"treaty_kind": "NonAggression", "target": "empire_y", "end_turn": "5"}}
+    ],
+    "2": [
+      {"id": "order_y_accept_na", "empire_id": "empire_y", "kind": "AcceptTreaty", "params": {"treaty_id": "treaty_empire_x_empire_y_1"}}
+    ],
+    "6": [
+      {"id": "order_x_move", "empire_id": "empire_x", "kind": "MoveFleet", "params": {"fleet_id": "fleet_x1", "destination": "sys_border"}},
+      {"id": "order_x_attack", "empire_id": "empire_x", "kind": "AttackFleet", "params": {"fleet_id": "fleet_x1", "target_fleet": "fleet_y1", "system": "sys_border"}}
+    ]
+  },
+  "scripted_treaty_choices": {},
+  "checkpoints": [
+    {"turn": 3, "expected_snapshot_hash": null},
+    {"turn": 6, "expected_snapshot_hash": null}
+  ]
+}

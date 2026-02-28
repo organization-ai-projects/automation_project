@@ -1,0 +1,15 @@
+[package]
+name = "factory_sim"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "factory_sim"
+path = "src/main.rs"
+
+[dependencies]
+runtime_core = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
