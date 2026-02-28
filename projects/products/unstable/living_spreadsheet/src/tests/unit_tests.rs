@@ -53,8 +53,24 @@ mod tests {
 
     #[test]
     fn parse_min_max() {
-        let _min = Parser::parse("=MIN(A1:B2)").unwrap();
-        let _max = Parser::parse("=MAX(A1:B2)").unwrap();
+        let min = Parser::parse("=MIN(A1:B2)").unwrap();
+        match min {
+            Expr::FunctionCall { name, args } => {
+                assert_eq!(name, "MIN");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(&args[0], Expr::RangeRef(from, to) if *from == CellId::new(0, 0) && *to == CellId::new(1, 1)));
+            }
+            _ => panic!("expected FunctionCall MIN"),
+        }
+        let max = Parser::parse("=MAX(A1:B2)").unwrap();
+        match max {
+            Expr::FunctionCall { name, args } => {
+                assert_eq!(name, "MAX");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(&args[0], Expr::RangeRef(from, to) if *from == CellId::new(0, 0) && *to == CellId::new(1, 1)));
+            }
+            _ => panic!("expected FunctionCall MAX"),
+        }
     }
 
     #[test]
