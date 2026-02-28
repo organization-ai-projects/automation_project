@@ -932,19 +932,13 @@ impl Orchestrator {
     }
 
     fn execute_rollout(&mut self) -> bool {
-        let config = RolloutConfig {
-            enabled: self.rollout_config.enabled,
-            rollback_error_rate_threshold: self.rollout_config.rollback_error_rate_threshold,
-            rollback_latency_threshold_ms: self.rollout_config.rollback_latency_threshold_ms,
-        };
-        let mut orch = RolloutOrchestrator::new(config);
+        let mut orch = RolloutOrchestrator::new(self.rollout_config.clone());
         let (steps, rollback) = orch.run(&[], &unix_timestamp_secs);
         self.report.rollout_steps = steps;
         if let Some(decision) = rollback {
-            self.report.rollback_decision = Some(decision.clone());
-            self.report
-                .blocked_reason_codes
-                .push(decision.reason_code.clone());
+            let reason_code = decision.reason_code.clone();
+            self.report.rollback_decision = Some(decision);
+            self.report.blocked_reason_codes.push(reason_code);
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
             return false;

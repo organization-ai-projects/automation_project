@@ -3,6 +3,7 @@ use crate::domain::{RollbackDecision, RolloutPhase, RolloutStep};
 
 const PHASES: &[RolloutPhase] = &[RolloutPhase::Canary, RolloutPhase::Partial, RolloutPhase::Full];
 
+#[derive(Clone)]
 pub struct RolloutConfig {
     pub enabled: bool,
     pub rollback_error_rate_threshold: f32,
