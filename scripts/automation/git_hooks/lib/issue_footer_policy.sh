@@ -13,14 +13,14 @@ extract_trailer_issue_refs_from_file() {
 validate_and_normalize_issue_refs_footer_in_file() {
   local commit_msg_file="$1"
   local commit_subject="$2"
-  local issue_ref_re='(^|[[:space:]])(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+([[:space:]]|$)'
-  local trailer_line_re='^[[:space:]]*(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+[[:space:]]*$'
+  local issue_ref_re='(^|[[:space:]])(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+([[:space:]]|$)'
+  local trailer_line_re='^[[:space:]]*(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+[[:space:]]*$'
   local subject_lower
   subject_lower="$(printf '%s' "$commit_subject" | tr '[:upper:]' '[:lower:]')"
 
   if [[ "$subject_lower" =~ $issue_ref_re ]]; then
     echo "❌ Issue references must be in commit footer, not in subject." >&2
-    echo "   Move 'Closes/Part of/Reopen #...' to footer lines." >&2
+    echo "   Move 'Closes/Fixes/Part of/Reopen #...' to footer lines." >&2
     return "$COMMIT_MSG_RC_SUBJECT_TRAILER"
   fi
 
@@ -37,12 +37,13 @@ validate_and_normalize_issue_refs_footer_in_file() {
     normalized="$(echo "$line" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
     normalized_lower="$(printf '%s' "$normalized" | tr '[:upper:]' '[:lower:]')"
     if [[ "$normalized_lower" =~ $trailer_line_re ]]; then
-      if [[ "$normalized_lower" =~ ^(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#([0-9]+)$ ]]; then
+      if [[ "$normalized_lower" =~ ^(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#([0-9]+)$ ]]; then
         keyword="$(printf '%s' "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
         issue_number="${BASH_REMATCH[2]}"
 
         case "$keyword" in
           closes) canonical="Closes #${issue_number}" ;;
+          fixes) canonical="Fixes #${issue_number}" ;;
           "part of") canonical="Part of #${issue_number}" ;;
           reopen|reopens) canonical="Reopen #${issue_number}" ;;
           *) canonical="$normalized" ;;

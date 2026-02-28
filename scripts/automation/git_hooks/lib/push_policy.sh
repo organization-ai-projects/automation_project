@@ -47,7 +47,7 @@ push_policy_validate_no_root_parent_issue_refs() {
   if [[ ${#parent_refs[@]} -gt 0 ]]; then
     echo "❌ Root parent issue references detected in commits being pushed:"
     printf '   - %s\n' "${parent_refs[@]}"
-    echo "   Root parent refs are forbidden in commit trailers (Part of/Closes/Reopen)."
+    echo "   Root parent refs are forbidden in commit trailers (Part of/Closes/Fixes/Reopen)."
     echo "   Reference child issues instead."
     return 1
   fi
@@ -65,7 +65,7 @@ push_policy_validate_part_of_only_push() {
 
   while IFS='|' read -r action _; do
     [[ -z "$action" ]] && continue
-    if [[ "$action" == "closes" ]]; then
+    if [[ "$action" == "closes" || "$action" == "fixes" ]]; then
       has_closing=1
     fi
     if [[ "$action" == "part of" ]]; then

@@ -176,6 +176,12 @@ main() {
     "" \
     "cp '${FIXTURES_DIR}/commit_msg_valid_child.txt' .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
+  run_case \
+    "commit-msg-allows-fixes-footer" \
+    0 \
+    "Fixes #123" \
+    "printf 'docs: update hook policy wording\n\nFixes #123\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && tail -n1 .git/COMMIT_EDITMSG"
+
   # commit-msg: allow non-root issue refs in body and normalize to footer block.
   run_case \
     "commit-msg-allows-and-normalizes-body-ref" \
