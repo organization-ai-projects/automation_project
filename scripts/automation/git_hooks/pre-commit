@@ -20,6 +20,8 @@ cd "$REPO_ROOT" || exit 1
 source "$REPO_ROOT/scripts/common_lib/automation/scope_resolver.sh"
 # shellcheck source=scripts/common_lib/automation/file_types.sh
 source "$REPO_ROOT/scripts/common_lib/automation/file_types.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/markdownlint_policy.sh
+source "$REPO_ROOT/scripts/automation/git_hooks/lib/markdownlint_policy.sh"
 
 # Protect integration branches from direct commits.
 # Use ALLOW_PROTECTED_BRANCH_COMMIT=1 only for exceptional maintenance work.
@@ -76,37 +78,11 @@ fi
 MARKDOWN_LINT_FILES="$(printf '%s\n' "$STAGED_CHANGED_FILES" | grep -E '\.md$' || true)"
 if [[ -n "$MARKDOWN_LINT_FILES" ]]; then
   echo "📝 Auto-fixing markdown files..."
-  if ! command -v pnpm >/dev/null 2>&1; then
-    echo ""
-    echo "❌ Markdown lint requires pnpm when markdown files are staged."
-    echo "   Install: corepack enable && corepack prepare pnpm@9 --activate"
-    exit 1
-  fi
-  if [[ ! -f "$REPO_ROOT/package.json" ]]; then
-    echo ""
-    echo "❌ Markdown lint requires package.json at repository root."
-    exit 1
-  fi
-  if [[ ! -f "$REPO_ROOT/node_modules/.bin/markdownlint-cli2" ]]; then
-    echo ""
-    echo "❌ Markdown lint dependencies are missing."
-    echo "   Run: pnpm install --frozen-lockfile"
-    exit 1
-  fi
-
   mapfile -t MARKDOWN_FILES_ARR < <(printf '%s\n' "$MARKDOWN_LINT_FILES" | sed '/^$/d')
   if [[ ${#MARKDOWN_FILES_ARR[@]} -gt 0 ]]; then
-    if ! pnpm run -s lint-md-fix-files -- "${MARKDOWN_FILES_ARR[@]}"; then
-      echo ""
-      echo "❌ Markdown auto-fix failed on staged markdown files."
-      echo "   Run: pnpm run lint-md-fix-files -- ${MARKDOWN_FILES_ARR[*]}"
-      exit 1
-    fi
-    # Safety gate: re-validate after auto-fix.
-    if ! pnpm run -s lint-md-files -- "${MARKDOWN_FILES_ARR[@]}"; then
+    if ! markdownlint_policy_run_fix_and_checks "$(printf '%s\n' "${MARKDOWN_FILES_ARR[@]}")"; then
       echo ""
       echo "❌ Markdown lint failed on staged markdown files."
-      echo "   Run: pnpm run lint-md-files -- ${MARKDOWN_FILES_ARR[*]}"
       exit 1
     fi
   fi
