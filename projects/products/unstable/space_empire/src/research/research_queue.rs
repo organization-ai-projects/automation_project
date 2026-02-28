@@ -27,7 +27,7 @@ impl ResearchQueue {
     pub fn enqueue(&mut self, order: ResearchOrder) -> Result<(), SpaceEmpireError> {
         if self.items.len() >= 2 {
             return Err(SpaceEmpireError::QueueFull(
-                "Research queue is full (max 1 active + 1 queued)".to_string(),
+                "Research queue is full (maximum 2 items allowed)".to_string(),
             ));
         }
         self.items.push_back(order);
