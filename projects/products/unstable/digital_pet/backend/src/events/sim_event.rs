@@ -19,6 +19,9 @@ pub enum SimEventKind {
 
 impl SimEvent {
     pub fn evolved(tick: Tick, from: String, to: String) -> Self {
-        Self { tick, kind: SimEventKind::Evolved { from, to } }
+        Self {
+            tick,
+            kind: SimEventKind::Evolved { from, to },
+        }
     }
 }

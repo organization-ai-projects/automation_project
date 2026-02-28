@@ -10,7 +10,10 @@ pub struct EvolutionNode {
 
 impl EvolutionNode {
     pub fn new(species: PetSpecies) -> Self {
-        Self { species, children: vec![] }
+        Self {
+            species,
+            children: vec![],
+        }
     }
     pub fn with_children(mut self, children: Vec<EvolutionNode>) -> Self {
         self.children = children;

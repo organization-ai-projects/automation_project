@@ -17,40 +17,83 @@ impl EvolutionTree {
         let baby = PetSpecies {
             id: PetSpeciesId::new("baby"),
             name: "BabyMon".to_string(),
-            base_attack: 5, base_defense: 5, base_hp: 20,
+            base_attack: 5,
+            base_defense: 5,
+            base_hp: 20,
         };
         let child_good = PetSpecies {
             id: PetSpeciesId::new("child_good"),
             name: "GoodMon".to_string(),
-            base_attack: 15, base_defense: 12, base_hp: 40,
+            base_attack: 15,
+            base_defense: 12,
+            base_hp: 40,
         };
         let child_bad = PetSpecies {
             id: PetSpeciesId::new("child_bad"),
             name: "BadMon".to_string(),
-            base_attack: 10, base_defense: 8, base_hp: 30,
+            base_attack: 10,
+            base_defense: 8,
+            base_hp: 30,
         };
         let adult = PetSpecies {
             id: PetSpeciesId::new("adult"),
             name: "AdultMon".to_string(),
-            base_attack: 25, base_defense: 20, base_hp: 60,
+            base_attack: 25,
+            base_defense: 20,
+            base_hp: 60,
         };
-        let root = EvolutionNode::new(PetSpecies::egg())
-            .with_children(vec![
-                EvolutionNode::new(baby.clone()).with_children(vec![
-                    EvolutionNode::new(child_good.clone()).with_children(vec![EvolutionNode::new(adult.clone())]),
-                    EvolutionNode::new(child_bad.clone()),
-                ]),
-            ]);
+        let root = EvolutionNode::new(PetSpecies::egg()).with_children(vec![
+            EvolutionNode::new(baby.clone()).with_children(vec![
+                EvolutionNode::new(child_good.clone())
+                    .with_children(vec![EvolutionNode::new(adult.clone())]),
+                EvolutionNode::new(child_bad.clone()),
+            ]),
+        ]);
         let rules = vec![
-            EvolutionRule { from_species: "egg".into(), to_species: "baby".into(), min_ticks: 5, max_care_mistakes: 10, min_happiness: 0, min_discipline: 0 },
-            EvolutionRule { from_species: "baby".into(), to_species: "child_good".into(), min_ticks: 20, max_care_mistakes: 2, min_happiness: 60, min_discipline: 60 },
-            EvolutionRule { from_species: "baby".into(), to_species: "child_bad".into(), min_ticks: 20, max_care_mistakes: 0, min_happiness: 0, min_discipline: 0 },
-            EvolutionRule { from_species: "child_good".into(), to_species: "adult".into(), min_ticks: 50, max_care_mistakes: 3, min_happiness: 50, min_discipline: 50 },
+            EvolutionRule {
+                from_species: "egg".into(),
+                to_species: "baby".into(),
+                min_ticks: 5,
+                max_care_mistakes: 10,
+                min_happiness: 0,
+                min_discipline: 0,
+            },
+            EvolutionRule {
+                from_species: "baby".into(),
+                to_species: "child_good".into(),
+                min_ticks: 20,
+                max_care_mistakes: 2,
+                min_happiness: 60,
+                min_discipline: 60,
+            },
+            EvolutionRule {
+                from_species: "baby".into(),
+                to_species: "child_bad".into(),
+                min_ticks: 20,
+                max_care_mistakes: 0,
+                min_happiness: 0,
+                min_discipline: 0,
+            },
+            EvolutionRule {
+                from_species: "child_good".into(),
+                to_species: "adult".into(),
+                min_ticks: 50,
+                max_care_mistakes: 3,
+                min_happiness: 50,
+                min_discipline: 50,
+            },
         ];
         Self { root, rules }
     }
 
-    pub fn find_evolution(&self, species_id: &str, mistakes: usize, ticks: u64, happiness: u32, discipline: u32) -> Option<PetSpecies> {
+    pub fn find_evolution(
+        &self,
+        species_id: &str,
+        mistakes: usize,
+        ticks: u64,
+        happiness: u32,
+        discipline: u32,
+    ) -> Option<PetSpecies> {
         for rule in &self.rules {
             if rule.from_species == species_id
                 && ticks >= rule.min_ticks

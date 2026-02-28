@@ -9,7 +9,12 @@ use std::path::PathBuf;
 pub struct UiApi;
 
 impl UiApi {
-    pub fn run(scenario: PathBuf, seed: u64, ticks: u64, out: Option<PathBuf>) -> Result<(), AppError> {
+    pub fn run(
+        scenario: PathBuf,
+        seed: u64,
+        ticks: u64,
+        out: Option<PathBuf>,
+    ) -> Result<(), AppError> {
         let process = BackendProcess::spawn(&scenario)?;
         let mut client = IpcClient::new(process);
         let mut state = AppState::new(seed, ticks);

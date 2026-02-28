@@ -7,8 +7,7 @@ pub struct ReplayCodec;
 
 impl ReplayCodec {
     pub fn save(replay: &ReplayFile, path: &str) -> Result<(), AppError> {
-        let json = serde_json::to_string_pretty(replay)
-            .map_err(|e| AppError::Io(e.to_string()))?;
+        let json = serde_json::to_string_pretty(replay).map_err(|e| AppError::Io(e.to_string()))?;
         fs::write(path, json).map_err(|e| AppError::Io(e.to_string()))
     }
 

@@ -6,7 +6,9 @@ pub struct ReportScreen {
 }
 
 impl ReportScreen {
-    pub fn new(report: RunReportDto) -> Self { Self { report } }
+    pub fn new(report: RunReportDto) -> Self {
+        Self { report }
+    }
 
     pub fn render(&self) {
         println!("=== Run Report ===");

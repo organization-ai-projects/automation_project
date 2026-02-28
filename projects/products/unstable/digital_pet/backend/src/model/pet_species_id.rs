@@ -5,5 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct PetSpeciesId(pub String);
 
 impl PetSpeciesId {
-    pub fn new(id: impl Into<String>) -> Self { Self(id.into()) }
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
 }

@@ -5,5 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct PetId(pub u64);
 
 impl PetId {
-    pub fn from_seed(seed: u64) -> Self { Self(seed) }
+    pub fn from_seed(seed: u64) -> Self {
+        Self(seed)
+    }
 }

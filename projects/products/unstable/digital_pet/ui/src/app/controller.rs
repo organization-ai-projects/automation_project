@@ -9,15 +9,27 @@ use std::path::Path;
 pub struct Controller;
 
 impl Controller {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 
-    pub fn init(&mut self, client: &mut IpcClient, state: &mut AppState, seed: u64, ticks: u64) -> Result<(), AppError> {
+    pub fn init(
+        &mut self,
+        client: &mut IpcClient,
+        state: &mut AppState,
+        seed: u64,
+        ticks: u64,
+    ) -> Result<(), AppError> {
         client.new_run(seed, ticks)?;
         state.running = true;
         Ok(())
     }
 
-    pub fn run_loop(&mut self, client: &mut IpcClient, state: &mut AppState) -> Result<(), AppError> {
+    pub fn run_loop(
+        &mut self,
+        client: &mut IpcClient,
+        state: &mut AppState,
+    ) -> Result<(), AppError> {
         let step_size = 10u64;
         while state.current_tick < state.ticks {
             let remaining = state.ticks - state.current_tick;
@@ -44,7 +56,8 @@ impl Controller {
         let report = client.get_report()?;
         let screen = ReportScreen::new(report.clone());
         screen.render();
-        let json = serde_json::to_string_pretty(&report).map_err(|e| AppError::Ipc(e.to_string()))?;
+        let json =
+            serde_json::to_string_pretty(&report).map_err(|e| AppError::Ipc(e.to_string()))?;
         std::fs::write(path, json).map_err(|e| AppError::Io(e.to_string()))
     }
 }

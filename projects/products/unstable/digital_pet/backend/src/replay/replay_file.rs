@@ -13,6 +13,11 @@ pub struct ReplayFile {
 
 impl ReplayFile {
     pub fn new(seed: u64, ticks: u64, scenario: Scenario) -> Self {
-        Self { seed, ticks, scenario, actions: vec![] }
+        Self {
+            seed,
+            ticks,
+            scenario,
+            actions: vec![],
+        }
     }
 }

@@ -5,7 +5,9 @@ pub struct TrainingScreen {
 }
 
 impl TrainingScreen {
-    pub fn new(result: String) -> Self { Self { result } }
+    pub fn new(result: String) -> Self {
+        Self { result }
+    }
 
     pub fn render(&self) {
         println!("=== Training ===");

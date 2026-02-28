@@ -15,7 +15,12 @@ pub struct CareEngine {
 
 impl CareEngine {
     pub fn new() -> Self {
-        Self { actions: vec![], mistakes: vec![], last_overhunger_tick: None, last_overfatigue_tick: None }
+        Self {
+            actions: vec![],
+            mistakes: vec![],
+            last_overhunger_tick: None,
+            last_overfatigue_tick: None,
+        }
     }
 
     pub fn apply_action(&mut self, kind: String, needs: &mut NeedsState, tick: Tick) {
@@ -32,18 +37,32 @@ impl CareEngine {
 
     pub fn evaluate(&mut self, needs: &NeedsState, tick: Tick) {
         if needs.hunger > 80 {
-            if self.last_overhunger_tick.map_or(true, |t| tick.value() > t.value() + 10) {
-                self.mistakes.push(CareMistake { reason: "neglected_hunger".into(), tick });
+            if self
+                .last_overhunger_tick
+                .map_or(true, |t| tick.value() > t.value() + 10)
+            {
+                self.mistakes.push(CareMistake {
+                    reason: "neglected_hunger".into(),
+                    tick,
+                });
                 self.last_overhunger_tick = Some(tick);
             }
         }
         if needs.fatigue > 80 {
-            if self.last_overfatigue_tick.map_or(true, |t| tick.value() > t.value() + 10) {
-                self.mistakes.push(CareMistake { reason: "neglected_fatigue".into(), tick });
+            if self
+                .last_overfatigue_tick
+                .map_or(true, |t| tick.value() > t.value() + 10)
+            {
+                self.mistakes.push(CareMistake {
+                    reason: "neglected_fatigue".into(),
+                    tick,
+                });
                 self.last_overfatigue_tick = Some(tick);
             }
         }
     }
 
-    pub fn mistake_count(&self) -> usize { self.mistakes.len() }
+    pub fn mistake_count(&self) -> usize {
+        self.mistakes.len()
+    }
 }

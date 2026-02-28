@@ -1,21 +1,21 @@
 // projects/products/unstable/digital_pet/backend/src/main.rs
+mod battle;
+mod care;
 mod config;
 mod diagnostics;
 mod events;
 mod evolution;
-mod battle;
-mod care;
 mod io;
 mod model;
 mod needs;
 mod protocol;
+pub mod public_api;
 mod replay;
 mod report;
 mod scenario;
 mod snapshot;
 mod time;
 mod training;
-pub mod public_api;
 
 use crate::diagnostics::error::AppError;
 use crate::public_api::BackendApi;
@@ -41,7 +41,8 @@ fn main() -> Result<(), AppError> {
                 }
                 i += 1;
             }
-            let path = scenario_path.ok_or_else(|| AppError::Config("--scenario required".into()))?;
+            let path =
+                scenario_path.ok_or_else(|| AppError::Config("--scenario required".into()))?;
             BackendApi::serve(path)
         }
         _ => {

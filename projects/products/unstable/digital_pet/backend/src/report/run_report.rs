@@ -22,8 +22,19 @@ pub struct RunReport {
 }
 
 impl RunReport {
-    pub fn generate(pet: &Pet, needs: &NeedsState, clock: &TickClock, log: &EventLog, care: &CareEngine) -> Self {
-        let run_hash = RunHash::compute(clock.seed, &pet.species.id.0, pet.evolution_stage, care.mistake_count());
+    pub fn generate(
+        pet: &Pet,
+        needs: &NeedsState,
+        clock: &TickClock,
+        log: &EventLog,
+        care: &CareEngine,
+    ) -> Self {
+        let run_hash = RunHash::compute(
+            clock.seed,
+            &pet.species.id.0,
+            pet.evolution_stage,
+            care.mistake_count(),
+        );
         Self {
             seed: clock.seed,
             final_species: pet.species.name.clone(),

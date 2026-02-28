@@ -5,7 +5,9 @@ pub struct LogWidget {
 }
 
 impl LogWidget {
-    pub fn new(entries: Vec<String>) -> Self { Self { entries } }
+    pub fn new(entries: Vec<String>) -> Self {
+        Self { entries }
+    }
 
     pub fn render(&self) {
         println!("=== Event Log ===");

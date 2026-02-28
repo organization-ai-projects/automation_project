@@ -3,9 +3,9 @@ use crate::battle::battle_engine::BattleEngine;
 use crate::care::care_engine::CareEngine;
 use crate::config::sim_config::SimConfig;
 use crate::diagnostics::error::AppError;
+use crate::events::event_log::EventLog;
 use crate::evolution::evolution_engine::EvolutionEngine;
 use crate::evolution::evolution_tree::EvolutionTree;
-use crate::events::event_log::EventLog;
 use crate::io::json_codec::JsonCodec;
 use crate::model::pet::Pet;
 use crate::model::pet_state::PetState;
@@ -140,7 +140,13 @@ impl ServerState {
             clock.tick();
             needs.decay(clock.current_tick());
             self.care_engine.evaluate(needs, clock.current_tick());
-            self.evolution_engine.evaluate(pet, needs, &self.care_engine, clock.current_tick(), &mut self.event_log);
+            self.evolution_engine.evaluate(
+                pet,
+                needs,
+                &self.care_engine,
+                clock.current_tick(),
+                &mut self.event_log,
+            );
         }
         let state = PetState::from_pet_and_needs(pet, needs, clock.current_tick());
         Response::pet_state(id, state)
@@ -155,7 +161,8 @@ impl ServerState {
             Some(c) => c,
             None => return Response::error(id, "no active run"),
         };
-        self.care_engine.apply_action(kind, needs, clock.current_tick());
+        self.care_engine
+            .apply_action(kind, needs, clock.current_tick());
         Response::ok(id)
     }
 

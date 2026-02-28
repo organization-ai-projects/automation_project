@@ -12,14 +12,33 @@ pub struct EvolutionEngine {
 }
 
 impl EvolutionEngine {
-    pub fn new(tree: EvolutionTree) -> Self { Self { tree } }
+    pub fn new(tree: EvolutionTree) -> Self {
+        Self { tree }
+    }
 
-    pub fn evaluate(&mut self, pet: &mut Pet, needs: &NeedsState, care: &CareEngine, tick: Tick, log: &mut EventLog) {
+    pub fn evaluate(
+        &mut self,
+        pet: &mut Pet,
+        needs: &NeedsState,
+        care: &CareEngine,
+        tick: Tick,
+        log: &mut EventLog,
+    ) {
         let species_id = pet.species.id.0.clone();
         let mistakes = care.mistake_count();
         let ticks = tick.value();
-        if let Some(new_species) = self.tree.find_evolution(&species_id, mistakes, ticks, needs.happiness, needs.discipline) {
-            log.push(SimEvent::evolved(tick, species_id, new_species.id.0.clone()));
+        if let Some(new_species) = self.tree.find_evolution(
+            &species_id,
+            mistakes,
+            ticks,
+            needs.happiness,
+            needs.discipline,
+        ) {
+            log.push(SimEvent::evolved(
+                tick,
+                species_id,
+                new_species.id.0.clone(),
+            ));
             pet.evolve_to(new_species);
             pet.age_ticks = ticks;
         }

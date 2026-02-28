@@ -36,7 +36,10 @@ impl BattleEngine {
         let opp_dmg = self.opponent.attack.saturating_sub(self.pet.defense / 2);
         self.opponent.hp = self.opponent.hp.saturating_sub(pet_dmg);
         self.pet.hp = self.pet.hp.saturating_sub(opp_dmg);
-        self.log.push(format!("Turn {}: pet deals {}, opponent deals {}", self.turn, pet_dmg, opp_dmg));
+        self.log.push(format!(
+            "Turn {}: pet deals {}, opponent deals {}",
+            self.turn, pet_dmg, opp_dmg
+        ));
         if self.opponent.hp == 0 {
             self.finished = true;
             self.winner = Some("pet".into());

@@ -8,7 +8,11 @@ pub struct StatWidget {
 
 impl StatWidget {
     pub fn new(label: impl Into<String>, value: u32, max: u32) -> Self {
-        Self { label: label.into(), value, max }
+        Self {
+            label: label.into(),
+            value,
+            max,
+        }
     }
 
     pub fn render(&self) {

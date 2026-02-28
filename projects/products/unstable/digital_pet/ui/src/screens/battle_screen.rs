@@ -11,7 +11,10 @@ pub struct BattleScreen {
 impl BattleScreen {
     pub fn render(&self) {
         println!("=== Battle (turn {}) ===", self.turn);
-        println!("  Pet HP: {}  Opponent HP: {}", self.pet_hp, self.opponent_hp);
+        println!(
+            "  Pet HP: {}  Opponent HP: {}",
+            self.pet_hp, self.opponent_hp
+        );
         if self.finished {
             println!("  Winner: {:?}", self.winner);
         }

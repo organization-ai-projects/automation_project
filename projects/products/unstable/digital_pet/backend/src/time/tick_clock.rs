@@ -11,13 +11,21 @@ pub struct TickClock {
 
 impl TickClock {
     pub fn new(seed: u64, max_ticks: u64) -> Self {
-        Self { seed, max_ticks, current: Tick::zero() }
+        Self {
+            seed,
+            max_ticks,
+            current: Tick::zero(),
+        }
     }
     pub fn tick(&mut self) {
         if !self.is_done() {
             self.current = self.current.next();
         }
     }
-    pub fn current_tick(&self) -> Tick { self.current }
-    pub fn is_done(&self) -> bool { self.current.value() >= self.max_ticks }
+    pub fn current_tick(&self) -> Tick {
+        self.current
+    }
+    pub fn is_done(&self) -> bool {
+        self.current.value() >= self.max_ticks
+    }
 }

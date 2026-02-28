@@ -14,6 +14,13 @@ pub struct Opponent {
 
 impl Opponent {
     pub fn default_opponent() -> Self {
-        Self { id: OpponentId("opp_1".into()), name: "WildMon".into(), hp: 25, max_hp: 25, attack: 8, defense: 5 }
+        Self {
+            id: OpponentId("opp_1".into()),
+            name: "WildMon".into(),
+            hp: 25,
+            max_hp: 25,
+            attack: 8,
+            defense: 5,
+        }
     }
 }

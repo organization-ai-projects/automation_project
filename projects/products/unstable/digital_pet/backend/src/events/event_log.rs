@@ -8,8 +8,16 @@ pub struct EventLog {
 }
 
 impl EventLog {
-    pub fn new() -> Self { Self::default() }
-    pub fn push(&mut self, event: SimEvent) { self.events.push(event); }
-    pub fn len(&self) -> usize { self.events.len() }
-    pub fn is_empty(&self) -> bool { self.events.is_empty() }
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn push(&mut self, event: SimEvent) {
+        self.events.push(event);
+    }
+    pub fn len(&self) -> usize {
+        self.events.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.events.is_empty()
+    }
 }

@@ -14,7 +14,14 @@ pub struct NeedsState {
 
 impl Default for NeedsState {
     fn default() -> Self {
-        Self { hunger: 0, fatigue: 0, happiness: 100, discipline: 100, sick: false, sick_ticks: 0 }
+        Self {
+            hunger: 0,
+            fatigue: 0,
+            happiness: 100,
+            discipline: 100,
+            sick: false,
+            sick_ticks: 0,
+        }
     }
 }
 
@@ -37,9 +44,20 @@ impl NeedsState {
             }
         }
     }
-    pub fn feed(&mut self) { self.hunger = self.hunger.saturating_sub(30); }
-    pub fn rest(&mut self) { self.fatigue = self.fatigue.saturating_sub(30); }
-    pub fn play(&mut self) { self.happiness = (self.happiness + 20).min(100); }
-    pub fn discipline(&mut self) { self.discipline = (self.discipline + 20).min(100); }
-    pub fn medicine(&mut self) { self.sick = false; self.sick_ticks = 0; }
+    pub fn feed(&mut self) {
+        self.hunger = self.hunger.saturating_sub(30);
+    }
+    pub fn rest(&mut self) {
+        self.fatigue = self.fatigue.saturating_sub(30);
+    }
+    pub fn play(&mut self) {
+        self.happiness = (self.happiness + 20).min(100);
+    }
+    pub fn discipline(&mut self) {
+        self.discipline = (self.discipline + 20).min(100);
+    }
+    pub fn medicine(&mut self) {
+        self.sick = false;
+        self.sick_ticks = 0;
+    }
 }
