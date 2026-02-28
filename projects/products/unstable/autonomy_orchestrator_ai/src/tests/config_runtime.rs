@@ -34,6 +34,9 @@ fn base_config() -> OrchestratorConfig {
         decision_contributions: Vec::new(),
         decision_reliability_inputs: Vec::new(),
         decision_require_contributions: false,
+        pr_risk_threshold: 40,
+        auto_merge_on_eligible: false,
+        reviewer_verdicts: Vec::new(),
         checkpoint_path: None,
         cycle_memory_path: None,
         next_actions_path: None,
@@ -41,6 +44,18 @@ fn base_config() -> OrchestratorConfig {
         rollout_enabled: false,
         rollback_error_rate_threshold: 0.05,
         rollback_latency_threshold_ms: 5_000,
+        memory_path: None,
+        memory_max_entries: 500,
+        memory_decay_window_runs: 100,
+        autofix_enabled: false,
+        autofix_bin: None,
+        autofix_args: Vec::new(),
+        autofix_max_attempts: 3,
+        hard_gates_file: None,
+        planner_fallback_max_steps: 3,
+        risk_tier: None,
+        risk_signals: Vec::new(),
+        risk_allow_high: false,
     }
 }
 
@@ -139,24 +154,16 @@ fn validate_orchestrator_config_reports_all_main_invariants() {
 
     let diagnostics = validate_orchestrator_config(&config);
     assert_eq!(diagnostics.len(), 4);
-    assert!(
-        diagnostics
-            .iter()
-            .any(|d| d.contains("timeout_ms must be > 0"))
-    );
-    assert!(
-        diagnostics
-            .iter()
-            .any(|d| d.contains("execution_max_iterations must be >= 1"))
-    );
-    assert!(
-        diagnostics
-            .iter()
-            .any(|d| d.contains("validation_from_planning_context=true requires"))
-    );
-    assert!(
-        diagnostics
-            .iter()
-            .any(|d| d.contains("delivery_options.pr_enabled=true requires"))
-    );
+    assert!(diagnostics
+        .iter()
+        .any(|d| d.contains("timeout_ms must be > 0")));
+    assert!(diagnostics
+        .iter()
+        .any(|d| d.contains("execution_max_iterations must be >= 1")));
+    assert!(diagnostics
+        .iter()
+        .any(|d| d.contains("validation_from_planning_context=true requires")));
+    assert!(diagnostics
+        .iter()
+        .any(|d| d.contains("delivery_options.pr_enabled=true requires")));
 }
