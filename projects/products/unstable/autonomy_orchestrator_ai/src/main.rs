@@ -11,6 +11,7 @@ mod config_runtime;
 mod configs;
 mod decision_aggregator;
 mod domain;
+mod escalation_router;
 mod fixture;
 mod hard_gates;
 mod linked_stack;

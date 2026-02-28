@@ -8,11 +8,14 @@ mod config_runtime;
 #[cfg(test)]
 mod decision_aggregator;
 #[cfg(test)]
+mod escalation_router;
+#[cfg(test)]
 mod long_horizon_memory;
 #[cfg(test)]
 mod orchestrator;
 #[cfg(test)]
 mod pr_risk;
+#[cfg(test)]
 mod review_ensemble;
 #[cfg(test)]
 mod run_args;

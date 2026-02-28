@@ -25,3 +25,31 @@ pub fn write_run_report(report: &RunReport, out_dir: &Path) -> Result<(), String
         )
     })
 }
+
+/// Write the escalation queue artifact when the report contains escalation cases.
+/// No file is written when there are no cases (normal autonomous path).
+pub fn write_escalation_queue(report: &RunReport, out_dir: &Path) -> Result<(), String> {
+    if report.escalation_cases.is_empty() {
+        return Ok(());
+    }
+
+    fs::create_dir_all(out_dir).map_err(|e| {
+        format!(
+            "Failed to create output directory '{}': {}",
+            out_dir.display(),
+            e
+        )
+    })?;
+
+    let queue_path = out_dir.join("escalation_queue.json");
+    let queue_json = to_string_pretty(&report.escalation_cases)
+        .map_err(|e| format!("Failed to serialize escalation queue: {e:?}"))?;
+
+    fs::write(&queue_path, queue_json).map_err(|e| {
+        format!(
+            "Failed to write escalation queue '{}': {}",
+            queue_path.display(),
+            e
+        )
+    })
+}

@@ -18,6 +18,7 @@ use crate::domain::{
     ReviewGateStatus, ReviewerVerdict, RiskSignal, RiskTier, RunReport, Stage,
     StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
+use crate::escalation_router::route_escalations;
 use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
 use crate::long_horizon_memory::{
     LongHorizonMemoryStore, derive_reliability_inputs, enforce_policy, load_memory, record_run,
@@ -230,6 +231,7 @@ impl Orchestrator {
         }
 
         self.execute_pipeline();
+        self.report.escalation_cases = route_escalations(&self.report);
 
         let breakdown = compute_pr_risk(&self.report, self.pr_risk_threshold);
         if self.auto_merge_on_eligible {
@@ -768,6 +770,26 @@ impl Orchestrator {
         if self.remediation_cycle >= self.reviewer_remediation_max_cycles
             && !self.try_adapt_remediation_budget_after_failure()
         {
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage: Stage::Validation,
+                idempotency_key: Some("stage:Validation:remediation_budget".to_string()),
+                command: "remediation.cycle_budget".to_string(),
+                args: vec![
+                    "max_cycles_exhausted".to_string(),
+                    self.reviewer_remediation_max_cycles.to_string(),
+                ],
+                env_keys: Vec::new(),
+                started_at_unix_secs: unix_timestamp_secs(),
+                duration_ms: 0,
+                exit_code: None,
+                status: StageExecutionStatus::Failed,
+                error: Some(format!(
+                    "Remediation cycle budget exhausted after {} cycle(s)",
+                    self.reviewer_remediation_max_cycles
+                )),
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
             return false;
         }
 

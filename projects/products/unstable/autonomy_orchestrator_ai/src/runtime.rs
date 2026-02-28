@@ -10,7 +10,7 @@ use crate::domain::{
     TerminalState,
 };
 use crate::orchestrator::Orchestrator;
-use crate::output_writer::write_run_report;
+use crate::output_writer::{write_escalation_queue, write_run_report};
 use crate::risk_classifier::{RiskClassifierInput, classify_risk};
 use crate::run_args::RunArgs;
 use crate::runtime_diagnostics::print_runtime_diagnostics;
@@ -347,6 +347,8 @@ fn run_once(
 
     write_run_report(&report, &args.output_dir)
         .map_err(|err| (1, format!("Failed to write run report: {err}")))?;
+    write_escalation_queue(&report, &args.output_dir)
+        .map_err(|err| (1, format!("Failed to write escalation queue: {err}")))?;
     let recommended_actions = build_recommended_actions(&report);
     let version_after = capture_repo_snapshot(&repo_root_for_versioning);
     let versioning_delta = compute_repo_delta(version_before.as_ref(), version_after.as_ref());
