@@ -13,11 +13,14 @@ use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate, ensemble_t
 use crate::domain::{
     BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
     DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, ReviewerVerdict,
-    RunReport, Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewerVerdict, ReviewGateStatus, RiskSignal,
+    RiskTier, RunReport, Stage, StageExecutionRecord, StageExecutionStatus, StageTransition,
+    TerminalState,
 };
+use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
 use crate::planner_output::read_planner_output_from_artifacts;
 use crate::review_ensemble::{ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble};
+use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
@@ -56,6 +59,11 @@ pub struct Orchestrator {
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
+    hard_gates_file: Option<PathBuf>,
+    planner_fallback_max_steps: u32,
+    risk_tier: Option<RiskTier>,
+    risk_signals: Vec<RiskSignal>,
+    risk_allow_high: bool,
 }
 
 impl Orchestrator {
@@ -137,13 +145,37 @@ impl Orchestrator {
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
             planned_remediation_steps,
+            hard_gates_file: config.hard_gates_file,
+            planner_fallback_max_steps: config.planner_fallback_max_steps,
+            risk_tier: config.risk_tier,
+            risk_signals: config.risk_signals,
+            risk_allow_high: config.risk_allow_high,
         }
     }
 
     pub fn execute(mut self) -> RunReport {
+        // Persist risk classification evidence before any execution.
+        self.report.risk_tier = self.risk_tier;
+        self.report.risk_signals = self.risk_signals.clone();
+
+        // Fail-closed: block high-risk runs unless explicitly allowed.
+        if self.risk_tier == Some(RiskTier::High) && !self.risk_allow_high {
+            self.report
+                .blocked_reason_codes
+                .push("RISK_TIER_HIGH_BLOCKED".to_string());
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            return self.report;
+        }
+
         if self.checkpoint.terminal_state == Some(TerminalState::Done) {
             self.report.terminal_state = Some(TerminalState::Done);
             self.report.current_stage = Some(Stage::Closure);
+            return self.report;
+        }
+
+        if !self.evaluate_hard_gates_prerun() {
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
             return self.report;
         }
 
@@ -1086,6 +1118,77 @@ impl Orchestrator {
             }
         }
 
+        // Planner v2: validate graph and select deterministic path.
+        if !payload.planner_nodes.is_empty() {
+            if let Err(err) = validate_graph(&payload.planner_nodes, &payload.planner_edges) {
+                self.report.terminal_state = Some(TerminalState::Failed);
+                self.report
+                    .blocked_reason_codes
+                    .push(crate::planner_v2::REASON_GRAPH_INVALID.to_string());
+                self.report.stage_executions.push(StageExecutionRecord {
+                    stage: Stage::Planning,
+                    idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),
+                    command: "planning.planner_v2.validate_graph".to_string(),
+                    args: vec![source_path],
+                    env_keys: Vec::new(),
+                    started_at_unix_secs: unix_timestamp_secs(),
+                    duration_ms: 0,
+                    exit_code: None,
+                    status: StageExecutionStatus::Failed,
+                    error: Some(err),
+                    missing_artifacts: Vec::new(),
+                    malformed_artifacts: Vec::new(),
+                });
+                self.persist_checkpoint();
+                return false;
+            }
+
+            let graph = PlannerGraph {
+                nodes: payload.planner_nodes,
+                edges: payload.planner_edges,
+            };
+            let v2_result = select_path(&graph, self.planner_fallback_max_steps);
+            self.report.planner_path_record = Some(v2_result.path_record);
+
+            if v2_result.budget_exhausted {
+                self.report.terminal_state = Some(TerminalState::Failed);
+                self.report.stage_executions.push(StageExecutionRecord {
+                    stage: Stage::Planning,
+                    idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),
+                    command: "planning.planner_v2.select_path".to_string(),
+                    args: vec![source_path],
+                    env_keys: Vec::new(),
+                    started_at_unix_secs: unix_timestamp_secs(),
+                    duration_ms: 0,
+                    exit_code: None,
+                    status: StageExecutionStatus::Failed,
+                    error: Some(format!(
+                        "Planner fallback budget exhausted (max steps: {})",
+                        self.planner_fallback_max_steps
+                    )),
+                    missing_artifacts: Vec::new(),
+                    malformed_artifacts: Vec::new(),
+                });
+                self.persist_checkpoint();
+                return false;
+            }
+
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage: Stage::Planning,
+                idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),
+                command: "planning.planner_v2.select_path".to_string(),
+                args: vec![source_path.clone()],
+                env_keys: Vec::new(),
+                started_at_unix_secs: unix_timestamp_secs(),
+                duration_ms: 0,
+                exit_code: Some(0),
+                status: StageExecutionStatus::Success,
+                error: None,
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
+        }
+
         self.report.stage_executions.push(StageExecutionRecord {
             stage: Stage::Planning,
             idempotency_key: Some("stage:Planning:planner_output".to_string()),
@@ -1160,6 +1263,58 @@ impl Orchestrator {
                 });
             }
         }
+    }
+
+    fn evaluate_hard_gates_prerun(&mut self) -> bool {
+        let mut rules = builtin_rules();
+        if let Some(path) = &self.hard_gates_file {
+            match load_external_rules(path) {
+                Ok(external) => rules.extend(external),
+                Err(err) => {
+                    self.report
+                        .blocked_reason_codes
+                        .push("HARD_GATE_EXTERNAL_RULES_LOAD_FAILED".to_string());
+                    eprintln!("Hard gates: {err}");
+                    return false;
+                }
+            }
+        }
+
+        let mut tokens: Vec<String> = Vec::new();
+        for spec in [
+            self.planning_invocation.as_ref(),
+            self.execution_invocation.as_ref(),
+            self.validation_invocation.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            tokens.push(spec.command_line.command.clone());
+            tokens.extend(spec.command_line.args.clone());
+        }
+        for spec in &self.validation_invocations {
+            tokens.push(spec.command_line.command.clone());
+            tokens.extend(spec.command_line.args.clone());
+        }
+
+        let results = evaluate_hard_gates(&rules, &tokens);
+        let mut any_failed = false;
+        for result in &results {
+            if !result.passed {
+                any_failed = true;
+                if !self
+                    .report
+                    .blocked_reason_codes
+                    .contains(&result.reason_code)
+                {
+                    self.report
+                        .blocked_reason_codes
+                        .push(result.reason_code.clone());
+                }
+            }
+        }
+        self.report.hard_gate_results = results;
+        !any_failed
     }
 
     fn evaluate_fail_closed_gates(&mut self) -> bool {

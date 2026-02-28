@@ -1,8 +1,8 @@
 use crate::domain::{
     AdaptivePolicyAction, BinaryInvocationSpec, CommandLineSpec, DecisionContribution,
     DecisionReliabilityInput, DeliveryOptions, ExecutionPolicy, FinalDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewVerdict, ReviewerVerdict,
-    Stage, StageExecutionStatus, TerminalState,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewVerdict, ReviewerVerdict, RiskSignal, RiskTier, Stage,
+    StageExecutionStatus, TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use std::fs;
@@ -44,6 +44,11 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         cycle_memory_path: None,
         next_actions_path: None,
         previous_run_report_path: None,
+        hard_gates_file: None,
+        planner_fallback_max_steps: 3,
+        risk_tier: None,
+        risk_signals: Vec::new(),
+        risk_allow_high: false,
     }
 }
 
@@ -421,6 +426,45 @@ fn review_ensemble_result_and_verdicts_persisted_in_run_report() {
             reason_codes: Vec::new(),
         },
     ];
+#[test]
+fn planner_path_record_is_persisted_in_run_report() {
+    let temp_root = std::env::temp_dir().join(format!(
+        "autonomy_orchestrator_path_record_{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    fs::create_dir_all(&temp_root).expect("create temp directory");
+    let planner_output_path = temp_root.join("planner_output_with_graph.json");
+    fs::write(
+        &planner_output_path,
+        r#"{
+            "planner_output": {
+                "planner_nodes": [
+                    {"id": "start", "action": "plan_start"},
+                    {"id": "end", "action": "plan_end"}
+                ],
+                "planner_edges": [
+                    {"from": "start", "to": "end", "condition_code": ""}
+                ]
+            }
+        }"#,
+    )
+    .expect("write planner output artifact");
+
+    let mut config = test_config("run_path_record");
+    config.planning_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Planning,
+        command_line: CommandLineSpec {
+            command: "true".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: vec![planner_output_path.display().to_string()],
+    });
 
     let report = Orchestrator::new(config, None).execute();
 
@@ -484,6 +528,226 @@ fn review_ensemble_tie_blocks_run_fail_closed() {
             reason_codes: Vec::new(),
         },
     ];
+    let path_record = report
+        .planner_path_record
+        .expect("planner_path_record must be set");
+    assert_eq!(path_record.selected_path, vec!["start", "end"]);
+    assert_eq!(path_record.fallback_steps_used, 0);
+    assert!(path_record.reason_codes.is_empty());
+
+    fs::remove_dir_all(&temp_root).ok();
+}
+
+#[test]
+fn invalid_planner_graph_fails_closed_with_reason_code() {
+    let temp_root = std::env::temp_dir().join(format!(
+        "autonomy_orchestrator_invalid_graph_{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    fs::create_dir_all(&temp_root).expect("create temp directory");
+    let planner_output_path = temp_root.join("planner_output_invalid_graph.json");
+    fs::write(
+        &planner_output_path,
+        r#"{
+            "planner_output": {
+                "planner_nodes": [
+                    {"id": "a", "action": "step_a"},
+                    {"id": "a", "action": "step_a_dup"}
+                ],
+                "planner_edges": []
+            }
+        }"#,
+    )
+    .expect("write planner output artifact");
+
+    let mut config = test_config("run_invalid_graph");
+    config.planning_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Planning,
+        command_line: CommandLineSpec {
+            command: "true".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: vec![planner_output_path.display().to_string()],
+    });
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Failed));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"PLANNER_GRAPH_INVALID".to_string())
+    );
+
+    fs::remove_dir_all(&temp_root).ok();
+}
+
+#[test]
+fn planner_fallback_budget_exhaustion_fails_closed() {
+    let temp_root = std::env::temp_dir().join(format!(
+        "autonomy_orchestrator_fallback_budget_{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    fs::create_dir_all(&temp_root).expect("create temp directory");
+    let planner_output_path = temp_root.join("planner_output_fallback.json");
+    // Graph: a →(ON_FAIL) b →(ON_FAIL) c →(ON_FAIL) d; max fallback steps = 2
+    fs::write(
+        &planner_output_path,
+        r#"{
+            "planner_output": {
+                "planner_nodes": [
+                    {"id": "a", "action": "step_a"},
+                    {"id": "b", "action": "step_b"},
+                    {"id": "c", "action": "step_c"},
+                    {"id": "d", "action": "step_d"}
+                ],
+                "planner_edges": [
+                    {"from": "a", "to": "b", "condition_code": "ON_FAIL"},
+                    {"from": "b", "to": "c", "condition_code": "ON_FAIL"},
+                    {"from": "c", "to": "d", "condition_code": "ON_FAIL"}
+                ]
+            }
+        }"#,
+    )
+    .expect("write planner output artifact");
+
+    let mut config = test_config("run_fallback_budget");
+    config.planner_fallback_max_steps = 2;
+    config.planning_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Planning,
+        command_line: CommandLineSpec {
+            command: "true".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: vec![planner_output_path.display().to_string()],
+    });
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Failed));
+    let path_record = report
+        .planner_path_record
+        .expect("planner_path_record must be set");
+    assert_eq!(path_record.fallback_steps_used, 2);
+    assert!(
+        path_record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_BUDGET_EXHAUSTED".to_string())
+    );
+    assert!(
+        report
+            .stage_executions
+            .iter()
+            .any(|e| e.command == "planning.planner_v2.select_path"
+                && e.status == StageExecutionStatus::Failed)
+    );
+
+    fs::remove_dir_all(&temp_root).ok();
+}
+
+#[test]
+fn planner_fallback_within_budget_succeeds() {
+    let temp_root = std::env::temp_dir().join(format!(
+        "autonomy_orchestrator_fallback_ok_{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    fs::create_dir_all(&temp_root).expect("create temp directory");
+    let planner_output_path = temp_root.join("planner_output_fallback_ok.json");
+    // Graph: a →(ON_FAIL) b →(primary) c; 1 fallback step within budget of 3
+    fs::write(
+        &planner_output_path,
+        r#"{
+            "planner_output": {
+                "planner_nodes": [
+                    {"id": "a", "action": "step_a"},
+                    {"id": "b", "action": "step_b"},
+                    {"id": "c", "action": "step_c"}
+                ],
+                "planner_edges": [
+                    {"from": "a", "to": "b", "condition_code": "ON_FAIL"},
+                    {"from": "b", "to": "c", "condition_code": ""}
+                ]
+            }
+        }"#,
+    )
+    .expect("write planner output artifact");
+
+    let mut config = test_config("run_fallback_ok");
+    config.planner_fallback_max_steps = 3;
+    config.planning_invocation = Some(BinaryInvocationSpec {
+        stage: Stage::Planning,
+        command_line: CommandLineSpec {
+            command: "true".to_string(),
+            args: Vec::new(),
+        },
+        env: Vec::new(),
+        timeout_ms: 100,
+        expected_artifacts: vec![planner_output_path.display().to_string()],
+    });
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    let path_record = report
+        .planner_path_record
+        .expect("planner_path_record must be set");
+    assert_eq!(path_record.selected_path, vec!["a", "b", "c"]);
+    assert_eq!(path_record.fallback_steps_used, 1);
+    assert!(
+        path_record
+            .reason_codes
+            .contains(&"PLANNER_FALLBACK_STEP_APPLIED".to_string())
+    );
+
+    fs::remove_dir_all(&temp_root).ok();
+}
+
+#[test]
+fn run_report_includes_risk_tier_and_signals() {
+    let mut config = test_config("run_risk_1");
+    config.risk_tier = Some(RiskTier::Medium);
+    config.risk_signals = vec![RiskSignal {
+        code: "DELIVERY_WRITE_ENABLED".to_string(),
+        source: "delivery_options".to_string(),
+        value: "feature/x".to_string(),
+    }];
+    config.risk_allow_high = false;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.risk_tier, Some(RiskTier::Medium));
+    assert_eq!(report.risk_signals.len(), 1);
+    assert_eq!(report.risk_signals[0].code, "DELIVERY_WRITE_ENABLED");
+    // medium risk does not block
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+}
+
+#[test]
+fn high_risk_is_blocked_by_default() {
+    let mut config = test_config("run_risk_2");
+    config.risk_tier = Some(RiskTier::High);
+    config.risk_signals = vec![RiskSignal {
+        code: "DELIVERY_TO_PROTECTED_BRANCH".to_string(),
+        source: "delivery_options".to_string(),
+        value: "main".to_string(),
+    }];
+    config.risk_allow_high = false;
 
     let report = Orchestrator::new(config, None).execute();
 
@@ -491,4 +755,45 @@ fn review_ensemble_tie_blocks_run_fail_closed() {
     assert!(report
         .blocked_reason_codes
         .contains(&"REVIEW_ENSEMBLE_TIE_FAIL_CLOSED".to_string()));
+    assert_eq!(report.risk_tier, Some(RiskTier::High));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"RISK_TIER_HIGH_BLOCKED".to_string())
+    );
+}
+
+#[test]
+fn high_risk_proceeds_when_explicitly_allowed() {
+    let mut config = test_config("run_risk_3");
+    config.risk_tier = Some(RiskTier::High);
+    config.risk_signals = vec![RiskSignal {
+        code: "DELIVERY_TO_PROTECTED_BRANCH".to_string(),
+        source: "delivery_options".to_string(),
+        value: "main".to_string(),
+    }];
+    config.risk_allow_high = true;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    // high risk allowed, so execution reaches Done
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert_eq!(report.risk_tier, Some(RiskTier::High));
+    assert!(
+        !report
+            .blocked_reason_codes
+            .contains(&"RISK_TIER_HIGH_BLOCKED".to_string())
+    );
+}
+
+#[test]
+fn low_risk_run_report_has_none_tier_when_not_classified() {
+    let config = test_config("run_risk_4");
+    // risk_tier defaults to None
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.risk_tier, None);
+    assert!(report.risk_signals.is_empty());
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
 }

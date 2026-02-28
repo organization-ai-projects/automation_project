@@ -11,6 +11,7 @@ use crate::domain::{
 };
 use crate::orchestrator::Orchestrator;
 use crate::output_writer::write_run_report;
+use crate::risk_classifier::{RiskClassifierInput, classify_risk};
 use crate::run_args::RunArgs;
 use crate::runtime_diagnostics::print_runtime_diagnostics;
 use crate::validation_invocation_parser::parse_validation_pending_invocations;
@@ -198,6 +199,15 @@ fn run_once(
         review_status: args.review_status.into(),
     };
 
+    let risk_classification = classify_risk(&RiskClassifierInput {
+        risk_tier_override: args.risk_tier_override.map(|t| t.into()),
+        delivery_enabled: args.delivery_enabled,
+        delivery_branch: args.delivery_branch.as_deref(),
+        delivery_dry_run: args.delivery_dry_run,
+        executor_bin: args.executor_bin.as_deref(),
+        executor_args: &args.executor_args,
+    });
+
     let planning_invocation = args.manager_bin.map(|command| BinaryInvocationSpec {
         stage: Stage::Planning,
         command_line: CommandLineSpec {
@@ -287,6 +297,11 @@ fn run_once(
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
         previous_run_report_path: Some(previous_run_report_path.clone()),
+        hard_gates_file: args.hard_gates_file,
+        planner_fallback_max_steps: args.planner_fallback_max_steps,
+        risk_tier: Some(risk_classification.tier),
+        risk_signals: risk_classification.signals,
+        risk_allow_high: args.risk_allow_high,
     };
 
     if let Some(load_mode) = &config_io.load {
@@ -383,6 +398,19 @@ fn build_recommended_actions(report: &RunReport) -> Vec<String> {
             }
             "DECISION_NO_CONTRIBUTIONS" => {
                 "Provide at least one decision contribution for final arbitration".to_string()
+            }
+            "HARD_GATE_SECRET_POLICY_VIOLATION" => {
+                "Remove secrets exposure operation from invocation before rerun".to_string()
+            }
+            "HARD_GATE_AUTH_POLICY_VIOLATION" => {
+                "Remove auth/authz mutation operation from invocation before rerun".to_string()
+            }
+            "HARD_GATE_GIT_HISTORY_REWRITE_FORBIDDEN" => {
+                "Remove git history rewrite operation from invocation before rerun".to_string()
+            }
+            "HARD_GATE_INFRA_DESTRUCTIVE_OPERATION" => {
+                "Remove destructive infrastructure operation from invocation before rerun"
+                    .to_string()
             }
             other => format!("Resolve blocked reason: {other}"),
         };

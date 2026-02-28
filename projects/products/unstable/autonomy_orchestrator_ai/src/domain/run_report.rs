@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::{
     AdaptivePolicyDecision, DecisionContribution, DecisionReliabilityFactor,
-    DecisionReliabilityUpdate, FinalDecision, GateDecision, ReviewEnsembleResult, ReviewerVerdict,
-    Stage, StageExecutionRecord, StageTransition, TerminalState,
+    DecisionReliabilityUpdate, FinalDecision, GateDecision, HardGateResult, PlannerPathRecord, ReviewEnsembleResult, ReviewerVerdict,
+    RiskSignal, RiskTier, Stage, StageExecutionRecord, StageTransition, TerminalState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,6 +15,7 @@ pub struct RunReport {
     pub current_stage: Option<Stage>,
     pub terminal_state: Option<TerminalState>,
     pub gate_decisions: Vec<GateDecision>,
+    pub hard_gate_results: Vec<HardGateResult>,
     pub blocked_reason_codes: Vec<String>,
     pub reviewer_next_steps: Vec<String>,
     pub reviewer_verdicts: Vec<ReviewerVerdict>,
@@ -29,6 +30,9 @@ pub struct RunReport {
     pub adaptive_policy_decisions: Vec<AdaptivePolicyDecision>,
     pub transitions: Vec<StageTransition>,
     pub stage_executions: Vec<StageExecutionRecord>,
+    pub planner_path_record: Option<PlannerPathRecord>,
+    pub risk_tier: Option<RiskTier>,
+    pub risk_signals: Vec<RiskSignal>,
 }
 
 impl RunReport {
@@ -40,6 +44,7 @@ impl RunReport {
             current_stage: None,
             terminal_state: None,
             gate_decisions: Vec::new(),
+            hard_gate_results: Vec::new(),
             blocked_reason_codes: Vec::new(),
             reviewer_next_steps: Vec::new(),
             reviewer_verdicts: Vec::new(),
@@ -54,6 +59,9 @@ impl RunReport {
             adaptive_policy_decisions: Vec::new(),
             transitions: Vec::new(),
             stage_executions: Vec::new(),
+            planner_path_record: None,
+            risk_tier: None,
+            risk_signals: Vec::new(),
         }
     }
 }
