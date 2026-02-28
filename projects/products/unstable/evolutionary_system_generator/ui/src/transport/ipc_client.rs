@@ -7,9 +7,9 @@ impl IpcClient {
         Self
     }
 
-    pub fn send_request(&self, request: &str) -> String {
+    pub fn send_request(&self, _request: &str) -> String {
         // Placeholder: in a real implementation this would write to the backend process stdin
         // and read from stdout.
-        format!("{{\"type\":\"Ok\"}}")
+        serde_json::json!({"type": "Ok"}).to_string()
     }
 }

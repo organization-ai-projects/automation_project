@@ -1,15 +1,29 @@
 // Backend entry point: REPL loop reading JSON from stdin, writing JSON to stdout
 
+mod constraints;
+mod diagnostics;
+mod evaluate;
+mod genome;
+mod io;
+mod output;
+mod protocol;
+mod public_api;
+mod replay;
+mod search;
+mod seed;
+
+#[cfg(test)]
+mod tests;
+
 use std::io::BufRead;
 
-use evolutionary_system_generator_backend::protocol::message::{read_request, write_response};
-use evolutionary_system_generator_backend::protocol::request::Request;
-use evolutionary_system_generator_backend::protocol::response::Response;
-use evolutionary_system_generator_backend::search::evolution_engine::EvolutionEngine;
-use evolutionary_system_generator_backend::seed::seed::Seed;
-use evolutionary_system_generator_backend::replay::replay_engine::ReplayEngine;
-use evolutionary_system_generator_backend::replay::event_log::EventLog;
-use evolutionary_system_generator_backend::search::evolution_engine::SearchConfig;
+use crate::protocol::message::{read_request, write_response};
+use crate::protocol::request::Request;
+use crate::protocol::response::Response;
+use crate::replay::event_log::EventLog;
+use crate::replay::replay_engine::ReplayEngine;
+use crate::search::evolution_engine::{EvolutionEngine, SearchConfig};
+use crate::seed::seed::Seed;
 
 fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response {
     match request {

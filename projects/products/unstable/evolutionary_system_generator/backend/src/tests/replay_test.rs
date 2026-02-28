@@ -1,6 +1,7 @@
-use evolutionary_system_generator_backend::public_api::{
-    Constraint, EvolutionEngine, ReplayEngine, SearchConfig, Seed,
-};
+use crate::constraints::constraint::Constraint;
+use crate::replay::replay_engine::ReplayEngine;
+use crate::search::evolution_engine::{EvolutionEngine, SearchConfig};
+use crate::seed::seed::Seed;
 
 fn make_tiny_config(seed: u64) -> SearchConfig {
     SearchConfig {

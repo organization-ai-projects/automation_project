@@ -57,7 +57,6 @@ fn parse_command(input: &str) -> Option<Action> {
             population_size: 10,
             max_generations: 5,
             rule_pool: vec!["rule_a".to_string(), "rule_b".to_string(), "rule_c".to_string()],
-            constraints: vec![],
         }),
         "step" => Some(Action::StepGen),
         "run" => Some(Action::RunToEnd),

@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use crate::genome::genome::Genome;
-use crate::genome::genome_id::GenomeId;
 use crate::seed::seed::Xorshift64;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
