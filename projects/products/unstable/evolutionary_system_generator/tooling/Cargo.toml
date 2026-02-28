@@ -1,0 +1,20 @@
+[package]
+name = "evolutionary_system_generator_tooling"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "evolutionary_system_generator_tooling"
+path = "src/lib.rs"
+
+[[bin]]
+name = "evo-tooling"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+serde_json = "1"
+sha2 = "0.10.8"
+hex = "0.4.3"
+evolutionary_system_generator_backend = { path = "../backend" }

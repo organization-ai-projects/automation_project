@@ -44,6 +44,9 @@ members = [
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
   "projects/products/unstable/workflow_offline",
+  "projects/products/unstable/evolutionary_system_generator/backend",
+  "projects/products/unstable/evolutionary_system_generator/ui",
+  "projects/products/unstable/evolutionary_system_generator/tooling",
 ]
 resolver = "2"
 
