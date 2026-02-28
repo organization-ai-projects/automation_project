@@ -26,8 +26,7 @@ fn unique_temp_dir(name: &str) -> PathBuf {
         .unwrap_or_default()
         .as_nanos();
     let pid = std::process::id();
-    let dir =
-        std::env::temp_dir().join(format!("autonomy_orchestrator_risk_{name}_{pid}_{nanos}"));
+    let dir = std::env::temp_dir().join(format!("autonomy_orchestrator_risk_{name}_{pid}_{nanos}"));
     fs::create_dir_all(&dir).expect("failed to create temp dir");
     dir
 }
@@ -171,7 +170,12 @@ fn risk_low_tier_override_does_not_block() {
 
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     assert_eq!(report.risk_tier.as_deref(), Some("low"));
-    assert!(report.risk_signals.iter().any(|s| s.code == "RISK_TIER_OVERRIDE_APPLIED"));
+    assert!(
+        report
+            .risk_signals
+            .iter()
+            .any(|s| s.code == "RISK_TIER_OVERRIDE_APPLIED")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
