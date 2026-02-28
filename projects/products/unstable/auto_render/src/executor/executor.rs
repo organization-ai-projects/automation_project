@@ -151,12 +151,30 @@ impl Executor {
             }
             ActionParameters::SetAssetSpec { entity_id, spec } => {
                 let eid = EntityId(*entity_id);
-                if !world.entities.contains_key(&eid) {
+                let Some(entity) = world.entities.get_mut(&eid) else {
                     return Err(ExecutorError::PreconditionFailed {
                         action_id: action.action_id.clone(),
                         condition: format!("entity {entity_id} does not exist"),
                     });
-                }
+                };
+                entity
+                    .components
+                    .insert("asset_spec".to_string(), spec.clone());
+            }
+            ActionParameters::GenerateAsset { entity_id } => {
+                let eid = EntityId(*entity_id);
+                let Some(entity) = world.entities.get(&eid) else {
+                    return Err(ExecutorError::PreconditionFailed {
+                        action_id: action.action_id.clone(),
+                        condition: format!("entity {entity_id} does not exist"),
+                    });
+                };
+                let Some(spec) = entity.components.get("asset_spec") else {
+                    return Err(ExecutorError::PreconditionFailed {
+                        action_id: action.action_id.clone(),
+                        condition: format!("entity {entity_id} has no asset_spec"),
+                    });
+                };
 
                 self.asset_generator
                     .generate(spec)

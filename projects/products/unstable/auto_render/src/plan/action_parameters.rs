@@ -36,4 +36,7 @@ pub enum ActionParameters {
         entity_id: u64,
         spec: String,
     },
+    GenerateAsset {
+        entity_id: u64,
+    },
 }

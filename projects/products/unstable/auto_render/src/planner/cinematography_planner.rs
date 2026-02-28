@@ -146,6 +146,18 @@ impl CinematographyPlanner {
                 }],
             },
             ActionEnvelope {
+                action_id: format!("{label}-generate-asset"),
+                action_type: ActionType::GenerateAsset,
+                capability_required: Capability::AssetGenerate,
+                parameters: ActionParameters::GenerateAsset { entity_id: 1 },
+                preconditions: vec![Precondition {
+                    description: "Subject entity has asset specification".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Asset generated from specification".to_string(),
+                }],
+            },
+            ActionEnvelope {
                 action_id: format!("{label}-set-tracking"),
                 action_type: ActionType::SetTrackingConstraint,
                 capability_required: Capability::CameraSet,
