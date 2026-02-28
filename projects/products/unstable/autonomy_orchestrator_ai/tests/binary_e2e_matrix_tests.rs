@@ -11,6 +11,10 @@ struct MatrixReportView {
     blocked_reason_codes: Vec<String>,
     reviewer_next_steps: Vec<String>,
     adaptive_policy_decisions: Vec<AdaptivePolicyDecisionView>,
+    #[serde(default)]
+    auto_fix_attempts: Vec<AutoFixAttemptView>,
+    #[serde(default)]
+    decision_rationale_codes: Vec<String>,
     stage_executions: Vec<StageExecutionView>,
     planner_path_record: Option<PlannerPathRecordView>,
 }
@@ -26,6 +30,13 @@ struct PlannerPathRecordView {
 struct AdaptivePolicyDecisionView {
     action: String,
     reason_code: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct AutoFixAttemptView {
+    attempt_number: u32,
+    reason_code: String,
+    status: String,
 }
 
 #[derive(Debug, serde::Deserialize)]

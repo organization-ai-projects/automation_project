@@ -1,6 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/main.rs
 mod adaptive_policy;
 mod artifacts;
+mod auto_fix_loop;
 mod binary_runner;
 mod checkpoint_store;
 mod cli_command;

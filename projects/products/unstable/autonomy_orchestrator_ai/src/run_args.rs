@@ -147,6 +147,13 @@ pub struct RunArgs {
     pub ai_config_only_binary: bool,
 
     #[arg(long)]
+    pub autofix_enabled: bool,
+    #[arg(long)]
+    pub autofix_bin: Option<String>,
+    #[arg(long = "autofix-arg", action = ArgAction::Append)]
+    pub autofix_args: Vec<String>,
+    #[arg(long, default_value_t = 3)]
+    pub autofix_max_attempts: u32,
     pub hard_gates_file: Option<PathBuf>,
     #[arg(long, default_value_t = 3)]
     pub planner_fallback_max_steps: u32,
