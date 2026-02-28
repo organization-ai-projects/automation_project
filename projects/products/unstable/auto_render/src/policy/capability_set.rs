@@ -1,6 +1,6 @@
+use crate::plan::Capability;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use crate::plan::Capability;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilitySet {

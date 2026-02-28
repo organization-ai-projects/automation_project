@@ -1,7 +1,9 @@
-use super::{ExecutorError, ExecutionResult};
-use crate::plan::{Plan, ActionParameters};
+use super::{ExecutionResult, ExecutorError};
+use crate::plan::{ActionParameters, Plan};
 use crate::policy::PolicyEngine;
-use crate::world::{WorldState, WorldFingerprint, WorldEntity, EntityId, Transform, LightDescriptor, LightKind};
+use crate::world::{
+    EntityId, LightDescriptor, LightKind, Transform, WorldEntity, WorldFingerprint, WorldState,
+};
 
 const LIGHTING_ENTITY_ID: u64 = 999;
 
@@ -22,12 +24,12 @@ impl Executor {
         let start = std::time::Instant::now();
 
         for action in &plan.actions {
-            self.policy_engine
-                .check_action(action)
-                .map_err(|e| ExecutorError::CapabilityDenied {
+            self.policy_engine.check_action(action).map_err(|e| {
+                ExecutorError::CapabilityDenied {
                     action_id: action.action_id.clone(),
                     capability: format!("{e}"),
-                })?;
+                }
+            })?;
 
             self.apply_action(action, world)?;
         }
@@ -51,13 +53,21 @@ impl Executor {
         match &action.parameters {
             ActionParameters::SpawnEntity { name } => {
                 let id = EntityId(world.entities.len() as u64 + 1);
-                world.entities.insert(id, WorldEntity {
+                world.entities.insert(
                     id,
-                    transform: Transform::default(),
-                    name: name.clone(),
-                });
+                    WorldEntity {
+                        id,
+                        transform: Transform::default(),
+                        name: name.clone(),
+                    },
+                );
             }
-            ActionParameters::SetTransform { entity_id, position, rotation, scale } => {
+            ActionParameters::SetTransform {
+                entity_id,
+                position,
+                rotation,
+                scale,
+            } => {
                 let eid = EntityId(*entity_id);
                 if let Some(entity) = world.entities.get_mut(&eid) {
                     entity.transform.position = *position;
@@ -75,7 +85,12 @@ impl Executor {
             ActionParameters::SetTrackingConstraint { target_entity_id } => {
                 world.camera.tracking_target = Some(*target_entity_id);
             }
-            ActionParameters::SetLighting { ambient_color, light_kind, color, intensity } => {
+            ActionParameters::SetLighting {
+                ambient_color,
+                light_kind,
+                color,
+                intensity,
+            } => {
                 world.lighting.ambient_color = *ambient_color;
                 let kind = match light_kind.as_str() {
                     "Point" => LightKind::Point,
@@ -99,12 +114,12 @@ impl Executor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
     use crate::plan::{
-        ActionEnvelope, ActionType, ActionParameters, Capability,
-        Plan, PlanMetadata, PlanId, PlanSchemaVersion,
+        ActionEnvelope, ActionParameters, ActionType, Capability, Plan, PlanId, PlanMetadata,
+        PlanSchemaVersion,
     };
-    use crate::policy::{PolicyEngine, PolicySnapshot, CapabilitySet, Budget, ApprovalRule};
+    use crate::policy::{ApprovalRule, Budget, CapabilitySet, PolicyEngine, PolicySnapshot};
+    use std::collections::HashSet;
 
     fn make_engine(caps: HashSet<Capability>) -> PolicyEngine {
         PolicyEngine::new(PolicySnapshot {
@@ -120,7 +135,11 @@ mod tests {
         Plan {
             metadata: PlanMetadata {
                 plan_id: PlanId("p1".to_string()),
-                plan_schema_version: PlanSchemaVersion { major: 1, minor: 0, patch: 0 },
+                plan_schema_version: PlanSchemaVersion {
+                    major: 1,
+                    minor: 0,
+                    patch: 0,
+                },
                 engine_version: "0.1.0".to_string(),
                 planner_id: "test".to_string(),
                 planner_version: "0.1.0".to_string(),
@@ -147,7 +166,9 @@ mod tests {
                 action_id: "a1".to_string(),
                 action_type: ActionType::SpawnEntity,
                 capability_required: Capability::WorldSpawnEntity,
-                parameters: ActionParameters::SpawnEntity { name: "subject".to_string() },
+                parameters: ActionParameters::SpawnEntity {
+                    name: "subject".to_string(),
+                },
                 preconditions: vec![],
                 postconditions: vec![],
             },
@@ -182,7 +203,9 @@ mod tests {
             action_id: "a1".to_string(),
             action_type: ActionType::SpawnEntity,
             capability_required: Capability::WorldSpawnEntity,
-            parameters: ActionParameters::SpawnEntity { name: "subject".to_string() },
+            parameters: ActionParameters::SpawnEntity {
+                name: "subject".to_string(),
+            },
             preconditions: vec![],
             postconditions: vec![],
         }];
@@ -190,6 +213,9 @@ mod tests {
         let plan = make_plan(actions);
         let mut world = WorldState::new();
         let result = executor.execute(&plan, &mut world);
-        assert!(matches!(result, Err(ExecutorError::CapabilityDenied { .. })));
+        assert!(matches!(
+            result,
+            Err(ExecutorError::CapabilityDenied { .. })
+        ));
     }
 }

@@ -3,6 +3,7 @@ mod action_parameters;
 mod action_type;
 mod capability;
 mod migration_error;
+#[allow(clippy::module_inception)]
 mod plan;
 mod plan_candidate;
 mod plan_id;

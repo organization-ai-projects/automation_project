@@ -1,5 +1,5 @@
+use super::{ApprovalRule, Budget, CapabilitySet};
 use serde::{Deserialize, Serialize};
-use super::{Budget, ApprovalRule, CapabilitySet};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicySnapshot {

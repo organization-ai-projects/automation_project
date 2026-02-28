@@ -1,5 +1,5 @@
+use super::{ActionEnvelope, PlanMetadata};
 use serde::{Deserialize, Serialize};
-use super::{PlanMetadata, ActionEnvelope};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Plan {
@@ -11,15 +11,19 @@ pub struct Plan {
 mod tests {
     use super::*;
     use crate::plan::{
-        PlanId, PlanSchemaVersion, ActionType, Capability,
-        ActionParameters, Precondition, Postcondition,
+        ActionParameters, ActionType, Capability, PlanId, PlanSchemaVersion, Postcondition,
+        Precondition,
     };
 
     fn make_plan() -> Plan {
         Plan {
             metadata: PlanMetadata {
                 plan_id: PlanId("test-plan-001".to_string()),
-                plan_schema_version: PlanSchemaVersion { major: 1, minor: 0, patch: 0 },
+                plan_schema_version: PlanSchemaVersion {
+                    major: 1,
+                    minor: 0,
+                    patch: 0,
+                },
                 engine_version: "0.1.0".to_string(),
                 planner_id: "cinematography_planner".to_string(),
                 planner_version: "0.1.0".to_string(),
@@ -30,16 +34,20 @@ mod tests {
                 explain: "test plan".to_string(),
                 explain_trace_ref: None,
             },
-            actions: vec![
-                ActionEnvelope {
-                    action_id: "a1".to_string(),
-                    action_type: ActionType::SpawnEntity,
-                    capability_required: Capability::WorldSpawnEntity,
-                    parameters: ActionParameters::SpawnEntity { name: "subject".to_string() },
-                    preconditions: vec![Precondition { description: "world ready".to_string() }],
-                    postconditions: vec![Postcondition { description: "entity spawned".to_string() }],
+            actions: vec![ActionEnvelope {
+                action_id: "a1".to_string(),
+                action_type: ActionType::SpawnEntity,
+                capability_required: Capability::WorldSpawnEntity,
+                parameters: ActionParameters::SpawnEntity {
+                    name: "subject".to_string(),
                 },
-            ],
+                preconditions: vec![Precondition {
+                    description: "world ready".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "entity spawned".to_string(),
+                }],
+            }],
         }
     }
 

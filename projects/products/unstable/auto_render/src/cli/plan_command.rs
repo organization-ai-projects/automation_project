@@ -1,10 +1,10 @@
-use std::path::PathBuf;
-use std::collections::HashSet;
 use super::CliError;
 use crate::intent::Intent;
 use crate::plan::Capability;
 use crate::planner::{CinematographyPlanner, PlannerInput, WorldSnapshot};
 use crate::policy::{ApprovalRule, Budget, CapabilitySet, PolicyEngine, PolicySnapshot};
+use std::collections::HashSet;
+use std::path::PathBuf;
 
 pub struct PlanCommand {
     pub intent_paths: Vec<PathBuf>,
@@ -61,13 +61,12 @@ impl PlanCommand {
                 self.out_path.clone()
             } else {
                 let stem = intent_path.file_stem().unwrap_or_default();
-                self.out_path.with_file_name(format!("{}.plan.ron", stem.to_string_lossy()))
+                self.out_path
+                    .with_file_name(format!("{}.plan.ron", stem.to_string_lossy()))
             };
 
-            if let Some(parent) = out_path.parent() {
-                if !parent.as_os_str().is_empty() {
-                    std::fs::create_dir_all(parent)?;
-                }
+            if let Some(parent) = out_path.parent().filter(|p| !p.as_os_str().is_empty()) {
+                std::fs::create_dir_all(parent)?;
             }
 
             std::fs::write(&out_path, out)?;
@@ -76,10 +75,8 @@ impl PlanCommand {
             if let Some(trace_path) = &self.trace_path {
                 let trace = serde_json::to_string_pretty(&best.explanation_trace)
                     .map_err(|e| crate::error::EngineError::Serialization(e.to_string()))?;
-                if let Some(parent) = trace_path.parent() {
-                    if !parent.as_os_str().is_empty() {
-                        std::fs::create_dir_all(parent)?;
-                    }
+                if let Some(parent) = trace_path.parent().filter(|p| !p.as_os_str().is_empty()) {
+                    std::fs::create_dir_all(parent)?;
                 }
                 std::fs::write(trace_path, trace)?;
                 println!("Trace written to {}", trace_path.display());

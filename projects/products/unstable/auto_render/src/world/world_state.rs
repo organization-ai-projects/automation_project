@@ -1,6 +1,6 @@
+use super::{CameraState, EntityId, LightingState, WorldEntity};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use super::{EntityId, WorldEntity, CameraState, LightingState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorldState {

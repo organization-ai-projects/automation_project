@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::LightDescriptor;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LightingState {

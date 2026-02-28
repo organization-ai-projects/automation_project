@@ -1,4 +1,4 @@
-use super::{AssetGenerator, AssetError};
+use super::{AssetError, AssetGenerator};
 
 pub struct NoopAssetGenerator;
 

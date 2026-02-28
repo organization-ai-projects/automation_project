@@ -1,6 +1,6 @@
-use std::path::PathBuf;
 use super::CliError;
 use crate::plan::Plan;
+use std::path::PathBuf;
 
 pub struct ExplainCommand {
     pub plan_path: PathBuf,
@@ -14,8 +14,12 @@ impl ExplainCommand {
 
         println!("Plan: {}", plan.metadata.plan_id.0);
         println!("Created: {}", plan.metadata.created_at);
-        println!("Planner: {} v{}", plan.metadata.planner_id, plan.metadata.planner_version);
-        println!("Schema: {}.{}.{}",
+        println!(
+            "Planner: {} v{}",
+            plan.metadata.planner_id, plan.metadata.planner_version
+        );
+        println!(
+            "Schema: {}.{}.{}",
             plan.metadata.plan_schema_version.major,
             plan.metadata.plan_schema_version.minor,
             plan.metadata.plan_schema_version.patch,

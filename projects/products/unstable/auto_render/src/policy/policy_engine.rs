@@ -1,5 +1,5 @@
-use super::{PolicySnapshot, PolicyError};
-use crate::plan::{Plan, PlanCandidate, ActionEnvelope};
+use super::{PolicyError, PolicySnapshot};
+use crate::plan::{ActionEnvelope, Plan, PlanCandidate};
 
 pub struct PolicyEngine {
     pub snapshot: PolicySnapshot,
@@ -11,7 +11,11 @@ impl PolicyEngine {
     }
 
     pub fn check_action(&self, action: &ActionEnvelope) -> Result<(), PolicyError> {
-        if !self.snapshot.allowed_capabilities.contains(&action.capability_required) {
+        if !self
+            .snapshot
+            .allowed_capabilities
+            .contains(&action.capability_required)
+        {
             return Err(PolicyError::CapabilityDenied {
                 action_id: action.action_id.clone(),
                 required: format!("{:?}", action.capability_required),
@@ -38,20 +42,24 @@ impl PolicyEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
     use crate::plan::{
-        ActionEnvelope, ActionType, ActionParameters, Capability,
-        Precondition, Postcondition, Plan, PlanMetadata, PlanId,
-        PlanSchemaVersion, PlanCandidate, RandomnessRecord,
+        ActionEnvelope, ActionParameters, ActionType, Capability, Plan, PlanCandidate, PlanId,
+        PlanMetadata, PlanSchemaVersion, RandomnessRecord,
     };
-    use crate::policy::{CapabilitySet, Budget, ApprovalRule};
+    use crate::planner::{ConstraintReport, ExplanationTrace};
+    use crate::policy::{ApprovalRule, Budget, CapabilitySet};
+    use std::collections::HashSet;
 
     fn make_snapshot(caps: HashSet<Capability>) -> PolicySnapshot {
         PolicySnapshot {
             snapshot_id: "snap-001".to_string(),
             created_at: "2026-01-01T00:00:00Z".to_string(),
             allowed_capabilities: CapabilitySet::new(caps),
-            budget: Budget { max_actions_per_plan: 5, max_planner_iterations: 10, max_time_budget_ms: 5000 },
+            budget: Budget {
+                max_actions_per_plan: 5,
+                max_planner_iterations: 10,
+                max_time_budget_ms: 5000,
+            },
             rules: vec![ApprovalRule::AutoApprove],
         }
     }
@@ -61,7 +69,9 @@ mod tests {
             action_id: id.to_string(),
             action_type: ActionType::SpawnEntity,
             capability_required: cap,
-            parameters: ActionParameters::SpawnEntity { name: "test".to_string() },
+            parameters: ActionParameters::SpawnEntity {
+                name: "test".to_string(),
+            },
             preconditions: vec![],
             postconditions: vec![],
         }
@@ -72,7 +82,11 @@ mod tests {
             plan: Plan {
                 metadata: PlanMetadata {
                     plan_id: PlanId("p1".to_string()),
-                    plan_schema_version: PlanSchemaVersion { major: 1, minor: 0, patch: 0 },
+                    plan_schema_version: PlanSchemaVersion {
+                        major: 1,
+                        minor: 0,
+                        patch: 0,
+                    },
                     engine_version: "0.1.0".to_string(),
                     planner_id: "test".to_string(),
                     planner_version: "0.1.0".to_string(),
@@ -88,8 +102,15 @@ mod tests {
             score: 1.0,
             constraints_satisfied: vec![],
             constraints_violated: vec![],
-            explanation_trace: "".to_string(),
-            randomness_record: RandomnessRecord { seed: 0, transcript_ref: None },
+            explanation_trace: ExplanationTrace {
+                summary: "".to_string(),
+                key_decisions: vec![],
+                constraint_report: ConstraintReport { satisfied: vec![], violated: vec![] },
+            },
+            randomness_record: RandomnessRecord {
+                seed: 0,
+                transcript_ref: None,
+            },
         }
     }
 

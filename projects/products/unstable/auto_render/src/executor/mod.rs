@@ -1,4 +1,5 @@
 mod execution_result;
+#[allow(clippy::module_inception)]
 mod executor;
 mod executor_error;
 

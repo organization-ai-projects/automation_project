@@ -1,5 +1,5 @@
+use super::{IntentId, IntentPayload, IntentVersion};
 use serde::{Deserialize, Serialize};
-use super::{IntentId, IntentVersion, IntentPayload};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Intent {

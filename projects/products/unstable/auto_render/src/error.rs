@@ -1,8 +1,8 @@
-use thiserror::Error;
-use crate::policy::PolicyError;
-use crate::planner::PlannerError;
 use crate::executor::ExecutorError;
 use crate::plan::MigrationError;
+use crate::planner::PlannerError;
+use crate::policy::PolicyError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum EngineError {

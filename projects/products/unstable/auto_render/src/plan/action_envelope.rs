@@ -1,5 +1,5 @@
+use super::{ActionParameters, ActionType, Capability, Postcondition, Precondition};
 use serde::{Deserialize, Serialize};
-use super::{ActionType, ActionParameters, Capability, Precondition, Postcondition};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionEnvelope {

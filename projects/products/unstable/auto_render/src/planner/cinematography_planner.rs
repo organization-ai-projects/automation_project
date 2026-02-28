@@ -1,9 +1,8 @@
-use super::{PlannerInput, PlannerError, ConstraintReport, ExplanationTrace};
+use super::{ConstraintReport, ExplanationTrace, PlannerError, PlannerInput};
 use crate::intent::IntentPayload;
 use crate::plan::{
-    ActionEnvelope, ActionParameters, ActionType, Capability,
-    Plan, PlanCandidate, PlanId, PlanMetadata, PlanSchemaVersion,
-    Postcondition, Precondition, RandomnessRecord,
+    ActionEnvelope, ActionParameters, ActionType, Capability, Plan, PlanCandidate, PlanId,
+    PlanMetadata, PlanSchemaVersion, Postcondition, Precondition, RandomnessRecord,
 };
 
 pub struct CinematographyPlanner;
@@ -16,8 +15,12 @@ impl CinematographyPlanner {
     pub fn plan(&self, input: &PlannerInput) -> Result<Vec<PlanCandidate>, PlannerError> {
         let IntentPayload::Cinematography(ref payload) = input.intent.payload;
 
-        let fov = payload.fov_deg.unwrap_or_else(|| Self::default_fov(&payload.shot_type));
-        let distance = payload.camera_distance.unwrap_or_else(|| Self::default_distance(&payload.shot_type));
+        let fov = payload
+            .fov_deg
+            .unwrap_or_else(|| Self::default_fov(&payload.shot_type));
+        let distance = payload
+            .camera_distance
+            .unwrap_or_else(|| Self::default_distance(&payload.shot_type));
 
         let candidate1 = self.build_candidate(input, fov, distance, 0, "primary")?;
         let candidate2 = self.build_candidate(input, fov * 1.1, distance * 1.05, 1, "alternate")?;
@@ -61,8 +64,12 @@ impl CinematographyPlanner {
                 parameters: ActionParameters::SpawnEntity {
                     name: payload.subject_description.clone(),
                 },
-                preconditions: vec![Precondition { description: "World is empty or accepts new entities".to_string() }],
-                postconditions: vec![Postcondition { description: "Subject entity exists in world".to_string() }],
+                preconditions: vec![Precondition {
+                    description: "World is empty or accepts new entities".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Subject entity exists in world".to_string(),
+                }],
             },
             ActionEnvelope {
                 action_id: format!("{label}-set-transform"),
@@ -74,8 +81,12 @@ impl CinematographyPlanner {
                     rotation: [0.0, 0.0, 0.0, 1.0],
                     scale: [1.0, 1.0, 1.0],
                 },
-                preconditions: vec![Precondition { description: "Subject entity exists".to_string() }],
-                postconditions: vec![Postcondition { description: "Subject positioned at origin".to_string() }],
+                preconditions: vec![Precondition {
+                    description: "Subject entity exists".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Subject positioned at origin".to_string(),
+                }],
             },
             ActionEnvelope {
                 action_id: format!("{label}-set-camera-transform"),
@@ -85,39 +96,61 @@ impl CinematographyPlanner {
                     position: [0.0, 0.0, distance],
                     rotation: [0.0, 0.0, 0.0, 1.0],
                 },
-                preconditions: vec![Precondition { description: "Camera exists".to_string() }],
-                postconditions: vec![Postcondition { description: "Camera positioned".to_string() }],
+                preconditions: vec![Precondition {
+                    description: "Camera exists".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Camera positioned".to_string(),
+                }],
             },
             ActionEnvelope {
                 action_id: format!("{label}-set-camera-fov"),
                 action_type: ActionType::SetCameraFov,
                 capability_required: Capability::CameraSet,
                 parameters: ActionParameters::SetCameraFov { fov_deg: fov },
-                preconditions: vec![Precondition { description: "Camera exists".to_string() }],
-                postconditions: vec![Postcondition { description: "Camera FOV set".to_string() }],
+                preconditions: vec![Precondition {
+                    description: "Camera exists".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Camera FOV set".to_string(),
+                }],
             },
             ActionEnvelope {
                 action_id: format!("{label}-set-lighting"),
                 action_type: ActionType::SetLighting,
                 capability_required: Capability::LightingSet,
                 parameters: Self::lighting_params(&payload.lighting_style),
-                preconditions: vec![Precondition { description: "Scene exists".to_string() }],
-                postconditions: vec![Postcondition { description: "Lighting applied".to_string() }],
+                preconditions: vec![Precondition {
+                    description: "Scene exists".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Lighting applied".to_string(),
+                }],
             },
             ActionEnvelope {
                 action_id: format!("{label}-set-tracking"),
                 action_type: ActionType::SetTrackingConstraint,
                 capability_required: Capability::CameraSet,
-                parameters: ActionParameters::SetTrackingConstraint { target_entity_id: 1 },
-                preconditions: vec![Precondition { description: "Subject and camera exist".to_string() }],
-                postconditions: vec![Postcondition { description: "Camera tracks subject".to_string() }],
+                parameters: ActionParameters::SetTrackingConstraint {
+                    target_entity_id: 1,
+                },
+                preconditions: vec![Precondition {
+                    description: "Subject and camera exist".to_string(),
+                }],
+                postconditions: vec![Postcondition {
+                    description: "Camera tracks subject".to_string(),
+                }],
             },
         ];
 
         let plan = Plan {
             metadata: PlanMetadata {
                 plan_id: PlanId(format!("{}-{}", input.intent.intent_id.0, label)),
-                plan_schema_version: PlanSchemaVersion { major: 1, minor: 0, patch: 0 },
+                plan_schema_version: PlanSchemaVersion {
+                    major: 1,
+                    minor: 0,
+                    patch: 0,
+                },
                 engine_version: "0.1.0".to_string(),
                 planner_id: "cinematography_planner".to_string(),
                 planner_version: "0.1.0".to_string(),
@@ -154,10 +187,11 @@ impl CinematographyPlanner {
                     format!("distance={:.2}", distance),
                 ],
                 constraint_report,
-            }
-            .summary
-            .clone(),
-            randomness_record: RandomnessRecord { seed: idx, transcript_ref: None },
+            },
+            randomness_record: RandomnessRecord {
+                seed: idx,
+                transcript_ref: None,
+            },
             plan,
         })
     }

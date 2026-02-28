@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
+use super::WorldSnapshot;
 use crate::intent::Intent;
 use crate::policy::PolicySnapshot;
-use super::WorldSnapshot;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlannerInput {

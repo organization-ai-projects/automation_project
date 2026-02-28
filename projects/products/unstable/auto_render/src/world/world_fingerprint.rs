@@ -1,5 +1,5 @@
-use sha2::{Sha256, Digest};
 use super::WorldState;
+use sha2::{Digest, Sha256};
 
 pub struct WorldFingerprint {
     pub hash: String,
@@ -32,7 +32,7 @@ impl WorldFingerprint {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world::{WorldState, EntityId, WorldEntity, Transform};
+    use crate::world::{EntityId, Transform, WorldEntity, WorldState};
 
     #[test]
     fn same_world_same_fingerprint() {
@@ -46,11 +46,14 @@ mod tests {
     fn different_worlds_different_fingerprints() {
         let world1 = WorldState::new();
         let mut world2 = WorldState::new();
-        world2.entities.insert(EntityId(1), WorldEntity {
-            id: EntityId(1),
-            transform: Transform::default(),
-            name: "entity1".to_string(),
-        });
+        world2.entities.insert(
+            EntityId(1),
+            WorldEntity {
+                id: EntityId(1),
+                transform: Transform::default(),
+                name: "entity1".to_string(),
+            },
+        );
         let f1 = WorldFingerprint::compute(&world1);
         let f2 = WorldFingerprint::compute(&world2);
         assert_ne!(f1.hash, f2.hash);

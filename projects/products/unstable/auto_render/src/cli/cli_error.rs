@@ -1,5 +1,5 @@
-use thiserror::Error;
 use crate::error::EngineError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum CliError {
