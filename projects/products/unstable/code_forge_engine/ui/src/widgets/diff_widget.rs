@@ -6,7 +6,10 @@ pub struct DiffWidget {
 
 impl DiffWidget {
     pub fn new(before: impl Into<String>, after: impl Into<String>) -> Self {
-        Self { before: before.into(), after: after.into() }
+        Self {
+            before: before.into(),
+            after: after.into(),
+        }
     }
 
     pub fn has_changes(&self) -> bool {

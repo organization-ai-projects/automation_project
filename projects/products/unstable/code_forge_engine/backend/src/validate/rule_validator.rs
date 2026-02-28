@@ -7,7 +7,9 @@ pub struct RuleValidator;
 impl RuleValidator {
     pub fn validate(rule: &RuleSpec) -> Result<(), ForgeError> {
         if rule.id.is_empty() {
-            return Err(ForgeError::Validation("rule id must not be empty".to_string()));
+            return Err(ForgeError::Validation(
+                "rule id must not be empty".to_string(),
+            ));
         }
         Ok(())
     }

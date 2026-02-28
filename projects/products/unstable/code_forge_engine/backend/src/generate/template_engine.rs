@@ -1,6 +1,6 @@
 // projects/products/unstable/code_forge_engine/backend/src/generate/template_engine.rs
-use std::collections::BTreeMap;
 use crate::diagnostics::error::ForgeError;
+use std::collections::BTreeMap;
 
 pub struct TemplateEngine {
     variables: BTreeMap<String, String>,
@@ -8,7 +8,9 @@ pub struct TemplateEngine {
 
 impl TemplateEngine {
     pub fn new() -> Self {
-        Self { variables: BTreeMap::new() }
+        Self {
+            variables: BTreeMap::new(),
+        }
     }
 
     pub fn set(&mut self, key: impl Into<String>, value: impl Into<String>) {

@@ -1,10 +1,10 @@
 // projects/products/unstable/code_forge_engine/ui/src/app/controller.rs
-use anyhow::Result;
 use crate::app::action::Action;
 use crate::app::app_state::AppState;
 use crate::app::reducer::Reducer;
 use crate::transport::backend_process::BackendProcess;
 use crate::transport::ipc_client::IpcClient;
+use anyhow::Result;
 
 pub struct Controller {
     state: AppState,
@@ -35,7 +35,10 @@ impl Controller {
             eprintln!("contract: {path}");
         }
         if let Some(dir) = out_dir {
-            self.dispatch(Action::Generate { out_dir: dir.to_string(), mode: "dry_run".to_string() });
+            self.dispatch(Action::Generate {
+                out_dir: dir.to_string(),
+                mode: "dry_run".to_string(),
+            });
             eprintln!("out_dir: {dir}");
         }
         Ok(())

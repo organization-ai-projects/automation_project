@@ -1,7 +1,7 @@
 // projects/products/unstable/code_forge_engine/backend/src/io/json_codec.rs
-use std::io::Write;
 use crate::diagnostics::error::ForgeError;
 use crate::protocol::response::Response;
+use std::io::Write;
 
 pub struct JsonCodec;
 

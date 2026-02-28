@@ -17,13 +17,19 @@ fn run_cli(args: &[String]) -> Result<()> {
     use app::controller::Controller;
     use transport::backend_process::BackendProcess;
 
-    let contract = args.iter().position(|a| a == "--contract")
+    let contract = args
+        .iter()
+        .position(|a| a == "--contract")
         .and_then(|i| args.get(i + 1))
         .cloned();
-    let out_dir = args.iter().position(|a| a == "--out")
+    let out_dir = args
+        .iter()
+        .position(|a| a == "--out")
         .and_then(|i| args.get(i + 1))
         .cloned();
-    let golden_dir = args.iter().position(|a| a == "--golden-dir")
+    let golden_dir = args
+        .iter()
+        .position(|a| a == "--golden-dir")
         .and_then(|i| args.get(i + 1))
         .cloned();
 
@@ -33,6 +39,10 @@ fn run_cli(args: &[String]) -> Result<()> {
     let process = BackendProcess::new(backend_bin);
 
     let mut controller = Controller::new(process);
-    controller.run(contract.as_deref(), out_dir.as_deref(), golden_dir.as_deref())?;
+    controller.run(
+        contract.as_deref(),
+        out_dir.as_deref(),
+        golden_dir.as_deref(),
+    )?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 // projects/products/unstable/code_forge_engine/tooling/src/validate/byte_stability_validator.rs
-use std::path::PathBuf;
 use crate::diagnostics::error::ToolingError;
+use std::path::PathBuf;
 
 pub struct ByteStabilityValidator {
     pub dir: PathBuf,

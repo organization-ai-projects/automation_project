@@ -6,6 +6,9 @@ pub struct ReportScreen {
 
 impl ReportScreen {
     pub fn new() -> Self {
-        Self { manifest_hash: None, file_count: 0 }
+        Self {
+            manifest_hash: None,
+            file_count: 0,
+        }
     }
 }

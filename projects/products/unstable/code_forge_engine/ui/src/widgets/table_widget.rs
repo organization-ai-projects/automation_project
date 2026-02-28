@@ -6,7 +6,10 @@ pub struct TableWidget {
 
 impl TableWidget {
     pub fn new(headers: Vec<String>) -> Self {
-        Self { headers, rows: vec![] }
+        Self {
+            headers,
+            rows: vec![],
+        }
     }
 
     pub fn add_row(&mut self, row: Vec<String>) {
