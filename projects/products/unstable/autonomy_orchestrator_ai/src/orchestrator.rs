@@ -12,9 +12,9 @@ use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
 use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate, ensemble_to_contribution};
 use crate::domain::{
-    AutoFixAttempt, AutoFixAttemptStatus, BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
-    DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus,
+    AutoFixAttempt, AutoFixAttemptStatus, BinaryInvocationSpec, CiGateStatus, CommandLineSpec,
+    DecisionContribution, DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision,
+    GateInputs, OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus,
     ReviewerVerdict, RiskSignal, RiskTier, RunReport, Stage, StageExecutionRecord,
     StageExecutionStatus, StageTransition, TerminalState,
 };

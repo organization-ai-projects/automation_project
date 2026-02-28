@@ -1,6 +1,6 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/mod.rs
-mod auto_fix_attempt;
 mod adaptive_policy_decision;
+mod auto_fix_attempt;
 mod binary_invocation_spec;
 mod ci_gate_status;
 mod command_line_spec;
