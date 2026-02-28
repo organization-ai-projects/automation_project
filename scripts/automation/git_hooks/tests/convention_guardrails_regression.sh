@@ -32,6 +32,11 @@ if [[ "${1:-}" == "repo" && "${2:-}" == "view" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "api" && "${2:-}" == "user" ]]; then
+  echo "${MOCK_GH_LOGIN:-devuser}"
+  exit 0
+fi
+
 if [[ "${1:-}" == "issue" && "${2:-}" == "list" ]]; then
   search=""
   while [[ $# -gt 0 ]]; do
@@ -57,6 +62,46 @@ fi
 
 if [[ "${1:-}" == "issue" && "${2:-}" == "view" ]]; then
   issue_number="${3:-0}"
+  json_fields=""
+  while [[ $# -gt 0 ]]; do
+    if [[ "${1:-}" == "--json" ]]; then
+      json_fields="${2:-}"
+      break
+    fi
+    shift
+  done
+
+  if [[ "$json_fields" == *"state"* ]]; then
+    closed_list="${MOCK_CLOSED_ISSUES:-}"
+    if [[ " ${closed_list} " == *" ${issue_number} "* ]]; then
+      echo "CLOSED"
+    else
+      echo "OPEN"
+    fi
+    exit 0
+  fi
+
+  if [[ "$json_fields" == *"assignees"* ]]; then
+    if [[ " ${MOCK_MULTI_ASSIGNEE_ISSUES:-124} " == *" ${issue_number} "* ]]; then
+      echo "${MOCK_GH_LOGIN:-devuser}"
+      echo "pairdev"
+    elif [[ " ${MOCK_UNASSIGNED_ISSUES:-} " == *" ${issue_number} "* ]]; then
+      :
+    else
+      echo "${MOCK_GH_LOGIN:-devuser}"
+    fi
+    exit 0
+  fi
+
+  if [[ "$json_fields" == *"body"* ]]; then
+    if contains_issue "$issue_number"; then
+      echo "Parent: none"
+    else
+      echo "Parent: #617"
+    fi
+    exit 0
+  fi
+
   if contains_issue "$issue_number"; then
     echo "Parent: none"
   else
@@ -82,6 +127,21 @@ fi
 exit 0
 EOF
   chmod +x "${mock_dir}/pnpm"
+
+  cat > "${mock_dir}/markdownlint-cli2" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "--version" ]]; then
+  echo "0.21.0"
+  exit 0
+fi
+if [[ "${MOCK_MARKDOWNLINT_FAIL:-0}" == "1" ]]; then
+  echo "mock markdownlint failure" >&2
+  exit 1
+fi
+exit 0
+EOF
+  chmod +x "${mock_dir}/markdownlint-cli2"
 }
 
 setup_repo() {
@@ -182,26 +242,32 @@ main() {
     "commit-msg-allows-child-footer" \
     0 \
     "" \
-    "cp '${FIXTURES_DIR}/commit_msg_valid_child.txt' .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+    "cp '${FIXTURES_DIR}/commit_msg_valid_child.txt' .git/COMMIT_EDITMSG && MOCK_MULTI_ASSIGNEE_ISSUES='123' /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
-    "commit-msg-allows-fixes-footer" \
-    0 \
-    "Fixes #123" \
-    "printf 'docs: update hook policy wording\n\nFixes #123\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && tail -n1 .git/COMMIT_EDITMSG"
+    "commit-msg-rejects-fixes-footer" \
+    4 \
+    "Invalid issue footer keyword: 'Fixes' is not allowed" \
+    "printf 'docs: update hook policy wording\n\nFixes #123\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   # commit-msg: allow non-root issue refs in body and normalize to footer block.
   run_case \
     "commit-msg-allows-and-normalizes-body-ref" \
     0 \
     "Part of #123" \
-    "printf 'docs: update hook policy wording\n\nContext line\nPart of #123\nMore notes\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && tail -n1 .git/COMMIT_EDITMSG"
+    "printf 'docs: update hook policy wording\n\nContext line\nPart of #123\nMore notes\n' > .git/COMMIT_EDITMSG && MOCK_MULTI_ASSIGNEE_ISSUES='123' /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && tail -n1 .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-normalizes-lowercase-and-deduplicates" \
     0 \
     "^2$" \
-    "printf 'docs: update hook policy wording\n\npart of #123\nPart of #123\nREOPEN #456\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && grep -Ec '^(Part of #123|Reopen #456)$' .git/COMMIT_EDITMSG"
+    "printf 'docs: update hook policy wording\n\npart of #123\nPart of #123\nREOPEN #456\n' > .git/COMMIT_EDITMSG && MOCK_MULTI_ASSIGNEE_ISSUES='123 456' /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && grep -Ec '^(Part of #123|Reopen #456)$' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-blocks-single-assignee-part-of-only" \
+    10 \
+    "Closes #123' is required" \
+    "printf 'docs: update hook policy wording\n\nPart of #123\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-accepts-first-nonempty-line-as-subject" \
@@ -383,7 +449,7 @@ main() {
   run_case \
     "pre-push-blocks-part-of-only" \
     1 \
-    "Push blocked: commit range contains tracking refs" \
+    "Push blocked by assignment policy" \
     "echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #123' >/dev/null && /bin/bash '${HOOKS_DIR}/pre-push'"
 
   run_case \
@@ -391,6 +457,12 @@ main() {
     0 \
     "Pre-push checks PASSED" \
     "echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #123' >/dev/null && ALLOW_PART_OF_ONLY_PUSH=1 /bin/bash '${HOOKS_DIR}/pre-push'"
+
+  run_case \
+    "pre-push-allows-part-of-only-when-multi-assignee" \
+    0 \
+    "Pre-push checks PASSED" \
+    "echo '# workflow note' > documentation/work.md && git add documentation/work.md && git commit -m 'docs(markdown): update workflow note' -m 'Part of #123' >/dev/null && MOCK_MULTI_ASSIGNEE_ISSUES='123' /bin/bash '${HOOKS_DIR}/pre-push'"
 
   run_case \
     "pre-push-docs-only-runs-markdownlint" \
