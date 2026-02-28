@@ -16,6 +16,7 @@ mod orchestrator;
 mod output_writer;
 mod pending_validation_invocation;
 mod planner_output;
+mod rollout_orchestrator;
 mod run_args;
 mod runtime;
 mod runtime_diagnostics;

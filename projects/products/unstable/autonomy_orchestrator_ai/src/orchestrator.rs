@@ -17,6 +17,7 @@ use crate::domain::{
     Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
+use crate::rollout_orchestrator::{RolloutConfig, RolloutOrchestrator};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
@@ -54,6 +55,7 @@ pub struct Orchestrator {
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
+    rollout_config: RolloutConfig,
 }
 
 impl Orchestrator {
@@ -134,6 +136,11 @@ impl Orchestrator {
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
             planned_remediation_steps,
+            rollout_config: RolloutConfig {
+                enabled: config.rollout_enabled,
+                rollback_error_rate_threshold: config.rollback_error_rate_threshold,
+                rollback_latency_threshold_ms: config.rollback_latency_threshold_ms,
+            },
         }
     }
 
@@ -189,6 +196,9 @@ impl Orchestrator {
             return self.report;
         }
         if !self.execute_delivery_lifecycle() {
+            return self.report;
+        }
+        if !self.execute_rollout() {
             return self.report;
         }
         self.report.terminal_state = Some(TerminalState::Done);
@@ -918,6 +928,27 @@ impl Orchestrator {
             }
         }
 
+        true
+    }
+
+    fn execute_rollout(&mut self) -> bool {
+        let config = RolloutConfig {
+            enabled: self.rollout_config.enabled,
+            rollback_error_rate_threshold: self.rollout_config.rollback_error_rate_threshold,
+            rollback_latency_threshold_ms: self.rollout_config.rollback_latency_threshold_ms,
+        };
+        let mut orch = RolloutOrchestrator::new(config);
+        let (steps, rollback) = orch.run(&[], &unix_timestamp_secs);
+        self.report.rollout_steps = steps;
+        if let Some(decision) = rollback {
+            self.report.rollback_decision = Some(decision.clone());
+            self.report
+                .blocked_reason_codes
+                .push(decision.reason_code.clone());
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
+            return false;
+        }
         true
     }
 

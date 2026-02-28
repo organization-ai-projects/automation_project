@@ -38,6 +38,9 @@ fn base_config() -> OrchestratorConfig {
         cycle_memory_path: None,
         next_actions_path: None,
         previous_run_report_path: None,
+        rollout_enabled: false,
+        rollback_error_rate_threshold: 0.05,
+        rollback_latency_threshold_ms: 5_000,
     }
 }
 

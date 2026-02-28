@@ -12,6 +12,9 @@ struct MatrixReportView {
     reviewer_next_steps: Vec<String>,
     adaptive_policy_decisions: Vec<AdaptivePolicyDecisionView>,
     stage_executions: Vec<StageExecutionView>,
+    #[serde(default)]
+    rollout_steps: Vec<RolloutStepView>,
+    rollback_decision: Option<RollbackDecisionView>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -25,6 +28,19 @@ struct StageExecutionView {
     stage: String,
     status: String,
     command: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct RolloutStepView {
+    phase: String,
+    reason_code: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[allow(dead_code)]
+struct RollbackDecisionView {
+    triggered_at_phase: String,
+    reason_code: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -1261,6 +1277,64 @@ fn matrix_decision_no_contributions_blocks_fail_closed() {
             .blocked_reason_codes
             .contains(&"DECISION_NO_CONTRIBUTIONS".to_string())
     );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_rollout_enabled_healthy_progression_to_full() {
+    let out_dir = unique_temp_dir("rollout_healthy");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+            "--rollout-enabled",
+        ],
+        &out_dir,
+    );
+
+    assert!(output.status.success());
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    assert!(report.rollback_decision.is_none());
+    assert_eq!(report.rollout_steps.len(), 3);
+    assert_eq!(report.rollout_steps[0].phase, "canary");
+    assert_eq!(report.rollout_steps[1].phase, "partial");
+    assert_eq!(report.rollout_steps[2].phase, "full");
+    assert!(
+        report
+            .rollout_steps
+            .iter()
+            .all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED")
+    );
+
+    let _ = fs::remove_dir_all(out_dir);
+}
+
+#[test]
+fn matrix_rollout_disabled_produces_no_rollout_telemetry() {
+    let out_dir = unique_temp_dir("rollout_disabled");
+
+    let (output, report) = run_orchestrator(
+        &[
+            "--policy-status",
+            "allow",
+            "--ci-status",
+            "success",
+            "--review-status",
+            "approved",
+        ],
+        &out_dir,
+    );
+
+    assert!(output.status.success());
+    assert_eq!(report.terminal_state.as_deref(), Some("done"));
+    assert!(report.rollout_steps.is_empty());
+    assert!(report.rollback_decision.is_none());
 
     let _ = fs::remove_dir_all(out_dir);
 }

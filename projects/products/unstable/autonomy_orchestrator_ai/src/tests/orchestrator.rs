@@ -43,6 +43,9 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         cycle_memory_path: None,
         next_actions_path: None,
         previous_run_report_path: None,
+        rollout_enabled: false,
+        rollback_error_rate_threshold: 0.05,
+        rollback_latency_threshold_ms: 5_000,
     }
 }
 
@@ -389,4 +392,40 @@ fn reliability_factors_and_updates_are_persisted_in_run_report() {
             .decision_rationale_codes
             .contains(&"DECISION_RELIABILITY_WEIGHTED".to_string())
     );
+}
+
+#[test]
+fn rollout_disabled_produces_no_rollout_steps_in_run_report() {
+    let mut config = test_config("run_rollout_disabled");
+    config.rollout_enabled = false;
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert!(report.rollout_steps.is_empty());
+    assert!(report.rollback_decision.is_none());
+}
+
+#[test]
+fn rollout_enabled_healthy_produces_three_phase_steps_in_run_report() {
+    use crate::domain::RolloutPhase;
+
+    let mut config = test_config("run_rollout_healthy");
+    config.rollout_enabled = true;
+    config.rollback_error_rate_threshold = 0.05;
+    config.rollback_latency_threshold_ms = 5_000;
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert_eq!(report.rollout_steps.len(), 3);
+    assert_eq!(report.rollout_steps[0].phase, RolloutPhase::Canary);
+    assert_eq!(report.rollout_steps[1].phase, RolloutPhase::Partial);
+    assert_eq!(report.rollout_steps[2].phase, RolloutPhase::Full);
+    assert!(
+        report
+            .rollout_steps
+            .iter()
+            .all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED")
+    );
+    assert!(report.rollback_decision.is_none());
 }

@@ -286,6 +286,9 @@ fn run_once(
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
         previous_run_report_path: Some(previous_run_report_path.clone()),
+        rollout_enabled: args.rollout_enabled,
+        rollback_error_rate_threshold: args.rollback_error_rate_threshold,
+        rollback_latency_threshold_ms: args.rollback_latency_threshold_ms,
     };
 
     if let Some(load_mode) = &config_io.load {

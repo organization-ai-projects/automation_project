@@ -36,6 +36,9 @@ struct OrchestratorConfigJsonCompat {
     cycle_memory_path: Option<PathBuf>,
     next_actions_path: Option<PathBuf>,
     previous_run_report_path: Option<PathBuf>,
+    rollout_enabled: Option<bool>,
+    rollback_error_rate_threshold: Option<f64>,
+    rollback_latency_threshold_ms: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,7 +47,7 @@ struct ExecutionPolicyJsonCompat {
     reviewer_remediation_max_cycles: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OrchestratorConfig {
     pub run_id: String,
     pub simulate_blocked: bool,
@@ -67,6 +70,12 @@ pub struct OrchestratorConfig {
     pub cycle_memory_path: Option<PathBuf>,
     pub next_actions_path: Option<PathBuf>,
     pub previous_run_report_path: Option<PathBuf>,
+    #[serde(default)]
+    pub rollout_enabled: bool,
+    #[serde(default = "default_rollback_error_rate_threshold")]
+    pub rollback_error_rate_threshold: f32,
+    #[serde(default = "default_rollback_latency_threshold_ms")]
+    pub rollback_latency_threshold_ms: u64,
 }
 
 impl OrchestratorConfig {
@@ -218,6 +227,14 @@ impl OrchestratorConfig {
             cycle_memory_path: parsed.cycle_memory_path,
             next_actions_path: parsed.next_actions_path,
             previous_run_report_path: parsed.previous_run_report_path,
+            rollout_enabled: parsed.rollout_enabled.unwrap_or(false),
+            rollback_error_rate_threshold: parsed
+                .rollback_error_rate_threshold
+                .map(|v| v as f32)
+                .unwrap_or(default_rollback_error_rate_threshold()),
+            rollback_latency_threshold_ms: parsed
+                .rollback_latency_threshold_ms
+                .unwrap_or_else(default_rollback_latency_threshold_ms),
         })
     }
 
@@ -246,6 +263,14 @@ impl OrchestratorConfig {
             )),
         }
     }
+}
+
+fn default_rollback_error_rate_threshold() -> f32 {
+    0.05
+}
+
+fn default_rollback_latency_threshold_ms() -> u64 {
+    5_000
 }
 
 fn float_to_u32_compat(value: f64, field: &str) -> Result<u32, String> {

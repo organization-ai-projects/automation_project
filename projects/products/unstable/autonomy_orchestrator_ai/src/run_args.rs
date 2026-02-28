@@ -123,6 +123,13 @@ pub struct RunArgs {
     pub delivery_pr_body: Option<String>,
 
     #[arg(long)]
+    pub rollout_enabled: bool,
+    #[arg(long, default_value_t = 0.05)]
+    pub rollback_error_rate_threshold: f32,
+    #[arg(long, default_value_t = 5_000)]
+    pub rollback_latency_threshold_ms: u64,
+
+    #[arg(long)]
     pub config_save_ron: Option<PathBuf>,
     #[arg(long)]
     pub config_save_bin: Option<PathBuf>,
