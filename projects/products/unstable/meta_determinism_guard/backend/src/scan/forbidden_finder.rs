@@ -6,7 +6,7 @@ use crate::scan::forbidden_rule::ForbiddenRule;
 
 pub fn find_forbidden(root: &str, config: &ScanConfig) -> Result<Vec<String>> {
     let rules: Vec<ForbiddenRule> = config.forbidden_patterns.iter()
-        .map(|p| ForbiddenRule::new(p))
+        .map(ForbiddenRule::new)
         .collect();
 
     let files = walk_files_sorted(root, &config.skip_dirs)?;
