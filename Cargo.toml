@@ -53,6 +53,9 @@ members = [
   "projects/products/unstable/dev_agent",
   "projects/products/unstable/factory_sim",
   "projects/products/unstable/workflow_offline",
+  "projects/products/unstable/artifact_factory/backend",
+  "projects/products/unstable/artifact_factory/ui",
+  "projects/products/unstable/artifact_factory/tooling",
 ]
 resolver = "2"
 
