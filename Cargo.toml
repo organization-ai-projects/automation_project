@@ -44,6 +44,9 @@ members = [
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
   "projects/products/unstable/workflow_offline",
+  "projects/products/unstable/code_forge_engine/backend",
+  "projects/products/unstable/code_forge_engine/ui",
+  "projects/products/unstable/code_forge_engine/tooling",
 ]
 resolver = "2"
 
