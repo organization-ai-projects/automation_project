@@ -1,0 +1,48 @@
+name: PR Auto Closes Enrichment (dev)
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+    branches: [dev]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to enrich"
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  enrich-pr-closes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/versioning/file_versioning/github/
+          sparse-checkout-cone-mode: false
+
+      - name: Ensure jq is available
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq
+          else
+            jq --version
+          fi
+
+      - name: Auto-enrich PR body with Closes refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        run: |
+          if [[ -z "${PR_NUMBER:-}" || ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid or missing PR number." >&2
+            exit 1
+          fi
+          chmod +x scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr.sh
+          bash scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr.sh --pr "${PR_NUMBER}"
