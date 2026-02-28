@@ -10,7 +10,9 @@ pub struct ComponentStore {
 }
 
 impl ComponentStore {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn insert(&mut self, entity: EntityId, component: ComponentId, value: Component) {
         self.data.insert((entity, component), value);
@@ -29,9 +31,12 @@ impl ComponentStore {
     }
 
     pub fn iter_entity(&self, entity: EntityId) -> impl Iterator<Item = (ComponentId, &Component)> {
-        self.data.range((entity, ComponentId(0))..(EntityId(entity.0 + 1), ComponentId(0)))
+        self.data
+            .range((entity, ComponentId(0))..(EntityId(entity.0 + 1), ComponentId(0)))
             .map(|((_, cid), c)| (*cid, c))
     }
 
-    pub fn len(&self) -> usize { self.data.len() }
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
 }

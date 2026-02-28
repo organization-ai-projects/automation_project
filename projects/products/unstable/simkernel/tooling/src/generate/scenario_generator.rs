@@ -14,7 +14,8 @@ impl ScenarioGenerator {
             "ticks_per_turn": 10,
             "description": format!("Generated scenario for {}", pack_kind)
         });
-        let data = serde_json::to_string_pretty(&scenario).map_err(|e| ToolingError::Serialization(e.to_string()))?;
+        let data = serde_json::to_string_pretty(&scenario)
+            .map_err(|e| ToolingError::Serialization(e.to_string()))?;
         std::fs::write(out_path, data).map_err(|e| ToolingError::Io(e.to_string()))?;
         Ok(())
     }

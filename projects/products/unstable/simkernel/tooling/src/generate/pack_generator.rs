@@ -9,7 +9,9 @@ pub fn generate_pack(pack_name: &str, out_dir: &Path) -> Result<(), ToolingError
     std::fs::create_dir_all(&pack_dir).map_err(|e| ToolingError::Io(e.to_string()))?;
     let src_dir = pack_dir.join("src");
     std::fs::create_dir_all(&src_dir).map_err(|e| ToolingError::Io(e.to_string()))?;
-    std::fs::write(src_dir.join("main.rs"), template.main_rs()).map_err(|e| ToolingError::Io(e.to_string()))?;
-    std::fs::write(pack_dir.join("Cargo.toml"), template.cargo_toml()).map_err(|e| ToolingError::Io(e.to_string()))?;
+    std::fs::write(src_dir.join("main.rs"), template.main_rs())
+        .map_err(|e| ToolingError::Io(e.to_string()))?;
+    std::fs::write(pack_dir.join("Cargo.toml"), template.cargo_toml())
+        .map_err(|e| ToolingError::Io(e.to_string()))?;
     Ok(())
 }

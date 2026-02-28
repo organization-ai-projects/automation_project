@@ -6,7 +6,8 @@ fn test_ui_help_exits_with_code_2() {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .output() {
+        .output()
+    {
         Ok(o) => o,
         Err(_) => return,
     };

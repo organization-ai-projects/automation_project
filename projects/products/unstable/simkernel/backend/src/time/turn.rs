@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 pub struct Turn(pub u64);
 
 impl Turn {
-    pub fn zero() -> Self { Self(0) }
-    pub fn next(self) -> Self { Self(self.0 + 1) }
+    pub fn zero() -> Self {
+        Self(0)
+    }
+    pub fn next(self) -> Self {
+        Self(self.0 + 1)
+    }
 }

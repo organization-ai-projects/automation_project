@@ -6,7 +6,8 @@ fn test_tooling_no_args_exits_with_2() {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .output() {
+        .output()
+    {
         Ok(o) => o,
         Err(_) => return,
     };
@@ -15,8 +16,13 @@ fn test_tooling_no_args_exits_with_2() {
 
 #[test]
 fn test_generate_pack_creates_files() {
-    let tmp = std::env::temp_dir().join(format!("simkernel_test_{}", std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+    let tmp = std::env::temp_dir().join(format!(
+        "simkernel_test_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
     std::fs::create_dir_all(&tmp).unwrap();
 
     let output = match Command::new(env!("CARGO_BIN_EXE_simkernel_tooling"))
@@ -24,7 +30,8 @@ fn test_generate_pack_creates_files() {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .output() {
+        .output()
+    {
         Ok(o) => o,
         Err(_) => return,
     };
@@ -39,13 +46,21 @@ fn test_generate_pack_creates_files() {
 #[test]
 fn test_validate_contract_missing_file_exits_3() {
     let output = match Command::new(env!("CARGO_BIN_EXE_simkernel_tooling"))
-        .args(["validate-contract", "/tmp/nonexistent_simkernel_contract.json"])
+        .args([
+            "validate-contract",
+            "/tmp/nonexistent_simkernel_contract.json",
+        ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .output() {
+        .output()
+    {
         Ok(o) => o,
         Err(_) => return,
     };
-    assert_eq!(output.status.code(), Some(3), "Missing file should exit with code 3");
+    assert_eq!(
+        output.status.code(),
+        Some(3),
+        "Missing file should exit with code 3"
+    );
 }

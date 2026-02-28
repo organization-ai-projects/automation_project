@@ -13,7 +13,9 @@ pub struct World {
 }
 
 impl World {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn spawn(&mut self) -> EntityId {
         let id = EntityId::new(self.next_entity_id);
@@ -34,7 +36,11 @@ impl World {
         self.components.get(entity, cid)
     }
 
-    pub fn get_component_mut(&mut self, entity: EntityId, cid: ComponentId) -> Option<&mut Component> {
+    pub fn get_component_mut(
+        &mut self,
+        entity: EntityId,
+        cid: ComponentId,
+    ) -> Option<&mut Component> {
         self.components.get_mut(entity, cid)
     }
 
@@ -44,5 +50,7 @@ impl World {
         v
     }
 
-    pub fn entity_count(&self) -> usize { self.entities.len() }
+    pub fn entity_count(&self) -> usize {
+        self.entities.len()
+    }
 }

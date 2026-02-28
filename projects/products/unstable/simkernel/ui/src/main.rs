@@ -26,10 +26,30 @@ fn main() {
             let mut i = 2;
             while i < args.len() {
                 match args[i].as_str() {
-                    "--pack" => { i += 1; if i < args.len() { pack = args[i].clone(); } }
-                    "--seed" => { i += 1; if i < args.len() { seed = args[i].parse().unwrap_or(0); } }
-                    "--ticks" => { i += 1; if i < args.len() { ticks = args[i].parse().unwrap_or(100); } }
-                    "--out" => { i += 1; if i < args.len() { out = args[i].clone(); } }
+                    "--pack" => {
+                        i += 1;
+                        if i < args.len() {
+                            pack = args[i].clone();
+                        }
+                    }
+                    "--seed" => {
+                        i += 1;
+                        if i < args.len() {
+                            seed = args[i].parse().unwrap_or(0);
+                        }
+                    }
+                    "--ticks" => {
+                        i += 1;
+                        if i < args.len() {
+                            ticks = args[i].parse().unwrap_or(100);
+                        }
+                    }
+                    "--out" => {
+                        i += 1;
+                        if i < args.len() {
+                            out = args[i].clone();
+                        }
+                    }
                     _ => {}
                 }
                 i += 1;

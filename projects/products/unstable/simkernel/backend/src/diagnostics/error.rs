@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+#[allow(dead_code)]
 #[derive(Error, Debug, Clone)]
 pub enum SimError {
     #[error("IO error: {0}")]

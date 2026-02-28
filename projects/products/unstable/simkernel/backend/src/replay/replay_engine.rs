@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use crate::replay::replay_file::ReplayFile;
 use crate::diagnostics::error::SimError;
+use crate::replay::replay_file::ReplayFile;
 
 pub struct ReplayEngine;
 

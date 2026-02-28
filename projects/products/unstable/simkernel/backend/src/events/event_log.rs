@@ -10,13 +10,20 @@ pub struct EventLog {
 }
 
 impl EventLog {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn push(&mut self, event: KernelEvent) {
         self.events.push(event);
     }
 
-    pub fn emit(&mut self, tick: Tick, kind: impl Into<String>, payload: serde_json::Value) -> EventId {
+    pub fn emit(
+        &mut self,
+        tick: Tick,
+        kind: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> EventId {
         let id = EventId(self.next_id);
         self.next_id += 1;
         self.events.push(KernelEvent::new(id, tick, kind, payload));
@@ -27,9 +34,13 @@ impl EventLog {
         self.events.iter()
     }
 
-    pub fn len(&self) -> usize { self.events.len() }
+    pub fn len(&self) -> usize {
+        self.events.len()
+    }
 
-    pub fn is_empty(&self) -> bool { self.events.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.events.is_empty()
+    }
 
     pub fn checksum(&self) -> u64 {
         self.events.iter().fold(0u64, |acc, e| {

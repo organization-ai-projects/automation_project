@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 pub struct Tick(pub u64);
 
 impl Tick {
-    pub fn zero() -> Self { Self(0) }
-    pub fn next(self) -> Self { Self(self.0 + 1) }
+    pub fn zero() -> Self {
+        Self(0)
+    }
+    pub fn next(self) -> Self {
+        Self(self.0 + 1)
+    }
 }

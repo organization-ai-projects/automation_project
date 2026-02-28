@@ -11,6 +11,10 @@ pub struct RngDraw {
 
 impl RngDraw {
     pub fn new(tick: Tick, context: impl Into<String>, value: u64) -> Self {
-        Self { tick, context: context.into(), value }
+        Self {
+            tick,
+            context: context.into(),
+            value,
+        }
     }
 }

@@ -1,5 +1,5 @@
-use std::process::{Command, Stdio};
 use std::io::Write;
+use std::process::{Command, Stdio};
 
 #[test]
 fn test_determinism_ecs_ordering() {
@@ -13,7 +13,8 @@ fn test_scenario_validator_rejects_empty_pack_kind() {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .spawn() {
+        .spawn()
+    {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Failed to spawn backend: {}", e);
@@ -40,7 +41,8 @@ fn test_ping_response() {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .spawn() {
+        .spawn()
+    {
         Ok(c) => c,
         Err(_) => return,
     };
@@ -64,7 +66,8 @@ fn test_hospital_pack_run() {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .spawn() {
+        .spawn()
+    {
         Ok(c) => c,
         Err(_) => return,
     };
@@ -80,5 +83,9 @@ fn test_hospital_pack_run() {
 
     let output = child.wait_with_output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Report") || stdout.contains("run_hash"), "Expected report in: {}", stdout);
+    assert!(
+        stdout.contains("Report") || stdout.contains("run_hash"),
+        "Expected report in: {}",
+        stdout
+    );
 }

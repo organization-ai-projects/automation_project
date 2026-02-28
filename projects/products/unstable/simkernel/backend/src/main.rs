@@ -21,7 +21,9 @@ use crate::public_api::RequestDispatcher;
 use std::io::BufRead;
 
 fn main() {
-    tracing_subscriber::fmt().with_writer(std::io::stderr).init();
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .init();
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 || args[1] != "serve" {

@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 pub struct Seed(pub u64);
 
 impl Seed {
-    pub fn new(v: u64) -> Self { Self(v) }
-    pub fn value(self) -> u64 { self.0 }
+    pub fn new(v: u64) -> Self {
+        Self(v)
+    }
+    pub fn value(self) -> u64 {
+        self.0
+    }
 }

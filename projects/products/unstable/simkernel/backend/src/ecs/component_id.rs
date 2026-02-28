@@ -5,5 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct ComponentId(pub u32);
 
 impl ComponentId {
-    pub fn new(v: u32) -> Self { Self(v) }
+    pub fn new(v: u32) -> Self {
+        Self(v)
+    }
 }

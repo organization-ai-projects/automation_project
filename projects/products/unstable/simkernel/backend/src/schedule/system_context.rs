@@ -12,7 +12,11 @@ pub struct SystemContext<'a> {
 
 impl<'a> SystemContext<'a> {
     pub fn new(world: &'a mut World, clock: &'a LogicalClock, event_log: &'a mut EventLog) -> Self {
-        Self { world, clock, event_log }
+        Self {
+            world,
+            clock,
+            event_log,
+        }
     }
 
     pub fn emit(&mut self, event: KernelEvent) {

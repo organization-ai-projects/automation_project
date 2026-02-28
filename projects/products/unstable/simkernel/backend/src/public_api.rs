@@ -39,7 +39,9 @@ impl RequestDispatcher {
             }
         };
 
-        let req = match json_codec::decode::<Request>(&json_codec::encode(&msg.payload).unwrap_or_default()) {
+        let req = match json_codec::decode::<Request>(
+            &json_codec::encode(&msg.payload).unwrap_or_default(),
+        ) {
             Ok(r) => r,
             Err(e) => {
                 let resp = Response::error(Some(msg.id), "INVALID_REQUEST", &format!("{}", e), "");
@@ -78,9 +80,13 @@ impl RequestDispatcher {
                 self.shutdown = true;
                 Response::ok(id)
             }
-            Request::NewRun { pack_kind, seed, ticks, turns, ticks_per_turn } => {
-                self.start_run(id, pack_kind, seed, ticks, turns, ticks_per_turn)
-            }
+            Request::NewRun {
+                pack_kind,
+                seed,
+                ticks,
+                turns,
+                ticks_per_turn,
+            } => self.start_run(id, pack_kind, seed, ticks, turns, ticks_per_turn),
             Request::GetReport => {
                 if let Some(state) = &self.run_state {
                     Response::report(id, &state.report)
@@ -99,7 +105,15 @@ impl RequestDispatcher {
         }
     }
 
-    fn start_run(&mut self, id: u64, pack_kind: String, seed: u64, ticks: u64, _turns: u64, _ticks_per_turn: u64) -> Response {
+    fn start_run(
+        &mut self,
+        id: u64,
+        pack_kind: String,
+        seed: u64,
+        ticks: u64,
+        _turns: u64,
+        _ticks_per_turn: u64,
+    ) -> Response {
         use crate::determinism::seed::Seed;
         use crate::ecs::world::World;
         use crate::events::event_log::EventLog;
@@ -115,7 +129,12 @@ impl RequestDispatcher {
         let pack = match self.registry.get_pack(&pack_kind) {
             Some(p) => p,
             None => {
-                return Response::error(Some(id), "UNKNOWN_PACK", &format!("Unknown pack: {}", pack_kind), "");
+                return Response::error(
+                    Some(id),
+                    "UNKNOWN_PACK",
+                    &format!("Unknown pack: {}", pack_kind),
+                    "",
+                );
             }
         };
 
@@ -131,7 +150,10 @@ impl RequestDispatcher {
         let run_hash = RunHash::compute(&event_log, &snapshot_hash);
         let report = RunReport::new(pack_kind, seed, ticks, run_hash, event_log.len());
 
-        self.run_state = Some(RunState { report: report.clone(), snapshot });
+        self.run_state = Some(RunState {
+            report: report.clone(),
+            snapshot,
+        });
         Response::report(id, &report)
     }
 }

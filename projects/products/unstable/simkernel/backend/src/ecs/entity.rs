@@ -11,6 +11,9 @@ pub struct Entity {
 
 impl Entity {
     pub fn new(id: EntityId) -> Self {
-        Self { id, components: Vec::new() }
+        Self {
+            id,
+            components: Vec::new(),
+        }
     }
 }

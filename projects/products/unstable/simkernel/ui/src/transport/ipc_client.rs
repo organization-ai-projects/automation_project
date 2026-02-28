@@ -20,19 +20,36 @@ impl IpcClient {
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .map_err(|e| UiError::BackendSpawn(format!("Failed to spawn {}: {}", backend_bin, e)))?;
-        let stdin = child.stdin.take().ok_or(UiError::BackendSpawn("no stdin".to_string()))?;
-        let stdout = child.stdout.take().ok_or(UiError::BackendSpawn("no stdout".to_string()))?;
-        Ok(Self { child, stdin, reader: BufReader::new(stdout), next_id: 1 })
+            .map_err(|e| {
+                UiError::BackendSpawn(format!("Failed to spawn {}: {}", backend_bin, e))
+            })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or(UiError::BackendSpawn("no stdin".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or(UiError::BackendSpawn("no stdout".to_string()))?;
+        Ok(Self {
+            child,
+            stdin,
+            reader: BufReader::new(stdout),
+            next_id: 1,
+        })
     }
 
     pub fn send_request(&mut self, payload: &str) -> Result<String, UiError> {
         let id = self.next_id;
         self.next_id += 1;
         let msg = format!("{{\"id\":{},\"payload\":{}}}\n", id, payload);
-        self.stdin.write_all(msg.as_bytes()).map_err(|e| UiError::Ipc(e.to_string()))?;
+        self.stdin
+            .write_all(msg.as_bytes())
+            .map_err(|e| UiError::Ipc(e.to_string()))?;
         let mut line = String::new();
-        self.reader.read_line(&mut line).map_err(|e| UiError::Ipc(e.to_string()))?;
+        self.reader
+            .read_line(&mut line)
+            .map_err(|e| UiError::Ipc(e.to_string()))?;
         Ok(line.trim().to_string())
     }
 

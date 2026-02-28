@@ -10,8 +10,7 @@ impl ScenarioLoader {
     }
 
     pub fn load_from_file(path: &str) -> Result<Scenario, SimError> {
-        let data = std::fs::read_to_string(path)
-            .map_err(|e| SimError::Io(e.to_string()))?;
+        let data = std::fs::read_to_string(path).map_err(|e| SimError::Io(e.to_string()))?;
         Self::load_from_str(&data)
     }
 }

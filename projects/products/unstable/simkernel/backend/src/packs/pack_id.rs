@@ -5,5 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct PackId(pub String);
 
 impl PackId {
-    pub fn new(v: impl Into<String>) -> Self { Self(v.into()) }
+    pub fn new(v: impl Into<String>) -> Self {
+        Self(v.into())
+    }
 }

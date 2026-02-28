@@ -21,12 +21,14 @@ impl LogicalClock {
 
     pub fn advance_tick(&mut self) {
         self.tick = self.tick.next();
-        if self.tick.0 % self.ticks_per_turn == 0 {
+        if self.tick.0.is_multiple_of(self.ticks_per_turn) {
             self.turn = self.turn.next();
         }
     }
 }
 
 impl Default for LogicalClock {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

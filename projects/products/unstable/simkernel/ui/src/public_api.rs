@@ -9,10 +9,18 @@ pub struct Controller {
 
 impl Controller {
     pub fn new() -> Self {
-        Self { state: AppState::new() }
+        Self {
+            state: AppState::new(),
+        }
     }
 
-    pub fn run_pack(&mut self, pack_kind: &str, seed: u64, ticks: u64, out_path: &str) -> Result<(), UiError> {
+    pub fn run_pack(
+        &mut self,
+        pack_kind: &str,
+        seed: u64,
+        ticks: u64,
+        out_path: &str,
+    ) -> Result<(), UiError> {
         let mut client = IpcClient::new()?;
         let report = client.new_run(pack_kind, seed, ticks)?;
         self.state.last_report = Some(report.clone());

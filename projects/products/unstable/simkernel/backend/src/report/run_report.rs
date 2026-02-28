@@ -11,7 +11,19 @@ pub struct RunReport {
 }
 
 impl RunReport {
-    pub fn new(pack_kind: String, seed: u64, ticks: u64, run_hash: String, event_count: usize) -> Self {
-        Self { pack_kind, seed, ticks, run_hash, event_count }
+    pub fn new(
+        pack_kind: String,
+        seed: u64,
+        ticks: u64,
+        run_hash: String,
+        event_count: usize,
+    ) -> Self {
+        Self {
+            pack_kind,
+            seed,
+            ticks,
+            run_hash,
+            event_count,
+        }
     }
 }

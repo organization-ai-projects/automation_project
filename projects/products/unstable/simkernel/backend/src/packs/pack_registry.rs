@@ -12,7 +12,9 @@ pub struct PackRegistry {
 
 impl PackRegistry {
     pub fn new() -> Self {
-        let mut r = Self { packs: BTreeMap::new() };
+        let mut r = Self {
+            packs: BTreeMap::new(),
+        };
         r.register(Box::new(HospitalPack));
         r.register(Box::new(ThemeParkPack));
         r.register(Box::new(MonsterCatcherPack));
@@ -34,5 +36,7 @@ impl PackRegistry {
 }
 
 impl Default for PackRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

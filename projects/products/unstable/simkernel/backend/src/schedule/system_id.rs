@@ -5,5 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct SystemId(pub u32);
 
 impl SystemId {
-    pub fn new(v: u32) -> Self { Self(v) }
+    pub fn new(v: u32) -> Self {
+        Self(v)
+    }
 }

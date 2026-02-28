@@ -15,11 +15,25 @@ impl BackendProcess {
         if let Some(pack) = pack_kind {
             cmd.args(["--pack", pack]);
         }
-        cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::inherit());
-        let mut child = cmd.spawn().map_err(|e| UiError::BackendSpawn(e.to_string()))?;
-        let stdin = child.stdin.take().ok_or(UiError::BackendSpawn("no stdin".to_string()))?;
-        let stdout = child.stdout.take().ok_or(UiError::BackendSpawn("no stdout".to_string()))?;
-        Ok(Self { child, stdin, stdout })
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit());
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| UiError::BackendSpawn(e.to_string()))?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or(UiError::BackendSpawn("no stdin".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or(UiError::BackendSpawn("no stdout".to_string()))?;
+        Ok(Self {
+            child,
+            stdin,
+            stdout,
+        })
     }
 
     pub fn kill(&mut self) {

@@ -43,6 +43,9 @@ members = [
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
+  "projects/products/unstable/simkernel/backend",
+  "projects/products/unstable/simkernel/ui",
+  "projects/products/unstable/simkernel/tooling",
 ]
 resolver = "2"
 

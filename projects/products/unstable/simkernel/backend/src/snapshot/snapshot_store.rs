@@ -9,7 +9,9 @@ pub struct SnapshotStore {
 }
 
 impl SnapshotStore {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn store(&mut self, id: SnapshotId, snapshot: StateSnapshot) {
         self.snapshots.insert(id, snapshot);

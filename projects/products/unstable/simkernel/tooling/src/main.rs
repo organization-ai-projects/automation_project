@@ -23,7 +23,11 @@ fn main() {
                 std::process::exit(2);
             }
             let out_dir = if let Some(pos) = args.iter().position(|a| a == "--out") {
-                PathBuf::from(args.get(pos + 1).cloned().unwrap_or_else(|| ".".to_string()))
+                PathBuf::from(
+                    args.get(pos + 1)
+                        .cloned()
+                        .unwrap_or_else(|| ".".to_string()),
+                )
             } else {
                 PathBuf::from(".")
             };

@@ -12,7 +12,17 @@ pub struct KernelEvent {
 }
 
 impl KernelEvent {
-    pub fn new(id: EventId, tick: Tick, kind: impl Into<String>, payload: serde_json::Value) -> Self {
-        Self { id, tick, kind: kind.into(), payload }
+    pub fn new(
+        id: EventId,
+        tick: Tick,
+        kind: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> Self {
+        Self {
+            id,
+            tick,
+            kind: kind.into(),
+            payload,
+        }
     }
 }
