@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use crate::debate::debate::Debate;
 use crate::events::campaign_event::CampaignEvent;
 use crate::poll::poll_report::PollReport;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Day {

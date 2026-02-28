@@ -1,17 +1,13 @@
-use std::collections::BTreeMap;
 use crate::model::candidate::Candidate;
 use crate::model::candidate_id::CandidateId;
 use crate::model::voter_block::VoterBlock;
 use crate::poll::poll_report::PollReport;
+use std::collections::BTreeMap;
 
 pub struct PollModel;
 
 impl PollModel {
-    pub fn compute(
-        day: u32,
-        candidates: &[Candidate],
-        voter_blocks: &[VoterBlock],
-    ) -> PollReport {
+    pub fn compute(day: u32, candidates: &[Candidate], voter_blocks: &[VoterBlock]) -> PollReport {
         let total_size: u32 = voter_blocks.iter().map(|b| b.size).sum();
         let total_size = if total_size == 0 { 1 } else { total_size };
 

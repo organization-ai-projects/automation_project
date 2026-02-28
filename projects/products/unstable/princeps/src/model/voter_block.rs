@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
-use serde::{Deserialize, Serialize};
 use crate::model::candidate_id::CandidateId;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VoterBlock {

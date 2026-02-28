@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::model::candidate_id::CandidateId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Action {

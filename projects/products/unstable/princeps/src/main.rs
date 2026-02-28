@@ -49,15 +49,11 @@ fn cmd_run(args: &[String]) -> Result<(), PrincepsError> {
         match args[i].as_str() {
             "--days" => {
                 i += 1;
-                days = args.get(i)
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(30);
+                days = args.get(i).and_then(|s| s.parse().ok()).unwrap_or(30);
             }
             "--seed" => {
                 i += 1;
-                seed = args.get(i)
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(42);
+                seed = args.get(i).and_then(|s| s.parse().ok()).unwrap_or(42);
             }
             "--json" => json_output = true,
             "--replay-out" => {
@@ -100,8 +96,8 @@ fn cmd_replay(args: &[String]) -> Result<(), PrincepsError> {
     let json_output = args.iter().any(|a| a == "--json");
 
     let content = std::fs::read_to_string(path)?;
-    let replay_file: ReplayFile = serde_json::from_str(&content)
-        .map_err(|e| PrincepsError::Replay(e.to_string()))?;
+    let replay_file: ReplayFile =
+        serde_json::from_str(&content).map_err(|e| PrincepsError::Replay(e.to_string()))?;
 
     let engine = ReplayEngine;
     let report = engine.replay(&replay_file)?;
@@ -126,7 +122,10 @@ fn cmd_export(args: &[String]) -> Result<(), PrincepsError> {
         match args[i].as_str() {
             "--format" => {
                 i += 1;
-                format = args.get(i).cloned().unwrap_or_else(|| "markdown".to_string());
+                format = args
+                    .get(i)
+                    .cloned()
+                    .unwrap_or_else(|| "markdown".to_string());
             }
             "--seed" => {
                 i += 1;

@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::actions::action::Action;
 use crate::model::candidate_id::CandidateId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionEntry {

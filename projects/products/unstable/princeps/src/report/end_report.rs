@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use crate::model::candidate_id::CandidateId;
 use crate::model::game_id::GameId;
 use crate::poll::poll_report::PollReport;
 use crate::report::run_summary::RunSummary;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EndReport {
@@ -19,7 +19,10 @@ impl EndReport {
         md.push_str("# Princeps — Campaign End Report\n\n");
         md.push_str(&format!("**Game ID:** {}\n\n", self.game_id));
         md.push_str(&format!("**Seed:** {}\n\n", self.run_summary.seed));
-        md.push_str(&format!("**Days Simulated:** {}\n\n", self.run_summary.days));
+        md.push_str(&format!(
+            "**Days Simulated:** {}\n\n",
+            self.run_summary.days
+        ));
         md.push_str(&format!("**Winner:** {}\n\n", self.winner));
         md.push_str("## Final Poll Results\n\n");
         md.push_str("| Candidate | Vote Share |\n");
@@ -47,19 +50,23 @@ impl EndReport {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
     use crate::model::candidate_id::CandidateId;
     use crate::model::game_id::GameId;
     use crate::poll::poll_report::PollReport;
     use crate::report::run_summary::RunSummary;
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
+    use std::collections::BTreeMap;
 
     #[test]
     fn end_report_run_hash_is_stable() {
         let mut results = BTreeMap::new();
         results.insert(CandidateId::new("a"), 0.6);
         results.insert(CandidateId::new("b"), 0.4);
-        let poll = PollReport { day: 30, results, block_breakdown: BTreeMap::new() };
+        let poll = PollReport {
+            day: 30,
+            results,
+            block_breakdown: BTreeMap::new(),
+        };
         let mut approvals = BTreeMap::new();
         approvals.insert(CandidateId::new("a"), 0.3);
         approvals.insert(CandidateId::new("b"), 0.2);

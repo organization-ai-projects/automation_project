@@ -1,7 +1,7 @@
+use crate::events::campaign_event::CampaignEvent;
 use rand::Rng;
 use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
-use crate::events::campaign_event::CampaignEvent;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventDeck {
@@ -45,8 +45,8 @@ impl EventDeck {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
     use crate::model::candidate_id::CandidateId;
+    use rand::SeedableRng;
 
     fn make_deck() -> EventDeck {
         EventDeck::new(vec![

@@ -1,6 +1,3 @@
-use std::collections::BTreeMap;
-use rand::{Rng, SeedableRng, rngs::StdRng};
-use sha2::{Sha256, Digest};
 use crate::actions::action::Action;
 use crate::actions::action_resolver::ActionResolver;
 use crate::debate::debate::Debate;
@@ -19,6 +16,9 @@ use crate::replay::replay_file::{ActionEntry, ReplayFile};
 use crate::report::end_report::EndReport;
 use crate::report::run_summary::RunSummary;
 use crate::sim::day::Day;
+use rand::{Rng, SeedableRng, rngs::StdRng};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 
 const EVENT_DRAW_PROBABILITY: f64 = 0.7;
 const LOW_MONEY_THRESHOLD: i64 = 100_000;
@@ -95,8 +95,7 @@ impl SimEngine {
             // AI action for each candidate
             let candidate_ids: Vec<CandidateId> =
                 self.candidates.iter().map(|c| c.id.clone()).collect();
-            let block_ids: Vec<String> =
-                self.voter_blocks.iter().map(|b| b.id.clone()).collect();
+            let block_ids: Vec<String> = self.voter_blocks.iter().map(|b| b.id.clone()).collect();
 
             for cid in &candidate_ids {
                 let action = choose_ai_action(cid, &self.candidates, &block_ids, &mut self.rng);
@@ -116,8 +115,7 @@ impl SimEngine {
 
             // Debate on scheduled days
             if self.debate_days.contains(&day_num) && day_num <= days {
-                let debate =
-                    DebateResolver.resolve(day_num, &self.candidates, &mut self.rng);
+                let debate = DebateResolver.resolve(day_num, &self.candidates, &mut self.rng);
                 for (cid, delta) in &debate.outcomes {
                     if let Some(c) = self.candidates.iter_mut().find(|c| &c.id == cid) {
                         c.approval = (c.approval + delta).clamp(0.0, 1.0);
@@ -233,14 +231,19 @@ fn choose_ai_action(
         }
         1 => Action::MediaAppearance,
         2 => {
-            let topics = ["economy", "healthcare", "environment", "security", "education"];
+            let topics = [
+                "economy",
+                "healthcare",
+                "environment",
+                "security",
+                "education",
+            ];
             let topic = topics[rng.random_range(0..topics.len())].to_string();
             let position = rng.random_range(-5i32..=5);
             Action::PolicyAnnouncement { topic, position }
         }
         3 => {
-            let others: Vec<&Candidate> =
-                candidates.iter().filter(|c| &c.id != actor_id).collect();
+            let others: Vec<&Candidate> = candidates.iter().filter(|c| &c.id != actor_id).collect();
             if others.is_empty() {
                 Action::MediaAppearance
             } else {
@@ -279,8 +282,12 @@ fn default_voter_blocks() -> Vec<VoterBlock> {
     let mut suburbanites = VoterBlock::new("suburbanites", "Banlieusards", 25);
     suburbanites.preferences.insert("economy".to_string(), -1);
     suburbanites.preferences.insert("security".to_string(), 2);
-    suburbanites.sensitivities.insert("charisma".to_string(), 0.8);
-    suburbanites.sensitivities.insert("economy".to_string(), 1.2);
+    suburbanites
+        .sensitivities
+        .insert("charisma".to_string(), 0.8);
+    suburbanites
+        .sensitivities
+        .insert("economy".to_string(), 1.2);
 
     let mut young = VoterBlock::new("young_voters", "Jeunes Électeurs", 20);
     young.preferences.insert("environment".to_string(), 4);
@@ -335,7 +342,8 @@ fn default_event_deck() -> EventDeck {
         },
         CampaignEvent::Gaffe {
             target: CandidateId::new("populiste"),
-            description: "Mispronounces the name of the capital three times live on TV.".to_string(),
+            description: "Mispronounces the name of the capital three times live on TV."
+                .to_string(),
             approval_delta: -0.04,
         },
         CampaignEvent::Gaffe {
@@ -376,7 +384,8 @@ fn default_event_deck() -> EventDeck {
         },
         CampaignEvent::Gaffe {
             target: CandidateId::new("technocrate"),
-            description: "Caught checking phone during veterans' memorial minute of silence.".to_string(),
+            description: "Caught checking phone during veterans' memorial minute of silence."
+                .to_string(),
             approval_delta: -0.06,
         },
         CampaignEvent::PolicyWin {
@@ -396,7 +405,8 @@ fn default_event_deck() -> EventDeck {
         },
         CampaignEvent::Scandal {
             target: CandidateId::new("conservateur"),
-            description: "Plagiarism accusation: speech lifted from 1998 local politician.".to_string(),
+            description: "Plagiarism accusation: speech lifted from 1998 local politician."
+                .to_string(),
             severity: 4,
             approval_delta: -0.04,
         },
@@ -407,7 +417,8 @@ fn default_event_deck() -> EventDeck {
         },
         CampaignEvent::Gaffe {
             target: CandidateId::new("vert"),
-            description: "Forgets the name of the largest river during geography quiz show.".to_string(),
+            description: "Forgets the name of the largest river during geography quiz show."
+                .to_string(),
             approval_delta: -0.02,
         },
         CampaignEvent::PolicyFail {

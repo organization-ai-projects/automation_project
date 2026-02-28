@@ -1,21 +1,15 @@
-use std::collections::BTreeMap;
-use rand::Rng;
-use rand::rngs::StdRng;
 use crate::debate::debate::Debate;
 use crate::model::candidate::Candidate;
 use crate::model::candidate_id::CandidateId;
+use rand::Rng;
+use rand::rngs::StdRng;
+use std::collections::BTreeMap;
 
 pub struct DebateResolver;
 
 impl DebateResolver {
-    pub fn resolve(
-        &self,
-        day: u32,
-        candidates: &[Candidate],
-        rng: &mut StdRng,
-    ) -> Debate {
-        let participants: Vec<CandidateId> =
-            candidates.iter().map(|c| c.id.clone()).collect();
+    pub fn resolve(&self, day: u32, candidates: &[Candidate], rng: &mut StdRng) -> Debate {
+        let participants: Vec<CandidateId> = candidates.iter().map(|c| c.id.clone()).collect();
         let mut transcript = Vec::new();
         let mut outcomes: BTreeMap<CandidateId, f64> = BTreeMap::new();
 
