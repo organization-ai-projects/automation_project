@@ -10,6 +10,6 @@
     "lint-md-fix-files": "sh -c 'markdownlint-cli2 --fix \"#target\" \"#node_modules\" \"$@\"' --"
   },
   "devDependencies": {
-    "markdownlint-cli2": "^0.13.0"
+    "markdownlint-cli2": "^0.21.0"
   }
 }
