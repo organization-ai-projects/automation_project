@@ -39,6 +39,7 @@ members = [
   "projects/libraries/core/foundation/hybrid_arena",
   "projects/libraries/layers/domain/versioning",
   "projects/libraries/layers/domain/runtime_core",
+  "projects/products/unstable/living_spreadsheet",
   "projects/products/stable/platform_versioning/backend",
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
