@@ -1,7 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/domain/orchestrator_config.rs
 use crate::domain::{
     BinaryInvocationSpec, DecisionContribution, DecisionReliabilityInput, DeliveryOptions,
-    ExecutionPolicy, GateInputs, RiskSignal, RiskTier,
+    ExecutionPolicy, GateInputs, ReviewerVerdict, RiskSignal, RiskTier,
 };
 use common_binary::{BinaryOptions, read_binary, write_binary};
 use common_json::{from_str, to_string_pretty};
@@ -32,6 +32,7 @@ struct OrchestratorConfigJsonCompat {
     decision_contributions: Option<Vec<DecisionContribution>>,
     decision_reliability_inputs: Option<Vec<DecisionReliabilityInput>>,
     decision_require_contributions: Option<bool>,
+    reviewer_verdicts: Option<Vec<ReviewerVerdict>>,
     checkpoint_path: Option<PathBuf>,
     cycle_memory_path: Option<PathBuf>,
     next_actions_path: Option<PathBuf>,
@@ -67,6 +68,7 @@ pub struct OrchestratorConfig {
     pub decision_contributions: Vec<DecisionContribution>,
     pub decision_reliability_inputs: Vec<DecisionReliabilityInput>,
     pub decision_require_contributions: bool,
+    pub reviewer_verdicts: Vec<ReviewerVerdict>,
     pub checkpoint_path: Option<PathBuf>,
     pub cycle_memory_path: Option<PathBuf>,
     pub next_actions_path: Option<PathBuf>,
@@ -223,6 +225,7 @@ impl OrchestratorConfig {
             decision_contributions: parsed.decision_contributions.unwrap_or_default(),
             decision_reliability_inputs: parsed.decision_reliability_inputs.unwrap_or_default(),
             decision_require_contributions: parsed.decision_require_contributions.unwrap_or(false),
+            reviewer_verdicts: parsed.reviewer_verdicts.unwrap_or_default(),
             checkpoint_path: parsed.checkpoint_path,
             cycle_memory_path: parsed.cycle_memory_path,
             next_actions_path: parsed.next_actions_path,

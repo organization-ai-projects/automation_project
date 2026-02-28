@@ -18,6 +18,7 @@ mod output_writer;
 mod pending_validation_invocation;
 mod planner_output;
 mod planner_v2;
+mod review_ensemble;
 mod risk_classifier;
 mod run_args;
 mod runtime;

@@ -34,6 +34,7 @@ fn base_config() -> OrchestratorConfig {
         decision_contributions: Vec::new(),
         decision_reliability_inputs: Vec::new(),
         decision_require_contributions: false,
+        reviewer_verdicts: Vec::new(),
         checkpoint_path: None,
         cycle_memory_path: None,
         next_actions_path: None,

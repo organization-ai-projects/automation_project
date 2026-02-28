@@ -1,8 +1,8 @@
 use crate::domain::{
     AdaptivePolicyAction, BinaryInvocationSpec, CommandLineSpec, DecisionContribution,
     DecisionReliabilityInput, DeliveryOptions, ExecutionPolicy, FinalDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, RiskSignal, RiskTier, Stage,
-    StageExecutionStatus, TerminalState,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewVerdict, ReviewerVerdict,
+    RiskSignal, RiskTier, Stage, StageExecutionStatus, TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use std::fs;
@@ -39,6 +39,7 @@ fn test_config(run_id: &str) -> OrchestratorConfig {
         }],
         decision_reliability_inputs: Vec::new(),
         decision_require_contributions: false,
+        reviewer_verdicts: Vec::new(),
         checkpoint_path: None,
         cycle_memory_path: None,
         next_actions_path: None,
@@ -397,6 +398,37 @@ fn reliability_factors_and_updates_are_persisted_in_run_report() {
 }
 
 #[test]
+fn review_ensemble_result_and_verdicts_persisted_in_run_report() {
+    let mut config = test_config("run_13");
+    config.reviewer_verdicts = vec![
+        ReviewerVerdict {
+            reviewer_id: "r1".to_string(),
+            specialty: "correctness".to_string(),
+            verdict: ReviewVerdict::Approve,
+            confidence: 90,
+            weight: 80,
+            reason_codes: Vec::new(),
+        },
+        ReviewerVerdict {
+            reviewer_id: "r2".to_string(),
+            specialty: "security".to_string(),
+            verdict: ReviewVerdict::Approve,
+            confidence: 85,
+            weight: 80,
+            reason_codes: Vec::new(),
+        },
+        ReviewerVerdict {
+            reviewer_id: "r3".to_string(),
+            specialty: "maintainability".to_string(),
+            verdict: ReviewVerdict::Approve,
+            confidence: 80,
+            weight: 60,
+            reason_codes: Vec::new(),
+        },
+    ];
+}
+
+#[test]
 fn planner_path_record_is_persisted_in_run_report() {
     let temp_root = std::env::temp_dir().join(format!(
         "autonomy_orchestrator_path_record_{}_{}",
@@ -439,6 +471,71 @@ fn planner_path_record_is_persisted_in_run_report() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert_eq!(report.reviewer_verdicts.len(), 3);
+    let ensemble = report
+        .review_ensemble_result
+        .expect("ensemble result must be present");
+    assert!(ensemble.passed);
+    assert!(ensemble.reason_codes.is_empty());
+}
+
+#[test]
+fn review_ensemble_security_rejection_blocks_run() {
+    let mut config = test_config("run_14");
+    config.reviewer_verdicts = vec![
+        ReviewerVerdict {
+            reviewer_id: "r1".to_string(),
+            specialty: "correctness".to_string(),
+            verdict: ReviewVerdict::Approve,
+            confidence: 100,
+            weight: 100,
+            reason_codes: Vec::new(),
+        },
+        ReviewerVerdict {
+            reviewer_id: "r2".to_string(),
+            specialty: "security".to_string(),
+            verdict: ReviewVerdict::Reject,
+            confidence: 90,
+            weight: 1,
+            reason_codes: Vec::new(),
+        },
+    ];
+
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"REVIEW_ENSEMBLE_SECURITY_REJECTION".to_string())
+    );
+    let ensemble = report
+        .review_ensemble_result
+        .expect("ensemble result must be present");
+    assert!(!ensemble.passed);
+}
+
+#[test]
+fn review_ensemble_tie_blocks_run_fail_closed() {
+    let mut config = test_config("run_15");
+    config.reviewer_verdicts = vec![
+        ReviewerVerdict {
+            reviewer_id: "r1".to_string(),
+            specialty: "correctness".to_string(),
+            verdict: ReviewVerdict::Approve,
+            confidence: 80,
+            weight: 50,
+            reason_codes: Vec::new(),
+        },
+        ReviewerVerdict {
+            reviewer_id: "r2".to_string(),
+            specialty: "maintainability".to_string(),
+            verdict: ReviewVerdict::Reject,
+            confidence: 80,
+            weight: 50,
+            reason_codes: Vec::new(),
+        },
+    ];
     let path_record = report
         .planner_path_record
         .expect("planner_path_record must be set");
@@ -663,6 +760,11 @@ fn high_risk_is_blocked_by_default() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"REVIEW_ENSEMBLE_TIE_FAIL_CLOSED".to_string())
+    );
     assert_eq!(report.risk_tier, Some(RiskTier::High));
     assert!(
         report

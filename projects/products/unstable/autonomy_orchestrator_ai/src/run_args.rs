@@ -7,8 +7,9 @@ use crate::{
     cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus, CliRiskTier},
     cli_value_parsers::{
         parse_decision_contribution_cli, parse_decision_reliability_input_cli, parse_env_pair_cli,
+        parse_reviewer_verdict_cli,
     },
-    domain::{DecisionContribution, DecisionReliabilityInput},
+    domain::{DecisionContribution, DecisionReliabilityInput, ReviewerVerdict},
 };
 
 #[derive(Args, Debug, Clone)]
@@ -39,6 +40,8 @@ pub struct RunArgs {
     pub decision_contributions: Vec<DecisionContribution>,
     #[arg(long = "decision-reliability", value_parser = parse_decision_reliability_input_cli, action = ArgAction::Append)]
     pub decision_reliability_inputs: Vec<DecisionReliabilityInput>,
+    #[arg(long = "reviewer-verdict", value_parser = parse_reviewer_verdict_cli, action = ArgAction::Append)]
+    pub reviewer_verdicts: Vec<ReviewerVerdict>,
 
     #[arg(long)]
     pub checkpoint_path: Option<PathBuf>,
