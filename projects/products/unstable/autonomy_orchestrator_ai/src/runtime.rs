@@ -282,6 +282,7 @@ fn run_once(
         decision_contributions: args.decision_contributions,
         decision_reliability_inputs: args.decision_reliability_inputs,
         decision_require_contributions: args.decision_require_contributions,
+        reviewer_verdicts: args.reviewer_verdicts,
         checkpoint_path: Some(checkpoint_path.clone()),
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),

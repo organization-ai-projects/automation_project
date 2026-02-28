@@ -1,6 +1,6 @@
 use crate::domain::{
     DecisionContribution, DecisionReliabilityFactor, DecisionReliabilityInput,
-    DecisionReliabilityUpdate, DecisionSummary, FinalDecision,
+    DecisionReliabilityUpdate, DecisionSummary, FinalDecision, ReviewEnsembleResult,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -230,4 +230,22 @@ fn build_reliability_updates(
 fn clamp_score(previous_score: u8, delta: i16) -> u8 {
     let raw = i16::from(previous_score) + delta;
     raw.clamp(0, 100) as u8
+}
+
+/// Converts a `ReviewEnsembleResult` into a `DecisionContribution` so that the ensemble
+/// output can participate in the weighted decision aggregation pipeline.
+pub fn ensemble_to_contribution(result: &ReviewEnsembleResult, weight: u8) -> DecisionContribution {
+    DecisionContribution {
+        contributor_id: "review_ensemble".to_string(),
+        capability: "review".to_string(),
+        vote: if result.passed {
+            FinalDecision::Proceed
+        } else {
+            FinalDecision::Block
+        },
+        confidence: result.confidence,
+        weight,
+        reason_codes: result.reason_codes.clone(),
+        artifact_refs: Vec::new(),
+    }
 }

@@ -9,14 +9,15 @@ use crate::artifacts::{
 };
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
-use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate};
+use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate, ensemble_to_contribution};
 use crate::domain::{
     BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
     DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
-    Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, ReviewerVerdict,
+    RunReport, Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
+use crate::review_ensemble::{ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
@@ -44,6 +45,7 @@ pub struct Orchestrator {
     decision_contributions: Vec<DecisionContribution>,
     decision_reliability_inputs: Vec<DecisionReliabilityInput>,
     decision_require_contributions: bool,
+    reviewer_verdicts: Vec<ReviewerVerdict>,
     adaptive_policy_config: AdaptivePolicyConfig,
     execution_budget_adapted: bool,
     remediation_budget_adapted: bool,
@@ -124,6 +126,7 @@ impl Orchestrator {
             decision_contributions: config.decision_contributions,
             decision_reliability_inputs: config.decision_reliability_inputs,
             decision_require_contributions: config.decision_require_contributions,
+            reviewer_verdicts: config.reviewer_verdicts,
             adaptive_policy_config: AdaptivePolicyConfig::default(),
             execution_budget_adapted: false,
             remediation_budget_adapted: false,
@@ -169,6 +172,12 @@ impl Orchestrator {
         }
 
         if !self.evaluate_fail_closed_gates() {
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
+            return self.report;
+        }
+
+        if !self.evaluate_review_ensemble() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
             return self.report;
@@ -1263,6 +1272,35 @@ impl Orchestrator {
         }
 
         summary.final_decision == FinalDecision::Proceed
+    }
+
+    fn evaluate_review_ensemble(&mut self) -> bool {
+        if self.reviewer_verdicts.is_empty() {
+            return true;
+        }
+
+        let _ = missing_mandatory_specialties(&self.reviewer_verdicts);
+
+        let result = run_review_ensemble(
+            &self.reviewer_verdicts,
+            &ReviewEnsembleConfig::default(),
+        );
+
+        self.report.reviewer_verdicts = self.reviewer_verdicts.clone();
+        let passed = result.passed;
+        for code in &result.reason_codes {
+            if !self.report.blocked_reason_codes.contains(code) {
+                self.report.blocked_reason_codes.push(code.clone());
+            }
+        }
+        if passed {
+            // Inject the ensemble approval as a decision contribution so it participates
+            // in the weighted final decision aggregation.
+            let contribution = ensemble_to_contribution(&result, 100);
+            self.decision_contributions.push(contribution);
+        }
+        self.report.review_ensemble_result = Some(result);
+        passed
     }
 }
 
