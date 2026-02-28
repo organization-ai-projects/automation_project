@@ -1,0 +1,21 @@
+{
+  "name": "traffic_jam_case",
+  "grid_width": 10,
+  "grid_height": 10,
+  "initial_zones": [
+    {"x": 1, "y": 1, "kind": "Residential"},
+    {"x": 3, "y": 1, "kind": "Commercial"},
+    {"x": 5, "y": 3, "kind": "Industrial"},
+    {"x": 7, "y": 7, "kind": "Residential"}
+  ],
+  "initial_roads": [
+    {"x1": 0, "y1": 0, "x2": 9, "y2": 0},
+    {"x1": 0, "y1": 5, "x2": 9, "y2": 5},
+    {"x1": 0, "y1": 0, "x2": 0, "y2": 9},
+    {"x1": 5, "y1": 0, "x2": 5, "y2": 9},
+    {"x1": 9, "y1": 0, "x2": 9, "y2": 9}
+  ],
+  "initial_services": [],
+  "scripted_actions": [],
+  "checkpoints": []
+}
