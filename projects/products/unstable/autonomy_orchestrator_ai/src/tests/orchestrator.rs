@@ -390,3 +390,90 @@ fn reliability_factors_and_updates_are_persisted_in_run_report() {
             .contains(&"DECISION_RELIABILITY_WEIGHTED".to_string())
     );
 }
+
+#[test]
+fn provenance_records_are_non_empty_and_schema_version_is_set() {
+    let report = Orchestrator::new(test_config("prov_1"), None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert!(!report.provenance_records.is_empty());
+    assert_eq!(report.provenance_schema_version, "1");
+}
+
+#[test]
+fn provenance_chain_contains_required_decision_nodes() {
+    let report = Orchestrator::new(test_config("prov_2"), None).execute();
+
+    let event_types: Vec<&str> = report
+        .provenance_records
+        .iter()
+        .map(|r| r.event_type.as_str())
+        .collect();
+
+    assert!(
+        event_types.iter().any(|t| t.starts_with("stage_transition:")),
+        "expected stage transition nodes in provenance chain"
+    );
+    assert!(
+        event_types.contains(&"gate_evaluation"),
+        "expected gate evaluation node in provenance chain"
+    );
+    assert!(
+        event_types.contains(&"final_decision"),
+        "expected final decision node in provenance chain"
+    );
+    assert!(
+        event_types.contains(&"terminal_state"),
+        "expected terminal state node in provenance chain"
+    );
+}
+
+#[test]
+fn provenance_chain_is_connected_and_complete_for_full_run() {
+    use crate::provenance::validate_chain_completeness;
+
+    let report = Orchestrator::new(test_config("prov_3"), None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Done));
+    assert!(
+        validate_chain_completeness(&report.provenance_records).is_ok(),
+        "provenance chain must be complete for a successful run"
+    );
+    assert!(
+        !report
+            .blocked_reason_codes
+            .contains(&"PROVENANCE_CHAIN_INCOMPLETE".to_string()),
+        "PROVENANCE_CHAIN_INCOMPLETE must not be present in a valid run"
+    );
+}
+
+#[test]
+fn provenance_nodes_all_carry_provenance_node_recorded_reason_code() {
+    let report = Orchestrator::new(test_config("prov_4"), None).execute();
+
+    for record in &report.provenance_records {
+        assert!(
+            record
+                .reason_codes
+                .contains(&"PROVENANCE_NODE_RECORDED".to_string()),
+            "node '{}' is missing PROVENANCE_NODE_RECORDED reason code",
+            record.id
+        );
+    }
+}
+
+#[test]
+fn provenance_blocked_run_contains_terminal_state_node() {
+    let mut config = test_config("prov_5");
+    config.simulate_blocked = true;
+    let report = Orchestrator::new(config, None).execute();
+
+    assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
+    assert!(
+        report
+            .provenance_records
+            .iter()
+            .any(|r| r.event_type == "terminal_state"),
+        "blocked run must emit a terminal_state provenance node"
+    );
+}
