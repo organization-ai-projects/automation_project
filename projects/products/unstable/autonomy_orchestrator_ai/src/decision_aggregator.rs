@@ -7,6 +7,7 @@ use crate::domain::{
 pub struct DecisionAggregatorConfig {
     pub min_confidence_to_proceed: u8,
     pub reliability_inputs: Vec<DecisionReliabilityInput>,
+    pub memory_reliability_inputs: Vec<DecisionReliabilityInput>,
 }
 
 impl Default for DecisionAggregatorConfig {
@@ -14,6 +15,7 @@ impl Default for DecisionAggregatorConfig {
         Self {
             min_confidence_to_proceed: 70,
             reliability_inputs: Vec::new(),
+            memory_reliability_inputs: Vec::new(),
         }
     }
 }
@@ -46,11 +48,34 @@ pub fn aggregate(
     let mut reliability_factors = Vec::<DecisionReliabilityFactor>::new();
     let mut used_reliability_input = false;
     let mut used_cold_start = false;
+    let mut used_memory_input = false;
+
+    // Pre-compute the set of (contributor_id, capability) pairs that have an explicit
+    // reliability input to avoid O(n*m) per-contribution scan inside the loop.
+    let explicit_input_keys: Vec<(&str, &str)> = cfg
+        .reliability_inputs
+        .iter()
+        .map(|i| (i.contributor_id.as_str(), i.capability.as_str()))
+        .collect();
 
     for contribution in contributions {
-        let reliability_score = lookup_reliability_score(contribution, &cfg.reliability_inputs);
-        if reliability_score == 50 {
+        let reliability_score = lookup_reliability_score(
+            contribution,
+            &cfg.reliability_inputs,
+            &cfg.memory_reliability_inputs,
+        );
+        let has_explicit = explicit_input_keys
+            .iter()
+            .any(|&(id, cap)| id == contribution.contributor_id && cap == contribution.capability);
+        let from_memory = !has_explicit
+            && cfg.memory_reliability_inputs.iter().any(|input| {
+                input.contributor_id == contribution.contributor_id
+                    && input.capability == contribution.capability
+            });
+        if reliability_score == 50 && !from_memory {
             used_cold_start = true;
+        } else if from_memory {
+            used_memory_input = true;
         } else {
             used_reliability_input = true;
         }
@@ -135,6 +160,9 @@ pub fn aggregate(
     if used_cold_start {
         rationale_codes.push("DECISION_RELIABILITY_COLD_START".to_string());
     }
+    if used_memory_input {
+        rationale_codes.push("MEMORY_SIGNAL_APPLIED".to_string());
+    }
 
     let winner = candidates[0];
     let total_score = proceed_score + block_score + escalate_score;
@@ -156,8 +184,12 @@ pub fn aggregate(
     if final_decision == FinalDecision::Escalate {
         rationale_codes.push("DECISION_ESCALATED".to_string());
     }
-    let reliability_updates =
-        build_reliability_updates(contributions, final_decision, &cfg.reliability_inputs);
+    let reliability_updates = build_reliability_updates(
+        contributions,
+        final_decision,
+        &cfg.reliability_inputs,
+        &cfg.memory_reliability_inputs,
+    );
 
     DecisionSummary {
         final_decision,
@@ -182,12 +214,19 @@ struct VoteStats {
 fn lookup_reliability_score(
     contribution: &DecisionContribution,
     reliability_inputs: &[DecisionReliabilityInput],
+    memory_reliability_inputs: &[DecisionReliabilityInput],
 ) -> u8 {
     reliability_inputs
         .iter()
         .find(|input| {
             input.contributor_id == contribution.contributor_id
                 && input.capability == contribution.capability
+        })
+        .or_else(|| {
+            memory_reliability_inputs.iter().find(|input| {
+                input.contributor_id == contribution.contributor_id
+                    && input.capability == contribution.capability
+            })
         })
         .map(|input| input.score)
         .unwrap_or(50)
@@ -197,11 +236,16 @@ fn build_reliability_updates(
     contributions: &[DecisionContribution],
     final_decision: FinalDecision,
     reliability_inputs: &[DecisionReliabilityInput],
+    memory_reliability_inputs: &[DecisionReliabilityInput],
 ) -> Vec<DecisionReliabilityUpdate> {
     contributions
         .iter()
         .map(|contribution| {
-            let previous_score = lookup_reliability_score(contribution, reliability_inputs);
+            let previous_score = lookup_reliability_score(
+                contribution,
+                reliability_inputs,
+                memory_reliability_inputs,
+            );
             let mut delta: i16 = if contribution.vote == final_decision {
                 2
             } else {

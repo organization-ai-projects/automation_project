@@ -14,11 +14,15 @@ use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate, ensemble_t
 use crate::domain::{
     AutoFixAttempt, AutoFixAttemptStatus, BinaryInvocationSpec, CiGateStatus, CommandLineSpec,
     DecisionContribution, DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision,
-    GateInputs, OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus,
-    ReviewerVerdict, RiskSignal, RiskTier, RunReport, Stage, StageExecutionRecord,
-    StageExecutionStatus, StageTransition, TerminalState,
+    GateInputs, MemoryPolicy, OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus,
+    ReviewGateStatus, ReviewerVerdict, RiskSignal, RiskTier, RunReport, Stage,
+    StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
+use crate::long_horizon_memory::{
+    LongHorizonMemoryStore, derive_reliability_inputs, enforce_policy, load_memory, record_run,
+    save_memory,
+};
 use crate::planner_output::read_planner_output_from_artifacts;
 use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
 use crate::pr_risk::compute_pr_risk;
@@ -51,6 +55,7 @@ pub struct Orchestrator {
     decision_threshold: u8,
     decision_contributions: Vec<DecisionContribution>,
     decision_reliability_inputs: Vec<DecisionReliabilityInput>,
+    memory_reliability_inputs: Vec<DecisionReliabilityInput>,
     decision_require_contributions: bool,
     reviewer_verdicts: Vec<ReviewerVerdict>,
     adaptive_policy_config: AdaptivePolicyConfig,
@@ -62,6 +67,9 @@ pub struct Orchestrator {
     checkpoint: OrchestratorCheckpoint,
     checkpoint_path: Option<PathBuf>,
     cycle_memory_path: Option<PathBuf>,
+    memory_path: Option<PathBuf>,
+    memory_policy: MemoryPolicy,
+    long_horizon_memory: LongHorizonMemoryStore,
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
@@ -120,6 +128,19 @@ impl Orchestrator {
         {
             planned_remediation_steps = next_actions.recommended_actions;
         }
+
+        let memory_policy = MemoryPolicy {
+            max_entries: config.memory_max_entries,
+            decay_window_runs: config.memory_decay_window_runs,
+        };
+        let long_horizon_memory = config
+            .memory_path
+            .as_deref()
+            .and_then(|path| load_memory(path).ok())
+            .unwrap_or_default();
+        let (memory_reliability_inputs, _) =
+            derive_reliability_inputs(&long_horizon_memory, &memory_policy);
+
         let checkpoint = checkpoint.unwrap_or_else(|| {
             OrchestratorCheckpoint::new(config.run_id.clone(), unix_timestamp_secs())
         });
@@ -142,6 +163,7 @@ impl Orchestrator {
             decision_threshold: config.decision_threshold,
             decision_contributions: config.decision_contributions,
             decision_reliability_inputs: config.decision_reliability_inputs,
+            memory_reliability_inputs,
             decision_require_contributions: config.decision_require_contributions,
             reviewer_verdicts: config.reviewer_verdicts,
             adaptive_policy_config: AdaptivePolicyConfig::default(),
@@ -153,6 +175,9 @@ impl Orchestrator {
             checkpoint,
             checkpoint_path: config.checkpoint_path,
             cycle_memory_path: config.cycle_memory_path,
+            memory_path: config.memory_path,
+            memory_policy,
+            long_horizon_memory,
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
             planned_remediation_steps,
@@ -217,6 +242,8 @@ impl Orchestrator {
             }
         }
         self.report.pr_risk_breakdown = Some(breakdown);
+
+        self.record_and_save_long_horizon_memory(unix_timestamp_secs());
         self.report
     }
 
@@ -294,6 +321,52 @@ impl Orchestrator {
         }
         self.report.terminal_state = Some(TerminalState::Done);
         self.mark_terminal_and_persist(TerminalState::Done);
+    }
+
+    fn record_and_save_long_horizon_memory(&mut self, timestamp: u64) {
+        let Some(path) = self.memory_path.clone() else {
+            return;
+        };
+        record_run(&mut self.long_horizon_memory, &self.report, timestamp);
+        let policy_codes = enforce_policy(
+            &mut self.long_horizon_memory,
+            &self.memory_policy,
+            timestamp,
+        );
+        for code in &policy_codes {
+            let stage = self.report.current_stage.unwrap_or(Stage::Planning);
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage,
+                idempotency_key: None,
+                command: "memory.policy.enforce".to_string(),
+                args: vec![code.clone()],
+                env_keys: Vec::new(),
+                started_at_unix_secs: timestamp,
+                duration_ms: 0,
+                exit_code: Some(0),
+                status: StageExecutionStatus::Success,
+                error: None,
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
+        }
+        if let Err(err) = save_memory(path.as_path(), &self.long_horizon_memory) {
+            let stage = self.report.current_stage.unwrap_or(Stage::Planning);
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage,
+                idempotency_key: None,
+                command: "memory.persist".to_string(),
+                args: vec![path.display().to_string()],
+                env_keys: Vec::new(),
+                started_at_unix_secs: timestamp,
+                duration_ms: 0,
+                exit_code: None,
+                status: StageExecutionStatus::Failed,
+                error: Some(err),
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
+        }
     }
 
     fn execute_execution_validation_pipeline(&mut self) -> bool {
@@ -1533,6 +1606,7 @@ impl Orchestrator {
             &DecisionAggregatorConfig {
                 min_confidence_to_proceed: self.decision_threshold,
                 reliability_inputs: self.decision_reliability_inputs.clone(),
+                memory_reliability_inputs: self.memory_reliability_inputs.clone(),
             },
         );
         self.report.final_decision = Some(summary.final_decision);
