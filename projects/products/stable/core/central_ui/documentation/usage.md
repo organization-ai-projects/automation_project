@@ -43,7 +43,7 @@ Administrators can start or stop product services via the central_ui admin inter
 ### Expected Lifecycle
 
 | Step | Component | Action |
-|------|-----------|--------|
+| ------ | ----------- | -------- |
 | 1 | Launcher | Starts `engine`, `watcher`, `central_ui` |
 | 2 | Product backend | Connects to engine WebSocket, sends `backend.hello` |
 | 3 | Admin via central_ui | Clicks Start/Stop button |
