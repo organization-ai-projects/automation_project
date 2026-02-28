@@ -1,7 +1,8 @@
+#[path = "common/mod.rs"]
 mod common;
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 use common::json_fields::{json_field_array, json_field_str, json_field_u64};
@@ -32,7 +33,7 @@ struct CheckpointFixture {
     updated_at_unix_secs: u64,
 }
 
-fn run_orchestrator(args: &[&str], out_dir: &PathBuf) -> (Output, MatrixReportView) {
+fn run_orchestrator(args: &[&str], out_dir: &Path) -> (Output, MatrixReportView) {
     let mut full_args = vec![
         "--decision-contribution",
         "contributor_id=matrix_default,capability=validation,vote=proceed,confidence=100,weight=100",
@@ -51,7 +52,7 @@ fn run_orchestrator(args: &[&str], out_dir: &PathBuf) -> (Output, MatrixReportVi
     (output, report)
 }
 
-fn run_orchestrator_owned(args: &[String], out_dir: &PathBuf) -> (Output, MatrixReportView) {
+fn run_orchestrator_owned(args: &[String], out_dir: &Path) -> (Output, MatrixReportView) {
     let as_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
     run_orchestrator(&as_refs, out_dir)
 }
@@ -64,7 +65,7 @@ fn workspace_root() -> PathBuf {
     workspace_root_from_manifest()
 }
 
-fn run_with_default_gates(extra_args: &[&str], out_dir: &PathBuf) -> (Output, MatrixReportView) {
+fn run_with_default_gates(extra_args: &[&str], out_dir: &Path) -> (Output, MatrixReportView) {
     let mut args = vec![
         "--policy-status",
         "allow",
