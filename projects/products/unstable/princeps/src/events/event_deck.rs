@@ -17,6 +17,7 @@ impl EventDeck {
         }
     }
 
+    #[allow(dead_code)]
     pub fn draw(&mut self, rng: &mut StdRng) -> Option<CampaignEvent> {
         let available: Vec<usize> = (0..self.cards.len())
             .filter(|i| !self.drawn_indices.contains(i))
@@ -30,10 +31,12 @@ impl EventDeck {
         Some(self.cards[idx].clone())
     }
 
+    #[allow(dead_code)]
     pub fn remaining(&self) -> usize {
         self.cards.len() - self.drawn_indices.len()
     }
 
+    #[allow(dead_code)]
     pub fn reset(&mut self) {
         self.drawn_indices.clear();
     }

@@ -86,6 +86,25 @@ fn replay_produces_identical_report() {
 }
 
 #[test]
+fn export_markdown_matches_golden_fixture() {
+    let output = Command::new(bin_path())
+        .args(["export", "--format", "markdown", "--seed", "42", "--days", "30"])
+        .output()
+        .expect("failed to run princeps export");
+    assert!(output.status.success());
+    let actual = String::from_utf8_lossy(&output.stdout);
+    let golden_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/golden_export.md");
+    let golden = std::fs::read_to_string(&golden_path)
+        .expect("golden fixture must exist at tests/fixtures/golden_export.md");
+    assert_eq!(
+        actual.as_ref(),
+        golden.as_str(),
+        "export output must match golden fixture"
+    );
+}
+
+#[test]
 fn export_markdown_contains_expected_sections() {
     let output = Command::new(bin_path())
         .args(["export", "--format", "markdown", "--seed", "42", "--days", "30"])

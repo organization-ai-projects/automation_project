@@ -47,7 +47,6 @@ impl EndReport {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::BTreeMap;
     use crate::model::candidate_id::CandidateId;
     use crate::model::game_id::GameId;

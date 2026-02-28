@@ -20,6 +20,9 @@ use crate::report::end_report::EndReport;
 use crate::report::run_summary::RunSummary;
 use crate::sim::day::Day;
 
+const EVENT_DRAW_PROBABILITY: f64 = 0.7;
+const LOW_MONEY_THRESHOLD: i64 = 100_000;
+
 pub struct SimEngine {
     pub game_id: GameId,
     pub seed: u64,
@@ -27,6 +30,7 @@ pub struct SimEngine {
     pub candidates: Vec<Candidate>,
     pub voter_blocks: Vec<VoterBlock>,
     pub event_deck: EventDeck,
+    #[allow(dead_code)]
     pub factions: Vec<Faction>,
     pub day_logs: Vec<Day>,
     pub poll_reports: Vec<PollReport>,
@@ -67,7 +71,7 @@ impl SimEngine {
             let mut day = Day::new(day_num);
 
             // Draw one event per day (probabilistic)
-            if self.rng.random_bool(0.7) {
+            if self.rng.random_bool(EVENT_DRAW_PROBABILITY) {
                 let event = {
                     let available: Vec<usize> = (0..self.event_deck.cards.len())
                         .filter(|i| !self.event_deck.drawn_indices.contains(i))
@@ -207,7 +211,7 @@ fn choose_ai_action(
     };
 
     // If money is low → fundraise
-    if actor.money < 100_000 {
+    if actor.money < LOW_MONEY_THRESHOLD {
         return Action::Fundraising;
     }
 
