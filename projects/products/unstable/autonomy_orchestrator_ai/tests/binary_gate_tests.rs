@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -163,7 +163,7 @@ fn run_with_executor_arg(out_dir: &PathBuf, executor_arg: &str) -> std::process:
         .expect("failed to execute orchestrator")
 }
 
-fn load_report(out_dir: &PathBuf) -> GateReportView {
+fn load_report(out_dir: &Path) -> GateReportView {
     let report_path = out_dir.join("orchestrator_run_report.json");
     let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
     from_str(&report_raw).expect("failed to deserialize run report")
@@ -324,6 +324,7 @@ fn external_hard_gate_file_appends_and_blocks() {
     let bin = bin_path();
     let run = Command::new(bin)
         .arg(&out_dir)
+        .arg(&rules_file)
         .arg("--policy-status")
         .arg("allow")
         .arg("--ci-status")
@@ -334,8 +335,6 @@ fn external_hard_gate_file_appends_and_blocks() {
         .arg("true")
         .arg("--executor-arg")
         .arg("custom-destroy")
-        .arg("--hard-gates-file")
-        .arg(&rules_file)
         .output()
         .expect("failed to execute orchestrator");
 

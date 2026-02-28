@@ -349,7 +349,7 @@ impl Orchestrator {
             return;
         }
         if !self.execute_rollout() {
-            return self.report;
+            return;
         }
         self.report.terminal_state = Some(TerminalState::Done);
         self.mark_terminal_and_persist(TerminalState::Done);

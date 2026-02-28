@@ -95,7 +95,7 @@ fn is_protected_branch(branch: &str) -> bool {
 }
 
 fn has_history_rewrite_intent(args: &[&str]) -> bool {
-    let has = |needle: &str| args.iter().any(|a| *a == needle);
+    let has = |needle: &str| args.contains(&needle);
     let has_prefix = |prefix: &str| args.iter().any(|a| a.starts_with(prefix));
 
     has("--force")

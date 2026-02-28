@@ -90,9 +90,7 @@ pub fn validate_graph(nodes: &[PlannerNode], edges: &[PlannerEdge]) -> Result<()
     Ok(())
 }
 
-fn build_adjacency<'a>(
-    edges: &'a [PlannerEdge],
-) -> std::collections::BTreeMap<&'a str, Vec<&'a PlannerEdge>> {
+fn build_adjacency(edges: &[PlannerEdge]) -> std::collections::BTreeMap<&str, Vec<&PlannerEdge>> {
     let mut adj: std::collections::BTreeMap<&str, Vec<&PlannerEdge>> =
         std::collections::BTreeMap::new();
     for edge in edges {
@@ -124,7 +122,7 @@ fn detect_cycle<'a>(
     visited.insert(node);
     stack.insert(node);
     if let Some(neighbours) = adj.get(node) {
-        for edge in &*neighbours {
+        for edge in neighbours {
             detect_cycle(edge.to.as_str(), adj, visited, stack)?;
         }
     }
