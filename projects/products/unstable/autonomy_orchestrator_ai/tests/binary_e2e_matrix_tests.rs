@@ -1371,8 +1371,7 @@ fn matrix_planner_v2_exhausted_fallback_budget_fails_closed() {
 
     let report_path = out_dir.join("orchestrator_run_report.json");
     let report_raw = fs::read_to_string(&report_path).expect("failed to read run report");
-    let report: MatrixReportView =
-        from_str(&report_raw).expect("failed to deserialize run report");
+    let report: MatrixReportView = from_str(&report_raw).expect("failed to deserialize run report");
 
     assert_eq!(report.terminal_state.as_deref(), Some("failed"));
     let record = report
@@ -1388,8 +1387,7 @@ fn matrix_planner_v2_exhausted_fallback_budget_fails_closed() {
         report
             .stage_executions
             .iter()
-            .any(|e| e.command == "planning.planner_v2.select_path"
-                && e.status == "failed")
+            .any(|e| e.command == "planning.planner_v2.select_path" && e.status == "failed")
     );
 
     let _ = fs::remove_dir_all(out_dir);

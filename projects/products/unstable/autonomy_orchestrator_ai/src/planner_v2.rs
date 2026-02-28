@@ -37,8 +37,7 @@ pub fn validate_graph(nodes: &[PlannerNode], edges: &[PlannerEdge]) -> Result<()
     }
 
     // Edge references valid nodes.
-    let node_ids: std::collections::BTreeSet<&str> =
-        nodes.iter().map(|n| n.id.as_str()).collect();
+    let node_ids: std::collections::BTreeSet<&str> = nodes.iter().map(|n| n.id.as_str()).collect();
     let mut seen_edges = std::collections::BTreeSet::new();
     for edge in edges {
         if !node_ids.contains(edge.from.as_str()) {

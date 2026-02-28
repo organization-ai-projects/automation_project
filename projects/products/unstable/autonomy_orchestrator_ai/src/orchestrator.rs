@@ -18,7 +18,7 @@ use crate::domain::{
     TerminalState,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
-use crate::planner_v2::{PlannerGraph, validate_graph, select_path};
+use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
@@ -1104,9 +1104,9 @@ impl Orchestrator {
         if !payload.planner_nodes.is_empty() {
             if let Err(err) = validate_graph(&payload.planner_nodes, &payload.planner_edges) {
                 self.report.terminal_state = Some(TerminalState::Failed);
-                self.report.blocked_reason_codes.push(
-                    crate::planner_v2::REASON_GRAPH_INVALID.to_string(),
-                );
+                self.report
+                    .blocked_reason_codes
+                    .push(crate::planner_v2::REASON_GRAPH_INVALID.to_string());
                 self.report.stage_executions.push(StageExecutionRecord {
                     stage: Stage::Planning,
                     idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),

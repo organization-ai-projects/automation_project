@@ -3,9 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::{
     AdaptivePolicyDecision, DecisionContribution, DecisionReliabilityFactor,
-    DecisionReliabilityUpdate, FinalDecision, GateDecision, PlannerPathRecord, Stage,
-    RiskSignal, RiskTier,
-    StageExecutionRecord, StageTransition, TerminalState,
+    DecisionReliabilityUpdate, FinalDecision, GateDecision, PlannerPathRecord, RiskSignal,
+    RiskTier, Stage, StageExecutionRecord, StageTransition, TerminalState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
