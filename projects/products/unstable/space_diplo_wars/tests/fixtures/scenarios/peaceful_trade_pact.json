@@ -1,0 +1,33 @@
+{
+  "game_id": "peaceful_trade_pact",
+  "empires": [
+    {"id": "empire_a", "name": "Alpha Empire", "home_system": "sys_alpha", "resources": {"Metal": 100, "Energy": 100, "Food": 50, "Research": 10}, "tech_levels": {}},
+    {"id": "empire_b", "name": "Beta Empire", "home_system": "sys_beta", "resources": {"Metal": 80, "Energy": 120, "Food": 60, "Research": 15}, "tech_levels": {}}
+  ],
+  "star_map": {
+    "systems": [
+      {"id": "sys_alpha", "name": "Alpha", "planets": [], "owner": "empire_a"},
+      {"id": "sys_beta", "name": "Beta", "planets": [], "owner": "empire_b"}
+    ],
+    "routes": [{"from": "sys_alpha", "to": "sys_beta", "distance": 2}]
+  },
+  "initial_fleets": [
+    {"id": "fleet_a1", "empire_id": "empire_a", "location": "sys_alpha", "ships": {"Fighter": 5, "Scout": 2}},
+    {"id": "fleet_b1", "empire_id": "empire_b", "location": "sys_beta", "ships": {"Fighter": 3, "Scout": 1}}
+  ],
+  "scripted_orders": {
+    "1": [
+      {"id": "order_a_treaty", "empire_id": "empire_a", "kind": "OfferTreaty", "params": {"treaty_kind": "TradePact", "target": "empire_b", "end_turn": "10"}},
+      {"id": "order_a_invest", "empire_id": "empire_a", "kind": "Invest", "params": {"system": "sys_alpha", "amount": "20"}}
+    ],
+    "2": [
+      {"id": "order_b_accept", "empire_id": "empire_b", "kind": "AcceptTreaty", "params": {"treaty_id": "treaty_empire_a_empire_b_1"}},
+      {"id": "order_b_invest", "empire_id": "empire_b", "kind": "Invest", "params": {"system": "sys_beta", "amount": "15"}}
+    ]
+  },
+  "scripted_treaty_choices": {},
+  "checkpoints": [
+    {"turn": 2, "expected_snapshot_hash": null},
+    {"turn": 5, "expected_snapshot_hash": null}
+  ]
+}
