@@ -1,4 +1,4 @@
-pub mod app_state;
 pub mod action;
-pub mod reducer;
+pub mod app_state;
 pub mod controller;
+pub mod reducer;

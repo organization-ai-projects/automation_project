@@ -1,10 +1,10 @@
-mod public_api;
-mod protocol;
-mod scan;
 mod canon;
-mod stability;
-mod io;
 mod diagnostics;
+mod io;
+mod protocol;
+mod public_api;
+mod scan;
+mod stability;
 
 use anyhow::Result;
 use tracing::info;
@@ -33,7 +33,9 @@ fn main() -> Result<()> {
         let request: protocol::request::Request = match serde_json::from_str(trimmed) {
             Ok(r) => r,
             Err(e) => {
-                let resp = protocol::response::Response::Error { message: e.to_string() };
+                let resp = protocol::response::Response::Error {
+                    message: e.to_string(),
+                };
                 io::json_codec::write_response(&stdout, &resp)?;
                 continue;
             }

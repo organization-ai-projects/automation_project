@@ -1,6 +1,6 @@
-use std::io::Write;
-use anyhow::Result;
 use crate::protocol::response::Response;
+use anyhow::Result;
+use std::io::Write;
 
 pub fn write_response<W: Write>(mut writer: W, response: &Response) -> Result<()> {
     let json = serde_json::to_string(response)?;

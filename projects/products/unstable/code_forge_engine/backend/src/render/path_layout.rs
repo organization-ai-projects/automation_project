@@ -7,7 +7,9 @@ pub struct PathLayout {
 
 impl PathLayout {
     pub fn new(root: impl AsRef<Path>) -> Self {
-        Self { root: root.as_ref().to_path_buf() }
+        Self {
+            root: root.as_ref().to_path_buf(),
+        }
     }
 
     pub fn resolve(&self, relative: &str) -> PathBuf {

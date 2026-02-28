@@ -5,7 +5,9 @@ pub struct ForbiddenRule {
 
 impl ForbiddenRule {
     pub fn new(pattern: impl Into<String>) -> Self {
-        Self { pattern: pattern.into() }
+        Self {
+            pattern: pattern.into(),
+        }
     }
 
     pub fn matches(&self, line: &str) -> bool {

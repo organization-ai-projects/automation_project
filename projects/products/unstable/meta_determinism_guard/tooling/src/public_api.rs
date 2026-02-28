@@ -1,5 +1,5 @@
-use anyhow::{Result, anyhow};
 use crate::rules::ruleset_loader;
+use anyhow::{Result, anyhow};
 
 pub fn run_cli(args: &[String]) -> Result<()> {
     if args.len() < 2 {
@@ -10,14 +10,16 @@ pub fn run_cli(args: &[String]) -> Result<()> {
 
     match args[1].as_str() {
         "validate" => {
-            let path = find_flag(args, "--ruleset")
-                .ok_or_else(|| anyhow!("--ruleset required"))?;
+            let path = find_flag(args, "--ruleset").ok_or_else(|| anyhow!("--ruleset required"))?;
             let ruleset = ruleset_loader::load_from_file(&path)?;
-            println!("Ruleset '{}' is valid ({} rules).", ruleset.name, ruleset.rules.len());
+            println!(
+                "Ruleset '{}' is valid ({} rules).",
+                ruleset.name,
+                ruleset.rules.len()
+            );
         }
         "list-rules" => {
-            let path = find_flag(args, "--ruleset")
-                .ok_or_else(|| anyhow!("--ruleset required"))?;
+            let path = find_flag(args, "--ruleset").ok_or_else(|| anyhow!("--ruleset required"))?;
             let ruleset = ruleset_loader::load_from_file(&path)?;
             println!("Rules in '{}':", ruleset.name);
             for rule in &ruleset.rules {

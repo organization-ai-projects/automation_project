@@ -6,6 +6,9 @@ pub struct GenerateScreen {
 
 impl GenerateScreen {
     pub fn new() -> Self {
-        Self { out_dir: None, mode: "dry_run".to_string() }
+        Self {
+            out_dir: None,
+            mode: "dry_run".to_string(),
+        }
     }
 }

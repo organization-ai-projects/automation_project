@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
@@ -20,7 +20,11 @@ impl BackendProcess {
         let stdin = child.stdin.take().context("No stdin")?;
         let stdout = BufReader::new(child.stdout.take().context("No stdout")?);
 
-        Ok(Self { _child: child, stdin, stdout })
+        Ok(Self {
+            _child: child,
+            stdin,
+            stdout,
+        })
     }
 
     pub fn send_line(&mut self, line: &str) -> Result<()> {

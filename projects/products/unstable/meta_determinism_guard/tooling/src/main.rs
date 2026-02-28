@@ -1,6 +1,6 @@
+mod diagnostics;
 mod public_api;
 mod rules;
-mod diagnostics;
 
 use anyhow::Result;
 use tracing::info;

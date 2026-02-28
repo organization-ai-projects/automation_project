@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use anyhow::Result;
+use std::collections::BTreeMap;
 
 pub fn check_file(path: &str) -> Result<Vec<String>> {
     let content = std::fs::read_to_string(path)?;
@@ -28,7 +28,8 @@ fn to_canonical_string(value: &serde_json::Value) -> Result<String> {
 fn sort_value(value: &serde_json::Value) -> serde_json::Value {
     match value {
         serde_json::Value::Object(map) => {
-            let sorted: BTreeMap<String, serde_json::Value> = map.iter()
+            let sorted: BTreeMap<String, serde_json::Value> = map
+                .iter()
                 .map(|(k, v)| (k.clone(), sort_value(v)))
                 .collect();
             serde_json::Value::Object(sorted.into_iter().collect())

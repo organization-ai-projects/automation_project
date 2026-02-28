@@ -1,6 +1,6 @@
 // projects/products/unstable/code_forge_engine/tooling/src/golden/golden_report.rs
-use std::path::PathBuf;
 use crate::diagnostics::error::ToolingError;
+use std::path::PathBuf;
 
 pub struct GoldenReport {
     pub dir: PathBuf,
@@ -17,6 +17,9 @@ impl GoldenReport {
     }
 
     pub fn check(&self) -> Result<GoldenCheckResult, ToolingError> {
-        Ok(GoldenCheckResult { all_passed: true, failures: vec![] })
+        Ok(GoldenCheckResult {
+            all_passed: true,
+            failures: vec![],
+        })
     }
 }

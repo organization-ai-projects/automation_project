@@ -61,7 +61,10 @@ struct ServerState {
 
 impl ServerState {
     fn new() -> Self {
-        Self { contract_path: None, shutdown_requested: false }
+        Self {
+            contract_path: None,
+            shutdown_requested: false,
+        }
     }
 
     fn handle(&mut self, req: Request) -> Response {
@@ -72,7 +75,10 @@ impl ServerState {
             }
             Request::ValidateContract => Response::Ok,
             Request::PreviewLayout => Response::Preview { files: vec![] },
-            Request::Generate { out_dir: _, mode: _ } => Response::Ok,
+            Request::Generate {
+                out_dir: _,
+                mode: _,
+            } => Response::Ok,
             Request::GetManifest => Response::Manifest {
                 manifest_json: "{}".to_string(),
                 manifest_hash: "".to_string(),

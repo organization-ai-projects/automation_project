@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::stability::stability_report::StabilityReport;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]

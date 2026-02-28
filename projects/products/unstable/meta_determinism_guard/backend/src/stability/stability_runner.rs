@@ -1,8 +1,8 @@
-use anyhow::Result;
-use sha2::{Sha256, Digest};
-use crate::stability::run_matrix::{RunResult, RunMatrix};
-use crate::stability::stability_report::StabilityReport;
 use crate::stability::repro_dumper;
+use crate::stability::run_matrix::{RunMatrix, RunResult};
+use crate::stability::stability_report::StabilityReport;
+use anyhow::Result;
+use sha2::{Digest, Sha256};
 
 pub fn run_stability(cmd: &str, runs: u32) -> Result<StabilityReport> {
     let mut results = Vec::new();
@@ -21,7 +21,11 @@ pub fn run_stability(cmd: &str, runs: u32) -> Result<StabilityReport> {
         hasher.update(normalized.as_bytes());
         let hash = hex::encode(hasher.finalize());
 
-        results.push(RunResult { run_index: i, stdout, hash });
+        results.push(RunResult {
+            run_index: i,
+            stdout,
+            hash,
+        });
     }
 
     let matrix = RunMatrix::new(results);
@@ -35,7 +39,12 @@ pub fn run_stability(cmd: &str, runs: u32) -> Result<StabilityReport> {
         None
     };
 
-    Ok(StabilityReport { stable, runs, run_hashes, diff })
+    Ok(StabilityReport {
+        stable,
+        runs,
+        run_hashes,
+        diff,
+    })
 }
 
 fn build_diff(matrix: &RunMatrix) -> String {

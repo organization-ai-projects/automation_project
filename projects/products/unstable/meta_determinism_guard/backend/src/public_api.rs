@@ -1,8 +1,8 @@
-use crate::protocol::request::Request;
-use crate::protocol::response::{Response, ReportData};
-use crate::scan::scan_config::ScanConfig;
-use crate::scan::forbidden_finder;
 use crate::canon::canonical_json_checker;
+use crate::protocol::request::Request;
+use crate::protocol::response::{ReportData, Response};
+use crate::scan::forbidden_finder;
+use crate::scan::scan_config::ScanConfig;
 use crate::stability::stability_runner;
 use tracing::info;
 
@@ -31,7 +31,9 @@ impl BackendState {
                         self.scan_findings = findings;
                         Response::Ok
                     }
-                    Err(e) => Response::Error { message: e.to_string() },
+                    Err(e) => Response::Error {
+                        message: e.to_string(),
+                    },
                 }
             }
             Request::CheckCanonicalJson { path } => {
@@ -41,7 +43,9 @@ impl BackendState {
                         self.canon_issues = issues;
                         Response::Ok
                     }
-                    Err(e) => Response::Error { message: e.to_string() },
+                    Err(e) => Response::Error {
+                        message: e.to_string(),
+                    },
                 }
             }
             Request::RunStabilityHarness { cmd, runs } => {
@@ -51,18 +55,18 @@ impl BackendState {
                         self.stability = Some(report);
                         Response::Ok
                     }
-                    Err(e) => Response::Error { message: e.to_string() },
-                }
-            }
-            Request::GetReport => {
-                Response::Report {
-                    data: ReportData {
-                        scan_findings: self.scan_findings.clone(),
-                        canon_issues: self.canon_issues.clone(),
-                        stability: self.stability.clone(),
+                    Err(e) => Response::Error {
+                        message: e.to_string(),
                     },
                 }
             }
+            Request::GetReport => Response::Report {
+                data: ReportData {
+                    scan_findings: self.scan_findings.clone(),
+                    canon_issues: self.canon_issues.clone(),
+                    stability: self.stability.clone(),
+                },
+            },
         }
     }
 }

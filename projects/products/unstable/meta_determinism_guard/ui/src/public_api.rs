@@ -1,7 +1,7 @@
-use anyhow::{Result, anyhow};
-use crate::app::app_state::AppState;
 use crate::app::action::Action;
+use crate::app::app_state::AppState;
 use crate::app::controller;
+use anyhow::{Result, anyhow};
 
 pub fn run_cli(args: &[String]) -> Result<()> {
     if args.len() < 2 {
@@ -24,8 +24,7 @@ fn parse_action(args: &[String]) -> Result<Action> {
             Ok(Action::Scan { root, json })
         }
         "stability" => {
-            let cmd = find_flag(args, "--cmd")
-                .ok_or_else(|| anyhow!("--cmd required"))?;
+            let cmd = find_flag(args, "--cmd").ok_or_else(|| anyhow!("--cmd required"))?;
             let runs: u32 = find_flag(args, "--runs")
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(3);

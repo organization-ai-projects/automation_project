@@ -7,7 +7,9 @@ pub struct IpcClient {
 
 impl IpcClient {
     pub fn new(address: impl Into<String>) -> Self {
-        Self { address: address.into() }
+        Self {
+            address: address.into(),
+        }
     }
 
     pub fn send(&self, _message: &str) -> Result<String> {

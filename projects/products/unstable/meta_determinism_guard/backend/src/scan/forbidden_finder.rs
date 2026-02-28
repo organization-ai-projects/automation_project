@@ -1,11 +1,13 @@
-use std::collections::BTreeSet;
-use anyhow::Result;
-use crate::scan::scan_config::ScanConfig;
 use crate::scan::file_walker::walk_files_sorted;
 use crate::scan::forbidden_rule::ForbiddenRule;
+use crate::scan::scan_config::ScanConfig;
+use anyhow::Result;
+use std::collections::BTreeSet;
 
 pub fn find_forbidden(root: &str, config: &ScanConfig) -> Result<Vec<String>> {
-    let rules: Vec<ForbiddenRule> = config.forbidden_patterns.iter()
+    let rules: Vec<ForbiddenRule> = config
+        .forbidden_patterns
+        .iter()
         .map(ForbiddenRule::new)
         .collect();
 

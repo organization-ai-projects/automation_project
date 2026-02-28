@@ -12,8 +12,8 @@ fn main() -> Result<()> {
 }
 
 fn run_cli(args: &[String]) -> Result<()> {
-    use golden::golden_updater::GoldenUpdater;
     use golden::golden_report::GoldenReport;
+    use golden::golden_updater::GoldenUpdater;
     use validate::byte_stability_validator::ByteStabilityValidator;
     use validate::structure_validator::StructureValidator;
 
@@ -29,7 +29,10 @@ fn run_cli(args: &[String]) -> Result<()> {
             let report = GoldenReport::new(dir);
             let result = report.check()?;
             if !result.all_passed {
-                eprintln!("golden validation failed: {} failures", result.failures.len());
+                eprintln!(
+                    "golden validation failed: {} failures",
+                    result.failures.len()
+                );
                 std::process::exit(3);
             }
             let validator = ByteStabilityValidator::new(dir);

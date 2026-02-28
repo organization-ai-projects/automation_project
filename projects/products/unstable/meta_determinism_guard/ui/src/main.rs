@@ -1,9 +1,9 @@
-mod public_api;
 mod app;
-mod transport;
-mod screens;
-mod widgets;
 mod diagnostics;
+mod public_api;
+mod screens;
+mod transport;
+mod widgets;
 
 use anyhow::Result;
 use tracing::info;

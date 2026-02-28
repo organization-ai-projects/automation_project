@@ -1,9 +1,9 @@
-use anyhow::Result;
-use crate::app::app_state::AppState;
 use crate::app::action::Action;
+use crate::app::app_state::AppState;
 use crate::app::reducer;
-use crate::transport::backend_process::BackendProcess;
 use crate::screens;
+use crate::transport::backend_process::BackendProcess;
+use anyhow::Result;
 
 pub fn dispatch(state: &mut AppState, action: Action) -> Result<()> {
     let mut backend = BackendProcess::spawn()?;
@@ -13,11 +13,12 @@ pub fn dispatch(state: &mut AppState, action: Action) -> Result<()> {
             format!(r#"{{"type":"scan_forbidden","root":"{}"}}"#, root)
         }
         Action::Stability { cmd, runs, .. } => {
-            format!(r#"{{"type":"run_stability_harness","cmd":"{}","runs":{}}}"#, cmd, runs)
+            format!(
+                r#"{{"type":"run_stability_harness","cmd":"{}","runs":{}}}"#,
+                cmd, runs
+            )
         }
-        Action::Report { .. } => {
-            r#"{"type":"get_report"}"#.to_string()
-        }
+        Action::Report { .. } => r#"{"type":"get_report"}"#.to_string(),
     };
 
     backend.send_line(&request_json)?;

@@ -5,7 +5,9 @@ pub struct ContractScreen {
 
 impl ContractScreen {
     pub fn new() -> Self {
-        Self { contract_path: None }
+        Self {
+            contract_path: None,
+        }
     }
 
     pub fn set_path(&mut self, path: impl Into<String>) {

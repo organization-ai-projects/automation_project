@@ -1,6 +1,6 @@
 // projects/products/unstable/code_forge_engine/backend/src/output/artifact_manifest.rs
-use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtifactManifest {
@@ -10,7 +10,10 @@ pub struct ArtifactManifest {
 
 impl ArtifactManifest {
     pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into(), files: BTreeMap::new() }
+        Self {
+            name: name.into(),
+            files: BTreeMap::new(),
+        }
     }
 
     pub fn add_file(&mut self, path: impl Into<String>, bytes: Vec<u8>) {

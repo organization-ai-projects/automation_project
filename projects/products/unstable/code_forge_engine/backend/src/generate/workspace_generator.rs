@@ -1,7 +1,7 @@
 // projects/products/unstable/code_forge_engine/backend/src/generate/workspace_generator.rs
 use crate::contract::contract::Contract;
-use crate::output::artifact_manifest::ArtifactManifest;
 use crate::diagnostics::error::ForgeError;
+use crate::output::artifact_manifest::ArtifactManifest;
 
 pub struct WorkspaceGenerator {
     contract: Contract,

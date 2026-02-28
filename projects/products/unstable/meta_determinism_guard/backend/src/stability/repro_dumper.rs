@@ -1,6 +1,6 @@
+use crate::stability::run_matrix::RunMatrix;
 use anyhow::Result;
 use std::io::Write;
-use crate::stability::run_matrix::RunMatrix;
 
 pub fn dump_failing_runs(matrix: &RunMatrix) -> Result<std::path::PathBuf> {
     let dir = std::env::temp_dir().join("meta_determinism_guard_repro");
