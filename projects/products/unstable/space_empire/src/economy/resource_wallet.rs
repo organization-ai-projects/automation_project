@@ -8,6 +8,7 @@ pub struct ResourceWallet {
     pub balances: BTreeMap<ResourceKind, u64>,
 }
 
+#[allow(dead_code)]
 impl ResourceWallet {
     pub fn new() -> Self {
         Self {

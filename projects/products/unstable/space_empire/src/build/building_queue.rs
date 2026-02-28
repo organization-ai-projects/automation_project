@@ -17,6 +17,7 @@ pub struct BuildQueue {
     pub items: VecDeque<BuildOrder>,
 }
 
+#[allow(dead_code)]
 impl BuildQueue {
     pub fn new() -> Self {
         Self {

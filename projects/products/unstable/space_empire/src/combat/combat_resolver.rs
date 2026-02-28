@@ -3,8 +3,10 @@ use crate::model::EmpireId;
 use crate::ships::{ShipKind, base_stats};
 use std::collections::BTreeMap;
 
+#[allow(dead_code)]
 pub struct CombatResolver;
 
+#[allow(dead_code)]
 impl CombatResolver {
     pub fn resolve(input: &CombatInput) -> BattleReport {
         let mut attacker_ships = input.attacker_fleet.ships.clone();

@@ -7,6 +7,7 @@ pub struct FleetComposition {
     pub ships: BTreeMap<ShipKind, u32>,
 }
 
+#[allow(dead_code)]
 impl FleetComposition {
     pub fn total_ships(&self) -> u32 {
         self.ships.values().sum()

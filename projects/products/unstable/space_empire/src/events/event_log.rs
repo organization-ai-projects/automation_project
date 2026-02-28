@@ -4,6 +4,7 @@ pub struct EventLog {
     pub events: Vec<SimEvent>,
 }
 
+#[allow(dead_code)]
 impl EventLog {
     pub fn new() -> Self {
         Self { events: Vec::new() }

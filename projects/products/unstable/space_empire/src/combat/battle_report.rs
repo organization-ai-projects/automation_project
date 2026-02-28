@@ -11,6 +11,7 @@ pub struct BattleReport {
     pub tick: Tick,
 }
 
+#[allow(dead_code)]
 impl BattleReport {
     pub fn is_attacker_victor(&self) -> bool {
         self.winner == Some(self.input.attacker_empire)

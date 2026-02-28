@@ -1,5 +1,6 @@
 use crate::ships::ShipKind;
 
+#[allow(dead_code)]
 pub struct ShipStats {
     pub attack: u64,
     pub shield: u64,

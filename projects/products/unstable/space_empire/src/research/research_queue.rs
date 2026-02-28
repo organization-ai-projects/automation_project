@@ -17,6 +17,7 @@ pub struct ResearchQueue {
     pub items: VecDeque<ResearchOrder>,
 }
 
+#[allow(dead_code)]
 impl ResearchQueue {
     pub fn new() -> Self {
         Self {

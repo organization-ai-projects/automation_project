@@ -7,6 +7,7 @@ pub struct Route {
     pub to: PlanetId,
 }
 
+#[allow(dead_code)]
 impl Route {
     pub fn travel_distance(&self) -> u64 {
         self.from.0.abs_diff(self.to.0) as u64 * 1000 + 1000

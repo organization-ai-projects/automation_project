@@ -14,6 +14,7 @@ pub enum BuildingKind {
     NaniteFactory,
 }
 
+#[allow(dead_code)]
 impl BuildingKind {
     pub fn costs(&self, level: u32) -> BTreeMap<ResourceKind, u64> {
         let mut m = BTreeMap::new();

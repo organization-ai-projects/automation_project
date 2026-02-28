@@ -9,6 +9,7 @@ pub struct TravelEngine {
     pub orders: BTreeMap<FleetId, TravelOrder>,
 }
 
+#[allow(dead_code)]
 impl TravelEngine {
     pub fn new() -> Self {
         Self {

@@ -16,6 +16,7 @@ pub enum TechKind {
     HyperspaceDrive,
 }
 
+#[allow(dead_code)]
 impl TechKind {
     pub fn research_ticks(&self, level: u32) -> u64 {
         let base: u64 = match self {

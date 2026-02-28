@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod build;
 mod combat;
 mod config;
