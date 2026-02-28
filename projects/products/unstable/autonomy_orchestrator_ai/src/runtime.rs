@@ -10,7 +10,8 @@ use crate::domain::{
     TerminalState,
 };
 use crate::orchestrator::Orchestrator;
-use crate::output_writer::write_run_report;
+use crate::output_writer::{write_escalation_queue, write_run_report};
+use crate::risk_classifier::{RiskClassifierInput, classify_risk};
 use crate::run_args::RunArgs;
 use crate::runtime_diagnostics::print_runtime_diagnostics;
 use crate::validation_invocation_parser::parse_validation_pending_invocations;
@@ -39,6 +40,10 @@ fn run_orchestrator_internal(args: RunArgs, raw_args: &[String]) -> i32 {
     }
     if args.decision_threshold > 100 {
         eprintln!("Invalid --decision-threshold value: must be <= 100");
+        return 2;
+    }
+    if args.pr_risk_threshold > 1000 {
+        eprintln!("Invalid --pr-risk-threshold value: must be <= 1000");
         return 2;
     }
 
@@ -198,6 +203,15 @@ fn run_once(
         review_status: args.review_status.into(),
     };
 
+    let risk_classification = classify_risk(&RiskClassifierInput {
+        risk_tier_override: args.risk_tier_override.map(|t| t.into()),
+        delivery_enabled: args.delivery_enabled,
+        delivery_branch: args.delivery_branch.as_deref(),
+        delivery_dry_run: args.delivery_dry_run,
+        executor_bin: args.executor_bin.as_deref(),
+        executor_args: &args.executor_args,
+    });
+
     let planning_invocation = args.manager_bin.map(|command| BinaryInvocationSpec {
         stage: Stage::Planning,
         command_line: CommandLineSpec {
@@ -282,10 +296,28 @@ fn run_once(
         decision_contributions: args.decision_contributions,
         decision_reliability_inputs: args.decision_reliability_inputs,
         decision_require_contributions: args.decision_require_contributions,
+        pr_risk_threshold: args.pr_risk_threshold,
+        auto_merge_on_eligible: args.auto_merge_on_eligible,
+        reviewer_verdicts: args.reviewer_verdicts,
         checkpoint_path: Some(checkpoint_path.clone()),
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
         previous_run_report_path: Some(previous_run_report_path.clone()),
+        rollout_enabled: args.rollout_enabled,
+        rollback_error_rate_threshold: args.rollback_error_rate_threshold,
+        rollback_latency_threshold_ms: args.rollback_latency_threshold_ms,
+        memory_path: args.memory_path,
+        memory_max_entries: args.memory_max_entries,
+        memory_decay_window_runs: args.memory_decay_window_runs,
+        autofix_enabled: args.autofix_enabled,
+        autofix_bin: args.autofix_bin,
+        autofix_args: args.autofix_args,
+        autofix_max_attempts: args.autofix_max_attempts,
+        hard_gates_file: args.hard_gates_file,
+        planner_fallback_max_steps: args.planner_fallback_max_steps,
+        risk_tier: Some(risk_classification.tier),
+        risk_signals: risk_classification.signals,
+        risk_allow_high: args.risk_allow_high,
     };
 
     if let Some(load_mode) = &config_io.load {
@@ -315,6 +347,8 @@ fn run_once(
 
     write_run_report(&report, &args.output_dir)
         .map_err(|err| (1, format!("Failed to write run report: {err}")))?;
+    write_escalation_queue(&report, &args.output_dir)
+        .map_err(|err| (1, format!("Failed to write escalation queue: {err}")))?;
     let recommended_actions = build_recommended_actions(&report);
     let version_after = capture_repo_snapshot(&repo_root_for_versioning);
     let versioning_delta = compute_repo_delta(version_before.as_ref(), version_after.as_ref());
@@ -382,6 +416,19 @@ fn build_recommended_actions(report: &RunReport) -> Vec<String> {
             }
             "DECISION_NO_CONTRIBUTIONS" => {
                 "Provide at least one decision contribution for final arbitration".to_string()
+            }
+            "HARD_GATE_SECRET_POLICY_VIOLATION" => {
+                "Remove secrets exposure operation from invocation before rerun".to_string()
+            }
+            "HARD_GATE_AUTH_POLICY_VIOLATION" => {
+                "Remove auth/authz mutation operation from invocation before rerun".to_string()
+            }
+            "HARD_GATE_GIT_HISTORY_REWRITE_FORBIDDEN" => {
+                "Remove git history rewrite operation from invocation before rerun".to_string()
+            }
+            "HARD_GATE_INFRA_DESTRUCTIVE_OPERATION" => {
+                "Remove destructive infrastructure operation from invocation before rerun"
+                    .to_string()
             }
             other => format!("Resolve blocked reason: {other}"),
         };

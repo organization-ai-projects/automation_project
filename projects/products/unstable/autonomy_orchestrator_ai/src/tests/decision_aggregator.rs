@@ -23,6 +23,7 @@ fn aggregate_prefers_highest_weighted_score() {
         &DecisionAggregatorConfig {
             min_confidence_to_proceed: 70,
             reliability_inputs: Vec::new(),
+            memory_reliability_inputs: Vec::new(),
         },
     );
 
@@ -46,6 +47,7 @@ fn aggregate_tie_uses_fail_closed_order() {
         &DecisionAggregatorConfig {
             min_confidence_to_proceed: 70,
             reliability_inputs: Vec::new(),
+            memory_reliability_inputs: Vec::new(),
         },
     );
 
@@ -67,6 +69,7 @@ fn aggregate_threshold_can_force_proceed_to_block() {
         &DecisionAggregatorConfig {
             min_confidence_to_proceed: 70,
             reliability_inputs: Vec::new(),
+            memory_reliability_inputs: Vec::new(),
         },
     );
 
@@ -98,6 +101,7 @@ fn aggregate_cold_start_marks_reliability_cold_start() {
         &DecisionAggregatorConfig {
             min_confidence_to_proceed: 70,
             reliability_inputs: Vec::new(),
+            memory_reliability_inputs: Vec::new(),
         },
     );
 
@@ -131,6 +135,7 @@ fn aggregate_reliability_drift_prefers_higher_reliability_contributor() {
                     score: 10,
                 },
             ],
+            memory_reliability_inputs: Vec::new(),
         },
     );
 
@@ -170,6 +175,7 @@ fn aggregate_fail_closed_tie_still_applies_with_reliability() {
                     score: 50,
                 },
             ],
+            memory_reliability_inputs: Vec::new(),
         },
     );
 
