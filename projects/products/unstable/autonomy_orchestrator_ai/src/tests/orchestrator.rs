@@ -626,6 +626,9 @@ fn planner_fallback_within_budget_succeeds() {
     );
 
     fs::remove_dir_all(&temp_root).ok();
+}
+
+#[test]
 fn run_report_includes_risk_tier_and_signals() {
     let mut config = test_config("run_risk_1");
     config.risk_tier = Some(RiskTier::Medium);
