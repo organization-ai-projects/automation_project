@@ -1,5 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/cli_value_parsers.rs
-use crate::domain::{DecisionContribution, DecisionReliabilityInput, FinalDecision, ReviewVerdict, ReviewerVerdict};
+use crate::domain::{
+    DecisionContribution, DecisionReliabilityInput, FinalDecision, ReviewVerdict, ReviewerVerdict,
+};
 
 pub fn parse_env_pair_cli(raw: &str) -> Result<(String, String), String> {
     let mut split = raw.splitn(2, '=');
@@ -114,7 +116,7 @@ pub fn parse_reviewer_verdict_cli(raw: &str) -> Result<ReviewerVerdict, String> 
                         return Err(format!(
                             "Invalid reviewer verdict '{}', expected approve|reject",
                             other
-                        ))
+                        ));
                     }
                 })
             }
@@ -124,9 +126,10 @@ pub fn parse_reviewer_verdict_cli(raw: &str) -> Result<ReviewerVerdict, String> 
                 })?)
             }
             "weight" => {
-                weight = Some(value.parse::<u8>().map_err(|_| {
-                    format!("Invalid weight '{}', expected integer 1..100", value)
-                })?)
+                weight =
+                    Some(value.parse::<u8>().map_err(|_| {
+                        format!("Invalid weight '{}', expected integer 1..100", value)
+                    })?)
             }
             "reason_codes" => {
                 reason_codes = split_pipe_list(value);
@@ -144,8 +147,8 @@ pub fn parse_reviewer_verdict_cli(raw: &str) -> Result<ReviewerVerdict, String> 
         ));
     }
 
-    let weight = weight
-        .ok_or_else(|| "Missing reviewer verdict field 'weight' (1..100)".to_string())?;
+    let weight =
+        weight.ok_or_else(|| "Missing reviewer verdict field 'weight' (1..100)".to_string())?;
     if weight == 0 || weight > 100 {
         return Err(format!(
             "Invalid weight '{}', expected integer 1..100",
@@ -158,8 +161,7 @@ pub fn parse_reviewer_verdict_cli(raw: &str) -> Result<ReviewerVerdict, String> 
             .ok_or_else(|| "Missing reviewer verdict field 'reviewer_id'".to_string())?,
         specialty: specialty
             .ok_or_else(|| "Missing reviewer verdict field 'specialty'".to_string())?,
-        verdict: verdict
-            .ok_or_else(|| "Missing reviewer verdict field 'verdict'".to_string())?,
+        verdict: verdict.ok_or_else(|| "Missing reviewer verdict field 'verdict'".to_string())?,
         confidence,
         weight,
         reason_codes,

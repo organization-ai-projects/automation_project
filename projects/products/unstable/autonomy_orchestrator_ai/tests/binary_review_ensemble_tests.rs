@@ -32,8 +32,9 @@ fn unique_temp_dir(name: &str) -> PathBuf {
         .unwrap_or_default()
         .as_nanos();
     let pid = std::process::id();
-    let dir =
-        std::env::temp_dir().join(format!("autonomy_orchestrator_ensemble_{name}_{pid}_{nanos}"));
+    let dir = std::env::temp_dir().join(format!(
+        "autonomy_orchestrator_ensemble_{name}_{pid}_{nanos}"
+    ));
     fs::create_dir_all(&dir).expect("failed to create temp dir");
     dir
 }
@@ -131,9 +132,11 @@ fn ensemble_disagreement_security_rejection_blocks() {
         .review_ensemble_result
         .expect("ensemble result must be present");
     assert!(!ensemble.passed);
-    assert!(ensemble
-        .reason_codes
-        .contains(&"REVIEW_ENSEMBLE_SECURITY_REJECTION".to_string()));
+    assert!(
+        ensemble
+            .reason_codes
+            .contains(&"REVIEW_ENSEMBLE_SECURITY_REJECTION".to_string())
+    );
 
     // Verify individual verdicts are persisted.
     assert_eq!(report.reviewer_verdicts.len(), 3);

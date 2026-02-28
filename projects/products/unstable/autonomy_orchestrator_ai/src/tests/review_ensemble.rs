@@ -1,7 +1,8 @@
 use crate::domain::{ReviewVerdict, ReviewerVerdict};
 use crate::review_ensemble::{
     MANDATORY_SPECIALTIES, REASON_CONFIDENCE_BELOW_THRESHOLD, REASON_SECURITY_REJECTION,
-    REASON_TIE_FAIL_CLOSED, ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble,
+    REASON_TIE_FAIL_CLOSED, ReviewEnsembleConfig, missing_mandatory_specialties,
+    run_review_ensemble,
 };
 
 fn verdict(

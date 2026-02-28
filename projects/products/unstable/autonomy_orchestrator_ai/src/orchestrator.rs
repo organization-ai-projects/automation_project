@@ -13,14 +13,16 @@ use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate, ensemble_t
 use crate::domain::{
     BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
     DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewerVerdict, ReviewGateStatus, RiskSignal,
-    RiskTier, RunReport, Stage, StageExecutionRecord, StageExecutionStatus, StageTransition,
-    TerminalState,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus,
+    ReviewerVerdict, RiskSignal, RiskTier, RunReport, Stage, StageExecutionRecord,
+    StageExecutionStatus, StageTransition, TerminalState,
 };
 use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
 use crate::planner_output::read_planner_output_from_artifacts;
-use crate::review_ensemble::{ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble};
 use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
+use crate::review_ensemble::{
+    ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble,
+};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
@@ -1441,10 +1443,7 @@ impl Orchestrator {
                 .push(format!("No verdict from mandatory specialty: {specialty}"));
         }
 
-        let result = run_review_ensemble(
-            &self.reviewer_verdicts,
-            &ReviewEnsembleConfig::default(),
-        );
+        let result = run_review_ensemble(&self.reviewer_verdicts, &ReviewEnsembleConfig::default());
 
         self.report.reviewer_verdicts = self.reviewer_verdicts.clone();
         let passed = result.passed;

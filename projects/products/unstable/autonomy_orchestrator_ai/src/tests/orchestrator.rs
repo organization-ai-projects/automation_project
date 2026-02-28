@@ -1,8 +1,8 @@
 use crate::domain::{
     AdaptivePolicyAction, BinaryInvocationSpec, CommandLineSpec, DecisionContribution,
     DecisionReliabilityInput, DeliveryOptions, ExecutionPolicy, FinalDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewVerdict, ReviewerVerdict, RiskSignal, RiskTier, Stage,
-    StageExecutionStatus, TerminalState,
+    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewVerdict, ReviewerVerdict,
+    RiskSignal, RiskTier, Stage, StageExecutionStatus, TerminalState,
 };
 use crate::orchestrator::Orchestrator;
 use std::fs;
@@ -472,7 +472,9 @@ fn planner_path_record_is_persisted_in_run_report() {
 
     assert_eq!(report.terminal_state, Some(TerminalState::Done));
     assert_eq!(report.reviewer_verdicts.len(), 3);
-    let ensemble = report.review_ensemble_result.expect("ensemble result must be present");
+    let ensemble = report
+        .review_ensemble_result
+        .expect("ensemble result must be present");
     assert!(ensemble.passed);
     assert!(ensemble.reason_codes.is_empty());
 }
@@ -502,10 +504,14 @@ fn review_ensemble_security_rejection_blocks_run() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"REVIEW_ENSEMBLE_SECURITY_REJECTION".to_string()));
-    let ensemble = report.review_ensemble_result.expect("ensemble result must be present");
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"REVIEW_ENSEMBLE_SECURITY_REJECTION".to_string())
+    );
+    let ensemble = report
+        .review_ensemble_result
+        .expect("ensemble result must be present");
     assert!(!ensemble.passed);
 }
 
@@ -754,9 +760,11 @@ fn high_risk_is_blocked_by_default() {
     let report = Orchestrator::new(config, None).execute();
 
     assert_eq!(report.terminal_state, Some(TerminalState::Blocked));
-    assert!(report
-        .blocked_reason_codes
-        .contains(&"REVIEW_ENSEMBLE_TIE_FAIL_CLOSED".to_string()));
+    assert!(
+        report
+            .blocked_reason_codes
+            .contains(&"REVIEW_ENSEMBLE_TIE_FAIL_CLOSED".to_string())
+    );
     assert_eq!(report.risk_tier, Some(RiskTier::High));
     assert!(
         report

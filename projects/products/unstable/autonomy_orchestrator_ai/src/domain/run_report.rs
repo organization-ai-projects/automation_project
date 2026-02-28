@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::{
     AdaptivePolicyDecision, DecisionContribution, DecisionReliabilityFactor,
-    DecisionReliabilityUpdate, FinalDecision, GateDecision, HardGateResult, PlannerPathRecord, ReviewEnsembleResult, ReviewerVerdict,
-    RiskSignal, RiskTier, Stage, StageExecutionRecord, StageTransition, TerminalState,
+    DecisionReliabilityUpdate, FinalDecision, GateDecision, HardGateResult, PlannerPathRecord,
+    ReviewEnsembleResult, ReviewerVerdict, RiskSignal, RiskTier, Stage, StageExecutionRecord,
+    StageTransition, TerminalState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,4 +66,3 @@ impl RunReport {
         }
     }
 }
-
