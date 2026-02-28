@@ -94,7 +94,7 @@ fn workspace_root() -> PathBuf {
     path
 }
 
-fn run_with_default_gates(extra_args: &[&str], out_dir: &PathBuf) -> (Output, MatrixReportView) {
+fn run_with_passing_gates(extra_args: &[&str], out_dir: &PathBuf) -> (Output, MatrixReportView) {
     let mut args = vec![
         "--policy-status",
         "allow",
@@ -107,14 +107,14 @@ fn run_with_default_gates(extra_args: &[&str], out_dir: &PathBuf) -> (Output, Ma
     run_orchestrator(&args, out_dir)
 }
 
-fn has_stage_status(report: &MatrixReportView, stage: &str, status: &str) -> bool {
+fn report_contains_stage_status(report: &MatrixReportView, stage: &str, status: &str) -> bool {
     report.stage_executions.iter().any(|execution| {
         json_field_str(execution, "stage") == Some(stage)
             && json_field_str(execution, "status") == Some(status)
     })
 }
 
-fn has_command_status(report: &MatrixReportView, command: &str, status: &str) -> bool {
+fn report_contains_command_status(report: &MatrixReportView, command: &str, status: &str) -> bool {
     report.stage_executions.iter().any(|execution| {
         json_field_str(execution, "command") == Some(command)
             && json_field_str(execution, "status") == Some(status)
@@ -125,7 +125,7 @@ fn has_command_status(report: &MatrixReportView, command: &str, status: &str) ->
 fn matrix_happy_path_reaches_done() {
     let out_dir = unique_temp_dir("happy_path");
 
-    let (output, report) = run_with_default_gates(
+    let (output, report) = run_with_passing_gates(
         &[
             "--manager-bin",
             fixture_bin(),
@@ -159,7 +159,11 @@ fn matrix_happy_path_reaches_done() {
             .iter()
             .all(|e| json_field_str(e, "status") == Some("success"))
     );
-    assert!(has_stage_status(&report, "validation", "success"));
+    assert!(report_contains_stage_status(
+        &report,
+        "validation",
+        "success"
+    ));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -249,7 +253,7 @@ fn matrix_review_rejection_blocks_with_reason_code() {
 fn matrix_timeout_sets_timeout_terminal_state() {
     let out_dir = unique_temp_dir("timeout");
 
-    let (output, report) = run_with_default_gates(
+    let (output, report) = run_with_passing_gates(
         &[
             "--timeout-ms",
             "10",
@@ -292,7 +296,7 @@ fn matrix_crash_resume_skips_completed_stage_and_finishes() {
         common_json::to_string_pretty(&fixture).expect("serialize checkpoint fixture");
     fs::write(&checkpoint_path, fixture_json).expect("write checkpoint fixture");
 
-    let (output, report) = run_with_default_gates(
+    let (output, report) = run_with_passing_gates(
         &[
             "--resume",
             "--manager-bin",
@@ -311,8 +315,12 @@ fn matrix_crash_resume_skips_completed_stage_and_finishes() {
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     assert!(report.blocked_reason_codes.is_empty());
 
-    assert!(has_stage_status(&report, "planning", "skipped"));
-    assert!(has_stage_status(&report, "execution", "success"));
+    assert!(report_contains_stage_status(&report, "planning", "skipped"));
+    assert!(report_contains_stage_status(
+        &report,
+        "execution",
+        "success"
+    ));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -322,7 +330,7 @@ fn matrix_planning_context_artifact_is_written() {
     let out_dir = unique_temp_dir("planning_context");
     let artifact_path = out_dir.join("planning/repo_context.json");
 
-    let (output, report) = run_with_default_gates(
+    let (output, report) = run_with_passing_gates(
         &[
             "--repo-root",
             workspace_root().to_str().expect("utf-8 workspace root"),
@@ -396,7 +404,7 @@ fn matrix_planning_context_artifact_is_written() {
             Err(_) => false,
         }
     }));
-    assert!(has_stage_status(&report, "planning", "success"));
+    assert!(report_contains_stage_status(&report, "planning", "success"));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -536,7 +544,7 @@ fn matrix_execution_budget_at_cap_does_not_adapt() {
 fn matrix_native_validation_command_success_reaches_done() {
     let out_dir = unique_temp_dir("native_validation_success");
 
-    let (output, report) = run_with_default_gates(
+    let (output, report) = run_with_passing_gates(
         &[
             "--validation-bin",
             fixture_bin(),
@@ -550,7 +558,11 @@ fn matrix_native_validation_command_success_reaches_done() {
 
     assert!(output.status.success());
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
-    assert!(has_stage_status(&report, "validation", "success"));
+    assert!(report_contains_stage_status(
+        &report,
+        "validation",
+        "success"
+    ));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -559,7 +571,7 @@ fn matrix_native_validation_command_success_reaches_done() {
 fn matrix_native_validation_command_failure_fails_closed() {
     let out_dir = unique_temp_dir("native_validation_failure");
 
-    let (output, report) = run_with_default_gates(
+    let (output, report) = run_with_passing_gates(
         &[
             "--validation-bin",
             fixture_bin(),
@@ -573,7 +585,11 @@ fn matrix_native_validation_command_failure_fails_closed() {
 
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(report.terminal_state.as_deref(), Some("failed"));
-    assert!(has_stage_status(&report, "validation", "failed"));
+    assert!(report_contains_stage_status(
+        &report,
+        "validation",
+        "failed"
+    ));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -610,7 +626,11 @@ fn matrix_cycle_memory_reinjects_validation_commands_on_next_run() {
     let (first_output, first_report) = run_orchestrator_owned(&first_args, &out_dir);
     assert!(first_output.status.success());
     assert_eq!(first_report.terminal_state.as_deref(), Some("done"));
-    assert!(has_command_status(&first_report, fixture_bin(), "success"));
+    assert!(report_contains_command_status(
+        &first_report,
+        fixture_bin(),
+        "success"
+    ));
 
     let cycle_memory_path = out_dir.join("orchestrator_cycle_memory.bin");
     assert!(
@@ -618,7 +638,7 @@ fn matrix_cycle_memory_reinjects_validation_commands_on_next_run() {
         "cycle memory should be persisted after first run"
     );
 
-    let (second_output, second_report) = run_with_default_gates(&[], &out_dir);
+    let (second_output, second_report) = run_with_passing_gates(&[], &out_dir);
     assert!(second_output.status.success());
     assert_eq!(second_report.terminal_state.as_deref(), Some("done"));
     assert!(
