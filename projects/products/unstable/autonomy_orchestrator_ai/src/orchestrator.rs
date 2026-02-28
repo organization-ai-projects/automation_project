@@ -16,6 +16,7 @@ use crate::domain::{
     OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
     Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
 };
+use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
 use crate::planner_output::read_planner_output_from_artifacts;
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
@@ -54,6 +55,7 @@ pub struct Orchestrator {
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
+    hard_gates_file: Option<PathBuf>,
 }
 
 impl Orchestrator {
@@ -134,6 +136,7 @@ impl Orchestrator {
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
             planned_remediation_steps,
+            hard_gates_file: config.hard_gates_file,
         }
     }
 
@@ -141,6 +144,12 @@ impl Orchestrator {
         if self.checkpoint.terminal_state == Some(TerminalState::Done) {
             self.report.terminal_state = Some(TerminalState::Done);
             self.report.current_stage = Some(Stage::Closure);
+            return self.report;
+        }
+
+        if !self.evaluate_hard_gates_prerun() {
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
             return self.report;
         }
 
@@ -1151,6 +1160,54 @@ impl Orchestrator {
                 });
             }
         }
+    }
+
+    fn evaluate_hard_gates_prerun(&mut self) -> bool {
+        let mut rules = builtin_rules();
+        if let Some(path) = &self.hard_gates_file {
+            match load_external_rules(path) {
+                Ok(external) => rules.extend(external),
+                Err(err) => {
+                    self.report
+                        .blocked_reason_codes
+                        .push("HARD_GATE_EXTERNAL_RULES_LOAD_FAILED".to_string());
+                    eprintln!("Hard gates: {err}");
+                    return false;
+                }
+            }
+        }
+
+        let mut tokens: Vec<String> = Vec::new();
+        for spec in [
+            self.planning_invocation.as_ref(),
+            self.execution_invocation.as_ref(),
+            self.validation_invocation.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            tokens.push(spec.command_line.command.clone());
+            tokens.extend(spec.command_line.args.clone());
+        }
+        for spec in &self.validation_invocations {
+            tokens.push(spec.command_line.command.clone());
+            tokens.extend(spec.command_line.args.clone());
+        }
+
+        let results = evaluate_hard_gates(&rules, &tokens);
+        let mut any_failed = false;
+        for result in &results {
+            if !result.passed {
+                any_failed = true;
+                if !self.report.blocked_reason_codes.contains(&result.reason_code) {
+                    self.report
+                        .blocked_reason_codes
+                        .push(result.reason_code.clone());
+                }
+            }
+        }
+        self.report.hard_gate_results = results;
+        !any_failed
     }
 
     fn evaluate_fail_closed_gates(&mut self) -> bool {

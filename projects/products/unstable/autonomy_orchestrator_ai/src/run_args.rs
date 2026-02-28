@@ -142,4 +142,7 @@ pub struct RunArgs {
 
     #[arg(long)]
     pub ai_config_only_binary: bool,
+
+    #[arg(long)]
+    pub hard_gates_file: Option<PathBuf>,
 }
