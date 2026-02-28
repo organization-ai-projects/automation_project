@@ -1,0 +1,14 @@
+(
+    intent_id: IntentId("intent-music-018"),
+    intent_version: IntentVersion(1),
+    created_at: "2026-01-01T00:00:00Z",
+    author: Some("test"),
+    payload: Cinematography((
+        subject_description: "musician",
+        shot_type: "medium",
+        lighting_style: "dramatic",
+        background: "concert_stage",
+        fov_deg: Some(35.0),
+        camera_distance: Some(3.0),
+    )),
+)

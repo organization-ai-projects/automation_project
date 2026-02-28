@@ -19,6 +19,8 @@ Runs script integrity and shell regression checks for automation/versioning tool
    - direct issue creation dry-run contract test
    - closure neutralizer regression suite
    - done-in-dev status regression suite
+   - hook convention guardrails regression suite
+   - auto-add closes-on-dev-PR regression suite
 
 ## Purpose
 

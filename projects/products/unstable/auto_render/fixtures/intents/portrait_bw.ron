@@ -1,0 +1,14 @@
+(
+    intent_id: IntentId("intent-portrait-bw-014"),
+    intent_version: IntentVersion(1),
+    created_at: "2026-01-01T00:00:00Z",
+    author: Some("test"),
+    payload: Cinematography((
+        subject_description: "monochrome portrait",
+        shot_type: "medium",
+        lighting_style: "dramatic",
+        background: "plain_gray",
+        fov_deg: Some(40.0),
+        camera_distance: Some(2.5),
+    )),
+)

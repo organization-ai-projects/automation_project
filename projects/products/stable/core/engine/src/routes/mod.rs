@@ -19,7 +19,7 @@ pub(crate) use auth::login;
 pub(crate) use setup::{health, setup_admin, setup_status};
 
 // Re-exports from projects
-pub(crate) use projects::list_projects;
+pub(crate) use projects::{list_projects, start_project, stop_project};
 
 // Re-exports from accounts
 pub(crate) use accounts::{

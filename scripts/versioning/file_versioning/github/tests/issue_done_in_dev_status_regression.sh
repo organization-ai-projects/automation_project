@@ -151,6 +151,20 @@ main() {
     "--on-dev-merge --pr 55"
 
   run_case \
+    "dev-merge-adds-label-for-open-fixes-refs" \
+    0 \
+    "Issue #101: added label 'done-in-dev'." \
+    "--on-dev-merge --pr 55" \
+    env MOCK_PR_BODY="Fixes #101"
+
+  run_case \
+    "dev-merge-ignores-close-singular-ref" \
+    0 \
+    "No closing issue refs found for PR #55." \
+    "--on-dev-merge --pr 55" \
+    env MOCK_PR_BODY="Close #101" MOCK_PR_COMMITS=""
+
+  run_case \
     "issue-closed-removes-label" \
     0 \
     "Issue #202: removed label 'done-in-dev'." \

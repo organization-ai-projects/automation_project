@@ -52,7 +52,7 @@ jobs:
           normalize() {
             printf '%s' "$1" \
               | sed 's/- \[[ xX]\]/- [_]/g' \
-              | perl -0777 -pe 's/\b(closes?)\s+rejected\s+(#[0-9]+)\b/$1 $2/ig'
+              | perl -0777 -pe 's/\b(closes|fixes)\s+rejected\s+(#[0-9]+)\b/$1 $2/ig'
           }
           prev_norm="$(normalize "$PREV_BODY")"
           curr_norm="$(normalize "$CURR_BODY")"

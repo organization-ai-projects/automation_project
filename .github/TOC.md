@@ -11,6 +11,7 @@ This document provides an overview of all documentation files in this directory.
 - [automation_rustfmt.yml](workflows/automation_rustfmt.yml): Applies rustfmt on PRs.
 - [automation_sync.yml](workflows/automation_sync.yml): Syncs `main` into `dev` after merge.
 - [issue_done_in_dev_status.yml](workflows/issue_done_in_dev_status.yml): Adds/removes `done-in-dev` label based on dev merges and issue closures.
+- [pr_auto_closes_enrichment.yml](workflows/pr_auto_closes_enrichment.yml): Auto-adds managed `Closes #...` lines to open PRs targeting `dev` when assignment criteria are met.
 - [pr_closure_neutralizer.yml](workflows/pr_closure_neutralizer.yml): Neutralizes closure refs to non-compliant issues (`... rejected #...`) and comments remediation.
 
 ## Documentation
@@ -22,6 +23,6 @@ This document provides an overview of all documentation files in this directory.
 ## Related Governance Docs
 
 - [Branch Naming Convention](../documentation/technical_documentation/branch_naming_convention.md): Formal branch naming policy and examples.
-- [Commit Footer Policy](../documentation/technical_documentation/commit_footer_policy.md): Rules for `Part of`/`Closes` and `Reopen` override.
+- [Commit Footer Policy](../documentation/technical_documentation/commit_footer_policy.md): Rules for `Part of`/`Closes`, `Reopen` override, and assignee-aware closure policy.
 - [Documentation Ownership Map](../documentation/technical_documentation/documentation_ownership_map.md): Ownership responsibilities for documentation areas.
 - [Labels Taxonomy](../documentation/technical_documentation/labels_taxonomy.md): Label policy for issues and pull requests.

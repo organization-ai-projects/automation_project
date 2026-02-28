@@ -8,7 +8,7 @@ parse_closing_issue_refs_from_text() {
     {
       line = $0
       lower = tolower($0)
-      while (match(lower, /(closes|close)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
+      while (match(lower, /(closes|fixes)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
         if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
           lower = substr(lower, RSTART + 1)
           line = substr(line, RSTART + 1)
@@ -23,7 +23,7 @@ parse_closing_issue_refs_from_text() {
         issue_ref = parts[n]
         sub(/^.*#/, "#", issue_ref)
 
-        if (token ~ /^clos/) {
+        if (token == "closes" || token == "fixes") {
           action = "Closes"
         } else {
           action = ""
@@ -46,7 +46,7 @@ parse_pr_body_closing_issue_refs_from_text() {
     {
       line = $0
       lower = tolower($0)
-      while (match(lower, /(closes|close|fixes)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
+      while (match(lower, /(closes|fixes)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
         if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
           lower = substr(lower, RSTART + 1)
           line = substr(line, RSTART + 1)
@@ -61,7 +61,7 @@ parse_pr_body_closing_issue_refs_from_text() {
         issue_ref = parts[n]
         sub(/^.*#/, "#", issue_ref)
 
-        if (token == "close" || token == "closes" || token == "fixes") {
+        if (token == "closes" || token == "fixes") {
           action = "Closes"
         } else {
           action = ""
@@ -118,14 +118,14 @@ parse_non_closing_issue_refs_from_text() {
 
 parse_neutralized_closing_issue_refs_from_text() {
   local text="$1"
-  # Matches "closes rejected #N" (previously neutralized refs).
+  # Matches "closes rejected #N" or "fixes rejected #N" (previously neutralized refs).
   # The [^[:space:]]* segment allows optional owner/repo prefixes (e.g. "org/repo#42"),
   # consistent with parse_closing_issue_refs_from_text.
   echo "$text" | awk '
     {
       line = $0
       lower = tolower($0)
-      while (match(lower, /(closes?)[[:space:]]+rejected[[:space:]]+[^[:space:]]*#[0-9]+/)) {
+      while (match(lower, /(closes|fixes)[[:space:]]+rejected[[:space:]]+[^[:space:]]*#[0-9]+/)) {
         if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
           lower = substr(lower, RSTART + 1)
           line = substr(line, RSTART + 1)
@@ -140,7 +140,7 @@ parse_neutralized_closing_issue_refs_from_text() {
         issue_ref = parts[n]
         sub(/^.*#/, "#", issue_ref)
 
-        if (token ~ /^clos/) {
+        if (token == "closes" || token == "fixes") {
           action = "Closes"
         } else {
           action = ""

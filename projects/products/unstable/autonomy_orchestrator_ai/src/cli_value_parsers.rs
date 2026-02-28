@@ -1,5 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/cli_value_parsers.rs
-use crate::domain::{DecisionContribution, DecisionReliabilityInput, FinalDecision};
+use crate::domain::{
+    DecisionContribution, DecisionReliabilityInput, FinalDecision, ReviewVerdict, ReviewerVerdict,
+};
 
 pub fn parse_env_pair_cli(raw: &str) -> Result<(String, String), String> {
     let mut split = raw.splitn(2, '=');
@@ -86,6 +88,83 @@ pub fn parse_decision_contribution_cli(raw: &str) -> Result<DecisionContribution
         weight,
         reason_codes,
         artifact_refs,
+    })
+}
+
+pub fn parse_reviewer_verdict_cli(raw: &str) -> Result<ReviewerVerdict, String> {
+    let mut reviewer_id = None::<String>;
+    let mut specialty = None::<String>;
+    let mut verdict = None::<ReviewVerdict>;
+    let mut confidence = None::<u8>;
+    let mut weight = None::<u8>;
+    let mut reason_codes = Vec::<String>::new();
+
+    for segment in raw.split(',') {
+        let (key, value) = segment
+            .split_once('=')
+            .ok_or_else(|| format!("Invalid reviewer verdict segment '{segment}'"))?;
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "reviewer_id" => reviewer_id = Some(value.to_string()),
+            "specialty" => specialty = Some(value.to_string()),
+            "verdict" => {
+                verdict = Some(match value {
+                    "approve" => ReviewVerdict::Approve,
+                    "reject" => ReviewVerdict::Reject,
+                    other => {
+                        return Err(format!(
+                            "Invalid reviewer verdict '{}', expected approve|reject",
+                            other
+                        ));
+                    }
+                })
+            }
+            "confidence" => {
+                confidence = Some(value.parse::<u8>().map_err(|_| {
+                    format!("Invalid confidence '{}', expected integer 0..100", value)
+                })?)
+            }
+            "weight" => {
+                weight =
+                    Some(value.parse::<u8>().map_err(|_| {
+                        format!("Invalid weight '{}', expected integer 1..100", value)
+                    })?)
+            }
+            "reason_codes" => {
+                reason_codes = split_pipe_list(value);
+            }
+            other => return Err(format!("Unknown reviewer verdict key '{}'", other)),
+        }
+    }
+
+    let confidence = confidence
+        .ok_or_else(|| "Missing reviewer verdict field 'confidence' (0..100)".to_string())?;
+    if confidence > 100 {
+        return Err(format!(
+            "Invalid confidence '{}', expected integer 0..100",
+            confidence
+        ));
+    }
+
+    let weight =
+        weight.ok_or_else(|| "Missing reviewer verdict field 'weight' (1..100)".to_string())?;
+    if weight == 0 || weight > 100 {
+        return Err(format!(
+            "Invalid weight '{}', expected integer 1..100",
+            weight
+        ));
+    }
+
+    Ok(ReviewerVerdict {
+        reviewer_id: reviewer_id
+            .ok_or_else(|| "Missing reviewer verdict field 'reviewer_id'".to_string())?,
+        specialty: specialty
+            .ok_or_else(|| "Missing reviewer verdict field 'specialty'".to_string())?,
+        verdict: verdict.ok_or_else(|| "Missing reviewer verdict field 'verdict'".to_string())?,
+        confidence,
+        weight,
+        reason_codes,
     })
 }
 

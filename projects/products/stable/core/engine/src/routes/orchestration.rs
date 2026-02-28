@@ -5,7 +5,8 @@ use warp::{Filter, Reply, http::StatusCode};
 
 use super::{
     create_account, get_account, health, http_error, list_accounts, list_projects, login,
-    reset_password, setup_admin, setup_status, update_account, update_status,
+    reset_password, setup_admin, setup_status, start_project, stop_project, update_account,
+    update_status,
 };
 use crate::{CorsConfig, EngineState};
 
@@ -84,6 +85,18 @@ pub(crate) fn build_routes(
         .and(with_state.clone())
         .and_then(list_projects);
 
+    let project_start_route = warp::path!("projects" / String / "start")
+        .and(warp::post())
+        .and(warp::header::headers_cloned())
+        .and(with_state.clone())
+        .and_then(start_project);
+
+    let project_stop_route = warp::path!("projects" / String / "stop")
+        .and(warp::post())
+        .and(warp::header::headers_cloned())
+        .and(with_state.clone())
+        .and_then(stop_project);
+
     let accounts_list_route = warp::path!("accounts" / "users")
         .and(warp::get())
         .and(warp::header::headers_cloned())
@@ -131,6 +144,8 @@ pub(crate) fn build_routes(
         .or(setup_route)
         .or(setup_status_route)
         .or(projects_route)
+        .or(project_start_route)
+        .or(project_stop_route)
         .or(accounts_list_route)
         .or(accounts_create_route)
         .or(accounts_get_route)

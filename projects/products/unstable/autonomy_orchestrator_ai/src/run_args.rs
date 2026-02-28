@@ -4,11 +4,12 @@ use std::path::PathBuf;
 use clap::{ArgAction, Args};
 
 use crate::{
-    cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus},
+    cli_command::{CliCiStatus, CliPolicyStatus, CliReviewStatus, CliRiskTier},
     cli_value_parsers::{
         parse_decision_contribution_cli, parse_decision_reliability_input_cli, parse_env_pair_cli,
+        parse_reviewer_verdict_cli,
     },
-    domain::{DecisionContribution, DecisionReliabilityInput},
+    domain::{DecisionContribution, DecisionReliabilityInput, ReviewerVerdict},
 };
 
 #[derive(Args, Debug, Clone)]
@@ -39,6 +40,13 @@ pub struct RunArgs {
     pub decision_contributions: Vec<DecisionContribution>,
     #[arg(long = "decision-reliability", value_parser = parse_decision_reliability_input_cli, action = ArgAction::Append)]
     pub decision_reliability_inputs: Vec<DecisionReliabilityInput>,
+    #[arg(long = "reviewer-verdict", value_parser = parse_reviewer_verdict_cli, action = ArgAction::Append)]
+    pub reviewer_verdicts: Vec<ReviewerVerdict>,
+
+    #[arg(long, default_value_t = 40)]
+    pub pr_risk_threshold: u16,
+    #[arg(long)]
+    pub auto_merge_on_eligible: bool,
 
     #[arg(long)]
     pub checkpoint_path: Option<PathBuf>,
@@ -46,6 +54,12 @@ pub struct RunArgs {
     pub cycle_memory_path: Option<PathBuf>,
     #[arg(long)]
     pub next_actions_path: Option<PathBuf>,
+    #[arg(long)]
+    pub memory_path: Option<PathBuf>,
+    #[arg(long, default_value_t = 500)]
+    pub memory_max_entries: u32,
+    #[arg(long, default_value_t = 100)]
+    pub memory_decay_window_runs: u32,
     #[arg(long)]
     pub autonomous_loop: bool,
     #[arg(long, default_value_t = 3)]
@@ -123,6 +137,13 @@ pub struct RunArgs {
     pub delivery_pr_body: Option<String>,
 
     #[arg(long)]
+    pub rollout_enabled: bool,
+    #[arg(long, default_value_t = 0.05)]
+    pub rollback_error_rate_threshold: f32,
+    #[arg(long, default_value_t = 5_000)]
+    pub rollback_latency_threshold_ms: u64,
+
+    #[arg(long)]
     pub config_save_ron: Option<PathBuf>,
     #[arg(long)]
     pub config_save_bin: Option<PathBuf>,
@@ -142,4 +163,20 @@ pub struct RunArgs {
 
     #[arg(long)]
     pub ai_config_only_binary: bool,
+
+    #[arg(long)]
+    pub autofix_enabled: bool,
+    #[arg(long)]
+    pub autofix_bin: Option<String>,
+    #[arg(long = "autofix-arg", action = ArgAction::Append)]
+    pub autofix_args: Vec<String>,
+    #[arg(long, default_value_t = 3)]
+    pub autofix_max_attempts: u32,
+    pub hard_gates_file: Option<PathBuf>,
+    #[arg(long, default_value_t = 3)]
+    pub planner_fallback_max_steps: u32,
+    #[arg(long, value_enum)]
+    pub risk_tier_override: Option<CliRiskTier>,
+    #[arg(long, default_value_t = false)]
+    pub risk_allow_high: bool,
 }

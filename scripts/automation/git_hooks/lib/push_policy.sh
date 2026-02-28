@@ -11,8 +11,130 @@ source "$HOOKS_DIR/lib/issue_parent_guard.sh"
 source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/policy.sh
 source "$HOOKS_DIR/lib/policy.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/hook_utils.sh
-source "$HOOKS_DIR/lib/hook_utils.sh"
+# shellcheck source=scripts/common_lib/automation/file_types.sh
+source "$ROOT_DIR/scripts/common_lib/automation/file_types.sh"
+# shellcheck source=scripts/automation/git_hooks/lib/markdownlint_policy.sh
+source "$HOOKS_DIR/lib/markdownlint_policy.sh"
+
+push_policy_remote_checks_warn_only() {
+  if [[ "${HOOKS_REMOTE_POLICY:-}" == "warn" || "${ALLOW_OFFLINE_REMOTE_CHECKS:-}" == "1" ]]; then
+    return 0
+  fi
+  return 1
+}
+
+push_policy_resolve_upstream_branch() {
+  local upstream
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")"
+  if [[ -z "$upstream" ]]; then
+    echo "⚠️  No upstream branch detected. Falling back to origin/dev for scope detection." >&2
+    upstream="origin/dev"
+  fi
+  printf '%s\n' "$upstream"
+}
+
+push_policy_collect_push_commits() {
+  local upstream="$1"
+  git log "$upstream"..HEAD --format=%B 2>/dev/null || true
+}
+
+push_policy_refresh_upstream_branch() {
+  local upstream="$1"
+  local current_branch
+  local upstream_branch
+
+  current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+
+  if [[ -n "$upstream" && "$upstream" == */* ]]; then
+    upstream_branch="${upstream#*/}"
+    git fetch origin "$upstream_branch" >/dev/null 2>&1 || true
+    return 0
+  fi
+
+  if [[ -n "$current_branch" ]]; then
+    git fetch origin "$current_branch" >/dev/null 2>&1 || true
+  fi
+}
+
+push_policy_extract_issue_refs_with_duplicates() {
+  local text="$1"
+  echo "$text" | awk '
+    {
+      line = $0
+      lower = tolower($0)
+      while (match(lower, /(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+/)) {
+        matched = substr(line, RSTART, RLENGTH)
+        keyword = tolower(matched)
+        gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
+        issue = matched
+        sub(/^.*#/, "", issue)
+        print keyword "|" issue
+        line = substr(line, RSTART + RLENGTH)
+        lower = substr(lower, RSTART + RLENGTH)
+      }
+    }
+  '
+}
+
+push_policy_compute_changed_files() {
+  local upstream="$1"
+  local files=""
+
+  files=$(git diff --name-only "${upstream}"..HEAD 2>/dev/null || true)
+  if [[ -n "$files" ]]; then
+    printf '%s\n' "$files"
+    return 0
+  fi
+
+  if git rev-parse --verify --quiet origin/dev >/dev/null; then
+    local base
+    base=$(git merge-base origin/dev HEAD 2>/dev/null || true)
+    if [[ -n "$base" ]]; then
+      files=$(git diff --name-only "${base}"..HEAD 2>/dev/null || true)
+      if [[ -n "$files" ]]; then
+        printf '%s\n' "$files"
+        return 0
+      fi
+    fi
+  fi
+
+  files=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)
+  printf '%s\n' "$files"
+}
+
+push_policy_collect_markdown_files() {
+  local files="$1"
+  local file
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    if is_markdown_path_file "$file" && [[ -f "$file" ]]; then
+      printf '%s\n' "$file"
+    fi
+  done <<< "$files"
+}
+
+push_policy_run_shell_syntax_checks() {
+  local files="$1"
+  local checked=0
+  local file
+
+  while IFS= read -r file; do
+    if is_shell_file "$file"; then
+      echo "   - bash -n $file"
+      bash -n "$file"
+      checked=1
+    fi
+  done <<< "$files"
+
+  if [[ $checked -eq 0 ]]; then
+    echo "   (no shell scripts changed)"
+  fi
+}
+
+push_policy_run_markdownlint_checks() {
+  markdownlint_policy_run_checks "$1"
+}
 
 push_policy_validate_no_root_parent_issue_refs() {
   local commits_input="$1"
@@ -21,6 +143,10 @@ push_policy_validate_no_root_parent_issue_refs() {
   [[ -z "$refs" ]] && return 0
 
   if ! command -v gh >/dev/null 2>&1; then
+    if push_policy_remote_checks_warn_only; then
+      echo "⚠️  Remote footer check skipped (gh unavailable; warn-only mode enabled)."
+      return 0
+    fi
     echo "❌ Cannot validate root parent issue references: 'gh' CLI is required."
     echo "   Install gh, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
     return 1
@@ -29,6 +155,10 @@ push_policy_validate_no_root_parent_issue_refs() {
   local repo_name
   repo_name="$(resolve_repo_name_with_owner)"
   if [[ -z "$repo_name" ]]; then
+    if push_policy_remote_checks_warn_only; then
+      echo "⚠️  Remote footer check skipped (repo unresolved; warn-only mode enabled)."
+      return 0
+    fi
     echo "❌ Cannot resolve GitHub repository for footer validation."
     echo "   Ensure gh auth/network is available, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
     return 1
@@ -47,7 +177,7 @@ push_policy_validate_no_root_parent_issue_refs() {
   if [[ ${#parent_refs[@]} -gt 0 ]]; then
     echo "❌ Root parent issue references detected in commits being pushed:"
     printf '   - %s\n' "${parent_refs[@]}"
-    echo "   Root parent refs are forbidden in commit trailers (Part of/Closes/Reopen)."
+    echo "   Root parent refs are forbidden in commit trailers (Part of/Closes/Fixes/Reopen)."
     echo "   Reference child issues instead."
     return 1
   fi
@@ -55,28 +185,94 @@ push_policy_validate_no_root_parent_issue_refs() {
 
 push_policy_validate_part_of_only_push() {
   local commits_input="$1"
-  local refs
+  local refs_with_duplicates
   local action
-  local has_tracking=0
-  local has_closing=0
+  local issue_number
+  local repo_name
+  local current_login
+  local -a violations=()
 
-  refs="$(extract_issue_refs_from_text "$commits_input" || true)"
-  [[ -z "$refs" ]] && return 0
+  refs_with_duplicates="$(push_policy_extract_issue_refs_with_duplicates "$commits_input" || true)"
+  [[ -z "$refs_with_duplicates" ]] && return 0
 
-  while IFS='|' read -r action _; do
-    [[ -z "$action" ]] && continue
-    if [[ "$action" == "closes" ]]; then
-      has_closing=1
+  if ! command -v gh >/dev/null 2>&1; then
+    if push_policy_remote_checks_warn_only; then
+      echo "⚠️  Assignment policy check skipped (gh unavailable; warn-only mode enabled)."
+      return 0
     fi
+    if [[ "${ALLOW_PART_OF_ONLY_PUSH:-}" == "1" ]]; then
+      return 0
+    fi
+    echo "❌ Cannot validate Part-of assignment policy: 'gh' CLI is required."
+    echo "   Install gh, or bypass in emergency:"
+    echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
+    return 1
+  fi
+
+  repo_name="$(resolve_repo_name_with_owner)"
+  if [[ -z "$repo_name" ]]; then
+    if push_policy_remote_checks_warn_only; then
+      echo "⚠️  Assignment policy check skipped (repo unresolved; warn-only mode enabled)."
+      return 0
+    fi
+    if [[ "${ALLOW_PART_OF_ONLY_PUSH:-}" == "1" ]]; then
+      return 0
+    fi
+    echo "❌ Cannot resolve GitHub repository for Part-of assignment policy."
+    echo "   Ensure gh auth/network is available, or bypass in emergency:"
+    echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
+    return 1
+  fi
+
+  current_login="$(gh api user --jq '.login' 2>/dev/null || true)"
+  if [[ -z "$current_login" ]]; then
+    if push_policy_remote_checks_warn_only; then
+      echo "⚠️  Assignment policy check skipped (login unresolved; warn-only mode enabled)."
+      return 0
+    fi
+    if [[ "${ALLOW_PART_OF_ONLY_PUSH:-}" == "1" ]]; then
+      return 0
+    fi
+    echo "❌ Cannot resolve current GitHub login for Part-of assignment policy."
+    echo "   Authenticate gh, or bypass in emergency:"
+    echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
+    return 1
+  fi
+
+  declare -A has_part_of=()
+  declare -A has_closing=()
+  declare -A assignee_count=()
+  declare -A sole_assignee=()
+
+  while IFS='|' read -r action issue_number; do
+    [[ -z "$action" || -z "$issue_number" ]] && continue
     if [[ "$action" == "part of" ]]; then
-      has_tracking=1
+      has_part_of["$issue_number"]=1
     fi
-  done <<< "$refs"
+    if [[ "$action" == "closes" || "$action" == "fixes" ]]; then
+      has_closing["$issue_number"]=1
+    fi
+  done <<< "$refs_with_duplicates"
 
-  if [[ $has_tracking -eq 1 && $has_closing -eq 0 && "${ALLOW_PART_OF_ONLY_PUSH:-}" != "1" ]]; then
-    echo "❌ Push blocked: commit range contains tracking refs (Part of) without any closing ref."
-    echo "   This usually indicates incomplete issue lifecycle updates."
-    echo "   Fix by adding proper child issue closures when done, or confirm exceptional push with:"
+  for issue_number in "${!has_part_of[@]}"; do
+    [[ -n "${has_closing[$issue_number]:-}" ]] && continue
+
+    local assignees
+    local count
+    assignees="$(gh issue view "$issue_number" -R "$repo_name" --json assignees --jq '.assignees[].login' 2>/dev/null || true)"
+    count="$(printf '%s\n' "$assignees" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
+    assignee_count["$issue_number"]="${count:-0}"
+    sole_assignee["$issue_number"]="$(printf '%s\n' "$assignees" | sed '/^$/d' | head -n1)"
+
+    if [[ "${assignee_count[$issue_number]}" == "1" && "${sole_assignee[$issue_number]}" == "$current_login" ]]; then
+      violations+=("#${issue_number} is assigned only to @${current_login}: 'Closes #${issue_number}' is required (Part of only is not allowed)")
+    fi
+  done
+
+  if [[ ${#violations[@]} -gt 0 && "${ALLOW_PART_OF_ONLY_PUSH:-}" != "1" ]]; then
+    echo "❌ Push blocked by assignment policy."
+    printf '   - %s\n' "${violations[@]}"
+    echo "   If this push is exceptional, bypass once with:"
     echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
     return 1
   fi

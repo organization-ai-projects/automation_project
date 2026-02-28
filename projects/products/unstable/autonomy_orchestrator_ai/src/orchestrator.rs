@@ -7,16 +7,31 @@ use crate::artifacts::{
     load_cycle_memory, load_next_actions, read_detected_validation_commands, save_cycle_memory,
     write_repo_context_artifact,
 };
+use crate::auto_fix_loop::AutoFixLoopConfig;
 use crate::binary_runner::invoke_binary;
 use crate::checkpoint_store::save_checkpoint;
-use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate};
+use crate::decision_aggregator::{DecisionAggregatorConfig, aggregate, ensemble_to_contribution};
 use crate::domain::{
-    BinaryInvocationSpec, CiGateStatus, CommandLineSpec, DecisionContribution,
-    DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision, GateInputs,
-    OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus, ReviewGateStatus, RunReport,
-    Stage, StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
+    AutoFixAttempt, AutoFixAttemptStatus, BinaryInvocationSpec, CiGateStatus, CommandLineSpec,
+    DecisionContribution, DecisionReliabilityInput, DeliveryOptions, FinalDecision, GateDecision,
+    GateInputs, MemoryPolicy, OrchestratorCheckpoint, OrchestratorConfig, PolicyGateStatus,
+    ReviewGateStatus, ReviewerVerdict, RiskSignal, RiskTier, RunReport, Stage,
+    StageExecutionRecord, StageExecutionStatus, StageTransition, TerminalState,
+};
+use crate::escalation_router::route_escalations;
+use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
+use crate::long_horizon_memory::{
+    LongHorizonMemoryStore, derive_reliability_inputs, enforce_policy, load_memory, record_run,
+    save_memory,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
+use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
+use crate::pr_risk::compute_pr_risk;
+use crate::provenance;
+use crate::review_ensemble::{
+    ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble,
+};
+use crate::rollout_orchestrator::{RolloutConfig, RolloutOrchestrator};
 use common_json::{Json, JsonAccess, from_str};
 use std::fs;
 use std::path::Path;
@@ -43,17 +58,35 @@ pub struct Orchestrator {
     decision_threshold: u8,
     decision_contributions: Vec<DecisionContribution>,
     decision_reliability_inputs: Vec<DecisionReliabilityInput>,
+    memory_reliability_inputs: Vec<DecisionReliabilityInput>,
     decision_require_contributions: bool,
+    reviewer_verdicts: Vec<ReviewerVerdict>,
     adaptive_policy_config: AdaptivePolicyConfig,
     execution_budget_adapted: bool,
     remediation_budget_adapted: bool,
     gate_inputs: GateInputs,
+    pr_risk_threshold: u16,
+    auto_merge_on_eligible: bool,
     checkpoint: OrchestratorCheckpoint,
     checkpoint_path: Option<PathBuf>,
     cycle_memory_path: Option<PathBuf>,
+    memory_path: Option<PathBuf>,
+    memory_policy: MemoryPolicy,
+    long_horizon_memory: LongHorizonMemoryStore,
     remediation_cycle: u32,
     remediation_steps: Vec<String>,
     planned_remediation_steps: Vec<String>,
+    last_provenance_id: String,
+    provenance_seq: u32,
+    rollout_config: RolloutConfig,
+    autofix_loop_config: AutoFixLoopConfig,
+    autofix_invocation: Option<BinaryInvocationSpec>,
+    autofix_converged: bool,
+    hard_gates_file: Option<PathBuf>,
+    planner_fallback_max_steps: u32,
+    risk_tier: Option<RiskTier>,
+    risk_signals: Vec<RiskSignal>,
+    risk_allow_high: bool,
 }
 
 impl Orchestrator {
@@ -101,11 +134,26 @@ impl Orchestrator {
         {
             planned_remediation_steps = next_actions.recommended_actions;
         }
+
+        let memory_policy = MemoryPolicy {
+            max_entries: config.memory_max_entries,
+            decay_window_runs: config.memory_decay_window_runs,
+        };
+        let long_horizon_memory = config
+            .memory_path
+            .as_deref()
+            .and_then(|path| load_memory(path).ok())
+            .unwrap_or_default();
+        let (memory_reliability_inputs, _) =
+            derive_reliability_inputs(&long_horizon_memory, &memory_policy);
+
         let checkpoint = checkpoint.unwrap_or_else(|| {
             OrchestratorCheckpoint::new(config.run_id.clone(), unix_timestamp_secs())
         });
+        let mut report = RunReport::new(config.run_id);
+        report.provenance_schema_version = provenance::SCHEMA_VERSION.to_string();
         Self {
-            report: RunReport::new(config.run_id),
+            report,
             simulate_blocked: config.simulate_blocked,
             planning_invocation: config.planning_invocation,
             execution_invocation: config.execution_invocation,
@@ -123,25 +171,122 @@ impl Orchestrator {
             decision_threshold: config.decision_threshold,
             decision_contributions: config.decision_contributions,
             decision_reliability_inputs: config.decision_reliability_inputs,
+            memory_reliability_inputs,
             decision_require_contributions: config.decision_require_contributions,
+            reviewer_verdicts: config.reviewer_verdicts,
             adaptive_policy_config: AdaptivePolicyConfig::default(),
             execution_budget_adapted: false,
             remediation_budget_adapted: false,
             gate_inputs: config.gate_inputs,
+            pr_risk_threshold: config.pr_risk_threshold,
+            auto_merge_on_eligible: config.auto_merge_on_eligible,
             checkpoint,
             checkpoint_path: config.checkpoint_path,
             cycle_memory_path: config.cycle_memory_path,
+            memory_path: config.memory_path,
+            memory_policy,
+            long_horizon_memory,
             remediation_cycle: 0,
             remediation_steps: Vec::new(),
             planned_remediation_steps,
+            last_provenance_id: String::new(),
+            provenance_seq: 0,
+            rollout_config: RolloutConfig {
+                enabled: config.rollout_enabled,
+                rollback_error_rate_threshold: config.rollback_error_rate_threshold,
+                rollback_latency_threshold_ms: config.rollback_latency_threshold_ms,
+            },
+            autofix_loop_config: AutoFixLoopConfig {
+                enabled: config.autofix_enabled,
+                max_attempts: config.autofix_max_attempts,
+            },
+            autofix_invocation: if config.autofix_enabled {
+                config.autofix_bin.map(|bin| BinaryInvocationSpec {
+                    stage: Stage::Validation,
+                    command_line: CommandLineSpec {
+                        command: bin,
+                        args: config.autofix_args,
+                    },
+                    env: Vec::new(),
+                    timeout_ms: config.timeout_ms,
+                    expected_artifacts: Vec::new(),
+                })
+            } else {
+                None
+            },
+            autofix_converged: false,
+            hard_gates_file: config.hard_gates_file,
+            planner_fallback_max_steps: config.planner_fallback_max_steps,
+            risk_tier: config.risk_tier,
+            risk_signals: config.risk_signals,
+            risk_allow_high: config.risk_allow_high,
         }
     }
 
     pub fn execute(mut self) -> RunReport {
+        let run_id = self.report.run_id.clone();
+        let root_id = format!("run:{run_id}:start");
+        provenance::record_node(
+            &mut self.report.provenance_records,
+            root_id.clone(),
+            "run_start".to_string(),
+            vec![],
+            vec![],
+            vec![],
+            unix_timestamp_secs(),
+        );
+        self.last_provenance_id = root_id;
+
+        // Persist risk classification evidence before any execution.
+        self.report.risk_tier = self.risk_tier;
+        self.report.risk_signals = self.risk_signals.clone();
+
+        // Fail-closed: block high-risk runs unless explicitly allowed.
+        if self.risk_tier == Some(RiskTier::High) && !self.risk_allow_high {
+            self.report
+                .blocked_reason_codes
+                .push("RISK_TIER_HIGH_BLOCKED".to_string());
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            return self.report;
+        }
+
+        self.execute_pipeline();
+        self.report.escalation_cases = route_escalations(&self.report);
+
+        let breakdown = compute_pr_risk(&self.report, self.pr_risk_threshold);
+        if self.auto_merge_on_eligible {
+            if breakdown.eligible_for_auto_merge {
+                let code = "PR_RISK_ELIGIBLE_FOR_AUTO_MERGE".to_string();
+                if !self.report.decision_rationale_codes.contains(&code) {
+                    self.report.decision_rationale_codes.push(code);
+                }
+            } else {
+                let code = "PR_RISK_ABOVE_THRESHOLD".to_string();
+                if !self.report.blocked_reason_codes.contains(&code) {
+                    self.report.blocked_reason_codes.push(code);
+                }
+                if self.report.terminal_state == Some(TerminalState::Done) {
+                    self.report.terminal_state = Some(TerminalState::Blocked);
+                }
+            }
+        }
+        self.report.pr_risk_breakdown = Some(breakdown);
+
+        self.record_and_save_long_horizon_memory(unix_timestamp_secs());
+        self.report
+    }
+
+    fn execute_pipeline(&mut self) {
         if self.checkpoint.terminal_state == Some(TerminalState::Done) {
             self.report.terminal_state = Some(TerminalState::Done);
             self.report.current_stage = Some(Stage::Closure);
-            return self.report;
+            return;
+        }
+
+        if !self.evaluate_hard_gates_prerun() {
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
+            return;
         }
 
         let planning_expected_artifacts = self
@@ -151,49 +296,109 @@ impl Orchestrator {
             .unwrap_or_default();
         let planning_was_completed = self.checkpoint.is_stage_completed(Stage::Planning);
         if !self.execute_stage(Stage::Planning, self.planning_invocation.clone()) {
-            return self.report;
+            return;
         }
         if !self.execute_planning_context_action(planning_was_completed) {
-            return self.report;
+            return;
         }
         if !self.apply_planner_output_from_artifacts(&planning_expected_artifacts) {
-            return self.report;
+            return;
         }
 
         if !self.execute_stage(Stage::PolicyIngestion, None) {
-            return self.report;
+            return;
         }
 
         if !self.execute_execution_validation_pipeline() {
-            return self.report;
+            return;
         }
 
         if !self.evaluate_fail_closed_gates() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
+        }
+
+        if !self.evaluate_review_ensemble() {
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
+            return;
         }
 
         if self.simulate_blocked {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
         }
         if !self.evaluate_final_decision() {
             self.report.terminal_state = Some(TerminalState::Blocked);
             self.mark_terminal_and_persist(TerminalState::Blocked);
-            return self.report;
+            return;
+        }
+
+        if self.autofix_converged {
+            self.report
+                .decision_rationale_codes
+                .push("AUTOFIX_CONVERGENCE_REACHED".to_string());
         }
 
         if !self.execute_stage(Stage::Closure, None) {
-            return self.report;
+            return;
         }
         if !self.execute_delivery_lifecycle() {
-            return self.report;
+            return;
+        }
+        if !self.execute_rollout() {
+            return;
         }
         self.report.terminal_state = Some(TerminalState::Done);
         self.mark_terminal_and_persist(TerminalState::Done);
-        self.report
+    }
+
+    fn record_and_save_long_horizon_memory(&mut self, timestamp: u64) {
+        let Some(path) = self.memory_path.clone() else {
+            return;
+        };
+        record_run(&mut self.long_horizon_memory, &self.report, timestamp);
+        let policy_codes = enforce_policy(
+            &mut self.long_horizon_memory,
+            &self.memory_policy,
+            timestamp,
+        );
+        for code in &policy_codes {
+            let stage = self.report.current_stage.unwrap_or(Stage::Planning);
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage,
+                idempotency_key: None,
+                command: "memory.policy.enforce".to_string(),
+                args: vec![code.clone()],
+                env_keys: Vec::new(),
+                started_at_unix_secs: timestamp,
+                duration_ms: 0,
+                exit_code: Some(0),
+                status: StageExecutionStatus::Success,
+                error: None,
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
+        }
+        if let Err(err) = save_memory(path.as_path(), &self.long_horizon_memory) {
+            let stage = self.report.current_stage.unwrap_or(Stage::Planning);
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage,
+                idempotency_key: None,
+                command: "memory.persist".to_string(),
+                args: vec![path.display().to_string()],
+                env_keys: Vec::new(),
+                started_at_unix_secs: timestamp,
+                duration_ms: 0,
+                exit_code: None,
+                status: StageExecutionStatus::Failed,
+                error: Some(err),
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
+        }
     }
 
     fn execute_execution_validation_pipeline(&mut self) -> bool {
@@ -207,9 +412,41 @@ impl Orchestrator {
             }
 
             if !self.try_schedule_reviewer_remediation_cycle() {
-                return false;
+                return self.execute_auto_fix_loop();
             }
         }
+    }
+
+    fn next_provenance_id(&mut self, event_type: &str) -> String {
+        self.provenance_seq += 1;
+        format!(
+            "run:{}:{}:{}",
+            self.report.run_id, event_type, self.provenance_seq
+        )
+    }
+
+    fn emit_provenance(
+        &mut self,
+        event_type: &str,
+        reason_codes: Vec<String>,
+        artifact_refs: Vec<String>,
+    ) {
+        let id = self.next_provenance_id(event_type);
+        let parent_ids = if self.last_provenance_id.is_empty() {
+            vec![]
+        } else {
+            vec![self.last_provenance_id.clone()]
+        };
+        provenance::record_node(
+            &mut self.report.provenance_records,
+            id.clone(),
+            event_type.to_string(),
+            parent_ids,
+            reason_codes,
+            artifact_refs,
+            unix_timestamp_secs(),
+        );
+        self.last_provenance_id = id;
     }
 
     fn transition_to(&mut self, next_stage: Stage) {
@@ -222,6 +459,7 @@ impl Orchestrator {
 
         self.report.current_stage = Some(next_stage);
         self.report.transitions.push(transition);
+        self.emit_provenance(&format!("stage_transition:{next_stage:?}"), vec![], vec![]);
     }
 
     fn execute_invocation_or_stop(&mut self, spec: BinaryInvocationSpec) -> bool {
@@ -585,6 +823,26 @@ impl Orchestrator {
         if self.remediation_cycle >= self.reviewer_remediation_max_cycles
             && !self.try_adapt_remediation_budget_after_failure()
         {
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage: Stage::Validation,
+                idempotency_key: Some("stage:Validation:remediation_budget".to_string()),
+                command: "remediation.cycle_budget".to_string(),
+                args: vec![
+                    "max_cycles_exhausted".to_string(),
+                    self.reviewer_remediation_max_cycles.to_string(),
+                ],
+                env_keys: Vec::new(),
+                started_at_unix_secs: unix_timestamp_secs(),
+                duration_ms: 0,
+                exit_code: None,
+                status: StageExecutionStatus::Failed,
+                error: Some(format!(
+                    "Remediation cycle budget exhausted after {} cycle(s)",
+                    self.reviewer_remediation_max_cycles
+                )),
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
             return false;
         }
 
@@ -673,6 +931,73 @@ impl Orchestrator {
             malformed_artifacts: Vec::new(),
         });
         true
+    }
+
+    fn execute_auto_fix_loop(&mut self) -> bool {
+        if !self.autofix_loop_config.enabled {
+            return false;
+        }
+        let Some(fix_spec) = self.autofix_invocation.clone() else {
+            return false;
+        };
+        if !matches!(self.report.terminal_state, Some(TerminalState::Failed)) {
+            return false;
+        }
+
+        for attempt in 1..=self.autofix_loop_config.max_attempts {
+            let auto_fix_attempt = self.invoke_auto_fix_attempt(attempt, &fix_spec);
+            let spawned_ok = auto_fix_attempt.status != AutoFixAttemptStatus::SpawnFailed;
+            self.report.auto_fix_attempts.push(auto_fix_attempt);
+
+            if !spawned_ok {
+                self.report.terminal_state = Some(TerminalState::Failed);
+                return false;
+            }
+
+            self.report.terminal_state = None;
+            self.reset_checkpoint_stage(Stage::Validation);
+
+            if self.execute_validation_stage() {
+                self.autofix_converged = true;
+                return true;
+            }
+
+            if !matches!(self.report.terminal_state, Some(TerminalState::Failed)) {
+                return false;
+            }
+        }
+
+        self.report
+            .blocked_reason_codes
+            .push("AUTOFIX_MAX_ATTEMPTS_EXHAUSTED".to_string());
+        false
+    }
+
+    fn invoke_auto_fix_attempt(
+        &self,
+        attempt_number: u32,
+        spec: &BinaryInvocationSpec,
+    ) -> AutoFixAttempt {
+        let mut run_spec = spec.clone();
+        run_spec.env.push((
+            "ORCHESTRATOR_AUTOFIX_ATTEMPT".to_string(),
+            attempt_number.to_string(),
+        ));
+        let record = invoke_binary(&run_spec);
+        let status = match record.status {
+            StageExecutionStatus::Success => AutoFixAttemptStatus::Applied,
+            StageExecutionStatus::SpawnFailed => AutoFixAttemptStatus::SpawnFailed,
+            _ => AutoFixAttemptStatus::Failed,
+        };
+        AutoFixAttempt {
+            attempt_number,
+            autofix_bin: spec.command_line.command.clone(),
+            exit_code: record.exit_code,
+            status,
+            started_at_unix_secs: record.started_at_unix_secs,
+            duration_ms: record.duration_ms,
+            reason_code: "AUTOFIX_ATTEMPT_APPLIED".to_string(),
+        }
     }
 
     fn latest_failure_signature(&self) -> Option<String> {
@@ -921,7 +1246,36 @@ impl Orchestrator {
         true
     }
 
+    fn execute_rollout(&mut self) -> bool {
+        let mut orch = RolloutOrchestrator::new(self.rollout_config.clone());
+        let (steps, rollback) = orch.run(&[], &unix_timestamp_secs);
+        self.report.rollout_steps = steps;
+        if let Some(decision) = rollback {
+            let reason_code = decision.reason_code.clone();
+            self.report.rollback_decision = Some(decision);
+            self.report.blocked_reason_codes.push(reason_code);
+            self.report.terminal_state = Some(TerminalState::Blocked);
+            self.mark_terminal_and_persist(TerminalState::Blocked);
+            return false;
+        }
+        true
+    }
+
     fn mark_terminal_and_persist(&mut self, terminal_state: TerminalState) {
+        let reason_codes = vec![format!("{terminal_state:?}").to_uppercase()];
+        self.emit_provenance("terminal_state", reason_codes, vec![]);
+        if let Err(err) = provenance::validate_chain_completeness(&self.report.provenance_records) {
+            if !self
+                .report
+                .blocked_reason_codes
+                .contains(&"PROVENANCE_CHAIN_INCOMPLETE".to_string())
+            {
+                self.report
+                    .blocked_reason_codes
+                    .push("PROVENANCE_CHAIN_INCOMPLETE".to_string());
+            }
+            eprintln!("{err}");
+        }
         self.checkpoint
             .mark_terminal(terminal_state, unix_timestamp_secs());
         self.persist_checkpoint();
@@ -1077,6 +1431,77 @@ impl Orchestrator {
             }
         }
 
+        // Planner v2: validate graph and select deterministic path.
+        if !payload.planner_nodes.is_empty() {
+            if let Err(err) = validate_graph(&payload.planner_nodes, &payload.planner_edges) {
+                self.report.terminal_state = Some(TerminalState::Failed);
+                self.report
+                    .blocked_reason_codes
+                    .push(crate::planner_v2::REASON_GRAPH_INVALID.to_string());
+                self.report.stage_executions.push(StageExecutionRecord {
+                    stage: Stage::Planning,
+                    idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),
+                    command: "planning.planner_v2.validate_graph".to_string(),
+                    args: vec![source_path],
+                    env_keys: Vec::new(),
+                    started_at_unix_secs: unix_timestamp_secs(),
+                    duration_ms: 0,
+                    exit_code: None,
+                    status: StageExecutionStatus::Failed,
+                    error: Some(err),
+                    missing_artifacts: Vec::new(),
+                    malformed_artifacts: Vec::new(),
+                });
+                self.persist_checkpoint();
+                return false;
+            }
+
+            let graph = PlannerGraph {
+                nodes: payload.planner_nodes,
+                edges: payload.planner_edges,
+            };
+            let v2_result = select_path(&graph, self.planner_fallback_max_steps);
+            self.report.planner_path_record = Some(v2_result.path_record);
+
+            if v2_result.budget_exhausted {
+                self.report.terminal_state = Some(TerminalState::Failed);
+                self.report.stage_executions.push(StageExecutionRecord {
+                    stage: Stage::Planning,
+                    idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),
+                    command: "planning.planner_v2.select_path".to_string(),
+                    args: vec![source_path],
+                    env_keys: Vec::new(),
+                    started_at_unix_secs: unix_timestamp_secs(),
+                    duration_ms: 0,
+                    exit_code: None,
+                    status: StageExecutionStatus::Failed,
+                    error: Some(format!(
+                        "Planner fallback budget exhausted (max steps: {})",
+                        self.planner_fallback_max_steps
+                    )),
+                    missing_artifacts: Vec::new(),
+                    malformed_artifacts: Vec::new(),
+                });
+                self.persist_checkpoint();
+                return false;
+            }
+
+            self.report.stage_executions.push(StageExecutionRecord {
+                stage: Stage::Planning,
+                idempotency_key: Some("stage:Planning:planner_v2_graph".to_string()),
+                command: "planning.planner_v2.select_path".to_string(),
+                args: vec![source_path.clone()],
+                env_keys: Vec::new(),
+                started_at_unix_secs: unix_timestamp_secs(),
+                duration_ms: 0,
+                exit_code: Some(0),
+                status: StageExecutionStatus::Success,
+                error: None,
+                missing_artifacts: Vec::new(),
+                malformed_artifacts: Vec::new(),
+            });
+        }
+
         self.report.stage_executions.push(StageExecutionRecord {
             stage: Stage::Planning,
             idempotency_key: Some("stage:Planning:planner_output".to_string()),
@@ -1153,6 +1578,58 @@ impl Orchestrator {
         }
     }
 
+    fn evaluate_hard_gates_prerun(&mut self) -> bool {
+        let mut rules = builtin_rules();
+        if let Some(path) = &self.hard_gates_file {
+            match load_external_rules(path) {
+                Ok(external) => rules.extend(external),
+                Err(err) => {
+                    self.report
+                        .blocked_reason_codes
+                        .push("HARD_GATE_EXTERNAL_RULES_LOAD_FAILED".to_string());
+                    eprintln!("Hard gates: {err}");
+                    return false;
+                }
+            }
+        }
+
+        let mut tokens: Vec<String> = Vec::new();
+        for spec in [
+            self.planning_invocation.as_ref(),
+            self.execution_invocation.as_ref(),
+            self.validation_invocation.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            tokens.push(spec.command_line.command.clone());
+            tokens.extend(spec.command_line.args.clone());
+        }
+        for spec in &self.validation_invocations {
+            tokens.push(spec.command_line.command.clone());
+            tokens.extend(spec.command_line.args.clone());
+        }
+
+        let results = evaluate_hard_gates(&rules, &tokens);
+        let mut any_failed = false;
+        for result in &results {
+            if !result.passed {
+                any_failed = true;
+                if !self
+                    .report
+                    .blocked_reason_codes
+                    .contains(&result.reason_code)
+                {
+                    self.report
+                        .blocked_reason_codes
+                        .push(result.reason_code.clone());
+                }
+            }
+        }
+        self.report.hard_gate_results = results;
+        !any_failed
+    }
+
     fn evaluate_fail_closed_gates(&mut self) -> bool {
         let mut decisions = Vec::new();
         let mut blocked_reason_codes = Vec::new();
@@ -1223,7 +1700,10 @@ impl Orchestrator {
 
         self.report.gate_decisions = decisions;
         self.report.blocked_reason_codes = blocked_reason_codes;
-        self.report.blocked_reason_codes.is_empty()
+        let passed = self.report.blocked_reason_codes.is_empty();
+        let reason_codes = self.report.blocked_reason_codes.clone();
+        self.emit_provenance("gate_evaluation", reason_codes, vec![]);
+        passed
     }
 
     fn evaluate_final_decision(&mut self) -> bool {
@@ -1235,6 +1715,7 @@ impl Orchestrator {
             self.report.decision_threshold = None;
             self.report.decision_reliability_factors.clear();
             self.report.decision_reliability_updates.clear();
+            self.emit_provenance("final_decision", vec![], vec![]);
             return true;
         }
 
@@ -1243,6 +1724,7 @@ impl Orchestrator {
             &DecisionAggregatorConfig {
                 min_confidence_to_proceed: self.decision_threshold,
                 reliability_inputs: self.decision_reliability_inputs.clone(),
+                memory_reliability_inputs: self.memory_reliability_inputs.clone(),
             },
         );
         self.report.final_decision = Some(summary.final_decision);
@@ -1262,7 +1744,40 @@ impl Orchestrator {
             }
         }
 
+        let reason_codes = summary.decision_rationale_codes.clone();
+        self.emit_provenance("final_decision", reason_codes, vec![]);
         summary.final_decision == FinalDecision::Proceed
+    }
+
+    fn evaluate_review_ensemble(&mut self) -> bool {
+        if self.reviewer_verdicts.is_empty() {
+            return true;
+        }
+
+        // Populate reviewer_next_steps for any mandatory specialty without a verdict.
+        for specialty in missing_mandatory_specialties(&self.reviewer_verdicts) {
+            self.report
+                .reviewer_next_steps
+                .push(format!("No verdict from mandatory specialty: {specialty}"));
+        }
+
+        let result = run_review_ensemble(&self.reviewer_verdicts, &ReviewEnsembleConfig::default());
+
+        self.report.reviewer_verdicts = self.reviewer_verdicts.clone();
+        let passed = result.passed;
+        for code in &result.reason_codes {
+            if !self.report.blocked_reason_codes.contains(code) {
+                self.report.blocked_reason_codes.push(code.clone());
+            }
+        }
+        if passed {
+            // Inject the ensemble approval as a decision contribution so it participates
+            // in the weighted final decision aggregation.
+            let contribution = ensemble_to_contribution(&result, 100);
+            self.decision_contributions.push(contribution);
+        }
+        self.report.review_ensemble_result = Some(result);
+        passed
     }
 }
 

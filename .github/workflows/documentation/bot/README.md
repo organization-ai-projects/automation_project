@@ -19,6 +19,7 @@ It interacts mainly with:
 ├── automation_rustfmt.yml      # Automates code formatting checks
 ├── automation_sync.yml         # Syncs main into dev after merge
 ├── issue_done_in_dev_status.yml # Maintains done-in-dev issue status labels
+├── pr_auto_closes_enrichment.yml # Auto-manages Closes refs on open PRs to dev
 └── documentation/bot/
     ├── README.md               # This file
     └── TOC.md                  # Bot workflows documentation index
@@ -34,9 +35,11 @@ It interacts mainly with:
 - **`automation_rustfmt.yml`**: Automates code formatting checks.
 - **`automation_sync.yml`**: Syncs main into dev after merge.
 - **`issue_done_in_dev_status.yml`**: Adds/removes `done-in-dev` label through issue lifecycle events.
+- **`pr_auto_closes_enrichment.yml`**: Adds managed `Closes #...` lines to open PR bodies targeting `dev` when assignment criteria are met.
 
 For detailed documentation, see:
 
 - [automation_rustfmt.yml Documentation](../automation_rustfmt.md)
 - [automation_sync.yml Documentation](../automation_sync.md)
 - [issue_done_in_dev_status.yml Documentation](../issue_done_in_dev_status.md)
+- [pr_auto_closes_enrichment.yml Documentation](../pr_auto_closes_enrichment.md)

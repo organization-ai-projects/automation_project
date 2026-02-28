@@ -11,6 +11,7 @@ This document provides an overview of all documentation files in this directory.
 ## Scripts
 
 - [auto_link_parent_issue.sh](auto_link_parent_issue.sh): Auto-link child issues to parent issues from `Parent:` issue-body field
+- [auto_add_closes_on_dev_pr.sh](auto_add_closes_on_dev_pr.sh): Auto-enrich open PRs targeting `dev` with managed `Closes #...` lines when assignment criteria are met
 - [create_direct_issue.sh](create_direct_issue.sh): Internal direct-issue contract script (deprecated as user-facing entrypoint)
 - [generate_pr_description.sh](generate_pr_description.sh): Generate structured merge PR descriptions from GitHub metadata
 - [issue_done_in_dev_status.sh](issue_done_in_dev_status.sh): Manage `done-in-dev` status label on dev merges and issue closure
@@ -21,6 +22,7 @@ This document provides an overview of all documentation files in this directory.
 - [lib/issue_required_fields.sh](lib/issue_required_fields.sh): Shared required issue title/body contract validator
 - [lib/rendering.sh](lib/rendering.sh): Rendering helpers for sections and dynamic PR titles
 - [tests/generate_pr_description_regression.sh](tests/generate_pr_description_regression.sh): Regression matrix for CLI argument and mode behavior
+- [tests/auto_add_closes_on_dev_pr_regression.sh](tests/auto_add_closes_on_dev_pr_regression.sh): Regression tests for automatic `Closes #...` enrichment on dev-targeting PRs
 - [tests/issue_done_in_dev_status_regression.sh](tests/issue_done_in_dev_status_regression.sh): Regression tests for done-in-dev label lifecycle automation
 - [tests/manager_issues_regression.sh](tests/manager_issues_regression.sh): Regression tests for manager_issues create/read/update/close/reopen/soft-delete flows
 

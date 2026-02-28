@@ -1,0 +1,14 @@
+(
+    intent_id: IntentId("intent-landscape-002"),
+    intent_version: IntentVersion(1),
+    created_at: "2026-01-01T00:00:00Z",
+    author: Some("test"),
+    payload: Cinematography((
+        subject_description: "mountain landscape",
+        shot_type: "wide",
+        lighting_style: "natural",
+        background: "sky",
+        fov_deg: Some(24.0),
+        camera_distance: Some(10.0),
+    )),
+)
