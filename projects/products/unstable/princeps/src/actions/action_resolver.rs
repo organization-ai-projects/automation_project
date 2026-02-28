@@ -51,10 +51,10 @@ impl ActionResolver {
                 }
             }
             Action::AttackOpponent { target } => {
-                let (charisma, actor_integrity) = {
+                let charisma = {
                     let actor = candidates.iter().find(|c| &c.id == actor_id);
                     match actor {
-                        Some(a) => (a.charisma, a.integrity),
+                        Some(a) => a.charisma,
                         None => return,
                     }
                 };
@@ -63,7 +63,6 @@ impl ActionResolver {
                     if success {
                         actor.approval = (actor.approval + 0.015).min(1.0);
                     } else {
-                        let _ = actor_integrity;
                         actor.approval = (actor.approval - 0.01).max(0.0);
                     }
                 }
