@@ -105,7 +105,10 @@ mod tests {
             explanation_trace: ExplanationTrace {
                 summary: "".to_string(),
                 key_decisions: vec![],
-                constraint_report: ConstraintReport { satisfied: vec![], violated: vec![] },
+                constraint_report: ConstraintReport {
+                    satisfied: vec![],
+                    violated: vec![],
+                },
             },
             randomness_record: RandomnessRecord {
                 seed: 0,
