@@ -47,6 +47,12 @@ pub struct RunArgs {
     #[arg(long)]
     pub next_actions_path: Option<PathBuf>,
     #[arg(long)]
+    pub memory_path: Option<PathBuf>,
+    #[arg(long, default_value_t = 500)]
+    pub memory_max_entries: u32,
+    #[arg(long, default_value_t = 100)]
+    pub memory_decay_window_runs: u32,
+    #[arg(long)]
     pub autonomous_loop: bool,
     #[arg(long, default_value_t = 3)]
     pub autonomous_max_runs: u32,

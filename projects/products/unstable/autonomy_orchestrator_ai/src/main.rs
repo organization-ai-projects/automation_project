@@ -12,6 +12,7 @@ mod decision_aggregator;
 mod domain;
 mod fixture;
 mod linked_stack;
+mod long_horizon_memory;
 mod orchestrator;
 mod output_writer;
 mod pending_validation_invocation;

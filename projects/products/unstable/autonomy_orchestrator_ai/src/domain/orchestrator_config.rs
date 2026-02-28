@@ -36,6 +36,9 @@ struct OrchestratorConfigJsonCompat {
     cycle_memory_path: Option<PathBuf>,
     next_actions_path: Option<PathBuf>,
     previous_run_report_path: Option<PathBuf>,
+    memory_path: Option<PathBuf>,
+    memory_max_entries: Option<f64>,
+    memory_decay_window_runs: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +70,9 @@ pub struct OrchestratorConfig {
     pub cycle_memory_path: Option<PathBuf>,
     pub next_actions_path: Option<PathBuf>,
     pub previous_run_report_path: Option<PathBuf>,
+    pub memory_path: Option<PathBuf>,
+    pub memory_max_entries: u32,
+    pub memory_decay_window_runs: u32,
 }
 
 impl OrchestratorConfig {
@@ -218,6 +224,17 @@ impl OrchestratorConfig {
             cycle_memory_path: parsed.cycle_memory_path,
             next_actions_path: parsed.next_actions_path,
             previous_run_report_path: parsed.previous_run_report_path,
+            memory_path: parsed.memory_path,
+            memory_max_entries: parsed
+                .memory_max_entries
+                .map(|v| float_to_u32_compat(v, "memory_max_entries"))
+                .transpose()?
+                .unwrap_or(500),
+            memory_decay_window_runs: parsed
+                .memory_decay_window_runs
+                .map(|v| float_to_u32_compat(v, "memory_decay_window_runs"))
+                .transpose()?
+                .unwrap_or(100),
         })
     }
 

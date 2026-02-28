@@ -38,6 +38,9 @@ fn base_config() -> OrchestratorConfig {
         cycle_memory_path: None,
         next_actions_path: None,
         previous_run_report_path: None,
+        memory_path: None,
+        memory_max_entries: 500,
+        memory_decay_window_runs: 100,
     }
 }
 

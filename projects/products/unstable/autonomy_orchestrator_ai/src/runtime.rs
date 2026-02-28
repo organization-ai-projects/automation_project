@@ -286,6 +286,9 @@ fn run_once(
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
         previous_run_report_path: Some(previous_run_report_path.clone()),
+        memory_path: args.memory_path,
+        memory_max_entries: args.memory_max_entries,
+        memory_decay_window_runs: args.memory_decay_window_runs,
     };
 
     if let Some(load_mode) = &config_io.load {

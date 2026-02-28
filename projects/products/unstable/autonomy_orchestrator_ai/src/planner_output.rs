@@ -10,6 +10,7 @@ pub struct PlannerOutput {
     pub reviewer_remediation_max_cycles: Option<u32>,
     pub remediation_steps: Vec<String>,
     pub validation_commands: Vec<ValidationInvocationArtifact>,
+    pub memory_signal_codes: Vec<String>,
 }
 
 pub fn read_planner_output_from_artifacts(
@@ -55,6 +56,7 @@ fn parse_planner_output(root: &Json) -> Result<Option<PlannerOutput>, String> {
             || payload.reviewer_remediation_max_cycles.is_some()
             || !payload.remediation_steps.is_empty()
             || !payload.validation_commands.is_empty()
+            || !payload.memory_signal_codes.is_empty()
         {
             Some(payload)
         } else {
@@ -138,5 +140,21 @@ fn parse_planner_payload(payload: &Json) -> Result<PlannerOutput, String> {
         reviewer_remediation_max_cycles,
         remediation_steps,
         validation_commands,
+        memory_signal_codes: match payload.get_field("memory_signal_codes") {
+            Ok(value) => value
+                .as_array_strict()
+                .map_err(|_| "memory_signal_codes must be an array".to_string())?
+                .iter()
+                .map(|entry| {
+                    entry
+                        .as_str_strict()
+                        .map(ToString::to_string)
+                        .map_err(|_| {
+                            "memory_signal_codes entries must be strings".to_string()
+                        })
+                })
+                .collect::<Result<Vec<_>, String>>()?,
+            Err(_) => Vec::new(),
+        },
     })
 }
