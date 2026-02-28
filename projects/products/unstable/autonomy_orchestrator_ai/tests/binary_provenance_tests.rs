@@ -49,9 +49,7 @@ fn full_run_yields_connected_non_empty_provenance_chain() {
         .arg("--review-status")
         .arg("approved")
         .arg("--decision-contribution")
-        .arg(
-            "contributor_id=e2e_prov,capability=validation,vote=proceed,confidence=100,weight=100",
-        )
+        .arg("contributor_id=e2e_prov,capability=validation,vote=proceed,confidence=100,weight=100")
         .output()
         .expect("failed to execute orchestrator");
 
@@ -109,7 +107,9 @@ fn full_run_yields_connected_non_empty_provenance_chain() {
         .map(|r| r.event_type.as_str())
         .collect();
     assert!(
-        event_types.iter().any(|t| t.starts_with("stage_transition:")),
+        event_types
+            .iter()
+            .any(|t| t.starts_with("stage_transition:")),
         "expected stage transition nodes in provenance chain"
     );
     assert!(

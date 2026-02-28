@@ -44,11 +44,7 @@ pub fn validate_chain_completeness(records: &[ProvenanceRecord]) -> Result<(), S
 mod tests {
     use super::*;
 
-    fn make_record(
-        id: &str,
-        parent_ids: Vec<&str>,
-        timestamp: u64,
-    ) -> ProvenanceRecord {
+    fn make_record(id: &str, parent_ids: Vec<&str>, timestamp: u64) -> ProvenanceRecord {
         ProvenanceRecord {
             id: id.to_string(),
             event_type: "test_event".to_string(),

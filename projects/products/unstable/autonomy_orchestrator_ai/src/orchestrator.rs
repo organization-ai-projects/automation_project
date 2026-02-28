@@ -25,9 +25,9 @@ use crate::long_horizon_memory::{
     save_memory,
 };
 use crate::planner_output::read_planner_output_from_artifacts;
-use crate::provenance;
 use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
 use crate::pr_risk::compute_pr_risk;
+use crate::provenance;
 use crate::review_ensemble::{
     ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble,
 };
@@ -425,7 +425,12 @@ impl Orchestrator {
         )
     }
 
-    fn emit_provenance(&mut self, event_type: &str, reason_codes: Vec<String>, artifact_refs: Vec<String>) {
+    fn emit_provenance(
+        &mut self,
+        event_type: &str,
+        reason_codes: Vec<String>,
+        artifact_refs: Vec<String>,
+    ) {
         let id = self.next_provenance_id(event_type);
         let parent_ids = if self.last_provenance_id.is_empty() {
             vec![]
@@ -454,11 +459,7 @@ impl Orchestrator {
 
         self.report.current_stage = Some(next_stage);
         self.report.transitions.push(transition);
-        self.emit_provenance(
-            &format!("stage_transition:{next_stage:?}"),
-            vec![],
-            vec![],
-        );
+        self.emit_provenance(&format!("stage_transition:{next_stage:?}"), vec![], vec![]);
     }
 
     fn execute_invocation_or_stop(&mut self, spec: BinaryInvocationSpec) -> bool {

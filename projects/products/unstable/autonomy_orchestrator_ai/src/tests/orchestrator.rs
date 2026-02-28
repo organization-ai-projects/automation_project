@@ -429,7 +429,9 @@ fn provenance_chain_contains_required_decision_nodes() {
         .collect();
 
     assert!(
-        event_types.iter().any(|t| t.starts_with("stage_transition:")),
+        event_types
+            .iter()
+            .any(|t| t.starts_with("stage_transition:")),
         "expected stage transition nodes in provenance chain"
     );
     assert!(
