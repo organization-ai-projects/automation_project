@@ -43,6 +43,7 @@ members = [
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
+  "projects/products/unstable/dev_agent",
 ]
 resolver = "2"
 
