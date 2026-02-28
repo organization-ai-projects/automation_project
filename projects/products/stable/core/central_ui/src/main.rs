@@ -11,7 +11,8 @@ use warp::Filter;
 
 use crate::filters::{with_claim_dir, with_client, with_engine_base};
 use crate::handlers::{
-    handle_accounts_proxy, handle_login, handle_setup_admin, handle_setup_status,
+    handle_accounts_proxy, handle_login, handle_project_start, handle_project_stop,
+    handle_setup_admin, handle_setup_status,
 };
 use crate::ui::accounts_ui_route;
 
@@ -59,13 +60,37 @@ async fn main() {
         .and(with_engine_base(engine_base.clone()))
         .and_then(handle_accounts_proxy);
 
+    let project_start = api
+        .and(warp::path("projects"))
+        .and(warp::path::param::<String>())
+        .and(warp::path("start"))
+        .and(warp::path::end())
+        .and(warp::post())
+        .and(warp::header::optional::<String>("authorization"))
+        .and(with_client(client.clone()))
+        .and(with_engine_base(engine_base.clone()))
+        .and_then(handle_project_start);
+
+    let project_stop = api
+        .and(warp::path("projects"))
+        .and(warp::path::param::<String>())
+        .and(warp::path("stop"))
+        .and(warp::path::end())
+        .and(warp::post())
+        .and(warp::header::optional::<String>("authorization"))
+        .and(with_client(client.clone()))
+        .and(with_engine_base(engine_base.clone()))
+        .and_then(handle_project_stop);
+
     let ui_route = accounts_ui_route();
 
     let routes = ui_route
         .or(setup_status)
         .or(setup_admin)
         .or(login)
-        .or(accounts_proxy);
+        .or(accounts_proxy)
+        .or(project_start)
+        .or(project_stop);
 
     println!("central_ui proxy listening on 127.0.0.1:7171");
     warp::serve(routes).run(([127, 0, 0, 1], 7171)).await;

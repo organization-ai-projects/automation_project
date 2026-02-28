@@ -1,11 +1,12 @@
 // projects/products/stable/core/engine/src/ws/router.rs
 use common_json::{pjson, to_value};
-use protocol::{Command, Event, ProjectMetadata};
+use protocol::{Command, Event, EventType, Payload, ProjectMetadata};
 use security::{Permission, Token};
 use tracing::{info, warn};
 
 use crate::{
     EngineState, require_permission, require_project_exists,
+    routes::http_forwarder::forward_to_backend,
     ws::{ws_event_error, ws_event_ok, ws_event_ok_payload},
 };
 
@@ -46,7 +47,50 @@ pub(crate) async fn route_command(
             ws_event_ok_payload(&meta, "ProjectsListed", "engine/projects", value)
         }
 
-        // Project-specific actions
+        // Product start/stop orchestration (admin only)
+        "project.start" | "project.stop" => {
+            info!("WS cmd: {} (subject_id={})", action, token.subject_id);
+
+            if let Err(e) = require_permission(token, Permission::Admin) {
+                return ws_event_error(&meta, 403, 1003, e);
+            }
+
+            let product_id = match cmd.metadata.product_id {
+                Some(id) => id,
+                None => {
+                    return ws_event_error(&meta, 400, 1006, "Missing product_id in metadata");
+                }
+            };
+
+            let payload = cmd.payload.clone().unwrap_or(Payload {
+                payload_type: None,
+                payload: None,
+            });
+            match forward_to_backend(&product_id, action, payload, state).await {
+                Ok(event) => {
+                    if event.event_type == EventType::Error {
+                        let msg = event
+                            .message
+                            .as_deref()
+                            .unwrap_or("Backend returned an error");
+                        return ws_event_error(&meta, 502, 1007, msg.to_string());
+                    }
+                    let value = event
+                        .payload
+                        .and_then(|p| p.payload)
+                        .unwrap_or_else(|| pjson!({"ok": true}));
+                    let name = if action == "project.start" {
+                        "ProductStarted"
+                    } else {
+                        "ProductStopped"
+                    };
+                    ws_event_ok_payload(&meta, name, "engine/product", value)
+                }
+                Err(e) => ws_event_error(&meta, 502, 1007, format!("Backend error: {e}")),
+            }
+        }
+
+        // Project-specific actions (other)
         action if action.starts_with("project.") => {
             info!("WS cmd: {} (subject_id={})", action, token.subject_id);
 
