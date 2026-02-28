@@ -1,0 +1,14 @@
+(
+    intent_id: IntentId("intent-aerial-019"),
+    intent_version: IntentVersion(1),
+    created_at: "2026-01-01T00:00:00Z",
+    author: Some("test"),
+    payload: Cinematography((
+        subject_description: "aerial cityscape",
+        shot_type: "wide",
+        lighting_style: "natural",
+        background: "open_sky",
+        fov_deg: Some(20.0),
+        camera_distance: Some(50.0),
+    )),
+)
