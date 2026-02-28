@@ -1,5 +1,4 @@
 use crate::diagnostics::error::SpaceDiploWarsError;
-use crate::model::sim_state::SimState;
 use crate::report::run_report::RunReport;
 use crate::resolution::resolution_engine::ResolutionEngine;
 use crate::scenario::scenario::Scenario;

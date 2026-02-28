@@ -148,15 +148,30 @@ fn test_snapshot_hash_at_checkpoint() {
 fn test_invalid_scenario_validation() {
     use space_diplo_wars::scenario::scenario_loader::ScenarioLoader;
     use std::path::Path;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    // Non-existent file
-    let result = ScenarioLoader::load_from_file(Path::new("/tmp/does_not_exist_sdw.json"));
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn unique_tmp_path(suffix: &str) -> std::path::PathBuf {
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(0);
+        let pid = std::process::id();
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!("sdw_test_{pid}_{ts}_{n}{suffix}"))
+    }
+
+    // Non-existent file (use a path that never exists)
+    let missing = unique_tmp_path("_missing.json");
+    let result = ScenarioLoader::load_from_file(&missing);
     assert!(result.is_err());
 
     // Bad JSON
-    let bad_json = "/tmp/bad_scenario_sdw.json";
-    std::fs::write(bad_json, "not valid json {{{").unwrap();
-    let result2 = ScenarioLoader::load_from_file(Path::new(bad_json));
+    let bad_json = unique_tmp_path("_bad.json");
+    std::fs::write(&bad_json, "not valid json {{{").unwrap();
+    let result2 = ScenarioLoader::load_from_file(Path::new(&bad_json));
     assert!(result2.is_err());
-    std::fs::remove_file(bad_json).ok();
+    std::fs::remove_file(&bad_json).ok();
 }
