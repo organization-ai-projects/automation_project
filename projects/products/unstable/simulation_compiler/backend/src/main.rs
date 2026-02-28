@@ -11,14 +11,14 @@ mod validate;
 
 use diagnostics::error::CompilerError;
 use dsl::parser::Parser;
-use generate::pack_emitter::PackEmitter;
-use generate::golden_emitter::GoldenEmitter;
 use generate::fixture_emitter::FixtureEmitter;
+use generate::golden_emitter::GoldenEmitter;
+use generate::pack_emitter::PackEmitter;
 use io::fs_writer::FsWriter;
 use model::pack_spec::PackSpec;
 use output::compile_report::CompileReport;
-use validate::spec_validator::SpecValidator;
 use validate::determinism_rules::DeterminismRules;
+use validate::spec_validator::SpecValidator;
 
 fn main() {
     tracing_subscriber::fmt::init();
@@ -95,13 +95,16 @@ fn run_dry_run(args: &[String]) {
     }
 }
 
-fn compile_pipeline(dsl_src: &str, out_dir: &str, dry_run: bool) -> Result<CompileReport, CompilerError> {
+fn compile_pipeline(
+    dsl_src: &str,
+    out_dir: &str,
+    dry_run: bool,
+) -> Result<CompileReport, CompilerError> {
     let source = if dsl_src.is_empty() {
         // Minimal inline stub for demo/bootstrap.
         "component Sensor { field: u32 }".to_string()
     } else {
-        std::fs::read_to_string(dsl_src)
-            .map_err(|e| CompilerError::Io(e.to_string()))?
+        std::fs::read_to_string(dsl_src).map_err(|e| CompilerError::Io(e.to_string()))?
     };
 
     let mut parser = Parser::new(&source);

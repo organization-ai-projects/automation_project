@@ -13,7 +13,11 @@ impl GoldenValidator {
         Self
     }
 
-    pub fn check(&self, pack_dir: &str, golden_dir: &str) -> Result<GoldenValidationResult, ToolingError> {
+    pub fn check(
+        &self,
+        pack_dir: &str,
+        golden_dir: &str,
+    ) -> Result<GoldenValidationResult, ToolingError> {
         if pack_dir.is_empty() || golden_dir.is_empty() {
             return Ok(GoldenValidationResult { matched: true });
         }
@@ -41,8 +45,7 @@ fn hash_dir(dir: &str) -> Result<String, ToolingError> {
 
     let mut hasher = Sha256::new();
     for entry in entries {
-        let content = std::fs::read(entry.path())
-            .map_err(|e| ToolingError::Io(e.to_string()))?;
+        let content = std::fs::read(entry.path()).map_err(|e| ToolingError::Io(e.to_string()))?;
         hasher.update(entry.path().to_string_lossy().as_bytes());
         hasher.update(b"\0");
         hasher.update(&content);

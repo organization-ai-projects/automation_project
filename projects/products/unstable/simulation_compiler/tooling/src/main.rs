@@ -32,7 +32,11 @@ fn run_validate_pack(args: &[String]) -> Result<(), ToolingError> {
 
     let validator = validate::emitted_pack_validator::EmittedPackValidator::new();
     let result = validator.validate_dir(&pack_dir)?;
-    tracing::info!(valid = result.valid, files = result.file_count, "validate-pack complete");
+    tracing::info!(
+        valid = result.valid,
+        files = result.file_count,
+        "validate-pack complete"
+    );
     println!("valid={} files={}", result.valid, result.file_count);
     Ok(())
 }

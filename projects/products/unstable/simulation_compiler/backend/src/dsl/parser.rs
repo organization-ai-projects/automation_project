@@ -25,9 +25,7 @@ impl Parser {
                 Token::Report => ast.reports.push(self.parse_report()?),
                 Token::Eof => break,
                 other => {
-                    return Err(CompilerError::Parse(format!(
-                        "unexpected token: {other:?}"
-                    )));
+                    return Err(CompilerError::Parse(format!("unexpected token: {other:?}")));
                 }
             }
         }
@@ -55,7 +53,11 @@ impl Parser {
             .filter(|f| f.ty == "write")
             .map(|f| f.name.clone())
             .collect();
-        Ok(SystemNode { name, reads, writes })
+        Ok(SystemNode {
+            name,
+            reads,
+            writes,
+        })
     }
 
     fn parse_event(&mut self) -> Result<EventNode, CompilerError> {

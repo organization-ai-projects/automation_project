@@ -26,7 +26,12 @@ mod tests {
     #[test]
     fn load_dsl_action_sets_path() {
         let mut state = AppState::default();
-        apply(&mut state, Action::LoadDsl { path: "world.dsl".to_string() });
+        apply(
+            &mut state,
+            Action::LoadDsl {
+                path: "world.dsl".to_string(),
+            },
+        );
         assert_eq!(state.dsl_path, "world.dsl");
     }
 

@@ -33,10 +33,22 @@ impl<'src> Lexer<'src> {
             }
             let ch = self.current_char();
             match ch {
-                '{' => { tokens.push(Token::LBrace); self.pos += 1; }
-                '}' => { tokens.push(Token::RBrace); self.pos += 1; }
-                ':' => { tokens.push(Token::Colon); self.pos += 1; }
-                ',' => { tokens.push(Token::Comma); self.pos += 1; }
+                '{' => {
+                    tokens.push(Token::LBrace);
+                    self.pos += 1;
+                }
+                '}' => {
+                    tokens.push(Token::RBrace);
+                    self.pos += 1;
+                }
+                ':' => {
+                    tokens.push(Token::Colon);
+                    self.pos += 1;
+                }
+                ',' => {
+                    tokens.push(Token::Comma);
+                    self.pos += 1;
+                }
                 _ if ch.is_alphabetic() || ch == '_' => {
                     let word = self.read_word();
                     let tok = match word.as_str() {
@@ -48,7 +60,9 @@ impl<'src> Lexer<'src> {
                     };
                     tokens.push(tok);
                 }
-                _ => { self.pos += 1; }
+                _ => {
+                    self.pos += 1;
+                }
             }
         }
         tokens.push(Token::Eof);

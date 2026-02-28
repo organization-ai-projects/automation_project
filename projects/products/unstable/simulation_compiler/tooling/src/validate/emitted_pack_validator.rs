@@ -15,7 +15,10 @@ impl EmittedPackValidator {
 
     pub fn validate_dir(&self, dir: &str) -> Result<PackValidationResult, ToolingError> {
         if dir.is_empty() {
-            return Ok(PackValidationResult { valid: true, file_count: 0 });
+            return Ok(PackValidationResult {
+                valid: true,
+                file_count: 0,
+            });
         }
         let path = std::path::Path::new(dir);
         if !path.exists() {
@@ -26,7 +29,10 @@ impl EmittedPackValidator {
         let file_count = std::fs::read_dir(path)
             .map_err(|e| ToolingError::Io(e.to_string()))?
             .count();
-        Ok(PackValidationResult { valid: true, file_count })
+        Ok(PackValidationResult {
+            valid: true,
+            file_count,
+        })
     }
 }
 
