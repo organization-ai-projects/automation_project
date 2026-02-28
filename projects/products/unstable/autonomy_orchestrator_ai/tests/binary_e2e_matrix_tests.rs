@@ -10,47 +10,14 @@ struct MatrixReportView {
     terminal_state: Option<String>,
     blocked_reason_codes: Vec<String>,
     reviewer_next_steps: Vec<String>,
-    adaptive_policy_decisions: Vec<AdaptivePolicyDecisionView>,
-    stage_executions: Vec<StageExecutionView>,
+    adaptive_policy_decisions: Vec<Json>,
+    stage_executions: Vec<Json>,
     #[serde(default)]
-    rollout_steps: Vec<RolloutStepView>,
+    rollout_steps: Vec<Json>,
     #[serde(default)]
-    rollback_decision: Option<RollbackDecisionView>,
+    rollback_decision: Option<Json>,
     #[serde(default)]
-    planner_path_record: Option<PlannerPathRecordView>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct PlannerPathRecordView {
-    selected_path: Vec<String>,
-    fallback_steps_used: u32,
-    reason_codes: Vec<String>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct AdaptivePolicyDecisionView {
-    action: String,
-    reason_code: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct StageExecutionView {
-    stage: String,
-    status: String,
-    command: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct RolloutStepView {
-    phase: String,
-    reason_code: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[allow(dead_code)]
-struct RollbackDecisionView {
-    triggered_at_phase: String,
-    reason_code: String,
+    planner_path_record: Option<Json>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -59,6 +26,18 @@ struct CheckpointFixture {
     completed_stages: Vec<String>,
     terminal_state: Option<String>,
     updated_at_unix_secs: u64,
+}
+
+fn json_field_str<'a>(value: &'a Json, key: &str) -> Option<&'a str> {
+    value.get_field(key).and_then(|v| v.as_str_strict()).ok()
+}
+
+fn json_field_u64(value: &Json, key: &str) -> Option<u64> {
+    value.get_field(key).and_then(|v| v.as_u64_strict()).ok()
+}
+
+fn json_field_array<'a>(value: &'a Json, key: &str) -> Option<&'a Vec<Json>> {
+    value.get_field(key).and_then(|v| v.as_array_strict()).ok()
 }
 
 fn unique_temp_dir(name: &str) -> PathBuf {
@@ -157,14 +136,12 @@ fn matrix_happy_path_reaches_done() {
         report
             .stage_executions
             .iter()
-            .all(|e| e.status == "success")
+            .all(|e| json_field_str(e, "status") == Some("success"))
     );
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "validation" && e.status == "success")
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("validation")
+            && json_field_str(e, "status") == Some("success")
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -280,7 +257,10 @@ fn matrix_timeout_sets_timeout_terminal_state() {
     assert_eq!(report.terminal_state.as_deref(), Some("timeout"));
     assert!(report.blocked_reason_codes.is_empty());
     assert_eq!(report.stage_executions.len(), 1);
-    assert_eq!(report.stage_executions[0].status, "timeout");
+    assert_eq!(
+        json_field_str(&report.stage_executions[0], "status"),
+        Some("timeout")
+    );
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -325,18 +305,14 @@ fn matrix_crash_resume_skips_completed_stage_and_finishes() {
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     assert!(report.blocked_reason_codes.is_empty());
 
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "planning" && e.status == "skipped")
-    );
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "execution" && e.status == "success")
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("planning")
+            && json_field_str(e, "status") == Some("skipped")
+    }));
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("execution")
+            && json_field_str(e, "status") == Some("success")
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -426,12 +402,10 @@ fn matrix_planning_context_artifact_is_written() {
             Err(_) => false,
         }
     }));
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "planning" && e.status == "success")
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("planning")
+            && json_field_str(e, "status") == Some("success")
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -466,16 +440,14 @@ fn matrix_execution_iteration_succeeds_before_budget_exhaustion() {
         report
             .stage_executions
             .iter()
-            .filter(|e| e.stage == "execution")
+            .filter(|e| json_field_str(e, "stage") == Some("execution"))
             .count(),
         2
     );
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "execution" && e.status == "success")
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("execution")
+            && json_field_str(e, "status") == Some("success")
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -510,20 +482,21 @@ fn matrix_execution_iteration_budget_exhaustion_fails_closed() {
         report
             .stage_executions
             .iter()
-            .filter(|e| e.stage == "execution" && e.status == "failed")
+            .filter(|e| {
+                json_field_str(e, "stage") == Some("execution")
+                    && json_field_str(e, "status") == Some("failed")
+            })
             .count(),
         4
     );
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "execution" && e.status == "failed")
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("execution")
+            && json_field_str(e, "status") == Some("failed")
+    }));
     assert!(
         report.adaptive_policy_decisions.iter().any(|d| {
-            d.action == "increase_execution_budget"
-                && d.reason_code == "ADAPTIVE_RETRY_BUDGET_INCREASED"
+            json_field_str(d, "action") == Some("increase_execution_budget")
+                && json_field_str(d, "reason_code") == Some("ADAPTIVE_RETRY_BUDGET_INCREASED")
         }),
         "expected adaptive retry budget increase before final exhaustion"
     );
@@ -561,7 +534,7 @@ fn matrix_execution_budget_at_cap_does_not_adapt() {
         report
             .adaptive_policy_decisions
             .iter()
-            .all(|d| d.action != "increase_execution_budget"),
+            .all(|d| json_field_str(d, "action") != Some("increase_execution_budget")),
         "expected no adaptive execution budget increase at hard cap"
     );
 
@@ -592,12 +565,10 @@ fn matrix_native_validation_command_success_reaches_done() {
 
     assert!(output.status.success());
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "validation" && e.status == "success")
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("validation")
+            && json_field_str(e, "status") == Some("success")
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -626,12 +597,10 @@ fn matrix_native_validation_command_failure_fails_closed() {
 
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(report.terminal_state.as_deref(), Some("failed"));
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "validation" && e.status == "failed")
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("validation")
+            && json_field_str(e, "status") == Some("failed")
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -668,12 +637,10 @@ fn matrix_cycle_memory_reinjects_validation_commands_on_next_run() {
     let (first_output, first_report) = run_orchestrator_owned(&first_args, &out_dir);
     assert!(first_output.status.success());
     assert_eq!(first_report.terminal_state.as_deref(), Some("done"));
-    assert!(
-        first_report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "validation" && e.command == fixture_bin())
-    );
+    assert!(first_report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("validation")
+            && json_field_str(e, "command") == Some(fixture_bin())
+    }));
 
     let cycle_memory_path = out_dir.join("orchestrator_cycle_memory.bin");
     assert!(
@@ -695,10 +662,10 @@ fn matrix_cycle_memory_reinjects_validation_commands_on_next_run() {
     assert!(second_output.status.success());
     assert_eq!(second_report.terminal_state.as_deref(), Some("done"));
     assert!(
-        second_report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "validation" && e.command == fixture_bin()),
+        second_report.stage_executions.iter().any(|e| {
+            json_field_str(e, "stage") == Some("validation")
+                && json_field_str(e, "command") == Some(fixture_bin())
+        }),
         "second run should reuse validation command from cycle memory"
     );
 
@@ -759,7 +726,10 @@ fn matrix_reviewer_remediation_cycle_recovers_to_done() {
         report
             .stage_executions
             .iter()
-            .filter(|e| e.stage == "execution" && e.status == "success")
+            .filter(|e| {
+                json_field_str(e, "stage") == Some("execution")
+                    && json_field_str(e, "status") == Some("success")
+            })
             .count()
             >= 2,
         "expected execution rerun after reviewer remediation"
@@ -827,8 +797,9 @@ fn matrix_adaptive_remediation_budget_recovers_when_initial_budget_is_zero() {
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     assert!(
         report.adaptive_policy_decisions.iter().any(|decision| {
-            decision.action == "increase_remediation_cycles"
-                && decision.reason_code == "ADAPTIVE_REMEDIATION_CYCLES_INCREASED"
+            json_field_str(decision, "action") == Some("increase_remediation_cycles")
+                && json_field_str(decision, "reason_code")
+                    == Some("ADAPTIVE_REMEDIATION_CYCLES_INCREASED")
         }),
         "expected adaptive remediation budget decision in run report"
     );
@@ -879,18 +850,14 @@ fn matrix_scoped_task_modifies_repo_and_passes_validation() {
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     let content = fs::read_to_string(&generated_file).expect("read generated file");
     assert!(content.contains("scoped_fix"));
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "execution" && e.status == "success")
-    );
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "validation" && e.status == "success")
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("execution")
+            && json_field_str(e, "status") == Some("success")
+    }));
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "stage") == Some("validation")
+            && json_field_str(e, "status") == Some("success")
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -927,18 +894,15 @@ fn matrix_delivery_dry_run_audits_steps_without_side_effects() {
     assert!(output.status.success());
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.stage == "closure" && e.status == "success"),
+        report.stage_executions.iter().any(|e| {
+            json_field_str(e, "stage") == Some("closure")
+                && json_field_str(e, "status") == Some("success")
+        }),
         "expected closure delivery dry-run traces"
     );
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.command.contains("delivery.gh.pr.create.dry_run"))
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "command").is_some_and(|c| c.contains("delivery.gh.pr.create.dry_run"))
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -970,12 +934,9 @@ fn matrix_delivery_pr_update_dry_run_is_audited() {
 
     assert!(output.status.success());
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
-    assert!(
-        report
-            .stage_executions
-            .iter()
-            .any(|e| e.command.contains("delivery.gh.pr.update.dry_run"))
-    );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "command").is_some_and(|c| c.contains("delivery.gh.pr.update.dry_run"))
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
@@ -1335,14 +1296,23 @@ fn matrix_rollout_enabled_healthy_progression_to_full() {
     assert_eq!(report.terminal_state.as_deref(), Some("done"));
     assert!(report.rollback_decision.is_none());
     assert_eq!(report.rollout_steps.len(), 3);
-    assert_eq!(report.rollout_steps[0].phase, "canary");
-    assert_eq!(report.rollout_steps[1].phase, "partial");
-    assert_eq!(report.rollout_steps[2].phase, "full");
+    assert_eq!(
+        json_field_str(&report.rollout_steps[0], "phase"),
+        Some("canary")
+    );
+    assert_eq!(
+        json_field_str(&report.rollout_steps[1], "phase"),
+        Some("partial")
+    );
+    assert_eq!(
+        json_field_str(&report.rollout_steps[2], "phase"),
+        Some("full")
+    );
     assert!(
         report
             .rollout_steps
             .iter()
-            .all(|s| s.reason_code == "ROLLOUT_PHASE_ADVANCED")
+            .all(|s| json_field_str(s, "reason_code") == Some("ROLLOUT_PHASE_ADVANCED"))
     );
 
     let _ = fs::remove_dir_all(out_dir);
@@ -1394,12 +1364,19 @@ fn matrix_planner_v2_successful_fallback_flow() {
     let record = report
         .planner_path_record
         .expect("planner_path_record must be set");
-    assert_eq!(record.selected_path, vec!["start", "middle", "end"]);
-    assert_eq!(record.fallback_steps_used, 1);
+    let selected_path = json_field_array(&record, "selected_path").expect("selected_path array");
+    assert_eq!(
+        selected_path
+            .iter()
+            .map(|v| v.as_str_strict().expect("selected_path item string"))
+            .collect::<Vec<_>>(),
+        vec!["start", "middle", "end"]
+    );
+    assert_eq!(json_field_u64(&record, "fallback_steps_used"), Some(1));
     assert!(
-        record
-            .reason_codes
-            .contains(&"PLANNER_FALLBACK_STEP_APPLIED".to_string())
+        json_field_array(&record, "reason_codes").is_some_and(|codes| codes
+            .iter()
+            .any(|v| v.as_str_strict().ok() == Some("PLANNER_FALLBACK_STEP_APPLIED")))
     );
 
     let _ = fs::remove_dir_all(out_dir);
@@ -1475,18 +1452,16 @@ fn matrix_planner_v2_exhausted_fallback_budget_fails_closed() {
     let record = report
         .planner_path_record
         .expect("planner_path_record must be set");
-    assert_eq!(record.fallback_steps_used, 1);
+    assert_eq!(json_field_u64(&record, "fallback_steps_used"), Some(1));
     assert!(
-        record
-            .reason_codes
-            .contains(&"PLANNER_FALLBACK_BUDGET_EXHAUSTED".to_string())
-    );
-    assert!(
-        report
-            .stage_executions
+        json_field_array(&record, "reason_codes").is_some_and(|codes| codes
             .iter()
-            .any(|e| e.command == "planning.planner_v2.select_path" && e.status == "failed")
+            .any(|v| v.as_str_strict().ok() == Some("PLANNER_FALLBACK_BUDGET_EXHAUSTED")))
     );
+    assert!(report.stage_executions.iter().any(|e| {
+        json_field_str(e, "command") == Some("planning.planner_v2.select_path")
+            && json_field_str(e, "status") == Some("failed")
+    }));
 
     let _ = fs::remove_dir_all(out_dir);
 }
