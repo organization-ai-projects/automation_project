@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use common_json::from_str;
+use common_json::{Json, JsonAccess, from_str};
 
 #[derive(Debug, serde::Deserialize)]
 struct MatrixReportView {
@@ -51,40 +51,6 @@ struct RolloutStepView {
 struct RollbackDecisionView {
     triggered_at_phase: String,
     reason_code: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct RepoContextView {
-    repo_root: String,
-    workspace_members: Vec<String>,
-    ownership_boundaries: Vec<String>,
-    hot_paths: Vec<String>,
-    detected_validation_commands: Vec<RepoValidationInvocation>,
-    planning_feedback: Option<PlanningFeedbackView>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct PlanningFeedbackView {
-    schema_version: u32,
-    terminal_state: Option<String>,
-    recommended_actions: Vec<String>,
-    validation_outcomes: Vec<PlanningValidationOutcomeView>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct PlanningValidationOutcomeView {
-    status: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct RepoValidationInvocation {
-    command_line: RepoValidationCommandLine,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct RepoValidationCommandLine {
-    command: String,
-    args: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -401,30 +367,64 @@ fn matrix_planning_context_artifact_is_written() {
     assert!(artifact_path.exists());
 
     let artifact_raw = fs::read_to_string(&artifact_path).expect("read planning context artifact");
-    let artifact: RepoContextView =
-        from_str(&artifact_raw).expect("deserialize planning context artifact");
-    assert!(!artifact.repo_root.is_empty());
-    assert!(
-        artifact
-            .workspace_members
-            .iter()
-            .any(|m| m == "projects/products/unstable/autonomy_orchestrator_ai")
-    );
-    assert!(
-        artifact
-            .ownership_boundaries
-            .iter()
-            .any(|b| b == "projects/products/unstable")
-    );
-    assert!(
-        artifact
-            .hot_paths
-            .iter()
-            .any(|p| p.contains("autonomy_orchestrator_ai/src"))
-    );
-    assert!(artifact.detected_validation_commands.iter().any(|c| {
-        c.command_line.command == "cargo"
-            && c.command_line.args == vec!["test".to_string(), "--workspace".to_string()]
+    let artifact: Json = from_str(&artifact_raw).expect("deserialize planning context artifact");
+    let repo_root = artifact
+        .get_field("repo_root")
+        .and_then(|v| v.as_str_strict())
+        .expect("repo_root must be a string");
+    assert!(!repo_root.is_empty());
+
+    let workspace_members = artifact
+        .get_field("workspace_members")
+        .and_then(|v| v.as_array_strict())
+        .expect("workspace_members must be an array");
+    assert!(workspace_members.iter().any(|m| {
+        m.as_str_strict()
+            .is_ok_and(|s| s == "projects/products/unstable/autonomy_orchestrator_ai")
+    }));
+
+    let ownership_boundaries = artifact
+        .get_field("ownership_boundaries")
+        .and_then(|v| v.as_array_strict())
+        .expect("ownership_boundaries must be an array");
+    assert!(ownership_boundaries.iter().any(|b| {
+        b.as_str_strict()
+            .is_ok_and(|s| s == "projects/products/unstable")
+    }));
+
+    let hot_paths = artifact
+        .get_field("hot_paths")
+        .and_then(|v| v.as_array_strict())
+        .expect("hot_paths must be an array");
+    assert!(hot_paths.iter().any(|p| {
+        p.as_str_strict()
+            .is_ok_and(|s| s.contains("autonomy_orchestrator_ai/src"))
+    }));
+
+    let detected_commands = artifact
+        .get_field("detected_validation_commands")
+        .and_then(|v| v.as_array_strict())
+        .expect("detected_validation_commands must be an array");
+    assert!(detected_commands.iter().any(|entry| {
+        let command = entry
+            .get_field("command_line")
+            .and_then(|c| c.get_field("command"))
+            .and_then(|v| v.as_str_strict());
+        let args = entry
+            .get_field("command_line")
+            .and_then(|c| c.get_field("args"))
+            .and_then(|v| v.as_array_strict());
+        if command.ok() != Some("cargo") {
+            return false;
+        }
+        match args {
+            Ok(values) => {
+                values.len() == 2
+                    && values[0].as_str_strict().ok() == Some("test")
+                    && values[1].as_str_strict().ok() == Some("--workspace")
+            }
+            Err(_) => false,
+        }
     }));
     assert!(
         report
@@ -1086,25 +1086,48 @@ fn matrix_planning_feedback_loop_injects_previous_validation_outcomes() {
 
     let artifact_raw = fs::read_to_string(&planning_context_artifact)
         .expect("read planning context with feedback artifact");
-    let artifact: RepoContextView =
+    let artifact: Json =
         from_str(&artifact_raw).expect("deserialize planning context with feedback artifact");
     let feedback = artifact
-        .planning_feedback
+        .get_field("planning_feedback")
         .expect("expected planning_feedback to be injected");
-    assert_eq!(feedback.schema_version, 1);
-    assert_eq!(feedback.terminal_state.as_deref(), Some("failed"));
-    assert!(
+    assert_eq!(
         feedback
-            .recommended_actions
-            .iter()
-            .any(|action| action.contains("Inspect failed stage execution")),
+            .get_field("schema_version")
+            .and_then(|v| v.as_u64_strict())
+            .expect("schema_version must be u64"),
+        1
+    );
+    assert_eq!(
+        feedback
+            .get_field("terminal_state")
+            .and_then(|v| v.as_str_strict())
+            .expect("terminal_state must be string"),
+        "failed"
+    );
+    let recommended_actions = feedback
+        .get_field("recommended_actions")
+        .and_then(|v| v.as_array_strict())
+        .expect("recommended_actions must be array");
+    assert!(
+        recommended_actions.iter().any(|action| {
+            action
+                .as_str_strict()
+                .is_ok_and(|s| s.contains("Inspect failed stage execution"))
+        }),
         "expected failure remediation recommendation in planning feedback"
     );
+    let validation_outcomes = feedback
+        .get_field("validation_outcomes")
+        .and_then(|v| v.as_array_strict())
+        .expect("validation_outcomes must be array");
     assert!(
-        feedback
-            .validation_outcomes
-            .iter()
-            .any(|outcome| outcome.status == "failed"),
+        validation_outcomes.iter().any(|outcome| {
+            outcome
+                .get_field("status")
+                .and_then(|v| v.as_str_strict())
+                .is_ok_and(|s| s == "failed")
+        }),
         "expected failed validation outcome in planning feedback"
     );
 
