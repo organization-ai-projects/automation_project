@@ -296,6 +296,7 @@ fn run_once(
         cycle_memory_path: Some(cycle_memory_path.clone()),
         next_actions_path: Some(next_actions_path.clone()),
         previous_run_report_path: Some(previous_run_report_path.clone()),
+        planner_fallback_max_steps: args.planner_fallback_max_steps,
         risk_tier: Some(risk_classification.tier),
         risk_signals: risk_classification.signals,
         risk_allow_high: args.risk_allow_high,
