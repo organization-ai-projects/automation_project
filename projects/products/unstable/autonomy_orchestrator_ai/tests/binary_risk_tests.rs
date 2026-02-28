@@ -202,9 +202,7 @@ fn auto_merge_eligible_path_emits_reason_code() {
         .arg("--review-status")
         .arg("approved")
         .arg("--decision-contribution")
-        .arg(
-            "contributor_id=e2e,capability=validation,vote=proceed,confidence=100,weight=100",
-        )
+        .arg("contributor_id=e2e,capability=validation,vote=proceed,confidence=100,weight=100")
         .arg("--pr-risk-threshold")
         .arg("40")
         .arg("--auto-merge-on-eligible")

@@ -20,8 +20,8 @@ use crate::domain::{
 };
 use crate::hard_gates::{builtin_rules, evaluate_hard_gates, load_external_rules};
 use crate::planner_output::read_planner_output_from_artifacts;
-use crate::pr_risk::compute_pr_risk;
 use crate::planner_v2::{PlannerGraph, select_path, validate_graph};
+use crate::pr_risk::compute_pr_risk;
 use crate::review_ensemble::{
     ReviewEnsembleConfig, missing_mandatory_specialties, run_review_ensemble,
 };

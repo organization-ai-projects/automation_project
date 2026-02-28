@@ -1,5 +1,7 @@
 // projects/products/unstable/autonomy_orchestrator_ai/src/pr_risk.rs
-use crate::domain::{PrRiskBreakdown, PrRiskFactor, RunReport, Stage, StageExecutionStatus, TerminalState};
+use crate::domain::{
+    PrRiskBreakdown, PrRiskFactor, RunReport, Stage, StageExecutionStatus, TerminalState,
+};
 
 /// Computes a deterministic PR risk breakdown from the run report.
 ///

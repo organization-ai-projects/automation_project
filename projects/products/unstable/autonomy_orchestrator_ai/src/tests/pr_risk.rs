@@ -189,7 +189,10 @@ fn eligibility_boundary_at_threshold_is_inclusive() {
     let breakdown = compute_pr_risk(&report, 40);
     // risk_tier=16, confidence=24, rest=0 → total=40
     assert_eq!(breakdown.total_score, 40);
-    assert!(breakdown.eligible_for_auto_merge, "score == threshold should be eligible");
+    assert!(
+        breakdown.eligible_for_auto_merge,
+        "score == threshold should be eligible"
+    );
 
     // One above threshold: add 1 non-passing gate (12 more → total=52)
     report.gate_decisions = vec![GateDecision {
@@ -199,7 +202,10 @@ fn eligibility_boundary_at_threshold_is_inclusive() {
         reason_code: Some("GATE_CI_NOT_SUCCESS".to_string()),
     }];
     let breakdown_above = compute_pr_risk(&report, 40);
-    assert!(!breakdown_above.eligible_for_auto_merge, "score above threshold should not be eligible");
+    assert!(
+        !breakdown_above.eligible_for_auto_merge,
+        "score above threshold should not be eligible"
+    );
 }
 
 #[test]
