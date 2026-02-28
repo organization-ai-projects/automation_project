@@ -48,6 +48,8 @@ members = [
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
+  "projects/products/unstable/vod_forge/backend",
+  "projects/products/unstable/vod_forge/ui",
   "projects/products/unstable/digital_pet/backend",
   "projects/products/unstable/digital_pet/ui",
   "projects/products/unstable/simkernel/backend",
