@@ -171,7 +171,7 @@ impl CinematographyPlanner {
         };
         ActionParameters::SetLighting {
             ambient_color: ambient,
-            light_kind: "Directional".to_string(),
+            light_kind: format!("{:?}", crate::world::LightKind::Directional),
             color,
             intensity,
         }

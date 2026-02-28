@@ -3,6 +3,8 @@ use crate::plan::{Plan, ActionParameters};
 use crate::policy::PolicyEngine;
 use crate::world::{WorldState, WorldFingerprint, WorldEntity, EntityId, Transform, LightDescriptor, LightKind};
 
+const LIGHTING_ENTITY_ID: u64 = 999;
+
 pub struct Executor {
     pub policy_engine: PolicyEngine,
 }
@@ -81,7 +83,7 @@ impl Executor {
                     _ => LightKind::Directional,
                 };
                 world.lighting.lights.push(LightDescriptor {
-                    entity_id: EntityId(999),
+                    entity_id: EntityId(LIGHTING_ENTITY_ID),
                     kind,
                     color: *color,
                     intensity: *intensity,

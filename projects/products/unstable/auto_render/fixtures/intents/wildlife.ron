@@ -8,7 +8,7 @@
         shot_type: "medium",
         lighting_style: "natural",
         background: "forest",
-        fov_deg: Some(300.0),
+        fov_deg: Some(35.0),
         camera_distance: Some(8.0),
     )),
 )
