@@ -48,12 +48,23 @@ impl Response {
         let hash = snap.hash.clone();
         let tick = snap.tick;
         let data_summary = snap.data_summary.clone();
-        Self::Snapshot { id, hash, tick, data_summary, snapshot: snap }
+        Self::Snapshot {
+            id,
+            hash,
+            tick,
+            data_summary,
+            snapshot: snap,
+        }
     }
 
     pub fn report(id: Option<u64>, report: RunReport) -> Self {
         let run_hash = report.run_hash.clone();
         let report_json = serde_json::to_string(&report).unwrap_or_default();
-        Self::Report { id, run_hash, report_json, report }
+        Self::Report {
+            id,
+            run_hash,
+            report_json,
+            report,
+        }
     }
 }

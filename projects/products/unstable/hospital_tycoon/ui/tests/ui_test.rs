@@ -17,7 +17,11 @@ fn test_reducer_determinism() {
 
     impl State {
         fn new() -> Self {
-            Self { current_tick: 0, running: false, last_event: None }
+            Self {
+                current_tick: 0,
+                running: false,
+                last_event: None,
+            }
         }
     }
 
@@ -39,7 +43,12 @@ fn test_reducer_determinism() {
         }
     }
 
-    let actions = vec![("step", 10u64), ("step", 20), ("run_to_end", 0), ("get_report", 0)];
+    let actions = vec![
+        ("step", 10u64),
+        ("step", 20),
+        ("run_to_end", 0),
+        ("get_report", 0),
+    ];
 
     let mut s1 = State::new();
     let mut s2 = State::new();

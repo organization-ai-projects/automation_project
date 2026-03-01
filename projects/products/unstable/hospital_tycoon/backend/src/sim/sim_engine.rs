@@ -1,5 +1,6 @@
 // projects/products/unstable/hospital_tycoon/backend/src/sim/sim_engine.rs
 use crate::config::sim_config::SimConfig;
+use crate::economy::budget::Budget;
 use crate::economy::economy_engine::EconomyEngine;
 use crate::economy::pricing::Pricing;
 use crate::model::hospital_state::HospitalState;
@@ -16,7 +17,6 @@ use crate::rooms::room::Room;
 use crate::rooms::room_engine::RoomEngine;
 use crate::rooms::room_kind::RoomKind;
 use crate::rooms::room_queue::RoomQueue;
-use crate::economy::budget::Budget;
 use crate::sim::event_log::EventLog;
 use crate::sim::sim_event::SimEvent;
 use crate::staff::staff::Staff;
@@ -44,19 +44,32 @@ impl SimEngine {
         let mut room_queues: BTreeMap<RoomId, RoomQueue> = BTreeMap::new();
         for rc in &config.rooms {
             let rid = RoomId::new(rc.id);
-            rooms.insert(rid, Room { id: rid, kind: rc.kind.clone(), capacity: rc.capacity, staff_slots: rc.staff_slots });
+            rooms.insert(
+                rid,
+                Room {
+                    id: rid,
+                    kind: rc.kind.clone(),
+                    capacity: rc.capacity,
+                    staff_slots: rc.staff_slots,
+                },
+            );
             room_queues.insert(rid, RoomQueue::new(rid));
         }
 
         let mut staff: BTreeMap<StaffId, Staff> = BTreeMap::new();
         for sc in &config.staff {
             let sid = StaffId::new(sc.id);
-            staff.insert(sid, Staff {
-                id: sid,
-                name: sc.name.clone(),
-                role: sc.role.clone(),
-                skill: StaffSkill { level: sc.skill_level },
-            });
+            staff.insert(
+                sid,
+                Staff {
+                    id: sid,
+                    name: sc.name.clone(),
+                    role: sc.role.clone(),
+                    skill: StaffSkill {
+                        level: sc.skill_level,
+                    },
+                },
+            );
         }
 
         let state = HospitalState {
@@ -138,11 +151,17 @@ impl SimEngine {
                 Some(p) => p.clone(),
                 None => continue,
             };
-            if let Some(room_id) = self.triage.route(pid, &patient, &self.state.rooms, &mut self.state.room_queues) {
+            if let Some(room_id) = self.triage.route(
+                pid,
+                &patient,
+                &self.state.rooms,
+                &mut self.state.room_queues,
+            ) {
                 if let Some(p) = self.state.patients.get_mut(&pid) {
                     p.assigned_room = Some(room_id);
                 }
-                self.event_log.push(SimEvent::patient_assigned(tick, pid, room_id));
+                self.event_log
+                    .push(SimEvent::patient_assigned(tick, pid, room_id));
             } else {
                 still_waiting.push(pid);
             }
@@ -170,8 +189,12 @@ impl SimEngine {
             self.economy.on_patient_treated(&mut self.state.budget);
             ReputationEngine::on_patient_treated(&mut self.state.reputation);
             self.event_log.push(SimEvent::patient_discharged(tick, pid));
-            self.event_log.push(SimEvent::budget_updated(tick, self.state.budget.balance));
-            self.event_log.push(SimEvent::reputation_changed(tick, self.state.reputation.score));
+            self.event_log
+                .push(SimEvent::budget_updated(tick, self.state.budget.balance));
+            self.event_log.push(SimEvent::reputation_changed(
+                tick,
+                self.state.reputation.score,
+            ));
         }
     }
 }

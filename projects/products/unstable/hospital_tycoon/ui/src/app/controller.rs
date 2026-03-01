@@ -23,7 +23,11 @@ impl Controller {
         Ok(())
     }
 
-    pub fn run_to_end(&mut self, client: &mut IpcClient, state: &mut AppState) -> Result<(), AppError> {
+    pub fn run_to_end(
+        &mut self,
+        client: &mut IpcClient,
+        state: &mut AppState,
+    ) -> Result<(), AppError> {
         client.run_to_end()?;
         state.current_tick = state.ticks;
         state.running = false;

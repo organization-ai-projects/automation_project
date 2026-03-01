@@ -8,7 +8,11 @@ pub struct ChartWidget {
 
 impl ChartWidget {
     pub fn new(label: impl Into<String>, value: u64, max: u64) -> Self {
-        Self { label: label.into(), value, max }
+        Self {
+            label: label.into(),
+            value,
+            max,
+        }
     }
 
     pub fn render(&self) {

@@ -37,7 +37,8 @@ fn run_session(scenario: &str, messages: &[serde_json::Value]) -> Vec<serde_json
         writer.write_all(line.as_bytes()).unwrap();
         writer.flush().unwrap();
         if let Some(Ok(resp_line)) = lines.next() {
-            let v: serde_json::Value = serde_json::from_str(&resp_line).unwrap_or(serde_json::Value::Null);
+            let v: serde_json::Value =
+                serde_json::from_str(&resp_line).unwrap_or(serde_json::Value::Null);
             responses.push(v);
         }
     }
@@ -63,7 +64,10 @@ fn test_deterministic_report() {
     let hash2 = &resps2[2]["run_hash"];
 
     assert!(!hash1.is_null(), "run_hash should not be null");
-    assert_eq!(hash1, hash2, "run_hash must be identical for same seed+scenario");
+    assert_eq!(
+        hash1, hash2,
+        "run_hash must be identical for same seed+scenario"
+    );
 }
 
 /// Test 2: Triage routing — patients are assigned deterministically
@@ -82,7 +86,10 @@ fn test_triage_routing_determinism() {
     let snap1 = &resps1[2]["snapshot"]["hash"];
     let snap2 = &resps2[2]["snapshot"]["hash"];
     assert!(!snap1.is_null(), "snapshot hash should not be null");
-    assert_eq!(snap1, snap2, "snapshot hash must be identical for same inputs");
+    assert_eq!(
+        snap1, snap2,
+        "snapshot hash must be identical for same inputs"
+    );
 }
 
 /// Test 3: Canonical report encoding — same report produces same JSON
@@ -98,7 +105,10 @@ fn test_canonical_report_encoding_determinism() {
     let resps = run_session(TINY_CLINIC, &messages);
     let json1 = &resps[2]["report_json"];
     let json2 = &resps[3]["report_json"];
-    assert_eq!(json1, json2, "repeated GetReport must return identical report_json");
+    assert_eq!(
+        json1, json2,
+        "repeated GetReport must return identical report_json"
+    );
 }
 
 /// Test 4: Replay produces identical report as original run
@@ -116,7 +126,10 @@ fn test_replay_produces_identical_report() {
     ];
     let resps_run = run_session(TINY_CLINIC, &messages_run);
     let original_hash = resps_run[2]["run_hash"].as_str().unwrap_or("").to_string();
-    assert!(!original_hash.is_empty(), "original run_hash must not be empty");
+    assert!(
+        !original_hash.is_empty(),
+        "original run_hash must not be empty"
+    );
     assert_eq!(resps_run[3]["type"], "Ok", "SaveReplay should return Ok");
 
     // Replay run
@@ -125,7 +138,10 @@ fn test_replay_produces_identical_report() {
         serde_json::json!({"id": 2, "request": {"type": "ReplayToEnd"}}),
     ];
     let resps_replay = run_session(TINY_CLINIC, &messages_replay);
-    let replay_hash = resps_replay[1]["run_hash"].as_str().unwrap_or("").to_string();
+    let replay_hash = resps_replay[1]["run_hash"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
 
     assert_eq!(
         original_hash, replay_hash,
@@ -145,7 +161,11 @@ fn test_invalid_scenario_exit_code() {
         .arg("/nonexistent/path/scenario.json")
         .status()
         .expect("failed to run backend");
-    assert_eq!(status.code(), Some(3), "invalid scenario path should exit with code 3");
+    assert_eq!(
+        status.code(),
+        Some(3),
+        "invalid scenario path should exit with code 3"
+    );
 }
 
 /// Test 6: Invalid CLI returns exit code 2
@@ -155,5 +175,9 @@ fn test_invalid_cli_exit_code() {
         .arg("unknown_command")
         .status()
         .expect("failed to run backend");
-    assert_eq!(status.code(), Some(2), "unknown command should exit with code 2");
+    assert_eq!(
+        status.code(),
+        Some(2),
+        "unknown command should exit with code 2"
+    );
 }

@@ -8,7 +8,11 @@ pub struct HospitalScreen {
 
 impl HospitalScreen {
     pub fn new(room_count: usize, staff_count: usize, current_tick: u64) -> Self {
-        Self { room_count, staff_count, current_tick }
+        Self {
+            room_count,
+            staff_count,
+            current_tick,
+        }
     }
 
     pub fn render(&self) {

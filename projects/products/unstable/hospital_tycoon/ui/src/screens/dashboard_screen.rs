@@ -11,7 +11,10 @@ impl DashboardScreen {
     }
 
     pub fn render(&self) {
-        println!("=== Hospital Tycoon Dashboard (tick {}/{}) ===", self.state.current_tick, self.state.ticks);
+        println!(
+            "=== Hospital Tycoon Dashboard (tick {}/{}) ===",
+            self.state.current_tick, self.state.ticks
+        );
         println!("  Seed:             {}", self.state.seed);
         println!("  Patients Treated: {}", self.state.patients_treated);
         println!("  Budget:           {}", self.state.final_budget);

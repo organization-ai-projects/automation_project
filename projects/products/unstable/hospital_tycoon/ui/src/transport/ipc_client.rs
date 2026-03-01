@@ -53,9 +53,13 @@ impl IpcClient {
         let msg = serde_json::json!({ "id": id, "request": request });
         let line = serde_json::to_string(&msg).map_err(|e| AppError::Ipc(e.to_string()))?;
         writeln!(self.stdin, "{}", line).map_err(|e| AppError::Ipc(e.to_string()))?;
-        self.stdin.flush().map_err(|e| AppError::Ipc(e.to_string()))?;
+        self.stdin
+            .flush()
+            .map_err(|e| AppError::Ipc(e.to_string()))?;
         let mut resp_line = String::new();
-        self.reader.read_line(&mut resp_line).map_err(|e| AppError::Ipc(e.to_string()))?;
+        self.reader
+            .read_line(&mut resp_line)
+            .map_err(|e| AppError::Ipc(e.to_string()))?;
         serde_json::from_str(&resp_line).map_err(|e| AppError::Ipc(e.to_string()))
     }
 
