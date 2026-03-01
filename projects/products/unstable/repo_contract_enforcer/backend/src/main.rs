@@ -33,7 +33,7 @@ fn main() -> Result<()> {
             continue;
         }
 
-        let request: protocol::request::Request = match serde_json::from_str(line.trim()) {
+        let request: protocol::request::Request = match common_json::from_json_str(line.trim()) {
             Ok(req) => req,
             Err(err) => {
                 let response = protocol::response::Response {

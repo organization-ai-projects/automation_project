@@ -592,9 +592,7 @@ mod tests {
                 },
             ) => {
                 assert_eq!(ha, hb);
-                let ja = serde_json::to_string(&a).expect("serialize report a");
-                let jb = serde_json::to_string(&b).expect("serialize report b");
-                assert_eq!(ja, jb);
+                assert_eq!(a, b);
             }
             _ => panic!("expected two report payloads"),
         }
@@ -672,12 +670,12 @@ mod tests {
     fn assert_matches_golden(golden_file: &str, report: &Report) {
         let golden = golden_path(golden_file);
         if std::env::var("UPDATE_GOLDEN").as_deref() == Ok("1") {
-            let json = serde_json::to_string_pretty(report).expect("serialize report");
+            let json = common_json::to_string_pretty(report).expect("serialize report");
             fs::write(&golden, json).expect("write golden");
             return;
         }
 
-        let expected: Report = serde_json::from_str(
+        let expected: Report = common_json::from_json_str(
             &fs::read_to_string(&golden).expect("read expected golden report"),
         )
         .expect("parse expected golden report");

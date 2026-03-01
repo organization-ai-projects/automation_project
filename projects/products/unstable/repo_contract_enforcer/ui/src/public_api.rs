@@ -4,7 +4,7 @@ use crate::cli::args::Args;
 use crate::cli::command::{Command, Mode};
 use crate::render::human_printer::HumanPrinter;
 use crate::render::json_printer::JsonPrinter;
-use crate::transport::ipc_client::{IpcClient, RequestPayload, ResponsePayload};
+use crate::transport::ipc_client::{IpcClient, ReportMode, RequestPayload, ResponsePayload};
 
 pub fn run_cli(args: &[String]) -> Result<i32> {
     let parsed = parse_args(args)?;
@@ -33,17 +33,9 @@ pub fn run_cli(args: &[String]) -> Result<i32> {
                 HumanPrinter::print_report(&report_json);
             }
 
-            if let Some(mode) = report_json.get("mode").and_then(|m| m.as_str())
-                && mode == "strict"
+            if report_json.mode == ReportMode::Strict && report_json.summary.stable_error_count > 0
             {
-                let stable_errors = report_json
-                    .get("summary")
-                    .and_then(|s| s.get("stable_error_count"))
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                if stable_errors > 0 {
-                    exit_code = 3;
-                }
+                exit_code = 3;
             }
         }
         ResponsePayload::Error { code, message, .. } => {
