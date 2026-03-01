@@ -54,8 +54,7 @@ impl Ride {
     }
 
     pub fn is_available(&self) -> bool {
-        self.maintenance.is_operational()
-            && self.queue.len() < self.queue_capacity as usize
+        self.maintenance.is_operational() && self.queue.len() < self.queue_capacity as usize
     }
 
     pub fn queue_len(&self) -> usize {

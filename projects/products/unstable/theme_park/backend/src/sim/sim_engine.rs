@@ -198,11 +198,7 @@ impl SimEngine {
 
         if !candidates.is_empty() {
             // Sort: highest score first, then lowest cost, then lowest ride_id (deterministic).
-            candidates.sort_by(|a, b| {
-                b.0.cmp(&a.0)
-                    .then(a.1.cmp(&b.1))
-                    .then(a.2.cmp(&b.2))
-            });
+            candidates.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
             let (_, _, target_rid, path) = candidates.remove(0);
 
             if path.len() <= 1 {
@@ -322,9 +318,8 @@ impl SimEngine {
         }
         let v = state.visitors.get_mut(&vid).unwrap();
         v.status = VisitorStatus::Queued(rid);
-        v.patience = crate::visitors::patience::Patience::new(
-            crate::visitors::patience::Patience::INITIAL,
-        );
+        v.patience =
+            crate::visitors::patience::Patience::new(crate::visitors::patience::Patience::INITIAL);
         event_log.push(SimEvent::VisitorJoinedQueue {
             tick,
             visitor_id: vid,

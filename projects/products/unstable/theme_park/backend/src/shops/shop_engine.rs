@@ -23,12 +23,7 @@ impl ShopEngine {
         }
     }
 
-    fn tick_shop(
-        state: &mut SimState,
-        event_log: &mut EventLog,
-        tick: Tick,
-        sid: ShopId,
-    ) {
+    fn tick_shop(state: &mut SimState, event_log: &mut EventLog, tick: Tick, sid: ShopId) {
         // Find visitors currently shopping here; advance their timer.
         let shopping_visitors: Vec<VisitorId> = state
             .visitors

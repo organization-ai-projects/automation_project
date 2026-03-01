@@ -19,9 +19,9 @@ impl BackendProcess {
         cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit());
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| UiError::BackendSpawn(format!("Failed to spawn {}: {}", backend_bin, e)))?;
+        let mut child = cmd.spawn().map_err(|e| {
+            UiError::BackendSpawn(format!("Failed to spawn {}: {}", backend_bin, e))
+        })?;
         let stdin = child
             .stdin
             .take()

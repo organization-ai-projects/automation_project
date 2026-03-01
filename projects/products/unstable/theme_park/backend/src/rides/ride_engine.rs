@@ -22,22 +22,14 @@ impl RideEngine {
         }
     }
 
-    fn tick_ride(
-        state: &mut SimState,
-        event_log: &mut EventLog,
-        tick: Tick,
-        rid: RideId,
-    ) {
+    fn tick_ride(state: &mut SimState, event_log: &mut EventLog, tick: Tick, rid: RideId) {
         // Advance maintenance timer first.
         let maintenance_done = {
             let ride = state.rides.get_mut(&rid).unwrap();
             ride.maintenance.advance_tick()
         };
         if maintenance_done {
-            event_log.push(SimEvent::MaintenanceComplete {
-                tick,
-                ride_id: rid,
-            });
+            event_log.push(SimEvent::MaintenanceComplete { tick, ride_id: rid });
         }
 
         // If under maintenance, do nothing else.
@@ -91,7 +83,12 @@ impl RideEngine {
         {
             let (not_running, queue_nonempty, cap, ticks) = {
                 let ride = state.rides.get(&rid).unwrap();
-                (!ride.running, !ride.queue.is_empty(), ride.capacity as usize, ride.ticks_per_ride)
+                (
+                    !ride.running,
+                    !ride.queue.is_empty(),
+                    ride.capacity as usize,
+                    ride.ticks_per_ride,
+                )
             };
             if not_running && queue_nonempty {
                 let ride = state.rides.get_mut(&rid).unwrap();
@@ -123,15 +120,13 @@ impl RideEngine {
         // and ride is idle and not already under maintenance.
         {
             let interval = state.config.maintenance_check_interval;
-            let trigger = (tick.value() + rid.value() as u64).is_multiple_of(interval) && tick.value() > 0;
+            let trigger =
+                (tick.value() + rid.value() as u64).is_multiple_of(interval) && tick.value() > 0;
             if trigger {
                 let ride = state.rides.get_mut(&rid).unwrap();
                 if ride.maintenance.is_operational() && !ride.running {
                     ride.maintenance.begin(3);
-                    event_log.push(SimEvent::MaintenanceStarted {
-                        tick,
-                        ride_id: rid,
-                    });
+                    event_log.push(SimEvent::MaintenanceStarted { tick, ride_id: rid });
                 }
             }
         }

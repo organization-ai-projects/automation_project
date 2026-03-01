@@ -23,16 +23,10 @@ pub struct Visitor {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VisitorStatus {
     Idle,
-    Walking {
-        path: Vec<NodeId>,
-        step: usize,
-    },
+    Walking { path: Vec<NodeId>, step: usize },
     Queued(RideId),
     Riding(RideId),
-    Shopping {
-        shop: ShopId,
-        ticks_remaining: u32,
-    },
+    Shopping { shop: ShopId, ticks_remaining: u32 },
     Left,
 }
 

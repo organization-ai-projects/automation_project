@@ -1,0 +1,19 @@
+[package]
+name = "docforge"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "docforge"
+path = "src/main.rs"
+
+[lib]
+name = "docforge"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = "1.0"
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
