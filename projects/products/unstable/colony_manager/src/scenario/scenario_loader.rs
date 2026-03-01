@@ -1,6 +1,6 @@
-use crate::scenario::scenario::Scenario;
-use crate::model::colonist_id::ColonistId;
 use crate::diagnostics::error::ColonyManagerError;
+use crate::model::colonist_id::ColonistId;
+use crate::scenario::scenario::Scenario;
 use std::path::Path;
 
 pub struct ScenarioLoader;
@@ -38,9 +38,7 @@ impl ScenarioLoader {
                 name: name.to_string(),
                 map_width: 4,
                 map_height: 4,
-                colonists: vec![
-                    (ColonistId(0), "Alice".to_string()),
-                ],
+                colonists: vec![(ColonistId(0), "Alice".to_string())],
                 event_probability: 0.3,
             },
         }

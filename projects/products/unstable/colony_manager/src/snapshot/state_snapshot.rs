@@ -10,6 +10,9 @@ pub struct StateSnapshot {
 
 impl StateSnapshot {
     pub fn take(tick: Tick, state: &ColonyState) -> Self {
-        Self { tick, state: state.clone() }
+        Self {
+            tick,
+            state: state.clone(),
+        }
     }
 }

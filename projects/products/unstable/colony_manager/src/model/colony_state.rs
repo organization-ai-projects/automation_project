@@ -1,8 +1,8 @@
+use crate::jobs::job_queue::JobQueue;
+use crate::map::colony_map::ColonyMap;
 use crate::model::colonist::Colonist;
 use crate::model::colonist_id::ColonistId;
 use crate::model::inventory::Inventory;
-use crate::map::colony_map::ColonyMap;
-use crate::jobs::job_queue::JobQueue;
 use crate::time::tick_clock::TickClock;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

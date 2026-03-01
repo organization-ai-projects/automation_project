@@ -24,14 +24,23 @@ use std::collections::BTreeMap;
 pub struct SimEngine;
 
 impl SimEngine {
-    pub fn run(scenario: &Scenario, ticks: u64, seed: u64) -> Result<(SimReport, Vec<RngDraw>), ColonyManagerError> {
+    pub fn run(
+        scenario: &Scenario,
+        ticks: u64,
+        seed: u64,
+    ) -> Result<(SimReport, Vec<RngDraw>), ColonyManagerError> {
         let mut rng = SmallRng::seed_from_u64(seed);
         let mut rng_draws: Vec<RngDraw> = Vec::new();
         let report = Self::run_inner(scenario, ticks, seed, &mut rng, &mut rng_draws)?;
         Ok((report, rng_draws))
     }
 
-    pub fn run_with_rng(scenario: &Scenario, ticks: u64, seed: u64, rng: &mut impl RngCore) -> Result<SimReport, ColonyManagerError> {
+    pub fn run_with_rng(
+        scenario: &Scenario,
+        ticks: u64,
+        seed: u64,
+        rng: &mut impl RngCore,
+    ) -> Result<SimReport, ColonyManagerError> {
         let mut rng_draws: Vec<RngDraw> = Vec::new();
         Self::run_inner(scenario, ticks, seed, rng, &mut rng_draws)
     }
@@ -47,7 +56,9 @@ impl SimEngine {
         let mut state = ColonyState::new(map);
 
         for (id, name) in &scenario.colonists {
-            state.colonists.insert(*id, Colonist::new(*id, name.clone()));
+            state
+                .colonists
+                .insert(*id, Colonist::new(*id, name.clone()));
         }
 
         let mut job_id_counter: u32 = 0;
@@ -114,7 +125,10 @@ impl SimEngine {
             }
 
             let event_roll = rng.next_u64();
-            rng_draws.push(RngDraw { raw_value: event_roll, resolved_index: 0 });
+            rng_draws.push(RngDraw {
+                raw_value: event_roll,
+                resolved_index: 0,
+            });
             // Use integer arithmetic: fire event if roll falls within the scaled probability range.
             // event_probability is in [0.0, 1.0]; use u64::MAX directly to avoid f64 overflow.
             let threshold = (scenario.event_probability as f64 * u64::MAX as f64) as u64;
@@ -128,7 +142,9 @@ impl SimEngine {
                         }
                         crate::events::colony_event::ColonyEvent::Sickness { .. } => {
                             if let Some(c) = state.colonists.values_mut().next() {
-                                c.needs.levels.insert(crate::needs::need_kind::NeedKind::Food, 0.2);
+                                c.needs
+                                    .levels
+                                    .insert(crate::needs::need_kind::NeedKind::Food, 0.2);
                             }
                         }
                         crate::events::colony_event::ColonyEvent::Traders { .. } => {
@@ -138,7 +154,9 @@ impl SimEngine {
                         }
                         crate::events::colony_event::ColonyEvent::Windfall { .. } => {
                             for c in state.colonists.values_mut() {
-                                c.needs.levels.insert(crate::needs::need_kind::NeedKind::Food, 1.0);
+                                c.needs
+                                    .levels
+                                    .insert(crate::needs::need_kind::NeedKind::Food, 1.0);
                             }
                         }
                     }
@@ -154,12 +172,16 @@ impl SimEngine {
         }
 
         let colonist_reports: Vec<ColonistReport> = {
-            let mut v: Vec<ColonistReport> = state.colonists.values().map(|c| ColonistReport {
-                id: c.id,
-                name: c.name.clone(),
-                final_mood: c.mood.value,
-                jobs_completed: *jobs_completed.get(&c.id.0).unwrap_or(&0),
-            }).collect();
+            let mut v: Vec<ColonistReport> = state
+                .colonists
+                .values()
+                .map(|c| ColonistReport {
+                    id: c.id,
+                    name: c.name.clone(),
+                    final_mood: c.mood.value,
+                    jobs_completed: *jobs_completed.get(&c.id.0).unwrap_or(&0),
+                })
+                .collect();
             v.sort_by_key(|r| r.id);
             v
         };

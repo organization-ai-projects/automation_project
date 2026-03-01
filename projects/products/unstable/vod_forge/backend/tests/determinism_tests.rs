@@ -10,7 +10,12 @@ fn backend_binary() -> String {
     }
     let candidate2 = p.join("../vod_forge_backend");
     if candidate2.exists() {
-        return candidate2.canonicalize().unwrap().to_str().unwrap().to_string();
+        return candidate2
+            .canonicalize()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
     }
     "vod_forge_backend".to_string()
 }
@@ -51,18 +56,32 @@ fn test_manifest_encoding_determinism() {
 
     let req1 = format!(
         r#"{{"id":1,"payload":{{"type":"PackageCreate","input_files":["{}","{}"],"out_bundle":"{}"}}}}"#,
-        f1.display(), f2.display(), bundle1.display()
+        f1.display(),
+        f2.display(),
+        bundle1.display()
     );
     let req2 = format!(
         r#"{{"id":2,"payload":{{"type":"PackageCreate","input_files":["{}","{}"],"out_bundle":"{}"}}}}"#,
-        f1.display(), f2.display(), bundle2.display()
+        f1.display(),
+        f2.display(),
+        bundle2.display()
     );
 
     let responses1 = send_recv(&binary, &[&req1]);
     let responses2 = send_recv(&binary, &[&req2]);
 
-    assert_eq!(responses1.len(), 1, "expected 1 response, got: {:?}", responses1);
-    assert_eq!(responses2.len(), 1, "expected 1 response, got: {:?}", responses2);
+    assert_eq!(
+        responses1.len(),
+        1,
+        "expected 1 response, got: {:?}",
+        responses1
+    );
+    assert_eq!(
+        responses2.len(),
+        1,
+        "expected 1 response, got: {:?}",
+        responses2
+    );
 
     // Extract bundle_hash from each response and compare
     let extract_hash = |s: &str| -> String {
@@ -96,7 +115,9 @@ fn test_package_round_trip() {
 
     let create_req = format!(
         r#"{{"id":1,"payload":{{"type":"PackageCreate","input_files":["{}","{}"],"out_bundle":"{}"}}}}"#,
-        f1.display(), f2.display(), bundle.display()
+        f1.display(),
+        f2.display(),
+        bundle.display()
     );
     let verify_req = format!(
         r#"{{"id":2,"payload":{{"type":"PackageVerify","bundle":"{}"}}}}"#,
@@ -104,10 +125,18 @@ fn test_package_round_trip() {
     );
 
     let create_resp = send_recv(&binary, &[&create_req]);
-    assert!(create_resp[0].contains("PackageResult"), "create failed: {}", create_resp[0]);
+    assert!(
+        create_resp[0].contains("PackageResult"),
+        "create failed: {}",
+        create_resp[0]
+    );
 
     let verify_resp = send_recv(&binary, &[&verify_req]);
-    assert!(verify_resp[0].contains("PackageResult"), "verify failed: {}", verify_resp[0]);
+    assert!(
+        verify_resp[0].contains("PackageResult"),
+        "verify failed: {}",
+        verify_resp[0]
+    );
 
     let create_hash: String = create_resp[0]
         .split("bundle_hash")
@@ -132,7 +161,8 @@ fn test_package_round_trip() {
 fn test_playback_session_initial_state() {
     let binary = backend_binary();
 
-    let start_req = r#"{"id":1,"payload":{"type":"PlaybackStart","profile":"alice","episode_id":"ep001"}}"#;
+    let start_req =
+        r#"{"id":1,"payload":{"type":"PlaybackStart","profile":"alice","episode_id":"ep001"}}"#;
 
     let resp1 = send_recv(&binary, &[start_req]);
     let resp2 = send_recv(&binary, &[start_req]);
@@ -150,12 +180,36 @@ fn test_analytics_report_determinism() {
     let resp2 = send_recv(&binary, &[analytics_req]);
 
     // Both responses must contain the same fields (field order may vary)
-    assert!(resp1[0].contains("AnalyticsReport"), "unexpected: {}", resp1[0]);
-    assert!(resp2[0].contains("AnalyticsReport"), "unexpected: {}", resp2[0]);
-    assert!(resp1[0].contains("\"episodes_watched\":0"), "unexpected: {}", resp1[0]);
-    assert!(resp2[0].contains("\"episodes_watched\":0"), "unexpected: {}", resp2[0]);
-    assert!(resp1[0].contains("\"total_watch_ticks\":0"), "unexpected: {}", resp1[0]);
-    assert!(resp2[0].contains("\"total_watch_ticks\":0"), "unexpected: {}", resp2[0]);
+    assert!(
+        resp1[0].contains("AnalyticsReport"),
+        "unexpected: {}",
+        resp1[0]
+    );
+    assert!(
+        resp2[0].contains("AnalyticsReport"),
+        "unexpected: {}",
+        resp2[0]
+    );
+    assert!(
+        resp1[0].contains("\"episodes_watched\":0"),
+        "unexpected: {}",
+        resp1[0]
+    );
+    assert!(
+        resp2[0].contains("\"episodes_watched\":0"),
+        "unexpected: {}",
+        resp2[0]
+    );
+    assert!(
+        resp1[0].contains("\"total_watch_ticks\":0"),
+        "unexpected: {}",
+        resp1[0]
+    );
+    assert!(
+        resp2[0].contains("\"total_watch_ticks\":0"),
+        "unexpected: {}",
+        resp2[0]
+    );
 }
 
 #[test]
@@ -167,7 +221,20 @@ fn test_catalog_add_and_list() {
     let list = r#"{"id":3,"payload":{"type":"CatalogList"}}"#;
 
     let responses = send_recv(&binary, &[add_title, add_ep, list]);
-    assert_eq!(responses.len(), 3, "expected 3 responses, got: {:?}", responses);
-    assert!(responses[0].contains("\"Ok\"") || responses[0].contains("Ok"), "add title failed: {}", responses[0]);
-    assert!(responses[2].contains("Space Odyssey"), "list missing title: {}", responses[2]);
+    assert_eq!(
+        responses.len(),
+        3,
+        "expected 3 responses, got: {:?}",
+        responses
+    );
+    assert!(
+        responses[0].contains("\"Ok\"") || responses[0].contains("Ok"),
+        "add title failed: {}",
+        responses[0]
+    );
+    assert!(
+        responses[2].contains("Space Odyssey"),
+        "list missing title: {}",
+        responses[2]
+    );
 }

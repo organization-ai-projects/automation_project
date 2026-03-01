@@ -1,6 +1,6 @@
+use crate::catalog::episode::Episode;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use crate::catalog::episode::Episode;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Season {

@@ -21,7 +21,8 @@ impl JobAssigner {
             v
         };
         let unassigned = queue.unassigned_sorted();
-        available.into_iter()
+        available
+            .into_iter()
             .zip(unassigned.into_iter())
             .map(|(cid, job)| (cid, job.id))
             .collect()

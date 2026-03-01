@@ -1,5 +1,5 @@
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use crate::diagnostics::UiError;
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 pub struct BackendProcess {
     pub child: Child,
@@ -16,8 +16,18 @@ impl BackendProcess {
             .stderr(Stdio::inherit())
             .spawn()
             .map_err(|e| UiError::Ipc(format!("failed to spawn backend: {}", e)))?;
-        let stdin = child.stdin.take().ok_or_else(|| UiError::Ipc("no stdin".to_string()))?;
-        let stdout = child.stdout.take().ok_or_else(|| UiError::Ipc("no stdout".to_string()))?;
-        Ok(BackendProcess { child, stdin, stdout })
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| UiError::Ipc("no stdin".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| UiError::Ipc("no stdout".to_string()))?;
+        Ok(BackendProcess {
+            child,
+            stdin,
+            stdout,
+        })
     }
 }

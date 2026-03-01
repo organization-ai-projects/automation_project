@@ -40,7 +40,11 @@ fn backend_binary() -> String {
 #[derive(Serialize)]
 #[serde(tag = "type")]
 enum Req {
-    CatalogAddTitle { title_id: String, name: String, year: u16 },
+    CatalogAddTitle {
+        title_id: String,
+        name: String,
+        year: u16,
+    },
 }
 
 #[derive(Deserialize)]
@@ -82,17 +86,22 @@ fn cmd_catalog(args: &[String]) {
             name: entry.name.clone(),
             year: entry.year,
         };
-        let _resp: AnyResp = client.send_request(&mut writer, &mut reader, &req).unwrap_or_else(|e| {
-            eprintln!("ipc error: {}", e);
-            std::process::exit(3);
-        });
+        let _resp: AnyResp = client
+            .send_request(&mut writer, &mut reader, &req)
+            .unwrap_or_else(|e| {
+                eprintln!("ipc error: {}", e);
+                std::process::exit(3);
+            });
         println!("added title: {} ({})", entry.name, entry.year);
     }
 
-    println!("{}", CatalogScreen::render(&AppState {
-        catalog_titles: entries,
-        ..Default::default()
-    }));
+    println!(
+        "{}",
+        CatalogScreen::render(&AppState {
+            catalog_titles: entries,
+            ..Default::default()
+        })
+    );
 }
 
 fn cmd_play(args: &[String]) {
@@ -102,8 +111,14 @@ fn cmd_play(args: &[String]) {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--profile" => { i += 1; profile = args.get(i).cloned(); }
-            "--episode" => { i += 1; episode = args.get(i).cloned(); }
+            "--profile" => {
+                i += 1;
+                profile = args.get(i).cloned();
+            }
+            "--episode" => {
+                i += 1;
+                episode = args.get(i).cloned();
+            }
             "--steps" => {
                 i += 1;
                 steps = args.get(i).and_then(|s| s.parse().ok()).unwrap_or(10);
@@ -125,7 +140,10 @@ fn cmd_play(args: &[String]) {
 
     let pv = controller
         .playback_start(&mut writer, &mut reader, &profile, &episode_id)
-        .unwrap_or_else(|e| { eprintln!("ipc error: {}", e); std::process::exit(3); });
+        .unwrap_or_else(|e| {
+            eprintln!("ipc error: {}", e);
+            std::process::exit(3);
+        });
 
     let session_id = pv.session_id.clone();
     let mut state = reduce(AppState::default(), Action::PlaybackUpdated(pv));
@@ -133,10 +151,15 @@ fn cmd_play(args: &[String]) {
     for _ in 0..steps {
         let pv = controller
             .playback_step(&mut writer, &mut reader, &session_id, 1)
-            .unwrap_or_else(|e| { eprintln!("ipc error: {}", e); std::process::exit(3); });
+            .unwrap_or_else(|e| {
+                eprintln!("ipc error: {}", e);
+                std::process::exit(3);
+            });
         let done = pv.done;
         state = reduce(state, Action::PlaybackUpdated(pv));
-        if done { break; }
+        if done {
+            break;
+        }
     }
 
     println!("{}", PlaybackScreen::render(&state));
@@ -148,8 +171,13 @@ fn cmd_analytics(args: &[String]) {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--profile" => { i += 1; profile = args.get(i).cloned(); }
-            "--json" => { json_output = true; }
+            "--profile" => {
+                i += 1;
+                profile = args.get(i).cloned();
+            }
+            "--json" => {
+                json_output = true;
+            }
             _ => {}
         }
         i += 1;
@@ -166,7 +194,10 @@ fn cmd_analytics(args: &[String]) {
 
     let av = controller
         .analytics_report(&mut writer, &mut reader, &profile)
-        .unwrap_or_else(|e| { eprintln!("ipc error: {}", e); std::process::exit(3); });
+        .unwrap_or_else(|e| {
+            eprintln!("ipc error: {}", e);
+            std::process::exit(3);
+        });
 
     let state = reduce(AppState::default(), Action::AnalyticsLoaded(av.clone()));
 

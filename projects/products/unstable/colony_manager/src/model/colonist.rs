@@ -1,7 +1,7 @@
-use crate::model::colonist_id::ColonistId;
-use crate::needs::needs_state::NeedsState;
-use crate::mood::mood::Mood;
 use crate::jobs::job_id::JobId;
+use crate::model::colonist_id::ColonistId;
+use crate::mood::mood::Mood;
+use crate::needs::needs_state::NeedsState;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,7 +17,8 @@ pub struct Colonist {
 impl Colonist {
     pub fn new(id: ColonistId, name: String) -> Self {
         Self {
-            id, name,
+            id,
+            name,
             needs: NeedsState::default(),
             mood: Mood::default(),
             assigned_job: None,

@@ -7,10 +7,7 @@ use std::collections::BTreeMap;
 pub struct JobExecutor;
 
 impl JobExecutor {
-    pub fn execute_tick(
-        colonists: &mut BTreeMap<ColonistId, Colonist>,
-        queue: &mut JobQueue,
-    ) {
+    pub fn execute_tick(colonists: &mut BTreeMap<ColonistId, Colonist>, queue: &mut JobQueue) {
         let finished_jobs: Vec<JobId> = {
             let mut v = Vec::new();
             for job in queue.jobs.values_mut() {

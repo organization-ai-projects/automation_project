@@ -1,6 +1,6 @@
+use crate::map::cell_id::CellId;
 use crate::model::colonist_id::ColonistId;
 use crate::model::item_id::ItemId;
-use crate::map::cell_id::CellId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

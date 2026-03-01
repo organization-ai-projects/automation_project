@@ -1,5 +1,5 @@
-use crate::replay::replay_file::ReplayFile;
 use crate::diagnostics::error::ColonyManagerError;
+use crate::replay::replay_file::ReplayFile;
 use std::path::Path;
 
 pub struct ReplayCodec;

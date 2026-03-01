@@ -16,9 +16,20 @@ impl ColonyMap {
         for y in 0..height {
             for x in 0..width {
                 let id = CellId(y * width + x);
-                cells.insert(id, Cell { id, passable: true, resource: None });
+                cells.insert(
+                    id,
+                    Cell {
+                        id,
+                        passable: true,
+                        resource: None,
+                    },
+                );
             }
         }
-        Self { cells, width, height }
+        Self {
+            cells,
+            width,
+            height,
+        }
     }
 }

@@ -56,7 +56,10 @@ mod tests {
         let needs_avg = 0.75f32;
         mood1.update_from_needs(needs_avg);
         mood2.update_from_needs(needs_avg);
-        assert_eq!(mood1.value, mood2.value, "Mood update must be deterministic");
+        assert_eq!(
+            mood1.value, mood2.value,
+            "Mood update must be deterministic"
+        );
     }
 
     #[test]
@@ -92,6 +95,9 @@ mod tests {
         let (r2, _) = SimEngine::run(&scenario, 10, 2).unwrap();
         assert!(!r1.run_hash.0.is_empty());
         assert!(!r2.run_hash.0.is_empty());
-        assert_ne!(r1.run_hash.0, r2.run_hash.0, "Different seeds must produce different RunHashes");
+        assert_ne!(
+            r1.run_hash.0, r2.run_hash.0,
+            "Different seeds must produce different RunHashes"
+        );
     }
 }

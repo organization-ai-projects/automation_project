@@ -7,5 +7,10 @@ pub struct SimConfig {
 }
 
 impl Default for SimConfig {
-    fn default() -> Self { Self { max_ticks: 100, seed: 42 } }
+    fn default() -> Self {
+        Self {
+            max_ticks: 100,
+            seed: 42,
+        }
+    }
 }

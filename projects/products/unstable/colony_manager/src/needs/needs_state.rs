@@ -25,7 +25,9 @@ impl NeedsState {
         }
     }
     pub fn average(&self) -> f32 {
-        if self.levels.is_empty() { return 1.0; }
+        if self.levels.is_empty() {
+            return 1.0;
+        }
         self.levels.values().sum::<f32>() / self.levels.len() as f32
     }
 }

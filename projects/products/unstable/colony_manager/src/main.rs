@@ -72,17 +72,33 @@ fn cmd_run(args: &[String]) -> Result<(), diagnostics::error::ColonyManagerError
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--ticks" => { i += 1; ticks = args[i].parse().unwrap_or(100); }
-            "--seed" => { i += 1; seed = args[i].parse().unwrap_or(42); }
-            "--scenario" => { i += 1; scenario_path = Some(PathBuf::from(&args[i])); }
-            "--out" => { i += 1; out_path = Some(PathBuf::from(&args[i])); }
-            "--replay-out" => { i += 1; replay_out = Some(PathBuf::from(&args[i])); }
+            "--ticks" => {
+                i += 1;
+                ticks = args[i].parse().unwrap_or(100);
+            }
+            "--seed" => {
+                i += 1;
+                seed = args[i].parse().unwrap_or(42);
+            }
+            "--scenario" => {
+                i += 1;
+                scenario_path = Some(PathBuf::from(&args[i]));
+            }
+            "--out" => {
+                i += 1;
+                out_path = Some(PathBuf::from(&args[i]));
+            }
+            "--replay-out" => {
+                i += 1;
+                replay_out = Some(PathBuf::from(&args[i]));
+            }
             _ => {}
         }
         i += 1;
     }
 
-    let out = out_path.ok_or_else(|| diagnostics::error::ColonyManagerError::Sim("--out required".to_string()))?;
+    let out = out_path
+        .ok_or_else(|| diagnostics::error::ColonyManagerError::Sim("--out required".to_string()))?;
 
     let scenario = if let Some(p) = scenario_path {
         scenario::scenario_loader::ScenarioLoader::load(&p)?
@@ -114,15 +130,24 @@ fn cmd_replay(args: &[String]) -> Result<(), diagnostics::error::ColonyManagerEr
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--replay" => { i += 1; replay_path = Some(PathBuf::from(&args[i])); }
-            "--out" => { i += 1; out_path = Some(PathBuf::from(&args[i])); }
+            "--replay" => {
+                i += 1;
+                replay_path = Some(PathBuf::from(&args[i]));
+            }
+            "--out" => {
+                i += 1;
+                out_path = Some(PathBuf::from(&args[i]));
+            }
             _ => {}
         }
         i += 1;
     }
 
-    let rp = replay_path.ok_or_else(|| diagnostics::error::ColonyManagerError::Sim("--replay required".to_string()))?;
-    let out = out_path.ok_or_else(|| diagnostics::error::ColonyManagerError::Sim("--out required".to_string()))?;
+    let rp = replay_path.ok_or_else(|| {
+        diagnostics::error::ColonyManagerError::Sim("--replay required".to_string())
+    })?;
+    let out = out_path
+        .ok_or_else(|| diagnostics::error::ColonyManagerError::Sim("--out required".to_string()))?;
 
     let replay_file = replay::replay_codec::ReplayCodec::load(&rp)?;
     let report = replay::replay_engine::ReplayEngine::replay(&replay_file)?;

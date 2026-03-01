@@ -16,6 +16,10 @@ pub struct EventEntry {
 
 impl EventLog {
     pub fn record(&mut self, tick: Tick, event: ColonyEvent, draw_index: usize) {
-        self.entries.push(EventEntry { tick, event, draw_index });
+        self.entries.push(EventEntry {
+            tick,
+            event,
+            draw_index,
+        });
     }
 }

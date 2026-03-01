@@ -9,6 +9,10 @@ pub struct Inventory {
 }
 
 impl Inventory {
-    pub fn add(&mut self, item: Item) { self.items.insert(item.id, item); }
-    pub fn remove(&mut self, id: &ItemId) -> Option<Item> { self.items.remove(id) }
+    pub fn add(&mut self, item: Item) {
+        self.items.insert(item.id, item);
+    }
+    pub fn remove(&mut self, id: &ItemId) -> Option<Item> {
+        self.items.remove(id)
+    }
 }

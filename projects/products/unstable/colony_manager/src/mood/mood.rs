@@ -6,7 +6,9 @@ pub struct Mood {
 }
 
 impl Default for Mood {
-    fn default() -> Self { Self { value: 0.5 } }
+    fn default() -> Self {
+        Self { value: 0.5 }
+    }
 }
 
 impl Mood {

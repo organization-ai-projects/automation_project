@@ -19,7 +19,10 @@ impl CatalogStore {
     pub fn add_title(&mut self, title_id: &str, name: &str, year: u16) -> Result<(), BackendError> {
         let id = TitleId::from(title_id);
         if self.catalog.titles.contains_key(&id) {
-            return Err(BackendError::Catalog(format!("title {} already exists", title_id)));
+            return Err(BackendError::Catalog(format!(
+                "title {} already exists",
+                title_id
+            )));
         }
         let title = Title {
             id: id.clone(),
