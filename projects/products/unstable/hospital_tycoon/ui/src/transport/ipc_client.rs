@@ -113,7 +113,5 @@ impl IpcClient {
         }
     }
 
-    pub fn shutdown(self) {
-        drop(self);
-    }
+    pub fn shutdown(self) {}
 }
