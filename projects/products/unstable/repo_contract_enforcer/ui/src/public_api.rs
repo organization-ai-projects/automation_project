@@ -61,7 +61,7 @@ pub fn run_cli(args: &[String]) -> Result<()> {
     std::process::exit(exit_code);
 }
 
-fn parse_args(args: &[String]) -> Result<Args> {
+pub(crate) fn parse_args(args: &[String]) -> Result<Args> {
     if args.len() < 2 {
         anyhow::bail!(
             "usage: repo_contract_enforcer_ui check --root <path> [--mode auto|strict|relaxed] [--json]"
@@ -127,4 +127,56 @@ fn parse_args(args: &[String]) -> Result<Args> {
     };
 
     Ok(Args { json, command })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn vec_args(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn parse_check_defaults_root_and_mode_auto() {
+        let args = vec_args(&["repo_contract_enforcer_ui", "check"]);
+        let parsed = parse_args(&args).expect("parse check");
+        assert!(!parsed.json);
+        match parsed.command {
+            Command::Check { root, mode } => {
+                assert_eq!(root, ".");
+                assert_eq!(mode, Mode::Auto);
+            }
+            _ => panic!("expected check command"),
+        }
+    }
+
+    #[test]
+    fn parse_check_product_requires_path() {
+        let args = vec_args(&["repo_contract_enforcer_ui", "check-product"]);
+        let err = parse_args(&args).expect_err("missing path should fail");
+        assert!(err.to_string().contains("--path"));
+    }
+
+    #[test]
+    fn parse_check_product_with_mode_and_json() {
+        let args = vec_args(&[
+            "repo_contract_enforcer_ui",
+            "check-product",
+            "--path",
+            "projects/products/unstable/repo_contract_enforcer",
+            "--mode",
+            "strict",
+            "--json",
+        ]);
+        let parsed = parse_args(&args).expect("parse check-product");
+        assert!(parsed.json);
+        match parsed.command {
+            Command::CheckProduct { path, mode } => {
+                assert_eq!(path, "projects/products/unstable/repo_contract_enforcer");
+                assert_eq!(mode, Mode::Strict);
+            }
+            _ => panic!("expected check-product command"),
+        }
+    }
 }
