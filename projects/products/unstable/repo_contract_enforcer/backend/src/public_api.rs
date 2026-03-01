@@ -547,6 +547,8 @@ mod tests {
     use super::*;
     use crate::protocol::request::{Request, RequestPayload};
     use crate::protocol::response::ResponsePayload;
+    use crate::report::report::Report;
+    use crate::report::report_hash::ReportHash;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -621,6 +623,97 @@ mod tests {
 
         assert!(
             report
+                .violations
+                .iter()
+                .all(|v| v.severity == Severity::Warning)
+        );
+    }
+
+    fn fixture_root(name: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/repos")
+            .join(name)
+    }
+
+    fn golden_path(name: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/golden")
+            .join(name)
+    }
+
+    fn normalized_report(mut report: Report, root: &std::path::Path) -> Report {
+        let root_marker = root.to_string_lossy().to_string();
+        report.repository_root = report
+            .repository_root
+            .replace(&root_marker, "<FIXTURE_ROOT>");
+        for violation in &mut report.violations {
+            violation.path = violation.path.replace(&root_marker, "<FIXTURE_ROOT>");
+        }
+        report.report_hash = ReportHash::compute(&report).expect("re-hash normalized report");
+        report
+    }
+
+    fn run_check_repo_report(root: &std::path::Path, mode: EnforcementMode) -> Report {
+        let mut state = BackendState::new();
+        let req = Request {
+            id: Some("fixture".to_string()),
+            payload: RequestPayload::CheckRepo {
+                root_path: root.to_string_lossy().to_string(),
+                mode,
+            },
+        };
+        let response = state.handle(req);
+        match response.payload {
+            ResponsePayload::Report { report_json, .. } => report_json,
+            _ => panic!("expected report response"),
+        }
+    }
+
+    fn assert_matches_golden(golden_file: &str, report: &Report) {
+        let golden = golden_path(golden_file);
+        if std::env::var("UPDATE_GOLDEN").as_deref() == Ok("1") {
+            let json = serde_json::to_string_pretty(report).expect("serialize report");
+            fs::write(&golden, json).expect("write golden");
+            return;
+        }
+
+        let expected: Report = serde_json::from_str(
+            &fs::read_to_string(&golden).expect("read expected golden report"),
+        )
+        .expect("parse expected golden report");
+        assert_eq!(expected, *report);
+    }
+
+    #[test]
+    fn fixture_valid_stable_matches_golden() {
+        let root = fixture_root("valid_stable_product");
+        let report = run_check_repo_report(&root, EnforcementMode::Auto);
+        let normalized = normalized_report(report, &root);
+        assert_matches_golden("expected_report_valid_stable.json", &normalized);
+    }
+
+    #[test]
+    fn fixture_invalid_stable_third_crate_matches_golden() {
+        let root = fixture_root("invalid_stable_third_crate");
+        let report = run_check_repo_report(&root, EnforcementMode::Strict);
+        let normalized = normalized_report(report, &root);
+        assert_matches_golden(
+            "expected_report_invalid_stable_third_crate.json",
+            &normalized,
+        );
+    }
+
+    #[test]
+    fn fixture_invalid_unstable_third_crate_matches_golden() {
+        let root = fixture_root("invalid_unstable_third_crate");
+        let report = run_check_repo_report(&root, EnforcementMode::Auto);
+        let normalized = normalized_report(report, &root);
+        assert_matches_golden(
+            "expected_report_invalid_unstable_third_crate.json",
+            &normalized,
+        );
+        assert!(
+            normalized
                 .violations
                 .iter()
                 .all(|v| v.severity == Severity::Warning)
