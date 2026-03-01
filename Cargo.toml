@@ -76,6 +76,7 @@ members = [
   "projects/products/unstable/artifact_factory/backend",
   "projects/products/unstable/artifact_factory/ui",
   "projects/products/unstable/artifact_factory/tooling",
+  "projects/products/unstable/docforge",
 ]
 resolver = "2"
 
