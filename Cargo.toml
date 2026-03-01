@@ -79,6 +79,8 @@ members = [
   "projects/products/unstable/artifact_factory/backend",
   "projects/products/unstable/artifact_factory/ui",
   "projects/products/unstable/artifact_factory/tooling",
+  "projects/products/unstable/theme_park/backend",
+  "projects/products/unstable/theme_park/ui",
 ]
 resolver = "2"
 
