@@ -1,0 +1,17 @@
+[package]
+name = "repo_contract_enforcer_backend"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "repo_contract_enforcer_backend"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = "1.0"
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+syn = { version = "2", features = ["full", "parsing"] }
