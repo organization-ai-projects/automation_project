@@ -57,7 +57,10 @@ fn apply_op(op: &EditOp, doc: &mut Document) -> Result<(), DocError> {
                 return Err(DocError::BlockNotFound(block_id.clone()));
             }
         }
-        EditOp::ReplaceBlockContent { block_id, new_content } => {
+        EditOp::ReplaceBlockContent {
+            block_id,
+            new_content,
+        } => {
             if let Some(idx) = doc.block_index(block_id) {
                 match &mut doc.blocks[idx] {
                     Block::Heading { content, .. } => *content = new_content.clone(),
@@ -66,7 +69,7 @@ fn apply_op(op: &EditOp, doc: &mut Document) -> Result<(), DocError> {
                     _ => {
                         return Err(DocError::InvalidOperation(
                             "Cannot replace content of this block type".into(),
-                        ))
+                        ));
                     }
                 }
             } else {

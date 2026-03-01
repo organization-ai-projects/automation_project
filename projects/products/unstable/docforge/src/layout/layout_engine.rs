@@ -12,12 +12,17 @@ impl LayoutEngine {
     }
 
     pub fn layout(&self, doc: &Document) -> Vec<LayoutNode> {
-        doc.blocks.iter().map(|block| Self::layout_block(block)).collect()
+        doc.blocks
+            .iter()
+            .map(|block| Self::layout_block(block))
+            .collect()
     }
 
     fn layout_block(block: &Block) -> LayoutNode {
         match block {
-            Block::Heading { id, level, content, .. } => LayoutNode::Block {
+            Block::Heading {
+                id, level, content, ..
+            } => LayoutNode::Block {
                 block_id: id.clone(),
                 kind: format!("heading-{level}"),
                 children: Self::layout_inlines(content),
@@ -27,8 +32,14 @@ impl LayoutEngine {
                 kind: "paragraph".into(),
                 children: Self::layout_inlines(content),
             },
-            Block::List { id, items, ordered, .. } => {
-                let kind = if *ordered { "ordered-list" } else { "unordered-list" };
+            Block::List {
+                id, items, ordered, ..
+            } => {
+                let kind = if *ordered {
+                    "ordered-list"
+                } else {
+                    "unordered-list"
+                };
                 let children = items
                     .iter()
                     .map(|item| LayoutNode::Block {
@@ -37,9 +48,15 @@ impl LayoutEngine {
                         children: Self::layout_inlines(item),
                     })
                     .collect();
-                LayoutNode::Block { block_id: id.clone(), kind: kind.into(), children }
+                LayoutNode::Block {
+                    block_id: id.clone(),
+                    kind: kind.into(),
+                    children,
+                }
             }
-            Block::CodeBlock { id, language, code, .. } => {
+            Block::CodeBlock {
+                id, language, code, ..
+            } => {
                 let kind = language
                     .as_deref()
                     .map(|l| format!("code-{l}"))
@@ -47,7 +64,10 @@ impl LayoutEngine {
                 LayoutNode::Block {
                     block_id: id.clone(),
                     kind,
-                    children: vec![LayoutNode::Inline { kind: "code".into(), text: code.clone() }],
+                    children: vec![LayoutNode::Inline {
+                        kind: "code".into(),
+                        text: code.clone(),
+                    }],
                 }
             }
             Block::Quote { id, content, .. } => LayoutNode::Block {
@@ -59,12 +79,18 @@ impl LayoutEngine {
     }
 
     fn layout_inlines(inlines: &[Inline]) -> Vec<LayoutNode> {
-        inlines.iter().map(|inline| Self::layout_inline(inline)).collect()
+        inlines
+            .iter()
+            .map(|inline| Self::layout_inline(inline))
+            .collect()
     }
 
     fn layout_inline(inline: &Inline) -> LayoutNode {
         match inline {
-            Inline::Text(s) => LayoutNode::Inline { kind: "text".into(), text: s.clone() },
+            Inline::Text(s) => LayoutNode::Inline {
+                kind: "text".into(),
+                text: s.clone(),
+            },
             Inline::Bold(children) => LayoutNode::Inline {
                 kind: "bold".into(),
                 text: children
@@ -81,19 +107,25 @@ impl LayoutEngine {
                     .collect::<Vec<_>>()
                     .join(""),
             },
-            Inline::CodeSpan(s) => LayoutNode::Inline { kind: "code-span".into(), text: s.clone() },
-            Inline::Link { href, text } => {
-                LayoutNode::Inline { kind: format!("link:{href}"), text: text.clone() }
-            }
+            Inline::CodeSpan(s) => LayoutNode::Inline {
+                kind: "code-span".into(),
+                text: s.clone(),
+            },
+            Inline::Link { href, text } => LayoutNode::Inline {
+                kind: format!("link:{href}"),
+                text: text.clone(),
+            },
         }
     }
 
     fn inline_text(inline: &Inline) -> String {
         match inline {
             Inline::Text(s) => s.clone(),
-            Inline::Bold(children) | Inline::Italic(children) => {
-                children.iter().map(|c| Self::inline_text(c)).collect::<Vec<_>>().join("")
-            }
+            Inline::Bold(children) | Inline::Italic(children) => children
+                .iter()
+                .map(|c| Self::inline_text(c))
+                .collect::<Vec<_>>()
+                .join(""),
             Inline::CodeSpan(s) => s.clone(),
             Inline::Link { text, .. } => text.clone(),
         }

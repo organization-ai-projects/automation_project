@@ -7,8 +7,8 @@ pub struct ReplayCodec;
 
 impl ReplayCodec {
     pub fn save(replay: &ReplayFile, path: &str) -> Result<(), SimError> {
-        let json =
-            serde_json::to_string_pretty(replay).map_err(|e| SimError::Serialization(e.to_string()))?;
+        let json = serde_json::to_string_pretty(replay)
+            .map_err(|e| SimError::Serialization(e.to_string()))?;
         std::fs::write(path, json).map_err(|e| SimError::Io(e.to_string()))
     }
 

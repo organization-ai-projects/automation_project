@@ -34,7 +34,9 @@ fn sample_ops() -> Vec<EditOp> {
                 style: None,
             },
         },
-        EditOp::SetTitle { title: "My Document".into() },
+        EditOp::SetTitle {
+            title: "My Document".into(),
+        },
     ]
 }
 
@@ -83,7 +85,9 @@ fn test_replay_event_stream_identical_doc_and_render() {
     let events = vec![DocEvent::new(1, doc_id.clone(), ops)];
     let mut replayed_doc = Document::new(doc_id.clone(), "Integration Test Doc");
     let engine = ReplayEngine::new();
-    engine.replay(&mut replayed_doc, &events).expect("replay failed");
+    engine
+        .replay(&mut replayed_doc, &events)
+        .expect("replay failed");
 
     assert_eq!(expected_doc, replayed_doc);
 

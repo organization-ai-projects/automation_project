@@ -34,9 +34,10 @@ impl EventLog {
     pub fn checksum(&self) -> u64 {
         self.events.iter().enumerate().fold(0u64, |acc, (i, e)| {
             let tick_val = e.tick().value();
-            let kind_hash = e.kind_name().bytes().fold(0u64, |a, b| {
-                a.wrapping_mul(31).wrapping_add(b as u64)
-            });
+            let kind_hash = e
+                .kind_name()
+                .bytes()
+                .fold(0u64, |a, b| a.wrapping_mul(31).wrapping_add(b as u64));
             acc.wrapping_add(tick_val.wrapping_mul(i as u64 + 1))
                 .wrapping_add(kind_hash)
         })

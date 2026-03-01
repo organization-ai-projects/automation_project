@@ -5,12 +5,7 @@ use sha2::{Digest, Sha256};
 pub struct SnapshotHash;
 
 impl SnapshotHash {
-    pub fn compute(
-        tick: u64,
-        active_visitors: u64,
-        total_revenue: u64,
-        reputation: i32,
-    ) -> String {
+    pub fn compute(tick: u64, active_visitors: u64, total_revenue: u64, reputation: i32) -> String {
         let mut hasher = Sha256::new();
         hasher.update(tick.to_le_bytes());
         hasher.update(active_visitors.to_le_bytes());

@@ -47,7 +47,8 @@ impl IpcClient {
         let id = self.next_id;
         self.next_id += 1;
         let msg = serde_json::json!({ "id": id, "payload": payload });
-        let line = serde_json::to_string(&msg).map_err(|e| UiError::Serialization(e.to_string()))?;
+        let line =
+            serde_json::to_string(&msg).map_err(|e| UiError::Serialization(e.to_string()))?;
         self.stdin
             .write_all(format!("{}\n", line).as_bytes())
             .map_err(|e| UiError::Ipc(e.to_string()))?;
@@ -110,10 +111,7 @@ impl IpcClient {
                 .get("code")
                 .and_then(|c| c.as_str())
                 .unwrap_or("UNKNOWN");
-            let message = resp
-                .get("message")
-                .and_then(|m| m.as_str())
-                .unwrap_or("");
+            let message = resp.get("message").and_then(|m| m.as_str()).unwrap_or("");
             return Err(UiError::Ipc(format!("{}: {}", code, message)));
         }
         Ok(())

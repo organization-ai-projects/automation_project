@@ -24,8 +24,7 @@ impl Router {
         // for deterministic tie-breaking on NodeId.
         let mut dist: BTreeMap<NodeId, u32> = BTreeMap::new();
         let mut prev: BTreeMap<NodeId, NodeId> = BTreeMap::new();
-        let mut open: std::collections::BTreeSet<(u32, NodeId)> =
-            std::collections::BTreeSet::new();
+        let mut open: std::collections::BTreeSet<(u32, NodeId)> = std::collections::BTreeSet::new();
 
         dist.insert(start, 0);
         open.insert((0, start));
@@ -50,11 +49,7 @@ impl Router {
         None
     }
 
-    fn reconstruct(
-        start: NodeId,
-        goal: NodeId,
-        prev: &BTreeMap<NodeId, NodeId>,
-    ) -> Route {
+    fn reconstruct(start: NodeId, goal: NodeId, prev: &BTreeMap<NodeId, NodeId>) -> Route {
         let mut path = Vec::new();
         let mut cur = goal;
         loop {

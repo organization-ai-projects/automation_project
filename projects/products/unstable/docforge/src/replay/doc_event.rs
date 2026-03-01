@@ -10,6 +10,10 @@ pub struct DocEvent {
 
 impl DocEvent {
     pub fn new(sequence: u64, doc_id: DocId, ops: Vec<EditOp>) -> Self {
-        Self { sequence, doc_id, ops }
+        Self {
+            sequence,
+            doc_id,
+            ops,
+        }
     }
 }

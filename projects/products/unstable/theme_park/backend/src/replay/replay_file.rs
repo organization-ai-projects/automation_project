@@ -18,8 +18,7 @@ pub struct ReplayFile {
 
 impl ReplayFile {
     pub fn from_run(scenario: &Scenario, state: &SimState, event_log: &EventLog) -> Self {
-        let scenario_json =
-            serde_json::to_string(scenario).unwrap_or_default();
+        let scenario_json = serde_json::to_string(scenario).unwrap_or_default();
         let scenario_hash = scenario.hash();
         Self {
             scenario_id: scenario.id.clone(),

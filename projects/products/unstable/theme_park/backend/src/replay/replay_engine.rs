@@ -18,8 +18,7 @@ impl ReplayEngine {
         replay: &ReplayFile,
         config: &SimConfig,
     ) -> Result<(SimState, EventLog, RunReport), SimError> {
-        let scenario: Scenario =
-            ScenarioLoader::load_from_str(&replay.scenario_json)?;
+        let scenario: Scenario = ScenarioLoader::load_from_str(&replay.scenario_json)?;
         let (engine, mut state) = SimEngine::new(&scenario, replay.seed, config);
         let mut event_log = EventLog::new();
 

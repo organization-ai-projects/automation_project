@@ -49,7 +49,11 @@ impl TextRenderer {
     }
 
     fn render_inlines(&self, inlines: &[Inline]) -> String {
-        inlines.iter().map(|i| self.render_inline(i)).collect::<Vec<_>>().join("")
+        inlines
+            .iter()
+            .map(|i| self.render_inline(i))
+            .collect::<Vec<_>>()
+            .join("")
     }
 
     fn render_inline(&self, inline: &Inline) -> String {

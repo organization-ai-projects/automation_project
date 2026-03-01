@@ -42,7 +42,10 @@ impl HtmlRenderer {
                     .as_deref()
                     .map(|l| format!(" class=\"language-{}\"", Self::escape_html(l)))
                     .unwrap_or_default();
-                format!("<pre><code{lang_attr}>{}</code></pre>", Self::escape_html(code))
+                format!(
+                    "<pre><code{lang_attr}>{}</code></pre>",
+                    Self::escape_html(code)
+                )
             }
             Block::Quote { content, .. } => {
                 format!("<blockquote>{}</blockquote>", self.render_inlines(content))
@@ -51,7 +54,11 @@ impl HtmlRenderer {
     }
 
     fn render_inlines(&self, inlines: &[Inline]) -> String {
-        inlines.iter().map(|i| self.render_inline(i)).collect::<Vec<_>>().join("")
+        inlines
+            .iter()
+            .map(|i| self.render_inline(i))
+            .collect::<Vec<_>>()
+            .join("")
     }
 
     fn render_inline(&self, inline: &Inline) -> String {
@@ -61,7 +68,11 @@ impl HtmlRenderer {
             Inline::Italic(children) => format!("<em>{}</em>", self.render_inlines(children)),
             Inline::CodeSpan(s) => format!("<code>{}</code>", Self::escape_html(s)),
             Inline::Link { href, text } => {
-                format!("<a href=\"{}\">{}</a>", Self::escape_html(href), Self::escape_html(text))
+                format!(
+                    "<a href=\"{}\">{}</a>",
+                    Self::escape_html(href),
+                    Self::escape_html(text)
+                )
             }
         }
     }

@@ -91,7 +91,9 @@ fn cmd_new(args: &[String]) -> Result<(), DocError> {
 
 fn cmd_edit(args: &[String]) -> Result<(), DocError> {
     if args.is_empty() {
-        return Err(DocError::InvalidOperation("edit requires a file argument".into()));
+        return Err(DocError::InvalidOperation(
+            "edit requires a file argument".into(),
+        ));
     }
     let file = &args[0];
     let mut ops_file: Option<String> = None;
@@ -118,16 +120,16 @@ fn cmd_edit(args: &[String]) -> Result<(), DocError> {
     if let Some(ops_path) = ops_file {
         let ops_json =
             std::fs::read_to_string(&ops_path).map_err(|e| DocError::Io(e.to_string()))?;
-        let ops: Vec<EditOp> = serde_json::from_str(&ops_json)
-            .map_err(|e| DocError::Serialization(e.to_string()))?;
+        let ops: Vec<EditOp> =
+            serde_json::from_str(&ops_json).map_err(|e| DocError::Serialization(e.to_string()))?;
 
         // We need to find the doc in the store - apply to first doc found
         // Load, apply, save back
 
         // Reload raw JSON to get doc IDs
         let raw = std::fs::read_to_string(file).map_err(|e| DocError::Io(e.to_string()))?;
-        let map: serde_json::Value = serde_json::from_str(&raw)
-            .map_err(|e| DocError::Serialization(e.to_string()))?;
+        let map: serde_json::Value =
+            serde_json::from_str(&raw).map_err(|e| DocError::Serialization(e.to_string()))?;
 
         if let Some(obj) = map.as_object() {
             for (doc_id_str, _) in obj {
@@ -146,8 +148,8 @@ fn cmd_edit(args: &[String]) -> Result<(), DocError> {
 
     // Re-load to render
     let raw = std::fs::read_to_string(file).map_err(|e| DocError::Io(e.to_string()))?;
-    let map: serde_json::Value = serde_json::from_str(&raw)
-        .map_err(|e| DocError::Serialization(e.to_string()))?;
+    let map: serde_json::Value =
+        serde_json::from_str(&raw).map_err(|e| DocError::Serialization(e.to_string()))?;
 
     if let Some(obj) = map.as_object() {
         for (doc_id_str, _) in obj {

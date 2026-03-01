@@ -19,7 +19,13 @@ impl GraphWidget {
     }
 
     pub fn render(&self) -> String {
-        let max = self.values.iter().map(|(_, v)| *v).max().unwrap_or(1).max(1);
+        let max = self
+            .values
+            .iter()
+            .map(|(_, v)| *v)
+            .max()
+            .unwrap_or(1)
+            .max(1);
         let mut out = format!("=== {} ===\n", self.title);
         for (label, value) in &self.values {
             let bar_len = (value * 20 / max) as usize;

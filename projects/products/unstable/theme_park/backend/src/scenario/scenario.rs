@@ -77,10 +77,20 @@ impl Scenario {
             visitor_count: 5,
             entrance_node: 0,
             nodes: vec![
-                NodeDef { id: 0, name: String::from("entrance") },
-                NodeDef { id: 1, name: String::from("ride_area") },
+                NodeDef {
+                    id: 0,
+                    name: String::from("entrance"),
+                },
+                NodeDef {
+                    id: 1,
+                    name: String::from("ride_area"),
+                },
             ],
-            edges: vec![EdgeDef { from: 0, to: 1, cost: 1 }],
+            edges: vec![EdgeDef {
+                from: 0,
+                to: 1,
+                cost: 1,
+            }],
             rides: vec![RideDef {
                 id: 0,
                 kind: RideKind::Coaster,

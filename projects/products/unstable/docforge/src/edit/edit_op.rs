@@ -6,13 +6,30 @@ use crate::model::style_id::StyleId;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum EditOp {
-    InsertBlock { position: usize, block: Block },
-    DeleteBlock { block_id: BlockId },
-    ReplaceBlockContent { block_id: BlockId, new_content: Vec<Inline> },
-    SetTitle { title: String },
-    AddStyle { style: Style },
-    RemoveStyle { style_id: StyleId },
-    ApplyStyleToBlock { block_id: BlockId, style_id: StyleId },
+    InsertBlock {
+        position: usize,
+        block: Block,
+    },
+    DeleteBlock {
+        block_id: BlockId,
+    },
+    ReplaceBlockContent {
+        block_id: BlockId,
+        new_content: Vec<Inline>,
+    },
+    SetTitle {
+        title: String,
+    },
+    AddStyle {
+        style: Style,
+    },
+    RemoveStyle {
+        style_id: StyleId,
+    },
+    ApplyStyleToBlock {
+        block_id: BlockId,
+        style_id: StyleId,
+    },
 }
 
 #[cfg(test)]
@@ -52,10 +69,15 @@ mod tests {
     fn test_delete_block_op() {
         let mut doc = make_doc();
         let mut tx = EditTx::new();
-        tx.add_op(EditOp::InsertBlock { position: 0, block: make_paragraph("b1") });
+        tx.add_op(EditOp::InsertBlock {
+            position: 0,
+            block: make_paragraph("b1"),
+        });
         tx.apply(&mut doc).unwrap();
 
-        let tx2 = EditTx::from_ops(vec![EditOp::DeleteBlock { block_id: BlockId::new("b1") }]);
+        let tx2 = EditTx::from_ops(vec![EditOp::DeleteBlock {
+            block_id: BlockId::new("b1"),
+        }]);
         tx2.apply(&mut doc).unwrap();
         assert!(doc.blocks.is_empty());
     }
@@ -63,7 +85,9 @@ mod tests {
     #[test]
     fn test_set_title_op() {
         let mut doc = make_doc();
-        let tx = EditTx::from_ops(vec![EditOp::SetTitle { title: "New Title".into() }]);
+        let tx = EditTx::from_ops(vec![EditOp::SetTitle {
+            title: "New Title".into(),
+        }]);
         tx.apply(&mut doc).unwrap();
         assert_eq!(doc.title, "New Title");
     }

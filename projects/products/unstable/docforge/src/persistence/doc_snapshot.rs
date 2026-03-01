@@ -14,8 +14,8 @@ pub struct DocSnapshot {
 
 impl DocSnapshot {
     pub fn create(doc: &Document, version: u64, events: Vec<DocEvent>) -> Result<Self, DocError> {
-        let json = serde_json::to_string(doc)
-            .map_err(|e| DocError::Serialization(e.to_string()))?;
+        let json =
+            serde_json::to_string(doc).map_err(|e| DocError::Serialization(e.to_string()))?;
         let checksum = compute_sha256(&json);
         Ok(Self {
             doc_id: doc.id.clone(),

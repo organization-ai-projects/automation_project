@@ -6,7 +6,9 @@ pub struct UndoStack {
 
 impl UndoStack {
     pub fn new() -> Self {
-        Self { history: Vec::new() }
+        Self {
+            history: Vec::new(),
+        }
     }
 
     pub fn push(&mut self, ops: Vec<EditOp>) {

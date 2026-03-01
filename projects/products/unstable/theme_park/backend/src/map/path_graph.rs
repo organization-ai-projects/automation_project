@@ -44,7 +44,10 @@ impl PathGraph {
     }
 
     pub fn neighbours(&self, node: NodeId) -> &[(NodeId, u32)] {
-        self.adjacency.get(&node).map(|v| v.as_slice()).unwrap_or(&[])
+        self.adjacency
+            .get(&node)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     pub fn contains(&self, node: NodeId) -> bool {

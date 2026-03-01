@@ -70,8 +70,7 @@ impl RequestDispatcher {
         let req: Request = match serde_json::from_value(msg.payload) {
             Ok(r) => r,
             Err(e) => {
-                let resp =
-                    Response::error(Some(msg.id), "INVALID_REQUEST", &e.to_string(), "");
+                let resp = Response::error(Some(msg.id), "INVALID_REQUEST", &e.to_string(), "");
                 return json_codec::encode(&resp).unwrap_or_else(|_| "{}".to_string());
             }
         };
@@ -111,9 +110,7 @@ impl RequestDispatcher {
                 self.run_state = None;
                 Response::ok(id)
             }
-            Err(SimError::Io(e)) => {
-                Response::error(Some(id), "IO_ERROR", &e, "")
-            }
+            Err(SimError::Io(e)) => Response::error(Some(id), "IO_ERROR", &e, ""),
             Err(SimError::InvalidScenario(e)) => {
                 Response::error(Some(id), "INVALID_SCENARIO", &e, "")
             }
@@ -251,8 +248,7 @@ impl RequestDispatcher {
                 let seed = replay.seed;
                 let ticks = replay.ticks;
                 self.scenario = Some(scenario.clone());
-                let (engine, state) =
-                    SimEngine::new(&scenario, seed, &self.config);
+                let (engine, state) = SimEngine::new(&scenario, seed, &self.config);
                 self.run_state = Some(RunState {
                     engine,
                     state,

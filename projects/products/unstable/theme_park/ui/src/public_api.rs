@@ -36,8 +36,7 @@ impl Controller {
         self.state.last_report = Some(report_json.clone());
 
         // Save report.
-        std::fs::write(out_path, &report_json)
-            .map_err(|e| UiError::Io(e.to_string()))?;
+        std::fs::write(out_path, &report_json).map_err(|e| UiError::Io(e.to_string()))?;
 
         // Optionally save replay.
         if let Some(rpath) = replay_path {

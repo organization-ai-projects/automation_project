@@ -11,7 +11,9 @@ pub struct DocStore {
 
 impl DocStore {
     pub fn new() -> Self {
-        Self { snapshots: BTreeMap::new() }
+        Self {
+            snapshots: BTreeMap::new(),
+        }
     }
 
     pub fn save(&mut self, snapshot: DocSnapshot) {
@@ -29,10 +31,9 @@ impl DocStore {
     }
 
     pub fn load_from_file(path: &str) -> Result<Self, DocError> {
-        let content =
-            std::fs::read_to_string(path).map_err(|e| DocError::Io(e.to_string()))?;
-        let snapshots: BTreeMap<DocId, DocSnapshot> = serde_json::from_str(&content)
-            .map_err(|e| DocError::Serialization(e.to_string()))?;
+        let content = std::fs::read_to_string(path).map_err(|e| DocError::Io(e.to_string()))?;
+        let snapshots: BTreeMap<DocId, DocSnapshot> =
+            serde_json::from_str(&content).map_err(|e| DocError::Serialization(e.to_string()))?;
         Ok(Self { snapshots })
     }
 }

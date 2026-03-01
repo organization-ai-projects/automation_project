@@ -15,11 +15,7 @@ impl VisitorScreen {
     pub fn render(&self) -> String {
         format!(
             "[Visitor {}] mood={} patience={} rides={} status={}",
-            self.visitor_id,
-            self.mood,
-            self.patience,
-            self.rides_completed,
-            self.status
+            self.visitor_id, self.mood, self.patience, self.rides_completed, self.status
         )
     }
 }
