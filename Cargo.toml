@@ -34,16 +34,51 @@ members = [
   "projects/products/unstable/autonomy_reviewer_ai",
   "projects/products/unstable/auto_render",
   "projects/products/unstable/colony_manager",
+  "projects/products/unstable/life_sim",
+  "projects/products/unstable/space_empire",
+  "projects/products/unstable/city_builder",
+  "projects/products/unstable/space_diplo_wars",
   "projects/libraries/core/foundation/ast_core",
   "projects/libraries/core/foundation/ast_macros",
   "projects/libraries/core/foundation/pjson_proc_macros",
   "projects/libraries/core/foundation/hybrid_arena",
   "projects/libraries/layers/domain/versioning",
   "projects/libraries/layers/domain/runtime_core",
+  "projects/products/unstable/living_spreadsheet",
   "projects/products/stable/platform_versioning/backend",
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
+  "projects/products/unstable/vod_forge/backend",
+  "projects/products/unstable/vod_forge/ui",
+  "projects/products/unstable/digital_pet/backend",
+  "projects/products/unstable/digital_pet/ui",
+  "projects/products/unstable/simkernel/backend",
+  "projects/products/unstable/simkernel/ui",
+  "projects/products/unstable/simkernel/tooling",
+  "projects/products/unstable/diplo_sim",
+  "projects/products/unstable/princeps",
+  "projects/products/unstable/dev_agent",
+  "projects/products/unstable/factory_sim",
+  "projects/products/unstable/workflow_offline",
+  "projects/products/unstable/simulation_compiler/backend",
+  "projects/products/unstable/simulation_compiler/ui",
+  "projects/products/unstable/simulation_compiler/tooling",
+  "projects/products/unstable/meta_determinism_guard/backend",
+  "projects/products/unstable/meta_determinism_guard/ui",
+  "projects/products/unstable/meta_determinism_guard/tooling",
+  "projects/products/unstable/code_forge_engine/backend",
+  "projects/products/unstable/code_forge_engine/ui",
+  "projects/products/unstable/code_forge_engine/tooling",
+  "projects/products/unstable/protocol_builder/backend",
+  "projects/products/unstable/protocol_builder/ui",
+  "projects/products/unstable/protocol_builder/tooling",
+  "projects/products/unstable/evolutionary_system_generator/backend",
+  "projects/products/unstable/evolutionary_system_generator/ui",
+  "projects/products/unstable/evolutionary_system_generator/tooling",
+  "projects/products/unstable/artifact_factory/backend",
+  "projects/products/unstable/artifact_factory/ui",
+  "projects/products/unstable/artifact_factory/tooling",
 ]
 resolver = "2"
 
@@ -91,6 +126,7 @@ ast_macros = { path = "projects/libraries/core/foundation/ast_macros" }
 ai = { path = "projects/libraries/layers/orchestration/ai" }
 hybrid_arena = { path = "projects/libraries/core/foundation/hybrid_arena" }
 versioning = { path = "projects/libraries/layers/domain/versioning" }
+runtime_core = { path = "projects/libraries/layers/domain/runtime_core" }
 
 sha2 = "0.10.8"
 hex = "0.4.3"
