@@ -86,11 +86,12 @@ mod tests {
     }
 
     #[test]
-    fn different_seeds_different_hash() {
+    fn different_seeds_produce_different_hashes() {
         let scenario = ScenarioLoader::default_scenario("hauling_basic");
         let (r1, _) = SimEngine::run(&scenario, 10, 1).unwrap();
         let (r2, _) = SimEngine::run(&scenario, 10, 2).unwrap();
         assert!(!r1.run_hash.0.is_empty());
         assert!(!r2.run_hash.0.is_empty());
+        assert_ne!(r1.run_hash.0, r2.run_hash.0, "Different seeds must produce different RunHashes");
     }
 }
