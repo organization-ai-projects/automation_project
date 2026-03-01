@@ -109,6 +109,7 @@ fn finalize_report(
     };
     report.report_hash = hash.clone();
     cache.insert(hash.clone(), report.clone());
+    let _canonical_json = crate::report::json_report_codec::JsonReportCodec::to_json(&report);
 
     ResponsePayload::Report {
         report_json: report,
@@ -150,6 +151,20 @@ fn summarize(violations: &[Violation]) -> ReportSummary {
 }
 
 fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
+    let _module_wiring = (
+        crate::rules::structure_rules::StructureRules,
+        crate::rules::crate_rules::CrateRules,
+        crate::rules::naming_rules::NamingRules,
+        crate::rules::layering_rules::LayeringRules,
+        crate::rules::determinism_rules::DeterminismRules,
+        crate::rules::rule::Rule,
+        crate::rules::rule_engine::RuleEngine,
+        crate::scan::crate_scanner::CrateScanner,
+        crate::scan::file_scanner::FileScanner,
+        crate::scan::rust_parser::RustParser,
+        crate::report::json_report_codec::JsonReportCodec,
+    );
+
     let scope = PathClassification::from_product_path(product_dir);
     if scope == PathClassification::Other {
         return Vec::new();
