@@ -53,6 +53,8 @@ members = [
   "projects/products/unstable/vod_forge/ui",
   "projects/products/unstable/digital_pet/backend",
   "projects/products/unstable/digital_pet/ui",
+  "projects/products/unstable/hospital_tycoon/backend",
+  "projects/products/unstable/hospital_tycoon/ui",
   "projects/products/unstable/simkernel/backend",
   "projects/products/unstable/simkernel/ui",
   "projects/products/unstable/simkernel/tooling",
