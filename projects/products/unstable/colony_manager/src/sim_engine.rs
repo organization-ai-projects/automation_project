@@ -95,9 +95,11 @@ impl SimEngine {
 
             if completed > 0 {
                 let cids: Vec<u32> = state.colonists.keys().map(|c| c.0).collect();
-                for i in 0..completed {
-                    let cid = cids[i % cids.len()];
-                    *jobs_completed.entry(cid).or_insert(0) += 1;
+                if !cids.is_empty() {
+                    for i in 0..completed {
+                        let cid = cids[i % cids.len()];
+                        *jobs_completed.entry(cid).or_insert(0) += 1;
+                    }
                 }
                 for _ in 0..completed {
                     state.job_queue.add(Job {
@@ -114,9 +116,8 @@ impl SimEngine {
             let event_roll = rng.next_u64();
             rng_draws.push(RngDraw { raw_value: event_roll, resolved_index: 0 });
             // Use integer arithmetic: fire event if roll falls within the scaled probability range.
-            // event_probability is in [0.0, 1.0]; scale to [0, u64::MAX] without f64 precision loss
-            // by comparing roll < probability * 2^64, approximated as bits-scaled integer division.
-            let threshold = (scenario.event_probability as f64 * (u64::MAX as f64 + 1.0)) as u64;
+            // event_probability is in [0.0, 1.0]; use u64::MAX directly to avoid f64 overflow.
+            let threshold = (scenario.event_probability as f64 * u64::MAX as f64) as u64;
             if event_roll < threshold {
                 if let Some((idx, event)) = event_deck.draw(rng, rng_draws) {
                     match event {
