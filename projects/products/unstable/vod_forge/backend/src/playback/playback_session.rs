@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::playback::profile_id::ProfileId;
 use crate::playback::session_id::SessionId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaybackSession {

@@ -69,9 +69,11 @@ fn test_catalog_loaded_clears_error() {
         last_error: Some("old error".to_string()),
         ..Default::default()
     };
-    let entries = vec![
-        CatalogEntry { id: "tt001".to_string(), name: "Space Odyssey".to_string(), year: 2020 },
-    ];
+    let entries = vec![CatalogEntry {
+        id: "tt001".to_string(),
+        name: "Space Odyssey".to_string(),
+        year: 2020,
+    }];
     let new_state = reduce(state, Action::CatalogLoaded(entries));
     assert_eq!(new_state.catalog_titles.len(), 1);
     assert_eq!(new_state.catalog_titles[0].id, "tt001");
@@ -81,7 +83,12 @@ fn test_catalog_loaded_clears_error() {
 #[test]
 fn test_playback_updated() {
     let state = AppState::default();
-    let pv = PlaybackView { session_id: "sess-1".to_string(), tick: 10, progress_pct: 10.0, done: false };
+    let pv = PlaybackView {
+        session_id: "sess-1".to_string(),
+        tick: 10,
+        progress_pct: 10.0,
+        done: false,
+    };
     let new_state = reduce(state, Action::PlaybackUpdated(pv));
     let p = new_state.playback.unwrap();
     assert_eq!(p.tick, 10);
@@ -91,7 +98,11 @@ fn test_playback_updated() {
 #[test]
 fn test_analytics_loaded() {
     let state = AppState::default();
-    let av = AnalyticsView { total_watch_ticks: 500, completion_rate_pct: 75.0, episodes_watched: 4 };
+    let av = AnalyticsView {
+        total_watch_ticks: 500,
+        completion_rate_pct: 75.0,
+        episodes_watched: 4,
+    };
     let new_state = reduce(state, Action::AnalyticsLoaded(av));
     let a = new_state.analytics.unwrap();
     assert_eq!(a.total_watch_ticks, 500);
@@ -101,14 +112,24 @@ fn test_analytics_loaded() {
 #[test]
 fn test_error_occurred() {
     let state = AppState::default();
-    let new_state = reduce(state, Action::ErrorOccurred("something went wrong".to_string()));
-    assert_eq!(new_state.last_error.as_deref(), Some("something went wrong"));
+    let new_state = reduce(
+        state,
+        Action::ErrorOccurred("something went wrong".to_string()),
+    );
+    assert_eq!(
+        new_state.last_error.as_deref(),
+        Some("something went wrong")
+    );
 }
 
 #[test]
 fn test_reset_clears_state() {
     let state = AppState {
-        catalog_titles: vec![CatalogEntry { id: "tt001".to_string(), name: "X".to_string(), year: 2020 }],
+        catalog_titles: vec![CatalogEntry {
+            id: "tt001".to_string(),
+            name: "X".to_string(),
+            year: 2020,
+        }],
         last_error: Some("err".to_string()),
         ..Default::default()
     };
@@ -161,9 +182,11 @@ fn test_table_widget_rendering() {
     }
 
     let headers = vec!["ID", "Name", "Year"];
-    let rows: Vec<Vec<String>> = vec![
-        vec!["tt001".to_string(), "Space Odyssey".to_string(), "2020".to_string()],
-    ];
+    let rows: Vec<Vec<String>> = vec![vec![
+        "tt001".to_string(),
+        "Space Odyssey".to_string(),
+        "2020".to_string(),
+    ]];
     let s = render_table(&headers, &rows);
     assert!(s.contains("ID"), "got: {}", s);
     assert!(s.contains("Name"), "got: {}", s);

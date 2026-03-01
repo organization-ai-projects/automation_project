@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::packaging::asset_id::AssetId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChunkEntry {

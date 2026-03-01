@@ -1,8 +1,8 @@
-use sha2::{Digest, Sha256};
 use crate::diagnostics::BackendError;
+use crate::io::JsonCodec;
 use crate::packaging::asset_id::AssetId;
 use crate::packaging::asset_manifest::AssetManifest;
-use crate::io::JsonCodec;
+use sha2::{Digest, Sha256};
 
 pub struct Unpacker;
 
@@ -19,12 +19,14 @@ impl Unpacker {
         let manifest_start = 8;
         let manifest_end = manifest_start + manifest_len;
         if bundle.len() < manifest_end {
-            return Err(BackendError::Packaging("bundle truncated at manifest".to_string()));
+            return Err(BackendError::Packaging(
+                "bundle truncated at manifest".to_string(),
+            ));
         }
         let manifest_str = std::str::from_utf8(&bundle[manifest_start..manifest_end])
             .map_err(|e| BackendError::Packaging(e.to_string()))?;
-        let manifest: AssetManifest = JsonCodec::decode(manifest_str)
-            .map_err(|e| BackendError::Packaging(e.to_string()))?;
+        let manifest: AssetManifest =
+            JsonCodec::decode(manifest_str).map_err(|e| BackendError::Packaging(e.to_string()))?;
 
         let data_start = manifest_end;
         let mut assets: Vec<(AssetId, Vec<u8>)> = Vec::new();

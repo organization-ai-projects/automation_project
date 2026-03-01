@@ -7,8 +7,12 @@ impl<'de> de::Visitor<'de> for U16Visitor {
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "u16")
     }
-    fn visit_u8<E: de::Error>(self, v: u8) -> Result<u16, E> { Ok(v as u16) }
-    fn visit_u16<E: de::Error>(self, v: u16) -> Result<u16, E> { Ok(v) }
+    fn visit_u8<E: de::Error>(self, v: u8) -> Result<u16, E> {
+        Ok(v as u16)
+    }
+    fn visit_u16<E: de::Error>(self, v: u16) -> Result<u16, E> {
+        Ok(v)
+    }
     fn visit_u32<E: de::Error>(self, v: u32) -> Result<u16, E> {
         u16::try_from(v).map_err(|_| E::custom("value out of range for u16"))
     }
@@ -37,9 +41,15 @@ impl<'de> de::Visitor<'de> for U32Visitor {
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "u32")
     }
-    fn visit_u8<E: de::Error>(self, v: u8) -> Result<u32, E> { Ok(v as u32) }
-    fn visit_u16<E: de::Error>(self, v: u16) -> Result<u32, E> { Ok(v as u32) }
-    fn visit_u32<E: de::Error>(self, v: u32) -> Result<u32, E> { Ok(v) }
+    fn visit_u8<E: de::Error>(self, v: u8) -> Result<u32, E> {
+        Ok(v as u32)
+    }
+    fn visit_u16<E: de::Error>(self, v: u16) -> Result<u32, E> {
+        Ok(v as u32)
+    }
+    fn visit_u32<E: de::Error>(self, v: u32) -> Result<u32, E> {
+        Ok(v)
+    }
     fn visit_u64<E: de::Error>(self, v: u64) -> Result<u32, E> {
         u32::try_from(v).map_err(|_| E::custom("value out of range for u32"))
     }
