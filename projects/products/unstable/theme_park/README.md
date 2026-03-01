@@ -24,12 +24,14 @@ theme_park_ui run --scenario scenario.json --seed 42 --ticks 200 [--out report.j
 ## Exit Codes
 
 ### Backend
+
 - `0` — clean shutdown
 - `2` — invalid CLI usage
 - `3` — invalid scenario/config
 - `5` — internal error
 
 ### UI
+
 - `0` — clean shutdown
 - `2` — invalid CLI usage
 - `5` — internal error
