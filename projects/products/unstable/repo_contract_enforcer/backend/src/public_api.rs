@@ -172,13 +172,16 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
             "product must include backend/ and ui/ crates",
             mode,
             true,
+            None,
         ));
     }
 
     let root_cargo = product_dir.join("Cargo.toml");
     if root_cargo.exists() {
         let txt = std::fs::read_to_string(&root_cargo).unwrap_or_default();
-        if !(txt.contains("\"backend\"") && txt.contains("\"ui\"")) {
+        let members = extract_workspace_members(&txt);
+        let expected = vec!["backend".to_string(), "ui".to_string()];
+        if members != expected {
             violations.push(make_violation(
                 RuleId::Structure,
                 ViolationCode::StructInvalidWorkspaceMembers,
@@ -187,8 +190,25 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
                 "workspace members must contain exactly backend and ui",
                 mode,
                 true,
+                None,
             ));
         }
+    }
+    let child_crates = discover_child_crates(product_dir);
+    for extra in child_crates
+        .iter()
+        .filter(|name| name.as_str() != "backend" && name.as_str() != "ui")
+    {
+        violations.push(make_violation(
+            RuleId::Structure,
+            ViolationCode::StructThirdCrateDetected,
+            scope,
+            &product_dir.join(extra),
+            "only backend and ui crates are allowed",
+            mode,
+            true,
+            None,
+        ));
     }
 
     if !product_dir.join("README.md").exists() {
@@ -200,6 +220,7 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
             "product root must contain README.md",
             mode,
             true,
+            None,
         ));
     }
 
@@ -213,6 +234,7 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
                 "forbidden folder name detected",
                 mode,
                 true,
+                None,
             ));
         }
     }
@@ -236,6 +258,7 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
                 "crate must contain src/main.rs",
                 mode,
                 true,
+                None,
             ));
         }
 
@@ -250,6 +273,7 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
                     "crate must be bin-only (no [lib])",
                     mode,
                     true,
+                    None,
                 ));
             }
 
@@ -262,6 +286,7 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
                     &format!("{crate_name} crate name must be {expected_name}"),
                     mode,
                     true,
+                    None,
                 ));
             }
         }
@@ -281,6 +306,22 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
                     "ui must not import backend internals",
                     mode,
                     true,
+                    first_line_of(&txt, &pattern),
+                ));
+            }
+        }
+
+        for bad_module in ["sim", "engine", "scheduler", "solver"] {
+            for path in gather_named_entries(&ui, bad_module) {
+                violations.push(make_violation(
+                    RuleId::Layering,
+                    ViolationCode::LayerUiSuspectDomainLogic,
+                    scope,
+                    &path,
+                    "ui contains suspicious domain logic module name",
+                    mode,
+                    false,
+                    None,
                 ));
             }
         }
@@ -299,6 +340,7 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
                     "wall-clock API usage is forbidden",
                     mode,
                     true,
+                    first_line_of_any(&txt, &["SystemTime", "Instant"]),
                 ));
             }
             if txt.contains("chrono") {
@@ -310,6 +352,33 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
                     "chrono usage is forbidden in backend core",
                     mode,
                     true,
+                    first_line_of(&txt, "chrono"),
+                ));
+            }
+
+            if !file.to_string_lossy().contains("/protocol/") && txt.contains("println!") {
+                violations.push(make_violation(
+                    RuleId::Determinism,
+                    ViolationCode::DetStdoutUsage,
+                    scope,
+                    &file,
+                    "println! outside protocol module is forbidden",
+                    mode,
+                    true,
+                    first_line_of(&txt, "println!"),
+                ));
+            }
+
+            if txt.contains("rand::") || txt.contains("thread_rng(") || txt.contains("rand(") {
+                violations.push(make_violation(
+                    RuleId::Determinism,
+                    ViolationCode::DetNondeterministicRngHeuristic,
+                    scope,
+                    &file,
+                    "possible nondeterministic RNG usage detected",
+                    mode,
+                    false,
+                    first_line_of_any(&txt, &["rand::", "thread_rng(", "rand("]),
                 ));
             }
         }
@@ -339,6 +408,90 @@ fn gather_rs_files(root: &Path) -> Vec<std::path::PathBuf> {
     out
 }
 
+fn gather_named_entries(root: &Path, name: &str) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let read_dir = match std::fs::read_dir(dir) {
+            Ok(rd) => rd,
+            Err(_) => continue,
+        };
+        for entry in read_dir.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if path.file_name().and_then(|n| n.to_str()) == Some(name) {
+                    out.push(path.clone());
+                }
+                stack.push(path);
+            } else if path.file_stem().and_then(|n| n.to_str()) == Some(name)
+                && path.extension().and_then(|e| e.to_str()) == Some("rs")
+            {
+                out.push(path);
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
+fn discover_child_crates(product_dir: &Path) -> Vec<String> {
+    let mut crates = Vec::new();
+    let read_dir = match std::fs::read_dir(product_dir) {
+        Ok(rd) => rd,
+        Err(_) => return crates,
+    };
+    for entry in read_dir.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if path.join("Cargo.toml").exists()
+            && let Some(name) = path.file_name().and_then(|n| n.to_str())
+        {
+            crates.push(name.to_string());
+        }
+    }
+    crates.sort();
+    crates
+}
+
+fn extract_workspace_members(cargo_toml: &str) -> Vec<String> {
+    let members_pos = match cargo_toml.find("members") {
+        Some(p) => p,
+        None => return Vec::new(),
+    };
+    let after_members = &cargo_toml[members_pos..];
+    let open = match after_members.find('[') {
+        Some(p) => p,
+        None => return Vec::new(),
+    };
+    let close = match after_members[open + 1..].find(']') {
+        Some(p) => open + 1 + p,
+        None => return Vec::new(),
+    };
+    let slice = &after_members[open + 1..close];
+    let mut members = Vec::new();
+    let mut in_quote = false;
+    let mut current = String::new();
+    for ch in slice.chars() {
+        if ch == '"' {
+            if in_quote {
+                members.push(current.clone());
+                current.clear();
+                in_quote = false;
+            } else {
+                in_quote = true;
+            }
+            continue;
+        }
+        if in_quote {
+            current.push(ch);
+        }
+    }
+    members.sort();
+    members
+}
+
 fn make_violation(
     rule_id: RuleId,
     code: ViolationCode,
@@ -347,6 +500,7 @@ fn make_violation(
     message: &str,
     mode: EnforcementMode,
     default_blocking: bool,
+    line: Option<u32>,
 ) -> Violation {
     let mut severity = if default_blocking {
         Severity::Error
@@ -365,8 +519,27 @@ fn make_violation(
         scope,
         path: path.to_string_lossy().to_string(),
         message: message.to_string(),
-        line: None,
+        line,
     }
+}
+
+fn first_line_of(haystack: &str, needle: &str) -> Option<u32> {
+    haystack
+        .find(needle)
+        .map(|idx| haystack[..idx].chars().filter(|c| *c == '\n').count() as u32 + 1)
+}
+
+fn first_line_of_any(haystack: &str, needles: &[&str]) -> Option<u32> {
+    let mut best: Option<usize> = None;
+    for needle in needles {
+        if let Some(idx) = haystack.find(needle) {
+            best = Some(match best {
+                Some(current) => current.min(idx),
+                None => idx,
+            });
+        }
+    }
+    best.map(|idx| haystack[..idx].chars().filter(|c| *c == '\n').count() as u32 + 1)
 }
 
 #[cfg(test)]
