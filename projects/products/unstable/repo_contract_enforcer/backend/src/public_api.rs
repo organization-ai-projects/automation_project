@@ -368,3 +368,89 @@ fn make_violation(
         line: None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::request::{Request, RequestPayload};
+    use crate::protocol::response::ResponsePayload;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_root() -> std::path::PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time before epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("repo_contract_enforcer_test_{stamp}"));
+        fs::create_dir_all(root.join("projects/products/unstable/bad_product"))
+            .expect("create test directory tree");
+        root
+    }
+
+    #[test]
+    fn check_repo_is_deterministic_for_same_tree() {
+        let root = temp_root();
+        let mut state = BackendState::new();
+        let req = Request {
+            id: Some("t1".to_string()),
+            payload: RequestPayload::CheckRepo {
+                root_path: root.to_string_lossy().to_string(),
+                mode: EnforcementMode::Auto,
+            },
+        };
+
+        let first = state.handle(req.clone());
+        let second = state.handle(req);
+
+        match (first.payload, second.payload) {
+            (
+                ResponsePayload::Report {
+                    report_json: a,
+                    report_hash: ha,
+                    ..
+                },
+                ResponsePayload::Report {
+                    report_json: b,
+                    report_hash: hb,
+                    ..
+                },
+            ) => {
+                assert_eq!(ha, hb);
+                let ja = serde_json::to_string(&a).expect("serialize report a");
+                let jb = serde_json::to_string(&b).expect("serialize report b");
+                assert_eq!(ja, jb);
+            }
+            _ => panic!("expected two report payloads"),
+        }
+    }
+
+    #[test]
+    fn unstable_scope_downgrades_errors_to_warnings() {
+        let root = temp_root();
+        let mut state = BackendState::new();
+        let req = Request {
+            id: Some("t2".to_string()),
+            payload: RequestPayload::CheckProduct {
+                product_path: root
+                    .join("projects/products/unstable/bad_product")
+                    .to_string_lossy()
+                    .to_string(),
+                mode: EnforcementMode::Auto,
+            },
+        };
+
+        let response = state.handle(req);
+        let report = match response.payload {
+            ResponsePayload::Report { report_json, .. } => report_json,
+            _ => panic!("expected report payload"),
+        };
+
+        assert!(
+            report
+                .violations
+                .iter()
+                .all(|v| v.severity == Severity::Warning)
+        );
+    }
+}
