@@ -1,2 +1,2 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Message;
+pub use super::request::{Request, RequestPayload};
+pub use super::response::{Response, ResponsePayload};

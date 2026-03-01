@@ -1,2 +1,21 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ViolationCode;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ViolationCode {
+    StructInvalidWorkspaceMembers,
+    StructMissingBackendOrUi,
+    StructThirdCrateDetected,
+    StructForbiddenFolderName,
+    StructMissingReadme,
+    CrateNotBinOnly,
+    CrateMissingMain,
+    NameProductMismatch,
+    NameCrateMismatch,
+    LayerUiImportsBackend,
+    LayerUiSuspectDomainLogic,
+    DetWallClockUsage,
+    DetForbiddenTimeDep,
+    DetStdoutUsage,
+    DetNondeterministicRngHeuristic,
+}

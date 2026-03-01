@@ -1,2 +1,9 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EnforcementMode;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EnforcementMode {
+    Auto,
+    Strict,
+    Relaxed,
+}

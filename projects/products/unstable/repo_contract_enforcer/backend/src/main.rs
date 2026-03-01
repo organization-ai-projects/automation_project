@@ -29,8 +29,15 @@ fn main() -> Result<()> {
 
         let request: protocol::request::Request = match serde_json::from_str(line.trim()) {
             Ok(req) => req,
-            Err(_) => {
-                let response = protocol::response::Response;
+            Err(err) => {
+                let response = protocol::response::Response {
+                    id: None,
+                    payload: protocol::response::ResponsePayload::Error {
+                        code: "INVALID_REQUEST_JSON".to_string(),
+                        message: "failed to parse request".to_string(),
+                        details: Some(err.to_string()),
+                    },
+                };
                 io::json_codec::JsonCodec::write_response(&stdout, &response)?;
                 continue;
             }
@@ -38,6 +45,10 @@ fn main() -> Result<()> {
 
         let response = state.handle(request);
         io::json_codec::JsonCodec::write_response(&stdout, &response)?;
+
+        if state.should_shutdown() {
+            break;
+        }
     }
 
     Ok(())
