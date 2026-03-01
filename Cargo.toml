@@ -33,6 +33,7 @@ members = [
   "projects/products/unstable/autonomous_dev_ai",
   "projects/products/unstable/autonomy_reviewer_ai",
   "projects/products/unstable/auto_render",
+  "projects/products/unstable/colony_manager",
   "projects/products/unstable/life_sim",
   "projects/products/unstable/space_empire",
   "projects/products/unstable/city_builder",
@@ -48,8 +49,12 @@ members = [
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
   "projects/products/stable/platform_ide/ui",
+  "projects/products/unstable/vod_forge/backend",
+  "projects/products/unstable/vod_forge/ui",
   "projects/products/unstable/digital_pet/backend",
   "projects/products/unstable/digital_pet/ui",
+  "projects/products/unstable/hospital_tycoon/backend",
+  "projects/products/unstable/hospital_tycoon/ui",
   "projects/products/unstable/simkernel/backend",
   "projects/products/unstable/simkernel/ui",
   "projects/products/unstable/simkernel/tooling",
@@ -77,6 +82,8 @@ members = [
   "projects/products/unstable/artifact_factory/ui",
   "projects/products/unstable/artifact_factory/tooling",
   "projects/products/unstable/docforge",
+  "projects/products/unstable/theme_park/backend",
+  "projects/products/unstable/theme_park/ui",
 ]
 resolver = "2"
 
