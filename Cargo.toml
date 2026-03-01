@@ -33,6 +33,7 @@ members = [
   "projects/products/unstable/autonomous_dev_ai",
   "projects/products/unstable/autonomy_reviewer_ai",
   "projects/products/unstable/auto_render",
+  "projects/products/unstable/colony_manager",
   "projects/libraries/core/foundation/ast_core",
   "projects/libraries/core/foundation/ast_macros",
   "projects/libraries/core/foundation/pjson_proc_macros",
