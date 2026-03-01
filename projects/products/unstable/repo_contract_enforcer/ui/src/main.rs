@@ -9,5 +9,12 @@ use anyhow::Result;
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let args: Vec<String> = std::env::args().collect();
-    public_api::run_cli(&args)
+    let exit_code = match public_api::run_cli(&args) {
+        Ok(code) => code,
+        Err(err) => {
+            eprintln!("{err}");
+            2
+        }
+    };
+    std::process::exit(exit_code);
 }

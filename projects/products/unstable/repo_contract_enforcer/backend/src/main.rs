@@ -13,6 +13,12 @@ use std::io::BufRead;
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() != 2 || args[1] != "serve" {
+        eprintln!("usage: repo_contract_enforcer_backend serve");
+        std::process::exit(2);
+    }
+
     let mut state = public_api::BackendState::new();
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();

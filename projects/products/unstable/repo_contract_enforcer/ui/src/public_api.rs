@@ -6,7 +6,7 @@ use crate::render::human_printer::HumanPrinter;
 use crate::render::json_printer::JsonPrinter;
 use crate::transport::ipc_client::{IpcClient, RequestPayload, ResponsePayload};
 
-pub fn run_cli(args: &[String]) -> Result<()> {
+pub fn run_cli(args: &[String]) -> Result<i32> {
     let parsed = parse_args(args)?;
 
     let mut client = IpcClient::connect()?;
@@ -58,7 +58,7 @@ pub fn run_cli(args: &[String]) -> Result<()> {
     }
 
     client.close();
-    std::process::exit(exit_code);
+    Ok(exit_code)
 }
 
 pub(crate) fn parse_args(args: &[String]) -> Result<Args> {
