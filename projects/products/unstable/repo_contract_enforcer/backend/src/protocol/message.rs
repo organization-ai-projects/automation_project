@@ -1,2 +1,4 @@
-pub use super::request::{Request, RequestPayload};
-pub use super::response::{Response, ResponsePayload};
+pub type Request = super::request::Request;
+pub type RequestPayload = super::request::RequestPayload;
+pub type Response = super::response::Response;
+pub type ResponsePayload = super::response::ResponsePayload;

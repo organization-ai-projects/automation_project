@@ -12,10 +12,6 @@ use std::io::BufRead;
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
-    let _error_type_marker = std::mem::size_of::<diagnostics::error::Error>();
-    let _error_value_marker = diagnostics::error::Error::Internal(String::new());
-    let _request_payload_marker = std::mem::size_of::<protocol::message::RequestPayload>();
-    let _response_payload_marker = std::mem::size_of::<protocol::message::ResponsePayload>();
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 2 || args[1] != "serve" {
@@ -40,12 +36,13 @@ fn main() -> Result<()> {
         let request: protocol::message::Request = match common_json::from_json_str(line.trim()) {
             Ok(req) => req,
             Err(err) => {
+                let wrapped = diagnostics::error::Error::Internal(err.to_string());
                 let response: protocol::message::Response = protocol::response::Response {
                     id: None,
                     payload: protocol::message::ResponsePayload::Error {
                         code: "INVALID_REQUEST_JSON".to_string(),
                         message: "failed to parse request".to_string(),
-                        details: Some(err.to_string()),
+                        details: Some(wrapped.to_string()),
                     },
                 };
                 io::json_codec::JsonCodec::write_response(&stdout, &response)?;
