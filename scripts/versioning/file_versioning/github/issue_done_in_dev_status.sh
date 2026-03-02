@@ -5,8 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/versioning/file_versioning/github/lib/issue_refs.sh
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/github/gh_issue_helpers.sh
-source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/gh_issue_helpers.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
 
 usage() {
   cat <<EOF
