@@ -26,6 +26,9 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
 - Backend fixtures and golden reports live under:
   - `backend/tests/fixtures/repos`
   - `backend/tests/fixtures/golden`
+- Backend crate rules include a `syn`-based primary item contract:
+  - each non-entry Rust file must define exactly one primary `struct` or `enum`
+  - primary item name must match file stem in `snake_case`
 - Run:
   - `cargo test -p repo_contract_enforcer_backend`
   - `cargo test -p repo_contract_enforcer_ui`
