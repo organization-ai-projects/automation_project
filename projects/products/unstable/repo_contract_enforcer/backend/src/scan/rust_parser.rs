@@ -7,6 +7,17 @@ pub struct PrimaryItemViolation {
     pub line: Option<u32>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnsafeSignals {
+    pub has_unsafe_usage: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnderscoreSignals {
+    pub has_wildcard_discard: bool,
+    pub has_prefixed_binding: bool,
+}
+
 impl RustParser {
     pub fn first_line_of(haystack: &str, needle: &str) -> Option<u32> {
         haystack
@@ -97,6 +108,47 @@ impl RustParser {
         }
         false
     }
+
+    pub fn unsafe_signals(source: &str) -> UnsafeSignals {
+        let ast = match syn::parse_file(source) {
+            Ok(ast) => ast,
+            Err(_) => {
+                return UnsafeSignals {
+                    has_unsafe_usage: false,
+                };
+            }
+        };
+
+        let mut visitor = UnsafeVisitor {
+            has_unsafe_usage: false,
+        };
+        syn::visit::Visit::visit_file(&mut visitor, &ast);
+        UnsafeSignals {
+            has_unsafe_usage: visitor.has_unsafe_usage,
+        }
+    }
+
+    pub fn underscore_signals(source: &str) -> UnderscoreSignals {
+        let ast = match syn::parse_file(source) {
+            Ok(ast) => ast,
+            Err(_) => {
+                return UnderscoreSignals {
+                    has_wildcard_discard: false,
+                    has_prefixed_binding: false,
+                };
+            }
+        };
+
+        let mut visitor = UnderscoreVisitor {
+            has_wildcard_discard: false,
+            has_prefixed_binding: false,
+        };
+        syn::visit::Visit::visit_file(&mut visitor, &ast);
+        UnderscoreSignals {
+            has_wildcard_discard: visitor.has_wildcard_discard,
+            has_prefixed_binding: visitor.has_prefixed_binding,
+        }
+    }
 }
 
 fn to_snake_case(input: &str) -> String {
@@ -126,5 +178,72 @@ fn use_tree_starts_with(tree: &syn::UseTree, prefix: &str) -> bool {
             .items
             .iter()
             .any(|child| use_tree_starts_with(child, prefix)),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct UnsafeVisitor {
+    has_unsafe_usage: bool,
+}
+
+impl<'ast> syn::visit::Visit<'ast> for UnsafeVisitor {
+    fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
+        if node.sig.unsafety.is_some() {
+            self.has_unsafe_usage = true;
+        }
+        syn::visit::visit_item_fn(self, node);
+    }
+
+    fn visit_expr_unsafe(&mut self, _node: &'ast syn::ExprUnsafe) {
+        self.has_unsafe_usage = true;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct UnderscoreVisitor {
+    has_wildcard_discard: bool,
+    has_prefixed_binding: bool,
+}
+
+impl<'ast> syn::visit::Visit<'ast> for UnderscoreVisitor {
+    fn visit_local(&mut self, node: &'ast syn::Local) {
+        match &node.pat {
+            syn::Pat::Wild(_) => {
+                self.has_wildcard_discard = true;
+            }
+            other => {
+                if pat_contains_prefixed_binding(other) {
+                    self.has_prefixed_binding = true;
+                }
+            }
+        }
+        syn::visit::visit_local(self, node);
+    }
+
+    fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+        if node.ident.to_string().starts_with('_') {
+            self.has_prefixed_binding = true;
+        }
+        syn::visit::visit_pat_ident(self, node);
+    }
+}
+
+fn pat_contains_prefixed_binding(pat: &syn::Pat) -> bool {
+    match pat {
+        syn::Pat::Ident(ident) => ident.ident.to_string().starts_with('_'),
+        syn::Pat::Tuple(tuple) => tuple.elems.iter().any(pat_contains_prefixed_binding),
+        syn::Pat::TupleStruct(tuple_struct) => {
+            tuple_struct.elems.iter().any(pat_contains_prefixed_binding)
+        }
+        syn::Pat::Struct(struct_pat) => struct_pat
+            .fields
+            .iter()
+            .any(|field| pat_contains_prefixed_binding(&field.pat)),
+        syn::Pat::Slice(slice) => slice.elems.iter().any(pat_contains_prefixed_binding),
+        syn::Pat::Reference(reference) => pat_contains_prefixed_binding(&reference.pat),
+        syn::Pat::Type(pat_type) => pat_contains_prefixed_binding(&pat_type.pat),
+        syn::Pat::Or(pat_or) => pat_or.cases.iter().any(pat_contains_prefixed_binding),
+        syn::Pat::Paren(pat_paren) => pat_contains_prefixed_binding(&pat_paren.pat),
+        _ => false,
     }
 }

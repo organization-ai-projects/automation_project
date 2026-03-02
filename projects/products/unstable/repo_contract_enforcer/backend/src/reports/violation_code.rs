@@ -22,4 +22,6 @@ pub enum ViolationCode {
     DetNondeterministicRngHeuristic,
     DetUnwrapRisk,
     DetPanicRisk,
+    DetUnsafeUsage,
+    DetUnderscoreUnusedMasking,
 }

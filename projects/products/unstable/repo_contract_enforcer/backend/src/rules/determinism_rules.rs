@@ -153,6 +153,33 @@ impl DeterminismRules {
                     ),
                 ));
             }
+
+            let unsafe_signals = RustParser::unsafe_signals(&txt);
+            if unsafe_signals.has_unsafe_usage {
+                out.push(make_violation(
+                    RuleId::Determinism,
+                    ViolationCode::DetUnsafeUsage,
+                    (scope, mode),
+                    &file,
+                    "unsafe usage detected; keep it internal and documented",
+                    (false, RustParser::first_line_of(&txt, "unsafe")),
+                ));
+            }
+
+            let underscore_signals = RustParser::underscore_signals(&txt);
+            if underscore_signals.has_wildcard_discard || underscore_signals.has_prefixed_binding {
+                out.push(make_violation(
+                    RuleId::Determinism,
+                    ViolationCode::DetUnderscoreUnusedMasking,
+                    (scope, mode),
+                    &file,
+                    "underscore-based bindings/discards may hide unused values",
+                    (
+                        false,
+                        RustParser::first_line_of_any(&txt, &["let _ =", "let _", "(_", ", _"]),
+                    ),
+                ));
+            }
         }
 
         out
