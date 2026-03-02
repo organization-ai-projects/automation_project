@@ -890,6 +890,11 @@ compute_ci_status() {
     return
   fi
 
+  if echo "$conclusions" | grep -Eq '^(IN_PROGRESS|QUEUED|PENDING|WAITING|REQUESTED)$'; then
+    ci_status="RUNNING"
+    return
+  fi
+
   unresolved="$(echo "$conclusions" | grep -Ev '^(SUCCESS|PASSED|NEUTRAL|SKIPPED|COMPLETED)$' || true)"
   if [[ -n "$unresolved" ]]; then
     ci_status="UNKNOWN"
@@ -1580,6 +1585,7 @@ ci_status_with_symbol="$ci_status"
 case "$ci_status" in
   PASS) ci_status_with_symbol="PASS ✅" ;;
   FAIL) ci_status_with_symbol="FAIL ❌" ;;
+  RUNNING) ci_status_with_symbol="RUNNING ⏳" ;;
   *) ci_status_with_symbol="UNKNOWN ⚪" ;;
 esac
 
