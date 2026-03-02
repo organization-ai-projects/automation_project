@@ -1,0 +1,31 @@
+{
+  "report_hash": "e38a86df65b9e7138f9f3efba7c70b6fb73de9a671b7fa710e9614e939aa0f3c",
+  "mode": "strict",
+  "violations": [
+    {
+      "message": "unwrap/expect usage may panic at runtime",
+      "rule_id": "determinism",
+      "violation_code": "DET_UNWRAP_RISK",
+      "severity": "ERROR",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
+      "line": 3
+    },
+    {
+      "rule_id": "determinism",
+      "message": "panic-like macros are forbidden in backend product code",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
+      "violation_code": "DET_PANIC_RISK",
+      "severity": "ERROR",
+      "scope": "stable",
+      "line": 4
+    }
+  ],
+  "repository_root": "<FIXTURE_ROOT>",
+  "summary": {
+    "stable_warning_count": 0,
+    "unstable_error_count": 0,
+    "unstable_warning_count": 0,
+    "stable_error_count": 2
+  }
+}

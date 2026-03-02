@@ -1,22 +1,22 @@
 {
-  "mode": "strict",
+  "report_hash": "365f3ae784c847de0ba2c49b2d662aa5d53d540d4fd27e5c475bddd5ccd5d92f",
   "violations": [
     {
-      "violation_code": "LAYER_UI_IMPORTS_BACKEND",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_ui_imports_backend/ui/src/main.rs",
-      "line": 1,
-      "severity": "ERROR",
-      "message": "ui must not import backend internals",
+      "scope": "stable",
       "rule_id": "layering",
-      "scope": "stable"
+      "message": "ui must not import backend internals",
+      "violation_code": "LAYER_UI_IMPORTS_BACKEND",
+      "line": null,
+      "severity": "ERROR",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_ui_imports_backend/ui/src/main.rs"
     }
   ],
-  "report_hash": "e820c40adf600d0e1ae9094c270af7431fe81097d286c207a96926e6f13aab2a",
   "summary": {
-    "unstable_warning_count": 0,
     "stable_warning_count": 0,
+    "unstable_warning_count": 0,
     "stable_error_count": 1,
     "unstable_error_count": 0
   },
-  "repository_root": "<FIXTURE_ROOT>"
+  "repository_root": "<FIXTURE_ROOT>",
+  "mode": "strict"
 }
