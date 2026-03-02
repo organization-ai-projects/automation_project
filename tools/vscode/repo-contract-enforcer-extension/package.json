@@ -12,8 +12,7 @@
   ],
   "activationEvents": [
     "workspaceContains:Cargo.toml",
-    "onLanguage:rust",
-    "onCommand:repoContractEnforcer.runCheck"
+    "onLanguage:rust"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -28,7 +27,11 @@
       "properties": {
         "repoContractEnforcer.mode": {
           "type": "string",
-          "enum": ["auto", "strict", "relaxed"],
+          "enum": [
+            "auto",
+            "strict",
+            "relaxed"
+          ],
           "default": "auto",
           "description": "Mode passed to repo_contract_enforcer_ui"
         },

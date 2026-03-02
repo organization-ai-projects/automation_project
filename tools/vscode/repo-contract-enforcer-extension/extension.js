@@ -39,31 +39,34 @@ function runEnforcer(collection) {
   const mode = cfg.get('mode', 'auto');
   const cmd = cfg.get('command', 'cargo');
 
-  const args = [
-    'run',
-    '-q',
-    '-p',
-    'repo_contract_enforcer_ui',
-    '--',
-    'check',
-    '--root',
-    folder.uri.fsPath,
-    '--mode',
-    mode,
-    '--json'
-  ];
+  const args = ['run', '-q', '-p', 'repo_contract_enforcer_backend', '--', 'serve'];
+  const child = cp.spawn(cmd, args, { cwd: folder.uri.fsPath, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
 
-  cp.execFile(cmd, args, { cwd: folder.uri.fsPath, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+  child.stdout.on('data', (chunk) => {
+    stdout += chunk.toString();
+  });
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk.toString();
+  });
+  child.on('error', () => {
+    vscode.window.setStatusBarMessage('repo_contract_enforcer: backend spawn failed', 4000);
+  });
+  child.on('close', (_code) => {
     const byFile = new Map();
 
-    if (err && !stdout) {
-      vscode.window.setStatusBarMessage('repo_contract_enforcer: execution failed', 4000);
-      return;
-    }
-
-    let parsed;
+    let parsedReportEnvelope;
     try {
-      parsed = JSON.parse(stdout);
+      const lines = stdout
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter((s) => s.startsWith('{') && s.endsWith('}'));
+      const reportLine = lines.find((line) => line.includes('"type":"report"'));
+      if (!reportLine) {
+        throw new Error('missing report line');
+      }
+      parsedReportEnvelope = JSON.parse(reportLine);
     } catch (_parseErr) {
       if (stderr && stderr.trim().length > 0) {
         vscode.window.setStatusBarMessage('repo_contract_enforcer: invalid JSON output', 4000);
@@ -71,6 +74,7 @@ function runEnforcer(collection) {
       return;
     }
 
+    const parsed = parsedReportEnvelope.report_json || {};
     const violations = Array.isArray(parsed.violations) ? parsed.violations : [];
     for (const v of violations) {
       const uri = toUri(folder.uri.fsPath, v.path);
@@ -89,6 +93,17 @@ function runEnforcer(collection) {
 
     vscode.commands.executeCommand('setContext', 'repoContractEnforcer.lastCount', violations.length);
   });
+
+  const request = {
+    id: 'vscode-1',
+    type: 'checkRepo',
+    root_path: folder.uri.fsPath,
+    mode
+  };
+  const shutdown = { id: 'vscode-shutdown', type: 'shutdown' };
+  child.stdin.write(JSON.stringify(request) + '\n');
+  child.stdin.write(JSON.stringify(shutdown) + '\n');
+  child.stdin.end();
 }
 
 function activate(context) {
