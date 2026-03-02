@@ -7,6 +7,7 @@ This document provides an overview of all documentation files in this directory.
 ## Documentation
 
 - [README.md](README.md): Main documentation for file versioning utilities
+- [conventions.sh](conventions.sh): Shared commit/PR title validation contract
 - [github/README.md](github/README.md): Documentation for shared GitHub issue helper functions
 
 ## Git Helpers

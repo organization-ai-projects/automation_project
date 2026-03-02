@@ -17,6 +17,7 @@ It interacts mainly with:
 
 ```plaintext
 git/
+├── commands.sh         # Single git CLI entrypoint (vcs_* wrappers)
 ├── branch.sh           # Branch management utilities
 ├── commit.sh           # Commit operations
 ├── repo.sh             # Repository validation utilities
@@ -28,6 +29,7 @@ git/
 ## Files
 
 - `README.md`: This file.
+- `commands.sh`: Single Git CLI backend wrappers (`vcs_*`).
 - `branch.sh`: Branch management utilities.
 - `commit.sh`: Commit operations.
 - `repo.sh`: Repository validation utilities.
@@ -44,6 +46,12 @@ This directory contains foundational git functions used by other scripts:
 - Commit operations
 - Staging/index operations
 - Synchronization utilities
+- Single `git` invocation backend (`commands.sh`) for deduplication and consistency
+
+## Invocation Rule
+
+- `commands.sh` is the only file in this module that executes the `git` binary directly.
+- Other scripts must call `vcs_*` wrappers (or higher-level helpers built on top of them).
 
 ## Current Modules
 

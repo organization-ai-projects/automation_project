@@ -16,6 +16,7 @@ It interacts mainly with:
 
 ```plaintext
 file_versioning/
+├── conventions.sh         # Shared naming/message contract (commit + PR title)
 ├── git/                   # Pure git operation utilities
 │   ├── branch.sh          # Branch management
 │   ├── commit.sh          # Commit operations
@@ -30,6 +31,7 @@ file_versioning/
 ## Files
 
 - `README.md`: This file.
+- `conventions.sh`: Shared conventions/validation contract for commit and PR titles.
 - `git/`: Pure git operation utilities.
 - `github/`: Shared GitHub automation helpers.
 
@@ -37,6 +39,7 @@ file_versioning/
 
 Utilities here support:
 
+- Shared commit/PR title conventions and validation
 - Pure git operations (branches, commits, working tree)
 - GitHub CLI operations
 - Repository and version control workflows
