@@ -622,8 +622,8 @@ main() {
   ) >/dev/null 2>&1; then
     if grep -q "### Issue Outcomes" "${out_md}" \
       && grep -q "##### Auto-resolved" "${out_md}" \
+      && grep -q "Reopen #518 - Resolved via directive decision => reopen." "${out_md}" \
       && grep -q "Resolved via directive decision => reopen." "${out_md}" \
-      && ! grep -q "Reopen #518" "${out_md}" \
       && ! grep -q "Closes rejected #518" "${out_md}"; then
       echo "PASS [reopen-conflict-prefers-reopen-and-reports-conflict]"
     else

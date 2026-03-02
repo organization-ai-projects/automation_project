@@ -678,6 +678,24 @@ issue_labels() {
     -q '.labels | map(.name) | join("||")' 2>/dev/null || true
 }
 
+issue_title_category() {
+  local issue_number="$1"
+  local issue_title
+
+  if [[ "$has_gh" != "true" ]]; then
+    echo "Unknown"
+    return
+  fi
+
+  issue_title="$(gh issue view "$issue_number" --json title -q '.title // ""' 2>/dev/null || true)"
+  if [[ -z "$issue_title" ]]; then
+    echo "Unknown"
+    return
+  fi
+
+  issue_category_from_title "$issue_title"
+}
+
 issue_non_compliance_reason_for() {
   local issue_number="$1"
   local labels_raw="${2:-}"
@@ -777,6 +795,7 @@ declare -A issue_directive_decision
 declare -A issue_inferred_decision
 declare -A issue_directive_conflict_reason
 declare -A issue_directive_resolution
+declare -A issue_directive_final_action
 declare -A pr_ref_cache
 declare -A duplicate_targets
 declare -A issue_non_compliance_reason_cache
@@ -851,6 +870,13 @@ mark_reopen_issue() {
   labels_raw="$(issue_labels "$issue_number")"
   label_category="$(issue_category_from_labels "$labels_raw")"
   final_category="$label_category"
+  if [[ "$final_category" == "Unknown" || "$final_category" == "Mixed" ]]; then
+    local title_category
+    title_category="$(issue_title_category "$issue_number")"
+    if [[ "$title_category" != "Unknown" && "$title_category" != "Mixed" ]]; then
+      final_category="$title_category"
+    fi
+  fi
   if [[ "$final_category" == "Unknown" && "$category" != "Unknown" ]]; then
     final_category="$category"
   fi
@@ -865,6 +891,7 @@ mark_reopen_issue() {
     unset "seen_reopen_issue[$issue_key]"
     unset "reopen_issue_category[$issue_key]"
     issue_directive_resolution["$issue_key"]="Resolved via directive decision => close."
+    issue_directive_final_action["$issue_key"]="close"
     return
   fi
 
@@ -880,6 +907,7 @@ mark_reopen_issue() {
     unset "issue_action[$issue_key]"
     unset "issue_neutralization_reason[$issue_key]"
     issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
+    issue_directive_final_action["$issue_key"]="reopen"
   fi
 
   debug_log "parsed_reopen_ref: ${issue_key}"
@@ -943,6 +971,13 @@ add_issue_entry() {
   fi
 
   final_category="$label_category"
+  if [[ "$final_category" == "Unknown" || "$final_category" == "Mixed" ]]; then
+    local title_category
+    title_category="$(issue_title_category "$issue_number")"
+    if [[ "$title_category" != "Unknown" && "$title_category" != "Mixed" ]]; then
+      final_category="$title_category"
+    fi
+  fi
   if [[ "$final_category" == "Unknown" && "$category" != "Unknown" ]]; then
     final_category="$category"
   fi
@@ -952,6 +987,7 @@ add_issue_entry() {
   if [[ -n "${issue_reopen_detected[$issue_key]:-}" || -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
     if [[ "$effective_decision" == "close" ]]; then
       issue_directive_resolution["$issue_key"]="Resolved via directive decision => close."
+      issue_directive_final_action["$issue_key"]="close"
       # continue as closure path
     elif [[ "$effective_decision" == "reopen" ]]; then
       seen_reopen_issue["$issue_key"]="1"
@@ -959,6 +995,7 @@ add_issue_entry() {
         reopen_issue_category["$issue_key"]="$final_category"
       fi
       issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
+      issue_directive_final_action["$issue_key"]="reopen"
       unset "seen_issue[$issue_key]"
       unset "issue_category[$issue_key]"
       debug_log "issue_entry: key=${issue_key} action=Reopen (directive) category=${reopen_issue_category[$issue_key]}"
@@ -1288,7 +1325,14 @@ fi
 echo -n > "$directive_resolution_tmp"
 for issue_key in "${!issue_directive_resolution[@]}"; do
   issue_number="${issue_key//#/}"
-  echo "${issue_number}|${issue_category[$issue_key]:-Unknown}|${issue_key}|${issue_directive_resolution[$issue_key]}" >> "$directive_resolution_tmp"
+  directive_action="${issue_directive_final_action[$issue_key]:-}"
+  directive_prefix=""
+  case "$directive_action" in
+    close) directive_prefix="Closes ${issue_key} - " ;;
+    reopen) directive_prefix="Reopen ${issue_key} - " ;;
+    *) directive_prefix="${issue_key} - " ;;
+  esac
+  echo "${issue_number}|${issue_category[$issue_key]:-Unknown}|${directive_prefix}${issue_directive_resolution[$issue_key]}" >> "$directive_resolution_tmp"
 done
 
 if [[ -s "$directive_resolution_tmp" ]]; then
@@ -1319,7 +1363,7 @@ if [[ -s "$directive_resolution_tmp" ]]; then
                 print "#### " cat
                 found = 1
               }
-              print "- " parts[3] " - " parts[4]
+              print "- " parts[3]
             }
           }
           if (found) {
