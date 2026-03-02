@@ -171,6 +171,16 @@ warn_optional() {
   fi
 }
 
+register_breaking_reason() {
+  local reason="${1:-}"
+  [[ -n "$reason" ]] || return 0
+  if [[ -n "${breaking_reason_seen[$reason]:-}" ]]; then
+    return 0
+  fi
+  breaking_reason_seen["$reason"]=1
+  breaking_reasons+=("$reason")
+}
+
 gh_optional() {
   local description="$1"
   shift
@@ -338,6 +348,8 @@ declare -A pr_title_hint
 online_enrich="false"
 pr_enrich_failed=0
 breaking_detected=0
+declare -A breaking_reason_seen
+declare -a breaking_reasons
 pr_created_successfully="false"
 dry_compare_commit_messages=""
 dry_compare_commit_headlines=""
@@ -975,6 +987,7 @@ add_issue_entry() {
   label_category="$(issue_category_from_labels "$labels_raw")"
   if [[ "$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
     breaking_detected=1
+    register_breaking_reason "Issue ${issue_key} has label 'breaking'."
   fi
 
   final_category="$label_category"
@@ -1062,6 +1075,7 @@ if [[ -s "$extracted_prs_file" ]]; then
         pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
         if [[ "$(echo "$pr_labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
           breaking_detected=1
+          register_breaking_reason "PR ${pr_ref} has label 'breaking'."
         fi
       else
         pr_title=""
@@ -1078,6 +1092,7 @@ if [[ -s "$extracted_prs_file" ]]; then
     fi
     if text_indicates_breaking "$pr_title"; then
       breaking_detected=1
+      register_breaking_reason "PR ${pr_ref} title indicates a breaking change."
     fi
 
     pr_category="$(classify_pr "$pr_ref" "$pr_title")"
@@ -1086,6 +1101,7 @@ if [[ -s "$extracted_prs_file" ]]; then
     if [[ -n "$pr_body" ]]; then
     if text_indicates_breaking "$pr_body"; then
       breaking_detected=1
+      register_breaking_reason "PR ${pr_ref} body indicates a breaking change."
     fi
       ingest_issue_refs_from_text "$pr_body" "$pr_category" "pr_body" "pr ${pr_ref}"
     fi
@@ -1101,6 +1117,7 @@ if [[ "$dry_run" == "true" ]]; then
   if [[ -n "$dry_commit_messages" ]]; then
     if text_indicates_breaking "$dry_commit_messages"; then
       breaking_detected=1
+      register_breaking_reason "Commit messages indicate a breaking change."
     fi
     ingest_issue_refs_from_text "$dry_commit_messages" "Mixed" "generic" "dry commits"
   fi
@@ -1112,6 +1129,7 @@ if [[ "$dry_run" == "false" ]]; then
   if [[ -n "$main_pr_body" ]]; then
     if text_indicates_breaking "$main_pr_body"; then
       breaking_detected=1
+      register_breaking_reason "Main PR body indicates a breaking change."
     fi
     ingest_issue_refs_from_text "$main_pr_body" "Mixed" "pr_body" "main pr"
   fi
@@ -1342,9 +1360,16 @@ body_content="$({
   echo "### Compatibility"
   echo ""
   if [[ "$breaking_detected" -eq 1 ]]; then
-    echo "- Breaking change."
+    if [[ "${#breaking_reasons[@]}" -gt 0 ]]; then
+      echo "- Breaking change detected:"
+      for reason in "${breaking_reasons[@]}"; do
+        echo "  - ${reason}"
+      done
+    else
+      echo "- Breaking change detected."
+    fi
   else
-    echo "- Non-breaking change."
+    echo "- No breaking change detected."
   fi
   echo ""
   echo "### Issues Resolved"
