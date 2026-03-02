@@ -180,6 +180,68 @@ parse_duplicate_refs_from_text() {
   ' | sort -u
 }
 
+parse_directive_decisions_from_text() {
+  local text="$1"
+  echo "$text" | awk '
+    {
+      lower = tolower($0)
+      while (match(lower, /directive[[:space:]_-]*decision[[:space:]]*:[[:space:]]*[^[:space:]]*#[0-9]+[[:space:]]*=>[[:space:]]*(close|reopen)/)) {
+        matched = substr(lower, RSTART, RLENGTH)
+        issue_ref = matched
+        decision = matched
+        sub(/^.*#/, "#", issue_ref)
+        sub(/[[:space:]]*=>.*/, "", issue_ref)
+        sub(/^.*=>[[:space:]]*/, "", decision)
+        gsub(/[[:space:]]+/, "", issue_ref)
+        gsub(/[[:space:]]+/, "", decision)
+        if (issue_ref ~ /^#[0-9]+$/ && (decision == "close" || decision == "reopen")) {
+          print issue_ref "|" decision
+        }
+        lower = substr(lower, RSTART + RLENGTH)
+      }
+    }
+  ' | sort -u
+}
+
+parse_directive_events_from_text() {
+  local text="$1"
+  echo "$text" | awk '
+    {
+      line = $0
+      lower = tolower($0)
+      while (match(lower, /(closes|fixes|reopen|reopens)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
+        if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
+          lower = substr(lower, RSTART + 1)
+          line = substr(line, RSTART + 1)
+          continue
+        }
+
+        matched = substr(line, RSTART, RLENGTH)
+        matched_lower = substr(lower, RSTART, RLENGTH)
+        n = split(matched, parts, /[[:space:]]+/)
+        split(matched_lower, parts_lower, /[[:space:]]+/)
+        token = parts_lower[1]
+        issue_ref = parts[n]
+        sub(/^.*#/, "#", issue_ref)
+
+        action = ""
+        if (token == "closes" || token == "fixes") {
+          action = "Closes"
+        } else if (token == "reopen" || token == "reopens") {
+          action = "Reopen"
+        }
+
+        if (issue_ref ~ /^#[0-9]+$/ && action != "") {
+          print action "|" issue_ref
+        }
+
+        lower = substr(lower, RSTART + RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  '
+}
+
 normalize_issue_key() {
   local raw="${1:-}"
   local normalized

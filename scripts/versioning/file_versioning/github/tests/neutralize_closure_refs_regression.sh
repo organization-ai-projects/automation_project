@@ -238,14 +238,14 @@ main() {
     "" \
     env MOCK_ISSUE_COMPLIANT=0 MOCK_PR_BODY="Closes rejected #42"
 
-  # ── neutralizer: reopen marker forces neutralization even if issue compliant
+  # ── neutralizer: reopen marker alone is ignored (handled by dedicated guard)
   run_case \
-    "neutralizer-reopen-forces-neutralization" \
+    "neutralizer-reopen-is-ignored" \
     0 \
     "Closure neutralization evaluated" \
     "$NEUTRALIZER" \
     "--pr 1" \
-    "rejected" \
+    "" \
     env MOCK_ISSUE_COMPLIANT=1 MOCK_PR_BODY=$'Closes #42\nReopen #42'
 
   # ── reevaluator: missing --issue arg ────────────────────────────────────
