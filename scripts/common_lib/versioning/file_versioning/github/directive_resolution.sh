@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # Shared directive arbitration helpers (Closes/Fixes/Reopen).
+# Depends on parse/normalize helpers from issue_refs.sh.
 
 count_distinct_source_branches_from_commits() {
   local commit_messages="$1"

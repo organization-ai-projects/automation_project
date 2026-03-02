@@ -6,9 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 # shellcheck disable=SC1091
-source "${SCRIPT_DIR}/lib/directive_resolution.sh"
-# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/directive_resolution.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/directive_resolution.sh"
 
 usage() {
   cat <<USAGE
