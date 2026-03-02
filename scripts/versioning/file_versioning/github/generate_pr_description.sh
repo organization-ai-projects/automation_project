@@ -1576,6 +1576,13 @@ process_duplicate_mode() {
 compute_ci_status
 compute_breaking_scope
 
+ci_status_with_symbol="$ci_status"
+case "$ci_status" in
+  PASS) ci_status_with_symbol="PASS ✅" ;;
+  FAIL) ci_status_with_symbol="FAIL ❌" ;;
+  *) ci_status_with_symbol="UNKNOWN ⚪" ;;
+esac
+
 body_content="$({
   echo "### Description"
   echo ""
@@ -1659,7 +1666,7 @@ body_content="$({
 
 ### Validation Status
 
-- CI: ${ci_status}
+- CI: ${ci_status_with_symbol}
 - Breaking change detected: $( [[ "$breaking_detected" -eq 1 ]] && echo "TRUE" || echo "FALSE" )
 EOF
   if [[ "$breaking_detected" -eq 1 ]]; then
