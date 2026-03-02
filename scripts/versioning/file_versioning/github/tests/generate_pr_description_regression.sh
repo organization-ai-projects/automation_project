@@ -303,12 +303,14 @@ main() {
   if (
     cd "${ROOT_DIR}"
     MOCK_PATCH_BODY_FILE="${patched_body_file}" \
-    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Validation Status\n- CI: PASS\n- Breaking change detected: FALSE\n\n### Additional Notes\nkeep' \
+    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Compatibility\n- legacy\n\n### Validation Status\n- CI: PASS\n- Breaking change detected: FALSE\n\n### Additional Notes\nkeep' \
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --auto-edit 400 --yes 42
   ) >/dev/null 2>&1; then
-    if grep -q -- "### Validation Status" "${patched_body_file}" \
+    if grep -q -- "### Compatibility Signal" "${patched_body_file}" \
       && grep -q -- "- CI: UNKNOWN ⚪" "${patched_body_file}" \
       && grep -q -- "- Breaking change detected: FALSE" "${patched_body_file}" \
+      && ! grep -q -- "### Validation Status" "${patched_body_file}" \
+      && ! grep -q -- "^### Compatibility$" "${patched_body_file}" \
       && ! grep -q -- "- CI: PASS" "${patched_body_file}"; then
       echo "PASS [auto-edit-overwrites-validation-status]"
     else
@@ -353,11 +355,12 @@ main() {
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
   ) >/dev/null 2>&1; then
     compat_section="$(awk '
-      /^### Compatibility$/ { in_compat=1; next }
+      /^### Compatibility Signal$/ { in_compat=1; next }
       /^### / && in_compat { exit }
       in_compat { print }
     ' "${out_md}")"
-    if echo "${compat_section}" | grep -q -- "^- See Validation Status for compatibility signal and breaking scope\\.$" \
+    if echo "${compat_section}" | grep -q -- "^- CI: UNKNOWN ⚪$" \
+      && echo "${compat_section}" | grep -q -- "^- Breaking change detected: FALSE$" \
       && ! echo "${compat_section}" | grep -q -- "\\[x\\]\\|\\[ \\]"; then
       echo "PASS [compatibility-single-status-line]"
     else
@@ -382,11 +385,12 @@ main() {
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
   ) >/dev/null 2>&1; then
     compat_section="$(awk '
-      /^### Compatibility$/ { in_compat=1; next }
+      /^### Compatibility Signal$/ { in_compat=1; next }
       /^### / && in_compat { exit }
       in_compat { print }
     ' "${out_md}")"
-    if echo "${compat_section}" | grep -q -- "^- See Validation Status for compatibility signal and breaking scope\\.$"; then
+    if echo "${compat_section}" | grep -q -- "^- CI: UNKNOWN ⚪$" \
+      && echo "${compat_section}" | grep -q -- "^- Breaking change detected: FALSE$"; then
       echo "PASS [compatibility-negated-breaking-signal]"
     else
       echo "FAIL [compatibility-negated-breaking-signal] compatibility section is not normalized for negated signal"

@@ -1598,9 +1598,23 @@ body_content="$({
   echo ""
   echo "- Not explicitly provided."
   echo ""
-  echo "### Compatibility"
+  echo "### Compatibility Signal"
   echo ""
-  echo "- See Validation Status for compatibility signal and breaking scope."
+  echo "- CI: ${ci_status_with_symbol}"
+  echo "- Breaking change detected: $( [[ "$breaking_detected" -eq 1 ]] && echo "TRUE" || echo "FALSE" )"
+  if [[ "$breaking_detected" -eq 1 ]]; then
+    echo "- Breaking scope:"
+    if [[ -n "$breaking_scope_crates" ]]; then
+      echo "  - crate(s): ${breaking_scope_crates}"
+    else
+      echo "  - crate(s): unknown"
+    fi
+    if [[ -n "$breaking_scope_commits" ]]; then
+      echo "  - source commit(s): ${breaking_scope_commits}"
+    else
+      echo "  - source commit(s): unknown"
+    fi
+  fi
   echo ""
   echo "### Issue Outcomes"
   echo ""
@@ -1665,26 +1679,6 @@ body_content="$({
 
 - Ensure all project tests are executed before merge (for example: \`cargo test\`, script-specific checks, and CI workflow validation).
 - Validate manually the automation workflows impacted by merged PRs.
-
-### Validation Status
-
-- CI: ${ci_status_with_symbol}
-- Breaking change detected: $( [[ "$breaking_detected" -eq 1 ]] && echo "TRUE" || echo "FALSE" )
-EOF
-  if [[ "$breaking_detected" -eq 1 ]]; then
-    echo "- Breaking scope:"
-    if [[ -n "$breaking_scope_crates" ]]; then
-      echo "  - crate(s): ${breaking_scope_crates}"
-    else
-      echo "  - crate(s): unknown"
-    fi
-    if [[ -n "$breaking_scope_commits" ]]; then
-      echo "  - source commit(s): ${breaking_scope_commits}"
-    else
-      echo "  - source commit(s): unknown"
-    fi
-  fi
-  cat <<EOF
 
 ### Additional Notes
 
