@@ -1170,6 +1170,41 @@ if [[ -s "$issues_tmp" ]]; then
   issue_count="${#seen_issue[@]}"
 fi
 
+write_issue_reason_tmp() {
+  local target_tmp="$1"
+  local map_name="$2"
+  local issue_key issue_number
+  local -n issue_map_ref="$map_name"
+
+  echo -n > "$target_tmp"
+  for issue_key in "${!issue_map_ref[@]}"; do
+    issue_number="${issue_key//#/}"
+    echo "${issue_number}|${issue_key}|${issue_map_ref[$issue_key]}" >> "$target_tmp"
+  done
+}
+
+render_issue_reason_lines() {
+  local source_tmp="$1"
+  local target_file="$2"
+  local output_file="$target_file"
+  local use_tmp_output="false"
+  local output_tmp=""
+
+  if [[ "$source_tmp" == "$target_file" ]]; then
+    output_tmp="${target_file}.rendered"
+    output_file="$output_tmp"
+    use_tmp_output="true"
+  fi
+
+  if [[ -s "$source_tmp" ]]; then
+    sort -t'|' -k1,1n "$source_tmp" \
+      | awk -F'|' '{ print "- " $2 " - " $3 }' > "$output_file"
+    if [[ "$use_tmp_output" == "true" ]]; then
+      mv "$output_tmp" "$target_file"
+    fi
+  fi
+}
+
 echo -n > "$reopen_tmp"
 for issue_key in "${!seen_reopen_issue[@]}"; do
   if [[ -n "${issue_directive_conflict_reason[$issue_key]:-}" ]]; then
@@ -1219,29 +1254,14 @@ if [[ -s "$reopen_tmp" ]]; then
   reopen_issue_count="${#seen_reopen_issue[@]}"
 fi
 
-echo -n > "$conflict_tmp"
-for issue_key in "${!issue_directive_conflict_reason[@]}"; do
-  issue_number="${issue_key//#/}"
-  echo "${issue_number}|${issue_key}|${issue_directive_conflict_reason[$issue_key]}" >> "$conflict_tmp"
-done
-
-if [[ -s "$conflict_tmp" ]]; then
-  sort -t'|' -k1,1n "$conflict_tmp" \
-    | awk -F'|' '{ print "- " $2 " - " $3 }' > "$conflict_issues_file"
+write_issue_reason_tmp "$conflict_tmp" "issue_directive_conflict_reason"
+render_issue_reason_lines "$conflict_tmp" "$conflict_issues_file"
+if [[ -s "$conflict_issues_file" ]]; then
   directive_conflict_count="${#issue_directive_conflict_reason[@]}"
 fi
 
-echo -n > "$directive_resolution_tmp"
-for issue_key in "${!issue_directive_resolution[@]}"; do
-  issue_number="${issue_key//#/}"
-  echo "${issue_number}|${issue_key}|${issue_directive_resolution[$issue_key]}" >> "$directive_resolution_tmp"
-done
-
-if [[ -s "$directive_resolution_tmp" ]]; then
-  sort -t'|' -k1,1n "$directive_resolution_tmp" \
-    | awk -F'|' '{ print "- " $2 " - " $3 }' > "$directive_resolution_tmp.resolved"
-  mv "$directive_resolution_tmp.resolved" "$directive_resolution_tmp"
-fi
+write_issue_reason_tmp "$directive_resolution_tmp" "issue_directive_resolution"
+render_issue_reason_lines "$directive_resolution_tmp" "$directive_resolution_tmp"
 
 process_duplicate_mode() {
   local duplicate_issue_key
