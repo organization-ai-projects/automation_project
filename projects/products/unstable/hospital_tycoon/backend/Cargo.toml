@@ -1,0 +1,18 @@
+[package]
+name = "hospital_tycoon_backend"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "hospital_tycoon_backend"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = "1.0"
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true, features = ["std_rng"] }
+
+[dev-dependencies]

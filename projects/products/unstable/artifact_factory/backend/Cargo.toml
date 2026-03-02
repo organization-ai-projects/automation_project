@@ -1,0 +1,17 @@
+[package]
+name = "artifact-factory-backend"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "artifact-factory-backend"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+common_json = { workspace = true }

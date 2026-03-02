@@ -1,0 +1,31 @@
+{
+  "report_hash": "530422898fc8dba3c1a60034a6943cc2d7f251e5a7128d223b31ea45f39f4430",
+  "mode": "strict",
+  "violations": [
+    {
+      "rule_id": "determinism",
+      "severity": "WARNING",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/backend/src/main.rs",
+      "violation_code": "DET_UNSAFE_USAGE",
+      "line": 3,
+      "message": "unsafe usage detected; keep it internal and documented"
+    },
+    {
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/backend/src/main.rs",
+      "line": 8,
+      "message": "underscore-based bindings/discards may hide unused values",
+      "scope": "stable",
+      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
+      "rule_id": "determinism",
+      "severity": "WARNING"
+    }
+  ],
+  "summary": {
+    "stable_error_count": 0,
+    "stable_warning_count": 2,
+    "unstable_error_count": 0,
+    "unstable_warning_count": 0
+  },
+  "repository_root": "<FIXTURE_ROOT>"
+}

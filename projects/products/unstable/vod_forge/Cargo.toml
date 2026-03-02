@@ -1,0 +1,3 @@
+# This file marks vod_forge as a workspace boundary marker.
+# The actual crates are backend/ and ui/, registered in the root workspace.
+[workspace]

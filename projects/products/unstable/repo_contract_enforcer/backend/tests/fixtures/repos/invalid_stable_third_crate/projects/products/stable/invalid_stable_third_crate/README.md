@@ -1,0 +1,1 @@
+# invalid_stable_third_crate

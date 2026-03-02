@@ -1,0 +1,18 @@
+{
+  "name": "small_ring",
+  "version": "v0",
+  "territories": [
+    {"id": 0, "name": "T0"},
+    {"id": 1, "name": "T1"},
+    {"id": 2, "name": "T2"},
+    {"id": 3, "name": "T3"},
+    {"id": 4, "name": "T4"},
+    {"id": 5, "name": "T5"}
+  ],
+  "adjacencies": [[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]],
+  "starting_units": [
+    {"faction_id": 0, "territory_id": 0},
+    {"faction_id": 1, "territory_id": 2},
+    {"faction_id": 2, "territory_id": 4}
+  ]
+}

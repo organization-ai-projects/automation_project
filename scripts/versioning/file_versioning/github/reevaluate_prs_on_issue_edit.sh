@@ -3,6 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/issue_refs.sh"
 
 usage() {
   cat <<USAGE
@@ -73,22 +75,27 @@ if [[ ! -x "$NEUTRALIZER" ]]; then
   chmod +x "$NEUTRALIZER"
 fi
 
+pr_body_references_issue() {
+  local body="$1"
+  local target_issue_key="#${issue_number}"
+  local issue_key
+
+  while IFS='|' read -r _ issue_key; do
+    [[ "$issue_key" == "$target_issue_key" ]] && return 0
+  done < <(parse_all_closing_issue_refs_from_text "$body")
+
+  return 1
+}
+
 # Find all open PRs whose body contains a closing reference to this issue number.
 pr_numbers="$(
-  # The [^\s]* segment intentionally allows optional owner/repo prefixes
-  # (e.g. "org/repo#42") consistent with parse_closing_issue_refs_from_text.
-  gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate 2>/dev/null \
-  | jq -r --argjson issue "$issue_number" '
-      .[] |
-      select(
-        .body != null and (
-          .body | test(
-            "(?i)\\b(closes|fixes)\\s+(rejected\\s+)?[^\\s]*#" + ($issue | tostring) + "\\b"
-          )
-        )
-      ) |
-      .number | tostring
-    ' 2>/dev/null \
+  gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[] | [.number, (.body // "")] | @tsv' 2>/dev/null \
+  | while IFS=$'\t' read -r pr_num pr_body; do
+      [[ -n "$pr_num" ]] || continue
+      if pr_body_references_issue "$pr_body"; then
+        printf '%s\n' "$pr_num"
+      fi
+    done \
   || true
 )"
 

@@ -1,0 +1,14 @@
+[package]
+name = "dev_agent"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "dev_agent"
+path = "src/main.rs"
+
+[dependencies]
+runtime_core = { path = "../../../libraries/layers/domain/runtime_core" }
+serde = { workspace = true }
+serde_json = "1"
+thiserror = { workspace = true }

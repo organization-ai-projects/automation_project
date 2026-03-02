@@ -1,0 +1,4 @@
+# This file marks the evolutionary_system_generator root as a standalone workspace so that
+# Cargo does not flag it when scanning subdirectories. The actual crates
+# live in evolutionary_system_generator/backend/, evolutionary_system_generator/ui/, and evolutionary_system_generator/tooling/.
+[workspace]

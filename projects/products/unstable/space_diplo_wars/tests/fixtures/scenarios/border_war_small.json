@@ -1,0 +1,37 @@
+{
+  "game_id": "border_war_small",
+  "empires": [
+    {"id": "empire_red", "name": "Red Empire", "home_system": "sys_red", "resources": {"Metal": 300, "Energy": 200, "Food": 100, "Research": 30}, "tech_levels": {}},
+    {"id": "empire_blue", "name": "Blue Empire", "home_system": "sys_blue", "resources": {"Metal": 280, "Energy": 220, "Food": 90, "Research": 35}, "tech_levels": {}}
+  ],
+  "star_map": {
+    "systems": [
+      {"id": "sys_red", "name": "Red Home", "planets": [], "owner": "empire_red"},
+      {"id": "sys_blue", "name": "Blue Home", "planets": [], "owner": "empire_blue"},
+      {"id": "sys_contested", "name": "Contested", "planets": [], "owner": null}
+    ],
+    "routes": [
+      {"from": "sys_red", "to": "sys_contested", "distance": 1},
+      {"from": "sys_blue", "to": "sys_contested", "distance": 1}
+    ]
+  },
+  "initial_fleets": [
+    {"id": "fleet_red1", "empire_id": "empire_red", "location": "sys_red", "ships": {"Fighter": 10, "Cruiser": 3, "Battleship": 1}},
+    {"id": "fleet_blue1", "empire_id": "empire_blue", "location": "sys_blue", "ships": {"Fighter": 8, "Cruiser": 4, "Battleship": 1}}
+  ],
+  "scripted_orders": {
+    "1": [
+      {"id": "order_red_move", "empire_id": "empire_red", "kind": "MoveFleet", "params": {"fleet_id": "fleet_red1", "destination": "sys_contested"}},
+      {"id": "order_blue_move", "empire_id": "empire_blue", "kind": "MoveFleet", "params": {"fleet_id": "fleet_blue1", "destination": "sys_contested"}}
+    ],
+    "2": [
+      {"id": "order_red_attack", "empire_id": "empire_red", "kind": "AttackFleet", "params": {"fleet_id": "fleet_red1", "target_fleet": "fleet_blue1", "system": "sys_contested"}},
+      {"id": "order_blue_defend", "empire_id": "empire_blue", "kind": "DefendSystem", "params": {"fleet_id": "fleet_blue1", "system": "sys_contested"}}
+    ]
+  },
+  "scripted_treaty_choices": {},
+  "checkpoints": [
+    {"turn": 1, "expected_snapshot_hash": null},
+    {"turn": 2, "expected_snapshot_hash": null}
+  ]
+}

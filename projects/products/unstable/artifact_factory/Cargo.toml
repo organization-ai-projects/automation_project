@@ -1,0 +1,4 @@
+# This file marks the artifact_factory root as a standalone workspace so that
+# Cargo does not flag it when scanning subdirectories. The actual crates
+# live in artifact_factory/backend/, artifact_factory/ui/, and artifact_factory/tooling/.
+[workspace]

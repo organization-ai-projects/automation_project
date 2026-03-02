@@ -1,0 +1,8 @@
+[package]
+name = "invalid_stable_third_crate_tooling"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "invalid_stable_third_crate_tooling"
+path = "src/main.rs"

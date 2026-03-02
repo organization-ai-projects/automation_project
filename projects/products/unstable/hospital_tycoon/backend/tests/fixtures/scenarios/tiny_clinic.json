@@ -1,0 +1,19 @@
+{
+  "name": "tiny_clinic",
+  "seed": 42,
+  "ticks": 50,
+  "rooms": [
+    {"id": 1, "kind": "Treatment", "capacity": 5, "staff_slots": 2}
+  ],
+  "staff": [
+    {"id": 1, "name": "Dr. Smith", "role": "Doctor", "skill_level": 5},
+    {"id": 2, "name": "Nurse Joy", "role": "Nurse", "skill_level": 3}
+  ],
+  "diseases": [
+    {"id": "flu", "name": "Influenza", "severity": 2},
+    {"id": "cold", "name": "Common Cold", "severity": 1}
+  ],
+  "initial_budget": 10000,
+  "initial_reputation": 50,
+  "patient_spawn_rate": 5
+}

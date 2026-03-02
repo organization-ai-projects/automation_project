@@ -1,0 +1,17 @@
+{
+  "name": "queue_overflow",
+  "seed": 999,
+  "ticks": 20,
+  "rooms": [
+    {"id": 1, "kind": "Treatment", "capacity": 2, "staff_slots": 1}
+  ],
+  "staff": [
+    {"id": 1, "name": "Dr. Overworked", "role": "Doctor", "skill_level": 3}
+  ],
+  "diseases": [
+    {"id": "flu", "name": "Influenza", "severity": 2}
+  ],
+  "initial_budget": 5000,
+  "initial_reputation": 30,
+  "patient_spawn_rate": 2
+}

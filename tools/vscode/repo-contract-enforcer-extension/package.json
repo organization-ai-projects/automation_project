@@ -1,0 +1,51 @@
+{
+  "name": "repo-contract-enforcer-diagnostics",
+  "displayName": "Repo Contract Enforcer Diagnostics",
+  "description": "Inline diagnostics from repo_contract_enforcer rules (team patterns).",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Linters"
+  ],
+  "activationEvents": [
+    "workspaceContains:Cargo.toml",
+    "onLanguage:rust"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "repoContractEnforcer.runCheck",
+        "title": "Repo Contract Enforcer: Run Check"
+      }
+    ],
+    "configuration": {
+      "title": "Repo Contract Enforcer",
+      "properties": {
+        "repoContractEnforcer.mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "strict",
+            "relaxed"
+          ],
+          "default": "auto",
+          "description": "Mode passed to repo_contract_enforcer_ui"
+        },
+        "repoContractEnforcer.runOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run checks automatically when Rust files are saved"
+        },
+        "repoContractEnforcer.command": {
+          "type": "string",
+          "default": "cargo",
+          "description": "Command used to invoke repo_contract_enforcer_ui"
+        }
+      }
+    }
+  }
+}

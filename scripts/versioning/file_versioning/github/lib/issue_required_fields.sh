@@ -162,3 +162,57 @@ issue_validate_content() {
   issue_validate_title "$title" "$labels_raw"
   issue_validate_body "$body" "$labels_raw"
 }
+
+issue_first_validation_reason() {
+  local validations="${1:-}"
+  echo "$validations" | awk -F'|' 'NF>=3 {print $3; exit}'
+}
+
+issue_non_compliance_reason_from_content() {
+  local title="${1:-}"
+  local body="${2:-}"
+  local labels_raw="${3:-}"
+  local lower_labels
+  local validations
+  local first_reason
+
+  lower_labels="$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$lower_labels" =~ (^|\|\|)issue-required-missing(\|\||$) ]]; then
+    echo "label issue-required-missing is set on issue"
+    return
+  fi
+
+  validations="$(issue_validate_content "$title" "$body" "$labels_raw" || true)"
+  if [[ -z "$validations" ]]; then
+    echo ""
+    return
+  fi
+
+  first_reason="$(issue_first_validation_reason "$validations")"
+  echo "$first_reason"
+}
+
+issue_fetch_non_compliance_reason() {
+  local issue_number="${1:-}"
+  local repo_name="${2:-}"
+  local issue_json
+  local labels_raw
+  local title
+  local body
+
+  if [[ -n "$repo_name" ]]; then
+    issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json labels,title,body 2>/dev/null || true)"
+  else
+    issue_json="$(gh issue view "$issue_number" --json labels,title,body 2>/dev/null || true)"
+  fi
+  if [[ -z "$issue_json" ]]; then
+    echo ""
+    return
+  fi
+
+  labels_raw="$(echo "$issue_json" | jq -r '.labels | map(.name) | join("||")')"
+  title="$(echo "$issue_json" | jq -r '.title // ""')"
+  body="$(echo "$issue_json" | jq -r '.body // ""')"
+
+  issue_non_compliance_reason_from_content "$title" "$body" "$labels_raw"
+}

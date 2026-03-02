@@ -1,5 +1,6 @@
 # Rust
 /target/
+**/target/
 **/*.rs.bk
 
 # Logs
@@ -29,6 +30,7 @@ node_modules/
 *.dylib
 *.dll
 *.exe
+*.vsix
 
 # Temporary files
 *.tmp

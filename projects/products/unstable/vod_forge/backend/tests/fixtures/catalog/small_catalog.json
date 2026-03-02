@@ -1,0 +1,11 @@
+{
+  "titles": [
+    {"id": "tt001", "name": "Space Odyssey", "year": 2020, "episodes": [
+      {"id": "ep001", "season": 1, "number": 1, "name": "Pilot", "duration_secs": 2700},
+      {"id": "ep002", "season": 1, "number": 2, "name": "The Mission", "duration_secs": 2400}
+    ]},
+    {"id": "tt002", "name": "Deep Dive", "year": 2021, "episodes": [
+      {"id": "ep003", "season": 1, "number": 1, "name": "Descent", "duration_secs": 3000}
+    ]}
+  ]
+}

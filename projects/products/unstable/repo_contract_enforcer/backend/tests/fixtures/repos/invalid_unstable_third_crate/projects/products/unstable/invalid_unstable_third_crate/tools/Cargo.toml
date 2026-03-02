@@ -1,0 +1,8 @@
+[package]
+name = "invalid_unstable_third_crate_tools"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "invalid_unstable_third_crate_tools"
+path = "src/main.rs"

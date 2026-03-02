@@ -1,0 +1,31 @@
+{
+  "violations": [
+    {
+      "line": null,
+      "message": "only backend and ui crates are allowed",
+      "violation_code": "STRUCT_THIRD_CRATE_DETECTED",
+      "rule_id": "structure",
+      "severity": "ERROR",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling"
+    },
+    {
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling",
+      "scope": "stable",
+      "message": "forbidden folder name detected",
+      "violation_code": "STRUCT_FORBIDDEN_FOLDER_NAME",
+      "severity": "ERROR",
+      "line": null,
+      "rule_id": "structure"
+    }
+  ],
+  "repository_root": "<FIXTURE_ROOT>",
+  "mode": "strict",
+  "report_hash": "161d284de2a61cdbff29b383212d48f483d5944b1bd34ccd32c1e8284157ec94",
+  "summary": {
+    "stable_error_count": 2,
+    "stable_warning_count": 0,
+    "unstable_error_count": 0,
+    "unstable_warning_count": 0
+  }
+}

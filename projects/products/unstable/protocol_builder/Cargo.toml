@@ -1,0 +1,4 @@
+# This file marks the protocol_builder root as a standalone workspace so that
+# Cargo does not flag it when scanning subdirectories. The actual crates
+# live in protocol_builder/backend/, protocol_builder/ui/, and protocol_builder/tooling/.
+[workspace]

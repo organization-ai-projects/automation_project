@@ -1,0 +1,22 @@
+[package]
+name = "diplo_sim"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "diplo_sim"
+path = "src/main.rs"
+
+[lib]
+name = "diplo_sim"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true, features = ["std", "std_rng"] }
+common_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

@@ -1,0 +1,23 @@
+{
+  "name": "diagnosis_pipeline",
+  "seed": 123,
+  "ticks": 30,
+  "rooms": [
+    {"id": 1, "kind": "Reception", "capacity": 10, "staff_slots": 1},
+    {"id": 2, "kind": "Diagnosis", "capacity": 5, "staff_slots": 2},
+    {"id": 3, "kind": "Treatment", "capacity": 5, "staff_slots": 2}
+  ],
+  "staff": [
+    {"id": 1, "name": "Dr. Adams", "role": "Doctor", "skill_level": 4},
+    {"id": 2, "name": "Nurse Lee", "role": "Nurse", "skill_level": 3},
+    {"id": 3, "name": "Receptionist Kim", "role": "Receptionist", "skill_level": 2}
+  ],
+  "diseases": [
+    {"id": "flu", "name": "Influenza", "severity": 2},
+    {"id": "cold", "name": "Common Cold", "severity": 1},
+    {"id": "appendicitis", "name": "Appendicitis", "severity": 5}
+  ],
+  "initial_budget": 20000,
+  "initial_reputation": 60,
+  "patient_spawn_rate": 3
+}

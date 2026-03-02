@@ -1,0 +1,31 @@
+{
+  "mode": "strict",
+  "violations": [
+    {
+      "rule_id": "crate",
+      "message": "primary item name 'WrongName' does not match file stem 'mismatch_name'",
+      "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/mismatch_name.rs",
+      "scope": "stable",
+      "severity": "ERROR",
+      "line": null
+    },
+    {
+      "message": "file contains multiple primary struct/enum declarations",
+      "line": null,
+      "severity": "ERROR",
+      "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
+      "scope": "stable",
+      "rule_id": "crate",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/multi.rs"
+    }
+  ],
+  "summary": {
+    "stable_error_count": 2,
+    "unstable_error_count": 0,
+    "unstable_warning_count": 0,
+    "stable_warning_count": 0
+  },
+  "report_hash": "b1caac042a3ca86cd9f6c9851dfd5d4b5755d08975d60ad0e556d2c758040d50",
+  "repository_root": "<FIXTURE_ROOT>"
+}

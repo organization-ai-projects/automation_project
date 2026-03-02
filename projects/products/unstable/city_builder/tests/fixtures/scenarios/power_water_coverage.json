@@ -1,0 +1,19 @@
+{
+  "name": "power_water_coverage",
+  "grid_width": 10,
+  "grid_height": 10,
+  "initial_zones": [
+    {"x": 3, "y": 3, "kind": "Residential"},
+    {"x": 4, "y": 3, "kind": "Residential"},
+    {"x": 3, "y": 4, "kind": "Residential"}
+  ],
+  "initial_roads": [
+    {"x1": 2, "y1": 2, "x2": 6, "y2": 2}
+  ],
+  "initial_services": [
+    {"x": 5, "y": 5, "kind": "Power", "coverage_radius": 4},
+    {"x": 2, "y": 2, "kind": "Water", "coverage_radius": 3}
+  ],
+  "scripted_actions": [],
+  "checkpoints": []
+}
