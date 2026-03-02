@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Public execute orchestrator.
 # Sync GitHub labels from a labels.json file
 # Usage: ./labels_sync.sh [--prune] [labels-file]
 

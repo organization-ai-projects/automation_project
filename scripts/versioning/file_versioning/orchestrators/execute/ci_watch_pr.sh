@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Public execute orchestrator.
 # Monitor CI status of a pull request
 # Usage: ./ci_watch_pr.sh [pr-number]
 # If no PR number provided, tries to find PR for current branch

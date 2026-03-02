@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../../.." && pwd)"
 TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/orchestrators/read/create_pr.sh"
+CHECK_PRIORITY_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/orchestrators/read/check_priority_issues.sh"
+SYNC_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -55,13 +57,25 @@ run_case() {
 }
 
 main() {
-  echo "Running create_pr internal-guard regression tests"
+  echo "Running read orchestrator internal-guard regression tests"
 
   run_case \
     "direct-call-rejected" \
     2 \
     "internal-only and cannot be run directly" \
     "/bin/bash '${TARGET_SCRIPT}' --base dev --skip-tests"
+
+  run_case \
+    "check-priority-direct-call-rejected" \
+    2 \
+    "internal-only and cannot be run directly" \
+    "/bin/bash '${CHECK_PRIORITY_SCRIPT}'"
+
+  run_case \
+    "sync-main-dev-direct-call-rejected" \
+    2 \
+    "internal-only and cannot be run directly" \
+    "/bin/bash '${SYNC_SCRIPT}'"
 
   echo ""
   echo "Summary: ${TESTS_RUN} run, ${TESTS_FAILED} failed."

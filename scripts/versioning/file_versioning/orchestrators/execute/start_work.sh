@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Public entrypoint for developer start-work flow.
 # Usage: ./start_work.sh
 # Orchestrates the complete workflow:
 #   1. Synchronize dev with main
@@ -117,7 +118,7 @@ echo ""
 # Step 2: Show priority issues
 info "Step 2/3: Checking priority issues..."
 echo ""
-bash "$SCRIPT_DIR/../read/check_priority_issues.sh"
+ORCHESTRATOR_READ_INTERNAL_ALLOWED=1 bash "$SCRIPT_DIR/../read/check_priority_issues.sh"
 echo ""
 
 # Step 3: Create branch

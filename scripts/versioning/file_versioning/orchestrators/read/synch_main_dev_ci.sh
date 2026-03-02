@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Internal-only read orchestrator.
+# Public entrypoint: GitHub Actions workflow ".github/workflows/automation_sync.yml".
+if [[ "${ORCHESTRATOR_READ_INTERNAL_ALLOWED:-0}" != "1" ]]; then
+  echo "Error: synch_main_dev_ci.sh is internal-only and cannot be run directly." >&2
+  echo "Use: .github/workflows/automation_sync.yml" >&2
+  exit 2
+fi
+
 # Ensure the script is executed only in a CI environment
 if [[ -z "${CI:-}" || "$CI" != "true" ]]; then
   echo "This script can only be executed in a CI environment." >&2

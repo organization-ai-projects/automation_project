@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./check_priority_issues.sh
-# Lists high priority and security issues from GitHub
+# Internal-only read orchestrator.
+# Public entrypoint: scripts/versioning/file_versioning/orchestrators/execute/start_work.sh
+if [[ "${ORCHESTRATOR_READ_INTERNAL_ALLOWED:-0}" != "1" ]]; then
+  echo "Error: check_priority_issues.sh is internal-only and cannot be run directly." >&2
+  echo "Use: bash scripts/versioning/file_versioning/orchestrators/execute/start_work.sh" >&2
+  exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"

@@ -5,7 +5,7 @@ set -euo pipefail
 # Public entrypoint: scripts/versioning/file_versioning/github/generate_pr_description.sh
 # Legacy usage (internal): bash create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] [--skip-tests]
 
-if [[ "${CREATE_PR_INTERNAL_ALLOWED:-0}" != "1" ]]; then
+if [[ "${CREATE_PR_INTERNAL_ALLOWED:-0}" != "1" && "${ORCHESTRATOR_READ_INTERNAL_ALLOWED:-0}" != "1" ]]; then
   echo "Error: create_pr.sh is internal-only and cannot be run directly." >&2
   echo "Use: bash scripts/versioning/file_versioning/github/generate_pr_description.sh --auto --base <branch> --head <branch> --yes" >&2
   exit 2
