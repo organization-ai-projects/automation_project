@@ -1,4 +1,4 @@
-use crate::catalog::episode::Episode;
+use crate::catalogs::Episode;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

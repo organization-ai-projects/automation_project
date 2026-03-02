@@ -1,20 +1,7 @@
-use serde::{Deserialize, Serialize};
+use crate::transport::title_view::TitleView;
+use serde::Deserialize;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TitleView {
-    pub id: String,
-    pub name: String,
-    pub year: u16,
-    pub episode_count: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct IpcResponse {
-    pub id: u64,
-    pub payload: ResponsePayload,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(tag = "type")]
 pub enum ResponsePayload {
     Ok,
@@ -25,8 +12,11 @@ pub enum ResponsePayload {
         titles: Vec<TitleView>,
     },
     PackageResult {
-        bundle_hash: String,
-        chunk_count: usize,
+        #[serde(default)]
+        _ignored: Option<serde::de::IgnoredAny>,
+    },
+    RecommendData {
+        recommended: Vec<String>,
     },
     PlaybackState {
         session_id: String,

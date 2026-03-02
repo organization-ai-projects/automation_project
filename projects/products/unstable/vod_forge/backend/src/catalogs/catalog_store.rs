@@ -1,8 +1,5 @@
-use crate::catalog::catalog::Catalog;
-use crate::catalog::episode::Episode;
-use crate::catalog::season::Season;
-use crate::catalog::title::Title;
-use crate::catalog::title_id::TitleId;
+// projects/products/unstable/vod_forge/backend/src/catalog/catalog_store.rs
+use crate::catalogs::{Catalog, Episode, Season, Title, TitleId};
 use crate::diagnostics::BackendError;
 
 pub struct CatalogStore {

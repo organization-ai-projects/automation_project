@@ -1,13 +1,14 @@
 use crate::diagnostics::BackendError;
 use crate::io::JsonCodec;
-use crate::packaging::asset_id::AssetId;
-use crate::packaging::asset_manifest::AssetManifest;
+use crate::packaging::{AssetId, AssetManifest};
 use sha2::{Digest, Sha256};
 
 pub struct Unpacker;
 
+type UnpackedAssets = Vec<(AssetId, Vec<u8>)>;
+
 impl Unpacker {
-    pub fn unpack(bundle: &[u8]) -> Result<(AssetManifest, Vec<(AssetId, Vec<u8>)>), BackendError> {
+    pub fn unpack(bundle: &[u8]) -> Result<(AssetManifest, UnpackedAssets), BackendError> {
         if bundle.len() < 8 {
             return Err(BackendError::Packaging("bundle too short".to_string()));
         }

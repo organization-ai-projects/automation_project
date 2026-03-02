@@ -1,7 +1,8 @@
-use crate::catalog::season::Season;
-use crate::catalog::title_id::TitleId;
+// projects/products/unstable/vod_forge/backend/src/catalogs/title.rs
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+use crate::catalogs::{Season, TitleId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Title {

@@ -1,6 +1,5 @@
 use crate::diagnostics::BackendError;
-use crate::packaging::asset_id::AssetId;
-use crate::packaging::asset_manifest::{AssetManifest, ChunkEntry};
+use crate::packaging::{AssetId, AssetManifest, ChunkEntry};
 use sha2::{Digest, Sha256};
 
 pub struct Packer;
