@@ -33,3 +33,5 @@ The script:
 - parses closure refs from PR title/body/commit messages,
 - labels referenced open issues with `done-in-dev`,
 - removes that label when an issue closes.
+
+`Reopen #...` synchronization is handled separately by `issue_reopen_on_dev_merge.yml`.

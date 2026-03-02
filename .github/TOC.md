@@ -11,6 +11,7 @@ This document provides an overview of all documentation files in this directory.
 - [automation_rustfmt.yml](workflows/automation_rustfmt.yml): Applies rustfmt on PRs.
 - [automation_sync.yml](workflows/automation_sync.yml): Syncs `main` into `dev` after merge.
 - [issue_done_in_dev_status.yml](workflows/issue_done_in_dev_status.yml): Adds/removes `done-in-dev` label based on dev merges and issue closures.
+- [issue_reopen_on_dev_merge.yml](workflows/issue_reopen_on_dev_merge.yml): Reopens issues from `Reopen #...` refs on merged PRs into `dev` and clears `done-in-dev`.
 - [pr_auto_closes_enrichment.yml](workflows/pr_auto_closes_enrichment.yml): Auto-adds managed `Closes #...` lines to open PRs targeting `dev` when assignment criteria are met.
 - [pr_closure_neutralizer.yml](workflows/pr_closure_neutralizer.yml): Neutralizes closure refs to non-compliant issues (`... rejected #...`) and comments remediation.
 
