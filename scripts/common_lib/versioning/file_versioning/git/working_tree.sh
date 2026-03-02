@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  echo "Error: $(basename "$0") is a library script and must be sourced, not executed directly." >&2
+  exit 2
+fi
+
 # Functions related to the Git working tree
 
 # Check if working tree is clean (no staged or unstaged changes)

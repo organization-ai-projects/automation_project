@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  echo "Error: $(basename "$0") is a library script and must be sourced, not executed directly." >&2
+  exit 2
+fi
+
 github_find_pr_number_by_branch() {
   local branch_name="$1"
   local base_branch="${2:-}"

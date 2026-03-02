@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  echo "Error: $(basename "$0") is a library script and must be sourced, not executed directly." >&2
+  exit 2
+fi
+
 # Shared policy helpers for pre-push orchestration.
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
