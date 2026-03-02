@@ -14,10 +14,10 @@ COMMIT_ALLOWED_TYPES_REGEX='^(feature|feat|fix|doc|docs|refactor|test|tests|chor
 COMMIT_SCOPE_REGEX='(\([a-zA-Z0-9_./,-]+\))?'
 COMMIT_MESSAGE_BODY_REGEX='.+'
 
-# validate_commit_message_format <message> [separator_regex] [anchored]
+# validate_commit_subject_format <message> [separator_regex] [anchored]
 # separator_regex default is POSIX whitespace class.
 # anchored=true enforces full-line match.
-validate_commit_message_format() {
+validate_commit_subject_format() {
   local message="$1"
   local separator_regex="${2:-[[:space:]]}"
   local anchored="${3:-false}"
@@ -29,4 +29,9 @@ validate_commit_message_format() {
   fi
 
   [[ "$message" =~ $regex ]]
+}
+
+# Backward-compatible alias.
+validate_commit_message_format() {
+  validate_commit_subject_format "$@"
 }

@@ -7,12 +7,17 @@ fi
 
 # Functions related to Git commits
 
-# Create a commit with a message
-git_commit() {
-  local message="$1"
+require_commit_message() {
+  local message="${1:-}"
   if [[ -z "$message" ]]; then
     die "Commit message is required."
   fi
+}
+
+# Create a commit with a message
+git_commit() {
+  local message="$1"
+  require_commit_message "$message"
   git commit -m "$message"
 }
 
@@ -24,9 +29,7 @@ git_commit_amend() {
 # Amend the last commit with a new message
 git_commit_amend_message() {
   local message="$1"
-  if [[ -z "$message" ]]; then
-    die "Commit message is required."
-  fi
+  require_commit_message "$message"
   git commit --amend -m "$message"
 }
 
