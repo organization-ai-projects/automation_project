@@ -1782,15 +1782,6 @@ if [[ -n "$auto_edit_pr_number" ]]; then
       echo "Error: unable to determine GitHub repository for --auto-edit." >&2
       exit "$E_DEPENDENCY"
     fi
-    existing_pr_body="$(gh_optional "read existing PR #${auto_edit_pr_number} body" pr view "$auto_edit_pr_number" --json body -q '.body')"
-    if [[ -n "$existing_pr_body" ]]; then
-      status_tmp="$(mktemp)"
-      if extract_validation_status_section "$existing_pr_body" > "$status_tmp"; then
-        preserved_body="$(inject_validation_status_section "$body_content" "$status_tmp")"
-        body_content="$preserved_body"
-      fi
-      rm -f "$status_tmp"
-    fi
     gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
       --raw-field body="$body_content" >/dev/null
     echo "PR updated: #${auto_edit_pr_number}"

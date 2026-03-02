@@ -307,16 +307,17 @@ main() {
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --auto-edit 400 --yes 42
   ) >/dev/null 2>&1; then
     if grep -q -- "### Validation Status" "${patched_body_file}" \
-      && grep -q -- "- CI: PASS" "${patched_body_file}" \
-      && grep -q -- "- Breaking change detected: FALSE" "${patched_body_file}"; then
-      echo "PASS [auto-edit-preserves-existing-validation-status]"
+      && grep -q -- "- CI: UNKNOWN ⚪" "${patched_body_file}" \
+      && grep -q -- "- Breaking change detected: FALSE" "${patched_body_file}" \
+      && ! grep -q -- "- CI: PASS" "${patched_body_file}"; then
+      echo "PASS [auto-edit-overwrites-validation-status]"
     else
-      echo "FAIL [auto-edit-preserves-existing-validation-status] expected status section preserved"
+      echo "FAIL [auto-edit-overwrites-validation-status] expected generated status section"
       sed -n '1,220p' "${patched_body_file}" || true
       TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
   else
-    echo "FAIL [auto-edit-preserves-existing-validation-status] script execution failed"
+    echo "FAIL [auto-edit-overwrites-validation-status] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"
