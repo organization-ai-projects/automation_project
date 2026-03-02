@@ -8,7 +8,8 @@ This pull request merges the `test-head` branch into `dev` and summarizes merged
 
 ### Compatibility
 
-- Breaking change.
+- Breaking change detected:
+  - Commit messages indicate a breaking change.
 
 ### Issues Resolved
 
