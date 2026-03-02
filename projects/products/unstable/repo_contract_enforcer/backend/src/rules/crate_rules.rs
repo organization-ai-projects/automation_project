@@ -10,6 +10,8 @@ impl CrateRules {
         scope: config::path_classification::PathClassification,
         mode: config::enforcement_mode::EnforcementMode,
     ) -> Vec<reports::violation::Violation> {
+        use crate::scan::file_scanner::FileScanner;
+        use crate::scan::rust_parser::RustParser;
         use reports::violation_code::ViolationCode;
         use rules::rule_id::RuleId;
 
@@ -60,6 +62,32 @@ impl CrateRules {
                         &format!("{crate_name} crate name must be {expected_name}"),
                         (true, None),
                     ));
+                }
+            }
+
+            let src_dir = crate_path.join("src");
+            if src_dir.exists() {
+                for rs_file in FileScanner::gather_rs_files(&src_dir) {
+                    let stem = rs_file
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or_default();
+                    if matches!(stem, "main" | "mod" | "lib" | "public_api") {
+                        continue;
+                    }
+
+                    let content = std::fs::read_to_string(&rs_file).unwrap_or_default();
+                    if let Some(v) = RustParser::primary_item_contract_violation(&rs_file, &content)
+                    {
+                        out.push(make_violation(
+                            RuleId::Crate,
+                            ViolationCode::CratePrimaryItemContractViolation,
+                            (scope, mode),
+                            &rs_file,
+                            &v.message,
+                            (true, v.line),
+                        ));
+                    }
                 }
             }
         }
