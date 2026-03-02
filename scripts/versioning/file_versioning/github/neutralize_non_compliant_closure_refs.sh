@@ -110,34 +110,7 @@ upsert_pr_comment() {
 
 issue_non_compliance_reason() {
   local issue_number="$1"
-  local issue_json
-  local labels
-  local title
-  local body
-  local validations
-  local first_reason
-
-  issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json labels,title,body 2>/dev/null || true)"
-  if [[ -z "$issue_json" ]]; then
-    echo ""
-    return
-  fi
-
-  labels="$(echo "$issue_json" | jq -r '.labels | map(.name) | join("||")')"
-  if [[ "$(echo "$labels" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)issue-required-missing(\|\||$) ]]; then
-    echo "label issue-required-missing is set"
-    return
-  fi
-
-  title="$(echo "$issue_json" | jq -r '.title // ""')"
-  body="$(echo "$issue_json" | jq -r '.body // ""')"
-  validations="$(issue_validate_content "$title" "$body" "$labels" || true)"
-  if [[ -z "$validations" ]]; then
-    echo ""
-    return
-  fi
-  first_reason="$(echo "$validations" | awk -F'|' 'NF>=3 {print $3; exit}')"
-  echo "$first_reason"
+  issue_fetch_non_compliance_reason "$issue_number" "$repo_name"
 }
 
 keyword_pattern_from_action() {

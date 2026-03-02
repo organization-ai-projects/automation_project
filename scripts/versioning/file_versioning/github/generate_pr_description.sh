@@ -655,21 +655,12 @@ issue_non_compliance_reason_for() {
   local issue_number="$1"
   local labels_raw="${2:-}"
   local issue_key="#${issue_number}"
-  local lower_labels
   local issue_json
   local title
   local body
-  local validations
-  local first_reason
+  local reason
 
   if [[ -n "${issue_non_compliance_reason_cache[$issue_key]:-}" ]]; then
-    echo "${issue_non_compliance_reason_cache[$issue_key]}"
-    return
-  fi
-
-  lower_labels="$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')"
-  if [[ "$lower_labels" =~ (^|\|\|)issue-required-missing(\|\||$) ]]; then
-    issue_non_compliance_reason_cache["$issue_key"]="label issue-required-missing is set on issue"
     echo "${issue_non_compliance_reason_cache[$issue_key]}"
     return
   fi
@@ -689,16 +680,9 @@ issue_non_compliance_reason_for() {
 
   title="$(echo "$issue_json" | jq -r '.title // ""')"
   body="$(echo "$issue_json" | jq -r '.body // ""')"
-  validations="$(issue_validate_content "$title" "$body" "$labels_raw" || true)"
-  if [[ -z "$validations" ]]; then
-    issue_non_compliance_reason_cache["$issue_key"]=""
-    echo ""
-    return
-  fi
-
-  first_reason="$(echo "$validations" | awk -F'|' 'NF>=3 {print $3; exit}')"
-  issue_non_compliance_reason_cache["$issue_key"]="${first_reason}"
-  echo "${first_reason}"
+  reason="$(issue_non_compliance_reason_from_content "$title" "$body" "$labels_raw")"
+  issue_non_compliance_reason_cache["$issue_key"]="${reason}"
+  echo "${reason}"
 }
 
 text_indicates_breaking() {
