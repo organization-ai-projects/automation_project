@@ -96,26 +96,34 @@ github_issue_upsert_marker_comment() {
   local announce="${5:-false}"
 
   local comment_id
-  comment_id="$({
+  local action_verb
+  comment_id="$(github_issue_find_latest_marker_comment_id "$repo_name" "$issue_number" "$marker")"
+
+  if [[ -n "$comment_id" ]]; then
+    gh api -X PATCH "repos/${repo_name}/issues/comments/${comment_id}" \
+      -f body="$body" >/dev/null
+    action_verb="Updated"
+  else
+    gh api "repos/${repo_name}/issues/${issue_number}/comments" \
+      -f body="$body" >/dev/null
+    action_verb="Posted"
+  fi
+
+  if [[ "$announce" == "true" ]]; then
+    echo "${action_verb} parent status comment on #${issue_number}."
+  fi
+}
+
+github_issue_find_latest_marker_comment_id() {
+  local repo_name="${1:-}"
+  local issue_number="${2:-}"
+  local marker="${3:-}"
+  {
     gh api "repos/${repo_name}/issues/${issue_number}/comments" --paginate
   } | jq -r --arg marker "$marker" '
       map(select((.body // "") | contains($marker)))
       | sort_by(.updated_at)
       | last
       | .id // empty
-    ' 2>/dev/null || true)"
-
-  if [[ -n "$comment_id" ]]; then
-    gh api -X PATCH "repos/${repo_name}/issues/comments/${comment_id}" \
-      -f body="$body" >/dev/null
-    if [[ "$announce" == "true" ]]; then
-      echo "Updated parent status comment on #${issue_number}."
-    fi
-  else
-    gh api "repos/${repo_name}/issues/${issue_number}/comments" \
-      -f body="$body" >/dev/null
-    if [[ "$announce" == "true" ]]; then
-      echo "Posted parent status comment on #${issue_number}."
-    fi
-  fi
+    ' 2>/dev/null || true
 }
