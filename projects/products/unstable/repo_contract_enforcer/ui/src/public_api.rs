@@ -1,9 +1,11 @@
+// projects/products/unstable/repo_contract_enforcer/ui/src/public_api.rs
 use anyhow::Result;
 
 use crate::cli::args::Args;
 use crate::cli::command::{Command, Mode};
 use crate::render::human_printer::HumanPrinter;
 use crate::render::json_printer::JsonPrinter;
+use crate::render::vscode_printer::VscodePrinter;
 use crate::transport::ipc_client::{
     IpcClient, Report, ReportMode, RequestPayload, ResponsePayload,
 };
@@ -29,7 +31,9 @@ pub fn run_cli(args: &[String]) -> Result<i32> {
 
     match response.payload {
         ResponsePayload::Report { report_json, .. } => {
-            if parsed.json {
+            if parsed.vscode {
+                VscodePrinter::print_report(&report_json);
+            } else if parsed.json {
                 JsonPrinter::print_report(&report_json)?;
             } else {
                 HumanPrinter::print_report(&report_json);
@@ -41,7 +45,7 @@ pub fn run_cli(args: &[String]) -> Result<i32> {
             exit_code = 5;
         }
         ResponsePayload::Ok => {
-            if !parsed.json {
+            if !parsed.json && !parsed.vscode {
                 println!("ok");
             }
         }
@@ -62,12 +66,13 @@ fn strict_blocking_exit_code(report: &Report) -> i32 {
 pub(crate) fn parse_args(args: &[String]) -> Result<Args> {
     if args.len() < 2 {
         anyhow::bail!(
-            "usage: repo_contract_enforcer_ui check --root <path> [--mode auto|strict|relaxed] [--json]"
+            "usage: repo_contract_enforcer_ui check --root <path> [--mode auto|strict|relaxed] [--json|--vscode]"
         )
     }
 
     let cmd = args[1].as_str();
     let mut json = false;
+    let mut vscode = false;
     let mut mode = Mode::Auto;
     let mut root: Option<String> = None;
     let mut product_path: Option<String> = None;
@@ -77,6 +82,10 @@ pub(crate) fn parse_args(args: &[String]) -> Result<Args> {
         match args[i].as_str() {
             "--json" => {
                 json = true;
+                i += 1;
+            }
+            "--vscode" => {
+                vscode = true;
                 i += 1;
             }
             "--mode" => {
@@ -111,6 +120,10 @@ pub(crate) fn parse_args(args: &[String]) -> Result<Args> {
         }
     }
 
+    if json && vscode {
+        anyhow::bail!("--json and --vscode are mutually exclusive");
+    }
+
     let command = match cmd {
         "check" => Command::Check {
             root: root.unwrap_or_else(|| ".".to_string()),
@@ -124,7 +137,11 @@ pub(crate) fn parse_args(args: &[String]) -> Result<Args> {
         _ => anyhow::bail!("unknown command: {cmd}"),
     };
 
-    Ok(Args { json, command })
+    Ok(Args {
+        json,
+        vscode,
+        command,
+    })
 }
 
 #[cfg(test)]
@@ -140,6 +157,7 @@ mod tests {
         let args = vec_args(&["repo_contract_enforcer_ui", "check"]);
         let parsed = parse_args(&args).expect("parse check");
         assert!(!parsed.json);
+        assert!(!parsed.vscode);
         match parsed.command {
             Command::Check { root, mode } => {
                 assert_eq!(root, ".");
@@ -169,6 +187,7 @@ mod tests {
         ]);
         let parsed = parse_args(&args).expect("parse check-product");
         assert!(parsed.json);
+        assert!(!parsed.vscode);
         match parsed.command {
             Command::CheckProduct { path, mode } => {
                 assert_eq!(path, "projects/products/unstable/repo_contract_enforcer");
@@ -176,6 +195,27 @@ mod tests {
             }
             _ => panic!("expected check-product command"),
         }
+    }
+
+    #[test]
+    fn parse_check_with_vscode_flag() {
+        let args = vec_args(&[
+            "repo_contract_enforcer_ui",
+            "check",
+            "--root",
+            ".",
+            "--vscode",
+        ]);
+        let parsed = parse_args(&args).expect("parse check --vscode");
+        assert!(!parsed.json);
+        assert!(parsed.vscode);
+    }
+
+    #[test]
+    fn parse_rejects_json_and_vscode_together() {
+        let args = vec_args(&["repo_contract_enforcer_ui", "check", "--json", "--vscode"]);
+        let err = parse_args(&args).expect_err("both flags must fail");
+        assert!(err.to_string().contains("mutually exclusive"));
     }
 
     #[test]
