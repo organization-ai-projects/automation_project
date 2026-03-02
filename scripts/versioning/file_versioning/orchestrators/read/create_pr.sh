@@ -24,6 +24,8 @@ source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
 # shellcheck source=scripts/common_lib/automation/rust_checks.sh
 source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/pull_request_lookup.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/github/pull_request_lookup.sh"
 
 require_git_repo
 require_cmd gh
@@ -116,9 +118,8 @@ $(git log --oneline "$BASE_BRANCH..$CURRENT_BRANCH" | sed 's/^/- /')
 fi
 
 # Check if PR already exists
-EXISTING_PR=$(gh pr list --head "$CURRENT_BRANCH" --base "$BASE_BRANCH" --json number --jq '.[0].number' || echo "")
-
-if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null" ]]; then
+EXISTING_PR="$(github_find_pr_number_by_branch "$CURRENT_BRANCH" "$BASE_BRANCH" || true)"
+if [[ -n "$EXISTING_PR" ]]; then
   info "PR already exists: #$EXISTING_PR"
   exit 0
 fi
