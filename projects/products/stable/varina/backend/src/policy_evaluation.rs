@@ -89,17 +89,14 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
         ..CompiledAutopilotPolicy::from(policy)
     };
 
-    println!("[debug] is_relevant: Checking path {}", path);
     // Check if the file exists
     if !path::Path::new(path).exists() {
-        println!("[debug] is_relevant: File {} does not exist", path);
         return false;
     }
 
     // Check with .gitignore
     let gitignore_path = path::Path::new(".gitignore");
     if !gitignore_path.exists() {
-        println!("[debug] is_relevant: .gitignore not found, no files will be ignored");
         return is_relevant_norm(&normalize_path(path), &compiled);
     }
 
@@ -110,10 +107,6 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
         .expect("Failed to parse .gitignore file");
 
     if gitignore.matched(path, false).is_ignore() {
-        println!(
-            "[debug] is_relevant: Path {} is ignored by .gitignore",
-            path
-        );
         return false;
     }
 
