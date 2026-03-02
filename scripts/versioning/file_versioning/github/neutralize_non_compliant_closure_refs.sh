@@ -192,7 +192,7 @@ while IFS='|' read -r action issue_key; do
 
   escaped_issue_key="$(printf '%s' "$issue_key" | sed 's/[^^]/[&]/g; s/\^/\\^/g')"
   updated_body="$(
-    perl -0777 -pe "s/\\b((?:${keyword_pattern}))\\b(\\s+)(?!rejected\\b)([^\\s]*${escaped_issue_key})\\b/\\\$1\\\$2rejected \\\$3/ig" \
+    perl -0777 -pe "s/\\b((?:${keyword_pattern}))\\b(\\s+)(?!rejected\\b)([^\\s]*${escaped_issue_key})\\b/\$1\$2rejected \$3/ig" \
       <<< "$updated_body"
   )"
 
@@ -232,7 +232,7 @@ while IFS='|' read -r action issue_key; do
   else
     # Now compliant: remove the "rejected" marker to restore auto-close.
     updated_body="$(
-      perl -0777 -pe "s/\\b((?:${keyword_pattern}))\\b(\\s+)rejected\\s+([^\\s]*${escaped_issue_key})\\b/\\\$1\\\$2\\\$3/ig" \
+      perl -0777 -pe "s/\\b((?:${keyword_pattern}))\\b(\\s+)rejected\\s+([^\\s]*${escaped_issue_key})\\b/\$1\$2\$3/ig" \
         <<< "$updated_body"
     )"
   fi

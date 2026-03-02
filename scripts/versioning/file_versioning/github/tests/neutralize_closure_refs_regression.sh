@@ -87,6 +87,12 @@ fi
 
 # pulls?state=open listing (for reevaluator)
 if [[ "$args" == api\ repos/*/pulls* ]]; then
+  if [[ "$args" == *"--jq"* ]]; then
+    if [[ -n "${MOCK_API_PULLS_JSON:-}" ]]; then
+      printf '%s\n' "$MOCK_API_PULLS_JSON" | jq -r '.[] | [.number, (.body // "")] | @tsv'
+    fi
+    exit 0
+  fi
   if [[ -n "${MOCK_API_PULLS_JSON:-}" ]]; then
     printf '%s\n' "$MOCK_API_PULLS_JSON"
   else
@@ -272,6 +278,18 @@ main() {
     env MOCK_ISSUE_COMPLIANT=1 \
         MOCK_PR_BODY="Closes #42" \
         MOCK_API_PULLS_JSON='[{"number":1,"body":"Closes #42"}]'
+
+  # ── reevaluator: supports "Fixes owner/repo#N" via shared parser ───────
+  run_case \
+    "reevaluator-supports-fixes-owner-repo-ref" \
+    0 \
+    "Re-evaluation complete.*1 PR" \
+    "$REEVALUATOR" \
+    "--issue 42" \
+    "" \
+    env MOCK_ISSUE_COMPLIANT=1 \
+        MOCK_PR_BODY="Fixes owner/repo#42" \
+        MOCK_API_PULLS_JSON='[{"number":5,"body":"Fixes owner/repo#42"}]'
 
   # ── reevaluator: PR not referencing the issue is ignored ─────────────────
   run_case \
