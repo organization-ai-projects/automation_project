@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/versioning/file_versioning/github/lib/issue_refs.sh
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
+# shellcheck source=scripts/versioning/file_versioning/github/lib/directive_resolution.sh
+source "${SCRIPT_DIR}/lib/directive_resolution.sh"
 
 usage() {
   cat <<EOF
@@ -140,31 +142,13 @@ sync_issue_project_status_on_reopen() {
   done <<< "$items_tsv"
 }
 
-extract_reopen_issue_numbers() {
-  local text="$1"
-  parse_reopen_issue_refs_from_text "$text" \
-    | cut -d'|' -f2 \
-    | sed -E 's/^#([0-9]+)$/\1/' \
-    | grep -E '^[0-9]+$' \
-    | sort -u
-}
-
-collect_pr_text_payload() {
+collect_pr_context() {
   local repo="$1"
   local pr_number="$2"
-  local pr_title
-  local pr_body
-  local commit_messages
 
-  pr_title="$(gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
-  pr_body="$(gh pr view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
-  commit_messages="$(gh api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
-
-  {
-    printf '%s\n' "$pr_title"
-    printf '%s\n' "$pr_body"
-    printf '%s\n' "$commit_messages"
-  }
+  PR_TITLE="$(gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
+  PR_BODY="$(gh pr view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
+  PR_COMMITS="$(gh api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
 }
 
 pr_number=""
@@ -208,8 +192,29 @@ if [[ "$pr_state" != "MERGED" ]]; then
   exit 0
 fi
 
-payload="$(collect_pr_text_payload "$repo_name" "$pr_number")"
-mapfile -t reopen_issue_numbers < <(extract_reopen_issue_numbers "$payload")
+collect_pr_context "$repo_name" "$pr_number"
+payload="${PR_TITLE}"$'\n'"${PR_BODY}"$'\n'"${PR_COMMITS}"
+
+declare -a reopen_issue_numbers=()
+while IFS='|' read -r issue_key close_flag reopen_flag decision source reason; do
+  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+  [[ "$reopen_flag" == "1" ]] || continue
+
+  if [[ "$source" == "unresolved" ]]; then
+    echo "Issue ${issue_key}: reopen skipped (${reason})."
+    continue
+  fi
+
+  if [[ "$decision" == "reopen" ]]; then
+    reopen_issue_numbers+=("${issue_key//#/}")
+    continue
+  fi
+
+  if [[ "$close_flag" == "1" ]]; then
+    echo "Issue ${issue_key}: reopen skipped (resolved decision=${decision:-close})."
+  fi
+done < <(resolve_issue_directives "$payload" "$PR_BODY" "$PR_COMMITS")
+
 if [[ ${#reopen_issue_numbers[@]} -eq 0 ]]; then
   echo "No reopen issue refs found for PR #${pr_number}."
   exit 0
