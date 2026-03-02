@@ -1186,6 +1186,9 @@ for issue_key in "${!seen_reopen_issue[@]}"; do
   if [[ -n "${issue_directive_conflict_reason[$issue_key]:-}" ]]; then
     continue
   fi
+  if [[ -n "${issue_directive_resolution[$issue_key]:-}" ]]; then
+    continue
+  fi
   issue_number="${issue_key//#/}"
   echo "${issue_number}|${reopen_issue_category[$issue_key]:-Unknown}|${issue_key}" >> "$reopen_tmp"
 done
@@ -1233,24 +1236,92 @@ fi
 echo -n > "$conflict_tmp"
 for issue_key in "${!issue_directive_conflict_reason[@]}"; do
   issue_number="${issue_key//#/}"
-  echo "${issue_number}|${issue_key}|${issue_directive_conflict_reason[$issue_key]}" >> "$conflict_tmp"
+  echo "${issue_number}|${issue_category[$issue_key]:-Unknown}|${issue_key}|${issue_directive_conflict_reason[$issue_key]}" >> "$conflict_tmp"
 done
 
 if [[ -s "$conflict_tmp" ]]; then
   sort -t'|' -k1,1n "$conflict_tmp" \
-    | awk -F'|' '{ print "- " $2 " - " $3 }' > "$conflict_issues_file"
+    | awk -F'|' '
+      BEGIN {
+        cats[1] = "Security"
+        cats[2] = "Features"
+        cats[3] = "Bug Fixes"
+        cats[4] = "Refactoring"
+        cats[5] = "Automation"
+        cats[6] = "Testing"
+        cats[7] = "Docs"
+        cats[8] = "Mixed"
+        cats[9] = "Unknown"
+      }
+      {
+        lines[NR] = $0
+      }
+      END {
+        for (c = 1; c <= 9; c++) {
+          cat = cats[c]
+          found = 0
+          for (i = 1; i <= NR; i++) {
+            split(lines[i], parts, "|")
+            if (parts[2] == cat) {
+              if (!found) {
+                print "#### " cat
+                found = 1
+              }
+              print "- " parts[3] " - " parts[4]
+            }
+          }
+          if (found) {
+            print ""
+          }
+        }
+      }
+    ' > "$conflict_issues_file"
   directive_conflict_count="${#issue_directive_conflict_reason[@]}"
 fi
 
 echo -n > "$directive_resolution_tmp"
 for issue_key in "${!issue_directive_resolution[@]}"; do
   issue_number="${issue_key//#/}"
-  echo "${issue_number}|${issue_key}|${issue_directive_resolution[$issue_key]}" >> "$directive_resolution_tmp"
+  echo "${issue_number}|${issue_category[$issue_key]:-Unknown}|${issue_key}|${issue_directive_resolution[$issue_key]}" >> "$directive_resolution_tmp"
 done
 
 if [[ -s "$directive_resolution_tmp" ]]; then
   sort -t'|' -k1,1n "$directive_resolution_tmp" \
-    | awk -F'|' '{ print "- " $2 " - " $3 }' > "$directive_resolution_tmp.resolved"
+    | awk -F'|' '
+      BEGIN {
+        cats[1] = "Security"
+        cats[2] = "Features"
+        cats[3] = "Bug Fixes"
+        cats[4] = "Refactoring"
+        cats[5] = "Automation"
+        cats[6] = "Testing"
+        cats[7] = "Docs"
+        cats[8] = "Mixed"
+        cats[9] = "Unknown"
+      }
+      {
+        lines[NR] = $0
+      }
+      END {
+        for (c = 1; c <= 9; c++) {
+          cat = cats[c]
+          found = 0
+          for (i = 1; i <= NR; i++) {
+            split(lines[i], parts, "|")
+            if (parts[2] == cat) {
+              if (!found) {
+                print "#### " cat
+                found = 1
+              }
+              print "- " parts[3] " - " parts[4]
+            }
+          }
+          if (found) {
+            print ""
+          }
+        }
+      }
+    ' > "$directive_resolution_tmp.resolved"
   mv "$directive_resolution_tmp.resolved" "$directive_resolution_tmp"
 fi
 
@@ -1336,9 +1407,11 @@ body_content="$({
     echo "- Non-breaking change."
   fi
   echo ""
-  echo "### Issues Resolved"
+  echo "### Issue Outcomes"
   echo ""
-  echo "This PR resolves the following issues:"
+  echo "#### Category 1: Issues Without Conflicts"
+  echo ""
+  echo "##### Closes/Fixes"
   echo ""
   if [[ -s "$resolved_issues_file" ]]; then
     cat "$resolved_issues_file"
@@ -1346,30 +1419,32 @@ body_content="$({
     echo "- No resolved issues detected via GitHub references or PR body keywords."
   fi
   echo ""
+  echo "##### Reopened"
+  echo ""
   if [[ -s "$reopened_issues_file" ]]; then
-    echo "### Issues Reopened"
-    echo ""
-    echo "This PR reopens the following issues:"
-    echo ""
     cat "$reopened_issues_file"
-    echo ""
+  else
+    echo "- No reopened issues detected."
   fi
-  if [[ -s "$conflict_issues_file" ]]; then
-    echo "### Issue Directive Conflicts"
-    echo ""
-    echo "The following directive conflicts are unresolved:"
-    echo ""
-    cat "$conflict_issues_file"
-    echo ""
-  fi
+  echo ""
+  echo "#### Category 2: Issues With Conflicts"
+  echo ""
+  echo "##### Auto-resolved"
+  echo ""
   if [[ -s "$directive_resolution_tmp" ]]; then
-    echo "### Issue Directive Resolutions"
-    echo ""
-    echo "The following directive conflicts were resolved explicitly:"
-    echo ""
     cat "$directive_resolution_tmp"
-    echo ""
+  else
+    echo "- No auto-resolved directive conflicts."
   fi
+  echo ""
+  echo "##### Not resolved"
+  echo ""
+  if [[ -s "$conflict_issues_file" ]]; then
+    cat "$conflict_issues_file"
+  else
+    echo "- No unresolved directive conflicts."
+  fi
+  echo ""
   echo "### Key Changes"
   echo ""
   if [[ -s "$sync_tmp" ]]; then
