@@ -98,7 +98,7 @@ fi
 
 REPO_NAME="${GH_REPO:-}"
 if [[ -z "$REPO_NAME" ]]; then
-  REPO_NAME="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  REPO_NAME="$(vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
 if [[ -z "$REPO_NAME" ]]; then
   echo "Erreur: impossible de déterminer le repository (GH_REPO)." >&2
@@ -115,14 +115,14 @@ LABEL_AUTOMATION_FAILED="automation-failed"
 add_label() {
   local issue_number="$1"
   local label="$2"
-  gh api "repos/${REPO_NAME}/issues/${issue_number}/labels" \
+  vcs_remote_api "repos/${REPO_NAME}/issues/${issue_number}/labels" \
     -f labels[]="$label" >/dev/null 2>&1 || true
 }
 
 remove_label() {
   local issue_number="$1"
   local label="$2"
-  gh api -X DELETE "repos/${REPO_NAME}/issues/${issue_number}/labels/${label}" >/dev/null 2>&1 || true
+  vcs_remote_api -X DELETE "repos/${REPO_NAME}/issues/${issue_number}/labels/${label}" >/dev/null 2>&1 || true
 }
 
 set_validation_error_state() {
@@ -169,7 +169,7 @@ set_success_state() {
   github_issue_upsert_marker_comment "$REPO_NAME" "$ISSUE_NUMBER" "$MARKER" "$body"
 }
 
-issue_json="$(gh issue view "$ISSUE_NUMBER" -R "$REPO_NAME" --json number,title,body,state,url,labels 2>/dev/null || true)"
+issue_json="$(vcs_remote_issue_view "$ISSUE_NUMBER" -R "$REPO_NAME" --json number,title,body,state,url,labels 2>/dev/null || true)"
 if [[ -z "$issue_json" ]]; then
   echo "Erreur: impossible de lire l'issue #${ISSUE_NUMBER}." >&2
   exit 4
@@ -228,7 +228,7 @@ if [[ "$parent_number" == "$ISSUE_NUMBER" ]]; then
   exit 0
 fi
 
-parent_json="$(gh issue view "$parent_number" -R "$REPO_NAME" --json number,title,state,url 2>/dev/null || true)"
+parent_json="$(vcs_remote_issue_view "$parent_number" -R "$REPO_NAME" --json number,title,state,url 2>/dev/null || true)"
 if [[ -z "$parent_json" ]]; then
   set_validation_error_state \
     "Parent issue \`#${parent_number}\` was not found." \
@@ -244,7 +244,7 @@ if [[ "$parent_state" != "OPEN" ]]; then
   exit 0
 fi
 
-relation_json="$(gh api graphql \
+relation_json="$(vcs_remote_api graphql \
   -f query='query($owner:String!,$name:String!,$child:Int!,$parent:Int!){repository(owner:$owner,name:$name){child:issue(number:$child){id parent{number id}} parent:issue(number:$parent){id state}}}' \
   -f owner="$REPO_OWNER" \
   -f name="$REPO_SHORT_NAME" \
@@ -291,7 +291,7 @@ if [[ -z "$child_node_id" || -z "$parent_node_id" ]]; then
   exit 0
 fi
 
-link_result="$(gh api graphql \
+link_result="$(vcs_remote_api graphql \
   -f query='mutation($issueId:ID!,$subIssueId:ID!){addSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{subIssues(first:1){nodes{number}}}}}' \
   -f issueId="$parent_node_id" \
   -f subIssueId="$child_node_id" 2>/dev/null || true)"

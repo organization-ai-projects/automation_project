@@ -11,6 +11,8 @@ E_PARTIAL=6
 
 SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/commands.sh"
 source "${SCRIPT_DIR}/lib/classification.sh"
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
@@ -181,7 +183,7 @@ gh_optional() {
   local err_file
   local output
   err_file="$(mktemp)"
-  if ! output="$(gh "$@" 2>"$err_file")"; then
+  if ! output="$(vcs_remote_run "$@" 2>"$err_file")"; then
     warn_optional "${description} failed; continuing without GitHub data." "$(cat "$err_file" 2>/dev/null || true)"
     rm -f "$err_file"
     return 1
@@ -545,7 +547,7 @@ load_compare_commit_messages() {
 
   if [[ -n "$repo_name_with_owner" ]]; then
     for attempt in $(seq 1 "$max_attempts"); do
-      compare_messages="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
+      compare_messages="$(vcs_remote_api "repos/${repo_name_with_owner}/compare/${compare_range}" \
         --jq '.commits[]?.commit.message' 2>"$compare_err_file" || true)"
 
       if [[ -n "$compare_messages" ]]; then
@@ -596,7 +598,7 @@ load_compare_commit_headlines() {
   compare_headlines=""
 
   if [[ -n "$repo_name_with_owner" ]]; then
-    compare_headlines="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
+    compare_headlines="$(vcs_remote_api "repos/${repo_name_with_owner}/compare/${compare_range}" \
       --jq '.commits[]?.commit.message | split("\n")[0]' 2>/dev/null || true)"
   fi
 
@@ -669,12 +671,12 @@ issue_labels() {
   repo_name_with_owner="$(get_repo_name_with_owner)"
 
   if [[ -n "$repo_name_with_owner" ]]; then
-    gh issue view "$issue_number" -R "$repo_name_with_owner" --json labels \
+    vcs_remote_issue_view "$issue_number" -R "$repo_name_with_owner" --json labels \
       -q '.labels | map(.name) | join("||")' 2>/dev/null || true
     return
   fi
 
-  gh issue view "$issue_number" --json labels \
+  vcs_remote_issue_view "$issue_number" --json labels \
     -q '.labels | map(.name) | join("||")' 2>/dev/null || true
 }
 
@@ -698,7 +700,7 @@ issue_non_compliance_reason_for() {
     return
   fi
 
-  issue_json="$(gh issue view "$issue_number" --json title,body 2>/dev/null || true)"
+  issue_json="$(vcs_remote_issue_view "$issue_number" --json title,body 2>/dev/null || true)"
   if [[ -z "$issue_json" ]]; then
     issue_non_compliance_reason_cache["$issue_key"]=""
     echo ""
@@ -1316,12 +1318,12 @@ process_duplicate_mode() {
       comment_body="Duplicate of ${canonical_issue_key}"
     fi
 
-    gh api "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}/comments" \
+    vcs_remote_api "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}/comments" \
       --raw-field body="${comment_body}" >/dev/null
     echo "Duplicate mode (${duplicate_mode}): commented on ${duplicate_issue_key} (target ${canonical_issue_key})."
 
     if [[ "$duplicate_mode" == "auto-close" ]]; then
-      gh api -X PATCH "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}" \
+      vcs_remote_api -X PATCH "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}" \
         -f state="closed" -f state_reason="not_planned" >/dev/null
       echo "Duplicate mode (${duplicate_mode}): closed ${duplicate_issue_key}."
     fi
@@ -1474,9 +1476,9 @@ if [[ "$create_pr" == "true" ]]; then
 
   if [[ "$create_now" == "true" ]]; then
     if [[ "$auto_mode" == "true" ]]; then
-      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body "$body_content" --label "pull-request")"
+      pr_url="$(vcs_remote_pr_create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body "$body_content" --label "pull-request")"
     else
-      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body-file "$output_file" --label "pull-request")"
+      pr_url="$(vcs_remote_pr_create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body-file "$output_file" --label "pull-request")"
     fi
     pr_created_successfully="true"
     echo "PR created: $pr_url"
@@ -1518,7 +1520,7 @@ if [[ -n "$auto_edit_pr_number" ]]; then
       fi
       rm -f "$checklist_tmp"
     fi
-    gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
+    vcs_remote_api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
       --raw-field body="$body_content" >/dev/null
     echo "PR updated: #${auto_edit_pr_number}"
   else

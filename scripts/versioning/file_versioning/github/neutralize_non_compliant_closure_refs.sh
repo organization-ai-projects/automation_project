@@ -83,7 +83,7 @@ if ! command -v perl >/dev/null 2>&1; then
 fi
 
 if [[ -z "$repo_name" ]]; then
-  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_name="$(vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
 [[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
 
@@ -102,7 +102,7 @@ keyword_pattern_from_action() {
   esac
 }
 
-pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
+pr_json="$(vcs_remote_pr_view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
 if [[ -z "$pr_json" ]]; then
   echo "Error: unable to read PR #${pr_number}." >&2
   exit 4
@@ -177,7 +177,7 @@ while IFS='|' read -r action issue_key; do
 done < <(parse_neutralized_closing_issue_refs_from_text "$original_body")
 
 if [[ "$updated_body" != "$original_body" ]]; then
-  gh pr edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
+  vcs_remote_pr_edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
 fi
 
 if [[ "$neutralized_count" -gt 0 ]]; then

@@ -28,10 +28,10 @@ git_fetch_prune "$REMOTE"
 info "Pushing branch: $BRANCH_NAME -> $REMOTE"
 
 # If upstream exists, simple push, otherwise push -u
-if git rev-parse --abbrev-ref --symbolic-full-name "@{u}" >/dev/null 2>&1; then
-  git push "$REMOTE" "$BRANCH_NAME"
+if vcs_local_rev_parse --abbrev-ref --symbolic-full-name "@{u}" >/dev/null 2>&1; then
+  vcs_local_push "$REMOTE" "$BRANCH_NAME"
   info "✓ Branch '$BRANCH_NAME' pushed to '$REMOTE'."
 else
-  git push --set-upstream "$REMOTE" "$BRANCH_NAME"
+  vcs_local_push --set-upstream "$REMOTE" "$BRANCH_NAME"
   info "✓ Branch '$BRANCH_NAME' pushed to '$REMOTE' (upstream configured)."
 fi

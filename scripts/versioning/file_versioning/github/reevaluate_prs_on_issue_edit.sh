@@ -3,6 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/commands.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 
@@ -66,7 +68,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 if [[ -z "$repo_name" ]]; then
-  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_name="$(vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
 [[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
 
@@ -89,7 +91,7 @@ pr_body_references_issue() {
 
 # Find all open PRs whose body contains a closing reference to this issue number.
 pr_numbers="$(
-  gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[] | [.number, (.body // "")] | @tsv' 2>/dev/null \
+  vcs_remote_api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[] | [.number, (.body // "")] | @tsv' 2>/dev/null \
   | while IFS=$'\t' read -r pr_num pr_body; do
       [[ -n "$pr_num" ]] || continue
       if pr_body_references_issue "$pr_body"; then

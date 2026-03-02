@@ -49,9 +49,9 @@ collect_pr_text_payload() {
   local pr_body
   local commit_messages
 
-  pr_title="$(gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
-  pr_body="$(gh pr view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
-  commit_messages="$(gh api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
+  pr_title="$(vcs_remote_pr_view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
+  pr_body="$(vcs_remote_pr_view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
+  commit_messages="$(vcs_remote_api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
 
   {
     printf '%s\n' "$pr_title"
@@ -122,7 +122,7 @@ fi
 if [[ "$mode" == "dev-merge" ]]; then
   require_number "--pr" "$pr_number"
 
-  pr_state="$(gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
+  pr_state="$(vcs_remote_pr_view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
   if [[ "$pr_state" != "MERGED" ]]; then
     echo "PR #${pr_number} is not merged; nothing to do."
     exit 0
@@ -156,7 +156,7 @@ if [[ "$mode" == "dev-merge" ]]; then
       continue
     fi
 
-    gh issue edit "$n" -R "$repo_name" --add-label "$label_name" >/dev/null
+    vcs_remote_issue_edit "$n" -R "$repo_name" --add-label "$label_name" >/dev/null
     echo "Issue #${n}: added label '${label_name}'."
   done
   exit 0
@@ -170,7 +170,7 @@ if [[ "$label_available" != "true" ]]; then
 fi
 
 if gh_issue_has_label "$repo_name" "$issue_number" "$label_name"; then
-  gh issue edit "$issue_number" -R "$repo_name" --remove-label "$label_name" >/dev/null
+  vcs_remote_issue_edit "$issue_number" -R "$repo_name" --remove-label "$label_name" >/dev/null
   echo "Issue #${issue_number}: removed label '${label_name}'."
 else
   echo "Issue #${issue_number}: label '${label_name}' not present."

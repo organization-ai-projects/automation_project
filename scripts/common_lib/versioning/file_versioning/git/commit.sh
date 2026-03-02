@@ -5,6 +5,9 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   exit 2
 fi
 
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/commands.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/commands.sh"
+
 # Functions related to Git commits
 
 require_commit_message() {
@@ -15,11 +18,11 @@ require_commit_message() {
 }
 
 commit_run() {
-  git commit "$@"
+  vcs_local_commit "$@"
 }
 
 git_has_diff() {
-  git diff "$@" --quiet
+  vcs_local_diff "$@" --quiet
 }
 
 # Create a commit with a message

@@ -5,14 +5,17 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   exit 2
 fi
 
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/commands.sh"
+
 github_find_pr_number_by_branch() {
   local branch_name="$1"
   local base_branch="${2:-}"
   local pr_number=""
-  local cmd=(gh pr list --head "$branch_name" --json number --jq '.[0].number')
+  local cmd=(vcs_remote_pr_list --head "$branch_name" --json number --jq '.[0].number')
 
   if [[ -n "$base_branch" ]]; then
-    cmd=(gh pr list --head "$branch_name" --base "$base_branch" --json number --jq '.[0].number')
+    cmd=(vcs_remote_pr_list --head "$branch_name" --base "$base_branch" --json number --jq '.[0].number')
   fi
   pr_number="$("${cmd[@]}" 2>/dev/null || true)"
 

@@ -22,6 +22,8 @@ source "$ROOT_DIR/scripts/common_lib/core/command.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/conventions.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/conventions.sh"
 # shellcheck source=scripts/common_lib/automation/rust_checks.sh
 source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/github/pull_request_lookup.sh
@@ -93,13 +95,16 @@ if [[ -z "$TITLE" ]]; then
   if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test|tests)/(.+)$ ]]; then
     TYPE="${BASH_REMATCH[1]}"
     DESC="${BASH_REMATCH[2]}"
-    # Capitalize first letter and replace hyphens with spaces
-    TYPE_CAPITALIZED="$(echo "${TYPE:0:1}" | tr '[:lower:]' '[:upper:]')${TYPE:1}"
+    # Keep canonical lowercase type and replace hyphens with spaces.
     DESC_FORMATTED="$(echo "$DESC" | sed -E 's|-| |g')"
-    TITLE="${TYPE_CAPITALIZED}: ${DESC_FORMATTED}"
+    TITLE="${TYPE}: ${DESC_FORMATTED}"
   else
     TITLE="$CURRENT_BRANCH"
   fi
+fi
+
+if ! validate_file_versioning_pr_title_format "$TITLE"; then
+  die "Invalid PR title format: '$TITLE'. Expected '<type>(<scope>): <message>' or '<type>: <message>' with allowed types: feature|feat|fix|doc|docs|refactor|test|tests|chore|perf."
 fi
 
 # Auto-generate body if not provided
@@ -133,7 +138,7 @@ if [[ "$DRAFT" == true ]]; then
   PR_ARGS+=(--draft)
 fi
 
-PR_URL=$(gh pr create "${PR_ARGS[@]}")
+PR_URL=$(vcs_remote_pr_create "${PR_ARGS[@]}")
 
 info "✅ PR created: $PR_URL"
 
@@ -154,7 +159,7 @@ if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test|tests)/ ]]; then
       BRANCH_LABEL="$BRANCH_PREFIX"
       ;;
   esac
-  if ! gh pr edit "$PR_URL" --add-label "$BRANCH_LABEL"; then
+  if ! vcs_remote_pr_edit "$PR_URL" --add-label "$BRANCH_LABEL"; then
     warn "Failed to add label '$BRANCH_LABEL' to PR $PR_URL; continuing without label."
   fi
 fi

@@ -74,18 +74,18 @@ info "Creating branch: $BRANCH_NAME (base: $BASE_BRANCH)"
 
 git_fetch_prune "$REMOTE"
 
-git checkout "$BASE_BRANCH"
-git pull "$REMOTE" "$BASE_BRANCH"
+vcs_local_checkout "$BASE_BRANCH"
+vcs_local_pull "$REMOTE" "$BASE_BRANCH"
 
 # If branch already exists locally, just checkout it
 if branch_exists_local "$BRANCH_NAME"; then
   info "The local branch '$BRANCH_NAME' already exists. Checking out."
-  git checkout "$BRANCH_NAME"
+  vcs_local_checkout "$BRANCH_NAME"
 else
-  git checkout -b "$BRANCH_NAME" "$BASE_BRANCH"
+  vcs_local_checkout -b "$BRANCH_NAME" "$BASE_BRANCH"
   info "✓ Branch '$BRANCH_NAME' created from '$BASE_BRANCH'."
 fi
 
 # Push with upstream
-git push --set-upstream "$REMOTE" "$BRANCH_NAME"
+vcs_local_push --set-upstream "$REMOTE" "$BRANCH_NAME"
 info "✓ Branch '$BRANCH_NAME' pushed to '$REMOTE' with upstream."

@@ -50,7 +50,7 @@ sync_issue_project_status_on_reopen() {
     return 0
   fi
 
-  issue_json="$(gh api graphql -f query='
+  issue_json="$(vcs_remote_api graphql -f query='
     query($owner:String!, $name:String!, $number:Int!) {
       repository(owner:$owner, name:$name) {
         issue(number:$number) {
@@ -74,7 +74,7 @@ sync_issue_project_status_on_reopen() {
   while IFS=$'\t' read -r item_id project_id project_title; do
     [[ -n "$item_id" && -n "$project_id" ]] || continue
 
-    project_json="$(gh api graphql -f query='
+    project_json="$(vcs_remote_api graphql -f query='
       query($projectId:ID!) {
         node(id:$projectId) {
           ... on ProjectV2 {
@@ -97,7 +97,7 @@ sync_issue_project_status_on_reopen() {
     status_option_id="$(echo "$project_json" | jq -r --arg target "$target_status" '.data.node.fields.nodes[]? | select(.name == "Status") | .options[]? | select((.name | ascii_downcase) == ($target | ascii_downcase)) | .id' 2>/dev/null | head -n1)"
     [[ -n "$status_option_id" ]] || continue
 
-    gh api graphql -f query='
+    vcs_remote_api graphql -f query='
       mutation($project:ID!, $item:ID!, $field:ID!, $option: String!) {
         updateProjectV2ItemFieldValue(input: {
           projectId: $project
@@ -119,9 +119,9 @@ collect_pr_context() {
   local repo="$1"
   local pr_number="$2"
 
-  PR_TITLE="$(gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
-  PR_BODY="$(gh pr view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
-  PR_COMMITS="$(gh api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
+  PR_TITLE="$(vcs_remote_pr_view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
+  PR_BODY="$(vcs_remote_pr_view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
+  PR_COMMITS="$(vcs_remote_api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
 }
 
 pr_number=""
@@ -159,7 +159,7 @@ if [[ -z "$repo_name" ]]; then
   exit 3
 fi
 
-pr_state="$(gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
+pr_state="$(vcs_remote_pr_view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
 if [[ "$pr_state" != "MERGED" ]]; then
   echo "PR #${pr_number} is not merged; nothing to do."
   exit 0
@@ -206,14 +206,14 @@ for n in "${reopen_issue_numbers[@]}"; do
   fi
 
   if [[ "$state" == "CLOSED" ]]; then
-    gh issue reopen "$n" -R "$repo_name" >/dev/null
+    vcs_remote_issue_reopen "$n" -R "$repo_name" >/dev/null
     echo "Issue #${n}: reopened from Reopen ref."
   else
     echo "Issue #${n}: state=${state}; no reopen needed."
   fi
 
   if [[ "$label_available" == "true" ]] && gh_issue_has_label "$repo_name" "$n" "$label_name"; then
-    gh issue edit "$n" -R "$repo_name" --remove-label "$label_name" >/dev/null
+    vcs_remote_issue_edit "$n" -R "$repo_name" --remove-label "$label_name" >/dev/null
     echo "Issue #${n}: removed label '${label_name}' due to Reopen ref."
   fi
 

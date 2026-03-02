@@ -84,7 +84,7 @@ fi
 
 REPO_NAME="${GH_REPO:-}"
 if [[ -z "$REPO_NAME" ]]; then
-  REPO_NAME="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  REPO_NAME="$(vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
 if [[ -z "$REPO_NAME" ]]; then
   echo "Erreur: impossible de déterminer le repository (GH_REPO)." >&2
@@ -95,7 +95,7 @@ REPO_SHORT_NAME="${REPO_NAME#*/}"
 
 extract_parent_ref_from_github() {
   local child_number="$1"
-  gh api graphql \
+  vcs_remote_api graphql \
     -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){parent{number}}}}' \
     -f owner="$REPO_OWNER" \
     -f name="$REPO_SHORT_NAME" \
@@ -137,7 +137,7 @@ evaluate_parent_issue() {
   local parent_number="$1"
 
   local issue_json
-  issue_json="$(gh issue view "$parent_number" -R "$REPO_NAME" --json number,title,body,state,url 2>/dev/null || true)"
+  issue_json="$(vcs_remote_issue_view "$parent_number" -R "$REPO_NAME" --json number,title,body,state,url 2>/dev/null || true)"
   if [[ -z "$issue_json" ]]; then
     return
   fi
@@ -164,7 +164,7 @@ evaluate_parent_issue() {
   for child_ref in "${child_refs[@]}"; do
     local child_number="${child_ref//#/}"
     local child_json
-    child_json="$(gh issue view "$child_number" -R "$REPO_NAME" --json number,title,state,url 2>/dev/null || true)"
+    child_json="$(vcs_remote_issue_view "$child_number" -R "$REPO_NAME" --json number,title,state,url 2>/dev/null || true)"
     if [[ -z "$child_json" ]]; then
       open_count=$((open_count + 1))
       open_lines+="- ${child_ref} (unreadable or missing)"$'\n'
@@ -193,13 +193,13 @@ evaluate_parent_issue() {
     "true"
 
   if [[ "$open_count" -eq 0 && "$parent_state" == "OPEN" ]]; then
-    gh issue close "$parent_number" -R "$REPO_NAME" \
+    vcs_remote_issue_close "$parent_number" -R "$REPO_NAME" \
       --comment "All required child issues are closed. Auto-closed by parent-issue-guard." >/dev/null
     echo "Closed parent issue #${parent_number} because all required children are closed."
   fi
 
   if [[ "$strict_guard" == "true" && "$parent_state" == "CLOSED" && "$open_count" -gt 0 ]]; then
-    gh issue reopen "$parent_number" -R "$REPO_NAME" >/dev/null
+    vcs_remote_issue_reopen "$parent_number" -R "$REPO_NAME" >/dev/null
     echo "Reopened parent issue #${parent_number} due to open required children."
   fi
 }
@@ -215,7 +215,7 @@ require_number "--child" "$child_arg"
 mapfile -t parent_candidates < <(extract_parent_ref_from_github "$child_arg" | sed 's/^#//')
 if [[ ${#parent_candidates[@]} -eq 0 ]]; then
   mapfile -t parent_candidates < <(
-    gh api "search/issues" \
+    vcs_remote_api "search/issues" \
       -f q="repo:${REPO_NAME} is:issue \"#${child_arg}\"" \
       --jq '.items[].number' 2>/dev/null | sort -u
   )

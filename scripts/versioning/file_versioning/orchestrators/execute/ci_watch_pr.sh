@@ -46,7 +46,7 @@ while true; do
   fi
 
   # Get PR status
-  PR_DATA=$(gh pr view "$PR_NUMBER" --json state,statusCheckRollup,mergeable)
+  PR_DATA=$(vcs_remote_pr_view "$PR_NUMBER" --json state,statusCheckRollup,mergeable)
 
   STATE=$(echo "$PR_DATA" | jq -r '.state')
   MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable // "UNKNOWN"')

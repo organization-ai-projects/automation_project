@@ -82,7 +82,7 @@ if ! command -v perl >/dev/null 2>&1; then
 fi
 
 if [[ -z "$repo_name" ]]; then
-  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_name="$(vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
 [[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
 
@@ -107,7 +107,7 @@ upsert_conflict_block_in_body() {
   printf "%s\n\n%s\n" "$without_block" "$block"
 }
 
-pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
+pr_json="$(vcs_remote_pr_view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
 if [[ -z "$pr_json" ]]; then
   echo "Error: unable to read PR #${pr_number}." >&2
   exit 4
@@ -121,7 +121,7 @@ declare -A resolved_conflict
 unresolved_count=0
 resolved_count=0
 
-commit_messages="$(gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
+commit_messages="$(vcs_remote_api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
 directive_payload="${commit_messages}"$'\n'"${original_body}"
 while IFS='|' read -r issue_key close_flag reopen_flag decision source reason; do
   issue_key="$(trim "$issue_key")"
@@ -187,7 +187,7 @@ else
 fi
 
 if [[ "$updated_body" != "$original_body" ]]; then
-  gh pr edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
+  vcs_remote_pr_edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
 fi
 
 if [[ "$unresolved_count" -gt 0 ]]; then

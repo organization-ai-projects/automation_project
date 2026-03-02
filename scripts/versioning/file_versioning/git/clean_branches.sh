@@ -43,7 +43,7 @@ git_fetch_prune "$REMOTE"
 
 # Find branches marked as [gone]
 mapfile -t GONE_BRANCHES < <(
-  git branch -vv | awk '$0 ~ /\[.*: gone\]/ {
+  vcs_local_branch -vv | awk '$0 ~ /\[.*: gone\]/ {
     branch=$1
     if (branch == "*") {
       branch=$2
@@ -79,10 +79,10 @@ else
     fi
 
     info "Deleting local branch: $branch"
-    if git branch -d "$branch" 2>/dev/null; then
+    if vcs_local_branch -d "$branch" 2>/dev/null; then
       info "✓ Deleted $branch (safe)"
       deleted_count=$((deleted_count + 1))
-    elif git branch -D "$branch" 2>/dev/null; then
+    elif vcs_local_branch -D "$branch" 2>/dev/null; then
       warn "⚠ Deleted $branch (forced)"
       deleted_count=$((deleted_count + 1))
     else
@@ -95,7 +95,7 @@ fi
 # Optional: List merged branches that could be cleaned up
 info "Checking for fully merged local branches..."
 mapfile -t MERGED_BRANCHES < <(
-  git branch --merged "${BASE_BRANCH:-dev}" | while read -r line; do
+  vcs_local_branch --merged "${BASE_BRANCH:-dev}" | while read -r line; do
     [[ -z "$line" ]] && continue
     [[ "$line" == \** ]] && continue
 
