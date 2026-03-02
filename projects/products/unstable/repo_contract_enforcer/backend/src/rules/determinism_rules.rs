@@ -167,7 +167,10 @@ impl DeterminismRules {
             }
 
             let underscore_signals = RustParser::underscore_signals(&txt);
-            if underscore_signals.has_wildcard_discard || underscore_signals.has_prefixed_binding {
+            if is_backend_production_source(&file)
+                && (underscore_signals.has_wildcard_discard
+                    || underscore_signals.has_prefixed_binding)
+            {
                 out.push(make_violation(
                     RuleId::Determinism,
                     ViolationCode::DetUnderscoreUnusedMasking,
@@ -220,4 +223,24 @@ fn make_violation(
         message: message.to_string(),
         line,
     }
+}
+
+fn is_backend_production_source(path: &std::path::Path) -> bool {
+    let mut saw_backend = false;
+    let mut saw_src_after_backend = false;
+    for component in path.components() {
+        let text = component.as_os_str().to_string_lossy();
+        if text == "backend" {
+            saw_backend = true;
+            continue;
+        }
+        if saw_backend && text == "src" {
+            saw_src_after_backend = true;
+            continue;
+        }
+        if saw_src_after_backend && text == "tests" {
+            return false;
+        }
+    }
+    saw_backend && saw_src_after_backend
 }
