@@ -24,6 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || 'dev' }}
           sparse-checkout: |
             .github/issue_required_fields.conf
             scripts/versioning/file_versioning/github/
@@ -97,6 +98,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: dev
           sparse-checkout: |
             .github/issue_required_fields.conf
             scripts/versioning/file_versioning/github/
