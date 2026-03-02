@@ -1,18 +1,7 @@
+// projects/products/unstable/vod_forge/backend/src/protocol/response_payload.rs
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TitleView {
-    pub id: String,
-    pub name: String,
-    pub year: u16,
-    pub episode_count: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct IpcResponse {
-    pub id: u64,
-    pub payload: ResponsePayload,
-}
+use crate::protocol::TitleView;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -33,6 +22,9 @@ pub enum ResponsePayload {
         tick: u32,
         progress_pct: f32,
         done: bool,
+    },
+    RecommendData {
+        recommended: Vec<String>,
     },
     AnalyticsReport {
         total_watch_ticks: u64,
