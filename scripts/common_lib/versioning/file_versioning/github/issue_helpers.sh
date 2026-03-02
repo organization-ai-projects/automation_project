@@ -36,6 +36,22 @@ github_issue_extract_subissue_refs() {
     --jq '.data.repository.issue.subIssues.nodes[]?.number | "#"+tostring' 2>/dev/null || true
 }
 
+github_issue_list_open_by_label() {
+  local label="${1:-}"
+  local repo_name="${2:-${GH_REPO:-}}"
+
+  [[ -n "$label" ]] || return 0
+
+  if [[ -n "$repo_name" ]]; then
+    gh issue list -R "$repo_name" --label "$label" --state open --json number,title,url \
+      --jq '.[] | "\(.number)|\(.title)|\(.url)"' 2>/dev/null || true
+    return 0
+  fi
+
+  gh issue list --label "$label" --state open --json number,title,url \
+    --jq '.[] | "\(.number)|\(.title)|\(.url)"' 2>/dev/null || true
+}
+
 github_issue_upsert_marker_comment() {
   local repo_name="${1:-}"
   local issue_number="${2:-}"
