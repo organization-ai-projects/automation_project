@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/directive_resolution.sh"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
 
 usage() {
   cat <<USAGE
@@ -87,25 +89,6 @@ fi
 MARKER="<!-- directive-conflict-guard:${pr_number} -->"
 BLOCK_START="<!-- directive-conflicts:start -->"
 BLOCK_END="<!-- directive-conflicts:end -->"
-
-upsert_pr_comment() {
-  local body="$1"
-  local comment_id
-  comment_id="$({
-    gh api "repos/${repo_name}/issues/${pr_number}/comments" --paginate
-  } | jq -r --arg marker "$MARKER" '
-      map(select((.body // "") | contains($marker)))
-      | sort_by(.updated_at)
-      | last
-      | .id // empty
-    ' 2>/dev/null || true)"
-
-  if [[ -n "$comment_id" ]]; then
-    gh api -X PATCH "repos/${repo_name}/issues/comments/${comment_id}" -f body="$body" >/dev/null
-  else
-    gh api "repos/${repo_name}/issues/${pr_number}/comments" -f body="$body" >/dev/null
-  fi
-}
 
 upsert_conflict_block_in_body() {
   local body="$1"
@@ -212,7 +195,7 @@ if [[ "$unresolved_count" -gt 0 ]]; then
 ### Directive Conflict Guard
 
 ❌ Unresolved Closes/Reopen conflicts detected. Add explicit directive decisions in PR body."
-  upsert_pr_comment "$comment_body"
+  github_issue_upsert_marker_comment "$repo_name" "$pr_number" "$MARKER" "$comment_body"
   echo "Unresolved directive conflicts detected for PR #${pr_number}." >&2
   exit 8
 fi
@@ -222,7 +205,7 @@ if [[ "$resolved_count" -gt 0 ]]; then
 ### Directive Conflict Guard
 
 ✅ Directive conflicts resolved via explicit decisions."
-  upsert_pr_comment "$comment_body"
+  github_issue_upsert_marker_comment "$repo_name" "$pr_number" "$MARKER" "$comment_body"
 fi
 
 echo "Directive conflict guard evaluated for PR #${pr_number}."
