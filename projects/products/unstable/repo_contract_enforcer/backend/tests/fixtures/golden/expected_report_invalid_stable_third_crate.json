@@ -1,31 +1,31 @@
 {
+  "repository_root": "<FIXTURE_ROOT>",
   "mode": "strict",
-  "summary": {
-    "unstable_error_count": 0,
-    "stable_error_count": 2,
-    "unstable_warning_count": 0,
-    "stable_warning_count": 0
-  },
-  "report_hash": "161d284de2a61cdbff29b383212d48f483d5944b1bd34ccd32c1e8284157ec94",
   "violations": [
     {
-      "severity": "ERROR",
-      "violation_code": "STRUCT_THIRD_CRATE_DETECTED",
-      "rule_id": "structure",
-      "scope": "stable",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling",
       "message": "only backend and ui crates are allowed",
+      "scope": "stable",
+      "severity": "ERROR",
+      "rule_id": "structure",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling",
+      "violation_code": "STRUCT_THIRD_CRATE_DETECTED",
       "line": null
     },
     {
-      "severity": "ERROR",
       "rule_id": "structure",
-      "violation_code": "STRUCT_FORBIDDEN_FOLDER_NAME",
+      "severity": "ERROR",
       "scope": "stable",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling",
       "message": "forbidden folder name detected",
-      "line": null
+      "line": null,
+      "violation_code": "STRUCT_FORBIDDEN_FOLDER_NAME"
     }
   ],
-  "repository_root": "<FIXTURE_ROOT>"
+  "report_hash": "161d284de2a61cdbff29b383212d48f483d5944b1bd34ccd32c1e8284157ec94",
+  "summary": {
+    "stable_error_count": 2,
+    "unstable_warning_count": 0,
+    "stable_warning_count": 0,
+    "unstable_error_count": 0
+  }
 }
