@@ -30,6 +30,7 @@ node_modules/
 *.dylib
 *.dll
 *.exe
+*.vsix
 
 # Temporary files
 *.tmp
