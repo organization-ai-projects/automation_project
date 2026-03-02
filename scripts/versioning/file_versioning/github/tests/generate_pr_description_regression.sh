@@ -620,17 +620,20 @@ main() {
     MOCK_GIT_LOG_BODY=$'Closes #518\nReopen #518' \
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run "${out_md}"
   ) >/dev/null 2>&1; then
-    if grep -q "Closes rejected #518" "${out_md}" \
-      && ! grep -q "Closure Neutralization Notices" "${out_md}" \
-      && ! grep -q "conflicting closure directives" "${out_md}"; then
-      echo "PASS [reopen-conflict-neutralizes-closing-ref]"
+    if grep -q "### Issues Reopened" "${out_md}" \
+      && grep -q "Reopen #518" "${out_md}" \
+      && grep -q "### Issue Directive Resolutions" "${out_md}" \
+      && grep -q "Resolved via directive decision => reopen." "${out_md}" \
+      && ! grep -q "### Issue Directive Conflicts" "${out_md}" \
+      && ! grep -q "Closes rejected #518" "${out_md}"; then
+      echo "PASS [reopen-conflict-prefers-reopen-and-reports-conflict]"
     else
-      echo "FAIL [reopen-conflict-neutralizes-closing-ref] expected rejected close without verbose neutralization section"
+      echo "FAIL [reopen-conflict-prefers-reopen-and-reports-conflict] expected inferred reopen resolution"
       sed -n '1,120p' "${out_md}"
       TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
   else
-    echo "FAIL [reopen-conflict-neutralizes-closing-ref] script execution failed"
+    echo "FAIL [reopen-conflict-prefers-reopen-and-reports-conflict] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"

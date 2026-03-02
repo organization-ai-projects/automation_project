@@ -133,14 +133,7 @@ updated_body="$original_body"
 declare -A seen_ref
 declare -A neutralized_reason
 declare -A neutralized_action
-declare -A reopen_requested
 neutralized_count=0
-
-while IFS='|' read -r _ issue_key; do
-  issue_key="$(trim "$issue_key")"
-  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-  reopen_requested["$issue_key"]=1
-done < <(parse_reopen_issue_refs_from_text "$original_body")
 
 while IFS='|' read -r action issue_key; do
   issue_key="$(trim "$issue_key")"
@@ -152,12 +145,7 @@ while IFS='|' read -r action issue_key; do
   fi
   seen_ref["$dedupe_key"]=1
 
-  reason=""
-  if [[ -n "${reopen_requested[$issue_key]:-}" ]]; then
-    reason="reopen directive present for ${issue_key}"
-  else
-    reason="$(issue_non_compliance_reason "$issue_number")"
-  fi
+  reason="$(issue_non_compliance_reason "$issue_number")"
   [[ -n "$reason" ]] || continue
 
   keyword_pattern="$(keyword_pattern_from_action "$action")"
@@ -186,11 +174,7 @@ while IFS='|' read -r action issue_key; do
   fi
   seen_ref["$dedupe_key"]=1
 
-  if [[ -n "${reopen_requested[$issue_key]:-}" ]]; then
-    reason="reopen directive present for ${issue_key}"
-  else
-    reason="$(issue_non_compliance_reason "$issue_number")"
-  fi
+  reason="$(issue_non_compliance_reason "$issue_number")"
 
   keyword_pattern="$(keyword_pattern_from_action "$action")"
   [[ -n "$keyword_pattern" ]] || continue
