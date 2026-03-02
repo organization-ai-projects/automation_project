@@ -9,8 +9,7 @@ source "${SCRIPT_DIR}/lib/issue_refs.sh"
 usage() {
   cat <<EOF
 Usage:
-  $0 --on-dev-merge --pr PR_NUMBER [--label LABEL]
-  $0 --on-issue-closed --issue ISSUE_NUMBER [--label LABEL]
+  $0 --pr PR_NUMBER [--label LABEL]
 EOF
 }
 
@@ -60,9 +59,9 @@ issue_has_label() {
     | grep -Fxq "$label"
 }
 
-extract_closing_issue_numbers() {
+extract_reopen_issue_numbers() {
   local text="$1"
-  parse_closing_issue_refs_from_text "$text" \
+  parse_reopen_issue_refs_from_text "$text" \
     | cut -d'|' -f2 \
     | sed -E 's/^#([0-9]+)$/\1/' \
     | grep -E '^[0-9]+$' \
@@ -87,27 +86,13 @@ collect_pr_text_payload() {
   }
 }
 
-mode=""
 pr_number=""
-issue_number=""
 label_name="${DONE_IN_DEV_LABEL:-done-in-dev}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --on-dev-merge)
-      mode="dev-merge"
-      shift
-      ;;
-    --on-issue-closed)
-      mode="issue-closed"
-      shift
-      ;;
     --pr)
       pr_number="${2:-}"
-      shift 2
-      ;;
-    --issue)
-      issue_number="${2:-}"
       shift 2
       ;;
     --label)
@@ -126,12 +111,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$mode" != "dev-merge" && "$mode" != "issue-closed" ]]; then
-  echo "Error: one mode is required (--on-dev-merge or --on-issue-closed)." >&2
-  usage >&2
-  exit 2
-fi
-
+require_number "--pr" "$pr_number"
 require_cmd gh
 require_cmd jq
 
@@ -141,64 +121,40 @@ if [[ -z "$repo_name" ]]; then
   exit 3
 fi
 
+pr_state="$(gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
+if [[ "$pr_state" != "MERGED" ]]; then
+  echo "PR #${pr_number} is not merged; nothing to do."
+  exit 0
+fi
+
+payload="$(collect_pr_text_payload "$repo_name" "$pr_number")"
+mapfile -t reopen_issue_numbers < <(extract_reopen_issue_numbers "$payload")
+if [[ ${#reopen_issue_numbers[@]} -eq 0 ]]; then
+  echo "No reopen issue refs found for PR #${pr_number}."
+  exit 0
+fi
+
 label_available="false"
 if label_exists "$repo_name" "$label_name"; then
   label_available="true"
 fi
 
-if [[ "$mode" == "dev-merge" ]]; then
-  require_number "--pr" "$pr_number"
-
-  pr_state="$(gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
-  if [[ "$pr_state" != "MERGED" ]]; then
-    echo "PR #${pr_number} is not merged; nothing to do."
-    exit 0
+for n in "${reopen_issue_numbers[@]}"; do
+  state="$(issue_state "$repo_name" "$n")"
+  if [[ -z "$state" ]]; then
+    echo "Issue #${n}: unreadable; skipping reopen sync."
+    continue
   fi
 
-  payload="$(collect_pr_text_payload "$repo_name" "$pr_number")"
-  mapfile -t closing_issue_numbers < <(extract_closing_issue_numbers "$payload")
-
-  if [[ ${#closing_issue_numbers[@]} -eq 0 ]]; then
-    echo "No closing issue refs found for PR #${pr_number}."
-    exit 0
+  if [[ "$state" == "CLOSED" ]]; then
+    gh issue reopen "$n" -R "$repo_name" >/dev/null
+    echo "Issue #${n}: reopened from Reopen ref."
+  else
+    echo "Issue #${n}: state=${state}; no reopen needed."
   fi
 
-  if [[ "$label_available" != "true" ]]; then
-    echo "Warning: label '${label_name}' does not exist in ${repo_name}; skipping done-in-dev labeling."
-    exit 0
+  if [[ "$label_available" == "true" ]] && issue_has_label "$repo_name" "$n" "$label_name"; then
+    gh issue edit "$n" -R "$repo_name" --remove-label "$label_name" >/dev/null
+    echo "Issue #${n}: removed label '${label_name}' due to Reopen ref."
   fi
-
-  for n in "${closing_issue_numbers[@]}"; do
-    state="$(issue_state "$repo_name" "$n")"
-    if [[ -z "$state" ]]; then
-      echo "Issue #${n}: unreadable; skipping."
-      continue
-    fi
-    if [[ "$state" != "OPEN" ]]; then
-      echo "Issue #${n}: state=${state}; skipping done-in-dev label."
-      continue
-    fi
-    if issue_has_label "$repo_name" "$n" "$label_name"; then
-      echo "Issue #${n}: label '${label_name}' already present."
-      continue
-    fi
-
-    gh issue edit "$n" -R "$repo_name" --add-label "$label_name" >/dev/null
-    echo "Issue #${n}: added label '${label_name}'."
-  done
-  exit 0
-fi
-
-require_number "--issue" "$issue_number"
-
-if [[ "$label_available" != "true" ]]; then
-  echo "Warning: label '${label_name}' does not exist in ${repo_name}; skipping."
-  exit 0
-fi
-
-if issue_has_label "$repo_name" "$issue_number" "$label_name"; then
-  gh issue edit "$issue_number" -R "$repo_name" --remove-label "$label_name" >/dev/null
-  echo "Issue #${issue_number}: removed label '${label_name}'."
-else
-  echo "Issue #${issue_number}: label '${label_name}' not present."
-fi
+done
