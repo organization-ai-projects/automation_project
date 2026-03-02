@@ -1,4 +1,5 @@
 use crate::diagnostics::UiError;
+use crate::transport::ipc_envelope::IpcEnvelope;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Write};
 
@@ -21,21 +22,15 @@ impl IpcClient {
         let id = self.req_counter;
         let request = IpcEnvelope { id, payload };
         let json = common_json::to_string(&request).map_err(|e| UiError::Ipc(e.to_string()))?;
-        writeln!(writer, "{}", json).map_err(|e| UiError::Ipc(e.to_string()))?;
-        writer.flush().map_err(|e| UiError::Ipc(e.to_string()))?;
+        writeln!(writer, "{}", json).map_err(|e| UiError::Io(e.to_string()))?;
+        writer.flush().map_err(|e| UiError::Io(e.to_string()))?;
 
         let mut line = String::new();
         reader
             .read_line(&mut line)
-            .map_err(|e| UiError::Ipc(e.to_string()))?;
+            .map_err(|e| UiError::Io(e.to_string()))?;
         let response: U =
             common_json::from_json_str(line.trim()).map_err(|e| UiError::Ipc(e.to_string()))?;
         Ok(response)
     }
-}
-
-#[derive(Serialize)]
-struct IpcEnvelope<'a, T: Serialize> {
-    id: u64,
-    payload: &'a T,
 }
