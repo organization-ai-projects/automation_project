@@ -192,11 +192,11 @@ gh_optional() {
   return 0
 }
 
-extract_validation_checklist_section() {
+extract_validation_status_section() {
   local markdown_body="$1"
   printf "%s\n" "$markdown_body" | awk '
     BEGIN { in_section = 0; found = 0 }
-    /^### Validation Checklist$/ {
+    /^### Validation Status$/ {
       in_section = 1
       found = 1
       print
@@ -216,15 +216,15 @@ extract_validation_checklist_section() {
   '
 }
 
-inject_validation_checklist_section() {
+inject_validation_status_section() {
   local generated_body="$1"
-  local checklist_file="$2"
+  local status_file="$2"
   awk '
     FNR == NR {
       replacement = replacement $0 ORS
       next
     }
-    /^### Validation Checklist$/ {
+    /^### Validation Status$/ {
       if (!replaced) {
         printf "%s", replacement
         replaced = 1
@@ -243,7 +243,7 @@ inject_validation_checklist_section() {
     {
       print
     }
-  ' "$checklist_file" <(printf "%s\n" "$generated_body")
+  ' "$status_file" <(printf "%s\n" "$generated_body")
 }
 
 if [[ "$auto_mode" == "true" ]]; then
@@ -336,6 +336,9 @@ declare -A pr_title_hint
 online_enrich="false"
 pr_enrich_failed=0
 breaking_detected=0
+ci_status="UNKNOWN"
+breaking_scope_crates=""
+breaking_scope_commits=""
 pr_created_successfully="false"
 dry_compare_commit_messages=""
 dry_compare_commit_headlines=""
@@ -766,6 +769,136 @@ text_indicates_breaking() {
   done <<< "$text"
 
   return 1
+}
+
+infer_crate_from_path() {
+  local rel_path="$1"
+  local dir candidate
+
+  if [[ "$rel_path" == *"/src/"* ]]; then
+    candidate="${rel_path%%/src/*}"
+    if [[ -f "${candidate}/Cargo.toml" ]]; then
+      echo "$candidate"
+      return
+    fi
+  fi
+
+  if [[ "$rel_path" == */Cargo.toml ]]; then
+    dir="${rel_path%/Cargo.toml}"
+    if [[ -n "$dir" ]]; then
+      echo "$dir"
+      return
+    fi
+  fi
+
+  dir="$(dirname "$rel_path")"
+  while [[ "$dir" != "." && "$dir" != "/" ]]; do
+    if [[ -f "${dir}/Cargo.toml" ]]; then
+      echo "$dir"
+      return
+    fi
+    dir="$(dirname "$dir")"
+  done
+}
+
+compute_breaking_scope() {
+  local range="${base_ref_display}..${head_ref_display}"
+  local raw_log rec full_hash short_hash subject body
+  local files crate
+  declare -A seen_breaking_hashes
+  declare -A seen_crates
+  local commit_list=()
+  local crate_list=()
+
+  raw_log="$(git log --format='%H%x1f%s%x1f%b%x1e' "$range" 2>/dev/null || true)"
+  if [[ -z "$raw_log" ]]; then
+    breaking_scope_crates=""
+    breaking_scope_commits=""
+    return
+  fi
+
+  while IFS= read -r -d $'\x1e' rec; do
+    [[ -z "$rec" ]] && continue
+    full_hash="$(printf "%s" "$rec" | awk -F $'\x1f' '{print $1}')"
+    subject="$(printf "%s" "$rec" | awk -F $'\x1f' '{print $2}')"
+    body="$(printf "%s" "$rec" | awk -F $'\x1f' '{print $3}')"
+    if ! text_indicates_breaking "${subject}"$'\n'"${body}"; then
+      continue
+    fi
+    short_hash="$(printf "%s" "$full_hash" | cut -c1-7)"
+    if [[ -z "${seen_breaking_hashes[$short_hash]:-}" ]]; then
+      seen_breaking_hashes["$short_hash"]=1
+      commit_list+=("$short_hash")
+    fi
+
+    files="$(git show --name-only --pretty=format: "$full_hash" 2>/dev/null || true)"
+    while IFS= read -r rel_path; do
+      [[ -z "$rel_path" ]] && continue
+      crate="$(infer_crate_from_path "$rel_path")"
+      [[ -z "$crate" ]] && continue
+      if [[ -z "${seen_crates[$crate]:-}" ]]; then
+        seen_crates["$crate"]=1
+        crate_list+=("$crate")
+      fi
+    done <<< "$files"
+  done < <(printf "%s" "$raw_log")
+
+  if [[ ${#commit_list[@]} -gt 0 ]]; then
+    IFS=$'\n' commit_list=($(printf "%s\n" "${commit_list[@]}" | sort -u))
+    unset IFS
+    breaking_scope_commits="$(printf "`%s`, " "${commit_list[@]}")"
+    breaking_scope_commits="${breaking_scope_commits%, }"
+  else
+    breaking_scope_commits=""
+  fi
+
+  if [[ ${#crate_list[@]} -gt 0 ]]; then
+    IFS=$'\n' crate_list=($(printf "%s\n" "${crate_list[@]}" | sort -u))
+    unset IFS
+    breaking_scope_crates="$(printf "`%s`, " "${crate_list[@]}")"
+    breaking_scope_crates="${breaking_scope_crates%, }"
+  else
+    breaking_scope_crates=""
+  fi
+}
+
+compute_ci_status() {
+  local target_pr_number=""
+  local rollup_json conclusions unresolved
+
+  if [[ -n "$auto_edit_pr_number" ]]; then
+    target_pr_number="$auto_edit_pr_number"
+  elif [[ "$dry_run" == "false" && -n "$main_pr_number" ]]; then
+    target_pr_number="$main_pr_number"
+  fi
+
+  ci_status="UNKNOWN"
+  [[ -z "$target_pr_number" ]] && return
+
+  rollup_json="$(gh_optional "read checks for PR #${target_pr_number}" pr view "$target_pr_number" --json statusCheckRollup)"
+  if [[ -z "$rollup_json" ]]; then
+    return
+  fi
+
+  conclusions="$(echo "$rollup_json" | jq -r '.statusCheckRollup // [] | map((.conclusion // .state // .status // "UNKNOWN") | ascii_upcase) | .[]' 2>/dev/null || true)"
+  if [[ -z "$conclusions" ]]; then
+    return
+  fi
+
+  if echo "$conclusions" | grep -Eq '^(FAILURE|FAILED|CANCELLED|TIMED_OUT|ACTION_REQUIRED|STARTUP_FAILURE)$'; then
+    ci_status="FAIL"
+    return
+  fi
+
+  unresolved="$(echo "$conclusions" | grep -Ev '^(SUCCESS|PASSED|NEUTRAL|SKIPPED|COMPLETED)$' || true)"
+  if [[ -n "$unresolved" ]]; then
+    ci_status="UNKNOWN"
+    return
+  fi
+
+  if echo "$conclusions" | grep -Eq '^(SUCCESS|PASSED)$'; then
+    ci_status="PASS"
+  fi
 }
 
 echo -n > "$extracted_prs_file"
@@ -1440,6 +1573,9 @@ process_duplicate_mode() {
   done
 }
 
+compute_ci_status
+compute_breaking_scope
+
 body_content="$({
   echo "### Description"
   echo ""
@@ -1521,11 +1657,25 @@ body_content="$({
 - Ensure all project tests are executed before merge (for example: \`cargo test\`, script-specific checks, and CI workflow validation).
 - Validate manually the automation workflows impacted by merged PRs.
 
-### Validation Checklist
+### Validation Status
 
-- [ ] Tests have been added or updated, and all tests pass.
-- [ ] Documentation has been updated as needed.
-- [ ] Breaking changes (if any) are clearly documented above.
+- CI: ${ci_status}
+- Breaking change detected: $( [[ "$breaking_detected" -eq 1 ]] && echo "TRUE" || echo "FALSE" )
+EOF
+  if [[ "$breaking_detected" -eq 1 ]]; then
+    echo "- Breaking scope:"
+    if [[ -n "$breaking_scope_crates" ]]; then
+      echo "  - crate(s): ${breaking_scope_crates}"
+    else
+      echo "  - crate(s): unknown"
+    fi
+    if [[ -n "$breaking_scope_commits" ]]; then
+      echo "  - source commit(s): ${breaking_scope_commits}"
+    else
+      echo "  - source commit(s): unknown"
+    fi
+  fi
+  cat <<EOF
 
 ### Additional Notes
 
@@ -1627,12 +1777,12 @@ if [[ -n "$auto_edit_pr_number" ]]; then
     fi
     existing_pr_body="$(gh_optional "read existing PR #${auto_edit_pr_number} body" pr view "$auto_edit_pr_number" --json body -q '.body')"
     if [[ -n "$existing_pr_body" ]]; then
-      checklist_tmp="$(mktemp)"
-      if extract_validation_checklist_section "$existing_pr_body" > "$checklist_tmp"; then
-        preserved_body="$(inject_validation_checklist_section "$body_content" "$checklist_tmp")"
+      status_tmp="$(mktemp)"
+      if extract_validation_status_section "$existing_pr_body" > "$status_tmp"; then
+        preserved_body="$(inject_validation_status_section "$body_content" "$status_tmp")"
         body_content="$preserved_body"
       fi
-      rm -f "$checklist_tmp"
+      rm -f "$status_tmp"
     fi
     gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
       --raw-field body="$body_content" >/dev/null

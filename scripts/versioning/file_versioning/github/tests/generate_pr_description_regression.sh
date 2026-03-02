@@ -303,20 +303,20 @@ main() {
   if (
     cd "${ROOT_DIR}"
     MOCK_PATCH_BODY_FILE="${patched_body_file}" \
-    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Validation Checklist\n- [x] Tests have been added or updated, and all tests pass.\n- [x] Documentation has been updated as needed.\n- [ ] Breaking changes (if any) are clearly documented above.\n\n### Additional Notes\nkeep' \
+    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Validation Status\n- CI: PASS\n- Breaking change detected: FALSE\n\n### Additional Notes\nkeep' \
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --auto-edit 400 --yes 42
   ) >/dev/null 2>&1; then
-    if grep -q -- "### Validation Checklist" "${patched_body_file}" \
-      && grep -q -- "- \\[x\\] Tests have been added or updated, and all tests pass\\." "${patched_body_file}" \
-      && grep -q -- "- \\[x\\] Documentation has been updated as needed\\." "${patched_body_file}"; then
-      echo "PASS [auto-edit-preserves-existing-validation-checklist]"
+    if grep -q -- "### Validation Status" "${patched_body_file}" \
+      && grep -q -- "- CI: PASS" "${patched_body_file}" \
+      && grep -q -- "- Breaking change detected: FALSE" "${patched_body_file}"; then
+      echo "PASS [auto-edit-preserves-existing-validation-status]"
     else
-      echo "FAIL [auto-edit-preserves-existing-validation-checklist] expected checked checklist items preserved"
+      echo "FAIL [auto-edit-preserves-existing-validation-status] expected status section preserved"
       sed -n '1,220p' "${patched_body_file}" || true
       TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
   else
-    echo "FAIL [auto-edit-preserves-existing-validation-checklist] script execution failed"
+    echo "FAIL [auto-edit-preserves-existing-validation-status] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"
