@@ -23,6 +23,7 @@ It interacts mainly with:
 ├── automation_rustfmt.yml # Automates code formatting checks
 ├── automation_sync.yml   # Syncs main into dev after merge
 ├── issue_done_in_dev_status.yml # Maintains done-in-dev issue status label lifecycle
+├── issue_reopen_on_dev_merge.yml # Reopens issues from Reopen refs on merged PRs into dev
 ├── pr_auto_closes_enrichment.yml # Auto-manages Closes refs on open PRs targeting dev
 └── documentation/
     ├── TOC.md           # Table of contents for workflow documentation
@@ -33,6 +34,7 @@ It interacts mainly with:
     ├── automation_rustfmt.md # Documentation for the automation_rustfmt.yml workflow
     ├── automation_sync.md # Documentation for the automation_sync.yml workflow
     ├── issue_done_in_dev_status.md # Documentation for issue_done_in_dev_status.yml
+    ├── issue_reopen_on_dev_merge.md # Documentation for issue_reopen_on_dev_merge.yml
     ├── pr_auto_closes_enrichment.md # Documentation for pr_auto_closes_enrichment.yml
     ├── bot/
     │   ├── README.md    # Bot workflows docs index
@@ -51,6 +53,7 @@ It interacts mainly with:
 - `automation_rustfmt.md`: Documentation for the `automation_rustfmt.yml` workflow.
 - `automation_sync.md`: Documentation for the `automation_sync.yml` workflow.
 - `issue_done_in_dev_status.md`: Documentation for the `issue_done_in_dev_status.yml` workflow.
+- `issue_reopen_on_dev_merge.md`: Documentation for the `issue_reopen_on_dev_merge.yml` workflow.
 - `pr_auto_closes_enrichment.md`: Documentation for the `pr_auto_closes_enrichment.yml` workflow.
 - `bot/README.md`: Bot workflow docs index.
 - `bot/TOC.md`: Bot workflows documentation TOC.
@@ -69,6 +72,7 @@ Workflows are organized into two categories:
   - `automation_rustfmt.yml`: Automates code formatting checks.
   - `automation_sync.yml`: Syncs main into dev after merge.
   - `issue_done_in_dev_status.yml`: Maintains done-in-dev issue status label lifecycle.
+  - `issue_reopen_on_dev_merge.yml`: Reopens issues referenced by `Reopen #...` on merged PRs into `dev`.
   - `pr_auto_closes_enrichment.yml`: Auto-enriches open PR bodies targeting `dev` with managed `Closes #...` lines.
 
 ## Adding New Workflows

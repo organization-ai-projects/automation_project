@@ -25,6 +25,7 @@ github/
 ├── manager_issues.sh
 ├── generate_pr_description.sh
 ├── issue_done_in_dev_status.sh
+├── issue_reopen_on_dev_merge.sh
 ├── neutralize_non_compliant_closure_refs.sh
 ├── parent_issue_guard.sh
 ├── lib/
@@ -46,6 +47,7 @@ github/
 - `manager_issues.sh`: Unified issue lifecycle entrypoint for create/read/update/close/reopen operations (delete is soft-delete via close not_planned).
 - `issue_done_in_dev_status.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
   - Supported closure refs for labeling: `Closes/Fixes #<n>`.
+- `issue_reopen_on_dev_merge.sh`: Reopen issues referenced by `Reopen #<n>` on merged PRs into `dev`, and remove `done-in-dev` from those issues.
 - `neutralize_non_compliant_closure_refs.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
 - `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
@@ -54,6 +56,7 @@ github/
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 - `tests/auto_add_closes_on_dev_pr_regression.sh`: Regression checks for automatic managed `Closes #...` enrichment on dev-targeting PRs.
 - `tests/issue_done_in_dev_status_regression.sh`: Regression checks for done-in-dev add/remove workflow behavior.
+- `tests/issue_reopen_on_dev_merge_regression.sh`: Regression checks for Reopen footer sync on merged PRs into `dev`.
 - `tests/manager_issues_regression.sh`: Regression checks for manager_issues lifecycle routing behavior (create/read/update/close/reopen/soft-delete).
 
 ## Scope

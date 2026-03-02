@@ -15,6 +15,7 @@ This document provides an overview of all documentation files in this directory.
 - [create_direct_issue.sh](create_direct_issue.sh): Internal direct-issue contract script (deprecated as user-facing entrypoint)
 - [generate_pr_description.sh](generate_pr_description.sh): Generate structured merge PR descriptions from GitHub metadata
 - [issue_done_in_dev_status.sh](issue_done_in_dev_status.sh): Manage `done-in-dev` status label on dev merges and issue closure
+- [issue_reopen_on_dev_merge.sh](issue_reopen_on_dev_merge.sh): Reopen issues referenced by `Reopen #...` on merged PRs into `dev` and clear `done-in-dev` label
 - [neutralize_non_compliant_closure_refs.sh](neutralize_non_compliant_closure_refs.sh): Neutralize `Closes/Fixes/Resolves` refs when target issues are non-compliant or explicitly reopened
 - [manager_issues.sh](manager_issues.sh): Route issue lifecycle operations (create, read, update, close, reopen, soft-delete) with deterministic validation
 - [parent_issue_guard.sh](parent_issue_guard.sh): Guard parent issue closure and publish parent/child status summaries
@@ -24,6 +25,7 @@ This document provides an overview of all documentation files in this directory.
 - [tests/generate_pr_description_regression.sh](tests/generate_pr_description_regression.sh): Regression matrix for CLI argument and mode behavior
 - [tests/auto_add_closes_on_dev_pr_regression.sh](tests/auto_add_closes_on_dev_pr_regression.sh): Regression tests for automatic `Closes #...` enrichment on dev-targeting PRs
 - [tests/issue_done_in_dev_status_regression.sh](tests/issue_done_in_dev_status_regression.sh): Regression tests for done-in-dev label lifecycle automation
+- [tests/issue_reopen_on_dev_merge_regression.sh](tests/issue_reopen_on_dev_merge_regression.sh): Regression tests for `Reopen #...` sync on dev-merge
 - [tests/manager_issues_regression.sh](tests/manager_issues_regression.sh): Regression tests for manager_issues create/read/update/close/reopen/soft-delete flows
 
 ## Navigation
