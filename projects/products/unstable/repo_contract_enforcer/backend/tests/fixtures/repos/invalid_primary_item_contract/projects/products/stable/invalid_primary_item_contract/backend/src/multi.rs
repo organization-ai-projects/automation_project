@@ -1,2 +1,4 @@
 pub struct First;
-pub enum Second { A }
+pub enum Second {
+    A,
+}
