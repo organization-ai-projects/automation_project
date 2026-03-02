@@ -76,7 +76,11 @@ impl PublicApi {
                         }
                     })
                     .collect();
-                ResponsePayload::CatalogData { titles }
+                let report_hash = stable_catalog_report_hash(&titles);
+                ResponsePayload::CatalogData {
+                    titles,
+                    report_hash,
+                }
             }
             RequestPayload::PackageCreate {
                 input_files,
@@ -97,10 +101,16 @@ impl PublicApi {
             } => self.recommend(profile, unwatched_only),
             RequestPayload::AnalyticsReport { profile } => {
                 let report = AnalyticsReport::from_log(&self.analytics, &profile);
+                let report_hash = stable_analytics_report_hash(
+                    report.total_watch_ticks,
+                    report.completion_rate_pct,
+                    report.episodes_watched,
+                );
                 ResponsePayload::AnalyticsReport {
                     total_watch_ticks: report.total_watch_ticks,
                     completion_rate_pct: report.completion_rate_pct,
                     episodes_watched: report.episodes_watched,
+                    report_hash,
                 }
             }
         }
@@ -306,4 +316,35 @@ impl PublicApi {
             message: error.to_string(),
         }
     }
+}
+
+fn stable_catalog_report_hash(titles: &[TitleView]) -> String {
+    let mut lines: Vec<String> = titles
+        .iter()
+        .map(|title| {
+            format!(
+                "id={}|name={}|year={}|episode_count={}",
+                title.id, title.name, title.year, title.episode_count
+            )
+        })
+        .collect();
+    lines.sort();
+    let canonical = lines.join("\n");
+    let mut hasher = Sha256::new();
+    hasher.update(canonical.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+fn stable_analytics_report_hash(
+    total_watch_ticks: u64,
+    completion_rate_pct: f32,
+    episodes_watched: usize,
+) -> String {
+    let canonical = format!(
+        "total_watch_ticks={}\ncompletion_rate_pct={:.6}\nepisodes_watched={}",
+        total_watch_ticks, completion_rate_pct, episodes_watched
+    );
+    let mut hasher = Sha256::new();
+    hasher.update(canonical.as_bytes());
+    hex::encode(hasher.finalize())
 }

@@ -12,6 +12,7 @@ pub enum ResponsePayload {
     },
     CatalogData {
         titles: Vec<TitleView>,
+        report_hash: String,
     },
     PackageResult {
         bundle_hash: String,
@@ -30,5 +31,6 @@ pub enum ResponsePayload {
         total_watch_ticks: u64,
         completion_rate_pct: f32,
         episodes_watched: usize,
+        report_hash: String,
     },
 }

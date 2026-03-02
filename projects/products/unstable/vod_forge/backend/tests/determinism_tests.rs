@@ -1,6 +1,8 @@
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
 
+use common_json::{Json, JsonAccess};
+
 fn backend_binary() -> String {
     let mut p = std::env::current_exe().unwrap();
     p.pop();
@@ -40,6 +42,15 @@ fn send_recv(binary: &str, requests: &[&str]) -> Vec<String> {
     let lines: Vec<String> = reader.lines().map(|l| l.unwrap()).collect();
     child.wait().unwrap();
     lines
+}
+
+fn extract_report_hash(response: &str) -> String {
+    let json: Json = common_json::from_json_str(response).expect("valid json response");
+    json.get_field("payload")
+        .and_then(|v| v.get_field("report_hash"))
+        .and_then(|v| v.as_str_strict())
+        .expect("payload.report_hash must exist")
+        .to_string()
 }
 
 #[test]
@@ -210,6 +221,11 @@ fn test_analytics_report_determinism() {
         "unexpected: {}",
         resp2[0]
     );
+
+    let hash1 = extract_report_hash(&resp1[0]);
+    let hash2 = extract_report_hash(&resp2[0]);
+    assert_eq!(hash1, hash2, "analytics report hash should be stable");
+    assert_eq!(hash1.len(), 64, "report hash must be sha256 hex");
 }
 
 #[test]
@@ -236,5 +252,12 @@ fn test_catalog_add_and_list() {
         responses[2].contains("Space Odyssey"),
         "list missing title: {}",
         responses[2]
+    );
+
+    let report_hash = extract_report_hash(&responses[2]);
+    assert_eq!(
+        report_hash.len(),
+        64,
+        "catalog report hash must be sha256 hex"
     );
 }
