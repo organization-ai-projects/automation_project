@@ -1137,6 +1137,12 @@ fi
 
 echo -n > "$issues_tmp"
 for issue_key in "${!seen_issue[@]}"; do
+  if [[ -n "${issue_directive_conflict_reason[$issue_key]:-}" ]]; then
+    continue
+  fi
+  if [[ -n "${issue_directive_resolution[$issue_key]:-}" ]]; then
+    continue
+  fi
   issue_number="${issue_key//#/}"
   echo "${issue_number}|${issue_category[$issue_key]}|${issue_action[$issue_key]}|${issue_key}" >> "$issues_tmp"
 done
@@ -1178,7 +1184,7 @@ if [[ -s "$issues_tmp" ]]; then
         }
       }
     ' > "$resolved_issues_file"
-  issue_count="${#seen_issue[@]}"
+  issue_count="$(wc -l < "$issues_tmp" | tr -d ' ')"
 fi
 
 echo -n > "$reopen_tmp"
