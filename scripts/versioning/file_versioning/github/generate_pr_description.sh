@@ -1600,11 +1600,7 @@ body_content="$({
   echo ""
   echo "### Compatibility"
   echo ""
-  if [[ "$breaking_detected" -eq 1 ]]; then
-    echo "- Breaking change."
-  else
-    echo "- Non-breaking change."
-  fi
+  echo "- See Validation Status for compatibility signal and breaking scope."
   echo ""
   echo "### Issue Outcomes"
   echo ""
