@@ -1,4 +1,4 @@
-use crate::report::report::Report;
+use crate::reports::report::Report;
 use anyhow::Result;
 
 pub struct JsonReportCodec;

@@ -1,3 +1,5 @@
+use crate::{config, reports, rules};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CrateRules;
 
@@ -5,11 +7,11 @@ impl CrateRules {
     pub fn evaluate(
         product_dir: &std::path::Path,
         product_name: &str,
-        scope: crate::config::path_classification::PathClassification,
-        mode: crate::config::enforcement_mode::EnforcementMode,
-    ) -> Vec<crate::report::violation::Violation> {
-        use crate::report::violation_code::ViolationCode;
-        use crate::rules::rule_id::RuleId;
+        scope: config::path_classification::PathClassification,
+        mode: config::enforcement_mode::EnforcementMode,
+    ) -> Vec<reports::violation::Violation> {
+        use reports::violation_code::ViolationCode;
+        use rules::rule_id::RuleId;
 
         let mut out = Vec::new();
         let backend = product_dir.join("backend");
@@ -29,12 +31,10 @@ impl CrateRules {
                 out.push(make_violation(
                     RuleId::Crate,
                     ViolationCode::CrateMissingMain,
-                    scope,
+                    (scope, mode),
                     &main_rs,
                     "crate must contain src/main.rs",
-                    mode,
-                    true,
-                    None,
+                    (true, None),
                 ));
             }
 
@@ -44,12 +44,10 @@ impl CrateRules {
                     out.push(make_violation(
                         RuleId::Crate,
                         ViolationCode::CrateNotBinOnly,
-                        scope,
+                        (scope, mode),
                         &cargo,
                         "crate must be bin-only (no [lib])",
-                        mode,
-                        true,
-                        None,
+                        (true, None),
                     ));
                 }
 
@@ -57,12 +55,10 @@ impl CrateRules {
                     out.push(make_violation(
                         RuleId::Naming,
                         ViolationCode::NameCrateMismatch,
-                        scope,
+                        (scope, mode),
                         &cargo,
                         &format!("{crate_name} crate name must be {expected_name}"),
-                        mode,
-                        true,
-                        None,
+                        (true, None),
                     ));
                 }
             }
@@ -73,28 +69,31 @@ impl CrateRules {
 }
 
 fn make_violation(
-    rule_id: crate::rules::rule_id::RuleId,
-    code: crate::report::violation_code::ViolationCode,
-    scope: crate::config::path_classification::PathClassification,
+    rule_id: rules::rule_id::RuleId,
+    code: reports::violation_code::ViolationCode,
+    context: (
+        config::path_classification::PathClassification,
+        config::enforcement_mode::EnforcementMode,
+    ),
     path: &std::path::Path,
     message: &str,
-    mode: crate::config::enforcement_mode::EnforcementMode,
-    default_blocking: bool,
-    line: Option<u32>,
-) -> crate::report::violation::Violation {
+    meta: (bool, Option<u32>),
+) -> reports::violation::Violation {
+    let (scope, mode) = context;
+    let (default_blocking, line) = meta;
     let mut severity = if default_blocking {
-        crate::config::severity::Severity::Error
+        config::severity::Severity::Error
     } else {
-        crate::config::severity::Severity::Warning
+        config::severity::Severity::Warning
     };
 
-    if mode == crate::config::enforcement_mode::EnforcementMode::Relaxed
-        || scope == crate::config::path_classification::PathClassification::Unstable
+    if mode == config::enforcement_mode::EnforcementMode::Relaxed
+        || scope == config::path_classification::PathClassification::Unstable
     {
-        severity = crate::config::severity::Severity::Warning;
+        severity = config::severity::Severity::Warning;
     }
 
-    crate::report::violation::Violation {
+    reports::violation::Violation {
         rule_id,
         violation_code: code,
         severity,

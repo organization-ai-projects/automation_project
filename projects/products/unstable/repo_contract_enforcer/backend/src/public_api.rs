@@ -3,9 +3,9 @@ use crate::config::path_classification::PathClassification;
 use crate::config::severity::Severity;
 use crate::protocol::message::{Request, RequestPayload};
 use crate::protocol::response::{Response, ResponsePayload};
-use crate::report::report::{Report, ReportSummary};
-use crate::report::report_hash::ReportHash;
-use crate::report::violation::Violation;
+use crate::reports::report::{Report, ReportSummary};
+use crate::reports::report_hash::ReportHash;
+use crate::reports::violation::Violation;
 use crate::rules::rule_engine::RuleEngine;
 use crate::scan::workspace_scanner::WorkspaceScanner;
 use std::collections::HashMap;
@@ -108,7 +108,7 @@ fn finalize_report(
     };
     report.report_hash = hash.clone();
     cache.insert(hash.clone(), report.clone());
-    let _canonical_json = crate::report::json_report_codec::JsonReportCodec::to_json(&report);
+    let _canonical_json = crate::reports::json_report_codec::JsonReportCodec::to_json(&report);
 
     ResponsePayload::Report {
         report_json: report,
@@ -162,8 +162,8 @@ mod tests {
     use super::*;
     use crate::protocol::request::{Request, RequestPayload};
     use crate::protocol::response::ResponsePayload;
-    use crate::report::report::Report;
-    use crate::report::report_hash::ReportHash;
+    use crate::reports::report::Report;
+    use crate::reports::report_hash::ReportHash;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 

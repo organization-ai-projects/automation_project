@@ -1,6 +1,6 @@
 use crate::config::path_classification::PathClassification;
 use crate::config::severity::Severity;
-use crate::report::violation_code::ViolationCode;
+use crate::reports::violation_code::ViolationCode;
 use crate::rules::rule_id::RuleId;
 use serde::{Deserialize, Serialize};
 

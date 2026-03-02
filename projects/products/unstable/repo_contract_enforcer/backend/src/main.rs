@@ -3,7 +3,7 @@ mod diagnostics;
 mod io;
 mod protocol;
 mod public_api;
-mod report;
+mod reports;
 mod rules;
 mod scan;
 

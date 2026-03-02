@@ -6,7 +6,7 @@ impl RuleEngine {
         product_dir: &std::path::Path,
         scope: crate::config::path_classification::PathClassification,
         mode: crate::config::enforcement_mode::EnforcementMode,
-    ) -> Vec<crate::report::violation::Violation> {
+    ) -> Vec<crate::reports::violation::Violation> {
         let product_name = product_dir
             .file_name()
             .and_then(|s| s.to_str())

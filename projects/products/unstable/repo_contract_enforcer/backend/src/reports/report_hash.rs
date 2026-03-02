@@ -1,5 +1,5 @@
-use crate::report::report::Report;
-use crate::report::violation::Violation;
+use crate::reports::report::Report;
+use crate::reports::violation::Violation;
 use anyhow::Result;
 use sha2::{Digest, Sha256};
 

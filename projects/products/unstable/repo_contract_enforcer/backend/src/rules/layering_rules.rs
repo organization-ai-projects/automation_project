@@ -1,3 +1,5 @@
+use crate::{config, reports, rules, scan};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LayeringRules;
 
@@ -5,13 +7,13 @@ impl LayeringRules {
     pub fn evaluate(
         product_dir: &std::path::Path,
         product_name: &str,
-        scope: crate::config::path_classification::PathClassification,
-        mode: crate::config::enforcement_mode::EnforcementMode,
-    ) -> Vec<crate::report::violation::Violation> {
-        use crate::report::violation_code::ViolationCode;
-        use crate::rules::rule_id::RuleId;
-        use crate::scan::file_scanner::FileScanner;
-        use crate::scan::rust_parser::RustParser;
+        scope: config::path_classification::PathClassification,
+        mode: config::enforcement_mode::EnforcementMode,
+    ) -> Vec<reports::violation::Violation> {
+        use reports::violation_code::ViolationCode;
+        use rules::rule_id::RuleId;
+        use scan::file_scanner::FileScanner;
+        use scan::rust_parser::RustParser;
 
         let mut out = Vec::new();
         let ui = product_dir.join("ui");
@@ -27,12 +29,10 @@ impl LayeringRules {
                 out.push(make_violation(
                     RuleId::Layering,
                     ViolationCode::LayerUiImportsBackend,
-                    scope,
+                    (scope, mode),
                     &file,
                     "ui must not import backend internals",
-                    mode,
-                    true,
-                    RustParser::first_line_of(&txt, &pattern),
+                    (true, RustParser::first_line_of(&txt, &pattern)),
                 ));
             }
         }
@@ -42,12 +42,10 @@ impl LayeringRules {
                 out.push(make_violation(
                     RuleId::Layering,
                     ViolationCode::LayerUiSuspectDomainLogic,
-                    scope,
+                    (scope, mode),
                     &path,
                     "ui contains suspicious domain logic module name",
-                    mode,
-                    false,
-                    None,
+                    (false, None),
                 ));
             }
         }
@@ -57,28 +55,31 @@ impl LayeringRules {
 }
 
 fn make_violation(
-    rule_id: crate::rules::rule_id::RuleId,
-    code: crate::report::violation_code::ViolationCode,
-    scope: crate::config::path_classification::PathClassification,
+    rule_id: rules::rule_id::RuleId,
+    code: reports::violation_code::ViolationCode,
+    context: (
+        config::path_classification::PathClassification,
+        config::enforcement_mode::EnforcementMode,
+    ),
     path: &std::path::Path,
     message: &str,
-    mode: crate::config::enforcement_mode::EnforcementMode,
-    default_blocking: bool,
-    line: Option<u32>,
-) -> crate::report::violation::Violation {
+    meta: (bool, Option<u32>),
+) -> reports::violation::Violation {
+    let (scope, mode) = context;
+    let (default_blocking, line) = meta;
     let mut severity = if default_blocking {
-        crate::config::severity::Severity::Error
+        config::severity::Severity::Error
     } else {
-        crate::config::severity::Severity::Warning
+        config::severity::Severity::Warning
     };
 
-    if mode == crate::config::enforcement_mode::EnforcementMode::Relaxed
-        || scope == crate::config::path_classification::PathClassification::Unstable
+    if mode == config::enforcement_mode::EnforcementMode::Relaxed
+        || scope == config::path_classification::PathClassification::Unstable
     {
-        severity = crate::config::severity::Severity::Warning;
+        severity = config::severity::Severity::Warning;
     }
 
-    crate::report::violation::Violation {
+    reports::violation::Violation {
         rule_id,
         violation_code: code,
         severity,

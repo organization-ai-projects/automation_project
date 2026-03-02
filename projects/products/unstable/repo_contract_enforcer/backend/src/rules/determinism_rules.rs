@@ -1,16 +1,18 @@
+use crate::{config, reports, rules, scan};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeterminismRules;
 
 impl DeterminismRules {
     pub fn evaluate(
         product_dir: &std::path::Path,
-        scope: crate::config::path_classification::PathClassification,
-        mode: crate::config::enforcement_mode::EnforcementMode,
-    ) -> Vec<crate::report::violation::Violation> {
-        use crate::report::violation_code::ViolationCode;
-        use crate::rules::rule_id::RuleId;
-        use crate::scan::file_scanner::FileScanner;
-        use crate::scan::rust_parser::RustParser;
+        scope: config::path_classification::PathClassification,
+        mode: config::enforcement_mode::EnforcementMode,
+    ) -> Vec<reports::violation::Violation> {
+        use reports::violation_code::ViolationCode;
+        use rules::rule_id::RuleId;
+        use scan::file_scanner::FileScanner;
+        use scan::rust_parser::RustParser;
 
         let mut out = Vec::new();
         let backend = product_dir.join("backend");
@@ -25,24 +27,23 @@ impl DeterminismRules {
                 out.push(make_violation(
                     RuleId::Determinism,
                     ViolationCode::DetWallClockUsage,
-                    scope,
+                    (scope, mode),
                     &file,
                     "wall-clock API usage is forbidden",
-                    mode,
-                    true,
-                    RustParser::first_line_of_any(&txt, &["SystemTime", "Instant"]),
+                    (
+                        true,
+                        RustParser::first_line_of_any(&txt, &["SystemTime", "Instant"]),
+                    ),
                 ));
             }
             if txt.contains("chrono") {
                 out.push(make_violation(
                     RuleId::Determinism,
                     ViolationCode::DetForbiddenTimeDep,
-                    scope,
+                    (scope, mode),
                     &file,
                     "chrono usage is forbidden in backend core",
-                    mode,
-                    true,
-                    RustParser::first_line_of(&txt, "chrono"),
+                    (true, RustParser::first_line_of(&txt, "chrono")),
                 ));
             }
 
@@ -50,12 +51,10 @@ impl DeterminismRules {
                 out.push(make_violation(
                     RuleId::Determinism,
                     ViolationCode::DetStdoutUsage,
-                    scope,
+                    (scope, mode),
                     &file,
                     "println! outside protocol module is forbidden",
-                    mode,
-                    true,
-                    RustParser::first_line_of(&txt, "println!"),
+                    (true, RustParser::first_line_of(&txt, "println!")),
                 ));
             }
 
@@ -63,12 +62,13 @@ impl DeterminismRules {
                 out.push(make_violation(
                     RuleId::Determinism,
                     ViolationCode::DetNondeterministicRngHeuristic,
-                    scope,
+                    (scope, mode),
                     &file,
                     "possible nondeterministic RNG usage detected",
-                    mode,
-                    false,
-                    RustParser::first_line_of_any(&txt, &["rand::", "thread_rng(", "rand("]),
+                    (
+                        false,
+                        RustParser::first_line_of_any(&txt, &["rand::", "thread_rng(", "rand("]),
+                    ),
                 ));
             }
         }
@@ -78,28 +78,31 @@ impl DeterminismRules {
 }
 
 fn make_violation(
-    rule_id: crate::rules::rule_id::RuleId,
-    code: crate::report::violation_code::ViolationCode,
-    scope: crate::config::path_classification::PathClassification,
+    rule_id: rules::rule_id::RuleId,
+    code: reports::violation_code::ViolationCode,
+    context: (
+        config::path_classification::PathClassification,
+        config::enforcement_mode::EnforcementMode,
+    ),
     path: &std::path::Path,
     message: &str,
-    mode: crate::config::enforcement_mode::EnforcementMode,
-    default_blocking: bool,
-    line: Option<u32>,
-) -> crate::report::violation::Violation {
+    meta: (bool, Option<u32>),
+) -> reports::violation::Violation {
+    let (scope, mode) = context;
+    let (default_blocking, line) = meta;
     let mut severity = if default_blocking {
-        crate::config::severity::Severity::Error
+        config::severity::Severity::Error
     } else {
-        crate::config::severity::Severity::Warning
+        config::severity::Severity::Warning
     };
 
-    if mode == crate::config::enforcement_mode::EnforcementMode::Relaxed
-        || scope == crate::config::path_classification::PathClassification::Unstable
+    if mode == config::enforcement_mode::EnforcementMode::Relaxed
+        || scope == config::path_classification::PathClassification::Unstable
     {
-        severity = crate::config::severity::Severity::Warning;
+        severity = config::severity::Severity::Warning;
     }
 
-    crate::report::violation::Violation {
+    reports::violation::Violation {
         rule_id,
         violation_code: code,
         severity,

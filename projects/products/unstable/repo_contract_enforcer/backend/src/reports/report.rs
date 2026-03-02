@@ -1,5 +1,5 @@
 use crate::config::enforcement_mode::EnforcementMode;
-use crate::report::violation::Violation;
+use crate::reports::violation::Violation;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

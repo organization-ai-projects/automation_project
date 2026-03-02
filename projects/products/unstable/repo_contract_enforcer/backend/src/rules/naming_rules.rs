@@ -1,37 +1,35 @@
+use crate::{config, reports, rules};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamingRules;
 
 impl NamingRules {
     pub fn evaluate(
         product_dir: &std::path::Path,
-        scope: crate::config::path_classification::PathClassification,
-        mode: crate::config::enforcement_mode::EnforcementMode,
-    ) -> Vec<crate::report::violation::Violation> {
+        scope: config::path_classification::PathClassification,
+        mode: config::enforcement_mode::EnforcementMode,
+    ) -> Vec<reports::violation::Violation> {
         let mut out = Vec::new();
         let Some(dir_name) = product_dir.file_name().and_then(|n| n.to_str()) else {
             out.push(make_violation(
-                crate::rules::rule_id::RuleId::Naming,
-                crate::report::violation_code::ViolationCode::NameProductMismatch,
-                scope,
+                rules::rule_id::RuleId::Naming,
+                reports::violation_code::ViolationCode::NameProductMismatch,
+                (scope, mode),
                 product_dir,
                 "unable to resolve product directory name",
-                mode,
-                true,
-                None,
+                (true, None),
             ));
             return out;
         };
 
         if dir_name.is_empty() {
             out.push(make_violation(
-                crate::rules::rule_id::RuleId::Naming,
-                crate::report::violation_code::ViolationCode::NameProductMismatch,
-                scope,
+                rules::rule_id::RuleId::Naming,
+                reports::violation_code::ViolationCode::NameProductMismatch,
+                (scope, mode),
                 product_dir,
                 "product directory name must not be empty",
-                mode,
-                true,
-                None,
+                (true, None),
             ));
         }
 
@@ -40,28 +38,31 @@ impl NamingRules {
 }
 
 fn make_violation(
-    rule_id: crate::rules::rule_id::RuleId,
-    code: crate::report::violation_code::ViolationCode,
-    scope: crate::config::path_classification::PathClassification,
+    rule_id: rules::rule_id::RuleId,
+    code: reports::violation_code::ViolationCode,
+    context: (
+        config::path_classification::PathClassification,
+        config::enforcement_mode::EnforcementMode,
+    ),
     path: &std::path::Path,
     message: &str,
-    mode: crate::config::enforcement_mode::EnforcementMode,
-    default_blocking: bool,
-    line: Option<u32>,
-) -> crate::report::violation::Violation {
+    meta: (bool, Option<u32>),
+) -> reports::violation::Violation {
+    let (scope, mode) = context;
+    let (default_blocking, line) = meta;
     let mut severity = if default_blocking {
-        crate::config::severity::Severity::Error
+        config::severity::Severity::Error
     } else {
-        crate::config::severity::Severity::Warning
+        config::severity::Severity::Warning
     };
 
-    if mode == crate::config::enforcement_mode::EnforcementMode::Relaxed
-        || scope == crate::config::path_classification::PathClassification::Unstable
+    if mode == config::enforcement_mode::EnforcementMode::Relaxed
+        || scope == config::path_classification::PathClassification::Unstable
     {
-        severity = crate::config::severity::Severity::Warning;
+        severity = config::severity::Severity::Warning;
     }
 
-    crate::report::violation::Violation {
+    reports::violation::Violation {
         rule_id,
         violation_code: code,
         severity,

@@ -1,15 +1,17 @@
+use crate::{config, reports, rules, scan};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StructureRules;
 
 impl StructureRules {
     pub fn evaluate(
         product_dir: &std::path::Path,
-        scope: crate::config::path_classification::PathClassification,
-        mode: crate::config::enforcement_mode::EnforcementMode,
-    ) -> Vec<crate::report::violation::Violation> {
-        use crate::report::violation_code::ViolationCode;
-        use crate::rules::rule_id::RuleId;
-        use crate::scan::crate_scanner::CrateScanner;
+        scope: config::path_classification::PathClassification,
+        mode: config::enforcement_mode::EnforcementMode,
+    ) -> Vec<reports::violation::Violation> {
+        use reports::violation_code::ViolationCode;
+        use rules::rule_id::RuleId;
+        use scan::crate_scanner::CrateScanner;
 
         let mut out = Vec::new();
         let backend = product_dir.join("backend");
@@ -18,12 +20,10 @@ impl StructureRules {
             out.push(make_violation(
                 RuleId::Structure,
                 ViolationCode::StructMissingBackendOrUi,
-                scope,
+                (scope, mode),
                 product_dir,
                 "product must include backend/ and ui/ crates",
-                mode,
-                true,
-                None,
+                (true, None),
             ));
         }
 
@@ -35,12 +35,10 @@ impl StructureRules {
             out.push(make_violation(
                 RuleId::Structure,
                 ViolationCode::StructThirdCrateDetected,
-                scope,
+                (scope, mode),
                 &product_dir.join(extra),
                 "only backend and ui crates are allowed",
-                mode,
-                true,
-                None,
+                (true, None),
             ));
         }
 
@@ -59,12 +57,10 @@ impl StructureRules {
             out.push(make_violation(
                 RuleId::Structure,
                 ViolationCode::StructThirdCrateDetected,
-                scope,
+                (scope, mode),
                 &root_cargo,
                 &detail,
-                mode,
-                true,
-                None,
+                (true, None),
             ));
         }
 
@@ -72,12 +68,10 @@ impl StructureRules {
             out.push(make_violation(
                 RuleId::Structure,
                 ViolationCode::StructMissingReadme,
-                scope,
+                (scope, mode),
                 product_dir,
                 "product root must contain README.md",
-                mode,
-                true,
-                None,
+                (true, None),
             ));
         }
 
@@ -86,12 +80,10 @@ impl StructureRules {
                 out.push(make_violation(
                     RuleId::Structure,
                     ViolationCode::StructForbiddenFolderName,
-                    scope,
+                    (scope, mode),
                     &product_dir.join(bad),
                     "forbidden folder name detected",
-                    mode,
-                    true,
-                    None,
+                    (true, None),
                 ));
             }
         }
@@ -101,28 +93,31 @@ impl StructureRules {
 }
 
 fn make_violation(
-    rule_id: crate::rules::rule_id::RuleId,
-    code: crate::report::violation_code::ViolationCode,
-    scope: crate::config::path_classification::PathClassification,
+    rule_id: rules::rule_id::RuleId,
+    code: reports::violation_code::ViolationCode,
+    context: (
+        config::path_classification::PathClassification,
+        config::enforcement_mode::EnforcementMode,
+    ),
     path: &std::path::Path,
     message: &str,
-    mode: crate::config::enforcement_mode::EnforcementMode,
-    default_blocking: bool,
-    line: Option<u32>,
-) -> crate::report::violation::Violation {
+    meta: (bool, Option<u32>),
+) -> reports::violation::Violation {
+    let (scope, mode) = context;
+    let (default_blocking, line) = meta;
     let mut severity = if default_blocking {
-        crate::config::severity::Severity::Error
+        config::severity::Severity::Error
     } else {
-        crate::config::severity::Severity::Warning
+        config::severity::Severity::Warning
     };
 
-    if mode == crate::config::enforcement_mode::EnforcementMode::Relaxed
-        || scope == crate::config::path_classification::PathClassification::Unstable
+    if mode == config::enforcement_mode::EnforcementMode::Relaxed
+        || scope == config::path_classification::PathClassification::Unstable
     {
-        severity = crate::config::severity::Severity::Warning;
+        severity = config::severity::Severity::Warning;
     }
 
-    crate::report::violation::Violation {
+    reports::violation::Violation {
         rule_id,
         violation_code: code,
         severity,

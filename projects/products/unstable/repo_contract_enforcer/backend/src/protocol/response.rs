@@ -1,4 +1,4 @@
-use crate::report::report::Report;
+use crate::reports::report::Report;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +20,6 @@ pub enum ResponsePayload {
     Report {
         report_json: Report,
         report_hash: String,
-        summary: crate::report::report::ReportSummary,
+        summary: crate::reports::report::ReportSummary,
     },
 }
