@@ -22,18 +22,25 @@ gh_label_exists() {
     | grep -Fxq "$label"
 }
 
+github_issue_view_field() {
+  local repo="$1"
+  local issue_number="$2"
+  local json_field="$3"
+  local jq_query="$4"
+  gh issue view "$issue_number" -R "$repo" --json "$json_field" --jq "$jq_query" 2>/dev/null || true
+}
+
 gh_issue_state() {
   local repo="$1"
   local issue_number="$2"
-  gh issue view "$issue_number" -R "$repo" --json state -q '.state // ""' 2>/dev/null || true
+  github_issue_view_field "$repo" "$issue_number" "state" '.state // ""'
 }
 
 gh_issue_has_label() {
   local repo="$1"
   local issue_number="$2"
   local label="$3"
-  gh issue view "$issue_number" -R "$repo" --json labels --jq '.labels[].name' 2>/dev/null \
-    | grep -Fxq "$label"
+  github_issue_view_field "$repo" "$issue_number" "labels" '.labels[].name' | grep -Fxq "$label"
 }
 
 github_issue_extract_tasklist_refs() {
@@ -68,17 +75,17 @@ github_issue_extract_subissue_refs() {
 github_issue_list_open_by_label() {
   local label="${1:-}"
   local repo_name="${2:-${GH_REPO:-}}"
+  local cmd=(gh issue list --label "$label" --state open --json number,title,url --jq '.[] | "\(.number)|\(.title)|\(.url)"')
 
   [[ -n "$label" ]] || return 0
 
   if [[ -n "$repo_name" ]]; then
-    gh issue list -R "$repo_name" --label "$label" --state open --json number,title,url \
-      --jq '.[] | "\(.number)|\(.title)|\(.url)"' 2>/dev/null || true
+    cmd=(gh issue list -R "$repo_name" --label "$label" --state open --json number,title,url --jq '.[] | "\(.number)|\(.title)|\(.url)"')
+    "${cmd[@]}" 2>/dev/null || true
     return 0
   fi
 
-  gh issue list --label "$label" --state open --json number,title,url \
-    --jq '.[] | "\(.number)|\(.title)|\(.url)"' 2>/dev/null || true
+  "${cmd[@]}" 2>/dev/null || true
 }
 
 github_issue_upsert_marker_comment() {
