@@ -908,6 +908,39 @@ mark_inferred_decisions_from_text() {
   done < <(parse_directive_events_from_text "$text")
 }
 
+ingest_issue_refs_from_text() {
+  local source_text="$1"
+  local source_category="$2"
+  local closing_mode="$3"
+  local source_debug_label="$4"
+  local closing_refs=""
+
+  [[ -n "$source_text" ]] || return 0
+
+  mark_inferred_decisions_from_text "$source_text"
+  mark_directive_decisions_from_text "$source_text"
+
+  while IFS='|' read -r _ issue_key; do
+    mark_reopen_issue "$issue_key" "$source_category"
+  done < <(parse_reopen_issue_refs_from_text "$source_text")
+
+  if [[ "$closing_mode" == "pr_body" ]]; then
+    closing_refs="$(parse_pr_body_closing_issue_refs_from_text "$source_text")"
+  else
+    closing_refs="$(parse_closing_issue_refs_from_text "$source_text")"
+  fi
+
+  while IFS='|' read -r action issue_key; do
+    [[ -z "${action:-}" || -z "${issue_key:-}" ]] && continue
+    debug_log "parsed_issue_ref(${source_debug_label}): ${action}|${issue_key}"
+    add_issue_entry "$action" "$issue_key" "$source_category"
+  done <<< "$closing_refs"
+
+  while IFS='|' read -r duplicate_issue canonical_issue; do
+    add_duplicate_entry "$duplicate_issue" "$canonical_issue"
+  done < <(parse_duplicate_refs_from_text "$source_text")
+}
+
 add_issue_entry() {
   local action="$1"
   local issue_key="$2"
@@ -1052,18 +1085,7 @@ if [[ -s "$extracted_prs_file" ]]; then
     if text_indicates_breaking "$pr_body"; then
       breaking_detected=1
     fi
-      mark_inferred_decisions_from_text "$pr_body"
-      mark_directive_decisions_from_text "$pr_body"
-      while IFS='|' read -r _ issue_key; do
-        mark_reopen_issue "$issue_key" "$pr_category"
-      done < <(parse_reopen_issue_refs_from_text "$pr_body")
-      while IFS='|' read -r action issue_key; do
-        debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
-        add_issue_entry "$action" "$issue_key" "$pr_category"
-      done < <(parse_pr_body_closing_issue_refs_from_text "$pr_body")
-      while IFS='|' read -r duplicate_issue canonical_issue; do
-        add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-      done < <(parse_duplicate_refs_from_text "$pr_body")
+      ingest_issue_refs_from_text "$pr_body" "$pr_category" "pr_body" "pr ${pr_ref}"
     fi
 
     :
@@ -1078,18 +1100,7 @@ if [[ "$dry_run" == "true" ]]; then
     if text_indicates_breaking "$dry_commit_messages"; then
       breaking_detected=1
     fi
-    mark_inferred_decisions_from_text "$dry_commit_messages"
-    mark_directive_decisions_from_text "$dry_commit_messages"
-    while IFS='|' read -r _ issue_key; do
-      mark_reopen_issue "$issue_key" "Mixed"
-    done < <(parse_reopen_issue_refs_from_text "$dry_commit_messages")
-    while IFS='|' read -r action issue_key; do
-      debug_log "parsed_issue_ref(dry commits): ${action}|${issue_key}"
-      add_issue_entry "$action" "$issue_key" "Mixed"
-    done < <(parse_closing_issue_refs_from_text "$dry_commit_messages")
-    while IFS='|' read -r duplicate_issue canonical_issue; do
-      add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-    done < <(parse_duplicate_refs_from_text "$dry_commit_messages")
+    ingest_issue_refs_from_text "$dry_commit_messages" "Mixed" "generic" "dry commits"
   fi
 fi
 
@@ -1100,36 +1111,14 @@ if [[ "$dry_run" == "false" ]]; then
     if text_indicates_breaking "$main_pr_body"; then
       breaking_detected=1
     fi
-    mark_inferred_decisions_from_text "$main_pr_body"
-    mark_directive_decisions_from_text "$main_pr_body"
-    while IFS='|' read -r _ issue_key; do
-      mark_reopen_issue "$issue_key" "Mixed"
-    done < <(parse_reopen_issue_refs_from_text "$main_pr_body")
-    while IFS='|' read -r action issue_key; do
-      debug_log "parsed_issue_ref(main pr): ${action}|${issue_key}"
-      add_issue_entry "$action" "$issue_key" "Mixed"
-    done < <(parse_pr_body_closing_issue_refs_from_text "$main_pr_body")
-    while IFS='|' read -r duplicate_issue canonical_issue; do
-      add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-    done < <(parse_duplicate_refs_from_text "$main_pr_body")
+    ingest_issue_refs_from_text "$main_pr_body" "Mixed" "pr_body" "main pr"
   fi
 
   if [[ -n "$auto_edit_pr_number" ]]; then
     # Keep --refresh-pr behavior aligned with --dry-run issue extraction.
     refresh_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
     if [[ -n "$refresh_compare_commit_messages" ]]; then
-      mark_inferred_decisions_from_text "$refresh_compare_commit_messages"
-      mark_directive_decisions_from_text "$refresh_compare_commit_messages"
-      while IFS='|' read -r _ issue_key; do
-        mark_reopen_issue "$issue_key" "Mixed"
-      done < <(parse_reopen_issue_refs_from_text "$refresh_compare_commit_messages")
-      while IFS='|' read -r action issue_key; do
-        debug_log "parsed_issue_ref(refresh commits): ${action}|${issue_key}"
-        add_issue_entry "$action" "$issue_key" "Mixed"
-      done < <(parse_closing_issue_refs_from_text "$refresh_compare_commit_messages")
-      while IFS='|' read -r duplicate_issue canonical_issue; do
-        add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-      done < <(parse_duplicate_refs_from_text "$refresh_compare_commit_messages")
+      ingest_issue_refs_from_text "$refresh_compare_commit_messages" "Mixed" "generic" "refresh commits"
     fi
   fi
 
