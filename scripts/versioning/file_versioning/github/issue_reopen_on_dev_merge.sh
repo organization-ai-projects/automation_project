@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/versioning/file_versioning/github/lib/issue_refs.sh
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
+# shellcheck source=scripts/versioning/file_versioning/github/lib/gh_issue_helpers.sh
+source "${SCRIPT_DIR}/lib/gh_issue_helpers.sh"
 # shellcheck source=scripts/versioning/file_versioning/github/lib/directive_resolution.sh
 source "${SCRIPT_DIR}/lib/directive_resolution.sh"
 
@@ -30,35 +32,6 @@ require_cmd() {
     echo "Error: command '${cmd}' is required." >&2
     exit 3
   fi
-}
-
-resolve_repo_name() {
-  if [[ -n "${GH_REPO:-}" ]]; then
-    echo "$GH_REPO"
-    return 0
-  fi
-  gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true
-}
-
-label_exists() {
-  local repo="$1"
-  local label="$2"
-  gh label list -R "$repo" --limit 1000 --json name --jq '.[].name' 2>/dev/null \
-    | grep -Fxq "$label"
-}
-
-issue_state() {
-  local repo="$1"
-  local issue_number="$2"
-  gh issue view "$issue_number" -R "$repo" --json state -q '.state // ""' 2>/dev/null || true
-}
-
-issue_has_label() {
-  local repo="$1"
-  local issue_number="$2"
-  local label="$3"
-  gh issue view "$issue_number" -R "$repo" --json labels --jq '.labels[].name' 2>/dev/null \
-    | grep -Fxq "$label"
 }
 
 sync_issue_project_status_on_reopen() {
@@ -180,7 +153,7 @@ require_number "--pr" "$pr_number"
 require_cmd gh
 require_cmd jq
 
-repo_name="$(resolve_repo_name)"
+repo_name="$(gh_resolve_repo_name)"
 if [[ -z "$repo_name" ]]; then
   echo "Error: unable to resolve repository name." >&2
   exit 3
@@ -221,12 +194,12 @@ if [[ ${#reopen_issue_numbers[@]} -eq 0 ]]; then
 fi
 
 label_available="false"
-if label_exists "$repo_name" "$label_name"; then
+if gh_label_exists "$repo_name" "$label_name"; then
   label_available="true"
 fi
 
 for n in "${reopen_issue_numbers[@]}"; do
-  state="$(issue_state "$repo_name" "$n")"
+  state="$(gh_issue_state "$repo_name" "$n")"
   if [[ -z "$state" ]]; then
     echo "Issue #${n}: unreadable; skipping reopen sync."
     continue
@@ -239,7 +212,7 @@ for n in "${reopen_issue_numbers[@]}"; do
     echo "Issue #${n}: state=${state}; no reopen needed."
   fi
 
-  if [[ "$label_available" == "true" ]] && issue_has_label "$repo_name" "$n" "$label_name"; then
+  if [[ "$label_available" == "true" ]] && gh_issue_has_label "$repo_name" "$n" "$label_name"; then
     gh issue edit "$n" -R "$repo_name" --remove-label "$label_name" >/dev/null
     echo "Issue #${n}: removed label '${label_name}' due to Reopen ref."
   fi
