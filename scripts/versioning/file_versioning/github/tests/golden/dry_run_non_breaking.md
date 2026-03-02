@@ -10,11 +10,27 @@ This pull request merges the `test-head` branch into `dev` and summarizes merged
 
 - Non-breaking change.
 
-### Issues Resolved
+### Issue Outcomes
 
-This PR resolves the following issues:
+#### Category 1: Issues Without Conflicts
+
+##### Closes/Fixes
 
 - No resolved issues detected via GitHub references or PR body keywords.
+
+##### Reopened
+
+- No reopened issues detected.
+
+#### Category 2: Issues With Conflicts
+
+##### Auto-resolved
+
+- No auto-resolved directive conflicts.
+
+##### Not resolved
+
+- No unresolved directive conflicts.
 
 ### Key Changes
 
