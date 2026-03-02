@@ -18,15 +18,9 @@ pub fn handle_preview_git_autopilot(_req: PreviewRequest) -> Result<PreviewRespo
         ..AutopilotPolicy::default()
     };
 
-    println!(
-        "[debug] handle_preview_git_autopilot: Starting with policy: {:?}",
-        policy
-    );
-
     let report = match run_git_autopilot(AutopilotMode::DryRun, &policy) {
         Ok(r) => r,
         Err(e) => {
-            println!("[error] handle_preview_git_autopilot: Error running autopilot: {e}");
             return Err(HandlerError::internal_error(
                 E_HANDLER_FAILED,
                 format!("Autopilot execution failed: {e}"),
@@ -55,15 +49,9 @@ pub fn handle_apply_git_autopilot(_req: ApplyRequest) -> Result<ApplyResponse, H
         ..AutopilotPolicy::default()
     };
 
-    println!(
-        "[debug] handle_apply_git_autopilot: Starting with policy: {:?}",
-        policy
-    );
-
     let report = match run_git_autopilot(AutopilotMode::ApplySafe, &policy) {
         Ok(r) => r,
         Err(e) => {
-            println!("[error] handle_apply_git_autopilot: Error running autopilot: {e}");
             return Err(HandlerError::internal_error(
                 E_HANDLER_FAILED,
                 e.to_string(),

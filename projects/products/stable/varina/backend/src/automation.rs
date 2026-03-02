@@ -57,11 +57,10 @@ pub fn run_git_autopilot_in_repo(
         "[git] branch={branch} detached_head={detached_head}"
     ));
 
-    println!(
-        "[debug] run_git_autopilot_in_repo: Starting with repo_path: {:?}, mode: {:?}, policy: {:?}",
+    logs.push(format!(
+        "[debug] run_git_autopilot_in_repo: repo_path={:?}, mode={:?}, policy={:?}",
         repo_path, mode, policy
-    );
-    println!("[debug] Logs initialized: {:?}", logs);
+    ));
 
     if detached_head {
         return Err(format!(
@@ -113,13 +112,13 @@ pub fn run_git_autopilot_in_repo(
         });
     }
 
-    println!("[debug] Validating relevant and blocked changes");
-    println!("[debug] Detected changes: {:?}", changes);
-    println!("[debug] Classified changes: {:?}", classified);
+    logs.push("[debug] validating relevant and blocked changes".into());
+    logs.push(format!("[debug] detected changes: {:?}", changes));
+    logs.push(format!("[debug] classified changes: {:?}", classified));
 
     // Conflicts: check XY bytes directly (robust).
     if has_merge_conflicts(&changes) {
-        println!("[debug] Merge conflicts detected");
+        logs.push("[debug] merge conflicts detected".into());
         return Err(
             "Merge conflicts detected. Resolve conflicts before continuing."
                 .to_string()
@@ -129,7 +128,10 @@ pub fn run_git_autopilot_in_repo(
 
     // Blocked -> hard stop.
     if !classified.blocked.is_empty() {
-        println!("[debug] Blocked changes detected: {:?}", classified.blocked);
+        logs.push(format!(
+            "[debug] blocked changes detected: {:?}",
+            classified.blocked
+        ));
         return Err(format!(
             "Refusal: Blocked changes detected: {:?}",
             classified.blocked
@@ -140,10 +142,10 @@ pub fn run_git_autopilot_in_repo(
 
     // Unrelated -> hard stop if policy says so.
     if policy.fail_on_unrelated_changes && !classified.unrelated.is_empty() {
-        println!(
-            "[debug] Unrelated changes detected: {:?}",
+        logs.push(format!(
+            "[debug] unrelated changes detected: {:?}",
             classified.unrelated
-        );
+        ));
         return Err(format!(
             "Refusal: Unrelated changes detected: {:?}",
             classified.unrelated
@@ -231,7 +233,7 @@ pub fn run_git_autopilot_in_repo(
         .expect("Unable to check Git processes");
 
     if !git_processes.stdout.is_empty() {
-        println!("[warning] Active Git processes detected. This might cause conflicts.");
+        logs.push("[warning] active git processes detected; this might cause conflicts".into());
     }
 
     // Pre-checks before apply
@@ -277,19 +279,22 @@ pub fn run_git_autopilot_in_repo(
                 classified.relevant.to_vec()
             ));
 
-            println!(
-                "[debug] Adding relevant paths to Git index: {:?}",
+            logs.push(format!(
+                "[debug] adding relevant paths to git index: {:?}",
                 classified.relevant
-            );
+            ));
             git_add_paths(&repo_path, &classified.relevant.to_vec(), &mut logs)?;
 
             // Commit (subject + body)
-            println!("[debug] Attempting commit with changes: {:?}", changes);
+            logs.push(format!(
+                "[debug] attempting commit with changes: {:?}",
+                changes
+            ));
 
-            println!(
-                "[debug] Commit message: {:?}",
+            logs.push(format!(
+                "[debug] commit message: {:?}",
                 build_commit_message(&branch, &classified.relevant)
-            );
+            ));
             git_commit(&repo_path, &commit_subject, &commit_body, &mut logs)?;
             applied = true;
 
@@ -329,7 +334,7 @@ pub fn run_git_autopilot_in_repo(
         ));
     }
 
-    println!("[debug] Final logs: {:?}", logs);
+    logs.push("[debug] final logs prepared".into());
 
     let mut report = AutopilotReport {
         mode,
