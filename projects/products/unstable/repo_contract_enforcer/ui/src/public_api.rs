@@ -4,7 +4,9 @@ use crate::cli::args::Args;
 use crate::cli::command::{Command, Mode};
 use crate::render::human_printer::HumanPrinter;
 use crate::render::json_printer::JsonPrinter;
-use crate::transport::ipc_client::{IpcClient, ReportMode, RequestPayload, ResponsePayload};
+use crate::transport::ipc_client::{
+    IpcClient, Report, ReportMode, RequestPayload, ResponsePayload,
+};
 
 pub fn run_cli(args: &[String]) -> Result<i32> {
     let parsed = parse_args(args)?;
@@ -32,11 +34,7 @@ pub fn run_cli(args: &[String]) -> Result<i32> {
             } else {
                 HumanPrinter::print_report(&report_json);
             }
-
-            if report_json.mode == ReportMode::Strict && report_json.summary.stable_error_count > 0
-            {
-                exit_code = 3;
-            }
+            exit_code = strict_blocking_exit_code(&report_json);
         }
         ResponsePayload::Error { code, message, .. } => {
             eprintln!("backend error [{code}]: {message}");
@@ -51,6 +49,14 @@ pub fn run_cli(args: &[String]) -> Result<i32> {
 
     client.close();
     Ok(exit_code)
+}
+
+fn strict_blocking_exit_code(report: &Report) -> i32 {
+    if report.mode == ReportMode::Strict && report.summary.stable_error_count > 0 {
+        3
+    } else {
+        0
+    }
 }
 
 pub(crate) fn parse_args(args: &[String]) -> Result<Args> {
@@ -170,5 +176,39 @@ mod tests {
             }
             _ => panic!("expected check-product command"),
         }
+    }
+
+    #[test]
+    fn strict_mode_with_stable_errors_returns_3() {
+        let report = Report {
+            repository_root: ".".to_string(),
+            mode: ReportMode::Strict,
+            violations: Vec::new(),
+            summary: crate::transport::ipc_client::ReportSummary {
+                stable_error_count: 1,
+                stable_warning_count: 0,
+                unstable_error_count: 0,
+                unstable_warning_count: 0,
+            },
+            report_hash: "h".to_string(),
+        };
+        assert_eq!(strict_blocking_exit_code(&report), 3);
+    }
+
+    #[test]
+    fn relaxed_mode_never_blocks_even_with_errors() {
+        let report = Report {
+            repository_root: ".".to_string(),
+            mode: ReportMode::Relaxed,
+            violations: Vec::new(),
+            summary: crate::transport::ipc_client::ReportSummary {
+                stable_error_count: 2,
+                stable_warning_count: 0,
+                unstable_error_count: 1,
+                unstable_warning_count: 0,
+            },
+            report_hash: "h".to_string(),
+        };
+        assert_eq!(strict_blocking_exit_code(&report), 0);
     }
 }

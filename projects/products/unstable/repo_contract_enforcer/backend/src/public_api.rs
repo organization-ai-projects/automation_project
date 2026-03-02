@@ -332,4 +332,26 @@ mod tests {
                 .all(|v| v.severity == Severity::Warning)
         );
     }
+
+    #[test]
+    fn fixture_invalid_stable_ui_import_matches_golden() {
+        let root = fixture_root("invalid_stable_ui_imports_backend");
+        let report = run_check_repo_report(&root, EnforcementMode::Strict);
+        let normalized = normalized_report(report, &root);
+        assert_matches_golden(
+            "expected_report_invalid_stable_ui_imports_backend.json",
+            &normalized,
+        );
+    }
+
+    #[test]
+    fn fixture_invalid_stable_wall_clock_matches_golden() {
+        let root = fixture_root("invalid_backend_wall_clock");
+        let report = run_check_repo_report(&root, EnforcementMode::Strict);
+        let normalized = normalized_report(report, &root);
+        assert_matches_golden(
+            "expected_report_invalid_backend_wall_clock.json",
+            &normalized,
+        );
+    }
 }
