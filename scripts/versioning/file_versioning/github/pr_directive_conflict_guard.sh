@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/directive_resolution.sh"
 
 usage() {
   cat <<USAGE
@@ -131,76 +133,38 @@ fi
 original_body="$(echo "$pr_json" | jq -r '.body // ""')"
 updated_body="$original_body"
 
-declare -A closing_requested
-declare -A reopen_requested
-declare -A directive_decision
-declare -A inferred_decision
 declare -A unresolved_conflict
 declare -A resolved_conflict
 unresolved_count=0
 resolved_count=0
-allow_inferred_resolution="true"
-
-while IFS='|' read -r action issue_key; do
-  issue_key="$(trim "$issue_key")"
-  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-  if [[ "$action" == "Closes" ]]; then
-    closing_requested["$issue_key"]=1
-  fi
-done < <(parse_closing_issue_refs_from_text "$original_body")
-
-while IFS='|' read -r _ issue_key; do
-  issue_key="$(trim "$issue_key")"
-  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-  reopen_requested["$issue_key"]=1
-done < <(parse_reopen_issue_refs_from_text "$original_body")
-
-while IFS='|' read -r issue_key decision; do
-  issue_key="$(trim "$issue_key")"
-  decision="$(trim "$decision" | tr '[:upper:]' '[:lower:]')"
-  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-  [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
-  directive_decision["$issue_key"]="$decision"
-done < <(parse_directive_decisions_from_text "$original_body")
 
 commit_messages="$(gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
-source_branch_count="$(
-  printf '%s\n' "$commit_messages" \
-    | sed -nE 's@.*Merge pull request #[0-9]+ from [^/]+/(.+)@\1@p' \
-    | sort -u | sed '/^$/d' | wc -l | tr -d ' '
-)"
-if [[ "${source_branch_count:-0}" -gt 1 ]]; then
-  allow_inferred_resolution="false"
-fi
 directive_payload="${commit_messages}"$'\n'"${original_body}"
-while IFS='|' read -r action issue_key; do
+while IFS='|' read -r issue_key close_flag reopen_flag decision source reason; do
   issue_key="$(trim "$issue_key")"
   [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-  case "$action" in
-    Closes) inferred_decision["$issue_key"]="close" ;;
-    Reopen) inferred_decision["$issue_key"]="reopen" ;;
-  esac
-done < <(parse_directive_events_from_text "$directive_payload")
-
-for issue_key in "${!closing_requested[@]}"; do
-  if [[ -z "${reopen_requested[$issue_key]:-}" ]]; then
+  if [[ "$close_flag" != "1" || "$reopen_flag" != "1" ]]; then
     continue
   fi
-  if [[ -n "${directive_decision[$issue_key]:-}" ]]; then
-    resolved_conflict["$issue_key"]="${directive_decision[$issue_key]} (explicit)"
-    resolved_count=$((resolved_count + 1))
-  elif [[ "$allow_inferred_resolution" == "true" && -n "${inferred_decision[$issue_key]:-}" ]]; then
-    resolved_conflict["$issue_key"]="${inferred_decision[$issue_key]} (inferred from latest directive)"
-    resolved_count=$((resolved_count + 1))
-  else
-    if [[ "$allow_inferred_resolution" != "true" ]]; then
-      unresolved_conflict["$issue_key"]="Closes + Reopen detected across multiple source branches; explicit decision required."
-    else
-      unresolved_conflict["$issue_key"]="Closes + Reopen detected without explicit decision."
-    fi
-    unresolved_count=$((unresolved_count + 1))
-  fi
-done
+  case "$source" in
+    explicit)
+      resolved_conflict["$issue_key"]="${decision} (explicit)"
+      resolved_count=$((resolved_count + 1))
+      ;;
+    inferred)
+      resolved_conflict["$issue_key"]="${decision} (inferred from latest directive)"
+      resolved_count=$((resolved_count + 1))
+      ;;
+    unresolved|*)
+      if [[ "$reason" == "closes-and-reopen-across-multiple-source-branches" ]]; then
+        unresolved_conflict["$issue_key"]="Closes + Reopen detected across multiple source branches; explicit decision required."
+      else
+        unresolved_conflict["$issue_key"]="Closes + Reopen detected without explicit decision."
+      fi
+      unresolved_count=$((unresolved_count + 1))
+      ;;
+  esac
+done < <(resolve_issue_directives "$directive_payload" "$original_body" "$commit_messages")
 
 # Apply explicit close decision by neutralizing Reopen refs.
 for issue_key in "${!resolved_conflict[@]}"; do
