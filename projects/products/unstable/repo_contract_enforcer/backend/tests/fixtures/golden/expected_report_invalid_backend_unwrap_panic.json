@@ -1,31 +1,40 @@
 {
-  "report_hash": "e38a86df65b9e7138f9f3efba7c70b6fb73de9a671b7fa710e9614e939aa0f3c",
-  "mode": "strict",
+  "report_hash": "a0fbd10d4bb08d5ef13cf3e2224110d641bf2fde17b27c6f328b59c962f489c8",
   "violations": [
     {
-      "message": "unwrap/expect usage may panic at runtime",
       "rule_id": "determinism",
-      "violation_code": "DET_UNWRAP_RISK",
-      "severity": "ERROR",
-      "scope": "stable",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "line": 3
+      "message": "unwrap/expect usage may panic at runtime",
+      "scope": "stable",
+      "line": 3,
+      "violation_code": "DET_UNWRAP_RISK",
+      "severity": "ERROR"
+    },
+    {
+      "line": 3,
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
+      "rule_id": "determinism",
+      "severity": "WARNING",
+      "scope": "stable",
+      "message": "underscore-based bindings/discards may hide unused values",
+      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING"
     },
     {
       "rule_id": "determinism",
-      "message": "panic-like macros are forbidden in backend product code",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "violation_code": "DET_PANIC_RISK",
       "severity": "ERROR",
       "scope": "stable",
-      "line": 4
+      "message": "panic-like macros are forbidden in backend product code",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
+      "line": 4,
+      "violation_code": "DET_PANIC_RISK"
     }
   ],
   "repository_root": "<FIXTURE_ROOT>",
+  "mode": "strict",
   "summary": {
-    "stable_warning_count": 0,
+    "stable_error_count": 2,
+    "stable_warning_count": 1,
     "unstable_error_count": 0,
-    "unstable_warning_count": 0,
-    "stable_error_count": 2
+    "unstable_warning_count": 0
   }
 }

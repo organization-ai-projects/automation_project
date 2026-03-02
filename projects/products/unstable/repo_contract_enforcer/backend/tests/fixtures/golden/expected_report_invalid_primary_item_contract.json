@@ -1,31 +1,31 @@
 {
-  "repository_root": "<FIXTURE_ROOT>",
+  "mode": "strict",
   "violations": [
     {
-      "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
-      "line": null,
       "rule_id": "crate",
-      "scope": "stable",
+      "message": "primary item name 'WrongName' does not match file stem 'mismatch_name'",
+      "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/mismatch_name.rs",
+      "scope": "stable",
       "severity": "ERROR",
-      "message": "primary item name 'WrongName' does not match file stem 'mismatch_name'"
+      "line": null
     },
     {
-      "severity": "ERROR",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/multi.rs",
-      "rule_id": "crate",
+      "message": "file contains multiple primary struct/enum declarations",
       "line": null,
-      "scope": "stable",
+      "severity": "ERROR",
       "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
-      "message": "file contains multiple primary struct/enum declarations"
+      "scope": "stable",
+      "rule_id": "crate",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/multi.rs"
     }
   ],
-  "report_hash": "b1caac042a3ca86cd9f6c9851dfd5d4b5755d08975d60ad0e556d2c758040d50",
-  "mode": "strict",
   "summary": {
-    "stable_warning_count": 0,
     "stable_error_count": 2,
     "unstable_error_count": 0,
-    "unstable_warning_count": 0
-  }
+    "unstable_warning_count": 0,
+    "stable_warning_count": 0
+  },
+  "report_hash": "b1caac042a3ca86cd9f6c9851dfd5d4b5755d08975d60ad0e556d2c758040d50",
+  "repository_root": "<FIXTURE_ROOT>"
 }

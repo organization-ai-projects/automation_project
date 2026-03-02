@@ -1,22 +1,31 @@
 {
-  "report_hash": "266d6e6cd85ce0845f0f2be374c6f015e8cdcaa748434cdb13943e491363d9c6",
   "summary": {
-    "stable_error_count": 1,
-    "unstable_warning_count": 0,
     "unstable_error_count": 0,
-    "stable_warning_count": 0
+    "unstable_warning_count": 0,
+    "stable_warning_count": 1,
+    "stable_error_count": 1
   },
+  "report_hash": "2cf36faec324c0de72255aa094c1ffdf0bed1ad2380982a760a9b99ccd8281c4",
   "mode": "strict",
+  "repository_root": "<FIXTURE_ROOT>",
   "violations": [
     {
-      "line": 1,
-      "severity": "ERROR",
-      "rule_id": "determinism",
-      "violation_code": "DET_WALL_CLOCK_USAGE",
-      "scope": "stable",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/src/main.rs",
-      "message": "wall-clock API usage is forbidden"
+      "line": 1,
+      "message": "wall-clock API usage is forbidden",
+      "violation_code": "DET_WALL_CLOCK_USAGE",
+      "rule_id": "determinism",
+      "severity": "ERROR",
+      "scope": "stable"
+    },
+    {
+      "message": "underscore-based bindings/discards may hide unused values",
+      "line": 4,
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/src/main.rs",
+      "severity": "WARNING",
+      "rule_id": "determinism",
+      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
+      "scope": "stable"
     }
-  ],
-  "repository_root": "<FIXTURE_ROOT>"
+  ]
 }
