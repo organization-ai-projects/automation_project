@@ -14,31 +14,39 @@ require_commit_message() {
   fi
 }
 
+commit_run() {
+  git commit "$@"
+}
+
+git_has_diff() {
+  git diff "$@" --quiet
+}
+
 # Create a commit with a message
 git_commit() {
   local message="$1"
   require_commit_message "$message"
-  git commit -m "$message"
+  commit_run -m "$message"
 }
 
 # Amend the last commit (keeping the same message)
 git_commit_amend() {
-  git commit --amend --no-edit
+  commit_run --amend --no-edit
 }
 
 # Amend the last commit with a new message
 git_commit_amend_message() {
   local message="$1"
   require_commit_message "$message"
-  git commit --amend -m "$message"
+  commit_run --amend -m "$message"
 }
 
 # Check if there are staged changes
 has_staged_changes() {
-  ! git diff --cached --quiet
+  ! git_has_diff --cached
 }
 
 # Check if there are unstaged changes
 has_unstaged_changes() {
-  ! git diff --quiet
+  ! git_has_diff
 }
