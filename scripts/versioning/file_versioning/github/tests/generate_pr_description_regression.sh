@@ -252,7 +252,7 @@ main() {
   echo "Running regression matrix for generate_pr_description.sh"
 
   run_case "help" 0 "Usage:" mock --help
-  run_case "missing-main-pr" 2 "MAIN_PR_NUMBER is required" mock
+  run_case "default-auto-without-args" 0 "PR created:" mock
   run_case "base-missing-value" 2 "--base requires a value" mock --base
   run_case "head-missing-value" 2 "--head requires a value" mock --head
   run_case "duplicate-mode-invalid" 2 "--duplicate-mode must be 'safe' or 'auto-close'" mock --duplicate-mode invalid --dry-run

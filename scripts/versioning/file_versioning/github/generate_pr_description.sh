@@ -29,6 +29,7 @@ print_help() {
   cat <<EOF
 
 Notes:
+  (default)      With no mode/arguments, behaves like --auto.
   --dry-run       Extract PRs from local git history (base..head).
   --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR.
   --auto-edit     Generate body in memory and update an existing PR directly.
@@ -56,6 +57,8 @@ require_option_value() {
 
 main_pr_number=""
 output_file="pr_description.md"
+output_file_explicit="false"
+write_body_to_file="true"
 keep_artifacts="false"
 dry_run="false"
 base_ref=""
@@ -64,6 +67,7 @@ create_pr="false"
 allow_partial_create="false"
 assume_yes="false"
 auto_mode="false"
+mode_explicit="false"
 auto_edit_pr_number=""
 refresh_pr_used="false"
 debug_mode="false"
@@ -79,6 +83,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --dry-run)
       dry_run="true"
+      mode_explicit="true"
       shift
       ;;
     --base)
@@ -105,11 +110,13 @@ while [[ $# -gt 0 ]]; do
       ;;
     --auto)
       auto_mode="true"
+      mode_explicit="true"
       shift
       ;;
     --auto-edit)
       require_option_value "--auto-edit" "${2:-}"
       auto_edit_pr_number="${2:-}"
+      mode_explicit="true"
       shift 2
       ;;
     --refresh-pr)
@@ -119,6 +126,7 @@ while [[ $# -gt 0 ]]; do
       fi
       auto_edit_pr_number="${2:-}"
       refresh_pr_used="true"
+      mode_explicit="true"
       shift 2
       ;;
     --duplicate-mode)
@@ -140,6 +148,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Default mode: no explicit mode + no positional args => auto mode.
+if [[ "$mode_explicit" != "true" && ${#positionals[@]} -eq 0 ]]; then
+  auto_mode="true"
+fi
 
 debug_log() {
   if [[ "$debug_mode" == "true" ]]; then
@@ -276,6 +289,7 @@ if [[ "$dry_run" == "false" ]]; then
   fi
   if [[ -z "$auto_edit_pr_number" && ${#positionals[@]} -ge 2 ]]; then
     output_file="${positionals[1]}"
+    output_file_explicit="true"
   fi
   if [[ -z "$main_pr_number" ]]; then
     usage_error "MAIN_PR_NUMBER is required."
@@ -289,7 +303,13 @@ else
   fi
   if [[ -z "$auto_edit_pr_number" && "$auto_mode" != "true" && ${#positionals[@]} -ge 1 ]]; then
     output_file="${positionals[0]}"
+    output_file_explicit="true"
   fi
+fi
+
+# In dry-run analysis mode, avoid polluting the repo with a default output file.
+if [[ "$dry_run" == "true" && "$create_pr" != "true" && "$auto_mode" != "true" && -z "$auto_edit_pr_number" && "$output_file_explicit" != "true" ]]; then
+  write_body_to_file="false"
 fi
 
 if [[ "$keep_artifacts" == "true" ]]; then
@@ -1114,12 +1134,15 @@ process_duplicate_mode() {
 
 body_content="$({
   echo "### Description"
+  echo ""
   echo "This pull request merges the \`${head_ref_display}\` branch into \`${base_ref_display}\` and summarizes merged pull requests and resolved issues."
   echo ""
   echo "### Scope"
+  echo ""
   echo "- Not explicitly provided."
   echo ""
   echo "### Compatibility"
+  echo ""
   if [[ "$breaking_detected" -eq 1 ]]; then
     echo "- Breaking change."
   else
@@ -1127,7 +1150,9 @@ body_content="$({
   fi
   echo ""
   echo "### Issues Resolved"
+  echo ""
   echo "This PR resolves the following issues:"
+  echo ""
   if [[ -s "$resolved_issues_file" ]]; then
     cat "$resolved_issues_file"
   else
@@ -1135,44 +1160,54 @@ body_content="$({
   fi
   echo ""
   echo "### Key Changes"
+  echo ""
   if [[ -s "$sync_tmp" ]]; then
     echo "#### Synchronization"
+    echo ""
     write_section_from_file "$sync_tmp"
     echo ""
   fi
   echo "#### Features"
+  echo ""
   write_section_from_file "$features_tmp"
   echo ""
   echo "#### Bug Fixes"
+  echo ""
   write_section_from_file "$bugs_tmp"
   echo ""
   echo "#### Refactoring"
+  echo ""
   write_section_from_file "$refactors_tmp"
   echo ""
   cat <<EOF
 ### Testing
+
 - Ensure all project tests are executed before merge (for example: \`cargo test\`, script-specific checks, and CI workflow validation).
 - Validate manually the automation workflows impacted by merged PRs.
 
 ### Validation Checklist
+
 - [ ] Tests have been added or updated, and all tests pass.
 - [ ] Documentation has been updated as needed.
 - [ ] Breaking changes (if any) are clearly documented above.
 
 ### Additional Notes
+
 - Documentation and PR summaries should be aligned with the resolved issues listed above.
 - This generated description can be edited to add domain-specific details before submission.
 EOF
 })"
 
-if [[ "$auto_mode" != "true" && -z "$auto_edit_pr_number" ]]; then
+if [[ "$auto_mode" != "true" && -z "$auto_edit_pr_number" && "$write_body_to_file" == "true" ]]; then
   printf "%s\n" "$body_content" > "$output_file"
   echo "Generated file: $output_file"
 else
   if [[ "$auto_mode" == "true" ]]; then
     echo "PR description generated in memory (--auto mode)."
-  else
+  elif [[ -n "$auto_edit_pr_number" ]]; then
     echo "PR description generated in memory (--auto-edit mode)."
+  else
+    echo "PR description generated in memory (--dry-run default output)."
   fi
 fi
 if [[ "$keep_artifacts" == "true" ]]; then
