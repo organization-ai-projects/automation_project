@@ -8,6 +8,40 @@ fi
 # Shared directive arbitration helpers (Closes/Fixes/Reopen).
 # Depends on parse/normalize helpers from issue_refs.sh.
 
+normalize_directive_issue_key() {
+  local issue_key_raw="$1"
+  local issue_key=""
+  issue_key="$(normalize_issue_key "$issue_key_raw" 2>/dev/null || true)"
+  if [[ "$issue_key" =~ ^#[0-9]+$ ]]; then
+    printf '%s\n' "$issue_key"
+  fi
+}
+
+is_supported_directive_decision() {
+  local decision="${1:-}"
+  [[ "$decision" == "close" || "$decision" == "reopen" ]]
+}
+
+directive_resolution_allow_inferred() {
+  local commit_messages="$1"
+  local branch_count
+  branch_count="$(count_distinct_source_branches_from_commits "$commit_messages")"
+  if [[ "${branch_count:-0}" -gt 1 ]]; then
+    printf '%s\n' "false"
+    return 0
+  fi
+  printf '%s\n' "true"
+}
+
+directive_unresolved_reason() {
+  local allow_inferred="$1"
+  if [[ "$allow_inferred" == "true" ]]; then
+    printf '%s\n' "closes-and-reopen-without-explicit-decision"
+  else
+    printf '%s\n' "closes-and-reopen-across-multiple-source-branches"
+  fi
+}
+
 count_distinct_source_branches_from_commits() {
   local commit_messages="$1"
   printf '%s\n' "$commit_messages" \
@@ -22,13 +56,9 @@ resolve_issue_directives() {
   local payload_text="$1"
   local decision_text="$2"
   local commit_messages="$3"
-  local branch_count
-  local allow_inferred="true"
+  local allow_inferred
 
-  branch_count="$(count_distinct_source_branches_from_commits "$commit_messages")"
-  if [[ "${branch_count:-0}" -gt 1 ]]; then
-    allow_inferred="false"
-  fi
+  allow_inferred="$(directive_resolution_allow_inferred "$commit_messages")"
 
   declare -A has_close
   declare -A has_reopen
@@ -37,8 +67,8 @@ resolve_issue_directives() {
   declare -A issues
 
   while IFS='|' read -r action issue_key; do
-    issue_key="$(normalize_issue_key "$issue_key" || true)"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    issue_key="$(normalize_directive_issue_key "$issue_key")"
+    [[ -n "$issue_key" ]] || continue
     issues["$issue_key"]=1
     case "$action" in
       Closes)
@@ -53,10 +83,10 @@ resolve_issue_directives() {
   done < <(parse_directive_events_from_text "$payload_text")
 
   while IFS='|' read -r issue_key decision; do
-    issue_key="$(normalize_issue_key "$issue_key" || true)"
+    issue_key="$(normalize_directive_issue_key "$issue_key")"
     decision="$(printf '%s' "$decision" | tr '[:upper:]' '[:lower:]')"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
+    [[ -n "$issue_key" ]] || continue
+    is_supported_directive_decision "$decision" || continue
     explicit_decision["$issue_key"]="$decision"
     issues["$issue_key"]=1
   done < <(parse_directive_decisions_from_text "$decision_text")
@@ -78,11 +108,7 @@ resolve_issue_directives() {
         source="inferred"
       else
         source="unresolved"
-        if [[ "$allow_inferred" == "true" ]]; then
-          reason="closes-and-reopen-without-explicit-decision"
-        else
-          reason="closes-and-reopen-across-multiple-source-branches"
-        fi
+        reason="$(directive_unresolved_reason "$allow_inferred")"
       fi
     elif [[ "$reopen_flag" == "1" ]]; then
       decision="reopen"
