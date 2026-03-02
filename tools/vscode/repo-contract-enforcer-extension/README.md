@@ -4,7 +4,7 @@ Local VSCode extension to surface team-rule diagnostics (repo_contract_enforcer)
 
 ## What it does
 
-- Runs `repo_contract_enforcer_ui` in JSON mode.
+- Runs `repo_contract_enforcer_backend` over JSON-lines IPC.
 - Creates VSCode diagnostics from violations.
 - Updates diagnostics on save (`.rs`, `.toml`) and on startup.
 
