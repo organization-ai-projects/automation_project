@@ -64,6 +64,11 @@ if [[ "$args" == issue\ view\ 102* && "$args" == *"--json state"* ]]; then
   exit 0
 fi
 
+if [[ "$args" == issue\ view\ 303* && "$args" == *"--json state"* ]]; then
+  echo "${MOCK_ISSUE_303_STATE:-CLOSED}"
+  exit 0
+fi
+
 if [[ "$args" == issue\ view\ 101* && "$args" == *"--json labels"* ]]; then
   if [[ "${MOCK_ISSUE_101_HAS_LABEL:-0}" == "1" ]]; then
     echo "done-in-dev"
@@ -79,6 +84,13 @@ if [[ "$args" == issue\ view\ 202* && "$args" == *"--json labels"* ]]; then
 fi
 
 if [[ "$args" == issue\ edit* ]]; then
+  if [[ -n "${MOCK_GH_EDITS_LOG:-}" ]]; then
+    printf "%s\n" "$args" >> "${MOCK_GH_EDITS_LOG}"
+  fi
+  exit 0
+fi
+
+if [[ "$args" == issue\ reopen* ]]; then
   if [[ -n "${MOCK_GH_EDITS_LOG:-}" ]]; then
     printf "%s\n" "$args" >> "${MOCK_GH_EDITS_LOG}"
   fi
@@ -160,9 +172,16 @@ main() {
   run_case \
     "dev-merge-ignores-close-singular-ref" \
     0 \
-    "No closing issue refs found for PR #55." \
+    "No closing/reopen issue refs found for PR #55." \
     "--on-dev-merge --pr 55" \
     env MOCK_PR_BODY="Close #101" MOCK_PR_COMMITS=""
+
+  run_case \
+    "dev-merge-reopens-closed-issues-from-reopen-ref" \
+    0 \
+    "Issue #303: reopened from Reopen ref." \
+    "--on-dev-merge --pr 55" \
+    env MOCK_PR_BODY="Reopen #303" MOCK_PR_COMMITS="" MOCK_ISSUE_303_STATE=CLOSED
 
   run_case \
     "issue-closed-removes-label" \

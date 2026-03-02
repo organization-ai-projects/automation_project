@@ -69,6 +69,15 @@ extract_closing_issue_numbers() {
     | sort -u
 }
 
+extract_reopen_issue_numbers() {
+  local text="$1"
+  parse_reopen_issue_refs_from_text "$text" \
+    | cut -d'|' -f2 \
+    | sed -E 's/^#([0-9]+)$/\1/' \
+    | grep -E '^[0-9]+$' \
+    | sort -u
+}
+
 collect_pr_text_payload() {
   local repo="$1"
   local pr_number="$2"
@@ -141,9 +150,9 @@ if [[ -z "$repo_name" ]]; then
   exit 3
 fi
 
-if ! label_exists "$repo_name" "$label_name"; then
-  echo "Warning: label '${label_name}' does not exist in ${repo_name}; skipping."
-  exit 0
+label_available="false"
+if label_exists "$repo_name" "$label_name"; then
+  label_available="true"
 fi
 
 if [[ "$mode" == "dev-merge" ]]; then
@@ -155,13 +164,41 @@ if [[ "$mode" == "dev-merge" ]]; then
     exit 0
   fi
 
-  mapfile -t issue_numbers < <(extract_closing_issue_numbers "$(collect_pr_text_payload "$repo_name" "$pr_number")")
-  if [[ ${#issue_numbers[@]} -eq 0 ]]; then
+  payload="$(collect_pr_text_payload "$repo_name" "$pr_number")"
+  mapfile -t closing_issue_numbers < <(extract_closing_issue_numbers "$payload")
+  mapfile -t reopen_issue_numbers < <(extract_reopen_issue_numbers "$payload")
+
+  if [[ ${#closing_issue_numbers[@]} -eq 0 && ${#reopen_issue_numbers[@]} -eq 0 ]]; then
+    echo "No closing/reopen issue refs found for PR #${pr_number}."
+    exit 0
+  fi
+
+  for n in "${reopen_issue_numbers[@]}"; do
+    state="$(issue_state "$repo_name" "$n")"
+    if [[ -z "$state" ]]; then
+      echo "Issue #${n}: unreadable; skipping reopen."
+      continue
+    fi
+
+    if [[ "$state" == "CLOSED" ]]; then
+      gh issue reopen "$n" -R "$repo_name" >/dev/null
+      echo "Issue #${n}: reopened from Reopen ref."
+    else
+      echo "Issue #${n}: state=${state}; no reopen needed."
+    fi
+  done
+
+  if [[ "$label_available" != "true" ]]; then
+    echo "Warning: label '${label_name}' does not exist in ${repo_name}; skipping done-in-dev labeling."
+    exit 0
+  fi
+
+  if [[ ${#closing_issue_numbers[@]} -eq 0 ]]; then
     echo "No closing issue refs found for PR #${pr_number}."
     exit 0
   fi
 
-  for n in "${issue_numbers[@]}"; do
+  for n in "${closing_issue_numbers[@]}"; do
     state="$(issue_state "$repo_name" "$n")"
     if [[ -z "$state" ]]; then
       echo "Issue #${n}: unreadable; skipping."
@@ -183,6 +220,11 @@ if [[ "$mode" == "dev-merge" ]]; then
 fi
 
 require_number "--issue" "$issue_number"
+
+if [[ "$label_available" != "true" ]]; then
+  echo "Warning: label '${label_name}' does not exist in ${repo_name}; skipping."
+  exit 0
+fi
 
 if issue_has_label "$repo_name" "$issue_number" "$label_name"; then
   gh issue edit "$issue_number" -R "$repo_name" --remove-label "$label_name" >/dev/null
