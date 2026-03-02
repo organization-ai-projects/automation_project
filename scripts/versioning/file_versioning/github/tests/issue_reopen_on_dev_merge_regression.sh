@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/issue_done_in_dev_status.sh"
+TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/issue_reopen_on_dev_merge.sh"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -45,40 +45,40 @@ if [[ "$args" == pr\ view* && "$args" == *"--json title"* ]]; then
 fi
 
 if [[ "$args" == pr\ view* && "$args" == *"--json body"* ]]; then
-  echo "${MOCK_PR_BODY:-Closes #101}"
+  echo "${MOCK_PR_BODY:-Reopen #303}"
   exit 0
 fi
 
 if [[ "$args" == api\ repos/*/pulls/*/commits* ]]; then
-  printf "%s\n" "${MOCK_PR_COMMITS:-feat: update\n\nCloses #102}"
+  printf "%s\n" "${MOCK_PR_COMMITS:-}"
   exit 0
 fi
 
-if [[ "$args" == issue\ view\ 101* && "$args" == *"--json state"* ]]; then
-  echo "${MOCK_ISSUE_101_STATE:-OPEN}"
+if [[ "$args" == issue\ view\ 303* && "$args" == *"--json state"* ]]; then
+  echo "${MOCK_ISSUE_303_STATE:-CLOSED}"
   exit 0
 fi
 
-if [[ "$args" == issue\ view\ 102* && "$args" == *"--json state"* ]]; then
-  echo "${MOCK_ISSUE_102_STATE:-CLOSED}"
+if [[ "$args" == issue\ view\ 404* && "$args" == *"--json state"* ]]; then
+  echo "${MOCK_ISSUE_404_STATE:-OPEN}"
   exit 0
 fi
 
-if [[ "$args" == issue\ view\ 101* && "$args" == *"--json labels"* ]]; then
-  if [[ "${MOCK_ISSUE_101_HAS_LABEL:-0}" == "1" ]]; then
+if [[ "$args" == issue\ view\ 303* && "$args" == *"--json labels"* ]]; then
+  if [[ "${MOCK_ISSUE_303_HAS_LABEL:-1}" == "1" ]]; then
     echo "done-in-dev"
   fi
   exit 0
 fi
 
-if [[ "$args" == issue\ view\ 202* && "$args" == *"--json labels"* ]]; then
-  if [[ "${MOCK_ISSUE_202_HAS_LABEL:-1}" == "1" ]]; then
+if [[ "$args" == issue\ view\ 404* && "$args" == *"--json labels"* ]]; then
+  if [[ "${MOCK_ISSUE_404_HAS_LABEL:-1}" == "1" ]]; then
     echo "done-in-dev"
   fi
   exit 0
 fi
 
-if [[ "$args" == issue\ edit* ]]; then
+if [[ "$args" == issue\ edit* || "$args" == issue\ reopen* ]]; then
   if [[ -n "${MOCK_GH_EDITS_LOG:-}" ]]; then
     printf "%s\n" "$args" >> "${MOCK_GH_EDITS_LOG}"
   fi
@@ -102,7 +102,7 @@ run_case() {
   TESTS_RUN=$((TESTS_RUN + 1))
 
   local tmp
-  tmp="$(shell_test_mktemp_dir "done_in_dev_tests")"
+  tmp="$(shell_test_mktemp_dir "reopen_on_dev_merge_tests")"
   local out_file="${tmp}/out.txt"
   local err_file="${tmp}/err.txt"
   local merged="${tmp}/merged.txt"
@@ -142,40 +142,28 @@ run_case() {
 }
 
 main() {
-  echo "Running regression tests for issue_done_in_dev_status.sh"
+  echo "Running regression tests for issue_reopen_on_dev_merge.sh"
 
   run_case \
-    "dev-merge-adds-label-for-open-closing-issues" \
+    "reopen-ref-reopens-issue-and-removes-done-in-dev-label" \
     0 \
-    "Issue #101: added label 'done-in-dev'." \
-    "--on-dev-merge --pr 55"
+    "Issue #303: reopened from Reopen ref." \
+    "--pr 55" \
+    env MOCK_PR_BODY="Reopen #303" MOCK_ISSUE_303_STATE=CLOSED MOCK_ISSUE_303_HAS_LABEL=1
 
   run_case \
-    "dev-merge-adds-label-for-open-fixes-refs" \
+    "reopen-ref-on-open-issue-removes-done-in-dev-label" \
     0 \
-    "Issue #101: added label 'done-in-dev'." \
-    "--on-dev-merge --pr 55" \
-    env MOCK_PR_BODY="Fixes #101"
+    "Issue #404: state=OPEN; no reopen needed." \
+    "--pr 55" \
+    env MOCK_PR_BODY="Reopen #404" MOCK_ISSUE_404_STATE=OPEN MOCK_ISSUE_404_HAS_LABEL=1
 
   run_case \
-    "dev-merge-ignores-close-singular-ref" \
+    "no-reopen-ref-no-op" \
     0 \
-    "No closing issue refs found for PR #55." \
-    "--on-dev-merge --pr 55" \
-    env MOCK_PR_BODY="Close #101" MOCK_PR_COMMITS=""
-
-  run_case \
-    "issue-closed-removes-label" \
-    0 \
-    "Issue #202: removed label 'done-in-dev'." \
-    "--on-issue-closed --issue 202"
-
-  run_case \
-    "missing-label-definition-skips" \
-    0 \
-    "label 'done-in-dev' does not exist" \
-    "--on-dev-merge --pr 55" \
-    env MOCK_LABEL_EXISTS=0
+    "No reopen issue refs found for PR #55." \
+    "--pr 55" \
+    env MOCK_PR_BODY="Closes #101" MOCK_PR_COMMITS=""
 
   echo ""
   echo "Summary: ${TESTS_RUN} run, ${TESTS_FAILED} failed."
