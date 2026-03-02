@@ -53,7 +53,7 @@ This pull request merges the `test-head` branch into `dev` and summarizes merged
 
 ### Validation Status
 
-- CI: UNKNOWN
+- CI: UNKNOWN ⚪
 - Breaking change detected: FALSE
 
 ### Additional Notes
