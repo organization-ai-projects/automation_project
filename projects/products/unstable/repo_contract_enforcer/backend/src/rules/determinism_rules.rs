@@ -57,6 +57,49 @@ impl DeterminismRules {
                     (true, RustParser::first_line_of(&txt, "println!")),
                 ));
             }
+            if !file.to_string_lossy().contains("/protocol/")
+                && (txt.contains("print!(")
+                    || txt.contains("eprint!(")
+                    || txt.contains("eprintln!("))
+            {
+                out.push(make_violation(
+                    RuleId::Determinism,
+                    ViolationCode::DetStdoutUsage,
+                    (scope, mode),
+                    &file,
+                    "print/eprint macros outside protocol module are forbidden",
+                    (
+                        true,
+                        RustParser::first_line_of_any(&txt, &["print!(", "eprint!(", "eprintln!("]),
+                    ),
+                ));
+            }
+            if !file.to_string_lossy().contains("/protocol/")
+                && (txt.contains("std::io::stdout")
+                    || txt.contains("std::io::stderr")
+                    || txt.contains("io::stdout(")
+                    || txt.contains("io::stderr("))
+            {
+                out.push(make_violation(
+                    RuleId::Determinism,
+                    ViolationCode::DetStdioUsage,
+                    (scope, mode),
+                    &file,
+                    "direct stdout/stderr IO outside protocol module is forbidden",
+                    (
+                        true,
+                        RustParser::first_line_of_any(
+                            &txt,
+                            &[
+                                "std::io::stdout",
+                                "std::io::stderr",
+                                "io::stdout(",
+                                "io::stderr(",
+                            ],
+                        ),
+                    ),
+                ));
+            }
 
             if txt.contains("rand::") || txt.contains("thread_rng(") || txt.contains("rand(") {
                 out.push(make_violation(
@@ -68,6 +111,45 @@ impl DeterminismRules {
                     (
                         false,
                         RustParser::first_line_of_any(&txt, &["rand::", "thread_rng(", "rand("]),
+                    ),
+                ));
+            }
+            if txt.contains(".unwrap()")
+                || txt.contains(".expect(")
+                || txt.contains("unwrap_unchecked(")
+            {
+                out.push(make_violation(
+                    RuleId::Determinism,
+                    ViolationCode::DetUnwrapRisk,
+                    (scope, mode),
+                    &file,
+                    "unwrap/expect usage may panic at runtime",
+                    (
+                        true,
+                        RustParser::first_line_of_any(
+                            &txt,
+                            &[".unwrap()", ".expect(", "unwrap_unchecked("],
+                        ),
+                    ),
+                ));
+            }
+            if txt.contains("panic!(")
+                || txt.contains("todo!(")
+                || txt.contains("unimplemented!(")
+                || txt.contains("unreachable!(")
+            {
+                out.push(make_violation(
+                    RuleId::Determinism,
+                    ViolationCode::DetPanicRisk,
+                    (scope, mode),
+                    &file,
+                    "panic-like macros are forbidden in backend product code",
+                    (
+                        true,
+                        RustParser::first_line_of_any(
+                            &txt,
+                            &["panic!(", "todo!(", "unimplemented!(", "unreachable!("],
+                        ),
                     ),
                 ));
             }

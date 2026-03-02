@@ -21,18 +21,18 @@ impl LayeringRules {
             return out;
         }
 
-        let pattern = format!("use {product_name}_backend::");
+        let backend_crate_name = format!("{product_name}_backend");
         let rs_files = FileScanner::gather_rs_files(&ui);
         for file in rs_files {
             let txt = std::fs::read_to_string(&file).unwrap_or_default();
-            if txt.contains(&pattern) {
+            if RustParser::imports_backend_crate(&txt, &backend_crate_name) {
                 out.push(make_violation(
                     RuleId::Layering,
                     ViolationCode::LayerUiImportsBackend,
                     (scope, mode),
                     &file,
                     "ui must not import backend internals",
-                    (true, RustParser::first_line_of(&txt, &pattern)),
+                    (true, None),
                 ));
             }
         }

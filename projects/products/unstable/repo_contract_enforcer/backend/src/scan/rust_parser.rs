@@ -81,6 +81,22 @@ impl RustParser {
 
         None
     }
+
+    pub fn imports_backend_crate(source: &str, backend_crate_name: &str) -> bool {
+        let ast = match syn::parse_file(source) {
+            Ok(ast) => ast,
+            Err(_) => return false,
+        };
+
+        for item in ast.items {
+            if let syn::Item::Use(item_use) = item
+                && use_tree_starts_with(&item_use.tree, backend_crate_name)
+            {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 fn to_snake_case(input: &str) -> String {
@@ -96,4 +112,19 @@ fn to_snake_case(input: &str) -> String {
         }
     }
     out
+}
+
+fn use_tree_starts_with(tree: &syn::UseTree, prefix: &str) -> bool {
+    match tree {
+        syn::UseTree::Path(path) => {
+            path.ident == prefix || use_tree_starts_with(&path.tree, prefix)
+        }
+        syn::UseTree::Name(name) => name.ident == prefix,
+        syn::UseTree::Rename(rename) => rename.ident == prefix,
+        syn::UseTree::Glob(_) => false,
+        syn::UseTree::Group(group) => group
+            .items
+            .iter()
+            .any(|child| use_tree_starts_with(child, prefix)),
+    }
 }

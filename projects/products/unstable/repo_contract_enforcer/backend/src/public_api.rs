@@ -354,4 +354,26 @@ mod tests {
             &normalized,
         );
     }
+
+    #[test]
+    fn fixture_invalid_backend_unwrap_panic_matches_golden() {
+        let root = fixture_root("invalid_backend_unwrap_panic");
+        let report = run_check_repo_report(&root, EnforcementMode::Strict);
+        let normalized = normalized_report(report, &root);
+        assert_matches_golden(
+            "expected_report_invalid_backend_unwrap_panic.json",
+            &normalized,
+        );
+    }
+
+    #[test]
+    fn fixture_invalid_primary_item_contract_matches_golden() {
+        let root = fixture_root("invalid_primary_item_contract");
+        let report = run_check_repo_report(&root, EnforcementMode::Strict);
+        let normalized = normalized_report(report, &root);
+        assert_matches_golden(
+            "expected_report_invalid_primary_item_contract.json",
+            &normalized,
+        );
+    }
 }

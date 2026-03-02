@@ -18,5 +18,8 @@ pub enum ViolationCode {
     DetWallClockUsage,
     DetForbiddenTimeDep,
     DetStdoutUsage,
+    DetStdioUsage,
     DetNondeterministicRngHeuristic,
+    DetUnwrapRisk,
+    DetPanicRisk,
 }
