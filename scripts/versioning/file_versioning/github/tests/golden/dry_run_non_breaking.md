@@ -6,9 +6,10 @@ This pull request merges the `test-head` branch into `dev` and summarizes merged
 
 - Not explicitly provided.
 
-### Compatibility
+### Compatibility Signal
 
-- See Validation Status for compatibility signal and breaking scope.
+- CI: UNKNOWN ⚪
+- Breaking change detected: FALSE
 
 ### Issue Outcomes
 
@@ -50,11 +51,6 @@ This pull request merges the `test-head` branch into `dev` and summarizes merged
 
 - Ensure all project tests are executed before merge (for example: `cargo test`, script-specific checks, and CI workflow validation).
 - Validate manually the automation workflows impacted by merged PRs.
-
-### Validation Status
-
-- CI: UNKNOWN ⚪
-- Breaking change detected: FALSE
 
 ### Additional Notes
 
