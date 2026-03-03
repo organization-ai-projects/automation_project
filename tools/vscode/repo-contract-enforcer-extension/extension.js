@@ -156,9 +156,9 @@ function runEnforcer(runtime, reason) {
       byFile.set(uri.toString(), list);
     }
 
-    collection.clear();
+    runtime.collection.clear();
     for (const { uri, diagnostics } of byFile.values()) {
-      collection.set(uri, diagnostics);
+      runtime.collection.set(uri, diagnostics);
     }
 
     vscode.commands.executeCommand('setContext', 'repoContractEnforcer.lastCount', violations.length);
@@ -277,5 +277,10 @@ function deactivate() {
 
 module.exports = {
   activate,
-  deactivate
+  deactivate,
+  __test: {
+    isRelevantDocument,
+    clampDebounceMs,
+    parseReport
+  }
 };
