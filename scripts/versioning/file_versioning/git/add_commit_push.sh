@@ -118,7 +118,7 @@ echo ""
 
 info "Committing with message: $COMMIT_MESSAGE"
 if [[ "$NO_VERIFY" == true ]]; then
-  commit_run --no-verify -m "$COMMIT_MESSAGE"
+  git_commit_run --no-verify -m "$COMMIT_MESSAGE"
 else
   git_commit "$COMMIT_MESSAGE"
 fi

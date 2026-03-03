@@ -46,5 +46,5 @@ git_status() {
 
 # Get short status
 git_status_short() {
-  vcs_local_status --short "$@"
+  git_status --short "$@"
 }

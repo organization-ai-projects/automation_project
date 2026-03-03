@@ -7,6 +7,8 @@ fi
 
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/commands.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/commands.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/git/working_tree.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/working_tree.sh"
 
 # Functions related to Git commits
 
@@ -17,39 +19,39 @@ require_commit_message() {
   fi
 }
 
-commit_run() {
+git_commit_run() {
   vcs_local_commit "$@"
 }
 
-git_has_diff() {
-  vcs_local_diff "$@" --quiet
+# Prepared by git_add_message and consumed by commit functions.
+GIT_COMMIT_MESSAGE_ARGS=()
+
+git_add_message() {
+  local message="${1:-}"
+  require_commit_message "$message"
+  GIT_COMMIT_MESSAGE_ARGS=(-m "$message")
 }
 
 # Create a commit with a message
 git_commit() {
   local message="$1"
-  require_commit_message "$message"
-  commit_run -m "$message"
+  git_add_message "$message"
+  git_commit_run "${GIT_COMMIT_MESSAGE_ARGS[@]}"
 }
 
-# Amend the last commit (keeping the same message)
+# Amend the last commit (base primitive).
 git_commit_amend() {
-  commit_run --amend --no-edit
+  git_commit_run --amend "$@"
 }
 
-# Amend the last commit with a new message
+# Amend the last commit (keeping the same message).
+git_commit_amend_no_edit() {
+  git_commit_amend --no-edit
+}
+
+# Amend the last commit with a new message.
 git_commit_amend_message() {
   local message="$1"
-  require_commit_message "$message"
-  commit_run --amend -m "$message"
-}
-
-# Check if there are staged changes
-has_staged_changes() {
-  ! git_has_diff --cached
-}
-
-# Check if there are unstaged changes
-has_unstaged_changes() {
-  ! git_has_diff
+  git_add_message "$message"
+  git_commit_amend "${GIT_COMMIT_MESSAGE_ARGS[@]}"
 }

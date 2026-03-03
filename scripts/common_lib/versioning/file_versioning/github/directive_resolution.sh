@@ -52,6 +52,35 @@ count_distinct_source_branches_from_commits() {
     | tr -d ' '
 }
 
+resolve_issue_directive_outcome() {
+  local explicit_decision="$1"
+  local close_flag="$2"
+  local reopen_flag="$3"
+  local allow_inferred="$4"
+  local inferred_decision="$5"
+  local decision=""
+  local source=""
+  local reason=""
+
+  if [[ -n "$explicit_decision" ]]; then
+    decision="$explicit_decision"
+    source="explicit"
+  elif [[ "$close_flag" == "1" && "$reopen_flag" == "1" ]]; then
+    if [[ "$allow_inferred" == "true" && -n "$inferred_decision" ]]; then
+      decision="$inferred_decision"
+      source="inferred"
+    else
+      source="unresolved"
+      reason="$(directive_unresolved_reason "$allow_inferred")"
+    fi
+  elif [[ "$reopen_flag" == "1" || "$close_flag" == "1" ]]; then
+    decision="$([[ "$reopen_flag" == "1" ]] && echo "reopen" || echo "close")"
+    source="direct"
+  fi
+
+  printf '%s|%s|%s\n' "$decision" "$source" "$reason"
+}
+
 resolve_issue_directives() {
   local payload_text="$1"
   local decision_text="$2"
@@ -92,31 +121,16 @@ resolve_issue_directives() {
   done < <(parse_directive_decisions_from_text "$decision_text")
 
   for issue_key in "${!issues[@]}"; do
-    local close_flag reopen_flag decision source reason
+    local close_flag reopen_flag decision source reason outcome
     close_flag="${has_close[$issue_key]:-0}"
     reopen_flag="${has_reopen[$issue_key]:-0}"
-    decision=""
-    source=""
-    reason=""
-
-    if [[ -n "${explicit_decision[$issue_key]:-}" ]]; then
-      decision="${explicit_decision[$issue_key]}"
-      source="explicit"
-    elif [[ "$close_flag" == "1" && "$reopen_flag" == "1" ]]; then
-      if [[ "$allow_inferred" == "true" && -n "${inferred_decision[$issue_key]:-}" ]]; then
-        decision="${inferred_decision[$issue_key]}"
-        source="inferred"
-      else
-        source="unresolved"
-        reason="$(directive_unresolved_reason "$allow_inferred")"
-      fi
-    elif [[ "$reopen_flag" == "1" ]]; then
-      decision="reopen"
-      source="direct"
-    elif [[ "$close_flag" == "1" ]]; then
-      decision="close"
-      source="direct"
-    fi
+    outcome="$(resolve_issue_directive_outcome \
+      "${explicit_decision[$issue_key]:-}" \
+      "$close_flag" \
+      "$reopen_flag" \
+      "$allow_inferred" \
+      "${inferred_decision[$issue_key]:-}")"
+    IFS='|' read -r decision source reason <<< "$outcome"
 
     printf '%s|%s|%s|%s|%s|%s\n' \
       "$issue_key" "$close_flag" "$reopen_flag" "$decision" "$source" "$reason"

@@ -12,11 +12,12 @@ github_find_pr_number_by_branch() {
   local branch_name="$1"
   local base_branch="${2:-}"
   local pr_number=""
-  local cmd=(vcs_remote_pr_list --head "$branch_name" --json number --jq '.[0].number')
+  local cmd=(vcs_remote_pr_list --head "$branch_name")
 
   if [[ -n "$base_branch" ]]; then
-    cmd=(vcs_remote_pr_list --head "$branch_name" --base "$base_branch" --json number --jq '.[0].number')
+    cmd+=(--base "$base_branch")
   fi
+  cmd+=(--json number --jq '.[0].number')
   pr_number="$("${cmd[@]}" 2>/dev/null || true)"
 
   if [[ -z "$pr_number" || "$pr_number" == "null" ]]; then

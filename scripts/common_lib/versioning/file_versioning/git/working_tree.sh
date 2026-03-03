@@ -10,9 +10,26 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/commands.sh"
 
 # Functions related to the Git working tree
 
+working_tree_has_unstaged_diff() {
+  ! vcs_local_diff --quiet
+}
+
+working_tree_has_staged_diff() {
+  ! vcs_local_diff --cached --quiet
+}
+
+# Backward-compatible aliases for existing commit helpers.
+has_staged_changes() {
+  working_tree_has_staged_diff
+}
+
+has_unstaged_changes() {
+  working_tree_has_unstaged_diff
+}
+
 # Check if working tree is clean (no staged or unstaged changes)
 require_clean_tree() {
-  if ! vcs_local_diff --quiet || ! vcs_local_diff --cached --quiet; then
+  if working_tree_has_unstaged_diff || working_tree_has_staged_diff; then
     die "Working tree is dirty. Commit/stash your changes first."
   fi
 }
@@ -24,5 +41,5 @@ has_untracked_files() {
 
 # Check if working tree has any modifications (staged, unstaged, or untracked)
 is_working_tree_dirty() {
-  ! vcs_local_diff --quiet || ! vcs_local_diff --cached --quiet || has_untracked_files
+  working_tree_has_unstaged_diff || working_tree_has_staged_diff || has_untracked_files
 }
