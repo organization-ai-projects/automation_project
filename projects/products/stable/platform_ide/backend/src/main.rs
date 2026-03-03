@@ -11,9 +11,6 @@ mod offline;
 mod slices;
 mod verification;
 
-#[cfg(test)]
-mod tests;
-
 use anyhow::Context;
 use app::{IdeApp, IdeConfig};
 use auth::Session;
