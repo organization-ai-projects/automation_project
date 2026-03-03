@@ -180,16 +180,25 @@ gh_optional() {
 
   local err_file
   local output
-  err_file="$(mktemp)"
-  if ! output="$(gh "$@" 2>"$err_file")"; then
-    warn_optional "${description} failed; continuing without GitHub data." "$(cat "$err_file" 2>/dev/null || true)"
-    rm -f "$err_file"
-    return 1
-  fi
+  local attempt
+  local max_attempts=3
+  local delay_seconds=2
 
+  err_file="$(mktemp)"
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    if output="$(gh "$@" 2>"$err_file")"; then
+      rm -f "$err_file"
+      printf "%s" "$output"
+      return 0
+    fi
+    if [[ "$attempt" -lt "$max_attempts" ]]; then
+      sleep "$delay_seconds"
+    fi
+  done
+
+  warn_optional "${description} failed after ${max_attempts} attempts; continuing without GitHub data." "$(cat "$err_file" 2>/dev/null || true)"
   rm -f "$err_file"
-  printf "%s" "$output"
-  return 0
+  return 1
 }
 
 if [[ "$auto_mode" == "true" ]]; then
@@ -715,6 +724,79 @@ text_indicates_breaking() {
   done <<< "$text"
 
   return 1
+}
+
+emit_change_footprint() {
+  local range="${base_ref_display}..${head_ref_display}"
+  local files
+  local file
+  local any=0
+  local max_items_per_category=12
+  local count=0
+  declare -a doc_files=()
+  declare -a shell_files=()
+  declare -a crate_files=()
+  declare -a workspace_files=()
+  declare -a other_files=()
+
+  files="$(git diff --name-only "$range" 2>/dev/null || true)"
+  if [[ -z "$files" ]]; then
+    echo "- No changed files detected for this branch range."
+    return
+  fi
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    case "$file" in
+      *.md|documentation/*|.github/documentation/*)
+        doc_files+=("$file")
+        ;;
+      *.sh|scripts/*)
+        shell_files+=("$file")
+        ;;
+      Cargo.toml|Cargo.lock|rust-toolchain*|.cargo/*|**/Cargo.toml|**/Cargo.lock)
+        workspace_files+=("$file")
+        ;;
+      *.rs|*/src/*)
+        crate_files+=("$file")
+        ;;
+      *)
+        other_files+=("$file")
+        ;;
+    esac
+  done <<< "$files"
+
+  print_group() {
+    local label="$1"
+    shift
+    local arr=("$@")
+    local i
+    local total="${#arr[@]}"
+    [[ "$total" -eq 0 ]] && return
+    any=1
+    echo "- ${label} (${total})"
+    count=0
+    for i in "${arr[@]}"; do
+      echo "  - ${i}"
+      count=$((count + 1))
+      if [[ "$count" -ge "$max_items_per_category" ]]; then
+        break
+      fi
+    done
+    if [[ "$total" -gt "$max_items_per_category" ]]; then
+      echo "  - ... and $((total - max_items_per_category)) more"
+    fi
+  }
+
+  print_group "Documentation" "${doc_files[@]}"
+  print_group "Shell" "${shell_files[@]}"
+  print_group "Crates" "${crate_files[@]}"
+  print_group "Workspace" "${workspace_files[@]}"
+  print_group "Other" "${other_files[@]}"
+
+  if [[ "$any" -eq 0 ]]; then
+    echo "- No changed files detected for this branch range."
+  fi
 }
 
 infer_crate_from_path() {
@@ -1540,10 +1622,6 @@ body_content="$({
   echo ""
   echo "This pull request merges the \`${head_ref_display}\` branch into \`${base_ref_display}\` and summarizes merged pull requests and resolved issues."
   echo ""
-  echo "### Scope"
-  echo ""
-  echo "- Not explicitly provided."
-  echo ""
   echo "### Validation Gate"
   echo ""
   echo "- CI: ${ci_status_with_symbol}"
@@ -1568,40 +1646,44 @@ body_content="$({
   echo ""
   echo "### Issue Outcomes"
   echo ""
-  echo "#### Category 1: Issues Without Conflicts"
-  echo ""
-  echo "##### Closes/Fixes"
-  echo ""
-  if [[ -s "$resolved_issues_file" ]]; then
-    cat "$resolved_issues_file"
+  if [[ ! -s "$resolved_issues_file" && ! -s "$reopened_issues_file" && ! -s "$directive_resolution_tmp" && ! -s "$conflict_issues_file" ]]; then
+    echo "- No issues processed in this PR."
   else
-    echo "- No resolved issues detected via GitHub references or PR body keywords."
-  fi
-  echo ""
-  echo "##### Reopened"
-  echo ""
-  if [[ -s "$reopened_issues_file" ]]; then
-    cat "$reopened_issues_file"
-  else
-    echo "- No reopened issues detected."
-  fi
-  echo ""
-  echo "#### Category 2: Issues With Conflicts"
-  echo ""
-  echo "##### Auto-resolved"
-  echo ""
-  if [[ -s "$directive_resolution_tmp" ]]; then
-    cat "$directive_resolution_tmp"
-  else
-    echo "- No auto-resolved directive conflicts."
-  fi
-  echo ""
-  echo "##### Not resolved"
-  echo ""
-  if [[ -s "$conflict_issues_file" ]]; then
-    cat "$conflict_issues_file"
-  else
-    echo "- No unresolved directive conflicts."
+    echo "#### Category 1: Issues Without Conflicts"
+    echo ""
+    echo "##### Closes/Fixes"
+    echo ""
+    if [[ -s "$resolved_issues_file" ]]; then
+      cat "$resolved_issues_file"
+    else
+      echo "- No resolved issues detected via GitHub references or PR body keywords."
+    fi
+    echo ""
+    echo "##### Reopened"
+    echo ""
+    if [[ -s "$reopened_issues_file" ]]; then
+      cat "$reopened_issues_file"
+    else
+      echo "- No reopened issues detected."
+    fi
+    echo ""
+    echo "#### Category 2: Issues With Conflicts"
+    echo ""
+    echo "##### Auto-resolved"
+    echo ""
+    if [[ -s "$directive_resolution_tmp" ]]; then
+      cat "$directive_resolution_tmp"
+    else
+      echo "- No auto-resolved directive conflicts."
+    fi
+    echo ""
+    echo "##### Not resolved"
+    echo ""
+    if [[ -s "$conflict_issues_file" ]]; then
+      cat "$conflict_issues_file"
+    else
+      echo "- No unresolved directive conflicts."
+    fi
   fi
   echo ""
   echo "### Key Changes"
@@ -1639,17 +1721,11 @@ body_content="$({
     echo "- No significant items detected."
     echo ""
   fi
-  cat <<EOF
-### Testing
-
-- Ensure all project tests are executed before merge (for example: \`cargo test\`, script-specific checks, and CI workflow validation).
-- Validate manually the automation workflows impacted by merged PRs.
-
-### Additional Notes
-
-- Documentation and PR summaries should be aligned with the resolved issues listed above.
-- This generated description can be edited to add domain-specific details before submission.
-EOF
+  echo "#### Change Footprint"
+  echo ""
+  emit_change_footprint
+  echo ""
+  :
 })"
 
 if [[ "$auto_mode" != "true" && -z "$auto_edit_pr_number" && "$write_body_to_file" == "true" ]]; then
