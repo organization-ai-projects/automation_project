@@ -11,7 +11,7 @@
       "line": null
     },
     {
-      "message": "file contains multiple primary struct/enum declarations",
+      "message": "file contains multiple primary struct/enum/trait declarations",
       "line": null,
       "severity": "ERROR",
       "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
@@ -26,6 +26,6 @@
     "unstable_warning_count": 0,
     "stable_warning_count": 0
   },
-  "report_hash": "b1caac042a3ca86cd9f6c9851dfd5d4b5755d08975d60ad0e556d2c758040d50",
+  "report_hash": "c4b6bd46177edccd304ffa173416e1039657f0f8335d473c17d9b7bec9fb394e",
   "repository_root": "<FIXTURE_ROOT>"
 }

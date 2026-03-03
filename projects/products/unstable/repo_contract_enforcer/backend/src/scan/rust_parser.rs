@@ -62,6 +62,7 @@ impl RustParser {
             match item {
                 syn::Item::Struct(s) => primary_items.push(s.ident.to_string()),
                 syn::Item::Enum(e) => primary_items.push(e.ident.to_string()),
+                syn::Item::Trait(t) => primary_items.push(t.ident.to_string()),
                 _ => {}
             }
         }
@@ -71,17 +72,16 @@ impl RustParser {
             .and_then(|s| s.to_str())
             .unwrap_or_default();
 
-        if primary_items.is_empty() {
+        if primary_items.len() > 1 {
             return Some(PrimaryItemViolation {
-                message: "file must contain exactly one primary struct or enum".to_string(),
+                message: "file contains multiple primary struct/enum/trait declarations"
+                    .to_string(),
                 line: None,
             });
         }
-        if primary_items.len() > 1 {
-            return Some(PrimaryItemViolation {
-                message: "file contains multiple primary struct/enum declarations".to_string(),
-                line: None,
-            });
+
+        if primary_items.is_empty() {
+            return None;
         }
 
         let primary_name = &primary_items[0];
