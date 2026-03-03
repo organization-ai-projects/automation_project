@@ -113,7 +113,6 @@ where
     let payload = match cmd.payload.as_ref() {
         Some(p) => p,
         None => {
-            println!("[error] handle_json: Payload is missing");
             return err(
                 cmd,
                 400,
@@ -127,10 +126,6 @@ where
     if let Some(expected) = expected_payload_type {
         let got = payload.payload_type.as_deref().unwrap_or("").trim();
         if got != expected {
-            println!(
-                "[error] handle_json: Invalid payload_type. Expected: '{}', Got: '{}'",
-                expected, got
-            );
             return err(
                 cmd,
                 415,
@@ -144,7 +139,6 @@ where
     let inner_ref = match payload.payload.as_ref() {
         Some(v) => v,
         None => {
-            println!("[error] handle_json: Inner payload is missing");
             return err(
                 cmd,
                 400,
@@ -155,22 +149,9 @@ where
         }
     };
 
-    println!("[debug] handle_json: Received payload: {:?}", inner_ref);
-    println!(
-        "[debug] handle_json: Validating payload type: {:?}",
-        payload.payload_type
-    );
-    println!(
-        "[debug] handle_json: Inner payload before deserialization: {:?}",
-        inner_ref
-    );
-    println!("[debug] handle_json: Inspecting inner_ref: {:?}", inner_ref);
-    println!("[debug] handle_json: Attempting to deserialize payload into target structure");
-
     let req: Req = match from_value(inner_ref.clone()) {
         Ok(r) => r,
         Err(e) => {
-            println!("[error] handle_json: Invalid JSON payload: {e}");
             return err(
                 cmd,
                 400,
@@ -184,7 +165,6 @@ where
     let res = match handler(req) {
         Ok(r) => r,
         Err(e) => {
-            println!("[error] handle_json: Handler error: {}", e.message);
             return err(
                 cmd,
                 e.http_code,
@@ -257,10 +237,6 @@ fn create_repo_path_validator() -> RepoPathValidator {
                 }
                 // Only accept absolute paths
                 if !p.is_absolute() {
-                    println!(
-                        "[warn] Ignoring relative path in VARINA_REPO_WHITELIST: {:?}",
-                        p
-                    );
                     return false;
                 }
                 true
@@ -268,15 +244,7 @@ fn create_repo_path_validator() -> RepoPathValidator {
             .collect();
 
         if !whitelist.is_empty() {
-            println!(
-                "[info] Using repo path whitelist from VARINA_REPO_WHITELIST: {:?}",
-                whitelist
-            );
             return RepoPathValidator::new(whitelist);
-        } else {
-            println!(
-                "[warn] VARINA_REPO_WHITELIST contained no valid absolute paths, using defaults"
-            );
         }
     }
 

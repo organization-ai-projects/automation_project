@@ -1,0 +1,117 @@
+name: PR Body Contract Sync
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to sync"
+        required: true
+      base_ref:
+        description: "Base branch (optional override)"
+        required: false
+      head_ref:
+        description: "Head branch (optional override)"
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  sync-and-guard-pr-body:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve context
+        id: ctx
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request_target" ]]; then
+            pr_number="${{ github.event.pull_request.number }}"
+            base_ref="${{ github.event.pull_request.base.ref }}"
+            head_ref="${{ github.event.pull_request.head.ref }}"
+          else
+            pr_number="${{ inputs.pr_number }}"
+            base_ref="${{ inputs.base_ref }}"
+            head_ref="${{ inputs.head_ref }}"
+          fi
+
+          if [[ -z "${pr_number}" || ! "${pr_number}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid PR number: '${pr_number}'" >&2
+            exit 1
+          fi
+
+          if [[ -z "${base_ref}" || -z "${head_ref}" ]]; then
+            pr_json="$(gh pr view "${pr_number}" --json baseRefName,headRefName)"
+            [[ -z "${base_ref}" ]] && base_ref="$(echo "${pr_json}" | jq -r '.baseRefName // empty')"
+            [[ -z "${head_ref}" ]] && head_ref="$(echo "${pr_json}" | jq -r '.headRefName // empty')"
+          fi
+
+          if [[ -z "${base_ref}" || -z "${head_ref}" ]]; then
+            echo "Unable to resolve base/head refs for PR #${pr_number}" >&2
+            exit 1
+          fi
+
+          echo "pr_number=${pr_number}" >> "$GITHUB_OUTPUT"
+          echo "base_ref=${base_ref}" >> "$GITHUB_OUTPUT"
+          echo "head_ref=${head_ref}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout base scripts
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ctx.outputs.base_ref }}
+          sparse-checkout: |
+            scripts/versioning/file_versioning/github/
+          sparse-checkout-cone-mode: false
+
+      - name: Ensure jq is available
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq
+          else
+            jq --version
+          fi
+
+      - name: Refresh PR body from generator
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.ctx.outputs.pr_number }}
+          BASE_REF: ${{ steps.ctx.outputs.base_ref }}
+          HEAD_REF: ${{ steps.ctx.outputs.head_ref }}
+        run: |
+          chmod +x scripts/versioning/file_versioning/github/generate_pr_description.sh
+          bash scripts/versioning/file_versioning/github/generate_pr_description.sh \
+            --dry-run \
+            --base "${BASE_REF}" \
+            --head "${HEAD_REF}" \
+            --refresh-pr "${PR_NUMBER}" "${PR_NUMBER}" --yes
+
+      - name: Guard PR body contract
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.ctx.outputs.pr_number }}
+          BASE_REF: ${{ steps.ctx.outputs.base_ref }}
+          HEAD_REF: ${{ steps.ctx.outputs.head_ref }}
+        run: |
+          expected="$(mktemp)"
+          current="$(mktemp)"
+
+          bash scripts/versioning/file_versioning/github/generate_pr_description.sh \
+            --dry-run \
+            --base "${BASE_REF}" \
+            --head "${HEAD_REF}" \
+            "${expected}"
+
+          gh pr view "${PR_NUMBER}" --json body -q '.body' > "${current}"
+
+          if ! diff -u "${expected}" "${current}" >/dev/null; then
+            echo "PR body contract mismatch after auto-sync." >&2
+            diff -u "${expected}" "${current}" || true
+            rm -f "${expected}" "${current}"
+            exit 1
+          fi
+
+          rm -f "${expected}" "${current}"

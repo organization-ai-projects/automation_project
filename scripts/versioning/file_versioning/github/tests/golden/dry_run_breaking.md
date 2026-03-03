@@ -2,47 +2,22 @@
 
 This pull request merges the `test-head` branch into `dev` and summarizes merged pull requests and resolved issues.
 
-### Scope
+### Validation Gate
 
-- Not explicitly provided.
+- CI: UNKNOWN ⚪
+- Breaking change
+- Breaking scope:
+  - crate(s): unknown
+  - source commit(s): unknown
 
-### Compatibility
+### Issue Outcomes
 
-- Breaking change detected:
-  - Commit messages indicate a breaking change.
-
-### Issues Resolved
-
-This PR resolves the following issues:
-
-- No resolved issues detected via GitHub references or PR body keywords.
+- No issues processed in this PR.
 
 ### Key Changes
 
-#### Features
-
 - No significant items detected.
 
-#### Bug Fixes
+#### Change Footprint
 
-- No significant items detected.
-
-#### Refactoring
-
-- No significant items detected.
-
-### Testing
-
-- Ensure all project tests are executed before merge (for example: `cargo test`, script-specific checks, and CI workflow validation).
-- Validate manually the automation workflows impacted by merged PRs.
-
-### Validation Checklist
-
-- [ ] Tests have been added or updated, and all tests pass.
-- [ ] Documentation has been updated as needed.
-- [ ] Breaking changes (if any) are clearly documented above.
-
-### Additional Notes
-
-- Documentation and PR summaries should be aligned with the resolved issues listed above.
-- This generated description can be edited to add domain-specific details before submission.
+- No changed files detected for this branch range.
