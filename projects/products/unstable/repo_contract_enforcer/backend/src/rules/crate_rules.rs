@@ -101,7 +101,7 @@ fn should_enforce_primary_item_contract(
     rs_file: &std::path::Path,
     stem: &str,
 ) -> bool {
-    if matches!(stem, "main" | "mod" | "lib" | "public_api" | "routes") {
+    if matches!(stem, "main" | "mod" | "lib" | "public_api") {
         return false;
     }
 

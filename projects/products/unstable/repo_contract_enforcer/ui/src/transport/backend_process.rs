@@ -45,11 +45,15 @@ impl BackendProcess {
 }
 
 fn spawn_backend_process() -> Result<Child> {
-    if let Ok(child) = spawn_backend_by_command("repo_contract_enforcer_backend") {
-        return Ok(child);
-    }
-
     if let Some(workspace_root) = find_workspace_root(std::env::current_dir().ok().as_deref()) {
+        if let Ok(child) = spawn_backend_with_cargo_run(&workspace_root) {
+            return Ok(child);
+        }
+
+        if let Ok(child) = spawn_backend_by_command("repo_contract_enforcer_backend") {
+            return Ok(child);
+        }
+
         let binary_path = workspace_root
             .join("target")
             .join("debug")
@@ -78,9 +82,29 @@ fn spawn_backend_process() -> Result<Child> {
         }
     }
 
+    if let Ok(child) = spawn_backend_by_command("repo_contract_enforcer_backend") {
+        return Ok(child);
+    }
+
     anyhow::bail!(
         "failed to spawn repo_contract_enforcer_backend (tried PATH, target/debug, and cargo build fallback)"
     );
+}
+
+fn spawn_backend_with_cargo_run(workspace_root: &Path) -> Result<Child> {
+    Command::new("cargo")
+        .arg("run")
+        .arg("-q")
+        .arg("-p")
+        .arg("repo_contract_enforcer_backend")
+        .arg("--")
+        .arg("serve")
+        .current_dir(workspace_root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .context("backend cargo run spawn failed")
 }
 
 fn spawn_backend_by_command<S: AsRef<std::ffi::OsStr>>(cmd: S) -> Result<Child> {

@@ -16,6 +16,7 @@ mod pipeline;
 mod refs_store;
 mod repos;
 mod routes;
+mod routes_types;
 mod slices;
 mod sync;
 mod verify;
