@@ -38,12 +38,29 @@
         "repoContractEnforcer.runOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Run checks automatically when Rust files are saved"
+          "description": "Run checks automatically when Rust/TOML files are saved"
+        },
+        "repoContractEnforcer.runOnChange": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run checks while editing Rust/TOML files (debounced)"
+        },
+        "repoContractEnforcer.runOnFileEvents": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run checks on Rust/TOML file create/change/delete/rename events"
+        },
+        "repoContractEnforcer.debounceMs": {
+          "type": "number",
+          "default": 300,
+          "minimum": 50,
+          "maximum": 5000,
+          "description": "Debounce delay in milliseconds for edit/file-event triggered checks"
         },
         "repoContractEnforcer.command": {
           "type": "string",
           "default": "cargo",
-          "description": "Command used to invoke repo_contract_enforcer_ui"
+          "description": "Command used to invoke repo_contract_enforcer_backend"
         }
       }
     }
