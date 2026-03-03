@@ -72,7 +72,7 @@ impl CrateRules {
                         .file_stem()
                         .and_then(|s| s.to_str())
                         .unwrap_or_default();
-                    if matches!(stem, "main" | "mod" | "lib" | "public_api") {
+                    if !should_enforce_primary_item_contract(&src_dir, &rs_file, stem) {
                         continue;
                     }
 
@@ -94,6 +94,23 @@ impl CrateRules {
 
         out
     }
+}
+
+fn should_enforce_primary_item_contract(
+    src_dir: &std::path::Path,
+    rs_file: &std::path::Path,
+    stem: &str,
+) -> bool {
+    if matches!(stem, "main" | "mod" | "lib" | "public_api" | "routes") {
+        return false;
+    }
+
+    let rel = match rs_file.strip_prefix(src_dir) {
+        Ok(path) => path,
+        Err(_) => return true,
+    };
+    let rel_text = rel.to_string_lossy();
+    !rel_text.starts_with("tests/")
 }
 
 fn make_violation(
