@@ -35,16 +35,6 @@ This pull request merges the `test-head` branch into `dev` and summarizes merged
 
 ### Key Changes
 
-#### Features
-
-- No significant items detected.
-
-#### Bug Fixes
-
-- No significant items detected.
-
-#### Refactoring
-
 - No significant items detected.
 
 ### Testing
