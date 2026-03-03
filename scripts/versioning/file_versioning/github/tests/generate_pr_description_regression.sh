@@ -359,7 +359,8 @@ main() {
       /^### / && in_compat { exit }
       in_compat { print }
     ' "${out_md}")"
-    if echo "${compat_section}" | grep -q -- "^- No breaking change detected\\.$" \
+    if echo "${compat_section}" | grep -q -- "^- CI: UNKNOWN ⚪$" \
+      && echo "${compat_section}" | grep -q -- "^- No breaking change$" \
       && ! echo "${compat_section}" | grep -q -- "\\[x\\]\\|\\[ \\]"; then
       echo "PASS [compatibility-single-status-line]"
     else
@@ -388,7 +389,8 @@ main() {
       /^### / && in_compat { exit }
       in_compat { print }
     ' "${out_md}")"
-    if echo "${compat_section}" | grep -q -- "^- No breaking change detected\\.$"; then
+    if echo "${compat_section}" | grep -q -- "^- CI: UNKNOWN ⚪$" \
+      && echo "${compat_section}" | grep -q -- "^- No breaking change$"; then
       echo "PASS [compatibility-negated-breaking-signal]"
     else
       echo "FAIL [compatibility-negated-breaking-signal] compatibility section is not normalized for negated signal"

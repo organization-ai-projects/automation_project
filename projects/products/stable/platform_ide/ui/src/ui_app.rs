@@ -1,12 +1,16 @@
 // projects/products/stable/platform_ide/ui/src/ui_app.rs
 use crate::auth_view::AuthView;
 use crate::change_submit_view::ChangeSubmitView;
-use crate::diff_view::{DiffLineEntry, DiffLineKind, DiffView};
+use crate::diff_line_entry::DiffLineEntry;
+use crate::diff_line_kind::DiffLineKind;
+use crate::diff_view::DiffView;
 use crate::editor_view::EditorView;
-use crate::issue_list_view::{IssueEntry, IssueListView};
+use crate::finding_entry::FindingEntry;
+use crate::issue_entry::IssueEntry;
+use crate::issue_list_view::IssueListView;
 use crate::offline_controls::OfflineControls;
 use crate::slice_explorer::SliceExplorer;
-use crate::verification_view::{FindingEntry, VerificationView};
+use crate::verification_view::VerificationView;
 
 /// The platform IDE UI application.
 ///

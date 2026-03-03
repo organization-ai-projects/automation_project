@@ -25,6 +25,7 @@ jobs:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || 'dev' }}
           sparse-checkout: |
             scripts/versioning/file_versioning/github/
+            scripts/common_lib/versioning/file_versioning/github/
           sparse-checkout-cone-mode: false
 
       - name: Ensure jq is available

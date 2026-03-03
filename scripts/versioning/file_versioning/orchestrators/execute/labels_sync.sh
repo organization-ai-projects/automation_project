@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Public execute orchestrator.
 # Sync GitHub labels from a labels.json file
 # Usage: ./labels_sync.sh [--prune] [labels-file]
 
@@ -14,8 +13,6 @@ source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 source "$ROOT_DIR/scripts/common_lib/core/command.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/github/commands.sh"
 
 require_git_repo
 require_cmd gh
@@ -64,7 +61,7 @@ has_label() {
   return 1
 }
 
-mapfile -t existing_labels < <(vcs_remote_label_list --limit 1000 --json name --jq '.[].name')
+mapfile -t existing_labels < <(gh label list --limit 1000 --json name --jq '.[].name')
 
 # Read and process each label
 jq -c '.[]' "$LABELS_FILE" | while read -r label; do
@@ -77,7 +74,7 @@ jq -c '.[]' "$LABELS_FILE" | while read -r label; do
   # Check if label exists
   if has_label "$NAME" "${existing_labels[@]}"; then
     info "  Updating existing label..."
-    vcs_remote_label_edit "$NAME" --color "$COLOR" --description "$DESCRIPTION" || warn "Failed to update $NAME"
+    gh label edit "$NAME" --color "$COLOR" --description "$DESCRIPTION" || warn "Failed to update $NAME"
   else
     info "  Creating new label..."
     if gh label create "$NAME" --color "$COLOR" --description "$DESCRIPTION"; then
@@ -120,7 +117,7 @@ if [[ "$PRUNE" == true ]]; then
     )
   fi
 
-  mapfile -t repo_labels < <(vcs_remote_label_list --limit 1000 --json name --jq '.[].name')
+  mapfile -t repo_labels < <(gh label list --limit 1000 --json name --jq '.[].name')
   for repo_label in "${repo_labels[@]}"; do
     if grep -Fqx "$repo_label" "$desired_labels_file"; then
       continue
@@ -130,7 +127,7 @@ if [[ "$PRUNE" == true ]]; then
       continue
     fi
     info "  Deleting obsolete label: $repo_label"
-    vcs_remote_label_delete "$repo_label" --yes || warn "Failed to delete $repo_label"
+    gh label delete "$repo_label" --yes || warn "Failed to delete $repo_label"
   done
 fi
 

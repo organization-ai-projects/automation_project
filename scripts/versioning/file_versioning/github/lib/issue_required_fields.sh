@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  echo "Error: $(basename "$0") is a library script and must be sourced, not executed directly." >&2
-  exit 2
-fi
-
-# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../../../common_lib/versioning/file_versioning/github/commands.sh"
-
 # Shared validator for required issue title/body format.
 # Contract source of truth: .github/issue_required_fields.conf
 
@@ -209,9 +201,9 @@ issue_fetch_non_compliance_reason() {
   local body
 
   if [[ -n "$repo_name" ]]; then
-    issue_json="$(vcs_remote_issue_view "$issue_number" -R "$repo_name" --json labels,title,body 2>/dev/null || true)"
+    issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json labels,title,body 2>/dev/null || true)"
   else
-    issue_json="$(vcs_remote_issue_view "$issue_number" --json labels,title,body 2>/dev/null || true)"
+    issue_json="$(gh issue view "$issue_number" --json labels,title,body 2>/dev/null || true)"
   fi
   if [[ -z "$issue_json" ]]; then
     echo ""

@@ -44,7 +44,7 @@ require_non_protected_branch "$BRANCH_NAME"
 CURRENT_BRANCH="$(get_current_branch)"
 if [[ "$CURRENT_BRANCH" == "$BRANCH_NAME" ]]; then
   warn "You are currently on '$BRANCH_NAME'. Checking out '$BASE_BRANCH' first."
-  vcs_local_checkout "$BASE_BRANCH"
+  git checkout "$BASE_BRANCH"
 fi
 
 # Save deleted branch name for create_branch.sh
@@ -57,10 +57,10 @@ info "Deleting branch: $BRANCH_NAME (remote: $REMOTE)"
 # Delete local
 if branch_exists_local "$BRANCH_NAME"; then
   if [[ "$FORCE" == "true" ]]; then
-    vcs_local_branch -D "$BRANCH_NAME"
+    git branch -D "$BRANCH_NAME"
     warn "⚠ Local branch '$BRANCH_NAME' deleted (force)."
   else
-    vcs_local_branch -d "$BRANCH_NAME"
+    git branch -d "$BRANCH_NAME"
     info "✓ Local branch '$BRANCH_NAME' deleted."
   fi
 else
@@ -69,7 +69,7 @@ fi
 
 # Delete remote (if exists)
 if branch_exists_remote "$REMOTE" "$BRANCH_NAME"; then
-  vcs_local_push "$REMOTE" --delete "$BRANCH_NAME"
+  git push "$REMOTE" --delete "$BRANCH_NAME"
   info "✓ Remote branch '$BRANCH_NAME' deleted."
 else
   info "Remote branch '$BRANCH_NAME' does not exist."
