@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Internal-only read orchestrator.
-# Public entrypoint: GitHub Actions workflow ".github/workflows/automation_sync.yml".
-if [[ "${ORCHESTRATOR_READ_INTERNAL_ALLOWED:-0}" != "1" ]]; then
-  echo "Error: synch_main_dev_ci.sh is internal-only and cannot be run directly." >&2
-  echo "Use: .github/workflows/automation_sync.yml" >&2
-  exit 2
-fi
-
 # Ensure the script is executed only in a CI environment
 if [[ -z "${CI:-}" || "$CI" != "true" ]]; then
   echo "This script can only be executed in a CI environment." >&2
@@ -23,16 +15,11 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGGING_SH="$SCRIPT_DIR/../../../../common_lib/core/logging.sh"
-COMMANDS_SH="$SCRIPT_DIR/../../../../common_lib/versioning/file_versioning/github/commands.sh"
 if [[ -f "$LOGGING_SH" ]]; then
   # shellcheck disable=SC1090
   source "$LOGGING_SH"
 else
   info() { echo "$*"; }
-fi
-if [[ -f "$COMMANDS_SH" ]]; then
-  # shellcheck disable=SC1090
-  source "$COMMANDS_SH"
 fi
 
 # Standardize token usage
@@ -84,7 +71,7 @@ git push -f "$REMOTE" "$SYNC_BRANCH"
 
 # Create PR
 info "Creating PR to merge $MAIN into $DEV..."
-PR_CREATE_OUTPUT=$(vcs_remote_pr_create \
+PR_CREATE_OUTPUT=$(gh pr create \
   --base "$DEV" \
   --head "$SYNC_BRANCH" \
   --title "chore: sync main into dev" \
@@ -114,7 +101,7 @@ while true; do
     exit 1
   fi
 
-  MERGEABLE=$(vcs_remote_pr_view "$PR_URL" --json mergeable --jq '.mergeable // "UNKNOWN"')
+  MERGEABLE=$(gh pr view "$PR_URL" --json mergeable --jq '.mergeable // "UNKNOWN"')
   if [[ "$MERGEABLE" != "UNKNOWN" ]]; then
     break
   fi
@@ -131,5 +118,5 @@ elif [[ "$MERGEABLE" != "MERGEABLE" ]]; then
   exit 1
 fi
 # Enable auto-merge with branch deletion
-vcs_remote_pr_merge "$PR_URL" --auto --merge --delete-branch
+gh pr merge "$PR_URL" --auto --merge --delete-branch
 info "Auto-merge enabled for PR: $PR_URL (branch will be deleted after merge)"

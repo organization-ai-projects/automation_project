@@ -1,18 +1,10 @@
 #!/bin/bash
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  echo "Error: $(basename "$0") is a library script and must be sourced, not executed directly." >&2
-  exit 2
-fi
-
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/commands.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/commands.sh"
-
 # Functions related to Git branches
 
 last_deleted_branch_file() {
   local git_dir
-  git_dir="$(vcs_local_rev_parse --git-dir 2>/dev/null || true)"
+  git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
 
   if [[ -n "$git_dir" ]]; then
     echo "${git_dir}/last_deleted_branch"
@@ -26,14 +18,14 @@ last_deleted_branch_file() {
 # Check if branch exists locally
 branch_exists_local() {
   local branch="$1"
-  vcs_local_show_ref --verify --quiet "refs/heads/$branch"
+  git show-ref --verify --quiet "refs/heads/$branch"
 }
 
 # Check if branch exists on remote
 branch_exists_remote() {
   local remote="$1"
   local branch="$2"
-  vcs_local_ls_remote --exit-code --heads "$remote" "$branch" >/dev/null 2>&1
+  git ls-remote --exit-code --heads "$remote" "$branch" >/dev/null 2>&1
 }
 
 # Check if branch is protected
@@ -44,7 +36,7 @@ is_protected_branch() {
 
 # Get current branch name
 get_current_branch() {
-  vcs_local_branch --show-current || die "Not on a branch (detached HEAD)."
+  git branch --show-current || die "Not on a branch (detached HEAD)."
 }
 
 # Ensure branch is not protected

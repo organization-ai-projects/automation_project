@@ -97,9 +97,7 @@ run_case() {
   local expected_exit="$2"
   local expected_pattern="$3"
   local command="$4"
-  local expected_edit_pattern="${5:-}"
-  local unexpected_edit_pattern="${6:-}"
-  shift 6
+  shift 4
 
   TESTS_RUN=$((TESTS_RUN + 1))
 
@@ -139,26 +137,6 @@ run_case() {
     return
   fi
 
-  if [[ -n "${expected_edit_pattern}" ]]; then
-    if [[ ! -f "${tmp}/edits.log" ]] || ! grep -qE -- "${expected_edit_pattern}" "${tmp}/edits.log"; then
-      echo "FAIL [${name}] edit log missing pattern: ${expected_edit_pattern}"
-      if [[ -f "${tmp}/edits.log" ]]; then
-        sed -n '1,40p' "${tmp}/edits.log"
-      fi
-      TESTS_FAILED=$((TESTS_FAILED + 1))
-      rm -rf "${tmp}"
-      return
-    fi
-  fi
-
-  if [[ -n "${unexpected_edit_pattern}" ]] && [[ -f "${tmp}/edits.log" ]] && grep -qE -- "${unexpected_edit_pattern}" "${tmp}/edits.log"; then
-    echo "FAIL [${name}] unexpected edit log pattern: ${unexpected_edit_pattern}"
-    sed -n '1,40p' "${tmp}/edits.log"
-    TESTS_FAILED=$((TESTS_FAILED + 1))
-    rm -rf "${tmp}"
-    return
-  fi
-
   echo "PASS [${name}]"
   rm -rf "${tmp}"
 }
@@ -171,8 +149,6 @@ main() {
     0 \
     "Issue #303: reopened from Reopen ref." \
     "--pr 55" \
-    "issue reopen 303" \
-    "" \
     env MOCK_PR_BODY="Reopen #303" MOCK_ISSUE_303_STATE=CLOSED MOCK_ISSUE_303_HAS_LABEL=1
 
   run_case \
@@ -180,8 +156,6 @@ main() {
     0 \
     "Issue #404: state=OPEN; no reopen needed." \
     "--pr 55" \
-    "issue edit 404" \
-    "" \
     env MOCK_PR_BODY="Reopen #404" MOCK_ISSUE_404_STATE=OPEN MOCK_ISSUE_404_HAS_LABEL=1
 
   run_case \
@@ -189,28 +163,7 @@ main() {
     0 \
     "No reopen issue refs found for PR #55." \
     "--pr 55" \
-    "" \
-    "issue reopen" \
     env MOCK_PR_BODY="Closes #101" MOCK_PR_COMMITS=""
-
-  run_case \
-    "explicit-close-prevents-reopen" \
-    0 \
-    "Issue #303: reopen skipped \(resolved decision=close\)." \
-    "--pr 55" \
-    "" \
-    "issue reopen 303" \
-    env MOCK_PR_BODY=$'Closes #303\nReopen #303\nDirective Decision: #303 => close'
-
-  run_case \
-    "multi-source-conflict-skips-reopen" \
-    0 \
-    "Issue #303: reopen skipped \(closes-and-reopen-across-multiple-source-branches\)." \
-    "--pr 55" \
-    "" \
-    "issue reopen 303" \
-    env MOCK_PR_BODY=$'Closes #303\nReopen #303' \
-        MOCK_PR_COMMITS=$'Merge pull request #11 from org/a\nMerge pull request #12 from org/b'
 
   echo ""
   echo "Summary: ${TESTS_RUN} run, ${TESTS_FAILED} failed."

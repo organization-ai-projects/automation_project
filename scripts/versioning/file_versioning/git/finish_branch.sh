@@ -38,23 +38,23 @@ require_non_protected_branch "$BRANCH_TO_FINISH"
 git_fetch_prune "$REMOTE"
 
 # Switch to base branch if currently on the branch to finish
-CURRENT_BRANCH="$(vcs_local_branch --show-current || true)"
+CURRENT_BRANCH="$(git branch --show-current || true)"
 if [[ "$CURRENT_BRANCH" == "$BRANCH_TO_FINISH" ]]; then
   info "Switching to $BASE_BRANCH..."
   if branch_exists_local "$BASE_BRANCH"; then
-    vcs_local_checkout "$BASE_BRANCH"
+    git checkout "$BASE_BRANCH"
   else
-    vcs_local_checkout -b "$BASE_BRANCH" "$REMOTE/$BASE_BRANCH"
+    git checkout -b "$BASE_BRANCH" "$REMOTE/$BASE_BRANCH"
   fi
-  vcs_local_pull "$REMOTE" "$BASE_BRANCH"
+  git pull "$REMOTE" "$BASE_BRANCH"
 fi
 
 # Delete local branch
 if branch_exists_local "$BRANCH_TO_FINISH"; then
   info "Deleting local branch '$BRANCH_TO_FINISH'..."
-  if vcs_local_branch -d "$BRANCH_TO_FINISH" 2>/dev/null; then
+  if git branch -d "$BRANCH_TO_FINISH" 2>/dev/null; then
     info "✓ Local branch deleted (safe)."
-  elif vcs_local_branch -D "$BRANCH_TO_FINISH" 2>/dev/null; then
+  elif git branch -D "$BRANCH_TO_FINISH" 2>/dev/null; then
     warn "⚠ Local branch deleted (forced)."
   else
     die "Failed to delete local branch '$BRANCH_TO_FINISH'."
@@ -66,7 +66,7 @@ fi
 # Delete remote branch
 if branch_exists_remote "$REMOTE" "$BRANCH_TO_FINISH"; then
   info "Deleting remote branch '$REMOTE/$BRANCH_TO_FINISH'..."
-  if vcs_local_push "$REMOTE" --delete "$BRANCH_TO_FINISH"; then
+  if git push "$REMOTE" --delete "$BRANCH_TO_FINISH"; then
     info "✓ Remote branch deleted."
   else
     warn "⚠ Failed to delete remote branch (may be protected or lack permissions)."
