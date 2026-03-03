@@ -1,10 +1,10 @@
 [package]
-name = "platform-versioning-backend"
+name = "platform_versioning_backend"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "platform-versioning-backend"
+name = "platform_versioning_backend"
 path = "src/main.rs"
 
 [dependencies]

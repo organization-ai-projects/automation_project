@@ -1,6 +1,13 @@
 // projects/products/stable/platform_versioning/backend/src/pipeline/snapshot.rs
 use std::collections::BTreeMap;
 
+#[cfg(test)]
+fn next_nonce() -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static NONCE: AtomicU32 = AtomicU32::new(1);
+    NONCE.fetch_add(1, Ordering::Relaxed)
+}
+
 use serde::{Deserialize, Serialize};
 
 use crate::errors::PvError;
@@ -127,10 +134,7 @@ mod tests {
     fn unique_test_dir() -> std::path::PathBuf {
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
         let pid = std::process::id();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.subsec_nanos())
-            .unwrap_or(0);
+        let nanos = next_nonce();
         std::env::temp_dir().join(format!("pv_snapshot_{pid}_{nanos}_{id}"))
     }
 
@@ -145,9 +149,9 @@ mod tests {
         let snapshot = Snapshot::from_map(BTreeMap::new());
         let root_id = snapshot.write_trees(&store).unwrap();
         let obj = store.read(root_id.as_object_id()).unwrap();
-        match obj {
-            Object::Tree(t) => assert!(t.entries.is_empty()),
-            _ => panic!("expected tree"),
+        assert!(matches!(obj, Object::Tree(_)));
+        if let Object::Tree(t) = obj {
+            assert!(t.entries.is_empty());
         }
     }
 
@@ -161,9 +165,9 @@ mod tests {
         let snapshot = Snapshot::from_map(map);
         let root_id = snapshot.write_trees(&store).unwrap();
         let obj = store.read(root_id.as_object_id()).unwrap();
-        match obj {
-            Object::Tree(t) => assert_eq!(t.entries.len(), 2),
-            _ => panic!("expected tree"),
+        assert!(matches!(obj, Object::Tree(_)));
+        if let Object::Tree(t) = obj {
+            assert_eq!(t.entries.len(), 2);
         }
     }
 

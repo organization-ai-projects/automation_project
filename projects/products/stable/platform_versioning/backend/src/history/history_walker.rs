@@ -1,6 +1,13 @@
 // projects/products/stable/platform_versioning/backend/src/history/history_walker.rs
 use std::collections::{HashSet, VecDeque};
 
+#[cfg(test)]
+fn next_nonce() -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static NONCE: AtomicU32 = AtomicU32::new(1);
+    NONCE.fetch_add(1, Ordering::Relaxed)
+}
+
 use crate::errors::PvError;
 use crate::history::{HistoryEntry, HistoryPage};
 use crate::ids::CommitId;
@@ -10,7 +17,7 @@ use crate::objects::{Object, ObjectStore};
 ///
 /// # Ordering
 /// History is traversed in breadth-first order following first-parent links.
-/// This produces a deterministic reverse-chronological sequence for linear
+/// This produces a deterministic newest-first sequence for linear
 /// histories. Merge commits include all parents in order.
 pub struct HistoryWalker<'a> {
     store: &'a ObjectStore,
@@ -97,10 +104,7 @@ mod tests {
     fn unique_test_dir(tag: &str) -> std::path::PathBuf {
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
         let pid = std::process::id();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.subsec_nanos())
-            .unwrap_or(0);
+        let nanos = next_nonce();
         std::env::temp_dir().join(format!("pv_hist_{tag}_{pid}_{nanos}_{id}"))
     }
 

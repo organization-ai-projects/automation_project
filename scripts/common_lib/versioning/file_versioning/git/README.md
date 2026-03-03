@@ -17,7 +17,6 @@ It interacts mainly with:
 
 ```plaintext
 git/
-├── commands.sh         # Single git CLI entrypoint (vcs_local_* wrappers)
 ├── branch.sh           # Branch management utilities
 ├── commit.sh           # Commit operations
 ├── repo.sh             # Repository validation utilities
@@ -29,7 +28,6 @@ git/
 ## Files
 
 - `README.md`: This file.
-- `commands.sh`: Single Git CLI backend wrappers (`vcs_local_*`).
 - `branch.sh`: Branch management utilities.
 - `commit.sh`: Commit operations.
 - `repo.sh`: Repository validation utilities.
@@ -46,34 +44,6 @@ This directory contains foundational git functions used by other scripts:
 - Commit operations
 - Staging/index operations
 - Synchronization utilities
-- Single `git` invocation backend (`commands.sh`) for deduplication and consistency
-
-## Invocation Rule
-
-- `commands.sh` is the only file in this module that executes the `git` binary directly.
-- Other scripts must call `vcs_local_*` wrappers (or higher-level helpers built on top of them).
-
-## Wrapper API
-
-All wrappers are variadic and forward extra args with `"$@"`.
-
-- Primitive:
-  - `vcs_local_run <git-args...>`
-- Core:
-  - `vcs_local_add`, `vcs_local_branch`, `vcs_local_checkout`, `vcs_local_commit`
-  - `vcs_local_diff`, `vcs_local_fetch`, `vcs_local_pull`, `vcs_local_push`
-  - `vcs_local_reset`, `vcs_local_status`, `vcs_local_switch`
-  - `vcs_local_rev_parse`, `vcs_local_show_ref`, `vcs_local_ls_remote`, `vcs_local_ls_files`
-  - `vcs_local_for_each_ref`, `vcs_local_rev_list`, `vcs_local_log`, `vcs_local_merge_base`
-
-## Examples
-
-```bash
-vcs_local_branch --show-current
-vcs_local_checkout -b feat/my-branch dev
-vcs_local_push --set-upstream origin feat/my-branch
-vcs_local_diff --cached --name-only
-```
 
 ## Current Modules
 

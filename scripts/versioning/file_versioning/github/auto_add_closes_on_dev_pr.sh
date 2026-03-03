@@ -3,8 +3,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
-source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
 # shellcheck source=scripts/versioning/file_versioning/github/lib/issue_refs.sh
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 
@@ -87,11 +85,11 @@ require_cmd gh
 require_cmd jq
 
 if [[ -z "$repo_name" ]]; then
-  repo_name="$(gh_resolve_repo_name)"
+  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
 [[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
 
-pr_json="$(vcs_remote_pr_view "$pr_number" -R "$repo_name" --json number,state,baseRefName,title,body,author 2>/dev/null || true)"
+pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json number,state,baseRefName,title,body,author 2>/dev/null || true)"
 [[ -n "$pr_json" ]] || { echo "Error: unable to read PR #${pr_number}." >&2; exit 3; }
 
 pr_state="$(echo "$pr_json" | jq -r '.state // ""')"
@@ -113,7 +111,7 @@ if [[ -z "$pr_author" ]]; then
   exit 0
 fi
 
-pr_commits="$(vcs_remote_api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
+pr_commits="$(gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
 
 payload_all="$({
   printf '%s\n' "$pr_title"
@@ -140,7 +138,7 @@ while IFS= read -r issue_number; do
     continue
   fi
 
-  assignees="$(vcs_remote_issue_view "$issue_number" -R "$repo_name" --json assignees --jq '.assignees[].login' 2>/dev/null || true)"
+  assignees="$(gh issue view "$issue_number" -R "$repo_name" --json assignees --jq '.assignees[].login' 2>/dev/null || true)"
   assignee_count="$(printf '%s\n' "$assignees" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
   sole_assignee="$(printf '%s\n' "$assignees" | sed '/^$/d' | head -n1)"
 
@@ -179,5 +177,5 @@ if [[ "$new_body" == "$pr_body" ]]; then
   exit 0
 fi
 
-vcs_remote_pr_edit "$pr_number" -R "$repo_name" --body "$new_body" >/dev/null
+gh pr edit "$pr_number" -R "$repo_name" --body "$new_body" >/dev/null
 echo "PR #${pr_number}: updated body with auto-managed Closes refs."

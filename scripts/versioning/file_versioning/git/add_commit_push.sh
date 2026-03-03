@@ -106,7 +106,7 @@ require_non_protected_branch "$CURRENT_BRANCH"
 info "Adding all changes..."
 git_add_all
 
-STAGED_FILES="$(vcs_local_diff --cached --name-only)"
+STAGED_FILES="$(git diff --cached --name-only)"
 if [[ -z "$STAGED_FILES" ]]; then
   warn "Nothing to commit — working tree is clean."
   exit 0
@@ -118,7 +118,7 @@ echo ""
 
 info "Committing with message: $COMMIT_MESSAGE"
 if [[ "$NO_VERIFY" == true ]]; then
-  git_commit_run --no-verify -m "$COMMIT_MESSAGE"
+  git commit --no-verify -m "$COMMIT_MESSAGE"
 else
   git_commit "$COMMIT_MESSAGE"
 fi

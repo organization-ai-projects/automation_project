@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  echo "Error: $(basename "$0") is a library script and must be sourced, not executed directly." >&2
-  exit 2
-fi
-
 resolve_repo_name_with_owner() {
   if [[ -n "${GH_REPO:-}" ]]; then
     printf '%s\n' "$GH_REPO"

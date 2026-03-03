@@ -14,17 +14,16 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 3
 fi
 
-REPO_NAME="$(gh_resolve_repo_name)"
+REPO_NAME="${GH_REPO:-}"
+if [[ -z "$REPO_NAME" ]]; then
+  REPO_NAME="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+fi
 if [[ -z "$REPO_NAME" ]]; then
   echo "Error: unable to resolve repository name." >&2
   exit 3
 fi
-REPO_OWNER="$(gh_repo_owner "$REPO_NAME" || true)"
-REPO_SHORT_NAME="$(gh_repo_short_name "$REPO_NAME" || true)"
-if [[ -z "$REPO_OWNER" || -z "$REPO_SHORT_NAME" ]]; then
-  echo "Error: invalid repository format: ${REPO_NAME} (expected owner/name)." >&2
-  exit 3
-fi
+REPO_OWNER="${REPO_NAME%%/*}"
+REPO_SHORT_NAME="${REPO_NAME#*/}"
 
 build_status_comment() {
   local parent_number="$1"
@@ -61,7 +60,7 @@ evaluate_and_close_parent_if_ready() {
   local open_count=0
   local open_lines=""
 
-  parent_json="$(vcs_remote_issue_view "$parent_number" -R "$REPO_NAME" --json number,body,state 2>/dev/null || true)"
+  parent_json="$(gh issue view "$parent_number" -R "$REPO_NAME" --json number,body,state 2>/dev/null || true)"
   if [[ -z "$parent_json" ]]; then
     return 0
   fi
@@ -85,7 +84,7 @@ evaluate_and_close_parent_if_ready() {
     local child_state
     local child_title
 
-    child_json="$(vcs_remote_issue_view "$child_number" -R "$REPO_NAME" --json state,title 2>/dev/null || true)"
+    child_json="$(gh issue view "$child_number" -R "$REPO_NAME" --json state,title 2>/dev/null || true)"
     if [[ -z "$child_json" ]]; then
       open_count=$((open_count + 1))
       open_lines+="- ${child_ref} (unreadable or missing)"$'\n'
@@ -109,7 +108,7 @@ evaluate_and_close_parent_if_ready() {
     "$(build_status_comment "$parent_number" "$total" "$closed_count" "$open_count" "$open_lines")"
 
   if [[ "$parent_state" == "OPEN" && "$open_count" -eq 0 ]]; then
-    vcs_remote_issue_close "$parent_number" -R "$REPO_NAME" \
+    gh issue close "$parent_number" -R "$REPO_NAME" \
       --comment "All required child issues are closed. Auto-closed by closure hygiene workflow after merge into main." >/dev/null
     echo "Closed parent issue #${parent_number}."
   fi
@@ -122,7 +121,7 @@ close_completed_milestones() {
   local open_issues
 
   mapfile -t milestones < <(
-    vcs_remote_api "repos/${REPO_NAME}/milestones?state=open" --paginate \
+    gh api "repos/${REPO_NAME}/milestones?state=open" --paginate \
       | jq -r '.[] | @base64'
   )
 
@@ -131,7 +130,7 @@ close_completed_milestones() {
     milestone_title="$(echo "$milestone" | base64 -d | jq -r '.title')"
     open_issues="$(echo "$milestone" | base64 -d | jq -r '.open_issues')"
     if [[ "$open_issues" == "0" ]]; then
-      vcs_remote_api -X PATCH "repos/${REPO_NAME}/milestones/${milestone_number}" \
+      gh api -X PATCH "repos/${REPO_NAME}/milestones/${milestone_number}" \
         -f state=closed >/dev/null
       echo "Closed milestone #${milestone_number} (${milestone_title})."
     fi
@@ -142,7 +141,7 @@ scan_open_parents() {
   local issue_number
 
   mapfile -t open_issue_numbers < <(
-    vcs_remote_issue_list -R "$REPO_NAME" --state open --limit 300 --json number \
+    gh issue list -R "$REPO_NAME" --state open --limit 300 --json number \
       | jq -r '.[].number'
   )
 

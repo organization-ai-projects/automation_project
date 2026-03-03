@@ -12,9 +12,9 @@ pub enum PathClassification {
 impl PathClassification {
     pub fn from_product_path(path: &Path) -> Self {
         let txt = path.to_string_lossy();
-        if txt.contains("/projects/products/stable/") {
+        if txt.contains("projects/products/stable/") {
             Self::Stable
-        } else if txt.contains("/projects/products/unstable/") {
+        } else if txt.contains("projects/products/unstable/") {
             Self::Unstable
         } else {
             Self::Other

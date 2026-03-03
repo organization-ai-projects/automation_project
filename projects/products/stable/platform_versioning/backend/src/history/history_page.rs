@@ -7,7 +7,7 @@ use crate::ids::CommitId;
 /// A paginated history result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HistoryPage {
-    /// The entries in this page, in reverse-chronological order.
+    /// The entries in this page, in deterministic newest-first order.
     pub entries: Vec<HistoryEntry>,
     /// The cursor to pass to the next call to get the subsequent page, or `None`
     /// if this is the last page.
