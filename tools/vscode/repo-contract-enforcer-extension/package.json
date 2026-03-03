@@ -7,6 +7,18 @@
   "engines": {
     "vscode": "^1.90.0"
   },
+  "scripts": {
+    "vsix": "bash ./scripts/watch-reinstall.sh",
+    "vsix:pack": "rm -f repo-contract-enforcer-diagnostics-*.vsix && vsce package --allow-missing-repository --no-dependencies",
+    "vsix:install": "bash ./scripts/reinstall-local.sh",
+    "vsix:reinstall": "bash ./scripts/repack-reinstall.sh",
+    "vsix:watch": "bash ./scripts/watch-reinstall.sh"
+  },
+  "files": [
+    "extension.js",
+    "package.json",
+    "README.md"
+  ],
   "categories": [
     "Linters"
   ],

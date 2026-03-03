@@ -16,6 +16,14 @@ impl CrateRules {
         use rules::rule_id::RuleId;
 
         let mut out = Vec::new();
+        let is_core_workspace = product_dir
+            .file_name()
+            .and_then(|s| s.to_str())
+            .is_some_and(|name| name == "core");
+        if is_core_workspace {
+            return out;
+        }
+
         let backend = product_dir.join("backend");
         let ui = product_dir.join("ui");
 
