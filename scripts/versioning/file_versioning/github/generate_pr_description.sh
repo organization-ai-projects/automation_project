@@ -880,7 +880,7 @@ compute_ci_status() {
     return
   fi
 
-  conclusions="$(echo "$rollup_json" | jq -r '.statusCheckRollup // [] | map((.conclusion // .state // .status // "UNKNOWN") | ascii_upcase) | .[]' 2>/dev/null || true)"
+  conclusions="$(echo "$rollup_json" | jq -r '.statusCheckRollup // [] | map((.conclusion // .state // .status // "UNKNOWN") | tostring | ascii_upcase) | map(select(length > 0)) | .[]' 2>/dev/null || true)"
   if [[ -z "$conclusions" ]]; then
     return
   fi
