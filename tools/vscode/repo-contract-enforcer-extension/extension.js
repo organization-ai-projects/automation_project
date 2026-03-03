@@ -87,6 +87,11 @@ function updateStatus(runtime, text) {
   runtime.statusBar.show();
 }
 
+function clearDiagnostics(runtime) {
+  runtime.collection.clear();
+  vscode.commands.executeCommand('setContext', 'repoContractEnforcer.lastCount', 0);
+}
+
 function runEnforcer(runtime, reason) {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
@@ -120,6 +125,7 @@ function runEnforcer(runtime, reason) {
     if (runId !== runtime.runSeq) {
       return;
     }
+    clearDiagnostics(runtime);
     updateStatus(runtime, 'backend spawn failed');
     vscode.window.setStatusBarMessage(`${STATUS_PREFIX}: backend spawn failed (${String(err?.message || 'unknown error')})`, 5000);
   });
@@ -139,6 +145,7 @@ function runEnforcer(runtime, reason) {
 
     const parsed = parseReport(stdout);
     if (!parsed) {
+      clearDiagnostics(runtime);
       const errSuffix = stderr && stderr.trim().length > 0 ? `: ${stderr.trim().split(/\r?\n/).slice(-1)[0]}` : '';
       updateStatus(runtime, 'invalid backend output');
       vscode.window.setStatusBarMessage(`${STATUS_PREFIX}: invalid backend output${errSuffix}`, 6000);
