@@ -149,9 +149,9 @@ mod tests {
         let snapshot = Snapshot::from_map(BTreeMap::new());
         let root_id = snapshot.write_trees(&store).unwrap();
         let obj = store.read(root_id.as_object_id()).unwrap();
-        match obj {
-            Object::Tree(t) => assert!(t.entries.is_empty()),
-            _ => panic!("expected tree"),
+        assert!(matches!(obj, Object::Tree(_)));
+        if let Object::Tree(t) = obj {
+            assert!(t.entries.is_empty());
         }
     }
 
@@ -165,9 +165,9 @@ mod tests {
         let snapshot = Snapshot::from_map(map);
         let root_id = snapshot.write_trees(&store).unwrap();
         let obj = store.read(root_id.as_object_id()).unwrap();
-        match obj {
-            Object::Tree(t) => assert_eq!(t.entries.len(), 2),
-            _ => panic!("expected tree"),
+        assert!(matches!(obj, Object::Tree(_)));
+        if let Object::Tree(t) = obj {
+            assert_eq!(t.entries.len(), 2);
         }
     }
 

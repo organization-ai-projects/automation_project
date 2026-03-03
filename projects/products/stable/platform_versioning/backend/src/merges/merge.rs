@@ -446,10 +446,9 @@ mod tests {
         };
 
         let result = Merge::perform(&ours, &theirs, "merger", "merge", 4, &obj, &refs).unwrap();
+        assert!(matches!(result, MergeResult::Conflicted { .. }));
         if let MergeResult::Conflicted { conflicts } = result {
             assert!(conflicts.iter().any(|c| c.kind == ConflictKind::Binary));
-        } else {
-            panic!("expected conflict");
         }
     }
 }

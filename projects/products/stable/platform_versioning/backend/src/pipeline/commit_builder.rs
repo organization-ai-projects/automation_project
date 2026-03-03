@@ -184,10 +184,9 @@ mod tests {
         // Verify parent relationship.
         use crate::objects::Object;
         let commit = obj_store.read(r2.commit_id.as_object_id()).unwrap();
+        assert!(matches!(commit, Object::Commit(_)));
         if let Object::Commit(c) = commit {
             assert_eq!(c.parent_ids, vec![r1.commit_id]);
-        } else {
-            panic!("expected commit object");
         }
     }
 
