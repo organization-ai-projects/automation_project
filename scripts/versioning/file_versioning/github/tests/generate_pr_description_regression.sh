@@ -303,12 +303,12 @@ main() {
   if (
     cd "${ROOT_DIR}"
     MOCK_PATCH_BODY_FILE="${patched_body_file}" \
-    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Legacy Section\n- legacy\n\n### Validation Status\n- CI: PASS\n- Breaking change detected: FALSE\n\n### Additional Notes\nkeep' \
+    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Legacy Section\n- legacy\n\n### Validation Status\n- CI: PASS\n- No breaking change: TRUE\n\n### Additional Notes\nkeep' \
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --auto-edit 400 --yes 42
   ) >/dev/null 2>&1; then
     if grep -q -- "### Validation Gate" "${patched_body_file}" \
       && grep -q -- "- CI: UNKNOWN ⚪" "${patched_body_file}" \
-      && grep -q -- "- Breaking change detected: FALSE" "${patched_body_file}" \
+      && grep -q -- "- No breaking change: TRUE" "${patched_body_file}" \
       && ! grep -q -- "### Validation Status" "${patched_body_file}" \
       && ! grep -q -- "^### Compatibility$" "${patched_body_file}" \
       && ! grep -q -- "- CI: PASS" "${patched_body_file}"; then
@@ -360,7 +360,7 @@ main() {
       in_compat { print }
     ' "${out_md}")"
     if echo "${compat_section}" | grep -q -- "^- CI: UNKNOWN ⚪$" \
-      && echo "${compat_section}" | grep -q -- "^- Breaking change detected: FALSE$" \
+      && echo "${compat_section}" | grep -q -- "^- No breaking change: TRUE$" \
       && ! echo "${compat_section}" | grep -q -- "\\[x\\]\\|\\[ \\]"; then
       echo "PASS [compatibility-single-status-line]"
     else
@@ -390,7 +390,7 @@ main() {
       in_compat { print }
     ' "${out_md}")"
     if echo "${compat_section}" | grep -q -- "^- CI: UNKNOWN ⚪$" \
-      && echo "${compat_section}" | grep -q -- "^- Breaking change detected: FALSE$"; then
+      && echo "${compat_section}" | grep -q -- "^- No breaking change: TRUE$"; then
       echo "PASS [compatibility-negated-breaking-signal]"
     else
       echo "FAIL [compatibility-negated-breaking-signal] compatibility section is not normalized for negated signal"
