@@ -15,12 +15,9 @@ This document describes the pull request template located at `.github/PULL_REQUE
 ## Expected Sections
 
 - `Description`
-- `Scope`
 - `Validation Gate`
 - `Issue Outcomes`
 - `Key Changes`
-- `Testing`
-- `Additional Notes`
 
 ## Convention Notes
 
