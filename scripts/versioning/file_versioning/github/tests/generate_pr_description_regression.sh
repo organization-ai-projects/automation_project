@@ -303,20 +303,23 @@ main() {
   if (
     cd "${ROOT_DIR}"
     MOCK_PATCH_BODY_FILE="${patched_body_file}" \
-    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Validation Checklist\n- [x] Tests have been added or updated, and all tests pass.\n- [x] Documentation has been updated as needed.\n- [ ] Breaking changes (if any) are clearly documented above.\n\n### Additional Notes\nkeep' \
+    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Legacy Section\n- legacy\n\n### Validation Status\n- CI: PASS\n- No breaking change\n\n### Additional Notes\nkeep' \
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --auto-edit 400 --yes 42
   ) >/dev/null 2>&1; then
-    if grep -q -- "### Validation Checklist" "${patched_body_file}" \
-      && grep -q -- "- \\[x\\] Tests have been added or updated, and all tests pass\\." "${patched_body_file}" \
-      && grep -q -- "- \\[x\\] Documentation has been updated as needed\\." "${patched_body_file}"; then
-      echo "PASS [auto-edit-preserves-existing-validation-checklist]"
+    if grep -q -- "### Validation Gate" "${patched_body_file}" \
+      && grep -q -- "- CI: UNKNOWN ⚪" "${patched_body_file}" \
+      && grep -q -- "- No breaking change" "${patched_body_file}" \
+      && ! grep -q -- "### Validation Status" "${patched_body_file}" \
+      && ! grep -q -- "^### Compatibility$" "${patched_body_file}" \
+      && ! grep -q -- "- CI: PASS" "${patched_body_file}"; then
+      echo "PASS [auto-edit-overwrites-validation-status]"
     else
-      echo "FAIL [auto-edit-preserves-existing-validation-checklist] expected checked checklist items preserved"
+      echo "FAIL [auto-edit-overwrites-validation-status] expected generated status section"
       sed -n '1,220p' "${patched_body_file}" || true
       TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
   else
-    echo "FAIL [auto-edit-preserves-existing-validation-checklist] script execution failed"
+    echo "FAIL [auto-edit-overwrites-validation-status] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"
@@ -352,11 +355,12 @@ main() {
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
   ) >/dev/null 2>&1; then
     compat_section="$(awk '
-      /^### Compatibility$/ { in_compat=1; next }
+      /^### Validation Gate$/ { in_compat=1; next }
       /^### / && in_compat { exit }
       in_compat { print }
     ' "${out_md}")"
-    if echo "${compat_section}" | grep -q -- "^- Non-breaking change\\.$" \
+    if echo "${compat_section}" | grep -q -- "^- CI: UNKNOWN ⚪$" \
+      && echo "${compat_section}" | grep -q -- "^- No breaking change$" \
       && ! echo "${compat_section}" | grep -q -- "\\[x\\]\\|\\[ \\]"; then
       echo "PASS [compatibility-single-status-line]"
     else
@@ -381,11 +385,12 @@ main() {
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
   ) >/dev/null 2>&1; then
     compat_section="$(awk '
-      /^### Compatibility$/ { in_compat=1; next }
+      /^### Validation Gate$/ { in_compat=1; next }
       /^### / && in_compat { exit }
       in_compat { print }
     ' "${out_md}")"
-    if echo "${compat_section}" | grep -q -- "^- Non-breaking change\\.$"; then
+    if echo "${compat_section}" | grep -q -- "^- CI: UNKNOWN ⚪$" \
+      && echo "${compat_section}" | grep -q -- "^- No breaking change$"; then
       echo "PASS [compatibility-negated-breaking-signal]"
     else
       echo "FAIL [compatibility-negated-breaking-signal] compatibility section is not normalized for negated signal"
@@ -620,11 +625,10 @@ main() {
     MOCK_GIT_LOG_BODY=$'Closes #518\nReopen #518' \
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run "${out_md}"
   ) >/dev/null 2>&1; then
-    if grep -q "### Issues Reopened" "${out_md}" \
-      && grep -q "Reopen #518" "${out_md}" \
-      && grep -q "### Issue Directive Resolutions" "${out_md}" \
+    if grep -q "### Issue Outcomes" "${out_md}" \
+      && grep -q "##### Auto-resolved" "${out_md}" \
+      && grep -q "Reopen #518 - Resolved via directive decision => reopen." "${out_md}" \
       && grep -q "Resolved via directive decision => reopen." "${out_md}" \
-      && ! grep -q "### Issue Directive Conflicts" "${out_md}" \
       && ! grep -q "Closes rejected #518" "${out_md}"; then
       echo "PASS [reopen-conflict-prefers-reopen-and-reports-conflict]"
     else
