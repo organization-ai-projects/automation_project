@@ -314,8 +314,9 @@ async fn list_repos(
         let mut repos = Vec::with_capacity(ids.len());
         for id in ids {
             let repo = state.repo_store.get(&id)?;
+            let repo_id = repo.id().to_string();
             repos.push(RepoSummary {
-                id: repo.metadata.id.to_string(),
+                id: repo_id,
                 name: repo.metadata.name,
                 description: repo.metadata.description,
                 created_at: repo.metadata.created_at,
@@ -437,16 +438,19 @@ async fn get_repo(
     }
 
     match state.repo_store.get(&repo_id) {
-        Ok(repo) => (
-            StatusCode::OK,
-            Json(ResponseEnvelope::ok(RepoSummary {
-                id: repo.metadata.id.to_string(),
-                name: repo.metadata.name,
-                description: repo.metadata.description,
-                created_at: repo.metadata.created_at,
-                updated_at: repo.metadata.updated_at,
-            })),
-        ),
+        Ok(repo) => {
+            let repo_id = repo.id().to_string();
+            (
+                StatusCode::OK,
+                Json(ResponseEnvelope::ok(RepoSummary {
+                    id: repo_id,
+                    name: repo.metadata.name,
+                    description: repo.metadata.description,
+                    created_at: repo.metadata.created_at,
+                    updated_at: repo.metadata.updated_at,
+                })),
+            )
+        }
         Err(err) => error_response(err),
     }
 }
