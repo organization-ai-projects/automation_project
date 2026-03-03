@@ -18,6 +18,24 @@ gh_resolve_repo_name() {
   vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true
 }
 
+gh_repo_owner() {
+  local repo_name="${1:-}"
+  if [[ -z "$repo_name" ]]; then
+    repo_name="$(gh_resolve_repo_name)"
+  fi
+  [[ "$repo_name" == */* ]] || return 1
+  printf '%s\n' "${repo_name%%/*}"
+}
+
+gh_repo_short_name() {
+  local repo_name="${1:-}"
+  if [[ -z "$repo_name" ]]; then
+    repo_name="$(gh_resolve_repo_name)"
+  fi
+  [[ "$repo_name" == */* ]] || return 1
+  printf '%s\n' "${repo_name#*/}"
+}
+
 gh_label_exists() {
   local repo="$1"
   local label="$2"

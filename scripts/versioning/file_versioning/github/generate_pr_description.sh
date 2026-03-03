@@ -12,7 +12,8 @@ E_PARTIAL=6
 SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
-source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/commands.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
 source "${SCRIPT_DIR}/lib/classification.sh"
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
@@ -428,13 +429,7 @@ get_repo_name_with_owner() {
     return
   fi
 
-  if [[ -n "${GH_REPO:-}" ]]; then
-    repo_name_with_owner_cache="$GH_REPO"
-    echo "$repo_name_with_owner_cache"
-    return
-  fi
-
-  repo_name_with_owner_cache="$(gh_optional "resolve repository name" repo view --json nameWithOwner -q '.nameWithOwner')"
+  repo_name_with_owner_cache="$(gh_resolve_repo_name)"
   echo "$repo_name_with_owner_cache"
 }
 
@@ -498,7 +493,7 @@ extract_child_prs() {
   local timeline_pr_refs
   local timeline_pr_refs_raw
 
-  repo_owner_name="$(gh_optional "resolve repository name" repo view --json nameWithOwner -q '.nameWithOwner')"
+  repo_owner_name="$(get_repo_name_with_owner)"
 
   # IMPORTANT: gh pr view --json commits is often capped (e.g. 100 items).
   # Use REST API with --paginate to collect all commit first lines.

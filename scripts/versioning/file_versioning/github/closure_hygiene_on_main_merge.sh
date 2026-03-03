@@ -14,16 +14,17 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 3
 fi
 
-REPO_NAME="${GH_REPO:-}"
-if [[ -z "$REPO_NAME" ]]; then
-  REPO_NAME="$(vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
-fi
+REPO_NAME="$(gh_resolve_repo_name)"
 if [[ -z "$REPO_NAME" ]]; then
   echo "Error: unable to resolve repository name." >&2
   exit 3
 fi
-REPO_OWNER="${REPO_NAME%%/*}"
-REPO_SHORT_NAME="${REPO_NAME#*/}"
+REPO_OWNER="$(gh_repo_owner "$REPO_NAME" || true)"
+REPO_SHORT_NAME="$(gh_repo_short_name "$REPO_NAME" || true)"
+if [[ -z "$REPO_OWNER" || -z "$REPO_SHORT_NAME" ]]; then
+  echo "Error: invalid repository format: ${REPO_NAME} (expected owner/name)." >&2
+  exit 3
+fi
 
 build_status_comment() {
   local parent_number="$1"

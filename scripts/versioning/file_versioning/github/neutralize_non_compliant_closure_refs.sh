@@ -83,7 +83,7 @@ if ! command -v perl >/dev/null 2>&1; then
 fi
 
 if [[ -z "$repo_name" ]]; then
-  repo_name="$(vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_name="$(gh_resolve_repo_name)"
 fi
 [[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
 

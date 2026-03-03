@@ -3,8 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
-source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/commands.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 
@@ -68,7 +68,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 if [[ -z "$repo_name" ]]; then
-  repo_name="$(vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_name="$(gh_resolve_repo_name)"
 fi
 [[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
 

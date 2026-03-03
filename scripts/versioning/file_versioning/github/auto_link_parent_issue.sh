@@ -24,7 +24,7 @@ require_number() {
   local name="$1"
   local value="${2:-}"
   if [[ ! "$value" =~ ^[0-9]+$ ]]; then
-    echo "Erreur: ${name} doit être un numéro d'issue." >&2
+    echo "Error: ${name} must be an issue number." >&2
     exit 2
   fi
 }
@@ -72,7 +72,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Erreur: option inconnue: $1" >&2
+      echo "Error: unknown option: $1" >&2
       usage >&2
       exit 2
       ;;
@@ -80,7 +80,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$issue_arg" ]]; then
-  echo "Erreur: --issue est requis." >&2
+  echo "Error: --issue is required." >&2
   usage >&2
   exit 2
 fi
@@ -88,24 +88,25 @@ fi
 require_number "--issue" "$issue_arg"
 
 if ! command -v gh >/dev/null 2>&1; then
-  echo "Erreur: gh est requis." >&2
+  echo "Error: gh is required." >&2
   exit 3
 fi
 if ! command -v jq >/dev/null 2>&1; then
-  echo "Erreur: jq est requis." >&2
+  echo "Error: jq is required." >&2
   exit 3
 fi
 
-REPO_NAME="${GH_REPO:-}"
+REPO_NAME="$(gh_resolve_repo_name)"
 if [[ -z "$REPO_NAME" ]]; then
-  REPO_NAME="$(vcs_remote_repo_view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
-fi
-if [[ -z "$REPO_NAME" ]]; then
-  echo "Erreur: impossible de déterminer le repository (GH_REPO)." >&2
+  echo "Error: unable to determine repository (GH_REPO)." >&2
   exit 3
 fi
-REPO_OWNER="${REPO_NAME%%/*}"
-REPO_SHORT_NAME="${REPO_NAME#*/}"
+REPO_OWNER="$(gh_repo_owner "$REPO_NAME" || true)"
+REPO_SHORT_NAME="$(gh_repo_short_name "$REPO_NAME" || true)"
+if [[ -z "$REPO_OWNER" || -z "$REPO_SHORT_NAME" ]]; then
+  echo "Error: invalid repository format: ${REPO_NAME} (expected owner/name)." >&2
+  exit 3
+fi
 ISSUE_NUMBER="$issue_arg"
 
 MARKER="<!-- parent-field-autolink:${ISSUE_NUMBER} -->"
@@ -171,7 +172,7 @@ set_success_state() {
 
 issue_json="$(vcs_remote_issue_view "$ISSUE_NUMBER" -R "$REPO_NAME" --json number,title,body,state,url,labels 2>/dev/null || true)"
 if [[ -z "$issue_json" ]]; then
-  echo "Erreur: impossible de lire l'issue #${ISSUE_NUMBER}." >&2
+  echo "Error: unable to read issue #${ISSUE_NUMBER}." >&2
   exit 4
 fi
 
