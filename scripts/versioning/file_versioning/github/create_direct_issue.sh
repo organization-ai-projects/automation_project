@@ -3,6 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/commands.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
 
@@ -158,7 +160,7 @@ if [[ -n "$body_validation" ]]; then
   die "Issue body is non-compliant with required issue format."
 fi
 
-cmd=(gh issue create --title "$title" --body "$body")
+cmd=(vcs_remote_issue_create --title "$title" --body "$body")
 if [[ -n "$repo" ]]; then
   cmd+=(-R "$repo")
 fi

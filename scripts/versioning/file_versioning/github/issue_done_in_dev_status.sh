@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/versioning/file_versioning/github/lib/issue_refs.sh
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
 
 usage() {
   cat <<EOF
@@ -31,35 +33,6 @@ require_cmd() {
   fi
 }
 
-resolve_repo_name() {
-  if [[ -n "${GH_REPO:-}" ]]; then
-    echo "$GH_REPO"
-    return 0
-  fi
-  gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true
-}
-
-label_exists() {
-  local repo="$1"
-  local label="$2"
-  gh label list -R "$repo" --limit 1000 --json name --jq '.[].name' 2>/dev/null \
-    | grep -Fxq "$label"
-}
-
-issue_state() {
-  local repo="$1"
-  local issue_number="$2"
-  gh issue view "$issue_number" -R "$repo" --json state -q '.state // ""' 2>/dev/null || true
-}
-
-issue_has_label() {
-  local repo="$1"
-  local issue_number="$2"
-  local label="$3"
-  gh issue view "$issue_number" -R "$repo" --json labels --jq '.labels[].name' 2>/dev/null \
-    | grep -Fxq "$label"
-}
-
 extract_closing_issue_numbers() {
   local text="$1"
   parse_closing_issue_refs_from_text "$text" \
@@ -76,9 +49,9 @@ collect_pr_text_payload() {
   local pr_body
   local commit_messages
 
-  pr_title="$(gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
-  pr_body="$(gh pr view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
-  commit_messages="$(gh api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
+  pr_title="$(vcs_remote_pr_view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
+  pr_body="$(vcs_remote_pr_view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
+  commit_messages="$(vcs_remote_api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
 
   {
     printf '%s\n' "$pr_title"
@@ -135,21 +108,21 @@ fi
 require_cmd gh
 require_cmd jq
 
-repo_name="$(resolve_repo_name)"
+repo_name="$(gh_resolve_repo_name)"
 if [[ -z "$repo_name" ]]; then
   echo "Error: unable to resolve repository name." >&2
   exit 3
 fi
 
 label_available="false"
-if label_exists "$repo_name" "$label_name"; then
+if gh_label_exists "$repo_name" "$label_name"; then
   label_available="true"
 fi
 
 if [[ "$mode" == "dev-merge" ]]; then
   require_number "--pr" "$pr_number"
 
-  pr_state="$(gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
+  pr_state="$(vcs_remote_pr_view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
   if [[ "$pr_state" != "MERGED" ]]; then
     echo "PR #${pr_number} is not merged; nothing to do."
     exit 0
@@ -169,7 +142,7 @@ if [[ "$mode" == "dev-merge" ]]; then
   fi
 
   for n in "${closing_issue_numbers[@]}"; do
-    state="$(issue_state "$repo_name" "$n")"
+    state="$(gh_issue_state "$repo_name" "$n")"
     if [[ -z "$state" ]]; then
       echo "Issue #${n}: unreadable; skipping."
       continue
@@ -178,12 +151,12 @@ if [[ "$mode" == "dev-merge" ]]; then
       echo "Issue #${n}: state=${state}; skipping done-in-dev label."
       continue
     fi
-    if issue_has_label "$repo_name" "$n" "$label_name"; then
+    if gh_issue_has_label "$repo_name" "$n" "$label_name"; then
       echo "Issue #${n}: label '${label_name}' already present."
       continue
     fi
 
-    gh issue edit "$n" -R "$repo_name" --add-label "$label_name" >/dev/null
+    vcs_remote_issue_edit "$n" -R "$repo_name" --add-label "$label_name" >/dev/null
     echo "Issue #${n}: added label '${label_name}'."
   done
   exit 0
@@ -196,8 +169,8 @@ if [[ "$label_available" != "true" ]]; then
   exit 0
 fi
 
-if issue_has_label "$repo_name" "$issue_number" "$label_name"; then
-  gh issue edit "$issue_number" -R "$repo_name" --remove-label "$label_name" >/dev/null
+if gh_issue_has_label "$repo_name" "$issue_number" "$label_name"; then
+  vcs_remote_issue_edit "$issue_number" -R "$repo_name" --remove-label "$label_name" >/dev/null
   echo "Issue #${issue_number}: removed label '${label_name}'."
 else
   echo "Issue #${issue_number}: label '${label_name}' not present."

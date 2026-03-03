@@ -10,9 +10,9 @@ This document provides an overview of all documentation files in this directory.
 
 ## Scripts
 
-- [check_priority_issues.sh](check_priority_issues.sh): List GitHub issues with high priority or security labels
-- [create_pr.sh](create_pr.sh): Internal PR creation helper (direct invocation blocked)
-- [synch_main_dev_ci.sh](synch_main_dev_ci.sh): Synchronize dev with main via automated PR (bot-only)
+- [check_priority_issues.sh](check_priority_issues.sh): Internal issue listing component (called by execute/start_work.sh)
+- [create_pr.sh](create_pr.sh): Internal PR creation component (direct invocation blocked)
+- [synch_main_dev_ci.sh](synch_main_dev_ci.sh): Internal CI sync component (called by workflow automation_sync.yml)
 
 ## Navigation
 

@@ -65,20 +65,20 @@ fi
 # Checkout base branch and pull
 info "Updating $BASE_BRANCH from $REMOTE..."
 if branch_exists_local "$BASE_BRANCH"; then
-  git checkout "$BASE_BRANCH"
+  vcs_local_checkout "$BASE_BRANCH"
 else
-  git checkout -b "$BASE_BRANCH" "$REMOTE/$BASE_BRANCH"
+  vcs_local_checkout -b "$BASE_BRANCH" "$REMOTE/$BASE_BRANCH"
 fi
 
-git pull "$REMOTE" "$BASE_BRANCH"
+vcs_local_pull "$REMOTE" "$BASE_BRANCH"
 
 # Create new branch
 info "Creating branch '$BRANCH_NAME' from '$BASE_BRANCH'..."
-git checkout -b "$BRANCH_NAME" "$BASE_BRANCH"
+vcs_local_checkout -b "$BRANCH_NAME" "$BASE_BRANCH"
 
 # Set up upstream
 info "Pushing and setting upstream..."
-git push --set-upstream "$REMOTE" "$BRANCH_NAME"
+vcs_local_push --set-upstream "$REMOTE" "$BRANCH_NAME"
 
 info "✓ Work branch '$BRANCH_NAME' created and pushed to $REMOTE."
 info "You are now on branch '$BRANCH_NAME'."

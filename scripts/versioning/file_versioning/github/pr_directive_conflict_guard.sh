@@ -5,6 +5,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/directive_resolution.sh
+source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/directive_resolution.sh"
 
 usage() {
   cat <<USAGE
@@ -78,32 +82,13 @@ if ! command -v perl >/dev/null 2>&1; then
 fi
 
 if [[ -z "$repo_name" ]]; then
-  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_name="$(gh_resolve_repo_name)"
 fi
 [[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
 
 MARKER="<!-- directive-conflict-guard:${pr_number} -->"
 BLOCK_START="<!-- directive-conflicts:start -->"
 BLOCK_END="<!-- directive-conflicts:end -->"
-
-upsert_pr_comment() {
-  local body="$1"
-  local comment_id
-  comment_id="$({
-    gh api "repos/${repo_name}/issues/${pr_number}/comments" --paginate
-  } | jq -r --arg marker "$MARKER" '
-      map(select((.body // "") | contains($marker)))
-      | sort_by(.updated_at)
-      | last
-      | .id // empty
-    ' 2>/dev/null || true)"
-
-  if [[ -n "$comment_id" ]]; then
-    gh api -X PATCH "repos/${repo_name}/issues/comments/${comment_id}" -f body="$body" >/dev/null
-  else
-    gh api "repos/${repo_name}/issues/${pr_number}/comments" -f body="$body" >/dev/null
-  fi
-}
 
 upsert_conflict_block_in_body() {
   local body="$1"
@@ -122,7 +107,7 @@ upsert_conflict_block_in_body() {
   printf "%s\n\n%s\n" "$without_block" "$block"
 }
 
-pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
+pr_json="$(vcs_remote_pr_view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
 if [[ -z "$pr_json" ]]; then
   echo "Error: unable to read PR #${pr_number}." >&2
   exit 4
@@ -131,76 +116,38 @@ fi
 original_body="$(echo "$pr_json" | jq -r '.body // ""')"
 updated_body="$original_body"
 
-declare -A closing_requested
-declare -A reopen_requested
-declare -A directive_decision
-declare -A inferred_decision
 declare -A unresolved_conflict
 declare -A resolved_conflict
 unresolved_count=0
 resolved_count=0
-allow_inferred_resolution="true"
 
-while IFS='|' read -r action issue_key; do
-  issue_key="$(trim "$issue_key")"
-  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-  if [[ "$action" == "Closes" ]]; then
-    closing_requested["$issue_key"]=1
-  fi
-done < <(parse_closing_issue_refs_from_text "$original_body")
-
-while IFS='|' read -r _ issue_key; do
-  issue_key="$(trim "$issue_key")"
-  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-  reopen_requested["$issue_key"]=1
-done < <(parse_reopen_issue_refs_from_text "$original_body")
-
-while IFS='|' read -r issue_key decision; do
-  issue_key="$(trim "$issue_key")"
-  decision="$(trim "$decision" | tr '[:upper:]' '[:lower:]')"
-  [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-  [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
-  directive_decision["$issue_key"]="$decision"
-done < <(parse_directive_decisions_from_text "$original_body")
-
-commit_messages="$(gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
-source_branch_count="$(
-  printf '%s\n' "$commit_messages" \
-    | sed -nE 's@.*Merge pull request #[0-9]+ from [^/]+/(.+)@\1@p' \
-    | sort -u | sed '/^$/d' | wc -l | tr -d ' '
-)"
-if [[ "${source_branch_count:-0}" -gt 1 ]]; then
-  allow_inferred_resolution="false"
-fi
+commit_messages="$(vcs_remote_api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
 directive_payload="${commit_messages}"$'\n'"${original_body}"
-while IFS='|' read -r action issue_key; do
+while IFS='|' read -r issue_key close_flag reopen_flag decision source reason; do
   issue_key="$(trim "$issue_key")"
   [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-  case "$action" in
-    Closes) inferred_decision["$issue_key"]="close" ;;
-    Reopen) inferred_decision["$issue_key"]="reopen" ;;
-  esac
-done < <(parse_directive_events_from_text "$directive_payload")
-
-for issue_key in "${!closing_requested[@]}"; do
-  if [[ -z "${reopen_requested[$issue_key]:-}" ]]; then
+  if [[ "$close_flag" != "1" || "$reopen_flag" != "1" ]]; then
     continue
   fi
-  if [[ -n "${directive_decision[$issue_key]:-}" ]]; then
-    resolved_conflict["$issue_key"]="${directive_decision[$issue_key]} (explicit)"
-    resolved_count=$((resolved_count + 1))
-  elif [[ "$allow_inferred_resolution" == "true" && -n "${inferred_decision[$issue_key]:-}" ]]; then
-    resolved_conflict["$issue_key"]="${inferred_decision[$issue_key]} (inferred from latest directive)"
-    resolved_count=$((resolved_count + 1))
-  else
-    if [[ "$allow_inferred_resolution" != "true" ]]; then
-      unresolved_conflict["$issue_key"]="Closes + Reopen detected across multiple source branches; explicit decision required."
-    else
-      unresolved_conflict["$issue_key"]="Closes + Reopen detected without explicit decision."
-    fi
-    unresolved_count=$((unresolved_count + 1))
-  fi
-done
+  case "$source" in
+    explicit)
+      resolved_conflict["$issue_key"]="${decision} (explicit)"
+      resolved_count=$((resolved_count + 1))
+      ;;
+    inferred)
+      resolved_conflict["$issue_key"]="${decision} (inferred from latest directive)"
+      resolved_count=$((resolved_count + 1))
+      ;;
+    unresolved|*)
+      if [[ "$reason" == "closes-and-reopen-across-multiple-source-branches" ]]; then
+        unresolved_conflict["$issue_key"]="Closes + Reopen detected across multiple source branches; explicit decision required."
+      else
+        unresolved_conflict["$issue_key"]="Closes + Reopen detected without explicit decision."
+      fi
+      unresolved_count=$((unresolved_count + 1))
+      ;;
+  esac
+done < <(resolve_issue_directives "$directive_payload" "$original_body" "$commit_messages")
 
 # Apply explicit close decision by neutralizing Reopen refs.
 for issue_key in "${!resolved_conflict[@]}"; do
@@ -240,7 +187,7 @@ else
 fi
 
 if [[ "$updated_body" != "$original_body" ]]; then
-  gh pr edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
+  vcs_remote_pr_edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
 fi
 
 if [[ "$unresolved_count" -gt 0 ]]; then
@@ -248,7 +195,7 @@ if [[ "$unresolved_count" -gt 0 ]]; then
 ### Directive Conflict Guard
 
 ❌ Unresolved Closes/Reopen conflicts detected. Add explicit directive decisions in PR body."
-  upsert_pr_comment "$comment_body"
+  github_issue_upsert_marker_comment "$repo_name" "$pr_number" "$MARKER" "$comment_body"
   echo "Unresolved directive conflicts detected for PR #${pr_number}." >&2
   exit 8
 fi
@@ -258,7 +205,7 @@ if [[ "$resolved_count" -gt 0 ]]; then
 ### Directive Conflict Guard
 
 ✅ Directive conflicts resolved via explicit decisions."
-  upsert_pr_comment "$comment_body"
+  github_issue_upsert_marker_comment "$repo_name" "$pr_number" "$MARKER" "$comment_body"
 fi
 
 echo "Directive conflict guard evaluated for PR #${pr_number}."

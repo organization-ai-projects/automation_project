@@ -23,7 +23,7 @@ cat /tmp/direct_issue_dry_run.out | sed -n '1,40p'
 echo "[3/9] Issue manager regression suite"
 bash scripts/versioning/file_versioning/github/tests/manager_issues_regression.sh
 
-echo "[4/9] create_pr internal guard regression suite"
+echo "[4/9] read orchestrator internal guard regression suite"
 bash scripts/versioning/file_versioning/orchestrators/read/tests/create_pr_internal_guard_regression.sh
 
 echo "[5/9] Closure neutralizer regression suite"

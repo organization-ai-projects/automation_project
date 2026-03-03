@@ -16,7 +16,9 @@ It interacts mainly with:
 
 ```plaintext
 file_versioning/
+├── conventions.sh         # Shared naming/message contract (commit + PR title)
 ├── git/                   # Pure git operation utilities
+│   ├── commands.sh        # Local VCS backend wrappers (vcs_local_*)
 │   ├── branch.sh          # Branch management
 │   ├── commit.sh          # Commit operations
 │   ├── repo.sh            # Repository validation
@@ -24,12 +26,15 @@ file_versioning/
 │   ├── synch.sh           # Synchronization utilities
 │   └── working_tree.sh    # Working tree state
 └── github/                # Shared GitHub automation helpers
-    └── issue_helpers.sh   # Shared issue reference/status comment helpers
+    ├── commands.sh        # Remote VCS backend wrappers (vcs_remote_*)
+    ├── issue_helpers.sh   # Shared issue reference/status comment helpers
+    └── pull_request_lookup.sh  # Shared PR lookup helpers
 ```
 
 ## Files
 
 - `README.md`: This file.
+- `conventions.sh`: Shared conventions/validation contract for commit and PR titles.
 - `git/`: Pure git operation utilities.
 - `github/`: Shared GitHub automation helpers.
 
@@ -37,8 +42,9 @@ file_versioning/
 
 Utilities here support:
 
-- Pure git operations (branches, commits, working tree)
-- GitHub CLI operations
+- Shared commit/PR title conventions and validation
+- Local VCS operations via `vcs_local_*`
+- Remote provider operations via `vcs_remote_*`
 - Repository and version control workflows
 
 ## Current Structure
@@ -55,6 +61,7 @@ Utilities here support:
   - Marker-based status comment upsert
 
 For details, see `git/README.md`
+For remote helpers, see `github/README.md`
 
 ## Adding New File Versioning Utilities
 

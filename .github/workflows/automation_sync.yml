@@ -42,4 +42,4 @@ jobs:
       - name: Run sync script
         run: |
           chmod +x scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh
-          scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh
+          ORCHESTRATOR_READ_INTERNAL_ALLOWED=1 scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh

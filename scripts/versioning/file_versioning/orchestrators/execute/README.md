@@ -2,6 +2,8 @@
 
 This directory contains the **main entry point** scripts you run directly from the command line. Each orchestrates a complete workflow.
 
+Rule: scripts in `execute/` are user-facing entrypoints. Scripts in `../read/` are internal components and must not be invoked directly.
+
 ## Role in the Project
 
 This directory is responsible for providing interactive, user-facing workflows that guide developers through common version control tasks.
@@ -41,7 +43,7 @@ Orchestrates three steps:
 
 1. **Fetch** latest changes from dev and main branches (Main→dev sync is automated by bot after PR merge)
 2. **Check** high priority issues (uses `../read/check_priority_issues.sh`)
-3. **Create** feature branch from issue (uses `../read/git/create_branch.sh`)
+3. **Create** feature branch from issue (uses `../../git/create_branch.sh`)
 
 ```bash
 ./start_work.sh
@@ -55,6 +57,7 @@ Orchestrates three steps:
 - Supports custom branch names with validation after confirmation
 - Skips `main` and `dev` branches during cleanup
 - Safe branch switching on exit (handles detached HEAD)
+- Calls `read/` scripts with explicit internal access (`ORCHESTRATOR_READ_INTERNAL_ALLOWED=1`)
 
 ### `ci_watch_pr.sh`
 

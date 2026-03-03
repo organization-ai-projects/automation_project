@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
 
 usage() {
   cat <<USAGE
@@ -81,32 +83,11 @@ if ! command -v perl >/dev/null 2>&1; then
 fi
 
 if [[ -z "$repo_name" ]]; then
-  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_name="$(gh_resolve_repo_name)"
 fi
 [[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
 
 MARKER="<!-- closure-neutralizer:${pr_number} -->"
-
-upsert_pr_comment() {
-  local body="$1"
-  local comment_id
-  comment_id="$({
-    gh api "repos/${repo_name}/issues/${pr_number}/comments" --paginate
-  } | jq -r --arg marker "$MARKER" '
-      map(select((.body // "") | contains($marker)))
-      | sort_by(.updated_at)
-      | last
-      | .id // empty
-    ' 2>/dev/null || true)"
-
-  if [[ -n "$comment_id" ]]; then
-    gh api -X PATCH "repos/${repo_name}/issues/comments/${comment_id}" \
-      -f body="$body" >/dev/null
-  else
-    gh api "repos/${repo_name}/issues/${pr_number}/comments" \
-      -f body="$body" >/dev/null
-  fi
-}
 
 issue_non_compliance_reason() {
   local issue_number="$1"
@@ -121,7 +102,7 @@ keyword_pattern_from_action() {
   esac
 }
 
-pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
+pr_json="$(vcs_remote_pr_view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
 if [[ -z "$pr_json" ]]; then
   echo "Error: unable to read PR #${pr_number}." >&2
   exit 4
@@ -196,7 +177,7 @@ while IFS='|' read -r action issue_key; do
 done < <(parse_neutralized_closing_issue_refs_from_text "$original_body")
 
 if [[ "$updated_body" != "$original_body" ]]; then
-  gh pr edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
+  vcs_remote_pr_edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
 fi
 
 if [[ "$neutralized_count" -gt 0 ]]; then
@@ -220,6 +201,6 @@ else
 ✅ No non-compliant closure refs detected. No neutralization applied."
 fi
 
-upsert_pr_comment "$comment_body"
+github_issue_upsert_marker_comment "$repo_name" "$pr_number" "$MARKER" "$comment_body"
 
 echo "Closure neutralization evaluated for PR #${pr_number}."

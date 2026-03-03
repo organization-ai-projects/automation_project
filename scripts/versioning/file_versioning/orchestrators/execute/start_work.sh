@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Public entrypoint for developer start-work flow.
 # Usage: ./start_work.sh
 # Orchestrates the complete workflow:
 #   1. Synchronize dev with main
@@ -19,6 +20,8 @@ source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 source "$ROOT_DIR/scripts/common_lib/core/command.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/github/commands.sh"
 
 # Validate hard dependencies required by all sub-scripts (fail fast)
 require_cmd git
@@ -117,7 +120,7 @@ echo ""
 # Step 2: Show priority issues
 info "Step 2/3: Checking priority issues..."
 echo ""
-bash "$SCRIPT_DIR/../read/check_priority_issues.sh"
+ORCHESTRATOR_READ_INTERNAL_ALLOWED=1 bash "$SCRIPT_DIR/../read/check_priority_issues.sh"
 echo ""
 
 # Step 3: Create branch
@@ -140,7 +143,7 @@ case "$choice" in
 
     # Get issue details from GitHub
     info "Fetching issue #$ISSUE_NUM details..."
-    ISSUE_DATA=$(gh issue view "$ISSUE_NUM" --json title,labels 2>/dev/null || die "Failed to fetch issue #$ISSUE_NUM")
+    ISSUE_DATA=$(vcs_remote_issue_view "$ISSUE_NUM" --json title,labels 2>/dev/null || die "Failed to fetch issue #$ISSUE_NUM")
 
     ISSUE_TITLE=$(echo "$ISSUE_DATA" | jq -r '.title' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-50)
     ISSUE_LABELS=$(echo "$ISSUE_DATA" | jq -r '.labels // [] | .[].name')
