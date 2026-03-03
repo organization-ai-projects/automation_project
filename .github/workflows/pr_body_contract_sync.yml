@@ -63,6 +63,7 @@ jobs:
           ref: ${{ steps.ctx.outputs.base_ref }}
           sparse-checkout: |
             scripts/versioning/file_versioning/github/
+            scripts/common_lib/versioning/file_versioning/github/
           sparse-checkout-cone-mode: false
 
       - name: Ensure jq is available
@@ -86,7 +87,7 @@ jobs:
             --dry-run \
             --base "${BASE_REF}" \
             --head "${HEAD_REF}" \
-            --refresh-pr "${PR_NUMBER}" "${PR_NUMBER}" --yes
+            --refresh-pr "${PR_NUMBER}" --yes
 
       - name: Guard PR body contract
         env:

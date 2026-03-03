@@ -28,6 +28,7 @@ jobs:
           sparse-checkout: |
             .github/issue_required_fields.conf
             scripts/versioning/file_versioning/github/
+            scripts/common_lib/versioning/file_versioning/github/
           sparse-checkout-cone-mode: false
 
       - name: Ensure dependencies
@@ -102,6 +103,7 @@ jobs:
           sparse-checkout: |
             .github/issue_required_fields.conf
             scripts/versioning/file_versioning/github/
+            scripts/common_lib/versioning/file_versioning/github/
           sparse-checkout-cone-mode: false
 
       - name: Ensure dependencies
