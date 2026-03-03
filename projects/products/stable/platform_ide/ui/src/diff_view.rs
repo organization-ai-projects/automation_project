@@ -1,20 +1,7 @@
 // projects/products/stable/platform_ide/ui/src/diff_view.rs
+use crate::diff_line_entry::DiffLineEntry;
+use crate::diff_line_kind::DiffLineKind;
 use serde::{Deserialize, Serialize};
-
-/// A single diff line for display.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DiffLineKind {
-    Added,
-    Removed,
-    Context,
-}
-
-/// A diff line for display.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiffLineEntry {
-    pub kind: DiffLineKind,
-    pub content: String,
-}
 
 /// The local diff view state for a single file.
 #[derive(Debug, Default, Serialize, Deserialize)]

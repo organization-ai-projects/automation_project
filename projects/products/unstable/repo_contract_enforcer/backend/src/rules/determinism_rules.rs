@@ -48,20 +48,9 @@ impl DeterminismRules {
                 ));
             }
 
-            if !file.to_string_lossy().contains("/protocol/") && txt.contains("println!") {
-                out.push(make_violation(
-                    RuleId::Determinism,
-                    ViolationCode::DetStdoutUsage,
-                    (scope, mode),
-                    &file,
-                    "println! outside protocol module is forbidden",
-                    (true, RustParser::first_line_of(&txt, "println!")),
-                ));
-            }
+            let stdout_macro_signals = RustParser::stdout_macro_signals(&txt);
             if !file.to_string_lossy().contains("/protocol/")
-                && (txt.contains("print!(")
-                    || txt.contains("eprint!(")
-                    || txt.contains("eprintln!("))
+                && stdout_macro_signals.has_stdout_macro
             {
                 out.push(make_violation(
                     RuleId::Determinism,
@@ -71,7 +60,10 @@ impl DeterminismRules {
                     "print/eprint macros outside protocol module are forbidden",
                     (
                         true,
-                        RustParser::first_line_of_any(&txt, &["print!(", "eprint!(", "eprintln!("]),
+                        RustParser::first_line_of_any(
+                            &txt,
+                            &["println!(", "print!(", "eprint!(", "eprintln!("],
+                        ),
                     ),
                 ));
             }

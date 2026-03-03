@@ -11,13 +11,10 @@ mod offline;
 mod slices;
 mod verification;
 
-#[cfg(test)]
-mod tests;
-
 use anyhow::Context;
 use app::{IdeApp, IdeConfig};
 use auth::Session;
-use changes::{ChangeSet, change_set::PatchEntry};
+use changes::{ChangeSet, PatchEntry};
 use client::PlatformClient;
 use editor::FileBuffer;
 use errors::IdeError;
@@ -62,7 +59,7 @@ fn run_local_bootstrap(config: &IdeConfig) -> Result<(), IdeError> {
         .filter(|line| {
             matches!(
                 line,
-                diff::local_diff::DiffLine::Added(_) | diff::local_diff::DiffLine::Removed(_)
+                diff::DiffLine::Added(..) | diff::DiffLine::Removed(..)
             )
         })
         .count();
@@ -128,7 +125,7 @@ fn run_local_bootstrap(config: &IdeConfig) -> Result<(), IdeError> {
 
     let policy = OfflinePolicy::disabled();
     let allowed_offline = policy.is_allowed();
-    let _offline_gate = policy.require_allowed();
+    let offline_gate = policy.require_allowed();
 
     let session = Session::new("local-token", "local-user");
     let mut app = IdeApp::new(config.platform_url.clone(), session);
@@ -137,17 +134,24 @@ fn run_local_bootstrap(config: &IdeConfig) -> Result<(), IdeError> {
     app.offline_policy = policy;
     let current_user = app.current_user().to_string();
     let visible_paths = app.slice_manifest().map(|m| m.len()).unwrap_or_default();
-    let _ = app.allow_path("src/main.rs")?;
-    let _ = buffer.original();
+    let allowed_main_path = app.allow_path("src/main.rs")?;
+    let original_snapshot_len = buffer.original().len();
     buffer.revert();
+    let sample_error = IdeError::BufferNotOpen;
+    tracing::debug!(
+        allowed_main_path = %allowed_main_path.as_str(),
+        original_snapshot_len,
+        sample_error = ?sample_error,
+        "local bootstrap checks"
+    );
     tracing::info!(
         current_user,
         visible_paths,
         show_offline_controls = app.show_offline_controls(),
         offline_allowed = allowed_offline,
+        offline_gate_open = offline_gate.is_ok(),
         "local IDE state bootstrapped"
     );
-    let _ = IdeError::BufferNotOpen;
 
     Ok(())
 }

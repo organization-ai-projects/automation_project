@@ -1,36 +1,7 @@
 // projects/products/stable/platform_ide/backend/src/verification/result_view.rs
-use serde::{Deserialize, Serialize};
-
 use crate::slices::SliceManifest;
-
-/// The severity level of a verification finding.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FindingSeverity {
-    /// An error that must be resolved before the change can be accepted.
-    Error,
-    /// A warning that should be reviewed.
-    Warning,
-    /// Informational note.
-    Info,
-}
-
-/// A single finding from a verification run, pre-filtered for display.
-///
-/// Findings that reference forbidden paths are demoted to a generic
-/// contract-level error with no path details exposed.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VerificationFinding {
-    /// Severity of the finding.
-    pub severity: FindingSeverity,
-    /// A safe, human-readable summary of the finding.
-    pub summary: String,
-    /// The allowed file path this finding relates to, if any.
-    /// `None` if the finding is not file-specific or if the path is forbidden.
-    pub path: Option<String>,
-    /// The line number within `path`, if relevant and path is allowed.
-    pub line: Option<u32>,
-}
+use crate::verification::{FindingSeverity, RawFinding, VerificationFinding};
+use serde::{Deserialize, Serialize};
 
 /// A safe, user-facing view of a verification run result.
 ///
@@ -39,14 +10,14 @@ pub struct VerificationFinding {
 /// Findings that reference forbidden areas are replaced with a generic
 /// contract-level error message with no path details.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct VerificationResultView {
+pub struct ResultView {
     /// Whether the verification run passed overall.
     pub healthy: bool,
     /// The filtered findings visible to the current user.
     pub findings: Vec<VerificationFinding>,
 }
 
-impl VerificationResultView {
+impl ResultView {
     /// Creates an empty (healthy) result view.
     pub fn healthy() -> Self {
         Self {
@@ -103,14 +74,7 @@ impl VerificationResultView {
     }
 }
 
-/// A raw finding as received from the platform API before filtering.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RawFinding {
-    pub severity: FindingSeverity,
-    pub summary: String,
-    pub path: Option<String>,
-    pub line: Option<u32>,
-}
+pub type VerificationResultView = ResultView;
 
 #[cfg(test)]
 mod tests {
@@ -132,7 +96,7 @@ mod tests {
 
     #[test]
     fn allowed_path_finding_is_shown() {
-        let view = VerificationResultView::from_raw(
+        let view = ResultView::from_raw(
             false,
             [raw(
                 FindingSeverity::Error,
@@ -150,7 +114,7 @@ mod tests {
 
     #[test]
     fn forbidden_path_error_finding_becomes_generic() {
-        let view = VerificationResultView::from_raw(
+        let view = ResultView::from_raw(
             false,
             [raw(
                 FindingSeverity::Error,
@@ -172,7 +136,7 @@ mod tests {
 
     #[test]
     fn forbidden_path_info_finding_is_suppressed() {
-        let view = VerificationResultView::from_raw(
+        let view = ResultView::from_raw(
             true,
             [raw(
                 FindingSeverity::Info,
@@ -186,7 +150,7 @@ mod tests {
 
     #[test]
     fn no_path_finding_is_always_shown() {
-        let view = VerificationResultView::from_raw(
+        let view = ResultView::from_raw(
             false,
             [raw(FindingSeverity::Warning, "global warning", None)],
             &manifest(),
@@ -197,7 +161,7 @@ mod tests {
 
     #[test]
     fn healthy_result_has_no_findings() {
-        let view = VerificationResultView::healthy();
+        let view = ResultView::healthy();
         assert!(view.healthy);
         assert!(view.findings.is_empty());
     }

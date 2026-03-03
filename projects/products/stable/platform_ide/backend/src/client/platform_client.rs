@@ -1,5 +1,6 @@
 // projects/products/stable/platform_ide/backend/src/client/platform_client.rs
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::auth::Session;
 use crate::errors::IdeError;
@@ -7,21 +8,6 @@ use crate::issues::IssueSummary;
 use crate::offline::OfflinePolicy;
 use crate::slices::SliceManifest;
 use crate::verification::{FindingSeverity, RawFinding, VerificationResultView};
-
-/// The response envelope returned by all platform API endpoints.
-#[derive(Debug, Deserialize)]
-struct ApiEnvelope<T> {
-    ok: bool,
-    data: Option<T>,
-    error: Option<ApiErrorPayload>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ApiErrorPayload {
-    code: String,
-    #[allow(dead_code)]
-    message: String,
-}
 
 fn map_api_error(code: String) -> IdeError {
     match code.as_str() {
@@ -39,73 +25,7 @@ fn map_auth_error(code: String) -> IdeError {
     }
 }
 
-/// Request body for the platform token issuance endpoint.
-#[derive(Debug, Serialize)]
-struct IssueTokenRequest {
-    subject: String,
-    repo_id: Option<String>,
-    permission: String,
-    expires_at: Option<u64>,
-}
-
-/// Response body from the token issuance endpoint.
-#[derive(Debug, Deserialize)]
-struct IssueTokenResponse {
-    token: String,
-}
-
-/// Response body from the list-repos endpoint.
-#[derive(Debug, Deserialize)]
-struct RepoSummary {
-    id: String,
-    name: String,
-    description: Option<String>,
-    created_at: u64,
-}
-
-/// Response body from the verify endpoint.
-#[derive(Debug, Deserialize)]
-struct VerifySummary {
-    healthy: bool,
-    #[serde(default)]
-    report: RawReport,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct RawReport {
-    #[serde(default)]
-    issues: Vec<RawIssueItem>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RawIssueItem {
-    #[serde(default)]
-    description: String,
-    #[serde(default)]
-    path: Option<String>,
-}
-
-/// Request body for creating a commit (submitting a change set).
-#[derive(Debug, Serialize)]
-struct CreateCommitRequest {
-    author: String,
-    message: String,
-    timestamp: u64,
-    files: Vec<CommitFile>,
-}
-
-#[derive(Debug, Serialize)]
-struct CommitFile {
-    path: String,
-    content_hex: String,
-}
-
-/// The result of submitting a change set.
-#[derive(Debug)]
-pub struct SubmitResult {
-    /// The commit identifier assigned by the platform.
-    pub commit_id: String,
-}
+static COMMIT_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 /// An HTTP client for the platform-versioning backend.
 ///
@@ -134,6 +54,28 @@ impl PlatformClient {
         subject: impl Into<String>,
         bootstrap_secret: impl Into<String>,
     ) -> Result<Session, IdeError> {
+        #[derive(Debug, Deserialize)]
+        struct ApiErrorPayload {
+            code: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct ApiEnvelope<T> {
+            ok: bool,
+            data: Option<T>,
+            error: Option<ApiErrorPayload>,
+        }
+        #[derive(Debug, Serialize)]
+        struct IssueTokenRequest {
+            subject: String,
+            repo_id: Option<String>,
+            permission: String,
+            expires_at: Option<u64>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct IssueTokenResponse {
+            token: String,
+        }
+
         let subject = subject.into();
         let url = format!("{}/v1/auth/issue", self.base_url);
         let body = IssueTokenRequest {
@@ -170,6 +112,24 @@ impl PlatformClient {
 
     /// Lists the issues (repositories) visible to the authenticated session.
     pub async fn list_issues(&self, session: &Session) -> Result<Vec<IssueSummary>, IdeError> {
+        #[derive(Debug, Deserialize)]
+        struct ApiErrorPayload {
+            code: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct ApiEnvelope<T> {
+            ok: bool,
+            data: Option<T>,
+            error: Option<ApiErrorPayload>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct RepoSummary {
+            id: String,
+            name: String,
+            description: Option<String>,
+            created_at: u64,
+        }
+
         let url = format!("{}/v1/repos", self.base_url);
         let resp = self
             .http
@@ -212,6 +172,34 @@ impl PlatformClient {
         session: &Session,
         issue_id: &str,
     ) -> Result<SliceManifest, IdeError> {
+        #[derive(Debug, Deserialize)]
+        struct ApiErrorPayload {
+            code: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct ApiEnvelope<T> {
+            ok: bool,
+            data: Option<T>,
+            error: Option<ApiErrorPayload>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct RefEntry {
+            target: Option<String>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct CommitView {
+            index: Option<IndexView>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct IndexView {
+            #[serde(default)]
+            entries: Vec<IndexEntry>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct IndexEntry {
+            path: String,
+        }
+
         // Retrieve refs to find the HEAD commit.
         let url = format!("{}/v1/repos/{}/refs", self.base_url, issue_id);
         let resp = self
@@ -329,7 +317,34 @@ impl PlatformClient {
         issue_id: &str,
         change_set: &crate::changes::ChangeSet,
         message: impl Into<String>,
-    ) -> Result<SubmitResult, IdeError> {
+    ) -> Result<String, IdeError> {
+        #[derive(Debug, Deserialize)]
+        struct ApiErrorPayload {
+            code: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct ApiEnvelope<T> {
+            ok: bool,
+            data: Option<T>,
+            error: Option<ApiErrorPayload>,
+        }
+        #[derive(Debug, Serialize)]
+        struct CommitFile {
+            path: String,
+            content_hex: String,
+        }
+        #[derive(Debug, Serialize)]
+        struct CreateCommitRequest {
+            author: String,
+            message: String,
+            timestamp: u64,
+            files: Vec<CommitFile>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct CommitResult {
+            commit_id: String,
+        }
+
         change_set.validate()?;
 
         let files: Vec<CommitFile> = change_set
@@ -345,7 +360,7 @@ impl PlatformClient {
         let body = CreateCommitRequest {
             author: session.subject.clone(),
             message: message.into(),
-            timestamp: now_secs(),
+            timestamp: next_commit_sequence(),
             files,
         };
 
@@ -374,9 +389,7 @@ impl PlatformClient {
         }
 
         let data = envelope.data.ok_or(IdeError::UnexpectedResponse)?;
-        Ok(SubmitResult {
-            commit_id: data.commit_id,
-        })
+        Ok(data.commit_id)
     }
 
     /// Requests a verification run for `issue_id` and returns a filtered
@@ -387,6 +400,35 @@ impl PlatformClient {
         issue_id: &str,
         manifest: &SliceManifest,
     ) -> Result<VerificationResultView, IdeError> {
+        #[derive(Debug, Deserialize)]
+        struct ApiErrorPayload {
+            code: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct ApiEnvelope<T> {
+            ok: bool,
+            data: Option<T>,
+            error: Option<ApiErrorPayload>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct VerifySummary {
+            healthy: bool,
+            #[serde(default)]
+            report: RawReport,
+        }
+        #[derive(Debug, Default, Deserialize)]
+        struct RawReport {
+            #[serde(default)]
+            issues: Vec<RawIssueItem>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct RawIssueItem {
+            #[serde(default)]
+            description: String,
+            #[serde(default)]
+            path: Option<String>,
+        }
+
         let url = format!("{}/v1/verify/{}", self.base_url, issue_id);
         let resp = self
             .http
@@ -444,38 +486,6 @@ impl PlatformClient {
     }
 }
 
-/// Typed view of a ref entry from the platform refs API.
-#[derive(Debug, Deserialize)]
-struct RefEntry {
-    target: Option<String>,
-}
-
-/// Typed view of a commit response from the platform commits API.
-#[derive(Debug, Deserialize)]
-struct CommitView {
-    index: Option<IndexView>,
-}
-
-#[derive(Debug, Deserialize)]
-struct IndexView {
-    #[serde(default)]
-    entries: Vec<IndexEntry>,
-}
-
-#[derive(Debug, Deserialize)]
-struct IndexEntry {
-    path: String,
-}
-
-/// Response body from the create-commit endpoint.
-#[derive(Debug, Deserialize)]
-struct CommitResult {
-    commit_id: String,
-}
-
-fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+fn next_commit_sequence() -> u64 {
+    COMMIT_SEQUENCE.fetch_add(1, Ordering::Relaxed)
 }
