@@ -118,12 +118,13 @@ impl AuditBuffer {
         audit_path: &PathBuf,
     ) -> Result<(), AccountStoreError> {
         // Serialize all flushes while keeping buffer lock free for append().
-        let _flush_guard = flush_lock.lock().await;
+        let flush_guard = flush_lock.lock().await;
 
         // Drain buffered entries while holding the lock briefly.
         let entries = {
             let mut buffer = buffer.lock().await;
             if buffer.is_empty() {
+                drop(flush_guard);
                 return Ok(());
             }
             let entries = std::mem::take(&mut *buffer);
@@ -132,7 +133,7 @@ impl AuditBuffer {
         };
         // Lock is released here.
 
-        let _in_flight_guard = InFlightGuard {
+        let in_flight_guard = InFlightGuard {
             counter: pending_in_flight.clone(),
             count: entries.len(),
         };
@@ -141,6 +142,8 @@ impl AuditBuffer {
             Ok(lines) => lines,
             Err(e) => {
                 Self::requeue_from_index(buffer, entries, 0).await;
+                drop(in_flight_guard);
+                drop(flush_guard);
                 return Err(e);
             }
         };
@@ -154,6 +157,8 @@ impl AuditBuffer {
             Ok(file) => file,
             Err(e) => {
                 Self::requeue_from_index(buffer, entries, 0).await;
+                drop(in_flight_guard);
+                drop(flush_guard);
                 return Err(AccountStoreError::Io(e));
             }
         };
@@ -161,10 +166,14 @@ impl AuditBuffer {
         for (idx, line) in serialized_lines.iter().enumerate() {
             if let Err(e) = file.write_all(line.as_bytes()).await {
                 Self::requeue_from_index(buffer, entries, idx).await;
+                drop(in_flight_guard);
+                drop(flush_guard);
                 return Err(AccountStoreError::Io(e));
             }
         }
 
+        drop(in_flight_guard);
+        drop(flush_guard);
         Ok(())
     }
 
