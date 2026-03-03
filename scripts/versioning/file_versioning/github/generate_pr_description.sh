@@ -192,60 +192,6 @@ gh_optional() {
   return 0
 }
 
-extract_validation_status_section() {
-  local markdown_body="$1"
-  printf "%s\n" "$markdown_body" | awk '
-    BEGIN { in_section = 0; found = 0 }
-    /^### Validation Status$/ {
-      in_section = 1
-      found = 1
-      print
-      next
-    }
-    in_section && /^### / {
-      exit
-    }
-    in_section {
-      print
-    }
-    END {
-      if (!found) {
-        exit 1
-      }
-    }
-  '
-}
-
-inject_validation_status_section() {
-  local generated_body="$1"
-  local status_file="$2"
-  awk '
-    FNR == NR {
-      replacement = replacement $0 ORS
-      next
-    }
-    /^### Validation Status$/ {
-      if (!replaced) {
-        printf "%s", replacement
-        replaced = 1
-      }
-      in_section = 1
-      next
-    }
-    in_section && /^### / {
-      in_section = 0
-      print
-      next
-    }
-    in_section {
-      next
-    }
-    {
-      print
-    }
-  ' "$status_file" <(printf "%s\n" "$generated_body")
-}
-
 if [[ "$auto_mode" == "true" ]]; then
   dry_run="true"
   create_pr="true"
@@ -1660,24 +1606,39 @@ body_content="$({
   echo ""
   echo "### Key Changes"
   echo ""
+  key_changes_found=0
   if [[ -s "$sync_tmp" ]]; then
+    key_changes_found=1
     echo "#### Synchronization"
     echo ""
     write_section_from_file "$sync_tmp"
     echo ""
   fi
-  echo "#### Features"
-  echo ""
-  write_section_from_file "$features_tmp"
-  echo ""
-  echo "#### Bug Fixes"
-  echo ""
-  write_section_from_file "$bugs_tmp"
-  echo ""
-  echo "#### Refactoring"
-  echo ""
-  write_section_from_file "$refactors_tmp"
-  echo ""
+  if [[ -s "$features_tmp" ]]; then
+    key_changes_found=1
+    echo "#### Features"
+    echo ""
+    write_section_from_file "$features_tmp"
+    echo ""
+  fi
+  if [[ -s "$bugs_tmp" ]]; then
+    key_changes_found=1
+    echo "#### Bug Fixes"
+    echo ""
+    write_section_from_file "$bugs_tmp"
+    echo ""
+  fi
+  if [[ -s "$refactors_tmp" ]]; then
+    key_changes_found=1
+    echo "#### Refactoring"
+    echo ""
+    write_section_from_file "$refactors_tmp"
+    echo ""
+  fi
+  if [[ "$key_changes_found" -eq 0 ]]; then
+    echo "- No significant items detected."
+    echo ""
+  fi
   cat <<EOF
 ### Testing
 
