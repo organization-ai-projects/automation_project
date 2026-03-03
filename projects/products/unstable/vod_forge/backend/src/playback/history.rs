@@ -1,13 +1,6 @@
-use crate::playback::profile_id::ProfileId;
+// projects/products/unstable/vod_forge/backend/src/playback/history.rs
+use crate::playback::HistoryEntry;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoryEntry {
-    pub profile_id: ProfileId,
-    pub episode_id: String,
-    pub completed: bool,
-    pub ticks_watched: u32,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct History {

@@ -1,4 +1,5 @@
 use crate::app::AppState;
+use crate::widgets::TableWidget;
 
 pub struct CatalogScreen;
 
@@ -8,9 +9,12 @@ impl CatalogScreen {
         if state.catalog_titles.is_empty() {
             out.push_str("(no titles)\n");
         } else {
-            for t in &state.catalog_titles {
-                out.push_str(&format!("  [{}] {} ({})\n", t.id, t.name, t.year));
-            }
+            let rows: Vec<Vec<String>> = state
+                .catalog_titles
+                .iter()
+                .map(|t| vec![t.id.clone(), t.name.clone(), t.year.to_string()])
+                .collect();
+            out.push_str(&TableWidget::render(&["ID", "Name", "Year"], &rows));
         }
         out
     }

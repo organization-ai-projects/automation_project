@@ -71,8 +71,10 @@ We split orchestrators into two categories based on **how they're used**:
 - ✅ Script-friendly output (can be piped/parsed)
 - ✅ Accept parameters via environment variables or arguments
 - ✅ Implement actual business logic
+- ✅ Explicitly guarded from direct invocation
 
 **Rule:** These scripts are the "API layer". They do real work with sensible defaults.
+Direct user invocation is blocked; access is granted only from approved entrypoints/workflows.
 
 **Examples:**
 
@@ -102,6 +104,9 @@ VAR="${VAR:-default_value}"
 # ✅ Exit with clear codes
 exit 0   # Success
 exit 1   # Failure
+
+# ✅ Enforce internal access gate
+[[ "${ORCHESTRATOR_READ_INTERNAL_ALLOWED:-0}" == "1" ]] || exit 2
 ```
 
 ### Scripts in `execute/`
@@ -133,6 +138,7 @@ User runs:  ./execute/start_work.sh
             Fetches latest from dev/main
             ↓
             Calls read/check_priority_issues.sh (API call)
+            (with ORCHESTRATOR_READ_INTERNAL_ALLOWED=1)
             ↓
             Calls git/create_branch.sh (API call)
             ↓

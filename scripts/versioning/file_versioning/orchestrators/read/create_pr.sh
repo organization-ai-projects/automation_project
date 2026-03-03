@@ -5,7 +5,7 @@ set -euo pipefail
 # Public entrypoint: scripts/versioning/file_versioning/github/generate_pr_description.sh
 # Legacy usage (internal): bash create_pr.sh [--base <branch>] [--title <title>] [--body <body>] [--draft] [--skip-tests]
 
-if [[ "${CREATE_PR_INTERNAL_ALLOWED:-0}" != "1" ]]; then
+if [[ "${CREATE_PR_INTERNAL_ALLOWED:-0}" != "1" && "${ORCHESTRATOR_READ_INTERNAL_ALLOWED:-0}" != "1" ]]; then
   echo "Error: create_pr.sh is internal-only and cannot be run directly." >&2
   echo "Use: bash scripts/versioning/file_versioning/github/generate_pr_description.sh --auto --base <branch> --head <branch> --yes" >&2
   exit 2
@@ -22,8 +22,12 @@ source "$ROOT_DIR/scripts/common_lib/core/command.sh"
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/conventions.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/conventions.sh"
 # shellcheck source=scripts/common_lib/automation/rust_checks.sh
 source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/pull_request_lookup.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/github/pull_request_lookup.sh"
 
 require_git_repo
 require_cmd gh
@@ -91,13 +95,16 @@ if [[ -z "$TITLE" ]]; then
   if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test|tests)/(.+)$ ]]; then
     TYPE="${BASH_REMATCH[1]}"
     DESC="${BASH_REMATCH[2]}"
-    # Capitalize first letter and replace hyphens with spaces
-    TYPE_CAPITALIZED="$(echo "${TYPE:0:1}" | tr '[:lower:]' '[:upper:]')${TYPE:1}"
+    # Keep canonical lowercase type and replace hyphens with spaces.
     DESC_FORMATTED="$(echo "$DESC" | sed -E 's|-| |g')"
-    TITLE="${TYPE_CAPITALIZED}: ${DESC_FORMATTED}"
+    TITLE="${TYPE}: ${DESC_FORMATTED}"
   else
     TITLE="$CURRENT_BRANCH"
   fi
+fi
+
+if ! validate_file_versioning_pr_title_format "$TITLE"; then
+  die "Invalid PR title format: '$TITLE'. Expected '<type>(<scope>): <message>' or '<type>: <message>' with allowed types: feature|feat|fix|doc|docs|refactor|test|tests|chore|perf."
 fi
 
 # Auto-generate body if not provided
@@ -116,9 +123,8 @@ $(git log --oneline "$BASE_BRANCH..$CURRENT_BRANCH" | sed 's/^/- /')
 fi
 
 # Check if PR already exists
-EXISTING_PR=$(gh pr list --head "$CURRENT_BRANCH" --base "$BASE_BRANCH" --json number --jq '.[0].number' || echo "")
-
-if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null" ]]; then
+EXISTING_PR="$(github_find_pr_number_by_branch "$CURRENT_BRANCH" "$BASE_BRANCH" || true)"
+if [[ -n "$EXISTING_PR" ]]; then
   info "PR already exists: #$EXISTING_PR"
   exit 0
 fi
@@ -132,7 +138,7 @@ if [[ "$DRAFT" == true ]]; then
   PR_ARGS+=(--draft)
 fi
 
-PR_URL=$(gh pr create "${PR_ARGS[@]}")
+PR_URL=$(vcs_remote_pr_create "${PR_ARGS[@]}")
 
 info "✅ PR created: $PR_URL"
 
@@ -153,7 +159,7 @@ if [[ "$CURRENT_BRANCH" =~ ^(feat|fix|chore|refactor|docs|test|tests)/ ]]; then
       BRANCH_LABEL="$BRANCH_PREFIX"
       ;;
   esac
-  if ! gh pr edit "$PR_URL" --add-label "$BRANCH_LABEL"; then
+  if ! vcs_remote_pr_edit "$PR_URL" --add-label "$BRANCH_LABEL"; then
     warn "Failed to add label '$BRANCH_LABEL' to PR $PR_URL; continuing without label."
   fi
 fi

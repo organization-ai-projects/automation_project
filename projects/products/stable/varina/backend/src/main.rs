@@ -9,6 +9,7 @@ mod git_github;
 mod handler_error;
 mod policy_evaluation;
 mod pre_checks;
+mod protocol;
 mod repo_path_validator;
 mod router;
 mod validation_error;

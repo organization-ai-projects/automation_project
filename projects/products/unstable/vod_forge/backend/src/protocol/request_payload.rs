@@ -1,11 +1,7 @@
-use crate::protocol::serde_helpers::{deser_u16, deser_u32};
+// projects/products/unstable/vod_forge/backend/src/protocol/request_payload.rs
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct IpcRequest {
-    pub id: u64,
-    pub payload: RequestPayload,
-}
+use crate::protocol::{deser_u16, deser_u32};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -45,6 +41,10 @@ pub enum RequestPayload {
     },
     PlaybackStop {
         session_id: String,
+    },
+    Recommend {
+        profile: String,
+        unwatched_only: bool,
     },
     AnalyticsReport {
         profile: String,

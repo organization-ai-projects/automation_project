@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  echo "Error: $(basename "$0") is a library script and must be sourced, not executed directly." >&2
+  exit 2
+fi
+
 build_pr_bullet() {
   local title="$1"
   local pr_ref="$2"
@@ -228,6 +233,43 @@ issue_category_from_labels() {
     return
   fi
   if [[ "$has_feature" -eq 1 ]]; then
+    echo "Features"
+    return
+  fi
+
+  echo "Unknown"
+}
+
+issue_category_from_title() {
+  local title="$1"
+  local title_lc
+  title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
+
+  if [[ "$title_lc" =~ (^|[^a-z])(security|vuln|vulnerability|cve|sast|codeql)([^a-z]|$) ]]; then
+    echo "Security"
+    return
+  fi
+  if [[ "$title_lc" =~ (^|[^a-z])(automation|workflow|ci|script|lint)([^a-z]|$) ]]; then
+    echo "Automation"
+    return
+  fi
+  if [[ "$title_lc" =~ (^|[^a-z])(test|tests|testing)([^a-z]|$) ]]; then
+    echo "Testing"
+    return
+  fi
+  if [[ "$title_lc" =~ (^|[^a-z])(docs|documentation|readme)([^a-z]|$) ]]; then
+    echo "Docs"
+    return
+  fi
+  if [[ "$title_lc" =~ ^fix(\(|:|!|[[:space:]]) ]] || [[ "$title_lc" =~ (^|[^a-z])(bug|hotfix|regression|error|failure)([^a-z]|$) ]]; then
+    echo "Bug Fixes"
+    return
+  fi
+  if [[ "$title_lc" =~ ^(chore|refactor)(\(|:|!|[[:space:]]) ]] || [[ "$title_lc" =~ (^|[^a-z])(cleanup|maintainability|tech[[:space:]_-]?debt)([^a-z]|$) ]]; then
+    echo "Refactoring"
+    return
+  fi
+  if [[ "$title_lc" =~ ^feat(\(|:|!|[[:space:]]) ]] || [[ "$title_lc" =~ (^|[^a-z])(feature|enhancement)([^a-z]|$) ]]; then
     echo "Features"
     return
   fi

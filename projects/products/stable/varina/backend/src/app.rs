@@ -5,6 +5,7 @@ use anyhow::Context;
 use common_json::{from_json_str, to_json_string_pretty};
 use protocol::Command;
 
+use crate::protocol::response_emitter::emit_response;
 use crate::router::handle_command;
 
 /// Reads a command from stdin, routes it, and writes the response to stdout.
@@ -14,6 +15,7 @@ pub fn run_backend() -> anyhow::Result<()> {
     let cmd: Command = from_json_str(&input).context("Invalid JSON input for Command")?;
 
     let response = handle_command(cmd);
-    println!("{}", to_json_string_pretty(&response)?);
+    let output = to_json_string_pretty(&response)?;
+    emit_response(&output)?;
     Ok(())
 }

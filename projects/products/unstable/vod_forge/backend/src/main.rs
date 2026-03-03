@@ -1,5 +1,5 @@
 mod analytics;
-mod catalog;
+mod catalogs;
 mod diagnostics;
 mod io;
 mod packaging;

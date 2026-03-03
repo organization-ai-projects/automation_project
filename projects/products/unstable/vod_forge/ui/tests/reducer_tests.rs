@@ -77,6 +77,8 @@ fn test_catalog_loaded_clears_error() {
     let new_state = reduce(state, Action::CatalogLoaded(entries));
     assert_eq!(new_state.catalog_titles.len(), 1);
     assert_eq!(new_state.catalog_titles[0].id, "tt001");
+    assert_eq!(new_state.catalog_titles[0].name, "Space Odyssey");
+    assert_eq!(new_state.catalog_titles[0].year, 2020);
     assert!(new_state.last_error.is_none());
 }
 
@@ -91,7 +93,9 @@ fn test_playback_updated() {
     };
     let new_state = reduce(state, Action::PlaybackUpdated(pv));
     let p = new_state.playback.unwrap();
+    assert_eq!(p.session_id, "sess-1");
     assert_eq!(p.tick, 10);
+    assert_eq!(p.progress_pct, 10.0);
     assert!(!p.done);
 }
 
@@ -106,6 +110,7 @@ fn test_analytics_loaded() {
     let new_state = reduce(state, Action::AnalyticsLoaded(av));
     let a = new_state.analytics.unwrap();
     assert_eq!(a.total_watch_ticks, 500);
+    assert_eq!(a.completion_rate_pct, 75.0);
     assert_eq!(a.episodes_watched, 4);
 }
 

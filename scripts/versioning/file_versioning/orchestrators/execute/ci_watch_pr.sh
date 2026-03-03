@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Public execute orchestrator.
 # Monitor CI status of a pull request
 # Usage: ./ci_watch_pr.sh [pr-number]
 # If no PR number provided, tries to find PR for current branch
@@ -12,6 +13,8 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/pull_request_lookup.sh
+source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/github/pull_request_lookup.sh"
 
 require_git_repo
 require_cmd gh
@@ -25,9 +28,8 @@ if [[ "$#" -ge 1 ]]; then
 else
   CURRENT_BRANCH="$(get_current_branch)"
   info "Finding PR for branch: $CURRENT_BRANCH"
-  PR_NUMBER=$(gh pr list --head "$CURRENT_BRANCH" --json number --jq '.[0].number' || true)
-
-  if [[ -z "$PR_NUMBER" || "$PR_NUMBER" == "null" ]]; then
+  PR_NUMBER="$(github_find_pr_number_by_branch "$CURRENT_BRANCH" || true)"
+  if [[ -z "$PR_NUMBER" ]]; then
     die "No PR found for branch '$CURRENT_BRANCH'."
   fi
 fi
@@ -44,7 +46,7 @@ while true; do
   fi
 
   # Get PR status
-  PR_DATA=$(gh pr view "$PR_NUMBER" --json state,statusCheckRollup,mergeable)
+  PR_DATA=$(vcs_remote_pr_view "$PR_NUMBER" --json state,statusCheckRollup,mergeable)
 
   STATE=$(echo "$PR_DATA" | jq -r '.state')
   MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable // "UNKNOWN"')

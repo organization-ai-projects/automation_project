@@ -1,6 +1,7 @@
-use crate::catalog::Catalog;
+// projects/products/unstable/vod_forge/backend/src/recommend/recommender.rs
+use crate::catalogs::Catalog;
 use crate::playback::History;
-use crate::recommend::recommend_rule::RecommendRule;
+use crate::recommend::RecommendRule;
 use std::collections::HashSet;
 
 pub struct Recommender;

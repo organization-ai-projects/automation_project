@@ -11,6 +11,9 @@ E_PARTIAL=6
 
 SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
 source "${SCRIPT_DIR}/lib/classification.sh"
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
@@ -169,6 +172,16 @@ warn_optional() {
   fi
 }
 
+register_breaking_reason() {
+  local reason="${1:-}"
+  [[ -n "$reason" ]] || return 0
+  if [[ -n "${breaking_reason_seen[$reason]:-}" ]]; then
+    return 0
+  fi
+  breaking_reason_seen["$reason"]=1
+  breaking_reasons+=("$reason")
+}
+
 gh_optional() {
   local description="$1"
   shift
@@ -181,7 +194,7 @@ gh_optional() {
   local err_file
   local output
   err_file="$(mktemp)"
-  if ! output="$(gh "$@" 2>"$err_file")"; then
+  if ! output="$(vcs_remote_run "$@" 2>"$err_file")"; then
     warn_optional "${description} failed; continuing without GitHub data." "$(cat "$err_file" 2>/dev/null || true)"
     rm -f "$err_file"
     return 1
@@ -315,9 +328,13 @@ fi
 if [[ "$keep_artifacts" == "true" ]]; then
   extracted_prs_file="extracted_prs.txt"
   resolved_issues_file="resolved_issues.txt"
+  reopened_issues_file="reopened_issues.txt"
+  conflict_issues_file="issue_directive_conflicts.txt"
 else
   extracted_prs_file="$(mktemp)"
   resolved_issues_file="$(mktemp)"
+  reopened_issues_file="$(mktemp)"
+  conflict_issues_file="$(mktemp)"
 fi
 
 features_tmp="$(mktemp)"
@@ -325,10 +342,15 @@ bugs_tmp="$(mktemp)"
 refactors_tmp="$(mktemp)"
 sync_tmp="$(mktemp)"
 issues_tmp="$(mktemp)"
+reopen_tmp="$(mktemp)"
+conflict_tmp="$(mktemp)"
+directive_resolution_tmp="$(mktemp)"
 declare -A pr_title_hint
 online_enrich="false"
 pr_enrich_failed=0
 breaking_detected=0
+declare -A breaking_reason_seen
+declare -a breaking_reasons
 pr_created_successfully="false"
 dry_compare_commit_messages=""
 dry_compare_commit_headlines=""
@@ -338,9 +360,9 @@ is_human_interactive_terminal() {
 }
 
 cleanup() {
-  rm -f "$features_tmp" "$bugs_tmp" "$refactors_tmp" "$sync_tmp" "$issues_tmp"
+  rm -f "$features_tmp" "$bugs_tmp" "$refactors_tmp" "$sync_tmp" "$issues_tmp" "$reopen_tmp" "$conflict_tmp" "$directive_resolution_tmp"
   if [[ "$keep_artifacts" != "true" ]]; then
-    rm -f "$extracted_prs_file" "$resolved_issues_file"
+    rm -f "$extracted_prs_file" "$resolved_issues_file" "$reopened_issues_file" "$conflict_issues_file"
   fi
 }
 trap cleanup EXIT
@@ -407,13 +429,7 @@ get_repo_name_with_owner() {
     return
   fi
 
-  if [[ -n "${GH_REPO:-}" ]]; then
-    repo_name_with_owner_cache="$GH_REPO"
-    echo "$repo_name_with_owner_cache"
-    return
-  fi
-
-  repo_name_with_owner_cache="$(gh_optional "resolve repository name" repo view --json nameWithOwner -q '.nameWithOwner')"
+  repo_name_with_owner_cache="$(gh_resolve_repo_name)"
   echo "$repo_name_with_owner_cache"
 }
 
@@ -477,7 +493,7 @@ extract_child_prs() {
   local timeline_pr_refs
   local timeline_pr_refs_raw
 
-  repo_owner_name="$(gh_optional "resolve repository name" repo view --json nameWithOwner -q '.nameWithOwner')"
+  repo_owner_name="$(get_repo_name_with_owner)"
 
   # IMPORTANT: gh pr view --json commits is often capped (e.g. 100 items).
   # Use REST API with --paginate to collect all commit first lines.
@@ -538,7 +554,7 @@ load_compare_commit_messages() {
 
   if [[ -n "$repo_name_with_owner" ]]; then
     for attempt in $(seq 1 "$max_attempts"); do
-      compare_messages="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
+      compare_messages="$(vcs_remote_api "repos/${repo_name_with_owner}/compare/${compare_range}" \
         --jq '.commits[]?.commit.message' 2>"$compare_err_file" || true)"
 
       if [[ -n "$compare_messages" ]]; then
@@ -589,7 +605,7 @@ load_compare_commit_headlines() {
   compare_headlines=""
 
   if [[ -n "$repo_name_with_owner" ]]; then
-    compare_headlines="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
+    compare_headlines="$(vcs_remote_api "repos/${repo_name_with_owner}/compare/${compare_range}" \
       --jq '.commits[]?.commit.message | split("\n")[0]' 2>/dev/null || true)"
   fi
 
@@ -662,12 +678,12 @@ issue_labels() {
   repo_name_with_owner="$(get_repo_name_with_owner)"
 
   if [[ -n "$repo_name_with_owner" ]]; then
-    gh issue view "$issue_number" -R "$repo_name_with_owner" --json labels \
+    vcs_remote_issue_view "$issue_number" -R "$repo_name_with_owner" --json labels \
       -q '.labels | map(.name) | join("||")' 2>/dev/null || true
     return
   fi
 
-  gh issue view "$issue_number" --json labels \
+  vcs_remote_issue_view "$issue_number" --json labels \
     -q '.labels | map(.name) | join("||")' 2>/dev/null || true
 }
 
@@ -691,7 +707,7 @@ issue_non_compliance_reason_for() {
     return
   fi
 
-  issue_json="$(gh issue view "$issue_number" --json title,body 2>/dev/null || true)"
+  issue_json="$(vcs_remote_issue_view "$issue_number" --json title,body 2>/dev/null || true)"
   if [[ -z "$issue_json" ]]; then
     issue_non_compliance_reason_cache["$issue_key"]=""
     echo ""
@@ -745,6 +761,8 @@ text_indicates_breaking() {
 
 echo -n > "$extracted_prs_file"
 echo -n > "$resolved_issues_file"
+echo -n > "$reopened_issues_file"
+echo -n > "$conflict_issues_file"
 
 if [[ "$dry_run" == "true" ]]; then
   load_dry_compare_commits
@@ -762,11 +780,19 @@ declare -A issue_category
 declare -A issue_action
 declare -A issue_neutralization_reason
 declare -A issue_reopen_detected
+declare -A seen_reopen_issue
+declare -A reopen_issue_category
+declare -A issue_directive_decision
+declare -A issue_inferred_decision
+declare -A issue_directive_conflict_reason
+declare -A issue_directive_resolution
 declare -A pr_ref_cache
 declare -A duplicate_targets
 declare -A issue_non_compliance_reason_cache
 pr_count=0
 issue_count=0
+reopen_issue_count=0
+directive_conflict_count=0
 neutralized_issue_count=0
 
 seed_pr_ref_cache
@@ -809,9 +835,13 @@ is_pull_request_ref() {
 
 mark_reopen_issue() {
   local issue_key_raw="$1"
+  local category="${2:-Unknown}"
   local normalized_issue_key
   local issue_key
   local issue_number
+  local labels_raw
+  local label_category
+  local final_category
 
   if ! normalized_issue_key="$(normalize_issue_key "$issue_key_raw")"; then
     return
@@ -825,7 +855,99 @@ mark_reopen_issue() {
   fi
 
   issue_reopen_detected["$issue_key"]="1"
+  seen_reopen_issue["$issue_key"]="1"
+
+  labels_raw="$(issue_labels "$issue_number")"
+  label_category="$(issue_category_from_labels "$labels_raw")"
+  final_category="$label_category"
+  if [[ "$final_category" == "Unknown" && "$category" != "Unknown" ]]; then
+    final_category="$category"
+  fi
+  if [[ -z "${reopen_issue_category[$issue_key]:-}" || "${reopen_issue_category[$issue_key]}" == "Unknown" ]]; then
+    reopen_issue_category["$issue_key"]="$final_category"
+  fi
+
+  local effective_decision="${issue_directive_decision[$issue_key]:-${issue_inferred_decision[$issue_key]:-}}"
+
+  if [[ "$effective_decision" == "close" ]]; then
+    unset "issue_reopen_detected[$issue_key]"
+    unset "seen_reopen_issue[$issue_key]"
+    unset "reopen_issue_category[$issue_key]"
+    issue_directive_resolution["$issue_key"]="Resolved via directive decision => close."
+    return
+  fi
+
+  if [[ -n "${seen_issue[$issue_key]:-}" && -z "$effective_decision" ]]; then
+    unset "seen_issue[$issue_key]"
+    unset "issue_category[$issue_key]"
+    unset "issue_action[$issue_key]"
+    unset "issue_neutralization_reason[$issue_key]"
+    issue_directive_conflict_reason["$issue_key"]="Closes + Reopen detected; Reopen takes precedence."
+  elif [[ -n "${seen_issue[$issue_key]:-}" && "$effective_decision" == "reopen" ]]; then
+    unset "seen_issue[$issue_key]"
+    unset "issue_category[$issue_key]"
+    unset "issue_action[$issue_key]"
+    unset "issue_neutralization_reason[$issue_key]"
+    issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
+  fi
+
   debug_log "parsed_reopen_ref: ${issue_key}"
+}
+
+mark_directive_decisions_from_text() {
+  local text="$1"
+  while IFS='|' read -r issue_key decision; do
+    issue_key="$(echo "${issue_key:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+    decision="$(echo "${decision:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | tr '[:upper:]' '[:lower:]')"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
+    issue_directive_decision["$issue_key"]="$decision"
+  done < <(parse_directive_decisions_from_text "$text")
+}
+
+mark_inferred_decisions_from_text() {
+  local text="$1"
+  while IFS='|' read -r action issue_key; do
+    issue_key="$(echo "${issue_key:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    case "$action" in
+      Closes) issue_inferred_decision["$issue_key"]="close" ;;
+      Reopen) issue_inferred_decision["$issue_key"]="reopen" ;;
+    esac
+  done < <(parse_directive_events_from_text "$text")
+}
+
+ingest_issue_refs_from_text() {
+  local source_text="$1"
+  local source_category="$2"
+  local closing_mode="$3"
+  local source_debug_label="$4"
+  local closing_refs=""
+
+  [[ -n "$source_text" ]] || return 0
+
+  mark_inferred_decisions_from_text "$source_text"
+  mark_directive_decisions_from_text "$source_text"
+
+  while IFS='|' read -r _ issue_key; do
+    mark_reopen_issue "$issue_key" "$source_category"
+  done < <(parse_reopen_issue_refs_from_text "$source_text")
+
+  if [[ "$closing_mode" == "pr_body" ]]; then
+    closing_refs="$(parse_pr_body_closing_issue_refs_from_text "$source_text")"
+  else
+    closing_refs="$(parse_closing_issue_refs_from_text "$source_text")"
+  fi
+
+  while IFS='|' read -r action issue_key; do
+    [[ -z "${action:-}" || -z "${issue_key:-}" ]] && continue
+    debug_log "parsed_issue_ref(${source_debug_label}): ${action}|${issue_key}"
+    add_issue_entry "$action" "$issue_key" "$source_category"
+  done <<< "$closing_refs"
+
+  while IFS='|' read -r duplicate_issue canonical_issue; do
+    add_duplicate_entry "$duplicate_issue" "$canonical_issue"
+  done < <(parse_duplicate_refs_from_text "$source_text")
 }
 
 add_issue_entry() {
@@ -860,6 +982,7 @@ add_issue_entry() {
   label_category="$(issue_category_from_labels "$labels_raw")"
   if [[ "$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
     breaking_detected=1
+    register_breaking_reason "Issue ${issue_key} has label 'breaking'."
   fi
 
   final_category="$label_category"
@@ -868,12 +991,38 @@ add_issue_entry() {
   fi
 
   issue_category["$issue_key"]="$final_category"
-  normalized_action="$(normalize_issue_action "$action" "$final_category")"
-  if [[ -n "${issue_reopen_detected[$issue_key]:-}" ]]; then
-    non_compliance_reason="conflicting closure directives: Closes + Reopen detected for ${issue_key}"
-  else
-    non_compliance_reason="$(issue_non_compliance_reason_for "$issue_number" "$labels_raw")"
+  local effective_decision="${issue_directive_decision[$issue_key]:-${issue_inferred_decision[$issue_key]:-}}"
+  if [[ -n "${issue_reopen_detected[$issue_key]:-}" || -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
+    if [[ "$effective_decision" == "close" ]]; then
+      issue_directive_resolution["$issue_key"]="Resolved via directive decision => close."
+      # continue as closure path
+    elif [[ "$effective_decision" == "reopen" ]]; then
+      seen_reopen_issue["$issue_key"]="1"
+      if [[ -z "${reopen_issue_category[$issue_key]:-}" || "${reopen_issue_category[$issue_key]}" == "Unknown" ]]; then
+        reopen_issue_category["$issue_key"]="$final_category"
+      fi
+      issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
+      unset "seen_issue[$issue_key]"
+      unset "issue_category[$issue_key]"
+      debug_log "issue_entry: key=${issue_key} action=Reopen (directive) category=${reopen_issue_category[$issue_key]}"
+      return
+    fi
   fi
+
+  if [[ (-n "${issue_reopen_detected[$issue_key]:-}" || -n "${seen_reopen_issue[$issue_key]:-}") && -z "${issue_directive_decision[$issue_key]:-}" && -z "${issue_inferred_decision[$issue_key]:-}" ]]; then
+    seen_reopen_issue["$issue_key"]="1"
+    if [[ -z "${reopen_issue_category[$issue_key]:-}" || "${reopen_issue_category[$issue_key]}" == "Unknown" ]]; then
+      reopen_issue_category["$issue_key"]="$final_category"
+    fi
+    issue_directive_conflict_reason["$issue_key"]="Closes + Reopen detected; Reopen takes precedence."
+    unset "seen_issue[$issue_key]"
+    unset "issue_category[$issue_key]"
+    debug_log "issue_entry: key=${issue_key} action=Reopen (precedence) category=${reopen_issue_category[$issue_key]}"
+    return
+  fi
+
+  normalized_action="$(normalize_issue_action "$action" "$final_category")"
+  non_compliance_reason="$(issue_non_compliance_reason_for "$issue_number" "$labels_raw")"
   if [[ -n "$non_compliance_reason" ]]; then
     normalized_action="${normalized_action} rejected"
     issue_neutralization_reason["$issue_key"]="$non_compliance_reason"
@@ -921,6 +1070,7 @@ if [[ -s "$extracted_prs_file" ]]; then
         pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
         if [[ "$(echo "$pr_labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
           breaking_detected=1
+          register_breaking_reason "PR ${pr_ref} has label 'breaking'."
         fi
       else
         pr_title=""
@@ -937,25 +1087,18 @@ if [[ -s "$extracted_prs_file" ]]; then
     fi
     if text_indicates_breaking "$pr_title"; then
       breaking_detected=1
+      register_breaking_reason "PR ${pr_ref} title indicates a breaking change."
     fi
 
     pr_category="$(classify_pr "$pr_ref" "$pr_title")"
     pr_count=$((pr_count + 1))
 
     if [[ -n "$pr_body" ]]; then
-      if text_indicates_breaking "$pr_body"; then
-        breaking_detected=1
-      fi
-      while IFS='|' read -r _ issue_key; do
-        mark_reopen_issue "$issue_key"
-      done < <(parse_reopen_issue_refs_from_text "$pr_body")
-      while IFS='|' read -r action issue_key; do
-        debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
-        add_issue_entry "$action" "$issue_key" "$pr_category"
-      done < <(parse_pr_body_closing_issue_refs_from_text "$pr_body")
-      while IFS='|' read -r duplicate_issue canonical_issue; do
-        add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-      done < <(parse_duplicate_refs_from_text "$pr_body")
+    if text_indicates_breaking "$pr_body"; then
+      breaking_detected=1
+      register_breaking_reason "PR ${pr_ref} body indicates a breaking change."
+    fi
+      ingest_issue_refs_from_text "$pr_body" "$pr_category" "pr_body" "pr ${pr_ref}"
     fi
 
     :
@@ -969,17 +1112,9 @@ if [[ "$dry_run" == "true" ]]; then
   if [[ -n "$dry_commit_messages" ]]; then
     if text_indicates_breaking "$dry_commit_messages"; then
       breaking_detected=1
+      register_breaking_reason "Commit messages indicate a breaking change."
     fi
-    while IFS='|' read -r _ issue_key; do
-      mark_reopen_issue "$issue_key"
-    done < <(parse_reopen_issue_refs_from_text "$dry_commit_messages")
-    while IFS='|' read -r action issue_key; do
-      debug_log "parsed_issue_ref(dry commits): ${action}|${issue_key}"
-      add_issue_entry "$action" "$issue_key" "Mixed"
-    done < <(parse_closing_issue_refs_from_text "$dry_commit_messages")
-    while IFS='|' read -r duplicate_issue canonical_issue; do
-      add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-    done < <(parse_duplicate_refs_from_text "$dry_commit_messages")
+    ingest_issue_refs_from_text "$dry_commit_messages" "Mixed" "generic" "dry commits"
   fi
 fi
 
@@ -989,33 +1124,16 @@ if [[ "$dry_run" == "false" ]]; then
   if [[ -n "$main_pr_body" ]]; then
     if text_indicates_breaking "$main_pr_body"; then
       breaking_detected=1
+      register_breaking_reason "Main PR body indicates a breaking change."
     fi
-    while IFS='|' read -r _ issue_key; do
-      mark_reopen_issue "$issue_key"
-    done < <(parse_reopen_issue_refs_from_text "$main_pr_body")
-    while IFS='|' read -r action issue_key; do
-      debug_log "parsed_issue_ref(main pr): ${action}|${issue_key}"
-      add_issue_entry "$action" "$issue_key" "Mixed"
-    done < <(parse_pr_body_closing_issue_refs_from_text "$main_pr_body")
-    while IFS='|' read -r duplicate_issue canonical_issue; do
-      add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-    done < <(parse_duplicate_refs_from_text "$main_pr_body")
+    ingest_issue_refs_from_text "$main_pr_body" "Mixed" "pr_body" "main pr"
   fi
 
   if [[ -n "$auto_edit_pr_number" ]]; then
     # Keep --refresh-pr behavior aligned with --dry-run issue extraction.
     refresh_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
     if [[ -n "$refresh_compare_commit_messages" ]]; then
-      while IFS='|' read -r _ issue_key; do
-        mark_reopen_issue "$issue_key"
-      done < <(parse_reopen_issue_refs_from_text "$refresh_compare_commit_messages")
-      while IFS='|' read -r action issue_key; do
-        debug_log "parsed_issue_ref(refresh commits): ${action}|${issue_key}"
-        add_issue_entry "$action" "$issue_key" "Mixed"
-      done < <(parse_closing_issue_refs_from_text "$refresh_compare_commit_messages")
-      while IFS='|' read -r duplicate_issue canonical_issue; do
-        add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-      done < <(parse_duplicate_refs_from_text "$refresh_compare_commit_messages")
+      ingest_issue_refs_from_text "$refresh_compare_commit_messages" "Mixed" "generic" "refresh commits"
     fi
   fi
 
@@ -1066,6 +1184,99 @@ if [[ -s "$issues_tmp" ]]; then
     ' > "$resolved_issues_file"
   issue_count="${#seen_issue[@]}"
 fi
+
+write_issue_reason_tmp() {
+  local target_tmp="$1"
+  local map_name="$2"
+  local issue_key issue_number
+  local -n issue_map_ref="$map_name"
+
+  echo -n > "$target_tmp"
+  for issue_key in "${!issue_map_ref[@]}"; do
+    issue_number="${issue_key//#/}"
+    echo "${issue_number}|${issue_key}|${issue_map_ref[$issue_key]}" >> "$target_tmp"
+  done
+}
+
+render_issue_reason_lines() {
+  local source_tmp="$1"
+  local target_file="$2"
+  local output_file="$target_file"
+  local use_tmp_output="false"
+  local output_tmp=""
+
+  if [[ "$source_tmp" == "$target_file" ]]; then
+    output_tmp="${target_file}.rendered"
+    output_file="$output_tmp"
+    use_tmp_output="true"
+  fi
+
+  if [[ -s "$source_tmp" ]]; then
+    sort -t'|' -k1,1n "$source_tmp" \
+      | awk -F'|' '{ print "- " $2 " - " $3 }' > "$output_file"
+    if [[ "$use_tmp_output" == "true" ]]; then
+      mv "$output_tmp" "$target_file"
+    fi
+  fi
+}
+
+echo -n > "$reopen_tmp"
+for issue_key in "${!seen_reopen_issue[@]}"; do
+  if [[ -n "${issue_directive_conflict_reason[$issue_key]:-}" ]]; then
+    continue
+  fi
+  issue_number="${issue_key//#/}"
+  echo "${issue_number}|${reopen_issue_category[$issue_key]:-Unknown}|${issue_key}" >> "$reopen_tmp"
+done
+
+if [[ -s "$reopen_tmp" ]]; then
+  sort -t'|' -k1,1n "$reopen_tmp" \
+    | awk -F'|' '
+      BEGIN {
+        cats[1] = "Security"
+        cats[2] = "Features"
+        cats[3] = "Bug Fixes"
+        cats[4] = "Refactoring"
+        cats[5] = "Automation"
+        cats[6] = "Testing"
+        cats[7] = "Docs"
+        cats[8] = "Mixed"
+        cats[9] = "Unknown"
+      }
+      {
+        lines[NR] = $0
+      }
+      END {
+        for (c = 1; c <= 9; c++) {
+          cat = cats[c]
+          found = 0
+          for (i = 1; i <= NR; i++) {
+            split(lines[i], parts, "|")
+            if (parts[2] == cat) {
+              if (!found) {
+                print "#### " cat
+                found = 1
+              }
+              print "- Reopen " parts[3]
+            }
+          }
+          if (found) {
+            print ""
+          }
+        }
+      }
+    ' > "$reopened_issues_file"
+  reopen_issue_count="${#seen_reopen_issue[@]}"
+fi
+
+write_issue_reason_tmp "$conflict_tmp" "issue_directive_conflict_reason"
+render_issue_reason_lines "$conflict_tmp" "$conflict_issues_file"
+if [[ -s "$conflict_issues_file" ]]; then
+  directive_conflict_count="${#issue_directive_conflict_reason[@]}"
+fi
+
+write_issue_reason_tmp "$directive_resolution_tmp" "issue_directive_resolution"
+render_issue_reason_lines "$directive_resolution_tmp" "$directive_resolution_tmp"
 
 process_duplicate_mode() {
   local duplicate_issue_key
@@ -1120,12 +1331,12 @@ process_duplicate_mode() {
       comment_body="Duplicate of ${canonical_issue_key}"
     fi
 
-    gh api "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}/comments" \
+    vcs_remote_api "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}/comments" \
       --raw-field body="${comment_body}" >/dev/null
     echo "Duplicate mode (${duplicate_mode}): commented on ${duplicate_issue_key} (target ${canonical_issue_key})."
 
     if [[ "$duplicate_mode" == "auto-close" ]]; then
-      gh api -X PATCH "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}" \
+      vcs_remote_api -X PATCH "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}" \
         -f state="closed" -f state_reason="not_planned" >/dev/null
       echo "Duplicate mode (${duplicate_mode}): closed ${duplicate_issue_key}."
     fi
@@ -1144,9 +1355,16 @@ body_content="$({
   echo "### Compatibility"
   echo ""
   if [[ "$breaking_detected" -eq 1 ]]; then
-    echo "- Breaking change."
+    if [[ "${#breaking_reasons[@]}" -gt 0 ]]; then
+      echo "- Breaking change detected:"
+      for reason in "${breaking_reasons[@]}"; do
+        echo "  - ${reason}"
+      done
+    else
+      echo "- Breaking change detected."
+    fi
   else
-    echo "- Non-breaking change."
+    echo "- No breaking change detected."
   fi
   echo ""
   echo "### Issues Resolved"
@@ -1159,6 +1377,30 @@ body_content="$({
     echo "- No resolved issues detected via GitHub references or PR body keywords."
   fi
   echo ""
+  if [[ -s "$reopened_issues_file" ]]; then
+    echo "### Issues Reopened"
+    echo ""
+    echo "This PR reopens the following issues:"
+    echo ""
+    cat "$reopened_issues_file"
+    echo ""
+  fi
+  if [[ -s "$conflict_issues_file" ]]; then
+    echo "### Issue Directive Conflicts"
+    echo ""
+    echo "The following directive conflicts are unresolved:"
+    echo ""
+    cat "$conflict_issues_file"
+    echo ""
+  fi
+  if [[ -s "$directive_resolution_tmp" ]]; then
+    echo "### Issue Directive Resolutions"
+    echo ""
+    echo "The following directive conflicts were resolved explicitly:"
+    echo ""
+    cat "$directive_resolution_tmp"
+    echo ""
+  fi
   echo "### Key Changes"
   echo ""
   if [[ -s "$sync_tmp" ]]; then
@@ -1213,6 +1455,8 @@ fi
 if [[ "$keep_artifacts" == "true" ]]; then
   echo "Extracted PRs: $extracted_prs_file"
   echo "Resolved issues: $resolved_issues_file"
+  echo "Reopened issues: $reopened_issues_file"
+  echo "Directive conflicts: $conflict_issues_file"
 fi
 
 process_duplicate_mode
@@ -1252,9 +1496,9 @@ if [[ "$create_pr" == "true" ]]; then
 
   if [[ "$create_now" == "true" ]]; then
     if [[ "$auto_mode" == "true" ]]; then
-      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body "$body_content" --label "pull-request")"
+      pr_url="$(vcs_remote_pr_create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body "$body_content" --label "pull-request")"
     else
-      pr_url="$(gh pr create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body-file "$output_file" --label "pull-request")"
+      pr_url="$(vcs_remote_pr_create --base "$base_ref_display" --head "$head_ref_display" --title "$default_title" --body-file "$output_file" --label "pull-request")"
     fi
     pr_created_successfully="true"
     echo "PR created: $pr_url"
@@ -1296,7 +1540,7 @@ if [[ -n "$auto_edit_pr_number" ]]; then
       fi
       rm -f "$checklist_tmp"
     fi
-    gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
+    vcs_remote_api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
       --raw-field body="$body_content" >/dev/null
     echo "PR updated: #${auto_edit_pr_number}"
   else

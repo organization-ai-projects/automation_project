@@ -3,6 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/commands.sh
+source "${SCRIPT_DIR}/../../../common_lib/versioning/file_versioning/github/commands.sh"
 CREATE_DIRECT_ISSUE_SCRIPT="${MANAGER_ISSUES_CREATE_SCRIPT:-${SCRIPT_DIR}/create_direct_issue.sh}"
 
 usage() {
@@ -15,8 +17,8 @@ Usage:
       --no-default-issue-label
 
   manager_issues.sh read [--issue <number>] [--repo owner/name] [--json fields] [--jq filter] [--template tpl]
-    - With --issue: show a single issue (gh issue view)
-    - Without --issue: list issues (gh issue list)
+    - With --issue: show a single issue (vcs_remote_issue_view)
+    - Without --issue: list issues (vcs_remote_issue_list)
     - Machine-readable: combine --json/--jq/--template as supported by gh
 
   manager_issues.sh update --issue <number> [--repo owner/name] [edit options...]
@@ -147,9 +149,9 @@ cmd_read() {
   local -a cmd
   if [[ -n "$issue_number" ]]; then
     ensure_number "--issue" "$issue_number"
-    cmd=(gh issue view "$issue_number")
+    cmd=(vcs_remote_issue_view "$issue_number")
   else
-    cmd=(gh issue list)
+    cmd=(vcs_remote_issue_list)
   fi
 
   if [[ -n "$repo" ]]; then
@@ -203,7 +205,7 @@ cmd_update() {
     die_usage "update requires at least one edit option."
   fi
 
-  local -a cmd=(gh issue edit "$issue_number")
+  local -a cmd=(vcs_remote_issue_edit "$issue_number")
   if [[ -n "$repo" ]]; then
     cmd+=(-R "$repo")
   fi
@@ -246,7 +248,7 @@ cmd_close() {
     die_usage "--reason must be 'completed' or 'not_planned'."
   fi
 
-  local -a cmd=(gh issue close "$issue_number" --reason "$reason")
+  local -a cmd=(vcs_remote_issue_close "$issue_number" --reason "$reason")
   if [[ -n "$repo" ]]; then
     cmd+=(-R "$repo")
   fi
@@ -279,7 +281,7 @@ cmd_reopen() {
   done
 
   ensure_number "--issue" "$issue_number"
-  local -a cmd=(gh issue reopen "$issue_number")
+  local -a cmd=(vcs_remote_issue_reopen "$issue_number")
   if [[ -n "$repo" ]]; then
     cmd+=(-R "$repo")
   fi
@@ -312,7 +314,7 @@ cmd_delete() {
   done
 
   ensure_number "--issue" "$issue_number"
-  local -a cmd=(gh issue close "$issue_number" --reason not_planned)
+  local -a cmd=(vcs_remote_issue_close "$issue_number" --reason not_planned)
   if [[ -n "$repo" ]]; then
     cmd+=(-R "$repo")
   fi

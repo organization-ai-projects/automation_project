@@ -44,16 +44,8 @@ impl From<&AutopilotPolicy> for CompiledAutopilotPolicy {
         // Check for the existence of paths
         relevant_prefixes_norm.retain(|prefix| {
             let exists = std::path::Path::new(prefix).exists();
-            if !exists {
-                println!("[warning] Prefix does not exist: {}", prefix);
-            }
             exists
         });
-
-        println!(
-            "[debug] relevant_prefixes_norm: {:?}",
-            relevant_prefixes_norm
-        );
 
         Self {
             protected_branches,
@@ -105,13 +97,8 @@ fn normalize_prefixes(prefixes: &[String]) -> Vec<String> {
                 .expect("Failed to get current directory")
                 .join(&n);
             if !absolute_path.exists() {
-                println!(
-                    "[warning] normalize_prefixes: Absolute prefix does not exist: {}",
-                    absolute_path.display()
-                );
                 continue;
             }
-            println!("[debug] normalize_prefixes: Adding normalized prefix={}", n);
             out.push(n);
         }
     }
@@ -127,9 +114,5 @@ pub fn path_has_compiled_prefix(path_norm: &str, prefix_norm: &str) -> bool {
     if prefix_norm.is_empty() {
         return false;
     }
-    println!(
-        "[debug] path_has_compiled_prefix: Checking if path_norm={} starts with prefix_norm={}",
-        path_norm, prefix_norm
-    );
     path_norm.starts_with(prefix_norm)
 }

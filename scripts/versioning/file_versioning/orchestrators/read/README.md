@@ -2,6 +2,11 @@
 
 This directory contains **internal scripts** called by executable orchestrators. They are not meant to be run directly.
 
+Strict access policy:
+
+- `read/` scripts require `ORCHESTRATOR_READ_INTERNAL_ALLOWED=1` (or specific legacy guards where applicable).
+- Entrypoints are in `../execute/` (developer flow) or GitHub workflow jobs (automation flow).
+
 ## Role in the Project
 
 This directory is responsible for providing non-interactive, composable components that implement business logic for version control workflows.
@@ -39,7 +44,7 @@ read/
 
 Called by: GitHub Actions workflow `ci_automation_sync.yml` (after PR merge into main)
 
-⚠️ **Note:** This script is for CI/bot automation only. Do NOT run manually.
+⚠️ **Note:** This script is internal and CI/bot-only. Direct invocation is blocked unless internal access is explicitly enabled by the workflow.
 
 **What it does:**
 
@@ -70,6 +75,8 @@ Called by: GitHub Actions workflow `ci_automation_sync.yml` (after PR merge into
 **List GitHub issues with high priority or security labels.**
 
 Called by: `start_work.sh` (Step 2)
+
+Direct invocation is intentionally blocked; use `execute/start_work.sh`.
 
 **What it does:**
 
@@ -131,5 +138,5 @@ These scripts:
 
 - Are non-executable (permissions: `-rw-r--r--`)
 - Live in `orchestrators/read/` to indicate they're read-only components
-- Should only be called via `bash script.sh` (not directly)
+- Should be called only from approved entrypoints with explicit internal access (`ORCHESTRATOR_READ_INTERNAL_ALLOWED=1`)
 - Handle their own validation but expect orchestrators to validate dependencies

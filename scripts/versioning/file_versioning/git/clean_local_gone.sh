@@ -26,7 +26,7 @@ info "Cleaning local branches with gone remotes..."
 git_fetch_prune "$REMOTE"
 
 # Find branches marked as [gone]
-GONE_BRANCHES=$(git branch -vv | awk '/: gone]/{print $1}' || true)
+GONE_BRANCHES=$(vcs_local_branch -vv | awk '/: gone]/{print $1}' || true)
 
 if [[ -z "$GONE_BRANCHES" ]]; then
   info "✓ No local branches with gone remotes."
@@ -45,9 +45,9 @@ echo "$GONE_BRANCHES" | while read -r branch; do
   fi
 
   info "Deleting local branch: $branch"
-  if git branch -d "$branch" 2>/dev/null; then
+  if vcs_local_branch -d "$branch" 2>/dev/null; then
     info "✓ Deleted $branch (safe)"
-  elif git branch -D "$branch" 2>/dev/null; then
+  elif vcs_local_branch -D "$branch" 2>/dev/null; then
     warn "⚠ Deleted $branch (forced)"
   else
     warn "⚠ Failed to delete $branch"

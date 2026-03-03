@@ -1,3 +1,4 @@
+// projects/products/unstable/vod_forge/backend/src/catalog/mod.rs
 pub mod catalog;
 pub mod catalog_store;
 pub mod episode;
