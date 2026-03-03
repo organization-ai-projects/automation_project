@@ -1,17 +1,7 @@
 // projects/products/stable/platform_ide/backend/src/diff/local_diff.rs
+use crate::diff::diff_line::DiffLine;
 use crate::editor::FileBuffer;
 use crate::slices::AllowedPath;
-
-/// A single changed line in a local diff.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DiffLine {
-    /// A line present only in the original.
-    Removed(String),
-    /// A line present only in the modified content.
-    Added(String),
-    /// A line unchanged between original and modified.
-    Context(String),
-}
 
 /// A local diff between the original and current content of a file buffer.
 ///

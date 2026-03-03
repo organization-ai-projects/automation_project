@@ -7,7 +7,7 @@ use thiserror::Error;
 /// paths. All path-related errors are presented as generic access-denied
 /// messages to prevent information leakage through error channels.
 #[derive(Debug, Error)]
-pub enum IdeError {
+pub enum Errors {
     #[error("authentication failed")]
     AuthFailed,
 
@@ -47,3 +47,5 @@ pub enum IdeError {
     #[error("network error communicating with the platform")]
     Network(#[from] reqwest::Error),
 }
+
+pub type IdeError = Errors;
