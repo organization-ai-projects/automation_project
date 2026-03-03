@@ -9,7 +9,7 @@ This pull request merges the `test-head` branch into `dev` and summarizes merged
 ### Validation Gate
 
 - CI: UNKNOWN ⚪
-- No breaking change: TRUE
+- No breaking change
 
 ### Issue Outcomes
 
