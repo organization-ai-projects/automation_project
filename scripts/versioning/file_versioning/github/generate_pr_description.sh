@@ -1601,7 +1601,11 @@ body_content="$({
   echo "### Validation Gate"
   echo ""
   echo "- CI: ${ci_status_with_symbol}"
-  echo "- No breaking change: $( [[ "$breaking_detected" -eq 1 ]] && echo "FALSE" || echo "TRUE" )"
+  if [[ "$breaking_detected" -eq 1 ]]; then
+    echo "- Breaking change"
+  else
+    echo "- No breaking change"
+  fi
   if [[ "$breaking_detected" -eq 1 ]]; then
     echo "- Breaking scope:"
     if [[ -n "$breaking_scope_crates" ]]; then
