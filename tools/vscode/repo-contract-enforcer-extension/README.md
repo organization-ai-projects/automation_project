@@ -6,7 +6,9 @@ Local VSCode extension to surface team-rule diagnostics (repo_contract_enforcer)
 
 - Runs `repo_contract_enforcer_backend` over JSON-lines IPC.
 - Creates VSCode diagnostics from violations.
-- Updates diagnostics on save (`.rs`, `.toml`) and on startup.
+- Updates diagnostics on startup, save, edits (debounced), and Rust/TOML file events.
+- Cancels superseded runs to avoid overlapping checks.
+- Exposes explicit status in VSCode status bar (running/superseded/errors/count).
 
 ## Install locally
 
@@ -17,6 +19,9 @@ Local VSCode extension to surface team-rule diagnostics (repo_contract_enforcer)
 
 - `repoContractEnforcer.mode`: `auto` | `strict` | `relaxed`
 - `repoContractEnforcer.runOnSave`: `true|false`
+- `repoContractEnforcer.runOnChange`: `true|false` (debounced edit-triggered checks)
+- `repoContractEnforcer.runOnFileEvents`: `true|false` (create/change/delete/rename)
+- `repoContractEnforcer.debounceMs`: debounce delay in milliseconds (`50..5000`)
 - `repoContractEnforcer.command`: command used to run UI (default: `cargo`)
 
 ## Manual command
