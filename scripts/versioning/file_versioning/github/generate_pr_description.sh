@@ -1598,7 +1598,7 @@ body_content="$({
   echo ""
   echo "- Not explicitly provided."
   echo ""
-  echo "### Compatibility Signal"
+  echo "### Validation Gate"
   echo ""
   echo "- CI: ${ci_status_with_symbol}"
   echo "- Breaking change detected: $( [[ "$breaking_detected" -eq 1 ]] && echo "TRUE" || echo "FALSE" )"

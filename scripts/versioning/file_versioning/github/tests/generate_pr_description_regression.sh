@@ -303,10 +303,10 @@ main() {
   if (
     cd "${ROOT_DIR}"
     MOCK_PATCH_BODY_FILE="${patched_body_file}" \
-    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Compatibility\n- legacy\n\n### Validation Status\n- CI: PASS\n- Breaking change detected: FALSE\n\n### Additional Notes\nkeep' \
+    MOCK_EXISTING_PR_BODY=$'### Description\nold\n\n### Legacy Section\n- legacy\n\n### Validation Status\n- CI: PASS\n- Breaking change detected: FALSE\n\n### Additional Notes\nkeep' \
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --auto-edit 400 --yes 42
   ) >/dev/null 2>&1; then
-    if grep -q -- "### Compatibility Signal" "${patched_body_file}" \
+    if grep -q -- "### Validation Gate" "${patched_body_file}" \
       && grep -q -- "- CI: UNKNOWN ⚪" "${patched_body_file}" \
       && grep -q -- "- Breaking change detected: FALSE" "${patched_body_file}" \
       && ! grep -q -- "### Validation Status" "${patched_body_file}" \
@@ -355,7 +355,7 @@ main() {
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
   ) >/dev/null 2>&1; then
     compat_section="$(awk '
-      /^### Compatibility Signal$/ { in_compat=1; next }
+      /^### Validation Gate$/ { in_compat=1; next }
       /^### / && in_compat { exit }
       in_compat { print }
     ' "${out_md}")"
@@ -385,7 +385,7 @@ main() {
     PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --base dev --head test-head "${out_md}"
   ) >/dev/null 2>&1; then
     compat_section="$(awk '
-      /^### Compatibility Signal$/ { in_compat=1; next }
+      /^### Validation Gate$/ { in_compat=1; next }
       /^### / && in_compat { exit }
       in_compat { print }
     ' "${out_md}")"
