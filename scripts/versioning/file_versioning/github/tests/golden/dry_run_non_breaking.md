@@ -6,7 +6,7 @@ This pull request merges the `test-head` branch into `dev` and summarizes merged
 
 - Not explicitly provided.
 
-### Compatibility Signal
+### Validation Gate
 
 - CI: UNKNOWN ⚪
 - Breaking change detected: FALSE
