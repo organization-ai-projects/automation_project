@@ -18,6 +18,11 @@ pub struct UnderscoreSignals {
     pub has_prefixed_binding: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StdoutMacroSignals {
+    pub has_stdout_macro: bool,
+}
+
 impl RustParser {
     pub fn first_line_of(haystack: &str, needle: &str) -> Option<u32> {
         haystack
@@ -149,6 +154,25 @@ impl RustParser {
             has_prefixed_binding: visitor.has_prefixed_binding,
         }
     }
+
+    pub fn stdout_macro_signals(source: &str) -> StdoutMacroSignals {
+        let ast = match syn::parse_file(source) {
+            Ok(ast) => ast,
+            Err(_) => {
+                return StdoutMacroSignals {
+                    has_stdout_macro: false,
+                };
+            }
+        };
+
+        let mut visitor = StdoutMacroVisitor {
+            has_stdout_macro: false,
+        };
+        syn::visit::Visit::visit_file(&mut visitor, &ast);
+        StdoutMacroSignals {
+            has_stdout_macro: visitor.has_stdout_macro,
+        }
+    }
 }
 
 fn to_snake_case(input: &str) -> String {
@@ -205,6 +229,11 @@ struct UnderscoreVisitor {
     has_prefixed_binding: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct StdoutMacroVisitor {
+    has_stdout_macro: bool,
+}
+
 impl<'ast> syn::visit::Visit<'ast> for UnderscoreVisitor {
     fn visit_local(&mut self, node: &'ast syn::Local) {
         match &node.pat {
@@ -228,6 +257,26 @@ impl<'ast> syn::visit::Visit<'ast> for UnderscoreVisitor {
     }
 }
 
+impl<'ast> syn::visit::Visit<'ast> for StdoutMacroVisitor {
+    fn visit_macro(&mut self, node: &'ast syn::Macro) {
+        let is_stdout_macro = node
+            .path
+            .segments
+            .last()
+            .map(|segment| {
+                matches!(
+                    segment.ident.to_string().as_str(),
+                    "println" | "print" | "eprint" | "eprintln"
+                )
+            })
+            .unwrap_or(false);
+        if is_stdout_macro {
+            self.has_stdout_macro = true;
+        }
+        syn::visit::visit_macro(self, node);
+    }
+}
+
 fn pat_contains_prefixed_binding(pat: &syn::Pat) -> bool {
     match pat {
         syn::Pat::Ident(ident) => ident.ident.to_string().starts_with('_'),
@@ -245,5 +294,33 @@ fn pat_contains_prefixed_binding(pat: &syn::Pat) -> bool {
         syn::Pat::Or(pat_or) => pat_or.cases.iter().any(pat_contains_prefixed_binding),
         syn::Pat::Paren(pat_paren) => pat_contains_prefixed_binding(&pat_paren.pat),
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RustParser;
+
+    #[test]
+    fn stdout_macro_signal_ignores_string_literals() {
+        let source = r#"
+            fn demo() {
+                let text = "println!(\"debug\")";
+                let _copy = text.to_string();
+            }
+        "#;
+        let signals = RustParser::stdout_macro_signals(source);
+        assert!(!signals.has_stdout_macro);
+    }
+
+    #[test]
+    fn stdout_macro_signal_detects_real_invocation() {
+        let source = r#"
+            fn demo() {
+                println!("hello");
+            }
+        "#;
+        let signals = RustParser::stdout_macro_signals(source);
+        assert!(signals.has_stdout_macro);
     }
 }
