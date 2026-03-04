@@ -69,7 +69,6 @@ members = [
   "projects/products/unstable/simulation_compiler/tooling",
   "projects/products/unstable/meta_determinism_guard/backend",
   "projects/products/unstable/meta_determinism_guard/ui",
-  "projects/products/unstable/meta_determinism_guard/tooling",
   "projects/products/unstable/code_forge_engine/backend",
   "projects/products/unstable/code_forge_engine/ui",
   "projects/products/unstable/code_forge_engine/tooling",
