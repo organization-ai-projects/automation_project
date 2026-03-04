@@ -1,9 +1,9 @@
-use crate::diagnostics::error::UiError;
+use crate::diagnostics::ui_error::UiError;
 use std::io::{BufRead, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 pub struct BackendProcess {
-    pub child: Child,
+    child: Child,
     pub stdin: ChildStdin,
     pub stdout: std::io::BufReader<ChildStdout>,
 }
@@ -41,5 +41,14 @@ impl BackendProcess {
             .read_line(&mut line)
             .map_err(|e| UiError::Transport(e.to_string()))?;
         Ok(line.trim_end().to_string())
+    }
+}
+
+impl Drop for BackendProcess {
+    fn drop(&mut self) {
+        if let Ok(None) = self.child.try_wait() {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
     }
 }

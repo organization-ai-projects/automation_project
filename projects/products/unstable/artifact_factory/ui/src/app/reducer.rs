@@ -1,5 +1,6 @@
 use crate::app::action::Action;
-use crate::app::app_state::{AppState, Screen};
+use crate::app::app_state::AppState;
+use crate::app::screen::Screen;
 
 pub fn reduce(state: &mut AppState, action: Action) {
     match action {

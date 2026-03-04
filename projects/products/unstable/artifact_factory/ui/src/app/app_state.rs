@@ -1,11 +1,4 @@
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub enum Screen {
-    #[default]
-    Input,
-    Graph,
-    Render,
-    Bundle,
-}
+use crate::app::screen::Screen;
 
 #[derive(Debug, Clone, Default)]
 pub struct AppState {

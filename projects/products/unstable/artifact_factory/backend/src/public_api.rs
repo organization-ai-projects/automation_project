@@ -3,9 +3,10 @@ use crate::analyze::event_map::EventMap;
 use crate::analyze::protocol_map::ProtocolMap;
 use crate::bundle::artifact_bundle::ArtifactBundle;
 use crate::bundle::bundle_hash::BundleHash;
-use crate::diagnostics::error::FactoryError;
+use crate::diagnostics::backend_error::BackendError;
 use crate::input::artifact_input::ArtifactInput;
 use crate::input::input_loader::InputLoader;
+use crate::io::fs_writer::FsWriter;
 use crate::protocol::request::Request;
 use crate::protocol::response::Response;
 use crate::render::html_renderer::HtmlRenderer;
@@ -24,7 +25,7 @@ pub struct BackendSession {
 }
 
 impl BackendSession {
-    pub fn handle(&mut self, request: Request) -> Result<Response, FactoryError> {
+    pub fn handle(&mut self, request: Request) -> Result<Response, BackendError> {
         match request {
             Request::LoadInputs { paths } => {
                 self.inputs = InputLoader::load_from_paths(&paths)?;
@@ -32,6 +33,11 @@ impl BackendSession {
                 Ok(Response::Ok)
             }
             Request::Analyze => {
+                if self.inputs.is_empty() {
+                    return Err(BackendError::Analysis(
+                        "no inputs loaded; run LoadInputs first".to_string(),
+                    ));
+                }
                 let event_map = EventMap::build(&self.inputs);
                 let protocol_map = ProtocolMap::build(&self.inputs);
                 let dep_graph = DependencyGraph::build(&self.inputs);
@@ -47,6 +53,11 @@ impl BackendSession {
                 Ok(Response::Ok)
             }
             Request::RenderDocs => {
+                if self.inputs.is_empty() {
+                    return Err(BackendError::Render(
+                        "no inputs loaded; run LoadInputs first".to_string(),
+                    ));
+                }
                 let event_map = self.event_map.as_ref().cloned().unwrap_or_default();
                 let protocol_map = self.protocol_map.as_ref().cloned().unwrap_or_default();
                 let dep_graph = self.dep_graph.as_ref().cloned().unwrap_or_default();
@@ -69,12 +80,16 @@ impl BackendSession {
                 let bundle = self.bundle.get_or_insert_with(ArtifactBundle::new);
                 let hash = BundleHash::compute(bundle);
                 self.bundle_hash = Some(hash);
+                if let Ok(output_dir) = std::env::var("ARTIFACT_FACTORY_OUTPUT_DIR") {
+                    FsWriter::write_bundle(bundle, std::path::Path::new(&output_dir))
+                        .map_err(|err| BackendError::Bundle(err.to_string()))?;
+                }
                 Ok(Response::Ok)
             }
             Request::GetBundle => match (&self.bundle, &self.bundle_hash) {
                 (Some(bundle), Some(hash)) => Ok(Response::Bundle {
                     hash: hash.clone(),
-                    manifest: bundle.manifest.clone(),
+                    manifest: bundle.file_names().to_vec(),
                 }),
                 _ => Ok(Response::Error {
                     message: "no bundle available; run RenderDocs or BuildBundle first".to_string(),

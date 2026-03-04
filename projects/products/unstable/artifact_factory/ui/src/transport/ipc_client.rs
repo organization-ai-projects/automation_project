@@ -1,4 +1,4 @@
-use crate::diagnostics::error::UiError;
+use crate::diagnostics::ui_error::UiError;
 use crate::transport::backend_process::BackendProcess;
 
 /// Thin IPC client that serializes requests to JSON and deserializes responses.
