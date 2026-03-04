@@ -1,4 +1,4 @@
-// projects/products/unstable/digital_pet/backend/src/diagnostics/error.rs
+// projects/products/unstable/digital_pet/backend/src/diagnostics/app_error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]

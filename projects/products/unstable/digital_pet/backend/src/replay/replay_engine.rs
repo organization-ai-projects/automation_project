@@ -28,7 +28,7 @@ impl ReplayEngine {
                     care_engine.apply_action(action.kind.clone(), &mut needs, tick);
                 }
             }
-            needs.decay(tick);
+            needs.decay();
             care_engine.evaluate(&needs, tick);
             evolution_engine.evaluate(&mut pet, &needs, &care_engine, tick, &mut event_log);
         }

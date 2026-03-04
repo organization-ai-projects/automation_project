@@ -1,8 +1,7 @@
 // projects/products/unstable/digital_pet/backend/src/public_api.rs
 use crate::battle::battle_engine::BattleEngine;
 use crate::care::care_engine::CareEngine;
-use crate::config::sim_config::SimConfig;
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::events::event_log::EventLog;
 use crate::evolution::evolution_engine::EvolutionEngine;
 use crate::evolution::evolution_tree::EvolutionTree;
@@ -21,7 +20,7 @@ use crate::scenario::scenario_loader::ScenarioLoader;
 use crate::snapshot::state_snapshot::StateSnapshot;
 use crate::time::tick_clock::TickClock;
 use crate::training::training_engine::TrainingEngine;
-use std::io::{BufRead, Write};
+use std::io::BufRead;
 use std::path::PathBuf;
 
 pub struct BackendApi;
@@ -31,8 +30,6 @@ impl BackendApi {
         let scenario = ScenarioLoader::load(&scenario_path)?;
         let mut state = ServerState::new(scenario);
         let stdin = std::io::stdin();
-        let stdout = std::io::stdout();
-        let mut out = std::io::BufWriter::new(stdout.lock());
         for line in stdin.lock().lines() {
             let line = line.map_err(|e| AppError::Io(e.to_string()))?;
             if line.trim().is_empty() {
@@ -42,16 +39,12 @@ impl BackendApi {
                 Ok(m) => m,
                 Err(e) => {
                     let resp = Response::error(None, &e.to_string());
-                    let encoded = JsonCodec::encode_response(&resp)?;
-                    writeln!(out, "{}", encoded).map_err(|e| AppError::Io(e.to_string()))?;
-                    out.flush().map_err(|e| AppError::Io(e.to_string()))?;
+                    crate::protocol::message::write_response_stdout(&resp)?;
                     continue;
                 }
             };
             let resp = state.handle(msg);
-            let encoded = JsonCodec::encode_response(&resp)?;
-            writeln!(out, "{}", encoded).map_err(|e| AppError::Io(e.to_string()))?;
-            out.flush().map_err(|e| AppError::Io(e.to_string()))?;
+            crate::protocol::message::write_response_stdout(&resp)?;
         }
         Ok(())
     }
@@ -107,7 +100,6 @@ impl ServerState {
     }
 
     fn new_run(&mut self, id: Option<u64>, seed: u64, ticks: u64) -> Response {
-        let config = SimConfig::default();
         self.clock = Some(TickClock::new(seed, ticks));
         let species = self.scenario.starting_species.clone();
         self.pet = Some(Pet::new(seed, species));
@@ -116,7 +108,6 @@ impl ServerState {
         self.care_engine = CareEngine::new();
         self.replay_file = Some(ReplayFile::new(seed, ticks, self.scenario.clone()));
         self.replay_mode = false;
-        let _ = config;
         Response::ok(id)
     }
 
@@ -138,7 +129,7 @@ impl ServerState {
                 break;
             }
             clock.tick();
-            needs.decay(clock.current_tick());
+            needs.decay();
             self.care_engine.evaluate(needs, clock.current_tick());
             self.evolution_engine.evaluate(
                 pet,
@@ -171,11 +162,10 @@ impl ServerState {
             Some(p) => p,
             None => return Response::error(id, "no active pet"),
         };
-        let clock = match self.clock.as_ref() {
-            Some(c) => c,
-            None => return Response::error(id, "no active run"),
-        };
-        let result = self.training_engine.train(pet, &kind, clock.current_tick());
+        if self.clock.is_none() {
+            return Response::error(id, "no active run");
+        }
+        let result = self.training_engine.train(pet, &kind);
         Response::ok_with_data(id, format!("training: {:?}", result))
     }
 

@@ -1,6 +1,6 @@
 // projects/products/unstable/digital_pet/ui/src/app/controller.rs
 use crate::app::app_state::AppState;
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::screens::pet_screen::PetScreen;
 use crate::screens::report_screen::ReportScreen;
 use crate::transport::ipc_client::IpcClient;
@@ -57,7 +57,7 @@ impl Controller {
         let screen = ReportScreen::new(report.clone());
         screen.render();
         let json =
-            serde_json::to_string_pretty(&report).map_err(|e| AppError::Ipc(e.to_string()))?;
+            common_json::to_string_pretty(&report).map_err(|e| AppError::Ipc(e.to_string()))?;
         std::fs::write(path, json).map_err(|e| AppError::Io(e.to_string()))
     }
 }

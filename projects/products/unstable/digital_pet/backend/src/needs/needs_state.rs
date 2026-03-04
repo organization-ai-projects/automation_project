@@ -1,5 +1,4 @@
 // projects/products/unstable/digital_pet/backend/src/needs/needs_state.rs
-use crate::time::tick::Tick;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,8 +25,7 @@ impl Default for NeedsState {
 }
 
 impl NeedsState {
-    pub fn decay(&mut self, tick: Tick) {
-        let _ = tick;
+    pub fn decay(&mut self) {
         self.hunger = (self.hunger + 1).min(100);
         self.fatigue = (self.fatigue + 1).min(100);
         self.happiness = self.happiness.saturating_sub(1);

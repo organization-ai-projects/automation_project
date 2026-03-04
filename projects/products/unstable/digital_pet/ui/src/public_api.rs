@@ -1,7 +1,7 @@
 // projects/products/unstable/digital_pet/ui/src/public_api.rs
 use crate::app::app_state::AppState;
 use crate::app::controller::Controller;
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::transport::backend_process::BackendProcess;
 use crate::transport::ipc_client::IpcClient;
 use std::path::PathBuf;

@@ -1,5 +1,5 @@
 // projects/products/unstable/digital_pet/ui/src/transport/backend_process.rs
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 

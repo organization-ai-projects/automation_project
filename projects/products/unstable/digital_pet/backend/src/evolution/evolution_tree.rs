@@ -13,7 +13,8 @@ pub struct EvolutionTree {
 }
 
 impl EvolutionTree {
-    pub fn from_config(_config: &SimConfig) -> Self {
+    pub fn from_config(config: &SimConfig) -> Self {
+        let max_care_mistakes = config.care_mistake_threshold as usize;
         let baby = PetSpecies {
             id: PetSpeciesId::new("baby"),
             name: "BabyMon".to_string(),
@@ -54,7 +55,7 @@ impl EvolutionTree {
                 from_species: "egg".into(),
                 to_species: "baby".into(),
                 min_ticks: 5,
-                max_care_mistakes: 10,
+                max_care_mistakes,
                 min_happiness: 0,
                 min_discipline: 0,
             },
@@ -70,7 +71,7 @@ impl EvolutionTree {
                 from_species: "baby".into(),
                 to_species: "child_bad".into(),
                 min_ticks: 20,
-                max_care_mistakes: 0,
+                max_care_mistakes: max_care_mistakes.saturating_sub(2),
                 min_happiness: 0,
                 min_discipline: 0,
             },
