@@ -73,7 +73,6 @@ members = [
   "projects/products/unstable/code_forge_engine/tooling",
   "projects/products/unstable/protocol_builder/backend",
   "projects/products/unstable/protocol_builder/ui",
-  "projects/products/unstable/protocol_builder/tooling",
   "projects/products/unstable/evolutionary_system_generator/backend",
   "projects/products/unstable/evolutionary_system_generator/ui",
   "projects/products/unstable/artifact_factory/backend",
