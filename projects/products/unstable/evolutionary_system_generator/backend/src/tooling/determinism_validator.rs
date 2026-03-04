@@ -3,7 +3,7 @@ use std::process::{Child, Command, Stdio};
 
 use serde_json::Value;
 
-use crate::diagnostics::error::ToolingError;
+use crate::tooling::error::ToolingError;
 
 #[derive(Debug, Clone)]
 pub struct ValidatorConfig {

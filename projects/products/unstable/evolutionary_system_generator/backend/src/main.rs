@@ -11,11 +11,13 @@ mod public_api;
 mod replay;
 mod search;
 mod seed;
+mod tooling;
 
 #[cfg(test)]
 mod tests;
 
 use std::io::BufRead;
+use std::{env, process};
 
 use crate::protocol::message::{read_request, write_response};
 use crate::protocol::request::Request;
@@ -24,6 +26,8 @@ use crate::replay::event_log::EventLog;
 use crate::replay::replay_engine::ReplayEngine;
 use crate::search::evolution_engine::{EvolutionEngine, SearchConfig};
 use crate::seed::seed::Seed;
+use crate::tooling::determinism_validator::{DeterminismValidator, ValidatorConfig};
+use crate::tooling::replay_validator::ReplayValidator;
 
 fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response {
     match request {
@@ -145,7 +149,106 @@ fn print_response(resp: &Response) {
     println!("{}", write_response(resp));
 }
 
+fn parse_u64_flag(args: &[String], flag: &str) -> Option<u64> {
+    args.windows(2)
+        .find(|window| window[0] == flag)
+        .and_then(|window| window[1].parse().ok())
+}
+
+fn parse_str_flag(args: &[String], flag: &str) -> Option<String> {
+    args.windows(2)
+        .find(|window| window[0] == flag)
+        .map(|window| window[1].clone())
+}
+
+fn default_rule_pool() -> Vec<String> {
+    vec![
+        "rule_a".to_string(),
+        "rule_b".to_string(),
+        "rule_c".to_string(),
+        "rule_d".to_string(),
+    ]
+}
+
+fn run_tooling_command(args: &[String]) -> i32 {
+    if args.is_empty() {
+        eprintln!("Usage: evo-backend <command> [options]");
+        eprintln!("Commands:");
+        eprintln!("  validate-determinism --seed <N> --generations <N>");
+        eprintln!("  validate-replay --seed <N> --generations <N> --replay-path <path>");
+        return 2;
+    }
+
+    let backend_bin = parse_str_flag(args, "--backend-bin").unwrap_or_else(|| "evo-backend".into());
+    match args[0].as_str() {
+        "validate-determinism" => {
+            let seed = parse_u64_flag(args, "--seed").unwrap_or(42);
+            let generations = parse_u64_flag(args, "--generations").unwrap_or(5);
+            let config = ValidatorConfig {
+                seed,
+                population_size: 10,
+                max_generations: generations as u32,
+                rule_pool: default_rule_pool(),
+            };
+            match DeterminismValidator::validate(config, &backend_bin) {
+                Ok(result) => {
+                    println!(
+                        "Determinism check: {}",
+                        if result.determinism_ok {
+                            "PASS"
+                        } else {
+                            "FAIL"
+                        }
+                    );
+                    if let Some(hash) = result.manifest_hash {
+                        println!("Manifest hash: {hash}");
+                    }
+                    0
+                }
+                Err(err) => {
+                    eprintln!("Error: {err}");
+                    1
+                }
+            }
+        }
+        "validate-replay" => {
+            let seed = parse_u64_flag(args, "--seed").unwrap_or(42);
+            let generations = parse_u64_flag(args, "--generations").unwrap_or(5);
+            let replay_path =
+                parse_str_flag(args, "--replay-path").unwrap_or_else(|| "/tmp/replay.json".into());
+            let config = ValidatorConfig {
+                seed,
+                population_size: 10,
+                max_generations: generations as u32,
+                rule_pool: default_rule_pool(),
+            };
+            match ReplayValidator::validate(config, &replay_path, &backend_bin) {
+                Ok(result) => {
+                    println!(
+                        "Replay check: {}",
+                        if result.replay_ok { "PASS" } else { "FAIL" }
+                    );
+                    0
+                }
+                Err(err) => {
+                    eprintln!("Error: {err}");
+                    1
+                }
+            }
+        }
+        command => {
+            eprintln!("Unknown command: {command}");
+            2
+        }
+    }
+}
+
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        process::exit(run_tooling_command(&args[1..]));
+    }
+
     let stdin = std::io::stdin();
     let mut engine: Option<EvolutionEngine> = None;
 

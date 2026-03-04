@@ -1,9 +1,9 @@
 use std::io::{BufRead, BufReader, Write};
 
-use crate::diagnostics::error::ToolingError;
-use crate::validate::determinism_validator::{
+use crate::tooling::determinism_validator::{
     ValidatorConfig, extract_manifest_hash, spawn_backend,
 };
+use crate::tooling::error::ToolingError;
 
 #[derive(Debug)]
 pub struct ReplayValidatorResult {
