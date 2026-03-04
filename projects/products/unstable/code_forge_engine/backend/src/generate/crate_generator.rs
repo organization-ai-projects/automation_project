@@ -1,6 +1,4 @@
-// projects/products/unstable/code_forge_engine/backend/src/generate/crate_generator.rs
-use crate::contract::module_spec::ModuleSpec;
-use crate::diagnostics::error::ForgeError;
+use crate::contracts::module_spec::ModuleSpec;
 
 pub struct CrateGenerator {
     spec: ModuleSpec,
@@ -11,7 +9,11 @@ impl CrateGenerator {
         Self { spec }
     }
 
-    pub fn generate_paths(&self) -> Result<Vec<String>, ForgeError> {
-        Ok(self.spec.files.iter().map(|f| f.path.clone()).collect())
+    pub fn generate_paths(&self) -> Vec<String> {
+        self.spec
+            .files
+            .iter()
+            .map(|file| file.path.clone())
+            .collect()
     }
 }

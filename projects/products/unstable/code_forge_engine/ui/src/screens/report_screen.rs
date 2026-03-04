@@ -1,14 +1,24 @@
-// projects/products/unstable/code_forge_engine/ui/src/screens/report_screen.rs
-pub struct ReportScreen {
-    pub manifest_hash: Option<String>,
-    pub file_count: usize,
-}
+use crate::app::app_state::AppState;
+use crate::widgets::diff_widget::DiffWidget;
+use crate::widgets::table_widget::TableWidget;
+
+pub struct ReportScreen;
 
 impl ReportScreen {
-    pub fn new() -> Self {
-        Self {
-            manifest_hash: None,
-            file_count: 0,
-        }
+    pub fn render(state: &AppState) {
+        let rows = vec![vec![
+            "manifest_hash".to_string(),
+            state
+                .manifest_hash
+                .clone()
+                .unwrap_or_else(|| "<none>".to_string()),
+        ]];
+        TableWidget::render(&["field", "value"], &rows);
+
+        let manifest = state
+            .manifest_json
+            .clone()
+            .unwrap_or_else(|| "{}".to_string());
+        DiffWidget::render(&manifest, &manifest);
     }
 }

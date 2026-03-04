@@ -1,14 +1,10 @@
-// projects/products/unstable/code_forge_engine/ui/src/screens/generate_screen.rs
-pub struct GenerateScreen {
-    pub out_dir: Option<String>,
-    pub mode: String,
-}
+use crate::app::app_state::AppState;
+
+pub struct GenerateScreen;
 
 impl GenerateScreen {
-    pub fn new() -> Self {
-        Self {
-            out_dir: None,
-            mode: "dry_run".to_string(),
-        }
+    pub fn render(state: &AppState) {
+        let count = state.preview_files.len();
+        println!("generation stage done for {count} files");
     }
 }

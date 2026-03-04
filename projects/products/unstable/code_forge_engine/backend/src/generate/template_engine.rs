@@ -1,5 +1,4 @@
-// projects/products/unstable/code_forge_engine/backend/src/generate/template_engine.rs
-use crate::diagnostics::error::ForgeError;
+use crate::diagnostics::backend_error::BackendError;
 use std::collections::BTreeMap;
 
 pub struct TemplateEngine {
@@ -17,11 +16,11 @@ impl TemplateEngine {
         self.variables.insert(key.into(), value.into());
     }
 
-    pub fn render(&self, template: &str) -> Result<String, ForgeError> {
-        let mut out = template.to_string();
-        for (k, v) in &self.variables {
-            out = out.replace(&format!("{{{{{k}}}}}"), v);
+    pub fn render(&self, template: &str) -> Result<String, BackendError> {
+        let mut rendered = template.to_string();
+        for (key, value) in &self.variables {
+            rendered = rendered.replace(&format!("{{{{{key}}}}}"), value);
         }
-        Ok(out)
+        Ok(rendered)
     }
 }

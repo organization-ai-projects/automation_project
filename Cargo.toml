@@ -70,7 +70,6 @@ members = [
   "projects/products/unstable/meta_determinism_guard/ui",
   "projects/products/unstable/code_forge_engine/backend",
   "projects/products/unstable/code_forge_engine/ui",
-  "projects/products/unstable/code_forge_engine/tooling",
   "projects/products/unstable/protocol_builder/backend",
   "projects/products/unstable/protocol_builder/ui",
   "projects/products/unstable/protocol_builder/tooling",

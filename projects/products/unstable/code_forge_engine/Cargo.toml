@@ -1,3 +1,0 @@
-# This file marks code_forge_engine as a workspace root.
-# The actual crates live in backend/, ui/, and tooling/.
-[workspace]

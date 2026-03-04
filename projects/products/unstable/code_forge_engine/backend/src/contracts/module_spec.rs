@@ -1,5 +1,5 @@
 // projects/products/unstable/code_forge_engine/backend/src/contract/module_spec.rs
-use crate::contract::file_spec::FileSpec;
+use crate::contracts::file_spec::FileSpec;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,40 +1,40 @@
 {
-  "report_hash": "a0fbd10d4bb08d5ef13cf3e2224110d641bf2fde17b27c6f328b59c962f489c8",
   "violations": [
     {
-      "rule_id": "determinism",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "message": "unwrap/expect usage may panic at runtime",
       "scope": "stable",
+      "message": "unwrap/expect usage may panic at runtime",
+      "severity": "ERROR",
       "line": 3,
-      "violation_code": "DET_UNWRAP_RISK",
-      "severity": "ERROR"
+      "rule_id": "determinism",
+      "violation_code": "DET_UNWRAP_RISK"
     },
     {
-      "line": 3,
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "rule_id": "determinism",
+      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
       "severity": "WARNING",
+      "rule_id": "determinism",
       "scope": "stable",
       "message": "underscore-based bindings/discards may hide unused values",
-      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING"
+      "line": 3
     },
     {
-      "rule_id": "determinism",
-      "severity": "ERROR",
+      "message": "panic-like macros are forbidden (including tests)",
       "scope": "stable",
-      "message": "panic-like macros are forbidden in backend product code",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
       "line": 4,
-      "violation_code": "DET_PANIC_RISK"
+      "severity": "ERROR",
+      "rule_id": "determinism",
+      "violation_code": "DET_PANIC_RISK",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs"
     }
   ],
   "repository_root": "<FIXTURE_ROOT>",
-  "mode": "strict",
   "summary": {
     "stable_error_count": 2,
     "stable_warning_count": 1,
-    "unstable_error_count": 0,
-    "unstable_warning_count": 0
-  }
+    "unstable_warning_count": 0,
+    "unstable_error_count": 0
+  },
+  "report_hash": "3db0cc99b9fa36d3afc45945d07433fbcc92802d4edf36e4d4f7c9d65fdc3a13",
+  "mode": "strict"
 }

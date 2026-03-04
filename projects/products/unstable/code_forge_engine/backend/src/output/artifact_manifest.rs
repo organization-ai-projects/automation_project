@@ -1,4 +1,3 @@
-// projects/products/unstable/code_forge_engine/backend/src/output/artifact_manifest.rs
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -21,6 +20,54 @@ impl ArtifactManifest {
     }
 
     pub fn sorted_paths(&self) -> Vec<&str> {
-        self.files.keys().map(|s| s.as_str()).collect()
+        self.files.keys().map(String::as_str).collect()
     }
+
+    pub fn canonical_json(&self) -> Result<String, String> {
+        let mut entries: Vec<(String, String)> = Vec::new();
+        for (path, bytes) in &self.files {
+            entries.push((path.clone(), hash_bytes(bytes)));
+        }
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut out = String::new();
+        out.push_str("{\"name\":\"");
+        out.push_str(&json_escape(&self.name));
+        out.push_str("\",\"files\":[");
+        for (idx, (path, hash)) in entries.iter().enumerate() {
+            if idx > 0 {
+                out.push(',');
+            }
+            out.push_str("[\"");
+            out.push_str(&json_escape(path));
+            out.push_str("\",\"");
+            out.push_str(&json_escape(hash));
+            out.push_str("\"]");
+        }
+        out.push_str("]}");
+        Ok(out)
+    }
+}
+
+fn json_escape(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for c in input.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '\u{08}' => out.push_str("\\b"),
+            '\u{0C}' => out.push_str("\\f"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+fn hash_bytes(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hex::encode(hasher.finalize())
 }
