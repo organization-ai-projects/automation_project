@@ -1,8 +1,9 @@
-#[allow(clippy::module_inception)]
 pub mod message;
 pub mod request;
+pub mod request_message;
 pub mod response;
+pub mod response_message;
 
-pub use message::{RequestMessage, ResponseMessage};
-pub use request::Request;
+pub use request_message::RequestMessage;
 pub use response::Response;
+pub use response_message::ResponseMessage;

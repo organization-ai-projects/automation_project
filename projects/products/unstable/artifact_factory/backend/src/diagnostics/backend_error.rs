@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum FactoryError {
+pub enum BackendError {
     #[error("IO error: {0}")]
     Io(String),
     #[error("codec error: {0}")]
