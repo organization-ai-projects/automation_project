@@ -1,10 +1,10 @@
 // projects/products/unstable/protocol_builder/backend/src/public_api.rs
 use crate::generate::{ClientStubEmitter, HarnessEmitter, ServerStubEmitter, ValidatorEmitter};
 use crate::output::{ArtifactManifest, GenerateReport};
-use crate::schema::ProtocolSchema;
+use crate::schema::Schema;
 
 /// Builds the artifact manifest from the schema (deterministic).
-pub fn build_manifest(schema: &ProtocolSchema) -> ArtifactManifest {
+pub fn build_manifest(schema: &Schema) -> ArtifactManifest {
     let mut manifest = ArtifactManifest::new();
     manifest.insert("client_stub.rs", ClientStubEmitter::emit(schema));
     manifest.insert("harness.rs", HarnessEmitter::emit(schema));
@@ -14,7 +14,7 @@ pub fn build_manifest(schema: &ProtocolSchema) -> ArtifactManifest {
 }
 
 /// Validates the schema for structural consistency.
-pub fn validate_schema(schema: &ProtocolSchema) -> Result<(), String> {
+pub fn validate_schema(schema: &Schema) -> Result<(), String> {
     let msg_names: std::collections::BTreeSet<&str> =
         schema.messages.iter().map(|m| m.name.as_str()).collect();
     for ep in &schema.endpoints {

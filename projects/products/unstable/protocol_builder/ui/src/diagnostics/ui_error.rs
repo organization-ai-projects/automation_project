@@ -1,4 +1,4 @@
-// projects/products/unstable/protocol_builder/ui/src/diagnostics/error.rs
+// projects/products/unstable/protocol_builder/ui/src/diagnostics/ui_error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]

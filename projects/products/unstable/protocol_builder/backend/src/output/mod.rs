@@ -5,4 +5,3 @@ pub mod manifest_hash;
 
 pub use artifact_manifest::ArtifactManifest;
 pub use generate_report::GenerateReport;
-pub use manifest_hash::compute_manifest_hash;
