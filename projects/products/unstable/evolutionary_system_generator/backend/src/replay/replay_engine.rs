@@ -6,17 +6,16 @@ use crate::replay::replay_result::ReplayResult;
 use crate::replay::search_event_kind::SearchEventKind;
 use crate::search::evolution_engine::EvolutionEngine;
 use crate::search::search_config::SearchConfig;
-use crate::seed::seed::Seed;
+use crate::seed::Seed;
 
 pub struct ReplayEngine;
 
 impl ReplayEngine {
-    pub fn replay_from_log(
+    pub fn replay_search(
         log: &EventLog,
         rule_pool: Vec<String>,
         constraints: Vec<Constraint>,
-        top_n: usize,
-    ) -> Result<ReplayResult, ReplayError> {
+    ) -> Result<EvolutionEngine, ReplayError> {
         let started = log.events.iter().find_map(|e| {
             if let SearchEventKind::SearchStarted {
                 seed,
@@ -43,6 +42,16 @@ impl ReplayEngine {
 
         let mut engine = EvolutionEngine::new(config);
         engine.run_to_end();
+        Ok(engine)
+    }
+
+    pub fn replay_from_log(
+        log: &EventLog,
+        rule_pool: Vec<String>,
+        constraints: Vec<Constraint>,
+        top_n: usize,
+    ) -> Result<ReplayResult, ReplayError> {
+        let engine = Self::replay_search(log, rule_pool, constraints)?;
 
         let replayed_log = engine.get_event_log();
         if log.events.len() != replayed_log.events.len() {

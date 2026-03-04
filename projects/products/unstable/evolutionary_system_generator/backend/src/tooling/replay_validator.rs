@@ -24,7 +24,7 @@ impl ReplayValidator {
                     std::io::ErrorKind::BrokenPipe,
                     "no stdin",
                 )))?;
-            let rule_pool_json = serde_json::to_string(&config.rule_pool)
+            let rule_pool_json = common_json::to_string(&config.rule_pool)
                 .map_err(|e| ToolingError::Validation(e.to_string()))?;
             writeln!(
                 stdin,
@@ -61,13 +61,14 @@ impl ReplayValidator {
                     std::io::ErrorKind::BrokenPipe,
                     "no stdin",
                 )))?;
-            let rule_pool_json = serde_json::to_string(&config.rule_pool)
+            let rule_pool_json = common_json::to_string(&config.rule_pool)
                 .map_err(|e| ToolingError::Validation(e.to_string()))?;
             writeln!(
                 stdin,
                 r#"{{"type":"LoadReplay","path":"{}","rule_pool":{}}}"#,
                 replay_path, rule_pool_json
             )?;
+            writeln!(stdin, r#"{{"type":"GetCandidates","top_n":5}}"#)?;
             drop(child.stdin.take());
 
             let stdout = child

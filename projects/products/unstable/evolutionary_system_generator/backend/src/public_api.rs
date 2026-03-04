@@ -17,4 +17,4 @@ pub use crate::search::evolution_engine::EvolutionEngine;
 pub use crate::search::individual::Individual;
 pub use crate::search::population::Population;
 pub use crate::search::search_config::SearchConfig;
-pub use crate::seed::seed::Seed;
+pub use crate::seed::Seed;

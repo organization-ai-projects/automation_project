@@ -1,5 +1,5 @@
 // projects/products/unstable/evolutionary_system_generator/backend/src/seed/xorshift64.rs
-use crate::seed::seed::Seed;
+use crate::seed::Seed;
 
 #[derive(Debug, Clone)]
 pub struct Xorshift64 {

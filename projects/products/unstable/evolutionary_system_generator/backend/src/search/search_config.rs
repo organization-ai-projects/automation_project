@@ -1,6 +1,6 @@
 // projects/products/unstable/evolutionary_system_generator/backend/src/search/search_config.rs
 use crate::constraints::constraint::Constraint;
-use crate::seed::seed::Seed;
+use crate::seed::Seed;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

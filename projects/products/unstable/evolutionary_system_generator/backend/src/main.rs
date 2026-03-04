@@ -1,5 +1,4 @@
 // projects/products/unstable/evolutionary_system_generator/backend/src/main.rs
-
 mod constraints;
 mod diagnostics;
 mod evaluate;
@@ -29,7 +28,7 @@ use crate::replay::event_log::EventLog;
 use crate::replay::replay_engine::ReplayEngine;
 use crate::search::evolution_engine::EvolutionEngine;
 use crate::search::search_config::SearchConfig;
-use crate::seed::seed::Seed;
+use crate::seed::Seed;
 use crate::tooling::determinism_validator::DeterminismValidator;
 use crate::tooling::replay_validator::ReplayValidator;
 use crate::tooling::validator_config::ValidatorConfig;
@@ -117,21 +116,33 @@ fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response 
             constraints,
         } => match EventLog::load_from_file(&path) {
             Err(err) => engine_error_response(EngineError::Io(err)),
-            Ok(log) => match ReplayEngine::replay_from_log(&log, rule_pool, constraints, 5) {
-                Err(err) => engine_error_response(EngineError::Replay(err.to_string())),
-                Ok(result) => {
-                    if result.matches
-                        && result.original_event_count == result.replayed_event_count
-                        && result.original_event_count > 0
-                    {
-                        Response::Ok
-                    } else {
-                        Response::Error {
-                            message: "Replay verification failed".to_string(),
+            Ok(log) => {
+                match ReplayEngine::replay_from_log(&log, rule_pool.clone(), constraints.clone(), 5)
+                {
+                    Err(err) => engine_error_response(EngineError::Replay(err.to_string())),
+                    Ok(result) => {
+                        if result.matches
+                            && result.original_event_count == result.replayed_event_count
+                            && result.original_event_count > 0
+                            && !result.manifest.candidates.is_empty()
+                        {
+                            match ReplayEngine::replay_search(&log, rule_pool, constraints) {
+                                Ok(replayed_engine) => {
+                                    *engine = Some(replayed_engine);
+                                    Response::Ok
+                                }
+                                Err(err) => {
+                                    engine_error_response(EngineError::Replay(err.to_string()))
+                                }
+                            }
+                        } else {
+                            Response::Error {
+                                message: "Replay verification failed".to_string(),
+                            }
                         }
                     }
                 }
-            },
+            }
         },
         Request::ReplayToEnd => match engine {
             None => engine_error_response(EngineError::NoActiveSearch),
@@ -225,10 +236,10 @@ fn run_tooling_command(args: &[String]) -> i32 {
                     {
                         return 1;
                     }
-                    if let Some(hash) = result.manifest_hash {
-                        if write_stdout_line(&format!("Manifest hash: {hash}")).is_err() {
-                            return 1;
-                        }
+                    if let Some(hash) = result.manifest_hash
+                        && write_stdout_line(&format!("Manifest hash: {hash}")).is_err()
+                    {
+                        return 1;
                     }
                     0
                 }
