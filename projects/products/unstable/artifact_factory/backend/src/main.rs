@@ -8,7 +8,8 @@ mod public_api;
 mod render;
 
 use crate::io::json_codec::JsonCodec;
-use crate::protocol::{RequestMessage, Response, ResponseMessage};
+use crate::protocol::Response;
+use crate::protocol::message::{write_response_stdout, write_stderr_line};
 use crate::public_api::BackendSession;
 use std::io::BufRead as _;
 
@@ -17,7 +18,6 @@ fn main() {
     tracing::info!("artifact-factory-backend starting");
 
     let stdin = std::io::stdin();
-    let stdout = std::io::stdout();
     let mut session = BackendSession::default();
 
     for line in stdin.lock().lines() {
@@ -46,14 +46,11 @@ fn main() {
             },
         };
 
-        let resp_msg = ResponseMessage { id, response };
-        match JsonCodec::encode_response(&resp_msg) {
-            Ok(encoded) => {
-                use std::io::Write as _;
-                let mut out = stdout.lock();
-                let _ = writeln!(out, "{}", encoded);
+        if let Err(err) = write_response_stdout(id, response) {
+            if let Err(stderr_err) = write_stderr_line(&format!("response write error: {err}")) {
+                tracing::error!(error = %stderr_err, "failed to write stderr");
             }
-            Err(e) => tracing::error!(error = %e, "failed to encode response"),
+            tracing::error!(error = %err, "failed to encode response");
         }
     }
 

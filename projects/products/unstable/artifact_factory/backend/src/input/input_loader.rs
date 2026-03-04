@@ -1,14 +1,15 @@
-use crate::diagnostics::error::FactoryError;
-use crate::input::artifact_input::{ArtifactInput, ArtifactKind};
+use crate::diagnostics::backend_error::BackendError;
+use crate::input::artifact_input::ArtifactInput;
+use crate::input::artifact_kind::ArtifactKind;
 
 pub struct InputLoader;
 
 impl InputLoader {
-    pub fn load_from_paths(paths: &[String]) -> Result<Vec<ArtifactInput>, FactoryError> {
+    pub fn load_from_paths(paths: &[String]) -> Result<Vec<ArtifactInput>, BackendError> {
         let mut inputs = Vec::new();
         for path in paths {
             let content =
-                std::fs::read_to_string(path).map_err(|e| FactoryError::Io(e.to_string()))?;
+                std::fs::read_to_string(path).map_err(|e| BackendError::Io(e.to_string()))?;
             let kind = classify_path(path);
             inputs.push(ArtifactInput {
                 path: path.clone(),

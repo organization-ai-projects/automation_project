@@ -12,7 +12,7 @@ impl SvgRenderer {
         let cols = std::cmp::max(1, (node_count as f64).sqrt().ceil() as usize);
         let cell_w = 200usize;
         let cell_h = 80usize;
-        let rows = (node_count + cols - 1) / cols;
+        let rows = node_count.div_ceil(cols);
         let width = cols * cell_w + 40;
         let height = rows * cell_h + 40;
 
