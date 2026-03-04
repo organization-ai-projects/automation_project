@@ -1,5 +1,6 @@
-use crate::genome::genome::Genome;
-use crate::seed::seed::Xorshift64;
+// projects/products/unstable/evolutionary_system_generator/backend/src/genetics/mutation.rs
+use crate::genetics::genome::Genome;
+use crate::seed::xorshift64::Xorshift64;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,23 +35,19 @@ impl Mutation {
     }
 
     pub fn random(rng: &mut Xorshift64, genome: &Genome) -> Self {
-        let kind = rng.next_range(3);
+        let roll = rng.next_f64();
         let n = genome.rules.len();
-        match kind {
-            0 => {
-                let rule_idx = rng.next_range(n);
-                let delta = (rng.next_range(11) as i32) - 5;
-                Mutation::TweakWeight { rule_idx, delta }
-            }
-            1 => {
-                let idx_a = rng.next_range(n);
-                let idx_b = rng.next_range(n);
-                Mutation::SwapWeights { idx_a, idx_b }
-            }
-            _ => {
-                let rule_idx = rng.next_range(n);
-                Mutation::ZeroRule { rule_idx }
-            }
+        if roll < (1.0 / 3.0) {
+            let rule_idx = rng.next_range(n);
+            let delta = (rng.next_range(11) as i32) - 5;
+            Mutation::TweakWeight { rule_idx, delta }
+        } else if roll < (2.0 / 3.0) {
+            let idx_a = rng.next_range(n);
+            let idx_b = rng.next_range(n);
+            Mutation::SwapWeights { idx_a, idx_b }
+        } else {
+            let rule_idx = rng.next_range(n);
+            Mutation::ZeroRule { rule_idx }
         }
     }
 }

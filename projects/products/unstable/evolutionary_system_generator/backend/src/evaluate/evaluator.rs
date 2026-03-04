@@ -1,7 +1,8 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/evaluate/evaluator.rs
 use crate::constraints::constraint_engine::ConstraintEngine;
 use crate::evaluate::evaluation_report::EvaluationReport;
 use crate::evaluate::fitness::Fitness;
-use crate::genome::genome::Genome;
+use crate::genetics::genome::Genome;
 
 pub struct Evaluator {
     pub constraint_engine: ConstraintEngine,
@@ -17,7 +18,7 @@ impl Evaluator {
         let active_count = active_rules.len();
         let total_weight: u32 = genome.rules.iter().map(|r| r.weight).sum();
         let violations = self.constraint_engine.violations(genome);
-        let satisfied = violations.is_empty();
+        let satisfied = self.constraint_engine.satisfies_all(genome);
 
         let rule_score = if genome.rules.is_empty() {
             0.0

@@ -1,14 +1,6 @@
-use crate::evaluate::evaluation_report::EvaluationReport;
-use crate::evaluate::fitness::Fitness;
-use crate::genome::genome::Genome;
+// projects/products/unstable/evolutionary_system_generator/backend/src/search/population.rs
+use crate::search::individual::Individual;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Individual {
-    pub genome: Genome,
-    pub fitness: Fitness,
-    pub report: EvaluationReport,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Population {

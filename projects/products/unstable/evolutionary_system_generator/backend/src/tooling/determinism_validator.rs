@@ -1,23 +1,12 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/tooling/determinism_validator.rs
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
 
-use serde_json::Value;
+use common_json::Json;
 
-use crate::diagnostics::error::ToolingError;
-
-#[derive(Debug, Clone)]
-pub struct ValidatorConfig {
-    pub seed: u64,
-    pub population_size: usize,
-    pub max_generations: u32,
-    pub rule_pool: Vec<String>,
-}
-
-#[derive(Debug)]
-pub struct DeterminismResult {
-    pub determinism_ok: bool,
-    pub manifest_hash: Option<String>,
-}
+use crate::tooling::determinism_result::DeterminismResult;
+use crate::tooling::tooling_error::ToolingError;
+use crate::tooling::validator_config::ValidatorConfig;
 
 pub struct DeterminismValidator;
 
@@ -44,7 +33,7 @@ impl DeterminismValidator {
                 std::io::ErrorKind::BrokenPipe,
                 "no stdin",
             )))?;
-        let rule_pool_json = serde_json::to_string(&config.rule_pool)
+        let rule_pool_json = common_json::to_string(&config.rule_pool)
             .map_err(|e| ToolingError::Validation(e.to_string()))?;
         writeln!(
             stdin,
@@ -77,24 +66,25 @@ pub fn spawn_backend(backend_bin: &str) -> Result<Child, ToolingError> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
-        .map_err(|e| ToolingError::Io(e))
+        .map_err(ToolingError::Io)
 }
 
 pub fn extract_manifest_hash(lines: &[String]) -> Result<String, ToolingError> {
     for line in lines {
-        if let Ok(v) = serde_json::from_str::<Value>(line) {
-            if v.get("type").and_then(|t| t.as_str()) == Some("Candidates") {
-                if let Some(hash) = v
-                    .get("manifest")
-                    .and_then(|m| m.get("manifest_hash"))
-                    .and_then(|h| h.as_str())
-                {
-                    return Ok(hash.to_string());
-                }
-            }
+        if let Ok(v) = common_json::from_json_str::<Json>(line)
+            && json_field(&v, "type").and_then(Json::as_str) == Some("Candidates")
+            && let Some(hash) = json_field(&v, "manifest")
+                .and_then(|m| json_field(m, "manifest_hash"))
+                .and_then(Json::as_str)
+        {
+            return Ok(hash.to_string());
         }
     }
     Err(ToolingError::Validation(
         "No Candidates response found in backend output".to_string(),
     ))
+}
+
+fn json_field<'a>(json: &'a Json, key: &str) -> Option<&'a Json> {
+    json.as_object().and_then(|obj| obj.get(key))
 }

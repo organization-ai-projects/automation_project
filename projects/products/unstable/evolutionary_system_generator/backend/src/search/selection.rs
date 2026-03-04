@@ -1,5 +1,7 @@
-use crate::search::population::{Individual, Population};
-use crate::seed::seed::Xorshift64;
+// projects/products/unstable/evolutionary_system_generator/backend/src/search/selection.rs
+use crate::search::individual::Individual;
+use crate::search::population::Population;
+use crate::seed::xorshift64::Xorshift64;
 
 pub fn tournament_select<'a>(rng: &mut Xorshift64, population: &'a Population) -> &'a Individual {
     let n = population.individuals.len();

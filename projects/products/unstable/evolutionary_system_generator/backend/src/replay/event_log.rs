@@ -1,4 +1,6 @@
-use crate::replay::search_event::{SearchEvent, SearchEventKind};
+// projects/products/unstable/evolutionary_system_generator/backend/src/replay/event_log.rs
+use crate::replay::search_event::SearchEvent;
+use crate::replay::search_event_kind::SearchEventKind;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -18,13 +20,13 @@ impl EventLog {
     }
 
     pub fn save_to_file(&self, path: &str) -> std::io::Result<()> {
-        let json =
-            serde_json::to_string_pretty(self).map_err(|e| std::io::Error::other(e.to_string()))?;
+        let json = common_json::to_string_pretty(self)
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
         std::fs::write(path, json)
     }
 
     pub fn load_from_file(path: &str) -> std::io::Result<Self> {
         let data = std::fs::read_to_string(path)?;
-        serde_json::from_str(&data).map_err(|e| std::io::Error::other(e.to_string()))
+        common_json::from_json_str(&data).map_err(|e| std::io::Error::other(e.to_string()))
     }
 }

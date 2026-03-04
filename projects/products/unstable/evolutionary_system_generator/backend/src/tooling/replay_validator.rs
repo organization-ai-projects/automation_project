@@ -1,14 +1,10 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/tooling/replay_validator.rs
 use std::io::{BufRead, BufReader, Write};
 
-use crate::diagnostics::error::ToolingError;
-use crate::validate::determinism_validator::{
-    ValidatorConfig, extract_manifest_hash, spawn_backend,
-};
-
-#[derive(Debug)]
-pub struct ReplayValidatorResult {
-    pub replay_ok: bool,
-}
+use crate::tooling::determinism_validator::{extract_manifest_hash, spawn_backend};
+use crate::tooling::replay_validator_result::ReplayValidatorResult;
+use crate::tooling::tooling_error::ToolingError;
+use crate::tooling::validator_config::ValidatorConfig;
 
 pub struct ReplayValidator;
 
@@ -28,7 +24,7 @@ impl ReplayValidator {
                     std::io::ErrorKind::BrokenPipe,
                     "no stdin",
                 )))?;
-            let rule_pool_json = serde_json::to_string(&config.rule_pool)
+            let rule_pool_json = common_json::to_string(&config.rule_pool)
                 .map_err(|e| ToolingError::Validation(e.to_string()))?;
             writeln!(
                 stdin,
@@ -65,13 +61,14 @@ impl ReplayValidator {
                     std::io::ErrorKind::BrokenPipe,
                     "no stdin",
                 )))?;
-            let rule_pool_json = serde_json::to_string(&config.rule_pool)
+            let rule_pool_json = common_json::to_string(&config.rule_pool)
                 .map_err(|e| ToolingError::Validation(e.to_string()))?;
             writeln!(
                 stdin,
                 r#"{{"type":"LoadReplay","path":"{}","rule_pool":{}}}"#,
                 replay_path, rule_pool_json
             )?;
+            writeln!(stdin, r#"{{"type":"GetCandidates","top_n":5}}"#)?;
             drop(child.stdin.take());
 
             let stdout = child

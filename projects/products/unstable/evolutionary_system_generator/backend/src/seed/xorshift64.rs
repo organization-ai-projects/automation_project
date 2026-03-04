@@ -1,7 +1,5 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Seed(pub u64);
+// projects/products/unstable/evolutionary_system_generator/backend/src/seed/xorshift64.rs
+use crate::seed::Seed;
 
 #[derive(Debug, Clone)]
 pub struct Xorshift64 {

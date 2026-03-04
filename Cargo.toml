@@ -78,7 +78,6 @@ members = [
   "projects/products/unstable/protocol_builder/tooling",
   "projects/products/unstable/evolutionary_system_generator/backend",
   "projects/products/unstable/evolutionary_system_generator/ui",
-  "projects/products/unstable/evolutionary_system_generator/tooling",
   "projects/products/unstable/artifact_factory/backend",
   "projects/products/unstable/artifact_factory/ui",
   "projects/products/unstable/artifact_factory/tooling",
