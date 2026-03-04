@@ -2,6 +2,7 @@
 use crate::store::account_store_error::AccountStoreError;
 use crate::store::audit_buffer_config::AuditBufferConfig;
 use crate::store::audit_entry::AuditEntry;
+use crate::store::in_flight_guard::InFlightGuard;
 use common_json::to_string;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -118,12 +119,13 @@ impl AuditBuffer {
         audit_path: &PathBuf,
     ) -> Result<(), AccountStoreError> {
         // Serialize all flushes while keeping buffer lock free for append().
-        let _flush_guard = flush_lock.lock().await;
+        let flush_guard = flush_lock.lock().await;
 
         // Drain buffered entries while holding the lock briefly.
         let entries = {
             let mut buffer = buffer.lock().await;
             if buffer.is_empty() {
+                drop(flush_guard);
                 return Ok(());
             }
             let entries = std::mem::take(&mut *buffer);
@@ -132,40 +134,44 @@ impl AuditBuffer {
         };
         // Lock is released here.
 
-        let _in_flight_guard = InFlightGuard {
-            counter: pending_in_flight.clone(),
-            count: entries.len(),
-        };
+        let in_flight_guard = InFlightGuard::new(pending_in_flight.clone(), entries.len());
 
-        let serialized_lines = match Self::serialize_entries(&entries) {
-            Ok(lines) => lines,
-            Err(e) => {
-                Self::requeue_from_index(buffer, entries, 0).await;
-                return Err(e);
-            }
-        };
+        let flush_result = async {
+            let serialized_lines = match Self::serialize_entries(&entries) {
+                Ok(lines) => lines,
+                Err(e) => {
+                    Self::requeue_from_index(buffer, entries, 0).await;
+                    return Err(e);
+                }
+            };
 
-        let mut file = match tokio::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(audit_path)
-            .await
-        {
-            Ok(file) => file,
-            Err(e) => {
-                Self::requeue_from_index(buffer, entries, 0).await;
-                return Err(AccountStoreError::Io(e));
-            }
-        };
+            let mut file = match tokio::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(audit_path)
+                .await
+            {
+                Ok(file) => file,
+                Err(e) => {
+                    Self::requeue_from_index(buffer, entries, 0).await;
+                    return Err(AccountStoreError::Io(e));
+                }
+            };
 
-        for (idx, line) in serialized_lines.iter().enumerate() {
-            if let Err(e) = file.write_all(line.as_bytes()).await {
-                Self::requeue_from_index(buffer, entries, idx).await;
-                return Err(AccountStoreError::Io(e));
+            for (idx, line) in serialized_lines.iter().enumerate() {
+                if let Err(e) = file.write_all(line.as_bytes()).await {
+                    Self::requeue_from_index(buffer, entries, idx).await;
+                    return Err(AccountStoreError::Io(e));
+                }
             }
+
+            Ok(())
         }
+        .await;
 
-        Ok(())
+        drop(in_flight_guard);
+        drop(flush_guard);
+        flush_result
     }
 
     fn serialize_entries(entries: &[AuditEntry]) -> Result<Vec<String>, AccountStoreError> {
@@ -187,17 +193,6 @@ impl AuditBuffer {
         let mut pending = buffer.lock().await;
         remaining.append(&mut *pending);
         *pending = remaining;
-    }
-}
-
-struct InFlightGuard {
-    counter: Arc<AtomicUsize>,
-    count: usize,
-}
-
-impl Drop for InFlightGuard {
-    fn drop(&mut self) {
-        self.counter.fetch_sub(self.count, Ordering::Relaxed);
     }
 }
 

@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::time::Duration;
 
 lazy_static! {
-    static ref PASSWORDS: TestPasswords = TestPasswords::new();
+    static ref PASSWORDS: (String, String, String) = build_test_passwords();
 }
 
 // Shared counter used to make deterministic fallback test passwords unique.
@@ -37,29 +37,32 @@ async fn read_audit_log(data_dir: &Path) -> TestResult<Vec<String>> {
     Ok(content.lines().map(|s: &str| s.to_string()).collect())
 }
 
-// Centralize all passwords in a single global structure
-struct TestPasswords {
-    test_password: String,
-    password1: String,
-    password2: String,
+fn build_test_passwords() -> (String, String, String) {
+    // Use namespaced environment variables and deterministic fallback values.
+    // to avoid CodeQL hard-coded credential warnings
+    let timestamp = current_timestamp_ms();
+    let counter = PASSWORD_COUNTER.fetch_add(1, Ordering::Relaxed);
+
+    let test_password = std::env::var("ACCOUNTS_BACKEND_TEST_PASSWORD")
+        .unwrap_or_else(|_| format!("test_pw_{}_{}", timestamp, counter));
+    let password1 = std::env::var("ACCOUNTS_BACKEND_PASSWORD1")
+        .unwrap_or_else(|_| format!("pw1_{}_{}", timestamp, counter));
+    let password2 = std::env::var("ACCOUNTS_BACKEND_PASSWORD2")
+        .unwrap_or_else(|_| format!("pw2_{}_{}", timestamp, counter));
+
+    (test_password, password1, password2)
 }
 
-impl TestPasswords {
-    fn new() -> Self {
-        // Use namespaced environment variables and deterministic fallback values.
-        // to avoid CodeQL hard-coded credential warnings
-        let timestamp = current_timestamp_ms();
-        let counter = PASSWORD_COUNTER.fetch_add(1, Ordering::Relaxed);
+fn test_password() -> &'static str {
+    &PASSWORDS.0
+}
 
-        Self {
-            test_password: std::env::var("ACCOUNTS_BACKEND_TEST_PASSWORD")
-                .unwrap_or_else(|_| format!("test_pw_{}_{}", timestamp, counter)),
-            password1: std::env::var("ACCOUNTS_BACKEND_PASSWORD1")
-                .unwrap_or_else(|_| format!("pw1_{}_{}", timestamp, counter)),
-            password2: std::env::var("ACCOUNTS_BACKEND_PASSWORD2")
-                .unwrap_or_else(|_| format!("pw2_{}_{}", timestamp, counter)),
-        }
-    }
+fn password1() -> &'static str {
+    &PASSWORDS.1
+}
+
+fn password2() -> &'static str {
+    &PASSWORDS.2
 }
 
 #[tokio::test]
@@ -71,13 +74,7 @@ async fn test_login_sets_dirty_flag() {
 
     // Create a test user
     manager
-        .create(
-            user_id,
-            &PASSWORDS.test_password,
-            Role::User,
-            vec![],
-            "test_actor",
-        )
+        .create(user_id, test_password(), Role::User, vec![], "test_actor")
         .await
         .expect("Failed to create test user");
 
@@ -90,7 +87,7 @@ async fn test_login_sets_dirty_flag() {
 
     // Authenticate (login)
     manager
-        .authenticate(&user_id, &PASSWORDS.test_password)
+        .authenticate(&user_id, test_password())
         .await
         .expect("Failed to authenticate test user");
 
@@ -110,19 +107,13 @@ async fn test_flush_if_dirty_saves_data() {
 
     // Create a test user
     manager
-        .create(
-            user_id,
-            &PASSWORDS.test_password,
-            Role::User,
-            vec![],
-            "test_actor",
-        )
+        .create(user_id, test_password(), Role::User, vec![], "test_actor")
         .await
         .expect("Failed to create test user");
 
     // Authenticate to update last_login_ms
     manager
-        .authenticate(&user_id, &PASSWORDS.test_password)
+        .authenticate(&user_id, test_password())
         .await
         .expect("Failed to authenticate test user");
 
@@ -200,18 +191,10 @@ async fn test_last_login_survives_restart() -> TestResult<()> {
     {
         let manager = AccountManager::load(temp_dir.clone()).await?;
         manager
-            .create(
-                user_id,
-                &PASSWORDS.test_password,
-                Role::User,
-                vec![],
-                "test_actor",
-            )
+            .create(user_id, test_password(), Role::User, vec![], "test_actor")
             .await?;
 
-        manager
-            .authenticate(&user_id, &PASSWORDS.test_password)
-            .await?;
+        manager.authenticate(&user_id, test_password()).await?;
         let user = manager.get(&user_id).await?;
         assert!(
             user.last_login_ms.is_some(),
@@ -252,13 +235,13 @@ async fn test_audit_entries_batched() {
 
     // Create first user - adds 1 audit entry
     manager
-        .create(user_id1, &PASSWORDS.password1, Role::User, vec![], "admin")
+        .create(user_id1, password1(), Role::User, vec![], "admin")
         .await
         .expect("Failed to create first test user");
 
     // Create second user - adds 2nd audit entry
     manager
-        .create(user_id2, &PASSWORDS.password2, Role::User, vec![], "admin")
+        .create(user_id2, password2(), Role::User, vec![], "admin")
         .await
         .expect("Failed to create second test user");
 
@@ -274,7 +257,7 @@ async fn test_audit_entries_batched() {
 
     // Login to trigger 3rd audit entry and flush
     manager
-        .authenticate(&user_id1, &PASSWORDS.password1) // Use the same password as during creation
+        .authenticate(&user_id1, password1()) // Use the same password as during creation
         .await
         .expect("Failed to authenticate test user");
 
@@ -314,13 +297,7 @@ async fn test_audit_manual_flush() -> TestResult<()> {
 
     // Create user
     manager
-        .create(
-            user_id,
-            &PASSWORDS.test_password,
-            Role::User,
-            vec![],
-            "admin",
-        )
+        .create(user_id, test_password(), Role::User, vec![], "admin")
         .await?;
 
     // Should still be buffered
@@ -368,13 +345,7 @@ async fn test_audit_periodic_flush() {
 
     // Create user
     manager
-        .create(
-            user_id,
-            &PASSWORDS.test_password,
-            Role::User,
-            vec![],
-            "admin",
-        )
+        .create(user_id, test_password(), Role::User, vec![], "admin")
         .await
         .expect("Failed to create test user");
 
@@ -431,13 +402,7 @@ async fn test_audit_entries_maintain_order() {
     for i in 1..=5 {
         let user_id = ProtocolId::new(common::Id128::new(i as u16, Some(0), Some(0)));
         manager
-            .create(
-                user_id,
-                &PASSWORDS.test_password,
-                Role::User,
-                vec![],
-                "admin",
-            )
+            .create(user_id, test_password(), Role::User, vec![], "admin")
             .await
             .expect("Failed to create test user in order test");
     }
