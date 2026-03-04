@@ -8,7 +8,7 @@ impl BundleScreen {
         println!("=== Bundle Screen ===");
         if let Some(ref hash) = state.bundle_hash {
             println!("Bundle hash: {hash}");
-            println!("Manifest:");
+            println!("Manifest entries: {}", state.bundle_manifest.len());
             let rows: Vec<Vec<String>> = state
                 .bundle_manifest
                 .iter()
