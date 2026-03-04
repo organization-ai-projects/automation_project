@@ -1,5 +1,5 @@
 // projects/products/unstable/simulation_compiler/backend/src/validate/determinism_rules.rs
-use crate::diagnostics::error::CompilerError;
+use crate::diagnostics::backend_error::CompilerError;
 use crate::dsl::ast::Ast;
 
 /// Ruleset that rejects nondeterministic DSL patterns.

@@ -1,6 +1,6 @@
 // projects/products/unstable/simulation_compiler/backend/src/public_api.rs
 #![allow(unused_imports)]
-pub use crate::diagnostics::error::CompilerError;
+pub use crate::diagnostics::backend_error::CompilerError;
 pub use crate::dsl::ast::Ast;
 pub use crate::dsl::parser::Parser;
 pub use crate::generate::golden_emitter::GoldenEmitter;

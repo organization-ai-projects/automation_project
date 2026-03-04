@@ -1,5 +1,5 @@
 // projects/products/unstable/simulation_compiler/backend/src/io/json_codec.rs
-use crate::diagnostics::error::CompilerError;
+use crate::diagnostics::backend_error::CompilerError;
 
 pub fn encode<T: serde::Serialize>(value: &T) -> Result<String, CompilerError> {
     common_json::to_string(value).map_err(|e| CompilerError::Io(e.to_string()))
