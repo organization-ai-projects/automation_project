@@ -1,12 +1,11 @@
 # protocol_builder
 
-A protocol schema compiler and code generator with a backend/ui/tooling split.
+A protocol schema compiler and code generator with a backend/ui split.
 
 ## Crates
 
 - **backend**: IPC server that reads requests from stdin and writes responses to stdout (newline-delimited JSON).
 - **ui**: CLI frontend (`protocol_builder_ui generate --schema <file> --out <dir>`) that spawns the backend.
-- **tooling**: Validation utilities (`validate-emitted`, `validate-transcript`).
 
 ## Schema Format
 
