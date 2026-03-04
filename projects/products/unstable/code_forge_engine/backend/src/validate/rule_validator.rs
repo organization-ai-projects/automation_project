@@ -1,4 +1,4 @@
-use crate::contract::rule_spec::RuleSpec;
+use crate::contracts::rule_spec::RuleSpec;
 use crate::diagnostics::backend_error::BackendError;
 
 pub struct RuleValidator;

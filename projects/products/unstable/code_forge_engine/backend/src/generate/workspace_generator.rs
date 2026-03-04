@@ -1,4 +1,4 @@
-use crate::contract::contract::Contract;
+use crate::contracts::contract::Contract;
 use crate::diagnostics::backend_error::BackendError;
 use crate::generate::crate_generator::CrateGenerator;
 use crate::generate::file_generator::FileGenerator;

@@ -1,5 +1,5 @@
 mod backend_session;
-mod contract;
+mod contracts;
 mod diagnostics;
 mod generate;
 mod io;

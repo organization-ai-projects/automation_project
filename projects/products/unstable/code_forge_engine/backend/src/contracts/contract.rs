@@ -1,5 +1,5 @@
-use crate::contract::module_spec::ModuleSpec;
-use crate::contract::rule_spec::RuleSpec;
+use crate::contracts::module_spec::ModuleSpec;
+use crate::contracts::rule_spec::RuleSpec;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

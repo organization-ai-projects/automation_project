@@ -1,4 +1,4 @@
-use crate::contract::file_spec::FileSpec;
+use crate::contracts::file_spec::FileSpec;
 use crate::diagnostics::backend_error::BackendError;
 use crate::generate::template_engine::TemplateEngine;
 

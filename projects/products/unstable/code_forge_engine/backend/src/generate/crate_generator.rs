@@ -1,4 +1,4 @@
-use crate::contract::module_spec::ModuleSpec;
+use crate::contracts::module_spec::ModuleSpec;
 
 pub struct CrateGenerator {
     spec: ModuleSpec,

@@ -1,4 +1,4 @@
-use crate::contract::contract::Contract;
+use crate::contracts::contract::Contract;
 use crate::diagnostics::backend_error::BackendError;
 use crate::generate::workspace_generator::WorkspaceGenerator;
 use crate::io::fs_writer::FsWriter;
@@ -129,7 +129,7 @@ fn load_contract_from_path(path: &str) -> Result<Contract, BackendError> {
 #[cfg(test)]
 mod tests {
     use super::BackendSession;
-    use crate::protocol::request::Request;
+    use crate::protocol::{self, request::Request};
     use std::io::Write;
 
     fn write_temp_contract(content: &str) -> String {
@@ -164,18 +164,18 @@ mod tests {
             session.handle(Request::LoadContract {
                 path: contract_path.clone()
             }),
-            crate::protocol::response::Response::Ok
+            protocol::response::Response::Ok
         ));
         assert!(matches!(
             session.handle(Request::ValidateContract),
-            crate::protocol::response::Response::Ok
+            protocol::response::Response::Ok
         ));
         assert!(matches!(
             session.handle(Request::Generate {
                 out_dir: "".to_string(),
                 mode: "dry_run".to_string(),
             }),
-            crate::protocol::response::Response::Ok
+            protocol::response::Response::Ok
         ));
 
         let first_manifest = session.handle(Request::GetManifest);
@@ -184,25 +184,46 @@ mod tests {
                 out_dir: "".to_string(),
                 mode: "dry_run".to_string(),
             }),
-            crate::protocol::response::Response::Ok
+            protocol::response::Response::Ok
         ));
         let second_manifest = session.handle(Request::GetManifest);
 
-        match (first_manifest, second_manifest) {
-            (
-                crate::protocol::response::Response::Manifest {
-                    manifest_hash: hash_a,
-                    manifest_json: json_a,
-                },
-                crate::protocol::response::Response::Manifest {
-                    manifest_hash: hash_b,
-                    manifest_json: json_b,
-                },
-            ) => {
-                assert_eq!(hash_a, hash_b);
-                assert_eq!(json_a, json_b);
-            }
-            _ => assert!(false, "expected manifest responses"),
-        }
+        assert!(
+            matches!(
+                first_manifest,
+                protocol::response::Response::Manifest { .. }
+            ),
+            "expected manifest response for first generation"
+        );
+        assert!(
+            matches!(
+                second_manifest,
+                protocol::response::Response::Manifest { .. }
+            ),
+            "expected manifest response for second generation"
+        );
+
+        let (hash_a, json_a) = if let protocol::response::Response::Manifest {
+            manifest_hash,
+            manifest_json,
+        } = first_manifest
+        {
+            (manifest_hash, manifest_json)
+        } else {
+            return;
+        };
+
+        let (hash_b, json_b) = if let protocol::response::Response::Manifest {
+            manifest_hash,
+            manifest_json,
+        } = second_manifest
+        {
+            (manifest_hash, manifest_json)
+        } else {
+            return;
+        };
+
+        assert_eq!(hash_a, hash_b);
+        assert_eq!(json_a, json_b);
     }
 }

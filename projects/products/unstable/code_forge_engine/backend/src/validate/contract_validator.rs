@@ -1,4 +1,4 @@
-use crate::contract::contract::Contract;
+use crate::contracts::contract::Contract;
 use crate::diagnostics::backend_error::BackendError;
 
 pub struct ContractValidator;
