@@ -1,17 +1,12 @@
-#[derive(Debug, Clone)]
-pub struct RunResult {
-    pub run_index: u32,
-    pub stdout: String,
-    pub hash: String,
-}
+use crate::stability::stability_run_result::StabilityRunResult;
 
 #[derive(Debug, Clone)]
-pub struct RunMatrix {
-    pub results: Vec<RunResult>,
+pub struct StabilityRunMatrix {
+    pub results: Vec<StabilityRunResult>,
 }
 
-impl RunMatrix {
-    pub fn new(results: Vec<RunResult>) -> Self {
+impl StabilityRunMatrix {
+    pub fn new(results: Vec<StabilityRunResult>) -> Self {
         Self { results }
     }
 

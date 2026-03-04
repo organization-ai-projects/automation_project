@@ -1,6 +1,7 @@
 use crate::canon::canonical_json_checker;
+use crate::protocol::report_data::ReportData;
 use crate::protocol::request::Request;
-use crate::protocol::response::{ReportData, Response};
+use crate::protocol::response::Response;
 use crate::scan::forbidden_finder;
 use crate::scan::scan_config::ScanConfig;
 use crate::stability::stability_runner;

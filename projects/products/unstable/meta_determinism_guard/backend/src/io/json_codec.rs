@@ -1,13 +1,10 @@
 use crate::protocol::response::Response;
 use anyhow::Result;
-use std::io::Write;
 
-pub fn write_response<W: Write>(mut writer: W, response: &Response) -> Result<()> {
-    let json = serde_json::to_string(response)?;
-    writeln!(writer, "{}", json)?;
-    Ok(())
+pub fn encode_response(response: &Response) -> Result<String> {
+    Ok(common_json::to_string(response)?)
 }
 
 pub fn parse_request(line: &str) -> Result<crate::protocol::request::Request> {
-    Ok(serde_json::from_str(line)?)
+    Ok(common_json::from_json_str(line)?)
 }

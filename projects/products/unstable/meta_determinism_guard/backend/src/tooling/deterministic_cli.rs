@@ -1,35 +1,36 @@
-use crate::rules::ruleset_loader;
+use crate::protocol::message::{write_stderr_line, write_stdout_line};
+use crate::tooling::ruleset_loader;
 use anyhow::{Result, anyhow};
 
-pub fn run_cli(args: &[String]) -> Result<()> {
-    if args.len() < 2 {
-        eprintln!("Usage: meta_determinism_guard_tooling <command> [options]");
-        eprintln!("Commands: validate, list-rules");
-        return Ok(());
+pub fn run_cli(args: &[String]) -> Result<i32> {
+    if args.is_empty() {
+        write_stderr_line("Usage: meta_determinism_guard_backend <command> [options]")?;
+        write_stderr_line("Commands: validate, list-rules")?;
+        return Ok(2);
     }
 
-    match args[1].as_str() {
+    match args[0].as_str() {
         "validate" => {
             let path = find_flag(args, "--ruleset").ok_or_else(|| anyhow!("--ruleset required"))?;
             let ruleset = ruleset_loader::load_from_file(&path)?;
-            println!(
+            write_stdout_line(&format!(
                 "Ruleset '{}' is valid ({} rules).",
                 ruleset.name,
                 ruleset.rules.len()
-            );
+            ))?;
+            Ok(0)
         }
         "list-rules" => {
             let path = find_flag(args, "--ruleset").ok_or_else(|| anyhow!("--ruleset required"))?;
             let ruleset = ruleset_loader::load_from_file(&path)?;
-            println!("Rules in '{}':", ruleset.name);
+            write_stdout_line(&format!("Rules in '{}':", ruleset.name))?;
             for rule in &ruleset.rules {
-                println!("  - {} ({})", rule.name, rule.pattern);
+                write_stdout_line(&format!("  - {} ({})", rule.name, rule.pattern))?;
             }
+            Ok(0)
         }
-        other => return Err(anyhow!("Unknown command: {}", other)),
+        other => Err(anyhow!("Unknown command: {}", other)),
     }
-
-    Ok(())
 }
 
 fn find_flag(args: &[String], flag: &str) -> Option<String> {
