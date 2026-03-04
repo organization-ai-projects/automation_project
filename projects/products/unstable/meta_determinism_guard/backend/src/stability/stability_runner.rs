@@ -1,6 +1,7 @@
 use crate::stability::repro_dumper;
-use crate::stability::run_matrix::{RunMatrix, RunResult};
 use crate::stability::stability_report::StabilityReport;
+use crate::stability::stability_run_matrix::StabilityRunMatrix;
+use crate::stability::stability_run_result::StabilityRunResult;
 use anyhow::Result;
 use sha2::{Digest, Sha256};
 
@@ -21,19 +22,21 @@ pub fn run_stability(cmd: &str, runs: u32) -> Result<StabilityReport> {
         hasher.update(normalized.as_bytes());
         let hash = hex::encode(hasher.finalize());
 
-        results.push(RunResult {
+        results.push(StabilityRunResult {
             run_index: i,
             stdout,
             hash,
         });
     }
 
-    let matrix = RunMatrix::new(results);
+    let matrix = StabilityRunMatrix::new(results);
     let stable = matrix.all_hashes_equal();
     let run_hashes = matrix.sorted_hashes();
 
     let diff = if !stable {
-        let _ = repro_dumper::dump_failing_runs(&matrix);
+        if repro_dumper::dump_failing_runs(&matrix).is_err() {
+            // Best-effort artifact creation; failure does not change report semantics.
+        }
         Some(build_diff(&matrix))
     } else {
         None
@@ -47,7 +50,7 @@ pub fn run_stability(cmd: &str, runs: u32) -> Result<StabilityReport> {
     })
 }
 
-fn build_diff(matrix: &RunMatrix) -> String {
+fn build_diff(matrix: &StabilityRunMatrix) -> String {
     if matrix.results.len() < 2 {
         return String::from("(no diff available)");
     }

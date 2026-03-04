@@ -1,3 +1,4 @@
+// projects/products/unstable/meta_determinism_guard/ui/src/main.rs
 mod app;
 mod diagnostics;
 mod public_api;
@@ -13,5 +14,5 @@ fn main() -> Result<()> {
     info!("meta_determinism_guard ui starting");
 
     let args: Vec<String> = std::env::args().collect();
-    public_api::run_cli(&args)
+    public_api::run_cli(&args).map_err(anyhow::Error::from)
 }

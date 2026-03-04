@@ -1,6 +1,8 @@
 use crate::canon::canonical_json_checker;
+use crate::diagnostics::backend_error::BackendError;
+use crate::protocol::report_data::ReportData;
 use crate::protocol::request::Request;
-use crate::protocol::response::{ReportData, Response};
+use crate::protocol::response::Response;
 use crate::scan::forbidden_finder;
 use crate::scan::scan_config::ScanConfig;
 use crate::stability::stability_runner;
@@ -25,38 +27,28 @@ impl BackendState {
         match request {
             Request::ScanForbidden { root } => {
                 info!("ScanForbidden: {}", root);
-                let config = ScanConfig::default();
-                match forbidden_finder::find_forbidden(&root, &config) {
-                    Ok(findings) => {
-                        self.scan_findings = findings;
-                        Response::Ok
-                    }
-                    Err(e) => Response::Error {
-                        message: e.to_string(),
+                match self.handle_scan(&root) {
+                    Ok(()) => Response::Ok,
+                    Err(err) => Response::Error {
+                        message: err.to_string(),
                     },
                 }
             }
             Request::CheckCanonicalJson { path } => {
                 info!("CheckCanonicalJson: {}", path);
-                match canonical_json_checker::check_file(&path) {
-                    Ok(issues) => {
-                        self.canon_issues = issues;
-                        Response::Ok
-                    }
-                    Err(e) => Response::Error {
-                        message: e.to_string(),
+                match self.handle_canonical(&path) {
+                    Ok(()) => Response::Ok,
+                    Err(err) => Response::Error {
+                        message: err.to_string(),
                     },
                 }
             }
             Request::RunStabilityHarness { cmd, runs } => {
                 info!("RunStabilityHarness: {} x{}", cmd, runs);
-                match stability_runner::run_stability(&cmd, runs) {
-                    Ok(report) => {
-                        self.stability = Some(report);
-                        Response::Ok
-                    }
-                    Err(e) => Response::Error {
-                        message: e.to_string(),
+                match self.handle_stability(&cmd, runs) {
+                    Ok(()) => Response::Ok,
+                    Err(err) => Response::Error {
+                        message: err.to_string(),
                     },
                 }
             }
@@ -68,5 +60,26 @@ impl BackendState {
                 },
             },
         }
+    }
+
+    fn handle_scan(&mut self, root: &str) -> Result<(), BackendError> {
+        let config = ScanConfig::default();
+        self.scan_findings = forbidden_finder::find_forbidden(root, &config)
+            .map_err(|err| BackendError::Scan(err.to_string()))?;
+        Ok(())
+    }
+
+    fn handle_canonical(&mut self, path: &str) -> Result<(), BackendError> {
+        self.canon_issues = canonical_json_checker::check_file(path)
+            .map_err(|err| BackendError::Canon(err.to_string()))?;
+        Ok(())
+    }
+
+    fn handle_stability(&mut self, cmd: &str, runs: u32) -> Result<(), BackendError> {
+        self.stability = Some(
+            stability_runner::run_stability(cmd, runs)
+                .map_err(|err| BackendError::Stability(err.to_string()))?,
+        );
+        Ok(())
     }
 }
