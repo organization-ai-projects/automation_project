@@ -45,8 +45,6 @@ struct BackendHello {
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
-    let _data_dir = store::account_manager::AccountManager::default_data_dir();
-
     let engine_ws = std::env::var("ACCOUNTS_BACKEND_ENGINE_WS")
         .unwrap_or_else(|_| "ws://127.0.0.1:3030/ws".to_string());
     let jwt_secret = std::env::var("ACCOUNTS_BACKEND_JWT_SECRET")
@@ -147,11 +145,23 @@ async fn main() -> anyhow::Result<()> {
         #[cfg(unix)]
         {
             let mut sigterm =
-                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                    .expect("failed to create SIGTERM handler");
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                    Ok(signal) => signal,
+                    Err(err) => {
+                        warn!(%err, "Failed to create SIGTERM handler");
+                        shutdown_flag_clone.store(true, Ordering::Relaxed);
+                        return;
+                    }
+                };
             let mut sigint =
-                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                    .expect("failed to create SIGINT handler");
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
+                    Ok(signal) => signal,
+                    Err(err) => {
+                        warn!(%err, "Failed to create SIGINT handler");
+                        shutdown_flag_clone.store(true, Ordering::Relaxed);
+                        return;
+                    }
+                };
             tokio::select! {
                 _ = sigterm.recv() => info!("Received SIGTERM"),
                 _ = sigint.recv() => info!("Received SIGINT"),
@@ -159,9 +169,11 @@ async fn main() -> anyhow::Result<()> {
         }
         #[cfg(not(unix))]
         {
-            tokio::signal::ctrl_c()
-                .await
-                .expect("failed to listen for ctrl-c");
+            if let Err(err) = tokio::signal::ctrl_c().await {
+                warn!(%err, "failed to listen for ctrl-c");
+                shutdown_flag_clone.store(true, Ordering::Relaxed);
+                return;
+            }
             info!("Received Ctrl-C");
         }
         shutdown_flag_clone.store(true, Ordering::Relaxed);

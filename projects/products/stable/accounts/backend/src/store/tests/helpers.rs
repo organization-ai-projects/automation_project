@@ -41,21 +41,23 @@ pub async fn poll_until<F>(
 where
     F: FnMut() -> bool,
 {
-    let start = tokio::time::Instant::now();
+    let mut remaining = timeout;
     let mut delay = initial_delay;
     let mut attempts: u64 = 0;
 
-    while start.elapsed() < timeout {
+    while !remaining.is_zero() {
         if condition() {
             return Ok(());
         }
         attempts += 1;
-        tokio::time::sleep(delay).await;
+        let sleep_for = std::cmp::min(delay, remaining);
+        tokio::time::sleep(sleep_for).await;
+        remaining = remaining.saturating_sub(sleep_for);
         // Exponential backoff with max of 500ms
         delay = std::cmp::min(delay * 2, Duration::from_millis(500));
     }
 
-    let elapsed = start.elapsed();
+    let elapsed = timeout;
     Err(format!(
         "Timeout waiting for condition: timeout={:?}, initial_delay={:?}, attempts={}, elapsed={:?}",
         timeout,
@@ -84,21 +86,23 @@ where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = bool>,
 {
-    let start = tokio::time::Instant::now();
+    let mut remaining = timeout;
     let mut delay = initial_delay;
     let mut attempts: u64 = 0;
 
-    while start.elapsed() < timeout {
+    while !remaining.is_zero() {
         if condition().await {
             return Ok(());
         }
         attempts += 1;
-        tokio::time::sleep(delay).await;
+        let sleep_for = std::cmp::min(delay, remaining);
+        tokio::time::sleep(sleep_for).await;
+        remaining = remaining.saturating_sub(sleep_for);
         // Exponential backoff with max of 500ms
         delay = std::cmp::min(delay * 2, Duration::from_millis(500));
     }
 
-    let elapsed = start.elapsed();
+    let elapsed = timeout;
     Err(format!(
         "Timeout waiting for async condition: timeout={:?}, initial_delay={:?}, attempts={}, elapsed={:?}",
         timeout, initial_delay, attempts, elapsed,
