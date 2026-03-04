@@ -1,3 +1,4 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/io/json_codec.rs
 use serde::{Deserialize, Serialize};
 
 pub fn encode<T: Serialize>(value: &T) -> Result<String, serde_json::Error> {

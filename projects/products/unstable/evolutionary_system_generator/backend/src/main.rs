@@ -1,9 +1,9 @@
-// Backend entry point: REPL loop reading JSON from stdin, writing JSON to stdout
+// projects/products/unstable/evolutionary_system_generator/backend/src/main.rs
 
 mod constraints;
 mod diagnostics;
 mod evaluate;
-mod genome;
+mod genetics;
 mod io;
 mod output;
 mod protocol;
@@ -19,15 +19,26 @@ mod tests;
 use std::io::BufRead;
 use std::{env, process};
 
-use crate::protocol::message::{read_request, write_response};
+use crate::diagnostics::engine_error::EngineError;
+use crate::protocol::message::{
+    read_request, write_response, write_stderr_line, write_stdout_line,
+};
 use crate::protocol::request::Request;
 use crate::protocol::response::Response;
 use crate::replay::event_log::EventLog;
 use crate::replay::replay_engine::ReplayEngine;
-use crate::search::evolution_engine::{EvolutionEngine, SearchConfig};
+use crate::search::evolution_engine::EvolutionEngine;
+use crate::search::search_config::SearchConfig;
 use crate::seed::seed::Seed;
-use crate::tooling::determinism_validator::{DeterminismValidator, ValidatorConfig};
+use crate::tooling::determinism_validator::DeterminismValidator;
 use crate::tooling::replay_validator::ReplayValidator;
+use crate::tooling::validator_config::ValidatorConfig;
+
+fn engine_error_response(err: EngineError) -> Response {
+    Response::Error {
+        message: err.to_string(),
+    }
+}
 
 fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response {
     match request {
@@ -49,9 +60,7 @@ fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response 
             Response::Ok
         }
         Request::StepGen => match engine {
-            None => Response::Error {
-                message: "No search active".to_string(),
-            },
+            None => engine_error_response(EngineError::NoActiveSearch),
             Some(e) => {
                 let done = e.step_generation();
                 let pop = e.get_population();
@@ -69,9 +78,7 @@ fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response 
             }
         },
         Request::RunToEnd => match engine {
-            None => Response::Error {
-                message: "No search active".to_string(),
-            },
+            None => engine_error_response(EngineError::NoActiveSearch),
             Some(e) => {
                 e.run_to_end();
                 let pop = e.get_population();
@@ -89,18 +96,14 @@ fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response 
             }
         },
         Request::GetCandidates { top_n } => match engine {
-            None => Response::Error {
-                message: "No search active".to_string(),
-            },
+            None => engine_error_response(EngineError::NoActiveSearch),
             Some(e) => {
                 let manifest = e.build_candidate_manifest(top_n);
                 Response::Candidates { manifest }
             }
         },
         Request::SaveReplay { path } => match engine {
-            None => Response::Error {
-                message: "No search active".to_string(),
-            },
+            None => engine_error_response(EngineError::NoActiveSearch),
             Some(e) => match e.get_event_log().save_to_file(&path) {
                 Ok(()) => Response::Ok,
                 Err(err) => Response::Error {
@@ -113,20 +116,25 @@ fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response 
             rule_pool,
             constraints,
         } => match EventLog::load_from_file(&path) {
-            Err(err) => Response::Error {
-                message: err.to_string(),
-            },
+            Err(err) => engine_error_response(EngineError::Io(err)),
             Ok(log) => match ReplayEngine::replay_from_log(&log, rule_pool, constraints, 5) {
-                Err(err) => Response::Error {
-                    message: err.to_string(),
-                },
-                Ok(_result) => Response::Ok,
+                Err(err) => engine_error_response(EngineError::Replay(err.to_string())),
+                Ok(result) => {
+                    if result.matches
+                        && result.original_event_count == result.replayed_event_count
+                        && result.original_event_count > 0
+                    {
+                        Response::Ok
+                    } else {
+                        Response::Error {
+                            message: "Replay verification failed".to_string(),
+                        }
+                    }
+                }
             },
         },
         Request::ReplayToEnd => match engine {
-            None => Response::Error {
-                message: "No search active".to_string(),
-            },
+            None => engine_error_response(EngineError::NoActiveSearch),
             Some(e) => {
                 let pop = e.get_population();
                 let best = pop
@@ -146,7 +154,10 @@ fn dispatch(engine: &mut Option<EvolutionEngine>, request: Request) -> Response 
 }
 
 fn print_response(resp: &Response) {
-    println!("{}", write_response(resp));
+    let line = write_response(resp);
+    if write_stdout_line(&line).is_err() {
+        process::exit(1);
+    }
 }
 
 fn parse_u64_flag(args: &[String], flag: &str) -> Option<u64> {
@@ -172,10 +183,20 @@ fn default_rule_pool() -> Vec<String> {
 
 fn run_tooling_command(args: &[String]) -> i32 {
     if args.is_empty() {
-        eprintln!("Usage: evo-backend <command> [options]");
-        eprintln!("Commands:");
-        eprintln!("  validate-determinism --seed <N> --generations <N>");
-        eprintln!("  validate-replay --seed <N> --generations <N> --replay-path <path>");
+        if write_stderr_line("Usage: evo-backend <command> [options]").is_err() {
+            return 1;
+        }
+        if write_stderr_line("Commands:").is_err() {
+            return 1;
+        }
+        if write_stderr_line("  validate-determinism --seed <N> --generations <N>").is_err() {
+            return 1;
+        }
+        if write_stderr_line("  validate-replay --seed <N> --generations <N> --replay-path <path>")
+            .is_err()
+        {
+            return 1;
+        }
         return 2;
     }
 
@@ -192,21 +213,29 @@ fn run_tooling_command(args: &[String]) -> i32 {
             };
             match DeterminismValidator::validate(config, &backend_bin) {
                 Ok(result) => {
-                    println!(
+                    if write_stdout_line(&format!(
                         "Determinism check: {}",
                         if result.determinism_ok {
                             "PASS"
                         } else {
                             "FAIL"
                         }
-                    );
+                    ))
+                    .is_err()
+                    {
+                        return 1;
+                    }
                     if let Some(hash) = result.manifest_hash {
-                        println!("Manifest hash: {hash}");
+                        if write_stdout_line(&format!("Manifest hash: {hash}")).is_err() {
+                            return 1;
+                        }
                     }
                     0
                 }
                 Err(err) => {
-                    eprintln!("Error: {err}");
+                    if write_stderr_line(&format!("Error: {err}")).is_err() {
+                        return 1;
+                    }
                     1
                 }
             }
@@ -224,20 +253,28 @@ fn run_tooling_command(args: &[String]) -> i32 {
             };
             match ReplayValidator::validate(config, &replay_path, &backend_bin) {
                 Ok(result) => {
-                    println!(
+                    if write_stdout_line(&format!(
                         "Replay check: {}",
                         if result.replay_ok { "PASS" } else { "FAIL" }
-                    );
+                    ))
+                    .is_err()
+                    {
+                        return 1;
+                    }
                     0
                 }
                 Err(err) => {
-                    eprintln!("Error: {err}");
+                    if write_stderr_line(&format!("Error: {err}")).is_err() {
+                        return 1;
+                    }
                     1
                 }
             }
         }
         command => {
-            eprintln!("Unknown command: {command}");
+            if write_stderr_line(&format!("Unknown command: {command}")).is_err() {
+                return 1;
+            }
             2
         }
     }
@@ -253,7 +290,15 @@ fn main() {
     let mut engine: Option<EvolutionEngine> = None;
 
     for line in stdin.lock().lines() {
-        let line = line.expect("stdin read error");
+        let line = match line {
+            Ok(line) => line,
+            Err(err) => {
+                print_response(&Response::Error {
+                    message: format!("stdin read error: {err}"),
+                });
+                continue;
+            }
+        };
         if line.trim().is_empty() {
             continue;
         }
@@ -261,7 +306,7 @@ fn main() {
         let request = match read_request(&line) {
             Ok(r) => r,
             Err(e) => {
-                print_response(&Response::Error { message: e });
+                print_response(&engine_error_response(EngineError::Serialization(e)));
                 continue;
             }
         };

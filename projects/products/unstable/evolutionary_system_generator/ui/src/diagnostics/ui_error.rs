@@ -1,3 +1,4 @@
+// projects/products/unstable/evolutionary_system_generator/ui/src/diagnostics/ui_error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]

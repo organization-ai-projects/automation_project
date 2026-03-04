@@ -1,25 +1,12 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/replay/replay_engine.rs
 use crate::constraints::constraint::Constraint;
-use crate::output::candidate_manifest::CandidateManifest;
 use crate::replay::event_log::EventLog;
-use crate::replay::search_event::SearchEventKind;
-use crate::search::evolution_engine::{EvolutionEngine, SearchConfig};
+use crate::replay::replay_error::ReplayError;
+use crate::replay::replay_result::ReplayResult;
+use crate::replay::search_event_kind::SearchEventKind;
+use crate::search::evolution_engine::EvolutionEngine;
+use crate::search::search_config::SearchConfig;
 use crate::seed::seed::Seed;
-
-#[derive(Debug)]
-pub struct ReplayResult {
-    pub matches: bool,
-    pub original_event_count: usize,
-    pub replayed_event_count: usize,
-    pub manifest: CandidateManifest,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ReplayError {
-    #[error("SearchStarted event not found in log")]
-    NoSearchStartedEvent,
-    #[error("Event count mismatch: original {0}, replayed {1}")]
-    EventCountMismatch(usize, usize),
-}
 
 pub struct ReplayEngine;
 
@@ -58,12 +45,17 @@ impl ReplayEngine {
         engine.run_to_end();
 
         let replayed_log = engine.get_event_log();
-        let matches = log.events.len() == replayed_log.events.len();
+        if log.events.len() != replayed_log.events.len() {
+            return Err(ReplayError::EventCountMismatch(
+                log.events.len(),
+                replayed_log.events.len(),
+            ));
+        }
 
         let manifest = engine.build_candidate_manifest(top_n);
 
         Ok(ReplayResult {
-            matches,
+            matches: true,
             original_event_count: log.events.len(),
             replayed_event_count: replayed_log.events.len(),
             manifest,

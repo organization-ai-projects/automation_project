@@ -1,3 +1,4 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/output/manifest_hash.rs
 use crate::output::candidate::Candidate;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

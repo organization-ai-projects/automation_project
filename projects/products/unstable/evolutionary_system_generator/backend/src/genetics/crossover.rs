@@ -1,6 +1,7 @@
-use crate::genome::genome::Genome;
-use crate::genome::genome_id::GenomeId;
-use crate::seed::seed::Xorshift64;
+// projects/products/unstable/evolutionary_system_generator/backend/src/genetics/crossover.rs
+use crate::genetics::genome::Genome;
+use crate::genetics::genome_id::GenomeId;
+use crate::seed::xorshift64::Xorshift64;
 
 pub fn uniform_crossover(
     rng: &mut Xorshift64,

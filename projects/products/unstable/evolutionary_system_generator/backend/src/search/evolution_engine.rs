@@ -1,28 +1,21 @@
-use crate::constraints::constraint::Constraint;
+// projects/products/unstable/evolutionary_system_generator/backend/src/search/evolution_engine.rs
 use crate::constraints::constraint_engine::ConstraintEngine;
 use crate::evaluate::evaluator::Evaluator;
-use crate::genome::crossover::uniform_crossover;
-use crate::genome::genome::{Genome, RuleEntry};
-use crate::genome::genome_id::GenomeId;
-use crate::genome::mutation::Mutation;
+use crate::genetics::crossover::uniform_crossover;
+use crate::genetics::genome::Genome;
+use crate::genetics::genome_id::GenomeId;
+use crate::genetics::mutation::Mutation;
+use crate::genetics::rule_entry::RuleEntry;
 use crate::output::candidate::Candidate;
 use crate::output::candidate_manifest::CandidateManifest;
 use crate::output::manifest_hash::ManifestHash;
 use crate::replay::event_log::EventLog;
-use crate::replay::search_event::SearchEventKind;
-use crate::search::population::{Individual, Population};
+use crate::replay::search_event_kind::SearchEventKind;
+use crate::search::individual::Individual;
+use crate::search::population::Population;
+use crate::search::search_config::SearchConfig;
 use crate::search::selection::tournament_select;
-use crate::seed::seed::{Seed, Xorshift64};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchConfig {
-    pub seed: Seed,
-    pub population_size: usize,
-    pub max_generations: u32,
-    pub rule_pool: Vec<String>,
-    pub constraints: Vec<Constraint>,
-}
+use crate::seed::xorshift64::Xorshift64;
 
 pub struct EvolutionEngine {
     config: SearchConfig,

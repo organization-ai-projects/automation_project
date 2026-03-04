@@ -1,5 +1,6 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/constraints/constraint_engine.rs
 use crate::constraints::constraint::Constraint;
-use crate::genome::genome::Genome;
+use crate::genetics::genome::Genome;
 
 pub struct ConstraintEngine {
     pub constraints: Vec<Constraint>,

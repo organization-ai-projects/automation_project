@@ -1,5 +1,6 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/evaluate/evaluation_report.rs
 use crate::evaluate::fitness::Fitness;
-use crate::genome::genome_id::GenomeId;
+use crate::genetics::genome_id::GenomeId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

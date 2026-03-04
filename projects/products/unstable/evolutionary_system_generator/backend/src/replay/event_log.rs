@@ -1,4 +1,6 @@
-use crate::replay::search_event::{SearchEvent, SearchEventKind};
+// projects/products/unstable/evolutionary_system_generator/backend/src/replay/event_log.rs
+use crate::replay::search_event::SearchEvent;
+use crate::replay::search_event_kind::SearchEventKind;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

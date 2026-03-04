@@ -1,23 +1,12 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/tooling/determinism_validator.rs
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
 
 use serde_json::Value;
 
-use crate::tooling::error::ToolingError;
-
-#[derive(Debug, Clone)]
-pub struct ValidatorConfig {
-    pub seed: u64,
-    pub population_size: usize,
-    pub max_generations: u32,
-    pub rule_pool: Vec<String>,
-}
-
-#[derive(Debug)]
-pub struct DeterminismResult {
-    pub determinism_ok: bool,
-    pub manifest_hash: Option<String>,
-}
+use crate::tooling::determinism_result::DeterminismResult;
+use crate::tooling::tooling_error::ToolingError;
+use crate::tooling::validator_config::ValidatorConfig;
 
 pub struct DeterminismValidator;
 

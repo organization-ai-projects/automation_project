@@ -61,6 +61,13 @@ cargo run -p evolutionary_system_generator_backend
 cargo run -p evolutionary_system_generator_ui
 ```
 
+Notes:
+
+- The UI first tries to spawn `evo-backend` from `PATH`.
+- If not available, it automatically falls back to:
+  `cargo run -q -p evolutionary_system_generator_backend --`
+- You can override backend executable with `EVO_BACKEND_BIN`.
+
 ### Validate determinism
 
 ```bash

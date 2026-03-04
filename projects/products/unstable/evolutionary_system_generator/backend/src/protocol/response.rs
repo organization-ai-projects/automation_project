@@ -1,3 +1,4 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/protocol/response.rs
 use crate::output::candidate_manifest::CandidateManifest;
 use serde::{Deserialize, Serialize};
 
