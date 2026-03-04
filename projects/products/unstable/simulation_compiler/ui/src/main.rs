@@ -8,7 +8,7 @@ mod widgets;
 
 use diagnostics::ui_error::UiError;
 use transport::backend_process::BackendProcess;
-use transport::ipc_client::IpcClient;
+use transport::ipc_client::{CompilerRequest, CompilerResponse, IpcClient};
 use widgets::diff_widget::DiffWidget;
 
 fn main() -> Result<(), UiError> {
@@ -24,18 +24,29 @@ fn main() -> Result<(), UiError> {
         path: dsl_path.clone(),
     });
     controller.dispatch(app::action::Action::Compile);
-    controller.dispatch(app::action::Action::DryRun);
-    controller.dispatch(app::action::Action::GetReport);
 
-    let backend = BackendProcess::new("simulation-compiler-backend");
-    let ipc_client = IpcClient::new();
-    let request = format!(
-        "{{\"kind\":\"CompileDryRun\",\"dsl_path\":\"{}\"}}",
-        dsl_path
-    );
-    match ipc_client.send_request(&request) {
-        Ok(report) => controller.dispatch(app::action::Action::SetReport(report)),
-        Err(e) => controller.dispatch(app::action::Action::SetError(e.to_string())),
+    let source = if dsl_path.is_empty() {
+        "component Sensor { field: u32 }".to_string()
+    } else {
+        std::fs::read_to_string(&dsl_path)
+            .map_err(|e| UiError::Internal(format!("failed to read DSL file: {e}")))?
+    };
+    let backend_binary = resolve_backend_binary_path()?;
+    let mut backend = BackendProcess::new(backend_binary)?;
+    let mut ipc_client = IpcClient::new();
+
+    ipc_client.send_request(&mut backend, CompilerRequest::LoadDsl { source })?;
+    controller.dispatch(app::action::Action::DryRun);
+
+    match ipc_client.send_request(&mut backend, CompilerRequest::CompileDryRun)? {
+        CompilerResponse::Report { json } => {
+            controller.dispatch(app::action::Action::SetReport(json));
+            controller.dispatch(app::action::Action::GetReport);
+        }
+        CompilerResponse::Error { message } => {
+            controller.dispatch(app::action::Action::SetError(message));
+        }
+        CompilerResponse::Ok => {}
     }
 
     let screen = screens::dsl_screen::DslScreen::new(dsl_path);
@@ -49,10 +60,29 @@ fn main() -> Result<(), UiError> {
 
     let diff_widget = DiffWidget::new("Compile report");
     let current_report = controller.state.last_report.clone().unwrap_or_default();
-    diff_widget.render("", &current_report)?;
+    diff_widget.render("{}", &current_report)?;
 
     tracing::info!(backend = %backend.binary_path, "backend process configured");
 
     tracing::info!("simulation-compiler-ui finished");
     Ok(())
+}
+
+fn resolve_backend_binary_path() -> Result<String, UiError> {
+    if let Ok(path) = std::env::var("SIMULATION_COMPILER_BACKEND_BIN") {
+        if !path.trim().is_empty() {
+            return Ok(path);
+        }
+    }
+
+    let current_exe = std::env::current_exe()
+        .map_err(|e| UiError::Internal(format!("failed to resolve current executable: {e}")))?;
+    if let Some(parent) = current_exe.parent() {
+        let sibling = parent.join("simulation-compiler-backend");
+        if sibling.exists() {
+            return Ok(sibling.to_string_lossy().to_string());
+        }
+    }
+
+    Ok("simulation-compiler-backend".to_string())
 }

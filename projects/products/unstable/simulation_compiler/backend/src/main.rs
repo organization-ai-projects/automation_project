@@ -22,6 +22,7 @@ use protocol::message::{IpcMessage, IpcPayload};
 use protocol::request::CompilerRequest;
 use protocol::response::CompilerResponse;
 use sha2::{Digest, Sha256};
+use std::io::{BufRead, Write};
 use validate::determinism_rules::DeterminismRules;
 use validate::spec_validator::SpecValidator;
 
@@ -39,6 +40,7 @@ fn main() {
         "compile" => run_compile(&args),
         "validate" => run_validate(&args),
         "dry-run" => run_dry_run(&args),
+        "serve" => run_serve(),
         _ => {
             eprintln!("error: unknown command '{}'", args[1]);
             print_usage();
@@ -50,25 +52,15 @@ fn main() {
 fn run_compile(args: &[String]) {
     let dsl_src = args.get(2).cloned().unwrap_or_default();
     let out_dir = args.get(3).cloned().unwrap_or_else(|| "out".to_string());
-    trace_request(CompilerRequest::CompileWrite {
-        out_dir: out_dir.clone(),
-    });
 
     tracing::info!(dsl = %dsl_src, out = %out_dir, "compile started");
 
     match compile_pipeline(&dsl_src, &out_dir, false) {
         Ok(report) => {
-            trace_request(CompilerRequest::GetReport);
-            trace_response(CompilerResponse::Report {
-                json: common_json::to_string(&report).unwrap_or_default(),
-            });
             let json = common_json::to_string(&report).unwrap_or_default();
             println!("{json}");
         }
         Err(e) => {
-            trace_response(CompilerResponse::Error {
-                message: e.to_string(),
-            });
             eprintln!("error: {e}");
             std::process::exit(1);
         }
@@ -77,22 +69,14 @@ fn run_compile(args: &[String]) {
 
 fn run_validate(args: &[String]) {
     let dsl_src = args.get(2).cloned().unwrap_or_default();
-    trace_request(CompilerRequest::Validate);
     tracing::info!(dsl = %dsl_src, "validate started");
 
     match compile_pipeline(&dsl_src, "", true) {
         Ok(report) => {
-            trace_request(CompilerRequest::GetReport);
-            trace_response(CompilerResponse::Report {
-                json: common_json::to_string(&report).unwrap_or_default(),
-            });
             let json = common_json::to_string(&report).unwrap_or_default();
             println!("{json}");
         }
         Err(e) => {
-            trace_response(CompilerResponse::Error {
-                message: e.to_string(),
-            });
             eprintln!("error: {e}");
             std::process::exit(1);
         }
@@ -101,12 +85,10 @@ fn run_validate(args: &[String]) {
 
 fn run_dry_run(args: &[String]) {
     let dsl_src = args.get(2).cloned().unwrap_or_default();
-    trace_request(CompilerRequest::CompileDryRun);
     tracing::info!(dsl = %dsl_src, "dry-run started");
 
     match compile_pipeline(&dsl_src, "", true) {
         Ok(report) => {
-            trace_response(CompilerResponse::Ok);
             tracing::info!(
                 artifacts = report.artifact_count,
                 manifest_hash = %report.manifest_hash,
@@ -114,12 +96,133 @@ fn run_dry_run(args: &[String]) {
             );
         }
         Err(e) => {
-            trace_response(CompilerResponse::Error {
-                message: e.to_string(),
-            });
             eprintln!("error: {e}");
             std::process::exit(1);
         }
+    }
+}
+
+fn run_serve() {
+    let stdin = std::io::stdin();
+    let mut stdout = std::io::stdout();
+    let mut session = SessionState::default();
+
+    for line_result in stdin.lock().lines() {
+        let line = match line_result {
+            Ok(line) => line,
+            Err(e) => {
+                eprintln!("error: stdin read failed: {e}");
+                break;
+            }
+        };
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let request_message: Result<IpcMessage, _> = io::json_codec::decode(&line);
+        let (id, response) = match request_message {
+            Ok(msg) => {
+                let response = match msg.payload {
+                    IpcPayload::Request(req) => handle_request(req, &mut session),
+                    IpcPayload::Response(_) => CompilerResponse::Error {
+                        message: "unexpected response payload from client".to_string(),
+                    },
+                };
+                (msg.id, response)
+            }
+            Err(e) => (
+                0,
+                CompilerResponse::Error {
+                    message: format!("invalid IPC message: {e}"),
+                },
+            ),
+        };
+
+        let response_message = IpcMessage {
+            id,
+            payload: IpcPayload::Response(response),
+        };
+        match io::json_codec::encode(&response_message) {
+            Ok(json) => {
+                if writeln!(stdout, "{json}").is_err() || stdout.flush().is_err() {
+                    break;
+                }
+            }
+            Err(e) => {
+                let fallback = format!(
+                    "{{\"id\":0,\"payload\":{{\"direction\":\"Response\",\"Error\":{{\"message\":\"{}\"}}}}}}",
+                    e
+                );
+                if writeln!(stdout, "{fallback}").is_err() || stdout.flush().is_err() {
+                    break;
+                }
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+struct SessionState {
+    loaded_dsl: Option<String>,
+    last_report: Option<CompileReport>,
+}
+
+fn handle_request(request: CompilerRequest, state: &mut SessionState) -> CompilerResponse {
+    match request {
+        CompilerRequest::LoadDsl { source } => {
+            state.loaded_dsl = Some(source);
+            CompilerResponse::Ok
+        }
+        CompilerRequest::Validate | CompilerRequest::CompileDryRun => {
+            let source = match state.loaded_dsl.as_deref() {
+                Some(src) => src,
+                None => {
+                    return CompilerResponse::Error {
+                        message: "no DSL loaded. send LoadDsl first".to_string(),
+                    };
+                }
+            };
+            match compile_from_source(source, "", true) {
+                Ok(report) => {
+                    state.last_report = Some(report.clone());
+                    CompilerResponse::Report {
+                        json: common_json::to_string(&report).unwrap_or_default(),
+                    }
+                }
+                Err(e) => CompilerResponse::Error {
+                    message: e.to_string(),
+                },
+            }
+        }
+        CompilerRequest::CompileWrite { out_dir } => {
+            let source = match state.loaded_dsl.as_deref() {
+                Some(src) => src,
+                None => {
+                    return CompilerResponse::Error {
+                        message: "no DSL loaded. send LoadDsl first".to_string(),
+                    };
+                }
+            };
+            match compile_from_source(source, &out_dir, false) {
+                Ok(report) => {
+                    state.last_report = Some(report.clone());
+                    CompilerResponse::Report {
+                        json: common_json::to_string(&report).unwrap_or_default(),
+                    }
+                }
+                Err(e) => CompilerResponse::Error {
+                    message: e.to_string(),
+                },
+            }
+        }
+        CompilerRequest::GetReport => match state.last_report.as_ref() {
+            Some(report) => CompilerResponse::Report {
+                json: common_json::to_string(report).unwrap_or_default(),
+            },
+            None => CompilerResponse::Error {
+                message: "no report available yet".to_string(),
+            },
+        },
     }
 }
 
@@ -134,10 +237,14 @@ fn compile_pipeline(
     } else {
         std::fs::read_to_string(dsl_src).map_err(|e| CompilerError::Io(e.to_string()))?
     };
-    trace_request(CompilerRequest::LoadDsl {
-        source: source.clone(),
-    });
+    compile_from_source(&source, out_dir, dry_run)
+}
 
+fn compile_from_source(
+    source: &str,
+    out_dir: &str,
+    dry_run: bool,
+) -> Result<CompileReport, CompilerError> {
     let mut parser = Parser::new(&source);
     let ast = parser.parse()?;
 
@@ -208,26 +315,6 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hex::encode(hasher.finalize())
 }
 
-fn trace_request(request: CompilerRequest) {
-    let message = IpcMessage {
-        id: 1,
-        payload: IpcPayload::Request(request),
-    };
-    if let Ok(json) = io::json_codec::encode(&message) {
-        let _: Result<IpcMessage, _> = io::json_codec::decode(&json);
-    }
-}
-
-fn trace_response(response: CompilerResponse) {
-    let message = IpcMessage {
-        id: 1,
-        payload: IpcPayload::Response(response),
-    };
-    if let Ok(json) = io::json_codec::encode(&message) {
-        let _: Result<IpcMessage, _> = io::json_codec::decode(&json);
-    }
-}
-
 fn print_usage() {
     println!("simulation-compiler-backend");
     println!();
@@ -235,4 +322,5 @@ fn print_usage() {
     println!("  compile <dsl-file> [out-dir]   Compile DSL and write pack scaffold");
     println!("  validate <dsl-file>             Validate DSL without emitting");
     println!("  dry-run <dsl-file>              Validate + emit in memory only");
+    println!("  serve                           Start stdio IPC server mode");
 }
