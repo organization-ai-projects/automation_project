@@ -1252,21 +1252,27 @@ if [[ -s "$extracted_prs_file" ]]; then
     pr_count=$((pr_count + 1))
 
     if [[ -n "$pr_body" ]]; then
-    if text_indicates_breaking "$pr_body"; then
-      breaking_detected=1
-    fi
-      mark_inferred_decisions_from_text "$pr_body"
-      mark_directive_decisions_from_text "$pr_body"
-      while IFS='|' read -r _ issue_key; do
-        mark_reopen_issue "$issue_key" "$pr_category"
-      done < <(parse_reopen_issue_refs_from_text "$pr_body")
-      while IFS='|' read -r action issue_key; do
-        debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
-        add_issue_entry "$action" "$issue_key" "$pr_category"
-      done < <(parse_pr_body_closing_issue_refs_from_text "$pr_body")
-      while IFS='|' read -r duplicate_issue canonical_issue; do
-        add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-      done < <(parse_duplicate_refs_from_text "$pr_body")
+      if text_indicates_breaking "$pr_body"; then
+        breaking_detected=1
+      fi
+      # Synchronization PRs may carry inherited closure directives from branch sync history.
+      # Ignore their issue directives to avoid duplicating/propagating historical closures.
+      if [[ "$pr_category" != "Synchronization" ]]; then
+        mark_inferred_decisions_from_text "$pr_body"
+        mark_directive_decisions_from_text "$pr_body"
+        while IFS='|' read -r _ issue_key; do
+          mark_reopen_issue "$issue_key" "$pr_category"
+        done < <(parse_reopen_issue_refs_from_text "$pr_body")
+        while IFS='|' read -r action issue_key; do
+          debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
+          add_issue_entry "$action" "$issue_key" "$pr_category"
+        done < <(parse_pr_body_closing_issue_refs_from_text "$pr_body")
+        while IFS='|' read -r duplicate_issue canonical_issue; do
+          add_duplicate_entry "$duplicate_issue" "$canonical_issue"
+        done < <(parse_duplicate_refs_from_text "$pr_body")
+      else
+        debug_log "skip_issue_directives(pr ${pr_ref}): category=Synchronization"
+      fi
     fi
 
     :
