@@ -1,11 +1,11 @@
 // projects/products/unstable/protocol_builder/backend/src/generate/harness_emitter.rs
-use crate::schema::ProtocolSchema;
+use crate::schema::Schema;
 
 pub struct HarnessEmitter;
 
 impl HarnessEmitter {
     /// Emits a deterministic golden-transcript harness as a pseudocode string.
-    pub fn emit(schema: &ProtocolSchema) -> String {
+    pub fn emit(schema: &Schema) -> String {
         let mut out = String::new();
         out.push_str(&format!(
             "// Harness for protocol: {} v{}\n",

@@ -1,11 +1,11 @@
 // projects/products/unstable/protocol_builder/backend/src/generate/validator_emitter.rs
-use crate::schema::ProtocolSchema;
+use crate::schema::Schema;
 
 pub struct ValidatorEmitter;
 
 impl ValidatorEmitter {
     /// Emits a deterministic validator stub as a pseudocode string.
-    pub fn emit(schema: &ProtocolSchema) -> String {
+    pub fn emit(schema: &Schema) -> String {
         let mut out = String::new();
         out.push_str(&format!(
             "// Validator for protocol: {} v{}\n",

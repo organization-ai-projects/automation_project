@@ -1,4 +1,4 @@
-// projects/products/unstable/protocol_builder/backend/src/diagnostics/error.rs
+// projects/products/unstable/protocol_builder/backend/src/diagnostics/backend_error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]

@@ -1,11 +1,11 @@
 // projects/products/unstable/protocol_builder/backend/src/generate/server_stub_emitter.rs
-use crate::schema::ProtocolSchema;
+use crate::schema::Schema;
 
 pub struct ServerStubEmitter;
 
 impl ServerStubEmitter {
     /// Emits a deterministic server stub as a pseudocode string.
-    pub fn emit(schema: &ProtocolSchema) -> String {
+    pub fn emit(schema: &Schema) -> String {
         let mut out = String::new();
         out.push_str(&format!(
             "// Server stub for protocol: {} v{}\n",

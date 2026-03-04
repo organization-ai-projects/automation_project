@@ -1,4 +1,4 @@
-// projects/products/unstable/protocol_builder/backend/src/protocol/response.rs
+// projects/products/unstable/protocol_builder/ui/src/transport/response.rs
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
