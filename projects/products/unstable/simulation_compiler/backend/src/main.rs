@@ -245,7 +245,7 @@ fn compile_from_source(
     out_dir: &str,
     dry_run: bool,
 ) -> Result<CompileReport, CompilerError> {
-    let mut parser = Parser::new(&source);
+    let mut parser = Parser::new(source);
     let ast = parser.parse()?;
 
     let validator = SpecValidator::new();

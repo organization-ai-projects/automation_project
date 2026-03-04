@@ -69,10 +69,10 @@ fn main() -> Result<(), UiError> {
 }
 
 fn resolve_backend_binary_path() -> Result<String, UiError> {
-    if let Ok(path) = std::env::var("SIMULATION_COMPILER_BACKEND_BIN") {
-        if !path.trim().is_empty() {
-            return Ok(path);
-        }
+    if let Ok(path) = std::env::var("SIMULATION_COMPILER_BACKEND_BIN")
+        && !path.trim().is_empty()
+    {
+        return Ok(path);
     }
 
     let current_exe = std::env::current_exe()

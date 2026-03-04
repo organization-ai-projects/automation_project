@@ -33,7 +33,7 @@ mod tests {
     fn rejects_instant_field() {
         let mut p = Parser::new("component Bad { ts: Instant }");
         let ast = p.parse().unwrap();
-        let rules = DeterminismRules::default();
+        let rules = DeterminismRules;
         assert!(rules.check(&ast).is_err());
     }
 
@@ -41,7 +41,7 @@ mod tests {
     fn allows_u32_field() {
         let mut p = Parser::new("component Good { x: u32 }");
         let ast = p.parse().unwrap();
-        let rules = DeterminismRules::default();
+        let rules = DeterminismRules;
         assert!(rules.check(&ast).is_ok());
     }
 }
