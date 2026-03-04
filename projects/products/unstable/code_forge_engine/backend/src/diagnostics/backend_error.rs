@@ -1,8 +1,7 @@
-// projects/products/unstable/code_forge_engine/backend/src/diagnostics/error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ForgeError {
+pub enum BackendError {
     #[error("io error: {0}")]
     Io(String),
     #[error("decode error: {0}")]

@@ -1,4 +1,3 @@
-// projects/products/unstable/code_forge_engine/backend/src/output/manifest_hash.rs
 use sha2::{Digest, Sha256};
 
 pub struct ManifestHash;

@@ -1,18 +1,13 @@
-// projects/products/unstable/code_forge_engine/ui/src/widgets/diff_widget.rs
-pub struct DiffWidget {
-    pub before: String,
-    pub after: String,
-}
+pub struct DiffWidget;
 
 impl DiffWidget {
-    pub fn new(before: impl Into<String>, after: impl Into<String>) -> Self {
-        Self {
-            before: before.into(),
-            after: after.into(),
+    pub fn render(before: &str, after: &str) {
+        if before == after {
+            println!("no diff");
+        } else {
+            println!("diff detected");
+            println!("before: {before}");
+            println!("after: {after}");
         }
-    }
-
-    pub fn has_changes(&self) -> bool {
-        self.before != self.after
     }
 }
