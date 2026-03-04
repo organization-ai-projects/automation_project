@@ -42,10 +42,7 @@ impl From<&AutopilotPolicy> for CompiledAutopilotPolicy {
         relevant_prefixes_norm.push("projects/products/".to_string());
 
         // Check for the existence of paths
-        relevant_prefixes_norm.retain(|prefix| {
-            let exists = std::path::Path::new(prefix).exists();
-            exists
-        });
+        relevant_prefixes_norm.retain(|prefix| std::path::Path::new(prefix).exists());
 
         Self {
             protected_branches,
@@ -93,9 +90,10 @@ fn normalize_prefixes(prefixes: &[String]) -> Vec<String> {
         }
 
         if !n.is_empty() {
-            let absolute_path = std::env::current_dir()
-                .expect("Failed to get current directory")
-                .join(&n);
+            let absolute_path = match std::env::current_dir() {
+                Ok(dir) => dir.join(&n),
+                Err(_) => continue,
+            };
             if !absolute_path.exists() {
                 continue;
             }

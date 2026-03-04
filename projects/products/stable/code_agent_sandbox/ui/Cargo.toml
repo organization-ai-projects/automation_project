@@ -1,5 +1,5 @@
 [package]
-name = "varina_ui"
+name = "code_agent_sandbox_ui"
 version = "0.1.0"
 edition = "2024"
 
