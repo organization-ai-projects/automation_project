@@ -1,5 +1,5 @@
 [package]
-name = "code_agent_sandbox"
+name = "code_agent_sandbox_backend"
 version = "0.1.0"
 edition = "2024"
 
@@ -11,7 +11,6 @@ diffy = "0.4"
 chrono = "0.4"
 log = "0.4"
 globset = "0.4.18"
-rand = { workspace = true }
 tempfile = "3.24.0"
 futures = { workspace = true }
 
