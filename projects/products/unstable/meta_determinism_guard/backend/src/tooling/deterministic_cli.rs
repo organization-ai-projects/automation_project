@@ -1,5 +1,6 @@
 use crate::protocol::message::{write_stderr_line, write_stdout_line};
 use crate::tooling::ruleset_loader;
+use crate::tooling::tooling_error::ToolingError;
 use anyhow::{Result, anyhow};
 
 pub fn run_cli(args: &[String]) -> Result<i32> {
@@ -12,7 +13,8 @@ pub fn run_cli(args: &[String]) -> Result<i32> {
     match args[0].as_str() {
         "validate" => {
             let path = find_flag(args, "--ruleset").ok_or_else(|| anyhow!("--ruleset required"))?;
-            let ruleset = ruleset_loader::load_from_file(&path)?;
+            let ruleset =
+                ruleset_loader::load_from_file(&path).map_err(map_tooling_error_to_anyhow)?;
             write_stdout_line(&format!(
                 "Ruleset '{}' is valid ({} rules).",
                 ruleset.name,
@@ -22,7 +24,8 @@ pub fn run_cli(args: &[String]) -> Result<i32> {
         }
         "list-rules" => {
             let path = find_flag(args, "--ruleset").ok_or_else(|| anyhow!("--ruleset required"))?;
-            let ruleset = ruleset_loader::load_from_file(&path)?;
+            let ruleset =
+                ruleset_loader::load_from_file(&path).map_err(map_tooling_error_to_anyhow)?;
             write_stdout_line(&format!("Rules in '{}':", ruleset.name))?;
             for rule in &ruleset.rules {
                 write_stdout_line(&format!("  - {} ({})", rule.name, rule.pattern))?;
@@ -36,4 +39,8 @@ pub fn run_cli(args: &[String]) -> Result<i32> {
 fn find_flag(args: &[String], flag: &str) -> Option<String> {
     let pos = args.iter().position(|a| a == flag)?;
     args.get(pos + 1).cloned()
+}
+
+fn map_tooling_error_to_anyhow(err: ToolingError) -> anyhow::Error {
+    anyhow!(err.to_string())
 }
