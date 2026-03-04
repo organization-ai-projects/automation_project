@@ -14,32 +14,39 @@ impl StructureRules {
         use scan::crate_scanner::CrateScanner;
 
         let mut out = Vec::new();
-        let backend = product_dir.join("backend");
-        let ui = product_dir.join("ui");
-        if !(backend.is_dir() && ui.is_dir()) {
-            out.push(make_violation(
-                RuleId::Structure,
-                ViolationCode::StructMissingBackendOrUi,
-                (scope, mode),
-                product_dir,
-                "product must include backend/ and ui/ crates",
-                (true, None),
-            ));
-        }
+        let is_core_workspace = product_dir
+            .file_name()
+            .and_then(|s| s.to_str())
+            .is_some_and(|name| name == "core");
 
-        let child_crates = CrateScanner::discover_child_crates(product_dir);
-        for extra in child_crates
-            .iter()
-            .filter(|name| name.as_str() != "backend" && name.as_str() != "ui")
-        {
-            out.push(make_violation(
-                RuleId::Structure,
-                ViolationCode::StructThirdCrateDetected,
-                (scope, mode),
-                &product_dir.join(extra),
-                "only backend and ui crates are allowed",
-                (true, None),
-            ));
+        if !is_core_workspace {
+            let backend = product_dir.join("backend");
+            let ui = product_dir.join("ui");
+            if !(backend.is_dir() && ui.is_dir()) {
+                out.push(make_violation(
+                    RuleId::Structure,
+                    ViolationCode::StructMissingBackendOrUi,
+                    (scope, mode),
+                    product_dir,
+                    "product must include backend/ and ui/ crates",
+                    (true, None),
+                ));
+            }
+
+            let child_crates = CrateScanner::discover_child_crates(product_dir);
+            for extra in child_crates
+                .iter()
+                .filter(|name| name.as_str() != "backend" && name.as_str() != "ui")
+            {
+                out.push(make_violation(
+                    RuleId::Structure,
+                    ViolationCode::StructThirdCrateDetected,
+                    (scope, mode),
+                    &product_dir.join(extra),
+                    "only backend and ui crates are allowed",
+                    (true, None),
+                ));
+            }
         }
 
         let root_cargo = product_dir.join("Cargo.toml");

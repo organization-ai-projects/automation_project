@@ -180,70 +180,25 @@ gh_optional() {
 
   local err_file
   local output
+  local attempt
+  local max_attempts=3
+  local delay_seconds=2
+
   err_file="$(mktemp)"
-  if ! output="$(gh "$@" 2>"$err_file")"; then
-    warn_optional "${description} failed; continuing without GitHub data." "$(cat "$err_file" 2>/dev/null || true)"
-    rm -f "$err_file"
-    return 1
-  fi
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    if output="$(gh "$@" 2>"$err_file")"; then
+      rm -f "$err_file"
+      printf "%s" "$output"
+      return 0
+    fi
+    if [[ "$attempt" -lt "$max_attempts" ]]; then
+      sleep "$delay_seconds"
+    fi
+  done
 
+  warn_optional "${description} failed after ${max_attempts} attempts; continuing without GitHub data." "$(cat "$err_file" 2>/dev/null || true)"
   rm -f "$err_file"
-  printf "%s" "$output"
-  return 0
-}
-
-extract_validation_checklist_section() {
-  local markdown_body="$1"
-  printf "%s\n" "$markdown_body" | awk '
-    BEGIN { in_section = 0; found = 0 }
-    /^### Validation Checklist$/ {
-      in_section = 1
-      found = 1
-      print
-      next
-    }
-    in_section && /^### / {
-      exit
-    }
-    in_section {
-      print
-    }
-    END {
-      if (!found) {
-        exit 1
-      }
-    }
-  '
-}
-
-inject_validation_checklist_section() {
-  local generated_body="$1"
-  local checklist_file="$2"
-  awk '
-    FNR == NR {
-      replacement = replacement $0 ORS
-      next
-    }
-    /^### Validation Checklist$/ {
-      if (!replaced) {
-        printf "%s", replacement
-        replaced = 1
-      }
-      in_section = 1
-      next
-    }
-    in_section && /^### / {
-      in_section = 0
-      print
-      next
-    }
-    in_section {
-      next
-    }
-    {
-      print
-    }
-  ' "$checklist_file" <(printf "%s\n" "$generated_body")
+  return 1
 }
 
 if [[ "$auto_mode" == "true" ]]; then
@@ -336,6 +291,9 @@ declare -A pr_title_hint
 online_enrich="false"
 pr_enrich_failed=0
 breaking_detected=0
+ci_status="UNKNOWN"
+breaking_scope_crates=""
+breaking_scope_commits=""
 pr_created_successfully="false"
 dry_compare_commit_messages=""
 dry_compare_commit_headlines=""
@@ -678,6 +636,24 @@ issue_labels() {
     -q '.labels | map(.name) | join("||")' 2>/dev/null || true
 }
 
+issue_title_category() {
+  local issue_number="$1"
+  local issue_title
+
+  if [[ "$has_gh" != "true" ]]; then
+    echo "Unknown"
+    return
+  fi
+
+  issue_title="$(gh issue view "$issue_number" --json title -q '.title // ""' 2>/dev/null || true)"
+  if [[ -z "$issue_title" ]]; then
+    echo "Unknown"
+    return
+  fi
+
+  issue_category_from_title "$issue_title"
+}
+
 issue_non_compliance_reason_for() {
   local issue_number="$1"
   local labels_raw="${2:-}"
@@ -750,6 +726,214 @@ text_indicates_breaking() {
   return 1
 }
 
+emit_change_footprint() {
+  local range="${base_ref_display}..${head_ref_display}"
+  local files
+  local file
+  local any=0
+  local max_items_per_category=12
+  local count=0
+  declare -a doc_files=()
+  declare -a shell_files=()
+  declare -a crate_files=()
+  declare -a workspace_files=()
+  declare -a other_files=()
+
+  files="$(git diff --name-only "$range" 2>/dev/null || true)"
+  if [[ -z "$files" ]]; then
+    echo "- No changed files detected for this branch range."
+    return
+  fi
+
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    case "$file" in
+      *.md|documentation/*|.github/documentation/*)
+        doc_files+=("$file")
+        ;;
+      *.sh|scripts/*)
+        shell_files+=("$file")
+        ;;
+      Cargo.toml|Cargo.lock|rust-toolchain*|.cargo/*|**/Cargo.toml|**/Cargo.lock)
+        workspace_files+=("$file")
+        ;;
+      *.rs|*/src/*)
+        crate_files+=("$file")
+        ;;
+      *)
+        other_files+=("$file")
+        ;;
+    esac
+  done <<< "$files"
+
+  print_group() {
+    local label="$1"
+    shift
+    local arr=("$@")
+    local i
+    local total="${#arr[@]}"
+    [[ "$total" -eq 0 ]] && return
+    any=1
+    echo "- ${label} (${total})"
+    count=0
+    for i in "${arr[@]}"; do
+      echo "  - ${i}"
+      count=$((count + 1))
+      if [[ "$count" -ge "$max_items_per_category" ]]; then
+        break
+      fi
+    done
+    if [[ "$total" -gt "$max_items_per_category" ]]; then
+      echo "  - ... and $((total - max_items_per_category)) more"
+    fi
+  }
+
+  print_group "Documentation" "${doc_files[@]}"
+  print_group "Shell" "${shell_files[@]}"
+  print_group "Crates" "${crate_files[@]}"
+  print_group "Workspace" "${workspace_files[@]}"
+  print_group "Other" "${other_files[@]}"
+
+  if [[ "$any" -eq 0 ]]; then
+    echo "- No changed files detected for this branch range."
+  fi
+}
+
+infer_crate_from_path() {
+  local rel_path="$1"
+  local dir candidate
+
+  if [[ "$rel_path" == *"/src/"* ]]; then
+    candidate="${rel_path%%/src/*}"
+    if [[ -f "${candidate}/Cargo.toml" ]]; then
+      echo "$candidate"
+      return
+    fi
+  fi
+
+  if [[ "$rel_path" == */Cargo.toml ]]; then
+    dir="${rel_path%/Cargo.toml}"
+    if [[ -n "$dir" ]]; then
+      echo "$dir"
+      return
+    fi
+  fi
+
+  dir="$(dirname "$rel_path")"
+  while [[ "$dir" != "." && "$dir" != "/" ]]; do
+    if [[ -f "${dir}/Cargo.toml" ]]; then
+      echo "$dir"
+      return
+    fi
+    dir="$(dirname "$dir")"
+  done
+}
+
+compute_breaking_scope() {
+  local range="${base_ref_display}..${head_ref_display}"
+  local raw_log rec full_hash short_hash subject body
+  local files crate
+  declare -A seen_breaking_hashes
+  declare -A seen_crates
+  local commit_list=()
+  local crate_list=()
+
+  raw_log="$(git log --format='%H%x1f%s%x1f%b%x1e' "$range" 2>/dev/null || true)"
+  if [[ -z "$raw_log" ]]; then
+    breaking_scope_crates=""
+    breaking_scope_commits=""
+    return
+  fi
+
+  while IFS= read -r -d $'\x1e' rec; do
+    [[ -z "$rec" ]] && continue
+    full_hash="$(printf "%s" "$rec" | awk -F $'\x1f' '{print $1}')"
+    subject="$(printf "%s" "$rec" | awk -F $'\x1f' '{print $2}')"
+    body="$(printf "%s" "$rec" | awk -F $'\x1f' '{print $3}')"
+    if ! text_indicates_breaking "${subject}"$'\n'"${body}"; then
+      continue
+    fi
+    short_hash="$(printf "%s" "$full_hash" | cut -c1-7)"
+    if [[ -z "${seen_breaking_hashes[$short_hash]:-}" ]]; then
+      seen_breaking_hashes["$short_hash"]=1
+      commit_list+=("$short_hash")
+    fi
+
+    files="$(git show --name-only --pretty=format: "$full_hash" 2>/dev/null || true)"
+    while IFS= read -r rel_path; do
+      [[ -z "$rel_path" ]] && continue
+      crate="$(infer_crate_from_path "$rel_path")"
+      [[ -z "$crate" ]] && continue
+      if [[ -z "${seen_crates[$crate]:-}" ]]; then
+        seen_crates["$crate"]=1
+        crate_list+=("$crate")
+      fi
+    done <<< "$files"
+  done < <(printf "%s" "$raw_log")
+
+  if [[ ${#commit_list[@]} -gt 0 ]]; then
+    IFS=$'\n' commit_list=($(printf "%s\n" "${commit_list[@]}" | sort -u))
+    unset IFS
+    breaking_scope_commits="$(printf "`%s`, " "${commit_list[@]}")"
+    breaking_scope_commits="${breaking_scope_commits%, }"
+  else
+    breaking_scope_commits=""
+  fi
+
+  if [[ ${#crate_list[@]} -gt 0 ]]; then
+    IFS=$'\n' crate_list=($(printf "%s\n" "${crate_list[@]}" | sort -u))
+    unset IFS
+    breaking_scope_crates="$(printf "`%s`, " "${crate_list[@]}")"
+    breaking_scope_crates="${breaking_scope_crates%, }"
+  else
+    breaking_scope_crates=""
+  fi
+}
+
+compute_ci_status() {
+  local target_pr_number=""
+  local rollup_json conclusions unresolved
+
+  if [[ -n "$auto_edit_pr_number" ]]; then
+    target_pr_number="$auto_edit_pr_number"
+  elif [[ "$dry_run" == "false" && -n "$main_pr_number" ]]; then
+    target_pr_number="$main_pr_number"
+  fi
+
+  ci_status="UNKNOWN"
+  [[ -z "$target_pr_number" ]] && return
+
+  rollup_json="$(gh_optional "read checks for PR #${target_pr_number}" pr view "$target_pr_number" --json statusCheckRollup)"
+  if [[ -z "$rollup_json" ]]; then
+    return
+  fi
+
+  conclusions="$(echo "$rollup_json" | jq -r '.statusCheckRollup // [] | map((.conclusion // .state // .status // "UNKNOWN") | tostring | ascii_upcase) | map(select(length > 0)) | .[]' 2>/dev/null || true)"
+  if [[ -z "$conclusions" ]]; then
+    return
+  fi
+
+  if echo "$conclusions" | grep -Eq '^(FAILURE|FAILED|CANCELLED|TIMED_OUT|ACTION_REQUIRED|STARTUP_FAILURE)$'; then
+    ci_status="FAIL"
+    return
+  fi
+
+  if echo "$conclusions" | grep -Eq '^(IN_PROGRESS|QUEUED|PENDING|WAITING|REQUESTED)$'; then
+    ci_status="RUNNING"
+    return
+  fi
+
+  unresolved="$(echo "$conclusions" | grep -Ev '^(SUCCESS|PASSED|NEUTRAL|SKIPPED|COMPLETED)$' || true)"
+  if [[ -n "$unresolved" ]]; then
+    ci_status="UNKNOWN"
+    return
+  fi
+
+  if echo "$conclusions" | grep -Eq '^(SUCCESS|PASSED)$'; then
+    ci_status="PASS"
+  fi
+}
+
 echo -n > "$extracted_prs_file"
 echo -n > "$resolved_issues_file"
 echo -n > "$reopened_issues_file"
@@ -777,6 +961,7 @@ declare -A issue_directive_decision
 declare -A issue_inferred_decision
 declare -A issue_directive_conflict_reason
 declare -A issue_directive_resolution
+declare -A issue_directive_final_action
 declare -A pr_ref_cache
 declare -A duplicate_targets
 declare -A issue_non_compliance_reason_cache
@@ -851,6 +1036,13 @@ mark_reopen_issue() {
   labels_raw="$(issue_labels "$issue_number")"
   label_category="$(issue_category_from_labels "$labels_raw")"
   final_category="$label_category"
+  if [[ "$final_category" == "Unknown" || "$final_category" == "Mixed" ]]; then
+    local title_category
+    title_category="$(issue_title_category "$issue_number")"
+    if [[ "$title_category" != "Unknown" && "$title_category" != "Mixed" ]]; then
+      final_category="$title_category"
+    fi
+  fi
   if [[ "$final_category" == "Unknown" && "$category" != "Unknown" ]]; then
     final_category="$category"
   fi
@@ -865,6 +1057,7 @@ mark_reopen_issue() {
     unset "seen_reopen_issue[$issue_key]"
     unset "reopen_issue_category[$issue_key]"
     issue_directive_resolution["$issue_key"]="Resolved via directive decision => close."
+    issue_directive_final_action["$issue_key"]="close"
     return
   fi
 
@@ -880,6 +1073,7 @@ mark_reopen_issue() {
     unset "issue_action[$issue_key]"
     unset "issue_neutralization_reason[$issue_key]"
     issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
+    issue_directive_final_action["$issue_key"]="reopen"
   fi
 
   debug_log "parsed_reopen_ref: ${issue_key}"
@@ -943,6 +1137,13 @@ add_issue_entry() {
   fi
 
   final_category="$label_category"
+  if [[ "$final_category" == "Unknown" || "$final_category" == "Mixed" ]]; then
+    local title_category
+    title_category="$(issue_title_category "$issue_number")"
+    if [[ "$title_category" != "Unknown" && "$title_category" != "Mixed" ]]; then
+      final_category="$title_category"
+    fi
+  fi
   if [[ "$final_category" == "Unknown" && "$category" != "Unknown" ]]; then
     final_category="$category"
   fi
@@ -952,6 +1153,7 @@ add_issue_entry() {
   if [[ -n "${issue_reopen_detected[$issue_key]:-}" || -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
     if [[ "$effective_decision" == "close" ]]; then
       issue_directive_resolution["$issue_key"]="Resolved via directive decision => close."
+      issue_directive_final_action["$issue_key"]="close"
       # continue as closure path
     elif [[ "$effective_decision" == "reopen" ]]; then
       seen_reopen_issue["$issue_key"]="1"
@@ -959,6 +1161,7 @@ add_issue_entry() {
         reopen_issue_category["$issue_key"]="$final_category"
       fi
       issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
+      issue_directive_final_action["$issue_key"]="reopen"
       unset "seen_issue[$issue_key]"
       unset "issue_category[$issue_key]"
       debug_log "issue_entry: key=${issue_key} action=Reopen (directive) category=${reopen_issue_category[$issue_key]}"
@@ -1049,21 +1252,27 @@ if [[ -s "$extracted_prs_file" ]]; then
     pr_count=$((pr_count + 1))
 
     if [[ -n "$pr_body" ]]; then
-    if text_indicates_breaking "$pr_body"; then
-      breaking_detected=1
-    fi
-      mark_inferred_decisions_from_text "$pr_body"
-      mark_directive_decisions_from_text "$pr_body"
-      while IFS='|' read -r _ issue_key; do
-        mark_reopen_issue "$issue_key" "$pr_category"
-      done < <(parse_reopen_issue_refs_from_text "$pr_body")
-      while IFS='|' read -r action issue_key; do
-        debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
-        add_issue_entry "$action" "$issue_key" "$pr_category"
-      done < <(parse_pr_body_closing_issue_refs_from_text "$pr_body")
-      while IFS='|' read -r duplicate_issue canonical_issue; do
-        add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-      done < <(parse_duplicate_refs_from_text "$pr_body")
+      if text_indicates_breaking "$pr_body"; then
+        breaking_detected=1
+      fi
+      # Synchronization PRs may carry inherited closure directives from branch sync history.
+      # Ignore their issue directives to avoid duplicating/propagating historical closures.
+      if [[ "$pr_category" != "Synchronization" ]]; then
+        mark_inferred_decisions_from_text "$pr_body"
+        mark_directive_decisions_from_text "$pr_body"
+        while IFS='|' read -r _ issue_key; do
+          mark_reopen_issue "$issue_key" "$pr_category"
+        done < <(parse_reopen_issue_refs_from_text "$pr_body")
+        while IFS='|' read -r action issue_key; do
+          debug_log "parsed_issue_ref(pr ${pr_ref}): ${action}|${issue_key}"
+          add_issue_entry "$action" "$issue_key" "$pr_category"
+        done < <(parse_pr_body_closing_issue_refs_from_text "$pr_body")
+        while IFS='|' read -r duplicate_issue canonical_issue; do
+          add_duplicate_entry "$duplicate_issue" "$canonical_issue"
+        done < <(parse_duplicate_refs_from_text "$pr_body")
+      else
+        debug_log "skip_issue_directives(pr ${pr_ref}): category=Synchronization"
+      fi
     fi
 
     :
@@ -1137,6 +1346,12 @@ fi
 
 echo -n > "$issues_tmp"
 for issue_key in "${!seen_issue[@]}"; do
+  if [[ -n "${issue_directive_conflict_reason[$issue_key]:-}" ]]; then
+    continue
+  fi
+  if [[ -n "${issue_directive_resolution[$issue_key]:-}" ]]; then
+    continue
+  fi
   issue_number="${issue_key//#/}"
   echo "${issue_number}|${issue_category[$issue_key]}|${issue_action[$issue_key]}|${issue_key}" >> "$issues_tmp"
 done
@@ -1178,12 +1393,15 @@ if [[ -s "$issues_tmp" ]]; then
         }
       }
     ' > "$resolved_issues_file"
-  issue_count="${#seen_issue[@]}"
+  issue_count="$(wc -l < "$issues_tmp" | tr -d ' ')"
 fi
 
 echo -n > "$reopen_tmp"
 for issue_key in "${!seen_reopen_issue[@]}"; do
   if [[ -n "${issue_directive_conflict_reason[$issue_key]:-}" ]]; then
+    continue
+  fi
+  if [[ -n "${issue_directive_resolution[$issue_key]:-}" ]]; then
     continue
   fi
   issue_number="${issue_key//#/}"
@@ -1233,24 +1451,99 @@ fi
 echo -n > "$conflict_tmp"
 for issue_key in "${!issue_directive_conflict_reason[@]}"; do
   issue_number="${issue_key//#/}"
-  echo "${issue_number}|${issue_key}|${issue_directive_conflict_reason[$issue_key]}" >> "$conflict_tmp"
+  echo "${issue_number}|${issue_category[$issue_key]:-Unknown}|${issue_key}|${issue_directive_conflict_reason[$issue_key]}" >> "$conflict_tmp"
 done
 
 if [[ -s "$conflict_tmp" ]]; then
   sort -t'|' -k1,1n "$conflict_tmp" \
-    | awk -F'|' '{ print "- " $2 " - " $3 }' > "$conflict_issues_file"
+    | awk -F'|' '
+      BEGIN {
+        cats[1] = "Security"
+        cats[2] = "Features"
+        cats[3] = "Bug Fixes"
+        cats[4] = "Refactoring"
+        cats[5] = "Automation"
+        cats[6] = "Testing"
+        cats[7] = "Docs"
+        cats[8] = "Mixed"
+        cats[9] = "Unknown"
+      }
+      {
+        lines[NR] = $0
+      }
+      END {
+        for (c = 1; c <= 9; c++) {
+          cat = cats[c]
+          found = 0
+          for (i = 1; i <= NR; i++) {
+            split(lines[i], parts, "|")
+            if (parts[2] == cat) {
+              if (!found) {
+                print "#### " cat
+                found = 1
+              }
+              print "- " parts[3] " - " parts[4]
+            }
+          }
+          if (found) {
+            print ""
+          }
+        }
+      }
+    ' > "$conflict_issues_file"
   directive_conflict_count="${#issue_directive_conflict_reason[@]}"
 fi
 
 echo -n > "$directive_resolution_tmp"
 for issue_key in "${!issue_directive_resolution[@]}"; do
   issue_number="${issue_key//#/}"
-  echo "${issue_number}|${issue_key}|${issue_directive_resolution[$issue_key]}" >> "$directive_resolution_tmp"
+  directive_action="${issue_directive_final_action[$issue_key]:-}"
+  directive_prefix=""
+  case "$directive_action" in
+    close) directive_prefix="Closes ${issue_key} - " ;;
+    reopen) directive_prefix="Reopen ${issue_key} - " ;;
+    *) directive_prefix="${issue_key} - " ;;
+  esac
+  echo "${issue_number}|${issue_category[$issue_key]:-Unknown}|${directive_prefix}${issue_directive_resolution[$issue_key]}" >> "$directive_resolution_tmp"
 done
 
 if [[ -s "$directive_resolution_tmp" ]]; then
   sort -t'|' -k1,1n "$directive_resolution_tmp" \
-    | awk -F'|' '{ print "- " $2 " - " $3 }' > "$directive_resolution_tmp.resolved"
+    | awk -F'|' '
+      BEGIN {
+        cats[1] = "Security"
+        cats[2] = "Features"
+        cats[3] = "Bug Fixes"
+        cats[4] = "Refactoring"
+        cats[5] = "Automation"
+        cats[6] = "Testing"
+        cats[7] = "Docs"
+        cats[8] = "Mixed"
+        cats[9] = "Unknown"
+      }
+      {
+        lines[NR] = $0
+      }
+      END {
+        for (c = 1; c <= 9; c++) {
+          cat = cats[c]
+          found = 0
+          for (i = 1; i <= NR; i++) {
+            split(lines[i], parts, "|")
+            if (parts[2] == cat) {
+              if (!found) {
+                print "#### " cat
+                found = 1
+              }
+              print "- " parts[3]
+            }
+          }
+          if (found) {
+            print ""
+          }
+        }
+      }
+    ' > "$directive_resolution_tmp.resolved"
   mv "$directive_resolution_tmp.resolved" "$directive_resolution_tmp"
 fi
 
@@ -1319,94 +1612,126 @@ process_duplicate_mode() {
   done
 }
 
+compute_ci_status
+compute_breaking_scope
+
+ci_status_with_symbol="$ci_status"
+case "$ci_status" in
+  PASS) ci_status_with_symbol="PASS ✅" ;;
+  FAIL) ci_status_with_symbol="FAIL ❌" ;;
+  RUNNING) ci_status_with_symbol="RUNNING ⏳" ;;
+  *) ci_status_with_symbol="UNKNOWN ⚪" ;;
+esac
+
 body_content="$({
   echo "### Description"
   echo ""
   echo "This pull request merges the \`${head_ref_display}\` branch into \`${base_ref_display}\` and summarizes merged pull requests and resolved issues."
   echo ""
-  echo "### Scope"
+  echo "### Validation Gate"
   echo ""
-  echo "- Not explicitly provided."
-  echo ""
-  echo "### Compatibility"
-  echo ""
+  echo "- CI: ${ci_status_with_symbol}"
   if [[ "$breaking_detected" -eq 1 ]]; then
-    echo "- Breaking change."
+    echo "- Breaking change"
   else
-    echo "- Non-breaking change."
+    echo "- No breaking change"
+  fi
+  if [[ "$breaking_detected" -eq 1 ]]; then
+    echo "- Breaking scope:"
+    if [[ -n "$breaking_scope_crates" ]]; then
+      echo "  - crate(s): ${breaking_scope_crates}"
+    else
+      echo "  - crate(s): unknown"
+    fi
+    if [[ -n "$breaking_scope_commits" ]]; then
+      echo "  - source commit(s): ${breaking_scope_commits}"
+    else
+      echo "  - source commit(s): unknown"
+    fi
   fi
   echo ""
-  echo "### Issues Resolved"
+  echo "### Issue Outcomes"
   echo ""
-  echo "This PR resolves the following issues:"
-  echo ""
-  if [[ -s "$resolved_issues_file" ]]; then
-    cat "$resolved_issues_file"
+  if [[ ! -s "$resolved_issues_file" && ! -s "$reopened_issues_file" && ! -s "$directive_resolution_tmp" && ! -s "$conflict_issues_file" ]]; then
+    echo "- No issues processed in this PR."
   else
-    echo "- No resolved issues detected via GitHub references or PR body keywords."
+    echo "#### Category 1: Issues Without Conflicts"
+    echo ""
+    echo "##### Closes/Fixes"
+    echo ""
+    if [[ -s "$resolved_issues_file" ]]; then
+      cat "$resolved_issues_file"
+    else
+      echo "- No resolved issues detected via GitHub references or PR body keywords."
+    fi
+    echo ""
+    echo "##### Reopened"
+    echo ""
+    if [[ -s "$reopened_issues_file" ]]; then
+      cat "$reopened_issues_file"
+    else
+      echo "- No reopened issues detected."
+    fi
+    echo ""
+    echo "#### Category 2: Issues With Conflicts"
+    echo ""
+    echo "##### Auto-resolved"
+    echo ""
+    if [[ -s "$directive_resolution_tmp" ]]; then
+      cat "$directive_resolution_tmp"
+    else
+      echo "- No auto-resolved directive conflicts."
+    fi
+    echo ""
+    echo "##### Not resolved"
+    echo ""
+    if [[ -s "$conflict_issues_file" ]]; then
+      cat "$conflict_issues_file"
+    else
+      echo "- No unresolved directive conflicts."
+    fi
   fi
   echo ""
-  if [[ -s "$reopened_issues_file" ]]; then
-    echo "### Issues Reopened"
-    echo ""
-    echo "This PR reopens the following issues:"
-    echo ""
-    cat "$reopened_issues_file"
-    echo ""
-  fi
-  if [[ -s "$conflict_issues_file" ]]; then
-    echo "### Issue Directive Conflicts"
-    echo ""
-    echo "The following directive conflicts are unresolved:"
-    echo ""
-    cat "$conflict_issues_file"
-    echo ""
-  fi
-  if [[ -s "$directive_resolution_tmp" ]]; then
-    echo "### Issue Directive Resolutions"
-    echo ""
-    echo "The following directive conflicts were resolved explicitly:"
-    echo ""
-    cat "$directive_resolution_tmp"
-    echo ""
-  fi
   echo "### Key Changes"
   echo ""
+  key_changes_found=0
   if [[ -s "$sync_tmp" ]]; then
+    key_changes_found=1
     echo "#### Synchronization"
     echo ""
     write_section_from_file "$sync_tmp"
     echo ""
   fi
-  echo "#### Features"
+  if [[ -s "$features_tmp" ]]; then
+    key_changes_found=1
+    echo "#### Features"
+    echo ""
+    write_section_from_file "$features_tmp"
+    echo ""
+  fi
+  if [[ -s "$bugs_tmp" ]]; then
+    key_changes_found=1
+    echo "#### Bug Fixes"
+    echo ""
+    write_section_from_file "$bugs_tmp"
+    echo ""
+  fi
+  if [[ -s "$refactors_tmp" ]]; then
+    key_changes_found=1
+    echo "#### Refactoring"
+    echo ""
+    write_section_from_file "$refactors_tmp"
+    echo ""
+  fi
+  if [[ "$key_changes_found" -eq 0 ]]; then
+    echo "- No significant items detected."
+    echo ""
+  fi
+  echo "#### Change Footprint"
   echo ""
-  write_section_from_file "$features_tmp"
+  emit_change_footprint
   echo ""
-  echo "#### Bug Fixes"
-  echo ""
-  write_section_from_file "$bugs_tmp"
-  echo ""
-  echo "#### Refactoring"
-  echo ""
-  write_section_from_file "$refactors_tmp"
-  echo ""
-  cat <<EOF
-### Testing
-
-- Ensure all project tests are executed before merge (for example: \`cargo test\`, script-specific checks, and CI workflow validation).
-- Validate manually the automation workflows impacted by merged PRs.
-
-### Validation Checklist
-
-- [ ] Tests have been added or updated, and all tests pass.
-- [ ] Documentation has been updated as needed.
-- [ ] Breaking changes (if any) are clearly documented above.
-
-### Additional Notes
-
-- Documentation and PR summaries should be aligned with the resolved issues listed above.
-- This generated description can be edited to add domain-specific details before submission.
-EOF
+  :
 })"
 
 if [[ "$auto_mode" != "true" && -z "$auto_edit_pr_number" && "$write_body_to_file" == "true" ]]; then
@@ -1499,15 +1824,6 @@ if [[ -n "$auto_edit_pr_number" ]]; then
     if [[ -z "$repo_name_with_owner" ]]; then
       echo "Error: unable to determine GitHub repository for --auto-edit." >&2
       exit "$E_DEPENDENCY"
-    fi
-    existing_pr_body="$(gh_optional "read existing PR #${auto_edit_pr_number} body" pr view "$auto_edit_pr_number" --json body -q '.body')"
-    if [[ -n "$existing_pr_body" ]]; then
-      checklist_tmp="$(mktemp)"
-      if extract_validation_checklist_section "$existing_pr_body" > "$checklist_tmp"; then
-        preserved_body="$(inject_validation_checklist_section "$body_content" "$checklist_tmp")"
-        body_content="$preserved_body"
-      fi
-      rm -f "$checklist_tmp"
     fi
     gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
       --raw-field body="$body_content" >/dev/null

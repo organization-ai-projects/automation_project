@@ -1,10 +1,10 @@
 [package]
-name = "platform-versioning-ui"
+name = "platform_versioning_ui"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "platform-versioning-ui"
+name = "platform_versioning_ui"
 path = "src/main.rs"
 
 [dependencies]

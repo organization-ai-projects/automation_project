@@ -269,6 +269,7 @@ Retry later. If this persists, link the issue manually in GitHub UI."
 fi
 
 current_parent_number="$(echo "$relation_json" | jq -r '.data.repository.child.parent.number // empty')"
+current_parent_node_id="$(echo "$relation_json" | jq -r '.data.repository.child.parent.id // empty')"
 child_node_id="$(echo "$relation_json" | jq -r '.data.repository.child.id // empty')"
 parent_node_id="$(echo "$relation_json" | jq -r '.data.repository.parent.id // empty')"
 
@@ -278,10 +279,34 @@ if [[ -n "$current_parent_number" && "$current_parent_number" == "$parent_number
 fi
 
 if [[ -n "$current_parent_number" && "$current_parent_number" != "$parent_number" ]]; then
-  set_validation_error_state \
-    "Issue is already linked to another parent (\`#${current_parent_number}\`)." \
-    "Please update parent linkage manually in GitHub UI before retrying automation."
-  exit 0
+  if [[ -z "$current_parent_node_id" || -z "$child_node_id" ]]; then
+    set_runtime_error_state \
+      "Missing node IDs required to re-parent issue from #${current_parent_number} to #${parent_number}." \
+      "Retry later. If this persists, update parent linkage manually in GitHub UI."
+    exit 0
+  fi
+
+  unlink_result="$(gh api graphql \
+    -f query='mutation($issueId:ID!,$subIssueId:ID!){removeSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{id}}}' \
+    -f issueId="$current_parent_node_id" \
+    -f subIssueId="$child_node_id" 2>/dev/null || true)"
+
+  if [[ -z "$unlink_result" ]]; then
+    set_runtime_error_state \
+      "GitHub API mutation failed while unlinking child from previous parent #${current_parent_number}." \
+      "Retry later. If this persists, unlink manually in GitHub UI and rerun automation."
+    exit 0
+  fi
+
+  if graphql_has_errors "$unlink_result"; then
+    unlink_errors="$(graphql_error_messages "$unlink_result")"
+    set_runtime_error_state \
+      "GitHub GraphQL mutation returned errors while unlinking previous parent #${current_parent_number}." \
+      "API errors: ${unlink_errors}
+
+Retry later. If this persists, unlink manually in GitHub UI and rerun automation."
+    exit 0
+  fi
 fi
 
 if [[ -z "$child_node_id" || -z "$parent_node_id" ]]; then
@@ -321,5 +346,10 @@ if [[ -z "$linked_child_number" ]]; then
   exit 0
 fi
 
-set_success_state "Linked this issue as child of #${parent_number}."
-echo "Linked issue #${ISSUE_NUMBER} to parent #${parent_number}."
+if [[ -n "$current_parent_number" && "$current_parent_number" != "$parent_number" ]]; then
+  set_success_state "Re-parented this issue from #${current_parent_number} to #${parent_number}."
+  echo "Re-parented issue #${ISSUE_NUMBER} from #${current_parent_number} to #${parent_number}."
+else
+  set_success_state "Linked this issue as child of #${parent_number}."
+  echo "Linked issue #${ISSUE_NUMBER} to parent #${parent_number}."
+fi

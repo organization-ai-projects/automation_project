@@ -6,6 +6,7 @@ pub mod accounts_file;
 pub mod audit_buffer;
 pub mod audit_buffer_config;
 pub mod audit_entry;
+mod in_flight_guard;
 
 #[cfg(test)]
 mod tests;

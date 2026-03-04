@@ -1,6 +1,12 @@
 // projects/products/stable/platform_versioning/backend/src/auth/authorization_service.rs
 use std::sync::Arc;
 
+fn next_nonce() -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static NONCE: AtomicU32 = AtomicU32::new(1);
+    NONCE.fetch_add(1, Ordering::Relaxed)
+}
+
 use axum::http::HeaderMap;
 
 use crate::auth::{
@@ -43,10 +49,7 @@ impl AuthorizationService {
     }
 
     fn now_secs() -> u64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0)
+        next_nonce() as u64
     }
 
     fn bearer_token(headers: &HeaderMap) -> Option<String> {

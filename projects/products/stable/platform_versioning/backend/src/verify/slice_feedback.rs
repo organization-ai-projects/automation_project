@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::slices::SliceManifest;
+use crate::verify::slice_feedback_entry::SliceFeedbackEntry;
 use crate::verify::{IntegrityIssue, IntegrityReport};
 
 /// A non-leaking view of an [`IntegrityReport`] filtered through a
@@ -32,13 +33,6 @@ pub struct SliceFeedback {
     pub restricted_issue_count: usize,
     /// Total objects checked during the integrity run.
     pub objects_checked: usize,
-}
-
-/// A single feedback entry for an integrity issue within an allowed path.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SliceFeedbackEntry {
-    /// Human-readable summary of the issue (safe to display to the caller).
-    pub summary: String,
 }
 
 impl SliceFeedback {

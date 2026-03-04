@@ -9,29 +9,16 @@ use crate::issues::IssueSummary;
 use crate::offline::OfflinePolicy;
 use crate::slices::{AllowedPath, SliceManifest};
 use crate::verification::VerificationResultView;
-
-/// Configuration for the platform IDE.
-pub struct IdeConfig {
-    /// URL of the platform-versioning backend (e.g. `"http://127.0.0.1:8080"`).
-    pub platform_url: String,
-}
-
-impl IdeConfig {
-    /// Reads configuration from environment variables with sensible defaults.
-    pub fn from_env() -> Self {
-        let platform_url = std::env::var("PLATFORM_IDE_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
-        Self { platform_url }
-    }
-}
+pub mod ide_config;
+pub use ide_config::IdeConfig;
 
 /// The platform IDE application.
 ///
-/// `IdeApp` orchestrates the full IDE workflow: authentication, issue listing,
+/// `App` orchestrates the full IDE workflow: authentication, issue listing,
 /// slice loading, editing, diffing, submitting changes, and viewing verification
 /// results. All operations enforce least-privilege visibility through the slice
 /// manifest.
-pub struct IdeApp {
+pub struct App {
     client: PlatformClient,
     session: Session,
     /// The active issue (repository) identifier, if one has been opened.
@@ -42,8 +29,8 @@ pub struct IdeApp {
     pub offline_policy: OfflinePolicy,
 }
 
-impl IdeApp {
-    /// Creates a new `IdeApp` with an authenticated session.
+impl App {
+    /// Creates a new `App` with an authenticated session.
     pub fn new(platform_url: impl Into<String>, session: Session) -> Self {
         Self {
             client: PlatformClient::new(platform_url),
@@ -123,7 +110,7 @@ impl IdeApp {
             .client
             .submit_changes(&self.session, issue_id, change_set, message)
             .await?;
-        Ok(result.commit_id)
+        Ok(result)
     }
 
     /// Requests a verification run for the active issue and returns a filtered
@@ -144,3 +131,5 @@ impl IdeApp {
         self.offline_policy.is_allowed()
     }
 }
+
+pub type IdeApp = App;

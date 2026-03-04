@@ -68,8 +68,9 @@ impl TokenVerifier {
 
         type HmacSha256 = Hmac<Sha256>;
 
-        let mut mac = HmacSha256::new_from_slice(&self.secret)
-            .expect("HMAC key length is validated in TokenVerifier::new");
+        let Ok(mut mac) = HmacSha256::new_from_slice(&self.secret) else {
+            return Vec::new();
+        };
         mac.update(data);
         mac.finalize().into_bytes().to_vec()
     }

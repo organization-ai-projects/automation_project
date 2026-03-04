@@ -1,12 +1,17 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+fn next_nonce() -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static NONCE: AtomicU32 = AtomicU32::new(1);
+    NONCE.fetch_add(1, Ordering::Relaxed)
+}
+
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
 
 use crate::auth::{
     AuditEntry, AuditOutcome, AuthorizationService, Permission, PermissionGrant, TokenClaims,
@@ -14,22 +19,24 @@ use crate::auth::{
 use crate::checkouts::{Checkout, CheckoutPolicy, Materialized};
 use crate::diffs::Diff;
 use crate::errors::PvError;
-use crate::history::HistoryWalker;
+use crate::history::{self};
 use crate::http::{ApiError, ApiVersion, ResponseEnvelope};
-use crate::ids::{CommitId, RefId, RepoId};
-use crate::indexes::Index;
+use crate::ids::{self, CommitId, RefId, RepoId};
+use crate::indexes::{self, Index};
 use crate::issues::{Issue, IssueId, IssueStore, IssueVisibility};
 use crate::merges::{Merge, MergeResult};
-use crate::objects::{Blob, HashDigest, Object, ObjectKind};
-use crate::pipeline::CommitBuilder;
-use crate::refs_store::{HeadState, RefKind, RefTarget};
-use crate::repos::{RepoMetadata, RepoStore};
+use crate::objects::{self, Blob, HashDigest, Object};
+use crate::pipeline::{self, CommitBuilder};
+use crate::refs_store::{HeadState, RefTarget};
+use crate::repos::{self, RepoMetadata, RepoStore};
 use crate::slices::{SliceDefinition, SliceManifest, SliceProjection};
 use crate::sync::{FetchRequest, Negotiation, RefUpdatePolicy, UploadRequest};
 use crate::verify::{SliceFeedback, Verification};
 
+use crate::routes_types::*;
+
 #[derive(Clone)]
-struct AppState {
+struct Routes {
     repo_store: Arc<RepoStore>,
     auth_svc: Arc<AuthorizationService>,
     issue_store: Arc<IssueStore>,
@@ -45,7 +52,7 @@ pub fn build_router(
     issue_store: Arc<IssueStore>,
     bootstrap_secret: Option<String>,
 ) -> Router {
-    let state = AppState {
+    let state = Routes {
         repo_store,
         auth_svc,
         issue_store,
@@ -53,11 +60,11 @@ pub fn build_router(
     };
 
     Router::new()
-        .nest(ApiVersion::V1.path_prefix(), v1_routes())
+        .nest(ApiVersion::V1.path_prefix(), build_api_routes())
         .with_state(state)
 }
 
-fn v1_routes() -> Router<AppState> {
+fn build_api_routes() -> Router<Routes> {
     Router::new()
         .route("/auth/issue", post(issue_token))
         .route("/repos", get(list_repos).post(create_repo))
@@ -94,141 +101,10 @@ fn v1_routes() -> Router<AppState> {
         )
         .route("/audit", get(list_audit_entries))
 }
-
-#[derive(Debug, Deserialize)]
-struct CreateRepoRequest {
-    id: String,
-    name: String,
-    description: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct RepoSummary {
-    id: String,
-    name: String,
-    description: Option<String>,
-    created_at: u64,
-    updated_at: u64,
-}
-
-#[derive(Debug, Deserialize)]
-struct UpdateRepoMetadataRequest {
-    name: Option<String>,
-    description: Option<Option<String>>,
-}
-
-#[derive(Debug, Serialize)]
-struct RefView {
-    full_name: String,
-    short_name: String,
-    kind: RefKind,
-    commit_id: String,
-    stable_ref_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CreateCommitFile {
-    path: String,
-    #[serde(default)]
-    content: Option<String>,
-    #[serde(default)]
-    content_hex: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CreateCommitRequest {
-    author: String,
-    message: String,
-    timestamp_secs: Option<u64>,
-    extra_parent: Option<String>,
-    files: Vec<CreateCommitFile>,
-}
-
-#[derive(Debug, Deserialize)]
-struct DiffRequest {
-    from: String,
-    to: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct MergeRequest {
-    ours: String,
-    theirs: String,
-    author: String,
-    message: String,
-    timestamp_secs: Option<u64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CheckoutRequest {
-    destination: Option<String>,
-    policy: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct CommitView {
-    kind: ObjectKind,
-    commit: crate::objects::Commit,
-    id_raw_len: usize,
-}
-
-#[derive(Debug, Serialize)]
-struct UploadSummary {
-    objects_written: usize,
-    refs_updated: usize,
-}
-
-#[derive(Debug, Serialize)]
-struct FetchSummary {
-    object_ids: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct IssueTokenRequest {
-    subject: String,
-    repo_id: Option<String>,
-    permission: Permission,
-    expires_at: Option<u64>,
-}
-
-#[derive(Debug, Serialize)]
-struct IssueTokenResponse {
-    token: String,
-}
-
-#[derive(Debug, Serialize)]
-struct VerifySummary {
-    healthy: bool,
-    report: crate::verify::IntegrityReport,
-}
-
-// ── Issue request/response types ────────────────────────────────────────────
-
-#[derive(Debug, Deserialize)]
-struct CreateIssueRequest {
-    id: String,
-    repo_id: Option<String>,
-    title: String,
-    description: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct AssignUserRequest {
-    subject: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct SetSliceDefinitionRequest {
-    paths: Vec<String>,
-}
-
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
 fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+    next_nonce() as u64
 }
 
 fn request_envelope(headers: &HeaderMap) -> crate::http::request_envelope::RequestEnvelope {
@@ -276,7 +152,7 @@ fn sanitize_checkout_subdir(input: &str) -> Result<PathBuf, PvError> {
 
 /// Delegates permission checking to the centralized [`AuthorizationService`].
 fn require_permission(
-    state: &AppState,
+    state: &Routes,
     headers: &HeaderMap,
     repo_id: Option<&RepoId>,
     permission: Permission,
@@ -310,9 +186,9 @@ fn decode_hex_content(hex: &str) -> Result<Vec<u8>, PvError> {
 }
 
 fn read_blob_from_commit_path(
-    repo: &crate::repos::Repo,
+    repo: &repos::Repo,
     commit_id: &CommitId,
-    path: &crate::indexes::SafePath,
+    path: &indexes::SafePath,
 ) -> Result<Vec<u8>, PvError> {
     let commit_obj = repo.objects.read(commit_id.as_object_id())?;
     let commit = match commit_obj {
@@ -342,7 +218,7 @@ fn read_blob_from_commit_path(
 
         let is_last = components.peek().is_none();
         match (is_last, entry.kind) {
-            (true, crate::objects::TreeEntryKind::Blob) => {
+            (true, objects::TreeEntryKind::Blob) => {
                 let blob_obj = repo.objects.read(&entry.id)?;
                 let blob = match blob_obj {
                     Object::Blob(b) => b,
@@ -355,7 +231,7 @@ fn read_blob_from_commit_path(
                 };
                 return Ok(blob.content);
             }
-            (false, crate::objects::TreeEntryKind::Tree) => {
+            (false, objects::TreeEntryKind::Tree) => {
                 current_tree_id = entry.id;
             }
             _ => return Err(PvError::ObjectNotFound(path.to_string())),
@@ -367,8 +243,8 @@ fn read_blob_from_commit_path(
 
 fn stage_tree_into_index(
     index: &mut Index,
-    store: &crate::objects::ObjectStore,
-    tree_id: &crate::ids::ObjectId,
+    store: &objects::ObjectStore,
+    tree_id: &ids::ObjectId,
     prefix: &str,
 ) -> Result<(), PvError> {
     let tree = match store.read(tree_id)? {
@@ -387,19 +263,17 @@ fn stage_tree_into_index(
             format!("{prefix}/{}", entry.name)
         };
         match entry.kind {
-            crate::objects::TreeEntryKind::Blob => {
+            objects::TreeEntryKind::Blob => {
                 let safe = path.parse()?;
-                let _ = index.add(safe, crate::ids::BlobId::from(entry.id));
+                drop(index.add(safe, ids::BlobId::from(entry.id)));
             }
-            crate::objects::TreeEntryKind::Tree => {
-                stage_tree_into_index(index, store, &entry.id, &path)?
-            }
+            objects::TreeEntryKind::Tree => stage_tree_into_index(index, store, &entry.id, &path)?,
         }
     }
     Ok(())
 }
 
-fn seed_index_from_head(index: &mut Index, repo: &crate::repos::Repo) -> Result<(), PvError> {
+fn seed_index_from_head(index: &mut Index, repo: &repos::Repo) -> Result<(), PvError> {
     let head = repo.refs.read_head()?;
     let commit_id = match head {
         HeadState::Branch(branch) | HeadState::Unborn(branch) => {
@@ -428,7 +302,7 @@ fn seed_index_from_head(index: &mut Index, repo: &crate::repos::Repo) -> Result<
 }
 
 async fn list_repos(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
 ) -> (StatusCode, Json<ResponseEnvelope<Vec<RepoSummary>>>) {
     if let Err(err) = require_permission(&state, &headers, None, Permission::Read, "repo.list") {
@@ -440,8 +314,9 @@ async fn list_repos(
         let mut repos = Vec::with_capacity(ids.len());
         for id in ids {
             let repo = state.repo_store.get(&id)?;
+            let repo_id = repo.id().to_string();
             repos.push(RepoSummary {
-                id: repo.metadata.id.to_string(),
+                id: repo_id,
                 name: repo.metadata.name,
                 description: repo.metadata.description,
                 created_at: repo.metadata.created_at,
@@ -459,7 +334,7 @@ async fn list_repos(
 }
 
 async fn issue_token(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Json(req): Json<IssueTokenRequest>,
 ) -> (StatusCode, Json<ResponseEnvelope<IssueTokenResponse>>) {
@@ -512,7 +387,7 @@ async fn issue_token(
 }
 
 async fn create_repo(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Json(req): Json<CreateRepoRequest>,
 ) -> (StatusCode, Json<ResponseEnvelope<RepoMetadata>>) {
@@ -543,7 +418,7 @@ async fn create_repo(
 }
 
 async fn get_repo(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(repo_id_raw): Path<String>,
 ) -> (StatusCode, Json<ResponseEnvelope<RepoSummary>>) {
@@ -564,11 +439,11 @@ async fn get_repo(
 
     match state.repo_store.get(&repo_id) {
         Ok(repo) => {
-            let _ = repo.id();
+            let repo_id = repo.id().to_string();
             (
                 StatusCode::OK,
                 Json(ResponseEnvelope::ok(RepoSummary {
-                    id: repo.metadata.id.to_string(),
+                    id: repo_id,
                     name: repo.metadata.name,
                     description: repo.metadata.description,
                     created_at: repo.metadata.created_at,
@@ -581,7 +456,7 @@ async fn get_repo(
 }
 
 async fn update_repo_metadata(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(repo_id_raw): Path<String>,
     Json(req): Json<UpdateRepoMetadataRequest>,
@@ -611,7 +486,7 @@ async fn update_repo_metadata(
 }
 
 async fn list_refs(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(repo_id_raw): Path<String>,
 ) -> (StatusCode, Json<ResponseEnvelope<Vec<RefView>>>) {
@@ -658,14 +533,11 @@ async fn list_refs(
 }
 
 async fn create_commit(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(repo_id_raw): Path<String>,
     Json(req): Json<CreateCommitRequest>,
-) -> (
-    StatusCode,
-    Json<ResponseEnvelope<crate::pipeline::CommitResult>>,
-) {
+) -> (StatusCode, Json<ResponseEnvelope<pipeline::CommitResult>>) {
     let repo_id = match repo_id_raw.parse::<RepoId>() {
         Ok(id) => id,
         Err(err) => return error_response(err),
@@ -681,14 +553,14 @@ async fn create_commit(
         return error_response(err);
     }
 
-    let out = (|| -> Result<crate::pipeline::CommitResult, PvError> {
+    let out = (|| -> Result<pipeline::CommitResult, PvError> {
         let repo = state.repo_store.get(&repo_id)?;
         let mut index = Index::new();
         seed_index_from_head(&mut index, &repo)?;
 
         for file in req.files {
-            let path: crate::indexes::SafePath = file.path.parse()?;
-            let _ = index.remove(&path);
+            let path: indexes::SafePath = file.path.parse()?;
+            drop(index.remove(&path));
             let content = match (file.content, file.content_hex) {
                 (Some(raw), None) => raw.into_bytes(),
                 (None, Some(hex)) => decode_hex_content(&hex)?,
@@ -704,11 +576,16 @@ async fn create_commit(
                 }
             };
             let blob = Blob::from_bytes(content);
-            let _ = index.add(path.clone(), blob.id.clone());
-            let _ = index.get(&path);
+            drop(index.add(path.clone(), blob.id.clone()));
+            if index.get(&path).is_none() {
+                return Err(PvError::CorruptObject(
+                    "staged blob unexpectedly missing after add".to_string(),
+                ));
+            }
             repo.objects.write(Object::Blob(blob))?;
         }
-        let _staged_files = index.len();
+        let staged_files = index.len();
+        tracing::debug!(staged_files, "staged files prepared for commit");
 
         let mut builder = CommitBuilder::new(
             req.author,
@@ -729,7 +606,7 @@ async fn create_commit(
 }
 
 async fn get_file_content(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path((repo_id_raw, commit_id_raw, raw_path)): Path<(String, String, String)>,
 ) -> axum::response::Response {
@@ -820,7 +697,7 @@ async fn get_file_content(
 }
 
 async fn get_commit(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path((repo_id_raw, commit_id_raw)): Path<(String, String)>,
 ) -> (StatusCode, Json<ResponseEnvelope<CommitView>>) {
@@ -867,13 +744,10 @@ async fn get_commit(
 }
 
 async fn get_history(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path((repo_id_raw, commit_id_raw)): Path<(String, String)>,
-) -> (
-    StatusCode,
-    Json<ResponseEnvelope<crate::history::HistoryPage>>,
-) {
+) -> (StatusCode, Json<ResponseEnvelope<history::HistoryPage>>) {
     let repo_id = match repo_id_raw.parse::<RepoId>() {
         Ok(id) => id,
         Err(err) => return error_response(err),
@@ -893,9 +767,9 @@ async fn get_history(
         return error_response(err);
     }
 
-    let out = (|| -> Result<crate::history::HistoryPage, PvError> {
+    let out = (|| -> Result<history::HistoryPage, PvError> {
         let repo = state.repo_store.get(&repo_id)?;
-        let walker = HistoryWalker::new(&repo.objects);
+        let walker = history::HistoryWalker::new(&repo.objects);
         walker.page(&commit_id, 100)
     })();
 
@@ -906,7 +780,7 @@ async fn get_history(
 }
 
 async fn compute_diff(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(repo_id_raw): Path<String>,
     Json(req): Json<DiffRequest>,
@@ -946,7 +820,7 @@ async fn compute_diff(
 }
 
 async fn merge(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(repo_id_raw): Path<String>,
     Json(req): Json<MergeRequest>,
@@ -1006,7 +880,7 @@ async fn merge(
 }
 
 async fn upload(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(repo_id_raw): Path<String>,
     Json(req): Json<UploadRequest>,
@@ -1049,14 +923,14 @@ async fn upload(
                     )));
                 }
             }
-            let _ = repo.objects.write(obj)?;
+            repo.objects.write(obj)?;
             written += 1;
         }
 
         let mut refs_updated = 0usize;
         for update in req.ref_updates {
             if update.policy == RefUpdatePolicy::Force {
-                let _ = require_permission(
+                require_permission(
                     &state,
                     &headers,
                     Some(&repo_id),
@@ -1087,7 +961,7 @@ async fn upload(
 }
 
 async fn fetch(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(repo_id_raw): Path<String>,
     Json(req): Json<FetchRequest>,
@@ -1124,7 +998,7 @@ async fn fetch(
 }
 
 async fn checkout_commit(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path((repo_id_raw, commit_id_raw)): Path<(String, String)>,
     Json(req): Json<CheckoutRequest>,
@@ -1172,7 +1046,7 @@ async fn checkout_commit(
 }
 
 async fn verify_repo(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(repo_id_raw): Path<String>,
 ) -> (StatusCode, Json<ResponseEnvelope<VerifySummary>>) {
@@ -1205,7 +1079,7 @@ async fn verify_repo(
 // ── Issue management endpoints ───────────────────────────────────────────────
 
 async fn create_issue(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Json(req): Json<CreateIssueRequest>,
 ) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
@@ -1242,7 +1116,7 @@ async fn create_issue(
 }
 
 async fn list_issues(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
 ) -> (StatusCode, Json<ResponseEnvelope<Vec<Issue>>>) {
     let claims = match state.auth_svc.authenticate(&headers, "issue.list") {
@@ -1264,7 +1138,7 @@ async fn list_issues(
 }
 
 async fn get_issue(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(issue_id_raw): Path<String>,
 ) -> (StatusCode, Json<ResponseEnvelope<Issue>>) {
@@ -1312,7 +1186,7 @@ async fn get_issue(
 }
 
 async fn assign_issue(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(issue_id_raw): Path<String>,
     Json(req): Json<AssignUserRequest>,
@@ -1343,7 +1217,7 @@ async fn assign_issue(
 }
 
 async fn share_issue(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(issue_id_raw): Path<String>,
     Json(req): Json<AssignUserRequest>,
@@ -1376,7 +1250,7 @@ async fn share_issue(
 // ── Slice endpoints ──────────────────────────────────────────────────────────
 
 async fn get_slice_manifest(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(issue_id_raw): Path<String>,
 ) -> (StatusCode, Json<ResponseEnvelope<SliceManifest>>) {
@@ -1430,7 +1304,7 @@ async fn get_slice_manifest(
 }
 
 async fn set_slice_definition(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path(issue_id_raw): Path<String>,
     Json(req): Json<SetSliceDefinitionRequest>,
@@ -1459,7 +1333,7 @@ async fn set_slice_definition(
 }
 
 async fn verify_with_slice(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
     Path((repo_id_raw, issue_id_raw)): Path<(String, String)>,
 ) -> (StatusCode, Json<ResponseEnvelope<SliceFeedback>>) {
@@ -1509,7 +1383,7 @@ async fn verify_with_slice(
 }
 
 async fn list_audit_entries(
-    State(state): State<AppState>,
+    State(state): State<Routes>,
     headers: HeaderMap,
 ) -> (StatusCode, Json<ResponseEnvelope<Vec<AuditEntry>>>) {
     if let Err(err) = require_permission(&state, &headers, None, Permission::Admin, "audit.list") {

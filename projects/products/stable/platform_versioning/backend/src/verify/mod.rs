@@ -2,6 +2,7 @@
 pub mod integrity_issue;
 pub mod integrity_report;
 pub mod slice_feedback;
+pub mod slice_feedback_entry;
 pub mod verification;
 
 pub use integrity_issue::IntegrityIssue;

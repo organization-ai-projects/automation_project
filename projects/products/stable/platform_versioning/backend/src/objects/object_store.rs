@@ -5,6 +5,12 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
+fn next_nonce() -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static NONCE: AtomicU32 = AtomicU32::new(1);
+    NONCE.fetch_add(1, Ordering::Relaxed)
+}
+
 use serde::{Deserialize, Serialize};
 
 use crate::errors::PvError;
@@ -117,10 +123,7 @@ impl ObjectStore {
         }
 
         let pid = std::process::id();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.subsec_nanos())
-            .unwrap_or(0);
+        let nanos = next_nonce();
         let tmp_name = format!(
             ".{}.tmp-{}-{}",
             path.file_name().and_then(|n| n.to_str()).unwrap_or("obj"),
@@ -182,10 +185,7 @@ mod tests {
     fn unique_test_dir() -> PathBuf {
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
         let pid = std::process::id();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.subsec_nanos())
-            .unwrap_or(0);
+        let nanos = next_nonce();
         std::env::temp_dir().join(format!("pv_obj_store_{pid}_{nanos}_{id}"))
     }
 

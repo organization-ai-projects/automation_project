@@ -1,16 +1,6 @@
 // projects/products/stable/platform_ide/ui/src/issue_list_view.rs
+use crate::issue_entry::IssueEntry;
 use serde::{Deserialize, Serialize};
-
-/// A minimal issue entry as shown in the IDE issue list.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IssueEntry {
-    /// The opaque issue identifier.
-    pub id: String,
-    /// The display name for this issue.
-    pub name: String,
-    /// Optional description.
-    pub description: Option<String>,
-}
 
 /// The issue list view state.
 ///
