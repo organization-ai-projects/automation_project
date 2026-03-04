@@ -17,7 +17,7 @@ fn test_scenario_validator_rejects_empty_pack_kind() {
     {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Failed to spawn backend: {}", e);
+            let _ = e;
             return;
         }
     };

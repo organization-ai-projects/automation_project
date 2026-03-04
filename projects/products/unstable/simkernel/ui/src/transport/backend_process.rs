@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-use crate::diagnostics::error::UiError;
+use crate::diagnostics::ui_error::UiError;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 pub struct BackendProcess {

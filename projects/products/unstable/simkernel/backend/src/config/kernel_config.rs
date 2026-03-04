@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-
+// projects/products/unstable/simkernel/backend/src/config/kernel_config.rs
 #[derive(Debug, Clone)]
 pub struct KernelConfig {
     pub max_ticks: u64,

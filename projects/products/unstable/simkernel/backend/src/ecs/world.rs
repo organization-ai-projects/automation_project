@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::ecs::component::Component;
 use crate::ecs::component_id::ComponentId;
 use crate::ecs::component_store::ComponentStore;

@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::determinism::seed::Seed;
 use crate::ecs::component::Component;
 use crate::ecs::component_id::ComponentId;
@@ -12,9 +11,9 @@ use crate::time::logical_clock::LogicalClock;
 const C_LABEL: ComponentId = ComponentId(0);
 const C_COUNTER: ComponentId = ComponentId(1);
 
-pub struct ThemeParkPack;
+pub struct PackThemePark;
 
-impl Pack for ThemeParkPack {
+impl Pack for PackThemePark {
     fn id(&self) -> PackId {
         PackId::new("theme_park")
     }
@@ -25,7 +24,9 @@ impl Pack for ThemeParkPack {
         "Theme Park"
     }
 
-    fn initialize(&self, world: &mut World, _seed: Seed) {
+    fn initialize(&self, world: &mut World, seed: Seed) {
+        let seed_value = seed.value();
+        let queue_start = 10 + (seed_value % 5) as i64;
         let ride = world.spawn();
         world.insert_component(
             ride,
@@ -40,7 +41,7 @@ impl Pack for ThemeParkPack {
             C_LABEL,
             Component::Label("visitor_queue".to_string()),
         );
-        world.insert_component(visitors, C_COUNTER, Component::Counter(10));
+        world.insert_component(visitors, C_COUNTER, Component::Counter(queue_start));
     }
 
     fn tick(&self, world: &mut World, clock: &LogicalClock, event_log: &mut EventLog) {
@@ -55,7 +56,7 @@ impl Pack for ThemeParkPack {
                 event_log.emit(
                     clock.tick,
                     "theme_park.visitor_boarded",
-                    serde_json::json!({ "tick": clock.tick.0 }),
+                    common_json::json!({ "tick": clock.tick.0 }),
                 );
             }
         }

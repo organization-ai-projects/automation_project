@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7,5 +6,5 @@ pub enum Component {
     Counter(i64),
     Flag(bool),
     Queue(Vec<u64>),
-    Custom(String, serde_json::Value),
+    Custom(String, common_json::Value),
 }

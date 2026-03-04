@@ -9,5 +9,5 @@ pub struct Command {
     pub id: CommandId,
     pub kind: CommandKind,
     pub at_tick: Tick,
-    pub payload: serde_json::Value,
+    pub payload: common_json::Value,
 }

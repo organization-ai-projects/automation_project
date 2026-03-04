@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::config::kernel_config::KernelConfig;
 use crate::io::json_codec;
 use crate::packs::pack_registry::PackRegistry;
@@ -101,7 +100,15 @@ impl RequestDispatcher {
                     Response::error(Some(id), "NO_RUN", "No run in progress", "")
                 }
             }
-            _ => Response::ok(id),
+            Request::LoadScenario { .. }
+            | Request::ValidateScenario { .. }
+            | Request::SubmitCommands { .. }
+            | Request::Step { .. }
+            | Request::RunToEnd
+            | Request::Query { .. }
+            | Request::SaveReplay { .. }
+            | Request::LoadReplay { .. }
+            | Request::ReplayToEnd => Response::ok(id),
         }
     }
 
@@ -111,8 +118,8 @@ impl RequestDispatcher {
         pack_kind: String,
         seed: u64,
         ticks: u64,
-        _turns: u64,
-        _ticks_per_turn: u64,
+        turns: u64,
+        ticks_per_turn: u64,
     ) -> Response {
         use crate::determinism::seed::Seed;
         use crate::ecs::world::World;
@@ -125,6 +132,19 @@ impl RequestDispatcher {
         let mut world = World::new();
         let mut event_log = EventLog::new();
         let mut clock = LogicalClock::new();
+        let effective_turns = if turns == 0 {
+            self.config.max_turns
+        } else {
+            turns
+        };
+        let effective_ticks_per_turn = if ticks_per_turn == 0 {
+            self.config.default_ticks_per_turn
+        } else {
+            ticks_per_turn
+        };
+        if effective_turns == 0 || effective_ticks_per_turn == 0 {
+            return Response::error(Some(id), "INVALID_CONFIG", "Invalid run timing", "");
+        }
 
         let pack = match self.registry.get_pack(&pack_kind) {
             Some(p) => p,
@@ -140,9 +160,11 @@ impl RequestDispatcher {
 
         pack.initialize(&mut world, seed_val);
 
-        for _tick in 0..ticks {
+        let mut tick_index = 0;
+        while tick_index < ticks {
             clock.advance_tick();
             pack.tick(&mut world, &clock, &mut event_log);
+            tick_index += 1;
         }
 
         let snapshot = StateSnapshot::from_world(&world, &clock);

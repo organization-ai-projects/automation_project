@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// projects/products/unstable/simkernel/ui/src/widgets/log_widget.rs
 pub struct LogWidget {
     pub entries: Vec<String>,
 }

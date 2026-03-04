@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// projects/products/unstable/simkernel/ui/src/screens/inspect_screen.rs
 pub struct InspectScreen {
     pub query_result: String,
 }

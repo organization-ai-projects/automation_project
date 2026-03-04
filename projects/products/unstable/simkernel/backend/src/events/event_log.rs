@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::events::event_id::EventId;
 use crate::events::kernel_event::KernelEvent;
 use crate::time::tick::Tick;
@@ -22,7 +21,7 @@ impl EventLog {
         &mut self,
         tick: Tick,
         kind: impl Into<String>,
-        payload: serde_json::Value,
+        payload: common_json::Value,
     ) -> EventId {
         let id = EventId(self.next_id);
         self.next_id += 1;

@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::ecs::world::World;
 use crate::snapshot::snapshot_hash::SnapshotHash;
 use crate::time::logical_clock::LogicalClock;

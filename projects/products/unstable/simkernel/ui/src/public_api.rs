@@ -1,6 +1,5 @@
-#![allow(dead_code)]
 use crate::app::app_state::AppState;
-use crate::diagnostics::error::UiError;
+use crate::diagnostics::ui_error::UiError;
 use crate::transport::ipc_client::IpcClient;
 
 pub struct Controller {

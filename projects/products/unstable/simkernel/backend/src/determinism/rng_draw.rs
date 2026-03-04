@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::time::tick::Tick;
 use serde::{Deserialize, Serialize};
 

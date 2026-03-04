@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::snapshot::state_snapshot::StateSnapshot;
 use sha2::{Digest, Sha256};
 

@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-use crate::diagnostics::error::UiError;
+use crate::diagnostics::ui_error::UiError;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 
@@ -54,7 +53,7 @@ impl IpcClient {
     }
 
     pub fn new_run(&mut self, pack_kind: &str, seed: u64, ticks: u64) -> Result<String, UiError> {
-        let payload = serde_json::json!({
+        let payload = common_json::json!({
             "type": "NewRun",
             "pack_kind": pack_kind,
             "seed": seed,

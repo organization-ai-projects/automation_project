@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// projects/products/unstable/simkernel/backend/src/determinism/deterministic_order.rs
 use crate::ecs::entity_id::EntityId;
 
 pub struct DeterministicOrder;

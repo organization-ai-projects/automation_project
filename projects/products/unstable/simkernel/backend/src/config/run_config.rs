@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-
+// projects/products/unstable/simkernel/backend/src/config/run_config.rs
 #[derive(Debug, Clone)]
 pub struct RunConfig {
     pub pack_kind: String,

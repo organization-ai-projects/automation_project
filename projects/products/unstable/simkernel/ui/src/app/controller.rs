@@ -1,13 +1,13 @@
-#![allow(dead_code)]
+// projects/products/unstable/simkernel/ui/src/app/controller.rs
 use crate::app::action::Action;
 use crate::app::app_state::AppState;
 use crate::app::reducer::Reducer;
 
-pub struct AppController {
+pub struct Controller {
     state: AppState,
 }
 
-impl AppController {
+impl Controller {
     pub fn new() -> Self {
         Self {
             state: AppState::new(),
