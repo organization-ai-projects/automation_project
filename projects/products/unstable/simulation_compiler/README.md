@@ -5,11 +5,8 @@ into a deterministic SimKernel pack module scaffold.
 
 ## Binaries
 
-| Binary | Description |
-|--------|-------------|
-| `simulation-compiler-backend` | Core DSL compiler: parse → validate → emit pack |
-| `simulation-compiler-ui` | Terminal UI that drives the backend over IPC |
-| `simulation-compiler-tooling` | Offline pack validator and golden checker |
+- `simulation-compiler-backend`: Core DSL compiler: parse -> validate -> emit pack.
+- `simulation-compiler-ui`: Terminal UI that drives the backend over IPC.
 
 ## Invariants
 

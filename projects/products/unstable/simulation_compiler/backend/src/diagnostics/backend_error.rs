@@ -1,4 +1,4 @@
-// projects/products/unstable/simulation_compiler/backend/src/diagnostics/error.rs
+// projects/products/unstable/simulation_compiler/backend/src/diagnostics/backend_error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]

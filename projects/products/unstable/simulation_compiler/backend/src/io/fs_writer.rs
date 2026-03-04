@@ -1,5 +1,5 @@
 // projects/products/unstable/simulation_compiler/backend/src/io/fs_writer.rs
-use crate::diagnostics::error::CompilerError;
+use crate::diagnostics::backend_error::CompilerError;
 use std::path::Path;
 
 pub struct FsWriter {

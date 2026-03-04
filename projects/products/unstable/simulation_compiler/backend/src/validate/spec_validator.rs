@@ -1,5 +1,5 @@
 // projects/products/unstable/simulation_compiler/backend/src/validate/spec_validator.rs
-use crate::diagnostics::error::CompilerError;
+use crate::diagnostics::backend_error::CompilerError;
 use crate::dsl::ast::Ast;
 
 pub struct SpecValidator;

@@ -2,4 +2,4 @@
 #![allow(unused_imports)]
 pub use crate::app::action::Action;
 pub use crate::app::app_state::AppState;
-pub use crate::diagnostics::error::UiError;
+pub use crate::diagnostics::ui_error::UiError;
