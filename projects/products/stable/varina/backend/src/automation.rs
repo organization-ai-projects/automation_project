@@ -230,7 +230,7 @@ pub fn run_git_autopilot_in_repo(
     let git_processes = process::Command::new("pgrep")
         .arg("git")
         .output()
-        .expect("Unable to check Git processes");
+        .map_err(|e| AutopilotError::from(format!("Unable to check Git processes: {e}")))?;
 
     if !git_processes.stdout.is_empty() {
         logs.push("[warning] active git processes detected; this might cause conflicts".into());
@@ -448,9 +448,12 @@ fn append_git_context(repo_path: &Path, logs: &mut Vec<String>) {
         Ok(output) if output.status.success() => {
             let text = String::from_utf8_lossy(&output.stdout);
             match parse_git_show(&text) {
-                Ok((hash, author, date, _message)) => logs.push(format!(
-                    "[git] head_commit={hash} author={author} date={date}"
-                )),
+                Ok((hash, author, date, message)) => {
+                    let message_len = message.len();
+                    logs.push(format!(
+                        "[git] head_commit={hash} author={author} date={date} message_len={message_len}"
+                    ))
+                }
                 Err(e) => logs.push(format!("[git] show parse error: {e}")),
             }
         }
@@ -519,7 +522,7 @@ fn extract_status_path(status_line: &str) -> &str {
     }
     let candidate = trimmed.get(3..).unwrap_or(trimmed).trim();
     match candidate.split_once(" -> ") {
-        Some((_from, to)) => to.trim(),
+        Some((_, to)) => to.trim(),
         None => candidate,
     }
 }

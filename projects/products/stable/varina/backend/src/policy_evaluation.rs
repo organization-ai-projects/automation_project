@@ -102,9 +102,10 @@ pub fn is_relevant(path: &str, policy: &AutopilotPolicy) -> bool {
 
     let mut gitignore_builder = GitignoreBuilder::new(".");
     gitignore_builder.add(gitignore_path);
-    let gitignore = gitignore_builder
-        .build()
-        .expect("Failed to parse .gitignore file");
+    let gitignore = match gitignore_builder.build() {
+        Ok(v) => v,
+        Err(_) => return is_relevant_norm(&normalize_path(path), &compiled),
+    };
 
     if gitignore.matched(path, false).is_ignore() {
         return false;
@@ -117,7 +118,10 @@ pub fn is_relevant_norm(path_norm: &str, policy: &CompiledAutopilotPolicy) -> bo
     let repo_root = Path::new(".");
     let mut builder = GitignoreBuilder::new(repo_root);
     builder.add(repo_root.join(".gitignore"));
-    let gitignore = builder.build().expect("Error while building .gitignore");
+    let gitignore = match builder.build() {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
 
     let is_ignored = gitignore
         .matched_path_or_any_parents(path_norm, false)
