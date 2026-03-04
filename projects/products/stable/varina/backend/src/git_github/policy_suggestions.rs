@@ -1,7 +1,7 @@
 //! projects/products/varina/backend/src/git_github/policy_suggestions.rs
 use crate::autopilot::{AutopilotPolicy, AutopilotReport};
 
-pub struct PolicySuggestion {
+pub struct PolicySuggestions {
     pub allow_push: Option<bool>,
     pub fail_on_unrelated_changes: Option<bool>,
     pub notes: Vec<String>,
@@ -10,7 +10,7 @@ pub struct PolicySuggestion {
 pub fn suggest_policy_from_report(
     report: &AutopilotReport,
     policy: &AutopilotPolicy,
-) -> PolicySuggestion {
+) -> PolicySuggestions {
     let mut notes = Vec::new();
 
     // 1) blocked => we NEVER try to "force through"
@@ -36,7 +36,7 @@ pub fn suggest_policy_from_report(
         );
     }
 
-    PolicySuggestion {
+    PolicySuggestions {
         allow_push: None,
         fail_on_unrelated_changes: None,
         notes,
