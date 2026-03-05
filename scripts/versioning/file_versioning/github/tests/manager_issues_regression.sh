@@ -24,6 +24,18 @@ if [[ -n "${MOCK_GH_ARGS_LOG:-}" ]]; then
   printf "%s\n" "$*" >> "${MOCK_GH_ARGS_LOG}"
 fi
 
+# manager_issues update now validates issue contract by reading current issue
+# content through `gh issue view --json title,body,labels`.
+# Return a minimal compliant payload for that call.
+if [[ "${1:-}" == "issue" && "${2:-}" == "view" ]]; then
+  if [[ " $* " == *" --json title,body,labels "* ]]; then
+    cat <<'JSON'
+{"title":"feat(shell): valid title","body":"## Context\nx\n\n## Problem\ny\n\n## Acceptance Criteria\nDone when :\n\n- [ ] z\n\n## Hierarchy\nParent: none","labels":[{"name":"issue"}]}
+JSON
+    exit 0
+  fi
+fi
+
 exit 0
 EOF
   chmod +x "${mock_dir}/gh"
