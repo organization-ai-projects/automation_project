@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-use crate::scenario::scenario_id::ScenarioId;
+use crate::scenarios::scenario_id::ScenarioId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,7 +15,7 @@ pub struct Scenario {
 impl Scenario {
     pub fn hash(&self) -> String {
         use sha2::{Digest, Sha256};
-        let data = serde_json::to_string(self).unwrap_or_default();
+        let data = common_json::to_string(self).unwrap_or_default();
         let mut h = Sha256::new();
         h.update(data.as_bytes());
         hex::encode(h.finalize())

@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::commands::command::Command;
 use crate::determinism::rng_draw::RngDraw;
 use serde::{Deserialize, Serialize};

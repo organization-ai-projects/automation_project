@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// projects/products/unstable/simkernel/ui/src/screens/report_screen.rs
 pub struct ReportScreen {
     pub report_json: String,
 }

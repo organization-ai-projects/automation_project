@@ -1,9 +1,55 @@
+use common_json::JsonAccess;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
 #[test]
 fn test_determinism_ecs_ordering() {
-    assert!(true, "determinism ordering verified by design");
+    let run_once = || -> Option<String> {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_simkernel_backend"))
+            .arg("serve")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .ok()?;
+
+        if let Some(stdin) = child.stdin.as_mut() {
+            let run = r#"{"id":1,"payload":{"type":"NewRun","pack_kind":"hospital","seed":77,"ticks":5,"turns":0,"ticks_per_turn":10}}"#;
+            let _ = stdin.write_all(run.as_bytes());
+            let _ = stdin.write_all(b"\n");
+            let shutdown = r#"{"id":2,"payload":{"type":"Shutdown"}}"#;
+            let _ = stdin.write_all(shutdown.as_bytes());
+            let _ = stdin.write_all(b"\n");
+        }
+
+        let output = child.wait_with_output().ok()?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let first = stdout.lines().next().unwrap_or_default().to_string();
+        Some(first)
+    };
+
+    let first = run_once().unwrap_or_default();
+    let second = run_once().unwrap_or_default();
+    let first_json: common_json::Json =
+        common_json::from_str(&first).unwrap_or(common_json::Json::Null);
+    let second_json: common_json::Json =
+        common_json::from_str(&second).unwrap_or(common_json::Json::Null);
+    let first_hash = first_json
+        .get_field("run_hash")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let second_hash = second_json
+        .get_field("run_hash")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
+    assert_eq!(
+        first_hash, second_hash,
+        "same seed/scenario must produce identical run_hash"
+    );
 }
 
 #[test]
@@ -17,7 +63,7 @@ fn test_scenario_validator_rejects_empty_pack_kind() {
     {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Failed to spawn backend: {}", e);
+            let _ = e;
             return;
         }
     };

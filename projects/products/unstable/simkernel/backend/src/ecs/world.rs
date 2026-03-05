@@ -1,7 +1,7 @@
-#![allow(dead_code)]
 use crate::ecs::component::Component;
 use crate::ecs::component_id::ComponentId;
 use crate::ecs::component_store::ComponentStore;
+use crate::ecs::entity::Entity;
 use crate::ecs::entity_id::EntityId;
 use std::collections::BTreeSet;
 
@@ -14,7 +14,11 @@ pub struct World {
 
 impl World {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            next_entity_id: 0,
+            entities: BTreeSet::new(),
+            components: ComponentStore::new(),
+        }
     }
 
     pub fn spawn(&mut self) -> EntityId {
@@ -44,6 +48,10 @@ impl World {
         self.components.get_mut(entity, cid)
     }
 
+    pub fn remove_component(&mut self, entity: EntityId, cid: ComponentId) {
+        self.components.remove(entity, cid);
+    }
+
     pub fn entities_sorted(&self) -> Vec<EntityId> {
         let mut v: Vec<EntityId> = self.entities.iter().copied().collect();
         v.sort_unstable();
@@ -52,5 +60,24 @@ impl World {
 
     pub fn entity_count(&self) -> usize {
         self.entities.len()
+    }
+
+    pub fn component_count(&self) -> usize {
+        self.components.len()
+    }
+
+    pub fn entities_with_components(&self) -> Vec<Entity> {
+        self.entities_sorted()
+            .into_iter()
+            .map(|id| {
+                let mut entity = Entity::new(id);
+                entity.components = self
+                    .components
+                    .iter_entity(id)
+                    .map(|(cid, component)| (cid, component.clone()))
+                    .collect();
+                entity
+            })
+            .collect()
     }
 }

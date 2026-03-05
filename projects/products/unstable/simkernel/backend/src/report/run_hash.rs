@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::events::event_log::EventLog;
 use sha2::{Digest, Sha256};
 

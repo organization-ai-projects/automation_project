@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::ecs::world::World;
 use crate::events::event_log::EventLog;
 use crate::schedule::system::System;

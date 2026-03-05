@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::determinism::seed::Seed;
 use crate::ecs::component::Component;
 use crate::ecs::component_id::ComponentId;
@@ -8,13 +7,14 @@ use crate::packs::pack::Pack;
 use crate::packs::pack_id::PackId;
 use crate::packs::pack_kind::PackKind;
 use crate::time::logical_clock::LogicalClock;
+use common_json::{Json, JsonMap};
 
 const C_LABEL: ComponentId = ComponentId(0);
 const C_COUNTER: ComponentId = ComponentId(1);
 
-pub struct HospitalPack;
+pub struct PackHospital;
 
-impl Pack for HospitalPack {
+impl Pack for PackHospital {
     fn id(&self) -> PackId {
         PackId::new("hospital")
     }
@@ -25,7 +25,9 @@ impl Pack for HospitalPack {
         "Hospital"
     }
 
-    fn initialize(&self, world: &mut World, _seed: Seed) {
+    fn initialize(&self, world: &mut World, seed: Seed) {
+        let seed_value = seed.value();
+        let queue_start = (seed_value % 3) as i64;
         let room1 = world.spawn();
         world.insert_component(room1, C_LABEL, Component::Label("room_1".to_string()));
         world.insert_component(room1, C_COUNTER, Component::Counter(0));
@@ -40,7 +42,7 @@ impl Pack for HospitalPack {
             C_LABEL,
             Component::Label("patient_queue".to_string()),
         );
-        world.insert_component(queue, C_COUNTER, Component::Counter(0));
+        world.insert_component(queue, C_COUNTER, Component::Counter(queue_start));
     }
 
     fn tick(&self, world: &mut World, clock: &LogicalClock, event_log: &mut EventLog) {
@@ -50,10 +52,13 @@ impl Pack for HospitalPack {
             if is_queue && let Some(Component::Counter(c)) = world.get_component_mut(eid, C_COUNTER)
             {
                 *c += 1;
+                let mut payload = JsonMap::new();
+                payload.insert("tick".to_string(), Json::from(clock.tick.0));
+                payload.insert("queue_size".to_string(), Json::from(*c));
                 event_log.emit(
                     clock.tick,
                     "hospital.patient_arrived",
-                    serde_json::json!({ "tick": clock.tick.0, "queue_size": *c }),
+                    Json::Object(payload),
                 );
             }
         }

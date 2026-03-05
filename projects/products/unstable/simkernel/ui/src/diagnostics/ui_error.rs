@@ -1,5 +1,4 @@
 use thiserror::Error;
-#[allow(dead_code)]
 #[derive(Error, Debug)]
 pub enum UiError {
     #[error("IO error: {0}")]

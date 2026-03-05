@@ -1,8 +1,7 @@
 use thiserror::Error;
 
-#[allow(dead_code)]
 #[derive(Error, Debug, Clone)]
-pub enum SimError {
+pub enum BackendError {
     #[error("IO error: {0}")]
     Io(String),
     #[error("Serialization error: {0}")]

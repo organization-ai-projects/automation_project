@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::report::run_report::RunReport;
 use crate::snapshot::state_snapshot::StateSnapshot;
 use serde::{Deserialize, Serialize};
@@ -61,7 +60,7 @@ impl Response {
 
     pub fn report(id: u64, report: &RunReport) -> Self {
         let run_hash = report.run_hash.clone();
-        let report_json = serde_json::to_string(report).unwrap_or_default();
+        let report_json = common_json::to_string(report).unwrap_or_default();
         Self::Report {
             id,
             run_hash,

@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::determinism::seed::Seed;
 use crate::ecs::world::World;
 use crate::events::event_log::EventLog;

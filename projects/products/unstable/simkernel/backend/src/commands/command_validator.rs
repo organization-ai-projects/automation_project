@@ -1,13 +1,12 @@
-#![allow(dead_code)]
 use crate::commands::command::Command;
-use crate::diagnostics::error::SimError;
+use crate::diagnostics::backend_error::BackendError;
 
 pub struct CommandValidator;
 
 impl CommandValidator {
-    pub fn validate(cmd: &Command) -> Result<(), SimError> {
+    pub fn validate(cmd: &Command) -> Result<(), BackendError> {
         if cmd.payload.is_null() {
-            return Err(SimError::InvalidCommand("null payload".to_string()));
+            return Err(BackendError::InvalidCommand("null payload".to_string()));
         }
         Ok(())
     }
