@@ -429,6 +429,16 @@ fi
 
 base_ref_display="$(normalize_branch_display_ref "$base_ref")"
 head_ref_display="$(normalize_branch_display_ref "$head_ref")"
+base_ref_git="$base_ref"
+head_ref_git="$head_ref"
+
+# Use resolvable refs for git compare operations; keep display refs for text.
+if ! git rev-parse --verify --quiet "${base_ref_git}^{commit}" >/dev/null 2>&1; then
+  base_ref_git="$base_ref_display"
+fi
+if ! git rev-parse --verify --quiet "${head_ref_git}^{commit}" >/dev/null 2>&1; then
+  head_ref_git="$head_ref_display"
+fi
 
 if [[ "$dry_run" == "true" && "$create_pr" == "true" ]]; then
   online_enrich="true"
@@ -496,6 +506,13 @@ load_compare_commit_messages() {
   local max_attempts=3
   local compare_ok=0
 
+  # Deterministic-first: use local git history when available.
+  compare_messages="$(git log --format=%B "${compare_base}..${compare_head}" 2>/dev/null || true)"
+  if [[ -n "$compare_messages" ]]; then
+    printf "%s" "$compare_messages"
+    return 0
+  fi
+
   repo_name_with_owner="$(get_repo_name_with_owner)"
 
   compare_range="${compare_base}...${compare_head}"
@@ -528,10 +545,8 @@ load_compare_commit_messages() {
       echo "Detail: ${compare_err}" >&2
     fi
 
-    # Fallback: local compare history remains deterministic for branch analysis.
-    compare_messages="$(git log --format=%B "${compare_base}..${compare_head}" 2>/dev/null || true)"
     if [[ -z "$compare_messages" ]]; then
-      echo "Error: unable to retrieve commits via GitHub compare (${compare_range}) and local git (${compare_base}..${compare_head})." >&2
+      echo "Error: unable to retrieve commit messages for ${compare_base}..${compare_head}." >&2
       rm -f "$compare_err_file"
       return 1
     fi
@@ -548,6 +563,13 @@ load_compare_commit_headlines() {
   local compare_range
   local compare_headlines
 
+  # Deterministic-first: use local git history when available.
+  compare_headlines="$(git log --format=%s "${compare_base}..${compare_head}" 2>/dev/null || true)"
+  if [[ -n "$compare_headlines" ]]; then
+    printf "%s" "$compare_headlines"
+    return 0
+  fi
+
   repo_name_with_owner="$(get_repo_name_with_owner)"
 
   compare_range="${compare_base}...${compare_head}"
@@ -559,8 +581,7 @@ load_compare_commit_headlines() {
   fi
 
   if [[ -z "$compare_headlines" ]]; then
-    # Fallback keeps deterministic behavior without GitHub API.
-    compare_headlines="$(git log --format=%s "${compare_base}..${compare_head}" 2>/dev/null || true)"
+    return 1
   fi
 
   printf "%s" "$compare_headlines"
@@ -569,15 +590,15 @@ load_compare_commit_headlines() {
 load_dry_compare_commits() {
   # Parity contract: dry-run must extract child PR refs from the same
   # commit-headline source shape as main-mode extraction.
-  dry_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
+  dry_compare_commit_messages="$(load_compare_commit_messages "$base_ref_git" "$head_ref_git" || true)"
   if [[ -z "$dry_compare_commit_messages" ]]; then
-    echo "Error: unable to determine commit messages for --dry-run compare ${base_ref_display}...${head_ref_display}." >&2
+    echo "Error: unable to determine commit messages for --dry-run compare ${base_ref_git}...${head_ref_git}." >&2
     exit "$E_NO_DATA"
   fi
 
-  dry_compare_commit_headlines="$(load_compare_commit_headlines "$base_ref_display" "$head_ref_display" || true)"
+  dry_compare_commit_headlines="$(load_compare_commit_headlines "$base_ref_git" "$head_ref_git" || true)"
   if [[ -z "$dry_compare_commit_headlines" ]]; then
-    echo "Error: unable to determine commit headlines for --dry-run compare ${base_ref_display}...${head_ref_display}." >&2
+    echo "Error: unable to determine commit headlines for --dry-run compare ${base_ref_git}...${head_ref_git}." >&2
     exit "$E_NO_DATA"
   fi
 }
@@ -587,7 +608,7 @@ extract_child_prs_dry() {
   local message
   commit_headlines="$dry_compare_commit_headlines"
   if [[ -z "$commit_headlines" ]]; then
-    debug_log "extract_child_prs_dry(compare ${base_ref_display}...${head_ref_display}) => no commits found"
+    debug_log "extract_child_prs_dry(compare ${base_ref_git}...${head_ref_git}) => no commits found"
     return 1
   fi
 
@@ -609,7 +630,7 @@ extract_child_prs_dry() {
     echo "$commit_headlines" | sed -nE 's/.*Merge pull request #([0-9]+).*/#\1/p'
     echo "$commit_headlines" | sed -nE 's/.*\(#([0-9]+)\)\s*$/#\1/p'
   } | sort -u > "$extracted_prs_file"
-  debug_log "extract_child_prs_dry(compare ${base_ref_display}...${head_ref_display}) => $(tr '\n' ' ' < "$extracted_prs_file")"
+  debug_log "extract_child_prs_dry(compare ${base_ref_git}...${head_ref_git}) => $(tr '\n' ' ' < "$extracted_prs_file")"
 
   return 0
 }
@@ -727,7 +748,7 @@ text_indicates_breaking() {
 }
 
 emit_change_footprint() {
-  local range="${base_ref_display}..${head_ref_display}"
+  local range="${base_ref_git}..${head_ref_git}"
   local files
   local file
   local any=0
@@ -775,6 +796,43 @@ emit_change_footprint() {
     [[ "$total" -eq 0 ]] && return
     any=1
     echo "- ${label} (${total})"
+
+    if [[ "$label" == "Crates" && "$total" -gt "$max_items_per_category" ]]; then
+      # For large Rust changesets, aggregate by crate for readability.
+      declare -A crate_counts=()
+      local crate=""
+      local crate_lines=""
+      local shown=0
+      local crates_total=0
+      for i in "${arr[@]}"; do
+        crate="$(infer_crate_from_path "$i")"
+        if [[ -z "$crate" ]]; then
+          crate="(unresolved crate)"
+        fi
+        crate_counts["$crate"]=$(( ${crate_counts["$crate"]:-0} + 1 ))
+      done
+
+      while IFS= read -r crate; do
+        [[ -z "$crate" ]] && continue
+        crate_lines+="${crate_counts[$crate]}"$'\t'"${crate}"$'\n'
+        crates_total=$((crates_total + 1))
+      done < <(printf '%s\n' "${!crate_counts[@]}" | LC_ALL=C sort)
+
+      while IFS=$'\t' read -r crate_count crate_name; do
+        [[ -z "${crate_name:-}" ]] && continue
+        echo "  - ${crate_name} (${crate_count} files)"
+        shown=$((shown + 1))
+        if [[ "$shown" -ge "$max_items_per_category" ]]; then
+          break
+        fi
+      done < <(printf '%s' "$crate_lines" | LC_ALL=C sort -t$'\t' -k1,1nr -k2,2)
+
+      if [[ "$crates_total" -gt "$max_items_per_category" ]]; then
+        echo "  - (showing top ${max_items_per_category} crates of ${crates_total})"
+      fi
+      return
+    fi
+
     count=0
     for i in "${arr[@]}"; do
       echo "  - ${i}"
@@ -783,9 +841,6 @@ emit_change_footprint() {
         break
       fi
     done
-    if [[ "$total" -gt "$max_items_per_category" ]]; then
-      echo "  - ... and $((total - max_items_per_category)) more"
-    fi
   }
 
   print_group "Documentation" "${doc_files[@]}"
@@ -801,12 +856,24 @@ emit_change_footprint() {
 
 infer_crate_from_path() {
   local rel_path="$1"
-  local dir candidate
+  local dir candidate product_root
 
   if [[ "$rel_path" == *"/src/"* ]]; then
     candidate="${rel_path%%/src/*}"
     if [[ -f "${candidate}/Cargo.toml" ]]; then
       echo "$candidate"
+      return
+    fi
+  fi
+
+  # Temporary legacy fallback (generic for any product):
+  # if Rust paths still come from product root (src/tests) while the product
+  # is already split into backend/ui crates, attribute them to backend crate.
+  # Remove this fallback once root-level src/tests paths are fully migrated.
+  if [[ "$rel_path" =~ ^(projects/products/(stable|unstable)/[^/]+)/(src|tests)/ ]]; then
+    product_root="${BASH_REMATCH[1]}"
+    if [[ -f "${product_root}/backend/Cargo.toml" ]]; then
+      echo "${product_root}/backend"
       return
     fi
   fi
@@ -830,7 +897,7 @@ infer_crate_from_path() {
 }
 
 compute_breaking_scope() {
-  local range="${base_ref_display}..${head_ref_display}"
+  local range="${base_ref_git}..${head_ref_git}"
   local raw_log rec full_hash short_hash subject body
   local files crate
   declare -A seen_breaking_hashes
@@ -942,7 +1009,7 @@ echo -n > "$conflict_issues_file"
 if [[ "$dry_run" == "true" ]]; then
   load_dry_compare_commits
   if ! extract_child_prs_dry; then
-    echo "Warning: unable to extract PRs from compare ${base_ref_display}...${head_ref_display}." >&2
+    echo "Warning: unable to extract PRs from compare ${base_ref_git}...${head_ref_git}." >&2
   fi
 else
   if ! extract_child_prs; then
@@ -1325,7 +1392,7 @@ if [[ "$dry_run" == "false" ]]; then
 
   if [[ -n "$auto_edit_pr_number" ]]; then
     # Keep --refresh-pr behavior aligned with --dry-run issue extraction.
-    refresh_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
+    refresh_compare_commit_messages="$(load_compare_commit_messages "$base_ref_git" "$head_ref_git" || true)"
     if [[ -n "$refresh_compare_commit_messages" ]]; then
       mark_inferred_decisions_from_text "$refresh_compare_commit_messages"
       mark_directive_decisions_from_text "$refresh_compare_commit_messages"
