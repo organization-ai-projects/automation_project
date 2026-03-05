@@ -1,6 +1,6 @@
 // projects/products/unstable/digital_pet/backend/src/replay/replay_file.rs
 use crate::care::care_action::CareAction;
-use crate::scenario::scenario::Scenario;
+use crate::scenarios::scenario::Scenario;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

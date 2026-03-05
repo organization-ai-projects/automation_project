@@ -1,0 +1,12 @@
+{
+  "seed": 42,
+  "final_species": "GoodMon",
+  "evolution_stage": 2,
+  "total_ticks": 100,
+  "care_mistakes": 1,
+  "final_happiness": 77,
+  "final_discipline": 80,
+  "final_hp": 35,
+  "event_count": 4,
+  "run_hash": "fixture_hash"
+}

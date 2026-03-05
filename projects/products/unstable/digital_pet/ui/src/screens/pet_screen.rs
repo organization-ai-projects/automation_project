@@ -1,5 +1,6 @@
 // projects/products/unstable/digital_pet/ui/src/screens/pet_screen.rs
 use crate::app::app_state::AppState;
+use crate::widgets::stat_widget::StatWidget;
 
 pub struct PetScreen {
     state: AppState,
@@ -16,11 +17,11 @@ impl PetScreen {
             "  Species:   {} (stage {})",
             self.state.species, self.state.evolution_stage
         );
-        println!("  HP:        {}/{}", self.state.hp, self.state.max_hp);
-        println!("  Hunger:    {}", self.state.hunger);
-        println!("  Fatigue:   {}", self.state.fatigue);
-        println!("  Happiness: {}", self.state.happiness);
-        println!("  Discipline:{}", self.state.discipline);
+        StatWidget::new("HP", self.state.hp, self.state.max_hp).render();
+        StatWidget::new("Hunger", self.state.hunger, 100).render();
+        StatWidget::new("Fatigue", self.state.fatigue, 100).render();
+        StatWidget::new("Happiness", self.state.happiness, 100).render();
+        StatWidget::new("Discipline", self.state.discipline, 100).render();
         if self.state.sick {
             println!("  [SICK]");
         }

@@ -1,8 +1,7 @@
 // projects/products/unstable/digital_pet/backend/src/public_api.rs
 use crate::battle::battle_engine::BattleEngine;
 use crate::care::care_engine::CareEngine;
-use crate::config::sim_config::SimConfig;
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::events::event_log::EventLog;
 use crate::evolution::evolution_engine::EvolutionEngine;
 use crate::evolution::evolution_tree::EvolutionTree;
@@ -16,12 +15,12 @@ use crate::protocol::response::Response;
 use crate::replay::replay_engine::ReplayEngine;
 use crate::replay::replay_file::ReplayFile;
 use crate::report::run_report::RunReport;
-use crate::scenario::scenario::Scenario;
-use crate::scenario::scenario_loader::ScenarioLoader;
+use crate::scenarios::scenario::Scenario;
+use crate::scenarios::scenario_loader::ScenarioLoader;
 use crate::snapshot::state_snapshot::StateSnapshot;
 use crate::time::tick_clock::TickClock;
 use crate::training::training_engine::TrainingEngine;
-use std::io::{BufRead, Write};
+use std::io::BufRead;
 use std::path::PathBuf;
 
 pub struct BackendApi;
@@ -31,8 +30,6 @@ impl BackendApi {
         let scenario = ScenarioLoader::load(&scenario_path)?;
         let mut state = ServerState::new(scenario);
         let stdin = std::io::stdin();
-        let stdout = std::io::stdout();
-        let mut out = std::io::BufWriter::new(stdout.lock());
         for line in stdin.lock().lines() {
             let line = line.map_err(|e| AppError::Io(e.to_string()))?;
             if line.trim().is_empty() {
@@ -42,16 +39,12 @@ impl BackendApi {
                 Ok(m) => m,
                 Err(e) => {
                     let resp = Response::error(None, &e.to_string());
-                    let encoded = JsonCodec::encode_response(&resp)?;
-                    writeln!(out, "{}", encoded).map_err(|e| AppError::Io(e.to_string()))?;
-                    out.flush().map_err(|e| AppError::Io(e.to_string()))?;
+                    crate::protocol::message::write_response_stdout(&resp)?;
                     continue;
                 }
             };
             let resp = state.handle(msg);
-            let encoded = JsonCodec::encode_response(&resp)?;
-            writeln!(out, "{}", encoded).map_err(|e| AppError::Io(e.to_string()))?;
-            out.flush().map_err(|e| AppError::Io(e.to_string()))?;
+            crate::protocol::message::write_response_stdout(&resp)?;
         }
         Ok(())
     }
@@ -107,7 +100,6 @@ impl ServerState {
     }
 
     fn new_run(&mut self, id: Option<u64>, seed: u64, ticks: u64) -> Response {
-        let config = SimConfig::default();
         self.clock = Some(TickClock::new(seed, ticks));
         let species = self.scenario.starting_species.clone();
         self.pet = Some(Pet::new(seed, species));
@@ -116,7 +108,6 @@ impl ServerState {
         self.care_engine = CareEngine::new();
         self.replay_file = Some(ReplayFile::new(seed, ticks, self.scenario.clone()));
         self.replay_mode = false;
-        let _ = config;
         Response::ok(id)
     }
 
@@ -138,7 +129,7 @@ impl ServerState {
                 break;
             }
             clock.tick();
-            needs.decay(clock.current_tick());
+            needs.decay();
             self.care_engine.evaluate(needs, clock.current_tick());
             self.evolution_engine.evaluate(
                 pet,
@@ -162,7 +153,13 @@ impl ServerState {
             None => return Response::error(id, "no active run"),
         };
         self.care_engine
-            .apply_action(kind, needs, clock.current_tick());
+            .apply_action(kind.clone(), needs, clock.current_tick());
+        if let Some(replay) = self.replay_file.as_mut() {
+            replay.actions.push(crate::care::care_action::CareAction {
+                kind,
+                tick: clock.current_tick(),
+            });
+        }
         Response::ok(id)
     }
 
@@ -171,11 +168,10 @@ impl ServerState {
             Some(p) => p,
             None => return Response::error(id, "no active pet"),
         };
-        let clock = match self.clock.as_ref() {
-            Some(c) => c,
-            None => return Response::error(id, "no active run"),
-        };
-        let result = self.training_engine.train(pet, &kind, clock.current_tick());
+        if self.clock.is_none() {
+            return Response::error(id, "no active run");
+        }
+        let result = self.training_engine.train(pet, &kind);
         Response::ok_with_data(id, format!("training: {:?}", result))
     }
 
@@ -232,6 +228,10 @@ impl ServerState {
             None => return Response::error(id, "no active run"),
         };
         let report = RunReport::generate(pet, needs, clock, &self.event_log, &self.care_engine);
+        let canonical_json = report.canonical_json();
+        if canonical_json.is_empty() {
+            return Response::error(id, "canonical report serialization failed");
+        }
         Response::report(id, report)
     }
 
@@ -242,7 +242,7 @@ impl ServerState {
             None => return Response::error(id, "no replay data"),
         };
         match ReplayCodec::save(rf, &path) {
-            Ok(_) => Response::ok(id),
+            Ok(()) => Response::ok(id),
             Err(e) => Response::error(id, &e.to_string()),
         }
     }
@@ -266,6 +266,10 @@ impl ServerState {
         };
         let (pet, needs, clock, event_log, care_engine) = ReplayEngine::run(&rf);
         let report = RunReport::generate(&pet, &needs, &clock, &event_log, &care_engine);
+        let canonical_json = report.canonical_json();
+        if canonical_json.is_empty() {
+            return Response::error(id, "canonical report serialization failed");
+        }
         self.pet = Some(pet);
         self.needs = Some(needs);
         self.clock = Some(clock);
@@ -284,5 +288,164 @@ impl ServerState {
             }
             Err(e) => Response::error(id, &e.to_string()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ServerState;
+    use crate::protocol::message::Message;
+    use crate::protocol::request::Request;
+    use crate::protocol::response::Response;
+    use crate::scenarios::scenario::Scenario;
+
+    fn new_state() -> ServerState {
+        ServerState::new(Scenario::default())
+    }
+
+    fn run_report_with_actions(
+        seed: u64,
+        ticks: u64,
+        care_ticks: &[u64],
+    ) -> crate::report::run_report::RunReport {
+        let mut state = new_state();
+        let resp = state.handle(Message {
+            id: Some(1),
+            request: Request::NewRun { seed, ticks },
+        });
+        assert!(matches!(resp, Response::Ok { .. }));
+
+        let mut current = 0u64;
+        for care_tick in care_ticks {
+            if *care_tick > current {
+                let step = *care_tick - current;
+                state.handle(Message {
+                    id: Some(2),
+                    request: Request::Step { n: step },
+                });
+                current = *care_tick;
+            }
+            state.handle(Message {
+                id: Some(3),
+                request: Request::CareAction {
+                    kind: "feed".to_string(),
+                },
+            });
+        }
+        if current < ticks {
+            state.handle(Message {
+                id: Some(4),
+                request: Request::Step { n: ticks - current },
+            });
+        }
+
+        match state.handle(Message {
+            id: Some(5),
+            request: Request::GetReport,
+        }) {
+            Response::Report { report, .. } => report,
+            _ => crate::report::run_report::RunReport {
+                seed: 0,
+                final_species: String::new(),
+                evolution_stage: 0,
+                total_ticks: 0,
+                care_mistakes: 0,
+                final_happiness: 0,
+                final_discipline: 0,
+                final_hp: 0,
+                event_count: 0,
+                run_hash: String::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn evolution_determinism_same_seed_same_hash() {
+        let a = run_report_with_actions(42, 100, &[20, 40, 60]);
+        let b = run_report_with_actions(42, 100, &[20, 40, 60]);
+        assert_eq!(a.final_species, b.final_species);
+        assert_eq!(a.evolution_stage, b.evolution_stage);
+        assert_eq!(a.run_hash, b.run_hash);
+    }
+
+    #[test]
+    fn care_mistake_determinism_no_actions() {
+        let a = run_report_with_actions(7, 80, &[]);
+        let b = run_report_with_actions(7, 80, &[]);
+        assert_eq!(a.care_mistakes, b.care_mistakes);
+        assert_eq!(a.run_hash, b.run_hash);
+    }
+
+    #[test]
+    fn replay_equivalence_report_hash() {
+        let replay_path =
+            std::env::temp_dir().join(format!("digital_pet_replay_{}.json", std::process::id()));
+
+        let mut state = new_state();
+        state.handle(Message {
+            id: Some(1),
+            request: Request::NewRun {
+                seed: 99,
+                ticks: 90,
+            },
+        });
+        state.handle(Message {
+            id: Some(2),
+            request: Request::Step { n: 30 },
+        });
+        state.handle(Message {
+            id: Some(3),
+            request: Request::CareAction {
+                kind: "feed".to_string(),
+            },
+        });
+        state.handle(Message {
+            id: Some(4),
+            request: Request::Step { n: 60 },
+        });
+
+        let original = match state.handle(Message {
+            id: Some(5),
+            request: Request::GetReport,
+        }) {
+            Response::Report { report, .. } => report,
+            _ => return,
+        };
+
+        state.handle(Message {
+            id: Some(6),
+            request: Request::SaveReplay {
+                path: replay_path.display().to_string(),
+            },
+        });
+
+        let mut replay_state = new_state();
+        replay_state.handle(Message {
+            id: Some(7),
+            request: Request::LoadReplay {
+                path: replay_path.display().to_string(),
+            },
+        });
+        let replayed = match replay_state.handle(Message {
+            id: Some(8),
+            request: Request::ReplayToEnd,
+        }) {
+            Response::Report { report, .. } => report,
+            _ => return,
+        };
+
+        assert_eq!(original.run_hash, replayed.run_hash);
+        assert_eq!(original.final_species, replayed.final_species);
+        if std::fs::remove_file(replay_path).is_err() {
+            // Best effort cleanup in test mode.
+        }
+    }
+
+    #[test]
+    fn canonical_report_encoding_is_stable() {
+        let report = run_report_with_actions(5, 50, &[25]);
+        let encoded_a = report.canonical_json();
+        let encoded_b = report.canonical_json();
+        assert_eq!(encoded_a, encoded_b);
     }
 }

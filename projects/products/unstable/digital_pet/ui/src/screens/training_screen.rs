@@ -1,4 +1,5 @@
 // projects/products/unstable/digital_pet/ui/src/screens/training_screen.rs
+use crate::widgets::log_widget::LogWidget;
 
 pub struct TrainingScreen {
     pub result: String,
@@ -11,6 +12,6 @@ impl TrainingScreen {
 
     pub fn render(&self) {
         println!("=== Training ===");
-        println!("  {}", self.result);
+        LogWidget::new(vec![self.result.clone()]).render();
     }
 }

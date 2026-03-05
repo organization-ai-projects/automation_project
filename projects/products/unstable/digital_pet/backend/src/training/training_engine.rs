@@ -1,6 +1,5 @@
 // projects/products/unstable/digital_pet/backend/src/training/training_engine.rs
 use crate::model::pet::Pet;
-use crate::time::tick::Tick;
 use crate::training::training_kind::TrainingKind;
 use crate::training::training_result::TrainingResult;
 
@@ -11,8 +10,7 @@ impl TrainingEngine {
         Self
     }
 
-    pub fn train(&mut self, pet: &mut Pet, kind: &str, tick: Tick) -> TrainingResult {
-        let _ = tick;
+    pub fn train(&mut self, pet: &mut Pet, kind: &str) -> TrainingResult {
         let kind = TrainingKind::from_str(kind);
         let gain = 2u32;
         match kind {

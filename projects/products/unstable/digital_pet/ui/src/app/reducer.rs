@@ -56,3 +56,63 @@ impl Reducer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Reducer;
+    use crate::app::action::Action;
+    use crate::app::app_state::AppState;
+    use crate::fixtures::fixture_loader::FixtureLoader;
+    use crate::transport::run_report_dto::RunReportDto;
+    use std::path::PathBuf;
+
+    #[test]
+    fn reducer_is_deterministic_for_same_action_stream() {
+        let actions = vec![
+            Action::Step(10),
+            Action::Feed,
+            Action::Train("strength".to_string()),
+            Action::StartBattle,
+            Action::BattleStep,
+            Action::GetReport,
+            Action::Quit,
+        ];
+
+        let mut a = AppState::new(42, 100);
+        let mut b = AppState::new(42, 100);
+        for action in &actions {
+            Reducer::apply(&mut a, action);
+            Reducer::apply(&mut b, action);
+        }
+        assert_eq!(a.current_tick, b.current_tick);
+        assert_eq!(a.running, b.running);
+        assert_eq!(a.last_event, b.last_event);
+    }
+
+    #[test]
+    fn loading_golden_report_yields_deterministic_screen_model() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("src")
+            .join("fixtures")
+            .join("golden_report.json");
+        let parsed = FixtureLoader::load_json(&path);
+        assert!(parsed.is_ok());
+        let json = if let Ok(v) = parsed { v } else { return };
+
+        let serialized = common_json::to_string(&json);
+        assert!(serialized.is_ok());
+        let report = if let Ok(s) = serialized {
+            common_json::from_str::<RunReportDto>(&s)
+        } else {
+            return;
+        };
+        assert!(report.is_ok());
+        let report = if let Ok(r) = report { r } else { return };
+
+        let a = AppState::from_report(&report);
+        let b = AppState::from_report(&report);
+        assert_eq!(a.species, b.species);
+        assert_eq!(a.evolution_stage, b.evolution_stage);
+        assert_eq!(a.last_event, b.last_event);
+    }
+}

@@ -1,36 +1,14 @@
 // projects/products/unstable/digital_pet/ui/src/transport/ipc_client.rs
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::transport::backend_process::BackendProcess;
-use serde::{Deserialize, Serialize};
+use crate::transport::battle_state_dto::BattleStateDto;
+use crate::transport::message::Message;
+use crate::transport::pet_state_dto::PetStateDto;
+use crate::transport::request::Request;
+use crate::transport::response::Response;
+use crate::transport::run_report_dto::RunReportDto;
+use crate::transport::snapshot_dto::SnapshotDto;
 use std::io::{BufRead, BufReader, Write};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PetStateDto {
-    pub species: String,
-    pub evolution_stage: u32,
-    pub hp: u32,
-    pub max_hp: u32,
-    pub hunger: u32,
-    pub fatigue: u32,
-    pub happiness: u32,
-    pub discipline: u32,
-    pub sick: bool,
-    pub tick: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RunReportDto {
-    pub seed: u64,
-    pub final_species: String,
-    pub evolution_stage: u32,
-    pub total_ticks: u64,
-    pub care_mistakes: usize,
-    pub final_happiness: u32,
-    pub final_discipline: u32,
-    pub final_hp: u32,
-    pub event_count: usize,
-    pub run_hash: String,
-}
 
 pub struct IpcClient {
     next_id: u64,
@@ -51,11 +29,14 @@ impl IpcClient {
         }
     }
 
-    fn send(&mut self, request: serde_json::Value) -> Result<serde_json::Value, AppError> {
+    fn send(&mut self, request: Request) -> Result<Response, AppError> {
         let id = self.next_id;
         self.next_id += 1;
-        let msg = serde_json::json!({ "id": id, "request": request });
-        let line = serde_json::to_string(&msg).map_err(|e| AppError::Ipc(e.to_string()))?;
+        let msg = Message {
+            id: Some(id),
+            request,
+        };
+        let line = common_json::to_string(&msg).map_err(|e| AppError::Ipc(e.to_string()))?;
         writeln!(self.stdin, "{}", line).map_err(|e| AppError::Ipc(e.to_string()))?;
         self.stdin
             .flush()
@@ -64,38 +45,121 @@ impl IpcClient {
         self.reader
             .read_line(&mut resp_line)
             .map_err(|e| AppError::Ipc(e.to_string()))?;
-        let resp: serde_json::Value =
-            serde_json::from_str(&resp_line).map_err(|e| AppError::Ipc(e.to_string()))?;
+        let resp: Response =
+            common_json::from_str(&resp_line).map_err(|e| AppError::Ipc(e.to_string()))?;
         Ok(resp)
     }
 
     pub fn new_run(&mut self, seed: u64, ticks: u64) -> Result<(), AppError> {
-        let req = serde_json::json!({ "type": "NewRun", "seed": seed, "ticks": ticks });
-        self.send(req)?;
+        self.send(Request::NewRun { seed, ticks })?;
         Ok(())
     }
 
+    pub fn load_scenario(&mut self, path: String) -> Result<(), AppError> {
+        match self.send(Request::LoadScenario { path })? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for LoadScenario".to_string(),
+            )),
+        }
+    }
+
     pub fn step(&mut self, n: u64) -> Result<PetStateDto, AppError> {
-        let req = serde_json::json!({ "type": "Step", "n": n });
-        let resp = self.send(req)?;
-        if resp["type"] == "PetState" {
-            let state: PetStateDto = serde_json::from_value(resp["state"].clone())
-                .map_err(|e| AppError::Ipc(e.to_string()))?;
-            Ok(state)
-        } else {
-            Err(AppError::Ipc(format!("unexpected response: {}", resp)))
+        match self.send(Request::Step { n })? {
+            Response::PetState { state, .. } => Ok(state),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc("unexpected response for Step".to_string())),
         }
     }
 
     pub fn get_report(&mut self) -> Result<RunReportDto, AppError> {
-        let req = serde_json::json!({ "type": "GetReport" });
-        let resp = self.send(req)?;
-        if resp["type"] == "Report" {
-            let report: RunReportDto = serde_json::from_value(resp["report"].clone())
-                .map_err(|e| AppError::Ipc(e.to_string()))?;
-            Ok(report)
-        } else {
-            Err(AppError::Ipc(format!("unexpected response: {}", resp)))
+        match self.send(Request::GetReport)? {
+            Response::Report { report, .. } => Ok(report),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for GetReport".to_string(),
+            )),
+        }
+    }
+
+    pub fn care_action(&mut self, kind: String) -> Result<(), AppError> {
+        match self.send(Request::CareAction { kind })? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for CareAction".to_string(),
+            )),
+        }
+    }
+
+    pub fn training(&mut self, kind: String) -> Result<String, AppError> {
+        match self.send(Request::Training { kind })? {
+            Response::OkWithData { data, .. } => Ok(data),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for Training".to_string(),
+            )),
+        }
+    }
+
+    pub fn start_battle(&mut self) -> Result<(), AppError> {
+        match self.send(Request::StartBattle)? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for StartBattle".to_string(),
+            )),
+        }
+    }
+
+    pub fn battle_step(&mut self) -> Result<BattleStateDto, AppError> {
+        match self.send(Request::BattleStep)? {
+            Response::BattleState { state, .. } => Ok(state),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for BattleStep".to_string(),
+            )),
+        }
+    }
+
+    pub fn get_snapshot(&mut self) -> Result<SnapshotDto, AppError> {
+        match self.send(Request::GetSnapshot)? {
+            Response::Snapshot { snapshot, .. } => Ok(snapshot),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for GetSnapshot".to_string(),
+            )),
+        }
+    }
+
+    pub fn save_replay(&mut self, path: String) -> Result<(), AppError> {
+        match self.send(Request::SaveReplay { path })? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for SaveReplay".to_string(),
+            )),
+        }
+    }
+
+    pub fn load_replay(&mut self, path: String) -> Result<(), AppError> {
+        match self.send(Request::LoadReplay { path })? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for LoadReplay".to_string(),
+            )),
+        }
+    }
+
+    pub fn replay_to_end(&mut self) -> Result<RunReportDto, AppError> {
+        match self.send(Request::ReplayToEnd)? {
+            Response::Report { report, .. } => Ok(report),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for ReplayToEnd".to_string(),
+            )),
         }
     }
 

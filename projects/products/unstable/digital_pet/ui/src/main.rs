@@ -1,13 +1,14 @@
 // projects/products/unstable/digital_pet/ui/src/main.rs
 mod app;
 mod diagnostics;
+#[cfg(test)]
 mod fixtures;
 pub mod public_api;
 mod screens;
 mod transport;
 mod widgets;
 
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::public_api::UiApi;
 use std::path::PathBuf;
 
@@ -24,6 +25,7 @@ fn main() -> Result<(), AppError> {
             let mut seed: u64 = 42;
             let mut ticks: u64 = 100;
             let mut out: Option<PathBuf> = None;
+            let mut replay_out: Option<PathBuf> = None;
             let mut i = 2;
             while i < args.len() {
                 match args[i].as_str() {
@@ -51,12 +53,46 @@ fn main() -> Result<(), AppError> {
                             out = Some(PathBuf::from(&args[i]));
                         }
                     }
+                    "--replay-out" => {
+                        i += 1;
+                        if i < args.len() {
+                            replay_out = Some(PathBuf::from(&args[i]));
+                        }
+                    }
                     _ => {}
                 }
                 i += 1;
             }
             let scenario = scenario.unwrap_or_else(|| PathBuf::from("scenario.json"));
-            UiApi::run(scenario, seed, ticks, out)
+            UiApi::run(scenario, seed, ticks, out, replay_out)
+        }
+        "replay" => {
+            let mut replay: Option<PathBuf> = None;
+            let mut out: Option<PathBuf> = None;
+            let mut i = 2;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--replay" => {
+                        i += 1;
+                        if i < args.len() {
+                            replay = Some(PathBuf::from(&args[i]));
+                        }
+                    }
+                    "--out" => {
+                        i += 1;
+                        if i < args.len() {
+                            out = Some(PathBuf::from(&args[i]));
+                        }
+                    }
+                    _ => {}
+                }
+                i += 1;
+            }
+            let replay =
+                replay.ok_or_else(|| AppError::Process("missing --replay <file>".to_string()))?;
+            let out =
+                out.ok_or_else(|| AppError::Process("missing --out <report.json>".to_string()))?;
+            UiApi::replay(replay, out)
         }
         _ => {
             print_usage();
@@ -69,5 +105,8 @@ fn print_usage() {
     println!("digital_pet_ui - deterministic digital pet UI");
     println!();
     println!("Commands:");
-    println!("  run --scenario <file> --seed S --ticks N --out <report.json>");
+    println!(
+        "  run --scenario <file> --seed S --ticks N --out <report.json> [--replay-out <file>]"
+    );
+    println!("  replay --replay <file> --out <report.json>");
 }
