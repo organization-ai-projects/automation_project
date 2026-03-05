@@ -1,5 +1,6 @@
+// projects/products/unstable/colony_manager/backend/src/protocol/server.rs
+use crate::controller::Controller;
 use crate::diagnostics::colony_manager_error::ColonyManagerError;
-use crate::public_api::BackendApi;
 
 pub fn run(args: Vec<String>) -> i32 {
     if args.len() < 2 {
@@ -8,8 +9,8 @@ pub fn run(args: Vec<String>) -> i32 {
     }
 
     let result = match args[1].as_str() {
-        "run" => BackendApi::run(&args[2..]),
-        "replay" => BackendApi::replay(&args[2..]),
+        "run" => Controller::run(&args[2..]),
+        "replay" => Controller::replay(&args[2..]),
         _ => {
             eprintln!("Unknown command: {}", args[1]);
             print_usage();

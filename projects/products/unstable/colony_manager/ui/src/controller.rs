@@ -1,29 +1,25 @@
-// projects/products/unstable/colony_manager/ui/src/public_api.rs
+// projects/products/unstable/colony_manager/ui/src/controller.rs
 use crate::app::action::Action;
 use crate::app::app_state::AppState;
 use crate::app::reducer::Reducer;
 use crate::ui_error::UiError;
 use std::process::Command;
 
-pub struct UiApi;
+pub struct Controller;
 
-impl UiApi {
-    pub fn run_from_args(args: Vec<String>) -> Result<(), UiError> {
-        if args.len() < 2 {
-            return Err(UiError::Usage);
-        }
-
+impl Controller {
+    pub fn run_command(command: &str, args: &[String]) -> Result<(), UiError> {
         let mut state = AppState::default();
-        match args[1].as_str() {
+        match command {
             "run" => {
                 Reducer::apply(&mut state, &Action::RunRequested);
-                Self::forward_to_backend(&args[1..])?;
+                Self::forward_to_backend(command, args)?;
                 Reducer::apply(&mut state, &Action::RunCompleted);
                 Ok(())
             }
             "replay" => {
                 Reducer::apply(&mut state, &Action::ReplayRequested);
-                Self::forward_to_backend(&args[1..])?;
+                Self::forward_to_backend(command, args)?;
                 Reducer::apply(&mut state, &Action::ReplayCompleted);
                 Ok(())
             }
@@ -31,8 +27,9 @@ impl UiApi {
         }
     }
 
-    fn forward_to_backend(command_args: &[String]) -> Result<(), UiError> {
+    fn forward_to_backend(command: &str, command_args: &[String]) -> Result<(), UiError> {
         let status = Command::new("colony_manager")
+            .arg(command)
             .args(command_args)
             .status()
             .map_err(|e| UiError::Io(e.to_string()))?;

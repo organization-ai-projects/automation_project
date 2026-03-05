@@ -1,3 +1,4 @@
+// projects/products/unstable/colony_manager/backend/src/controller.rs
 use crate::config::sim_config::SimConfig;
 use crate::diagnostics::colony_manager_error::ColonyManagerError;
 use crate::io::json_codec::JsonCodec;
@@ -9,9 +10,9 @@ use crate::scenarios::scenario_loader::ScenarioLoader;
 use crate::sim_engine::SimEngine;
 use std::path::PathBuf;
 
-pub struct BackendApi;
+pub struct Controller;
 
-impl BackendApi {
+impl Controller {
     pub fn run(args: &[String]) -> Result<String, ColonyManagerError> {
         let mut config = SimConfig::default();
         let mut scenario_path: Option<PathBuf> = None;

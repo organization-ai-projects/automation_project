@@ -1,4 +1,5 @@
 mod config;
+mod controller;
 mod diagnostics;
 mod events;
 mod hauling;
@@ -9,13 +10,13 @@ mod model;
 mod moods;
 mod needs;
 mod protocol;
-mod public_api;
 mod replay;
 mod report;
 mod rng;
 mod scenarios;
 mod sim_engine;
 mod snapshot;
+mod tests;
 mod time;
 
 use std::{env, process};
