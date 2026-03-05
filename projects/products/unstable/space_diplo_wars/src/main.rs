@@ -1,118 +1,269 @@
 #![allow(dead_code)]
 
+mod ai;
+mod config;
+mod diagnostics;
+mod diplomacy;
+mod economy;
+mod events;
+mod fleets;
+mod io;
+mod map;
+mod model;
+mod orders;
+mod public_api;
+mod queues;
+mod replay;
+mod report;
+mod resolution;
+mod scenario;
+mod snapshot;
+mod tech;
+mod time;
+mod war;
+
 use std::path::PathBuf;
 use std::process;
 
-use space_diplo_wars::config::game_config::GameConfig;
-use space_diplo_wars::diagnostics::error::SpaceDiploWarsError;
-use space_diplo_wars::io::json_codec::JsonCodec;
-use space_diplo_wars::orders;
-use space_diplo_wars::replay::replay_file::ReplayFile;
-use space_diplo_wars::report::run_hash::RunHash;
-use space_diplo_wars::report::run_report::RunReport;
-use space_diplo_wars::report::turn_report::TurnReport;
-use space_diplo_wars::resolution::resolution_engine::ResolutionEngine;
-use space_diplo_wars::scenario::scenario::Scenario;
-use space_diplo_wars::scenario::scenario_loader::ScenarioLoader;
-use space_diplo_wars::snapshot::snapshot_hash::SnapshotHash;
-use space_diplo_wars::snapshot::state_snapshot::StateSnapshot;
-use space_diplo_wars::time;
+use crate::config::game_config::GameConfig;
+use crate::diagnostics::error::SpaceDiploWarsError;
+use crate::io::json_codec::JsonCodec;
+use crate::orders::order_set::OrderSet;
+use crate::replay::replay_codec::ReplayCodec;
+use crate::replay::replay_engine::ReplayEngine;
+use crate::replay::replay_file::ReplayFile;
+use crate::report::run_hash::RunHash;
+use crate::report::run_report::RunReport;
+use crate::report::turn_report::TurnReport;
+use crate::resolution::resolution_engine::ResolutionEngine;
+use crate::scenario::scenario::Scenario;
+use crate::scenario::scenario_loader::ScenarioLoader;
+use crate::snapshot::snapshot_hash::SnapshotHash;
+use crate::snapshot::state_snapshot::StateSnapshot;
 
 fn main() {
     tracing_subscriber::fmt::init();
 
     let args: Vec<String> = std::env::args().collect();
+    let command = args.get(1).map(String::as_str).unwrap_or("");
 
-    // Parse subcommand
-    if args.len() < 2 || args[1] != "run" {
-        eprintln!("Usage: space_diplo_wars run [OPTIONS]");
-        process::exit(2);
-    }
+    let result = match command {
+        "run" => handle_run(&args[2..]),
+        "replay" => handle_replay(&args[2..]),
+        "snapshot" => handle_snapshot(&args[2..]),
+        "validate" => handle_validate(&args[2..]),
+        _ => Err(SpaceDiploWarsError::InvalidCli(
+            "Usage: space_diplo_wars <run|replay|snapshot|validate> [OPTIONS]".into(),
+        )),
+    };
 
-    match run_command(&args[2..]) {
+    match result {
         Ok(()) => process::exit(0),
         Err(SpaceDiploWarsError::InvalidCli(msg)) => {
-            eprintln!("Invalid CLI: {}", msg);
+            eprintln!("Invalid CLI: {msg}");
             process::exit(2);
         }
         Err(
             SpaceDiploWarsError::InvalidScenario(msg) | SpaceDiploWarsError::InvalidOrders(msg),
         ) => {
-            eprintln!("Invalid scenario/config/orders: {}", msg);
+            eprintln!("Invalid scenario/config/orders: {msg}");
             process::exit(3);
         }
         Err(SpaceDiploWarsError::ReplayMismatch(msg)) => {
-            eprintln!("Replay mismatch: {}", msg);
+            eprintln!("Replay mismatch: {msg}");
             process::exit(4);
         }
         Err(e) => {
-            eprintln!("Internal error: {}", e);
+            eprintln!("Internal error: {e}");
             process::exit(5);
         }
     }
 }
 
-fn run_command(args: &[String]) -> Result<(), SpaceDiploWarsError> {
-    // Parse: --turns N --ticks-per-turn K --seed S --scenario <file> --out <file>
+fn handle_run(args: &[String]) -> Result<(), SpaceDiploWarsError> {
     let mut turns: u64 = 10;
     let mut ticks_per_turn: u64 = 4;
     let mut seed: u64 = 42;
     let mut scenario_path: Option<PathBuf> = None;
     let mut out_path: Option<PathBuf> = None;
+    let mut replay_out: Option<PathBuf> = None;
 
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
             "--turns" => {
                 i += 1;
-                turns = args
-                    .get(i)
-                    .ok_or_else(|| {
-                        SpaceDiploWarsError::InvalidCli("--turns requires value".into())
-                    })?
-                    .parse()
-                    .map_err(|_| {
-                        SpaceDiploWarsError::InvalidCli("--turns must be a number".into())
-                    })?;
+                turns = parse_u64_arg(args.get(i), "--turns")?;
             }
             "--ticks-per-turn" => {
                 i += 1;
-                ticks_per_turn = args
-                    .get(i)
-                    .ok_or_else(|| {
-                        SpaceDiploWarsError::InvalidCli("--ticks-per-turn requires value".into())
-                    })?
-                    .parse()
-                    .map_err(|_| {
-                        SpaceDiploWarsError::InvalidCli("--ticks-per-turn must be a number".into())
-                    })?;
+                ticks_per_turn = parse_u64_arg(args.get(i), "--ticks-per-turn")?;
             }
             "--seed" => {
                 i += 1;
-                seed = args
-                    .get(i)
-                    .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--seed requires value".into()))?
-                    .parse()
-                    .map_err(|_| {
-                        SpaceDiploWarsError::InvalidCli("--seed must be a number".into())
-                    })?;
+                seed = parse_u64_arg(args.get(i), "--seed")?;
             }
             "--scenario" => {
                 i += 1;
-                scenario_path = Some(PathBuf::from(args.get(i).ok_or_else(|| {
-                    SpaceDiploWarsError::InvalidCli("--scenario requires value".into())
-                })?));
+                scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?));
             }
             "--out" => {
                 i += 1;
-                out_path = Some(PathBuf::from(args.get(i).ok_or_else(|| {
-                    SpaceDiploWarsError::InvalidCli("--out requires value".into())
-                })?));
+                out_path = Some(PathBuf::from(require_arg(args.get(i), "--out")?));
+            }
+            "--replay-out" => {
+                i += 1;
+                replay_out = Some(PathBuf::from(require_arg(args.get(i), "--replay-out")?));
             }
             flag => {
                 return Err(SpaceDiploWarsError::InvalidCli(format!(
-                    "Unknown flag: {}",
-                    flag
+                    "Unknown flag: {flag}"
+                )));
+            }
+        }
+        i += 1;
+    }
+
+    let scenario_file = scenario_path
+        .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--scenario is required".into()))?;
+    let report_file =
+        out_path.ok_or_else(|| SpaceDiploWarsError::InvalidCli("--out is required".into()))?;
+
+    let scenario = ScenarioLoader::load_from_file(&scenario_file)
+        .map_err(|e| SpaceDiploWarsError::InvalidScenario(e.to_string()))?;
+
+    let config = GameConfig {
+        turns,
+        ticks_per_turn,
+        seed,
+    };
+    let (run_report, replay_file) = execute_run(&scenario, &config)?;
+
+    let report_json = JsonCodec::encode(&run_report)?;
+    std::fs::write(&report_file, report_json)?;
+
+    if let Some(path) = replay_out {
+        let replay_json = ReplayCodec::encode(&replay_file)?;
+        std::fs::write(path, replay_json)?;
+    }
+
+    Ok(())
+}
+
+fn handle_replay(args: &[String]) -> Result<(), SpaceDiploWarsError> {
+    let mut replay_path: Option<PathBuf> = None;
+    let mut scenario_path: Option<PathBuf> = None;
+    let mut out_path: Option<PathBuf> = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--replay" => {
+                i += 1;
+                replay_path = Some(PathBuf::from(require_arg(args.get(i), "--replay")?));
+            }
+            "--scenario" => {
+                i += 1;
+                scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?));
+            }
+            "--out" => {
+                i += 1;
+                out_path = Some(PathBuf::from(require_arg(args.get(i), "--out")?));
+            }
+            flag => {
+                return Err(SpaceDiploWarsError::InvalidCli(format!(
+                    "Unknown flag: {flag}"
+                )));
+            }
+        }
+        i += 1;
+    }
+
+    let replay_file = replay_path
+        .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--replay is required".into()))?;
+    let scenario_file = scenario_path
+        .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--scenario is required".into()))?;
+    let out_file =
+        out_path.ok_or_else(|| SpaceDiploWarsError::InvalidCli("--out is required".into()))?;
+
+    let replay_json = std::fs::read_to_string(&replay_file)?;
+    let replay = ReplayCodec::decode(&replay_json)
+        .map_err(|e| SpaceDiploWarsError::ReplayMismatch(e.to_string()))?;
+    let scenario = ScenarioLoader::load_from_file(&scenario_file)
+        .map_err(|e| SpaceDiploWarsError::InvalidScenario(e.to_string()))?;
+
+    let run_report = ReplayEngine::replay(&replay, &scenario)?;
+    std::fs::write(out_file, JsonCodec::encode(&run_report)?)?;
+    Ok(())
+}
+
+fn handle_snapshot(args: &[String]) -> Result<(), SpaceDiploWarsError> {
+    let mut replay_path: Option<PathBuf> = None;
+    let mut scenario_path: Option<PathBuf> = None;
+    let mut out_path: Option<PathBuf> = None;
+    let mut at_turn: Option<u64> = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--replay" => {
+                i += 1;
+                replay_path = Some(PathBuf::from(require_arg(args.get(i), "--replay")?));
+            }
+            "--scenario" => {
+                i += 1;
+                scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?));
+            }
+            "--at-turn" => {
+                i += 1;
+                at_turn = Some(parse_u64_arg(args.get(i), "--at-turn")?);
+            }
+            "--out" => {
+                i += 1;
+                out_path = Some(PathBuf::from(require_arg(args.get(i), "--out")?));
+            }
+            flag => {
+                return Err(SpaceDiploWarsError::InvalidCli(format!(
+                    "Unknown flag: {flag}"
+                )));
+            }
+        }
+        i += 1;
+    }
+
+    let replay_file = replay_path
+        .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--replay is required".into()))?;
+    let scenario_file = scenario_path
+        .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--scenario is required".into()))?;
+    let out_file =
+        out_path.ok_or_else(|| SpaceDiploWarsError::InvalidCli("--out is required".into()))?;
+    let turn =
+        at_turn.ok_or_else(|| SpaceDiploWarsError::InvalidCli("--at-turn is required".into()))?;
+
+    let replay_json = std::fs::read_to_string(&replay_file)?;
+    let replay = ReplayCodec::decode(&replay_json)
+        .map_err(|e| SpaceDiploWarsError::ReplayMismatch(e.to_string()))?;
+    let scenario = ScenarioLoader::load_from_file(&scenario_file)
+        .map_err(|e| SpaceDiploWarsError::InvalidScenario(e.to_string()))?;
+
+    let snapshot = ReplayEngine::snapshot_at_turn(&replay, &scenario, turn)?;
+    std::fs::write(out_file, JsonCodec::encode(&snapshot)?)?;
+    Ok(())
+}
+
+fn handle_validate(args: &[String]) -> Result<(), SpaceDiploWarsError> {
+    let mut scenario_path: Option<PathBuf> = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--scenario" => {
+                i += 1;
+                scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?));
+            }
+            flag => {
+                return Err(SpaceDiploWarsError::InvalidCli(format!(
+                    "Unknown flag: {flag}"
                 )));
             }
         }
@@ -125,34 +276,30 @@ fn run_command(args: &[String]) -> Result<(), SpaceDiploWarsError> {
     let scenario = ScenarioLoader::load_from_file(&scenario_file)
         .map_err(|e| SpaceDiploWarsError::InvalidScenario(e.to_string()))?;
 
-    let config = GameConfig {
-        turns,
-        ticks_per_turn,
-        seed,
-    };
-    let (run_report, replay_file) = execute_run(&scenario, &config)?;
-
-    // Compute run hash
-    let run_hash = RunHash::compute(&run_report)?;
-    tracing::info!("RunHash: {}", run_hash.0);
-
-    // Serialize outputs
-    let report_json = JsonCodec::encode(&run_report)?;
-    let replay_json = JsonCodec::encode(&replay_file)?;
-
-    let output = format!(
-        "{{\"run_report\":{},\"replay_file\":{},\"run_hash\":\"{}\"}}",
-        report_json, replay_json, run_hash.0
-    );
-
-    if let Some(path) = out_path {
-        std::fs::write(&path, &output)?;
-        tracing::info!("Output written to {:?}", path);
-    } else {
-        println!("{}", output);
+    if scenario.empires.is_empty() {
+        return Err(SpaceDiploWarsError::InvalidScenario(
+            "scenario must define at least one empire".into(),
+        ));
+    }
+    if scenario.star_map.systems.is_empty() {
+        return Err(SpaceDiploWarsError::InvalidScenario(
+            "scenario must define at least one star system".into(),
+        ));
     }
 
     Ok(())
+}
+
+fn require_arg<'a>(value: Option<&'a String>, flag: &str) -> Result<&'a str, SpaceDiploWarsError> {
+    value
+        .map(String::as_str)
+        .ok_or_else(|| SpaceDiploWarsError::InvalidCli(format!("{flag} requires a value")))
+}
+
+fn parse_u64_arg(value: Option<&String>, flag: &str) -> Result<u64, SpaceDiploWarsError> {
+    require_arg(value, flag)?
+        .parse::<u64>()
+        .map_err(|_| SpaceDiploWarsError::InvalidCli(format!("{flag} must be a number")))
 }
 
 fn execute_run(
@@ -161,7 +308,6 @@ fn execute_run(
 ) -> Result<(RunReport, ReplayFile), SpaceDiploWarsError> {
     let mut state = scenario.build_initial_state();
 
-    // Compute scenario hash
     let scenario_json = JsonCodec::encode(scenario)?;
     let mut hasher = <sha2::Sha256 as sha2::Digest>::new();
     sha2::Digest::update(&mut hasher, scenario_json.as_bytes());
@@ -170,34 +316,29 @@ fn execute_run(
     let mut replay_file = ReplayFile::new(config.seed, scenario_hash);
     let mut turn_reports: Vec<TurnReport> = Vec::new();
 
-    let total_turns = config.turns;
-
-    for turn in 1..=total_turns {
+    for turn in 1..=config.turns {
         let orders = scenario.orders_for_turn(turn);
-
-        // Record orders in replay
-        let order_set = orders::order_set::OrderSet {
-            turn,
-            orders: orders.clone(),
-        };
-        replay_file
-            .orders_per_turn
-            .insert(turn.to_string(), order_set);
+        replay_file.orders_per_turn.insert(
+            turn.to_string(),
+            OrderSet {
+                turn,
+                orders: orders.clone(),
+            },
+        );
 
         let res_report = ResolutionEngine::resolve_turn(&mut state, &orders, turn);
 
-        // Verify checkpoints
         for cp in &scenario.checkpoints {
-            if cp.turn == turn {
-                if let Some(expected) = &cp.expected_snapshot_hash {
-                    let snap = StateSnapshot::from_state(&state);
-                    let computed = SnapshotHash::compute(&snap)?;
-                    if computed.0 != *expected {
-                        return Err(SpaceDiploWarsError::ReplayMismatch(format!(
-                            "Checkpoint at turn {}: expected {}, got {}",
-                            turn, expected, computed.0
-                        )));
-                    }
+            if cp.turn == turn
+                && let Some(expected) = &cp.expected_snapshot_hash
+            {
+                let snapshot = StateSnapshot::from_state(&state);
+                let computed = SnapshotHash::compute(&snapshot)?;
+                if computed.0 != *expected {
+                    return Err(SpaceDiploWarsError::ReplayMismatch(format!(
+                        "checkpoint at turn {turn}: expected {expected}, got {}",
+                        computed.0
+                    )));
                 }
             }
         }
@@ -209,20 +350,23 @@ fn execute_run(
             validation_errors: res_report.validation_errors,
         });
 
-        state.current_turn = time::turn::Turn(turn);
-        state.current_tick = time::tick::Tick(turn * config.ticks_per_turn);
+        state.current_turn = crate::time::turn::Turn(turn);
+        state.current_tick = crate::time::tick::Tick(turn * config.ticks_per_turn);
     }
 
     let final_snapshot = StateSnapshot::from_state(&state);
     let snapshot_hash = SnapshotHash::compute(&final_snapshot)?;
-
     let run_report = RunReport {
         game_id: state.game_id.0.clone(),
         seed: config.seed,
-        turns_played: total_turns,
+        turns_played: config.turns,
         turn_reports,
         final_snapshot_hash: snapshot_hash.0,
     };
+
+    // Validate canonical JSON can be hashed deterministically.
+    let run_hash = RunHash::compute(&run_report)?;
+    tracing::info!("RunHash: {}", run_hash.0);
 
     Ok((run_report, replay_file))
 }

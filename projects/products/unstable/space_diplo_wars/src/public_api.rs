@@ -1,6 +1,5 @@
-pub use crate::config::game_config::GameConfig;
-pub use crate::diagnostics::error::SpaceDiploWarsError;
-pub use crate::replay::replay_engine::ReplayEngine;
-pub use crate::report::run_report::RunReport;
-pub use crate::resolution::resolution_engine::ResolutionEngine;
-pub use crate::scenario::scenario::Scenario;
+/// Marker module documenting the minimal intended public API surface for this product.
+///
+/// In this repository convention, `space_diplo_wars` is a bin-only crate, so this is
+/// an internal contract reference rather than an exported Rust library API.
+pub struct PublicApiContract;

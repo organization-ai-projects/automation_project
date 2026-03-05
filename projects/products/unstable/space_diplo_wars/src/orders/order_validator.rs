@@ -38,7 +38,7 @@ impl OrderValidator {
             }
             OrderKind::DefendSystem | OrderKind::Invest => {
                 // system param required
-                if order.params.get("system").is_none() && order.params.get("fleet_id").is_none() {
+                if !order.params.contains_key("system") && !order.params.contains_key("fleet_id") {
                     return Err(SpaceDiploWarsError::InvalidOrders(
                         "DefendSystem/Invest requires system param".into(),
                     ));

@@ -54,7 +54,7 @@ impl DiplomacyEngine {
                         .get("end_turn")
                         .and_then(|s| s.parse::<u64>().ok());
                     // Canonical treaty id: sorted empire ids + offer turn
-                    let mut ids = vec![order.empire_id.0.clone(), target.clone()];
+                    let mut ids = [order.empire_id.0.clone(), target.clone()];
                     ids.sort();
                     let treaty_key = format!("treaty_{}_{}", ids[0], ids[1]);
                     let versioned_key = format!("{}_{}", treaty_key, current_turn);
@@ -93,7 +93,7 @@ impl DiplomacyEngine {
         let expired: Vec<String> = state
             .treaties
             .iter()
-            .filter(|(_, t)| t.end_turn.map_or(false, |e| e < current_turn))
+            .filter(|(_, t)| t.end_turn.is_some_and(|e| e < current_turn))
             .map(|(k, _)| k.clone())
             .collect();
         for key in expired {

@@ -40,16 +40,16 @@ impl ReplayEngine {
 
             // Verify checkpoint if present
             for cp in &scenario.checkpoints {
-                if cp.turn == turn {
-                    if let Some(expected_hash) = &cp.expected_snapshot_hash {
-                        let snapshot = StateSnapshot::from_state(&state);
-                        let computed = SnapshotHash::compute(&snapshot)?;
-                        if computed.0 != *expected_hash {
-                            return Err(SpaceDiploWarsError::ReplayMismatch(format!(
-                                "Snapshot hash mismatch at turn {}: expected {}, got {}",
-                                turn, expected_hash, computed.0
-                            )));
-                        }
+                if cp.turn == turn
+                    && let Some(expected_hash) = &cp.expected_snapshot_hash
+                {
+                    let snapshot = StateSnapshot::from_state(&state);
+                    let computed = SnapshotHash::compute(&snapshot)?;
+                    if computed.0 != *expected_hash {
+                        return Err(SpaceDiploWarsError::ReplayMismatch(format!(
+                            "Snapshot hash mismatch at turn {}: expected {}, got {}",
+                            turn, expected_hash, computed.0
+                        )));
                     }
                 }
             }
@@ -76,5 +76,29 @@ impl ReplayEngine {
             turn_reports,
             final_snapshot_hash: snapshot_hash.0,
         })
+    }
+
+    pub fn snapshot_at_turn(
+        replay: &ReplayFile,
+        scenario: &Scenario,
+        turn_limit: u64,
+    ) -> Result<StateSnapshot, SpaceDiploWarsError> {
+        let mut state = scenario.build_initial_state();
+
+        for turn in 1..=turn_limit {
+            let key = turn.to_string();
+            let empty = Vec::new();
+            let orders = replay
+                .orders_per_turn
+                .get(&key)
+                .map(|os| os.orders.as_slice())
+                .unwrap_or(empty.as_slice());
+
+            let _ = ResolutionEngine::resolve_turn(&mut state, orders, turn);
+            state.current_turn = crate::time::turn::Turn(turn);
+            state.current_tick = crate::time::tick::Tick(turn * 4);
+        }
+
+        Ok(StateSnapshot::from_state(&state))
     }
 }
