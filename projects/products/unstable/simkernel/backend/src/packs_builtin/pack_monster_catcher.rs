@@ -7,6 +7,7 @@ use crate::packs::pack::Pack;
 use crate::packs::pack_id::PackId;
 use crate::packs::pack_kind::PackKind;
 use crate::time::logical_clock::LogicalClock;
+use common_json::{Json, JsonMap};
 
 const C_LABEL: ComponentId = ComponentId(0);
 const C_COUNTER: ComponentId = ComponentId(1);
@@ -50,13 +51,12 @@ impl Pack for PackMonsterCatcher {
             for eid in entities {
                 let is_monster = matches!(world.get_component(eid, C_LABEL), Some(Component::Label(lbl)) if lbl == "monster_001");
                 if is_monster {
-                    event_log.emit(
-                        clock.tick,
-                        "monster_catcher.encounter",
-                        common_json::json!({
-                            "tick": clock.tick.0, "roll": roll
-                        }),
-                    );
+                    event_log.emit(clock.tick, "monster_catcher.encounter", {
+                        let mut payload = JsonMap::new();
+                        payload.insert("tick".to_string(), Json::from(clock.tick.0));
+                        payload.insert("roll".to_string(), Json::from(roll));
+                        Json::Object(payload)
+                    });
                     if let Some(Component::Counter(hp)) = world.get_component_mut(eid, C_COUNTER) {
                         *hp = hp.saturating_sub(10);
                     }

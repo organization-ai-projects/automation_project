@@ -7,6 +7,7 @@ use crate::packs::pack::Pack;
 use crate::packs::pack_id::PackId;
 use crate::packs::pack_kind::PackKind;
 use crate::time::logical_clock::LogicalClock;
+use common_json::{Json, JsonMap};
 
 const C_LABEL: ComponentId = ComponentId(0);
 const C_COUNTER: ComponentId = ComponentId(1);
@@ -53,10 +54,12 @@ impl Pack for PackThemePark {
                 && *c > 0
             {
                 *c -= 1;
+                let mut payload = JsonMap::new();
+                payload.insert("tick".to_string(), Json::from(clock.tick.0));
                 event_log.emit(
                     clock.tick,
                     "theme_park.visitor_boarded",
-                    common_json::json!({ "tick": clock.tick.0 }),
+                    Json::Object(payload),
                 );
             }
         }

@@ -7,6 +7,7 @@ use crate::packs::pack::Pack;
 use crate::packs::pack_id::PackId;
 use crate::packs::pack_kind::PackKind;
 use crate::time::logical_clock::LogicalClock;
+use common_json::{Json, JsonMap};
 
 const C_LABEL: ComponentId = ComponentId(0);
 const C_COUNTER: ComponentId = ComponentId(1);
@@ -51,10 +52,13 @@ impl Pack for PackHospital {
             if is_queue && let Some(Component::Counter(c)) = world.get_component_mut(eid, C_COUNTER)
             {
                 *c += 1;
+                let mut payload = JsonMap::new();
+                payload.insert("tick".to_string(), Json::from(clock.tick.0));
+                payload.insert("queue_size".to_string(), Json::from(*c));
                 event_log.emit(
                     clock.tick,
                     "hospital.patient_arrived",
-                    common_json::json!({ "tick": clock.tick.0, "queue_size": *c }),
+                    Json::Object(payload),
                 );
             }
         }

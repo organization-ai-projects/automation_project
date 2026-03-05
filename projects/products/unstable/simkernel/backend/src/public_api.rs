@@ -4,19 +4,31 @@ use crate::packs::pack_registry::PackRegistry;
 use crate::protocol::message::Message;
 use crate::protocol::request::Request;
 use crate::protocol::response::Response;
+use crate::replay::replay_codec::ReplayCodec;
+use crate::replay::replay_engine::ReplayEngine;
+use crate::replay::replay_file::ReplayFile;
 use crate::report::run_report::RunReport;
+use crate::scenario::scenario::Scenario;
+use crate::scenario::scenario_loader::ScenarioLoader;
+use crate::scenario::scenario_validator::ScenarioValidator;
 use crate::snapshot::state_snapshot::StateSnapshot;
+use sha2::{Digest, Sha256};
 
 pub struct RequestDispatcher {
     config: KernelConfig,
     registry: PackRegistry,
     shutdown: bool,
+    loaded_scenario: Option<Scenario>,
+    loaded_replay: Option<ReplayFile>,
     run_state: Option<RunState>,
 }
 
 struct RunState {
+    world: crate::ecs::world::World,
+    scenario_hash: String,
     report: RunReport,
     snapshot: StateSnapshot,
+    event_log_checksum: u64,
 }
 
 impl RequestDispatcher {
@@ -25,6 +37,8 @@ impl RequestDispatcher {
             config: KernelConfig::default(),
             registry: PackRegistry::new(),
             shutdown: false,
+            loaded_scenario: None,
+            loaded_replay: None,
             run_state: None,
         }
     }
@@ -75,6 +89,8 @@ impl RequestDispatcher {
                 let packs = self.registry.list_packs();
                 Response::packs(id, packs)
             }
+            Request::LoadScenario { path } => self.load_scenario(id, &path),
+            Request::ValidateScenario { path } => self.validate_scenario(id, &path),
             Request::Shutdown => {
                 self.shutdown = true;
                 Response::ok(id)
@@ -85,7 +101,14 @@ impl RequestDispatcher {
                 ticks,
                 turns,
                 ticks_per_turn,
-            } => self.start_run(id, pack_kind, seed, ticks, turns, ticks_per_turn),
+            } => self.start_run(
+                id,
+                pack_kind,
+                seed.max(0.0) as u64,
+                ticks.max(0.0) as u64,
+                turns.max(0.0) as u64,
+                ticks_per_turn.max(0.0) as u64,
+            ),
             Request::GetReport => {
                 if let Some(state) = &self.run_state {
                     Response::report(id, &state.report)
@@ -95,20 +118,127 @@ impl RequestDispatcher {
             }
             Request::GetSnapshot { at_tick, at_turn } => {
                 if let Some(state) = &self.run_state {
-                    Response::snapshot(id, &state.snapshot, at_tick, at_turn)
+                    Response::snapshot(
+                        id,
+                        &state.snapshot,
+                        at_tick.max(0.0) as u64,
+                        at_turn.max(0.0) as u64,
+                    )
                 } else {
                     Response::error(Some(id), "NO_RUN", "No run in progress", "")
                 }
             }
-            Request::LoadScenario { .. }
-            | Request::ValidateScenario { .. }
-            | Request::SubmitCommands { .. }
-            | Request::Step { .. }
-            | Request::RunToEnd
-            | Request::Query { .. }
-            | Request::SaveReplay { .. }
-            | Request::LoadReplay { .. }
-            | Request::ReplayToEnd => Response::ok(id),
+            Request::Query { query } => self.query_state(id, &query),
+            Request::SaveReplay { path } => self.save_replay(id, &path),
+            Request::LoadReplay { path } => self.load_replay(id, &path),
+            Request::ReplayToEnd => self.replay_to_end(id),
+            Request::SubmitCommands { .. } | Request::Step { .. } | Request::RunToEnd => {
+                Response::ok(id)
+            }
+        }
+    }
+
+    fn load_scenario(&mut self, id: u64, path: &str) -> Response {
+        match ScenarioLoader::load_from_file(path).and_then(|scenario| {
+            ScenarioValidator::validate(&scenario)?;
+            Ok(scenario)
+        }) {
+            Ok(scenario) => {
+                let scenario_hash = scenario.hash();
+                self.loaded_scenario = Some(scenario);
+                Response::ScenarioValidated { id, scenario_hash }
+            }
+            Err(error) => Response::error(Some(id), "INVALID_SCENARIO", &error.to_string(), ""),
+        }
+    }
+
+    fn validate_scenario(&mut self, id: u64, path: &str) -> Response {
+        match ScenarioLoader::load_from_file(path).and_then(|scenario| {
+            ScenarioValidator::validate(&scenario)?;
+            Ok(scenario.hash())
+        }) {
+            Ok(scenario_hash) => Response::ScenarioValidated { id, scenario_hash },
+            Err(error) => Response::error(Some(id), "INVALID_SCENARIO", &error.to_string(), ""),
+        }
+    }
+
+    fn query_state(&mut self, id: u64, query_text: &str) -> Response {
+        use crate::inspect::query::Query;
+        use crate::inspect::query_engine::QueryEngine;
+
+        let state = match &self.run_state {
+            Some(value) => value,
+            None => return Response::error(Some(id), "NO_RUN", "No run in progress", ""),
+        };
+
+        let parsed_query = common_json::from_str::<Query>(query_text).unwrap_or(Query {
+            kind: query_text.to_string(),
+            filter: None,
+        });
+        let report = QueryEngine::execute(&state.world, &parsed_query);
+        match common_json::to_string(&report) {
+            Ok(report_json) => Response::QueryReport { id, report_json },
+            Err(error) => Response::error(Some(id), "SERIALIZATION", &error.to_string(), ""),
+        }
+    }
+
+    fn save_replay(&mut self, id: u64, path: &str) -> Response {
+        let state = match &self.run_state {
+            Some(value) => value,
+            None => return Response::error(Some(id), "NO_RUN", "No run in progress", ""),
+        };
+
+        let replay_file = ReplayFile {
+            pack_id: state.report.pack_kind.clone(),
+            pack_kind: state.report.pack_kind.clone(),
+            scenario_hash: state.scenario_hash.clone(),
+            seed: state.report.seed,
+            commands: Vec::new(),
+            rng_draws: Vec::new(),
+            event_log_checksum: state.event_log_checksum,
+        };
+
+        let encoded = match ReplayCodec::encode(&replay_file) {
+            Ok(value) => value,
+            Err(error) => {
+                return Response::error(Some(id), "SERIALIZATION", &error.to_string(), "");
+            }
+        };
+        if let Err(error) = std::fs::write(path, encoded) {
+            return Response::error(Some(id), "IO_ERROR", &error.to_string(), "");
+        }
+
+        self.loaded_replay = Some(replay_file);
+        Response::ok(id)
+    }
+
+    fn load_replay(&mut self, id: u64, path: &str) -> Response {
+        let encoded = match std::fs::read_to_string(path) {
+            Ok(value) => value,
+            Err(error) => return Response::error(Some(id), "IO_ERROR", &error.to_string(), ""),
+        };
+
+        match ReplayCodec::decode(&encoded) {
+            Ok(file) => {
+                self.loaded_replay = Some(file);
+                Response::ok(id)
+            }
+            Err(error) => Response::error(Some(id), "INVALID_REPLAY", &error.to_string(), ""),
+        }
+    }
+
+    fn replay_to_end(&mut self, id: u64) -> Response {
+        let replay = match &self.loaded_replay {
+            Some(value) => value,
+            None => return Response::error(Some(id), "NO_REPLAY", "No replay loaded", ""),
+        };
+
+        match ReplayEngine::replay(replay) {
+            Ok(checksum) => Response::QueryReport {
+                id,
+                report_json: format!("{{\"replay_checksum\":{}}}", checksum),
+            },
+            Err(error) => Response::error(Some(id), "REPLAY_MISMATCH", &error.to_string(), ""),
         }
     }
 
@@ -169,13 +299,29 @@ impl RequestDispatcher {
 
         let snapshot = StateSnapshot::from_world(&world, &clock);
         let snapshot_hash = SnapshotHash::compute(&snapshot);
+        let event_log_checksum = event_log.checksum();
         let run_hash = RunHash::compute(&event_log, &snapshot_hash);
         let report = RunReport::new(pack_kind, seed, ticks, run_hash, event_log.len());
+        let scenario_hash = self
+            .loaded_scenario
+            .as_ref()
+            .map(Scenario::hash)
+            .unwrap_or_else(|| Self::fallback_scenario_hash(seed, ticks));
 
         self.run_state = Some(RunState {
+            world: world.clone(),
+            scenario_hash,
             report: report.clone(),
             snapshot,
+            event_log_checksum,
         });
         Response::report(id, &report)
+    }
+
+    fn fallback_scenario_hash(seed: u64, ticks: u64) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(seed.to_le_bytes());
+        hasher.update(ticks.to_le_bytes());
+        hex::encode(hasher.finalize())
     }
 }

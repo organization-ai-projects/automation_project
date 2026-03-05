@@ -53,15 +53,39 @@ impl IpcClient {
     }
 
     pub fn new_run(&mut self, pack_kind: &str, seed: u64, ticks: u64) -> Result<String, UiError> {
-        let payload = common_json::json!({
-            "type": "NewRun",
-            "pack_kind": pack_kind,
-            "seed": seed,
-            "ticks": ticks,
-            "turns": 0,
-            "ticks_per_turn": 10
-        });
-        self.send_request(&payload.to_string())
+        let payload = format!(
+            "{{\"type\":\"NewRun\",\"pack_kind\":\"{}\",\"seed\":{},\"ticks\":{},\"turns\":0,\"ticks_per_turn\":10}}",
+            pack_kind, seed, ticks
+        );
+        self.send_request(&payload)
+    }
+
+    pub fn query(&mut self, query: &str) -> Result<String, UiError> {
+        let payload = format!(
+            "{{\"type\":\"Query\",\"query\":{}}}",
+            common_json::to_string(&query).unwrap_or_else(|_| "\"\"".to_string())
+        );
+        self.send_request(&payload)
+    }
+
+    pub fn save_replay(&mut self, path: &str) -> Result<String, UiError> {
+        let payload = format!(
+            "{{\"type\":\"SaveReplay\",\"path\":{}}}",
+            common_json::to_string(&path).unwrap_or_else(|_| "\"\"".to_string())
+        );
+        self.send_request(&payload)
+    }
+
+    pub fn load_replay(&mut self, path: &str) -> Result<String, UiError> {
+        let payload = format!(
+            "{{\"type\":\"LoadReplay\",\"path\":{}}}",
+            common_json::to_string(&path).unwrap_or_else(|_| "\"\"".to_string())
+        );
+        self.send_request(&payload)
+    }
+
+    pub fn replay_to_end(&mut self) -> Result<String, UiError> {
+        self.send_request(r#"{"type":"ReplayToEnd"}"#)
     }
 
     pub fn shutdown(&mut self) -> Result<(), UiError> {
