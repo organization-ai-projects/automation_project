@@ -1,0 +1,8 @@
+(
+  schema_version: 1,
+  id: "city_builder",
+  title: "City Builder",
+  entrypoint: "index.html",
+  kind: "ui_bundle",
+  version: "0.1.0",
+)
