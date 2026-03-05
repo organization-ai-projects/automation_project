@@ -19,7 +19,7 @@ source "${SCRIPT_DIR}/lib/rendering.sh"
 print_usage() {
   cat <<EOF
 Usage: ${SCRIPT_PATH} [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] [--refresh-pr PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
-       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER|--refresh-pr PR_NUMBER] [--yes] [OUTPUT_FILE]
+       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER|--refresh-pr PR_NUMBER] [--validation-only] [--yes] [OUTPUT_FILE]
        ${SCRIPT_PATH} --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
 EOF
 }
@@ -34,6 +34,7 @@ Notes:
   --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR.
   --auto-edit     Generate body in memory and update an existing PR directly.
   --refresh-pr    Alias of --auto-edit.
+  --validation-only  In --auto-edit/--refresh-pr mode, update only the "Validation Gate" section.
   --duplicate-mode  Duplicate handling mode: safe | auto-close.
   --debug         Print extraction/classification trace to stderr.
   --auto          RAM-first mode: dry-run + create-pr, body kept in memory.
@@ -73,6 +74,7 @@ refresh_pr_used="false"
 debug_mode="false"
 duplicate_mode=""
 repo_name_with_owner_cache=""
+validation_only="false"
 
 positionals=()
 while [[ $# -gt 0 ]]; do
@@ -136,6 +138,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --debug)
       debug_mode="true"
+      shift
+      ;;
+    --validation-only)
+      validation_only="true"
       shift
       ;;
     -h|--help)
@@ -214,6 +220,10 @@ if [[ -n "$auto_edit_pr_number" ]] && [[ ! "$auto_edit_pr_number" =~ ^[0-9]+$ ]]
     usage_error "--refresh-pr requires a numeric PR_NUMBER."
   fi
   usage_error "--auto-edit requires a numeric PR_NUMBER."
+fi
+
+if [[ "$validation_only" == "true" && -z "$auto_edit_pr_number" ]]; then
+  usage_error "--validation-only requires --auto-edit/--refresh-pr."
 fi
 
 if [[ -n "$duplicate_mode" ]] && [[ "$duplicate_mode" != "safe" && "$duplicate_mode" != "auto-close" ]]; then
@@ -1690,6 +1700,80 @@ case "$ci_status" in
   *) ci_status_with_symbol="UNKNOWN ⚪" ;;
 esac
 
+build_validation_gate_section() {
+  {
+    echo "### Validation Gate"
+    echo ""
+    echo "- CI: ${ci_status_with_symbol}"
+    if [[ "$breaking_detected" -eq 1 ]]; then
+      echo "- Breaking change"
+      echo "- Breaking scope:"
+      if [[ -n "$breaking_scope_crates" ]]; then
+        echo "  - crate(s): ${breaking_scope_crates}"
+      else
+        echo "  - crate(s): unknown"
+      fi
+      if [[ -n "$breaking_scope_commits" ]]; then
+        echo "  - source commit(s): ${breaking_scope_commits}"
+      else
+        echo "  - source commit(s): unknown"
+      fi
+    else
+      echo "- No breaking change"
+    fi
+  }
+}
+
+replace_validation_gate_in_body() {
+  local original_body="$1"
+  local replacement="$2"
+  local repl_file
+  repl_file="$(mktemp)"
+  printf "%s\n" "$replacement" > "$repl_file"
+
+  awk -v repl_file="$repl_file" '
+    function print_replacement() {
+      while ((getline line < repl_file) > 0) {
+        print line
+      }
+      close(repl_file)
+    }
+    BEGIN {
+      in_validation = 0
+      replaced = 0
+    }
+    {
+      if ($0 == "### Validation Gate") {
+        print_replacement()
+        replaced = 1
+        in_validation = 1
+        next
+      }
+
+      if (in_validation) {
+        if ($0 ~ /^### /) {
+          in_validation = 0
+          print ""
+          print $0
+        }
+        next
+      }
+
+      print $0
+    }
+    END {
+      if (!replaced) {
+        if (NR > 0) {
+          print ""
+        }
+        print_replacement()
+      }
+    }
+  ' <<< "$original_body"
+
+  rm -f "$repl_file"
+}
+
 body_content="$({
   echo "### Description"
   echo ""
@@ -1800,6 +1884,16 @@ body_content="$({
   echo ""
   :
 })"
+
+if [[ "$validation_only" == "true" && -n "$auto_edit_pr_number" ]]; then
+  current_pr_body="$(gh_optional "read PR #${auto_edit_pr_number} body for validation-only update" pr view "$auto_edit_pr_number" --json body -q '.body')"
+  if [[ -z "$current_pr_body" ]]; then
+    echo "Error: unable to read current PR body for validation-only update." >&2
+    exit "$E_PARTIAL"
+  fi
+  validation_gate_section="$(build_validation_gate_section)"
+  body_content="$(replace_validation_gate_in_body "$current_pr_body" "$validation_gate_section")"
+fi
 
 if [[ "$auto_mode" != "true" && -z "$auto_edit_pr_number" && "$write_body_to_file" == "true" ]]; then
   printf "%s\n" "$body_content" > "$output_file"
