@@ -57,18 +57,27 @@ impl RunReport {
 
     /// Canonical JSON encoding for deterministic hashing (sorted keys via BTreeMap).
     pub fn canonical_json(&self) -> String {
-        use std::collections::BTreeMap;
-        let mut map = BTreeMap::new();
-        map.insert("seed", serde_json::json!(self.seed));
-        map.insert("scenario_name", serde_json::json!(self.scenario_name));
-        map.insert("total_ticks", serde_json::json!(self.total_ticks));
-        map.insert("patients_treated", serde_json::json!(self.patients_treated));
-        map.insert("patients_died", serde_json::json!(self.patients_died));
-        map.insert("final_budget", serde_json::json!(self.final_budget));
-        map.insert("final_reputation", serde_json::json!(self.final_reputation));
-        map.insert("event_count", serde_json::json!(self.event_count));
-        map.insert("run_hash", serde_json::json!(self.run_hash));
-        serde_json::to_string(&map).unwrap_or_default()
+        let seed = common_json::to_json_string(&self.seed).unwrap_or_else(|_| "0".to_string());
+        let scenario_name =
+            common_json::to_json_string(&self.scenario_name).unwrap_or_else(|_| "\"\"".to_string());
+        let total_ticks =
+            common_json::to_json_string(&self.total_ticks).unwrap_or_else(|_| "0".to_string());
+        let patients_treated = common_json::to_json_string(&(self.patients_treated as u64))
+            .unwrap_or_else(|_| "0".to_string());
+        let patients_died = common_json::to_json_string(&(self.patients_died as u64))
+            .unwrap_or_else(|_| "0".to_string());
+        let final_budget =
+            common_json::to_json_string(&self.final_budget).unwrap_or_else(|_| "0".to_string());
+        let final_reputation = common_json::to_json_string(&(self.final_reputation as u64))
+            .unwrap_or_else(|_| "0".to_string());
+        let event_count = common_json::to_json_string(&(self.event_count as u64))
+            .unwrap_or_else(|_| "0".to_string());
+        let run_hash =
+            common_json::to_json_string(&self.run_hash).unwrap_or_else(|_| "\"\"".to_string());
+
+        format!(
+            "{{\"event_count\":{event_count},\"final_budget\":{final_budget},\"final_reputation\":{final_reputation},\"patients_died\":{patients_died},\"patients_treated\":{patients_treated},\"run_hash\":{run_hash},\"scenario_name\":{scenario_name},\"seed\":{seed},\"total_ticks\":{total_ticks}}}"
+        )
     }
 }
 

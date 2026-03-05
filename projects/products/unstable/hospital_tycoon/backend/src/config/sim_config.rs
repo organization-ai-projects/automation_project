@@ -43,7 +43,7 @@ impl SimConfig {
     pub fn load(path: &std::path::Path) -> Result<Self, crate::diagnostics::error::AppError> {
         let data = std::fs::read_to_string(path)
             .map_err(|e| crate::diagnostics::error::AppError::Io(e.to_string()))?;
-        serde_json::from_str(&data)
+        common_json::from_str(&data)
             .map_err(|e| crate::diagnostics::error::AppError::Config(e.to_string()))
     }
 }

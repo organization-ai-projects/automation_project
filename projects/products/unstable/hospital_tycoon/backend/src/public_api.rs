@@ -66,10 +66,12 @@ impl ServerState {
         match msg.request {
             Request::Ping => Response::ok(msg.id),
             Request::LoadScenario { path } => self.load_scenario(msg.id, path),
-            Request::NewRun { seed, ticks } => self.new_run(msg.id, seed, ticks),
-            Request::Step { n } => self.step(msg.id, n),
+            Request::NewRun { seed, ticks } => {
+                self.new_run(msg.id, seed.max(0.0) as u64, ticks.max(0.0) as u64)
+            }
+            Request::Step { n } => self.step(msg.id, n.max(0.0) as u64),
             Request::RunToEnd => self.run_to_end(msg.id),
-            Request::GetSnapshot { at_tick } => self.get_snapshot(msg.id, at_tick),
+            Request::GetSnapshot { at_tick } => self.get_snapshot(msg.id, at_tick.max(0.0) as u64),
             Request::GetReport => self.get_report(msg.id),
             Request::SaveReplay { path } => self.save_replay(msg.id, path),
             Request::LoadReplay { path } => self.load_replay(msg.id, path),

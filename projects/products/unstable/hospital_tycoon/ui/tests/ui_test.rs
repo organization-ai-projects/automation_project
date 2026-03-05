@@ -1,6 +1,7 @@
 // projects/products/unstable/hospital_tycoon/ui/tests/ui_test.rs
 //
 // UI tests: reducer determinism and fixture-based report screen rendering.
+use common_json::JsonAccess;
 
 // Test 1: Reducer determinism (pure state machine)
 #[test]
@@ -66,26 +67,61 @@ fn test_reducer_determinism() {
 // Test 2: Fixture-based report screen rendering — load golden report JSON and render deterministically
 #[test]
 fn test_report_screen_rendering_deterministic() {
-    let report_json = serde_json::json!({
-        "seed": 42,
-        "scenario_name": "tiny_clinic",
-        "total_ticks": 50,
-        "patients_treated": 9,
-        "patients_died": 0,
-        "final_budget": 12700,
-        "final_reputation": 59,
-        "event_count": 45,
-        "run_hash": "abc123def456"
-    });
+    let mut obj = common_json::JsonMap::new();
+    obj.insert("seed".to_string(), common_json::Json::from(42_u64));
+    obj.insert(
+        "scenario_name".to_string(),
+        common_json::Json::from("tiny_clinic"),
+    );
+    obj.insert("total_ticks".to_string(), common_json::Json::from(50_u64));
+    obj.insert(
+        "patients_treated".to_string(),
+        common_json::Json::from(9_u64),
+    );
+    obj.insert("patients_died".to_string(), common_json::Json::from(0_u64));
+    obj.insert(
+        "final_budget".to_string(),
+        common_json::Json::from(12700_i64),
+    );
+    obj.insert(
+        "final_reputation".to_string(),
+        common_json::Json::from(59_u64),
+    );
+    obj.insert("event_count".to_string(), common_json::Json::from(45_u64));
+    obj.insert(
+        "run_hash".to_string(),
+        common_json::Json::from("abc123def456"),
+    );
+    let report_json = common_json::Json::Object(obj);
 
-    fn render_summary(report: &serde_json::Value) -> String {
+    fn render_summary(report: &common_json::Json) -> String {
         format!(
             "seed={} scenario={} treated={} budget={} hash={}",
-            report["seed"],
-            report["scenario_name"].as_str().unwrap_or(""),
-            report["patients_treated"],
-            report["final_budget"],
-            report["run_hash"].as_str().unwrap_or("")
+            report
+                .get_field("seed")
+                .ok()
+                .and_then(common_json::Json::as_u64)
+                .unwrap_or(0),
+            report
+                .get_field("scenario_name")
+                .ok()
+                .and_then(common_json::Json::as_str)
+                .unwrap_or(""),
+            report
+                .get_field("patients_treated")
+                .ok()
+                .and_then(common_json::Json::as_u64)
+                .unwrap_or(0),
+            report
+                .get_field("final_budget")
+                .ok()
+                .and_then(common_json::Json::as_i64)
+                .unwrap_or(0),
+            report
+                .get_field("run_hash")
+                .ok()
+                .and_then(common_json::Json::as_str)
+                .unwrap_or("")
         )
     }
 

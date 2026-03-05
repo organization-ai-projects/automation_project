@@ -3,6 +3,8 @@
 // Integration tests for hospital_tycoon_backend.
 // These tests exercise the binary via stdin/stdout IPC (JSON Lines protocol).
 
+use common_json::JsonAccess;
+use serde::Serialize;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
 
@@ -12,8 +14,27 @@ const TINY_CLINIC: &str = concat!(
     "/tests/fixtures/scenarios/tiny_clinic.json"
 );
 
+#[derive(Debug, Clone, Serialize)]
+struct OutboundMessage {
+    id: u64,
+    request: OutboundRequest,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type")]
+enum OutboundRequest {
+    NewRun { seed: u64, ticks: u64 },
+    Step { n: u64 },
+    RunToEnd,
+    GetSnapshot { at_tick: u64 },
+    GetReport,
+    SaveReplay { path: String },
+    LoadReplay { path: String },
+    ReplayToEnd,
+}
+
 /// Helper: spawn backend, exchange JSON-line messages, collect responses.
-fn run_session(scenario: &str, messages: &[serde_json::Value]) -> Vec<serde_json::Value> {
+fn run_session(scenario: &str, messages: &[OutboundMessage]) -> Vec<common_json::Json> {
     let mut child = Command::new(BINARY)
         .arg("serve")
         .arg("--scenario")
@@ -24,8 +45,8 @@ fn run_session(scenario: &str, messages: &[serde_json::Value]) -> Vec<serde_json
         .spawn()
         .expect("failed to spawn backend binary");
 
-    let stdin = child.stdin.take().unwrap();
-    let stdout = child.stdout.take().unwrap();
+    let stdin = child.stdin.take().expect("stdin unavailable");
+    let stdout = child.stdout.take().expect("stdout unavailable");
     let reader = BufReader::new(stdout);
     let mut writer = stdin;
 
@@ -33,12 +54,14 @@ fn run_session(scenario: &str, messages: &[serde_json::Value]) -> Vec<serde_json
     let mut lines = reader.lines();
 
     for msg in messages {
-        let line = serde_json::to_string(msg).unwrap() + "\n";
-        writer.write_all(line.as_bytes()).unwrap();
-        writer.flush().unwrap();
+        let line = common_json::to_string(msg).expect("message encoding failed") + "\n";
+        writer
+            .write_all(line.as_bytes())
+            .expect("stdin write failed");
+        writer.flush().expect("stdin flush failed");
         if let Some(Ok(resp_line)) = lines.next() {
-            let v: serde_json::Value =
-                serde_json::from_str(&resp_line).unwrap_or(serde_json::Value::Null);
+            let v: common_json::Json =
+                common_json::from_str(&resp_line).unwrap_or(common_json::Json::Null);
             responses.push(v);
         }
     }
@@ -52,18 +75,40 @@ fn run_session(scenario: &str, messages: &[serde_json::Value]) -> Vec<serde_json
 #[test]
 fn test_deterministic_report() {
     let messages = vec![
-        serde_json::json!({"id": 1, "request": {"type": "NewRun", "seed": 42, "ticks": 50}}),
-        serde_json::json!({"id": 2, "request": {"type": "RunToEnd"}}),
-        serde_json::json!({"id": 3, "request": {"type": "GetReport"}}),
+        OutboundMessage {
+            id: 1,
+            request: OutboundRequest::NewRun {
+                seed: 42,
+                ticks: 50,
+            },
+        },
+        OutboundMessage {
+            id: 2,
+            request: OutboundRequest::RunToEnd,
+        },
+        OutboundMessage {
+            id: 3,
+            request: OutboundRequest::GetReport,
+        },
     ];
 
     let resps1 = run_session(TINY_CLINIC, &messages);
     let resps2 = run_session(TINY_CLINIC, &messages);
 
-    let hash1 = &resps1[2]["run_hash"];
-    let hash2 = &resps2[2]["run_hash"];
+    let hash1 = resps1[2]
+        .get_field("run_hash")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let hash2 = resps2[2]
+        .get_field("run_hash")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
 
-    assert!(!hash1.is_null(), "run_hash should not be null");
+    assert!(!hash1.is_empty(), "run_hash should not be empty");
     assert_eq!(
         hash1, hash2,
         "run_hash must be identical for same seed+scenario"
@@ -74,18 +119,40 @@ fn test_deterministic_report() {
 #[test]
 fn test_triage_routing_determinism() {
     let messages = vec![
-        serde_json::json!({"id": 1, "request": {"type": "NewRun", "seed": 77, "ticks": 20}}),
-        serde_json::json!({"id": 2, "request": {"type": "Step", "n": 10}}),
-        serde_json::json!({"id": 3, "request": {"type": "GetSnapshot", "at_tick": 10}}),
+        OutboundMessage {
+            id: 1,
+            request: OutboundRequest::NewRun {
+                seed: 77,
+                ticks: 20,
+            },
+        },
+        OutboundMessage {
+            id: 2,
+            request: OutboundRequest::Step { n: 10 },
+        },
+        OutboundMessage {
+            id: 3,
+            request: OutboundRequest::GetSnapshot { at_tick: 10 },
+        },
     ];
 
     let resps1 = run_session(TINY_CLINIC, &messages);
     let resps2 = run_session(TINY_CLINIC, &messages);
 
-    // Snapshot hash must match between two identical runs
-    let snap1 = &resps1[2]["snapshot"]["hash"];
-    let snap2 = &resps2[2]["snapshot"]["hash"];
-    assert!(!snap1.is_null(), "snapshot hash should not be null");
+    let snap1 = resps1[2]
+        .get_path("snapshot.hash")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let snap2 = resps2[2]
+        .get_path("snapshot.hash")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
+
+    assert!(!snap1.is_empty(), "snapshot hash should not be empty");
     assert_eq!(
         snap1, snap2,
         "snapshot hash must be identical for same inputs"
@@ -96,15 +163,40 @@ fn test_triage_routing_determinism() {
 #[test]
 fn test_canonical_report_encoding_determinism() {
     let messages = vec![
-        serde_json::json!({"id": 1, "request": {"type": "NewRun", "seed": 42, "ticks": 50}}),
-        serde_json::json!({"id": 2, "request": {"type": "RunToEnd"}}),
-        serde_json::json!({"id": 3, "request": {"type": "GetReport"}}),
-        serde_json::json!({"id": 4, "request": {"type": "GetReport"}}),
+        OutboundMessage {
+            id: 1,
+            request: OutboundRequest::NewRun {
+                seed: 42,
+                ticks: 50,
+            },
+        },
+        OutboundMessage {
+            id: 2,
+            request: OutboundRequest::RunToEnd,
+        },
+        OutboundMessage {
+            id: 3,
+            request: OutboundRequest::GetReport,
+        },
+        OutboundMessage {
+            id: 4,
+            request: OutboundRequest::GetReport,
+        },
     ];
 
     let resps = run_session(TINY_CLINIC, &messages);
-    let json1 = &resps[2]["report_json"];
-    let json2 = &resps[3]["report_json"];
+    let json1 = resps[2]
+        .get_field("report_json")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let json2 = resps[3]
+        .get_field("report_json")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
     assert_eq!(
         json1, json2,
         "repeated GetReport must return identical report_json"
@@ -115,32 +207,71 @@ fn test_canonical_report_encoding_determinism() {
 #[test]
 fn test_replay_produces_identical_report() {
     let replay_path = std::env::temp_dir().join("hospital_tycoon_test_replay.json");
-    let replay_str = replay_path.to_str().unwrap().to_string();
+    let replay_str = replay_path.to_string_lossy().to_string();
 
     // Original run
     let messages_run = vec![
-        serde_json::json!({"id": 1, "request": {"type": "NewRun", "seed": 42, "ticks": 30}}),
-        serde_json::json!({"id": 2, "request": {"type": "RunToEnd"}}),
-        serde_json::json!({"id": 3, "request": {"type": "GetReport"}}),
-        serde_json::json!({"id": 4, "request": {"type": "SaveReplay", "path": replay_str}}),
+        OutboundMessage {
+            id: 1,
+            request: OutboundRequest::NewRun {
+                seed: 42,
+                ticks: 30,
+            },
+        },
+        OutboundMessage {
+            id: 2,
+            request: OutboundRequest::RunToEnd,
+        },
+        OutboundMessage {
+            id: 3,
+            request: OutboundRequest::GetReport,
+        },
+        OutboundMessage {
+            id: 4,
+            request: OutboundRequest::SaveReplay {
+                path: replay_str.clone(),
+            },
+        },
     ];
     let resps_run = run_session(TINY_CLINIC, &messages_run);
-    let original_hash = resps_run[2]["run_hash"].as_str().unwrap_or("").to_string();
+    let original_hash = resps_run[2]
+        .get_field("run_hash")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
     assert!(
         !original_hash.is_empty(),
         "original run_hash must not be empty"
     );
-    assert_eq!(resps_run[3]["type"], "Ok", "SaveReplay should return Ok");
+
+    let save_type = resps_run[3]
+        .get_field("type")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
+        .to_string();
+    assert_eq!(save_type, "Ok", "SaveReplay should return Ok");
 
     // Replay run
     let messages_replay = vec![
-        serde_json::json!({"id": 1, "request": {"type": "LoadReplay", "path": replay_str}}),
-        serde_json::json!({"id": 2, "request": {"type": "ReplayToEnd"}}),
+        OutboundMessage {
+            id: 1,
+            request: OutboundRequest::LoadReplay {
+                path: replay_str.clone(),
+            },
+        },
+        OutboundMessage {
+            id: 2,
+            request: OutboundRequest::ReplayToEnd,
+        },
     ];
     let resps_replay = run_session(TINY_CLINIC, &messages_replay);
-    let replay_hash = resps_replay[1]["run_hash"]
-        .as_str()
-        .unwrap_or("")
+    let replay_hash = resps_replay[1]
+        .get_field("run_hash")
+        .ok()
+        .and_then(common_json::Json::as_str)
+        .unwrap_or_default()
         .to_string();
 
     assert_eq!(
