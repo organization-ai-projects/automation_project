@@ -1,6 +1,6 @@
 // projects/products/unstable/hospital_tycoon/ui/src/app/controller.rs
 use crate::app::app_state::AppState;
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::screens::report_screen::ReportScreen;
 use crate::transport::ipc_client::IpcClient;
 

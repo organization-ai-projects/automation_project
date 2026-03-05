@@ -1,5 +1,5 @@
 // projects/products/unstable/hospital_tycoon/backend/src/replay/replay_codec.rs
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::replay::replay_file::ReplayFile;
 use std::fs;
 

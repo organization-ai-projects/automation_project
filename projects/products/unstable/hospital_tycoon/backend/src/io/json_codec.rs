@@ -1,5 +1,5 @@
 // projects/products/unstable/hospital_tycoon/backend/src/io/json_codec.rs
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::protocol::message::Message;
 use crate::protocol::response::Response;
 

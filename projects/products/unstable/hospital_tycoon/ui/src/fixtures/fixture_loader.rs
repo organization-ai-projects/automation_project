@@ -1,5 +1,5 @@
 // projects/products/unstable/hospital_tycoon/ui/src/fixtures/fixture_loader.rs
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use std::path::Path;
 
 pub struct FixtureLoader;

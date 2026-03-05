@@ -1,56 +1,18 @@
 // projects/products/unstable/hospital_tycoon/ui/src/transport/ipc_client.rs
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::transport::backend_process::BackendProcess;
+use crate::transport::outbound_message::OutboundMessage;
+use crate::transport::outbound_request::OutboundRequest;
+use crate::transport::run_report_dto::RunReportDto;
+use crate::transport::snapshot_dto::SnapshotDto;
 use common_json::JsonAccess;
-use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SnapshotDto {
-    pub tick: u64,
-    pub patient_count: usize,
-    pub budget_balance: i64,
-    pub reputation_score: u32,
-    pub patients_treated: u32,
-    pub hash: String,
-    pub data_summary: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RunReportDto {
-    pub seed: u64,
-    pub scenario_name: String,
-    pub total_ticks: u64,
-    pub patients_treated: u32,
-    pub patients_died: u32,
-    pub final_budget: i64,
-    pub final_reputation: u32,
-    pub event_count: usize,
-    pub run_hash: String,
-}
 
 pub struct IpcClient {
     next_id: u64,
     stdin: std::process::ChildStdin,
     reader: BufReader<std::process::ChildStdout>,
     _process: BackendProcess,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct OutboundMessage {
-    id: u64,
-    request: OutboundRequest,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type")]
-enum OutboundRequest {
-    NewRun { seed: u64, ticks: u64 },
-    RunToEnd,
-    GetReport,
-    SaveReplay { path: String },
-    LoadReplay { path: String },
-    ReplayToEnd,
 }
 
 impl IpcClient {

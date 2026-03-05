@@ -1,6 +1,6 @@
 // projects/products/unstable/hospital_tycoon/backend/src/public_api.rs
 use crate::config::sim_config::SimConfig;
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::io::json_codec::JsonCodec;
 use crate::protocol::message::Message;
 use crate::protocol::request::Request;
@@ -11,39 +11,26 @@ use crate::replay::replay_file::ReplayFile;
 use crate::report::run_report::RunReport;
 use crate::sim::sim_engine::SimEngine;
 use crate::snapshot::state_snapshot::StateSnapshot;
-use std::io::{BufRead, Write};
 use std::path::PathBuf;
 
-pub struct BackendApi;
+pub struct BackendApi {
+    state: ServerState,
+}
 
 impl BackendApi {
-    pub fn serve(scenario_path: PathBuf) -> Result<(), AppError> {
+    pub fn from_scenario_path(scenario_path: PathBuf) -> Result<Self, AppError> {
         let config = SimConfig::load(&scenario_path)?;
-        let mut state = ServerState::new(config);
-        let stdin = std::io::stdin();
-        let stdout = std::io::stdout();
-        let mut out = std::io::BufWriter::new(stdout.lock());
-        for line in stdin.lock().lines() {
-            let line = line.map_err(|e| AppError::Io(e.to_string()))?;
-            if line.trim().is_empty() {
-                continue;
-            }
-            let msg: Message = match JsonCodec::decode_message(&line) {
-                Ok(m) => m,
-                Err(e) => {
-                    let resp = Response::error(None, "PROTOCOL_ERROR", &e.to_string());
-                    let encoded = JsonCodec::encode_response(&resp)?;
-                    writeln!(out, "{}", encoded).map_err(|e| AppError::Io(e.to_string()))?;
-                    out.flush().map_err(|e| AppError::Io(e.to_string()))?;
-                    continue;
-                }
-            };
-            let resp = state.handle(msg);
-            let encoded = JsonCodec::encode_response(&resp)?;
-            writeln!(out, "{}", encoded).map_err(|e| AppError::Io(e.to_string()))?;
-            out.flush().map_err(|e| AppError::Io(e.to_string()))?;
-        }
-        Ok(())
+        Ok(Self {
+            state: ServerState::new(config),
+        })
+    }
+
+    pub fn handle_line(&mut self, line: &str) -> Response {
+        let msg: Message = match JsonCodec::decode_message(line) {
+            Ok(message) => message,
+            Err(error) => return Response::error(None, "PROTOCOL_ERROR", &error.to_string()),
+        };
+        self.state.handle(msg)
     }
 }
 
@@ -126,11 +113,14 @@ impl ServerState {
         Response::snapshot(id, snap)
     }
 
-    fn get_snapshot(&mut self, id: Option<u64>, _at_tick: u64) -> Response {
+    fn get_snapshot(&mut self, id: Option<u64>, at_tick: u64) -> Response {
         let engine = match self.engine.as_ref() {
             Some(e) => e,
             None => return Response::error(id, "NO_RUN", "no active run"),
         };
+        if at_tick > engine.clock.current_tick().value() {
+            return Response::error(id, "SNAPSHOT_OUT_OF_RANGE", "requested tick is not reached");
+        }
         let snap = StateSnapshot::capture(&engine.state, &engine.event_log);
         Response::snapshot(id, snap)
     }

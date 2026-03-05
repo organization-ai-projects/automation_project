@@ -15,7 +15,6 @@ use crate::reputation::reputation::Reputation;
 use crate::reputation::reputation_engine::ReputationEngine;
 use crate::rooms::room::Room;
 use crate::rooms::room_engine::RoomEngine;
-use crate::rooms::room_kind::RoomKind;
 use crate::rooms::room_queue::RoomQueue;
 use crate::sim::event_log::EventLog;
 use crate::sim::sim_event::SimEvent;
@@ -23,16 +22,13 @@ use crate::staff::staff::Staff;
 use crate::staff::staff_skill::StaffSkill;
 use crate::time::tick_clock::TickClock;
 use crate::triage::triage_engine::TriageEngine;
-use rand::RngCore;
-use rand::SeedableRng;
-use rand::rngs::StdRng;
 use std::collections::BTreeMap;
 
 pub struct SimEngine {
     pub state: HospitalState,
     pub event_log: EventLog,
     pub clock: TickClock,
-    rng: StdRng,
+    rng_state: u64,
     config: SimConfig,
     triage: TriageEngine,
     economy: EconomyEngine,
@@ -89,7 +85,7 @@ impl SimEngine {
             state,
             event_log: EventLog::new(),
             clock: TickClock::new(seed, ticks),
-            rng: StdRng::seed_from_u64(seed),
+            rng_state: seed,
             triage: TriageEngine::default_rules(),
             economy: EconomyEngine::new(Pricing::default()),
             config,
@@ -121,7 +117,7 @@ impl SimEngine {
             if self.config.diseases.is_empty() {
                 return;
             }
-            let idx = (self.rng.next_u64() % self.config.diseases.len() as u64) as usize;
+            let idx = (self.next_random_u64() % self.config.diseases.len() as u64) as usize;
             let dc = &self.config.diseases[idx];
             let pid = PatientId::new(self.state.next_patient_id);
             self.state.next_patient_id += 1;
@@ -196,5 +192,13 @@ impl SimEngine {
                 self.state.reputation.score,
             ));
         }
+    }
+
+    fn next_random_u64(&mut self) -> u64 {
+        self.rng_state = self
+            .rng_state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1);
+        self.rng_state
     }
 }
