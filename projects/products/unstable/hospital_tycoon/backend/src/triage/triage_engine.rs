@@ -17,10 +17,6 @@ impl TriageEngine {
         Self { rules }
     }
 
-    pub fn default_rules() -> Self {
-        Self { rules: vec![] }
-    }
-
     /// Route a waiting patient to the best available room.
     /// Deterministic tie-break: lowest RoomId when multiple rooms have equal queue length.
     pub fn route(
@@ -108,7 +104,7 @@ mod tests {
 
     #[test]
     fn triage_routes_deterministically() {
-        let engine = TriageEngine::default_rules();
+        let engine = TriageEngine::new(vec![]);
         let mut rooms: BTreeMap<RoomId, Room> = BTreeMap::new();
         let mut queues: BTreeMap<RoomId, RoomQueue> = BTreeMap::new();
 

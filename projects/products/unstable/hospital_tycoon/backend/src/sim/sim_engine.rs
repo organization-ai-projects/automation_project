@@ -6,11 +6,13 @@ use crate::economy::pricing::Pricing;
 use crate::model::hospital_state::HospitalState;
 use crate::model::patient_id::PatientId;
 use crate::model::room_id::RoomId;
+use crate::model::sim_id::SimId;
 use crate::model::staff_id::StaffId;
 use crate::patients::disease::Disease;
 use crate::patients::disease_id::DiseaseId;
 use crate::patients::patient::Patient;
 use crate::patients::patient_state::PatientState;
+use crate::patients::symptom::Symptom;
 use crate::reputation::reputation::Reputation;
 use crate::reputation::reputation_engine::ReputationEngine;
 use crate::rooms::room::Room;
@@ -19,12 +21,14 @@ use crate::rooms::room_queue::RoomQueue;
 use crate::sim::event_log::EventLog;
 use crate::sim::sim_event::SimEvent;
 use crate::staff::staff::Staff;
+use crate::staff::staff_engine::StaffEngine;
 use crate::staff::staff_skill::StaffSkill;
 use crate::time::tick_clock::TickClock;
 use crate::triage::triage_engine::TriageEngine;
 use std::collections::BTreeMap;
 
 pub struct SimEngine {
+    sim_id: SimId,
     pub state: HospitalState,
     pub event_log: EventLog,
     pub clock: TickClock,
@@ -36,6 +40,7 @@ pub struct SimEngine {
 
 impl SimEngine {
     pub fn new(seed: u64, ticks: u64, config: SimConfig) -> Self {
+        let sim_id = SimId::new(seed);
         let mut rooms: BTreeMap<RoomId, Room> = BTreeMap::new();
         let mut room_queues: BTreeMap<RoomId, RoomQueue> = BTreeMap::new();
         for rc in &config.rooms {
@@ -82,11 +87,12 @@ impl SimEngine {
         };
 
         Self {
+            sim_id,
             state,
             event_log: EventLog::new(),
             clock: TickClock::new(seed, ticks),
             rng_state: seed,
-            triage: TriageEngine::default_rules(),
+            triage: TriageEngine::new(vec![]),
             economy: EconomyEngine::new(Pricing::default()),
             config,
         }
@@ -121,15 +127,19 @@ impl SimEngine {
             let dc = &self.config.diseases[idx];
             let pid = PatientId::new(self.state.next_patient_id);
             self.state.next_patient_id += 1;
+            let symptom = Symptom {
+                name: format!("{} symptom", dc.name),
+                severity: dc.severity,
+            };
             let patient = Patient {
                 id: pid,
-                name: format!("Patient{}", pid.0),
+                name: format!("S{}-Patient{}", self.sim_id.0, pid.0),
                 disease: Disease {
                     id: DiseaseId::new(dc.id.clone()),
                     name: dc.name.clone(),
-                    severity: dc.severity,
+                    severity: symptom.severity,
                 },
-                severity: dc.severity,
+                severity: symptom.severity,
                 assigned_room: None,
                 tick_admitted: tick.value(),
             };
@@ -140,6 +150,9 @@ impl SimEngine {
     }
 
     fn run_triage(&mut self, tick: crate::time::tick::Tick) {
+        if StaffEngine::available_count(&self.state.staff) == 0 {
+            return;
+        }
         let waiting = std::mem::take(&mut self.state.waiting_patients);
         let mut still_waiting = Vec::new();
         for pid in waiting {
@@ -179,6 +192,7 @@ impl SimEngine {
                     outcome: "treated".to_string(),
                 }
             } else {
+                ReputationEngine::on_patient_died(&mut self.state.reputation);
                 continue;
             };
             self.state.treated_patients.push(ps);
