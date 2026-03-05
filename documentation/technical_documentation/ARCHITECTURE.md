@@ -126,6 +126,12 @@ A **UI bundle** is a distributable artifact:
 - `assets/` (icons, css, etc.)
 - `ui_manifest.ron` (bundle metadata)
 
+Product-level convention:
+
+- `metadata.ron` at product root (global product identity/capabilities)
+- `ui/ui_manifest.ron` for UI bundle metadata
+- `backend/backend_manifest.ron` for backend service metadata
+
 The UI bundle:
 
 - depends on `protocol` + `common`,

@@ -6,6 +6,12 @@
 
 A product = `metadata.ron` + `backend` + `ui bundle`.
 
+Manifest convention:
+
+- `metadata.ron` at product root
+- `backend/backend_manifest.ron` for backend crate runtime/package metadata
+- `ui/ui_manifest.ron` for UI bundle metadata
+
 For details on `metadata.ron`, see [Metadata](../metadata.md). `metadata.ron` uses hex `ProtocolId` values for `id`.
 
 ## Backend Definition

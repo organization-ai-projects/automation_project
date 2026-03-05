@@ -8,6 +8,68 @@ Each project includes a `metadata.ron` file that describes its capabilities and 
 
 The `metadata.ron` file is purely declarative. It does not trigger any actions by itself.
 
+## 1.2 Product Manifest Convention
+
+The product manifest contract is split into:
+
+- Root product manifest: `metadata.ron` (source of truth for product identity/capabilities/entrypoints)
+- Crate deployable manifests:
+  - `backend/backend_manifest.ron`
+  - `ui/ui_manifest.ron`
+
+The root `metadata.ron` remains authoritative for product-level identity. Crate manifests define deployable artifact metadata for packaging/runtime wiring.
+
+### 1.3 `backend_manifest.ron` Contract
+
+`backend/backend_manifest.ron` describes the deployable backend artifact.
+
+```ron
+(
+  schema_version: 1,
+  id: "example_backend",
+  title: "Example Backend",
+  entrypoint: "example_backend",
+  kind: "backend_service",
+  transport: "stdio_cli",
+  version: "0.1.0",
+)
+```
+
+Field semantics:
+
+- `schema_version`: manifest schema version (`u64`)
+- `id`: stable backend artifact id (string, machine-friendly)
+- `title`: human-readable backend label
+- `entrypoint`: executable command/binary name
+- `kind`: fixed to `backend_service`
+- `transport`: runtime transport contract (for example `stdio_cli`)
+- `version`: artifact version
+
+### 1.4 `ui_manifest.ron` Contract
+
+`ui/ui_manifest.ron` describes the UI bundle artifact.
+
+```ron
+(
+  schema_version: 1,
+  id: "example_ui",
+  title: "Example UI",
+  entrypoint: "index.html",
+  kind: "ui_bundle",
+  version: "0.1.0",
+)
+```
+
+### 1.5 Migration Strategy
+
+Rollout is progressive to keep compatibility:
+
+1. Introduce manifests on unstable products first (`metadata.ron`, `backend_manifest.ron`, `ui_manifest.ron` when UI exists).
+2. Enforce missing-manifest checks as warnings on unstable products.
+3. Backfill stable products with crate manifests.
+4. Keep stable checks as transition warnings during migration.
+5. Promote stable enforcement to blocking once migration is complete.
+
 ### 1.1 Example of a `metadata.ron` File
 
 ```ron
