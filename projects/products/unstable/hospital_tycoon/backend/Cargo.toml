@@ -9,10 +9,9 @@ path = "src/main.rs"
 
 [dependencies]
 serde = { workspace = true }
-serde_json = "1.0"
 thiserror = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
-rand = { workspace = true, features = ["std_rng"] }
+common_json = { workspace = true }
 
 [dev-dependencies]

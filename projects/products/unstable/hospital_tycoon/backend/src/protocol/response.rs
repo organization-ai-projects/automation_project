@@ -59,7 +59,7 @@ impl Response {
 
     pub fn report(id: Option<u64>, report: RunReport) -> Self {
         let run_hash = report.run_hash.clone();
-        let report_json = serde_json::to_string(&report).unwrap_or_default();
+        let report_json = report.canonical_json();
         Self::Report {
             id,
             run_hash,

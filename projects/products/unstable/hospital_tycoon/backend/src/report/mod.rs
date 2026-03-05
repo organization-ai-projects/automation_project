@@ -1,3 +1,4 @@
 pub mod run_hash;
+pub mod run_hash_input;
 pub mod run_report;
 pub mod tick_report;

@@ -7,7 +7,7 @@ mod screens;
 mod transport;
 mod widgets;
 
-use crate::diagnostics::error::AppError;
+use crate::diagnostics::app_error::AppError;
 use crate::public_api::UiApi;
 use std::path::PathBuf;
 
