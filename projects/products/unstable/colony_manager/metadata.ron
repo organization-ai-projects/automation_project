@@ -1,0 +1,30 @@
+(
+  schema_version: 1,
+  generated_at: 1769472000000,
+  id: "8f7d6c5b4a392817f0e1d2c3b4a59687",
+  name: "Colony Manager",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "7c6b5a49382716f0e1d2c3b4a596878f", title: "Colony Manager", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "deterministic-simulation",
+    "replay",
+    "colony-management",
+  ],
+
+  domains: [
+    (id: "6b5a49382716f0e1d2c3b4a596878f7c", desc: "deterministic colony simulation and replay"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/"],
+    config_files: ["backend/Cargo.toml", "ui/Cargo.toml", "metadata.ron", "ui/ui_manifest.ron"],
+  ),
+)
