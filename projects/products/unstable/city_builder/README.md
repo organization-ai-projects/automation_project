@@ -25,6 +25,7 @@ city_builder/
   metadata.ron
   backend/
     Cargo.toml
+    backend_manifest.ron
     src/
     tests/
   ui/
@@ -64,6 +65,7 @@ Fixtures are in `backend/tests/fixtures/`.
 ## Engine / Central UI Promotion Notes
 
 - Product metadata is declared in `metadata.ron` for registry discovery.
+- Backend crate metadata is declared in `backend/backend_manifest.ron`.
 - UI bundle metadata is declared in `ui/ui_manifest.ron`.
 - WASM UI calls `CITY_BUILDER_UI_API_BASE` (default: `/api/city_builder`) for run/replay/snapshot/validate flows.
 - For stable promotion, engine and central_ui must expose/forward the `/api/city_builder/*` contract.

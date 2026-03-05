@@ -1,12 +1,40 @@
 {
-  "violations": [],
-  "mode": "auto",
+  "report_hash": "3b5faf739e39664dfbd69e6c8374d2b837032500e019822d6a97058a4c803a7e",
   "repository_root": "<FIXTURE_ROOT>",
+  "violations": [
+    {
+      "rule_id": "structure",
+      "severity": "WARNING",
+      "scope": "stable",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "message": "crate 'backend' must include backend_manifest.ron (warning: mandatory enforcement planned in a future phase)",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/backend/backend_manifest.ron",
+      "line": null
+    },
+    {
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
+      "scope": "stable",
+      "message": "product must include metadata.ron at root (warning: mandatory enforcement planned in a future phase)",
+      "severity": "WARNING",
+      "rule_id": "structure",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/metadata.ron",
+      "line": null
+    },
+    {
+      "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/ui/ui_manifest.ron",
+      "rule_id": "structure",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "scope": "stable",
+      "severity": "WARNING",
+      "message": "crate 'ui' must include ui_manifest.ron (warning: mandatory enforcement planned in a future phase)",
+      "line": null
+    }
+  ],
   "summary": {
-    "stable_warning_count": 0,
+    "stable_error_count": 0,
     "unstable_error_count": 0,
     "unstable_warning_count": 0,
-    "stable_error_count": 0
+    "stable_warning_count": 3
   },
-  "report_hash": "68c7fa2194eef1fb9921e93850be1773726a9c0327ab901cb711b0901e859f51"
+  "mode": "auto"
 }

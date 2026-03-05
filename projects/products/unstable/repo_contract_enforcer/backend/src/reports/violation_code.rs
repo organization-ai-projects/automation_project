@@ -24,4 +24,6 @@ pub enum ViolationCode {
     DetPanicRisk,
     DetUnsafeUsage,
     DetUnderscoreUnusedMasking,
+    StructMissingProductMetadata,
+    StructMissingCrateManifest,
 }

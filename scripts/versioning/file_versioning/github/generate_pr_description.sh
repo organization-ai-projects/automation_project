@@ -19,7 +19,7 @@ source "${SCRIPT_DIR}/lib/rendering.sh"
 print_usage() {
   cat <<EOF
 Usage: ${SCRIPT_PATH} [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] [--refresh-pr PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
-       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER|--refresh-pr PR_NUMBER] [--yes] [OUTPUT_FILE]
+       ${SCRIPT_PATH} --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER|--refresh-pr PR_NUMBER] [--validation-only] [--yes] [OUTPUT_FILE]
        ${SCRIPT_PATH} --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
 EOF
 }
@@ -34,6 +34,7 @@ Notes:
   --create-pr     In dry-run mode, attempts GitHub enrichment before creating the PR.
   --auto-edit     Generate body in memory and update an existing PR directly.
   --refresh-pr    Alias of --auto-edit.
+  --validation-only  In --auto-edit/--refresh-pr mode, update only the "Validation Gate" section.
   --duplicate-mode  Duplicate handling mode: safe | auto-close.
   --debug         Print extraction/classification trace to stderr.
   --auto          RAM-first mode: dry-run + create-pr, body kept in memory.
@@ -73,6 +74,7 @@ refresh_pr_used="false"
 debug_mode="false"
 duplicate_mode=""
 repo_name_with_owner_cache=""
+validation_only="false"
 
 positionals=()
 while [[ $# -gt 0 ]]; do
@@ -136,6 +138,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --debug)
       debug_mode="true"
+      shift
+      ;;
+    --validation-only)
+      validation_only="true"
       shift
       ;;
     -h|--help)
@@ -214,6 +220,10 @@ if [[ -n "$auto_edit_pr_number" ]] && [[ ! "$auto_edit_pr_number" =~ ^[0-9]+$ ]]
     usage_error "--refresh-pr requires a numeric PR_NUMBER."
   fi
   usage_error "--auto-edit requires a numeric PR_NUMBER."
+fi
+
+if [[ "$validation_only" == "true" && -z "$auto_edit_pr_number" ]]; then
+  usage_error "--validation-only requires --auto-edit/--refresh-pr."
 fi
 
 if [[ -n "$duplicate_mode" ]] && [[ "$duplicate_mode" != "safe" && "$duplicate_mode" != "auto-close" ]]; then
@@ -429,6 +439,16 @@ fi
 
 base_ref_display="$(normalize_branch_display_ref "$base_ref")"
 head_ref_display="$(normalize_branch_display_ref "$head_ref")"
+base_ref_git="$base_ref"
+head_ref_git="$head_ref"
+
+# Use resolvable refs for git compare operations; keep display refs for text.
+if ! git rev-parse --verify --quiet "${base_ref_git}^{commit}" >/dev/null 2>&1; then
+  base_ref_git="$base_ref_display"
+fi
+if ! git rev-parse --verify --quiet "${head_ref_git}^{commit}" >/dev/null 2>&1; then
+  head_ref_git="$head_ref_display"
+fi
 
 if [[ "$dry_run" == "true" && "$create_pr" == "true" ]]; then
   online_enrich="true"
@@ -496,6 +516,13 @@ load_compare_commit_messages() {
   local max_attempts=3
   local compare_ok=0
 
+  # Deterministic-first: use local git history when available.
+  compare_messages="$(git log --format=%B "${compare_base}..${compare_head}" 2>/dev/null || true)"
+  if [[ -n "$compare_messages" ]]; then
+    printf "%s" "$compare_messages"
+    return 0
+  fi
+
   repo_name_with_owner="$(get_repo_name_with_owner)"
 
   compare_range="${compare_base}...${compare_head}"
@@ -528,10 +555,8 @@ load_compare_commit_messages() {
       echo "Detail: ${compare_err}" >&2
     fi
 
-    # Fallback: local compare history remains deterministic for branch analysis.
-    compare_messages="$(git log --format=%B "${compare_base}..${compare_head}" 2>/dev/null || true)"
     if [[ -z "$compare_messages" ]]; then
-      echo "Error: unable to retrieve commits via GitHub compare (${compare_range}) and local git (${compare_base}..${compare_head})." >&2
+      echo "Error: unable to retrieve commit messages for ${compare_base}..${compare_head}." >&2
       rm -f "$compare_err_file"
       return 1
     fi
@@ -548,6 +573,13 @@ load_compare_commit_headlines() {
   local compare_range
   local compare_headlines
 
+  # Deterministic-first: use local git history when available.
+  compare_headlines="$(git log --format=%s "${compare_base}..${compare_head}" 2>/dev/null || true)"
+  if [[ -n "$compare_headlines" ]]; then
+    printf "%s" "$compare_headlines"
+    return 0
+  fi
+
   repo_name_with_owner="$(get_repo_name_with_owner)"
 
   compare_range="${compare_base}...${compare_head}"
@@ -559,8 +591,7 @@ load_compare_commit_headlines() {
   fi
 
   if [[ -z "$compare_headlines" ]]; then
-    # Fallback keeps deterministic behavior without GitHub API.
-    compare_headlines="$(git log --format=%s "${compare_base}..${compare_head}" 2>/dev/null || true)"
+    return 1
   fi
 
   printf "%s" "$compare_headlines"
@@ -569,15 +600,15 @@ load_compare_commit_headlines() {
 load_dry_compare_commits() {
   # Parity contract: dry-run must extract child PR refs from the same
   # commit-headline source shape as main-mode extraction.
-  dry_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
+  dry_compare_commit_messages="$(load_compare_commit_messages "$base_ref_git" "$head_ref_git" || true)"
   if [[ -z "$dry_compare_commit_messages" ]]; then
-    echo "Error: unable to determine commit messages for --dry-run compare ${base_ref_display}...${head_ref_display}." >&2
+    echo "Error: unable to determine commit messages for --dry-run compare ${base_ref_git}...${head_ref_git}." >&2
     exit "$E_NO_DATA"
   fi
 
-  dry_compare_commit_headlines="$(load_compare_commit_headlines "$base_ref_display" "$head_ref_display" || true)"
+  dry_compare_commit_headlines="$(load_compare_commit_headlines "$base_ref_git" "$head_ref_git" || true)"
   if [[ -z "$dry_compare_commit_headlines" ]]; then
-    echo "Error: unable to determine commit headlines for --dry-run compare ${base_ref_display}...${head_ref_display}." >&2
+    echo "Error: unable to determine commit headlines for --dry-run compare ${base_ref_git}...${head_ref_git}." >&2
     exit "$E_NO_DATA"
   fi
 }
@@ -587,7 +618,7 @@ extract_child_prs_dry() {
   local message
   commit_headlines="$dry_compare_commit_headlines"
   if [[ -z "$commit_headlines" ]]; then
-    debug_log "extract_child_prs_dry(compare ${base_ref_display}...${head_ref_display}) => no commits found"
+    debug_log "extract_child_prs_dry(compare ${base_ref_git}...${head_ref_git}) => no commits found"
     return 1
   fi
 
@@ -609,7 +640,7 @@ extract_child_prs_dry() {
     echo "$commit_headlines" | sed -nE 's/.*Merge pull request #([0-9]+).*/#\1/p'
     echo "$commit_headlines" | sed -nE 's/.*\(#([0-9]+)\)\s*$/#\1/p'
   } | sort -u > "$extracted_prs_file"
-  debug_log "extract_child_prs_dry(compare ${base_ref_display}...${head_ref_display}) => $(tr '\n' ' ' < "$extracted_prs_file")"
+  debug_log "extract_child_prs_dry(compare ${base_ref_git}...${head_ref_git}) => $(tr '\n' ' ' < "$extracted_prs_file")"
 
   return 0
 }
@@ -727,7 +758,7 @@ text_indicates_breaking() {
 }
 
 emit_change_footprint() {
-  local range="${base_ref_display}..${head_ref_display}"
+  local range="${base_ref_git}..${head_ref_git}"
   local files
   local file
   local any=0
@@ -775,6 +806,43 @@ emit_change_footprint() {
     [[ "$total" -eq 0 ]] && return
     any=1
     echo "- ${label} (${total})"
+
+    if [[ "$label" == "Crates" && "$total" -gt "$max_items_per_category" ]]; then
+      # For large Rust changesets, aggregate by crate for readability.
+      declare -A crate_counts=()
+      local crate=""
+      local crate_lines=""
+      local shown=0
+      local crates_total=0
+      for i in "${arr[@]}"; do
+        crate="$(infer_crate_from_path "$i")"
+        if [[ -z "$crate" ]]; then
+          crate="(unresolved crate)"
+        fi
+        crate_counts["$crate"]=$(( ${crate_counts["$crate"]:-0} + 1 ))
+      done
+
+      while IFS= read -r crate; do
+        [[ -z "$crate" ]] && continue
+        crate_lines+="${crate_counts[$crate]}"$'\t'"${crate}"$'\n'
+        crates_total=$((crates_total + 1))
+      done < <(printf '%s\n' "${!crate_counts[@]}" | LC_ALL=C sort)
+
+      while IFS=$'\t' read -r crate_count crate_name; do
+        [[ -z "${crate_name:-}" ]] && continue
+        echo "  - ${crate_name} (${crate_count} files)"
+        shown=$((shown + 1))
+        if [[ "$shown" -ge "$max_items_per_category" ]]; then
+          break
+        fi
+      done < <(printf '%s' "$crate_lines" | LC_ALL=C sort -t$'\t' -k1,1nr -k2,2)
+
+      if [[ "$crates_total" -gt "$max_items_per_category" ]]; then
+        echo "  - (showing top ${max_items_per_category} crates of ${crates_total})"
+      fi
+      return
+    fi
+
     count=0
     for i in "${arr[@]}"; do
       echo "  - ${i}"
@@ -783,9 +851,6 @@ emit_change_footprint() {
         break
       fi
     done
-    if [[ "$total" -gt "$max_items_per_category" ]]; then
-      echo "  - ... and $((total - max_items_per_category)) more"
-    fi
   }
 
   print_group "Documentation" "${doc_files[@]}"
@@ -801,12 +866,24 @@ emit_change_footprint() {
 
 infer_crate_from_path() {
   local rel_path="$1"
-  local dir candidate
+  local dir candidate product_root
 
   if [[ "$rel_path" == *"/src/"* ]]; then
     candidate="${rel_path%%/src/*}"
     if [[ -f "${candidate}/Cargo.toml" ]]; then
       echo "$candidate"
+      return
+    fi
+  fi
+
+  # Temporary legacy fallback (generic for any product):
+  # if Rust paths still come from product root (src/tests) while the product
+  # is already split into backend/ui crates, attribute them to backend crate.
+  # Remove this fallback once root-level src/tests paths are fully migrated.
+  if [[ "$rel_path" =~ ^(projects/products/(stable|unstable)/[^/]+)/(src|tests)/ ]]; then
+    product_root="${BASH_REMATCH[1]}"
+    if [[ -f "${product_root}/backend/Cargo.toml" ]]; then
+      echo "${product_root}/backend"
       return
     fi
   fi
@@ -830,7 +907,7 @@ infer_crate_from_path() {
 }
 
 compute_breaking_scope() {
-  local range="${base_ref_display}..${head_ref_display}"
+  local range="${base_ref_git}..${head_ref_git}"
   local raw_log rec full_hash short_hash subject body
   local files crate
   declare -A seen_breaking_hashes
@@ -942,7 +1019,7 @@ echo -n > "$conflict_issues_file"
 if [[ "$dry_run" == "true" ]]; then
   load_dry_compare_commits
   if ! extract_child_prs_dry; then
-    echo "Warning: unable to extract PRs from compare ${base_ref_display}...${head_ref_display}." >&2
+    echo "Warning: unable to extract PRs from compare ${base_ref_git}...${head_ref_git}." >&2
   fi
 else
   if ! extract_child_prs; then
@@ -1325,7 +1402,7 @@ if [[ "$dry_run" == "false" ]]; then
 
   if [[ -n "$auto_edit_pr_number" ]]; then
     # Keep --refresh-pr behavior aligned with --dry-run issue extraction.
-    refresh_compare_commit_messages="$(load_compare_commit_messages "$base_ref_display" "$head_ref_display" || true)"
+    refresh_compare_commit_messages="$(load_compare_commit_messages "$base_ref_git" "$head_ref_git" || true)"
     if [[ -n "$refresh_compare_commit_messages" ]]; then
       mark_inferred_decisions_from_text "$refresh_compare_commit_messages"
       mark_directive_decisions_from_text "$refresh_compare_commit_messages"
@@ -1623,6 +1700,80 @@ case "$ci_status" in
   *) ci_status_with_symbol="UNKNOWN ⚪" ;;
 esac
 
+build_validation_gate_section() {
+  {
+    echo "### Validation Gate"
+    echo ""
+    echo "- CI: ${ci_status_with_symbol}"
+    if [[ "$breaking_detected" -eq 1 ]]; then
+      echo "- Breaking change"
+      echo "- Breaking scope:"
+      if [[ -n "$breaking_scope_crates" ]]; then
+        echo "  - crate(s): ${breaking_scope_crates}"
+      else
+        echo "  - crate(s): unknown"
+      fi
+      if [[ -n "$breaking_scope_commits" ]]; then
+        echo "  - source commit(s): ${breaking_scope_commits}"
+      else
+        echo "  - source commit(s): unknown"
+      fi
+    else
+      echo "- No breaking change"
+    fi
+  }
+}
+
+replace_validation_gate_in_body() {
+  local original_body="$1"
+  local replacement="$2"
+  local repl_file
+  repl_file="$(mktemp)"
+  printf "%s\n" "$replacement" > "$repl_file"
+
+  awk -v repl_file="$repl_file" '
+    function print_replacement() {
+      while ((getline line < repl_file) > 0) {
+        print line
+      }
+      close(repl_file)
+    }
+    BEGIN {
+      in_validation = 0
+      replaced = 0
+    }
+    {
+      if ($0 == "### Validation Gate") {
+        print_replacement()
+        replaced = 1
+        in_validation = 1
+        next
+      }
+
+      if (in_validation) {
+        if ($0 ~ /^### /) {
+          in_validation = 0
+          print ""
+          print $0
+        }
+        next
+      }
+
+      print $0
+    }
+    END {
+      if (!replaced) {
+        if (NR > 0) {
+          print ""
+        }
+        print_replacement()
+      }
+    }
+  ' <<< "$original_body"
+
+  rm -f "$repl_file"
+}
+
 body_content="$({
   echo "### Description"
   echo ""
@@ -1733,6 +1884,16 @@ body_content="$({
   echo ""
   :
 })"
+
+if [[ "$validation_only" == "true" && -n "$auto_edit_pr_number" ]]; then
+  current_pr_body="$(gh_optional "read PR #${auto_edit_pr_number} body for validation-only update" pr view "$auto_edit_pr_number" --json body -q '.body')"
+  if [[ -z "$current_pr_body" ]]; then
+    echo "Error: unable to read current PR body for validation-only update." >&2
+    exit "$E_PARTIAL"
+  fi
+  validation_gate_section="$(build_validation_gate_section)"
+  body_content="$(replace_validation_gate_in_body "$current_pr_body" "$validation_gate_section")"
+fi
 
 if [[ "$auto_mode" != "true" && -z "$auto_edit_pr_number" && "$write_body_to_file" == "true" ]]; then
   printf "%s\n" "$body_content" > "$output_file"

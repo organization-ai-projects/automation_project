@@ -1,31 +1,58 @@
 {
-  "summary": {
-    "unstable_error_count": 0,
-    "unstable_warning_count": 0,
-    "stable_warning_count": 1,
-    "stable_error_count": 1
-  },
-  "report_hash": "2cf36faec324c0de72255aa094c1ffdf0bed1ad2380982a760a9b99ccd8281c4",
   "mode": "strict",
-  "repository_root": "<FIXTURE_ROOT>",
   "violations": [
     {
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/src/main.rs",
-      "line": 1,
-      "message": "wall-clock API usage is forbidden",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/backend_manifest.ron",
+      "message": "crate 'backend' must include backend_manifest.ron (warning: mandatory enforcement planned in a future phase)",
+      "line": null,
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "rule_id": "structure",
+      "severity": "WARNING"
+    },
+    {
       "violation_code": "DET_WALL_CLOCK_USAGE",
-      "rule_id": "determinism",
       "severity": "ERROR",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/src/main.rs",
+      "rule_id": "determinism",
+      "scope": "stable",
+      "message": "wall-clock API usage is forbidden",
+      "line": 1
+    },
+    {
+      "line": 4,
+      "severity": "WARNING",
+      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
+      "message": "underscore-based bindings/discards may hide unused values",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/src/main.rs",
+      "rule_id": "determinism"
+    },
+    {
+      "message": "product must include metadata.ron at root (warning: mandatory enforcement planned in a future phase)",
+      "line": null,
+      "rule_id": "structure",
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/metadata.ron",
+      "severity": "WARNING",
       "scope": "stable"
     },
     {
-      "message": "underscore-based bindings/discards may hide unused values",
-      "line": 4,
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/src/main.rs",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/ui/ui_manifest.ron",
+      "message": "crate 'ui' must include ui_manifest.ron (warning: mandatory enforcement planned in a future phase)",
       "severity": "WARNING",
-      "rule_id": "determinism",
-      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
-      "scope": "stable"
+      "line": null,
+      "rule_id": "structure",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST"
     }
-  ]
+  ],
+  "report_hash": "6cc5c8352c6013c9f32a43109adcfe8732b7d229eda67a25d618ba5c8f79400d",
+  "repository_root": "<FIXTURE_ROOT>",
+  "summary": {
+    "unstable_error_count": 0,
+    "unstable_warning_count": 0,
+    "stable_warning_count": 4,
+    "stable_error_count": 1
+  }
 }

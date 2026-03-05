@@ -29,6 +29,11 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
 - Backend crate rules include a `syn`-based primary item contract:
   - each non-entry Rust file must define exactly one primary `struct` or `enum`
   - primary item name must match file stem in `snake_case`
+- Structure rules enforce manifest convention as transition warnings on stable + unstable products:
+  - product root `metadata.ron`
+  - `backend/backend_manifest.ron`
+  - `ui/ui_manifest.ron`
+  - these warnings are planned to become mandatory blocking checks in a later phase
 - Run:
   - `cargo test -p repo_contract_enforcer_backend`
   - `cargo test -p repo_contract_enforcer_ui`

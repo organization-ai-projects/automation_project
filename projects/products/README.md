@@ -10,13 +10,17 @@ projects/products/
     <product_x>/
       backend/
       ui/               (optional)
-      metadata.ron      (optional)
+      metadata.ron
+      backend/backend_manifest.ron
+      ui/ui_manifest.ron   (if ui/ exists)
       README.md
   unstable/
     <product_x>/
       backend/
       ui/               (optional)
-      metadata.ron      (optional in phase 1)
+      metadata.ron
+      backend/backend_manifest.ron
+      ui/ui_manifest.ron   (if ui/ exists)
       README.md
 ```
 

@@ -59,4 +59,4 @@ jobs:
         run: |
           chmod +x scripts/versioning/file_versioning/github/generate_pr_description.sh
           bash scripts/versioning/file_versioning/github/generate_pr_description.sh \
-            --refresh-pr "${PR_NUMBER}" "${PR_NUMBER}" --yes
+            --refresh-pr "${PR_NUMBER}" "${PR_NUMBER}" --validation-only --yes
