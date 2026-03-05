@@ -1,6 +1,7 @@
 // projects/products/unstable/hospital_tycoon/backend/src/report/run_report.rs
 use crate::model::hospital_state::HospitalState;
 use crate::report::run_hash::RunHash;
+use crate::report::run_hash_input::RunHashInput;
 use crate::sim::event_log::EventLog;
 use crate::time::tick_clock::TickClock;
 use serde::{Deserialize, Serialize};
@@ -31,16 +32,17 @@ impl RunReport {
         let final_reputation = state.reputation.score;
         let event_count = event_log.len();
 
-        let run_hash = RunHash::compute(
-            clock.seed,
+        let run_hash_input = RunHashInput {
+            seed: clock.seed,
             scenario_name,
-            clock.current_tick().value(),
+            total_ticks: clock.current_tick().value(),
             patients_treated,
             patients_died,
             final_budget,
             final_reputation,
             event_count,
-        );
+        };
+        let run_hash = RunHash::compute(&run_hash_input);
 
         Self {
             seed: clock.seed,

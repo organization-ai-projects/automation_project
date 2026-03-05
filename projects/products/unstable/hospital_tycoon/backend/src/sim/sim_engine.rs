@@ -13,16 +13,17 @@ use crate::patients::disease_id::DiseaseId;
 use crate::patients::patient::Patient;
 use crate::patients::patient_state::PatientState;
 use crate::patients::symptom::Symptom;
-use crate::reputation::reputation::Reputation;
+use crate::reputation::Reputation;
 use crate::reputation::reputation_engine::ReputationEngine;
 use crate::rooms::room::Room;
 use crate::rooms::room_engine::RoomEngine;
 use crate::rooms::room_queue::RoomQueue;
 use crate::sim::event_log::EventLog;
 use crate::sim::sim_event::SimEvent;
-use crate::staff::staff::Staff;
+use crate::staff::Staff;
 use crate::staff::staff_engine::StaffEngine;
 use crate::staff::staff_skill::StaffSkill;
+use crate::time;
 use crate::time::tick_clock::TickClock;
 use crate::triage::triage_engine::TriageEngine;
 use std::collections::BTreeMap;
@@ -117,9 +118,9 @@ impl SimEngine {
         self.run_rooms(tick);
     }
 
-    fn spawn_patients(&mut self, tick: crate::time::tick::Tick) {
+    fn spawn_patients(&mut self, tick: time::tick::Tick) {
         let rate = self.config.patient_spawn_rate;
-        if rate > 0 && tick.value() % rate == 0 {
+        if rate > 0 && tick.value().is_multiple_of(rate) {
             if self.config.diseases.is_empty() {
                 return;
             }
@@ -149,7 +150,7 @@ impl SimEngine {
         }
     }
 
-    fn run_triage(&mut self, tick: crate::time::tick::Tick) {
+    fn run_triage(&mut self, tick: time::tick::Tick) {
         if StaffEngine::available_count(&self.state.staff) == 0 {
             return;
         }
@@ -178,7 +179,7 @@ impl SimEngine {
         self.state.waiting_patients = still_waiting;
     }
 
-    fn run_rooms(&mut self, tick: crate::time::tick::Tick) {
+    fn run_rooms(&mut self, tick: time::tick::Tick) {
         let treated_ids = RoomEngine::process_queues(&mut self.state.room_queues);
         for pid in treated_ids {
             self.event_log.push(SimEvent::patient_treated(tick, pid));

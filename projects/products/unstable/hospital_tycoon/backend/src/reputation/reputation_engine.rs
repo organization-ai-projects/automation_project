@@ -1,5 +1,5 @@
 // projects/products/unstable/hospital_tycoon/backend/src/reputation/reputation_engine.rs
-use crate::reputation::reputation::Reputation;
+use crate::reputation::Reputation;
 
 pub struct ReputationEngine;
 
