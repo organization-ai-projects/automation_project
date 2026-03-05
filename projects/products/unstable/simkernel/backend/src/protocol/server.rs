@@ -8,6 +8,7 @@ pub fn run(args: &[String]) -> i32 {
     }
 
     let mut dispatcher = RequestDispatcher::new();
+    std::hint::black_box(dispatcher.registry().list_packs().len());
     let stdin = std::io::stdin();
     for line in stdin.lock().lines() {
         let line = match line {
@@ -23,6 +24,8 @@ pub fn run(args: &[String]) -> i32 {
 
         let response = dispatcher.dispatch(&line);
         println!("{}", response);
+        std::hint::black_box(dispatcher.extract_snapshot().is_some());
+        std::hint::black_box(dispatcher.extract_report().is_some());
         if dispatcher.should_shutdown() {
             break;
         }

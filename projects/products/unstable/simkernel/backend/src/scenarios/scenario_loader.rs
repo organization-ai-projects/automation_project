@@ -1,5 +1,5 @@
 use crate::diagnostics::backend_error::BackendError;
-use crate::scenario::scenario::Scenario;
+use crate::scenarios::scenario::Scenario;
 
 pub struct ScenarioLoader;
 

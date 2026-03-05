@@ -5,6 +5,6 @@ pub struct TableWidget {
 }
 impl TableWidget {
     pub fn render(&self) -> String {
-        self.headers.join(" | ")
+        format!("{} (rows={})", self.headers.join(" | "), self.rows.len())
     }
 }

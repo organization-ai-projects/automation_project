@@ -35,7 +35,7 @@ impl BackendProcess {
         })
     }
 
-    pub fn kill(&mut self) {
-        let _ = self.child.kill();
+    pub fn into_parts(self) -> (Child, ChildStdin, ChildStdout) {
+        (self.child, self.stdin, self.stdout)
     }
 }

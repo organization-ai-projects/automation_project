@@ -30,6 +30,11 @@ impl PackRegistry {
     }
 
     pub fn list_packs(&self) -> Vec<String> {
+        let mut metadata = Vec::new();
+        for pack in self.packs.values() {
+            metadata.push(format!("{}:{}", pack.id().0, pack.name()));
+        }
+        std::mem::drop(metadata);
         self.packs.keys().cloned().collect()
     }
 }

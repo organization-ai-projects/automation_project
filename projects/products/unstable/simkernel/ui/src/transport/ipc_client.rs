@@ -1,6 +1,7 @@
 use crate::diagnostics::ui_error::UiError;
+use crate::transport::backend_process::BackendProcess;
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{Child, ChildStdin};
 
 pub struct IpcClient {
     child: Child,
@@ -13,23 +14,10 @@ impl IpcClient {
     pub fn new() -> Result<Self, UiError> {
         let backend_bin = std::env::var("SIMKERNEL_BACKEND_BIN")
             .unwrap_or_else(|_| "simkernel_backend".to_string());
-        let mut child = Command::new(&backend_bin)
-            .arg("serve")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(|e| {
-                UiError::BackendSpawn(format!("Failed to spawn {}: {}", backend_bin, e))
-            })?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or(UiError::BackendSpawn("no stdin".to_string()))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or(UiError::BackendSpawn("no stdout".to_string()))?;
+        let process = BackendProcess::spawn(&backend_bin, None).map_err(|e| {
+            UiError::BackendSpawn(format!("Failed to spawn {}: {}", backend_bin, e))
+        })?;
+        let (child, stdin, stdout) = process.into_parts();
         Ok(Self {
             child,
             stdin,

@@ -1,4 +1,4 @@
-use crate::scenario::scenario_id::ScenarioId;
+use crate::scenarios::scenario_id::ScenarioId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
