@@ -152,7 +152,6 @@ fn handle_run(args: &[String]) -> Result<(), SpaceDiploWarsError> {
 
 fn handle_replay(args: &[String]) -> Result<(), SpaceDiploWarsError> {
     let mut replay_path: Option<PathBuf> = None;
-    let mut scenario_path: Option<PathBuf> = None;
     let mut out_path: Option<PathBuf> = None;
 
     let mut i = 0;
@@ -161,10 +160,6 @@ fn handle_replay(args: &[String]) -> Result<(), SpaceDiploWarsError> {
             "--replay" => {
                 i += 1;
                 replay_path = Some(PathBuf::from(require_arg(args.get(i), "--replay")?));
-            }
-            "--scenario" => {
-                i += 1;
-                scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?));
             }
             "--out" => {
                 i += 1;
@@ -181,25 +176,20 @@ fn handle_replay(args: &[String]) -> Result<(), SpaceDiploWarsError> {
 
     let replay_file = replay_path
         .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--replay is required".into()))?;
-    let scenario_file = scenario_path
-        .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--scenario is required".into()))?;
     let out_file =
         out_path.ok_or_else(|| SpaceDiploWarsError::InvalidCli("--out is required".into()))?;
 
     let replay_json = std::fs::read_to_string(&replay_file)?;
     let replay = ReplayCodec::decode(&replay_json)
         .map_err(|e| SpaceDiploWarsError::ReplayMismatch(e.to_string()))?;
-    let scenario = ScenarioLoader::load_from_file(&scenario_file)
-        .map_err(|e| SpaceDiploWarsError::InvalidScenario(e.to_string()))?;
 
-    let run_report = ReplayEngine::replay(&replay, &scenario)?;
+    let run_report = ReplayEngine::replay(&replay)?;
     std::fs::write(out_file, JsonCodec::encode(&run_report)?)?;
     Ok(())
 }
 
 fn handle_snapshot(args: &[String]) -> Result<(), SpaceDiploWarsError> {
     let mut replay_path: Option<PathBuf> = None;
-    let mut scenario_path: Option<PathBuf> = None;
     let mut out_path: Option<PathBuf> = None;
     let mut at_turn: Option<u64> = None;
 
@@ -209,10 +199,6 @@ fn handle_snapshot(args: &[String]) -> Result<(), SpaceDiploWarsError> {
             "--replay" => {
                 i += 1;
                 replay_path = Some(PathBuf::from(require_arg(args.get(i), "--replay")?));
-            }
-            "--scenario" => {
-                i += 1;
-                scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?));
             }
             "--at-turn" => {
                 i += 1;
@@ -233,8 +219,6 @@ fn handle_snapshot(args: &[String]) -> Result<(), SpaceDiploWarsError> {
 
     let replay_file = replay_path
         .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--replay is required".into()))?;
-    let scenario_file = scenario_path
-        .ok_or_else(|| SpaceDiploWarsError::InvalidCli("--scenario is required".into()))?;
     let out_file =
         out_path.ok_or_else(|| SpaceDiploWarsError::InvalidCli("--out is required".into()))?;
     let turn =
@@ -243,10 +227,8 @@ fn handle_snapshot(args: &[String]) -> Result<(), SpaceDiploWarsError> {
     let replay_json = std::fs::read_to_string(&replay_file)?;
     let replay = ReplayCodec::decode(&replay_json)
         .map_err(|e| SpaceDiploWarsError::ReplayMismatch(e.to_string()))?;
-    let scenario = ScenarioLoader::load_from_file(&scenario_file)
-        .map_err(|e| SpaceDiploWarsError::InvalidScenario(e.to_string()))?;
 
-    let snapshot = ReplayEngine::snapshot_at_turn(&replay, &scenario, turn)?;
+    let snapshot = ReplayEngine::snapshot_at_turn(&replay, turn)?;
     std::fs::write(out_file, JsonCodec::encode(&snapshot)?)?;
     Ok(())
 }
@@ -313,7 +295,12 @@ fn execute_run(
     sha2::Digest::update(&mut hasher, scenario_json.as_bytes());
     let scenario_hash = hex::encode(sha2::Digest::finalize(hasher));
 
-    let mut replay_file = ReplayFile::new(config.seed, scenario_hash);
+    let mut replay_file = ReplayFile::new(
+        config.seed,
+        config.ticks_per_turn,
+        scenario_hash,
+        scenario.clone(),
+    );
     let mut turn_reports: Vec<TurnReport> = Vec::new();
 
     for turn in 1..=config.turns {

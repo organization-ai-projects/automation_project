@@ -54,8 +54,6 @@ fn test_run_and_replay_produce_identical_report_bytes() {
             "replay",
             "--replay",
             replay_out.to_str().unwrap(),
-            "--scenario",
-            scenario.to_str().unwrap(),
             "--out",
             replay_report_out.to_str().unwrap(),
         ])
@@ -110,8 +108,6 @@ fn test_snapshot_command_outputs_deterministic_hashable_state() {
                 "snapshot",
                 "--replay",
                 replay_out.to_str().unwrap(),
-                "--scenario",
-                scenario.to_str().unwrap(),
                 "--at-turn",
                 "2",
                 "--out",

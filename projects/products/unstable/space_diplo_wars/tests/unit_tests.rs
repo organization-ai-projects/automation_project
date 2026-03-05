@@ -54,7 +54,6 @@ fn test_replay_mismatch_returns_exit_code_4() {
 
     // Corrupt replay payload to force replay decode mismatch path (exit code 4).
     std::fs::write(&replay_out, "{invalid_json").expect("write invalid replay");
-    let same_scenario = fixtures_dir().join("border_war_small.json");
     let replay_report_out = tmp_file("_replay_report.json");
 
     let output = Command::new(bin())
@@ -62,8 +61,6 @@ fn test_replay_mismatch_returns_exit_code_4() {
             "replay",
             "--replay",
             replay_out.to_str().unwrap(),
-            "--scenario",
-            same_scenario.to_str().unwrap(),
             "--out",
             replay_report_out.to_str().unwrap(),
         ])

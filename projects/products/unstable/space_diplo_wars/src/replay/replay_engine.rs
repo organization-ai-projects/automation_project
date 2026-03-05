@@ -1,7 +1,6 @@
 use crate::diagnostics::error::SpaceDiploWarsError;
 use crate::report::run_report::RunReport;
 use crate::resolution::resolution_engine::ResolutionEngine;
-use crate::scenario::scenario::Scenario;
 use crate::snapshot::snapshot_hash::SnapshotHash;
 use crate::snapshot::state_snapshot::StateSnapshot;
 
@@ -12,11 +11,8 @@ pub struct ReplayEngine;
 impl ReplayEngine {
     /// Replay all orders from a ReplayFile, verifying SnapshotHash at checkpoints.
     /// Returns the RunReport produced by the replay.
-    pub fn replay(
-        replay: &ReplayFile,
-        scenario: &Scenario,
-    ) -> Result<RunReport, SpaceDiploWarsError> {
-        let mut state = scenario.build_initial_state();
+    pub fn replay(replay: &ReplayFile) -> Result<RunReport, SpaceDiploWarsError> {
+        let mut state = replay.scenario.build_initial_state();
 
         let turns = replay
             .orders_per_turn
@@ -39,7 +35,7 @@ impl ReplayEngine {
             let res_report = ResolutionEngine::resolve_turn(&mut state, orders, turn);
 
             // Verify checkpoint if present
-            for cp in &scenario.checkpoints {
+            for cp in &replay.scenario.checkpoints {
                 if cp.turn == turn
                     && let Some(expected_hash) = &cp.expected_snapshot_hash
                 {
@@ -62,8 +58,7 @@ impl ReplayEngine {
             });
 
             state.current_turn = crate::time::turn::Turn(turn);
-            // Use ticks_per_turn=4 as default (same as run)
-            state.current_tick = crate::time::tick::Tick(turn * 4);
+            state.current_tick = crate::time::tick::Tick(turn * replay.ticks_per_turn);
         }
 
         let final_snapshot = StateSnapshot::from_state(&state);
@@ -80,10 +75,9 @@ impl ReplayEngine {
 
     pub fn snapshot_at_turn(
         replay: &ReplayFile,
-        scenario: &Scenario,
         turn_limit: u64,
     ) -> Result<StateSnapshot, SpaceDiploWarsError> {
-        let mut state = scenario.build_initial_state();
+        let mut state = replay.scenario.build_initial_state();
 
         for turn in 1..=turn_limit {
             let key = turn.to_string();
@@ -96,7 +90,7 @@ impl ReplayEngine {
 
             let _ = ResolutionEngine::resolve_turn(&mut state, orders, turn);
             state.current_turn = crate::time::turn::Turn(turn);
-            state.current_tick = crate::time::tick::Tick(turn * 4);
+            state.current_tick = crate::time::tick::Tick(turn * replay.ticks_per_turn);
         }
 
         Ok(StateSnapshot::from_state(&state))
