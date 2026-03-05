@@ -64,14 +64,34 @@ impl Controller {
             }
             previous_species = state.species.clone();
 
-            if state.current_tick % 30 == 0 {
+            if state.current_tick.is_multiple_of(30) {
                 client.care_action("feed".to_string())?;
                 Reducer::apply(state, &Action::Feed);
             }
-            if state.current_tick % 40 == 0 {
+            if state.current_tick.is_multiple_of(45) {
+                client.care_action("rest".to_string())?;
+                Reducer::apply(state, &Action::Rest);
+            }
+            if state.current_tick.is_multiple_of(50) {
+                client.care_action("play".to_string())?;
+                Reducer::apply(state, &Action::Play);
+            }
+            if state.current_tick.is_multiple_of(60) {
+                client.care_action("discipline".to_string())?;
+                Reducer::apply(state, &Action::Discipline);
+            }
+            if state.current_tick.is_multiple_of(90) {
+                client.care_action("medicine".to_string())?;
+                Reducer::apply(state, &Action::Medicine);
+            }
+            if state.current_tick.is_multiple_of(40) {
                 let training_result = client.training("strength".to_string())?;
                 Reducer::apply(state, &Action::Train("strength".to_string()));
                 TrainingScreen::new(training_result).render();
+            }
+            if state.current_tick.is_multiple_of(25) {
+                let _snapshot = client.get_snapshot()?;
+                Reducer::apply(state, &Action::GetSnapshot);
             }
             if !battle_started && state.current_tick >= state.ticks / 2 {
                 client.start_battle()?;
@@ -92,10 +112,17 @@ impl Controller {
             client.save_replay(path.display().to_string())?;
             Reducer::apply(state, &Action::SaveReplay(path.display().to_string()));
         }
+        Reducer::apply(state, &Action::Quit);
         Ok(())
     }
 
-    pub fn save_report(&mut self, client: &mut IpcClient, path: &Path) -> Result<(), AppError> {
+    pub fn save_report(
+        &mut self,
+        client: &mut IpcClient,
+        state: &mut AppState,
+        path: &Path,
+    ) -> Result<(), AppError> {
+        Reducer::apply(state, &Action::GetReport);
         let report = client.get_report()?;
         self.write_report_file(&report, path)
     }
@@ -107,12 +134,20 @@ impl Controller {
         out_path: &Path,
     ) -> Result<(), AppError> {
         client.load_replay(replay_path.display().to_string())?;
+        let mut replay_state = AppState::new(0, 0);
+        Reducer::apply(
+            &mut replay_state,
+            &Action::LoadReplay(replay_path.display().to_string()),
+        );
         let report = client.replay_to_end()?;
+        Reducer::apply(&mut replay_state, &Action::ReplayToEnd);
         self.write_report_file(&report, out_path)
     }
 
     fn write_report_file(&self, report: &RunReportDto, path: &Path) -> Result<(), AppError> {
         ReportScreen::new(report.clone()).render();
+        let report_state = AppState::from_report(report);
+        PetScreen::new(report_state).render();
         let json =
             common_json::to_string_pretty(report).map_err(|e| AppError::Ipc(e.to_string()))?;
         std::fs::write(path, json).map_err(|e| AppError::Io(e.to_string()))

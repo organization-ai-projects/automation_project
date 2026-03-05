@@ -1,4 +1,5 @@
 // projects/products/unstable/digital_pet/ui/src/screens/battle_screen.rs
+use crate::widgets::log_widget::LogWidget;
 
 pub struct BattleScreen {
     pub turn: u32,
@@ -15,8 +16,14 @@ impl BattleScreen {
             "  Pet HP: {}  Opponent HP: {}",
             self.pet_hp, self.opponent_hp
         );
+        let mut entries = vec![format!(
+            "turn={} pet_hp={} opponent_hp={}",
+            self.turn, self.pet_hp, self.opponent_hp
+        )];
         if self.finished {
             println!("  Winner: {:?}", self.winner);
+            entries.push(format!("winner={:?}", self.winner));
         }
+        LogWidget::new(entries).render();
     }
 }

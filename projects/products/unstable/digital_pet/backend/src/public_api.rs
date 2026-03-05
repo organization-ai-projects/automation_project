@@ -228,6 +228,10 @@ impl ServerState {
             None => return Response::error(id, "no active run"),
         };
         let report = RunReport::generate(pet, needs, clock, &self.event_log, &self.care_engine);
+        let canonical_json = report.canonical_json();
+        if canonical_json.is_empty() {
+            return Response::error(id, "canonical report serialization failed");
+        }
         Response::report(id, report)
     }
 
@@ -262,6 +266,10 @@ impl ServerState {
         };
         let (pet, needs, clock, event_log, care_engine) = ReplayEngine::run(&rf);
         let report = RunReport::generate(&pet, &needs, &clock, &event_log, &care_engine);
+        let canonical_json = report.canonical_json();
+        if canonical_json.is_empty() {
+            return Response::error(id, "canonical report serialization failed");
+        }
         self.pet = Some(pet);
         self.needs = Some(needs);
         self.clock = Some(clock);

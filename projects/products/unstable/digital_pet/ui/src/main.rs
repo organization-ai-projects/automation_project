@@ -1,6 +1,7 @@
 // projects/products/unstable/digital_pet/ui/src/main.rs
 mod app;
 mod diagnostics;
+#[cfg(test)]
 mod fixtures;
 pub mod public_api;
 mod screens;

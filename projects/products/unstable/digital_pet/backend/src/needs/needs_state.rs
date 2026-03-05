@@ -1,4 +1,5 @@
 // projects/products/unstable/digital_pet/backend/src/needs/needs_state.rs
+use crate::needs::need_kind::NeedKind;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,5 +58,14 @@ impl NeedsState {
     pub fn medicine(&mut self) {
         self.sick = false;
         self.sick_ticks = 0;
+    }
+
+    pub fn value(&self, kind: NeedKind) -> u32 {
+        match kind {
+            NeedKind::Hunger => self.hunger,
+            NeedKind::Fatigue => self.fatigue,
+            NeedKind::Happiness => self.happiness,
+            NeedKind::Discipline => self.discipline,
+        }
     }
 }

@@ -25,7 +25,7 @@ impl UiApi {
         controller.run_loop(&mut client, &mut state, replay_out.as_deref())?;
 
         if let Some(out_path) = out {
-            controller.save_report(&mut client, &out_path)?;
+            controller.save_report(&mut client, &mut state, &out_path)?;
         }
 
         client.shutdown();
