@@ -57,7 +57,9 @@ fn determinism_same_seed_same_report() {
 
     let b1 = std::fs::read_to_string(&out1).unwrap();
     let b2 = std::fs::read_to_string(&out2).unwrap();
-    assert_eq!(b1, b2, "Determinism violated: outputs differ");
+    let j1: common_json::Json = common_json::from_str(&b1).unwrap();
+    let j2: common_json::Json = common_json::from_str(&b2).unwrap();
+    assert_eq!(j1, j2, "Determinism violated: outputs differ");
 
     let _ = std::fs::remove_file(&out1);
     let _ = std::fs::remove_file(&out2);

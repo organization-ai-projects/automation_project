@@ -9,7 +9,7 @@ pub struct Scenario {
     pub initial_zones: Vec<InitialZone>,
     pub initial_roads: Vec<InitialRoad>,
     pub initial_services: Vec<InitialService>,
-    pub scripted_actions: Vec<serde_json::Value>,
+    pub scripted_actions: Vec<common_json::Json>,
     pub checkpoints: Vec<Checkpoint>,
 }
 

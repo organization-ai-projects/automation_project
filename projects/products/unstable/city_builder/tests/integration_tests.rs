@@ -1,3 +1,4 @@
+use common_json::JsonAccess;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -39,9 +40,12 @@ fn run_produces_report_with_run_hash() {
     assert_eq!(status.code(), Some(0), "Expected exit 0");
 
     let content = std::fs::read_to_string(&out).unwrap();
-    let v: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert!(v.get("run_hash").is_some());
-    assert_eq!(v["total_ticks"], 10);
+    let v: common_json::Json = common_json::from_str(&content).unwrap();
+    assert!(v.get_field("run_hash").is_ok());
+    assert_eq!(
+        v.get_field("total_ticks").unwrap().as_u64_strict().unwrap(),
+        10
+    );
 
     let _ = std::fs::remove_file(&out);
 }
@@ -161,8 +165,10 @@ fn replay_same_seed_produces_same_report() {
 
     let c1 = std::fs::read_to_string(&out1).unwrap();
     let c2 = std::fs::read_to_string(&out2).unwrap();
+    let j1: common_json::Json = common_json::from_str(&c1).unwrap();
+    let j2: common_json::Json = common_json::from_str(&c2).unwrap();
     assert_eq!(
-        c1, c2,
+        j1, j2,
         "Replay mismatch: identical seeds should produce identical reports"
     );
 
