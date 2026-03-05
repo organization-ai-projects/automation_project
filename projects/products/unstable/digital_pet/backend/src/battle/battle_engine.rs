@@ -51,13 +51,20 @@ impl BattleEngine {
     }
 
     fn state(&self) -> BattleState {
+        let mut log = self.log.clone();
+        if self.turn == 0 {
+            log.push(format!(
+                "Battle started at tick {}",
+                self.start_tick.value()
+            ));
+        }
         BattleState {
             turn: self.turn,
             pet_hp: self.pet.hp,
             opponent_hp: self.opponent.hp,
             finished: self.finished,
             winner: self.winner.clone(),
-            log: self.log.clone(),
+            log,
         }
     }
 }

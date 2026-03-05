@@ -1,4 +1,5 @@
 // projects/products/unstable/digital_pet/ui/src/app/app_state.rs
+use crate::transport::run_report_dto::RunReportDto;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +39,26 @@ impl AppState {
             discipline: 0,
             sick: false,
             last_event: None,
+        }
+    }
+
+    pub fn from_report(report: &RunReportDto) -> Self {
+        Self {
+            seed: report.seed,
+            ticks: report.total_ticks,
+            current_tick: report.total_ticks,
+            running: false,
+            pet_name: String::new(),
+            species: report.final_species.clone(),
+            evolution_stage: report.evolution_stage,
+            hp: report.final_hp,
+            max_hp: report.final_hp,
+            hunger: 0,
+            fatigue: 0,
+            happiness: report.final_happiness,
+            discipline: report.final_discipline,
+            sick: false,
+            last_event: Some(format!("report_hash: {}", report.run_hash)),
         }
     }
 }

@@ -1,11 +1,13 @@
 // projects/products/unstable/digital_pet/ui/src/transport/ipc_client.rs
 use crate::diagnostics::app_error::AppError;
 use crate::transport::backend_process::BackendProcess;
+use crate::transport::battle_state_dto::BattleStateDto;
 use crate::transport::message::Message;
 use crate::transport::pet_state_dto::PetStateDto;
 use crate::transport::request::Request;
 use crate::transport::response::Response;
 use crate::transport::run_report_dto::RunReportDto;
+use crate::transport::snapshot_dto::SnapshotDto;
 use std::io::{BufRead, BufReader, Write};
 
 pub struct IpcClient {
@@ -53,6 +55,16 @@ impl IpcClient {
         Ok(())
     }
 
+    pub fn load_scenario(&mut self, path: String) -> Result<(), AppError> {
+        match self.send(Request::LoadScenario { path })? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for LoadScenario".to_string(),
+            )),
+        }
+    }
+
     pub fn step(&mut self, n: u64) -> Result<PetStateDto, AppError> {
         match self.send(Request::Step { n })? {
             Response::PetState { state, .. } => Ok(state),
@@ -67,6 +79,86 @@ impl IpcClient {
             Response::Error { message, .. } => Err(AppError::Ipc(message)),
             _ => Err(AppError::Ipc(
                 "unexpected response for GetReport".to_string(),
+            )),
+        }
+    }
+
+    pub fn care_action(&mut self, kind: String) -> Result<(), AppError> {
+        match self.send(Request::CareAction { kind })? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for CareAction".to_string(),
+            )),
+        }
+    }
+
+    pub fn training(&mut self, kind: String) -> Result<String, AppError> {
+        match self.send(Request::Training { kind })? {
+            Response::OkWithData { data, .. } => Ok(data),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for Training".to_string(),
+            )),
+        }
+    }
+
+    pub fn start_battle(&mut self) -> Result<(), AppError> {
+        match self.send(Request::StartBattle)? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for StartBattle".to_string(),
+            )),
+        }
+    }
+
+    pub fn battle_step(&mut self) -> Result<BattleStateDto, AppError> {
+        match self.send(Request::BattleStep)? {
+            Response::BattleState { state, .. } => Ok(state),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for BattleStep".to_string(),
+            )),
+        }
+    }
+
+    pub fn get_snapshot(&mut self) -> Result<SnapshotDto, AppError> {
+        match self.send(Request::GetSnapshot)? {
+            Response::Snapshot { snapshot, .. } => Ok(snapshot),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for GetSnapshot".to_string(),
+            )),
+        }
+    }
+
+    pub fn save_replay(&mut self, path: String) -> Result<(), AppError> {
+        match self.send(Request::SaveReplay { path })? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for SaveReplay".to_string(),
+            )),
+        }
+    }
+
+    pub fn load_replay(&mut self, path: String) -> Result<(), AppError> {
+        match self.send(Request::LoadReplay { path })? {
+            Response::Ok { .. } => Ok(()),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for LoadReplay".to_string(),
+            )),
+        }
+    }
+
+    pub fn replay_to_end(&mut self) -> Result<RunReportDto, AppError> {
+        match self.send(Request::ReplayToEnd)? {
+            Response::Report { report, .. } => Ok(report),
+            Response::Error { message, .. } => Err(AppError::Ipc(message)),
+            _ => Err(AppError::Ipc(
+                "unexpected response for ReplayToEnd".to_string(),
             )),
         }
     }

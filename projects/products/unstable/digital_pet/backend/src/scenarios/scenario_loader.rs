@@ -1,6 +1,6 @@
 // projects/products/unstable/digital_pet/backend/src/scenario/scenario_loader.rs
 use crate::diagnostics::app_error::AppError;
-use crate::scenario::scenario::Scenario;
+use crate::scenarios::scenario::Scenario;
 use std::path::Path;
 
 pub struct ScenarioLoader;

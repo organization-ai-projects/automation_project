@@ -48,4 +48,24 @@ impl RunReport {
             run_hash,
         }
     }
+
+    pub fn canonical_json(&self) -> String {
+        format!(
+            "{{\"seed\":{},\"final_species\":\"{}\",\"evolution_stage\":{},\"total_ticks\":{},\"care_mistakes\":{},\"final_happiness\":{},\"final_discipline\":{},\"final_hp\":{},\"event_count\":{},\"run_hash\":\"{}\"}}",
+            self.seed,
+            escape_json(&self.final_species),
+            self.evolution_stage,
+            self.total_ticks,
+            self.care_mistakes,
+            self.final_happiness,
+            self.final_discipline,
+            self.final_hp,
+            self.event_count,
+            escape_json(&self.run_hash),
+        )
+    }
+}
+
+fn escape_json(input: &str) -> String {
+    input.replace('\\', "\\\\").replace('"', "\\\"")
 }

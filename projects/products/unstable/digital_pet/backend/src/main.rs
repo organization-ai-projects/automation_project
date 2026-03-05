@@ -12,7 +12,7 @@ mod protocol;
 pub mod public_api;
 mod replay;
 mod report;
-mod scenario;
+mod scenarios;
 mod snapshot;
 mod time;
 mod training;
