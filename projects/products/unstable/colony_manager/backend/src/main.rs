@@ -16,7 +16,6 @@ mod rng;
 mod scenarios;
 mod sim_engine;
 mod snapshot;
-mod tests;
 mod time;
 
 use std::{env, process};

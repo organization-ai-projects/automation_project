@@ -28,7 +28,9 @@ impl Controller {
     }
 
     fn forward_to_backend(command: &str, command_args: &[String]) -> Result<(), UiError> {
-        let status = Command::new("colony_manager")
+        let backend_bin = std::env::var("COLONY_MANAGER_BACKEND_BIN")
+            .unwrap_or_else(|_| "colony_manager_backend".to_string());
+        let status = Command::new(backend_bin)
             .arg(command)
             .args(command_args)
             .status()
