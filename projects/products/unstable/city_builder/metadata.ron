@@ -1,0 +1,33 @@
+(
+  schema_version: 1,
+  generated_at: 1772719648990,
+  id: "6f8d2a1c3b5e7d9f0a2c4e6b8d1f3a5c",
+  name: "City Builder",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "7a9c3e1f5b2d4a8e0c6f1d3b9a5e7c2d", title: "City Builder", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "simulation",
+    "replay",
+    "snapshot",
+    "scenario_validation",
+  ],
+
+  domains: [
+    (id: "8b0d4f2a6c1e3d7f9a5c2e4b6d8f1a3c", desc: "deterministic city simulation"),
+    (id: "9c1e5a3b7d2f4c8a0e6b3d5f7a9c2e4b", desc: "zoning and service coverage"),
+    (id: "0d2f6b4c8e3a5d9f1b7c4e6a8d0f3b5c", desc: "traffic and economy loops"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/", "README.md", "metadata.ron"],
+    config_files: ["backend/Cargo.toml", "ui/Cargo.toml", "ui/ui_manifest.ron"],
+  ),
+)
