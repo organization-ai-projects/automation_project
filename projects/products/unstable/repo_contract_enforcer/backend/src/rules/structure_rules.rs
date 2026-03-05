@@ -33,6 +33,40 @@ impl StructureRules {
                 ));
             }
 
+            // Progressive rollout for manifest convention:
+            // warning on both stable/unstable for now, planned to become mandatory.
+            let transition_suffix = " (warning: mandatory enforcement planned in a future phase)";
+            let metadata = product_dir.join("metadata.ron");
+            if !metadata.exists() {
+                out.push(make_violation(
+                    RuleId::Structure,
+                    ViolationCode::StructMissingProductMetadata,
+                    (scope, mode),
+                    &metadata,
+                    &format!("product must include metadata.ron at root{transition_suffix}"),
+                    (false, None),
+                ));
+            }
+
+            for (crate_name, manifest_name) in [
+                ("backend", "backend_manifest.ron"),
+                ("ui", "ui_manifest.ron"),
+            ] {
+                let manifest = product_dir.join(crate_name).join(manifest_name);
+                if !manifest.exists() {
+                    out.push(make_violation(
+                        RuleId::Structure,
+                        ViolationCode::StructMissingCrateManifest,
+                        (scope, mode),
+                        &manifest,
+                        &format!(
+                            "crate '{crate_name}' must include {manifest_name}{transition_suffix}"
+                        ),
+                        (false, None),
+                    ));
+                }
+            }
+
             let child_crates = CrateScanner::discover_child_crates(product_dir);
             for extra in child_crates
                 .iter()

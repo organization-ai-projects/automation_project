@@ -334,6 +334,23 @@ mod tests {
     }
 
     #[test]
+    fn fixture_invalid_unstable_missing_manifests_matches_golden() {
+        let root = fixture_root("invalid_unstable_missing_manifests");
+        let report = run_check_repo_report(&root, EnforcementMode::Strict);
+        let normalized = normalized_report(report, &root);
+        assert_matches_golden(
+            "expected_report_invalid_unstable_missing_manifests.json",
+            &normalized,
+        );
+        assert!(
+            normalized
+                .violations
+                .iter()
+                .all(|v| v.severity == Severity::Warning)
+        );
+    }
+
+    #[test]
     fn fixture_invalid_stable_ui_import_matches_golden() {
         let root = fixture_root("invalid_stable_ui_imports_backend");
         let report = run_check_repo_report(&root, EnforcementMode::Strict);
