@@ -1,4 +1,4 @@
-use crate::map::TileId;
+use crate::map::tile_id::TileId;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Route {

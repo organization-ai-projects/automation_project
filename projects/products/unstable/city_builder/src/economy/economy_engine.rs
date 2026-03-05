@@ -1,4 +1,4 @@
-use super::TaxPolicy;
+use super::tax_policy::TaxPolicy;
 use crate::config::sim_config::SimConfig;
 use crate::snapshot::state_snapshot::StateSnapshot;
 

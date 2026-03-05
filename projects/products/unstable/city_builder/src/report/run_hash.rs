@@ -1,4 +1,4 @@
-use super::TickReport;
+use super::tick_report::TickReport;
 use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

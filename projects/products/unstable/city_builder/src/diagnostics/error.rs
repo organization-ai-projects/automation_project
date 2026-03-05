@@ -10,6 +10,4 @@ pub enum CityBuilderError {
     ReplayMismatch(String),
     #[error("IO error: {0}")]
     Io(String),
-    #[error("Internal error: {0}")]
-    Internal(String),
 }

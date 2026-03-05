@@ -1,4 +1,4 @@
-use super::SimEvent;
+use super::sim_event::SimEvent;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct EventLog {

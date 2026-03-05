@@ -1,4 +1,5 @@
-use super::{Road, TileId};
+use super::road::Road;
+use super::tile_id::TileId;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
@@ -62,8 +63,8 @@ impl RoadGraph {
             }
             if let Some(neighbors) = self.adjacency.get(&cur) {
                 for &n in neighbors {
-                    if !parent.contains_key(&n) {
-                        parent.insert(n, cur);
+                    if let std::collections::btree_map::Entry::Vacant(e) = parent.entry(n) {
+                        e.insert(cur);
                         queue.push_back(n);
                     }
                 }

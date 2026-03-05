@@ -1,4 +1,4 @@
-use super::TileId;
+use super::tile_id::TileId;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Road {

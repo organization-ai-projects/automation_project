@@ -1,5 +1,5 @@
-use super::ServiceKind;
-use crate::map::TileId;
+use super::service_kind::ServiceKind;
+use crate::map::tile_id::TileId;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ServiceBuilding {

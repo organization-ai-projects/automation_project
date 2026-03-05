@@ -1,4 +1,4 @@
-use super::TickReport;
+use super::tick_report::TickReport;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SimReport {

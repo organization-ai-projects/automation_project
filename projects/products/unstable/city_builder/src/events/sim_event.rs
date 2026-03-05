@@ -1,4 +1,4 @@
-use crate::time::Tick;
+use crate::time::tick::Tick;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]

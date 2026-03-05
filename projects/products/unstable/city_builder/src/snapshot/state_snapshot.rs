@@ -1,12 +1,16 @@
-use crate::buildings::Building;
+use crate::buildings::building::Building;
 use crate::config::sim_config::SimConfig;
-use crate::map::{GridMap, RoadGraph, TileId};
-use crate::scenario::scenario::Scenario;
-use crate::services::{CoverageMap, ServiceBuilding};
-use crate::traffic::{Route, Vehicle};
+use crate::map::grid_map::GridMap;
+use crate::map::road_graph::RoadGraph;
+use crate::map::tile_id::TileId;
+use crate::scenarios::scenario::Scenario;
+use crate::services::coverage_map::CoverageMap;
+use crate::services::service_building::ServiceBuilding;
+use crate::traffic::route::Route;
+use crate::traffic::vehicle::Vehicle;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StateSnapshot {
     pub grid: GridMap,
     pub road_graph: RoadGraph,
@@ -39,28 +43,28 @@ impl StateSnapshot {
                 }
                 if x < ir.x2 {
                     let next = TileId { x: x + 1, y };
-                    road_graph.add_road(&crate::map::Road {
+                    road_graph.add_road(&crate::map::road::Road {
                         from: tile_id,
                         to: next,
                     });
                     x += 1;
                 } else if x > ir.x2 {
                     let next = TileId { x: x - 1, y };
-                    road_graph.add_road(&crate::map::Road {
+                    road_graph.add_road(&crate::map::road::Road {
                         from: tile_id,
                         to: next,
                     });
                     x -= 1;
                 } else if y < ir.y2 {
                     let next = TileId { x, y: y + 1 };
-                    road_graph.add_road(&crate::map::Road {
+                    road_graph.add_road(&crate::map::road::Road {
                         from: tile_id,
                         to: next,
                     });
                     y += 1;
                 } else if y > ir.y2 {
                     let next = TileId { x, y: y - 1 };
-                    road_graph.add_road(&crate::map::Road {
+                    road_graph.add_road(&crate::map::road::Road {
                         from: tile_id,
                         to: next,
                     });

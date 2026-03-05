@@ -1,4 +1,4 @@
-use crate::zoning::ZoneKind;
+use crate::zoning::zone_kind::ZoneKind;
 
 #[derive(Debug, Clone)]
 pub struct TaxPolicy;

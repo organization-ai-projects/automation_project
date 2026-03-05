@@ -1,5 +1,5 @@
-use crate::map::TileId;
-use crate::services::ServiceKind;
+use crate::map::tile_id::TileId;
+use crate::services::service_kind::ServiceKind;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 

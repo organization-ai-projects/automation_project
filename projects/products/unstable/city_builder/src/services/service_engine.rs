@@ -1,5 +1,5 @@
-use super::CoverageMap;
-use crate::map::TileId;
+use crate::map::tile_id::TileId;
+use crate::services::coverage_map::CoverageMap;
 use crate::snapshot::state_snapshot::StateSnapshot;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -39,8 +39,8 @@ impl ServiceEngine {
             }
             let neighbors = state.grid.neighbors(&cur);
             for n in neighbors {
-                if !visited.contains_key(&n) {
-                    visited.insert(n, dist + 1);
+                if let std::collections::btree_map::Entry::Vacant(e) = visited.entry(n) {
+                    e.insert(dist + 1);
                     queue.push_back((n, dist + 1));
                 }
             }

@@ -1,4 +1,4 @@
-use super::TileId;
+use super::tile_id::TileId;
 use crate::zoning::zone_kind::ZoneKind;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

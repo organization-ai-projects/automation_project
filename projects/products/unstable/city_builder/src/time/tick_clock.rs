@@ -1,4 +1,4 @@
-use super::Tick;
+use crate::time::tick::Tick;
 
 #[derive(Debug, Clone)]
 pub struct TickClock {

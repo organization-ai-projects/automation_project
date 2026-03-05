@@ -1,4 +1,5 @@
-use super::{Tile, TileId};
+use super::tile::Tile;
+use super::tile_id::TileId;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

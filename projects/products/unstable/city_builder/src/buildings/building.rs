@@ -1,6 +1,7 @@
-use super::{BuildingId, BuildingKind};
-use crate::map::TileId;
-use crate::zoning::ZoneKind;
+use super::building_id::BuildingId;
+use super::building_kind::BuildingKind;
+use crate::map::tile_id::TileId;
+use crate::zoning::zone_kind::ZoneKind;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Building {

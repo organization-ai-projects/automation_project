@@ -1,4 +1,4 @@
-use super::ZoneKind;
+use super::zone_kind::ZoneKind;
 
 #[derive(Debug, Clone)]
 pub struct ZoneRules;
