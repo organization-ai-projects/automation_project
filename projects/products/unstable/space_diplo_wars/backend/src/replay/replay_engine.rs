@@ -1,8 +1,12 @@
 use crate::diagnostics::error::SpaceDiploWarsError;
+use crate::economy::economy_engine::EconomyEngine;
+use crate::queues::queue_engine::QueueEngine;
 use crate::report::run_report::RunReport;
 use crate::resolution::resolution_engine::ResolutionEngine;
 use crate::snapshot::snapshot_hash::SnapshotHash;
 use crate::snapshot::state_snapshot::StateSnapshot;
+use crate::tech::tech_engine::TechEngine;
+use crate::time::phase::Phase;
 
 use super::replay_file::ReplayFile;
 
@@ -24,6 +28,15 @@ impl ReplayEngine {
         let mut turn_reports = Vec::new();
 
         for turn in 1..=turns {
+            for _ in 0..replay.ticks_per_turn {
+                state.current_phase = Phase::EconomyTick;
+                EconomyEngine::tick(&mut state);
+                QueueEngine::tick(&mut state);
+                TechEngine::tick(&mut state);
+                state.current_tick = crate::time::tick::Tick(state.current_tick.0 + 1);
+            }
+
+            state.current_phase = Phase::OrdersSubmit;
             let key = turn.to_string();
             let empty = Vec::new();
             let orders = replay
@@ -32,7 +45,9 @@ impl ReplayEngine {
                 .map(|os| os.orders.as_slice())
                 .unwrap_or(empty.as_slice());
 
+            state.current_phase = Phase::OrdersResolve;
             let res_report = ResolutionEngine::resolve_turn(&mut state, orders, turn);
+            state.current_phase = Phase::Aftermath;
 
             // Verify checkpoint if present
             for cp in &replay.scenario.checkpoints {
@@ -58,7 +73,6 @@ impl ReplayEngine {
             });
 
             state.current_turn = crate::time::turn::Turn(turn);
-            state.current_tick = crate::time::tick::Tick(turn * replay.ticks_per_turn);
         }
 
         let final_snapshot = StateSnapshot::from_state(&state);
@@ -80,6 +94,15 @@ impl ReplayEngine {
         let mut state = replay.scenario.build_initial_state();
 
         for turn in 1..=turn_limit {
+            for _ in 0..replay.ticks_per_turn {
+                state.current_phase = Phase::EconomyTick;
+                EconomyEngine::tick(&mut state);
+                QueueEngine::tick(&mut state);
+                TechEngine::tick(&mut state);
+                state.current_tick = crate::time::tick::Tick(state.current_tick.0 + 1);
+            }
+
+            state.current_phase = Phase::OrdersSubmit;
             let key = turn.to_string();
             let empty = Vec::new();
             let orders = replay
@@ -88,9 +111,10 @@ impl ReplayEngine {
                 .map(|os| os.orders.as_slice())
                 .unwrap_or(empty.as_slice());
 
+            state.current_phase = Phase::OrdersResolve;
             ResolutionEngine::resolve_turn(&mut state, orders, turn);
+            state.current_phase = Phase::Aftermath;
             state.current_turn = crate::time::turn::Turn(turn);
-            state.current_tick = crate::time::tick::Tick(turn * replay.ticks_per_turn);
         }
 
         Ok(StateSnapshot::from_state(&state))

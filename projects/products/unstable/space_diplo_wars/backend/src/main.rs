@@ -26,8 +26,10 @@ use std::process;
 
 use crate::config::game_config::GameConfig;
 use crate::diagnostics::error::SpaceDiploWarsError;
+use crate::economy::economy_engine::EconomyEngine;
 use crate::io::json_codec::JsonCodec;
 use crate::orders::order_set::OrderSet;
+use crate::queues::queue_engine::QueueEngine;
 use crate::replay::replay_codec::ReplayCodec;
 use crate::replay::replay_engine::ReplayEngine;
 use crate::replay::replay_file::ReplayFile;
@@ -39,6 +41,8 @@ use crate::scenarios::scenario::Scenario;
 use crate::scenarios::scenario_loader::ScenarioLoader;
 use crate::snapshot::snapshot_hash::SnapshotHash;
 use crate::snapshot::state_snapshot::StateSnapshot;
+use crate::tech::tech_engine::TechEngine;
+use crate::time::phase::Phase;
 
 fn main() {
     tracing_subscriber::fmt::init();
@@ -303,6 +307,15 @@ fn execute_run(
     let mut turn_reports: Vec<TurnReport> = Vec::new();
 
     for turn in 1..=config.turns {
+        for _ in 0..config.ticks_per_turn {
+            state.current_phase = Phase::EconomyTick;
+            EconomyEngine::tick(&mut state);
+            QueueEngine::tick(&mut state);
+            TechEngine::tick(&mut state);
+            state.current_tick = crate::time::tick::Tick(state.current_tick.0 + 1);
+        }
+
+        state.current_phase = Phase::OrdersSubmit;
         let orders = scenario.orders_for_turn(turn);
         replay_file.orders_per_turn.insert(
             turn.to_string(),
@@ -311,8 +324,15 @@ fn execute_run(
                 orders: orders.clone(),
             },
         );
+        if let Some(choices) = scenario.scripted_treaty_choices.get(&turn.to_string()) {
+            replay_file
+                .treaty_decisions
+                .insert(turn.to_string(), choices.clone());
+        }
 
+        state.current_phase = Phase::OrdersResolve;
         let res_report = ResolutionEngine::resolve_turn(&mut state, &orders, turn);
+        state.current_phase = Phase::Aftermath;
 
         for cp in &scenario.checkpoints {
             if cp.turn == turn
@@ -337,7 +357,6 @@ fn execute_run(
         });
 
         state.current_turn = crate::time::turn::Turn(turn);
-        state.current_tick = crate::time::tick::Tick(turn * config.ticks_per_turn);
     }
 
     let final_snapshot = StateSnapshot::from_state(&state);

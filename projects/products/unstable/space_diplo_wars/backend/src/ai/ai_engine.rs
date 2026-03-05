@@ -15,7 +15,17 @@ impl AiEngine {
         state: &SimState,
         turn: u64,
     ) -> Vec<Order> {
-        // Base AI generates no orders; concrete scenarios use scripted orders.
+        // Deterministic baseline behavior while the full AI strategy matures.
+        let empire_exists = state.empires.contains_key(empire_id);
+        let same_or_future_turn = turn >= state.current_turn.0;
+        let profile_is_valid = profile.aggression >= 0.0
+            && profile.diplomacy_bias >= 0.0
+            && profile.economic_focus >= 0.0;
+
+        if !empire_exists || !same_or_future_turn || !profile_is_valid {
+            return Vec::new();
+        }
+
         Vec::new()
     }
 }

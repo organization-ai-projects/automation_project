@@ -1,5 +1,4 @@
 use crate::diplomacy::diplomacy_engine::DiplomacyEngine;
-use crate::economy::economy_engine::EconomyEngine;
 use crate::events::game_event::GameEvent;
 use crate::model::sim_state::SimState;
 use crate::orders::order::Order;
@@ -18,8 +17,7 @@ impl ResolutionEngine {
     /// 1. ValidateOrders  - check all orders; skip invalid ones (log errors)
     /// 2. ApplyDiplomacy  - process treaty offers/accepts/rejects (sorted by empire_id, then order_id)
     /// 3. ResolveCombat   - deterministic battle resolution; tie-breaker = attacker empire_id string
-    /// 4. UpdateEconomy   - apply economy tick
-    /// 5. EmitEvents      - collect all events into ResolutionReport
+    /// 4. EmitEvents      - collect all events into ResolutionReport
     pub fn resolve_turn(state: &mut SimState, orders: &[Order], turn: u64) -> ResolutionReport {
         let mut report = ResolutionReport::new(turn);
 
@@ -123,10 +121,7 @@ impl ResolutionEngine {
             }
         }
 
-        // 4. Update economy
-        EconomyEngine::tick(state);
-
-        // 5. Emit events
+        // 4. Emit events
         report.game_events.push(GameEvent::TurnResolved { turn });
 
         report
