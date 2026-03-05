@@ -28,6 +28,11 @@
   ai_hints: (
     primary_language: "rust",
     important_paths: ["backend/", "ui/", "README.md", "metadata.ron"],
-    config_files: ["backend/Cargo.toml", "ui/Cargo.toml", "ui/ui_manifest.ron"],
+    config_files: [
+      "backend/Cargo.toml",
+      "backend/backend_manifest.ron",
+      "ui/Cargo.toml",
+      "ui/ui_manifest.ron",
+    ],
   ),
 )

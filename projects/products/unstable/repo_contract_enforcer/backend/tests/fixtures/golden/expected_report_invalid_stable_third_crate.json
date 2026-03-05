@@ -1,31 +1,58 @@
 {
+  "summary": {
+    "stable_error_count": 2,
+    "unstable_warning_count": 0,
+    "unstable_error_count": 0,
+    "stable_warning_count": 3
+  },
+  "repository_root": "<FIXTURE_ROOT>",
+  "report_hash": "f926887ba23703ceab5ccff70ed83fbbb86c583dbe48ef33857b5daa20ca4ad5",
+  "mode": "strict",
   "violations": [
     {
-      "line": null,
-      "message": "only backend and ui crates are allowed",
-      "violation_code": "STRUCT_THIRD_CRATE_DETECTED",
       "rule_id": "structure",
-      "severity": "ERROR",
+      "severity": "WARNING",
       "scope": "stable",
+      "message": "crate 'backend' must include backend_manifest.ron (warning: mandatory enforcement planned in a future phase)",
+      "line": null,
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/backend/backend_manifest.ron"
+    },
+    {
+      "severity": "WARNING",
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/metadata.ron",
+      "message": "product must include metadata.ron at root (warning: mandatory enforcement planned in a future phase)",
+      "line": null,
+      "scope": "stable",
+      "rule_id": "structure"
+    },
+    {
+      "scope": "stable",
+      "severity": "ERROR",
+      "violation_code": "STRUCT_THIRD_CRATE_DETECTED",
+      "message": "only backend and ui crates are allowed",
+      "line": null,
+      "rule_id": "structure",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling"
     },
     {
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling",
-      "scope": "stable",
       "message": "forbidden folder name detected",
-      "violation_code": "STRUCT_FORBIDDEN_FOLDER_NAME",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling",
       "severity": "ERROR",
       "line": null,
-      "rule_id": "structure"
+      "violation_code": "STRUCT_FORBIDDEN_FOLDER_NAME",
+      "rule_id": "structure",
+      "scope": "stable"
+    },
+    {
+      "line": null,
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/ui/ui_manifest.ron",
+      "rule_id": "structure",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "severity": "WARNING",
+      "message": "crate 'ui' must include ui_manifest.ron (warning: mandatory enforcement planned in a future phase)"
     }
-  ],
-  "repository_root": "<FIXTURE_ROOT>",
-  "mode": "strict",
-  "report_hash": "161d284de2a61cdbff29b383212d48f483d5944b1bd34ccd32c1e8284157ec94",
-  "summary": {
-    "stable_error_count": 2,
-    "stable_warning_count": 0,
-    "unstable_error_count": 0,
-    "unstable_warning_count": 0
-  }
+  ]
 }
