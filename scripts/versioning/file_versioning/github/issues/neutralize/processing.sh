@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034,SC2178
 
 neutralize_upsert_pr_comment() {
   local repo_name="$1"
@@ -25,10 +26,189 @@ neutralize_upsert_pr_comment() {
   fi
 }
 
-neutralize_issue_non_compliance_reason() {
+neutralize_reason_for_issue_cached() {
   local issue_number="$1"
   local repo_name="$2"
-  issue_fetch_non_compliance_reason "$issue_number" "$repo_name"
+  local cache_var_name="$3"
+  local -n cache_ref="$cache_var_name"
+  local cache_key="#${issue_number}"
+
+  if [[ -v "cache_ref[$cache_key]" ]]; then
+    echo "${cache_ref[$cache_key]}"
+    return
+  fi
+
+  local reason
+  reason="$(issue_fetch_non_compliance_reason "$issue_number" "$repo_name")"
+  cache_ref["$cache_key"]="$reason"
+  echo "$reason"
+}
+
+neutralize_valid_keyword_pattern() {
+  local keyword_pattern="$1"
+  [[ -n "$keyword_pattern" && "$keyword_pattern" =~ ^[a-z|]+$ ]]
+}
+
+neutralize_apply_rejected_marker() {
+  local body="$1"
+  local keyword_pattern="$2"
+  local issue_key="$3"
+
+  NEUTRALIZE_KEYWORDS="$keyword_pattern" \
+    NEUTRALIZE_ISSUE_KEY="$issue_key" \
+    perl -0777 -pe '
+      my $kw = $ENV{NEUTRALIZE_KEYWORDS} // q{};
+      my $ik = $ENV{NEUTRALIZE_ISSUE_KEY} // q{};
+      my $ikq = quotemeta($ik);
+      s/\b((?:$kw))\b(\s+)(?!rejected\b)([^\s]*$ikq)\b/$1$2rejected $3/ig;
+    ' <<<"$body"
+}
+
+neutralize_remove_rejected_marker() {
+  local body="$1"
+  local keyword_pattern="$2"
+  local issue_key="$3"
+
+  NEUTRALIZE_KEYWORDS="$keyword_pattern" \
+    NEUTRALIZE_ISSUE_KEY="$issue_key" \
+    perl -0777 -pe '
+      my $kw = $ENV{NEUTRALIZE_KEYWORDS} // q{};
+      my $ik = $ENV{NEUTRALIZE_ISSUE_KEY} // q{};
+      my $ikq = quotemeta($ik);
+      s/\b((?:$kw))\b(\s+)rejected\s+([^\s]*$ikq)\b/$1$2$3/ig;
+    ' <<<"$body"
+}
+
+neutralize_register_non_compliant_ref() {
+  local issue_key="$1"
+  local action="$2"
+  local reason="$3"
+  local neutralized_reason_var_name="$4"
+  local neutralized_action_var_name="$5"
+  local neutralized_count_var_name="$6"
+  local -n neutralized_reason_ref="$neutralized_reason_var_name"
+  local -n neutralized_action_ref="$neutralized_action_var_name"
+  local -n neutralized_count_ref="$neutralized_count_var_name"
+
+  neutralized_reason_ref["$issue_key"]="$reason"
+  neutralized_action_ref["$issue_key"]="$action"
+  neutralized_count_ref=$((neutralized_count_ref + 1))
+}
+
+neutralize_process_closing_refs() {
+  local original_body="$1"
+  local repo_name="$2"
+  local updated_body_var_name="$3"
+  local seen_ref_var_name="$4"
+  local neutralized_reason_var_name="$5"
+  local neutralized_action_var_name="$6"
+  local neutralized_count_var_name="$7"
+  local reason_cache_var_name="$8"
+
+  local -n updated_body_ref="$updated_body_var_name"
+  local -n seen_ref_ref="$seen_ref_var_name"
+
+  local action issue_key issue_number dedupe_key reason keyword_pattern
+
+  while IFS='|' read -r action issue_key; do
+    issue_key="$(neutralize_trim "$issue_key")"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    issue_number="${issue_key//#/}"
+    dedupe_key="${action}|${issue_key}"
+    if [[ -n "${seen_ref_ref[$dedupe_key]:-}" ]]; then
+      continue
+    fi
+    seen_ref_ref["$dedupe_key"]=1
+
+    reason="$(neutralize_reason_for_issue_cached "$issue_number" "$repo_name" "$reason_cache_var_name")"
+    [[ -n "$reason" ]] || continue
+
+    keyword_pattern="$(neutralize_keyword_pattern_from_action "$action")"
+    neutralize_valid_keyword_pattern "$keyword_pattern" || continue
+
+    updated_body_ref="$(neutralize_apply_rejected_marker "$updated_body_ref" "$keyword_pattern" "$issue_key")"
+
+    neutralize_register_non_compliant_ref \
+      "$issue_key" "$action" "$reason" \
+      "$neutralized_reason_var_name" "$neutralized_action_var_name" "$neutralized_count_var_name"
+  done < <(parse_closing_issue_refs_from_text "$original_body")
+}
+
+neutralize_process_pre_neutralized_refs() {
+  local original_body="$1"
+  local repo_name="$2"
+  local updated_body_var_name="$3"
+  local seen_ref_var_name="$4"
+  local neutralized_reason_var_name="$5"
+  local neutralized_action_var_name="$6"
+  local neutralized_count_var_name="$7"
+  local reason_cache_var_name="$8"
+
+  local -n updated_body_ref="$updated_body_var_name"
+  local -n seen_ref_ref="$seen_ref_var_name"
+
+  local action issue_key issue_number dedupe_key reason keyword_pattern
+
+  while IFS='|' read -r action issue_key; do
+    issue_key="$(neutralize_trim "$issue_key")"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    issue_number="${issue_key//#/}"
+    dedupe_key="${action}|${issue_key}"
+    if [[ -n "${seen_ref_ref[$dedupe_key]:-}" ]]; then
+      continue
+    fi
+    seen_ref_ref["$dedupe_key"]=1
+
+    reason="$(neutralize_reason_for_issue_cached "$issue_number" "$repo_name" "$reason_cache_var_name")"
+
+    keyword_pattern="$(neutralize_keyword_pattern_from_action "$action")"
+    neutralize_valid_keyword_pattern "$keyword_pattern" || continue
+
+    if [[ -n "$reason" ]]; then
+      neutralize_register_non_compliant_ref \
+        "$issue_key" "$action" "$reason" \
+        "$neutralized_reason_var_name" "$neutralized_action_var_name" "$neutralized_count_var_name"
+    else
+      updated_body_ref="$(neutralize_remove_rejected_marker "$updated_body_ref" "$keyword_pattern" "$issue_key")"
+    fi
+  done < <(parse_neutralized_closing_issue_refs_from_text "$original_body")
+}
+
+neutralize_build_comment_body() {
+  local marker="$1"
+  local neutralized_count="$2"
+  local neutralized_reason_var_name="$3"
+  local neutralized_action_var_name="$4"
+  local -n neutralized_reason_ref="$neutralized_reason_var_name"
+  local -n neutralized_action_ref="$neutralized_action_var_name"
+
+  local comment_body
+  if [[ "$neutralized_count" -gt 0 ]]; then
+    comment_body="$marker
+### Closure Neutralization Status
+
+⚠️ Non-compliant issue references were neutralized to prevent incorrect auto-close.
+
+"
+
+    local issue_key
+    while IFS= read -r issue_key; do
+      [[ -z "$issue_key" ]] && continue
+      comment_body+="- ${neutralized_action_ref[$issue_key]} rejected ${issue_key}: ${neutralized_reason_ref[$issue_key]}"$'\n'
+    done < <(printf '%s\n' "${!neutralized_reason_ref[@]}" | sort -V)
+
+    comment_body+=$'\n'"How to restore standard auto-close:"$'\n'
+    comment_body+="- Fix issue required fields/title contract (if applicable)."$'\n'
+    comment_body+="- Remove or adjust \`Reopen #...\` for issues that should close now."$'\n'
+    comment_body+="- Remove \`rejected\` from closure lines in PR body."
+  else
+    comment_body="$marker
+### Closure Neutralization Status
+
+✅ No non-compliant closure refs detected. No neutralization applied."
+  fi
+
+  echo "$comment_body"
 }
 
 neutralize_run() {
@@ -89,91 +269,23 @@ neutralize_run() {
   declare -A seen_ref
   declare -A neutralized_reason
   declare -A neutralized_action
+  declare -A reason_cache
   local neutralized_count=0
-  local action issue_key issue_number dedupe_key reason keyword_pattern escaped_issue_key
 
-  while IFS='|' read -r action issue_key; do
-    issue_key="$(neutralize_trim "$issue_key")"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    issue_number="${issue_key//#/}"
-    dedupe_key="${action}|${issue_key}"
-    if [[ -n "${seen_ref[$dedupe_key]:-}" ]]; then
-      continue
-    fi
-    seen_ref["$dedupe_key"]=1
+  neutralize_process_closing_refs \
+    "$original_body" "$repo_name" \
+    updated_body seen_ref neutralized_reason neutralized_action neutralized_count reason_cache
 
-    reason="$(neutralize_issue_non_compliance_reason "$issue_number" "$repo_name")"
-    [[ -n "$reason" ]] || continue
-
-    keyword_pattern="$(neutralize_keyword_pattern_from_action "$action")"
-    [[ -n "$keyword_pattern" ]] || continue
-
-    escaped_issue_key="$(printf '%s' "$issue_key" | sed 's/[^^]/[&]/g; s/\^/\\^/g')"
-    updated_body="$(
-      perl -0777 -pe "s/\\b((?:${keyword_pattern}))\\b(\\s+)(?!rejected\\b)([^\\s]*${escaped_issue_key})\\b/\$1\$2rejected \$3/ig" \
-        <<<"$updated_body"
-    )"
-
-    neutralized_reason["$issue_key"]="$reason"
-    neutralized_action["$issue_key"]="$action"
-    neutralized_count=$((neutralized_count + 1))
-  done < <(parse_closing_issue_refs_from_text "$original_body")
-
-  while IFS='|' read -r action issue_key; do
-    issue_key="$(neutralize_trim "$issue_key")"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    issue_number="${issue_key//#/}"
-    dedupe_key="${action}|${issue_key}"
-    if [[ -n "${seen_ref[$dedupe_key]:-}" ]]; then
-      continue
-    fi
-    seen_ref["$dedupe_key"]=1
-
-    reason="$(neutralize_issue_non_compliance_reason "$issue_number" "$repo_name")"
-
-    keyword_pattern="$(neutralize_keyword_pattern_from_action "$action")"
-    [[ -n "$keyword_pattern" ]] || continue
-
-    escaped_issue_key="$(printf '%s' "$issue_key" | sed 's/[^^]/[&]/g; s/\^/\\^/g')"
-
-    if [[ -n "$reason" ]]; then
-      neutralized_reason["$issue_key"]="$reason"
-      neutralized_action["$issue_key"]="$action"
-      neutralized_count=$((neutralized_count + 1))
-    else
-      updated_body="$(
-        perl -0777 -pe "s/\\b((?:${keyword_pattern}))\\b(\\s+)rejected\\s+([^\\s]*${escaped_issue_key})\\b/\$1\$2\$3/ig" \
-          <<<"$updated_body"
-      )"
-    fi
-  done < <(parse_neutralized_closing_issue_refs_from_text "$original_body")
+  neutralize_process_pre_neutralized_refs \
+    "$original_body" "$repo_name" \
+    updated_body seen_ref neutralized_reason neutralized_action neutralized_count reason_cache
 
   if [[ "$updated_body" != "$original_body" ]]; then
     gh pr edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
   fi
 
   local comment_body
-  if [[ "$neutralized_count" -gt 0 ]]; then
-    comment_body="$marker
-### Closure Neutralization Status
-
-⚠️ Non-compliant issue references were neutralized to prevent incorrect auto-close.
-
-"
-    for issue_key in "${!neutralized_reason[@]}"; do
-      comment_body+="- ${neutralized_action[$issue_key]} rejected ${issue_key}: ${neutralized_reason[$issue_key]}"$'\n'
-    done
-    comment_body+=$'\n'"How to restore standard auto-close:"$'\n'
-    comment_body+="- Fix issue required fields/title contract (if applicable)."$'\n'
-    comment_body+="- Remove or adjust \`Reopen #...\` for issues that should close now."$'\n'
-    comment_body+="- Remove \`rejected\` from closure lines in PR body."
-  else
-    comment_body="$marker
-### Closure Neutralization Status
-
-✅ No non-compliant closure refs detected. No neutralization applied."
-  fi
-
+  comment_body="$(neutralize_build_comment_body "$marker" "$neutralized_count" neutralized_reason neutralized_action)"
   neutralize_upsert_pr_comment "$repo_name" "$pr_number" "$marker" "$comment_body"
 
   echo "Closure neutralization evaluated for PR #${pr_number}."
