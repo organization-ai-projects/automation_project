@@ -119,7 +119,7 @@ pr_pipeline_extract_pr_refs() {
 
   if [[ "$dry_run" == "true" ]]; then
     pr_load_dry_compare_commits_into_globals
-    if ! pr_extract_child_prs_dry; then
+    if ! pr_extract_child_prs_from_compare; then
       echo "Warning: unable to extract PRs from compare ${base_ref_git}...${head_ref_git}." >&2
     fi
   else

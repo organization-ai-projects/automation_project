@@ -37,8 +37,7 @@ pr_extract_child_prs() {
   fi
 
   {
-    echo "$commit_headlines" | sed -nE 's/.*Merge pull request #([0-9]+).*/#\1/p'
-    echo "$commit_headlines" | sed -nE 's/.*\(#([0-9]+)\)\s*$/#\1/p'
+    pr_extract_pr_refs_from_headlines "$commit_headlines"
     echo "$main_pr_body" | grep -oE '/pull/[0-9]+' | sed -E 's#^/pull/([0-9]+)$#\#\1#'
     echo "$main_pr_body" | sed -nE 's/.*\bPR[[:space:]]*#([0-9]+).*/#\1/ip'
     echo "$main_pr_body" | sed -nE 's/.*pull request #([0-9]+).*/#\1/ip'
