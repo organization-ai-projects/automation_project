@@ -1,5 +1,42 @@
 #!/usr/bin/env bash
 
+pr_require_classification_buffers() {
+  local missing=()
+
+  [[ -n "${sync_tmp:-}" ]] || missing+=("sync_tmp")
+  [[ -n "${bugs_tmp:-}" ]] || missing+=("bugs_tmp")
+  [[ -n "${refactors_tmp:-}" ]] || missing+=("refactors_tmp")
+  [[ -n "${features_tmp:-}" ]] || missing+=("features_tmp")
+
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    echo "Error: classification buffers are not initialized (${missing[*]})." >&2
+    echo "Call pr_pipeline_init_artifacts_and_state before classify_pr." >&2
+    exit "${E_GIT:-4}"
+  fi
+}
+
+pr_emit_classification() {
+  local pr_ref="$1"
+  local bullet="$2"
+  local category="$3"
+  local debug_suffix="${4:-}"
+
+  pr_require_classification_buffers
+
+  case "$category" in
+  Synchronization) echo "$bullet" >>"$sync_tmp" ;;
+  "Bug Fixes") echo "$bullet" >>"$bugs_tmp" ;;
+  Refactoring) echo "$bullet" >>"$refactors_tmp" ;;
+  *) echo "$bullet" >>"$features_tmp" ;;
+  esac
+
+  if [[ -n "$debug_suffix" ]]; then
+    pr_debug_log "classify_pr: ${pr_ref} -> ${category} (${debug_suffix})"
+  else
+    pr_debug_log "classify_pr: ${pr_ref} -> ${category}"
+  fi
+}
+
 build_pr_bullet() {
   local title="$1"
   local pr_ref="$2"
@@ -33,8 +70,8 @@ classify_merge_by_source_ref() {
 
   merge_branch="${merge_source_ref##*/}"
 
-  if [[ "$merge_source_ref" =~ /sync/ ]] \
-    || [[ "$merge_branch" =~ (main|dev|master|staging|release[^[:space:]]*)-?(into|to)-?(main|dev|master|staging|release[^[:space:]]*) ]]; then
+  if [[ "$merge_source_ref" =~ /sync/ ]] ||
+    [[ "$merge_branch" =~ (main|dev|master|staging|release[^[:space:]]*)-?(into|to)-?(main|dev|master|staging|release[^[:space:]]*) ]]; then
     echo "Synchronization"
     return
   fi
@@ -71,30 +108,15 @@ classify_pr() {
   title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
   bullet="$(build_pr_bullet "$title" "$pr_ref")"
 
-  if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] \
-    || [[ "$title_lc" =~ ^[[:space:]]*(chore|refactor|fix|feat|docs|test|tests)[^:]*:[[:space:]]*(sync|merge) ]]; then
+  if [[ "$title_lc" =~ ^[[:space:]]*(sync|merge) ]] ||
+    [[ "$title_lc" =~ ^[[:space:]]*(chore|refactor|fix|feat|docs|test|tests)[^:]*:[[:space:]]*(sync|merge) ]]; then
     starts_sync_or_merge=1
   fi
 
   if [[ "$title_lc" =~ ^[[:space:]]*merge[[:space:]]+pull[[:space:]]+request[[:space:]]*#[0-9]+[[:space:]]+from[[:space:]]+ ]]; then
     merge_source_ref="$(extract_merge_source_ref "$title_lc")"
     merge_category="$(classify_merge_by_source_ref "$merge_source_ref")"
-
-    case "$merge_category" in
-      Synchronization)
-        echo "$bullet" >> "$sync_tmp"
-        ;;
-      "Bug Fixes")
-        echo "$bullet" >> "$bugs_tmp"
-        ;;
-      Refactoring)
-        echo "$bullet" >> "$refactors_tmp"
-        ;;
-      *)
-        echo "$bullet" >> "$features_tmp"
-        ;;
-    esac
-    debug_log "classify_pr: ${pr_ref} -> ${merge_category} (merge source: ${merge_source_ref})"
+    pr_emit_classification "$pr_ref" "$bullet" "$merge_category" "merge source: ${merge_source_ref}"
     echo "$merge_category"
     return
   fi
@@ -102,11 +124,10 @@ classify_pr() {
   # Keep synchronization PRs in a dedicated category.
   # Allow an optional conventional prefix (e.g. "chore:" / "chore(scope):")
   # and require explicit branch-flow markers to avoid false positives.
-  if [[ "$starts_sync_or_merge" -eq 1 ]] \
-    && [[ "$title_lc" =~ (main|dev|master|staging|release[^[:space:]]*)[^[:alnum:]_/-]+(into|->|→)[^[:alnum:]_/-]+(main|dev|master|staging|release[^[:space:]]*) ]]; then
+  if [[ "$starts_sync_or_merge" -eq 1 ]] &&
+    [[ "$title_lc" =~ (main|dev|master|staging|release[^[:space:]]*)[^[:alnum:]_/-]+(into|->|→)[^[:alnum:]_/-]+(main|dev|master|staging|release[^[:space:]]*) ]]; then
     category="Synchronization"
-    echo "$bullet" >> "$sync_tmp"
-    debug_log "classify_pr: ${pr_ref} -> ${category}"
+    pr_emit_classification "$pr_ref" "$bullet" "$category"
     echo "$category"
     return
   fi
@@ -114,38 +135,32 @@ classify_pr() {
   # Prefer conventional commit prefixes when present.
   if [[ "$title_lc" =~ ^fix(\(|:|!|[[:space:]]) ]]; then
     category="Bug Fixes"
-    echo "$bullet" >> "$bugs_tmp"
-    debug_log "classify_pr: ${pr_ref} -> ${category}"
+    pr_emit_classification "$pr_ref" "$bullet" "$category"
     echo "$category"
     return
   fi
   if [[ "$title_lc" =~ ^refactor(\(|:|!|[[:space:]]) ]] || [[ "$title_lc" =~ ^chore(\(|:|!|[[:space:]]) ]]; then
     category="Refactoring"
-    echo "$bullet" >> "$refactors_tmp"
-    debug_log "classify_pr: ${pr_ref} -> ${category}"
+    pr_emit_classification "$pr_ref" "$bullet" "$category"
     echo "$category"
     return
   fi
   if [[ "$title_lc" =~ ^feat(\(|:|!|[[:space:]]) ]]; then
     category="Features"
-    echo "$bullet" >> "$features_tmp"
-    debug_log "classify_pr: ${pr_ref} -> ${category}"
+    pr_emit_classification "$pr_ref" "$bullet" "$category"
     echo "$category"
     return
   fi
 
   if [[ "$title_lc" =~ (fix|bug|hotfix|regression|failure|error) ]]; then
     category="Bug Fixes"
-    echo "$bullet" >> "$bugs_tmp"
   elif [[ "$title_lc" =~ (refactor|cleanup|extract|modular|rework|batch|maintainability) ]]; then
     category="Refactoring"
-    echo "$bullet" >> "$refactors_tmp"
   else
     category="Features"
-    echo "$bullet" >> "$features_tmp"
   fi
 
-  debug_log "classify_pr: ${pr_ref} -> ${category}"
+  pr_emit_classification "$pr_ref" "$bullet" "$category"
   echo "$category"
 }
 
@@ -153,6 +168,10 @@ issue_category_from_labels() {
   local labels_raw="$1"
   local labels
   local label
+  local category
+  local count
+  local labels_tokens
+  local -a labels_arr
   local has_security=0
   local has_bug=0
   local has_refactor=0
@@ -164,53 +183,42 @@ issue_category_from_labels() {
   labels="$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')"
 
   # Analyze each label token independently to avoid cross-label false positives.
-  # labels_raw format is "label1||label2||..."
-  IFS='||' read -r -a labels_arr <<< "$labels"
+  # labels_raw format is "label1||label2||...". Split on the "||" token explicitly.
+  labels_tokens="${labels//||/$'\n'}"
+  mapfile -t labels_arr <<<"$labels_tokens"
   for label in "${labels_arr[@]}"; do
     [[ -z "$label" ]] && continue
 
     # Security is a first-class category and must not be downgraded.
     case "$label" in
-      security|sec|codeql|cve|vuln|vulnerability|sast)
-        has_security=1
-        ;;
-      bug|defect|regression|incident)
-        has_bug=1
-        ;;
-      refactor|cleanup|chore|maintainability|maintenance|tech-debt|tech_debt|technical-debt|technical_debt)
-        has_refactor=1
-        ;;
-      feature|enhancement|feat)
-        has_feature=1
-        ;;
-      testing|tests|test)
-        has_testing=1
-        ;;
-      automation|automation-failed|sync_branch|scripts|linting|workflow|ci)
-        has_automation=1
-        ;;
-      documentation|docs|readme|translation)
-        has_docs=1
-        ;;
-      *)
-        ;;
+    security | sec | codeql | cve | vuln | vulnerability | sast)
+      has_security=1
+      ;;
+    bug | defect | regression | incident)
+      has_bug=1
+      ;;
+    refactor | cleanup | chore | maintainability | maintenance | tech-debt | tech_debt | technical-debt | technical_debt)
+      has_refactor=1
+      ;;
+    feature | enhancement | feat)
+      has_feature=1
+      ;;
+    testing | tests | test)
+      has_testing=1
+      ;;
+    automation | automation-failed | sync_branch | scripts | linting | workflow | ci)
+      has_automation=1
+      ;;
+    documentation | docs | readme | translation)
+      has_docs=1
+      ;;
+    *) ;;
     esac
   done
 
-  if [[ "$has_security" -eq 1 ]]; then
-    echo "Security"
-    return
-  fi
-  if [[ "$has_automation" -eq 1 ]]; then
-    echo "Automation"
-    return
-  fi
-  if [[ "$has_testing" -eq 1 ]]; then
-    echo "Testing"
-    return
-  fi
-  if [[ "$has_docs" -eq 1 ]]; then
-    echo "Docs"
+  category="$(issue_shared_priority_category "$has_security" "$has_automation" "$has_testing" "$has_docs")"
+  if [[ -n "$category" ]]; then
+    echo "$category"
     return
   fi
 
@@ -235,25 +243,57 @@ issue_category_from_labels() {
   echo "Unknown"
 }
 
-issue_category_from_title() {
-  local title="$1"
-  local title_lc
-  title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
+issue_shared_priority_category() {
+  local has_security="$1"
+  local has_automation="$2"
+  local has_testing="$3"
+  local has_docs="$4"
 
-  if [[ "$title_lc" =~ (^|[^a-z])(security|vuln|vulnerability|cve|sast|codeql)([^a-z]|$) ]]; then
+  if [[ "$has_security" -eq 1 ]]; then
     echo "Security"
     return
   fi
-  if [[ "$title_lc" =~ (^|[^a-z])(automation|workflow|ci|script|lint)([^a-z]|$) ]]; then
+  if [[ "$has_automation" -eq 1 ]]; then
     echo "Automation"
     return
   fi
-  if [[ "$title_lc" =~ (^|[^a-z])(test|tests|testing)([^a-z]|$) ]]; then
+  if [[ "$has_testing" -eq 1 ]]; then
     echo "Testing"
     return
   fi
-  if [[ "$title_lc" =~ (^|[^a-z])(docs|documentation|readme)([^a-z]|$) ]]; then
+  if [[ "$has_docs" -eq 1 ]]; then
     echo "Docs"
+    return
+  fi
+}
+
+issue_category_from_title() {
+  local title="$1"
+  local title_lc
+  local has_security=0
+  local has_automation=0
+  local has_testing=0
+  local has_docs=0
+  local category
+
+  title_lc="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
+
+  if [[ "$title_lc" =~ (^|[^a-z])(security|vuln|vulnerability|cve|sast|codeql)([^a-z]|$) ]]; then
+    has_security=1
+  fi
+  if [[ "$title_lc" =~ (^|[^a-z])(automation|workflow|ci|script|lint)([^a-z]|$) ]]; then
+    has_automation=1
+  fi
+  if [[ "$title_lc" =~ (^|[^a-z])(test|tests|testing)([^a-z]|$) ]]; then
+    has_testing=1
+  fi
+  if [[ "$title_lc" =~ (^|[^a-z])(docs|documentation|readme)([^a-z]|$) ]]; then
+    has_docs=1
+  fi
+
+  category="$(issue_shared_priority_category "$has_security" "$has_automation" "$has_testing" "$has_docs")"
+  if [[ -n "$category" ]]; then
+    echo "$category"
     return
   fi
   if [[ "$title_lc" =~ ^fix(\(|:|!|[[:space:]]) ]] || [[ "$title_lc" =~ (^|[^a-z])(bug|hotfix|regression|error|failure)([^a-z]|$) ]]; then
@@ -273,8 +313,17 @@ issue_category_from_title() {
 }
 
 normalize_issue_action() {
-  local _action="$1"
-  local _category="$2"
-  # Footer/PR policy standardization: use a single closing verb.
-  echo "Closes"
+  local action="${1:-}"
+  local _category="${2:-}"
+
+  # Preserve compatibility: PR body generation uses a single canonical closing verb.
+  # Keep category parameter for signature stability across call sites.
+  case "$(echo "$action" | tr '[:upper:]' '[:lower:]')" in
+  closes | close | fixes | fix | resolved | resolve | resolves)
+    echo "Closes"
+    ;;
+  *)
+    echo "Closes"
+    ;;
+  esac
 }

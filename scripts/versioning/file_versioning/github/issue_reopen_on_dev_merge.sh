@@ -41,8 +41,8 @@ resolve_repo_name() {
 label_exists() {
   local repo="$1"
   local label="$2"
-  gh label list -R "$repo" --limit 1000 --json name --jq '.[].name' 2>/dev/null \
-    | grep -Fxq "$label"
+  gh label list -R "$repo" --limit 1000 --json name --jq '.[].name' 2>/dev/null |
+    grep -Fxq "$label"
 }
 
 issue_state() {
@@ -55,8 +55,8 @@ issue_has_label() {
   local repo="$1"
   local issue_number="$2"
   local label="$3"
-  gh issue view "$issue_number" -R "$repo" --json labels --jq '.labels[].name' 2>/dev/null \
-    | grep -Fxq "$label"
+  gh issue view "$issue_number" -R "$repo" --json labels --jq '.labels[].name' 2>/dev/null |
+    grep -Fxq "$label"
 }
 
 sync_issue_project_status_on_reopen() {
@@ -137,16 +137,16 @@ sync_issue_project_status_on_reopen() {
       -F option="$status_option_id" >/dev/null 2>&1 || true
 
     echo "Issue #${issue_number}: synced project '${project_title}' status to '${target_status}'."
-  done <<< "$items_tsv"
+  done <<<"$items_tsv"
 }
 
 extract_reopen_issue_numbers() {
   local text="$1"
-  parse_reopen_issue_refs_from_text "$text" \
-    | cut -d'|' -f2 \
-    | sed -E 's/^#([0-9]+)$/\1/' \
-    | grep -E '^[0-9]+$' \
-    | sort -u
+  parse_reopen_issue_refs_from_text "$text" |
+    cut -d'|' -f2 |
+    sed -E 's/^#([0-9]+)$/\1/' |
+    grep -E '^[0-9]+$' |
+    sort -u
 }
 
 collect_pr_text_payload() {
@@ -172,23 +172,23 @@ label_name="${DONE_IN_DEV_LABEL:-done-in-dev}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --pr)
-      pr_number="${2:-}"
-      shift 2
-      ;;
-    --label)
-      label_name="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Error: unknown argument '$1'." >&2
-      usage >&2
-      exit 2
-      ;;
+  --pr)
+    pr_number="${2:-}"
+    shift 2
+    ;;
+  --label)
+    label_name="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Error: unknown argument '$1'." >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 

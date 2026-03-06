@@ -38,10 +38,10 @@ require_cmd() {
 
 extract_issue_numbers() {
   local refs="$1"
-  printf '%s\n' "$refs" \
-    | cut -d'|' -f2 \
-    | sed -nE 's/^#([0-9]+)$/\1/p' \
-    | sort -u
+  printf '%s\n' "$refs" |
+    cut -d'|' -f2 |
+    sed -nE 's/^#([0-9]+)$/\1/p' |
+    sort -u
 }
 
 strip_managed_block() {
@@ -51,7 +51,7 @@ strip_managed_block() {
     /^<!-- auto-closes:start -->$/ { in_block = 1; next }
     /^<!-- auto-closes:end -->$/ { in_block = 0; next }
     { if (!in_block) print }
-  ' <<< "$body"
+  ' <<<"$body"
 }
 
 pr_number=""
@@ -59,27 +59,31 @@ repo_name="${GH_REPO:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --pr)
-      pr_number="${2:-}"
-      shift 2
-      ;;
-    --repo)
-      repo_name="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Error: unknown option: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+  --pr)
+    pr_number="${2:-}"
+    shift 2
+    ;;
+  --repo)
+    repo_name="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Error: unknown option: $1" >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 
-[[ -n "$pr_number" ]] || { echo "Error: --pr is required." >&2; usage >&2; exit 2; }
+[[ -n "$pr_number" ]] || {
+  echo "Error: --pr is required." >&2
+  usage >&2
+  exit 2
+}
 require_number "--pr" "$pr_number"
 require_cmd gh
 require_cmd jq
@@ -87,10 +91,16 @@ require_cmd jq
 if [[ -z "$repo_name" ]]; then
   repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
-[[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
+[[ -n "$repo_name" ]] || {
+  echo "Error: unable to determine repository." >&2
+  exit 3
+}
 
 pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json number,state,baseRefName,title,body,author 2>/dev/null || true)"
-[[ -n "$pr_json" ]] || { echo "Error: unable to read PR #${pr_number}." >&2; exit 3; }
+[[ -n "$pr_json" ]] || {
+  echo "Error: unable to read PR #${pr_number}." >&2
+  exit 3
+}
 
 pr_state="$(echo "$pr_json" | jq -r '.state // ""')"
 pr_base="$(echo "$pr_json" | jq -r '.baseRefName // ""')"
