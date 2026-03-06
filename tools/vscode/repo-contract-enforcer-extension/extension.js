@@ -300,6 +300,77 @@ function updateStatus(runtime, text) {
   runtime.statusBar.show();
 }
 
+function countDiagnosticsBySeverity(collection) {
+  let errors = 0;
+  let warnings = 0;
+  let infos = 0;
+  let hints = 0;
+
+  for (const [, diagnostics] of collection) {
+    if (!Array.isArray(diagnostics)) {
+      continue;
+    }
+    for (const diag of diagnostics) {
+      if (!diag) {
+        continue;
+      }
+      if (diag.severity === vscode.DiagnosticSeverity.Error) {
+        errors += 1;
+      } else if (diag.severity === vscode.DiagnosticSeverity.Warning) {
+        warnings += 1;
+      } else if (diag.severity === vscode.DiagnosticSeverity.Information) {
+        infos += 1;
+      } else if (diag.severity === vscode.DiagnosticSeverity.Hint) {
+        hints += 1;
+      }
+    }
+  }
+
+  return { errors, warnings, infos, hints };
+}
+
+function openFirstError(runtime) {
+  let bestUri = undefined;
+  let bestRange = undefined;
+
+  for (const [uri, diagnostics] of runtime.collection) {
+    if (!Array.isArray(diagnostics)) {
+      continue;
+    }
+    for (const diag of diagnostics) {
+      if (!diag || diag.severity !== vscode.DiagnosticSeverity.Error) {
+        continue;
+      }
+      if (!bestRange) {
+        bestUri = uri;
+        bestRange = diag.range;
+        continue;
+      }
+
+      const currentPath = vscode.workspace.asRelativePath(uri, false);
+      const bestPath = vscode.workspace.asRelativePath(bestUri, false);
+      const pathCmp = currentPath.localeCompare(bestPath);
+      if (
+        pathCmp < 0 ||
+        (pathCmp === 0 &&
+          (diag.range.start.line < bestRange.start.line ||
+            (diag.range.start.line === bestRange.start.line &&
+              diag.range.start.character < bestRange.start.character)))
+      ) {
+        bestUri = uri;
+        bestRange = diag.range;
+      }
+    }
+  }
+
+  if (!bestUri || !bestRange) {
+    showTransientMessage(`${STATUS_PREFIX}: no error diagnostic found`, 3000, 'info');
+    return;
+  }
+
+  vscode.commands.executeCommand('vscode.open', bestUri, { selection: bestRange, preview: true });
+}
+
 function clearDiagnostics(runtime) {
   runtime.collection.clear();
   setLastCount(0);
@@ -869,7 +940,9 @@ function registerDiagnosticsTreeProvider(runtime) {
       }
 
       if (element.contextValue === 'repoContractEnforcer.file' && element.resourceUri) {
-        const diagnostics = (runtime.collection.get(element.resourceUri) || []).filter((diag) => includeDiagnosticInTree(diag));
+        const diagnostics = (runtime.collection.get(element.resourceUri) || []).filter((diag) =>
+          includeDiagnosticInTree(diag),
+        );
         return diagnostics.map((diag) => diagnosticsTreeViolationItem(element.resourceUri, diag));
       }
 
@@ -880,13 +953,17 @@ function registerDiagnosticsTreeProvider(runtime) {
           return currentRuleId === ruleId;
         });
         ruleEntries.sort((a, b) => {
-          const fileCmp = vscode.workspace.asRelativePath(a.uri, false).localeCompare(vscode.workspace.asRelativePath(b.uri, false));
+          const fileCmp = vscode.workspace
+            .asRelativePath(a.uri, false)
+            .localeCompare(vscode.workspace.asRelativePath(b.uri, false));
           if (fileCmp !== 0) {
             return fileCmp;
           }
           return a.diag.range.start.line - b.diag.range.start.line;
         });
-        return ruleEntries.map((entry) => diagnosticsTreeViolationItem(entry.uri, entry.diag, { showPathPrefix: true }));
+        return ruleEntries.map((entry) =>
+          diagnosticsTreeViolationItem(entry.uri, entry.diag, { showPathPrefix: true }),
+        );
       }
 
       return [];
@@ -982,6 +1059,9 @@ async function runEnforcer(runtime, reason) {
 
   const durationMs = Date.now() - startedAt;
   const outcomeParts = [`${totalViolations} issue(s)`];
+  const severityCounts = countDiagnosticsBySeverity(runtime.collection);
+  outcomeParts.push(`${severityCounts.errors} error(s)`);
+  outcomeParts.push(`${severityCounts.warnings} warning(s)`);
   if (folders.length > 1) {
     outcomeParts.push(`${folders.length} folders`);
   }
@@ -1151,15 +1231,19 @@ function activate(context) {
   };
 
   const runCmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
-  const refreshDiagnosticsViewCmd = vscode.commands.registerCommand('repoContractEnforcer.refreshDiagnosticsView', () => {
-    refreshDiagnosticsTree(runtime);
+  const openFirstErrorCmd = vscode.commands.registerCommand('repoContractEnforcer.openFirstError', () => {
+    openFirstError(runtime);
   });
+  const refreshDiagnosticsViewCmd = vscode.commands.registerCommand(
+    'repoContractEnforcer.refreshDiagnosticsView',
+    () => {
+      refreshDiagnosticsTree(runtime);
+    },
+  );
   const collapseDiagnosticsViewCmd = vscode.commands.registerCommand(
     'repoContractEnforcer.collapseDiagnosticsView',
     async () => {
-      await vscode.commands.executeCommand(
-        'workbench.actions.treeView.repoContractEnforcerDiagnostics.collapseAll',
-      );
+      await vscode.commands.executeCommand('workbench.actions.treeView.repoContractEnforcerDiagnostics.collapseAll');
     },
   );
   const clearDiagnosticsCmd = vscode.commands.registerCommand('repoContractEnforcer.clearDiagnostics', () => {
@@ -1265,6 +1349,7 @@ function activate(context) {
     statusBar,
     outputChannel,
     runCmd,
+    openFirstErrorCmd,
     refreshDiagnosticsViewCmd,
     collapseDiagnosticsViewCmd,
     clearDiagnosticsCmd,
