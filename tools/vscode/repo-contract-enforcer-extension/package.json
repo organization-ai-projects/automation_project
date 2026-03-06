@@ -49,6 +49,16 @@
       {
         "command": "repoContractEnforcer.openRuleDocs",
         "title": "Repo Contract Enforcer: Open Rule Documentation"
+      },
+      {
+        "command": "repoContractEnforcer.refreshDiagnosticsView",
+        "title": "Repo Contract Enforcer: Refresh Diagnostics View",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "repoContractEnforcer.collapseDiagnosticsView",
+        "title": "Repo Contract Enforcer: Collapse Diagnostics View",
+        "icon": "$(collapse-all)"
       }
     ],
     "views": {
@@ -56,6 +66,20 @@
         {
           "id": "repoContractEnforcerDiagnostics",
           "name": "Repo Contract Diagnostics"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "repoContractEnforcer.refreshDiagnosticsView",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@1"
+        },
+        {
+          "command": "repoContractEnforcer.collapseDiagnosticsView",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@2"
         }
       ]
     },
