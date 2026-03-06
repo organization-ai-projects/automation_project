@@ -42,8 +42,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          chmod +x scripts/versioning/file_versioning/github/auto_link_parent_issue.sh
-          bash scripts/versioning/file_versioning/github/auto_link_parent_issue.sh \
+          chmod +x scripts/versioning/file_versioning/github/issues/auto_link_parent_issue.sh
+          bash scripts/versioning/file_versioning/github/issues/auto_link_parent_issue.sh \
             --issue "$ISSUE_NUMBER"
 
       - name: Evaluate issue Parent field (manual dispatch)
@@ -61,7 +61,7 @@ jobs:
             echo "Invalid issue_number '$ISSUE_NUMBER' (expected positive integer)." >&2
             exit 1
           fi
-          chmod +x scripts/versioning/file_versioning/github/auto_link_parent_issue.sh
-          bash scripts/versioning/file_versioning/github/auto_link_parent_issue.sh \
+          chmod +x scripts/versioning/file_versioning/github/issues/auto_link_parent_issue.sh
+          bash scripts/versioning/file_versioning/github/issues/auto_link_parent_issue.sh \
             --issue "$ISSUE_NUMBER"
 
