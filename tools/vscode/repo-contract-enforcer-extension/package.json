@@ -35,6 +35,10 @@
         "title": "Repo Contract Enforcer: Run Check"
       },
       {
+        "command": "repoContractEnforcer.openDiagnosticLocation",
+        "title": "Repo Contract Enforcer: Open Diagnostic Location"
+      },
+      {
         "command": "repoContractEnforcer.clearDiagnostics",
         "title": "Repo Contract Enforcer: Clear Diagnostics"
       },
@@ -145,6 +149,11 @@
           "type": "boolean",
           "default": true,
           "description": "Run checks on Rust/TOML file create/change/delete/rename events"
+        },
+        "repoContractEnforcer.syncProblemsOnTreeOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "When opening a diagnostic from the diagnostics tree, also reveal the Problems panel"
         },
         "repoContractEnforcer.debounceMs": {
           "type": "number",
