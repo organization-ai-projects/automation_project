@@ -9,10 +9,6 @@ ISSUES_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
 source "${ISSUES_DIR}/required_fields/module.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
 source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
-source "${BASH_SOURCE[0]%/*}/common.sh"
+source "${BASH_SOURCE[0]%/*}/cli_graphql.sh"
 source "${BASH_SOURCE[0]%/*}/state.sh"
 source "${BASH_SOURCE[0]%/*}/workflow.sh"
-
-auto_link_parent_issue_main() {
-  auto_link_run "$@"
-}

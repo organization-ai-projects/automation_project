@@ -6,4 +6,4 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/create_direct/module.sh"
 
-create_direct_issue_main "$@"
+run_create_direct_issue "$@"

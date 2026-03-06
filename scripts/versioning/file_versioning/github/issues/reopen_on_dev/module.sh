@@ -7,10 +7,8 @@ set -euo pipefail
 ISSUES_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
 # shellcheck source=scripts/versioning/file_versioning/github/lib/issue_refs.sh
 source "${ISSUES_DIR}/../lib/issue_refs.sh"
-source "${BASH_SOURCE[0]%/*}/common.sh"
+# shellcheck source=scripts/versioning/file_versioning/github/issues/common/gh.sh
+source "${ISSUES_DIR}/common/gh.sh"
+source "${BASH_SOURCE[0]%/*}/cli_refs.sh"
 source "${BASH_SOURCE[0]%/*}/project_sync.sh"
 source "${BASH_SOURCE[0]%/*}/actions.sh"
-
-issue_reopen_on_dev_merge_main() {
-  reopen_on_dev_run "$@"
-}

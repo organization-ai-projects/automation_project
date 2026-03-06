@@ -59,3 +59,23 @@ is_label_present() {
   done
   return 1
 }
+
+manager_issues_main() {
+  local subcommand="${1:-}"
+  if [[ -z "$subcommand" ]]; then
+    usage
+    exit 2
+  fi
+  shift || true
+
+  case "$subcommand" in
+  create) cmd_create "$@" ;;
+  read) cmd_read "$@" ;;
+  update) cmd_update "$@" ;;
+  close) cmd_close "$@" ;;
+  reopen) cmd_reopen "$@" ;;
+  delete) cmd_delete "$@" ;;
+  -h | --help) usage ;;
+  *) die_usage "Unknown subcommand: $subcommand" ;;
+  esac
+}

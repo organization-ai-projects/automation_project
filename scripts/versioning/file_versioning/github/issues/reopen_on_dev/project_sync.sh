@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016
 
 reopen_on_dev_sync_issue_project_status() {
   local repo="$1"
