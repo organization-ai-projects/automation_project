@@ -7,7 +7,7 @@
 
 PR_BODY_LIB_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 
-source "${PR_BODY_LIB_DIR}/body_confirm.sh"
-source "${PR_BODY_LIB_DIR}/body_merge.sh"
-source "${PR_BODY_LIB_DIR}/body.sh"
-source "${PR_BODY_LIB_DIR}/body_publish.sh"
+source "${PR_BODY_LIB_DIR}/confirm.sh"
+source "${PR_BODY_LIB_DIR}/merge.sh"
+source "${PR_BODY_LIB_DIR}/builder.sh"
+source "${PR_BODY_LIB_DIR}/publish.sh"
