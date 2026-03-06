@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
+# shellcheck disable=SC2034,SC2154
+
 
 # PR body output/publication helpers.
 

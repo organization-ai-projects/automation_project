@@ -24,7 +24,7 @@ source "${SCRIPT_DIR}/pr/pr_metrics.sh"
 source "${SCRIPT_DIR}/pr/pr_runtime.sh"
 source "${SCRIPT_DIR}/pr/pr_validation_gate.sh"
 source "${SCRIPT_DIR}/pr/pr_pipeline.sh"
-source "${SCRIPT_DIR}/pr/body.sh"
+source "${SCRIPT_DIR}/pr/body_module.sh"
 source "${SCRIPT_DIR}/lib/rendering.sh"
 
 pr_args_init_defaults
