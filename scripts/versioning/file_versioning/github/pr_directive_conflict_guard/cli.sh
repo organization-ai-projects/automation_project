@@ -4,7 +4,7 @@
 pr_directive_conflict_guard_usage() {
   cat <<USAGE
 Usage:
-  pr_directive_conflict_guard.sh --pr PR_NUMBER [--repo owner/name]
+  pr_directive_conflict_guard/run.sh --pr PR_NUMBER [--repo owner/name]
 
 Notes:
   - Detects Closes/Fixes + Reopen directives targeting the same issue in PR body.

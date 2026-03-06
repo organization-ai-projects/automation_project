@@ -12,3 +12,5 @@ source "${ROOT_GITHUB_DIR}/lib/issue_refs.sh"
 source "${AUTO_ADD_DIR}/cli.sh"
 source "${AUTO_ADD_DIR}/helpers.sh"
 source "${AUTO_ADD_DIR}/workflow.sh"
+
+auto_add_closes_run "$@"

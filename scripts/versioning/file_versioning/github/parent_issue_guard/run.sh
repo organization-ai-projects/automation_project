@@ -15,3 +15,5 @@ source "${PARENT_GUARD_DIR}/runtime.sh"
 source "${PARENT_GUARD_DIR}/parent_lookup.sh"
 source "${PARENT_GUARD_DIR}/evaluator.sh"
 source "${PARENT_GUARD_DIR}/main.sh"
+
+parent_issue_guard_run "$@"

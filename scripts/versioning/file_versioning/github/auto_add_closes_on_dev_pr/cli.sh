@@ -4,7 +4,7 @@
 auto_add_usage() {
   cat <<EOF
 Usage:
-  auto_add_closes_on_dev_pr.sh --pr PR_NUMBER [--repo owner/name]
+  auto_add_closes_on_dev_pr/run.sh --pr PR_NUMBER [--repo owner/name]
 
 Description:
   - Targets open PRs into dev.

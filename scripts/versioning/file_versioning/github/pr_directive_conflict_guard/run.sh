@@ -13,3 +13,5 @@ source "${PR_DIRECTIVE_CONFLICT_DIR}/cli.sh"
 source "${PR_DIRECTIVE_CONFLICT_DIR}/helpers.sh"
 source "${PR_DIRECTIVE_CONFLICT_DIR}/github.sh"
 source "${PR_DIRECTIVE_CONFLICT_DIR}/workflow.sh"
+
+pr_directive_conflict_guard_run "$@"
