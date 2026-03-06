@@ -1,0 +1,29 @@
+(
+  schema_version: 1,
+  generated_at: 1762473600000,
+  id: "8f6d2c1a4b9e7d3c5a1f2e6b8c4d9a7e",
+  name: "Varina",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "a9e4c2d7b1f3685e2c7a4d9b1f6e3c8a", title: "Varina", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "automation",
+    "policy",
+  ],
+
+  domains: [
+    (id: "b4d8e1c3a9f27d6b5e1c4a8d2f7b3e9a", desc: "automation policy review and suggestions"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/"],
+    config_files: ["backend/Cargo.toml", "ui/Cargo.toml"],
+  ),
+)
