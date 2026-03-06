@@ -67,8 +67,8 @@ Rollout is progressive to keep compatibility:
 1. Introduce manifests on unstable products first (`metadata.ron`, `backend_manifest.ron`, `ui_manifest.ron` when UI exists).
 2. Enforce missing-manifest checks as warnings on unstable products.
 3. Backfill stable products with crate manifests.
-4. Keep stable checks as transition warnings during migration.
-5. Promote stable enforcement to blocking once migration is complete.
+4. Enforce missing-manifest checks as blocking errors in strict mode for stable products.
+5. Keep unstable/relaxed checks as warnings to allow progressive adoption.
 
 ### 1.1 Example of a `metadata.ron` File
 
