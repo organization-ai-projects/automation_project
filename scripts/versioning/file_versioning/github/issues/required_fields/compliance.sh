@@ -34,4 +34,3 @@ issue_non_compliance_reason_from_content() {
   first_reason="$(issue_first_validation_reason "$validations")"
   echo "$first_reason"
 }
-

@@ -54,4 +54,3 @@ issue_body_has_section() {
     END { exit(found ? 0 : 1) }
   ' <<<"$body"
 }
-

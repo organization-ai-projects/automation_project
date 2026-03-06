@@ -98,4 +98,3 @@ issue_validate_content() {
   issue_validate_title_with_profile "$title" "$profile"
   issue_validate_body_with_profile "$body" "$profile"
 }
-

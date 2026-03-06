@@ -27,4 +27,3 @@ issue_fetch_non_compliance_reason() {
 
   issue_non_compliance_reason_from_content "$title" "$body" "$labels_raw"
 }
-
