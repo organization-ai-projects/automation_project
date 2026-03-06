@@ -329,6 +329,72 @@ function countDiagnosticsBySeverity(collection) {
   return { errors, warnings, infos, hints };
 }
 
+function collectDiagnosticsSnapshot(collection) {
+  const severity = countDiagnosticsBySeverity(collection);
+  const files = [];
+
+  for (const [uri, diagnostics] of collection) {
+    if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
+      continue;
+    }
+    const relPath = vscode.workspace.asRelativePath(uri, false);
+    const entries = diagnostics.map((diag) => {
+      const meta = parseRuleMeta(diag) || {};
+      return {
+        message: String(diag.message || ''),
+        severity: severityLabelFromDiagnostic(diag),
+        code: diag.code ? String(diag.code) : '',
+        ruleId: String(meta.ruleId || ''),
+        violationCode: String(meta.violationCode || ''),
+        line: diag.range.start.line + 1,
+        col: diag.range.start.character + 1,
+      };
+    });
+    files.push({
+      path: relPath,
+      issueCount: entries.length,
+      diagnostics: entries,
+    });
+  }
+
+  files.sort((a, b) => a.path.localeCompare(b.path));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    totals: {
+      issues: severity.errors + severity.warnings + severity.infos + severity.hints,
+      errors: severity.errors,
+      warnings: severity.warnings,
+      infos: severity.infos,
+      hints: severity.hints,
+      files: files.length,
+    },
+    files,
+  };
+}
+
+function buildDiagnosticsSummaryText(collection) {
+  const snapshot = collectDiagnosticsSnapshot(collection);
+  const lines = [];
+  lines.push(`${STATUS_PREFIX} Diagnostics Summary`);
+  lines.push(`Generated: ${snapshot.generatedAt}`);
+  lines.push(
+    `Totals: ${snapshot.totals.issues} issue(s), ${snapshot.totals.errors} error(s), ${snapshot.totals.warnings} warning(s), ${snapshot.totals.files} file(s)`,
+  );
+  lines.push('');
+
+  for (const file of snapshot.files) {
+    lines.push(`${file.path} (${file.issueCount})`);
+    for (const diag of file.diagnostics) {
+      const codeSuffix = diag.code ? ` [${diag.code}]` : '';
+      const ruleSuffix = diag.ruleId ? ` {${diag.ruleId}}` : '';
+      lines.push(`  - L${diag.line}:${diag.col} ${diag.severity}${codeSuffix}${ruleSuffix} ${diag.message}`);
+    }
+  }
+
+  return lines.join('\n').trim();
+}
+
 function openFirstError(runtime) {
   let bestUri = undefined;
   let bestRange = undefined;
@@ -1231,6 +1297,32 @@ function activate(context) {
   };
 
   const runCmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
+  const exportDiagnosticsJsonCmd = vscode.commands.registerCommand(
+    'repoContractEnforcer.exportDiagnosticsJson',
+    async () => {
+      const snapshot = collectDiagnosticsSnapshot(runtime.collection);
+      const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+      const target = await vscode.window.showSaveDialog({
+        defaultUri: defaultUri ? vscode.Uri.joinPath(defaultUri, 'repo-contract-enforcer-diagnostics.json') : undefined,
+        filters: { JSON: ['json'] },
+        saveLabel: 'Export Diagnostics JSON',
+      });
+      if (!target) {
+        return;
+      }
+      const payload = JSON.stringify(snapshot, null, 2) + '\n';
+      await vscode.workspace.fs.writeFile(target, Buffer.from(payload, 'utf8'));
+      showTransientMessage(`${STATUS_PREFIX}: diagnostics exported`, 3000, 'info');
+    },
+  );
+  const copyDiagnosticsSummaryCmd = vscode.commands.registerCommand(
+    'repoContractEnforcer.copyDiagnosticsSummary',
+    async () => {
+      const summary = buildDiagnosticsSummaryText(runtime.collection);
+      await vscode.env.clipboard.writeText(summary);
+      showTransientMessage(`${STATUS_PREFIX}: diagnostics summary copied`, 3000, 'info');
+    },
+  );
   const openFirstErrorCmd = vscode.commands.registerCommand('repoContractEnforcer.openFirstError', () => {
     openFirstError(runtime);
   });
@@ -1349,6 +1441,8 @@ function activate(context) {
     statusBar,
     outputChannel,
     runCmd,
+    exportDiagnosticsJsonCmd,
+    copyDiagnosticsSummaryCmd,
     openFirstErrorCmd,
     refreshDiagnosticsViewCmd,
     collapseDiagnosticsViewCmd,
