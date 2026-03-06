@@ -196,7 +196,7 @@ Troubleshooting:
 - pipeline orchestration: `pr/pr_pipeline.sh`
 - runtime/gh helpers: `pr/pr_runtime.sh`
 - compare loading: `pr/pr_compare.sh`
-- issue flow resolution: `pr/pr_issue_flow.sh`
+- issue flow resolution: `pr/issue/module.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
 - issue contract checks: `lib/issue_required_fields.sh`
 - metrics/status: `pr/pr_metrics.sh`
 - body composition/publication: `pr/body/builder.sh`, `pr/body/publish.sh` (loaded via `pr/body/module.sh`)
