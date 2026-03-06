@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034,SC2154
 
-# Crate-inference helpers for footprint and breaking-scope attribution.
+# Crate-inference helpers shared across PR modules.
 
 pr_infer_crate_from_path() {
   local rel_path="$1"

@@ -13,6 +13,7 @@ SCRIPT_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 
 source "${SCRIPT_DIR}/lib/classification.sh"
 source "${SCRIPT_DIR}/pr/cli/module.sh"
+source "${SCRIPT_DIR}/pr/common/module.sh"
 source "${SCRIPT_DIR}/pr/extraction/module.sh"
 source "${SCRIPT_DIR}/pr/compare/module.sh"
 source "${SCRIPT_DIR}/pr/footprint/module.sh"
