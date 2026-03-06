@@ -33,9 +33,9 @@ impl StructureRules {
                 ));
             }
 
-            // Progressive rollout for manifest convention:
-            // warning on both stable/unstable for now, planned to become mandatory.
-            let transition_suffix = " (warning: mandatory enforcement planned in a future phase)";
+            // Manifest convention is now blocking in strict mode for stable products.
+            // It remains warning-only for unstable and relaxed modes.
+            let transition_suffix = " (blocking in strict mode for stable products)";
             let metadata = product_dir.join("metadata.ron");
             if !metadata.exists() {
                 out.push(make_violation(
@@ -151,6 +151,20 @@ fn make_violation(
     } else {
         config::severity::Severity::Warning
     };
+
+    if matches!(
+        code,
+        reports::violation_code::ViolationCode::StructMissingProductMetadata
+            | reports::violation_code::ViolationCode::StructMissingCrateManifest
+    ) {
+        if scope == config::path_classification::PathClassification::Stable
+            && mode == config::enforcement_mode::EnforcementMode::Strict
+        {
+            severity = config::severity::Severity::Error;
+        } else {
+            severity = config::severity::Severity::Warning;
+        }
+    }
 
     if mode == config::enforcement_mode::EnforcementMode::Relaxed
         || scope == config::path_classification::PathClassification::Unstable
