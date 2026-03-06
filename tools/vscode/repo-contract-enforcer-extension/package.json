@@ -190,6 +190,13 @@
           "default": "all",
           "description": "Severity filter for diagnostics explorer view"
         },
+        "repoContractEnforcer.treeRefreshDebounceMs": {
+          "type": "number",
+          "default": 80,
+          "minimum": 0,
+          "maximum": 2000,
+          "description": "Debounce delay in milliseconds before refreshing the diagnostics explorer tree"
+        },
         "repoContractEnforcer.excludeGlobs": {
           "type": "array",
           "items": {
