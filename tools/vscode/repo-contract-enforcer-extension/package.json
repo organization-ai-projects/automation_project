@@ -109,6 +109,24 @@
           "default": "first",
           "description": "Select which workspace folders are checked in multi-root workspaces"
         },
+        "repoContractEnforcer.treeViewGrouping": {
+          "type": "string",
+          "enum": [
+            "file",
+            "rule"
+          ],
+          "default": "file",
+          "description": "Grouping mode for the diagnostics explorer view"
+        },
+        "repoContractEnforcer.treeViewSeverityFilter": {
+          "type": "string",
+          "enum": [
+            "all",
+            "errors"
+          ],
+          "default": "all",
+          "description": "Severity filter for diagnostics explorer view"
+        },
         "repoContractEnforcer.excludeGlobs": {
           "type": "array",
           "items": {
