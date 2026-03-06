@@ -194,7 +194,7 @@ Troubleshooting:
 - extraction/classification: `pr/extraction/module.sh` (`dry.sh`, `github.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
 - pipeline orchestration: `pr/pipeline/module.sh` (`init.sh`, `collect.sh`, `render.sh`)
 - runtime/gh helpers: `pr/runtime/module.sh` (`logging.sh`, `git.sh`, `state.sh`)
-- compare loading: `pr/compare/module.sh` (`loaders.sh`)
+- compare loading: `pr/compare/module.sh` (`local_git.sh`, `github_compare.sh`, `commits.sh`)
 - issue flow resolution: `pr/issue/module.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
 - issue contract checks: `lib/issue_required_fields.sh`
 - metrics/status: `pr/metrics/module.sh` (`breaking.sh`, `ci.sh`)
