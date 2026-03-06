@@ -194,7 +194,7 @@ Troubleshooting:
 - arg parsing/validation: `pr/pr_args.sh`
 - extraction/classification: `pr/extraction/module.sh` (`dry.sh`, `github.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
 - pipeline orchestration: `pr/pipeline/module.sh` (`init.sh`, `collect.sh`, `render.sh`)
-- runtime/gh helpers: `pr/pr_runtime.sh`
+- runtime/gh helpers: `pr/runtime/module.sh` (`logging.sh`, `git.sh`, `state.sh`)
 - compare loading: `pr/pr_compare.sh`
 - issue flow resolution: `pr/issue/module.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
 - issue contract checks: `lib/issue_required_fields.sh`
