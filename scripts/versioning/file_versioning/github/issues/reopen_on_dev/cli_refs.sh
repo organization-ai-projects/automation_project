@@ -8,12 +8,7 @@ EOF_USAGE
 }
 
 reopen_on_dev_require_number() {
-  local name="$1"
-  local value="$2"
-  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
-    echo "Error: ${name} must be a positive integer." >&2
-    exit 2
-  fi
+  issue_cli_require_positive_number "$1" "$2"
 }
 
 reopen_on_dev_require_cmd() {
@@ -37,12 +32,7 @@ reopen_on_dev_issue_has_label() {
 }
 
 reopen_on_dev_extract_issue_numbers() {
-  local text="$1"
-  parse_reopen_issue_refs_from_text "$text" |
-    cut -d'|' -f2 |
-    sed -E 's/^#([0-9]+)$/\1/' |
-    grep -E '^[0-9]+$' |
-    sort -u
+  issue_refs_extract_reopen_numbers "$1"
 }
 
 reopen_on_dev_collect_pr_text_payload() {

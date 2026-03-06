@@ -9,12 +9,7 @@ EOF_USAGE
 }
 
 done_status_require_number() {
-  local name="$1"
-  local value="$2"
-  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
-    echo "Error: ${name} must be a positive integer." >&2
-    exit 2
-  fi
+  issue_cli_require_positive_number "$1" "$2"
 }
 
 done_status_require_cmd() {
@@ -38,12 +33,7 @@ done_status_issue_has_label() {
 }
 
 done_status_extract_closing_issue_numbers() {
-  local text="$1"
-  parse_closing_issue_refs_from_text "$text" |
-    cut -d'|' -f2 |
-    sed -E 's/^#([0-9]+)$/\1/' |
-    grep -E '^[0-9]+$' |
-    sort -u
+  issue_refs_extract_closing_numbers "$1"
 }
 
 done_status_collect_pr_text_payload() {
