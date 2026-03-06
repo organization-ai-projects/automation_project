@@ -56,11 +56,11 @@ jobs:
           echo "head_ref=${head_ref}" >> "$GITHUB_OUTPUT"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout base scripts
+      - name: Checkout PR head scripts
         if: steps.ctx.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.ctx.outputs.base_ref }}
+          ref: ${{ steps.ctx.outputs.head_ref }}
           sparse-checkout: |
             .github/issue_required_fields.conf
             scripts/versioning/file_versioning/github/
@@ -91,7 +91,6 @@ jobs:
             --base "${BASE_REF}" \
             --head "${HEAD_REF}" \
             --refresh-pr "${PR_NUMBER}" \
-            --validation-only \
             --yes
 
       - name: Guard PR body contract
@@ -105,8 +104,8 @@ jobs:
         run: |
           expected="$(mktemp)"
           current="$(mktemp)"
-          expected_gate="$(mktemp)"
-          current_gate="$(mktemp)"
+          expected_norm="$(mktemp)"
+          current_norm="$(mktemp)"
 
           bash scripts/versioning/file_versioning/github/generate_pr_description.sh \
             --dry-run \
@@ -116,23 +115,15 @@ jobs:
 
           gh pr view "${PR_NUMBER}" --json body -q '.body' > "${current}"
 
-          extract_validation_gate() {
-            local src="$1"
-            awk '
-              /^### Validation Gate$/ { in_gate=1; print; next }
-              /^### / && in_gate { exit }
-              in_gate { print }
-            ' "${src}"
-          }
+          # Normalize volatile CI status line before comparing contract body.
+          sed -E 's/^- CI: .+$/- CI: <DYNAMIC>/' "${expected}" > "${expected_norm}"
+          sed -E 's/^- CI: .+$/- CI: <DYNAMIC>/' "${current}" > "${current_norm}"
 
-          extract_validation_gate "${expected}" > "${expected_gate}"
-          extract_validation_gate "${current}" > "${current_gate}"
-
-          if ! diff -u "${expected_gate}" "${current_gate}" >/dev/null; then
-            echo "Validation Gate mismatch after auto-sync." >&2
-            diff -u "${expected_gate}" "${current_gate}" || true
-            rm -f "${expected}" "${current}" "${expected_gate}" "${current_gate}"
+          if ! diff -u "${expected_norm}" "${current_norm}" >/dev/null; then
+            echo "PR body contract mismatch after auto-sync." >&2
+            diff -u "${expected}" "${current}" || true
+            rm -f "${expected}" "${current}" "${expected_norm}" "${current_norm}"
             exit 1
           fi
 
-          rm -f "${expected}" "${current}" "${expected_gate}" "${current_gate}"
+          rm -f "${expected}" "${current}" "${expected_norm}" "${current_norm}"
