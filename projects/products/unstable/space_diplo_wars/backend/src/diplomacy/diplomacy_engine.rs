@@ -7,6 +7,7 @@ use crate::orders::order::Order;
 use super::treaty::Treaty;
 use super::treaty_id::TreatyId;
 use super::treaty_kind::TreatyKind;
+use super::treaty_offer::TreatyOffer;
 
 pub struct DiplomacyEngine;
 
@@ -37,11 +38,7 @@ impl DiplomacyEngine {
         let mut sorted_orders: Vec<&Order> = orders.iter().collect();
         // Tie-breaker: sort by empire_id then order_id
         sorted_orders.sort_by(|a, b| a.empire_id.0.cmp(&b.empire_id.0).then(a.id.0.cmp(&b.id.0)));
-
         use crate::orders::order_kind::OrderKind;
-        // Collect offers first, indexed by a canonical treaty id
-        let mut pending_offers: BTreeMap<String, (String, TreatyKind, Option<u64>)> =
-            BTreeMap::new();
 
         for order in &sorted_orders {
             match &order.kind {
@@ -58,23 +55,33 @@ impl DiplomacyEngine {
                     ids.sort();
                     let treaty_key = format!("treaty_{}_{}", ids[0], ids[1]);
                     let versioned_key = format!("{}_{}", treaty_key, current_turn);
-                    pending_offers.insert(versioned_key.clone(), (target.clone(), kind, end_turn));
+                    state.pending_treaty_offers.insert(
+                        versioned_key.clone(),
+                        TreatyOffer {
+                            from: order.empire_id.clone(),
+                            to: crate::model::empire_id::EmpireId(target),
+                            kind,
+                            proposed_end_turn: end_turn,
+                            offer_turn: current_turn,
+                        },
+                    );
                     events.push(format!("TreatyOffered:{}", versioned_key));
                 }
                 OrderKind::AcceptTreaty => {
                     let treaty_id = order.params.get("treaty_id").cloned().unwrap_or_default();
-                    if let Some((target, kind, end_turn)) = pending_offers.get(&treaty_id) {
+                    if let Some(offer) = state.pending_treaty_offers.remove(&treaty_id)
+                        && order.empire_id == offer.to
+                    {
                         let treaty = Treaty {
                             id: TreatyId(treaty_id.clone()),
-                            kind: *kind,
+                            kind: offer.kind,
                             parties: {
-                                let mut v = vec![order.empire_id.clone()];
-                                v.push(crate::model::empire_id::EmpireId(target.clone()));
+                                let mut v = vec![offer.from.clone(), offer.to.clone()];
                                 v.sort();
                                 v
                             },
                             start_turn: current_turn,
-                            end_turn: *end_turn,
+                            end_turn: offer.proposed_end_turn,
                             rules: BTreeMap::new(),
                         };
                         state.treaties.insert(treaty_id.clone(), treaty);
@@ -83,7 +90,9 @@ impl DiplomacyEngine {
                 }
                 OrderKind::RejectTreaty => {
                     let treaty_id = order.params.get("treaty_id").cloned().unwrap_or_default();
-                    events.push(format!("TreatyRejected:{}", treaty_id));
+                    if state.pending_treaty_offers.remove(&treaty_id).is_some() {
+                        events.push(format!("TreatyRejected:{}", treaty_id));
+                    }
                 }
                 _ => {}
             }

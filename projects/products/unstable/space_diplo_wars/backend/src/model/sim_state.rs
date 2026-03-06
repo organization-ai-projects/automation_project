@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::diplomacy::treaty::Treaty;
+use crate::diplomacy::treaty_offer::TreatyOffer;
 use crate::fleets::fleet::Fleet;
 use crate::map::star_map::StarMap;
 use crate::model::empire::Empire;
@@ -27,6 +28,7 @@ pub struct SimState {
     pub star_map: StarMap,
     pub fleets: BTreeMap<FleetId, Fleet>,
     pub treaties: BTreeMap<String, Treaty>,
+    pub pending_treaty_offers: BTreeMap<String, TreatyOffer>,
 }
 
 impl SimState {
@@ -42,6 +44,7 @@ impl SimState {
             star_map,
             fleets: BTreeMap::new(),
             treaties: BTreeMap::new(),
+            pending_treaty_offers: BTreeMap::new(),
         }
     }
 }

@@ -49,6 +49,17 @@ impl ResolutionEngine {
             .collect();
         let diplo_events = DiplomacyEngine::apply_turn(&diplo_orders, state, turn);
         report.diplomacy_events = diplo_events;
+        for event in &report.diplomacy_events {
+            if let Some(treaty_id) = event.strip_prefix("TreatyAccepted:") {
+                report.game_events.push(GameEvent::TreatyFormed {
+                    treaty_id: treaty_id.to_string(),
+                });
+            } else if let Some(treaty_id) = event.strip_prefix("TreatyExpired:") {
+                report.game_events.push(GameEvent::TreatyExpired {
+                    treaty_id: treaty_id.to_string(),
+                });
+            }
+        }
 
         // 3. Resolve combat: find attack orders and build BattleInputs
         // Collect attack orders, sorted by empire_id then order_id (already sorted)
@@ -94,6 +105,11 @@ impl ResolutionEngine {
             } else {
                 state.fleets.remove(&attacker_fleet_id);
             }
+
+            report.game_events.push(GameEvent::BattleOccurred {
+                location: battle_report.location.0.clone(),
+                attacker_wins: battle_report.attacker_wins,
+            });
 
             report.battles.push(battle_report);
         }

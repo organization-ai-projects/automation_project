@@ -1,4 +1,5 @@
 use crate::diagnostics::error::SpaceDiploWarsError;
+use crate::diplomacy::treaty_kind::TreatyKind;
 use crate::model::sim_state::SimState;
 
 use super::order::Order;
@@ -34,6 +35,40 @@ impl OrderValidator {
                     return Err(SpaceDiploWarsError::InvalidOrders(
                         "Fleet does not belong to ordering empire".into(),
                     ));
+                }
+
+                if order.kind == OrderKind::AttackFleet {
+                    let target_fleet_id = order.params.get("target_fleet").ok_or_else(|| {
+                        SpaceDiploWarsError::InvalidOrders(
+                            "AttackFleet requires target_fleet param".into(),
+                        )
+                    })?;
+                    let target_fleet = state
+                        .fleets
+                        .get(&crate::model::fleet_id::FleetId(target_fleet_id.clone()));
+                    let target_fleet = target_fleet.ok_or_else(|| {
+                        SpaceDiploWarsError::InvalidOrders(format!(
+                            "Unknown target fleet: {}",
+                            target_fleet_id
+                        ))
+                    })?;
+
+                    let attacker = &order.empire_id;
+                    let defender = &target_fleet.empire_id;
+                    let blocked_by_treaty = state.treaties.values().any(|treaty| {
+                        let is_relevant_kind = matches!(
+                            treaty.kind,
+                            TreatyKind::Alliance | TreatyKind::NonAggression
+                        );
+                        let has_both_parties =
+                            treaty.parties.contains(attacker) && treaty.parties.contains(defender);
+                        is_relevant_kind && has_both_parties
+                    });
+                    if blocked_by_treaty {
+                        return Err(SpaceDiploWarsError::InvalidOrders(
+                            "AttackFleet blocked by active non-aggression/alliance treaty".into(),
+                        ));
+                    }
                 }
             }
             OrderKind::DefendSystem | OrderKind::Invest => {
