@@ -36,6 +36,14 @@
       {
         "command": "repoContractEnforcer.showOutput",
         "title": "Repo Contract Enforcer: Show Output"
+      },
+      {
+        "command": "repoContractEnforcer.showRunHistory",
+        "title": "Repo Contract Enforcer: Show Run History"
+      },
+      {
+        "command": "repoContractEnforcer.openRuleDocs",
+        "title": "Repo Contract Enforcer: Open Rule Documentation"
       }
     ],
     "configuration": {
@@ -56,6 +64,11 @@
           "default": true,
           "description": "Run checks automatically when Rust/TOML files are saved"
         },
+        "repoContractEnforcer.runOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run one initial check when the workspace is opened"
+        },
         "repoContractEnforcer.runOnChange": {
           "type": "boolean",
           "default": true,
@@ -72,6 +85,38 @@
           "minimum": 50,
           "maximum": 5000,
           "description": "Debounce delay in milliseconds for edit/file-event triggered checks"
+        },
+        "repoContractEnforcer.workspaceFolderStrategy": {
+          "type": "string",
+          "enum": [
+            "first",
+            "active",
+            "all"
+          ],
+          "default": "first",
+          "description": "Select which workspace folders are checked in multi-root workspaces"
+        },
+        "repoContractEnforcer.excludeGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/.git/**",
+            "**/target/**",
+            "**/node_modules/**"
+          ],
+          "description": "Glob patterns (relative to each checked workspace root) excluded from diagnostics; plain tokens (e.g. target) are treated as folder names"
+        },
+        "repoContractEnforcer.docsPathDefault": {
+          "type": "string",
+          "default": "projects/products/unstable/repo_contract_enforcer/README.md",
+          "description": "Workspace-relative path to the default rule documentation opened by code actions"
+        },
+        "repoContractEnforcer.docsPathStructure": {
+          "type": "string",
+          "default": "documentation/technical_documentation/metadata.md",
+          "description": "Workspace-relative path to the manifest/structure rule documentation opened by code actions"
         },
         "repoContractEnforcer.runTimeoutMs": {
           "type": "number",
@@ -104,6 +149,23 @@
           "type": "boolean",
           "default": false,
           "description": "Enable verbose stdout/stderr logging in the extension output channel"
+        },
+        "repoContractEnforcer.runHistorySize": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 200,
+          "description": "Maximum number of recent run summaries retained in memory for the run history command"
+        },
+        "repoContractEnforcer.statusBarMessagePolicy": {
+          "type": "string",
+          "enum": [
+            "all",
+            "errors",
+            "none"
+          ],
+          "default": "errors",
+          "description": "Control transient status-bar notifications (all checks, errors only, or none)"
         }
       }
     }
