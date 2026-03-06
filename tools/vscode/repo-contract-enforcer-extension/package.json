@@ -56,6 +56,16 @@
         "icon": "$(arrow-small-right)"
       },
       {
+        "command": "repoContractEnforcer.exportDiagnosticsJson",
+        "title": "Repo Contract Enforcer: Export Diagnostics JSON",
+        "icon": "$(save)"
+      },
+      {
+        "command": "repoContractEnforcer.copyDiagnosticsSummary",
+        "title": "Repo Contract Enforcer: Copy Diagnostics Summary",
+        "icon": "$(clippy)"
+      },
+      {
         "command": "repoContractEnforcer.refreshDiagnosticsView",
         "title": "Repo Contract Enforcer: Refresh Diagnostics View",
         "icon": "$(refresh)"
@@ -90,6 +100,16 @@
           "command": "repoContractEnforcer.collapseDiagnosticsView",
           "when": "view == repoContractEnforcerDiagnostics",
           "group": "navigation@2"
+        },
+        {
+          "command": "repoContractEnforcer.exportDiagnosticsJson",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@3"
+        },
+        {
+          "command": "repoContractEnforcer.copyDiagnosticsSummary",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@4"
         }
       ]
     },
