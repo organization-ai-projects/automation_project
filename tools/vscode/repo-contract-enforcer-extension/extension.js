@@ -260,14 +260,29 @@ function showTransientMessage(message, timeoutMs, level) {
   vscode.window.setStatusBarMessage(message, timeoutMs);
 }
 
+function killChildProcess(child) {
+  if (!child || child.killed) {
+    return;
+  }
+  try {
+    child.kill();
+  } catch (_err) {
+    // Ignore process-kill race conditions.
+  }
+}
+
+function killActiveChildren(runtime) {
+  for (const child of runtime.activeChildren) {
+    killChildProcess(child);
+  }
+}
+
 function disposeRuntime(runtime) {
   if (runtime.debounceTimer) {
     clearTimeout(runtime.debounceTimer);
     runtime.debounceTimer = undefined;
   }
-  if (runtime.currentChild && !runtime.currentChild.killed) {
-    runtime.currentChild.kill();
-  }
+  killActiveChildren(runtime);
 }
 
 function updateStatus(runtime, text) {
@@ -310,7 +325,7 @@ function executeCheckForFolder(runtime, params) {
   const { folder, runId, reason, mode, cmd, args, timeoutMs } = params;
   return new Promise((resolve) => {
     const child = cp.spawn(cmd, args, { cwd: folder.uri.fsPath, stdio: ['pipe', 'pipe', 'pipe'] });
-    runtime.currentChild = child;
+    runtime.activeChildren.add(child);
     let stdout = '';
     let stderr = '';
     let timedOut = false;
@@ -321,6 +336,7 @@ function executeCheckForFolder(runtime, params) {
         return;
       }
       settled = true;
+      runtime.activeChildren.delete(child);
       resolve(result);
     };
 
@@ -330,7 +346,7 @@ function executeCheckForFolder(runtime, params) {
       }
       if (child && !child.killed) {
         timedOut = true;
-        child.kill();
+        killChildProcess(child);
       }
     }, timeoutMs);
 
@@ -423,6 +439,25 @@ function buildCommandCodeAction(title, kind, command, commandTitle, args = []) {
   return action;
 }
 
+function buildDiagnosticHover(meta) {
+  if (!meta || !meta.ruleId) {
+    return undefined;
+  }
+
+  const md = new vscode.MarkdownString();
+  md.appendMarkdown(`**Repo Contract Enforcer**\n\n`);
+  md.appendMarkdown(`- Rule: \`${meta.ruleId}\`\n`);
+  if (meta.violationCode) {
+    md.appendMarkdown(`- Code: \`${meta.violationCode}\`\n`);
+  }
+  if (meta.path) {
+    md.appendMarkdown(`- Path: \`${meta.path}\`\n`);
+  }
+  md.appendMarkdown('\nUse the quick fix to open rule docs.');
+  md.isTrusted = false;
+  return new vscode.Hover(md);
+}
+
 async function runEnforcer(runtime, reason) {
   const strategy = String(getConfigValue('workspaceFolderStrategy', 'first'));
   const folders = resolveWorkspaceFolders(strategy);
@@ -438,9 +473,7 @@ async function runEnforcer(runtime, reason) {
   const runId = ++runtime.runSeq;
   const startedAt = Date.now();
 
-  if (runtime.currentChild && !runtime.currentChild.killed) {
-    runtime.currentChild.kill();
-  }
+  killActiveChildren(runtime);
 
   updateStatus(runtime, `running (${reason})...`);
 
@@ -497,7 +530,6 @@ async function runEnforcer(runtime, reason) {
     mergeDiagnosticsByFile(byFile, folder, violations, excludeRegexes);
   }
 
-  runtime.currentChild = undefined;
   runtime.collection.clear();
   for (const { uri, diagnostics } of byFile.values()) {
     runtime.collection.set(uri, diagnostics);
@@ -609,6 +641,27 @@ function registerCodeActionProvider(runtime) {
   });
 }
 
+function registerHoverProvider(runtime) {
+  const provider = {
+    provideHover(document, position) {
+      const diagnostics = runtime.collection.get(document.uri) || [];
+      for (const diag of diagnostics) {
+        if (!diag.range.contains(position)) {
+          continue;
+        }
+        const meta = parseRuleMeta(diag);
+        const hover = buildDiagnosticHover(meta);
+        if (hover) {
+          return hover;
+        }
+      }
+      return undefined;
+    },
+  };
+
+  return vscode.languages.registerHoverProvider([{ language: 'rust' }, { language: 'toml' }], provider);
+}
+
 function activate(context) {
   const collection = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_SOURCE);
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
@@ -619,7 +672,7 @@ function activate(context) {
     collection,
     statusBar,
     outputChannel,
-    currentChild: undefined,
+    activeChildren: new Set(),
     runSeq: 0,
     debounceTimer: undefined,
     runHistory: [],
@@ -653,6 +706,11 @@ function activate(context) {
   };
 
   const runCmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
+  const clearDiagnosticsCmd = vscode.commands.registerCommand('repoContractEnforcer.clearDiagnostics', () => {
+    clearDiagnostics(runtime);
+    updateStatus(runtime, 'diagnostics cleared');
+    showTransientMessage(`${STATUS_PREFIX}: diagnostics cleared`, 3000, 'info');
+  });
   const showOutputCmd = vscode.commands.registerCommand('repoContractEnforcer.showOutput', () => {
     runtime.outputChannel.show(true);
   });
@@ -698,6 +756,7 @@ function activate(context) {
   );
 
   const codeActionProvider = registerCodeActionProvider(runtime);
+  const hoverProvider = registerHoverProvider(runtime);
 
   const saveSub = vscode.workspace.onDidSaveTextDocument((doc) => {
     if (!shouldTriggerForDocument('runOnSave', doc)) {
@@ -746,10 +805,12 @@ function activate(context) {
     statusBar,
     outputChannel,
     runCmd,
+    clearDiagnosticsCmd,
     showOutputCmd,
     showHistoryCmd,
     openRuleDocsCmd,
     codeActionProvider,
+    hoverProvider,
     saveSub,
     changeSub,
     watchFs,
