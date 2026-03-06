@@ -16,12 +16,7 @@ USAGE
 }
 
 neutralize_require_number() {
-  local name="$1"
-  local value="${2:-}"
-  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
-    echo "Error: ${name} must be a positive integer." >&2
-    exit 2
-  fi
+  issue_cli_require_positive_number "$1" "${2:-}"
 }
 
 neutralize_trim() {
@@ -32,14 +27,8 @@ neutralize_trim() {
 }
 
 neutralize_require_deps() {
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "Error: gh is required." >&2
-    exit 3
-  fi
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "Error: jq is required." >&2
-    exit 3
-  fi
+  issue_gh_require_cmd gh
+  issue_gh_require_cmd jq
   if ! command -v perl >/dev/null 2>&1; then
     echo "Error: perl is required." >&2
     exit 3

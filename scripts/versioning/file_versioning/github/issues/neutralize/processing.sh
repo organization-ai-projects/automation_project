@@ -66,7 +66,7 @@ neutralize_run() {
   neutralize_require_deps
 
   if [[ -z "$repo_name" ]]; then
-    repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+    repo_name="$(issue_gh_resolve_repo_name)"
   fi
   [[ -n "$repo_name" ]] || {
     echo "Error: unable to determine repository." >&2

@@ -14,12 +14,7 @@ USAGE
 }
 
 reevaluate_require_number() {
-  local name="$1"
-  local value="${2:-}"
-  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
-    echo "Error: ${name} must be a positive integer." >&2
-    exit 2
-  fi
+  issue_cli_require_positive_number "$1" "${2:-}"
 }
 
 reevaluate_pr_body_references_issue() {
@@ -68,17 +63,11 @@ reevaluate_main() {
   }
   reevaluate_require_number "--issue" "$issue_number"
 
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "Error: gh is required." >&2
-    exit 3
-  fi
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "Error: jq is required." >&2
-    exit 3
-  fi
+  issue_gh_require_cmd gh
+  issue_gh_require_cmd jq
 
   if [[ -z "$repo_name" ]]; then
-    repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+    repo_name="$(issue_gh_resolve_repo_name)"
   fi
   [[ -n "$repo_name" ]] || {
     echo "Error: unable to determine repository." >&2
