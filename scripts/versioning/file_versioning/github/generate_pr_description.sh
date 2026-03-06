@@ -12,8 +12,7 @@ SCRIPT_PATH="./scripts/versioning/file_versioning/github/generate_pr_description
 SCRIPT_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 
 source "${SCRIPT_DIR}/lib/classification.sh"
-source "${SCRIPT_DIR}/pr/cli.sh"
-source "${SCRIPT_DIR}/pr/args.sh"
+source "${SCRIPT_DIR}/pr/cli/module.sh"
 source "${SCRIPT_DIR}/pr/extraction/module.sh"
 source "${SCRIPT_DIR}/pr/compare.sh"
 source "${SCRIPT_DIR}/pr/footprint.sh"
