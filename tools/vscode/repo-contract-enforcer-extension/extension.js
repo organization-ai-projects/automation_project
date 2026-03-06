@@ -287,6 +287,10 @@ function disposeRuntime(runtime) {
     clearTimeout(runtime.debounceTimer);
     runtime.debounceTimer = undefined;
   }
+  if (runtime.treeRefreshTimer) {
+    clearTimeout(runtime.treeRefreshTimer);
+    runtime.treeRefreshTimer = undefined;
+  }
   if (runtime.treeDataEmitter) {
     runtime.treeDataEmitter.dispose();
     runtime.treeDataEmitter = undefined;
@@ -396,60 +400,91 @@ function buildDiagnosticsSummaryText(collection) {
 }
 
 function openFirstError(runtime) {
-  let bestUri = undefined;
-  let bestRange = undefined;
-
+  const candidates = [];
   for (const [uri, diagnostics] of runtime.collection) {
     if (!Array.isArray(diagnostics)) {
       continue;
     }
     for (const diag of diagnostics) {
-      if (!diag || diag.severity !== vscode.DiagnosticSeverity.Error) {
-        continue;
-      }
-      if (!bestRange) {
-        bestUri = uri;
-        bestRange = diag.range;
-        continue;
-      }
-
-      const currentPath = vscode.workspace.asRelativePath(uri, false);
-      const bestPath = vscode.workspace.asRelativePath(bestUri, false);
-      const pathCmp = currentPath.localeCompare(bestPath);
-      if (
-        pathCmp < 0 ||
-        (pathCmp === 0 &&
-          (diag.range.start.line < bestRange.start.line ||
-            (diag.range.start.line === bestRange.start.line && diag.range.start.character < bestRange.start.character)))
-      ) {
-        bestUri = uri;
-        bestRange = diag.range;
+      if (diag && diag.severity === vscode.DiagnosticSeverity.Error) {
+        candidates.push({ uri, diag });
       }
     }
   }
+  candidates.sort(compareDiagnosticsEntries);
 
-  if (!bestUri || !bestRange) {
+  const first = candidates[0];
+  if (!first) {
     showTransientMessage(`${STATUS_PREFIX}: no error diagnostic found`, 3000, 'info');
     return;
   }
 
-  vscode.commands.executeCommand('vscode.open', bestUri, { selection: bestRange, preview: true });
+  vscode.commands.executeCommand('vscode.open', first.uri, { selection: first.diag.range, preview: true });
 }
 
 function clearDiagnostics(runtime) {
   runtime.collection.clear();
   setLastCount(0);
-  refreshDiagnosticsTree(runtime);
+  refreshDiagnosticsTree(runtime, true);
 }
 
 function setLastCount(value) {
   vscode.commands.executeCommand('setContext', 'repoContractEnforcer.lastCount', value);
 }
 
-function refreshDiagnosticsTree(runtime) {
-  if (runtime.treeDataEmitter) {
-    runtime.treeDataEmitter.fire(undefined);
+function clampTreeRefreshDebounceMs(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return 80;
   }
+  return Math.min(Math.max(Math.floor(num), 0), 2000);
+}
+
+function refreshDiagnosticsTree(runtime, immediate = false) {
+  if (runtime.treeDataEmitter) {
+    if (immediate) {
+      if (runtime.treeRefreshTimer) {
+        clearTimeout(runtime.treeRefreshTimer);
+        runtime.treeRefreshTimer = undefined;
+      }
+      runtime.treeDataEmitter.fire(undefined);
+      return;
+    }
+
+    const debounceMs = clampTreeRefreshDebounceMs(getConfigValue('treeRefreshDebounceMs', 80));
+    if (runtime.treeRefreshTimer) {
+      clearTimeout(runtime.treeRefreshTimer);
+    }
+    runtime.treeRefreshTimer = setTimeout(() => {
+      runtime.treeRefreshTimer = undefined;
+      if (runtime.treeDataEmitter) {
+        runtime.treeDataEmitter.fire(undefined);
+      }
+    }, debounceMs);
+  }
+}
+
+function compareDiagnosticsEntries(a, b) {
+  const pathA = vscode.workspace.asRelativePath(a.uri, false);
+  const pathB = vscode.workspace.asRelativePath(b.uri, false);
+  const byPath = pathA.localeCompare(pathB);
+  if (byPath !== 0) {
+    return byPath;
+  }
+
+  const lineA = a.diag.range.start.line;
+  const lineB = b.diag.range.start.line;
+  if (lineA !== lineB) {
+    return lineA - lineB;
+  }
+
+  const colA = a.diag.range.start.character;
+  const colB = b.diag.range.start.character;
+  if (colA !== colB) {
+    return colA - colB;
+  }
+
+  return String(a.diag.message || '').localeCompare(String(b.diag.message || ''));
 }
 
 function openDiagnosticLocation(uri, startLine, startCol, endLine, endCol) {
@@ -947,13 +982,7 @@ function diagnosticsTreeViolationItem(uri, diag, options = {}) {
   item.command = {
     command: 'repoContractEnforcer.openDiagnosticLocation',
     title: 'Open diagnostic location',
-    arguments: [
-      uri,
-      diag.range.start.line,
-      diag.range.start.character,
-      diag.range.end.line,
-      diag.range.end.character,
-    ],
+    arguments: [uri, diag.range.start.line, diag.range.start.character, diag.range.end.line, diag.range.end.character],
   };
   return item;
 }
@@ -1022,7 +1051,9 @@ function registerDiagnosticsTreeProvider(runtime) {
         const diagnostics = (runtime.collection.get(element.resourceUri) || []).filter((diag) =>
           includeDiagnosticInTree(diag),
         );
-        return diagnostics.map((diag) => diagnosticsTreeViolationItem(element.resourceUri, diag));
+        const entriesForFile = diagnostics.map((diag) => ({ uri: element.resourceUri, diag }));
+        entriesForFile.sort(compareDiagnosticsEntries);
+        return entriesForFile.map((entry) => diagnosticsTreeViolationItem(entry.uri, entry.diag));
       }
 
       if (element.contextValue === 'repoContractEnforcer.rule' && element._repoRuleId) {
@@ -1031,15 +1062,7 @@ function registerDiagnosticsTreeProvider(runtime) {
           const currentRuleId = (entry.meta && entry.meta.ruleId) || 'unknown-rule';
           return currentRuleId === ruleId;
         });
-        ruleEntries.sort((a, b) => {
-          const fileCmp = vscode.workspace
-            .asRelativePath(a.uri, false)
-            .localeCompare(vscode.workspace.asRelativePath(b.uri, false));
-          if (fileCmp !== 0) {
-            return fileCmp;
-          }
-          return a.diag.range.start.line - b.diag.range.start.line;
-        });
+        ruleEntries.sort(compareDiagnosticsEntries);
         return ruleEntries.map((entry) =>
           diagnosticsTreeViolationItem(entry.uri, entry.diag, { showPathPrefix: true }),
         );
@@ -1275,6 +1298,7 @@ function activate(context) {
     statusBar,
     outputChannel,
     treeDataEmitter: undefined,
+    treeRefreshTimer: undefined,
     activeChildren: new Set(),
     persistentSessions: new Map(),
     runSeq: 0,
@@ -1451,7 +1475,7 @@ function activate(context) {
     }
     killActiveChildren(runtime);
     runtime.persistentSessions.clear();
-    refreshDiagnosticsTree(runtime);
+    refreshDiagnosticsTree(runtime, true);
     triggerNow('config changed');
   });
 
