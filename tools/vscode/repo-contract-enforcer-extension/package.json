@@ -24,7 +24,8 @@
   ],
   "activationEvents": [
     "workspaceContains:Cargo.toml",
-    "onLanguage:rust"
+    "onLanguage:rust",
+    "onLanguage:toml"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -32,6 +33,10 @@
       {
         "command": "repoContractEnforcer.runCheck",
         "title": "Repo Contract Enforcer: Run Check"
+      },
+      {
+        "command": "repoContractEnforcer.clearDiagnostics",
+        "title": "Repo Contract Enforcer: Clear Diagnostics"
       },
       {
         "command": "repoContractEnforcer.showOutput",
