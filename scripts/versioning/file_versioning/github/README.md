@@ -193,7 +193,7 @@ Troubleshooting:
 - CLI/options: `pr/pr_cli.sh`
 - arg parsing/validation: `pr/pr_args.sh`
 - extraction/classification: `pr/pr_extraction.sh`, `lib/classification.sh`, `lib/issue_refs.sh`
-- pipeline orchestration: `pr/pr_pipeline.sh`
+- pipeline orchestration: `pr/pipeline/module.sh` (`init.sh`, `collect.sh`, `render.sh`)
 - runtime/gh helpers: `pr/pr_runtime.sh`
 - compare loading: `pr/pr_compare.sh`
 - issue flow resolution: `pr/issue/module.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
