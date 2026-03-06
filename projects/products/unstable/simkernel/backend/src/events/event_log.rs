@@ -1,7 +1,7 @@
-#![allow(dead_code)]
 use crate::events::event_id::EventId;
 use crate::events::kernel_event::KernelEvent;
 use crate::time::tick::Tick;
+use common_json::Json;
 
 #[derive(Debug, Clone, Default)]
 pub struct EventLog {
@@ -18,12 +18,7 @@ impl EventLog {
         self.events.push(event);
     }
 
-    pub fn emit(
-        &mut self,
-        tick: Tick,
-        kind: impl Into<String>,
-        payload: serde_json::Value,
-    ) -> EventId {
+    pub fn emit(&mut self, tick: Tick, kind: impl Into<String>, payload: Json) -> EventId {
         let id = EventId(self.next_id);
         self.next_id += 1;
         self.events.push(KernelEvent::new(id, tick, kind, payload));

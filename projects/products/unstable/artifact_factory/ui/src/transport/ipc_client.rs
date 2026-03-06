@@ -1,5 +1,6 @@
-use crate::diagnostics::error::UiError;
+use crate::diagnostics::ui_error::UiError;
 use crate::transport::backend_process::BackendProcess;
+use common_json::Json;
 
 /// Thin IPC client that serializes requests to JSON and deserializes responses.
 /// Uses a simple sequential message ID counter.
@@ -22,95 +23,67 @@ impl IpcClient {
         id
     }
 
-    fn send_recv(&mut self, request_json: &str) -> Result<String, UiError> {
+    pub fn send_load_inputs(&mut self, paths: Vec<String>) -> Result<Json, UiError> {
+        let id = self.next_id();
+        let paths_json =
+            common_json::to_string(&paths).map_err(|err| UiError::Transport(err.to_string()))?;
+        let request_json =
+            format!(r#"{{"id":{id},"request":{{"type":"load_inputs","paths":{paths_json}}}}}"#);
+        self.send_recv_json(&request_json)
+    }
+
+    pub fn send_analyze(&mut self) -> Result<Json, UiError> {
+        let id = self.next_id();
+        let request_json = format!(r#"{{"id":{id},"request":{{"type":"analyze"}}}}"#);
+        self.send_recv_json(&request_json)
+    }
+
+    pub fn send_render_docs(&mut self) -> Result<Json, UiError> {
+        let id = self.next_id();
+        let request_json = format!(r#"{{"id":{id},"request":{{"type":"render_docs"}}}}"#);
+        self.send_recv_json(&request_json)
+    }
+
+    pub fn send_build_bundle(&mut self) -> Result<Json, UiError> {
+        let id = self.next_id();
+        let request_json = format!(r#"{{"id":{id},"request":{{"type":"build_bundle"}}}}"#);
+        self.send_recv_json(&request_json)
+    }
+
+    pub fn send_get_bundle(&mut self) -> Result<Json, UiError> {
+        let id = self.next_id();
+        let request_json = format!(r#"{{"id":{id},"request":{{"type":"get_bundle"}}}}"#);
+        self.send_recv_json(&request_json)
+    }
+
+    fn send_recv_json(&mut self, request_json: &str) -> Result<Json, UiError> {
         self.process.send_line(request_json)?;
-        self.process.recv_line()
-    }
+        let raw = self.process.recv_line()?;
+        let value: Json =
+            common_json::from_json_str(&raw).map_err(|err| UiError::Transport(err.to_string()))?;
+        let response = extract_response_object(&value).ok_or_else(|| {
+            UiError::Transport("invalid IPC payload: missing response object".to_string())
+        })?;
 
-    pub fn send_load_inputs(&mut self, paths: Vec<String>) -> Result<(), UiError> {
-        let id = self.next_id();
-        let paths_json: Vec<String> = paths.iter().map(|p| format!("\"{}\"", p)).collect();
-        let req = format!(
-            r#"{{"id":{},"request":{{"type":"load_inputs","paths":[{}]}}}}"#,
-            id,
-            paths_json.join(",")
-        );
-        self.send_recv(&req)?;
-        Ok(())
-    }
-
-    pub fn send_analyze(&mut self) -> Result<(), UiError> {
-        let id = self.next_id();
-        let req = format!(r#"{{"id":{},"request":{{"type":"analyze"}}}}"#, id);
-        self.send_recv(&req)?;
-        Ok(())
-    }
-
-    pub fn send_render_docs(&mut self) -> Result<(), UiError> {
-        let id = self.next_id();
-        let req = format!(r#"{{"id":{},"request":{{"type":"render_docs"}}}}"#, id);
-        self.send_recv(&req)?;
-        Ok(())
-    }
-
-    pub fn send_build_bundle(&mut self) -> Result<(), UiError> {
-        let id = self.next_id();
-        let req = format!(r#"{{"id":{},"request":{{"type":"build_bundle"}}}}"#, id);
-        self.send_recv(&req)?;
-        Ok(())
-    }
-
-    pub fn send_get_bundle(&mut self) -> Result<Option<(String, Vec<String>)>, UiError> {
-        let id = self.next_id();
-        let req = format!(r#"{{"id":{},"request":{{"type":"get_bundle"}}}}"#, id);
-        let raw = self.send_recv(&req)?;
-        // Simple parse: check for "hash" field
-        if raw.contains("\"hash\"") {
-            // Extract hash and manifest from response JSON
-            let hash = extract_string_field(&raw, "hash");
-            let manifest = extract_string_array_field(&raw, "manifest");
-            Ok(Some((hash, manifest)))
-        } else {
-            Ok(None)
+        let response_type = response
+            .get("type")
+            .and_then(Json::as_str)
+            .ok_or_else(|| UiError::Transport("invalid IPC payload: missing type".to_string()))?;
+        if response_type == "error" {
+            let message = response
+                .get("message")
+                .and_then(Json::as_str)
+                .unwrap_or("backend error");
+            return Err(UiError::Transport(message.to_string()));
         }
+
+        Ok(value)
     }
 }
 
-fn extract_string_field(json: &str, field: &str) -> String {
-    let key = format!("\"{}\":", field);
-    if let Some(start) = json.find(&key) {
-        let rest = &json[start + key.len()..];
-        let rest = rest.trim_start();
-        if let Some(rest) = rest.strip_prefix('"') {
-            if let Some(end) = rest.find('"') {
-                return rest[..end].to_string();
-            }
-        }
-    }
-    String::new()
-}
-
-fn extract_string_array_field(json: &str, field: &str) -> Vec<String> {
-    let key = format!("\"{}\":", field);
-    if let Some(start) = json.find(&key) {
-        let rest = &json[start + key.len()..];
-        let rest = rest.trim_start();
-        if let Some(rest) = rest.strip_prefix('[') {
-            if let Some(end) = rest.find(']') {
-                let inner = &rest[..end];
-                return inner
-                    .split(',')
-                    .filter_map(|s| {
-                        let s = s.trim().trim_matches('"');
-                        if s.is_empty() {
-                            None
-                        } else {
-                            Some(s.to_string())
-                        }
-                    })
-                    .collect();
-            }
-        }
-    }
-    Vec::new()
+fn extract_response_object(payload: &Json) -> Option<&std::collections::HashMap<String, Json>> {
+    payload
+        .as_object()
+        .and_then(|root| root.get("response"))
+        .and_then(Json::as_object)
 }

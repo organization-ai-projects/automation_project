@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,21 +13,21 @@ pub enum Request {
     },
     NewRun {
         pack_kind: String,
-        seed: u64,
-        ticks: u64,
-        turns: u64,
-        ticks_per_turn: u64,
+        seed: f64,
+        ticks: f64,
+        turns: f64,
+        ticks_per_turn: f64,
     },
     SubmitCommands {
         commands: Vec<String>,
     },
     Step {
-        n_ticks: u64,
+        n_ticks: f64,
     },
     RunToEnd,
     GetSnapshot {
-        at_tick: u64,
-        at_turn: u64,
+        at_tick: f64,
+        at_turn: f64,
     },
     Query {
         query: String,

@@ -1,7 +1,7 @@
-#![allow(dead_code)]
-use crate::diagnostics::error::UiError;
+use crate::diagnostics::ui_error::UiError;
+use crate::transport::backend_process::BackendProcess;
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{Child, ChildStdin};
 
 pub struct IpcClient {
     child: Child,
@@ -14,23 +14,10 @@ impl IpcClient {
     pub fn new() -> Result<Self, UiError> {
         let backend_bin = std::env::var("SIMKERNEL_BACKEND_BIN")
             .unwrap_or_else(|_| "simkernel_backend".to_string());
-        let mut child = Command::new(&backend_bin)
-            .arg("serve")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(|e| {
-                UiError::BackendSpawn(format!("Failed to spawn {}: {}", backend_bin, e))
-            })?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or(UiError::BackendSpawn("no stdin".to_string()))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or(UiError::BackendSpawn("no stdout".to_string()))?;
+        let process = BackendProcess::spawn(&backend_bin, None).map_err(|e| {
+            UiError::BackendSpawn(format!("Failed to spawn {}: {}", backend_bin, e))
+        })?;
+        let (child, stdin, stdout) = process.into_parts();
         Ok(Self {
             child,
             stdin,
@@ -54,15 +41,39 @@ impl IpcClient {
     }
 
     pub fn new_run(&mut self, pack_kind: &str, seed: u64, ticks: u64) -> Result<String, UiError> {
-        let payload = serde_json::json!({
-            "type": "NewRun",
-            "pack_kind": pack_kind,
-            "seed": seed,
-            "ticks": ticks,
-            "turns": 0,
-            "ticks_per_turn": 10
-        });
-        self.send_request(&payload.to_string())
+        let payload = format!(
+            "{{\"type\":\"NewRun\",\"pack_kind\":\"{}\",\"seed\":{},\"ticks\":{},\"turns\":0,\"ticks_per_turn\":10}}",
+            pack_kind, seed, ticks
+        );
+        self.send_request(&payload)
+    }
+
+    pub fn query(&mut self, query: &str) -> Result<String, UiError> {
+        let payload = format!(
+            "{{\"type\":\"Query\",\"query\":{}}}",
+            common_json::to_string(&query).unwrap_or_else(|_| "\"\"".to_string())
+        );
+        self.send_request(&payload)
+    }
+
+    pub fn save_replay(&mut self, path: &str) -> Result<String, UiError> {
+        let payload = format!(
+            "{{\"type\":\"SaveReplay\",\"path\":{}}}",
+            common_json::to_string(&path).unwrap_or_else(|_| "\"\"".to_string())
+        );
+        self.send_request(&payload)
+    }
+
+    pub fn load_replay(&mut self, path: &str) -> Result<String, UiError> {
+        let payload = format!(
+            "{{\"type\":\"LoadReplay\",\"path\":{}}}",
+            common_json::to_string(&path).unwrap_or_else(|_| "\"\"".to_string())
+        );
+        self.send_request(&payload)
+    }
+
+    pub fn replay_to_end(&mut self) -> Result<String, UiError> {
+        self.send_request(r#"{"type":"ReplayToEnd"}"#)
     }
 
     pub fn shutdown(&mut self) -> Result<(), UiError> {

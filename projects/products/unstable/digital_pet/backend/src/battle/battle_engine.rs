@@ -1,4 +1,5 @@
 // projects/products/unstable/digital_pet/backend/src/battle/battle_engine.rs
+use crate::battle::battle_report::BattleReport;
 use crate::battle::battle_state::BattleState;
 use crate::battle::opponent::Opponent;
 use crate::model::pet::Pet;
@@ -47,17 +48,37 @@ impl BattleEngine {
             self.finished = true;
             self.winner = Some("opponent".into());
         }
+        if self.finished {
+            let winner = self.winner.clone().unwrap_or_else(|| "none".to_string());
+            let report = BattleReport {
+                winner,
+                turns: self.turn,
+                pet_hp_remaining: self.pet.hp,
+                opponent_hp_remaining: self.opponent.hp,
+            };
+            self.log.push(format!(
+                "Battle result: winner={}, turns={}, pet_hp={}, opponent_hp={}",
+                report.winner, report.turns, report.pet_hp_remaining, report.opponent_hp_remaining
+            ));
+        }
         self.state()
     }
 
     fn state(&self) -> BattleState {
+        let mut log = self.log.clone();
+        if self.turn == 0 {
+            log.push(format!(
+                "Battle started at tick {}",
+                self.start_tick.value()
+            ));
+        }
         BattleState {
             turn: self.turn,
             pet_hp: self.pet.hp,
             opponent_hp: self.opponent.hp,
             finished: self.finished,
             winner: self.winner.clone(),
-            log: self.log.clone(),
+            log,
         }
     }
 }

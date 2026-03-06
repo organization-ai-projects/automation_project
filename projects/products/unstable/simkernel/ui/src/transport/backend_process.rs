@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-use crate::diagnostics::error::UiError;
+use crate::diagnostics::ui_error::UiError;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 pub struct BackendProcess {
@@ -36,7 +35,7 @@ impl BackendProcess {
         })
     }
 
-    pub fn kill(&mut self) {
-        let _ = self.child.kill();
+    pub fn into_parts(self) -> (Child, ChildStdin, ChildStdout) {
+        (self.child, self.stdin, self.stdout)
     }
 }

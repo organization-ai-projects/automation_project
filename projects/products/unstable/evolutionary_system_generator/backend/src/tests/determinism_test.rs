@@ -1,6 +1,8 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/tests/determinism_test.rs
 use crate::constraints::constraint::Constraint;
-use crate::search::evolution_engine::{EvolutionEngine, SearchConfig};
-use crate::seed::seed::Seed;
+use crate::search::evolution_engine::EvolutionEngine;
+use crate::search::search_config::SearchConfig;
+use crate::seed::Seed;
 
 fn make_tiny_config(seed: u64) -> SearchConfig {
     SearchConfig {

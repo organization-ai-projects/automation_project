@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// projects/products/unstable/simkernel/ui/src/screens/replay_screen.rs
 pub struct ReplayScreen {
     pub replay_path: String,
 }

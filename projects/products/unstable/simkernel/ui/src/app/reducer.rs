@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// projects/products/unstable/simkernel/ui/src/app/reducer.rs
 use crate::app::action::Action;
 use crate::app::app_state::AppState;
 

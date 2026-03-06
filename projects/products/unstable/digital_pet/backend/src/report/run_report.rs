@@ -3,6 +3,7 @@ use crate::care::care_engine::CareEngine;
 use crate::events::event_log::EventLog;
 use crate::model::pet::Pet;
 use crate::needs::needs_state::NeedsState;
+use crate::report::day_report::DayReport;
 use crate::report::run_hash::RunHash;
 use crate::time::tick_clock::TickClock;
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,14 @@ impl RunReport {
         log: &EventLog,
         care: &CareEngine,
     ) -> Self {
+        let day_report = DayReport {
+            day: (clock.current_tick().value() / 100) + 1,
+            species: pet.species.name.clone(),
+            care_mistakes: care.mistake_count(),
+            happiness: needs.happiness,
+            discipline: needs.discipline,
+        };
+        let event_count = if log.is_empty() { 0 } else { log.len() };
         let run_hash = RunHash::compute(
             clock.seed,
             &pet.species.id.0,
@@ -40,12 +49,32 @@ impl RunReport {
             final_species: pet.species.name.clone(),
             evolution_stage: pet.evolution_stage,
             total_ticks: clock.current_tick().value(),
-            care_mistakes: care.mistake_count(),
-            final_happiness: needs.happiness,
-            final_discipline: needs.discipline,
+            care_mistakes: day_report.care_mistakes,
+            final_happiness: day_report.happiness,
+            final_discipline: day_report.discipline,
             final_hp: pet.hp,
-            event_count: log.len(),
+            event_count,
             run_hash,
         }
     }
+
+    pub fn canonical_json(&self) -> String {
+        format!(
+            "{{\"seed\":{},\"final_species\":\"{}\",\"evolution_stage\":{},\"total_ticks\":{},\"care_mistakes\":{},\"final_happiness\":{},\"final_discipline\":{},\"final_hp\":{},\"event_count\":{},\"run_hash\":\"{}\"}}",
+            self.seed,
+            escape_json(&self.final_species),
+            self.evolution_stage,
+            self.total_ticks,
+            self.care_mistakes,
+            self.final_happiness,
+            self.final_discipline,
+            self.final_hp,
+            self.event_count,
+            escape_json(&self.run_hash),
+        )
+    }
+}
+
+fn escape_json(input: &str) -> String {
+    input.replace('\\', "\\\\").replace('"', "\\\"")
 }

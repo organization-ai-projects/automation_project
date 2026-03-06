@@ -1,40 +1,67 @@
 {
-  "report_hash": "a0fbd10d4bb08d5ef13cf3e2224110d641bf2fde17b27c6f328b59c962f489c8",
-  "violations": [
-    {
-      "rule_id": "determinism",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "message": "unwrap/expect usage may panic at runtime",
-      "scope": "stable",
-      "line": 3,
-      "violation_code": "DET_UNWRAP_RISK",
-      "severity": "ERROR"
-    },
-    {
-      "line": 3,
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "rule_id": "determinism",
-      "severity": "WARNING",
-      "scope": "stable",
-      "message": "underscore-based bindings/discards may hide unused values",
-      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING"
-    },
-    {
-      "rule_id": "determinism",
-      "severity": "ERROR",
-      "scope": "stable",
-      "message": "panic-like macros are forbidden in backend product code",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "line": 4,
-      "violation_code": "DET_PANIC_RISK"
-    }
-  ],
   "repository_root": "<FIXTURE_ROOT>",
   "mode": "strict",
   "summary": {
-    "stable_error_count": 2,
-    "stable_warning_count": 1,
+    "stable_warning_count": 4,
+    "unstable_warning_count": 0,
     "unstable_error_count": 0,
-    "unstable_warning_count": 0
-  }
+    "stable_error_count": 2
+  },
+  "report_hash": "57a6c042273affeb76912f88358f5f88a7a7da872c376465002aca9ebe012119",
+  "violations": [
+    {
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "rule_id": "structure",
+      "message": "crate 'backend' must include backend_manifest.ron (warning: mandatory enforcement planned in a future phase)",
+      "severity": "WARNING",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/backend_manifest.ron",
+      "line": null
+    },
+    {
+      "scope": "stable",
+      "message": "unwrap/expect usage may panic at runtime",
+      "line": 3,
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
+      "severity": "ERROR",
+      "rule_id": "determinism",
+      "violation_code": "DET_UNWRAP_RISK"
+    },
+    {
+      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
+      "message": "underscore-based bindings/discards may hide unused values",
+      "severity": "WARNING",
+      "scope": "stable",
+      "line": 3,
+      "rule_id": "determinism"
+    },
+    {
+      "rule_id": "determinism",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
+      "line": 4,
+      "scope": "stable",
+      "message": "panic-like macros are forbidden (including tests)",
+      "violation_code": "DET_PANIC_RISK",
+      "severity": "ERROR"
+    },
+    {
+      "line": null,
+      "rule_id": "structure",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/metadata.ron",
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
+      "severity": "WARNING",
+      "scope": "stable",
+      "message": "product must include metadata.ron at root (warning: mandatory enforcement planned in a future phase)"
+    },
+    {
+      "scope": "stable",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/ui/ui_manifest.ron",
+      "line": null,
+      "rule_id": "structure",
+      "message": "crate 'ui' must include ui_manifest.ron (warning: mandatory enforcement planned in a future phase)",
+      "severity": "WARNING"
+    }
+  ]
 }

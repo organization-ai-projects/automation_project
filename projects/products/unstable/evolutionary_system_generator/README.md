@@ -1,12 +1,12 @@
 # evolutionary_system_generator
 
-A 3-binary Rust project implementing an evolutionary search engine with terminal UI and validation tooling.
+A 2-binary Rust project implementing an evolutionary search engine with terminal UI and integrated backend validation commands.
 
 ## Binaries
 
 - **evo-backend** (`backend/`): Evolutionary search engine. Reads JSON requests from stdin, writes JSON responses to stdout. Fully deterministic given the same seed.
 - **evo-ui** (`ui/`): Terminal UI that spawns and communicates with the backend via IPC.
-- **evo-tooling** (`tooling/`): Validation CLI tools for determinism and replay checks.
+- **Validation commands** (`backend` subcommands): Determinism and replay checks are integrated into `evo-backend`.
 
 ## Architecture
 
@@ -61,20 +61,27 @@ cargo run -p evolutionary_system_generator_backend
 cargo run -p evolutionary_system_generator_ui
 ```
 
+Notes:
+
+- The UI first tries to spawn `evo-backend` from `PATH`.
+- If not available, it automatically falls back to:
+  `cargo run -q -p evolutionary_system_generator_backend --`
+- You can override backend executable with `EVO_BACKEND_BIN`.
+
 ### Validate determinism
 
 ```bash
-cargo run -p evolutionary_system_generator_tooling -- validate-determinism --seed 42 --generations 5
+cargo run -p evolutionary_system_generator_backend -- validate-determinism --seed 42 --generations 5
 ```
 
 ### Validate replay
 
 ```bash
-cargo run -p evolutionary_system_generator_tooling -- validate-replay --seed 42 --generations 5 --replay-path /tmp/replay.json
+cargo run -p evolutionary_system_generator_backend -- validate-replay --seed 42 --generations 5 --replay-path /tmp/replay.json
 ```
 
 ## Testing
 
 ```bash
-cargo test -p evolutionary_system_generator_backend -p evolutionary_system_generator_tooling
+cargo test -p evolutionary_system_generator_backend
 ```

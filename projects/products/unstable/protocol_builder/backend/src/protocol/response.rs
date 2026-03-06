@@ -2,8 +2,8 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum IpcResponse {
+#[serde(tag = "kind")]
+pub enum Response {
     Ok,
     Error {
         message: String,

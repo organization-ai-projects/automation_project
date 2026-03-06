@@ -2,8 +2,8 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum IpcRequest {
+#[serde(tag = "kind")]
+pub enum Request {
     LoadSchema { path: String },
     ValidateSchema,
     GenerateDryRun,

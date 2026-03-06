@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// projects/products/unstable/simkernel/ui/src/widgets/graph_widget.rs
 pub struct GraphWidget {
     pub values: Vec<i64>,
     pub label: String,

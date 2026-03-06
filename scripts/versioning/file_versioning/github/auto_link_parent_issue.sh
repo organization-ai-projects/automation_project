@@ -38,12 +38,12 @@ trim() {
 
 graphql_has_errors() {
   local payload="${1:-}"
-  jq -e '((.errors // []) | length) > 0' >/dev/null 2>&1 <<< "$payload"
+  jq -e '((.errors // []) | length) > 0' >/dev/null 2>&1 <<<"$payload"
 }
 
 graphql_error_messages() {
   local payload="${1:-}"
-  jq -r '(.errors // []) | map(.message // "unknown GraphQL error") | join("; ")' <<< "$payload" 2>/dev/null || true
+  jq -r '(.errors // []) | map(.message // "unknown GraphQL error") | join("; ")' <<<"$payload" 2>/dev/null || true
 }
 
 extract_parent_field_value() {
@@ -56,26 +56,26 @@ extract_parent_field_value() {
       print line
       exit
     }
-  ' <<< "$body"
+  ' <<<"$body"
 }
 
 issue_arg=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --issue)
-      issue_arg="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Erreur: option inconnue: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+  --issue)
+    issue_arg="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Erreur: option inconnue: $1" >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 
@@ -182,10 +182,10 @@ issue_labels_raw="$(echo "$issue_json" | jq -r '(.labels // []) | map(.name) | j
 contract_errors="$(issue_validate_content "$issue_title" "$issue_body" "$issue_labels_raw" || true)"
 if [[ -n "$contract_errors" ]]; then
   summary_lines=""
-  while IFS='|' read -r kind field message; do
+  while IFS='|' read -r _ _ message; do
     [[ -z "$message" ]] && continue
     summary_lines+="- ${message}"$'\n'
-  done <<< "$contract_errors"
+  done <<<"$contract_errors"
   set_validation_error_state \
     "Issue body/title is non-compliant with required issue format." \
     "Detected problems:
@@ -209,7 +209,67 @@ fi
 
 parent_raw_lc="$(echo "$parent_raw" | tr '[:upper:]' '[:lower:]')"
 if [[ "$parent_raw_lc" == "none" ]]; then
-  set_success_state "No parent linking requested (\`Parent: none\`)."
+  current_relation_json="$(gh api graphql \
+    -f query='query($owner:String!,$name:String!,$child:Int!){repository(owner:$owner,name:$name){child:issue(number:$child){id parent{number id}}}}' \
+    -f owner="$REPO_OWNER" \
+    -f name="$REPO_SHORT_NAME" \
+    -F child="$ISSUE_NUMBER" 2>/dev/null || true)"
+
+  if [[ -z "$current_relation_json" ]]; then
+    set_runtime_error_state \
+      "Unable to query current parent relation while processing \`Parent: none\`." \
+      "Retry later. If this persists, unlink parent manually in GitHub UI."
+    exit 0
+  fi
+
+  if graphql_has_errors "$current_relation_json"; then
+    relation_errors="$(graphql_error_messages "$current_relation_json")"
+    set_runtime_error_state \
+      "GitHub GraphQL query returned errors while reading current parent relation." \
+      "API errors: ${relation_errors}
+
+Retry later. If this persists, unlink parent manually in GitHub UI."
+    exit 0
+  fi
+
+  current_parent_number_none="$(echo "$current_relation_json" | jq -r '.data.repository.child.parent.number // empty')"
+  current_parent_node_id_none="$(echo "$current_relation_json" | jq -r '.data.repository.child.parent.id // empty')"
+  child_node_id_none="$(echo "$current_relation_json" | jq -r '.data.repository.child.id // empty')"
+
+  if [[ -n "$current_parent_number_none" ]]; then
+    if [[ -z "$current_parent_node_id_none" || -z "$child_node_id_none" ]]; then
+      set_runtime_error_state \
+        "Missing node IDs required to unlink current parent #${current_parent_number_none}." \
+        "Retry later. If this persists, unlink parent manually in GitHub UI."
+      exit 0
+    fi
+
+    unlink_result_none="$(gh api graphql \
+      -f query='mutation($issueId:ID!,$subIssueId:ID!){removeSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{id}}}' \
+      -f issueId="$current_parent_node_id_none" \
+      -f subIssueId="$child_node_id_none" 2>/dev/null || true)"
+
+    if [[ -z "$unlink_result_none" ]]; then
+      set_runtime_error_state \
+        "GitHub API mutation failed while unlinking issue from parent #${current_parent_number_none}." \
+        "Retry later. If this persists, unlink parent manually in GitHub UI."
+      exit 0
+    fi
+
+    if graphql_has_errors "$unlink_result_none"; then
+      unlink_errors="$(graphql_error_messages "$unlink_result_none")"
+      set_runtime_error_state \
+        "GitHub GraphQL mutation returned errors while unlinking parent #${current_parent_number_none}." \
+        "API errors: ${unlink_errors}
+
+Retry later. If this persists, unlink parent manually in GitHub UI."
+      exit 0
+    fi
+
+    set_success_state "Removed existing parent link #${current_parent_number_none} (\`Parent: none\`)."
+  else
+    set_success_state "No parent linking requested (\`Parent: none\`)."
+  fi
   exit 0
 fi
 

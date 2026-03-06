@@ -1,5 +1,5 @@
 // projects/products/unstable/hospital_tycoon/ui/src/screens/report_screen.rs
-use crate::transport::ipc_client::RunReportDto;
+use crate::transport::run_report_dto::RunReportDto;
 
 pub struct ReportScreen {
     report: RunReportDto,

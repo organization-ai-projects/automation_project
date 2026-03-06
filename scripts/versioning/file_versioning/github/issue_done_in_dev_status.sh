@@ -42,8 +42,8 @@ resolve_repo_name() {
 label_exists() {
   local repo="$1"
   local label="$2"
-  gh label list -R "$repo" --limit 1000 --json name --jq '.[].name' 2>/dev/null \
-    | grep -Fxq "$label"
+  gh label list -R "$repo" --limit 1000 --json name --jq '.[].name' 2>/dev/null |
+    grep -Fxq "$label"
 }
 
 issue_state() {
@@ -56,17 +56,17 @@ issue_has_label() {
   local repo="$1"
   local issue_number="$2"
   local label="$3"
-  gh issue view "$issue_number" -R "$repo" --json labels --jq '.labels[].name' 2>/dev/null \
-    | grep -Fxq "$label"
+  gh issue view "$issue_number" -R "$repo" --json labels --jq '.labels[].name' 2>/dev/null |
+    grep -Fxq "$label"
 }
 
 extract_closing_issue_numbers() {
   local text="$1"
-  parse_closing_issue_refs_from_text "$text" \
-    | cut -d'|' -f2 \
-    | sed -E 's/^#([0-9]+)$/\1/' \
-    | grep -E '^[0-9]+$' \
-    | sort -u
+  parse_closing_issue_refs_from_text "$text" |
+    cut -d'|' -f2 |
+    sed -E 's/^#([0-9]+)$/\1/' |
+    grep -E '^[0-9]+$' |
+    sort -u
 }
 
 collect_pr_text_payload() {
@@ -94,35 +94,35 @@ label_name="${DONE_IN_DEV_LABEL:-done-in-dev}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --on-dev-merge)
-      mode="dev-merge"
-      shift
-      ;;
-    --on-issue-closed)
-      mode="issue-closed"
-      shift
-      ;;
-    --pr)
-      pr_number="${2:-}"
-      shift 2
-      ;;
-    --issue)
-      issue_number="${2:-}"
-      shift 2
-      ;;
-    --label)
-      label_name="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Error: unknown argument '$1'." >&2
-      usage >&2
-      exit 2
-      ;;
+  --on-dev-merge)
+    mode="dev-merge"
+    shift
+    ;;
+  --on-issue-closed)
+    mode="issue-closed"
+    shift
+    ;;
+  --pr)
+    pr_number="${2:-}"
+    shift 2
+    ;;
+  --issue)
+    issue_number="${2:-}"
+    shift 2
+    ;;
+  --label)
+    label_name="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Error: unknown argument '$1'." >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 

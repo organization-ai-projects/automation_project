@@ -30,7 +30,11 @@ github/
 ├── parent_issue_guard.sh
 ├── lib/
 │   ├── classification.sh
+│   ├── issue_refs.sh
 │   ├── issue_required_fields.sh
+│   ├── pr_compare.sh
+│   ├── pr_footprint.sh
+│   ├── pr_validation_gate.sh
 │   └── rendering.sh
 └── tests/
     └── generate_pr_description_regression.sh
@@ -51,13 +55,18 @@ github/
 - `neutralize_non_compliant_closure_refs.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
 - `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
+- `lib/issue_refs.sh`: Issue reference parsing helpers (`Closes`, `Fixes`, `Part of`, `Reopen`, duplicates).
 - `lib/issue_required_fields.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
+- `lib/pr_compare.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
+- `lib/pr_footprint.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
+- `lib/pr_validation_gate.sh`: Validation Gate section construction and in-place replacement helpers.
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 - `tests/auto_add_closes_on_dev_pr_regression.sh`: Regression checks for automatic managed `Closes #...` enrichment on dev-targeting PRs.
 - `tests/issue_done_in_dev_status_regression.sh`: Regression checks for done-in-dev add/remove workflow behavior.
 - `tests/issue_reopen_on_dev_merge_regression.sh`: Regression checks for Reopen footer sync on merged PRs into `dev`.
 - `tests/manager_issues_regression.sh`: Regression checks for manager_issues lifecycle routing behavior (create/read/update/close/reopen/soft-delete).
+- `tests/shellcheck_regression.sh`: ShellCheck regression suite with strict lint for standalone/test scripts and scoped suppressions for the modular PR generator stack.
 
 ## Scope
 
@@ -101,7 +110,7 @@ Usage:
 
 ```bash
 bash generate_pr_description.sh [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
-bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
+bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER] [--validation-only] [--yes] [OUTPUT_FILE]
 bash generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
 ```
 
@@ -113,6 +122,7 @@ Key options:
 - `--allow-partial-create`: Allow PR creation even if GitHub enrichment is incomplete.
 - `--auto-edit PR_NUMBER`: Generate body in memory and update an existing PR directly (no output file).
   When updating an existing PR, the current `### Validation Checklist` section is preserved (checkbox state is kept).
+- `--validation-only`: In `--auto-edit/--refresh-pr` mode, update only `### Validation Gate` (CI + breaking status) and keep the rest of the PR body untouched.
 - `--duplicate-mode MODE`: Duplicate handling mode (`safe` or `auto-close`).
 - `--yes`: Non-interactive confirmation when `--create-pr` is used.
 - `--debug`: Enable extraction and classification traces on stderr.
@@ -171,8 +181,24 @@ Regression tests:
 
 ```bash
 bash tests/generate_pr_description_regression.sh
+bash tests/shellcheck_regression.sh
 ```
 
 Troubleshooting:
 
 - See `.github/documentation/pr_generator_troubleshooting.md`.
+
+## Internal Module Breakdown
+
+- CLI/options: `lib/pr_cli.sh`
+- arg parsing/validation: `lib/pr_args.sh`
+- extraction/classification: `lib/pr_extraction.sh`, `lib/classification.sh`, `lib/issue_refs.sh`
+- pipeline orchestration: `lib/pr_pipeline.sh`
+- runtime/gh helpers: `lib/pr_runtime.sh`
+- compare loading: `lib/pr_compare.sh`
+- issue flow resolution: `lib/pr_issue_flow.sh`
+- issue contract checks: `lib/issue_required_fields.sh`
+- metrics/status: `lib/pr_metrics.sh`
+- body composition/publication: `lib/pr_body.sh`
+- rendering helpers: `lib/rendering.sh`, `lib/pr_footprint.sh`
+- validation-only body updates: `lib/pr_validation_gate.sh`

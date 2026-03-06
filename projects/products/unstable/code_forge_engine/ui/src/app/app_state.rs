@@ -1,17 +1,11 @@
-// projects/products/unstable/code_forge_engine/ui/src/app/app_state.rs
-#[derive(Debug, Clone, PartialEq)]
-pub enum AppState {
-    Idle,
-    ContractLoaded { path: String },
-    Validating,
-    Previewing,
-    Generating,
-    Done,
-    Failed { reason: String },
-}
+use crate::app::screen::Screen;
 
-impl Default for AppState {
-    fn default() -> Self {
-        Self::Idle
-    }
+#[derive(Debug, Clone, Default)]
+pub struct AppState {
+    pub screen: Screen,
+    pub contract_path: Option<String>,
+    pub preview_files: Vec<String>,
+    pub manifest_json: Option<String>,
+    pub manifest_hash: Option<String>,
+    pub last_error: Option<String>,
 }

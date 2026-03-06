@@ -9,7 +9,7 @@ source "${SCRIPT_DIR}/lib/issue_refs.sh"
 source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
 
 usage() {
-  cat <<USAGE
+  cat <<'USAGE'
 Usage:
   $0 --pr PR_NUMBER [--repo owner/name]
 
@@ -44,27 +44,31 @@ repo_name="${GH_REPO:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --pr)
-      pr_number="${2:-}"
-      shift 2
-      ;;
-    --repo)
-      repo_name="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Error: unknown option: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+  --pr)
+    pr_number="${2:-}"
+    shift 2
+    ;;
+  --repo)
+    repo_name="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Error: unknown option: $1" >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 
-[[ -n "$pr_number" ]] || { echo "Error: --pr is required." >&2; usage >&2; exit 2; }
+[[ -n "$pr_number" ]] || {
+  echo "Error: --pr is required." >&2
+  usage >&2
+  exit 2
+}
 require_number "--pr" "$pr_number"
 
 if ! command -v gh >/dev/null 2>&1; then
@@ -83,7 +87,10 @@ fi
 if [[ -z "$repo_name" ]]; then
   repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
-[[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
+[[ -n "$repo_name" ]] || {
+  echo "Error: unable to determine repository." >&2
+  exit 3
+}
 
 MARKER="<!-- closure-neutralizer:${pr_number} -->"
 
@@ -116,8 +123,8 @@ issue_non_compliance_reason() {
 keyword_pattern_from_action() {
   local action="$1"
   case "$action" in
-    Closes) echo "closes|fixes" ;;
-    *) echo "" ;;
+  Closes) echo "closes|fixes" ;;
+  *) echo "" ;;
   esac
 }
 
@@ -154,7 +161,7 @@ while IFS='|' read -r action issue_key; do
   escaped_issue_key="$(printf '%s' "$issue_key" | sed 's/[^^]/[&]/g; s/\^/\\^/g')"
   updated_body="$(
     perl -0777 -pe "s/\\b((?:${keyword_pattern}))\\b(\\s+)(?!rejected\\b)([^\\s]*${escaped_issue_key})\\b/\$1\$2rejected \$3/ig" \
-      <<< "$updated_body"
+      <<<"$updated_body"
   )"
 
   neutralized_reason["$issue_key"]="$reason"
@@ -190,7 +197,7 @@ while IFS='|' read -r action issue_key; do
     # Now compliant: remove the "rejected" marker to restore auto-close.
     updated_body="$(
       perl -0777 -pe "s/\\b((?:${keyword_pattern}))\\b(\\s+)rejected\\s+([^\\s]*${escaped_issue_key})\\b/\$1\$2\$3/ig" \
-        <<< "$updated_body"
+        <<<"$updated_body"
     )"
   fi
 done < <(parse_neutralized_closing_issue_refs_from_text "$original_body")

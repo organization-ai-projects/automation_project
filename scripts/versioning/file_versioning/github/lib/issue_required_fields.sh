@@ -5,6 +5,9 @@
 
 set -u
 
+ISSUE_CONTRACT_LOADED="false"
+ISSUE_CONTRACT_LOADED_PATH=""
+
 issue_contract_file() {
   local root=""
   root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
@@ -12,18 +15,26 @@ issue_contract_file() {
     echo "$root/.github/issue_required_fields.conf"
     return
   fi
+  if [[ -z "$root" ]]; then
+    echo "Warning: unable to resolve git repository root; falling back to relative issue contract path." >&2
+  fi
   echo ".github/issue_required_fields.conf"
 }
 
 issue_contract_load() {
   local contract
   contract="$(issue_contract_file)"
+  if [[ "$ISSUE_CONTRACT_LOADED" == "true" && "$ISSUE_CONTRACT_LOADED_PATH" == "$contract" ]]; then
+    return 0
+  fi
   if [[ ! -f "$contract" ]]; then
     echo "Missing issue contract file: ${contract}" >&2
     return 1
   fi
   # shellcheck disable=SC1090
   source "$contract"
+  ISSUE_CONTRACT_LOADED="true"
+  ISSUE_CONTRACT_LOADED_PATH="$contract"
 }
 
 issue_contract_profile_for_labels() {
@@ -72,17 +83,45 @@ issue_extract_field_value() {
   local body="${1:-}"
   local field="${2:-}"
   awk -v field="$field" '
-    BEGIN { IGNORECASE = 1 }
+    BEGIN {
+      field_lc = tolower(field)
+    }
     {
       line = $0
-      pattern = "^[[:space:]]*" field "[[:space:]]*:[[:space:]]*"
-      if (line ~ pattern) {
-        sub(pattern, "", line)
+      lower_line = tolower($0)
+      pattern = "^[[:space:]]*" field_lc "[[:space:]]*:[[:space:]]*"
+      if (lower_line ~ pattern) {
+        match(lower_line, pattern)
+        line = substr(line, RLENGTH + 1)
         print line
         exit
       }
     }
-  ' <<< "$body"
+  ' <<<"$body"
+}
+
+issue_body_has_section() {
+  local body="${1:-}"
+  local section="${2:-}"
+  awk -v expected="$section" '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    BEGIN {
+      target = tolower(trim(expected))
+      found = 0
+    }
+    {
+      current = tolower(trim($0))
+      if (current == target) {
+        found = 1
+        exit
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  ' <<<"$body"
 }
 
 issue_validate_title() {
@@ -130,14 +169,14 @@ issue_validate_body() {
   while IFS= read -r section; do
     section="$(trim_whitespace "$section")"
     [[ -z "$section" ]] && continue
-    if ! grep -qF "$section" <<< "$body"; then
+    if ! issue_body_has_section "$body" "$section"; then
       echo "missing_section|${section}|Missing required section: ${section}"
     fi
-  done <<< "${required_sections:-}"
+  done <<<"${required_sections:-}"
 
   while IFS= read -r rule; do
     [[ -z "$rule" ]] && continue
-    IFS=$'\t' read -r field_name field_regex field_help <<< "$rule"
+    IFS=$'\t' read -r field_name field_regex field_help <<<"$rule"
     field_name="$(trim_whitespace "${field_name:-}")"
     field_regex="$(trim_whitespace "${field_regex:-}")"
     field_help="$(trim_whitespace "${field_help:-}")"
@@ -152,7 +191,7 @@ issue_validate_body() {
     if [[ ! "$field_value" =~ $field_regex ]]; then
       echo "invalid_field|${field_name}|Invalid ${field_name}: '${field_value}' (expected: ${field_help})"
     fi
-  done <<< "${required_fields:-}"
+  done <<<"${required_fields:-}"
 }
 
 issue_validate_content() {
@@ -182,7 +221,10 @@ issue_non_compliance_reason_from_content() {
     return
   fi
 
-  validations="$(issue_validate_content "$title" "$body" "$labels_raw" || true)"
+  if ! validations="$(issue_validate_content "$title" "$body" "$labels_raw")"; then
+    echo "issue contract could not be loaded"
+    return
+  fi
   if [[ -z "$validations" ]]; then
     echo ""
     return

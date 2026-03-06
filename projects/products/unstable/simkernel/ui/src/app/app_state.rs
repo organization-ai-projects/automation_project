@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-
+// projects/products/unstable/simkernel/ui/src/app/app_state.rs
 #[derive(Debug, Clone, Default)]
 pub struct AppState {
     pub pack_kind: Option<String>,

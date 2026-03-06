@@ -5,6 +5,7 @@ mod protocol;
 mod public_api;
 mod scan;
 mod stability;
+mod tooling;
 
 use anyhow::Result;
 use tracing::info;
@@ -13,9 +14,14 @@ fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     info!("meta_determinism_guard backend starting");
 
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if !args.is_empty() {
+        let exit_code = tooling::deterministic_cli::run_cli(&args)?;
+        std::process::exit(exit_code);
+    }
+
     let mut state = public_api::BackendState::new();
     let stdin = std::io::stdin();
-    let stdout = std::io::stdout();
 
     loop {
         let mut line = String::new();
@@ -30,18 +36,18 @@ fn main() -> Result<()> {
         if trimmed.is_empty() {
             continue;
         }
-        let request: protocol::request::Request = match serde_json::from_str(trimmed) {
+        let request: protocol::request::Request = match io::json_codec::parse_request(trimmed) {
             Ok(r) => r,
             Err(e) => {
                 let resp = protocol::response::Response::Error {
                     message: e.to_string(),
                 };
-                io::json_codec::write_response(&stdout, &resp)?;
+                protocol::message::write_response_stdout(&resp)?;
                 continue;
             }
         };
         let response = state.handle(request);
-        io::json_codec::write_response(&stdout, &response)?;
+        protocol::message::write_response_stdout(&response)?;
     }
 
     Ok(())

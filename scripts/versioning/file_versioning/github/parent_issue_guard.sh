@@ -33,27 +33,27 @@ strict_guard="true"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --issue)
-      issue_arg="${2:-}"
-      shift 2
-      ;;
-    --child)
-      child_arg="${2:-}"
-      shift 2
-      ;;
-    --strict-guard)
-      strict_guard="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Erreur: option inconnue: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+  --issue)
+    issue_arg="${2:-}"
+    shift 2
+    ;;
+  --child)
+    child_arg="${2:-}"
+    shift 2
+    ;;
+  --strict-guard)
+    strict_guard="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Erreur: option inconnue: $1" >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 

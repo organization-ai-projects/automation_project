@@ -1,4 +1,4 @@
-#[allow(dead_code)]
+// projects/products/unstable/evolutionary_system_generator/ui/src/screens/config_screen.rs
 pub fn render_config_screen() -> Vec<String> {
     vec![
         "=== Config Screen ===".to_string(),

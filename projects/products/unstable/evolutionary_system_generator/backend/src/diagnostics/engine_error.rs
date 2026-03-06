@@ -1,0 +1,14 @@
+// projects/products/unstable/evolutionary_system_generator/backend/src/diagnostics/engine_error.rs
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum EngineError {
+    #[error("No search active")]
+    NoActiveSearch,
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Replay error: {0}")]
+    Replay(String),
+}

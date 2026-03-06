@@ -1,9 +1,8 @@
-#![allow(dead_code)]
 use crate::packs::pack::Pack;
-use crate::packs_builtin::pack_digital_pet::DigitalPetPack;
-use crate::packs_builtin::pack_hospital::HospitalPack;
-use crate::packs_builtin::pack_monster_catcher::MonsterCatcherPack;
-use crate::packs_builtin::pack_theme_park::ThemeParkPack;
+use crate::packs_builtin::pack_digital_pet::PackDigitalPet;
+use crate::packs_builtin::pack_hospital::PackHospital;
+use crate::packs_builtin::pack_monster_catcher::PackMonsterCatcher;
+use crate::packs_builtin::pack_theme_park::PackThemePark;
 use std::collections::BTreeMap;
 
 pub struct PackRegistry {
@@ -15,10 +14,10 @@ impl PackRegistry {
         let mut r = Self {
             packs: BTreeMap::new(),
         };
-        r.register(Box::new(HospitalPack));
-        r.register(Box::new(ThemeParkPack));
-        r.register(Box::new(MonsterCatcherPack));
-        r.register(Box::new(DigitalPetPack));
+        r.register(Box::new(PackHospital));
+        r.register(Box::new(PackThemePark));
+        r.register(Box::new(PackMonsterCatcher));
+        r.register(Box::new(PackDigitalPet));
         r
     }
 
@@ -31,6 +30,11 @@ impl PackRegistry {
     }
 
     pub fn list_packs(&self) -> Vec<String> {
+        let mut metadata = Vec::new();
+        for pack in self.packs.values() {
+            metadata.push(format!("{}:{}", pack.id().0, pack.name()));
+        }
+        std::mem::drop(metadata);
         self.packs.keys().cloned().collect()
     }
 }

@@ -1,7 +1,7 @@
 // projects/products/unstable/simulation_compiler/backend/src/dsl/parser.rs
 use super::ast::{Ast, ComponentNode, EventNode, FieldDef, ReportNode, SystemNode};
 use super::token::{Lexer, Token};
-use crate::diagnostics::error::CompilerError;
+use crate::diagnostics::backend_error::CompilerError;
 
 pub struct Parser {
     tokens: Vec<Token>,

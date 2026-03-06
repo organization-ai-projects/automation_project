@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::determinism::seed::Seed;
 use crate::ecs::component::Component;
 use crate::ecs::component_id::ComponentId;
@@ -8,16 +7,14 @@ use crate::packs::pack::Pack;
 use crate::packs::pack_id::PackId;
 use crate::packs::pack_kind::PackKind;
 use crate::time::logical_clock::LogicalClock;
-use rand::RngCore;
-use rand::SeedableRng;
-use rand::rngs::SmallRng;
+use common_json::{Json, JsonMap};
 
 const C_LABEL: ComponentId = ComponentId(0);
 const C_COUNTER: ComponentId = ComponentId(1);
 
-pub struct MonsterCatcherPack;
+pub struct PackMonsterCatcher;
 
-impl Pack for MonsterCatcherPack {
+impl Pack for PackMonsterCatcher {
     fn id(&self) -> PackId {
         PackId::new("monster_catcher")
     }
@@ -47,26 +44,19 @@ impl Pack for MonsterCatcherPack {
     }
 
     fn tick(&self, world: &mut World, clock: &LogicalClock, event_log: &mut EventLog) {
-        let tick_seed = clock
-            .tick
-            .0
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        let mut rng = SmallRng::seed_from_u64(tick_seed);
-        let roll = rng.next_u64() % 100;
+        let roll = clock.tick.0.wrapping_mul(37).wrapping_add(13) % 100;
 
         if roll < 20 {
             let entities = world.entities_sorted();
             for eid in entities {
                 let is_monster = matches!(world.get_component(eid, C_LABEL), Some(Component::Label(lbl)) if lbl == "monster_001");
                 if is_monster {
-                    event_log.emit(
-                        clock.tick,
-                        "monster_catcher.encounter",
-                        serde_json::json!({
-                            "tick": clock.tick.0, "roll": roll
-                        }),
-                    );
+                    event_log.emit(clock.tick, "monster_catcher.encounter", {
+                        let mut payload = JsonMap::new();
+                        payload.insert("tick".to_string(), Json::from(clock.tick.0));
+                        payload.insert("roll".to_string(), Json::from(roll));
+                        Json::Object(payload)
+                    });
                     if let Some(Component::Counter(hp)) = world.get_component_mut(eid, C_COUNTER) {
                         *hp = hp.saturating_sub(10);
                     }

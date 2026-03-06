@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-
+// projects/products/unstable/simkernel/ui/src/app/action.rs
 #[derive(Debug, Clone)]
 pub enum Action {
     SelectPack(String),

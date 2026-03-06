@@ -1,4 +1,5 @@
 // projects/products/unstable/digital_pet/backend/src/events/sim_event.rs
+use crate::events::sim_event_kind::SimEventKind;
 use crate::time::tick::Tick;
 use serde::{Deserialize, Serialize};
 
@@ -6,15 +7,6 @@ use serde::{Deserialize, Serialize};
 pub struct SimEvent {
     pub tick: Tick,
     pub kind: SimEventKind,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SimEventKind {
-    Evolved { from: String, to: String },
-    CareAction { kind: String },
-    CareMistake { reason: String },
-    BattleStarted,
-    BattleEnded { winner: String },
 }
 
 impl SimEvent {

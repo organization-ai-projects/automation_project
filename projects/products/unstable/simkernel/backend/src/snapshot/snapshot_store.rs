@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::snapshot::snapshot_id::SnapshotId;
 use crate::snapshot::state_snapshot::StateSnapshot;
 use std::collections::BTreeMap;

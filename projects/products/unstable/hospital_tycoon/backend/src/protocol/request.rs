@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 pub enum Request {
     Ping,
     LoadScenario { path: String },
-    NewRun { seed: u64, ticks: u64 },
-    Step { n: u64 },
+    NewRun { seed: f64, ticks: f64 },
+    Step { n: f64 },
     RunToEnd,
-    GetSnapshot { at_tick: u64 },
+    GetSnapshot { at_tick: f64 },
     GetReport,
     SaveReplay { path: String },
     LoadReplay { path: String },

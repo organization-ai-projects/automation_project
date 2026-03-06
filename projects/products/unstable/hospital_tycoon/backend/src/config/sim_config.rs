@@ -1,30 +1,10 @@
 // projects/products/unstable/hospital_tycoon/backend/src/config/sim_config.rs
+use crate::config::disease_config::DiseaseConfig;
+use crate::config::room_config::RoomConfig;
+use crate::config::staff_config::StaffConfig;
 use crate::rooms::room_kind::RoomKind;
 use crate::staff::staff_role::StaffRole;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RoomConfig {
-    pub id: u32,
-    pub kind: RoomKind,
-    pub capacity: u32,
-    pub staff_slots: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StaffConfig {
-    pub id: u32,
-    pub name: String,
-    pub role: StaffRole,
-    pub skill_level: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiseaseConfig {
-    pub id: String,
-    pub name: String,
-    pub severity: u32,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimConfig {
@@ -40,11 +20,11 @@ pub struct SimConfig {
 }
 
 impl SimConfig {
-    pub fn load(path: &std::path::Path) -> Result<Self, crate::diagnostics::error::AppError> {
+    pub fn load(path: &std::path::Path) -> Result<Self, crate::diagnostics::app_error::AppError> {
         let data = std::fs::read_to_string(path)
-            .map_err(|e| crate::diagnostics::error::AppError::Io(e.to_string()))?;
-        serde_json::from_str(&data)
-            .map_err(|e| crate::diagnostics::error::AppError::Config(e.to_string()))
+            .map_err(|e| crate::diagnostics::app_error::AppError::Io(e.to_string()))?;
+        common_json::from_str(&data)
+            .map_err(|e| crate::diagnostics::app_error::AppError::Config(e.to_string()))
     }
 }
 

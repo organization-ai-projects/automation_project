@@ -1,6 +1,7 @@
-// projects/products/unstable/code_forge_engine/backend/src/generate/workspace_generator.rs
-use crate::contract::contract::Contract;
-use crate::diagnostics::error::ForgeError;
+use crate::contracts::contract::Contract;
+use crate::diagnostics::backend_error::BackendError;
+use crate::generate::crate_generator::CrateGenerator;
+use crate::generate::file_generator::FileGenerator;
 use crate::output::artifact_manifest::ArtifactManifest;
 
 pub struct WorkspaceGenerator {
@@ -12,13 +13,27 @@ impl WorkspaceGenerator {
         Self { contract }
     }
 
-    pub fn generate(&self) -> Result<ArtifactManifest, ForgeError> {
+    pub fn generate(&self) -> Result<ArtifactManifest, BackendError> {
         let mut manifest = ArtifactManifest::new(self.contract.name.clone());
+
         for module in &self.contract.modules {
-            for file in &module.files {
-                manifest.add_file(file.path.clone(), vec![]);
+            let crate_generator = CrateGenerator::new(module.clone());
+            let generated_paths = crate_generator.generate_paths();
+            for path in generated_paths {
+                let file_spec = module
+                    .files
+                    .iter()
+                    .find(|file| file.path == path)
+                    .ok_or_else(|| {
+                        BackendError::NotFound(format!("file spec not found: {path}"))
+                    })?;
+
+                let generator = FileGenerator::new(file_spec.clone());
+                let bytes = generator.generate_bytes(&module.name)?;
+                manifest.add_file(path, bytes);
             }
         }
+
         Ok(manifest)
     }
 }

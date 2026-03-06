@@ -59,6 +59,8 @@ Action:
 - Regenerate and update existing PR body:
   - `--dry-run --auto-edit <PR_NUMBER> --yes`
   - or alias: `--dry-run --refresh-pr <PR_NUMBER> --yes`
+  - To refresh only CI/breaking status without rewriting the full body:
+    - `--dry-run --refresh-pr <PR_NUMBER> --validation-only --yes`
 
 ### Issues section is empty or incomplete
 
@@ -70,6 +72,14 @@ Checks:
 - Confirm references are issue numbers (not PR numbers).
 - Re-run with trace:
   - `--debug`
+
+### Full body got unexpectedly rewritten
+
+Checks:
+
+- Confirm whether workflow/job is using full refresh mode or validation-only mode.
+- Prefer validation-only for status updates:
+  - `--dry-run --refresh-pr <PR_NUMBER> --validation-only --yes`
 
 ### Duplicate handling did not close issues
 

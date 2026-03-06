@@ -1,5 +1,6 @@
 // projects/products/unstable/digital_pet/ui/src/screens/report_screen.rs
-use crate::transport::ipc_client::RunReportDto;
+use crate::transport::run_report_dto::RunReportDto;
+use crate::widgets::log_widget::LogWidget;
 
 pub struct ReportScreen {
     report: RunReportDto,
@@ -21,5 +22,11 @@ impl ReportScreen {
         println!("  Final HP:       {}", self.report.final_hp);
         println!("  Events:         {}", self.report.event_count);
         println!("  Run Hash:       {}", self.report.run_hash);
+        LogWidget::new(vec![
+            format!("final_species={}", self.report.final_species),
+            format!("care_mistakes={}", self.report.care_mistakes),
+            format!("run_hash={}", self.report.run_hash),
+        ])
+        .render();
     }
 }

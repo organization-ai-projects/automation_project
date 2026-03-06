@@ -1,4 +1,5 @@
 use anyhow::Result;
+use common_json::Json;
 use std::collections::BTreeMap;
 
 pub fn check_file(path: &str) -> Result<Vec<String>> {
@@ -7,10 +8,10 @@ pub fn check_file(path: &str) -> Result<Vec<String>> {
 }
 
 pub fn check_string(content: &str, label: &str) -> Result<Vec<String>> {
-    let value: serde_json::Value = serde_json::from_str(content)?;
+    let value: Json = common_json::from_json_str(content)?;
     let canonical = to_canonical_string(&value)?;
-    let original_normalized: serde_json::Value = serde_json::from_str(content)?;
-    let original_str = serde_json::to_string(&original_normalized)?;
+    let original_normalized: Json = common_json::from_json_str(content)?;
+    let original_str = common_json::to_string(&original_normalized)?;
 
     if original_str == canonical {
         Ok(vec![])
@@ -20,23 +21,38 @@ pub fn check_string(content: &str, label: &str) -> Result<Vec<String>> {
     }
 }
 
-fn to_canonical_string(value: &serde_json::Value) -> Result<String> {
-    let ordered = sort_value(value);
-    Ok(serde_json::to_string(&ordered)?)
+fn to_canonical_string(value: &Json) -> Result<String> {
+    let mut output = String::new();
+    append_canonical_json(&mut output, value)?;
+    Ok(output)
 }
 
-fn sort_value(value: &serde_json::Value) -> serde_json::Value {
+fn append_canonical_json(output: &mut String, value: &Json) -> Result<()> {
     match value {
-        serde_json::Value::Object(map) => {
-            let sorted: BTreeMap<String, serde_json::Value> = map
-                .iter()
-                .map(|(k, v)| (k.clone(), sort_value(v)))
-                .collect();
-            serde_json::Value::Object(sorted.into_iter().collect())
+        Json::Object(map) => {
+            output.push('{');
+            let sorted: BTreeMap<&str, &Json> = map.iter().map(|(k, v)| (k.as_str(), v)).collect();
+            for (index, (key, nested)) in sorted.iter().enumerate() {
+                if index > 0 {
+                    output.push(',');
+                }
+                output.push_str(&common_json::to_string(key)?);
+                output.push(':');
+                append_canonical_json(output, nested)?;
+            }
+            output.push('}');
         }
-        serde_json::Value::Array(arr) => {
-            serde_json::Value::Array(arr.iter().map(sort_value).collect())
+        Json::Array(items) => {
+            output.push('[');
+            for (index, item) in items.iter().enumerate() {
+                if index > 0 {
+                    output.push(',');
+                }
+                append_canonical_json(output, item)?;
+            }
+            output.push(']');
         }
-        other => other.clone(),
+        _ => output.push_str(&common_json::to_string(value)?),
     }
+    Ok(())
 }

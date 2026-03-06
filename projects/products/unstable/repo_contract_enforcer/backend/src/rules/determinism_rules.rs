@@ -142,7 +142,7 @@ impl DeterminismRules {
                     ViolationCode::DetPanicRisk,
                     (scope, mode),
                     &file,
-                    "panic-like macros are forbidden in backend product code",
+                    "panic-like macros are forbidden (including tests)",
                     (
                         true,
                         RustParser::first_line_of_any(
