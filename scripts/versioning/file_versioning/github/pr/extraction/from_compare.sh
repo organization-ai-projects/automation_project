@@ -30,8 +30,3 @@ pr_extract_child_prs_from_compare() {
   pr_debug_log "extract_child_prs(compare ${base_ref_git}...${head_ref_git}) => $(tr '\n' ' ' <"$extracted_prs_file")"
   return 0
 }
-
-# Backward-compatible alias used by existing call sites/tests.
-pr_extract_child_prs_dry() {
-  pr_extract_child_prs_from_compare "$@"
-}
