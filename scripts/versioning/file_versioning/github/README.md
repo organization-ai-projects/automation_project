@@ -192,7 +192,7 @@ Troubleshooting:
 
 - CLI/options: `pr/pr_cli.sh`
 - arg parsing/validation: `pr/pr_args.sh`
-- extraction/classification: `pr/pr_extraction.sh`, `lib/classification.sh`, `lib/issue_refs.sh`
+- extraction/classification: `pr/extraction/module.sh` (`dry.sh`, `github.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
 - pipeline orchestration: `pr/pipeline/module.sh` (`init.sh`, `collect.sh`, `render.sh`)
 - runtime/gh helpers: `pr/pr_runtime.sh`
 - compare loading: `pr/pr_compare.sh`
