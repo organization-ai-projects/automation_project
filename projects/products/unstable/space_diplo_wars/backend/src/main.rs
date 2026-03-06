@@ -372,11 +372,15 @@ fn execute_run(
 
     let final_snapshot = StateSnapshot::from_state(&state);
     let snapshot_hash = SnapshotHash::compute(&final_snapshot)?;
+    let treaty_reports = RunReport::treaty_reports_from_treaties(&state.treaties);
+    let war_report = RunReport::war_report_from_turn_reports(&turn_reports);
     let run_report = RunReport {
         game_id: state.game_id.0.clone(),
         seed: config.seed,
         turns_played: config.turns,
         turn_reports,
+        treaty_reports,
+        war_report,
         final_snapshot_hash: snapshot_hash.0,
     };
 
