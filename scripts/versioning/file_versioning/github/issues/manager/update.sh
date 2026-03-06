@@ -1,30 +1,43 @@
 #!/usr/bin/env bash
 
-cmd_update() {
-  local issue_number=""
-  local repo=""
-  local -a edit_args=()
-  local update_title=""
-  local update_body=""
+manager_parse_update_args() {
+  local issue_var_name="$1"
+  local repo_var_name="$2"
+  local update_title_var_name="$3"
+  local update_body_var_name="$4"
+  local edit_args_var_name="$5"
+  shift 5
+
+  local -n issue_ref="$issue_var_name"
+  local -n repo_ref="$repo_var_name"
+  local -n update_title_ref="$update_title_var_name"
+  local -n update_body_ref="$update_body_var_name"
+  local -n edit_args_ref="$edit_args_var_name"
+
+  issue_ref=""
+  repo_ref=""
+  update_title_ref=""
+  update_body_ref=""
+  edit_args_ref=()
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
-      issue_number="${2:-}"
+      issue_ref="${2:-}"
       shift 2
       ;;
     --repo)
-      repo="${2:-}"
+      repo_ref="${2:-}"
       shift 2
       ;;
     --title | --body | --add-label | --remove-label | --add-assignee | --remove-assignee)
       [[ -n "${2:-}" ]] || die_usage "$1 requires a value."
       if [[ "$1" == "--title" ]]; then
-        update_title="${2:-}"
+        update_title_ref="${2:-}"
       elif [[ "$1" == "--body" ]]; then
-        update_body="${2:-}"
+        update_body_ref="${2:-}"
       fi
-      edit_args+=("$1" "${2:-}")
+      edit_args_ref+=("$1" "${2:-}")
       shift 2
       ;;
     -h | --help)
@@ -36,6 +49,27 @@ cmd_update() {
       ;;
     esac
   done
+}
+
+manager_load_issue_content_for_update() {
+  local issue_number="$1"
+  local repo="$2"
+
+  if [[ -n "$repo" ]]; then
+    gh issue view "$issue_number" -R "$repo" --json title,body,labels
+  else
+    gh issue view "$issue_number" --json title,body,labels
+  fi
+}
+
+cmd_update() {
+  local issue_number=""
+  local repo=""
+  local -a edit_args=()
+  local update_title=""
+  local update_body=""
+
+  manager_parse_update_args issue_number repo update_title update_body edit_args "$@"
 
   ensure_number "--issue" "$issue_number"
   if [[ ${#edit_args[@]} -eq 0 ]]; then
@@ -52,11 +86,7 @@ cmd_update() {
     local effective_body=""
     local validations=""
 
-    if [[ -n "$repo" ]]; then
-      current_json="$(gh issue view "$issue_number" -R "$repo" --json title,body,labels)"
-    else
-      current_json="$(gh issue view "$issue_number" --json title,body,labels)"
-    fi
+    current_json="$(manager_load_issue_content_for_update "$issue_number" "$repo")"
 
     current_title="$(echo "$current_json" | jq -r '.title // ""')"
     current_body="$(echo "$current_json" | jq -r '.body // ""')"
