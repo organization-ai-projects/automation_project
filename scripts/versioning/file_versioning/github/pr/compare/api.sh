@@ -4,11 +4,36 @@
 
 # GitHub compare helpers with retry policy.
 
+pr_compare_api_context() {
+  local compare_base="$1"
+  local compare_head="$2"
+  local compare_base_api="${compare_base#origin/}"
+  local compare_head_api="${compare_head#origin/}"
+  local repo_name_with_owner
+  local compare_range
+
+  repo_name_with_owner="$(pr_get_repo_name_with_owner)"
+  compare_range="${compare_base_api}...${compare_head_api}"
+  printf "%s|%s" "$repo_name_with_owner" "$compare_range"
+}
+
+pr_compare_api_call() {
+  local repo_name_with_owner="$1"
+  local compare_range="$2"
+  local jq_filter="$3"
+  local err_file="${4:-}"
+
+  if [[ -n "$err_file" ]]; then
+    gh api "repos/${repo_name_with_owner}/compare/${compare_range}" --jq "$jq_filter" 2>"$err_file" || true
+    return
+  fi
+  gh api "repos/${repo_name_with_owner}/compare/${compare_range}" --jq "$jq_filter" 2>/dev/null || true
+}
+
 pr_compare_api_commit_messages() {
   local compare_base="$1"
   local compare_head="$2"
-  local compare_base_api="$compare_base"
-  local compare_head_api="$compare_head"
+  local context
   local repo_name_with_owner
   local compare_range
   local compare_err_file
@@ -18,16 +43,14 @@ pr_compare_api_commit_messages() {
   local max_attempts=3
   local compare_ok=0
 
-  compare_base_api="${compare_base_api#origin/}"
-  compare_head_api="${compare_head_api#origin/}"
-  repo_name_with_owner="$(pr_get_repo_name_with_owner)"
-  compare_range="${compare_base_api}...${compare_head_api}"
+  context="$(pr_compare_api_context "$compare_base" "$compare_head")"
+  repo_name_with_owner="${context%%|*}"
+  compare_range="${context#*|}"
   compare_err_file="$(mktemp)"
 
   if [[ -n "$repo_name_with_owner" ]]; then
     for attempt in $(seq 1 "$max_attempts"); do
-      compare_messages="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
-        --jq '.commits[]?.commit.message' 2>"$compare_err_file" || true)"
+      compare_messages="$(pr_compare_api_call "$repo_name_with_owner" "$compare_range" '.commits[]?.commit.message' "$compare_err_file")"
 
       if [[ -n "$compare_messages" ]]; then
         compare_ok=1
@@ -60,22 +83,18 @@ pr_compare_api_commit_messages() {
 pr_compare_api_commit_headlines() {
   local compare_base="$1"
   local compare_head="$2"
-  local compare_base_api="$compare_base"
-  local compare_head_api="$compare_head"
+  local context
   local repo_name_with_owner
   local compare_range
   local compare_headlines
 
-  compare_base_api="${compare_base_api#origin/}"
-  compare_head_api="${compare_head_api#origin/}"
-
-  repo_name_with_owner="$(pr_get_repo_name_with_owner)"
-  compare_range="${compare_base_api}...${compare_head_api}"
+  context="$(pr_compare_api_context "$compare_base" "$compare_head")"
+  repo_name_with_owner="${context%%|*}"
+  compare_range="${context#*|}"
   compare_headlines=""
 
   if [[ -n "$repo_name_with_owner" ]]; then
-    compare_headlines="$(gh api "repos/${repo_name_with_owner}/compare/${compare_range}" \
-      --jq '.commits[]?.commit.message | split("\n")[0]' 2>/dev/null || true)"
+    compare_headlines="$(pr_compare_api_call "$repo_name_with_owner" "$compare_range" '.commits[]?.commit.message | split("\n")[0]')"
   fi
 
   if [[ -z "$compare_headlines" ]]; then
