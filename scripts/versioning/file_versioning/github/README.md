@@ -57,9 +57,9 @@ github/
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
 - `lib/issue_refs.sh`: Issue reference parsing helpers (`Closes`, `Fixes`, `Part of`, `Reopen`, duplicates).
 - `lib/issue_required_fields.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
-- `pr/pr_compare.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
-- `pr/pr_footprint.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
-- `pr/pr_validation_gate.sh`: Validation Gate section construction and in-place replacement helpers.
+- `pr/compare.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
+- `pr/footprint.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
+- `pr/validation_gate.sh`: Validation Gate section construction and in-place replacement helpers.
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 - `tests/auto_add_closes_on_dev_pr_regression.sh`: Regression checks for automatic managed `Closes #...` enrichment on dev-targeting PRs.
@@ -190,15 +190,15 @@ Troubleshooting:
 
 ## Internal Module Breakdown
 
-- CLI/options: `pr/pr_cli.sh`
-- arg parsing/validation: `pr/pr_args.sh`
+- CLI/options: `pr/cli.sh`
+- arg parsing/validation: `pr/args.sh`
 - extraction/classification: `pr/extraction/module.sh` (`dry.sh`, `github.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
 - pipeline orchestration: `pr/pipeline/module.sh` (`init.sh`, `collect.sh`, `render.sh`)
 - runtime/gh helpers: `pr/runtime/module.sh` (`logging.sh`, `git.sh`, `state.sh`)
-- compare loading: `pr/pr_compare.sh`
+- compare loading: `pr/compare.sh`
 - issue flow resolution: `pr/issue/module.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
 - issue contract checks: `lib/issue_required_fields.sh`
 - metrics/status: `pr/metrics/module.sh` (`breaking.sh`, `ci.sh`)
 - body composition/publication: `pr/body/builder.sh`, `pr/body/publish.sh` (loaded via `pr/body/module.sh`)
-- rendering helpers: `lib/rendering.sh`, `pr/pr_footprint.sh`
-- validation-only body updates: `pr/pr_validation_gate.sh`
+- rendering helpers: `lib/rendering.sh`, `pr/footprint.sh`
+- validation-only body updates: `pr/validation_gate.sh`
