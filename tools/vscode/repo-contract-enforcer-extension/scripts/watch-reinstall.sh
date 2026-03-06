@@ -10,7 +10,7 @@ echo "Watching extension files. Press Ctrl+C to stop."
 last_state=""
 while true; do
   current_state="$({
-    sha256sum extension.js package.json README.md 2>/dev/null || true
+    sha256sum extension.js package.json README.md LICENSE scripts/*.sh 2>/dev/null || true
   } | sha256sum | awk '{print $1}')"
 
   if [[ "$current_state" != "$last_state" ]]; then

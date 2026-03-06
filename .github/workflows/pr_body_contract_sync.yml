@@ -1,12 +1,6 @@
 name: PR Body Contract Sync
 
 on:
-  pull_request_target:
-    types: [opened, edited, synchronize, reopened, ready_for_review]
-  check_run:
-    types: [completed, rerequested]
-  check_suite:
-    types: [completed, rerequested]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -31,23 +25,9 @@ jobs:
       - name: Resolve context
         id: ctx
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request_target" ]]; then
-            pr_number="${{ github.event.pull_request.number }}"
-            base_ref="${{ github.event.pull_request.base.ref }}"
-            head_ref="${{ github.event.pull_request.head.ref }}"
-          elif [[ "${{ github.event_name }}" == "check_run" ]]; then
-            pr_number="${{ github.event.check_run.pull_requests[0].number }}"
-            base_ref="${{ github.event.check_run.pull_requests[0].base.ref }}"
-            head_ref="${{ github.event.check_run.pull_requests[0].head.ref }}"
-          elif [[ "${{ github.event_name }}" == "check_suite" ]]; then
-            pr_number="${{ github.event.check_suite.pull_requests[0].number }}"
-            base_ref="${{ github.event.check_suite.pull_requests[0].base.ref }}"
-            head_ref="${{ github.event.check_suite.pull_requests[0].head.ref }}"
-          else
-            pr_number="${{ inputs.pr_number }}"
-            base_ref="${{ inputs.base_ref }}"
-            head_ref="${{ inputs.head_ref }}"
-          fi
+          pr_number="${{ inputs.pr_number }}"
+          base_ref="${{ inputs.base_ref }}"
+          head_ref="${{ inputs.head_ref }}"
 
           if [[ -z "${pr_number}" || "${pr_number}" == "null" ]]; then
             echo "No pull request linked to this event; skipping."

@@ -1,0 +1,29 @@
+(
+  schema_version: 1,
+  generated_at: 1762473600000,
+  id: "f4a1c8e3b7d25a9c6e1b4d7f3a8c2e9d",
+  name: "Platform Versioning",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "a5d2f9c4b1e37c8a6d1f4b9e2c7a3d8f", title: "Platform Versioning", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "repository",
+    "history",
+  ],
+
+  domains: [
+    (id: "b6e3a9d5c2f48b7a1d4e8c3f9a2b7d1e", desc: "repository history and synchronization"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/"],
+    config_files: ["backend/Cargo.toml", "ui/Cargo.toml"],
+  ),
+)
