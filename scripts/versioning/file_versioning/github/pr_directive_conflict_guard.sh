@@ -4,6 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/gh_cli.sh"
+# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/issue_refs.sh"
 
 usage() {
@@ -68,21 +70,10 @@ done
 }
 require_number "--pr" "$pr_number"
 
-if ! command -v gh >/dev/null 2>&1; then
-  echo "Error: gh is required." >&2
-  exit 3
-fi
-if ! command -v jq >/dev/null 2>&1; then
-  echo "Error: jq is required." >&2
-  exit 3
-fi
-if ! command -v perl >/dev/null 2>&1; then
-  echo "Error: perl is required." >&2
-  exit 3
-fi
+gh_cli_require_gh_jq_perl
 
 if [[ -z "$repo_name" ]]; then
-  repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  repo_name="$(gh_cli_resolve_repo_name)"
 fi
 [[ -n "$repo_name" ]] || {
   echo "Error: unable to determine repository." >&2
@@ -127,6 +118,18 @@ upsert_conflict_block_in_body() {
   fi
 
   printf "%s\n\n%s\n" "$without_block" "$block"
+}
+
+apply_reopen_rejected_marker() {
+  local body="$1"
+  local issue_key="$2"
+
+  DIRECTIVE_CONFLICT_ISSUE_KEY="$issue_key" \
+    perl -0777 -pe '
+      my $ik = $ENV{DIRECTIVE_CONFLICT_ISSUE_KEY} // q{};
+      my $ikq = quotemeta($ik);
+      s/\b((?:reopen|reopens))\b(\s+)(?!rejected\b)([^\s]*$ikq)\b/$1$2rejected $3/ig;
+    ' <<<"$body"
 }
 
 pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
@@ -214,11 +217,7 @@ for issue_key in "${!resolved_conflict[@]}"; do
   if [[ "${resolved_conflict[$issue_key]}" != close* ]]; then
     continue
   fi
-  escaped_issue_key="$(printf '%s' "$issue_key" | sed 's/[^^]/[&]/g; s/\^/\\^/g')"
-  updated_body="$(
-    perl -0777 -pe "s/\\b((?:reopen|reopens))\\b(\\s+)(?!rejected\\b)([^\\s]*${escaped_issue_key})\\b/\$1\$2rejected \$3/ig" \
-      <<<"$updated_body"
-  )"
+  updated_body="$(apply_reopen_rejected_marker "$updated_body" "$issue_key")"
 done
 
 if [[ "$resolved_count" -gt 0 || "$unresolved_count" -gt 0 ]]; then
@@ -227,15 +226,17 @@ if [[ "$resolved_count" -gt 0 || "$unresolved_count" -gt 0 ]]; then
 "
   if [[ "$resolved_count" -gt 0 ]]; then
     conflict_block+=$'\n'"Resolved decisions:"$'\n'
-    for issue_key in "${!resolved_conflict[@]}"; do
+    while IFS= read -r issue_key; do
+      [[ -z "$issue_key" ]] && continue
       conflict_block+="- ${issue_key} => ${resolved_conflict[$issue_key]}"$'\n'
-    done
+    done < <(printf '%s\n' "${!resolved_conflict[@]}" | sort -V)
   fi
   if [[ "$unresolved_count" -gt 0 ]]; then
     conflict_block+=$'\n'"❌ Unresolved conflicts (merge blocked):"$'\n'
-    for issue_key in "${!unresolved_conflict[@]}"; do
+    while IFS= read -r issue_key; do
+      [[ -z "$issue_key" ]] && continue
       conflict_block+="- ${issue_key}: ${unresolved_conflict[$issue_key]}"$'\n'
-    done
+    done < <(printf '%s\n' "${!unresolved_conflict[@]}" | sort -V)
     conflict_block+=$'\n'"Required decision format:"$'\n'
     conflict_block+="- \`Directive Decision: #<issue> => close\`"$'\n'
     conflict_block+="- \`Directive Decision: #<issue> => reopen\`"$'\n'

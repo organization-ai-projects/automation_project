@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/gh_cli.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
 source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
 
@@ -73,18 +77,11 @@ if [[ "$strict_guard" != "true" && "$strict_guard" != "false" ]]; then
   exit 2
 fi
 
-if ! command -v gh >/dev/null 2>&1; then
-  echo "Erreur: gh est requis." >&2
-  exit 3
-fi
-if ! command -v jq >/dev/null 2>&1; then
-  echo "Erreur: jq est requis." >&2
-  exit 3
-fi
+gh_cli_require_gh_jq
 
 REPO_NAME="${GH_REPO:-}"
 if [[ -z "$REPO_NAME" ]]; then
-  REPO_NAME="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  REPO_NAME="$(gh_cli_resolve_repo_name)"
 fi
 if [[ -z "$REPO_NAME" ]]; then
   echo "Erreur: impossible de déterminer le repository (GH_REPO)." >&2

@@ -2,21 +2,17 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/gh_cli.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
 source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
 
-if ! command -v gh >/dev/null 2>&1; then
-  echo "Error: gh is required." >&2
-  exit 3
-fi
-if ! command -v jq >/dev/null 2>&1; then
-  echo "Error: jq is required." >&2
-  exit 3
-fi
+gh_cli_require_gh_jq
 
 REPO_NAME="${GH_REPO:-}"
 if [[ -z "$REPO_NAME" ]]; then
-  REPO_NAME="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+  REPO_NAME="$(gh_cli_resolve_repo_name)"
 fi
 if [[ -z "$REPO_NAME" ]]; then
   echo "Error: unable to resolve repository name." >&2
