@@ -35,6 +35,10 @@
         "title": "Repo Contract Enforcer: Run Check"
       },
       {
+        "command": "repoContractEnforcer.focusDiagnosticsView",
+        "title": "Repo Contract Enforcer: Focus Diagnostics View"
+      },
+      {
         "command": "repoContractEnforcer.openDiagnosticLocation",
         "title": "Repo Contract Enforcer: Open Diagnostic Location"
       },
@@ -117,6 +121,20 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "repoContractEnforcer.runCheck",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "repoContractEnforcer.focusDiagnosticsView",
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d",
+        "when": "editorTextFocus || explorerViewletVisible"
+      }
+    ],
     "configuration": {
       "title": "Repo Contract Enforcer",
       "properties": {
