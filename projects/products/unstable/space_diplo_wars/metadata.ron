@@ -1,0 +1,37 @@
+(
+  schema_version: 1,
+  generated_at: 1772736000000,
+  id: "space_diplo_wars",
+  name: "Space Diplo Wars",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "space_diplo_wars_ui", title: "Space Diplo Wars", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "deterministic-simulation",
+    "simultaneous-orders",
+    "diplomacy",
+    "replay",
+    "snapshot",
+  ],
+
+  domains: [
+    (id: "space_diplo_strategy", desc: "hybrid empire and diplomacy simulation"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/", "README.md", "metadata.ron"],
+    config_files: [
+      "backend/Cargo.toml",
+      "backend/backend_manifest.ron",
+      "ui/Cargo.toml",
+      "ui/ui_manifest.ron",
+    ],
+  ),
+)

@@ -1,0 +1,31 @@
+{
+  "game_id": "scripted_treaty_decision",
+  "empires": [
+    {"id": "empire_a", "name": "Aurora Republic", "home_system": "sys_a", "resources": {"Metal": 120, "Energy": 100, "Food": 90, "Research": 30}, "tech_levels": {}},
+    {"id": "empire_b", "name": "Borealis Union", "home_system": "sys_b", "resources": {"Metal": 110, "Energy": 90, "Food": 80, "Research": 25}, "tech_levels": {}}
+  ],
+  "star_map": {
+    "systems": [
+      {"id": "sys_a", "name": "Aster", "planets": [], "owner": "empire_a"},
+      {"id": "sys_b", "name": "Boreal", "planets": [], "owner": "empire_b"}
+    ],
+    "routes": [
+      {"from": "sys_a", "to": "sys_b", "distance": 1}
+    ]
+  },
+  "initial_fleets": [
+    {"id": "fleet_a1", "empire_id": "empire_a", "location": "sys_a", "ships": {"Fighter": 4}},
+    {"id": "fleet_b1", "empire_id": "empire_b", "location": "sys_b", "ships": {"Fighter": 4}}
+  ],
+  "scripted_orders": {
+    "1": [
+      {"id": "order_offer_trade", "empire_id": "empire_a", "kind": "OfferTreaty", "params": {"treaty_kind": "TradePact", "target": "empire_b", "end_turn": "6"}}
+    ]
+  },
+  "scripted_treaty_choices": {
+    "2": {
+      "treaty_empire_a_empire_b_1": "accept"
+    }
+  },
+  "checkpoints": []
+}
