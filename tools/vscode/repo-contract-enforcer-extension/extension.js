@@ -303,13 +303,17 @@ function updateStatus(runtime, text) {
 function clearDiagnostics(runtime) {
   runtime.collection.clear();
   setLastCount(0);
-  if (runtime.treeDataEmitter) {
-    runtime.treeDataEmitter.fire(undefined);
-  }
+  refreshDiagnosticsTree(runtime);
 }
 
 function setLastCount(value) {
   vscode.commands.executeCommand('setContext', 'repoContractEnforcer.lastCount', value);
+}
+
+function refreshDiagnosticsTree(runtime) {
+  if (runtime.treeDataEmitter) {
+    runtime.treeDataEmitter.fire(undefined);
+  }
 }
 
 function shouldTriggerForDocument(configKey, doc) {
@@ -972,9 +976,7 @@ async function runEnforcer(runtime, reason) {
   for (const { uri, diagnostics } of byFile.values()) {
     runtime.collection.set(uri, diagnostics);
   }
-  if (runtime.treeDataEmitter) {
-    runtime.treeDataEmitter.fire(undefined);
-  }
+  refreshDiagnosticsTree(runtime);
 
   setLastCount(totalViolations);
 
@@ -1149,6 +1151,17 @@ function activate(context) {
   };
 
   const runCmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
+  const refreshDiagnosticsViewCmd = vscode.commands.registerCommand('repoContractEnforcer.refreshDiagnosticsView', () => {
+    refreshDiagnosticsTree(runtime);
+  });
+  const collapseDiagnosticsViewCmd = vscode.commands.registerCommand(
+    'repoContractEnforcer.collapseDiagnosticsView',
+    async () => {
+      await vscode.commands.executeCommand(
+        'workbench.actions.treeView.repoContractEnforcerDiagnostics.collapseAll',
+      );
+    },
+  );
   const clearDiagnosticsCmd = vscode.commands.registerCommand('repoContractEnforcer.clearDiagnostics', () => {
     clearDiagnostics(runtime);
     updateStatus(runtime, 'diagnostics cleared');
@@ -1243,9 +1256,7 @@ function activate(context) {
     }
     killActiveChildren(runtime);
     runtime.persistentSessions.clear();
-    if (runtime.treeDataEmitter) {
-      runtime.treeDataEmitter.fire(undefined);
-    }
+    refreshDiagnosticsTree(runtime);
     triggerNow('config changed');
   });
 
@@ -1254,6 +1265,8 @@ function activate(context) {
     statusBar,
     outputChannel,
     runCmd,
+    refreshDiagnosticsViewCmd,
+    collapseDiagnosticsViewCmd,
     clearDiagnosticsCmd,
     showOutputCmd,
     showHistoryCmd,
