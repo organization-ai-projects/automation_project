@@ -4,9 +4,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "${SCRIPT_DIR}/lib/issue_refs.sh"
+source "${SCRIPT_DIR}/../lib/issue_refs.sh"
 # shellcheck disable=SC1091
-source "${SCRIPT_DIR}/issues/required_fields/module.sh"
+source "${SCRIPT_DIR}/required_fields/module.sh"
 
 usage() {
   cat <<'USAGE'

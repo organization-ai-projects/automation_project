@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/versioning/file_versioning/github/lib/issue_refs.sh
-source "${SCRIPT_DIR}/lib/issue_refs.sh"
+source "${SCRIPT_DIR}/../lib/issue_refs.sh"
 
 usage() {
   cat <<EOF
