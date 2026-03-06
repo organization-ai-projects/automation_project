@@ -23,7 +23,7 @@ source "${SCRIPT_DIR}/pr/issue/module.sh"
 source "${SCRIPT_DIR}/pr/pr_metrics.sh"
 source "${SCRIPT_DIR}/pr/pr_runtime.sh"
 source "${SCRIPT_DIR}/pr/pr_validation_gate.sh"
-source "${SCRIPT_DIR}/pr/pr_pipeline.sh"
+source "${SCRIPT_DIR}/pr/pipeline/module.sh"
 source "${SCRIPT_DIR}/pr/body/module.sh"
 source "${SCRIPT_DIR}/lib/rendering.sh"
 
