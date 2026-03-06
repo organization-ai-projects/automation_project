@@ -57,8 +57,8 @@ github/
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
 - `lib/issue_refs.sh`: Issue reference parsing helpers (`Closes`, `Fixes`, `Part of`, `Reopen`, duplicates).
 - `lib/issue_required_fields.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
-- `pr/compare.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
-- `pr/footprint.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
+- `pr/compare/module.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
+- `pr/footprint/module.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
 - `pr/validation_gate.sh`: Validation Gate section construction and in-place replacement helpers.
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
@@ -194,10 +194,10 @@ Troubleshooting:
 - extraction/classification: `pr/extraction/module.sh` (`dry.sh`, `github.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
 - pipeline orchestration: `pr/pipeline/module.sh` (`init.sh`, `collect.sh`, `render.sh`)
 - runtime/gh helpers: `pr/runtime/module.sh` (`logging.sh`, `git.sh`, `state.sh`)
-- compare loading: `pr/compare.sh`
+- compare loading: `pr/compare/module.sh` (`loaders.sh`)
 - issue flow resolution: `pr/issue/module.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
 - issue contract checks: `lib/issue_required_fields.sh`
 - metrics/status: `pr/metrics/module.sh` (`breaking.sh`, `ci.sh`)
 - body composition/publication: `pr/body/builder.sh`, `pr/body/publish.sh` (loaded via `pr/body/module.sh`)
-- rendering helpers: `lib/rendering.sh`, `pr/footprint.sh`
+- rendering helpers: `lib/rendering.sh`, `pr/footprint/module.sh` (`render.sh`)
 - validation-only body updates: `pr/validation_gate.sh`
