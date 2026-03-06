@@ -19,7 +19,7 @@ It interacts mainly with:
 github/
 ├── README.md (this file)
 ├── TOC.md
-├── auto_add_closes_on_dev_pr.sh
+├── auto_add_closes_on_dev_pr/
 ├── auto_link_parent_issue.sh
 ├── create_direct_issue.sh
 ├── manager_issues.sh
@@ -27,7 +27,7 @@ github/
 ├── issue_done_in_dev_status.sh
 ├── issue_reopen_on_dev_merge.sh
 ├── neutralize_non_compliant_closure_refs.sh
-├── parent_issue_guard.sh
+├── parent_issue_guard/
 ├── issues/
 │   └── required_fields/
 │       └── module.sh
@@ -44,7 +44,7 @@ github/
 - `README.md`: This file.
 - `TOC.md`: Documentation index for GitHub-only scripts.
 - `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
-- `auto_add_closes_on_dev_pr.sh`: Auto-enrich open PR bodies targeting `dev` with a managed `Closes #<n>` block when referenced `Part of #<n>` issues are single-assignee and assigned to the PR author.
+- `auto_add_closes_on_dev_pr/run.sh`: Auto-enrich open PR bodies targeting `dev` with a managed `Closes #<n>` block when referenced `Part of #<n>` issues are single-assignee and assigned to the PR author.
 - `auto_link_parent_issue.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
 - `create_direct_issue.sh`: Internal create contract script used by manager routing (direct usage deprecated).
 - `manager_issues.sh`: Unified issue lifecycle entrypoint for create/read/update/close/reopen operations (delete is soft-delete via close not_planned).
@@ -52,7 +52,7 @@ github/
   - Supported closure refs for labeling: `Closes/Fixes #<n>`.
 - `issue_reopen_on_dev_merge.sh`: Reopen issues referenced by `Reopen #<n>` on merged PRs into `dev`, and remove `done-in-dev` from those issues.
 - `neutralize_non_compliant_closure_refs.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
-- `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
+- `parent_issue_guard/run.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
 - `lib/issue_refs.sh`: Issue reference parsing helpers (`Closes`, `Fixes`, `Part of`, `Reopen`, duplicates).
 - `issues/required_fields/module.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
