@@ -10,8 +10,6 @@ pub enum Error {
     InvalidOrders(String),
     #[error("replay mismatch: {0}")]
     ReplayMismatch(String),
-    #[error("internal error: {0}")]
-    Internal(String),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]

@@ -1,5 +1,7 @@
 use crate::diagnostics::error::SpaceDiploWarsError;
+use crate::diplomacy::diplomacy_engine::DiplomacyEngine;
 use crate::diplomacy::treaty_kind::TreatyKind;
+use crate::map::star_system_id::StarSystemId;
 use crate::model::sim_state::SimState;
 
 use super::order::Order;
@@ -35,6 +37,22 @@ impl OrderValidator {
                     return Err(SpaceDiploWarsError::InvalidOrders(
                         "Fleet does not belong to ordering empire".into(),
                     ));
+                }
+
+                if order.kind == OrderKind::MoveFleet {
+                    let destination = order.params.get("destination").ok_or_else(|| {
+                        SpaceDiploWarsError::InvalidOrders(
+                            "MoveFleet requires destination param".into(),
+                        )
+                    })?;
+                    let from = StarSystemId(fleet.location.clone());
+                    let to = StarSystemId(destination.clone());
+                    if !state.star_map.are_adjacent(&from, &to) {
+                        return Err(SpaceDiploWarsError::InvalidOrders(format!(
+                            "MoveFleet destination is not adjacent: {} -> {}",
+                            from.0, to.0
+                        )));
+                    }
                 }
 
                 if order.kind == OrderKind::AttackFleet {
@@ -83,6 +101,7 @@ impl OrderValidator {
                 order.params.get("target").ok_or_else(|| {
                     SpaceDiploWarsError::InvalidOrders("OfferTreaty requires target param".into())
                 })?;
+                DiplomacyEngine::validate_action(order, state)?;
             }
             OrderKind::AcceptTreaty | OrderKind::RejectTreaty => {
                 order.params.get("treaty_id").ok_or_else(|| {
@@ -90,17 +109,10 @@ impl OrderValidator {
                         "AcceptTreaty/RejectTreaty requires treaty_id param".into(),
                     )
                 })?;
+                DiplomacyEngine::validate_action(order, state)?;
             }
             OrderKind::Embargo => {}
         }
         Ok(())
-    }
-
-    /// Validate all orders in a slice, returning a list of errors (empty = all valid).
-    pub fn validate_all(orders: &[Order], state: &SimState) -> Vec<SpaceDiploWarsError> {
-        orders
-            .iter()
-            .filter_map(|o| Self::validate(o, state).err())
-            .collect()
     }
 }

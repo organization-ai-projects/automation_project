@@ -89,20 +89,16 @@ impl Scenario {
                 tech_tree,
             };
             state.empires.insert(EmpireId(se.id.clone()), empire);
-            state.build_queues.insert(
-                EmpireId(se.id.clone()),
-                BuildQueue {
-                    id: Some(QueueId(format!("build_{}", se.id))),
-                    items: Vec::new(),
-                },
-            );
-            state.research_queues.insert(
-                EmpireId(se.id.clone()),
-                ResearchQueue {
-                    id: Some(QueueId(format!("research_{}", se.id))),
-                    items: Vec::new(),
-                },
-            );
+            let mut build_queue = BuildQueue::new();
+            build_queue.id = Some(QueueId(format!("build_{}", se.id)));
+            state
+                .build_queues
+                .insert(EmpireId(se.id.clone()), build_queue);
+            let mut research_queue = ResearchQueue::new();
+            research_queue.id = Some(QueueId(format!("research_{}", se.id)));
+            state
+                .research_queues
+                .insert(EmpireId(se.id.clone()), research_queue);
         }
 
         // Build fleets

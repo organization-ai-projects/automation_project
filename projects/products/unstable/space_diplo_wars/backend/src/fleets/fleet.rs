@@ -35,8 +35,4 @@ impl Fleet {
             .map(|(kind, count)| ShipStats::for_kind(*kind).defense * (*count as i64))
             .sum()
     }
-
-    pub fn is_empty(&self) -> bool {
-        self.ships.values().all(|c| *c == 0)
-    }
 }

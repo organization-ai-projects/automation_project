@@ -1,5 +1,4 @@
 pub mod diplomacy_engine;
-pub mod influence;
 pub mod treaty;
 pub mod treaty_id;
 pub mod treaty_kind;

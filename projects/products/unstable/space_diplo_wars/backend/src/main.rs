@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod ai;
 mod config;
 mod diagnostics;
@@ -332,13 +330,11 @@ fn execute_run(
         if let Some(decisions) = scenario.scripted_treaty_choices.get(&turn.to_string()) {
             DiplomacyEngine::inject_scripted_decisions(&state, turn, decisions, &mut orders);
         }
-        replay_file.orders_per_turn.insert(
-            turn.to_string(),
-            OrderSet {
-                turn,
-                orders: orders.clone(),
-            },
-        );
+        let mut order_set = OrderSet::new(turn);
+        order_set.orders = orders.clone();
+        replay_file
+            .orders_per_turn
+            .insert(turn.to_string(), order_set);
         if let Some(choices) = scenario.scripted_treaty_choices.get(&turn.to_string()) {
             replay_file
                 .treaty_decisions
