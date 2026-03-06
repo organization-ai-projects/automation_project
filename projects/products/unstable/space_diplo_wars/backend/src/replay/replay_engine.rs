@@ -1,4 +1,5 @@
 use crate::diagnostics::error::SpaceDiploWarsError;
+use crate::diplomacy::diplomacy_engine::DiplomacyEngine;
 use crate::economy::economy_engine::EconomyEngine;
 use crate::queues::queue_engine::QueueEngine;
 use crate::report::run_report::RunReport;
@@ -38,15 +39,17 @@ impl ReplayEngine {
 
             state.current_phase = Phase::OrdersSubmit;
             let key = turn.to_string();
-            let empty = Vec::new();
-            let orders = replay
+            let mut orders = replay
                 .orders_per_turn
                 .get(&key)
-                .map(|os| os.orders.as_slice())
-                .unwrap_or(empty.as_slice());
+                .map(|os| os.orders.clone())
+                .unwrap_or_default();
+            if let Some(decisions) = replay.treaty_decisions.get(&key) {
+                DiplomacyEngine::inject_scripted_decisions(&state, turn, decisions, &mut orders);
+            }
 
             state.current_phase = Phase::OrdersResolve;
-            let res_report = ResolutionEngine::resolve_turn(&mut state, orders, turn);
+            let res_report = ResolutionEngine::resolve_turn(&mut state, &orders, turn);
             state.current_phase = Phase::Aftermath;
 
             // Verify checkpoint if present
@@ -108,15 +111,17 @@ impl ReplayEngine {
 
             state.current_phase = Phase::OrdersSubmit;
             let key = turn.to_string();
-            let empty = Vec::new();
-            let orders = replay
+            let mut orders = replay
                 .orders_per_turn
                 .get(&key)
-                .map(|os| os.orders.as_slice())
-                .unwrap_or(empty.as_slice());
+                .map(|os| os.orders.clone())
+                .unwrap_or_default();
+            if let Some(decisions) = replay.treaty_decisions.get(&key) {
+                DiplomacyEngine::inject_scripted_decisions(&state, turn, decisions, &mut orders);
+            }
 
             state.current_phase = Phase::OrdersResolve;
-            ResolutionEngine::resolve_turn(&mut state, orders, turn);
+            ResolutionEngine::resolve_turn(&mut state, &orders, turn);
             state.current_phase = Phase::Aftermath;
             state.current_turn = crate::time::turn::Turn(turn);
         }

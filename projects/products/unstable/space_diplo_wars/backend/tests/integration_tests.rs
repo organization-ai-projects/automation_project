@@ -139,3 +139,37 @@ fn test_validate_exit_code_for_invalid_scenario() {
 
     assert_eq!(output.status.code(), Some(3));
 }
+
+#[test]
+fn test_scripted_treaty_decisions_are_applied() {
+    let scenario = fixtures_dir().join("scripted_treaty_decision.json");
+    let run_out = tmp_file("_scripted_treaty_report.json");
+    let replay_out = tmp_file("_scripted_treaty.replay.json");
+
+    let status = Command::new(bin())
+        .args([
+            "run",
+            "--turns",
+            "3",
+            "--ticks-per-turn",
+            "4",
+            "--seed",
+            "42",
+            "--scenario",
+            scenario.to_str().unwrap(),
+            "--out",
+            run_out.to_str().unwrap(),
+            "--replay-out",
+            replay_out.to_str().unwrap(),
+        ])
+        .status()
+        .expect("run command");
+    assert!(status.success());
+
+    let report = fs::read_to_string(&run_out).expect("read run report");
+    assert!(report.contains("TreatyAccepted:treaty_empire_a_empire_b_1"));
+    assert!(report.contains("\"treaty_reports\":[{"));
+
+    let _ = fs::remove_file(run_out);
+    let _ = fs::remove_file(replay_out);
+}

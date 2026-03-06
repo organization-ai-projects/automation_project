@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use crate::diagnostics::error::SpaceDiploWarsError;
 use crate::model::sim_state::SimState;
 use crate::orders::order::Order;
+use crate::orders::order_id::OrderId;
+use crate::orders::order_kind::OrderKind;
 
 use super::treaty::Treaty;
 use super::treaty_id::TreatyId;
@@ -12,9 +14,48 @@ use super::treaty_offer::TreatyOffer;
 pub struct DiplomacyEngine;
 
 impl DiplomacyEngine {
+    pub fn inject_scripted_decisions(
+        state: &SimState,
+        current_turn: u64,
+        decisions: &BTreeMap<String, String>,
+        orders: &mut Vec<Order>,
+    ) {
+        for (treaty_id, decision_raw) in decisions {
+            let decision = decision_raw.to_ascii_lowercase();
+            let kind = match decision.as_str() {
+                "accept" => OrderKind::AcceptTreaty,
+                "reject" => OrderKind::RejectTreaty,
+                _ => continue,
+            };
+
+            let already_present = orders.iter().any(|order| {
+                let same_kind = order.kind == kind;
+                let same_treaty =
+                    order.params.get("treaty_id").map(String::as_str) == Some(treaty_id.as_str());
+                same_kind && same_treaty
+            });
+            if already_present {
+                continue;
+            }
+
+            let Some(offer) = state.pending_treaty_offers.get(treaty_id) else {
+                continue;
+            };
+
+            let mut params = BTreeMap::new();
+            params.insert("treaty_id".to_string(), treaty_id.clone());
+
+            orders.push(Order {
+                id: OrderId(format!("scripted_{decision}_{treaty_id}_{current_turn}")),
+                empire_id: offer.to.clone(),
+                kind,
+                params,
+            });
+        }
+    }
+
     /// Validate a diplomacy-related order. Returns Ok if the order is valid.
     pub fn validate_action(order: &Order, state: &SimState) -> Result<(), SpaceDiploWarsError> {
-        use crate::orders::order_kind::OrderKind;
         match &order.kind {
             OrderKind::AcceptTreaty => {
                 let treaty_id = order.params.get("treaty_id").ok_or_else(|| {
@@ -38,7 +79,6 @@ impl DiplomacyEngine {
         let mut sorted_orders: Vec<&Order> = orders.iter().collect();
         // Tie-breaker: sort by empire_id then order_id
         sorted_orders.sort_by(|a, b| a.empire_id.0.cmp(&b.empire_id.0).then(a.id.0.cmp(&b.id.0)));
-        use crate::orders::order_kind::OrderKind;
 
         for order in &sorted_orders {
             match &order.kind {

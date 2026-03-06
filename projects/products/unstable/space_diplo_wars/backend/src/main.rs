@@ -28,6 +28,7 @@ use crate::ai::ai_engine::AiEngine;
 use crate::ai::ai_profile::AiProfile;
 use crate::config::game_config::GameConfig;
 use crate::diagnostics::error::SpaceDiploWarsError;
+use crate::diplomacy::diplomacy_engine::DiplomacyEngine;
 use crate::economy::economy_engine::EconomyEngine;
 use crate::io::json_codec::JsonCodec;
 use crate::orders::order_set::OrderSet;
@@ -327,6 +328,9 @@ fn execute_run(
                     AiEngine::generate_orders(&empire_id, &AiProfile::default(), &state, turn);
                 orders.extend(ai_orders);
             }
+        }
+        if let Some(decisions) = scenario.scripted_treaty_choices.get(&turn.to_string()) {
+            DiplomacyEngine::inject_scripted_decisions(&state, turn, decisions, &mut orders);
         }
         replay_file.orders_per_turn.insert(
             turn.to_string(),
