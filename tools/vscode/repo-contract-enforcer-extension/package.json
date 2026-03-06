@@ -51,6 +51,11 @@
         "title": "Repo Contract Enforcer: Open Rule Documentation"
       },
       {
+        "command": "repoContractEnforcer.openFirstError",
+        "title": "Repo Contract Enforcer: Open First Error",
+        "icon": "$(arrow-small-right)"
+      },
+      {
         "command": "repoContractEnforcer.refreshDiagnosticsView",
         "title": "Repo Contract Enforcer: Refresh Diagnostics View",
         "icon": "$(refresh)"
@@ -71,6 +76,11 @@
     },
     "menus": {
       "view/title": [
+        {
+          "command": "repoContractEnforcer.openFirstError",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@0"
+        },
         {
           "command": "repoContractEnforcer.refreshDiagnosticsView",
           "when": "view == repoContractEnforcerDiagnostics",
