@@ -284,6 +284,13 @@ pr_body_handle_auto_edit_pr() {
       echo "Error: unable to determine GitHub repository for --auto-edit." >&2
       exit "$E_DEPENDENCY"
     fi
+
+    current_pr_body="$(pr_gh_optional "read current PR #${auto_edit_pr_number} body before update" pr view "$auto_edit_pr_number" --json body -q '.body // ""')"
+    if [[ "$current_pr_body" == "$body_content" ]]; then
+      echo "PR unchanged: #${auto_edit_pr_number}"
+      return
+    fi
+
     gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
       --raw-field body="$body_content" >/dev/null
     echo "PR updated: #${auto_edit_pr_number}"
