@@ -4,12 +4,19 @@ const path = require('path');
 
 const DIAGNOSTIC_SOURCE = 'repo-contract-enforcer';
 const STATUS_PREFIX = 'Repo Contract Enforcer';
+const DEFAULT_RULES_DOC_PATH = 'projects/products/unstable/repo_contract_enforcer/README.md';
+const DEFAULT_STRUCTURE_DOC_PATH = 'documentation/technical_documentation/metadata.md';
 const DEBOUNCE_MIN_MS = 50;
 const DEBOUNCE_MAX_MS = 5000;
 const DEFAULT_DEBOUNCE_MS = 300;
 const RUN_TIMEOUT_MIN_MS = 1000;
 const RUN_TIMEOUT_MAX_MS = 120000;
 const DEFAULT_RUN_TIMEOUT_MS = 15000;
+const RUN_HISTORY_MIN_SIZE = 5;
+const RUN_HISTORY_MAX_SIZE = 200;
+const DEFAULT_RUN_HISTORY_SIZE = 30;
+const DEFAULT_ARGS = ['run', '-q', '-p', 'repo_contract_enforcer_backend', '--', 'serve'];
+const DEFAULT_EXCLUDE_GLOBS = ['**/.git/**', '**/target/**', '**/node_modules/**'];
 
 function toSeverity(value) {
   return value === 'ERROR' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning;
@@ -25,6 +32,64 @@ function toUri(workspaceRoot, rawPath) {
   return vscode.Uri.file(path.join(workspaceRoot, rawPath));
 }
 
+function normalizePath(text) {
+  return String(text || '').replace(/\\/g, '/');
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function globToRegExp(glob) {
+  const normalized = normalizePath(glob);
+  let regexTxt = escapeRegExp(normalized)
+    .replace(/\\\*\\\*/g, '.*')
+    .replace(/\\\*/g, '[^/]*')
+    .replace(/\\\?/g, '.');
+  if (!regexTxt.startsWith('^')) {
+    regexTxt = `^${regexTxt}`;
+  }
+  if (!regexTxt.endsWith('$')) {
+    regexTxt = `${regexTxt}$`;
+  }
+  return new RegExp(regexTxt);
+}
+
+function hasWildcard(glob) {
+  return glob.includes('*') || glob.includes('?');
+}
+
+function normalizeExcludeGlob(glob) {
+  const trimmed = normalizePath(String(glob || '').trim()).replace(/^\/+|\/+$/g, '');
+  if (!trimmed) {
+    return '';
+  }
+  if (hasWildcard(trimmed)) {
+    return trimmed;
+  }
+  // For plain folder/file tokens (e.g. "target"), match both:
+  // - the token itself
+  // - content under that token
+  return `**/${trimmed}/**`;
+}
+
+function getRelativePath(workspaceRoot, rawPath) {
+  if (!rawPath || typeof rawPath !== 'string') {
+    return '';
+  }
+  const abs = path.isAbsolute(rawPath) ? rawPath : path.join(workspaceRoot, rawPath);
+  const rel = path.relative(workspaceRoot, abs);
+  return normalizePath(rel);
+}
+
+function isExcludedPath(workspaceRoot, rawPath, excludeRegexes) {
+  const rel = getRelativePath(workspaceRoot, rawPath);
+  if (!rel || rel.startsWith('..')) {
+    return false;
+  }
+  return excludeRegexes.some((regex) => regex.test(rel));
+}
+
 function buildDiagnostic(violation) {
   const line = Math.max((violation.line || 1) - 1, 0);
   const hasColumn = Number.isInteger(violation.col) && violation.col > 0;
@@ -36,11 +101,37 @@ function buildDiagnostic(violation) {
   } else if (hasColumn) {
     endCol = startCol + 1;
   }
+
   const range = new vscode.Range(line, startCol, line, endCol);
   const msg = `${violation.message} [${violation.rule_id}/${violation.violation_code}]`;
   const diag = new vscode.Diagnostic(range, msg, toSeverity(violation.severity));
   diag.source = DIAGNOSTIC_SOURCE;
+  diag.code = violation.violation_code || undefined;
+  diag._repoContractMeta = {
+    ruleId: violation.rule_id || '',
+    violationCode: violation.violation_code || '',
+    path: violation.path || '',
+  };
   return diag;
+}
+
+function parseRuleMeta(diag) {
+  if (!diag || diag.source !== DIAGNOSTIC_SOURCE) {
+    return undefined;
+  }
+  if (diag._repoContractMeta && diag._repoContractMeta.ruleId) {
+    return diag._repoContractMeta;
+  }
+  const txt = String(diag.message || '');
+  const match = txt.match(/\[([^/\]]+)\/([^\]]+)\]/);
+  if (!match) {
+    return undefined;
+  }
+  return {
+    ruleId: match[1],
+    violationCode: match[2],
+    path: '',
+  };
 }
 
 function isRelevantDocument(doc) {
@@ -66,6 +157,14 @@ function clampRunTimeoutMs(value) {
   return Math.min(Math.max(num, RUN_TIMEOUT_MIN_MS), RUN_TIMEOUT_MAX_MS);
 }
 
+function clampRunHistorySize(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return DEFAULT_RUN_HISTORY_SIZE;
+  }
+  return Math.min(Math.max(Math.floor(num), RUN_HISTORY_MIN_SIZE), RUN_HISTORY_MAX_SIZE);
+}
+
 function parseReport(stdout) {
   const lines = stdout
     .split(/\r?\n/)
@@ -87,7 +186,7 @@ function parseReport(stdout) {
     if (obj && obj.type === 'report' && obj.report_json && typeof obj.report_json === 'object') {
       return obj.report_json;
     }
-    if (obj && Array.isArray(obj.violations)) {
+    if (obj && Array.isArray(obj.violations) && !fallbackReport) {
       fallbackReport = obj;
     }
   }
@@ -100,18 +199,29 @@ function getConfigValue(key, defaultValue) {
   return cfg.get(key, defaultValue);
 }
 
+function isEnabled(key, defaultValue = true) {
+  return Boolean(getConfigValue(key, defaultValue));
+}
+
 function getCommandArgs() {
   const configured = getConfigValue('args', []);
   if (!Array.isArray(configured)) {
-    return ['run', '-q', '-p', 'repo_contract_enforcer_backend', '--', 'serve'];
+    return DEFAULT_ARGS;
   }
-  const args = configured
-    .map((value) => String(value || '').trim())
-    .filter((value) => value.length > 0);
+  const args = configured.map((value) => String(value || '').trim()).filter((value) => value.length > 0);
   if (args.length === 0) {
-    return ['run', '-q', '-p', 'repo_contract_enforcer_backend', '--', 'serve'];
+    return DEFAULT_ARGS;
   }
   return args;
+}
+
+function getExcludeRegexes() {
+  const configured = getConfigValue('excludeGlobs', DEFAULT_EXCLUDE_GLOBS);
+  const globs = Array.isArray(configured) ? configured : DEFAULT_EXCLUDE_GLOBS;
+  return globs
+    .map((glob) => normalizeExcludeGlob(glob))
+    .filter((glob) => glob.length > 0)
+    .map((glob) => globToRegExp(glob));
 }
 
 function logOutput(runtime, message) {
@@ -122,6 +232,32 @@ function logOutput(runtime, message) {
     return;
   }
   runtime.outputChannel.appendLine(message);
+}
+
+function addRunHistory(runtime, entry) {
+  const maxSize = clampRunHistorySize(getConfigValue('runHistorySize', DEFAULT_RUN_HISTORY_SIZE));
+  runtime.runHistory.push(entry);
+  if (runtime.runHistory.length > maxSize) {
+    runtime.runHistory.splice(0, runtime.runHistory.length - maxSize);
+  }
+}
+
+function shouldShowTransient(level) {
+  const policy = String(getConfigValue('statusBarMessagePolicy', 'errors'));
+  if (policy === 'none') {
+    return false;
+  }
+  if (policy === 'errors') {
+    return level === 'error';
+  }
+  return true;
+}
+
+function showTransientMessage(message, timeoutMs, level) {
+  if (!shouldShowTransient(level)) {
+    return;
+  }
+  vscode.window.setStatusBarMessage(message, timeoutMs);
 }
 
 function disposeRuntime(runtime) {
@@ -141,12 +277,156 @@ function updateStatus(runtime, text) {
 
 function clearDiagnostics(runtime) {
   runtime.collection.clear();
-  vscode.commands.executeCommand('setContext', 'repoContractEnforcer.lastCount', 0);
+  setLastCount(0);
 }
 
-function runEnforcer(runtime, reason) {
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  if (!folder) {
+function setLastCount(value) {
+  vscode.commands.executeCommand('setContext', 'repoContractEnforcer.lastCount', value);
+}
+
+function shouldTriggerForDocument(configKey, doc) {
+  return isEnabled(configKey, true) && isRelevantDocument(doc);
+}
+
+function resolveWorkspaceFolders(strategy) {
+  const folders = vscode.workspace.workspaceFolders || [];
+  if (folders.length === 0) {
+    return [];
+  }
+  if (strategy === 'all') {
+    return folders;
+  }
+  if (strategy === 'active') {
+    const activeUri = vscode.window.activeTextEditor?.document?.uri;
+    const activeFolder = activeUri ? vscode.workspace.getWorkspaceFolder(activeUri) : undefined;
+    if (activeFolder) {
+      return [activeFolder];
+    }
+  }
+  return [folders[0]];
+}
+
+function executeCheckForFolder(runtime, params) {
+  const { folder, runId, reason, mode, cmd, args, timeoutMs } = params;
+  return new Promise((resolve) => {
+    const child = cp.spawn(cmd, args, { cwd: folder.uri.fsPath, stdio: ['pipe', 'pipe', 'pipe'] });
+    runtime.currentChild = child;
+    let stdout = '';
+    let stderr = '';
+    let timedOut = false;
+    let settled = false;
+
+    const settle = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(result);
+    };
+
+    const timeoutHandle = setTimeout(() => {
+      if (runId !== runtime.runSeq) {
+        return;
+      }
+      if (child && !child.killed) {
+        timedOut = true;
+        child.kill();
+      }
+    }, timeoutMs);
+
+    const clearTimeoutHandle = () => clearTimeout(timeoutHandle);
+
+    logOutput(runtime, `[run ${runId}] start (${reason}) @ ${folder.name}`);
+    logOutput(runtime, `[run ${runId}] cmd: ${cmd} ${args.join(' ')}`);
+
+    child.stdout.on('data', (chunk) => {
+      const txt = chunk.toString();
+      stdout += txt;
+      logOutput(runtime, `[run ${runId}] stdout(${folder.name}): ${txt.trimEnd()}`);
+    });
+    child.stderr.on('data', (chunk) => {
+      const txt = chunk.toString();
+      stderr += txt;
+      logOutput(runtime, `[run ${runId}] stderr(${folder.name}): ${txt.trimEnd()}`);
+    });
+    child.on('error', (err) => {
+      clearTimeoutHandle();
+      settle({
+        folder,
+        runId,
+        code: null,
+        signal: null,
+        timedOut,
+        stdout,
+        stderr,
+        error: String(err?.message || 'unknown error'),
+      });
+    });
+    child.on('close', (code, signal) => {
+      clearTimeoutHandle();
+      settle({
+        folder,
+        runId,
+        code,
+        signal,
+        timedOut,
+        stdout,
+        stderr,
+        error: null,
+      });
+    });
+
+    const request = {
+      id: `vscode-${runId}-${folder.name}`,
+      type: 'checkRepo',
+      root_path: folder.uri.fsPath,
+      mode,
+    };
+    const shutdown = { id: `vscode-shutdown-${runId}-${folder.name}`, type: 'shutdown' };
+    child.stdin.write(JSON.stringify(request) + '\n');
+    child.stdin.write(JSON.stringify(shutdown) + '\n');
+    child.stdin.end();
+  });
+}
+
+function mergeDiagnosticsByFile(byFile, folder, violations, excludeRegexes) {
+  for (const violation of violations) {
+    if (isExcludedPath(folder.uri.fsPath, violation.path, excludeRegexes)) {
+      continue;
+    }
+    const uri = toUri(folder.uri.fsPath, violation.path);
+    if (!uri) {
+      continue;
+    }
+    const key = uri.toString();
+    const list = byFile.get(key) || { uri, diagnostics: [] };
+    list.diagnostics.push(buildDiagnostic(violation));
+    byFile.set(key, list);
+  }
+}
+
+function pushCodeAction(actions, keySet, key, action) {
+  if (keySet.has(key)) {
+    return;
+  }
+  keySet.add(key);
+  actions.push(action);
+}
+
+function buildCommandCodeAction(title, kind, command, commandTitle, args = []) {
+  const action = new vscode.CodeAction(title, kind);
+  action.command = {
+    command,
+    title: commandTitle,
+    arguments: args,
+  };
+  return action;
+}
+
+async function runEnforcer(runtime, reason) {
+  const strategy = String(getConfigValue('workspaceFolderStrategy', 'first'));
+  const folders = resolveWorkspaceFolders(strategy);
+  if (folders.length === 0) {
     return;
   }
 
@@ -154,133 +434,179 @@ function runEnforcer(runtime, reason) {
   const cmd = getConfigValue('command', 'cargo');
   const args = getCommandArgs();
   const timeoutMs = clampRunTimeoutMs(getConfigValue('runTimeoutMs', DEFAULT_RUN_TIMEOUT_MS));
+  const excludeRegexes = getExcludeRegexes();
   const runId = ++runtime.runSeq;
+  const startedAt = Date.now();
 
   if (runtime.currentChild && !runtime.currentChild.killed) {
     runtime.currentChild.kill();
   }
 
-  const child = cp.spawn(cmd, args, { cwd: folder.uri.fsPath, stdio: ['pipe', 'pipe', 'pipe'] });
-  runtime.currentChild = child;
-  let stdout = '';
-  let stderr = '';
-  let timedOut = false;
-  let timeoutHandle = undefined;
-
-  logOutput(runtime, `[run ${runId}] start (${reason})`);
-  logOutput(runtime, `[run ${runId}] cmd: ${cmd} ${args.join(' ')}`);
-
   updateStatus(runtime, `running (${reason})...`);
 
-  timeoutHandle = setTimeout(() => {
+  const byFile = new Map();
+  let totalViolations = 0;
+  let hadError = false;
+  const issues = [];
+
+  for (const folder of folders) {
     if (runId !== runtime.runSeq) {
       return;
     }
-    if (runtime.currentChild && !runtime.currentChild.killed) {
-      timedOut = true;
-      runtime.currentChild.kill();
-    }
-  }, timeoutMs);
+    const result = await executeCheckForFolder(runtime, {
+      folder,
+      runId,
+      reason,
+      mode,
+      cmd,
+      args,
+      timeoutMs,
+    });
 
-  child.stdout.on('data', (chunk) => {
-    const txt = chunk.toString();
-    stdout += txt;
-    if (getConfigValue('outputChannelEnabled', false) && txt.trim().length > 0) {
-      runtime.outputChannel.appendLine(`[run ${runId}] stdout: ${txt.trimEnd()}`);
-    }
-  });
-  child.stderr.on('data', (chunk) => {
-    const txt = chunk.toString();
-    stderr += txt;
-    if (getConfigValue('outputChannelEnabled', false) && txt.trim().length > 0) {
-      runtime.outputChannel.appendLine(`[run ${runId}] stderr: ${txt.trimEnd()}`);
-    }
-  });
-  child.on('error', (err) => {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-      timeoutHandle = undefined;
-    }
     if (runId !== runtime.runSeq) {
       return;
     }
-    logOutput(runtime, `[run ${runId}] spawn error: ${String(err?.message || 'unknown error')}`);
-    clearDiagnostics(runtime);
-    updateStatus(runtime, 'backend spawn failed');
-    vscode.window.setStatusBarMessage(
-      `${STATUS_PREFIX}: backend spawn failed (${String(err?.message || 'unknown error')})`,
-      5000,
-    );
-  });
 
-  child.on('close', (code, signal) => {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-      timeoutHandle = undefined;
+    if (result.error) {
+      hadError = true;
+      issues.push(`${folder.name}: spawn failed (${result.error})`);
+      continue;
     }
-    if (runId !== runtime.runSeq) {
-      return;
-    }
-    runtime.currentChild = undefined;
 
-    if (signal !== null) {
-      if (timedOut) {
-        clearDiagnostics(runtime);
-        updateStatus(runtime, `timeout after ${timeoutMs}ms`);
-        vscode.window.setStatusBarMessage(`${STATUS_PREFIX}: check timed out after ${timeoutMs}ms`, 6000);
-        logOutput(runtime, `[run ${runId}] timeout after ${timeoutMs}ms`);
-        return;
+    if (result.signal !== null) {
+      if (result.timedOut) {
+        hadError = true;
+        issues.push(`${folder.name}: timeout after ${timeoutMs}ms`);
+      } else {
+        issues.push(`${folder.name}: interrupted (${result.signal})`);
       }
-      logOutput(runtime, `[run ${runId}] interrupted by signal ${signal}`);
-      updateStatus(runtime, 'check interrupted');
-      return;
+      continue;
     }
 
-    const byFile = new Map();
-
-    const parsed = parseReport(stdout);
+    const parsed = parseReport(result.stdout);
     if (!parsed) {
-      clearDiagnostics(runtime);
-      const errSuffix = stderr && stderr.trim().length > 0 ? `: ${stderr.trim().split(/\r?\n/).slice(-1)[0]}` : '';
-      logOutput(runtime, `[run ${runId}] invalid backend output${errSuffix}`);
-      updateStatus(runtime, 'invalid backend output');
-      vscode.window.setStatusBarMessage(`${STATUS_PREFIX}: invalid backend output${errSuffix}`, 6000);
-      return;
+      hadError = true;
+      const errSuffix =
+        result.stderr && result.stderr.trim().length > 0 ? `: ${result.stderr.trim().split(/\r?\n/).slice(-1)[0]}` : '';
+      issues.push(`${folder.name}: invalid backend output${errSuffix}`);
+      continue;
     }
 
     const violations = Array.isArray(parsed.violations) ? parsed.violations : [];
-    for (const v of violations) {
-      const uri = toUri(folder.uri.fsPath, v.path);
-      if (!uri) {
-        continue;
-      }
-      const key = uri.toString();
-      const list = byFile.get(key) || { uri, diagnostics: [] };
-      list.diagnostics.push(buildDiagnostic(v));
-      byFile.set(key, list);
-    }
+    totalViolations += violations.length;
+    mergeDiagnosticsByFile(byFile, folder, violations, excludeRegexes);
+  }
 
-    runtime.collection.clear();
-    for (const { uri, diagnostics } of byFile.values()) {
-      runtime.collection.set(uri, diagnostics);
-    }
+  runtime.currentChild = undefined;
+  runtime.collection.clear();
+  for (const { uri, diagnostics } of byFile.values()) {
+    runtime.collection.set(uri, diagnostics);
+  }
 
-    vscode.commands.executeCommand('setContext', 'repoContractEnforcer.lastCount', violations.length);
-    const outcome = code === 0 ? `${violations.length} issue(s)` : `${violations.length} issue(s), exit ${code}`;
-    logOutput(runtime, `[run ${runId}] completed: ${outcome}`);
-    updateStatus(runtime, outcome);
+  setLastCount(totalViolations);
+
+  const durationMs = Date.now() - startedAt;
+  const outcomeParts = [`${totalViolations} issue(s)`];
+  if (folders.length > 1) {
+    outcomeParts.push(`${folders.length} folders`);
+  }
+  if (hadError) {
+    outcomeParts.push('with errors');
+  }
+  const outcome = outcomeParts.join(', ');
+  updateStatus(runtime, outcome);
+  logOutput(runtime, `[run ${runId}] completed in ${durationMs}ms: ${outcome}`);
+  for (const issue of issues) {
+    logOutput(runtime, `[run ${runId}] issue: ${issue}`);
+  }
+
+  addRunHistory(runtime, {
+    runId,
+    at: new Date().toISOString(),
+    reason,
+    strategy,
+    folders: folders.map((f) => f.name),
+    durationMs,
+    totalViolations,
+    hadError,
+    issues: [...issues],
   });
 
-  const request = {
-    id: `vscode-${runId}`,
-    type: 'checkRepo',
-    root_path: folder.uri.fsPath,
-    mode,
+  if (hadError) {
+    showTransientMessage(`${STATUS_PREFIX}: ${issues[issues.length - 1] || 'check failed'}`, 6000, 'error');
+  } else {
+    showTransientMessage(`${STATUS_PREFIX}: ${outcome}`, 3000, 'info');
+  }
+}
+
+function getRuleDocUri(workspaceRoot, ruleId) {
+  const defaultDocPath = getConfigValue('docsPathDefault', DEFAULT_RULES_DOC_PATH);
+  const structureDocPath = getConfigValue('docsPathStructure', DEFAULT_STRUCTURE_DOC_PATH);
+  if (ruleId === 'structure') {
+    return vscode.Uri.file(path.join(workspaceRoot, structureDocPath));
+  }
+  return vscode.Uri.file(path.join(workspaceRoot, defaultDocPath));
+}
+
+function findFirstLineContaining(text, needle) {
+  if (!needle) {
+    return undefined;
+  }
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    if (lines[i].includes(needle)) {
+      return i;
+    }
+  }
+  return undefined;
+}
+
+function registerCodeActionProvider(runtime) {
+  const provider = {
+    provideCodeActions(_document, _range, context) {
+      const actions = [];
+      const keys = new Set();
+      for (const diag of context.diagnostics || []) {
+        if (diag.source !== DIAGNOSTIC_SOURCE) {
+          continue;
+        }
+        pushCodeAction(
+          actions,
+          keys,
+          'rerun',
+          buildCommandCodeAction(
+            'Repo Contract Enforcer: rerun check',
+            vscode.CodeActionKind.QuickFix,
+            'repoContractEnforcer.runCheck',
+            'Run check',
+          ),
+        );
+
+        const meta = parseRuleMeta(diag);
+        if (!meta || !meta.ruleId) {
+          continue;
+        }
+        const key = `docs:${meta.ruleId}:${meta.violationCode}`;
+        pushCodeAction(
+          actions,
+          keys,
+          key,
+          buildCommandCodeAction(
+            `Repo Contract Enforcer: open docs (${meta.ruleId}/${meta.violationCode})`,
+            vscode.CodeActionKind.QuickFix,
+            'repoContractEnforcer.openRuleDocs',
+            'Open rule documentation',
+            [meta.ruleId, meta.violationCode],
+          ),
+        );
+      }
+      return actions;
+    },
   };
-  const shutdown = { id: 'vscode-shutdown', type: 'shutdown' };
-  child.stdin.write(JSON.stringify(request) + '\n');
-  child.stdin.write(JSON.stringify(shutdown) + '\n');
-  child.stdin.end();
+
+  return vscode.languages.registerCodeActionsProvider([{ language: 'rust' }, { language: 'toml' }], provider, {
+    providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
+  });
 }
 
 function activate(context) {
@@ -296,9 +622,25 @@ function activate(context) {
     currentChild: undefined,
     runSeq: 0,
     debounceTimer: undefined,
+    runHistory: [],
   };
 
-  const triggerNow = (reason) => runEnforcer(runtime, reason);
+  const triggerNow = (reason) => {
+    if (runtime.debounceTimer) {
+      clearTimeout(runtime.debounceTimer);
+      runtime.debounceTimer = undefined;
+    }
+    runEnforcer(runtime, reason).catch((err) => {
+      updateStatus(runtime, 'unexpected extension error');
+      showTransientMessage(
+        `${STATUS_PREFIX}: unexpected extension error (${String(err?.message || 'unknown')})`,
+        6000,
+        'error',
+      );
+      logOutput(runtime, `unexpected extension error: ${String(err?.stack || err?.message || err)}`);
+    });
+  };
+
   const triggerDebounced = (reason) => {
     const debounceMs = clampDebounceMs(getConfigValue('debounceMs', DEFAULT_DEBOUNCE_MS));
     if (runtime.debounceTimer) {
@@ -310,23 +652,62 @@ function activate(context) {
     }, debounceMs);
   };
 
-  context.subscriptions.push(collection, statusBar, outputChannel, { dispose: () => disposeRuntime(runtime) });
-
-  const cmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
+  const runCmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
   const showOutputCmd = vscode.commands.registerCommand('repoContractEnforcer.showOutput', () => {
     runtime.outputChannel.show(true);
   });
-  context.subscriptions.push(cmd, showOutputCmd);
+  const showHistoryCmd = vscode.commands.registerCommand('repoContractEnforcer.showRunHistory', () => {
+    runtime.outputChannel.show(true);
+    runtime.outputChannel.appendLine('----- Run History -----');
+    if (runtime.runHistory.length === 0) {
+      runtime.outputChannel.appendLine('No runs yet.');
+      return;
+    }
+    for (const entry of runtime.runHistory) {
+      runtime.outputChannel.appendLine(
+        `[run ${entry.runId}] ${entry.at} | reason=${entry.reason} | strategy=${entry.strategy} | folders=${entry.folders.join(',')} | duration=${entry.durationMs}ms | violations=${entry.totalViolations} | hadError=${entry.hadError}`,
+      );
+      for (const issue of entry.issues) {
+        runtime.outputChannel.appendLine(`  - ${issue}`);
+      }
+    }
+  });
+  const openRuleDocsCmd = vscode.commands.registerCommand(
+    'repoContractEnforcer.openRuleDocs',
+    async (ruleId, violationCode) => {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
+      if (!workspaceRoot) {
+        return;
+      }
+      const uri = getRuleDocUri(workspaceRoot, String(ruleId || ''));
+      try {
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const editor = await vscode.window.showTextDocument(doc, { preview: true });
+        const targetLine =
+          findFirstLineContaining(doc.getText(), String(violationCode || '')) ??
+          findFirstLineContaining(doc.getText(), String(ruleId || ''));
+        if (Number.isInteger(targetLine)) {
+          const position = new vscode.Position(targetLine, 0);
+          editor.selection = new vscode.Selection(position, position);
+          editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+        }
+      } catch (_err) {
+        showTransientMessage(`${STATUS_PREFIX}: documentation file not found`, 4000, 'error');
+      }
+    },
+  );
+
+  const codeActionProvider = registerCodeActionProvider(runtime);
 
   const saveSub = vscode.workspace.onDidSaveTextDocument((doc) => {
-    if (!getConfigValue('runOnSave', true) || !isRelevantDocument(doc)) {
+    if (!shouldTriggerForDocument('runOnSave', doc)) {
       return;
     }
     triggerNow('save');
   });
 
   const changeSub = vscode.workspace.onDidChangeTextDocument((evt) => {
-    if (!getConfigValue('runOnChange', true) || !isRelevantDocument(evt.document)) {
+    if (!shouldTriggerForDocument('runOnChange', evt.document)) {
       return;
     }
     if (!evt.contentChanges || evt.contentChanges.length === 0) {
@@ -337,7 +718,7 @@ function activate(context) {
 
   const watchFs = vscode.workspace.createFileSystemWatcher('**/*.{rs,toml}');
   const fsChanged = () => {
-    if (!getConfigValue('runOnFileEvents', true)) {
+    if (!isEnabled('runOnFileEvents', true)) {
       return;
     }
     triggerDebounced('file event');
@@ -347,7 +728,7 @@ function activate(context) {
   watchFs.onDidDelete(fsChanged);
 
   const renameSub = vscode.workspace.onDidRenameFiles(() => {
-    if (!getConfigValue('runOnFileEvents', true)) {
+    if (!isEnabled('runOnFileEvents', true)) {
       return;
     }
     triggerDebounced('rename');
@@ -360,23 +741,36 @@ function activate(context) {
     triggerNow('config changed');
   });
 
-  context.subscriptions.push(saveSub, changeSub, watchFs, renameSub, cfgSub);
+  context.subscriptions.push(
+    collection,
+    statusBar,
+    outputChannel,
+    runCmd,
+    showOutputCmd,
+    showHistoryCmd,
+    openRuleDocsCmd,
+    codeActionProvider,
+    saveSub,
+    changeSub,
+    watchFs,
+    renameSub,
+    cfgSub,
+    { dispose: () => disposeRuntime(runtime) },
+  );
 
-  // initial run once workspace is open
-  triggerNow('startup');
-}
-
-function deactivate() {
-  // Runtime cleanup is handled by the context subscription disposable.
+  if (isEnabled('runOnStartup', true)) {
+    triggerNow('startup');
+  }
 }
 
 module.exports = {
   activate,
-  deactivate,
   __test: {
     isRelevantDocument,
     clampDebounceMs,
     clampRunTimeoutMs,
+    clampRunHistorySize,
+    globToRegExp,
     parseReport,
   },
 };
