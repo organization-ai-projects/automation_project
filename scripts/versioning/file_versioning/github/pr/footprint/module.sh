@@ -6,4 +6,5 @@
 
 PR_FOOTPRINT_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 
+source "${PR_FOOTPRINT_DIR}/infer.sh"
 source "${PR_FOOTPRINT_DIR}/render.sh"

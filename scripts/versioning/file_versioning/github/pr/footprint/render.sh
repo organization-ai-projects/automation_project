@@ -5,46 +5,62 @@
 
 # Change-footprint helpers extracted from generate_pr_description.sh.
 
-pr_infer_crate_from_path() {
-  local rel_path="$1"
-  local dir candidate product_root
+pr_footprint_print_crate_group() {
+  local max_items_per_category="$1"
+  shift
+  local arr=("$@")
+  local i crate crate_lines="" crate_count crate_name shown=0
+  declare -A crate_counts=()
 
-  if [[ "$rel_path" == *"/src/"* ]]; then
-    candidate="${rel_path%%/src/*}"
-    if [[ -f "${candidate}/Cargo.toml" ]]; then
-      echo "$candidate"
-      return
+  for i in "${arr[@]}"; do
+    crate="$(pr_infer_crate_from_path "$i")"
+    if [[ -z "$crate" ]]; then
+      crate="(unresolved crate)"
     fi
-  fi
-
-  # Temporary legacy fallback (generic for any product):
-  # if Rust paths still come from product root (src/tests) while the product
-  # is already split into backend/ui crates, attribute them to backend crate.
-  # Remove this fallback once root-level src/tests paths are fully migrated.
-  if [[ "$rel_path" =~ ^(projects/products/(stable|unstable)/[^/]+)/(src|tests)/ ]]; then
-    product_root="${BASH_REMATCH[1]}"
-    if [[ -f "${product_root}/backend/Cargo.toml" ]]; then
-      echo "${product_root}/backend"
-      return
-    fi
-  fi
-
-  if [[ "$rel_path" == */Cargo.toml ]]; then
-    dir="${rel_path%/Cargo.toml}"
-    if [[ -n "$dir" ]]; then
-      echo "$dir"
-      return
-    fi
-  fi
-
-  dir="$(dirname "$rel_path")"
-  while [[ "$dir" != "." && "$dir" != "/" ]]; do
-    if [[ -f "${dir}/Cargo.toml" ]]; then
-      echo "$dir"
-      return
-    fi
-    dir="$(dirname "$dir")"
+    crate_counts["$crate"]=$((${crate_counts["$crate"]:-0} + 1))
   done
+
+  while IFS= read -r crate; do
+    [[ -z "$crate" ]] && continue
+    crate_lines+="${crate_counts[$crate]}"$'\t'"${crate}"$'\n'
+  done < <(printf '%s\n' "${!crate_counts[@]}" | LC_ALL=C sort)
+
+  while IFS=$'\t' read -r crate_count crate_name; do
+    [[ -z "${crate_name:-}" ]] && continue
+    echo "  - ${crate_name} (${crate_count} files)"
+    shown=$((shown + 1))
+    if [[ "$shown" -ge "$max_items_per_category" ]]; then
+      break
+    fi
+  done < <(printf '%s' "$crate_lines" | LC_ALL=C sort -t$'\t' -k1,1nr -k2,2)
+}
+
+pr_footprint_print_group() {
+  local label="$1"
+  local max_items_per_category="$2"
+  shift 2
+  local arr=("$@")
+  local i
+  local total="${#arr[@]}"
+  local count=0
+
+  [[ "$total" -eq 0 ]] && return 1
+  echo "- ${label} (${total})"
+
+  if [[ "$label" == "Crates" && "$total" -gt "$max_items_per_category" ]]; then
+    # For large Rust changesets, aggregate by crate for readability.
+    pr_footprint_print_crate_group "$max_items_per_category" "${arr[@]}"
+    return 0
+  fi
+
+  for i in "${arr[@]}"; do
+    echo "  - ${i}"
+    count=$((count + 1))
+    if [[ "$count" -ge "$max_items_per_category" ]]; then
+      break
+    fi
+  done
+  return 0
 }
 
 pr_emit_change_footprint() {
@@ -53,7 +69,6 @@ pr_emit_change_footprint() {
   local file
   local any=0
   local max_items_per_category=12
-  local count=0
   declare -a doc_files=()
   declare -a shell_files=()
   declare -a crate_files=()
@@ -87,63 +102,11 @@ pr_emit_change_footprint() {
     esac
   done <<<"$files"
 
-  print_group() {
-    local label="$1"
-    shift
-    local arr=("$@")
-    local i
-    local total="${#arr[@]}"
-    [[ "$total" -eq 0 ]] && return
-    any=1
-    echo "- ${label} (${total})"
-
-    if [[ "$label" == "Crates" && "$total" -gt "$max_items_per_category" ]]; then
-      # For large Rust changesets, aggregate by crate for readability.
-      declare -A crate_counts=()
-      local crate=""
-      local crate_lines=""
-      local shown=0
-      local crates_total=0
-      for i in "${arr[@]}"; do
-        crate="$(pr_infer_crate_from_path "$i")"
-        if [[ -z "$crate" ]]; then
-          crate="(unresolved crate)"
-        fi
-        crate_counts["$crate"]=$((${crate_counts["$crate"]:-0} + 1))
-      done
-
-      while IFS= read -r crate; do
-        [[ -z "$crate" ]] && continue
-        crate_lines+="${crate_counts[$crate]}"$'\t'"${crate}"$'\n'
-        crates_total=$((crates_total + 1))
-      done < <(printf '%s\n' "${!crate_counts[@]}" | LC_ALL=C sort)
-
-      while IFS=$'\t' read -r crate_count crate_name; do
-        [[ -z "${crate_name:-}" ]] && continue
-        echo "  - ${crate_name} (${crate_count} files)"
-        shown=$((shown + 1))
-        if [[ "$shown" -ge "$max_items_per_category" ]]; then
-          break
-        fi
-      done < <(printf '%s' "$crate_lines" | LC_ALL=C sort -t$'\t' -k1,1nr -k2,2)
-      return
-    fi
-
-    count=0
-    for i in "${arr[@]}"; do
-      echo "  - ${i}"
-      count=$((count + 1))
-      if [[ "$count" -ge "$max_items_per_category" ]]; then
-        break
-      fi
-    done
-  }
-
-  print_group "Documentation" "${doc_files[@]}"
-  print_group "Shell" "${shell_files[@]}"
-  print_group "Crates" "${crate_files[@]}"
-  print_group "Workspace" "${workspace_files[@]}"
-  print_group "Other" "${other_files[@]}"
+  pr_footprint_print_group "Documentation" "$max_items_per_category" "${doc_files[@]}" && any=1
+  pr_footprint_print_group "Shell" "$max_items_per_category" "${shell_files[@]}" && any=1
+  pr_footprint_print_group "Crates" "$max_items_per_category" "${crate_files[@]}" && any=1
+  pr_footprint_print_group "Workspace" "$max_items_per_category" "${workspace_files[@]}" && any=1
+  pr_footprint_print_group "Other" "$max_items_per_category" "${other_files[@]}" && any=1
 
   if [[ "$any" -eq 0 ]]; then
     echo "- No changed files detected for this branch range."
