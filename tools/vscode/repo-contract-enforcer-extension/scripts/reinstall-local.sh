@@ -24,10 +24,12 @@ fi
 
 echo "Installed: $VSIX_PATH"
 
-if [[ "${RELOAD_WINDOW_AFTER_INSTALL:-true}" == "true" ]]; then
-  if "$VSCODE_CMD" --command workbench.action.reloadWindow >/dev/null 2>&1; then
-    echo "Triggered VS Code window reload."
+if [[ "${RELOAD_WINDOW_AFTER_INSTALL:-false}" == "true" ]]; then
+  if "$VSCODE_CMD" --reuse-window --command workbench.action.reloadWindow >/dev/null 2>&1; then
+    echo "Triggered VS Code window reload (reuse-window)."
   else
     echo "Auto-reload command unavailable; run: Developer: Reload Window"
   fi
+else
+  echo "Window reload skipped (set RELOAD_WINDOW_AFTER_INSTALL=true to enable)."
 fi
