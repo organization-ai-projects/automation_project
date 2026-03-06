@@ -34,6 +34,13 @@ pnpm run vsix:watch
 
 It watches key files and repackages/reinstalls on every change.
 
+By default, reinstall also attempts to reload the VS Code window automatically.
+To disable that behavior:
+
+```bash
+RELOAD_WINDOW_AFTER_INSTALL=false pnpm run vsix:reinstall
+```
+
 ## Settings
 
 - `repoContractEnforcer.mode`: `auto` | `strict` | `relaxed`
