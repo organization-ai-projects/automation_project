@@ -1334,6 +1334,13 @@ function activate(context) {
   };
 
   const runCmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
+  const focusDiagnosticsViewCmd = vscode.commands.registerCommand(
+    'repoContractEnforcer.focusDiagnosticsView',
+    async () => {
+      await vscode.commands.executeCommand('workbench.view.explorer');
+      await vscode.commands.executeCommand('repoContractEnforcerDiagnostics.focus');
+    },
+  );
   const openDiagnosticLocationCmd = vscode.commands.registerCommand(
     'repoContractEnforcer.openDiagnosticLocation',
     (uri, startLine, startCol, endLine, endCol) => {
@@ -1484,6 +1491,7 @@ function activate(context) {
     statusBar,
     outputChannel,
     runCmd,
+    focusDiagnosticsViewCmd,
     openDiagnosticLocationCmd,
     exportDiagnosticsJsonCmd,
     copyDiagnosticsSummaryCmd,
