@@ -1517,7 +1517,11 @@ module.exports = {
     clampDebounceMs,
     clampRunTimeoutMs,
     clampRunHistorySize,
+    clampTreeRefreshDebounceMs,
     globToRegExp,
     parseReport,
+    compareDiagnosticsEntries,
+    collectDiagnosticsSnapshot,
+    buildDiagnosticsSummaryText,
   },
 };
