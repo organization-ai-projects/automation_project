@@ -7,5 +7,5 @@
 PR_COMPARE_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 
 source "${PR_COMPARE_DIR}/local_git.sh"
-source "${PR_COMPARE_DIR}/github_compare.sh"
+source "${PR_COMPARE_DIR}/api.sh"
 source "${PR_COMPARE_DIR}/commits.sh"
