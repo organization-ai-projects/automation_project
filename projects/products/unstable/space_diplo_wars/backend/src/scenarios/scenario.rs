@@ -18,6 +18,9 @@ use crate::model::sim_state::SimState;
 use crate::orders::order::Order;
 use crate::orders::order_id::OrderId;
 use crate::orders::order_kind::OrderKind;
+use crate::queues::build_queue::BuildQueue;
+use crate::queues::queue_id::QueueId;
+use crate::queues::research_queue::ResearchQueue;
 use crate::scenarios::checkpoint::Checkpoint;
 use crate::scenarios::scenario_empire::ScenarioEmpire;
 use crate::scenarios::scenario_fleet::ScenarioFleet;
@@ -71,14 +74,35 @@ impl Scenario {
                 let rk = parse_resource_kind(k);
                 wallet.add(rk, *v);
             }
+            let mut tech_tree = TechTree::new();
+            for (k, level) in &se.tech_levels {
+                let tech_kind = parse_tech_kind(k);
+                for _ in 0..*level {
+                    tech_tree.advance(tech_kind);
+                }
+            }
             let empire = Empire {
                 id: EmpireId(se.id.clone()),
                 name: se.name.clone(),
                 home_system: se.home_system.clone(),
                 resources: wallet,
-                tech_tree: TechTree::new(),
+                tech_tree,
             };
             state.empires.insert(EmpireId(se.id.clone()), empire);
+            state.build_queues.insert(
+                EmpireId(se.id.clone()),
+                BuildQueue {
+                    id: Some(QueueId(format!("build_{}", se.id))),
+                    items: Vec::new(),
+                },
+            );
+            state.research_queues.insert(
+                EmpireId(se.id.clone()),
+                ResearchQueue {
+                    id: Some(QueueId(format!("research_{}", se.id))),
+                    items: Vec::new(),
+                },
+            );
         }
 
         // Build fleets
@@ -152,5 +176,16 @@ fn parse_order_kind(s: &str) -> OrderKind {
         "Embargo" => OrderKind::Embargo,
         "Invest" => OrderKind::Invest,
         _ => OrderKind::Invest,
+    }
+}
+
+fn parse_tech_kind(s: &str) -> crate::tech::tech_kind::TechKind {
+    match s {
+        "ShipDrive" => crate::tech::tech_kind::TechKind::ShipDrive,
+        "Weapons" => crate::tech::tech_kind::TechKind::Weapons,
+        "Shields" => crate::tech::tech_kind::TechKind::Shields,
+        "Economics" => crate::tech::tech_kind::TechKind::Economics,
+        "Diplomacy" => crate::tech::tech_kind::TechKind::Diplomacy,
+        _ => crate::tech::tech_kind::TechKind::Economics,
     }
 }

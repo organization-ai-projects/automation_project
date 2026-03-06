@@ -24,6 +24,8 @@ mod war;
 use std::path::PathBuf;
 use std::process;
 
+use crate::ai::ai_engine::AiEngine;
+use crate::ai::ai_profile::AiProfile;
 use crate::config::game_config::GameConfig;
 use crate::diagnostics::error::SpaceDiploWarsError;
 use crate::economy::economy_engine::EconomyEngine;
@@ -316,7 +318,16 @@ fn execute_run(
         }
 
         state.current_phase = Phase::OrdersSubmit;
-        let orders = scenario.orders_for_turn(turn);
+        let mut orders = scenario.orders_for_turn(turn);
+        if orders.is_empty() {
+            let mut empire_ids: Vec<_> = state.empires.keys().cloned().collect();
+            empire_ids.sort_by(|a, b| a.0.cmp(&b.0));
+            for empire_id in empire_ids {
+                let ai_orders =
+                    AiEngine::generate_orders(&empire_id, &AiProfile::default(), &state, turn);
+                orders.extend(ai_orders);
+            }
+        }
         replay_file.orders_per_turn.insert(
             turn.to_string(),
             OrderSet {
