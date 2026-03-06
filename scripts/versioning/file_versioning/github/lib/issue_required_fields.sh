@@ -128,11 +128,18 @@ issue_validate_title() {
   local title="${1:-}"
   local labels_raw="${2:-}"
   local profile
-  local regex_key
-  local regex
 
   issue_contract_load || return 1
   profile="$(issue_contract_profile_for_labels "$labels_raw")"
+  issue_validate_title_with_profile "$title" "$profile"
+}
+
+issue_validate_title_with_profile() {
+  local title="${1:-}"
+  local profile="${2:-default}"
+  local regex_key
+  local regex
+
   regex_key="$(issue_contract_key_for_profile "$profile" "TITLE_REGEX")"
   regex="$(issue_contract_get "$regex_key")"
   if [[ -z "$regex" ]]; then
@@ -148,6 +155,15 @@ issue_validate_body() {
   local body="${1:-}"
   local labels_raw="${2:-}"
   local profile
+  
+  issue_contract_load || return 1
+  profile="$(issue_contract_profile_for_labels "$labels_raw")"
+  issue_validate_body_with_profile "$body" "$profile"
+}
+
+issue_validate_body_with_profile() {
+  local body="${1:-}"
+  local profile="${2:-default}"
   local sections_key
   local fields_key
   local required_sections
@@ -159,8 +175,6 @@ issue_validate_body() {
   local field_help
   local field_value
 
-  issue_contract_load || return 1
-  profile="$(issue_contract_profile_for_labels "$labels_raw")"
   sections_key="$(issue_contract_key_for_profile "$profile" "REQUIRED_SECTIONS")"
   fields_key="$(issue_contract_key_for_profile "$profile" "REQUIRED_FIELDS")"
   required_sections="$(issue_contract_get "$sections_key")"
@@ -198,8 +212,12 @@ issue_validate_content() {
   local title="${1:-}"
   local body="${2:-}"
   local labels_raw="${3:-}"
-  issue_validate_title "$title" "$labels_raw"
-  issue_validate_body "$body" "$labels_raw"
+  local profile
+
+  issue_contract_load || return 1
+  profile="$(issue_contract_profile_for_labels "$labels_raw")"
+  issue_validate_title_with_profile "$title" "$profile"
+  issue_validate_body_with_profile "$body" "$profile"
 }
 
 issue_first_validation_reason() {
