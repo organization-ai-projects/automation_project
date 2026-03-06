@@ -4,6 +4,64 @@
 
 # Issue directive and decision resolution helpers.
 
+pr_issue_clear_tracking_for() {
+  local issue_key="$1"
+  unset "seen_issue[$issue_key]"
+  unset "issue_action[$issue_key]"
+  unset "seen_reopen_issue[$issue_key]"
+  unset "reopen_issue_category[$issue_key]"
+}
+
+pr_issue_resolve_to_reopen() {
+  local issue_key="$1"
+  local category="$2"
+  local force_category="${3:-false}"
+
+  issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
+  issue_directive_final_action["$issue_key"]="reopen"
+  if [[ "$force_category" == "true" ]]; then
+    issue_category["$issue_key"]="$category"
+  elif [[ -z "${issue_category[$issue_key]:-}" ]]; then
+    issue_category["$issue_key"]="$category"
+  fi
+  pr_issue_clear_tracking_for "$issue_key"
+}
+
+pr_issue_inferred_conflict_reason_for() {
+  local issue_key="$1"
+  local inferred_decision="$2"
+
+  [[ "$allow_inferred_directive_conflicts" != "true" ]] && return
+  if [[ -z "$inferred_decision" || "$inferred_decision" == "conflict" ]]; then
+    echo "conflicting inferred directives"
+  fi
+}
+
+pr_issue_should_skip_close_action() {
+  local issue_key="$1"
+  local issue_number="$2"
+  local issue_labels_raw="$3"
+  local action="$4"
+  local is_pr_ref
+  local non_compliance_reason
+
+  [[ "$action" != "Closes" ]] && return 1
+
+  is_pr_ref="$(pr_is_pull_request_ref "$issue_number")"
+  if [[ "$is_pr_ref" == "true" ]]; then
+    return 0
+  fi
+
+  non_compliance_reason="$(pr_issue_non_compliance_reason_for "$issue_number" "$issue_labels_raw")"
+  if [[ -n "$non_compliance_reason" ]]; then
+    issue_non_compliance_skip["$issue_key"]="$non_compliance_reason"
+    issue_non_compliance_action["$issue_key"]="$action"
+    return 0
+  fi
+
+  return 1
+}
+
 pr_mark_directive_decisions_from_text() {
   local text="$1"
   while IFS='|' read -r issue_key decision; do
@@ -45,30 +103,18 @@ pr_add_issue_entry() {
   local default_category="$3"
   local issue_key issue_number issue_labels_raw title_category effective_category effective_decision inferred_decision=""
   local inferred_conflict_reason=""
-  local is_pr_ref
-  local non_compliance_reason
 
   issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
   [[ -z "$issue_key" ]] && return
   issue_number="${issue_key//#/}"
 
   if [[ "$action" == "Closes" && -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
-    issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
-    issue_directive_final_action["$issue_key"]="reopen"
-    issue_category["$issue_key"]="${reopen_issue_category[$issue_key]:-$default_category}"
-    unset "seen_issue[$issue_key]"
-    unset "issue_action[$issue_key]"
-    unset "seen_reopen_issue[$issue_key]"
-    unset "reopen_issue_category[$issue_key]"
+    pr_issue_resolve_to_reopen "$issue_key" "${reopen_issue_category[$issue_key]:-$default_category}" "true"
     return
   fi
 
-  if [[ "$allow_inferred_directive_conflicts" == "true" ]]; then
-    inferred_decision="${issue_inferred_decision[$issue_key]:-}"
-    if [[ -z "$inferred_decision" || "$inferred_decision" == "conflict" ]]; then
-      inferred_conflict_reason="conflicting inferred directives"
-    fi
-  fi
+  inferred_decision="${issue_inferred_decision[$issue_key]:-}"
+  inferred_conflict_reason="$(pr_issue_inferred_conflict_reason_for "$issue_key" "$inferred_decision")"
 
   if [[ -z "$inferred_conflict_reason" ]]; then
     effective_decision="${issue_directive_decision[$issue_key]:-$inferred_decision}"
@@ -77,15 +123,7 @@ pr_add_issue_entry() {
         return
       fi
     elif [[ "$effective_decision" == "reopen" ]]; then
-      issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
-      issue_directive_final_action["$issue_key"]="reopen"
-      if [[ -z "${issue_category[$issue_key]:-}" ]]; then
-        issue_category["$issue_key"]="$default_category"
-      fi
-      unset "seen_issue[$issue_key]"
-      unset "issue_action[$issue_key]"
-      unset "seen_reopen_issue[$issue_key]"
-      unset "reopen_issue_category[$issue_key]"
+      pr_issue_resolve_to_reopen "$issue_key" "$default_category"
       return
     fi
   fi
@@ -100,18 +138,8 @@ pr_add_issue_entry() {
   title_category="$(pr_issue_title_category "$issue_number")"
   effective_category="$(pr_resolve_effective_category "$default_category" "$issue_labels_raw" "$title_category")"
 
-  if [[ "$action" == "Closes" ]]; then
-    is_pr_ref="$(pr_is_pull_request_ref "$issue_number")"
-    if [[ "$is_pr_ref" == "true" ]]; then
-      return
-    fi
-
-    non_compliance_reason="$(pr_issue_non_compliance_reason_for "$issue_number" "$issue_labels_raw")"
-    if [[ -n "$non_compliance_reason" ]]; then
-      issue_non_compliance_skip["$issue_key"]="$non_compliance_reason"
-      issue_non_compliance_action["$issue_key"]="$action"
-      return
-    fi
+  if pr_issue_should_skip_close_action "$issue_key" "$issue_number" "$issue_labels_raw" "$action"; then
+    return
   fi
 
   if [[ "$action" == "Reopen" ]]; then
