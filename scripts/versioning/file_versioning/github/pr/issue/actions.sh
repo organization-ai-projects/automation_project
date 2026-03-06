@@ -54,12 +54,12 @@ pr_process_duplicate_mode() {
       comment_body="Duplicate of ${canonical_issue_key}"
     fi
 
-    gh api "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}/comments" \
+    pr_repo_api_call "$repo_name_with_owner" "issues/${duplicate_issue_number}/comments" \
       --raw-field body="${comment_body}" >/dev/null
     echo "Duplicate mode (${duplicate_mode}): commented on ${duplicate_issue_key} (target ${canonical_issue_key})."
 
     if [[ "$duplicate_mode" == "auto-close" && "$auto_close_allowed" == "true" ]]; then
-      gh api -X PATCH "repos/${repo_name_with_owner}/issues/${duplicate_issue_number}" \
+      pr_repo_api_call "$repo_name_with_owner" "issues/${duplicate_issue_number}" -X PATCH \
         -f state="closed" -f state_reason="not_planned" >/dev/null
       echo "Duplicate mode (${duplicate_mode}): closed ${duplicate_issue_key}."
     elif [[ "$duplicate_mode" == "auto-close" ]]; then

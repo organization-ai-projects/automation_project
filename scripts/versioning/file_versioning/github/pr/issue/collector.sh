@@ -126,7 +126,7 @@ pr_is_pull_request_ref() {
     return
   fi
 
-  if gh api "repos/${repo_name_with_owner}/pulls/${issue_number}" >/dev/null 2>&1; then
+  if pr_repo_api_call "$repo_name_with_owner" "pulls/${issue_number}" >/dev/null 2>&1; then
     pr_ref_cache["$cache_key"]="1"
     echo "true"
   else

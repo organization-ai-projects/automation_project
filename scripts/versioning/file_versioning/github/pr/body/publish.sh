@@ -91,7 +91,7 @@ pr_body_handle_auto_edit_pr() {
       return
     fi
 
-    gh api -X PATCH "repos/${repo_name_with_owner}/pulls/${auto_edit_pr_number}" \
+    pr_repo_api_call "$repo_name_with_owner" "pulls/${auto_edit_pr_number}" -X PATCH \
       --raw-field body="$body_content" >/dev/null
     echo "PR updated: #${auto_edit_pr_number}"
   else

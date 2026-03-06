@@ -7,5 +7,5 @@
 PR_COMMON_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 
 source "${PR_COMMON_DIR}/crate_path.sh"
+source "${PR_COMMON_DIR}/gh_repo.sh"
 source "${PR_COMMON_DIR}/markdown_sections.sh"
-

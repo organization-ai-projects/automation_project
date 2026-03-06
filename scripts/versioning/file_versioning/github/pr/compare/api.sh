@@ -24,10 +24,10 @@ pr_compare_api_call() {
   local err_file="${4:-}"
 
   if [[ -n "$err_file" ]]; then
-    gh api "repos/${repo_name_with_owner}/compare/${compare_range}" --jq "$jq_filter" 2>"$err_file" || true
+    pr_repo_api_call "$repo_name_with_owner" "compare/${compare_range}" --jq "$jq_filter" 2>"$err_file" || true
     return
   fi
-  gh api "repos/${repo_name_with_owner}/compare/${compare_range}" --jq "$jq_filter" 2>/dev/null || true
+  pr_repo_api_call "$repo_name_with_owner" "compare/${compare_range}" --jq "$jq_filter" 2>/dev/null || true
 }
 
 pr_compare_api_commit_messages() {
