@@ -190,8 +190,7 @@ Troubleshooting:
 
 ## Internal Module Breakdown
 
-- CLI/options: `pr/cli.sh`
-- arg parsing/validation: `pr/args.sh`
+- CLI/options + arg parsing/validation: `pr/cli/module.sh` (`help.sh`, `args.sh`)
 - extraction/classification: `pr/extraction/module.sh` (`dry.sh`, `github.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
 - pipeline orchestration: `pr/pipeline/module.sh` (`init.sh`, `collect.sh`, `render.sh`)
 - runtime/gh helpers: `pr/runtime/module.sh` (`logging.sh`, `git.sh`, `state.sh`)
