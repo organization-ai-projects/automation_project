@@ -51,6 +51,14 @@
         "title": "Repo Contract Enforcer: Open Rule Documentation"
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "repoContractEnforcerDiagnostics",
+          "name": "Repo Contract Diagnostics"
+        }
+      ]
+    },
     "configuration": {
       "title": "Repo Contract Enforcer",
       "properties": {
