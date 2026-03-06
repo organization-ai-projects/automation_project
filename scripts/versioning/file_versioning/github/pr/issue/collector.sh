@@ -27,7 +27,7 @@ pr_resolve_effective_category() {
 
 pr_issue_labels() {
   local issue_number="$1"
-  local repo_name_with_owner
+  local issue_json
 
   if [[ "$has_gh" != "true" ]]; then
     pr_debug_log "issue_labels(#${issue_number}): gh unavailable, fallback empty labels."
@@ -35,20 +35,14 @@ pr_issue_labels() {
     return
   fi
 
-  repo_name_with_owner="$(pr_get_repo_name_with_owner)"
-
-  if [[ -n "$repo_name_with_owner" ]]; then
-    gh issue view "$issue_number" -R "$repo_name_with_owner" --json labels \
-      -q '.labels | map(.name) | join("||")' 2>/dev/null || true
-    return
-  fi
-
-  gh issue view "$issue_number" --json labels \
-    -q '.labels | map(.name) | join("||")' 2>/dev/null || true
+  issue_json="$(pr_issue_view_full_json "$issue_number")"
+  [[ -z "$issue_json" ]] && { echo ""; return; }
+  echo "$issue_json" | jq -r '.labels // [] | map(.name) | join("||")'
 }
 
 pr_issue_title_category() {
   local issue_number="$1"
+  local issue_json
   local issue_title
 
   if [[ "$has_gh" != "true" ]]; then
@@ -56,7 +50,13 @@ pr_issue_title_category() {
     return
   fi
 
-  issue_title="$(gh issue view "$issue_number" --json title -q '.title // ""' 2>/dev/null || true)"
+  issue_json="$(pr_issue_view_full_json "$issue_number")"
+  if [[ -z "$issue_json" ]]; then
+    echo "Unknown"
+    return
+  fi
+
+  issue_title="$(echo "$issue_json" | jq -r '.title // ""')"
   if [[ -z "$issue_title" ]]; then
     echo "Unknown"
     return
@@ -85,7 +85,7 @@ pr_issue_non_compliance_reason_for() {
     return
   fi
 
-  issue_json="$(gh issue view "$issue_number" --json title,body 2>/dev/null || true)"
+  issue_json="$(pr_issue_view_full_json "$issue_number")"
   if [[ -z "$issue_json" ]]; then
     issue_non_compliance_reason_cache["$issue_key"]=""
     echo ""
