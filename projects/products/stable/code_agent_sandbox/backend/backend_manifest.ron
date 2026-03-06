@@ -1,0 +1,9 @@
+(
+  schema_version: 1,
+  id: "code_agent_sandbox_backend",
+  title: "Code Agent Sandbox Backend",
+  entrypoint: "code_agent_sandbox_backend",
+  kind: "backend_service",
+  transport: "stdio_cli",
+  version: "0.1.0",
+)
