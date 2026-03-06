@@ -8,12 +8,8 @@ const DEBOUNCE_MIN_MS = 50;
 const DEBOUNCE_MAX_MS = 5000;
 const DEFAULT_DEBOUNCE_MS = 300;
 
-let extensionRuntime = undefined;
-
 function toSeverity(value) {
-  return value === 'ERROR'
-    ? vscode.DiagnosticSeverity.Error
-    : vscode.DiagnosticSeverity.Warning;
+  return value === 'ERROR' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning;
 }
 
 function toUri(workspaceRoot, rawPath) {
@@ -28,7 +24,7 @@ function toUri(workspaceRoot, rawPath) {
 
 function buildDiagnostic(violation) {
   const line = Math.max((violation.line || 1) - 1, 0);
-  const range = new vscode.Range(line, 0, line, 200);
+  const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
   const msg = `${violation.message} [${violation.rule_id}/${violation.violation_code}]`;
   const diag = new vscode.Diagnostic(range, msg, toSeverity(violation.severity));
   diag.source = DIAGNOSTIC_SOURCE;
@@ -65,21 +61,33 @@ function parseReport(stdout) {
     }
   }
 
+  let fallbackReport = undefined;
   for (let i = parsed.length - 1; i >= 0; i -= 1) {
     const obj = parsed[i];
     if (obj && obj.type === 'report' && obj.report_json && typeof obj.report_json === 'object') {
       return obj.report_json;
     }
-  }
-
-  for (let i = parsed.length - 1; i >= 0; i -= 1) {
-    const obj = parsed[i];
     if (obj && Array.isArray(obj.violations)) {
-      return obj;
+      fallbackReport = obj;
     }
   }
 
-  return undefined;
+  return fallbackReport;
+}
+
+function getConfigValue(key, defaultValue) {
+  const cfg = vscode.workspace.getConfiguration('repoContractEnforcer');
+  return cfg.get(key, defaultValue);
+}
+
+function disposeRuntime(runtime) {
+  if (runtime.debounceTimer) {
+    clearTimeout(runtime.debounceTimer);
+    runtime.debounceTimer = undefined;
+  }
+  if (runtime.currentChild && !runtime.currentChild.killed) {
+    runtime.currentChild.kill();
+  }
 }
 
 function updateStatus(runtime, text) {
@@ -98,9 +106,8 @@ function runEnforcer(runtime, reason) {
     return;
   }
 
-  const cfg = vscode.workspace.getConfiguration('repoContractEnforcer');
-  const mode = cfg.get('mode', 'auto');
-  const cmd = cfg.get('command', 'cargo');
+  const mode = getConfigValue('mode', 'auto');
+  const cmd = getConfigValue('command', 'cargo');
   const runId = ++runtime.runSeq;
 
   if (runtime.currentChild && !runtime.currentChild.killed) {
@@ -127,7 +134,10 @@ function runEnforcer(runtime, reason) {
     }
     clearDiagnostics(runtime);
     updateStatus(runtime, 'backend spawn failed');
-    vscode.window.setStatusBarMessage(`${STATUS_PREFIX}: backend spawn failed (${String(err?.message || 'unknown error')})`, 5000);
+    vscode.window.setStatusBarMessage(
+      `${STATUS_PREFIX}: backend spawn failed (${String(err?.message || 'unknown error')})`,
+      5000,
+    );
   });
 
   child.on('close', (code, signal) => {
@@ -136,8 +146,8 @@ function runEnforcer(runtime, reason) {
     }
     runtime.currentChild = undefined;
 
-    if (signal === 'SIGTERM') {
-      updateStatus(runtime, 'superseded by newer check');
+    if (signal !== null) {
+      updateStatus(runtime, 'check interrupted');
       return;
     }
 
@@ -158,9 +168,10 @@ function runEnforcer(runtime, reason) {
       if (!uri) {
         continue;
       }
-      const list = byFile.get(uri.toString()) || { uri, diagnostics: [] };
+      const key = uri.toString();
+      const list = byFile.get(key) || { uri, diagnostics: [] };
       list.diagnostics.push(buildDiagnostic(v));
-      byFile.set(uri.toString(), list);
+      byFile.set(key, list);
     }
 
     runtime.collection.clear();
@@ -177,7 +188,7 @@ function runEnforcer(runtime, reason) {
     id: `vscode-${runId}`,
     type: 'checkRepo',
     root_path: folder.uri.fsPath,
-    mode
+    mode,
   };
   const shutdown = { id: 'vscode-shutdown', type: 'shutdown' };
   child.stdin.write(JSON.stringify(request) + '\n');
@@ -195,14 +206,12 @@ function activate(context) {
     statusBar,
     currentChild: undefined,
     runSeq: 0,
-    debounceTimer: undefined
+    debounceTimer: undefined,
   };
-  extensionRuntime = runtime;
 
   const triggerNow = (reason) => runEnforcer(runtime, reason);
   const triggerDebounced = (reason) => {
-    const cfg = vscode.workspace.getConfiguration('repoContractEnforcer');
-    const debounceMs = clampDebounceMs(cfg.get('debounceMs', DEFAULT_DEBOUNCE_MS));
+    const debounceMs = clampDebounceMs(getConfigValue('debounceMs', DEFAULT_DEBOUNCE_MS));
     if (runtime.debounceTimer) {
       clearTimeout(runtime.debounceTimer);
     }
@@ -212,22 +221,20 @@ function activate(context) {
     }, debounceMs);
   };
 
-  context.subscriptions.push(collection, statusBar);
+  context.subscriptions.push(collection, statusBar, { dispose: () => disposeRuntime(runtime) });
 
   const cmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
   context.subscriptions.push(cmd);
 
   const saveSub = vscode.workspace.onDidSaveTextDocument((doc) => {
-    const cfg = vscode.workspace.getConfiguration('repoContractEnforcer');
-    if (!cfg.get('runOnSave', true) || !isRelevantDocument(doc)) {
+    if (!getConfigValue('runOnSave', true) || !isRelevantDocument(doc)) {
       return;
     }
     triggerNow('save');
   });
 
   const changeSub = vscode.workspace.onDidChangeTextDocument((evt) => {
-    const cfg = vscode.workspace.getConfiguration('repoContractEnforcer');
-    if (!cfg.get('runOnChange', true) || !isRelevantDocument(evt.document)) {
+    if (!getConfigValue('runOnChange', true) || !isRelevantDocument(evt.document)) {
       return;
     }
     if (!evt.contentChanges || evt.contentChanges.length === 0) {
@@ -238,8 +245,7 @@ function activate(context) {
 
   const watchFs = vscode.workspace.createFileSystemWatcher('**/*.{rs,toml}');
   const fsChanged = () => {
-    const cfg = vscode.workspace.getConfiguration('repoContractEnforcer');
-    if (!cfg.get('runOnFileEvents', true)) {
+    if (!getConfigValue('runOnFileEvents', true)) {
       return;
     }
     triggerDebounced('file event');
@@ -249,8 +255,7 @@ function activate(context) {
   watchFs.onDidDelete(fsChanged);
 
   const renameSub = vscode.workspace.onDidRenameFiles(() => {
-    const cfg = vscode.workspace.getConfiguration('repoContractEnforcer');
-    if (!cfg.get('runOnFileEvents', true)) {
+    if (!getConfigValue('runOnFileEvents', true)) {
       return;
     }
     triggerDebounced('rename');
@@ -270,16 +275,7 @@ function activate(context) {
 }
 
 function deactivate() {
-  if (!extensionRuntime) {
-    return;
-  }
-  if (extensionRuntime.debounceTimer) {
-    clearTimeout(extensionRuntime.debounceTimer);
-    extensionRuntime.debounceTimer = undefined;
-  }
-  if (extensionRuntime.currentChild && !extensionRuntime.currentChild.killed) {
-    extensionRuntime.currentChild.kill();
-  }
+  // Runtime cleanup is handled by the context subscription disposable.
 }
 
 module.exports = {
@@ -288,6 +284,6 @@ module.exports = {
   __test: {
     isRelevantDocument,
     clampDebounceMs,
-    parseReport
-  }
+    parseReport,
+  },
 };
