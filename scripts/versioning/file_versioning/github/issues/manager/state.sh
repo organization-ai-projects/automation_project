@@ -1,5 +1,46 @@
 #!/usr/bin/env bash
 
+manager_parse_issue_repo_args() {
+  local command_name="$1"
+  local issue_var_name="$2"
+  local repo_var_name="$3"
+  shift 3
+
+  local -n issue_ref="$issue_var_name"
+  local -n repo_ref="$repo_var_name"
+
+  issue_ref=""
+  repo_ref=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --issue)
+      issue_ref="${2:-}"
+      shift 2
+      ;;
+    --repo)
+      repo_ref="${2:-}"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      die_usage "Unknown option for ${command_name}: $1"
+      ;;
+    esac
+  done
+}
+
+manager_append_repo_arg() {
+  local -n cmd_ref="$1"
+  local repo="$2"
+  if [[ -n "$repo" ]]; then
+    cmd_ref+=(-R "$repo")
+  fi
+}
+
 cmd_close() {
   local issue_number=""
   local repo=""
@@ -35,9 +76,7 @@ cmd_close() {
   fi
 
   local -a cmd=(gh issue close "$issue_number" --reason "$reason")
-  if [[ -n "$repo" ]]; then
-    cmd+=(-R "$repo")
-  fi
+  manager_append_repo_arg cmd "$repo"
   "${cmd[@]}" >/dev/null
   echo "Issue #${issue_number} closed (reason: ${reason})."
 }
@@ -46,31 +85,11 @@ cmd_reopen() {
   local issue_number=""
   local repo=""
 
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-    --issue)
-      issue_number="${2:-}"
-      shift 2
-      ;;
-    --repo)
-      repo="${2:-}"
-      shift 2
-      ;;
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    *)
-      die_usage "Unknown option for reopen: $1"
-      ;;
-    esac
-  done
+  manager_parse_issue_repo_args "reopen" issue_number repo "$@"
 
   ensure_number "--issue" "$issue_number"
   local -a cmd=(gh issue reopen "$issue_number")
-  if [[ -n "$repo" ]]; then
-    cmd+=(-R "$repo")
-  fi
+  manager_append_repo_arg cmd "$repo"
   "${cmd[@]}" >/dev/null
   echo "Issue #${issue_number} reopened."
 }
@@ -79,31 +98,11 @@ cmd_delete() {
   local issue_number=""
   local repo=""
 
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-    --issue)
-      issue_number="${2:-}"
-      shift 2
-      ;;
-    --repo)
-      repo="${2:-}"
-      shift 2
-      ;;
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    *)
-      die_usage "Unknown option for delete: $1"
-      ;;
-    esac
-  done
+  manager_parse_issue_repo_args "delete" issue_number repo "$@"
 
   ensure_number "--issue" "$issue_number"
   local -a cmd=(gh issue close "$issue_number" --reason not_planned)
-  if [[ -n "$repo" ]]; then
-    cmd+=(-R "$repo")
-  fi
+  manager_append_repo_arg cmd "$repo"
   "${cmd[@]}" >/dev/null
   echo "Issue #${issue_number} soft-deleted (closed with reason: not_planned)."
 }
