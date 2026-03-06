@@ -3,6 +3,7 @@
   "displayName": "Repo Contract Enforcer Diagnostics",
   "description": "Inline diagnostics from repo_contract_enforcer rules (team patterns).",
   "version": "0.0.1",
+  "license": "MIT",
   "publisher": "local",
   "engines": {
     "vscode": "^1.90.0"
@@ -17,7 +18,8 @@
   "files": [
     "extension.js",
     "package.json",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "categories": [
     "Linters"
