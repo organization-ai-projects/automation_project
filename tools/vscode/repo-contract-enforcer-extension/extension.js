@@ -287,6 +287,10 @@ function disposeRuntime(runtime) {
     clearTimeout(runtime.debounceTimer);
     runtime.debounceTimer = undefined;
   }
+  if (runtime.treeDataEmitter) {
+    runtime.treeDataEmitter.dispose();
+    runtime.treeDataEmitter = undefined;
+  }
   killActiveChildren(runtime);
   runtime.persistentSessions.clear();
 }
@@ -299,6 +303,9 @@ function updateStatus(runtime, text) {
 function clearDiagnostics(runtime) {
   runtime.collection.clear();
   setLastCount(0);
+  if (runtime.treeDataEmitter) {
+    runtime.treeDataEmitter.fire(undefined);
+  }
 }
 
 function setLastCount(value) {
@@ -693,6 +700,109 @@ function buildDiagnosticHover(meta) {
   return new vscode.Hover(md);
 }
 
+function severityLabelFromDiagnostic(diag) {
+  if (!diag) {
+    return 'unknown';
+  }
+  if (diag.severity === vscode.DiagnosticSeverity.Error) {
+    return 'error';
+  }
+  if (diag.severity === vscode.DiagnosticSeverity.Warning) {
+    return 'warning';
+  }
+  if (diag.severity === vscode.DiagnosticSeverity.Information) {
+    return 'info';
+  }
+  if (diag.severity === vscode.DiagnosticSeverity.Hint) {
+    return 'hint';
+  }
+  return 'unknown';
+}
+
+function severityIconFromDiagnostic(diag) {
+  if (!diag) {
+    return 'info';
+  }
+  if (diag.severity === vscode.DiagnosticSeverity.Error) {
+    return 'error';
+  }
+  if (diag.severity === vscode.DiagnosticSeverity.Warning) {
+    return 'warning';
+  }
+  if (diag.severity === vscode.DiagnosticSeverity.Information) {
+    return 'info';
+  }
+  if (diag.severity === vscode.DiagnosticSeverity.Hint) {
+    return 'lightbulb';
+  }
+  return 'info';
+}
+
+function diagnosticsTreeFileItem(uri, diagnostics) {
+  const errors = diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error).length;
+  const warnings = diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Warning).length;
+  const label = vscode.workspace.asRelativePath(uri, false);
+  const fileItem = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
+  fileItem.contextValue = 'repoContractEnforcer.file';
+  fileItem.iconPath = new vscode.ThemeIcon('file');
+  fileItem.description = `${diagnostics.length} issues`;
+  fileItem.tooltip = `${label}\n${errors} error(s), ${warnings} warning(s)`;
+  fileItem.resourceUri = uri;
+  return fileItem;
+}
+
+function diagnosticsTreeViolationItem(uri, diag) {
+  const line = diag.range.start.line + 1;
+  const code = diag.code ? String(diag.code) : '';
+  const severity = severityLabelFromDiagnostic(diag);
+  const icon = severityIconFromDiagnostic(diag);
+  const item = new vscode.TreeItem(`L${line}: ${diag.message}`, vscode.TreeItemCollapsibleState.None);
+  item.contextValue = 'repoContractEnforcer.violation';
+  item.iconPath = new vscode.ThemeIcon(icon);
+  item.description = `${severity}${code ? ` • ${code}` : ''}`;
+  item.tooltip = `${diag.message}\n${vscode.workspace.asRelativePath(uri, false)}:${line}`;
+  item.command = {
+    command: 'vscode.open',
+    title: 'Open diagnostic location',
+    arguments: [uri, { selection: diag.range, preview: true }],
+  };
+  return item;
+}
+
+function registerDiagnosticsTreeProvider(runtime) {
+  const emitter = new vscode.EventEmitter();
+  runtime.treeDataEmitter = emitter;
+
+  const provider = {
+    getTreeItem(element) {
+      return element;
+    },
+    getChildren(element) {
+      if (!element) {
+        const roots = [];
+        for (const [uri, diagnostics] of runtime.collection) {
+          if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
+            continue;
+          }
+          roots.push(diagnosticsTreeFileItem(uri, diagnostics));
+        }
+        roots.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+        return roots;
+      }
+
+      if (element.contextValue === 'repoContractEnforcer.file' && element.resourceUri) {
+        const diagnostics = runtime.collection.get(element.resourceUri) || [];
+        return diagnostics.map((diag) => diagnosticsTreeViolationItem(element.resourceUri, diag));
+      }
+
+      return [];
+    },
+    onDidChangeTreeData: emitter.event,
+  };
+
+  return vscode.window.createTreeView('repoContractEnforcerDiagnostics', { treeDataProvider: provider });
+}
+
 async function runEnforcer(runtime, reason) {
   const strategy = String(getConfigValue('workspaceFolderStrategy', 'first'));
   const folders = resolveWorkspaceFolders(strategy);
@@ -771,6 +881,9 @@ async function runEnforcer(runtime, reason) {
   runtime.collection.clear();
   for (const { uri, diagnostics } of byFile.values()) {
     runtime.collection.set(uri, diagnostics);
+  }
+  if (runtime.treeDataEmitter) {
+    runtime.treeDataEmitter.fire(undefined);
   }
 
   setLastCount(totalViolations);
@@ -910,6 +1023,7 @@ function activate(context) {
     collection,
     statusBar,
     outputChannel,
+    treeDataEmitter: undefined,
     activeChildren: new Set(),
     persistentSessions: new Map(),
     runSeq: 0,
@@ -996,6 +1110,7 @@ function activate(context) {
 
   const codeActionProvider = registerCodeActionProvider(runtime);
   const hoverProvider = registerHoverProvider(runtime);
+  const diagnosticsTreeView = registerDiagnosticsTreeProvider(runtime);
 
   const saveSub = vscode.workspace.onDidSaveTextDocument((doc) => {
     if (!shouldTriggerForDocument('runOnSave', doc)) {
@@ -1052,6 +1167,7 @@ function activate(context) {
     openRuleDocsCmd,
     codeActionProvider,
     hoverProvider,
+    diagnosticsTreeView,
     saveSub,
     changeSub,
     watchFs,
