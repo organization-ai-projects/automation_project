@@ -198,7 +198,7 @@ Troubleshooting:
 - compare loading: `pr/pr_compare.sh`
 - issue flow resolution: `pr/issue/module.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
 - issue contract checks: `lib/issue_required_fields.sh`
-- metrics/status: `pr/pr_metrics.sh`
+- metrics/status: `pr/metrics/module.sh` (`breaking.sh`, `ci.sh`)
 - body composition/publication: `pr/body/builder.sh`, `pr/body/publish.sh` (loaded via `pr/body/module.sh`)
 - rendering helpers: `lib/rendering.sh`, `pr/pr_footprint.sh`
 - validation-only body updates: `pr/pr_validation_gate.sh`
