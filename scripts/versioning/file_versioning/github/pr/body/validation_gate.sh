@@ -2,8 +2,7 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034,SC2154
 
-
-# Validation Gate section helpers extracted from generate_pr_description.sh.
+# Validation Gate section helpers.
 
 pr_build_validation_gate_section() {
   local ci_status_with_symbol="$1"
@@ -39,3 +38,4 @@ pr_replace_validation_gate_in_body() {
   local replacement="$2"
   pr_replace_top_level_section_in_body "$original_body" "### Validation Gate" "$replacement"
 }
+
