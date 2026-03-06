@@ -102,40 +102,30 @@ pr_body_build_issue_outcomes_section() {
   echo ""
 }
 
+pr_body_emit_key_changes_group() {
+  local title="$1"
+  local source_file="$2"
+
+  [[ -s "$source_file" ]] || return 1
+
+  echo "#### ${title}"
+  echo ""
+  write_section_from_file "$source_file"
+  echo ""
+  return 0
+}
+
 pr_body_build_key_changes_section() {
   local key_changes_found=0
 
   echo "### Key Changes"
   echo ""
 
-  if [[ -s "$sync_tmp" ]]; then
-    key_changes_found=1
-    echo "#### Synchronization"
-    echo ""
-    write_section_from_file "$sync_tmp"
-    echo ""
-  fi
-  if [[ -s "$features_tmp" ]]; then
-    key_changes_found=1
-    echo "#### Features"
-    echo ""
-    write_section_from_file "$features_tmp"
-    echo ""
-  fi
-  if [[ -s "$bugs_tmp" ]]; then
-    key_changes_found=1
-    echo "#### Bug Fixes"
-    echo ""
-    write_section_from_file "$bugs_tmp"
-    echo ""
-  fi
-  if [[ -s "$refactors_tmp" ]]; then
-    key_changes_found=1
-    echo "#### Refactoring"
-    echo ""
-    write_section_from_file "$refactors_tmp"
-    echo ""
-  fi
+  pr_body_emit_key_changes_group "Synchronization" "$sync_tmp" && key_changes_found=1
+  pr_body_emit_key_changes_group "Features" "$features_tmp" && key_changes_found=1
+  pr_body_emit_key_changes_group "Bug Fixes" "$bugs_tmp" && key_changes_found=1
+  pr_body_emit_key_changes_group "Refactoring" "$refactors_tmp" && key_changes_found=1
+
   if [[ "$key_changes_found" -eq 0 ]]; then
     echo "- No significant items detected."
     echo ""
@@ -150,15 +140,20 @@ pr_body_build_key_changes_section() {
 pr_body_build_content() {
   pr_body_compute_validation_state
 
-  body_content="$({
+  body_content="$(
+    {
     pr_body_build_description_section
     pr_body_build_validation_section
     pr_body_build_issue_outcomes_section
     pr_body_build_key_changes_section
-  })"
+    }
+  )"
 }
 
 pr_body_apply_validation_only_if_needed() {
+  local current_pr_body
+  local validation_gate_section
+
   [[ "$validation_only" != "true" || -z "$auto_edit_pr_number" ]] && return
 
   # Safety: allow validation-only refresh to run even if called before full body build.
