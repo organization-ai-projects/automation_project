@@ -19,8 +19,8 @@ Module._load = function patchedLoad(request, parent, isMain) {
             return value.path;
           }
           return String(value || '');
-        }
-      }
+        },
+      },
     };
   }
   return originalLoad(request, parent, isMain);
@@ -41,7 +41,7 @@ const {
 test('parseReport returns report_json from report envelope', () => {
   const raw = [
     '{"type":"log","message":"hello"}',
-    '{"type":"report","report_json":{"violations":[{"path":"a.rs"}]}}'
+    '{"type":"report","report_json":{"violations":[{"path":"a.rs"}]}}',
   ].join('\n');
 
   const parsed = parseReport(raw);
@@ -67,14 +67,14 @@ test('parsePersistentResponseLine parses report and error envelopes', () => {
   const reportLine = JSON.stringify({
     id: 'req-1',
     type: 'report',
-    report_json: { violations: [{ path: 'a.rs' }] }
+    report_json: { violations: [{ path: 'a.rs' }] },
   });
   const errorLine = JSON.stringify({
     id: 'req-2',
     type: 'error',
     code: 'BAD',
     message: 'bad request',
-    details: 'x'
+    details: 'x',
   });
 
   const reportParsed = parsePersistentResponseLine(reportLine);
