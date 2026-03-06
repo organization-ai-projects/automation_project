@@ -90,7 +90,9 @@ jobs:
             --dry-run \
             --base "${BASE_REF}" \
             --head "${HEAD_REF}" \
-            --refresh-pr "${PR_NUMBER}" --yes
+            --refresh-pr "${PR_NUMBER}" \
+            --validation-only \
+            --yes
 
       - name: Guard PR body contract
         if: steps.ctx.outputs.skip != 'true'
@@ -103,8 +105,8 @@ jobs:
         run: |
           expected="$(mktemp)"
           current="$(mktemp)"
-          expected_norm="$(mktemp)"
-          current_norm="$(mktemp)"
+          expected_gate="$(mktemp)"
+          current_gate="$(mktemp)"
 
           bash scripts/versioning/file_versioning/github/generate_pr_description.sh \
             --dry-run \
@@ -114,15 +116,23 @@ jobs:
 
           gh pr view "${PR_NUMBER}" --json body -q '.body' > "${current}"
 
-          # Normalize volatile CI status line before comparing contract body.
-          sed -E 's/^- CI: .+$/- CI: <DYNAMIC>/' "${expected}" > "${expected_norm}"
-          sed -E 's/^- CI: .+$/- CI: <DYNAMIC>/' "${current}" > "${current_norm}"
+          extract_validation_gate() {
+            local src="$1"
+            awk '
+              /^### Validation Gate$/ { in_gate=1; print; next }
+              /^### / && in_gate { exit }
+              in_gate { print }
+            ' "${src}"
+          }
 
-          if ! diff -u "${expected_norm}" "${current_norm}" >/dev/null; then
-            echo "PR body contract mismatch after auto-sync." >&2
-            diff -u "${expected}" "${current}" || true
-            rm -f "${expected}" "${current}" "${expected_norm}" "${current_norm}"
+          extract_validation_gate "${expected}" > "${expected_gate}"
+          extract_validation_gate "${current}" > "${current_gate}"
+
+          if ! diff -u "${expected_gate}" "${current_gate}" >/dev/null; then
+            echo "Validation Gate mismatch after auto-sync." >&2
+            diff -u "${expected_gate}" "${current_gate}" || true
+            rm -f "${expected}" "${current}" "${expected_gate}" "${current_gate}"
             exit 1
           fi
 
-          rm -f "${expected}" "${current}" "${expected_norm}" "${current_norm}"
+          rm -f "${expected}" "${current}" "${expected_gate}" "${current_gate}"
