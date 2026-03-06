@@ -1,0 +1,29 @@
+(
+  schema_version: 1,
+  generated_at: 1762473600000,
+  id: "c7e2a9d4b1f36c8e5a1d4b9f2c7a3e8d",
+  name: "Code Agent Sandbox",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "d8f3b1a5c2e47d9a6b1e4c8f3a9d2b7e", title: "Code Agent Sandbox", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "sandbox",
+    "code_execution",
+  ],
+
+  domains: [
+    (id: "e9a4c2d6b3f57e1a4c8d2b7f9a3e6c1d", desc: "sandboxed execution and patch workflow"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/"],
+    config_files: ["backend/Cargo.toml", "ui/Cargo.toml"],
+  ),
+)
