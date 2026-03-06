@@ -135,6 +135,15 @@
           "default": "cargo",
           "description": "Command used to invoke cargo (or an equivalent build tool) for the backend check process"
         },
+        "repoContractEnforcer.processMode": {
+          "type": "string",
+          "enum": [
+            "spawn",
+            "persistent"
+          ],
+          "default": "spawn",
+          "description": "Execution model for backend checks: spawn a fresh process per run, or keep one persistent serve process per workspace folder"
+        },
         "repoContractEnforcer.args": {
           "type": "array",
           "items": {
