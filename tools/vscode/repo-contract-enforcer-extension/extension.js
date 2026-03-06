@@ -738,6 +738,24 @@ function severityIconFromDiagnostic(diag) {
   return 'info';
 }
 
+function getTreeGroupingMode() {
+  const raw = String(getConfigValue('treeViewGrouping', 'file')).toLowerCase();
+  return raw === 'rule' ? 'rule' : 'file';
+}
+
+function getTreeSeverityFilter() {
+  const raw = String(getConfigValue('treeViewSeverityFilter', 'all')).toLowerCase();
+  return raw === 'errors' ? 'errors' : 'all';
+}
+
+function includeDiagnosticInTree(diag) {
+  const filter = getTreeSeverityFilter();
+  if (filter === 'errors') {
+    return diag && diag.severity === vscode.DiagnosticSeverity.Error;
+  }
+  return true;
+}
+
 function diagnosticsTreeFileItem(uri, diagnostics) {
   const errors = diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error).length;
   const warnings = diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Warning).length;
@@ -751,16 +769,33 @@ function diagnosticsTreeFileItem(uri, diagnostics) {
   return fileItem;
 }
 
-function diagnosticsTreeViolationItem(uri, diag) {
+function diagnosticsTreeRuleItem(ruleId, entries) {
+  const label = ruleId || 'unknown-rule';
+  const diagnostics = entries.map((entry) => entry.diag);
+  const errors = diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error).length;
+  const warnings = diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Warning).length;
+  const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
+  item.contextValue = 'repoContractEnforcer.rule';
+  item.iconPath = new vscode.ThemeIcon('symbol-property');
+  item.description = `${entries.length} issues`;
+  item.tooltip = `${label}\n${errors} error(s), ${warnings} warning(s)`;
+  item._repoRuleId = label;
+  return item;
+}
+
+function diagnosticsTreeViolationItem(uri, diag, options = {}) {
+  const { showPathPrefix = false } = options;
   const line = diag.range.start.line + 1;
   const code = diag.code ? String(diag.code) : '';
   const severity = severityLabelFromDiagnostic(diag);
   const icon = severityIconFromDiagnostic(diag);
-  const item = new vscode.TreeItem(`L${line}: ${diag.message}`, vscode.TreeItemCollapsibleState.None);
+  const relPath = vscode.workspace.asRelativePath(uri, false);
+  const prefix = showPathPrefix ? `${relPath}:${line} ` : '';
+  const item = new vscode.TreeItem(`${prefix}L${line}: ${diag.message}`, vscode.TreeItemCollapsibleState.None);
   item.contextValue = 'repoContractEnforcer.violation';
   item.iconPath = new vscode.ThemeIcon(icon);
   item.description = `${severity}${code ? ` • ${code}` : ''}`;
-  item.tooltip = `${diag.message}\n${vscode.workspace.asRelativePath(uri, false)}:${line}`;
+  item.tooltip = `${diag.message}\n${relPath}:${line}`;
   item.command = {
     command: 'vscode.open',
     title: 'Open diagnostic location',
@@ -773,17 +808,56 @@ function registerDiagnosticsTreeProvider(runtime) {
   const emitter = new vscode.EventEmitter();
   runtime.treeDataEmitter = emitter;
 
+  const collectEntries = () => {
+    const entries = [];
+    for (const [uri, diagnostics] of runtime.collection) {
+      if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
+        continue;
+      }
+      for (const diag of diagnostics) {
+        if (!includeDiagnosticInTree(diag)) {
+          continue;
+        }
+        entries.push({ uri, diag, meta: parseRuleMeta(diag) });
+      }
+    }
+    return entries;
+  };
+
   const provider = {
     getTreeItem(element) {
       return element;
     },
     getChildren(element) {
+      const grouping = getTreeGroupingMode();
+      const entries = collectEntries();
+
       if (!element) {
-        const roots = [];
-        for (const [uri, diagnostics] of runtime.collection) {
-          if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
-            continue;
+        if (grouping === 'rule') {
+          const byRule = new Map();
+          for (const entry of entries) {
+            const ruleId = (entry.meta && entry.meta.ruleId) || 'unknown-rule';
+            const list = byRule.get(ruleId) || [];
+            list.push(entry);
+            byRule.set(ruleId, list);
           }
+          const roots = [];
+          for (const [ruleId, ruleEntries] of byRule.entries()) {
+            roots.push(diagnosticsTreeRuleItem(ruleId, ruleEntries));
+          }
+          roots.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+          return roots;
+        }
+
+        const byFile = new Map();
+        for (const entry of entries) {
+          const key = entry.uri.toString();
+          const list = byFile.get(key) || { uri: entry.uri, diagnostics: [] };
+          list.diagnostics.push(entry.diag);
+          byFile.set(key, list);
+        }
+        const roots = [];
+        for (const { uri, diagnostics } of byFile.values()) {
           roots.push(diagnosticsTreeFileItem(uri, diagnostics));
         }
         roots.sort((a, b) => String(a.label).localeCompare(String(b.label)));
@@ -791,8 +865,24 @@ function registerDiagnosticsTreeProvider(runtime) {
       }
 
       if (element.contextValue === 'repoContractEnforcer.file' && element.resourceUri) {
-        const diagnostics = runtime.collection.get(element.resourceUri) || [];
+        const diagnostics = (runtime.collection.get(element.resourceUri) || []).filter((diag) => includeDiagnosticInTree(diag));
         return diagnostics.map((diag) => diagnosticsTreeViolationItem(element.resourceUri, diag));
+      }
+
+      if (element.contextValue === 'repoContractEnforcer.rule' && element._repoRuleId) {
+        const ruleId = String(element._repoRuleId);
+        const ruleEntries = entries.filter((entry) => {
+          const currentRuleId = (entry.meta && entry.meta.ruleId) || 'unknown-rule';
+          return currentRuleId === ruleId;
+        });
+        ruleEntries.sort((a, b) => {
+          const fileCmp = vscode.workspace.asRelativePath(a.uri, false).localeCompare(vscode.workspace.asRelativePath(b.uri, false));
+          if (fileCmp !== 0) {
+            return fileCmp;
+          }
+          return a.diag.range.start.line - b.diag.range.start.line;
+        });
+        return ruleEntries.map((entry) => diagnosticsTreeViolationItem(entry.uri, entry.diag, { showPathPrefix: true }));
       }
 
       return [];
@@ -1153,6 +1243,9 @@ function activate(context) {
     }
     killActiveChildren(runtime);
     runtime.persistentSessions.clear();
+    if (runtime.treeDataEmitter) {
+      runtime.treeDataEmitter.fire(undefined);
+    }
     triggerNow('config changed');
   });
 
