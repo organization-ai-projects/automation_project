@@ -420,8 +420,7 @@ function openFirstError(runtime) {
         pathCmp < 0 ||
         (pathCmp === 0 &&
           (diag.range.start.line < bestRange.start.line ||
-            (diag.range.start.line === bestRange.start.line &&
-              diag.range.start.character < bestRange.start.character)))
+            (diag.range.start.line === bestRange.start.line && diag.range.start.character < bestRange.start.character)))
       ) {
         bestUri = uri;
         bestRange = diag.range;
@@ -450,6 +449,14 @@ function setLastCount(value) {
 function refreshDiagnosticsTree(runtime) {
   if (runtime.treeDataEmitter) {
     runtime.treeDataEmitter.fire(undefined);
+  }
+}
+
+function openDiagnosticLocation(uri, startLine, startCol, endLine, endCol) {
+  const range = new vscode.Range(startLine, startCol, endLine, endCol);
+  vscode.commands.executeCommand('vscode.open', uri, { selection: range, preview: true });
+  if (isEnabled('syncProblemsOnTreeOpen', true)) {
+    vscode.commands.executeCommand('workbench.actions.view.problems');
   }
 }
 
@@ -938,9 +945,15 @@ function diagnosticsTreeViolationItem(uri, diag, options = {}) {
   item.description = `${severity}${code ? ` • ${code}` : ''}`;
   item.tooltip = `${diag.message}\n${relPath}:${line}`;
   item.command = {
-    command: 'vscode.open',
+    command: 'repoContractEnforcer.openDiagnosticLocation',
     title: 'Open diagnostic location',
-    arguments: [uri, { selection: diag.range, preview: true }],
+    arguments: [
+      uri,
+      diag.range.start.line,
+      diag.range.start.character,
+      diag.range.end.line,
+      diag.range.end.character,
+    ],
   };
   return item;
 }
@@ -1297,6 +1310,12 @@ function activate(context) {
   };
 
   const runCmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
+  const openDiagnosticLocationCmd = vscode.commands.registerCommand(
+    'repoContractEnforcer.openDiagnosticLocation',
+    (uri, startLine, startCol, endLine, endCol) => {
+      openDiagnosticLocation(uri, startLine, startCol, endLine, endCol);
+    },
+  );
   const exportDiagnosticsJsonCmd = vscode.commands.registerCommand(
     'repoContractEnforcer.exportDiagnosticsJson',
     async () => {
@@ -1441,6 +1460,7 @@ function activate(context) {
     statusBar,
     outputChannel,
     runCmd,
+    openDiagnosticLocationCmd,
     exportDiagnosticsJsonCmd,
     copyDiagnosticsSummaryCmd,
     openFirstErrorCmd,
