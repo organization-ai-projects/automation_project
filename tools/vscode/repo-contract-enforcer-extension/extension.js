@@ -7,6 +7,9 @@ const STATUS_PREFIX = 'Repo Contract Enforcer';
 const DEBOUNCE_MIN_MS = 50;
 const DEBOUNCE_MAX_MS = 5000;
 const DEFAULT_DEBOUNCE_MS = 300;
+const RUN_TIMEOUT_MIN_MS = 1000;
+const RUN_TIMEOUT_MAX_MS = 120000;
+const DEFAULT_RUN_TIMEOUT_MS = 15000;
 
 function toSeverity(value) {
   return value === 'ERROR' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning;
@@ -24,7 +27,16 @@ function toUri(workspaceRoot, rawPath) {
 
 function buildDiagnostic(violation) {
   const line = Math.max((violation.line || 1) - 1, 0);
-  const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
+  const hasColumn = Number.isInteger(violation.col) && violation.col > 0;
+  const hasEndColumn = Number.isInteger(violation.end_col) && violation.end_col > 0;
+  const startCol = hasColumn ? Math.max(violation.col - 1, 0) : 0;
+  let endCol = Number.MAX_SAFE_INTEGER;
+  if (hasEndColumn) {
+    endCol = Math.max(violation.end_col - 1, startCol + 1);
+  } else if (hasColumn) {
+    endCol = startCol + 1;
+  }
+  const range = new vscode.Range(line, startCol, line, endCol);
   const msg = `${violation.message} [${violation.rule_id}/${violation.violation_code}]`;
   const diag = new vscode.Diagnostic(range, msg, toSeverity(violation.severity));
   diag.source = DIAGNOSTIC_SOURCE;
@@ -44,6 +56,14 @@ function clampDebounceMs(value) {
     return DEFAULT_DEBOUNCE_MS;
   }
   return Math.min(Math.max(num, DEBOUNCE_MIN_MS), DEBOUNCE_MAX_MS);
+}
+
+function clampRunTimeoutMs(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return DEFAULT_RUN_TIMEOUT_MS;
+  }
+  return Math.min(Math.max(num, RUN_TIMEOUT_MIN_MS), RUN_TIMEOUT_MAX_MS);
 }
 
 function parseReport(stdout) {
@@ -80,6 +100,30 @@ function getConfigValue(key, defaultValue) {
   return cfg.get(key, defaultValue);
 }
 
+function getCommandArgs() {
+  const configured = getConfigValue('args', []);
+  if (!Array.isArray(configured)) {
+    return ['run', '-q', '-p', 'repo_contract_enforcer_backend', '--', 'serve'];
+  }
+  const args = configured
+    .map((value) => String(value || '').trim())
+    .filter((value) => value.length > 0);
+  if (args.length === 0) {
+    return ['run', '-q', '-p', 'repo_contract_enforcer_backend', '--', 'serve'];
+  }
+  return args;
+}
+
+function logOutput(runtime, message) {
+  if (!runtime.outputChannel) {
+    return;
+  }
+  if (!getConfigValue('outputChannelEnabled', false)) {
+    return;
+  }
+  runtime.outputChannel.appendLine(message);
+}
+
 function disposeRuntime(runtime) {
   if (runtime.debounceTimer) {
     clearTimeout(runtime.debounceTimer);
@@ -108,30 +152,59 @@ function runEnforcer(runtime, reason) {
 
   const mode = getConfigValue('mode', 'auto');
   const cmd = getConfigValue('command', 'cargo');
+  const args = getCommandArgs();
+  const timeoutMs = clampRunTimeoutMs(getConfigValue('runTimeoutMs', DEFAULT_RUN_TIMEOUT_MS));
   const runId = ++runtime.runSeq;
 
   if (runtime.currentChild && !runtime.currentChild.killed) {
     runtime.currentChild.kill();
   }
 
-  const args = ['run', '-q', '-p', 'repo_contract_enforcer_backend', '--', 'serve'];
   const child = cp.spawn(cmd, args, { cwd: folder.uri.fsPath, stdio: ['pipe', 'pipe', 'pipe'] });
   runtime.currentChild = child;
   let stdout = '';
   let stderr = '';
+  let timedOut = false;
+  let timeoutHandle = undefined;
+
+  logOutput(runtime, `[run ${runId}] start (${reason})`);
+  logOutput(runtime, `[run ${runId}] cmd: ${cmd} ${args.join(' ')}`);
 
   updateStatus(runtime, `running (${reason})...`);
 
-  child.stdout.on('data', (chunk) => {
-    stdout += chunk.toString();
-  });
-  child.stderr.on('data', (chunk) => {
-    stderr += chunk.toString();
-  });
-  child.on('error', (err) => {
+  timeoutHandle = setTimeout(() => {
     if (runId !== runtime.runSeq) {
       return;
     }
+    if (runtime.currentChild && !runtime.currentChild.killed) {
+      timedOut = true;
+      runtime.currentChild.kill();
+    }
+  }, timeoutMs);
+
+  child.stdout.on('data', (chunk) => {
+    const txt = chunk.toString();
+    stdout += txt;
+    if (getConfigValue('outputChannelEnabled', false) && txt.trim().length > 0) {
+      runtime.outputChannel.appendLine(`[run ${runId}] stdout: ${txt.trimEnd()}`);
+    }
+  });
+  child.stderr.on('data', (chunk) => {
+    const txt = chunk.toString();
+    stderr += txt;
+    if (getConfigValue('outputChannelEnabled', false) && txt.trim().length > 0) {
+      runtime.outputChannel.appendLine(`[run ${runId}] stderr: ${txt.trimEnd()}`);
+    }
+  });
+  child.on('error', (err) => {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+      timeoutHandle = undefined;
+    }
+    if (runId !== runtime.runSeq) {
+      return;
+    }
+    logOutput(runtime, `[run ${runId}] spawn error: ${String(err?.message || 'unknown error')}`);
     clearDiagnostics(runtime);
     updateStatus(runtime, 'backend spawn failed');
     vscode.window.setStatusBarMessage(
@@ -141,12 +214,24 @@ function runEnforcer(runtime, reason) {
   });
 
   child.on('close', (code, signal) => {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+      timeoutHandle = undefined;
+    }
     if (runId !== runtime.runSeq) {
       return;
     }
     runtime.currentChild = undefined;
 
     if (signal !== null) {
+      if (timedOut) {
+        clearDiagnostics(runtime);
+        updateStatus(runtime, `timeout after ${timeoutMs}ms`);
+        vscode.window.setStatusBarMessage(`${STATUS_PREFIX}: check timed out after ${timeoutMs}ms`, 6000);
+        logOutput(runtime, `[run ${runId}] timeout after ${timeoutMs}ms`);
+        return;
+      }
+      logOutput(runtime, `[run ${runId}] interrupted by signal ${signal}`);
       updateStatus(runtime, 'check interrupted');
       return;
     }
@@ -157,6 +242,7 @@ function runEnforcer(runtime, reason) {
     if (!parsed) {
       clearDiagnostics(runtime);
       const errSuffix = stderr && stderr.trim().length > 0 ? `: ${stderr.trim().split(/\r?\n/).slice(-1)[0]}` : '';
+      logOutput(runtime, `[run ${runId}] invalid backend output${errSuffix}`);
       updateStatus(runtime, 'invalid backend output');
       vscode.window.setStatusBarMessage(`${STATUS_PREFIX}: invalid backend output${errSuffix}`, 6000);
       return;
@@ -181,6 +267,7 @@ function runEnforcer(runtime, reason) {
 
     vscode.commands.executeCommand('setContext', 'repoContractEnforcer.lastCount', violations.length);
     const outcome = code === 0 ? `${violations.length} issue(s)` : `${violations.length} issue(s), exit ${code}`;
+    logOutput(runtime, `[run ${runId}] completed: ${outcome}`);
     updateStatus(runtime, outcome);
   });
 
@@ -199,11 +286,13 @@ function runEnforcer(runtime, reason) {
 function activate(context) {
   const collection = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_SOURCE);
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+  const outputChannel = vscode.window.createOutputChannel('Repo Contract Enforcer');
   updateStatus({ statusBar }, 'idle');
 
   const runtime = {
     collection,
     statusBar,
+    outputChannel,
     currentChild: undefined,
     runSeq: 0,
     debounceTimer: undefined,
@@ -221,10 +310,13 @@ function activate(context) {
     }, debounceMs);
   };
 
-  context.subscriptions.push(collection, statusBar, { dispose: () => disposeRuntime(runtime) });
+  context.subscriptions.push(collection, statusBar, outputChannel, { dispose: () => disposeRuntime(runtime) });
 
   const cmd = vscode.commands.registerCommand('repoContractEnforcer.runCheck', () => triggerNow('manual'));
-  context.subscriptions.push(cmd);
+  const showOutputCmd = vscode.commands.registerCommand('repoContractEnforcer.showOutput', () => {
+    runtime.outputChannel.show(true);
+  });
+  context.subscriptions.push(cmd, showOutputCmd);
 
   const saveSub = vscode.workspace.onDidSaveTextDocument((doc) => {
     if (!getConfigValue('runOnSave', true) || !isRelevantDocument(doc)) {
@@ -284,6 +376,7 @@ module.exports = {
   __test: {
     isRelevantDocument,
     clampDebounceMs,
+    clampRunTimeoutMs,
     parseReport,
   },
 };

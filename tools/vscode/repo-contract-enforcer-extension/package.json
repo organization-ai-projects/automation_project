@@ -8,7 +8,7 @@
     "vscode": "^1.90.0"
   },
   "scripts": {
-    "vsix": "bash ./scripts/watch-reinstall.sh",
+    "vsix": "npm run vsix:pack",
     "vsix:pack": "rm -f repo-contract-enforcer-diagnostics-*.vsix && vsce package --allow-missing-repository --no-dependencies",
     "vsix:install": "bash ./scripts/reinstall-local.sh",
     "vsix:reinstall": "bash ./scripts/repack-reinstall.sh",
@@ -32,6 +32,10 @@
       {
         "command": "repoContractEnforcer.runCheck",
         "title": "Repo Contract Enforcer: Run Check"
+      },
+      {
+        "command": "repoContractEnforcer.showOutput",
+        "title": "Repo Contract Enforcer: Show Output"
       }
     ],
     "configuration": {
@@ -69,10 +73,37 @@
           "maximum": 5000,
           "description": "Debounce delay in milliseconds for edit/file-event triggered checks"
         },
+        "repoContractEnforcer.runTimeoutMs": {
+          "type": "number",
+          "default": 15000,
+          "minimum": 1000,
+          "maximum": 120000,
+          "description": "Maximum runtime for one check process before forced interruption"
+        },
         "repoContractEnforcer.command": {
           "type": "string",
           "default": "cargo",
-          "description": "Command used to invoke repo_contract_enforcer_backend"
+          "description": "Command used to invoke cargo (or an equivalent build tool) for the backend check process"
+        },
+        "repoContractEnforcer.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "run",
+            "-q",
+            "-p",
+            "repo_contract_enforcer_backend",
+            "--",
+            "serve"
+          ],
+          "description": "Arguments passed to repoContractEnforcer.command when launching the backend check process"
+        },
+        "repoContractEnforcer.outputChannelEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose stdout/stderr logging in the extension output channel"
         }
       }
     }
