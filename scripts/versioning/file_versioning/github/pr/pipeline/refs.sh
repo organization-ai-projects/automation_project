@@ -2,68 +2,11 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034,SC2154
 
-# Pipeline initialization and dependency helpers.
-
-pr_pipeline_init_artifacts_and_state() {
-  if [[ "$keep_artifacts" == "true" ]]; then
-    extracted_prs_file="extracted_prs.txt"
-    resolved_issues_file="resolved_issues.txt"
-    reopened_issues_file="reopened_issues.txt"
-    conflict_issues_file="issue_directive_conflicts.txt"
-  else
-    extracted_prs_file="$(mktemp)"
-    resolved_issues_file="$(mktemp)"
-    reopened_issues_file="$(mktemp)"
-    conflict_issues_file="$(mktemp)"
-  fi
-
-  features_tmp="$(mktemp)"
-  bugs_tmp="$(mktemp)"
-  refactors_tmp="$(mktemp)"
-  sync_tmp="$(mktemp)"
-  issues_tmp="$(mktemp)"
-  reopen_tmp="$(mktemp)"
-  conflict_tmp="$(mktemp)"
-  directive_resolution_tmp="$(mktemp)"
-
-  declare -gA pr_title_hint
-  online_enrich="false"
-  pr_enrich_failed=0
-  breaking_detected=0
-  ci_status="UNKNOWN"
-  breaking_scope_crates=""
-  breaking_scope_commits=""
-  pr_created_successfully="false"
-  dry_compare_commit_messages=""
-  dry_compare_commit_headlines=""
-}
-
-pr_pipeline_check_dependencies() {
-  local need_jq="false"
-
-  has_gh="false"
-  if command -v gh >/dev/null 2>&1; then
-    has_gh="true"
-  fi
-
-  if [[ "$has_gh" != "true" ]]; then
-    echo "Error: command 'gh' not found." >&2
-    exit "$E_DEPENDENCY"
-  fi
-
-  if [[ "$has_gh" == "true" ]]; then
-    need_jq="true"
-  fi
-  if [[ "$dry_run" == "false" || "$create_pr" == "true" ]]; then
-    need_jq="true"
-  fi
-  if [[ "$need_jq" == "true" ]] && ! command -v jq >/dev/null 2>&1; then
-    echo "Error: command 'jq' not found." >&2
-    exit "$E_DEPENDENCY"
-  fi
-}
+# Pipeline ref/mode resolution and extraction helpers.
 
 pr_pipeline_resolve_refs_and_modes() {
+  local current_branch
+
   if [[ "$dry_run" == "true" ]]; then
     if ! command -v git >/dev/null 2>&1; then
       echo "Error: command 'git' not found." >&2
@@ -129,29 +72,3 @@ pr_pipeline_extract_pr_refs() {
   fi
 }
 
-pr_pipeline_init_issue_tracking() {
-  declare -gA seen_issue
-  declare -gA issue_category
-  declare -gA issue_action
-  declare -gA issue_neutralization_reason
-  declare -gA issue_reopen_detected
-  declare -gA seen_reopen_issue
-  declare -gA reopen_issue_category
-  declare -gA issue_directive_decision
-  declare -gA issue_inferred_decision
-  declare -gA issue_directive_conflict_reason
-  declare -gA issue_directive_conflict_action
-  declare -gA issue_directive_resolution
-  declare -gA issue_directive_final_action
-  declare -gA pr_ref_cache
-  declare -gA duplicate_targets
-  declare -gA issue_non_compliance_reason_cache
-  declare -gA issue_non_compliance_skip
-  declare -gA issue_non_compliance_action
-
-  pr_count=0
-  issue_count=0
-  reopen_issue_count=0
-  directive_conflict_count=0
-  neutralized_issue_count=0
-}

@@ -6,6 +6,9 @@
 
 PR_PIPELINE_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 
-source "${PR_PIPELINE_DIR}/init.sh"
+source "${PR_PIPELINE_DIR}/artifacts.sh"
+source "${PR_PIPELINE_DIR}/deps.sh"
+source "${PR_PIPELINE_DIR}/refs.sh"
+source "${PR_PIPELINE_DIR}/tracking.sh"
 source "${PR_PIPELINE_DIR}/collect.sh"
 source "${PR_PIPELINE_DIR}/render.sh"
