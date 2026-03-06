@@ -4,8 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CREATE_DIRECT_ISSUE_SCRIPT="${MANAGER_ISSUES_CREATE_SCRIPT:-${SCRIPT_DIR}/create_direct_issue.sh}"
-# shellcheck source=scripts/versioning/file_versioning/github/lib/issue_required_fields.sh
-source "${SCRIPT_DIR}/lib/issue_required_fields.sh"
+# shellcheck source=scripts/versioning/file_versioning/github/issues/required_fields/module.sh
+source "${SCRIPT_DIR}/issues/required_fields/module.sh"
 
 usage() {
   cat <<'USAGE'
