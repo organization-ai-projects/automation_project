@@ -215,6 +215,11 @@ function getCommandArgs() {
   return args;
 }
 
+function getProcessMode() {
+  const raw = String(getConfigValue('processMode', 'spawn')).toLowerCase();
+  return raw === 'persistent' ? 'persistent' : 'spawn';
+}
+
 function getExcludeRegexes() {
   const configured = getConfigValue('excludeGlobs', DEFAULT_EXCLUDE_GLOBS);
   const globs = Array.isArray(configured) ? configured : DEFAULT_EXCLUDE_GLOBS;
@@ -283,6 +288,7 @@ function disposeRuntime(runtime) {
     runtime.debounceTimer = undefined;
   }
   killActiveChildren(runtime);
+  runtime.persistentSessions.clear();
 }
 
 function updateStatus(runtime, text) {
@@ -321,7 +327,226 @@ function resolveWorkspaceFolders(strategy) {
   return [folders[0]];
 }
 
-function executeCheckForFolder(runtime, params) {
+function extractReportPayload(obj) {
+  if (!obj || typeof obj !== 'object') {
+    return undefined;
+  }
+  if (obj.type === 'report' && obj.report_json && typeof obj.report_json === 'object') {
+    return obj.report_json;
+  }
+  if (Array.isArray(obj.violations)) {
+    return obj;
+  }
+  return undefined;
+}
+
+function makeCheckResult({
+  folder,
+  runId,
+  code = null,
+  signal = null,
+  timedOut = false,
+  stdout = '',
+  stderr = '',
+  error = null,
+  report = undefined,
+}) {
+  return {
+    folder,
+    runId,
+    code,
+    signal,
+    timedOut,
+    stdout,
+    stderr,
+    error,
+    report,
+  };
+}
+
+function removePersistentSession(runtime, folderPath) {
+  runtime.persistentSessions.delete(folderPath);
+}
+
+function setupPersistentSession(runtime, folder, cmd, args) {
+  const folderPath = folder.uri.fsPath;
+  const child = cp.spawn(cmd, args, { cwd: folderPath, stdio: ['pipe', 'pipe', 'pipe'] });
+  const session = {
+    folder,
+    child,
+    buffer: '',
+    lastStderr: '',
+    pending: new Map(),
+  };
+
+  runtime.persistentSessions.set(folderPath, session);
+  runtime.activeChildren.add(child);
+  logOutput(runtime, `[persistent] start @ ${folder.name}`);
+  logOutput(runtime, `[persistent] cmd: ${cmd} ${args.join(' ')}`);
+
+  const flushPendingWithError = (message) => {
+    for (const [requestId, entry] of session.pending.entries()) {
+      clearTimeout(entry.timeoutHandle);
+      entry.resolve(
+        makeCheckResult({
+          folder: entry.folder,
+          runId: entry.runId,
+          error: message,
+          stderr: session.lastStderr,
+        }),
+      );
+      session.pending.delete(requestId);
+    }
+  };
+
+  const resolvePendingWithPayload = (requestId, payload, rawLine) => {
+    const entry = session.pending.get(requestId);
+    if (!entry) {
+      return false;
+    }
+    clearTimeout(entry.timeoutHandle);
+    session.pending.delete(requestId);
+    entry.resolve(
+      makeCheckResult({
+        folder: entry.folder,
+        runId: entry.runId,
+        code: 0,
+        signal: null,
+        timedOut: false,
+        stdout: rawLine,
+        stderr: session.lastStderr,
+        report: payload,
+      }),
+    );
+    return true;
+  };
+
+  child.stdout.on('data', (chunk) => {
+    const txt = chunk.toString();
+    session.buffer += txt;
+    logOutput(runtime, `[persistent] stdout(${folder.name}): ${txt.trimEnd()}`);
+
+    while (true) {
+      const nl = session.buffer.indexOf('\n');
+      if (nl < 0) {
+        break;
+      }
+      const line = session.buffer.slice(0, nl).trim();
+      session.buffer = session.buffer.slice(nl + 1);
+      if (!line) {
+        continue;
+      }
+
+      let obj;
+      try {
+        obj = JSON.parse(line);
+      } catch (_err) {
+        continue;
+      }
+
+      const payload = extractReportPayload(obj);
+      if (!payload || session.pending.size === 0) {
+        continue;
+      }
+
+      const responseId = typeof obj.id === 'string' ? obj.id : '';
+      if (responseId && resolvePendingWithPayload(responseId, payload, line)) {
+        continue;
+      }
+
+      // Fallback when backend payload has no id: resolve oldest pending request.
+      const firstPendingId = session.pending.keys().next().value;
+      if (firstPendingId) {
+        resolvePendingWithPayload(firstPendingId, payload, line);
+      }
+    }
+  });
+
+  child.stderr.on('data', (chunk) => {
+    const txt = chunk.toString();
+    session.lastStderr += txt;
+    if (session.lastStderr.length > 8000) {
+      session.lastStderr = session.lastStderr.slice(-8000);
+    }
+    logOutput(runtime, `[persistent] stderr(${folder.name}): ${txt.trimEnd()}`);
+  });
+
+  child.on('error', (err) => {
+    runtime.activeChildren.delete(child);
+    removePersistentSession(runtime, folderPath);
+    flushPendingWithError(`persistent process error (${String(err?.message || 'unknown error')})`);
+  });
+
+  child.on('close', (code, signal) => {
+    runtime.activeChildren.delete(child);
+    removePersistentSession(runtime, folderPath);
+    flushPendingWithError(`persistent process closed (code=${String(code)}, signal=${String(signal)})`);
+  });
+
+  return session;
+}
+
+function getPersistentSession(runtime, folder, cmd, args) {
+  const folderPath = folder.uri.fsPath;
+  const existing = runtime.persistentSessions.get(folderPath);
+  if (existing && existing.child && !existing.child.killed) {
+    return existing;
+  }
+  removePersistentSession(runtime, folderPath);
+  return setupPersistentSession(runtime, folder, cmd, args);
+}
+
+function executeCheckForFolderPersistent(runtime, params) {
+  const { folder, runId, mode, cmd, args, timeoutMs } = params;
+  return new Promise((resolve) => {
+    const session = getPersistentSession(runtime, folder, cmd, args);
+    const requestId = `vscode-${runId}-${folder.name}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const request = {
+      id: requestId,
+      type: 'checkRepo',
+      root_path: folder.uri.fsPath,
+      mode,
+    };
+
+    const timeoutHandle = setTimeout(() => {
+      session.pending.delete(requestId);
+      killChildProcess(session.child);
+      resolve(
+        makeCheckResult({
+          folder,
+          runId,
+          timedOut: true,
+          error: `timeout after ${timeoutMs}ms`,
+          stderr: session.lastStderr,
+        }),
+      );
+    }, timeoutMs);
+
+    session.pending.set(requestId, {
+      folder,
+      runId,
+      timeoutHandle,
+      resolve,
+    });
+
+    try {
+      session.child.stdin.write(JSON.stringify(request) + '\n');
+    } catch (err) {
+      clearTimeout(timeoutHandle);
+      session.pending.delete(requestId);
+      resolve(
+        makeCheckResult({
+          folder,
+          runId,
+          error: `request write failed (${String(err?.message || 'unknown error')})`,
+          stderr: session.lastStderr,
+        }),
+      );
+    }
+  });
+}
+
+function executeCheckForFolderSpawn(runtime, params) {
   const { folder, runId, reason, mode, cmd, args, timeoutMs } = params;
   return new Promise((resolve) => {
     const child = cp.spawn(cmd, args, { cwd: folder.uri.fsPath, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -367,29 +592,31 @@ function executeCheckForFolder(runtime, params) {
     });
     child.on('error', (err) => {
       clearTimeoutHandle();
-      settle({
-        folder,
-        runId,
-        code: null,
-        signal: null,
-        timedOut,
-        stdout,
-        stderr,
-        error: String(err?.message || 'unknown error'),
-      });
+      settle(
+        makeCheckResult({
+          folder,
+          runId,
+          timedOut,
+          stdout,
+          stderr,
+          error: String(err?.message || 'unknown error'),
+        }),
+      );
     });
     child.on('close', (code, signal) => {
       clearTimeoutHandle();
-      settle({
-        folder,
-        runId,
-        code,
-        signal,
-        timedOut,
-        stdout,
-        stderr,
-        error: null,
-      });
+      settle(
+        makeCheckResult({
+          folder,
+          runId,
+          code,
+          signal,
+          timedOut,
+          stdout,
+          stderr,
+          error: null,
+        }),
+      );
     });
 
     const request = {
@@ -403,6 +630,14 @@ function executeCheckForFolder(runtime, params) {
     child.stdin.write(JSON.stringify(shutdown) + '\n');
     child.stdin.end();
   });
+}
+
+function executeCheckForFolder(runtime, params) {
+  const processMode = getProcessMode();
+  if (processMode === 'persistent') {
+    return executeCheckForFolderPersistent(runtime, params);
+  }
+  return executeCheckForFolderSpawn(runtime, params);
 }
 
 function mergeDiagnosticsByFile(byFile, folder, violations, excludeRegexes) {
@@ -465,6 +700,7 @@ async function runEnforcer(runtime, reason) {
     return;
   }
 
+  const processMode = getProcessMode();
   const mode = getConfigValue('mode', 'auto');
   const cmd = getConfigValue('command', 'cargo');
   const args = getCommandArgs();
@@ -473,7 +709,9 @@ async function runEnforcer(runtime, reason) {
   const runId = ++runtime.runSeq;
   const startedAt = Date.now();
 
-  killActiveChildren(runtime);
+  if (processMode === 'spawn') {
+    killActiveChildren(runtime);
+  }
 
   updateStatus(runtime, `running (${reason})...`);
 
@@ -516,7 +754,7 @@ async function runEnforcer(runtime, reason) {
       continue;
     }
 
-    const parsed = parseReport(result.stdout);
+    const parsed = result.report || parseReport(result.stdout);
     if (!parsed) {
       hadError = true;
       const errSuffix =
@@ -673,6 +911,7 @@ function activate(context) {
     statusBar,
     outputChannel,
     activeChildren: new Set(),
+    persistentSessions: new Map(),
     runSeq: 0,
     debounceTimer: undefined,
     runHistory: [],
@@ -797,6 +1036,8 @@ function activate(context) {
     if (!evt.affectsConfiguration('repoContractEnforcer')) {
       return;
     }
+    killActiveChildren(runtime);
+    runtime.persistentSessions.clear();
     triggerNow('config changed');
   });
 
