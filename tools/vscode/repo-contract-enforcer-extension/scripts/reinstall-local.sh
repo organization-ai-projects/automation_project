@@ -23,4 +23,11 @@ fi
 "$VSCODE_CMD" --install-extension "$VSIX_PATH" --force
 
 echo "Installed: $VSIX_PATH"
-echo "Tip: if diagnostics don't refresh immediately, run: Developer: Reload Window"
+
+if [[ "${RELOAD_WINDOW_AFTER_INSTALL:-true}" == "true" ]]; then
+  if "$VSCODE_CMD" --command workbench.action.reloadWindow >/dev/null 2>&1; then
+    echo "Triggered VS Code window reload."
+  else
+    echo "Auto-reload command unavailable; run: Developer: Reload Window"
+  fi
+fi
