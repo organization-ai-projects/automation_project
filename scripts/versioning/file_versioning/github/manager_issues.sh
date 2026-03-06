@@ -116,33 +116,33 @@ cmd_read() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --issue)
-        issue_number="${2:-}"
-        shift 2
-        ;;
-      --repo)
-        repo="${2:-}"
-        shift 2
-        ;;
-      --json)
-        json_fields="${2:-}"
-        shift 2
-        ;;
-      --jq)
-        jq_filter="${2:-}"
-        shift 2
-        ;;
-      --template)
-        template="${2:-}"
-        shift 2
-        ;;
-      -h|--help)
-        usage
-        exit 0
-        ;;
-      *)
-        die_usage "Unknown option for read: $1"
-        ;;
+    --issue)
+      issue_number="${2:-}"
+      shift 2
+      ;;
+    --repo)
+      repo="${2:-}"
+      shift 2
+      ;;
+    --json)
+      json_fields="${2:-}"
+      shift 2
+      ;;
+    --jq)
+      jq_filter="${2:-}"
+      shift 2
+      ;;
+    --template)
+      template="${2:-}"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      die_usage "Unknown option for read: $1"
+      ;;
     esac
   done
 
@@ -179,31 +179,31 @@ cmd_update() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --issue)
-        issue_number="${2:-}"
-        shift 2
-        ;;
-      --repo)
-        repo="${2:-}"
-        shift 2
-        ;;
-      --title|--body|--add-label|--remove-label|--add-assignee|--remove-assignee)
-        [[ -n "${2:-}" ]] || die_usage "$1 requires a value."
-        if [[ "$1" == "--title" ]]; then
-          update_title="${2:-}"
-        elif [[ "$1" == "--body" ]]; then
-          update_body="${2:-}"
-        fi
-        edit_args+=("$1" "${2:-}")
-        shift 2
-        ;;
-      -h|--help)
-        usage
-        exit 0
-        ;;
-      *)
-        die_usage "Unknown option for update: $1"
-        ;;
+    --issue)
+      issue_number="${2:-}"
+      shift 2
+      ;;
+    --repo)
+      repo="${2:-}"
+      shift 2
+      ;;
+    --title | --body | --add-label | --remove-label | --add-assignee | --remove-assignee)
+      [[ -n "${2:-}" ]] || die_usage "$1 requires a value."
+      if [[ "$1" == "--title" ]]; then
+        update_title="${2:-}"
+      elif [[ "$1" == "--body" ]]; then
+        update_body="${2:-}"
+      fi
+      edit_args+=("$1" "${2:-}")
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      die_usage "Unknown option for update: $1"
+      ;;
     esac
   done
 
@@ -264,25 +264,25 @@ cmd_close() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --issue)
-        issue_number="${2:-}"
-        shift 2
-        ;;
-      --repo)
-        repo="${2:-}"
-        shift 2
-        ;;
-      --reason)
-        reason="${2:-}"
-        shift 2
-        ;;
-      -h|--help)
-        usage
-        exit 0
-        ;;
-      *)
-        die_usage "Unknown option for close: $1"
-        ;;
+    --issue)
+      issue_number="${2:-}"
+      shift 2
+      ;;
+    --repo)
+      repo="${2:-}"
+      shift 2
+      ;;
+    --reason)
+      reason="${2:-}"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      die_usage "Unknown option for close: $1"
+      ;;
     esac
   done
 
@@ -305,21 +305,21 @@ cmd_reopen() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --issue)
-        issue_number="${2:-}"
-        shift 2
-        ;;
-      --repo)
-        repo="${2:-}"
-        shift 2
-        ;;
-      -h|--help)
-        usage
-        exit 0
-        ;;
-      *)
-        die_usage "Unknown option for reopen: $1"
-        ;;
+    --issue)
+      issue_number="${2:-}"
+      shift 2
+      ;;
+    --repo)
+      repo="${2:-}"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      die_usage "Unknown option for reopen: $1"
+      ;;
     esac
   done
 
@@ -338,21 +338,21 @@ cmd_delete() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --issue)
-        issue_number="${2:-}"
-        shift 2
-        ;;
-      --repo)
-        repo="${2:-}"
-        shift 2
-        ;;
-      -h|--help)
-        usage
-        exit 0
-        ;;
-      *)
-        die_usage "Unknown option for delete: $1"
-        ;;
+    --issue)
+      issue_number="${2:-}"
+      shift 2
+      ;;
+    --repo)
+      repo="${2:-}"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      die_usage "Unknown option for delete: $1"
+      ;;
     esac
   done
 
@@ -374,14 +374,14 @@ main() {
   shift || true
 
   case "$subcommand" in
-    create) cmd_create "$@" ;;
-    read) cmd_read "$@" ;;
-    update) cmd_update "$@" ;;
-    close) cmd_close "$@" ;;
-    reopen) cmd_reopen "$@" ;;
-    delete) cmd_delete "$@" ;;
-    -h|--help) usage ;;
-    *) die_usage "Unknown subcommand: $subcommand" ;;
+  create) cmd_create "$@" ;;
+  read) cmd_read "$@" ;;
+  update) cmd_update "$@" ;;
+  close) cmd_close "$@" ;;
+  reopen) cmd_reopen "$@" ;;
+  delete) cmd_delete "$@" ;;
+  -h | --help) usage ;;
+  *) die_usage "Unknown subcommand: $subcommand" ;;
   esac
 }
 

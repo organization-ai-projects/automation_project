@@ -268,6 +268,7 @@ main() {
   run_case "dry-run-minimal" 0 "Generated file:" mock --dry-run --base dev --head test-head /tmp/pr_description_test.md
   run_case "auto-create-success-does-not-return-no-data" 0 "PR created:" mock --auto --base dev --head test-head --yes
   run_case "auto-edit-dry-run-in-memory" 0 "--auto-edit mode" mock --dry-run --auto-edit 400 --base dev --head test-head --yes
+  run_case "validation-only-requires-auto-edit" 2 "--validation-only requires --auto-edit/--refresh-pr" mock --dry-run --validation-only --base dev --head test-head
   run_case "dry-run-without-gh" 3 "command 'gh' not found" no_gh --dry-run --base dev --head test-head /tmp/pr_description_test_no_gh.md
   run_case "dry-run-with-gh-missing-jq" 3 "command 'jq' not found" mock_no_jq --dry-run --base dev --head test-head /tmp/pr_description_test_no_jq.md
   run_case "missing-gh-required-main-mode" 3 "command 'gh' not found" no_gh 42
@@ -292,6 +293,38 @@ main() {
     fi
   else
     echo "FAIL [auto-create-adds-pull-request-label] script execution failed"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
+  rm -rf "${tmp}"
+
+  TESTS_RUN=$((TESTS_RUN + 1))
+  tmp="$(shell_test_mktemp_dir "pr_desc_tests")"
+  build_mock_bin "${tmp}/bin"
+  patched_body_file="${tmp}/patched_validation_only_body.md"
+  if (
+    cd "${ROOT_DIR}"
+    MOCK_PATCH_BODY_FILE="${patched_body_file}" \
+    MOCK_EXISTING_PR_BODY=$'### Description\nkeep-me\n\n### Validation Gate\n\n- CI: PASS ✅\n- No breaking change\n\n### Issue Outcomes\nkeep-issues\n\n### Key Changes\nkeep-keys' \
+    PATH="${tmp}/bin:${PATH}" /bin/bash "${TARGET_SCRIPT}" --dry-run --auto-edit 400 --validation-only --base dev --head test-head --yes
+  ) >/dev/null 2>&1; then
+    if grep -q -- "### Description" "${patched_body_file}" \
+      && grep -q -- "keep-me" "${patched_body_file}" \
+      && grep -q -- "### Validation Gate" "${patched_body_file}" \
+      && grep -q -- "- CI: UNKNOWN ⚪" "${patched_body_file}" \
+      && grep -q -- "- No breaking change" "${patched_body_file}" \
+      && grep -q -- "### Issue Outcomes" "${patched_body_file}" \
+      && grep -q -- "keep-issues" "${patched_body_file}" \
+      && grep -q -- "### Key Changes" "${patched_body_file}" \
+      && grep -q -- "keep-keys" "${patched_body_file}" \
+      && ! grep -q -- "- CI: PASS ✅" "${patched_body_file}"; then
+      echo "PASS [validation-only-preserves-non-validation-sections]"
+    else
+      echo "FAIL [validation-only-preserves-non-validation-sections] expected only validation section replacement"
+      sed -n '1,220p' "${patched_body_file}" || true
+      TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+  else
+    echo "FAIL [validation-only-preserves-non-validation-sections] script execution failed"
     TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
   rm -rf "${tmp}"

@@ -13,10 +13,61 @@ write_section_from_file() {
         pr_num=999999
       fi
       printf "%06d|%s\n" "$pr_num" "$line"
-    done < "$file" | sort -t'|' -k1,1n -k2,2 | cut -d'|' -f2-
+    done <"$file" | sort -t'|' -k1,1n -k2,2 | cut -d'|' -f2-
   else
     echo "- No significant items detected."
   fi
+}
+
+pr_render_grouped_by_category() {
+  local input_file="$1"
+  local mode="$2"
+  local output_file="$3"
+
+  sort -t'|' -k1,1n "$input_file" |
+    awk -F'|' -v mode="$mode" '
+      BEGIN {
+        cats[1] = "Security"
+        cats[2] = "Features"
+        cats[3] = "Bug Fixes"
+        cats[4] = "Refactoring"
+        cats[5] = "Automation"
+        cats[6] = "Testing"
+        cats[7] = "Docs"
+        cats[8] = "Mixed"
+        cats[9] = "Unknown"
+      }
+      {
+        lines[NR] = $0
+      }
+      END {
+        for (c = 1; c <= 9; c++) {
+          cat = cats[c]
+          found = 0
+          for (i = 1; i <= NR; i++) {
+            split(lines[i], parts, "|")
+            if (parts[2] == cat) {
+              if (!found) {
+                print "#### " cat
+                found = 1
+              }
+              if (mode == "resolved") {
+                print "- " parts[3] " " parts[4]
+              } else if (mode == "reopen") {
+                print "- Reopen " parts[3]
+              } else if (mode == "conflict") {
+                print "- " parts[3] " - " parts[4]
+              } else {
+                print "- " parts[3]
+              }
+            }
+          }
+          if (found) {
+            print ""
+          }
+        }
+      }
+    ' >"$output_file"
 }
 
 build_dynamic_pr_title() {
@@ -47,7 +98,7 @@ build_dynamic_pr_title() {
     for ((i = 1; i < ${#categories[@]} - 1; i++)); do
       summary+=", ${categories[i]}"
     done
-    summary+=", and ${categories[${#categories[@]}-1]}"
+    summary+=", and ${categories[${#categories[@]} - 1]}"
   fi
 
   echo "Merge ${head_ref} into ${base_ref}: ${summary}"

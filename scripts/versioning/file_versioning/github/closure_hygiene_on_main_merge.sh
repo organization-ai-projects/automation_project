@@ -121,8 +121,8 @@ close_completed_milestones() {
   local open_issues
 
   mapfile -t milestones < <(
-    gh api "repos/${REPO_NAME}/milestones?state=open" --paginate \
-      | jq -r '.[] | @base64'
+    gh api "repos/${REPO_NAME}/milestones?state=open" --paginate |
+      jq -r '.[] | @base64'
   )
 
   for milestone in "${milestones[@]}"; do
@@ -141,8 +141,8 @@ scan_open_parents() {
   local issue_number
 
   mapfile -t open_issue_numbers < <(
-    gh issue list -R "$REPO_NAME" --state open --limit 300 --json number \
-      | jq -r '.[].number'
+    gh issue list -R "$REPO_NAME" --state open --limit 300 --json number |
+      jq -r '.[].number'
   )
 
   for issue_number in "${open_issue_numbers[@]}"; do

@@ -33,27 +33,31 @@ repo_name="${GH_REPO:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --issue)
-      issue_number="${2:-}"
-      shift 2
-      ;;
-    --repo)
-      repo_name="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Error: unknown option: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+  --issue)
+    issue_number="${2:-}"
+    shift 2
+    ;;
+  --repo)
+    repo_name="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Error: unknown option: $1" >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 
-[[ -n "$issue_number" ]] || { echo "Error: --issue is required." >&2; usage >&2; exit 2; }
+[[ -n "$issue_number" ]] || {
+  echo "Error: --issue is required." >&2
+  usage >&2
+  exit 2
+}
 require_number "--issue" "$issue_number"
 
 if ! command -v gh >/dev/null 2>&1; then
@@ -68,7 +72,10 @@ fi
 if [[ -z "$repo_name" ]]; then
   repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
-[[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
+[[ -n "$repo_name" ]] || {
+  echo "Error: unable to determine repository." >&2
+  exit 3
+}
 
 NEUTRALIZER="${SCRIPT_DIR}/neutralize_non_compliant_closure_refs.sh"
 if [[ ! -x "$NEUTRALIZER" ]]; then
@@ -89,14 +96,14 @@ pr_body_references_issue() {
 
 # Find all open PRs whose body contains a closing reference to this issue number.
 pr_numbers="$(
-  gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[] | [.number, (.body // "")] | @tsv' 2>/dev/null \
-  | while IFS=$'\t' read -r pr_num pr_body; do
+  gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[] | [.number, (.body // "")] | @tsv' 2>/dev/null |
+    while IFS=$'\t' read -r pr_num pr_body; do
       [[ -n "$pr_num" ]] || continue
       if pr_body_references_issue "$pr_body"; then
         printf '%s\n' "$pr_num"
       fi
-    done \
-  || true
+    done ||
+    true
 )"
 
 if [[ -z "$pr_numbers" ]]; then
@@ -110,6 +117,6 @@ while IFS= read -r pr_num; do
   echo "Re-evaluating PR #${pr_num} (references issue #${issue_number})..."
   bash "$NEUTRALIZER" --pr "$pr_num" --repo "$repo_name"
   evaluated_count=$((evaluated_count + 1))
-done <<< "$pr_numbers"
+done <<<"$pr_numbers"
 
 echo "Re-evaluation complete. ${evaluated_count} PR(s) evaluated."

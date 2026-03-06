@@ -41,27 +41,31 @@ repo_name="${GH_REPO:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --pr)
-      pr_number="${2:-}"
-      shift 2
-      ;;
-    --repo)
-      repo_name="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Error: unknown option: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+  --pr)
+    pr_number="${2:-}"
+    shift 2
+    ;;
+  --repo)
+    repo_name="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Error: unknown option: $1" >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 
-[[ -n "$pr_number" ]] || { echo "Error: --pr is required." >&2; usage >&2; exit 2; }
+[[ -n "$pr_number" ]] || {
+  echo "Error: --pr is required." >&2
+  usage >&2
+  exit 2
+}
 require_number "--pr" "$pr_number"
 
 if ! command -v gh >/dev/null 2>&1; then
@@ -80,7 +84,10 @@ fi
 if [[ -z "$repo_name" ]]; then
   repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
 fi
-[[ -n "$repo_name" ]] || { echo "Error: unable to determine repository." >&2; exit 3; }
+[[ -n "$repo_name" ]] || {
+  echo "Error: unable to determine repository." >&2
+  exit 3
+}
 
 MARKER="<!-- directive-conflict-guard:${pr_number} -->"
 BLOCK_START="<!-- directive-conflicts:start -->"
@@ -111,7 +118,7 @@ upsert_conflict_block_in_body() {
   local without_block
 
   without_block="$(
-    perl -0777 -pe "s@\n?${BLOCK_START}.*?${BLOCK_END}\n?@@s" <<< "$body"
+    perl -0777 -pe "s@\n?${BLOCK_START}.*?${BLOCK_END}\n?@@s" <<<"$body"
   )"
 
   if [[ -z "$block" ]]; then
@@ -165,9 +172,9 @@ done < <(parse_directive_decisions_from_text "$original_body")
 
 commit_messages="$(gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
 source_branch_count="$(
-  printf '%s\n' "$commit_messages" \
-    | sed -nE 's@.*Merge pull request #[0-9]+ from [^/]+/(.+)@\1@p' \
-    | sort -u | sed '/^$/d' | wc -l | tr -d ' '
+  printf '%s\n' "$commit_messages" |
+    sed -nE 's@.*Merge pull request #[0-9]+ from [^/]+/(.+)@\1@p' |
+    sort -u | sed '/^$/d' | wc -l | tr -d ' '
 )"
 if [[ "${source_branch_count:-0}" -gt 1 ]]; then
   allow_inferred_resolution="false"
@@ -177,8 +184,8 @@ while IFS='|' read -r action issue_key; do
   issue_key="$(trim "$issue_key")"
   [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
   case "$action" in
-    Closes) inferred_decision["$issue_key"]="close" ;;
-    Reopen) inferred_decision["$issue_key"]="reopen" ;;
+  Closes) inferred_decision["$issue_key"]="close" ;;
+  Reopen) inferred_decision["$issue_key"]="reopen" ;;
   esac
 done < <(parse_directive_events_from_text "$directive_payload")
 
@@ -210,7 +217,7 @@ for issue_key in "${!resolved_conflict[@]}"; do
   escaped_issue_key="$(printf '%s' "$issue_key" | sed 's/[^^]/[&]/g; s/\^/\\^/g')"
   updated_body="$(
     perl -0777 -pe "s/\\b((?:reopen|reopens))\\b(\\s+)(?!rejected\\b)([^\\s]*${escaped_issue_key})\\b/\$1\$2rejected \$3/ig" \
-      <<< "$updated_body"
+      <<<"$updated_body"
   )"
 done
 

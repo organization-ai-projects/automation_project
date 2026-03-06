@@ -38,12 +38,12 @@ trim() {
 
 graphql_has_errors() {
   local payload="${1:-}"
-  jq -e '((.errors // []) | length) > 0' >/dev/null 2>&1 <<< "$payload"
+  jq -e '((.errors // []) | length) > 0' >/dev/null 2>&1 <<<"$payload"
 }
 
 graphql_error_messages() {
   local payload="${1:-}"
-  jq -r '(.errors // []) | map(.message // "unknown GraphQL error") | join("; ")' <<< "$payload" 2>/dev/null || true
+  jq -r '(.errors // []) | map(.message // "unknown GraphQL error") | join("; ")' <<<"$payload" 2>/dev/null || true
 }
 
 extract_parent_field_value() {
@@ -56,26 +56,26 @@ extract_parent_field_value() {
       print line
       exit
     }
-  ' <<< "$body"
+  ' <<<"$body"
 }
 
 issue_arg=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --issue)
-      issue_arg="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Erreur: option inconnue: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+  --issue)
+    issue_arg="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Erreur: option inconnue: $1" >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 
@@ -182,10 +182,10 @@ issue_labels_raw="$(echo "$issue_json" | jq -r '(.labels // []) | map(.name) | j
 contract_errors="$(issue_validate_content "$issue_title" "$issue_body" "$issue_labels_raw" || true)"
 if [[ -n "$contract_errors" ]]; then
   summary_lines=""
-  while IFS='|' read -r kind field message; do
+  while IFS='|' read -r _ _ message; do
     [[ -z "$message" ]] && continue
     summary_lines+="- ${message}"$'\n'
-  done <<< "$contract_errors"
+  done <<<"$contract_errors"
   set_validation_error_state \
     "Issue body/title is non-compliant with required issue format." \
     "Detected problems:
