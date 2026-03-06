@@ -29,6 +29,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
 const ext = require('./extension.js');
 const {
   parseReport,
+  parsePersistentResponseLine,
   clampDebounceMs,
   clampTreeRefreshDebounceMs,
   isRelevantDocument,
@@ -60,6 +61,34 @@ test('parseReport tolerates malformed lines and returns undefined without report
   const raw = ['{not-json}', 'plain-text-line', '{"type":"log","message":"x"}'].join('\n');
   const parsed = parseReport(raw);
   assert.equal(parsed, undefined);
+});
+
+test('parsePersistentResponseLine parses report and error envelopes', () => {
+  const reportLine = JSON.stringify({
+    id: 'req-1',
+    type: 'report',
+    report_json: { violations: [{ path: 'a.rs' }] }
+  });
+  const errorLine = JSON.stringify({
+    id: 'req-2',
+    type: 'error',
+    code: 'BAD',
+    message: 'bad request',
+    details: 'x'
+  });
+
+  const reportParsed = parsePersistentResponseLine(reportLine);
+  const errorParsed = parsePersistentResponseLine(errorLine);
+
+  assert.equal(reportParsed.id, 'req-1');
+  assert.equal(reportParsed.kind, 'report');
+  assert.equal(reportParsed.report.violations.length, 1);
+
+  assert.equal(errorParsed.id, 'req-2');
+  assert.equal(errorParsed.kind, 'error');
+  assert.equal(errorParsed.code, 'BAD');
+  assert.equal(errorParsed.message, 'bad request');
+  assert.equal(errorParsed.details, 'x');
 });
 
 test('clampDebounceMs enforces limits and default', () => {

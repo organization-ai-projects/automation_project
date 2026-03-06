@@ -9,7 +9,10 @@
     "vscode": "^1.90.0"
   },
   "scripts": {
+    "test": "node --test extension.test.js extension.integration.test.js",
     "vsix": "npm run vsix:pack",
+    "vsix:smoke": "bash ./scripts/release-local-smoke.sh",
+    "vsix:release-local": "INSTALL_AFTER_SMOKE=true bash ./scripts/release-local-smoke.sh",
     "vsix:pack": "rm -f repo-contract-enforcer-diagnostics-*.vsix && vsce package --allow-missing-repository --no-dependencies",
     "vsix:install": "bash ./scripts/reinstall-local.sh",
     "vsix:reinstall": "bash ./scripts/repack-reinstall.sh",

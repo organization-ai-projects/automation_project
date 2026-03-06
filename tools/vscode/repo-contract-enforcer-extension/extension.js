@@ -517,16 +517,50 @@ function resolveWorkspaceFolders(strategy) {
   return [folders[0]];
 }
 
-function extractReportPayload(obj) {
+function parsePersistentResponseLine(line) {
+  let obj;
+  try {
+    obj = JSON.parse(line);
+  } catch (_err) {
+    return undefined;
+  }
+
   if (!obj || typeof obj !== 'object') {
     return undefined;
   }
+
+  const id = typeof obj.id === 'string' ? obj.id : '';
+
   if (obj.type === 'report' && obj.report_json && typeof obj.report_json === 'object') {
-    return obj.report_json;
+    return {
+      id,
+      kind: 'report',
+      report: obj.report_json,
+      raw: obj,
+    };
   }
+
+  if (obj.type === 'error') {
+    return {
+      id,
+      kind: 'error',
+      code: String(obj.code || ''),
+      message: String(obj.message || 'backend error'),
+      details: obj.details ? String(obj.details) : '',
+      raw: obj,
+    };
+  }
+
+  // Legacy fallback shape (direct report object).
   if (Array.isArray(obj.violations)) {
-    return obj;
+    return {
+      id,
+      kind: 'report',
+      report: obj,
+      raw: obj,
+    };
   }
+
   return undefined;
 }
 
@@ -589,25 +623,14 @@ function setupPersistentSession(runtime, folder, cmd, args) {
     }
   };
 
-  const resolvePendingWithPayload = (requestId, payload, rawLine) => {
+  const resolvePendingWithResult = (requestId, result) => {
     const entry = session.pending.get(requestId);
     if (!entry) {
       return false;
     }
     clearTimeout(entry.timeoutHandle);
     session.pending.delete(requestId);
-    entry.resolve(
-      makeCheckResult({
-        folder: entry.folder,
-        runId: entry.runId,
-        code: 0,
-        signal: null,
-        timedOut: false,
-        stdout: rawLine,
-        stderr: session.lastStderr,
-        report: payload,
-      }),
-    );
+    entry.resolve(result(entry));
     return true;
   };
 
@@ -627,27 +650,56 @@ function setupPersistentSession(runtime, folder, cmd, args) {
         continue;
       }
 
-      let obj;
-      try {
-        obj = JSON.parse(line);
-      } catch (_err) {
+      const parsed = parsePersistentResponseLine(line);
+      if (!parsed) {
         continue;
       }
 
-      const payload = extractReportPayload(obj);
-      if (!payload || session.pending.size === 0) {
+      const responseId = parsed.id;
+      if (!responseId) {
+        logOutput(runtime, `[persistent] uncorrelated response without id(${folder.name}): ${line}`);
         continue;
       }
 
-      const responseId = typeof obj.id === 'string' ? obj.id : '';
-      if (responseId && resolvePendingWithPayload(responseId, payload, line)) {
+      if (session.pending.size === 0) {
         continue;
       }
 
-      // Fallback when backend payload has no id: resolve oldest pending request.
-      const firstPendingId = session.pending.keys().next().value;
-      if (firstPendingId) {
-        resolvePendingWithPayload(firstPendingId, payload, line);
+      if (parsed.kind === 'report') {
+        const resolved = resolvePendingWithResult(responseId, (entry) =>
+          makeCheckResult({
+            folder: entry.folder,
+            runId: entry.runId,
+            code: 0,
+            signal: null,
+            timedOut: false,
+            stdout: line,
+            stderr: session.lastStderr,
+            report: parsed.report,
+          }),
+        );
+        if (!resolved) {
+          logOutput(runtime, `[persistent] unmatched report id(${folder.name}): ${responseId}`);
+        }
+        continue;
+      }
+
+      if (parsed.kind === 'error') {
+        const resolved = resolvePendingWithResult(responseId, (entry) =>
+          makeCheckResult({
+            folder: entry.folder,
+            runId: entry.runId,
+            code: 0,
+            signal: null,
+            timedOut: false,
+            stdout: line,
+            stderr: session.lastStderr,
+            error: `${parsed.code || 'BACKEND_ERROR'}: ${parsed.message}${parsed.details ? ` (${parsed.details})` : ''}`,
+          }),
+        );
+        if (!resolved) {
+          logOutput(runtime, `[persistent] unmatched error id(${folder.name}): ${responseId}`);
+        }
       }
     }
   });
@@ -1528,6 +1580,7 @@ module.exports = {
     clampTreeRefreshDebounceMs,
     globToRegExp,
     parseReport,
+    parsePersistentResponseLine,
     compareDiagnosticsEntries,
     collectDiagnosticsSnapshot,
     buildDiagnosticsSummaryText,
