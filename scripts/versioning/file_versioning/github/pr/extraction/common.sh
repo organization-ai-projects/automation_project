@@ -31,3 +31,12 @@ pr_extract_pr_refs_from_headlines() {
     echo "$commit_headlines" | sed -nE 's/.*\(#([0-9]+)\)\s*$/#\1/p'
   }
 }
+
+pr_extract_pr_refs_from_text() {
+  local text="$1"
+  {
+    echo "$text" | grep -oE '/pull/[0-9]+' | sed -E 's#^/pull/([0-9]+)$#\#\1#'
+    echo "$text" | sed -nE 's/.*\bPR[[:space:]]*#([0-9]+).*/#\1/ip'
+    echo "$text" | sed -nE 's/.*pull request #([0-9]+).*/#\1/ip'
+  }
+}

@@ -38,12 +38,8 @@ pr_extract_child_prs() {
 
   {
     pr_extract_pr_refs_from_headlines "$commit_headlines"
-    echo "$main_pr_body" | grep -oE '/pull/[0-9]+' | sed -E 's#^/pull/([0-9]+)$#\#\1#'
-    echo "$main_pr_body" | sed -nE 's/.*\bPR[[:space:]]*#([0-9]+).*/#\1/ip'
-    echo "$main_pr_body" | sed -nE 's/.*pull request #([0-9]+).*/#\1/ip'
-    echo "$main_pr_comments" | grep -oE '/pull/[0-9]+' | sed -E 's#^/pull/([0-9]+)$#\#\1#'
-    echo "$main_pr_comments" | sed -nE 's/.*\bPR[[:space:]]*#([0-9]+).*/#\1/ip'
-    echo "$main_pr_comments" | sed -nE 's/.*pull request #([0-9]+).*/#\1/ip'
+    pr_extract_pr_refs_from_text "$main_pr_body"
+    pr_extract_pr_refs_from_text "$main_pr_comments"
     echo "$timeline_pr_refs"
   } | grep -E '^#[0-9]+$' | sort -u | grep -v "^#${main_pr_number}$" >"$extracted_prs_file"
 
