@@ -26,7 +26,7 @@ This workflow maintains the `done-in-dev` issue label lifecycle.
 
 ## Script Used
 
-- `scripts/versioning/file_versioning/github/issues/issue_done_in_dev_status.sh`
+- `scripts/versioning/file_versioning/github/issues/done_status/run.sh`
 
 The script:
 

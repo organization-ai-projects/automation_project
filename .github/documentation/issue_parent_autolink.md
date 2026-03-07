@@ -10,7 +10,7 @@ This automation links child issues to parent issues from a normalized issue-body
 ## Source
 
 - Workflow: `.github/workflows/issue_parent_autolink.yml`
-- Script: `scripts/versioning/file_versioning/github/issues/auto_link_parent_issue.sh`
+- Script: `scripts/versioning/file_versioning/github/issues/auto_link/run.sh`
 
 ## Required Issue Field
 

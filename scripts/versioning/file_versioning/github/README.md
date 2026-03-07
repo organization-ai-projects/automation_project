@@ -20,13 +20,14 @@ github/
 ├── README.md (this file)
 ├── TOC.md
 ├── auto_add_closes_on_dev_pr/
-├── auto_link_parent_issue.sh
-├── create_direct_issue.sh
-├── manager_issues.sh
+├── issues/
+│   ├── auto_link/
+│   ├── create_direct/
+│   ├── manager/
+│   ├── done_status/
+│   ├── reopen_on_dev/
+│   └── neutralize/
 ├── generate_pr_description.sh
-├── issue_done_in_dev_status.sh
-├── issue_reopen_on_dev_merge.sh
-├── neutralize_non_compliant_closure_refs.sh
 ├── parent_issue_guard/
 ├── issues/
 │   └── required_fields/
@@ -45,13 +46,13 @@ github/
 - `TOC.md`: Documentation index for GitHub-only scripts.
 - `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
 - `auto_add_closes_on_dev_pr/run.sh`: Auto-enrich open PR bodies targeting `dev` with a managed `Closes #<n>` block when referenced `Part of #<n>` issues are single-assignee and assigned to the PR author.
-- `auto_link_parent_issue.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
-- `create_direct_issue.sh`: Internal create contract script used by manager routing (direct usage deprecated).
-- `manager_issues.sh`: Unified issue lifecycle entrypoint for create/read/update/close/reopen operations (delete is soft-delete via close not_planned).
-- `issue_done_in_dev_status.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
+- `issues/auto_link/run.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
+- `issues/create_direct/run.sh`: Internal create contract script used by manager routing (direct usage deprecated).
+- `issues/manager/run.sh`: Unified issue lifecycle entrypoint for create/read/update/close/reopen operations (delete is soft-delete via close not_planned).
+- `issues/done_status/run.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
   - Supported closure refs for labeling: `Closes/Fixes #<n>`.
-- `issue_reopen_on_dev_merge.sh`: Reopen issues referenced by `Reopen #<n>` on merged PRs into `dev`, and remove `done-in-dev` from those issues.
-- `neutralize_non_compliant_closure_refs.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
+- `issues/reopen_on_dev/run.sh`: Reopen issues referenced by `Reopen #<n>` on merged PRs into `dev`, and remove `done-in-dev` from those issues.
+- `issues/neutralize/run.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
 - `parent_issue_guard/run.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
 - `lib/issue_refs.sh`: Issue reference parsing helpers (`Closes`, `Fixes`, `Part of`, `Reopen`, duplicates).
@@ -78,8 +79,8 @@ Issue contract routing:
 
 - Default issues use `.github/issue_required_fields.conf` keys `ISSUE_*`.
 - Review follow-up issues (label `review`) use `ISSUE_REVIEW_*` keys from the same contract file.
-- Direct creation through `manager_issues.sh create` routes to `create_direct_issue.sh` and applies label `issue` by default.
-- User-facing create flow must use `manager_issues.sh create` (not direct invocation of `create_direct_issue.sh`).
+- Direct creation through `issues/manager/run.sh create` routes to `issues/create_direct/run.sh` and applies label `issue` by default.
+- User-facing create flow must use `issues/manager/run.sh create` (not direct invocation of `issues/create_direct/run.sh`).
 - Issue reads support single-issue view or listing; machine-readable output is available via `--json/--jq/--template`.
 - Delete is implemented as deterministic soft-delete by closing issues with reason `not_planned`.
 
