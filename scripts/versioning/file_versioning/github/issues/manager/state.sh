@@ -75,7 +75,7 @@ cmd_close() {
     esac
   done
 
-  ensure_number "--issue" "$issue_number"
+  issue_cli_require_positive_number "--issue" "$issue_number"
   if [[ "$reason" != "completed" && "$reason" != "not_planned" ]]; then
     die_usage "--reason must be 'completed' or 'not_planned'."
   fi
@@ -92,7 +92,7 @@ cmd_reopen() {
 
   manager_parse_issue_repo_args "reopen" issue_number repo "$@"
 
-  ensure_number "--issue" "$issue_number"
+  issue_cli_require_positive_number "--issue" "$issue_number"
   local -a cmd=(gh issue reopen "$issue_number")
   manager_append_repo_arg cmd "$repo"
   "${cmd[@]}" >/dev/null
@@ -105,7 +105,7 @@ cmd_delete() {
 
   manager_parse_issue_repo_args "delete" issue_number repo "$@"
 
-  ensure_number "--issue" "$issue_number"
+  issue_cli_require_positive_number "--issue" "$issue_number"
   local -a cmd=(gh issue close "$issue_number" --reason not_planned)
   manager_append_repo_arg cmd "$repo"
   "${cmd[@]}" >/dev/null

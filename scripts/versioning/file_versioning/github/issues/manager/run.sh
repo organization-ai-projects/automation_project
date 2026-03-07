@@ -10,6 +10,8 @@ ISSUES_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
 source "${ISSUES_DIR}/required_fields/load.sh"
 # shellcheck source=scripts/versioning/file_versioning/github/issues/common/cli.sh
 source "${ISSUES_DIR}/common/cli.sh"
+# shellcheck source=scripts/versioning/file_versioning/github/issues/common/refs.sh
+source "${ISSUES_DIR}/common/refs.sh"
 source "${BASH_SOURCE[0]%/*}/cli.sh"
 source "${BASH_SOURCE[0]%/*}/create.sh"
 source "${BASH_SOURCE[0]%/*}/read.sh"

@@ -70,7 +70,7 @@ cmd_update() {
 
   manager_parse_update_args issue_number repo update_title update_body edit_args "$@"
 
-  ensure_number "--issue" "$issue_number"
+  issue_cli_require_positive_number "--issue" "$issue_number"
   if [[ ${#edit_args[@]} -eq 0 ]]; then
     die_usage "update requires at least one edit option."
   fi

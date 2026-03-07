@@ -90,7 +90,7 @@ cmd_read() {
 
   local -a cmd
   if [[ -n "$issue_number" ]]; then
-    ensure_number "--issue" "$issue_number"
+    issue_cli_require_positive_number "--issue" "$issue_number"
     cmd=(gh issue view "$issue_number")
   else
     cmd=(gh issue list)

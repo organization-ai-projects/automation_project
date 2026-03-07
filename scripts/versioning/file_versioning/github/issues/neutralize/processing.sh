@@ -213,18 +213,30 @@ neutralize_build_comment_body() {
   echo "$comment_body"
 }
 
-neutralize_run() {
-  local pr_number=""
-  local repo_name="${GH_REPO:-}"
+neutralize_parse_args() {
+  local pr_var_name="$1"
+  local repo_var_name="$2"
+  shift 2
+
+  local -n pr_ref="$pr_var_name"
+  local -n repo_ref="$repo_var_name"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --pr)
-      pr_number="${2:-}"
+      if ! issue_cli_require_option_value "$1" "${2:-}"; then
+        neutralize_usage >&2
+        exit 2
+      fi
+      pr_ref="${2:-}"
       shift 2
       ;;
     --repo)
-      repo_name="${2:-}"
+      if ! issue_cli_require_option_value "$1" "${2:-}"; then
+        neutralize_usage >&2
+        exit 2
+      fi
+      repo_ref="${2:-}"
       shift 2
       ;;
     -h | --help)
@@ -238,6 +250,22 @@ neutralize_run() {
       ;;
     esac
   done
+}
+
+neutralize_resolve_repo_name() {
+  local repo_name="${1:-}"
+  if [[ -n "$repo_name" ]]; then
+    echo "$repo_name"
+    return
+  fi
+  issue_gh_resolve_repo_name
+}
+
+neutralize_run() {
+  local pr_number=""
+  local repo_name="${GH_REPO:-}"
+
+  neutralize_parse_args pr_number repo_name "$@"
 
   [[ -n "$pr_number" ]] || {
     echo "Error: --pr is required." >&2
@@ -247,9 +275,7 @@ neutralize_run() {
   neutralize_require_number "--pr" "$pr_number"
   neutralize_require_deps
 
-  if [[ -z "$repo_name" ]]; then
-    repo_name="$(issue_gh_resolve_repo_name)"
-  fi
+  repo_name="$(neutralize_resolve_repo_name "$repo_name")"
   [[ -n "$repo_name" ]] || {
     echo "Error: unable to determine repository." >&2
     exit 3

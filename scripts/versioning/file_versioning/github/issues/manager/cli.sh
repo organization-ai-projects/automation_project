@@ -40,14 +40,6 @@ die_usage() {
   exit 2
 }
 
-ensure_number() {
-  local name="$1"
-  local value="${2:-}"
-  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
-    die_usage "${name} must be a positive integer."
-  fi
-}
-
 is_label_present() {
   local needle="$1"
   shift
