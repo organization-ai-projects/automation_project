@@ -165,6 +165,8 @@ neutralize_process_pre_neutralized_refs() {
     neutralize_valid_keyword_pattern "$keyword_pattern" || continue
 
     if [[ -n "$reason" ]]; then
+      # Idempotent re-apply to preserve neutralization if body edits removed/reordered markers.
+      updated_body_ref="$(neutralize_apply_rejected_marker "$updated_body_ref" "$keyword_pattern" "$issue_key")"
       neutralize_register_non_compliant_ref \
         "$issue_key" "$action" "$reason" \
         "$neutralized_reason_var_name" "$neutralized_action_var_name" "$neutralized_count_var_name"
