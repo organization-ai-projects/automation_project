@@ -20,18 +20,17 @@ github/
 ├── README.md (this file)
 ├── TOC.md
 ├── auto_add_closes_on_dev_pr/
+├── generate_pr_description.sh
+├── parent_issue_guard/
 ├── issues/
 │   ├── auto_link/
 │   ├── create_direct/
 │   ├── manager/
 │   ├── done_status/
 │   ├── reopen_on_dev/
-│   └── neutralize/
-├── generate_pr_description.sh
-├── parent_issue_guard/
-├── issues/
+│   ├── neutralize/
 │   └── required_fields/
-│       └── module.sh
+│       └── load.sh
 ├── lib/
 │   ├── classification.sh
 │   ├── issue_refs.sh
@@ -56,9 +55,9 @@ github/
 - `parent_issue_guard/run.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
 - `lib/issue_refs.sh`: Issue reference parsing helpers (`Closes`, `Fixes`, `Part of`, `Reopen`, duplicates).
-- `issues/required_fields/module.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
-- `pr/compare/module.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
-- `pr/footprint/module.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
+- `issues/required_fields/load.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
+- `pr/compare/load.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
+- `pr/footprint/load.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 - `tests/auto_add_closes_on_dev_pr_regression.sh`: Regression checks for automatic managed `Closes #...` enrichment on dev-targeting PRs.
@@ -189,14 +188,14 @@ Troubleshooting:
 
 ## Internal Module Breakdown
 
-- CLI/options + arg parsing/validation: `pr/cli/module.sh` (`help.sh`, `defaults.sh`, `parse.sh`, `finalize.sh`)
-- extraction/classification: `pr/extraction/module.sh` (`from_compare.sh`, `from_pr_api.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
-- pipeline orchestration: `pr/pipeline/module.sh` (`artifacts.sh`, `deps.sh`, `refs.sh`, `collect.sh`, `render.sh`, `tracking.sh`)
-- runtime/gh helpers: `pr/runtime/module.sh` (`logging.sh`, `git.sh`, `state.sh`)
-- compare loading: `pr/compare/module.sh` (`local_git.sh`, `api.sh`, `commits.sh`)
-- issue flow resolution: `pr/issue/module.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
-- issue contract checks: `issues/required_fields/module.sh`
-- metrics/status: `pr/metrics/module.sh` (`breaking.sh`, `ci.sh`)
-- body composition/publication: `pr/body/builder.sh`, `pr/body/publish.sh` (loaded via `pr/body/module.sh`)
-- rendering helpers: `lib/rendering.sh`, `pr/footprint/module.sh` (`render.sh`)
+- CLI/options + arg parsing/validation: `pr/cli/load.sh` (`help.sh`, `defaults.sh`, `parse.sh`, `finalize.sh`)
+- extraction/classification: `pr/extraction/load.sh` (`from_compare.sh`, `from_pr_api.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
+- pipeline orchestration: `pr/pipeline/load.sh` (`artifacts.sh`, `deps.sh`, `refs.sh`, `collect.sh`, `render.sh`, `tracking.sh`)
+- runtime/gh helpers: `pr/runtime/load.sh` (`logging.sh`, `git.sh`, `state.sh`)
+- compare loading: `pr/compare/load.sh` (`local_git.sh`, `api.sh`, `commits.sh`)
+- issue flow resolution: `pr/issue/load.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
+- issue contract checks: `issues/required_fields/load.sh`
+- metrics/status: `pr/metrics/load.sh` (`breaking.sh`, `ci.sh`)
+- body composition/publication: `pr/body/builder.sh`, `pr/body/publish.sh` (loaded via `pr/body/load.sh`)
+- rendering helpers: `lib/rendering.sh`, `pr/footprint/load.sh` (`render.sh`)
 - validation-only body updates: `pr/body/validation_gate.sh`
