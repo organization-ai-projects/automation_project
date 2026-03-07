@@ -38,12 +38,12 @@ reopen_on_dev_run() {
     esac
   done
 
-  reopen_on_dev_require_number "--pr" "$pr_number"
-  reopen_on_dev_require_cmd gh
-  reopen_on_dev_require_cmd jq
+  issue_cli_require_positive_number "--pr" "$pr_number"
+  issue_gh_require_cmd gh
+  issue_gh_require_cmd jq
 
   local repo_name
-  repo_name="$(reopen_on_dev_resolve_repo_name)"
+  repo_name="$(issue_gh_resolve_repo_name)"
   if [[ -z "$repo_name" ]]; then
     echo "Error: unable to resolve repository name." >&2
     exit 3
@@ -57,22 +57,22 @@ reopen_on_dev_run() {
   fi
 
   local payload
-  payload="$(reopen_on_dev_collect_pr_text_payload "$repo_name" "$pr_number")"
+  payload="$(issue_gh_collect_pr_text_payload "$repo_name" "$pr_number")"
   local -a reopen_issue_numbers
-  mapfile -t reopen_issue_numbers < <(reopen_on_dev_extract_issue_numbers "$payload")
+  mapfile -t reopen_issue_numbers < <(issue_refs_extract_reopen_numbers "$payload")
   if [[ ${#reopen_issue_numbers[@]} -eq 0 ]]; then
     echo "No reopen issue refs found for PR #${pr_number}."
     exit 0
   fi
 
   local label_available="false"
-  if reopen_on_dev_label_exists "$repo_name" "$label_name"; then
+  if issue_gh_label_exists "$repo_name" "$label_name"; then
     label_available="true"
   fi
 
   local n state
   for n in "${reopen_issue_numbers[@]}"; do
-    state="$(reopen_on_dev_issue_state "$repo_name" "$n")"
+    state="$(issue_gh_issue_state "$repo_name" "$n")"
     if [[ -z "$state" ]]; then
       echo "Issue #${n}: unreadable; skipping reopen sync."
       continue
@@ -85,7 +85,7 @@ reopen_on_dev_run() {
       echo "Issue #${n}: state=${state}; no reopen needed."
     fi
 
-    if [[ "$label_available" == "true" ]] && reopen_on_dev_issue_has_label "$repo_name" "$n" "$label_name"; then
+    if [[ "$label_available" == "true" ]] && issue_gh_issue_has_label "$repo_name" "$n" "$label_name"; then
       gh issue edit "$n" -R "$repo_name" --remove-label "$label_name" >/dev/null
       echo "Issue #${n}: removed label '${label_name}' due to Reopen ref."
     fi

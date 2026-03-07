@@ -6,7 +6,7 @@ done_status_on_dev_merge() {
   local label_name="$3"
   local label_available="$4"
 
-  done_status_require_number "--pr" "$pr_number"
+  issue_cli_require_positive_number "--pr" "$pr_number"
 
   local pr_state
   pr_state="$(gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
@@ -16,9 +16,9 @@ done_status_on_dev_merge() {
   fi
 
   local payload
-  payload="$(done_status_collect_pr_text_payload "$repo_name" "$pr_number")"
+  payload="$(issue_gh_collect_pr_text_payload "$repo_name" "$pr_number")"
   local -a closing_issue_numbers
-  mapfile -t closing_issue_numbers < <(done_status_extract_closing_issue_numbers "$payload")
+  mapfile -t closing_issue_numbers < <(issue_refs_extract_closing_numbers "$payload")
 
   if [[ ${#closing_issue_numbers[@]} -eq 0 ]]; then
     echo "No closing issue refs found for PR #${pr_number}."
@@ -32,7 +32,7 @@ done_status_on_dev_merge() {
 
   local n state
   for n in "${closing_issue_numbers[@]}"; do
-    state="$(done_status_issue_state "$repo_name" "$n")"
+    state="$(issue_gh_issue_state "$repo_name" "$n")"
     if [[ -z "$state" ]]; then
       echo "Issue #${n}: unreadable; skipping."
       continue
@@ -41,7 +41,7 @@ done_status_on_dev_merge() {
       echo "Issue #${n}: state=${state}; skipping done-in-dev label."
       continue
     fi
-    if done_status_issue_has_label "$repo_name" "$n" "$label_name"; then
+    if issue_gh_issue_has_label "$repo_name" "$n" "$label_name"; then
       echo "Issue #${n}: label '${label_name}' already present."
       continue
     fi
@@ -57,14 +57,14 @@ done_status_on_issue_closed() {
   local label_name="$3"
   local label_available="$4"
 
-  done_status_require_number "--issue" "$issue_number"
+  issue_cli_require_positive_number "--issue" "$issue_number"
 
   if [[ "$label_available" != "true" ]]; then
     echo "Warning: label '${label_name}' does not exist in ${repo_name}; skipping."
     return 0
   fi
 
-  if done_status_issue_has_label "$repo_name" "$issue_number" "$label_name"; then
+  if issue_gh_issue_has_label "$repo_name" "$issue_number" "$label_name"; then
     gh issue edit "$issue_number" -R "$repo_name" --remove-label "$label_name" >/dev/null
     echo "Issue #${issue_number}: removed label '${label_name}'."
   else
@@ -135,18 +135,18 @@ done_status_run() {
     exit 2
   fi
 
-  done_status_require_cmd gh
-  done_status_require_cmd jq
+  issue_gh_require_cmd gh
+  issue_gh_require_cmd jq
 
   local repo_name
-  repo_name="$(done_status_resolve_repo_name)"
+  repo_name="$(issue_gh_resolve_repo_name)"
   if [[ -z "$repo_name" ]]; then
     echo "Error: unable to resolve repository name." >&2
     exit 3
   fi
 
   local label_available="false"
-  if done_status_label_exists "$repo_name" "$label_name"; then
+  if issue_gh_label_exists "$repo_name" "$label_name"; then
     label_available="true"
   fi
 
