@@ -3,7 +3,7 @@
 create_direct_require_option_value() {
   local opt="$1"
   local value="${2:-}"
-  [[ -n "$value" ]] || die "$opt requires a value"
+  issue_cli_require_option_value "$opt" "$value" die
 }
 
 build_issue_body() {
