@@ -28,8 +28,7 @@ reopen_on_dev_run() {
   done
 
   issue_cli_require_positive_number "--pr" "$pr_number"
-  issue_gh_require_cmd gh
-  issue_gh_require_cmd jq
+  issue_gh_require_gh_and_jq
 
   local repo_name
   repo_name="$(issue_gh_resolve_repo_name_or_exit "" "repository")"

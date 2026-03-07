@@ -58,8 +58,7 @@ reevaluate_main() {
   }
   issue_cli_require_positive_number "--issue" "$issue_number"
 
-  issue_gh_require_cmd gh
-  issue_gh_require_cmd jq
+  issue_gh_require_gh_and_jq
 
   repo_name="$(issue_gh_resolve_repo_name_or_exit "$repo_name" "repository")"
 

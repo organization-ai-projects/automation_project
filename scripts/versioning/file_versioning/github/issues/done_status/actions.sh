@@ -119,8 +119,7 @@ done_status_run() {
     exit 2
   fi
 
-  issue_gh_require_cmd gh
-  issue_gh_require_cmd jq
+  issue_gh_require_gh_and_jq
 
   local repo_name
   repo_name="$(issue_gh_resolve_repo_name_or_exit "" "repository")"

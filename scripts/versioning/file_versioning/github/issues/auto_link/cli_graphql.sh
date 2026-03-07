@@ -43,6 +43,5 @@ auto_link_extract_parent_field_value() {
 }
 
 auto_link_require_deps() {
-  issue_gh_require_cmd gh
-  issue_gh_require_cmd jq
+  issue_gh_require_gh_and_jq
 }

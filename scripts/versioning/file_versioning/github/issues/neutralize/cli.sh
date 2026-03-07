@@ -23,8 +23,7 @@ neutralize_trim() {
 }
 
 neutralize_require_deps() {
-  issue_gh_require_cmd gh
-  issue_gh_require_cmd jq
+  issue_gh_require_gh_and_jq
   if ! command -v perl >/dev/null 2>&1; then
     echo "Error: perl is required." >&2
     exit 3

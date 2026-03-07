@@ -8,6 +8,11 @@ issue_gh_require_cmd() {
   fi
 }
 
+issue_gh_require_gh_and_jq() {
+  issue_gh_require_cmd gh
+  issue_gh_require_cmd jq
+}
+
 issue_gh_resolve_repo_name() {
   if [[ -n "${GH_REPO:-}" ]]; then
     echo "$GH_REPO"
