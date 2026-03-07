@@ -1,4 +1,8 @@
+use crate::scan::file_scanner::FileScanner;
+use crate::scan::rust_parser::RustParser;
 use crate::{config, reports, rules};
+use reports::violation_code::ViolationCode;
+use rules::rule_id::RuleId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CrateRules;
@@ -17,11 +21,6 @@ impl CrateRules {
         scope: config::path_classification::PathClassification,
         mode: config::enforcement_mode::EnforcementMode,
     ) -> Vec<reports::violation::Violation> {
-        use crate::scan::file_scanner::FileScanner;
-        use crate::scan::rust_parser::RustParser;
-        use reports::violation_code::ViolationCode;
-        use rules::rule_id::RuleId;
-
         let mut out = Vec::new();
         // Internal convention: `/core` is an orchestrator workspace root and not a product.
         // Skip crate-level product checks there.
@@ -252,8 +251,6 @@ struct MainFileFinding {
 }
 
 fn find_disallowed_items_in_main(content: &str) -> Vec<MainFileFinding> {
-    use reports::violation_code::ViolationCode;
-
     // Heuristic line-based scanner: intentionally lightweight and not a full Rust parser.
     // It may miss or over-report some complex constructs; primary goal is guardrail enforcement.
     let mut out = Vec::new();
@@ -358,9 +355,6 @@ fn read_text_or_emit_violation(
     path: &std::path::Path,
     kind: &str,
 ) -> Option<String> {
-    use reports::violation_code::ViolationCode;
-    use rules::rule_id::RuleId;
-
     match std::fs::read_to_string(path) {
         Ok(content) => Some(content),
         Err(err) => {
