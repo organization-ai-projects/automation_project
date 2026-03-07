@@ -11,7 +11,7 @@ This automation enforces parent/child issue consistency.
 ## Source
 
 - Workflow: `.github/workflows/parent_issue_guard.yml`
-- Script: `scripts/versioning/file_versioning/github/parent_issue_guard.sh`
+- Script: `scripts/versioning/file_versioning/github/parent_issue_guard/run.sh`
 
 ## Detection Model
 

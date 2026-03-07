@@ -23,6 +23,9 @@ mapfile -t standalone_scripts < <(
   find "${GITHUB_SCRIPTS_DIR}" -maxdepth 1 -type f -name '*.sh' \
     ! -name 'generate_pr_description.sh' | sort
 )
+mapfile -t nested_entrypoints < <(
+  find "${GITHUB_SCRIPTS_DIR}" -mindepth 2 -maxdepth 2 -type f -name 'run.sh' | sort
+)
 mapfile -t test_scripts < <(
   find "${GITHUB_SCRIPTS_DIR}/tests" -maxdepth 1 -type f -name '*.sh' | sort
 )
@@ -32,7 +35,7 @@ mapfile -t modular_lib_scripts < <(
 
 # Standalone scripts are linted strictly, except SC2016 which is noisy for
 # GraphQL payload literals containing "$var" placeholders.
-run_shellcheck_group "standalone scripts" -x -e SC2016 "${standalone_scripts[@]}"
+run_shellcheck_group "standalone scripts" -x -e SC2016 "${standalone_scripts[@]}" "${nested_entrypoints[@]}"
 # Test harnesses intentionally pass tokenized command snippets via ${command}.
 run_shellcheck_group "test scripts" -x -e SC2086 "${test_scripts[@]}"
 

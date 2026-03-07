@@ -56,11 +56,11 @@ jobs:
           echo "head_ref=${head_ref}" >> "$GITHUB_OUTPUT"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout base scripts
+      - name: Checkout PR head scripts
         if: steps.ctx.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.ctx.outputs.base_ref }}
+          ref: ${{ steps.ctx.outputs.head_ref }}
           sparse-checkout: |
             .github/issue_required_fields.conf
             scripts/versioning/file_versioning/github/
@@ -90,7 +90,8 @@ jobs:
             --dry-run \
             --base "${BASE_REF}" \
             --head "${HEAD_REF}" \
-            --refresh-pr "${PR_NUMBER}" --yes
+            --refresh-pr "${PR_NUMBER}" \
+            --yes
 
       - name: Guard PR body contract
         if: steps.ctx.outputs.skip != 'true'

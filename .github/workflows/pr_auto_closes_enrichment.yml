@@ -46,5 +46,5 @@ jobs:
             echo "Invalid or missing PR number." >&2
             exit 1
           fi
-          chmod +x scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr.sh
-          bash scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr.sh --pr "${PR_NUMBER}"
+          chmod +x scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr/run.sh
+          bash scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr/run.sh --pr "${PR_NUMBER}"

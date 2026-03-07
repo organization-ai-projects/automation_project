@@ -41,7 +41,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          bash scripts/versioning/file_versioning/github/issue_reopen_on_dev_merge.sh \
+          bash scripts/versioning/file_versioning/github/issues/reopen_on_dev/run.sh \
             --pr "$PR_NUMBER"
 
       - name: Manual dispatch
@@ -55,5 +55,5 @@ jobs:
             echo "Invalid or missing pr_number." >&2
             exit 1
           fi
-          bash scripts/versioning/file_versioning/github/issue_reopen_on_dev_merge.sh \
+          bash scripts/versioning/file_versioning/github/issues/reopen_on_dev/run.sh \
             --pr "$PR_NUMBER"

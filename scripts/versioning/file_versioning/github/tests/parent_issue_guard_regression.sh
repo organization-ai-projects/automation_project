@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/parent_issue_guard.sh"
+TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/parent_issue_guard/run.sh"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -196,7 +196,7 @@ run_close_check() {
 }
 
 main() {
-  echo "Running regression tests for parent_issue_guard.sh"
+  echo "Running regression tests for parent_issue_guard/run.sh"
 
   # All children closed => parent should be auto-closed
   run_case \

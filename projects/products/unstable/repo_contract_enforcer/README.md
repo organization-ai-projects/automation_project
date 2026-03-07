@@ -29,10 +29,32 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
 - Backend crate rules include a `syn`-based primary item contract:
   - each non-entry Rust file must define exactly one primary `struct` or `enum`
   - primary item name must match file stem in `snake_case`
+  - non-entry Rust files with behavioral logic (`fn`/`impl`/macros) must have a paired test file in the closest `tests/` folder:
+    - `src/foo/bar.rs` -> `src/foo/tests/bar.rs`
+  - data-only files (passive declarations) are exempt from mandatory paired tests
+  - when a paired test file exists, it must include a unit-test marker (`#[test]`, `#[tokio::test]`, `#[rstest]`, `#[test_case]`)
+  - unscoped `pub` in binary `src/main.rs` is discouraged (prefer private or `pub(crate)`)
+  - binary `src/main.rs` should remain entrypoint-only: no `struct`/`enum`/`trait`/`impl`, and no helper `fn` outside `main`
+  - local `use` statements in non-top-level scopes are forbidden; imports must be at module scope
+  - inline test attributes in source files are forbidden; tests must live in nearest `src/**/tests/*.rs`
+- Library layering rules enforce dependency direction in `projects/libraries/**`:
+  - `core/*` must not depend on `layers/*`
+  - `layers/domain/*` must not depend on `layers/orchestration/*`
+  - `layers/orchestration/*` may depend on `layers/domain/*` and `core/*`
+  - library crates must define `src/lib.rs`
+  - library crates must not define `src/main.rs`
 - Structure rules enforce manifest convention with strict-mode blocking on stable products and warnings on unstable/relaxed modes:
   - product root `metadata.ron`
   - `backend/backend_manifest.ron`
   - `ui/ui_manifest.ron`
+- Shell structure rules enforce repository automation contracts under `scripts/versioning/file_versioning/github/**`:
+  - `run.sh` must include strict mode (`set -euo pipefail`)
+  - `run.sh` must source module files
+  - `run.sh` must end with a single `*_main`/`*_run "$@"` entrypoint dispatch
+  - `run.sh` must not define inline functions (logic must live in sourced modules)
+  - `load.sh` must not define functions
+  - `load.sh` must only contain module constants and `source` lines (no executable logic)
+  - `load.sh` constants must be `UPPER_SNAKE_CASE` and end with `_DIR`
 - Run:
   - `cargo test -p repo_contract_enforcer_backend`
   - `cargo test -p repo_contract_enforcer_ui`

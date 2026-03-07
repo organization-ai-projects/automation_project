@@ -21,8 +21,8 @@ declare -a USER_FACING_ROWS=(
   "commit_push|scripts/versioning/file_versioning/git/push_branch.sh|Push current branch"
   "pre_push|scripts/automation/pre_push_check.sh|Repository pre-push checks"
   "pr_creation|scripts/versioning/file_versioning/github/generate_pr_description.sh|Canonical PR create/refresh entrypoint"
-  "issue_creation|scripts/versioning/file_versioning/github/create_direct_issue.sh|Create direct issue from contract"
-  "issue_lifecycle|scripts/versioning/file_versioning/github/manager_issues.sh|Route create/update/close/reopen issue operations"
+  "issue_creation|scripts/versioning/file_versioning/github/issues/create_direct/run.sh|Create direct issue from contract"
+  "issue_lifecycle|scripts/versioning/file_versioning/github/issues/manager/run.sh|Route create/update/close/reopen issue operations"
 )
 
 print_inventory() {

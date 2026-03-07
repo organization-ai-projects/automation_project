@@ -138,7 +138,7 @@ function isRelevantDocument(doc) {
   if (!doc || typeof doc.fileName !== 'string') {
     return false;
   }
-  return doc.languageId === 'rust' || doc.fileName.endsWith('.toml');
+  return doc.languageId === 'rust' || doc.languageId === 'shellscript' || doc.fileName.endsWith('.toml') || doc.fileName.endsWith('.sh');
 }
 
 function clampDebounceMs(value) {
@@ -280,6 +280,11 @@ function killActiveChildren(runtime) {
   for (const child of runtime.activeChildren) {
     killChildProcess(child);
   }
+}
+
+function restartBackendProcesses(runtime) {
+  killActiveChildren(runtime);
+  runtime.persistentSessions.clear();
 }
 
 function disposeRuntime(runtime) {
@@ -1313,9 +1318,13 @@ function registerCodeActionProvider(runtime) {
     },
   };
 
-  return vscode.languages.registerCodeActionsProvider([{ language: 'rust' }, { language: 'toml' }], provider, {
+  return vscode.languages.registerCodeActionsProvider(
+    [{ language: 'rust' }, { language: 'toml' }, { language: 'shellscript' }],
+    provider,
+    {
     providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
-  });
+    },
+  );
 }
 
 function registerHoverProvider(runtime) {
@@ -1510,7 +1519,7 @@ function activate(context) {
     triggerDebounced('edit');
   });
 
-  const watchFs = vscode.workspace.createFileSystemWatcher('**/*.{rs,toml}');
+  const watchFs = vscode.workspace.createFileSystemWatcher('**/*.{rs,toml,sh}');
   const fsChanged = () => {
     if (!isEnabled('runOnFileEvents', true)) {
       return;
@@ -1532,10 +1541,16 @@ function activate(context) {
     if (!evt.affectsConfiguration('repoContractEnforcer')) {
       return;
     }
-    killActiveChildren(runtime);
-    runtime.persistentSessions.clear();
+    restartBackendProcesses(runtime);
     refreshDiagnosticsTree(runtime, true);
     triggerNow('config changed');
+  });
+
+  const restartBackendCmd = vscode.commands.registerCommand('repoContractEnforcer.restartBackend', () => {
+    restartBackendProcesses(runtime);
+    refreshDiagnosticsTree(runtime, true);
+    logOutput(runtime, 'backend processes restarted');
+    triggerNow('backend restart');
   });
 
   context.subscriptions.push(
@@ -1562,6 +1577,7 @@ function activate(context) {
     watchFs,
     renameSub,
     cfgSub,
+    restartBackendCmd,
     { dispose: () => disposeRuntime(runtime) },
   );
 

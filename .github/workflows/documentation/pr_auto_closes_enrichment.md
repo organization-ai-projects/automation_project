@@ -20,7 +20,7 @@ This workflow auto-enriches open pull requests targeting `dev` with managed `Clo
 
 ## Script Entry Point
 
-- `scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr.sh`
+- `scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr/run.sh`
 
 ## Managed Block Contract
 

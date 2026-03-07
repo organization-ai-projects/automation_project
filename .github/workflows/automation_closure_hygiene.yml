@@ -31,5 +31,5 @@ jobs:
 
       - name: Run closure hygiene script
         run: |
-          chmod +x scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge.sh
-          bash scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge.sh
+          chmod +x scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge/run.sh
+          bash scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge/run.sh

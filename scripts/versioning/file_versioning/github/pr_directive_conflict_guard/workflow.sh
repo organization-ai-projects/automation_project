@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+
+pr_directive_conflict_guard_run() {
+  local pr_number=""
+  local repo_name="${GH_REPO:-}"
+  local pr_json original_body updated_body commit_messages directive_payload
+  local source_branch_count allow_inferred_resolution
+  local marker block_start block_end
+  local issue_key action decision comment_body conflict_block
+  local unresolved_count=0 resolved_count=0
+  local -A closing_requested=()
+  local -A reopen_requested=()
+  local -A directive_decision=()
+  local -A inferred_decision=()
+  local -A unresolved_conflict=()
+  local -A resolved_conflict=()
+
+  pr_directive_conflict_guard_parse_cli pr_number repo_name "$@"
+  gh_cli_require_gh_jq_perl
+  repo_name="$(pr_directive_conflict_guard_resolve_repo_name "$repo_name")"
+
+  marker="<!-- directive-conflict-guard:${pr_number} -->"
+  block_start="<!-- directive-conflicts:start -->"
+  block_end="<!-- directive-conflicts:end -->"
+
+  pr_json="$(pr_directive_conflict_guard_fetch_pr_json "$repo_name" "$pr_number")"
+  if [[ -z "$pr_json" ]]; then
+    echo "Error: unable to read PR #${pr_number}." >&2
+    exit 4
+  fi
+
+  original_body="$(echo "$pr_json" | jq -r '.body // ""')"
+  updated_body="$original_body"
+
+  while IFS='|' read -r action issue_key; do
+    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    if [[ "$action" == "Closes" ]]; then
+      closing_requested["$issue_key"]=1
+    fi
+  done < <(parse_closing_issue_refs_from_text "$original_body")
+
+  while IFS='|' read -r _ issue_key; do
+    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    reopen_requested["$issue_key"]=1
+  done < <(parse_reopen_issue_refs_from_text "$original_body")
+
+  while IFS='|' read -r issue_key decision; do
+    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
+    decision="$(pr_directive_conflict_guard_trim "$decision" | tr '[:upper:]' '[:lower:]')"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
+    directive_decision["$issue_key"]="$decision"
+  done < <(parse_directive_decisions_from_text "$original_body")
+
+  commit_messages="$(pr_directive_conflict_guard_fetch_commit_messages "$repo_name" "$pr_number")"
+  source_branch_count="$(
+    printf '%s\n' "$commit_messages" |
+      sed -nE 's@.*Merge pull request #[0-9]+ from [^/]+/(.+)@\1@p' |
+      sort -u | sed '/^$/d' | wc -l | tr -d ' '
+  )"
+  allow_inferred_resolution="true"
+  if [[ "${source_branch_count:-0}" -gt 1 ]]; then
+    allow_inferred_resolution="false"
+  fi
+
+  directive_payload="${commit_messages}"$'\n'"${original_body}"
+  while IFS='|' read -r action issue_key; do
+    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    case "$action" in
+    Closes) inferred_decision["$issue_key"]="close" ;;
+    Reopen) inferred_decision["$issue_key"]="reopen" ;;
+    esac
+  done < <(parse_directive_events_from_text "$directive_payload")
+
+  for issue_key in "${!closing_requested[@]}"; do
+    if [[ -z "${reopen_requested[$issue_key]:-}" ]]; then
+      continue
+    fi
+    if [[ -n "${directive_decision[$issue_key]:-}" ]]; then
+      resolved_conflict["$issue_key"]="${directive_decision[$issue_key]} (explicit)"
+      resolved_count=$((resolved_count + 1))
+    elif [[ "$allow_inferred_resolution" == "true" && -n "${inferred_decision[$issue_key]:-}" ]]; then
+      resolved_conflict["$issue_key"]="${inferred_decision[$issue_key]} (inferred from latest directive)"
+      resolved_count=$((resolved_count + 1))
+    else
+      if [[ "$allow_inferred_resolution" != "true" ]]; then
+        unresolved_conflict["$issue_key"]="Closes + Reopen detected across multiple source branches; explicit decision required."
+      else
+        unresolved_conflict["$issue_key"]="Closes + Reopen detected without explicit decision."
+      fi
+      unresolved_count=$((unresolved_count + 1))
+    fi
+  done
+
+  for issue_key in "${!resolved_conflict[@]}"; do
+    if [[ "${resolved_conflict[$issue_key]}" != close* ]]; then
+      continue
+    fi
+    updated_body="$(pr_directive_conflict_guard_apply_reopen_rejected_marker "$updated_body" "$issue_key")"
+  done
+
+  if [[ "$resolved_count" -gt 0 || "$unresolved_count" -gt 0 ]]; then
+    conflict_block="${block_start}
+### Issue Directive Decisions
+"
+    if [[ "$resolved_count" -gt 0 ]]; then
+      conflict_block+=$'\n'"Resolved decisions:"$'\n'
+      while IFS= read -r issue_key; do
+        [[ -z "$issue_key" ]] && continue
+        conflict_block+="- ${issue_key} => ${resolved_conflict[$issue_key]}"$'\n'
+      done < <(printf '%s\n' "${!resolved_conflict[@]}" | sort -V)
+    fi
+    if [[ "$unresolved_count" -gt 0 ]]; then
+      conflict_block+=$'\n'"❌ Unresolved conflicts (merge blocked):"$'\n'
+      while IFS= read -r issue_key; do
+        [[ -z "$issue_key" ]] && continue
+        conflict_block+="- ${issue_key}: ${unresolved_conflict[$issue_key]}"$'\n'
+      done < <(printf '%s\n' "${!unresolved_conflict[@]}" | sort -V)
+      conflict_block+=$'\n'"Required decision format:"$'\n'
+      conflict_block+="- \`Directive Decision: #<issue> => close\`"$'\n'
+      conflict_block+="- \`Directive Decision: #<issue> => reopen\`"$'\n'
+    fi
+    conflict_block+="${block_end}"
+    updated_body="$(
+      pr_directive_conflict_guard_upsert_conflict_block_in_body \
+        "$updated_body" \
+        "$conflict_block" \
+        "$block_start" \
+        "$block_end"
+    )"
+  else
+    updated_body="$(
+      pr_directive_conflict_guard_upsert_conflict_block_in_body \
+        "$updated_body" \
+        "" \
+        "$block_start" \
+        "$block_end"
+    )"
+  fi
+
+  if [[ "$updated_body" != "$original_body" ]]; then
+    gh pr edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
+  fi
+
+  if [[ "$unresolved_count" -gt 0 ]]; then
+    comment_body="$marker
+### Directive Conflict Guard
+
+❌ Unresolved Closes/Reopen conflicts detected. Add explicit directive decisions in PR body."
+    pr_directive_conflict_guard_upsert_pr_comment "$repo_name" "$pr_number" "$marker" "$comment_body"
+    echo "Unresolved directive conflicts detected for PR #${pr_number}." >&2
+    exit 8
+  fi
+
+  if [[ "$resolved_count" -gt 0 ]]; then
+    comment_body="$marker
+### Directive Conflict Guard
+
+✅ Directive conflicts resolved via explicit decisions."
+    pr_directive_conflict_guard_upsert_pr_comment "$repo_name" "$pr_number" "$marker" "$comment_body"
+  fi
+
+  echo "Directive conflict guard evaluated for PR #${pr_number}."
+}
