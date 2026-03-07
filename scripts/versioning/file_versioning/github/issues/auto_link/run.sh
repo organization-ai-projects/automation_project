@@ -10,7 +10,7 @@ source "${ISSUES_DIR}/required_fields/load.sh"
 # shellcheck source=scripts/versioning/file_versioning/github/issues/common/gh.sh
 source "${ISSUES_DIR}/common/gh.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
-source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh"
+source "${ISSUES_DIR}/../../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
 source "${BASH_SOURCE[0]%/*}/cli_graphql.sh"
 source "${BASH_SOURCE[0]%/*}/state.sh"
 source "${BASH_SOURCE[0]%/*}/validation.sh"
