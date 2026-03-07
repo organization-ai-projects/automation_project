@@ -97,6 +97,19 @@ impl CrateRules {
                                 ),
                                 (true, None),
                             ));
+                        } else {
+                            let paired_test_content =
+                                std::fs::read_to_string(&expected_test_path).unwrap_or_default();
+                            if !looks_like_unit_test_file(&paired_test_content) {
+                                out.push(make_violation(
+                                    RuleId::Crate,
+                                    ViolationCode::CratePairedTestNotUnitStyle,
+                                    (scope, mode),
+                                    &expected_test_path,
+                                    "paired test file must define at least one unit test (e.g. #[test], #[tokio::test], #[rstest])",
+                                    (true, None),
+                                ));
+                            }
                         }
                     }
 
@@ -148,6 +161,13 @@ fn expected_paired_test_path(rs_file: &std::path::Path) -> Option<std::path::Pat
 
     let parent = rs_file.parent()?;
     Some(parent.join("tests").join(format!("{stem}.rs")))
+}
+
+fn looks_like_unit_test_file(content: &str) -> bool {
+    // Heuristic guardrail: unit-style test files must expose at least one test attribute.
+    // This prevents placeholder/integration-like files from satisfying the paired-test contract.
+    const TEST_MARKERS: [&str; 4] = ["#[test]", "#[tokio::test]", "#[rstest]", "#[test_case]"];
+    TEST_MARKERS.iter().any(|marker| content.contains(marker))
 }
 
 fn make_violation(
@@ -274,10 +294,49 @@ mod tests {
             EnforcementMode::Strict,
         );
 
-        assert!(
-            !violations
-                .iter()
-                .any(|v| v.violation_code == ViolationCode::CrateMissingPairedTestFile)
+        assert!(!violations.iter().any(|v| {
+            matches!(
+                v.violation_code,
+                ViolationCode::CrateMissingPairedTestFile
+                    | ViolationCode::CratePairedTestNotUnitStyle
+            )
+        }));
+    }
+
+    #[test]
+    fn crate_paired_test_file_requires_unit_test_marker() {
+        let product_root = temp_product_root();
+        let product_name = "project_gamma";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_gamma_backend");
+        write_minimal_bin_crate(&ui, "project_gamma_ui");
+
+        let request_rs = backend.join("src/protocol/request.rs");
+        fs::create_dir_all(request_rs.parent().expect("request parent"))
+            .expect("mkdir request parent");
+        fs::write(&request_rs, "pub struct Request;\n").expect("write request.rs");
+
+        let request_test = backend.join("src/protocol/tests/request.rs");
+        fs::create_dir_all(request_test.parent().expect("request test parent"))
+            .expect("mkdir request test parent");
+        fs::write(
+            &request_test,
+            "pub fn helper_for_external_integration() -> bool { true }\n",
+        )
+        .expect("write request test");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
         );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CratePairedTestNotUnitStyle
+                && v.path.ends_with("backend/src/protocol/tests/request.rs")
+        }));
     }
 }

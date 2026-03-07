@@ -11,6 +11,7 @@ pub enum ViolationCode {
     CrateNotBinOnly,
     CrateMissingMain,
     CrateMissingPairedTestFile,
+    CratePairedTestNotUnitStyle,
     CratePrimaryItemContractViolation,
     NameProductMismatch,
     NameCrateMismatch,
