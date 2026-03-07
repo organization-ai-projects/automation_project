@@ -17,7 +17,7 @@
     "vsix:pack": "rm -f repo-contract-enforcer-diagnostics-*.vsix && vsce package --allow-missing-repository --no-dependencies",
     "vsix:install": "bash ./scripts/reinstall-local.sh",
     "vsix:reinstall": "bash ./scripts/repack-reinstall.sh",
-    "vsix:watch": "npm run dev"
+    "vsix:watch": "pnpm run dev"
   },
   "files": [
     "extension.js",
