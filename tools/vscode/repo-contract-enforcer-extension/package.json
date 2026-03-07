@@ -4,6 +4,7 @@
   "description": "Inline diagnostics from repo_contract_enforcer rules (team patterns).",
   "version": "0.0.1",
   "license": "MIT",
+  "icon": "media/icon.png",
   "publisher": "local",
   "engines": {
     "vscode": "^1.90.0"
@@ -23,7 +24,8 @@
     "extension.js",
     "package.json",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "media/icon.png"
   ],
   "categories": [
     "Linters"
@@ -31,7 +33,8 @@
   "activationEvents": [
     "workspaceContains:Cargo.toml",
     "onLanguage:rust",
-    "onLanguage:toml"
+    "onLanguage:toml",
+    "onLanguage:shellscript"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -98,7 +101,8 @@
       "explorer": [
         {
           "id": "repoContractEnforcerDiagnostics",
-          "name": "Repo Contract Diagnostics"
+          "name": "Repo Contract Diagnostics",
+          "icon": "media/icon.png"
         }
       ]
     },
@@ -161,7 +165,7 @@
         "repoContractEnforcer.runOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Run checks automatically when Rust/TOML files are saved"
+          "description": "Run checks automatically when Rust/TOML/Shell files are saved"
         },
         "repoContractEnforcer.runOnStartup": {
           "type": "boolean",
@@ -171,12 +175,12 @@
         "repoContractEnforcer.runOnChange": {
           "type": "boolean",
           "default": true,
-          "description": "Run checks while editing Rust/TOML files (debounced)"
+          "description": "Run checks while editing Rust/TOML/Shell files (debounced)"
         },
         "repoContractEnforcer.runOnFileEvents": {
           "type": "boolean",
           "default": true,
-          "description": "Run checks on Rust/TOML file create/change/delete/rename events"
+          "description": "Run checks on Rust/TOML/Shell file create/change/delete/rename events"
         },
         "repoContractEnforcer.syncProblemsOnTreeOpen": {
           "type": "boolean",

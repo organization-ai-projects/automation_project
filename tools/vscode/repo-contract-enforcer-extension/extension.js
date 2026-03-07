@@ -138,7 +138,7 @@ function isRelevantDocument(doc) {
   if (!doc || typeof doc.fileName !== 'string') {
     return false;
   }
-  return doc.languageId === 'rust' || doc.fileName.endsWith('.toml');
+  return doc.languageId === 'rust' || doc.languageId === 'shellscript' || doc.fileName.endsWith('.toml') || doc.fileName.endsWith('.sh');
 }
 
 function clampDebounceMs(value) {
@@ -1318,9 +1318,13 @@ function registerCodeActionProvider(runtime) {
     },
   };
 
-  return vscode.languages.registerCodeActionsProvider([{ language: 'rust' }, { language: 'toml' }], provider, {
+  return vscode.languages.registerCodeActionsProvider(
+    [{ language: 'rust' }, { language: 'toml' }, { language: 'shellscript' }],
+    provider,
+    {
     providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
-  });
+    },
+  );
 }
 
 function registerHoverProvider(runtime) {
@@ -1515,7 +1519,7 @@ function activate(context) {
     triggerDebounced('edit');
   });
 
-  const watchFs = vscode.workspace.createFileSystemWatcher('**/*.{rs,toml}');
+  const watchFs = vscode.workspace.createFileSystemWatcher('**/*.{rs,toml,sh}');
   const fsChanged = () => {
     if (!isEnabled('runOnFileEvents', true)) {
       return;
