@@ -80,10 +80,24 @@ impl CrateRules {
                         .file_stem()
                         .and_then(|s| s.to_str())
                         .unwrap_or_default();
+                    let source_content = std::fs::read_to_string(&rs_file).unwrap_or_default();
+
+                    if stem == "main" {
+                        for line in find_unscoped_pub_lines_in_main(&source_content) {
+                            out.push(make_violation(
+                                RuleId::Crate,
+                                ViolationCode::CrateBinaryMainUnscopedPub,
+                                (scope, mode),
+                                &rs_file,
+                                "unscoped `pub` in binary main module is discouraged; prefer private items or `pub(crate)`",
+                                (false, Some(line)),
+                            ));
+                        }
+                    }
+
                     if !should_enforce_primary_item_contract(&src_dir, &rs_file, stem) {
                         continue;
                     }
-                    let source_content = std::fs::read_to_string(&rs_file).unwrap_or_default();
 
                     if let Some(expected_test_path) = expected_paired_test_path(&rs_file) {
                         let requires_paired_test = rust_file_has_test_worthy_logic(&source_content);
@@ -195,6 +209,25 @@ fn rust_file_has_test_worthy_logic(content: &str) -> bool {
         || first_line.starts_with("impl ")
         || first_line.starts_with("macro_rules!")
         || first_line.starts_with("unsafe fn ")
+}
+
+fn find_unscoped_pub_lines_in_main(content: &str) -> Vec<u32> {
+    let mut out = Vec::new();
+    for (idx, line) in content.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("//")
+            || trimmed.starts_with("#[")
+            || trimmed.starts_with("pub(crate)")
+            || trimmed.starts_with("pub(super)")
+            || trimmed.starts_with("pub(in ")
+        {
+            continue;
+        }
+        if trimmed.starts_with("pub ") {
+            out.push((idx + 1) as u32);
+        }
+    }
+    out
 }
 
 fn make_violation(
@@ -408,6 +441,35 @@ mod tests {
         assert!(!violations.iter().any(|v| {
             v.violation_code == ViolationCode::CrateMissingPairedTestFile
                 && v.path.ends_with("backend/src/store/account_record.rs")
+        }));
+    }
+
+    #[test]
+    fn crate_detects_unscoped_pub_in_binary_main_module() {
+        let product_root = temp_product_root();
+        let product_name = "project_eps";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_eps_backend");
+        write_minimal_bin_crate(&ui, "project_eps_ui");
+
+        fs::write(
+            backend.join("src/main.rs"),
+            "#![allow(dead_code)]\npub mod public_api;\nfn main() {}\n",
+        )
+        .expect("write backend main.rs");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateBinaryMainUnscopedPub
+                && v.path.ends_with("backend/src/main.rs")
         }));
     }
 }
