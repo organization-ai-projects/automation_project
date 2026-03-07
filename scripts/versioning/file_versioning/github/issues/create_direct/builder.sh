@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+create_direct_require_option_value() {
+  local opt="$1"
+  local value="${2:-}"
+  [[ -n "$value" ]] || die "$opt requires a value"
+}
+
 build_issue_body() {
   local context="$1"
   local problem="$2"
@@ -41,14 +47,26 @@ append_references_section_if_needed() {
   local body="$1"
   local -n related_issues_ref="$2"
   local -n related_prs_ref="$3"
+  local -a related_issues_clean=()
+  local -a related_prs_clean=()
+  local ref
 
-  if [[ ${#related_issues_ref[@]} -gt 0 || ${#related_prs_ref[@]} -gt 0 ]]; then
+  for ref in "${related_issues_ref[@]}"; do
+    ref="$(trim "$ref")"
+    [[ -n "$ref" ]] && related_issues_clean+=("$ref")
+  done
+  for ref in "${related_prs_ref[@]}"; do
+    ref="$(trim "$ref")"
+    [[ -n "$ref" ]] && related_prs_clean+=("$ref")
+  done
+
+  if [[ ${#related_issues_clean[@]} -gt 0 || ${#related_prs_clean[@]} -gt 0 ]]; then
     body+=$'\n\n## References\n'
-    if [[ ${#related_issues_ref[@]} -gt 0 ]]; then
-      body+=$'\nRelated issue(s):'" $(printf '%s ' "${related_issues_ref[@]}")"
+    if [[ ${#related_issues_clean[@]} -gt 0 ]]; then
+      body+=$'\nRelated issue(s):'" $(printf '%s ' "${related_issues_clean[@]}")"
     fi
-    if [[ ${#related_prs_ref[@]} -gt 0 ]]; then
-      body+=$'\nRelated PR(s):'" $(printf '%s ' "${related_prs_ref[@]}")"
+    if [[ ${#related_prs_clean[@]} -gt 0 ]]; then
+      body+=$'\nRelated PR(s):'" $(printf '%s ' "${related_prs_clean[@]}")"
     fi
   fi
 
@@ -72,46 +90,57 @@ run_create_direct_issue() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --title)
+      create_direct_require_option_value "$1" "${2:-}"
       title="${2:-}"
       shift 2
       ;;
     --context)
+      create_direct_require_option_value "$1" "${2:-}"
       context="${2:-}"
       shift 2
       ;;
     --problem)
+      create_direct_require_option_value "$1" "${2:-}"
       problem="${2:-}"
       shift 2
       ;;
     --acceptance)
+      create_direct_require_option_value "$1" "${2:-}"
       acceptance_criteria+=("${2:-}")
       shift 2
       ;;
     --parent)
+      create_direct_require_option_value "$1" "${2:-}"
       parent="${2:-}"
       shift 2
       ;;
     --related-issue)
+      create_direct_require_option_value "$1" "${2:-}"
       related_issues+=("${2:-}")
       shift 2
       ;;
     --related-pr)
+      create_direct_require_option_value "$1" "${2:-}"
       related_prs+=("${2:-}")
       shift 2
       ;;
     --label)
+      create_direct_require_option_value "$1" "${2:-}"
       labels+=("${2:-}")
       shift 2
       ;;
     --assignee)
+      create_direct_require_option_value "$1" "${2:-}"
       assignees+=("${2:-}")
       shift 2
       ;;
     --repo)
+      create_direct_require_option_value "$1" "${2:-}"
       repo="${2:-}"
       shift 2
       ;;
     --template)
+      create_direct_require_option_value "$1" "${2:-}"
       template_path="${2:-}"
       shift 2
       ;;
@@ -132,6 +161,7 @@ run_create_direct_issue() {
   [[ -n "$(trim "$problem")" ]] || die "--problem is required"
   [[ ${#acceptance_criteria[@]} -gt 0 ]] || die "At least one --acceptance is required"
 
+  local title_validation
   title_validation="$(issue_validate_title "$title" || true)"
   if [[ -n "$title_validation" ]]; then
     die "Invalid --title. Expected conventional issue format (e.g. feat(scope): summary)"
@@ -143,6 +173,7 @@ run_create_direct_issue() {
   body="$(build_issue_body "$context" "$problem" "$parent" "${acceptance_criteria[@]}")"
   body="$(append_references_section_if_needed "$body" related_issues related_prs)"
 
+  local body_validation
   body_validation="$(issue_validate_body "$body" || true)"
   if [[ -n "$body_validation" ]]; then
     echo "Issue body validation failed against required-fields contract:" >&2
