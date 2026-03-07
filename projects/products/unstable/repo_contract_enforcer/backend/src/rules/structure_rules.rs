@@ -188,6 +188,20 @@ impl StructureRules {
                         (true, Some(1)),
                     ));
                 }
+
+                for (idx, line) in content.lines().enumerate() {
+                    if is_function_definition_line(line) {
+                        out.push(make_violation(
+                            RuleId::Structure,
+                            ViolationCode::StructShellRunHasFunctionDefinition,
+                            (config::path_classification::PathClassification::Other, mode),
+                            &file,
+                            "run.sh must not define functions; keep orchestration logic in sourced modules",
+                            (true, Some((idx + 1) as u32)),
+                        ));
+                        break;
+                    }
+                }
             }
 
             if file_name == "load.sh" {
@@ -208,6 +222,20 @@ impl StructureRules {
                             (config::path_classification::PathClassification::Other, mode),
                             &file,
                             "load.sh must only aggregate module sources (no function definitions)",
+                            (true, Some((idx + 1) as u32)),
+                        ));
+                        break;
+                    }
+
+                    if is_shell_variable_assignment(trimmed)
+                        && !is_shell_dir_constant_assignment(trimmed)
+                    {
+                        out.push(make_violation(
+                            RuleId::Structure,
+                            ViolationCode::StructShellLoadInvalidConstantName,
+                            (config::path_classification::PathClassification::Other, mode),
+                            &file,
+                            "load.sh constants must use UPPER_SNAKE_CASE names ending with _DIR",
                             (true, Some((idx + 1) as u32)),
                         ));
                         break;
@@ -285,10 +313,32 @@ fn is_allowed_load_line(line: &str) -> bool {
     if is_source_line(trimmed) {
         return true;
     }
-    if is_shell_variable_assignment(trimmed) {
+    if is_shell_dir_constant_assignment(trimmed) {
         return true;
     }
     false
+}
+
+fn is_shell_dir_constant_assignment(line: &str) -> bool {
+    let Some(eq_idx) = line.find('=') else {
+        return false;
+    };
+    if eq_idx == 0 {
+        return false;
+    }
+    let name = &line[..eq_idx];
+    if !name.ends_with("_DIR") {
+        return false;
+    }
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+    {
+        return false;
+    }
+    name.chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_uppercase() || c == '_')
 }
 
 fn is_shell_variable_assignment(line: &str) -> bool {
@@ -299,15 +349,12 @@ fn is_shell_variable_assignment(line: &str) -> bool {
         return false;
     }
     let name = &line[..eq_idx];
-    if !name
-        .chars()
-        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
-    {
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
         return false;
     }
     name.chars()
         .next()
-        .is_some_and(|c| c.is_ascii_uppercase() || c == '_')
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
 }
 
 fn collect_shell_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
@@ -494,6 +541,24 @@ mod tests {
     }
 
     #[test]
+    fn shell_run_forbids_function_definitions() {
+        let root = temp_root("shell_run_no_functions");
+        let run_path = root.join("scripts/versioning/file_versioning/github/issues/manager/run.sh");
+        fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
+        fs::write(
+            &run_path,
+            "#!/usr/bin/env bash\nset -euo pipefail\nsource \"./load.sh\"\nhelper() { echo bad; }\nmanager_issues_main \"$@\"\n",
+        )
+        .expect("write run.sh");
+
+        let violations = StructureRules::evaluate_shell_scripts(&root, EnforcementMode::Strict);
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::StructShellRunHasFunctionDefinition
+                && v.path.ends_with("run.sh")
+        }));
+    }
+
+    #[test]
     fn shell_load_forbids_executable_logic() {
         let root = temp_root("shell_load_logic");
         let load_path = root.join("scripts/versioning/file_versioning/github/pr/common/load.sh");
@@ -507,6 +572,24 @@ mod tests {
         let violations = StructureRules::evaluate_shell_scripts(&root, EnforcementMode::Strict);
         assert!(violations.iter().any(|v| {
             v.violation_code == ViolationCode::StructShellLoadHasExecutableLogic
+                && v.path.ends_with("load.sh")
+        }));
+    }
+
+    #[test]
+    fn shell_load_requires_dir_constant_naming() {
+        let root = temp_root("shell_load_constant_name");
+        let load_path = root.join("scripts/versioning/file_versioning/github/pr/common/load.sh");
+        fs::create_dir_all(load_path.parent().expect("load parent")).expect("create load parent");
+        fs::write(
+            &load_path,
+            "#!/usr/bin/env bash\npr_common_dir=\"$(pwd)\"\nsource \"./a.sh\"\n",
+        )
+        .expect("write load.sh");
+
+        let violations = StructureRules::evaluate_shell_scripts(&root, EnforcementMode::Strict);
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::StructShellLoadInvalidConstantName
                 && v.path.ends_with("load.sh")
         }));
     }
@@ -536,8 +619,10 @@ mod tests {
                 ViolationCode::StructShellRunMissingStrictMode
                     | ViolationCode::StructShellRunMissingSource
                     | ViolationCode::StructShellRunMissingEntrypoint
+                    | ViolationCode::StructShellRunHasFunctionDefinition
                     | ViolationCode::StructShellLoadHasFunctionDefinition
                     | ViolationCode::StructShellLoadHasExecutableLogic
+                    | ViolationCode::StructShellLoadInvalidConstantName
             )
         }));
     }

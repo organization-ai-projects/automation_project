@@ -29,6 +29,8 @@ pub enum ViolationCode {
     StructShellRunMissingStrictMode,
     StructShellRunMissingSource,
     StructShellRunMissingEntrypoint,
+    StructShellRunHasFunctionDefinition,
     StructShellLoadHasFunctionDefinition,
     StructShellLoadHasExecutableLogic,
+    StructShellLoadInvalidConstantName,
 }
