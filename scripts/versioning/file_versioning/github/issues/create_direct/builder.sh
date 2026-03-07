@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
 
-create_direct_require_option_value() {
-  local opt="$1"
-  local value="${2:-}"
-  issue_cli_require_option_value "$opt" "$value" die
-}
-
 build_issue_body() {
   local context="$1"
   local problem="$2"
@@ -90,58 +84,47 @@ run_create_direct_issue() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --title)
-      create_direct_require_option_value "$1" "${2:-}"
-      title="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" title die
       shift 2
       ;;
     --context)
-      create_direct_require_option_value "$1" "${2:-}"
-      context="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" context die
       shift 2
       ;;
     --problem)
-      create_direct_require_option_value "$1" "${2:-}"
-      problem="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" problem die
       shift 2
       ;;
     --acceptance)
-      create_direct_require_option_value "$1" "${2:-}"
-      acceptance_criteria+=("${2:-}")
+      issue_cli_append_value_or_error "$1" "${2:-}" acceptance_criteria die
       shift 2
       ;;
     --parent)
-      create_direct_require_option_value "$1" "${2:-}"
-      parent="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" parent die
       shift 2
       ;;
     --related-issue)
-      create_direct_require_option_value "$1" "${2:-}"
-      related_issues+=("${2:-}")
+      issue_cli_append_value_or_error "$1" "${2:-}" related_issues die
       shift 2
       ;;
     --related-pr)
-      create_direct_require_option_value "$1" "${2:-}"
-      related_prs+=("${2:-}")
+      issue_cli_append_value_or_error "$1" "${2:-}" related_prs die
       shift 2
       ;;
     --label)
-      create_direct_require_option_value "$1" "${2:-}"
-      labels+=("${2:-}")
+      issue_cli_append_value_or_error "$1" "${2:-}" labels die
       shift 2
       ;;
     --assignee)
-      create_direct_require_option_value "$1" "${2:-}"
-      assignees+=("${2:-}")
+      issue_cli_append_value_or_error "$1" "${2:-}" assignees die
       shift 2
       ;;
     --repo)
-      create_direct_require_option_value "$1" "${2:-}"
-      repo="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" repo die
       shift 2
       ;;
     --template)
-      create_direct_require_option_value "$1" "${2:-}"
-      template_path="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" template_path die
       shift 2
       ;;
     --dry-run)
