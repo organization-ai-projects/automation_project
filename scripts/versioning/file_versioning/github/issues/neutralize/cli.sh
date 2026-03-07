@@ -15,10 +15,6 @@ Notes:
 USAGE
 }
 
-neutralize_require_number() {
-  issue_cli_require_positive_number "$1" "${2:-}"
-}
-
 neutralize_trim() {
   local s="${1:-}"
   s="${s#"${s%%[![:space:]]*}"}"

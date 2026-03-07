@@ -19,7 +19,7 @@ cmd_create() {
     if [[ "$arg" == "--label" ]]; then
       next_index=$((i + 1))
       next="${!next_index:-}"
-      [[ -n "$next" ]] || die_usage "--label requires a value."
+      issue_cli_require_option_value "$arg" "$next" die_usage
       labels+=("$next")
       passthrough+=("$arg" "$next")
       i=$((i + 2))

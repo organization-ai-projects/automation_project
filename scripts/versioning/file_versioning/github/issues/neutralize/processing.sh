@@ -251,7 +251,7 @@ neutralize_run() {
     neutralize_usage >&2
     exit 2
   }
-  neutralize_require_number "--pr" "$pr_number"
+  issue_cli_require_positive_number "--pr" "$pr_number"
   neutralize_require_deps
 
   repo_name="$(issue_gh_resolve_repo_name_or_exit "$repo_name" "repository")"

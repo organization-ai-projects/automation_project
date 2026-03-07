@@ -13,10 +13,6 @@ Notes:
 USAGE
 }
 
-reevaluate_require_number() {
-  issue_cli_require_positive_number "$1" "${2:-}"
-}
-
 reevaluate_pr_body_references_issue() {
   local issue_number="$1"
   local body="$2"
@@ -60,7 +56,7 @@ reevaluate_main() {
     reevaluate_usage >&2
     exit 2
   }
-  reevaluate_require_number "--issue" "$issue_number"
+  issue_cli_require_positive_number "--issue" "$issue_number"
 
   issue_gh_require_cmd gh
   issue_gh_require_cmd jq

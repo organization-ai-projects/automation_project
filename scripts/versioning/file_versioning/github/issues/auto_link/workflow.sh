@@ -26,7 +26,7 @@ auto_link_run() {
     exit 2
   fi
 
-  auto_link_require_number "--issue" "$issue_arg"
+  issue_cli_require_positive_number "--issue" "$issue_arg"
   auto_link_require_deps
 
   local repo_name

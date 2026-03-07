@@ -12,10 +12,6 @@ Notes:
 USAGE
 }
 
-auto_link_require_number() {
-  issue_cli_require_positive_number "$1" "${2:-}"
-}
-
 auto_link_trim() {
   local s="${1:-}"
   s="${s#"${s%%[![:space:]]*}"}"
