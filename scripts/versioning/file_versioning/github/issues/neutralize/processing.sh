@@ -245,15 +245,6 @@ neutralize_parse_args() {
   done
 }
 
-neutralize_resolve_repo_name() {
-  local repo_name="${1:-}"
-  if [[ -n "$repo_name" ]]; then
-    echo "$repo_name"
-    return
-  fi
-  issue_gh_resolve_repo_name
-}
-
 neutralize_run() {
   local pr_number=""
   local repo_name="${GH_REPO:-}"
@@ -268,11 +259,7 @@ neutralize_run() {
   neutralize_require_number "--pr" "$pr_number"
   neutralize_require_deps
 
-  repo_name="$(neutralize_resolve_repo_name "$repo_name")"
-  [[ -n "$repo_name" ]] || {
-    echo "Error: unable to determine repository." >&2
-    exit 3
-  }
+  repo_name="$(issue_gh_resolve_repo_name_or_exit "$repo_name" "repository")"
 
   local marker="<!-- closure-neutralizer:${pr_number} -->"
 

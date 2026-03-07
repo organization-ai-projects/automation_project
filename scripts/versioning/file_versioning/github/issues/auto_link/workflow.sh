@@ -30,14 +30,8 @@ auto_link_run() {
   auto_link_require_number "--issue" "$issue_arg"
   auto_link_require_deps
 
-  local repo_name="${GH_REPO:-}"
-  if [[ -z "$repo_name" ]]; then
-    repo_name="$(issue_gh_resolve_repo_name)"
-  fi
-  if [[ -z "$repo_name" ]]; then
-    echo "Erreur: impossible de déterminer le repository (GH_REPO)." >&2
-    exit 3
-  fi
+  local repo_name
+  repo_name="$(issue_gh_resolve_repo_name_or_exit "${GH_REPO:-}" "repository")"
 
   local repo_owner="${repo_name%%/*}"
   local repo_short_name="${repo_name#*/}"

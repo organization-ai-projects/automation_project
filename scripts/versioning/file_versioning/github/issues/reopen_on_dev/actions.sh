@@ -36,11 +36,7 @@ reopen_on_dev_run() {
   issue_gh_require_cmd jq
 
   local repo_name
-  repo_name="$(issue_gh_resolve_repo_name)"
-  if [[ -z "$repo_name" ]]; then
-    echo "Error: unable to resolve repository name." >&2
-    exit 3
-  fi
+  repo_name="$(issue_gh_resolve_repo_name_or_exit "" "repository")"
 
   local pr_state
   pr_state="$(gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"

@@ -67,13 +67,7 @@ reevaluate_main() {
   issue_gh_require_cmd gh
   issue_gh_require_cmd jq
 
-  if [[ -z "$repo_name" ]]; then
-    repo_name="$(issue_gh_resolve_repo_name)"
-  fi
-  [[ -n "$repo_name" ]] || {
-    echo "Error: unable to determine repository." >&2
-    exit 3
-  }
+  repo_name="$(issue_gh_resolve_repo_name_or_exit "$repo_name" "repository")"
 
   local neutralizer="${ISSUES_DIR}/neutralize/run.sh"
   if [[ ! -x "$neutralizer" ]]; then

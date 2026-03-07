@@ -129,11 +129,7 @@ done_status_run() {
   issue_gh_require_cmd jq
 
   local repo_name
-  repo_name="$(issue_gh_resolve_repo_name)"
-  if [[ -z "$repo_name" ]]; then
-    echo "Error: unable to resolve repository name." >&2
-    exit 3
-  fi
+  repo_name="$(issue_gh_resolve_repo_name_or_exit "" "repository")"
 
   local label_available="false"
   if issue_gh_label_exists "$repo_name" "$label_name"; then

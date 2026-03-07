@@ -16,6 +16,20 @@ issue_gh_resolve_repo_name() {
   gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true
 }
 
+issue_gh_resolve_repo_name_or_exit() {
+  local repo_name="${1:-}"
+  local context="${2:-repository}"
+
+  if [[ -z "$repo_name" ]]; then
+    repo_name="$(issue_gh_resolve_repo_name)"
+  fi
+  if [[ -z "$repo_name" ]]; then
+    echo "Error: unable to resolve ${context} name." >&2
+    exit 3
+  fi
+  echo "$repo_name"
+}
+
 issue_gh_label_exists() {
   local repo="$1"
   local label="$2"
