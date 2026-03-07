@@ -1,40 +1,40 @@
 {
-  "mode": "auto",
-  "report_hash": "1989496298310c1808ef7379e9307d6990bd1db13a87b184f97eae5b8ebe2f2b",
-  "summary": {
-    "stable_warning_count": 3,
-    "unstable_warning_count": 0,
-    "stable_error_count": 0,
-    "unstable_error_count": 0
-  },
   "repository_root": "<FIXTURE_ROOT>",
+  "summary": {
+    "unstable_warning_count": 0,
+    "stable_warning_count": 3,
+    "unstable_error_count": 0,
+    "stable_error_count": 0
+  },
+  "mode": "auto",
   "violations": [
     {
-      "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/backend/backend_manifest.ron",
-      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
-      "scope": "stable",
-      "severity": "WARNING",
-      "line": null,
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "rule_id": "structure"
-    },
-    {
       "line": null,
-      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
-      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
-      "scope": "stable",
       "severity": "WARNING",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/metadata.ron",
-      "rule_id": "structure"
-    },
-    {
       "rule_id": "structure",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "severity": "WARNING",
       "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/backend/backend_manifest.ron",
+      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)"
+    },
+    {
+      "severity": "WARNING",
+      "rule_id": "structure",
+      "scope": "stable",
+      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
+      "line": null,
+      "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/metadata.ron"
+    },
+    {
       "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/ui/ui_manifest.ron",
+      "severity": "WARNING",
       "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
-      "line": null
+      "line": null,
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "scope": "stable",
+      "rule_id": "structure"
     }
-  ]
+  ],
+  "report_hash": "e704c24f9d103eef63fb1ea58fe99aa30deb48831993f14559a7e07af5f5a37f"
 }

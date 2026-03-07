@@ -1,58 +1,58 @@
 {
+  "report_hash": "516e34aaaa67e01e979f4935674f59af6e7ae85869012a344de035d596a32b92",
+  "repository_root": "<FIXTURE_ROOT>",
   "mode": "strict",
   "summary": {
+    "stable_warning_count": 1,
     "unstable_warning_count": 0,
     "stable_error_count": 4,
-    "unstable_error_count": 0,
-    "stable_warning_count": 1
+    "unstable_error_count": 0
   },
-  "report_hash": "567df14d83a45bfd9c7a8c0df5c1ecf64a04d32628f93003af5b5f9384832ec5",
-  "repository_root": "<FIXTURE_ROOT>",
   "violations": [
     {
-      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
+      "line": null,
+      "rule_id": "structure",
       "severity": "ERROR",
       "scope": "stable",
-      "rule_id": "structure",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/backend_manifest.ron",
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "line": null
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/backend_manifest.ron",
+      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)"
     },
     {
+      "severity": "ERROR",
+      "message": "wall-clock API usage is forbidden",
       "line": 1,
       "scope": "stable",
-      "violation_code": "DET_WALL_CLOCK_USAGE",
-      "rule_id": "determinism",
-      "severity": "ERROR",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/src/main.rs",
-      "message": "wall-clock API usage is forbidden"
+      "rule_id": "determinism",
+      "violation_code": "DET_WALL_CLOCK_USAGE"
     },
     {
-      "line": 4,
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/src/main.rs",
       "scope": "stable",
       "rule_id": "determinism",
-      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
       "message": "underscore-based bindings/discards may hide unused values",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/backend/src/main.rs",
+      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
+      "line": 4,
       "severity": "WARNING"
     },
     {
-      "line": null,
-      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
-      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/metadata.ron",
       "severity": "ERROR",
-      "rule_id": "structure",
       "scope": "stable",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/metadata.ron"
+      "rule_id": "structure",
+      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
+      "line": null,
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA"
     },
     {
+      "rule_id": "structure",
       "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
-      "scope": "stable",
-      "severity": "ERROR",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_wall_clock/ui/ui_manifest.ron",
       "line": null,
-      "rule_id": "structure",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST"
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "scope": "stable",
+      "severity": "ERROR"
     }
   ]
 }

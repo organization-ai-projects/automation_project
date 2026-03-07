@@ -1,14 +1,21 @@
 {
-  "mode": "strict",
   "repository_root": "<FIXTURE_ROOT>",
+  "summary": {
+    "unstable_warning_count": 3,
+    "stable_warning_count": 0,
+    "stable_error_count": 0,
+    "unstable_error_count": 0
+  },
+  "report_hash": "a8870dc3babfdf7f40827db0ae6896e822d8f7faa5d3e9e60238db448e7bb5e7",
+  "mode": "strict",
   "violations": [
     {
+      "rule_id": "structure",
       "scope": "unstable",
+      "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/backend/backend_manifest.ron",
       "line": null,
       "severity": "WARNING",
-      "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/backend/backend_manifest.ron",
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "rule_id": "structure",
       "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)"
     },
     {
@@ -16,25 +23,18 @@
       "rule_id": "structure",
       "scope": "unstable",
       "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/metadata.ron",
-      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
       "severity": "WARNING",
-      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)"
+      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA"
     },
     {
       "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
-      "rule_id": "structure",
+      "scope": "unstable",
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "rule_id": "structure",
       "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/ui/ui_manifest.ron",
       "severity": "WARNING",
-      "line": null,
-      "scope": "unstable"
+      "line": null
     }
-  ],
-  "summary": {
-    "stable_warning_count": 0,
-    "unstable_warning_count": 3,
-    "unstable_error_count": 0,
-    "stable_error_count": 0
-  },
-  "report_hash": "cd4250ae60dcedf43e4f6f7555113469c1610417feb5702211b63d46b66de839"
+  ]
 }

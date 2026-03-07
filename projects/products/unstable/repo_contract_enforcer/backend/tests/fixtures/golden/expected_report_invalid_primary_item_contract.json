@@ -1,58 +1,76 @@
 {
-  "report_hash": "523e19321a8c21f56eac47ff848a8394ae1eb47cc0b318613211d873cd9bd98a",
+  "repository_root": "<FIXTURE_ROOT>",
+  "report_hash": "b66438bf189f1b53de09718e53dc25eba89def439352b6ac129e527e6f0fb313",
   "summary": {
+    "stable_error_count": 7,
     "unstable_error_count": 0,
-    "stable_warning_count": 0,
-    "stable_error_count": 5,
-    "unstable_warning_count": 0
+    "unstable_warning_count": 0,
+    "stable_warning_count": 0
   },
   "mode": "strict",
-  "repository_root": "<FIXTURE_ROOT>",
   "violations": [
     {
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
       "rule_id": "structure",
       "severity": "ERROR",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/backend_manifest.ron",
       "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
-      "line": null,
-      "scope": "stable",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/backend_manifest.ron"
-    },
-    {
-      "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
-      "scope": "stable",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/mismatch_name.rs",
-      "message": "primary item name 'WrongName' does not match file stem 'mismatch_name'",
-      "rule_id": "crate",
-      "severity": "ERROR",
       "line": null
     },
     {
-      "message": "file contains multiple primary struct/enum/trait declarations",
-      "line": null,
       "rule_id": "crate",
-      "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
-      "severity": "ERROR",
+      "violation_code": "CRATE_MISSING_PAIRED_TEST_FILE",
       "scope": "stable",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/multi.rs"
+      "severity": "ERROR",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/mismatch_name.rs",
+      "message": "missing paired test file; expected /home/bezotremi/Projects/rust/worktree-1/projects/products/unstable/repo_contract_enforcer/backend/tests/fixtures/repos/invalid_primary_item_contract/projects/products/stable/invalid_primary_item_contract/backend/src/tests/mismatch_name.rs",
+      "line": null
     },
     {
-      "rule_id": "structure",
+      "message": "primary item name 'WrongName' does not match file stem 'mismatch_name'",
+      "line": null,
+      "rule_id": "crate",
+      "severity": "ERROR",
+      "scope": "stable",
+      "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/mismatch_name.rs"
+    },
+    {
+      "message": "missing paired test file; expected /home/bezotremi/Projects/rust/worktree-1/projects/products/unstable/repo_contract_enforcer/backend/tests/fixtures/repos/invalid_primary_item_contract/projects/products/stable/invalid_primary_item_contract/backend/src/tests/multi.rs",
+      "line": null,
+      "severity": "ERROR",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/multi.rs",
+      "rule_id": "crate",
+      "violation_code": "CRATE_MISSING_PAIRED_TEST_FILE",
+      "scope": "stable"
+    },
+    {
+      "line": null,
+      "severity": "ERROR",
+      "rule_id": "crate",
+      "message": "file contains multiple primary struct/enum/trait declarations",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/backend/src/multi.rs",
+      "violation_code": "CRATE_PRIMARY_ITEM_CONTRACT_VIOLATION",
+      "scope": "stable"
+    },
+    {
       "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
       "scope": "stable",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/metadata.ron",
       "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
-      "severity": "ERROR",
-      "line": null
-    },
-    {
       "line": null,
       "severity": "ERROR",
-      "scope": "stable",
+      "rule_id": "structure"
+    },
+    {
+      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
+      "severity": "ERROR",
       "rule_id": "structure",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_primary_item_contract/ui/ui_manifest.ron",
-      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)"
+      "scope": "stable",
+      "line": null,
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST"
     }
   ]
 }

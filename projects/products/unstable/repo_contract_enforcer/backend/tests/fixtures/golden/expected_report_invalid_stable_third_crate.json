@@ -1,58 +1,58 @@
 {
-  "mode": "strict",
   "summary": {
-    "stable_error_count": 5,
     "unstable_error_count": 0,
     "unstable_warning_count": 0,
-    "stable_warning_count": 0
+    "stable_warning_count": 0,
+    "stable_error_count": 5
   },
   "repository_root": "<FIXTURE_ROOT>",
+  "mode": "strict",
   "violations": [
     {
+      "rule_id": "structure",
+      "scope": "stable",
+      "severity": "ERROR",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/backend/backend_manifest.ron",
       "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
-      "line": null,
-      "rule_id": "structure",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "severity": "ERROR",
-      "scope": "stable"
+      "line": null
     },
     {
-      "scope": "stable",
       "line": null,
+      "rule_id": "structure",
+      "severity": "ERROR",
+      "scope": "stable",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/metadata.ron",
-      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
-      "rule_id": "structure",
-      "severity": "ERROR",
-      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)"
+      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA"
     },
     {
-      "rule_id": "structure",
+      "severity": "ERROR",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling",
+      "rule_id": "structure",
       "violation_code": "STRUCT_THIRD_CRATE_DETECTED",
-      "severity": "ERROR",
-      "scope": "stable",
       "message": "only backend and ui crates are allowed",
-      "line": null
-    },
-    {
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling",
-      "message": "forbidden folder name detected",
       "line": null,
-      "rule_id": "structure",
-      "violation_code": "STRUCT_FORBIDDEN_FOLDER_NAME",
-      "severity": "ERROR",
       "scope": "stable"
     },
     {
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/ui/ui_manifest.ron",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
-      "severity": "ERROR",
       "scope": "stable",
       "rule_id": "structure",
-      "line": null
+      "line": null,
+      "severity": "ERROR",
+      "message": "forbidden folder name detected",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/tooling",
+      "violation_code": "STRUCT_FORBIDDEN_FOLDER_NAME"
+    },
+    {
+      "line": null,
+      "rule_id": "structure",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_third_crate/ui/ui_manifest.ron",
+      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "severity": "ERROR"
     }
   ],
-  "report_hash": "eacc128ee7fa7626556085f1a08b9dd479a4b647b41ca2239bcaf4274a13b5f8"
+  "report_hash": "0c90536e3b9d70429ae90b8246d202b4f154aab2fedf6f1154582a63eea85f81"
 }
