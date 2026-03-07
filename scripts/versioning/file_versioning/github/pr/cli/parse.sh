@@ -13,6 +13,18 @@ pr_args_assign_value() {
   printf -v "$target_var_name" '%s' "$option_value"
 }
 
+pr_args_assign_auto_edit_target() {
+  local option_name="$1"
+  local option_value="$2"
+  local from_refresh="$3"
+
+  pr_args_assign_value "$option_name" "$option_value" auto_edit_pr_number
+  if [[ "$from_refresh" == "true" ]]; then
+    refresh_pr_used="true"
+  fi
+  mode_explicit="true"
+}
+
 pr_args_parse_cli() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -51,8 +63,7 @@ pr_args_parse_cli() {
       shift
       ;;
     --auto-edit)
-      pr_args_assign_value "--auto-edit" "${2:-}" auto_edit_pr_number
-      mode_explicit="true"
+      pr_args_assign_auto_edit_target "--auto-edit" "${2:-}" "false"
       shift 2
       ;;
     --refresh-pr)
@@ -60,9 +71,7 @@ pr_args_parse_cli() {
       if [[ -n "$auto_edit_pr_number" && "$auto_edit_pr_number" != "${2:-}" ]]; then
         pr_usage_error "--refresh-pr and --auto-edit must target the same PR_NUMBER."
       fi
-      auto_edit_pr_number="${2:-}"
-      refresh_pr_used="true"
-      mode_explicit="true"
+      pr_args_assign_auto_edit_target "--refresh-pr" "${2:-}" "true"
       shift 2
       ;;
     --duplicate-mode)
