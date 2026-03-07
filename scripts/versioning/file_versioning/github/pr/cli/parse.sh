@@ -4,6 +4,15 @@
 
 # CLI parsing helpers.
 
+pr_args_assign_value() {
+  local option_name="$1"
+  local option_value="$2"
+  local target_var_name="$3"
+
+  pr_require_option_value "$option_name" "$option_value"
+  printf -v "$target_var_name" '%s' "$option_value"
+}
+
 pr_args_parse_cli() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -17,13 +26,11 @@ pr_args_parse_cli() {
       shift
       ;;
     --base)
-      pr_require_option_value "--base" "${2:-}"
-      base_ref="${2:-}"
+      pr_args_assign_value "--base" "${2:-}" base_ref
       shift 2
       ;;
     --head)
-      pr_require_option_value "--head" "${2:-}"
-      head_ref="${2:-}"
+      pr_args_assign_value "--head" "${2:-}" head_ref
       shift 2
       ;;
     --create-pr)
@@ -44,8 +51,7 @@ pr_args_parse_cli() {
       shift
       ;;
     --auto-edit)
-      pr_require_option_value "--auto-edit" "${2:-}"
-      auto_edit_pr_number="${2:-}"
+      pr_args_assign_value "--auto-edit" "${2:-}" auto_edit_pr_number
       mode_explicit="true"
       shift 2
       ;;
@@ -60,8 +66,7 @@ pr_args_parse_cli() {
       shift 2
       ;;
     --duplicate-mode)
-      pr_require_option_value "--duplicate-mode" "${2:-}"
-      duplicate_mode="${2:-}"
+      pr_args_assign_value "--duplicate-mode" "${2:-}" duplicate_mode
       shift 2
       ;;
     --debug)
