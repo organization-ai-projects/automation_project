@@ -26,4 +26,6 @@ pub enum ViolationCode {
     DetUnderscoreUnusedMasking,
     StructMissingProductMetadata,
     StructMissingCrateManifest,
+    StructShellRunMissingStrictMode,
+    StructShellLoadHasFunctionDefinition,
 }

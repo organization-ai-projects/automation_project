@@ -131,6 +131,102 @@ impl StructureRules {
 
         out
     }
+
+    pub fn evaluate_shell_scripts(
+        repo_root: &std::path::Path,
+        mode: config::enforcement_mode::EnforcementMode,
+    ) -> Vec<reports::violation::Violation> {
+        use reports::violation_code::ViolationCode;
+        use rules::rule_id::RuleId;
+
+        let shell_root = repo_root.join("scripts/versioning/file_versioning/github");
+        if !shell_root.is_dir() {
+            return Vec::new();
+        }
+
+        let mut out = Vec::new();
+        let mut files = Vec::new();
+        collect_shell_files(&shell_root, &mut files);
+
+        for file in files {
+            let file_name = file
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default();
+            let content = std::fs::read_to_string(&file).unwrap_or_default();
+
+            if file_name == "run.sh" && !content.contains("set -euo pipefail") {
+                out.push(make_violation(
+                    RuleId::Structure,
+                    ViolationCode::StructShellRunMissingStrictMode,
+                    (config::path_classification::PathClassification::Other, mode),
+                    &file,
+                    "run.sh must enable strict mode with `set -euo pipefail`",
+                    (true, Some(1)),
+                ));
+            }
+
+            if file_name == "load.sh" {
+                for (idx, line) in content.lines().enumerate() {
+                    if is_function_definition_line(line) {
+                        out.push(make_violation(
+                            RuleId::Structure,
+                            ViolationCode::StructShellLoadHasFunctionDefinition,
+                            (config::path_classification::PathClassification::Other, mode),
+                            &file,
+                            "load.sh must only aggregate module sources (no function definitions)",
+                            (true, Some((idx + 1) as u32)),
+                        ));
+                        break;
+                    }
+                }
+            }
+        }
+
+        out
+    }
+}
+
+fn collect_shell_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+
+    for entry in read_dir.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_shell_files(&path, out);
+            continue;
+        }
+        if path.extension().and_then(|s| s.to_str()) == Some("sh") {
+            out.push(path);
+        }
+    }
+}
+
+fn is_function_definition_line(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if trimmed.is_empty() || trimmed.starts_with('#') {
+        return false;
+    }
+
+    let Some(paren_idx) = trimmed.find("()") else {
+        return false;
+    };
+    let name = &trimmed[..paren_idx];
+    if name.is_empty()
+        || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        || !name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+    {
+        return false;
+    }
+
+    let rest = trimmed[paren_idx + 2..].trim_start();
+    rest.starts_with('{')
 }
 
 fn make_violation(
@@ -180,5 +276,89 @@ fn make_violation(
         path: path.to_string_lossy().to_string(),
         message: message.to_string(),
         line,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StructureRules;
+    use crate::config::enforcement_mode::EnforcementMode;
+    use crate::reports::violation_code::ViolationCode;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_root(prefix: &str) -> std::path::PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time before epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("repo_contract_enforcer_{prefix}_{stamp}"));
+        fs::create_dir_all(&root).expect("create temp root");
+        root
+    }
+
+    #[test]
+    fn shell_run_requires_strict_mode() {
+        let root = temp_root("shell_run_strict");
+        let run_path =
+            root.join("scripts/versioning/file_versioning/github/issues/auto_link/run.sh");
+        fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
+        fs::write(
+            &run_path,
+            "#!/usr/bin/env bash\nsource \"./load.sh\"\nauto_link_run \"$@\"\n",
+        )
+        .expect("write run.sh");
+
+        let violations = StructureRules::evaluate_shell_scripts(&root, EnforcementMode::Strict);
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::StructShellRunMissingStrictMode
+                && v.path.ends_with("run.sh")
+        }));
+    }
+
+    #[test]
+    fn shell_load_forbids_function_definitions() {
+        let root = temp_root("shell_load_functions");
+        let load_path = root.join("scripts/versioning/file_versioning/github/pr/common/load.sh");
+        fs::create_dir_all(load_path.parent().expect("load parent")).expect("create load parent");
+        fs::write(
+            &load_path,
+            "#!/usr/bin/env bash\nsource \"./a.sh\"\nhelper() {\n  echo ok\n}\n",
+        )
+        .expect("write load.sh");
+
+        let violations = StructureRules::evaluate_shell_scripts(&root, EnforcementMode::Strict);
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::StructShellLoadHasFunctionDefinition
+                && v.path.ends_with("load.sh")
+        }));
+    }
+
+    #[test]
+    fn compliant_shell_layout_has_no_shell_structure_violations() {
+        let root = temp_root("shell_layout_ok");
+        let run_path = root.join("scripts/versioning/file_versioning/github/issues/manager/run.sh");
+        let load_path = root.join("scripts/versioning/file_versioning/github/pr/common/load.sh");
+        fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
+        fs::create_dir_all(load_path.parent().expect("load parent")).expect("create load parent");
+        fs::write(
+            &run_path,
+            "#!/usr/bin/env bash\nset -euo pipefail\nsource \"./load.sh\"\nmain \"$@\"\n",
+        )
+        .expect("write compliant run.sh");
+        fs::write(
+            &load_path,
+            "#!/usr/bin/env bash\nPR_COMMON_DIR=\"$(cd \"${BASH_SOURCE[0]%/*}\" && pwd)\"\nsource \"${PR_COMMON_DIR}/a.sh\"\n",
+        )
+        .expect("write compliant load.sh");
+
+        let violations = StructureRules::evaluate_shell_scripts(&root, EnforcementMode::Strict);
+        assert!(!violations.iter().any(|v| {
+            matches!(
+                v.violation_code,
+                ViolationCode::StructShellRunMissingStrictMode
+                    | ViolationCode::StructShellLoadHasFunctionDefinition
+            )
+        }));
     }
 }
