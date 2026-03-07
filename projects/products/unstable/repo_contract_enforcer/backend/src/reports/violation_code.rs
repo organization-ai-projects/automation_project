@@ -10,6 +10,7 @@ pub enum ViolationCode {
     StructMissingReadme,
     CrateNotBinOnly,
     CrateMissingMain,
+    CrateMissingPairedTestFile,
     CratePrimaryItemContractViolation,
     NameProductMismatch,
     NameCrateMismatch,
