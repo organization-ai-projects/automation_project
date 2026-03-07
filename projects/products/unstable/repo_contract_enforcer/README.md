@@ -37,6 +37,8 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
   - `core/*` must not depend on `layers/*`
   - `layers/domain/*` must not depend on `layers/orchestration/*`
   - `layers/orchestration/*` may depend on `layers/domain/*` and `core/*`
+  - library crates must define `src/lib.rs`
+  - library crates must not define `src/main.rs`
 - Structure rules enforce manifest convention with strict-mode blocking on stable products and warnings on unstable/relaxed modes:
   - product root `metadata.ron`
   - `backend/backend_manifest.ron`
