@@ -97,6 +97,31 @@ impl CrateRules {
                     else {
                         continue;
                     };
+                    let is_test_file = is_file_under_tests_dir(&src_dir, &rs_file);
+
+                    for line in find_local_use_lines(&source_content) {
+                        out.push(make_violation(
+                            RuleId::Crate,
+                            ViolationCode::CrateContainsLocalUseStatement,
+                            (scope, mode),
+                            &rs_file,
+                            "local `use` statements are forbidden; imports must be declared at module scope",
+                            (true, Some(line)),
+                        ));
+                    }
+
+                    if !is_test_file {
+                        for line in find_inline_test_attribute_lines(&source_content) {
+                            out.push(make_violation(
+                                RuleId::Crate,
+                                ViolationCode::CrateContainsInlineTestAttribute,
+                                (scope, mode),
+                                &rs_file,
+                                "inline tests are forbidden in source files; move tests to nearest src/**/tests/*.rs",
+                                (true, Some(line)),
+                            ));
+                        }
+                    }
 
                     if stem == "main" {
                         for line in find_unscoped_pub_lines_in_main(&source_content) {
@@ -199,6 +224,14 @@ fn should_enforce_primary_item_contract(
     !comps.any(|c| c.as_os_str() == "tests")
 }
 
+fn is_file_under_tests_dir(src_dir: &std::path::Path, rs_file: &std::path::Path) -> bool {
+    let rel = match rs_file.strip_prefix(src_dir) {
+        Ok(path) => path,
+        Err(_) => return false,
+    };
+    rel.components().any(|c| c.as_os_str() == "tests")
+}
+
 fn expected_paired_test_path(rs_file: &std::path::Path) -> Option<std::path::PathBuf> {
     let stem = rs_file
         .file_stem()
@@ -239,6 +272,44 @@ fn find_unscoped_pub_lines_in_main(content: &str) -> Vec<u32> {
         }
         if trimmed.starts_with("pub ") {
             out.push((idx + 1) as u32);
+        }
+    }
+    out
+}
+
+fn find_inline_test_attribute_lines(content: &str) -> Vec<u32> {
+    const TEST_ATTRS: [&str; 6] = [
+        "#[cfg(test)]",
+        "#[test]",
+        "#[tokio::test]",
+        "#[rstest]",
+        "#[test_case]",
+        "#[quickcheck]",
+    ];
+    let mut out = Vec::new();
+    for (idx, line) in content.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if TEST_ATTRS.iter().any(|attr| trimmed.starts_with(attr)) {
+            out.push((idx + 1) as u32);
+        }
+    }
+    out
+}
+
+fn find_local_use_lines(content: &str) -> Vec<u32> {
+    let mut out = Vec::new();
+    let mut depth: i32 = 0;
+    for (idx, line) in content.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if depth > 0 && trimmed.starts_with("use ") {
+            out.push((idx + 1) as u32);
+        }
+        // Heuristic depth tracking: good enough for style guardrails.
+        let open_count = line.matches('{').count() as i32;
+        let close_count = line.matches('}').count() as i32;
+        depth += open_count - close_count;
+        if depth < 0 {
+            depth = 0;
         }
     }
     out
@@ -669,5 +740,72 @@ mod tests {
                 .iter()
                 .any(|v| v.violation_code == ViolationCode::CrateBinaryMainContainsNonEntrypointFn)
         );
+    }
+
+    #[test]
+    fn crate_detects_local_use_statement_in_function_scope() {
+        let product_root = temp_product_root();
+        let product_name = "project_eta";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_eta_backend");
+        write_minimal_bin_crate(&ui, "project_eta_ui");
+
+        fs::write(
+            backend.join("src/service.rs"),
+            "pub fn run() {\n    use std::collections::HashMap;\n    let _m: HashMap<String, String> = HashMap::new();\n}\n",
+        )
+        .expect("write service.rs");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateContainsLocalUseStatement
+                && v.path.ends_with("backend/src/service.rs")
+        }));
+    }
+
+    #[test]
+    fn crate_detects_inline_test_attribute_outside_tests_dir() {
+        let product_root = temp_product_root();
+        let product_name = "project_theta";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_theta_backend");
+        write_minimal_bin_crate(&ui, "project_theta_ui");
+
+        fs::write(
+            backend.join("src/service.rs"),
+            "#[cfg(test)]\nmod tests {\n    #[test]\n    fn smoke() {}\n}\n",
+        )
+        .expect("write service.rs");
+        let service_test = backend.join("src/tests/service.rs");
+        fs::create_dir_all(service_test.parent().expect("service test parent"))
+            .expect("create service test parent");
+        fs::write(&service_test, "#[test]\nfn allowed_in_tests_folder() {}\n")
+            .expect("write tests/service.rs");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateContainsInlineTestAttribute
+                && v.path.ends_with("backend/src/service.rs")
+        }));
+        assert!(!violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateContainsInlineTestAttribute
+                && v.path.ends_with("backend/src/tests/service.rs")
+        }));
     }
 }

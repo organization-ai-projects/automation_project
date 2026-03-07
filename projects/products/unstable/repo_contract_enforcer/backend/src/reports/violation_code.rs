@@ -16,6 +16,8 @@ pub enum ViolationCode {
     CrateBinaryMainContainsTrait,
     CrateBinaryMainContainsImpl,
     CrateBinaryMainContainsNonEntrypointFn,
+    CrateContainsLocalUseStatement,
+    CrateContainsInlineTestAttribute,
     CrateMissingPairedTestFile,
     CratePairedTestNotUnitStyle,
     CratePrimaryItemContractViolation,
