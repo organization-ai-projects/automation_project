@@ -1,3 +1,5 @@
+use syn::spanned::Spanned;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RustParser;
 
@@ -21,6 +23,21 @@ pub struct UnderscoreSignals {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StdoutMacroSignals {
     pub has_stdout_macro: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MainItemViolationKind {
+    Struct,
+    Enum,
+    Trait,
+    Impl,
+    NonEntrypointFn,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MainItemViolation {
+    pub kind: MainItemViolationKind,
+    pub line: Option<u32>,
 }
 
 impl RustParser {
@@ -173,6 +190,70 @@ impl RustParser {
             has_stdout_macro: visitor.has_stdout_macro,
         }
     }
+
+    pub fn local_use_statement_lines(source: &str) -> Vec<u32> {
+        let ast = match syn::parse_file(source) {
+            Ok(ast) => ast,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut visitor = LocalUseVisitor {
+            block_depth: 0,
+            lines: Vec::new(),
+        };
+        syn::visit::Visit::visit_file(&mut visitor, &ast);
+        visitor.lines
+    }
+
+    pub fn inline_test_attribute_lines(source: &str) -> Vec<u32> {
+        let ast = match syn::parse_file(source) {
+            Ok(ast) => ast,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut visitor = InlineTestAttributeVisitor { lines: Vec::new() };
+        syn::visit::Visit::visit_file(&mut visitor, &ast);
+        visitor.lines
+    }
+
+    pub fn main_module_item_violations(source: &str) -> Vec<MainItemViolation> {
+        let ast = match syn::parse_file(source) {
+            Ok(ast) => ast,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut out = Vec::new();
+        for item in ast.items {
+            match item {
+                syn::Item::Struct(s) => out.push(MainItemViolation {
+                    kind: MainItemViolationKind::Struct,
+                    line: line_of_span(s.ident.span()),
+                }),
+                syn::Item::Enum(e) => out.push(MainItemViolation {
+                    kind: MainItemViolationKind::Enum,
+                    line: line_of_span(e.ident.span()),
+                }),
+                syn::Item::Trait(t) => out.push(MainItemViolation {
+                    kind: MainItemViolationKind::Trait,
+                    line: line_of_span(t.ident.span()),
+                }),
+                syn::Item::Impl(i) => out.push(MainItemViolation {
+                    kind: MainItemViolationKind::Impl,
+                    line: line_of_span(i.impl_token.span),
+                }),
+                syn::Item::Fn(f) => {
+                    if f.sig.ident != "main" {
+                        out.push(MainItemViolation {
+                            kind: MainItemViolationKind::NonEntrypointFn,
+                            line: line_of_span(f.sig.ident.span()),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+        out
+    }
 }
 
 fn to_snake_case(input: &str) -> String {
@@ -234,6 +315,17 @@ struct StdoutMacroVisitor {
     has_stdout_macro: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocalUseVisitor {
+    block_depth: usize,
+    lines: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InlineTestAttributeVisitor {
+    lines: Vec<u32>,
+}
+
 impl<'ast> syn::visit::Visit<'ast> for UnderscoreVisitor {
     fn visit_local(&mut self, node: &'ast syn::Local) {
         match &node.pat {
@@ -277,6 +369,60 @@ impl<'ast> syn::visit::Visit<'ast> for StdoutMacroVisitor {
     }
 }
 
+impl<'ast> syn::visit::Visit<'ast> for LocalUseVisitor {
+    fn visit_block(&mut self, node: &'ast syn::Block) {
+        self.block_depth += 1;
+        syn::visit::visit_block(self, node);
+        self.block_depth = self.block_depth.saturating_sub(1);
+    }
+
+    fn visit_stmt(&mut self, node: &'ast syn::Stmt) {
+        if self.block_depth > 0
+            && let syn::Stmt::Item(syn::Item::Use(item_use)) = node
+            && let Some(line) = line_of_span(item_use.use_token.span)
+        {
+            self.lines.push(line);
+        }
+        syn::visit::visit_stmt(self, node);
+    }
+}
+
+impl<'ast> syn::visit::Visit<'ast> for InlineTestAttributeVisitor {
+    fn visit_attribute(&mut self, node: &'ast syn::Attribute) {
+        if is_test_attribute(node)
+            && let Some(line) = line_of_span(node.path().span())
+        {
+            self.lines.push(line);
+        }
+        syn::visit::visit_attribute(self, node);
+    }
+}
+
+fn line_of_span(span: proc_macro2::Span) -> Option<u32> {
+    let line = span.start().line;
+    if line == 0 {
+        return None;
+    }
+    Some(line as u32)
+}
+
+fn is_test_attribute(attr: &syn::Attribute) -> bool {
+    if attr.path().is_ident("test")
+        || attr.path().is_ident("rstest")
+        || attr.path().is_ident("test_case")
+        || attr.path().is_ident("quickcheck")
+    {
+        return true;
+    }
+    if !attr.path().is_ident("cfg") {
+        return false;
+    }
+    match &attr.meta {
+        syn::Meta::List(list) => list.tokens.to_string().replace(' ', "") == "test",
+        _ => false,
+    }
+}
+
 fn pat_contains_prefixed_binding(pat: &syn::Pat) -> bool {
     match pat {
         syn::Pat::Ident(ident) => ident.ident.to_string().starts_with('_'),
@@ -299,7 +445,7 @@ fn pat_contains_prefixed_binding(pat: &syn::Pat) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::RustParser;
+    use super::{MainItemViolationKind, RustParser};
 
     #[test]
     fn stdout_macro_signal_ignores_string_literals() {
@@ -322,5 +468,70 @@ mod tests {
         "#;
         let signals = RustParser::stdout_macro_signals(source);
         assert!(signals.has_stdout_macro);
+    }
+
+    #[test]
+    fn local_use_lines_detects_only_block_scope_uses() {
+        let source = r#"
+            use std::fmt::Debug;
+
+            fn demo() {
+                use std::collections::HashMap;
+                let _m: HashMap<String, String> = HashMap::new();
+            }
+        "#;
+        let lines = RustParser::local_use_statement_lines(source);
+        assert_eq!(lines.len(), 1);
+    }
+
+    #[test]
+    fn inline_test_attribute_lines_detects_cfg_and_test_attrs() {
+        let source = r#"
+            #[cfg(test)]
+            mod tests {
+                #[test]
+                fn smoke() {}
+            }
+        "#;
+        let lines = RustParser::inline_test_attribute_lines(source);
+        assert_eq!(lines.len(), 2);
+    }
+
+    #[test]
+    fn main_module_item_violations_detect_disallowed_top_level_items() {
+        let source = r#"
+            struct App;
+            enum Mode { Fast }
+            trait Runner {}
+            impl App { fn run(&self) {} }
+            fn helper() {}
+            fn main() {}
+        "#;
+        let violations = RustParser::main_module_item_violations(source);
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.kind == MainItemViolationKind::Struct)
+        );
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.kind == MainItemViolationKind::Enum)
+        );
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.kind == MainItemViolationKind::Trait)
+        );
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.kind == MainItemViolationKind::Impl)
+        );
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.kind == MainItemViolationKind::NonEntrypointFn)
+        );
     }
 }

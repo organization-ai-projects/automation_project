@@ -1,5 +1,5 @@
 use crate::scan::file_scanner::FileScanner;
-use crate::scan::rust_parser::RustParser;
+use crate::scan::rust_parser::{MainItemViolationKind, RustParser};
 use crate::{config, reports, rules};
 use reports::violation_code::ViolationCode;
 use rules::rule_id::RuleId;
@@ -99,7 +99,7 @@ impl CrateRules {
                     };
                     let is_test_file = is_file_under_tests_dir(&src_dir, &rs_file);
 
-                    for line in find_local_use_lines(&source_content) {
+                    for line in RustParser::local_use_statement_lines(&source_content) {
                         out.push(make_violation(
                             RuleId::Crate,
                             ViolationCode::CrateContainsLocalUseStatement,
@@ -111,7 +111,7 @@ impl CrateRules {
                     }
 
                     if !is_test_file {
-                        for line in find_inline_test_attribute_lines(&source_content) {
+                        for line in RustParser::inline_test_attribute_lines(&source_content) {
                             out.push(make_violation(
                                 RuleId::Crate,
                                 ViolationCode::CrateContainsInlineTestAttribute,
@@ -134,14 +134,36 @@ impl CrateRules {
                                 (false, Some(line)),
                             ));
                         }
-                        for finding in find_disallowed_items_in_main(&source_content) {
+                        for finding in RustParser::main_module_item_violations(&source_content) {
+                            let (code, message) = match finding.kind {
+                                MainItemViolationKind::Struct => (
+                                    ViolationCode::CrateBinaryMainContainsStruct,
+                                    "binary main module must not define struct; move it to a dedicated module",
+                                ),
+                                MainItemViolationKind::Enum => (
+                                    ViolationCode::CrateBinaryMainContainsEnum,
+                                    "binary main module must not define enum; move it to a dedicated module",
+                                ),
+                                MainItemViolationKind::Trait => (
+                                    ViolationCode::CrateBinaryMainContainsTrait,
+                                    "binary main module must not define trait; move it to a dedicated module",
+                                ),
+                                MainItemViolationKind::Impl => (
+                                    ViolationCode::CrateBinaryMainContainsImpl,
+                                    "binary main module must not define impl blocks; move behavior to dedicated modules",
+                                ),
+                                MainItemViolationKind::NonEntrypointFn => (
+                                    ViolationCode::CrateBinaryMainContainsNonEntrypointFn,
+                                    "binary main module must only expose the entrypoint function `main`; move helper functions to dedicated modules",
+                                ),
+                            };
                             out.push(make_violation(
                                 RuleId::Crate,
-                                finding.code,
+                                code,
                                 (scope, mode),
                                 &rs_file,
-                                finding.message,
-                                (true, Some(finding.line)),
+                                message,
+                                (true, finding.line),
                             ));
                         }
                     }
@@ -277,116 +299,6 @@ fn find_unscoped_pub_lines_in_main(content: &str) -> Vec<u32> {
     out
 }
 
-fn find_inline_test_attribute_lines(content: &str) -> Vec<u32> {
-    const TEST_ATTRS: [&str; 6] = [
-        "#[cfg(test)]",
-        "#[test]",
-        "#[tokio::test]",
-        "#[rstest]",
-        "#[test_case]",
-        "#[quickcheck]",
-    ];
-    let mut out = Vec::new();
-    for (idx, line) in content.lines().enumerate() {
-        let trimmed = line.trim_start();
-        if TEST_ATTRS.iter().any(|attr| trimmed.starts_with(attr)) {
-            out.push((idx + 1) as u32);
-        }
-    }
-    out
-}
-
-fn find_local_use_lines(content: &str) -> Vec<u32> {
-    let mut out = Vec::new();
-    let mut depth: i32 = 0;
-    for (idx, line) in content.lines().enumerate() {
-        let trimmed = line.trim_start();
-        if depth > 0 && trimmed.starts_with("use ") {
-            out.push((idx + 1) as u32);
-        }
-        // Heuristic depth tracking: good enough for style guardrails.
-        let open_count = line.matches('{').count() as i32;
-        let close_count = line.matches('}').count() as i32;
-        depth += open_count - close_count;
-        if depth < 0 {
-            depth = 0;
-        }
-    }
-    out
-}
-
-struct MainFileFinding {
-    code: reports::violation_code::ViolationCode,
-    line: u32,
-    message: &'static str,
-}
-
-fn find_disallowed_items_in_main(content: &str) -> Vec<MainFileFinding> {
-    // Heuristic line-based scanner: intentionally lightweight and not a full Rust parser.
-    // It may miss or over-report some complex constructs; primary goal is guardrail enforcement.
-    let mut out = Vec::new();
-    for (idx, line) in content.lines().enumerate() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("//") || trimmed.starts_with("#[") {
-            continue;
-        }
-        let line_no = (idx + 1) as u32;
-
-        if is_struct_line(trimmed) {
-            out.push(MainFileFinding {
-                code: ViolationCode::CrateBinaryMainContainsStruct,
-                line: line_no,
-                message: "binary main module must not define struct; move it to a dedicated module",
-            });
-            continue;
-        }
-        if is_enum_line(trimmed) {
-            out.push(MainFileFinding {
-                code: ViolationCode::CrateBinaryMainContainsEnum,
-                line: line_no,
-                message: "binary main module must not define enum; move it to a dedicated module",
-            });
-            continue;
-        }
-        if is_trait_line(trimmed) {
-            out.push(MainFileFinding {
-                code: ViolationCode::CrateBinaryMainContainsTrait,
-                line: line_no,
-                message: "binary main module must not define trait; move it to a dedicated module",
-            });
-            continue;
-        }
-        if trimmed.starts_with("impl ") {
-            out.push(MainFileFinding {
-                code: ViolationCode::CrateBinaryMainContainsImpl,
-                line: line_no,
-                message: "binary main module must not define impl blocks; move behavior to dedicated modules",
-            });
-            continue;
-        }
-
-        let has_fn = is_fn_line(trimmed);
-        if has_fn {
-            let is_main = trimmed.starts_with("fn main")
-                || trimmed.starts_with("pub fn main")
-                || trimmed.starts_with("async fn main")
-                || trimmed.starts_with("pub async fn main")
-                || trimmed.starts_with("unsafe fn main")
-                || trimmed.starts_with("pub unsafe fn main")
-                || trimmed.starts_with("async unsafe fn main")
-                || trimmed.starts_with("pub async unsafe fn main");
-            if !is_main {
-                out.push(MainFileFinding {
-                    code: ViolationCode::CrateBinaryMainContainsNonEntrypointFn,
-                    line: line_no,
-                    message: "binary main module must only expose the entrypoint function `main`; move helper functions to dedicated modules",
-                });
-            }
-        }
-    }
-    out
-}
-
 fn make_violation(
     rule_id: rules::rule_id::RuleId,
     code: reports::violation_code::ViolationCode,
@@ -459,30 +371,6 @@ fn is_fn_line(trimmed: &str) -> bool {
         || trimmed.starts_with("pub unsafe fn ")
         || trimmed.starts_with("async unsafe fn ")
         || trimmed.starts_with("pub async unsafe fn ")
-}
-
-fn is_struct_line(trimmed: &str) -> bool {
-    trimmed.starts_with("struct ")
-        || trimmed.starts_with("pub struct ")
-        || trimmed.starts_with("pub(crate) struct ")
-        || trimmed.starts_with("pub(super) struct ")
-        || (trimmed.starts_with("pub(in ") && trimmed.contains(") struct "))
-}
-
-fn is_enum_line(trimmed: &str) -> bool {
-    trimmed.starts_with("enum ")
-        || trimmed.starts_with("pub enum ")
-        || trimmed.starts_with("pub(crate) enum ")
-        || trimmed.starts_with("pub(super) enum ")
-        || (trimmed.starts_with("pub(in ") && trimmed.contains(") enum "))
-}
-
-fn is_trait_line(trimmed: &str) -> bool {
-    trimmed.starts_with("trait ")
-        || trimmed.starts_with("pub trait ")
-        || trimmed.starts_with("pub(crate) trait ")
-        || trimmed.starts_with("pub(super) trait ")
-        || (trimmed.starts_with("pub(in ") && trimmed.contains(") trait "))
 }
 
 #[cfg(test)]
