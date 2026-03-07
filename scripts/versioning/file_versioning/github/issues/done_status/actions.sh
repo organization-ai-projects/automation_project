@@ -92,8 +92,7 @@ done_status_run() {
       ;;
     --pr)
       value="${2:-}"
-      [[ -n "$value" ]] || {
-        echo "Error: --pr requires a value." >&2
+      issue_cli_require_option_value "$arg" "$value" || {
         done_status_usage >&2
         exit 2
       }
@@ -102,8 +101,7 @@ done_status_run() {
       ;;
     --issue)
       value="${2:-}"
-      [[ -n "$value" ]] || {
-        echo "Error: --issue requires a value." >&2
+      issue_cli_require_option_value "$arg" "$value" || {
         done_status_usage >&2
         exit 2
       }
@@ -112,8 +110,7 @@ done_status_run() {
       ;;
     --label)
       value="${2:-}"
-      [[ -n "$value" ]] || {
-        echo "Error: --label requires a value." >&2
+      issue_cli_require_option_value "$arg" "$value" || {
         done_status_usage >&2
         exit 2
       }

@@ -10,8 +10,7 @@ reopen_on_dev_run() {
     case "$arg" in
     --pr)
       value="${2:-}"
-      [[ -n "$value" ]] || {
-        echo "Error: --pr requires a value." >&2
+      issue_cli_require_option_value "$arg" "$value" || {
         reopen_on_dev_usage >&2
         exit 2
       }
@@ -20,8 +19,7 @@ reopen_on_dev_run() {
       ;;
     --label)
       value="${2:-}"
-      [[ -n "$value" ]] || {
-        echo "Error: --label requires a value." >&2
+      issue_cli_require_option_value "$arg" "$value" || {
         reopen_on_dev_usage >&2
         exit 2
       }
