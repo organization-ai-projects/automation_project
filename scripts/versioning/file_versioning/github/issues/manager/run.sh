@@ -6,8 +6,8 @@ set -euo pipefail
 
 ISSUES_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
 
-# shellcheck source=scripts/versioning/file_versioning/github/issues/required_fields/module.sh
-source "${ISSUES_DIR}/required_fields/module.sh"
+# shellcheck source=scripts/versioning/file_versioning/github/issues/required_fields/load.sh
+source "${ISSUES_DIR}/required_fields/load.sh"
 source "${BASH_SOURCE[0]%/*}/cli.sh"
 source "${BASH_SOURCE[0]%/*}/create.sh"
 source "${BASH_SOURCE[0]%/*}/read.sh"
