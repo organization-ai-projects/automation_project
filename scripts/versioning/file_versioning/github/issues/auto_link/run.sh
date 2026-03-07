@@ -9,6 +9,10 @@ ISSUES_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
 source "${ISSUES_DIR}/required_fields/load.sh"
 # shellcheck source=scripts/versioning/file_versioning/github/issues/common/gh.sh
 source "${ISSUES_DIR}/common/gh.sh"
+# shellcheck source=scripts/versioning/file_versioning/github/issues/common/cli.sh
+source "${ISSUES_DIR}/common/cli.sh"
+# shellcheck source=scripts/versioning/file_versioning/github/issues/common/refs.sh
+source "${ISSUES_DIR}/common/refs.sh"
 # shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
 source "${ISSUES_DIR}/../../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
 source "${BASH_SOURCE[0]%/*}/cli_graphql.sh"

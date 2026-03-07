@@ -13,12 +13,7 @@ USAGE
 }
 
 auto_link_require_number() {
-  local name="$1"
-  local value="${2:-}"
-  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
-    echo "Erreur: ${name} doit être un numéro d'issue." >&2
-    exit 2
-  fi
+  issue_cli_require_positive_number "$1" "${2:-}"
 }
 
 auto_link_trim() {

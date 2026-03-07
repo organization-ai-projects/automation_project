@@ -6,11 +6,10 @@ auto_link_run() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
-      [[ -n "${2:-}" ]] || {
-        echo "Erreur: --issue requiert une valeur." >&2
+      if ! issue_cli_require_option_value "$1" "${2:-}"; then
         auto_link_usage >&2
         exit 2
-      }
+      fi
       issue_arg="${2:-}"
       shift 2
       ;;
