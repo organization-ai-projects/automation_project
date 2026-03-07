@@ -16,21 +16,12 @@ auto_link_handle_parent_none() {
     -f owner="$repo_owner" \
     -f name="$repo_short_name" \
     -F child="$issue_number" 2>/dev/null || true)"
-
-  if [[ -z "$current_relation_json" ]]; then
-    auto_link_fail_runtime \
-      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-      "Unable to query current parent relation while processing \`Parent: none\`." \
-      "Retry later. If this persists, unlink parent manually in GitHub UI."
-  fi
-
-  if auto_link_graphql_has_errors "$current_relation_json"; then
-    auto_link_fail_runtime_with_graphql_errors \
-      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-      "GitHub GraphQL query returned errors while reading current parent relation." \
-      "$current_relation_json" \
-      "Retry later. If this persists, unlink parent manually in GitHub UI."
-  fi
+  auto_link_validate_graphql_runtime_result \
+    "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
+    "$current_relation_json" \
+    "Unable to query current parent relation while processing \`Parent: none\`." \
+    "GitHub GraphQL query returned errors while reading current parent relation." \
+    "Retry later. If this persists, unlink parent manually in GitHub UI."
 
   local current_parent_number_none current_parent_node_id_none child_node_id_none
   current_parent_number_none="$(echo "$current_relation_json" | jq -r '.data.repository.child.parent.number // empty')"
@@ -47,21 +38,12 @@ auto_link_handle_parent_none() {
 
     local unlink_result_none
     unlink_result_none="$(auto_link_remove_sub_issue_relation "$current_parent_node_id_none" "$child_node_id_none")"
-
-    if [[ -z "$unlink_result_none" ]]; then
-      auto_link_fail_runtime \
-        "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-        "GitHub API mutation failed while unlinking issue from parent #${current_parent_number_none}." \
-        "Retry later. If this persists, unlink parent manually in GitHub UI."
-    fi
-
-    if auto_link_graphql_has_errors "$unlink_result_none"; then
-      auto_link_fail_runtime_with_graphql_errors \
-        "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-        "GitHub GraphQL mutation returned errors while unlinking parent #${current_parent_number_none}." \
-        "$unlink_result_none" \
-        "Retry later. If this persists, unlink parent manually in GitHub UI."
-    fi
+    auto_link_validate_graphql_runtime_result \
+      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
+      "$unlink_result_none" \
+      "GitHub API mutation failed while unlinking issue from parent #${current_parent_number_none}." \
+      "GitHub GraphQL mutation returned errors while unlinking parent #${current_parent_number_none}." \
+      "Retry later. If this persists, unlink parent manually in GitHub UI."
 
     auto_link_set_success_state \
       "$repo_name" "$issue_number" "$marker" "$label_required_missing" "$label_automation_failed" \

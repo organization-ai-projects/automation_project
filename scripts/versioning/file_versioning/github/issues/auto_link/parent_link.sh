@@ -59,6 +59,32 @@ auto_link_remove_sub_issue_relation() {
     -f subIssueId="$child_node_id" 2>/dev/null || true
 }
 
+auto_link_validate_graphql_runtime_result() {
+  local repo_name="$1"
+  local issue_number="$2"
+  local marker="$3"
+  local label_automation_failed="$4"
+  local payload="$5"
+  local empty_summary="$6"
+  local errors_summary="$7"
+  local next_steps="$8"
+
+  if [[ -z "$payload" ]]; then
+    auto_link_fail_runtime \
+      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
+      "$empty_summary" \
+      "$next_steps"
+  fi
+
+  if auto_link_graphql_has_errors "$payload"; then
+    auto_link_fail_runtime_with_graphql_errors \
+      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
+      "$errors_summary" \
+      "$payload" \
+      "$next_steps"
+  fi
+}
+
 auto_link_handle_parent_link() {
   local repo_name="$1"
   local repo_owner="$2"
@@ -101,21 +127,12 @@ auto_link_handle_parent_link() {
     -f name="$repo_short_name" \
     -F child="$issue_number" \
     -F parent="$parent_number" 2>/dev/null || true)"
-
-  if [[ -z "$relation_json" ]]; then
-    auto_link_fail_runtime \
-      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-      "Unable to query parent/child relation state from GitHub API." \
-      "Retry later. If this persists, link the issue manually in GitHub UI."
-  fi
-
-  if auto_link_graphql_has_errors "$relation_json"; then
-    auto_link_fail_runtime_with_graphql_errors \
-      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-      "GitHub GraphQL query returned errors while reading relation state." \
-      "$relation_json" \
-      "Retry later. If this persists, link the issue manually in GitHub UI."
-  fi
+  auto_link_validate_graphql_runtime_result \
+    "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
+    "$relation_json" \
+    "Unable to query parent/child relation state from GitHub API." \
+    "GitHub GraphQL query returned errors while reading relation state." \
+    "Retry later. If this persists, link the issue manually in GitHub UI."
 
   local current_parent_number current_parent_node_id child_node_id parent_node_id
   current_parent_number="$(echo "$relation_json" | jq -r '.data.repository.child.parent.number // empty')"
@@ -140,21 +157,12 @@ auto_link_handle_parent_link() {
 
     local unlink_result
     unlink_result="$(auto_link_remove_sub_issue_relation "$current_parent_node_id" "$child_node_id")"
-
-    if [[ -z "$unlink_result" ]]; then
-      auto_link_fail_runtime \
-        "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-        "GitHub API mutation failed while unlinking child from previous parent #${current_parent_number}." \
-        "Retry later. If this persists, unlink manually in GitHub UI and rerun automation."
-    fi
-
-    if auto_link_graphql_has_errors "$unlink_result"; then
-      auto_link_fail_runtime_with_graphql_errors \
-        "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-        "GitHub GraphQL mutation returned errors while unlinking previous parent #${current_parent_number}." \
-        "$unlink_result" \
-        "Retry later. If this persists, unlink manually in GitHub UI and rerun automation."
-    fi
+    auto_link_validate_graphql_runtime_result \
+      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
+      "$unlink_result" \
+      "GitHub API mutation failed while unlinking child from previous parent #${current_parent_number}." \
+      "GitHub GraphQL mutation returned errors while unlinking previous parent #${current_parent_number}." \
+      "Retry later. If this persists, unlink manually in GitHub UI and rerun automation."
   fi
 
   if [[ -z "$child_node_id" || -z "$parent_node_id" ]]; then
@@ -169,21 +177,12 @@ auto_link_handle_parent_link() {
     -f query='mutation($issueId:ID!,$subIssueId:ID!){addSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{subIssues(first:1){nodes{number}}}}}' \
     -f issueId="$parent_node_id" \
     -f subIssueId="$child_node_id" 2>/dev/null || true)"
-
-  if [[ -z "$link_result" ]]; then
-    auto_link_fail_runtime \
-      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-      "GitHub API mutation failed while linking child to parent." \
-      "Link manually in GitHub UI, then keep \`Parent: #${parent_number}\` in issue body for traceability."
-  fi
-
-  if auto_link_graphql_has_errors "$link_result"; then
-    auto_link_fail_runtime_with_graphql_errors \
-      "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
-      "GitHub GraphQL mutation returned errors while linking child to parent." \
-      "$link_result" \
-      "Link manually in GitHub UI, then keep \`Parent: #${parent_number}\` in issue body for traceability."
-  fi
+  auto_link_validate_graphql_runtime_result \
+    "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
+    "$link_result" \
+    "GitHub API mutation failed while linking child to parent." \
+    "GitHub GraphQL mutation returned errors while linking child to parent." \
+    "Link manually in GitHub UI, then keep \`Parent: #${parent_number}\` in issue body for traceability."
 
   local linked_child_number
   linked_child_number="$(echo "$link_result" | jq -r '.data.addSubIssue.issue.subIssues.nodes[0].number // empty')"
