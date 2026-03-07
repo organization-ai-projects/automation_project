@@ -110,15 +110,10 @@ impl DeterminismRules {
                     ),
                 ));
             }
-            let runtime_txt = if is_prod_source {
-                strip_cfg_test_modules(&txt)
-            } else {
-                txt.clone()
-            };
             if is_prod_source
-                && (runtime_txt.contains(".unwrap()")
-                    || runtime_txt.contains(".expect(")
-                    || runtime_txt.contains("unwrap_unchecked("))
+                && (txt.contains(".unwrap()")
+                    || txt.contains(".expect(")
+                    || txt.contains("unwrap_unchecked("))
             {
                 out.push(make_violation(
                     RuleId::Determinism,
@@ -129,7 +124,7 @@ impl DeterminismRules {
                     (
                         true,
                         RustParser::first_line_of_any(
-                            &runtime_txt,
+                            &txt,
                             &[".unwrap()", ".expect(", "unwrap_unchecked("],
                         ),
                     ),
@@ -273,42 +268,4 @@ fn is_backend_production_source(path: &std::path::Path) -> bool {
         }
     }
     saw_backend && saw_src_after_backend
-}
-
-fn strip_cfg_test_modules(source: &str) -> String {
-    let mut out = String::new();
-    let lines = source.lines();
-    let mut pending_cfg_test = false;
-    let mut skip_depth: i32 = 0;
-
-    for line in lines {
-        if skip_depth > 0 {
-            skip_depth += line.matches('{').count() as i32;
-            skip_depth -= line.matches('}').count() as i32;
-            continue;
-        }
-
-        if line.trim_start().starts_with("#[cfg(test)]") {
-            pending_cfg_test = true;
-            continue;
-        }
-
-        if pending_cfg_test {
-            if line.trim().is_empty() {
-                continue;
-            }
-            if line.contains("mod ") && line.contains('{') {
-                skip_depth += line.matches('{').count() as i32;
-                skip_depth -= line.matches('}').count() as i32;
-                pending_cfg_test = false;
-                continue;
-            }
-            pending_cfg_test = false;
-        }
-
-        out.push_str(line);
-        out.push('\n');
-    }
-
-    out
 }
