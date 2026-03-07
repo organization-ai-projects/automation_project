@@ -282,6 +282,11 @@ function killActiveChildren(runtime) {
   }
 }
 
+function restartBackendProcesses(runtime) {
+  killActiveChildren(runtime);
+  runtime.persistentSessions.clear();
+}
+
 function disposeRuntime(runtime) {
   if (runtime.debounceTimer) {
     clearTimeout(runtime.debounceTimer);
@@ -1532,10 +1537,16 @@ function activate(context) {
     if (!evt.affectsConfiguration('repoContractEnforcer')) {
       return;
     }
-    killActiveChildren(runtime);
-    runtime.persistentSessions.clear();
+    restartBackendProcesses(runtime);
     refreshDiagnosticsTree(runtime, true);
     triggerNow('config changed');
+  });
+
+  const restartBackendCmd = vscode.commands.registerCommand('repoContractEnforcer.restartBackend', () => {
+    restartBackendProcesses(runtime);
+    refreshDiagnosticsTree(runtime, true);
+    logOutput(runtime, 'backend processes restarted');
+    triggerNow('backend restart');
   });
 
   context.subscriptions.push(
@@ -1562,6 +1573,7 @@ function activate(context) {
     watchFs,
     renameSub,
     cfgSub,
+    restartBackendCmd,
     { dispose: () => disposeRuntime(runtime) },
   );
 

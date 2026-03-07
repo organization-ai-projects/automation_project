@@ -64,6 +64,10 @@
         "title": "Repo Contract Enforcer: Open Rule Documentation"
       },
       {
+        "command": "repoContractEnforcer.restartBackend",
+        "title": "Repo Contract Enforcer: Restart Backend Processes"
+      },
+      {
         "command": "repoContractEnforcer.openFirstError",
         "title": "Repo Contract Enforcer: Open First Error",
         "icon": "$(arrow-small-right)"
