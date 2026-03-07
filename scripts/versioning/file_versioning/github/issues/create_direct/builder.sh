@@ -76,7 +76,9 @@ run_create_direct_issue() {
   local parent="none"
   local dry_run=false
   local -a acceptance_criteria=()
+  # shellcheck disable=SC2034 # consumed via nameref by append_references_section_if_needed
   local -a related_issues=()
+  # shellcheck disable=SC2034 # consumed via nameref by append_references_section_if_needed
   local -a related_prs=()
   local -a labels=()
   local -a assignees=()
@@ -192,4 +194,8 @@ run_create_direct_issue() {
   fi
 
   "${cmd[@]}"
+}
+
+create_direct_issue_run() {
+  run_create_direct_issue "$@"
 }

@@ -12,4 +12,4 @@ source "${ISSUES_DIR}/common/cli.sh"
 source "${BASH_SOURCE[0]%/*}/cli_contract.sh"
 source "${BASH_SOURCE[0]%/*}/builder.sh"
 
-run_create_direct_issue "$@"
+create_direct_issue_run "$@"
