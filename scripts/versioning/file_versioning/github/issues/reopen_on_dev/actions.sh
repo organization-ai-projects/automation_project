@@ -3,15 +3,29 @@
 reopen_on_dev_run() {
   local pr_number=""
   local label_name="${DONE_IN_DEV_LABEL:-done-in-dev}"
+  local arg value
 
   while [[ $# -gt 0 ]]; do
-    case "$1" in
+    arg="$1"
+    case "$arg" in
     --pr)
-      pr_number="${2:-}"
+      value="${2:-}"
+      [[ -n "$value" ]] || {
+        echo "Error: --pr requires a value." >&2
+        reopen_on_dev_usage >&2
+        exit 2
+      }
+      pr_number="$value"
       shift 2
       ;;
     --label)
-      label_name="${2:-}"
+      value="${2:-}"
+      [[ -n "$value" ]] || {
+        echo "Error: --label requires a value." >&2
+        reopen_on_dev_usage >&2
+        exit 2
+      }
+      label_name="$value"
       shift 2
       ;;
     -h | --help)
