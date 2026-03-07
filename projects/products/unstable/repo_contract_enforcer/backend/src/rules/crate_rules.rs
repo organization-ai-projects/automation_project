@@ -3,6 +3,13 @@ use crate::{config, reports, rules};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CrateRules;
 
+type RuleContext = (
+    config::path_classification::PathClassification,
+    config::enforcement_mode::EnforcementMode,
+);
+type ViolationMeta = (bool, Option<u32>);
+const EXCLUDED_PRIMARY_STEMS: [&str; 4] = ["main", "mod", "lib", "public_api"];
+
 impl CrateRules {
     pub fn evaluate(
         product_dir: &std::path::Path,
@@ -16,6 +23,8 @@ impl CrateRules {
         use rules::rule_id::RuleId;
 
         let mut out = Vec::new();
+        // Internal convention: `/core` is an orchestrator workspace root and not a product.
+        // Skip crate-level product checks there.
         let is_core_workspace = product_dir
             .file_name()
             .and_then(|s| s.to_str())
@@ -49,7 +58,11 @@ impl CrateRules {
             }
 
             if cargo.exists() {
-                let txt = std::fs::read_to_string(&cargo).unwrap_or_default();
+                let Some(txt) =
+                    read_text_or_emit_violation(&mut out, (scope, mode), &cargo, "Cargo.toml")
+                else {
+                    continue;
+                };
                 if txt.contains("[lib]") {
                     out.push(make_violation(
                         RuleId::Crate,
@@ -80,7 +93,11 @@ impl CrateRules {
                         .file_stem()
                         .and_then(|s| s.to_str())
                         .unwrap_or_default();
-                    let source_content = std::fs::read_to_string(&rs_file).unwrap_or_default();
+                    let Some(source_content) =
+                        read_text_or_emit_violation(&mut out, (scope, mode), &rs_file, "source")
+                    else {
+                        continue;
+                    };
 
                     if stem == "main" {
                         for line in find_unscoped_pub_lines_in_main(&source_content) {
@@ -125,8 +142,14 @@ impl CrateRules {
                                 (true, None),
                             ));
                         } else if expected_test_path.exists() {
-                            let paired_test_content =
-                                std::fs::read_to_string(&expected_test_path).unwrap_or_default();
+                            let Some(paired_test_content) = read_text_or_emit_violation(
+                                &mut out,
+                                (scope, mode),
+                                &expected_test_path,
+                                "paired test source",
+                            ) else {
+                                continue;
+                            };
                             if !looks_like_unit_test_file(&paired_test_content) {
                                 out.push(make_violation(
                                     RuleId::Crate,
@@ -165,7 +188,7 @@ fn should_enforce_primary_item_contract(
     rs_file: &std::path::Path,
     stem: &str,
 ) -> bool {
-    if matches!(stem, "main" | "mod" | "lib" | "public_api") {
+    if is_excluded_primary_stem(stem) {
         return false;
     }
 
@@ -182,7 +205,7 @@ fn expected_paired_test_path(rs_file: &std::path::Path) -> Option<std::path::Pat
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or_default();
-    if matches!(stem, "main" | "mod" | "lib" | "public_api") {
+    if is_excluded_primary_stem(stem) {
         return None;
     }
 
@@ -200,25 +223,7 @@ fn looks_like_unit_test_file(content: &str) -> bool {
 fn rust_file_has_test_worthy_logic(content: &str) -> bool {
     // Heuristic: require paired tests only when file contains behavioral logic.
     // Data-only type declarations (plain struct/enum/trait definitions) are exempt.
-    const LOGIC_MARKERS: [&str; 6] = [
-        "\nfn ",
-        "\npub fn ",
-        "\nasync fn ",
-        "\nimpl ",
-        "\nmacro_rules!",
-        "\nunsafe fn ",
-    ];
-    if LOGIC_MARKERS.iter().any(|marker| content.contains(marker)) {
-        return true;
-    }
-    // Handle first-line definitions without leading newline.
-    let first_line = content.lines().next().unwrap_or_default().trim_start();
-    first_line.starts_with("fn ")
-        || first_line.starts_with("pub fn ")
-        || first_line.starts_with("async fn ")
-        || first_line.starts_with("impl ")
-        || first_line.starts_with("macro_rules!")
-        || first_line.starts_with("unsafe fn ")
+    content.lines().map(str::trim_start).any(is_logic_line)
 }
 
 fn find_unscoped_pub_lines_in_main(content: &str) -> Vec<u32> {
@@ -249,6 +254,8 @@ struct MainFileFinding {
 fn find_disallowed_items_in_main(content: &str) -> Vec<MainFileFinding> {
     use reports::violation_code::ViolationCode;
 
+    // Heuristic line-based scanner: intentionally lightweight and not a full Rust parser.
+    // It may miss or over-report some complex constructs; primary goal is guardrail enforcement.
     let mut out = Vec::new();
     for (idx, line) in content.lines().enumerate() {
         let trimmed = line.trim_start();
@@ -257,7 +264,7 @@ fn find_disallowed_items_in_main(content: &str) -> Vec<MainFileFinding> {
         }
         let line_no = (idx + 1) as u32;
 
-        if trimmed.starts_with("struct ") || trimmed.starts_with("pub struct ") {
+        if is_struct_line(trimmed) {
             out.push(MainFileFinding {
                 code: ViolationCode::CrateBinaryMainContainsStruct,
                 line: line_no,
@@ -265,7 +272,7 @@ fn find_disallowed_items_in_main(content: &str) -> Vec<MainFileFinding> {
             });
             continue;
         }
-        if trimmed.starts_with("enum ") || trimmed.starts_with("pub enum ") {
+        if is_enum_line(trimmed) {
             out.push(MainFileFinding {
                 code: ViolationCode::CrateBinaryMainContainsEnum,
                 line: line_no,
@@ -273,7 +280,7 @@ fn find_disallowed_items_in_main(content: &str) -> Vec<MainFileFinding> {
             });
             continue;
         }
-        if trimmed.starts_with("trait ") || trimmed.starts_with("pub trait ") {
+        if is_trait_line(trimmed) {
             out.push(MainFileFinding {
                 code: ViolationCode::CrateBinaryMainContainsTrait,
                 line: line_no,
@@ -290,14 +297,7 @@ fn find_disallowed_items_in_main(content: &str) -> Vec<MainFileFinding> {
             continue;
         }
 
-        let has_fn = trimmed.starts_with("fn ")
-            || trimmed.starts_with("pub fn ")
-            || trimmed.starts_with("async fn ")
-            || trimmed.starts_with("pub async fn ")
-            || trimmed.starts_with("unsafe fn ")
-            || trimmed.starts_with("pub unsafe fn ")
-            || trimmed.starts_with("async unsafe fn ")
-            || trimmed.starts_with("pub async unsafe fn ");
+        let has_fn = is_fn_line(trimmed);
         if has_fn {
             let is_main = trimmed.starts_with("fn main")
                 || trimmed.starts_with("pub fn main")
@@ -322,13 +322,10 @@ fn find_disallowed_items_in_main(content: &str) -> Vec<MainFileFinding> {
 fn make_violation(
     rule_id: rules::rule_id::RuleId,
     code: reports::violation_code::ViolationCode,
-    context: (
-        config::path_classification::PathClassification,
-        config::enforcement_mode::EnforcementMode,
-    ),
+    context: RuleContext,
     path: &std::path::Path,
     message: &str,
-    meta: (bool, Option<u32>),
+    meta: ViolationMeta,
 ) -> reports::violation::Violation {
     let (scope, mode) = context;
     let (default_blocking, line) = meta;
@@ -353,6 +350,74 @@ fn make_violation(
         message: message.to_string(),
         line,
     }
+}
+
+fn read_text_or_emit_violation(
+    out: &mut Vec<reports::violation::Violation>,
+    context: RuleContext,
+    path: &std::path::Path,
+    kind: &str,
+) -> Option<String> {
+    use reports::violation_code::ViolationCode;
+    use rules::rule_id::RuleId;
+
+    match std::fs::read_to_string(path) {
+        Ok(content) => Some(content),
+        Err(err) => {
+            out.push(make_violation(
+                RuleId::Crate,
+                ViolationCode::CrateFileReadError,
+                context,
+                path,
+                &format!("failed to read {kind} file: {err}"),
+                (true, None),
+            ));
+            None
+        }
+    }
+}
+
+fn is_excluded_primary_stem(stem: &str) -> bool {
+    EXCLUDED_PRIMARY_STEMS.contains(&stem)
+}
+
+fn is_logic_line(trimmed: &str) -> bool {
+    is_fn_line(trimmed) || trimmed.starts_with("impl ") || trimmed.starts_with("macro_rules!")
+}
+
+fn is_fn_line(trimmed: &str) -> bool {
+    trimmed.starts_with("fn ")
+        || trimmed.starts_with("pub fn ")
+        || trimmed.starts_with("async fn ")
+        || trimmed.starts_with("pub async fn ")
+        || trimmed.starts_with("unsafe fn ")
+        || trimmed.starts_with("pub unsafe fn ")
+        || trimmed.starts_with("async unsafe fn ")
+        || trimmed.starts_with("pub async unsafe fn ")
+}
+
+fn is_struct_line(trimmed: &str) -> bool {
+    trimmed.starts_with("struct ")
+        || trimmed.starts_with("pub struct ")
+        || trimmed.starts_with("pub(crate) struct ")
+        || trimmed.starts_with("pub(super) struct ")
+        || (trimmed.starts_with("pub(in ") && trimmed.contains(") struct "))
+}
+
+fn is_enum_line(trimmed: &str) -> bool {
+    trimmed.starts_with("enum ")
+        || trimmed.starts_with("pub enum ")
+        || trimmed.starts_with("pub(crate) enum ")
+        || trimmed.starts_with("pub(super) enum ")
+        || (trimmed.starts_with("pub(in ") && trimmed.contains(") enum "))
+}
+
+fn is_trait_line(trimmed: &str) -> bool {
+    trimmed.starts_with("trait ")
+        || trimmed.starts_with("pub trait ")
+        || trimmed.starts_with("pub(crate) trait ")
+        || trimmed.starts_with("pub(super) trait ")
+        || (trimmed.starts_with("pub(in ") && trimmed.contains(") trait "))
 }
 
 #[cfg(test)]
@@ -574,7 +639,7 @@ mod tests {
 
         fs::write(
             backend.join("src/main.rs"),
-            "struct App;\nenum Mode { Fast }\ntrait Runner {}\nimpl App { fn run(&self) {} }\nfn helper() {}\nfn main() {}\n",
+            "pub(crate) struct App;\nenum Mode { Fast }\ntrait Runner {}\nimpl App { fn run(&self) {} }\nfn helper() {}\nfn main() {}\n",
         )
         .expect("write backend main.rs");
 
