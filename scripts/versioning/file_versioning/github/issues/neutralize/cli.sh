@@ -3,7 +3,7 @@
 neutralize_usage() {
   cat <<'USAGE'
 Usage:
-  neutralize_non_compliant_closure_refs.sh --pr PR_NUMBER [--repo owner/name]
+  issues/neutralize/run.sh --pr PR_NUMBER [--repo owner/name]
 
 Notes:
   - Detects closure refs in PR body (Closes/Fixes #...).

@@ -2,7 +2,7 @@
 
 cmd_create() {
   local add_default_issue_label=1
-  local create_direct_issue_script="${MANAGER_ISSUES_CREATE_SCRIPT:-${ISSUES_DIR}/create_direct_issue.sh}"
+  local create_direct_issue_script="${MANAGER_ISSUES_CREATE_SCRIPT:-${ISSUES_DIR}/create_direct/run.sh}"
   local -a passthrough=()
   local -a labels=()
   local i=1

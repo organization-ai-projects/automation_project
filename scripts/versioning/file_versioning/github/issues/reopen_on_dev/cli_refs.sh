@@ -3,7 +3,7 @@
 reopen_on_dev_usage() {
   cat <<EOF_USAGE
 Usage:
-  issue_reopen_on_dev_merge.sh --pr PR_NUMBER [--label LABEL]
+  issues/reopen_on_dev/run.sh --pr PR_NUMBER [--label LABEL]
 EOF_USAGE
 }
 

@@ -11,6 +11,6 @@ source "${ISSUES_DIR}/../lib/issue_refs.sh"
 source "${ISSUES_DIR}/common/gh.sh"
 # shellcheck source=scripts/versioning/file_versioning/github/issues/common/refs.sh
 source "${ISSUES_DIR}/common/refs.sh"
-source "${BASH_SOURCE[0]%/*}/cli_refs.sh"
-source "${BASH_SOURCE[0]%/*}/project_sync.sh"
-source "${BASH_SOURCE[0]%/*}/actions.sh"
+source "${BASH_SOURCE[0]%/*}/cli.sh"
+
+reevaluate_main "$@"

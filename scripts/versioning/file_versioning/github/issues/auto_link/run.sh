@@ -15,3 +15,5 @@ source "${BASH_SOURCE[0]%/*}/validation.sh"
 source "${BASH_SOURCE[0]%/*}/parent_none.sh"
 source "${BASH_SOURCE[0]%/*}/parent_link.sh"
 source "${BASH_SOURCE[0]%/*}/workflow.sh"
+
+auto_link_run "$@"

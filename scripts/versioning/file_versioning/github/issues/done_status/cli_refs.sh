@@ -3,8 +3,8 @@
 done_status_usage() {
   cat <<EOF_USAGE
 Usage:
-  issue_done_in_dev_status.sh --on-dev-merge --pr PR_NUMBER [--label LABEL]
-  issue_done_in_dev_status.sh --on-issue-closed --issue ISSUE_NUMBER [--label LABEL]
+  issues/done_status/run.sh --on-dev-merge --pr PR_NUMBER [--label LABEL]
+  issues/done_status/run.sh --on-issue-closed --issue ISSUE_NUMBER [--label LABEL]
 EOF_USAGE
 }
 

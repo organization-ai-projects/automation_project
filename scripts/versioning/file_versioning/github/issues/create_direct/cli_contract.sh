@@ -3,7 +3,7 @@
 usage() {
   cat <<'USAGE'
 Usage:
-  create_direct_issue.sh \
+  issues/create_direct/run.sh \
     --title "type(scope): summary" \
     --context "Why this exists" \
     --problem "What is wrong" \

@@ -3,7 +3,7 @@
 auto_link_usage() {
   cat <<USAGE
 Usage:
-  auto_link_parent_issue.sh --issue ISSUE_NUMBER
+  issues/auto_link/run.sh --issue ISSUE_NUMBER
 
 Notes:
   - Reads "Parent: #<number>" or "Parent: none" from issue body.

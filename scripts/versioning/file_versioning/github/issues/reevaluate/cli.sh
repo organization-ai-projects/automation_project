@@ -3,7 +3,7 @@
 reevaluate_usage() {
   cat <<USAGE
 Usage:
-  reevaluate_prs_on_issue_edit.sh --issue ISSUE_NUMBER [--repo owner/name]
+  issues/reevaluate/run.sh --issue ISSUE_NUMBER [--repo owner/name]
 
 Notes:
   - Finds all open PRs referencing the given issue number via closing keywords
@@ -74,7 +74,7 @@ reevaluate_main() {
     exit 3
   }
 
-  local neutralizer="${ISSUES_DIR}/neutralize_non_compliant_closure_refs.sh"
+  local neutralizer="${ISSUES_DIR}/neutralize/run.sh"
   if [[ ! -x "$neutralizer" ]]; then
     chmod +x "$neutralizer"
   fi
