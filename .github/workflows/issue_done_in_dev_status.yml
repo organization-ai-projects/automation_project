@@ -53,7 +53,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          bash scripts/versioning/file_versioning/github/issues/issue_done_in_dev_status.sh \
+          bash scripts/versioning/file_versioning/github/issues/done_status/run.sh \
             --on-dev-merge \
             --pr "$PR_NUMBER"
 
@@ -64,7 +64,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          bash scripts/versioning/file_versioning/github/issues/issue_done_in_dev_status.sh \
+          bash scripts/versioning/file_versioning/github/issues/done_status/run.sh \
             --on-issue-closed \
             --issue "$ISSUE_NUMBER"
 
@@ -79,7 +79,7 @@ jobs:
             echo "Invalid or missing pr_number for dev_merge mode." >&2
             exit 1
           fi
-          bash scripts/versioning/file_versioning/github/issues/issue_done_in_dev_status.sh \
+          bash scripts/versioning/file_versioning/github/issues/done_status/run.sh \
             --on-dev-merge \
             --pr "$PR_NUMBER"
 
@@ -94,6 +94,6 @@ jobs:
             echo "Invalid or missing issue_number for issue_closed mode." >&2
             exit 1
           fi
-          bash scripts/versioning/file_versioning/github/issues/issue_done_in_dev_status.sh \
+          bash scripts/versioning/file_versioning/github/issues/done_status/run.sh \
             --on-issue-closed \
             --issue "$ISSUE_NUMBER"
