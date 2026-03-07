@@ -32,6 +32,10 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
   - each non-entry Rust file must have a paired test file in the closest `tests/` folder:
     - `src/foo/bar.rs` -> `src/foo/tests/bar.rs`
   - paired test file must include a unit-test marker (`#[test]`, `#[tokio::test]`, `#[rstest]`, `#[test_case]`)
+- Library layering rules enforce dependency direction in `projects/libraries/**`:
+  - `core/*` must not depend on `layers/*`
+  - `layers/domain/*` must not depend on `layers/orchestration/*`
+  - `layers/orchestration/*` may depend on `layers/domain/*` and `core/*`
 - Structure rules enforce manifest convention with strict-mode blocking on stable products and warnings on unstable/relaxed modes:
   - product root `metadata.ron`
   - `backend/backend_manifest.ron`
