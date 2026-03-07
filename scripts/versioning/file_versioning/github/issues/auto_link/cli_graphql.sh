@@ -52,12 +52,6 @@ auto_link_extract_parent_field_value() {
 }
 
 auto_link_require_deps() {
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "Erreur: gh est requis." >&2
-    exit 3
-  fi
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "Erreur: jq est requis." >&2
-    exit 3
-  fi
+  issue_gh_require_cmd gh
+  issue_gh_require_cmd jq
 }

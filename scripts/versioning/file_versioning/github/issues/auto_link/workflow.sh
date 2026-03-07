@@ -6,6 +6,11 @@ auto_link_run() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
+      [[ -n "${2:-}" ]] || {
+        echo "Erreur: --issue requiert une valeur." >&2
+        auto_link_usage >&2
+        exit 2
+      }
       issue_arg="${2:-}"
       shift 2
       ;;
@@ -32,7 +37,7 @@ auto_link_run() {
 
   local repo_name="${GH_REPO:-}"
   if [[ -z "$repo_name" ]]; then
-    repo_name="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+    repo_name="$(issue_gh_resolve_repo_name)"
   fi
   if [[ -z "$repo_name" ]]; then
     echo "Erreur: impossible de déterminer le repository (GH_REPO)." >&2
