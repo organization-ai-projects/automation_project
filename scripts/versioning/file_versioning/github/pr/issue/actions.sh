@@ -18,6 +18,7 @@ pr_add_duplicate_entry() {
 
 pr_process_duplicate_mode() {
   local duplicate_issue_key canonical_issue_key duplicate_issue_number comment_body
+  local -a sorted_duplicate_issue_keys=()
   local repo_name_with_owner
   local auto_close_allowed="true"
 
@@ -44,7 +45,9 @@ pr_process_duplicate_mode() {
     return 0
   fi
 
-  for duplicate_issue_key in "${!duplicate_targets[@]}"; do
+  mapfile -t sorted_duplicate_issue_keys < <(printf '%s\n' "${!duplicate_targets[@]}" | sort -V)
+  for duplicate_issue_key in "${sorted_duplicate_issue_keys[@]}"; do
+    [[ -z "$duplicate_issue_key" ]] && continue
     canonical_issue_key="${duplicate_targets[$duplicate_issue_key]}"
     duplicate_issue_number="${duplicate_issue_key//#/}"
 

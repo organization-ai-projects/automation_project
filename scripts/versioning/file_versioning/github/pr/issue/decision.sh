@@ -12,6 +12,13 @@ pr_issue_clear_tracking_for() {
   unset "reopen_issue_category[$issue_key]"
 }
 
+pr_issue_clear_close_tracking_for() {
+  local issue_key="$1"
+  unset "seen_issue[$issue_key]"
+  unset "issue_action[$issue_key]"
+  unset "issue_category[$issue_key]"
+}
+
 pr_issue_resolve_to_reopen() {
   local issue_key="$1"
   local category="$2"
@@ -145,9 +152,7 @@ pr_add_issue_entry() {
   if [[ "$action" == "Reopen" ]]; then
     pr_mark_reopen_issue "$issue_key" "$effective_category"
     if [[ -n "${seen_issue[$issue_key]:-}" ]]; then
-      unset "seen_issue[$issue_key]"
-      unset "issue_action[$issue_key]"
-      unset "issue_category[$issue_key]"
+      pr_issue_clear_close_tracking_for "$issue_key"
     fi
     return
   fi
