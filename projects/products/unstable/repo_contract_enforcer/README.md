@@ -33,6 +33,7 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
     - `src/foo/bar.rs` -> `src/foo/tests/bar.rs`
   - data-only files (passive declarations) are exempt from mandatory paired tests
   - when a paired test file exists, it must include a unit-test marker (`#[test]`, `#[tokio::test]`, `#[rstest]`, `#[test_case]`)
+  - unscoped `pub` in binary `src/main.rs` is discouraged (prefer private or `pub(crate)`)
 - Library layering rules enforce dependency direction in `projects/libraries/**`:
   - `core/*` must not depend on `layers/*`
   - `layers/domain/*` must not depend on `layers/orchestration/*`
