@@ -6,8 +6,7 @@ auto_link_run() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
-      issue_cli_require_option_value_or_usage "$1" "${2:-}" auto_link_usage || exit 2
-      issue_arg="${2:-}"
+      issue_cli_assign_value_or_usage "$1" "${2:-}" issue_arg auto_link_usage || exit 2
       shift 2
       ;;
     -h | --help)

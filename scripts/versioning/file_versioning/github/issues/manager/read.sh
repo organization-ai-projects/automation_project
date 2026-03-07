@@ -8,43 +8,32 @@ manager_parse_read_args() {
   local template_var_name="$5"
   shift 5
 
-  local -n issue_ref="$issue_var_name"
-  local -n repo_ref="$repo_var_name"
-  local -n json_ref="$json_var_name"
-  local -n jq_ref="$jq_var_name"
-  local -n template_ref="$template_var_name"
-
-  issue_ref=""
-  repo_ref=""
-  json_ref=""
-  jq_ref=""
-  template_ref=""
+  printf -v "$issue_var_name" '%s' ""
+  printf -v "$repo_var_name" '%s' ""
+  printf -v "$json_var_name" '%s' ""
+  printf -v "$jq_var_name" '%s' ""
+  printf -v "$template_var_name" '%s' ""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      issue_ref="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" "$issue_var_name" die_usage
       shift 2
       ;;
     --repo)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      repo_ref="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" "$repo_var_name" die_usage
       shift 2
       ;;
     --json)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      json_ref="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" "$json_var_name" die_usage
       shift 2
       ;;
     --jq)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      jq_ref="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" "$jq_var_name" die_usage
       shift 2
       ;;
     --template)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      template_ref="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" "$template_var_name" die_usage
       shift 2
       ;;
     -h | --help)

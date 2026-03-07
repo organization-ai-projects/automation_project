@@ -77,7 +77,7 @@ done_status_run() {
   local pr_number=""
   local issue_number=""
   local label_name="${DONE_IN_DEV_LABEL:-done-in-dev}"
-  local arg value
+  local arg
 
   while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -91,21 +91,15 @@ done_status_run() {
       shift
       ;;
     --pr)
-      value="${2:-}"
-      issue_cli_require_option_value_or_usage "$arg" "$value" done_status_usage || exit 2
-      pr_number="$value"
+      issue_cli_assign_value_or_usage "$arg" "${2:-}" pr_number done_status_usage || exit 2
       shift 2
       ;;
     --issue)
-      value="${2:-}"
-      issue_cli_require_option_value_or_usage "$arg" "$value" done_status_usage || exit 2
-      issue_number="$value"
+      issue_cli_assign_value_or_usage "$arg" "${2:-}" issue_number done_status_usage || exit 2
       shift 2
       ;;
     --label)
-      value="${2:-}"
-      issue_cli_require_option_value_or_usage "$arg" "$value" done_status_usage || exit 2
-      label_name="$value"
+      issue_cli_assign_value_or_usage "$arg" "${2:-}" label_name done_status_usage || exit 2
       shift 2
       ;;
     -h | --help)

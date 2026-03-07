@@ -5,23 +5,17 @@ manager_parse_issue_repo_args() {
   local issue_var_name="$2"
   local repo_var_name="$3"
   shift 3
-
-  local -n issue_ref="$issue_var_name"
-  local -n repo_ref="$repo_var_name"
-
-  issue_ref=""
-  repo_ref=""
+  printf -v "$issue_var_name" '%s' ""
+  printf -v "$repo_var_name" '%s' ""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      issue_ref="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" "$issue_var_name" die_usage
       shift 2
       ;;
     --repo)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      repo_ref="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" "$repo_var_name" die_usage
       shift 2
       ;;
     -h | --help)
@@ -51,18 +45,15 @@ cmd_close() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      issue_number="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" issue_number die_usage
       shift 2
       ;;
     --repo)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      repo="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" repo die_usage
       shift 2
       ;;
     --reason)
-      issue_cli_require_option_value "$1" "${2:-}" die_usage
-      reason="${2:-}"
+      issue_cli_assign_value_or_error "$1" "${2:-}" reason die_usage
       shift 2
       ;;
     -h | --help)

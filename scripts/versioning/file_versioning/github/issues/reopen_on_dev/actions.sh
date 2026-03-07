@@ -3,21 +3,17 @@
 reopen_on_dev_run() {
   local pr_number=""
   local label_name="${DONE_IN_DEV_LABEL:-done-in-dev}"
-  local arg value
+  local arg
 
   while [[ $# -gt 0 ]]; do
     arg="$1"
     case "$arg" in
     --pr)
-      value="${2:-}"
-      issue_cli_require_option_value_or_usage "$arg" "$value" reopen_on_dev_usage || exit 2
-      pr_number="$value"
+      issue_cli_assign_value_or_usage "$arg" "${2:-}" pr_number reopen_on_dev_usage || exit 2
       shift 2
       ;;
     --label)
-      value="${2:-}"
-      issue_cli_require_option_value_or_usage "$arg" "$value" reopen_on_dev_usage || exit 2
-      label_name="$value"
+      issue_cli_assign_value_or_usage "$arg" "${2:-}" label_name reopen_on_dev_usage || exit 2
       shift 2
       ;;
     -h | --help)

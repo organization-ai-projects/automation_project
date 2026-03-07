@@ -218,19 +218,14 @@ neutralize_parse_args() {
   local repo_var_name="$2"
   shift 2
 
-  local -n pr_ref="$pr_var_name"
-  local -n repo_ref="$repo_var_name"
-
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --pr)
-      issue_cli_require_option_value_or_usage "$1" "${2:-}" neutralize_usage || exit 2
-      pr_ref="${2:-}"
+      issue_cli_assign_value_or_usage "$1" "${2:-}" "$pr_var_name" neutralize_usage || exit 2
       shift 2
       ;;
     --repo)
-      issue_cli_require_option_value_or_usage "$1" "${2:-}" neutralize_usage || exit 2
-      repo_ref="${2:-}"
+      issue_cli_assign_value_or_usage "$1" "${2:-}" "$repo_var_name" neutralize_usage || exit 2
       shift 2
       ;;
     -h | --help)
