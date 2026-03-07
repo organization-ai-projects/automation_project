@@ -135,14 +135,14 @@ impl LayeringRules {
             let Some(content) = cargo_content_by_path.get(cargo) else {
                 continue;
             };
-            let Some(crate_name) = parse_package_name(&content) else {
+            let Some(crate_name) = parse_package_name(content) else {
                 continue;
             };
             let Some(self_rank) = crate_layer_by_name.get(&crate_name) else {
                 continue;
             };
 
-            let deps = parse_dependency_crate_names(&content);
+            let deps = parse_dependency_crate_names(content);
             for dep in deps {
                 let Some(dep_rank) = crate_layer_by_name.get(&dep) else {
                     continue;
