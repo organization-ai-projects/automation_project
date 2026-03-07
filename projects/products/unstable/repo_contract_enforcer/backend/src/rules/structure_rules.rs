@@ -155,19 +155,52 @@ impl StructureRules {
                 .unwrap_or_default();
             let content = std::fs::read_to_string(&file).unwrap_or_default();
 
-            if file_name == "run.sh" && !content.contains("set -euo pipefail") {
-                out.push(make_violation(
-                    RuleId::Structure,
-                    ViolationCode::StructShellRunMissingStrictMode,
-                    (config::path_classification::PathClassification::Other, mode),
-                    &file,
-                    "run.sh must enable strict mode with `set -euo pipefail`",
-                    (true, Some(1)),
-                ));
+            if file_name == "run.sh" {
+                if !content.contains("set -euo pipefail") {
+                    out.push(make_violation(
+                        RuleId::Structure,
+                        ViolationCode::StructShellRunMissingStrictMode,
+                        (config::path_classification::PathClassification::Other, mode),
+                        &file,
+                        "run.sh must enable strict mode with `set -euo pipefail`",
+                        (true, Some(1)),
+                    ));
+                }
+
+                if !content.lines().any(is_source_line) {
+                    out.push(make_violation(
+                        RuleId::Structure,
+                        ViolationCode::StructShellRunMissingSource,
+                        (config::path_classification::PathClassification::Other, mode),
+                        &file,
+                        "run.sh must source module files before dispatching entrypoint",
+                        (true, Some(1)),
+                    ));
+                }
+
+                if !has_valid_run_entrypoint(&content) {
+                    out.push(make_violation(
+                        RuleId::Structure,
+                        ViolationCode::StructShellRunMissingEntrypoint,
+                        (config::path_classification::PathClassification::Other, mode),
+                        &file,
+                        "run.sh must end with a single *_main/*_run entrypoint call passing \"$@\"",
+                        (true, Some(1)),
+                    ));
+                }
             }
 
             if file_name == "load.sh" {
                 for (idx, line) in content.lines().enumerate() {
+                    let trimmed = line.trim();
+                    if trimmed.is_empty()
+                        || trimmed.starts_with('#')
+                        || trimmed.starts_with("#!")
+                        || trimmed.starts_with("set ")
+                    {
+                        continue;
+                    }
+
                     if is_function_definition_line(line) {
                         out.push(make_violation(
                             RuleId::Structure,
@@ -179,12 +212,102 @@ impl StructureRules {
                         ));
                         break;
                     }
+
+                    if !is_allowed_load_line(line) {
+                        out.push(make_violation(
+                            RuleId::Structure,
+                            ViolationCode::StructShellLoadHasExecutableLogic,
+                            (config::path_classification::PathClassification::Other, mode),
+                            &file,
+                            "load.sh must only contain module path constants and source statements",
+                            (true, Some((idx + 1) as u32)),
+                        ));
+                        break;
+                    }
                 }
             }
         }
 
         out
     }
+}
+
+fn has_valid_run_entrypoint(content: &str) -> bool {
+    let mut last_meaningful = None;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with("#!") {
+            continue;
+        }
+        last_meaningful = Some(trimmed);
+    }
+    match last_meaningful {
+        Some(line) => is_run_entrypoint_line(line),
+        None => false,
+    }
+}
+
+fn is_run_entrypoint_line(line: &str) -> bool {
+    let Some(space_idx) = line.find(char::is_whitespace) else {
+        return false;
+    };
+    let (fn_name, rest) = line.split_at(space_idx);
+    let arg_part = rest.trim();
+    if arg_part != "\"$@\"" {
+        return false;
+    }
+    let has_valid_suffix = if fn_name == "main" || fn_name == "run" {
+        true
+    } else if let Some((_, suffix)) = fn_name.rsplit_once('_') {
+        suffix == "main" || suffix == "run"
+    } else {
+        false
+    };
+    if !has_valid_suffix {
+        return false;
+    }
+    fn_name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && fn_name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+}
+
+fn is_source_line(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with("source ") || trimmed.starts_with(". ")
+}
+
+fn is_allowed_load_line(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if is_source_line(trimmed) {
+        return true;
+    }
+    if is_shell_variable_assignment(trimmed) {
+        return true;
+    }
+    false
+}
+
+fn is_shell_variable_assignment(line: &str) -> bool {
+    let Some(eq_idx) = line.find('=') else {
+        return false;
+    };
+    if eq_idx == 0 {
+        return false;
+    }
+    let name = &line[..eq_idx];
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+    {
+        return false;
+    }
+    name.chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_uppercase() || c == '_')
 }
 
 fn collect_shell_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
@@ -335,6 +458,60 @@ mod tests {
     }
 
     #[test]
+    fn shell_run_requires_module_sources() {
+        let root = temp_root("shell_run_source");
+        let run_path = root.join("scripts/versioning/file_versioning/github/issues/manager/run.sh");
+        fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
+        fs::write(
+            &run_path,
+            "#!/usr/bin/env bash\nset -euo pipefail\nmanager_issues_main \"$@\"\n",
+        )
+        .expect("write run.sh");
+
+        let violations = StructureRules::evaluate_shell_scripts(&root, EnforcementMode::Strict);
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::StructShellRunMissingSource
+                && v.path.ends_with("run.sh")
+        }));
+    }
+
+    #[test]
+    fn shell_run_requires_entrypoint_passthrough() {
+        let root = temp_root("shell_run_entrypoint");
+        let run_path = root.join("scripts/versioning/file_versioning/github/issues/manager/run.sh");
+        fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
+        fs::write(
+            &run_path,
+            "#!/usr/bin/env bash\nset -euo pipefail\nsource \"./load.sh\"\nmanager_issues_main\n",
+        )
+        .expect("write run.sh");
+
+        let violations = StructureRules::evaluate_shell_scripts(&root, EnforcementMode::Strict);
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::StructShellRunMissingEntrypoint
+                && v.path.ends_with("run.sh")
+        }));
+    }
+
+    #[test]
+    fn shell_load_forbids_executable_logic() {
+        let root = temp_root("shell_load_logic");
+        let load_path = root.join("scripts/versioning/file_versioning/github/pr/common/load.sh");
+        fs::create_dir_all(load_path.parent().expect("load parent")).expect("create load parent");
+        fs::write(
+            &load_path,
+            "#!/usr/bin/env bash\nPR_COMMON_DIR=\"$(cd \"${BASH_SOURCE[0]%/*}\" && pwd)\"\nsource \"${PR_COMMON_DIR}/a.sh\"\necho \"unexpected\"\n",
+        )
+        .expect("write load.sh");
+
+        let violations = StructureRules::evaluate_shell_scripts(&root, EnforcementMode::Strict);
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::StructShellLoadHasExecutableLogic
+                && v.path.ends_with("load.sh")
+        }));
+    }
+
+    #[test]
     fn compliant_shell_layout_has_no_shell_structure_violations() {
         let root = temp_root("shell_layout_ok");
         let run_path = root.join("scripts/versioning/file_versioning/github/issues/manager/run.sh");
@@ -357,7 +534,10 @@ mod tests {
             matches!(
                 v.violation_code,
                 ViolationCode::StructShellRunMissingStrictMode
+                    | ViolationCode::StructShellRunMissingSource
+                    | ViolationCode::StructShellRunMissingEntrypoint
                     | ViolationCode::StructShellLoadHasFunctionDefinition
+                    | ViolationCode::StructShellLoadHasExecutableLogic
             )
         }));
     }

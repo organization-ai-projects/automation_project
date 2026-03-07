@@ -27,5 +27,8 @@ pub enum ViolationCode {
     StructMissingProductMetadata,
     StructMissingCrateManifest,
     StructShellRunMissingStrictMode,
+    StructShellRunMissingSource,
+    StructShellRunMissingEntrypoint,
     StructShellLoadHasFunctionDefinition,
+    StructShellLoadHasExecutableLogic,
 }
