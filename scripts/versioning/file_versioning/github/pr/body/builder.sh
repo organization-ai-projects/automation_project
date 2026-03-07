@@ -26,28 +26,11 @@ pr_body_build_description_section() {
 }
 
 pr_body_build_validation_section() {
-  echo "### Validation Gate"
-  echo ""
-  echo "- CI: ${ci_status_with_symbol}"
-  if [[ "$breaking_detected" -eq 1 ]]; then
-    echo "- Breaking change"
-  else
-    echo "- No breaking change"
-  fi
-
-  if [[ "$breaking_detected" -eq 1 ]]; then
-    echo "- Breaking scope:"
-    if [[ -n "$breaking_scope_crates" ]]; then
-      echo "  - crate(s): ${breaking_scope_crates}"
-    else
-      echo "  - crate(s): unknown"
-    fi
-    if [[ -n "$breaking_scope_commits" ]]; then
-      echo "  - source commit(s): ${breaking_scope_commits}"
-    else
-      echo "  - source commit(s): unknown"
-    fi
-  fi
+  pr_build_validation_gate_section \
+    "$ci_status_with_symbol" \
+    "$breaking_detected" \
+    "$breaking_scope_crates" \
+    "$breaking_scope_commits"
   echo ""
 }
 
