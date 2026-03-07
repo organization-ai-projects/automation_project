@@ -65,6 +65,7 @@ github/
 - `tests/issue_reopen_on_dev_merge_regression.sh`: Regression checks for Reopen footer sync on merged PRs into `dev`.
 - `tests/manager_issues_regression.sh`: Regression checks for manager_issues lifecycle routing behavior (create/read/update/close/reopen/soft-delete).
 - `tests/shellcheck_regression.sh`: ShellCheck regression suite with strict lint for standalone/test scripts and scoped suppressions for the modular PR generator stack.
+- `tests/enforcer_shell_contract_regression.sh`: Enforcer-backed shell contract gate (strict mode), failing on any `STRUCT_SHELL_*` violation in automation scripts.
 
 ## Scope
 
@@ -180,6 +181,7 @@ Regression tests:
 ```bash
 bash tests/generate_pr_description_regression.sh
 bash tests/shellcheck_regression.sh
+bash tests/enforcer_shell_contract_regression.sh
 ```
 
 Troubleshooting:
