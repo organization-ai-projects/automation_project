@@ -14,6 +14,8 @@ impl StructureRules {
         use scan::crate_scanner::CrateScanner;
 
         let mut out = Vec::new();
+        // Internal convention: `/core` is an orchestrator workspace root and not a product.
+        // Skip product crate shape checks there.
         let is_core_workspace = product_dir
             .file_name()
             .and_then(|s| s.to_str())
@@ -85,15 +87,25 @@ impl StructureRules {
 
         let root_cargo = product_dir.join("Cargo.toml");
         if root_cargo.exists() {
-            let txt = std::fs::read_to_string(&root_cargo).unwrap_or_default();
-            let members = CrateScanner::extract_workspace_members(&txt);
-            let detail = if members.is_empty() {
-                "nested root Cargo.toml is forbidden".to_string()
-            } else {
-                format!(
-                    "nested workspace root Cargo.toml is forbidden (members: {})",
-                    members.join(",")
-                )
+            let detail = match read_text_or_emit_violation(
+                &mut out,
+                (scope, mode),
+                &root_cargo,
+                RuleId::Structure,
+                "Cargo.toml",
+            ) {
+                Some(txt) => {
+                    let members = CrateScanner::extract_workspace_members(&txt);
+                    if members.is_empty() {
+                        "nested root Cargo.toml is forbidden".to_string()
+                    } else {
+                        format!(
+                            "nested workspace root Cargo.toml is forbidden (members: {})",
+                            members.join(",")
+                        )
+                    }
+                }
+                None => "nested root Cargo.toml is forbidden".to_string(),
             };
             out.push(make_violation(
                 RuleId::Structure,
@@ -153,7 +165,15 @@ impl StructureRules {
                 .file_name()
                 .and_then(|s| s.to_str())
                 .unwrap_or_default();
-            let content = std::fs::read_to_string(&file).unwrap_or_default();
+            let Some(content) = read_text_or_emit_violation(
+                &mut out,
+                (config::path_classification::PathClassification::Other, mode),
+                &file,
+                RuleId::Structure,
+                "shell script",
+            ) else {
+                continue;
+            };
 
             if file_name == "run.sh" {
                 if !content.contains("set -euo pipefail") {
@@ -446,6 +466,34 @@ fn make_violation(
         path: path.to_string_lossy().to_string(),
         message: message.to_string(),
         line,
+    }
+}
+
+fn read_text_or_emit_violation(
+    out: &mut Vec<reports::violation::Violation>,
+    context: (
+        config::path_classification::PathClassification,
+        config::enforcement_mode::EnforcementMode,
+    ),
+    path: &std::path::Path,
+    rule_id: rules::rule_id::RuleId,
+    kind: &str,
+) -> Option<String> {
+    use reports::violation_code::ViolationCode;
+
+    match std::fs::read_to_string(path) {
+        Ok(content) => Some(content),
+        Err(err) => {
+            out.push(make_violation(
+                rule_id,
+                ViolationCode::RuleFileReadError,
+                context,
+                path,
+                &format!("failed to read {kind} file: {err}"),
+                (true, None),
+            ));
+            None
+        }
     }
 }
 

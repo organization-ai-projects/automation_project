@@ -44,5 +44,5 @@ pub enum ViolationCode {
     StructShellLoadInvalidConstantName,
     LayerLibraryHasMainRs,
     LayerLibraryMissingLibRs,
-    CrateFileReadError,
+    RuleFileReadError,
 }

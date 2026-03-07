@@ -24,7 +24,15 @@ impl LayeringRules {
         let backend_crate_name = format!("{product_name}_backend");
         let rs_files = FileScanner::gather_rs_files(&ui);
         for file in rs_files {
-            let txt = std::fs::read_to_string(&file).unwrap_or_default();
+            let Some(txt) = read_text_or_emit_violation(
+                &mut out,
+                (scope, mode),
+                &file,
+                rules::rule_id::RuleId::Layering,
+                "source",
+            ) else {
+                continue;
+            };
             if RustParser::imports_backend_crate(&txt, &backend_crate_name) {
                 out.push(make_violation(
                     RuleId::Layering,
@@ -70,10 +78,20 @@ impl LayeringRules {
             return Vec::new();
         }
 
+        let mut out = Vec::new();
         let mut crate_layer_by_name = std::collections::HashMap::new();
-        let mut cargo_by_name = std::collections::HashMap::new();
+        let mut cargo_content_by_path = std::collections::HashMap::new();
+        let context = (config::path_classification::PathClassification::Other, mode);
         for cargo in &cargo_files {
-            let content = std::fs::read_to_string(cargo).unwrap_or_default();
+            let Some(content) = read_text_or_emit_violation(
+                &mut out,
+                context,
+                cargo,
+                RuleId::Layering,
+                "Cargo.toml",
+            ) else {
+                continue;
+            };
             let Some(crate_name) = parse_package_name(&content) else {
                 continue;
             };
@@ -81,10 +99,9 @@ impl LayeringRules {
                 continue;
             };
             crate_layer_by_name.insert(crate_name.clone(), layer_rank);
-            cargo_by_name.insert(crate_name, cargo.clone());
+            cargo_content_by_path.insert(cargo.clone(), content);
         }
 
-        let mut out = Vec::new();
         for cargo in &cargo_files {
             if library_layer_rank_from_path(cargo).is_some() {
                 let crate_root = cargo.parent().unwrap_or(repo_root);
@@ -96,7 +113,7 @@ impl LayeringRules {
                     out.push(make_violation(
                         RuleId::Layering,
                         ViolationCode::LayerLibraryHasMainRs,
-                        (config::path_classification::PathClassification::Other, mode),
+                        context,
                         &main_rs,
                         "library crates must not define src/main.rs (libraries are lib-only)",
                         (true, None),
@@ -107,7 +124,7 @@ impl LayeringRules {
                     out.push(make_violation(
                         RuleId::Layering,
                         ViolationCode::LayerLibraryMissingLibRs,
-                        (config::path_classification::PathClassification::Other, mode),
+                        context,
                         &lib_rs,
                         "library crates must define src/lib.rs",
                         (true, None),
@@ -115,7 +132,9 @@ impl LayeringRules {
                 }
             }
 
-            let content = std::fs::read_to_string(cargo).unwrap_or_default();
+            let Some(content) = cargo_content_by_path.get(cargo) else {
+                continue;
+            };
             let Some(crate_name) = parse_package_name(&content) else {
                 continue;
             };
@@ -132,7 +151,7 @@ impl LayeringRules {
                     out.push(make_violation(
                         RuleId::Layering,
                         ViolationCode::LayerLibraryDependsOnHigherLayer,
-                        (config::path_classification::PathClassification::Other, mode),
+                        context,
                         cargo,
                         &format!(
                             "library layering violation: '{crate_name}' depends on higher-layer crate '{dep}'"
@@ -267,6 +286,34 @@ fn make_violation(
         path: path.to_string_lossy().to_string(),
         message: message.to_string(),
         line,
+    }
+}
+
+fn read_text_or_emit_violation(
+    out: &mut Vec<reports::violation::Violation>,
+    context: (
+        config::path_classification::PathClassification,
+        config::enforcement_mode::EnforcementMode,
+    ),
+    path: &std::path::Path,
+    rule_id: rules::rule_id::RuleId,
+    kind: &str,
+) -> Option<String> {
+    use reports::violation_code::ViolationCode;
+
+    match std::fs::read_to_string(path) {
+        Ok(content) => Some(content),
+        Err(err) => {
+            out.push(make_violation(
+                rule_id,
+                ViolationCode::RuleFileReadError,
+                context,
+                path,
+                &format!("failed to read {kind} file: {err}"),
+                (true, None),
+            ));
+            None
+        }
     }
 }
 

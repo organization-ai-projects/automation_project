@@ -22,7 +22,10 @@ impl DeterminismRules {
 
         let rs_files = FileScanner::gather_rs_files(&backend);
         for file in rs_files {
-            let txt = std::fs::read_to_string(&file).unwrap_or_default();
+            let Some(txt) = read_text_or_emit_violation(&mut out, (scope, mode), &file, "source")
+            else {
+                continue;
+            };
             let is_prod_source = is_backend_production_source(&file);
             if txt.contains("SystemTime") || txt.contains("Instant") {
                 out.push(make_violation(
@@ -221,6 +224,34 @@ fn make_violation(
         path: path.to_string_lossy().to_string(),
         message: message.to_string(),
         line,
+    }
+}
+
+fn read_text_or_emit_violation(
+    out: &mut Vec<reports::violation::Violation>,
+    context: (
+        config::path_classification::PathClassification,
+        config::enforcement_mode::EnforcementMode,
+    ),
+    path: &std::path::Path,
+    kind: &str,
+) -> Option<String> {
+    use reports::violation_code::ViolationCode;
+    use rules::rule_id::RuleId;
+
+    match std::fs::read_to_string(path) {
+        Ok(content) => Some(content),
+        Err(err) => {
+            out.push(make_violation(
+                RuleId::Determinism,
+                ViolationCode::RuleFileReadError,
+                context,
+                path,
+                &format!("failed to read {kind} file: {err}"),
+                (true, None),
+            ));
+            None
+        }
     }
 }
 

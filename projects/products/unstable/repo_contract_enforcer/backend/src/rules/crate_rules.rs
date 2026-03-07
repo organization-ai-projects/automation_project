@@ -366,7 +366,7 @@ fn read_text_or_emit_violation(
         Err(err) => {
             out.push(make_violation(
                 RuleId::Crate,
-                ViolationCode::CrateFileReadError,
+                ViolationCode::RuleFileReadError,
                 context,
                 path,
                 &format!("failed to read {kind} file: {err}"),
