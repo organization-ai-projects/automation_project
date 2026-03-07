@@ -1,40 +1,40 @@
 {
-  "repository_root": "<FIXTURE_ROOT>",
-  "mode": "strict",
-  "report_hash": "e06e765a035031f78b71eec8336824bd74e627ba0978a4871f5d73a85cf6a4fa",
-  "summary": {
-    "stable_error_count": 0,
-    "stable_warning_count": 0,
-    "unstable_error_count": 0,
-    "unstable_warning_count": 3
-  },
   "violations": [
     {
+      "line": null,
       "rule_id": "structure",
-      "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/backend/backend_manifest.ron",
+      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
       "severity": "WARNING",
       "scope": "unstable",
-      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
-      "line": null,
+      "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/backend/backend_manifest.ron",
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST"
     },
     {
+      "rule_id": "structure",
+      "severity": "WARNING",
       "scope": "unstable",
       "line": null,
-      "severity": "WARNING",
-      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
       "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/metadata.ron",
-      "rule_id": "structure",
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
       "message": "product must include metadata.ron at root (blocking in strict mode for stable products)"
     },
     {
-      "scope": "unstable",
-      "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/ui/ui_manifest.ron",
-      "rule_id": "structure",
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "scope": "unstable",
+      "rule_id": "structure",
+      "severity": "WARNING",
       "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
       "line": null,
-      "severity": "WARNING"
+      "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/ui/ui_manifest.ron"
     }
-  ]
+  ],
+  "repository_root": "<FIXTURE_ROOT>",
+  "mode": "strict",
+  "summary": {
+    "stable_warning_count": 0,
+    "stable_error_count": 0,
+    "unstable_warning_count": 3,
+    "unstable_error_count": 0
+  },
+  "report_hash": "61d5a95f36e5a89f155b6ce76bf58f661169f007e156da022f8d8b415608ecdf"
 }

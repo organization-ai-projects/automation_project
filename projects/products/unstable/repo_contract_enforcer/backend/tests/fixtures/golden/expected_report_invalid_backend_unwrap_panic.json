@@ -1,67 +1,67 @@
 {
+  "repository_root": "<FIXTURE_ROOT>",
   "summary": {
-    "stable_warning_count": 1,
-    "unstable_error_count": 0,
     "unstable_warning_count": 0,
+    "unstable_error_count": 0,
+    "stable_warning_count": 1,
     "stable_error_count": 5
   },
-  "report_hash": "fdd68a7f3a9cdaca3e23ef4e5526a691ecc99900b3cddb382103c51a5c3d39cc",
+  "report_hash": "31bd64539c38ccca4d25a820cb876b503563f4beb79c1dc1d236493c041cda50",
   "mode": "strict",
-  "repository_root": "<FIXTURE_ROOT>",
   "violations": [
     {
-      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "severity": "ERROR",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/backend_manifest.ron",
       "line": null,
       "rule_id": "structure",
-      "scope": "stable"
+      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/backend_manifest.ron",
+      "scope": "stable",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "severity": "ERROR"
     },
     {
-      "rule_id": "determinism",
+      "line": 3,
+      "violation_code": "DET_UNWRAP_RISK",
       "scope": "stable",
-      "severity": "ERROR",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "message": "unwrap/expect usage may panic at runtime",
-      "line": 3,
-      "violation_code": "DET_UNWRAP_RISK"
+      "rule_id": "determinism",
+      "severity": "ERROR",
+      "message": "unwrap/expect usage may panic at runtime"
     },
     {
-      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
-      "line": 3,
-      "scope": "stable",
       "rule_id": "determinism",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
       "severity": "WARNING",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "message": "underscore-based bindings/discards may hide unused values"
+      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
+      "message": "underscore-based bindings/discards may hide unused values",
+      "line": 3
     },
     {
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
-      "severity": "ERROR",
-      "message": "panic-like macros are forbidden (including tests)",
-      "scope": "stable",
-      "violation_code": "DET_PANIC_RISK",
       "line": 4,
-      "rule_id": "determinism"
+      "severity": "ERROR",
+      "rule_id": "determinism",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
+      "message": "panic-like macros are forbidden (including tests)",
+      "violation_code": "DET_PANIC_RISK"
     },
     {
+      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/metadata.ron",
       "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
       "severity": "ERROR",
       "rule_id": "structure",
-      "scope": "stable",
       "line": null,
-      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)"
+      "scope": "stable"
     },
     {
-      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
-      "severity": "ERROR",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/ui/ui_manifest.ron",
+      "line": null,
       "scope": "stable",
       "rule_id": "structure",
-      "line": null,
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST"
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/ui/ui_manifest.ron",
+      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "severity": "ERROR"
     }
   ]
 }
