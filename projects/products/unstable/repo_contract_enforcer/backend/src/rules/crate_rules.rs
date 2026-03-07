@@ -83,9 +83,12 @@ impl CrateRules {
                     if !should_enforce_primary_item_contract(&src_dir, &rs_file, stem) {
                         continue;
                     }
+                    let source_content = std::fs::read_to_string(&rs_file).unwrap_or_default();
 
                     if let Some(expected_test_path) = expected_paired_test_path(&rs_file) {
-                        if !expected_test_path.exists() {
+                        let requires_paired_test = rust_file_has_test_worthy_logic(&source_content);
+
+                        if requires_paired_test && !expected_test_path.exists() {
                             out.push(make_violation(
                                 RuleId::Crate,
                                 ViolationCode::CrateMissingPairedTestFile,
@@ -97,7 +100,7 @@ impl CrateRules {
                                 ),
                                 (true, None),
                             ));
-                        } else {
+                        } else if expected_test_path.exists() {
                             let paired_test_content =
                                 std::fs::read_to_string(&expected_test_path).unwrap_or_default();
                             if !looks_like_unit_test_file(&paired_test_content) {
@@ -113,8 +116,8 @@ impl CrateRules {
                         }
                     }
 
-                    let content = std::fs::read_to_string(&rs_file).unwrap_or_default();
-                    if let Some(v) = RustParser::primary_item_contract_violation(&rs_file, &content)
+                    if let Some(v) =
+                        RustParser::primary_item_contract_violation(&rs_file, &source_content)
                     {
                         out.push(make_violation(
                             RuleId::Crate,
@@ -168,6 +171,30 @@ fn looks_like_unit_test_file(content: &str) -> bool {
     // This prevents placeholder/integration-like files from satisfying the paired-test contract.
     const TEST_MARKERS: [&str; 4] = ["#[test]", "#[tokio::test]", "#[rstest]", "#[test_case]"];
     TEST_MARKERS.iter().any(|marker| content.contains(marker))
+}
+
+fn rust_file_has_test_worthy_logic(content: &str) -> bool {
+    // Heuristic: require paired tests only when file contains behavioral logic.
+    // Data-only type declarations (plain struct/enum/trait definitions) are exempt.
+    const LOGIC_MARKERS: [&str; 6] = [
+        "\nfn ",
+        "\npub fn ",
+        "\nasync fn ",
+        "\nimpl ",
+        "\nmacro_rules!",
+        "\nunsafe fn ",
+    ];
+    if LOGIC_MARKERS.iter().any(|marker| content.contains(marker)) {
+        return true;
+    }
+    // Handle first-line definitions without leading newline.
+    let first_line = content.lines().next().unwrap_or_default().trim_start();
+    first_line.starts_with("fn ")
+        || first_line.starts_with("pub fn ")
+        || first_line.starts_with("async fn ")
+        || first_line.starts_with("impl ")
+        || first_line.starts_with("macro_rules!")
+        || first_line.starts_with("unsafe fn ")
 }
 
 fn make_violation(
@@ -239,7 +266,7 @@ mod tests {
     }
 
     #[test]
-    fn crate_requires_paired_test_file_for_rust_module() {
+    fn crate_requires_paired_test_file_for_logic_module() {
         let product_root = temp_product_root();
         let product_name = "project_alpha";
 
@@ -251,7 +278,11 @@ mod tests {
         let request_rs = backend.join("src/protocol/request.rs");
         fs::create_dir_all(request_rs.parent().expect("request parent"))
             .expect("mkdir request parent");
-        fs::write(&request_rs, "pub struct Request;\n").expect("write request.rs");
+        fs::write(
+            &request_rs,
+            "pub struct Request;\n\nimpl Request {\n    pub fn is_valid(&self) -> bool { true }\n}\n",
+        )
+        .expect("write request.rs");
 
         let violations = CrateRules::evaluate(
             &product_root,
@@ -279,7 +310,11 @@ mod tests {
         let request_rs = backend.join("src/protocol/request.rs");
         fs::create_dir_all(request_rs.parent().expect("request parent"))
             .expect("mkdir request parent");
-        fs::write(&request_rs, "pub struct Request;\n").expect("write request.rs");
+        fs::write(
+            &request_rs,
+            "pub struct Request;\n\nimpl Request {\n    pub fn is_valid(&self) -> bool { true }\n}\n",
+        )
+        .expect("write request.rs");
 
         let request_test = backend.join("src/protocol/tests/request.rs");
         fs::create_dir_all(request_test.parent().expect("request test parent"))
@@ -316,7 +351,11 @@ mod tests {
         let request_rs = backend.join("src/protocol/request.rs");
         fs::create_dir_all(request_rs.parent().expect("request parent"))
             .expect("mkdir request parent");
-        fs::write(&request_rs, "pub struct Request;\n").expect("write request.rs");
+        fs::write(
+            &request_rs,
+            "pub struct Request;\n\nimpl Request {\n    pub fn is_valid(&self) -> bool { true }\n}\n",
+        )
+        .expect("write request.rs");
 
         let request_test = backend.join("src/protocol/tests/request.rs");
         fs::create_dir_all(request_test.parent().expect("request test parent"))
@@ -337,6 +376,38 @@ mod tests {
         assert!(violations.iter().any(|v| {
             v.violation_code == ViolationCode::CratePairedTestNotUnitStyle
                 && v.path.ends_with("backend/src/protocol/tests/request.rs")
+        }));
+    }
+
+    #[test]
+    fn crate_data_only_module_does_not_require_paired_test_file() {
+        let product_root = temp_product_root();
+        let product_name = "project_delta";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_delta_backend");
+        write_minimal_bin_crate(&ui, "project_delta_ui");
+
+        let record_rs = backend.join("src/store/account_record.rs");
+        fs::create_dir_all(record_rs.parent().expect("record parent"))
+            .expect("mkdir record parent");
+        fs::write(
+            &record_rs,
+            "#[derive(Debug, Clone)]\npub struct AccountRecord {\n    pub id: String,\n}\n",
+        )
+        .expect("write account_record.rs");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(!violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateMissingPairedTestFile
+                && v.path.ends_with("backend/src/store/account_record.rs")
         }));
     }
 }
