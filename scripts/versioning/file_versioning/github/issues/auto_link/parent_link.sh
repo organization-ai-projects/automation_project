@@ -49,6 +49,16 @@ auto_link_fail_runtime_with_graphql_errors() {
 ${next_steps}"
 }
 
+auto_link_remove_sub_issue_relation() {
+  local parent_node_id="$1"
+  local child_node_id="$2"
+
+  gh api graphql \
+    -f query='mutation($issueId:ID!,$subIssueId:ID!){removeSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{id}}}' \
+    -f issueId="$parent_node_id" \
+    -f subIssueId="$child_node_id" 2>/dev/null || true
+}
+
 auto_link_handle_parent_link() {
   local repo_name="$1"
   local repo_owner="$2"
@@ -129,10 +139,7 @@ auto_link_handle_parent_link() {
     fi
 
     local unlink_result
-    unlink_result="$(gh api graphql \
-      -f query='mutation($issueId:ID!,$subIssueId:ID!){removeSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{id}}}' \
-      -f issueId="$current_parent_node_id" \
-      -f subIssueId="$child_node_id" 2>/dev/null || true)"
+    unlink_result="$(auto_link_remove_sub_issue_relation "$current_parent_node_id" "$child_node_id")"
 
     if [[ -z "$unlink_result" ]]; then
       auto_link_fail_runtime \

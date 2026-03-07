@@ -18,8 +18,8 @@ source "${ISSUES_DIR}/../../../../common_lib/versioning/file_versioning/github/i
 source "${BASH_SOURCE[0]%/*}/cli_graphql.sh"
 source "${BASH_SOURCE[0]%/*}/state.sh"
 source "${BASH_SOURCE[0]%/*}/validation.sh"
-source "${BASH_SOURCE[0]%/*}/parent_none.sh"
 source "${BASH_SOURCE[0]%/*}/parent_link.sh"
+source "${BASH_SOURCE[0]%/*}/parent_none.sh"
 source "${BASH_SOURCE[0]%/*}/workflow.sh"
 
 auto_link_run "$@"
