@@ -4,11 +4,28 @@
 
 # Pipeline issue-outcome rendering helpers.
 
+pr_pipeline_issue_is_excluded_by_directive() {
+  local issue_key="$1"
+  [[ -n "${issue_directive_conflict_reason[$issue_key]:-}" || -n "${issue_directive_resolution[$issue_key]:-}" ]]
+}
+
+pr_pipeline_directive_prefix_for_issue() {
+  local issue_key="$1"
+  local directive_action="${issue_directive_final_action[$issue_key]:-}"
+
+  case "$directive_action" in
+  close) echo "Closes ${issue_key} - " ;;
+  reopen) echo "Reopen ${issue_key} - " ;;
+  *) echo "${issue_key} - " ;;
+  esac
+}
+
 pr_pipeline_render_issue_outcomes_files() {
+  local issue_key issue_number directive_prefix
+
   : >"$issues_tmp"
   for issue_key in "${!seen_issue[@]}"; do
-    [[ -n "${issue_directive_conflict_reason[$issue_key]:-}" ]] && continue
-    [[ -n "${issue_directive_resolution[$issue_key]:-}" ]] && continue
+    pr_pipeline_issue_is_excluded_by_directive "$issue_key" && continue
     issue_number="${issue_key//#/}"
     echo "${issue_number}|${issue_category[$issue_key]}|${issue_action[$issue_key]}|${issue_key}" >>"$issues_tmp"
   done
@@ -20,8 +37,7 @@ pr_pipeline_render_issue_outcomes_files() {
 
   : >"$reopen_tmp"
   for issue_key in "${!seen_reopen_issue[@]}"; do
-    [[ -n "${issue_directive_conflict_reason[$issue_key]:-}" ]] && continue
-    [[ -n "${issue_directive_resolution[$issue_key]:-}" ]] && continue
+    pr_pipeline_issue_is_excluded_by_directive "$issue_key" && continue
     issue_number="${issue_key//#/}"
     echo "${issue_number}|${reopen_issue_category[$issue_key]:-Unknown}|${issue_key}" >>"$reopen_tmp"
   done
@@ -45,13 +61,7 @@ pr_pipeline_render_issue_outcomes_files() {
   : >"$directive_resolution_tmp"
   for issue_key in "${!issue_directive_resolution[@]}"; do
     issue_number="${issue_key//#/}"
-    directive_action="${issue_directive_final_action[$issue_key]:-}"
-    directive_prefix=""
-    case "$directive_action" in
-    close) directive_prefix="Closes ${issue_key} - " ;;
-    reopen) directive_prefix="Reopen ${issue_key} - " ;;
-    *) directive_prefix="${issue_key} - " ;;
-    esac
+    directive_prefix="$(pr_pipeline_directive_prefix_for_issue "$issue_key")"
     echo "${issue_number}|${issue_category[$issue_key]:-Unknown}|${directive_prefix}${issue_directive_resolution[$issue_key]}" >>"$directive_resolution_tmp"
   done
 
