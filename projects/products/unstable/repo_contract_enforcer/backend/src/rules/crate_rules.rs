@@ -93,6 +93,16 @@ impl CrateRules {
                                 (false, Some(line)),
                             ));
                         }
+                        for finding in find_disallowed_items_in_main(&source_content) {
+                            out.push(make_violation(
+                                RuleId::Crate,
+                                finding.code,
+                                (scope, mode),
+                                &rs_file,
+                                finding.message,
+                                (true, Some(finding.line)),
+                            ));
+                        }
                     }
 
                     if !should_enforce_primary_item_contract(&src_dir, &rs_file, stem) {
@@ -225,6 +235,85 @@ fn find_unscoped_pub_lines_in_main(content: &str) -> Vec<u32> {
         }
         if trimmed.starts_with("pub ") {
             out.push((idx + 1) as u32);
+        }
+    }
+    out
+}
+
+struct MainFileFinding {
+    code: reports::violation_code::ViolationCode,
+    line: u32,
+    message: &'static str,
+}
+
+fn find_disallowed_items_in_main(content: &str) -> Vec<MainFileFinding> {
+    use reports::violation_code::ViolationCode;
+
+    let mut out = Vec::new();
+    for (idx, line) in content.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("//") || trimmed.starts_with("#[") {
+            continue;
+        }
+        let line_no = (idx + 1) as u32;
+
+        if trimmed.starts_with("struct ") || trimmed.starts_with("pub struct ") {
+            out.push(MainFileFinding {
+                code: ViolationCode::CrateBinaryMainContainsStruct,
+                line: line_no,
+                message: "binary main module must not define struct; move it to a dedicated module",
+            });
+            continue;
+        }
+        if trimmed.starts_with("enum ") || trimmed.starts_with("pub enum ") {
+            out.push(MainFileFinding {
+                code: ViolationCode::CrateBinaryMainContainsEnum,
+                line: line_no,
+                message: "binary main module must not define enum; move it to a dedicated module",
+            });
+            continue;
+        }
+        if trimmed.starts_with("trait ") || trimmed.starts_with("pub trait ") {
+            out.push(MainFileFinding {
+                code: ViolationCode::CrateBinaryMainContainsTrait,
+                line: line_no,
+                message: "binary main module must not define trait; move it to a dedicated module",
+            });
+            continue;
+        }
+        if trimmed.starts_with("impl ") {
+            out.push(MainFileFinding {
+                code: ViolationCode::CrateBinaryMainContainsImpl,
+                line: line_no,
+                message: "binary main module must not define impl blocks; move behavior to dedicated modules",
+            });
+            continue;
+        }
+
+        let has_fn = trimmed.starts_with("fn ")
+            || trimmed.starts_with("pub fn ")
+            || trimmed.starts_with("async fn ")
+            || trimmed.starts_with("pub async fn ")
+            || trimmed.starts_with("unsafe fn ")
+            || trimmed.starts_with("pub unsafe fn ")
+            || trimmed.starts_with("async unsafe fn ")
+            || trimmed.starts_with("pub async unsafe fn ");
+        if has_fn {
+            let is_main = trimmed.starts_with("fn main")
+                || trimmed.starts_with("pub fn main")
+                || trimmed.starts_with("async fn main")
+                || trimmed.starts_with("pub async fn main")
+                || trimmed.starts_with("unsafe fn main")
+                || trimmed.starts_with("pub unsafe fn main")
+                || trimmed.starts_with("async unsafe fn main")
+                || trimmed.starts_with("pub async unsafe fn main");
+            if !is_main {
+                out.push(MainFileFinding {
+                    code: ViolationCode::CrateBinaryMainContainsNonEntrypointFn,
+                    line: line_no,
+                    message: "binary main module must only expose the entrypoint function `main`; move helper functions to dedicated modules",
+                });
+            }
         }
     }
     out
@@ -471,5 +560,55 @@ mod tests {
             v.violation_code == ViolationCode::CrateBinaryMainUnscopedPub
                 && v.path.ends_with("backend/src/main.rs")
         }));
+    }
+
+    #[test]
+    fn crate_detects_disallowed_items_in_binary_main_module() {
+        let product_root = temp_product_root();
+        let product_name = "project_zeta";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_zeta_backend");
+        write_minimal_bin_crate(&ui, "project_zeta_ui");
+
+        fs::write(
+            backend.join("src/main.rs"),
+            "struct App;\nenum Mode { Fast }\ntrait Runner {}\nimpl App { fn run(&self) {} }\nfn helper() {}\nfn main() {}\n",
+        )
+        .expect("write backend main.rs");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.violation_code == ViolationCode::CrateBinaryMainContainsStruct)
+        );
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.violation_code == ViolationCode::CrateBinaryMainContainsEnum)
+        );
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.violation_code == ViolationCode::CrateBinaryMainContainsTrait)
+        );
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.violation_code == ViolationCode::CrateBinaryMainContainsImpl)
+        );
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.violation_code == ViolationCode::CrateBinaryMainContainsNonEntrypointFn)
+        );
     }
 }
