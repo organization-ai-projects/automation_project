@@ -8,10 +8,7 @@ pr_pipeline_resolve_refs_and_modes() {
   local current_branch
 
   if [[ "$dry_run" == "true" ]]; then
-    if ! command -v git >/dev/null 2>&1; then
-      echo "Error: command 'git' not found." >&2
-      exit "$E_GIT"
-    fi
+    pr_pipeline_require_cmd git "$E_GIT"
     if [[ -z "$head_ref" ]]; then
       current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
       head_ref="$current_branch"
@@ -71,4 +68,3 @@ pr_pipeline_extract_pr_refs() {
     fi
   fi
 }
-
