@@ -1,67 +1,67 @@
 {
-  "mode": "strict",
-  "repository_root": "<FIXTURE_ROOT>",
-  "summary": {
-    "stable_error_count": 5,
-    "unstable_error_count": 0,
-    "stable_warning_count": 1,
-    "unstable_warning_count": 0
-  },
   "violations": [
     {
-      "severity": "ERROR",
-      "rule_id": "structure",
-      "scope": "stable",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/backend_manifest.ron",
       "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
-      "line": null
+      "line": null,
+      "rule_id": "structure",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "severity": "ERROR",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/backend_manifest.ron"
     },
     {
-      "violation_code": "DET_UNWRAP_RISK",
-      "message": "unwrap/expect usage may panic at runtime",
-      "severity": "ERROR",
-      "scope": "stable",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
       "line": 3,
-      "rule_id": "determinism"
+      "scope": "stable",
+      "violation_code": "DET_UNWRAP_RISK",
+      "severity": "ERROR",
+      "rule_id": "determinism",
+      "message": "unwrap/expect usage may panic at runtime"
     },
     {
-      "rule_id": "determinism",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
       "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
       "message": "underscore-based bindings/discards may hide unused values",
+      "rule_id": "determinism",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
       "line": 3,
       "severity": "WARNING",
       "scope": "stable"
     },
     {
+      "message": "panic-like macros are forbidden (including tests)",
       "scope": "stable",
-      "rule_id": "determinism",
-      "violation_code": "DET_PANIC_RISK",
       "line": 4,
       "severity": "ERROR",
-      "message": "panic-like macros are forbidden (including tests)",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs"
+      "violation_code": "DET_PANIC_RISK",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/backend/src/main.rs",
+      "rule_id": "determinism"
     },
     {
+      "rule_id": "structure",
+      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
       "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
       "severity": "ERROR",
+      "scope": "stable",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/metadata.ron",
-      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
-      "line": null,
-      "rule_id": "structure",
-      "scope": "stable"
+      "line": null
     },
     {
-      "scope": "stable",
-      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
-      "severity": "ERROR",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unwrap_panic/ui/ui_manifest.ron",
-      "rule_id": "structure",
-      "line": null
+      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
+      "line": null,
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "severity": "ERROR",
+      "scope": "stable",
+      "rule_id": "structure"
     }
   ],
-  "report_hash": "b65105e7cda5fb262342169e322dd75e31b6da0b4b4daef64738be8aa68e5694"
+  "repository_root": "<FIXTURE_ROOT>",
+  "summary": {
+    "stable_error_count": 5,
+    "unstable_warning_count": 0,
+    "unstable_error_count": 0,
+    "stable_warning_count": 1
+  },
+  "mode": "strict",
+  "report_hash": "59aabdbfd1e5eb8ced96425c05094463bfe6115a6788917165c5334376719065"
 }
