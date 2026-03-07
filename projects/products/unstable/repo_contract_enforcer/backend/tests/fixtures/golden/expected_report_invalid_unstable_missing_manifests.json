@@ -1,40 +1,40 @@
 {
+  "repository_root": "<FIXTURE_ROOT>",
+  "mode": "strict",
+  "report_hash": "e06e765a035031f78b71eec8336824bd74e627ba0978a4871f5d73a85cf6a4fa",
   "summary": {
     "stable_error_count": 0,
     "stable_warning_count": 0,
-    "unstable_warning_count": 3,
-    "unstable_error_count": 0
+    "unstable_error_count": 0,
+    "unstable_warning_count": 3
   },
   "violations": [
     {
       "rule_id": "structure",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
+      "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/backend/backend_manifest.ron",
       "severity": "WARNING",
       "scope": "unstable",
-      "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/backend/backend_manifest.ron",
-      "line": null
+      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
+      "line": null,
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST"
     },
     {
+      "scope": "unstable",
+      "line": null,
       "severity": "WARNING",
       "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
       "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/metadata.ron",
-      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
       "rule_id": "structure",
-      "scope": "unstable",
-      "line": null
+      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)"
     },
     {
-      "severity": "WARNING",
+      "scope": "unstable",
       "path": "<FIXTURE_ROOT>/projects/products/unstable/invalid_unstable_missing_manifests/ui/ui_manifest.ron",
+      "rule_id": "structure",
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
       "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
-      "rule_id": "structure",
       "line": null,
-      "scope": "unstable"
+      "severity": "WARNING"
     }
-  ],
-  "repository_root": "<FIXTURE_ROOT>",
-  "mode": "strict",
-  "report_hash": "108a0aaedae8f1dc240140925a6f8fe063143057ead5de537dcfec8a3c6fa36a"
+  ]
 }

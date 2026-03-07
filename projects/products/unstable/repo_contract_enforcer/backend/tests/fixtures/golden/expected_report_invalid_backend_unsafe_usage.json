@@ -1,58 +1,58 @@
 {
+  "repository_root": "<FIXTURE_ROOT>",
   "summary": {
-    "unstable_error_count": 0,
     "stable_warning_count": 2,
+    "unstable_error_count": 0,
     "unstable_warning_count": 0,
     "stable_error_count": 3
   },
-  "report_hash": "9d70099c52961c65850249a07a05c812524a7be90924f74755fb508ca076a232",
   "violations": [
     {
-      "line": null,
-      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
+      "rule_id": "structure",
+      "scope": "stable",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/backend/backend_manifest.ron",
       "severity": "ERROR",
-      "rule_id": "structure",
+      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "line": null
+    },
+    {
+      "violation_code": "DET_UNSAFE_USAGE",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/backend/src/main.rs",
+      "message": "unsafe usage detected; keep it internal and documented",
+      "severity": "WARNING",
+      "rule_id": "determinism",
+      "line": 3,
       "scope": "stable"
     },
     {
-      "severity": "WARNING",
+      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
       "rule_id": "determinism",
-      "message": "unsafe usage detected; keep it internal and documented",
-      "violation_code": "DET_UNSAFE_USAGE",
       "scope": "stable",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/backend/src/main.rs",
-      "line": 3
-    },
-    {
+      "message": "underscore-based bindings/discards may hide unused values",
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/backend/src/main.rs",
       "line": 8,
-      "message": "underscore-based bindings/discards may hide unused values",
-      "scope": "stable",
-      "rule_id": "determinism",
-      "violation_code": "DET_UNDERSCORE_UNUSED_MASKING",
       "severity": "WARNING"
     },
     {
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/metadata.ron",
-      "rule_id": "structure",
-      "severity": "ERROR",
-      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
       "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/metadata.ron",
+      "severity": "ERROR",
       "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
-      "line": null
+      "rule_id": "structure",
+      "line": null,
+      "violation_code": "STRUCT_MISSING_PRODUCT_METADATA"
     },
     {
       "scope": "stable",
       "severity": "ERROR",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/ui/ui_manifest.ron",
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "line": null,
       "rule_id": "structure",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
       "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
-      "line": null
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_backend_unsafe_usage/ui/ui_manifest.ron"
     }
   ],
-  "repository_root": "<FIXTURE_ROOT>",
+  "report_hash": "7ee8049e33a817277fd4fa7ff930355e46758f39d49982c24f8b101d51127f0a",
   "mode": "strict"
 }

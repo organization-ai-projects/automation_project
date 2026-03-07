@@ -1,40 +1,40 @@
 {
-  "summary": {
-    "unstable_error_count": 0,
-    "unstable_warning_count": 0,
-    "stable_warning_count": 3,
-    "stable_error_count": 0
-  },
   "repository_root": "<FIXTURE_ROOT>",
   "mode": "auto",
   "violations": [
     {
-      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "line": null,
-      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
       "severity": "WARNING",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/backend/backend_manifest.ron",
+      "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
+      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
+      "scope": "stable",
       "rule_id": "structure",
-      "scope": "stable"
+      "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/backend/backend_manifest.ron",
+      "line": null
     },
     {
+      "severity": "WARNING",
       "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/metadata.ron",
       "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
-      "line": null,
       "rule_id": "structure",
       "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
-      "severity": "WARNING",
+      "line": null,
       "scope": "stable"
     },
     {
+      "severity": "WARNING",
+      "line": null,
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
       "rule_id": "structure",
-      "severity": "WARNING",
       "scope": "stable",
       "path": "<FIXTURE_ROOT>/projects/products/stable/valid_stable_product/ui/ui_manifest.ron",
-      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
-      "line": null
+      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)"
     }
   ],
-  "report_hash": "1a99b39f9c57b1a7d854b017ac422b9e70800d6743f0daba066ca9b310c1543c"
+  "report_hash": "65c793d582fc512e149f45141631c9af49ba5b5e805a52b40065a9c69abd7b44",
+  "summary": {
+    "stable_error_count": 0,
+    "stable_warning_count": 3,
+    "unstable_error_count": 0,
+    "unstable_warning_count": 0
+  }
 }
