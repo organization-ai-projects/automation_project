@@ -92,28 +92,19 @@ done_status_run() {
       ;;
     --pr)
       value="${2:-}"
-      issue_cli_require_option_value "$arg" "$value" || {
-        done_status_usage >&2
-        exit 2
-      }
+      issue_cli_require_option_value_or_usage "$arg" "$value" done_status_usage || exit 2
       pr_number="$value"
       shift 2
       ;;
     --issue)
       value="${2:-}"
-      issue_cli_require_option_value "$arg" "$value" || {
-        done_status_usage >&2
-        exit 2
-      }
+      issue_cli_require_option_value_or_usage "$arg" "$value" done_status_usage || exit 2
       issue_number="$value"
       shift 2
       ;;
     --label)
       value="${2:-}"
-      issue_cli_require_option_value "$arg" "$value" || {
-        done_status_usage >&2
-        exit 2
-      }
+      issue_cli_require_option_value_or_usage "$arg" "$value" done_status_usage || exit 2
       label_name="$value"
       shift 2
       ;;
@@ -122,8 +113,7 @@ done_status_run() {
       exit 0
       ;;
     *)
-      echo "Error: unknown argument '$1'." >&2
-      done_status_usage >&2
+      issue_cli_unknown_option_with_usage "$1" done_status_usage
       exit 2
       ;;
     esac

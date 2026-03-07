@@ -224,18 +224,12 @@ neutralize_parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --pr)
-      if ! issue_cli_require_option_value "$1" "${2:-}"; then
-        neutralize_usage >&2
-        exit 2
-      fi
+      issue_cli_require_option_value_or_usage "$1" "${2:-}" neutralize_usage || exit 2
       pr_ref="${2:-}"
       shift 2
       ;;
     --repo)
-      if ! issue_cli_require_option_value "$1" "${2:-}"; then
-        neutralize_usage >&2
-        exit 2
-      fi
+      issue_cli_require_option_value_or_usage "$1" "${2:-}" neutralize_usage || exit 2
       repo_ref="${2:-}"
       shift 2
       ;;
@@ -244,8 +238,7 @@ neutralize_parse_args() {
       exit 0
       ;;
     *)
-      echo "Error: unknown option: $1" >&2
-      neutralize_usage >&2
+      issue_cli_unknown_option_with_usage "$1" neutralize_usage
       exit 2
       ;;
     esac

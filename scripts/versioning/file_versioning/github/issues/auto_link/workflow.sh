@@ -6,10 +6,7 @@ auto_link_run() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
-      if ! issue_cli_require_option_value "$1" "${2:-}"; then
-        auto_link_usage >&2
-        exit 2
-      fi
+      issue_cli_require_option_value_or_usage "$1" "${2:-}" auto_link_usage || exit 2
       issue_arg="${2:-}"
       shift 2
       ;;
@@ -18,8 +15,7 @@ auto_link_run() {
       exit 0
       ;;
     *)
-      echo "Erreur: option inconnue: $1" >&2
-      auto_link_usage >&2
+      issue_cli_unknown_option_with_usage "$1" auto_link_usage
       exit 2
       ;;
     esac

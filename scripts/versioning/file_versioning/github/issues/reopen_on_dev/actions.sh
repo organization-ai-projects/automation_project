@@ -10,19 +10,13 @@ reopen_on_dev_run() {
     case "$arg" in
     --pr)
       value="${2:-}"
-      issue_cli_require_option_value "$arg" "$value" || {
-        reopen_on_dev_usage >&2
-        exit 2
-      }
+      issue_cli_require_option_value_or_usage "$arg" "$value" reopen_on_dev_usage || exit 2
       pr_number="$value"
       shift 2
       ;;
     --label)
       value="${2:-}"
-      issue_cli_require_option_value "$arg" "$value" || {
-        reopen_on_dev_usage >&2
-        exit 2
-      }
+      issue_cli_require_option_value_or_usage "$arg" "$value" reopen_on_dev_usage || exit 2
       label_name="$value"
       shift 2
       ;;
@@ -31,8 +25,7 @@ reopen_on_dev_run() {
       exit 0
       ;;
     *)
-      echo "Error: unknown argument '$1'." >&2
-      reopen_on_dev_usage >&2
+      issue_cli_unknown_option_with_usage "$1" reopen_on_dev_usage
       exit 2
       ;;
     esac

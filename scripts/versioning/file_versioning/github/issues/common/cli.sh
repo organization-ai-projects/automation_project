@@ -18,3 +18,27 @@ issue_cli_require_option_value() {
   echo "Error: ${message}" >&2
   return 1
 }
+
+issue_cli_require_option_value_or_usage() {
+  local option="$1"
+  local value="${2:-}"
+  local usage_fn="${3:-}"
+
+  if issue_cli_require_option_value "$option" "$value"; then
+    return 0
+  fi
+  if [[ -n "$usage_fn" ]] && declare -F "$usage_fn" >/dev/null 2>&1; then
+    "$usage_fn" >&2
+  fi
+  return 1
+}
+
+issue_cli_unknown_option_with_usage() {
+  local option="$1"
+  local usage_fn="${2:-}"
+
+  echo "Error: unknown option: ${option}" >&2
+  if [[ -n "$usage_fn" ]] && declare -F "$usage_fn" >/dev/null 2>&1; then
+    "$usage_fn" >&2
+  fi
+}
