@@ -17,6 +17,7 @@ pub enum ViolationCode {
     NameCrateMismatch,
     LayerUiImportsBackend,
     LayerUiSuspectDomainLogic,
+    LayerLibraryDependsOnHigherLayer,
     DetWallClockUsage,
     DetForbiddenTimeDep,
     DetStdoutUsage,
