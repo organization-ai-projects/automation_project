@@ -35,6 +35,8 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
   - when a paired test file exists, it must include a unit-test marker (`#[test]`, `#[tokio::test]`, `#[rstest]`, `#[test_case]`)
   - unscoped `pub` in binary `src/main.rs` is discouraged (prefer private or `pub(crate)`)
   - binary `src/main.rs` should remain entrypoint-only: no `struct`/`enum`/`trait`/`impl`, and no helper `fn` outside `main`
+  - local `use` statements in non-top-level scopes are forbidden; imports must be at module scope
+  - inline test attributes in source files are forbidden; tests must live in nearest `src/**/tests/*.rs`
 - Library layering rules enforce dependency direction in `projects/libraries/**`:
   - `core/*` must not depend on `layers/*`
   - `layers/domain/*` must not depend on `layers/orchestration/*`
