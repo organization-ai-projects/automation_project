@@ -86,6 +86,35 @@ impl LayeringRules {
 
         let mut out = Vec::new();
         for cargo in &cargo_files {
+            if library_layer_rank_from_path(cargo).is_some() {
+                let crate_root = cargo.parent().unwrap_or(repo_root);
+                let src_dir = crate_root.join("src");
+                let lib_rs = src_dir.join("lib.rs");
+                let main_rs = src_dir.join("main.rs");
+
+                if main_rs.exists() {
+                    out.push(make_violation(
+                        RuleId::Layering,
+                        ViolationCode::LayerLibraryHasMainRs,
+                        (config::path_classification::PathClassification::Other, mode),
+                        &main_rs,
+                        "library crates must not define src/main.rs (libraries are lib-only)",
+                        (true, None),
+                    ));
+                }
+
+                if !lib_rs.exists() {
+                    out.push(make_violation(
+                        RuleId::Layering,
+                        ViolationCode::LayerLibraryMissingLibRs,
+                        (config::path_classification::PathClassification::Other, mode),
+                        &lib_rs,
+                        "library crates must define src/lib.rs",
+                        (true, None),
+                    ));
+                }
+            }
+
             let content = std::fs::read_to_string(cargo).unwrap_or_default();
             let Some(crate_name) = parse_package_name(&content) else {
                 continue;
@@ -326,5 +355,50 @@ mod tests {
                 .iter()
                 .any(|v| v.violation_code == ViolationCode::LayerLibraryDependsOnHigherLayer)
         );
+    }
+
+    #[test]
+    fn libraries_forbid_main_rs_entrypoint() {
+        let root = temp_repo_root();
+        write_library_cargo(
+            &root,
+            "projects/libraries/layers/domain/domain_a",
+            "domain_a",
+            &[],
+        );
+        let src_dir = root.join("projects/libraries/layers/domain/domain_a/src");
+        fs::create_dir_all(&src_dir).expect("create src");
+        fs::write(src_dir.join("lib.rs"), "pub struct DomainA;\n").expect("write lib.rs");
+        fs::write(src_dir.join("main.rs"), "fn main() {}\n").expect("write main.rs");
+
+        let violations =
+            LayeringRules::evaluate_library_dependencies(&root, EnforcementMode::Strict);
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::LayerLibraryHasMainRs
+                && v.path
+                    .ends_with("projects/libraries/layers/domain/domain_a/src/main.rs")
+        }));
+    }
+
+    #[test]
+    fn libraries_require_lib_rs() {
+        let root = temp_repo_root();
+        write_library_cargo(
+            &root,
+            "projects/libraries/core/foundation/core_a",
+            "core_a",
+            &[],
+        );
+        let src_dir = root.join("projects/libraries/core/foundation/core_a/src");
+        fs::create_dir_all(&src_dir).expect("create src");
+        // intentionally missing src/lib.rs
+
+        let violations =
+            LayeringRules::evaluate_library_dependencies(&root, EnforcementMode::Strict);
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::LayerLibraryMissingLibRs
+                && v.path
+                    .ends_with("projects/libraries/core/foundation/core_a/src/lib.rs")
+        }));
     }
 }

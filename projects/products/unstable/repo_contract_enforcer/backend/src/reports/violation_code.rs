@@ -36,4 +36,6 @@ pub enum ViolationCode {
     StructShellLoadHasFunctionDefinition,
     StructShellLoadHasExecutableLogic,
     StructShellLoadInvalidConstantName,
+    LayerLibraryHasMainRs,
+    LayerLibraryMissingLibRs,
 }
