@@ -29,9 +29,10 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
 - Backend crate rules include a `syn`-based primary item contract:
   - each non-entry Rust file must define exactly one primary `struct` or `enum`
   - primary item name must match file stem in `snake_case`
-  - each non-entry Rust file must have a paired test file in the closest `tests/` folder:
+  - non-entry Rust files with behavioral logic (`fn`/`impl`/macros) must have a paired test file in the closest `tests/` folder:
     - `src/foo/bar.rs` -> `src/foo/tests/bar.rs`
-  - paired test file must include a unit-test marker (`#[test]`, `#[tokio::test]`, `#[rstest]`, `#[test_case]`)
+  - data-only files (passive declarations) are exempt from mandatory paired tests
+  - when a paired test file exists, it must include a unit-test marker (`#[test]`, `#[tokio::test]`, `#[rstest]`, `#[test_case]`)
 - Library layering rules enforce dependency direction in `projects/libraries/**`:
   - `core/*` must not depend on `layers/*`
   - `layers/domain/*` must not depend on `layers/orchestration/*`
