@@ -36,9 +36,11 @@ compute_backend_state() {
   fi
   (
     cd "$BACKEND_DIR"
-    find src -type f -name '*.rs' -print0 2>/dev/null
-    find . -maxdepth 1 -type f \( -name 'Cargo.toml' -o -name 'Cargo.lock' \) -print0 2>/dev/null
-  ) | xargs -0 stat -c '%Y:%s:%n' 2>/dev/null | sha256sum | awk '{print $1}'
+    {
+      find src -type f -name '*.rs' -print0 2>/dev/null || true
+      find . -maxdepth 1 -type f \( -name 'Cargo.toml' -o -name 'Cargo.lock' \) -print0 2>/dev/null || true
+    } | xargs -0r stat -c '%Y:%s:%n' 2>/dev/null | sha256sum | awk '{print $1}'
+  )
 }
 
 restart_backend_processes() {
