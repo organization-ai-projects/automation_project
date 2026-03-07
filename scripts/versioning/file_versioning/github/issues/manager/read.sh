@@ -23,22 +23,27 @@ manager_parse_read_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       issue_ref="${2:-}"
       shift 2
       ;;
     --repo)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       repo_ref="${2:-}"
       shift 2
       ;;
     --json)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       json_ref="${2:-}"
       shift 2
       ;;
     --jq)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       jq_ref="${2:-}"
       shift 2
       ;;
     --template)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       template_ref="${2:-}"
       shift 2
       ;;

@@ -15,10 +15,12 @@ manager_parse_issue_repo_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       issue_ref="${2:-}"
       shift 2
       ;;
     --repo)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       repo_ref="${2:-}"
       shift 2
       ;;
@@ -49,14 +51,17 @@ cmd_close() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       issue_number="${2:-}"
       shift 2
       ;;
     --repo)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       repo="${2:-}"
       shift 2
       ;;
     --reason)
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       reason="${2:-}"
       shift 2
       ;;

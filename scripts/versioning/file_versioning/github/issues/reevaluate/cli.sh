@@ -37,10 +37,18 @@ reevaluate_main() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
+      if ! issue_cli_require_option_value "$1" "${2:-}"; then
+        reevaluate_usage >&2
+        exit 2
+      fi
       issue_number="${2:-}"
       shift 2
       ;;
     --repo)
+      if ! issue_cli_require_option_value "$1" "${2:-}"; then
+        reevaluate_usage >&2
+        exit 2
+      fi
       repo_name="${2:-}"
       shift 2
       ;;

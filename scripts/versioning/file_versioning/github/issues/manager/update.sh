@@ -19,19 +19,19 @@ manager_parse_update_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
-      [[ -n "${2:-}" ]] || die_usage "--issue requires a value."
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       printf -v "$issue_var_name" '%s' "${2:-}"
       shift 2
       ;;
     --repo)
-      [[ -n "${2:-}" ]] || die_usage "--repo requires a value."
+      issue_cli_require_option_value "$1" "${2:-}" die_usage
       printf -v "$repo_var_name" '%s' "${2:-}"
       shift 2
       ;;
     --title | --body | --add-label | --remove-label | --add-assignee | --remove-assignee)
       local opt="$1"
       local opt_value="${2:-}"
-      [[ -n "$opt_value" ]] || die_usage "$opt requires a value."
+      issue_cli_require_option_value "$opt" "$opt_value" die_usage
       case "$opt" in
       --title) printf -v "$update_title_var_name" '%s' "$opt_value" ;;
       --body) printf -v "$update_body_var_name" '%s' "$opt_value" ;;
