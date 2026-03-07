@@ -11,7 +11,7 @@ bash scripts/automation/check_script_integrity.sh >/tmp/script_integrity.out
 cat /tmp/script_integrity.out
 
 echo "[2/10] Direct issue creation contract (dry-run)"
-bash scripts/versioning/file_versioning/github/create_direct_issue.sh \
+bash scripts/versioning/file_versioning/github/issues/create_direct/run.sh \
   --title "fix(shell): regression direct issue contract" \
   --context "Regression context" \
   --problem "Regression problem" \

@@ -15,7 +15,15 @@ fi
 
 cd "$ROOT_DIR"
 
+set +e
 report_json="$(cargo run -q -p repo_contract_enforcer_ui -- check --root . --mode strict --json)"
+check_status=$?
+set -e
+
+if [[ $check_status -ne 0 && $check_status -ne 3 ]]; then
+  echo "Error: repo_contract_enforcer_ui check failed with unexpected status: $check_status" >&2
+  exit "$check_status"
+fi
 
 shell_violation_count="$(
   jq '[.violations[] | select(.violation_code | startswith("STRUCT_SHELL_"))] | length' <<<"$report_json"
