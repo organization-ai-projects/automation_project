@@ -8,36 +8,35 @@ manager_parse_update_args() {
   local edit_args_var_name="$5"
   shift 5
 
-  local -n issue_ref="$issue_var_name"
-  local -n repo_ref="$repo_var_name"
-  local -n update_title_ref="$update_title_var_name"
-  local -n update_body_ref="$update_body_var_name"
   local -n edit_args_ref="$edit_args_var_name"
 
-  issue_ref=""
-  repo_ref=""
-  update_title_ref=""
-  update_body_ref=""
+  printf -v "$issue_var_name" '%s' ""
+  printf -v "$repo_var_name" '%s' ""
+  printf -v "$update_title_var_name" '%s' ""
+  printf -v "$update_body_var_name" '%s' ""
   edit_args_ref=()
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --issue)
-      issue_ref="${2:-}"
+      [[ -n "${2:-}" ]] || die_usage "--issue requires a value."
+      printf -v "$issue_var_name" '%s' "${2:-}"
       shift 2
       ;;
     --repo)
-      repo_ref="${2:-}"
+      [[ -n "${2:-}" ]] || die_usage "--repo requires a value."
+      printf -v "$repo_var_name" '%s' "${2:-}"
       shift 2
       ;;
     --title | --body | --add-label | --remove-label | --add-assignee | --remove-assignee)
-      [[ -n "${2:-}" ]] || die_usage "$1 requires a value."
-      if [[ "$1" == "--title" ]]; then
-        update_title_ref="${2:-}"
-      elif [[ "$1" == "--body" ]]; then
-        update_body_ref="${2:-}"
-      fi
-      edit_args_ref+=("$1" "${2:-}")
+      local opt="$1"
+      local opt_value="${2:-}"
+      [[ -n "$opt_value" ]] || die_usage "$opt requires a value."
+      case "$opt" in
+      --title) printf -v "$update_title_var_name" '%s' "$opt_value" ;;
+      --body) printf -v "$update_body_var_name" '%s' "$opt_value" ;;
+      esac
+      edit_args_ref+=("$opt" "$opt_value")
       shift 2
       ;;
     -h | --help)
@@ -86,7 +85,11 @@ cmd_update() {
     local effective_body=""
     local validations=""
 
-    current_json="$(manager_load_issue_content_for_update "$issue_number" "$repo")"
+    current_json="$(manager_load_issue_content_for_update "$issue_number" "$repo" || true)"
+    if [[ -z "$current_json" ]]; then
+      echo "Error: unable to read issue #${issue_number} before update validation." >&2
+      exit 1
+    fi
 
     current_title="$(echo "$current_json" | jq -r '.title // ""')"
     current_body="$(echo "$current_json" | jq -r '.body // ""')"
