@@ -3,10 +3,6 @@ name = "repo_contract_enforcer_backend"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "repo_contract_enforcer_backend"
-path = "src/main.rs"
-
 [dependencies]
 serde = { workspace = true }
 common_json = { workspace = true }
