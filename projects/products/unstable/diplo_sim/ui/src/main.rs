@@ -12,6 +12,11 @@ fn main() {
     let backend = transport::backend_process::BackendProcess::new();
     let health = backend.client().send(transport::request::Request::Health);
     let maps = backend.client().send(transport::request::Request::ListMaps);
+    let map_info = backend
+        .client()
+        .send(transport::request::Request::GetMapInfo {
+            map_id: "tiny_triangle".to_string(),
+        });
     let run = backend
         .client()
         .send(transport::request::Request::RunMatch {
@@ -41,7 +46,9 @@ fn main() {
         }
         _ => diagnostics::error::Error::Transport("unexpected replay response".to_string()),
     };
-    println!("health={health:?} maps={maps:?} run={run:?} status={run_status:?} replay={error:?}");
+    println!(
+        "health={health:?} maps={maps:?} map_info={map_info:?} run={run:?} status={run_status:?} replay={error:?}"
+    );
     println!("{}", screens::match_screen::screen_subtitle());
     println!("{} ui (wasm build target)", ui_app::product_name());
 }

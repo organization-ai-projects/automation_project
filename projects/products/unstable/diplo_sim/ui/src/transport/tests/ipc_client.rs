@@ -27,6 +27,25 @@ fn ipc_client_returns_run_id_and_replays_matching_run() {
             map_ids: vec!["tiny_triangle".to_string()]
         }
     );
+    let map_info_response = client.send(Request::GetMapInfo {
+        map_id: "tiny_triangle".to_string(),
+    });
+    assert_eq!(
+        map_info_response,
+        Response::MapInfo {
+            map_id: "tiny_triangle".to_string(),
+            territory_count: 3,
+            adjacency_count: 3,
+            starting_unit_count: 2
+        }
+    );
+    let unknown_map_info = client.send(Request::GetMapInfo {
+        map_id: "unknown".to_string(),
+    });
+    assert_eq!(
+        unknown_map_info,
+        Response::Error("unknown map_id; map info unavailable".to_string())
+    );
 
     let unknown_status = client.send(Request::GetRunStatus { run_id: 999 });
     assert_eq!(

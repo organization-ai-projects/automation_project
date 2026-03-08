@@ -1,3 +1,5 @@
+use super::client_port::ClientPort;
+use super::protocol_codec;
 use super::request::Request;
 use super::response::Response;
 use std::collections::BTreeMap;
@@ -18,15 +20,36 @@ impl IpcClient {
     }
 
     pub fn send(&self, request: Request) -> Response {
+        let command = match protocol_codec::request_to_command(&request) {
+            Ok(command) => command,
+            Err(message) => return Response::Error(message),
+        };
+        let request = match protocol_codec::command_to_request(&command) {
+            Ok(request) => request,
+            Err(message) => return Response::Error(message),
+        };
+
         let mut state = match self.state.lock() {
             Ok(guard) => guard,
             Err(_) => return Response::Error("ipc state lock poisoned".to_string()),
         };
-        match request {
+        let response = match request {
             Request::Health => Response::Ok,
             Request::ListMaps => Response::Maps {
                 map_ids: vec!["tiny_triangle".to_string()],
             },
+            Request::GetMapInfo { map_id } => {
+                if map_id == "tiny_triangle" {
+                    Response::MapInfo {
+                        map_id,
+                        territory_count: 3,
+                        adjacency_count: 3,
+                        starting_unit_count: 2,
+                    }
+                } else {
+                    Response::Error("unknown map_id; map info unavailable".to_string())
+                }
+            }
             Request::RunMatch {
                 map_id,
                 turns,
@@ -66,6 +89,18 @@ impl IpcClient {
                     "replay requires a prior run; no run has been executed yet".to_string(),
                 ),
             },
+        };
+
+        let event = protocol_codec::response_to_event(&response);
+        match protocol_codec::event_to_response(&event) {
+            Ok(response) => response,
+            Err(message) => Response::Error(message),
         }
+    }
+}
+
+impl ClientPort for IpcClient {
+    fn send(&self, request: Request) -> Response {
+        Self::send(self, request)
     }
 }

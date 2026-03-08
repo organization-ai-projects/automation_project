@@ -1,18 +1,26 @@
+use super::client_port::ClientPort;
 use super::ipc_client::IpcClient;
 
-#[derive(Debug, Default)]
 pub struct BackendProcess {
-    client: IpcClient,
+    client: Box<dyn ClientPort>,
 }
 
 impl BackendProcess {
     pub fn new() -> Self {
-        Self {
-            client: IpcClient::new(),
-        }
+        Self::with_client(Box::new(IpcClient::new()))
     }
 
-    pub fn client(&self) -> &IpcClient {
-        &self.client
+    pub fn with_client(client: Box<dyn ClientPort>) -> Self {
+        Self { client }
+    }
+
+    pub fn client(&self) -> &dyn ClientPort {
+        self.client.as_ref()
+    }
+}
+
+impl Default for BackendProcess {
+    fn default() -> Self {
+        Self::new()
     }
 }

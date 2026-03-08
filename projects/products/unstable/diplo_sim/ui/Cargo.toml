@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+common_json = { workspace = true }
+protocol = { workspace = true }
+serde = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 dioxus = { version = "0.7.3", features = ["web"] }

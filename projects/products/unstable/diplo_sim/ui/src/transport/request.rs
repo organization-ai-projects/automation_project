@@ -2,6 +2,9 @@
 pub enum Request {
     Health,
     ListMaps,
+    GetMapInfo {
+        map_id: String,
+    },
     RunMatch {
         map_id: String,
         turns: u32,

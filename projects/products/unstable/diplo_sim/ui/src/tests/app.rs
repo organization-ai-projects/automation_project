@@ -20,6 +20,18 @@ fn app_transport_health_roundtrip_is_ok() {
             map_ids: vec!["tiny_triangle".to_string()]
         }
     );
+    let map_info_response = backend.client().send(Request::GetMapInfo {
+        map_id: "tiny_triangle".to_string(),
+    });
+    assert_eq!(
+        map_info_response,
+        Response::MapInfo {
+            map_id: "tiny_triangle".to_string(),
+            territory_count: 3,
+            adjacency_count: 3,
+            starting_unit_count: 2
+        }
+    );
 
     let run_response = backend.client().send(Request::RunMatch {
         map_id: "tiny_triangle".to_string(),
