@@ -36,6 +36,7 @@ node_modules/
 *.tmp
 *.bak
 *.old
+/sim_report.json
 
 # Generated files
 *.lock
