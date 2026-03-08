@@ -1,0 +1,22 @@
+#![cfg(test)]
+
+use crate::model::block::Block;
+use crate::model::block_id::BlockId;
+use crate::model::doc_id::DocId;
+use crate::model::document::Document;
+use crate::model::inline::Inline;
+use crate::render::text_renderer::TextRenderer;
+
+#[test]
+fn test_text_render_stable() {
+    let mut doc = Document::new(DocId::new("doc1"), "Test");
+    doc.blocks.push(Block::Paragraph {
+        id: BlockId("p1".to_string()),
+        content: vec![Inline::Text("Hello world".to_string())],
+        style: None,
+    });
+    let renderer = TextRenderer::new();
+    let first = renderer.render(&doc);
+    let second = renderer.render(&doc);
+    assert_eq!(first, second);
+}
