@@ -1,0 +1,1 @@
+{"added":[{"id":3,"record":{"name":"gamma","score":7}}],"removed":[{"id":1,"record":{"name":"alpha","score":10}}],"updated":[{"from":{"name":"beta","score":8},"id":2,"to":{"name":"beta","score":9}}]}
