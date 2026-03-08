@@ -91,8 +91,13 @@ issue_is_root_parent() {
 
   parent_value="$(issue_parent_value "$issue_number" "$repo")"
   case "$parent_value" in
-    epic|base)
+    epic)
       return 0
+      ;;
+    base)
+      # `Parent: base` is a cascade root marker and can still be referenced in
+      # commit trailers by project policy.
+      return 1
       ;;
     none|"")
       # `Parent: none` means independent issue. If children are present, treat as protected parent
