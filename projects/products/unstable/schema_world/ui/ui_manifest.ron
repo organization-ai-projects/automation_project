@@ -1,0 +1,8 @@
+(
+  schema_version: 1,
+  id: "schema_world_ui",
+  title: "Schema World",
+  entrypoint: "index.html",
+  kind: "ui_bundle",
+  version: "0.1.0",
+)
