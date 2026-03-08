@@ -11,6 +11,7 @@ mod ui_app;
 fn main() {
     let backend = transport::backend_process::BackendProcess::new();
     let health = backend.client().send(transport::request::Request::Health);
+    let maps = backend.client().send(transport::request::Request::ListMaps);
     let run = backend
         .client()
         .send(transport::request::Request::RunMatch {
@@ -25,6 +26,12 @@ fn main() {
             .send(transport::request::Request::ReplayMatch { run_id }),
         _ => transport::response::Response::Error("run did not produce run_id".to_string()),
     };
+    let run_status = match run {
+        transport::response::Response::MatchRun { run_id } => backend
+            .client()
+            .send(transport::request::Request::GetRunStatus { run_id }),
+        _ => transport::response::Response::Error("run did not produce run_id".to_string()),
+    };
     let error = match replay_response {
         transport::response::Response::ReplayReady { .. } => {
             diagnostics::error::Error::Ui("ready".to_string())
@@ -34,7 +41,7 @@ fn main() {
         }
         _ => diagnostics::error::Error::Transport("unexpected replay response".to_string()),
     };
-    println!("health={health:?} run={run:?} replay={error:?}");
+    println!("health={health:?} maps={maps:?} run={run:?} status={run_status:?} replay={error:?}");
     println!("{}", screens::match_screen::screen_subtitle());
     println!("{} ui (wasm build target)", ui_app::product_name());
 }

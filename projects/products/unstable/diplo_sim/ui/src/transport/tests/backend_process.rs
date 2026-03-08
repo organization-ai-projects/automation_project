@@ -9,6 +9,13 @@ use crate::transport::response::Response;
 #[test]
 fn backend_process_client_is_usable() {
     let backend = BackendProcess::new();
+    let maps_response = backend.client().send(Request::ListMaps);
+    assert_eq!(
+        maps_response,
+        Response::Maps {
+            map_ids: vec!["tiny_triangle".to_string()]
+        }
+    );
     let run_response = backend.client().send(Request::RunMatch {
         map_id: "tiny_triangle".to_string(),
         turns: 5,
@@ -21,6 +28,14 @@ fn backend_process_client_is_usable() {
     };
     let replay_response = backend.client().send(Request::ReplayMatch { run_id });
     assert_eq!(replay_response, Response::ReplayReady { run_id });
+    let status_response = backend.client().send(Request::GetRunStatus { run_id });
+    assert_eq!(
+        status_response,
+        Response::RunStatus {
+            run_id,
+            replayed: true
+        }
+    );
 }
 
 #[cfg(target_arch = "wasm32")]

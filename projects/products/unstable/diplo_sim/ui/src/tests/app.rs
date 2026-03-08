@@ -13,6 +13,13 @@ fn app_transport_health_roundtrip_is_ok() {
     let backend = BackendProcess::new();
     let health_response = backend.client().send(Request::Health);
     assert_eq!(health_response, Response::Ok);
+    let maps_response = backend.client().send(Request::ListMaps);
+    assert_eq!(
+        maps_response,
+        Response::Maps {
+            map_ids: vec!["tiny_triangle".to_string()]
+        }
+    );
 
     let run_response = backend.client().send(Request::RunMatch {
         map_id: "tiny_triangle".to_string(),
@@ -27,5 +34,13 @@ fn app_transport_health_roundtrip_is_ok() {
 
     let replay_response = backend.client().send(Request::ReplayMatch { run_id });
     assert_eq!(replay_response, Response::ReplayReady { run_id });
+    let status_response = backend.client().send(Request::GetRunStatus { run_id });
+    assert_eq!(
+        status_response,
+        Response::RunStatus {
+            run_id,
+            replayed: true
+        }
+    );
     assert_eq!(product_name(), "Diplo Sim");
 }
