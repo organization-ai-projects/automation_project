@@ -287,3 +287,59 @@ fn test_cli_edit_redo_restores_last_undone_event() -> Result<(), Box<dyn std::er
 
     Ok(())
 }
+
+#[test]
+fn test_cli_history_reports_event_counters() -> Result<(), Box<dyn std::error::Error>> {
+    let bin = env!("CARGO_BIN_EXE_docforge_backend");
+    let doc_file = unique_path("doc_history");
+    let ops_file = unique_path("ops_history");
+
+    let status_new = Command::new(bin)
+        .arg("new")
+        .arg("--title")
+        .arg("History")
+        .arg("--out")
+        .arg(&doc_file)
+        .status()?;
+    assert!(status_new.success());
+
+    let ops = r#"[
+  {
+    "SetTitle": {
+      "title": "History Updated"
+    }
+  }
+]"#;
+    std::fs::write(&ops_file, ops)?;
+
+    let status_edit = Command::new(bin)
+        .arg("edit")
+        .arg(&doc_file)
+        .arg("--apply")
+        .arg(&ops_file)
+        .status()?;
+    assert!(status_edit.success());
+
+    let status_undo = Command::new(bin)
+        .arg("edit")
+        .arg(&doc_file)
+        .arg("--undo")
+        .status()?;
+    assert!(status_undo.success());
+
+    let status_redo = Command::new(bin)
+        .arg("edit")
+        .arg(&doc_file)
+        .arg("--redo")
+        .status()?;
+    assert!(status_redo.success());
+
+    let history = Command::new(bin).arg("history").arg(&doc_file).output()?;
+    assert!(history.status.success());
+    let text = String::from_utf8(history.stdout)?;
+    assert!(text.contains("events=2"));
+    assert!(text.contains("undone=0"));
+    assert!(text.contains("last_sequence=2"));
+
+    Ok(())
+}

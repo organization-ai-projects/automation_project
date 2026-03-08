@@ -24,6 +24,7 @@ pub fn run() -> Result<(), Error> {
         "edit" => cmd_edit(&args[2..]),
         "render" => cmd_render(&args[2..]),
         "replay" => cmd_replay(&args[2..]),
+        "history" => cmd_history(&args[2..]),
         _ => Ok(()),
     }
 }
@@ -245,6 +246,37 @@ fn cmd_replay(args: &[String]) -> Result<(), Error> {
                 RenderTarget::Text => TextRenderer::new().render(&replayed),
             };
             StdoutWriter::write_line(&output);
+        }
+    }
+
+    Ok(())
+}
+
+fn cmd_history(args: &[String]) -> Result<(), Error> {
+    if args.is_empty() {
+        return Err(Error::InvalidOperation(
+            "history requires a file argument".to_string(),
+        ));
+    }
+
+    let file = &args[0];
+    let store = DocStore::load_from_file(file)?;
+    for doc_id in store.doc_ids() {
+        if let Some(snapshot) = store.load(&doc_id) {
+            let last_sequence = snapshot
+                .events
+                .last()
+                .map(|event| event.sequence)
+                .unwrap_or(0);
+            let line = format!(
+                "doc_id={} version={} events={} undone={} last_sequence={}",
+                doc_id.0,
+                snapshot.version,
+                snapshot.events.len(),
+                snapshot.undone_events.len(),
+                last_sequence
+            );
+            StdoutWriter::write_line(&line);
         }
     }
 
