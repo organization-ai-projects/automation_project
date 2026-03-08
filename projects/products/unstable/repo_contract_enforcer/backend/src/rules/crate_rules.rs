@@ -178,7 +178,15 @@ impl CrateRules {
                     }
 
                     if !is_test_file {
+                        let allowed_inline_test_attr_lines = if stem == "mod" || stem == "main" {
+                            allowed_inline_test_attr_lines_for_mod_rs(&source_content)
+                        } else {
+                            std::collections::HashSet::new()
+                        };
                         for line in RustParser::inline_test_attribute_lines(&source_content) {
+                            if allowed_inline_test_attr_lines.contains(&line) {
+                                continue;
+                            }
                             out.push(make_violation(
                                 RuleId::Crate,
                                 ViolationCode::CrateContainsInlineTestAttribute,
@@ -319,6 +327,28 @@ fn is_file_under_tests_dir(src_dir: &std::path::Path, rs_file: &std::path::Path)
         Err(_) => return false,
     };
     rel.components().any(|c| c.as_os_str() == "tests")
+}
+
+fn allowed_inline_test_attr_lines_for_mod_rs(content: &str) -> std::collections::HashSet<u32> {
+    let mut allowed = std::collections::HashSet::new();
+    let lines: Vec<&str> = content.lines().collect();
+    for (idx, line) in lines.iter().enumerate() {
+        if line.trim() != "#[cfg(test)]" {
+            continue;
+        }
+        let mut next_idx = idx + 1;
+        while next_idx < lines.len() && lines[next_idx].trim().is_empty() {
+            next_idx += 1;
+        }
+        if next_idx >= lines.len() {
+            continue;
+        }
+        let next = lines[next_idx].trim();
+        if next == "mod tests;" || next == "pub mod tests;" {
+            allowed.insert((idx + 1) as u32);
+        }
+    }
+    allowed
 }
 
 fn expected_paired_test_path(rs_file: &std::path::Path) -> Option<std::path::PathBuf> {
@@ -785,6 +815,77 @@ mod tests {
         assert!(!violations.iter().any(|v| {
             v.violation_code == ViolationCode::CrateContainsInlineTestAttribute
                 && v.path.ends_with("backend/src/tests/service.rs")
+        }));
+    }
+
+    #[test]
+    fn crate_allows_cfg_test_mod_tests_declaration_in_mod_rs() {
+        let product_root = temp_product_root();
+        let product_name = "project_theta_bis";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_theta_bis_backend");
+        write_minimal_bin_crate(&ui, "project_theta_bis_ui");
+
+        let domain_mod = backend.join("src/domain/mod.rs");
+        fs::create_dir_all(domain_mod.parent().expect("domain parent"))
+            .expect("create domain parent");
+        fs::write(&domain_mod, "#[cfg(test)]\nmod tests;\n").expect("write domain/mod.rs");
+
+        let domain_tests_mod = backend.join("src/domain/tests/mod.rs");
+        fs::create_dir_all(domain_tests_mod.parent().expect("domain tests parent"))
+            .expect("create domain tests parent");
+        fs::write(&domain_tests_mod, "#[test]\nfn smoke() {}\n").expect("write domain tests");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(!violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateContainsInlineTestAttribute
+                && v.path.ends_with("backend/src/domain/mod.rs")
+        }));
+    }
+
+    #[test]
+    fn crate_allows_cfg_test_mod_tests_declaration_in_main_rs() {
+        let product_root = temp_product_root();
+        let product_name = "project_theta_ter";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_theta_ter_backend");
+        write_minimal_bin_crate(&ui, "project_theta_ter_ui");
+
+        fs::write(
+            backend.join("src/main.rs"),
+            "#[cfg(test)]\nmod tests;\nfn main() {}\n",
+        )
+        .expect("write backend main.rs");
+
+        let backend_tests_mod = backend.join("src/tests/mod.rs");
+        fs::create_dir_all(backend_tests_mod.parent().expect("backend tests parent"))
+            .expect("create backend tests parent");
+        fs::write(
+            &backend_tests_mod,
+            "#![cfg(test)]\n#[test]\nfn smoke() {}\n",
+        )
+        .expect("write backend tests mod");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(!violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateContainsInlineTestAttribute
+                && v.path.ends_with("backend/src/main.rs")
         }));
     }
 
