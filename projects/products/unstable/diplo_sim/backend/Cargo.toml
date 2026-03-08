@@ -1,15 +1,7 @@
 [package]
-name = "diplo_sim"
+name = "diplo_sim_backend"
 version = "0.1.0"
 edition = "2024"
-
-[[bin]]
-name = "diplo_sim"
-path = "src/main.rs"
-
-[lib]
-name = "diplo_sim"
-path = "src/lib.rs"
 
 [dependencies]
 serde = { workspace = true }
