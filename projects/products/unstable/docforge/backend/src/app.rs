@@ -9,6 +9,7 @@ use crate::protocol::stdout_writer::StdoutWriter;
 use crate::render::html_renderer::HtmlRenderer;
 use crate::render::render_target::RenderTarget;
 use crate::render::text_renderer::TextRenderer;
+use crate::replay::doc_event::DocEvent;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub fn run() -> Result<(), Error> {
@@ -90,7 +91,10 @@ fn cmd_edit(args: &[String]) -> Result<(), Error> {
             if let Some(snap) = store.load(&doc_id) {
                 let mut doc = snap.document.clone();
                 EditTx::from_ops(ops.clone()).apply(&mut doc)?;
-                let updated = DocSnapshot::create(&doc, snap.version + 1, vec![])?;
+                let mut events = snap.events.clone();
+                let next_sequence = events.last().map(|event| event.sequence + 1).unwrap_or(1);
+                events.push(DocEvent::new(next_sequence, doc.id.clone(), ops.clone()));
+                let updated = DocSnapshot::create(&doc, snap.version + 1, events)?;
                 store.save(updated);
             }
         }

@@ -39,3 +39,18 @@ fn test_replay_produces_same_document_as_direct_apply() {
 
     assert_eq!(direct, replayed);
 }
+
+#[test]
+fn test_replay_rejects_mismatched_doc_id() {
+    let mut doc = Document::new(DocId::new("doc-a"), "Initial");
+    let event = DocEvent::new(
+        1,
+        DocId::new("doc-b"),
+        vec![EditOp::SetTitle {
+            title: "Updated".to_string(),
+        }],
+    );
+
+    let result = ReplayEngine::new().replay(&mut doc, &[event]);
+    assert!(result.is_err());
+}

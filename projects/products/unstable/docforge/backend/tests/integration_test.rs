@@ -52,6 +52,9 @@ fn test_cli_create_edit_render_roundtrip() -> Result<(), Box<dyn std::error::Err
         .arg(&ops_file)
         .status()?;
     assert!(status_edit.success());
+    let saved = std::fs::read_to_string(&doc_file)?;
+    assert!(saved.contains("\"events\""));
+    assert!(saved.contains("\"sequence\": 1"));
 
     let output_html = Command::new(bin)
         .arg("render")
@@ -116,6 +119,9 @@ fn test_replay_deterministic_output() -> Result<(), Box<dyn std::error::Error>> 
         .arg(&ops_file)
         .status()?;
     assert!(status_edit.success());
+    let saved = std::fs::read_to_string(&doc_file)?;
+    assert!(saved.contains("\"events\""));
+    assert!(saved.contains("\"sequence\": 1"));
 
     let first = Command::new(bin)
         .arg("render")
