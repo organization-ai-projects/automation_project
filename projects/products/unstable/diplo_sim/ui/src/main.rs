@@ -11,15 +11,28 @@ mod ui_app;
 fn main() {
     let backend = transport::backend_process::BackendProcess::new();
     let health = backend.client().send(transport::request::Request::Health);
-    let run = backend.client().send(transport::request::Request::RunMatch);
-    let replay_response = backend
+    let run = backend
         .client()
-        .send(transport::request::Request::ReplayMatch);
+        .send(transport::request::Request::RunMatch {
+            map_id: "tiny_triangle".to_string(),
+            turns: 5,
+            seed: 42,
+            players: 2,
+        });
+    let replay_response = match run {
+        transport::response::Response::MatchRun { run_id } => backend
+            .client()
+            .send(transport::request::Request::ReplayMatch { run_id }),
+        _ => transport::response::Response::Error("run did not produce run_id".to_string()),
+    };
     let error = match replay_response {
-        transport::response::Response::Ok => diagnostics::error::Error::Ui("ready".to_string()),
+        transport::response::Response::ReplayReady { .. } => {
+            diagnostics::error::Error::Ui("ready".to_string())
+        }
         transport::response::Response::Error(message) => {
             diagnostics::error::Error::Transport(message)
         }
+        _ => diagnostics::error::Error::Transport("unexpected replay response".to_string()),
     };
     println!("health={health:?} run={run:?} replay={error:?}");
     println!("{}", screens::match_screen::screen_subtitle());

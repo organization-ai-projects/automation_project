@@ -9,8 +9,18 @@ use crate::transport::response::Response;
 #[test]
 fn backend_process_client_is_usable() {
     let backend = BackendProcess::new();
-    let response = backend.client().send(Request::RunMatch);
-    assert_eq!(response, Response::Ok);
+    let run_response = backend.client().send(Request::RunMatch {
+        map_id: "tiny_triangle".to_string(),
+        turns: 5,
+        seed: 42,
+        players: 2,
+    });
+    let run_id = match run_response {
+        Response::MatchRun { run_id } => run_id,
+        other => panic!("expected MatchRun response, got {other:?}"),
+    };
+    let replay_response = backend.client().send(Request::ReplayMatch { run_id });
+    assert_eq!(replay_response, Response::ReplayReady { run_id });
 }
 
 #[cfg(target_arch = "wasm32")]
