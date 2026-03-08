@@ -10,6 +10,7 @@ use crate::render::html_renderer::HtmlRenderer;
 use crate::render::render_target::RenderTarget;
 use crate::render::text_renderer::TextRenderer;
 use crate::replay::doc_event::DocEvent;
+use crate::replay::replay_engine::ReplayEngine;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub fn run() -> Result<(), Error> {
@@ -22,6 +23,7 @@ pub fn run() -> Result<(), Error> {
         "new" => cmd_new(&args[2..]),
         "edit" => cmd_edit(&args[2..]),
         "render" => cmd_render(&args[2..]),
+        "replay" => cmd_replay(&args[2..]),
         _ => Ok(()),
     }
 }
@@ -47,7 +49,14 @@ fn cmd_new(args: &[String]) -> Result<(), Error> {
     }
 
     let doc = Document::new(DocId::new(uuid_simple()), title);
-    let snapshot = DocSnapshot::create(&doc, 0, vec![])?;
+    let initial_event = DocEvent::new(
+        1,
+        doc.id.clone(),
+        vec![EditOp::SetTitle {
+            title: doc.title.clone(),
+        }],
+    );
+    let snapshot = DocSnapshot::create(&doc, 0, vec![initial_event])?;
     let mut store = DocStore::new();
     store.save(snapshot);
 
@@ -136,6 +145,47 @@ fn cmd_render(args: &[String]) -> Result<(), Error> {
             let output = match target {
                 RenderTarget::Html => HtmlRenderer::new().render(&snapshot.document),
                 RenderTarget::Text => TextRenderer::new().render(&snapshot.document),
+            };
+            StdoutWriter::write_line(&output);
+        }
+    }
+
+    Ok(())
+}
+
+fn cmd_replay(args: &[String]) -> Result<(), Error> {
+    if args.is_empty() {
+        return Err(Error::InvalidOperation(
+            "replay requires a file argument".to_string(),
+        ));
+    }
+
+    let file = &args[0];
+    let mut target = RenderTarget::Html;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--target" if i + 1 < args.len() => {
+                target = match args[i + 1].as_str() {
+                    "text" => RenderTarget::Text,
+                    _ => RenderTarget::Html,
+                };
+                i += 2;
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
+
+    let store = DocStore::load_from_file(file)?;
+    for doc_id in store.doc_ids() {
+        if let Some(snapshot) = store.load(&doc_id) {
+            let mut replayed = Document::new(doc_id.clone(), "Untitled");
+            ReplayEngine::new().replay(&mut replayed, &snapshot.events)?;
+            let output = match target {
+                RenderTarget::Html => HtmlRenderer::new().render(&replayed),
+                RenderTarget::Text => TextRenderer::new().render(&replayed),
             };
             StdoutWriter::write_line(&output);
         }

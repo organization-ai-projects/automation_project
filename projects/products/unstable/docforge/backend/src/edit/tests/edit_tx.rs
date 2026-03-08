@@ -30,3 +30,21 @@ fn test_edit_tx_applies_insert_and_title() {
     assert_eq!(doc.title, "Updated");
     assert_eq!(doc.blocks.len(), 1);
 }
+
+#[test]
+fn test_edit_tx_rolls_back_on_failure() {
+    let mut doc = Document::new(DocId::new("doc"), "Initial");
+    let tx = EditTx::from_ops(vec![
+        EditOp::SetTitle {
+            title: "ShouldNotPersist".to_string(),
+        },
+        EditOp::DeleteBlock {
+            block_id: BlockId::new("missing"),
+        },
+    ]);
+
+    let applied = tx.apply(&mut doc);
+    assert!(applied.is_err());
+    assert_eq!(doc.title, "Initial");
+    assert!(doc.blocks.is_empty());
+}

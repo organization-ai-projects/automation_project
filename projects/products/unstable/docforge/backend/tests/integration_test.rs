@@ -77,6 +77,16 @@ fn test_cli_create_edit_render_roundtrip() -> Result<(), Box<dyn std::error::Err
     assert!(text.contains("Updated"));
     assert!(text.contains("Hello"));
 
+    let replay_text = Command::new(bin)
+        .arg("replay")
+        .arg(&doc_file)
+        .arg("--target")
+        .arg("text")
+        .output()?;
+    assert!(replay_text.status.success());
+    let replayed = String::from_utf8(replay_text.stdout)?;
+    assert_eq!(text, replayed);
+
     Ok(())
 }
 

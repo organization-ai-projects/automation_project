@@ -54,3 +54,26 @@ fn test_replay_rejects_mismatched_doc_id() {
     let result = ReplayEngine::new().replay(&mut doc, &[event]);
     assert!(result.is_err());
 }
+
+#[test]
+fn test_replay_rejects_non_increasing_sequence() {
+    let doc_id = DocId::new("doc-a");
+    let mut doc = Document::new(doc_id.clone(), "Initial");
+    let first = DocEvent::new(
+        2,
+        doc_id.clone(),
+        vec![EditOp::SetTitle {
+            title: "A".to_string(),
+        }],
+    );
+    let second = DocEvent::new(
+        2,
+        doc_id,
+        vec![EditOp::SetTitle {
+            title: "B".to_string(),
+        }],
+    );
+
+    let result = ReplayEngine::new().replay(&mut doc, &[first, second]);
+    assert!(result.is_err());
+}

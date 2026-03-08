@@ -27,9 +27,11 @@ impl EditTx {
     }
 
     pub fn apply(&self, doc: &mut Document) -> Result<(), Error> {
+        let mut working = doc.clone();
         for op in &self.ops {
-            apply_op(op, doc)?;
+            apply_op(op, &mut working)?;
         }
+        *doc = working;
         Ok(())
     }
 
