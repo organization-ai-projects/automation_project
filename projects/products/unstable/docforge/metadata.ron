@@ -1,0 +1,36 @@
+(
+  schema_version: 1,
+  generated_at: 1772841600000,
+  id: "docforge",
+  name: "Docforge",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "docforge_ui", title: "Docforge", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "typed-ast",
+    "deterministic-editing",
+    "event-replay",
+    "deterministic-rendering",
+  ],
+
+  domains: [
+    (id: "document_engine", desc: "deterministic document processing"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/", "README.md", "metadata.ron"],
+    config_files: [
+      "backend/Cargo.toml",
+      "backend/backend_manifest.ron",
+      "ui/Cargo.toml",
+      "ui/ui_manifest.ron",
+    ],
+  ),
+)
