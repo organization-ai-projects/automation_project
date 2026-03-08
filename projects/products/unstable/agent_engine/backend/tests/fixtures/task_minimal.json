@@ -1,0 +1,27 @@
+{
+  "id": "task-v0-001",
+  "label": "v0-demo",
+  "metadata": {
+    "source": "integration-test",
+    "version": "v0"
+  },
+  "input": {
+    "prompt": "hello agent"
+  },
+  "steps": [
+    {
+      "kind": "Log",
+      "message": "starting task"
+    },
+    {
+      "kind": "CopyInput",
+      "input_key": "prompt",
+      "output_key": "echo"
+    },
+    {
+      "kind": "SetOutput",
+      "key": "status",
+      "value": "ok"
+    }
+  ]
+}

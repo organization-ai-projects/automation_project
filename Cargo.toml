@@ -61,7 +61,8 @@ members = [
   "projects/products/unstable/hospital_tycoon/ui",
   "projects/products/unstable/simkernel/backend",
   "projects/products/unstable/simkernel/ui",
-  "projects/products/unstable/diplo_sim",
+  "projects/products/unstable/diplo_sim/backend",
+  "projects/products/unstable/diplo_sim/ui",
   "projects/products/unstable/princeps",
   "projects/products/unstable/dev_agent",
   "projects/products/unstable/factory_sim",
@@ -88,6 +89,8 @@ members = [
   "projects/products/unstable/repo_contract_enforcer/ui",
   "projects/products/unstable/schema_world/backend",
   "projects/products/unstable/schema_world/ui",
+  "projects/products/unstable/agent_engine/backend",
+  "projects/products/unstable/agent_engine/ui",
 ]
 resolver = "2"
 

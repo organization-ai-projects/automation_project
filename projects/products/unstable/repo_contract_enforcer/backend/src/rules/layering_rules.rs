@@ -22,6 +22,27 @@ impl LayeringRules {
         }
 
         let backend_crate_name = format!("{product_name}_backend");
+        let ui_cargo = ui.join("Cargo.toml");
+        if ui_cargo.exists()
+            && let Some(cargo_txt) = read_text_or_emit_violation(
+                &mut out,
+                (scope, mode),
+                &ui_cargo,
+                rules::rule_id::RuleId::Layering,
+                "ui Cargo.toml",
+            )
+            && ui_cargo_depends_on_backend(&cargo_txt, &backend_crate_name)
+        {
+            out.push(make_violation(
+                RuleId::Layering,
+                ViolationCode::LayerUiImportsBackend,
+                (scope, mode),
+                &ui_cargo,
+                "ui Cargo.toml must not depend on backend crate or backend path",
+                (true, None),
+            ));
+        }
+
         let rs_files = FileScanner::gather_rs_files(&ui);
         for file in rs_files {
             let Some(txt) = read_text_or_emit_violation(
@@ -253,6 +274,38 @@ fn parse_dependency_crate_names(cargo_toml_content: &str) -> Vec<String> {
     out
 }
 
+fn ui_cargo_depends_on_backend(cargo_toml_content: &str, backend_crate_name: &str) -> bool {
+    let mut in_dependencies = false;
+    for raw in cargo_toml_content.lines() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        if line.starts_with('[') {
+            in_dependencies = line.contains("dependencies");
+            continue;
+        }
+        if !in_dependencies {
+            continue;
+        }
+
+        let Some((name, value)) = line.split_once('=') else {
+            continue;
+        };
+        let dep_name = name.trim().trim_matches('"');
+        if dep_name == backend_crate_name {
+            return true;
+        }
+
+        let dep_value = value.trim().replace([' ', '"'], "");
+        if dep_value.contains("path=../backend") || dep_value.contains("path=..\\backend") {
+            return true;
+        }
+    }
+    false
+}
+
 fn make_violation(
     rule_id: rules::rule_id::RuleId,
     code: reports::violation_code::ViolationCode,
@@ -321,6 +374,7 @@ fn read_text_or_emit_violation(
 mod tests {
     use super::LayeringRules;
     use crate::config::enforcement_mode::EnforcementMode;
+    use crate::config::path_classification::PathClassification;
     use crate::reports::violation_code::ViolationCode;
     use std::fs;
     use std::path::PathBuf;
@@ -346,6 +400,31 @@ mod tests {
             body.push_str(&format!("{dep} = {{ workspace = true }}\n"));
         }
         fs::write(path, body).expect("write Cargo.toml");
+    }
+
+    fn write_minimal_product(root: &std::path::Path, product_name: &str) -> PathBuf {
+        let product = root.join("projects/products/stable").join(product_name);
+        let backend = product.join("backend/src");
+        let ui = product.join("ui/src");
+        fs::create_dir_all(&backend).expect("create backend src");
+        fs::create_dir_all(&ui).expect("create ui src");
+        fs::write(backend.join("main.rs"), "fn main() {}\n").expect("write backend main");
+        fs::write(ui.join("main.rs"), "fn main() {}\n").expect("write ui main");
+        fs::write(
+            product.join("backend/Cargo.toml"),
+            format!(
+                "[package]\nname = \"{product_name}_backend\"\nversion = \"0.1.0\"\nedition = \"2024\"\n"
+            ),
+        )
+        .expect("write backend Cargo.toml");
+        fs::write(
+            product.join("ui/Cargo.toml"),
+            format!(
+                "[package]\nname = \"{product_name}_ui\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n"
+            ),
+        )
+        .expect("write ui Cargo.toml");
+        product
     }
 
     #[test]
@@ -447,5 +526,54 @@ mod tests {
                 && v.path
                     .ends_with("projects/libraries/core/foundation/core_a/src/lib.rs")
         }));
+    }
+
+    #[test]
+    fn ui_forbids_backend_crate_dependency_in_cargo() {
+        let root = temp_repo_root();
+        let product_name = "alpha";
+        let product = write_minimal_product(&root, product_name);
+        fs::write(
+            product.join("ui/Cargo.toml"),
+            "[package]\nname = \"alpha_ui\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nalpha_backend = { path = \"../backend\" }\n",
+        )
+        .expect("write ui Cargo.toml with backend dep");
+
+        let violations = LayeringRules::evaluate(
+            &product,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::LayerUiImportsBackend
+                && v.path.ends_with("ui/Cargo.toml")
+        }));
+    }
+
+    #[test]
+    fn ui_allows_non_backend_dependencies_in_cargo() {
+        let root = temp_repo_root();
+        let product_name = "beta";
+        let product = write_minimal_product(&root, product_name);
+        fs::write(
+            product.join("ui/Cargo.toml"),
+            "[package]\nname = \"beta_ui\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nanyhow = { workspace = true }\ndioxus = { workspace = true }\n",
+        )
+        .expect("write ui Cargo.toml without backend dep");
+
+        let violations = LayeringRules::evaluate(
+            &product,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(
+            !violations
+                .iter()
+                .any(|v| v.violation_code == ViolationCode::LayerUiImportsBackend)
+        );
     }
 }

@@ -184,6 +184,10 @@ fn parse_flag<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
         .map(|w| w[1].as_str())
 }
 
+fn default_output_dir() -> String {
+    format!("{}/artifacts", env!("CARGO_MANIFEST_DIR"))
+}
+
 fn cmd_run(args: &[String]) {
     let ticks: u64 = parse_flag(args, "--ticks")
         .and_then(|s| s.parse().ok())
@@ -192,7 +196,13 @@ fn cmd_run(args: &[String]) {
         .and_then(|s| s.parse().ok())
         .unwrap_or(42);
     let scenario_path = parse_flag(args, "--scenario").unwrap_or("").to_string();
-    let out_dir = parse_flag(args, "--out").unwrap_or(".").to_string();
+    let out_dir = parse_flag(args, "--out")
+        .map(ToString::to_string)
+        .unwrap_or_else(default_output_dir);
+    if let Err(e) = std::fs::create_dir_all(&out_dir) {
+        eprintln!("Failed to create output directory '{out_dir}': {e}");
+        std::process::exit(1);
+    }
 
     let scenario = if scenario_path.is_empty() {
         ScenarioLoader::default_scenario()

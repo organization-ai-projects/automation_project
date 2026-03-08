@@ -9,7 +9,7 @@ Usage:
     --problem "What is wrong" \
     --acceptance "criterion 1" \
     [--acceptance "criterion 2"] \
-    [--parent none|#123] \
+    [--parent none|base|epic|#123] \
     [--related-issue "#456"] \
     [--related-pr "#789"] \
     [--label "bug"] \
@@ -20,7 +20,7 @@ Usage:
 
 Notes:
   - Uses the direct issue template as canonical structure contract.
-  - Enforces required Parent format: none or #<issue_number>.
+  - Enforces required Parent format: none | base | epic | #<issue_number>.
 USAGE
 }
 

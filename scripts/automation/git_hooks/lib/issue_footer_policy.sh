@@ -128,9 +128,9 @@ validate_no_root_parent_refs_in_footer_file() {
 
   if [[ ${#root_parent_refs[@]} -gt 0 ]]; then
     echo "❌ Invalid issue footer usage in commit message." >&2
-    echo "   Root parent issue references are not allowed in commit trailers: ${root_parent_refs[*]}" >&2
-    echo "   Use issue refs on child issues only (Part of/Closes/Reopen #<child-issue>)." >&2
-    echo "   Parent closure should be handled by child completion workflow, not direct commit trailers." >&2
+    echo "   Protected parent issue references are not allowed in commit trailers: ${root_parent_refs[*]}" >&2
+    echo "   Protected parent states: Parent: epic, Parent: base, or Parent: none with detected children." >&2
+    echo "   Use issue refs on child/independent issues only (Part of/Closes/Reopen #<issue>)." >&2
     echo "   Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
     return "$COMMIT_MSG_RC_ROOT_PARENT"
   fi

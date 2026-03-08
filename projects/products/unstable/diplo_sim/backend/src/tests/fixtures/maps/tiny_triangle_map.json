@@ -1,0 +1,14 @@
+{
+  "name": "tiny_triangle",
+  "version": "v0",
+  "territories": [
+    {"id": 0, "name": "Alpha"},
+    {"id": 1, "name": "Beta"},
+    {"id": 2, "name": "Gamma"}
+  ],
+  "adjacencies": [[0,1],[1,2],[0,2]],
+  "starting_units": [
+    {"faction_id": 0, "territory_id": 0},
+    {"faction_id": 1, "territory_id": 1}
+  ]
+}

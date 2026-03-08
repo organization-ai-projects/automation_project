@@ -24,7 +24,9 @@ Parent: #123
 Supported values:
 
 - `Parent: #<issue_number>` -> child should be linked to parent.
-- `Parent: none` -> no parent link required.
+- `Parent: none` -> independent issue; no parent link required.
+- `Parent: base` -> cascade root issue; no direct parent link required.
+- `Parent: epic` -> epic umbrella issue; no direct parent link required.
 
 ## Behavior
 
@@ -46,4 +48,3 @@ When automation cannot link the issue, it leaves:
   - `automation-failed` (API/linking failure).
 
 This keeps failures visible and auditable without silent drops.
-

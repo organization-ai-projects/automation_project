@@ -62,9 +62,9 @@ auto_link_run() {
     "$issue_body")"
 
   parent_raw_lc="$(echo "$parent_raw" | tr '[:upper:]' '[:lower:]')"
-  if [[ "$parent_raw_lc" == "none" ]]; then
+  if [[ "$parent_raw_lc" == "none" || "$parent_raw_lc" == "base" || "$parent_raw_lc" == "epic" ]]; then
     auto_link_handle_parent_none \
-      "$repo_name" "$repo_owner" "$repo_short_name" "$issue_number" "$marker" \
+      "$repo_name" "$repo_owner" "$repo_short_name" "$issue_number" "$parent_raw_lc" "$marker" \
       "$label_required_missing" "$label_automation_failed"
   fi
 
@@ -72,7 +72,7 @@ auto_link_run() {
     auto_link_set_validation_error_state \
       "$repo_name" "$issue_number" "$marker" "$label_required_missing" "$label_automation_failed" \
       "Invalid \`Parent:\` value: \`${parent_raw}\`." \
-      "Expected \`Parent: #<issue_number>\` or \`Parent: none\`."
+      "Expected \`Parent: #<issue_number>\` or one of \`Parent: none|base|epic\`."
     exit 0
   fi
 
