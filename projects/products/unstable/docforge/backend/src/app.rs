@@ -253,6 +253,15 @@ fn cmd_replay(args: &[String]) -> Result<(), Error> {
 }
 
 fn cmd_history(args: &[String]) -> Result<(), Error> {
+    #[derive(serde::Serialize)]
+    struct HistoryEntry {
+        doc_id: String,
+        version: u64,
+        events: usize,
+        undone: usize,
+        last_sequence: u64,
+    }
+
     if args.is_empty() {
         return Err(Error::InvalidOperation(
             "history requires a file argument".to_string(),
@@ -260,21 +269,58 @@ fn cmd_history(args: &[String]) -> Result<(), Error> {
     }
 
     let file = &args[0];
+    let mut json = false;
+    let mut only_doc_id: Option<String> = None;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--json" => {
+                json = true;
+                i += 1;
+            }
+            "--doc-id" if i + 1 < args.len() => {
+                only_doc_id = Some(args[i + 1].clone());
+                i += 2;
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
+
     let store = DocStore::load_from_file(file)?;
+    let mut rows: Vec<HistoryEntry> = Vec::new();
     for doc_id in store.doc_ids() {
+        if let Some(filter) = &only_doc_id
+            && doc_id.0 != *filter
+        {
+            continue;
+        }
         if let Some(snapshot) = store.load(&doc_id) {
             let last_sequence = snapshot
                 .events
                 .last()
                 .map(|event| event.sequence)
                 .unwrap_or(0);
+            rows.push(HistoryEntry {
+                doc_id: doc_id.0.clone(),
+                version: snapshot.version,
+                events: snapshot.events.len(),
+                undone: snapshot.undone_events.len(),
+                last_sequence,
+            });
+        }
+    }
+
+    if json {
+        let payload =
+            common_json::to_string(&rows).map_err(|e| Error::Serialization(e.to_string()))?;
+        StdoutWriter::write_line(&payload);
+    } else {
+        for row in rows {
             let line = format!(
                 "doc_id={} version={} events={} undone={} last_sequence={}",
-                doc_id.0,
-                snapshot.version,
-                snapshot.events.len(),
-                snapshot.undone_events.len(),
-                last_sequence
+                row.doc_id, row.version, row.events, row.undone, row.last_sequence
             );
             StdoutWriter::write_line(&line);
         }

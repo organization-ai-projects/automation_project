@@ -343,3 +343,56 @@ fn test_cli_history_reports_event_counters() -> Result<(), Box<dyn std::error::E
 
     Ok(())
 }
+
+#[test]
+fn test_cli_history_json_and_doc_id_filter() -> Result<(), Box<dyn std::error::Error>> {
+    let bin = env!("CARGO_BIN_EXE_docforge_backend");
+    let doc_file = unique_path("doc_history_json");
+
+    let status_new = Command::new(bin)
+        .arg("new")
+        .arg("--title")
+        .arg("History Json")
+        .arg("--out")
+        .arg(&doc_file)
+        .status()?;
+    assert!(status_new.success());
+
+    let text_history = Command::new(bin).arg("history").arg(&doc_file).output()?;
+    assert!(text_history.status.success());
+    let text = String::from_utf8(text_history.stdout)?;
+    let prefix = "doc_id=";
+    let start = text.find(prefix).ok_or("missing doc_id prefix")? + prefix.len();
+    let end = text[start..]
+        .find(' ')
+        .ok_or("missing doc_id suffix")?
+        .checked_add(start)
+        .ok_or("invalid doc_id span")?;
+    let doc_id = &text[start..end];
+
+    let json_history = Command::new(bin)
+        .arg("history")
+        .arg(&doc_file)
+        .arg("--json")
+        .arg("--doc-id")
+        .arg(doc_id)
+        .output()?;
+    assert!(json_history.status.success());
+    let json = String::from_utf8(json_history.stdout)?;
+    assert!(json.contains("\"doc_id\""));
+    assert!(json.contains(doc_id));
+    assert!(json.contains("\"events\":1"));
+
+    let filtered_empty = Command::new(bin)
+        .arg("history")
+        .arg(&doc_file)
+        .arg("--json")
+        .arg("--doc-id")
+        .arg("missing-doc-id")
+        .output()?;
+    assert!(filtered_empty.status.success());
+    let empty = String::from_utf8(filtered_empty.stdout)?;
+    assert_eq!(empty.trim(), "[]");
+
+    Ok(())
+}
