@@ -11,7 +11,7 @@ use crate::snapshots::snapshot_hash::SnapshotHash;
 use crate::storage::record_store::RecordStore;
 use crate::validate::data_validator::DataValidator;
 use crate::validate::schema_validator::SchemaValidator;
-use crate::{canon::canonical_encoder::CanonicalEncoder, diff::diff_engine::DiffEngine};
+use crate::{canon::canonical_encoder::CanonicalEncoder, diffs::diff_engine::DiffEngine};
 use common_json::Json;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Write};

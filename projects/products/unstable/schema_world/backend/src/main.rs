@@ -1,6 +1,6 @@
 mod canon;
 mod diagnostics;
-mod diff;
+mod diffs;
 mod io;
 mod migrate;
 mod protocol;

@@ -1,4 +1,4 @@
-use crate::diff::diff::Diff;
+use crate::diffs::diff::Diff;
 use crate::snapshots::snapshot::Snapshot;
 use crate::storage::record_id::RecordId;
 use common_json::Json;
