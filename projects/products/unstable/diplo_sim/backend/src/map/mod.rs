@@ -1,3 +1,4 @@
+pub mod catalog;
 pub mod map_file;
 pub mod map_graph;
 pub mod map_loader;

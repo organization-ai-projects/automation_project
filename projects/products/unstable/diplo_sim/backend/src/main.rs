@@ -38,10 +38,6 @@ fn main() {
                     tracing::error!("Missing --seed");
                     std::process::exit(2);
                 });
-            let map_path = cli_args::get_arg(&args, "--map").unwrap_or_else(|| {
-                tracing::error!("Missing --map");
-                std::process::exit(2);
-            });
             let players: u32 = cli_args::get_arg(&args, "--players")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or_else(|| {
@@ -53,15 +49,28 @@ fn main() {
                 std::process::exit(2);
             });
             let replay_out = cli_args::get_arg(&args, "--replay-out");
-
-            config::runner::run_simulation(
-                turns,
-                seed,
-                &map_path,
-                players,
-                &out,
-                replay_out.as_deref(),
-            )
+            if let Some(map_path) = cli_args::get_arg(&args, "--map") {
+                config::runner::run_simulation(
+                    turns,
+                    seed,
+                    &map_path,
+                    players,
+                    &out,
+                    replay_out.as_deref(),
+                )
+            } else if let Some(map_id) = cli_args::get_arg(&args, "--map-id") {
+                config::runner::run_simulation_with_map_id(
+                    turns,
+                    seed,
+                    &map_id,
+                    players,
+                    &out,
+                    replay_out.as_deref(),
+                )
+            } else {
+                tracing::error!("Missing --map or --map-id");
+                std::process::exit(2);
+            }
         }
         "replay" => {
             let replay_path = cli_args::get_arg(&args, "--replay").unwrap_or_else(|| {

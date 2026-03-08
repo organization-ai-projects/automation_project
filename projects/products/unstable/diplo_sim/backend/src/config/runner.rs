@@ -48,8 +48,53 @@ pub fn run_simulation(
     let map_json = std::fs::read_to_string(&game_config.map_path).map_err(|e| {
         DiploSimError::Io(format!("Cannot read map '{}': {}", game_config.map_path, e))
     })?;
+    run_simulation_from_map_json(
+        num_turns,
+        seed,
+        num_players,
+        &map_json,
+        out_path,
+        replay_out,
+    )
+}
 
-    let (map, starting_units) = load_map_from_str(&map_json)?;
+pub fn run_simulation_with_map_id(
+    num_turns: u32,
+    seed: u64,
+    map_id: &str,
+    num_players: u32,
+    out_path: &str,
+    replay_out: Option<&str>,
+) -> Result<(), DiploSimError> {
+    if num_turns == 0 {
+        return Err(DiploSimError::Config(
+            "num_turns must be greater than zero".to_string(),
+        ));
+    }
+    if num_players == 0 {
+        return Err(DiploSimError::Config(
+            "num_players must be greater than zero".to_string(),
+        ));
+    }
+    let Some(map_json) = crate::map::catalog::map_json_for_id(map_id) else {
+        return Err(DiploSimError::Config(format!(
+            "unknown map_id '{map_id}' (expected one of: tiny_triangle)"
+        )));
+    };
+    run_simulation_from_map_json(num_turns, seed, num_players, map_json, out_path, replay_out)
+}
+
+fn run_simulation_from_map_json(
+    num_turns: u32,
+    seed: u64,
+    num_players: u32,
+    map_json: &str,
+    out_path: &str,
+    replay_out: Option<&str>,
+) -> Result<(), DiploSimError> {
+    let game_config = GameConfig::new(num_turns, seed, num_players, "<embedded>".to_string());
+
+    let (map, starting_units) = load_map_from_str(map_json)?;
 
     // Determine factions from starting_units, cap by num_players
     let mut faction_ids: Vec<u32> = starting_units.iter().map(|su| su.faction_id).collect();
@@ -126,11 +171,11 @@ pub fn run_simulation(
 
     // Write replay file if requested
     if let Some(replay_path) = replay_out {
-        let map_hash = compute_run_hash_from_json(&map_json);
+        let map_hash = compute_run_hash_from_json(map_json);
         let replay_file = ReplayFile {
             map_hash,
             map_name: map.name.clone(),
-            map_json,
+            map_json: map_json.to_string(),
             seed: game_config.seed,
             num_factions: game_config.num_players,
             event_log,

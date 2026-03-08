@@ -1,7 +1,7 @@
 pub fn print_usage() {
     tracing::info!("Usage:");
     tracing::info!(
-        "  diplo_sim run --turns N --seed S --map <map_file> --players <n> --out <match.json> [--replay-out <replay.bin>]"
+        "  diplo_sim run --turns N --seed S (--map <map_file> | --map-id <map_id>) --players <n> --out <match.json> [--replay-out <replay.bin>]"
     );
     tracing::info!("  diplo_sim replay --replay <replay.bin> --out <match.json>");
     tracing::info!("  diplo_sim validate-map --map <map_file>");
