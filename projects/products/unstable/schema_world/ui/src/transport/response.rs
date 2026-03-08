@@ -7,5 +7,6 @@ pub enum Response {
     Ok,
     Error { message: String },
     Snapshot { hash: String, snapshot: Json },
+    Diff { json: Json },
     Report { json: Json },
 }

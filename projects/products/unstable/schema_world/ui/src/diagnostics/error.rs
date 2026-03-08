@@ -11,7 +11,7 @@ pub enum Error {
     #[error("spawn failed: {0}")]
     SpawnFailed(String),
     #[error("ipc error: {0}")]
-    IpcError(String),
+    Ipc(String),
 }
 
 pub type UiError = Error;

@@ -12,6 +12,7 @@ use crate::transport::request::Request;
 use crate::transport::response::Response;
 use crate::widgets::table_widget::TableWidget;
 use common_json::Json;
+use std::collections::HashMap;
 
 pub struct Controller {
     pub state: AppState,
@@ -37,9 +38,9 @@ impl Controller {
             }
             Response::Error { message } => {
                 reduce(&mut self.state, Action::Error(message.clone()));
-                Err(UiError::IpcError(message))
+                Err(UiError::Ipc(message))
             }
-            _ => Err(UiError::IpcError(
+            _ => Err(UiError::Ipc(
                 "unexpected response for LoadSchema".to_string(),
             )),
         }
@@ -54,28 +55,86 @@ impl Controller {
             }
             Response::Error { message } => {
                 reduce(&mut self.state, Action::Error(message.clone()));
-                Err(UiError::IpcError(message))
+                Err(UiError::Ipc(message))
             }
-            _ => Err(UiError::IpcError(
-                "unexpected response for Insert".to_string(),
+            _ => Err(UiError::Ipc("unexpected response for Insert".to_string())),
+        }
+    }
+
+    pub fn validate_schema(&mut self) -> Result<(), UiError> {
+        let response = self.client.send(Request::ValidateSchema)?;
+        match response {
+            Response::Ok => Ok(()),
+            Response::Error { message } => {
+                reduce(&mut self.state, Action::Error(message.clone()));
+                Err(UiError::Ipc(message))
+            }
+            _ => Err(UiError::Ipc(
+                "unexpected response for ValidateSchema".to_string(),
             )),
         }
     }
 
-    pub fn snapshot(&mut self) -> Result<String, UiError> {
+    pub fn update_record(&mut self, id: u64, record: Json) -> Result<(), UiError> {
+        let response = self.client.send(Request::Update { id, record })?;
+        match response {
+            Response::Ok => Ok(()),
+            Response::Error { message } => {
+                reduce(&mut self.state, Action::Error(message.clone()));
+                Err(UiError::Ipc(message))
+            }
+            _ => Err(UiError::Ipc("unexpected response for Update".to_string())),
+        }
+    }
+
+    pub fn delete_record(&mut self, id: u64) -> Result<(), UiError> {
+        let response = self.client.send(Request::Delete { id })?;
+        match response {
+            Response::Ok => Ok(()),
+            Response::Error { message } => {
+                reduce(&mut self.state, Action::Error(message.clone()));
+                Err(UiError::Ipc(message))
+            }
+            _ => Err(UiError::Ipc("unexpected response for Delete".to_string())),
+        }
+    }
+
+    pub fn migrate_record(&mut self, id: u64, migration: Json) -> Result<(), UiError> {
+        let response = self.client.send(Request::Migrate { id, migration })?;
+        match response {
+            Response::Ok => Ok(()),
+            Response::Error { message } => {
+                reduce(&mut self.state, Action::Error(message.clone()));
+                Err(UiError::Ipc(message))
+            }
+            _ => Err(UiError::Ipc("unexpected response for Migrate".to_string())),
+        }
+    }
+
+    pub fn snapshot(&mut self) -> Result<(String, Json), UiError> {
         let response = self.client.send(Request::Snapshot)?;
         match response {
-            Response::Snapshot { hash, snapshot: _ } => {
+            Response::Snapshot { hash, snapshot } => {
                 reduce(&mut self.state, Action::SnapshotReady(hash.clone()));
-                Ok(hash)
+                Ok((hash, snapshot))
             }
             Response::Error { message } => {
                 reduce(&mut self.state, Action::Error(message.clone()));
-                Err(UiError::IpcError(message))
+                Err(UiError::Ipc(message))
             }
-            _ => Err(UiError::IpcError(
-                "unexpected response for Snapshot".to_string(),
-            )),
+            _ => Err(UiError::Ipc("unexpected response for Snapshot".to_string())),
+        }
+    }
+
+    pub fn diff(&mut self, from: Json, to: Json) -> Result<Json, UiError> {
+        let response = self.client.send(Request::Diff { from, to })?;
+        match response {
+            Response::Diff { json } => Ok(json),
+            Response::Error { message } => {
+                reduce(&mut self.state, Action::Error(message.clone()));
+                Err(UiError::Ipc(message))
+            }
+            _ => Err(UiError::Ipc("unexpected response for Diff".to_string())),
         }
     }
 
@@ -88,11 +147,9 @@ impl Controller {
             }
             Response::Error { message } => {
                 reduce(&mut self.state, Action::Error(message.clone()));
-                Err(UiError::IpcError(message))
+                Err(UiError::Ipc(message))
             }
-            _ => Err(UiError::IpcError(
-                "unexpected response for Report".to_string(),
-            )),
+            _ => Err(UiError::Ipc("unexpected response for Report".to_string())),
         }
     }
 
@@ -100,10 +157,8 @@ impl Controller {
         let response = self.client.send(Request::Shutdown)?;
         match response {
             Response::Ok => Ok(()),
-            Response::Error { message } => Err(UiError::IpcError(message)),
-            _ => Err(UiError::IpcError(
-                "unexpected response for Shutdown".to_string(),
-            )),
+            Response::Error { message } => Err(UiError::Ipc(message)),
+            _ => Err(UiError::Ipc("unexpected response for Shutdown".to_string())),
         }
     }
 }
@@ -122,9 +177,17 @@ pub fn run_flow(schema_path: &str, record_path: &str, backend_binary: &str) -> R
     let process = crate::transport::backend_process::BackendProcess::spawn(backend_binary)?;
     let client = IpcClient::new(process);
     let mut controller = Controller::new(client);
-    controller.load_schema(schema)?;
-    controller.insert_record(record)?;
-    let snapshot_hash = controller.snapshot()?;
+    controller.load_schema(schema.clone())?;
+    controller.validate_schema()?;
+    controller.insert_record(record.clone())?;
+    let (before_hash, before_snapshot) = controller.snapshot()?;
+
+    controller.update_record(1, record)?;
+    controller.migrate_record(1, default_migration())?;
+    let (snapshot_hash, after_snapshot) = controller.snapshot()?;
+    let diff_json = controller.diff(before_snapshot, after_snapshot)?;
+
+    controller.delete_record(1)?;
     let report_json = controller.report()?;
 
     let schema_screen = SchemaScreen {
@@ -137,13 +200,14 @@ pub fn run_flow(schema_path: &str, record_path: &str, backend_binary: &str) -> R
         summary: "migration workflow ready".to_string(),
     };
     let diff_screen = DiffScreen {
-        summary: "diff workflow ready".to_string(),
+        summary: common_json::to_string(&diff_json).unwrap_or_else(|_| "{}".to_string()),
     };
     let report_screen = ReportScreen {
         summary: common_json::to_string(&report_json).unwrap_or_else(|_| "{}".to_string()),
     };
     let mut table = TableWidget::new();
     table.insert("backend", backend_binary.to_string());
+    table.insert("snapshot_hash_before", before_hash);
     table.insert("snapshot_hash", snapshot_hash);
 
     let rendered_view = [
@@ -158,6 +222,18 @@ pub fn run_flow(schema_path: &str, record_path: &str, backend_binary: &str) -> R
     controller.state.rendered_view = Some(rendered_view);
 
     controller.shutdown()
+}
+
+fn default_migration() -> Json {
+    let mut defaults = HashMap::new();
+    defaults.insert("migrated".to_string(), Json::Bool(true));
+
+    let mut migration = HashMap::new();
+    migration.insert("from_version".to_string(), Json::from(1u64));
+    migration.insert("to_version".to_string(), Json::from(2u64));
+    migration.insert("renames".to_string(), Json::Object(HashMap::new()));
+    migration.insert("defaults".to_string(), Json::Object(defaults));
+    Json::Object(migration)
 }
 
 pub fn resolve_backend_binary_path() -> Result<String, UiError> {

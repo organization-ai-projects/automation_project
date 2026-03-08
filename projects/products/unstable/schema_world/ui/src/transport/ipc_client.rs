@@ -26,20 +26,20 @@ impl IpcClient {
         self.next_id = self.next_id.saturating_add(1);
 
         let line = common_json::to_string(&message).map_err(|e| UiError::Json(e.to_string()))?;
-        writeln!(self.process.stdin, "{line}").map_err(|e| UiError::IpcError(e.to_string()))?;
+        writeln!(self.process.stdin, "{line}").map_err(|e| UiError::Ipc(e.to_string()))?;
         self.process
             .stdin
             .flush()
-            .map_err(|e| UiError::IpcError(e.to_string()))?;
+            .map_err(|e| UiError::Ipc(e.to_string()))?;
 
         let mut response_line = String::new();
         self.process
             .stdout
             .read_line(&mut response_line)
-            .map_err(|e| UiError::IpcError(e.to_string()))?;
+            .map_err(|e| UiError::Ipc(e.to_string()))?;
 
         if response_line.trim().is_empty() {
-            return Err(UiError::IpcError("empty IPC response".to_string()));
+            return Err(UiError::Ipc("empty IPC response".to_string()));
         }
 
         let response: Message<Response> =
