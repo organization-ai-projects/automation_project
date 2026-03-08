@@ -152,3 +152,72 @@ fn test_replay_deterministic_output() -> Result<(), Box<dyn std::error::Error>> 
 
     Ok(())
 }
+
+#[test]
+fn test_cli_edit_undo_reverts_last_event() -> Result<(), Box<dyn std::error::Error>> {
+    let bin = env!("CARGO_BIN_EXE_docforge_backend");
+    let doc_file = unique_path("doc_undo");
+    let ops_file = unique_path("ops_undo");
+
+    let status_new = Command::new(bin)
+        .arg("new")
+        .arg("--title")
+        .arg("Undo")
+        .arg("--out")
+        .arg(&doc_file)
+        .status()?;
+    assert!(status_new.success());
+
+    let ops = r#"[
+  {
+    "InsertBlock": {
+      "position": 0,
+      "block": {
+        "Paragraph": {
+          "id": "p1",
+          "content": [{"Text": "Hello"}],
+          "style": null
+        }
+      }
+    }
+  }
+]"#;
+    std::fs::write(&ops_file, ops)?;
+
+    let status_edit = Command::new(bin)
+        .arg("edit")
+        .arg(&doc_file)
+        .arg("--apply")
+        .arg(&ops_file)
+        .status()?;
+    assert!(status_edit.success());
+
+    let before_undo = Command::new(bin)
+        .arg("render")
+        .arg(&doc_file)
+        .arg("--target")
+        .arg("text")
+        .output()?;
+    assert!(before_undo.status.success());
+    let before = String::from_utf8(before_undo.stdout)?;
+    assert!(before.contains("Hello"));
+
+    let status_undo = Command::new(bin)
+        .arg("edit")
+        .arg(&doc_file)
+        .arg("--undo")
+        .status()?;
+    assert!(status_undo.success());
+
+    let after_undo = Command::new(bin)
+        .arg("render")
+        .arg(&doc_file)
+        .arg("--target")
+        .arg("text")
+        .output()?;
+    assert!(after_undo.status.success());
+    let after = String::from_utf8(after_undo.stdout)?;
+    assert!(!after.contains("Hello"));
+
+    Ok(())
+}

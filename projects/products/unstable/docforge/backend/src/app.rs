@@ -76,12 +76,17 @@ fn cmd_edit(args: &[String]) -> Result<(), Error> {
 
     let file = &args[0];
     let mut ops_file: Option<String> = None;
+    let mut undo = false;
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
             "--apply" if i + 1 < args.len() => {
                 ops_file = Some(args[i + 1].clone());
                 i += 2;
+            }
+            "--undo" => {
+                undo = true;
+                i += 1;
             }
             _ => {
                 i += 1;
@@ -104,6 +109,21 @@ fn cmd_edit(args: &[String]) -> Result<(), Error> {
                 let next_sequence = events.last().map(|event| event.sequence + 1).unwrap_or(1);
                 events.push(DocEvent::new(next_sequence, doc.id.clone(), ops.clone()));
                 let updated = DocSnapshot::create(&doc, snap.version + 1, events)?;
+                store.save(updated);
+            }
+        }
+        store.save_to_file(file)?;
+    } else if undo {
+        let doc_ids = store.doc_ids();
+        for doc_id in doc_ids {
+            if let Some(snap) = store.load(&doc_id) {
+                let mut events = snap.events.clone();
+                if events.pop().is_none() {
+                    continue;
+                }
+                let mut replayed = Document::new(doc_id.clone(), "Untitled");
+                ReplayEngine::new().replay(&mut replayed, &events)?;
+                let updated = DocSnapshot::create(&replayed, snap.version + 1, events)?;
                 store.save(updated);
             }
         }
