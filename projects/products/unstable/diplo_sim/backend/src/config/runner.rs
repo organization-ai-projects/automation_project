@@ -281,3 +281,13 @@ pub fn validate_orders_cmd(map_path: &str, orders_path: &str) -> Result<(), Dipl
         })
     }
 }
+
+pub fn list_maps_cmd(out_path: &str) -> Result<(), DiploSimError> {
+    let map_ids = crate::map::catalog::available_map_ids();
+    let body = common_json::to_json_string(&map_ids)
+        .map_err(|e| DiploSimError::Internal(format!("Serialize error: {e}")))?;
+    std::fs::write(out_path, body)
+        .map_err(|e| DiploSimError::Io(format!("Cannot write '{}': {}", out_path, e)))?;
+    tracing::info!("Wrote available map ids to '{}'", out_path);
+    Ok(())
+}

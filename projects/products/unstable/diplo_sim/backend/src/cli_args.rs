@@ -6,6 +6,7 @@ pub fn print_usage() {
     tracing::info!("  diplo_sim replay --replay <replay.bin> --out <match.json>");
     tracing::info!("  diplo_sim validate-map --map <map_file>");
     tracing::info!("  diplo_sim validate-orders --map <map_file> --orders <orders_file>");
+    tracing::info!("  diplo_sim list-maps --out <maps.json>");
 }
 
 pub fn get_arg(args: &[String], flag: &str) -> Option<String> {

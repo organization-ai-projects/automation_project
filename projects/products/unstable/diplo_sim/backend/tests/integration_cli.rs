@@ -128,3 +128,19 @@ fn run_with_map_id_then_replay_succeeds() {
     let replay_bytes = fs::read(&replay_out).expect("read replay report");
     assert_eq!(run_bytes, replay_bytes);
 }
+
+#[test]
+fn list_maps_writes_known_map_ids() {
+    let dir = unique_tmp_dir();
+    let maps_out = dir.join("maps.json");
+
+    let status = Command::new(bin_path())
+        .args(["list-maps", "--out", maps_out.to_str().expect("utf8 path")])
+        .status()
+        .expect("list-maps command");
+    assert!(status.success(), "list-maps command should succeed");
+
+    let maps_json = fs::read_to_string(&maps_out).expect("read maps json");
+    let map_ids: Vec<String> = common_json::from_json_str(&maps_json).expect("parse maps json");
+    assert_eq!(map_ids, vec!["tiny_triangle".to_string()]);
+}
