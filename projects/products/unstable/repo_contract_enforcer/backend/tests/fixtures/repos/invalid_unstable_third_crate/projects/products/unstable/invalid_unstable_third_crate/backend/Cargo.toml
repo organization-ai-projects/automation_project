@@ -2,7 +2,3 @@
 name = "invalid_unstable_third_crate_backend"
 version = "0.1.0"
 edition = "2024"
-
-[[bin]]
-name = "invalid_unstable_third_crate_backend"
-path = "src/main.rs"

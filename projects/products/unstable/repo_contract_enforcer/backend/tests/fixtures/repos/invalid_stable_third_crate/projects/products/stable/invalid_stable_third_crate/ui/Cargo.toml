@@ -2,7 +2,3 @@
 name = "invalid_stable_third_crate_ui"
 version = "0.1.0"
 edition = "2024"
-
-[[bin]]
-name = "invalid_stable_third_crate_ui"
-path = "src/main.rs"
