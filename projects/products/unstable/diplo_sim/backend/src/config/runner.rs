@@ -78,7 +78,8 @@ pub fn run_simulation_with_map_id(
     }
     let Some(map_json) = crate::map::catalog::map_json_for_id(map_id) else {
         return Err(DiploSimError::Config(format!(
-            "unknown map_id '{map_id}' (expected one of: tiny_triangle)"
+            "unknown map_id '{map_id}' (expected one of: {})",
+            crate::map::catalog::available_map_ids().join(", ")
         )));
     };
     run_simulation_from_map_json(num_turns, seed, num_players, map_json, out_path, replay_out)

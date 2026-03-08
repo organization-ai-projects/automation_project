@@ -84,3 +84,47 @@ fn invalid_orders_exit_with_code_3() {
 
     assert_eq!(output.status.code(), Some(3));
 }
+
+#[test]
+fn run_with_map_id_then_replay_succeeds() {
+    let dir = unique_tmp_dir();
+    let run_out = dir.join("run_report_map_id.json");
+    let replay_file = dir.join("match_map_id.replay.json");
+    let replay_out = dir.join("replay_report_map_id.json");
+
+    let run_status = Command::new(bin_path())
+        .args([
+            "run",
+            "--turns",
+            "3",
+            "--seed",
+            "7",
+            "--map-id",
+            "tiny_triangle",
+            "--players",
+            "2",
+            "--out",
+            run_out.to_str().expect("utf8 path"),
+            "--replay-out",
+            replay_file.to_str().expect("utf8 path"),
+        ])
+        .status()
+        .expect("run map-id command");
+    assert!(run_status.success(), "run with --map-id should succeed");
+
+    let replay_status = Command::new(bin_path())
+        .args([
+            "replay",
+            "--replay",
+            replay_file.to_str().expect("utf8 path"),
+            "--out",
+            replay_out.to_str().expect("utf8 path"),
+        ])
+        .status()
+        .expect("replay command");
+    assert!(replay_status.success(), "replay command should succeed");
+
+    let run_bytes = fs::read(&run_out).expect("read run report");
+    let replay_bytes = fs::read(&replay_out).expect("read replay report");
+    assert_eq!(run_bytes, replay_bytes);
+}
