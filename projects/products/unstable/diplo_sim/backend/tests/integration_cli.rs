@@ -144,3 +144,27 @@ fn list_maps_writes_known_map_ids() {
     let map_ids: Vec<String> = common_json::from_json_str(&maps_json).expect("parse maps json");
     assert_eq!(map_ids, vec!["tiny_triangle".to_string()]);
 }
+
+#[test]
+fn map_info_writes_expected_shape() {
+    let dir = unique_tmp_dir();
+    let map_info_out = dir.join("map_info.json");
+
+    let status = Command::new(bin_path())
+        .args([
+            "map-info",
+            "--map-id",
+            "tiny_triangle",
+            "--out",
+            map_info_out.to_str().expect("utf8 path"),
+        ])
+        .status()
+        .expect("map-info command");
+    assert!(status.success(), "map-info command should succeed");
+
+    let json = fs::read_to_string(&map_info_out).expect("read map-info json");
+    assert!(json.contains("\"map_id\":\"tiny_triangle\""));
+    assert!(json.contains("\"territory_count\":3"));
+    assert!(json.contains("\"adjacency_count\":3"));
+    assert!(json.contains("\"starting_unit_count\":2"));
+}

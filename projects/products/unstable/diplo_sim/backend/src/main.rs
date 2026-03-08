@@ -108,6 +108,17 @@ fn main() {
             });
             config::runner::list_maps_cmd(&out)
         }
+        "map-info" => {
+            let map_id = cli_args::get_arg(&args, "--map-id").unwrap_or_else(|| {
+                tracing::error!("Missing --map-id");
+                std::process::exit(2);
+            });
+            let out = cli_args::get_arg(&args, "--out").unwrap_or_else(|| {
+                tracing::error!("Missing --out");
+                std::process::exit(2);
+            });
+            config::runner::map_info_cmd(&map_id, &out)
+        }
         _ => {
             tracing::error!("Unknown command: {}", args[1]);
             cli_args::print_usage();

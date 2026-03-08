@@ -291,3 +291,27 @@ pub fn list_maps_cmd(out_path: &str) -> Result<(), DiploSimError> {
     tracing::info!("Wrote available map ids to '{}'", out_path);
     Ok(())
 }
+
+pub fn map_info_cmd(map_id: &str, out_path: &str) -> Result<(), DiploSimError> {
+    let Some(map_json) = crate::map::catalog::map_json_for_id(map_id) else {
+        return Err(DiploSimError::Config(format!(
+            "unknown map_id '{map_id}' (expected one of: {})",
+            crate::map::catalog::available_map_ids().join(", ")
+        )));
+    };
+    let (map_graph, starting_units) = load_map_from_str(map_json)?;
+    let payload = common_json::pjson!({
+        "map_id": map_id,
+        "map_name": map_graph.name.clone(),
+        "version": map_graph.version.clone(),
+        "territory_count": map_graph.territory_count(),
+        "adjacency_count": map_graph.adjacencies.len(),
+        "starting_unit_count": starting_units.len()
+    });
+    let body = common_json::to_json_string(&payload)
+        .map_err(|e| DiploSimError::Internal(format!("Serialize error: {e}")))?;
+    std::fs::write(out_path, body)
+        .map_err(|e| DiploSimError::Io(format!("Cannot write '{}': {}", out_path, e)))?;
+    tracing::info!("Wrote map info for '{}' to '{}'", map_id, out_path);
+    Ok(())
+}
