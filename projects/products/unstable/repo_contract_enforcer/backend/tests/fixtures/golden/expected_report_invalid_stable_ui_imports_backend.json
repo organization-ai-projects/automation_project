@@ -1,49 +1,49 @@
 {
-  "summary": {
-    "unstable_error_count": 0,
-    "stable_warning_count": 3,
-    "stable_error_count": 1,
-    "unstable_warning_count": 0
-  },
+  "mode": "strict",
   "repository_root": "<FIXTURE_ROOT>",
+  "summary": {
+    "stable_error_count": 4,
+    "unstable_warning_count": 0,
+    "stable_warning_count": 0,
+    "unstable_error_count": 0
+  },
   "violations": [
     {
-      "line": null,
-      "severity": "WARNING",
+      "message": "crate 'backend' must include backend_manifest.ron (blocking in strict mode for stable products)",
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
       "rule_id": "structure",
+      "scope": "stable",
+      "line": null,
       "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_ui_imports_backend/backend/backend_manifest.ron",
-      "scope": "stable",
-      "message": "crate 'backend' must include backend_manifest.ron (warning: mandatory enforcement planned in a future phase)"
+      "severity": "ERROR"
     },
     {
-      "message": "product must include metadata.ron at root (warning: mandatory enforcement planned in a future phase)",
-      "line": null,
+      "scope": "stable",
+      "message": "product must include metadata.ron at root (blocking in strict mode for stable products)",
       "violation_code": "STRUCT_MISSING_PRODUCT_METADATA",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_ui_imports_backend/metadata.ron",
-      "severity": "WARNING",
-      "scope": "stable",
-      "rule_id": "structure"
-    },
-    {
-      "violation_code": "LAYER_UI_IMPORTS_BACKEND",
-      "severity": "ERROR",
-      "message": "ui must not import backend internals",
-      "line": null,
-      "rule_id": "layering",
-      "scope": "stable",
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_ui_imports_backend/ui/src/main.rs"
-    },
-    {
-      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_ui_imports_backend/ui/ui_manifest.ron",
-      "scope": "stable",
-      "line": null,
       "rule_id": "structure",
-      "severity": "WARNING",
+      "severity": "ERROR",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_ui_imports_backend/metadata.ron",
+      "line": null
+    },
+    {
+      "rule_id": "layering",
+      "violation_code": "LAYER_UI_IMPORTS_BACKEND",
+      "line": null,
+      "severity": "ERROR",
+      "scope": "stable",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_ui_imports_backend/ui/src/main.rs",
+      "message": "ui must not import backend internals"
+    },
+    {
+      "severity": "ERROR",
+      "rule_id": "structure",
+      "path": "<FIXTURE_ROOT>/projects/products/stable/invalid_stable_ui_imports_backend/ui/ui_manifest.ron",
       "violation_code": "STRUCT_MISSING_CRATE_MANIFEST",
-      "message": "crate 'ui' must include ui_manifest.ron (warning: mandatory enforcement planned in a future phase)"
+      "scope": "stable",
+      "message": "crate 'ui' must include ui_manifest.ron (blocking in strict mode for stable products)",
+      "line": null
     }
   ],
-  "report_hash": "2d00930a3e4fce5ffbac7ccfaeb45fec899b8ef759c30073b94195ec1b2ec307",
-  "mode": "strict"
+  "report_hash": "9049de2cb34073742fed1e87819e0c353e3536068bdc0521cfc2f1c886a886bd"
 }

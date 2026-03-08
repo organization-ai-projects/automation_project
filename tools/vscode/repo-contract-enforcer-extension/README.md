@@ -26,6 +26,18 @@ One-shot (without watch):
 pnpm run vsix:reinstall
 ```
 
+Release-like local smoke pipeline (tests + checks + package):
+
+```bash
+pnpm run vsix:smoke
+```
+
+Release-like local smoke + install generated VSIX:
+
+```bash
+pnpm run vsix:release-local
+```
+
 If you want automatic reinstall while editing the extension:
 
 ```bash
@@ -33,6 +45,14 @@ pnpm run vsix:watch
 ```
 
 It watches key files and repackages/reinstalls on every change.
+
+By default, reinstall does not reload VS Code automatically (to avoid opening an
+extra window in some setups).
+To enable auto-reload:
+
+```bash
+RELOAD_WINDOW_AFTER_INSTALL=true pnpm run vsix:reinstall
+```
 
 ## Settings
 

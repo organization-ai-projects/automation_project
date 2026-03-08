@@ -63,6 +63,12 @@ impl BackendState {
         for product in WorkspaceScanner::discover_products(root) {
             violations.extend(check_product(&product, mode));
         }
+        violations.extend(
+            crate::rules::layering_rules::LayeringRules::evaluate_library_dependencies(root, mode),
+        );
+        violations.extend(
+            crate::rules::structure_rules::StructureRules::evaluate_shell_scripts(root, mode),
+        );
 
         finalize_report(root, mode, &mut self.reports, violations)
     }

@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr.sh"
+TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr/run.sh"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -120,7 +120,7 @@ run_case() {
 }
 
 main() {
-  echo "Running regression tests for auto_add_closes_on_dev_pr.sh"
+  echo "Running regression tests for auto_add_closes_on_dev_pr/run.sh"
 
   run_case \
     "adds-managed-closes-for-single-assignee-pr-author" \

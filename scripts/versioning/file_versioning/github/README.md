@@ -19,22 +19,21 @@ It interacts mainly with:
 github/
 ├── README.md (this file)
 ├── TOC.md
-├── auto_add_closes_on_dev_pr.sh
-├── auto_link_parent_issue.sh
-├── create_direct_issue.sh
-├── manager_issues.sh
+├── auto_add_closes_on_dev_pr/
 ├── generate_pr_description.sh
-├── issue_done_in_dev_status.sh
-├── issue_reopen_on_dev_merge.sh
-├── neutralize_non_compliant_closure_refs.sh
-├── parent_issue_guard.sh
+├── parent_issue_guard/
+├── issues/
+│   ├── auto_link/
+│   ├── create_direct/
+│   ├── manager/
+│   ├── done_status/
+│   ├── reopen_on_dev/
+│   ├── neutralize/
+│   └── required_fields/
+│       └── load.sh
 ├── lib/
 │   ├── classification.sh
 │   ├── issue_refs.sh
-│   ├── issue_required_fields.sh
-│   ├── pr_compare.sh
-│   ├── pr_footprint.sh
-│   ├── pr_validation_gate.sh
 │   └── rendering.sh
 └── tests/
     └── generate_pr_description_regression.sh
@@ -45,21 +44,20 @@ github/
 - `README.md`: This file.
 - `TOC.md`: Documentation index for GitHub-only scripts.
 - `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
-- `auto_add_closes_on_dev_pr.sh`: Auto-enrich open PR bodies targeting `dev` with a managed `Closes #<n>` block when referenced `Part of #<n>` issues are single-assignee and assigned to the PR author.
-- `auto_link_parent_issue.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
-- `create_direct_issue.sh`: Internal create contract script used by manager routing (direct usage deprecated).
-- `manager_issues.sh`: Unified issue lifecycle entrypoint for create/read/update/close/reopen operations (delete is soft-delete via close not_planned).
-- `issue_done_in_dev_status.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
+- `auto_add_closes_on_dev_pr/run.sh`: Auto-enrich open PR bodies targeting `dev` with a managed `Closes #<n>` block when referenced `Part of #<n>` issues are single-assignee and assigned to the PR author.
+- `issues/auto_link/run.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
+- `issues/create_direct/run.sh`: Internal create contract script used by manager routing (direct usage deprecated).
+- `issues/manager/run.sh`: Unified issue lifecycle entrypoint for create/read/update/close/reopen operations (delete is soft-delete via close not_planned).
+- `issues/done_status/run.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
   - Supported closure refs for labeling: `Closes/Fixes #<n>`.
-- `issue_reopen_on_dev_merge.sh`: Reopen issues referenced by `Reopen #<n>` on merged PRs into `dev`, and remove `done-in-dev` from those issues.
-- `neutralize_non_compliant_closure_refs.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
-- `parent_issue_guard.sh`: Evaluate parent/child issue status and prevent premature parent closure.
+- `issues/reopen_on_dev/run.sh`: Reopen issues referenced by `Reopen #<n>` on merged PRs into `dev`, and remove `done-in-dev` from those issues.
+- `issues/neutralize/run.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
+- `parent_issue_guard/run.sh`: Evaluate parent/child issue status and prevent premature parent closure.
 - `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
 - `lib/issue_refs.sh`: Issue reference parsing helpers (`Closes`, `Fixes`, `Part of`, `Reopen`, duplicates).
-- `lib/issue_required_fields.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
-- `lib/pr_compare.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
-- `lib/pr_footprint.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
-- `lib/pr_validation_gate.sh`: Validation Gate section construction and in-place replacement helpers.
+- `issues/required_fields/load.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
+- `pr/compare/load.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
+- `pr/footprint/load.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
 - `lib/rendering.sh`: Output rendering helpers extracted from the main script.
 - `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
 - `tests/auto_add_closes_on_dev_pr_regression.sh`: Regression checks for automatic managed `Closes #...` enrichment on dev-targeting PRs.
@@ -67,6 +65,7 @@ github/
 - `tests/issue_reopen_on_dev_merge_regression.sh`: Regression checks for Reopen footer sync on merged PRs into `dev`.
 - `tests/manager_issues_regression.sh`: Regression checks for manager_issues lifecycle routing behavior (create/read/update/close/reopen/soft-delete).
 - `tests/shellcheck_regression.sh`: ShellCheck regression suite with strict lint for standalone/test scripts and scoped suppressions for the modular PR generator stack.
+- `tests/enforcer_shell_contract_regression.sh`: Enforcer-backed shell contract gate (strict mode), failing on any `STRUCT_SHELL_*` violation in automation scripts.
 
 ## Scope
 
@@ -80,8 +79,8 @@ Issue contract routing:
 
 - Default issues use `.github/issue_required_fields.conf` keys `ISSUE_*`.
 - Review follow-up issues (label `review`) use `ISSUE_REVIEW_*` keys from the same contract file.
-- Direct creation through `manager_issues.sh create` routes to `create_direct_issue.sh` and applies label `issue` by default.
-- User-facing create flow must use `manager_issues.sh create` (not direct invocation of `create_direct_issue.sh`).
+- Direct creation through `issues/manager/run.sh create` routes to `issues/create_direct/run.sh` and applies label `issue` by default.
+- User-facing create flow must use `issues/manager/run.sh create` (not direct invocation of `issues/create_direct/run.sh`).
 - Issue reads support single-issue view or listing; machine-readable output is available via `--json/--jq/--template`.
 - Delete is implemented as deterministic soft-delete by closing issues with reason `not_planned`.
 
@@ -182,6 +181,7 @@ Regression tests:
 ```bash
 bash tests/generate_pr_description_regression.sh
 bash tests/shellcheck_regression.sh
+bash tests/enforcer_shell_contract_regression.sh
 ```
 
 Troubleshooting:
@@ -190,15 +190,14 @@ Troubleshooting:
 
 ## Internal Module Breakdown
 
-- CLI/options: `lib/pr_cli.sh`
-- arg parsing/validation: `lib/pr_args.sh`
-- extraction/classification: `lib/pr_extraction.sh`, `lib/classification.sh`, `lib/issue_refs.sh`
-- pipeline orchestration: `lib/pr_pipeline.sh`
-- runtime/gh helpers: `lib/pr_runtime.sh`
-- compare loading: `lib/pr_compare.sh`
-- issue flow resolution: `lib/pr_issue_flow.sh`
-- issue contract checks: `lib/issue_required_fields.sh`
-- metrics/status: `lib/pr_metrics.sh`
-- body composition/publication: `lib/pr_body.sh`
-- rendering helpers: `lib/rendering.sh`, `lib/pr_footprint.sh`
-- validation-only body updates: `lib/pr_validation_gate.sh`
+- CLI/options + arg parsing/validation: `pr/cli/load.sh` (`help.sh`, `defaults.sh`, `parse.sh`, `finalize.sh`)
+- extraction/classification: `pr/extraction/load.sh` (`from_compare.sh`, `from_pr_api.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
+- pipeline orchestration: `pr/pipeline/load.sh` (`artifacts.sh`, `deps.sh`, `refs.sh`, `collect.sh`, `render.sh`, `tracking.sh`)
+- runtime/gh helpers: `pr/runtime/load.sh` (`logging.sh`, `git.sh`, `state.sh`)
+- compare loading: `pr/compare/load.sh` (`local_git.sh`, `api.sh`, `commits.sh`)
+- issue flow resolution: `pr/issue/load.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
+- issue contract checks: `issues/required_fields/load.sh`
+- metrics/status: `pr/metrics/load.sh` (`breaking.sh`, `ci.sh`)
+- body composition/publication: `pr/body/builder.sh`, `pr/body/publish.sh` (loaded via `pr/body/load.sh`)
+- rendering helpers: `lib/rendering.sh`, `pr/footprint/load.sh` (`render.sh`)
+- validation-only body updates: `pr/body/validation_gate.sh`

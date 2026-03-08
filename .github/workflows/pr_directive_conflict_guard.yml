@@ -44,7 +44,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          bash scripts/versioning/file_versioning/github/pr_directive_conflict_guard.sh \
+          bash scripts/versioning/file_versioning/github/pr_directive_conflict_guard/run.sh \
             --pr "$PR_NUMBER" \
             --repo "$GH_REPO"
 
@@ -59,6 +59,6 @@ jobs:
             echo "Invalid pr_number: '$PR_NUMBER'" >&2
             exit 1
           fi
-          bash scripts/versioning/file_versioning/github/pr_directive_conflict_guard.sh \
+          bash scripts/versioning/file_versioning/github/pr_directive_conflict_guard/run.sh \
             --pr "$PR_NUMBER" \
             --repo "$GH_REPO"

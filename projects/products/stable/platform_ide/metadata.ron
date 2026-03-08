@@ -1,0 +1,29 @@
+(
+  schema_version: 1,
+  generated_at: 1762473600000,
+  id: "c1b7e3a4d9f26c8b5e1d4a7f3c9b2e6d",
+  name: "Platform IDE",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "d2a8f4c1b7e39d6a5c1f4b8e2d7a3c9f", title: "Platform IDE", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "editor",
+    "verification",
+  ],
+
+  domains: [
+    (id: "e3c9b5d1a7f24c8e6b1d4a9f2c7e3b8d", desc: "ide workflows and verification views"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/"],
+    config_files: ["backend/Cargo.toml", "ui/Cargo.toml"],
+  ),
+)

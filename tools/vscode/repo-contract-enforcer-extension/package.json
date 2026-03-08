@@ -3,28 +3,38 @@
   "displayName": "Repo Contract Enforcer Diagnostics",
   "description": "Inline diagnostics from repo_contract_enforcer rules (team patterns).",
   "version": "0.0.1",
+  "license": "MIT",
+  "icon": "media/icon.png",
   "publisher": "local",
   "engines": {
     "vscode": "^1.90.0"
   },
   "scripts": {
-    "vsix": "bash ./scripts/watch-reinstall.sh",
+    "test": "node --test extension.test.js extension.integration.test.js",
+    "dev": "bash ./scripts/watch-reinstall.sh",
+    "vsix": "pnpm run vsix:pack",
+    "vsix:smoke": "bash ./scripts/release-local-smoke.sh",
+    "vsix:release-local": "INSTALL_AFTER_SMOKE=true bash ./scripts/release-local-smoke.sh",
     "vsix:pack": "rm -f repo-contract-enforcer-diagnostics-*.vsix && vsce package --allow-missing-repository --no-dependencies",
     "vsix:install": "bash ./scripts/reinstall-local.sh",
     "vsix:reinstall": "bash ./scripts/repack-reinstall.sh",
-    "vsix:watch": "bash ./scripts/watch-reinstall.sh"
+    "vsix:watch": "pnpm run dev"
   },
   "files": [
     "extension.js",
     "package.json",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "media/icon.png"
   ],
   "categories": [
     "Linters"
   ],
   "activationEvents": [
     "workspaceContains:Cargo.toml",
-    "onLanguage:rust"
+    "onLanguage:rust",
+    "onLanguage:toml",
+    "onLanguage:shellscript"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -32,6 +42,111 @@
       {
         "command": "repoContractEnforcer.runCheck",
         "title": "Repo Contract Enforcer: Run Check"
+      },
+      {
+        "command": "repoContractEnforcer.focusDiagnosticsView",
+        "title": "Repo Contract Enforcer: Focus Diagnostics View"
+      },
+      {
+        "command": "repoContractEnforcer.openDiagnosticLocation",
+        "title": "Repo Contract Enforcer: Open Diagnostic Location"
+      },
+      {
+        "command": "repoContractEnforcer.clearDiagnostics",
+        "title": "Repo Contract Enforcer: Clear Diagnostics"
+      },
+      {
+        "command": "repoContractEnforcer.showOutput",
+        "title": "Repo Contract Enforcer: Show Output"
+      },
+      {
+        "command": "repoContractEnforcer.showRunHistory",
+        "title": "Repo Contract Enforcer: Show Run History"
+      },
+      {
+        "command": "repoContractEnforcer.openRuleDocs",
+        "title": "Repo Contract Enforcer: Open Rule Documentation"
+      },
+      {
+        "command": "repoContractEnforcer.restartBackend",
+        "title": "Repo Contract Enforcer: Restart Backend Processes"
+      },
+      {
+        "command": "repoContractEnforcer.openFirstError",
+        "title": "Repo Contract Enforcer: Open First Error",
+        "icon": "$(arrow-small-right)"
+      },
+      {
+        "command": "repoContractEnforcer.exportDiagnosticsJson",
+        "title": "Repo Contract Enforcer: Export Diagnostics JSON",
+        "icon": "$(save)"
+      },
+      {
+        "command": "repoContractEnforcer.copyDiagnosticsSummary",
+        "title": "Repo Contract Enforcer: Copy Diagnostics Summary",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "repoContractEnforcer.refreshDiagnosticsView",
+        "title": "Repo Contract Enforcer: Refresh Diagnostics View",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "repoContractEnforcer.collapseDiagnosticsView",
+        "title": "Repo Contract Enforcer: Collapse Diagnostics View",
+        "icon": "$(collapse-all)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "repoContractEnforcerDiagnostics",
+          "name": "Repo Contract Diagnostics",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "repoContractEnforcer.openFirstError",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@0"
+        },
+        {
+          "command": "repoContractEnforcer.refreshDiagnosticsView",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@1"
+        },
+        {
+          "command": "repoContractEnforcer.collapseDiagnosticsView",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@2"
+        },
+        {
+          "command": "repoContractEnforcer.exportDiagnosticsJson",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@3"
+        },
+        {
+          "command": "repoContractEnforcer.copyDiagnosticsSummary",
+          "when": "view == repoContractEnforcerDiagnostics",
+          "group": "navigation@4"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "repoContractEnforcer.runCheck",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "repoContractEnforcer.focusDiagnosticsView",
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d",
+        "when": "editorTextFocus || explorerViewletVisible"
       }
     ],
     "configuration": {
@@ -50,17 +165,27 @@
         "repoContractEnforcer.runOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Run checks automatically when Rust/TOML files are saved"
+          "description": "Run checks automatically when Rust/TOML/Shell files are saved"
+        },
+        "repoContractEnforcer.runOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run one initial check when the workspace is opened"
         },
         "repoContractEnforcer.runOnChange": {
           "type": "boolean",
           "default": true,
-          "description": "Run checks while editing Rust/TOML files (debounced)"
+          "description": "Run checks while editing Rust/TOML/Shell files (debounced)"
         },
         "repoContractEnforcer.runOnFileEvents": {
           "type": "boolean",
           "default": true,
-          "description": "Run checks on Rust/TOML file create/change/delete/rename events"
+          "description": "Run checks on Rust/TOML/Shell file create/change/delete/rename events"
+        },
+        "repoContractEnforcer.syncProblemsOnTreeOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "When opening a diagnostic from the diagnostics tree, also reveal the Problems panel"
         },
         "repoContractEnforcer.debounceMs": {
           "type": "number",
@@ -69,10 +194,120 @@
           "maximum": 5000,
           "description": "Debounce delay in milliseconds for edit/file-event triggered checks"
         },
+        "repoContractEnforcer.workspaceFolderStrategy": {
+          "type": "string",
+          "enum": [
+            "first",
+            "active",
+            "all"
+          ],
+          "default": "first",
+          "description": "Select which workspace folders are checked in multi-root workspaces"
+        },
+        "repoContractEnforcer.treeViewGrouping": {
+          "type": "string",
+          "enum": [
+            "file",
+            "rule"
+          ],
+          "default": "file",
+          "description": "Grouping mode for the diagnostics explorer view"
+        },
+        "repoContractEnforcer.treeViewSeverityFilter": {
+          "type": "string",
+          "enum": [
+            "all",
+            "errors"
+          ],
+          "default": "all",
+          "description": "Severity filter for diagnostics explorer view"
+        },
+        "repoContractEnforcer.treeRefreshDebounceMs": {
+          "type": "number",
+          "default": 80,
+          "minimum": 0,
+          "maximum": 2000,
+          "description": "Debounce delay in milliseconds before refreshing the diagnostics explorer tree"
+        },
+        "repoContractEnforcer.excludeGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/.git/**",
+            "**/target/**",
+            "**/node_modules/**"
+          ],
+          "description": "Glob patterns (relative to each checked workspace root) excluded from diagnostics; plain tokens (e.g. target) are treated as folder names"
+        },
+        "repoContractEnforcer.docsPathDefault": {
+          "type": "string",
+          "default": "projects/products/unstable/repo_contract_enforcer/README.md",
+          "description": "Workspace-relative path to the default rule documentation opened by code actions"
+        },
+        "repoContractEnforcer.docsPathStructure": {
+          "type": "string",
+          "default": "documentation/technical_documentation/metadata.md",
+          "description": "Workspace-relative path to the manifest/structure rule documentation opened by code actions"
+        },
+        "repoContractEnforcer.runTimeoutMs": {
+          "type": "number",
+          "default": 15000,
+          "minimum": 1000,
+          "maximum": 120000,
+          "description": "Maximum runtime for one check process before forced interruption"
+        },
         "repoContractEnforcer.command": {
           "type": "string",
           "default": "cargo",
-          "description": "Command used to invoke repo_contract_enforcer_backend"
+          "description": "Command used to invoke cargo (or an equivalent build tool) for the backend check process"
+        },
+        "repoContractEnforcer.processMode": {
+          "type": "string",
+          "enum": [
+            "spawn",
+            "persistent"
+          ],
+          "default": "spawn",
+          "description": "Execution model for backend checks: spawn a fresh process per run, or keep one persistent serve process per workspace folder"
+        },
+        "repoContractEnforcer.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "run",
+            "-q",
+            "-p",
+            "repo_contract_enforcer_backend",
+            "--",
+            "serve"
+          ],
+          "description": "Arguments passed to repoContractEnforcer.command when launching the backend check process"
+        },
+        "repoContractEnforcer.outputChannelEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose stdout/stderr logging in the extension output channel"
+        },
+        "repoContractEnforcer.runHistorySize": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 200,
+          "description": "Maximum number of recent run summaries retained in memory for the run history command"
+        },
+        "repoContractEnforcer.statusBarMessagePolicy": {
+          "type": "string",
+          "enum": [
+            "all",
+            "errors",
+            "none"
+          ],
+          "default": "errors",
+          "description": "Control transient status-bar notifications (all checks, errors only, or none)"
         }
       }
     }

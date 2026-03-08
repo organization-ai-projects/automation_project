@@ -4,8 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-NEUTRALIZER="${ROOT_DIR}/scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh"
-REEVALUATOR="${ROOT_DIR}/scripts/versioning/file_versioning/github/reevaluate_prs_on_issue_edit.sh"
+NEUTRALIZER="${ROOT_DIR}/scripts/versioning/file_versioning/github/issues/neutralize/run.sh"
+REEVALUATOR="${ROOT_DIR}/scripts/versioning/file_versioning/github/issues/reevaluate/run.sh"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"

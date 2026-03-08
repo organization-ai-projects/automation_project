@@ -20,21 +20,29 @@ pr_emit_classification() {
   local bullet="$2"
   local category="$3"
   local debug_suffix="${4:-}"
+  local target_buffer
 
   pr_require_classification_buffers
 
-  case "$category" in
-  Synchronization) echo "$bullet" >>"$sync_tmp" ;;
-  "Bug Fixes") echo "$bullet" >>"$bugs_tmp" ;;
-  Refactoring) echo "$bullet" >>"$refactors_tmp" ;;
-  *) echo "$bullet" >>"$features_tmp" ;;
-  esac
+  target_buffer="$(pr_classification_buffer_for_category "$category")"
+  echo "$bullet" >>"$target_buffer"
 
   if [[ -n "$debug_suffix" ]]; then
     pr_debug_log "classify_pr: ${pr_ref} -> ${category} (${debug_suffix})"
   else
     pr_debug_log "classify_pr: ${pr_ref} -> ${category}"
   fi
+}
+
+pr_classification_buffer_for_category() {
+  local category="$1"
+
+  case "$category" in
+  Synchronization) echo "$sync_tmp" ;;
+  "Bug Fixes") echo "$bugs_tmp" ;;
+  Refactoring) echo "$refactors_tmp" ;;
+  *) echo "$features_tmp" ;;
+  esac
 }
 
 build_pr_bullet() {

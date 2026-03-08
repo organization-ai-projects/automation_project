@@ -71,8 +71,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          chmod +x scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh
-          bash scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh \
+          chmod +x scripts/versioning/file_versioning/github/issues/neutralize/run.sh
+          bash scripts/versioning/file_versioning/github/issues/neutralize/run.sh \
             --pr "$PR_NUMBER" \
             --repo "$GH_REPO"
 
@@ -87,8 +87,8 @@ jobs:
             echo "Invalid pr_number: '$PR_NUMBER'" >&2
             exit 1
           fi
-          chmod +x scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh
-          bash scripts/versioning/file_versioning/github/neutralize_non_compliant_closure_refs.sh \
+          chmod +x scripts/versioning/file_versioning/github/issues/neutralize/run.sh
+          bash scripts/versioning/file_versioning/github/issues/neutralize/run.sh \
             --pr "$PR_NUMBER" \
             --repo "$GH_REPO"
 
@@ -122,7 +122,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          chmod +x scripts/versioning/file_versioning/github/reevaluate_prs_on_issue_edit.sh
-          bash scripts/versioning/file_versioning/github/reevaluate_prs_on_issue_edit.sh \
+          chmod +x scripts/versioning/file_versioning/github/issues/reevaluate/run.sh
+          bash scripts/versioning/file_versioning/github/issues/reevaluate/run.sh \
             --issue "$ISSUE_NUMBER" \
             --repo "$GH_REPO"

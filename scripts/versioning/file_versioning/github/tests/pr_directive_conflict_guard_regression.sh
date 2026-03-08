@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/pr_directive_conflict_guard.sh"
+TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/pr_directive_conflict_guard/run.sh"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -134,7 +134,7 @@ run_case() {
 }
 
 main() {
-  echo "Running regression tests for pr_directive_conflict_guard.sh"
+  echo "Running regression tests for pr_directive_conflict_guard/run.sh"
 
   run_case \
     "missing-pr-arg" \

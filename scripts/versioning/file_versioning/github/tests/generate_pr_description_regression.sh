@@ -273,7 +273,7 @@ main() {
   run_case "dry-run-with-gh-missing-jq" 3 "command 'jq' not found" mock_no_jq --dry-run --base dev --head test-head /tmp/pr_description_test_no_jq.md
   run_case "missing-gh-required-main-mode" 3 "command 'gh' not found" no_gh 42
   run_case "duplicate-mode-dry-run-output" 0 "Duplicate mode \\(safe\\): no duplicate declarations detected" mock --dry-run --base dev --head test-head --duplicate-mode safe
-  run_case "debug-flag-emits-trace" 0 "\\[debug\\] extract_child_prs_dry" mock --dry-run --base dev --head test-head --debug
+  run_case "debug-flag-emits-trace" 0 "\\[debug\\] extract_child_prs\\(compare" mock --dry-run --base dev --head test-head --debug
 
   TESTS_RUN=$((TESTS_RUN + 1))
   tmp="$(shell_test_mktemp_dir "pr_desc_tests")"

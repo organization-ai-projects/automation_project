@@ -22,7 +22,10 @@ impl DeterminismRules {
 
         let rs_files = FileScanner::gather_rs_files(&backend);
         for file in rs_files {
-            let txt = std::fs::read_to_string(&file).unwrap_or_default();
+            let Some(txt) = read_text_or_emit_violation(&mut out, (scope, mode), &file, "source")
+            else {
+                continue;
+            };
             let is_prod_source = is_backend_production_source(&file);
             if txt.contains("SystemTime") || txt.contains("Instant") {
                 out.push(make_violation(
@@ -107,15 +110,10 @@ impl DeterminismRules {
                     ),
                 ));
             }
-            let runtime_txt = if is_prod_source {
-                strip_cfg_test_modules(&txt)
-            } else {
-                txt.clone()
-            };
             if is_prod_source
-                && (runtime_txt.contains(".unwrap()")
-                    || runtime_txt.contains(".expect(")
-                    || runtime_txt.contains("unwrap_unchecked("))
+                && (txt.contains(".unwrap()")
+                    || txt.contains(".expect(")
+                    || txt.contains("unwrap_unchecked("))
             {
                 out.push(make_violation(
                     RuleId::Determinism,
@@ -126,7 +124,7 @@ impl DeterminismRules {
                     (
                         true,
                         RustParser::first_line_of_any(
-                            &runtime_txt,
+                            &txt,
                             &[".unwrap()", ".expect(", "unwrap_unchecked("],
                         ),
                     ),
@@ -224,6 +222,34 @@ fn make_violation(
     }
 }
 
+fn read_text_or_emit_violation(
+    out: &mut Vec<reports::violation::Violation>,
+    context: (
+        config::path_classification::PathClassification,
+        config::enforcement_mode::EnforcementMode,
+    ),
+    path: &std::path::Path,
+    kind: &str,
+) -> Option<String> {
+    use reports::violation_code::ViolationCode;
+    use rules::rule_id::RuleId;
+
+    match std::fs::read_to_string(path) {
+        Ok(content) => Some(content),
+        Err(err) => {
+            out.push(make_violation(
+                RuleId::Determinism,
+                ViolationCode::RuleFileReadError,
+                context,
+                path,
+                &format!("failed to read {kind} file: {err}"),
+                (true, None),
+            ));
+            None
+        }
+    }
+}
+
 fn is_backend_production_source(path: &std::path::Path) -> bool {
     let mut saw_backend = false;
     let mut saw_src_after_backend = false;
@@ -242,42 +268,4 @@ fn is_backend_production_source(path: &std::path::Path) -> bool {
         }
     }
     saw_backend && saw_src_after_backend
-}
-
-fn strip_cfg_test_modules(source: &str) -> String {
-    let mut out = String::new();
-    let lines = source.lines();
-    let mut pending_cfg_test = false;
-    let mut skip_depth: i32 = 0;
-
-    for line in lines {
-        if skip_depth > 0 {
-            skip_depth += line.matches('{').count() as i32;
-            skip_depth -= line.matches('}').count() as i32;
-            continue;
-        }
-
-        if line.trim_start().starts_with("#[cfg(test)]") {
-            pending_cfg_test = true;
-            continue;
-        }
-
-        if pending_cfg_test {
-            if line.trim().is_empty() {
-                continue;
-            }
-            if line.contains("mod ") && line.contains('{') {
-                skip_depth += line.matches('{').count() as i32;
-                skip_depth -= line.matches('}').count() as i32;
-                pending_cfg_test = false;
-                continue;
-            }
-            pending_cfg_test = false;
-        }
-
-        out.push_str(line);
-        out.push('\n');
-    }
-
-    out
 }

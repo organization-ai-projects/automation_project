@@ -18,9 +18,13 @@ It interacts mainly with:
 ```
 accounts/
 ├── README.md           # This file
-├── metadata.ron        # Product metadata
+├── metadata.ron        # Product manifest (root source-of-truth)
 ├── backend/           # Backend service (WebSocket)
+│   ├── backend_manifest.ron  # Backend deployable manifest
+│   └── ...
 ├── ui/                # Dioxus WASM UI bundle
+│   ├── ui_manifest.ron       # UI deployable manifest
+│   └── ...
 └── data/              # Storage directory (JSON)
 ```
 
@@ -28,9 +32,11 @@ accounts/
 
 - `README.md`: This file.
 - `backend/`: Backend service source.
+- `backend/backend_manifest.ron`: Backend deployable artifact manifest.
 - `data/`: Additional module or asset.
-- `metadata.ron`: Additional module or asset.
+- `metadata.ron`: Product-level manifest.
 - `ui/`: UI bundle source.
+- `ui/ui_manifest.ron`: UI deployable artifact manifest.
 
 
 ## Description

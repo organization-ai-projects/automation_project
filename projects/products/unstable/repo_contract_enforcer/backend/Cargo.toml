@@ -3,10 +3,6 @@ name = "repo_contract_enforcer_backend"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "repo_contract_enforcer_backend"
-path = "src/main.rs"
-
 [dependencies]
 serde = { workspace = true }
 common_json = { workspace = true }
@@ -15,5 +11,6 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 syn = { version = "2", features = ["full", "parsing", "visit"] }
+proc-macro2 = { version = "1", features = ["span-locations"] }
 sha2 = "0.10"
 hex = "0.4"
