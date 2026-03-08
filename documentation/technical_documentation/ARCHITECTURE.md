@@ -64,6 +64,12 @@ Prohibitions:
 - backend <-> backend direct
 - UI <-> UI direct
 
+Enforcement mapping (`repo_contract_enforcer`):
+
+- `LAYER_UI_IMPORTS_BACKEND` is raised when a product UI imports its backend crate in Rust source.
+- `LAYER_UI_IMPORTS_BACKEND` is also raised when `ui/Cargo.toml` depends on its backend crate (including `path = "../backend"`).
+- Recommended UI transport pattern is "branchable but not hard-wired": UI depends on a local port trait, and concrete runtime wiring is injected at composition time.
+
 ### 3.2 Command / Event Model
 
 - **Command** (request/response): triggers an action or requests a state.
