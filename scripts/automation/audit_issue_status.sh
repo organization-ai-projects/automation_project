@@ -148,7 +148,7 @@ jq -c '.[]' "$open_json" | while IFS= read -r row; do
   labels_csv="$(echo "$row" | jq -r '.labels // [] | map(.name | ascii_downcase) | join(",")')"
 
   parent="(none)"
-  parent_line="$(printf '%s\n' "$body" | grep -iE '^[[:space:]]*Parent:[[:space:]]*(#?[0-9]+|none)[[:space:]]*$' | tail -n1 || true)"
+  parent_line="$(printf '%s\n' "$body" | grep -iE '^[[:space:]]*Parent:[[:space:]]*(#?[0-9]+|none|base|epic)[[:space:]]*$' | tail -n1 || true)"
   if [[ -n "$parent_line" ]]; then
     parent="$(echo "$parent_line" | sed -E 's/^[[:space:]]*Parent:[[:space:]]*//I')"
   fi

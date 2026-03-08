@@ -47,7 +47,9 @@ auto_link_extract_parent_or_exit() {
       "Missing required field \`Parent:\` in issue body." \
       "Expected format:
 \n- \`Parent: #<issue_number>\` for child issues
-\n- \`Parent: none\` for root/parent issues"
+\n- \`Parent: none\` for independent issues
+\n- \`Parent: base\` for cascade root issues
+\n- \`Parent: epic\` for epic umbrella issues"
     exit 0
   fi
 

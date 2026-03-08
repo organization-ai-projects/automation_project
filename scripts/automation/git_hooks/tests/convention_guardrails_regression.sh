@@ -95,7 +95,7 @@ if [[ "${1:-}" == "issue" && "${2:-}" == "view" ]]; then
 
   if [[ "$json_fields" == *"body"* ]]; then
     if contains_issue "$issue_number"; then
-      echo "Parent: none"
+      echo "Parent: base"
     else
       echo "Parent: #617"
     fi
@@ -103,7 +103,7 @@ if [[ "${1:-}" == "issue" && "${2:-}" == "view" ]]; then
   fi
 
   if contains_issue "$issue_number"; then
-    echo "Parent: none"
+    echo "Parent: base"
   else
     echo "Parent: #617"
   fi
@@ -286,7 +286,7 @@ main() {
   run_case \
     "commit-msg-blocks-root-parent" \
     5 \
-    "Root parent issue references are not allowed" \
+    "Protected parent issue references are not allowed" \
     "cp '${FIXTURES_DIR}/commit_msg_invalid_root_parent.txt' .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \

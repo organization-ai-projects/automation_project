@@ -74,7 +74,7 @@ issue_parent_value() {
   local parent_value
 
   body="$(gh issue view "$issue_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
-  parent_line="$(printf '%s\n' "$body" | grep -iE '^[[:space:]]*Parent:[[:space:]]*(#?[0-9]+|none|\(none\))[[:space:]]*$' | tail -n1 || true)"
+  parent_line="$(printf '%s\n' "$body" | grep -iE '^[[:space:]]*Parent:[[:space:]]*(#?[0-9]+|none|base|epic|\(none\)|\(base\)|\(epic\))[[:space:]]*$' | tail -n1 || true)"
   if [[ -z "$parent_line" ]]; then
     printf 'none\n'
     return 0
@@ -89,10 +89,23 @@ issue_is_root_parent() {
   local repo="$2"
   local parent_value
 
-  if ! issue_has_children "$issue_number" "$repo"; then
-    return 1
-  fi
-
   parent_value="$(issue_parent_value "$issue_number" "$repo")"
-  [[ "$parent_value" == "none" || -z "$parent_value" ]]
+  case "$parent_value" in
+    epic|base)
+      return 0
+      ;;
+    none|"")
+      # `Parent: none` means independent issue. If children are present, treat as protected parent
+      # to prevent accidental closure and prompt explicit `Parent: base`.
+      issue_has_children "$issue_number" "$repo"
+      return $?
+      ;;
+    \#*)
+      # Child/middle nodes remain referenceable in commit trailers.
+      return 1
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }

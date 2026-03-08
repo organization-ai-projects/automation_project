@@ -6,9 +6,10 @@ auto_link_handle_parent_none() {
   local repo_owner="$2"
   local repo_short_name="$3"
   local issue_number="$4"
-  local marker="$5"
-  local label_required_missing="$6"
-  local label_automation_failed="$7"
+  local parent_mode="$5"
+  local marker="$6"
+  local label_required_missing="$7"
+  local label_automation_failed="$8"
 
   local current_relation_json
   current_relation_json="$(gh api graphql \
@@ -19,7 +20,7 @@ auto_link_handle_parent_none() {
   auto_link_validate_graphql_runtime_result \
     "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
     "$current_relation_json" \
-    "Unable to query current parent relation while processing \`Parent: none\`." \
+    "Unable to query current parent relation while processing \`Parent: ${parent_mode}\`." \
     "GitHub GraphQL query returned errors while reading current parent relation." \
     "Retry later. If this persists, unlink parent manually in GitHub UI."
 
@@ -47,11 +48,11 @@ auto_link_handle_parent_none() {
 
     auto_link_set_success_state \
       "$repo_name" "$issue_number" "$marker" "$label_required_missing" "$label_automation_failed" \
-      "Removed existing parent link #${current_parent_number_none} (\`Parent: none\`)."
+      "Removed existing parent link #${current_parent_number_none} (\`Parent: ${parent_mode}\`)."
   else
     auto_link_set_success_state \
       "$repo_name" "$issue_number" "$marker" "$label_required_missing" "$label_automation_failed" \
-      "No parent linking requested (\`Parent: none\`)."
+      "No parent linking requested (\`Parent: ${parent_mode}\`)."
   fi
 
   exit 0
