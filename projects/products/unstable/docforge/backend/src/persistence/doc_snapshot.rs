@@ -152,13 +152,13 @@ fn append_block(out: &mut String, block: &Block) {
             append_option_style_id(out, style.as_ref());
             out.push(')');
         }
-        Block::CodeBlock {
+        Block::Code {
             id,
             language,
             code,
             style,
         } => {
-            out.push_str("CodeBlock(");
+            out.push_str("Code(");
             append_escaped(out, &id.0);
             out.push(',');
             append_option_str(out, language.as_deref());

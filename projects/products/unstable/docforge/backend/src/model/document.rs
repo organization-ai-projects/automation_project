@@ -24,10 +24,6 @@ impl Document {
         }
     }
 
-    pub fn block_by_id(&self, id: &BlockId) -> Option<&Block> {
-        self.blocks.iter().find(|b| b.id() == id)
-    }
-
     pub fn block_index(&self, id: &BlockId) -> Option<usize> {
         self.blocks.iter().position(|b| b.id() == id)
     }

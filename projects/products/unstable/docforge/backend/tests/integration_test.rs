@@ -396,3 +396,49 @@ fn test_cli_history_json_and_doc_id_filter() -> Result<(), Box<dyn std::error::E
 
     Ok(())
 }
+
+#[test]
+fn test_cli_layout_outputs_layout_json() -> Result<(), Box<dyn std::error::Error>> {
+    let bin = env!("CARGO_BIN_EXE_docforge_backend");
+    let doc_file = unique_path("doc_layout");
+    let ops_file = unique_path("ops_layout");
+
+    let status_new = Command::new(bin)
+        .arg("new")
+        .arg("--title")
+        .arg("Layout")
+        .arg("--out")
+        .arg(&doc_file)
+        .status()?;
+    assert!(status_new.success());
+
+    let ops = r#"[
+  {
+    "InsertBlock": {
+      "position": 0,
+      "block": {
+        "Paragraph": {
+          "id": "p1",
+          "content": [{"Text": "L"}],
+          "style": null
+        }
+      }
+    }
+  }
+]"#;
+    std::fs::write(&ops_file, ops)?;
+    let status_edit = Command::new(bin)
+        .arg("edit")
+        .arg(&doc_file)
+        .arg("--apply")
+        .arg(&ops_file)
+        .status()?;
+    assert!(status_edit.success());
+
+    let layout = Command::new(bin).arg("layout").arg(&doc_file).output()?;
+    assert!(layout.status.success());
+    let json = String::from_utf8(layout.stdout)?;
+    assert!(json.contains("\"kind\":\"paragraph\""));
+
+    Ok(())
+}

@@ -37,7 +37,7 @@ impl HtmlRenderer {
                     .join("");
                 format!("<{tag}>{}</{tag}>", items_html)
             }
-            Block::CodeBlock { language, code, .. } => {
+            Block::Code { language, code, .. } => {
                 let lang_attr = language
                     .as_deref()
                     .map(|l| format!(" class=\"language-{}\"", Self::escape_html(l)))

@@ -1,7 +1,7 @@
-use crate::edit::edit_op::EditOp;
+use crate::replay::doc_event::DocEvent;
 
 pub struct UndoStack {
-    history: Vec<Vec<EditOp>>,
+    history: Vec<DocEvent>,
 }
 
 impl UndoStack {
@@ -11,11 +11,11 @@ impl UndoStack {
         }
     }
 
-    pub fn push(&mut self, ops: Vec<EditOp>) {
-        self.history.push(ops);
+    pub fn push(&mut self, event: DocEvent) {
+        self.history.push(event);
     }
 
-    pub fn pop(&mut self) -> Option<Vec<EditOp>> {
+    pub fn pop(&mut self) -> Option<DocEvent> {
         self.history.pop()
     }
 

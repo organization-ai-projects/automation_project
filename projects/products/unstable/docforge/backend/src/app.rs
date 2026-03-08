@@ -1,6 +1,8 @@
 use crate::diagnostics::error::Error;
 use crate::edit::edit_op::EditOp;
 use crate::edit::edit_tx::EditTx;
+use crate::edit::undo_stack::UndoStack;
+use crate::layout::layout_engine::LayoutEngine;
 use crate::model::doc_id::DocId;
 use crate::model::document::Document;
 use crate::persistence::doc_snapshot::DocSnapshot;
@@ -25,6 +27,7 @@ pub fn run() -> Result<(), Error> {
         "render" => cmd_render(&args[2..]),
         "replay" => cmd_replay(&args[2..]),
         "history" => cmd_history(&args[2..]),
+        "layout" => cmd_layout(&args[2..]),
         _ => Ok(()),
     }
 }
@@ -125,14 +128,25 @@ fn cmd_edit(args: &[String]) -> Result<(), Error> {
         for doc_id in doc_ids {
             if let Some(snap) = store.load(&doc_id) {
                 let mut events = snap.events.clone();
-                let mut undone_events = snap.undone_events.clone();
+                let mut undo_stack = UndoStack::new();
+                for event in &snap.undone_events {
+                    undo_stack.push(event.clone());
+                }
+                if events.is_empty() && undo_stack.is_empty() {
+                    continue;
+                }
                 if let Some(last_event) = events.pop() {
-                    undone_events.push(last_event);
+                    undo_stack.push(last_event);
                 } else {
                     continue;
                 }
                 let mut replayed = Document::new(doc_id.clone(), "Untitled");
                 ReplayEngine::new().replay(&mut replayed, &events)?;
+                let mut undone_events: Vec<DocEvent> = Vec::with_capacity(undo_stack.len());
+                while let Some(event) = undo_stack.pop() {
+                    undone_events.push(event);
+                }
+                undone_events.reverse();
                 let updated = DocSnapshot::create_with_history(
                     &replayed,
                     snap.version + 1,
@@ -148,14 +162,25 @@ fn cmd_edit(args: &[String]) -> Result<(), Error> {
         for doc_id in doc_ids {
             if let Some(snap) = store.load(&doc_id) {
                 let mut events = snap.events.clone();
-                let mut undone_events = snap.undone_events.clone();
-                if let Some(restored_event) = undone_events.pop() {
+                let mut undo_stack = UndoStack::new();
+                for event in &snap.undone_events {
+                    undo_stack.push(event.clone());
+                }
+                if undo_stack.is_empty() {
+                    continue;
+                }
+                if let Some(restored_event) = undo_stack.pop() {
                     events.push(restored_event);
                 } else {
                     continue;
                 }
                 let mut replayed = Document::new(doc_id.clone(), "Untitled");
                 ReplayEngine::new().replay(&mut replayed, &events)?;
+                let mut undone_events: Vec<DocEvent> = Vec::with_capacity(undo_stack.len());
+                while let Some(event) = undo_stack.pop() {
+                    undone_events.push(event);
+                }
+                undone_events.reverse();
                 let updated = DocSnapshot::create_with_history(
                     &replayed,
                     snap.version + 1,
@@ -323,6 +348,27 @@ fn cmd_history(args: &[String]) -> Result<(), Error> {
                 row.doc_id, row.version, row.events, row.undone, row.last_sequence
             );
             StdoutWriter::write_line(&line);
+        }
+    }
+
+    Ok(())
+}
+
+fn cmd_layout(args: &[String]) -> Result<(), Error> {
+    if args.is_empty() {
+        return Err(Error::InvalidOperation(
+            "layout requires a file argument".to_string(),
+        ));
+    }
+
+    let file = &args[0];
+    let store = DocStore::load_from_file(file)?;
+    for doc_id in store.doc_ids() {
+        if let Some(snapshot) = store.load(&doc_id) {
+            let nodes = LayoutEngine::new().layout(&snapshot.document);
+            let payload =
+                common_json::to_string(&nodes).map_err(|e| Error::Serialization(e.to_string()))?;
+            StdoutWriter::write_line(&payload);
         }
     }
 

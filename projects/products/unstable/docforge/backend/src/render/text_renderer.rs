@@ -38,7 +38,7 @@ impl TextRenderer {
                 })
                 .collect::<Vec<_>>()
                 .join("\n"),
-            Block::CodeBlock { language, code, .. } => {
+            Block::Code { language, code, .. } => {
                 let fence = language.as_deref().unwrap_or("");
                 format!("```{fence}\n{code}\n```")
             }

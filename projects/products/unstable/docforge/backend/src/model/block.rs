@@ -21,7 +21,7 @@ pub enum Block {
         ordered: bool,
         style: Option<StyleId>,
     },
-    CodeBlock {
+    Code {
         id: BlockId,
         language: Option<String>,
         code: String,
@@ -40,7 +40,7 @@ impl Block {
             Block::Heading { id, .. } => id,
             Block::Paragraph { id, .. } => id,
             Block::List { id, .. } => id,
-            Block::CodeBlock { id, .. } => id,
+            Block::Code { id, .. } => id,
             Block::Quote { id, .. } => id,
         }
     }

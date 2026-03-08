@@ -17,15 +17,6 @@ impl EditTx {
         Self { ops }
     }
 
-    pub fn add_op(&mut self, op: EditOp) -> &mut Self {
-        self.ops.push(op);
-        self
-    }
-
-    pub fn ops(&self) -> &[EditOp] {
-        &self.ops
-    }
-
     pub fn apply(&self, doc: &mut Document) -> Result<(), Error> {
         let mut working = doc.clone();
         for op in &self.ops {
@@ -33,10 +24,6 @@ impl EditTx {
         }
         *doc = working;
         Ok(())
-    }
-
-    pub fn apply_op(op: &EditOp, doc: &mut Document) -> Result<(), Error> {
-        apply_op(op, doc)
     }
 }
 
@@ -93,7 +80,7 @@ fn apply_op(op: &EditOp, doc: &mut Document) -> Result<(), Error> {
                     Block::Heading { style, .. } => *style = Some(style_id.clone()),
                     Block::Paragraph { style, .. } => *style = Some(style_id.clone()),
                     Block::List { style, .. } => *style = Some(style_id.clone()),
-                    Block::CodeBlock { style, .. } => *style = Some(style_id.clone()),
+                    Block::Code { style, .. } => *style = Some(style_id.clone()),
                     Block::Quote { style, .. } => *style = Some(style_id.clone()),
                 }
             } else {

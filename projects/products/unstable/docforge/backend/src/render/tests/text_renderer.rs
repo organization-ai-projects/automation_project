@@ -11,7 +11,7 @@ use crate::render::text_renderer::TextRenderer;
 fn test_text_render_stable() {
     let mut doc = Document::new(DocId::new("doc1"), "Test");
     doc.blocks.push(Block::Paragraph {
-        id: BlockId::new("p1"),
+        id: BlockId("p1".to_string()),
         content: vec![Inline::Text("Hello world".to_string())],
         style: None,
     });

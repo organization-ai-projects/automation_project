@@ -15,7 +15,7 @@ fn test_edit_tx_applies_insert_and_title() {
         EditOp::InsertBlock {
             position: 0,
             block: Block::Paragraph {
-                id: BlockId::new("p1"),
+                id: BlockId("p1".to_string()),
                 content: vec![Inline::Text("Hello".to_string())],
                 style: None,
             },
@@ -39,7 +39,7 @@ fn test_edit_tx_rolls_back_on_failure() {
             title: "ShouldNotPersist".to_string(),
         },
         EditOp::DeleteBlock {
-            block_id: BlockId::new("missing"),
+            block_id: BlockId("missing".to_string()),
         },
     ]);
 

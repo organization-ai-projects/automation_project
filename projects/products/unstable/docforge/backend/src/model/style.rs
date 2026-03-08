@@ -9,16 +9,3 @@ pub struct Style {
     pub italic: bool,
     pub color_hex: Option<String>,
 }
-
-impl Style {
-    pub fn new(id: StyleId) -> Self {
-        Self {
-            id,
-            font_family: None,
-            font_size_pt: None,
-            bold: false,
-            italic: false,
-            color_hex: None,
-        }
-    }
-}

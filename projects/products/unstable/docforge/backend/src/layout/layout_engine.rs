@@ -12,10 +12,7 @@ impl LayoutEngine {
     }
 
     pub fn layout(&self, doc: &Document) -> Vec<LayoutNode> {
-        doc.blocks
-            .iter()
-            .map(|block| Self::layout_block(block))
-            .collect()
+        doc.blocks.iter().map(Self::layout_block).collect()
     }
 
     fn layout_block(block: &Block) -> LayoutNode {
@@ -54,7 +51,7 @@ impl LayoutEngine {
                     children,
                 }
             }
-            Block::CodeBlock {
+            Block::Code {
                 id, language, code, ..
             } => {
                 let kind = language
@@ -79,10 +76,7 @@ impl LayoutEngine {
     }
 
     fn layout_inlines(inlines: &[Inline]) -> Vec<LayoutNode> {
-        inlines
-            .iter()
-            .map(|inline| Self::layout_inline(inline))
-            .collect()
+        inlines.iter().map(Self::layout_inline).collect()
     }
 
     fn layout_inline(inline: &Inline) -> LayoutNode {
@@ -95,7 +89,7 @@ impl LayoutEngine {
                 kind: "bold".into(),
                 text: children
                     .iter()
-                    .map(|c| Self::inline_text(c))
+                    .map(Self::inline_text)
                     .collect::<Vec<_>>()
                     .join(""),
             },
@@ -103,7 +97,7 @@ impl LayoutEngine {
                 kind: "italic".into(),
                 text: children
                     .iter()
-                    .map(|c| Self::inline_text(c))
+                    .map(Self::inline_text)
                     .collect::<Vec<_>>()
                     .join(""),
             },
@@ -123,7 +117,7 @@ impl LayoutEngine {
             Inline::Text(s) => s.clone(),
             Inline::Bold(children) | Inline::Italic(children) => children
                 .iter()
-                .map(|c| Self::inline_text(c))
+                .map(Self::inline_text)
                 .collect::<Vec<_>>()
                 .join(""),
             Inline::CodeSpan(s) => s.clone(),

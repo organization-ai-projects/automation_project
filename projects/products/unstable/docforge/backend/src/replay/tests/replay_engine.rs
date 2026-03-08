@@ -17,7 +17,7 @@ fn test_replay_produces_same_document_as_direct_apply() {
         EditOp::InsertBlock {
             position: 0,
             block: Block::Heading {
-                id: BlockId::new("h1"),
+                id: BlockId("h1".to_string()),
                 level: 1,
                 content: vec![Inline::Text("Hello".to_string())],
                 style: None,

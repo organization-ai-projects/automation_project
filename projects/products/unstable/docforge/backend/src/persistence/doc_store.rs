@@ -40,6 +40,7 @@ impl DocStore {
             .map_err(|e| Error::Serialization(e.to_string()))?;
         let mut snapshots: BTreeMap<DocId, DocSnapshot> = BTreeMap::new();
         for (doc_id, mut snapshot) in loaded {
+            snapshot.verify()?;
             snapshot.doc_id = DocId::new(doc_id.clone());
             snapshots.insert(DocId::new(doc_id), snapshot);
         }

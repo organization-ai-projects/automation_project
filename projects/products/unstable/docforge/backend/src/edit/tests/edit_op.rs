@@ -14,7 +14,7 @@ fn make_doc() -> Document {
 
 fn make_paragraph(id: &str) -> Block {
     Block::Paragraph {
-        id: BlockId::new(id),
+        id: BlockId(id.to_string()),
         content: vec![Inline::Text("Hello".to_string())],
         style: None,
     }
@@ -30,5 +30,5 @@ fn test_insert_block_op() {
     let applied = tx.apply(&mut doc);
     assert!(applied.is_ok());
     assert_eq!(doc.blocks.len(), 1);
-    assert_eq!(doc.blocks[0].id(), &BlockId::new("b1"));
+    assert_eq!(doc.blocks[0].id(), &BlockId("b1".to_string()));
 }
