@@ -1,0 +1,13 @@
+pub fn print_usage() {
+    tracing::info!("Usage:");
+    tracing::info!(
+        "  diplo_sim run --turns N --seed S --map <map_file> --players <n> --out <match.json> [--replay-out <replay.bin>]"
+    );
+    tracing::info!("  diplo_sim replay --replay <replay.bin> --out <match.json>");
+    tracing::info!("  diplo_sim validate-map --map <map_file>");
+    tracing::info!("  diplo_sim validate-orders --map <map_file> --orders <orders_file>");
+}
+
+pub fn get_arg(args: &[String], flag: &str) -> Option<String> {
+    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
+}

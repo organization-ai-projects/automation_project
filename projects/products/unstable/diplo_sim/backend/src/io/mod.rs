@@ -1,3 +1,3 @@
 pub mod json_codec;
-
-pub use json_codec::{decode, encode};
+#[cfg(test)]
+mod tests;

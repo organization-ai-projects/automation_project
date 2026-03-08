@@ -1,6 +1,6 @@
 use super::replay_file::ReplayFile;
 use crate::adjudication::adjudication_engine::AdjudicationEngine;
-use crate::diagnostics::error::DiploSimError;
+use crate::diagnostics::diplo_sim_error::DiploSimError;
 use crate::map::map_loader::load_map_from_str;
 use crate::model::faction::Faction;
 use crate::model::faction_id::FactionId;

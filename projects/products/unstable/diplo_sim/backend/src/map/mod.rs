@@ -1,9 +1,9 @@
+pub mod map_file;
 pub mod map_graph;
 pub mod map_loader;
+pub mod starting_unit_file;
 pub mod territory;
+pub mod territory_file;
 pub mod territory_id;
-
-pub use map_graph::MapGraph;
-pub use map_loader::{StartingUnitFile, load_map_from_file, load_map_from_str};
-pub use territory::Territory;
-pub use territory_id::TerritoryId;
+#[cfg(test)]
+mod tests;

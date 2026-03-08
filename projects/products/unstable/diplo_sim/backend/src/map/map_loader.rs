@@ -1,29 +1,9 @@
+use super::map_file::MapFile;
 use super::map_graph::MapGraph;
+use super::starting_unit_file::StartingUnitFile;
 use super::territory::Territory;
 use super::territory_id::TerritoryId;
-use crate::diagnostics::error::DiploSimError;
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-pub struct MapFile {
-    pub name: String,
-    pub version: String,
-    pub territories: Vec<TerritoryFile>,
-    pub adjacencies: Vec<[u32; 2]>,
-    pub starting_units: Vec<StartingUnitFile>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TerritoryFile {
-    pub id: u32,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct StartingUnitFile {
-    pub faction_id: u32,
-    pub territory_id: u32,
-}
+use crate::diagnostics::diplo_sim_error::DiploSimError;
 
 pub fn load_map_from_str(json: &str) -> Result<(MapGraph, Vec<StartingUnitFile>), DiploSimError> {
     let map_file: MapFile = common_json::from_str(json)

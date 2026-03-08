@@ -66,8 +66,10 @@ pub fn canonical_json_string(v: &Json) -> String {
 
 /// Compute run hash from a serializable value using canonical JSON (sorted keys).
 pub fn compute_canonical_run_hash<T: serde::Serialize>(value: &T) -> String {
-    let json_val =
-        common_json::to_json(value).expect("Failed to serialize value for run_hash computation");
+    let json_val = match common_json::to_json(value) {
+        Ok(v) => v,
+        Err(err) => return compute_run_hash_from_json(&format!("serialization_error:{err}")),
+    };
     let canonical = canonical_json_string(&json_val);
     compute_run_hash_from_json(&canonical)
 }

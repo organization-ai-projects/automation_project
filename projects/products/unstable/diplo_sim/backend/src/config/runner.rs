@@ -1,7 +1,9 @@
 use crate::adjudication::adjudication_engine::AdjudicationEngine;
 use crate::ai::ai_engine::AiEngine;
 use crate::ai::ai_profile::AiProfile;
-use crate::diagnostics::error::DiploSimError;
+use crate::config::game_config::GameConfig;
+use crate::diagnostics::diplo_sim_error::DiploSimError;
+use crate::io::json_codec::{decode, encode};
 use crate::map::map_loader::{load_map_from_file, load_map_from_str};
 use crate::model::faction::Faction;
 use crate::model::faction_id::FactionId;
@@ -12,9 +14,16 @@ use crate::replay::event_log::EventLog;
 use crate::replay::replay_event::ReplayEvent;
 use crate::replay::replay_file::ReplayFile;
 use crate::report::match_report::MatchReport;
-use crate::report::run_hash::compute_run_hash_from_json;
+use crate::report::run_hash::{canonical_json_string, compute_run_hash_from_json};
 use crate::report::turn_report::TurnReport;
+use crate::time::phase::Phase;
 use crate::time::turn::Turn;
+
+fn serialize_canonical_match_report(report: &MatchReport) -> Result<String, DiploSimError> {
+    let json = common_json::to_json(report)
+        .map_err(|e| DiploSimError::Internal(format!("Serialize error: {e}")))?;
+    Ok(canonical_json_string(&json))
+}
 
 pub fn run_simulation(
     num_turns: u32,
@@ -24,8 +33,21 @@ pub fn run_simulation(
     out_path: &str,
     replay_out: Option<&str>,
 ) -> Result<(), DiploSimError> {
-    let map_json = std::fs::read_to_string(map_path)
-        .map_err(|e| DiploSimError::Io(format!("Cannot read map '{}': {}", map_path, e)))?;
+    if num_turns == 0 {
+        return Err(DiploSimError::Config(
+            "num_turns must be greater than zero".to_string(),
+        ));
+    }
+    if num_players == 0 {
+        return Err(DiploSimError::Config(
+            "num_players must be greater than zero".to_string(),
+        ));
+    }
+
+    let game_config = GameConfig::new(num_turns, seed, num_players, map_path.to_string());
+    let map_json = std::fs::read_to_string(&game_config.map_path).map_err(|e| {
+        DiploSimError::Io(format!("Cannot read map '{}': {}", game_config.map_path, e))
+    })?;
 
     let (map, starting_units) = load_map_from_str(&map_json)?;
 
@@ -33,7 +55,10 @@ pub fn run_simulation(
     let mut faction_ids: Vec<u32> = starting_units.iter().map(|su| su.faction_id).collect();
     faction_ids.sort();
     faction_ids.dedup();
-    let faction_ids: Vec<u32> = faction_ids.into_iter().take(num_players as usize).collect();
+    let faction_ids: Vec<u32> = faction_ids
+        .into_iter()
+        .take(game_config.num_players as usize)
+        .collect();
 
     let factions: Vec<Faction> = faction_ids
         .iter()
@@ -64,14 +89,14 @@ pub fn run_simulation(
     };
 
     let mut engine = AdjudicationEngine::new(initial_state);
-    let ai = AiEngine::new(seed, AiProfile::default());
+    let ai = AiEngine::new(game_config.seed, AiProfile::default());
     let mut event_log = EventLog::new();
     let mut turn_reports: Vec<TurnReport> = Vec::new();
     let mut next_order_id: u32 = 0;
 
-    for _ in 0..num_turns {
-        let turn = engine.state.current_turn;
-        let order_sets = ai.generate_all_orders(&engine.state, &mut next_order_id);
+    for turn_index in 0..game_config.num_turns {
+        let turn = engine.current_state().current_turn;
+        let order_sets = ai.generate_all_orders(engine.current_state(), &mut next_order_id);
         let adjudication = engine.adjudicate(&order_sets);
 
         event_log.push(ReplayEvent {
@@ -84,13 +109,18 @@ pub fn run_simulation(
             order_sets,
             adjudication,
         });
+        let phase = Phase::Orders;
+        tracing::debug!(
+            "Completed simulation turn index {} phase {:?}",
+            turn_index,
+            phase
+        );
     }
 
-    let match_report = MatchReport::build(map.name.clone(), seed, turn_reports);
+    let match_report = MatchReport::build(map.name.clone(), game_config.seed, turn_reports);
 
     // Write match report
-    let report_json = common_json::to_json_string(&match_report)
-        .map_err(|e| DiploSimError::Internal(format!("Serialize error: {e}")))?;
+    let report_json = serialize_canonical_match_report(&match_report)?;
     std::fs::write(out_path, &report_json)
         .map_err(|e| DiploSimError::Io(format!("Cannot write '{}': {}", out_path, e)))?;
 
@@ -101,12 +131,11 @@ pub fn run_simulation(
             map_hash,
             map_name: map.name.clone(),
             map_json,
-            seed,
-            num_factions: num_players,
+            seed: game_config.seed,
+            num_factions: game_config.num_players,
             event_log,
         };
-        let replay_json = common_json::to_json_string(&replay_file)
-            .map_err(|e| DiploSimError::Internal(format!("Replay serialize error: {e}")))?;
+        let replay_json = encode(&replay_file)?;
         std::fs::write(replay_path, &replay_json).map_err(|e| {
             DiploSimError::Io(format!("Cannot write replay '{}': {}", replay_path, e))
         })?;
@@ -120,13 +149,12 @@ pub fn replay_simulation(replay_path: &str, out_path: &str) -> Result<(), DiploS
     let replay_json = std::fs::read_to_string(replay_path)
         .map_err(|e| DiploSimError::Io(format!("Cannot read replay '{}': {}", replay_path, e)))?;
 
-    let replay_file: ReplayFile = common_json::from_str(&replay_json)
-        .map_err(|e| DiploSimError::Replay(format!("Parse replay: {e}")))?;
+    let replay_file: ReplayFile =
+        decode(&replay_json).map_err(|e| DiploSimError::Replay(e.to_string()))?;
 
     let match_report = crate::replay::replay_engine::replay(&replay_file)?;
 
-    let report_json = common_json::to_json_string(&match_report)
-        .map_err(|e| DiploSimError::Internal(format!("Serialize error: {e}")))?;
+    let report_json = serialize_canonical_match_report(&match_report)?;
     std::fs::write(out_path, &report_json)
         .map_err(|e| DiploSimError::Io(format!("Cannot write '{}': {}", out_path, e)))?;
 
@@ -135,15 +163,21 @@ pub fn replay_simulation(replay_path: &str, out_path: &str) -> Result<(), DiploS
 }
 
 pub fn validate_map(map_path: &str) -> Result<(), DiploSimError> {
-    let _map_json = std::fs::read_to_string(map_path)
+    let map_json = std::fs::read_to_string(map_path)
         .map_err(|e| DiploSimError::Io(format!("Cannot read map '{}': {}", map_path, e)))?;
-    let (_map, _units) = load_map_from_file(map_path)?;
+    let (map_graph_validated, starting_units) = load_map_from_file(map_path)?;
+    tracing::debug!(
+        "Validated map territories={} units={}",
+        map_graph_validated.territory_count(),
+        starting_units.len()
+    );
+    tracing::debug!("Loaded map bytes: {}", map_json.len());
     tracing::info!("Map '{}' is valid", map_path);
     Ok(())
 }
 
 pub fn validate_orders_cmd(map_path: &str, orders_path: &str) -> Result<(), DiploSimError> {
-    let (_map, starting_units) = load_map_from_file(map_path)?;
+    let (loaded_map, starting_units) = load_map_from_file(map_path)?;
     let orders_json = std::fs::read_to_string(orders_path)
         .map_err(|e| DiploSimError::Io(format!("Cannot read orders '{}': {}", orders_path, e)))?;
 
@@ -151,7 +185,12 @@ pub fn validate_orders_cmd(map_path: &str, orders_path: &str) -> Result<(), Dipl
     let order_set =
         crate::orders::order_parser::parse_order_set_from_str(&orders_json, &mut next_order_id)?;
 
-    let (map_graph, _) = load_map_from_file(map_path)?;
+    let (map_graph, loaded_units) = load_map_from_file(map_path)?;
+    tracing::debug!(
+        "Loaded map for order validation: territories={} units={}",
+        loaded_map.territories.len(),
+        loaded_units.len()
+    );
     let factions: Vec<Faction> = starting_units
         .iter()
         .map(|su| su.faction_id)
@@ -186,7 +225,7 @@ pub fn validate_orders_cmd(map_path: &str, orders_path: &str) -> Result<(), Dipl
         Ok(())
     } else {
         for e in &errors {
-            eprintln!("Validation error: {}", e);
+            tracing::error!("Validation error: {}", e);
         }
         Err(DiploSimError::OrderValidation {
             order_id: crate::orders::order_id::OrderId(0),

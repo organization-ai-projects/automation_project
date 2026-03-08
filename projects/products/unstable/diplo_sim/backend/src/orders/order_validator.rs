@@ -1,4 +1,4 @@
-use crate::diagnostics::error::DiploSimError;
+use crate::diagnostics::diplo_sim_error::DiploSimError;
 use crate::map::map_graph::MapGraph;
 use crate::model::game_state::GameState;
 use crate::orders::order_kind::OrderKind;

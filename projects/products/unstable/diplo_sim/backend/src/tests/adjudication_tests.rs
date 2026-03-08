@@ -1,5 +1,5 @@
 use crate::adjudication::adjudication_engine::AdjudicationEngine;
-use crate::adjudication::resolution_step::ResolutionOutcome;
+use crate::adjudication::resolution_outcome::ResolutionOutcome;
 use crate::map::map_graph::MapGraph;
 use crate::map::territory_id::TerritoryId;
 use crate::model::faction::Faction;

@@ -1,4 +1,4 @@
-use crate::diagnostics::error::DiploSimError;
+use crate::diagnostics::diplo_sim_error::DiploSimError;
 use crate::map::map_loader::load_map_from_str;
 use crate::map::territory_id::TerritoryId;
 use crate::model::faction::Faction;

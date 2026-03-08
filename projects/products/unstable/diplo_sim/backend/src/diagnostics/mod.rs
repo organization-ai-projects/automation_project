@@ -1,2 +1,1 @@
-pub mod error;
-pub use error::DiploSimError;
+pub mod diplo_sim_error;

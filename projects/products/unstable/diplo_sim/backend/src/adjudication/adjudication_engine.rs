@@ -1,5 +1,6 @@
 use super::adjudication_report::AdjudicationReport;
-use super::resolution_step::{ResolutionOutcome, ResolutionStep};
+use super::resolution_outcome::ResolutionOutcome;
+use super::resolution_step::ResolutionStep;
 use crate::map::territory_id::TerritoryId;
 use crate::model::game_state::GameState;
 use crate::model::unit_id::UnitId;

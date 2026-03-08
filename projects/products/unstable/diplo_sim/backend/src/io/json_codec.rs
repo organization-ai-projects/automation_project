@@ -1,4 +1,4 @@
-use crate::diagnostics::error::DiploSimError;
+use crate::diagnostics::diplo_sim_error::DiploSimError;
 
 /// Encode a value to JSON string.
 pub fn encode<T: serde::Serialize>(value: &T) -> Result<String, DiploSimError> {
