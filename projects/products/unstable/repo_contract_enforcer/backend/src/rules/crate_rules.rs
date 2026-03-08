@@ -103,6 +103,16 @@ impl CrateRules {
                         (true, None),
                     ));
                 }
+                if crate_name == "ui" && !cargo_declares_dependency(&txt, "dioxus") {
+                    out.push(make_violation(
+                        RuleId::Crate,
+                        ViolationCode::CrateUiMissingDioxusDependency,
+                        (scope, mode),
+                        &cargo,
+                        "ui crate must declare dioxus dependency",
+                        (true, None),
+                    ));
+                }
 
                 if !txt.contains(&format!("name = \"{expected_name}\"")) {
                     out.push(make_violation(
@@ -862,6 +872,58 @@ mod tests {
         assert!(violations.iter().any(|v| {
             v.violation_code == ViolationCode::CrateForbiddenSerdeJsonDependency
                 && v.path.ends_with("backend/Cargo.toml")
+        }));
+    }
+
+    #[test]
+    fn crate_requires_dioxus_dependency_in_ui_crate() {
+        let product_root = temp_product_root();
+        let product_name = "project_mu";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_mu_backend");
+        write_minimal_bin_crate(&ui, "project_mu_ui");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateUiMissingDioxusDependency
+                && v.path.ends_with("ui/Cargo.toml")
+        }));
+    }
+
+    #[test]
+    fn crate_accepts_dioxus_dependency_in_target_specific_section() {
+        let product_root = temp_product_root();
+        let product_name = "project_nu";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_nu_backend");
+        write_minimal_bin_crate(&ui, "project_nu_ui");
+
+        fs::write(
+            ui.join("Cargo.toml"),
+            "[package]\nname = \"project_nu_ui\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[target.'cfg(target_arch = \"wasm32\")'.dependencies]\ndioxus = { version = \"0.7.3\", features = [\"web\"] }\n",
+        )
+        .expect("write ui Cargo with target dioxus");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(!violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateUiMissingDioxusDependency
+                && v.path.ends_with("ui/Cargo.toml")
         }));
     }
 }

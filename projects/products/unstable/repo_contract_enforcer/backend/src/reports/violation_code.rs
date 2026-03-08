@@ -48,4 +48,5 @@ pub enum ViolationCode {
     LayerLibraryHasMainRs,
     LayerLibraryMissingLibRs,
     RuleFileReadError,
+    CrateUiMissingDioxusDependency,
 }
