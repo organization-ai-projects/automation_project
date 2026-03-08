@@ -77,6 +77,7 @@ fn cmd_edit(args: &[String]) -> Result<(), Error> {
     let file = &args[0];
     let mut ops_file: Option<String> = None;
     let mut undo = false;
+    let mut redo = false;
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -86,6 +87,10 @@ fn cmd_edit(args: &[String]) -> Result<(), Error> {
             }
             "--undo" => {
                 undo = true;
+                i += 1;
+            }
+            "--redo" => {
+                redo = true;
                 i += 1;
             }
             _ => {
@@ -108,7 +113,8 @@ fn cmd_edit(args: &[String]) -> Result<(), Error> {
                 let mut events = snap.events.clone();
                 let next_sequence = events.last().map(|event| event.sequence + 1).unwrap_or(1);
                 events.push(DocEvent::new(next_sequence, doc.id.clone(), ops.clone()));
-                let updated = DocSnapshot::create(&doc, snap.version + 1, events)?;
+                let updated =
+                    DocSnapshot::create_with_history(&doc, snap.version + 1, events, Vec::new())?;
                 store.save(updated);
             }
         }
@@ -118,12 +124,43 @@ fn cmd_edit(args: &[String]) -> Result<(), Error> {
         for doc_id in doc_ids {
             if let Some(snap) = store.load(&doc_id) {
                 let mut events = snap.events.clone();
-                if events.pop().is_none() {
+                let mut undone_events = snap.undone_events.clone();
+                if let Some(last_event) = events.pop() {
+                    undone_events.push(last_event);
+                } else {
                     continue;
                 }
                 let mut replayed = Document::new(doc_id.clone(), "Untitled");
                 ReplayEngine::new().replay(&mut replayed, &events)?;
-                let updated = DocSnapshot::create(&replayed, snap.version + 1, events)?;
+                let updated = DocSnapshot::create_with_history(
+                    &replayed,
+                    snap.version + 1,
+                    events,
+                    undone_events,
+                )?;
+                store.save(updated);
+            }
+        }
+        store.save_to_file(file)?;
+    } else if redo {
+        let doc_ids = store.doc_ids();
+        for doc_id in doc_ids {
+            if let Some(snap) = store.load(&doc_id) {
+                let mut events = snap.events.clone();
+                let mut undone_events = snap.undone_events.clone();
+                if let Some(restored_event) = undone_events.pop() {
+                    events.push(restored_event);
+                } else {
+                    continue;
+                }
+                let mut replayed = Document::new(doc_id.clone(), "Untitled");
+                ReplayEngine::new().replay(&mut replayed, &events)?;
+                let updated = DocSnapshot::create_with_history(
+                    &replayed,
+                    snap.version + 1,
+                    events,
+                    undone_events,
+                )?;
                 store.save(updated);
             }
         }

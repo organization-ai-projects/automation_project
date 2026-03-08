@@ -13,11 +13,22 @@ pub struct DocSnapshot {
     pub version: u64,
     pub document: Document,
     pub events: Vec<DocEvent>,
+    #[serde(default)]
+    pub undone_events: Vec<DocEvent>,
     pub checksum: String,
 }
 
 impl DocSnapshot {
     pub fn create(doc: &Document, version: u64, events: Vec<DocEvent>) -> Result<Self, Error> {
+        Self::create_with_history(doc, version, events, Vec::new())
+    }
+
+    pub fn create_with_history(
+        doc: &Document,
+        version: u64,
+        events: Vec<DocEvent>,
+        undone_events: Vec<DocEvent>,
+    ) -> Result<Self, Error> {
         let canonical = canonical_document_bytes(doc)?;
         let checksum = compute_sha256(&canonical);
         Ok(Self {
@@ -25,6 +36,7 @@ impl DocSnapshot {
             version,
             document: doc.clone(),
             events,
+            undone_events,
             checksum,
         })
     }

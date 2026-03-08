@@ -21,12 +21,12 @@ impl ReplayEngine {
                     "event doc_id does not match target document".to_string(),
                 ));
             }
-            if let Some(previous) = previous_sequence {
-                if event.sequence <= previous {
-                    return Err(Error::Replay(
-                        "event sequence must be strictly increasing".to_string(),
-                    ));
-                }
+            if let Some(previous) = previous_sequence
+                && event.sequence <= previous
+            {
+                return Err(Error::Replay(
+                    "event sequence must be strictly increasing".to_string(),
+                ));
             }
             let tx = EditTx::from_ops(event.ops.clone());
             tx.apply(doc)?;

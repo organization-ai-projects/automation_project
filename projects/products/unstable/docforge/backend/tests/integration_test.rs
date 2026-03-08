@@ -221,3 +221,69 @@ fn test_cli_edit_undo_reverts_last_event() -> Result<(), Box<dyn std::error::Err
 
     Ok(())
 }
+
+#[test]
+fn test_cli_edit_redo_restores_last_undone_event() -> Result<(), Box<dyn std::error::Error>> {
+    let bin = env!("CARGO_BIN_EXE_docforge_backend");
+    let doc_file = unique_path("doc_redo");
+    let ops_file = unique_path("ops_redo");
+
+    let status_new = Command::new(bin)
+        .arg("new")
+        .arg("--title")
+        .arg("Redo")
+        .arg("--out")
+        .arg(&doc_file)
+        .status()?;
+    assert!(status_new.success());
+
+    let ops = r#"[
+  {
+    "InsertBlock": {
+      "position": 0,
+      "block": {
+        "Paragraph": {
+          "id": "p1",
+          "content": [{"Text": "Hello"}],
+          "style": null
+        }
+      }
+    }
+  }
+]"#;
+    std::fs::write(&ops_file, ops)?;
+
+    let status_edit = Command::new(bin)
+        .arg("edit")
+        .arg(&doc_file)
+        .arg("--apply")
+        .arg(&ops_file)
+        .status()?;
+    assert!(status_edit.success());
+
+    let status_undo = Command::new(bin)
+        .arg("edit")
+        .arg(&doc_file)
+        .arg("--undo")
+        .status()?;
+    assert!(status_undo.success());
+
+    let status_redo = Command::new(bin)
+        .arg("edit")
+        .arg(&doc_file)
+        .arg("--redo")
+        .status()?;
+    assert!(status_redo.success());
+
+    let rendered = Command::new(bin)
+        .arg("render")
+        .arg(&doc_file)
+        .arg("--target")
+        .arg("text")
+        .output()?;
+    assert!(rendered.status.success());
+    let text = String::from_utf8(rendered.stdout)?;
+    assert!(text.contains("Hello"));
+
+    Ok(())
+}
