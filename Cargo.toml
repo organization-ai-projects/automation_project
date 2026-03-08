@@ -80,11 +80,14 @@ members = [
   "projects/products/unstable/artifact_factory/ui",
   "projects/products/unstable/universal_model_engine/backend",
   "projects/products/unstable/universal_model_engine/ui",
-  "projects/products/unstable/docforge",
+  "projects/products/unstable/docforge/backend",
+  "projects/products/unstable/docforge/ui",
   "projects/products/unstable/theme_park/backend",
   "projects/products/unstable/theme_park/ui",
   "projects/products/unstable/repo_contract_enforcer/backend",
   "projects/products/unstable/repo_contract_enforcer/ui",
+  "projects/products/unstable/schema_world/backend",
+  "projects/products/unstable/schema_world/ui",
 ]
 resolver = "2"
 

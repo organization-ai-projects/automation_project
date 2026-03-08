@@ -7,8 +7,8 @@ This pull request merges the `test-head` branch into `dev` and summarizes merged
 - CI: UNKNOWN ⚪
 - Breaking change
 - Breaking scope:
-  - crate(s): unknown
-  - source commit(s): unknown
+  - crate(s): metadata-only (scope not inferable)
+  - source commit(s): metadata-only (diff empty or unavailable)
 
 ### Issue Outcomes
 

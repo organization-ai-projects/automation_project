@@ -45,6 +45,7 @@ impl CrateRules {
         ] {
             let cargo = crate_path.join("Cargo.toml");
             let main_rs = crate_path.join("src/main.rs");
+            let lib_rs = crate_path.join("src/lib.rs");
             if !main_rs.exists() {
                 out.push(make_violation(
                     RuleId::Crate,
@@ -52,6 +53,16 @@ impl CrateRules {
                     (scope, mode),
                     &main_rs,
                     "crate must contain src/main.rs",
+                    (true, None),
+                ));
+            }
+            if lib_rs.exists() {
+                out.push(make_violation(
+                    RuleId::Crate,
+                    ViolationCode::CrateNotBinOnly,
+                    (scope, mode),
+                    &lib_rs,
+                    "crate must be bin-only; src/lib.rs is forbidden",
                     (true, None),
                 ));
             }
@@ -72,6 +83,36 @@ impl CrateRules {
                         (true, None),
                     ));
                 }
+                if txt.contains("[[bin]]") {
+                    out.push(make_violation(
+                        RuleId::Crate,
+                        ViolationCode::CrateNotBinOnly,
+                        (scope, mode),
+                        &cargo,
+                        "crate must be bin-only (no [[bin]])",
+                        (true, None),
+                    ));
+                }
+                if cargo_declares_dependency(&txt, "serde_json") {
+                    out.push(make_violation(
+                        RuleId::Crate,
+                        ViolationCode::CrateForbiddenSerdeJsonDependency,
+                        (scope, mode),
+                        &cargo,
+                        "products must not depend on serde_json; use common_json",
+                        (true, None),
+                    ));
+                }
+                if crate_name == "ui" && !cargo_declares_dependency(&txt, "dioxus") {
+                    out.push(make_violation(
+                        RuleId::Crate,
+                        ViolationCode::CrateUiMissingDioxusDependency,
+                        (scope, mode),
+                        &cargo,
+                        "ui crate must declare dioxus dependency",
+                        (true, None),
+                    ));
+                }
 
                 if !txt.contains(&format!("name = \"{expected_name}\"")) {
                     out.push(make_violation(
@@ -82,6 +123,32 @@ impl CrateRules {
                         &format!("{crate_name} crate name must be {expected_name}"),
                         (true, None),
                     ));
+                }
+            }
+
+            let extra_bins_dir = crate_path.join("src/bin");
+            if extra_bins_dir.exists() {
+                let bin_rs_files = FileScanner::gather_rs_files(&extra_bins_dir);
+                if bin_rs_files.is_empty() {
+                    out.push(make_violation(
+                        RuleId::Crate,
+                        ViolationCode::CrateNotBinOnly,
+                        (scope, mode),
+                        &extra_bins_dir,
+                        "crate must be single-bin only; src/bin is forbidden",
+                        (true, None),
+                    ));
+                } else {
+                    for rs in bin_rs_files {
+                        out.push(make_violation(
+                            RuleId::Crate,
+                            ViolationCode::CrateNotBinOnly,
+                            (scope, mode),
+                            &rs,
+                            "crate must be single-bin only; src/bin targets are forbidden",
+                            (true, None),
+                        ));
+                    }
                 }
             }
 
@@ -371,6 +438,30 @@ fn is_fn_line(trimmed: &str) -> bool {
         || trimmed.starts_with("pub unsafe fn ")
         || trimmed.starts_with("async unsafe fn ")
         || trimmed.starts_with("pub async unsafe fn ")
+}
+
+fn cargo_declares_dependency(cargo_toml_content: &str, crate_name: &str) -> bool {
+    let mut in_dependencies = false;
+    for raw in cargo_toml_content.lines() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if line.starts_with('[') {
+            in_dependencies = line.contains("dependencies");
+            continue;
+        }
+        if !in_dependencies {
+            continue;
+        }
+        let Some((name, _)) = line.split_once('=') else {
+            continue;
+        };
+        if name.trim().trim_matches('"') == crate_name {
+            return true;
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -694,6 +785,145 @@ mod tests {
         assert!(!violations.iter().any(|v| {
             v.violation_code == ViolationCode::CrateContainsInlineTestAttribute
                 && v.path.ends_with("backend/src/tests/service.rs")
+        }));
+    }
+
+    #[test]
+    fn crate_rejects_explicit_additional_bin_targets() {
+        let product_root = temp_product_root();
+        let product_name = "project_iota";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_iota_backend");
+        write_minimal_bin_crate(&ui, "project_iota_ui");
+
+        fs::write(
+            backend.join("Cargo.toml"),
+            "[package]\nname = \"project_iota_backend\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[[bin]]\nname = \"project_iota_backend\"\npath = \"src/main.rs\"\n\n[[bin]]\nname = \"extra\"\npath = \"src/bin/extra.rs\"\n",
+        )
+        .expect("write backend Cargo with [[bin]]");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateNotBinOnly
+                && v.path.ends_with("backend/Cargo.toml")
+                && v.message.contains("no [[bin]]")
+        }));
+    }
+
+    #[test]
+    fn crate_rejects_src_bin_targets() {
+        let product_root = temp_product_root();
+        let product_name = "project_kappa";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_kappa_backend");
+        write_minimal_bin_crate(&ui, "project_kappa_ui");
+
+        let extra = backend.join("src/bin/extra.rs");
+        fs::create_dir_all(extra.parent().expect("extra parent")).expect("mkdir extra bin parent");
+        fs::write(&extra, "fn main() {}\n").expect("write extra bin");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateNotBinOnly
+                && v.path.ends_with("backend/src/bin/extra.rs")
+                && v.message.contains("src/bin targets are forbidden")
+        }));
+    }
+
+    #[test]
+    fn crate_rejects_serde_json_dependency_for_products() {
+        let product_root = temp_product_root();
+        let product_name = "project_lambda";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_lambda_backend");
+        write_minimal_bin_crate(&ui, "project_lambda_ui");
+
+        fs::write(
+            backend.join("Cargo.toml"),
+            "[package]\nname = \"project_lambda_backend\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\nserde_json = \"1\"\n",
+        )
+        .expect("write backend Cargo with serde_json");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateForbiddenSerdeJsonDependency
+                && v.path.ends_with("backend/Cargo.toml")
+        }));
+    }
+
+    #[test]
+    fn crate_requires_dioxus_dependency_in_ui_crate() {
+        let product_root = temp_product_root();
+        let product_name = "project_mu";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_mu_backend");
+        write_minimal_bin_crate(&ui, "project_mu_ui");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateUiMissingDioxusDependency
+                && v.path.ends_with("ui/Cargo.toml")
+        }));
+    }
+
+    #[test]
+    fn crate_accepts_dioxus_dependency_in_target_specific_section() {
+        let product_root = temp_product_root();
+        let product_name = "project_nu";
+
+        let backend = product_root.join("backend");
+        let ui = product_root.join("ui");
+        write_minimal_bin_crate(&backend, "project_nu_backend");
+        write_minimal_bin_crate(&ui, "project_nu_ui");
+
+        fs::write(
+            ui.join("Cargo.toml"),
+            "[package]\nname = \"project_nu_ui\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[target.'cfg(target_arch = \"wasm32\")'.dependencies]\ndioxus = { version = \"0.7.3\", features = [\"web\"] }\n",
+        )
+        .expect("write ui Cargo with target dioxus");
+
+        let violations = CrateRules::evaluate(
+            &product_root,
+            product_name,
+            PathClassification::Stable,
+            EnforcementMode::Strict,
+        );
+
+        assert!(!violations.iter().any(|v| {
+            v.violation_code == ViolationCode::CrateUiMissingDioxusDependency
+                && v.path.ends_with("ui/Cargo.toml")
         }));
     }
 }

@@ -2,7 +2,3 @@
 name = "invalid_backend_unwrap_panic_backend"
 version = "0.1.0"
 edition = "2024"
-
-[[bin]]
-name = "invalid_backend_unwrap_panic_backend"
-path = "src/main.rs"

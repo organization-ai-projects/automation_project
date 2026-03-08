@@ -108,6 +108,10 @@ jobs:
               fi
               while [[ "$probe" != "." && "$probe" != "/" ]]; do
                 if [[ -f "$probe/Cargo.toml" ]]; then
+                  # Fixture crates are not workspace members; skip them from targeted -p runs.
+                  if [[ "$probe" == *"/tests/fixtures/"* ]]; then
+                    break
+                  fi
                   pkg_name="$(sed -nE 's/^name[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$probe/Cargo.toml" | head -n1)"
                   if [[ -n "$pkg_name" ]]; then
                     pkg_set["$pkg_name"]=1

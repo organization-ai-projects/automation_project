@@ -21,6 +21,7 @@ pub enum ViolationCode {
     CrateMissingPairedTestFile,
     CratePairedTestNotUnitStyle,
     CratePrimaryItemContractViolation,
+    CrateForbiddenSerdeJsonDependency,
     NameProductMismatch,
     NameCrateMismatch,
     LayerUiImportsBackend,
@@ -47,4 +48,5 @@ pub enum ViolationCode {
     LayerLibraryHasMainRs,
     LayerLibraryMissingLibRs,
     RuleFileReadError,
+    CrateUiMissingDioxusDependency,
 }

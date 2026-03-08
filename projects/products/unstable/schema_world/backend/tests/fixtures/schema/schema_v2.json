@@ -1,0 +1,9 @@
+{
+  "name": "player",
+  "version": { "value": 2 },
+  "fields": [
+    { "name": "display_name", "required": true, "ty": { "kind": "string" } },
+    { "name": "score", "required": true, "ty": { "kind": "number" } },
+    { "name": "active", "required": true, "ty": { "kind": "bool" } }
+  ]
+}
