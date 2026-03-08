@@ -6,7 +6,7 @@ Usage:
   issues/auto_link/run.sh --issue ISSUE_NUMBER
 
 Notes:
-  - Reads "Parent: #<number>" or "Parent: none" from issue body.
+  - Reads "Parent: #<number> | none | base | epic" from issue body.
   - Attempts to link child -> parent as GitHub sub-issue via GraphQL.
   - On invalid input or API linking failure, posts actionable status comment and labels issue.
 USAGE

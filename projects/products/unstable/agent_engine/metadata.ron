@@ -1,0 +1,35 @@
+(
+  schema_version: 1,
+  generated_at: 1772841600000,
+  id: "agent_engine",
+  name: "Agent Engine",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "agent_engine_ui", title: "Agent Engine", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "task-runtime",
+    "deterministic-execution",
+    "step-orchestration",
+  ],
+
+  domains: [
+    (id: "agent_engine", desc: "pluggable coding agent runtime"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/", "README.md", "metadata.ron"],
+    config_files: [
+      "backend/Cargo.toml",
+      "backend/backend_manifest.ron",
+      "ui/Cargo.toml",
+      "ui/ui_manifest.ron",
+    ],
+  ),
+)

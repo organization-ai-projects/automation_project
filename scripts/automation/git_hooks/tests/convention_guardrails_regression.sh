@@ -27,6 +27,33 @@ contains_issue() {
   [[ " ${list} " == *" ${issue} "* ]]
 }
 
+issue_has_children() {
+  local issue="$1"
+  local list="${MOCK_PARENT_WITH_CHILDREN:-${MOCK_ROOT_PARENT_ISSUES:-617}}"
+  [[ " ${list} " == *" ${issue} "* ]]
+}
+
+issue_parent_mode() {
+  local issue="$1"
+  local epic_list="${MOCK_EPIC_PARENT_ISSUES:-${MOCK_ROOT_PARENT_ISSUES:-617}}"
+  local base_list="${MOCK_BASE_PARENT_ISSUES:-}"
+  local none_list="${MOCK_NONE_PARENT_ISSUES:-}"
+
+  if [[ " ${epic_list} " == *" ${issue} "* ]]; then
+    echo "epic"
+    return
+  fi
+  if [[ " ${base_list} " == *" ${issue} "* ]]; then
+    echo "base"
+    return
+  fi
+  if [[ " ${none_list} " == *" ${issue} "* ]]; then
+    echo "none"
+    return
+  fi
+  echo "#617"
+}
+
 if [[ "${1:-}" == "repo" && "${2:-}" == "view" ]]; then
   echo "owner/repo"
   exit 0
@@ -52,7 +79,7 @@ if [[ "${1:-}" == "issue" && "${2:-}" == "list" ]]; then
     issue_number="${BASH_REMATCH[1]}"
   fi
 
-  if [[ -n "$issue_number" ]] && contains_issue "$issue_number"; then
+  if [[ -n "$issue_number" ]] && issue_has_children "$issue_number"; then
     echo "1"
   else
     echo "0"
@@ -94,19 +121,13 @@ if [[ "${1:-}" == "issue" && "${2:-}" == "view" ]]; then
   fi
 
   if [[ "$json_fields" == *"body"* ]]; then
-    if contains_issue "$issue_number"; then
-      echo "Parent: none"
-    else
-      echo "Parent: #617"
-    fi
+    parent_mode="$(issue_parent_mode "$issue_number")"
+    echo "Parent: ${parent_mode}"
     exit 0
   fi
 
-  if contains_issue "$issue_number"; then
-    echo "Parent: none"
-  else
-    echo "Parent: #617"
-  fi
+  parent_mode="$(issue_parent_mode "$issue_number")"
+  echo "Parent: ${parent_mode}"
   exit 0
 fi
 
@@ -286,8 +307,14 @@ main() {
   run_case \
     "commit-msg-blocks-root-parent" \
     5 \
-    "Root parent issue references are not allowed" \
+    "Protected parent issue references are not allowed" \
     "cp '${FIXTURES_DIR}/commit_msg_invalid_root_parent.txt' .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+
+  run_case \
+    "commit-msg-allows-base-parent-reference" \
+    0 \
+    "" \
+    "printf 'docs: update hook policy wording\n\nPart of #618\n' > .git/COMMIT_EDITMSG && MOCK_BASE_PARENT_ISSUES='618' MOCK_PARENT_WITH_CHILDREN='618' MOCK_MULTI_ASSIGNEE_ISSUES='618' /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
 
   run_case \
     "commit-msg-bypass-works" \
@@ -483,12 +510,24 @@ main() {
     "Root parent issue references detected" \
     "echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #617' >/dev/null && /bin/bash '${HOOKS_DIR}/pre-push'"
 
+  run_case \
+    "pre-push-allows-base-parent-reference" \
+    0 \
+    "Pre-push checks PASSED" \
+    "echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #618' >/dev/null && MOCK_BASE_PARENT_ISSUES='618' MOCK_PARENT_WITH_CHILDREN='618' MOCK_MULTI_ASSIGNEE_ISSUES='618' /bin/bash '${HOOKS_DIR}/pre-push'"
+
   # post-checkout: warn when branch history references root parent.
   run_case \
     "post-checkout-warns-on-root-parent" \
     0 \
     "Convention warning on branch checkout" \
     "echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #617' >/dev/null && /bin/bash '${HOOKS_DIR}/post-checkout' HEAD~1 HEAD 1"
+
+  run_case \
+    "post-checkout-no-warning-on-base-parent-reference" \
+    0 \
+    "" \
+    "echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #618' >/dev/null && MOCK_BASE_PARENT_ISSUES='618' MOCK_PARENT_WITH_CHILDREN='618' /bin/bash '${HOOKS_DIR}/post-checkout' HEAD~1 HEAD 1"
 
   echo ""
   echo "Summary: ${TESTS_RUN} run, ${TESTS_FAILED} failed."
