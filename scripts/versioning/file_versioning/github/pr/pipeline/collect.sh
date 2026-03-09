@@ -74,7 +74,6 @@ pr_pipeline_collect_from_single_pr_body() {
   pr_pipeline_apply_issue_directives_from_text \
     "$pr_body" \
     "$pr_category" \
-    "parse_pr_body_closing_issue_refs_from_text" \
     "pr ${pr_ref}"
 }
 
@@ -100,8 +99,7 @@ pr_pipeline_collect_issues_from_pr_bodies() {
 pr_pipeline_apply_issue_directives_from_text() {
   local text="$1"
   local category="$2"
-  local _closing_parser_fn="$3"
-  local debug_context="$4"
+  local debug_context="$3"
   local record record_type field_a field_b decision
   local -a records=()
   local -A seen_reopen_refs=()
@@ -200,7 +198,6 @@ pr_pipeline_collect_issues_from_commits_and_main_pr() {
       pr_pipeline_apply_issue_directives_from_text \
         "$dry_commit_messages" \
         "Mixed" \
-        "parse_closing_issue_refs_from_text" \
         "dry commits"
     fi
   fi
@@ -212,7 +209,6 @@ pr_pipeline_collect_issues_from_commits_and_main_pr() {
       pr_pipeline_apply_issue_directives_from_text \
         "$main_pr_body" \
         "Mixed" \
-        "parse_pr_body_closing_issue_refs_from_text" \
         "main pr"
     fi
 
@@ -223,7 +219,6 @@ pr_pipeline_collect_issues_from_commits_and_main_pr() {
         pr_pipeline_apply_issue_directives_from_text \
           "$refresh_compare_commit_messages" \
           "Mixed" \
-          "parse_closing_issue_refs_from_text" \
           "refresh commits"
       fi
     fi
