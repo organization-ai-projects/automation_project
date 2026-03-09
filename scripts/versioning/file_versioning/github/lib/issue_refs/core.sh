@@ -105,6 +105,14 @@ parse_all_closing_issue_refs_from_text() {
 
 parse_issue_directive_records_from_text() {
   local text="$1"
+  local native_output
+
+  if native_output="$(_parse_issue_directive_records_via_va "$text" 2>/dev/null)"; then
+    if [[ -n "$native_output" ]]; then
+      printf '%s\n' "$native_output"
+      return 0
+    fi
+  fi
 
   echo "$text" | awk '
     {
@@ -178,6 +186,32 @@ parse_issue_directive_records_from_text() {
       }
     }
   '
+}
+
+_parse_issue_directive_records_via_va() {
+  local text="$1"
+  local tmp_file
+  local -a cmd
+
+  cmd=()
+  if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
+    cmd=("${VA_PR_DIRECTIVES_BIN}" pr directives)
+  elif command -v va >/dev/null 2>&1; then
+    cmd=(va pr directives)
+  elif command -v versioning_automation >/dev/null 2>&1; then
+    cmd=(versioning_automation pr directives)
+  else
+    return 1
+  fi
+
+  tmp_file="$(mktemp)"
+  printf '%s' "$text" >"$tmp_file"
+  if "${cmd[@]}" --input-file "$tmp_file" --format plain; then
+    rm -f "$tmp_file"
+    return 0
+  fi
+  rm -f "$tmp_file"
+  return 1
 }
 
 parse_directive_events_from_text() {
