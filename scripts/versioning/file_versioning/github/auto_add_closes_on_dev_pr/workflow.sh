@@ -1,6 +1,30 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
+auto_add_collect_refs_from_payload() {
+  local payload="$1"
+  local _out_part_of_refs_var="$2"
+  local _out_closing_refs_var="$3"
+  local -n _out_part_of_refs_ref="$_out_part_of_refs_var"
+  local -n _out_closing_refs_ref="$_out_closing_refs_var"
+  local record_type action issue_key
+  local -a part_of_rows=()
+  local -a closing_rows=()
+
+  while IFS='|' read -r record_type action issue_key; do
+    [[ "$record_type" == "EV" ]] || continue
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    if [[ "$action" == "Part of" ]]; then
+      part_of_rows+=("Part of|${issue_key}")
+    elif [[ "$action" == "Closes" ]]; then
+      closing_rows+=("Closes|${issue_key}")
+    fi
+  done < <(parse_issue_directive_records_from_text "$payload")
+
+  _out_part_of_refs_ref="$(printf '%s\n' "${part_of_rows[@]}" | sed '/^$/d' | sort -u)"
+  _out_closing_refs_ref="$(printf '%s\n' "${closing_rows[@]}" | sed '/^$/d' | sort -u)"
+}
+
 auto_add_resolve_repo() {
   local current_repo_name="${1:-}"
   if [[ -z "$current_repo_name" ]]; then
@@ -72,13 +96,13 @@ auto_add_closes_run() {
     printf '%s\n' "$pr_commits"
   })"
 
-  part_of_refs="$(parse_non_closing_issue_refs_from_text "$payload_all")"
+  auto_add_collect_refs_from_payload "$payload_all" part_of_refs closing_refs
+
   if [[ -z "$part_of_refs" ]]; then
     echo "PR #${auto_add_pr_number}: no Part of refs detected; nothing to enrich."
     exit 0
   fi
 
-  closing_refs="$(parse_closing_issue_refs_from_text "$payload_all")"
   while IFS= read -r issue_number; do
     [[ -n "$issue_number" ]] && already_closing["$issue_number"]=1
   done < <(auto_add_extract_issue_numbers "$closing_refs")
