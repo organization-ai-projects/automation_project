@@ -1,4 +1,7 @@
+//! tools/versioning_automation/src/pr/parse.rs
+use std::fs;
 use std::io::{self, Read};
+use std::path::Path;
 
 use crate::pr::model::pr_action::PrAction;
 use crate::pr::model::pr_directives_format::PrDirectivesFormat;
@@ -19,6 +22,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
 fn parse_directives(args: &[String]) -> Result<PrDirectivesOptions, String> {
     let mut text: Option<String> = None;
     let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
     let mut format = PrDirectivesFormat::Plain;
     let mut unique = false;
 
@@ -31,6 +35,9 @@ fn parse_directives(args: &[String]) -> Result<PrDirectivesOptions, String> {
             "--stdin" => {
                 read_stdin = true;
                 i += 1;
+            }
+            "--input-file" => {
+                input_file = Some(take_value("--input-file", args, &mut i)?);
             }
             "--format" => {
                 let value = take_value("--format", args, &mut i)?;
@@ -50,6 +57,8 @@ fn parse_directives(args: &[String]) -> Result<PrDirectivesOptions, String> {
 
     let resolved_text = if read_stdin {
         read_stdin_text()?
+    } else if let Some(file_path) = input_file {
+        read_file_text(&file_path)?
     } else {
         text.unwrap_or_default()
     };
@@ -81,4 +90,10 @@ fn read_stdin_text() -> Result<String, String> {
         .read_to_string(&mut input)
         .map_err(|err| format!("failed to read stdin: {err}"))?;
     Ok(input)
+}
+
+fn read_file_text(file_path: &str) -> Result<String, String> {
+    let path = Path::new(file_path);
+    fs::read_to_string(path)
+        .map_err(|err| format!("failed to read input file '{file_path}': {err}"))
 }

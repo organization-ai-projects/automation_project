@@ -24,3 +24,28 @@ fn pr_directives_with_text_returns_zero() {
     let code = run(&args);
     assert_eq!(code, 0);
 }
+
+#[test]
+fn pr_directives_with_input_file_returns_zero() {
+    let file_path = "/tmp/va_pr_directives_input.txt";
+    std::fs::write(file_path, "Closes #12").expect("write input file");
+    let args = vec![
+        "directives".to_string(),
+        "--input-file".to_string(),
+        file_path.to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+    std::fs::remove_file(file_path).expect("remove input file");
+}
+
+#[test]
+fn pr_directives_with_missing_input_file_returns_error() {
+    let args = vec![
+        "directives".to_string(),
+        "--input-file".to_string(),
+        "/tmp/va_pr_missing_input_file.txt".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
