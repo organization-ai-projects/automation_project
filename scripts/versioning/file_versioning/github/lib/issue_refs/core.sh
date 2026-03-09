@@ -108,10 +108,8 @@ parse_issue_directive_records_from_text() {
   local native_output
 
   if native_output="$(_parse_issue_directive_records_via_va "$text" 2>/dev/null)"; then
-    if [[ -n "$native_output" ]]; then
-      printf '%s\n' "$native_output"
-      return 0
-    fi
+    [[ -n "$native_output" ]] && printf '%s\n' "$native_output"
+    return 0
   fi
 
   echo "$text" | awk '
