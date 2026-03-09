@@ -50,13 +50,16 @@ pub(crate) fn scan_directives(text: &str, unique: bool) -> Vec<DirectiveRecord> 
         });
     }
 
-    let event_re = Regex::new(r"(?i)\b(closes|fixes|reopen|reopens)\b\s+[^#\s]*#([0-9]+)")
-        .expect("valid regex");
+    let event_re =
+        Regex::new(r"(?i)\b(closes|fixes|reopen|reopens|part[[:space:]]+of)\b\s+[^#\s]*#([0-9]+)")
+            .expect("valid regex");
     for caps in event_re.captures_iter(text) {
         let full = caps.get(0).expect("full capture");
         let token = caps.get(1).expect("token capture").as_str().to_lowercase();
         let action = if token == "closes" || token == "fixes" {
             "Closes".to_string()
+        } else if token == "part of" {
+            "Part of".to_string()
         } else {
             "Reopen".to_string()
         };
