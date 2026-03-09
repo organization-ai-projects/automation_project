@@ -95,8 +95,34 @@ neutralize_register_non_compliant_ref() {
   neutralized_count_ref=$((neutralized_count_ref + 1))
 }
 
+neutralize_collect_refs_from_body() {
+  local body="$1"
+  local _out_closing_refs_var="$2"
+  local _out_pre_neutralized_refs_var="$3"
+  local -n _out_closing_refs_ref="$_out_closing_refs_var"
+  local -n _out_pre_neutralized_refs_ref="$_out_pre_neutralized_refs_var"
+  local record_type action issue_key
+  local -a closing_rows=()
+  local -a pre_neutralized_rows=()
+
+  while IFS='|' read -r record_type action issue_key; do
+    [[ "$record_type" == "EV" ]] || continue
+    issue_key="$(neutralize_trim "$issue_key")"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+
+    if [[ "$action" == "Closes" ]]; then
+      closing_rows+=("${action}|${issue_key}")
+    elif [[ "$action" == "Closes rejected" ]]; then
+      pre_neutralized_rows+=("Closes|${issue_key}")
+    fi
+  done < <(parse_issue_directive_records_from_text "$body")
+
+  _out_closing_refs_ref="$(printf '%s\n' "${closing_rows[@]}" | sed '/^$/d' | sort -u)"
+  _out_pre_neutralized_refs_ref="$(printf '%s\n' "${pre_neutralized_rows[@]}" | sed '/^$/d' | sort -u)"
+}
+
 neutralize_process_closing_refs() {
-  local original_body="$1"
+  local refs="$1"
   local repo_name="$2"
   local updated_body_var_name="$3"
   local seen_ref_var_name="$4"
@@ -131,11 +157,11 @@ neutralize_process_closing_refs() {
     neutralize_register_non_compliant_ref \
       "$issue_key" "$action" "$reason" \
       "$neutralized_reason_var_name" "$neutralized_action_var_name" "$neutralized_count_var_name"
-  done < <(parse_closing_issue_refs_from_text "$original_body")
+  done <<<"$refs"
 }
 
 neutralize_process_pre_neutralized_refs() {
-  local original_body="$1"
+  local refs="$1"
   local repo_name="$2"
   local updated_body_var_name="$3"
   local seen_ref_var_name="$4"
@@ -173,7 +199,7 @@ neutralize_process_pre_neutralized_refs() {
     else
       updated_body_ref="$(neutralize_remove_rejected_marker "$updated_body_ref" "$keyword_pattern" "$issue_key")"
     fi
-  done < <(parse_neutralized_closing_issue_refs_from_text "$original_body")
+  done <<<"$refs"
 }
 
 neutralize_build_comment_body() {
@@ -266,8 +292,10 @@ neutralize_run() {
   fi
 
   local original_body updated_body
+  local closing_refs pre_neutralized_refs
   original_body="$(echo "$pr_json" | jq -r '.body // ""')"
   updated_body="$original_body"
+  neutralize_collect_refs_from_body "$original_body" closing_refs pre_neutralized_refs
 
   declare -A seen_ref
   declare -A neutralized_reason
@@ -276,11 +304,11 @@ neutralize_run() {
   local neutralized_count=0
 
   neutralize_process_closing_refs \
-    "$original_body" "$repo_name" \
+    "$closing_refs" "$repo_name" \
     updated_body seen_ref neutralized_reason neutralized_action neutralized_count reason_cache
 
   neutralize_process_pre_neutralized_refs \
-    "$original_body" "$repo_name" \
+    "$pre_neutralized_refs" "$repo_name" \
     updated_body seen_ref neutralized_reason neutralized_action neutralized_count reason_cache
 
   if [[ "$updated_body" != "$original_body" ]]; then
