@@ -3,9 +3,22 @@
 
 # Core issue-reference parsing helpers.
 
+_parse_issue_directive_event_refs() {
+  local text="$1"
+  local event_action="$2"
+  local emitted_action="${3:-$event_action}"
+  parse_issue_directive_records_from_text "$text" | awk -F'|' -v event_action="$event_action" -v emitted_action="$emitted_action" '$1 == "EV" && $2 == event_action { print emitted_action "|" $3 }'
+}
+
+_parse_issue_directive_records_by_type() {
+  local text="$1"
+  local record_type="$2"
+  parse_issue_directive_records_from_text "$text" | awk -F'|' -v record_type="$record_type" '$1 == record_type { print $2 "|" $3 }'
+}
+
 parse_closing_issue_refs_from_text() {
   local text="$1"
-  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" && $2 == "Closes" { print $2 "|" $3 }' | sort -u
+  _parse_issue_directive_event_refs "$text" "Closes" | sort -u
 }
 
 parse_pr_body_closing_issue_refs_from_text() {
@@ -16,12 +29,12 @@ parse_pr_body_closing_issue_refs_from_text() {
 
 parse_non_closing_issue_refs_from_text() {
   local text="$1"
-  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" && $2 == "Part of" { print $2 "|" $3 }' | sort -u
+  _parse_issue_directive_event_refs "$text" "Part of" | sort -u
 }
 
 parse_neutralized_closing_issue_refs_from_text() {
   local text="$1"
-  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" && $2 == "Closes rejected" { print "Closes|" $3 }' | sort -u
+  _parse_issue_directive_event_refs "$text" "Closes rejected" "Closes" | sort -u
 }
 
 parse_all_closing_issue_refs_from_text() {
@@ -150,22 +163,22 @@ _parse_issue_directive_records_via_va() {
 
 parse_directive_events_from_text() {
   local text="$1"
-  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" { print $2 "|" $3 }'
+  _parse_issue_directive_records_by_type "$text" "EV"
 }
 
 parse_reopen_issue_refs_from_text() {
   local text="$1"
-  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" && $2 == "Reopen" { print $2 "|" $3 }' | sort -u
+  _parse_issue_directive_event_refs "$text" "Reopen" | sort -u
 }
 
 parse_duplicate_refs_from_text() {
   local text="$1"
-  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "DUP" { print $2 "|" $3 }' | sort -u
+  _parse_issue_directive_records_by_type "$text" "DUP" | sort -u
 }
 
 parse_directive_decisions_from_text() {
   local text="$1"
-  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "DEC" { print $2 "|" $3 }' | sort -u
+  _parse_issue_directive_records_by_type "$text" "DEC" | sort -u
 }
 
 normalize_issue_key() {
