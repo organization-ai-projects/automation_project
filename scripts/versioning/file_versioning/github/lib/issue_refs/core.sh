@@ -3,6 +3,12 @@
 
 # Core issue-reference parsing helpers.
 
+_issue_refs_cache_key_for_text() {
+  local text="$1"
+  # cksum returns checksum + byte-length; stable enough for in-process cache keys.
+  printf '%s' "$text" | cksum | awk '{ print $1 ":" $2 }'
+}
+
 _parse_issue_directive_event_refs() {
   local text="$1"
   local event_action="$2"
@@ -47,13 +53,26 @@ parse_all_closing_issue_refs_from_text() {
 parse_issue_directive_records_from_text() {
   local text="$1"
   local native_output
+  local cache_key
+
+  if [[ "${issue_refs_records_cache_initialized:-0}" != "1" ]]; then
+    declare -gA issue_refs_records_cache
+    issue_refs_records_cache_initialized="1"
+  fi
+
+  cache_key="$(_issue_refs_cache_key_for_text "$text")"
+  if [[ -v "issue_refs_records_cache[$cache_key]" ]]; then
+    [[ -n "${issue_refs_records_cache[$cache_key]}" ]] && printf '%s\n' "${issue_refs_records_cache[$cache_key]}"
+    return 0
+  fi
 
   if native_output="$(_parse_issue_directive_records_via_va "$text" 2>/dev/null)"; then
+    issue_refs_records_cache["$cache_key"]="$native_output"
     [[ -n "$native_output" ]] && printf '%s\n' "$native_output"
     return 0
   fi
 
-  echo "$text" | awk '
+  native_output="$(echo "$text" | awk '
     {
       lower = tolower($0)
 
@@ -122,7 +141,9 @@ parse_issue_directive_records_from_text() {
         event_lower = substr(event_lower, RSTART + RLENGTH)
       }
     }
-  '
+  ')"
+  issue_refs_records_cache["$cache_key"]="$native_output"
+  [[ -n "$native_output" ]] && printf '%s\n' "$native_output"
 }
 
 _parse_issue_directive_records_via_va() {
