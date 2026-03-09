@@ -79,7 +79,7 @@ _parse_issue_refs_by_mode() {
 
 parse_closing_issue_refs_from_text() {
   local text="$1"
-  _parse_issue_refs_by_mode "$text" "close" | sort -u
+  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" && $2 == "Closes" { print $2 "|" $3 }' | sort -u
 }
 
 parse_pr_body_closing_issue_refs_from_text() {
