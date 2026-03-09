@@ -13,3 +13,12 @@ fn scan_directives_unique_deduplicates() {
     let records = scan_directives(text, true);
     assert_eq!(records.len(), 1);
 }
+
+#[test]
+fn scan_directives_extracts_rejected_closing_event() {
+    let text = "Fixes rejected #42";
+    let records = scan_directives(text, false);
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].first, "Closes rejected");
+    assert_eq!(records[0].second, "#42");
+}
