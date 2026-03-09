@@ -1,6 +1,7 @@
 use crate::events::campaign_event::CampaignEvent;
 use crate::events::event_deck::EventDeck;
 use crate::model::candidate_id::CandidateId;
+use deterministic_rng::{SeedableRng, rngs::StdRng};
 
 fn make_deck() -> EventDeck {
     EventDeck::new(vec![
@@ -23,12 +24,11 @@ fn make_deck() -> EventDeck {
 }
 
 #[test]
-fn event_deck_reset_restores_remaining_cards() {
+fn event_deck_draw_records_drawn_index() {
     let mut deck = make_deck();
-    deck.drawn_indices.push(0);
-    deck.drawn_indices.push(1);
-    assert_eq!(deck.remaining(), 1);
+    let mut rng = StdRng::seed_from_u64(5);
 
-    deck.reset();
-    assert_eq!(deck.remaining(), 3);
+    let draw = deck.draw(&mut rng);
+    assert!(draw.is_some());
+    assert_eq!(deck.drawn_indices.len(), 1);
 }

@@ -1,8 +1,8 @@
 use crate::debate::Debate;
 use crate::model::candidate::Candidate;
 use crate::model::candidate_id::CandidateId;
-use rand::Rng;
-use rand::rngs::StdRng;
+use deterministic_rng::Rng;
+use deterministic_rng::rngs::StdRng;
 use std::collections::BTreeMap;
 
 pub struct DebateResolver;

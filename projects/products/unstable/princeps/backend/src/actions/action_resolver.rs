@@ -2,8 +2,8 @@ use crate::actions::action::Action;
 use crate::model::candidate::Candidate;
 use crate::model::candidate_id::CandidateId;
 use crate::model::voter_block::VoterBlock;
-use rand::Rng;
-use rand::rngs::StdRng;
+use deterministic_rng::Rng;
+use deterministic_rng::rngs::StdRng;
 
 pub struct ActionResolver;
 

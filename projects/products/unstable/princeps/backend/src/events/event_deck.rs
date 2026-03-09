@@ -1,6 +1,6 @@
 use crate::events::campaign_event::CampaignEvent;
-use rand::Rng;
-use rand::rngs::StdRng;
+use deterministic_rng::Rng;
+use deterministic_rng::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,8 +17,7 @@ impl EventDeck {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn draw(&mut self, rng: &mut StdRng) -> Option<CampaignEvent> {
+    pub fn draw(&mut self, rng: &mut StdRng) -> Option<(usize, CampaignEvent)> {
         let available: Vec<usize> = (0..self.cards.len())
             .filter(|i| !self.drawn_indices.contains(i))
             .collect();
@@ -28,16 +27,6 @@ impl EventDeck {
         let pick = rng.random_range(0..available.len());
         let idx = available[pick];
         self.drawn_indices.push(idx);
-        Some(self.cards[idx].clone())
-    }
-
-    #[allow(dead_code)]
-    pub fn remaining(&self) -> usize {
-        self.cards.len() - self.drawn_indices.len()
-    }
-
-    #[allow(dead_code)]
-    pub fn reset(&mut self) {
-        self.drawn_indices.clear();
+        Some((idx, self.cards[idx].clone()))
     }
 }

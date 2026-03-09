@@ -17,7 +17,7 @@ use crate::replay::replay_file::ReplayFile;
 use crate::report::end_report::EndReport;
 use crate::report::run_summary::RunSummary;
 use crate::sim::day::Day;
-use rand::{Rng, SeedableRng, rngs::StdRng};
+use deterministic_rng::{Rng, SeedableRng, rngs::StdRng};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
@@ -72,25 +72,12 @@ impl SimEngine {
             let mut day = Day::new(day_num);
 
             // Draw one event per day (probabilistic)
-            if self.rng.random_bool(EVENT_DRAW_PROBABILITY) {
-                let event = {
-                    let available: Vec<usize> = (0..self.event_deck.cards.len())
-                        .filter(|i| !self.event_deck.drawn_indices.contains(i))
-                        .collect();
-                    if available.is_empty() {
-                        None
-                    } else {
-                        let pick = self.rng.random_range(0..available.len());
-                        let idx = available[pick];
-                        self.event_deck.drawn_indices.push(idx);
-                        self.replay.drawn_event_indices.push((day_num, idx));
-                        Some(self.event_deck.cards[idx].clone())
-                    }
-                };
-                if let Some(ev) = event {
-                    apply_campaign_event(&ev, &mut self.candidates);
-                    day.events.push(ev);
-                }
+            if self.rng.random_bool(EVENT_DRAW_PROBABILITY)
+                && let Some((drawn_idx, ev)) = self.event_deck.draw(&mut self.rng)
+            {
+                self.replay.drawn_event_indices.push((day_num, drawn_idx));
+                apply_campaign_event(&ev, &mut self.candidates);
+                day.events.push(ev);
             }
 
             // AI action for each candidate
