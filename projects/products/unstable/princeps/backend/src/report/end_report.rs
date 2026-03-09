@@ -25,10 +25,15 @@ impl EndReport {
         ));
         md.push_str(&format!("**Winner:** {}\n\n", self.winner));
         md.push_str("## Final Poll Results\n\n");
-        md.push_str("| Candidate | Vote Share |\n");
-        md.push_str("|-----------|------------|\n");
+        md.push_str("| Candidate    | Vote Share |\n");
+        md.push_str("| ------------ | ---------- |\n");
         for (cid, share) in &self.final_poll.results {
-            md.push_str(&format!("| {} | {:.1}% |\n", cid, share * 100.0));
+            let candidate_label = cid.to_string();
+            let share_label = format!("{:.1}%", share * 100.0);
+            md.push_str(&format!(
+                "| {:<12} | {:<10} |\n",
+                candidate_label, share_label
+            ));
         }
         md.push_str("\n## Run Statistics\n\n");
         md.push_str(&format!(
@@ -43,7 +48,7 @@ impl EndReport {
             "- Total Polls: {}\n",
             self.run_summary.total_polls
         ));
-        md.push_str(&format!("\n**Run Hash:** `{}`\n", self.run_hash));
+        md.push_str(&format!("\n**Run Hash:** `{}`", self.run_hash));
         md
     }
 }
