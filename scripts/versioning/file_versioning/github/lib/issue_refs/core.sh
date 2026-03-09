@@ -39,10 +39,9 @@ parse_neutralized_closing_issue_refs_from_text() {
 
 parse_all_closing_issue_refs_from_text() {
   local text="$1"
-  {
-    parse_closing_issue_refs_from_text "$text"
-    parse_neutralized_closing_issue_refs_from_text "$text"
-  } | sort -u
+  parse_issue_directive_records_from_text "$text" | awk -F'|' '
+    $1 == "EV" && ($2 == "Closes" || $2 == "Closes rejected") { print "Closes|" $3 }
+  ' | sort -u
 }
 
 parse_issue_directive_records_from_text() {
@@ -137,7 +136,6 @@ parse_issue_directive_records_from_text() {
 
 _parse_issue_directive_records_via_va() {
   local text="$1"
-  local tmp_file
   local -a cmd
 
   cmd=()
@@ -151,13 +149,9 @@ _parse_issue_directive_records_via_va() {
     return 1
   fi
 
-  tmp_file="$(mktemp)"
-  printf '%s' "$text" >"$tmp_file"
-  if "${cmd[@]}" --input-file "$tmp_file" --format plain; then
-    rm -f "$tmp_file"
+  if printf '%s' "$text" | "${cmd[@]}" --stdin --format plain; then
     return 0
   fi
-  rm -f "$tmp_file"
   return 1
 }
 
