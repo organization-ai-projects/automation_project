@@ -25,7 +25,7 @@ fn run_issue_help_returns_zero() {
 fn run_pr_without_help_returns_migration_code() {
     let args = vec!["va".to_string(), "pr".to_string(), "--dry-run".to_string()];
     let code = run_with(args);
-    assert_eq!(code, 3);
+    assert_eq!(code, 2);
 }
 
 #[test]

@@ -2,6 +2,7 @@
 mod app;
 mod cli_action;
 mod issues;
+mod pr;
 
 #[cfg(test)]
 mod tests;
