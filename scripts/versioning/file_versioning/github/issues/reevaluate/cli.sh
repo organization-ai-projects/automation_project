@@ -16,14 +16,7 @@ USAGE
 reevaluate_pr_body_references_issue() {
   local issue_number="$1"
   local body="$2"
-  local target_issue_key="#${issue_number}"
-  local issue_key
-
-  while IFS='|' read -r _ issue_key; do
-    [[ "$issue_key" == "$target_issue_key" ]] && return 0
-  done < <(parse_all_closing_issue_refs_from_text "$body")
-
-  return 1
+  issue_refs_extract_all_closing_numbers "$body" | grep -qx "$issue_number"
 }
 
 reevaluate_main() {

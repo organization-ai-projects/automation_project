@@ -9,20 +9,26 @@ issue_cli_require_positive_number() {
   fi
 }
 
-issue_refs_extract_closing_numbers() {
-  local text="$1"
-  parse_closing_issue_refs_from_text "$text" |
+issue_refs_extract_numbers_from_refs() {
+  local refs="$1"
+  printf '%s\n' "$refs" |
     cut -d'|' -f2 |
     sed -E 's/^#([0-9]+)$/\1/' |
     grep -E '^[0-9]+$' |
     sort -u
 }
 
+issue_refs_extract_closing_numbers() {
+  local text="$1"
+  issue_refs_extract_numbers_from_refs "$(parse_closing_issue_refs_from_text "$text")"
+}
+
+issue_refs_extract_all_closing_numbers() {
+  local text="$1"
+  issue_refs_extract_numbers_from_refs "$(parse_all_closing_issue_refs_from_text "$text")"
+}
+
 issue_refs_extract_reopen_numbers() {
   local text="$1"
-  parse_reopen_issue_refs_from_text "$text" |
-    cut -d'|' -f2 |
-    sed -E 's/^#([0-9]+)$/\1/' |
-    grep -E '^[0-9]+$' |
-    sort -u
+  issue_refs_extract_numbers_from_refs "$(parse_reopen_issue_refs_from_text "$text")"
 }
