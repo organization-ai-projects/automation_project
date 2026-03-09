@@ -21,28 +21,7 @@ parse_non_closing_issue_refs_from_text() {
 
 parse_neutralized_closing_issue_refs_from_text() {
   local text="$1"
-  echo "$text" | awk '
-    {
-      line = $0
-      lower = tolower($0)
-      while (match(lower, /(closes|fixes)[[:space:]]+rejected[[:space:]]+[^[:space:]]*#[0-9]+/)) {
-        if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
-          lower = substr(lower, RSTART + 1)
-          line = substr(line, RSTART + 1)
-          continue
-        }
-        matched = substr(line, RSTART, RLENGTH)
-        n = split(matched, parts, /[[:space:]]+/)
-        issue_ref = parts[n]
-        sub(/^.*#/, "#", issue_ref)
-        if (issue_ref ~ /^#[0-9]+$/) {
-          print "Closes|" issue_ref
-        }
-        lower = substr(lower, RSTART + RLENGTH)
-        line = substr(line, RSTART + RLENGTH)
-      }
-    }
-  ' | sort -u
+  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" && $2 == "Closes rejected" { print "Closes|" $3 }' | sort -u
 }
 
 parse_all_closing_issue_refs_from_text() {
@@ -102,7 +81,7 @@ parse_issue_directive_records_from_text() {
       # Directive events: closes/fixes/reopen/reopens/part of #N
       event_line = line
       event_lower = lower
-      while (match(event_lower, /(closes|fixes|reopen|reopens|part[[:space:]]+of)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
+      while (match(event_lower, /(closes|fixes|reopen|reopens|part[[:space:]]+of)[[:space:]]+(rejected[[:space:]]+)?[^[:space:]]*#[0-9]+/)) {
         if (RSTART > 1 && substr(event_lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
           event_lower = substr(event_lower, RSTART + 1)
           event_line = substr(event_line, RSTART + 1)
@@ -117,10 +96,15 @@ parse_issue_directive_records_from_text() {
         token = parts_lower[1]
         issue_ref = parts[n]
         sub(/^.*#/, "#", issue_ref)
+        rejected_token = parts_lower[2]
 
         action = ""
         if (token == "closes" || token == "fixes") {
-          action = "Closes"
+          if (rejected_token == "rejected") {
+            action = "Closes rejected"
+          } else {
+            action = "Closes"
+          }
         } else if (token == "part" && parts_lower[2] == "of") {
           action = "Part of"
         } else if (token == "reopen" || token == "reopens") {
