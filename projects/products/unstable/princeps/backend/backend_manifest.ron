@@ -1,0 +1,9 @@
+(
+  schema_version: 1,
+  id: "princeps_backend",
+  title: "Princeps Backend",
+  entrypoint: "princeps_backend",
+  kind: "backend_service",
+  transport: "stdio_cli",
+  version: "0.1.0",
+)
