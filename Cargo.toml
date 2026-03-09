@@ -91,6 +91,7 @@ members = [
   "projects/products/unstable/schema_world/ui",
   "projects/products/unstable/agent_engine/backend",
   "projects/products/unstable/agent_engine/ui",
+  "tools/versioning_automation",
 ]
 resolver = "2"
 
