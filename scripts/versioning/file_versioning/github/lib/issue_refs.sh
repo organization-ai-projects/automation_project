@@ -7,5 +7,3 @@
 ISSUE_REFS_DIR="$(cd "${BASH_SOURCE[0]%/*}/issue_refs" && pwd)"
 
 source "${ISSUE_REFS_DIR}/core.sh"
-source "${ISSUE_REFS_DIR}/special.sh"
-

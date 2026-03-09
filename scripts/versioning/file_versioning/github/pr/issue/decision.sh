@@ -47,10 +47,9 @@ pr_issue_inferred_conflict_reason_for() {
 pr_issue_should_skip_close_action() {
   local issue_key="$1"
   local issue_number="$2"
-  local issue_labels_raw="$3"
+  local non_compliance_reason="$3"
   local action="$4"
   local is_pr_ref
-  local non_compliance_reason
 
   [[ "$action" != "Closes" ]] && return 1
 
@@ -59,7 +58,6 @@ pr_issue_should_skip_close_action() {
     return 0
   fi
 
-  non_compliance_reason="$(pr_issue_non_compliance_reason_for "$issue_number" "$issue_labels_raw")"
   if [[ -n "$non_compliance_reason" ]]; then
     issue_non_compliance_skip["$issue_key"]="$non_compliance_reason"
     issue_non_compliance_action["$issue_key"]="$action"
@@ -69,46 +67,11 @@ pr_issue_should_skip_close_action() {
   return 1
 }
 
-pr_mark_directive_decisions_from_text() {
-  local text="$1"
-  while IFS='|' read -r issue_key decision; do
-    [[ -z "$issue_key" || -z "$decision" ]] && continue
-    issue_directive_decision["$issue_key"]="$decision"
-  done < <(parse_directive_decisions_from_text "$text")
-}
-
-pr_mark_inferred_decisions_from_text() {
-  local text="$1"
-  local issue_key action decision
-
-  while IFS='|' read -r action issue_key; do
-    [[ -z "$action" || -z "$issue_key" ]] && continue
-    case "$action" in
-    Closes) decision="close" ;;
-    Reopen) decision="reopen" ;;
-    *) continue ;;
-    esac
-
-    if [[ -z "${issue_directive_decision[$issue_key]:-}" ]]; then
-      if [[ -n "${issue_inferred_decision[$issue_key]:-}" && "${issue_inferred_decision[$issue_key]}" != "$decision" ]]; then
-        # Reopen has higher precedence than close when inferred directives conflict.
-        if [[ "$decision" == "reopen" || "${issue_inferred_decision[$issue_key]}" == "reopen" ]]; then
-          issue_inferred_decision["$issue_key"]="reopen"
-        else
-          issue_inferred_decision["$issue_key"]="conflict"
-        fi
-      elif [[ -z "${issue_inferred_decision[$issue_key]:-}" ]]; then
-        issue_inferred_decision["$issue_key"]="$decision"
-      fi
-    fi
-  done < <(parse_directive_events_from_text "$text")
-}
-
 pr_add_issue_entry() {
   local action="$1"
   local issue_key_raw="$2"
   local default_category="$3"
-  local issue_key issue_number issue_labels_raw title_category effective_category effective_decision inferred_decision=""
+  local issue_key issue_number issue_context_payload issue_labels_raw title_category non_compliance_reason effective_category effective_decision inferred_decision=""
   local inferred_conflict_reason=""
 
   issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
@@ -141,11 +104,15 @@ pr_add_issue_entry() {
     return
   fi
 
-  issue_labels_raw="$(pr_issue_labels "$issue_number")"
-  title_category="$(pr_issue_title_category "$issue_number")"
+  issue_context_payload="$(pr_issue_context_payload_for "$issue_number")"
+  issue_labels_raw="${issue_context_payload%%$'\x1f'*}"
+  title_category="${issue_context_payload#*$'\x1f'}"
+  title_category="${title_category%%$'\x1f'*}"
+  non_compliance_reason="${issue_context_payload#*$'\x1f'}"
+  non_compliance_reason="${non_compliance_reason#*$'\x1f'}"
   effective_category="$(pr_resolve_effective_category "$default_category" "$issue_labels_raw" "$title_category")"
 
-  if pr_issue_should_skip_close_action "$issue_key" "$issue_number" "$issue_labels_raw" "$action"; then
+  if pr_issue_should_skip_close_action "$issue_key" "$issue_number" "$non_compliance_reason" "$action"; then
     return
   fi
 

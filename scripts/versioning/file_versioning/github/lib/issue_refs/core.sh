@@ -103,15 +103,101 @@ parse_all_closing_issue_refs_from_text() {
   _parse_issue_refs_by_mode "$text" "all_close" | sort -u
 }
 
-parse_reopen_issue_refs_from_text() {
+parse_issue_directive_records_from_text() {
   local text="$1"
-  _parse_issue_refs_by_mode "$text" "reopen" | sort -u
+
+  echo "$text" | awk '
+    {
+      line = $0
+      lower = tolower($0)
+
+      # Directive decisions: "directive decision: #123 => close|reopen"
+      decision_line = line
+      decision_lower = lower
+      while (match(decision_lower, /directive[[:space:]_-]*decision[[:space:]]*:[[:space:]]*[^[:space:]]*#[0-9]+[[:space:]]*=>[[:space:]]*(close|reopen)/)) {
+        matched = substr(decision_lower, RSTART, RLENGTH)
+        issue_ref = matched
+        decision = matched
+        sub(/^.*#/, "#", issue_ref)
+        sub(/[[:space:]]*=>.*/, "", issue_ref)
+        sub(/^.*=>[[:space:]]*/, "", decision)
+        gsub(/[[:space:]]+/, "", issue_ref)
+        gsub(/[[:space:]]+/, "", decision)
+        if (issue_ref ~ /^#[0-9]+$/ && (decision == "close" || decision == "reopen")) {
+          print "DEC|" issue_ref "|" decision
+        }
+        decision_lower = substr(decision_lower, RSTART + RLENGTH)
+      }
+
+      # Duplicate declarations: "#123 duplicate of #456"
+      duplicate_line = line
+      duplicate_lower = lower
+      while (match(duplicate_lower, /#([0-9]+)[[:space:]]+duplicate[[:space:]]+of[[:space:]]+#([0-9]+)/)) {
+        matched = substr(duplicate_line, RSTART, RLENGTH)
+        gsub(/[^0-9]+/, " ", matched)
+        split(matched, nums, " ")
+        if (nums[1] != "" && nums[2] != "") {
+          print "DUP|#" nums[1] "|#" nums[2]
+        }
+        duplicate_lower = substr(duplicate_lower, RSTART + RLENGTH)
+        duplicate_line = substr(duplicate_line, RSTART + RLENGTH)
+      }
+
+      # Directive events: closes/fixes/reopen/reopens #N
+      event_line = line
+      event_lower = lower
+      while (match(event_lower, /(closes|fixes|reopen|reopens)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
+        if (RSTART > 1 && substr(event_lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
+          event_lower = substr(event_lower, RSTART + 1)
+          event_line = substr(event_line, RSTART + 1)
+          continue
+        }
+
+        matched = substr(event_line, RSTART, RLENGTH)
+        matched_lower = substr(event_lower, RSTART, RLENGTH)
+        n = split(matched, parts, /[[:space:]]+/)
+        split(matched_lower, parts_lower, /[[:space:]]+/)
+
+        token = parts_lower[1]
+        issue_ref = parts[n]
+        sub(/^.*#/, "#", issue_ref)
+
+        action = ""
+        if (token == "closes" || token == "fixes") {
+          action = "Closes"
+        } else if (token == "reopen" || token == "reopens") {
+          action = "Reopen"
+        }
+
+        if (issue_ref ~ /^#[0-9]+$/ && action != "") {
+          print "EV|" action "|" issue_ref
+        }
+
+        event_lower = substr(event_lower, RSTART + RLENGTH)
+        event_line = substr(event_line, RSTART + RLENGTH)
+      }
+    }
+  '
 }
 
 parse_directive_events_from_text() {
   local text="$1"
-  # Keep source order (no sort) to preserve event chronology semantics.
-  _parse_issue_refs_by_mode "$text" "directive_events"
+  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" { print $2 "|" $3 }'
+}
+
+parse_reopen_issue_refs_from_text() {
+  local text="$1"
+  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" && $2 == "Reopen" { print $2 "|" $3 }' | sort -u
+}
+
+parse_duplicate_refs_from_text() {
+  local text="$1"
+  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "DUP" { print $2 "|" $3 }' | sort -u
+}
+
+parse_directive_decisions_from_text() {
+  local text="$1"
+  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "DEC" { print $2 "|" $3 }' | sort -u
 }
 
 normalize_issue_key() {
@@ -124,4 +210,3 @@ normalize_issue_key() {
 
   return 1
 }
-

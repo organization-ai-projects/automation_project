@@ -21,6 +21,9 @@ pr_pipeline_init_issue_tracking() {
   declare -gA pr_ref_cache
   declare -gA duplicate_targets
   declare -gA issue_non_compliance_reason_cache
+  declare -gA issue_labels_cache
+  declare -gA issue_title_category_cache
+  declare -gA issue_context_cached
   declare -gA issue_view_full_json_cache
   declare -gA issue_non_compliance_skip
   declare -gA issue_non_compliance_action

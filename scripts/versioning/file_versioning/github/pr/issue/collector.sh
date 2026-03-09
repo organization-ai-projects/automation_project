@@ -4,6 +4,47 @@
 
 # Issue collection and categorization helpers.
 
+pr_issue_context_payload_for() {
+  local issue_number="$1"
+  local issue_key="#${issue_number}"
+  local issue_json
+  local title
+  local body
+  local labels_raw=""
+  local title_category="Unknown"
+  local reason=""
+
+  if [[ "${issue_context_cached[$issue_key]:-0}" == "1" ]]; then
+    printf "%s\x1f%s\x1f%s" \
+      "${issue_labels_cache[$issue_key]:-}" \
+      "${issue_title_category_cache[$issue_key]:-Unknown}" \
+      "${issue_non_compliance_reason_cache[$issue_key]:-}"
+    return
+  fi
+
+  if [[ "$has_gh" == "true" ]]; then
+    issue_json="$(pr_issue_view_full_json "$issue_number")"
+    if [[ -n "$issue_json" ]]; then
+      labels_raw="$(echo "$issue_json" | jq -r '.labels // [] | map(.name) | join("||")')"
+      title="$(echo "$issue_json" | jq -r '.title // ""')"
+      body="$(echo "$issue_json" | jq -r '.body // ""')"
+
+      if [[ -n "$title" ]]; then
+        title_category="$(issue_category_from_title "$title")"
+      fi
+
+      reason="$(issue_non_compliance_reason_from_content "$title" "$body" "$labels_raw")"
+    fi
+  fi
+
+  issue_labels_cache["$issue_key"]="$labels_raw"
+  issue_title_category_cache["$issue_key"]="$title_category"
+  issue_non_compliance_reason_cache["$issue_key"]="$reason"
+  issue_context_cached["$issue_key"]="1"
+
+  printf "%s\x1f%s\x1f%s" "$labels_raw" "$title_category" "$reason"
+}
+
 pr_resolve_effective_category() {
   local default_category="$1"
   local issue_labels_raw="$2"
@@ -27,76 +68,28 @@ pr_resolve_effective_category() {
 
 pr_issue_labels() {
   local issue_number="$1"
-  local issue_json
-
-  if [[ "$has_gh" != "true" ]]; then
-    pr_debug_log "issue_labels(#${issue_number}): gh unavailable, fallback empty labels."
-    echo ""
-    return
-  fi
-
-  issue_json="$(pr_issue_view_full_json "$issue_number")"
-  [[ -z "$issue_json" ]] && { echo ""; return; }
-  echo "$issue_json" | jq -r '.labels // [] | map(.name) | join("||")'
+  local payload
+  payload="$(pr_issue_context_payload_for "$issue_number")"
+  echo "${payload%%$'\x1f'*}"
 }
 
 pr_issue_title_category() {
   local issue_number="$1"
-  local issue_json
-  local issue_title
-
-  if [[ "$has_gh" != "true" ]]; then
-    echo "Unknown"
-    return
-  fi
-
-  issue_json="$(pr_issue_view_full_json "$issue_number")"
-  if [[ -z "$issue_json" ]]; then
-    echo "Unknown"
-    return
-  fi
-
-  issue_title="$(echo "$issue_json" | jq -r '.title // ""')"
-  if [[ -z "$issue_title" ]]; then
-    echo "Unknown"
-    return
-  fi
-
-  issue_category_from_title "$issue_title"
+  local payload
+  local rest
+  payload="$(pr_issue_context_payload_for "$issue_number")"
+  rest="${payload#*$'\x1f'}"
+  echo "${rest%%$'\x1f'*}"
 }
 
 pr_issue_non_compliance_reason_for() {
   local issue_number="$1"
-  local labels_raw="${2:-}"
-  local issue_key="#${issue_number}"
-  local issue_json
-  local title
-  local body
-  local reason
-
-  if [[ -n "${issue_non_compliance_reason_cache[$issue_key]:-}" ]]; then
-    echo "${issue_non_compliance_reason_cache[$issue_key]}"
-    return
-  fi
-
-  if [[ "$has_gh" != "true" ]]; then
-    issue_non_compliance_reason_cache["$issue_key"]=""
-    echo ""
-    return
-  fi
-
-  issue_json="$(pr_issue_view_full_json "$issue_number")"
-  if [[ -z "$issue_json" ]]; then
-    issue_non_compliance_reason_cache["$issue_key"]=""
-    echo ""
-    return
-  fi
-
-  title="$(echo "$issue_json" | jq -r '.title // ""')"
-  body="$(echo "$issue_json" | jq -r '.body // ""')"
-  reason="$(issue_non_compliance_reason_from_content "$title" "$body" "$labels_raw")"
-  issue_non_compliance_reason_cache["$issue_key"]="${reason}"
-  echo "${reason}"
+  local payload
+  local _labels_raw="${2:-}"
+  local rest
+  payload="$(pr_issue_context_payload_for "$issue_number")"
+  rest="${payload#*$'\x1f'}"
+  echo "${rest#*$'\x1f'}"
 }
 
 pr_is_pull_request_ref() {
@@ -138,13 +131,15 @@ pr_is_pull_request_ref() {
 pr_mark_reopen_issue() {
   local issue_key_raw="$1"
   local default_category="$2"
-  local issue_key issue_number issue_labels_raw title_category effective_category
+  local issue_key issue_number issue_context_payload issue_labels_raw title_category effective_category
 
   issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
   [[ -z "$issue_key" ]] && return
   issue_number="${issue_key//#/}"
-  issue_labels_raw="$(pr_issue_labels "$issue_number")"
-  title_category="$(pr_issue_title_category "$issue_number")"
+  issue_context_payload="$(pr_issue_context_payload_for "$issue_number")"
+  issue_labels_raw="${issue_context_payload%%$'\x1f'*}"
+  title_category="${issue_context_payload#*$'\x1f'}"
+  title_category="${title_category%%$'\x1f'*}"
   effective_category="$(pr_resolve_effective_category "$default_category" "$issue_labels_raw" "$title_category")"
   seen_reopen_issue["$issue_key"]=1
   reopen_issue_category["$issue_key"]="$effective_category"

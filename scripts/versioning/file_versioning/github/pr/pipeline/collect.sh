@@ -100,26 +100,94 @@ pr_pipeline_collect_issues_from_pr_bodies() {
 pr_pipeline_apply_issue_directives_from_text() {
   local text="$1"
   local category="$2"
-  local closing_parser_fn="$3"
+  local _closing_parser_fn="$3"
   local debug_context="$4"
-  local issue_key action duplicate_issue canonical_issue
+  local record record_type field_a field_b decision
+  local -a records=()
+  local -A seen_reopen_refs=()
+  local -A seen_close_refs=()
+  local -A seen_decisions=()
+  local -A seen_duplicates=()
 
   [[ -z "$text" ]] && return
 
-  pr_mark_inferred_decisions_from_text "$text"
-  pr_mark_directive_decisions_from_text "$text"
-  while IFS='|' read -r _ issue_key; do
-    pr_mark_reopen_issue "$issue_key" "$category"
-  done < <(parse_reopen_issue_refs_from_text "$text")
+  mapfile -t records < <(parse_issue_directive_records_from_text "$text")
 
-  while IFS='|' read -r action issue_key; do
-    pr_debug_log "parsed_issue_ref(${debug_context}): ${action}|${issue_key}"
-    pr_add_issue_entry "$action" "$issue_key" "$category"
-  done < <("$closing_parser_fn" "$text")
+  # Pass 1: explicit directive decisions.
+  for record in "${records[@]}"; do
+    IFS='|' read -r record_type field_a field_b <<< "$record"
+    [[ "$record_type" == "DEC" ]] || continue
+    [[ -z "$field_a" || -z "$field_b" ]] && continue
+    if [[ "$field_b" != "close" && "$field_b" != "reopen" ]]; then
+      continue
+    fi
+    if [[ -n "${seen_decisions[${field_a}|${field_b}]:-}" ]]; then
+      continue
+    fi
+    seen_decisions["${field_a}|${field_b}"]=1
+    issue_directive_decision["$field_a"]="$field_b"
+  done
 
-  while IFS='|' read -r duplicate_issue canonical_issue; do
-    pr_add_duplicate_entry "$duplicate_issue" "$canonical_issue"
-  done < <(parse_duplicate_refs_from_text "$text")
+  # Pass 2: inferred decisions (chronological EV stream), honoring explicit decisions.
+  for record in "${records[@]}"; do
+    IFS='|' read -r record_type field_a field_b <<< "$record"
+    [[ "$record_type" == "EV" ]] || continue
+    [[ -z "$field_a" || -z "$field_b" ]] && continue
+
+    case "$field_a" in
+      Closes) decision="close" ;;
+      Reopen) decision="reopen" ;;
+      *) continue ;;
+    esac
+
+    if [[ -z "${issue_directive_decision[$field_b]:-}" ]]; then
+      if [[ -n "${issue_inferred_decision[$field_b]:-}" && "${issue_inferred_decision[$field_b]}" != "$decision" ]]; then
+        if [[ "$decision" == "reopen" || "${issue_inferred_decision[$field_b]}" == "reopen" ]]; then
+          issue_inferred_decision["$field_b"]="reopen"
+        else
+          issue_inferred_decision["$field_b"]="conflict"
+        fi
+      elif [[ -z "${issue_inferred_decision[$field_b]:-}" ]]; then
+        issue_inferred_decision["$field_b"]="$decision"
+      fi
+    fi
+  done
+
+  # Pass 3: apply deduped issue actions and duplicate links.
+  for record in "${records[@]}"; do
+    IFS='|' read -r record_type field_a field_b <<< "$record"
+    [[ -z "$record_type" ]] && continue
+
+    case "$record_type" in
+      EV)
+        [[ -z "$field_a" || -z "$field_b" ]] && continue
+
+        # Preserve source chronology for inferred directive conflict resolution.
+        if [[ "$field_a" == "Closes" || "$field_a" == "Reopen" ]]; then
+          if [[ "$field_a" == "Closes" ]]; then
+            if [[ -z "${seen_close_refs[$field_b]:-}" ]]; then
+              seen_close_refs["$field_b"]=1
+              pr_debug_log "parsed_issue_ref(${debug_context}): ${field_a}|${field_b}"
+              pr_add_issue_entry "$field_a" "$field_b" "$category"
+            fi
+          else
+            if [[ -z "${seen_reopen_refs[$field_b]:-}" ]]; then
+              seen_reopen_refs["$field_b"]=1
+              pr_mark_reopen_issue "$field_b" "$category"
+            fi
+          fi
+        fi
+        ;;
+      DUP)
+        [[ -z "$field_a" || -z "$field_b" ]] && continue
+        if [[ -n "${seen_duplicates[${field_a}|${field_b}]:-}" ]]; then
+          continue
+        fi
+        seen_duplicates["${field_a}|${field_b}"]=1
+        pr_add_duplicate_entry "$field_a" "$field_b"
+        ;;
+    esac
+  done
 }
 
 pr_pipeline_collect_issues_from_commits_and_main_pr() {
