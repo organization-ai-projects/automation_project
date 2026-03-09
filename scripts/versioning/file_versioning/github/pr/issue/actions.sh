@@ -8,10 +8,10 @@ pr_add_duplicate_entry() {
   local duplicate_issue_raw="$1"
   local canonical_issue_raw="$2"
   local duplicate_issue_key canonical_issue_key
+  local duplicate_issue_number canonical_issue_number
 
-  duplicate_issue_key="$(normalize_issue_key "$duplicate_issue_raw" || true)"
-  canonical_issue_key="$(normalize_issue_key "$canonical_issue_raw" || true)"
-  [[ -z "$duplicate_issue_key" || -z "$canonical_issue_key" ]] && return
+  pr_issue_parse_key_and_number "$duplicate_issue_raw" duplicate_issue_key duplicate_issue_number || return
+  pr_issue_parse_key_and_number "$canonical_issue_raw" canonical_issue_key canonical_issue_number || return
 
   duplicate_targets["$duplicate_issue_key"]="$canonical_issue_key"
 }

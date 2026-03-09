@@ -4,6 +4,28 @@
 
 # Issue collection and categorization helpers.
 
+pr_issue_parse_key_and_number() {
+  local issue_key_raw="$1"
+  local _out_key_var="$2"
+  local _out_number_var="$3"
+  local issue_key
+  local issue_number
+  local -n _out_key_ref="$_out_key_var"
+  local -n _out_number_ref="$_out_number_var"
+
+  issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
+  if [[ -z "$issue_key" ]]; then
+    _out_key_ref=""
+    _out_number_ref=""
+    return 1
+  fi
+
+  issue_number="${issue_key//#/}"
+  _out_key_ref="$issue_key"
+  _out_number_ref="$issue_number"
+  return 0
+}
+
 pr_issue_context_payload_for() {
   local issue_number="$1"
   local issue_key="#${issue_number}"
@@ -133,9 +155,7 @@ pr_mark_reopen_issue() {
   local default_category="$2"
   local issue_key issue_number issue_context_payload issue_labels_raw title_category effective_category
 
-  issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
-  [[ -z "$issue_key" ]] && return
-  issue_number="${issue_key//#/}"
+  pr_issue_parse_key_and_number "$issue_key_raw" issue_key issue_number || return
   issue_context_payload="$(pr_issue_context_payload_for "$issue_number")"
   issue_labels_raw="${issue_context_payload%%$'\x1f'*}"
   title_category="${issue_context_payload#*$'\x1f'}"

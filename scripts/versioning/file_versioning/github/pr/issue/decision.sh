@@ -74,9 +74,7 @@ pr_add_issue_entry() {
   local issue_key issue_number issue_context_payload issue_labels_raw title_category non_compliance_reason effective_category effective_decision inferred_decision=""
   local inferred_conflict_reason=""
 
-  issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
-  [[ -z "$issue_key" ]] && return
-  issue_number="${issue_key//#/}"
+  pr_issue_parse_key_and_number "$issue_key_raw" issue_key issue_number || return
 
   if [[ "$action" == "Closes" && -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
     pr_issue_resolve_to_reopen "$issue_key" "${reopen_issue_category[$issue_key]:-$default_category}" "true"
