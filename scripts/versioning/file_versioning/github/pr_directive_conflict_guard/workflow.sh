@@ -1,6 +1,57 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
+pr_directive_conflict_guard_collect_explicit_directives() {
+  local text="$1"
+  local _out_closing_requested_var="$2"
+  local _out_reopen_requested_var="$3"
+  local _out_directive_decision_var="$4"
+  local -n _out_closing_requested_ref="$_out_closing_requested_var"
+  local -n _out_reopen_requested_ref="$_out_reopen_requested_var"
+  local -n _out_directive_decision_ref="$_out_directive_decision_var"
+  local record_type field_a field_b action issue_key decision
+
+  while IFS='|' read -r record_type field_a field_b; do
+    case "$record_type" in
+    EV)
+      action="$(pr_directive_conflict_guard_trim "$field_a")"
+      issue_key="$(pr_directive_conflict_guard_trim "$field_b")"
+      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+      if [[ "$action" == "Closes" ]]; then
+        _out_closing_requested_ref["$issue_key"]=1
+      elif [[ "$action" == "Reopen" ]]; then
+        _out_reopen_requested_ref["$issue_key"]=1
+      fi
+      ;;
+    DEC)
+      issue_key="$(pr_directive_conflict_guard_trim "$field_a")"
+      decision="$(pr_directive_conflict_guard_trim "$field_b" | tr '[:upper:]' '[:lower:]')"
+      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+      [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
+      _out_directive_decision_ref["$issue_key"]="$decision"
+      ;;
+    esac
+  done < <(parse_issue_directive_records_from_text "$text")
+}
+
+pr_directive_conflict_guard_collect_inferred_decisions() {
+  local text="$1"
+  local _out_inferred_decision_var="$2"
+  local -n _out_inferred_decision_ref="$_out_inferred_decision_var"
+  local record_type field_a field_b action issue_key
+
+  while IFS='|' read -r record_type field_a field_b; do
+    [[ "$record_type" == "EV" ]] || continue
+    action="$(pr_directive_conflict_guard_trim "$field_a")"
+    issue_key="$(pr_directive_conflict_guard_trim "$field_b")"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    case "$action" in
+    Closes) _out_inferred_decision_ref["$issue_key"]="close" ;;
+    Reopen) _out_inferred_decision_ref["$issue_key"]="reopen" ;;
+    esac
+  done < <(parse_issue_directive_records_from_text "$text")
+}
+
 pr_directive_conflict_guard_run() {
   local pr_number=""
   local repo_name="${GH_REPO:-}"
@@ -33,27 +84,11 @@ pr_directive_conflict_guard_run() {
   original_body="$(echo "$pr_json" | jq -r '.body // ""')"
   updated_body="$original_body"
 
-  while IFS='|' read -r record_type field_a field_b; do
-    case "$record_type" in
-    EV)
-      action="$(pr_directive_conflict_guard_trim "$field_a")"
-      issue_key="$(pr_directive_conflict_guard_trim "$field_b")"
-      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-      if [[ "$action" == "Closes" ]]; then
-        closing_requested["$issue_key"]=1
-      elif [[ "$action" == "Reopen" ]]; then
-        reopen_requested["$issue_key"]=1
-      fi
-      ;;
-    DEC)
-      issue_key="$(pr_directive_conflict_guard_trim "$field_a")"
-      decision="$(pr_directive_conflict_guard_trim "$field_b" | tr '[:upper:]' '[:lower:]')"
-      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-      [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
-      directive_decision["$issue_key"]="$decision"
-      ;;
-    esac
-  done < <(parse_issue_directive_records_from_text "$original_body")
+  pr_directive_conflict_guard_collect_explicit_directives \
+    "$original_body" \
+    closing_requested \
+    reopen_requested \
+    directive_decision
 
   commit_messages="$(pr_directive_conflict_guard_fetch_commit_messages "$repo_name" "$pr_number")"
   source_branch_count="$(
@@ -67,16 +102,9 @@ pr_directive_conflict_guard_run() {
   fi
 
   directive_payload="${commit_messages}"$'\n'"${original_body}"
-  while IFS='|' read -r record_type field_a field_b; do
-    [[ "$record_type" == "EV" ]] || continue
-    action="$(pr_directive_conflict_guard_trim "$field_a")"
-    issue_key="$(pr_directive_conflict_guard_trim "$field_b")"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    case "$action" in
-    Closes) inferred_decision["$issue_key"]="close" ;;
-    Reopen) inferred_decision["$issue_key"]="reopen" ;;
-    esac
-  done < <(parse_issue_directive_records_from_text "$directive_payload")
+  pr_directive_conflict_guard_collect_inferred_decisions \
+    "$directive_payload" \
+    inferred_decision
 
   for issue_key in "${!closing_requested[@]}"; do
     if [[ -z "${reopen_requested[$issue_key]:-}" ]]; then
