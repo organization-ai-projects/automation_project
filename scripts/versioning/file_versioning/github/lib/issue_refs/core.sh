@@ -90,7 +90,7 @@ parse_pr_body_closing_issue_refs_from_text() {
 
 parse_non_closing_issue_refs_from_text() {
   local text="$1"
-  _parse_issue_refs_by_mode "$text" "non_close" | sort -u
+  parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" && $2 == "Part of" { print $2 "|" $3 }' | sort -u
 }
 
 parse_neutralized_closing_issue_refs_from_text() {
@@ -149,10 +149,10 @@ parse_issue_directive_records_from_text() {
         duplicate_line = substr(duplicate_line, RSTART + RLENGTH)
       }
 
-      # Directive events: closes/fixes/reopen/reopens #N
+      # Directive events: closes/fixes/reopen/reopens/part of #N
       event_line = line
       event_lower = lower
-      while (match(event_lower, /(closes|fixes|reopen|reopens)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
+      while (match(event_lower, /(closes|fixes|reopen|reopens|part[[:space:]]+of)[[:space:]]+[^[:space:]]*#[0-9]+/)) {
         if (RSTART > 1 && substr(event_lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
           event_lower = substr(event_lower, RSTART + 1)
           event_line = substr(event_line, RSTART + 1)
@@ -171,6 +171,8 @@ parse_issue_directive_records_from_text() {
         action = ""
         if (token == "closes" || token == "fixes") {
           action = "Closes"
+        } else if (token == "part" && parts_lower[2] == "of") {
+          action = "Part of"
         } else if (token == "reopen" || token == "reopens") {
           action = "Reopen"
         }
