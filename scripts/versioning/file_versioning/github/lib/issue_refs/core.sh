@@ -3,80 +3,6 @@
 
 # Core issue-reference parsing helpers.
 
-_parse_issue_refs_by_mode() {
-  local text="$1"
-  local mode="$2"
-
-  echo "$text" | awk -v mode="$mode" '
-    BEGIN {
-      pattern = ""
-      if (mode == "close") {
-        pattern = "(closes|fixes)[[:space:]]+[^[:space:]]*#[0-9]+"
-      } else if (mode == "all_close") {
-        pattern = "(closes|fixes)[[:space:]]+(rejected[[:space:]]+)?[^[:space:]]*#[0-9]+"
-      } else if (mode == "neutralized_close") {
-        pattern = "(closes|fixes)[[:space:]]+rejected[[:space:]]+[^[:space:]]*#[0-9]+"
-      } else if (mode == "non_close") {
-        pattern = "(part[[:space:]]+of)[[:space:]]+[^[:space:]]*#[0-9]+"
-      } else if (mode == "reopen") {
-        pattern = "(reopen|reopens)[[:space:]]+[^[:space:]]*#[0-9]+"
-      } else if (mode == "directive_events") {
-        pattern = "(closes|fixes|reopen|reopens)[[:space:]]+[^[:space:]]*#[0-9]+"
-      }
-    }
-    {
-      line = $0
-      lower = tolower($0)
-
-      while (pattern != "" && match(lower, pattern)) {
-        if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
-          lower = substr(lower, RSTART + 1)
-          line = substr(line, RSTART + 1)
-          continue
-        }
-
-        matched = substr(line, RSTART, RLENGTH)
-        matched_lower = substr(lower, RSTART, RLENGTH)
-        n = split(matched, parts, /[[:space:]]+/)
-        split(matched_lower, parts_lower, /[[:space:]]+/)
-
-        token = parts_lower[1]
-        token_b = parts_lower[2]
-        issue_ref = parts[n]
-        sub(/^.*#/, "#", issue_ref)
-
-        action = ""
-        if (mode == "close" || mode == "all_close" || mode == "neutralized_close") {
-          if (token == "closes" || token == "fixes") {
-            action = "Closes"
-          }
-        } else if (mode == "non_close") {
-          if (token == "part" && token_b == "of") {
-            action = "Part of"
-          }
-        } else if (mode == "reopen") {
-          if (token == "reopen" || token == "reopens") {
-            action = "Reopen"
-          }
-        } else if (mode == "directive_events") {
-          if (token == "closes" || token == "fixes") {
-            action = "Closes"
-          } else if (token == "reopen" || token == "reopens") {
-            action = "Reopen"
-          }
-        }
-
-        if (issue_ref ~ /^#[0-9]+$/ && action != "") {
-          print action "|" issue_ref
-        }
-
-        lower = substr(lower, RSTART + RLENGTH)
-        line = substr(line, RSTART + RLENGTH)
-      }
-    }
-  '
-}
-
 parse_closing_issue_refs_from_text() {
   local text="$1"
   parse_issue_directive_records_from_text "$text" | awk -F'|' '$1 == "EV" && $2 == "Closes" { print $2 "|" $3 }' | sort -u
@@ -95,12 +21,36 @@ parse_non_closing_issue_refs_from_text() {
 
 parse_neutralized_closing_issue_refs_from_text() {
   local text="$1"
-  _parse_issue_refs_by_mode "$text" "neutralized_close" | sort -u
+  echo "$text" | awk '
+    {
+      line = $0
+      lower = tolower($0)
+      while (match(lower, /(closes|fixes)[[:space:]]+rejected[[:space:]]+[^[:space:]]*#[0-9]+/)) {
+        if (RSTART > 1 && substr(lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
+          lower = substr(lower, RSTART + 1)
+          line = substr(line, RSTART + 1)
+          continue
+        }
+        matched = substr(line, RSTART, RLENGTH)
+        n = split(matched, parts, /[[:space:]]+/)
+        issue_ref = parts[n]
+        sub(/^.*#/, "#", issue_ref)
+        if (issue_ref ~ /^#[0-9]+$/) {
+          print "Closes|" issue_ref
+        }
+        lower = substr(lower, RSTART + RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' | sort -u
 }
 
 parse_all_closing_issue_refs_from_text() {
   local text="$1"
-  _parse_issue_refs_by_mode "$text" "all_close" | sort -u
+  {
+    parse_closing_issue_refs_from_text "$text"
+    parse_neutralized_closing_issue_refs_from_text "$text"
+  } | sort -u
 }
 
 parse_issue_directive_records_from_text() {
