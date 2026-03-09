@@ -26,6 +26,33 @@ pr_issue_parse_key_and_number() {
   return 0
 }
 
+pr_issue_payload_field() {
+  local payload="$1"
+  local field_name="$2"
+  local first second third
+
+  first="${payload%%$'\x1f'*}"
+  second="${payload#*$'\x1f'}"
+  if [[ "$second" == "$payload" ]]; then
+    second=""
+    third=""
+  else
+    third="${second#*$'\x1f'}"
+    if [[ "$third" == "$second" ]]; then
+      third=""
+    else
+      second="${second%%$'\x1f'*}"
+    fi
+  fi
+
+  case "$field_name" in
+  labels) printf '%s' "$first" ;;
+  title_category) printf '%s' "$second" ;;
+  non_compliance_reason) printf '%s' "$third" ;;
+  *) return 1 ;;
+  esac
+}
+
 pr_issue_context_payload_for() {
   local issue_number="$1"
   local issue_key="#${issue_number}"
@@ -92,26 +119,22 @@ pr_issue_labels() {
   local issue_number="$1"
   local payload
   payload="$(pr_issue_context_payload_for "$issue_number")"
-  echo "${payload%%$'\x1f'*}"
+  pr_issue_payload_field "$payload" "labels"
 }
 
 pr_issue_title_category() {
   local issue_number="$1"
   local payload
-  local rest
   payload="$(pr_issue_context_payload_for "$issue_number")"
-  rest="${payload#*$'\x1f'}"
-  echo "${rest%%$'\x1f'*}"
+  pr_issue_payload_field "$payload" "title_category"
 }
 
 pr_issue_non_compliance_reason_for() {
   local issue_number="$1"
   local payload
   local _labels_raw="${2:-}"
-  local rest
   payload="$(pr_issue_context_payload_for "$issue_number")"
-  rest="${payload#*$'\x1f'}"
-  echo "${rest#*$'\x1f'}"
+  pr_issue_payload_field "$payload" "non_compliance_reason"
 }
 
 pr_is_pull_request_ref() {
