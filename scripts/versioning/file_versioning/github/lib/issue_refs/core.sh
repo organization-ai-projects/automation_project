@@ -55,11 +55,9 @@ parse_issue_directive_records_from_text() {
 
   echo "$text" | awk '
     {
-      line = $0
       lower = tolower($0)
 
       # Directive decisions: "directive decision: #123 => close|reopen"
-      decision_line = line
       decision_lower = lower
       while (match(decision_lower, /directive[[:space:]_-]*decision[[:space:]]*:[[:space:]]*[^[:space:]]*#[0-9]+[[:space:]]*=>[[:space:]]*(close|reopen)/)) {
         matched = substr(decision_lower, RSTART, RLENGTH)
@@ -77,36 +75,30 @@ parse_issue_directive_records_from_text() {
       }
 
       # Duplicate declarations: "#123 duplicate of #456"
-      duplicate_line = line
       duplicate_lower = lower
       while (match(duplicate_lower, /#([0-9]+)[[:space:]]+duplicate[[:space:]]+of[[:space:]]+#([0-9]+)/)) {
-        matched = substr(duplicate_line, RSTART, RLENGTH)
+        matched = substr(duplicate_lower, RSTART, RLENGTH)
         gsub(/[^0-9]+/, " ", matched)
         split(matched, nums, " ")
         if (nums[1] != "" && nums[2] != "") {
           print "DUP|#" nums[1] "|#" nums[2]
         }
         duplicate_lower = substr(duplicate_lower, RSTART + RLENGTH)
-        duplicate_line = substr(duplicate_line, RSTART + RLENGTH)
       }
 
       # Directive events: closes/fixes/reopen/reopens/part of #N
-      event_line = line
       event_lower = lower
       while (match(event_lower, /(closes|fixes|reopen|reopens|part[[:space:]]+of)[[:space:]]+(rejected[[:space:]]+)?[^[:space:]]*#[0-9]+/)) {
         if (RSTART > 1 && substr(event_lower, RSTART - 1, 1) ~ /[[:alnum:]_]/) {
           event_lower = substr(event_lower, RSTART + 1)
-          event_line = substr(event_line, RSTART + 1)
           continue
         }
 
-        matched = substr(event_line, RSTART, RLENGTH)
         matched_lower = substr(event_lower, RSTART, RLENGTH)
-        n = split(matched, parts, /[[:space:]]+/)
-        split(matched_lower, parts_lower, /[[:space:]]+/)
+        n = split(matched_lower, parts_lower, /[[:space:]]+/)
 
         token = parts_lower[1]
-        issue_ref = parts[n]
+        issue_ref = parts_lower[n]
         sub(/^.*#/, "#", issue_ref)
         rejected_token = parts_lower[2]
 
@@ -128,7 +120,6 @@ parse_issue_directive_records_from_text() {
         }
 
         event_lower = substr(event_lower, RSTART + RLENGTH)
-        event_line = substr(event_line, RSTART + RLENGTH)
       }
     }
   '
