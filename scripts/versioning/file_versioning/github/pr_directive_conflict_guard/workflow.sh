@@ -33,27 +33,27 @@ pr_directive_conflict_guard_run() {
   original_body="$(echo "$pr_json" | jq -r '.body // ""')"
   updated_body="$original_body"
 
-  while IFS='|' read -r action issue_key; do
-    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    if [[ "$action" == "Closes" ]]; then
-      closing_requested["$issue_key"]=1
-    fi
-  done < <(parse_closing_issue_refs_from_text "$original_body")
-
-  while IFS='|' read -r _ issue_key; do
-    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    reopen_requested["$issue_key"]=1
-  done < <(parse_reopen_issue_refs_from_text "$original_body")
-
-  while IFS='|' read -r issue_key decision; do
-    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
-    decision="$(pr_directive_conflict_guard_trim "$decision" | tr '[:upper:]' '[:lower:]')"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
-    directive_decision["$issue_key"]="$decision"
-  done < <(parse_directive_decisions_from_text "$original_body")
+  while IFS='|' read -r record_type field_a field_b; do
+    case "$record_type" in
+    EV)
+      action="$(pr_directive_conflict_guard_trim "$field_a")"
+      issue_key="$(pr_directive_conflict_guard_trim "$field_b")"
+      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+      if [[ "$action" == "Closes" ]]; then
+        closing_requested["$issue_key"]=1
+      elif [[ "$action" == "Reopen" ]]; then
+        reopen_requested["$issue_key"]=1
+      fi
+      ;;
+    DEC)
+      issue_key="$(pr_directive_conflict_guard_trim "$field_a")"
+      decision="$(pr_directive_conflict_guard_trim "$field_b" | tr '[:upper:]' '[:lower:]')"
+      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+      [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
+      directive_decision["$issue_key"]="$decision"
+      ;;
+    esac
+  done < <(parse_issue_directive_records_from_text "$original_body")
 
   commit_messages="$(pr_directive_conflict_guard_fetch_commit_messages "$repo_name" "$pr_number")"
   source_branch_count="$(
@@ -67,14 +67,16 @@ pr_directive_conflict_guard_run() {
   fi
 
   directive_payload="${commit_messages}"$'\n'"${original_body}"
-  while IFS='|' read -r action issue_key; do
-    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
+  while IFS='|' read -r record_type field_a field_b; do
+    [[ "$record_type" == "EV" ]] || continue
+    action="$(pr_directive_conflict_guard_trim "$field_a")"
+    issue_key="$(pr_directive_conflict_guard_trim "$field_b")"
     [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
     case "$action" in
     Closes) inferred_decision["$issue_key"]="close" ;;
     Reopen) inferred_decision["$issue_key"]="reopen" ;;
     esac
-  done < <(parse_directive_events_from_text "$directive_payload")
+  done < <(parse_issue_directive_records_from_text "$directive_payload")
 
   for issue_key in "${!closing_requested[@]}"; do
     if [[ -z "${reopen_requested[$issue_key]:-}" ]]; then
