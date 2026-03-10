@@ -66,6 +66,24 @@ parent_guard_reopen_issue() {
   gh issue reopen "$issue_number" -R "$repo_name" >/dev/null
 }
 
+parent_guard_close_issue_with_comment() {
+  local repo_name="$1"
+  local issue_number="$2"
+  local comment="$3"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if va_exec issue close \
+      --issue "$issue_number" \
+      --repo "$repo_name" \
+      --reason completed \
+      --comment "$comment" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  gh issue close "$issue_number" -R "$repo_name" --comment "$comment" >/dev/null
+}
+
 parent_guard_evaluate_parent_issue() {
   local strict_guard="$1"
   local repo_name="$2"
@@ -131,8 +149,10 @@ parent_guard_evaluate_parent_issue() {
     "true"
 
   if [[ "$open_count" -eq 0 && "$parent_state" == "OPEN" ]]; then
-    gh issue close "$parent_number" -R "$repo_name" \
-      --comment "All required child issues are closed. Auto-closed by parent-issue-guard." >/dev/null
+    parent_guard_close_issue_with_comment \
+      "$repo_name" \
+      "$parent_number" \
+      "All required child issues are closed. Auto-closed by parent-issue-guard."
     echo "Closed parent issue #${parent_number} because all required children are closed."
   fi
 

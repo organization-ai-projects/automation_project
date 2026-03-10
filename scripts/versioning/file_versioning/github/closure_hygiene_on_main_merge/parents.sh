@@ -48,6 +48,24 @@ closure_hygiene_issue_json() {
   printf '%s\n' "$issue_json"
 }
 
+closure_hygiene_close_issue_with_comment() {
+  local repo_name="$1"
+  local issue_number="$2"
+  local comment="$3"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if va_exec issue close \
+      --issue "$issue_number" \
+      --repo "$repo_name" \
+      --reason completed \
+      --comment "$comment" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  gh issue close "$issue_number" -R "$repo_name" --comment "$comment" >/dev/null
+}
+
 closure_hygiene_evaluate_parent() {
   local parent_number="$1"
   local parent_json
@@ -102,8 +120,10 @@ closure_hygiene_evaluate_parent() {
     "$(closure_hygiene_build_status_comment "$parent_number" "$total" "$closed_count" "$open_count" "$open_lines")"
 
   if [[ "$parent_state" == "OPEN" && "$open_count" -eq 0 ]]; then
-    gh issue close "$parent_number" -R "$REPO_NAME" \
-      --comment "All required child issues are closed. Auto-closed by closure hygiene workflow after merge into main." >/dev/null
+    closure_hygiene_close_issue_with_comment \
+      "$REPO_NAME" \
+      "$parent_number" \
+      "All required child issues are closed. Auto-closed by closure hygiene workflow after merge into main."
     echo "Closed parent issue #${parent_number}."
   fi
 }
