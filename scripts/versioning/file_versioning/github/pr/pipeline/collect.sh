@@ -6,7 +6,24 @@
 
 pr_pipeline_mark_breaking_from_text() {
   local text="$1"
-  if [[ -n "$text" ]] && pr_text_indicates_breaking "$text"; then
+  local breaking_result=""
+
+  if [[ -z "$text" ]]; then
+    return
+  fi
+
+  if command -v va_exec >/dev/null 2>&1; then
+    breaking_result="$(
+      va_exec pr breaking-detect \
+        --text "$text" 2>/dev/null || true
+    )"
+    if [[ "$breaking_result" == "true" ]]; then
+      breaking_detected=1
+      return
+    fi
+  fi
+
+  if pr_text_indicates_breaking "$text"; then
     breaking_detected=1
   fi
 }
@@ -39,7 +56,11 @@ pr_pipeline_load_pr_body_context() {
   pr_title="$(echo "$pr_view_json" | jq -r '.title // ""')"
   pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
   pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
-  if [[ "$(echo "$pr_labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
+  if command -v va_exec >/dev/null 2>&1; then
+    if [[ "$(va_exec pr breaking-detect --labels-raw "$pr_labels_raw" 2>/dev/null || true)" == "true" ]]; then
+      breaking_detected=1
+    fi
+  elif [[ "$(echo "$pr_labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
     breaking_detected=1
   fi
 
