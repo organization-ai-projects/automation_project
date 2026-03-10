@@ -8,6 +8,16 @@ neutralize_upsert_pr_comment() {
   local body="$4"
   local comment_id
 
+  if command -v va_exec >/dev/null 2>&1; then
+    if va_exec pr upsert-comment \
+      --pr "$pr_number" \
+      --repo "$repo_name" \
+      --marker "$marker" \
+      --body "$body" >/dev/null; then
+      return 0
+    fi
+  fi
+
   comment_id="$({
     gh api "repos/${repo_name}/issues/${pr_number}/comments" --paginate
   } | jq -r --arg marker "$marker" '
