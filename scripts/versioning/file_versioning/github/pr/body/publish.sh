@@ -81,7 +81,7 @@ pr_body_handle_auto_edit_pr() {
       exit "$E_DEPENDENCY"
     fi
 
-    current_pr_body="$(pr_gh_optional "read current PR #${auto_edit_pr_number} body before update" pr view "$auto_edit_pr_number" --json body -q '.body // ""')"
+    current_pr_body="$(pr_get_pr_body "$auto_edit_pr_number" "read current PR #${auto_edit_pr_number} body before update")"
     if [[ "$validation_only" != "true" ]]; then
       body_content="$(pr_build_sectional_auto_edit_body "$current_pr_body" "$body_content")"
     fi

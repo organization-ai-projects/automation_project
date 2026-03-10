@@ -144,7 +144,7 @@ pr_body_apply_validation_only_if_needed() {
     pr_body_compute_validation_state
   fi
 
-  current_pr_body="$(pr_gh_optional "read PR #${auto_edit_pr_number} body for validation-only update" pr view "$auto_edit_pr_number" --json body -q '.body')"
+  current_pr_body="$(pr_get_pr_body "$auto_edit_pr_number" "read PR #${auto_edit_pr_number} body for validation-only update")"
   if [[ -z "$current_pr_body" ]]; then
     echo "Error: unable to read current PR body for validation-only update." >&2
     exit "$E_PARTIAL"

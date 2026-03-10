@@ -43,7 +43,7 @@ pr_extract_child_prs() {
       --jq '.[].commit.message | split("\\n")[0]')"
   fi
 
-  main_pr_body="$(pr_gh_optional "read PR #${main_pr_number} body" pr view "$main_pr_number" --json body -q '.body')"
+  main_pr_body="$(pr_get_pr_body "$main_pr_number" "read PR #${main_pr_number} body")"
   main_pr_comments="$(pr_gh_optional "read PR #${main_pr_number} comments" pr view "$main_pr_number" --json comments -q '.comments[].body')"
   timeline_pr_refs=""
   if [[ -n "$repo_owner_name" ]]; then
