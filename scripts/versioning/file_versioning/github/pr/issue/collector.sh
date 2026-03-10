@@ -102,20 +102,9 @@ pr_resolve_effective_category() {
   local effective_category
 
   label_category="$(issue_category_from_labels "$issue_labels_raw")"
-  if command -v va >/dev/null 2>&1; then
+  if command -v va_exec >/dev/null 2>&1; then
     effective_category="$(
-      va pr resolve-category \
-        --label-category "$label_category" \
-        --title-category "$title_category" \
-        --default-category "$default_category" 2>/dev/null || true
-    )"
-    if [[ -n "$effective_category" ]]; then
-      echo "$effective_category"
-      return
-    fi
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    effective_category="$(
-      versioning_automation pr resolve-category \
+      va_exec pr resolve-category \
         --label-category "$label_category" \
         --title-category "$title_category" \
         --default-category "$default_category" 2>/dev/null || true

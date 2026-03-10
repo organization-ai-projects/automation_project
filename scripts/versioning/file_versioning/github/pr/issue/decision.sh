@@ -44,33 +44,17 @@ pr_issue_inferred_conflict_reason_for() {
   fi
 }
 
-pr_issue_va_cmd_for_decision() {
-  if command -v va >/dev/null 2>&1; then
-    echo "va"
-    return 0
-  fi
-  if command -v versioning_automation >/dev/null 2>&1; then
-    echo "versioning_automation"
-    return 0
-  fi
-  return 1
-}
-
 pr_issue_try_pre_decision_via_va() {
   local action="$1"
   local issue_key="$2"
   local default_category="$3"
   local inferred_decision="$4"
   local _out_result_var="$5"
-  local va_bin
   local seen_reopen="false"
   local reopen_category=""
   local explicit_decision=""
   local allow_inferred="false"
   local -n _out_result_ref="$_out_result_var"
-
-  va_bin="$(pr_issue_va_cmd_for_decision || true)"
-  [[ -n "$va_bin" ]] || return 1
 
   if [[ -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
     seen_reopen="true"
@@ -82,7 +66,7 @@ pr_issue_try_pre_decision_via_va() {
   fi
 
   _out_result_ref="$(
-    "$va_bin" pr issue-decision \
+    va_exec pr issue-decision \
       --action "$action" \
       --issue "$issue_key" \
       --default-category "$default_category" \

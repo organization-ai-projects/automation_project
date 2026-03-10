@@ -23,10 +23,8 @@ _parse_closure_refs_via_va() {
 
   if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
     cmd=("${VA_PR_DIRECTIVES_BIN}" pr closure-refs)
-  elif command -v va >/dev/null 2>&1; then
-    cmd=(va pr closure-refs)
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    cmd=(versioning_automation pr closure-refs)
+  elif command -v va_exec >/dev/null 2>&1; then
+    cmd=(va_exec pr closure-refs)
   else
     return 1
   fi
@@ -196,10 +194,8 @@ _parse_issue_directive_records_via_va() {
   cmd=()
   if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
     cmd=("${VA_PR_DIRECTIVES_BIN}" pr directives)
-  elif command -v va >/dev/null 2>&1; then
-    cmd=(va pr directives)
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    cmd=(versioning_automation pr directives)
+  elif command -v va_exec >/dev/null 2>&1; then
+    cmd=(va_exec pr directives)
   else
     return 1
   fi

@@ -55,20 +55,9 @@ neutralize_apply_rejected_marker() {
   local issue_key="$3"
   local transformed
 
-  if command -v va >/dev/null 2>&1; then
+  if command -v va_exec >/dev/null 2>&1; then
     transformed="$(
-      printf '%s' "$body" | va pr closure-marker --stdin \
-        --keyword-pattern "$keyword_pattern" \
-        --issue "$issue_key" \
-        --mode apply 2>/dev/null || true
-    )"
-    if [[ -n "$transformed" ]]; then
-      printf '%s' "$transformed"
-      return
-    fi
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    transformed="$(
-      printf '%s' "$body" | versioning_automation pr closure-marker --stdin \
+      printf '%s' "$body" | va_exec pr closure-marker --stdin \
         --keyword-pattern "$keyword_pattern" \
         --issue "$issue_key" \
         --mode apply 2>/dev/null || true
@@ -95,20 +84,9 @@ neutralize_remove_rejected_marker() {
   local issue_key="$3"
   local transformed
 
-  if command -v va >/dev/null 2>&1; then
+  if command -v va_exec >/dev/null 2>&1; then
     transformed="$(
-      printf '%s' "$body" | va pr closure-marker --stdin \
-        --keyword-pattern "$keyword_pattern" \
-        --issue "$issue_key" \
-        --mode remove 2>/dev/null || true
-    )"
-    if [[ -n "$transformed" ]]; then
-      printf '%s' "$transformed"
-      return
-    fi
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    transformed="$(
-      printf '%s' "$body" | versioning_automation pr closure-marker --stdin \
+      printf '%s' "$body" | va_exec pr closure-marker --stdin \
         --keyword-pattern "$keyword_pattern" \
         --issue "$issue_key" \
         --mode remove 2>/dev/null || true
