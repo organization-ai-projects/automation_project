@@ -101,21 +101,43 @@ neutralize_collect_refs_from_body() {
   local _out_pre_neutralized_refs_var="$3"
   local -n _out_closing_refs_ref="$_out_closing_refs_var"
   local -n _out_pre_neutralized_refs_ref="$_out_pre_neutralized_refs_var"
+  local -a va_cmd=()
   local record_type action issue_key
   local -a closing_rows=()
   local -a pre_neutralized_rows=()
 
-  while IFS='|' read -r record_type action issue_key; do
-    [[ "$record_type" == "EV" ]] || continue
-    issue_key="$(neutralize_trim "$issue_key")"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+  if command -v va >/dev/null 2>&1; then
+    va_cmd=(va pr closure-refs)
+  elif command -v versioning_automation >/dev/null 2>&1; then
+    va_cmd=(versioning_automation pr closure-refs)
+  fi
 
-    if [[ "$action" == "Closes" ]]; then
-      closing_rows+=("${action}|${issue_key}")
-    elif [[ "$action" == "Closes rejected" ]]; then
-      pre_neutralized_rows+=("Closes|${issue_key}")
-    fi
-  done < <(parse_issue_directive_records_from_text "$body")
+  if [[ "${#va_cmd[@]}" -gt 0 ]]; then
+    while IFS='|' read -r record_type action issue_key; do
+      issue_key="$(neutralize_trim "$issue_key")"
+      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+
+      if [[ "$record_type" == "CLOSE" ]]; then
+        closing_rows+=("${action}|${issue_key}")
+      elif [[ "$record_type" == "PRE" ]]; then
+        pre_neutralized_rows+=("${action}|${issue_key}")
+      fi
+    done < <(printf '%s' "$body" | "${va_cmd[@]}" --stdin 2>/dev/null)
+  fi
+
+  if [[ "${#closing_rows[@]}" -eq 0 && "${#pre_neutralized_rows[@]}" -eq 0 ]]; then
+    while IFS='|' read -r record_type action issue_key; do
+      [[ "$record_type" == "EV" ]] || continue
+      issue_key="$(neutralize_trim "$issue_key")"
+      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+
+      if [[ "$action" == "Closes" ]]; then
+        closing_rows+=("${action}|${issue_key}")
+      elif [[ "$action" == "Closes rejected" ]]; then
+        pre_neutralized_rows+=("Closes|${issue_key}")
+      fi
+    done < <(parse_issue_directive_records_from_text "$body")
+  fi
 
   _out_closing_refs_ref="$(printf '%s\n' "${closing_rows[@]}" | sed '/^$/d' | sort -u)"
   _out_pre_neutralized_refs_ref="$(printf '%s\n' "${pre_neutralized_rows[@]}" | sed '/^$/d' | sort -u)"
