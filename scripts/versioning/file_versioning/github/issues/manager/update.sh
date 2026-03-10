@@ -52,6 +52,18 @@ manager_load_issue_content_for_update() {
   local issue_number="$1"
   local repo="$2"
 
+  if command -v va_exec >/dev/null 2>&1; then
+    if [[ -n "$repo" ]]; then
+      if va_exec issue read --issue "$issue_number" --repo "$repo" --json title,body,labels; then
+        return 0
+      fi
+    else
+      if va_exec issue read --issue "$issue_number" --json title,body,labels; then
+        return 0
+      fi
+    fi
+  fi
+
   if [[ -n "$repo" ]]; then
     gh issue view "$issue_number" -R "$repo" --json title,body,labels
   else
@@ -109,11 +121,24 @@ cmd_update() {
     fi
   fi
 
-  local -a cmd=(gh issue edit "$issue_number")
+  local -a issue_args=(issue update --issue "$issue_number")
   if [[ -n "$repo" ]]; then
-    cmd+=(-R "$repo")
+    issue_args+=(--repo "$repo")
   fi
-  cmd+=("${edit_args[@]}")
-  "${cmd[@]}" >/dev/null
+  issue_args+=("${edit_args[@]}")
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if va_exec "${issue_args[@]}" >/dev/null; then
+      echo "Issue #${issue_number} updated."
+      return
+    fi
+  fi
+
+  local -a gh_cmd=(gh issue edit "$issue_number")
+  if [[ -n "$repo" ]]; then
+    gh_cmd+=(-R "$repo")
+  fi
+  gh_cmd+=("${edit_args[@]}")
+  "${gh_cmd[@]}" >/dev/null
   echo "Issue #${issue_number} updated."
 }
