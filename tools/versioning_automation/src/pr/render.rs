@@ -27,6 +27,7 @@ pub(crate) fn print_usage() {
     println!("  va pr issue-category-from-title --title \"...\"");
     println!("  va pr issue-ref-kind --issue <number> [--repo owner/name]");
     println!("  va pr normalize-issue-key --raw \"text containing #123\"");
+    println!("  va pr sort-bullets --input-file /path/to/bullets.txt");
     println!(
         "  va pr issue-decision --action <Closes|Reopen> --issue <#n> --default-category <name> [--seen-reopen true|false] [--reopen-category <name>] [--inferred-decision <close|reopen|conflict>] [--explicit-decision <close|reopen>] [--allow-inferred true|false]"
     );

@@ -8,4 +8,5 @@ mod normalize_issue_key;
 mod parse;
 mod resolve_category;
 mod scan;
+mod sort_bullets;
 mod state;

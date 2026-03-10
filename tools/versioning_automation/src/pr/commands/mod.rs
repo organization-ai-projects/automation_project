@@ -17,3 +17,4 @@ pub(crate) mod pr_issue_ref_kind_options;
 pub(crate) mod pr_non_closing_refs_options;
 pub(crate) mod pr_normalize_issue_key_options;
 pub(crate) mod pr_resolve_category_options;
+pub(crate) mod pr_sort_bullets_options;

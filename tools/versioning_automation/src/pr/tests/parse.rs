@@ -133,6 +133,13 @@ fn pr_normalize_issue_key_requires_raw() {
 }
 
 #[test]
+fn pr_sort_bullets_requires_input_file() {
+    let args = vec!["sort-bullets".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
 fn pr_issue_category_from_labels_requires_labels_raw() {
     let args = vec!["issue-category-from-labels".to_string()];
     let code = run(&args);

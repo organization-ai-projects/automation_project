@@ -22,6 +22,7 @@ use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
+use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
 
 pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     if args.is_empty() {
@@ -55,6 +56,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
             parse_normalize_issue_key(&args[1..]).map(PrAction::NormalizeIssueKey)
         }
         "issue-decision" => parse_issue_decision(&args[1..]).map(PrAction::IssueDecision),
+        "sort-bullets" => parse_sort_bullets(&args[1..]).map(PrAction::SortBullets),
         "closure-marker" => parse_closure_marker(&args[1..]).map(PrAction::ClosureMarker),
         "non-closing-refs" => parse_non_closing_refs(&args[1..]).map(PrAction::NonClosingRefs),
         "resolve-category" => parse_resolve_category(&args[1..]).map(PrAction::ResolveCategory),
@@ -241,6 +243,23 @@ fn parse_normalize_issue_key(args: &[String]) -> Result<PrNormalizeIssueKeyOptio
         return Err("--raw is required".to_string());
     }
     Ok(PrNormalizeIssueKeyOptions { raw })
+}
+
+fn parse_sort_bullets(args: &[String]) -> Result<PrSortBulletsOptions, String> {
+    let mut input_file = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--input-file" => input_file = take_value("--input-file", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for sort-bullets: {unknown}")),
+        }
+    }
+
+    if input_file.is_empty() {
+        return Err("--input-file is required".to_string());
+    }
+    Ok(PrSortBulletsOptions { input_file })
 }
 
 fn parse_issue_category_from_labels(

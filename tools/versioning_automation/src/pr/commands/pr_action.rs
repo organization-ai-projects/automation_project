@@ -15,6 +15,7 @@ use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
+use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PrAction {
@@ -35,5 +36,6 @@ pub(crate) enum PrAction {
     ClosureMarker(PrClosureMarkerOptions),
     NonClosingRefs(PrNonClosingRefsOptions),
     ResolveCategory(PrResolveCategoryOptions),
+    SortBullets(PrSortBulletsOptions),
     AutoAddCloses(PrAutoAddClosesOptions),
 }

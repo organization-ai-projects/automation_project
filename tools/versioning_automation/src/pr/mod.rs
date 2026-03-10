@@ -16,6 +16,7 @@ mod parse;
 mod render;
 mod resolve_category;
 mod scan;
+mod sort_bullets;
 mod state;
 
 #[cfg(test)]
@@ -41,6 +42,7 @@ use resolve_category::{
     run_resolve_category,
 };
 use scan::scan_directives;
+use sort_bullets::run_sort_bullets;
 use state::run_directives_state;
 
 pub fn run(args: &[String]) -> i32 {
@@ -74,6 +76,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::ClosureMarker(opts)) => run_closure_marker(opts),
         Ok(PrAction::NonClosingRefs(opts)) => run_non_closing_refs(opts),
         Ok(PrAction::ResolveCategory(opts)) => run_resolve_category(opts),
+        Ok(PrAction::SortBullets(opts)) => run_sort_bullets(opts),
         Ok(PrAction::AutoAddCloses(opts)) => run_auto_add_closes(opts),
         Err(message) => {
             eprintln!("{message}");
