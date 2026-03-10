@@ -5,6 +5,7 @@ use crate::pr::model::pr_directive_conflicts_options::PrDirectiveConflictsOption
 use crate::pr::model::pr_directives_options::PrDirectivesOptions;
 use crate::pr::model::pr_directives_state_options::PrDirectivesStateOptions;
 use crate::pr::model::pr_issue_decision_options::PrIssueDecisionOptions;
+use crate::pr::model::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::model::pr_resolve_category_options::PrResolveCategoryOptions;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,6 +17,7 @@ pub(crate) enum PrAction {
     DirectiveConflicts(PrDirectiveConflictsOptions),
     IssueDecision(PrIssueDecisionOptions),
     ClosureMarker(PrClosureMarkerOptions),
+    NonClosingRefs(PrNonClosingRefsOptions),
     ResolveCategory(PrResolveCategoryOptions),
     AutoAddCloses(PrAutoAddClosesOptions),
 }

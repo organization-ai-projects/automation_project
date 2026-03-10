@@ -4,6 +4,7 @@ mod closure_refs;
 mod conflicts;
 mod issue_decision;
 mod model;
+mod non_closing_refs;
 mod parse;
 mod render;
 mod resolve_category;
@@ -20,6 +21,7 @@ use conflicts::run_directive_conflicts;
 use issue_decision::run_issue_decision;
 use model::pr_action::PrAction;
 use model::pr_directives_format::PrDirectivesFormat;
+use non_closing_refs::run_non_closing_refs;
 use parse::parse;
 use render::{emit_json, emit_plain, print_usage};
 use resolve_category::run_resolve_category;
@@ -47,6 +49,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),
         Ok(PrAction::IssueDecision(opts)) => run_issue_decision(opts),
         Ok(PrAction::ClosureMarker(opts)) => run_closure_marker(opts),
+        Ok(PrAction::NonClosingRefs(opts)) => run_non_closing_refs(opts),
         Ok(PrAction::ResolveCategory(opts)) => run_resolve_category(opts),
         Ok(PrAction::AutoAddCloses(opts)) => run_auto_add_closes(opts),
         Err(message) => {

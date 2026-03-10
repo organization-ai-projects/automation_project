@@ -178,3 +178,21 @@ fn pr_resolve_category_with_required_flags_returns_zero() {
     let code = run(&args);
     assert_eq!(code, 0);
 }
+
+#[test]
+fn pr_non_closing_refs_requires_input() {
+    let args = vec!["non-closing-refs".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_non_closing_refs_with_text_returns_zero() {
+    let args = vec![
+        "non-closing-refs".to_string(),
+        "--text".to_string(),
+        "Part of #7".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}

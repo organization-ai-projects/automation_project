@@ -12,6 +12,7 @@ use crate::pr::model::pr_directives_format::PrDirectivesFormat;
 use crate::pr::model::pr_directives_options::PrDirectivesOptions;
 use crate::pr::model::pr_directives_state_options::PrDirectivesStateOptions;
 use crate::pr::model::pr_issue_decision_options::PrIssueDecisionOptions;
+use crate::pr::model::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::model::pr_resolve_category_options::PrResolveCategoryOptions;
 
 pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
@@ -29,10 +30,39 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         }
         "issue-decision" => parse_issue_decision(&args[1..]).map(PrAction::IssueDecision),
         "closure-marker" => parse_closure_marker(&args[1..]).map(PrAction::ClosureMarker),
+        "non-closing-refs" => parse_non_closing_refs(&args[1..]).map(PrAction::NonClosingRefs),
         "resolve-category" => parse_resolve_category(&args[1..]).map(PrAction::ResolveCategory),
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_non_closing_refs(args: &[String]) -> Result<PrNonClosingRefsOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for non-closing-refs: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("non-closing-refs requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrNonClosingRefsOptions {
+        text: resolved_text,
+    })
 }
 
 fn parse_resolve_category(args: &[String]) -> Result<PrResolveCategoryOptions, String> {

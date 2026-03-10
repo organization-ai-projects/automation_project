@@ -7,6 +7,7 @@ pub(crate) fn print_usage() {
     println!("  va pr directives --text \"...\" [--format plain|json] [--unique]");
     println!("  va pr directives --stdin [--format plain|json] [--unique]");
     println!("  va pr closure-refs (--text \"...\" | --stdin)");
+    println!("  va pr non-closing-refs (--text \"...\" | --stdin)");
     println!(
         "  va pr closure-marker (--text \"...\" | --stdin) --keyword-pattern <regex> --issue <#n> --mode <apply|remove>"
     );
