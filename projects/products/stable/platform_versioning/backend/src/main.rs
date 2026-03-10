@@ -11,6 +11,7 @@ mod ids;
 mod indexes;
 mod issues;
 mod merges;
+mod nonce;
 mod objects;
 mod pipeline;
 mod refs_store;

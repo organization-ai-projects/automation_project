@@ -1,11 +1,5 @@
 // projects/products/stable/platform_versioning/backend/src/auth/authorization_service.rs
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
-
-fn next_nonce() -> u32 {
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
 
 use axum::http::HeaderMap;
 
@@ -15,6 +9,7 @@ use crate::auth::{
 use crate::errors::PvError;
 use crate::ids::RepoId;
 use crate::indexes::SafePath;
+use crate::nonce::next_nonce;
 
 /// Centralized authorization service for all platform-versioning endpoints.
 ///

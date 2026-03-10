@@ -4,17 +4,12 @@ use std::collections::VecDeque;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
-
-fn next_nonce() -> u32 {
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
 
 use serde::{Deserialize, Serialize};
 
 use crate::errors::PvError;
 use crate::ids::CommitId;
+use crate::nonce::next_nonce;
 use crate::objects::{Object, ObjectStore};
 use crate::refs_store::{HeadState, RefName, RefTarget};
 

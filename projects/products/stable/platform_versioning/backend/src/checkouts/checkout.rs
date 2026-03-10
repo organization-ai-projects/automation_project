@@ -3,17 +3,12 @@ use std::collections::{BTreeMap, VecDeque};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
-use std::sync::atomic::{AtomicU32, Ordering};
-
-fn next_nonce() -> u32 {
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
 
 use crate::checkouts::{CheckoutPolicy, Materialized};
 use crate::errors::PvError;
 use crate::ids::{CommitId, ObjectId};
 use crate::indexes::SafePath;
+use crate::nonce::next_nonce;
 use crate::objects::{Object, ObjectStore};
 
 /// Materializes a commit revision into a target directory.

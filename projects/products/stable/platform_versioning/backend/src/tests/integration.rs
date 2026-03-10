@@ -2,7 +2,7 @@
 //! Integration tests covering the full repo create → commit → browse → diff → merge flow.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::auth::audit_entry::AuditEntry;
 use crate::auth::{
@@ -14,6 +14,7 @@ use crate::history::HistoryWalker;
 use crate::ids::RepoId;
 use crate::indexes::Index;
 use crate::merges::{Merge, MergeResult};
+use crate::nonce::next_nonce;
 use crate::objects::{Blob, Object, ObjectStore};
 use crate::pipeline::CommitBuilder;
 use crate::pipeline::Snapshot;
@@ -22,11 +23,6 @@ use crate::repos::RepoStore;
 use crate::verify::Verification;
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn next_nonce() -> u32 {
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
 
 fn unique_test_dir(tag: &str) -> std::path::PathBuf {
     let id = COUNTER.fetch_add(1, Ordering::SeqCst);
