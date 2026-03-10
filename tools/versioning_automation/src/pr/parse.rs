@@ -25,6 +25,7 @@ use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
 use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
+use crate::pr::commands::pr_pr_state_options::PrPrStateOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
 
@@ -61,6 +62,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
             parse_issue_close_policy(&args[1..]).map(PrAction::IssueClosePolicy)
         }
         "issue-context" => parse_issue_context(&args[1..]).map(PrAction::IssueContext),
+        "pr-state" => parse_pr_state(&args[1..]).map(PrAction::PrState),
         "issue-ref-kind" => parse_issue_ref_kind(&args[1..]).map(PrAction::IssueRefKind),
         "normalize-issue-key" => {
             parse_normalize_issue_key(&args[1..]).map(PrAction::NormalizeIssueKey)
@@ -314,6 +316,23 @@ fn parse_issue_context(args: &[String]) -> Result<PrIssueContextOptions, String>
 
     require_positive_number("--issue", &issue_number)?;
     Ok(PrIssueContextOptions { issue_number, repo })
+}
+
+fn parse_pr_state(args: &[String]) -> Result<PrPrStateOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => pr_number = take_value("--pr", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for pr-state: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrPrStateOptions { pr_number, repo })
 }
 
 fn parse_issue_close_policy(args: &[String]) -> Result<PrIssueClosePolicyOptions, String> {

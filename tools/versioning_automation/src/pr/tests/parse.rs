@@ -194,6 +194,20 @@ fn pr_issue_context_with_required_fields_returns_zero() {
 }
 
 #[test]
+fn pr_pr_state_requires_pr() {
+    let args = vec!["pr-state".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_pr_state_with_required_fields_returns_zero() {
+    let args = vec!["pr-state".to_string(), "--pr".to_string(), "42".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_normalize_issue_key_requires_raw() {
     let args = vec!["normalize-issue-key".to_string()];
     let code = run(&args);
