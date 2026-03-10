@@ -113,6 +113,17 @@ pr_resolve_effective_category() {
   local effective_category
 
   if command -v va_exec >/dev/null 2>&1; then
+    effective_category="$(
+      va_exec pr effective-category \
+        --labels-raw "$issue_labels_raw" \
+        --title-category "$title_category" \
+        --default-category "$default_category" 2>/dev/null || true
+    )"
+    if [[ -n "$effective_category" ]]; then
+      echo "$effective_category"
+      return
+    fi
+
     label_category="$(
       va_exec pr issue-category-from-labels \
         --labels-raw "$issue_labels_raw" 2>/dev/null || true
