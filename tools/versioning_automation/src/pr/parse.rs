@@ -5,6 +5,7 @@ use std::path::Path;
 
 use crate::pr::model::pr_action::PrAction;
 use crate::pr::model::pr_auto_add_closes_options::PrAutoAddClosesOptions;
+use crate::pr::model::pr_closure_marker_options::PrClosureMarkerOptions;
 use crate::pr::model::pr_closure_refs_options::PrClosureRefsOptions;
 use crate::pr::model::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
 use crate::pr::model::pr_directives_format::PrDirectivesFormat;
@@ -26,9 +27,56 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
             parse_directive_conflicts(&args[1..]).map(PrAction::DirectiveConflicts)
         }
         "issue-decision" => parse_issue_decision(&args[1..]).map(PrAction::IssueDecision),
+        "closure-marker" => parse_closure_marker(&args[1..]).map(PrAction::ClosureMarker),
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_closure_marker(args: &[String]) -> Result<PrClosureMarkerOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+    let mut keyword_pattern = String::new();
+    let mut issue = String::new();
+    let mut mode = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
+            "--keyword-pattern" => keyword_pattern = take_value("--keyword-pattern", args, &mut i)?,
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--mode" => mode = take_value("--mode", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for closure-marker: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("closure-marker requires --text <value> or --stdin".to_string());
+    }
+    if keyword_pattern.is_empty() {
+        return Err("--keyword-pattern is required".to_string());
+    }
+    if issue.is_empty() {
+        return Err("--issue is required".to_string());
+    }
+    if mode.is_empty() {
+        return Err("--mode is required".to_string());
+    }
+
+    Ok(PrClosureMarkerOptions {
+        text: resolved_text,
+        keyword_pattern,
+        issue,
+        mode,
+    })
 }
 
 fn parse_issue_decision(args: &[String]) -> Result<PrIssueDecisionOptions, String> {

@@ -77,15 +77,13 @@ fn build_conflict_report(text: &str, source_branch_count: u32) -> ConflictReport
             continue;
         }
 
-        if allow_inferred_resolution {
-            if let Some(decision) = inferred_decision.get(&issue) {
-                resolved.push(ResolvedConflict {
-                    issue,
-                    decision: decision.clone(),
-                    origin: "inferred from latest directive".to_string(),
-                });
-                continue;
-            }
+        if allow_inferred_resolution && let Some(decision) = inferred_decision.get(&issue) {
+            resolved.push(ResolvedConflict {
+                issue,
+                decision: decision.clone(),
+                origin: "inferred from latest directive".to_string(),
+            });
+            continue;
         }
 
         let reason = if allow_inferred_resolution {

@@ -164,10 +164,10 @@ fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
     if let Some(repo) = explicit_repo.filter(|value| !value.trim().is_empty()) {
         return Ok(repo);
     }
-    if let Ok(env_repo) = std::env::var("GH_REPO") {
-        if !env_repo.trim().is_empty() {
-            return Ok(env_repo);
-        }
+    if let Ok(env_repo) = std::env::var("GH_REPO")
+        && !env_repo.trim().is_empty()
+    {
+        return Ok(env_repo);
     }
     let resolved = gh_output(
         "repo",

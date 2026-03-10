@@ -132,3 +132,27 @@ fn pr_issue_decision_with_required_fields_returns_zero() {
     let code = run(&args);
     assert_eq!(code, 0);
 }
+
+#[test]
+fn pr_closure_marker_requires_required_flags() {
+    let args = vec!["closure-marker".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_closure_marker_with_required_flags_returns_zero() {
+    let args = vec![
+        "closure-marker".to_string(),
+        "--text".to_string(),
+        "Closes #42".to_string(),
+        "--keyword-pattern".to_string(),
+        "closes".to_string(),
+        "--issue".to_string(),
+        "#42".to_string(),
+        "--mode".to_string(),
+        "apply".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}

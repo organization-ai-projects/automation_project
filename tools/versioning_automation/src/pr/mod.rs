@@ -1,4 +1,5 @@
 mod auto_add;
+mod closure_marker;
 mod closure_refs;
 mod conflicts;
 mod issue_decision;
@@ -12,6 +13,7 @@ mod state;
 mod tests;
 
 use auto_add::run_auto_add_closes;
+use closure_marker::run_closure_marker;
 use closure_refs::run_closure_refs;
 use conflicts::run_directive_conflicts;
 use issue_decision::run_issue_decision;
@@ -42,6 +44,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::DirectivesState(opts)) => run_directives_state(opts),
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),
         Ok(PrAction::IssueDecision(opts)) => run_issue_decision(opts),
+        Ok(PrAction::ClosureMarker(opts)) => run_closure_marker(opts),
         Ok(PrAction::AutoAddCloses(opts)) => run_auto_add_closes(opts),
         Err(message) => {
             eprintln!("{message}");
