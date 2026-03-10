@@ -30,6 +30,7 @@ mod scan;
 mod sort_bullets;
 mod state;
 mod text_payload;
+mod update_body;
 
 #[cfg(test)]
 mod tests;

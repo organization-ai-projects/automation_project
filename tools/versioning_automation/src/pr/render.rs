@@ -50,6 +50,7 @@ pub(crate) fn print_usage() {
         "  va pr resolve-category --label-category <name> --title-category <name> --default-category <name>"
     );
     println!("  va pr auto-add-closes --pr <number> [--repo owner/name]");
+    println!("  va pr update-body --pr <number> [--repo owner/name] --body \"...\"");
 }
 
 pub(crate) fn emit_plain(records: &[DirectiveRecord]) {

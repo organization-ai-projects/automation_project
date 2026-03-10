@@ -31,6 +31,7 @@ use crate::pr::scan::scan_directives;
 use crate::pr::sort_bullets::run_sort_bullets;
 use crate::pr::state::run_directives_state;
 use crate::pr::text_payload::run_text_payload;
+use crate::pr::update_body::run_update_body;
 
 pub(crate) fn run(args: &[String]) -> i32 {
     match parse(args) {
@@ -67,6 +68,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(PrAction::SortBullets(opts)) => run_sort_bullets(opts),
         Ok(PrAction::AutoAddCloses(opts)) => run_auto_add_closes(opts),
         Ok(PrAction::TextPayload(opts)) => run_text_payload(opts),
+        Ok(PrAction::UpdateBody(opts)) => run_update_body(opts),
         Err(message) => {
             eprintln!("{message}");
             2

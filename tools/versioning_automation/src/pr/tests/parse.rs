@@ -294,6 +294,13 @@ fn pr_text_payload_with_required_fields_returns_zero() {
 }
 
 #[test]
+fn pr_update_body_requires_fields() {
+    let args = vec!["update-body".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
 fn pr_open_referencing_issue_requires_issue() {
     let args = vec!["open-referencing-issue".to_string()];
     let code = run(&args);
