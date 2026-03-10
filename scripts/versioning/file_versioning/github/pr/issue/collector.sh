@@ -13,7 +13,15 @@ pr_issue_parse_key_and_number() {
   local -n _out_key_ref="$_out_key_var"
   local -n _out_number_ref="$_out_number_var"
 
-  normalized_issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
+  if command -v va_exec >/dev/null 2>&1; then
+    normalized_issue_key="$(
+      va_exec pr normalize-issue-key \
+        --raw "$issue_key_raw" 2>/dev/null || true
+    )"
+  fi
+  if [[ -z "$normalized_issue_key" ]]; then
+    normalized_issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
+  fi
   if [[ -z "$normalized_issue_key" ]]; then
     _out_key_ref=""
     _out_number_ref=""
