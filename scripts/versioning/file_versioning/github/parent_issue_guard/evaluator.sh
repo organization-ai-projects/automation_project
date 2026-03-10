@@ -53,6 +53,19 @@ parent_guard_issue_json() {
   printf '%s\n' "$issue_json"
 }
 
+parent_guard_reopen_issue() {
+  local repo_name="$1"
+  local issue_number="$2"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if va_exec issue reopen --issue "$issue_number" --repo "$repo_name" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  gh issue reopen "$issue_number" -R "$repo_name" >/dev/null
+}
+
 parent_guard_evaluate_parent_issue() {
   local strict_guard="$1"
   local repo_name="$2"
@@ -124,7 +137,7 @@ parent_guard_evaluate_parent_issue() {
   fi
 
   if [[ "$strict_guard" == "true" && "$parent_state" == "CLOSED" && "$open_count" -gt 0 ]]; then
-    gh issue reopen "$parent_number" -R "$repo_name" >/dev/null
+    parent_guard_reopen_issue "$repo_name" "$parent_number"
     echo "Reopened parent issue #${parent_number} due to open required children."
   fi
 }

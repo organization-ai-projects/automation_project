@@ -112,10 +112,17 @@ closure_hygiene_scan_open_parents() {
   local issue_number
   local open_issue_numbers
 
-  mapfile -t open_issue_numbers < <(
-    gh issue list -R "$REPO_NAME" --state open --limit 300 --json number |
-      jq -r '.[].number'
-  )
+  if command -v va_exec >/dev/null 2>&1; then
+    mapfile -t open_issue_numbers < <(
+      va_exec issue read --repo "$REPO_NAME" --json number --jq '.[].number' 2>/dev/null || true
+    )
+  fi
+  if [[ ${#open_issue_numbers[@]} -eq 0 ]]; then
+    mapfile -t open_issue_numbers < <(
+      gh issue list -R "$REPO_NAME" --state open --limit 300 --json number |
+        jq -r '.[].number'
+    )
+  fi
 
   for issue_number in "${open_issue_numbers[@]}"; do
     closure_hygiene_evaluate_parent "$issue_number"
