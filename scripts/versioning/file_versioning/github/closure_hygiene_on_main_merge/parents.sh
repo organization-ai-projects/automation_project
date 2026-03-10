@@ -26,6 +26,28 @@ closure_hygiene_build_status_comment() {
   fi
 }
 
+closure_hygiene_issue_json() {
+  local repo_name="$1"
+  local issue_number="$2"
+  local json_fields="$3"
+  local issue_json=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    issue_json="$(
+      va_exec issue read \
+        --issue "$issue_number" \
+        --repo "$repo_name" \
+        --json "$json_fields" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ -z "$issue_json" ]]; then
+    issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json "$json_fields" 2>/dev/null || true)"
+  fi
+
+  printf '%s\n' "$issue_json"
+}
+
 closure_hygiene_evaluate_parent() {
   local parent_number="$1"
   local parent_json
@@ -37,7 +59,7 @@ closure_hygiene_evaluate_parent() {
   local open_lines=""
   local child_refs child_ref child_number child_json child_state child_title
 
-  parent_json="$(gh issue view "$parent_number" -R "$REPO_NAME" --json number,body,state 2>/dev/null || true)"
+  parent_json="$(closure_hygiene_issue_json "$REPO_NAME" "$parent_number" "number,body,state")"
   if [[ -z "$parent_json" ]]; then
     return 0
   fi
@@ -56,7 +78,7 @@ closure_hygiene_evaluate_parent() {
   total="${#child_refs[@]}"
   for child_ref in "${child_refs[@]}"; do
     child_number="${child_ref//#/}"
-    child_json="$(gh issue view "$child_number" -R "$REPO_NAME" --json state,title 2>/dev/null || true)"
+    child_json="$(closure_hygiene_issue_json "$REPO_NAME" "$child_number" "state,title")"
     if [[ -z "$child_json" ]]; then
       open_count=$((open_count + 1))
       open_lines+="- ${child_ref} (unreadable or missing)"$'\n'

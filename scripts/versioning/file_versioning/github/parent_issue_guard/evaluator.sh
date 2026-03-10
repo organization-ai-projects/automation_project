@@ -31,6 +31,28 @@ parent_guard_build_status_comment() {
   fi
 }
 
+parent_guard_issue_json() {
+  local repo_name="$1"
+  local issue_number="$2"
+  local json_fields="$3"
+  local issue_json=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    issue_json="$(
+      va_exec issue read \
+        --issue "$issue_number" \
+        --repo "$repo_name" \
+        --json "$json_fields" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ -z "$issue_json" ]]; then
+    issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json "$json_fields" 2>/dev/null || true)"
+  fi
+
+  printf '%s\n' "$issue_json"
+}
+
 parent_guard_evaluate_parent_issue() {
   local strict_guard="$1"
   local repo_name="$2"
@@ -39,7 +61,7 @@ parent_guard_evaluate_parent_issue() {
   local parent_number="$5"
 
   local issue_json
-  issue_json="$(gh issue view "$parent_number" -R "$repo_name" --json number,title,body,state,url 2>/dev/null || true)"
+  issue_json="$(parent_guard_issue_json "$repo_name" "$parent_number" "number,title,body,state,url")"
   if [[ -z "$issue_json" ]]; then
     return 0
   fi
@@ -67,7 +89,7 @@ parent_guard_evaluate_parent_issue() {
   for child_ref in "${child_refs[@]}"; do
     local child_number="${child_ref//#/}"
     local child_json
-    child_json="$(gh issue view "$child_number" -R "$repo_name" --json number,title,state,url 2>/dev/null || true)"
+    child_json="$(parent_guard_issue_json "$repo_name" "$child_number" "number,title,state,url")"
     if [[ -z "$child_json" ]]; then
       open_count=$((open_count + 1))
       open_lines+="- ${child_ref} (unreadable or missing)"$'\n'
