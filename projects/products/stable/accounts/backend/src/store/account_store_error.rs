@@ -1,4 +1,5 @@
-// projects/products/stable/accounts/backend/src/store/error.rs
+//! projects/products/stable/accounts/backend/src/store/account_store_error.rs
+use std::io;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AccountStoreError {
@@ -17,7 +18,7 @@ pub enum AccountStoreError {
     #[error("invalid status")]
     InvalidStatus,
     #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
     #[error("json error: {0}")]
     Json(String),
     #[error("password error: {0}")]

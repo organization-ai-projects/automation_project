@@ -1,4 +1,4 @@
-// projects/products/stable/accounts/backend/src/store/audit_buffer_config.rs
+//! projects/products/stable/accounts/backend/src/store/audit_buffer_config.rs
 
 /// Configuration for audit buffer behavior
 #[derive(Clone)]

@@ -1,44 +1,42 @@
-// projects/products/stable/accounts/backend/src/store/account_manager.rs
+//! projects/products/stable/accounts/backend/src/store/account_manager.rs
 use common_json::{from_json_str, to_string};
 use common_time::timestamp_utils::current_timestamp_ms;
 use security::{Permission, Role};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections, path, sync::Arc};
 use tokio::sync::RwLock;
 
-use crate::store::account_record::AccountRecord;
-use crate::store::account_store_error::AccountStoreError;
-use crate::store::accounts_file::AccountsFile;
-use crate::store::audit_buffer::AuditBuffer;
-use crate::store::audit_buffer_config::AuditBufferConfig;
-use crate::store::audit_entry::AuditEntry;
 use protocol::ProtocolId;
 use protocol_accounts::AccountStatus;
 use protocol_accounts::AccountSummary;
 
+use crate::store::{
+    AccountRecord, AccountStoreError, AccountsFile, AuditBuffer, AuditBufferConfig, AuditEntry,
+};
+
 #[derive(Clone)]
 pub struct AccountManager {
-    data_dir: PathBuf,
-    accounts_path: PathBuf,
-    state: Arc<RwLock<HashMap<ProtocolId, AccountRecord>>>,
+    data_dir: path::PathBuf,
+    accounts_path: path::PathBuf,
+    state: Arc<RwLock<collections::HashMap<ProtocolId, AccountRecord>>>,
     dirty: Arc<AtomicBool>,
     audit_buffer: Arc<AuditBuffer>,
 }
 
 impl AccountManager {
-    pub fn default_data_dir() -> PathBuf {
-        PathBuf::from("projects")
+    pub fn default_data_dir() -> path::PathBuf {
+        path::PathBuf::from("projects")
             .join("products")
             .join("accounts")
             .join("data")
     }
 
-    pub async fn load(data_dir: PathBuf) -> Result<Self, AccountStoreError> {
+    pub async fn load(data_dir: path::PathBuf) -> Result<Self, AccountStoreError> {
         Self::load_with_config(data_dir, AuditBufferConfig::default()).await
     }
 
     pub async fn load_with_config(
-        data_dir: PathBuf,
+        data_dir: path::PathBuf,
         audit_config: AuditBufferConfig,
     ) -> Result<Self, AccountStoreError> {
         if !data_dir.exists() {
@@ -51,25 +49,27 @@ impl AccountManager {
         let users = if accounts_path.exists() {
             let raw = tokio::fs::read_to_string(&accounts_path).await?;
             if raw.trim().is_empty() {
-                HashMap::new()
+                collections::HashMap::new()
             } else {
                 let parsed: AccountsFile =
                     from_json_str(&raw).map_err(|e| AccountStoreError::Json(e.to_string()))?;
                 parsed.users.into_iter().map(|u| (u.user_id, u)).collect()
             }
         } else {
-            HashMap::new()
+            collections::HashMap::new()
         };
 
         let audit_buffer = Arc::new(AuditBuffer::new(audit_path.clone(), audit_config)?);
 
-        Ok(Self {
+        let manager = Self {
             data_dir,
             accounts_path,
             state: Arc::new(RwLock::new(users)),
             dirty: Arc::new(AtomicBool::new(false)),
             audit_buffer,
-        })
+        };
+        manager.set_dirty(false);
+        Ok(manager)
     }
 
     pub async fn save(&self) -> Result<(), AccountStoreError> {
@@ -91,16 +91,14 @@ impl AccountManager {
         Ok(())
     }
 
-    pub fn data_dir(&self) -> &PathBuf {
+    pub fn data_dir(&self) -> &path::PathBuf {
         &self.data_dir
     }
 
-    #[cfg(test)]
     pub(crate) fn is_dirty(&self) -> bool {
         self.dirty.load(Ordering::Relaxed)
     }
 
-    #[cfg(test)]
     pub(crate) fn set_dirty(&self, value: bool) {
         self.dirty.store(value, Ordering::Relaxed);
     }
