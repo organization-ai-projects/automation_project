@@ -126,6 +126,24 @@ fn pr_issue_ref_kind_requires_issue() {
 }
 
 #[test]
+fn pr_issue_context_requires_issue() {
+    let args = vec!["issue-context".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_issue_context_with_required_fields_returns_zero() {
+    let args = vec![
+        "issue-context".to_string(),
+        "--issue".to_string(),
+        "42".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_normalize_issue_key_requires_raw() {
     let args = vec!["normalize-issue-key".to_string()];
     let code = run(&args);

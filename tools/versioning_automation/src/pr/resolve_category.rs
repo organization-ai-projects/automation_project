@@ -80,7 +80,7 @@ fn issue_shared_priority_category(
     None
 }
 
-fn issue_category_from_labels(labels_raw: &str) -> &'static str {
+pub(crate) fn issue_category_from_labels(labels_raw: &str) -> &'static str {
     let mut has_security = false;
     let mut has_bug = false;
     let mut has_refactor = false;
@@ -131,7 +131,7 @@ fn issue_category_from_labels(labels_raw: &str) -> &'static str {
     "Unknown"
 }
 
-fn issue_category_from_title(title: &str) -> &'static str {
+pub(crate) fn issue_category_from_title(title: &str) -> &'static str {
     let title_lc = title.to_lowercase();
     let security_re =
         Regex::new(r"(^|[^a-z])(security|vuln|vulnerability|cve|sast|codeql)([^a-z]|$)")

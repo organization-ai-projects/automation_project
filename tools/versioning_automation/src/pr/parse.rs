@@ -17,6 +17,7 @@ use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptio
 use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
 use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
 use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
+use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
 use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
@@ -51,6 +52,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "issue-category-from-title" => {
             parse_issue_category_from_title(&args[1..]).map(PrAction::IssueCategoryFromTitle)
         }
+        "issue-context" => parse_issue_context(&args[1..]).map(PrAction::IssueContext),
         "issue-ref-kind" => parse_issue_ref_kind(&args[1..]).map(PrAction::IssueRefKind),
         "normalize-issue-key" => {
             parse_normalize_issue_key(&args[1..]).map(PrAction::NormalizeIssueKey)
@@ -226,6 +228,23 @@ fn parse_issue_ref_kind(args: &[String]) -> Result<PrIssueRefKindOptions, String
 
     require_positive_number("--issue", &issue_number)?;
     Ok(PrIssueRefKindOptions { issue_number, repo })
+}
+
+fn parse_issue_context(args: &[String]) -> Result<PrIssueContextOptions, String> {
+    let mut issue_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue_number = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for issue-context: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue_number)?;
+    Ok(PrIssueContextOptions { issue_number, repo })
 }
 
 fn parse_normalize_issue_key(args: &[String]) -> Result<PrNormalizeIssueKeyOptions, String> {

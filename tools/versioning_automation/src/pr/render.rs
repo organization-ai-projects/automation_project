@@ -25,6 +25,7 @@ pub(crate) fn print_usage() {
     );
     println!("  va pr issue-category-from-labels --labels-raw \"label1||label2\"");
     println!("  va pr issue-category-from-title --title \"...\"");
+    println!("  va pr issue-context --issue <number> [--repo owner/name]");
     println!("  va pr issue-ref-kind --issue <number> [--repo owner/name]");
     println!("  va pr normalize-issue-key --raw \"text containing #123\"");
     println!("  va pr sort-bullets --input-file /path/to/bullets.txt");
