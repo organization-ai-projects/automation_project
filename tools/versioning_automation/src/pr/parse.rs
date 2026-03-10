@@ -5,6 +5,7 @@ use std::path::Path;
 
 use crate::pr::model::pr_action::PrAction;
 use crate::pr::model::pr_auto_add_closes_options::PrAutoAddClosesOptions;
+use crate::pr::model::pr_closure_refs_options::PrClosureRefsOptions;
 use crate::pr::model::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
 use crate::pr::model::pr_directives_format::PrDirectivesFormat;
 use crate::pr::model::pr_directives_options::PrDirectivesOptions;
@@ -18,6 +19,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     match args[0].as_str() {
         "help" | "--help" | "-h" => Ok(PrAction::Help),
         "directives" => parse_directives(&args[1..]).map(PrAction::Directives),
+        "closure-refs" => parse_closure_refs(&args[1..]).map(PrAction::ClosureRefs),
         "directives-state" => parse_directives_state(&args[1..]).map(PrAction::DirectivesState),
         "directive-conflicts" => {
             parse_directive_conflicts(&args[1..]).map(PrAction::DirectiveConflicts)
@@ -25,6 +27,38 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_closure_refs(args: &[String]) -> Result<PrClosureRefsOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => {
+                text = Some(take_value("--text", args, &mut i)?);
+            }
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => {
+                input_file = Some(take_value("--input-file", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for closure-refs: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("closure-refs requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrClosureRefsOptions {
+        text: resolved_text,
+    })
 }
 
 fn parse_directives_state(args: &[String]) -> Result<PrDirectivesStateOptions, String> {

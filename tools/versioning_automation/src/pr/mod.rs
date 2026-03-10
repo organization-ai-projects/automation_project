@@ -1,4 +1,5 @@
 mod auto_add;
+mod closure_refs;
 mod conflicts;
 mod model;
 mod parse;
@@ -10,6 +11,7 @@ mod state;
 mod tests;
 
 use auto_add::run_auto_add_closes;
+use closure_refs::run_closure_refs;
 use conflicts::run_directive_conflicts;
 use model::pr_action::PrAction;
 use model::pr_directives_format::PrDirectivesFormat;
@@ -34,6 +36,7 @@ pub fn run(args: &[String]) -> i32 {
                 PrDirectivesFormat::Json => emit_json(&records),
             }
         }
+        Ok(PrAction::ClosureRefs(opts)) => run_closure_refs(opts),
         Ok(PrAction::DirectivesState(opts)) => run_directives_state(opts),
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),
         Ok(PrAction::AutoAddCloses(opts)) => run_auto_add_closes(opts),
