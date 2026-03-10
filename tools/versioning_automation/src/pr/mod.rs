@@ -1,4 +1,5 @@
 mod auto_add;
+mod conflicts;
 mod model;
 mod parse;
 mod render;
@@ -8,6 +9,7 @@ mod scan;
 mod tests;
 
 use auto_add::run_auto_add_closes;
+use conflicts::run_directive_conflicts;
 use model::pr_action::PrAction;
 use model::pr_directives_format::PrDirectivesFormat;
 use parse::parse;
@@ -30,6 +32,7 @@ pub fn run(args: &[String]) -> i32 {
                 PrDirectivesFormat::Json => emit_json(&records),
             }
         }
+        Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),
         Ok(PrAction::AutoAddCloses(opts)) => run_auto_add_closes(opts),
         Err(message) => {
             eprintln!("{message}");

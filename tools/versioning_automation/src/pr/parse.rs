@@ -5,6 +5,7 @@ use std::path::Path;
 
 use crate::pr::model::pr_action::PrAction;
 use crate::pr::model::pr_auto_add_closes_options::PrAutoAddClosesOptions;
+use crate::pr::model::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
 use crate::pr::model::pr_directives_format::PrDirectivesFormat;
 use crate::pr::model::pr_directives_options::PrDirectivesOptions;
 
@@ -16,9 +17,57 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     match args[0].as_str() {
         "help" | "--help" | "-h" => Ok(PrAction::Help),
         "directives" => parse_directives(&args[1..]).map(PrAction::Directives),
+        "directive-conflicts" => {
+            parse_directive_conflicts(&args[1..]).map(PrAction::DirectiveConflicts)
+        }
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_directive_conflicts(args: &[String]) -> Result<PrDirectiveConflictsOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+    let mut source_branch_count = 1u32;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => {
+                text = Some(take_value("--text", args, &mut i)?);
+            }
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => {
+                input_file = Some(take_value("--input-file", args, &mut i)?);
+            }
+            "--source-branch-count" => {
+                let value = take_value("--source-branch-count", args, &mut i)?;
+                source_branch_count = value.parse::<u32>().map_err(|_| {
+                    "--source-branch-count requires a positive numeric value".to_string()
+                })?;
+                if source_branch_count == 0 {
+                    return Err(
+                        "--source-branch-count requires a positive numeric value".to_string()
+                    );
+                }
+            }
+            unknown => return Err(format!("Unknown option for directive-conflicts: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("directive-conflicts requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrDirectiveConflictsOptions {
+        text: resolved_text,
+        source_branch_count,
+    })
 }
 
 fn parse_auto_add_closes(args: &[String]) -> Result<PrAutoAddClosesOptions, String> {
@@ -78,13 +127,7 @@ fn parse_directives(args: &[String]) -> Result<PrDirectivesOptions, String> {
         }
     }
 
-    let resolved_text = if read_stdin {
-        read_stdin_text()?
-    } else if let Some(file_path) = input_file {
-        read_file_text(&file_path)?
-    } else {
-        text.unwrap_or_default()
-    };
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
 
     if resolved_text.is_empty() {
         return Err("directives requires --text <value> or --stdin".to_string());
@@ -95,6 +138,20 @@ fn parse_directives(args: &[String]) -> Result<PrDirectivesOptions, String> {
         format,
         unique,
     })
+}
+
+fn resolve_input_text(
+    text: Option<String>,
+    read_stdin: bool,
+    input_file: Option<String>,
+) -> Result<String, String> {
+    if read_stdin {
+        read_stdin_text()
+    } else if let Some(file_path) = input_file {
+        read_file_text(&file_path)
+    } else {
+        Ok(text.unwrap_or_default())
+    }
 }
 
 fn take_value(flag: &str, args: &[String], index: &mut usize) -> Result<String, String> {

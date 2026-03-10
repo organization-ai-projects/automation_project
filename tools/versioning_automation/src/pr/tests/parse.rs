@@ -56,3 +56,21 @@ fn pr_auto_add_closes_requires_pr_flag() {
     let code = run(&args);
     assert_eq!(code, 2);
 }
+
+#[test]
+fn pr_directive_conflicts_requires_input() {
+    let args = vec!["directive-conflicts".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_directive_conflicts_with_text_returns_zero() {
+    let args = vec![
+        "directive-conflicts".to_string(),
+        "--text".to_string(),
+        "Closes #1\nReopen #1".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
