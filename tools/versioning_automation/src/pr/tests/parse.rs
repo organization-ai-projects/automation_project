@@ -240,6 +240,24 @@ fn pr_text_payload_with_required_fields_returns_zero() {
 }
 
 #[test]
+fn pr_open_referencing_issue_requires_issue() {
+    let args = vec!["open-referencing-issue".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_open_referencing_issue_with_required_fields_returns_zero() {
+    let args = vec![
+        "open-referencing-issue".to_string(),
+        "--issue".to_string(),
+        "42".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_normalize_issue_key_requires_raw() {
     let args = vec!["normalize-issue-key".to_string()];
     let code = run(&args);

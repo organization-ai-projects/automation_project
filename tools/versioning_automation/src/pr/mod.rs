@@ -17,6 +17,7 @@ mod issue_decision;
 mod issue_ref_kind;
 mod non_closing_refs;
 mod normalize_issue_key;
+mod open_referencing_issue;
 mod parse;
 mod pr_state;
 mod render;
@@ -47,6 +48,7 @@ use issue_decision::run_issue_decision;
 use issue_ref_kind::run_issue_ref_kind;
 use non_closing_refs::run_non_closing_refs;
 use normalize_issue_key::run_normalize_issue_key;
+use open_referencing_issue::run_open_referencing_issue;
 use parse::parse;
 use pr_state::run_pr_state;
 use render::{emit_json, emit_plain, print_usage};
@@ -92,6 +94,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::PrState(opts)) => run_pr_state(opts),
         Ok(PrAction::IssueRefKind(opts)) => run_issue_ref_kind(opts),
         Ok(PrAction::NormalizeIssueKey(opts)) => run_normalize_issue_key(opts),
+        Ok(PrAction::OpenReferencingIssue(opts)) => run_open_referencing_issue(opts),
         Ok(PrAction::IssueDecision(opts)) => run_issue_decision(opts),
         Ok(PrAction::ClosureMarker(opts)) => run_closure_marker(opts),
         Ok(PrAction::NonClosingRefs(opts)) => run_non_closing_refs(opts),

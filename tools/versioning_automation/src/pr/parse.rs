@@ -26,6 +26,7 @@ use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
 use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
+use crate::pr::commands::pr_open_referencing_issue_options::PrOpenReferencingIssueOptions;
 use crate::pr::commands::pr_pr_state_options::PrPrStateOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
@@ -69,6 +70,9 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "issue-ref-kind" => parse_issue_ref_kind(&args[1..]).map(PrAction::IssueRefKind),
         "normalize-issue-key" => {
             parse_normalize_issue_key(&args[1..]).map(PrAction::NormalizeIssueKey)
+        }
+        "open-referencing-issue" => {
+            parse_open_referencing_issue(&args[1..]).map(PrAction::OpenReferencingIssue)
         }
         "issue-decision" => parse_issue_decision(&args[1..]).map(PrAction::IssueDecision),
         "sort-bullets" => parse_sort_bullets(&args[1..]).map(PrAction::SortBullets),
@@ -406,6 +410,27 @@ fn parse_normalize_issue_key(args: &[String]) -> Result<PrNormalizeIssueKeyOptio
         return Err("--raw is required".to_string());
     }
     Ok(PrNormalizeIssueKeyOptions { raw })
+}
+
+fn parse_open_referencing_issue(args: &[String]) -> Result<PrOpenReferencingIssueOptions, String> {
+    let mut issue_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue_number = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => {
+                return Err(format!(
+                    "Unknown option for open-referencing-issue: {unknown}"
+                ));
+            }
+        }
+    }
+
+    require_positive_number("--issue", &issue_number)?;
+    Ok(PrOpenReferencingIssueOptions { issue_number, repo })
 }
 
 fn parse_sort_bullets(args: &[String]) -> Result<PrSortBulletsOptions, String> {

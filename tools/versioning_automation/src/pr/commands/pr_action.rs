@@ -19,6 +19,7 @@ use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
 use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
+use crate::pr::commands::pr_open_referencing_issue_options::PrOpenReferencingIssueOptions;
 use crate::pr::commands::pr_pr_state_options::PrPrStateOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
@@ -45,6 +46,7 @@ pub(crate) enum PrAction {
     PrState(PrPrStateOptions),
     IssueRefKind(PrIssueRefKindOptions),
     NormalizeIssueKey(PrNormalizeIssueKeyOptions),
+    OpenReferencingIssue(PrOpenReferencingIssueOptions),
     IssueDecision(PrIssueDecisionOptions),
     ClosureMarker(PrClosureMarkerOptions),
     NonClosingRefs(PrNonClosingRefsOptions),
