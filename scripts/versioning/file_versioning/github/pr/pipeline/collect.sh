@@ -323,7 +323,7 @@ pr_pipeline_collect_issues_from_commits_and_main_pr() {
       _main_tail="${main_pr_body_payload#*$'\x1f'}"
       main_pr_body="${_main_tail%%$'\x1f'*}"
     else
-      main_pr_body="$(pr_gh_optional "read PR #${main_pr_number} body" pr view "$main_pr_number" --json body -q '.body')"
+      main_pr_body="$(pr_get_pr_body "$main_pr_number" "read PR #${main_pr_number} body")"
     fi
     if [[ -n "$main_pr_body" ]]; then
       pr_pipeline_mark_breaking_from_text "$main_pr_body"
