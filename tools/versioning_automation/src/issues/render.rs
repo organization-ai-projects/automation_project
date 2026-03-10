@@ -31,7 +31,7 @@ pub(crate) fn print_usage() {
     );
     println!("  va issue repo-name");
     println!(
-        "  va issue close --issue <number> [--repo owner/name] [--reason completed|not_planned]"
+        "  va issue close --issue <number> [--repo owner/name] [--reason completed|not_planned] [--comment ...]"
     );
     println!("  va issue reopen --issue <number> [--repo owner/name]");
     println!("  va issue delete --issue <number> [--repo owner/name]");

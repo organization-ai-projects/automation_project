@@ -97,6 +97,9 @@ pub(crate) fn run_close(opts: CloseOptions) -> i32 {
         .arg(&opts.issue)
         .arg("--reason")
         .arg(&opts.reason);
+    if let Some(comment) = &opts.comment {
+        cmd.arg("--comment").arg(comment);
+    }
     if let Some(repo) = &opts.repo {
         cmd.arg("-R").arg(repo);
     }

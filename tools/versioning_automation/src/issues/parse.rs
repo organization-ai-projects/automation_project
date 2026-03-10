@@ -340,6 +340,7 @@ fn parse_close(args: &[String]) -> Result<CloseOptions, String> {
     let mut issue = String::new();
     let mut repo: Option<String> = None;
     let mut reason = "completed".to_string();
+    let mut comment: Option<String> = None;
 
     let mut i = 0usize;
     while i < args.len() {
@@ -347,6 +348,7 @@ fn parse_close(args: &[String]) -> Result<CloseOptions, String> {
             "--issue" => issue = take_value("--issue", args, &mut i)?,
             "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
             "--reason" => reason = take_value("--reason", args, &mut i)?,
+            "--comment" => comment = Some(take_value("--comment", args, &mut i)?),
             unknown => return Err(format!("Unknown option for close: {unknown}")),
         }
     }
@@ -360,6 +362,7 @@ fn parse_close(args: &[String]) -> Result<CloseOptions, String> {
         issue,
         repo,
         reason,
+        comment,
     })
 }
 
