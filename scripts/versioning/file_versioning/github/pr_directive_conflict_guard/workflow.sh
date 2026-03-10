@@ -52,6 +52,40 @@ pr_directive_conflict_guard_collect_inferred_decisions() {
   done < <(parse_issue_directive_records_from_text "$text")
 }
 
+pr_directive_conflict_guard_collect_conflicts_via_va() {
+  local text="$1"
+  local source_branch_count="$2"
+  local _out_resolved_conflict_var="$3"
+  local _out_unresolved_conflict_var="$4"
+  local -n _out_resolved_conflict_ref="$_out_resolved_conflict_var"
+  local -n _out_unresolved_conflict_ref="$_out_unresolved_conflict_var"
+  local -a va_cmd=()
+  local record_type issue_key decision_or_reason origin
+
+  if command -v va >/dev/null 2>&1; then
+    va_cmd=(va pr)
+  elif command -v versioning_automation >/dev/null 2>&1; then
+    va_cmd=(versioning_automation pr)
+  else
+    return 1
+  fi
+
+  while IFS='|' read -r record_type issue_key decision_or_reason origin; do
+    [[ -z "$record_type" ]] && continue
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    case "$record_type" in
+    RES)
+      [[ "$decision_or_reason" == "close" || "$decision_or_reason" == "reopen" ]] || continue
+      _out_resolved_conflict_ref["$issue_key"]="$decision_or_reason ($origin)"
+      ;;
+    UNRES)
+      [[ -n "$decision_or_reason" ]] || continue
+      _out_unresolved_conflict_ref["$issue_key"]="$decision_or_reason"
+      ;;
+    esac
+  done < <(printf '%s' "$text" | "${va_cmd[@]}" directive-conflicts --stdin --source-branch-count "$source_branch_count")
+}
+
 pr_directive_conflict_guard_run() {
   local pr_number=""
   local repo_name="${GH_REPO:-}"
@@ -84,12 +118,6 @@ pr_directive_conflict_guard_run() {
   original_body="$(echo "$pr_json" | jq -r '.body // ""')"
   updated_body="$original_body"
 
-  pr_directive_conflict_guard_collect_explicit_directives \
-    "$original_body" \
-    closing_requested \
-    reopen_requested \
-    directive_decision
-
   commit_messages="$(pr_directive_conflict_guard_fetch_commit_messages "$repo_name" "$pr_number")"
   source_branch_count="$(
     printf '%s\n' "$commit_messages" |
@@ -102,29 +130,41 @@ pr_directive_conflict_guard_run() {
   fi
 
   directive_payload="${commit_messages}"$'\n'"${original_body}"
-  pr_directive_conflict_guard_collect_inferred_decisions \
+  if ! pr_directive_conflict_guard_collect_conflicts_via_va \
     "$directive_payload" \
-    inferred_decision
+    "${source_branch_count:-1}" \
+    resolved_conflict \
+    unresolved_conflict; then
+    pr_directive_conflict_guard_collect_explicit_directives \
+      "$original_body" \
+      closing_requested \
+      reopen_requested \
+      directive_decision
 
-  for issue_key in "${!closing_requested[@]}"; do
-    if [[ -z "${reopen_requested[$issue_key]:-}" ]]; then
-      continue
-    fi
-    if [[ -n "${directive_decision[$issue_key]:-}" ]]; then
-      resolved_conflict["$issue_key"]="${directive_decision[$issue_key]} (explicit)"
-      resolved_count=$((resolved_count + 1))
-    elif [[ "$allow_inferred_resolution" == "true" && -n "${inferred_decision[$issue_key]:-}" ]]; then
-      resolved_conflict["$issue_key"]="${inferred_decision[$issue_key]} (inferred from latest directive)"
-      resolved_count=$((resolved_count + 1))
-    else
-      if [[ "$allow_inferred_resolution" != "true" ]]; then
-        unresolved_conflict["$issue_key"]="Closes + Reopen detected across multiple source branches; explicit decision required."
-      else
-        unresolved_conflict["$issue_key"]="Closes + Reopen detected without explicit decision."
+    pr_directive_conflict_guard_collect_inferred_decisions \
+      "$directive_payload" \
+      inferred_decision
+
+    for issue_key in "${!closing_requested[@]}"; do
+      if [[ -z "${reopen_requested[$issue_key]:-}" ]]; then
+        continue
       fi
-      unresolved_count=$((unresolved_count + 1))
-    fi
-  done
+      if [[ -n "${directive_decision[$issue_key]:-}" ]]; then
+        resolved_conflict["$issue_key"]="${directive_decision[$issue_key]} (explicit)"
+      elif [[ "$allow_inferred_resolution" == "true" && -n "${inferred_decision[$issue_key]:-}" ]]; then
+        resolved_conflict["$issue_key"]="${inferred_decision[$issue_key]} (inferred from latest directive)"
+      else
+        if [[ "$allow_inferred_resolution" != "true" ]]; then
+          unresolved_conflict["$issue_key"]="Closes + Reopen detected across multiple source branches; explicit decision required."
+        else
+          unresolved_conflict["$issue_key"]="Closes + Reopen detected without explicit decision."
+        fi
+      fi
+    done
+  fi
+
+  resolved_count="${#resolved_conflict[@]}"
+  unresolved_count="${#unresolved_conflict[@]}"
 
   for issue_key in "${!resolved_conflict[@]}"; do
     if [[ "${resolved_conflict[$issue_key]}" != close* ]]; then
