@@ -79,9 +79,23 @@ issue_gh_issue_has_label() {
 issue_gh_collect_pr_text_payload() {
   local repo="$1"
   local pr_number="$2"
+  local va_payload=""
   local pr_title
   local pr_body
   local commit_messages
+
+  if command -v va_exec >/dev/null 2>&1; then
+    va_payload="$(
+      va_exec pr text-payload \
+        --pr "$pr_number" \
+        --repo "$repo" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ -n "$va_payload" ]]; then
+    printf '%s\n' "$va_payload"
+    return 0
+  fi
 
   pr_title="$(gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
   pr_body="$(gh pr view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
