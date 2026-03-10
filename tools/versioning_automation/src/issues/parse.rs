@@ -1,10 +1,10 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
     AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
-    HasLabelOptions, IssueAction, IssueTarget, LabelExistsOptions, NonComplianceReasonOptions,
-    OpenNumbersOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
-    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, SyncProjectStatusOptions,
-    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    HasLabelOptions, IssueAction, IssueTarget, LabelExistsOptions, ListByLabelOptions,
+    NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions, ReevaluateOptions,
+    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
+    SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -43,6 +43,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "assignee-logins" => parse_assignee_logins(&args[1..]).map(IssueAction::AssigneeLogins),
         "state" => parse_state(&args[1..]).map(IssueAction::State),
         "has-label" => parse_has_label(&args[1..]).map(IssueAction::HasLabel),
+        "list-by-label" => parse_list_by_label(&args[1..]).map(IssueAction::ListByLabel),
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
     }
 }
@@ -88,6 +89,23 @@ fn parse_has_label(args: &[String]) -> Result<HasLabelOptions, String> {
     ensure_non_empty_or("has-label requires: --issue and --label", &[&label])?;
 
     Ok(HasLabelOptions { issue, label, repo })
+}
+
+fn parse_list_by_label(args: &[String]) -> Result<ListByLabelOptions, String> {
+    let mut label = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--label" => label = take_value("--label", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for list-by-label: {unknown}")),
+        }
+    }
+
+    ensure_non_empty_or("list-by-label requires: --label", &[&label])?;
+    Ok(ListByLabelOptions { label, repo })
 }
 
 fn parse_upsert_marker_comment(args: &[String]) -> Result<UpsertMarkerCommentOptions, String> {

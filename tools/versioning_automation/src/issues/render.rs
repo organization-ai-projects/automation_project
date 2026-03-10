@@ -75,6 +75,7 @@ pub(crate) fn print_usage() {
     println!("  va issue assignee-logins --issue <number> [--repo owner/name]");
     println!("  va issue state --issue <number> [--repo owner/name]");
     println!("  va issue has-label --issue <number> --label <name> [--repo owner/name]");
+    println!("  va issue list-by-label --label <name> [--repo owner/name]");
     println!(
         "  va issue upsert-marker-comment --repo owner/name --issue <number> --marker <marker> --body <body> [--announce true|false]"
     );

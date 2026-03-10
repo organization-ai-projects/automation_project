@@ -5,10 +5,10 @@ use regex::Regex;
 
 use crate::issues::commands::{
     AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
-    HasLabelOptions, IssueTarget, LabelExistsOptions, NonComplianceReasonOptions,
-    OpenNumbersOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
-    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
-    UpdateOptions, UpsertMarkerCommentOptions,
+    HasLabelOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
+    NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions, ReevaluateOptions,
+    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
+    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -281,6 +281,29 @@ pub(crate) fn run_has_label(opts: HasLabelOptions) -> i32 {
     let labels = gh_output_or_empty(&args);
     let exists = labels.lines().any(|name| name.trim() == opts.label);
     println!("{}", if exists { "true" } else { "false" });
+    0
+}
+
+pub(crate) fn run_list_by_label(opts: ListByLabelOptions) -> i32 {
+    let mut args: Vec<&str> = vec![
+        "issue",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        "300",
+        "--label",
+        &opts.label,
+        "--json",
+        "number",
+        "--jq",
+        ".[].number",
+    ];
+    if let Some(repo) = opts.repo.as_deref() {
+        args.push("-R");
+        args.push(repo);
+    }
+    print_non_empty_lines(&gh_output_or_empty(&args));
     0
 }
 

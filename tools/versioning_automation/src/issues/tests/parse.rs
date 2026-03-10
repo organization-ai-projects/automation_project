@@ -186,3 +186,23 @@ fn parse_has_label_requires_issue_and_label() {
     let code = issues::run(&args);
     assert_eq!(code, 2);
 }
+
+#[test]
+fn parse_list_by_label_requires_label() {
+    let args = vec!["list-by-label".to_string()];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn parse_list_by_label_accepts_label_and_optional_repo() {
+    let args = vec![
+        "list-by-label".to_string(),
+        "--label".to_string(),
+        "priority".to_string(),
+        "--repo".to_string(),
+        "owner/repo".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 0);
+}
