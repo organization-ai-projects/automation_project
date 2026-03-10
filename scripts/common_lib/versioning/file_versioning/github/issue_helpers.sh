@@ -31,6 +31,54 @@ issue_helpers_has_va_issue() {
   [[ "${issue_helpers_va_issue_available:-0}" == "1" ]]
 }
 
+github_issue_repo_name() {
+  local va_output=""
+
+  if [[ -n "${GH_REPO:-}" ]]; then
+    printf '%s\n' "$GH_REPO"
+    return 0
+  fi
+
+  if issue_helpers_has_va_issue; then
+    va_output="$(issue_helpers_va_exec issue repo-name 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$va_output" ]]; then
+    printf '%s\n' "$va_output"
+    return 0
+  fi
+
+  gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true
+}
+
+github_issue_label_exists() {
+  local repo_name="${1:-}"
+  local label_name="${2:-}"
+  local va_output=""
+
+  if [[ -z "$repo_name" || -z "$label_name" ]]; then
+    return 1
+  fi
+
+  if issue_helpers_has_va_issue; then
+    va_output="$(
+      issue_helpers_va_exec issue label-exists \
+        --repo "$repo_name" \
+        --label "$label_name" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ "$va_output" == "true" ]]; then
+    return 0
+  fi
+  if [[ "$va_output" == "false" ]]; then
+    return 1
+  fi
+
+  gh label list -R "$repo_name" --limit 1000 --json name --jq '.[].name' 2>/dev/null |
+    grep -Fxq "$label_name"
+}
+
 github_issue_extract_tasklist_refs() {
   local body="${1:-}"
   local va_output=""

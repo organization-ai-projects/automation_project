@@ -17,19 +17,7 @@ issue_gh_require_gh_and_jq() {
 }
 
 issue_gh_resolve_repo_name() {
-  if [[ -n "${GH_REPO:-}" ]]; then
-    echo "$GH_REPO"
-    return 0
-  fi
-  if command -v va_exec >/dev/null 2>&1; then
-    local repo_name=""
-    repo_name="$(va_exec issue repo-name 2>/dev/null || true)"
-    if [[ -n "$repo_name" ]]; then
-      echo "$repo_name"
-      return 0
-    fi
-  fi
-  gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true
+  github_issue_repo_name
 }
 
 issue_gh_resolve_repo_name_or_exit() {
@@ -49,25 +37,7 @@ issue_gh_resolve_repo_name_or_exit() {
 issue_gh_label_exists() {
   local repo="$1"
   local label="$2"
-  local exists_result=""
-
-  if command -v va_exec >/dev/null 2>&1; then
-    exists_result="$(
-      va_exec issue label-exists \
-        --repo "$repo" \
-        --label "$label" 2>/dev/null || true
-    )"
-  fi
-
-  if [[ "$exists_result" == "true" ]]; then
-    return 0
-  fi
-  if [[ "$exists_result" == "false" ]]; then
-    return 1
-  fi
-
-  gh label list -R "$repo" --limit 1000 --json name --jq '.[].name' 2>/dev/null |
-    grep -Fxq "$label"
+  github_issue_label_exists "$repo" "$label"
 }
 
 issue_gh_issue_state() {
@@ -80,34 +50,7 @@ issue_gh_issue_json() {
   local repo="${1:-}"
   local issue_number="$2"
   local json_fields="$3"
-  local issue_json=""
-
-  if command -v va_exec >/dev/null 2>&1; then
-    if [[ -n "$repo" ]]; then
-      issue_json="$(
-        va_exec issue read \
-          --issue "$issue_number" \
-          --repo "$repo" \
-          --json "$json_fields" 2>/dev/null || true
-      )"
-    else
-      issue_json="$(
-        va_exec issue read \
-          --issue "$issue_number" \
-          --json "$json_fields" 2>/dev/null || true
-      )"
-    fi
-  fi
-
-  if [[ -z "$issue_json" ]]; then
-    if [[ -n "$repo" ]]; then
-      issue_json="$(gh issue view "$issue_number" -R "$repo" --json "$json_fields" 2>/dev/null || true)"
-    else
-      issue_json="$(gh issue view "$issue_number" --json "$json_fields" 2>/dev/null || true)"
-    fi
-  fi
-
-  printf '%s\n' "$issue_json"
+  github_issue_read_json "$repo" "$issue_number" "$json_fields"
 }
 
 issue_gh_pr_state() {
