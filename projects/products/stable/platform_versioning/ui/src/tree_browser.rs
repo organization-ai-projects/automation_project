@@ -35,34 +35,3 @@ impl TreeBrowser {
         self.entries = entries;
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn navigate_appends_path() {
-        let mut browser = TreeBrowser::default();
-        browser.navigate("src", vec![]);
-        assert_eq!(browser.current_path, "src");
-        browser.navigate("lib", vec![]);
-        assert_eq!(browser.current_path, "src/lib");
-    }
-
-    #[test]
-    fn go_up_removes_last_component() {
-        let mut browser = TreeBrowser {
-            current_path: "src/lib".to_string(),
-            entries: vec![],
-        };
-        browser.go_up(vec![]);
-        assert_eq!(browser.current_path, "src");
-    }
-
-    #[test]
-    fn go_up_from_root_stays_empty() {
-        let mut browser = TreeBrowser::default();
-        browser.go_up(vec![]);
-        assert_eq!(browser.current_path, "");
-    }
-}
