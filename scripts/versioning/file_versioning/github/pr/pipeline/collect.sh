@@ -198,15 +198,12 @@ pr_pipeline_apply_issue_directives_via_va() {
   local debug_context="$3"
   local va_output
   local record_type field_a field_b
-  local -A seen_reopen_refs=()
-  local -A seen_close_refs=()
-  local -A seen_duplicates=()
 
   if ! command -v va_exec >/dev/null 2>&1; then
     return 1
   fi
 
-  va_output="$(printf '%s' "$text" | va_exec pr directives-state --stdin 2>/dev/null)" || {
+  va_output="$(printf '%s' "$text" | va_exec pr directives-apply --stdin 2>/dev/null)" || {
     return 1
   }
 
@@ -215,38 +212,26 @@ pr_pipeline_apply_issue_directives_via_va() {
     IFS='|' read -r record_type field_a field_b <<<"$record"
     [[ -z "$record_type" ]] && continue
     case "$record_type" in
-    DEC)
+    SET_DEC)
       [[ -z "$field_a" || -z "$field_b" ]] && continue
       [[ "$field_b" == "close" || "$field_b" == "reopen" ]] || continue
       issue_directive_decision["$field_a"]="$field_b"
       ;;
-    INF)
+    SET_INF)
       [[ -z "$field_a" || -z "$field_b" ]] && continue
       issue_inferred_decision["$field_a"]="$field_b"
       ;;
-    EV)
-      [[ -z "$field_a" || -z "$field_b" ]] && continue
-      if [[ "$field_a" == "Closes" ]]; then
-        if [[ -n "${seen_close_refs[$field_b]:-}" ]]; then
-          continue
-        fi
-        seen_close_refs["$field_b"]=1
-        pr_debug_log "parsed_issue_ref(${debug_context}): ${field_a}|${field_b}"
-        pr_add_issue_entry "$field_a" "$field_b" "$category"
-      elif [[ "$field_a" == "Reopen" ]]; then
-        if [[ -n "${seen_reopen_refs[$field_b]:-}" ]]; then
-          continue
-        fi
-        seen_reopen_refs["$field_b"]=1
-        pr_mark_reopen_issue "$field_b" "$category"
-      fi
+    ADD_CLOSE)
+      [[ -z "$field_a" ]] && continue
+      pr_debug_log "parsed_issue_ref(${debug_context}): Closes|${field_a}"
+      pr_add_issue_entry "Closes" "$field_a" "$category"
       ;;
-    DUP)
+    ADD_REOPEN)
+      [[ -z "$field_a" ]] && continue
+      pr_mark_reopen_issue "$field_a" "$category"
+      ;;
+    ADD_DUP)
       [[ -z "$field_a" || -z "$field_b" ]] && continue
-      if [[ -n "${seen_duplicates[${field_a}|${field_b}]:-}" ]]; then
-        continue
-      fi
-      seen_duplicates["${field_a}|${field_b}"]=1
       pr_add_duplicate_entry "$field_a" "$field_b"
       ;;
     esac
