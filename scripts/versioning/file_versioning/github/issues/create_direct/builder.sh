@@ -193,6 +193,25 @@ run_create_direct_issue() {
     return 0
   fi
 
+  if command -v va_exec >/dev/null 2>&1; then
+    local -a va_cmd=(issue create --title "$title" --context "$context" --problem "$problem" --parent "$parent")
+    for label in "${labels[@]}"; do
+      va_cmd+=(--label "$label")
+    done
+    for assignee in "${assignees[@]}"; do
+      va_cmd+=(--assignee "$assignee")
+    done
+    for criterion in "${acceptance_criteria[@]}"; do
+      va_cmd+=(--acceptance "$criterion")
+    done
+    if [[ -n "$repo" ]]; then
+      va_cmd+=(--repo "$repo")
+    fi
+    if va_exec "${va_cmd[@]}"; then
+      return 0
+    fi
+  fi
+
   "${cmd[@]}"
 }
 
