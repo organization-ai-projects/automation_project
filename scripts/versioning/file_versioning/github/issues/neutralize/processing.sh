@@ -129,52 +129,9 @@ neutralize_collect_refs_from_body() {
   local _out_pre_neutralized_refs_var="$3"
   local -n _out_closing_refs_ref="$_out_closing_refs_var"
   local -n _out_pre_neutralized_refs_ref="$_out_pre_neutralized_refs_var"
-  local -a va_cmd=()
-  local va_output=""
-  local va_success="false"
-  local record_type action issue_key
-  local -a closing_rows=()
-  local -a pre_neutralized_rows=()
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_cmd=(va_exec pr closure-refs)
-  fi
-
-  if [[ "${#va_cmd[@]}" -gt 0 ]]; then
-    if va_output="$(printf '%s' "$body" | "${va_cmd[@]}" --stdin 2>/dev/null)"; then
-      va_success="true"
-    else
-      va_output=""
-    fi
-
-    while IFS='|' read -r record_type action issue_key; do
-      issue_key="$(neutralize_trim "$issue_key")"
-      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-
-      if [[ "$record_type" == "CLOSE" ]]; then
-        closing_rows+=("${action}|${issue_key}")
-      elif [[ "$record_type" == "PRE" ]]; then
-        pre_neutralized_rows+=("${action}|${issue_key}")
-      fi
-    done <<<"$va_output"
-  fi
-
-  if [[ "$va_success" != "true" ]]; then
-    while IFS='|' read -r record_type action issue_key; do
-      [[ "$record_type" == "EV" ]] || continue
-      issue_key="$(neutralize_trim "$issue_key")"
-      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-
-      if [[ "$action" == "Closes" ]]; then
-        closing_rows+=("${action}|${issue_key}")
-      elif [[ "$action" == "Closes rejected" ]]; then
-        pre_neutralized_rows+=("Closes|${issue_key}")
-      fi
-    done < <(parse_issue_directive_records_from_text "$body")
-  fi
-
-  _out_closing_refs_ref="$(printf '%s\n' "${closing_rows[@]}" | sed '/^$/d' | sort -u)"
-  _out_pre_neutralized_refs_ref="$(printf '%s\n' "${pre_neutralized_rows[@]}" | sed '/^$/d' | sort -u)"
+  _out_closing_refs_ref="$(parse_closing_issue_refs_from_text "$body")"
+  _out_pre_neutralized_refs_ref="$(parse_neutralized_closing_issue_refs_from_text "$body")"
 }
 
 neutralize_normalize_ref_line() {
