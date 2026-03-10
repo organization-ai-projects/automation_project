@@ -63,14 +63,14 @@ reopen_on_dev_run() {
     fi
 
     if [[ "$state" == "CLOSED" ]]; then
-      gh issue reopen "$n" -R "$repo_name" >/dev/null
+      issue_gh_issue_reopen "$repo_name" "$n"
       echo "Issue #${n}: reopened from Reopen ref."
     else
       echo "Issue #${n}: state=${state}; no reopen needed."
     fi
 
     if [[ "$label_available" == "true" ]] && issue_gh_issue_has_label "$repo_name" "$n" "$label_name"; then
-      gh issue edit "$n" -R "$repo_name" --remove-label "$label_name" >/dev/null
+      issue_gh_issue_update "$repo_name" "$n" --remove-label "$label_name"
       echo "Issue #${n}: removed label '${label_name}' due to Reopen ref."
     fi
 

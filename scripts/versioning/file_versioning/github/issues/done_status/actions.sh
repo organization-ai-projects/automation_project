@@ -46,7 +46,7 @@ done_status_on_dev_merge() {
       continue
     fi
 
-    gh issue edit "$n" -R "$repo_name" --add-label "$label_name" >/dev/null
+    issue_gh_issue_update "$repo_name" "$n" --add-label "$label_name"
     echo "Issue #${n}: added label '${label_name}'."
   done
 }
@@ -65,7 +65,7 @@ done_status_on_issue_closed() {
   fi
 
   if issue_gh_issue_has_label "$repo_name" "$issue_number" "$label_name"; then
-    gh issue edit "$issue_number" -R "$repo_name" --remove-label "$label_name" >/dev/null
+    issue_gh_issue_update "$repo_name" "$issue_number" --remove-label "$label_name"
     echo "Issue #${issue_number}: removed label '${label_name}'."
   else
     echo "Issue #${issue_number}: label '${label_name}' not present."

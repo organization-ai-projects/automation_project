@@ -176,3 +176,44 @@ issue_gh_collect_pr_text_payload() {
     printf '%s\n' "$commit_messages"
   }
 }
+
+issue_gh_issue_update() {
+  local repo="$1"
+  local issue_number="$2"
+  shift 2
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if va_exec issue update --issue "$issue_number" --repo "$repo" "$@" >/dev/null; then
+      return 0
+    fi
+  fi
+
+  gh issue edit "$issue_number" -R "$repo" "$@" >/dev/null
+}
+
+issue_gh_issue_reopen() {
+  local repo="$1"
+  local issue_number="$2"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if va_exec issue reopen --issue "$issue_number" --repo "$repo" >/dev/null; then
+      return 0
+    fi
+  fi
+
+  gh issue reopen "$issue_number" -R "$repo" >/dev/null
+}
+
+issue_gh_issue_close() {
+  local repo="$1"
+  local issue_number="$2"
+  local reason="$3"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if va_exec issue close --issue "$issue_number" --repo "$repo" --reason "$reason" >/dev/null; then
+      return 0
+    fi
+  fi
+
+  gh issue close "$issue_number" -R "$repo" --reason "$reason" >/dev/null
+}

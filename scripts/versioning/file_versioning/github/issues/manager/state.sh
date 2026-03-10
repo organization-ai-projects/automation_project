@@ -37,6 +37,49 @@ manager_append_repo_arg() {
   fi
 }
 
+manager_close_issue_with_fallback() {
+  local issue_number="$1"
+  local repo="$2"
+  local reason="$3"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if [[ -n "$repo" ]]; then
+      if va_exec issue close --issue "$issue_number" --repo "$repo" --reason "$reason" >/dev/null; then
+        return 0
+      fi
+    else
+      if va_exec issue close --issue "$issue_number" --reason "$reason" >/dev/null; then
+        return 0
+      fi
+    fi
+  fi
+
+  local -a cmd=(gh issue close "$issue_number" --reason "$reason")
+  manager_append_repo_arg cmd "$repo"
+  "${cmd[@]}" >/dev/null
+}
+
+manager_reopen_issue_with_fallback() {
+  local issue_number="$1"
+  local repo="$2"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if [[ -n "$repo" ]]; then
+      if va_exec issue reopen --issue "$issue_number" --repo "$repo" >/dev/null; then
+        return 0
+      fi
+    else
+      if va_exec issue reopen --issue "$issue_number" >/dev/null; then
+        return 0
+      fi
+    fi
+  fi
+
+  local -a cmd=(gh issue reopen "$issue_number")
+  manager_append_repo_arg cmd "$repo"
+  "${cmd[@]}" >/dev/null
+}
+
 cmd_close() {
   local issue_number=""
   local repo=""
@@ -71,9 +114,7 @@ cmd_close() {
     die_usage "--reason must be 'completed' or 'not_planned'."
   fi
 
-  local -a cmd=(gh issue close "$issue_number" --reason "$reason")
-  manager_append_repo_arg cmd "$repo"
-  "${cmd[@]}" >/dev/null
+  manager_close_issue_with_fallback "$issue_number" "$repo" "$reason"
   echo "Issue #${issue_number} closed (reason: ${reason})."
 }
 
@@ -84,9 +125,7 @@ cmd_reopen() {
   manager_parse_issue_repo_args "reopen" issue_number repo "$@"
 
   issue_cli_require_positive_number "--issue" "$issue_number"
-  local -a cmd=(gh issue reopen "$issue_number")
-  manager_append_repo_arg cmd "$repo"
-  "${cmd[@]}" >/dev/null
+  manager_reopen_issue_with_fallback "$issue_number" "$repo"
   echo "Issue #${issue_number} reopened."
 }
 
@@ -97,8 +136,6 @@ cmd_delete() {
   manager_parse_issue_repo_args "delete" issue_number repo "$@"
 
   issue_cli_require_positive_number "--issue" "$issue_number"
-  local -a cmd=(gh issue close "$issue_number" --reason not_planned)
-  manager_append_repo_arg cmd "$repo"
-  "${cmd[@]}" >/dev/null
+  manager_close_issue_with_fallback "$issue_number" "$repo" "not_planned"
   echo "Issue #${issue_number} soft-deleted (closed with reason: not_planned)."
 }
