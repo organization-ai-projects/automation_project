@@ -129,10 +129,39 @@ pr_issue_should_skip_close_action() {
   local non_compliance_reason="$3"
   local action="$4"
   local is_pr_ref
+  local policy_result=""
+  local policy_kind=""
+  local policy_reason=""
 
   [[ "$action" != "Closes" ]] && return 1
 
   is_pr_ref="$(pr_is_pull_request_ref "$issue_number")"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    policy_result="$(
+      va_exec pr issue-close-policy \
+        --action "$action" \
+        --is-pr-ref "$is_pr_ref" \
+        --non-compliance-reason "$non_compliance_reason" 2>/dev/null || true
+    )"
+    if [[ "$policy_result" =~ ^POLICY\| ]]; then
+      IFS='|' read -r _ policy_kind policy_reason <<<"$policy_result"
+      case "$policy_kind" in
+      skip_pr_ref)
+        return 0
+        ;;
+      skip_non_compliance)
+        issue_non_compliance_skip["$issue_key"]="${policy_reason:-$non_compliance_reason}"
+        issue_non_compliance_action["$issue_key"]="$action"
+        return 0
+        ;;
+      continue)
+        return 1
+        ;;
+      esac
+    fi
+  fi
+
   if [[ "$is_pr_ref" == "true" ]]; then
     return 0
   fi
