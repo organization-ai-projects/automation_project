@@ -13,6 +13,8 @@ struct GhPrDetailsSnapshot {
     state: String,
     #[serde(default, rename = "baseRefName")]
     base_ref_name: String,
+    #[serde(default, rename = "headRefName")]
+    head_ref_name: String,
     #[serde(default)]
     title: String,
     #[serde(default)]
@@ -33,6 +35,7 @@ struct PrDetailsOutput {
     url: String,
     state: String,
     base_ref_name: String,
+    head_ref_name: String,
     author_login: String,
     title: String,
     body: String,
@@ -51,6 +54,7 @@ pub(crate) fn run_details(opts: PrDetailsOptions) -> i32 {
             url: String::new(),
             state: String::new(),
             base_ref_name: String::new(),
+            head_ref_name: String::new(),
             title: String::new(),
             body: String::new(),
             author: None,
@@ -67,6 +71,7 @@ pub(crate) fn run_details(opts: PrDetailsOptions) -> i32 {
         url: pr_snapshot.url,
         state: pr_snapshot.state,
         base_ref_name: pr_snapshot.base_ref_name,
+        head_ref_name: pr_snapshot.head_ref_name,
         author_login,
         title: pr_snapshot.title,
         body: pr_snapshot.body,
@@ -93,7 +98,7 @@ fn fetch_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<GhPrDetailsSnap
         .arg("-R")
         .arg(repo_name)
         .arg("--json")
-        .arg("number,url,state,baseRefName,title,body,author")
+        .arg("number,url,state,baseRefName,headRefName,title,body,author")
         .output()
         .map_err(|err| format!("Failed to execute gh pr view: {err}"))?;
 
