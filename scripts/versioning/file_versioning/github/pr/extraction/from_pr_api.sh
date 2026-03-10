@@ -11,8 +11,30 @@ pr_extract_child_prs() {
   local repo_owner_name
   local timeline_pr_refs
   local timeline_pr_refs_raw
+  local va_child_refs
 
   repo_owner_name="$(pr_gh_optional "resolve repository name" repo view --json nameWithOwner -q '.nameWithOwner')"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if [[ -n "$repo_owner_name" ]]; then
+      va_child_refs="$(
+        va_exec pr child-pr-refs \
+          --pr "$main_pr_number" \
+          --repo "$repo_owner_name" 2>/dev/null || true
+      )"
+    else
+      va_child_refs="$(
+        va_exec pr child-pr-refs \
+          --pr "$main_pr_number" 2>/dev/null || true
+      )"
+    fi
+  fi
+
+  if [[ -n "$va_child_refs" ]]; then
+    printf '%s\n' "$va_child_refs" | grep -E '^#[0-9]+$' | sort -u | grep -v "^#${main_pr_number}$" >"$extracted_prs_file"
+    pr_debug_log "extract_child_prs(main=#${main_pr_number}) => $(tr '\n' ' ' <"$extracted_prs_file")"
+    return 0
+  fi
 
   # gh pr view --json commits can be truncated; use paginated API commit headlines.
   commit_headlines=""
