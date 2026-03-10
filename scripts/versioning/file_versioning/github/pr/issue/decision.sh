@@ -44,6 +44,96 @@ pr_issue_inferred_conflict_reason_for() {
   fi
 }
 
+pr_issue_va_cmd_for_decision() {
+  if command -v va >/dev/null 2>&1; then
+    echo "va"
+    return 0
+  fi
+  if command -v versioning_automation >/dev/null 2>&1; then
+    echo "versioning_automation"
+    return 0
+  fi
+  return 1
+}
+
+pr_issue_try_pre_decision_via_va() {
+  local action="$1"
+  local issue_key="$2"
+  local default_category="$3"
+  local inferred_decision="$4"
+  local _out_result_var="$5"
+  local va_bin
+  local seen_reopen="false"
+  local reopen_category=""
+  local explicit_decision=""
+  local allow_inferred="false"
+  local -n _out_result_ref="$_out_result_var"
+
+  va_bin="$(pr_issue_va_cmd_for_decision || true)"
+  [[ -n "$va_bin" ]] || return 1
+
+  if [[ -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
+    seen_reopen="true"
+    reopen_category="${reopen_issue_category[$issue_key]:-}"
+  fi
+  explicit_decision="${issue_directive_decision[$issue_key]:-}"
+  if [[ "${allow_inferred_directive_conflicts:-false}" == "true" ]]; then
+    allow_inferred="true"
+  fi
+
+  _out_result_ref="$(
+    "$va_bin" pr issue-decision \
+      --action "$action" \
+      --issue "$issue_key" \
+      --default-category "$default_category" \
+      --seen-reopen "$seen_reopen" \
+      --reopen-category "$reopen_category" \
+      --inferred-decision "$inferred_decision" \
+      --explicit-decision "$explicit_decision" \
+      --allow-inferred "$allow_inferred" 2>/dev/null
+  )"
+
+  [[ "$_out_result_ref" =~ ^DECISION\| ]] || return 1
+  return 0
+}
+
+pr_issue_apply_pre_decision_result() {
+  local result_line="$1"
+  local issue_key="$2"
+  local action="$3"
+  local _out_status_var="$4"
+  local kind reason final_action category force_category
+  local -n _out_status_ref="$_out_status_var"
+
+  IFS='|' read -r _ kind reason final_action category force_category <<<"$result_line"
+  case "$kind" in
+  resolve_reopen)
+    issue_directive_resolution["$issue_key"]="${reason:-Resolved via directive decision => reopen.}"
+    issue_directive_final_action["$issue_key"]="${final_action:-reopen}"
+    pr_issue_resolve_to_reopen "$issue_key" "${category:-Unknown}" "${force_category:-false}"
+    _out_status_ref="handled"
+    return 0
+    ;;
+  conflict)
+    issue_directive_conflict_reason["$issue_key"]="${reason:-conflicting inferred directives}"
+    issue_directive_conflict_action["$issue_key"]="$action"
+    _out_status_ref="handled"
+    return 0
+    ;;
+  ignore)
+    _out_status_ref="handled"
+    return 0
+    ;;
+  continue)
+    _out_status_ref="continue"
+    return 0
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
 pr_issue_should_skip_close_action() {
   local issue_key="$1"
   local issue_number="$2"
@@ -89,33 +179,47 @@ pr_add_issue_entry() {
   local default_category="$3"
   local issue_key issue_number non_compliance_reason effective_category effective_decision inferred_decision=""
   local inferred_conflict_reason=""
+  local va_pre_decision_result=""
+  local va_pre_decision_status=""
+  local pre_decision_resolved_via_va="false"
 
   pr_issue_parse_key_and_number "$issue_key_raw" issue_key issue_number || return
 
-  if [[ "$action" == "Closes" && -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
-    pr_issue_resolve_to_reopen "$issue_key" "${reopen_issue_category[$issue_key]:-$default_category}" "true"
-    return
-  fi
-
   inferred_decision="${issue_inferred_decision[$issue_key]:-}"
-  inferred_conflict_reason="$(pr_issue_inferred_conflict_reason_for "$issue_key" "$inferred_decision")"
-
-  if [[ -z "$inferred_conflict_reason" ]]; then
-    effective_decision="${issue_directive_decision[$issue_key]:-$inferred_decision}"
-    if [[ "$effective_decision" == "close" ]]; then
-      if [[ "$action" == "Reopen" ]]; then
-        return
-      fi
-    elif [[ "$effective_decision" == "reopen" ]]; then
-      pr_issue_resolve_to_reopen "$issue_key" "$default_category"
+  if pr_issue_try_pre_decision_via_va "$action" "$issue_key" "$default_category" "$inferred_decision" va_pre_decision_result &&
+    pr_issue_apply_pre_decision_result "$va_pre_decision_result" "$issue_key" "$action" va_pre_decision_status; then
+    if [[ "$va_pre_decision_status" == "handled" ]]; then
       return
     fi
+    pre_decision_resolved_via_va="true"
   fi
 
-  if [[ -n "$inferred_conflict_reason" ]]; then
-    issue_directive_conflict_reason["$issue_key"]="$inferred_conflict_reason"
-    issue_directive_conflict_action["$issue_key"]="$action"
-    return
+  if [[ "$pre_decision_resolved_via_va" != "true" ]]; then
+    if [[ "$action" == "Closes" && -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
+      pr_issue_resolve_to_reopen "$issue_key" "${reopen_issue_category[$issue_key]:-$default_category}" "true"
+      return
+    fi
+
+    inferred_decision="${issue_inferred_decision[$issue_key]:-}"
+    inferred_conflict_reason="$(pr_issue_inferred_conflict_reason_for "$issue_key" "$inferred_decision")"
+
+    if [[ -z "$inferred_conflict_reason" ]]; then
+      effective_decision="${issue_directive_decision[$issue_key]:-$inferred_decision}"
+      if [[ "$effective_decision" == "close" ]]; then
+        if [[ "$action" == "Reopen" ]]; then
+          return
+        fi
+      elif [[ "$effective_decision" == "reopen" ]]; then
+        pr_issue_resolve_to_reopen "$issue_key" "$default_category"
+        return
+      fi
+    fi
+
+    if [[ -n "$inferred_conflict_reason" ]]; then
+      issue_directive_conflict_reason["$issue_key"]="$inferred_conflict_reason"
+      issue_directive_conflict_action["$issue_key"]="$action"
+      return
+    fi
   fi
 
   pr_issue_load_effective_context "$issue_number" "$default_category" effective_category non_compliance_reason
