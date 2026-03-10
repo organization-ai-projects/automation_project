@@ -10,6 +10,7 @@ use crate::pr::model::pr_directive_conflicts_options::PrDirectiveConflictsOption
 use crate::pr::model::pr_directives_format::PrDirectivesFormat;
 use crate::pr::model::pr_directives_options::PrDirectivesOptions;
 use crate::pr::model::pr_directives_state_options::PrDirectivesStateOptions;
+use crate::pr::model::pr_issue_decision_options::PrIssueDecisionOptions;
 
 pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     if args.is_empty() {
@@ -24,9 +25,71 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "directive-conflicts" => {
             parse_directive_conflicts(&args[1..]).map(PrAction::DirectiveConflicts)
         }
+        "issue-decision" => parse_issue_decision(&args[1..]).map(PrAction::IssueDecision),
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_issue_decision(args: &[String]) -> Result<PrIssueDecisionOptions, String> {
+    let mut action = String::new();
+    let mut issue = String::new();
+    let mut default_category = String::new();
+    let mut seen_reopen = false;
+    let mut reopen_category = String::new();
+    let mut inferred_decision = String::new();
+    let mut explicit_decision = String::new();
+    let mut allow_inferred = true;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--action" => action = take_value("--action", args, &mut i)?,
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--default-category" => {
+                default_category = take_value("--default-category", args, &mut i)?
+            }
+            "--seen-reopen" => {
+                seen_reopen =
+                    parse_bool_value("--seen-reopen", &take_value("--seen-reopen", args, &mut i)?)?
+            }
+            "--reopen-category" => reopen_category = take_value("--reopen-category", args, &mut i)?,
+            "--inferred-decision" => {
+                inferred_decision = take_value("--inferred-decision", args, &mut i)?
+            }
+            "--explicit-decision" => {
+                explicit_decision = take_value("--explicit-decision", args, &mut i)?
+            }
+            "--allow-inferred" => {
+                allow_inferred = parse_bool_value(
+                    "--allow-inferred",
+                    &take_value("--allow-inferred", args, &mut i)?,
+                )?
+            }
+            unknown => return Err(format!("Unknown option for issue-decision: {unknown}")),
+        }
+    }
+
+    if action.is_empty() {
+        return Err("--action is required".to_string());
+    }
+    if issue.is_empty() {
+        return Err("--issue is required".to_string());
+    }
+    if default_category.is_empty() {
+        return Err("--default-category is required".to_string());
+    }
+
+    Ok(PrIssueDecisionOptions {
+        action,
+        issue,
+        default_category,
+        seen_reopen,
+        reopen_category,
+        inferred_decision,
+        explicit_decision,
+        allow_inferred,
+    })
 }
 
 fn parse_closure_refs(args: &[String]) -> Result<PrClosureRefsOptions, String> {
@@ -251,4 +314,12 @@ fn require_positive_number(flag: &str, value: &str) -> Result<(), String> {
         return Ok(());
     }
     Err(format!("{flag} requires a positive numeric value"))
+}
+
+fn parse_bool_value(flag: &str, value: &str) -> Result<bool, String> {
+    match value {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(format!("{flag} must be true or false")),
+    }
 }
