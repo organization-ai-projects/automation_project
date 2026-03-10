@@ -1,8 +1,9 @@
-// projects/products/code_agent_sandbox/src/policies/policy.rs
+//! projects/products/code_agent_sandbox/src/policies/policy.rs
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
+use globset::{Glob, GlobMatcher};
 use toml::Value;
 
 use crate::access_kind::AccessKind;
@@ -166,8 +167,6 @@ impl Policy {
 /// Keep your existing implementation if you have one.
 /// This fallback is minimal.
 pub fn glob_match(path: &str, pattern: &str) -> Result<bool> {
-    use globset::{Glob, GlobMatcher};
-
     let glob = Glob::new(pattern).context("Invalid glob pattern")?;
     let matcher: GlobMatcher = glob.compile_matcher();
 
