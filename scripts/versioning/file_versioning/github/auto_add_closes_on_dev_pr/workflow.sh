@@ -7,22 +7,9 @@ auto_add_collect_refs_from_payload() {
   local _out_closing_refs_var="$3"
   local -n _out_part_of_refs_ref="$_out_part_of_refs_var"
   local -n _out_closing_refs_ref="$_out_closing_refs_var"
-  local record_type action issue_key
-  local -a part_of_rows=()
-  local -a closing_rows=()
 
-  while IFS='|' read -r record_type action issue_key; do
-    [[ "$record_type" == "EV" ]] || continue
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    if [[ "$action" == "Part of" ]]; then
-      part_of_rows+=("Part of|${issue_key}")
-    elif [[ "$action" == "Closes" ]]; then
-      closing_rows+=("Closes|${issue_key}")
-    fi
-  done < <(parse_issue_directive_records_from_text "$payload")
-
-  _out_part_of_refs_ref="$(printf '%s\n' "${part_of_rows[@]}" | sed '/^$/d' | sort -u)"
-  _out_closing_refs_ref="$(printf '%s\n' "${closing_rows[@]}" | sed '/^$/d' | sort -u)"
+  _out_part_of_refs_ref="$(parse_non_closing_issue_refs_from_text "$payload")"
+  _out_closing_refs_ref="$(parse_closing_issue_refs_from_text "$payload")"
 }
 
 auto_add_should_close_issue_for_author() {

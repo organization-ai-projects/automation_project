@@ -71,6 +71,21 @@ _parse_directives_state_via_va() {
   esac
 }
 
+_parse_non_closing_refs_via_va() {
+  local text="$1"
+  local -a cmd=()
+
+  if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
+    cmd=("${VA_PR_DIRECTIVES_BIN}" pr non-closing-refs)
+  elif command -v va_exec >/dev/null 2>&1; then
+    cmd=(va_exec pr non-closing-refs)
+  else
+    return 1
+  fi
+
+  printf '%s' "$text" | "${cmd[@]}" --stdin
+}
+
 _parse_issue_directive_records_by_type() {
   local text="$1"
   local record_type="$2"
@@ -94,6 +109,10 @@ parse_pr_body_closing_issue_refs_from_text() {
 
 parse_non_closing_issue_refs_from_text() {
   local text="$1"
+  if _parse_non_closing_refs_via_va "$text" >/dev/null 2>&1; then
+    _parse_non_closing_refs_via_va "$text" | sort -u
+    return 0
+  fi
   _parse_issue_directive_event_refs "$text" "Part of" | sort -u
 }
 
