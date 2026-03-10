@@ -208,6 +208,24 @@ fn pr_pr_state_with_required_fields_returns_zero() {
 }
 
 #[test]
+fn pr_text_payload_requires_pr() {
+    let args = vec!["text-payload".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_text_payload_with_required_fields_returns_zero() {
+    let args = vec![
+        "text-payload".to_string(),
+        "--pr".to_string(),
+        "42".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_normalize_issue_key_requires_raw() {
     let args = vec!["normalize-issue-key".to_string()];
     let code = run(&args);

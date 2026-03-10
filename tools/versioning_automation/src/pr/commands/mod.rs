@@ -23,3 +23,4 @@ pub(crate) mod pr_normalize_issue_key_options;
 pub(crate) mod pr_pr_state_options;
 pub(crate) mod pr_resolve_category_options;
 pub(crate) mod pr_sort_bullets_options;
+pub(crate) mod pr_text_payload_options;

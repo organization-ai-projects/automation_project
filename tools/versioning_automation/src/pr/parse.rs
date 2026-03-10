@@ -28,6 +28,7 @@ use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOpti
 use crate::pr::commands::pr_pr_state_options::PrPrStateOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
+use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
 
 pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     if args.is_empty() {
@@ -73,6 +74,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "non-closing-refs" => parse_non_closing_refs(&args[1..]).map(PrAction::NonClosingRefs),
         "resolve-category" => parse_resolve_category(&args[1..]).map(PrAction::ResolveCategory),
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
+        "text-payload" => parse_text_payload(&args[1..]).map(PrAction::TextPayload),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
 }
@@ -743,6 +745,27 @@ fn parse_auto_add_closes(args: &[String]) -> Result<PrAutoAddClosesOptions, Stri
 
     require_positive_number("--pr", &pr_number)?;
     Ok(PrAutoAddClosesOptions { pr_number, repo })
+}
+
+fn parse_text_payload(args: &[String]) -> Result<PrTextPayloadOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for text-payload: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrTextPayloadOptions { pr_number, repo })
 }
 
 fn parse_directives(args: &[String]) -> Result<PrDirectivesOptions, String> {

@@ -21,6 +21,7 @@ use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOpti
 use crate::pr::commands::pr_pr_state_options::PrPrStateOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
+use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PrAction {
@@ -48,4 +49,5 @@ pub(crate) enum PrAction {
     ResolveCategory(PrResolveCategoryOptions),
     SortBullets(PrSortBulletsOptions),
     AutoAddCloses(PrAutoAddClosesOptions),
+    TextPayload(PrTextPayloadOptions),
 }
