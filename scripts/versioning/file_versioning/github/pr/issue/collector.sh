@@ -64,6 +64,8 @@ pr_issue_payload_field() {
 pr_issue_context_payload_for() {
   local issue_number="$1"
   local issue_key="#${issue_number}"
+  local repo_name_with_owner=""
+  local va_payload=""
   local issue_json
   local title
   local body
@@ -78,6 +80,37 @@ pr_issue_context_payload_for() {
       "${issue_title_category_cache[$issue_key]:-Unknown}" \
       "${issue_non_compliance_reason_cache[$issue_key]:-}"
     return
+  fi
+
+  if command -v va_exec >/dev/null 2>&1; then
+    repo_name_with_owner="$(pr_get_repo_name_with_owner)"
+    if [[ -n "$repo_name_with_owner" ]]; then
+      va_payload="$(
+        va_exec pr issue-context \
+          --issue "$issue_number" \
+          --repo "$repo_name_with_owner" 2>/dev/null || true
+      )"
+    else
+      va_payload="$(
+        va_exec pr issue-context \
+          --issue "$issue_number" 2>/dev/null || true
+      )"
+    fi
+
+    if [[ "$va_payload" == *$'\x1f'* ]]; then
+      labels_raw="$(pr_issue_payload_field "$va_payload" "labels")"
+      title_category="$(pr_issue_payload_field "$va_payload" "title_category")"
+      reason="$(pr_issue_payload_field "$va_payload" "non_compliance_reason")"
+      issue_labels_cache["$issue_key"]="$labels_raw"
+      issue_title_category_cache["$issue_key"]="${title_category:-Unknown}"
+      issue_non_compliance_reason_cache["$issue_key"]="$reason"
+      issue_context_cached["$issue_key"]="1"
+      printf "%s\x1f%s\x1f%s" \
+        "${issue_labels_cache[$issue_key]:-}" \
+        "${issue_title_category_cache[$issue_key]:-Unknown}" \
+        "${issue_non_compliance_reason_cache[$issue_key]:-}"
+      return
+    fi
   fi
 
   if [[ "$has_gh" == "true" ]]; then
