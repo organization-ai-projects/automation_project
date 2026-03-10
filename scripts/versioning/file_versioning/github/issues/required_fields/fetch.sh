@@ -10,6 +10,28 @@ issue_fetch_non_compliance_reason() {
   local labels_raw
   local title
   local body
+  local va_reason=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if [[ -n "$repo_name" ]]; then
+      if va_reason="$(
+        va_exec issue fetch-non-compliance-reason \
+          --issue "$issue_number" \
+          --repo "$repo_name" 2>/dev/null
+      )"; then
+        echo "$va_reason"
+        return
+      fi
+    else
+      if va_reason="$(
+        va_exec issue fetch-non-compliance-reason \
+          --issue "$issue_number" 2>/dev/null
+      )"; then
+        echo "$va_reason"
+        return
+      fi
+    fi
+  fi
 
   if [[ -n "$repo_name" ]]; then
     issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json labels,title,body 2>/dev/null || true)"

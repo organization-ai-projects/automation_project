@@ -3,7 +3,36 @@
 
 # Issue title/body validation helpers.
 
+issue_validate_via_va() {
+  local mode="$1"
+  local title="$2"
+  local body="$3"
+  local labels_raw="$4"
+
+  [[ -n "$mode" ]] || return 1
+  command -v va_exec >/dev/null 2>&1 || return 1
+
+  va_exec issue required-fields-validate \
+    --mode "$mode" \
+    --title "$title" \
+    --body "$body" \
+    --labels-raw "$labels_raw"
+}
+
 issue_validate_title() {
+  local title="${1:-}"
+  local labels_raw="${2:-}"
+  local validations
+
+  if validations="$(issue_validate_via_va "title" "$title" "" "$labels_raw" 2>/dev/null)"; then
+    printf '%s' "$validations"
+    return 0
+  fi
+
+  issue_validate_title_legacy "$title" "$labels_raw"
+}
+
+issue_validate_title_legacy() {
   local title="${1:-}"
   local labels_raw="${2:-}"
   local profile
@@ -31,6 +60,19 @@ issue_validate_title_with_profile() {
 }
 
 issue_validate_body() {
+  local body="${1:-}"
+  local labels_raw="${2:-}"
+  local validations
+
+  if validations="$(issue_validate_via_va "body" "" "$body" "$labels_raw" 2>/dev/null)"; then
+    printf '%s' "$validations"
+    return 0
+  fi
+
+  issue_validate_body_legacy "$body" "$labels_raw"
+}
+
+issue_validate_body_legacy() {
   local body="${1:-}"
   local labels_raw="${2:-}"
   local profile
@@ -88,6 +130,20 @@ issue_validate_body_with_profile() {
 }
 
 issue_validate_content() {
+  local title="${1:-}"
+  local body="${2:-}"
+  local labels_raw="${3:-}"
+  local validations
+
+  if validations="$(issue_validate_via_va "content" "$title" "$body" "$labels_raw" 2>/dev/null)"; then
+    printf '%s' "$validations"
+    return 0
+  fi
+
+  issue_validate_content_legacy "$title" "$body" "$labels_raw"
+}
+
+issue_validate_content_legacy() {
   local title="${1:-}"
   local body="${2:-}"
   local labels_raw="${3:-}"
