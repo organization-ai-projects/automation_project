@@ -1,6 +1,7 @@
 mod auto_add;
 mod body_context;
 mod breaking_detect;
+mod child_pr_refs;
 mod closure_marker;
 mod closure_refs;
 mod commands;
@@ -34,6 +35,7 @@ mod tests;
 use auto_add::run_auto_add_closes;
 use body_context::run_body_context;
 use breaking_detect::run_breaking_detect;
+use child_pr_refs::run_child_pr_refs;
 use closure_marker::run_closure_marker;
 use closure_refs::run_closure_refs;
 use commands::pr_action::PrAction;
@@ -71,6 +73,7 @@ pub fn run(args: &[String]) -> i32 {
         }
         Ok(PrAction::BreakingDetect(opts)) => run_breaking_detect(opts),
         Ok(PrAction::BodyContext(opts)) => run_body_context(opts),
+        Ok(PrAction::ChildPrRefs(opts)) => run_child_pr_refs(opts),
         Ok(PrAction::Directives(opts)) => {
             let records = scan_directives(&opts.text, opts.unique);
             match opts.format {

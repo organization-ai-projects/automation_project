@@ -7,6 +7,7 @@ use crate::pr::commands::pr_action::PrAction;
 use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::commands::pr_body_context_options::PrBodyContextOptions;
 use crate::pr::commands::pr_breaking_detect_options::PrBreakingDetectOptions;
+use crate::pr::commands::pr_child_pr_refs_options::PrChildPrRefsOptions;
 use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
 use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
 use crate::pr::commands::pr_details_options::PrDetailsOptions;
@@ -42,6 +43,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "help" | "--help" | "-h" => Ok(PrAction::Help),
         "breaking-detect" => parse_breaking_detect(&args[1..]).map(PrAction::BreakingDetect),
         "body-context" => parse_body_context(&args[1..]).map(PrAction::BodyContext),
+        "child-pr-refs" => parse_child_pr_refs(&args[1..]).map(PrAction::ChildPrRefs),
         "directives" => parse_directives(&args[1..]).map(PrAction::Directives),
         "directives-apply" => parse_directives_apply(&args[1..]).map(PrAction::DirectivesApply),
         "details" => parse_details(&args[1..]).map(PrAction::Details),
@@ -139,6 +141,27 @@ fn parse_body_context(args: &[String]) -> Result<PrBodyContextOptions, String> {
 
     require_positive_number("--pr", &pr_number)?;
     Ok(PrBodyContextOptions { pr_number, repo })
+}
+
+fn parse_child_pr_refs(args: &[String]) -> Result<PrChildPrRefsOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for child-pr-refs: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrChildPrRefsOptions { pr_number, repo })
 }
 
 fn parse_details(args: &[String]) -> Result<PrDetailsOptions, String> {

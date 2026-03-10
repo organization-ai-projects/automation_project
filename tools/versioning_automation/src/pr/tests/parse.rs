@@ -33,6 +33,24 @@ fn pr_body_context_with_required_fields_returns_zero() {
 }
 
 #[test]
+fn pr_child_pr_refs_requires_pr() {
+    let args = vec!["child-pr-refs".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_child_pr_refs_with_required_fields_returns_zero() {
+    let args = vec![
+        "child-pr-refs".to_string(),
+        "--pr".to_string(),
+        "42".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_details_requires_pr() {
     let args = vec!["details".to_string()];
     let code = run(&args);

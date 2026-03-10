@@ -1,6 +1,7 @@
 use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::commands::pr_body_context_options::PrBodyContextOptions;
 use crate::pr::commands::pr_breaking_detect_options::PrBreakingDetectOptions;
+use crate::pr::commands::pr_child_pr_refs_options::PrChildPrRefsOptions;
 use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
 use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
 use crate::pr::commands::pr_details_options::PrDetailsOptions;
@@ -31,6 +32,7 @@ pub(crate) enum PrAction {
     Help,
     BreakingDetect(PrBreakingDetectOptions),
     BodyContext(PrBodyContextOptions),
+    ChildPrRefs(PrChildPrRefsOptions),
     Directives(PrDirectivesOptions),
     DirectivesApply(PrDirectivesApplyOptions),
     Details(PrDetailsOptions),

@@ -2,6 +2,7 @@ pub(crate) mod pr_action;
 pub(crate) mod pr_auto_add_closes_options;
 pub(crate) mod pr_body_context_options;
 pub(crate) mod pr_breaking_detect_options;
+pub(crate) mod pr_child_pr_refs_options;
 pub(crate) mod pr_closure_marker_options;
 pub(crate) mod pr_closure_refs_options;
 pub(crate) mod pr_details_options;
