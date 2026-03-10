@@ -6,6 +6,7 @@
 
 pr_issue_clear_tracking_for() {
   local issue_key="$1"
+  [[ -n "$issue_key" ]] || return
   unset "seen_issue[$issue_key]"
   unset "issue_action[$issue_key]"
   unset "seen_reopen_issue[$issue_key]"
@@ -14,6 +15,7 @@ pr_issue_clear_tracking_for() {
 
 pr_issue_clear_close_tracking_for() {
   local issue_key="$1"
+  [[ -n "$issue_key" ]] || return
   unset "seen_issue[$issue_key]"
   unset "issue_action[$issue_key]"
   unset "issue_category[$issue_key]"
@@ -23,6 +25,7 @@ pr_issue_resolve_to_reopen() {
   local issue_key="$1"
   local category="$2"
   local force_category="${3:-false}"
+  [[ -n "$issue_key" ]] || return
 
   issue_directive_resolution["$issue_key"]="Resolved via directive decision => reopen."
   issue_directive_final_action["$issue_key"]="reopen"
@@ -55,6 +58,8 @@ pr_issue_try_pre_decision_via_va() {
   local explicit_decision=""
   local allow_inferred="false"
   local -n _out_result_ref="$_out_result_var"
+
+  [[ -n "$issue_key" ]] || return 1
 
   if [[ -n "${seen_reopen_issue[$issue_key]:-}" ]]; then
     seen_reopen="true"
@@ -161,13 +166,14 @@ pr_add_issue_entry() {
   local action="$1"
   local issue_key_raw="$2"
   local default_category="$3"
-  local issue_key issue_number non_compliance_reason effective_category effective_decision inferred_decision=""
+  local issue_key="" issue_number="" non_compliance_reason="" effective_category="" effective_decision="" inferred_decision=""
   local inferred_conflict_reason=""
   local va_pre_decision_result=""
   local va_pre_decision_status=""
   local pre_decision_resolved_via_va="false"
 
   pr_issue_parse_key_and_number "$issue_key_raw" issue_key issue_number || return
+  [[ -n "$issue_key" && -n "$issue_number" ]] || return
 
   inferred_decision="${issue_inferred_decision[$issue_key]:-}"
   if pr_issue_try_pre_decision_via_va "$action" "$issue_key" "$default_category" "$inferred_decision" va_pre_decision_result &&

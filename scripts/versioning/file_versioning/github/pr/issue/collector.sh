@@ -8,21 +8,21 @@ pr_issue_parse_key_and_number() {
   local issue_key_raw="$1"
   local _out_key_var="$2"
   local _out_number_var="$3"
-  local issue_key
-  local issue_number
+  local normalized_issue_key=""
+  local normalized_issue_number=""
   local -n _out_key_ref="$_out_key_var"
   local -n _out_number_ref="$_out_number_var"
 
-  issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
-  if [[ -z "$issue_key" ]]; then
+  normalized_issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
+  if [[ -z "$normalized_issue_key" ]]; then
     _out_key_ref=""
     _out_number_ref=""
     return 1
   fi
 
-  issue_number="${issue_key//#/}"
-  _out_key_ref="$issue_key"
-  _out_number_ref="$issue_number"
+  normalized_issue_number="${normalized_issue_key//#/}"
+  _out_key_ref="$normalized_issue_key"
+  _out_number_ref="$normalized_issue_number"
   return 0
 }
 
@@ -61,6 +61,7 @@ pr_issue_context_payload_for() {
   local body
   local labels_raw=""
   local title_category="Unknown"
+  local title_category_from_va=""
   local reason=""
 
   if [[ "${issue_context_cached[$issue_key]:-0}" == "1" ]]; then
@@ -79,7 +80,17 @@ pr_issue_context_payload_for() {
       body="$(echo "$issue_json" | jq -r '.body // ""')"
 
       if [[ -n "$title" ]]; then
-        title_category="$(issue_category_from_title "$title")"
+        if command -v va_exec >/dev/null 2>&1; then
+          title_category_from_va="$(
+            va_exec pr issue-category-from-title \
+              --title "$title" 2>/dev/null || true
+          )"
+        fi
+        if [[ -n "$title_category_from_va" ]]; then
+          title_category="$title_category_from_va"
+        else
+          title_category="$(issue_category_from_title "$title")"
+        fi
       fi
 
       reason="$(issue_non_compliance_reason_from_content "$title" "$body" "$labels_raw")"
@@ -101,7 +112,15 @@ pr_resolve_effective_category() {
   local label_category
   local effective_category
 
-  label_category="$(issue_category_from_labels "$issue_labels_raw")"
+  if command -v va_exec >/dev/null 2>&1; then
+    label_category="$(
+      va_exec pr issue-category-from-labels \
+        --labels-raw "$issue_labels_raw" 2>/dev/null || true
+    )"
+  fi
+  if [[ -z "${label_category:-}" ]]; then
+    label_category="$(issue_category_from_labels "$issue_labels_raw")"
+  fi
   if command -v va_exec >/dev/null 2>&1; then
     effective_category="$(
       va_exec pr resolve-category \
@@ -154,6 +173,7 @@ pr_is_pull_request_ref() {
   local issue_number="$1"
   local cache_key="#${issue_number}"
   local repo_name_with_owner
+  local va_result=""
 
   if [[ -n "${pr_ref_cache[$cache_key]:-}" ]]; then
     if [[ "${pr_ref_cache[$cache_key]}" == "1" ]]; then
@@ -177,6 +197,24 @@ pr_is_pull_request_ref() {
     return
   fi
 
+  if command -v va_exec >/dev/null 2>&1; then
+    va_result="$(
+      va_exec pr issue-ref-kind \
+        --issue "$issue_number" \
+        --repo "$repo_name_with_owner" 2>/dev/null || true
+    )"
+    if [[ "$va_result" == "true" ]]; then
+      pr_ref_cache["$cache_key"]="1"
+      echo "true"
+      return
+    fi
+    if [[ "$va_result" == "false" ]]; then
+      pr_ref_cache["$cache_key"]="0"
+      echo "false"
+      return
+    fi
+  fi
+
   if pr_repo_api_call "$repo_name_with_owner" "pulls/${issue_number}" >/dev/null 2>&1; then
     pr_ref_cache["$cache_key"]="1"
     echo "true"
@@ -189,9 +227,10 @@ pr_is_pull_request_ref() {
 pr_mark_reopen_issue() {
   local issue_key_raw="$1"
   local default_category="$2"
-  local issue_key issue_number issue_context_payload issue_labels_raw title_category effective_category
+  local issue_key="" issue_number="" issue_context_payload="" issue_labels_raw="" title_category="" effective_category=""
 
   pr_issue_parse_key_and_number "$issue_key_raw" issue_key issue_number || return
+  [[ -n "$issue_key" && -n "$issue_number" ]] || return
   issue_context_payload="$(pr_issue_context_payload_for "$issue_number")"
   issue_labels_raw="${issue_context_payload%%$'\x1f'*}"
   title_category="${issue_context_payload#*$'\x1f'}"

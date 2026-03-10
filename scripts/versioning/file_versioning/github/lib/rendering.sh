@@ -23,6 +23,15 @@ pr_render_grouped_by_category() {
   local input_file="$1"
   local mode="$2"
   local output_file="$3"
+  local va_output=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    va_output="$(va_exec pr group-by-category --input-file "$input_file" --mode "$mode" 2>/dev/null || true)"
+    if [[ -n "$va_output" ]]; then
+      printf '%s\n' "$va_output" >"$output_file"
+      return 0
+    fi
+  fi
 
   sort -t'|' -k1,1n "$input_file" |
     awk -F'|' -v mode="$mode" '

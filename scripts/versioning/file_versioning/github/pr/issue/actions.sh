@@ -21,6 +21,8 @@ pr_process_duplicate_mode() {
   local -a sorted_duplicate_issue_keys=()
   local repo_name_with_owner
   local auto_close_allowed="true"
+  local assume_yes_value="${assume_yes:-false}"
+  local va_payload=""
 
   [[ -z "$duplicate_mode" ]] && return 0
 
@@ -34,7 +36,7 @@ pr_process_duplicate_mode() {
     return 0
   fi
 
-  if [[ "$duplicate_mode" == "auto-close" && "$assume_yes" != "true" ]]; then
+  if [[ "$duplicate_mode" == "auto-close" && "$assume_yes_value" != "true" ]]; then
     auto_close_allowed="false"
     echo "Warning: duplicate auto-close requested without --yes; close action will be skipped." >&2
   fi
@@ -46,6 +48,23 @@ pr_process_duplicate_mode() {
   fi
 
   mapfile -t sorted_duplicate_issue_keys < <(printf '%s\n' "${!duplicate_targets[@]}" | sort -V)
+
+  for duplicate_issue_key in "${sorted_duplicate_issue_keys[@]}"; do
+    [[ -z "$duplicate_issue_key" ]] && continue
+    canonical_issue_key="${duplicate_targets[$duplicate_issue_key]}"
+    va_payload+="${duplicate_issue_key}|${canonical_issue_key}"$'\n'
+  done
+
+  if [[ -n "$va_payload" ]] && command -v va_exec >/dev/null 2>&1; then
+    if printf '%s' "$va_payload" | va_exec pr duplicate-actions \
+      --stdin \
+      --mode "$duplicate_mode" \
+      --repo "$repo_name_with_owner" \
+      --assume-yes "$assume_yes_value"; then
+      return 0
+    fi
+  fi
+
   for duplicate_issue_key in "${sorted_duplicate_issue_keys[@]}"; do
     [[ -z "$duplicate_issue_key" ]] && continue
     canonical_issue_key="${duplicate_targets[$duplicate_issue_key]}"
