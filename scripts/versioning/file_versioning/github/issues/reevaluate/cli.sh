@@ -55,25 +55,7 @@ reevaluate_main() {
   fi
 
   local pr_numbers=""
-  if command -v va_exec >/dev/null 2>&1; then
-    pr_numbers="$(
-      va_exec pr open-referencing-issue \
-        --issue "$issue_number" \
-        --repo "$repo_name" 2>/dev/null || true
-    )"
-  fi
-  if [[ -z "$pr_numbers" ]]; then
-    pr_numbers="$(
-      {
-        gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[]. | [.number, (.body // "")] | @tsv' 2>/dev/null |
-          while IFS=$'\t' read -r pr_num pr_body; do
-            [[ -n "$pr_num" ]] || continue
-            issue_refs_extract_all_closing_numbers "$pr_body" | grep -qx "$issue_number" || continue
-            printf '%s\n' "$pr_num"
-          done
-      } || true
-    )"
-  fi
+  pr_numbers="$(issue_gh_open_prs_referencing_issue "$repo_name" "$issue_number")"
 
   if [[ -z "$pr_numbers" ]]; then
     echo "No open PRs found referencing issue #${issue_number}."

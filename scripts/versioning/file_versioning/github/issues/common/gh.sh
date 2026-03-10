@@ -202,6 +202,33 @@ issue_gh_collect_pr_text_payload() {
   }
 }
 
+issue_gh_open_prs_referencing_issue() {
+  local repo="$1"
+  local issue_number="$2"
+  local pr_numbers=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    pr_numbers="$(
+      va_exec pr open-referencing-issue \
+        --issue "$issue_number" \
+        --repo "$repo" 2>/dev/null || true
+    )"
+  fi
+  if [[ -n "$pr_numbers" ]]; then
+    printf '%s\n' "$pr_numbers"
+    return 0
+  fi
+
+  {
+    gh api "repos/${repo}/pulls?state=open&per_page=100" --paginate --jq '.[]. | [.number, (.body // "")] | @tsv' 2>/dev/null |
+      while IFS=$'\t' read -r pr_num pr_body; do
+        [[ -n "$pr_num" ]] || continue
+        issue_refs_extract_all_closing_numbers "$pr_body" | grep -qx "$issue_number" || continue
+        printf '%s\n' "$pr_num"
+      done
+  } || true
+}
+
 issue_gh_issue_update() {
   local repo="$1"
   local issue_number="$2"
