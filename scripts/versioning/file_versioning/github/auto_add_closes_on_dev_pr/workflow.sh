@@ -25,6 +25,19 @@ auto_add_collect_refs_from_payload() {
   _out_closing_refs_ref="$(printf '%s\n' "${closing_rows[@]}" | sed '/^$/d' | sort -u)"
 }
 
+auto_add_should_close_issue_for_author() {
+  local issue_number="$1"
+  local repo_name="$2"
+  local pr_author="$3"
+  local assignees assignee_count sole_assignee
+
+  assignees="$(gh issue view "$issue_number" -R "$repo_name" --json assignees --jq '.assignees[].login' 2>/dev/null || true)"
+  assignee_count="$(printf '%s\n' "$assignees" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
+  sole_assignee="$(printf '%s\n' "$assignees" | sed '/^$/d' | head -n1)"
+
+  [[ "${assignee_count:-0}" == "1" && "$sole_assignee" == "$pr_author" ]]
+}
+
 auto_add_resolve_repo() {
   local current_repo_name="${1:-}"
   if [[ -z "$current_repo_name" ]]; then
@@ -54,7 +67,7 @@ auto_add_closes_run() {
   local auto_add_repo_name="${GH_REPO:-}"
   local pr_json pr_state pr_base pr_title pr_body pr_author
   local pr_commits payload_all part_of_refs closing_refs
-  local issue_number assignees assignee_count sole_assignee
+  local issue_number
   local managed_block body_without_block new_body
   local -a sorted_issue_numbers
   local -A already_closing=()
@@ -113,11 +126,7 @@ auto_add_closes_run() {
       continue
     fi
 
-    assignees="$(gh issue view "$issue_number" -R "$auto_add_repo_name" --json assignees --jq '.assignees[].login' 2>/dev/null || true)"
-    assignee_count="$(printf '%s\n' "$assignees" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
-    sole_assignee="$(printf '%s\n' "$assignees" | sed '/^$/d' | head -n1)"
-
-    if [[ "${assignee_count:-0}" == "1" && "$sole_assignee" == "$pr_author" ]]; then
+    if auto_add_should_close_issue_for_author "$issue_number" "$auto_add_repo_name" "$pr_author"; then
       closes_to_add["$issue_number"]=1
     fi
   done < <(auto_add_extract_issue_numbers "$part_of_refs")
