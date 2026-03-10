@@ -2,7 +2,8 @@
 use crate::issues::commands::{
     CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueAction, IssueTarget,
     LabelExistsOptions, NonComplianceReasonOptions, ReadOptions, ReevaluateOptions,
-    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, UpdateOptions,
+    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, SyncProjectStatusOptions,
+    UpdateOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -28,8 +29,38 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
             parse_fetch_non_compliance_reason(&args[1..]).map(IssueAction::FetchNonComplianceReason)
         }
         "label-exists" => parse_label_exists(&args[1..]).map(IssueAction::LabelExists),
+        "sync-project-status" => {
+            parse_sync_project_status(&args[1..]).map(IssueAction::SyncProjectStatus)
+        }
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
     }
+}
+
+fn parse_sync_project_status(args: &[String]) -> Result<SyncProjectStatusOptions, String> {
+    let mut repo = String::new();
+    let mut issue = String::new();
+    let mut status = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--repo" => repo = take_value("--repo", args, &mut i)?,
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--status" => status = take_value("--status", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for sync-project-status: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue)?;
+    if repo.trim().is_empty() || status.trim().is_empty() {
+        return Err("sync-project-status requires: --repo, --issue and --status".to_string());
+    }
+
+    Ok(SyncProjectStatusOptions {
+        repo,
+        issue,
+        status,
+    })
 }
 
 fn parse_label_exists(args: &[String]) -> Result<LabelExistsOptions, String> {

@@ -8,6 +8,7 @@ use crate::issues::execute::{
 };
 use crate::issues::parse::parse;
 use crate::issues::render::print_usage;
+use crate::issues::sync_project_status::run_sync_project_status;
 
 pub(crate) fn run(args: &[String]) -> i32 {
     match parse(args) {
@@ -26,6 +27,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(IssueAction::NonComplianceReason(opts)) => run_non_compliance_reason(opts),
         Ok(IssueAction::FetchNonComplianceReason(opts)) => run_fetch_non_compliance_reason(opts),
         Ok(IssueAction::LabelExists(opts)) => run_label_exists(opts),
+        Ok(IssueAction::SyncProjectStatus(opts)) => run_sync_project_status(opts),
         Err(message) => {
             eprintln!("{message}");
             2

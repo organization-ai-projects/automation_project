@@ -55,3 +55,25 @@ fn parse_label_exists_accepts_required_fields() {
     let code = issues::run(&args);
     assert_eq!(code, 0);
 }
+
+#[test]
+fn parse_sync_project_status_requires_fields() {
+    let args = vec!["sync-project-status".to_string()];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn parse_sync_project_status_accepts_required_fields() {
+    let args = vec![
+        "sync-project-status".to_string(),
+        "--repo".to_string(),
+        "owner/repo".to_string(),
+        "--issue".to_string(),
+        "42".to_string(),
+        "--status".to_string(),
+        "Todo".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 0);
+}

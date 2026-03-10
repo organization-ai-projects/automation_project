@@ -8,6 +8,7 @@ pub(crate) mod non_compliance_reason_options;
 pub(crate) mod read_options;
 pub(crate) mod reevaluate_options;
 pub(crate) mod required_fields_validate_options;
+pub(crate) mod sync_project_status_options;
 pub(crate) mod update_options;
 
 pub(crate) use close_options::CloseOptions;
@@ -22,4 +23,5 @@ pub(crate) use reevaluate_options::ReevaluateOptions;
 pub(crate) use required_fields_validate_options::{
     RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
 };
+pub(crate) use sync_project_status_options::SyncProjectStatusOptions;
 pub(crate) use update_options::UpdateOptions;

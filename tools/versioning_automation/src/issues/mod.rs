@@ -5,6 +5,7 @@ mod execute;
 mod parse;
 mod render;
 mod required_fields;
+mod sync_project_status;
 
 #[cfg(test)]
 mod tests;
