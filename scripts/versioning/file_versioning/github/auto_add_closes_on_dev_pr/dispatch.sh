@@ -2,6 +2,9 @@
 # shellcheck shell=bash
 # shellcheck disable=SC1091
 
+# shellcheck source=scripts/versioning/file_versioning/github/lib/va.sh
+source "${ROOT_GITHUB_DIR}/lib/va.sh"
+
 auto_add_closes_legacy_dispatch() {
   source "${ROOT_GITHUB_DIR}/lib/gh_cli.sh"
   source "${ROOT_GITHUB_DIR}/lib/issue_refs.sh"
@@ -14,8 +17,6 @@ auto_add_closes_legacy_dispatch() {
 }
 
 auto_add_closes_try_va_dispatch() {
-  local -a va_cmd=()
-
   if [[ "${VA_AUTO_ADD_CLOSES_WRAPPER_ACTIVE:-0}" == "1" ]]; then
     return 1
   fi
@@ -24,15 +25,11 @@ auto_add_closes_try_va_dispatch() {
     return 1
   fi
 
-  if command -v va >/dev/null 2>&1; then
-    va_cmd=(va pr auto-add-closes)
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    va_cmd=(versioning_automation pr auto-add-closes)
-  else
+  if ! command -v va_exec >/dev/null 2>&1; then
     return 1
   fi
 
-  VA_AUTO_ADD_CLOSES_WRAPPER_ACTIVE=1 "${va_cmd[@]}" "$@"
+  VA_AUTO_ADD_CLOSES_WRAPPER_ACTIVE=1 va_exec pr auto-add-closes "$@"
 }
 
 auto_add_closes_dispatch() {

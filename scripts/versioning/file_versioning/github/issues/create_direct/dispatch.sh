@@ -2,6 +2,9 @@
 # shellcheck shell=bash
 # shellcheck disable=SC1091
 
+# shellcheck source=scripts/versioning/file_versioning/github/lib/va.sh
+source "${ISSUES_DIR}/../lib/va.sh"
+
 create_direct_issue_legacy_dispatch() {
   # shellcheck source=scripts/versioning/file_versioning/github/issues/required_fields/load.sh
   source "${ISSUES_DIR}/required_fields/load.sh"
@@ -15,8 +18,6 @@ create_direct_issue_legacy_dispatch() {
 }
 
 create_direct_issue_try_va_dispatch() {
-  local -a va_cmd=()
-
   if [[ "${VA_CREATE_DIRECT_WRAPPER_ACTIVE:-0}" == "1" ]]; then
     return 1
   fi
@@ -25,15 +26,11 @@ create_direct_issue_try_va_dispatch() {
     return 1
   fi
 
-  if command -v va >/dev/null 2>&1; then
-    va_cmd=(va issue create)
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    va_cmd=(versioning_automation issue create)
-  else
+  if ! command -v va_exec >/dev/null 2>&1; then
     return 1
   fi
 
-  VA_CREATE_DIRECT_WRAPPER_ACTIVE=1 "${va_cmd[@]}" "$@"
+  VA_CREATE_DIRECT_WRAPPER_ACTIVE=1 va_exec issue create "$@"
 }
 
 create_direct_issue_dispatch() {
