@@ -121,6 +121,43 @@ neutralize_collect_refs_from_body() {
   _out_pre_neutralized_refs_ref="$(printf '%s\n' "${pre_neutralized_rows[@]}" | sed '/^$/d' | sort -u)"
 }
 
+neutralize_normalize_ref_line() {
+  local action_raw="$1"
+  local issue_key_raw="$2"
+  local _out_action_var="$3"
+  local _out_issue_key_var="$4"
+  local _out_issue_number_var="$5"
+  local normalized_action normalized_issue_key normalized_issue_number
+  local -n _out_action_ref="$_out_action_var"
+  local -n _out_issue_key_ref="$_out_issue_key_var"
+  local -n _out_issue_number_ref="$_out_issue_number_var"
+
+  normalized_action="$(neutralize_trim "$action_raw")"
+  normalized_issue_key="$(neutralize_trim "$issue_key_raw")"
+  [[ "$normalized_issue_key" =~ ^#[0-9]+$ ]] || return 1
+
+  normalized_issue_number="${normalized_issue_key//#/}"
+  _out_action_ref="$normalized_action"
+  _out_issue_key_ref="$normalized_issue_key"
+  _out_issue_number_ref="$normalized_issue_number"
+  return 0
+}
+
+neutralize_mark_seen_ref_or_skip() {
+  local action="$1"
+  local issue_key="$2"
+  local seen_ref_var_name="$3"
+  local dedupe_key
+  local -n seen_ref_ref="$seen_ref_var_name"
+
+  dedupe_key="${action}|${issue_key}"
+  if [[ -n "${seen_ref_ref[$dedupe_key]:-}" ]]; then
+    return 1
+  fi
+  seen_ref_ref["$dedupe_key"]=1
+  return 0
+}
+
 neutralize_process_closing_refs() {
   local refs="$1"
   local repo_name="$2"
@@ -134,17 +171,11 @@ neutralize_process_closing_refs() {
   local -n updated_body_ref="$updated_body_var_name"
   local -n seen_ref_ref="$seen_ref_var_name"
 
-  local action issue_key issue_number dedupe_key reason keyword_pattern
+  local action issue_key issue_number reason keyword_pattern
 
   while IFS='|' read -r action issue_key; do
-    issue_key="$(neutralize_trim "$issue_key")"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    issue_number="${issue_key//#/}"
-    dedupe_key="${action}|${issue_key}"
-    if [[ -n "${seen_ref_ref[$dedupe_key]:-}" ]]; then
-      continue
-    fi
-    seen_ref_ref["$dedupe_key"]=1
+    neutralize_normalize_ref_line "$action" "$issue_key" action issue_key issue_number || continue
+    neutralize_mark_seen_ref_or_skip "$action" "$issue_key" "$seen_ref_var_name" || continue
 
     reason="$(neutralize_reason_for_issue_cached "$issue_number" "$repo_name" "$reason_cache_var_name")"
     [[ -n "$reason" ]] || continue
@@ -173,17 +204,11 @@ neutralize_process_pre_neutralized_refs() {
   local -n updated_body_ref="$updated_body_var_name"
   local -n seen_ref_ref="$seen_ref_var_name"
 
-  local action issue_key issue_number dedupe_key reason keyword_pattern
+  local action issue_key issue_number reason keyword_pattern
 
   while IFS='|' read -r action issue_key; do
-    issue_key="$(neutralize_trim "$issue_key")"
-    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    issue_number="${issue_key//#/}"
-    dedupe_key="${action}|${issue_key}"
-    if [[ -n "${seen_ref_ref[$dedupe_key]:-}" ]]; then
-      continue
-    fi
-    seen_ref_ref["$dedupe_key"]=1
+    neutralize_normalize_ref_line "$action" "$issue_key" action issue_key issue_number || continue
+    neutralize_mark_seen_ref_or_skip "$action" "$issue_key" "$seen_ref_var_name" || continue
 
     reason="$(neutralize_reason_for_issue_cached "$issue_number" "$repo_name" "$reason_cache_var_name")"
 
