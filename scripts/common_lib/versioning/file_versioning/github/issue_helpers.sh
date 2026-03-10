@@ -138,19 +138,12 @@ github_issue_list_open_by_label() {
     return 0
   fi
 
-  if issue_helpers_has_va_issue && command -v jq >/dev/null 2>&1; then
-    local -a va_cmd=(issue read --json number,title,url,labels)
+  if issue_helpers_has_va_issue; then
+    local -a va_cmd=(issue list-by-label --label "$label_name")
     if [[ -n "$repo_name" ]]; then
       va_cmd+=(--repo "$repo_name")
     fi
-    va_output="$(
-      issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null |
-        jq -r --arg label "$label_name" '
-            .[]
-            | select((.labels // []) | map(.name) | index($label))
-            | "\(.number)|\(.title)|\(.url)"
-          ' 2>/dev/null || true
-    )"
+    va_output="$(issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null || true)"
   fi
 
   if [[ -n "$va_output" ]]; then
