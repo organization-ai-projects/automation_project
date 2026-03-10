@@ -3,17 +3,17 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::Path;
 
-use crate::pr::contracts::cli::pr_action::PrAction;
-use crate::pr::contracts::cli::pr_auto_add_closes_options::PrAutoAddClosesOptions;
-use crate::pr::contracts::cli::pr_closure_marker_options::PrClosureMarkerOptions;
-use crate::pr::contracts::cli::pr_closure_refs_options::PrClosureRefsOptions;
-use crate::pr::contracts::cli::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
-use crate::pr::contracts::cli::pr_directives_format::PrDirectivesFormat;
-use crate::pr::contracts::cli::pr_directives_options::PrDirectivesOptions;
-use crate::pr::contracts::cli::pr_directives_state_options::PrDirectivesStateOptions;
-use crate::pr::contracts::cli::pr_issue_decision_options::PrIssueDecisionOptions;
-use crate::pr::contracts::cli::pr_non_closing_refs_options::PrNonClosingRefsOptions;
-use crate::pr::contracts::cli::pr_resolve_category_options::PrResolveCategoryOptions;
+use crate::pr::commands::pr_action::PrAction;
+use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
+use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
+use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
+use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
+use crate::pr::commands::pr_directives_format::PrDirectivesFormat;
+use crate::pr::commands::pr_directives_options::PrDirectivesOptions;
+use crate::pr::commands::pr_directives_state_options::PrDirectivesStateOptions;
+use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
+use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
+use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 
 pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     if args.is_empty() {

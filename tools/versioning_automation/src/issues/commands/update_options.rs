@@ -1,4 +1,4 @@
-//! tools/versioning_automation/src/issues/contracts/cli/update_options.rs
+//! tools/versioning_automation/src/issues/commands/update_options.rs
 #[derive(Debug, Clone)]
 pub(crate) struct UpdateOptions {
     pub(crate) issue: String,

@@ -1,5 +1,5 @@
-//! tools/versioning_automation/src/issues/contracts/cli/issue_action.rs
-use crate::issues::contracts::cli::{
+//! tools/versioning_automation/src/issues/commands/issue_action.rs
+use crate::issues::commands::{
     CloseOptions, CreateOptions, IssueTarget, ReadOptions, ReevaluateOptions, UpdateOptions,
 };
 

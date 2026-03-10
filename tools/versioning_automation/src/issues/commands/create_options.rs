@@ -1,4 +1,4 @@
-//! tools/versioning_automation/src/issues/contracts/cli/create_options.rs
+//! tools/versioning_automation/src/issues/commands/create_options.rs
 #[derive(Debug, Clone)]
 pub(crate) struct CreateOptions {
     pub(crate) title: String,

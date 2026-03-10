@@ -1,4 +1,4 @@
-use crate::issues::contracts::cli::CreateOptions;
+use crate::issues::commands::CreateOptions;
 
 #[test]
 fn create_options_can_be_built() {

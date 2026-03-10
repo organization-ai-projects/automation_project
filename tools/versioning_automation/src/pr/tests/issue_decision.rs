@@ -1,4 +1,4 @@
-use crate::pr::contracts::cli::pr_issue_decision_options::PrIssueDecisionOptions;
+use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
 use crate::pr::issue_decision::decide;
 
 fn base_opts() -> PrIssueDecisionOptions {

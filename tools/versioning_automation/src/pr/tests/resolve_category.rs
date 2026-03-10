@@ -1,4 +1,4 @@
-use crate::pr::contracts::cli::pr_resolve_category_options::PrResolveCategoryOptions;
+use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 use crate::pr::resolve_category::run_resolve_category;
 
 #[test]

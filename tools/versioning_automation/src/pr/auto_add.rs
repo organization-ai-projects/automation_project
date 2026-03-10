@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 use std::process::Command;
 
-use crate::pr::contracts::cli::pr_auto_add_closes_options::PrAutoAddClosesOptions;
-use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
+use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::contracts::github::pr_snapshot::PrSnapshot;
+use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
 
 const AUTO_BLOCK_START: &str = "<!-- auto-closes:start -->";

@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/issues/mod.rs
-mod contracts;
+mod commands;
 mod execute;
 mod parse;
 mod render;
@@ -7,7 +7,7 @@ mod render;
 #[cfg(test)]
 mod tests;
 
-use contracts::cli::IssueAction;
+use commands::IssueAction;
 use execute::{
     run_close, run_create, run_delete, run_read, run_reevaluate, run_reopen, run_update,
 };

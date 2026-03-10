@@ -3,7 +3,7 @@ use std::process::Command;
 
 use regex::Regex;
 
-use crate::issues::contracts::cli::{
+use crate::issues::commands::{
     CloseOptions, CreateOptions, IssueTarget, ReadOptions, ReevaluateOptions, UpdateOptions,
 };
 use crate::issues::render::render_direct_issue_body;

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use crate::pr::contracts::cli::pr_non_closing_refs_options::PrNonClosingRefsOptions;
-use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
+use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
+use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
 
 pub(crate) fn run_non_closing_refs(opts: PrNonClosingRefsOptions) -> i32 {

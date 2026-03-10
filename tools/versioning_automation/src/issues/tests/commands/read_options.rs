@@ -1,4 +1,4 @@
-use crate::issues::contracts::cli::ReadOptions;
+use crate::issues::commands::ReadOptions;
 
 #[test]
 fn read_options_can_be_built() {

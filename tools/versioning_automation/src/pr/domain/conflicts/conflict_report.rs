@@ -1,5 +1,5 @@
-use crate::pr::contracts::conflicts::resolved_conflict::ResolvedConflict;
-use crate::pr::contracts::conflicts::unresolved_conflict::UnresolvedConflict;
+use crate::pr::domain::conflicts::resolved_conflict::ResolvedConflict;
+use crate::pr::domain::conflicts::unresolved_conflict::UnresolvedConflict;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ConflictReport {

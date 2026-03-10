@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use crate::pr::contracts::cli::pr_closure_refs_options::PrClosureRefsOptions;
-use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
+use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
+use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
 
 pub(crate) fn run_closure_refs(opts: PrClosureRefsOptions) -> i32 {

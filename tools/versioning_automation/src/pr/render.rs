@@ -1,6 +1,6 @@
 use common_json::to_string_pretty;
 
-use crate::pr::contracts::directives::directive_record::DirectiveRecord;
+use crate::pr::domain::directives::directive_record::DirectiveRecord;
 
 pub(crate) fn print_usage() {
     println!("Usage:");
@@ -25,9 +25,9 @@ pub(crate) fn print_usage() {
 pub(crate) fn emit_plain(records: &[DirectiveRecord]) {
     for record in records {
         let record_type = match record.record_type {
-            crate::pr::contracts::directives::directive_record_type::DirectiveRecordType::Event => "EV",
-            crate::pr::contracts::directives::directive_record_type::DirectiveRecordType::Decision => "DEC",
-            crate::pr::contracts::directives::directive_record_type::DirectiveRecordType::Duplicate => "DUP",
+            crate::pr::domain::directives::directive_record_type::DirectiveRecordType::Event => "EV",
+            crate::pr::domain::directives::directive_record_type::DirectiveRecordType::Decision => "DEC",
+            crate::pr::domain::directives::directive_record_type::DirectiveRecordType::Duplicate => "DUP",
         };
         println!("{}|{}|{}", record_type, record.first, record.second);
     }

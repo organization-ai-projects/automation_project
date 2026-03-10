@@ -1,4 +1,4 @@
-use crate::pr::contracts::cli::pr_non_closing_refs_options::PrNonClosingRefsOptions;
+use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::non_closing_refs::run_non_closing_refs;
 
 #[test]

@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
+use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub(crate) struct DirectiveRecord {

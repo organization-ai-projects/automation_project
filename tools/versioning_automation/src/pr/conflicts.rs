@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::pr::contracts::cli::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
-use crate::pr::contracts::conflicts::conflict_report::ConflictReport;
-use crate::pr::contracts::conflicts::resolved_conflict::ResolvedConflict;
-use crate::pr::contracts::conflicts::unresolved_conflict::UnresolvedConflict;
-use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
+use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
+use crate::pr::domain::conflicts::conflict_report::ConflictReport;
+use crate::pr::domain::conflicts::resolved_conflict::ResolvedConflict;
+use crate::pr::domain::conflicts::unresolved_conflict::UnresolvedConflict;
+use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
 
 pub(crate) fn run_directive_conflicts(opts: PrDirectiveConflictsOptions) -> i32 {

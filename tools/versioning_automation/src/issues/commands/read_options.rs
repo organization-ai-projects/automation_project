@@ -1,4 +1,4 @@
-//! tools/versioning_automation/src/issues/contracts/cli/read_options.rs
+//! tools/versioning_automation/src/issues/commands/read_options.rs
 #[derive(Debug, Clone)]
 pub(crate) struct ReadOptions {
     pub(crate) issue: Option<String>,

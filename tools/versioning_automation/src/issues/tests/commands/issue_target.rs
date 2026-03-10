@@ -1,4 +1,4 @@
-use crate::issues::contracts::cli::IssueTarget;
+use crate::issues::commands::IssueTarget;
 
 #[test]
 fn issue_target_can_be_built() {
