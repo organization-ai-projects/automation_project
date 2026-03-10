@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, VecDeque};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
     static NONCE: AtomicU32 = AtomicU32::new(1);
     NONCE.fetch_add(1, Ordering::Relaxed)
 }
@@ -194,101 +194,7 @@ fn atomic_write_file(path: &Path, data: &[u8]) -> Result<(), PvError> {
     })();
 
     if result.is_err() {
-        let _ = fs::remove_file(&tmp_path);
+        drop(fs::remove_file(&tmp_path));
     }
     result
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::indexes::Index;
-    use crate::objects::Blob;
-    use crate::pipeline::CommitBuilder;
-    use crate::refs_store::RefStore;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn unique_test_dir(tag: &str) -> std::path::PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let pid = std::process::id();
-        let nanos = next_nonce();
-        std::env::temp_dir().join(format!("pv_checkout_{tag}_{pid}_{nanos}_{id}"))
-    }
-
-    fn make_stores(tag: &str) -> (ObjectStore, RefStore, std::path::PathBuf) {
-        let dir = unique_test_dir(tag);
-        let obj = ObjectStore::open(&dir).unwrap();
-        let refs = RefStore::open(&dir).unwrap();
-        (obj, refs, dir)
-    }
-
-    fn commit_one_file(
-        path: &str,
-        content: &[u8],
-        obj_store: &ObjectStore,
-        ref_store: &RefStore,
-    ) -> CommitId {
-        let blob = Blob::from_bytes(content.to_vec());
-        let mut index = Index::new();
-        index.add(path.parse().unwrap(), blob.id.clone());
-        obj_store.write(Object::Blob(blob)).unwrap();
-        let result = CommitBuilder::new("tester", "test commit", 1_000)
-            .commit(&index, obj_store, ref_store)
-            .unwrap();
-        result.commit_id
-    }
-
-    #[test]
-    fn checkout_writes_files() {
-        let (obj, refs, _) = make_stores("write");
-        let commit_id = commit_one_file("hello.txt", b"world", &obj, &refs);
-        let dest = unique_test_dir("dest_write");
-        let mat =
-            Checkout::materialize(&commit_id, &obj, &dest, &CheckoutPolicy::overwrite()).unwrap();
-        assert_eq!(mat.files_written, 1);
-        assert_eq!(std::fs::read(dest.join("hello.txt")).unwrap(), b"world");
-    }
-
-    #[test]
-    fn checkout_overwrite_replaces_file() {
-        let (obj, refs, _) = make_stores("overwrite");
-        let commit_id = commit_one_file("file.txt", b"new content", &obj, &refs);
-        let dest = unique_test_dir("dest_overwrite");
-        fs::create_dir_all(&dest).unwrap();
-        fs::write(dest.join("file.txt"), b"old content").unwrap();
-        Checkout::materialize(&commit_id, &obj, &dest, &CheckoutPolicy::overwrite()).unwrap();
-        assert_eq!(fs::read(dest.join("file.txt")).unwrap(), b"new content");
-    }
-
-    #[test]
-    fn checkout_safe_fails_on_conflict() {
-        let (obj, refs, _) = make_stores("safe");
-        let commit_id = commit_one_file("file.txt", b"new content", &obj, &refs);
-        let dest = unique_test_dir("dest_safe");
-        fs::create_dir_all(&dest).unwrap();
-        fs::write(dest.join("file.txt"), b"different content").unwrap();
-        let result = Checkout::materialize(&commit_id, &obj, &dest, &CheckoutPolicy::safe());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn checkout_clean_deletes_untracked() {
-        let (obj, refs, _) = make_stores("clean");
-        let commit_id = commit_one_file("kept.txt", b"keep", &obj, &refs);
-        let dest = unique_test_dir("dest_clean");
-        fs::create_dir_all(&dest).unwrap();
-        fs::write(dest.join("extra.txt"), b"untracked").unwrap();
-        let mat = Checkout::materialize(&commit_id, &obj, &dest, &CheckoutPolicy::clean()).unwrap();
-        assert_eq!(mat.files_deleted, 1);
-        assert!(!dest.join("extra.txt").exists());
-    }
-
-    #[test]
-    fn unsafe_path_cannot_escape_dest() {
-        // SafePath construction prevents traversal, so there is no path to
-        // materialize outside of dest. Verify the invariant at the type level.
-        assert!("../etc/passwd".parse::<SafePath>().is_err());
-    }
 }

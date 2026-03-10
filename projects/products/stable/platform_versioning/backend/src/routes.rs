@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
     static NONCE: AtomicU32 = AtomicU32::new(1);
     NONCE.fetch_add(1, Ordering::Relaxed)
 }

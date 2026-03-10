@@ -1,4 +1,4 @@
-// projects/products/stable/platform_versioning/backend/src/main.rs
+//! projects/products/stable/platform_versioning/backend/src/main.rs
 mod app;
 mod app_config;
 mod auth;

@@ -6,3 +6,6 @@ pub mod slice_projection;
 pub use slice_definition::SliceDefinition;
 pub use slice_manifest::SliceManifest;
 pub use slice_projection::SliceProjection;
+
+#[cfg(test)]
+mod tests;

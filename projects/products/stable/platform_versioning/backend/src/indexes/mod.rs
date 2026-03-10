@@ -6,3 +6,6 @@ pub mod safe_path;
 pub use index::Index;
 pub use index_entry::IndexEntry;
 pub use safe_path::SafePath;
+
+#[cfg(test)]
+mod tests;

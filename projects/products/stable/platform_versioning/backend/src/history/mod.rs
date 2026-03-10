@@ -6,3 +6,6 @@ pub mod history_walker;
 pub use history_entry::HistoryEntry;
 pub use history_page::HistoryPage;
 pub use history_walker::HistoryWalker;
+
+#[cfg(test)]
+mod tests;

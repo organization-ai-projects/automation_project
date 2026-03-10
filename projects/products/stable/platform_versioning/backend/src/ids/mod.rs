@@ -12,3 +12,6 @@ pub use object_id::ObjectId;
 pub use ref_id::RefId;
 pub use repo_id::RepoId;
 pub use tree_id::TreeId;
+
+#[cfg(test)]
+mod tests;

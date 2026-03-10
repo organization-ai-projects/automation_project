@@ -47,16 +47,3 @@ impl From<ObjectId> for CommitId {
         Self(id)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn roundtrip() {
-        let raw = [0x03u8; 32];
-        let id = CommitId::from_bytes(&raw);
-        let parsed: CommitId = id.to_string().parse().unwrap();
-        assert_eq!(id, parsed);
-    }
-}

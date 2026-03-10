@@ -28,7 +28,6 @@ impl From<PvError> for ApiError {
 
 /// Maps a [`PvError`] to the appropriate HTTP status code.
 pub fn http_status_for(err: &PvError) -> u16 {
-    use crate::errors::ErrorCategory;
     match err.category() {
         ErrorCategory::InvalidInput => 400,
         ErrorCategory::NotFound => 404,

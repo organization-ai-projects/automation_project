@@ -1,11 +1,12 @@
 // projects/products/stable/platform_versioning/backend/src/refs_store/ref_store.rs
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
     static NONCE: AtomicU32 = AtomicU32::new(1);
     NONCE.fetch_add(1, Ordering::Relaxed)
 }
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::PvError;
 use crate::ids::CommitId;
-use crate::objects::ObjectStore;
+use crate::objects::{Object, ObjectStore};
 use crate::refs_store::{HeadState, RefName, RefTarget};
 
 /// Mutable ref store with atomic update semantics.
@@ -197,7 +198,7 @@ impl RefStore {
         })();
 
         if result.is_err() {
-            let _ = fs::remove_file(&tmp_path);
+            drop(fs::remove_file(&tmp_path));
         }
         result
     }
@@ -208,8 +209,6 @@ fn is_ancestor(ancestor: &CommitId, descendant: &CommitId, store: &ObjectStore) 
     if ancestor == descendant {
         return true;
     }
-    use crate::objects::Object;
-    use std::collections::VecDeque;
     let mut queue = VecDeque::new();
     queue.push_back(descendant.clone());
     let mut visited = std::collections::HashSet::new();
@@ -230,81 +229,4 @@ fn is_ancestor(ancestor: &CommitId, descendant: &CommitId, store: &ObjectStore) 
         }
     }
     false
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn unique_test_dir() -> PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let pid = std::process::id();
-        let nanos = next_nonce();
-        std::env::temp_dir().join(format!("pv_ref_store_{pid}_{nanos}_{id}"))
-    }
-
-    fn make_commit_id(byte: u8) -> CommitId {
-        CommitId::from(crate::ids::ObjectId::from_bytes(&[byte; 32]))
-    }
-
-    #[test]
-    fn default_head_is_unborn() {
-        let dir = unique_test_dir();
-        let store = RefStore::open(&dir).unwrap();
-        let head = store.read_head().unwrap();
-        assert!(matches!(head, HeadState::Unborn(_)));
-    }
-
-    #[test]
-    fn write_and_read_head() {
-        let dir = unique_test_dir();
-        let store = RefStore::open(&dir).unwrap();
-        let name: RefName = "heads/main".parse().unwrap();
-        store.write_head(&HeadState::Branch(name.clone())).unwrap();
-        let head = store.read_head().unwrap();
-        assert_eq!(head, HeadState::Branch(name));
-    }
-
-    #[test]
-    fn read_missing_ref() {
-        let dir = unique_test_dir();
-        let store = RefStore::open(&dir).unwrap();
-        let name: RefName = "heads/missing".parse().unwrap();
-        let result = store.read_ref(&name);
-        assert!(matches!(result, Err(PvError::RefNotFound(_))));
-    }
-
-    #[test]
-    fn write_and_read_ref() {
-        let dir = unique_test_dir();
-        let store = RefStore::open(&dir).unwrap();
-        let name: RefName = "heads/main".parse().unwrap();
-        let commit_id = make_commit_id(0xaa);
-        let target = RefTarget::Commit(commit_id.clone());
-        store.write_ref(&name, &target, true, None).unwrap();
-        let read = store.read_ref(&name).unwrap();
-        assert_eq!(read.commit_id(), &commit_id);
-    }
-
-    #[test]
-    fn non_fast_forward_rejected() {
-        let dir = unique_test_dir();
-        let store = RefStore::open(&dir).unwrap();
-        let name: RefName = "heads/main".parse().unwrap();
-        let id1 = make_commit_id(0x01);
-        let id2 = make_commit_id(0x02);
-        // Write initial ref.
-        store
-            .write_ref(&name, &RefTarget::Commit(id1), true, None)
-            .unwrap();
-        // Try non-fast-forward without force (no object store for ancestry check, so
-        // is_ancestor returns false because id1 != id2 and no parents can be followed).
-        let obj_root = unique_test_dir();
-        let obj_store = ObjectStore::open(&obj_root).unwrap();
-        let result = store.write_ref(&name, &RefTarget::Commit(id2), false, Some(&obj_store));
-        assert!(matches!(result, Err(PvError::NonFastForward(_))));
-    }
 }

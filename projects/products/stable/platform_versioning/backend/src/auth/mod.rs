@@ -20,3 +20,6 @@ pub use permission::Permission;
 pub use permission_grant::PermissionGrant;
 pub use token_claims::TokenClaims;
 pub use token_verifier::TokenVerifier;
+
+#[cfg(test)]
+mod tests;

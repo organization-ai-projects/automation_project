@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 
 fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
     static NONCE: AtomicU32 = AtomicU32::new(1);
     NONCE.fetch_add(1, Ordering::Relaxed)
 }
@@ -86,8 +86,7 @@ impl ObjectStore {
         let path = self.object_path(id);
         let bytes = fs::read(&path).map_err(|_| PvError::ObjectNotFound(id.to_string()))?;
 
-        let (object, _): (Object, _) = common_json::from_slice(&bytes)
-            .map(|o| (o, ()))
+        let object: Object = common_json::from_slice(&bytes)
             .map_err(|e| PvError::CorruptObject(format!("decode {id}: {e}")))?;
 
         if !object.verify() {
@@ -148,7 +147,7 @@ impl ObjectStore {
         })();
 
         if result.is_err() {
-            let _ = fs::remove_file(&tmp_path);
+            drop(fs::remove_file(&tmp_path));
         }
         result
     }
@@ -171,81 +170,5 @@ impl<'de> Deserialize<'de> for ObjectStore {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let root = PathBuf::deserialize(deserializer)?;
         Self::open(root).map_err(serde::de::Error::custom)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::objects::Blob;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn unique_test_dir() -> PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let pid = std::process::id();
-        let nanos = next_nonce();
-        std::env::temp_dir().join(format!("pv_obj_store_{pid}_{nanos}_{id}"))
-    }
-
-    fn test_store() -> (PathBuf, ObjectStore) {
-        let dir = unique_test_dir();
-        let store = ObjectStore::open(&dir).unwrap();
-        (dir, store)
-    }
-
-    #[test]
-    fn write_and_read_blob() {
-        let (_dir, store) = test_store();
-        let blob = Blob::from_bytes(b"hello".to_vec());
-        let id = blob.id.as_object_id().clone();
-        store.write(Object::Blob(blob)).unwrap();
-        let obj = store.read(&id).unwrap();
-        assert_eq!(obj.kind(), crate::objects::ObjectKind::Blob);
-    }
-
-    #[test]
-    fn exists_returns_true_after_write() {
-        let (_dir, store) = test_store();
-        let blob = Blob::from_bytes(b"data".to_vec());
-        let id = blob.id.as_object_id().clone();
-        store.write(Object::Blob(blob)).unwrap();
-        assert!(store.exists(&id));
-    }
-
-    #[test]
-    fn read_missing_returns_not_found() {
-        let (_dir, store) = test_store();
-        let id = ObjectId::from_bytes(&[0xddu8; 32]);
-        let result = store.read(&id);
-        assert!(matches!(result, Err(PvError::ObjectNotFound(_))));
-    }
-
-    #[test]
-    fn corrupt_bytes_fail_integrity() {
-        let (_dir, store) = test_store();
-        let blob = Blob::from_bytes(b"important data".to_vec());
-        let id = blob.id.as_object_id().clone();
-        store.write(Object::Blob(blob)).unwrap();
-
-        // Corrupt the file on disk.
-        let path = {
-            let hex = id.as_str();
-            let (prefix, rest) = hex.split_at(2);
-            store.root.join("objects").join(prefix).join(rest)
-        };
-        let mut bytes = fs::read(&path).unwrap();
-        bytes[0] ^= 0xff;
-        fs::write(&path, &bytes).unwrap();
-
-        // Flush the cache to force a disk read.
-        store.cache.write().unwrap().clear();
-
-        let result = store.read(&id);
-        assert!(
-            matches!(result, Err(PvError::CorruptObject(_)))
-                || matches!(result, Err(PvError::ObjectNotFound(_)))
-        );
     }
 }
