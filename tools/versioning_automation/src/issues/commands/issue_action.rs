@@ -1,6 +1,6 @@
 //! tools/versioning_automation/src/issues/commands/issue_action.rs
 use crate::issues::commands::{
-    CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueTarget,
+    CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueTarget, LabelExistsOptions,
     NonComplianceReasonOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
     UpdateOptions,
 };
@@ -18,4 +18,5 @@ pub(crate) enum IssueAction {
     RequiredFieldsValidate(RequiredFieldsValidateOptions),
     NonComplianceReason(NonComplianceReasonOptions),
     FetchNonComplianceReason(FetchNonComplianceReasonOptions),
+    LabelExists(LabelExistsOptions),
 }

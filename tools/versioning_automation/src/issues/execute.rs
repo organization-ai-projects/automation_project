@@ -4,7 +4,7 @@ use std::process::Command;
 use regex::Regex;
 
 use crate::issues::commands::{
-    CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueTarget,
+    CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueTarget, LabelExistsOptions,
     NonComplianceReasonOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
     RequiredFieldsValidationMode, UpdateOptions,
 };
@@ -229,6 +229,24 @@ pub(crate) fn run_fetch_non_compliance_reason(opts: FetchNonComplianceReasonOpti
             1
         }
     }
+}
+
+pub(crate) fn run_label_exists(opts: LabelExistsOptions) -> i32 {
+    let labels = gh_output(
+        &[
+            "label", "list", "-R", &opts.repo, "--limit", "1000", "--json", "name", "--jq",
+            ".[].name",
+        ],
+        true,
+    )
+    .unwrap_or_default();
+    let exists = labels.lines().any(|name| name.trim() == opts.label);
+    if exists {
+        println!("true");
+    } else {
+        println!("false");
+    }
+    0
 }
 
 fn execute_command(mut command: Command) -> i32 {

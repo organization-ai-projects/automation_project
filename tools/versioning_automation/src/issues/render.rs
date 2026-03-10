@@ -40,4 +40,5 @@ pub(crate) fn print_usage() {
     );
     println!("  va issue non-compliance-reason [--title ...] [--body ...] [--labels-raw ...]");
     println!("  va issue fetch-non-compliance-reason --issue <number> [--repo owner/name]");
+    println!("  va issue label-exists --repo owner/name --label <name>");
 }

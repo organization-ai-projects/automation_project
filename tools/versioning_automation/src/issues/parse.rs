@@ -1,8 +1,8 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
     CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueAction, IssueTarget,
-    NonComplianceReasonOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
-    RequiredFieldsValidationMode, UpdateOptions,
+    LabelExistsOptions, NonComplianceReasonOptions, ReadOptions, ReevaluateOptions,
+    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, UpdateOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -27,8 +27,29 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "fetch-non-compliance-reason" => {
             parse_fetch_non_compliance_reason(&args[1..]).map(IssueAction::FetchNonComplianceReason)
         }
+        "label-exists" => parse_label_exists(&args[1..]).map(IssueAction::LabelExists),
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
     }
+}
+
+fn parse_label_exists(args: &[String]) -> Result<LabelExistsOptions, String> {
+    let mut repo = String::new();
+    let mut label = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--repo" => repo = take_value("--repo", args, &mut i)?,
+            "--label" => label = take_value("--label", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for label-exists: {unknown}")),
+        }
+    }
+
+    if repo.trim().is_empty() || label.trim().is_empty() {
+        return Err("label-exists requires: --repo and --label".to_string());
+    }
+
+    Ok(LabelExistsOptions { repo, label })
 }
 
 fn parse_required_fields_validate(

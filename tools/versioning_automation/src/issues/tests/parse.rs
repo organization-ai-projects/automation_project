@@ -35,3 +35,23 @@ fn parse_fetch_non_compliance_requires_issue_number() {
     let code = issues::run(&args);
     assert_eq!(code, 2);
 }
+
+#[test]
+fn parse_label_exists_requires_repo_and_label() {
+    let args = vec!["label-exists".to_string()];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn parse_label_exists_accepts_required_fields() {
+    let args = vec![
+        "label-exists".to_string(),
+        "--repo".to_string(),
+        "owner/repo".to_string(),
+        "--label".to_string(),
+        "bug".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 0);
+}
