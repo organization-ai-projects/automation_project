@@ -2,6 +2,7 @@ pub(crate) mod pr_action;
 pub(crate) mod pr_auto_add_closes_options;
 pub(crate) mod pr_closure_marker_options;
 pub(crate) mod pr_closure_refs_options;
+pub(crate) mod pr_directive_conflict_guard_options;
 pub(crate) mod pr_directive_conflicts_options;
 pub(crate) mod pr_directives_format;
 pub(crate) mod pr_directives_options;

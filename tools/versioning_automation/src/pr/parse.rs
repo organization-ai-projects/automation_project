@@ -7,6 +7,7 @@ use crate::pr::commands::pr_action::PrAction;
 use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
 use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
+use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
 use crate::pr::commands::pr_directives_format::PrDirectivesFormat;
 use crate::pr::commands::pr_directives_options::PrDirectivesOptions;
@@ -28,6 +29,9 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "directive-conflicts" => {
             parse_directive_conflicts(&args[1..]).map(PrAction::DirectiveConflicts)
         }
+        "directive-conflict-guard" => {
+            parse_directive_conflict_guard(&args[1..]).map(PrAction::DirectiveConflictGuard)
+        }
         "issue-decision" => parse_issue_decision(&args[1..]).map(PrAction::IssueDecision),
         "closure-marker" => parse_closure_marker(&args[1..]).map(PrAction::ClosureMarker),
         "non-closing-refs" => parse_non_closing_refs(&args[1..]).map(PrAction::NonClosingRefs),
@@ -35,6 +39,33 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_directive_conflict_guard(
+    args: &[String],
+) -> Result<PrDirectiveConflictGuardOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => {
+                return Err(format!(
+                    "Unknown option for directive-conflict-guard: {unknown}"
+                ));
+            }
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrDirectiveConflictGuardOptions { pr_number, repo })
 }
 
 fn parse_non_closing_refs(args: &[String]) -> Result<PrNonClosingRefsOptions, String> {

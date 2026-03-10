@@ -4,6 +4,7 @@ mod closure_refs;
 mod commands;
 mod conflicts;
 mod contracts;
+mod directive_conflict_guard;
 mod domain;
 mod issue_decision;
 mod non_closing_refs;
@@ -22,6 +23,7 @@ use closure_refs::run_closure_refs;
 use commands::pr_action::PrAction;
 use commands::pr_directives_format::PrDirectivesFormat;
 use conflicts::run_directive_conflicts;
+use directive_conflict_guard::run_directive_conflict_guard;
 use issue_decision::run_issue_decision;
 use non_closing_refs::run_non_closing_refs;
 use parse::parse;
@@ -49,6 +51,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::ClosureRefs(opts)) => run_closure_refs(opts),
         Ok(PrAction::DirectivesState(opts)) => run_directives_state(opts),
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),
+        Ok(PrAction::DirectiveConflictGuard(opts)) => run_directive_conflict_guard(opts),
         Ok(PrAction::IssueDecision(opts)) => run_issue_decision(opts),
         Ok(PrAction::ClosureMarker(opts)) => run_closure_marker(opts),
         Ok(PrAction::NonClosingRefs(opts)) => run_non_closing_refs(opts),

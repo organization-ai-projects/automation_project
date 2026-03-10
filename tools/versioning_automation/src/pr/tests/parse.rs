@@ -76,6 +76,13 @@ fn pr_directive_conflicts_with_text_returns_zero() {
 }
 
 #[test]
+fn pr_directive_conflict_guard_requires_pr_flag() {
+    let args = vec!["directive-conflict-guard".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
 fn pr_directives_state_requires_input() {
     let args = vec!["directives-state".to_string()];
     let code = run(&args);
