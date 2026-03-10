@@ -33,24 +33,7 @@ issue_fetch_non_compliance_reason() {
     fi
   fi
 
-  if declare -F issue_gh_issue_json >/dev/null 2>&1; then
-    issue_json="$(issue_gh_issue_json "$repo_name" "$issue_number" "labels,title,body")"
-  else
-    if command -v va_exec >/dev/null 2>&1; then
-      if [[ -n "$repo_name" ]]; then
-        issue_json="$(va_exec issue read --issue "$issue_number" --repo "$repo_name" --json labels,title,body 2>/dev/null || true)"
-      else
-        issue_json="$(va_exec issue read --issue "$issue_number" --json labels,title,body 2>/dev/null || true)"
-      fi
-    fi
-    if [[ -z "$issue_json" ]]; then
-      if [[ -n "$repo_name" ]]; then
-        issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json labels,title,body 2>/dev/null || true)"
-      else
-        issue_json="$(gh issue view "$issue_number" --json labels,title,body 2>/dev/null || true)"
-      fi
-    fi
-  fi
+  issue_json="$(issue_gh_issue_json "$repo_name" "$issue_number" "labels,title,body")"
   if [[ -z "$issue_json" ]]; then
     echo ""
     return

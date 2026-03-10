@@ -3,6 +3,12 @@
 
 pr_directive_conflict_guard_resolve_repo_name() {
   local repo_name="${1:-}"
+  if [[ -z "$repo_name" && -n "${GH_REPO:-}" ]]; then
+    repo_name="$GH_REPO"
+  fi
+  if [[ -z "$repo_name" ]] && command -v va_exec >/dev/null 2>&1; then
+    repo_name="$(va_exec issue repo-name 2>/dev/null || true)"
+  fi
   if [[ -z "$repo_name" ]]; then
     repo_name="$(gh_cli_resolve_repo_name)"
   fi
