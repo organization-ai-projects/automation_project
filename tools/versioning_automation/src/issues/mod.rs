@@ -7,7 +7,9 @@ mod render;
 #[cfg(test)]
 mod tests;
 
-use execute::{run_close, run_create, run_delete, run_read, run_reopen, run_update};
+use execute::{
+    run_close, run_create, run_delete, run_read, run_reevaluate, run_reopen, run_update,
+};
 use model::IssueAction;
 use parse::parse;
 use render::print_usage;
@@ -24,6 +26,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(IssueAction::Close(opts)) => run_close(opts),
         Ok(IssueAction::Reopen(opts)) => run_reopen(opts),
         Ok(IssueAction::Delete(opts)) => run_delete(opts),
+        Ok(IssueAction::Reevaluate(opts)) => run_reevaluate(opts),
         Err(message) => {
             eprintln!("{message}");
             2

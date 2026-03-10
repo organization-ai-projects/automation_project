@@ -1,5 +1,7 @@
 //! tools/versioning_automation/src/issues/model/issue_action.rs
-use crate::issues::model::{CloseOptions, CreateOptions, IssueTarget, ReadOptions, UpdateOptions};
+use crate::issues::model::{
+    CloseOptions, CreateOptions, IssueTarget, ReadOptions, ReevaluateOptions, UpdateOptions,
+};
 
 #[derive(Debug, Clone)]
 pub(crate) enum IssueAction {
@@ -10,4 +12,5 @@ pub(crate) enum IssueAction {
     Close(CloseOptions),
     Reopen(IssueTarget),
     Delete(IssueTarget),
+    Reevaluate(ReevaluateOptions),
 }

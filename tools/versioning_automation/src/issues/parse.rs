@@ -1,6 +1,7 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::model::{
-    CloseOptions, CreateOptions, IssueAction, IssueTarget, ReadOptions, UpdateOptions,
+    CloseOptions, CreateOptions, IssueAction, IssueTarget, ReadOptions, ReevaluateOptions,
+    UpdateOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -15,8 +16,26 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "close" => parse_close(&args[1..]).map(IssueAction::Close),
         "reopen" => parse_target("reopen", &args[1..]).map(IssueAction::Reopen),
         "delete" => parse_target("delete", &args[1..]).map(IssueAction::Delete),
+        "reevaluate" => parse_reevaluate(&args[1..]).map(IssueAction::Reevaluate),
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
     }
+}
+
+fn parse_reevaluate(args: &[String]) -> Result<ReevaluateOptions, String> {
+    let mut issue = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for reevaluate: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue)?;
+    Ok(ReevaluateOptions { issue, repo })
 }
 
 fn parse_create(args: &[String]) -> Result<CreateOptions, String> {

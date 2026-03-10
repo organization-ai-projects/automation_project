@@ -34,4 +34,5 @@ pub(crate) fn print_usage() {
     );
     println!("  va issue reopen --issue <number> [--repo owner/name]");
     println!("  va issue delete --issue <number> [--repo owner/name]");
+    println!("  va issue reevaluate --issue <number> [--repo owner/name]");
 }
