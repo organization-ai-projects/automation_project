@@ -10,15 +10,30 @@ struct GhPrDetailsSnapshot {
     #[serde(default)]
     url: String,
     #[serde(default)]
+    state: String,
+    #[serde(default, rename = "baseRefName")]
+    base_ref_name: String,
+    #[serde(default)]
     title: String,
     #[serde(default)]
     body: String,
+    #[serde(default)]
+    author: Option<GhPrAuthor>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GhPrAuthor {
+    #[serde(default)]
+    login: String,
 }
 
 #[derive(Debug, Serialize)]
 struct PrDetailsOutput {
     number: u64,
     url: String,
+    state: String,
+    base_ref_name: String,
+    author_login: String,
     title: String,
     body: String,
     commit_messages: String,
@@ -34,14 +49,25 @@ pub(crate) fn run_details(opts: PrDetailsOptions) -> i32 {
         fetch_pr_snapshot(&opts.pr_number, &repo_name).unwrap_or(GhPrDetailsSnapshot {
             number: 0,
             url: String::new(),
+            state: String::new(),
+            base_ref_name: String::new(),
             title: String::new(),
             body: String::new(),
+            author: None,
         });
     let commit_messages = fetch_commit_messages(&opts.pr_number, &repo_name).unwrap_or_default();
+    let author_login = pr_snapshot
+        .author
+        .as_ref()
+        .map(|author| author.login.clone())
+        .unwrap_or_default();
 
     let output = PrDetailsOutput {
         number: pr_snapshot.number,
         url: pr_snapshot.url,
+        state: pr_snapshot.state,
+        base_ref_name: pr_snapshot.base_ref_name,
+        author_login,
         title: pr_snapshot.title,
         body: pr_snapshot.body,
         commit_messages,
@@ -67,7 +93,7 @@ fn fetch_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<GhPrDetailsSnap
         .arg("-R")
         .arg(repo_name)
         .arg("--json")
-        .arg("number,url,title,body")
+        .arg("number,url,state,baseRefName,title,body,author")
         .output()
         .map_err(|err| format!("Failed to execute gh pr view: {err}"))?;
 
