@@ -68,6 +68,34 @@ issue_gh_pr_state() {
   echo "$pr_state"
 }
 
+issue_gh_pr_details_json() {
+  local repo="$1"
+  local pr_number="$2"
+  local pr_json=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    pr_json="$(
+      va_exec pr details \
+        --pr "$pr_number" \
+        --repo "$repo" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ -z "$pr_json" ]]; then
+    pr_json="$(gh pr view "$pr_number" -R "$repo" --json number,url,title,body 2>/dev/null || true)"
+    if [[ -n "$pr_json" ]]; then
+      local commit_messages
+      commit_messages="$(gh api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
+      pr_json="$(
+        jq -c --arg commit_messages "$commit_messages" \
+          '. + { commit_messages: $commit_messages }' <<<"$pr_json" 2>/dev/null || true
+      )"
+    fi
+  fi
+
+  echo "$pr_json"
+}
+
 issue_gh_issue_has_label() {
   local repo="$1"
   local issue_number="$2"

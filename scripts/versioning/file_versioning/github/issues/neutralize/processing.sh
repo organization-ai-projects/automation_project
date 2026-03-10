@@ -352,7 +352,7 @@ neutralize_run() {
   local marker="<!-- closure-neutralizer:${pr_number} -->"
 
   local pr_json
-  pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true)"
+  pr_json="$(issue_gh_pr_details_json "$repo_name" "$pr_number")"
   if [[ -z "$pr_json" ]]; then
     echo "Error: unable to read PR #${pr_number}." >&2
     exit 4

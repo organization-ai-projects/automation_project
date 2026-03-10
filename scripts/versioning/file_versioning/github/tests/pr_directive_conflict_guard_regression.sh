@@ -26,9 +26,9 @@ if [[ "$args" == repo\ view* ]]; then
   exit 0
 fi
 
-if [[ "$args" == pr\ view* && "$args" == *"--json body,url,number"* ]]; then
+if [[ "$args" == pr\ view* && ( "$args" == *"--json body,url,number"* || "$args" == *"--json body,url,number,title"* ) ]]; then
   body="${MOCK_PR_BODY:-Closes #42}"
-  printf '{"body":%s,"url":"https://github.com/owner/repo/pull/1","number":1}\n' \
+  printf '{"body":%s,"url":"https://github.com/owner/repo/pull/1","number":1,"title":"PR title"}\n' \
     "$(printf '%s' "$body" | jq -Rs '.')"
   exit 0
 fi

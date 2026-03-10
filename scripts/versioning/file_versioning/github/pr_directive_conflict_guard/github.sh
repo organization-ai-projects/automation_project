@@ -13,16 +13,32 @@ pr_directive_conflict_guard_resolve_repo_name() {
   printf '%s' "$repo_name"
 }
 
-pr_directive_conflict_guard_fetch_pr_json() {
+pr_directive_conflict_guard_fetch_pr_details_json() {
   local repo_name="$1"
   local pr_number="$2"
-  gh pr view "$pr_number" -R "$repo_name" --json body,url,number 2>/dev/null || true
-}
+  local pr_details_json=""
 
-pr_directive_conflict_guard_fetch_commit_messages() {
-  local repo_name="$1"
-  local pr_number="$2"
-  gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true
+  if command -v va_exec >/dev/null 2>&1; then
+    pr_details_json="$(
+      va_exec pr details \
+        --pr "$pr_number" \
+        --repo "$repo_name" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ -z "$pr_details_json" ]]; then
+    local pr_json commit_messages
+    pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number,title 2>/dev/null || true)"
+    if [[ -n "$pr_json" ]]; then
+      commit_messages="$(gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
+      pr_details_json="$(
+        jq -c --arg commit_messages "$commit_messages" \
+          '. + { commit_messages: $commit_messages }' <<<"$pr_json" 2>/dev/null || true
+      )"
+    fi
+  fi
+
+  printf '%s' "$pr_details_json"
 }
 
 pr_directive_conflict_guard_upsert_pr_comment() {

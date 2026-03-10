@@ -84,7 +84,7 @@ pr_directive_conflict_guard_collect_conflicts_via_va() {
 pr_directive_conflict_guard_run() {
   local pr_number=""
   local repo_name="${GH_REPO:-}"
-  local pr_json original_body updated_body commit_messages directive_payload
+  local pr_details_json original_body updated_body commit_messages directive_payload
   local source_branch_count allow_inferred_resolution
   local marker block_start block_end
   local issue_key action decision comment_body conflict_block
@@ -104,16 +104,16 @@ pr_directive_conflict_guard_run() {
   block_start="<!-- directive-conflicts:start -->"
   block_end="<!-- directive-conflicts:end -->"
 
-  pr_json="$(pr_directive_conflict_guard_fetch_pr_json "$repo_name" "$pr_number")"
-  if [[ -z "$pr_json" ]]; then
+  pr_details_json="$(pr_directive_conflict_guard_fetch_pr_details_json "$repo_name" "$pr_number")"
+  if [[ -z "$pr_details_json" ]]; then
     echo "Error: unable to read PR #${pr_number}." >&2
     exit 4
   fi
 
-  original_body="$(echo "$pr_json" | jq -r '.body // ""')"
+  original_body="$(echo "$pr_details_json" | jq -r '.body // ""')"
   updated_body="$original_body"
 
-  commit_messages="$(pr_directive_conflict_guard_fetch_commit_messages "$repo_name" "$pr_number")"
+  commit_messages="$(echo "$pr_details_json" | jq -r '.commit_messages // ""')"
   source_branch_count="$(
     printf '%s\n' "$commit_messages" |
       sed -nE 's@.*Merge pull request #[0-9]+ from [^/]+/(.+)@\1@p' |
