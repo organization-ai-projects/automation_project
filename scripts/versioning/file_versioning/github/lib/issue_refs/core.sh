@@ -94,8 +94,9 @@ _parse_issue_directive_records_by_type() {
 
 parse_closing_issue_refs_from_text() {
   local text="$1"
-  if _parse_closure_refs_via_va "$text" "close" >/dev/null 2>&1; then
-    _parse_closure_refs_via_va "$text" "close" | sort -u
+  local parsed
+  if parsed="$(_parse_closure_refs_via_va "$text" "close" 2>/dev/null)"; then
+    printf '%s\n' "$parsed" | sed '/^$/d' | sort -u
     return 0
   fi
   _parse_issue_directive_event_refs "$text" "Closes" | sort -u
@@ -109,8 +110,9 @@ parse_pr_body_closing_issue_refs_from_text() {
 
 parse_non_closing_issue_refs_from_text() {
   local text="$1"
-  if _parse_non_closing_refs_via_va "$text" >/dev/null 2>&1; then
-    _parse_non_closing_refs_via_va "$text" | sort -u
+  local parsed
+  if parsed="$(_parse_non_closing_refs_via_va "$text" 2>/dev/null)"; then
+    printf '%s\n' "$parsed" | sed '/^$/d' | sort -u
     return 0
   fi
   _parse_issue_directive_event_refs "$text" "Part of" | sort -u
@@ -118,8 +120,9 @@ parse_non_closing_issue_refs_from_text() {
 
 parse_neutralized_closing_issue_refs_from_text() {
   local text="$1"
-  if _parse_closure_refs_via_va "$text" "pre" >/dev/null 2>&1; then
-    _parse_closure_refs_via_va "$text" "pre" | sort -u
+  local parsed
+  if parsed="$(_parse_closure_refs_via_va "$text" "pre" 2>/dev/null)"; then
+    printf '%s\n' "$parsed" | sed '/^$/d' | sort -u
     return 0
   fi
   _parse_issue_directive_event_refs "$text" "Closes rejected" "Closes" | sort -u
@@ -127,8 +130,9 @@ parse_neutralized_closing_issue_refs_from_text() {
 
 parse_all_closing_issue_refs_from_text() {
   local text="$1"
-  if _parse_closure_refs_via_va "$text" "all" >/dev/null 2>&1; then
-    _parse_closure_refs_via_va "$text" "all" | sort -u
+  local parsed
+  if parsed="$(_parse_closure_refs_via_va "$text" "all" 2>/dev/null)"; then
+    printf '%s\n' "$parsed" | sed '/^$/d' | sort -u
     return 0
   fi
   parse_issue_directive_records_from_text "$text" | awk -F'|' '
@@ -258,8 +262,9 @@ parse_directive_events_from_text() {
 
 parse_reopen_issue_refs_from_text() {
   local text="$1"
-  if _parse_directives_state_via_va "$text" "reopen" >/dev/null 2>&1; then
-    _parse_directives_state_via_va "$text" "reopen" | sort -u
+  local parsed
+  if parsed="$(_parse_directives_state_via_va "$text" "reopen" 2>/dev/null)"; then
+    printf '%s\n' "$parsed" | sed '/^$/d' | sort -u
     return 0
   fi
   _parse_issue_directive_event_refs "$text" "Reopen" | sort -u
@@ -267,8 +272,9 @@ parse_reopen_issue_refs_from_text() {
 
 parse_duplicate_refs_from_text() {
   local text="$1"
-  if _parse_directives_state_via_va "$text" "duplicate" >/dev/null 2>&1; then
-    _parse_directives_state_via_va "$text" "duplicate" | sort -u
+  local parsed
+  if parsed="$(_parse_directives_state_via_va "$text" "duplicate" 2>/dev/null)"; then
+    printf '%s\n' "$parsed" | sed '/^$/d' | sort -u
     return 0
   fi
   _parse_issue_directive_records_by_type "$text" "DUP" | sort -u
