@@ -2,6 +2,7 @@ use std::process::Command;
 
 use crate::pr::commands::pr_body_context_options::PrBodyContextOptions;
 use crate::pr::contracts::github::issue_label::IssueLabel;
+use crate::repo_name::resolve_repo_name;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -52,35 +53,4 @@ fn fetch_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<PrBodyContextSn
 
     let json = String::from_utf8_lossy(&output.stdout).to_string();
     common_json::from_json_str::<PrBodyContextSnapshot>(&json).map_err(|err| err.to_string())
-}
-
-fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
-    if let Some(repo) = explicit_repo.filter(|value| !value.trim().is_empty()) {
-        return Ok(repo);
-    }
-    if let Ok(env_repo) = std::env::var("GH_REPO")
-        && !env_repo.trim().is_empty()
-    {
-        return Ok(env_repo);
-    }
-    let output = Command::new("gh")
-        .arg("repo")
-        .arg("view")
-        .arg("--json")
-        .arg("nameWithOwner")
-        .arg("-q")
-        .arg(".nameWithOwner")
-        .output()
-        .map_err(|err| format!("Failed to execute gh repo view: {err}"))?;
-
-    if !output.status.success() {
-        return Err("Error: unable to determine repository.".to_string());
-    }
-
-    let repo = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if repo.is_empty() {
-        Err("Error: unable to determine repository.".to_string())
-    } else {
-        Ok(repo)
-    }
 }

@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use std::process::Command;
 
 use crate::pr::commands::pr_child_pr_refs_options::PrChildPrRefsOptions;
+use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_child_pr_refs(opts: PrChildPrRefsOptions) -> i32 {
     let Ok(repo_name) = resolve_repo_name(opts.repo) else {
@@ -136,27 +137,6 @@ fn fetch_timeline_refs(pr_number: &str, repo_name: &str) -> Result<String, Strin
             ".[] | select(.event==\"cross-referenced\") | select(.source.issue.pull_request.url != null) | .source.issue.number",
         ],
     )
-}
-
-fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
-    if let Some(repo) = explicit_repo.filter(|value| !value.trim().is_empty()) {
-        return Ok(repo);
-    }
-    if let Ok(env_repo) = std::env::var("GH_REPO")
-        && !env_repo.trim().is_empty()
-    {
-        return Ok(env_repo);
-    }
-    let resolved = gh_output(
-        "repo",
-        &["view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
-    )
-    .unwrap_or_default();
-    if resolved.trim().is_empty() {
-        Err("Error: unable to determine repository.".to_string())
-    } else {
-        Ok(resolved)
-    }
 }
 
 fn gh_output(cmd: &str, args: &[&str]) -> Result<String, String> {

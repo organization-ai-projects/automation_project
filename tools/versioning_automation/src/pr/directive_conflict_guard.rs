@@ -6,6 +6,7 @@ use regex::Regex;
 use crate::pr::closure_marker::apply_marker;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::conflicts::build_conflict_report;
+use crate::repo_name::resolve_repo_name;
 
 const BLOCK_START: &str = "<!-- directive-conflicts:start -->";
 const BLOCK_END: &str = "<!-- directive-conflicts:end -->";
@@ -121,27 +122,6 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
         opts.pr_number
     );
     0
-}
-
-fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
-    if let Some(repo) = explicit_repo.filter(|value| !value.trim().is_empty()) {
-        return Ok(repo);
-    }
-    if let Ok(env_repo) = std::env::var("GH_REPO")
-        && !env_repo.trim().is_empty()
-    {
-        return Ok(env_repo);
-    }
-    let resolved = gh_output(
-        "repo",
-        &["view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
-    )
-    .unwrap_or_default();
-    if resolved.trim().is_empty() {
-        Err("Error: unable to determine repository.".to_string())
-    } else {
-        Ok(resolved)
-    }
 }
 
 fn detect_source_branch_count(commit_messages: &str) -> u32 {

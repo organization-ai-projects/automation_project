@@ -3,6 +3,7 @@ use std::process::Command;
 use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::contracts::github::issue_snapshot::IssueSnapshot;
 use crate::pr::resolve_category::issue_category_from_title;
+use crate::repo_name::resolve_repo_name_optional;
 
 pub(crate) fn run_issue_context(opts: PrIssueContextOptions) -> i32 {
     let payload = load_issue_context_payload(&opts);
@@ -70,15 +71,7 @@ fn fetch_issue_json(issue_number: &str, repo: Option<&str>) -> Option<String> {
         .arg("--json")
         .arg("title,body,labels");
 
-    let resolved_repo = repo
-        .and_then(non_empty)
-        .map(str::to_string)
-        .or_else(|| {
-            std::env::var("GH_REPO")
-                .ok()
-                .filter(|value| non_empty(value).is_some())
-        })
-        .or_else(resolve_repo_name_with_owner);
+    let resolved_repo = resolve_repo_name_optional(repo);
 
     if let Some(repo_name_with_owner) = resolved_repo {
         cmd.arg("-R").arg(repo_name_with_owner);
@@ -90,31 +83,4 @@ fn fetch_issue_json(issue_number: &str, repo: Option<&str>) -> Option<String> {
     }
 
     Some(String::from_utf8_lossy(&output.stdout).to_string())
-}
-
-fn resolve_repo_name_with_owner() -> Option<String> {
-    let output = Command::new("gh")
-        .arg("repo")
-        .arg("view")
-        .arg("--json")
-        .arg("nameWithOwner")
-        .arg("-q")
-        .arg(".nameWithOwner")
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let repo = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    non_empty(&repo).map(str::to_string)
-}
-
-fn non_empty(value: &str) -> Option<&str> {
-    if value.trim().is_empty() {
-        None
-    } else {
-        Some(value)
-    }
 }

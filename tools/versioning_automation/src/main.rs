@@ -3,6 +3,7 @@ mod app;
 mod cli_action;
 mod issues;
 mod pr;
+mod repo_name;
 
 #[cfg(test)]
 mod tests;

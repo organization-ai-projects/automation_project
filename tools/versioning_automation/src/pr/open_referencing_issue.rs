@@ -4,6 +4,7 @@ use std::process::Command;
 use crate::pr::commands::pr_open_referencing_issue_options::PrOpenReferencingIssueOptions;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
+use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_open_referencing_issue(opts: PrOpenReferencingIssueOptions) -> i32 {
     let Ok(repo_name) = resolve_repo_name(opts.repo) else {
@@ -50,27 +51,6 @@ fn pr_body_references_issue(body: &str, issue_key: &str) -> bool {
         }
     }
     false
-}
-
-fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
-    if let Some(repo) = explicit_repo.filter(|value| !value.trim().is_empty()) {
-        return Ok(repo);
-    }
-    if let Ok(env_repo) = std::env::var("GH_REPO")
-        && !env_repo.trim().is_empty()
-    {
-        return Ok(env_repo);
-    }
-    let resolved = gh_output(
-        "repo",
-        &["view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
-    )
-    .unwrap_or_default();
-    if resolved.trim().is_empty() {
-        Err("Error: unable to determine repository.".to_string())
-    } else {
-        Ok(resolved)
-    }
 }
 
 fn gh_output(cmd: &str, args: &[&str]) -> Result<String, String> {

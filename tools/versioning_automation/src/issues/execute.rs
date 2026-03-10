@@ -13,6 +13,7 @@ use crate::issues::required_fields::{
     fetch_non_compliance_reason, non_compliance_reason_from_content, validate_body,
     validate_content, validate_title,
 };
+use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
     let body = render_direct_issue_body(&opts);
@@ -269,34 +270,6 @@ fn execute_command(mut command: Command) -> i32 {
             eprintln!("Failed to execute command: {err}");
             1
         }
-    }
-}
-
-fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
-    if let Some(repo) = explicit_repo.filter(|value| !value.trim().is_empty()) {
-        return Ok(repo);
-    }
-    if let Ok(env_repo) = std::env::var("GH_REPO")
-        && !env_repo.trim().is_empty()
-    {
-        return Ok(env_repo);
-    }
-    let resolved = gh_output(
-        &[
-            "repo",
-            "view",
-            "--json",
-            "nameWithOwner",
-            "--jq",
-            ".nameWithOwner",
-        ],
-        true,
-    )
-    .unwrap_or_default();
-    if resolved.trim().is_empty() {
-        Err("Error: unable to determine repository.".to_string())
-    } else {
-        Ok(resolved)
     }
 }
 

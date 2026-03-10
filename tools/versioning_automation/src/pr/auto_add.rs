@@ -5,6 +5,7 @@ use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::contracts::github::pr_snapshot::PrSnapshot;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
+use crate::repo_name::resolve_repo_name;
 
 const AUTO_BLOCK_START: &str = "<!-- auto-closes:start -->";
 const AUTO_BLOCK_END: &str = "<!-- auto-closes:end -->";
@@ -128,27 +129,6 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
             eprintln!("Failed to execute gh pr edit: {err}");
             1
         }
-    }
-}
-
-fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
-    if let Some(repo) = explicit_repo.filter(|value| !value.trim().is_empty()) {
-        return Ok(repo);
-    }
-    if let Ok(env_repo) = std::env::var("GH_REPO")
-        && !env_repo.trim().is_empty()
-    {
-        return Ok(env_repo);
-    }
-    let resolved = gh_output(
-        "repo",
-        &["view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
-    )
-    .unwrap_or_default();
-    if resolved.trim().is_empty() {
-        Err("Error: unable to determine repository.".to_string())
-    } else {
-        Ok(resolved)
     }
 }
 
