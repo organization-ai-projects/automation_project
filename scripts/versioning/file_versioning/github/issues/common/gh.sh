@@ -269,12 +269,23 @@ issue_gh_issue_update() {
   shift 2
 
   if command -v va_exec >/dev/null 2>&1; then
-    if va_exec issue update --issue "$issue_number" --repo "$repo" "$@" >/dev/null; then
-      return 0
+    if [[ -n "$repo" ]]; then
+      if va_exec issue update --issue "$issue_number" --repo "$repo" "$@" >/dev/null; then
+        return 0
+      fi
+    else
+      if va_exec issue update --issue "$issue_number" "$@" >/dev/null; then
+        return 0
+      fi
     fi
   fi
 
-  gh issue edit "$issue_number" -R "$repo" "$@" >/dev/null
+  local -a cmd=(gh issue edit "$issue_number")
+  if [[ -n "$repo" ]]; then
+    cmd+=(-R "$repo")
+  fi
+  cmd+=("$@")
+  "${cmd[@]}" >/dev/null
 }
 
 issue_gh_issue_reopen() {
@@ -282,12 +293,22 @@ issue_gh_issue_reopen() {
   local issue_number="$2"
 
   if command -v va_exec >/dev/null 2>&1; then
-    if va_exec issue reopen --issue "$issue_number" --repo "$repo" >/dev/null; then
-      return 0
+    if [[ -n "$repo" ]]; then
+      if va_exec issue reopen --issue "$issue_number" --repo "$repo" >/dev/null; then
+        return 0
+      fi
+    else
+      if va_exec issue reopen --issue "$issue_number" >/dev/null; then
+        return 0
+      fi
     fi
   fi
 
-  gh issue reopen "$issue_number" -R "$repo" >/dev/null
+  local -a cmd=(gh issue reopen "$issue_number")
+  if [[ -n "$repo" ]]; then
+    cmd+=(-R "$repo")
+  fi
+  "${cmd[@]}" >/dev/null
 }
 
 issue_gh_issue_close() {
@@ -296,10 +317,20 @@ issue_gh_issue_close() {
   local reason="$3"
 
   if command -v va_exec >/dev/null 2>&1; then
-    if va_exec issue close --issue "$issue_number" --repo "$repo" --reason "$reason" >/dev/null; then
-      return 0
+    if [[ -n "$repo" ]]; then
+      if va_exec issue close --issue "$issue_number" --repo "$repo" --reason "$reason" >/dev/null; then
+        return 0
+      fi
+    else
+      if va_exec issue close --issue "$issue_number" --reason "$reason" >/dev/null; then
+        return 0
+      fi
     fi
   fi
 
-  gh issue close "$issue_number" -R "$repo" --reason "$reason" >/dev/null
+  local -a cmd=(gh issue close "$issue_number" --reason "$reason")
+  if [[ -n "$repo" ]]; then
+    cmd+=(-R "$repo")
+  fi
+  "${cmd[@]}" >/dev/null
 }
