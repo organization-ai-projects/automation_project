@@ -208,7 +208,7 @@ pr_directive_conflict_guard_run() {
   fi
 
   if [[ "$updated_body" != "$original_body" ]]; then
-    gh pr edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
+    pr_directive_conflict_guard_update_pr_body "$repo_name" "$pr_number" "$updated_body"
   fi
 
   if [[ "$unresolved_count" -gt 0 ]]; then
