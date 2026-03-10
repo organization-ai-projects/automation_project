@@ -30,11 +30,24 @@ pr_directive_conflict_guard_upsert_conflict_block_in_body() {
 pr_directive_conflict_guard_apply_reopen_rejected_marker() {
   local body="$1"
   local issue_key="$2"
+  local updated
 
-  DIRECTIVE_CONFLICT_ISSUE_KEY="$issue_key" \
-    perl -0777 -pe '
-      my $ik = $ENV{DIRECTIVE_CONFLICT_ISSUE_KEY} // q{};
-      my $ikq = quotemeta($ik);
-      s/\b((?:reopen|reopens))\b(\s+)(?!rejected\b)([^\s]*$ikq)\b/$1$2rejected $3/ig;
-    ' <<<"$body"
+  if command -v va_exec >/dev/null 2>&1; then
+    updated="$(
+      printf '%s' "$body" | va_exec pr closure-marker --stdin \
+        --keyword-pattern 'reopen|reopens' \
+        --issue "$issue_key" \
+        --mode apply 2>/dev/null
+    )"
+    if [[ $? -eq 0 ]]; then
+      printf '%s' "$updated"
+      return
+    fi
+  fi
+
+  DIRECTIVE_CONFLICT_ISSUE_KEY="$issue_key" perl -0777 -pe '
+    my $ik = $ENV{DIRECTIVE_CONFLICT_ISSUE_KEY} // q{};
+    my $ikq = quotemeta($ik);
+    s/\b((?:reopen|reopens))\b(\s+)(?!rejected\b)([^\s]*$ikq)\b/$1$2rejected $3/ig;
+  ' <<<"$body"
 }
