@@ -22,8 +22,21 @@ pr_pipeline_resolve_refs_and_modes() {
       exit "$E_GIT"
     fi
   else
-    base_ref="$(pr_gh_optional "read base branch for PR #${main_pr_number}" pr view "$main_pr_number" --json baseRefName -q '.baseRefName')"
-    head_ref="$(pr_gh_optional "read head branch for PR #${main_pr_number}" pr view "$main_pr_number" --json headRefName -q '.headRefName')"
+    local pr_details_json
+    pr_details_json=""
+    if command -v va_exec >/dev/null 2>&1; then
+      pr_details_json="$(va_exec pr details --pr "$main_pr_number" 2>/dev/null || true)"
+    fi
+    if [[ -n "$pr_details_json" ]]; then
+      base_ref="$(echo "$pr_details_json" | jq -r '.base_ref_name // ""')"
+      head_ref="$(echo "$pr_details_json" | jq -r '.head_ref_name // ""')"
+    fi
+    if [[ -z "$base_ref" ]]; then
+      base_ref="$(pr_gh_optional "read base branch for PR #${main_pr_number}" pr view "$main_pr_number" --json baseRefName -q '.baseRefName')"
+    fi
+    if [[ -z "$head_ref" ]]; then
+      head_ref="$(pr_gh_optional "read head branch for PR #${main_pr_number}" pr view "$main_pr_number" --json headRefName -q '.headRefName')"
+    fi
     if [[ -z "$base_ref" ]]; then
       pr_warn_optional "PR #${main_pr_number} base branch unavailable; defaulting to dev (expected dev base)."
       base_ref="dev"

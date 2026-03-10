@@ -313,7 +313,18 @@ pr_pipeline_collect_issues_from_commits_and_main_pr() {
   fi
 
   if [[ "$dry_run" == "false" ]]; then
-    main_pr_body="$(pr_gh_optional "read PR #${main_pr_number} body" pr view "$main_pr_number" --json body -q '.body')"
+    local main_pr_body_payload
+    main_pr_body_payload=""
+    if command -v va_exec >/dev/null 2>&1; then
+      main_pr_body_payload="$(va_exec pr body-context --pr "$main_pr_number" 2>/dev/null || true)"
+    fi
+    if [[ "$main_pr_body_payload" == *$'\x1f'* ]]; then
+      local _main_tail
+      _main_tail="${main_pr_body_payload#*$'\x1f'}"
+      main_pr_body="${_main_tail%%$'\x1f'*}"
+    else
+      main_pr_body="$(pr_gh_optional "read PR #${main_pr_number} body" pr view "$main_pr_number" --json body -q '.body')"
+    fi
     if [[ -n "$main_pr_body" ]]; then
       pr_pipeline_mark_breaking_from_text "$main_pr_body"
       pr_pipeline_apply_issue_directives_from_text \
