@@ -74,3 +74,21 @@ fn pr_directive_conflicts_with_text_returns_zero() {
     let code = run(&args);
     assert_eq!(code, 0);
 }
+
+#[test]
+fn pr_directives_state_requires_input() {
+    let args = vec!["directives-state".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_directives_state_with_text_returns_zero() {
+    let args = vec![
+        "directives-state".to_string(),
+        "--text".to_string(),
+        "Closes #1".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}

@@ -4,6 +4,7 @@ mod model;
 mod parse;
 mod render;
 mod scan;
+mod state;
 
 #[cfg(test)]
 mod tests;
@@ -15,6 +16,7 @@ use model::pr_directives_format::PrDirectivesFormat;
 use parse::parse;
 use render::{emit_json, emit_plain, print_usage};
 use scan::scan_directives;
+use state::run_directives_state;
 
 pub fn run(args: &[String]) -> i32 {
     match parse(args) {
@@ -32,6 +34,7 @@ pub fn run(args: &[String]) -> i32 {
                 PrDirectivesFormat::Json => emit_json(&records),
             }
         }
+        Ok(PrAction::DirectivesState(opts)) => run_directives_state(opts),
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),
         Ok(PrAction::AutoAddCloses(opts)) => run_auto_add_closes(opts),
         Err(message) => {

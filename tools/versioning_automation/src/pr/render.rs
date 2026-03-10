@@ -6,6 +6,7 @@ pub(crate) fn print_usage() {
     println!("Usage:");
     println!("  va pr directives --text \"...\" [--format plain|json] [--unique]");
     println!("  va pr directives --stdin [--format plain|json] [--unique]");
+    println!("  va pr directives-state (--text \"...\" | --stdin)");
     println!("  va pr directive-conflicts (--text \"...\" | --stdin) [--source-branch-count <n>]");
     println!("  va pr auto-add-closes --pr <number> [--repo owner/name]");
 }
