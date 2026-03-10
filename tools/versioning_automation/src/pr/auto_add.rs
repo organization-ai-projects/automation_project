@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 use std::process::Command;
 
-use crate::pr::model::directive_record_type::DirectiveRecordType;
-use crate::pr::model::pr_auto_add_closes_options::PrAutoAddClosesOptions;
+use crate::pr::contracts::cli::pr_auto_add_closes_options::PrAutoAddClosesOptions;
+use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
+use crate::pr::contracts::github::pr_snapshot::PrSnapshot;
 use crate::pr::scan::scan_directives;
-use serde::Deserialize;
 
 const AUTO_BLOCK_START: &str = "<!-- auto-closes:start -->";
 const AUTO_BLOCK_END: &str = "<!-- auto-closes:end -->";
@@ -184,26 +184,6 @@ fn gh_output(cmd: &str, args: &[&str]) -> Result<String, String> {
         }
         Err(err) => Err(err.to_string()),
     }
-}
-
-#[derive(Debug, Deserialize)]
-struct PrSnapshot {
-    #[serde(default, rename = "state")]
-    state: String,
-    #[serde(default, rename = "baseRefName")]
-    base_ref_name: String,
-    #[serde(default)]
-    title: String,
-    #[serde(default)]
-    body: String,
-    #[serde(default)]
-    author: Option<PrAuthor>,
-}
-
-#[derive(Debug, Deserialize)]
-struct PrAuthor {
-    #[serde(default)]
-    login: Option<String>,
 }
 
 fn collect_refs_from_payload(payload: &str) -> (Vec<String>, Vec<String>) {

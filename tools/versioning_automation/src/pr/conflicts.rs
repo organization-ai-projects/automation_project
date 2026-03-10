@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::pr::model::directive_record_type::DirectiveRecordType;
-use crate::pr::model::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
+use crate::pr::contracts::cli::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
+use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
 
 pub(crate) fn run_directive_conflicts(opts: PrDirectiveConflictsOptions) -> i32 {

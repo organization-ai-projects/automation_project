@@ -1,4 +1,4 @@
-use crate::pr::model::pr_resolve_category_options::PrResolveCategoryOptions;
+use crate::pr::contracts::cli::pr_resolve_category_options::PrResolveCategoryOptions;
 
 pub(crate) fn run_resolve_category(opts: PrResolveCategoryOptions) -> i32 {
     let mut effective = opts.label_category;
@@ -20,7 +20,7 @@ pub(crate) fn run_resolve_category(opts: PrResolveCategoryOptions) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::pr::model::pr_resolve_category_options::PrResolveCategoryOptions;
+    use crate::pr::contracts::cli::pr_resolve_category_options::PrResolveCategoryOptions;
 
     use super::run_resolve_category;
 

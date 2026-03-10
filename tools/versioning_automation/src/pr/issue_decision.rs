@@ -1,4 +1,4 @@
-use crate::pr::model::pr_issue_decision_options::PrIssueDecisionOptions;
+use crate::pr::contracts::cli::pr_issue_decision_options::PrIssueDecisionOptions;
 
 pub(crate) fn run_issue_decision(opts: PrIssueDecisionOptions) -> i32 {
     let outcome = decide(opts);
@@ -92,7 +92,7 @@ fn decide(opts: PrIssueDecisionOptions) -> DecisionOutcome {
 
 #[cfg(test)]
 mod tests {
-    use crate::pr::model::pr_issue_decision_options::PrIssueDecisionOptions;
+    use crate::pr::contracts::cli::pr_issue_decision_options::PrIssueDecisionOptions;
 
     use super::decide;
 

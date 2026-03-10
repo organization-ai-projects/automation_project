@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::pr::model::directive_record::DirectiveRecord;
-use crate::pr::model::directive_record_type::DirectiveRecordType;
-use crate::pr::model::pr_directives_state_options::PrDirectivesStateOptions;
+use crate::pr::contracts::cli::pr_directives_state_options::PrDirectivesStateOptions;
+use crate::pr::contracts::directives::directive_record::DirectiveRecord;
+use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
 
 pub(crate) fn run_directives_state(opts: PrDirectivesStateOptions) -> i32 {

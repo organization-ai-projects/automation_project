@@ -1,4 +1,4 @@
-use crate::pr::model::pr_directives_format::PrDirectivesFormat;
+use crate::pr::contracts::cli::pr_directives_format::PrDirectivesFormat;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PrDirectivesOptions {

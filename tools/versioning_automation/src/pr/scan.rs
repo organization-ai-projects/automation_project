@@ -2,8 +2,8 @@ use std::collections::HashSet;
 
 use regex::Regex;
 
-use crate::pr::model::directive_record::DirectiveRecord;
-use crate::pr::model::directive_record_type::DirectiveRecordType;
+use crate::pr::contracts::directives::directive_record::DirectiveRecord;
+use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
 
 struct ScanMatch {
     start: usize,

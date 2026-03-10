@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use crate::pr::model::pr_closure_marker_options::PrClosureMarkerOptions;
+use crate::pr::contracts::cli::pr_closure_marker_options::PrClosureMarkerOptions;
 
 pub(crate) fn run_closure_marker(opts: PrClosureMarkerOptions) -> i32 {
     let result = match opts.mode.as_str() {
