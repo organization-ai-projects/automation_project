@@ -73,13 +73,18 @@ issue_gh_issue_state() {
   local issue_state=""
 
   if command -v va_exec >/dev/null 2>&1; then
-    issue_state="$(
-      va_exec issue read \
-        --issue "$issue_number" \
-        --repo "$repo" \
-        --json state \
-        --jq '.state // ""' 2>/dev/null || true
-    )"
+    if [[ -n "$repo" ]]; then
+      issue_state="$(
+        va_exec issue state \
+          --issue "$issue_number" \
+          --repo "$repo" 2>/dev/null || true
+      )"
+    else
+      issue_state="$(
+        va_exec issue state \
+          --issue "$issue_number" 2>/dev/null || true
+      )"
+    fi
   fi
 
   if [[ -z "$issue_state" ]]; then
@@ -184,24 +189,38 @@ issue_gh_issue_has_label() {
   local repo="$1"
   local issue_number="$2"
   local label="$3"
-  local label_lines=""
+  local has_label=""
 
   if command -v va_exec >/dev/null 2>&1; then
-    label_lines="$(
-      va_exec issue read \
-        --issue "$issue_number" \
-        --repo "$repo" \
-        --json labels \
-        --jq '.labels[].name' 2>/dev/null || true
-    )"
+    if [[ -n "$repo" ]]; then
+      has_label="$(
+        va_exec issue has-label \
+          --issue "$issue_number" \
+          --label "$label" \
+          --repo "$repo" 2>/dev/null || true
+      )"
+    else
+      has_label="$(
+        va_exec issue has-label \
+          --issue "$issue_number" \
+          --label "$label" 2>/dev/null || true
+      )"
+    fi
   fi
 
-  if [[ -z "$label_lines" ]]; then
-    label_lines="$(gh issue view "$issue_number" -R "$repo" --json labels --jq '.labels[].name' 2>/dev/null || true)"
+  if [[ "$has_label" == "true" ]]; then
+    return 0
+  fi
+  if [[ "$has_label" == "false" ]]; then
+    return 1
   fi
 
-  printf '%s\n' "$label_lines" |
-    grep -Fxq "$label"
+  local -a cmd=(gh issue view "$issue_number" --json labels --jq '.labels[].name')
+  if [[ -n "$repo" ]]; then
+    cmd+=(-R "$repo")
+  fi
+
+  "${cmd[@]}" 2>/dev/null | grep -Fxq "$label"
 }
 
 issue_gh_collect_pr_text_payload() {
