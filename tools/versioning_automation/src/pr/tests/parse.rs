@@ -83,6 +83,63 @@ fn pr_directive_conflict_guard_requires_pr_flag() {
 }
 
 #[test]
+fn pr_duplicate_actions_requires_input() {
+    let args = vec!["duplicate-actions".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_duplicate_actions_requires_mode_and_repo() {
+    let args = vec![
+        "duplicate-actions".to_string(),
+        "--text".to_string(),
+        "#2|#1".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_group_by_category_requires_input() {
+    let args = vec!["group-by-category".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_group_by_category_requires_mode() {
+    let args = vec![
+        "group-by-category".to_string(),
+        "--text".to_string(),
+        "1|Bug Fixes|Closes|#1".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_issue_ref_kind_requires_issue() {
+    let args = vec!["issue-ref-kind".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_issue_category_from_labels_requires_labels_raw() {
+    let args = vec!["issue-category-from-labels".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_issue_category_from_title_requires_title() {
+    let args = vec!["issue-category-from-title".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
 fn pr_directives_state_requires_input() {
     let args = vec!["directives-state".to_string()];
     let code = run(&args);

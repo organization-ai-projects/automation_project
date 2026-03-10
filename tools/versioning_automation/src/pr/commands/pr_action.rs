@@ -5,7 +5,12 @@ use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflic
 use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
 use crate::pr::commands::pr_directives_options::PrDirectivesOptions;
 use crate::pr::commands::pr_directives_state_options::PrDirectivesStateOptions;
+use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
+use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
+use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
+use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
 use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
+use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 
@@ -17,6 +22,11 @@ pub(crate) enum PrAction {
     DirectivesState(PrDirectivesStateOptions),
     DirectiveConflicts(PrDirectiveConflictsOptions),
     DirectiveConflictGuard(PrDirectiveConflictGuardOptions),
+    DuplicateActions(PrDuplicateActionsOptions),
+    GroupByCategory(PrGroupByCategoryOptions),
+    IssueCategoryFromLabels(PrIssueCategoryFromLabelsOptions),
+    IssueCategoryFromTitle(PrIssueCategoryFromTitleOptions),
+    IssueRefKind(PrIssueRefKindOptions),
     IssueDecision(PrIssueDecisionOptions),
     ClosureMarker(PrClosureMarkerOptions),
     NonClosingRefs(PrNonClosingRefsOptions),

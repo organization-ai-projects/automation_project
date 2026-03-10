@@ -15,6 +15,15 @@ pub(crate) fn print_usage() {
     println!("  va pr directive-conflicts (--text \"...\" | --stdin) [--source-branch-count <n>]");
     println!("  va pr directive-conflict-guard --pr <number> [--repo owner/name]");
     println!(
+        "  va pr duplicate-actions (--text \"...\" | --stdin) --mode <safe|auto-close> --repo owner/name [--assume-yes true|false]"
+    );
+    println!(
+        "  va pr group-by-category (--text \"...\" | --stdin) --mode <resolved|reopen|conflict|directive>"
+    );
+    println!("  va pr issue-category-from-labels --labels-raw \"label1||label2\"");
+    println!("  va pr issue-category-from-title --title \"...\"");
+    println!("  va pr issue-ref-kind --issue <number> [--repo owner/name]");
+    println!(
         "  va pr issue-decision --action <Closes|Reopen> --issue <#n> --default-category <name> [--seen-reopen true|false] [--reopen-category <name>] [--inferred-decision <close|reopen|conflict>] [--explicit-decision <close|reopen>] [--allow-inferred true|false]"
     );
     println!(

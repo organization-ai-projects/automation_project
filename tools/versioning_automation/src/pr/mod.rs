@@ -6,7 +6,10 @@ mod conflicts;
 mod contracts;
 mod directive_conflict_guard;
 mod domain;
+mod duplicate_actions;
+mod group_by_category;
 mod issue_decision;
+mod issue_ref_kind;
 mod non_closing_refs;
 mod parse;
 mod render;
@@ -24,11 +27,16 @@ use commands::pr_action::PrAction;
 use commands::pr_directives_format::PrDirectivesFormat;
 use conflicts::run_directive_conflicts;
 use directive_conflict_guard::run_directive_conflict_guard;
+use duplicate_actions::run_duplicate_actions;
+use group_by_category::run_group_by_category;
 use issue_decision::run_issue_decision;
+use issue_ref_kind::run_issue_ref_kind;
 use non_closing_refs::run_non_closing_refs;
 use parse::parse;
 use render::{emit_json, emit_plain, print_usage};
-use resolve_category::run_resolve_category;
+use resolve_category::{
+    run_issue_category_from_labels, run_issue_category_from_title, run_resolve_category,
+};
 use scan::scan_directives;
 use state::run_directives_state;
 
@@ -52,6 +60,11 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::DirectivesState(opts)) => run_directives_state(opts),
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),
         Ok(PrAction::DirectiveConflictGuard(opts)) => run_directive_conflict_guard(opts),
+        Ok(PrAction::DuplicateActions(opts)) => run_duplicate_actions(opts),
+        Ok(PrAction::GroupByCategory(opts)) => run_group_by_category(opts),
+        Ok(PrAction::IssueCategoryFromLabels(opts)) => run_issue_category_from_labels(opts),
+        Ok(PrAction::IssueCategoryFromTitle(opts)) => run_issue_category_from_title(opts),
+        Ok(PrAction::IssueRefKind(opts)) => run_issue_ref_kind(opts),
         Ok(PrAction::IssueDecision(opts)) => run_issue_decision(opts),
         Ok(PrAction::ClosureMarker(opts)) => run_closure_marker(opts),
         Ok(PrAction::NonClosingRefs(opts)) => run_non_closing_refs(opts),
