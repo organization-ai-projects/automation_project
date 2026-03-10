@@ -48,6 +48,26 @@ issue_gh_issue_state() {
   gh issue view "$issue_number" -R "$repo" --json state -q '.state // ""' 2>/dev/null || true
 }
 
+issue_gh_pr_state() {
+  local repo="$1"
+  local pr_number="$2"
+  local pr_state=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    pr_state="$(
+      va_exec pr pr-state \
+        --pr "$pr_number" \
+        --repo "$repo" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ -z "$pr_state" ]]; then
+    pr_state="$(gh pr view "$pr_number" -R "$repo" --json state -q '.state // ""' 2>/dev/null || true)"
+  fi
+
+  echo "$pr_state"
+}
+
 issue_gh_issue_has_label() {
   local repo="$1"
   local issue_number="$2"

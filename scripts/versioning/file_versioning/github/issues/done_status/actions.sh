@@ -9,7 +9,7 @@ done_status_on_dev_merge() {
   issue_cli_require_positive_number "--pr" "$pr_number"
 
   local pr_state
-  pr_state="$(gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true)"
+  pr_state="$(issue_gh_pr_state "$repo_name" "$pr_number")"
   if [[ "$pr_state" != "MERGED" ]]; then
     echo "PR #${pr_number} is not merged; nothing to do."
     return 0
