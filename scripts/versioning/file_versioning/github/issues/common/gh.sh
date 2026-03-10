@@ -83,6 +83,15 @@ issue_gh_pr_details_json() {
 
   if [[ -z "$pr_json" ]]; then
     pr_json="$(gh pr view "$pr_number" -R "$repo" --json number,url,title,body 2>/dev/null || true)"
+    if [[ -z "$pr_json" ]]; then
+      local pr_title pr_body
+      pr_title="$(gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
+      pr_body="$(gh pr view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
+      if [[ -n "$pr_title" || -n "$pr_body" ]]; then
+        pr_json="$(jq -c -n --arg title "$pr_title" --arg body "$pr_body" \
+          '{number: 0, url: "", title: $title, body: $body}' 2>/dev/null || true)"
+      fi
+    fi
     if [[ -n "$pr_json" ]]; then
       local commit_messages
       commit_messages="$(gh api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
