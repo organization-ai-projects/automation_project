@@ -77,3 +77,10 @@ fn parse_sync_project_status_accepts_required_fields() {
     let code = issues::run(&args);
     assert_eq!(code, 0);
 }
+
+#[test]
+fn parse_repo_name_rejects_unknown_options() {
+    let args = vec!["repo-name".to_string(), "--repo".to_string()];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}

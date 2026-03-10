@@ -11,6 +11,7 @@ pub(crate) enum IssueAction {
     Create(CreateOptions),
     Read(ReadOptions),
     Update(UpdateOptions),
+    RepoName,
     Close(CloseOptions),
     Reopen(IssueTarget),
     Delete(IssueTarget),

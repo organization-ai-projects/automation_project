@@ -29,6 +29,7 @@ pub(crate) fn print_usage() {
     println!(
         "  va issue update --issue <number> [--repo owner/name] [--title ...|--body ...|--add-label ...|--remove-label ...|--add-assignee ...|--remove-assignee ...]"
     );
+    println!("  va issue repo-name");
     println!(
         "  va issue close --issue <number> [--repo owner/name] [--reason completed|not_planned]"
     );

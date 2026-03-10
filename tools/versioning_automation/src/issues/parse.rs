@@ -15,6 +15,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "create" => parse_create(&args[1..]).map(IssueAction::Create),
         "read" => parse_read(&args[1..]).map(IssueAction::Read),
         "update" => parse_update(&args[1..]).map(IssueAction::Update),
+        "repo-name" => parse_repo_name(&args[1..]),
         "close" => parse_close(&args[1..]).map(IssueAction::Close),
         "reopen" => parse_target("reopen", &args[1..]).map(IssueAction::Reopen),
         "delete" => parse_target("delete", &args[1..]).map(IssueAction::Delete),
@@ -33,6 +34,14 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
             parse_sync_project_status(&args[1..]).map(IssueAction::SyncProjectStatus)
         }
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
+    }
+}
+
+fn parse_repo_name(args: &[String]) -> Result<IssueAction, String> {
+    if args.is_empty() {
+        Ok(IssueAction::RepoName)
+    } else {
+        Err("repo-name does not accept additional options".to_string())
     }
 }
 

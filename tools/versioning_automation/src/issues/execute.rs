@@ -76,6 +76,19 @@ pub(crate) fn run_update(opts: UpdateOptions) -> i32 {
     execute_command(cmd)
 }
 
+pub(crate) fn run_repo_name() -> i32 {
+    match resolve_repo_name(None) {
+        Ok(repo) => {
+            println!("{repo}");
+            0
+        }
+        Err(message) => {
+            eprintln!("{message}");
+            3
+        }
+    }
+}
+
 pub(crate) fn run_close(opts: CloseOptions) -> i32 {
     let mut cmd = Command::new("gh");
     cmd.arg("issue")
