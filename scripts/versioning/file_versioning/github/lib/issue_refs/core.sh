@@ -16,6 +16,37 @@ _parse_issue_directive_event_refs() {
   parse_issue_directive_records_from_text "$text" | awk -F'|' -v event_action="$event_action" -v emitted_action="$emitted_action" '$1 == "EV" && $2 == event_action { print emitted_action "|" $3 }'
 }
 
+_parse_closure_refs_via_va() {
+  local text="$1"
+  local mode="$2"
+  local -a cmd=()
+
+  if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
+    cmd=("${VA_PR_DIRECTIVES_BIN}" pr closure-refs)
+  elif command -v va >/dev/null 2>&1; then
+    cmd=(va pr closure-refs)
+  elif command -v versioning_automation >/dev/null 2>&1; then
+    cmd=(versioning_automation pr closure-refs)
+  else
+    return 1
+  fi
+
+  case "$mode" in
+  close)
+    printf '%s' "$text" | "${cmd[@]}" --stdin | awk -F'|' '$1 == "CLOSE" { print $2 "|" $3 }'
+    ;;
+  pre)
+    printf '%s' "$text" | "${cmd[@]}" --stdin | awk -F'|' '$1 == "PRE" { print $2 "|" $3 }'
+    ;;
+  all)
+    printf '%s' "$text" | "${cmd[@]}" --stdin | awk -F'|' '($1 == "CLOSE" || $1 == "PRE") { print $2 "|" $3 }'
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
 _parse_issue_directive_records_by_type() {
   local text="$1"
   local record_type="$2"
@@ -24,6 +55,10 @@ _parse_issue_directive_records_by_type() {
 
 parse_closing_issue_refs_from_text() {
   local text="$1"
+  if _parse_closure_refs_via_va "$text" "close" >/dev/null 2>&1; then
+    _parse_closure_refs_via_va "$text" "close" | sort -u
+    return 0
+  fi
   _parse_issue_directive_event_refs "$text" "Closes" | sort -u
 }
 
@@ -40,11 +75,19 @@ parse_non_closing_issue_refs_from_text() {
 
 parse_neutralized_closing_issue_refs_from_text() {
   local text="$1"
+  if _parse_closure_refs_via_va "$text" "pre" >/dev/null 2>&1; then
+    _parse_closure_refs_via_va "$text" "pre" | sort -u
+    return 0
+  fi
   _parse_issue_directive_event_refs "$text" "Closes rejected" "Closes" | sort -u
 }
 
 parse_all_closing_issue_refs_from_text() {
   local text="$1"
+  if _parse_closure_refs_via_va "$text" "all" >/dev/null 2>&1; then
+    _parse_closure_refs_via_va "$text" "all" | sort -u
+    return 0
+  fi
   parse_issue_directive_records_from_text "$text" | awk -F'|' '
     $1 == "EV" && ($2 == "Closes" || $2 == "Closes rejected") { print "Closes|" $3 }
   ' | sort -u
