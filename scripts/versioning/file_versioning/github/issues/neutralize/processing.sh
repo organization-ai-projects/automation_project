@@ -134,10 +134,8 @@ neutralize_collect_refs_from_body() {
   local -a closing_rows=()
   local -a pre_neutralized_rows=()
 
-  if command -v va >/dev/null 2>&1; then
-    va_cmd=(va pr closure-refs)
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    va_cmd=(versioning_automation pr closure-refs)
+  if command -v va_exec >/dev/null 2>&1; then
+    va_cmd=(va_exec pr closure-refs)
   fi
 
   if [[ "${#va_cmd[@]}" -gt 0 ]]; then

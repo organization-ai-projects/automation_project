@@ -65,6 +65,9 @@ _parse_directives_state_via_va() {
   duplicate)
     printf '%s' "$text" | "${cmd[@]}" --stdin | awk -F'|' '$1 == "DUP" { print $2 "|" $3 }'
     ;;
+  decision)
+    printf '%s' "$text" | "${cmd[@]}" --stdin | awk -F'|' '$1 == "DEC" { print $2 "|" $3 }'
+    ;;
   *)
     return 1
     ;;
@@ -282,6 +285,11 @@ parse_duplicate_refs_from_text() {
 
 parse_directive_decisions_from_text() {
   local text="$1"
+  local parsed
+  if parsed="$(_parse_directives_state_via_va "$text" "decision" 2>/dev/null)"; then
+    printf '%s\n' "$parsed" | sed '/^$/d' | sort -u
+    return 0
+  fi
   _parse_issue_directive_records_by_type "$text" "DEC" | sort -u
 }
 

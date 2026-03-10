@@ -196,22 +196,17 @@ pr_pipeline_apply_issue_directives_via_va() {
   local text="$1"
   local category="$2"
   local debug_context="$3"
-  local -a va_cmd=()
   local -a records=()
   local record_type field_a field_b
   local -A seen_reopen_refs=()
   local -A seen_close_refs=()
   local -A seen_duplicates=()
 
-  if command -v va >/dev/null 2>&1; then
-    va_cmd=(va pr directives-state)
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    va_cmd=(versioning_automation pr directives-state)
-  else
+  if ! command -v va_exec >/dev/null 2>&1; then
     return 1
   fi
 
-  if ! mapfile -t records < <(printf '%s' "$text" | "${va_cmd[@]}" --stdin 2>/dev/null); then
+  if ! mapfile -t records < <(printf '%s' "$text" | va_exec pr directives-state --stdin 2>/dev/null); then
     return 1
   fi
 
