@@ -3,6 +3,11 @@
 write_section_from_file() {
   local file="$1"
   if [[ -s "$file" ]]; then
+    if command -v va_exec >/dev/null 2>&1; then
+      if va_exec pr sort-bullets --input-file "$file" 2>/dev/null; then
+        return
+      fi
+    fi
     while IFS= read -r line; do
       pr_num="$(echo "$line" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')"
       if [[ -z "$pr_num" ]]; then
