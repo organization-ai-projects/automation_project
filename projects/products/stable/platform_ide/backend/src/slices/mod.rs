@@ -1,6 +1,9 @@
-// projects/products/stable/platform_ide/backend/src/slices/mod.rs
-pub mod allowed_path;
-pub mod slice_manifest;
+//! projects/products/stable/platform_ide/backend/src/slices/mod.rs
+mod allowed_path;
+mod slice_manifest;
 
-pub use allowed_path::AllowedPath;
+#[cfg(test)]
+mod tests;
+
+pub(crate) use allowed_path::AllowedPath;
 pub use slice_manifest::SliceManifest;
