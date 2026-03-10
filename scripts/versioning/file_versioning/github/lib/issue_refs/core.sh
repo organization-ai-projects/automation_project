@@ -45,6 +45,32 @@ _parse_closure_refs_via_va() {
   esac
 }
 
+_parse_directives_state_via_va() {
+  local text="$1"
+  local mode="$2"
+  local -a cmd=()
+
+  if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
+    cmd=("${VA_PR_DIRECTIVES_BIN}" pr directives-state)
+  elif command -v va_exec >/dev/null 2>&1; then
+    cmd=(va_exec pr directives-state)
+  else
+    return 1
+  fi
+
+  case "$mode" in
+  reopen)
+    printf '%s' "$text" | "${cmd[@]}" --stdin | awk -F'|' '$1 == "EV" && $2 == "Reopen" { print $2 "|" $3 }'
+    ;;
+  duplicate)
+    printf '%s' "$text" | "${cmd[@]}" --stdin | awk -F'|' '$1 == "DUP" { print $2 "|" $3 }'
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
 _parse_issue_directive_records_by_type() {
   local text="$1"
   local record_type="$2"
@@ -213,11 +239,19 @@ parse_directive_events_from_text() {
 
 parse_reopen_issue_refs_from_text() {
   local text="$1"
+  if _parse_directives_state_via_va "$text" "reopen" >/dev/null 2>&1; then
+    _parse_directives_state_via_va "$text" "reopen" | sort -u
+    return 0
+  fi
   _parse_issue_directive_event_refs "$text" "Reopen" | sort -u
 }
 
 parse_duplicate_refs_from_text() {
   local text="$1"
+  if _parse_directives_state_via_va "$text" "duplicate" >/dev/null 2>&1; then
+    _parse_directives_state_via_va "$text" "duplicate" | sort -u
+    return 0
+  fi
   _parse_issue_directive_records_by_type "$text" "DUP" | sort -u
 }
 

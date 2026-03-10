@@ -59,16 +59,16 @@ pr_directive_conflict_guard_collect_conflicts_via_va() {
   local _out_unresolved_conflict_var="$4"
   local -n _out_resolved_conflict_ref="$_out_resolved_conflict_var"
   local -n _out_unresolved_conflict_ref="$_out_unresolved_conflict_var"
-  local -a va_cmd=()
+  local output
   local record_type issue_key decision_or_reason origin
 
-  if command -v va >/dev/null 2>&1; then
-    va_cmd=(va pr)
-  elif command -v versioning_automation >/dev/null 2>&1; then
-    va_cmd=(versioning_automation pr)
-  else
+  if ! command -v va_exec >/dev/null 2>&1; then
     return 1
   fi
+
+  output="$(printf '%s' "$text" | va_exec pr directive-conflicts --stdin --source-branch-count "$source_branch_count" 2>/dev/null)" || {
+    return 1
+  }
 
   while IFS='|' read -r record_type issue_key decision_or_reason origin; do
     [[ -z "$record_type" ]] && continue
@@ -83,7 +83,7 @@ pr_directive_conflict_guard_collect_conflicts_via_va() {
       _out_unresolved_conflict_ref["$issue_key"]="$decision_or_reason"
       ;;
     esac
-  done < <(printf '%s' "$text" | "${va_cmd[@]}" directive-conflicts --stdin --source-branch-count "$source_branch_count")
+  done <<<"$output"
 }
 
 pr_directive_conflict_guard_run() {
