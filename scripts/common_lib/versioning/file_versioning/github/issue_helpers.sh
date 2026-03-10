@@ -286,7 +286,7 @@ github_issue_list_open_numbers() {
   local va_output=""
 
   if issue_helpers_has_va_issue; then
-    local -a va_cmd=(issue read --json number --jq '.[].number')
+    local -a va_cmd=(issue open-numbers)
     if [[ -n "$repo_name" ]]; then
       va_cmd+=(--repo "$repo_name")
     fi
@@ -315,7 +315,7 @@ github_issue_assignee_logins() {
   fi
 
   if issue_helpers_has_va_issue; then
-    local -a va_cmd=(issue read --issue "$issue_number" --json assignees --jq '.assignees[].login')
+    local -a va_cmd=(issue assignee-logins --issue "$issue_number")
     if [[ -n "$repo_name" ]]; then
       va_cmd+=(--repo "$repo_name")
     fi
