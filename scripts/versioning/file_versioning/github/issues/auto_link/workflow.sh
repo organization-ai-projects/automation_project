@@ -41,7 +41,17 @@ auto_link_run() {
   local label_automation_failed="automation-failed"
 
   local issue_json
-  issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json number,title,body,state,url,labels 2>/dev/null || true)"
+  if command -v va_exec >/dev/null 2>&1; then
+    issue_json="$(
+      va_exec issue read \
+        --issue "$issue_number" \
+        --repo "$repo_name" \
+        --json number,title,body,state,url,labels 2>/dev/null || true
+    )"
+  fi
+  if [[ -z "${issue_json:-}" ]]; then
+    issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json number,title,body,state,url,labels 2>/dev/null || true)"
+  fi
   if [[ -z "$issue_json" ]]; then
     echo "Erreur: impossible de lire l'issue #${issue_number}." >&2
     exit 4

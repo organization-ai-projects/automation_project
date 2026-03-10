@@ -103,7 +103,17 @@ auto_link_handle_parent_link() {
   fi
 
   local parent_json
-  parent_json="$(gh issue view "$parent_number" -R "$repo_name" --json number,title,state,url 2>/dev/null || true)"
+  if command -v va_exec >/dev/null 2>&1; then
+    parent_json="$(
+      va_exec issue read \
+        --issue "$parent_number" \
+        --repo "$repo_name" \
+        --json number,title,state,url 2>/dev/null || true
+    )"
+  fi
+  if [[ -z "${parent_json:-}" ]]; then
+    parent_json="$(gh issue view "$parent_number" -R "$repo_name" --json number,title,state,url 2>/dev/null || true)"
+  fi
   if [[ -z "$parent_json" ]]; then
     auto_link_fail_validation \
       "$repo_name" "$issue_number" "$marker" "$label_required_missing" "$label_automation_failed" \
