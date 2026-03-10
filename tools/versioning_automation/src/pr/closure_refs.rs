@@ -27,19 +27,3 @@ pub(crate) fn run_closure_refs(opts: PrClosureRefsOptions) -> i32 {
 
     0
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::pr::contracts::cli::pr_closure_refs_options::PrClosureRefsOptions;
-
-    use super::run_closure_refs;
-
-    #[test]
-    fn closure_refs_command_runs() {
-        let opts = PrClosureRefsOptions {
-            text: "Closes #1\nCloses rejected #2".to_string(),
-        };
-        let code = run_closure_refs(opts);
-        assert_eq!(code, 0);
-    }
-}

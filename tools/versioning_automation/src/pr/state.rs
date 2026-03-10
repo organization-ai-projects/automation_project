@@ -12,13 +12,13 @@ pub(crate) fn run_directives_state(opts: PrDirectivesStateOptions) -> i32 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct DirectivesState {
-    explicit_decisions: HashMap<String, String>,
-    inferred_decisions: HashMap<String, String>,
-    action_records: Vec<DirectiveRecord>,
+pub(crate) struct DirectivesState {
+    pub(crate) explicit_decisions: HashMap<String, String>,
+    pub(crate) inferred_decisions: HashMap<String, String>,
+    pub(crate) action_records: Vec<DirectiveRecord>,
 }
 
-fn build_state(text: &str) -> DirectivesState {
+pub(crate) fn build_state(text: &str) -> DirectivesState {
     let records = scan_directives(text, false);
     let explicit_decisions = collect_explicit_decisions(&records);
     let inferred_decisions = collect_inferred_decisions(&records, &explicit_decisions);
@@ -144,34 +144,4 @@ fn issue_number(issue_key: &str) -> u32 {
         .trim_start_matches('#')
         .parse::<u32>()
         .unwrap_or(u32::MAX)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::build_state;
-
-    #[test]
-    fn keeps_latest_explicit_decision_per_issue() {
-        let text = "Directive Decision: #4 => close\nDirective Decision: #4 => reopen";
-        let state = build_state(text);
-        assert_eq!(
-            state.explicit_decisions.get("#4").map(String::as_str),
-            Some("reopen")
-        );
-    }
-
-    #[test]
-    fn inferred_decision_honors_explicit() {
-        let text = "Directive Decision: #4 => close\nReopen #4";
-        let state = build_state(text);
-        assert!(!state.inferred_decisions.contains_key("#4"));
-    }
-
-    #[test]
-    fn emits_deduped_actions() {
-        let text =
-            "Closes #2\nCloses #2\nReopen #2\nReopen #2\n#7 duplicate of #5\n#7 duplicate of #5";
-        let state = build_state(text);
-        assert_eq!(state.action_records.len(), 3);
-    }
 }

@@ -24,7 +24,11 @@ pub(crate) fn run_closure_marker(opts: PrClosureMarkerOptions) -> i32 {
     }
 }
 
-fn apply_marker(text: &str, keyword_pattern: &str, issue: &str) -> Result<String, String> {
+pub(crate) fn apply_marker(
+    text: &str,
+    keyword_pattern: &str,
+    issue: &str,
+) -> Result<String, String> {
     let issue_pattern = regex::escape(issue);
     let pattern = format!(
         "(?i)\\b(?P<kw>(?:{}))\\b(?P<ws>\\s+)(?P<rej>rejected\\s+)?(?P<ref>[^\\s]*{})\\b",
@@ -46,7 +50,11 @@ fn apply_marker(text: &str, keyword_pattern: &str, issue: &str) -> Result<String
         .to_string())
 }
 
-fn remove_marker(text: &str, keyword_pattern: &str, issue: &str) -> Result<String, String> {
+pub(crate) fn remove_marker(
+    text: &str,
+    keyword_pattern: &str,
+    issue: &str,
+) -> Result<String, String> {
     let issue_pattern = regex::escape(issue);
     let pattern = format!(
         "(?i)\\b(?P<kw>(?:{}))\\b(?P<ws>\\s+)rejected\\s+(?P<ref>[^\\s]*{})\\b",
@@ -54,24 +62,4 @@ fn remove_marker(text: &str, keyword_pattern: &str, issue: &str) -> Result<Strin
     );
     let re = Regex::new(&pattern).map_err(|err| format!("invalid keyword pattern: {err}"))?;
     Ok(re.replace_all(text, "${kw}${ws}${ref}").to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{apply_marker, remove_marker};
-
-    #[test]
-    fn apply_inserts_rejected_once() {
-        let text = "Closes #42\nCloses rejected #42";
-        let once = apply_marker(text, "closes", "#42").expect("apply marker");
-        let twice = apply_marker(&once, "closes", "#42").expect("apply marker second pass");
-        assert_eq!(once, twice);
-    }
-
-    #[test]
-    fn remove_deletes_rejected_marker() {
-        let text = "Closes rejected #42";
-        let out = remove_marker(text, "closes", "#42").expect("remove marker");
-        assert_eq!(out, "Closes #42");
-    }
 }

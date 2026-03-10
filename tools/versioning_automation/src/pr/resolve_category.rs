@@ -17,21 +17,3 @@ pub(crate) fn run_resolve_category(opts: PrResolveCategoryOptions) -> i32 {
     println!("{effective}");
     0
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::pr::contracts::cli::pr_resolve_category_options::PrResolveCategoryOptions;
-
-    use super::run_resolve_category;
-
-    #[test]
-    fn resolve_category_command_runs() {
-        let opts = PrResolveCategoryOptions {
-            label_category: "Unknown".to_string(),
-            title_category: "UI".to_string(),
-            default_category: "Mixed".to_string(),
-        };
-        let code = run_resolve_category(opts);
-        assert_eq!(code, 0);
-    }
-}

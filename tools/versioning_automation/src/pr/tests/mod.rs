@@ -1,2 +1,9 @@
+mod closure_marker;
+mod closure_refs;
+mod conflicts;
+mod issue_decision;
+mod non_closing_refs;
 mod parse;
+mod resolve_category;
 mod scan;
+mod state;

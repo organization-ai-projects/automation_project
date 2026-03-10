@@ -18,15 +18,15 @@ pub(crate) fn run_issue_decision(opts: PrIssueDecisionOptions) -> i32 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct DecisionOutcome {
-    kind: String,
-    reason: String,
-    final_action: String,
-    category: String,
-    force_category: bool,
+pub(crate) struct DecisionOutcome {
+    pub(crate) kind: String,
+    pub(crate) reason: String,
+    pub(crate) final_action: String,
+    pub(crate) category: String,
+    pub(crate) force_category: bool,
 }
 
-fn decide(opts: PrIssueDecisionOptions) -> DecisionOutcome {
+pub(crate) fn decide(opts: PrIssueDecisionOptions) -> DecisionOutcome {
     if opts.action == "Closes" && opts.seen_reopen {
         let category = if opts.reopen_category.is_empty() {
             opts.default_category
@@ -87,71 +87,5 @@ fn decide(opts: PrIssueDecisionOptions) -> DecisionOutcome {
         final_action: String::new(),
         category: String::new(),
         force_category: false,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::pr::contracts::cli::pr_issue_decision_options::PrIssueDecisionOptions;
-
-    use super::decide;
-
-    fn base_opts() -> PrIssueDecisionOptions {
-        PrIssueDecisionOptions {
-            action: "Closes".to_string(),
-            issue: "#1".to_string(),
-            default_category: "Mixed".to_string(),
-            seen_reopen: false,
-            reopen_category: String::new(),
-            inferred_decision: String::new(),
-            explicit_decision: String::new(),
-            allow_inferred: true,
-        }
-    }
-
-    #[test]
-    fn resolve_reopen_when_close_hits_seen_reopen() {
-        let mut opts = base_opts();
-        opts.seen_reopen = true;
-        opts.reopen_category = "UI".to_string();
-        let out = decide(opts);
-        assert_eq!(out.kind, "resolve_reopen");
-        assert_eq!(out.category, "UI");
-        assert!(out.force_category);
-    }
-
-    #[test]
-    fn conflict_when_allow_inferred_and_no_inferred_decision() {
-        let opts = base_opts();
-        let out = decide(opts);
-        assert_eq!(out.kind, "conflict");
-    }
-
-    #[test]
-    fn ignore_reopen_when_effective_close() {
-        let mut opts = base_opts();
-        opts.action = "Reopen".to_string();
-        opts.explicit_decision = "close".to_string();
-        opts.allow_inferred = false;
-        let out = decide(opts);
-        assert_eq!(out.kind, "ignore");
-    }
-
-    #[test]
-    fn resolve_reopen_when_effective_reopen() {
-        let mut opts = base_opts();
-        opts.allow_inferred = false;
-        opts.inferred_decision = "reopen".to_string();
-        let out = decide(opts);
-        assert_eq!(out.kind, "resolve_reopen");
-        assert_eq!(out.category, "Mixed");
-    }
-
-    #[test]
-    fn continue_when_no_directive_override() {
-        let mut opts = base_opts();
-        opts.allow_inferred = false;
-        let out = decide(opts);
-        assert_eq!(out.kind, "continue");
     }
 }

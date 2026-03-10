@@ -1,6 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::pr::contracts::cli::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
+use crate::pr::contracts::conflicts::conflict_report::ConflictReport;
+use crate::pr::contracts::conflicts::resolved_conflict::ResolvedConflict;
+use crate::pr::contracts::conflicts::unresolved_conflict::UnresolvedConflict;
 use crate::pr::contracts::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
 
@@ -10,26 +13,7 @@ pub(crate) fn run_directive_conflicts(opts: PrDirectiveConflictsOptions) -> i32 
     0
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ConflictReport {
-    resolved: Vec<ResolvedConflict>,
-    unresolved: Vec<UnresolvedConflict>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ResolvedConflict {
-    issue: String,
-    decision: String,
-    origin: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct UnresolvedConflict {
-    issue: String,
-    reason: String,
-}
-
-fn build_conflict_report(text: &str, source_branch_count: u32) -> ConflictReport {
+pub(crate) fn build_conflict_report(text: &str, source_branch_count: u32) -> ConflictReport {
     let mut closing_requested = HashSet::new();
     let mut reopen_requested = HashSet::new();
     let mut explicit_decision: HashMap<String, String> = HashMap::new();
@@ -115,40 +99,4 @@ fn issue_number(issue_key: &str) -> u32 {
         .trim_start_matches('#')
         .parse::<u32>()
         .unwrap_or(u32::MAX)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::build_conflict_report;
-
-    #[test]
-    fn resolves_explicit_decision() {
-        let text = "Closes #42\nReopen #42\nDirective Decision: #42 => close";
-        let report = build_conflict_report(text, 1);
-        assert_eq!(report.resolved.len(), 1);
-        assert_eq!(report.unresolved.len(), 0);
-        assert_eq!(report.resolved[0].issue, "#42");
-        assert_eq!(report.resolved[0].decision, "close");
-        assert_eq!(report.resolved[0].origin, "explicit");
-    }
-
-    #[test]
-    fn resolves_inferred_for_single_source_branch() {
-        let text = "Closes #42\nReopen #42";
-        let report = build_conflict_report(text, 1);
-        assert_eq!(report.resolved.len(), 1);
-        assert_eq!(report.unresolved.len(), 0);
-        assert_eq!(report.resolved[0].issue, "#42");
-        assert_eq!(report.resolved[0].decision, "reopen");
-        assert_eq!(report.resolved[0].origin, "inferred from latest directive");
-    }
-
-    #[test]
-    fn blocks_inferred_for_multi_source_branch() {
-        let text = "Closes #42\nReopen #42";
-        let report = build_conflict_report(text, 2);
-        assert_eq!(report.resolved.len(), 0);
-        assert_eq!(report.unresolved.len(), 1);
-        assert_eq!(report.unresolved[0].issue, "#42");
-    }
 }
