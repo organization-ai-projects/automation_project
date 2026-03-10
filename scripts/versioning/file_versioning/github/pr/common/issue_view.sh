@@ -24,9 +24,18 @@ pr_issue_view_full_json() {
   repo_name_with_owner="$(pr_get_repo_name_with_owner)"
   if command -v va_exec >/dev/null 2>&1; then
     if [[ -n "$repo_name_with_owner" ]]; then
-      issue_json="$(va_exec pr issue-view --issue "$issue_number" --repo "$repo_name_with_owner" 2>/dev/null || true)"
+      issue_json="$(
+        va_exec issue read \
+          --issue "$issue_number" \
+          --repo "$repo_name_with_owner" \
+          --json title,body,labels 2>/dev/null || true
+      )"
     else
-      issue_json="$(va_exec pr issue-view --issue "$issue_number" 2>/dev/null || true)"
+      issue_json="$(
+        va_exec issue read \
+          --issue "$issue_number" \
+          --json title,body,labels 2>/dev/null || true
+      )"
     fi
   fi
 
