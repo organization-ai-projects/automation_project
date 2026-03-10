@@ -1,3 +1,4 @@
+mod auto_add;
 mod model;
 mod parse;
 mod render;
@@ -6,6 +7,7 @@ mod scan;
 #[cfg(test)]
 mod tests;
 
+use auto_add::run_auto_add_closes;
 use model::pr_action::PrAction;
 use model::pr_directives_format::PrDirectivesFormat;
 use parse::parse;
@@ -28,6 +30,7 @@ pub fn run(args: &[String]) -> i32 {
                 PrDirectivesFormat::Json => emit_json(&records),
             }
         }
+        Ok(PrAction::AutoAddCloses(opts)) => run_auto_add_closes(opts),
         Err(message) => {
             eprintln!("{message}");
             2

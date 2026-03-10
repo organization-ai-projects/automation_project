@@ -49,3 +49,10 @@ fn pr_directives_with_missing_input_file_returns_error() {
     let code = run(&args);
     assert_eq!(code, 2);
 }
+
+#[test]
+fn pr_auto_add_closes_requires_pr_flag() {
+    let args = vec!["auto-add-closes".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}

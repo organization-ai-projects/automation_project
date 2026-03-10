@@ -4,6 +4,7 @@ use std::io::{self, Read};
 use std::path::Path;
 
 use crate::pr::model::pr_action::PrAction;
+use crate::pr::model::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::model::pr_directives_format::PrDirectivesFormat;
 use crate::pr::model::pr_directives_options::PrDirectivesOptions;
 
@@ -15,8 +16,30 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     match args[0].as_str() {
         "help" | "--help" | "-h" => Ok(PrAction::Help),
         "directives" => parse_directives(&args[1..]).map(PrAction::Directives),
+        "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_auto_add_closes(args: &[String]) -> Result<PrAutoAddClosesOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for auto-add-closes: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrAutoAddClosesOptions { pr_number, repo })
 }
 
 fn parse_directives(args: &[String]) -> Result<PrDirectivesOptions, String> {
@@ -96,4 +119,11 @@ fn read_file_text(file_path: &str) -> Result<String, String> {
     let path = Path::new(file_path);
     fs::read_to_string(path)
         .map_err(|err| format!("failed to read input file '{file_path}': {err}"))
+}
+
+fn require_positive_number(flag: &str, value: &str) -> Result<(), String> {
+    if !value.is_empty() && value.chars().all(|c| c.is_ascii_digit()) && value != "0" {
+        return Ok(());
+    }
+    Err(format!("{flag} requires a positive numeric value"))
 }
