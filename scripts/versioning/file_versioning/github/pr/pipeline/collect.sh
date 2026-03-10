@@ -192,6 +192,73 @@ pr_pipeline_apply_issue_and_duplicate_entries() {
   done
 }
 
+pr_pipeline_apply_issue_directives_via_va() {
+  local text="$1"
+  local category="$2"
+  local debug_context="$3"
+  local -a va_cmd=()
+  local -a records=()
+  local record_type field_a field_b
+  local -A seen_reopen_refs=()
+  local -A seen_close_refs=()
+  local -A seen_duplicates=()
+
+  if command -v va >/dev/null 2>&1; then
+    va_cmd=(va pr directives-state)
+  elif command -v versioning_automation >/dev/null 2>&1; then
+    va_cmd=(versioning_automation pr directives-state)
+  else
+    return 1
+  fi
+
+  if ! mapfile -t records < <(printf '%s' "$text" | "${va_cmd[@]}" --stdin 2>/dev/null); then
+    return 1
+  fi
+
+  for record in "${records[@]}"; do
+    IFS='|' read -r record_type field_a field_b <<<"$record"
+    [[ -z "$record_type" ]] && continue
+    case "$record_type" in
+    DEC)
+      [[ -z "$field_a" || -z "$field_b" ]] && continue
+      [[ "$field_b" == "close" || "$field_b" == "reopen" ]] || continue
+      issue_directive_decision["$field_a"]="$field_b"
+      ;;
+    INF)
+      [[ -z "$field_a" || -z "$field_b" ]] && continue
+      issue_inferred_decision["$field_a"]="$field_b"
+      ;;
+    EV)
+      [[ -z "$field_a" || -z "$field_b" ]] && continue
+      if [[ "$field_a" == "Closes" ]]; then
+        if [[ -n "${seen_close_refs[$field_b]:-}" ]]; then
+          continue
+        fi
+        seen_close_refs["$field_b"]=1
+        pr_debug_log "parsed_issue_ref(${debug_context}): ${field_a}|${field_b}"
+        pr_add_issue_entry "$field_a" "$field_b" "$category"
+      elif [[ "$field_a" == "Reopen" ]]; then
+        if [[ -n "${seen_reopen_refs[$field_b]:-}" ]]; then
+          continue
+        fi
+        seen_reopen_refs["$field_b"]=1
+        pr_mark_reopen_issue "$field_b" "$category"
+      fi
+      ;;
+    DUP)
+      [[ -z "$field_a" || -z "$field_b" ]] && continue
+      if [[ -n "${seen_duplicates[${field_a}|${field_b}]:-}" ]]; then
+        continue
+      fi
+      seen_duplicates["${field_a}|${field_b}"]=1
+      pr_add_duplicate_entry "$field_a" "$field_b"
+      ;;
+    esac
+  done
+
+  return 0
+}
+
 pr_pipeline_apply_issue_directives_from_text() {
   local text="$1"
   local category="$2"
@@ -199,6 +266,10 @@ pr_pipeline_apply_issue_directives_from_text() {
   local -a records=()
 
   [[ -z "$text" ]] && return
+
+  if pr_pipeline_apply_issue_directives_via_va "$text" "$category" "$debug_context"; then
+    return
+  fi
 
   mapfile -t records < <(parse_issue_directive_records_from_text "$text")
 
