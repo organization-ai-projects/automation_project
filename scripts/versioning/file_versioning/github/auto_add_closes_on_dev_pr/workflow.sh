@@ -37,6 +37,34 @@ auto_add_resolve_repo() {
   printf '%s' "$current_repo_name"
 }
 
+auto_add_fetch_pr_details_json() {
+  local repo_name="$1"
+  local pr_number="$2"
+  local pr_details_json=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    pr_details_json="$(
+      va_exec pr details \
+        --pr "$pr_number" \
+        --repo "$repo_name" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ -z "$pr_details_json" ]]; then
+    local pr_json pr_commits
+    pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json number,state,baseRefName,title,body,author 2>/dev/null || true)"
+    if [[ -n "$pr_json" ]]; then
+      pr_commits="$(gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
+      pr_details_json="$(
+        jq -c --arg commit_messages "$pr_commits" \
+          '. + { commit_messages: $commit_messages }' <<<"$pr_json" 2>/dev/null || true
+      )"
+    fi
+  fi
+
+  printf '%s' "$pr_details_json"
+}
+
 auto_add_build_managed_block() {
   local -a issue_numbers=("$@")
 
@@ -64,17 +92,17 @@ auto_add_closes_run() {
   gh_cli_require_gh_jq
   auto_add_repo_name="$(auto_add_resolve_repo "$auto_add_repo_name")"
 
-  pr_json="$(gh pr view "$auto_add_pr_number" -R "$auto_add_repo_name" --json number,state,baseRefName,title,body,author 2>/dev/null || true)"
+  pr_json="$(auto_add_fetch_pr_details_json "$auto_add_repo_name" "$auto_add_pr_number")"
   if [[ -z "$pr_json" ]]; then
     echo "Error: unable to read PR #${auto_add_pr_number}." >&2
     exit 3
   fi
 
   pr_state="$(echo "$pr_json" | jq -r '.state // ""')"
-  pr_base="$(echo "$pr_json" | jq -r '.baseRefName // ""')"
+  pr_base="$(echo "$pr_json" | jq -r '.baseRefName // .base_ref_name // ""')"
   pr_title="$(echo "$pr_json" | jq -r '.title // ""')"
   pr_body="$(echo "$pr_json" | jq -r '.body // ""')"
-  pr_author="$(echo "$pr_json" | jq -r '.author.login // ""')"
+  pr_author="$(echo "$pr_json" | jq -r '.author.login // .author_login // ""')"
 
   if [[ "$pr_state" != "OPEN" ]]; then
     echo "PR #${auto_add_pr_number} is not open; skipping."
@@ -89,7 +117,7 @@ auto_add_closes_run() {
     exit 0
   fi
 
-  pr_commits="$(gh api "repos/${auto_add_repo_name}/pulls/${auto_add_pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
+  pr_commits="$(echo "$pr_json" | jq -r '.commit_messages // ""')"
   payload_all="$({
     printf '%s\n' "$pr_title"
     printf '%s\n' "$pr_body"
