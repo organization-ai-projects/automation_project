@@ -4,9 +4,15 @@ use std::process::Command;
 use regex::Regex;
 
 use crate::issues::commands::{
-    CloseOptions, CreateOptions, IssueTarget, ReadOptions, ReevaluateOptions, UpdateOptions,
+    CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueTarget,
+    NonComplianceReasonOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
+    RequiredFieldsValidationMode, UpdateOptions,
 };
 use crate::issues::render::render_direct_issue_body;
+use crate::issues::required_fields::{
+    fetch_non_compliance_reason, non_compliance_reason_from_content, validate_body,
+    validate_content, validate_title,
+};
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
     let body = render_direct_issue_body(&opts);
@@ -174,6 +180,55 @@ pub(crate) fn run_reevaluate(opts: ReevaluateOptions) -> i32 {
         evaluated_count
     );
     0
+}
+
+pub(crate) fn run_required_fields_validate(opts: RequiredFieldsValidateOptions) -> i32 {
+    let result = match opts.mode {
+        RequiredFieldsValidationMode::Title => validate_title(&opts.title, &opts.labels_raw),
+        RequiredFieldsValidationMode::Body => validate_body(&opts.body, &opts.labels_raw),
+        RequiredFieldsValidationMode::Content => {
+            validate_content(&opts.title, &opts.body, &opts.labels_raw)
+        }
+    };
+
+    match result {
+        Ok(entries) => {
+            for entry in entries {
+                println!("{}", entry.as_pipe_line());
+            }
+            0
+        }
+        Err(message) => {
+            eprintln!("{message}");
+            1
+        }
+    }
+}
+
+pub(crate) fn run_non_compliance_reason(opts: NonComplianceReasonOptions) -> i32 {
+    match non_compliance_reason_from_content(&opts.title, &opts.body, &opts.labels_raw) {
+        Ok(reason) => {
+            println!("{reason}");
+            0
+        }
+        Err(message) => {
+            eprintln!("{message}");
+            1
+        }
+    }
+}
+
+pub(crate) fn run_fetch_non_compliance_reason(opts: FetchNonComplianceReasonOptions) -> i32 {
+    match fetch_non_compliance_reason(&opts.issue, opts.repo.as_deref()) {
+        Ok(reason) => {
+            println!("{reason}");
+            0
+        }
+        Err(message) => {
+            eprintln!("{message}");
+            1
+        }
+    }
 }
 
 fn execute_command(mut command: Command) -> i32 {

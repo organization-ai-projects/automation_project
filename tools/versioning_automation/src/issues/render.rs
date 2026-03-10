@@ -35,4 +35,9 @@ pub(crate) fn print_usage() {
     println!("  va issue reopen --issue <number> [--repo owner/name]");
     println!("  va issue delete --issue <number> [--repo owner/name]");
     println!("  va issue reevaluate --issue <number> [--repo owner/name]");
+    println!(
+        "  va issue required-fields-validate [--mode title|body|content] [--title ...] [--body ...] [--labels-raw ...]"
+    );
+    println!("  va issue non-compliance-reason [--title ...] [--body ...] [--labels-raw ...]");
+    println!("  va issue fetch-non-compliance-reason --issue <number> [--repo owner/name]");
 }

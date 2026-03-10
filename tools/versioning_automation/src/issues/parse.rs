@@ -1,7 +1,8 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
-    CloseOptions, CreateOptions, IssueAction, IssueTarget, ReadOptions, ReevaluateOptions,
-    UpdateOptions,
+    CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueAction, IssueTarget,
+    NonComplianceReasonOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
+    RequiredFieldsValidationMode, UpdateOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -17,8 +18,105 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "reopen" => parse_target("reopen", &args[1..]).map(IssueAction::Reopen),
         "delete" => parse_target("delete", &args[1..]).map(IssueAction::Delete),
         "reevaluate" => parse_reevaluate(&args[1..]).map(IssueAction::Reevaluate),
+        "required-fields-validate" => {
+            parse_required_fields_validate(&args[1..]).map(IssueAction::RequiredFieldsValidate)
+        }
+        "non-compliance-reason" => {
+            parse_non_compliance_reason(&args[1..]).map(IssueAction::NonComplianceReason)
+        }
+        "fetch-non-compliance-reason" => {
+            parse_fetch_non_compliance_reason(&args[1..]).map(IssueAction::FetchNonComplianceReason)
+        }
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
     }
+}
+
+fn parse_required_fields_validate(
+    args: &[String],
+) -> Result<RequiredFieldsValidateOptions, String> {
+    let mut title = String::new();
+    let mut body = String::new();
+    let mut labels_raw = String::new();
+    let mut mode = RequiredFieldsValidationMode::Content;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--title" => title = take_value("--title", args, &mut i)?,
+            "--body" => body = take_value("--body", args, &mut i)?,
+            "--labels-raw" => labels_raw = take_value("--labels-raw", args, &mut i)?,
+            "--mode" => {
+                let raw_mode = take_value("--mode", args, &mut i)?;
+                mode = match raw_mode.as_str() {
+                    "title" => RequiredFieldsValidationMode::Title,
+                    "body" => RequiredFieldsValidationMode::Body,
+                    "content" => RequiredFieldsValidationMode::Content,
+                    _ => return Err("--mode must be one of: title | body | content".to_string()),
+                };
+            }
+            unknown => {
+                return Err(format!(
+                    "Unknown option for required-fields-validate: {unknown}"
+                ));
+            }
+        }
+    }
+
+    Ok(RequiredFieldsValidateOptions {
+        title,
+        body,
+        labels_raw,
+        mode,
+    })
+}
+
+fn parse_non_compliance_reason(args: &[String]) -> Result<NonComplianceReasonOptions, String> {
+    let mut title = String::new();
+    let mut body = String::new();
+    let mut labels_raw = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--title" => title = take_value("--title", args, &mut i)?,
+            "--body" => body = take_value("--body", args, &mut i)?,
+            "--labels-raw" => labels_raw = take_value("--labels-raw", args, &mut i)?,
+            unknown => {
+                return Err(format!(
+                    "Unknown option for non-compliance-reason: {unknown}"
+                ));
+            }
+        }
+    }
+
+    Ok(NonComplianceReasonOptions {
+        title,
+        body,
+        labels_raw,
+    })
+}
+
+fn parse_fetch_non_compliance_reason(
+    args: &[String],
+) -> Result<FetchNonComplianceReasonOptions, String> {
+    let mut issue = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => {
+                return Err(format!(
+                    "Unknown option for fetch-non-compliance-reason: {unknown}"
+                ));
+            }
+        }
+    }
+
+    require_positive_number("--issue", &issue)?;
+    Ok(FetchNonComplianceReasonOptions { issue, repo })
 }
 
 fn parse_reevaluate(args: &[String]) -> Result<ReevaluateOptions, String> {
