@@ -18,7 +18,13 @@ pub(crate) fn run_resolve_category(opts: PrResolveCategoryOptions) -> i32 {
 
 pub(crate) fn run_effective_category(opts: PrEffectiveCategoryOptions) -> i32 {
     let label_category = issue_category_from_labels(&opts.labels_raw);
-    let title_category = issue_category_from_title(&opts.title);
+    let title_category = if let Some(title) = &opts.title {
+        issue_category_from_title(title)
+    } else if let Some(title_category) = &opts.title_category {
+        title_category.as_str()
+    } else {
+        "Unknown"
+    };
     let effective =
         resolve_effective_category(label_category, title_category, &opts.default_category);
     println!("{effective}");

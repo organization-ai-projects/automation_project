@@ -147,6 +147,21 @@ fn pr_effective_category_requires_fields() {
 }
 
 #[test]
+fn pr_effective_category_accepts_title_category() {
+    let args = vec![
+        "effective-category".to_string(),
+        "--labels-raw".to_string(),
+        "automation||bug".to_string(),
+        "--title-category".to_string(),
+        "Unknown".to_string(),
+        "--default-category".to_string(),
+        "Mixed".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_directives_state_requires_input() {
     let args = vec!["directives-state".to_string()];
     let code = run(&args);

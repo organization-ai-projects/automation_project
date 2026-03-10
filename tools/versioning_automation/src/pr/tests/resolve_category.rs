@@ -40,7 +40,8 @@ fn issue_category_from_title_command_runs() {
 fn effective_category_command_runs() {
     let opts = PrEffectiveCategoryOptions {
         labels_raw: "feature||automation".to_string(),
-        title: "feat(ui): add dashboard".to_string(),
+        title: Some("feat(ui): add dashboard".to_string()),
+        title_category: None,
         default_category: "Mixed".to_string(),
     };
     let code = run_effective_category(opts);

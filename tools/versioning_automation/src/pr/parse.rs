@@ -134,14 +134,18 @@ fn parse_duplicate_actions(args: &[String]) -> Result<PrDuplicateActionsOptions,
 
 fn parse_effective_category(args: &[String]) -> Result<PrEffectiveCategoryOptions, String> {
     let mut labels_raw = String::new();
-    let mut title = String::new();
+    let mut title: Option<String> = None;
+    let mut title_category: Option<String> = None;
     let mut default_category = String::new();
 
     let mut i = 0usize;
     while i < args.len() {
         match args[i].as_str() {
             "--labels-raw" => labels_raw = take_value("--labels-raw", args, &mut i)?,
-            "--title" => title = take_value("--title", args, &mut i)?,
+            "--title" => title = Some(take_value("--title", args, &mut i)?),
+            "--title-category" => {
+                title_category = Some(take_value("--title-category", args, &mut i)?)
+            }
             "--default-category" => {
                 default_category = take_value("--default-category", args, &mut i)?
             }
@@ -152,8 +156,8 @@ fn parse_effective_category(args: &[String]) -> Result<PrEffectiveCategoryOption
     if labels_raw.is_empty() {
         return Err("--labels-raw is required".to_string());
     }
-    if title.is_empty() {
-        return Err("--title is required".to_string());
+    if title.is_none() && title_category.is_none() {
+        return Err("effective-category requires --title or --title-category".to_string());
     }
     if default_category.is_empty() {
         return Err("--default-category is required".to_string());
@@ -162,6 +166,7 @@ fn parse_effective_category(args: &[String]) -> Result<PrEffectiveCategoryOption
     Ok(PrEffectiveCategoryOptions {
         labels_raw,
         title,
+        title_category,
         default_category,
     })
 }
