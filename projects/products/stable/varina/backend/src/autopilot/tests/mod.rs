@@ -1,9 +1,7 @@
-// projects/products/stable/varina/backend/src/tests/mod.rs
-#[cfg(test)]
+mod autopilot_error;
 mod autopilot_mode;
-#[cfg(test)]
 mod autopilot_plan;
-#[cfg(test)]
 mod autopilot_policy;
-#[cfg(test)]
 mod autopilot_report;
+mod compiled_autopilot_policy;
+mod handlers;

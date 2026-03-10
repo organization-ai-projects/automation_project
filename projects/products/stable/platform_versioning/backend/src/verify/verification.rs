@@ -1,13 +1,6 @@
 // projects/products/stable/platform_versioning/backend/src/verify/verification.rs
 use std::collections::{HashSet, VecDeque};
 
-#[cfg(test)]
-fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
-
 use crate::errors::PvError;
 use crate::ids::ObjectId;
 use crate::objects::{Object, ObjectStore, TreeEntryKind};
@@ -111,75 +104,5 @@ impl Verification {
             objects_checked,
             refs_checked,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::indexes::Index;
-    use crate::objects::Blob;
-    use crate::pipeline::CommitBuilder;
-    use crate::refs_store::RefStore;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn unique_test_dir(tag: &str) -> std::path::PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let pid = std::process::id();
-        let nanos = next_nonce();
-        std::env::temp_dir().join(format!("pv_verify_{tag}_{pid}_{nanos}_{id}"))
-    }
-
-    fn make_stores(tag: &str) -> (ObjectStore, RefStore) {
-        let dir = unique_test_dir(tag);
-        let obj = ObjectStore::open(&dir).unwrap();
-        let refs = RefStore::open(&dir).unwrap();
-        (obj, refs)
-    }
-
-    #[test]
-    fn healthy_repo_passes() {
-        let (obj, refs) = make_stores("healthy");
-        let blob = Blob::from_bytes(b"hello".to_vec());
-        let mut idx = Index::new();
-        idx.add("hello.txt".parse().unwrap(), blob.id.clone());
-        obj.write(Object::Blob(blob)).unwrap();
-        CommitBuilder::new("user", "init", 1)
-            .commit(&idx, &obj, &refs)
-            .unwrap();
-        let report = Verification::run(&obj, &refs).unwrap();
-        assert!(report.is_healthy(), "{:?}", report.issues);
-    }
-
-    #[test]
-    fn dangling_ref_detected() {
-        let (obj, refs) = make_stores("dangle");
-        // Write a ref pointing to a nonexistent commit.
-        let fake_id = crate::ids::CommitId::from(ObjectId::from_bytes(&[0xffu8; 32]));
-        let ref_name: crate::refs_store::RefName = "heads/main".parse().unwrap();
-        refs.write_ref(
-            &ref_name,
-            &crate::refs_store::RefTarget::Commit(fake_id),
-            true,
-            None,
-        )
-        .unwrap();
-        let report = Verification::run(&obj, &refs).unwrap();
-        assert!(!report.is_healthy());
-        assert!(
-            report
-                .issues
-                .iter()
-                .any(|i| matches!(i, IntegrityIssue::DanglingRef { .. }))
-        );
-    }
-
-    #[test]
-    fn empty_repo_is_healthy() {
-        let (obj, refs) = make_stores("empty");
-        let report = Verification::run(&obj, &refs).unwrap();
-        assert!(report.is_healthy());
     }
 }

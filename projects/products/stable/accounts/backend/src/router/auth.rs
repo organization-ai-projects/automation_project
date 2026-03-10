@@ -3,12 +3,14 @@ use protocol::{Command, Event, Metadata, ProtocolId};
 use protocol_accounts::{LoginRequest, LoginResponse};
 use security::TokenService;
 
-use crate::router::helpers::{err_event, ok_payload, payload_as};
-use crate::store::account_manager::AccountManager;
+use crate::{
+    router::helpers::{err_event, ok_payload, payload_as},
+    store::AccountManager,
+};
 
 use super::command_router::PAYLOAD_LOGIN;
 
-pub async fn handle_login(
+pub(crate) async fn handle_login(
     meta: &Metadata,
     cmd: &Command,
     manager: &AccountManager,

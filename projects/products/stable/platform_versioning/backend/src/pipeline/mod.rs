@@ -8,3 +8,6 @@ pub use commit_builder::CommitBuilder;
 pub use commit_result::CommitResult;
 pub use snapshot::Snapshot;
 pub use snapshot_entry::SnapshotEntry;
+
+#[cfg(test)]
+mod tests;

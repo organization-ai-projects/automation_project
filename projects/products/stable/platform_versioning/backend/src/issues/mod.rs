@@ -8,3 +8,6 @@ pub use issue::Issue;
 pub use issue_id::IssueId;
 pub use issue_store::IssueStore;
 pub use issue_visibility::IssueVisibility;
+
+#[cfg(test)]
+mod tests;

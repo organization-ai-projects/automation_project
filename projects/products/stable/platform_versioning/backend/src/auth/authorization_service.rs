@@ -1,12 +1,6 @@
 // projects/products/stable/platform_versioning/backend/src/auth/authorization_service.rs
 use std::sync::Arc;
 
-fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
-
 use axum::http::HeaderMap;
 
 use crate::auth::{
@@ -15,6 +9,7 @@ use crate::auth::{
 use crate::errors::PvError;
 use crate::ids::RepoId;
 use crate::indexes::SafePath;
+use crate::nonce::next_nonce;
 
 /// Centralized authorization service for all platform-versioning endpoints.
 ///
@@ -218,75 +213,5 @@ impl AuthorizationService {
             repo_id,
             AuditOutcome::Allowed,
         );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::auth::{Permission, PermissionGrant, TokenClaims};
-    use crate::ids::RepoId;
-
-    fn make_service() -> AuthorizationService {
-        let verifier =
-            Arc::new(TokenVerifier::new(b"test_secret_32_bytes_padded_here!!" as &[u8]).unwrap());
-        let audit = Arc::new(AuditLog::new());
-        AuthorizationService::new(verifier, audit)
-    }
-
-    #[test]
-    fn path_access_allowed_without_path_grants() {
-        let svc = make_service();
-        let repo_id: RepoId = "my-repo".parse().unwrap();
-        let claims = TokenClaims {
-            subject: "alice".to_string(),
-            grants: vec![PermissionGrant {
-                repo_id: Some(repo_id.clone()),
-                permission: Permission::Read,
-            }],
-            expires_at: None,
-            path_grants: vec![],
-        };
-        let path: SafePath = "src/main.rs".parse().unwrap();
-        assert!(svc.check_path_access(&claims, &repo_id, &path).is_ok());
-    }
-
-    #[test]
-    fn path_access_denied_with_restrictive_path_grants() {
-        use crate::auth::PathGrant;
-
-        let svc = make_service();
-        let repo_id: RepoId = "my-repo".parse().unwrap();
-        let claims = TokenClaims {
-            subject: "bob".to_string(),
-            grants: vec![PermissionGrant {
-                repo_id: Some(repo_id.clone()),
-                permission: Permission::Read,
-            }],
-            expires_at: None,
-            path_grants: vec![PathGrant {
-                repo_id: repo_id.clone(),
-                allowed_paths: vec!["src".parse().unwrap()],
-            }],
-        };
-
-        let allowed: SafePath = "src/main.rs".parse().unwrap();
-        let denied: SafePath = "docs/readme.md".parse().unwrap();
-
-        assert!(svc.check_path_access(&claims, &repo_id, &allowed).is_ok());
-        assert!(svc.check_path_access(&claims, &repo_id, &denied).is_err());
-
-        let snapshot = svc.audit_log.snapshot();
-        assert!(snapshot.iter().any(|e| e.outcome == AuditOutcome::Denied));
-    }
-
-    #[test]
-    fn audit_log_records_denied_permission() {
-        let svc = make_service();
-        let headers = HeaderMap::new(); // no bearer token
-        let repo_id: RepoId = "any-repo".parse().unwrap();
-        let result = svc.require_permission(&headers, Some(&repo_id), Permission::Read, "test");
-        assert!(result.is_err());
-        // No audit entry expected for missing token (no subject to record)
     }
 }

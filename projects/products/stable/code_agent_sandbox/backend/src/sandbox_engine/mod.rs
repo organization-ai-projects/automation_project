@@ -1,4 +1,4 @@
-// projects/products/code_agent_sandbox/src/sandbox_engine/mod.rs
+//! projects/products/code_agent_sandbox/src/sandbox_engine/mod.rs
 // Internal modules
 mod engine_config;
 mod engine_ctx;
@@ -27,3 +27,6 @@ pub(crate) use request::Request;
 pub(crate) use response::Response;
 pub(crate) use rights::Rights;
 pub(crate) use workspace_mode::WorkspaceMode;
+
+#[cfg(test)]
+mod tests;

@@ -51,31 +51,3 @@ impl FromStr for RepoId {
         Ok(Self(s.to_string()))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_valid() {
-        let id: RepoId = "my-repo_1".parse().unwrap();
-        assert_eq!(id.as_str(), "my-repo_1");
-    }
-
-    #[test]
-    fn parse_empty() {
-        assert!("".parse::<RepoId>().is_err());
-    }
-
-    #[test]
-    fn parse_too_long() {
-        let s = "a".repeat(65);
-        assert!(s.parse::<RepoId>().is_err());
-    }
-
-    #[test]
-    fn parse_invalid_chars() {
-        assert!("my repo".parse::<RepoId>().is_err());
-        assert!("my/repo".parse::<RepoId>().is_err());
-    }
-}

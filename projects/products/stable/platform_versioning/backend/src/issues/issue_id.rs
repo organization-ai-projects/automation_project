@@ -51,31 +51,3 @@ impl FromStr for IssueId {
         Ok(Self(s.to_string()))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_valid() {
-        let id: IssueId = "issue-42".parse().unwrap();
-        assert_eq!(id.as_str(), "issue-42");
-    }
-
-    #[test]
-    fn parse_empty_rejected() {
-        assert!("".parse::<IssueId>().is_err());
-    }
-
-    #[test]
-    fn parse_too_long_rejected() {
-        let s = "a".repeat(65);
-        assert!(s.parse::<IssueId>().is_err());
-    }
-
-    #[test]
-    fn parse_invalid_chars_rejected() {
-        assert!("my issue".parse::<IssueId>().is_err());
-        assert!("my/issue".parse::<IssueId>().is_err());
-    }
-}

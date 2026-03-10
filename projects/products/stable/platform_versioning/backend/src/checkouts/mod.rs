@@ -6,3 +6,6 @@ pub mod materialized;
 pub use checkout::Checkout;
 pub use checkout_policy::CheckoutPolicy;
 pub use materialized::Materialized;
+
+#[cfg(test)]
+mod tests;

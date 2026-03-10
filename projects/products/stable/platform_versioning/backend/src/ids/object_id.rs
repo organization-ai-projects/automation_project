@@ -67,36 +67,3 @@ impl FromStr for ObjectId {
         Ok(Self(s.to_lowercase()))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn roundtrip_hex() {
-        let raw = [0xabu8; 32];
-        let id = ObjectId::from_bytes(&raw);
-        assert_eq!(id.as_str().len(), 64);
-        assert_eq!(id.to_bytes(), raw);
-    }
-
-    #[test]
-    fn parse_valid() {
-        let hex = "a".repeat(64);
-        let id: ObjectId = hex.parse().unwrap();
-        assert_eq!(id.as_str(), hex);
-    }
-
-    #[test]
-    fn parse_too_short() {
-        let result = "abc".parse::<ObjectId>();
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn parse_non_hex() {
-        let bad = "z".repeat(64);
-        let result = bad.parse::<ObjectId>();
-        assert!(result.is_err());
-    }
-}

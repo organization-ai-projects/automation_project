@@ -9,3 +9,6 @@ pub use integrity_issue::IntegrityIssue;
 pub use integrity_report::IntegrityReport;
 pub use slice_feedback::SliceFeedback;
 pub use verification::Verification;
+
+#[cfg(test)]
+mod tests;

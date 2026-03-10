@@ -1,4 +1,4 @@
-// projects/products/stable/platform_ide/backend/src/editor/file_buffer.rs
+//! projects/products/stable/platform_ide/backend/src/editor/file_buffer.rs
 use crate::slices::AllowedPath;
 
 /// An in-memory buffer for a file open in the IDE editor.
@@ -50,40 +50,5 @@ impl FileBuffer {
     /// Resets the buffer to the original content, discarding any edits.
     pub fn revert(&mut self) {
         self.current = self.original.clone();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::slices::AllowedPath;
-
-    fn make_path() -> AllowedPath {
-        AllowedPath::new_validated("src/main.rs".to_string())
-    }
-
-    #[test]
-    fn open_not_dirty() {
-        let buf = FileBuffer::open(make_path(), b"hello".to_vec());
-        assert!(!buf.is_dirty());
-        assert_eq!(buf.content(), b"hello");
-    }
-
-    #[test]
-    fn write_marks_dirty() {
-        let mut buf = FileBuffer::open(make_path(), b"hello".to_vec());
-        buf.write(b"world".to_vec());
-        assert!(buf.is_dirty());
-        assert_eq!(buf.content(), b"world");
-        assert_eq!(buf.original(), b"hello");
-    }
-
-    #[test]
-    fn revert_clears_dirty() {
-        let mut buf = FileBuffer::open(make_path(), b"hello".to_vec());
-        buf.write(b"world".to_vec());
-        buf.revert();
-        assert!(!buf.is_dirty());
-        assert_eq!(buf.content(), b"hello");
     }
 }

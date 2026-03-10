@@ -5,7 +5,7 @@ fn main() {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    run();
+    dioxus::launch(app::app);
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -26,7 +26,5 @@ mod user_actions;
 #[cfg(target_arch = "wasm32")]
 mod app;
 
-#[cfg(target_arch = "wasm32")]
-fn run() {
-    dioxus::launch(app::app);
-}
+#[cfg(test)]
+mod tests;

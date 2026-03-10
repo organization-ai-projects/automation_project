@@ -1,4 +1,4 @@
-/// Configuration for the platform IDE.
+//! projects/products/stable/platform_ide/backend/src/ide_config.rs
 pub struct IdeConfig {
     /// URL of the platform-versioning backend (e.g. `"http://127.0.0.1:8080"`).
     pub platform_url: String,

@@ -1,5 +1,5 @@
-// projects/products/stable/accounts/backend/src/store/accounts_file.rs
-use crate::store::account_record::AccountRecord;
+//! projects/products/stable/accounts/backend/src/store/accounts_file.rs
+use crate::store::AccountRecord;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AccountsFile {
