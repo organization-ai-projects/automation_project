@@ -51,24 +51,7 @@ manager_parse_update_args() {
 manager_load_issue_content_for_update() {
   local issue_number="$1"
   local repo="$2"
-
-  if command -v va_exec >/dev/null 2>&1; then
-    if [[ -n "$repo" ]]; then
-      if va_exec issue read --issue "$issue_number" --repo "$repo" --json title,body,labels; then
-        return 0
-      fi
-    else
-      if va_exec issue read --issue "$issue_number" --json title,body,labels; then
-        return 0
-      fi
-    fi
-  fi
-
-  if [[ -n "$repo" ]]; then
-    gh issue view "$issue_number" -R "$repo" --json title,body,labels
-  else
-    gh issue view "$issue_number" --json title,body,labels
-  fi
+  issue_gh_issue_json "$repo" "$issue_number" "title,body,labels"
 }
 
 cmd_update() {

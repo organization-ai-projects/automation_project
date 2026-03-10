@@ -89,6 +89,40 @@ issue_gh_issue_state() {
   echo "$issue_state"
 }
 
+issue_gh_issue_json() {
+  local repo="${1:-}"
+  local issue_number="$2"
+  local json_fields="$3"
+  local issue_json=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if [[ -n "$repo" ]]; then
+      issue_json="$(
+        va_exec issue read \
+          --issue "$issue_number" \
+          --repo "$repo" \
+          --json "$json_fields" 2>/dev/null || true
+      )"
+    else
+      issue_json="$(
+        va_exec issue read \
+          --issue "$issue_number" \
+          --json "$json_fields" 2>/dev/null || true
+      )"
+    fi
+  fi
+
+  if [[ -z "$issue_json" ]]; then
+    if [[ -n "$repo" ]]; then
+      issue_json="$(gh issue view "$issue_number" -R "$repo" --json "$json_fields" 2>/dev/null || true)"
+    else
+      issue_json="$(gh issue view "$issue_number" --json "$json_fields" 2>/dev/null || true)"
+    fi
+  fi
+
+  printf '%s\n' "$issue_json"
+}
+
 issue_gh_pr_state() {
   local repo="$1"
   local pr_number="$2"

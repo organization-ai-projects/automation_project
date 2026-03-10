@@ -8,6 +8,8 @@ source "${ISSUES_DIR}/../lib/va.sh"
 manager_issues_legacy_dispatch() {
   # shellcheck source=scripts/versioning/file_versioning/github/issues/required_fields/load.sh
   source "${ISSUES_DIR}/required_fields/load.sh"
+  # shellcheck source=scripts/versioning/file_versioning/github/issues/common/gh.sh
+  source "${ISSUES_DIR}/common/gh.sh"
   # shellcheck source=scripts/versioning/file_versioning/github/issues/common/cli.sh
   source "${ISSUES_DIR}/common/cli.sh"
   # shellcheck source=scripts/versioning/file_versioning/github/issues/common/refs.sh
