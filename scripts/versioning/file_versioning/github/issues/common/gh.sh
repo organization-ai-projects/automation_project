@@ -38,6 +38,23 @@ issue_gh_resolve_repo_name_or_exit() {
 issue_gh_label_exists() {
   local repo="$1"
   local label="$2"
+  local exists_result=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    exists_result="$(
+      va_exec issue label-exists \
+        --repo "$repo" \
+        --label "$label" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ "$exists_result" == "true" ]]; then
+    return 0
+  fi
+  if [[ "$exists_result" == "false" ]]; then
+    return 1
+  fi
+
   gh label list -R "$repo" --limit 1000 --json name --jq '.[].name' 2>/dev/null |
     grep -Fxq "$label"
 }
