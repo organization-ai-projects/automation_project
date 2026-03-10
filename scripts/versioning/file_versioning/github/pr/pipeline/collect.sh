@@ -13,10 +13,7 @@ pr_pipeline_mark_breaking_from_text() {
   fi
 
   if command -v va_exec >/dev/null 2>&1; then
-    breaking_result="$(
-      va_exec pr breaking-detect \
-        --text "$text" 2>/dev/null || true
-    )"
+    breaking_result="$(printf '%s' "$text" | va_exec pr breaking-detect --stdin 2>/dev/null || true)"
     if [[ "$breaking_result" == "true" ]]; then
       breaking_detected=1
       return

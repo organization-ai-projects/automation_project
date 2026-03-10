@@ -4,7 +4,7 @@
 
 # Breaking-change detection helpers.
 
-pr_text_indicates_breaking() {
+pr_text_indicates_breaking_legacy() {
   local text="${1:-}"
   local line
   local lower
@@ -34,6 +34,23 @@ pr_text_indicates_breaking() {
   done <<<"$text"
 
   return 1
+}
+
+pr_text_indicates_breaking() {
+  local text="${1:-}"
+  local breaking_result=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    breaking_result="$(printf '%s' "$text" | va_exec pr breaking-detect --stdin 2>/dev/null || true)"
+    if [[ "$breaking_result" == "true" ]]; then
+      return 0
+    fi
+    if [[ "$breaking_result" == "false" ]]; then
+      return 1
+    fi
+  fi
+
+  pr_text_indicates_breaking_legacy "$text"
 }
 
 pr_extract_breaking_scope_from_subject() {
