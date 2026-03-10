@@ -11,6 +11,7 @@ mod group_by_category;
 mod issue_decision;
 mod issue_ref_kind;
 mod non_closing_refs;
+mod normalize_issue_key;
 mod parse;
 mod render;
 mod resolve_category;
@@ -32,6 +33,7 @@ use group_by_category::run_group_by_category;
 use issue_decision::run_issue_decision;
 use issue_ref_kind::run_issue_ref_kind;
 use non_closing_refs::run_non_closing_refs;
+use normalize_issue_key::run_normalize_issue_key;
 use parse::parse;
 use render::{emit_json, emit_plain, print_usage};
 use resolve_category::{
@@ -67,6 +69,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::IssueCategoryFromLabels(opts)) => run_issue_category_from_labels(opts),
         Ok(PrAction::IssueCategoryFromTitle(opts)) => run_issue_category_from_title(opts),
         Ok(PrAction::IssueRefKind(opts)) => run_issue_ref_kind(opts),
+        Ok(PrAction::NormalizeIssueKey(opts)) => run_normalize_issue_key(opts),
         Ok(PrAction::IssueDecision(opts)) => run_issue_decision(opts),
         Ok(PrAction::ClosureMarker(opts)) => run_closure_marker(opts),
         Ok(PrAction::NonClosingRefs(opts)) => run_non_closing_refs(opts),

@@ -126,6 +126,13 @@ fn pr_issue_ref_kind_requires_issue() {
 }
 
 #[test]
+fn pr_normalize_issue_key_requires_raw() {
+    let args = vec!["normalize-issue-key".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
 fn pr_issue_category_from_labels_requires_labels_raw() {
     let args = vec!["issue-category-from-labels".to_string()];
     let code = run(&args);

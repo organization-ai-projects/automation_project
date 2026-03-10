@@ -20,6 +20,7 @@ use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFr
 use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
 use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
+use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 
 pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
@@ -50,6 +51,9 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
             parse_issue_category_from_title(&args[1..]).map(PrAction::IssueCategoryFromTitle)
         }
         "issue-ref-kind" => parse_issue_ref_kind(&args[1..]).map(PrAction::IssueRefKind),
+        "normalize-issue-key" => {
+            parse_normalize_issue_key(&args[1..]).map(PrAction::NormalizeIssueKey)
+        }
         "issue-decision" => parse_issue_decision(&args[1..]).map(PrAction::IssueDecision),
         "closure-marker" => parse_closure_marker(&args[1..]).map(PrAction::ClosureMarker),
         "non-closing-refs" => parse_non_closing_refs(&args[1..]).map(PrAction::NonClosingRefs),
@@ -220,6 +224,23 @@ fn parse_issue_ref_kind(args: &[String]) -> Result<PrIssueRefKindOptions, String
 
     require_positive_number("--issue", &issue_number)?;
     Ok(PrIssueRefKindOptions { issue_number, repo })
+}
+
+fn parse_normalize_issue_key(args: &[String]) -> Result<PrNormalizeIssueKeyOptions, String> {
+    let mut raw = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--raw" => raw = take_value("--raw", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for normalize-issue-key: {unknown}")),
+        }
+    }
+
+    if raw.is_empty() {
+        return Err("--raw is required".to_string());
+    }
+    Ok(PrNormalizeIssueKeyOptions { raw })
 }
 
 fn parse_issue_category_from_labels(

@@ -4,6 +4,7 @@ mod conflicts;
 mod group_by_category;
 mod issue_decision;
 mod non_closing_refs;
+mod normalize_issue_key;
 mod parse;
 mod resolve_category;
 mod scan;

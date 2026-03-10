@@ -13,6 +13,7 @@ use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFr
 use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
 use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
+use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +30,7 @@ pub(crate) enum PrAction {
     IssueCategoryFromLabels(PrIssueCategoryFromLabelsOptions),
     IssueCategoryFromTitle(PrIssueCategoryFromTitleOptions),
     IssueRefKind(PrIssueRefKindOptions),
+    NormalizeIssueKey(PrNormalizeIssueKeyOptions),
     IssueDecision(PrIssueDecisionOptions),
     ClosureMarker(PrClosureMarkerOptions),
     NonClosingRefs(PrNonClosingRefsOptions),
