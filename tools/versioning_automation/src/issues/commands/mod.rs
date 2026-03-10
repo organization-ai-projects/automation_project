@@ -1,4 +1,5 @@
 //! tools/versioning_automation/src/issues/commands/mod.rs
+mod assignee_logins_options;
 mod close_options;
 mod create_options;
 mod fetch_non_compliance_reason_options;
@@ -6,6 +7,7 @@ mod issue_action;
 mod issue_target;
 mod label_exists_options;
 mod non_compliance_reason_options;
+mod open_numbers_options;
 mod read_options;
 mod reevaluate_options;
 mod required_fields_validate_options;
@@ -16,6 +18,7 @@ mod tasklist_refs_options;
 mod update_options;
 mod upsert_marker_comment_options;
 
+pub(crate) use assignee_logins_options::AssigneeLoginsOptions;
 pub(crate) use close_options::CloseOptions;
 pub(crate) use create_options::CreateOptions;
 pub(crate) use fetch_non_compliance_reason_options::FetchNonComplianceReasonOptions;
@@ -23,6 +26,7 @@ pub(crate) use issue_action::IssueAction;
 pub(crate) use issue_target::IssueTarget;
 pub(crate) use label_exists_options::LabelExistsOptions;
 pub(crate) use non_compliance_reason_options::NonComplianceReasonOptions;
+pub(crate) use open_numbers_options::OpenNumbersOptions;
 pub(crate) use read_options::ReadOptions;
 pub(crate) use reevaluate_options::ReevaluateOptions;
 pub(crate) use required_fields_validate_options::RequiredFieldsValidateOptions;

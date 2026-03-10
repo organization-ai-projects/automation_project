@@ -1,9 +1,10 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
-    CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueAction, IssueTarget,
-    LabelExistsOptions, NonComplianceReasonOptions, ReadOptions, ReevaluateOptions,
-    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, SubissueRefsOptions,
-    SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
+    IssueAction, IssueTarget, LabelExistsOptions, NonComplianceReasonOptions, OpenNumbersOptions,
+    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
+    SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions,
+    UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -38,8 +39,27 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "upsert-marker-comment" => {
             parse_upsert_marker_comment(&args[1..]).map(IssueAction::UpsertMarkerComment)
         }
+        "open-numbers" => parse_open_numbers(&args[1..]).map(IssueAction::OpenNumbers),
+        "assignee-logins" => parse_assignee_logins(&args[1..]).map(IssueAction::AssigneeLogins),
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
     }
+}
+
+fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {
+    let mut repo: Option<String> = None;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for open-numbers: {unknown}")),
+        }
+    }
+    Ok(OpenNumbersOptions { repo })
+}
+
+fn parse_assignee_logins(args: &[String]) -> Result<AssigneeLoginsOptions, String> {
+    let (issue, repo) = parse_issue_and_optional_repo(args, "assignee-logins")?;
+    Ok(AssigneeLoginsOptions { issue, repo })
 }
 
 fn parse_upsert_marker_comment(args: &[String]) -> Result<UpsertMarkerCommentOptions, String> {

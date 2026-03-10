@@ -150,3 +150,21 @@ fn parse_upsert_marker_comment_requires_required_fields() {
     let code = issues::run(&args);
     assert_eq!(code, 2);
 }
+
+#[test]
+fn parse_open_numbers_accepts_optional_repo() {
+    let args = vec![
+        "open-numbers".to_string(),
+        "--repo".to_string(),
+        "owner/repo".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
+fn parse_assignee_logins_requires_issue() {
+    let args = vec!["assignee-logins".to_string()];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}

@@ -4,10 +4,10 @@ use std::process::Command;
 use regex::Regex;
 
 use crate::issues::commands::{
-    CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueTarget, LabelExistsOptions,
-    NonComplianceReasonOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
-    RequiredFieldsValidationMode, SubissueRefsOptions, TasklistRefsOptions, UpdateOptions,
-    UpsertMarkerCommentOptions,
+    AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
+    IssueTarget, LabelExistsOptions, NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions,
+    ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
+    SubissueRefsOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -203,6 +203,45 @@ pub(crate) fn run_label_exists(opts: LabelExistsOptions) -> i32 {
     ]);
     let exists = labels.lines().any(|name| name.trim() == opts.label);
     println!("{}", if exists { "true" } else { "false" });
+    0
+}
+
+pub(crate) fn run_open_numbers(opts: OpenNumbersOptions) -> i32 {
+    let mut args: Vec<&str> = vec![
+        "issue",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        "300",
+        "--json",
+        "number",
+        "--jq",
+        ".[].number",
+    ];
+    if let Some(repo) = opts.repo.as_deref() {
+        args.push("-R");
+        args.push(repo);
+    }
+    print_non_empty_lines(&gh_output_or_empty(&args));
+    0
+}
+
+pub(crate) fn run_assignee_logins(opts: AssigneeLoginsOptions) -> i32 {
+    let mut args: Vec<&str> = vec![
+        "issue",
+        "view",
+        &opts.issue,
+        "--json",
+        "assignees",
+        "--jq",
+        ".assignees[].login",
+    ];
+    if let Some(repo) = opts.repo.as_deref() {
+        args.push("-R");
+        args.push(repo);
+    }
+    print_non_empty_lines(&gh_output_or_empty(&args));
     0
 }
 

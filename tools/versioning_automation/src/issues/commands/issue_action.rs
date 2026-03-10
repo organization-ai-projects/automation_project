@@ -1,9 +1,9 @@
 //! tools/versioning_automation/src/issues/commands/issue_action.rs
 use crate::issues::commands::{
-    CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueTarget, LabelExistsOptions,
-    NonComplianceReasonOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
-    SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions,
-    UpsertMarkerCommentOptions,
+    AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
+    IssueTarget, LabelExistsOptions, NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions,
+    ReevaluateOptions, RequiredFieldsValidateOptions, SubissueRefsOptions,
+    SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 #[derive(Debug, Clone)]
@@ -25,4 +25,6 @@ pub(crate) enum IssueAction {
     TasklistRefs(TasklistRefsOptions),
     SubissueRefs(SubissueRefsOptions),
     UpsertMarkerComment(UpsertMarkerCommentOptions),
+    OpenNumbers(OpenNumbersOptions),
+    AssigneeLogins(AssigneeLoginsOptions),
 }

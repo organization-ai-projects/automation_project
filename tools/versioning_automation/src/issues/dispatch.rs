@@ -1,10 +1,10 @@
 //! tools/versioning_automation/src/issues/dispatch.rs
 use crate::issues::commands::IssueAction;
 use crate::issues::execute::{
-    run_close, run_create, run_delete, run_fetch_non_compliance_reason, run_label_exists,
-    run_non_compliance_reason, run_read, run_reevaluate, run_reopen, run_repo_name,
-    run_required_fields_validate, run_subissue_refs, run_tasklist_refs, run_update,
-    run_upsert_marker_comment,
+    run_assignee_logins, run_close, run_create, run_delete, run_fetch_non_compliance_reason,
+    run_label_exists, run_non_compliance_reason, run_open_numbers, run_read, run_reevaluate,
+    run_reopen, run_repo_name, run_required_fields_validate, run_subissue_refs, run_tasklist_refs,
+    run_update, run_upsert_marker_comment,
 };
 use crate::issues::parse::parse;
 use crate::issues::render::print_usage;
@@ -32,6 +32,8 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(IssueAction::TasklistRefs(opts)) => run_tasklist_refs(opts),
         Ok(IssueAction::SubissueRefs(opts)) => run_subissue_refs(opts),
         Ok(IssueAction::UpsertMarkerComment(opts)) => run_upsert_marker_comment(opts),
+        Ok(IssueAction::OpenNumbers(opts)) => run_open_numbers(opts),
+        Ok(IssueAction::AssigneeLogins(opts)) => run_assignee_logins(opts),
         Err(message) => {
             eprintln!("{message}");
             2

@@ -71,6 +71,8 @@ pub(crate) fn print_usage() {
     println!("  va issue sync-project-status --repo owner/name --issue <number> --status <name>");
     println!("  va issue tasklist-refs --body <issue_body>");
     println!("  va issue subissue-refs --owner <owner> --repo <repo> --issue <number>");
+    println!("  va issue open-numbers [--repo owner/name]");
+    println!("  va issue assignee-logins --issue <number> [--repo owner/name]");
     println!(
         "  va issue upsert-marker-comment --repo owner/name --issue <number> --marker <marker> --body <body> [--announce true|false]"
     );
