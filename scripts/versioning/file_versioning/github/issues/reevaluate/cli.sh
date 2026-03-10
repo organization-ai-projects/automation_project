@@ -60,16 +60,26 @@ reevaluate_main() {
     chmod +x "$neutralizer"
   fi
 
-  local pr_numbers
-  pr_numbers="$({
-    gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[]. | [.number, (.body // "")] | @tsv' 2>/dev/null |
-      while IFS=$'\t' read -r pr_num pr_body; do
-        [[ -n "$pr_num" ]] || continue
-        if reevaluate_pr_body_references_issue "$issue_number" "$pr_body"; then
-          printf '%s\n' "$pr_num"
-        fi
-      done
-  } || true)"
+  local pr_numbers=""
+  if command -v va_exec >/dev/null 2>&1; then
+    pr_numbers="$(
+      va_exec pr open-referencing-issue \
+        --issue "$issue_number" \
+        --repo "$repo_name" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ -z "$pr_numbers" ]]; then
+    pr_numbers="$({
+      gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[]. | [.number, (.body // "")] | @tsv' 2>/dev/null |
+        while IFS=$'\t' read -r pr_num pr_body; do
+          [[ -n "$pr_num" ]] || continue
+          if reevaluate_pr_body_references_issue "$issue_number" "$pr_body"; then
+            printf '%s\n' "$pr_num"
+          fi
+        done
+    } || true)"
+  fi
 
   if [[ -z "$pr_numbers" ]]; then
     echo "No open PRs found referencing issue #${issue_number}."
