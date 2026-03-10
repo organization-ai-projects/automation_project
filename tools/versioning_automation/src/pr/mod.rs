@@ -35,7 +35,8 @@ use non_closing_refs::run_non_closing_refs;
 use parse::parse;
 use render::{emit_json, emit_plain, print_usage};
 use resolve_category::{
-    run_issue_category_from_labels, run_issue_category_from_title, run_resolve_category,
+    run_effective_category, run_issue_category_from_labels, run_issue_category_from_title,
+    run_resolve_category,
 };
 use scan::scan_directives;
 use state::run_directives_state;
@@ -61,6 +62,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),
         Ok(PrAction::DirectiveConflictGuard(opts)) => run_directive_conflict_guard(opts),
         Ok(PrAction::DuplicateActions(opts)) => run_duplicate_actions(opts),
+        Ok(PrAction::EffectiveCategory(opts)) => run_effective_category(opts),
         Ok(PrAction::GroupByCategory(opts)) => run_group_by_category(opts),
         Ok(PrAction::IssueCategoryFromLabels(opts)) => run_issue_category_from_labels(opts),
         Ok(PrAction::IssueCategoryFromTitle(opts)) => run_issue_category_from_title(opts),

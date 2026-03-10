@@ -1,5 +1,6 @@
 use regex::Regex;
 
+use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptions;
 use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
 use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
@@ -11,6 +12,15 @@ pub(crate) fn run_resolve_category(opts: PrResolveCategoryOptions) -> i32 {
         &opts.default_category,
     );
 
+    println!("{effective}");
+    0
+}
+
+pub(crate) fn run_effective_category(opts: PrEffectiveCategoryOptions) -> i32 {
+    let label_category = issue_category_from_labels(&opts.labels_raw);
+    let title_category = issue_category_from_title(&opts.title);
+    let effective =
+        resolve_effective_category(label_category, title_category, &opts.default_category);
     println!("{effective}");
     0
 }

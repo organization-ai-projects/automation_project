@@ -8,6 +8,7 @@ pub(crate) mod pr_directives_format;
 pub(crate) mod pr_directives_options;
 pub(crate) mod pr_directives_state_options;
 pub(crate) mod pr_duplicate_actions_options;
+pub(crate) mod pr_effective_category_options;
 pub(crate) mod pr_group_by_category_options;
 pub(crate) mod pr_issue_category_from_labels_options;
 pub(crate) mod pr_issue_category_from_title_options;

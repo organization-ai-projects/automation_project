@@ -140,6 +140,13 @@ fn pr_issue_category_from_title_requires_title() {
 }
 
 #[test]
+fn pr_effective_category_requires_fields() {
+    let args = vec!["effective-category".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
 fn pr_directives_state_requires_input() {
     let args = vec!["directives-state".to_string()];
     let code = run(&args);

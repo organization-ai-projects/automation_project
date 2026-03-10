@@ -13,6 +13,7 @@ use crate::pr::commands::pr_directives_format::PrDirectivesFormat;
 use crate::pr::commands::pr_directives_options::PrDirectivesOptions;
 use crate::pr::commands::pr_directives_state_options::PrDirectivesStateOptions;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
+use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptions;
 use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
 use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
 use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
@@ -38,6 +39,9 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
             parse_directive_conflict_guard(&args[1..]).map(PrAction::DirectiveConflictGuard)
         }
         "duplicate-actions" => parse_duplicate_actions(&args[1..]).map(PrAction::DuplicateActions),
+        "effective-category" => {
+            parse_effective_category(&args[1..]).map(PrAction::EffectiveCategory)
+        }
         "group-by-category" => parse_group_by_category(&args[1..]).map(PrAction::GroupByCategory),
         "issue-category-from-labels" => {
             parse_issue_category_from_labels(&args[1..]).map(PrAction::IssueCategoryFromLabels)
@@ -125,6 +129,40 @@ fn parse_duplicate_actions(args: &[String]) -> Result<PrDuplicateActionsOptions,
         mode,
         repo,
         assume_yes,
+    })
+}
+
+fn parse_effective_category(args: &[String]) -> Result<PrEffectiveCategoryOptions, String> {
+    let mut labels_raw = String::new();
+    let mut title = String::new();
+    let mut default_category = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--labels-raw" => labels_raw = take_value("--labels-raw", args, &mut i)?,
+            "--title" => title = take_value("--title", args, &mut i)?,
+            "--default-category" => {
+                default_category = take_value("--default-category", args, &mut i)?
+            }
+            unknown => return Err(format!("Unknown option for effective-category: {unknown}")),
+        }
+    }
+
+    if labels_raw.is_empty() {
+        return Err("--labels-raw is required".to_string());
+    }
+    if title.is_empty() {
+        return Err("--title is required".to_string());
+    }
+    if default_category.is_empty() {
+        return Err("--default-category is required".to_string());
+    }
+
+    Ok(PrEffectiveCategoryOptions {
+        labels_raw,
+        title,
+        default_category,
     })
 }
 

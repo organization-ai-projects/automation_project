@@ -20,6 +20,9 @@ pub(crate) fn print_usage() {
     println!(
         "  va pr group-by-category (--text \"...\" | --stdin) --mode <resolved|reopen|conflict|directive>"
     );
+    println!(
+        "  va pr effective-category --labels-raw \"label1||label2\" --title \"...\" --default-category <name>"
+    );
     println!("  va pr issue-category-from-labels --labels-raw \"label1||label2\"");
     println!("  va pr issue-category-from-title --title \"...\"");
     println!("  va pr issue-ref-kind --issue <number> [--repo owner/name]");

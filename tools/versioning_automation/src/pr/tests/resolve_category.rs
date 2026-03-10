@@ -1,8 +1,10 @@
+use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptions;
 use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
 use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 use crate::pr::resolve_category::{
-    run_issue_category_from_labels, run_issue_category_from_title, run_resolve_category,
+    run_effective_category, run_issue_category_from_labels, run_issue_category_from_title,
+    run_resolve_category,
 };
 
 #[test]
@@ -31,5 +33,16 @@ fn issue_category_from_title_command_runs() {
         title: "fix(auth): handle regression".to_string(),
     };
     let code = run_issue_category_from_title(opts);
+    assert_eq!(code, 0);
+}
+
+#[test]
+fn effective_category_command_runs() {
+    let opts = PrEffectiveCategoryOptions {
+        labels_raw: "feature||automation".to_string(),
+        title: "feat(ui): add dashboard".to_string(),
+        default_category: "Mixed".to_string(),
+    };
+    let code = run_effective_category(opts);
     assert_eq!(code, 0);
 }

@@ -6,6 +6,7 @@ use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOpt
 use crate::pr::commands::pr_directives_options::PrDirectivesOptions;
 use crate::pr::commands::pr_directives_state_options::PrDirectivesStateOptions;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
+use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptions;
 use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
 use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
 use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
@@ -23,6 +24,7 @@ pub(crate) enum PrAction {
     DirectiveConflicts(PrDirectiveConflictsOptions),
     DirectiveConflictGuard(PrDirectiveConflictGuardOptions),
     DuplicateActions(PrDuplicateActionsOptions),
+    EffectiveCategory(PrEffectiveCategoryOptions),
     GroupByCategory(PrGroupByCategoryOptions),
     IssueCategoryFromLabels(PrIssueCategoryFromLabelsOptions),
     IssueCategoryFromTitle(PrIssueCategoryFromTitleOptions),
