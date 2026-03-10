@@ -67,11 +67,27 @@ pr_issue_should_skip_close_action() {
   return 1
 }
 
+pr_issue_load_effective_context() {
+  local issue_number="$1"
+  local default_category="$2"
+  local _out_effective_category_var="$3"
+  local _out_non_compliance_reason_var="$4"
+  local -n _out_effective_category_ref="$_out_effective_category_var"
+  local -n _out_non_compliance_reason_ref="$_out_non_compliance_reason_var"
+  local issue_context_payload issue_labels_raw title_category
+
+  issue_context_payload="$(pr_issue_context_payload_for "$issue_number")"
+  issue_labels_raw="$(pr_issue_payload_field "$issue_context_payload" "labels")"
+  title_category="$(pr_issue_payload_field "$issue_context_payload" "title_category")"
+  _out_non_compliance_reason_ref="$(pr_issue_payload_field "$issue_context_payload" "non_compliance_reason")"
+  _out_effective_category_ref="$(pr_resolve_effective_category "$default_category" "$issue_labels_raw" "$title_category")"
+}
+
 pr_add_issue_entry() {
   local action="$1"
   local issue_key_raw="$2"
   local default_category="$3"
-  local issue_key issue_number issue_context_payload issue_labels_raw title_category non_compliance_reason effective_category effective_decision inferred_decision=""
+  local issue_key issue_number non_compliance_reason effective_category effective_decision inferred_decision=""
   local inferred_conflict_reason=""
 
   pr_issue_parse_key_and_number "$issue_key_raw" issue_key issue_number || return
@@ -102,13 +118,7 @@ pr_add_issue_entry() {
     return
   fi
 
-  issue_context_payload="$(pr_issue_context_payload_for "$issue_number")"
-  issue_labels_raw="${issue_context_payload%%$'\x1f'*}"
-  title_category="${issue_context_payload#*$'\x1f'}"
-  title_category="${title_category%%$'\x1f'*}"
-  non_compliance_reason="${issue_context_payload#*$'\x1f'}"
-  non_compliance_reason="${non_compliance_reason#*$'\x1f'}"
-  effective_category="$(pr_resolve_effective_category "$default_category" "$issue_labels_raw" "$title_category")"
+  pr_issue_load_effective_context "$issue_number" "$default_category" effective_category non_compliance_reason
 
   if pr_issue_should_skip_close_action "$issue_key" "$issue_number" "$non_compliance_reason" "$action"; then
     return
