@@ -4,6 +4,7 @@ use std::process::Command;
 use crate::pr::model::directive_record_type::DirectiveRecordType;
 use crate::pr::model::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::scan::scan_directives;
+use serde::Deserialize;
 
 const AUTO_BLOCK_START: &str = "<!-- auto-closes:start -->";
 const AUTO_BLOCK_END: &str = "<!-- auto-closes:end -->";
@@ -17,51 +18,21 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
         }
     };
 
-    let pr_state = match gh_pr_field(&opts.pr_number, &repo_name, "state", ".state // \"\"") {
-        Ok(value) => value,
+    let pr_snapshot = match gh_pr_snapshot(&opts.pr_number, &repo_name) {
+        Ok(snapshot) => snapshot,
         Err(_) => {
             eprintln!("Error: unable to read PR #{}.", opts.pr_number);
             return 3;
         }
     };
-    let pr_base = match gh_pr_field(
-        &opts.pr_number,
-        &repo_name,
-        "baseRefName",
-        ".baseRefName // \"\"",
-    ) {
-        Ok(value) => value,
-        Err(_) => {
-            eprintln!("Error: unable to read PR #{}.", opts.pr_number);
-            return 3;
-        }
-    };
-    let pr_title = match gh_pr_field(&opts.pr_number, &repo_name, "title", ".title // \"\"") {
-        Ok(value) => value,
-        Err(_) => {
-            eprintln!("Error: unable to read PR #{}.", opts.pr_number);
-            return 3;
-        }
-    };
-    let pr_body = match gh_pr_field(&opts.pr_number, &repo_name, "body", ".body // \"\"") {
-        Ok(value) => value,
-        Err(_) => {
-            eprintln!("Error: unable to read PR #{}.", opts.pr_number);
-            return 3;
-        }
-    };
-    let pr_author = match gh_pr_field(
-        &opts.pr_number,
-        &repo_name,
-        "author",
-        ".author.login // \"\"",
-    ) {
-        Ok(value) => value,
-        Err(_) => {
-            eprintln!("Error: unable to read PR #{}.", opts.pr_number);
-            return 3;
-        }
-    };
+    let pr_state = pr_snapshot.state;
+    let pr_base = pr_snapshot.base_ref_name;
+    let pr_title = pr_snapshot.title;
+    let pr_body = pr_snapshot.body;
+    let pr_author = pr_snapshot
+        .author
+        .and_then(|author| author.login)
+        .unwrap_or_default();
 
     if pr_state != "OPEN" {
         println!("PR #{} is not open; skipping.", opts.pr_number);
@@ -181,18 +152,19 @@ fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
     }
 }
 
-fn gh_pr_field(
-    pr_number: &str,
-    repo_name: &str,
-    json_field: &str,
-    jq_expr: &str,
-) -> Result<String, String> {
-    gh_output(
+fn gh_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<PrSnapshot, String> {
+    let json = gh_output(
         "pr",
         &[
-            "view", pr_number, "-R", repo_name, "--json", json_field, "--jq", jq_expr,
+            "view",
+            pr_number,
+            "-R",
+            repo_name,
+            "--json",
+            "state,baseRefName,title,body,author",
         ],
-    )
+    )?;
+    common_json::from_json_str::<PrSnapshot>(&json).map_err(|err| err.to_string())
 }
 
 fn gh_output(cmd: &str, args: &[&str]) -> Result<String, String> {
@@ -212,6 +184,26 @@ fn gh_output(cmd: &str, args: &[&str]) -> Result<String, String> {
         }
         Err(err) => Err(err.to_string()),
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct PrSnapshot {
+    #[serde(default, rename = "state")]
+    state: String,
+    #[serde(default, rename = "baseRefName")]
+    base_ref_name: String,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    body: String,
+    #[serde(default)]
+    author: Option<PrAuthor>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrAuthor {
+    #[serde(default)]
+    login: Option<String>,
 }
 
 fn collect_refs_from_payload(payload: &str) -> (Vec<String>, Vec<String>) {
