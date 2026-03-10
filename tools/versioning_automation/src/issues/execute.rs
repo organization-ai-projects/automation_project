@@ -295,9 +295,9 @@ pub(crate) fn run_list_by_label(opts: ListByLabelOptions) -> i32 {
         "--label",
         &opts.label,
         "--json",
-        "number",
+        "number,title,url",
         "--jq",
-        ".[].number",
+        ".[] | \"\\(.number)|\\(.title)|\\(.url)\"",
     ];
     if let Some(repo) = opts.repo.as_deref() {
         args.push("-R");
