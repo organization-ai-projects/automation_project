@@ -77,22 +77,35 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
 
 fn parse_breaking_detect(args: &[String]) -> Result<PrBreakingDetectOptions, String> {
     let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
     let mut labels_raw: Option<String> = None;
 
     let mut i = 0usize;
     while i < args.len() {
         match args[i].as_str() {
             "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
             "--labels-raw" => labels_raw = Some(take_value("--labels-raw", args, &mut i)?),
             unknown => return Err(format!("Unknown option for breaking-detect: {unknown}")),
         }
     }
 
-    if text.is_none() && labels_raw.is_none() {
-        return Err("breaking-detect requires --text or --labels-raw".to_string());
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() && labels_raw.is_none() {
+        return Err(
+            "breaking-detect requires --text/--stdin/--input-file or --labels-raw".to_string(),
+        );
     }
 
-    Ok(PrBreakingDetectOptions { text, labels_raw })
+    Ok(PrBreakingDetectOptions {
+        text: resolved_text,
+        labels_raw,
+    })
 }
 
 fn parse_directive_conflict_guard(

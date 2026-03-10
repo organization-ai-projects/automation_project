@@ -7,7 +7,7 @@ pub(crate) fn run_breaking_detect(opts: PrBreakingDetectOptions) -> i32 {
         .labels_raw
         .as_deref()
         .is_some_and(labels_indicate_breaking)
-        || opts.text.as_deref().is_some_and(text_indicates_breaking);
+        || (!opts.text.is_empty() && text_indicates_breaking(&opts.text));
 
     if detected {
         println!("true");

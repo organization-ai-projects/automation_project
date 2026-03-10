@@ -26,6 +26,20 @@ fn pr_breaking_detect_with_text_returns_zero() {
 }
 
 #[test]
+fn pr_breaking_detect_with_input_file_returns_zero() {
+    let file_path = "/tmp/va_pr_breaking_detect_input.txt";
+    std::fs::write(file_path, "- [x] Breaking change").expect("write input file");
+    let args = vec![
+        "breaking-detect".to_string(),
+        "--input-file".to_string(),
+        file_path.to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+    std::fs::remove_file(file_path).expect("remove input file");
+}
+
+#[test]
 fn pr_directives_requires_input() {
     let args = vec!["directives".to_string()];
     let code = run(&args);
