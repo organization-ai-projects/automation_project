@@ -1,2 +1,3 @@
-// projects/products/varina/backend/src/git_github/tests/mod.rs
+mod git_parser;
+mod policy_suggestions;
 mod unit_suggestions;
