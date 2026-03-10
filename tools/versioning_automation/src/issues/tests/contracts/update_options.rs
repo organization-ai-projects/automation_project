@@ -1,4 +1,4 @@
-use crate::issues::model::UpdateOptions;
+use crate::issues::contracts::cli::UpdateOptions;
 
 #[test]
 fn update_options_can_be_built() {

@@ -1,4 +1,4 @@
-use crate::issues::model::{CreateOptions, IssueAction};
+use crate::issues::contracts::cli::{CreateOptions, IssueAction};
 
 #[test]
 fn issue_action_create_variant_can_be_built() {

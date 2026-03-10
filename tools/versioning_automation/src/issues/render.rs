@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/issues/render.rs
-use crate::issues::model::CreateOptions;
+use crate::issues::contracts::cli::CreateOptions;
 
 pub(crate) fn render_direct_issue_body(opts: &CreateOptions) -> String {
     let mut body = String::new();

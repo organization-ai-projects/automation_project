@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/issues/parse.rs
-use crate::issues::model::{
+use crate::issues::contracts::cli::{
     CloseOptions, CreateOptions, IssueAction, IssueTarget, ReadOptions, ReevaluateOptions,
     UpdateOptions,
 };

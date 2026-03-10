@@ -1,4 +1,4 @@
-use crate::issues::model::CloseOptions;
+use crate::issues::contracts::cli::CloseOptions;
 
 #[test]
 fn close_options_can_be_built() {
