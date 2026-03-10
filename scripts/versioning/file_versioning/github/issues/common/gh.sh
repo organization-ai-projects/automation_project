@@ -18,6 +18,14 @@ issue_gh_resolve_repo_name() {
     echo "$GH_REPO"
     return 0
   fi
+  if command -v va_exec >/dev/null 2>&1; then
+    local repo_name=""
+    repo_name="$(va_exec issue repo-name 2>/dev/null || true)"
+    if [[ -n "$repo_name" ]]; then
+      echo "$repo_name"
+      return 0
+    fi
+  fi
   gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true
 }
 
