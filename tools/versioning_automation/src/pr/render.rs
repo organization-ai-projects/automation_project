@@ -4,6 +4,7 @@ use crate::pr::domain::directives::directive_record::DirectiveRecord;
 
 pub(crate) fn print_usage() {
     println!("Usage:");
+    println!("  va pr breaking-detect [--text \"...\"] [--labels-raw \"a||b\"]");
     println!("  va pr directives --text \"...\" [--format plain|json] [--unique]");
     println!("  va pr directives --stdin [--format plain|json] [--unique]");
     println!("  va pr directives-apply (--text \"...\" | --stdin)");

@@ -8,6 +8,24 @@ fn pr_help_returns_zero() {
 }
 
 #[test]
+fn pr_breaking_detect_requires_input() {
+    let args = vec!["breaking-detect".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_breaking_detect_with_text_returns_zero() {
+    let args = vec![
+        "breaking-detect".to_string(),
+        "--text".to_string(),
+        "- [x] Breaking change".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_directives_requires_input() {
     let args = vec!["directives".to_string()];
     let code = run(&args);

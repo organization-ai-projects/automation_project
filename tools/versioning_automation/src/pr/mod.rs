@@ -1,4 +1,5 @@
 mod auto_add;
+mod breaking_detect;
 mod closure_marker;
 mod closure_refs;
 mod commands;
@@ -26,6 +27,7 @@ mod state;
 mod tests;
 
 use auto_add::run_auto_add_closes;
+use breaking_detect::run_breaking_detect;
 use closure_marker::run_closure_marker;
 use closure_refs::run_closure_refs;
 use commands::pr_action::PrAction;
@@ -57,6 +59,7 @@ pub fn run(args: &[String]) -> i32 {
             print_usage();
             0
         }
+        Ok(PrAction::BreakingDetect(opts)) => run_breaking_detect(opts),
         Ok(PrAction::Directives(opts)) => {
             let records = scan_directives(&opts.text, opts.unique);
             match opts.format {

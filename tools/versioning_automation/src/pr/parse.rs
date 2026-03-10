@@ -5,6 +5,7 @@ use std::path::Path;
 
 use crate::pr::commands::pr_action::PrAction;
 use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
+use crate::pr::commands::pr_breaking_detect_options::PrBreakingDetectOptions;
 use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
 use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
@@ -34,6 +35,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
 
     match args[0].as_str() {
         "help" | "--help" | "-h" => Ok(PrAction::Help),
+        "breaking-detect" => parse_breaking_detect(&args[1..]).map(PrAction::BreakingDetect),
         "directives" => parse_directives(&args[1..]).map(PrAction::Directives),
         "directives-apply" => parse_directives_apply(&args[1..]).map(PrAction::DirectivesApply),
         "closure-refs" => parse_closure_refs(&args[1..]).map(PrAction::ClosureRefs),
@@ -71,6 +73,26 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_breaking_detect(args: &[String]) -> Result<PrBreakingDetectOptions, String> {
+    let mut text: Option<String> = None;
+    let mut labels_raw: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--labels-raw" => labels_raw = Some(take_value("--labels-raw", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for breaking-detect: {unknown}")),
+        }
+    }
+
+    if text.is_none() && labels_raw.is_none() {
+        return Err("breaking-detect requires --text or --labels-raw".to_string());
+    }
+
+    Ok(PrBreakingDetectOptions { text, labels_raw })
 }
 
 fn parse_directive_conflict_guard(
