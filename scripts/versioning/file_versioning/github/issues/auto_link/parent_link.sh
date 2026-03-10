@@ -49,16 +49,6 @@ auto_link_fail_runtime_with_graphql_errors() {
 ${next_steps}"
 }
 
-auto_link_remove_sub_issue_relation() {
-  local parent_node_id="$1"
-  local child_node_id="$2"
-
-  gh api graphql \
-    -f query='mutation($issueId:ID!,$subIssueId:ID!){removeSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{id}}}' \
-    -f issueId="$parent_node_id" \
-    -f subIssueId="$child_node_id" 2>/dev/null || true
-}
-
 auto_link_validate_graphql_runtime_result() {
   local repo_name="$1"
   local issue_number="$2"
@@ -131,12 +121,8 @@ auto_link_handle_parent_link() {
   fi
 
   local relation_json
-  relation_json="$(gh api graphql \
-    -f query='query($owner:String!,$name:String!,$child:Int!,$parent:Int!){repository(owner:$owner,name:$name){child:issue(number:$child){id parent{number id}} parent:issue(number:$parent){id state}}}' \
-    -f owner="$repo_owner" \
-    -f name="$repo_short_name" \
-    -F child="$issue_number" \
-    -F parent="$parent_number" 2>/dev/null || true)"
+  relation_json="$(auto_link_query_parent_child_relation \
+    "$repo_owner" "$repo_short_name" "$issue_number" "$parent_number")"
   auto_link_validate_graphql_runtime_result \
     "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
     "$relation_json" \
@@ -183,10 +169,7 @@ auto_link_handle_parent_link() {
   fi
 
   local link_result
-  link_result="$(gh api graphql \
-    -f query='mutation($issueId:ID!,$subIssueId:ID!){addSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{subIssues(first:1){nodes{number}}}}}' \
-    -f issueId="$parent_node_id" \
-    -f subIssueId="$child_node_id" 2>/dev/null || true)"
+  link_result="$(auto_link_add_sub_issue_relation "$parent_node_id" "$child_node_id")"
   auto_link_validate_graphql_runtime_result \
     "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
     "$link_result" \

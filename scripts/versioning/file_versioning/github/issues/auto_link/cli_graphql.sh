@@ -45,3 +45,53 @@ auto_link_extract_parent_field_value() {
 auto_link_require_deps() {
   issue_gh_require_gh_and_jq
 }
+
+auto_link_graphql_api() {
+  gh api graphql "$@" 2>/dev/null || true
+}
+
+auto_link_query_child_parent_relation() {
+  local repo_owner="$1"
+  local repo_short_name="$2"
+  local issue_number="$3"
+
+  auto_link_graphql_api \
+    -f query='query($owner:String!,$name:String!,$child:Int!){repository(owner:$owner,name:$name){child:issue(number:$child){id parent{number id}}}}' \
+    -f owner="$repo_owner" \
+    -f name="$repo_short_name" \
+    -F child="$issue_number"
+}
+
+auto_link_query_parent_child_relation() {
+  local repo_owner="$1"
+  local repo_short_name="$2"
+  local child_issue_number="$3"
+  local parent_issue_number="$4"
+
+  auto_link_graphql_api \
+    -f query='query($owner:String!,$name:String!,$child:Int!,$parent:Int!){repository(owner:$owner,name:$name){child:issue(number:$child){id parent{number id}} parent:issue(number:$parent){id state}}}' \
+    -f owner="$repo_owner" \
+    -f name="$repo_short_name" \
+    -F child="$child_issue_number" \
+    -F parent="$parent_issue_number"
+}
+
+auto_link_remove_sub_issue_relation() {
+  local parent_node_id="$1"
+  local child_node_id="$2"
+
+  auto_link_graphql_api \
+    -f query='mutation($issueId:ID!,$subIssueId:ID!){removeSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{id}}}' \
+    -f issueId="$parent_node_id" \
+    -f subIssueId="$child_node_id"
+}
+
+auto_link_add_sub_issue_relation() {
+  local parent_node_id="$1"
+  local child_node_id="$2"
+
+  auto_link_graphql_api \
+    -f query='mutation($issueId:ID!,$subIssueId:ID!){addSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{subIssues(first:1){nodes{number}}}}}' \
+    -f issueId="$parent_node_id" \
+    -f subIssueId="$child_node_id"
+}

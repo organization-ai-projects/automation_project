@@ -12,11 +12,8 @@ auto_link_handle_parent_none() {
   local label_automation_failed="$8"
 
   local current_relation_json
-  current_relation_json="$(gh api graphql \
-    -f query='query($owner:String!,$name:String!,$child:Int!){repository(owner:$owner,name:$name){child:issue(number:$child){id parent{number id}}}}' \
-    -f owner="$repo_owner" \
-    -f name="$repo_short_name" \
-    -F child="$issue_number" 2>/dev/null || true)"
+  current_relation_json="$(auto_link_query_child_parent_relation \
+    "$repo_owner" "$repo_short_name" "$issue_number")"
   auto_link_validate_graphql_runtime_result \
     "$repo_name" "$issue_number" "$marker" "$label_automation_failed" \
     "$current_relation_json" \

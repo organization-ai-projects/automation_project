@@ -25,6 +25,35 @@ pr_pipeline_mark_breaking_from_text() {
   fi
 }
 
+pr_pipeline_is_breaking_from_labels() {
+  local labels_raw="${1:-}"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if [[ "$(va_exec pr breaking-detect --labels-raw "$labels_raw" 2>/dev/null || true)" == "true" ]]; then
+      return 0
+    fi
+    return 1
+  fi
+
+  [[ "$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]
+}
+
+pr_pipeline_parse_body_context_payload() {
+  local payload="$1"
+  local out_title_var="$2"
+  local out_body_var="$3"
+  local out_labels_var="$4"
+  local payload_tail
+  local -n out_title_ref="$out_title_var"
+  local -n out_body_ref="$out_body_var"
+  local -n out_labels_ref="$out_labels_var"
+
+  out_title_ref="${payload%%$'\x1f'*}"
+  payload_tail="${payload#*$'\x1f'}"
+  out_body_ref="${payload_tail%%$'\x1f'*}"
+  out_labels_ref="${payload_tail#*$'\x1f'}"
+}
+
 pr_pipeline_load_pr_body_context() {
   local pr_ref="$1"
   local pr_number="$2"
@@ -49,11 +78,7 @@ pr_pipeline_load_pr_body_context() {
   fi
 
   if [[ "$va_payload" == *$'\x1f'* ]]; then
-    pr_title="${va_payload%%$'\x1f'*}"
-    local va_tail
-    va_tail="${va_payload#*$'\x1f'}"
-    pr_body="${va_tail%%$'\x1f'*}"
-    pr_labels_raw="${va_tail#*$'\x1f'}"
+    pr_pipeline_parse_body_context_payload "$va_payload" pr_title pr_body pr_labels_raw
   else
     pr_view_json="$(pr_gh_optional "read PR ${pr_ref}" pr view "$pr_number" --json title,body,labels)"
     if [[ -z "$pr_view_json" ]]; then
@@ -69,11 +94,7 @@ pr_pipeline_load_pr_body_context() {
     pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
     pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
   fi
-  if command -v va_exec >/dev/null 2>&1; then
-    if [[ "$(va_exec pr breaking-detect --labels-raw "$pr_labels_raw" 2>/dev/null || true)" == "true" ]]; then
-      breaking_detected=1
-    fi
-  elif [[ "$(echo "$pr_labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]; then
+  if pr_pipeline_is_breaking_from_labels "$pr_labels_raw"; then
     breaking_detected=1
   fi
 
