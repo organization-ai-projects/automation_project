@@ -9,6 +9,9 @@ fn issue_action_create_variant_can_be_built() {
         acceptances: vec!["a".to_string()],
         parent: "none".to_string(),
         labels: vec![],
+        assignees: vec![],
+        related_issues: vec![],
+        related_prs: vec![],
         repo: None,
         dry_run: true,
     });

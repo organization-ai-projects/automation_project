@@ -3,7 +3,7 @@ use crate::cli_action::{CliAction, parse};
 use crate::issues;
 use crate::pr;
 
-pub fn run(args: Vec<String>) -> i32 {
+pub(crate) fn run(args: Vec<String>) -> i32 {
     run_with(args)
 }
 

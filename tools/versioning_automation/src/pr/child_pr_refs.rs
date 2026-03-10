@@ -1,8 +1,8 @@
 use regex::Regex;
 use std::collections::BTreeSet;
-use std::process::Command;
 
 use crate::pr::commands::pr_child_pr_refs_options::PrChildPrRefsOptions;
+use crate::pr::gh_cli::gh_output_trim;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_child_pr_refs(opts: PrChildPrRefsOptions) -> i32 {
@@ -84,7 +84,7 @@ fn extract_timeline_refs(text: &str) -> Vec<String> {
 }
 
 fn fetch_commit_headlines(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    gh_output(
+    gh_output_trim(
         "api",
         &[
             &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
@@ -96,7 +96,7 @@ fn fetch_commit_headlines(pr_number: &str, repo_name: &str) -> Result<String, St
 }
 
 fn fetch_pr_body(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    gh_output(
+    gh_output_trim(
         "pr",
         &[
             "view",
@@ -112,7 +112,7 @@ fn fetch_pr_body(pr_number: &str, repo_name: &str) -> Result<String, String> {
 }
 
 fn fetch_pr_comments(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    gh_output(
+    gh_output_trim(
         "pr",
         &[
             "view",
@@ -128,7 +128,7 @@ fn fetch_pr_comments(pr_number: &str, repo_name: &str) -> Result<String, String>
 }
 
 fn fetch_timeline_refs(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    gh_output(
+    gh_output_trim(
         "api",
         &[
             &format!("repos/{repo_name}/issues/{pr_number}/timeline"),
@@ -137,23 +137,4 @@ fn fetch_timeline_refs(pr_number: &str, repo_name: &str) -> Result<String, Strin
             ".[] | select(.event==\"cross-referenced\") | select(.source.issue.pull_request.url != null) | .source.issue.number",
         ],
     )
-}
-
-fn gh_output(cmd: &str, args: &[&str]) -> Result<String, String> {
-    let mut command = Command::new("gh");
-    command.arg(cmd);
-    for arg in args {
-        command.arg(arg);
-    }
-    match command.output() {
-        Ok(output) => {
-            if output.status.success() {
-                let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                Ok(text)
-            } else {
-                Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
-            }
-        }
-        Err(err) => Err(err.to_string()),
-    }
 }

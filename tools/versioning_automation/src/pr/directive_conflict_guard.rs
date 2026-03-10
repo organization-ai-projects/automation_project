@@ -1,11 +1,11 @@
 use std::collections::BTreeSet;
-use std::process::Command;
 
 use regex::Regex;
 
 use crate::pr::closure_marker::apply_marker;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::conflicts::build_conflict_report;
+use crate::pr::gh_cli::{gh_output_trim, gh_status};
 use crate::repo_name::resolve_repo_name;
 
 const BLOCK_START: &str = "<!-- directive-conflicts:start -->";
@@ -20,7 +20,7 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
         }
     };
 
-    let original_body = match gh_output(
+    let original_body = match gh_output_trim(
         "pr",
         &[
             "view",
@@ -41,7 +41,7 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
     };
     let mut updated_body = original_body.clone();
 
-    let commit_messages = gh_output(
+    let commit_messages = gh_output_trim(
         "api",
         &[
             &format!("repos/{repo_name}/pulls/{}/commits", opts.pr_number),
@@ -213,7 +213,7 @@ fn upsert_conflict_block_in_body(body: &str, block: Option<&str>) -> String {
 
 fn upsert_pr_comment(repo_name: &str, pr_number: &str, marker: &str, body: &str) -> i32 {
     let list_path = format!("repos/{repo_name}/issues/{pr_number}/comments");
-    let comment_id = gh_output(
+    let comment_id = gh_output_trim(
         "api",
         &[
             &list_path,
@@ -240,40 +240,6 @@ fn upsert_pr_comment(repo_name: &str, pr_number: &str, marker: &str, body: &str)
                 &format!("body={body}"),
             ],
         )
-    }
-}
-
-fn gh_status(cmd: &str, args: &[&str]) -> i32 {
-    let mut command = Command::new("gh");
-    command.arg(cmd);
-    for arg in args {
-        command.arg(arg);
-    }
-    match command.status() {
-        Ok(status) => status.code().unwrap_or(1),
-        Err(err) => {
-            eprintln!("Failed to execute gh {}: {err}", cmd);
-            1
-        }
-    }
-}
-
-fn gh_output(cmd: &str, args: &[&str]) -> Result<String, String> {
-    let mut command = Command::new("gh");
-    command.arg(cmd);
-    for arg in args {
-        command.arg(arg);
-    }
-    match command.output() {
-        Ok(output) => {
-            if output.status.success() {
-                let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                Ok(text)
-            } else {
-                Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
-            }
-        }
-        Err(err) => Err(err.to_string()),
     }
 }
 

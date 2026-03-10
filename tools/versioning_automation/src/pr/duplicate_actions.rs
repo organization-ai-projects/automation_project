@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
-use std::process::Command;
 
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
+use crate::pr::gh_cli::gh_status;
 
 pub(crate) fn run_duplicate_actions(opts: PrDuplicateActionsOptions) -> i32 {
     let mode = opts.mode.trim();
@@ -110,17 +110,4 @@ fn normalize_issue_key(raw: &str) -> Option<String> {
         return None;
     }
     Some(format!("#{digits}"))
-}
-
-fn gh_status(cmd: &str, args: &[&str]) -> i32 {
-    let mut command = Command::new("gh");
-    command.arg(cmd);
-    command.args(args);
-    match command.status() {
-        Ok(status) => status.code().unwrap_or(1),
-        Err(err) => {
-            eprintln!("Failed to execute gh {}: {err}", cmd);
-            1
-        }
-    }
 }

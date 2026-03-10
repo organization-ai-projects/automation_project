@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
-use std::process::Command;
 
 use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::contracts::github::pr_snapshot::PrSnapshot;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
+use crate::pr::gh_cli::{gh_output_trim, gh_status};
 use crate::pr::scan::scan_directives;
 use crate::repo_name::resolve_repo_name;
 
@@ -51,7 +51,7 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
         return 0;
     }
 
-    let pr_commits = gh_output(
+    let pr_commits = gh_output_trim(
         "api",
         &[
             &format!("repos/{repo_name}/pulls/{}/commits", opts.pr_number),
@@ -108,32 +108,28 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
         return 0;
     }
 
-    let mut edit = Command::new("gh");
-    edit.arg("pr")
-        .arg("edit")
-        .arg(&opts.pr_number)
-        .arg("-R")
-        .arg(&repo_name)
-        .arg("--body")
-        .arg(&new_body);
-    match edit.status() {
-        Ok(status) if status.success() => {
-            println!(
-                "PR #{}: updated body with auto-managed Closes refs.",
-                opts.pr_number
-            );
-            0
-        }
-        Ok(status) => status.code().unwrap_or(1),
-        Err(err) => {
-            eprintln!("Failed to execute gh pr edit: {err}");
-            1
-        }
+    let status = gh_status(
+        "pr",
+        &[
+            "edit",
+            &opts.pr_number,
+            "-R",
+            &repo_name,
+            "--body",
+            &new_body,
+        ],
+    );
+    if status == 0 {
+        println!(
+            "PR #{}: updated body with auto-managed Closes refs.",
+            opts.pr_number
+        );
     }
+    status
 }
 
 fn gh_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<PrSnapshot, String> {
-    let json = gh_output(
+    let json = gh_output_trim(
         "pr",
         &[
             "view",
@@ -145,25 +141,6 @@ fn gh_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<PrSnapshot, String
         ],
     )?;
     common_json::from_json_str::<PrSnapshot>(&json).map_err(|err| err.to_string())
-}
-
-fn gh_output(cmd: &str, args: &[&str]) -> Result<String, String> {
-    let mut command = Command::new("gh");
-    command.arg(cmd);
-    for arg in args {
-        command.arg(arg);
-    }
-    match command.output() {
-        Ok(output) => {
-            if output.status.success() {
-                let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                Ok(text)
-            } else {
-                Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
-            }
-        }
-        Err(err) => Err(err.to_string()),
-    }
 }
 
 fn collect_refs_from_payload(payload: &str) -> (Vec<String>, Vec<String>) {
@@ -207,7 +184,7 @@ fn extract_issue_numbers(refs: &[String]) -> Vec<u32> {
 }
 
 fn should_close_issue_for_author(issue_number: u32, repo_name: &str, pr_author: &str) -> bool {
-    let assignees = gh_output(
+    let assignees = gh_output_trim(
         "issue",
         &[
             "view",

@@ -84,3 +84,69 @@ fn parse_repo_name_rejects_unknown_options() {
     let code = issues::run(&args);
     assert_eq!(code, 2);
 }
+
+#[test]
+fn parse_create_accepts_extended_create_contract_flags() {
+    let args = vec![
+        "create".to_string(),
+        "--title".to_string(),
+        "feat(scope): summary".to_string(),
+        "--context".to_string(),
+        "context".to_string(),
+        "--problem".to_string(),
+        "problem".to_string(),
+        "--acceptance".to_string(),
+        "criterion".to_string(),
+        "--template".to_string(),
+        ".github/ISSUE_TEMPLATE/direct_issue.md".to_string(),
+        "--assignee".to_string(),
+        "octocat".to_string(),
+        "--related-issue".to_string(),
+        "#12".to_string(),
+        "--related-pr".to_string(),
+        "#34".to_string(),
+        "--dry-run".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
+fn parse_tasklist_refs_requires_body() {
+    let args = vec!["tasklist-refs".to_string()];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn parse_tasklist_refs_accepts_body() {
+    let args = vec![
+        "tasklist-refs".to_string(),
+        "--body".to_string(),
+        "- [ ] #12".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
+fn parse_subissue_refs_requires_all_fields() {
+    let args = vec![
+        "subissue-refs".to_string(),
+        "--owner".to_string(),
+        "o".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn parse_upsert_marker_comment_requires_required_fields() {
+    let args = vec![
+        "upsert-marker-comment".to_string(),
+        "--repo".to_string(),
+        "owner/repo".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}

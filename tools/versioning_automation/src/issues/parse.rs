@@ -2,8 +2,8 @@
 use crate::issues::commands::{
     CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueAction, IssueTarget,
     LabelExistsOptions, NonComplianceReasonOptions, ReadOptions, ReevaluateOptions,
-    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, SyncProjectStatusOptions,
-    UpdateOptions,
+    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, SubissueRefsOptions,
+    SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -33,8 +33,93 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "sync-project-status" => {
             parse_sync_project_status(&args[1..]).map(IssueAction::SyncProjectStatus)
         }
+        "tasklist-refs" => parse_tasklist_refs(&args[1..]).map(IssueAction::TasklistRefs),
+        "subissue-refs" => parse_subissue_refs(&args[1..]).map(IssueAction::SubissueRefs),
+        "upsert-marker-comment" => {
+            parse_upsert_marker_comment(&args[1..]).map(IssueAction::UpsertMarkerComment)
+        }
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
     }
+}
+
+fn parse_upsert_marker_comment(args: &[String]) -> Result<UpsertMarkerCommentOptions, String> {
+    let mut repo = String::new();
+    let mut issue = String::new();
+    let mut marker = String::new();
+    let mut body = String::new();
+    let mut announce = false;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--repo" => repo = take_value("--repo", args, &mut i)?,
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--marker" => marker = take_value("--marker", args, &mut i)?,
+            "--body" => body = take_value("--body", args, &mut i)?,
+            "--announce" => {
+                announce = parse_bool_value("--announce", &take_value("--announce", args, &mut i)?)?
+            }
+            unknown => {
+                return Err(format!(
+                    "Unknown option for upsert-marker-comment: {unknown}"
+                ));
+            }
+        }
+    }
+
+    require_positive_number("--issue", &issue)?;
+    ensure_non_empty_or(
+        "upsert-marker-comment requires: --repo, --issue, --marker and --body",
+        &[&repo, &marker, &body],
+    )?;
+
+    Ok(UpsertMarkerCommentOptions {
+        repo,
+        issue,
+        marker,
+        body,
+        announce,
+    })
+}
+
+fn parse_subissue_refs(args: &[String]) -> Result<SubissueRefsOptions, String> {
+    let mut owner = String::new();
+    let mut repo = String::new();
+    let mut issue = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--owner" => owner = take_value("--owner", args, &mut i)?,
+            "--repo" => repo = take_value("--repo", args, &mut i)?,
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for subissue-refs: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue)?;
+    ensure_non_empty_or(
+        "subissue-refs requires: --owner, --repo and --issue",
+        &[&owner, &repo],
+    )?;
+
+    Ok(SubissueRefsOptions { owner, repo, issue })
+}
+
+fn parse_tasklist_refs(args: &[String]) -> Result<TasklistRefsOptions, String> {
+    let mut body = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--body" => body = take_value("--body", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for tasklist-refs: {unknown}")),
+        }
+    }
+
+    ensure_non_empty_or("tasklist-refs requires: --body", &[&body])?;
+
+    Ok(TasklistRefsOptions { body })
 }
 
 fn parse_repo_name(args: &[String]) -> Result<IssueAction, String> {
@@ -61,9 +146,10 @@ fn parse_sync_project_status(args: &[String]) -> Result<SyncProjectStatusOptions
     }
 
     require_positive_number("--issue", &issue)?;
-    if repo.trim().is_empty() || status.trim().is_empty() {
-        return Err("sync-project-status requires: --repo, --issue and --status".to_string());
-    }
+    ensure_non_empty_or(
+        "sync-project-status requires: --repo, --issue and --status",
+        &[&repo, &status],
+    )?;
 
     Ok(SyncProjectStatusOptions {
         repo,
@@ -85,9 +171,10 @@ fn parse_label_exists(args: &[String]) -> Result<LabelExistsOptions, String> {
         }
     }
 
-    if repo.trim().is_empty() || label.trim().is_empty() {
-        return Err("label-exists requires: --repo and --label".to_string());
-    }
+    ensure_non_empty_or(
+        "label-exists requires: --repo and --label",
+        &[&repo, &label],
+    )?;
 
     Ok(LabelExistsOptions { repo, label })
 }
@@ -160,40 +247,12 @@ fn parse_non_compliance_reason(args: &[String]) -> Result<NonComplianceReasonOpt
 fn parse_fetch_non_compliance_reason(
     args: &[String],
 ) -> Result<FetchNonComplianceReasonOptions, String> {
-    let mut issue = String::new();
-    let mut repo: Option<String> = None;
-
-    let mut i = 0usize;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--issue" => issue = take_value("--issue", args, &mut i)?,
-            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
-            unknown => {
-                return Err(format!(
-                    "Unknown option for fetch-non-compliance-reason: {unknown}"
-                ));
-            }
-        }
-    }
-
-    require_positive_number("--issue", &issue)?;
+    let (issue, repo) = parse_issue_and_optional_repo(args, "fetch-non-compliance-reason")?;
     Ok(FetchNonComplianceReasonOptions { issue, repo })
 }
 
 fn parse_reevaluate(args: &[String]) -> Result<ReevaluateOptions, String> {
-    let mut issue = String::new();
-    let mut repo: Option<String> = None;
-
-    let mut i = 0usize;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--issue" => issue = take_value("--issue", args, &mut i)?,
-            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
-            unknown => return Err(format!("Unknown option for reevaluate: {unknown}")),
-        }
-    }
-
-    require_positive_number("--issue", &issue)?;
+    let (issue, repo) = parse_issue_and_optional_repo(args, "reevaluate")?;
     Ok(ReevaluateOptions { issue, repo })
 }
 
@@ -204,6 +263,9 @@ fn parse_create(args: &[String]) -> Result<CreateOptions, String> {
     let mut acceptances: Vec<String> = Vec::new();
     let mut parent = "none".to_string();
     let mut labels: Vec<String> = Vec::new();
+    let mut assignees: Vec<String> = Vec::new();
+    let mut related_issues: Vec<String> = Vec::new();
+    let mut related_prs: Vec<String> = Vec::new();
     let mut repo: Option<String> = None;
     let mut add_default_issue_label = true;
     let mut dry_run = false;
@@ -217,6 +279,12 @@ fn parse_create(args: &[String]) -> Result<CreateOptions, String> {
             "--acceptance" => acceptances.push(take_value("--acceptance", args, &mut i)?),
             "--parent" => parent = take_value("--parent", args, &mut i)?,
             "--label" => labels.push(take_value("--label", args, &mut i)?),
+            "--assignee" => assignees.push(take_value("--assignee", args, &mut i)?),
+            "--related-issue" => related_issues.push(take_value("--related-issue", args, &mut i)?),
+            "--related-pr" => related_prs.push(take_value("--related-pr", args, &mut i)?),
+            "--template" => {
+                let _ = take_value("--template", args, &mut i)?;
+            }
             "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
             "--no-default-issue-label" => {
                 add_default_issue_label = false;
@@ -252,6 +320,9 @@ fn parse_create(args: &[String]) -> Result<CreateOptions, String> {
         acceptances,
         parent,
         labels,
+        assignees,
+        related_issues,
+        related_prs,
         repo,
         dry_run,
     })
@@ -367,6 +438,14 @@ fn parse_close(args: &[String]) -> Result<CloseOptions, String> {
 }
 
 fn parse_target(command: &str, args: &[String]) -> Result<IssueTarget, String> {
+    let (issue, repo) = parse_issue_and_optional_repo(args, command)?;
+    Ok(IssueTarget { issue, repo })
+}
+
+fn parse_issue_and_optional_repo(
+    args: &[String],
+    command: &str,
+) -> Result<(String, Option<String>), String> {
     let mut issue = String::new();
     let mut repo: Option<String> = None;
 
@@ -380,7 +459,7 @@ fn parse_target(command: &str, args: &[String]) -> Result<IssueTarget, String> {
     }
 
     require_positive_number("--issue", &issue)?;
-    Ok(IssueTarget { issue, repo })
+    Ok((issue, repo))
 }
 
 fn take_value(flag: &str, args: &[String], index: &mut usize) -> Result<String, String> {
@@ -398,4 +477,19 @@ fn require_positive_number(flag: &str, value: &str) -> Result<(), String> {
         return Ok(());
     }
     Err(format!("{flag} requires a positive numeric value"))
+}
+
+fn parse_bool_value(flag: &str, raw: &str) -> Result<bool, String> {
+    match raw {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(format!("{flag} expects true|false")),
+    }
+}
+
+fn ensure_non_empty_or(error_message: &str, values: &[&str]) -> Result<(), String> {
+    if values.iter().all(|value| !value.trim().is_empty()) {
+        return Ok(());
+    }
+    Err(error_message.to_string())
 }

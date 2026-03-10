@@ -13,6 +13,7 @@ mod directives_apply;
 mod domain;
 mod duplicate_actions;
 mod execute;
+mod gh_cli;
 mod group_by_category;
 mod issue_close_policy;
 mod issue_context;
@@ -36,6 +37,4 @@ mod upsert_comment;
 #[cfg(test)]
 mod tests;
 
-pub fn run(args: &[String]) -> i32 {
-    execute::run(args)
-}
+pub(crate) use execute::run;

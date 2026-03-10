@@ -2,7 +2,8 @@
 use crate::issues::commands::{
     CloseOptions, CreateOptions, FetchNonComplianceReasonOptions, IssueTarget, LabelExistsOptions,
     NonComplianceReasonOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
-    SyncProjectStatusOptions, UpdateOptions,
+    SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions,
+    UpsertMarkerCommentOptions,
 };
 
 #[derive(Debug, Clone)]
@@ -21,4 +22,7 @@ pub(crate) enum IssueAction {
     FetchNonComplianceReason(FetchNonComplianceReasonOptions),
     LabelExists(LabelExistsOptions),
     SyncProjectStatus(SyncProjectStatusOptions),
+    TasklistRefs(TasklistRefsOptions),
+    SubissueRefs(SubissueRefsOptions),
+    UpsertMarkerComment(UpsertMarkerCommentOptions),
 }

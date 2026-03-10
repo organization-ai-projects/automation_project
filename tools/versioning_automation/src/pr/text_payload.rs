@@ -1,6 +1,5 @@
-use std::process::Command;
-
 use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
+use crate::pr::gh_cli::gh_output_trim_end_newline;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
@@ -9,7 +8,7 @@ pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
         return 0;
     };
 
-    let title = gh_output(
+    let title = gh_output_trim_end_newline(
         "pr",
         &[
             "view",
@@ -23,7 +22,7 @@ pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
         ],
     )
     .unwrap_or_default();
-    let body = gh_output(
+    let body = gh_output_trim_end_newline(
         "pr",
         &[
             "view",
@@ -37,7 +36,7 @@ pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
         ],
     )
     .unwrap_or_default();
-    let commits = gh_output(
+    let commits = gh_output_trim_end_newline(
         "api",
         &[
             &format!("repos/{repo_name}/pulls/{}/commits", opts.pr_number),
@@ -50,23 +49,4 @@ pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
 
     print!("{title}\n{body}\n{commits}");
     0
-}
-
-fn gh_output(cmd: &str, args: &[&str]) -> Result<String, String> {
-    let mut command = Command::new("gh");
-    command.arg(cmd);
-    for arg in args {
-        command.arg(arg);
-    }
-    match command.output() {
-        Ok(output) => {
-            if output.status.success() {
-                let text = String::from_utf8_lossy(&output.stdout).to_string();
-                Ok(text.trim_end_matches('\n').to_string())
-            } else {
-                Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
-            }
-        }
-        Err(err) => Err(err.to_string()),
-    }
 }

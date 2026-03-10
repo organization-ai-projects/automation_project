@@ -7,3 +7,4 @@ edition = "2024"
 serde = { workspace = true, features = ["derive"] }
 regex = "1.11"
 common_json = { workspace = true }
+protocol = { workspace = true }

@@ -15,13 +15,39 @@ pub(crate) fn render_direct_issue_body(opts: &CreateOptions) -> String {
     }
     body.push_str("\n## Hierarchy\n\nParent: ");
     body.push_str(&opts.parent);
+
+    let related_issues = opts
+        .related_issues
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    let related_prs = opts
+        .related_prs
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+
+    if !related_issues.is_empty() || !related_prs.is_empty() {
+        body.push_str("\n\n## References\n");
+        if !related_issues.is_empty() {
+            body.push_str("\nRelated issue(s): ");
+            body.push_str(&related_issues.join(" "));
+        }
+        if !related_prs.is_empty() {
+            body.push_str("\nRelated PR(s): ");
+            body.push_str(&related_prs.join(" "));
+        }
+    }
+
     body
 }
 
 pub(crate) fn print_usage() {
     println!("Usage:");
     println!(
-        "  va issue create --title ... --context ... --problem ... --acceptance ... [--parent ...] [--label ...] [--repo ...] [--dry-run]"
+        "  va issue create --title ... --context ... --problem ... --acceptance ... [--parent ...] [--label ...] [--assignee ...] [--related-issue ...] [--related-pr ...] [--repo ...] [--dry-run]"
     );
     println!(
         "  va issue read [--issue <number>] [--repo owner/name] [--json fields] [--jq filter] [--template tpl]"
@@ -43,4 +69,9 @@ pub(crate) fn print_usage() {
     println!("  va issue fetch-non-compliance-reason --issue <number> [--repo owner/name]");
     println!("  va issue label-exists --repo owner/name --label <name>");
     println!("  va issue sync-project-status --repo owner/name --issue <number> --status <name>");
+    println!("  va issue tasklist-refs --body <issue_body>");
+    println!("  va issue subissue-refs --owner <owner> --repo <repo> --issue <number>");
+    println!(
+        "  va issue upsert-marker-comment --repo owner/name --issue <number> --marker <marker> --body <body> [--announce true|false]"
+    );
 }
