@@ -26,6 +26,20 @@ neutralize_upsert_pr_comment() {
   fi
 }
 
+neutralize_update_pr_body() {
+  local repo_name="$1"
+  local pr_number="$2"
+  local body="$3"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    if va_exec pr update-body --pr "$pr_number" --repo "$repo_name" --body "$body" >/dev/null; then
+      return 0
+    fi
+  fi
+
+  gh pr edit "$pr_number" -R "$repo_name" --body "$body" >/dev/null
+}
+
 neutralize_reason_for_issue_cached() {
   local issue_number="$1"
   local repo_name="$2"
@@ -379,7 +393,7 @@ neutralize_run() {
     updated_body seen_ref neutralized_reason neutralized_action neutralized_count reason_cache
 
   if [[ "$updated_body" != "$original_body" ]]; then
-    gh pr edit "$pr_number" -R "$repo_name" --body "$updated_body" >/dev/null
+    neutralize_update_pr_body "$repo_name" "$pr_number" "$updated_body"
   fi
 
   local comment_body
