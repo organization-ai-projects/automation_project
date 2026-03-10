@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "${ISSUES_DIR}/../../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
+
 issue_gh_require_cmd() {
   local cmd="$1"
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -70,28 +73,7 @@ issue_gh_label_exists() {
 issue_gh_issue_state() {
   local repo="$1"
   local issue_number="$2"
-  local issue_state=""
-
-  if command -v va_exec >/dev/null 2>&1; then
-    if [[ -n "$repo" ]]; then
-      issue_state="$(
-        va_exec issue state \
-          --issue "$issue_number" \
-          --repo "$repo" 2>/dev/null || true
-      )"
-    else
-      issue_state="$(
-        va_exec issue state \
-          --issue "$issue_number" 2>/dev/null || true
-      )"
-    fi
-  fi
-
-  if [[ -z "$issue_state" ]]; then
-    issue_state="$(gh issue view "$issue_number" -R "$repo" --json state -q '.state // ""' 2>/dev/null || true)"
-  fi
-
-  echo "$issue_state"
+  github_issue_state "$repo" "$issue_number"
 }
 
 issue_gh_issue_json() {
@@ -189,38 +171,7 @@ issue_gh_issue_has_label() {
   local repo="$1"
   local issue_number="$2"
   local label="$3"
-  local has_label=""
-
-  if command -v va_exec >/dev/null 2>&1; then
-    if [[ -n "$repo" ]]; then
-      has_label="$(
-        va_exec issue has-label \
-          --issue "$issue_number" \
-          --label "$label" \
-          --repo "$repo" 2>/dev/null || true
-      )"
-    else
-      has_label="$(
-        va_exec issue has-label \
-          --issue "$issue_number" \
-          --label "$label" 2>/dev/null || true
-      )"
-    fi
-  fi
-
-  if [[ "$has_label" == "true" ]]; then
-    return 0
-  fi
-  if [[ "$has_label" == "false" ]]; then
-    return 1
-  fi
-
-  local -a cmd=(gh issue view "$issue_number" --json labels --jq '.labels[].name')
-  if [[ -n "$repo" ]]; then
-    cmd+=(-R "$repo")
-  fi
-
-  "${cmd[@]}" 2>/dev/null | grep -Fxq "$label"
+  github_issue_has_label "$repo" "$issue_number" "$label"
 }
 
 issue_gh_collect_pr_text_payload() {

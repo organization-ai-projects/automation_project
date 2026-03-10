@@ -326,3 +326,64 @@ github_issue_assignee_logins() {
   fi
   "${gh_cmd[@]}" 2>/dev/null || true
 }
+
+github_issue_state() {
+  local repo_name="${1:-}"
+  local issue_number="${2:-}"
+  local va_output=""
+
+  if [[ -z "$issue_number" ]]; then
+    return 1
+  fi
+
+  if issue_helpers_has_va_issue; then
+    local -a va_cmd=(issue state --issue "$issue_number")
+    if [[ -n "$repo_name" ]]; then
+      va_cmd+=(--repo "$repo_name")
+    fi
+    va_output="$(issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$va_output" ]]; then
+    printf '%s\n' "$va_output"
+    return 0
+  fi
+
+  local -a gh_cmd=(gh issue view "$issue_number" --json state --jq '.state // ""')
+  if [[ -n "$repo_name" ]]; then
+    gh_cmd+=(-R "$repo_name")
+  fi
+  "${gh_cmd[@]}" 2>/dev/null || true
+}
+
+github_issue_has_label() {
+  local repo_name="${1:-}"
+  local issue_number="${2:-}"
+  local label="${3:-}"
+  local va_output=""
+
+  if [[ -z "$issue_number" || -z "$label" ]]; then
+    return 1
+  fi
+
+  if issue_helpers_has_va_issue; then
+    local -a va_cmd=(issue has-label --issue "$issue_number" --label "$label")
+    if [[ -n "$repo_name" ]]; then
+      va_cmd+=(--repo "$repo_name")
+    fi
+    va_output="$(issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null || true)"
+  fi
+
+  if [[ "$va_output" == "true" ]]; then
+    return 0
+  fi
+  if [[ "$va_output" == "false" ]]; then
+    return 1
+  fi
+
+  local -a gh_cmd=(gh issue view "$issue_number" --json labels --jq '.labels[].name')
+  if [[ -n "$repo_name" ]]; then
+    gh_cmd+=(-R "$repo_name")
+  fi
+  "${gh_cmd[@]}" 2>/dev/null | grep -Fxq "$label"
+}
