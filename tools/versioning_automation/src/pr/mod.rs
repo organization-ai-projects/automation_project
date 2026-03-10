@@ -5,6 +5,7 @@ mod commands;
 mod conflicts;
 mod contracts;
 mod directive_conflict_guard;
+mod directives_apply;
 mod domain;
 mod duplicate_actions;
 mod group_by_category;
@@ -31,6 +32,7 @@ use commands::pr_action::PrAction;
 use commands::pr_directives_format::PrDirectivesFormat;
 use conflicts::run_directive_conflicts;
 use directive_conflict_guard::run_directive_conflict_guard;
+use directives_apply::run_directives_apply;
 use duplicate_actions::run_duplicate_actions;
 use group_by_category::run_group_by_category;
 use issue_close_policy::run_issue_close_policy;
@@ -65,6 +67,7 @@ pub fn run(args: &[String]) -> i32 {
                 PrDirectivesFormat::Json => emit_json(&records),
             }
         }
+        Ok(PrAction::DirectivesApply(opts)) => run_directives_apply(opts),
         Ok(PrAction::ClosureRefs(opts)) => run_closure_refs(opts),
         Ok(PrAction::DirectivesState(opts)) => run_directives_state(opts),
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),

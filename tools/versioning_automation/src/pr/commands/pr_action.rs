@@ -3,6 +3,7 @@ use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
 use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
+use crate::pr::commands::pr_directives_apply_options::PrDirectivesApplyOptions;
 use crate::pr::commands::pr_directives_options::PrDirectivesOptions;
 use crate::pr::commands::pr_directives_state_options::PrDirectivesStateOptions;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
@@ -23,6 +24,7 @@ use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
 pub(crate) enum PrAction {
     Help,
     Directives(PrDirectivesOptions),
+    DirectivesApply(PrDirectivesApplyOptions),
     ClosureRefs(PrClosureRefsOptions),
     DirectivesState(PrDirectivesStateOptions),
     DirectiveConflicts(PrDirectiveConflictsOptions),

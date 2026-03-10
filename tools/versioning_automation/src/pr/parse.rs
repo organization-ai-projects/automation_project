@@ -9,6 +9,7 @@ use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
 use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
+use crate::pr::commands::pr_directives_apply_options::PrDirectivesApplyOptions;
 use crate::pr::commands::pr_directives_format::PrDirectivesFormat;
 use crate::pr::commands::pr_directives_options::PrDirectivesOptions;
 use crate::pr::commands::pr_directives_state_options::PrDirectivesStateOptions;
@@ -34,6 +35,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     match args[0].as_str() {
         "help" | "--help" | "-h" => Ok(PrAction::Help),
         "directives" => parse_directives(&args[1..]).map(PrAction::Directives),
+        "directives-apply" => parse_directives_apply(&args[1..]).map(PrAction::DirectivesApply),
         "closure-refs" => parse_closure_refs(&args[1..]).map(PrAction::ClosureRefs),
         "directives-state" => parse_directives_state(&args[1..]).map(PrAction::DirectivesState),
         "directive-conflicts" => {
@@ -96,6 +98,34 @@ fn parse_directive_conflict_guard(
 
     require_positive_number("--pr", &pr_number)?;
     Ok(PrDirectiveConflictGuardOptions { pr_number, repo })
+}
+
+fn parse_directives_apply(args: &[String]) -> Result<PrDirectivesApplyOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for directives-apply: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("directives-apply requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrDirectivesApplyOptions {
+        text: resolved_text,
+    })
 }
 
 fn parse_duplicate_actions(args: &[String]) -> Result<PrDuplicateActionsOptions, String> {

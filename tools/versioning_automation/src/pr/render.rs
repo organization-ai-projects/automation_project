@@ -6,6 +6,7 @@ pub(crate) fn print_usage() {
     println!("Usage:");
     println!("  va pr directives --text \"...\" [--format plain|json] [--unique]");
     println!("  va pr directives --stdin [--format plain|json] [--unique]");
+    println!("  va pr directives-apply (--text \"...\" | --stdin)");
     println!("  va pr closure-refs (--text \"...\" | --stdin)");
     println!("  va pr non-closing-refs (--text \"...\" | --stdin)");
     println!(

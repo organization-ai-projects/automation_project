@@ -2,6 +2,7 @@ mod close_policy;
 mod closure_marker;
 mod closure_refs;
 mod conflicts;
+mod directives_apply;
 mod group_by_category;
 mod issue_decision;
 mod non_closing_refs;
