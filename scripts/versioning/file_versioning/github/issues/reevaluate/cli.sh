@@ -13,12 +13,6 @@ Notes:
 USAGE
 }
 
-reevaluate_pr_body_references_issue() {
-  local issue_number="$1"
-  local body="$2"
-  issue_refs_extract_all_closing_numbers "$body" | grep -qx "$issue_number"
-}
-
 reevaluate_main() {
   local issue_number=""
   local repo_name="${GH_REPO:-}"
@@ -68,17 +62,17 @@ reevaluate_main() {
         --repo "$repo_name" 2>/dev/null || true
     )"
   fi
-
   if [[ -z "$pr_numbers" ]]; then
-    pr_numbers="$({
-      gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[]. | [.number, (.body // "")] | @tsv' 2>/dev/null |
-        while IFS=$'\t' read -r pr_num pr_body; do
-          [[ -n "$pr_num" ]] || continue
-          if reevaluate_pr_body_references_issue "$issue_number" "$pr_body"; then
+    pr_numbers="$(
+      {
+        gh api "repos/${repo_name}/pulls?state=open&per_page=100" --paginate --jq '.[]. | [.number, (.body // "")] | @tsv' 2>/dev/null |
+          while IFS=$'\t' read -r pr_num pr_body; do
+            [[ -n "$pr_num" ]] || continue
+            issue_refs_extract_all_closing_numbers "$pr_body" | grep -qx "$issue_number" || continue
             printf '%s\n' "$pr_num"
-          fi
-        done
-    } || true)"
+          done
+      } || true
+    )"
   fi
 
   if [[ -z "$pr_numbers" ]]; then
