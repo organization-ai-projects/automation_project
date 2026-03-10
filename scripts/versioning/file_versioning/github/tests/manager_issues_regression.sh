@@ -16,7 +16,7 @@ build_mock_bin() {
   local mock_dir="$1"
   mkdir -p "${mock_dir}"
 
-  cat > "${mock_dir}/gh" <<'EOF'
+  cat >"${mock_dir}/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -43,7 +43,7 @@ EOF
 
 build_mock_create_script() {
   local script_path="$1"
-  cat > "${script_path}" <<'EOF'
+  cat >"${script_path}" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf "%s\n" "$*" > "${MOCK_CREATE_ARGS_LOG}"
@@ -76,13 +76,13 @@ run_case() {
   (
     cd "${ROOT_DIR}"
     PATH="${tmp}/bin:${PATH}" \
-    MOCK_GH_ARGS_LOG="${tmp}/gh_args.log" \
-    MOCK_CREATE_ARGS_LOG="${tmp}/create_args.log" \
-    MANAGER_ISSUES_CREATE_SCRIPT="${tmp}/mock_create_issue.sh" \
-    /bin/bash -c "${command}"
+      MOCK_GH_ARGS_LOG="${tmp}/gh_args.log" \
+      MOCK_CREATE_ARGS_LOG="${tmp}/create_args.log" \
+      MANAGER_ISSUES_CREATE_SCRIPT="${tmp}/mock_create_issue.sh" \
+      /bin/bash -c "${command}"
   ) >"${out_file}" 2>"${err_file}" || status=$?
 
-  cat "${out_file}" "${err_file}" > "${merged_file}"
+  cat "${out_file}" "${err_file}" >"${merged_file}"
 
   if [[ "${status}" -ne "${expected_exit}" ]]; then
     echo "FAIL [${name}] expected exit ${expected_exit}, got ${status}"
@@ -118,6 +118,12 @@ main() {
     0 \
     "Dry-run mode\\. Issue was not created\\." \
     "/bin/bash '${TARGET_SCRIPT}' create --title 'feat(shell): x' --context 'ctx' --problem 'pb' --acceptance 'a1' --no-default-issue-label --dry-run && ! grep -q -- '--label issue' \"\$MOCK_CREATE_ARGS_LOG\""
+
+  run_case \
+    "create-passes-through-assignee-and-related-refs" \
+    0 \
+    "--assignee octocat --related-issue #12 --related-pr #34" \
+    "/bin/bash '${TARGET_SCRIPT}' create --title 'feat(shell): x' --context 'ctx' --problem 'pb' --acceptance 'a1' --assignee 'octocat' --related-issue '#12' --related-pr '#34' --dry-run"
 
   run_case \
     "read-lists-issues" \

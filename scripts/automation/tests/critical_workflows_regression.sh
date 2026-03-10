@@ -16,6 +16,9 @@ bash scripts/versioning/file_versioning/github/issues/create_direct/run.sh \
   --context "Regression context" \
   --problem "Regression problem" \
   --acceptance "Regression criterion" \
+  --assignee "octocat" \
+  --related-issue "#12" \
+  --related-pr "#34" \
   --parent none \
   --dry-run >/tmp/direct_issue_dry_run.out
 sed -n '1,40p' /tmp/direct_issue_dry_run.out
