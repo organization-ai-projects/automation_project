@@ -8,6 +8,7 @@ use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::commands::pr_breaking_detect_options::PrBreakingDetectOptions;
 use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
 use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
+use crate::pr::commands::pr_details_options::PrDetailsOptions;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
 use crate::pr::commands::pr_directives_apply_options::PrDirectivesApplyOptions;
@@ -40,6 +41,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "breaking-detect" => parse_breaking_detect(&args[1..]).map(PrAction::BreakingDetect),
         "directives" => parse_directives(&args[1..]).map(PrAction::Directives),
         "directives-apply" => parse_directives_apply(&args[1..]).map(PrAction::DirectivesApply),
+        "details" => parse_details(&args[1..]).map(PrAction::Details),
         "closure-refs" => parse_closure_refs(&args[1..]).map(PrAction::ClosureRefs),
         "directives-state" => parse_directives_state(&args[1..]).map(PrAction::DirectivesState),
         "directive-conflicts" => {
@@ -110,6 +112,27 @@ fn parse_breaking_detect(args: &[String]) -> Result<PrBreakingDetectOptions, Str
         text: resolved_text,
         labels_raw,
     })
+}
+
+fn parse_details(args: &[String]) -> Result<PrDetailsOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for details: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrDetailsOptions { pr_number, repo })
 }
 
 fn parse_directive_conflict_guard(

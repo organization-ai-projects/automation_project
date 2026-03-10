@@ -2,6 +2,7 @@ use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::commands::pr_breaking_detect_options::PrBreakingDetectOptions;
 use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
 use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
+use crate::pr::commands::pr_details_options::PrDetailsOptions;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
 use crate::pr::commands::pr_directives_apply_options::PrDirectivesApplyOptions;
@@ -29,6 +30,7 @@ pub(crate) enum PrAction {
     BreakingDetect(PrBreakingDetectOptions),
     Directives(PrDirectivesOptions),
     DirectivesApply(PrDirectivesApplyOptions),
+    Details(PrDetailsOptions),
     ClosureRefs(PrClosureRefsOptions),
     DirectivesState(PrDirectivesStateOptions),
     DirectiveConflicts(PrDirectiveConflictsOptions),

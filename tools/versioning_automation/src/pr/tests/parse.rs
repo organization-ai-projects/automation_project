@@ -15,6 +15,20 @@ fn pr_breaking_detect_requires_input() {
 }
 
 #[test]
+fn pr_details_requires_pr() {
+    let args = vec!["details".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_details_with_required_fields_returns_zero() {
+    let args = vec!["details".to_string(), "--pr".to_string(), "42".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_breaking_detect_with_text_returns_zero() {
     let args = vec![
         "breaking-detect".to_string(),
