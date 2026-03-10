@@ -29,6 +29,7 @@ pr_pipeline_load_pr_body_context() {
   local pr_ref="$1"
   local pr_number="$2"
   local pr_view_json
+  local va_payload
   local pr_labels_raw
   local pr_title
   local pr_body
@@ -40,19 +41,34 @@ pr_pipeline_load_pr_body_context() {
     return
   fi
 
-  pr_view_json="$(pr_gh_optional "read PR ${pr_ref}" pr view "$pr_number" --json title,body,labels)"
-  if [[ -z "$pr_view_json" ]]; then
-    if [[ "$online_enrich" == "true" ]]; then
-      pr_enrich_failed=$((pr_enrich_failed + 1))
-      pr_debug_log "enrich_fallback: failed to read PR ${pr_ref} via gh pr view"
-    fi
-    printf "%s\x1f%s" "" ""
-    return
+  if command -v va_exec >/dev/null 2>&1; then
+    va_payload="$(
+      va_exec pr body-context \
+        --pr "$pr_number" 2>/dev/null || true
+    )"
   fi
 
-  pr_title="$(echo "$pr_view_json" | jq -r '.title // ""')"
-  pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
-  pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
+  if [[ "$va_payload" == *$'\x1f'* ]]; then
+    pr_title="${va_payload%%$'\x1f'*}"
+    local va_tail
+    va_tail="${va_payload#*$'\x1f'}"
+    pr_body="${va_tail%%$'\x1f'*}"
+    pr_labels_raw="${va_tail#*$'\x1f'}"
+  else
+    pr_view_json="$(pr_gh_optional "read PR ${pr_ref}" pr view "$pr_number" --json title,body,labels)"
+    if [[ -z "$pr_view_json" ]]; then
+      if [[ "$online_enrich" == "true" ]]; then
+        pr_enrich_failed=$((pr_enrich_failed + 1))
+        pr_debug_log "enrich_fallback: failed to read PR ${pr_ref} via gh pr view"
+      fi
+      printf "%s\x1f%s" "" ""
+      return
+    fi
+
+    pr_title="$(echo "$pr_view_json" | jq -r '.title // ""')"
+    pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
+    pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
+  fi
   if command -v va_exec >/dev/null 2>&1; then
     if [[ "$(va_exec pr breaking-detect --labels-raw "$pr_labels_raw" 2>/dev/null || true)" == "true" ]]; then
       breaking_detected=1
