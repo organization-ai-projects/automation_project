@@ -30,40 +30,14 @@ closure_hygiene_issue_json() {
   local repo_name="$1"
   local issue_number="$2"
   local json_fields="$3"
-  local issue_json=""
-
-  if command -v va_exec >/dev/null 2>&1; then
-    issue_json="$(
-      va_exec issue read \
-        --issue "$issue_number" \
-        --repo "$repo_name" \
-        --json "$json_fields" 2>/dev/null || true
-    )"
-  fi
-
-  if [[ -z "$issue_json" ]]; then
-    issue_json="$(gh issue view "$issue_number" -R "$repo_name" --json "$json_fields" 2>/dev/null || true)"
-  fi
-
-  printf '%s\n' "$issue_json"
+  github_issue_read_json "$repo_name" "$issue_number" "$json_fields"
 }
 
 closure_hygiene_close_issue_with_comment() {
   local repo_name="$1"
   local issue_number="$2"
   local comment="$3"
-
-  if command -v va_exec >/dev/null 2>&1; then
-    if va_exec issue close \
-      --issue "$issue_number" \
-      --repo "$repo_name" \
-      --reason completed \
-      --comment "$comment" >/dev/null 2>&1; then
-      return 0
-    fi
-  fi
-
-  gh issue close "$issue_number" -R "$repo_name" --comment "$comment" >/dev/null
+  github_issue_close_completed_with_comment "$repo_name" "$issue_number" "$comment"
 }
 
 closure_hygiene_evaluate_parent() {
