@@ -51,6 +51,9 @@ pub(crate) fn print_usage() {
     );
     println!("  va pr auto-add-closes --pr <number> [--repo owner/name]");
     println!("  va pr update-body --pr <number> [--repo owner/name] --body \"...\"");
+    println!(
+        "  va pr upsert-comment --pr <number> [--repo owner/name] --marker \"...\" --body \"...\""
+    );
 }
 
 pub(crate) fn emit_plain(records: &[DirectiveRecord]) {

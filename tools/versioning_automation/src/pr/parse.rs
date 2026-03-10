@@ -35,6 +35,7 @@ use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
 use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
 use crate::pr::commands::pr_update_body_options::PrUpdateBodyOptions;
+use crate::pr::commands::pr_upsert_comment_options::PrUpsertCommentOptions;
 
 pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     if args.is_empty() {
@@ -89,8 +90,42 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         "text-payload" => parse_text_payload(&args[1..]).map(PrAction::TextPayload),
         "update-body" => parse_update_body(&args[1..]).map(PrAction::UpdateBody),
+        "upsert-comment" => parse_upsert_comment(&args[1..]).map(PrAction::UpsertComment),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_upsert_comment(args: &[String]) -> Result<PrUpsertCommentOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+    let mut marker = String::new();
+    let mut body = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => pr_number = take_value("--pr", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            "--marker" => marker = take_value("--marker", args, &mut i)?,
+            "--body" => body = take_value("--body", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for upsert-comment: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    if marker.is_empty() {
+        return Err("--marker is required".to_string());
+    }
+    if body.is_empty() {
+        return Err("--body is required".to_string());
+    }
+
+    Ok(PrUpsertCommentOptions {
+        pr_number,
+        repo,
+        marker,
+        body,
+    })
 }
 
 fn parse_update_body(args: &[String]) -> Result<PrUpdateBodyOptions, String> {

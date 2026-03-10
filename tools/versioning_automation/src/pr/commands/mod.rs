@@ -30,3 +30,4 @@ pub(crate) mod pr_resolve_category_options;
 pub(crate) mod pr_sort_bullets_options;
 pub(crate) mod pr_text_payload_options;
 pub(crate) mod pr_update_body_options;
+pub(crate) mod pr_upsert_comment_options;

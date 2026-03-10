@@ -31,6 +31,7 @@ mod sort_bullets;
 mod state;
 mod text_payload;
 mod update_body;
+mod upsert_comment;
 
 #[cfg(test)]
 mod tests;
