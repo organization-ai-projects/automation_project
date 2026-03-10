@@ -9,6 +9,23 @@ _issue_refs_cache_key_for_text() {
   printf '%s' "$text" | cksum | awk '{ print $1 ":" $2 }'
 }
 
+_issue_refs_build_va_cmd() {
+  local subcommand="$1"
+  local out_var_name="$2"
+  local -n out_ref="$out_var_name"
+
+  out_ref=()
+  if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
+    out_ref=("${VA_PR_DIRECTIVES_BIN}" pr "$subcommand")
+    return 0
+  fi
+  if command -v va_exec >/dev/null 2>&1; then
+    out_ref=(va_exec pr "$subcommand")
+    return 0
+  fi
+  return 1
+}
+
 _parse_issue_directive_event_refs() {
   local text="$1"
   local event_action="$2"
@@ -21,11 +38,7 @@ _parse_closure_refs_via_va() {
   local mode="$2"
   local -a cmd=()
 
-  if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
-    cmd=("${VA_PR_DIRECTIVES_BIN}" pr closure-refs)
-  elif command -v va_exec >/dev/null 2>&1; then
-    cmd=(va_exec pr closure-refs)
-  else
+  if ! _issue_refs_build_va_cmd "closure-refs" cmd; then
     return 1
   fi
 
@@ -50,11 +63,7 @@ _parse_directives_state_via_va() {
   local mode="$2"
   local -a cmd=()
 
-  if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
-    cmd=("${VA_PR_DIRECTIVES_BIN}" pr directives-state)
-  elif command -v va_exec >/dev/null 2>&1; then
-    cmd=(va_exec pr directives-state)
-  else
+  if ! _issue_refs_build_va_cmd "directives-state" cmd; then
     return 1
   fi
 
@@ -78,11 +87,7 @@ _parse_non_closing_refs_via_va() {
   local text="$1"
   local -a cmd=()
 
-  if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
-    cmd=("${VA_PR_DIRECTIVES_BIN}" pr non-closing-refs)
-  elif command -v va_exec >/dev/null 2>&1; then
-    cmd=(va_exec pr non-closing-refs)
-  else
+  if ! _issue_refs_build_va_cmd "non-closing-refs" cmd; then
     return 1
   fi
 
@@ -241,14 +246,9 @@ parse_issue_directive_records_from_text() {
 
 _parse_issue_directive_records_via_va() {
   local text="$1"
-  local -a cmd
+  local -a cmd=()
 
-  cmd=()
-  if [[ -n "${VA_PR_DIRECTIVES_BIN:-}" ]]; then
-    cmd=("${VA_PR_DIRECTIVES_BIN}" pr directives)
-  elif command -v va_exec >/dev/null 2>&1; then
-    cmd=(va_exec pr directives)
-  else
+  if ! _issue_refs_build_va_cmd "directives" cmd; then
     return 1
   fi
 
