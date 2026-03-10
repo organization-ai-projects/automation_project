@@ -1,10 +1,10 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
     AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
-    IssueAction, IssueTarget, LabelExistsOptions, NonComplianceReasonOptions, OpenNumbersOptions,
-    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
-    SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions,
-    UpsertMarkerCommentOptions,
+    HasLabelOptions, IssueAction, IssueTarget, LabelExistsOptions, NonComplianceReasonOptions,
+    OpenNumbersOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
+    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, SyncProjectStatusOptions,
+    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -41,6 +41,8 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         }
         "open-numbers" => parse_open_numbers(&args[1..]).map(IssueAction::OpenNumbers),
         "assignee-logins" => parse_assignee_logins(&args[1..]).map(IssueAction::AssigneeLogins),
+        "state" => parse_state(&args[1..]).map(IssueAction::State),
+        "has-label" => parse_has_label(&args[1..]).map(IssueAction::HasLabel),
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
     }
 }
@@ -60,6 +62,32 @@ fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {
 fn parse_assignee_logins(args: &[String]) -> Result<AssigneeLoginsOptions, String> {
     let (issue, repo) = parse_issue_and_optional_repo(args, "assignee-logins")?;
     Ok(AssigneeLoginsOptions { issue, repo })
+}
+
+fn parse_state(args: &[String]) -> Result<StateOptions, String> {
+    let (issue, repo) = parse_issue_and_optional_repo(args, "state")?;
+    Ok(StateOptions { issue, repo })
+}
+
+fn parse_has_label(args: &[String]) -> Result<HasLabelOptions, String> {
+    let mut issue = String::new();
+    let mut repo: Option<String> = None;
+    let mut label = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            "--label" => label = take_value("--label", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for has-label: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue)?;
+    ensure_non_empty_or("has-label requires: --issue and --label", &[&label])?;
+
+    Ok(HasLabelOptions { issue, label, repo })
 }
 
 fn parse_upsert_marker_comment(args: &[String]) -> Result<UpsertMarkerCommentOptions, String> {

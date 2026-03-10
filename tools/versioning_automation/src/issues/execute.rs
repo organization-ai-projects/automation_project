@@ -5,9 +5,10 @@ use regex::Regex;
 
 use crate::issues::commands::{
     AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
-    IssueTarget, LabelExistsOptions, NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions,
-    ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
-    SubissueRefsOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    HasLabelOptions, IssueTarget, LabelExistsOptions, NonComplianceReasonOptions,
+    OpenNumbersOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
+    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
+    UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -242,6 +243,44 @@ pub(crate) fn run_assignee_logins(opts: AssigneeLoginsOptions) -> i32 {
         args.push(repo);
     }
     print_non_empty_lines(&gh_output_or_empty(&args));
+    0
+}
+
+pub(crate) fn run_state(opts: StateOptions) -> i32 {
+    let mut args: Vec<&str> = vec![
+        "issue",
+        "view",
+        &opts.issue,
+        "--json",
+        "state",
+        "--jq",
+        ".state // \"\"",
+    ];
+    if let Some(repo) = opts.repo.as_deref() {
+        args.push("-R");
+        args.push(repo);
+    }
+    print_non_empty_lines(&gh_output_or_empty(&args));
+    0
+}
+
+pub(crate) fn run_has_label(opts: HasLabelOptions) -> i32 {
+    let mut args: Vec<&str> = vec![
+        "issue",
+        "view",
+        &opts.issue,
+        "--json",
+        "labels",
+        "--jq",
+        ".labels[].name",
+    ];
+    if let Some(repo) = opts.repo.as_deref() {
+        args.push("-R");
+        args.push(repo);
+    }
+    let labels = gh_output_or_empty(&args);
+    let exists = labels.lines().any(|name| name.trim() == opts.label);
+    println!("{}", if exists { "true" } else { "false" });
     0
 }
 
