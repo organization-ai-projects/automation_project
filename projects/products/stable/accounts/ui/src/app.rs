@@ -1,26 +1,28 @@
-// projects/products/stable/accounts/ui/src/app.rs
+//! projects/products/stable/accounts/ui/src/app.rs
 use dioxus::prelude::*;
-use protocol_accounts::AccountSummary;
+use protocol_accounts::{AccountSummary, SetupStatusResponse};
 
 use crate::components::card_components::{login_card, setup_card, users_table};
 use crate::components::form_components::{input_field, input_password, select_role, select_status};
-use crate::parse_json::parse_json;
+use crate::parse_json::{parse_json, short_token};
 use crate::permission_picker::permission_picker;
-use crate::user_actions::{create_user_action, reset_password_action, update_user_action};
+use crate::user_actions::{
+    create_user_action, reset_password_action, update_status_action, update_user_action,
+};
 
 /// Main application component with setup, login, and user management
 #[component]
 pub fn app() -> Element {
     let mut setup_mode = use_signal(|| false);
-    let mut jwt = use_signal(|| Option::<String>::None);
-    let mut users = use_signal(|| Vec::<AccountSummary>::new());
+    let jwt = use_signal(|| Option::<String>::None);
+    let users = use_signal(|| Vec::<AccountSummary>::new());
 
     // Form state
     let mut user_id = use_signal(|| String::new());
     let mut password = use_signal(|| String::new());
-    let mut role = use_signal(|| "user".to_string());
+    let role = use_signal(|| "user".to_string());
     let mut permissions = use_signal(|| Vec::new());
-    let mut status_filter = use_signal(|| "active".to_string());
+    let status_filter = use_signal(|| "active".to_string());
     let mut msg = use_signal(|| String::new());
 
     // Initialize on mount
@@ -30,13 +32,9 @@ pub fn app() -> Element {
                 .send()
                 .await
             {
-                Ok(resp) => match parse_json::<serde_json::Value>(resp).await {
+                Ok(resp) => match parse_json::<SetupStatusResponse>(resp).await {
                     Ok(status) => {
-                        let needs_setup = status
-                            .get("needs_setup")
-                            .and_then(|value| value.as_bool())
-                            .unwrap_or(false);
-                        if needs_setup {
+                        if status.setup_mode {
                             setup_mode.set(true);
                         }
                     }
@@ -82,9 +80,10 @@ pub fn app() -> Element {
             } else {
                 // User management dashboard
                 div {
-                    key: "dashboard",
-
                     h1 { "User Management" }
+                    if let Some(token) = jwt.read().as_ref() {
+                        p { "Session token: {short_token(token)}" }
+                    }
 
                     // Create new user form
                     div {
@@ -156,6 +155,18 @@ pub fn app() -> Element {
                                     );
                                 },
                                 "Update User"
+                            }
+                            button {
+                                onclick: move |_| {
+                                    update_status_action(
+                                        jwt,
+                                        user_id,
+                                        status_filter,
+                                        users,
+                                        msg,
+                                    );
+                                },
+                                "Update Status"
                             }
 
                             if !password.read().is_empty() {
