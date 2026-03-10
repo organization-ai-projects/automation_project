@@ -8,6 +8,7 @@ mod directive_conflict_guard;
 mod domain;
 mod duplicate_actions;
 mod group_by_category;
+mod issue_close_policy;
 mod issue_context;
 mod issue_decision;
 mod issue_ref_kind;
@@ -32,6 +33,7 @@ use conflicts::run_directive_conflicts;
 use directive_conflict_guard::run_directive_conflict_guard;
 use duplicate_actions::run_duplicate_actions;
 use group_by_category::run_group_by_category;
+use issue_close_policy::run_issue_close_policy;
 use issue_context::run_issue_context;
 use issue_decision::run_issue_decision;
 use issue_ref_kind::run_issue_ref_kind;
@@ -72,6 +74,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::GroupByCategory(opts)) => run_group_by_category(opts),
         Ok(PrAction::IssueCategoryFromLabels(opts)) => run_issue_category_from_labels(opts),
         Ok(PrAction::IssueCategoryFromTitle(opts)) => run_issue_category_from_title(opts),
+        Ok(PrAction::IssueClosePolicy(opts)) => run_issue_close_policy(opts),
         Ok(PrAction::IssueContext(opts)) => run_issue_context(opts),
         Ok(PrAction::IssueRefKind(opts)) => run_issue_ref_kind(opts),
         Ok(PrAction::NormalizeIssueKey(opts)) => run_normalize_issue_key(opts),

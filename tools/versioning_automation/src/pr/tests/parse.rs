@@ -172,6 +172,28 @@ fn pr_issue_category_from_title_requires_title() {
 }
 
 #[test]
+fn pr_issue_close_policy_requires_action() {
+    let args = vec!["issue-close-policy".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_issue_close_policy_with_required_fields_returns_zero() {
+    let args = vec![
+        "issue-close-policy".to_string(),
+        "--action".to_string(),
+        "Closes".to_string(),
+        "--is-pr-ref".to_string(),
+        "false".to_string(),
+        "--non-compliance-reason".to_string(),
+        "reason".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_effective_category_requires_fields() {
     let args = vec!["effective-category".to_string()];
     let code = run(&args);

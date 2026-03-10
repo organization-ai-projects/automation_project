@@ -17,6 +17,7 @@ use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptio
 use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
 use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
 use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
+use crate::pr::commands::pr_issue_close_policy_options::PrIssueClosePolicyOptions;
 use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
 use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
@@ -51,6 +52,9 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         }
         "issue-category-from-title" => {
             parse_issue_category_from_title(&args[1..]).map(PrAction::IssueCategoryFromTitle)
+        }
+        "issue-close-policy" => {
+            parse_issue_close_policy(&args[1..]).map(PrAction::IssueClosePolicy)
         }
         "issue-context" => parse_issue_context(&args[1..]).map(PrAction::IssueContext),
         "issue-ref-kind" => parse_issue_ref_kind(&args[1..]).map(PrAction::IssueRefKind),
@@ -245,6 +249,37 @@ fn parse_issue_context(args: &[String]) -> Result<PrIssueContextOptions, String>
 
     require_positive_number("--issue", &issue_number)?;
     Ok(PrIssueContextOptions { issue_number, repo })
+}
+
+fn parse_issue_close_policy(args: &[String]) -> Result<PrIssueClosePolicyOptions, String> {
+    let mut action = String::new();
+    let mut is_pr_ref = false;
+    let mut non_compliance_reason = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--action" => action = take_value("--action", args, &mut i)?,
+            "--is-pr-ref" => {
+                is_pr_ref =
+                    parse_bool_value("--is-pr-ref", &take_value("--is-pr-ref", args, &mut i)?)?
+            }
+            "--non-compliance-reason" => {
+                non_compliance_reason = take_value("--non-compliance-reason", args, &mut i)?
+            }
+            unknown => return Err(format!("Unknown option for issue-close-policy: {unknown}")),
+        }
+    }
+
+    if action.is_empty() {
+        return Err("--action is required".to_string());
+    }
+
+    Ok(PrIssueClosePolicyOptions {
+        action,
+        is_pr_ref,
+        non_compliance_reason,
+    })
 }
 
 fn parse_normalize_issue_key(args: &[String]) -> Result<PrNormalizeIssueKeyOptions, String> {

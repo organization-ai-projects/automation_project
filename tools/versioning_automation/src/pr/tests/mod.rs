@@ -1,3 +1,4 @@
+mod close_policy;
 mod closure_marker;
 mod closure_refs;
 mod conflicts;
