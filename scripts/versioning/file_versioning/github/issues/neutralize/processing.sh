@@ -129,6 +129,35 @@ neutralize_collect_refs_from_body() {
   local _out_pre_neutralized_refs_var="$3"
   local -n _out_closing_refs_ref="$_out_closing_refs_var"
   local -n _out_pre_neutralized_refs_ref="$_out_pre_neutralized_refs_var"
+  local va_records=""
+  local record=""
+  local record_type=""
+  local action=""
+  local issue_key=""
+  local collected_closing_refs=""
+  local collected_pre_neutralized_refs=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    va_records="$(printf '%s' "$body" | va_exec pr directives --stdin 2>/dev/null || true)"
+    if [[ -n "$va_records" ]]; then
+      while IFS= read -r record; do
+        [[ -z "$record" ]] && continue
+        IFS='|' read -r record_type action issue_key <<<"$record"
+        [[ "$record_type" == "EV" ]] || continue
+        [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+
+        if [[ "$action" == "Closes" ]]; then
+          collected_closing_refs+="${action}|${issue_key}"$'\n'
+        elif [[ "$action" == "Closes rejected" ]]; then
+          collected_pre_neutralized_refs+="Closes|${issue_key}"$'\n'
+        fi
+      done <<<"$va_records"
+
+      _out_closing_refs_ref="${collected_closing_refs%$'\n'}"
+      _out_pre_neutralized_refs_ref="${collected_pre_neutralized_refs%$'\n'}"
+      return
+    fi
+  fi
 
   _out_closing_refs_ref="$(parse_closing_issue_refs_from_text "$body")"
   _out_pre_neutralized_refs_ref="$(parse_neutralized_closing_issue_refs_from_text "$body")"
@@ -330,7 +359,7 @@ neutralize_run() {
   fi
 
   local original_body updated_body
-  local closing_refs pre_neutralized_refs
+  local closing_refs="" pre_neutralized_refs=""
   original_body="$(echo "$pr_json" | jq -r '.body // ""')"
   updated_body="$original_body"
   neutralize_collect_refs_from_body "$original_body" closing_refs pre_neutralized_refs
