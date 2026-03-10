@@ -26,6 +26,7 @@ use crate::pr::commands::pr_issue_close_policy_options::PrIssueClosePolicyOption
 use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
 use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
+use crate::pr::commands::pr_issue_view_options::PrIssueViewOptions;
 use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
 use crate::pr::commands::pr_open_referencing_issue_options::PrOpenReferencingIssueOptions;
@@ -70,6 +71,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
             parse_issue_close_policy(&args[1..]).map(PrAction::IssueClosePolicy)
         }
         "issue-context" => parse_issue_context(&args[1..]).map(PrAction::IssueContext),
+        "issue-view" => parse_issue_view(&args[1..]).map(PrAction::IssueView),
         "pr-state" => parse_pr_state(&args[1..]).map(PrAction::PrState),
         "issue-ref-kind" => parse_issue_ref_kind(&args[1..]).map(PrAction::IssueRefKind),
         "normalize-issue-key" => {
@@ -391,6 +393,23 @@ fn parse_issue_context(args: &[String]) -> Result<PrIssueContextOptions, String>
 
     require_positive_number("--issue", &issue_number)?;
     Ok(PrIssueContextOptions { issue_number, repo })
+}
+
+fn parse_issue_view(args: &[String]) -> Result<PrIssueViewOptions, String> {
+    let mut issue_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue_number = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for issue-view: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue_number)?;
+    Ok(PrIssueViewOptions { issue_number, repo })
 }
 
 fn parse_pr_state(args: &[String]) -> Result<PrPrStateOptions, String> {
