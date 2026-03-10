@@ -3,10 +3,7 @@
 
 auto_add_extract_issue_numbers() {
   local refs="$1"
-  printf '%s\n' "$refs" |
-    cut -d'|' -f2 |
-    sed -nE 's/^#([0-9]+)$/\1/p' |
-    sort -u
+  parse_issue_numbers_from_refs "$refs"
 }
 
 auto_add_strip_managed_block() {

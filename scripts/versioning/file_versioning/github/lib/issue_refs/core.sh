@@ -187,6 +187,14 @@ parse_directive_decisions_from_text() {
   _parse_issue_directive_records_by_type "$text" "DEC" | sort -u
 }
 
+parse_issue_numbers_from_refs() {
+  local refs="$1"
+  printf '%s\n' "$refs" |
+    cut -d'|' -f2 |
+    sed -nE 's/^#([0-9]+)$/\1/p' |
+    sort -u
+}
+
 normalize_issue_key() {
   local raw="${1:-}"
 

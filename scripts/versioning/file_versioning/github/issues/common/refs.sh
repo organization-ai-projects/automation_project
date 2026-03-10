@@ -11,11 +11,7 @@ issue_cli_require_positive_number() {
 
 issue_refs_extract_numbers_from_refs() {
   local refs="$1"
-  printf '%s\n' "$refs" |
-    cut -d'|' -f2 |
-    sed -E 's/^#([0-9]+)$/\1/' |
-    grep -E '^[0-9]+$' |
-    sort -u
+  parse_issue_numbers_from_refs "$refs"
 }
 
 issue_refs_extract_closing_numbers() {
