@@ -12,6 +12,7 @@ use crate::pr::model::pr_directives_format::PrDirectivesFormat;
 use crate::pr::model::pr_directives_options::PrDirectivesOptions;
 use crate::pr::model::pr_directives_state_options::PrDirectivesStateOptions;
 use crate::pr::model::pr_issue_decision_options::PrIssueDecisionOptions;
+use crate::pr::model::pr_resolve_category_options::PrResolveCategoryOptions;
 
 pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
     if args.is_empty() {
@@ -28,9 +29,44 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         }
         "issue-decision" => parse_issue_decision(&args[1..]).map(PrAction::IssueDecision),
         "closure-marker" => parse_closure_marker(&args[1..]).map(PrAction::ClosureMarker),
+        "resolve-category" => parse_resolve_category(&args[1..]).map(PrAction::ResolveCategory),
         "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
     }
+}
+
+fn parse_resolve_category(args: &[String]) -> Result<PrResolveCategoryOptions, String> {
+    let mut label_category = String::new();
+    let mut title_category = String::new();
+    let mut default_category = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--label-category" => label_category = take_value("--label-category", args, &mut i)?,
+            "--title-category" => title_category = take_value("--title-category", args, &mut i)?,
+            "--default-category" => {
+                default_category = take_value("--default-category", args, &mut i)?
+            }
+            unknown => return Err(format!("Unknown option for resolve-category: {unknown}")),
+        }
+    }
+
+    if label_category.is_empty() {
+        return Err("--label-category is required".to_string());
+    }
+    if title_category.is_empty() {
+        return Err("--title-category is required".to_string());
+    }
+    if default_category.is_empty() {
+        return Err("--default-category is required".to_string());
+    }
+
+    Ok(PrResolveCategoryOptions {
+        label_category,
+        title_category,
+        default_category,
+    })
 }
 
 fn parse_closure_marker(args: &[String]) -> Result<PrClosureMarkerOptions, String> {

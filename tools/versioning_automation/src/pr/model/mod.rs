@@ -9,3 +9,4 @@ pub(crate) mod pr_directives_format;
 pub(crate) mod pr_directives_options;
 pub(crate) mod pr_directives_state_options;
 pub(crate) mod pr_issue_decision_options;
+pub(crate) mod pr_resolve_category_options;

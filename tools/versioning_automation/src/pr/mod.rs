@@ -6,6 +6,7 @@ mod issue_decision;
 mod model;
 mod parse;
 mod render;
+mod resolve_category;
 mod scan;
 mod state;
 
@@ -21,6 +22,7 @@ use model::pr_action::PrAction;
 use model::pr_directives_format::PrDirectivesFormat;
 use parse::parse;
 use render::{emit_json, emit_plain, print_usage};
+use resolve_category::run_resolve_category;
 use scan::scan_directives;
 use state::run_directives_state;
 
@@ -45,6 +47,7 @@ pub fn run(args: &[String]) -> i32 {
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),
         Ok(PrAction::IssueDecision(opts)) => run_issue_decision(opts),
         Ok(PrAction::ClosureMarker(opts)) => run_closure_marker(opts),
+        Ok(PrAction::ResolveCategory(opts)) => run_resolve_category(opts),
         Ok(PrAction::AutoAddCloses(opts)) => run_auto_add_closes(opts),
         Err(message) => {
             eprintln!("{message}");

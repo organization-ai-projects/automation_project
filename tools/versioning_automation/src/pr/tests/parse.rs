@@ -156,3 +156,25 @@ fn pr_closure_marker_with_required_flags_returns_zero() {
     let code = run(&args);
     assert_eq!(code, 0);
 }
+
+#[test]
+fn pr_resolve_category_requires_flags() {
+    let args = vec!["resolve-category".to_string()];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_resolve_category_with_required_flags_returns_zero() {
+    let args = vec![
+        "resolve-category".to_string(),
+        "--label-category".to_string(),
+        "Unknown".to_string(),
+        "--title-category".to_string(),
+        "UI".to_string(),
+        "--default-category".to_string(),
+        "Mixed".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}

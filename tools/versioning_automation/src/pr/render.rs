@@ -15,6 +15,9 @@ pub(crate) fn print_usage() {
     println!(
         "  va pr issue-decision --action <Closes|Reopen> --issue <#n> --default-category <name> [--seen-reopen true|false] [--reopen-category <name>] [--inferred-decision <close|reopen|conflict>] [--explicit-decision <close|reopen>] [--allow-inferred true|false]"
     );
+    println!(
+        "  va pr resolve-category --label-category <name> --title-category <name> --default-category <name>"
+    );
     println!("  va pr auto-add-closes --pr <number> [--repo owner/name]");
 }
 
