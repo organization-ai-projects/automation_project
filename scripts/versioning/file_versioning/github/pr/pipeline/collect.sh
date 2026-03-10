@@ -196,7 +196,7 @@ pr_pipeline_apply_issue_directives_via_va() {
   local text="$1"
   local category="$2"
   local debug_context="$3"
-  local -a records=()
+  local va_output
   local record_type field_a field_b
   local -A seen_reopen_refs=()
   local -A seen_close_refs=()
@@ -206,11 +206,12 @@ pr_pipeline_apply_issue_directives_via_va() {
     return 1
   fi
 
-  if ! mapfile -t records < <(printf '%s' "$text" | va_exec pr directives-state --stdin 2>/dev/null); then
+  va_output="$(printf '%s' "$text" | va_exec pr directives-state --stdin 2>/dev/null)" || {
     return 1
-  fi
+  }
 
-  for record in "${records[@]}"; do
+  while IFS= read -r record; do
+    [[ -z "$record" ]] && continue
     IFS='|' read -r record_type field_a field_b <<<"$record"
     [[ -z "$record_type" ]] && continue
     case "$record_type" in
@@ -249,7 +250,7 @@ pr_pipeline_apply_issue_directives_via_va() {
       pr_add_duplicate_entry "$field_a" "$field_b"
       ;;
     esac
-  done
+  done <<<"$va_output"
 
   return 0
 }

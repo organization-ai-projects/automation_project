@@ -130,6 +130,8 @@ neutralize_collect_refs_from_body() {
   local -n _out_closing_refs_ref="$_out_closing_refs_var"
   local -n _out_pre_neutralized_refs_ref="$_out_pre_neutralized_refs_var"
   local -a va_cmd=()
+  local va_output=""
+  local va_success="false"
   local record_type action issue_key
   local -a closing_rows=()
   local -a pre_neutralized_rows=()
@@ -139,6 +141,12 @@ neutralize_collect_refs_from_body() {
   fi
 
   if [[ "${#va_cmd[@]}" -gt 0 ]]; then
+    if va_output="$(printf '%s' "$body" | "${va_cmd[@]}" --stdin 2>/dev/null)"; then
+      va_success="true"
+    else
+      va_output=""
+    fi
+
     while IFS='|' read -r record_type action issue_key; do
       issue_key="$(neutralize_trim "$issue_key")"
       [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
@@ -148,10 +156,10 @@ neutralize_collect_refs_from_body() {
       elif [[ "$record_type" == "PRE" ]]; then
         pre_neutralized_rows+=("${action}|${issue_key}")
       fi
-    done < <(printf '%s' "$body" | "${va_cmd[@]}" --stdin 2>/dev/null)
+    done <<<"$va_output"
   fi
 
-  if [[ "${#closing_rows[@]}" -eq 0 && "${#pre_neutralized_rows[@]}" -eq 0 ]]; then
+  if [[ "$va_success" != "true" ]]; then
     while IFS='|' read -r record_type action issue_key; do
       [[ "$record_type" == "EV" ]] || continue
       issue_key="$(neutralize_trim "$issue_key")"
