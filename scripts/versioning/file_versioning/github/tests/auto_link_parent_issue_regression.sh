@@ -92,7 +92,7 @@ if grep -q "Linked issue #123 to parent #686" "${out_log}"; then
   exit 1
 fi
 
-if ! grep -q "labels\\[\\]=automation-failed" "${args_log}"; then
+if ! grep -qE "labels\\[\\]=automation-failed|issue edit 123 -R org/repo --add-label automation-failed" "${args_log}"; then
   echo "FAIL: automation-failed label was not set on GraphQL mutation error."
   cat "${args_log}"
   exit 1

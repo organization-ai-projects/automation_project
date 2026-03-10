@@ -4,15 +4,14 @@ auto_link_add_label() {
   local repo_name="$1"
   local issue_number="$2"
   local label="$3"
-  gh api "repos/${repo_name}/issues/${issue_number}/labels" \
-    -f labels[]="$label" >/dev/null 2>&1 || true
+  issue_gh_issue_update "$repo_name" "$issue_number" --add-label "$label" >/dev/null 2>&1 || true
 }
 
 auto_link_remove_label() {
   local repo_name="$1"
   local issue_number="$2"
   local label="$3"
-  gh api -X DELETE "repos/${repo_name}/issues/${issue_number}/labels/${label}" >/dev/null 2>&1 || true
+  issue_gh_issue_update "$repo_name" "$issue_number" --remove-label "$label" >/dev/null 2>&1 || true
 }
 
 auto_link_set_validation_error_state() {
