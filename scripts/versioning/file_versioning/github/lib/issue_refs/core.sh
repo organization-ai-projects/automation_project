@@ -77,6 +77,9 @@ _parse_directives_state_via_va() {
   decision)
     printf '%s' "$text" | "${cmd[@]}" --stdin | awk -F'|' '$1 == "DEC" { print $2 "|" $3 }'
     ;;
+  inferred)
+    printf '%s' "$text" | "${cmd[@]}" --stdin | awk -F'|' '$1 == "INF" { print $2 "|" $3 }'
+    ;;
   *)
     return 1
     ;;
@@ -222,6 +225,29 @@ parse_directive_decisions_from_text() {
     return 0
   fi
   _parse_issue_directive_records_by_type "$text" "DEC" | sort -u
+}
+
+parse_inferred_directive_decisions_from_text() {
+  local text="$1"
+  local parsed
+  local action issue_key
+  local -A inferred=()
+
+  if parsed="$(_parse_directives_state_via_va "$text" "inferred" 2>/dev/null)"; then
+    printf '%s\n' "$parsed" | sed '/^$/d' | sort -u
+    return 0
+  fi
+
+  while IFS='|' read -r action issue_key; do
+    case "$action" in
+    Closes) inferred["$issue_key"]="close" ;;
+    Reopen) inferred["$issue_key"]="reopen" ;;
+    esac
+  done < <(parse_directive_events_from_text "$text")
+
+  for issue_key in "${!inferred[@]}"; do
+    printf '%s|%s\n' "$issue_key" "${inferred[$issue_key]}"
+  done | sort -u
 }
 
 parse_issue_numbers_from_refs() {

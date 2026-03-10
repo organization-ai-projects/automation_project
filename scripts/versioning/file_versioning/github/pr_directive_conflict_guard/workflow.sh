@@ -9,47 +9,42 @@ pr_directive_conflict_guard_collect_explicit_directives() {
   local -n _out_closing_requested_ref="$_out_closing_requested_var"
   local -n _out_reopen_requested_ref="$_out_reopen_requested_var"
   local -n _out_directive_decision_ref="$_out_directive_decision_var"
-  local record_type field_a field_b action issue_key decision
+  local action issue_key decision
 
-  while IFS='|' read -r record_type field_a field_b; do
-    case "$record_type" in
-    EV)
-      action="$(pr_directive_conflict_guard_trim "$field_a")"
-      issue_key="$(pr_directive_conflict_guard_trim "$field_b")"
-      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-      if [[ "$action" == "Closes" ]]; then
-        _out_closing_requested_ref["$issue_key"]=1
-      elif [[ "$action" == "Reopen" ]]; then
-        _out_reopen_requested_ref["$issue_key"]=1
-      fi
-      ;;
-    DEC)
-      issue_key="$(pr_directive_conflict_guard_trim "$field_a")"
-      decision="$(pr_directive_conflict_guard_trim "$field_b" | tr '[:upper:]' '[:lower:]')"
-      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-      [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
-      _out_directive_decision_ref["$issue_key"]="$decision"
-      ;;
-    esac
-  done < <(parse_issue_directive_records_from_text "$text")
+  while IFS='|' read -r action issue_key; do
+    [[ "$action" == "Closes" ]] || continue
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    _out_closing_requested_ref["$issue_key"]=1
+  done < <(parse_closing_issue_refs_from_text "$text")
+
+  while IFS='|' read -r action issue_key; do
+    [[ "$action" == "Reopen" ]] || continue
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    _out_reopen_requested_ref["$issue_key"]=1
+  done < <(parse_reopen_issue_refs_from_text "$text")
+
+  while IFS='|' read -r issue_key decision; do
+    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
+    decision="$(pr_directive_conflict_guard_trim "$decision" | tr '[:upper:]' '[:lower:]')"
+    [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+    [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
+    _out_directive_decision_ref["$issue_key"]="$decision"
+  done < <(parse_directive_decisions_from_text "$text")
 }
 
 pr_directive_conflict_guard_collect_inferred_decisions() {
   local text="$1"
   local _out_inferred_decision_var="$2"
   local -n _out_inferred_decision_ref="$_out_inferred_decision_var"
-  local record_type field_a field_b action issue_key
+  local issue_key decision
 
-  while IFS='|' read -r record_type field_a field_b; do
-    [[ "$record_type" == "EV" ]] || continue
-    action="$(pr_directive_conflict_guard_trim "$field_a")"
-    issue_key="$(pr_directive_conflict_guard_trim "$field_b")"
+  while IFS='|' read -r issue_key decision; do
+    issue_key="$(pr_directive_conflict_guard_trim "$issue_key")"
+    decision="$(pr_directive_conflict_guard_trim "$decision" | tr '[:upper:]' '[:lower:]')"
     [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
-    case "$action" in
-    Closes) _out_inferred_decision_ref["$issue_key"]="close" ;;
-    Reopen) _out_inferred_decision_ref["$issue_key"]="reopen" ;;
-    esac
-  done < <(parse_issue_directive_records_from_text "$text")
+    [[ "$decision" == "close" || "$decision" == "reopen" ]] || continue
+    _out_inferred_decision_ref["$issue_key"]="$decision"
+  done < <(parse_inferred_directive_decisions_from_text "$text")
 }
 
 pr_directive_conflict_guard_collect_conflicts_via_va() {
