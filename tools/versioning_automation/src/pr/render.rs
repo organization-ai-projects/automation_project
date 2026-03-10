@@ -7,6 +7,7 @@ pub(crate) fn print_usage() {
     println!(
         "  va pr breaking-detect [--text \"...\"|--stdin|--input-file path] [--labels-raw \"a||b\"]"
     );
+    println!("  va pr body-context --pr <number> [--repo owner/name]");
     println!("  va pr details --pr <number> [--repo owner/name]");
     println!("  va pr directives --text \"...\" [--format plain|json] [--unique]");
     println!("  va pr directives --stdin [--format plain|json] [--unique]");
