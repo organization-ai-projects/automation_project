@@ -18,18 +18,7 @@ auto_add_should_close_issue_for_author() {
   local pr_author="$3"
   local assignees assignee_count sole_assignee
 
-  if command -v va_exec >/dev/null 2>&1; then
-    assignees="$(
-      va_exec issue read \
-        --issue "$issue_number" \
-        --repo "$repo_name" \
-        --json assignees \
-        --jq '.assignees[].login' 2>/dev/null || true
-    )"
-  fi
-  if [[ -z "${assignees:-}" ]]; then
-    assignees="$(gh issue view "$issue_number" -R "$repo_name" --json assignees --jq '.assignees[].login' 2>/dev/null || true)"
-  fi
+  assignees="$(github_issue_assignee_logins "$repo_name" "$issue_number" || true)"
   assignee_count="$(printf '%s\n' "$assignees" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
   sole_assignee="$(printf '%s\n' "$assignees" | sed '/^$/d' | head -n1)"
 
