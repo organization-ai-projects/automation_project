@@ -31,6 +31,17 @@ issue_helpers_has_va_issue() {
   [[ "${issue_helpers_va_issue_available:-0}" == "1" ]]
 }
 
+issue_helpers_normalize_json_fields() {
+  local json_fields="${1:-}"
+
+  printf '%s' "$json_fields" |
+    tr -d '[:space:]' |
+    tr ',' '\n' |
+    sed '/^$/d' |
+    sort -u |
+    paste -sd, -
+}
+
 github_issue_repo_name() {
   local va_output=""
 
@@ -210,17 +221,25 @@ github_issue_view_title_labels() {
   local issue_number="${1:-}"
   local repo_name="${2:-}"
   local va_output=""
+  local title=""
+  local labels_raw=""
 
   if [[ -z "$issue_number" ]]; then
     return 1
   fi
 
   if issue_helpers_has_va_issue; then
-    local -a va_cmd=(issue read --issue "$issue_number" --json title,labels)
-    if [[ -n "$repo_name" ]]; then
-      va_cmd+=(--repo "$repo_name")
+    title="$(github_issue_field "$repo_name" "$issue_number" "title" || true)"
+    labels_raw="$(github_issue_field "$repo_name" "$issue_number" "labels-raw" || true)"
+    if [[ -n "$title" || -n "$labels_raw" ]]; then
+      va_output="$(
+        jq -c -n \
+          --arg title "$title" \
+          --arg labels_raw "$labels_raw" \
+          '{title: $title, labels: ($labels_raw | split("||") | map(select(length > 0)) | map({name: .}))}' \
+          2>/dev/null || true
+      )"
     fi
-    va_output="$(issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null || true)"
   fi
 
   if [[ -n "$va_output" ]]; then
@@ -242,8 +261,43 @@ github_issue_read() {
   local jq_filter="${4:-}"
   local template="${5:-}"
   local va_output=""
+  local normalized_fields=""
 
-  if issue_helpers_has_va_issue; then
+  normalized_fields="$(issue_helpers_normalize_json_fields "$json_fields")"
+  if issue_helpers_has_va_issue &&
+    [[ -n "$issue_number" ]] &&
+    [[ -z "$jq_filter" ]] &&
+    [[ -z "$template" ]] &&
+    ([[ "$normalized_fields" == "labels,title" ]] || [[ "$normalized_fields" == "body,labels,title" ]]); then
+    local title="" body="" labels_raw=""
+    title="$(github_issue_field "$repo_name" "$issue_number" "title" || true)"
+    labels_raw="$(github_issue_field "$repo_name" "$issue_number" "labels-raw" || true)"
+    if [[ "$normalized_fields" == "body,labels,title" ]]; then
+      body="$(github_issue_field "$repo_name" "$issue_number" "body" || true)"
+    fi
+    if [[ -n "$title" || -n "$labels_raw" || -n "$body" ]]; then
+      if [[ "$normalized_fields" == "body,labels,title" ]]; then
+        va_output="$(
+          jq -c -n \
+            --arg title "$title" \
+            --arg body "$body" \
+            --arg labels_raw "$labels_raw" \
+            '{title: $title, body: $body, labels: ($labels_raw | split("||") | map(select(length > 0)) | map({name: .}))}' \
+            2>/dev/null || true
+        )"
+      else
+        va_output="$(
+          jq -c -n \
+            --arg title "$title" \
+            --arg labels_raw "$labels_raw" \
+            '{title: $title, labels: ($labels_raw | split("||") | map(select(length > 0)) | map({name: .}))}' \
+            2>/dev/null || true
+        )"
+      fi
+    fi
+  fi
+
+  if [[ -z "$va_output" ]] && issue_helpers_has_va_issue; then
     local -a va_cmd=(issue read)
     if [[ -n "$issue_number" ]]; then
       va_cmd+=(--issue "$issue_number")
@@ -501,6 +555,7 @@ github_issue_state() {
   local repo_name="${1:-}"
   local issue_number="${2:-}"
   local va_output=""
+  local gh_output=""
 
   if [[ -z "$issue_number" ]]; then
     return 1
@@ -523,7 +578,12 @@ github_issue_state() {
   if [[ -n "$repo_name" ]]; then
     gh_cmd+=(-R "$repo_name")
   fi
-  "${gh_cmd[@]}" 2>/dev/null || true
+  gh_output="$("${gh_cmd[@]}" 2>/dev/null || true)"
+  if [[ "$gh_output" == \{* ]]; then
+    printf '%s\n' "$gh_output" | jq -r '.state // ""' 2>/dev/null || true
+    return 0
+  fi
+  printf '%s\n' "$gh_output"
 }
 
 github_issue_has_label() {
