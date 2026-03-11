@@ -66,7 +66,6 @@ pr_issue_context_payload_for() {
   local issue_key="#${issue_number}"
   local repo_name_with_owner=""
   local va_payload=""
-  local issue_json
   local title
   local body
   local labels_raw=""
@@ -114,11 +113,14 @@ pr_issue_context_payload_for() {
   fi
 
   if [[ "$has_gh" == "true" ]]; then
-    issue_json="$(pr_issue_view_full_json "$issue_number")"
-    if [[ -n "$issue_json" ]]; then
-      labels_raw="$(echo "$issue_json" | jq -r '.labels // [] | map(.name) | join("||")')"
-      title="$(echo "$issue_json" | jq -r '.title // ""')"
-      body="$(echo "$issue_json" | jq -r '.body // ""')"
+    if [[ -z "$repo_name_with_owner" ]]; then
+      repo_name_with_owner="$(pr_get_repo_name_with_owner)"
+    fi
+
+    labels_raw="$(github_issue_field "$repo_name_with_owner" "$issue_number" "labels-raw" || true)"
+    title="$(github_issue_field "$repo_name_with_owner" "$issue_number" "title" || true)"
+    body="$(github_issue_field "$repo_name_with_owner" "$issue_number" "body" || true)"
+    if [[ -n "$labels_raw" || -n "$title" || -n "$body" ]]; then
 
       if [[ -n "$title" ]]; then
         if command -v va_exec >/dev/null 2>&1; then
