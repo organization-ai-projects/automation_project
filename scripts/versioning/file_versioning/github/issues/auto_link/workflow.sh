@@ -48,9 +48,9 @@ auto_link_run() {
   fi
 
   local issue_title issue_body issue_labels_raw
-  issue_title="$(echo "$issue_json" | jq -r '.title // ""')"
-  issue_body="$(echo "$issue_json" | jq -r '.body // ""')"
-  issue_labels_raw="$(echo "$issue_json" | jq -r '(.labels // []) | map(.name) | join("||")')"
+  issue_title="$(github_issue_field "$repo_name" "$issue_number" "title" || true)"
+  issue_body="$(github_issue_field "$repo_name" "$issue_number" "body" || true)"
+  issue_labels_raw="$(github_issue_field "$repo_name" "$issue_number" "labels-raw" || true)"
 
   auto_link_validate_contract_or_exit \
     "$repo_name" "$issue_number" "$marker" "$label_required_missing" "$label_automation_failed" \
