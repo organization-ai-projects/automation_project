@@ -80,10 +80,10 @@ pr_pipeline_load_pr_body_context() {
   if [[ "$va_payload" == *$'\x1f'* ]]; then
     pr_pipeline_parse_body_context_payload "$va_payload" pr_title pr_body pr_labels_raw
   else
-    if command -v va_exec >/dev/null 2>&1; then
-      pr_title="$(va_exec pr field --pr "$pr_number" --name "title" 2>/dev/null || true)"
-      pr_body="$(va_exec pr field --pr "$pr_number" --name "body" 2>/dev/null || true)"
-    fi
+    pr_title="$(github_pr_field "" "$pr_number" "title" 2>/dev/null || true)"
+    pr_body="$(github_pr_field "" "$pr_number" "body" 2>/dev/null || true)"
+
+    # Keep optional-context gh reads for debug visibility in pipeline logs.
     if [[ -z "$pr_title" ]]; then
       pr_title="$(pr_gh_optional "read PR ${pr_ref} title" pr view "$pr_number" --json title -q '.title // ""')"
     fi
