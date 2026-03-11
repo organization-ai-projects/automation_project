@@ -41,60 +41,40 @@ auto_add_fetch_pr_details_json() {
   local repo_name="$1"
   local pr_number="$2"
   local pr_details_json=""
+  local pr_state pr_base pr_title pr_body pr_author pr_commits
 
-  if command -v va_exec >/dev/null 2>&1; then
-    local pr_state pr_base pr_title pr_body pr_author pr_commits
-    pr_state="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "state" 2>/dev/null || true
-    )"
-    pr_base="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "base-ref-name" 2>/dev/null || true
-    )"
-    pr_title="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "title" 2>/dev/null || true
-    )"
-    pr_body="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "body" 2>/dev/null || true
-    )"
-    pr_author="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "author-login" 2>/dev/null || true
-    )"
-    pr_commits="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "commit-messages" 2>/dev/null || true
-    )"
+  pr_state="$(auto_add_pr_field "$repo_name" "$pr_number" "state" "" || true)"
+  pr_base="$(auto_add_pr_field "$repo_name" "$pr_number" "base-ref-name" "" || true)"
+  pr_title="$(auto_add_pr_field "$repo_name" "$pr_number" "title" "" || true)"
+  pr_body="$(auto_add_pr_field "$repo_name" "$pr_number" "body" "" || true)"
+  pr_author="$(auto_add_pr_field "$repo_name" "$pr_number" "author-login" "" || true)"
+  pr_commits="$(auto_add_pr_field "$repo_name" "$pr_number" "commit-messages" "" || true)"
 
-    if [[ -n "$pr_state" || -n "$pr_base" || -n "$pr_title" || -n "$pr_body" || -n "$pr_author" || -n "$pr_commits" ]]; then
-      pr_details_json="$(
-        jq -c -n \
-          --argjson number "$pr_number" \
-          --arg state "$pr_state" \
-          --arg base_ref_name "$pr_base" \
-          --arg title "$pr_title" \
-          --arg body "$pr_body" \
-          --arg author_login "$pr_author" \
-          --arg commit_messages "$pr_commits" \
-          '{number: $number, state: $state, base_ref_name: $base_ref_name, title: $title, body: $body, author_login: $author_login, commit_messages: $commit_messages}' \
-          2>/dev/null || true
-      )"
+  if [[ -z "$pr_state" || -z "$pr_base" || -z "$pr_title" || -z "$pr_body" || -z "$pr_author" ]]; then
+    local pr_json_legacy=""
+    pr_json_legacy="$(gh pr view "$pr_number" -R "$repo_name" --json number,state,baseRefName,title,body,author 2>/dev/null || true)"
+    if [[ -n "$pr_json_legacy" ]]; then
+      [[ -n "$pr_state" ]] || pr_state="$(echo "$pr_json_legacy" | jq -r '.state // ""' 2>/dev/null || true)"
+      [[ -n "$pr_base" ]] || pr_base="$(echo "$pr_json_legacy" | jq -r '.baseRefName // .base_ref_name // ""' 2>/dev/null || true)"
+      [[ -n "$pr_title" ]] || pr_title="$(echo "$pr_json_legacy" | jq -r '.title // ""' 2>/dev/null || true)"
+      [[ -n "$pr_body" ]] || pr_body="$(echo "$pr_json_legacy" | jq -r '.body // ""' 2>/dev/null || true)"
+      [[ -n "$pr_author" ]] || pr_author="$(echo "$pr_json_legacy" | jq -r '.author.login // .author_login // ""' 2>/dev/null || true)"
     fi
+  fi
+
+  if [[ -n "$pr_state" || -n "$pr_base" || -n "$pr_title" || -n "$pr_body" || -n "$pr_author" || -n "$pr_commits" ]]; then
+    pr_details_json="$(
+      jq -c -n \
+        --argjson number "$pr_number" \
+        --arg state "$pr_state" \
+        --arg base_ref_name "$pr_base" \
+        --arg title "$pr_title" \
+        --arg body "$pr_body" \
+        --arg author_login "$pr_author" \
+        --arg commit_messages "$pr_commits" \
+        '{number: $number, state: $state, base_ref_name: $base_ref_name, title: $title, body: $body, author_login: $author_login, commit_messages: $commit_messages}' \
+        2>/dev/null || true
+    )"
   fi
 
   if [[ -z "$pr_details_json" ]]; then
@@ -146,7 +126,29 @@ auto_add_pr_field() {
   esac
 
   if [[ -z "$pr_json_fallback" ]]; then
-    printf ''
+    case "$field_name" in
+    state)
+      gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true
+      ;;
+    base-ref-name)
+      gh pr view "$pr_number" -R "$repo_name" --json baseRefName -q '.baseRefName // ""' 2>/dev/null || true
+      ;;
+    title)
+      gh pr view "$pr_number" -R "$repo_name" --json title -q '.title // ""' 2>/dev/null || true
+      ;;
+    body)
+      gh pr view "$pr_number" -R "$repo_name" --json body -q '.body // ""' 2>/dev/null || true
+      ;;
+    author-login)
+      gh pr view "$pr_number" -R "$repo_name" --json author -q '.author.login // ""' 2>/dev/null || true
+      ;;
+    commit-messages)
+      gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true
+      ;;
+    *)
+      printf ''
+      ;;
+    esac
     return 0
   fi
   echo "$pr_json_fallback" | jq -r "$jq_filter"
