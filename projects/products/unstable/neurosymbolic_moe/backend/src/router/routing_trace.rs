@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/router/routing_trace.rs
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -26,10 +27,8 @@ impl RoutingTrace {
             strategy: decision.strategy.clone(),
             scores: decision.scores.clone(),
             reason: decision.explanation.clone(),
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs(),
+            // Deterministic timestamp surrogate for unstable mode scaffolding.
+            timestamp: candidates_evaluated as u64,
         }
     }
 }

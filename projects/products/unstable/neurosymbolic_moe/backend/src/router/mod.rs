@@ -1,7 +1,11 @@
-pub mod heuristic_router;
-pub mod router_trait;
-pub mod routing_decision;
-pub mod routing_trace;
+//! projects/products/unstable/neurosymbolic_moe/backend/src/router/mod.rs
+mod heuristic_router;
+mod router_trait;
+mod routing_decision;
+mod routing_trace;
+
+#[cfg(test)]
+mod tests;
 
 pub use heuristic_router::HeuristicRouter;
 pub use router_trait::Router;
