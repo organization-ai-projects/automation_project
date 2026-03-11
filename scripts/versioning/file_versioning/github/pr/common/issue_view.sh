@@ -25,7 +25,7 @@ pr_issue_view_full_json() {
   fi
 
   repo_name_with_owner="$(pr_get_repo_name_with_owner)"
-  issue_json="$(github_issue_read_json "$repo_name_with_owner" "$issue_number" "title,body,labels" || true)"
+  issue_json="$(github_issue_read "$issue_number" "$repo_name_with_owner" "title,body,labels" || true)"
 
   issue_view_full_json_cache["$issue_key"]="$issue_json"
   echo "$issue_json"
