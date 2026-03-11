@@ -26,13 +26,6 @@ closure_hygiene_build_status_comment() {
   fi
 }
 
-closure_hygiene_issue_json() {
-  local repo_name="$1"
-  local issue_number="$2"
-  local json_fields="$3"
-  github_issue_read_json "$repo_name" "$issue_number" "$json_fields"
-}
-
 closure_hygiene_close_issue_with_comment() {
   local repo_name="$1"
   local issue_number="$2"
