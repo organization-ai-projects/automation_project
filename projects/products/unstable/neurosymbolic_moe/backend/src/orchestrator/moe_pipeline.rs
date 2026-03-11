@@ -11,7 +11,7 @@ use crate::moe_core::{
 use crate::orchestrator::ContinuousImprovementReport;
 use crate::orchestrator::{
     ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceAuditTrail,
-    GovernanceImportPolicy, GovernanceState, GovernanceStateDiff,
+    GovernanceImportDecision, GovernanceImportPolicy, GovernanceState, GovernanceStateDiff,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::router::{Router, RoutingStrategy};
@@ -433,20 +433,17 @@ impl MoePipeline {
             return;
         }
 
-        let diff = self.diff_governance_state(&state);
-        if !self.governance_import_policy.allow_schema_change && diff.schema_version_changed {
-            return;
-        }
-        if !self.governance_import_policy.allow_version_regression && diff.version_delta < 0 {
-            return;
-        }
-        if let Some(max) = self.governance_import_policy.max_version_regression
-            && diff.version_delta < 0
-            && (-diff.version_delta as u64) > max
-        {
-            return;
-        }
-        if self.governance_import_policy.require_policy_match && diff.policy_changed {
+        let decision = self.evaluate_governance_import(&state);
+        if !decision.allowed {
+            self.trace_logger.log_phase(
+                crate::moe_core::TaskId::new("governance-import"),
+                TracePhase::Validation,
+                format!(
+                    "governance import rejected: {}",
+                    decision.reasons.join("; ")
+                ),
+                None,
+            );
             return;
         }
 
@@ -464,6 +461,36 @@ impl MoePipeline {
     }
 
     pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        self.try_import_governance_state_json(payload)
+    }
+
+    pub fn try_import_governance_state(
+        &mut self,
+        mut state: GovernanceState,
+    ) -> Result<(), MoeError> {
+        state.ensure_checksum();
+        if !state.verify_checksum() {
+            return Err(MoeError::PolicyRejected(
+                "governance state checksum verification failed".to_string(),
+            ));
+        }
+
+        let decision = self.evaluate_governance_import(&state);
+        if !decision.allowed {
+            return Err(MoeError::PolicyRejected(format!(
+                "governance import rejected: {}",
+                decision.reasons.join("; ")
+            )));
+        }
+
+        self.import_governance_state(state);
+        Ok(())
+    }
+
+    pub fn preview_governance_import_json(
+        &self,
+        payload: &str,
+    ) -> Result<GovernanceImportDecision, MoeError> {
         let mut state: GovernanceState =
             common_json::json::from_json_str(payload).map_err(|err| {
                 MoeError::DatasetError(format!("governance state deserialization failed: {err}"))
@@ -474,34 +501,16 @@ impl MoePipeline {
                 "governance state checksum verification failed".to_string(),
             ));
         }
+        Ok(self.evaluate_governance_import(&state))
+    }
 
-        let diff = self.diff_governance_state(&state);
-        if !self.governance_import_policy.allow_schema_change && diff.schema_version_changed {
-            return Err(MoeError::PolicyRejected(
-                "governance import rejected: schema version drift".to_string(),
-            ));
-        }
-        if !self.governance_import_policy.allow_version_regression && diff.version_delta < 0 {
-            return Err(MoeError::PolicyRejected(
-                "governance import rejected: version regression".to_string(),
-            ));
-        }
-        if let Some(max) = self.governance_import_policy.max_version_regression
-            && diff.version_delta < 0
-            && (-diff.version_delta as u64) > max
-        {
-            return Err(MoeError::PolicyRejected(
-                "governance import rejected: regression exceeds allowed delta".to_string(),
-            ));
-        }
-        if self.governance_import_policy.require_policy_match && diff.policy_changed {
-            return Err(MoeError::PolicyRejected(
-                "governance import rejected: policy mismatch".to_string(),
-            ));
-        }
-
-        self.import_governance_state(state);
-        Ok(())
+    pub fn try_import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        let mut state: GovernanceState =
+            common_json::json::from_json_str(payload).map_err(|err| {
+                MoeError::DatasetError(format!("governance state deserialization failed: {err}"))
+            })?;
+        state.ensure_checksum();
+        self.try_import_governance_state(state)
     }
 
     pub fn governance_audit_trail(&self) -> GovernanceAuditTrail {
@@ -695,6 +704,33 @@ impl MoePipeline {
         if self.governance_audit_entries.len() > self.max_governance_audit_entries {
             let to_trim = self.governance_audit_entries.len() - self.max_governance_audit_entries;
             self.governance_audit_entries.drain(0..to_trim);
+        }
+    }
+
+    fn evaluate_governance_import(&self, state: &GovernanceState) -> GovernanceImportDecision {
+        let diff = self.diff_governance_state(state);
+        let mut reasons = Vec::new();
+
+        if !self.governance_import_policy.allow_schema_change && diff.schema_version_changed {
+            reasons.push("schema version drift is not allowed".to_string());
+        }
+        if !self.governance_import_policy.allow_version_regression && diff.version_delta < 0 {
+            reasons.push("version regression is not allowed".to_string());
+        }
+        if let Some(max) = self.governance_import_policy.max_version_regression
+            && diff.version_delta < 0
+            && (-diff.version_delta as u64) > max
+        {
+            reasons.push("version regression exceeds configured maximum".to_string());
+        }
+        if self.governance_import_policy.require_policy_match && diff.policy_changed {
+            reasons.push("governance policy mismatch".to_string());
+        }
+
+        GovernanceImportDecision {
+            allowed: reasons.is_empty(),
+            reasons,
+            diff,
         }
     }
 }
