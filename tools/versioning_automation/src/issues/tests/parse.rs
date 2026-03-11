@@ -35,6 +35,26 @@ fn parse_neutralize_accepts_pr_and_optional_repo() {
 }
 
 #[test]
+fn parse_auto_link_requires_issue() {
+    let args = vec!["auto-link".to_string()];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn parse_auto_link_accepts_issue_and_optional_repo() {
+    let args = vec![
+        "auto-link".to_string(),
+        "--issue".to_string(),
+        "12".to_string(),
+        "--repo".to_string(),
+        "owner/repo".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 4);
+}
+
+#[test]
 fn parse_required_fields_validate_accepts_mode() {
     let args = vec![
         "required-fields-validate".to_string(),

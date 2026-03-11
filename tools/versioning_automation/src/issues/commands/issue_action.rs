@@ -1,6 +1,6 @@
 //! tools/versioning_automation/src/issues/commands/issue_action.rs
 use crate::issues::commands::{
-    AssigneeLoginsOptions, CloseOptions, CreateOptions, DoneStatusOptions,
+    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, CreateOptions, DoneStatusOptions,
     FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldOptions, IssueTarget,
     LabelExistsOptions, ListByLabelOptions, NeutralizeOptions, NonComplianceReasonOptions,
     OpenNumbersOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
@@ -22,6 +22,7 @@ pub(crate) enum IssueAction {
     Delete(IssueTarget),
     Reevaluate(ReevaluateOptions),
     Neutralize(NeutralizeOptions),
+    AutoLink(AutoLinkOptions),
     RequiredFieldsValidate(RequiredFieldsValidateOptions),
     NonComplianceReason(NonComplianceReasonOptions),
     FetchNonComplianceReason(FetchNonComplianceReasonOptions),

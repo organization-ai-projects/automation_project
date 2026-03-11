@@ -6,9 +6,9 @@ use regex::Regex;
 use serde::Deserialize;
 
 use crate::issues::commands::{
-    AssigneeLoginsOptions, CloseOptions, CreateOptions, DoneStatusMode, DoneStatusOptions,
-    FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldName, IssueFieldOptions,
-    IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
+    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, CreateOptions, DoneStatusMode,
+    DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldName,
+    IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
     NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions, ReevaluateOptions,
     ReopenOnDevOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions,
     SubissueRefsOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
@@ -43,6 +43,97 @@ struct IssueStatePayload {
 #[derive(Debug, Deserialize)]
 struct PrBodyPayload {
     body: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AutoLinkIssuePayload {
+    title: Option<String>,
+    body: Option<String>,
+    state: Option<String>,
+    labels: Option<Vec<IssueFieldLabel>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlErrorsPayload {
+    errors: Option<Vec<GraphqlError>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlError {
+    message: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlRelationPayload {
+    data: Option<GraphqlRelationData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlRelationData {
+    repository: Option<GraphqlRelationRepository>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlRelationRepository {
+    child: Option<GraphqlRelationChild>,
+    parent: Option<GraphqlRelationParentIssue>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlRelationChild {
+    id: Option<String>,
+    parent: Option<GraphqlRelationParentRef>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlRelationParentRef {
+    number: Option<u64>,
+    id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlRelationParentIssue {
+    id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlAddSubIssuePayload {
+    data: Option<GraphqlAddSubIssueData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlAddSubIssueData {
+    #[serde(rename = "addSubIssue")]
+    add_sub_issue: Option<GraphqlAddSubIssueResult>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlAddSubIssueResult {
+    issue: Option<GraphqlAddSubIssueIssue>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlAddSubIssueIssue {
+    #[serde(rename = "subIssues")]
+    sub_issues: Option<GraphqlAddSubIssueNodes>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlAddSubIssueNodes {
+    nodes: Option<Vec<GraphqlAddSubIssueNode>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphqlAddSubIssueNode {
+    number: Option<u64>,
+}
+
+#[derive(Debug, Default)]
+struct AutoLinkRelationSnapshot {
+    current_parent_number: String,
+    current_parent_node_id: String,
+    child_node_id: String,
+    parent_node_id: String,
 }
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
@@ -505,6 +596,722 @@ pub(crate) fn run_neutralize(opts: NeutralizeOptions) -> i32 {
 
     println!("Closure neutralization evaluated for PR #{}.", opts.pr);
     0
+}
+
+pub(crate) fn run_auto_link(opts: AutoLinkOptions) -> i32 {
+    let repo_name = match resolve_repo_name(opts.repo) {
+        Ok(repo) => repo,
+        Err(msg) => {
+            eprintln!("{msg}");
+            return 3;
+        }
+    };
+
+    let marker = format!("<!-- parent-field-autolink:{} -->", opts.issue);
+    let label_required_missing = "issue-required-missing";
+    let label_automation_failed = "automation-failed";
+    let (repo_owner, repo_short_name) = split_repo_name(&repo_name);
+
+    let issue_payload = gh_issue_autolink_payload(&repo_name, &opts.issue);
+    let issue_state = issue_payload.state.unwrap_or_default();
+    if issue_state.is_empty() {
+        eprintln!("Erreur: impossible de lire l'issue #{}.", opts.issue);
+        return 4;
+    }
+
+    let issue_title = issue_payload.title.unwrap_or_default();
+    let issue_body = issue_payload.body.unwrap_or_default();
+    let issue_labels_raw = issue_payload
+        .labels
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|label| label.name)
+        .collect::<Vec<_>>()
+        .join("|");
+
+    let contract_errors =
+        validate_content(&issue_title, &issue_body, &issue_labels_raw).unwrap_or_default();
+    if !contract_errors.is_empty() {
+        let mut summary_lines = String::new();
+        for entry in contract_errors {
+            summary_lines.push_str("- ");
+            summary_lines.push_str(&entry.message);
+            summary_lines.push('\n');
+        }
+        let help = format!(
+            "Detected problems:\n\n{summary_lines}\nExpected contract source: `.github/issue_required_fields.conf`."
+        );
+        let status = auto_link_set_validation_error_state(
+            &repo_name,
+            &opts.issue,
+            &marker,
+            label_required_missing,
+            label_automation_failed,
+            "Issue body/title is non-compliant with required issue format.",
+            &help,
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    let parent_raw = match auto_link_extract_parent(&issue_body) {
+        Some(value) if !value.is_empty() => value,
+        _ => {
+            let help = "Expected format:\n\n- `Parent: #<issue_number>` for child issues\n\n- `Parent: none` for independent issues\n\n- `Parent: base` for cascade root issues\n\n- `Parent: epic` for epic umbrella issues";
+            let status = auto_link_set_validation_error_state(
+                &repo_name,
+                &opts.issue,
+                &marker,
+                label_required_missing,
+                label_automation_failed,
+                "Missing required field `Parent:` in issue body.",
+                help,
+            );
+            return if status == 0 { 0 } else { status };
+        }
+    };
+
+    let parent_raw_lc = parent_raw.to_lowercase();
+    if parent_raw_lc == "none" || parent_raw_lc == "base" || parent_raw_lc == "epic" {
+        return run_auto_link_parent_none(
+            &repo_name,
+            &repo_owner,
+            &repo_short_name,
+            &opts.issue,
+            &parent_raw_lc,
+            &marker,
+            label_required_missing,
+            label_automation_failed,
+        );
+    }
+
+    if !is_issue_key(&parent_raw) {
+        let status = auto_link_set_validation_error_state(
+            &repo_name,
+            &opts.issue,
+            &marker,
+            label_required_missing,
+            label_automation_failed,
+            &format!("Invalid `Parent:` value: `{parent_raw}`."),
+            "Expected `Parent: #<issue_number>` or one of `Parent: none|base|epic`.",
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    run_auto_link_parent_link(
+        &repo_name,
+        &repo_owner,
+        &repo_short_name,
+        &opts.issue,
+        parent_raw.trim_start_matches('#'),
+        &marker,
+        label_required_missing,
+        label_automation_failed,
+    )
+}
+
+fn run_auto_link_parent_none(
+    repo_name: &str,
+    repo_owner: &str,
+    repo_short_name: &str,
+    issue_number: &str,
+    parent_mode: &str,
+    marker: &str,
+    label_required_missing: &str,
+    label_automation_failed: &str,
+) -> i32 {
+    let relation_json =
+        auto_link_query_child_parent_relation(repo_owner, repo_short_name, issue_number);
+    if relation_json.trim().is_empty() {
+        let status = auto_link_set_runtime_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_automation_failed,
+            &format!(
+                "Unable to query current parent relation while processing `Parent: {parent_mode}`."
+            ),
+            "Retry later. If this persists, unlink parent manually in GitHub UI.",
+        );
+        return if status == 0 { 0 } else { status };
+    }
+    if auto_link_graphql_has_errors(&relation_json) {
+        let errors = auto_link_graphql_error_messages(&relation_json);
+        let status = auto_link_set_runtime_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_automation_failed,
+            "GitHub GraphQL query returned errors while reading current parent relation.",
+            &format!(
+                "API errors: {errors}\n\nRetry later. If this persists, unlink parent manually in GitHub UI."
+            ),
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    let relation = auto_link_relation_snapshot(&relation_json);
+    let current_parent_number = relation.current_parent_number;
+    let current_parent_node_id = relation.current_parent_node_id;
+    let child_node_id = relation.child_node_id;
+
+    if !current_parent_number.is_empty() {
+        if current_parent_node_id.is_empty() || child_node_id.is_empty() {
+            let status = auto_link_set_runtime_error_state(
+                repo_name,
+                issue_number,
+                marker,
+                label_automation_failed,
+                &format!(
+                    "Missing node IDs required to unlink current parent #{current_parent_number}."
+                ),
+                "Retry later. If this persists, unlink parent manually in GitHub UI.",
+            );
+            return if status == 0 { 0 } else { status };
+        }
+
+        let unlink_result =
+            auto_link_remove_sub_issue_relation(&current_parent_node_id, &child_node_id);
+        if unlink_result.trim().is_empty() {
+            let status = auto_link_set_runtime_error_state(
+                repo_name,
+                issue_number,
+                marker,
+                label_automation_failed,
+                &format!(
+                    "GitHub API mutation failed while unlinking issue from parent #{current_parent_number}."
+                ),
+                "Retry later. If this persists, unlink parent manually in GitHub UI.",
+            );
+            return if status == 0 { 0 } else { status };
+        }
+        if auto_link_graphql_has_errors(&unlink_result) {
+            let errors = auto_link_graphql_error_messages(&unlink_result);
+            let status = auto_link_set_runtime_error_state(
+                repo_name,
+                issue_number,
+                marker,
+                label_automation_failed,
+                &format!(
+                    "GitHub GraphQL mutation returned errors while unlinking parent #{current_parent_number}."
+                ),
+                &format!(
+                    "API errors: {errors}\n\nRetry later. If this persists, unlink parent manually in GitHub UI."
+                ),
+            );
+            return if status == 0 { 0 } else { status };
+        }
+
+        let status = auto_link_set_success_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_required_missing,
+            label_automation_failed,
+            &format!(
+                "Removed existing parent link #{current_parent_number} (`Parent: {parent_mode}`)."
+            ),
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    let status = auto_link_set_success_state(
+        repo_name,
+        issue_number,
+        marker,
+        label_required_missing,
+        label_automation_failed,
+        &format!("No parent linking requested (`Parent: {parent_mode}`)."),
+    );
+    if status == 0 { 0 } else { status }
+}
+
+fn run_auto_link_parent_link(
+    repo_name: &str,
+    repo_owner: &str,
+    repo_short_name: &str,
+    issue_number: &str,
+    parent_number: &str,
+    marker: &str,
+    label_required_missing: &str,
+    label_automation_failed: &str,
+) -> i32 {
+    if parent_number == issue_number {
+        let status = auto_link_set_validation_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_required_missing,
+            label_automation_failed,
+            &format!("Issue cannot reference itself as parent (`Parent: #{issue_number}`)."),
+            "Use another parent issue number or `Parent: none`.",
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    let parent_payload = gh_issue_autolink_payload(repo_name, parent_number);
+    let parent_state = parent_payload.state.unwrap_or_default();
+    let parent_title = parent_payload.title.unwrap_or_default();
+    if parent_state.is_empty() && parent_title.is_empty() {
+        let status = auto_link_set_validation_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_required_missing,
+            label_automation_failed,
+            &format!("Parent issue `#{parent_number}` was not found."),
+            "Use an existing issue number in `Parent:`.",
+        );
+        return if status == 0 { 0 } else { status };
+    }
+    if parent_state != "OPEN" {
+        let status = auto_link_set_validation_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_required_missing,
+            label_automation_failed,
+            &format!("Parent issue `#{parent_number}` is not open (state: {parent_state})."),
+            "Reopen the parent or choose another open parent issue.",
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    let relation_json = auto_link_query_parent_child_relation(
+        repo_owner,
+        repo_short_name,
+        issue_number,
+        parent_number,
+    );
+    if relation_json.trim().is_empty() {
+        let status = auto_link_set_runtime_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_automation_failed,
+            "Unable to query parent/child relation state from GitHub API.",
+            "Retry later. If this persists, link the issue manually in GitHub UI.",
+        );
+        return if status == 0 { 0 } else { status };
+    }
+    if auto_link_graphql_has_errors(&relation_json) {
+        let errors = auto_link_graphql_error_messages(&relation_json);
+        let status = auto_link_set_runtime_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_automation_failed,
+            "GitHub GraphQL query returned errors while reading relation state.",
+            &format!(
+                "API errors: {errors}\n\nRetry later. If this persists, link the issue manually in GitHub UI."
+            ),
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    let relation = auto_link_relation_snapshot(&relation_json);
+    let current_parent_number = relation.current_parent_number;
+    let current_parent_node_id = relation.current_parent_node_id;
+    let child_node_id = relation.child_node_id;
+    let parent_node_id = relation.parent_node_id;
+
+    if current_parent_number == parent_number {
+        let status = auto_link_set_success_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_required_missing,
+            label_automation_failed,
+            &format!("Issue already linked to parent #{parent_number}."),
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    if !current_parent_number.is_empty() && current_parent_number != parent_number {
+        if current_parent_node_id.is_empty() || child_node_id.is_empty() {
+            let status = auto_link_set_runtime_error_state(
+                repo_name,
+                issue_number,
+                marker,
+                label_automation_failed,
+                &format!(
+                    "Missing node IDs required to re-parent issue from #{current_parent_number} to #{parent_number}."
+                ),
+                "Retry later. If this persists, update parent linkage manually in GitHub UI.",
+            );
+            return if status == 0 { 0 } else { status };
+        }
+        let unlink_result =
+            auto_link_remove_sub_issue_relation(&current_parent_node_id, &child_node_id);
+        if unlink_result.trim().is_empty() {
+            let status = auto_link_set_runtime_error_state(
+                repo_name,
+                issue_number,
+                marker,
+                label_automation_failed,
+                &format!(
+                    "GitHub API mutation failed while unlinking child from previous parent #{current_parent_number}."
+                ),
+                "Retry later. If this persists, unlink manually in GitHub UI and rerun automation.",
+            );
+            return if status == 0 { 0 } else { status };
+        }
+        if auto_link_graphql_has_errors(&unlink_result) {
+            let errors = auto_link_graphql_error_messages(&unlink_result);
+            let status = auto_link_set_runtime_error_state(
+                repo_name,
+                issue_number,
+                marker,
+                label_automation_failed,
+                &format!(
+                    "GitHub GraphQL mutation returned errors while unlinking previous parent #{current_parent_number}."
+                ),
+                &format!(
+                    "API errors: {errors}\n\nRetry later. If this persists, unlink manually in GitHub UI and rerun automation."
+                ),
+            );
+            return if status == 0 { 0 } else { status };
+        }
+    }
+
+    if child_node_id.is_empty() || parent_node_id.is_empty() {
+        let status = auto_link_set_runtime_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_automation_failed,
+            "Missing GitHub node IDs required for sub-issue linking.",
+            "Retry later. If this persists, link parent/child manually in GitHub UI.",
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    let link_result = auto_link_add_sub_issue_relation(&parent_node_id, &child_node_id);
+    if link_result.trim().is_empty() {
+        let status = auto_link_set_runtime_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_automation_failed,
+            "GitHub API mutation failed while linking child to parent.",
+            &format!(
+                "Link manually in GitHub UI, then keep `Parent: #{parent_number}` in issue body for traceability."
+            ),
+        );
+        return if status == 0 { 0 } else { status };
+    }
+    if auto_link_graphql_has_errors(&link_result) {
+        let errors = auto_link_graphql_error_messages(&link_result);
+        let status = auto_link_set_runtime_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_automation_failed,
+            "GitHub GraphQL mutation returned errors while linking child to parent.",
+            &format!(
+                "API errors: {errors}\n\nLink manually in GitHub UI, then keep `Parent: #{parent_number}` in issue body for traceability."
+            ),
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    let linked_child_number = auto_link_add_sub_issue_linked_number(&link_result);
+    if linked_child_number.is_empty() {
+        let status = auto_link_set_runtime_error_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_automation_failed,
+            "GitHub mutation returned no linked sub-issue confirmation.",
+            &format!(
+                "Retry later. If this persists, link manually in GitHub UI and keep `Parent: #{parent_number}` in issue body."
+            ),
+        );
+        return if status == 0 { 0 } else { status };
+    }
+
+    if !current_parent_number.is_empty() && current_parent_number != parent_number {
+        let status = auto_link_set_success_state(
+            repo_name,
+            issue_number,
+            marker,
+            label_required_missing,
+            label_automation_failed,
+            &format!("Re-parented this issue from #{current_parent_number} to #{parent_number}."),
+        );
+        if status != 0 {
+            return status;
+        }
+        println!(
+            "Re-parented issue #{} from #{} to #{}.",
+            issue_number, current_parent_number, parent_number
+        );
+        return 0;
+    }
+
+    let status = auto_link_set_success_state(
+        repo_name,
+        issue_number,
+        marker,
+        label_required_missing,
+        label_automation_failed,
+        &format!("Linked this issue as child of #{parent_number}."),
+    );
+    if status != 0 {
+        return status;
+    }
+    println!(
+        "Linked issue #{} to parent #{}.",
+        issue_number, parent_number
+    );
+    0
+}
+
+fn auto_link_set_validation_error_state(
+    repo_name: &str,
+    issue_number: &str,
+    marker: &str,
+    required_missing_label: &str,
+    automation_failed_label: &str,
+    message: &str,
+    help_text: &str,
+) -> i32 {
+    auto_link_add_label(repo_name, issue_number, required_missing_label);
+    auto_link_remove_label(repo_name, issue_number, automation_failed_label);
+    let body =
+        format!("{marker}\n### Parent Field Autolink Status\n\n❌ {message}\n\n{help_text}\n");
+    run_upsert_marker_comment(crate::issues::commands::UpsertMarkerCommentOptions {
+        repo: repo_name.to_string(),
+        issue: issue_number.to_string(),
+        marker: marker.to_string(),
+        body,
+        announce: false,
+    })
+}
+
+fn auto_link_set_runtime_error_state(
+    repo_name: &str,
+    issue_number: &str,
+    marker: &str,
+    automation_failed_label: &str,
+    message: &str,
+    help_text: &str,
+) -> i32 {
+    auto_link_add_label(repo_name, issue_number, automation_failed_label);
+    let body =
+        format!("{marker}\n### Parent Field Autolink Status\n\n⚠️ {message}\n\n{help_text}\n");
+    run_upsert_marker_comment(crate::issues::commands::UpsertMarkerCommentOptions {
+        repo: repo_name.to_string(),
+        issue: issue_number.to_string(),
+        marker: marker.to_string(),
+        body,
+        announce: false,
+    })
+}
+
+fn auto_link_set_success_state(
+    repo_name: &str,
+    issue_number: &str,
+    marker: &str,
+    required_missing_label: &str,
+    automation_failed_label: &str,
+    message: &str,
+) -> i32 {
+    auto_link_remove_label(repo_name, issue_number, required_missing_label);
+    auto_link_remove_label(repo_name, issue_number, automation_failed_label);
+    let body = format!("{marker}\n### Parent Field Autolink Status\n\n✅ {message}\n");
+    run_upsert_marker_comment(crate::issues::commands::UpsertMarkerCommentOptions {
+        repo: repo_name.to_string(),
+        issue: issue_number.to_string(),
+        marker: marker.to_string(),
+        body,
+        announce: false,
+    })
+}
+
+fn auto_link_add_label(repo_name: &str, issue_number: &str, label: &str) {
+    let _ = execute_command({
+        let mut cmd = gh_issue_target_command("edit", issue_number, Some(repo_name));
+        cmd.arg("--add-label").arg(label);
+        cmd
+    });
+}
+
+fn auto_link_remove_label(repo_name: &str, issue_number: &str, label: &str) {
+    let _ = execute_command({
+        let mut cmd = gh_issue_target_command("edit", issue_number, Some(repo_name));
+        cmd.arg("--remove-label").arg(label);
+        cmd
+    });
+}
+
+fn auto_link_extract_parent(body: &str) -> Option<String> {
+    let re = Regex::new(r"(?im)^\s*Parent\s*:\s*(.+)$").expect("static regex must compile");
+    re.captures(body)
+        .and_then(|captures| captures.get(1))
+        .map(|m| m.as_str().trim().to_string())
+}
+
+fn auto_link_query_child_parent_relation(
+    repo_owner: &str,
+    repo_short_name: &str,
+    issue_number: &str,
+) -> String {
+    gh_output_or_empty(&[
+        "api",
+        "graphql",
+        "-f",
+        "query=query($owner:String!,$name:String!,$child:Int!){repository(owner:$owner,name:$name){child:issue(number:$child){id parent{number id}}}}",
+        "-f",
+        &format!("owner={repo_owner}"),
+        "-f",
+        &format!("name={repo_short_name}"),
+        "-F",
+        &format!("child={issue_number}"),
+    ])
+}
+
+fn auto_link_query_parent_child_relation(
+    repo_owner: &str,
+    repo_short_name: &str,
+    child_issue_number: &str,
+    parent_issue_number: &str,
+) -> String {
+    gh_output_or_empty(&[
+        "api",
+        "graphql",
+        "-f",
+        "query=query($owner:String!,$name:String!,$child:Int!,$parent:Int!){repository(owner:$owner,name:$name){child:issue(number:$child){id parent{number id}} parent:issue(number:$parent){id state}}}",
+        "-f",
+        &format!("owner={repo_owner}"),
+        "-f",
+        &format!("name={repo_short_name}"),
+        "-F",
+        &format!("child={child_issue_number}"),
+        "-F",
+        &format!("parent={parent_issue_number}"),
+    ])
+}
+
+fn auto_link_remove_sub_issue_relation(parent_node_id: &str, child_node_id: &str) -> String {
+    gh_output_or_empty(&[
+        "api",
+        "graphql",
+        "-f",
+        "query=mutation($issueId:ID!,$subIssueId:ID!){removeSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{id}}}",
+        "-f",
+        &format!("issueId={parent_node_id}"),
+        "-f",
+        &format!("subIssueId={child_node_id}"),
+    ])
+}
+
+fn auto_link_add_sub_issue_relation(parent_node_id: &str, child_node_id: &str) -> String {
+    gh_output_or_empty(&[
+        "api",
+        "graphql",
+        "-f",
+        "query=mutation($issueId:ID!,$subIssueId:ID!){addSubIssue(input:{issueId:$issueId,subIssueId:$subIssueId}){issue{subIssues(first:1){nodes{number}}}}}",
+        "-f",
+        &format!("issueId={parent_node_id}"),
+        "-f",
+        &format!("subIssueId={child_node_id}"),
+    ])
+}
+
+fn auto_link_graphql_has_errors(payload: &str) -> bool {
+    if payload.trim().is_empty() {
+        return false;
+    }
+    common_json::from_json_str::<GraphqlErrorsPayload>(payload)
+        .ok()
+        .and_then(|json| json.errors)
+        .map(|errors| !errors.is_empty())
+        .unwrap_or(false)
+}
+
+fn auto_link_graphql_error_messages(payload: &str) -> String {
+    let Ok(json) = common_json::from_json_str::<GraphqlErrorsPayload>(payload) else {
+        return String::new();
+    };
+    let Some(errors) = json.errors else {
+        return String::new();
+    };
+    errors
+        .iter()
+        .filter_map(|entry| entry.message.as_deref())
+        .filter(|value| !value.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+fn auto_link_relation_snapshot(payload: &str) -> AutoLinkRelationSnapshot {
+    let Ok(json) = common_json::from_json_str::<GraphqlRelationPayload>(payload) else {
+        return AutoLinkRelationSnapshot::default();
+    };
+    let repository = json.data.and_then(|data| data.repository);
+    let child = repository.as_ref().and_then(|repo| repo.child.as_ref());
+    let parent_ref = child.and_then(|child| child.parent.as_ref());
+    let parent_issue = repository.as_ref().and_then(|repo| repo.parent.as_ref());
+
+    AutoLinkRelationSnapshot {
+        current_parent_number: parent_ref
+            .and_then(|parent| parent.number)
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
+        current_parent_node_id: parent_ref
+            .and_then(|parent| parent.id.clone())
+            .unwrap_or_default(),
+        child_node_id: child.and_then(|child| child.id.clone()).unwrap_or_default(),
+        parent_node_id: parent_issue
+            .and_then(|parent| parent.id.clone())
+            .unwrap_or_default(),
+    }
+}
+
+fn auto_link_add_sub_issue_linked_number(payload: &str) -> String {
+    let Ok(json) = common_json::from_json_str::<GraphqlAddSubIssuePayload>(payload) else {
+        return String::new();
+    };
+    json.data
+        .and_then(|data| data.add_sub_issue)
+        .and_then(|result| result.issue)
+        .and_then(|issue| issue.sub_issues)
+        .and_then(|sub| sub.nodes)
+        .and_then(|nodes| nodes.first().and_then(|node| node.number))
+        .map(|value| value.to_string())
+        .unwrap_or_default()
+}
+
+fn split_repo_name(repo_name: &str) -> (String, String) {
+    let mut parts = repo_name.splitn(2, '/');
+    let owner = parts.next().unwrap_or("").to_string();
+    let name = parts.next().unwrap_or("").to_string();
+    (owner, name)
+}
+
+fn is_issue_key(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.starts_with('#') && trimmed[1..].chars().all(|ch| ch.is_ascii_digit())
+}
+
+fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> AutoLinkIssuePayload {
+    let payload_raw = gh_output_or_empty(&[
+        "issue",
+        "view",
+        issue_number,
+        "-R",
+        repo_name,
+        "--json",
+        "title,body,state,labels",
+    ]);
+    common_json::from_json_str::<AutoLinkIssuePayload>(&payload_raw).unwrap_or(
+        AutoLinkIssuePayload {
+            title: None,
+            body: None,
+            state: None,
+            labels: None,
+        },
+    )
 }
 
 fn gh_issue_state_or_empty(repo_name: Option<&str>, issue_number: &str) -> String {

@@ -1,11 +1,12 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
-    AssigneeLoginsOptions, CloseOptions, CreateOptions, DoneStatusMode, DoneStatusOptions,
-    FetchNonComplianceReasonOptions, HasLabelOptions, IssueAction, IssueFieldName,
-    IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
-    NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions, ReevaluateOptions,
-    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
-    SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, CreateOptions, DoneStatusMode,
+    DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions, IssueAction,
+    IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
+    NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions,
+    ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions,
+    SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions,
+    UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -25,6 +26,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "delete" => parse_target("delete", &args[1..]).map(IssueAction::Delete),
         "reevaluate" => parse_reevaluate(&args[1..]).map(IssueAction::Reevaluate),
         "neutralize" => parse_neutralize(&args[1..]).map(IssueAction::Neutralize),
+        "auto-link" => parse_auto_link(&args[1..]).map(IssueAction::AutoLink),
         "required-fields-validate" => {
             parse_required_fields_validate(&args[1..]).map(IssueAction::RequiredFieldsValidate)
         }
@@ -175,6 +177,24 @@ fn parse_neutralize(args: &[String]) -> Result<NeutralizeOptions, String> {
     }
     require_positive_number("--pr", &pr)?;
     Ok(NeutralizeOptions { pr, repo })
+}
+
+fn parse_auto_link(args: &[String]) -> Result<AutoLinkOptions, String> {
+    let mut issue = String::new();
+    let mut repo: Option<String> = None;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for auto-link: {unknown}")),
+        }
+    }
+    if issue.is_empty() {
+        return Err("--issue is required".to_string());
+    }
+    require_positive_number("--issue", &issue)?;
+    Ok(AutoLinkOptions { issue, repo })
 }
 
 fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {

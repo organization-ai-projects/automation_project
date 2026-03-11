@@ -1,5 +1,6 @@
 //! tools/versioning_automation/src/issues/commands/mod.rs
 mod assignee_logins_options;
+mod auto_link_options;
 mod close_options;
 mod create_options;
 mod done_status_options;
@@ -27,6 +28,7 @@ mod update_options;
 mod upsert_marker_comment_options;
 
 pub(crate) use assignee_logins_options::AssigneeLoginsOptions;
+pub(crate) use auto_link_options::AutoLinkOptions;
 pub(crate) use close_options::CloseOptions;
 pub(crate) use create_options::CreateOptions;
 pub(crate) use done_status_options::{DoneStatusMode, DoneStatusOptions};

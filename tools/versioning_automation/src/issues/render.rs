@@ -67,6 +67,7 @@ pub(crate) fn print_usage() {
     println!("  va issue delete --issue <number> [--repo owner/name]");
     println!("  va issue reevaluate --issue <number> [--repo owner/name]");
     println!("  va issue neutralize --pr <number> [--repo owner/name]");
+    println!("  va issue auto-link --issue <number> [--repo owner/name]");
     println!(
         "  va issue required-fields-validate [--mode title|body|content] [--title ...] [--body ...] [--labels-raw ...]"
     );
