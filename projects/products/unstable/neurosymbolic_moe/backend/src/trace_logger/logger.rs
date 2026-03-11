@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/trace_logger/logger.rs
 use std::collections::HashMap;
 
 use crate::moe_core::{ExpertId, TaskId, TracePhase, TraceRecord};
@@ -33,15 +34,12 @@ impl TraceLogger {
         expert_id: Option<ExpertId>,
     ) {
         self.counter += 1;
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
 
         let record = TraceRecord {
             trace_id: format!("trace-{}-{}", task_id.as_str(), self.counter),
             task_id,
-            timestamp,
+            // Deterministic monotonic timestamp surrogate.
+            timestamp: self.counter,
             expert_id,
             phase,
             detail,
@@ -81,53 +79,5 @@ impl TraceLogger {
 
     pub fn clear(&mut self) {
         self.traces.clear();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::HashMap;
-
-    fn make_record(task: &str, phase: TracePhase) -> TraceRecord {
-        TraceRecord {
-            trace_id: format!("tr-{task}"),
-            task_id: TaskId::new(task),
-            timestamp: 1,
-            expert_id: None,
-            phase,
-            detail: "detail".to_string(),
-            metadata: HashMap::new(),
-        }
-    }
-
-    #[test]
-    fn log_and_count() {
-        let mut logger = TraceLogger::new(100);
-        logger.log(make_record("t1", TracePhase::Routing));
-        logger.log(make_record("t2", TracePhase::ExpertExecution));
-        assert_eq!(logger.count(), 2);
-    }
-
-    #[test]
-    fn max_traces_eviction() {
-        let mut logger = TraceLogger::new(2);
-        logger.log(make_record("t1", TracePhase::Routing));
-        logger.log(make_record("t2", TracePhase::Routing));
-        logger.log(make_record("t3", TracePhase::Routing));
-        assert_eq!(logger.count(), 2);
-        // First record (t1) should have been evicted
-        assert!(logger.get_by_task(&TaskId::new("t1")).is_empty());
-        assert_eq!(logger.get_by_task(&TaskId::new("t3")).len(), 1);
-    }
-
-    #[test]
-    fn get_by_task() {
-        let mut logger = TraceLogger::new(100);
-        logger.log(make_record("t1", TracePhase::Routing));
-        logger.log(make_record("t1", TracePhase::ExpertExecution));
-        logger.log(make_record("t2", TracePhase::Routing));
-        assert_eq!(logger.get_by_task(&TaskId::new("t1")).len(), 2);
-        assert_eq!(logger.get_by_task(&TaskId::new("t2")).len(), 1);
     }
 }

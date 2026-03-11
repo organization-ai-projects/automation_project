@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/main.rs
 mod aggregator;
 mod app;
 mod buffer_manager;

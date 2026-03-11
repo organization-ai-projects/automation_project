@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/app.rs
 use std::collections::HashMap;
 use std::path::PathBuf;
 
