@@ -706,6 +706,7 @@ mod v4 {
         ExpertOutput, ExpertStatus, ExpertType, Task, TaskType,
     };
     use crate::orchestrator::{ArbitrationMode, MoePipelineBuilder};
+    use crate::policy_guard::{Policy, PolicyType};
     use crate::router::{Router, RoutingDecision, RoutingStrategy};
     use std::collections::HashMap;
 
@@ -930,5 +931,64 @@ mod v4 {
             .selected_output
             .expect("selected output should be present");
         assert_eq!(selected.expert_id.as_str(), "executor");
+    }
+
+    #[test]
+    fn v4_enforcer_reselects_policy_compliant_output_when_available() {
+        let unsafe_primary = ExpertId::new("unsafe-primary");
+        let safe_secondary = ExpertId::new("safe-secondary");
+
+        let mut scores = HashMap::new();
+        scores.insert(unsafe_primary.clone(), 1.0);
+        scores.insert(safe_secondary.clone(), 0.8);
+
+        let fixed_router = FixedRouter {
+            selected: vec![unsafe_primary.clone(), safe_secondary.clone()],
+            scores,
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(fixed_router))
+            .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
+            .build();
+
+        pipeline.add_policy(Policy {
+            id: "safety".to_string(),
+            name: "safety".to_string(),
+            description: "reject unsafe markers".to_string(),
+            policy_type: PolicyType::SafetyCheck,
+            active: true,
+        });
+
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                unsafe_primary.as_str(),
+                vec![ExpertCapability::CodeGeneration],
+                0.95,
+                false,
+                "<UNSAFE>::",
+            )))
+            .expect("registering unsafe expert should succeed");
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                safe_secondary.as_str(),
+                vec![ExpertCapability::CodeGeneration],
+                0.70,
+                false,
+                "safe::",
+            )))
+            .expect("registering safe expert should succeed");
+
+        let task = Task::new("v4-enforcer", TaskType::CodeGeneration, "payload");
+        let result = pipeline
+            .execute(task)
+            .expect("pipeline should fallback to policy-compliant output");
+
+        let selected = result
+            .selected_output
+            .expect("selected output should be present");
+        assert_eq!(selected.expert_id.as_str(), safe_secondary.as_str());
+        assert!(selected.content.starts_with("safe::"));
+        assert!(result.strategy.ends_with("+policy_fallback"));
     }
 }

@@ -192,10 +192,8 @@ impl MoePipeline {
                 .outputs
                 .iter()
                 .max_by(|a, b| {
-                    let score_a =
-                        a.confidence + routing_scores.get(&a.expert_id).copied().unwrap_or(0.0);
-                    let score_b =
-                        b.confidence + routing_scores.get(&b.expert_id).copied().unwrap_or(0.0);
+                    let score_a = self.arbitration_score(a, &routing_scores);
+                    let score_b = self.arbitration_score(b, &routing_scores);
                     score_a
                         .partial_cmp(&score_b)
                         .unwrap_or(std::cmp::Ordering::Equal)
@@ -223,15 +221,45 @@ impl MoePipeline {
 
         // 6. Policy validation
         if let Some(ref selected) = aggregated.selected_output {
-            self.policy_guard.validate_strict(selected).map_err(|e| {
-                self.trace_logger.log_phase(
-                    task_id.clone(),
-                    TracePhase::Validation,
-                    format!("policy validation failed: {e}"),
-                    None,
-                );
-                e
-            })?;
+            if let Err(err) = self.policy_guard.validate_strict(selected) {
+                if self.policy_guard.active_policy_count() > 0 {
+                    let replacement = self.pick_policy_compliant_output(
+                        &aggregated.outputs,
+                        &routing_scores,
+                        Some(&selected.expert_id),
+                    );
+                    if let Some(replacement) = replacement {
+                        self.trace_logger.log_phase(
+                            task_id.clone(),
+                            TracePhase::Validation,
+                            format!(
+                                "selected output from '{}' rejected, replaced by policy-compliant '{}'",
+                                selected.expert_id.as_str(),
+                                replacement.expert_id.as_str()
+                            ),
+                            None,
+                        );
+                        aggregated.selected_output = Some(replacement);
+                        aggregated.strategy = format!("{}+policy_fallback", aggregated.strategy);
+                    } else {
+                        self.trace_logger.log_phase(
+                            task_id.clone(),
+                            TracePhase::Validation,
+                            format!("policy validation failed: {err}"),
+                            None,
+                        );
+                        return Err(err);
+                    }
+                } else {
+                    self.trace_logger.log_phase(
+                        task_id.clone(),
+                        TracePhase::Validation,
+                        format!("policy validation failed: {err}"),
+                        None,
+                    );
+                    return Err(err);
+                }
+            }
         }
 
         self.trace_logger.log_phase(
@@ -301,5 +329,42 @@ impl MoePipeline {
             .filter(|id| !id.is_empty())
             .map(ExpertId::new)
             .collect()
+    }
+
+    fn arbitration_score(
+        &self,
+        output: &ExpertOutput,
+        routing_scores: &std::collections::HashMap<ExpertId, f64>,
+    ) -> f64 {
+        match self.arbitration_mode {
+            ArbitrationMode::Aggregation => output.confidence,
+            ArbitrationMode::RouterScoreWeighted => {
+                output.confidence
+                    + routing_scores
+                        .get(&output.expert_id)
+                        .copied()
+                        .unwrap_or(0.0)
+            }
+        }
+    }
+
+    fn pick_policy_compliant_output(
+        &self,
+        outputs: &[ExpertOutput],
+        routing_scores: &std::collections::HashMap<ExpertId, f64>,
+        exclude_expert_id: Option<&ExpertId>,
+    ) -> Option<ExpertOutput> {
+        let mut ranked: Vec<&ExpertOutput> = outputs.iter().collect();
+        ranked.sort_by(|a, b| {
+            self.arbitration_score(b, routing_scores)
+                .partial_cmp(&self.arbitration_score(a, routing_scores))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        ranked
+            .into_iter()
+            .filter(|output| exclude_expert_id != Some(&output.expert_id))
+            .find(|output| self.policy_guard.validate_strict(output).is_ok())
+            .cloned()
     }
 }
