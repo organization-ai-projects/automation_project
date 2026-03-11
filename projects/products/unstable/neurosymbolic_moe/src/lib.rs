@@ -6,6 +6,8 @@ pub mod expert_registry;
 pub mod feedback_engine;
 pub mod memory_engine;
 pub mod moe_core;
+pub mod orchestrator;
 pub mod policy_guard;
 pub mod retrieval_engine;
 pub mod router;
+pub mod trace_logger;
