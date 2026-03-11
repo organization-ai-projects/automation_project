@@ -92,17 +92,17 @@ auto_link_handle_parent_link() {
       "Use another parent issue number or \`Parent: none\`."
   fi
 
-  local parent_json
-  parent_json="$(issue_gh_issue_json "$repo_name" "$parent_number" "number,title,state,url")"
-  if [[ -z "$parent_json" ]]; then
+  local parent_state parent_title
+  parent_state="$(github_issue_state "$repo_name" "$parent_number" || true)"
+  parent_title="$(github_issue_field "$repo_name" "$parent_number" "title" || true)"
+
+  if [[ -z "$parent_state" && -z "$parent_title" ]]; then
     auto_link_fail_validation \
       "$repo_name" "$issue_number" "$marker" "$label_required_missing" "$label_automation_failed" \
       "Parent issue \`#${parent_number}\` was not found." \
       "Use an existing issue number in \`Parent:\`."
   fi
 
-  local parent_state
-  parent_state="$(echo "$parent_json" | jq -r '.state // ""')"
   if [[ "$parent_state" != "OPEN" ]]; then
     auto_link_fail_validation \
       "$repo_name" "$issue_number" "$marker" "$label_required_missing" "$label_automation_failed" \

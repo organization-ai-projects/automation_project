@@ -40,9 +40,9 @@ auto_link_run() {
   local label_required_missing="issue-required-missing"
   local label_automation_failed="automation-failed"
 
-  local issue_json
-  issue_json="$(issue_gh_issue_json "$repo_name" "$issue_number" "number,title,body,state,url,labels")"
-  if [[ -z "$issue_json" ]]; then
+  local issue_state
+  issue_state="$(github_issue_state "$repo_name" "$issue_number" || true)"
+  if [[ -z "$issue_state" ]]; then
     echo "Erreur: impossible de lire l'issue #${issue_number}." >&2
     exit 4
   fi
