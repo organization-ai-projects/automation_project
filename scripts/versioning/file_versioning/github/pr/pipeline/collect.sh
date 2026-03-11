@@ -80,19 +80,37 @@ pr_pipeline_load_pr_body_context() {
   if [[ "$va_payload" == *$'\x1f'* ]]; then
     pr_pipeline_parse_body_context_payload "$va_payload" pr_title pr_body pr_labels_raw
   else
-    pr_view_json="$(pr_gh_optional "read PR ${pr_ref}" pr view "$pr_number" --json title,body,labels)"
-    if [[ -z "$pr_view_json" ]]; then
+    if command -v va_exec >/dev/null 2>&1; then
+      pr_title="$(va_exec pr field --pr "$pr_number" --name "title" 2>/dev/null || true)"
+      pr_body="$(va_exec pr field --pr "$pr_number" --name "body" 2>/dev/null || true)"
+    fi
+    if [[ -z "$pr_title" ]]; then
+      pr_title="$(pr_gh_optional "read PR ${pr_ref} title" pr view "$pr_number" --json title -q '.title // ""')"
+    fi
+    if [[ -z "$pr_body" ]]; then
+      pr_body="$(pr_gh_optional "read PR ${pr_ref} body" pr view "$pr_number" --json body -q '.body // ""')"
+    fi
+    pr_labels_raw="$(pr_gh_optional "read PR ${pr_ref} labels" pr view "$pr_number" --json labels -q '.labels // [] | map(.name) | join("||")')"
+
+    # Keep legacy combined read as compatibility fallback for older gh mocks/wrappers.
+    if [[ -z "$pr_title" && -z "$pr_body" && -z "$pr_labels_raw" ]]; then
+      pr_view_json="$(pr_gh_optional "read PR ${pr_ref}" pr view "$pr_number" --json title,body,labels)"
+    fi
+
+    if [[ -n "$pr_view_json" ]]; then
+      [[ -n "$pr_title" ]] || pr_title="$(echo "$pr_view_json" | jq -r '.title // ""')"
+      [[ -n "$pr_body" ]] || pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
+      [[ -n "$pr_labels_raw" ]] || pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
+    fi
+
+    if [[ -z "$pr_title" && -z "$pr_body" ]]; then
       if [[ "$online_enrich" == "true" ]]; then
         pr_enrich_failed=$((pr_enrich_failed + 1))
-        pr_debug_log "enrich_fallback: failed to read PR ${pr_ref} via gh pr view"
+        pr_debug_log "enrich_fallback: failed to read PR ${pr_ref} title/body"
       fi
       printf "%s\x1f%s" "" ""
       return
     fi
-
-    pr_title="$(echo "$pr_view_json" | jq -r '.title // ""')"
-    pr_body="$(echo "$pr_view_json" | jq -r '.body // ""')"
-    pr_labels_raw="$(echo "$pr_view_json" | jq -r '.labels // [] | map(.name) | join("||")')"
   fi
   if pr_pipeline_is_breaking_from_labels "$pr_labels_raw"; then
     breaking_detected=1
