@@ -206,3 +206,25 @@ fn parse_list_by_label_accepts_label_and_optional_repo() {
     let code = issues::run(&args);
     assert_eq!(code, 0);
 }
+
+#[test]
+fn parse_field_requires_issue_and_name() {
+    let args = vec!["field".to_string(), "--issue".to_string(), "12".to_string()];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn parse_field_accepts_labels_raw_and_optional_repo() {
+    let args = vec![
+        "field".to_string(),
+        "--issue".to_string(),
+        "12".to_string(),
+        "--name".to_string(),
+        "labels-raw".to_string(),
+        "--repo".to_string(),
+        "owner/repo".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 0);
+}

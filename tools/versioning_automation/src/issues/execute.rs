@@ -2,13 +2,14 @@
 use std::process::Command;
 
 use regex::Regex;
+use serde::Deserialize;
 
 use crate::issues::commands::{
     AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
-    HasLabelOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
-    NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions, ReevaluateOptions,
-    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
-    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    HasLabelOptions, IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions,
+    ListByLabelOptions, NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions,
+    ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions,
+    SubissueRefsOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -18,6 +19,18 @@ use crate::issues::required_fields::{
 };
 use crate::issues::tasklist_refs::extract_tasklist_refs;
 use crate::repo_name::resolve_repo_name;
+
+#[derive(Debug, Deserialize)]
+struct IssueFieldPayload {
+    title: Option<String>,
+    body: Option<String>,
+    labels: Option<Vec<IssueFieldLabel>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct IssueFieldLabel {
+    name: Option<String>,
+}
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
     let body = render_direct_issue_body(&opts);
@@ -304,6 +317,44 @@ pub(crate) fn run_list_by_label(opts: ListByLabelOptions) -> i32 {
         args.push(repo);
     }
     print_non_empty_lines(&gh_output_or_empty(&args));
+    0
+}
+
+pub(crate) fn run_field(opts: IssueFieldOptions) -> i32 {
+    let mut args: Vec<&str> = vec!["issue", "view", &opts.issue, "--json", "title,body,labels"];
+    if let Some(repo) = opts.repo.as_deref() {
+        args.push("-R");
+        args.push(repo);
+    }
+
+    let payload_raw = gh_output_or_empty(&args);
+    if payload_raw.trim().is_empty() {
+        println!();
+        return 0;
+    }
+    let payload = match common_json::from_json_str::<IssueFieldPayload>(&payload_raw) {
+        Ok(value) => value,
+        Err(err) => {
+            eprintln!("failed to parse issue payload: {err}");
+            return 1;
+        }
+    };
+
+    match opts.name {
+        IssueFieldName::Title => println!("{}", payload.title.unwrap_or_default()),
+        IssueFieldName::Body => println!("{}", payload.body.unwrap_or_default()),
+        IssueFieldName::LabelsRaw => {
+            let labels = payload
+                .labels
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|item| item.name)
+                .collect::<Vec<_>>()
+                .join("||");
+            println!("{labels}");
+        }
+    }
+
     0
 }
 

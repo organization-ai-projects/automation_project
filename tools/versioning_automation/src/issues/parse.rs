@@ -1,10 +1,11 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
     AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
-    HasLabelOptions, IssueAction, IssueTarget, LabelExistsOptions, ListByLabelOptions,
-    NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions, ReevaluateOptions,
-    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
-    SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    HasLabelOptions, IssueAction, IssueFieldName, IssueFieldOptions, IssueTarget,
+    LabelExistsOptions, ListByLabelOptions, NonComplianceReasonOptions, OpenNumbersOptions,
+    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
+    StateOptions, SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions,
+    UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -44,8 +45,37 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "state" => parse_state(&args[1..]).map(IssueAction::State),
         "has-label" => parse_has_label(&args[1..]).map(IssueAction::HasLabel),
         "list-by-label" => parse_list_by_label(&args[1..]).map(IssueAction::ListByLabel),
+        "field" => parse_field(&args[1..]).map(IssueAction::Field),
         unknown => Err(format!("Unknown issue subcommand: {unknown}")),
     }
+}
+
+fn parse_field(args: &[String]) -> Result<IssueFieldOptions, String> {
+    let mut issue = String::new();
+    let mut repo: Option<String> = None;
+    let mut name = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            "--name" => name = take_value("--name", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for field: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue)?;
+    ensure_non_empty_or("field requires: --issue and --name", &[&name])?;
+
+    let name = match name.as_str() {
+        "title" => IssueFieldName::Title,
+        "body" => IssueFieldName::Body,
+        "labels-raw" => IssueFieldName::LabelsRaw,
+        _ => return Err("--name must be one of: title | body | labels-raw".to_string()),
+    };
+
+    Ok(IssueFieldOptions { issue, repo, name })
 }
 
 fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {

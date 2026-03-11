@@ -3,6 +3,8 @@ mod close_options;
 mod create_options;
 mod has_label_options;
 mod issue_action;
+mod issue_field_name;
+mod issue_field_options;
 mod issue_target;
 mod list_by_label_options;
 mod open_numbers_options;
