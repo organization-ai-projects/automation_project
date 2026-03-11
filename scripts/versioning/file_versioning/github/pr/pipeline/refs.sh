@@ -4,6 +4,33 @@
 
 # Pipeline ref/mode resolution and extraction helpers.
 
+pr_pipeline_pr_field() {
+  local pr_number="$1"
+  local field_name="$2"
+  local fallback_context="$3"
+  local va_output=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    va_output="$(va_exec pr field --pr "$pr_number" --name "$field_name" 2>/dev/null || true)"
+    if [[ -n "$va_output" ]]; then
+      printf '%s' "$va_output"
+      return 0
+    fi
+  fi
+
+  case "$field_name" in
+  base-ref-name)
+    pr_gh_optional "$fallback_context" pr view "$pr_number" --json baseRefName -q '.baseRefName'
+    ;;
+  head-ref-name)
+    pr_gh_optional "$fallback_context" pr view "$pr_number" --json headRefName -q '.headRefName'
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
 pr_pipeline_resolve_refs_and_modes() {
   local current_branch
 
@@ -22,19 +49,11 @@ pr_pipeline_resolve_refs_and_modes() {
       exit "$E_GIT"
     fi
   else
-    if command -v va_exec >/dev/null 2>&1; then
-      if [[ -z "$base_ref" ]]; then
-        base_ref="$(va_exec pr field --pr "$main_pr_number" --name "base-ref-name" 2>/dev/null || true)"
-      fi
-      if [[ -z "$head_ref" ]]; then
-        head_ref="$(va_exec pr field --pr "$main_pr_number" --name "head-ref-name" 2>/dev/null || true)"
-      fi
-    fi
     if [[ -z "$base_ref" ]]; then
-      base_ref="$(pr_gh_optional "read base branch for PR #${main_pr_number}" pr view "$main_pr_number" --json baseRefName -q '.baseRefName')"
+      base_ref="$(pr_pipeline_pr_field "$main_pr_number" "base-ref-name" "read base branch for PR #${main_pr_number}" || true)"
     fi
     if [[ -z "$head_ref" ]]; then
-      head_ref="$(pr_gh_optional "read head branch for PR #${main_pr_number}" pr view "$main_pr_number" --json headRefName -q '.headRefName')"
+      head_ref="$(pr_pipeline_pr_field "$main_pr_number" "head-ref-name" "read head branch for PR #${main_pr_number}" || true)"
     fi
     if [[ -z "$base_ref" ]]; then
       pr_warn_optional "PR #${main_pr_number} base branch unavailable; defaulting to dev (expected dev base)."
