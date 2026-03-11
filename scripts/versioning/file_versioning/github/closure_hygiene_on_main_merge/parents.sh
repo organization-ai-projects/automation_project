@@ -42,22 +42,19 @@ closure_hygiene_close_issue_with_comment() {
 
 closure_hygiene_evaluate_parent() {
   local parent_number="$1"
-  local parent_json
   local parent_state
   local parent_body
   local total
   local closed_count=0
   local open_count=0
   local open_lines=""
-  local child_refs child_ref child_number child_json child_state child_title
+  local child_refs child_ref child_number child_state child_title
 
-  parent_json="$(closure_hygiene_issue_json "$REPO_NAME" "$parent_number" "number,body,state")"
-  if [[ -z "$parent_json" ]]; then
+  parent_state="$(github_issue_state "$REPO_NAME" "$parent_number" || true)"
+  parent_body="$(github_issue_field "$REPO_NAME" "$parent_number" "body" || true)"
+  if [[ -z "$parent_state" && -z "$parent_body" ]]; then
     return 0
   fi
-
-  parent_state="$(echo "$parent_json" | jq -r '.state')"
-  parent_body="$(echo "$parent_json" | jq -r '.body // ""')"
 
   mapfile -t child_refs < <(github_issue_extract_subissue_refs "$REPO_OWNER" "$REPO_SHORT_NAME" "$parent_number")
   if [[ ${#child_refs[@]} -eq 0 ]]; then
@@ -70,15 +67,14 @@ closure_hygiene_evaluate_parent() {
   total="${#child_refs[@]}"
   for child_ref in "${child_refs[@]}"; do
     child_number="${child_ref//#/}"
-    child_json="$(closure_hygiene_issue_json "$REPO_NAME" "$child_number" "state,title")"
-    if [[ -z "$child_json" ]]; then
+    child_state="$(github_issue_state "$REPO_NAME" "$child_number" || true)"
+    child_title="$(github_issue_field "$REPO_NAME" "$child_number" "title" || true)"
+    if [[ -z "$child_state" && -z "$child_title" ]]; then
       open_count=$((open_count + 1))
       open_lines+="- ${child_ref} (unreadable or missing)"$'\n'
       continue
     fi
 
-    child_state="$(echo "$child_json" | jq -r '.state')"
-    child_title="$(echo "$child_json" | jq -r '.title')"
     if [[ "$child_state" == "CLOSED" ]]; then
       closed_count=$((closed_count + 1))
     else

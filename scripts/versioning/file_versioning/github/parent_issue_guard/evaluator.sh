@@ -58,17 +58,15 @@ parent_guard_evaluate_parent_issue() {
   local repo_short_name="$4"
   local parent_number="$5"
 
-  local issue_json
-  issue_json="$(parent_guard_issue_json "$repo_name" "$parent_number" "number,title,body,state,url")"
-  if [[ -z "$issue_json" ]]; then
-    return 0
-  fi
-
   local parent_state
-  parent_state="$(echo "$issue_json" | jq -r '.state')"
+  parent_state="$(github_issue_state "$repo_name" "$parent_number" || true)"
 
   local body
-  body="$(echo "$issue_json" | jq -r '.body // ""')"
+  body="$(github_issue_field "$repo_name" "$parent_number" "body" || true)"
+
+  if [[ -z "$parent_state" && -z "$body" ]]; then
+    return 0
+  fi
 
   mapfile -t child_refs < <(github_issue_extract_subissue_refs "$repo_owner" "$repo_short_name" "$parent_number")
   if [[ ${#child_refs[@]} -eq 0 ]]; then
@@ -86,17 +84,14 @@ parent_guard_evaluate_parent_issue() {
   local child_ref
   for child_ref in "${child_refs[@]}"; do
     local child_number="${child_ref//#/}"
-    local child_json
-    child_json="$(parent_guard_issue_json "$repo_name" "$child_number" "number,title,state,url")"
-    if [[ -z "$child_json" ]]; then
+    local child_state child_title
+    child_state="$(github_issue_state "$repo_name" "$child_number" || true)"
+    child_title="$(github_issue_field "$repo_name" "$child_number" "title" || true)"
+    if [[ -z "$child_state" && -z "$child_title" ]]; then
       open_count=$((open_count + 1))
       open_lines+="- ${child_ref} (unreadable or missing)"$'\n'
       continue
     fi
-
-    local child_state child_title
-    child_state="$(echo "$child_json" | jq -r '.state')"
-    child_title="$(echo "$child_json" | jq -r '.title')"
 
     if [[ "$child_state" == "CLOSED" ]]; then
       closed_count=$((closed_count + 1))
