@@ -1,7 +1,11 @@
-pub mod chunk;
-pub mod context_assembler;
-pub mod retrieval_trait;
-pub mod simple_retriever;
+//! projects/products/unstable/neurosymbolic_moe/backend/src/retrieval_engine/mod.rs
+mod chunk;
+mod context_assembler;
+mod retrieval_trait;
+mod simple_retriever;
+
+#[cfg(test)]
+mod tests;
 
 pub use chunk::{Chunk, Chunker, ChunkingStrategy};
 pub use context_assembler::ContextAssembler;
