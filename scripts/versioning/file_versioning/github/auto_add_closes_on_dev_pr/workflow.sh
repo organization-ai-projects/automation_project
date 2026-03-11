@@ -65,6 +65,46 @@ auto_add_fetch_pr_details_json() {
   printf '%s' "$pr_details_json"
 }
 
+auto_add_pr_field() {
+  local repo_name="$1"
+  local pr_number="$2"
+  local field_name="$3"
+  local pr_json_fallback="${4:-}"
+  local va_output=""
+  local jq_filter=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    va_output="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo_name" \
+        --name "$field_name" 2>/dev/null || true
+    )"
+    if [[ -n "$va_output" ]]; then
+      printf '%s' "$va_output"
+      return 0
+    fi
+  fi
+
+  case "$field_name" in
+  state) jq_filter='.state // ""' ;;
+  base-ref-name) jq_filter='.baseRefName // .base_ref_name // ""' ;;
+  title) jq_filter='.title // ""' ;;
+  body) jq_filter='.body // ""' ;;
+  author-login) jq_filter='.author.login // .author_login // ""' ;;
+  commit-messages) jq_filter='.commit_messages // ""' ;;
+  *)
+    return 1
+    ;;
+  esac
+
+  if [[ -z "$pr_json_fallback" ]]; then
+    printf ''
+    return 0
+  fi
+  echo "$pr_json_fallback" | jq -r "$jq_filter"
+}
+
 auto_add_build_managed_block() {
   local -a issue_numbers=("$@")
 
@@ -98,11 +138,11 @@ auto_add_closes_run() {
     exit 3
   fi
 
-  pr_state="$(echo "$pr_json" | jq -r '.state // ""')"
-  pr_base="$(echo "$pr_json" | jq -r '.baseRefName // .base_ref_name // ""')"
-  pr_title="$(echo "$pr_json" | jq -r '.title // ""')"
-  pr_body="$(echo "$pr_json" | jq -r '.body // ""')"
-  pr_author="$(echo "$pr_json" | jq -r '.author.login // .author_login // ""')"
+  pr_state="$(auto_add_pr_field "$auto_add_repo_name" "$auto_add_pr_number" "state" "$pr_json")"
+  pr_base="$(auto_add_pr_field "$auto_add_repo_name" "$auto_add_pr_number" "base-ref-name" "$pr_json")"
+  pr_title="$(auto_add_pr_field "$auto_add_repo_name" "$auto_add_pr_number" "title" "$pr_json")"
+  pr_body="$(auto_add_pr_field "$auto_add_repo_name" "$auto_add_pr_number" "body" "$pr_json")"
+  pr_author="$(auto_add_pr_field "$auto_add_repo_name" "$auto_add_pr_number" "author-login" "$pr_json")"
 
   if [[ "$pr_state" != "OPEN" ]]; then
     echo "PR #${auto_add_pr_number} is not open; skipping."
@@ -117,7 +157,7 @@ auto_add_closes_run() {
     exit 0
   fi
 
-  pr_commits="$(echo "$pr_json" | jq -r '.commit_messages // ""')"
+  pr_commits="$(auto_add_pr_field "$auto_add_repo_name" "$auto_add_pr_number" "commit-messages" "$pr_json")"
   payload_all="$({
     printf '%s\n' "$pr_title"
     printf '%s\n' "$pr_body"
