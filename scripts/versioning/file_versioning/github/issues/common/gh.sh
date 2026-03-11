@@ -46,13 +46,6 @@ issue_gh_issue_state() {
   github_issue_state "$repo" "$issue_number"
 }
 
-issue_gh_issue_json() {
-  local repo="${1:-}"
-  local issue_number="$2"
-  local json_fields="$3"
-  github_issue_read_json "$repo" "$issue_number" "$json_fields"
-}
-
 issue_gh_issue_read() {
   local issue_number="${1:-}"
   local repo="${2:-}"

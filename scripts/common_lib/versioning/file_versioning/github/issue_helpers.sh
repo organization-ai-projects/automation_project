@@ -235,36 +235,6 @@ github_issue_view_title_labels() {
   "${gh_cmd[@]}" 2>/dev/null || true
 }
 
-github_issue_read_json() {
-  local repo_name="${1:-}"
-  local issue_number="${2:-}"
-  local json_fields="${3:-}"
-  local va_output=""
-
-  if [[ -z "$issue_number" || -z "$json_fields" ]]; then
-    return 1
-  fi
-
-  if issue_helpers_has_va_issue; then
-    local -a va_cmd=(issue read --issue "$issue_number" --json "$json_fields")
-    if [[ -n "$repo_name" ]]; then
-      va_cmd+=(--repo "$repo_name")
-    fi
-    va_output="$(issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null || true)"
-  fi
-
-  if [[ -n "$va_output" ]]; then
-    printf '%s\n' "$va_output"
-    return 0
-  fi
-
-  local -a gh_cmd=(gh issue view "$issue_number" --json "$json_fields")
-  if [[ -n "$repo_name" ]]; then
-    gh_cmd+=(-R "$repo_name")
-  fi
-  "${gh_cmd[@]}" 2>/dev/null || true
-}
-
 github_issue_read() {
   local issue_number="${1:-}"
   local repo_name="${2:-}"
