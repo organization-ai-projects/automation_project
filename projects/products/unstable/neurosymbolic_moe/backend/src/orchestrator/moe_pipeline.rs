@@ -11,7 +11,7 @@ use crate::moe_core::{
 use crate::orchestrator::ContinuousImprovementReport;
 use crate::orchestrator::{
     ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceAuditTrail,
-    GovernanceState,
+    GovernanceState, GovernanceStateDiff,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::router::{Router, RoutingStrategy};
@@ -468,6 +468,92 @@ impl MoePipeline {
                 .last()
                 .map(|e| e.checksum.clone()),
             entries: self.governance_audit_entries.clone(),
+        }
+    }
+
+    pub fn diff_governance_state(&self, target: &GovernanceState) -> GovernanceStateDiff {
+        let source = self.export_governance_state();
+
+        let source_version = source.state_version;
+        let target_version = target.state_version;
+        let version_delta = target_version as i64 - source_version as i64;
+
+        let source_policy_fp = source
+            .continuous_governance_policy
+            .as_ref()
+            .map(|p| {
+                format!(
+                    "{:.6}:{:.6}:{:.6}:{:.6}:{}:{}",
+                    p.min_expert_success_rate,
+                    p.min_routing_accuracy,
+                    p.low_score_threshold,
+                    p.regression_drop_threshold,
+                    p.block_on_human_review,
+                    p.auto_promote_on_pass
+                )
+            })
+            .unwrap_or_else(|| "-".to_string());
+        let target_policy_fp = target
+            .continuous_governance_policy
+            .as_ref()
+            .map(|p| {
+                format!(
+                    "{:.6}:{:.6}:{:.6}:{:.6}:{}:{}",
+                    p.min_expert_success_rate,
+                    p.min_routing_accuracy,
+                    p.low_score_threshold,
+                    p.regression_drop_threshold,
+                    p.block_on_human_review,
+                    p.auto_promote_on_pass
+                )
+            })
+            .unwrap_or_else(|| "-".to_string());
+
+        let source_baseline_fp = source
+            .evaluation_baseline
+            .as_ref()
+            .map(EvaluationEngine::checksum_fingerprint)
+            .unwrap_or_else(|| "-".to_string());
+        let target_baseline_fp = target
+            .evaluation_baseline
+            .as_ref()
+            .map(EvaluationEngine::checksum_fingerprint)
+            .unwrap_or_else(|| "-".to_string());
+
+        let source_report_fp = source
+            .last_continuous_improvement_report
+            .as_ref()
+            .map(ContinuousImprovementReport::checksum_fingerprint)
+            .unwrap_or_else(|| "-".to_string());
+        let target_report_fp = target
+            .last_continuous_improvement_report
+            .as_ref()
+            .map(ContinuousImprovementReport::checksum_fingerprint)
+            .unwrap_or_else(|| "-".to_string());
+
+        let schema_version_changed = source.schema_version != target.schema_version;
+        let checksum_changed = source.state_checksum != target.state_checksum;
+        let policy_changed = source_policy_fp != target_policy_fp;
+        let baseline_changed = source_baseline_fp != target_baseline_fp;
+        let report_changed = source_report_fp != target_report_fp;
+
+        let has_drift = schema_version_changed
+            || checksum_changed
+            || policy_changed
+            || baseline_changed
+            || report_changed
+            || version_delta != 0;
+
+        GovernanceStateDiff {
+            source_version,
+            target_version,
+            version_delta,
+            schema_version_changed,
+            checksum_changed,
+            policy_changed,
+            baseline_changed,
+            report_changed,
+            has_drift,
         }
     }
 

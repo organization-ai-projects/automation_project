@@ -1470,4 +1470,27 @@ mod v5 {
         assert_eq!(trail.entries.len(), 2);
         assert!(trail.current_version >= 3);
     }
+
+    #[test]
+    fn v5_governance_state_diff_detects_policy_and_checksum_drift() {
+        let policy_a = ContinuousGovernancePolicy::new(0.8, 0.9, 0.5, 0.1, false);
+        let policy_b = ContinuousGovernancePolicy::new(0.9, 0.9, 0.5, 0.1, false);
+
+        let pipeline = MoePipelineBuilder::new()
+            .with_continuous_governance_policy(policy_a)
+            .build();
+        let mut target = GovernanceState::from_components(42, Some(policy_b), None, None);
+        assert!(target.verify_checksum());
+
+        let diff = pipeline.diff_governance_state(&target);
+        assert!(diff.has_drift);
+        assert!(diff.policy_changed);
+        assert!(diff.checksum_changed);
+        assert!(diff.version_delta != 0);
+
+        target.state_checksum = "0000".to_string();
+        let tampered_diff = pipeline.diff_governance_state(&target);
+        assert!(tampered_diff.has_drift);
+        assert!(tampered_diff.checksum_changed);
+    }
 }
