@@ -544,6 +544,48 @@ impl MoePipeline {
         self.import_governance_bundle(bundle)
     }
 
+    pub fn try_import_governance_bundle(
+        &mut self,
+        mut bundle: GovernancePersistenceBundle,
+    ) -> Result<(), MoeError> {
+        bundle.state.ensure_checksum();
+        if !bundle.state.verify_checksum() {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle checksum verification failed".to_string(),
+            ));
+        }
+        if !bundle
+            .snapshots
+            .iter()
+            .all(|snapshot| snapshot.state.verify_checksum())
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle checksum verification failed".to_string(),
+            ));
+        }
+        Self::validate_governance_bundle_consistency(&bundle)?;
+
+        let decision = self.evaluate_governance_import(&bundle.state);
+        if !decision.allowed {
+            return Err(MoeError::PolicyRejected(format!(
+                "governance bundle import rejected: {}",
+                decision.reasons.join("; ")
+            )));
+        }
+
+        self.import_governance_bundle(bundle)
+    }
+
+    pub fn try_import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        let bundle: GovernancePersistenceBundle = common_json::json::from_json_str(payload)
+            .map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "governance persistence bundle deserialization failed: {err}"
+                ))
+            })?;
+        self.try_import_governance_bundle(bundle)
+    }
+
     pub fn try_import_governance_state(
         &mut self,
         mut state: GovernanceState,
@@ -582,6 +624,35 @@ impl MoePipeline {
             ));
         }
         Ok(self.evaluate_governance_import(&state))
+    }
+
+    pub fn preview_governance_bundle_import_json(
+        &self,
+        payload: &str,
+    ) -> Result<GovernanceImportDecision, MoeError> {
+        let mut bundle: GovernancePersistenceBundle = common_json::json::from_json_str(payload)
+            .map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "governance persistence bundle deserialization failed: {err}"
+                ))
+            })?;
+        bundle.state.ensure_checksum();
+        if !bundle.state.verify_checksum() {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle checksum verification failed".to_string(),
+            ));
+        }
+        if !bundle
+            .snapshots
+            .iter()
+            .all(|snapshot| snapshot.state.verify_checksum())
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle checksum verification failed".to_string(),
+            ));
+        }
+        Self::validate_governance_bundle_consistency(&bundle)?;
+        Ok(self.evaluate_governance_import(&bundle.state))
     }
 
     pub fn try_import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {

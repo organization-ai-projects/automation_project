@@ -1633,6 +1633,83 @@ mod v5 {
     }
 
     #[test]
+    fn v5_bundle_import_preview_reports_rejection_reasons() {
+        let current_policy = ContinuousGovernancePolicy::new(0.8, 0.9, 0.5, 0.1, false);
+        let incoming_policy = ContinuousGovernancePolicy::new(0.9, 0.9, 0.5, 0.1, false);
+        let import_policy = GovernanceImportPolicy {
+            allow_schema_change: false,
+            allow_version_regression: false,
+            max_version_regression: Some(0),
+            require_policy_match: true,
+        };
+
+        let pipeline = MoePipelineBuilder::new()
+            .with_continuous_governance_policy(current_policy)
+            .with_governance_import_policy(import_policy)
+            .build();
+
+        let incoming = GovernanceState::from_components(0, Some(incoming_policy), None, None);
+        let bundle = GovernancePersistenceBundle {
+            state: incoming,
+            audit_entries: Vec::new(),
+            snapshots: Vec::new(),
+        };
+        let payload = common_json::json::to_json_string_pretty(&bundle)
+            .expect("bundle serialization should succeed");
+
+        let decision = pipeline
+            .preview_governance_bundle_import_json(&payload)
+            .expect("bundle preview should succeed");
+        assert!(!decision.allowed);
+        assert!(decision.diff.policy_changed);
+        assert!(!decision.reasons.is_empty());
+    }
+
+    #[test]
+    fn v5_try_bundle_import_json_returns_explicit_policy_rejection_message() {
+        let policy = ContinuousGovernancePolicy::new(0.8, 0.9, 0.5, 0.1, false);
+        let import_policy = GovernanceImportPolicy {
+            allow_schema_change: false,
+            allow_version_regression: false,
+            max_version_regression: Some(0),
+            require_policy_match: false,
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_continuous_governance_policy(policy)
+            .with_governance_import_policy(import_policy)
+            .build();
+
+        // Move local governance version forward so importing version 0 is a regression.
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-bundle-import-explicit")))
+            .expect("expert registration should succeed");
+        let _ = pipeline
+            .execute(Task::new(
+                "v5-bundle-import-explicit-task",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("execution should succeed");
+
+        let incoming = GovernancePersistenceBundle {
+            state: GovernanceState::from_components(0, None, None, None),
+            audit_entries: Vec::new(),
+            snapshots: Vec::new(),
+        };
+        let payload = common_json::json::to_json_string_pretty(&incoming)
+            .expect("bundle serialization should succeed");
+        let result = pipeline.try_import_governance_bundle_json(&payload);
+
+        match result {
+            Err(crate::moe_core::MoeError::PolicyRejected(message)) => {
+                assert!(message.contains("governance bundle import rejected"));
+            }
+            _ => panic!("expected explicit policy rejection for governance bundle import"),
+        }
+    }
+
+    #[test]
     fn v5_rollback_restores_previous_governance_snapshot() {
         let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
         let router = SingleExpertRouter {
