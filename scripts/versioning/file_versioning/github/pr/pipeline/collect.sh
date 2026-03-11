@@ -330,10 +330,7 @@ pr_pipeline_collect_issues_from_commits_and_main_pr() {
 
   if [[ "$dry_run" == "false" ]]; then
     local main_pr_body_payload
-    main_pr_body_payload=""
-    if command -v va_exec >/dev/null 2>&1; then
-      main_pr_body_payload="$(va_exec pr body-context --pr "$main_pr_number" 2>/dev/null || true)"
-    fi
+    main_pr_body_payload="$(github_pr_body_context "" "$main_pr_number" || true)"
     if [[ "$main_pr_body_payload" == *$'\x1f'* ]]; then
       local _main_tail
       _main_tail="${main_pr_body_payload#*$'\x1f'}"
