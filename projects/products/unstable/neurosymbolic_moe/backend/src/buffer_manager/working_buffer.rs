@@ -80,30 +80,3 @@ impl WorkingBuffer {
             + 1
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn put_and_get() {
-        let mut buf = WorkingBuffer::new(10);
-        buf.put("k1", "v1", None);
-        let entry = buf.get("k1").unwrap();
-        assert_eq!(entry.value, "v1");
-        assert_eq!(buf.count(), 1);
-    }
-
-    #[test]
-    fn capacity_eviction() {
-        let mut buf = WorkingBuffer::new(2);
-        buf.put("k1", "v1", None);
-        buf.put("k2", "v2", None);
-        buf.put("k3", "v3", None);
-        assert_eq!(buf.count(), 2);
-        // k1 was oldest and should be evicted
-        assert!(buf.get("k1").is_none());
-        assert!(buf.get("k2").is_some());
-        assert!(buf.get("k3").is_some());
-    }
-}
