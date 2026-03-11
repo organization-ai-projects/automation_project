@@ -48,12 +48,6 @@ manager_parse_update_args() {
   done
 }
 
-manager_load_issue_content_for_update() {
-  local issue_number="$1"
-  local repo="$2"
-  issue_gh_issue_json "$repo" "$issue_number" "title,body,labels"
-}
-
 cmd_update() {
   local issue_number=""
   local repo=""
@@ -78,7 +72,7 @@ cmd_update() {
     local effective_body=""
     local validations=""
 
-    current_json="$(manager_load_issue_content_for_update "$issue_number" "$repo" || true)"
+    current_json="$(issue_gh_issue_json "$repo" "$issue_number" "title,body,labels" || true)"
     if [[ -z "$current_json" ]]; then
       echo "Error: unable to read issue #${issue_number} before update validation." >&2
       exit 1

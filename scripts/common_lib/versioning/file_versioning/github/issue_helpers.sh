@@ -320,6 +320,46 @@ github_issue_read() {
   "${gh_cmd[@]}"
 }
 
+github_issue_field() {
+  local repo_name="${1:-}"
+  local issue_number="${2:-}"
+  local field_name="${3:-}"
+  local va_output=""
+
+  if [[ -z "$issue_number" || -z "$field_name" ]]; then
+    return 1
+  fi
+
+  if issue_helpers_has_va_issue; then
+    local -a va_cmd=(issue field --issue "$issue_number" --name "$field_name")
+    if [[ -n "$repo_name" ]]; then
+      va_cmd+=(--repo "$repo_name")
+    fi
+    va_output="$(issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$va_output" ]]; then
+    printf '%s\n' "$va_output"
+    return 0
+  fi
+
+  local jq_filter=""
+  case "$field_name" in
+  title) jq_filter='.title // ""' ;;
+  body) jq_filter='.body // ""' ;;
+  labels-raw) jq_filter='(.labels // []) | map(.name) | join("||")' ;;
+  *)
+    return 1
+    ;;
+  esac
+
+  local -a gh_cmd=(gh issue view "$issue_number" --json title,body,labels --jq "$jq_filter")
+  if [[ -n "$repo_name" ]]; then
+    gh_cmd+=(-R "$repo_name")
+  fi
+  "${gh_cmd[@]}" 2>/dev/null || true
+}
+
 github_issue_reopen() {
   local repo_name="${1:-}"
   local issue_number="${2:-}"
