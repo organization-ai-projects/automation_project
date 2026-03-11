@@ -3,6 +3,7 @@ mod aggregator;
 mod app;
 mod buffer_manager;
 mod dataset_engine;
+mod echo_expert;
 mod evaluation_engine;
 mod expert_registry;
 mod feedback_engine;

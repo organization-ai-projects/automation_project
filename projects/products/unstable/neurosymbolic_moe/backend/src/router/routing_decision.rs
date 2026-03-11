@@ -2,15 +2,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::routing_strategy::RoutingStrategy;
 use crate::moe_core::{ExpertId, TaskId};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RoutingStrategy {
-    SingleExpert,
-    MultiExpert,
-    Fallback,
-    RoundRobin,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutingDecision {

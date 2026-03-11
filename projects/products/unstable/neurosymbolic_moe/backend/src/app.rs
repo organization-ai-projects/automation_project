@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use crate::aggregator::AggregationStrategy;
 use crate::buffer_manager::{BufferEntry, BufferManager, BufferType, SessionBuffer, WorkingBuffer};
 use crate::dataset_engine::{Correction, DatasetEntry, DatasetStore, Outcome, TraceConverter};
+use crate::echo_expert::EchoExpert;
 use crate::evaluation_engine::{EvaluationEngine, ExpertMetrics, RoutingMetrics};
 use crate::expert_registry::{ExpertRegistry, VersionEntry, VersionTracker};
 use crate::feedback_engine::{FeedbackEntry, FeedbackStore, FeedbackType};
@@ -12,8 +13,8 @@ use crate::memory_engine::{
     LongTermMemory, MemoryEntry, MemoryQuery, MemoryStore, MemoryType, ShortTermMemory,
 };
 use crate::moe_core::{
-    ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
-    ExpertOutput, ExpertStatus, ExpertType, Task, TaskPriority, TaskType, TracePhase, TraceRecord,
+    ExecutionContext, ExpertCapability, ExpertId, ExpertOutput, ExpertStatus, Task, TaskPriority,
+    TaskType, TracePhase, TraceRecord,
 };
 use crate::orchestrator::{MoePipeline, MoePipelineBuilder};
 use crate::policy_guard::{Policy, PolicyGuard, PolicyResult, PolicyType};
@@ -25,60 +26,6 @@ use crate::router::{HeuristicRouter, Router, RoutingDecision, RoutingStrategy, R
 use crate::trace_logger::TraceLogger;
 
 type DynError = Box<dyn std::error::Error>;
-
-struct EchoExpert {
-    metadata: ExpertMetadata,
-}
-
-impl EchoExpert {
-    fn new(id: &str, name: &str, capabilities: Vec<ExpertCapability>) -> Self {
-        Self {
-            metadata: ExpertMetadata {
-                id: ExpertId::new(id),
-                name: name.to_string(),
-                version: "0.1.0".to_string(),
-                capabilities,
-                status: ExpertStatus::Active,
-                expert_type: ExpertType::Deterministic,
-            },
-        }
-    }
-}
-
-impl Expert for EchoExpert {
-    fn id(&self) -> &ExpertId {
-        &self.metadata.id
-    }
-
-    fn metadata(&self) -> &ExpertMetadata {
-        &self.metadata
-    }
-
-    fn can_handle(&self, task: &Task) -> bool {
-        !task.input().is_empty()
-    }
-
-    fn execute(
-        &self,
-        task: &Task,
-        context: &ExecutionContext,
-    ) -> Result<ExpertOutput, ExpertError> {
-        Ok(ExpertOutput {
-            expert_id: self.metadata.id.clone(),
-            content: format!(
-                "[{}] processed: {} (ctx:{} mem:{} buf:{})",
-                self.metadata.name,
-                task.input(),
-                context.retrieved_context.len(),
-                context.memory_entries.len(),
-                context.buffer_data.len()
-            ),
-            confidence: 0.9,
-            metadata: HashMap::new(),
-            trace: vec![format!("Expert {} executed", self.metadata.name)],
-        })
-    }
-}
 
 pub fn run() -> Result<(), DynError> {
     tracing_subscriber::fmt::init();

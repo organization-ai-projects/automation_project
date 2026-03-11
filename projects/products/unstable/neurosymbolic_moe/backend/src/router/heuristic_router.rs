@@ -4,8 +4,9 @@ use std::collections::HashMap;
 use crate::expert_registry::ExpertRegistry;
 use crate::moe_core::{ExpertCapability, ExpertId, MoeError, Task, TaskType};
 
-use super::router_trait::Router;
-use super::routing_decision::{RoutingDecision, RoutingStrategy};
+use super::router_port::Router;
+use super::routing_decision::RoutingDecision;
+use super::routing_strategy::RoutingStrategy;
 
 pub struct HeuristicRouter {
     pub max_experts: usize,

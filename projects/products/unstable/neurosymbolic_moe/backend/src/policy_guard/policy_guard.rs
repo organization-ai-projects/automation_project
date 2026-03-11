@@ -1,6 +1,6 @@
 use crate::moe_core::{ExpertOutput, MoeError};
 
-use super::policy::{Policy, PolicyResult, PolicyType};
+use super::{Policy, PolicyResult, PolicyType};
 
 const UNSAFE_MARKERS: &[&str] = &["<UNSAFE>", "[BLOCKED]", "HARMFUL_CONTENT"];
 

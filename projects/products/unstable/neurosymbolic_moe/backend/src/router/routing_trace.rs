@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::moe_core::{ExpertId, TaskId};
 
-use super::routing_decision::{RoutingDecision, RoutingStrategy};
+use super::routing_decision::RoutingDecision;
+use super::routing_strategy::RoutingStrategy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutingTrace {
