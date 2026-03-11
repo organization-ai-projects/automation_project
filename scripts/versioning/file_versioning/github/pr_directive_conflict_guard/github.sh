@@ -85,18 +85,6 @@ pr_directive_conflict_guard_fetch_pr_details_json() {
     )"
   fi
 
-  if [[ -z "$pr_details_json" ]]; then
-    local pr_json commit_messages
-    pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number,title 2>/dev/null || true)"
-    if [[ -n "$pr_json" ]]; then
-      commit_messages="$(gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
-      pr_details_json="$(
-        jq -c --arg commit_messages "$commit_messages" \
-          '. + { commit_messages: $commit_messages }' <<<"$pr_json" 2>/dev/null || true
-      )"
-    fi
-  fi
-
   printf '%s' "$pr_details_json"
 }
 

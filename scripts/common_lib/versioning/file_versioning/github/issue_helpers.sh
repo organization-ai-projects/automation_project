@@ -367,23 +367,17 @@ github_issue_field() {
     return 0
   fi
 
-  local -a gh_cmd=(gh issue view "$issue_number" --json title,body,labels)
-  if [[ -n "$repo_name" ]]; then
-    gh_cmd+=(-R "$repo_name")
-  fi
   local issue_json=""
-  issue_json="$("${gh_cmd[@]}" 2>/dev/null || true)"
-  if [[ -z "$issue_json" ]]; then
-    gh_cmd=(gh issue view "$issue_number" --json labels,title,body)
+  local -a gh_cmd=()
+  local json_fields
+  for json_fields in "title,body,labels,state,assignees" "labels,title,body,state,assignees" "title,body,labels" "labels,title,body"; do
+    gh_cmd=(gh issue view "$issue_number" --json "$json_fields")
     if [[ -n "$repo_name" ]]; then
       gh_cmd+=(-R "$repo_name")
     fi
     issue_json="$("${gh_cmd[@]}" 2>/dev/null || true)"
-  fi
-  if [[ -z "$issue_json" ]]; then
-    return 0
-  fi
-
+    [[ -n "$issue_json" ]] && break
+  done
   case "$field_name" in
   title)
     echo "$issue_json" | jq -r '.title // ""' 2>/dev/null || true
@@ -392,7 +386,58 @@ github_issue_field() {
     echo "$issue_json" | jq -r '.body // ""' 2>/dev/null || true
     ;;
   labels-raw)
-    echo "$issue_json" | jq -r '(.labels // []) | map(.name) | join("||")' 2>/dev/null || true
+    local labels_value=""
+    labels_value="$(echo "$issue_json" | jq -r '(.labels // []) | map(.name) | join("||")' 2>/dev/null || true)"
+    if [[ -n "$labels_value" ]]; then
+      printf '%s\n' "$labels_value"
+      return 0
+    fi
+    gh_cmd=(gh issue view "$issue_number" --json labels --jq '.labels[].name')
+    if [[ -n "$repo_name" ]]; then
+      gh_cmd+=(-R "$repo_name")
+    fi
+    labels_value="$("${gh_cmd[@]}" 2>/dev/null || true)"
+    if [[ "$labels_value" == \{* ]]; then
+      printf '%s\n' "$labels_value" | jq -r '(.labels // []) | map(.name) | join("||")' 2>/dev/null || true
+    else
+      printf '%s\n' "$labels_value" | paste -sd'||' -
+    fi
+    ;;
+  state)
+    local state_value=""
+    state_value="$(echo "$issue_json" | jq -r '.state // ""' 2>/dev/null || true)"
+    if [[ -n "$state_value" ]]; then
+      printf '%s\n' "$state_value"
+      return 0
+    fi
+    gh_cmd=(gh issue view "$issue_number" --json state --jq '.state // ""')
+    if [[ -n "$repo_name" ]]; then
+      gh_cmd+=(-R "$repo_name")
+    fi
+    state_value="$("${gh_cmd[@]}" 2>/dev/null || true)"
+    if [[ "$state_value" == \{* ]]; then
+      printf '%s\n' "$state_value" | jq -r '.state // ""' 2>/dev/null || true
+    else
+      printf '%s\n' "$state_value"
+    fi
+    ;;
+  assignee-logins)
+    local assignees_value=""
+    assignees_value="$(echo "$issue_json" | jq -r '(.assignees // [])[]?.login' 2>/dev/null || true)"
+    if [[ -n "$assignees_value" ]]; then
+      printf '%s\n' "$assignees_value"
+      return 0
+    fi
+    gh_cmd=(gh issue view "$issue_number" --json assignees --jq '.assignees[].login')
+    if [[ -n "$repo_name" ]]; then
+      gh_cmd+=(-R "$repo_name")
+    fi
+    assignees_value="$("${gh_cmd[@]}" 2>/dev/null || true)"
+    if [[ "$assignees_value" == \{* ]]; then
+      printf '%s\n' "$assignees_value" | jq -r '(.assignees // [])[]?.login' 2>/dev/null || true
+    else
+      printf '%s\n' "$assignees_value"
+    fi
     ;;
   *)
     return 1
@@ -544,18 +589,13 @@ github_issue_assignee_logins() {
     return 0
   fi
 
-  local -a gh_cmd=(gh issue view "$issue_number" --json assignees --jq '.assignees[].login')
-  if [[ -n "$repo_name" ]]; then
-    gh_cmd+=(-R "$repo_name")
-  fi
-  "${gh_cmd[@]}" 2>/dev/null || true
+  github_issue_field "$repo_name" "$issue_number" "assignee-logins"
 }
 
 github_issue_state() {
   local repo_name="${1:-}"
   local issue_number="${2:-}"
   local va_output=""
-  local gh_output=""
 
   if [[ -z "$issue_number" ]]; then
     return 1
@@ -574,16 +614,7 @@ github_issue_state() {
     return 0
   fi
 
-  local -a gh_cmd=(gh issue view "$issue_number" --json state --jq '.state // ""')
-  if [[ -n "$repo_name" ]]; then
-    gh_cmd+=(-R "$repo_name")
-  fi
-  gh_output="$("${gh_cmd[@]}" 2>/dev/null || true)"
-  if [[ "$gh_output" == \{* ]]; then
-    printf '%s\n' "$gh_output" | jq -r '.state // ""' 2>/dev/null || true
-    return 0
-  fi
-  printf '%s\n' "$gh_output"
+  github_issue_field "$repo_name" "$issue_number" "state"
 }
 
 github_issue_has_label() {
@@ -611,9 +642,5 @@ github_issue_has_label() {
     return 1
   fi
 
-  local -a gh_cmd=(gh issue view "$issue_number" --json labels --jq '.labels[].name')
-  if [[ -n "$repo_name" ]]; then
-    gh_cmd+=(-R "$repo_name")
-  fi
-  "${gh_cmd[@]}" 2>/dev/null | grep -Fxq "$label"
+  github_issue_field "$repo_name" "$issue_number" "labels-raw" | tr '|' '\n' | sed '/^$/d' | grep -Fxq "$label"
 }
