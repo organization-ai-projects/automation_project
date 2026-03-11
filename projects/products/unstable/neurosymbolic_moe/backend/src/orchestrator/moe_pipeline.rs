@@ -836,6 +836,28 @@ impl MoePipeline {
     fn validate_governance_bundle_consistency(
         bundle: &GovernancePersistenceBundle,
     ) -> Result<(), MoeError> {
+        if bundle
+            .audit_entries
+            .windows(2)
+            .any(|pair| pair[0].version >= pair[1].version)
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle rejected: audit versions must be strictly increasing"
+                    .to_string(),
+            ));
+        }
+
+        if bundle
+            .snapshots
+            .windows(2)
+            .any(|pair| pair[0].version >= pair[1].version)
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle rejected: snapshot versions must be strictly increasing"
+                    .to_string(),
+            ));
+        }
+
         if let Some(last_audit) = bundle.audit_entries.last() {
             if last_audit.version != bundle.state.state_version {
                 return Err(MoeError::PolicyRejected(
@@ -875,6 +897,32 @@ impl MoePipeline {
                         .to_string(),
                 ));
             }
+        }
+
+        if let (Some(last_audit), Some(last_snapshot)) =
+            (bundle.audit_entries.last(), bundle.snapshots.last())
+            && last_audit.version != last_snapshot.version
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle rejected: latest audit and snapshot versions diverge"
+                    .to_string(),
+            ));
+        }
+
+        let snapshot_checksums_by_version: std::collections::HashMap<u64, &str> = bundle
+            .snapshots
+            .iter()
+            .map(|snapshot| (snapshot.version, snapshot.state.state_checksum.as_str()))
+            .collect();
+        if bundle.audit_entries.iter().any(|audit| {
+            snapshot_checksums_by_version
+                .get(&audit.version)
+                .is_some_and(|snapshot_checksum| *snapshot_checksum != audit.checksum.as_str())
+        }) {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle rejected: audit checksum diverges from snapshot checksum for same version"
+                    .to_string(),
+            ));
         }
 
         Ok(())

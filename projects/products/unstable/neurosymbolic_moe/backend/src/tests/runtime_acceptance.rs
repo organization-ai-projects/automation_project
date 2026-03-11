@@ -1978,4 +1978,103 @@ mod v5 {
             Err(crate::moe_core::MoeError::PolicyRejected(_))
         ));
     }
+
+    #[test]
+    fn v5_governance_bundle_rejects_non_monotonic_audit_versions() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-bundle-audit-order"),
+        };
+
+        let mut source = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        source
+            .register_expert(Box::new(V5FlakyExpert::new("v5-bundle-audit-order")))
+            .expect("expert registration should succeed");
+
+        let _ = source
+            .execute(Task::new(
+                "v5-bundle-audit-order-1",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("first execution should succeed");
+        let _ = source
+            .execute(Task::new(
+                "v5-bundle-audit-order-2",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("second execution should succeed");
+
+        let bundle_json = source
+            .export_governance_bundle_json()
+            .expect("bundle json export should succeed");
+        let mut parsed: GovernancePersistenceBundle =
+            common_json::json::from_json_str(&bundle_json).expect("bundle parse should succeed");
+        parsed.audit_entries.swap(0, 1);
+
+        let tampered_json = common_json::json::to_json_string_pretty(&parsed)
+            .expect("tampered bundle serialization should succeed");
+        let mut target = MoePipelineBuilder::new().build();
+        let result = target.import_governance_bundle_json(&tampered_json);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+    }
+
+    #[test]
+    fn v5_governance_bundle_rejects_audit_snapshot_checksum_divergence_for_same_version() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-bundle-checksum-divergence"),
+        };
+
+        let mut source = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        source
+            .register_expert(Box::new(V5FlakyExpert::new(
+                "v5-bundle-checksum-divergence",
+            )))
+            .expect("expert registration should succeed");
+        let _ = source
+            .execute(Task::new(
+                "v5-bundle-checksum-divergence-task",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("execution should succeed");
+
+        let bundle_json = source
+            .export_governance_bundle_json()
+            .expect("bundle json export should succeed");
+        let mut parsed: GovernancePersistenceBundle =
+            common_json::json::from_json_str(&bundle_json).expect("bundle parse should succeed");
+
+        let version = parsed
+            .snapshots
+            .first()
+            .expect("snapshot should be present")
+            .version;
+        let audit = parsed
+            .audit_entries
+            .iter_mut()
+            .find(|entry| entry.version == version)
+            .expect("matching audit version should exist");
+        audit.checksum = "audit-diverged".to_string();
+
+        let tampered_json = common_json::json::to_json_string_pretty(&parsed)
+            .expect("tampered bundle serialization should succeed");
+        let mut target = MoePipelineBuilder::new().build();
+        let result = target.import_governance_bundle_json(&tampered_json);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+    }
 }
