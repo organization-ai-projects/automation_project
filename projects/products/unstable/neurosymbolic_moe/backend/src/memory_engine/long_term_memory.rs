@@ -108,7 +108,7 @@ mod tests {
             tags: tags.into_iter().map(String::from).collect(),
             created_at: 1,
             expires_at: None,
-            memory_type: MemoryType::LongTerm,
+            memory_type: MemoryType::Long,
             relevance: 1.0,
             metadata: HashMap::new(),
         }

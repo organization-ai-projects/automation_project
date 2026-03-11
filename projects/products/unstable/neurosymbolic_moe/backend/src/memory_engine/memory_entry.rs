@@ -3,9 +3,9 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MemoryType {
-    ShortTerm,
-    MediumTerm,
-    LongTerm,
+    Short,
+    Medium,
+    Long,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

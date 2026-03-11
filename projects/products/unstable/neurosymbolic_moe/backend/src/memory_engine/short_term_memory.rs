@@ -118,7 +118,7 @@ mod tests {
             tags: vec!["tag1".to_string()],
             created_at,
             expires_at,
-            memory_type: MemoryType::ShortTerm,
+            memory_type: MemoryType::Short,
             relevance: 1.0,
             metadata: HashMap::new(),
         }
