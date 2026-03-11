@@ -2124,4 +2124,70 @@ mod v5 {
             Err(crate::moe_core::MoeError::PolicyRejected(_))
         ));
     }
+
+    #[test]
+    fn v5_governance_bundle_restore_supports_rollback_from_imported_snapshots() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-bundle-rollback-imported"),
+        };
+
+        let mut source = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .with_max_governance_state_snapshots(8)
+            .build();
+        source
+            .register_expert(Box::new(V5FlakyExpert::new("v5-bundle-rollback-imported")))
+            .expect("expert registration should succeed");
+
+        let _ = source
+            .execute(Task::new(
+                "v5-bundle-rollback-imported-1",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("first execution should succeed");
+        let _ = source
+            .execute(Task::new(
+                "v5-bundle-rollback-imported-2",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("second execution should succeed");
+
+        let bundle = source.export_governance_bundle();
+        assert!(
+            bundle.snapshots.len() >= 2,
+            "source should carry at least two snapshots"
+        );
+        let rollback_target_version = bundle
+            .snapshots
+            .first()
+            .expect("snapshot should exist")
+            .version;
+
+        let mut target = MoePipelineBuilder::new()
+            .with_max_governance_state_snapshots(8)
+            .build();
+        target
+            .import_governance_bundle(bundle)
+            .expect("bundle import should succeed");
+
+        let before_len = target.governance_audit_trail().entries.len();
+        target
+            .rollback_governance_state_to_version(rollback_target_version)
+            .expect("rollback on imported snapshot should succeed");
+        let after = target.governance_audit_trail();
+        assert_eq!(after.entries.len(), before_len + 1);
+        assert!(
+            after
+                .entries
+                .last()
+                .expect("audit entry should exist after rollback")
+                .reason
+                .contains("rollback"),
+            "rollback reason should be recorded after restore"
+        );
+    }
 }
