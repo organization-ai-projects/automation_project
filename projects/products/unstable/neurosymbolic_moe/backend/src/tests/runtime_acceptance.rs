@@ -1001,7 +1001,9 @@ mod v5 {
         ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
         ExpertOutput, ExpertStatus, ExpertType, Task, TaskId, TaskType,
     };
-    use crate::orchestrator::{ContinuousImprovementReport, MoePipelineBuilder};
+    use crate::orchestrator::{
+        ContinuousGovernancePolicy, ContinuousImprovementReport, MoePipelineBuilder,
+    };
     use crate::router::{Router, RoutingDecision, RoutingStrategy};
     use std::collections::HashMap;
 
@@ -1038,6 +1040,27 @@ mod v5 {
                 scores,
                 strategy: RoutingStrategy::SingleExpert,
                 explanation: "single expert route".to_string(),
+            })
+        }
+    }
+
+    struct LocalFixedRouter {
+        selected: Vec<ExpertId>,
+        scores: HashMap<ExpertId, f64>,
+    }
+
+    impl Router for LocalFixedRouter {
+        fn route(
+            &self,
+            task: &Task,
+            _registry: &ExpertRegistry,
+        ) -> Result<RoutingDecision, crate::moe_core::MoeError> {
+            Ok(RoutingDecision {
+                task_id: task.id().clone(),
+                selected_experts: self.selected.clone(),
+                scores: self.scores.clone(),
+                strategy: RoutingStrategy::MultiExpert,
+                explanation: "fixed route for v5".to_string(),
             })
         }
     }
@@ -1079,7 +1102,10 @@ mod v5 {
             task: &Task,
             _context: &ExecutionContext,
         ) -> Result<ExpertOutput, ExpertError> {
-            if task.input().contains("fail") {
+            if task.input().contains("fail")
+                && (self.metadata.id.as_str().contains("primary")
+                    || self.metadata.id.as_str().contains("flaky"))
+            {
                 return Err(ExpertError::ExecutionFailed(
                     "intentional failure".to_string(),
                 ));
@@ -1203,5 +1229,74 @@ mod v5 {
         assert!(!report.governance.ready_for_promotion);
         assert_eq!(report.dataset_quality.total_entries, 1);
         assert!(report.routing_regression.is_none());
+    }
+
+    #[test]
+    fn v5_continuous_governance_gate_can_block_outputs() {
+        let primary = ExpertId::new("v5-primary-fail");
+        let fallback = ExpertId::new("v5-fallback-ok");
+
+        let mut scores = HashMap::new();
+        scores.insert(primary.clone(), 1.0);
+        scores.insert(fallback.clone(), 0.9);
+
+        let fixed_router = LocalFixedRouter {
+            selected: vec![primary.clone(), fallback.clone()],
+            scores,
+        };
+
+        let policy = ContinuousGovernancePolicy::new(0.8, 0.9, 0.5, 0.1, true);
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(fixed_router))
+            .with_fallback_on_expert_error(true)
+            .with_continuous_governance_policy(policy)
+            .build();
+
+        let primary_expert = V5FlakyExpert::new(primary.as_str());
+        let fallback_expert = V5FlakyExpert::new(fallback.as_str());
+        pipeline
+            .register_expert(Box::new(primary_expert))
+            .expect("registering primary expert should succeed");
+        pipeline
+            .register_expert(Box::new(fallback_expert))
+            .expect("registering fallback expert should succeed");
+
+        // Primary fails via input marker, fallback succeeds because it does not
+        // use the marker after fallback routing.
+        let task = Task::new("v5-gate-block", TaskType::CodeGeneration, "fail-primary");
+        let result = pipeline.execute(task);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+        assert!(pipeline.last_continuous_improvement_report().is_some());
+    }
+
+    #[test]
+    fn v5_continuous_governance_gate_non_blocking_keeps_output() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-non-block"),
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-non-block")))
+            .expect("expert registration should succeed");
+
+        let task = Task::new("v5-gate-non-block", TaskType::CodeGeneration, "clean");
+        let result = pipeline.execute(task);
+        assert!(result.is_ok());
+        assert!(pipeline.last_continuous_improvement_report().is_some());
+        assert!(
+            pipeline
+                .last_continuous_improvement_report()
+                .expect("report should exist")
+                .requires_human_review
+        );
     }
 }

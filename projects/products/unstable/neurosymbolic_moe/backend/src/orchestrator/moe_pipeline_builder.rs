@@ -3,12 +3,12 @@ use crate::dataset_engine::{DatasetStore, TraceConverter};
 use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
 use crate::feedback_engine::FeedbackStore;
-use crate::orchestrator::ArbitrationMode;
+use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy};
 use crate::policy_guard::PolicyGuard;
 use crate::router::{HeuristicRouter, Router};
 use crate::trace_logger::TraceLogger;
 
-use super::moe_pipeline_core::MoePipeline;
+use super::moe_pipeline::MoePipeline;
 
 pub struct MoePipelineBuilder {
     router: Option<Box<dyn Router>>,
@@ -16,6 +16,7 @@ pub struct MoePipelineBuilder {
     arbitration_mode: ArbitrationMode,
     fallback_on_expert_error: bool,
     enable_task_metadata_chain: bool,
+    continuous_governance_policy: Option<ContinuousGovernancePolicy>,
     max_traces: usize,
 }
 
@@ -27,6 +28,7 @@ impl MoePipelineBuilder {
             arbitration_mode: ArbitrationMode::Aggregation,
             fallback_on_expert_error: false,
             enable_task_metadata_chain: false,
+            continuous_governance_policy: None,
             max_traces: 10_000,
         }
     }
@@ -56,6 +58,11 @@ impl MoePipelineBuilder {
         self
     }
 
+    pub fn with_continuous_governance_policy(mut self, policy: ContinuousGovernancePolicy) -> Self {
+        self.continuous_governance_policy = Some(policy);
+        self
+    }
+
     pub fn with_max_traces(mut self, max: usize) -> Self {
         self.max_traces = max;
         self
@@ -73,10 +80,12 @@ impl MoePipelineBuilder {
             arbitration_mode: self.arbitration_mode,
             fallback_on_expert_error: self.fallback_on_expert_error,
             enable_task_metadata_chain: self.enable_task_metadata_chain,
+            continuous_governance_policy: self.continuous_governance_policy,
             policy_guard: PolicyGuard::new(),
             trace_logger: TraceLogger::new(self.max_traces),
             evaluation: EvaluationEngine::new(),
             evaluation_baseline: None,
+            last_continuous_improvement_report: None,
             feedback_store: FeedbackStore::new(),
             dataset_store: DatasetStore::new(),
             trace_converter: TraceConverter::new(),

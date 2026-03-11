@@ -7,8 +7,8 @@ use crate::moe_core::{
     AggregatedOutput, ExecutionContext, Expert, ExpertError, ExpertId, ExpertOutput, MoeError,
     Task, TracePhase,
 };
-use crate::orchestrator::ArbitrationMode;
 use crate::orchestrator::ContinuousImprovementReport;
+use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy};
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::router::{Router, RoutingStrategy};
 use crate::trace_logger::TraceLogger;
@@ -20,10 +20,12 @@ pub struct MoePipeline {
     pub(super) arbitration_mode: ArbitrationMode,
     pub(super) fallback_on_expert_error: bool,
     pub(super) enable_task_metadata_chain: bool,
+    pub(super) continuous_governance_policy: Option<ContinuousGovernancePolicy>,
     pub(super) policy_guard: PolicyGuard,
     pub(super) trace_logger: TraceLogger,
     pub(super) evaluation: EvaluationEngine,
     pub(super) evaluation_baseline: Option<EvaluationEngine>,
+    pub(super) last_continuous_improvement_report: Option<ContinuousImprovementReport>,
     pub(super) feedback_store: FeedbackStore,
     pub(super) dataset_store: DatasetStore,
     pub(super) trace_converter: TraceConverter,
@@ -222,36 +224,28 @@ impl MoePipeline {
         }
 
         // 6. Policy validation
-        if let Some(ref selected) = aggregated.selected_output {
-            if let Err(err) = self.policy_guard.validate_strict(selected) {
-                if self.policy_guard.active_policy_count() > 0 {
-                    let replacement = self.pick_policy_compliant_output(
-                        &aggregated.outputs,
-                        &routing_scores,
-                        Some(&selected.expert_id),
+        if let Some(ref selected) = aggregated.selected_output
+            && let Err(err) = self.policy_guard.validate_strict(selected)
+        {
+            if self.policy_guard.active_policy_count() > 0 {
+                let replacement = self.pick_policy_compliant_output(
+                    &aggregated.outputs,
+                    &routing_scores,
+                    Some(&selected.expert_id),
+                );
+                if let Some(replacement) = replacement {
+                    self.trace_logger.log_phase(
+                        task_id.clone(),
+                        TracePhase::Validation,
+                        format!(
+                            "selected output from '{}' rejected, replaced by policy-compliant '{}'",
+                            selected.expert_id.as_str(),
+                            replacement.expert_id.as_str()
+                        ),
+                        None,
                     );
-                    if let Some(replacement) = replacement {
-                        self.trace_logger.log_phase(
-                            task_id.clone(),
-                            TracePhase::Validation,
-                            format!(
-                                "selected output from '{}' rejected, replaced by policy-compliant '{}'",
-                                selected.expert_id.as_str(),
-                                replacement.expert_id.as_str()
-                            ),
-                            None,
-                        );
-                        aggregated.selected_output = Some(replacement);
-                        aggregated.strategy = format!("{}+policy_fallback", aggregated.strategy);
-                    } else {
-                        self.trace_logger.log_phase(
-                            task_id.clone(),
-                            TracePhase::Validation,
-                            format!("policy validation failed: {err}"),
-                            None,
-                        );
-                        return Err(err);
-                    }
+                    aggregated.selected_output = Some(replacement);
+                    aggregated.strategy = format!("{}+policy_fallback", aggregated.strategy);
                 } else {
                     self.trace_logger.log_phase(
                         task_id.clone(),
@@ -261,6 +255,14 @@ impl MoePipeline {
                     );
                     return Err(err);
                 }
+            } else {
+                self.trace_logger.log_phase(
+                    task_id.clone(),
+                    TracePhase::Validation,
+                    format!("policy validation failed: {err}"),
+                    None,
+                );
+                return Err(err);
             }
         }
 
@@ -298,6 +300,41 @@ impl MoePipeline {
             None,
         );
 
+        if let Some(policy) = &self.continuous_governance_policy {
+            let report = self.continuous_improvement_report(
+                policy.min_expert_success_rate,
+                policy.min_routing_accuracy,
+                policy.low_score_threshold,
+                policy.regression_drop_threshold,
+            );
+
+            if report.requires_human_review {
+                self.trace_logger.log_phase(
+                    task.id().clone(),
+                    TracePhase::Validation,
+                    "continuous governance review required".to_string(),
+                    None,
+                );
+
+                if policy.block_on_human_review {
+                    self.last_continuous_improvement_report = Some(report);
+                    return Err(MoeError::PolicyRejected(
+                        "continuous governance gate blocked output (human review required)"
+                            .to_string(),
+                    ));
+                }
+            } else {
+                self.trace_logger.log_phase(
+                    task.id().clone(),
+                    TracePhase::Validation,
+                    "continuous governance gate passed".to_string(),
+                    None,
+                );
+            }
+
+            self.last_continuous_improvement_report = Some(report);
+        }
+
         Ok(aggregated)
     }
 
@@ -327,6 +364,10 @@ impl MoePipeline {
 
     pub fn capture_evaluation_baseline(&mut self) {
         self.evaluation_baseline = Some(self.evaluation.clone());
+    }
+
+    pub fn last_continuous_improvement_report(&self) -> Option<&ContinuousImprovementReport> {
+        self.last_continuous_improvement_report.as_ref()
     }
 
     pub fn continuous_improvement_report(
