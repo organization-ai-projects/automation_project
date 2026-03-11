@@ -290,17 +290,46 @@ github_issue_reopen() {
   "${gh_cmd[@]}" >/dev/null
 }
 
-github_issue_close_completed_with_comment() {
+github_issue_update() {
   local repo_name="${1:-}"
   local issue_number="${2:-}"
-  local comment="${3:-}"
+  shift 2 || true
 
   if [[ -z "$issue_number" ]]; then
     return 1
   fi
 
   if issue_helpers_has_va_issue; then
-    local -a va_cmd=(issue close --issue "$issue_number" --reason completed)
+    local -a va_cmd=(issue update --issue "$issue_number")
+    if [[ -n "$repo_name" ]]; then
+      va_cmd+=(--repo "$repo_name")
+    fi
+    va_cmd+=("$@")
+    if issue_helpers_va_exec "${va_cmd[@]}" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  local -a gh_cmd=(gh issue edit "$issue_number")
+  if [[ -n "$repo_name" ]]; then
+    gh_cmd+=(-R "$repo_name")
+  fi
+  gh_cmd+=("$@")
+  "${gh_cmd[@]}" >/dev/null
+}
+
+github_issue_close() {
+  local repo_name="${1:-}"
+  local issue_number="${2:-}"
+  local reason="${3:-completed}"
+  local comment="${4:-}"
+
+  if [[ -z "$issue_number" ]]; then
+    return 1
+  fi
+
+  if issue_helpers_has_va_issue; then
+    local -a va_cmd=(issue close --issue "$issue_number" --reason "$reason")
     if [[ -n "$repo_name" ]]; then
       va_cmd+=(--repo "$repo_name")
     fi
@@ -312,7 +341,7 @@ github_issue_close_completed_with_comment() {
     fi
   fi
 
-  local -a gh_cmd=(gh issue close "$issue_number" --reason completed)
+  local -a gh_cmd=(gh issue close "$issue_number" --reason "$reason")
   if [[ -n "$repo_name" ]]; then
     gh_cmd+=(-R "$repo_name")
   fi
@@ -320,6 +349,18 @@ github_issue_close_completed_with_comment() {
     gh_cmd+=(--comment "$comment")
   fi
   "${gh_cmd[@]}" >/dev/null
+}
+
+github_issue_close_completed_with_comment() {
+  local repo_name="${1:-}"
+  local issue_number="${2:-}"
+  local comment="${3:-}"
+
+  if [[ -z "$issue_number" ]]; then
+    return 1
+  fi
+
+  github_issue_close "$repo_name" "$issue_number" "completed" "$comment"
 }
 
 github_issue_list_open_numbers() {

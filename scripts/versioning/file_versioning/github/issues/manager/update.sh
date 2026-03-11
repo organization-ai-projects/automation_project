@@ -104,24 +104,6 @@ cmd_update() {
     fi
   fi
 
-  local -a issue_args=(issue update --issue "$issue_number")
-  if [[ -n "$repo" ]]; then
-    issue_args+=(--repo "$repo")
-  fi
-  issue_args+=("${edit_args[@]}")
-
-  if command -v va_exec >/dev/null 2>&1; then
-    if va_exec "${issue_args[@]}" >/dev/null; then
-      echo "Issue #${issue_number} updated."
-      return
-    fi
-  fi
-
-  local -a gh_cmd=(gh issue edit "$issue_number")
-  if [[ -n "$repo" ]]; then
-    gh_cmd+=(-R "$repo")
-  fi
-  gh_cmd+=("${edit_args[@]}")
-  "${gh_cmd[@]}" >/dev/null
+  issue_gh_issue_update "$repo" "$issue_number" "${edit_args[@]}"
   echo "Issue #${issue_number} updated."
 }
