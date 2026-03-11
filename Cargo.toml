@@ -92,7 +92,8 @@ members = [
   "projects/products/unstable/schema_world/ui",
   "projects/products/unstable/agent_engine/backend",
   "projects/products/unstable/agent_engine/ui",
-  "projects/products/unstable/neurosymbolic_moe",
+  "projects/products/unstable/neurosymbolic_moe/backend",
+  "projects/products/unstable/neurosymbolic_moe/ui",
 ]
 resolver = "2"
 
