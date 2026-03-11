@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::moe_core::{ExpertId, TaskId, TraceRecord};
 
-use super::dataset_entry::{DatasetEntry, Outcome};
+use super::{DatasetEntry, Outcome};
 
 #[derive(Debug, Clone)]
 pub struct TraceConverter;

@@ -3,8 +3,8 @@ use std::collections::HashMap;
 
 use crate::moe_core::MoeError;
 
-use super::memory_entry::{MemoryEntry, MemoryQuery};
 use super::memory_store::MemoryStore;
+use super::{MemoryEntry, MemoryQuery};
 
 #[derive(Debug, Clone)]
 pub struct ShortTermMemory {

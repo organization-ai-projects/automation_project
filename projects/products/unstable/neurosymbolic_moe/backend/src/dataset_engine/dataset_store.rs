@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::moe_core::{ExpertId, TaskId};
 
-use super::dataset_entry::{Correction, DatasetEntry, Outcome};
+use super::{Correction, DatasetEntry, Outcome};
 
 #[derive(Debug, Clone)]
 pub struct DatasetStore {

@@ -1,20 +1,16 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
-use super::outcome::Outcome;
 use crate::moe_core::{ExpertId, TaskId};
 
+use super::feedback_type::FeedbackType;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DatasetEntry {
+pub struct FeedbackEntry {
     pub id: String,
     pub task_id: TaskId,
     pub expert_id: ExpertId,
-    pub input: String,
-    pub output: String,
-    pub outcome: Outcome,
+    pub feedback_type: FeedbackType,
     pub score: Option<f64>,
-    pub tags: Vec<String>,
+    pub comment: String,
     pub created_at: u64,
-    pub metadata: HashMap<String, String>,
 }

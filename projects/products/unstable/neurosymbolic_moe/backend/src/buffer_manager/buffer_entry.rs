@@ -3,12 +3,6 @@ use serde::{Deserialize, Serialize};
 use crate::moe_core::TaskId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum BufferType {
-    Working,
-    Session,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BufferEntry {
     pub key: String,
     pub value: String,

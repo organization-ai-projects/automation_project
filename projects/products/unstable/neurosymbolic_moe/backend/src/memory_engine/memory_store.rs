@@ -1,6 +1,6 @@
 use crate::moe_core::MoeError;
 
-use super::memory_entry::{MemoryEntry, MemoryQuery};
+use super::{MemoryEntry, MemoryQuery};
 
 pub trait MemoryStore {
     fn store(&mut self, entry: MemoryEntry) -> Result<(), MoeError>;
