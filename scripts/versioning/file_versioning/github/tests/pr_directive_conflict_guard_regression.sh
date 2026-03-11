@@ -33,6 +33,16 @@ if [[ "$args" == pr\ view* && ( "$args" == *"--json body,url,number"* || "$args"
   exit 0
 fi
 
+if [[ "$args" == pr\ view* && "$args" == *"--json title"* ]]; then
+  echo "PR title"
+  exit 0
+fi
+
+if [[ "$args" == pr\ view* && "$args" == *"--json body"* ]]; then
+  printf '%s\n' "${MOCK_PR_BODY:-Closes #42}"
+  exit 0
+fi
+
 if [[ "$args" == api\ repos/*/pulls/*/commits* ]]; then
   printf "%s\n" "${MOCK_PR_COMMITS:-}"
   exit 0

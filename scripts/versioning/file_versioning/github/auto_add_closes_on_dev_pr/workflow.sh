@@ -50,18 +50,6 @@ auto_add_fetch_pr_details_json() {
   pr_author="$(auto_add_pr_field "$repo_name" "$pr_number" "author-login" "" || true)"
   pr_commits="$(auto_add_pr_field "$repo_name" "$pr_number" "commit-messages" "" || true)"
 
-  if [[ -z "$pr_state" || -z "$pr_base" || -z "$pr_title" || -z "$pr_body" || -z "$pr_author" ]]; then
-    local pr_json_legacy=""
-    pr_json_legacy="$(gh pr view "$pr_number" -R "$repo_name" --json number,state,baseRefName,title,body,author 2>/dev/null || true)"
-    if [[ -n "$pr_json_legacy" ]]; then
-      [[ -n "$pr_state" ]] || pr_state="$(echo "$pr_json_legacy" | jq -r '.state // ""' 2>/dev/null || true)"
-      [[ -n "$pr_base" ]] || pr_base="$(echo "$pr_json_legacy" | jq -r '.baseRefName // .base_ref_name // ""' 2>/dev/null || true)"
-      [[ -n "$pr_title" ]] || pr_title="$(echo "$pr_json_legacy" | jq -r '.title // ""' 2>/dev/null || true)"
-      [[ -n "$pr_body" ]] || pr_body="$(echo "$pr_json_legacy" | jq -r '.body // ""' 2>/dev/null || true)"
-      [[ -n "$pr_author" ]] || pr_author="$(echo "$pr_json_legacy" | jq -r '.author.login // .author_login // ""' 2>/dev/null || true)"
-    fi
-  fi
-
   if [[ -n "$pr_state" || -n "$pr_base" || -n "$pr_title" || -n "$pr_body" || -n "$pr_author" || -n "$pr_commits" ]]; then
     pr_details_json="$(
       jq -c -n \

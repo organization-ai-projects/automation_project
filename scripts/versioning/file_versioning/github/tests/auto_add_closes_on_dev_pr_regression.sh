@@ -34,6 +34,31 @@ JSON
   exit 0
 fi
 
+if [[ "$args" == pr\ view* && "$args" == *"--json state"* ]]; then
+  echo "${MOCK_PR_STATE:-OPEN}"
+  exit 0
+fi
+
+if [[ "$args" == pr\ view* && "$args" == *"--json baseRefName"* ]]; then
+  echo "${MOCK_PR_BASE:-dev}"
+  exit 0
+fi
+
+if [[ "$args" == pr\ view* && "$args" == *"--json title"* ]]; then
+  echo "${MOCK_PR_TITLE:-feat: sample}"
+  exit 0
+fi
+
+if [[ "$args" == pr\ view* && "$args" == *"--json body"* ]]; then
+  echo "${MOCK_PR_BODY:-Part of #101}"
+  exit 0
+fi
+
+if [[ "$args" == pr\ view* && "$args" == *"--json author"* ]]; then
+  echo "${MOCK_PR_AUTHOR:-devuser}"
+  exit 0
+fi
+
 if [[ "$args" == api\ repos/*/pulls/*/commits* ]]; then
   printf "%s\n" "${MOCK_PR_COMMITS:-feat: sample\n\nPart of #101}"
   exit 0

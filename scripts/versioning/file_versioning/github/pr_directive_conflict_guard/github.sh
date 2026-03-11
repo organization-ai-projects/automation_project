@@ -29,15 +29,6 @@ pr_directive_conflict_guard_fetch_pr_details_json() {
   pr_body="$(github_pr_field "$repo_name" "$pr_number" "body" || true)"
   commit_messages="$(github_pr_field "$repo_name" "$pr_number" "commit-messages" || true)"
 
-  if [[ -z "$pr_title" && -z "$pr_body" ]]; then
-    local pr_json_legacy=""
-    pr_json_legacy="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number,title 2>/dev/null || true)"
-    if [[ -n "$pr_json_legacy" ]]; then
-      pr_title="$(echo "$pr_json_legacy" | jq -r '.title // ""' 2>/dev/null || true)"
-      pr_body="$(echo "$pr_json_legacy" | jq -r '.body // ""' 2>/dev/null || true)"
-    fi
-  fi
-
   if [[ -n "$pr_title" || -n "$pr_body" || -n "$commit_messages" ]]; then
     pr_details_json="$(
       jq -c -n \
