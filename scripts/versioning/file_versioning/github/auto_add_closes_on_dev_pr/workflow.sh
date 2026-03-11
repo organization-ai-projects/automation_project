@@ -43,11 +43,58 @@ auto_add_fetch_pr_details_json() {
   local pr_details_json=""
 
   if command -v va_exec >/dev/null 2>&1; then
-    pr_details_json="$(
-      va_exec pr details \
+    local pr_state pr_base pr_title pr_body pr_author pr_commits
+    pr_state="$(
+      va_exec pr field \
         --pr "$pr_number" \
-        --repo "$repo_name" 2>/dev/null || true
+        --repo "$repo_name" \
+        --name "state" 2>/dev/null || true
     )"
+    pr_base="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo_name" \
+        --name "base-ref-name" 2>/dev/null || true
+    )"
+    pr_title="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo_name" \
+        --name "title" 2>/dev/null || true
+    )"
+    pr_body="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo_name" \
+        --name "body" 2>/dev/null || true
+    )"
+    pr_author="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo_name" \
+        --name "author-login" 2>/dev/null || true
+    )"
+    pr_commits="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo_name" \
+        --name "commit-messages" 2>/dev/null || true
+    )"
+
+    if [[ -n "$pr_state" || -n "$pr_base" || -n "$pr_title" || -n "$pr_body" || -n "$pr_author" || -n "$pr_commits" ]]; then
+      pr_details_json="$(
+        jq -c -n \
+          --argjson number "$pr_number" \
+          --arg state "$pr_state" \
+          --arg base_ref_name "$pr_base" \
+          --arg title "$pr_title" \
+          --arg body "$pr_body" \
+          --arg author_login "$pr_author" \
+          --arg commit_messages "$pr_commits" \
+          '{number: $number, state: $state, base_ref_name: $base_ref_name, title: $title, body: $body, author_login: $author_login, commit_messages: $commit_messages}' \
+          2>/dev/null || true
+      )"
+    fi
   fi
 
   if [[ -z "$pr_details_json" ]]; then

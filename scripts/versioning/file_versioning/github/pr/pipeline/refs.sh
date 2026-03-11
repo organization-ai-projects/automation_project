@@ -22,14 +22,13 @@ pr_pipeline_resolve_refs_and_modes() {
       exit "$E_GIT"
     fi
   else
-    local pr_details_json
-    pr_details_json=""
     if command -v va_exec >/dev/null 2>&1; then
-      pr_details_json="$(va_exec pr details --pr "$main_pr_number" 2>/dev/null || true)"
-    fi
-    if [[ -n "$pr_details_json" ]]; then
-      base_ref="$(echo "$pr_details_json" | jq -r '.base_ref_name // ""')"
-      head_ref="$(echo "$pr_details_json" | jq -r '.head_ref_name // ""')"
+      if [[ -z "$base_ref" ]]; then
+        base_ref="$(va_exec pr field --pr "$main_pr_number" --name "base-ref-name" 2>/dev/null || true)"
+      fi
+      if [[ -z "$head_ref" ]]; then
+        head_ref="$(va_exec pr field --pr "$main_pr_number" --name "head-ref-name" 2>/dev/null || true)"
+      fi
     fi
     if [[ -z "$base_ref" ]]; then
       base_ref="$(pr_gh_optional "read base branch for PR #${main_pr_number}" pr view "$main_pr_number" --json baseRefName -q '.baseRefName')"

@@ -62,6 +62,15 @@ issue_gh_pr_state() {
 
   if command -v va_exec >/dev/null 2>&1; then
     pr_state="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo" \
+        --name "state" 2>/dev/null || true
+    )"
+  fi
+
+  if [[ -z "$pr_state" ]] && command -v va_exec >/dev/null 2>&1; then
+    pr_state="$(
       va_exec pr pr-state \
         --pr "$pr_number" \
         --repo "$repo" 2>/dev/null || true
@@ -81,11 +90,37 @@ issue_gh_pr_details_json() {
   local pr_json=""
 
   if command -v va_exec >/dev/null 2>&1; then
-    pr_json="$(
-      va_exec pr details \
+    local pr_title pr_body commit_messages
+    pr_title="$(
+      va_exec pr field \
         --pr "$pr_number" \
-        --repo "$repo" 2>/dev/null || true
+        --repo "$repo" \
+        --name "title" 2>/dev/null || true
     )"
+    pr_body="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo" \
+        --name "body" 2>/dev/null || true
+    )"
+    commit_messages="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo" \
+        --name "commit-messages" 2>/dev/null || true
+    )"
+
+    if [[ -n "$pr_title" || -n "$pr_body" || -n "$commit_messages" ]]; then
+      pr_json="$(
+        jq -c -n \
+          --argjson number "$pr_number" \
+          --arg title "$pr_title" \
+          --arg body "$pr_body" \
+          --arg commit_messages "$commit_messages" \
+          '{number: $number, url: "", title: $title, body: $body, commit_messages: $commit_messages}' \
+          2>/dev/null || true
+      )"
+    fi
   fi
 
   if [[ -z "$pr_json" ]]; then
@@ -122,22 +157,49 @@ issue_gh_issue_has_label() {
 issue_gh_collect_pr_text_payload() {
   local repo="$1"
   local pr_number="$2"
-  local va_payload=""
   local pr_title
   local pr_body
   local commit_messages
 
   if command -v va_exec >/dev/null 2>&1; then
+    pr_title="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo" \
+        --name "title" 2>/dev/null || true
+    )"
+    pr_body="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo" \
+        --name "body" 2>/dev/null || true
+    )"
+    commit_messages="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo" \
+        --name "commit-messages" 2>/dev/null || true
+    )"
+
+    if [[ -n "$pr_title" || -n "$pr_body" || -n "$commit_messages" ]]; then
+      {
+        printf '%s\n' "$pr_title"
+        printf '%s\n' "$pr_body"
+        printf '%s\n' "$commit_messages"
+      }
+      return 0
+    fi
+
+    local va_payload=""
     va_payload="$(
       va_exec pr text-payload \
         --pr "$pr_number" \
         --repo "$repo" 2>/dev/null || true
     )"
-  fi
-
-  if [[ -n "$va_payload" ]]; then
-    printf '%s\n' "$va_payload"
-    return 0
+    if [[ -n "$va_payload" ]]; then
+      printf '%s\n' "$va_payload"
+      return 0
+    fi
   fi
 
   pr_title="$(gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
