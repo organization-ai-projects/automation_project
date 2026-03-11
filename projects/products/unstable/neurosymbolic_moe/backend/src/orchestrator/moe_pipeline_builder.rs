@@ -19,6 +19,7 @@ pub struct MoePipelineBuilder {
     continuous_governance_policy: Option<ContinuousGovernancePolicy>,
     governance_import_policy: GovernanceImportPolicy,
     max_governance_audit_entries: usize,
+    max_governance_state_snapshots: usize,
     max_traces: usize,
 }
 
@@ -33,6 +34,7 @@ impl MoePipelineBuilder {
             continuous_governance_policy: None,
             governance_import_policy: GovernanceImportPolicy::default(),
             max_governance_audit_entries: 128,
+            max_governance_state_snapshots: 64,
             max_traces: 10_000,
         }
     }
@@ -77,6 +79,11 @@ impl MoePipelineBuilder {
         self
     }
 
+    pub fn with_max_governance_state_snapshots(mut self, max: usize) -> Self {
+        self.max_governance_state_snapshots = max;
+        self
+    }
+
     pub fn with_max_traces(mut self, max: usize) -> Self {
         self.max_traces = max;
         self
@@ -104,6 +111,8 @@ impl MoePipelineBuilder {
             governance_state_version: 0,
             governance_audit_entries: Vec::new(),
             max_governance_audit_entries: self.max_governance_audit_entries,
+            governance_state_snapshots: Vec::new(),
+            max_governance_state_snapshots: self.max_governance_state_snapshots,
             feedback_store: FeedbackStore::new(),
             dataset_store: DatasetStore::new(),
             trace_converter: TraceConverter::new(),

@@ -1631,4 +1631,83 @@ mod v5 {
             _ => panic!("expected explicit policy rejection for governance import"),
         }
     }
+
+    #[test]
+    fn v5_rollback_restores_previous_governance_snapshot() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-rollback"),
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .with_max_governance_state_snapshots(8)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-rollback")))
+            .expect("expert registration should succeed");
+
+        let _ = pipeline
+            .execute(Task::new(
+                "v5-rollback-1",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("first execution should succeed");
+        let first_snapshot_version = pipeline
+            .governance_state_snapshots()
+            .last()
+            .expect("snapshot should exist")
+            .version;
+
+        let _ = pipeline
+            .execute(Task::new(
+                "v5-rollback-2",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("second execution should succeed");
+
+        pipeline
+            .rollback_governance_state_to_version(first_snapshot_version)
+            .expect("rollback should succeed");
+        let last_reason = pipeline
+            .governance_audit_trail()
+            .entries
+            .last()
+            .expect("audit entry should exist after rollback")
+            .reason
+            .clone();
+        assert!(last_reason.contains("rollback"));
+    }
+
+    #[test]
+    fn v5_governance_snapshot_limit_is_enforced() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-snapshot-limit"),
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .with_max_governance_state_snapshots(2)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-snapshot-limit")))
+            .expect("expert registration should succeed");
+
+        for idx in 0..4 {
+            let _ = pipeline
+                .execute(Task::new(
+                    format!("v5-snapshot-limit-{idx}"),
+                    TaskType::CodeGeneration,
+                    "clean",
+                ))
+                .expect("execution should succeed");
+        }
+
+        assert_eq!(pipeline.governance_state_snapshots().len(), 2);
+    }
 }

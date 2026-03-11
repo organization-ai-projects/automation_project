@@ -12,6 +12,7 @@ use crate::orchestrator::ContinuousImprovementReport;
 use crate::orchestrator::{
     ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceAuditTrail,
     GovernanceImportDecision, GovernanceImportPolicy, GovernanceState, GovernanceStateDiff,
+    GovernanceStateSnapshot,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::router::{Router, RoutingStrategy};
@@ -34,6 +35,8 @@ pub struct MoePipeline {
     pub(super) governance_state_version: u64,
     pub(super) governance_audit_entries: Vec<GovernanceAuditEntry>,
     pub(super) max_governance_audit_entries: usize,
+    pub(super) governance_state_snapshots: Vec<GovernanceStateSnapshot>,
+    pub(super) max_governance_state_snapshots: usize,
     pub(super) feedback_store: FeedbackStore,
     pub(super) dataset_store: DatasetStore,
     pub(super) trace_converter: TraceConverter,
@@ -524,6 +527,32 @@ impl MoePipeline {
         }
     }
 
+    pub fn governance_state_snapshots(&self) -> &[GovernanceStateSnapshot] {
+        &self.governance_state_snapshots
+    }
+
+    pub fn rollback_governance_state_to_version(&mut self, version: u64) -> Result<(), MoeError> {
+        let snapshot = self
+            .governance_state_snapshots
+            .iter()
+            .rev()
+            .find(|snapshot| snapshot.version == version)
+            .cloned()
+            .ok_or_else(|| {
+                MoeError::DatasetError(format!(
+                    "governance rollback failed: snapshot version {} not found",
+                    version
+                ))
+            })?;
+
+        self.continuous_governance_policy = snapshot.state.continuous_governance_policy;
+        self.evaluation_baseline = snapshot.state.evaluation_baseline;
+        self.last_continuous_improvement_report = snapshot.state.last_continuous_improvement_report;
+        self.governance_state_version = snapshot.state.state_version;
+        self.record_governance_audit(&format!("governance rollback to version {}", version));
+        Ok(())
+    }
+
     pub fn diff_governance_state(&self, target: &GovernanceState) -> GovernanceStateDiff {
         let source = self.export_governance_state();
 
@@ -695,7 +724,8 @@ impl MoePipeline {
 
     fn record_governance_audit(&mut self, reason: &str) {
         self.governance_state_version = self.governance_state_version.saturating_add(1);
-        let checksum = self.export_governance_state().state_checksum;
+        let state = self.export_governance_state();
+        let checksum = state.state_checksum.clone();
         self.governance_audit_entries.push(GovernanceAuditEntry {
             version: self.governance_state_version,
             checksum,
@@ -704,6 +734,18 @@ impl MoePipeline {
         if self.governance_audit_entries.len() > self.max_governance_audit_entries {
             let to_trim = self.governance_audit_entries.len() - self.max_governance_audit_entries;
             self.governance_audit_entries.drain(0..to_trim);
+        }
+
+        self.governance_state_snapshots
+            .push(GovernanceStateSnapshot {
+                version: self.governance_state_version,
+                reason: reason.to_string(),
+                state,
+            });
+        if self.governance_state_snapshots.len() > self.max_governance_state_snapshots {
+            let to_trim =
+                self.governance_state_snapshots.len() - self.max_governance_state_snapshots;
+            self.governance_state_snapshots.drain(0..to_trim);
         }
     }
 
