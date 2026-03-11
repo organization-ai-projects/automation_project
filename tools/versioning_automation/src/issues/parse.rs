@@ -1,11 +1,11 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
-    AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
-    HasLabelOptions, IssueAction, IssueFieldName, IssueFieldOptions, IssueTarget,
-    LabelExistsOptions, ListByLabelOptions, NonComplianceReasonOptions, OpenNumbersOptions,
-    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
-    StateOptions, SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions,
-    UpdateOptions, UpsertMarkerCommentOptions,
+    AssigneeLoginsOptions, CloseOptions, CreateOptions, DoneStatusMode, DoneStatusOptions,
+    FetchNonComplianceReasonOptions, HasLabelOptions, IssueAction, IssueFieldName,
+    IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
+    NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions, ReevaluateOptions,
+    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
+    SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -15,6 +15,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
     match args[0].as_str() {
         "help" | "--help" | "-h" => Ok(IssueAction::Help),
         "create" => parse_create(&args[1..]).map(IssueAction::Create),
+        "done-status" => parse_done_status(&args[1..]).map(IssueAction::DoneStatus),
         "read" => parse_read(&args[1..]).map(IssueAction::Read),
         "update" => parse_update(&args[1..]).map(IssueAction::Update),
         "repo-name" => parse_repo_name(&args[1..]),
@@ -76,6 +77,62 @@ fn parse_field(args: &[String]) -> Result<IssueFieldOptions, String> {
     };
 
     Ok(IssueFieldOptions { issue, repo, name })
+}
+
+fn parse_done_status(args: &[String]) -> Result<DoneStatusOptions, String> {
+    let mut mode: Option<DoneStatusMode> = None;
+    let mut pr: Option<String> = None;
+    let mut issue: Option<String> = None;
+    let mut label = "done-in-dev".to_string();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--on-dev-merge" => {
+                mode = Some(DoneStatusMode::OnDevMerge);
+                i += 1;
+            }
+            "--on-issue-closed" => {
+                mode = Some(DoneStatusMode::OnIssueClosed);
+                i += 1;
+            }
+            "--pr" => pr = Some(take_value("--pr", args, &mut i)?),
+            "--issue" => issue = Some(take_value("--issue", args, &mut i)?),
+            "--label" => label = take_value("--label", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for done-status: {unknown}")),
+        }
+    }
+
+    let Some(mode) = mode else {
+        return Err(
+            "done-status requires one mode: --on-dev-merge or --on-issue-closed".to_string(),
+        );
+    };
+
+    match mode {
+        DoneStatusMode::OnDevMerge => {
+            let pr_value = pr
+                .as_deref()
+                .ok_or_else(|| "done-status --on-dev-merge requires: --pr".to_string())?;
+            require_positive_number("--pr", pr_value)?;
+        }
+        DoneStatusMode::OnIssueClosed => {
+            let issue_value = issue
+                .as_deref()
+                .ok_or_else(|| "done-status --on-issue-closed requires: --issue".to_string())?;
+            require_positive_number("--issue", issue_value)?;
+        }
+    }
+
+    Ok(DoneStatusOptions {
+        mode,
+        pr,
+        issue,
+        label,
+        repo,
+    })
 }
 
 fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {

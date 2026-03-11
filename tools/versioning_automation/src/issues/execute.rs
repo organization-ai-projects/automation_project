@@ -1,15 +1,17 @@
 //! tools/versioning_automation/src/issues/execute.rs
+use std::collections::HashSet;
 use std::process::Command;
 
 use regex::Regex;
 use serde::Deserialize;
 
 use crate::issues::commands::{
-    AssigneeLoginsOptions, CloseOptions, CreateOptions, FetchNonComplianceReasonOptions,
-    HasLabelOptions, IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions,
-    ListByLabelOptions, NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions,
-    ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions,
-    SubissueRefsOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    AssigneeLoginsOptions, CloseOptions, CreateOptions, DoneStatusMode, DoneStatusOptions,
+    FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldName, IssueFieldOptions,
+    IssueTarget, LabelExistsOptions, ListByLabelOptions, NonComplianceReasonOptions,
+    OpenNumbersOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
+    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
+    UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -73,6 +75,197 @@ pub(crate) fn run_read(opts: ReadOptions) -> i32 {
         cmd.arg("--template").arg(template);
     }
     execute_command(cmd)
+}
+
+pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
+    let repo_name = match resolve_repo_name(opts.repo.clone()) {
+        Ok(repo) => repo,
+        Err(message) => {
+            eprintln!("{message}");
+            return 3;
+        }
+    };
+    let label_name = opts.label;
+
+    let label_exists = gh_output_or_empty(&[
+        "label", "list", "-R", &repo_name, "--limit", "1000", "--json", "name", "--jq", ".[].name",
+    ])
+    .lines()
+    .any(|value| value.trim() == label_name);
+
+    match opts.mode {
+        DoneStatusMode::OnDevMerge => {
+            let Some(pr_number) = opts.pr else {
+                eprintln!("done-status --on-dev-merge requires: --pr");
+                return 2;
+            };
+
+            let pr_state = gh_output_or_empty(&[
+                "pr",
+                "view",
+                &pr_number,
+                "-R",
+                &repo_name,
+                "--json",
+                "state",
+                "--jq",
+                ".state // \"\"",
+            ]);
+            if pr_state != "MERGED" {
+                println!("PR #{} is not merged; nothing to do.", pr_number);
+                return 0;
+            }
+
+            let pr_title = gh_output_or_empty(&[
+                "pr",
+                "view",
+                &pr_number,
+                "-R",
+                &repo_name,
+                "--json",
+                "title",
+                "--jq",
+                ".title // \"\"",
+            ]);
+            let pr_body = gh_output_or_empty(&[
+                "pr",
+                "view",
+                &pr_number,
+                "-R",
+                &repo_name,
+                "--json",
+                "body",
+                "--jq",
+                ".body // \"\"",
+            ]);
+            let pr_commits = gh_output_or_empty(&[
+                "api",
+                &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
+                "--paginate",
+                "--jq",
+                ".[].commit.message",
+            ]);
+            let payload = format!("{pr_title}\n{pr_body}\n{pr_commits}");
+            let closing_issue_numbers = extract_closing_issue_numbers(&payload);
+            if closing_issue_numbers.is_empty() {
+                println!("No closing issue refs found for PR #{}.", pr_number);
+                return 0;
+            }
+
+            if !label_exists {
+                println!(
+                    "Warning: label '{}' does not exist in {}; skipping done-in-dev labeling.",
+                    label_name, repo_name
+                );
+                return 0;
+            }
+
+            for issue_number in closing_issue_numbers {
+                let state = gh_output_or_empty(&[
+                    "issue",
+                    "view",
+                    &issue_number,
+                    "-R",
+                    &repo_name,
+                    "--json",
+                    "state",
+                    "--jq",
+                    ".state // \"\"",
+                ]);
+                if state.is_empty() {
+                    println!("Issue #{}: unreadable; skipping.", issue_number);
+                    continue;
+                }
+                if state != "OPEN" {
+                    println!(
+                        "Issue #{}: state={}; skipping done-in-dev label.",
+                        issue_number, state
+                    );
+                    continue;
+                }
+
+                let has_label = gh_output_or_empty(&[
+                    "issue",
+                    "view",
+                    &issue_number,
+                    "-R",
+                    &repo_name,
+                    "--json",
+                    "labels",
+                    "--jq",
+                    ".labels[].name",
+                ])
+                .lines()
+                .any(|value| value.trim() == label_name);
+                if has_label {
+                    println!(
+                        "Issue #{}: label '{}' already present.",
+                        issue_number, label_name
+                    );
+                    continue;
+                }
+
+                let status = execute_command({
+                    let mut cmd =
+                        gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
+                    cmd.arg("--add-label").arg(&label_name);
+                    cmd
+                });
+                if status != 0 {
+                    return status;
+                }
+                println!("Issue #{}: added label '{}'.", issue_number, label_name);
+            }
+            0
+        }
+        DoneStatusMode::OnIssueClosed => {
+            let Some(issue_number) = opts.issue else {
+                eprintln!("done-status --on-issue-closed requires: --issue");
+                return 2;
+            };
+
+            if !label_exists {
+                println!(
+                    "Warning: label '{}' does not exist in {}; skipping.",
+                    label_name, repo_name
+                );
+                return 0;
+            }
+
+            let has_label = gh_output_or_empty(&[
+                "issue",
+                "view",
+                &issue_number,
+                "-R",
+                &repo_name,
+                "--json",
+                "labels",
+                "--jq",
+                ".labels[].name",
+            ])
+            .lines()
+            .any(|value| value.trim() == label_name);
+
+            if has_label {
+                let status = execute_command({
+                    let mut cmd =
+                        gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
+                    cmd.arg("--remove-label").arg(&label_name);
+                    cmd
+                });
+                if status != 0 {
+                    return status;
+                }
+                println!("Issue #{}: removed label '{}'.", issue_number, label_name);
+            } else {
+                println!(
+                    "Issue #{}: label '{}' not present.",
+                    issue_number, label_name
+                );
+            }
+            0
+        }
+    }
 }
 
 pub(crate) fn run_update(opts: UpdateOptions) -> i32 {
@@ -478,6 +671,22 @@ fn pr_body_references_issue(body: &str, issue_number: &str) -> bool {
     Regex::new(&pattern)
         .map(|re| re.is_match(body))
         .unwrap_or(false)
+}
+
+fn extract_closing_issue_numbers(text: &str) -> Vec<String> {
+    let re = Regex::new(r"(?i)\b(closes|fixes)\b\s+(?:rejected\s+)?[^#\s]*#([0-9]+)")
+        .expect("static regex must compile");
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut out = Vec::new();
+    for captures in re.captures_iter(text) {
+        let Some(num) = captures.get(2).map(|m| m.as_str().to_string()) else {
+            continue;
+        };
+        if seen.insert(num.clone()) {
+            out.push(num);
+        }
+    }
+    out
 }
 
 fn print_non_empty_lines(text: &str) {

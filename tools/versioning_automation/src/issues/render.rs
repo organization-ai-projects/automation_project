@@ -53,6 +53,9 @@ pub(crate) fn print_usage() {
         "  va issue read [--issue <number>] [--repo owner/name] [--json fields] [--jq filter] [--template tpl]"
     );
     println!(
+        "  va issue done-status (--on-dev-merge --pr <number> | --on-issue-closed --issue <number>) [--label <name>] [--repo owner/name]"
+    );
+    println!(
         "  va issue update --issue <number> [--repo owner/name] [--title ...|--body ...|--add-label ...|--remove-label ...|--add-assignee ...|--remove-assignee ...]"
     );
     println!("  va issue repo-name");
