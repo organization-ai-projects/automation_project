@@ -1605,29 +1605,20 @@ pub(crate) fn run_reevaluate(opts: ReevaluateOptions) -> i32 {
         return 0;
     }
 
-    let neutralizer = "scripts/versioning/file_versioning/github/issues/neutralize/run.sh";
     let mut evaluated_count = 0usize;
     for pr_num in pr_numbers {
         println!(
             "Re-evaluating PR #{} (references issue #{})...",
             pr_num, opts.issue
         );
-        let mut cmd = Command::new("bash");
-        cmd.arg(neutralizer)
-            .arg("--pr")
-            .arg(&pr_num)
-            .arg("--repo")
-            .arg(&repo_name);
-        match cmd.status() {
-            Ok(status) if status.success() => {
-                evaluated_count += 1;
-            }
-            Ok(status) => return status.code().unwrap_or(1),
-            Err(err) => {
-                eprintln!("Failed to execute neutralizer: {err}");
-                return 1;
-            }
+        let status = run_neutralize(NeutralizeOptions {
+            pr: pr_num.clone(),
+            repo: Some(repo_name.clone()),
+        });
+        if status != 0 {
+            return status;
         }
+        evaluated_count += 1;
     }
 
     println!(
