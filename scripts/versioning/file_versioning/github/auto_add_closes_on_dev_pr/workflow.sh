@@ -89,12 +89,7 @@ auto_add_pr_field() {
   local jq_filter=""
 
   if command -v va_exec >/dev/null 2>&1; then
-    va_output="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "$field_name" 2>/dev/null || true
-    )"
+    va_output="$(github_pr_field "$repo_name" "$pr_number" "$field_name" 2>/dev/null || true)"
     if [[ -n "$va_output" ]]; then
       printf '%s' "$va_output"
       return 0
@@ -114,29 +109,7 @@ auto_add_pr_field() {
   esac
 
   if [[ -z "$pr_json_fallback" ]]; then
-    case "$field_name" in
-    state)
-      gh pr view "$pr_number" -R "$repo_name" --json state -q '.state // ""' 2>/dev/null || true
-      ;;
-    base-ref-name)
-      gh pr view "$pr_number" -R "$repo_name" --json baseRefName -q '.baseRefName // ""' 2>/dev/null || true
-      ;;
-    title)
-      gh pr view "$pr_number" -R "$repo_name" --json title -q '.title // ""' 2>/dev/null || true
-      ;;
-    body)
-      gh pr view "$pr_number" -R "$repo_name" --json body -q '.body // ""' 2>/dev/null || true
-      ;;
-    author-login)
-      gh pr view "$pr_number" -R "$repo_name" --json author -q '.author.login // ""' 2>/dev/null || true
-      ;;
-    commit-messages)
-      gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true
-      ;;
-    *)
-      printf ''
-      ;;
-    esac
+    github_pr_field "$repo_name" "$pr_number" "$field_name" 2>/dev/null || true
     return 0
   fi
   echo "$pr_json_fallback" | jq -r "$jq_filter"

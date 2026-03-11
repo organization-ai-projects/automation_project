@@ -59,38 +59,7 @@ issue_gh_pr_field() {
   local repo="$1"
   local pr_number="$2"
   local field_name="$3"
-  local va_output=""
-
-  if command -v va_exec >/dev/null 2>&1; then
-    va_output="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo" \
-        --name "$field_name" 2>/dev/null || true
-    )"
-    if [[ -n "$va_output" ]]; then
-      printf '%s' "$va_output"
-      return 0
-    fi
-  fi
-
-  case "$field_name" in
-  state)
-    gh pr view "$pr_number" -R "$repo" --json state -q '.state // ""' 2>/dev/null || true
-    ;;
-  title)
-    gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true
-    ;;
-  body)
-    gh pr view "$pr_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true
-    ;;
-  commit-messages)
-    gh api "repos/${repo}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true
-    ;;
-  *)
-    return 1
-    ;;
-  esac
+  github_pr_field "$repo" "$pr_number" "$field_name"
 }
 
 issue_gh_pr_state() {

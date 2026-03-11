@@ -644,3 +644,70 @@ github_issue_has_label() {
 
   github_issue_field "$repo_name" "$issue_number" "labels-raw" | tr '|' '\n' | sed '/^$/d' | grep -Fxq "$label"
 }
+
+github_pr_field() {
+  local repo_name="${1:-}"
+  local pr_number="${2:-}"
+  local field_name="${3:-}"
+  local va_output=""
+  local -a va_cmd=()
+  local -a gh_cmd=()
+
+  if [[ -z "$pr_number" || -z "$field_name" ]]; then
+    return 1
+  fi
+
+  if command -v va_exec >/dev/null 2>&1; then
+    va_cmd=(va_exec pr field --pr "$pr_number" --name "$field_name")
+    if [[ -n "$repo_name" ]]; then
+      va_cmd+=(--repo "$repo_name")
+    fi
+    va_output="$("${va_cmd[@]}" 2>/dev/null || true)"
+    if [[ -n "$va_output" ]]; then
+      printf '%s\n' "$va_output"
+      return 0
+    fi
+  fi
+
+  case "$field_name" in
+  state)
+    gh_cmd=(gh pr view "$pr_number" --json state -q '.state // ""')
+    [[ -n "$repo_name" ]] && gh_cmd+=(-R "$repo_name")
+    "${gh_cmd[@]}" 2>/dev/null || true
+    ;;
+  base-ref-name)
+    gh_cmd=(gh pr view "$pr_number" --json baseRefName -q '.baseRefName // ""')
+    [[ -n "$repo_name" ]] && gh_cmd+=(-R "$repo_name")
+    "${gh_cmd[@]}" 2>/dev/null || true
+    ;;
+  head-ref-name)
+    gh_cmd=(gh pr view "$pr_number" --json headRefName -q '.headRefName // ""')
+    [[ -n "$repo_name" ]] && gh_cmd+=(-R "$repo_name")
+    "${gh_cmd[@]}" 2>/dev/null || true
+    ;;
+  title)
+    gh_cmd=(gh pr view "$pr_number" --json title -q '.title // ""')
+    [[ -n "$repo_name" ]] && gh_cmd+=(-R "$repo_name")
+    "${gh_cmd[@]}" 2>/dev/null || true
+    ;;
+  body)
+    gh_cmd=(gh pr view "$pr_number" --json body -q '.body // ""')
+    [[ -n "$repo_name" ]] && gh_cmd+=(-R "$repo_name")
+    "${gh_cmd[@]}" 2>/dev/null || true
+    ;;
+  author-login)
+    gh_cmd=(gh pr view "$pr_number" --json author -q '.author.login // ""')
+    [[ -n "$repo_name" ]] && gh_cmd+=(-R "$repo_name")
+    "${gh_cmd[@]}" 2>/dev/null || true
+    ;;
+  commit-messages)
+    if [[ -z "$repo_name" ]]; then
+      return 0
+    fi
+    gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
