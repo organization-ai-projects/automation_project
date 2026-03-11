@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use crate::moe_core::{ExpertId, TaskId};
+use serde::{Deserialize, Serialize};
 
 use super::{Correction, DatasetEntry, Outcome};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatasetQualityReport {
     pub total_entries: usize,
     pub scored_entries: usize,

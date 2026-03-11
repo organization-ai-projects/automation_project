@@ -9,7 +9,7 @@ use crate::moe_core::{
     Task, TracePhase,
 };
 use crate::orchestrator::ContinuousImprovementReport;
-use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy};
+use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy, GovernanceState};
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::router::{Router, RoutingStrategy};
 use crate::trace_logger::TraceLogger;
@@ -399,6 +399,34 @@ impl MoePipeline {
         } else {
             false
         }
+    }
+
+    pub fn export_governance_state(&self) -> GovernanceState {
+        GovernanceState {
+            continuous_governance_policy: self.continuous_governance_policy.clone(),
+            evaluation_baseline: self.evaluation_baseline.clone(),
+            last_continuous_improvement_report: self.last_continuous_improvement_report.clone(),
+        }
+    }
+
+    pub fn import_governance_state(&mut self, state: GovernanceState) {
+        self.continuous_governance_policy = state.continuous_governance_policy;
+        self.evaluation_baseline = state.evaluation_baseline;
+        self.last_continuous_improvement_report = state.last_continuous_improvement_report;
+    }
+
+    pub fn export_governance_state_json(&self) -> Result<String, MoeError> {
+        common_json::json::to_json_string_pretty(&self.export_governance_state()).map_err(|err| {
+            MoeError::DatasetError(format!("governance state serialization failed: {err}"))
+        })
+    }
+
+    pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        let state: GovernanceState = common_json::json::from_json_str(payload).map_err(|err| {
+            MoeError::DatasetError(format!("governance state deserialization failed: {err}"))
+        })?;
+        self.import_governance_state(state);
+        Ok(())
     }
 
     pub fn continuous_improvement_report(

@@ -1361,4 +1361,48 @@ mod v5 {
                 .requires_human_review
         );
     }
+
+    #[test]
+    fn v5_governance_state_roundtrip_supports_replay_between_pipelines() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router_a = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-state-a"),
+        };
+
+        let mut pipeline_a = MoePipelineBuilder::new()
+            .with_router(Box::new(router_a))
+            .with_continuous_governance_policy(policy)
+            .build();
+        pipeline_a
+            .register_expert(Box::new(V5FlakyExpert::new("v5-state-a")))
+            .expect("expert registration should succeed");
+
+        let task = Task::new("v5-state-task-a", TaskType::CodeGeneration, "clean");
+        let _ = pipeline_a.execute(task).expect("execution should succeed");
+        assert!(pipeline_a.last_continuous_improvement_report().is_some());
+
+        let state = pipeline_a.export_governance_state();
+        let state_json = pipeline_a
+            .export_governance_state_json()
+            .expect("state json export should succeed");
+
+        let router_b = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-state-b"),
+        };
+        let mut pipeline_b = MoePipelineBuilder::new()
+            .with_router(Box::new(router_b))
+            .build();
+        pipeline_b
+            .register_expert(Box::new(V5FlakyExpert::new("v5-state-b")))
+            .expect("expert registration should succeed");
+
+        pipeline_b.import_governance_state(state);
+        assert!(pipeline_b.last_continuous_improvement_report().is_some());
+
+        let mut pipeline_c = MoePipelineBuilder::new().build();
+        pipeline_c
+            .import_governance_state_json(&state_json)
+            .expect("state json import should succeed");
+        assert!(pipeline_c.last_continuous_improvement_report().is_some());
+    }
 }

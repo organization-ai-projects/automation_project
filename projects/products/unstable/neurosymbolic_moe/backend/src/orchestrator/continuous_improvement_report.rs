@@ -1,7 +1,8 @@
 use crate::dataset_engine::DatasetQualityReport;
 use crate::evaluation_engine::{EvaluationGovernanceReport, ExpertRegression, RoutingRegression};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContinuousImprovementReport {
     pub governance: EvaluationGovernanceReport,
     pub dataset_quality: DatasetQualityReport,

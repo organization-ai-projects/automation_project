@@ -1,4 +1,6 @@
-#[derive(Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContinuousGovernancePolicy {
     pub min_expert_success_rate: f64,
     pub min_routing_accuracy: f64,

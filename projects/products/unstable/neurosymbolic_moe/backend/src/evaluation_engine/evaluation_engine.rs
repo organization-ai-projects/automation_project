@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use crate::moe_core::ExpertId;
+use serde::{Deserialize, Serialize};
 
 use super::metrics::{ExpertMetrics, RoutingMetrics};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpertRegression {
     pub expert_id: ExpertId,
     pub previous_success_rate: f64,
@@ -12,14 +13,14 @@ pub struct ExpertRegression {
     pub delta: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutingRegression {
     pub previous_accuracy: f64,
     pub current_accuracy: f64,
     pub delta: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluationGovernanceReport {
     pub min_expert_success_rate: f64,
     pub min_routing_accuracy: f64,
@@ -28,7 +29,7 @@ pub struct EvaluationGovernanceReport {
     pub ready_for_promotion: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluationEngine {
     expert_metrics: HashMap<ExpertId, ExpertMetrics>,
     routing_metrics: RoutingMetrics,
