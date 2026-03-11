@@ -11,7 +11,7 @@ use crate::moe_core::{
 use crate::orchestrator::ContinuousImprovementReport;
 use crate::orchestrator::{
     ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceAuditTrail,
-    GovernanceState, GovernanceStateDiff,
+    GovernanceImportPolicy, GovernanceState, GovernanceStateDiff,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::router::{Router, RoutingStrategy};
@@ -25,6 +25,7 @@ pub struct MoePipeline {
     pub(super) fallback_on_expert_error: bool,
     pub(super) enable_task_metadata_chain: bool,
     pub(super) continuous_governance_policy: Option<ContinuousGovernancePolicy>,
+    pub(super) governance_import_policy: GovernanceImportPolicy,
     pub(super) policy_guard: PolicyGuard,
     pub(super) trace_logger: TraceLogger,
     pub(super) evaluation: EvaluationEngine,
@@ -432,6 +433,23 @@ impl MoePipeline {
             return;
         }
 
+        let diff = self.diff_governance_state(&state);
+        if !self.governance_import_policy.allow_schema_change && diff.schema_version_changed {
+            return;
+        }
+        if !self.governance_import_policy.allow_version_regression && diff.version_delta < 0 {
+            return;
+        }
+        if let Some(max) = self.governance_import_policy.max_version_regression
+            && diff.version_delta < 0
+            && (-diff.version_delta as u64) > max
+        {
+            return;
+        }
+        if self.governance_import_policy.require_policy_match && diff.policy_changed {
+            return;
+        }
+
         self.continuous_governance_policy = state.continuous_governance_policy;
         self.evaluation_baseline = state.evaluation_baseline;
         self.last_continuous_improvement_report = state.last_continuous_improvement_report;
@@ -456,6 +474,32 @@ impl MoePipeline {
                 "governance state checksum verification failed".to_string(),
             ));
         }
+
+        let diff = self.diff_governance_state(&state);
+        if !self.governance_import_policy.allow_schema_change && diff.schema_version_changed {
+            return Err(MoeError::PolicyRejected(
+                "governance import rejected: schema version drift".to_string(),
+            ));
+        }
+        if !self.governance_import_policy.allow_version_regression && diff.version_delta < 0 {
+            return Err(MoeError::PolicyRejected(
+                "governance import rejected: version regression".to_string(),
+            ));
+        }
+        if let Some(max) = self.governance_import_policy.max_version_regression
+            && diff.version_delta < 0
+            && (-diff.version_delta as u64) > max
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance import rejected: regression exceeds allowed delta".to_string(),
+            ));
+        }
+        if self.governance_import_policy.require_policy_match && diff.policy_changed {
+            return Err(MoeError::PolicyRejected(
+                "governance import rejected: policy mismatch".to_string(),
+            ));
+        }
+
         self.import_governance_state(state);
         Ok(())
     }

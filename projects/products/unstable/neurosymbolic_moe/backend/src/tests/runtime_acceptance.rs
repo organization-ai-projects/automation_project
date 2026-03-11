@@ -1002,8 +1002,8 @@ mod v5 {
         ExpertOutput, ExpertStatus, ExpertType, Task, TaskId, TaskType,
     };
     use crate::orchestrator::{
-        ContinuousGovernancePolicy, ContinuousImprovementReport, GovernanceState,
-        MoePipelineBuilder,
+        ContinuousGovernancePolicy, ContinuousImprovementReport, GovernanceImportPolicy,
+        GovernanceState, MoePipelineBuilder,
     };
     use crate::router::{Router, RoutingDecision, RoutingStrategy};
     use std::collections::HashMap;
@@ -1492,5 +1492,74 @@ mod v5 {
         let tampered_diff = pipeline.diff_governance_state(&target);
         assert!(tampered_diff.has_drift);
         assert!(tampered_diff.checksum_changed);
+    }
+
+    #[test]
+    fn v5_import_policy_blocks_version_regression_from_json() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let import_policy = GovernanceImportPolicy {
+            allow_schema_change: false,
+            allow_version_regression: false,
+            max_version_regression: Some(0),
+            require_policy_match: false,
+        };
+
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-import-regression"),
+        };
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .with_governance_import_policy(import_policy)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-import-regression")))
+            .expect("expert registration should succeed");
+
+        let _ = pipeline
+            .execute(Task::new(
+                "v5-import-regression-task",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("execution should succeed");
+
+        let mut state = pipeline.export_governance_state();
+        state.state_version = 0;
+        state.state_checksum = state.recompute_checksum();
+        let payload = common_json::json::to_json_string_pretty(&state)
+            .expect("state serialization should succeed");
+
+        let result = pipeline.import_governance_state_json(&payload);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+    }
+
+    #[test]
+    fn v5_import_policy_can_require_policy_match() {
+        let policy_a = ContinuousGovernancePolicy::new(0.8, 0.9, 0.5, 0.1, false);
+        let policy_b = ContinuousGovernancePolicy::new(0.9, 0.9, 0.5, 0.1, false);
+        let import_policy = GovernanceImportPolicy {
+            allow_schema_change: false,
+            allow_version_regression: true,
+            max_version_regression: None,
+            require_policy_match: true,
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_continuous_governance_policy(policy_a)
+            .with_governance_import_policy(import_policy)
+            .build();
+        let incoming = GovernanceState::from_components(1, Some(policy_b), None, None);
+        let payload = common_json::json::to_json_string_pretty(&incoming)
+            .expect("state serialization should succeed");
+
+        let result = pipeline.import_governance_state_json(&payload);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
     }
 }
