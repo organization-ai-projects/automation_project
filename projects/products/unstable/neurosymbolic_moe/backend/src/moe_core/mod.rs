@@ -3,6 +3,8 @@ pub mod execution_context;
 pub mod expert;
 pub mod output;
 pub mod task;
+#[cfg(test)]
+mod tests;
 pub mod trace;
 
 pub use error::{ExpertError, MoeError};
