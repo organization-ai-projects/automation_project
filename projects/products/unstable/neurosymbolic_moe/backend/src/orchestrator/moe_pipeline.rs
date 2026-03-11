@@ -914,6 +914,23 @@ impl MoePipeline {
             .iter()
             .map(|snapshot| (snapshot.version, snapshot.state.state_checksum.as_str()))
             .collect();
+
+        let audit_versions: std::collections::HashSet<u64> = bundle
+            .audit_entries
+            .iter()
+            .map(|entry| entry.version)
+            .collect();
+        if bundle
+            .snapshots
+            .iter()
+            .any(|snapshot| !audit_versions.contains(&snapshot.version))
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle rejected: snapshot version missing matching audit entry"
+                    .to_string(),
+            ));
+        }
+
         if bundle.audit_entries.iter().any(|audit| {
             snapshot_checksums_by_version
                 .get(&audit.version)

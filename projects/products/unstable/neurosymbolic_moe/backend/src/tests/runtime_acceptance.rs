@@ -2077,4 +2077,51 @@ mod v5 {
             Err(crate::moe_core::MoeError::PolicyRejected(_))
         ));
     }
+
+    #[test]
+    fn v5_governance_bundle_rejects_snapshot_without_matching_audit_entry() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-bundle-orphan-snapshot"),
+        };
+
+        let mut source = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        source
+            .register_expert(Box::new(V5FlakyExpert::new("v5-bundle-orphan-snapshot")))
+            .expect("expert registration should succeed");
+        let _ = source
+            .execute(Task::new(
+                "v5-bundle-orphan-snapshot-task",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("execution should succeed");
+
+        let bundle_json = source
+            .export_governance_bundle_json()
+            .expect("bundle json export should succeed");
+        let mut parsed: GovernancePersistenceBundle =
+            common_json::json::from_json_str(&bundle_json).expect("bundle parse should succeed");
+
+        let snapshot_version = parsed
+            .snapshots
+            .first()
+            .expect("snapshot should exist")
+            .version;
+        parsed
+            .audit_entries
+            .retain(|entry| entry.version != snapshot_version);
+
+        let tampered_json = common_json::json::to_json_string_pretty(&parsed)
+            .expect("tampered bundle serialization should succeed");
+        let mut target = MoePipelineBuilder::new().build();
+        let result = target.import_governance_bundle_json(&tampered_json);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+    }
 }
