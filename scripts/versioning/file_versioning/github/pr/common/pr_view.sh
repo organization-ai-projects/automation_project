@@ -7,29 +7,13 @@
 pr_get_pr_body() {
   local pr_number="$1"
   local fallback_context="$2"
+  local context_payload=""
   local pr_body=""
-  local va_payload=""
 
-  if command -v va_exec >/dev/null 2>&1; then
-    pr_body="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --name "body" 2>/dev/null || true
-    )"
-    if [[ -n "$pr_body" ]]; then
-      printf '%s' "$pr_body"
-      return
-    fi
-
-    va_payload="$(
-      va_exec pr body-context \
-        --pr "$pr_number" 2>/dev/null || true
-    )"
-  fi
-
-  if [[ "$va_payload" == *$'\x1f'* ]]; then
+  context_payload="$(github_pr_body_context "" "$pr_number" || true)"
+  if [[ "$context_payload" == *$'\x1f'* ]]; then
     local va_tail
-    va_tail="${va_payload#*$'\x1f'}"
+    va_tail="${context_payload#*$'\x1f'}"
     printf '%s' "${va_tail%%$'\x1f'*}"
     return
   fi

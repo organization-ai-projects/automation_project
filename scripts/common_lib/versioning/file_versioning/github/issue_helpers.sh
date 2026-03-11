@@ -711,3 +711,43 @@ github_pr_field() {
     ;;
   esac
 }
+
+github_pr_body_context() {
+  local repo_name="${1:-}"
+  local pr_number="${2:-}"
+  local va_output=""
+  local title=""
+  local body=""
+  local labels_raw=""
+  local -a va_cmd=()
+  local -a gh_cmd=()
+
+  if [[ -z "$pr_number" ]]; then
+    return 1
+  fi
+
+  if command -v va_exec >/dev/null 2>&1; then
+    va_cmd=(va_exec pr body-context --pr "$pr_number")
+    if [[ -n "$repo_name" ]]; then
+      va_cmd+=(--repo "$repo_name")
+    fi
+    va_output="$("${va_cmd[@]}" 2>/dev/null || true)"
+    if [[ "$va_output" == *$'\x1f'* ]]; then
+      printf '%s\n' "$va_output"
+      return 0
+    fi
+  fi
+
+  title="$(github_pr_field "$repo_name" "$pr_number" "title" || true)"
+  body="$(github_pr_field "$repo_name" "$pr_number" "body" || true)"
+
+  gh_cmd=(gh pr view "$pr_number" --json labels -q '.labels // [] | map(.name) | join("||")')
+  if [[ -n "$repo_name" ]]; then
+    gh_cmd+=(-R "$repo_name")
+  fi
+  labels_raw="$("${gh_cmd[@]}" 2>/dev/null || true)"
+
+  if [[ -n "$title" || -n "$body" || -n "$labels_raw" ]]; then
+    printf '%s\x1f%s\x1f%s\n' "$title" "$body" "$labels_raw"
+  fi
+}

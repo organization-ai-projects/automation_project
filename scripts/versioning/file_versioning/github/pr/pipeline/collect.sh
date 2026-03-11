@@ -58,7 +58,7 @@ pr_pipeline_load_pr_body_context() {
   local pr_ref="$1"
   local pr_number="$2"
   local pr_view_json
-  local va_payload
+  local context_payload
   local pr_labels_raw
   local pr_title
   local pr_body
@@ -70,15 +70,9 @@ pr_pipeline_load_pr_body_context() {
     return
   fi
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_payload="$(
-      va_exec pr body-context \
-        --pr "$pr_number" 2>/dev/null || true
-    )"
-  fi
-
-  if [[ "$va_payload" == *$'\x1f'* ]]; then
-    pr_pipeline_parse_body_context_payload "$va_payload" pr_title pr_body pr_labels_raw
+  context_payload="$(github_pr_body_context "" "$pr_number" || true)"
+  if [[ "$context_payload" == *$'\x1f'* ]]; then
+    pr_pipeline_parse_body_context_payload "$context_payload" pr_title pr_body pr_labels_raw
   else
     pr_title="$(github_pr_field "" "$pr_number" "title" 2>/dev/null || true)"
     pr_body="$(github_pr_field "" "$pr_number" "body" 2>/dev/null || true)"
