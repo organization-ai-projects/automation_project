@@ -5,6 +5,7 @@ pub struct ContinuousGovernancePolicy {
     pub low_score_threshold: f64,
     pub regression_drop_threshold: f64,
     pub block_on_human_review: bool,
+    pub auto_promote_on_pass: bool,
 }
 
 impl ContinuousGovernancePolicy {
@@ -21,6 +22,12 @@ impl ContinuousGovernancePolicy {
             low_score_threshold,
             regression_drop_threshold,
             block_on_human_review,
+            auto_promote_on_pass: false,
         }
+    }
+
+    pub fn with_auto_promote_on_pass(mut self, enabled: bool) -> Self {
+        self.auto_promote_on_pass = enabled;
+        self
     }
 }

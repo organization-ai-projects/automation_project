@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline.rs
 use crate::aggregator::OutputAggregator;
 use crate::dataset_engine::{DatasetStore, Outcome, TraceConverter};
 use crate::evaluation_engine::EvaluationEngine;
@@ -330,6 +331,16 @@ impl MoePipeline {
                     "continuous governance gate passed".to_string(),
                     None,
                 );
+
+                if policy.auto_promote_on_pass {
+                    self.capture_evaluation_baseline();
+                    self.trace_logger.log_phase(
+                        task.id().clone(),
+                        TracePhase::Validation,
+                        "continuous governance auto-promotion captured new baseline".to_string(),
+                        None,
+                    );
+                }
             }
 
             self.last_continuous_improvement_report = Some(report);
@@ -368,6 +379,26 @@ impl MoePipeline {
 
     pub fn last_continuous_improvement_report(&self) -> Option<&ContinuousImprovementReport> {
         self.last_continuous_improvement_report.as_ref()
+    }
+
+    pub fn has_evaluation_baseline(&self) -> bool {
+        self.evaluation_baseline.is_some()
+    }
+
+    pub fn approve_pending_human_review_and_promote(&mut self) -> bool {
+        if self
+            .last_continuous_improvement_report
+            .as_ref()
+            .is_some_and(|report| report.requires_human_review)
+        {
+            self.capture_evaluation_baseline();
+            if let Some(report) = self.last_continuous_improvement_report.as_mut() {
+                report.requires_human_review = false;
+            }
+            true
+        } else {
+            false
+        }
     }
 
     pub fn continuous_improvement_report(

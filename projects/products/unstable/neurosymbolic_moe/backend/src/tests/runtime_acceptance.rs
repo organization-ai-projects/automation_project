@@ -1299,4 +1299,66 @@ mod v5 {
                 .requires_human_review
         );
     }
+
+    #[test]
+    fn v5_auto_promote_on_pass_captures_new_baseline() {
+        let policy = ContinuousGovernancePolicy::new(0.1, 0.1, 0.5, 0.1, false)
+            .with_auto_promote_on_pass(true);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-auto-promote"),
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-auto-promote")))
+            .expect("expert registration should succeed");
+
+        assert!(!pipeline.has_evaluation_baseline());
+        let task = Task::new("v5-auto-promote-task", TaskType::CodeGeneration, "clean");
+        let result = pipeline.execute(task);
+        assert!(result.is_ok());
+        assert!(pipeline.has_evaluation_baseline());
+    }
+
+    #[test]
+    fn v5_human_approval_hook_promotes_pending_review() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, true);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-approval"),
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-approval")))
+            .expect("expert registration should succeed");
+
+        let task = Task::new("v5-approval-task", TaskType::CodeGeneration, "clean");
+        let result = pipeline.execute(task);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+        assert!(
+            pipeline
+                .last_continuous_improvement_report()
+                .expect("report should exist")
+                .requires_human_review
+        );
+
+        let approved = pipeline.approve_pending_human_review_and_promote();
+        assert!(approved);
+        assert!(pipeline.has_evaluation_baseline());
+        assert!(
+            !pipeline
+                .last_continuous_improvement_report()
+                .expect("report should exist")
+                .requires_human_review
+        );
+    }
 }
