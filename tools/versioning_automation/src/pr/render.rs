@@ -10,6 +10,9 @@ pub(crate) fn print_usage() {
     println!("  va pr body-context --pr <number> [--repo owner/name]");
     println!("  va pr child-pr-refs --pr <number> [--repo owner/name]");
     println!("  va pr details --pr <number> [--repo owner/name]");
+    println!(
+        "  va pr field --pr <number> --name <state|base-ref-name|head-ref-name|title|body|author-login|commit-messages> [--repo owner/name]"
+    );
     println!("  va pr directives --text \"...\" [--format plain|json] [--unique]");
     println!("  va pr directives --stdin [--format plain|json] [--unique]");
     println!("  va pr directives-apply (--text \"...\" | --stdin)");

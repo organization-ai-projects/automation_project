@@ -65,6 +65,30 @@ fn pr_details_with_required_fields_returns_zero() {
 }
 
 #[test]
+fn pr_field_requires_pr_and_name() {
+    let args = vec![
+        "field".to_string(),
+        "--name".to_string(),
+        "state".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn pr_field_with_required_fields_returns_zero() {
+    let args = vec![
+        "field".to_string(),
+        "--pr".to_string(),
+        "42".to_string(),
+        "--name".to_string(),
+        "state".to_string(),
+    ];
+    let code = run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn pr_breaking_detect_with_text_returns_zero() {
     let args = vec![
         "breaking-detect".to_string(),

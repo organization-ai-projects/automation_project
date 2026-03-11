@@ -19,6 +19,8 @@ use crate::pr::commands::pr_directives_options::PrDirectivesOptions;
 use crate::pr::commands::pr_directives_state_options::PrDirectivesStateOptions;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
 use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptions;
+use crate::pr::commands::pr_field_name::PrFieldName;
+use crate::pr::commands::pr_field_options::PrFieldOptions;
 use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
 use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
 use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
@@ -50,6 +52,7 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "directives" => parse_directives(&args[1..]).map(PrAction::Directives),
         "directives-apply" => parse_directives_apply(&args[1..]).map(PrAction::DirectivesApply),
         "details" => parse_details(&args[1..]).map(PrAction::Details),
+        "field" => parse_field(&args[1..]).map(PrAction::Field),
         "closure-refs" => parse_closure_refs(&args[1..]).map(PrAction::ClosureRefs),
         "directives-state" => parse_directives_state(&args[1..]).map(PrAction::DirectivesState),
         "directive-conflicts" => {
@@ -249,6 +252,55 @@ fn parse_details(args: &[String]) -> Result<PrDetailsOptions, String> {
 
     require_positive_number("--pr", &pr_number)?;
     Ok(PrDetailsOptions { pr_number, repo })
+}
+
+fn parse_field(args: &[String]) -> Result<PrFieldOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+    let mut name = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            "--name" => {
+                name = take_value("--name", args, &mut i)?;
+            }
+            unknown => return Err(format!("Unknown option for field: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    if name.is_empty() {
+        return Err("--name is required".to_string());
+    }
+
+    let name = match name.as_str() {
+        "state" => PrFieldName::State,
+        "base-ref-name" => PrFieldName::BaseRefName,
+        "head-ref-name" => PrFieldName::HeadRefName,
+        "title" => PrFieldName::Title,
+        "body" => PrFieldName::Body,
+        "author-login" => PrFieldName::AuthorLogin,
+        "commit-messages" => PrFieldName::CommitMessages,
+        _ => {
+            return Err(
+                "--name must be one of: state | base-ref-name | head-ref-name | title | body | author-login | commit-messages"
+                    .to_string(),
+            )
+        }
+    };
+
+    Ok(PrFieldOptions {
+        pr_number,
+        repo,
+        name,
+    })
 }
 
 fn parse_directive_conflict_guard(

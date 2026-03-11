@@ -21,6 +21,7 @@ use crate::pr::non_closing_refs::run_non_closing_refs;
 use crate::pr::normalize_issue_key::run_normalize_issue_key;
 use crate::pr::open_referencing_issue::run_open_referencing_issue;
 use crate::pr::parse::parse;
+use crate::pr::pr_field::run_field;
 use crate::pr::pr_state::run_pr_state;
 use crate::pr::render::{emit_json, emit_plain, print_usage};
 use crate::pr::resolve_category::{
@@ -46,6 +47,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(PrAction::Directives(opts)) => run_directives(opts),
         Ok(PrAction::DirectivesApply(opts)) => run_directives_apply(opts),
         Ok(PrAction::Details(opts)) => run_details(opts),
+        Ok(PrAction::Field(opts)) => run_field(opts),
         Ok(PrAction::ClosureRefs(opts)) => run_closure_refs(opts),
         Ok(PrAction::DirectivesState(opts)) => run_directives_state(opts),
         Ok(PrAction::DirectiveConflicts(opts)) => run_directive_conflicts(opts),

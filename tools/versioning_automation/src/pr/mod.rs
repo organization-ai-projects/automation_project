@@ -24,6 +24,7 @@ mod non_closing_refs;
 mod normalize_issue_key;
 mod open_referencing_issue;
 mod parse;
+mod pr_field;
 mod pr_state;
 mod render;
 mod resolve_category;
