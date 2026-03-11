@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/issues/execute.rs
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::process::Command;
 
 use regex::Regex;
@@ -8,10 +8,10 @@ use serde::Deserialize;
 use crate::issues::commands::{
     AssigneeLoginsOptions, CloseOptions, CreateOptions, DoneStatusMode, DoneStatusOptions,
     FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldName, IssueFieldOptions,
-    IssueTarget, LabelExistsOptions, ListByLabelOptions, NonComplianceReasonOptions,
-    OpenNumbersOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
-    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
-    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
+    NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions, ReevaluateOptions,
+    ReopenOnDevOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions,
+    SubissueRefsOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -38,6 +38,11 @@ struct IssueFieldLabel {
 #[derive(Debug, Deserialize)]
 struct IssueStatePayload {
     state: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrBodyPayload {
+    body: Option<String>,
 }
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
@@ -405,6 +410,103 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
     0
 }
 
+pub(crate) fn run_neutralize(opts: NeutralizeOptions) -> i32 {
+    let repo_name = match resolve_repo_name(opts.repo) {
+        Ok(repo) => repo,
+        Err(msg) => {
+            eprintln!("{msg}");
+            return 3;
+        }
+    };
+
+    let marker = format!("<!-- closure-neutralizer:{} -->", opts.pr);
+    let original_body = gh_pr_body_or_empty(&repo_name, &opts.pr);
+    if original_body.trim().is_empty() {
+        eprintln!("Error: unable to read PR #{}.", opts.pr);
+        return 4;
+    }
+
+    let (closing_refs, pre_neutralized_refs) = collect_neutralize_refs(&original_body);
+    let mut updated_body = original_body.clone();
+    let mut seen_refs: HashSet<String> = HashSet::new();
+    let mut reason_cache: HashMap<String, String> = HashMap::new();
+    let mut neutralized_reason: HashMap<String, String> = HashMap::new();
+    let mut neutralized_action: HashMap<String, String> = HashMap::new();
+    let mut neutralized_count = 0usize;
+
+    for (action, issue_key) in closing_refs {
+        let dedupe_key = format!("{action}|{issue_key}");
+        if !seen_refs.insert(dedupe_key) {
+            continue;
+        }
+        let issue_number = issue_key.trim_start_matches('#');
+        let reason =
+            neutralize_reason_for_issue_cached(issue_number, &repo_name, &mut reason_cache);
+        if reason.is_empty() {
+            continue;
+        }
+
+        match apply_rejected_marker(&updated_body, "closes|fixes", &issue_key) {
+            Ok(body) => updated_body = body,
+            Err(_) => continue,
+        }
+        neutralized_reason.insert(issue_key.clone(), reason);
+        neutralized_action.insert(issue_key, action);
+        neutralized_count += 1;
+    }
+
+    for (action, issue_key) in pre_neutralized_refs {
+        let dedupe_key = format!("{action}|{issue_key}");
+        if !seen_refs.insert(dedupe_key) {
+            continue;
+        }
+        let issue_number = issue_key.trim_start_matches('#');
+        let reason =
+            neutralize_reason_for_issue_cached(issue_number, &repo_name, &mut reason_cache);
+        if reason.is_empty() {
+            match remove_rejected_marker(&updated_body, "closes|fixes", &issue_key) {
+                Ok(body) => updated_body = body,
+                Err(_) => continue,
+            }
+            continue;
+        }
+
+        match apply_rejected_marker(&updated_body, "closes|fixes", &issue_key) {
+            Ok(body) => updated_body = body,
+            Err(_) => continue,
+        }
+        neutralized_reason.insert(issue_key.clone(), reason);
+        neutralized_action.insert(issue_key, action);
+        neutralized_count += 1;
+    }
+
+    if updated_body != original_body {
+        let status = execute_command({
+            let mut cmd = gh_command(&["pr", "edit", &opts.pr]);
+            add_repo_arg(&mut cmd, Some(repo_name.as_str()));
+            cmd.arg("--body").arg(&updated_body);
+            cmd
+        });
+        if status != 0 {
+            return status;
+        }
+    }
+
+    let comment_body = build_neutralize_comment_body(
+        &marker,
+        neutralized_count,
+        &neutralized_reason,
+        &neutralized_action,
+    );
+    let status = upsert_pr_marker_comment(&repo_name, &opts.pr, &marker, &comment_body);
+    if status != 0 {
+        return status;
+    }
+
+    println!("Closure neutralization evaluated for PR #{}.", opts.pr);
+    0
+}
+
 fn gh_issue_state_or_empty(repo_name: Option<&str>, issue_number: &str) -> String {
     let mut state_args = vec![
         "issue",
@@ -452,6 +554,180 @@ fn normalize_issue_state(value: &str) -> Option<&str> {
         "OPEN" => Some("OPEN"),
         "CLOSED" => Some("CLOSED"),
         _ => None,
+    }
+}
+
+fn gh_pr_body_or_empty(repo_name: &str, pr_number: &str) -> String {
+    let body = gh_output_or_empty(&[
+        "pr",
+        "view",
+        pr_number,
+        "-R",
+        repo_name,
+        "--json",
+        "body",
+        "--jq",
+        ".body // \"\"",
+    ]);
+    if !body.trim().is_empty() {
+        return body;
+    }
+
+    let payload_raw =
+        gh_output_or_empty(&["pr", "view", pr_number, "-R", repo_name, "--json", "body"]);
+    if payload_raw.trim().is_empty() {
+        return String::new();
+    }
+    match common_json::from_json_str::<PrBodyPayload>(&payload_raw) {
+        Ok(payload) => payload.body.unwrap_or_default(),
+        Err(_) => String::new(),
+    }
+}
+
+fn collect_neutralize_refs(text: &str) -> (Vec<(String, String)>, Vec<(String, String)>) {
+    let re = Regex::new(r"(?i)\b(closes|fixes)\b\s+(rejected\s+)?[^#\s]*#([0-9]+)")
+        .expect("static regex must compile");
+    let mut closing_refs: Vec<(String, String)> = Vec::new();
+    let mut pre_neutralized_refs: Vec<(String, String)> = Vec::new();
+    let mut seen_closing = HashSet::new();
+    let mut seen_pre = HashSet::new();
+
+    for captures in re.captures_iter(text) {
+        let Some(issue_number) = captures.get(3).map(|m| m.as_str()) else {
+            continue;
+        };
+        let issue_key = format!("#{issue_number}");
+        if captures.get(2).is_some() {
+            if seen_pre.insert(issue_key.clone()) {
+                pre_neutralized_refs.push(("Closes".to_string(), issue_key));
+            }
+        } else if seen_closing.insert(issue_key.clone()) {
+            closing_refs.push(("Closes".to_string(), issue_key));
+        }
+    }
+
+    (closing_refs, pre_neutralized_refs)
+}
+
+fn neutralize_reason_for_issue_cached(
+    issue_number: &str,
+    repo_name: &str,
+    cache: &mut HashMap<String, String>,
+) -> String {
+    let cache_key = format!("#{issue_number}");
+    if let Some(value) = cache.get(&cache_key) {
+        return value.clone();
+    }
+    let reason = fetch_non_compliance_reason(issue_number, Some(repo_name)).unwrap_or_default();
+    cache.insert(cache_key, reason.clone());
+    reason
+}
+
+fn apply_rejected_marker(
+    text: &str,
+    keyword_pattern: &str,
+    issue_key: &str,
+) -> Result<String, String> {
+    let issue_pattern = regex::escape(issue_key);
+    let pattern = format!(
+        "(?i)\\b(?P<kw>(?:{}))\\b(?P<ws>\\s+)(?P<rej>rejected\\s+)?(?P<ref>[^\\s]*{})\\b",
+        keyword_pattern, issue_pattern
+    );
+    let re = Regex::new(&pattern).map_err(|err| format!("invalid keyword pattern: {err}"))?;
+    Ok(re
+        .replace_all(text, |caps: &regex::Captures<'_>| {
+            let kw = caps.name("kw").map_or("", |m| m.as_str());
+            let ws = caps.name("ws").map_or(" ", |m| m.as_str());
+            let rej = caps.name("rej").map_or("", |m| m.as_str());
+            let ref_part = caps.name("ref").map_or("", |m| m.as_str());
+            if rej.is_empty() {
+                format!("{kw}{ws}rejected {ref_part}")
+            } else {
+                format!("{kw}{ws}{rej}{ref_part}")
+            }
+        })
+        .to_string())
+}
+
+fn remove_rejected_marker(
+    text: &str,
+    keyword_pattern: &str,
+    issue_key: &str,
+) -> Result<String, String> {
+    let issue_pattern = regex::escape(issue_key);
+    let pattern = format!(
+        "(?i)\\b(?P<kw>(?:{}))\\b(?P<ws>\\s+)rejected\\s+(?P<ref>[^\\s]*{})\\b",
+        keyword_pattern, issue_pattern
+    );
+    let re = Regex::new(&pattern).map_err(|err| format!("invalid keyword pattern: {err}"))?;
+    Ok(re.replace_all(text, "${kw}${ws}${ref}").to_string())
+}
+
+fn build_neutralize_comment_body(
+    marker: &str,
+    neutralized_count: usize,
+    neutralized_reason: &HashMap<String, String>,
+    neutralized_action: &HashMap<String, String>,
+) -> String {
+    if neutralized_count == 0 {
+        return format!(
+            "{marker}\n### Closure Neutralization Status\n\n✅ No non-compliant closure refs detected. No neutralization applied."
+        );
+    }
+
+    let mut issue_keys: Vec<&String> = neutralized_reason.keys().collect();
+    issue_keys.sort_by_key(|key| {
+        key.trim_start_matches('#')
+            .parse::<u64>()
+            .unwrap_or(u64::MAX)
+    });
+
+    let mut body = format!(
+        "{marker}\n### Closure Neutralization Status\n\n⚠️ Non-compliant issue references were neutralized to prevent incorrect auto-close.\n\n"
+    );
+    for issue_key in issue_keys {
+        let action = neutralized_action
+            .get(issue_key)
+            .cloned()
+            .unwrap_or_default();
+        let reason = neutralized_reason
+            .get(issue_key)
+            .cloned()
+            .unwrap_or_default();
+        body.push_str(&format!("- {action} rejected {issue_key}: {reason}\n"));
+    }
+    body.push_str("\nHow to restore standard auto-close:\n");
+    body.push_str("- Fix issue required fields/title contract (if applicable).\n");
+    body.push_str("- Remove or adjust `Reopen #...` for issues that should close now.\n");
+    body.push_str("- Remove `rejected` from closure lines in PR body.");
+    body
+}
+
+fn upsert_pr_marker_comment(repo_name: &str, pr_number: &str, marker: &str, body: &str) -> i32 {
+    let list_path = format!("repos/{repo_name}/issues/{pr_number}/comments");
+    let marker_query = marker.replace('\\', "\\\\").replace('"', "\\\"");
+    let jq_filter = format!(
+        "map(select((.body // \"\") | contains(\"{marker_query}\"))) | sort_by(.updated_at) | last | .id // empty"
+    );
+    let comment_id = gh_output_or_empty(&["api", &list_path, "--paginate", "--jq", &jq_filter]);
+
+    if comment_id.trim().is_empty() {
+        execute_command({
+            let mut cmd = gh_command(&["api", &list_path]);
+            cmd.arg("-f").arg(format!("body={body}"));
+            cmd
+        })
+    } else {
+        execute_command({
+            let mut cmd = gh_command(&[
+                "api",
+                "-X",
+                "PATCH",
+                &format!("repos/{repo_name}/issues/comments/{}", comment_id.trim()),
+            ]);
+            cmd.arg("-f").arg(format!("body={body}"));
+            cmd
+        })
     }
 }
 
