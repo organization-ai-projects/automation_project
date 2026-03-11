@@ -6,18 +6,9 @@
 
 pr_pipeline_mark_breaking_from_text() {
   local text="$1"
-  local breaking_result=""
 
   if [[ -z "$text" ]]; then
     return
-  fi
-
-  if command -v va_exec >/dev/null 2>&1; then
-    breaking_result="$(printf '%s' "$text" | va_exec pr breaking-detect --stdin 2>/dev/null || true)"
-    if [[ "$breaking_result" == "true" ]]; then
-      breaking_detected=1
-      return
-    fi
   fi
 
   if pr_text_indicates_breaking "$text"; then
@@ -27,15 +18,7 @@ pr_pipeline_mark_breaking_from_text() {
 
 pr_pipeline_is_breaking_from_labels() {
   local labels_raw="${1:-}"
-
-  if command -v va_exec >/dev/null 2>&1; then
-    if [[ "$(va_exec pr breaking-detect --labels-raw "$labels_raw" 2>/dev/null || true)" == "true" ]]; then
-      return 0
-    fi
-    return 1
-  fi
-
-  [[ "$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]
+  pr_labels_indicate_breaking "$labels_raw"
 }
 
 pr_pipeline_parse_body_context_payload() {

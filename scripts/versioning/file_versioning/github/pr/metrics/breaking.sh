@@ -53,6 +53,19 @@ pr_text_indicates_breaking() {
   pr_text_indicates_breaking_legacy "$text"
 }
 
+pr_labels_indicate_breaking() {
+  local labels_raw="${1:-}"
+
+  if command -v va_exec >/dev/null 2>&1; then
+    case "$(va_exec pr breaking-detect --labels-raw "$labels_raw" 2>/dev/null || true)" in
+    true) return 0 ;;
+    false) return 1 ;;
+    esac
+  fi
+
+  [[ "$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]
+}
+
 pr_extract_breaking_scope_from_subject() {
   local subject="${1:-}"
   local lower
