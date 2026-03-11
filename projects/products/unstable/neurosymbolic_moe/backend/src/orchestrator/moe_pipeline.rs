@@ -485,26 +485,9 @@ impl MoePipeline {
 
     pub fn import_governance_bundle(
         &mut self,
-        mut bundle: GovernancePersistenceBundle,
+        bundle: GovernancePersistenceBundle,
     ) -> Result<(), MoeError> {
-        bundle.state.ensure_checksum();
-        if !bundle.state.verify_checksum() {
-            return Err(MoeError::PolicyRejected(
-                "governance bundle rejected: invalid state checksum".to_string(),
-            ));
-        }
-        if !bundle
-            .snapshots
-            .iter()
-            .all(|snapshot| snapshot.state.verify_checksum())
-        {
-            return Err(MoeError::PolicyRejected(
-                "governance bundle rejected: invalid snapshot checksum".to_string(),
-            ));
-        }
-        Self::validate_governance_bundle_consistency(&bundle)?;
-
-        let decision = self.evaluate_governance_import(&bundle.state);
+        let decision = self.evaluate_governance_bundle_import(&bundle)?;
         if !decision.allowed {
             return Err(MoeError::PolicyRejected(format!(
                 "governance bundle rejected: {}",
@@ -546,26 +529,9 @@ impl MoePipeline {
 
     pub fn try_import_governance_bundle(
         &mut self,
-        mut bundle: GovernancePersistenceBundle,
+        bundle: GovernancePersistenceBundle,
     ) -> Result<(), MoeError> {
-        bundle.state.ensure_checksum();
-        if !bundle.state.verify_checksum() {
-            return Err(MoeError::PolicyRejected(
-                "governance bundle checksum verification failed".to_string(),
-            ));
-        }
-        if !bundle
-            .snapshots
-            .iter()
-            .all(|snapshot| snapshot.state.verify_checksum())
-        {
-            return Err(MoeError::PolicyRejected(
-                "governance bundle checksum verification failed".to_string(),
-            ));
-        }
-        Self::validate_governance_bundle_consistency(&bundle)?;
-
-        let decision = self.evaluate_governance_import(&bundle.state);
+        let decision = self.evaluate_governance_bundle_import(&bundle)?;
         if !decision.allowed {
             return Err(MoeError::PolicyRejected(format!(
                 "governance bundle import rejected: {}",
@@ -630,29 +596,13 @@ impl MoePipeline {
         &self,
         payload: &str,
     ) -> Result<GovernanceImportDecision, MoeError> {
-        let mut bundle: GovernancePersistenceBundle = common_json::json::from_json_str(payload)
+        let bundle: GovernancePersistenceBundle = common_json::json::from_json_str(payload)
             .map_err(|err| {
                 MoeError::DatasetError(format!(
                     "governance persistence bundle deserialization failed: {err}"
                 ))
             })?;
-        bundle.state.ensure_checksum();
-        if !bundle.state.verify_checksum() {
-            return Err(MoeError::PolicyRejected(
-                "governance bundle checksum verification failed".to_string(),
-            ));
-        }
-        if !bundle
-            .snapshots
-            .iter()
-            .all(|snapshot| snapshot.state.verify_checksum())
-        {
-            return Err(MoeError::PolicyRejected(
-                "governance bundle checksum verification failed".to_string(),
-            ));
-        }
-        Self::validate_governance_bundle_consistency(&bundle)?;
-        Ok(self.evaluate_governance_import(&bundle.state))
+        self.evaluate_governance_bundle_import(&bundle)
     }
 
     pub fn try_import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
@@ -831,6 +781,33 @@ impl MoePipeline {
             .filter(|id| !id.is_empty())
             .map(ExpertId::new)
             .collect()
+    }
+
+    fn evaluate_governance_bundle_import(
+        &self,
+        bundle: &GovernancePersistenceBundle,
+    ) -> Result<GovernanceImportDecision, MoeError> {
+        let mut state = bundle.state.clone();
+        state.ensure_checksum();
+        if !state.verify_checksum() {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle checksum verification failed".to_string(),
+            ));
+        }
+        if !bundle
+            .snapshots
+            .iter()
+            .all(|snapshot| snapshot.state.verify_checksum())
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle checksum verification failed".to_string(),
+            ));
+        }
+
+        let mut normalized_bundle = bundle.clone();
+        normalized_bundle.state = state;
+        Self::validate_governance_bundle_consistency(&normalized_bundle)?;
+        Ok(self.evaluate_governance_import(&normalized_bundle.state))
     }
 
     fn validate_governance_bundle_consistency(
