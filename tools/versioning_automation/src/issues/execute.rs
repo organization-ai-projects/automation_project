@@ -9,9 +9,9 @@ use crate::issues::commands::{
     AssigneeLoginsOptions, CloseOptions, CreateOptions, DoneStatusMode, DoneStatusOptions,
     FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldName, IssueFieldOptions,
     IssueTarget, LabelExistsOptions, ListByLabelOptions, NonComplianceReasonOptions,
-    OpenNumbersOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
-    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
-    UpdateOptions, UpsertMarkerCommentOptions,
+    OpenNumbersOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
+    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
+    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -19,6 +19,7 @@ use crate::issues::required_fields::{
     fetch_non_compliance_reason, non_compliance_reason_from_content, validate_body,
     validate_content, validate_title,
 };
+use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
 use crate::repo_name::resolve_repo_name;
 
@@ -32,6 +33,11 @@ struct IssueFieldPayload {
 #[derive(Debug, Deserialize)]
 struct IssueFieldLabel {
     name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct IssueStatePayload {
+    state: Option<String>,
 }
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
@@ -161,17 +167,7 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             }
 
             for issue_number in closing_issue_numbers {
-                let state = gh_output_or_empty(&[
-                    "issue",
-                    "view",
-                    &issue_number,
-                    "-R",
-                    &repo_name,
-                    "--json",
-                    "state",
-                    "--jq",
-                    ".state // \"\"",
-                ]);
+                let state = gh_issue_state_or_empty(Some(repo_name.as_str()), &issue_number);
                 if state.is_empty() {
                     println!("Issue #{}: unreadable; skipping.", issue_number);
                     continue;
@@ -268,6 +264,197 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
     }
 }
 
+pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
+    let repo_name = match resolve_repo_name(opts.repo.clone()) {
+        Ok(repo) => repo,
+        Err(message) => {
+            eprintln!("{message}");
+            return 3;
+        }
+    };
+    let label_name = opts.label;
+    let pr_number = opts.pr;
+
+    let pr_state = gh_output_or_empty(&[
+        "pr",
+        "view",
+        &pr_number,
+        "-R",
+        &repo_name,
+        "--json",
+        "state",
+        "--jq",
+        ".state // \"\"",
+    ]);
+    if pr_state != "MERGED" {
+        println!("PR #{} is not merged; nothing to do.", pr_number);
+        return 0;
+    }
+
+    let pr_title = gh_output_or_empty(&[
+        "pr",
+        "view",
+        &pr_number,
+        "-R",
+        &repo_name,
+        "--json",
+        "title",
+        "--jq",
+        ".title // \"\"",
+    ]);
+    let pr_body = gh_output_or_empty(&[
+        "pr",
+        "view",
+        &pr_number,
+        "-R",
+        &repo_name,
+        "--json",
+        "body",
+        "--jq",
+        ".body // \"\"",
+    ]);
+    let pr_commits = gh_output_or_empty(&[
+        "api",
+        &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
+        "--paginate",
+        "--jq",
+        ".[].commit.message",
+    ]);
+    let payload = format!("{pr_title}\n{pr_body}\n{pr_commits}");
+
+    let reopen_issue_numbers = extract_reopen_issue_numbers(&payload);
+    if reopen_issue_numbers.is_empty() {
+        println!("No reopen issue refs found for PR #{}.", pr_number);
+        return 0;
+    }
+
+    let label_exists = gh_output_or_empty(&[
+        "label", "list", "-R", &repo_name, "--limit", "1000", "--json", "name", "--jq", ".[].name",
+    ])
+    .lines()
+    .any(|value| value.trim() == label_name);
+
+    let reopen_status =
+        std::env::var("PROJECT_STATUS_REOPEN_NAME").unwrap_or_else(|_| "Todo".to_string());
+
+    for issue_number in reopen_issue_numbers {
+        let state = gh_issue_state_or_empty(Some(repo_name.as_str()), &issue_number);
+        if state.is_empty() {
+            println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
+            continue;
+        }
+
+        if state == "CLOSED" {
+            let status = execute_command(gh_issue_target_command(
+                "reopen",
+                &issue_number,
+                Some(repo_name.as_str()),
+            ));
+            if status != 0 {
+                return status;
+            }
+            println!("Issue #{}: reopened from Reopen ref.", issue_number);
+        } else {
+            println!(
+                "Issue #{}: state={}; no reopen needed.",
+                issue_number, state
+            );
+        }
+
+        if label_exists {
+            let has_label = gh_output_or_empty(&[
+                "issue",
+                "view",
+                &issue_number,
+                "-R",
+                &repo_name,
+                "--json",
+                "labels",
+                "--jq",
+                ".labels[].name",
+            ])
+            .lines()
+            .any(|value| value.trim() == label_name);
+            if has_label {
+                let status = execute_command({
+                    let mut cmd =
+                        gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
+                    cmd.arg("--remove-label").arg(&label_name);
+                    cmd
+                });
+                if status != 0 {
+                    return status;
+                }
+                println!(
+                    "Issue #{}: removed label '{}' due to Reopen ref.",
+                    issue_number, label_name
+                );
+            }
+        }
+
+        let status = run_sync_project_status(crate::issues::commands::SyncProjectStatusOptions {
+            repo: repo_name.clone(),
+            issue: issue_number.clone(),
+            status: reopen_status.clone(),
+        });
+        if status != 0 {
+            return status;
+        }
+    }
+
+    0
+}
+
+fn gh_issue_state_or_empty(repo_name: Option<&str>, issue_number: &str) -> String {
+    let mut state_args = vec![
+        "issue",
+        "view",
+        issue_number,
+        "--json",
+        "state",
+        "--jq",
+        ".state // \"\"",
+    ];
+    if let Some(repo) = repo_name {
+        state_args.extend(["-R", repo]);
+    }
+
+    let state = gh_output_or_empty(&state_args);
+    if let Some(normalized) = normalize_issue_state(&state) {
+        return normalized.to_string();
+    }
+
+    let mut payload_args = vec!["issue", "view", issue_number, "--json", "state"];
+    if let Some(repo) = repo_name {
+        payload_args.extend(["-R", repo]);
+    }
+
+    let payload_raw = gh_output_or_empty(&payload_args);
+    if let Some(normalized) = normalize_issue_state(&payload_raw) {
+        return normalized.to_string();
+    }
+    if payload_raw.trim().is_empty() {
+        return String::new();
+    }
+
+    match common_json::from_json_str::<IssueStatePayload>(&payload_raw) {
+        Ok(payload) => payload
+            .state
+            .and_then(|value| normalize_issue_state(&value).map(str::to_string))
+            .unwrap_or_default(),
+        Err(_) => String::new(),
+    }
+}
+
+fn normalize_issue_state(value: &str) -> Option<&str> {
+    let trimmed = value.trim();
+    match trimmed {
+        "OPEN" => Some("OPEN"),
+        "CLOSED" => Some("CLOSED"),
+        _ => None,
+    }
+}
+
 pub(crate) fn run_update(opts: UpdateOptions) -> i32 {
     let mut cmd = gh_issue_target_command("edit", &opts.issue, opts.repo.as_deref());
     for (flag, value) in &opts.edit_args {
@@ -281,8 +468,8 @@ pub(crate) fn run_repo_name() -> i32 {
 }
 
 pub(crate) fn run_close(opts: CloseOptions) -> i32 {
-    let mut cmd = gh_issue_target_command("close", &opts.issue, opts.repo.as_deref());
-    cmd.arg("--reason").arg(&opts.reason);
+    let mut cmd = gh_command(&["issue", "close", &opts.issue, "--reason", &opts.reason]);
+    add_repo_arg(&mut cmd, opts.repo.as_deref());
     if let Some(comment) = &opts.comment {
         cmd.arg("--comment").arg(comment);
     }
@@ -295,8 +482,8 @@ pub(crate) fn run_reopen(opts: IssueTarget) -> i32 {
 }
 
 pub(crate) fn run_delete(opts: IssueTarget) -> i32 {
-    let mut cmd = gh_issue_target_command("close", &opts.issue, opts.repo.as_deref());
-    cmd.arg("--reason").arg("not_planned");
+    let mut cmd = gh_command(&["issue", "close", &opts.issue, "--reason", "not_planned"]);
+    add_repo_arg(&mut cmd, opts.repo.as_deref());
     execute_command(cmd)
 }
 
@@ -453,20 +640,10 @@ pub(crate) fn run_assignee_logins(opts: AssigneeLoginsOptions) -> i32 {
 }
 
 pub(crate) fn run_state(opts: StateOptions) -> i32 {
-    let mut args: Vec<&str> = vec![
-        "issue",
-        "view",
-        &opts.issue,
-        "--json",
-        "state",
-        "--jq",
-        ".state // \"\"",
-    ];
-    if let Some(repo) = opts.repo.as_deref() {
-        args.push("-R");
-        args.push(repo);
+    let state = gh_issue_state_or_empty(opts.repo.as_deref(), &opts.issue);
+    if !state.is_empty() {
+        println!("{state}");
     }
-    print_non_empty_lines(&gh_output_or_empty(&args));
     0
 }
 
@@ -680,6 +857,22 @@ fn extract_closing_issue_numbers(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     for captures in re.captures_iter(text) {
         let Some(num) = captures.get(2).map(|m| m.as_str().to_string()) else {
+            continue;
+        };
+        if seen.insert(num.clone()) {
+            out.push(num);
+        }
+    }
+    out
+}
+
+fn extract_reopen_issue_numbers(text: &str) -> Vec<String> {
+    let re = Regex::new(r"(?i)\breopen\b\s+(?:rejected\s+)?[^#\s]*#([0-9]+)")
+        .expect("static regex must compile");
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut out = Vec::new();
+    for captures in re.captures_iter(text) {
+        let Some(num) = captures.get(1).map(|m| m.as_str().to_string()) else {
             continue;
         };
         if seen.insert(num.clone()) {

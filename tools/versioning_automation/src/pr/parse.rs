@@ -326,6 +326,9 @@ fn parse_directive_conflict_guard(
         }
     }
 
+    if pr_number.is_empty() {
+        return Err("--pr is required".to_string());
+    }
     require_positive_number("--pr", &pr_number)?;
     Ok(PrDirectiveConflictGuardOptions { pr_number, repo })
 }

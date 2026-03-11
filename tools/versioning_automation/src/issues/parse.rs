@@ -16,6 +16,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "help" | "--help" | "-h" => Ok(IssueAction::Help),
         "create" => parse_create(&args[1..]).map(IssueAction::Create),
         "done-status" => parse_done_status(&args[1..]).map(IssueAction::DoneStatus),
+        "reopen-on-dev" => parse_reopen_on_dev(&args[1..]).map(IssueAction::ReopenOnDev),
         "read" => parse_read(&args[1..]).map(IssueAction::Read),
         "update" => parse_update(&args[1..]).map(IssueAction::Update),
         "repo-name" => parse_repo_name(&args[1..]),
@@ -133,6 +134,28 @@ fn parse_done_status(args: &[String]) -> Result<DoneStatusOptions, String> {
         label,
         repo,
     })
+}
+
+fn parse_reopen_on_dev(
+    args: &[String],
+) -> Result<crate::issues::commands::ReopenOnDevOptions, String> {
+    let mut pr = String::new();
+    let mut label = "done-in-dev".to_string();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => pr = take_value("--pr", args, &mut i)?,
+            "--label" => label = take_value("--label", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for reopen-on-dev: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr)?;
+
+    Ok(crate::issues::commands::ReopenOnDevOptions { pr, label, repo })
 }
 
 fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {

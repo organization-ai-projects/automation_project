@@ -3,9 +3,9 @@ use crate::issues::commands::{
     AssigneeLoginsOptions, CloseOptions, CreateOptions, DoneStatusOptions,
     FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldOptions, IssueTarget,
     LabelExistsOptions, ListByLabelOptions, NonComplianceReasonOptions, OpenNumbersOptions,
-    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, StateOptions,
-    SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions,
-    UpsertMarkerCommentOptions,
+    ReadOptions, ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
+    StateOptions, SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions,
+    UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 #[derive(Debug, Clone)]
@@ -14,6 +14,7 @@ pub(crate) enum IssueAction {
     Create(CreateOptions),
     Read(ReadOptions),
     DoneStatus(DoneStatusOptions),
+    ReopenOnDev(ReopenOnDevOptions),
     Update(UpdateOptions),
     RepoName,
     Close(CloseOptions),
