@@ -77,18 +77,6 @@ auto_add_fetch_pr_details_json() {
     )"
   fi
 
-  if [[ -z "$pr_details_json" ]]; then
-    local pr_json pr_commits
-    pr_json="$(gh pr view "$pr_number" -R "$repo_name" --json number,state,baseRefName,title,body,author 2>/dev/null || true)"
-    if [[ -n "$pr_json" ]]; then
-      pr_commits="$(gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true)"
-      pr_details_json="$(
-        jq -c --arg commit_messages "$pr_commits" \
-          '. + { commit_messages: $commit_messages }' <<<"$pr_json" 2>/dev/null || true
-      )"
-    fi
-  fi
-
   printf '%s' "$pr_details_json"
 }
 
