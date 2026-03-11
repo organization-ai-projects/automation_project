@@ -23,6 +23,8 @@ fi
 
 source "${ROOT_GITHUB_DIR}/lib/gh_cli.sh"
 source "${ROOT_GITHUB_DIR}/lib/issue_refs.sh"
+# shellcheck source=scripts/common_lib/versioning/file_versioning/github/issue_helpers.sh
+source "${ROOT_GITHUB_DIR}/../../../common_lib/versioning/file_versioning/github/issue_helpers.sh"
 source "${PR_DIRECTIVE_CONFLICT_DIR}/cli.sh"
 source "${PR_DIRECTIVE_CONFLICT_DIR}/helpers.sh"
 source "${PR_DIRECTIVE_CONFLICT_DIR}/github.sh"
