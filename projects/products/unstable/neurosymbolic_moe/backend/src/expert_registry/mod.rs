@@ -1,4 +1,6 @@
 pub mod registry;
+#[cfg(test)]
+mod tests;
 pub mod version_tracker;
 
 pub use registry::ExpertRegistry;
