@@ -8,14 +8,12 @@ pr_pipeline_pr_field() {
   local pr_number="$1"
   local field_name="$2"
   local fallback_context="$3"
-  local va_output=""
+  local shared_output=""
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_output="$(va_exec pr field --pr "$pr_number" --name "$field_name" 2>/dev/null || true)"
-    if [[ -n "$va_output" ]]; then
-      printf '%s' "$va_output"
-      return 0
-    fi
+  shared_output="$(github_pr_field "" "$pr_number" "$field_name" 2>/dev/null || true)"
+  if [[ -n "$shared_output" ]]; then
+    printf '%s' "$shared_output"
+    return 0
   fi
 
   case "$field_name" in

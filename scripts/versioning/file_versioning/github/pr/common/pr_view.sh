@@ -34,5 +34,11 @@ pr_get_pr_body() {
     return
   fi
 
+  pr_body="$(github_pr_field "" "$pr_number" "body" 2>/dev/null || true)"
+  if [[ -n "$pr_body" ]]; then
+    printf '%s' "$pr_body"
+    return
+  fi
+
   pr_gh_optional "$fallback_context" pr view "$pr_number" --json body -q '.body'
 }
