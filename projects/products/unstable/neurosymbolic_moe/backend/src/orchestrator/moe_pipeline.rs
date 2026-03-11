@@ -11,8 +11,8 @@ use crate::moe_core::{
 use crate::orchestrator::ContinuousImprovementReport;
 use crate::orchestrator::{
     ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceAuditTrail,
-    GovernanceImportDecision, GovernanceImportPolicy, GovernanceState, GovernanceStateDiff,
-    GovernanceStateSnapshot,
+    GovernanceImportDecision, GovernanceImportPolicy, GovernancePersistenceBundle, GovernanceState,
+    GovernanceStateDiff, GovernanceStateSnapshot,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::router::{Router, RoutingStrategy};
@@ -463,8 +463,84 @@ impl MoePipeline {
         })
     }
 
+    pub fn export_governance_bundle(&self) -> GovernancePersistenceBundle {
+        GovernancePersistenceBundle {
+            state: self.export_governance_state(),
+            audit_entries: self.governance_audit_entries.clone(),
+            snapshots: self.governance_state_snapshots.clone(),
+        }
+    }
+
+    pub fn export_governance_bundle_json(&self) -> Result<String, MoeError> {
+        common_json::json::to_json_string_pretty(&self.export_governance_bundle()).map_err(|err| {
+            MoeError::DatasetError(format!(
+                "governance persistence bundle serialization failed: {err}"
+            ))
+        })
+    }
+
     pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
         self.try_import_governance_state_json(payload)
+    }
+
+    pub fn import_governance_bundle(
+        &mut self,
+        mut bundle: GovernancePersistenceBundle,
+    ) -> Result<(), MoeError> {
+        bundle.state.ensure_checksum();
+        if !bundle.state.verify_checksum() {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle rejected: invalid state checksum".to_string(),
+            ));
+        }
+        if !bundle
+            .snapshots
+            .iter()
+            .all(|snapshot| snapshot.state.verify_checksum())
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle rejected: invalid snapshot checksum".to_string(),
+            ));
+        }
+
+        let decision = self.evaluate_governance_import(&bundle.state);
+        if !decision.allowed {
+            return Err(MoeError::PolicyRejected(format!(
+                "governance bundle rejected: {}",
+                decision.reasons.join("; ")
+            )));
+        }
+
+        self.continuous_governance_policy = bundle.state.continuous_governance_policy.clone();
+        self.evaluation_baseline = bundle.state.evaluation_baseline.clone();
+        self.last_continuous_improvement_report =
+            bundle.state.last_continuous_improvement_report.clone();
+        self.governance_state_version = bundle.state.state_version;
+
+        self.governance_audit_entries = bundle.audit_entries;
+        if self.governance_audit_entries.len() > self.max_governance_audit_entries {
+            let to_trim = self.governance_audit_entries.len() - self.max_governance_audit_entries;
+            self.governance_audit_entries.drain(0..to_trim);
+        }
+
+        self.governance_state_snapshots = bundle.snapshots;
+        if self.governance_state_snapshots.len() > self.max_governance_state_snapshots {
+            let to_trim =
+                self.governance_state_snapshots.len() - self.max_governance_state_snapshots;
+            self.governance_state_snapshots.drain(0..to_trim);
+        }
+
+        Ok(())
+    }
+
+    pub fn import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        let bundle: GovernancePersistenceBundle = common_json::json::from_json_str(payload)
+            .map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "governance persistence bundle deserialization failed: {err}"
+                ))
+            })?;
+        self.import_governance_bundle(bundle)
     }
 
     pub fn try_import_governance_state(

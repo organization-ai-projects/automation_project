@@ -1003,7 +1003,7 @@ mod v5 {
     };
     use crate::orchestrator::{
         ContinuousGovernancePolicy, ContinuousImprovementReport, GovernanceImportPolicy,
-        GovernanceState, MoePipelineBuilder,
+        GovernancePersistenceBundle, GovernanceState, MoePipelineBuilder,
     };
     use crate::router::{Router, RoutingDecision, RoutingStrategy};
     use std::collections::HashMap;
@@ -1709,5 +1709,112 @@ mod v5 {
         }
 
         assert_eq!(pipeline.governance_state_snapshots().len(), 2);
+    }
+
+    #[test]
+    fn v5_governance_bundle_roundtrip_restores_audit_and_snapshots() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-bundle"),
+        };
+
+        let mut source = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        source
+            .register_expert(Box::new(V5FlakyExpert::new("v5-bundle")))
+            .expect("expert registration should succeed");
+        let _ = source
+            .execute(Task::new(
+                "v5-bundle-task",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("execution should succeed");
+
+        let bundle = source.export_governance_bundle();
+        let bundle_json = source
+            .export_governance_bundle_json()
+            .expect("bundle json export should succeed");
+        assert!(!bundle.audit_entries.is_empty());
+        assert!(!bundle.snapshots.is_empty());
+
+        let mut target = MoePipelineBuilder::new().build();
+        target
+            .import_governance_bundle(bundle.clone())
+            .expect("bundle import should succeed");
+        assert_eq!(
+            target.export_governance_state().state_version,
+            bundle.state.state_version
+        );
+        assert_eq!(
+            target.governance_audit_trail().current_version,
+            bundle.state.state_version
+        );
+        assert_eq!(
+            target.governance_audit_trail().entries.len(),
+            bundle.audit_entries.len()
+        );
+        assert_eq!(
+            target.governance_state_snapshots().len(),
+            bundle.snapshots.len()
+        );
+
+        let mut target_json = MoePipelineBuilder::new().build();
+        target_json
+            .import_governance_bundle_json(&bundle_json)
+            .expect("bundle json import should succeed");
+        assert_eq!(
+            target_json.export_governance_state().state_version,
+            bundle.state.state_version
+        );
+        assert_eq!(
+            target_json.governance_audit_trail().current_version,
+            bundle.state.state_version
+        );
+        assert_eq!(
+            target_json.governance_audit_trail().entries.len(),
+            bundle.audit_entries.len()
+        );
+    }
+
+    #[test]
+    fn v5_governance_bundle_rejects_tampered_snapshot_checksums() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-bundle-tamper"),
+        };
+
+        let mut source = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        source
+            .register_expert(Box::new(V5FlakyExpert::new("v5-bundle-tamper")))
+            .expect("expert registration should succeed");
+        let _ = source
+            .execute(Task::new(
+                "v5-bundle-tamper-task",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("execution should succeed");
+
+        let bundle_json = source
+            .export_governance_bundle_json()
+            .expect("bundle json export should succeed");
+        let mut parsed: GovernancePersistenceBundle =
+            common_json::json::from_json_str(&bundle_json).expect("bundle parse should succeed");
+        parsed.snapshots[0].state.state_checksum = "tampered".to_string();
+        let tampered_json = common_json::json::to_json_string_pretty(&parsed)
+            .expect("tampered bundle serialization should succeed");
+
+        let mut target = MoePipelineBuilder::new().build();
+        let result = target.import_governance_bundle_json(&tampered_json);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
     }
 }
