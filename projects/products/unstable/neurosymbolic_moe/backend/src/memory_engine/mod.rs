@@ -1,7 +1,11 @@
-pub mod long_term_memory;
-pub mod memory_entry;
-pub mod memory_store;
-pub mod short_term_memory;
+//! projects/products/unstable/neurosymbolic_moe/backend/src/memory_engine/mod.rs
+mod long_term_memory;
+mod memory_entry;
+mod memory_store;
+mod short_term_memory;
+
+#[cfg(test)]
+mod tests;
 
 pub use long_term_memory::LongTermMemory;
 pub use memory_entry::{MemoryEntry, MemoryQuery, MemoryType};

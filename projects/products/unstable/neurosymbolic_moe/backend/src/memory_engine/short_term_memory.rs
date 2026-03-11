@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/memory_engine/long_term_memory.rs
 use std::collections::HashMap;
 
 use crate::moe_core::MoeError;
@@ -41,10 +42,7 @@ impl MemoryStore for ShortTermMemory {
     }
 
     fn retrieve(&self, query: &MemoryQuery) -> Result<Vec<&MemoryEntry>, MoeError> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let now = query.current_time.unwrap_or(0);
 
         let results: Vec<&MemoryEntry> = self
             .entries
@@ -103,65 +101,5 @@ impl MemoryStore for ShortTermMemory {
 
     fn count(&self) -> usize {
         self.entries.len()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::memory_engine::MemoryType;
-
-    fn make_entry(id: &str, created_at: u64, expires_at: Option<u64>) -> MemoryEntry {
-        MemoryEntry {
-            id: id.to_string(),
-            content: format!("content-{id}"),
-            tags: vec!["tag1".to_string()],
-            created_at,
-            expires_at,
-            memory_type: MemoryType::Short,
-            relevance: 1.0,
-            metadata: HashMap::new(),
-        }
-    }
-
-    #[test]
-    fn store_and_retrieve() {
-        let mut mem = ShortTermMemory::new(10);
-        mem.store(make_entry("e1", 1, None)).unwrap();
-        mem.store(make_entry("e2", 2, None)).unwrap();
-        assert_eq!(mem.count(), 2);
-
-        let query = MemoryQuery {
-            tags: Some(vec!["tag1".to_string()]),
-            memory_type: None,
-            min_relevance: None,
-            max_results: 10,
-            include_expired: true,
-        };
-        let results = mem.retrieve(&query).unwrap();
-        assert_eq!(results.len(), 2);
-    }
-
-    #[test]
-    fn capacity_eviction() {
-        let mut mem = ShortTermMemory::new(2);
-        mem.store(make_entry("e1", 1, None)).unwrap();
-        mem.store(make_entry("e2", 2, None)).unwrap();
-        mem.store(make_entry("e3", 3, None)).unwrap();
-        assert_eq!(mem.count(), 2);
-        // Oldest (e1) should have been evicted
-        assert!(mem.remove("e1").is_none());
-    }
-
-    #[test]
-    fn expiration() {
-        let mut mem = ShortTermMemory::new(10);
-        mem.store(make_entry("e1", 1, Some(100))).unwrap();
-        mem.store(make_entry("e2", 2, Some(200))).unwrap();
-        mem.store(make_entry("e3", 3, None)).unwrap();
-
-        let expired = mem.expire(150);
-        assert_eq!(expired, 1);
-        assert_eq!(mem.count(), 2);
     }
 }

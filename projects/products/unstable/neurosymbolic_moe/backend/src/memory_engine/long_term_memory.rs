@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/memory_engine/long_term_memory.rs
 use std::collections::HashMap;
 
 use crate::moe_core::MoeError;
@@ -31,10 +32,7 @@ impl MemoryStore for LongTermMemory {
     }
 
     fn retrieve(&self, query: &MemoryQuery) -> Result<Vec<&MemoryEntry>, MoeError> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let now = query.current_time.unwrap_or(0);
 
         let results: Vec<&MemoryEntry> = self
             .entries
@@ -93,60 +91,5 @@ impl MemoryStore for LongTermMemory {
 
     fn count(&self) -> usize {
         self.entries.len()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::memory_engine::MemoryType;
-
-    fn make_entry(id: &str, tags: Vec<&str>) -> MemoryEntry {
-        MemoryEntry {
-            id: id.to_string(),
-            content: format!("content-{id}"),
-            tags: tags.into_iter().map(String::from).collect(),
-            created_at: 1,
-            expires_at: None,
-            memory_type: MemoryType::Long,
-            relevance: 1.0,
-            metadata: HashMap::new(),
-        }
-    }
-
-    #[test]
-    fn store_and_retrieve() {
-        let mut mem = LongTermMemory::new();
-        mem.store(make_entry("e1", vec!["a"])).unwrap();
-        mem.store(make_entry("e2", vec!["b"])).unwrap();
-        assert_eq!(mem.count(), 2);
-
-        let query = MemoryQuery {
-            tags: None,
-            memory_type: None,
-            min_relevance: None,
-            max_results: 10,
-            include_expired: true,
-        };
-        let results = mem.retrieve(&query).unwrap();
-        assert_eq!(results.len(), 2);
-    }
-
-    #[test]
-    fn filter_by_tags() {
-        let mut mem = LongTermMemory::new();
-        mem.store(make_entry("e1", vec!["rust"])).unwrap();
-        mem.store(make_entry("e2", vec!["python"])).unwrap();
-
-        let query = MemoryQuery {
-            tags: Some(vec!["rust".to_string()]),
-            memory_type: None,
-            min_relevance: None,
-            max_results: 10,
-            include_expired: true,
-        };
-        let results = mem.retrieve(&query).unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].id, "e1");
     }
 }

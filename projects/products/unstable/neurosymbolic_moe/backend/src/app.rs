@@ -459,6 +459,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
         min_relevance: Some(0.5),
         max_results: 10,
         include_expired: true,
+        current_time: Some(0),
     };
 
     let mut short_store = ShortTermMemory::new(4);
