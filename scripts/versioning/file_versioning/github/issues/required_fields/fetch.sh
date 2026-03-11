@@ -6,7 +6,6 @@
 issue_fetch_non_compliance_reason() {
   local issue_number="${1:-}"
   local repo_name="${2:-}"
-  local issue_json
   local labels_raw
   local title
   local body
@@ -33,15 +32,14 @@ issue_fetch_non_compliance_reason() {
     fi
   fi
 
-  issue_json="$(issue_gh_issue_json "$repo_name" "$issue_number" "labels,title,body")"
-  if [[ -z "$issue_json" ]]; then
+  title="$(github_issue_field "$repo_name" "$issue_number" "title" || true)"
+  body="$(github_issue_field "$repo_name" "$issue_number" "body" || true)"
+  labels_raw="$(github_issue_field "$repo_name" "$issue_number" "labels-raw" || true)"
+
+  if [[ -z "$title" && -z "$body" && -z "$labels_raw" ]]; then
     echo ""
     return
   fi
-
-  labels_raw="$(echo "$issue_json" | jq -r '.labels | map(.name) | join("||")')"
-  title="$(echo "$issue_json" | jq -r '.title // ""')"
-  body="$(echo "$issue_json" | jq -r '.body // ""')"
 
   issue_non_compliance_reason_from_content "$title" "$body" "$labels_raw"
 }

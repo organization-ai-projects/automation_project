@@ -64,7 +64,6 @@ cmd_update() {
 
   # Contract guard: when title/body changes, validate resulting issue content.
   if [[ -n "$update_title" || -n "$update_body" ]]; then
-    local current_json=""
     local current_title=""
     local current_body=""
     local labels_raw=""
@@ -72,15 +71,14 @@ cmd_update() {
     local effective_body=""
     local validations=""
 
-    current_json="$(issue_gh_issue_json "$repo" "$issue_number" "title,body,labels" || true)"
-    if [[ -z "$current_json" ]]; then
+    current_title="$(github_issue_field "$repo" "$issue_number" "title" || true)"
+    current_body="$(github_issue_field "$repo" "$issue_number" "body" || true)"
+    labels_raw="$(github_issue_field "$repo" "$issue_number" "labels-raw" || true)"
+
+    if [[ -z "$current_title" && -z "$current_body" && -z "$labels_raw" ]]; then
       echo "Error: unable to read issue #${issue_number} before update validation." >&2
       exit 1
     fi
-
-    current_title="$(echo "$current_json" | jq -r '.title // ""')"
-    current_body="$(echo "$current_json" | jq -r '.body // ""')"
-    labels_raw="$(echo "$current_json" | jq -r '.labels | map(.name) | join("||")')"
 
     effective_title="$current_title"
     effective_body="$current_body"

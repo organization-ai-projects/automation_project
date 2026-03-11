@@ -343,21 +343,37 @@ github_issue_field() {
     return 0
   fi
 
-  local jq_filter=""
+  local -a gh_cmd=(gh issue view "$issue_number" --json title,body,labels)
+  if [[ -n "$repo_name" ]]; then
+    gh_cmd+=(-R "$repo_name")
+  fi
+  local issue_json=""
+  issue_json="$("${gh_cmd[@]}" 2>/dev/null || true)"
+  if [[ -z "$issue_json" ]]; then
+    gh_cmd=(gh issue view "$issue_number" --json labels,title,body)
+    if [[ -n "$repo_name" ]]; then
+      gh_cmd+=(-R "$repo_name")
+    fi
+    issue_json="$("${gh_cmd[@]}" 2>/dev/null || true)"
+  fi
+  if [[ -z "$issue_json" ]]; then
+    return 0
+  fi
+
   case "$field_name" in
-  title) jq_filter='.title // ""' ;;
-  body) jq_filter='.body // ""' ;;
-  labels-raw) jq_filter='(.labels // []) | map(.name) | join("||")' ;;
+  title)
+    echo "$issue_json" | jq -r '.title // ""' 2>/dev/null || true
+    ;;
+  body)
+    echo "$issue_json" | jq -r '.body // ""' 2>/dev/null || true
+    ;;
+  labels-raw)
+    echo "$issue_json" | jq -r '(.labels // []) | map(.name) | join("||")' 2>/dev/null || true
+    ;;
   *)
     return 1
     ;;
   esac
-
-  local -a gh_cmd=(gh issue view "$issue_number" --json title,body,labels --jq "$jq_filter")
-  if [[ -n "$repo_name" ]]; then
-    gh_cmd+=(-R "$repo_name")
-  fi
-  "${gh_cmd[@]}" 2>/dev/null || true
 }
 
 github_issue_reopen() {
