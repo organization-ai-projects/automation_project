@@ -69,14 +69,6 @@ issue_gh_pr_state() {
     )"
   fi
 
-  if [[ -z "$pr_state" ]] && command -v va_exec >/dev/null 2>&1; then
-    pr_state="$(
-      va_exec pr pr-state \
-        --pr "$pr_number" \
-        --repo "$repo" 2>/dev/null || true
-    )"
-  fi
-
   if [[ -z "$pr_state" ]]; then
     pr_state="$(gh pr view "$pr_number" -R "$repo" --json state -q '.state // ""' 2>/dev/null || true)"
   fi
@@ -190,16 +182,6 @@ issue_gh_collect_pr_text_payload() {
       return 0
     fi
 
-    local va_payload=""
-    va_payload="$(
-      va_exec pr text-payload \
-        --pr "$pr_number" \
-        --repo "$repo" 2>/dev/null || true
-    )"
-    if [[ -n "$va_payload" ]]; then
-      printf '%s\n' "$va_payload"
-      return 0
-    fi
   fi
 
   pr_title="$(gh pr view "$pr_number" -R "$repo" --json title -q '.title // ""' 2>/dev/null || true)"
