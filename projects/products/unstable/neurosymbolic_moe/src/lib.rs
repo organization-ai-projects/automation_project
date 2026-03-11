@@ -1,7 +1,11 @@
+pub mod aggregator;
 pub mod buffer_manager;
 pub mod dataset_engine;
+pub mod evaluation_engine;
 pub mod expert_registry;
+pub mod feedback_engine;
 pub mod memory_engine;
 pub mod moe_core;
+pub mod policy_guard;
 pub mod retrieval_engine;
 pub mod router;
