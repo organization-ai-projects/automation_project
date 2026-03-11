@@ -19,43 +19,70 @@ pr_directive_conflict_guard_resolve_repo_name() {
   printf '%s' "$repo_name"
 }
 
+pr_directive_conflict_guard_pr_field() {
+  local repo_name="$1"
+  local pr_number="$2"
+  local field_name="$3"
+  local va_output=""
+
+  if command -v va_exec >/dev/null 2>&1; then
+    va_output="$(
+      va_exec pr field \
+        --pr "$pr_number" \
+        --repo "$repo_name" \
+        --name "$field_name" 2>/dev/null || true
+    )"
+    if [[ -n "$va_output" ]]; then
+      printf '%s' "$va_output"
+      return 0
+    fi
+  fi
+
+  case "$field_name" in
+  title)
+    gh pr view "$pr_number" -R "$repo_name" --json title -q '.title // ""' 2>/dev/null || true
+    ;;
+  body)
+    gh pr view "$pr_number" -R "$repo_name" --json body -q '.body // ""' 2>/dev/null || true
+    ;;
+  commit-messages)
+    gh api "repos/${repo_name}/pulls/${pr_number}/commits" --paginate --jq '.[].commit.message' 2>/dev/null || true
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
 pr_directive_conflict_guard_fetch_pr_details_json() {
   local repo_name="$1"
   local pr_number="$2"
   local pr_details_json=""
+  local pr_title pr_body commit_messages
 
-  if command -v va_exec >/dev/null 2>&1; then
-    local pr_title pr_body commit_messages
-    pr_title="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "title" 2>/dev/null || true
-    )"
-    pr_body="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "body" 2>/dev/null || true
-    )"
-    commit_messages="$(
-      va_exec pr field \
-        --pr "$pr_number" \
-        --repo "$repo_name" \
-        --name "commit-messages" 2>/dev/null || true
-    )"
+  pr_title="$(pr_directive_conflict_guard_pr_field "$repo_name" "$pr_number" "title" || true)"
+  pr_body="$(pr_directive_conflict_guard_pr_field "$repo_name" "$pr_number" "body" || true)"
+  commit_messages="$(pr_directive_conflict_guard_pr_field "$repo_name" "$pr_number" "commit-messages" || true)"
 
-    if [[ -n "$pr_title" || -n "$pr_body" || -n "$commit_messages" ]]; then
-      pr_details_json="$(
-        jq -c -n \
-          --argjson number "$pr_number" \
-          --arg title "$pr_title" \
-          --arg body "$pr_body" \
-          --arg commit_messages "$commit_messages" \
-          '{number: $number, title: $title, body: $body, commit_messages: $commit_messages}' \
-          2>/dev/null || true
-      )"
+  if [[ -z "$pr_title" && -z "$pr_body" ]]; then
+    local pr_json_legacy=""
+    pr_json_legacy="$(gh pr view "$pr_number" -R "$repo_name" --json body,url,number,title 2>/dev/null || true)"
+    if [[ -n "$pr_json_legacy" ]]; then
+      pr_title="$(echo "$pr_json_legacy" | jq -r '.title // ""' 2>/dev/null || true)"
+      pr_body="$(echo "$pr_json_legacy" | jq -r '.body // ""' 2>/dev/null || true)"
     fi
+  fi
+
+  if [[ -n "$pr_title" || -n "$pr_body" || -n "$commit_messages" ]]; then
+    pr_details_json="$(
+      jq -c -n \
+        --argjson number "$pr_number" \
+        --arg title "$pr_title" \
+        --arg body "$pr_body" \
+        --arg commit_messages "$commit_messages" \
+        '{number: $number, title: $title, body: $body, commit_messages: $commit_messages}' \
+        2>/dev/null || true
+    )"
   fi
 
   if [[ -z "$pr_details_json" ]]; then
