@@ -53,6 +53,15 @@ issue_gh_issue_json() {
   github_issue_read_json "$repo" "$issue_number" "$json_fields"
 }
 
+issue_gh_issue_read() {
+  local issue_number="${1:-}"
+  local repo="${2:-}"
+  local json_fields="${3:-}"
+  local jq_filter="${4:-}"
+  local template="${5:-}"
+  github_issue_read "$issue_number" "$repo" "$json_fields" "$jq_filter" "$template"
+}
+
 issue_gh_pr_state() {
   local repo="$1"
   local pr_number="$2"

@@ -47,27 +47,6 @@ manager_parse_read_args() {
   done
 }
 
-manager_append_read_optional_args() {
-  local -n cmd_ref="$1"
-  local repo="$2"
-  local json_fields="$3"
-  local jq_filter="$4"
-  local template="$5"
-
-  if [[ -n "$repo" ]]; then
-    cmd_ref+=(-R "$repo")
-  fi
-  if [[ -n "$json_fields" ]]; then
-    cmd_ref+=(--json "$json_fields")
-  fi
-  if [[ -n "$jq_filter" ]]; then
-    cmd_ref+=(--jq "$jq_filter")
-  fi
-  if [[ -n "$template" ]]; then
-    cmd_ref+=(--template "$template")
-  fi
-}
-
 cmd_read() {
   local issue_number=""
   local repo=""
@@ -77,36 +56,9 @@ cmd_read() {
 
   manager_parse_read_args issue_number repo json_fields jq_filter template "$@"
 
-  local -a issue_args=(issue read)
-  local -a gh_cmd
   if [[ -n "$issue_number" ]]; then
     issue_cli_require_positive_number "--issue" "$issue_number"
-    issue_args+=(--issue "$issue_number")
-    gh_cmd=(gh issue view "$issue_number")
-  else
-    gh_cmd=(gh issue list)
   fi
 
-  if [[ -n "$repo" ]]; then
-    issue_args+=(--repo "$repo")
-  fi
-  if [[ -n "$json_fields" ]]; then
-    issue_args+=(--json "$json_fields")
-  fi
-  if [[ -n "$jq_filter" ]]; then
-    issue_args+=(--jq "$jq_filter")
-  fi
-  if [[ -n "$template" ]]; then
-    issue_args+=(--template "$template")
-  fi
-
-  if command -v va_exec >/dev/null 2>&1; then
-    if va_exec "${issue_args[@]}"; then
-      return 0
-    fi
-  fi
-
-  manager_append_read_optional_args gh_cmd "$repo" "$json_fields" "$jq_filter" "$template"
-
-  "${gh_cmd[@]}"
+  issue_gh_issue_read "$issue_number" "$repo" "$json_fields" "$jq_filter" "$template"
 }

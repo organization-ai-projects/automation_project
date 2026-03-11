@@ -265,6 +265,61 @@ github_issue_read_json() {
   "${gh_cmd[@]}" 2>/dev/null || true
 }
 
+github_issue_read() {
+  local issue_number="${1:-}"
+  local repo_name="${2:-}"
+  local json_fields="${3:-}"
+  local jq_filter="${4:-}"
+  local template="${5:-}"
+  local va_output=""
+
+  if issue_helpers_has_va_issue; then
+    local -a va_cmd=(issue read)
+    if [[ -n "$issue_number" ]]; then
+      va_cmd+=(--issue "$issue_number")
+    fi
+    if [[ -n "$repo_name" ]]; then
+      va_cmd+=(--repo "$repo_name")
+    fi
+    if [[ -n "$json_fields" ]]; then
+      va_cmd+=(--json "$json_fields")
+    fi
+    if [[ -n "$jq_filter" ]]; then
+      va_cmd+=(--jq "$jq_filter")
+    fi
+    if [[ -n "$template" ]]; then
+      va_cmd+=(--template "$template")
+    fi
+    va_output="$(issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$va_output" ]]; then
+    printf '%s\n' "$va_output"
+    return 0
+  fi
+
+  local -a gh_cmd
+  if [[ -n "$issue_number" ]]; then
+    gh_cmd=(gh issue view "$issue_number")
+  else
+    gh_cmd=(gh issue list)
+  fi
+  if [[ -n "$repo_name" ]]; then
+    gh_cmd+=(-R "$repo_name")
+  fi
+  if [[ -n "$json_fields" ]]; then
+    gh_cmd+=(--json "$json_fields")
+  fi
+  if [[ -n "$jq_filter" ]]; then
+    gh_cmd+=(--jq "$jq_filter")
+  fi
+  if [[ -n "$template" ]]; then
+    gh_cmd+=(--template "$template")
+  fi
+
+  "${gh_cmd[@]}"
+}
+
 github_issue_reopen() {
   local repo_name="${1:-}"
   local issue_number="${2:-}"
