@@ -100,3 +100,111 @@ impl Router for HeuristicRouter {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::moe_core::{
+        ExecutionContext, Expert, ExpertError, ExpertId, ExpertMetadata, ExpertOutput,
+        ExpertStatus, ExpertType, TaskType,
+    };
+
+    struct TestExpert {
+        meta: ExpertMetadata,
+    }
+
+    impl TestExpert {
+        fn new(id: &str, capabilities: Vec<ExpertCapability>) -> Self {
+            Self {
+                meta: ExpertMetadata {
+                    id: ExpertId::new(id),
+                    name: id.to_string(),
+                    version: "1.0.0".to_string(),
+                    capabilities,
+                    status: ExpertStatus::Active,
+                    expert_type: ExpertType::Deterministic,
+                },
+            }
+        }
+    }
+
+    impl Expert for TestExpert {
+        fn id(&self) -> &ExpertId {
+            &self.meta.id
+        }
+
+        fn metadata(&self) -> &ExpertMetadata {
+            &self.meta
+        }
+
+        fn can_handle(&self, _task: &Task) -> bool {
+            self.meta
+                .capabilities
+                .iter()
+                .any(|c| matches!(c, ExpertCapability::CodeGeneration))
+        }
+
+        fn execute(
+            &self,
+            _task: &Task,
+            _context: &ExecutionContext,
+        ) -> Result<ExpertOutput, ExpertError> {
+            Ok(ExpertOutput {
+                expert_id: self.meta.id.clone(),
+                content: "test output".to_string(),
+                confidence: 0.95,
+                metadata: HashMap::new(),
+                trace: Vec::new(),
+            })
+        }
+    }
+
+    fn make_registry_with_expert(
+        id: &str,
+        caps: Vec<ExpertCapability>,
+    ) -> (ExpertRegistry, ExpertId) {
+        let mut reg = ExpertRegistry::new();
+        reg.register(Box::new(TestExpert::new(id, caps))).unwrap();
+        (reg, ExpertId::new(id))
+    }
+
+    #[test]
+    fn routes_to_correct_expert_by_capability() {
+        let (registry, _) =
+            make_registry_with_expert("codegen", vec![ExpertCapability::CodeGeneration]);
+        let router = HeuristicRouter::new(3);
+        let task = Task::new("t1", TaskType::CodeGeneration, "write code");
+        let decision = router.route(&task, &registry).unwrap();
+        assert!(
+            decision
+                .selected_experts
+                .contains(&ExpertId::new("codegen"))
+        );
+    }
+
+    #[test]
+    fn no_matching_expert_returns_error() {
+        let registry = ExpertRegistry::new();
+        let router = HeuristicRouter::new(3);
+        let task = Task::new("t1", TaskType::CodeGeneration, "write code");
+        let result = router.route(&task, &registry);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn respects_max_experts_limit() {
+        let mut registry = ExpertRegistry::new();
+        for i in 0..5 {
+            registry
+                .register(Box::new(TestExpert::new(
+                    &format!("e{i}"),
+                    vec![ExpertCapability::CodeGeneration],
+                )))
+                .unwrap();
+        }
+        let router = HeuristicRouter::new(2);
+        let task = Task::new("t1", TaskType::CodeGeneration, "write code");
+        let decision = router.route(&task, &registry).unwrap();
+        assert!(decision.selected_experts.len() <= 2);
+    }
+}

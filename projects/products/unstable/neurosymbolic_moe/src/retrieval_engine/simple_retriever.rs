@@ -92,3 +92,24 @@ impl Retriever for SimpleRetriever {
         Ok(results)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn simple_retriever_search() {
+        let mut retriever = SimpleRetriever::new();
+        retriever.add_document(Chunk::new("c1", "rust programming language", "doc1", 0, 25));
+        retriever.add_document(Chunk::new("c2", "python scripting", "doc2", 0, 16));
+        retriever.add_document(Chunk::new("c3", "rust rust rust", "doc3", 0, 14));
+
+        let query = RetrievalQuery::new("rust");
+        let results = retriever.retrieve(&query).unwrap();
+
+        assert_eq!(results.len(), 2);
+        // "rust rust rust" has higher density than "rust programming language"
+        assert_eq!(results[0].chunk_id, "c3");
+        assert_eq!(results[1].chunk_id, "c1");
+    }
+}
