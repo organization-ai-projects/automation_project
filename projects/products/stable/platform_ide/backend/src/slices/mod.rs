@@ -6,4 +6,4 @@ mod slice_manifest;
 mod tests;
 
 pub(crate) use allowed_path::AllowedPath;
-pub use slice_manifest::SliceManifest;
+pub(crate) use slice_manifest::SliceManifest;
