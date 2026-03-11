@@ -502,6 +502,7 @@ impl MoePipeline {
                 "governance bundle rejected: invalid snapshot checksum".to_string(),
             ));
         }
+        Self::validate_governance_bundle_consistency(&bundle)?;
 
         let decision = self.evaluate_governance_import(&bundle.state);
         if !decision.allowed {
@@ -759,6 +760,53 @@ impl MoePipeline {
             .filter(|id| !id.is_empty())
             .map(ExpertId::new)
             .collect()
+    }
+
+    fn validate_governance_bundle_consistency(
+        bundle: &GovernancePersistenceBundle,
+    ) -> Result<(), MoeError> {
+        if let Some(last_audit) = bundle.audit_entries.last() {
+            if last_audit.version != bundle.state.state_version {
+                return Err(MoeError::PolicyRejected(
+                    "governance bundle rejected: latest audit version does not match state version"
+                        .to_string(),
+                ));
+            }
+            if last_audit.checksum != bundle.state.state_checksum {
+                return Err(MoeError::PolicyRejected(
+                    "governance bundle rejected: latest audit checksum does not match state checksum"
+                        .to_string(),
+                ));
+            }
+        }
+
+        if bundle
+            .snapshots
+            .iter()
+            .any(|snapshot| snapshot.version != snapshot.state.state_version)
+        {
+            return Err(MoeError::PolicyRejected(
+                "governance bundle rejected: snapshot version does not match embedded state version"
+                    .to_string(),
+            ));
+        }
+
+        if let Some(last_snapshot) = bundle.snapshots.last() {
+            if last_snapshot.version != bundle.state.state_version {
+                return Err(MoeError::PolicyRejected(
+                    "governance bundle rejected: latest snapshot version does not match state version"
+                        .to_string(),
+                ));
+            }
+            if last_snapshot.state.state_checksum != bundle.state.state_checksum {
+                return Err(MoeError::PolicyRejected(
+                    "governance bundle rejected: latest snapshot checksum does not match state checksum"
+                        .to_string(),
+                ));
+            }
+        }
+
+        Ok(())
     }
 
     fn arbitration_score(
