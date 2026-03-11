@@ -1,13 +1,27 @@
+mod aggregator;
+mod buffer_manager;
+mod dataset_engine;
+mod evaluation_engine;
+mod expert_registry;
+mod feedback_engine;
+mod memory_engine;
+mod moe_core;
+mod orchestrator;
+mod policy_guard;
+mod retrieval_engine;
+mod router;
+mod trace_logger;
+
 use std::path::PathBuf;
 
-use neurosymbolic_moe::aggregator::AggregationStrategy;
-use neurosymbolic_moe::moe_core::{
+use crate::aggregator::AggregationStrategy;
+use crate::moe_core::{
     ExecutionContext, ExpertCapability, ExpertId, ExpertMetadata, ExpertOutput, ExpertStatus,
     ExpertType, Task, TaskType,
 };
-use neurosymbolic_moe::orchestrator::MoePipelineBuilder;
-use neurosymbolic_moe::policy_guard::{Policy, PolicyType};
-use neurosymbolic_moe::router::HeuristicRouter;
+use crate::orchestrator::MoePipelineBuilder;
+use crate::policy_guard::{Policy, PolicyType};
+use crate::router::HeuristicRouter;
 
 struct EchoExpert {
     metadata: ExpertMetadata,
@@ -28,7 +42,7 @@ impl EchoExpert {
     }
 }
 
-impl neurosymbolic_moe::moe_core::Expert for EchoExpert {
+impl crate::moe_core::Expert for EchoExpert {
     fn id(&self) -> &ExpertId {
         &self.metadata.id
     }
@@ -45,7 +59,7 @@ impl neurosymbolic_moe::moe_core::Expert for EchoExpert {
         &self,
         task: &Task,
         _context: &ExecutionContext,
-    ) -> Result<ExpertOutput, neurosymbolic_moe::moe_core::ExpertError> {
+    ) -> Result<ExpertOutput, crate::moe_core::ExpertError> {
         Ok(ExpertOutput {
             expert_id: self.metadata.id.clone(),
             content: format!("[{}] processed: {}", self.metadata.name, task.input()),
