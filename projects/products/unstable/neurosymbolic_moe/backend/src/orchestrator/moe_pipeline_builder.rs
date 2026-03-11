@@ -3,7 +3,7 @@ use crate::dataset_engine::{DatasetStore, TraceConverter};
 use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
 use crate::feedback_engine::FeedbackStore;
-use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy};
+use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy, GovernanceImportPolicy};
 use crate::policy_guard::PolicyGuard;
 use crate::router::{HeuristicRouter, Router};
 use crate::trace_logger::TraceLogger;
@@ -17,6 +17,7 @@ pub struct MoePipelineBuilder {
     fallback_on_expert_error: bool,
     enable_task_metadata_chain: bool,
     continuous_governance_policy: Option<ContinuousGovernancePolicy>,
+    governance_import_policy: GovernanceImportPolicy,
     max_governance_audit_entries: usize,
     max_traces: usize,
 }
@@ -30,6 +31,7 @@ impl MoePipelineBuilder {
             fallback_on_expert_error: false,
             enable_task_metadata_chain: false,
             continuous_governance_policy: None,
+            governance_import_policy: GovernanceImportPolicy::default(),
             max_governance_audit_entries: 128,
             max_traces: 10_000,
         }
@@ -65,6 +67,11 @@ impl MoePipelineBuilder {
         self
     }
 
+    pub fn with_governance_import_policy(mut self, policy: GovernanceImportPolicy) -> Self {
+        self.governance_import_policy = policy;
+        self
+    }
+
     pub fn with_max_governance_audit_entries(mut self, max: usize) -> Self {
         self.max_governance_audit_entries = max;
         self
@@ -88,6 +95,7 @@ impl MoePipelineBuilder {
             fallback_on_expert_error: self.fallback_on_expert_error,
             enable_task_metadata_chain: self.enable_task_metadata_chain,
             continuous_governance_policy: self.continuous_governance_policy,
+            governance_import_policy: self.governance_import_policy,
             policy_guard: PolicyGuard::new(),
             trace_logger: TraceLogger::new(self.max_traces),
             evaluation: EvaluationEngine::new(),
