@@ -3,29 +3,26 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Chunk {
-    pub id: String,
+pub struct RetrievalResult {
+    pub chunk_id: String,
     pub content: String,
+    pub relevance_score: f64,
     pub source: String,
-    pub start_offset: usize,
-    pub end_offset: usize,
     pub metadata: HashMap<String, String>,
 }
 
-impl Chunk {
+impl RetrievalResult {
     pub fn new(
-        id: impl Into<String>,
+        chunk_id: impl Into<String>,
         content: impl Into<String>,
+        relevance_score: f64,
         source: impl Into<String>,
-        start_offset: usize,
-        end_offset: usize,
     ) -> Self {
         Self {
-            id: id.into(),
+            chunk_id: chunk_id.into(),
             content: content.into(),
+            relevance_score,
             source: source.into(),
-            start_offset,
-            end_offset,
             metadata: HashMap::new(),
         }
     }
