@@ -8,6 +8,7 @@ use crate::moe_core::{
     Task, TracePhase,
 };
 use crate::orchestrator::ArbitrationMode;
+use crate::orchestrator::ContinuousImprovementReport;
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::router::{Router, RoutingStrategy};
 use crate::trace_logger::TraceLogger;
@@ -22,6 +23,7 @@ pub struct MoePipeline {
     pub(super) policy_guard: PolicyGuard,
     pub(super) trace_logger: TraceLogger,
     pub(super) evaluation: EvaluationEngine,
+    pub(super) evaluation_baseline: Option<EvaluationEngine>,
     pub(super) feedback_store: FeedbackStore,
     pub(super) dataset_store: DatasetStore,
     pub(super) trace_converter: TraceConverter,
@@ -321,6 +323,48 @@ impl MoePipeline {
 
     pub fn add_feedback(&mut self, entry: FeedbackEntry) {
         self.feedback_store.add(entry);
+    }
+
+    pub fn capture_evaluation_baseline(&mut self) {
+        self.evaluation_baseline = Some(self.evaluation.clone());
+    }
+
+    pub fn continuous_improvement_report(
+        &self,
+        min_expert_success_rate: f64,
+        min_routing_accuracy: f64,
+        low_score_threshold: f64,
+        regression_drop_threshold: f64,
+    ) -> ContinuousImprovementReport {
+        let governance = self
+            .evaluation
+            .governance_report(min_expert_success_rate, min_routing_accuracy);
+        let dataset_quality = self.dataset_store.quality_report(low_score_threshold);
+
+        let (expert_regressions, routing_regression) =
+            if let Some(baseline) = &self.evaluation_baseline {
+                (
+                    self.evaluation
+                        .detect_expert_regressions(baseline, regression_drop_threshold),
+                    self.evaluation
+                        .detect_routing_regression(baseline, regression_drop_threshold),
+                )
+            } else {
+                (Vec::new(), None)
+            };
+
+        let requires_human_review = !governance.ready_for_promotion
+            || !expert_regressions.is_empty()
+            || routing_regression.is_some()
+            || dataset_quality.low_score_entries > 0;
+
+        ContinuousImprovementReport {
+            governance,
+            dataset_quality,
+            expert_regressions,
+            routing_regression,
+            requires_human_review,
+        }
     }
 
     fn parse_expert_chain(raw: &str) -> Vec<ExpertId> {

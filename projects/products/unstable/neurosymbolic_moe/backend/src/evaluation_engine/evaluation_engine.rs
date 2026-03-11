@@ -5,6 +5,30 @@ use crate::moe_core::ExpertId;
 use super::metrics::{ExpertMetrics, RoutingMetrics};
 
 #[derive(Debug, Clone)]
+pub struct ExpertRegression {
+    pub expert_id: ExpertId,
+    pub previous_success_rate: f64,
+    pub current_success_rate: f64,
+    pub delta: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct RoutingRegression {
+    pub previous_accuracy: f64,
+    pub current_accuracy: f64,
+    pub delta: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct EvaluationGovernanceReport {
+    pub min_expert_success_rate: f64,
+    pub min_routing_accuracy: f64,
+    pub underperforming_experts: Vec<ExpertId>,
+    pub routing_accuracy_below_threshold: bool,
+    pub ready_for_promotion: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct EvaluationEngine {
     expert_metrics: HashMap<ExpertId, ExpertMetrics>,
     routing_metrics: RoutingMetrics,
@@ -59,6 +83,86 @@ impl EvaluationEngine {
                 .partial_cmp(&b.success_rate())
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
+    }
+
+    pub fn detect_expert_regressions(
+        &self,
+        baseline: &EvaluationEngine,
+        min_drop: f64,
+    ) -> Vec<ExpertRegression> {
+        let mut regressions = Vec::new();
+
+        for (expert_id, current) in &self.expert_metrics {
+            if let Some(previous) = baseline.expert_metrics.get(expert_id) {
+                let previous_success_rate = previous.success_rate();
+                let current_success_rate = current.success_rate();
+                let delta = current_success_rate - previous_success_rate;
+
+                if delta <= -min_drop {
+                    regressions.push(ExpertRegression {
+                        expert_id: expert_id.clone(),
+                        previous_success_rate,
+                        current_success_rate,
+                        delta,
+                    });
+                }
+            }
+        }
+
+        regressions.sort_by(|a, b| {
+            a.delta
+                .partial_cmp(&b.delta)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        regressions
+    }
+
+    pub fn detect_routing_regression(
+        &self,
+        baseline: &EvaluationEngine,
+        min_drop: f64,
+    ) -> Option<RoutingRegression> {
+        let previous_accuracy = baseline.routing_metrics.accuracy();
+        let current_accuracy = self.routing_metrics.accuracy();
+        let delta = current_accuracy - previous_accuracy;
+
+        if delta <= -min_drop {
+            Some(RoutingRegression {
+                previous_accuracy,
+                current_accuracy,
+                delta,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn governance_report(
+        &self,
+        min_expert_success_rate: f64,
+        min_routing_accuracy: f64,
+    ) -> EvaluationGovernanceReport {
+        let underperforming_experts = self
+            .expert_metrics
+            .values()
+            .filter(|metrics| metrics.total_executions > 0)
+            .filter(|metrics| metrics.success_rate() < min_expert_success_rate)
+            .map(|metrics| metrics.expert_id.clone())
+            .collect::<Vec<_>>();
+
+        let routing_accuracy_below_threshold = self.routing_metrics.total_routings > 0
+            && self.routing_metrics.accuracy() < min_routing_accuracy;
+
+        let ready_for_promotion =
+            underperforming_experts.is_empty() && !routing_accuracy_below_threshold;
+
+        EvaluationGovernanceReport {
+            min_expert_success_rate,
+            min_routing_accuracy,
+            underperforming_experts,
+            routing_accuracy_below_threshold,
+            ready_for_promotion,
+        }
     }
 }
 

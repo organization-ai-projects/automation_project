@@ -992,3 +992,216 @@ mod v4 {
         assert!(result.strategy.ends_with("+policy_fallback"));
     }
 }
+
+mod v5 {
+    use crate::dataset_engine::{Correction, DatasetEntry, DatasetStore, Outcome};
+    use crate::evaluation_engine::EvaluationEngine;
+    use crate::expert_registry::ExpertRegistry;
+    use crate::moe_core::{
+        ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
+        ExpertOutput, ExpertStatus, ExpertType, Task, TaskId, TaskType,
+    };
+    use crate::orchestrator::{ContinuousImprovementReport, MoePipelineBuilder};
+    use crate::router::{Router, RoutingDecision, RoutingStrategy};
+    use std::collections::HashMap;
+
+    fn dataset_entry(id: &str, expert: &str, outcome: Outcome, score: Option<f64>) -> DatasetEntry {
+        DatasetEntry {
+            id: id.to_string(),
+            task_id: TaskId::new(format!("task-{id}")),
+            expert_id: ExpertId::new(expert),
+            input: "input".to_string(),
+            output: "output".to_string(),
+            outcome,
+            score,
+            tags: vec!["acceptance".to_string()],
+            created_at: 1,
+            metadata: HashMap::new(),
+        }
+    }
+
+    struct SingleExpertRouter {
+        expert_id: ExpertId,
+    }
+
+    impl Router for SingleExpertRouter {
+        fn route(
+            &self,
+            task: &Task,
+            _registry: &ExpertRegistry,
+        ) -> Result<RoutingDecision, crate::moe_core::MoeError> {
+            let mut scores = HashMap::new();
+            scores.insert(self.expert_id.clone(), 1.0);
+            Ok(RoutingDecision {
+                task_id: task.id().clone(),
+                selected_experts: vec![self.expert_id.clone()],
+                scores,
+                strategy: RoutingStrategy::SingleExpert,
+                explanation: "single expert route".to_string(),
+            })
+        }
+    }
+
+    struct V5FlakyExpert {
+        metadata: ExpertMetadata,
+    }
+
+    impl V5FlakyExpert {
+        fn new(id: &str) -> Self {
+            Self {
+                metadata: ExpertMetadata {
+                    id: ExpertId::new(id),
+                    name: id.to_string(),
+                    version: "1.0.0".to_string(),
+                    capabilities: vec![ExpertCapability::CodeGeneration],
+                    status: ExpertStatus::Active,
+                    expert_type: ExpertType::Deterministic,
+                },
+            }
+        }
+    }
+
+    impl Expert for V5FlakyExpert {
+        fn id(&self) -> &ExpertId {
+            &self.metadata.id
+        }
+
+        fn metadata(&self) -> &ExpertMetadata {
+            &self.metadata
+        }
+
+        fn can_handle(&self, _task: &Task) -> bool {
+            true
+        }
+
+        fn execute(
+            &self,
+            task: &Task,
+            _context: &ExecutionContext,
+        ) -> Result<ExpertOutput, ExpertError> {
+            if task.input().contains("fail") {
+                return Err(ExpertError::ExecutionFailed(
+                    "intentional failure".to_string(),
+                ));
+            }
+            Ok(ExpertOutput {
+                expert_id: self.metadata.id.clone(),
+                content: format!("ok::{}", task.input()),
+                confidence: 0.9,
+                metadata: HashMap::new(),
+                trace: Vec::new(),
+            })
+        }
+    }
+
+    #[test]
+    fn v5_regression_tracking_detects_quality_drop() {
+        let expert = ExpertId::new("v5-expert");
+
+        let mut baseline = EvaluationEngine::new();
+        baseline.record_expert_execution(expert.clone(), true, 0.9, 10.0);
+        baseline.record_expert_execution(expert.clone(), true, 0.8, 11.0);
+        baseline.record_routing(1, false);
+        baseline.record_routing(2, false);
+
+        let mut current = EvaluationEngine::new();
+        current.record_expert_execution(expert.clone(), false, 0.2, 12.0);
+        current.record_expert_execution(expert.clone(), true, 0.7, 11.0);
+        current.record_routing(1, true);
+        current.record_routing(1, true);
+
+        let expert_regressions = current.detect_expert_regressions(&baseline, 0.2);
+        assert_eq!(expert_regressions.len(), 1);
+        assert_eq!(expert_regressions[0].expert_id.as_str(), expert.as_str());
+        assert!(
+            expert_regressions[0].previous_success_rate
+                > expert_regressions[0].current_success_rate
+        );
+
+        let routing_regression = current
+            .detect_routing_regression(&baseline, 0.2)
+            .expect("routing regression should be present");
+        assert!(routing_regression.delta < 0.0);
+        assert!(routing_regression.previous_accuracy > routing_regression.current_accuracy);
+    }
+
+    #[test]
+    fn v5_governance_report_blocks_promotion_when_thresholds_fail() {
+        let mut engine = EvaluationEngine::new();
+        let expert_bad = ExpertId::new("v5-bad");
+
+        engine.record_expert_execution(expert_bad.clone(), false, 0.1, 20.0);
+        engine.record_routing(1, true);
+
+        let report = engine.governance_report(0.8, 0.9);
+        assert!(!report.ready_for_promotion);
+        assert!(report.routing_accuracy_below_threshold);
+        assert_eq!(report.underperforming_experts, vec![expert_bad]);
+        assert!((report.min_expert_success_rate - 0.8).abs() < f64::EPSILON);
+        assert!((report.min_routing_accuracy - 0.9).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn v5_dataset_quality_report_captures_low_quality_and_corrections() {
+        let mut store = DatasetStore::new();
+        store.add_entry(dataset_entry(
+            "good",
+            "v5-expert",
+            Outcome::Success,
+            Some(0.9),
+        ));
+        store.add_entry(dataset_entry(
+            "bad",
+            "v5-expert",
+            Outcome::Failure,
+            Some(0.2),
+        ));
+
+        store.add_correction(Correction {
+            entry_id: "bad".to_string(),
+            corrected_output: "fixed-output".to_string(),
+            reason: "human-feedback".to_string(),
+            corrected_at: 2,
+        });
+
+        let report = store.quality_report(0.5);
+        assert_eq!(report.total_entries, 2);
+        assert_eq!(report.low_score_entries, 1);
+        assert_eq!(report.corrected_entries, 1);
+        assert!((report.success_ratio - 0.5).abs() < f64::EPSILON);
+        assert!(report.average_score.expect("average score should exist") < 0.9);
+    }
+
+    #[test]
+    fn v5_continuous_improvement_report_flags_regression_after_baseline() {
+        let expert_id = ExpertId::new("v5-flaky");
+        let router = SingleExpertRouter {
+            expert_id: expert_id.clone(),
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new(expert_id.as_str())))
+            .expect("expert registration should succeed");
+
+        let warmup = Task::new("v5-warmup", TaskType::CodeGeneration, "clean");
+        pipeline
+            .execute(warmup)
+            .expect("warmup execution should succeed");
+        pipeline.capture_evaluation_baseline();
+
+        let failing = Task::new("v5-failing", TaskType::CodeGeneration, "fail-now");
+        let failure = pipeline.execute(failing);
+        assert!(failure.is_err());
+
+        let report: ContinuousImprovementReport =
+            pipeline.continuous_improvement_report(0.8, 0.9, 0.5, 0.1);
+        assert!(report.requires_human_review);
+        assert!(!report.expert_regressions.is_empty());
+        assert!(!report.governance.ready_for_promotion);
+        assert_eq!(report.dataset_quality.total_entries, 1);
+        assert!(report.routing_regression.is_none());
+    }
+}

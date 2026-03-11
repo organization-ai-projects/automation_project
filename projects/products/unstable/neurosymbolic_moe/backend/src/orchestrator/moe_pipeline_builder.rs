@@ -76,6 +76,7 @@ impl MoePipelineBuilder {
             policy_guard: PolicyGuard::new(),
             trace_logger: TraceLogger::new(self.max_traces),
             evaluation: EvaluationEngine::new(),
+            evaluation_baseline: None,
             feedback_store: FeedbackStore::new(),
             dataset_store: DatasetStore::new(),
             trace_converter: TraceConverter::new(),

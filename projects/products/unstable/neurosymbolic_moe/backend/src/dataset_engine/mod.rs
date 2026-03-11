@@ -8,6 +8,6 @@ pub mod trace_converter;
 
 pub use correction::Correction;
 pub use dataset_entry::DatasetEntry;
-pub use dataset_store::DatasetStore;
+pub use dataset_store::{DatasetQualityReport, DatasetStore};
 pub use outcome::Outcome;
 pub use trace_converter::TraceConverter;

@@ -5,6 +5,17 @@ use crate::moe_core::{ExpertId, TaskId};
 use super::{Correction, DatasetEntry, Outcome};
 
 #[derive(Debug, Clone)]
+pub struct DatasetQualityReport {
+    pub total_entries: usize,
+    pub scored_entries: usize,
+    pub average_score: Option<f64>,
+    pub low_score_entries: usize,
+    pub corrected_entries: usize,
+    pub correction_ratio: f64,
+    pub success_ratio: f64,
+}
+
+#[derive(Debug, Clone)]
 pub struct DatasetStore {
     entries: Vec<DatasetEntry>,
     corrections: HashMap<String, Vec<Correction>>,
@@ -70,6 +81,71 @@ impl DatasetStore {
             .iter()
             .filter(|e| e.outcome == Outcome::Failure)
             .count()
+    }
+
+    pub fn average_score(&self) -> Option<f64> {
+        let mut total = 0.0;
+        let mut count = 0usize;
+
+        for entry in &self.entries {
+            if let Some(score) = entry.score {
+                total += score;
+                count += 1;
+            }
+        }
+
+        if count == 0 {
+            None
+        } else {
+            Some(total / count as f64)
+        }
+    }
+
+    pub fn quality_report(&self, low_score_threshold: f64) -> DatasetQualityReport {
+        let total_entries = self.entries.len();
+        let scored_entries = self
+            .entries
+            .iter()
+            .filter(|entry| entry.score.is_some())
+            .count();
+        let average_score = self.average_score();
+        let low_score_entries = self
+            .entries
+            .iter()
+            .filter(|entry| entry.score.is_some_and(|score| score < low_score_threshold))
+            .count();
+
+        let corrected_entries = self
+            .entries
+            .iter()
+            .filter(|entry| {
+                self.corrections
+                    .get(&entry.id)
+                    .is_some_and(|corrections| !corrections.is_empty())
+            })
+            .count();
+
+        let correction_ratio = if total_entries == 0 {
+            0.0
+        } else {
+            corrected_entries as f64 / total_entries as f64
+        };
+
+        let success_ratio = if total_entries == 0 {
+            0.0
+        } else {
+            self.successful_count() as f64 / total_entries as f64
+        };
+
+        DatasetQualityReport {
+            total_entries,
+            scored_entries,
+            average_score,
+            low_score_entries,
+            corrected_entries,
+            correction_ratio,
+            success_ratio,
+        }
     }
 }
 
