@@ -9,7 +9,10 @@ use crate::moe_core::{
     Task, TracePhase,
 };
 use crate::orchestrator::ContinuousImprovementReport;
-use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy, GovernanceState};
+use crate::orchestrator::{
+    ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceAuditTrail,
+    GovernanceState,
+};
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::router::{Router, RoutingStrategy};
 use crate::trace_logger::TraceLogger;
@@ -27,6 +30,9 @@ pub struct MoePipeline {
     pub(super) evaluation: EvaluationEngine,
     pub(super) evaluation_baseline: Option<EvaluationEngine>,
     pub(super) last_continuous_improvement_report: Option<ContinuousImprovementReport>,
+    pub(super) governance_state_version: u64,
+    pub(super) governance_audit_entries: Vec<GovernanceAuditEntry>,
+    pub(super) max_governance_audit_entries: usize,
     pub(super) feedback_store: FeedbackStore,
     pub(super) dataset_store: DatasetStore,
     pub(super) trace_converter: TraceConverter,
@@ -319,6 +325,7 @@ impl MoePipeline {
 
                 if policy.block_on_human_review {
                     self.last_continuous_improvement_report = Some(report);
+                    self.record_governance_audit("continuous governance blocked pending review");
                     return Err(MoeError::PolicyRejected(
                         "continuous governance gate blocked output (human review required)"
                             .to_string(),
@@ -334,6 +341,7 @@ impl MoePipeline {
 
                 if policy.auto_promote_on_pass {
                     self.capture_evaluation_baseline();
+                    self.record_governance_audit("continuous governance auto-promotion");
                     self.trace_logger.log_phase(
                         task.id().clone(),
                         TracePhase::Validation,
@@ -344,6 +352,7 @@ impl MoePipeline {
             }
 
             self.last_continuous_improvement_report = Some(report);
+            self.record_governance_audit("continuous governance evaluated");
         }
 
         Ok(aggregated)
@@ -395,6 +404,7 @@ impl MoePipeline {
             if let Some(report) = self.last_continuous_improvement_report.as_mut() {
                 report.requires_human_review = false;
             }
+            self.record_governance_audit("human approval promotion");
             true
         } else {
             false
@@ -402,17 +412,31 @@ impl MoePipeline {
     }
 
     pub fn export_governance_state(&self) -> GovernanceState {
-        GovernanceState {
-            continuous_governance_policy: self.continuous_governance_policy.clone(),
-            evaluation_baseline: self.evaluation_baseline.clone(),
-            last_continuous_improvement_report: self.last_continuous_improvement_report.clone(),
-        }
+        GovernanceState::from_components(
+            self.governance_state_version,
+            self.continuous_governance_policy.clone(),
+            self.evaluation_baseline.clone(),
+            self.last_continuous_improvement_report.clone(),
+        )
     }
 
-    pub fn import_governance_state(&mut self, state: GovernanceState) {
+    pub fn import_governance_state(&mut self, mut state: GovernanceState) {
+        state.ensure_checksum();
+        if !state.verify_checksum() {
+            self.trace_logger.log_phase(
+                crate::moe_core::TaskId::new("governance-import"),
+                TracePhase::Validation,
+                "governance state checksum mismatch during import".to_string(),
+                None,
+            );
+            return;
+        }
+
         self.continuous_governance_policy = state.continuous_governance_policy;
         self.evaluation_baseline = state.evaluation_baseline;
         self.last_continuous_improvement_report = state.last_continuous_improvement_report;
+        self.governance_state_version = state.state_version;
+        self.record_governance_audit("governance state imported");
     }
 
     pub fn export_governance_state_json(&self) -> Result<String, MoeError> {
@@ -422,11 +446,29 @@ impl MoePipeline {
     }
 
     pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let state: GovernanceState = common_json::json::from_json_str(payload).map_err(|err| {
-            MoeError::DatasetError(format!("governance state deserialization failed: {err}"))
-        })?;
+        let mut state: GovernanceState =
+            common_json::json::from_json_str(payload).map_err(|err| {
+                MoeError::DatasetError(format!("governance state deserialization failed: {err}"))
+            })?;
+        state.ensure_checksum();
+        if !state.verify_checksum() {
+            return Err(MoeError::PolicyRejected(
+                "governance state checksum verification failed".to_string(),
+            ));
+        }
         self.import_governance_state(state);
         Ok(())
+    }
+
+    pub fn governance_audit_trail(&self) -> GovernanceAuditTrail {
+        GovernanceAuditTrail {
+            current_version: self.governance_state_version,
+            current_checksum: self
+                .governance_audit_entries
+                .last()
+                .map(|e| e.checksum.clone()),
+            entries: self.governance_audit_entries.clone(),
+        }
     }
 
     pub fn continuous_improvement_report(
@@ -510,5 +552,19 @@ impl MoePipeline {
             .filter(|output| exclude_expert_id != Some(&output.expert_id))
             .find(|output| self.policy_guard.validate_strict(output).is_ok())
             .cloned()
+    }
+
+    fn record_governance_audit(&mut self, reason: &str) {
+        self.governance_state_version = self.governance_state_version.saturating_add(1);
+        let checksum = self.export_governance_state().state_checksum;
+        self.governance_audit_entries.push(GovernanceAuditEntry {
+            version: self.governance_state_version,
+            checksum,
+            reason: reason.to_string(),
+        });
+        if self.governance_audit_entries.len() > self.max_governance_audit_entries {
+            let to_trim = self.governance_audit_entries.len() - self.max_governance_audit_entries;
+            self.governance_audit_entries.drain(0..to_trim);
+        }
     }
 }

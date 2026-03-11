@@ -17,6 +17,7 @@ pub struct MoePipelineBuilder {
     fallback_on_expert_error: bool,
     enable_task_metadata_chain: bool,
     continuous_governance_policy: Option<ContinuousGovernancePolicy>,
+    max_governance_audit_entries: usize,
     max_traces: usize,
 }
 
@@ -29,6 +30,7 @@ impl MoePipelineBuilder {
             fallback_on_expert_error: false,
             enable_task_metadata_chain: false,
             continuous_governance_policy: None,
+            max_governance_audit_entries: 128,
             max_traces: 10_000,
         }
     }
@@ -63,6 +65,11 @@ impl MoePipelineBuilder {
         self
     }
 
+    pub fn with_max_governance_audit_entries(mut self, max: usize) -> Self {
+        self.max_governance_audit_entries = max;
+        self
+    }
+
     pub fn with_max_traces(mut self, max: usize) -> Self {
         self.max_traces = max;
         self
@@ -86,6 +93,9 @@ impl MoePipelineBuilder {
             evaluation: EvaluationEngine::new(),
             evaluation_baseline: None,
             last_continuous_improvement_report: None,
+            governance_state_version: 0,
+            governance_audit_entries: Vec::new(),
+            max_governance_audit_entries: self.max_governance_audit_entries,
             feedback_store: FeedbackStore::new(),
             dataset_store: DatasetStore::new(),
             trace_converter: TraceConverter::new(),

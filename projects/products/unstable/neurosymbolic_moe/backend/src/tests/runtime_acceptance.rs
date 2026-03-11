@@ -1002,7 +1002,8 @@ mod v5 {
         ExpertOutput, ExpertStatus, ExpertType, Task, TaskId, TaskType,
     };
     use crate::orchestrator::{
-        ContinuousGovernancePolicy, ContinuousImprovementReport, MoePipelineBuilder,
+        ContinuousGovernancePolicy, ContinuousImprovementReport, GovernanceState,
+        MoePipelineBuilder,
     };
     use crate::router::{Router, RoutingDecision, RoutingStrategy};
     use std::collections::HashMap;
@@ -1382,6 +1383,7 @@ mod v5 {
         assert!(pipeline_a.last_continuous_improvement_report().is_some());
 
         let state = pipeline_a.export_governance_state();
+        assert!(state.verify_checksum());
         let state_json = pipeline_a
             .export_governance_state_json()
             .expect("state json export should succeed");
@@ -1398,11 +1400,74 @@ mod v5 {
 
         pipeline_b.import_governance_state(state);
         assert!(pipeline_b.last_continuous_improvement_report().is_some());
+        assert!(!pipeline_b.governance_audit_trail().entries.is_empty());
 
         let mut pipeline_c = MoePipelineBuilder::new().build();
         pipeline_c
             .import_governance_state_json(&state_json)
             .expect("state json import should succeed");
         assert!(pipeline_c.last_continuous_improvement_report().is_some());
+    }
+
+    #[test]
+    fn v5_governance_state_checksum_blocks_tampered_json_import() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-checksum"),
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-checksum")))
+            .expect("expert registration should succeed");
+        let task = Task::new("v5-checksum-task", TaskType::CodeGeneration, "clean");
+        let _ = pipeline.execute(task).expect("execution should succeed");
+
+        let state_json = pipeline
+            .export_governance_state_json()
+            .expect("state json export should succeed");
+        let mut parsed: GovernanceState =
+            common_json::json::from_json_str(&state_json).expect("json parse should succeed");
+        parsed.state_checksum = "deadbeef".to_string();
+        let tampered = common_json::json::to_json_string_pretty(&parsed)
+            .expect("tampered json serialization should succeed");
+
+        let mut new_pipeline = MoePipelineBuilder::new().build();
+        let result = new_pipeline.import_governance_state_json(&tampered);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+    }
+
+    #[test]
+    fn v5_governance_audit_trail_respects_max_entries() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-audit"),
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .with_max_governance_audit_entries(2)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-audit")))
+            .expect("expert registration should succeed");
+
+        let task1 = Task::new("v5-audit-1", TaskType::CodeGeneration, "clean");
+        let _ = pipeline.execute(task1).expect("execution should succeed");
+        let task2 = Task::new("v5-audit-2", TaskType::CodeGeneration, "clean");
+        let _ = pipeline.execute(task2).expect("execution should succeed");
+        let task3 = Task::new("v5-audit-3", TaskType::CodeGeneration, "clean");
+        let _ = pipeline.execute(task3).expect("execution should succeed");
+
+        let trail = pipeline.governance_audit_trail();
+        assert_eq!(trail.entries.len(), 2);
+        assert!(trail.current_version >= 3);
     }
 }

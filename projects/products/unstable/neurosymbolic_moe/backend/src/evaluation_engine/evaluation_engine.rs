@@ -165,6 +165,34 @@ impl EvaluationEngine {
             ready_for_promotion,
         }
     }
+
+    pub fn checksum_fingerprint(&self) -> String {
+        let mut experts = self
+            .expert_metrics
+            .values()
+            .map(|m| {
+                format!(
+                    "{}:{}:{}:{}:{:.6}:{:.6}",
+                    m.expert_id.as_str(),
+                    m.total_executions,
+                    m.successful_executions,
+                    m.failed_executions,
+                    m.average_confidence,
+                    m.average_latency_ms
+                )
+            })
+            .collect::<Vec<_>>();
+        experts.sort();
+
+        format!(
+            "experts=[{}];routing={}:{}:{}:{:.6}",
+            experts.join("|"),
+            self.routing_metrics.total_routings,
+            self.routing_metrics.successful_routings,
+            self.routing_metrics.fallback_count,
+            self.routing_metrics.average_experts_per_task
+        )
+    }
 }
 
 impl Default for EvaluationEngine {
