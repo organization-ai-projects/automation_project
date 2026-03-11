@@ -697,3 +697,238 @@ mod v3 {
         assert_eq!(pipeline.feedback_store().count(), 1);
     }
 }
+
+mod v4 {
+    use crate::aggregator::AggregationStrategy;
+    use crate::expert_registry::ExpertRegistry;
+    use crate::moe_core::{
+        ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
+        ExpertOutput, ExpertStatus, ExpertType, Task, TaskType,
+    };
+    use crate::orchestrator::{ArbitrationMode, MoePipelineBuilder};
+    use crate::router::{Router, RoutingDecision, RoutingStrategy};
+    use std::collections::HashMap;
+
+    struct FixedRouter {
+        selected: Vec<ExpertId>,
+        scores: HashMap<ExpertId, f64>,
+    }
+
+    impl Router for FixedRouter {
+        fn route(
+            &self,
+            task: &Task,
+            _registry: &ExpertRegistry,
+        ) -> Result<RoutingDecision, crate::moe_core::MoeError> {
+            Ok(RoutingDecision {
+                task_id: task.id().clone(),
+                selected_experts: self.selected.clone(),
+                scores: self.scores.clone(),
+                strategy: RoutingStrategy::MultiExpert,
+                explanation: "fixed router decision".to_string(),
+            })
+        }
+    }
+
+    struct V4Expert {
+        metadata: ExpertMetadata,
+        confidence: f64,
+        fail: bool,
+        prefix: String,
+    }
+
+    impl V4Expert {
+        fn new(
+            id: &str,
+            capabilities: Vec<ExpertCapability>,
+            confidence: f64,
+            fail: bool,
+            prefix: &str,
+        ) -> Self {
+            Self {
+                metadata: ExpertMetadata {
+                    id: ExpertId::new(id),
+                    name: id.to_string(),
+                    version: "1.0.0".to_string(),
+                    capabilities,
+                    status: ExpertStatus::Active,
+                    expert_type: ExpertType::Deterministic,
+                },
+                confidence,
+                fail,
+                prefix: prefix.to_string(),
+            }
+        }
+    }
+
+    impl Expert for V4Expert {
+        fn id(&self) -> &ExpertId {
+            &self.metadata.id
+        }
+
+        fn metadata(&self) -> &ExpertMetadata {
+            &self.metadata
+        }
+
+        fn can_handle(&self, _task: &Task) -> bool {
+            true
+        }
+
+        fn execute(
+            &self,
+            task: &Task,
+            _context: &ExecutionContext,
+        ) -> Result<ExpertOutput, ExpertError> {
+            if self.fail {
+                return Err(ExpertError::ExecutionFailed("forced failure".to_string()));
+            }
+            Ok(ExpertOutput {
+                expert_id: self.metadata.id.clone(),
+                content: format!("{}{}", self.prefix, task.input()),
+                confidence: self.confidence,
+                metadata: HashMap::new(),
+                trace: Vec::new(),
+            })
+        }
+    }
+
+    #[test]
+    fn v4_router_weighted_arbitration_can_override_highest_confidence() {
+        let low_conf_high_router = ExpertId::new("low-conf-high-router");
+        let high_conf_low_router = ExpertId::new("high-conf-low-router");
+
+        let mut scores = HashMap::new();
+        scores.insert(low_conf_high_router.clone(), 1.0);
+        scores.insert(high_conf_low_router.clone(), 0.1);
+
+        let fixed_router = FixedRouter {
+            selected: vec![low_conf_high_router.clone(), high_conf_low_router.clone()],
+            scores,
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(fixed_router))
+            .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
+            .with_arbitration_mode(ArbitrationMode::RouterScoreWeighted)
+            .build();
+
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                low_conf_high_router.as_str(),
+                vec![ExpertCapability::CodeGeneration],
+                0.5,
+                false,
+                "low:",
+            )))
+            .expect("registering low confidence expert should succeed");
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                high_conf_low_router.as_str(),
+                vec![ExpertCapability::CodeGeneration],
+                0.9,
+                false,
+                "high:",
+            )))
+            .expect("registering high confidence expert should succeed");
+
+        let task = Task::new("v4-arb", TaskType::CodeGeneration, "input");
+        let result = pipeline.execute(task).expect("pipeline should succeed");
+
+        let selected = result
+            .selected_output
+            .expect("selected output should be present");
+        assert_eq!(selected.expert_id.as_str(), low_conf_high_router.as_str());
+        assert!(result.strategy.starts_with("router_score_weighted+"));
+    }
+
+    #[test]
+    fn v4_fallback_continues_when_primary_expert_fails() {
+        let primary = ExpertId::new("primary-fail");
+        let fallback = ExpertId::new("fallback-ok");
+
+        let mut scores = HashMap::new();
+        scores.insert(primary.clone(), 1.0);
+        scores.insert(fallback.clone(), 0.9);
+
+        let fixed_router = FixedRouter {
+            selected: vec![primary.clone(), fallback.clone()],
+            scores,
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(fixed_router))
+            .with_fallback_on_expert_error(true)
+            .with_aggregation_strategy(AggregationStrategy::First)
+            .build();
+
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                primary.as_str(),
+                vec![ExpertCapability::CodeGeneration],
+                0.8,
+                true,
+                "primary:",
+            )))
+            .expect("registering failing primary expert should succeed");
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                fallback.as_str(),
+                vec![ExpertCapability::CodeGeneration],
+                0.7,
+                false,
+                "fallback:",
+            )))
+            .expect("registering fallback expert should succeed");
+
+        let task = Task::new("v4-fallback", TaskType::CodeGeneration, "payload");
+        let result = pipeline
+            .execute(task)
+            .expect("fallback execution should succeed");
+        let selected = result
+            .selected_output
+            .expect("selected output should be present");
+        assert_eq!(selected.expert_id.as_str(), fallback.as_str());
+    }
+
+    #[test]
+    fn v4_task_metadata_chain_supports_planner_executor_flow() {
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_task_metadata_chain(true)
+            .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
+            .build();
+
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                "planner",
+                vec![ExpertCapability::IssuePlanning],
+                0.6,
+                false,
+                "plan::",
+            )))
+            .expect("registering planner expert should succeed");
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                "executor",
+                vec![ExpertCapability::CodeGeneration],
+                0.95,
+                false,
+                "exec::",
+            )))
+            .expect("registering executor expert should succeed");
+
+        let task = Task::new("v4-chain", TaskType::Planning, "ship feature")
+            .with_metadata("expert_chain", "planner>executor");
+        let result = pipeline
+            .execute(task)
+            .expect("chain execution should succeed");
+
+        assert_eq!(result.outputs.len(), 2);
+        assert_eq!(result.outputs[0].expert_id.as_str(), "planner");
+        assert_eq!(result.outputs[1].expert_id.as_str(), "executor");
+        assert_eq!(result.outputs[1].content, "exec::plan::ship feature");
+        let selected = result
+            .selected_output
+            .expect("selected output should be present");
+        assert_eq!(selected.expert_id.as_str(), "executor");
+    }
+}
