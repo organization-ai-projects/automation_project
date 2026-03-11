@@ -1,0 +1,8 @@
+(
+  schema_version: 1,
+  id: "neurosymbolic_moe_ui",
+  title: "Neurosymbolic MoE",
+  entrypoint: "index.html",
+  kind: "ui_bundle",
+  version: "0.1.0",
+)
