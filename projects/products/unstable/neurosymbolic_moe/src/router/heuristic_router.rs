@@ -65,7 +65,8 @@ impl Router for HeuristicRouter {
         }
 
         // Sort by score descending and take top N
-        let mut ranked: Vec<(ExpertId, f64)> = scores.iter().map(|(k, v)| (k.clone(), *v)).collect();
+        let mut ranked: Vec<(ExpertId, f64)> =
+            scores.iter().map(|(k, v)| (k.clone(), *v)).collect();
         ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         ranked.truncate(self.max_experts);
 

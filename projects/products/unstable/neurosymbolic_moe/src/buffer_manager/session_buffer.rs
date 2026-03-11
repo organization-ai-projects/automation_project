@@ -20,20 +20,10 @@ impl SessionBuffer {
         self.sessions.entry(session_id.into()).or_default();
     }
 
-    pub fn put(
-        &mut self,
-        session_id: &str,
-        key: impl Into<String>,
-        value: impl Into<String>,
-    ) {
+    pub fn put(&mut self, session_id: &str, key: impl Into<String>, value: impl Into<String>) {
         let session = self.sessions.entry(session_id.to_string()).or_default();
         let key = key.into();
-        let timestamp = session
-            .values()
-            .map(|e| e.created_at)
-            .max()
-            .unwrap_or(0)
-            + 1;
+        let timestamp = session.values().map(|e| e.created_at).max().unwrap_or(0) + 1;
 
         let entry = BufferEntry {
             key: key.clone(),

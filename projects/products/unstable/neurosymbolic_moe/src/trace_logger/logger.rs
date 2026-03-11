@@ -51,7 +51,10 @@ impl TraceLogger {
     }
 
     pub fn get_by_task(&self, task_id: &TaskId) -> Vec<&TraceRecord> {
-        self.traces.iter().filter(|t| t.task_id == *task_id).collect()
+        self.traces
+            .iter()
+            .filter(|t| t.task_id == *task_id)
+            .collect()
     }
 
     pub fn get_by_phase(&self, phase: &TracePhase) -> Vec<&TraceRecord> {

@@ -35,10 +35,8 @@ impl ExpertMetrics {
             self.failed_executions += 1;
         }
 
-        self.average_confidence =
-            (self.average_confidence * prev_total + confidence) / new_total;
-        self.average_latency_ms =
-            (self.average_latency_ms * prev_total + latency_ms) / new_total;
+        self.average_confidence = (self.average_confidence * prev_total + confidence) / new_total;
+        self.average_latency_ms = (self.average_latency_ms * prev_total + latency_ms) / new_total;
     }
 
     pub fn success_rate(&self) -> f64 {

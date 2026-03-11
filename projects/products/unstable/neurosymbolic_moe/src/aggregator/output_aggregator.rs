@@ -12,10 +12,7 @@ impl OutputAggregator {
         Self { strategy }
     }
 
-    pub fn aggregate(
-        &self,
-        outputs: Vec<ExpertOutput>,
-    ) -> Result<AggregatedOutput, MoeError> {
+    pub fn aggregate(&self, outputs: Vec<ExpertOutput>) -> Result<AggregatedOutput, MoeError> {
         if outputs.is_empty() {
             return Err(MoeError::AggregationFailed(
                 "no outputs to aggregate".to_string(),
@@ -27,16 +24,14 @@ impl OutputAggregator {
             AggregationStrategy::HighestConfidence
             | AggregationStrategy::WeightedAverage
             | AggregationStrategy::Majority
-            | AggregationStrategy::Custom(_) => {
-                outputs
-                    .iter()
-                    .max_by(|a, b| {
-                        a.confidence
-                            .partial_cmp(&b.confidence)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                    .cloned()
-            }
+            | AggregationStrategy::Custom(_) => outputs
+                .iter()
+                .max_by(|a, b| {
+                    a.confidence
+                        .partial_cmp(&b.confidence)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .cloned(),
         };
 
         let strategy_name = match &self.strategy {

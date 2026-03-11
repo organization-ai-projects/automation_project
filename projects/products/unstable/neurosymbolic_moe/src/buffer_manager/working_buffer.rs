@@ -20,7 +20,12 @@ impl WorkingBuffer {
         }
     }
 
-    pub fn put(&mut self, key: impl Into<String>, value: impl Into<String>, task_id: Option<TaskId>) {
+    pub fn put(
+        &mut self,
+        key: impl Into<String>,
+        value: impl Into<String>,
+        task_id: Option<TaskId>,
+    ) {
         let key = key.into();
         if self.entries.len() >= self.capacity && !self.entries.contains_key(&key) {
             self.evict_oldest();
