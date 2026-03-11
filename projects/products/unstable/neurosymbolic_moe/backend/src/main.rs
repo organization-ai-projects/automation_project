@@ -12,6 +12,8 @@ mod orchestrator;
 mod policy_guard;
 mod retrieval_engine;
 mod router;
+#[cfg(test)]
+mod tests;
 mod trace_logger;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

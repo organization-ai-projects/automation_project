@@ -54,8 +54,8 @@ impl Expert for EchoExpert {
         &self.metadata
     }
 
-    fn can_handle(&self, _task: &Task) -> bool {
-        true
+    fn can_handle(&self, task: &Task) -> bool {
+        !task.input().is_empty()
     }
 
     fn execute(
@@ -95,7 +95,7 @@ pub fn run() -> Result<(), DynError> {
         "trace" => cmd_trace(&args[2..]),
         "impl-check" => cmd_impl_check(),
         other => {
-            eprintln!("Unknown command: {other}");
+            tracing::error!("Unknown command: {other}");
             print_usage();
             Ok(())
         }
@@ -151,27 +151,29 @@ fn cmd_run(args: &[String]) -> Result<(), DynError> {
 
     match pipeline.execute(task) {
         Ok(result) => {
-            println!("Pipeline execution successful");
+            tracing::info!("Pipeline execution successful");
             if let Some(selected) = &result.selected_output {
-                println!("Selected expert: {}", selected.expert_id.as_str());
-                println!("Confidence: {:.2}", selected.confidence);
-                println!("Output: {}", selected.content);
+                tracing::info!("Selected expert: {}", selected.expert_id.as_str());
+                tracing::info!("Confidence: {:.2}", selected.confidence);
+                tracing::info!("Output: {}", selected.content);
             }
-            println!("Total outputs: {}", result.outputs.len());
-            println!("Strategy: {}", result.strategy);
-            println!("Task kind: {task_kind}, priority: {task_priority}, context: {has_context}");
+            tracing::info!("Total outputs: {}", result.outputs.len());
+            tracing::info!("Strategy: {}", result.strategy);
+            tracing::info!(
+                "Task kind: {task_kind}, priority: {task_priority}, context: {has_context}"
+            );
         }
         Err(e) => {
-            eprintln!("Pipeline execution failed: {e}");
+            tracing::error!("Pipeline execution failed: {e}");
         }
     }
 
-    println!(
+    tracing::info!(
         "\nExpert registry: {} experts registered",
         pipeline.registry().count()
     );
-    println!("Trace log: {} entries", pipeline.trace_logger().count());
-    println!(
+    tracing::info!("Trace log: {} entries", pipeline.trace_logger().count());
+    tracing::info!(
         "Dataset store: {} entries",
         pipeline.dataset_store().count()
     );
@@ -180,24 +182,24 @@ fn cmd_run(args: &[String]) -> Result<(), DynError> {
 }
 
 fn cmd_status() -> Result<(), DynError> {
-    println!("neurosymbolic_moe platform v0.1.0");
-    println!();
-    println!("Components:");
-    println!("  moe_core          - Expert trait, Task model, ExecutionContext");
-    println!("  expert_registry   - Pluggable expert registration");
-    println!("  router            - Heuristic task routing");
-    println!("  retrieval_engine  - RAG retrieval abstraction");
-    println!("  memory_engine     - Short-term and long-term memory");
-    println!("  buffer_manager    - Working and session buffers");
-    println!("  dataset_engine    - Incremental trace-to-dataset pipeline");
-    println!("  evaluation_engine - Expert and routing metrics");
-    println!("  feedback_engine   - Execution feedback and corrections");
-    println!("  aggregator        - Multi-expert output aggregation");
-    println!("  policy_guard      - Output validation and policy checks");
-    println!("  trace_logger      - Execution traces and telemetry");
-    println!("  orchestrator      - Main orchestration pipeline");
-    println!();
-    println!("Use `impl-check` to run the full component wiring smoke test.");
+    tracing::info!("neurosymbolic_moe platform v0.1.0");
+    tracing::info!("");
+    tracing::info!("Components:");
+    tracing::info!("  moe_core          - Expert trait, Task model, ExecutionContext");
+    tracing::info!("  expert_registry   - Pluggable expert registration");
+    tracing::info!("  router            - Heuristic task routing");
+    tracing::info!("  retrieval_engine  - RAG retrieval abstraction");
+    tracing::info!("  memory_engine     - Short-term and long-term memory");
+    tracing::info!("  buffer_manager    - Working and session buffers");
+    tracing::info!("  dataset_engine    - Incremental trace-to-dataset pipeline");
+    tracing::info!("  evaluation_engine - Expert and routing metrics");
+    tracing::info!("  feedback_engine   - Execution feedback and corrections");
+    tracing::info!("  aggregator        - Multi-expert output aggregation");
+    tracing::info!("  policy_guard      - Output validation and policy checks");
+    tracing::info!("  trace_logger      - Execution traces and telemetry");
+    tracing::info!("  orchestrator      - Main orchestration pipeline");
+    tracing::info!("");
+    tracing::info!("Use `impl-check` to run the full component wiring smoke test.");
     Ok(())
 }
 
@@ -209,7 +211,7 @@ fn cmd_trace(args: &[String]) -> Result<(), DynError> {
     };
 
     if let Some(path) = trace_path {
-        println!("Trace output path: {}", path.display());
+        tracing::info!("Trace output path: {}", path.display());
     }
 
     let task_id = crate::moe_core::TaskId::new("trace-demo");
@@ -234,7 +236,7 @@ fn cmd_trace(args: &[String]) -> Result<(), DynError> {
     let by_expert = logger.get_by_expert(&expert_id);
     let recent = logger.recent(1);
 
-    println!(
+    tracing::info!(
         "Trace stats: total={} by_task={} by_phase={} by_expert={} recent={}",
         logger.count(),
         by_task.len(),
@@ -244,15 +246,15 @@ fn cmd_trace(args: &[String]) -> Result<(), DynError> {
     );
 
     logger.clear();
-    println!("Trace logger cleared: {}", logger.count());
+    tracing::info!("Trace logger cleared: {}", logger.count());
     Ok(())
 }
 
 fn cmd_impl_check() -> Result<(), DynError> {
-    println!("Running implementation check...");
+    tracing::info!("Running implementation check...");
 
     let buffer_variants = [BufferType::Working, BufferType::Session];
-    println!("Buffer variants wired: {}", buffer_variants.len());
+    tracing::info!("Buffer variants wired: {}", buffer_variants.len());
 
     let task_id = crate::moe_core::TaskId::new("impl-task");
     let expert_id = ExpertId::new("impl-expert");
@@ -260,9 +262,10 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let entry = BufferEntry::new("k", "v", 1)
         .with_task_id(task_id.clone())
         .with_session_id("s1");
-    println!(
+    tracing::info!(
         "BufferEntry key={} created_at={}",
-        entry.key, entry.created_at
+        entry.key,
+        entry.created_at
     );
 
     let mut buffers = BufferManager::new(2);
@@ -273,7 +276,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let working_count = buffers.working().count();
     let working_keys_len = buffers.working().keys().len();
     let removed_working = buffers.working_mut().remove("ctx").is_some();
-    println!(
+    tracing::info!(
         "Working buffer: count={} keys={} get={} removed={}",
         working_count,
         working_keys_len,
@@ -291,9 +294,12 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let session_list_len = buffers.sessions().list_sessions().len();
     let session_count = buffers.sessions().session_count();
     let removed_session = buffers.sessions_mut().remove_session("s1");
-    println!(
+    tracing::info!(
         "Session buffer: get={} list={} count={} removed={}",
-        session_get, session_list_len, session_count, removed_session
+        session_get,
+        session_list_len,
+        session_count,
+        removed_session
     );
     buffers.clear_all();
 
@@ -302,7 +308,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let mut direct_sessions = SessionBuffer::new();
     direct_sessions.create_session("direct-s");
     direct_sessions.put("direct-s", "k", "v");
-    println!(
+    tracing::info!(
         "Direct buffers: working={} sessions={}",
         direct_working.count(),
         direct_sessions.session_count()
@@ -352,7 +358,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let correction_entries = dataset_store
         .get_corrections(&dataset_entry.id)
         .map_or(0, std::vec::Vec::len);
-    println!(
+    tracing::info!(
         "Dataset: count={} by_task={} by_expert={} success={} corrections={} ok={} ko={}",
         dataset_store.count(),
         task_entries,
@@ -376,15 +382,16 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let worst = evaluation
         .worst_performing_expert()
         .map(|m| m.expert_id.as_str().to_string());
-    println!(
+    tracing::info!(
         "Evaluation: expert_rate={expert_rate:.2} routing_accuracy={routing_accuracy:.2} best={:?} worst={:?}",
-        best, worst
+        best,
+        worst
     );
     let mut manual_expert_metrics = ExpertMetrics::new(expert_id.clone());
     manual_expert_metrics.record_execution(true, 0.7, 8.0);
     let mut manual_routing_metrics = RoutingMetrics::new();
     manual_routing_metrics.record_routing(2, false);
-    println!(
+    tracing::info!(
         "Manual metrics: expert_rate={:.2} routing_accuracy={:.2}",
         manual_expert_metrics.success_rate(),
         manual_routing_metrics.accuracy()
@@ -402,7 +409,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
         .latest_version(&expert_id)
         .map(|v| v.version.clone())
         .unwrap_or_else(|| "none".to_string());
-    println!("Version tracker: history={history_count} latest={latest}");
+    tracing::info!("Version tracker: history={history_count} latest={latest}");
 
     let mut feedback_store = FeedbackStore::new();
     feedback_store.add(FeedbackEntry {
@@ -414,7 +421,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
         comment: "good".to_string(),
         created_at: 2,
     });
-    println!(
+    tracing::info!(
         "Feedback: count={} by_task={} by_expert={} by_type={} avg={:?}",
         feedback_store.count(),
         feedback_store.get_by_task(&task_id).len(),
@@ -469,9 +476,12 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let short_expired = short_store.expire(101);
     let short_after = short_store.count();
     let removed_short = short_store.remove("mem-short").is_some();
-    println!(
+    tracing::info!(
         "Short memory: found={} expired={} count={} removed={}",
-        short_found, short_expired, short_after, removed_short
+        short_found,
+        short_expired,
+        short_after,
+        removed_short
     );
 
     let mut long_store = LongTermMemory::new();
@@ -479,9 +489,11 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let long_found = long_store.retrieve(&memory_query)?.len();
     let long_count = long_store.count();
     let long_removed = long_store.remove("mem-long").is_some();
-    println!(
+    tracing::info!(
         "Long memory: found={} count={} removed={}",
-        long_found, long_count, long_removed
+        long_found,
+        long_count,
+        long_removed
     );
 
     let mut chunk = Chunk::new("c0", "Rust systems programming", "doc://a", 0, 25);
@@ -496,9 +508,11 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let semantic_chunks = chunker_semantic
         .chunk("Sentence one. Sentence two!", "doc://sem")
         .len();
-    println!(
+    tracing::info!(
         "Chunking: fixed={} paragraph={} semantic={}",
-        fixed_chunks, paragraph_chunks, semantic_chunks
+        fixed_chunks,
+        paragraph_chunks,
+        semantic_chunks
     );
 
     let mut retriever = SimpleRetriever::new();
@@ -529,7 +543,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let assembler = ContextAssembler::new(120);
     let assembled = assembler.assemble(&all_results);
     let assembled_for_task = assembler.assemble_for_task(&all_results, &task_for_context);
-    println!(
+    tracing::info!(
         "Retrieval: results={} assembled={} assembled_task={} task_type={:?} has_ctx={} priority={:?}",
         all_results.len(),
         assembled.len(),
@@ -544,7 +558,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
         .with_memory_entries(vec!["m1".to_string()])
         .with_buffer_data(vec!["b1".to_string()])
         .with_parameter("runtime", "demo");
-    println!(
+    tracing::info!(
         "Execution context: retrieved={} memory={} buffer={} params={}",
         execution_context.retrieved_context.len(),
         execution_context.memory_entries.len(),
@@ -563,7 +577,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
     };
     let routing_trace = RoutingTrace::from_decision(&decision, 3);
     let extra_strategies = [RoutingStrategy::MultiExpert, RoutingStrategy::RoundRobin];
-    println!(
+    tracing::info!(
         "Routing: selected={} evaluated={} strategy={:?} extra_strategies={}",
         routing_trace.selected.len(),
         routing_trace.candidates_evaluated,
@@ -585,7 +599,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
         "aggregation done".to_string(),
         Some(expert_id.clone()),
     );
-    println!(
+    tracing::info!(
         "Trace logger stats: total={} task={} phase={} expert={} recent={}",
         logger.count(),
         logger.get_by_task(&task_id).len(),
@@ -634,16 +648,17 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let first_policy_result: Option<PolicyResult> = policy_results.first().cloned();
     guard.validate_strict(&output)?;
     let removed_policy = guard.remove_policy("custom");
-    println!(
+    tracing::info!(
         "Policy guard: results={} active={} removed_custom={}",
         policy_results.len(),
         guard.active_policy_count(),
         removed_policy
     );
     if let Some(sample) = first_policy_result {
-        println!(
+        tracing::info!(
             "First policy result: {} => {}",
-            sample.policy_id, sample.passed
+            sample.policy_id,
+            sample.passed
         );
     }
 
@@ -668,7 +683,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let removed = registry
         .deregister(&ExpertId::new("router_retrieval"))
         .is_some();
-    println!(
+    tracing::info!(
         "Registry: count={} active={} cap_hits={} task_hits={} contains={} removed={}",
         registry.count(),
         active,
@@ -681,7 +696,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
     let router_instance = HeuristicRouter::new(2);
     let routed = Router::route(&router_instance, &route_task, &registry)?;
     let fallback_variant = RoutingStrategy::Fallback;
-    println!(
+    tracing::info!(
         "Router run: selected={} strategy={:?} fallback_variant={:?}",
         routed.selected_experts.len(),
         routed.strategy,
@@ -720,7 +735,7 @@ fn cmd_impl_check() -> Result<(), DynError> {
         comment: "wire to central engine".to_string(),
         created_at: 3,
     });
-    println!(
+    tracing::info!(
         "Pipeline: outputs={} eval_routings={} feedback={} traces={} dataset={}",
         pipeline_result.outputs.len(),
         pipeline.evaluation().get_routing_metrics().total_routings,
@@ -729,16 +744,16 @@ fn cmd_impl_check() -> Result<(), DynError> {
         pipeline.dataset_store().count()
     );
 
-    println!("Implementation check completed.");
+    tracing::info!("Implementation check completed.");
     Ok(())
 }
 
 fn print_usage() {
-    println!("neurosymbolic_moe - advanced modular MoE platform");
-    println!();
-    println!("Commands:");
-    println!("  run [input...]     Execute a task through the MoE pipeline");
-    println!("  status             Show platform component status");
-    println!("  trace [path]       Inspect execution traces");
-    println!("  impl-check         Execute full component wiring check");
+    tracing::info!("neurosymbolic_moe - advanced modular MoE platform");
+    tracing::info!("");
+    tracing::info!("Commands:");
+    tracing::info!("  run [input...]     Execute a task through the MoE pipeline");
+    tracing::info!("  status             Show platform component status");
+    tracing::info!("  trace [path]       Inspect execution traces");
+    tracing::info!("  impl-check         Execute full component wiring check");
 }
