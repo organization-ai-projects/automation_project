@@ -3,10 +3,8 @@
 write_section_from_file() {
   local file="$1"
   if [[ -s "$file" ]]; then
-    if command -v va_exec >/dev/null 2>&1; then
-      if va_exec pr sort-bullets --input-file "$file" 2>/dev/null; then
-        return
-      fi
+    if va_exec pr sort-bullets --input-file "$file" 2>/dev/null; then
+      return
     fi
     while IFS= read -r line; do
       pr_num="$(echo "$line" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')"
@@ -30,12 +28,10 @@ pr_render_grouped_by_category() {
   local output_file="$3"
   local va_output=""
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_output="$(va_exec pr group-by-category --input-file "$input_file" --mode "$mode" 2>/dev/null || true)"
-    if [[ -n "$va_output" ]]; then
-      printf '%s\n' "$va_output" >"$output_file"
-      return 0
-    fi
+  va_output="$(va_exec pr group-by-category --input-file "$input_file" --mode "$mode" 2>/dev/null || true)"
+  if [[ -n "$va_output" ]]; then
+    printf '%s\n' "$va_output" >"$output_file"
+    return 0
   fi
 
   sort -t'|' -k1,1n "$input_file" |

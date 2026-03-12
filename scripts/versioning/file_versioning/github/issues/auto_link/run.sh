@@ -9,14 +9,12 @@ ISSUES_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
 source "${ISSUES_DIR}/../lib/va.sh"
 
 if [[ "${VA_AUTO_LINK_WRAPPER_ACTIVE:-0}" != "1" && "${VA_AUTO_LINK_FORCE_LEGACY:-0}" != "1" ]]; then
-  if command -v va_exec >/dev/null 2>&1; then
-    set +e
-    VA_AUTO_LINK_WRAPPER_ACTIVE=1 va_exec issue auto-link "$@"
-    va_status=$?
-    set -e
-    if [[ "$va_status" -ne 127 ]]; then
-      exit "$va_status"
-    fi
+  set +e
+  VA_AUTO_LINK_WRAPPER_ACTIVE=1 va_exec issue auto-link "$@"
+  va_status=$?
+  set -e
+  if [[ "$va_status" -ne 127 ]]; then
+    exit "$va_status"
   fi
 fi
 

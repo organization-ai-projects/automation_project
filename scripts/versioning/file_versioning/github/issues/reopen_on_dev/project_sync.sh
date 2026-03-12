@@ -14,13 +14,11 @@ reopen_on_dev_sync_issue_project_status() {
   local status_field_id
   local status_option_id
 
-  if command -v va_exec >/dev/null 2>&1; then
-    if va_exec issue sync-project-status \
-      --repo "$repo" \
-      --issue "$issue_number" \
-      --status "$target_status" >/dev/null 2>&1; then
-      return 0
-    fi
+  if va_exec issue sync-project-status \
+    --repo "$repo" \
+    --issue "$issue_number" \
+    --status "$target_status" >/dev/null 2>&1; then
+    return 0
   fi
 
   owner="${repo%/*}"

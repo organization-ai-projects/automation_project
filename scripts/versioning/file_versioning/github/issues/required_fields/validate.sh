@@ -10,7 +10,6 @@ issue_validate_via_va() {
   local labels_raw="$4"
 
   [[ -n "$mode" ]] || return 1
-  command -v va_exec >/dev/null 2>&1 || return 1
 
   va_exec issue required-fields-validate \
     --mode "$mode" \

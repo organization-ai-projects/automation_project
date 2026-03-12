@@ -26,10 +26,6 @@ create_direct_issue_try_va_dispatch() {
     return 1
   fi
 
-  if ! command -v va_exec >/dev/null 2>&1; then
-    return 1
-  fi
-
   VA_CREATE_DIRECT_WRAPPER_ACTIVE=1 va_exec issue create "$@"
 }
 

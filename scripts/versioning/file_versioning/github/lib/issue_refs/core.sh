@@ -19,11 +19,8 @@ _issue_refs_build_va_cmd() {
     out_ref=("${VA_PR_DIRECTIVES_BIN}" pr "$subcommand")
     return 0
   fi
-  if command -v va_exec >/dev/null 2>&1; then
-    out_ref=(va_exec pr "$subcommand")
-    return 0
-  fi
-  return 1
+  out_ref=(va_exec pr "$subcommand")
+  return 0
 }
 
 _parse_issue_directive_event_refs() {

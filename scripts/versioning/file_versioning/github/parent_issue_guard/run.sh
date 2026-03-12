@@ -11,14 +11,12 @@ ROOT_GITHUB_DIR="$(cd "${PARENT_GUARD_DIR}/.." && pwd)"
 source "${ROOT_GITHUB_DIR}/lib/va.sh"
 
 if [[ "${VA_PARENT_ISSUE_GUARD_WRAPPER_ACTIVE:-0}" != "1" && "${VA_PARENT_ISSUE_GUARD_FORCE_LEGACY:-0}" != "1" ]]; then
-  if command -v va_exec >/dev/null 2>&1; then
-    set +e
-    VA_PARENT_ISSUE_GUARD_WRAPPER_ACTIVE=1 va_exec issue parent-guard "$@"
-    va_status=$?
-    set -e
-    if [[ "$va_status" -ne 127 ]]; then
-      exit "$va_status"
-    fi
+  set +e
+  VA_PARENT_ISSUE_GUARD_WRAPPER_ACTIVE=1 va_exec issue parent-guard "$@"
+  va_status=$?
+  set -e
+  if [[ "$va_status" -ne 127 ]]; then
+    exit "$va_status"
   fi
 fi
 

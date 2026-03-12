@@ -16,16 +16,14 @@ issue_non_compliance_reason_from_content() {
   local validations
   local first_reason
 
-  if command -v va_exec >/dev/null 2>&1; then
-    if first_reason="$(
-      va_exec issue non-compliance-reason \
-        --title "$title" \
-        --body "$body" \
-        --labels-raw "$labels_raw" 2>/dev/null
-    )"; then
-      printf '%s' "$first_reason"
-      return
-    fi
+  if first_reason="$(
+    va_exec issue non-compliance-reason \
+      --title "$title" \
+      --body "$body" \
+      --labels-raw "$labels_raw" 2>/dev/null
+  )"; then
+    printf '%s' "$first_reason"
+    return
   fi
 
   lower_labels="$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')"

@@ -35,10 +35,6 @@ manager_issues_try_va_dispatch() {
     return 1
   fi
 
-  if ! command -v va_exec >/dev/null 2>&1; then
-    return 1
-  fi
-
   VA_MANAGER_WRAPPER_ACTIVE=1 va_exec issue "$@"
 }
 
