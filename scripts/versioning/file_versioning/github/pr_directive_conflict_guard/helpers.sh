@@ -32,17 +32,14 @@ pr_directive_conflict_guard_apply_reopen_rejected_marker() {
   local issue_key="$2"
   local updated
 
-  if command -v va_exec >/dev/null 2>&1; then
-    updated="$(
-      printf '%s' "$body" | va_exec pr closure-marker --stdin \
-        --keyword-pattern 'reopen|reopens' \
-        --issue "$issue_key" \
-        --mode apply 2>/dev/null
-    )"
-    if [[ $? -eq 0 ]]; then
-      printf '%s' "$updated"
-      return
-    fi
+  if updated="$(
+    printf '%s' "$body" | va_exec pr closure-marker --stdin \
+      --keyword-pattern 'reopen|reopens' \
+      --issue "$issue_key" \
+      --mode apply 2>/dev/null
+  )"; then
+    printf '%s' "$updated"
+    return
   fi
 
   DIRECTIVE_CONFLICT_ISSUE_KEY="$issue_key" perl -0777 -pe '

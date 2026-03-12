@@ -57,10 +57,6 @@ pr_directive_conflict_guard_collect_conflicts_via_va() {
   local output
   local record_type issue_key decision_or_reason origin
 
-  if ! command -v va_exec >/dev/null 2>&1; then
-    return 1
-  fi
-
   output="$(printf '%s' "$text" | va_exec pr directive-conflicts --stdin --source-branch-count "$source_branch_count" 2>/dev/null)" || {
     return 1
   }
