@@ -1789,6 +1789,47 @@ mod v5 {
     }
 
     #[test]
+    fn v5_governance_retention_keeps_snapshots_aligned_with_audit_versions() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-retention-align"),
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .with_max_governance_audit_entries(1)
+            .with_max_governance_state_snapshots(8)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-retention-align")))
+            .expect("expert registration should succeed");
+
+        let _ = pipeline
+            .execute(Task::new(
+                "v5-retention-align-1",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("first execution should succeed");
+        let _ = pipeline
+            .execute(Task::new(
+                "v5-retention-align-2",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("second execution should succeed");
+
+        let trail = pipeline.governance_audit_trail();
+        assert_eq!(trail.entries.len(), 1);
+        assert_eq!(pipeline.governance_state_snapshots().len(), 1);
+        assert_eq!(
+            pipeline.governance_state_snapshots()[0].version,
+            trail.entries[0].version
+        );
+    }
+
+    #[test]
     fn v5_governance_bundle_roundtrip_restores_audit_and_snapshots() {
         let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
         let router = SingleExpertRouter {
@@ -2188,6 +2229,58 @@ mod v5 {
                 .reason
                 .contains("rollback"),
             "rollback reason should be recorded after restore"
+        );
+    }
+
+    #[test]
+    fn v5_governance_bundle_import_retention_keeps_snapshots_aligned_with_audit_versions() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-import-retention-align"),
+        };
+
+        let mut source = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .with_max_governance_audit_entries(8)
+            .with_max_governance_state_snapshots(8)
+            .build();
+        source
+            .register_expert(Box::new(V5FlakyExpert::new("v5-import-retention-align")))
+            .expect("expert registration should succeed");
+        let _ = source
+            .execute(Task::new(
+                "v5-import-retention-align-1",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("first execution should succeed");
+        let _ = source
+            .execute(Task::new(
+                "v5-import-retention-align-2",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("second execution should succeed");
+
+        let bundle = source.export_governance_bundle();
+        assert!(bundle.audit_entries.len() >= 2);
+        assert!(bundle.snapshots.len() >= 2);
+
+        let mut target = MoePipelineBuilder::new()
+            .with_max_governance_audit_entries(1)
+            .with_max_governance_state_snapshots(8)
+            .build();
+        target
+            .import_governance_bundle(bundle)
+            .expect("bundle import should succeed");
+
+        let trail = target.governance_audit_trail();
+        assert_eq!(trail.entries.len(), 1);
+        assert_eq!(target.governance_state_snapshots().len(), 1);
+        assert_eq!(
+            target.governance_state_snapshots()[0].version,
+            trail.entries[0].version
         );
     }
 }

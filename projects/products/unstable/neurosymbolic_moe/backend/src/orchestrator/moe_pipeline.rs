@@ -513,6 +513,7 @@ impl MoePipeline {
                 self.governance_state_snapshots.len() - self.max_governance_state_snapshots;
             self.governance_state_snapshots.drain(0..to_trim);
         }
+        self.retain_snapshots_with_matching_audit_versions();
 
         Ok(())
     }
@@ -984,6 +985,7 @@ impl MoePipeline {
                 self.governance_state_snapshots.len() - self.max_governance_state_snapshots;
             self.governance_state_snapshots.drain(0..to_trim);
         }
+        self.retain_snapshots_with_matching_audit_versions();
     }
 
     fn evaluate_governance_import(&self, state: &GovernanceState) -> GovernanceImportDecision {
@@ -1011,5 +1013,20 @@ impl MoePipeline {
             reasons,
             diff,
         }
+    }
+
+    fn retain_snapshots_with_matching_audit_versions(&mut self) {
+        if self.governance_state_snapshots.is_empty() || self.governance_audit_entries.is_empty() {
+            self.governance_state_snapshots.clear();
+            return;
+        }
+
+        let audit_versions: std::collections::HashSet<u64> = self
+            .governance_audit_entries
+            .iter()
+            .map(|entry| entry.version)
+            .collect();
+        self.governance_state_snapshots
+            .retain(|snapshot| audit_versions.contains(&snapshot.version));
     }
 }
