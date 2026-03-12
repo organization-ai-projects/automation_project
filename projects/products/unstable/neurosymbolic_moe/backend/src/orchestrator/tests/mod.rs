@@ -4,3 +4,4 @@ mod governance_import_policy;
 mod governance_state;
 mod moe_pipeline;
 mod moe_pipeline_builder;
+mod runtime_persistence_bundle;

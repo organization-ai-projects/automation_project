@@ -538,12 +538,12 @@ impl MoePipeline {
     }
 
     pub fn export_runtime_bundle(&self) -> RuntimePersistenceBundle {
-        RuntimePersistenceBundle {
-            governance: self.export_governance_bundle(),
-            short_term_memory_entries: self.short_term_memory.entries_cloned(),
-            long_term_memory_entries: self.long_term_memory.entries_cloned(),
-            buffer_manager: self.buffer_manager.clone(),
-        }
+        RuntimePersistenceBundle::from_components(
+            self.export_governance_bundle(),
+            self.short_term_memory.entries_cloned(),
+            self.long_term_memory.entries_cloned(),
+            self.buffer_manager.clone(),
+        )
     }
 
     pub fn export_runtime_bundle_json(&self) -> Result<String, MoeError> {
@@ -607,6 +607,13 @@ impl MoePipeline {
         &mut self,
         bundle: RuntimePersistenceBundle,
     ) -> Result<(), MoeError> {
+        let decision = self.evaluate_runtime_bundle_import(&bundle)?;
+        if !decision.allowed {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle rejected: {}",
+                decision.reasons.join("; ")
+            )));
+        }
         self.import_governance_bundle(bundle.governance)?;
         self.short_term_memory
             .replace_entries(bundle.short_term_memory_entries)?;
@@ -624,6 +631,43 @@ impl MoePipeline {
                 ))
             })?;
         self.import_runtime_bundle(bundle)
+    }
+
+    pub fn try_import_runtime_bundle(
+        &mut self,
+        bundle: RuntimePersistenceBundle,
+    ) -> Result<(), MoeError> {
+        let decision = self.evaluate_runtime_bundle_import(&bundle)?;
+        if !decision.allowed {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle import rejected: {}",
+                decision.reasons.join("; ")
+            )));
+        }
+        self.import_runtime_bundle(bundle)
+    }
+
+    pub fn try_import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        let bundle: RuntimePersistenceBundle =
+            common_json::json::from_json_str(payload).map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "runtime persistence bundle deserialization failed: {err}"
+                ))
+            })?;
+        self.try_import_runtime_bundle(bundle)
+    }
+
+    pub fn preview_runtime_bundle_import_json(
+        &self,
+        payload: &str,
+    ) -> Result<GovernanceImportDecision, MoeError> {
+        let bundle: RuntimePersistenceBundle =
+            common_json::json::from_json_str(payload).map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "runtime persistence bundle deserialization failed: {err}"
+                ))
+            })?;
+        self.evaluate_runtime_bundle_import(&bundle)
     }
 
     pub fn try_import_governance_bundle(
@@ -1043,6 +1087,24 @@ impl MoePipeline {
         normalized_bundle.state = state;
         Self::validate_governance_bundle_consistency(&normalized_bundle)?;
         Ok(self.evaluate_governance_import(&normalized_bundle.state))
+    }
+
+    fn evaluate_runtime_bundle_import(
+        &self,
+        bundle: &RuntimePersistenceBundle,
+    ) -> Result<GovernanceImportDecision, MoeError> {
+        if !bundle.has_supported_schema() {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle schema version {} is not supported",
+                bundle.schema_version
+            )));
+        }
+        if !bundle.verify_checksum() {
+            return Err(MoeError::PolicyRejected(
+                "runtime bundle checksum verification failed".to_string(),
+            ));
+        }
+        self.evaluate_governance_bundle_import(&bundle.governance)
     }
 
     fn validate_governance_bundle_consistency(
