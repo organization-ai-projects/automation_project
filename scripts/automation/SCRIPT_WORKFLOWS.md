@@ -18,7 +18,7 @@ branching | `scripts/versioning/file_versioning/git/create_work_branch.sh` | Cre
 commit_push | `scripts/versioning/file_versioning/git/add_commit_push.sh` | Add, commit, push with validation
 commit_push | `scripts/versioning/file_versioning/git/push_branch.sh` | Push current branch with policy checks
 pre_push | `scripts/automation/pre_push_check.sh` | Pre-push quality gate
-pr_creation | `scripts/versioning/file_versioning/github/generate_pr_description.sh` | Canonical PR create/refresh entrypoint
+pr_creation | `versioning_automation pr generate-description ...` | Canonical PR create/refresh entrypoint (Rust CLI)
 issue_creation | `scripts/versioning/file_versioning/github/create_direct_issue.sh` | Create direct issue from issue contract
 issue_lifecycle | `scripts/versioning/file_versioning/github/manager_issues.sh` | Route create/update/close/reopen issue operations
 
