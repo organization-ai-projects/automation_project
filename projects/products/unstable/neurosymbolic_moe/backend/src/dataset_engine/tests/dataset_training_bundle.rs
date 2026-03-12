@@ -46,6 +46,7 @@ fn training_bundle_uses_latest_correction_for_target_output() {
 
     assert_eq!(bundle.included_entries, 1);
     assert_eq!(bundle.train_samples.len(), 1);
+    assert!(bundle.verify_checksum());
     let sample = &bundle.train_samples[0];
     assert!(sample.used_correction);
     assert_eq!(sample.target_output, "latest correction");
@@ -176,6 +177,8 @@ fn training_shards_cover_all_samples_without_overlap_loss() {
     let shards = store
         .build_training_shards(&options, 4)
         .expect("training shards build should succeed");
+    let rebuilt = DatasetStore::rebuild_training_bundle_from_shards(&shards)
+        .expect("rebuild from shards should succeed");
 
     let sharded_train: usize = shards.iter().map(|shard| shard.train_samples.len()).sum();
     let sharded_valid: usize = shards
@@ -190,6 +193,7 @@ fn training_shards_cover_all_samples_without_overlap_loss() {
             .iter()
             .all(|shard| shard.total_shards == shards.len())
     );
+    assert_eq!(rebuilt.bundle_checksum, bundle.bundle_checksum);
 }
 
 #[test]
@@ -200,4 +204,31 @@ fn training_shards_reject_zero_max_samples() {
         .build_training_shards(&options, 0)
         .expect_err("zero max_samples_per_shard should fail");
     assert!(err.to_string().contains("max_samples_per_shard"));
+}
+
+#[test]
+fn rebuild_training_bundle_from_shards_rejects_tampered_shard_checksum() {
+    let mut store = DatasetStore::new();
+    for idx in 0..8_u32 {
+        store.add_entry(make_entry(
+            &format!("entry-{idx}"),
+            "expert-a",
+            Outcome::Success,
+            Some(0.9),
+        ));
+    }
+
+    let options = DatasetTrainingBuildOptions {
+        split_seed: 33,
+        validation_ratio: 0.25,
+        ..DatasetTrainingBuildOptions::default()
+    };
+    let mut shards = store
+        .build_training_shards(&options, 3)
+        .expect("training shards build should succeed");
+    shards[0].train_samples[0].target_output = "tampered target".to_string();
+
+    let err = DatasetStore::rebuild_training_bundle_from_shards(&shards)
+        .expect_err("tampered shard content should fail checksum validation");
+    assert!(err.to_string().contains("invalid shard checksum"));
 }

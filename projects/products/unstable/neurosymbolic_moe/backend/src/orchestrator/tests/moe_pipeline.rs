@@ -382,6 +382,12 @@ fn export_training_dataset_shards_from_pipeline() {
     let shards_json = pipeline
         .export_training_dataset_shards_json(&options, 2)
         .expect("training dataset shards json should export");
+    let rebuilt = pipeline
+        .rebuild_training_dataset_bundle_from_shards(&shards)
+        .expect("training dataset bundle should rebuild from shards");
+    let rebuilt_from_json = pipeline
+        .rebuild_training_dataset_bundle_from_shards_json(&shards_json)
+        .expect("training dataset bundle should rebuild from shards json");
 
     assert!(!shards.is_empty());
     assert!(
@@ -389,5 +395,7 @@ fn export_training_dataset_shards_from_pipeline() {
             .iter()
             .all(|shard| shard.total_shards == shards.len())
     );
+    assert_eq!(rebuilt.included_entries, rebuilt_from_json.included_entries);
+    assert!(rebuilt.verify_checksum());
     assert!(!shards_json.is_empty());
 }

@@ -229,8 +229,9 @@ impl DatasetStore {
             }
         }
 
-        Ok(DatasetTrainingBundle {
+        let mut bundle = DatasetTrainingBundle {
             schema_version: DatasetTrainingBundle::schema_version(),
+            bundle_checksum: String::new(),
             generated_at: options.generated_at,
             validation_ratio: options.validation_ratio,
             split_seed: options.split_seed,
@@ -241,7 +242,9 @@ impl DatasetStore {
             filtered_missing_failure_correction,
             train_samples,
             validation_samples,
-        })
+        };
+        bundle.ensure_checksum();
+        Ok(bundle)
     }
 
     pub fn build_training_shards(
@@ -292,17 +295,139 @@ impl DatasetStore {
 
             shards.push(DatasetTrainingShard {
                 schema_version: bundle.schema_version,
+                bundle_checksum: bundle.bundle_checksum.clone(),
+                shard_checksum: String::new(),
                 generated_at: bundle.generated_at,
                 split_seed: bundle.split_seed,
                 validation_ratio: bundle.validation_ratio,
+                total_entries: bundle.total_entries,
+                included_entries: bundle.included_entries,
+                filtered_low_score: bundle.filtered_low_score,
+                filtered_outcome: bundle.filtered_outcome,
+                filtered_missing_failure_correction: bundle.filtered_missing_failure_correction,
                 shard_index,
                 total_shards,
                 train_samples,
                 validation_samples,
             });
+            if let Some(last) = shards.last_mut() {
+                last.ensure_checksum();
+            }
         }
 
         Ok(shards)
+    }
+
+    pub fn rebuild_training_bundle_from_shards(
+        shards: &[DatasetTrainingShard],
+    ) -> Result<DatasetTrainingBundle, MoeError> {
+        if shards.is_empty() {
+            return Err(MoeError::DatasetError(
+                "cannot rebuild training bundle from empty shards".to_string(),
+            ));
+        }
+
+        let first = &shards[0];
+        let total_shards = first.total_shards;
+        if total_shards == 0 {
+            return Err(MoeError::DatasetError(
+                "invalid shard metadata: total_shards must be > 0".to_string(),
+            ));
+        }
+        if shards.len() != total_shards {
+            return Err(MoeError::DatasetError(format!(
+                "invalid shard set: expected {} shards, got {}",
+                total_shards,
+                shards.len()
+            )));
+        }
+
+        let mut index_set: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        for shard in shards {
+            if !shard.verify_checksum() {
+                return Err(MoeError::DatasetError(format!(
+                    "invalid shard checksum at index {}",
+                    shard.shard_index
+                )));
+            }
+            if shard.total_shards != total_shards
+                || shard.schema_version != first.schema_version
+                || shard.bundle_checksum != first.bundle_checksum
+                || shard.generated_at != first.generated_at
+                || shard.split_seed != first.split_seed
+                || (shard.validation_ratio - first.validation_ratio).abs() > f64::EPSILON
+                || shard.total_entries != first.total_entries
+                || shard.included_entries != first.included_entries
+                || shard.filtered_low_score != first.filtered_low_score
+                || shard.filtered_outcome != first.filtered_outcome
+                || shard.filtered_missing_failure_correction
+                    != first.filtered_missing_failure_correction
+            {
+                return Err(MoeError::DatasetError(
+                    "inconsistent shard metadata across shard set".to_string(),
+                ));
+            }
+            if !index_set.insert(shard.shard_index) {
+                return Err(MoeError::DatasetError(format!(
+                    "duplicate shard index {}",
+                    shard.shard_index
+                )));
+            }
+        }
+        if (0..total_shards).any(|index| !index_set.contains(&index)) {
+            return Err(MoeError::DatasetError(
+                "shard set is missing one or more shard indexes".to_string(),
+            ));
+        }
+
+        let mut ordered = shards.to_vec();
+        ordered.sort_by_key(|shard| shard.shard_index);
+
+        let mut train_samples = Vec::new();
+        let mut validation_samples = Vec::new();
+        for shard in &ordered {
+            train_samples.extend(shard.train_samples.clone());
+            validation_samples.extend(shard.validation_samples.clone());
+        }
+
+        let mut bundle = DatasetTrainingBundle {
+            schema_version: first.schema_version,
+            bundle_checksum: first.bundle_checksum.clone(),
+            generated_at: first.generated_at,
+            validation_ratio: first.validation_ratio,
+            split_seed: first.split_seed,
+            total_entries: first.total_entries,
+            included_entries: first.included_entries,
+            filtered_low_score: first.filtered_low_score,
+            filtered_outcome: first.filtered_outcome,
+            filtered_missing_failure_correction: first.filtered_missing_failure_correction,
+            train_samples,
+            validation_samples,
+        };
+        bundle.ensure_checksum();
+        if !bundle.has_supported_schema() {
+            return Err(MoeError::DatasetError(format!(
+                "unsupported training bundle schema version {}",
+                bundle.schema_version
+            )));
+        }
+        if !bundle.verify_checksum() {
+            return Err(MoeError::DatasetError(
+                "rebuilt training bundle checksum verification failed".to_string(),
+            ));
+        }
+        if bundle.bundle_checksum != first.bundle_checksum {
+            return Err(MoeError::DatasetError(
+                "rebuilt training bundle checksum mismatch against shard bundle checksum"
+                    .to_string(),
+            ));
+        }
+        if bundle.included_entries != bundle.train_samples.len() + bundle.validation_samples.len() {
+            return Err(MoeError::DatasetError(
+                "rebuilt training bundle included_entries does not match sample counts".to_string(),
+            ));
+        }
+        Ok(bundle)
     }
 }
 

@@ -850,15 +850,21 @@ fn cmd_impl_check() -> Result<(), DynError> {
         },
         128,
     )?;
+    let rebuilt_training_bundle =
+        restore_pipeline.rebuild_training_dataset_bundle_from_shards(&training_shards)?;
+    let rebuilt_training_bundle_from_json =
+        restore_pipeline.rebuild_training_dataset_bundle_from_shards_json(&training_shards_json)?;
     tracing::info!(
-        "Training dataset bundle: total={} included={} train={} valid={} json_bytes={} shards={} shards_json_bytes={}",
+        "Training dataset bundle: total={} included={} train={} valid={} json_bytes={} shards={} shards_json_bytes={} rebuilt={} rebuilt_json={}",
         training_bundle.total_entries,
         training_bundle.included_entries,
         training_bundle.train_samples.len(),
         training_bundle.validation_samples.len(),
         training_bundle_json.len(),
         training_shards.len(),
-        training_shards_json.len()
+        training_shards_json.len(),
+        rebuilt_training_bundle.included_entries,
+        rebuilt_training_bundle_from_json.included_entries
     );
 
     tracing::info!("Implementation check completed.");

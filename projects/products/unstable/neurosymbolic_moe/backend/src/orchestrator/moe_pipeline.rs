@@ -490,6 +490,26 @@ impl MoePipeline {
         })
     }
 
+    pub fn rebuild_training_dataset_bundle_from_shards(
+        &self,
+        shards: &[DatasetTrainingShard],
+    ) -> Result<DatasetTrainingBundle, MoeError> {
+        DatasetStore::rebuild_training_bundle_from_shards(shards)
+    }
+
+    pub fn rebuild_training_dataset_bundle_from_shards_json(
+        &self,
+        payload: &str,
+    ) -> Result<DatasetTrainingBundle, MoeError> {
+        let shards: Vec<DatasetTrainingShard> =
+            common_json::json::from_json_str(payload).map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "training dataset shard deserialization failed: {err}"
+                ))
+            })?;
+        self.rebuild_training_dataset_bundle_from_shards(&shards)
+    }
+
     pub fn add_feedback(&mut self, entry: FeedbackEntry) {
         self.feedback_store.add(entry);
     }
