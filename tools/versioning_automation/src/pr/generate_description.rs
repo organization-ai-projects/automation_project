@@ -17,8 +17,12 @@ const E_NO_DATA: i32 = 5;
 #[derive(Debug, Clone)]
 struct GenerateOptions {
     dry_run: bool,
+    create_pr: bool,
+    allow_partial_create: bool,
+    assume_yes: bool,
     base_ref: Option<String>,
     head_ref: Option<String>,
+    duplicate_mode: Option<String>,
     auto_edit_pr_number: Option<String>,
     validation_only: bool,
     output_file: Option<String>,
@@ -106,6 +110,28 @@ fn run_native_dry_run(opts: GenerateOptions) -> i32 {
             Err(msg) => {
                 eprintln!("{msg}");
                 E_DEPENDENCY
+            }
+        }
+    } else if opts.create_pr {
+        if !opts.assume_yes {
+            eprintln!("--yes is required for native --create-pr/--auto mode.");
+            return E_USAGE;
+        }
+
+        let title = build_dynamic_pr_title(&base_ref, &head_ref, &commits);
+        match gh_create_pr(&base_ref, &head_ref, &title, &body) {
+            Ok(url_or_message) => {
+                println!("PR created: {url_or_message}");
+                0
+            }
+            Err(msg) => {
+                if opts.allow_partial_create {
+                    eprintln!("Warning: create-pr failed (partial allowed): {msg}");
+                    0
+                } else {
+                    eprintln!("{msg}");
+                    E_DEPENDENCY
+                }
             }
         }
     } else if let Some(path) = opts.output_file {
@@ -567,14 +593,103 @@ fn classify_title(title: &str) -> &'static str {
     "Features"
 }
 
+fn build_dynamic_pr_title(base_ref: &str, head_ref: &str, commits: &[CommitInfo]) -> String {
+    let mut has_sync = false;
+    let mut has_features = false;
+    let mut has_bugs = false;
+    let mut has_refactors = false;
+
+    for commit in commits {
+        match classify_title(&commit.subject) {
+            "Synchronization" => has_sync = true,
+            "Features" => has_features = true,
+            "Bug Fixes" => has_bugs = true,
+            "Refactoring" => has_refactors = true,
+            _ => {}
+        }
+    }
+
+    let mut categories = Vec::new();
+    if has_sync {
+        categories.push("Synchronization");
+    }
+    if has_features {
+        categories.push("Features");
+    }
+    if has_bugs {
+        categories.push("Bug Fixes");
+    }
+    if has_refactors {
+        categories.push("Refactoring");
+    }
+
+    let summary = if categories.is_empty() {
+        "Changes".to_string()
+    } else if categories.len() == 1 {
+        categories[0].to_string()
+    } else if categories.len() == 2 {
+        format!("{} and {}", categories[0], categories[1])
+    } else {
+        let mut text = categories[0].to_string();
+        for item in categories
+            .iter()
+            .skip(1)
+            .take(categories.len().saturating_sub(2))
+        {
+            text.push_str(", ");
+            text.push_str(item);
+        }
+        text.push_str(", and ");
+        text.push_str(categories.last().copied().unwrap_or("Changes"));
+        text
+    };
+
+    format!("Merge {head_ref} into {base_ref}: {summary}")
+}
+
+fn gh_create_pr(base_ref: &str, head_ref: &str, title: &str, body: &str) -> Result<String, String> {
+    let output = Command::new("gh")
+        .arg("pr")
+        .arg("create")
+        .arg("--base")
+        .arg(base_ref)
+        .arg("--head")
+        .arg(head_ref)
+        .arg("--title")
+        .arg(title)
+        .arg("--body")
+        .arg(body)
+        .arg("--label")
+        .arg("pull-request")
+        .output()
+        .map_err(|err| format!("Failed to execute gh pr create: {err}"))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if text.is_empty() {
+        Ok("created".to_string())
+    } else {
+        Ok(text)
+    }
+}
+
 fn is_native_supported(opts: &GenerateOptions) -> bool {
-    opts.dry_run
+    opts.dry_run && opts.duplicate_mode.is_none()
 }
 
 fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
     let mut dry_run = false;
+    let mut create_pr = false;
+    let mut allow_partial_create = false;
+    let mut assume_yes = false;
+    let mut auto_mode = false;
+    let mut mode_explicit = false;
     let mut base_ref: Option<String> = None;
     let mut head_ref: Option<String> = None;
+    let mut duplicate_mode: Option<String> = None;
     let mut auto_edit_pr_number: Option<String> = None;
     let mut validation_only = false;
     let mut positionals: Vec<String> = Vec::new();
@@ -584,6 +699,7 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
         match args[i].as_str() {
             "--dry-run" => {
                 dry_run = true;
+                mode_explicit = true;
                 i += 1;
             }
             "--base" => {
@@ -592,6 +708,25 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
             "--head" => {
                 head_ref = Some(take_value("--head", args, &mut i)?);
             }
+            "--create-pr" => {
+                create_pr = true;
+                mode_explicit = true;
+                i += 1;
+            }
+            "--allow-partial-create" => {
+                allow_partial_create = true;
+                mode_explicit = true;
+                i += 1;
+            }
+            "--yes" => {
+                assume_yes = true;
+                i += 1;
+            }
+            "--auto" => {
+                auto_mode = true;
+                mode_explicit = true;
+                i += 1;
+            }
             "--auto-edit" | "--refresh-pr" => {
                 auto_edit_pr_number = Some(take_value(args[i].as_str(), args, &mut i)?);
             }
@@ -599,22 +734,22 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
                 validation_only = true;
                 i += 1;
             }
-            // accepted/no-op flags for compatibility in migrated CI path
-            "--yes" | "--debug" | "--keep-artifacts" => {
-                i += 1;
+            "--duplicate-mode" => {
+                duplicate_mode = Some(take_value("--duplicate-mode", args, &mut i)?);
             }
-            // non-migrated modes; keep parser permissive and let shell fallback handle behavior
-            "--auto" | "--create-pr" | "--allow-partial-create" | "--duplicate-mode" => {
+            // accepted/no-op flags for compatibility in migrated CI path
+            "--debug" | "--keep-artifacts" => {
                 i += 1;
-                if args.get(i.saturating_sub(1)).map(|v| v.as_str()) == Some("--duplicate-mode") {
-                    let _ = take_value("--duplicate-mode", args, &mut i)?;
-                }
             }
             "-h" | "--help" => {
                 return Ok(GenerateOptions {
                     dry_run: false,
+                    create_pr: false,
+                    allow_partial_create: false,
+                    assume_yes: false,
                     base_ref: None,
                     head_ref: None,
+                    duplicate_mode: None,
                     auto_edit_pr_number: None,
                     validation_only: false,
                     output_file: None,
@@ -630,8 +765,34 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
         }
     }
 
+    if !mode_explicit && positionals.is_empty() {
+        auto_mode = true;
+    }
+    if auto_mode {
+        dry_run = true;
+        create_pr = true;
+        if !positionals.is_empty() {
+            return Err("--auto does not accept a positional OUTPUT_FILE.".to_string());
+        }
+    }
+
+    if create_pr && !dry_run {
+        return Err("--create-pr is only supported with --dry-run.".to_string());
+    }
+    if allow_partial_create && !create_pr {
+        return Err("--allow-partial-create requires --create-pr.".to_string());
+    }
+    if auto_edit_pr_number.is_some() && create_pr {
+        return Err("--auto-edit cannot be combined with --create-pr/--auto.".to_string());
+    }
     if validation_only && auto_edit_pr_number.is_none() {
         return Err("--validation-only requires --auto-edit/--refresh-pr.".to_string());
+    }
+    if let Some(mode) = duplicate_mode.as_deref()
+        && mode != "safe"
+        && mode != "auto-close"
+    {
+        return Err("--duplicate-mode must be 'safe' or 'auto-close'.".to_string());
     }
 
     let output_file = if dry_run && auto_edit_pr_number.is_none() {
@@ -646,13 +807,22 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
             }
         }
     } else {
+        if dry_run && auto_edit_pr_number.is_some() && !positionals.is_empty() {
+            return Err(
+                "In --auto-edit dry-run mode, positional OUTPUT_FILE is not allowed.".to_string(),
+            );
+        }
         None
     };
 
     Ok(GenerateOptions {
         dry_run,
+        create_pr,
+        allow_partial_create,
+        assume_yes,
         base_ref,
         head_ref,
+        duplicate_mode,
         auto_edit_pr_number,
         validation_only,
         output_file,
@@ -747,6 +917,29 @@ mod tests {
         let args = vec!["--dry-run".to_string(), "--validation-only".to_string()];
         let err = parse_generate_options(&args).expect_err("must fail");
         assert!(err.contains("--validation-only requires --auto-edit/--refresh-pr"));
+    }
+
+    #[test]
+    fn parse_auto_enables_dry_run_and_create_pr() {
+        let args = vec![
+            "--auto".to_string(),
+            "--base".to_string(),
+            "dev".to_string(),
+            "--head".to_string(),
+            "feat/x".to_string(),
+            "--yes".to_string(),
+        ];
+        let parsed = parse_generate_options(&args).expect("parse");
+        assert!(parsed.dry_run);
+        assert!(parsed.create_pr);
+        assert!(parsed.assume_yes);
+    }
+
+    #[test]
+    fn parse_rejects_create_pr_without_dry_run() {
+        let args = vec!["--create-pr".to_string()];
+        let err = parse_generate_options(&args).expect_err("must fail");
+        assert!(err.contains("--create-pr is only supported with --dry-run"));
     }
 
     #[test]
