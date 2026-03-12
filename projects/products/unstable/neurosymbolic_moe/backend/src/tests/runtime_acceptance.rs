@@ -1718,11 +1718,12 @@ mod v5 {
             .expect("state serialization should succeed");
         let result = pipeline.try_import_governance_state_json(&payload);
 
-        match result {
-            Err(crate::moe_core::MoeError::PolicyRejected(message)) => {
-                assert!(message.contains("governance import rejected"));
-            }
-            _ => panic!("expected explicit policy rejection for governance import"),
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+        if let Err(crate::moe_core::MoeError::PolicyRejected(message)) = result {
+            assert!(message.contains("governance import rejected"));
         }
     }
 
@@ -1795,11 +1796,12 @@ mod v5 {
             .expect("bundle serialization should succeed");
         let result = pipeline.try_import_governance_bundle_json(&payload);
 
-        match result {
-            Err(crate::moe_core::MoeError::PolicyRejected(message)) => {
-                assert!(message.contains("governance bundle import rejected"));
-            }
-            _ => panic!("expected explicit policy rejection for governance bundle import"),
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+        if let Err(crate::moe_core::MoeError::PolicyRejected(message)) = result {
+            assert!(message.contains("governance bundle import rejected"));
         }
     }
 
