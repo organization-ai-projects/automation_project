@@ -21,10 +21,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            scripts/versioning/file_versioning/github/
-          sparse-checkout-cone-mode: false
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build versioning_automation
+        run: cargo build -p versioning_automation
 
       - name: Ensure jq is available
         run: |
@@ -41,8 +43,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          bash scripts/versioning/file_versioning/github/issues/reopen_on_dev/run.sh \
-            --pr "$PR_NUMBER"
+          target/debug/versioning_automation issue reopen-on-dev \
+            --pr "$PR_NUMBER" \
+            --repo "$GH_REPO"
 
       - name: Manual dispatch
         if: github.event_name == 'workflow_dispatch'
@@ -55,5 +58,6 @@ jobs:
             echo "Invalid or missing pr_number." >&2
             exit 1
           fi
-          bash scripts/versioning/file_versioning/github/issues/reopen_on_dev/run.sh \
-            --pr "$PR_NUMBER"
+          target/debug/versioning_automation issue reopen-on-dev \
+            --pr "$PR_NUMBER" \
+            --repo "$GH_REPO"
