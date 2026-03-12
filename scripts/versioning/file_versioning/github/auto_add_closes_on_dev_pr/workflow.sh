@@ -76,12 +76,10 @@ auto_add_pr_field() {
   local va_output=""
   local jq_filter=""
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_output="$(github_pr_field "$repo_name" "$pr_number" "$field_name" 2>/dev/null || true)"
-    if [[ -n "$va_output" ]]; then
-      printf '%s' "$va_output"
-      return 0
-    fi
+  va_output="$(github_pr_field "$repo_name" "$pr_number" "$field_name" 2>/dev/null || true)"
+  if [[ -n "$va_output" ]]; then
+    printf '%s' "$va_output"
+    return 0
   fi
 
   case "$field_name" in
@@ -206,6 +204,6 @@ auto_add_closes_run() {
     exit 0
   fi
 
-  gh pr edit "$auto_add_pr_number" -R "$auto_add_repo_name" --body "$new_body" >/dev/null
+  github_pr_update_body "$auto_add_repo_name" "$auto_add_pr_number" "$new_body"
   echo "PR #${auto_add_pr_number}: updated body with auto-managed Closes refs."
 }
