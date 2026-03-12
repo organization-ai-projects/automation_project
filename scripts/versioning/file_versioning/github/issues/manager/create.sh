@@ -40,12 +40,8 @@ cmd_create() {
 
   # Prefer Rust CLI even in legacy dispatch path; keep explicit script override for regressions/debugging.
   if [[ -z "${MANAGER_ISSUES_CREATE_SCRIPT:-}" ]]; then
-    if va_exec issue create "${passthrough[@]}"; then
-      return 0
-    fi
-    echo "Warning: Rust issue create path failed; falling back to shell create script." >&2
-  elif [[ ! -x "$create_direct_issue_script" ]]; then
-    die_usage "create script is missing or not executable: $create_direct_issue_script"
+    va_exec issue create "${passthrough[@]}"
+    return $?
   fi
 
   if [[ ! -x "$create_direct_issue_script" ]]; then

@@ -30,10 +30,12 @@ create_direct_issue_try_va_dispatch() {
 }
 
 create_direct_issue_dispatch() {
-  if create_direct_issue_try_va_dispatch "$@"; then
-    return 0
+  if [[ "${VA_CREATE_DIRECT_FORCE_LEGACY:-0}" == "1" ]]; then
+    create_direct_issue_legacy_dispatch "$@"
+    return $?
   fi
-  create_direct_issue_legacy_dispatch "$@"
+
+  create_direct_issue_try_va_dispatch "$@"
 }
 
 create_direct_issue_entry_run() {
