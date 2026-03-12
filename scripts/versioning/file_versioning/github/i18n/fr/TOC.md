@@ -12,8 +12,10 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 
 - [issues/auto_link/run.sh](../../issues/auto_link/run.sh) : auto-liaison parent/enfant depuis le champ `Parent:` du corps d'issue
 - [auto_add_closes_on_dev_pr/run.sh](../../auto_add_closes_on_dev_pr/run.sh) : enrichissement automatique des PR vers `dev` avec des lignes `Closes #...` gerees
+- [issues/create_direct/run.sh](../../issues/create_direct/run.sh) : wrapper de compatibilite pour creation d'issue directe (entree canonique : `versioning_automation issue create ...`)
 - [generate_pr_description.sh](../../generate_pr_description.sh) : generation de descriptions de PR merge structurees
 - [issues/done_status/run.sh](../../issues/done_status/run.sh) : gestion du label `done-in-dev` apres merge dev et fermeture d'issue
+- [issues/manager/run.sh](../../issues/manager/run.sh) : wrapper de compatibilite pour le cycle de vie des issues (entree canonique : `versioning_automation issue <read/update/close/reopen/delete> ...`)
 - [parent_issue_guard/run.sh](../../parent_issue_guard/run.sh) : garde de fermeture parent/enfant et resume de statut
 - [lib/classification.sh](../../lib/classification.sh) : helpers de classification/actions issue
 - [lib/rendering.sh](../../lib/rendering.sh) : helpers de rendu des sections et titres PR
