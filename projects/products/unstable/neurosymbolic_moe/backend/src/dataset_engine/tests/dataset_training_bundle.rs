@@ -152,3 +152,52 @@ fn training_bundle_split_is_deterministic_for_same_seed() {
     assert_eq!(first_train_ids, second_train_ids);
     assert_eq!(first_valid_ids, second_valid_ids);
 }
+
+#[test]
+fn training_shards_cover_all_samples_without_overlap_loss() {
+    let mut store = DatasetStore::new();
+    for idx in 0..17_u32 {
+        store.add_entry(make_entry(
+            &format!("entry-{idx}"),
+            "expert-a",
+            Outcome::Success,
+            Some(0.9),
+        ));
+    }
+
+    let options = DatasetTrainingBuildOptions {
+        split_seed: 11,
+        validation_ratio: 0.3,
+        ..DatasetTrainingBuildOptions::default()
+    };
+    let bundle = store
+        .build_training_bundle(&options)
+        .expect("training bundle build should succeed");
+    let shards = store
+        .build_training_shards(&options, 4)
+        .expect("training shards build should succeed");
+
+    let sharded_train: usize = shards.iter().map(|shard| shard.train_samples.len()).sum();
+    let sharded_valid: usize = shards
+        .iter()
+        .map(|shard| shard.validation_samples.len())
+        .sum();
+
+    assert_eq!(sharded_train, bundle.train_samples.len());
+    assert_eq!(sharded_valid, bundle.validation_samples.len());
+    assert!(
+        shards
+            .iter()
+            .all(|shard| shard.total_shards == shards.len())
+    );
+}
+
+#[test]
+fn training_shards_reject_zero_max_samples() {
+    let store = DatasetStore::new();
+    let options = DatasetTrainingBuildOptions::default();
+    let err = store
+        .build_training_shards(&options, 0)
+        .expect_err("zero max_samples_per_shard should fail");
+    assert!(err.to_string().contains("max_samples_per_shard"));
+}

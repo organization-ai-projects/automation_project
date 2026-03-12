@@ -5,7 +5,7 @@ use crate::moe_core::{ExpertId, TaskId};
 
 use super::{
     Correction, DatasetEntry, DatasetQualityReport, DatasetTrainingBuildOptions,
-    DatasetTrainingBundle, DatasetTrainingSample, Outcome,
+    DatasetTrainingBundle, DatasetTrainingSample, DatasetTrainingShard, Outcome,
 };
 
 #[derive(Debug, Clone)]
@@ -230,7 +230,7 @@ impl DatasetStore {
         }
 
         Ok(DatasetTrainingBundle {
-            schema_version: 1,
+            schema_version: DatasetTrainingBundle::schema_version(),
             generated_at: options.generated_at,
             validation_ratio: options.validation_ratio,
             split_seed: options.split_seed,
@@ -242,6 +242,67 @@ impl DatasetStore {
             train_samples,
             validation_samples,
         })
+    }
+
+    pub fn build_training_shards(
+        &self,
+        options: &DatasetTrainingBuildOptions,
+        max_samples_per_shard: usize,
+    ) -> Result<Vec<DatasetTrainingShard>, MoeError> {
+        if max_samples_per_shard == 0 {
+            return Err(MoeError::DatasetError(
+                "max_samples_per_shard must be greater than zero".to_string(),
+            ));
+        }
+
+        let bundle = self.build_training_bundle(options)?;
+        if !bundle.has_supported_schema() {
+            return Err(MoeError::DatasetError(format!(
+                "unsupported training bundle schema version {}",
+                bundle.schema_version
+            )));
+        }
+
+        let train_shards = bundle.train_samples.len().div_ceil(max_samples_per_shard);
+        let validation_shards = bundle
+            .validation_samples
+            .len()
+            .div_ceil(max_samples_per_shard);
+        let total_shards = train_shards.max(validation_shards).max(1);
+
+        let mut shards = Vec::with_capacity(total_shards);
+        for shard_index in 0..total_shards {
+            let train_start = shard_index * max_samples_per_shard;
+            let train_end =
+                ((shard_index + 1) * max_samples_per_shard).min(bundle.train_samples.len());
+            let validation_start = shard_index * max_samples_per_shard;
+            let validation_end =
+                ((shard_index + 1) * max_samples_per_shard).min(bundle.validation_samples.len());
+
+            let train_samples = if train_start < train_end {
+                bundle.train_samples[train_start..train_end].to_vec()
+            } else {
+                Vec::new()
+            };
+            let validation_samples = if validation_start < validation_end {
+                bundle.validation_samples[validation_start..validation_end].to_vec()
+            } else {
+                Vec::new()
+            };
+
+            shards.push(DatasetTrainingShard {
+                schema_version: bundle.schema_version,
+                generated_at: bundle.generated_at,
+                split_seed: bundle.split_seed,
+                validation_ratio: bundle.validation_ratio,
+                shard_index,
+                total_shards,
+                train_samples,
+                validation_samples,
+            });
+        }
+
+        Ok(shards)
     }
 }
 

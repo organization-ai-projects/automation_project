@@ -824,13 +824,41 @@ fn cmd_impl_check() -> Result<(), DynError> {
             require_correction_for_failure: false,
             split_seed: 7,
         })?;
+    let training_shards = restore_pipeline.export_training_dataset_shards(
+        &DatasetTrainingBuildOptions {
+            generated_at: 3,
+            validation_ratio: 0.2,
+            min_score: None,
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 7,
+        },
+        128,
+    )?;
+    let training_shards_json = restore_pipeline.export_training_dataset_shards_json(
+        &DatasetTrainingBuildOptions {
+            generated_at: 4,
+            validation_ratio: 0.2,
+            min_score: None,
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 7,
+        },
+        128,
+    )?;
     tracing::info!(
-        "Training dataset bundle: total={} included={} train={} valid={} json_bytes={}",
+        "Training dataset bundle: total={} included={} train={} valid={} json_bytes={} shards={} shards_json_bytes={}",
         training_bundle.total_entries,
         training_bundle.included_entries,
         training_bundle.train_samples.len(),
         training_bundle.validation_samples.len(),
-        training_bundle_json.len()
+        training_bundle_json.len(),
+        training_shards.len(),
+        training_shards_json.len()
     );
 
     tracing::info!("Implementation check completed.");

@@ -343,3 +343,51 @@ fn export_training_dataset_bundle_json_from_pipeline() {
     assert!(bundle.included_entries > 0);
     assert!(!json.is_empty());
 }
+
+#[test]
+fn export_training_dataset_shards_from_pipeline() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    let expert = TestExpert::new(
+        "training-shard-export",
+        vec![ExpertCapability::CodeGeneration],
+    );
+    pipeline
+        .register_expert(Box::new(expert))
+        .expect("expert registration should succeed");
+
+    for idx in 0..6_u32 {
+        let task = Task::new(
+            format!("t-training-shard-{idx}"),
+            TaskType::CodeGeneration,
+            format!("build shard dataset candidate {idx}"),
+        );
+        let _ = pipeline
+            .execute(task)
+            .expect("pipeline execution should succeed");
+    }
+
+    let options = DatasetTrainingBuildOptions {
+        generated_at: 123,
+        validation_ratio: 0.2,
+        min_score: None,
+        include_failure_entries: true,
+        include_partial_entries: true,
+        include_unknown_entries: false,
+        require_correction_for_failure: false,
+        split_seed: 5,
+    };
+    let shards = pipeline
+        .export_training_dataset_shards(&options, 2)
+        .expect("training dataset shards should export");
+    let shards_json = pipeline
+        .export_training_dataset_shards_json(&options, 2)
+        .expect("training dataset shards json should export");
+
+    assert!(!shards.is_empty());
+    assert!(
+        shards
+            .iter()
+            .all(|shard| shard.total_shards == shards.len())
+    );
+    assert!(!shards_json.is_empty());
+}

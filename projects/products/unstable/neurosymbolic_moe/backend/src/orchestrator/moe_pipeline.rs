@@ -2,7 +2,8 @@
 use crate::aggregator::OutputAggregator;
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{
-    DatasetStore, DatasetTrainingBuildOptions, DatasetTrainingBundle, Outcome, TraceConverter,
+    DatasetStore, DatasetTrainingBuildOptions, DatasetTrainingBundle, DatasetTrainingShard,
+    Outcome, TraceConverter,
 };
 use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
@@ -463,6 +464,28 @@ impl MoePipeline {
         common_json::json::to_json_string_pretty(&bundle).map_err(|err| {
             MoeError::DatasetError(format!(
                 "training dataset bundle serialization failed: {err}"
+            ))
+        })
+    }
+
+    pub fn export_training_dataset_shards(
+        &self,
+        options: &DatasetTrainingBuildOptions,
+        max_samples_per_shard: usize,
+    ) -> Result<Vec<DatasetTrainingShard>, MoeError> {
+        self.dataset_store
+            .build_training_shards(options, max_samples_per_shard)
+    }
+
+    pub fn export_training_dataset_shards_json(
+        &self,
+        options: &DatasetTrainingBuildOptions,
+        max_samples_per_shard: usize,
+    ) -> Result<String, MoeError> {
+        let shards = self.export_training_dataset_shards(options, max_samples_per_shard)?;
+        common_json::json::to_json_string_pretty(&shards).map_err(|err| {
+            MoeError::DatasetError(format!(
+                "training dataset shard serialization failed: {err}"
             ))
         })
     }
