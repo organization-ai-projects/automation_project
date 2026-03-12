@@ -745,7 +745,7 @@ fn require_positive_number(flag: &str, value: &str) -> Result<(), String> {
     if !value.is_empty() && value.chars().all(|c| c.is_ascii_digit()) && value != "0" {
         return Ok(());
     }
-    Err(format!("{flag} requires a positive numeric value"))
+    Err(format!("{flag} requires a positive integer"))
 }
 
 fn parse_bool_value(flag: &str, raw: &str) -> Result<bool, String> {
