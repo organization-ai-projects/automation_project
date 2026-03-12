@@ -15,19 +15,17 @@ pr_extract_child_prs() {
 
   repo_owner_name="$(pr_gh_optional "resolve repository name" repo view --json nameWithOwner -q '.nameWithOwner')"
 
-  if command -v va_exec >/dev/null 2>&1; then
-    if [[ -n "$repo_owner_name" ]]; then
-      va_child_refs="$(
-        va_exec pr child-pr-refs \
-          --pr "$main_pr_number" \
-          --repo "$repo_owner_name" 2>/dev/null || true
-      )"
-    else
-      va_child_refs="$(
-        va_exec pr child-pr-refs \
-          --pr "$main_pr_number" 2>/dev/null || true
-      )"
-    fi
+  if [[ -n "$repo_owner_name" ]]; then
+    va_child_refs="$(
+      va_exec pr child-pr-refs \
+        --pr "$main_pr_number" \
+        --repo "$repo_owner_name" 2>/dev/null || true
+    )"
+  else
+    va_child_refs="$(
+      va_exec pr child-pr-refs \
+        --pr "$main_pr_number" 2>/dev/null || true
+    )"
   fi
 
   if [[ -n "$va_child_refs" ]]; then

@@ -40,14 +40,12 @@ pr_text_indicates_breaking() {
   local text="${1:-}"
   local breaking_result=""
 
-  if command -v va_exec >/dev/null 2>&1; then
-    breaking_result="$(printf '%s' "$text" | va_exec pr breaking-detect --stdin 2>/dev/null || true)"
-    if [[ "$breaking_result" == "true" ]]; then
-      return 0
-    fi
-    if [[ "$breaking_result" == "false" ]]; then
-      return 1
-    fi
+  breaking_result="$(printf '%s' "$text" | va_exec pr breaking-detect --stdin 2>/dev/null || true)"
+  if [[ "$breaking_result" == "true" ]]; then
+    return 0
+  fi
+  if [[ "$breaking_result" == "false" ]]; then
+    return 1
   fi
 
   pr_text_indicates_breaking_legacy "$text"
@@ -56,12 +54,10 @@ pr_text_indicates_breaking() {
 pr_labels_indicate_breaking() {
   local labels_raw="${1:-}"
 
-  if command -v va_exec >/dev/null 2>&1; then
-    case "$(va_exec pr breaking-detect --labels-raw "$labels_raw" 2>/dev/null || true)" in
-    true) return 0 ;;
-    false) return 1 ;;
-    esac
-  fi
+  case "$(va_exec pr breaking-detect --labels-raw "$labels_raw" 2>/dev/null || true)" in
+  true) return 0 ;;
+  false) return 1 ;;
+  esac
 
   [[ "$(echo "$labels_raw" | tr '[:upper:]' '[:lower:]')" =~ (^|\|\|)breaking(\|\||$) ]]
 }

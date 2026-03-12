@@ -249,10 +249,6 @@ pr_pipeline_apply_issue_directives_via_va() {
   local va_output
   local record_type field_a field_b
 
-  if ! command -v va_exec >/dev/null 2>&1; then
-    return 1
-  fi
-
   va_output="$(printf '%s' "$text" | va_exec pr directives-apply --stdin 2>/dev/null)" || {
     return 1
   }
