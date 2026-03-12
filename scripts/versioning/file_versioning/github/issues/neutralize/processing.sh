@@ -45,17 +45,15 @@ neutralize_apply_rejected_marker() {
   local issue_key="$3"
   local transformed
 
-  if command -v va_exec >/dev/null 2>&1; then
-    transformed="$(
-      printf '%s' "$body" | va_exec pr closure-marker --stdin \
-        --keyword-pattern "$keyword_pattern" \
-        --issue "$issue_key" \
-        --mode apply 2>/dev/null || true
-    )"
-    if [[ -n "$transformed" ]]; then
-      printf '%s' "$transformed"
-      return
-    fi
+  transformed="$(
+    printf '%s' "$body" | va_exec pr closure-marker --stdin \
+      --keyword-pattern "$keyword_pattern" \
+      --issue "$issue_key" \
+      --mode apply 2>/dev/null || true
+  )"
+  if [[ -n "$transformed" ]]; then
+    printf '%s' "$transformed"
+    return
   fi
 
   NEUTRALIZE_KEYWORDS="$keyword_pattern" \
@@ -74,17 +72,15 @@ neutralize_remove_rejected_marker() {
   local issue_key="$3"
   local transformed
 
-  if command -v va_exec >/dev/null 2>&1; then
-    transformed="$(
-      printf '%s' "$body" | va_exec pr closure-marker --stdin \
-        --keyword-pattern "$keyword_pattern" \
-        --issue "$issue_key" \
-        --mode remove 2>/dev/null || true
-    )"
-    if [[ -n "$transformed" ]]; then
-      printf '%s' "$transformed"
-      return
-    fi
+  transformed="$(
+    printf '%s' "$body" | va_exec pr closure-marker --stdin \
+      --keyword-pattern "$keyword_pattern" \
+      --issue "$issue_key" \
+      --mode remove 2>/dev/null || true
+  )"
+  if [[ -n "$transformed" ]]; then
+    printf '%s' "$transformed"
+    return
   fi
 
   NEUTRALIZE_KEYWORDS="$keyword_pattern" \
@@ -127,26 +123,24 @@ neutralize_collect_refs_from_body() {
   local collected_closing_refs=""
   local collected_pre_neutralized_refs=""
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_records="$(printf '%s' "$body" | va_exec pr directives --stdin 2>/dev/null || true)"
-    if [[ -n "$va_records" ]]; then
-      while IFS= read -r record; do
-        [[ -z "$record" ]] && continue
-        IFS='|' read -r record_type action issue_key <<<"$record"
-        [[ "$record_type" == "EV" ]] || continue
-        [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
+  va_records="$(printf '%s' "$body" | va_exec pr directives --stdin 2>/dev/null || true)"
+  if [[ -n "$va_records" ]]; then
+    while IFS= read -r record; do
+      [[ -z "$record" ]] && continue
+      IFS='|' read -r record_type action issue_key <<<"$record"
+      [[ "$record_type" == "EV" ]] || continue
+      [[ "$issue_key" =~ ^#[0-9]+$ ]] || continue
 
-        if [[ "$action" == "Closes" ]]; then
-          collected_closing_refs+="${action}|${issue_key}"$'\n'
-        elif [[ "$action" == "Closes rejected" ]]; then
-          collected_pre_neutralized_refs+="Closes|${issue_key}"$'\n'
-        fi
-      done <<<"$va_records"
+      if [[ "$action" == "Closes" ]]; then
+        collected_closing_refs+="${action}|${issue_key}"$'\n'
+      elif [[ "$action" == "Closes rejected" ]]; then
+        collected_pre_neutralized_refs+="Closes|${issue_key}"$'\n'
+      fi
+    done <<<"$va_records"
 
-      _out_closing_refs_ref="${collected_closing_refs%$'\n'}"
-      _out_pre_neutralized_refs_ref="${collected_pre_neutralized_refs%$'\n'}"
-      return
-    fi
+    _out_closing_refs_ref="${collected_closing_refs%$'\n'}"
+    _out_pre_neutralized_refs_ref="${collected_pre_neutralized_refs%$'\n'}"
+    return
   fi
 
   _out_closing_refs_ref="$(parse_closing_issue_refs_from_text "$body")"

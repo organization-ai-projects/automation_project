@@ -13,12 +13,10 @@ pr_issue_parse_key_and_number() {
   local -n _out_key_ref="$_out_key_var"
   local -n _out_number_ref="$_out_number_var"
 
-  if command -v va_exec >/dev/null 2>&1; then
-    normalized_issue_key="$(
-      va_exec pr normalize-issue-key \
-        --raw "$issue_key_raw" 2>/dev/null || true
-    )"
-  fi
+  normalized_issue_key="$(
+    va_exec pr normalize-issue-key \
+      --raw "$issue_key_raw" 2>/dev/null || true
+  )"
   if [[ -z "$normalized_issue_key" ]]; then
     normalized_issue_key="$(normalize_issue_key "$issue_key_raw" || true)"
   fi
@@ -81,35 +79,33 @@ pr_issue_context_payload_for() {
     return
   fi
 
-  if command -v va_exec >/dev/null 2>&1; then
-    repo_name_with_owner="$(pr_get_repo_name_with_owner)"
-    if [[ -n "$repo_name_with_owner" ]]; then
-      va_payload="$(
-        va_exec pr issue-context \
-          --issue "$issue_number" \
-          --repo "$repo_name_with_owner" 2>/dev/null || true
-      )"
-    else
-      va_payload="$(
-        va_exec pr issue-context \
-          --issue "$issue_number" 2>/dev/null || true
-      )"
-    fi
+  repo_name_with_owner="$(pr_get_repo_name_with_owner)"
+  if [[ -n "$repo_name_with_owner" ]]; then
+    va_payload="$(
+      va_exec pr issue-context \
+        --issue "$issue_number" \
+        --repo "$repo_name_with_owner" 2>/dev/null || true
+    )"
+  else
+    va_payload="$(
+      va_exec pr issue-context \
+        --issue "$issue_number" 2>/dev/null || true
+    )"
+  fi
 
-    if [[ "$va_payload" == *$'\x1f'* ]]; then
-      labels_raw="$(pr_issue_payload_field "$va_payload" "labels")"
-      title_category="$(pr_issue_payload_field "$va_payload" "title_category")"
-      reason="$(pr_issue_payload_field "$va_payload" "non_compliance_reason")"
-      issue_labels_cache["$issue_key"]="$labels_raw"
-      issue_title_category_cache["$issue_key"]="${title_category:-Unknown}"
-      issue_non_compliance_reason_cache["$issue_key"]="$reason"
-      issue_context_cached["$issue_key"]="1"
-      printf "%s\x1f%s\x1f%s" \
-        "${issue_labels_cache[$issue_key]:-}" \
-        "${issue_title_category_cache[$issue_key]:-Unknown}" \
-        "${issue_non_compliance_reason_cache[$issue_key]:-}"
-      return
-    fi
+  if [[ "$va_payload" == *$'\x1f'* ]]; then
+    labels_raw="$(pr_issue_payload_field "$va_payload" "labels")"
+    title_category="$(pr_issue_payload_field "$va_payload" "title_category")"
+    reason="$(pr_issue_payload_field "$va_payload" "non_compliance_reason")"
+    issue_labels_cache["$issue_key"]="$labels_raw"
+    issue_title_category_cache["$issue_key"]="${title_category:-Unknown}"
+    issue_non_compliance_reason_cache["$issue_key"]="$reason"
+    issue_context_cached["$issue_key"]="1"
+    printf "%s\x1f%s\x1f%s" \
+      "${issue_labels_cache[$issue_key]:-}" \
+      "${issue_title_category_cache[$issue_key]:-Unknown}" \
+      "${issue_non_compliance_reason_cache[$issue_key]:-}"
+    return
   fi
 
   if [[ "$has_gh" == "true" ]]; then
@@ -123,12 +119,10 @@ pr_issue_context_payload_for() {
     if [[ -n "$labels_raw" || -n "$title" || -n "$body" ]]; then
 
       if [[ -n "$title" ]]; then
-        if command -v va_exec >/dev/null 2>&1; then
-          title_category_from_va="$(
-            va_exec pr issue-category-from-title \
-              --title "$title" 2>/dev/null || true
-          )"
-        fi
+        title_category_from_va="$(
+          va_exec pr issue-category-from-title \
+            --title "$title" 2>/dev/null || true
+        )"
         if [[ -n "$title_category_from_va" ]]; then
           title_category="$title_category_from_va"
         else
@@ -155,37 +149,33 @@ pr_resolve_effective_category() {
   local label_category
   local effective_category
 
-  if command -v va_exec >/dev/null 2>&1; then
-    effective_category="$(
-      va_exec pr effective-category \
-        --labels-raw "$issue_labels_raw" \
-        --title-category "$title_category" \
-        --default-category "$default_category" 2>/dev/null || true
-    )"
-    if [[ -n "$effective_category" ]]; then
-      echo "$effective_category"
-      return
-    fi
-
-    label_category="$(
-      va_exec pr issue-category-from-labels \
-        --labels-raw "$issue_labels_raw" 2>/dev/null || true
-    )"
+  effective_category="$(
+    va_exec pr effective-category \
+      --labels-raw "$issue_labels_raw" \
+      --title-category "$title_category" \
+      --default-category "$default_category" 2>/dev/null || true
+  )"
+  if [[ -n "$effective_category" ]]; then
+    echo "$effective_category"
+    return
   fi
+
+  label_category="$(
+    va_exec pr issue-category-from-labels \
+      --labels-raw "$issue_labels_raw" 2>/dev/null || true
+  )"
   if [[ -z "${label_category:-}" ]]; then
     label_category="$(issue_category_from_labels "$issue_labels_raw")"
   fi
-  if command -v va_exec >/dev/null 2>&1; then
-    effective_category="$(
-      va_exec pr resolve-category \
-        --label-category "$label_category" \
-        --title-category "$title_category" \
-        --default-category "$default_category" 2>/dev/null || true
-    )"
-    if [[ -n "$effective_category" ]]; then
-      echo "$effective_category"
-      return
-    fi
+  effective_category="$(
+    va_exec pr resolve-category \
+      --label-category "$label_category" \
+      --title-category "$title_category" \
+      --default-category "$default_category" 2>/dev/null || true
+  )"
+  if [[ -n "$effective_category" ]]; then
+    echo "$effective_category"
+    return
   fi
 
   effective_category="$label_category"
@@ -251,22 +241,20 @@ pr_is_pull_request_ref() {
     return
   fi
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_result="$(
-      va_exec pr issue-ref-kind \
-        --issue "$issue_number" \
-        --repo "$repo_name_with_owner" 2>/dev/null || true
-    )"
-    if [[ "$va_result" == "true" ]]; then
-      pr_ref_cache["$cache_key"]="1"
-      echo "true"
-      return
-    fi
-    if [[ "$va_result" == "false" ]]; then
-      pr_ref_cache["$cache_key"]="0"
-      echo "false"
-      return
-    fi
+  va_result="$(
+    va_exec pr issue-ref-kind \
+      --issue "$issue_number" \
+      --repo "$repo_name_with_owner" 2>/dev/null || true
+  )"
+  if [[ "$va_result" == "true" ]]; then
+    pr_ref_cache["$cache_key"]="1"
+    echo "true"
+    return
+  fi
+  if [[ "$va_result" == "false" ]]; then
+    pr_ref_cache["$cache_key"]="0"
+    echo "false"
+    return
   fi
 
   if pr_repo_api_call "$repo_name_with_owner" "pulls/${issue_number}" >/dev/null 2>&1; then

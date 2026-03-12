@@ -55,7 +55,7 @@ pr_process_duplicate_mode() {
     va_payload+="${duplicate_issue_key}|${canonical_issue_key}"$'\n'
   done
 
-  if [[ -n "$va_payload" ]] && command -v va_exec >/dev/null 2>&1; then
+  if [[ -n "$va_payload" ]]; then
     if printf '%s' "$va_payload" | va_exec pr duplicate-actions \
       --stdin \
       --mode "$duplicate_mode" \
