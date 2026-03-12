@@ -28,7 +28,7 @@ Usage:
   issues/manager/run.sh delete --issue <number> [--repo owner/name]
 
 Notes:
-  - create is routed through issues/create_direct/run.sh contract validation.
+  - create is routed to `versioning_automation issue create` (legacy shell fallback kept for custom script overrides).
   - create applies label "issue" by default (unless --no-default-issue-label is passed).
   - delete performs a soft delete: closes the issue with reason not_planned.
 USAGE

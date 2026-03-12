@@ -63,14 +63,7 @@ cmd_close() {
     die_usage "--reason must be 'completed' or 'not_planned'."
   fi
 
-  if va_exec issue close "$@"; then
-    echo "Issue #${issue_number} closed (reason: ${reason})."
-    return 0
-  fi
-  echo "Warning: Rust issue close path failed; falling back to shell close path." >&2
-
-  issue_gh_issue_close "$repo" "$issue_number" "$reason"
-  echo "Issue #${issue_number} closed (reason: ${reason})."
+  va_exec issue close "$@"
 }
 
 cmd_reopen() {
@@ -80,15 +73,7 @@ cmd_reopen() {
   manager_parse_issue_repo_args "reopen" issue_number repo "$@"
 
   issue_cli_require_positive_number "--issue" "$issue_number"
-
-  if va_exec issue reopen "$@"; then
-    echo "Issue #${issue_number} reopened."
-    return 0
-  fi
-  echo "Warning: Rust issue reopen path failed; falling back to shell reopen path." >&2
-
-  issue_gh_issue_reopen "$repo" "$issue_number"
-  echo "Issue #${issue_number} reopened."
+  va_exec issue reopen "$@"
 }
 
 cmd_delete() {
@@ -98,13 +83,5 @@ cmd_delete() {
   manager_parse_issue_repo_args "delete" issue_number repo "$@"
 
   issue_cli_require_positive_number "--issue" "$issue_number"
-
-  if va_exec issue delete "$@"; then
-    echo "Issue #${issue_number} soft-deleted (closed with reason: not_planned)."
-    return 0
-  fi
-  echo "Warning: Rust issue delete path failed; falling back to shell delete path." >&2
-
-  issue_gh_issue_close "$repo" "$issue_number" "not_planned"
-  echo "Issue #${issue_number} soft-deleted (closed with reason: not_planned)."
+  va_exec issue delete "$@"
 }

@@ -60,10 +60,5 @@ cmd_read() {
     issue_cli_require_positive_number "--issue" "$issue_number"
   fi
 
-  if va_exec issue read "$@"; then
-    return 0
-  fi
-  echo "Warning: Rust issue read path failed; falling back to shell read path." >&2
-
-  issue_gh_issue_read "$issue_number" "$repo" "$json_fields" "$jq_filter" "$template"
+  va_exec issue read "$@"
 }
