@@ -23,6 +23,12 @@ use crate::retrieval_engine::{ContextAssembler, RetrievalQuery, Retriever};
 use crate::router::{Router, RoutingStrategy};
 use crate::trace_logger::TraceLogger;
 
+const MAX_RUNTIME_BUNDLE_JSON_BYTES: usize = 16 * 1024 * 1024;
+const MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES: usize = 10_000;
+const MAX_RUNTIME_BUNDLE_WORKING_ENTRIES: usize = 10_000;
+const MAX_RUNTIME_BUNDLE_SESSION_COUNT: usize = 2_000;
+const MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL: usize = 20_000;
+
 pub struct MoePipeline {
     pub(super) registry: ExpertRegistry,
     pub(super) router: Box<dyn Router>,
@@ -624,6 +630,13 @@ impl MoePipeline {
     }
 
     pub fn import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        if payload.len() > MAX_RUNTIME_BUNDLE_JSON_BYTES {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime persistence bundle payload too large ({} bytes > {} bytes)",
+                payload.len(),
+                MAX_RUNTIME_BUNDLE_JSON_BYTES
+            )));
+        }
         let mut bundle: RuntimePersistenceBundle = common_json::json::from_json_str(payload)
             .map_err(|err| {
                 MoeError::DatasetError(format!(
@@ -649,6 +662,13 @@ impl MoePipeline {
     }
 
     pub fn try_import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        if payload.len() > MAX_RUNTIME_BUNDLE_JSON_BYTES {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime persistence bundle payload too large ({} bytes > {} bytes)",
+                payload.len(),
+                MAX_RUNTIME_BUNDLE_JSON_BYTES
+            )));
+        }
         let mut bundle: RuntimePersistenceBundle = common_json::json::from_json_str(payload)
             .map_err(|err| {
                 MoeError::DatasetError(format!(
@@ -663,6 +683,13 @@ impl MoePipeline {
         &self,
         payload: &str,
     ) -> Result<GovernanceImportDecision, MoeError> {
+        if payload.len() > MAX_RUNTIME_BUNDLE_JSON_BYTES {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime persistence bundle payload too large ({} bytes > {} bytes)",
+                payload.len(),
+                MAX_RUNTIME_BUNDLE_JSON_BYTES
+            )));
+        }
         let mut bundle: RuntimePersistenceBundle = common_json::json::from_json_str(payload)
             .map_err(|err| {
                 MoeError::DatasetError(format!(
@@ -1107,7 +1134,99 @@ impl MoePipeline {
                 "runtime bundle checksum verification failed".to_string(),
             ));
         }
+        Self::validate_runtime_bundle_consistency(bundle)?;
         self.evaluate_governance_bundle_import(&bundle.governance)
+    }
+
+    fn validate_runtime_bundle_consistency(
+        bundle: &RuntimePersistenceBundle,
+    ) -> Result<(), MoeError> {
+        let short_duplicates = Self::duplicate_memory_ids(&bundle.short_term_memory_entries);
+        if !short_duplicates.is_empty() {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle rejected: duplicate short-term memory ids: {}",
+                short_duplicates.join(", ")
+            )));
+        }
+
+        let long_duplicates = Self::duplicate_memory_ids(&bundle.long_term_memory_entries);
+        if !long_duplicates.is_empty() {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle rejected: duplicate long-term memory ids: {}",
+                long_duplicates.join(", ")
+            )));
+        }
+
+        let short_ids: std::collections::HashSet<&str> = bundle
+            .short_term_memory_entries
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .collect();
+        let mut overlap_ids: Vec<&str> = bundle
+            .long_term_memory_entries
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .filter(|id| short_ids.contains(id))
+            .collect();
+        overlap_ids.sort_unstable();
+        overlap_ids.dedup();
+        if !overlap_ids.is_empty() {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle rejected: memory ids overlap between short and long term: {}",
+                overlap_ids.join(", ")
+            )));
+        }
+
+        let total_memory_entries =
+            bundle.short_term_memory_entries.len() + bundle.long_term_memory_entries.len();
+        if total_memory_entries > MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle rejected: too many memory entries ({} > {})",
+                total_memory_entries, MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES
+            )));
+        }
+
+        let working_entries = bundle.buffer_manager.working().count();
+        if working_entries > MAX_RUNTIME_BUNDLE_WORKING_ENTRIES {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle rejected: too many working buffer entries ({} > {})",
+                working_entries, MAX_RUNTIME_BUNDLE_WORKING_ENTRIES
+            )));
+        }
+
+        let sessions = bundle.buffer_manager.sessions().list_sessions();
+        if sessions.len() > MAX_RUNTIME_BUNDLE_SESSION_COUNT {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle rejected: too many sessions ({} > {})",
+                sessions.len(),
+                MAX_RUNTIME_BUNDLE_SESSION_COUNT
+            )));
+        }
+        let total_session_values: usize = sessions
+            .iter()
+            .map(|session| bundle.buffer_manager.sessions().values(session).len())
+            .sum();
+        if total_session_values > MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime bundle rejected: too many session buffer values ({} > {})",
+                total_session_values, MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn duplicate_memory_ids(entries: &[MemoryEntry]) -> Vec<String> {
+        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        let mut duplicates: Vec<String> = entries
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .filter(|id| !seen.insert(*id))
+            .map(ToString::to_string)
+            .collect();
+        duplicates.sort();
+        duplicates.dedup();
+        duplicates
     }
 
     fn validate_governance_bundle_consistency(

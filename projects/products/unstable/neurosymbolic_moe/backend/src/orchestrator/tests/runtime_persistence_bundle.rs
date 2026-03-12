@@ -308,3 +308,66 @@ fn runtime_bundle_roundtrip_with_high_volume_preserves_counts() {
         "bulk roundtrip checksum should remain stable"
     );
 }
+
+#[test]
+fn import_runtime_bundle_rejects_duplicate_short_term_memory_ids() {
+    let source = MoePipelineBuilder::new().build();
+    let mut bundle = source.export_runtime_bundle();
+    let duplicated = test_memory_entry(
+        "memory.short.duplicate.id",
+        "first value",
+        MemoryType::Short,
+    );
+    bundle.short_term_memory_entries.push(duplicated.clone());
+    bundle.short_term_memory_entries.push(MemoryEntry {
+        content: "second value".to_string(),
+        ..duplicated
+    });
+    bundle.runtime_checksum = bundle.recompute_checksum();
+
+    let mut target = MoePipelineBuilder::new().build();
+    let err = target
+        .import_runtime_bundle(bundle)
+        .expect_err("duplicate short-term memory ids must be rejected");
+    assert!(matches!(err, MoeError::PolicyRejected(_)));
+    assert!(err.to_string().contains("duplicate short-term memory ids"));
+}
+
+#[test]
+fn import_runtime_bundle_rejects_memory_id_overlap_between_tiers() {
+    let source = MoePipelineBuilder::new().build();
+    let mut bundle = source.export_runtime_bundle();
+    let shared_id = "memory.shared.id";
+    bundle.short_term_memory_entries.push(test_memory_entry(
+        shared_id,
+        "short tier value",
+        MemoryType::Short,
+    ));
+    bundle.long_term_memory_entries.push(test_memory_entry(
+        shared_id,
+        "long tier value",
+        MemoryType::Long,
+    ));
+    bundle.runtime_checksum = bundle.recompute_checksum();
+
+    let mut target = MoePipelineBuilder::new().build();
+    let err = target
+        .import_runtime_bundle(bundle)
+        .expect_err("memory id overlap must be rejected");
+    assert!(matches!(err, MoeError::PolicyRejected(_)));
+    assert!(
+        err.to_string()
+            .contains("overlap between short and long term")
+    );
+}
+
+#[test]
+fn preview_runtime_bundle_import_json_rejects_oversized_payload() {
+    let oversized_payload = "x".repeat((16 * 1024 * 1024) + 1);
+    let target = MoePipelineBuilder::new().build();
+    let err = target
+        .preview_runtime_bundle_import_json(&oversized_payload)
+        .expect_err("oversized payload must be rejected before deserialization");
+    assert!(matches!(err, MoeError::PolicyRejected(_)));
+    assert!(err.to_string().contains("payload too large"));
+}
