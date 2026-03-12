@@ -127,9 +127,9 @@ issue_gh_open_prs_referencing_issue() {
   local issue_number="$2"
   local pr_numbers=""
 
-  if command -v va_exec >/dev/null 2>&1; then
+  if issue_helpers_has_va_pr; then
     pr_numbers="$(
-      va_exec pr open-referencing-issue \
+      issue_helpers_va_exec pr open-referencing-issue \
         --issue "$issue_number" \
         --repo "$repo" 2>/dev/null || true
     )"

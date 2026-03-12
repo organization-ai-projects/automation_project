@@ -31,6 +31,19 @@ issue_helpers_has_va_issue() {
   [[ "${issue_helpers_va_issue_available:-0}" == "1" ]]
 }
 
+issue_helpers_has_va_pr() {
+  if [[ "${issue_helpers_va_pr_checked:-0}" != "1" ]]; then
+    issue_helpers_va_pr_checked="1"
+    if issue_helpers_va_exec pr help >/dev/null 2>&1; then
+      issue_helpers_va_pr_available="1"
+    else
+      issue_helpers_va_pr_available="0"
+    fi
+  fi
+
+  [[ "${issue_helpers_va_pr_available:-0}" == "1" ]]
+}
+
 issue_helpers_normalize_json_fields() {
   local json_fields="${1:-}"
 
@@ -657,12 +670,12 @@ github_pr_field() {
     return 1
   fi
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_cmd=(va_exec pr field --pr "$pr_number" --name "$field_name")
+  if issue_helpers_has_va_pr; then
+    va_cmd=(pr field --pr "$pr_number" --name "$field_name")
     if [[ -n "$repo_name" ]]; then
       va_cmd+=(--repo "$repo_name")
     fi
-    va_output="$("${va_cmd[@]}" 2>/dev/null || true)"
+    va_output="$(issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null || true)"
     if [[ -n "$va_output" ]]; then
       printf '%s\n' "$va_output"
       return 0
@@ -726,12 +739,12 @@ github_pr_body_context() {
     return 1
   fi
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_cmd=(va_exec pr body-context --pr "$pr_number")
+  if issue_helpers_has_va_pr; then
+    va_cmd=(pr body-context --pr "$pr_number")
     if [[ -n "$repo_name" ]]; then
       va_cmd+=(--repo "$repo_name")
     fi
-    va_output="$("${va_cmd[@]}" 2>/dev/null || true)"
+    va_output="$(issue_helpers_va_exec "${va_cmd[@]}" 2>/dev/null || true)"
     if [[ "$va_output" == *$'\x1f'* ]]; then
       printf '%s\n' "$va_output"
       return 0
