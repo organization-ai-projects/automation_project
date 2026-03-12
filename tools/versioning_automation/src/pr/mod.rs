@@ -26,6 +26,7 @@ mod open_referencing_issue;
 mod parse;
 mod pr_field;
 mod pr_state;
+mod refresh_validation;
 mod render;
 mod resolve_category;
 mod scan;

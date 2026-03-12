@@ -23,6 +23,7 @@ use crate::pr::open_referencing_issue::run_open_referencing_issue;
 use crate::pr::parse::parse;
 use crate::pr::pr_field::run_field;
 use crate::pr::pr_state::run_pr_state;
+use crate::pr::refresh_validation::run_refresh_validation;
 use crate::pr::render::{emit_json, emit_plain, print_usage};
 use crate::pr::resolve_category::{
     run_effective_category, run_issue_category_from_labels, run_issue_category_from_title,
@@ -61,6 +62,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(PrAction::IssueContext(opts)) => run_issue_context(opts),
         Ok(PrAction::IssueView(opts)) => run_issue_view(opts),
         Ok(PrAction::PrState(opts)) => run_pr_state(opts),
+        Ok(PrAction::RefreshValidation(opts)) => run_refresh_validation(opts),
         Ok(PrAction::IssueRefKind(opts)) => run_issue_ref_kind(opts),
         Ok(PrAction::NormalizeIssueKey(opts)) => run_normalize_issue_key(opts),
         Ok(PrAction::OpenReferencingIssue(opts)) => run_open_referencing_issue(opts),

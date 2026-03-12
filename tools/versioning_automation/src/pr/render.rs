@@ -41,6 +41,7 @@ pub(crate) fn print_usage() {
     println!("  va pr issue-context --issue <number> [--repo owner/name]");
     println!("  va pr issue-view --issue <number> [--repo owner/name]");
     println!("  va pr pr-state --pr <number> [--repo owner/name]");
+    println!("  va pr refresh-validation --pr <number> [--repo owner/name]");
     println!("  va pr text-payload --pr <number> [--repo owner/name]");
     println!("  va pr open-referencing-issue --issue <number> [--repo owner/name]");
     println!("  va pr issue-ref-kind --issue <number> [--repo owner/name]");

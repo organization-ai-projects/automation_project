@@ -33,6 +33,7 @@ use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
 use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
 use crate::pr::commands::pr_open_referencing_issue_options::PrOpenReferencingIssueOptions;
 use crate::pr::commands::pr_pr_state_options::PrPrStateOptions;
+use crate::pr::commands::pr_refresh_validation_options::PrRefreshValidationOptions;
 use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
 use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
 use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
@@ -78,6 +79,9 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "issue-context" => parse_issue_context(&args[1..]).map(PrAction::IssueContext),
         "issue-view" => parse_issue_view(&args[1..]).map(PrAction::IssueView),
         "pr-state" => parse_pr_state(&args[1..]).map(PrAction::PrState),
+        "refresh-validation" => {
+            parse_refresh_validation(&args[1..]).map(PrAction::RefreshValidation)
+        }
         "issue-ref-kind" => parse_issue_ref_kind(&args[1..]).map(PrAction::IssueRefKind),
         "normalize-issue-key" => {
             parse_normalize_issue_key(&args[1..]).map(PrAction::NormalizeIssueKey)
@@ -301,6 +305,27 @@ fn parse_field(args: &[String]) -> Result<PrFieldOptions, String> {
         repo,
         name,
     })
+}
+
+fn parse_refresh_validation(args: &[String]) -> Result<PrRefreshValidationOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for refresh-validation: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrRefreshValidationOptions { pr_number, repo })
 }
 
 fn parse_directive_conflict_guard(
