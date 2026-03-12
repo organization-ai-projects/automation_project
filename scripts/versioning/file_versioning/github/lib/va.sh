@@ -13,12 +13,12 @@ va_exec() {
     va "$@"
     return $?
   fi
-  if command -v versioning_automation >/dev/null 2>&1; then
-    versioning_automation "$@"
-    return $?
-  fi
   if [[ -x "$local_bin" ]]; then
     "$local_bin" "$@"
+    return $?
+  fi
+  if command -v versioning_automation >/dev/null 2>&1; then
+    versioning_automation "$@"
     return $?
   fi
   if command -v cargo >/dev/null 2>&1 && [[ -f "${repo_root}/Cargo.toml" ]]; then
