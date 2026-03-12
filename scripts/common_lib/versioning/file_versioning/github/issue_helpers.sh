@@ -776,12 +776,12 @@ github_pr_update_body() {
     return 1
   fi
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_cmd=(va_exec pr update-body --pr "$pr_number" --body "$body")
+  if issue_helpers_has_va_pr; then
+    va_cmd=(pr update-body --pr "$pr_number" --body "$body")
     if [[ -n "$repo_name" ]]; then
       va_cmd+=(--repo "$repo_name")
     fi
-    if "${va_cmd[@]}" >/dev/null 2>&1; then
+    if issue_helpers_va_exec "${va_cmd[@]}" >/dev/null 2>&1; then
       return 0
     fi
   fi
@@ -805,9 +805,9 @@ github_pr_upsert_comment() {
     return 1
   fi
 
-  if command -v va_exec >/dev/null 2>&1; then
-    va_cmd=(va_exec pr upsert-comment --pr "$pr_number" --repo "$repo_name" --marker "$marker" --body "$body")
-    if "${va_cmd[@]}" >/dev/null 2>&1; then
+  if issue_helpers_has_va_pr; then
+    va_cmd=(pr upsert-comment --pr "$pr_number" --repo "$repo_name" --marker "$marker" --body "$body")
+    if issue_helpers_va_exec "${va_cmd[@]}" >/dev/null 2>&1; then
       return 0
     fi
   fi
