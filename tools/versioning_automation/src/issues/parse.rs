@@ -3,10 +3,10 @@ use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, CreateOptions, DoneStatusMode,
     DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions, IssueAction,
     IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
-    NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions,
-    ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions,
-    SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions,
-    UpsertMarkerCommentOptions,
+    NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, ParentGuardOptions,
+    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
+    StateOptions, SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions,
+    UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -27,6 +27,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "reevaluate" => parse_reevaluate(&args[1..]).map(IssueAction::Reevaluate),
         "neutralize" => parse_neutralize(&args[1..]).map(IssueAction::Neutralize),
         "auto-link" => parse_auto_link(&args[1..]).map(IssueAction::AutoLink),
+        "parent-guard" => parse_parent_guard(&args[1..]).map(IssueAction::ParentGuard),
         "required-fields-validate" => {
             parse_required_fields_validate(&args[1..]).map(IssueAction::RequiredFieldsValidate)
         }
@@ -195,6 +196,46 @@ fn parse_auto_link(args: &[String]) -> Result<AutoLinkOptions, String> {
     }
     require_positive_number("--issue", &issue)?;
     Ok(AutoLinkOptions { issue, repo })
+}
+
+fn parse_parent_guard(args: &[String]) -> Result<ParentGuardOptions, String> {
+    let mut issue: Option<String> = None;
+    let mut child: Option<String> = None;
+    let mut strict_guard = true;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue = Some(take_value("--issue", args, &mut i)?),
+            "--child" => child = Some(take_value("--child", args, &mut i)?),
+            "--strict-guard" => {
+                strict_guard = parse_bool_value(
+                    "--strict-guard",
+                    &take_value("--strict-guard", args, &mut i)?,
+                )?
+            }
+            unknown => return Err(format!("Unknown option for parent-guard: {unknown}")),
+        }
+    }
+
+    if issue.is_none() && child.is_none() {
+        return Err("--issue or --child is required".to_string());
+    }
+    if issue.is_some() && child.is_some() {
+        return Err("use --issue or --child, not both".to_string());
+    }
+    if let Some(value) = issue.as_deref() {
+        require_positive_number("--issue", value)?;
+    }
+    if let Some(value) = child.as_deref() {
+        require_positive_number("--child", value)?;
+    }
+
+    Ok(ParentGuardOptions {
+        issue,
+        child,
+        strict_guard,
+    })
 }
 
 fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {

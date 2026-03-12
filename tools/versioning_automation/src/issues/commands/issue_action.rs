@@ -3,7 +3,7 @@ use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, CreateOptions, DoneStatusOptions,
     FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldOptions, IssueTarget,
     LabelExistsOptions, ListByLabelOptions, NeutralizeOptions, NonComplianceReasonOptions,
-    OpenNumbersOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
+    OpenNumbersOptions, ParentGuardOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
     RequiredFieldsValidateOptions, StateOptions, SubissueRefsOptions, SyncProjectStatusOptions,
     TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
@@ -23,6 +23,7 @@ pub(crate) enum IssueAction {
     Reevaluate(ReevaluateOptions),
     Neutralize(NeutralizeOptions),
     AutoLink(AutoLinkOptions),
+    ParentGuard(ParentGuardOptions),
     RequiredFieldsValidate(RequiredFieldsValidateOptions),
     NonComplianceReason(NonComplianceReasonOptions),
     FetchNonComplianceReason(FetchNonComplianceReasonOptions),

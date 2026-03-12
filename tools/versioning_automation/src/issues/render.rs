@@ -69,6 +69,9 @@ pub(crate) fn print_usage() {
     println!("  va issue neutralize --pr <number> [--repo owner/name]");
     println!("  va issue auto-link --issue <number> [--repo owner/name]");
     println!(
+        "  va issue parent-guard (--issue <number> | --child <number>) [--strict-guard true|false]"
+    );
+    println!(
         "  va issue required-fields-validate [--mode title|body|content] [--title ...] [--body ...] [--labels-raw ...]"
     );
     println!("  va issue non-compliance-reason [--title ...] [--body ...] [--labels-raw ...]");

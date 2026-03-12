@@ -9,9 +9,10 @@ use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, CreateOptions, DoneStatusMode,
     DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldName,
     IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
-    NonComplianceReasonOptions, OpenNumbersOptions, ReadOptions, ReevaluateOptions,
-    ReopenOnDevOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions,
-    SubissueRefsOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    NonComplianceReasonOptions, OpenNumbersOptions, ParentGuardOptions, ReadOptions,
+    ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
+    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
+    UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -1626,6 +1627,264 @@ pub(crate) fn run_reevaluate(opts: ReevaluateOptions) -> i32 {
         evaluated_count
     );
     0
+}
+
+pub(crate) fn run_parent_guard(opts: ParentGuardOptions) -> i32 {
+    let repo_name = match resolve_repo_name(None) {
+        Ok(repo) => repo,
+        Err(msg) => {
+            eprintln!("{msg}");
+            return 3;
+        }
+    };
+    let (repo_owner, repo_short_name) = split_repo_name(&repo_name);
+
+    if let Some(issue_number) = opts.issue.as_deref() {
+        return evaluate_parent_issue(
+            opts.strict_guard,
+            &repo_name,
+            &repo_owner,
+            &repo_short_name,
+            issue_number,
+        );
+    }
+
+    let Some(child_number) = opts.child.as_deref() else {
+        eprintln!("--issue or --child is required");
+        return 2;
+    };
+    let candidates =
+        collect_parent_candidates(&repo_name, &repo_owner, &repo_short_name, child_number);
+    for parent_number in candidates {
+        if parent_number == child_number {
+            continue;
+        }
+        let status = evaluate_parent_issue(
+            opts.strict_guard,
+            &repo_name,
+            &repo_owner,
+            &repo_short_name,
+            &parent_number,
+        );
+        if status != 0 {
+            return status;
+        }
+    }
+    0
+}
+
+fn evaluate_parent_issue(
+    strict_guard: bool,
+    repo_name: &str,
+    repo_owner: &str,
+    repo_short_name: &str,
+    parent_number: &str,
+) -> i32 {
+    let parent_payload = gh_issue_autolink_payload(repo_name, parent_number);
+    let parent_state = parent_payload.state.unwrap_or_default();
+    let body = parent_payload.body.unwrap_or_default();
+    if parent_state.is_empty() && body.is_empty() {
+        return 0;
+    }
+
+    let mut child_refs =
+        extract_subissue_refs_for_parent(repo_owner, repo_short_name, parent_number);
+    if child_refs.is_empty() {
+        child_refs = extract_tasklist_refs(&body);
+    }
+    if child_refs.is_empty() {
+        return 0;
+    }
+
+    let total = child_refs.len();
+    let mut closed_count = 0usize;
+    let mut open_count = 0usize;
+    let mut open_lines = String::new();
+
+    for child_ref in child_refs {
+        let child_number = child_ref.trim_start_matches('#');
+        let child_payload = gh_issue_autolink_payload(repo_name, child_number);
+        let child_state = child_payload.state.unwrap_or_default();
+        let child_title = child_payload.title.unwrap_or_default();
+        if child_state.is_empty() && child_title.is_empty() {
+            open_count += 1;
+            open_lines.push_str(&format!("- {} (unreadable or missing)\n", child_ref));
+            continue;
+        }
+        if child_state == "CLOSED" {
+            closed_count += 1;
+        } else {
+            open_count += 1;
+            open_lines.push_str(&format!("- {} {}\n", child_ref, child_title));
+        }
+    }
+
+    let marker = format!("<!-- parent-issue-status:{parent_number} -->");
+    let comment_body = build_parent_guard_status_comment(
+        strict_guard,
+        parent_number,
+        &parent_state,
+        total,
+        closed_count,
+        open_count,
+        &open_lines,
+    );
+    let status = run_upsert_marker_comment(UpsertMarkerCommentOptions {
+        repo: repo_name.to_string(),
+        issue: parent_number.to_string(),
+        marker,
+        body: comment_body,
+        announce: true,
+    });
+    if status != 0 {
+        return status;
+    }
+
+    if open_count == 0 && parent_state == "OPEN" {
+        let close_status = run_close(CloseOptions {
+            issue: parent_number.to_string(),
+            repo: Some(repo_name.to_string()),
+            reason: "completed".to_string(),
+            comment: Some(
+                "All required child issues are closed. Auto-closed by parent-issue-guard."
+                    .to_string(),
+            ),
+        });
+        if close_status != 0 {
+            return close_status;
+        }
+        println!(
+            "Closed parent issue #{} because all required children are closed.",
+            parent_number
+        );
+    }
+
+    if strict_guard && parent_state == "CLOSED" && open_count > 0 {
+        let reopen_status = run_reopen(IssueTarget {
+            issue: parent_number.to_string(),
+            repo: Some(repo_name.to_string()),
+        });
+        if reopen_status != 0 {
+            return reopen_status;
+        }
+        println!(
+            "Reopened parent issue #{} due to open required children.",
+            parent_number
+        );
+    }
+    0
+}
+
+fn extract_subissue_refs_for_parent(
+    repo_owner: &str,
+    repo_short_name: &str,
+    parent_number: &str,
+) -> Vec<String> {
+    let output = gh_output_or_empty(&[
+        "api",
+        "graphql",
+        "-f",
+        "query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){subIssues(first:100){nodes{number}}}}}",
+        "-f",
+        &format!("owner={repo_owner}"),
+        "-f",
+        &format!("name={repo_short_name}"),
+        "-F",
+        &format!("number={parent_number}"),
+        "--jq",
+        ".data.repository.issue.subIssues.nodes[]?.number | \"#\"+tostring",
+    ]);
+    output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn collect_parent_candidates(
+    repo_name: &str,
+    repo_owner: &str,
+    repo_short_name: &str,
+    child_number: &str,
+) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut seen = HashSet::new();
+
+    let direct = gh_output_or_empty(&[
+        "api",
+        "graphql",
+        "-f",
+        "query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){parent{number}}}}",
+        "-f",
+        &format!("owner={repo_owner}"),
+        "-f",
+        &format!("name={repo_short_name}"),
+        "-F",
+        &format!("number={child_number}"),
+        "--jq",
+        ".data.repository.issue.parent.number // empty | \"#\"+tostring",
+    ]);
+    for line in direct
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let candidate = line.trim_start_matches('#').to_string();
+        if !candidate.is_empty() && seen.insert(candidate.clone()) {
+            out.push(candidate);
+        }
+    }
+
+    if out.is_empty() {
+        let search = gh_output_or_empty(&[
+            "api",
+            "search/issues",
+            "-f",
+            &format!("q=repo:{repo_name} is:issue \"#{child_number}\""),
+            "--jq",
+            ".items[].number",
+        ]);
+        for line in search
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+        {
+            let candidate = line.to_string();
+            if seen.insert(candidate.clone()) {
+                out.push(candidate);
+            }
+        }
+    }
+
+    out
+}
+
+fn build_parent_guard_status_comment(
+    strict_guard: bool,
+    parent_number: &str,
+    parent_state: &str,
+    total: usize,
+    closed_count: usize,
+    open_count: usize,
+    open_lines: &str,
+) -> String {
+    let marker = format!("<!-- parent-issue-status:{parent_number} -->");
+    let mut comment = format!(
+        "{marker}\n### Parent Issue Status\nParent: #{parent_number}\n\n- Required children detected: {total}\n- Closed: {closed_count}\n- Open: {open_count}\n\n"
+    );
+    if open_count == 0 {
+        comment.push_str("All required child issues are closed. This parent can be closed.");
+        return comment;
+    }
+    comment.push_str("Some required child issues are still open:\n");
+    comment.push_str(open_lines);
+    if parent_state == "CLOSED" && strict_guard {
+        comment.push_str(
+            "\nGuard action: parent was reopened because required children are still open.",
+        );
+    }
+    comment
 }
 
 pub(crate) fn run_required_fields_validate(opts: RequiredFieldsValidateOptions) -> i32 {

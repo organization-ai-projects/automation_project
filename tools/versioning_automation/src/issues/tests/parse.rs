@@ -55,6 +55,39 @@ fn parse_auto_link_accepts_issue_and_optional_repo() {
 }
 
 #[test]
+fn parse_parent_guard_requires_issue_or_child() {
+    let args = vec!["parent-guard".to_string()];
+    let code = issues::run(&args);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn parse_parent_guard_accepts_issue_mode() {
+    let args = vec![
+        "parent-guard".to_string(),
+        "--issue".to_string(),
+        "12".to_string(),
+        "--strict-guard".to_string(),
+        "false".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 3);
+}
+
+#[test]
+fn parse_parent_guard_accepts_child_mode() {
+    let args = vec![
+        "parent-guard".to_string(),
+        "--child".to_string(),
+        "12".to_string(),
+        "--strict-guard".to_string(),
+        "true".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 3);
+}
+
+#[test]
 fn parse_required_fields_validate_accepts_mode() {
     let args = vec![
         "required-fields-validate".to_string(),
