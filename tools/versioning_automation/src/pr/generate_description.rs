@@ -4,11 +4,13 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use regex::Regex;
+use serde::Deserialize;
 
 use crate::pr::breaking_detect::text_indicates_breaking;
 use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
+use crate::repo_name::resolve_repo_name_optional;
 
 const E_USAGE: i32 = 2;
 const E_DEPENDENCY: i32 = 3;
@@ -18,6 +20,7 @@ const E_NO_DATA: i32 = 5;
 #[derive(Debug, Clone)]
 struct GenerateOptions {
     dry_run: bool,
+    main_pr_number: Option<String>,
     create_pr: bool,
     allow_partial_create: bool,
     assume_yes: bool,
@@ -34,6 +37,34 @@ struct CommitInfo {
     short_hash: String,
     subject: String,
     body: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MainPrRefSnapshot {
+    #[serde(default, rename = "baseRefName")]
+    base_ref_name: String,
+    #[serde(default, rename = "headRefName")]
+    head_ref_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct CompareResponse {
+    #[serde(default)]
+    commits: Vec<CompareCommit>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CompareCommit {
+    #[serde(default)]
+    sha: String,
+    #[serde(default)]
+    commit: CompareCommitDetail,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct CompareCommitDetail {
+    #[serde(default)]
+    message: String,
 }
 
 pub(crate) fn run_generate_description(opts: PrGenerateDescriptionOptions) -> i32 {
@@ -53,32 +84,85 @@ pub(crate) fn run_generate_description(opts: PrGenerateDescriptionOptions) -> i3
 }
 
 fn run_native_dry_run(opts: GenerateOptions) -> i32 {
-    let base_ref = opts.base_ref.unwrap_or_else(|| "dev".to_string());
-    let head_ref = match opts.head_ref {
-        Some(value) => value,
-        None => match current_branch_name() {
+    let (base_ref, head_ref) = if opts.dry_run {
+        let base_ref = opts.base_ref.unwrap_or_else(|| "dev".to_string());
+        let head_ref = match opts.head_ref {
+            Some(value) => value,
+            None => match current_branch_name() {
+                Ok(value) => value,
+                Err(msg) => {
+                    eprintln!("{msg}");
+                    return E_GIT;
+                }
+            },
+        };
+        (base_ref, head_ref)
+    } else {
+        let main_pr_number = match opts.main_pr_number.as_deref() {
+            Some(value) => value,
+            None => {
+                eprintln!("MAIN_PR_NUMBER is required.");
+                return E_USAGE;
+            }
+        };
+        let refs = match fetch_main_pr_refs(main_pr_number) {
             Ok(value) => value,
             Err(msg) => {
                 eprintln!("{msg}");
-                return E_GIT;
+                return E_DEPENDENCY;
             }
-        },
+        };
+        let base = if opts.base_ref.as_deref().unwrap_or("").trim().is_empty() {
+            if refs.base_ref_name.trim().is_empty() {
+                "dev".to_string()
+            } else {
+                refs.base_ref_name
+            }
+        } else {
+            opts.base_ref.clone().unwrap_or_else(|| "dev".to_string())
+        };
+        let head = if opts.head_ref.as_deref().unwrap_or("").trim().is_empty() {
+            if refs.head_ref_name.trim().is_empty() {
+                "dev".to_string()
+            } else {
+                refs.head_ref_name
+            }
+        } else {
+            opts.head_ref.clone().unwrap_or_else(|| "dev".to_string())
+        };
+        (base, head)
     };
 
     let range = format!("{base_ref}..{head_ref}");
-    let commits = match git_log_commits(&range) {
+    let mut commits = match git_log_commits(&range) {
         Ok(value) => value,
         Err(msg) => {
-            eprintln!("{msg}");
-            return E_GIT;
+            if !opts.dry_run {
+                eprintln!("Warning: {msg}");
+            }
+            Vec::new()
         }
     };
 
     if commits.is_empty() {
-        eprintln!(
-            "Error: unable to determine commit messages for --dry-run compare {base_ref}...{head_ref}."
-        );
-        return E_NO_DATA;
+        if opts.dry_run {
+            eprintln!(
+                "Error: unable to determine commit messages for --dry-run compare {base_ref}...{head_ref}."
+            );
+            return E_NO_DATA;
+        }
+        commits = compare_api_commits(&base_ref, &head_ref).unwrap_or_default();
+    }
+
+    if commits.is_empty() {
+        if opts.dry_run {
+            eprintln!(
+                "Error: unable to determine commit messages for --dry-run compare {base_ref}...{head_ref}."
+            );
+            return E_NO_DATA;
+        }
+        eprintln!("Error: unable to retrieve commit messages for {base_ref}..{head_ref}.");
+        return E_DEPENDENCY;
     }
 
     let validation_gate = build_validation_gate(&commits);
@@ -717,11 +801,12 @@ fn gh_create_pr(base_ref: &str, head_ref: &str, title: &str, body: &str) -> Resu
 }
 
 fn is_native_supported(opts: &GenerateOptions) -> bool {
-    opts.dry_run
+    opts.dry_run || opts.main_pr_number.is_some()
 }
 
 fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
     let mut dry_run = false;
+    let mut main_pr_number: Option<String> = None;
     let mut create_pr = false;
     let mut allow_partial_create = false;
     let mut assume_yes = false;
@@ -784,6 +869,7 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
             "-h" | "--help" => {
                 return Ok(GenerateOptions {
                     dry_run: false,
+                    main_pr_number: None,
                     create_pr: false,
                     allow_partial_create: false,
                     assume_yes: false,
@@ -852,11 +938,38 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
                 "In --auto-edit dry-run mode, positional OUTPUT_FILE is not allowed.".to_string(),
             );
         }
-        None
+        if auto_edit_pr_number.is_some() && positionals.len() > 1 {
+            return Err(
+                "In --auto-edit mode (MAIN_PR_NUMBER), positional OUTPUT_FILE is not allowed."
+                    .to_string(),
+            );
+        }
+        if auto_edit_pr_number.is_none() && positionals.len() > 2 {
+            return Err(
+                "Too many positional arguments. Expected usage: MAIN_PR_NUMBER [OUTPUT_FILE]."
+                    .to_string(),
+            );
+        }
+        if let Some(first) = positionals.first() {
+            main_pr_number = Some(first.clone());
+        }
+        if main_pr_number.is_none() {
+            return Err("MAIN_PR_NUMBER is required.".to_string());
+        }
+        if auto_edit_pr_number.is_none() {
+            if positionals.len() >= 2 {
+                Some(positionals[1].clone())
+            } else {
+                Some("pr_description.md".to_string())
+            }
+        } else {
+            None
+        }
     };
 
     Ok(GenerateOptions {
         dry_run,
+        main_pr_number,
         create_pr,
         allow_partial_create,
         assume_yes,
@@ -867,6 +980,66 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
         validation_only,
         output_file,
     })
+}
+
+fn fetch_main_pr_refs(pr_number: &str) -> Result<MainPrRefSnapshot, String> {
+    let mut cmd = Command::new("gh");
+    cmd.arg("pr")
+        .arg("view")
+        .arg(pr_number)
+        .arg("--json")
+        .arg("baseRefName,headRefName");
+
+    if let Some(repo) = resolve_repo_name_optional(None) {
+        cmd.arg("-R").arg(repo);
+    }
+
+    let output = cmd
+        .output()
+        .map_err(|err| format!("Failed to execute gh pr view: {err}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    let json = String::from_utf8_lossy(&output.stdout).to_string();
+    common_json::from_json_str::<MainPrRefSnapshot>(&json).map_err(|err| err.to_string())
+}
+
+fn compare_api_commits(base_ref: &str, head_ref: &str) -> Result<Vec<CommitInfo>, String> {
+    let Some(repo) = resolve_repo_name_optional(None) else {
+        return Err("Error: unable to determine repository.".to_string());
+    };
+
+    let output = Command::new("gh")
+        .arg("api")
+        .arg(format!("repos/{repo}/compare/{base_ref}...{head_ref}"))
+        .output()
+        .map_err(|err| format!("Failed to execute gh api compare: {err}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    let json = String::from_utf8_lossy(&output.stdout).to_string();
+    let parsed =
+        common_json::from_json_str::<CompareResponse>(&json).map_err(|err| err.to_string())?;
+
+    let mut commits = Vec::new();
+    for entry in parsed.commits {
+        let message = entry.commit.message.trim().to_string();
+        if message.is_empty() {
+            continue;
+        }
+        let mut lines = message.lines();
+        let subject = lines.next().unwrap_or_default().trim().to_string();
+        let body = lines.collect::<Vec<&str>>().join("\n").trim().to_string();
+        commits.push(CommitInfo {
+            short_hash: entry.sha.chars().take(7).collect::<String>(),
+            subject,
+            body,
+        });
+    }
+
+    Ok(commits)
 }
 
 fn take_value(flag: &str, args: &[String], index: &mut usize) -> Result<String, String> {
@@ -981,6 +1154,30 @@ mod tests {
         let args = vec!["--create-pr".to_string()];
         let err = parse_generate_options(&args).expect_err("must fail");
         assert!(err.contains("--create-pr is only supported with --dry-run"));
+    }
+
+    #[test]
+    fn parse_main_mode_requires_main_pr_number() {
+        let err = parse_generate_options(&[]).expect("auto mode should parse");
+        assert!(err.dry_run);
+        assert!(err.create_pr);
+    }
+
+    #[test]
+    fn parse_main_mode_accepts_main_and_output_file() {
+        let args = vec!["42".to_string(), "out.md".to_string()];
+        let parsed = parse_generate_options(&args).expect("parse");
+        assert!(!parsed.dry_run);
+        assert_eq!(parsed.main_pr_number.as_deref(), Some("42"));
+        assert_eq!(parsed.output_file.as_deref(), Some("out.md"));
+    }
+
+    #[test]
+    fn parse_without_mode_or_positionals_defaults_to_auto_even_with_base() {
+        let args = vec!["--base".to_string(), "dev".to_string()];
+        let parsed = parse_generate_options(&args).expect("should parse");
+        assert!(parsed.dry_run);
+        assert!(parsed.create_pr);
     }
 
     #[test]
