@@ -5,7 +5,8 @@ use crate::moe_core::{ExpertId, TaskId};
 
 use super::{
     Correction, DatasetEntry, DatasetQualityReport, DatasetTrainingBuildOptions,
-    DatasetTrainingBundle, DatasetTrainingSample, DatasetTrainingShard, Outcome,
+    DatasetTrainingBundle, DatasetTrainingProvenance, DatasetTrainingSample, DatasetTrainingShard,
+    Outcome,
 };
 
 #[derive(Debug, Clone)]
@@ -145,6 +146,14 @@ impl DatasetStore {
         &self,
         options: &DatasetTrainingBuildOptions,
     ) -> Result<DatasetTrainingBundle, MoeError> {
+        self.build_training_bundle_with_provenance(options, DatasetTrainingProvenance::default())
+    }
+
+    pub fn build_training_bundle_with_provenance(
+        &self,
+        options: &DatasetTrainingBuildOptions,
+        provenance: DatasetTrainingProvenance,
+    ) -> Result<DatasetTrainingBundle, MoeError> {
         if !(0.0..1.0).contains(&options.validation_ratio) {
             return Err(MoeError::DatasetError(format!(
                 "invalid validation_ratio {} (must be in [0.0, 1.0))",
@@ -240,6 +249,7 @@ impl DatasetStore {
             filtered_low_score,
             filtered_outcome,
             filtered_missing_failure_correction,
+            provenance,
             train_samples,
             validation_samples,
         };
@@ -259,6 +269,18 @@ impl DatasetStore {
         }
 
         let bundle = self.build_training_bundle(options)?;
+        Self::shard_training_bundle(&bundle, max_samples_per_shard)
+    }
+
+    pub fn shard_training_bundle(
+        bundle: &DatasetTrainingBundle,
+        max_samples_per_shard: usize,
+    ) -> Result<Vec<DatasetTrainingShard>, MoeError> {
+        if max_samples_per_shard == 0 {
+            return Err(MoeError::DatasetError(
+                "max_samples_per_shard must be greater than zero".to_string(),
+            ));
+        }
         if !bundle.has_supported_schema() {
             return Err(MoeError::DatasetError(format!(
                 "unsupported training bundle schema version {}",
@@ -305,6 +327,7 @@ impl DatasetStore {
                 filtered_low_score: bundle.filtered_low_score,
                 filtered_outcome: bundle.filtered_outcome,
                 filtered_missing_failure_correction: bundle.filtered_missing_failure_correction,
+                provenance: bundle.provenance.clone(),
                 shard_index,
                 total_shards,
                 train_samples,
@@ -362,6 +385,14 @@ impl DatasetStore {
                 || shard.filtered_outcome != first.filtered_outcome
                 || shard.filtered_missing_failure_correction
                     != first.filtered_missing_failure_correction
+                || shard.provenance.generator != first.provenance.generator
+                || shard.provenance.governance_state_version
+                    != first.provenance.governance_state_version
+                || shard.provenance.governance_state_checksum
+                    != first.provenance.governance_state_checksum
+                || shard.provenance.runtime_bundle_checksum
+                    != first.provenance.runtime_bundle_checksum
+                || shard.provenance.dataset_entry_count != first.provenance.dataset_entry_count
             {
                 return Err(MoeError::DatasetError(
                     "inconsistent shard metadata across shard set".to_string(),
@@ -401,6 +432,7 @@ impl DatasetStore {
             filtered_low_score: first.filtered_low_score,
             filtered_outcome: first.filtered_outcome,
             filtered_missing_failure_correction: first.filtered_missing_failure_correction,
+            provenance: first.provenance.clone(),
             train_samples,
             validation_samples,
         };

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::DatasetTrainingSample;
+use super::{DatasetTrainingProvenance, DatasetTrainingSample};
 
 const DATASET_TRAINING_BUNDLE_SCHEMA_VERSION: u32 = 1;
 
@@ -18,6 +18,8 @@ pub struct DatasetTrainingBundle {
     pub filtered_low_score: usize,
     pub filtered_outcome: usize,
     pub filtered_missing_failure_correction: usize,
+    #[serde(default)]
+    pub provenance: DatasetTrainingProvenance,
     pub train_samples: Vec<DatasetTrainingSample>,
     pub validation_samples: Vec<DatasetTrainingSample>,
 }
@@ -55,7 +57,7 @@ impl DatasetTrainingBundle {
             .collect::<Vec<_>>()
             .join("||");
         let material = format!(
-            "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{train_fp}::{validation_fp}",
+            "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{train_fp}::{validation_fp}",
             self.schema_version,
             self.generated_at,
             self.validation_ratio,
@@ -65,6 +67,11 @@ impl DatasetTrainingBundle {
             self.filtered_low_score,
             self.filtered_outcome,
             self.filtered_missing_failure_correction,
+            self.provenance.generator,
+            self.provenance.governance_state_version,
+            self.provenance.governance_state_checksum,
+            self.provenance.runtime_bundle_checksum,
+            self.provenance.dataset_entry_count,
             self.train_samples.len(),
             self.validation_samples.len()
         );

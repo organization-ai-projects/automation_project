@@ -2,8 +2,8 @@
 use crate::aggregator::OutputAggregator;
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{
-    DatasetStore, DatasetTrainingBuildOptions, DatasetTrainingBundle, DatasetTrainingShard,
-    Outcome, TraceConverter,
+    DatasetStore, DatasetTrainingBuildOptions, DatasetTrainingBundle, DatasetTrainingProvenance,
+    DatasetTrainingShard, Outcome, TraceConverter,
 };
 use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
@@ -453,7 +453,8 @@ impl MoePipeline {
         &self,
         options: &DatasetTrainingBuildOptions,
     ) -> Result<DatasetTrainingBundle, MoeError> {
-        self.dataset_store.build_training_bundle(options)
+        self.dataset_store
+            .build_training_bundle_with_provenance(options, self.dataset_provenance())
     }
 
     pub fn export_training_dataset_bundle_json(
@@ -473,8 +474,8 @@ impl MoePipeline {
         options: &DatasetTrainingBuildOptions,
         max_samples_per_shard: usize,
     ) -> Result<Vec<DatasetTrainingShard>, MoeError> {
-        self.dataset_store
-            .build_training_shards(options, max_samples_per_shard)
+        let bundle = self.export_training_dataset_bundle(options)?;
+        DatasetStore::shard_training_bundle(&bundle, max_samples_per_shard)
     }
 
     pub fn export_training_dataset_shards_json(
@@ -508,6 +509,18 @@ impl MoePipeline {
                 ))
             })?;
         self.rebuild_training_dataset_bundle_from_shards(&shards)
+    }
+
+    fn dataset_provenance(&self) -> DatasetTrainingProvenance {
+        let governance_state = self.export_governance_state();
+        let runtime_bundle = self.export_runtime_bundle();
+        DatasetTrainingProvenance {
+            generator: "neurosymbolic_moe_backend.orchestrator".to_string(),
+            governance_state_version: governance_state.state_version,
+            governance_state_checksum: governance_state.state_checksum,
+            runtime_bundle_checksum: runtime_bundle.runtime_checksum,
+            dataset_entry_count: self.dataset_store.count(),
+        }
     }
 
     pub fn add_feedback(&mut self, entry: FeedbackEntry) {

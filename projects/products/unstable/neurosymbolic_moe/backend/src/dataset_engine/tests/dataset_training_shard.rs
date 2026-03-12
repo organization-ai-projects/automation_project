@@ -1,4 +1,4 @@
-use crate::dataset_engine::DatasetTrainingShard;
+use crate::dataset_engine::{DatasetTrainingProvenance, DatasetTrainingShard};
 
 #[test]
 fn dataset_training_shard_model_is_constructible() {
@@ -14,6 +14,7 @@ fn dataset_training_shard_model_is_constructible() {
         filtered_low_score: 0,
         filtered_outcome: 0,
         filtered_missing_failure_correction: 0,
+        provenance: DatasetTrainingProvenance::default(),
         shard_index: 0,
         total_shards: 1,
         train_samples: Vec::new(),

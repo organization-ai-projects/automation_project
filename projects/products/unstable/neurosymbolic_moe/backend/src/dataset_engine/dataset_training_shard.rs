@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::DatasetTrainingSample;
+use super::{DatasetTrainingProvenance, DatasetTrainingSample};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatasetTrainingShard {
@@ -17,6 +17,8 @@ pub struct DatasetTrainingShard {
     pub filtered_low_score: usize,
     pub filtered_outcome: usize,
     pub filtered_missing_failure_correction: usize,
+    #[serde(default)]
+    pub provenance: DatasetTrainingProvenance,
     pub shard_index: usize,
     pub total_shards: usize,
     pub train_samples: Vec<DatasetTrainingSample>,
@@ -48,7 +50,7 @@ impl DatasetTrainingShard {
             .collect::<Vec<_>>()
             .join("||");
         let material = format!(
-            "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{train_fp}::{validation_fp}",
+            "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{train_fp}::{validation_fp}",
             self.schema_version,
             self.bundle_checksum,
             self.generated_at,
@@ -59,6 +61,11 @@ impl DatasetTrainingShard {
             self.filtered_low_score,
             self.filtered_outcome,
             self.filtered_missing_failure_correction,
+            self.provenance.generator,
+            self.provenance.governance_state_version,
+            self.provenance.governance_state_checksum,
+            self.provenance.runtime_bundle_checksum,
+            self.provenance.dataset_entry_count,
             self.shard_index,
             self.total_shards,
             self.train_samples.len()

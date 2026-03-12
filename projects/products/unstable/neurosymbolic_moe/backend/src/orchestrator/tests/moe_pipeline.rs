@@ -341,6 +341,11 @@ fn export_training_dataset_bundle_json_from_pipeline() {
         .expect("training dataset bundle json should export");
 
     assert!(bundle.included_entries > 0);
+    assert_eq!(
+        bundle.provenance.generator,
+        "neurosymbolic_moe_backend.orchestrator"
+    );
+    assert!(bundle.verify_checksum());
     assert!(!json.is_empty());
 }
 
@@ -395,7 +400,16 @@ fn export_training_dataset_shards_from_pipeline() {
             .iter()
             .all(|shard| shard.total_shards == shards.len())
     );
+    assert!(
+        shards
+            .iter()
+            .all(|shard| shard.provenance.generator == "neurosymbolic_moe_backend.orchestrator")
+    );
     assert_eq!(rebuilt.included_entries, rebuilt_from_json.included_entries);
+    assert_eq!(
+        rebuilt.provenance.generator,
+        "neurosymbolic_moe_backend.orchestrator"
+    );
     assert!(rebuilt.verify_checksum());
     assert!(!shards_json.is_empty());
 }
