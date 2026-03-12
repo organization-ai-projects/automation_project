@@ -2,11 +2,12 @@
 use std::collections::HashMap;
 
 use crate::moe_core::MoeError;
+use serde::{Deserialize, Serialize};
 
 use super::memory_store::MemoryStore;
 use super::{MemoryEntry, MemoryQuery};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortTermMemory {
     entries: HashMap<String, MemoryEntry>,
     capacity: usize,
@@ -29,6 +30,24 @@ impl ShortTermMemory {
         {
             self.entries.remove(&oldest_id);
         }
+    }
+
+    pub fn entries_cloned(&self) -> Vec<MemoryEntry> {
+        let mut entries: Vec<MemoryEntry> = self.entries.values().cloned().collect();
+        entries.sort_by(|a, b| {
+            a.created_at
+                .cmp(&b.created_at)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        entries
+    }
+
+    pub fn replace_entries(&mut self, entries: Vec<MemoryEntry>) -> Result<(), MoeError> {
+        self.entries.clear();
+        for entry in entries {
+            self.store(entry)?;
+        }
+        Ok(())
     }
 }
 

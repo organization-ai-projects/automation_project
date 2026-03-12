@@ -16,7 +16,7 @@ use crate::orchestrator::ContinuousImprovementReport;
 use crate::orchestrator::{
     ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceAuditTrail,
     GovernanceImportDecision, GovernanceImportPolicy, GovernancePersistenceBundle, GovernanceState,
-    GovernanceStateDiff, GovernanceStateSnapshot,
+    GovernanceStateDiff, GovernanceStateSnapshot, RuntimePersistenceBundle,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::retrieval_engine::{ContextAssembler, RetrievalQuery, Retriever};
@@ -63,6 +63,10 @@ impl MoePipeline {
 
     pub fn remember_short_term(&mut self, entry: MemoryEntry) -> Result<(), MoeError> {
         self.short_term_memory.store(entry)
+    }
+
+    pub fn remember_long_term(&mut self, entry: MemoryEntry) -> Result<(), MoeError> {
+        self.long_term_memory.store(entry)
     }
 
     pub fn execute(&mut self, task: Task) -> Result<AggregatedOutput, MoeError> {
@@ -493,6 +497,23 @@ impl MoePipeline {
         })
     }
 
+    pub fn export_runtime_bundle(&self) -> RuntimePersistenceBundle {
+        RuntimePersistenceBundle {
+            governance: self.export_governance_bundle(),
+            short_term_memory_entries: self.short_term_memory.entries_cloned(),
+            long_term_memory_entries: self.long_term_memory.entries_cloned(),
+            buffer_manager: self.buffer_manager.clone(),
+        }
+    }
+
+    pub fn export_runtime_bundle_json(&self) -> Result<String, MoeError> {
+        common_json::json::to_json_string_pretty(&self.export_runtime_bundle()).map_err(|err| {
+            MoeError::DatasetError(format!(
+                "runtime persistence bundle serialization failed: {err}"
+            ))
+        })
+    }
+
     pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
         self.try_import_governance_state_json(payload)
     }
@@ -540,6 +561,29 @@ impl MoePipeline {
                 ))
             })?;
         self.import_governance_bundle(bundle)
+    }
+
+    pub fn import_runtime_bundle(
+        &mut self,
+        bundle: RuntimePersistenceBundle,
+    ) -> Result<(), MoeError> {
+        self.import_governance_bundle(bundle.governance)?;
+        self.short_term_memory
+            .replace_entries(bundle.short_term_memory_entries)?;
+        self.long_term_memory
+            .replace_entries(bundle.long_term_memory_entries)?;
+        self.buffer_manager = bundle.buffer_manager;
+        Ok(())
+    }
+
+    pub fn import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        let bundle: RuntimePersistenceBundle =
+            common_json::json::from_json_str(payload).map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "runtime persistence bundle deserialization failed: {err}"
+                ))
+            })?;
+        self.import_runtime_bundle(bundle)
     }
 
     pub fn try_import_governance_bundle(

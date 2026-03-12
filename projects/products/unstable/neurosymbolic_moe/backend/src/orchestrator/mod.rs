@@ -10,6 +10,7 @@ mod governance_state_diff;
 mod governance_state_snapshot;
 mod moe_pipeline;
 mod moe_pipeline_builder;
+mod runtime_persistence_bundle;
 #[cfg(test)]
 mod tests;
 
@@ -25,3 +26,4 @@ pub use governance_state_diff::GovernanceStateDiff;
 pub use governance_state_snapshot::GovernanceStateSnapshot;
 pub use moe_pipeline::MoePipeline;
 pub use moe_pipeline_builder::MoePipelineBuilder;
+pub use runtime_persistence_bundle::RuntimePersistenceBundle;

@@ -997,6 +997,7 @@ mod v5 {
     use crate::dataset_engine::{Correction, DatasetEntry, DatasetStore, Outcome};
     use crate::evaluation_engine::EvaluationEngine;
     use crate::expert_registry::ExpertRegistry;
+    use crate::memory_engine::{MemoryEntry, MemoryType};
     use crate::moe_core::{
         ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
         ExpertOutput, ExpertStatus, ExpertType, Task, TaskId, TaskType,
@@ -1019,6 +1020,24 @@ mod v5 {
             score,
             tags: vec!["acceptance".to_string()],
             created_at: 1,
+            metadata: HashMap::new(),
+        }
+    }
+
+    fn memory_entry(
+        id: &str,
+        content: &str,
+        memory_type: MemoryType,
+        created_at: u64,
+    ) -> MemoryEntry {
+        MemoryEntry {
+            id: id.to_string(),
+            content: content.to_string(),
+            tags: vec!["acceptance".to_string()],
+            created_at,
+            expires_at: None,
+            memory_type,
+            relevance: 0.9,
             metadata: HashMap::new(),
         }
     }
@@ -1894,6 +1913,89 @@ mod v5 {
         assert_eq!(
             target_json.governance_audit_trail().entries.len(),
             bundle.audit_entries.len()
+        );
+    }
+
+    #[test]
+    fn v5_runtime_bundle_roundtrip_restores_memory_and_buffers() {
+        let policy = ContinuousGovernancePolicy::new(1.1, 0.99, 0.5, 0.1, false);
+        let router = SingleExpertRouter {
+            expert_id: ExpertId::new("v5-runtime-bundle"),
+        };
+
+        let mut source = MoePipelineBuilder::new()
+            .with_router(Box::new(router))
+            .with_continuous_governance_policy(policy)
+            .build();
+        source
+            .register_expert(Box::new(V5FlakyExpert::new("v5-runtime-bundle")))
+            .expect("expert registration should succeed");
+        source
+            .remember_short_term(memory_entry(
+                "stm-1",
+                "recent runtime memory",
+                MemoryType::Short,
+                1,
+            ))
+            .expect("short-term memory write should succeed");
+        source
+            .remember_long_term(memory_entry(
+                "ltm-1",
+                "archival runtime memory",
+                MemoryType::Long,
+                2,
+            ))
+            .expect("long-term memory write should succeed");
+        let _ = source
+            .execute(Task::new(
+                "v5-runtime-bundle-task",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("execution should succeed");
+
+        let runtime_bundle = source.export_runtime_bundle();
+        let runtime_bundle_json = source
+            .export_runtime_bundle_json()
+            .expect("runtime bundle json export should succeed");
+        assert!(!runtime_bundle.short_term_memory_entries.is_empty());
+        assert!(!runtime_bundle.long_term_memory_entries.is_empty());
+        assert!(runtime_bundle.buffer_manager.working().count() > 0);
+
+        let mut target = MoePipelineBuilder::new().build();
+        target
+            .import_runtime_bundle(runtime_bundle.clone())
+            .expect("runtime bundle import should succeed");
+        let restored = target.export_runtime_bundle();
+        assert_eq!(
+            restored.short_term_memory_entries.len(),
+            runtime_bundle.short_term_memory_entries.len()
+        );
+        assert_eq!(
+            restored.long_term_memory_entries.len(),
+            runtime_bundle.long_term_memory_entries.len()
+        );
+        assert_eq!(
+            restored.buffer_manager.working().count(),
+            runtime_bundle.buffer_manager.working().count()
+        );
+
+        let mut target_json = MoePipelineBuilder::new().build();
+        target_json
+            .import_runtime_bundle_json(&runtime_bundle_json)
+            .expect("runtime bundle json import should succeed");
+        let restored_json = target_json.export_runtime_bundle();
+        assert_eq!(
+            restored_json.short_term_memory_entries.len(),
+            runtime_bundle.short_term_memory_entries.len()
+        );
+        assert_eq!(
+            restored_json.long_term_memory_entries.len(),
+            runtime_bundle.long_term_memory_entries.len()
+        );
+        assert_eq!(
+            restored_json.buffer_manager.working().count(),
+            runtime_bundle.buffer_manager.working().count()
         );
     }
 
