@@ -46,8 +46,8 @@ github/
 - `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
 - `auto_add_closes_on_dev_pr/run.sh`: Auto-enrich open PR bodies targeting `dev` with a managed `Closes #<n>` block when referenced `Part of #<n>` issues are single-assignee and assigned to the PR author.
 - `issues/auto_link/run.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
-- `issues/create_direct/run.sh`: Internal create contract script used by manager routing (direct usage deprecated).
-- `issues/manager/run.sh`: Unified issue lifecycle entrypoint for create/read/update/close/reopen operations (delete is soft-delete via close not_planned).
+- `versioning_automation issue create ...`: Canonical create contract entrypoint (Rust CLI).
+- `versioning_automation issue <read|update|close|reopen|delete> ...`: Canonical issue lifecycle entrypoint (Rust CLI).
 - `issues/done_status/run.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
   - Supported closure refs for labeling: `Closes/Fixes #<n>`.
 - `issues/reopen_on_dev/run.sh`: Reopen issues referenced by `Reopen #<n>` on merged PRs into `dev`, and remove `done-in-dev` from those issues.
@@ -79,8 +79,8 @@ Issue contract routing:
 
 - Default issues use `.github/issue_required_fields.conf` keys `ISSUE_*`.
 - Review follow-up issues (label `review`) use `ISSUE_REVIEW_*` keys from the same contract file.
-- Direct creation through `issues/manager/run.sh create` routes to `issues/create_direct/run.sh` and applies label `issue` by default.
-- User-facing create flow must use `issues/manager/run.sh create` (not direct invocation of `issues/create_direct/run.sh`).
+- Direct creation through `versioning_automation issue create` applies label `issue` by default.
+- Shell scripts under `issues/manager` and `issues/create_direct` are compatibility wrappers; user-facing flow should use the Rust CLI.
 - Issue reads support single-issue view or listing; machine-readable output is available via `--json/--jq/--template`.
 - Delete is implemented as deterministic soft-delete by closing issues with reason `not_planned`.
 
