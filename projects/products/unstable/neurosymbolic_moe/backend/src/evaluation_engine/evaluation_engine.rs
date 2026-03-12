@@ -3,31 +3,10 @@ use std::collections::HashMap;
 use crate::moe_core::ExpertId;
 use serde::{Deserialize, Serialize};
 
+use super::evaluation_governance_report::EvaluationGovernanceReport;
+use super::expert_regression::ExpertRegression;
 use super::metrics::{ExpertMetrics, RoutingMetrics};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExpertRegression {
-    pub expert_id: ExpertId,
-    pub previous_success_rate: f64,
-    pub current_success_rate: f64,
-    pub delta: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RoutingRegression {
-    pub previous_accuracy: f64,
-    pub current_accuracy: f64,
-    pub delta: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EvaluationGovernanceReport {
-    pub min_expert_success_rate: f64,
-    pub min_routing_accuracy: f64,
-    pub underperforming_experts: Vec<ExpertId>,
-    pub routing_accuracy_below_threshold: bool,
-    pub ready_for_promotion: bool,
-}
+use super::routing_regression::RoutingRegression;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluationEngine {
