@@ -934,6 +934,49 @@ mod v4 {
     }
 
     #[test]
+    fn v4_enforcer_blocks_unsafe_output_before_chain_propagation() {
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_task_metadata_chain(true)
+            .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
+            .build();
+
+        pipeline.add_policy(Policy {
+            id: "safety".to_string(),
+            name: "safety".to_string(),
+            description: "reject unsafe markers".to_string(),
+            policy_type: PolicyType::SafetyCheck,
+            active: true,
+        });
+
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                "planner",
+                vec![ExpertCapability::IssuePlanning],
+                0.7,
+                false,
+                "<UNSAFE>::",
+            )))
+            .expect("registering planner expert should succeed");
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                "executor",
+                vec![ExpertCapability::CodeGeneration],
+                0.9,
+                false,
+                "exec::",
+            )))
+            .expect("registering executor expert should succeed");
+
+        let task = Task::new("v4-chain-enforcer", TaskType::Planning, "ship feature")
+            .with_metadata("expert_chain", "planner>executor");
+        let result = pipeline.execute(task);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+    }
+
+    #[test]
     fn v4_enforcer_reselects_policy_compliant_output_when_available() {
         let unsafe_primary = ExpertId::new("unsafe-primary");
         let safe_secondary = ExpertId::new("safe-secondary");

@@ -172,6 +172,23 @@ impl MoePipeline {
 
             match expert.execute(&expert_task, &context) {
                 Ok(output) => {
+                    if chain_enabled
+                        && index + 1 < selected_experts.len()
+                        && self.policy_guard.active_policy_count() > 0
+                        && let Err(err) = self.policy_guard.validate_strict(&output)
+                    {
+                        self.trace_logger.log_phase(
+                            task_id.clone(),
+                            TracePhase::Validation,
+                            format!(
+                                "chained output from '{}' rejected by policy before propagation: {err}",
+                                expert_id.as_str()
+                            ),
+                            Some(expert_id.clone()),
+                        );
+                        return Err(err);
+                    }
+
                     self.trace_logger.log_phase(
                         task_id.clone(),
                         TracePhase::ExpertExecution,
@@ -261,6 +278,18 @@ impl MoePipeline {
                 "fallback path used during expert execution".to_string(),
                 None,
             );
+        }
+
+        if aggregated.selected_output.is_none() {
+            self.trace_logger.log_phase(
+                task_id.clone(),
+                TracePhase::Validation,
+                "policy validation failed: aggregated output has no selected output".to_string(),
+                None,
+            );
+            return Err(MoeError::PolicyRejected(
+                "aggregated output has no selected output".to_string(),
+            ));
         }
 
         // 6. Policy validation
