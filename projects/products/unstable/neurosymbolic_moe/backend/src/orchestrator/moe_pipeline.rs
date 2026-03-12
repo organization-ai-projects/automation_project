@@ -1,9 +1,13 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline.rs
 use crate::aggregator::OutputAggregator;
+use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{DatasetStore, Outcome, TraceConverter};
 use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
 use crate::feedback_engine::{FeedbackEntry, FeedbackStore};
+use crate::memory_engine::{
+    LongTermMemory, MemoryEntry, MemoryQuery, MemoryStore, ShortTermMemory,
+};
 use crate::moe_core::{
     AggregatedOutput, ExecutionContext, Expert, ExpertError, ExpertId, ExpertOutput, MoeError,
     Task, TracePhase,
@@ -15,12 +19,18 @@ use crate::orchestrator::{
     GovernanceStateDiff, GovernanceStateSnapshot,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
+use crate::retrieval_engine::{ContextAssembler, RetrievalQuery, Retriever};
 use crate::router::{Router, RoutingStrategy};
 use crate::trace_logger::TraceLogger;
 
 pub struct MoePipeline {
     pub(super) registry: ExpertRegistry,
     pub(super) router: Box<dyn Router>,
+    pub(super) retriever: Box<dyn Retriever>,
+    pub(super) context_assembler: ContextAssembler,
+    pub(super) short_term_memory: ShortTermMemory,
+    pub(super) long_term_memory: LongTermMemory,
+    pub(super) buffer_manager: BufferManager,
     pub(super) aggregator: OutputAggregator,
     pub(super) arbitration_mode: ArbitrationMode,
     pub(super) fallback_on_expert_error: bool,
@@ -49,6 +59,10 @@ impl MoePipeline {
 
     pub fn add_policy(&mut self, policy: Policy) {
         self.policy_guard.add_policy(policy);
+    }
+
+    pub fn remember_short_term(&mut self, entry: MemoryEntry) -> Result<(), MoeError> {
+        self.short_term_memory.store(entry)
     }
 
     pub fn execute(&mut self, task: Task) -> Result<AggregatedOutput, MoeError> {
@@ -117,8 +131,8 @@ impl MoePipeline {
             None,
         );
 
-        // 3. Build execution context (placeholder for retrieval/memory integration)
-        let context = ExecutionContext::new(task_id.clone());
+        // 3. Build execution context using retrieval + memory + buffer context.
+        let context = self.build_execution_context(&task, &selected_experts)?;
 
         // 4. Execute selected experts
         let mut outputs: Vec<ExpertOutput> = Vec::new();
@@ -774,6 +788,93 @@ impl MoePipeline {
             routing_regression,
             requires_human_review,
         }
+    }
+
+    fn build_execution_context(
+        &mut self,
+        task: &Task,
+        selected_experts: &[ExpertId],
+    ) -> Result<ExecutionContext, MoeError> {
+        let mut query = RetrievalQuery::new(task.input())
+            .with_task_id(task.id().clone())
+            .with_max_results(8)
+            .with_min_relevance(0.05);
+        if let Some(expert_id) = selected_experts.first() {
+            query = query.with_expert_id(expert_id.clone());
+        }
+
+        let retrieval_results = self
+            .retriever
+            .retrieve(&query)
+            .map_err(|err| MoeError::RetrievalFailed(format!("context retrieval failed: {err}")))?;
+        let retrieved_context = self
+            .context_assembler
+            .assemble_for_task(&retrieval_results, task);
+        self.trace_logger.log_phase(
+            task.id().clone(),
+            TracePhase::Retrieval,
+            format!(
+                "retrieval context assembled (results={}, segments={})",
+                retrieval_results.len(),
+                retrieved_context.len()
+            ),
+            None,
+        );
+
+        let memory_query = MemoryQuery {
+            tags: None,
+            memory_type: None,
+            min_relevance: Some(0.0),
+            max_results: 16,
+            include_expired: false,
+            current_time: None,
+        };
+        let mut memory_entries: Vec<String> = self
+            .short_term_memory
+            .retrieve(&memory_query)?
+            .into_iter()
+            .map(|entry| entry.content.clone())
+            .collect();
+        memory_entries.extend(
+            self.long_term_memory
+                .retrieve(&memory_query)?
+                .into_iter()
+                .map(|entry| entry.content.clone()),
+        );
+        memory_entries.sort_unstable();
+        memory_entries.dedup();
+        self.trace_logger.log_phase(
+            task.id().clone(),
+            TracePhase::MemoryQuery,
+            format!(
+                "memory context assembled (entries={})",
+                memory_entries.len()
+            ),
+            None,
+        );
+
+        let working_key = format!("task/{}", task.id().as_str());
+        self.buffer_manager.working_mut().put(
+            working_key,
+            task.input().to_string(),
+            Some(task.id().clone()),
+        );
+        let mut buffer_keys = self.buffer_manager.working().keys();
+        buffer_keys.sort_unstable();
+        let buffer_data: Vec<String> = buffer_keys
+            .into_iter()
+            .filter_map(|key| {
+                self.buffer_manager
+                    .working()
+                    .get(key)
+                    .map(|entry| entry.value.clone())
+            })
+            .collect();
+
+        Ok(ExecutionContext::new(task.id().clone())
+            .with_retrieved_context(retrieved_context)
+            .with_memory_entries(memory_entries)
+            .with_buffer_data(buffer_data))
     }
 
     fn parse_expert_chain(raw: &str) -> Vec<ExpertId> {

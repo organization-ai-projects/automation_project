@@ -1,10 +1,13 @@
 use crate::aggregator::{AggregationStrategy, OutputAggregator};
+use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{DatasetStore, TraceConverter};
 use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
 use crate::feedback_engine::FeedbackStore;
+use crate::memory_engine::{LongTermMemory, ShortTermMemory};
 use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy, GovernanceImportPolicy};
 use crate::policy_guard::PolicyGuard;
+use crate::retrieval_engine::{ContextAssembler, Retriever, SimpleRetriever};
 use crate::router::{HeuristicRouter, Router};
 use crate::trace_logger::TraceLogger;
 
@@ -16,6 +19,10 @@ pub struct MoePipelineBuilder {
     arbitration_mode: ArbitrationMode,
     fallback_on_expert_error: bool,
     enable_task_metadata_chain: bool,
+    retriever: Option<Box<dyn Retriever>>,
+    context_max_length: usize,
+    short_term_memory_capacity: usize,
+    working_buffer_capacity: usize,
     continuous_governance_policy: Option<ContinuousGovernancePolicy>,
     governance_import_policy: GovernanceImportPolicy,
     max_governance_audit_entries: usize,
@@ -31,6 +38,10 @@ impl MoePipelineBuilder {
             arbitration_mode: ArbitrationMode::Aggregation,
             fallback_on_expert_error: false,
             enable_task_metadata_chain: false,
+            retriever: None,
+            context_max_length: 1_024,
+            short_term_memory_capacity: 256,
+            working_buffer_capacity: 128,
             continuous_governance_policy: None,
             governance_import_policy: GovernanceImportPolicy::default(),
             max_governance_audit_entries: 128,
@@ -64,6 +75,16 @@ impl MoePipelineBuilder {
         self
     }
 
+    pub fn with_retriever(mut self, retriever: Box<dyn Retriever>) -> Self {
+        self.retriever = Some(retriever);
+        self
+    }
+
+    pub fn with_context_max_length(mut self, max_len: usize) -> Self {
+        self.context_max_length = max_len;
+        self
+    }
+
     pub fn with_continuous_governance_policy(mut self, policy: ContinuousGovernancePolicy) -> Self {
         self.continuous_governance_policy = Some(policy);
         self
@@ -93,10 +114,18 @@ impl MoePipelineBuilder {
         let router = self
             .router
             .unwrap_or_else(|| Box::new(HeuristicRouter::default()));
+        let retriever = self
+            .retriever
+            .unwrap_or_else(|| Box::new(SimpleRetriever::new()));
 
         MoePipeline {
             registry: ExpertRegistry::new(),
             router,
+            retriever,
+            context_assembler: ContextAssembler::new(self.context_max_length),
+            short_term_memory: ShortTermMemory::new(self.short_term_memory_capacity),
+            long_term_memory: LongTermMemory::new(),
+            buffer_manager: BufferManager::new(self.working_buffer_capacity),
             aggregator: OutputAggregator::new(self.aggregation_strategy),
             arbitration_mode: self.arbitration_mode,
             fallback_on_expert_error: self.fallback_on_expert_error,

@@ -1,9 +1,11 @@
 use crate::aggregator::AggregationStrategy;
+use crate::memory_engine::{MemoryEntry, MemoryType};
 use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
-    ExpertOutput, ExpertStatus, ExpertType, Task, TaskType,
+    ExpertOutput, ExpertStatus, ExpertType, MoeError, Task, TaskType,
 };
 use crate::orchestrator::MoePipelineBuilder;
+use crate::retrieval_engine::{RetrievalQuery, RetrievalResult, Retriever};
 use std::collections::HashMap;
 
 struct TestExpert {
@@ -22,6 +24,19 @@ impl TestExpert {
                 expert_type: ExpertType::Deterministic,
             },
         }
+    }
+}
+
+struct StubRetriever;
+
+impl Retriever for StubRetriever {
+    fn retrieve(&self, _query: &RetrievalQuery) -> Result<Vec<RetrievalResult>, MoeError> {
+        Ok(vec![RetrievalResult::new(
+            "ctx-1",
+            "retrieved rust context",
+            0.9,
+            "doc://ctx",
+        )])
     }
 }
 
@@ -91,4 +106,49 @@ fn full_execute_pipeline() {
         .expect("selected output should be present");
     assert_eq!(selected.expert_id.as_str(), "codegen");
     assert!(pipeline.trace_logger().count() > 0);
+}
+
+#[test]
+fn execute_enriches_context_with_retrieval_memory_and_buffer() {
+    let mut pipeline = MoePipelineBuilder::new()
+        .with_retriever(Box::new(StubRetriever))
+        .with_context_max_length(256)
+        .build();
+    let expert = TestExpert::new("codegen", vec![ExpertCapability::CodeGeneration]);
+    pipeline
+        .register_expert(Box::new(expert))
+        .expect("expert registration should succeed");
+
+    pipeline
+        .remember_short_term(MemoryEntry {
+            id: "mem-1".to_string(),
+            content: "recent memory".to_string(),
+            tags: vec!["runtime".to_string()],
+            created_at: 1,
+            expires_at: None,
+            memory_type: MemoryType::Short,
+            relevance: 0.8,
+            metadata: HashMap::new(),
+        })
+        .expect("short-term memory write should succeed");
+
+    let task = Task::new("t-enriched", TaskType::CodeGeneration, "write rust code");
+    let result = pipeline
+        .execute(task)
+        .expect("pipeline execution should succeed");
+    let selected = result
+        .selected_output
+        .expect("selected output should be present");
+
+    // TestExpert emits "<input>:<retrieved+memory>"; task-aware assembly adds a header segment.
+    assert!(selected.content.ends_with(":3"));
+
+    let retrieval_traces = pipeline
+        .trace_logger()
+        .get_by_phase(&crate::moe_core::TracePhase::Retrieval);
+    let memory_traces = pipeline
+        .trace_logger()
+        .get_by_phase(&crate::moe_core::TracePhase::MemoryQuery);
+    assert!(!retrieval_traces.is_empty());
+    assert!(!memory_traces.is_empty());
 }
