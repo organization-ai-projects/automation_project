@@ -7,6 +7,7 @@ use regex::Regex;
 
 use crate::pr::breaking_detect::text_indicates_breaking;
 use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
+use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan::scan_directives;
 
 const E_USAGE: i32 = 2;
@@ -81,6 +82,11 @@ fn run_native_dry_run(opts: GenerateOptions) -> i32 {
     }
 
     let validation_gate = build_validation_gate(&commits);
+    let duplicate_targets = collect_duplicate_targets(&commits);
+    let duplicate_message = opts
+        .duplicate_mode
+        .as_deref()
+        .map(|mode| render_duplicate_mode_message(mode, &duplicate_targets));
     let body = if opts.validation_only {
         let pr_number = match opts.auto_edit_pr_number.as_deref() {
             Some(value) => value,
@@ -101,7 +107,7 @@ fn run_native_dry_run(opts: GenerateOptions) -> i32 {
         build_full_body(&base_ref, &head_ref, &commits, &range, &validation_gate)
     };
 
-    if let Some(pr_number) = opts.auto_edit_pr_number {
+    let exit_code = if let Some(pr_number) = opts.auto_edit_pr_number {
         match gh_edit_pr_body(&pr_number, &body) {
             Ok(()) => {
                 println!("Updated PR body: #{pr_number}");
@@ -148,7 +154,13 @@ fn run_native_dry_run(opts: GenerateOptions) -> i32 {
     } else {
         println!("{body}");
         0
+    };
+
+    if let Some(message) = duplicate_message {
+        println!("{message}");
     }
+
+    exit_code
 }
 
 fn build_full_body(
@@ -647,6 +659,34 @@ fn build_dynamic_pr_title(base_ref: &str, head_ref: &str, commits: &[CommitInfo]
     format!("Merge {head_ref} into {base_ref}: {summary}")
 }
 
+fn collect_duplicate_targets(commits: &[CommitInfo]) -> BTreeMap<String, String> {
+    let text = commits
+        .iter()
+        .map(|commit| format!("{}\n{}", commit.subject, commit.body))
+        .collect::<Vec<String>>()
+        .join("\n\n");
+
+    let mut targets = BTreeMap::new();
+    for record in scan_directives(&text, true) {
+        if record.record_type != DirectiveRecordType::Duplicate {
+            continue;
+        }
+        if !record.first.is_empty() && !record.second.is_empty() {
+            targets.insert(record.first, record.second);
+        }
+    }
+
+    targets
+}
+
+fn render_duplicate_mode_message(mode: &str, targets: &BTreeMap<String, String>) -> String {
+    if targets.is_empty() {
+        format!("Duplicate mode ({mode}): no duplicate declarations detected.")
+    } else {
+        format!("Duplicate mode ({mode}): dry-run simulation; no GitHub mutation applied.")
+    }
+}
+
 fn gh_create_pr(base_ref: &str, head_ref: &str, title: &str, body: &str) -> Result<String, String> {
     let output = Command::new("gh")
         .arg("pr")
@@ -677,7 +717,7 @@ fn gh_create_pr(base_ref: &str, head_ref: &str, title: &str, body: &str) -> Resu
 }
 
 fn is_native_supported(opts: &GenerateOptions) -> bool {
-    opts.dry_run && opts.duplicate_mode.is_none()
+    opts.dry_run
 }
 
 fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
@@ -892,8 +932,9 @@ fn resolve_script_path() -> Option<PathBuf> {
 mod tests {
     use super::{
         CommitInfo, build_validation_gate, classify_title, parse_generate_options,
-        replace_validation_gate,
+        render_duplicate_mode_message, replace_validation_gate,
     };
+    use std::collections::BTreeMap;
 
     #[test]
     fn parse_dry_run_with_output_file() {
@@ -974,5 +1015,17 @@ mod tests {
             "Refactoring"
         );
         assert_eq!(classify_title("feat(ui): add filter"), "Features");
+    }
+
+    #[test]
+    fn duplicate_mode_message_reflects_presence_of_targets() {
+        let empty = BTreeMap::new();
+        let msg_empty = render_duplicate_mode_message("safe", &empty);
+        assert!(msg_empty.contains("no duplicate declarations detected"));
+
+        let mut one = BTreeMap::new();
+        one.insert("#2".to_string(), "#1".to_string());
+        let msg_one = render_duplicate_mode_message("auto-close", &one);
+        assert!(msg_one.contains("dry-run simulation"));
     }
 }
