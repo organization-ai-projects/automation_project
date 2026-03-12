@@ -1,11 +1,12 @@
 //! tools/versioning_automation/src/issues/commands/issue_action.rs
 use crate::issues::commands::{
-    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, CreateOptions, DoneStatusOptions,
-    FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldOptions, IssueTarget,
-    LabelExistsOptions, ListByLabelOptions, NeutralizeOptions, NonComplianceReasonOptions,
-    OpenNumbersOptions, ParentGuardOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
-    RequiredFieldsValidateOptions, StateOptions, SubissueRefsOptions, SyncProjectStatusOptions,
-    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
+    DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldOptions,
+    IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
+    NonComplianceReasonOptions, OpenNumbersOptions, ParentGuardOptions, ReadOptions,
+    ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions, StateOptions,
+    SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions,
+    UpsertMarkerCommentOptions,
 };
 
 #[derive(Debug, Clone)]
@@ -24,6 +25,7 @@ pub(crate) enum IssueAction {
     Neutralize(NeutralizeOptions),
     AutoLink(AutoLinkOptions),
     ParentGuard(ParentGuardOptions),
+    ClosureHygiene(ClosureHygieneOptions),
     RequiredFieldsValidate(RequiredFieldsValidateOptions),
     NonComplianceReason(NonComplianceReasonOptions),
     FetchNonComplianceReason(FetchNonComplianceReasonOptions),

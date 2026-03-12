@@ -6,11 +6,11 @@ use regex::Regex;
 use serde::Deserialize;
 
 use crate::issues::commands::{
-    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, CreateOptions, DoneStatusMode,
-    DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldName,
-    IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
-    NonComplianceReasonOptions, OpenNumbersOptions, ParentGuardOptions, ReadOptions,
-    ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
+    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
+    DoneStatusMode, DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions,
+    IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
+    NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, ParentGuardOptions,
+    ReadOptions, ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
     RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
     UpdateOptions, UpsertMarkerCommentOptions,
 };
@@ -1670,6 +1670,82 @@ pub(crate) fn run_parent_guard(opts: ParentGuardOptions) -> i32 {
             return status;
         }
     }
+    0
+}
+
+pub(crate) fn run_closure_hygiene(opts: ClosureHygieneOptions) -> i32 {
+    let repo_name = match resolve_repo_name(opts.repo) {
+        Ok(repo) => repo,
+        Err(msg) => {
+            eprintln!("{msg}");
+            return 3;
+        }
+    };
+    let (repo_owner, repo_short_name) = split_repo_name(&repo_name);
+
+    let open_issue_numbers = gh_output_or_empty(&[
+        "issue",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        "300",
+        "--json",
+        "number",
+        "--jq",
+        ".[].number",
+        "-R",
+        &repo_name,
+    ]);
+    for issue_number in open_issue_numbers
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let status = evaluate_parent_issue(
+            false,
+            &repo_name,
+            &repo_owner,
+            &repo_short_name,
+            issue_number,
+        );
+        if status != 0 {
+            return status;
+        }
+    }
+
+    let milestones_tsv = gh_output_or_empty(&[
+        "api",
+        &format!("repos/{repo_name}/milestones?state=open"),
+        "--paginate",
+        "--jq",
+        ".[] | [.number, (.title // \"\"), (.open_issues // 0)] | @tsv",
+    ]);
+    for line in milestones_tsv.lines() {
+        let mut parts = line.splitn(3, '\t');
+        let number = parts.next().unwrap_or("").trim();
+        let title = parts.next().unwrap_or("").trim();
+        let open_issues = parts.next().unwrap_or("").trim();
+        if number.is_empty() || open_issues != "0" {
+            continue;
+        }
+        let status = execute_command({
+            let mut cmd = gh_command(&[
+                "api",
+                "-X",
+                "PATCH",
+                &format!("repos/{repo_name}/milestones/{number}"),
+            ]);
+            cmd.arg("-f").arg("state=closed");
+            cmd
+        });
+        if status != 0 {
+            return status;
+        }
+        println!("Closed milestone #{} ({}).", number, title);
+    }
+
+    println!("Closure hygiene completed.");
     0
 }
 

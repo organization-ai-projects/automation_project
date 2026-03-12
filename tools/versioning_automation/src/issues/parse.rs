@@ -1,12 +1,12 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
-    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, CreateOptions, DoneStatusMode,
-    DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions, IssueAction,
-    IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
-    NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, ParentGuardOptions,
-    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
-    StateOptions, SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions,
-    UpdateOptions, UpsertMarkerCommentOptions,
+    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
+    DoneStatusMode, DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions,
+    IssueAction, IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions,
+    ListByLabelOptions, NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions,
+    ParentGuardOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
+    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, SyncProjectStatusOptions,
+    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -28,6 +28,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "neutralize" => parse_neutralize(&args[1..]).map(IssueAction::Neutralize),
         "auto-link" => parse_auto_link(&args[1..]).map(IssueAction::AutoLink),
         "parent-guard" => parse_parent_guard(&args[1..]).map(IssueAction::ParentGuard),
+        "closure-hygiene" => parse_closure_hygiene(&args[1..]).map(IssueAction::ClosureHygiene),
         "required-fields-validate" => {
             parse_required_fields_validate(&args[1..]).map(IssueAction::RequiredFieldsValidate)
         }
@@ -236,6 +237,18 @@ fn parse_parent_guard(args: &[String]) -> Result<ParentGuardOptions, String> {
         child,
         strict_guard,
     })
+}
+
+fn parse_closure_hygiene(args: &[String]) -> Result<ClosureHygieneOptions, String> {
+    let mut repo: Option<String> = None;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for closure-hygiene: {unknown}")),
+        }
+    }
+    Ok(ClosureHygieneOptions { repo })
 }
 
 fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {

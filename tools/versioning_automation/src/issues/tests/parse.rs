@@ -88,6 +88,17 @@ fn parse_parent_guard_accepts_child_mode() {
 }
 
 #[test]
+fn parse_closure_hygiene_accepts_optional_repo() {
+    let args = vec![
+        "closure-hygiene".to_string(),
+        "--repo".to_string(),
+        "owner/repo".to_string(),
+    ];
+    let code = issues::run(&args);
+    assert_eq!(code, 0);
+}
+
+#[test]
 fn parse_required_fields_validate_accepts_mode() {
     let args = vec![
         "required-fields-validate".to_string(),

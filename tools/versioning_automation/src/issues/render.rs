@@ -71,6 +71,7 @@ pub(crate) fn print_usage() {
     println!(
         "  va issue parent-guard (--issue <number> | --child <number>) [--strict-guard true|false]"
     );
+    println!("  va issue closure-hygiene [--repo owner/name]");
     println!(
         "  va issue required-fields-validate [--mode title|body|content] [--title ...] [--body ...] [--labels-raw ...]"
     );
