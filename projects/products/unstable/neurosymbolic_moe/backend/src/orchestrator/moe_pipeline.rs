@@ -730,6 +730,15 @@ impl MoePipeline {
         Ok(())
     }
 
+    pub fn compare_and_import_governance_bundle(
+        &mut self,
+        expected_current_version: u64,
+        bundle: GovernancePersistenceBundle,
+    ) -> Result<(), MoeError> {
+        self.assert_expected_governance_version(expected_current_version)?;
+        self.import_governance_bundle(bundle)
+    }
+
     pub fn import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
         let bundle: GovernancePersistenceBundle = common_json::json::from_json_str(payload)
             .map_err(|err| {
@@ -738,6 +747,20 @@ impl MoePipeline {
                 ))
             })?;
         self.import_governance_bundle(bundle)
+    }
+
+    pub fn compare_and_import_governance_bundle_json(
+        &mut self,
+        expected_current_version: u64,
+        payload: &str,
+    ) -> Result<(), MoeError> {
+        let bundle: GovernancePersistenceBundle = common_json::json::from_json_str(payload)
+            .map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "governance persistence bundle deserialization failed: {err}"
+                ))
+            })?;
+        self.compare_and_import_governance_bundle(expected_current_version, bundle)
     }
 
     pub fn import_runtime_bundle(
@@ -760,6 +783,15 @@ impl MoePipeline {
         Ok(())
     }
 
+    pub fn compare_and_import_runtime_bundle(
+        &mut self,
+        expected_current_version: u64,
+        bundle: RuntimePersistenceBundle,
+    ) -> Result<(), MoeError> {
+        self.assert_expected_governance_version(expected_current_version)?;
+        self.import_runtime_bundle(bundle)
+    }
+
     pub fn import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
         if payload.len() > MAX_RUNTIME_BUNDLE_JSON_BYTES {
             return Err(MoeError::PolicyRejected(format!(
@@ -776,6 +808,28 @@ impl MoePipeline {
             })?;
         bundle.ensure_checksum();
         self.import_runtime_bundle(bundle)
+    }
+
+    pub fn compare_and_import_runtime_bundle_json(
+        &mut self,
+        expected_current_version: u64,
+        payload: &str,
+    ) -> Result<(), MoeError> {
+        if payload.len() > MAX_RUNTIME_BUNDLE_JSON_BYTES {
+            return Err(MoeError::PolicyRejected(format!(
+                "runtime persistence bundle payload too large ({} bytes > {} bytes)",
+                payload.len(),
+                MAX_RUNTIME_BUNDLE_JSON_BYTES
+            )));
+        }
+        let mut bundle: RuntimePersistenceBundle = common_json::json::from_json_str(payload)
+            .map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "runtime persistence bundle deserialization failed: {err}"
+                ))
+            })?;
+        bundle.ensure_checksum();
+        self.compare_and_import_runtime_bundle(expected_current_version, bundle)
     }
 
     pub fn try_import_runtime_bundle(
@@ -1358,6 +1412,19 @@ impl MoePipeline {
         duplicates.sort();
         duplicates.dedup();
         duplicates
+    }
+
+    fn assert_expected_governance_version(
+        &self,
+        expected_current_version: u64,
+    ) -> Result<(), MoeError> {
+        if self.governance_state_version != expected_current_version {
+            return Err(MoeError::PolicyRejected(format!(
+                "compare-and-import rejected: expected governance version {}, current version {}",
+                expected_current_version, self.governance_state_version
+            )));
+        }
+        Ok(())
     }
 
     fn validate_governance_bundle_consistency(

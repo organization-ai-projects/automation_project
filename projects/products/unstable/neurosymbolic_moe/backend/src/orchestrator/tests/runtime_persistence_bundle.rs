@@ -371,3 +371,43 @@ fn preview_runtime_bundle_import_json_rejects_oversized_payload() {
     assert!(matches!(err, MoeError::PolicyRejected(_)));
     assert!(err.to_string().contains("payload too large"));
 }
+
+#[test]
+fn compare_and_import_runtime_bundle_rejects_version_mismatch() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(test_memory_entry(
+            "memory.short.compare_and_import",
+            "compare and import runtime payload",
+            MemoryType::Short,
+        ))
+        .expect("short memory write should succeed");
+    let bundle = source.export_runtime_bundle();
+
+    let mut target = MoePipelineBuilder::new().build();
+    let err = target
+        .compare_and_import_runtime_bundle(1, bundle)
+        .expect_err("version mismatch must be rejected");
+    assert!(matches!(err, MoeError::PolicyRejected(_)));
+    assert!(err.to_string().contains("compare-and-import rejected"));
+}
+
+#[test]
+fn compare_and_import_runtime_bundle_succeeds_on_matching_version() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(test_memory_entry(
+            "memory.short.compare_and_import_ok",
+            "compare and import runtime payload ok",
+            MemoryType::Short,
+        ))
+        .expect("short memory write should succeed");
+    let bundle = source.export_runtime_bundle();
+
+    let mut target = MoePipelineBuilder::new().build();
+    target
+        .compare_and_import_runtime_bundle(0, bundle)
+        .expect("matching version should allow compare-and-import");
+    let restored = target.export_runtime_bundle();
+    assert!(restored.verify_checksum());
+}

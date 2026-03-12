@@ -928,8 +928,18 @@ fn cmd_impl_check() -> Result<(), DynError> {
         restore_pipeline.preview_training_dataset_bundle_json(&training_bundle_json)?;
     let preview_training_bundle_from_shards =
         restore_pipeline.preview_training_dataset_shards_json(&training_shards_json)?;
+    let cas_runtime_payload = restore_pipeline.export_runtime_bundle_json()?;
+    restore_pipeline.compare_and_import_runtime_bundle_json(
+        restore_pipeline.governance_audit_trail().current_version,
+        &cas_runtime_payload,
+    )?;
+    let cas_governance_payload = restore_pipeline.export_governance_bundle_json()?;
+    restore_pipeline.compare_and_import_governance_bundle_json(
+        restore_pipeline.governance_audit_trail().current_version,
+        &cas_governance_payload,
+    )?;
     tracing::info!(
-        "Training dataset bundle: total={} included={} train={} valid={} json_bytes={} shards={} shards_json_bytes={} rebuilt={} rebuilt_json={} preview={} preview_shards={}",
+        "Training dataset bundle: total={} included={} train={} valid={} json_bytes={} shards={} shards_json_bytes={} rebuilt={} rebuilt_json={} preview={} preview_shards={} cas_runtime_bytes={} cas_governance_bytes={}",
         training_bundle.total_entries,
         training_bundle.included_entries,
         training_bundle.train_samples.len(),
@@ -940,7 +950,9 @@ fn cmd_impl_check() -> Result<(), DynError> {
         rebuilt_training_bundle.included_entries,
         rebuilt_training_bundle_from_json.included_entries,
         preview_training_bundle.included_entries,
-        preview_training_bundle_from_shards.included_entries
+        preview_training_bundle_from_shards.included_entries,
+        cas_runtime_payload.len(),
+        cas_governance_payload.len()
     );
 
     tracing::info!("Implementation check completed.");
