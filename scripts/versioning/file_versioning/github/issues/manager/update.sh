@@ -96,6 +96,12 @@ cmd_update() {
     fi
   fi
 
+  if va_exec issue update "$@"; then
+    echo "Issue #${issue_number} updated."
+    return 0
+  fi
+  echo "Warning: Rust issue update path failed; falling back to shell update path." >&2
+
   issue_gh_issue_update "$repo" "$issue_number" "${edit_args[@]}"
   echo "Issue #${issue_number} updated."
 }
