@@ -1,11 +1,13 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/app.rs
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::thread;
 
 use crate::aggregator::AggregationStrategy;
 use crate::buffer_manager::{BufferEntry, BufferManager, BufferType, SessionBuffer, WorkingBuffer};
 use crate::dataset_engine::{
-    Correction, DatasetEntry, DatasetStore, DatasetTrainingBuildOptions, Outcome, TraceConverter,
+    ConcurrentDatasetStore, Correction, DatasetEntry, DatasetStore, DatasetTrainingBuildOptions,
+    Outcome, TraceConverter,
 };
 use crate::echo_expert::EchoExpert;
 use crate::evaluation_engine::{EvaluationEngine, ExpertMetrics, RoutingMetrics};
@@ -15,8 +17,8 @@ use crate::memory_engine::{
     LongTermMemory, MemoryEntry, MemoryQuery, MemoryStore, MemoryType, ShortTermMemory,
 };
 use crate::moe_core::{
-    ExecutionContext, ExpertCapability, ExpertId, ExpertOutput, ExpertStatus, Task, TaskPriority,
-    TaskType, TracePhase, TraceRecord,
+    ExecutionContext, ExpertCapability, ExpertId, ExpertOutput, ExpertStatus, Task, TaskId,
+    TaskPriority, TaskType, TracePhase, TraceRecord,
 };
 use crate::orchestrator::{
     ArbitrationMode, ContinuousGovernancePolicy, GovernanceImportPolicy, MoePipeline,
@@ -319,6 +321,74 @@ fn cmd_impl_check() -> Result<(), DynError> {
         correction_entries,
         dataset_store.successful_count(),
         dataset_store.failed_count()
+    );
+
+    let concurrent_store = ConcurrentDatasetStore::new(DatasetStore::new());
+    let mut concurrent_handles = Vec::new();
+    for worker in 0..4_u32 {
+        let writer = concurrent_store.clone();
+        concurrent_handles.push(thread::spawn(move || {
+            for idx in 0..32_u32 {
+                let id = format!("concurrent-{worker}-{}", idx % 16);
+                writer.add_entry(DatasetEntry {
+                    id: id.clone(),
+                    task_id: TaskId::new(format!("task-{id}")),
+                    expert_id: ExpertId::new("concurrent-expert"),
+                    input: format!("input-{id}"),
+                    output: format!("output-{id}"),
+                    outcome: Outcome::Success,
+                    score: Some(0.8),
+                    tags: vec!["concurrency".to_string()],
+                    created_at: u64::from(idx),
+                    metadata: HashMap::new(),
+                });
+            }
+        }));
+    }
+    for handle in concurrent_handles {
+        handle
+            .join()
+            .map_err(|_| "concurrent dataset writer thread panicked")?;
+    }
+    concurrent_store.add_correction(Correction {
+        entry_id: "concurrent-0-0".to_string(),
+        corrected_output: "output-concurrent-corrected".to_string(),
+        reason: "parallel-review".to_string(),
+        corrected_at: 42,
+    });
+    let concurrent_report = concurrent_store.quality_report(0.5);
+    let concurrent_bundle =
+        concurrent_store.build_training_bundle(&DatasetTrainingBuildOptions {
+            generated_at: 10,
+            validation_ratio: 0.2,
+            min_score: None,
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 99,
+        })?;
+    let concurrent_shards = concurrent_store.build_training_shards(
+        &DatasetTrainingBuildOptions {
+            generated_at: 11,
+            validation_ratio: 0.2,
+            min_score: None,
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 99,
+        },
+        16,
+    )?;
+    let concurrent_rebuilt =
+        concurrent_store.rebuild_training_bundle_from_shards(&concurrent_shards)?;
+    tracing::info!(
+        "Concurrent dataset store: count={} quality_total={} bundle={} rebuilt={}",
+        concurrent_store.count(),
+        concurrent_report.total_entries,
+        concurrent_bundle.included_entries,
+        concurrent_rebuilt.included_entries
     );
 
     let mut evaluation = EvaluationEngine::new();

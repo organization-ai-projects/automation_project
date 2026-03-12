@@ -1,3 +1,4 @@
+mod concurrent_dataset_store;
 mod correction;
 mod dataset_entry;
 mod dataset_store;

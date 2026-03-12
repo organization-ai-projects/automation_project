@@ -24,6 +24,18 @@ impl DatasetStore {
     }
 
     pub fn add_entry(&mut self, entry: DatasetEntry) {
+        self.upsert_entry(entry);
+    }
+
+    pub fn upsert_entry(&mut self, entry: DatasetEntry) {
+        if let Some(existing) = self
+            .entries
+            .iter_mut()
+            .find(|existing| existing.id == entry.id)
+        {
+            *existing = entry;
+            return;
+        }
         self.entries.push(entry);
     }
 

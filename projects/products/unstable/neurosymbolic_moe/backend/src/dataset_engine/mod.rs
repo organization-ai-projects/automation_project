@@ -1,3 +1,4 @@
+pub mod concurrent_dataset_store;
 pub mod correction;
 pub mod dataset_entry;
 pub mod dataset_quality_report;
@@ -12,6 +13,7 @@ pub mod outcome;
 mod tests;
 pub mod trace_converter;
 
+pub use concurrent_dataset_store::ConcurrentDatasetStore;
 pub use correction::Correction;
 pub use dataset_entry::DatasetEntry;
 pub use dataset_quality_report::DatasetQualityReport;
