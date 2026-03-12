@@ -254,6 +254,7 @@ impl DatasetStore {
             validation_samples,
         };
         bundle.ensure_checksum();
+        Self::validate_training_bundle(&bundle)?;
         Ok(bundle)
     }
 
@@ -459,7 +460,109 @@ impl DatasetStore {
                 "rebuilt training bundle included_entries does not match sample counts".to_string(),
             ));
         }
+        Self::validate_training_bundle(&bundle)?;
         Ok(bundle)
+    }
+
+    pub fn validate_training_bundle(bundle: &DatasetTrainingBundle) -> Result<(), MoeError> {
+        if !bundle.has_supported_schema() {
+            return Err(MoeError::DatasetError(format!(
+                "unsupported training bundle schema version {}",
+                bundle.schema_version
+            )));
+        }
+        if !(0.0..1.0).contains(&bundle.validation_ratio) {
+            return Err(MoeError::DatasetError(format!(
+                "invalid validation_ratio {} (must be in [0.0, 1.0))",
+                bundle.validation_ratio
+            )));
+        }
+        if !bundle.verify_checksum() {
+            return Err(MoeError::DatasetError(
+                "training bundle checksum verification failed".to_string(),
+            ));
+        }
+
+        let included_from_samples = bundle.train_samples.len() + bundle.validation_samples.len();
+        if bundle.included_entries != included_from_samples {
+            return Err(MoeError::DatasetError(format!(
+                "training bundle included_entries mismatch ({} != {})",
+                bundle.included_entries, included_from_samples
+            )));
+        }
+        if bundle.total_entries < bundle.included_entries {
+            return Err(MoeError::DatasetError(format!(
+                "training bundle total_entries ({}) is below included_entries ({})",
+                bundle.total_entries, bundle.included_entries
+            )));
+        }
+
+        let train_duplicates = Self::duplicate_sample_ids(&bundle.train_samples);
+        if !train_duplicates.is_empty() {
+            return Err(MoeError::DatasetError(format!(
+                "training bundle has duplicate train sample ids: {}",
+                train_duplicates.join(", ")
+            )));
+        }
+        let validation_duplicates = Self::duplicate_sample_ids(&bundle.validation_samples);
+        if !validation_duplicates.is_empty() {
+            return Err(MoeError::DatasetError(format!(
+                "training bundle has duplicate validation sample ids: {}",
+                validation_duplicates.join(", ")
+            )));
+        }
+
+        let train_ids: std::collections::HashSet<&str> = bundle
+            .train_samples
+            .iter()
+            .map(|sample| sample.entry_id.as_str())
+            .collect();
+        let mut overlap_ids: Vec<&str> = bundle
+            .validation_samples
+            .iter()
+            .map(|sample| sample.entry_id.as_str())
+            .filter(|id| train_ids.contains(id))
+            .collect();
+        overlap_ids.sort_unstable();
+        overlap_ids.dedup();
+        if !overlap_ids.is_empty() {
+            return Err(MoeError::DatasetError(format!(
+                "training bundle has overlapping train/validation sample ids: {}",
+                overlap_ids.join(", ")
+            )));
+        }
+
+        if bundle.provenance.dataset_entry_count != 0
+            && bundle.provenance.dataset_entry_count != bundle.total_entries
+        {
+            return Err(MoeError::DatasetError(format!(
+                "training provenance dataset_entry_count mismatch ({} != {})",
+                bundle.provenance.dataset_entry_count, bundle.total_entries
+            )));
+        }
+        if bundle.provenance.generator.is_empty()
+            && (!bundle.provenance.governance_state_checksum.is_empty()
+                || !bundle.provenance.runtime_bundle_checksum.is_empty())
+        {
+            return Err(MoeError::DatasetError(
+                "training provenance is inconsistent: generator missing while checksums are set"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn duplicate_sample_ids(samples: &[DatasetTrainingSample]) -> Vec<String> {
+        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        let mut duplicates: Vec<String> = samples
+            .iter()
+            .map(|sample| sample.entry_id.as_str())
+            .filter(|id| !seen.insert(*id))
+            .map(ToString::to_string)
+            .collect();
+        duplicates.sort();
+        duplicates.dedup();
+        duplicates
     }
 }
 

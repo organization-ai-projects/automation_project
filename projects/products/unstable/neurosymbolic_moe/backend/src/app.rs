@@ -854,8 +854,12 @@ fn cmd_impl_check() -> Result<(), DynError> {
         restore_pipeline.rebuild_training_dataset_bundle_from_shards(&training_shards)?;
     let rebuilt_training_bundle_from_json =
         restore_pipeline.rebuild_training_dataset_bundle_from_shards_json(&training_shards_json)?;
+    let preview_training_bundle =
+        restore_pipeline.preview_training_dataset_bundle_json(&training_bundle_json)?;
+    let preview_training_bundle_from_shards =
+        restore_pipeline.preview_training_dataset_shards_json(&training_shards_json)?;
     tracing::info!(
-        "Training dataset bundle: total={} included={} train={} valid={} json_bytes={} shards={} shards_json_bytes={} rebuilt={} rebuilt_json={}",
+        "Training dataset bundle: total={} included={} train={} valid={} json_bytes={} shards={} shards_json_bytes={} rebuilt={} rebuilt_json={} preview={} preview_shards={}",
         training_bundle.total_entries,
         training_bundle.included_entries,
         training_bundle.train_samples.len(),
@@ -864,7 +868,9 @@ fn cmd_impl_check() -> Result<(), DynError> {
         training_shards.len(),
         training_shards_json.len(),
         rebuilt_training_bundle.included_entries,
-        rebuilt_training_bundle_from_json.included_entries
+        rebuilt_training_bundle_from_json.included_entries,
+        preview_training_bundle.included_entries,
+        preview_training_bundle_from_shards.included_entries
     );
 
     tracing::info!("Implementation check completed.");

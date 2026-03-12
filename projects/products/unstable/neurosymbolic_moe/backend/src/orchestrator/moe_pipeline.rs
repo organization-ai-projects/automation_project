@@ -31,6 +31,8 @@ const MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES: usize = 10_000;
 const MAX_RUNTIME_BUNDLE_WORKING_ENTRIES: usize = 10_000;
 const MAX_RUNTIME_BUNDLE_SESSION_COUNT: usize = 2_000;
 const MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL: usize = 20_000;
+const MAX_TRAINING_DATASET_BUNDLE_JSON_BYTES: usize = 64 * 1024 * 1024;
+const MAX_TRAINING_DATASET_SHARDS_JSON_BYTES: usize = 128 * 1024 * 1024;
 
 pub struct MoePipeline {
     pub(super) registry: ExpertRegistry,
@@ -462,11 +464,19 @@ impl MoePipeline {
         options: &DatasetTrainingBuildOptions,
     ) -> Result<String, MoeError> {
         let bundle = self.export_training_dataset_bundle(options)?;
-        common_json::json::to_json_string_pretty(&bundle).map_err(|err| {
+        let payload = common_json::json::to_json_string_pretty(&bundle).map_err(|err| {
             MoeError::DatasetError(format!(
                 "training dataset bundle serialization failed: {err}"
             ))
-        })
+        })?;
+        if payload.len() > MAX_TRAINING_DATASET_BUNDLE_JSON_BYTES {
+            return Err(MoeError::DatasetError(format!(
+                "training dataset bundle payload too large ({} bytes > {} bytes)",
+                payload.len(),
+                MAX_TRAINING_DATASET_BUNDLE_JSON_BYTES
+            )));
+        }
+        Ok(payload)
     }
 
     pub fn export_training_dataset_shards(
@@ -484,11 +494,19 @@ impl MoePipeline {
         max_samples_per_shard: usize,
     ) -> Result<String, MoeError> {
         let shards = self.export_training_dataset_shards(options, max_samples_per_shard)?;
-        common_json::json::to_json_string_pretty(&shards).map_err(|err| {
+        let payload = common_json::json::to_json_string_pretty(&shards).map_err(|err| {
             MoeError::DatasetError(format!(
                 "training dataset shard serialization failed: {err}"
             ))
-        })
+        })?;
+        if payload.len() > MAX_TRAINING_DATASET_SHARDS_JSON_BYTES {
+            return Err(MoeError::DatasetError(format!(
+                "training dataset shard payload too large ({} bytes > {} bytes)",
+                payload.len(),
+                MAX_TRAINING_DATASET_SHARDS_JSON_BYTES
+            )));
+        }
+        Ok(payload)
     }
 
     pub fn rebuild_training_dataset_bundle_from_shards(
@@ -502,6 +520,13 @@ impl MoePipeline {
         &self,
         payload: &str,
     ) -> Result<DatasetTrainingBundle, MoeError> {
+        if payload.len() > MAX_TRAINING_DATASET_SHARDS_JSON_BYTES {
+            return Err(MoeError::DatasetError(format!(
+                "training dataset shard payload too large ({} bytes > {} bytes)",
+                payload.len(),
+                MAX_TRAINING_DATASET_SHARDS_JSON_BYTES
+            )));
+        }
         let shards: Vec<DatasetTrainingShard> =
             common_json::json::from_json_str(payload).map_err(|err| {
                 MoeError::DatasetError(format!(
@@ -509,6 +534,35 @@ impl MoePipeline {
                 ))
             })?;
         self.rebuild_training_dataset_bundle_from_shards(&shards)
+    }
+
+    pub fn preview_training_dataset_bundle_json(
+        &self,
+        payload: &str,
+    ) -> Result<DatasetTrainingBundle, MoeError> {
+        if payload.len() > MAX_TRAINING_DATASET_BUNDLE_JSON_BYTES {
+            return Err(MoeError::DatasetError(format!(
+                "training dataset bundle payload too large ({} bytes > {} bytes)",
+                payload.len(),
+                MAX_TRAINING_DATASET_BUNDLE_JSON_BYTES
+            )));
+        }
+        let mut bundle: DatasetTrainingBundle =
+            common_json::json::from_json_str(payload).map_err(|err| {
+                MoeError::DatasetError(format!(
+                    "training dataset bundle deserialization failed: {err}"
+                ))
+            })?;
+        bundle.ensure_checksum();
+        DatasetStore::validate_training_bundle(&bundle)?;
+        Ok(bundle)
+    }
+
+    pub fn preview_training_dataset_shards_json(
+        &self,
+        payload: &str,
+    ) -> Result<DatasetTrainingBundle, MoeError> {
+        self.rebuild_training_dataset_bundle_from_shards_json(payload)
     }
 
     fn dataset_provenance(&self) -> DatasetTrainingProvenance {

@@ -413,3 +413,97 @@ fn export_training_dataset_shards_from_pipeline() {
     assert!(rebuilt.verify_checksum());
     assert!(!shards_json.is_empty());
 }
+
+#[test]
+fn preview_training_dataset_bundle_json_validates_payload() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline
+        .register_expert(Box::new(TestExpert::new(
+            "training-preview",
+            vec![ExpertCapability::CodeGeneration],
+        )))
+        .expect("expert registration should succeed");
+    let _ = pipeline
+        .execute(Task::new(
+            "t-training-preview",
+            TaskType::CodeGeneration,
+            "build preview dataset candidate",
+        ))
+        .expect("pipeline execution should succeed");
+
+    let options = DatasetTrainingBuildOptions {
+        generated_at: 456,
+        validation_ratio: 0.3,
+        min_score: None,
+        include_failure_entries: true,
+        include_partial_entries: true,
+        include_unknown_entries: false,
+        require_correction_for_failure: false,
+        split_seed: 9,
+    };
+    let payload = pipeline
+        .export_training_dataset_bundle_json(&options)
+        .expect("training dataset bundle json should export");
+    let preview = pipeline
+        .preview_training_dataset_bundle_json(&payload)
+        .expect("training dataset bundle preview should succeed");
+    assert!(preview.verify_checksum());
+}
+
+#[test]
+fn preview_training_dataset_shards_json_validates_payload() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline
+        .register_expert(Box::new(TestExpert::new(
+            "training-shards-preview",
+            vec![ExpertCapability::CodeGeneration],
+        )))
+        .expect("expert registration should succeed");
+    for idx in 0..4_u32 {
+        let _ = pipeline
+            .execute(Task::new(
+                format!("t-training-shards-preview-{idx}"),
+                TaskType::CodeGeneration,
+                "build shard preview dataset candidate",
+            ))
+            .expect("pipeline execution should succeed");
+    }
+
+    let options = DatasetTrainingBuildOptions {
+        generated_at: 789,
+        validation_ratio: 0.25,
+        min_score: None,
+        include_failure_entries: true,
+        include_partial_entries: true,
+        include_unknown_entries: false,
+        require_correction_for_failure: false,
+        split_seed: 12,
+    };
+    let payload = pipeline
+        .export_training_dataset_shards_json(&options, 2)
+        .expect("training dataset shards json should export");
+    let preview = pipeline
+        .preview_training_dataset_shards_json(&payload)
+        .expect("training dataset shards preview should succeed");
+    assert!(preview.verify_checksum());
+}
+
+#[test]
+fn preview_training_dataset_bundle_json_rejects_oversized_payload() {
+    let pipeline = MoePipelineBuilder::new().build();
+    let oversized_payload = "x".repeat((64 * 1024 * 1024) + 1);
+    let err = pipeline
+        .preview_training_dataset_bundle_json(&oversized_payload)
+        .expect_err("oversized training bundle payload should be rejected");
+    assert!(err.to_string().contains("payload too large"));
+}
+
+#[test]
+fn preview_training_dataset_shards_json_rejects_oversized_payload() {
+    let pipeline = MoePipelineBuilder::new().build();
+    let oversized_payload = "x".repeat((128 * 1024 * 1024) + 1);
+    let err = pipeline
+        .preview_training_dataset_shards_json(&oversized_payload)
+        .expect_err("oversized training shard payload should be rejected");
+    assert!(err.to_string().contains("payload too large"));
+}

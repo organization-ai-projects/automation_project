@@ -232,3 +232,47 @@ fn rebuild_training_bundle_from_shards_rejects_tampered_shard_checksum() {
         .expect_err("tampered shard content should fail checksum validation");
     assert!(err.to_string().contains("invalid shard checksum"));
 }
+
+#[test]
+fn validate_training_bundle_rejects_overlapping_train_and_validation_ids() {
+    let mut store = DatasetStore::new();
+    for idx in 0..6_u32 {
+        store.add_entry(make_entry(
+            &format!("entry-{idx}"),
+            "expert-a",
+            Outcome::Success,
+            Some(0.9),
+        ));
+    }
+
+    let options = DatasetTrainingBuildOptions {
+        split_seed: 1,
+        validation_ratio: 0.5,
+        ..DatasetTrainingBuildOptions::default()
+    };
+    let mut bundle = store
+        .build_training_bundle(&options)
+        .expect("training bundle build should succeed");
+    if bundle.train_samples.is_empty() && !bundle.validation_samples.is_empty() {
+        bundle
+            .train_samples
+            .push(bundle.validation_samples[0].clone());
+    }
+    if bundle.validation_samples.is_empty() && !bundle.train_samples.is_empty() {
+        bundle
+            .validation_samples
+            .push(bundle.train_samples[0].clone());
+    }
+    let shared_id = bundle.train_samples[0].entry_id.clone();
+    bundle.validation_samples[0].entry_id = shared_id;
+    bundle.included_entries = bundle.train_samples.len() + bundle.validation_samples.len();
+    bundle.bundle_checksum.clear();
+    bundle.ensure_checksum();
+
+    let err = DatasetStore::validate_training_bundle(&bundle)
+        .expect_err("overlapping ids should fail validation");
+    assert!(
+        err.to_string()
+            .contains("overlapping train/validation sample ids")
+    );
+}
