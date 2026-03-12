@@ -16,7 +16,10 @@ use crate::moe_core::{
     ExecutionContext, ExpertCapability, ExpertId, ExpertOutput, ExpertStatus, Task, TaskPriority,
     TaskType, TracePhase, TraceRecord,
 };
-use crate::orchestrator::{MoePipeline, MoePipelineBuilder};
+use crate::orchestrator::{
+    ArbitrationMode, ContinuousGovernancePolicy, GovernanceImportPolicy, MoePipeline,
+    MoePipelineBuilder,
+};
 use crate::policy_guard::{Policy, PolicyGuard, PolicyResult, PolicyType};
 use crate::retrieval_engine::{
     Chunk, Chunker, ChunkingStrategy, ContextAssembler, RetrievalQuery, RetrievalResult, Retriever,
@@ -689,6 +692,112 @@ fn cmd_impl_check() -> Result<(), DynError> {
         pipeline.feedback_store().count(),
         pipeline.trace_logger().count(),
         pipeline.dataset_store().count()
+    );
+
+    let governance_policy =
+        ContinuousGovernancePolicy::new(0.5, 0.5, 0.4, 0.2, false).with_auto_promote_on_pass(true);
+    let import_policy = GovernanceImportPolicy {
+        allow_schema_change: false,
+        allow_version_regression: false,
+        max_version_regression: Some(0),
+        require_policy_match: false,
+    };
+    let mut runtime_pipeline: MoePipeline = MoePipelineBuilder::new()
+        .with_router(Box::new(HeuristicRouter::new(2)))
+        .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
+        .with_arbitration_mode(ArbitrationMode::Aggregation)
+        .with_fallback_on_expert_error(true)
+        .with_task_metadata_chain(true)
+        .with_retriever(Box::new(SimpleRetriever::new()))
+        .with_context_max_length(512)
+        .with_continuous_governance_policy(governance_policy)
+        .with_governance_import_policy(import_policy)
+        .with_max_governance_audit_entries(16)
+        .with_max_governance_state_snapshots(8)
+        .with_max_traces(256)
+        .build();
+    runtime_pipeline.register_expert(Box::new(EchoExpert::new(
+        "runtime_wired",
+        "RuntimeWired",
+        vec![ExpertCapability::CodeGeneration],
+    )))?;
+    runtime_pipeline.remember_short_term(MemoryEntry {
+        id: "impl-stm".to_string(),
+        content: "recent".to_string(),
+        tags: vec!["impl-check".to_string()],
+        created_at: 1,
+        expires_at: None,
+        memory_type: MemoryType::Short,
+        relevance: 0.8,
+        metadata: HashMap::new(),
+    })?;
+    runtime_pipeline.remember_long_term(MemoryEntry {
+        id: "impl-ltm".to_string(),
+        content: "historical".to_string(),
+        tags: vec!["impl-check".to_string()],
+        created_at: 2,
+        expires_at: None,
+        memory_type: MemoryType::Long,
+        relevance: 0.7,
+        metadata: HashMap::new(),
+    })?;
+    runtime_pipeline.put_session_buffer("impl-session", "note", "persist");
+    let runtime_task = Task::new("impl-runtime-task", TaskType::CodeGeneration, "clean")
+        .with_metadata("session_id", "impl-session")
+        .with_metadata("expert_chain", "runtime_wired");
+    let runtime_execution = runtime_pipeline.execute(runtime_task)?;
+    runtime_pipeline.capture_evaluation_baseline();
+    let has_baseline = runtime_pipeline.has_evaluation_baseline();
+    let has_report = runtime_pipeline
+        .last_continuous_improvement_report()
+        .is_some();
+    let human_approved = runtime_pipeline.approve_pending_human_review_and_promote();
+
+    let mut state = runtime_pipeline.export_governance_state();
+    state.ensure_checksum();
+    let state_valid = state.verify_checksum();
+    let state_json = runtime_pipeline.export_governance_state_json()?;
+    let bundle = runtime_pipeline.export_governance_bundle();
+    let bundle_json = runtime_pipeline.export_governance_bundle_json()?;
+    let runtime_bundle = runtime_pipeline.export_runtime_bundle();
+    let runtime_bundle_json = runtime_pipeline.export_runtime_bundle_json()?;
+    let state_preview = runtime_pipeline.preview_governance_import_json(&state_json)?;
+    let bundle_preview = runtime_pipeline.preview_governance_bundle_import_json(&bundle_json)?;
+    let runtime_preview =
+        runtime_pipeline.preview_runtime_bundle_import_json(&runtime_bundle_json)?;
+    let state_diff = runtime_pipeline.diff_governance_state(&state);
+    runtime_pipeline.import_governance_state(state.clone());
+
+    let mut restore_pipeline = MoePipelineBuilder::new().build();
+    restore_pipeline.import_governance_state_json(&state_json)?;
+    restore_pipeline.try_import_governance_state_json(&state_json)?;
+    restore_pipeline.import_governance_bundle(bundle.clone())?;
+    restore_pipeline.import_governance_bundle_json(&bundle_json)?;
+    restore_pipeline.try_import_governance_bundle(bundle.clone())?;
+    restore_pipeline.try_import_governance_bundle_json(&bundle_json)?;
+    restore_pipeline.import_runtime_bundle(runtime_bundle.clone())?;
+    restore_pipeline.import_runtime_bundle_json(&runtime_bundle_json)?;
+    restore_pipeline.try_import_runtime_bundle(runtime_bundle)?;
+    restore_pipeline.try_import_runtime_bundle_json(&runtime_bundle_json)?;
+
+    let trail = restore_pipeline.governance_audit_trail();
+    let snapshots = restore_pipeline.governance_state_snapshots().len();
+    if let Some(last) = trail.entries.last() {
+        restore_pipeline.rollback_governance_state_to_version(last.version)?;
+    }
+    tracing::info!(
+        "Runtime persistence wiring: outputs={} baseline={} report={} human_approved={} state_valid={} state_allowed={} bundle_allowed={} runtime_allowed={} drift={} trail={} snapshots={}",
+        runtime_execution.outputs.len(),
+        has_baseline,
+        has_report,
+        human_approved,
+        state_valid,
+        state_preview.allowed,
+        bundle_preview.allowed,
+        runtime_preview.allowed,
+        state_diff.has_drift,
+        trail.entries.len(),
+        snapshots
     );
 
     tracing::info!("Implementation check completed.");
