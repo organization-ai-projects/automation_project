@@ -53,3 +53,36 @@ fn length_limit_policy() {
     let long_results = guard.validate(&long_output);
     assert!(!long_results[0].passed);
 }
+
+#[test]
+fn custom_policy_forbid_rule_is_enforced() {
+    let mut guard = PolicyGuard::new();
+    guard.add_policy(make_policy(
+        "custom-forbid",
+        PolicyType::Custom("forbid:DROP TABLE".to_string()),
+    ));
+    let output = make_output("safe text");
+    assert!(guard.validate_strict(&output).is_ok());
+
+    let blocked = make_output("please DROP TABLE users");
+    assert!(guard.validate_strict(&blocked).is_err());
+}
+
+#[test]
+fn custom_policy_require_and_len_rules_are_enforced() {
+    let mut guard = PolicyGuard::new();
+    guard.add_policy(make_policy(
+        "custom-require",
+        PolicyType::Custom("require:SAFE;min_len:4;max_len:32".to_string()),
+    ));
+
+    assert!(guard.validate_strict(&make_output("SAFE payload")).is_ok());
+    assert!(guard.validate_strict(&make_output("tiny")).is_err());
+    assert!(
+        guard
+            .validate_strict(&make_output(
+                "SAFE this payload is definitely way too long for configured cap"
+            ))
+            .is_err()
+    );
+}

@@ -991,6 +991,38 @@ mod v4 {
         assert!(selected.content.starts_with("safe::"));
         assert!(result.strategy.ends_with("+policy_fallback"));
     }
+
+    #[test]
+    fn v4_enforcer_custom_policy_can_block_non_compliant_output() {
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_aggregation_strategy(AggregationStrategy::First)
+            .build();
+
+        pipeline.add_policy(Policy {
+            id: "custom-require-safe".to_string(),
+            name: "custom-require-safe".to_string(),
+            description: "require SAFE marker in output".to_string(),
+            policy_type: PolicyType::Custom("require:SAFE".to_string()),
+            active: true,
+        });
+
+        pipeline
+            .register_expert(Box::new(V4Expert::new(
+                "unsafe-custom",
+                vec![ExpertCapability::CodeGeneration],
+                0.9,
+                false,
+                "plain::",
+            )))
+            .expect("registering expert should succeed");
+
+        let task = Task::new("v4-custom-enforcer", TaskType::CodeGeneration, "payload");
+        let result = pipeline.execute(task);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+    }
 }
 
 mod v5 {
