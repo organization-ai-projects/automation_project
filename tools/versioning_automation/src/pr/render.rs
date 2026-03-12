@@ -27,6 +27,7 @@ pub(crate) fn print_usage() {
     println!(
         "  va pr duplicate-actions (--text \"...\" | --stdin) --mode <safe|auto-close> --repo owner/name [--assume-yes true|false]"
     );
+    println!("  va pr generate-description [generator args...]");
     println!(
         "  va pr group-by-category (--text \"...\" | --stdin) --mode <resolved|reopen|conflict|directive>"
     );

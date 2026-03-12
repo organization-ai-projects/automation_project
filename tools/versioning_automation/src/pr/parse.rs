@@ -21,6 +21,7 @@ use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions
 use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptions;
 use crate::pr::commands::pr_field_name::PrFieldName;
 use crate::pr::commands::pr_field_options::PrFieldOptions;
+use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
 use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
 use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
 use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
@@ -66,6 +67,9 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "effective-category" => {
             parse_effective_category(&args[1..]).map(PrAction::EffectiveCategory)
         }
+        "generate-description" => Ok(PrAction::GenerateDescription(parse_generate_description(
+            &args[1..],
+        ))),
         "group-by-category" => parse_group_by_category(&args[1..]).map(PrAction::GroupByCategory),
         "issue-category-from-labels" => {
             parse_issue_category_from_labels(&args[1..]).map(PrAction::IssueCategoryFromLabels)
@@ -99,6 +103,12 @@ pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
         "update-body" => parse_update_body(&args[1..]).map(PrAction::UpdateBody),
         "upsert-comment" => parse_upsert_comment(&args[1..]).map(PrAction::UpsertComment),
         unknown => Err(format!("Unknown pr subcommand: {unknown}")),
+    }
+}
+
+fn parse_generate_description(args: &[String]) -> PrGenerateDescriptionOptions {
+    PrGenerateDescriptionOptions {
+        passthrough: args.to_vec(),
     }
 }
 

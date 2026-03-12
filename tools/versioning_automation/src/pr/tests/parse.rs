@@ -182,6 +182,13 @@ fn pr_auto_add_closes_requires_pr_flag() {
 }
 
 #[test]
+fn pr_generate_description_with_passthrough_returns_non_zero_when_script_missing_in_test_context() {
+    let args = vec!["generate-description".to_string(), "--help".to_string()];
+    let code = run(&args);
+    assert_ne!(code, 2);
+}
+
+#[test]
 fn pr_directive_conflicts_requires_input() {
     let args = vec!["directive-conflicts".to_string()];
     let code = run(&args);

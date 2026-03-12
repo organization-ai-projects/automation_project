@@ -13,6 +13,7 @@ mod directives_apply;
 mod domain;
 mod duplicate_actions;
 mod execute;
+mod generate_description;
 mod gh_cli;
 mod group_by_category;
 mod issue_close_policy;

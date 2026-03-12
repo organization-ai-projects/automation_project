@@ -11,6 +11,7 @@ use crate::pr::details::run_details;
 use crate::pr::directive_conflict_guard::run_directive_conflict_guard;
 use crate::pr::directives_apply::run_directives_apply;
 use crate::pr::duplicate_actions::run_duplicate_actions;
+use crate::pr::generate_description::run_generate_description;
 use crate::pr::group_by_category::run_group_by_category;
 use crate::pr::issue_close_policy::run_issue_close_policy;
 use crate::pr::issue_context::run_issue_context;
@@ -55,6 +56,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(PrAction::DirectiveConflictGuard(opts)) => run_directive_conflict_guard(opts),
         Ok(PrAction::DuplicateActions(opts)) => run_duplicate_actions(opts),
         Ok(PrAction::EffectiveCategory(opts)) => run_effective_category(opts),
+        Ok(PrAction::GenerateDescription(opts)) => run_generate_description(opts),
         Ok(PrAction::GroupByCategory(opts)) => run_group_by_category(opts),
         Ok(PrAction::IssueCategoryFromLabels(opts)) => run_issue_category_from_labels(opts),
         Ok(PrAction::IssueCategoryFromTitle(opts)) => run_issue_category_from_title(opts),

@@ -16,6 +16,7 @@ pub(crate) mod pr_duplicate_actions_options;
 pub(crate) mod pr_effective_category_options;
 pub(crate) mod pr_field_name;
 pub(crate) mod pr_field_options;
+pub(crate) mod pr_generate_description_options;
 pub(crate) mod pr_group_by_category_options;
 pub(crate) mod pr_issue_category_from_labels_options;
 pub(crate) mod pr_issue_category_from_title_options;
