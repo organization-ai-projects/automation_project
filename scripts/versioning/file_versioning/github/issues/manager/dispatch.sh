@@ -25,13 +25,20 @@ manager_issues_legacy_dispatch() {
 }
 
 manager_issues_try_va_dispatch() {
+  local subcommand="${1:-}"
+
   if [[ "${VA_MANAGER_WRAPPER_ACTIVE:-0}" == "1" ]]; then
     return 1
   fi
 
-  # Keep legacy path when explicitly requested or when custom create script is injected
+  # Keep legacy path when explicitly requested.
+  if [[ "${VA_ISSUES_FORCE_LEGACY:-0}" == "1" ]]; then
+    return 1
+  fi
+
+  # Keep legacy path for create when custom create script is injected
   # (used by regression harness and local debugging).
-  if [[ "${VA_ISSUES_FORCE_LEGACY:-0}" == "1" || -n "${MANAGER_ISSUES_CREATE_SCRIPT:-}" ]]; then
+  if [[ "$subcommand" == "create" && -n "${MANAGER_ISSUES_CREATE_SCRIPT:-}" ]]; then
     return 1
   fi
 
