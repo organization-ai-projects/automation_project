@@ -1,14 +1,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use regex::Regex;
 use serde::Deserialize;
 
 use crate::pr::breaking_detect::text_indicates_breaking;
+use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
 use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
+use crate::pr::duplicate_actions::run_duplicate_actions;
+use crate::pr::render::print_usage;
 use crate::pr::scan::scan_directives;
 use crate::repo_name::resolve_repo_name_optional;
 
@@ -19,6 +21,7 @@ const E_NO_DATA: i32 = 5;
 
 #[derive(Debug, Clone)]
 struct GenerateOptions {
+    help: bool,
     dry_run: bool,
     main_pr_number: Option<String>,
     create_pr: bool,
@@ -76,8 +79,9 @@ pub(crate) fn run_generate_description(opts: PrGenerateDescriptionOptions) -> i3
         }
     };
 
-    if !is_native_supported(&parsed) {
-        return run_shell_bridge(opts);
+    if parsed.help {
+        print_usage();
+        return 0;
     }
 
     run_native_dry_run(parsed)
@@ -167,10 +171,41 @@ fn run_native_dry_run(opts: GenerateOptions) -> i32 {
 
     let validation_gate = build_validation_gate(&commits);
     let duplicate_targets = collect_duplicate_targets(&commits);
-    let duplicate_message = opts
-        .duplicate_mode
-        .as_deref()
-        .map(|mode| render_duplicate_mode_message(mode, &duplicate_targets));
+    if let Some(mode) = opts.duplicate_mode.as_deref()
+        && !opts.dry_run
+    {
+        let repo = match resolve_repo_name_optional(None) {
+            Some(value) => value,
+            None => {
+                eprintln!("Warning: unable to resolve repository; duplicate mode skipped.");
+                String::new()
+            }
+        };
+        if !repo.is_empty() {
+            let payload = duplicate_targets
+                .iter()
+                .map(|(dup, canonical)| format!("{dup}|{canonical}"))
+                .collect::<Vec<String>>()
+                .join("\n");
+            let duplicate_status = run_duplicate_actions(PrDuplicateActionsOptions {
+                text: payload,
+                mode: mode.to_string(),
+                repo,
+                assume_yes: opts.assume_yes,
+            });
+            if duplicate_status != 0 {
+                return duplicate_status;
+            }
+        }
+    }
+
+    let duplicate_message = opts.duplicate_mode.as_deref().and_then(|mode| {
+        if opts.dry_run {
+            Some(render_duplicate_mode_message(mode, &duplicate_targets))
+        } else {
+            None
+        }
+    });
     let body = if opts.validation_only {
         let pr_number = match opts.auto_edit_pr_number.as_deref() {
             Some(value) => value,
@@ -800,11 +835,8 @@ fn gh_create_pr(base_ref: &str, head_ref: &str, title: &str, body: &str) -> Resu
     }
 }
 
-fn is_native_supported(opts: &GenerateOptions) -> bool {
-    opts.dry_run || opts.main_pr_number.is_some()
-}
-
 fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
+    let mut help = false;
     let mut dry_run = false;
     let mut main_pr_number: Option<String> = None;
     let mut create_pr = false;
@@ -867,19 +899,8 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
                 i += 1;
             }
             "-h" | "--help" => {
-                return Ok(GenerateOptions {
-                    dry_run: false,
-                    main_pr_number: None,
-                    create_pr: false,
-                    allow_partial_create: false,
-                    assume_yes: false,
-                    base_ref: None,
-                    head_ref: None,
-                    duplicate_mode: None,
-                    auto_edit_pr_number: None,
-                    validation_only: false,
-                    output_file: None,
-                });
+                help = true;
+                i += 1;
             }
             other if other.starts_with('-') => {
                 return Err(format!("Unknown option for generate-description: {other}"));
@@ -889,6 +910,23 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
                 i += 1;
             }
         }
+    }
+
+    if help {
+        return Ok(GenerateOptions {
+            help: true,
+            dry_run: false,
+            main_pr_number: None,
+            create_pr: false,
+            allow_partial_create: false,
+            assume_yes: false,
+            base_ref: None,
+            head_ref: None,
+            duplicate_mode: None,
+            auto_edit_pr_number: None,
+            validation_only: false,
+            output_file: None,
+        });
     }
 
     if !mode_explicit && positionals.is_empty() {
@@ -968,6 +1006,7 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
     };
 
     Ok(GenerateOptions {
+        help: false,
         dry_run,
         main_pr_number,
         create_pr,
@@ -1053,52 +1092,6 @@ fn take_value(flag: &str, args: &[String], index: &mut usize) -> Result<String, 
     }
     *index += 2;
     Ok(value)
-}
-
-fn run_shell_bridge(opts: PrGenerateDescriptionOptions) -> i32 {
-    let script_path = match resolve_script_path() {
-        Some(path) => path,
-        None => {
-            eprintln!(
-                "Unable to locate scripts/versioning/file_versioning/github/generate_pr_description.sh"
-            );
-            return 4;
-        }
-    };
-
-    let mut cmd = Command::new("bash");
-    cmd.arg(script_path);
-    for arg in opts.passthrough {
-        cmd.arg(arg);
-    }
-
-    match cmd.status() {
-        Ok(status) => status.code().unwrap_or(1),
-        Err(err) => {
-            eprintln!("Failed to execute generator script: {err}");
-            1
-        }
-    }
-}
-
-fn resolve_script_path() -> Option<PathBuf> {
-    let rel = Path::new("scripts/versioning/file_versioning/github/generate_pr_description.sh");
-
-    if let Ok(cwd) = std::env::current_dir() {
-        let candidate = cwd.join(rel);
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-
-    let manifest_candidate = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../")
-        .join(rel);
-    if manifest_candidate.is_file() {
-        return Some(manifest_candidate);
-    }
-
-    None
 }
 
 #[cfg(test)]
