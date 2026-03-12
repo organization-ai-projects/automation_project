@@ -28,26 +28,32 @@ manager_issues_try_va_dispatch() {
   local subcommand="${1:-}"
 
   if [[ "${VA_MANAGER_WRAPPER_ACTIVE:-0}" == "1" ]]; then
-    return 1
+    return 2
   fi
 
   # Keep legacy path when explicitly requested.
   if [[ "${VA_ISSUES_FORCE_LEGACY:-0}" == "1" ]]; then
-    return 1
+    return 2
   fi
 
   # Keep legacy path for create when custom create script is injected
   # (used by regression harness and local debugging).
   if [[ "$subcommand" == "create" && -n "${MANAGER_ISSUES_CREATE_SCRIPT:-}" ]]; then
-    return 1
+    return 2
   fi
 
   VA_MANAGER_WRAPPER_ACTIVE=1 va_exec issue "$@"
 }
 
 manager_issues_run() {
-  if manager_issues_try_va_dispatch "$@"; then
-    return 0
+  local status=0
+  manager_issues_try_va_dispatch "$@" || status=$?
+
+  # status=2 means "explicitly use legacy path", not a runtime failure.
+  if [[ "$status" -eq 2 ]]; then
+    manager_issues_legacy_dispatch "$@"
+    return $?
   fi
-  manager_issues_legacy_dispatch "$@"
+
+  return "$status"
 }
