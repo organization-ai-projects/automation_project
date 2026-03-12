@@ -1079,7 +1079,7 @@ mod v5 {
     };
     use crate::orchestrator::{
         ContinuousGovernancePolicy, ContinuousImprovementReport, GovernanceImportPolicy,
-        GovernancePersistenceBundle, GovernanceState, MoePipelineBuilder,
+        GovernancePersistenceBundle, GovernanceState, MoePipelineBuilder, RuntimePersistenceBundle,
     };
     use crate::router::{Router, RoutingDecision, RoutingStrategy};
     use std::collections::HashMap;
@@ -1803,6 +1803,129 @@ mod v5 {
         if let Err(crate::moe_core::MoeError::PolicyRejected(message)) = result {
             assert!(message.contains("governance bundle import rejected"));
         }
+    }
+
+    #[test]
+    fn v5_runtime_bundle_import_preview_reports_rejection_reasons() {
+        let policy = ContinuousGovernancePolicy::new(0.8, 0.9, 0.5, 0.1, false);
+        let import_policy = GovernanceImportPolicy {
+            allow_schema_change: false,
+            allow_version_regression: false,
+            max_version_regression: Some(0),
+            require_policy_match: false,
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_continuous_governance_policy(policy)
+            .with_governance_import_policy(import_policy)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-runtime-preview-explicit")))
+            .expect("expert registration should succeed");
+        let _ = pipeline
+            .execute(Task::new(
+                "v5-runtime-preview-explicit-task",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("execution should succeed");
+
+        let source = MoePipelineBuilder::new().build();
+        let incoming = source.export_runtime_bundle();
+        let payload = common_json::json::to_json_string_pretty(&incoming)
+            .expect("runtime bundle serialization should succeed");
+
+        let decision = pipeline
+            .preview_runtime_bundle_import_json(&payload)
+            .expect("runtime bundle preview should succeed");
+        assert!(!decision.allowed);
+        assert!(decision.diff.version_delta < 0);
+        assert!(!decision.reasons.is_empty());
+    }
+
+    #[test]
+    fn v5_try_runtime_bundle_import_json_returns_explicit_policy_rejection_message() {
+        let policy = ContinuousGovernancePolicy::new(0.8, 0.9, 0.5, 0.1, false);
+        let import_policy = GovernanceImportPolicy {
+            allow_schema_change: false,
+            allow_version_regression: false,
+            max_version_regression: Some(0),
+            require_policy_match: false,
+        };
+
+        let mut pipeline = MoePipelineBuilder::new()
+            .with_continuous_governance_policy(policy)
+            .with_governance_import_policy(import_policy)
+            .build();
+        pipeline
+            .register_expert(Box::new(V5FlakyExpert::new("v5-runtime-import-explicit")))
+            .expect("expert registration should succeed");
+        let _ = pipeline
+            .execute(Task::new(
+                "v5-runtime-import-explicit-task",
+                TaskType::CodeGeneration,
+                "clean",
+            ))
+            .expect("execution should succeed");
+
+        let source = MoePipelineBuilder::new().build();
+        let incoming = source.export_runtime_bundle();
+        let payload = common_json::json::to_json_string_pretty(&incoming)
+            .expect("runtime bundle serialization should succeed");
+        let result = pipeline.try_import_runtime_bundle_json(&payload);
+
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+        if let Err(crate::moe_core::MoeError::PolicyRejected(message)) = result {
+            assert!(message.contains("runtime bundle import rejected"));
+        }
+    }
+
+    #[test]
+    fn v5_runtime_bundle_json_import_rejects_tampered_checksum() {
+        let mut source = MoePipelineBuilder::new().build();
+        source
+            .remember_short_term(memory_entry(
+                "v5-runtime-checksum-stm",
+                "runtime payload baseline",
+                MemoryType::Short,
+                1,
+            ))
+            .expect("short-term memory write should succeed");
+
+        let payload = source
+            .export_runtime_bundle_json()
+            .expect("runtime bundle json export should succeed");
+        let mut parsed: RuntimePersistenceBundle = common_json::json::from_json_str(&payload)
+            .expect("runtime bundle parse should succeed");
+        parsed.short_term_memory_entries[0].content = "runtime payload tampered".to_string();
+        let tampered_payload = common_json::json::to_json_string_pretty(&parsed)
+            .expect("tampered runtime bundle serialization should succeed");
+
+        let mut target = MoePipelineBuilder::new().build();
+        let result = target.import_runtime_bundle_json(&tampered_payload);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
+    }
+
+    #[test]
+    fn v5_runtime_bundle_preview_rejects_unsupported_schema() {
+        let source = MoePipelineBuilder::new().build();
+        let mut bundle = source.export_runtime_bundle();
+        bundle.schema_version = RuntimePersistenceBundle::schema_version() + 1;
+        let payload = common_json::json::to_json_string_pretty(&bundle)
+            .expect("runtime bundle serialization should succeed");
+
+        let target = MoePipelineBuilder::new().build();
+        let result = target.preview_runtime_bundle_import_json(&payload);
+        assert!(matches!(
+            result,
+            Err(crate::moe_core::MoeError::PolicyRejected(_))
+        ));
     }
 
     #[test]
