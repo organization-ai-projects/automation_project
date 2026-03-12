@@ -1,7 +1,9 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline.rs
 use crate::aggregator::OutputAggregator;
 use crate::buffer_manager::BufferManager;
-use crate::dataset_engine::{DatasetStore, Outcome, TraceConverter};
+use crate::dataset_engine::{
+    DatasetStore, DatasetTrainingBuildOptions, DatasetTrainingBundle, Outcome, TraceConverter,
+};
 use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
 use crate::feedback_engine::{FeedbackEntry, FeedbackStore};
@@ -444,6 +446,25 @@ impl MoePipeline {
 
     pub fn dataset_store(&self) -> &DatasetStore {
         &self.dataset_store
+    }
+
+    pub fn export_training_dataset_bundle(
+        &self,
+        options: &DatasetTrainingBuildOptions,
+    ) -> Result<DatasetTrainingBundle, MoeError> {
+        self.dataset_store.build_training_bundle(options)
+    }
+
+    pub fn export_training_dataset_bundle_json(
+        &self,
+        options: &DatasetTrainingBuildOptions,
+    ) -> Result<String, MoeError> {
+        let bundle = self.export_training_dataset_bundle(options)?;
+        common_json::json::to_json_string_pretty(&bundle).map_err(|err| {
+            MoeError::DatasetError(format!(
+                "training dataset bundle serialization failed: {err}"
+            ))
+        })
     }
 
     pub fn add_feedback(&mut self, entry: FeedbackEntry) {

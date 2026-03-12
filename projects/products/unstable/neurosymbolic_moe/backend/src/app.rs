@@ -4,7 +4,9 @@ use std::path::PathBuf;
 
 use crate::aggregator::AggregationStrategy;
 use crate::buffer_manager::{BufferEntry, BufferManager, BufferType, SessionBuffer, WorkingBuffer};
-use crate::dataset_engine::{Correction, DatasetEntry, DatasetStore, Outcome, TraceConverter};
+use crate::dataset_engine::{
+    Correction, DatasetEntry, DatasetStore, DatasetTrainingBuildOptions, Outcome, TraceConverter,
+};
 use crate::echo_expert::EchoExpert;
 use crate::evaluation_engine::{EvaluationEngine, ExpertMetrics, RoutingMetrics};
 use crate::expert_registry::{ExpertRegistry, VersionEntry, VersionTracker};
@@ -798,6 +800,37 @@ fn cmd_impl_check() -> Result<(), DynError> {
         state_diff.has_drift,
         trail.entries.len(),
         snapshots
+    );
+
+    let training_bundle =
+        restore_pipeline.export_training_dataset_bundle(&DatasetTrainingBuildOptions {
+            generated_at: 1,
+            validation_ratio: 0.2,
+            min_score: None,
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 7,
+        })?;
+    let training_bundle_json =
+        restore_pipeline.export_training_dataset_bundle_json(&DatasetTrainingBuildOptions {
+            generated_at: 2,
+            validation_ratio: 0.2,
+            min_score: None,
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 7,
+        })?;
+    tracing::info!(
+        "Training dataset bundle: total={} included={} train={} valid={} json_bytes={}",
+        training_bundle.total_entries,
+        training_bundle.included_entries,
+        training_bundle.train_samples.len(),
+        training_bundle.validation_samples.len(),
+        training_bundle_json.len()
     );
 
     tracing::info!("Implementation check completed.");

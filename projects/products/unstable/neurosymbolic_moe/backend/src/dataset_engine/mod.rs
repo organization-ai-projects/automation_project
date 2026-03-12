@@ -2,6 +2,9 @@ pub mod correction;
 pub mod dataset_entry;
 pub mod dataset_quality_report;
 pub mod dataset_store;
+pub mod dataset_training_build_options;
+pub mod dataset_training_bundle;
+pub mod dataset_training_sample;
 pub mod outcome;
 #[cfg(test)]
 mod tests;
@@ -11,5 +14,8 @@ pub use correction::Correction;
 pub use dataset_entry::DatasetEntry;
 pub use dataset_quality_report::DatasetQualityReport;
 pub use dataset_store::DatasetStore;
+pub use dataset_training_build_options::DatasetTrainingBuildOptions;
+pub use dataset_training_bundle::DatasetTrainingBundle;
+pub use dataset_training_sample::DatasetTrainingSample;
 pub use outcome::Outcome;
 pub use trace_converter::TraceConverter;

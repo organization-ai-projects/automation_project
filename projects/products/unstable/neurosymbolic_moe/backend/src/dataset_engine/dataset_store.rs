@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
+use crate::moe_core::MoeError;
 use crate::moe_core::{ExpertId, TaskId};
 
-use super::{Correction, DatasetEntry, DatasetQualityReport, Outcome};
+use super::{
+    Correction, DatasetEntry, DatasetQualityReport, DatasetTrainingBuildOptions,
+    DatasetTrainingBundle, DatasetTrainingSample, Outcome,
+};
 
 #[derive(Debug, Clone)]
 pub struct DatasetStore {
@@ -136,10 +140,122 @@ impl DatasetStore {
             success_ratio,
         }
     }
+
+    pub fn build_training_bundle(
+        &self,
+        options: &DatasetTrainingBuildOptions,
+    ) -> Result<DatasetTrainingBundle, MoeError> {
+        if !(0.0..1.0).contains(&options.validation_ratio) {
+            return Err(MoeError::DatasetError(format!(
+                "invalid validation_ratio {} (must be in [0.0, 1.0))",
+                options.validation_ratio
+            )));
+        }
+
+        let mut filtered_low_score = 0usize;
+        let mut filtered_outcome = 0usize;
+        let mut filtered_missing_failure_correction = 0usize;
+        let mut train_samples = Vec::new();
+        let mut validation_samples = Vec::new();
+
+        for entry in &self.entries {
+            let latest_correction = self.corrections.get(&entry.id).and_then(|corrections| {
+                corrections
+                    .iter()
+                    .max_by_key(|correction| correction.corrected_at)
+            });
+
+            if let Some(min_score) = options.min_score {
+                let too_low = entry.score.is_none_or(|score| score < min_score);
+                if too_low {
+                    filtered_low_score += 1;
+                    continue;
+                }
+            }
+
+            let outcome_allowed = match entry.outcome {
+                Outcome::Success => true,
+                Outcome::Failure => options.include_failure_entries,
+                Outcome::Partial => options.include_partial_entries,
+                Outcome::Unknown => options.include_unknown_entries,
+            };
+            if !outcome_allowed {
+                filtered_outcome += 1;
+                continue;
+            }
+
+            if matches!(entry.outcome, Outcome::Failure)
+                && options.require_correction_for_failure
+                && latest_correction.is_none()
+            {
+                filtered_missing_failure_correction += 1;
+                continue;
+            }
+
+            let (target_output, used_correction, correction_reason) = latest_correction
+                .map(|correction| {
+                    (
+                        correction.corrected_output.clone(),
+                        true,
+                        Some(correction.reason.clone()),
+                    )
+                })
+                .unwrap_or_else(|| (entry.output.clone(), false, None));
+
+            let sample = DatasetTrainingSample {
+                entry_id: entry.id.clone(),
+                task_id: entry.task_id.as_str().to_string(),
+                expert_id: entry.expert_id.as_str().to_string(),
+                input: entry.input.clone(),
+                target_output,
+                source_output: entry.output.clone(),
+                used_correction,
+                correction_reason,
+                score: entry.score,
+                tags: entry.tags.clone(),
+                metadata: entry.metadata.clone(),
+            };
+
+            let split_key = format!(
+                "{}:{}:{}:{}",
+                options.split_seed, sample.entry_id, sample.task_id, sample.expert_id
+            );
+            let bucket = fnv1a64(split_key.as_bytes()) % 10_000;
+            let is_validation = (bucket as f64) < (options.validation_ratio * 10_000.0);
+            if is_validation {
+                validation_samples.push(sample);
+            } else {
+                train_samples.push(sample);
+            }
+        }
+
+        Ok(DatasetTrainingBundle {
+            schema_version: 1,
+            generated_at: options.generated_at,
+            validation_ratio: options.validation_ratio,
+            split_seed: options.split_seed,
+            total_entries: self.entries.len(),
+            included_entries: train_samples.len() + validation_samples.len(),
+            filtered_low_score,
+            filtered_outcome,
+            filtered_missing_failure_correction,
+            train_samples,
+            validation_samples,
+        })
+    }
 }
 
 impl Default for DatasetStore {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
 }

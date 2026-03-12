@@ -1,4 +1,5 @@
 use crate::aggregator::AggregationStrategy;
+use crate::dataset_engine::DatasetTrainingBuildOptions;
 use crate::memory_engine::{MemoryEntry, MemoryType};
 use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
@@ -303,4 +304,42 @@ fn execute_respects_metadata_for_retrieval_memory_and_session_buffer() {
         query.filters.get("domain").map(String::as_str),
         Some("systems")
     );
+}
+
+#[test]
+fn export_training_dataset_bundle_json_from_pipeline() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    let expert = TestExpert::new("training-export", vec![ExpertCapability::CodeGeneration]);
+    pipeline
+        .register_expert(Box::new(expert))
+        .expect("expert registration should succeed");
+
+    let task = Task::new(
+        "t-training-dataset",
+        TaskType::CodeGeneration,
+        "build dataset candidate",
+    );
+    let _ = pipeline
+        .execute(task)
+        .expect("pipeline execution should succeed");
+
+    let options = DatasetTrainingBuildOptions {
+        generated_at: 123,
+        validation_ratio: 0.2,
+        min_score: None,
+        include_failure_entries: true,
+        include_partial_entries: true,
+        include_unknown_entries: false,
+        require_correction_for_failure: false,
+        split_seed: 5,
+    };
+    let bundle = pipeline
+        .export_training_dataset_bundle(&options)
+        .expect("training dataset bundle should export");
+    let json = pipeline
+        .export_training_dataset_bundle_json(&options)
+        .expect("training dataset bundle json should export");
+
+    assert!(bundle.included_entries > 0);
+    assert!(!json.is_empty());
 }
