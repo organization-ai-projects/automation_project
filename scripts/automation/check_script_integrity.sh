@@ -36,7 +36,7 @@ declare -a USER_FACING_ROWS=(
   "commit_push|scripts/versioning/file_versioning/git/add_commit_push.sh|Validate message then commit+push"
   "commit_push|scripts/versioning/file_versioning/git/push_branch.sh|Push current branch"
   "pre_push|scripts/automation/pre_push_check.sh|Repository pre-push checks"
-  "pr_creation|scripts/versioning/file_versioning/github/generate_pr_description.sh|Canonical PR create/refresh entrypoint"
+  "pr_creation|versioning_automation pr generate-description ...|Canonical PR create/refresh entrypoint (Rust CLI)"
   "issue_creation|scripts/versioning/file_versioning/github/issues/create_direct/run.sh|Create direct issue from contract"
   "issue_lifecycle|scripts/versioning/file_versioning/github/issues/manager/run.sh|Route create/update/close/reopen issue operations"
 )

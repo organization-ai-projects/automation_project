@@ -6,12 +6,16 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 cd "$ROOT_DIR"
 
+echo "[0/10] Build versioning_automation binary"
+cargo build -p versioning_automation >/tmp/versioning_automation_build.out
+tail -n 5 /tmp/versioning_automation_build.out || true
+
 echo "[1/10] Inventory + script integrity"
 bash scripts/automation/check_script_integrity.sh >/tmp/script_integrity.out
 cat /tmp/script_integrity.out
 
 echo "[2/10] Direct issue creation contract (dry-run)"
-bash scripts/versioning/file_versioning/github/issues/create_direct/run.sh \
+target/debug/versioning_automation issue create \
   --title "fix(shell): regression direct issue contract" \
   --context "Regression context" \
   --problem "Regression problem" \

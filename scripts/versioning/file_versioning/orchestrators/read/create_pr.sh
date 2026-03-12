@@ -7,7 +7,7 @@ set -euo pipefail
 
 if [[ "${CREATE_PR_INTERNAL_ALLOWED:-0}" != "1" ]]; then
   echo "Error: create_pr.sh is internal-only and cannot be run directly." >&2
-  echo "Use: bash scripts/versioning/file_versioning/github/generate_pr_description.sh --auto --base <branch> --head <branch> --yes" >&2
+  echo "Use: target/debug/versioning_automation pr generate-description --auto --base <branch> --head <branch> --yes" >&2
   exit 2
 fi
 
