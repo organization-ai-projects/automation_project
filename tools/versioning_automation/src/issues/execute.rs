@@ -1544,7 +1544,11 @@ pub(crate) fn run_update(opts: UpdateOptions) -> i32 {
     for (flag, value) in &opts.edit_args {
         cmd.arg(flag).arg(value);
     }
-    execute_command(cmd)
+    let status = execute_command(cmd);
+    if status == 0 {
+        println!("Issue #{} updated.", opts.issue);
+    }
+    status
 }
 
 pub(crate) fn run_repo_name() -> i32 {
@@ -1557,18 +1561,33 @@ pub(crate) fn run_close(opts: CloseOptions) -> i32 {
     if let Some(comment) = &opts.comment {
         cmd.arg("--comment").arg(comment);
     }
-    execute_command(cmd)
+    let status = execute_command(cmd);
+    if status == 0 {
+        println!("Issue #{} closed (reason: {}).", opts.issue, opts.reason);
+    }
+    status
 }
 
 pub(crate) fn run_reopen(opts: IssueTarget) -> i32 {
     let cmd = gh_issue_target_command("reopen", &opts.issue, opts.repo.as_deref());
-    execute_command(cmd)
+    let status = execute_command(cmd);
+    if status == 0 {
+        println!("Issue #{} reopened.", opts.issue);
+    }
+    status
 }
 
 pub(crate) fn run_delete(opts: IssueTarget) -> i32 {
     let mut cmd = gh_command(&["issue", "close", &opts.issue, "--reason", "not_planned"]);
     add_repo_arg(&mut cmd, opts.repo.as_deref());
-    execute_command(cmd)
+    let status = execute_command(cmd);
+    if status == 0 {
+        println!(
+            "Issue #{} soft-deleted (closed with reason: not_planned).",
+            opts.issue
+        );
+    }
+    status
 }
 
 pub(crate) fn run_reevaluate(opts: ReevaluateOptions) -> i32 {
