@@ -3,6 +3,10 @@
 usage() {
   cat <<'USAGE'
 Usage:
+  versioning_automation issue create ...
+    Canonical user-facing entrypoint.
+
+  Compatibility wrapper:
   issues/create_direct/run.sh \
     --title "type(scope): summary" \
     --context "Why this exists" \
@@ -19,6 +23,8 @@ Usage:
     [--dry-run]
 
 Notes:
+  - This wrapper delegates to the Rust CLI by default.
+  - Legacy shell flow is available only when explicitly forced.
   - Uses the direct issue template as canonical structure contract.
   - Enforces required Parent format: none | base | epic | #<issue_number>.
 USAGE

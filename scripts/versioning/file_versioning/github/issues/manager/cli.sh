@@ -3,6 +3,10 @@
 usage() {
   cat <<'USAGE'
 Usage:
+  versioning_automation issue <create|read|update|close|reopen|delete> ...
+    Canonical user-facing entrypoint.
+
+  Compatibility wrapper:
   issues/manager/run.sh create [create_direct_issue options...]
     Required passthrough options:
       --title --context --problem --acceptance ...
@@ -28,7 +32,8 @@ Usage:
   issues/manager/run.sh delete --issue <number> [--repo owner/name]
 
 Notes:
-  - create is routed to `versioning_automation issue create` (legacy shell fallback kept for custom script overrides).
+  - create is routed to `versioning_automation issue create` by default.
+  - shell fallback is only used when a custom create script override is explicitly provided.
   - create applies label "issue" by default (unless --no-default-issue-label is passed).
   - delete performs a soft delete: closes the issue with reason not_planned.
 USAGE
