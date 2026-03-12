@@ -7,6 +7,7 @@ use crate::moe_core::{
 use crate::orchestrator::MoePipelineBuilder;
 use crate::retrieval_engine::{RetrievalQuery, RetrievalResult, Retriever};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 struct TestExpert {
     meta: ExpertMetadata,
@@ -40,6 +41,25 @@ impl Retriever for StubRetriever {
     }
 }
 
+struct RecordingRetriever {
+    last_query: Arc<Mutex<Option<RetrievalQuery>>>,
+}
+
+impl Retriever for RecordingRetriever {
+    fn retrieve(&self, query: &RetrievalQuery) -> Result<Vec<RetrievalResult>, MoeError> {
+        *self
+            .last_query
+            .lock()
+            .expect("query mutex should not be poisoned") = Some(query.clone());
+        Ok(vec![RetrievalResult::new(
+            "ctx-1",
+            "metadata-aware context",
+            0.95,
+            "doc://recorded",
+        )])
+    }
+}
+
 impl Expert for TestExpert {
     fn id(&self) -> &ExpertId {
         &self.meta.id
@@ -63,6 +83,58 @@ impl Expert for TestExpert {
             expert_id: self.meta.id.clone(),
             content: format!("{}:{trace_hint}", task.input()),
             confidence: 0.95,
+            metadata: HashMap::new(),
+            trace: Vec::new(),
+        })
+    }
+}
+
+struct ContextStatsExpert {
+    meta: ExpertMetadata,
+}
+
+impl ContextStatsExpert {
+    fn new(id: &str) -> Self {
+        Self {
+            meta: ExpertMetadata {
+                id: ExpertId::new(id),
+                name: id.to_string(),
+                version: "1.0.0".to_string(),
+                capabilities: vec![ExpertCapability::CodeGeneration],
+                status: ExpertStatus::Active,
+                expert_type: ExpertType::Deterministic,
+            },
+        }
+    }
+}
+
+impl Expert for ContextStatsExpert {
+    fn id(&self) -> &ExpertId {
+        &self.meta.id
+    }
+
+    fn metadata(&self) -> &ExpertMetadata {
+        &self.meta
+    }
+
+    fn can_handle(&self, task: &Task) -> bool {
+        matches!(task.task_type(), TaskType::CodeGeneration)
+    }
+
+    fn execute(
+        &self,
+        _task: &Task,
+        context: &ExecutionContext,
+    ) -> Result<ExpertOutput, ExpertError> {
+        Ok(ExpertOutput {
+            expert_id: self.meta.id.clone(),
+            content: format!(
+                "r{}-m{}-b{}",
+                context.retrieved_context.len(),
+                context.memory_entries.len(),
+                context.buffer_data.len()
+            ),
+            confidence: 1.0,
             metadata: HashMap::new(),
             trace: Vec::new(),
         })
@@ -151,4 +223,84 @@ fn execute_enriches_context_with_retrieval_memory_and_buffer() {
         .get_by_phase(&crate::moe_core::TracePhase::MemoryQuery);
     assert!(!retrieval_traces.is_empty());
     assert!(!memory_traces.is_empty());
+}
+
+#[test]
+fn execute_respects_metadata_for_retrieval_memory_and_session_buffer() {
+    let recorded = Arc::new(Mutex::new(None));
+    let retriever = RecordingRetriever {
+        last_query: Arc::clone(&recorded),
+    };
+    let mut pipeline = MoePipelineBuilder::new()
+        .with_retriever(Box::new(retriever))
+        .with_context_max_length(256)
+        .build();
+    pipeline
+        .register_expert(Box::new(ContextStatsExpert::new("stats")))
+        .expect("expert registration should succeed");
+
+    pipeline
+        .remember_short_term(MemoryEntry {
+            id: "mem-critical".to_string(),
+            content: "critical memory".to_string(),
+            tags: vec!["critical".to_string()],
+            created_at: 1,
+            expires_at: None,
+            memory_type: MemoryType::Short,
+            relevance: 0.9,
+            metadata: HashMap::new(),
+        })
+        .expect("short memory write should succeed");
+    pipeline
+        .remember_short_term(MemoryEntry {
+            id: "mem-other".to_string(),
+            content: "other memory".to_string(),
+            tags: vec!["other".to_string()],
+            created_at: 2,
+            expires_at: None,
+            memory_type: MemoryType::Short,
+            relevance: 0.95,
+            metadata: HashMap::new(),
+        })
+        .expect("short memory write should succeed");
+    pipeline
+        .remember_long_term(MemoryEntry {
+            id: "mem-long".to_string(),
+            content: "long memory".to_string(),
+            tags: vec!["critical".to_string()],
+            created_at: 3,
+            expires_at: None,
+            memory_type: MemoryType::Long,
+            relevance: 0.8,
+            metadata: HashMap::new(),
+        })
+        .expect("long memory write should succeed");
+    pipeline.put_session_buffer("session-a", "note", "session-value");
+
+    let task = Task::new("t-metadata", TaskType::CodeGeneration, "generate")
+        .with_metadata("retrieval.max_results", "3")
+        .with_metadata("retrieval.min_relevance", "0.4")
+        .with_metadata("retrieval.filter.domain", "systems")
+        .with_metadata("memory.tags", "critical")
+        .with_metadata("memory.min_relevance", "0.85")
+        .with_metadata("memory.max_results", "4")
+        .with_metadata("session_id", "session-a");
+
+    let result = pipeline.execute(task).expect("execution should succeed");
+    let selected = result
+        .selected_output
+        .expect("selected output should be present");
+    assert_eq!(selected.content, "r2-m1-b2");
+
+    let query = recorded
+        .lock()
+        .expect("query mutex should not be poisoned")
+        .clone()
+        .expect("retrieval query should be recorded");
+    assert_eq!(query.max_results, 3);
+    assert!((query.min_relevance - 0.4).abs() < f64::EPSILON);
+    assert_eq!(
+        query.filters.get("domain").map(String::as_str),
+        Some("systems")
+    );
 }

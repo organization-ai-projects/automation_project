@@ -69,6 +69,17 @@ impl MoePipeline {
         self.long_term_memory.store(entry)
     }
 
+    pub fn put_session_buffer(
+        &mut self,
+        session_id: &str,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) {
+        self.buffer_manager
+            .sessions_mut()
+            .put(session_id, key, value);
+    }
+
     pub fn execute(&mut self, task: Task) -> Result<AggregatedOutput, MoeError> {
         let task_id = task.id().clone();
         let chain_ids = if self.enable_task_metadata_chain {
@@ -839,12 +850,21 @@ impl MoePipeline {
         task: &Task,
         selected_experts: &[ExpertId],
     ) -> Result<ExecutionContext, MoeError> {
+        let retrieval_max_results =
+            Self::metadata_usize(task, "retrieval.max_results").unwrap_or(8);
+        let retrieval_min_relevance =
+            Self::metadata_f64(task, "retrieval.min_relevance").unwrap_or(0.05);
         let mut query = RetrievalQuery::new(task.input())
             .with_task_id(task.id().clone())
-            .with_max_results(8)
-            .with_min_relevance(0.05);
+            .with_max_results(retrieval_max_results)
+            .with_min_relevance(retrieval_min_relevance);
         if let Some(expert_id) = selected_experts.first() {
             query = query.with_expert_id(expert_id.clone());
+        }
+        for (key, value) in &task.metadata {
+            if let Some(filter_key) = key.strip_prefix("retrieval.filter.") {
+                query = query.with_filter(filter_key, value);
+            }
         }
 
         let retrieval_results = self
@@ -865,12 +885,17 @@ impl MoePipeline {
             None,
         );
 
+        let memory_tags = Self::metadata_csv(task, "memory.tags");
         let memory_query = MemoryQuery {
-            tags: None,
+            tags: if memory_tags.is_empty() {
+                None
+            } else {
+                Some(memory_tags)
+            },
             memory_type: None,
-            min_relevance: Some(0.0),
-            max_results: 16,
-            include_expired: false,
+            min_relevance: Some(Self::metadata_f64(task, "memory.min_relevance").unwrap_or(0.0)),
+            max_results: Self::metadata_usize(task, "memory.max_results").unwrap_or(16),
+            include_expired: Self::metadata_bool(task, "memory.include_expired").unwrap_or(false),
             current_time: None,
         };
         let mut memory_entries: Vec<String> = self
@@ -905,7 +930,7 @@ impl MoePipeline {
         );
         let mut buffer_keys = self.buffer_manager.working().keys();
         buffer_keys.sort_unstable();
-        let buffer_data: Vec<String> = buffer_keys
+        let mut buffer_data: Vec<String> = buffer_keys
             .into_iter()
             .filter_map(|key| {
                 self.buffer_manager
@@ -914,11 +939,46 @@ impl MoePipeline {
                     .map(|entry| entry.value.clone())
             })
             .collect();
+        if let Some(session_id) = task.metadata.get("session_id") {
+            buffer_data.extend(self.buffer_manager.sessions().values(session_id));
+        }
 
         Ok(ExecutionContext::new(task.id().clone())
             .with_retrieved_context(retrieved_context)
             .with_memory_entries(memory_entries)
             .with_buffer_data(buffer_data))
+    }
+
+    fn metadata_usize(task: &Task, key: &str) -> Option<usize> {
+        task.metadata
+            .get(key)
+            .and_then(|value| value.parse::<usize>().ok())
+    }
+
+    fn metadata_f64(task: &Task, key: &str) -> Option<f64> {
+        task.metadata
+            .get(key)
+            .and_then(|value| value.parse::<f64>().ok())
+    }
+
+    fn metadata_bool(task: &Task, key: &str) -> Option<bool> {
+        task.metadata
+            .get(key)
+            .and_then(|value| value.parse::<bool>().ok())
+    }
+
+    fn metadata_csv(task: &Task, key: &str) -> Vec<String> {
+        task.metadata
+            .get(key)
+            .map(|value| {
+                value
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .map(ToString::to_string)
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     fn parse_expert_chain(raw: &str) -> Vec<ExpertId> {

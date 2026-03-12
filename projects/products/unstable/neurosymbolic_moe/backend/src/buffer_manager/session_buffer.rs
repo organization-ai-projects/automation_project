@@ -39,6 +39,19 @@ impl SessionBuffer {
         self.sessions.get(session_id)?.get(key)
     }
 
+    pub fn values(&self, session_id: &str) -> Vec<String> {
+        let mut entries: Vec<&BufferEntry> = self
+            .sessions
+            .get(session_id)
+            .map(|session| session.values().collect())
+            .unwrap_or_default();
+        entries.sort_by(|a, b| a.key.cmp(&b.key));
+        entries
+            .into_iter()
+            .map(|entry| entry.value.clone())
+            .collect()
+    }
+
     pub fn remove_session(&mut self, session_id: &str) -> bool {
         self.sessions.remove(session_id).is_some()
     }
