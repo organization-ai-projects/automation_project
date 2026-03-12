@@ -1,6 +1,10 @@
 use crate::memory_engine::{MemoryEntry, MemoryType};
 use crate::moe_core::MoeError;
-use crate::orchestrator::{MoePipelineBuilder, RuntimePersistenceBundle};
+use crate::orchestrator::{
+    GovernancePersistenceBundle, MoePipelineBuilder, RuntimePersistenceBundle,
+};
+use crate::{buffer_manager::BufferManager, memory_engine::MemoryEntry as RuntimeMemoryEntry};
+use serde::Serialize;
 use std::collections::HashMap;
 
 fn test_memory_entry(id: &str, content: &str, memory_type: MemoryType) -> MemoryEntry {
@@ -21,11 +25,8 @@ fn memory_fingerprint(entries: &[MemoryEntry]) -> Vec<String> {
         .iter()
         .map(|entry| {
             format!(
-                "{}|{}|{}|{}",
-                entry.id,
-                entry.content,
-                entry.relevance,
-                format!("{:?}", entry.memory_type)
+                "{}|{}|{}|{:?}",
+                entry.id, entry.content, entry.relevance, entry.memory_type
             )
         })
         .collect::<Vec<_>>();
@@ -33,24 +34,36 @@ fn memory_fingerprint(entries: &[MemoryEntry]) -> Vec<String> {
     rows
 }
 
+#[derive(Serialize)]
+struct LegacyRuntimePersistenceBundle {
+    governance: GovernancePersistenceBundle,
+    short_term_memory_entries: Vec<RuntimeMemoryEntry>,
+    long_term_memory_entries: Vec<RuntimeMemoryEntry>,
+    buffer_manager: BufferManager,
+}
+
 #[test]
 fn runtime_bundle_roundtrip_restores_state_memory_and_buffers() {
     let mut source = MoePipelineBuilder::new().build();
     source
         .remember_short_term(test_memory_entry(
-            "short-1",
-            "short memory payload",
+            "memory.short.incident_context",
+            "incident context: timeout on retrieval endpoint",
             MemoryType::Short,
         ))
         .expect("short memory write should succeed");
     source
         .remember_long_term(test_memory_entry(
-            "long-1",
-            "long memory payload",
+            "memory.long.postmortem_summary",
+            "postmortem summary: add circuit breaker and retry budget",
             MemoryType::Long,
         ))
         .expect("long memory write should succeed");
-    source.put_session_buffer("session-1", "note", "value-1");
+    source.put_session_buffer(
+        "session-incident-42",
+        "conversation.summary",
+        "user requested runtime persistence replay validation",
+    );
 
     let bundle = source.export_runtime_bundle();
     assert_eq!(
@@ -79,8 +92,14 @@ fn runtime_bundle_roundtrip_restores_state_memory_and_buffers() {
         memory_fingerprint(&bundle.long_term_memory_entries)
     );
     assert_eq!(
-        restored.buffer_manager.sessions().values("session-1"),
-        bundle.buffer_manager.sessions().values("session-1")
+        restored
+            .buffer_manager
+            .sessions()
+            .values("session-incident-42"),
+        bundle
+            .buffer_manager
+            .sessions()
+            .values("session-incident-42")
     );
 }
 
@@ -89,14 +108,15 @@ fn import_runtime_bundle_rejects_checksum_drift() {
     let mut source = MoePipelineBuilder::new().build();
     source
         .remember_short_term(test_memory_entry(
-            "short-1",
-            "baseline payload",
+            "memory.short.audit_seed",
+            "baseline payload for checksum validation",
             MemoryType::Short,
         ))
         .expect("short memory write should succeed");
 
     let mut tampered = source.export_runtime_bundle();
-    tampered.short_term_memory_entries[0].content = "tampered payload".to_string();
+    tampered.short_term_memory_entries[0].content =
+        "tampered payload for checksum validation".to_string();
 
     let mut target = MoePipelineBuilder::new().build();
     let err = target
@@ -125,12 +145,16 @@ fn try_import_runtime_bundle_json_roundtrip_succeeds() {
     let mut source = MoePipelineBuilder::new().build();
     source
         .remember_short_term(test_memory_entry(
-            "short-json-1",
-            "json short payload",
+            "memory.short.runtime_json_seed",
+            "runtime json payload for roundtrip",
             MemoryType::Short,
         ))
         .expect("short memory write should succeed");
-    source.put_session_buffer("session-json", "k", "v");
+    source.put_session_buffer(
+        "session-runtime-json",
+        "analysis.note",
+        "roundtrip import should keep this value",
+    );
 
     let payload = source
         .export_runtime_bundle_json()
@@ -144,8 +168,11 @@ fn try_import_runtime_bundle_json_roundtrip_succeeds() {
     let restored = target.export_runtime_bundle();
     assert!(restored.verify_checksum());
     assert_eq!(
-        restored.buffer_manager.sessions().values("session-json"),
-        vec!["v".to_string()]
+        restored
+            .buffer_manager
+            .sessions()
+            .values("session-runtime-json"),
+        vec!["roundtrip import should keep this value".to_string()]
     );
 }
 
@@ -154,8 +181,8 @@ fn preview_runtime_bundle_import_json_rejects_checksum_tampering() {
     let mut source = MoePipelineBuilder::new().build();
     source
         .remember_short_term(test_memory_entry(
-            "short-preview-1",
-            "baseline payload",
+            "memory.short.preview_seed",
+            "baseline payload used by preview import",
             MemoryType::Short,
         ))
         .expect("short memory write should succeed");
@@ -163,7 +190,10 @@ fn preview_runtime_bundle_import_json_rejects_checksum_tampering() {
     let payload = source
         .export_runtime_bundle_json()
         .expect("runtime bundle json export should succeed");
-    let tampered_payload = payload.replace("baseline payload", "tampered payload");
+    let tampered_payload = payload.replace(
+        "baseline payload used by preview import",
+        "tampered payload used by preview import",
+    );
 
     let target = MoePipelineBuilder::new().build();
     let err = target
@@ -187,4 +217,94 @@ fn preview_runtime_bundle_import_json_rejects_schema_drift() {
         .expect_err("preview should reject unsupported schema");
     assert!(matches!(err, MoeError::PolicyRejected(_)));
     assert!(err.to_string().contains("schema version"));
+}
+
+#[test]
+fn import_runtime_bundle_json_accepts_legacy_payload_without_schema_or_checksum() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(test_memory_entry(
+            "memory.short.legacy_seed",
+            "legacy seed memory entry",
+            MemoryType::Short,
+        ))
+        .expect("short memory write should succeed");
+    source.put_session_buffer(
+        "session-legacy-import",
+        "conversation.note",
+        "legacy payload should still be importable",
+    );
+
+    let bundle = source.export_runtime_bundle();
+    let legacy = LegacyRuntimePersistenceBundle {
+        governance: bundle.governance.clone(),
+        short_term_memory_entries: bundle.short_term_memory_entries.clone(),
+        long_term_memory_entries: bundle.long_term_memory_entries.clone(),
+        buffer_manager: bundle.buffer_manager.clone(),
+    };
+    let legacy_payload = common_json::json::to_json_string_pretty(&legacy)
+        .expect("legacy runtime bundle serialization should succeed");
+
+    let mut target = MoePipelineBuilder::new().build();
+    target
+        .import_runtime_bundle_json(&legacy_payload)
+        .expect("legacy runtime bundle json import should succeed");
+    let restored = target.export_runtime_bundle();
+    assert!(restored.verify_checksum());
+    assert_eq!(
+        restored
+            .buffer_manager
+            .sessions()
+            .values("session-legacy-import"),
+        vec!["legacy payload should still be importable".to_string()]
+    );
+}
+
+#[test]
+fn runtime_bundle_roundtrip_with_high_volume_preserves_counts() {
+    let mut source = MoePipelineBuilder::new().build();
+    for idx in 0..128_u32 {
+        source
+            .remember_short_term(test_memory_entry(
+                &format!("memory.short.bulk.{idx}"),
+                &format!("bulk short-term entry {idx} for load test"),
+                MemoryType::Short,
+            ))
+            .expect("short memory write should succeed");
+        source
+            .remember_long_term(test_memory_entry(
+                &format!("memory.long.bulk.{idx}"),
+                &format!("bulk long-term entry {idx} for load test"),
+                MemoryType::Long,
+            ))
+            .expect("long memory write should succeed");
+        source.put_session_buffer(
+            "session-bulk-load",
+            format!("checkpoint.{idx}"),
+            format!("state snapshot marker {idx}"),
+        );
+    }
+
+    let bundle = source.export_runtime_bundle();
+    let mut target = MoePipelineBuilder::new().build();
+    target
+        .import_runtime_bundle(bundle.clone())
+        .expect("bulk runtime bundle import should succeed");
+    let restored = target.export_runtime_bundle();
+
+    assert_eq!(restored.short_term_memory_entries.len(), 128);
+    assert_eq!(restored.long_term_memory_entries.len(), 128);
+    assert_eq!(
+        restored
+            .buffer_manager
+            .sessions()
+            .values("session-bulk-load")
+            .len(),
+        128
+    );
+    assert_eq!(
+        restored.recompute_checksum(),
+        bundle.recompute_checksum(),
+        "bulk roundtrip checksum should remain stable"
+    );
 }

@@ -624,12 +624,13 @@ impl MoePipeline {
     }
 
     pub fn import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let bundle: RuntimePersistenceBundle =
-            common_json::json::from_json_str(payload).map_err(|err| {
+        let mut bundle: RuntimePersistenceBundle = common_json::json::from_json_str(payload)
+            .map_err(|err| {
                 MoeError::DatasetError(format!(
                     "runtime persistence bundle deserialization failed: {err}"
                 ))
             })?;
+        bundle.ensure_checksum();
         self.import_runtime_bundle(bundle)
     }
 
@@ -648,12 +649,13 @@ impl MoePipeline {
     }
 
     pub fn try_import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let bundle: RuntimePersistenceBundle =
-            common_json::json::from_json_str(payload).map_err(|err| {
+        let mut bundle: RuntimePersistenceBundle = common_json::json::from_json_str(payload)
+            .map_err(|err| {
                 MoeError::DatasetError(format!(
                     "runtime persistence bundle deserialization failed: {err}"
                 ))
             })?;
+        bundle.ensure_checksum();
         self.try_import_runtime_bundle(bundle)
     }
 
@@ -661,12 +663,13 @@ impl MoePipeline {
         &self,
         payload: &str,
     ) -> Result<GovernanceImportDecision, MoeError> {
-        let bundle: RuntimePersistenceBundle =
-            common_json::json::from_json_str(payload).map_err(|err| {
+        let mut bundle: RuntimePersistenceBundle = common_json::json::from_json_str(payload)
+            .map_err(|err| {
                 MoeError::DatasetError(format!(
                     "runtime persistence bundle deserialization failed: {err}"
                 ))
             })?;
+        bundle.ensure_checksum();
         self.evaluate_runtime_bundle_import(&bundle)
     }
 

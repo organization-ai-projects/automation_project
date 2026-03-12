@@ -8,7 +8,9 @@ const RUNTIME_BUNDLE_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimePersistenceBundle {
+    #[serde(default = "RuntimePersistenceBundle::schema_version")]
     pub schema_version: u32,
+    #[serde(default)]
     pub runtime_checksum: String,
     pub governance: GovernancePersistenceBundle,
     pub short_term_memory_entries: Vec<MemoryEntry>,
@@ -41,6 +43,12 @@ impl RuntimePersistenceBundle {
         };
         bundle.runtime_checksum = bundle.recompute_checksum();
         bundle
+    }
+
+    pub fn ensure_checksum(&mut self) {
+        if self.runtime_checksum.is_empty() {
+            self.runtime_checksum = self.recompute_checksum();
+        }
     }
 
     pub fn verify_checksum(&self) -> bool {
@@ -77,14 +85,14 @@ fn memory_entries_fingerprint(entries: &[MemoryEntry]) -> String {
                 .collect();
             metadata.sort_by(|a, b| a.0.cmp(b.0));
             format!(
-                "{}|{}|{:?}|{}|{:?}|{}|{}|{}",
+                "{}|{}|{:?}|{}|{:?}|{}|{:?}|{}",
                 entry.id,
                 entry.content,
                 tags,
                 entry.created_at,
                 entry.expires_at,
                 entry.relevance,
-                format!("{:?}", entry.memory_type),
+                entry.memory_type,
                 metadata
                     .iter()
                     .map(|(k, v)| format!("{k}={v}"))
@@ -145,11 +153,10 @@ fn governance_fingerprint(governance: &GovernancePersistenceBundle) -> String {
         .collect::<Vec<_>>()
         .join("|");
     format!(
-        "{}:{}:{}:{}",
+        "{}:{}:{}:{audit_fp}::{snapshot_fp}",
         governance.state.schema_version,
         governance.state.state_version,
-        governance.state.state_checksum,
-        format!("{audit_fp}::{snapshot_fp}")
+        governance.state.state_checksum
     )
 }
 
