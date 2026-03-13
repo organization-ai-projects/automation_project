@@ -34,7 +34,7 @@ This document provides an overview of all documentation files in this directory.
 
 ## Versioning Libraries
 
-- [versioning/file_versioning/TOC.md](versioning/file_versioning/TOC.md): File versioning utilities
+- [versioning/file_versioning/TOC.md](versioning/file_versioning/TOC.md): File versioning utility libraries
 
 ## Testing Libraries
 

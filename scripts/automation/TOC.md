@@ -33,4 +33,5 @@ This document provides an overview of all documentation files in this directory.
 - [SCRIPT_WORKFLOWS.md](SCRIPT_WORKFLOWS.md): Canonical workflow inventory and supported script paths
 - [sync_docs.sh](sync_docs.sh): Documentation synchronization
 - [test_coverage.sh](test_coverage.sh): Generate test coverage reports
-- [tests/critical_workflows_regression.sh](tests/critical_workflows_regression.sh): Minimal shell regression suite for critical workflows
+- [tests/critical_workflows_regression.sh](tests/critical_workflows_regression.sh): Critical cross-workflow regression suite
+- [tests/enforcer_shell_contract_regression.sh](tests/enforcer_shell_contract_regression.sh): Enforcer strict-mode guard on shell-structure violations

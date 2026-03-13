@@ -40,7 +40,8 @@ automation/
 ├── setup_hooks.sh                  # Install git hooks
 ├── check_script_integrity.sh       # Validate script sourcing/root-path integrity
 ├── tests/
-│   └── critical_workflows_regression.sh # Minimal shell regression suite
+│   ├── critical_workflows_regression.sh # Critical cross-workflow regression suite
+│   └── enforcer_shell_contract_regression.sh # Enforcer check for shell-structure violations
 ├── SCRIPT_WORKFLOWS.md             # Canonical workflow inventory + entrypoints
 ├── sync_docs.sh                    # Documentation synchronization (placeholder)
 └── test_coverage.sh                # Generate test coverage reports
@@ -76,7 +77,8 @@ After sourcing, only `git add` is overridden; all other `git` commands are uncha
 - `pre_push_check.sh`: Pre-push validation.
 - `check_script_integrity.sh`: Script integrity checks (ROOT_DIR, sourced helpers, required imports).
 - `release_prepare.sh`: Prepare releases with version/changelog/tag.
-- `tests/critical_workflows_regression.sh`: Minimal shell regression suite for critical workflows.
+- `tests/critical_workflows_regression.sh`: Critical cross-workflow regression suite.
+- `tests/enforcer_shell_contract_regression.sh`: Enforcer strict-mode guard on shell-structure violations.
 - `SCRIPT_WORKFLOWS.md`: Canonical user-facing workflow inventory and supported invocation paths.
 - `setup_hooks.sh`: Install git hooks.
 - `sync_docs.sh`: Documentation synchronization (placeholder).

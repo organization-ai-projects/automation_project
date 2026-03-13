@@ -148,7 +148,7 @@ For cross-cutting changes spanning multiple unrelated areas, use multiple scopes
 - Reference issues when applicable: `fix: resolve panic in parser (#42)`
 - Use explicit footer keywords for issue references (`Closes`, `Fixes`, `Resolves`, `Related to`, `Part of`) as defined in `documentation/technical_documentation/commit_footer_policy.md`.
 
-See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details.
+See [Git workflows TOC](tools/versioning_automation/documentation/git/TOC.md) for details.
 
 ---
 
@@ -211,7 +211,7 @@ Closes #<issue-number>
 - **Size**: Keep PRs focused; split large changes into smaller PRs
 - **Tests**: Include tests for new functionality
 
-See [Versioning TOC](scripts/versioning/file_versioning/TOC.md) for details.
+See [Versioning automation docs](tools/versioning_automation/documentation/git/TOC.md) for details.
 
 ---
 

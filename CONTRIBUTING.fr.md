@@ -148,7 +148,7 @@ Pour les changements transverses, utilisez plusieurs scopes (séparés par des v
 - Référencez les issues si applicable : `fix: resolve panic in parser (#42)`
 - Utilisez des mots-clés de footer explicites (`Closes`, `Fixes`, `Resolves`, `Related to`, `Part of`) selon `documentation/technical_documentation/commit_footer_policy.md`.
 
-Voir le [TOC des scripts Git](scripts/versioning/file_versioning/git/TOC.md) pour plus de détails.
+Voir le [TOC des workflows Git](tools/versioning_automation/documentation/git/TOC.md) pour plus de détails.
 
 ---
 
@@ -211,7 +211,7 @@ Closes #<issue-number>
 - **Taille** : gardez des PR focalisées ; découpez les trop grosses
 - **Tests** : ajoutez des tests pour toute nouvelle fonctionnalité
 
-Voir [Versioning TOC](scripts/versioning/file_versioning/TOC.md) pour plus de détails.
+Voir [la documentation d'automatisation versioning](tools/versioning_automation/documentation/git/TOC.md) pour plus de détails.
 
 ---
 
