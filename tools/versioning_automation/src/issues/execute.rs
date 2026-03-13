@@ -1,6 +1,5 @@
 //! tools/versioning_automation/src/issues/execute.rs
 use std::collections::{HashMap, HashSet};
-use std::process::Command;
 
 use regex::Regex;
 use serde::Deserialize;
@@ -36,13 +35,18 @@ pub(crate) fn run_create(opts: CreateOptions) -> i32 {
     }
 
     let mut cmd = gh_command(&["issue", "create"]);
-    cmd.arg("--title").arg(&opts.title).arg("--body").arg(&body);
+    push_arg(&mut cmd, "--title");
+    push_arg(&mut cmd, &opts.title);
+    push_arg(&mut cmd, "--body");
+    push_arg(&mut cmd, &body);
     add_repo_arg(&mut cmd, opts.repo.as_deref());
     for label in &opts.labels {
-        cmd.arg("--label").arg(label);
+        push_arg(&mut cmd, "--label");
+        push_arg(&mut cmd, label);
     }
     for assignee in &opts.assignees {
-        cmd.arg("--assignee").arg(assignee);
+        push_arg(&mut cmd, "--assignee");
+        push_arg(&mut cmd, assignee);
     }
     execute_command(cmd)
 }
@@ -50,19 +54,23 @@ pub(crate) fn run_create(opts: CreateOptions) -> i32 {
 pub(crate) fn run_read(opts: ReadOptions) -> i32 {
     let mut cmd = gh_command(&["issue"]);
     if let Some(issue) = &opts.issue {
-        cmd.arg("view").arg(issue);
+        push_arg(&mut cmd, "view");
+        push_arg(&mut cmd, issue);
     } else {
-        cmd.arg("list");
+        push_arg(&mut cmd, "list");
     }
     add_repo_arg(&mut cmd, opts.repo.as_deref());
     if let Some(json) = &opts.json {
-        cmd.arg("--json").arg(json);
+        push_arg(&mut cmd, "--json");
+        push_arg(&mut cmd, json);
     }
     if let Some(jq) = &opts.jq {
-        cmd.arg("--jq").arg(jq);
+        push_arg(&mut cmd, "--jq");
+        push_arg(&mut cmd, jq);
     }
     if let Some(template) = &opts.template {
-        cmd.arg("--template").arg(template);
+        push_arg(&mut cmd, "--template");
+        push_arg(&mut cmd, template);
     }
     execute_command(cmd)
 }
@@ -188,7 +196,8 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
                 let status = execute_command({
                     let mut cmd =
                         gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                    cmd.arg("--add-label").arg(&label_name);
+                    push_arg(&mut cmd, "--add-label");
+                    push_arg(&mut cmd, &label_name);
                     cmd
                 });
                 if status != 0 {
@@ -230,7 +239,8 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
                 let status = execute_command({
                     let mut cmd =
                         gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                    cmd.arg("--remove-label").arg(&label_name);
+                    push_arg(&mut cmd, "--remove-label");
+                    push_arg(&mut cmd, &label_name);
                     cmd
                 });
                 if status != 0 {
@@ -363,7 +373,8 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
                 let status = execute_command({
                     let mut cmd =
                         gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                    cmd.arg("--remove-label").arg(&label_name);
+                    push_arg(&mut cmd, "--remove-label");
+                    push_arg(&mut cmd, &label_name);
                     cmd
                 });
                 if status != 0 {
@@ -463,7 +474,8 @@ pub(crate) fn run_neutralize(opts: NeutralizeOptions) -> i32 {
         let status = execute_command({
             let mut cmd = gh_command(&["pr", "edit", &opts.pr]);
             add_repo_arg(&mut cmd, Some(repo_name.as_str()));
-            cmd.arg("--body").arg(&updated_body);
+            push_arg(&mut cmd, "--body");
+            push_arg(&mut cmd, &updated_body);
             cmd
         });
         if status != 0 {
@@ -1004,7 +1016,8 @@ fn auto_link_set_success_state(
 fn auto_link_add_label(repo_name: &str, issue_number: &str, label: &str) {
     let _ = execute_command({
         let mut cmd = gh_issue_target_command("edit", issue_number, Some(repo_name));
-        cmd.arg("--add-label").arg(label);
+        push_arg(&mut cmd, "--add-label");
+        push_arg(&mut cmd, label);
         cmd
     });
 }
@@ -1012,7 +1025,8 @@ fn auto_link_add_label(repo_name: &str, issue_number: &str, label: &str) {
 fn auto_link_remove_label(repo_name: &str, issue_number: &str, label: &str) {
     let _ = execute_command({
         let mut cmd = gh_issue_target_command("edit", issue_number, Some(repo_name));
-        cmd.arg("--remove-label").arg(label);
+        push_arg(&mut cmd, "--remove-label");
+        push_arg(&mut cmd, label);
         cmd
     });
 }
@@ -1503,7 +1517,8 @@ fn upsert_pr_marker_comment(repo_name: &str, pr_number: &str, marker: &str, body
     if comment_id.trim().is_empty() {
         execute_command({
             let mut cmd = gh_command(&["api", &list_path]);
-            cmd.arg("-f").arg(format!("body={body}"));
+            push_arg(&mut cmd, "-f");
+            push_arg(&mut cmd, format!("body={body}"));
             cmd
         })
     } else {
@@ -1514,7 +1529,8 @@ fn upsert_pr_marker_comment(repo_name: &str, pr_number: &str, marker: &str, body
                 "PATCH",
                 &format!("repos/{repo_name}/issues/comments/{}", comment_id.trim()),
             ]);
-            cmd.arg("-f").arg(format!("body={body}"));
+            push_arg(&mut cmd, "-f");
+            push_arg(&mut cmd, format!("body={body}"));
             cmd
         })
     }
@@ -1523,7 +1539,8 @@ fn upsert_pr_marker_comment(repo_name: &str, pr_number: &str, marker: &str, body
 pub(crate) fn run_update(opts: UpdateOptions) -> i32 {
     let mut cmd = gh_issue_target_command("edit", &opts.issue, opts.repo.as_deref());
     for (flag, value) in &opts.edit_args {
-        cmd.arg(flag).arg(value);
+        push_arg(&mut cmd, flag);
+        push_arg(&mut cmd, value);
     }
     let status = execute_command(cmd);
     if status == 0 {
@@ -1540,7 +1557,8 @@ pub(crate) fn run_close(opts: CloseOptions) -> i32 {
     let mut cmd = gh_command(&["issue", "close", &opts.issue, "--reason", &opts.reason]);
     add_repo_arg(&mut cmd, opts.repo.as_deref());
     if let Some(comment) = &opts.comment {
-        cmd.arg("--comment").arg(comment);
+        push_arg(&mut cmd, "--comment");
+        push_arg(&mut cmd, comment);
     }
     let status = execute_command(cmd);
     if status == 0 {
@@ -1736,7 +1754,8 @@ pub(crate) fn run_closure_hygiene(opts: ClosureHygieneOptions) -> i32 {
                 "PATCH",
                 &format!("repos/{repo_name}/milestones/{number}"),
             ]);
-            cmd.arg("-f").arg("state=closed");
+            push_arg(&mut cmd, "-f");
+            push_arg(&mut cmd, "state=closed");
             cmd
         });
         if status != 0 {
@@ -2199,9 +2218,10 @@ pub(crate) fn run_upsert_marker_comment(opts: UpsertMarkerCommentOptions) -> i32
     0
 }
 
-fn execute_command(mut command: Command) -> i32 {
-    match command.status() {
-        Ok(status) => status.code().unwrap_or(1),
+fn execute_command(command: Vec<String>) -> i32 {
+    let borrowed = command.iter().map(String::as_str).collect::<Vec<&str>>();
+    match crate::gh_cli::status(&borrowed) {
+        Ok(()) => 0,
         Err(err) => {
             eprintln!("Failed to execute command: {err}");
             1
@@ -2222,17 +2242,18 @@ fn print_string_result(result: Result<String, String>, error_code: i32) -> i32 {
     }
 }
 
-fn gh_command(prefix: &[&str]) -> Command {
-    crate::gh_cli::command(prefix)
+fn gh_command(prefix: &[&str]) -> Vec<String> {
+    prefix.iter().map(|value| (*value).to_string()).collect()
 }
 
-fn add_repo_arg(cmd: &mut Command, repo: Option<&str>) {
+fn add_repo_arg(cmd: &mut Vec<String>, repo: Option<&str>) {
     if let Some(repo_name) = repo {
-        cmd.arg("-R").arg(repo_name);
+        push_arg(cmd, "-R");
+        push_arg(cmd, repo_name);
     }
 }
 
-fn gh_issue_target_command(action: &str, issue: &str, repo: Option<&str>) -> Command {
+fn gh_issue_target_command(action: &str, issue: &str, repo: Option<&str>) -> Vec<String> {
     let mut cmd = gh_command(&["issue", action, issue]);
     add_repo_arg(&mut cmd, repo);
     cmd
@@ -2306,12 +2327,17 @@ fn upsert_issue_comment(
 ) -> i32 {
     let mut cmd = gh_command(&["api"]);
     if let Some(id) = comment_id {
-        cmd.arg("-X")
-            .arg("PATCH")
-            .arg(format!("repos/{repo}/issues/comments/{id}"));
+        push_arg(&mut cmd, "-X");
+        push_arg(&mut cmd, "PATCH");
+        push_arg(&mut cmd, format!("repos/{repo}/issues/comments/{id}"));
     } else {
-        cmd.arg(comments_endpoint);
+        push_arg(&mut cmd, comments_endpoint);
     }
-    cmd.arg("-f").arg(format!("body={body}"));
+    push_arg(&mut cmd, "-f");
+    push_arg(&mut cmd, format!("body={body}"));
     execute_command(cmd)
+}
+
+fn push_arg<T: Into<String>>(cmd: &mut Vec<String>, value: T) {
+    cmd.push(value.into());
 }
