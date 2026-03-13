@@ -48,7 +48,7 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
   - product root `metadata.ron`
   - `backend/backend_manifest.ron`
   - `ui/ui_manifest.ron`
-- Shell structure rules enforce repository automation contracts under `scripts/versioning/file_versioning/github/**`:
+- Shell structure rules enforce repository automation contracts under `scripts/automation/**`:
   - `run.sh` must include strict mode (`set -euo pipefail`)
   - `run.sh` must source module files
   - `run.sh` must end with a single `*_main`/`*_run "$@"` entrypoint dispatch
