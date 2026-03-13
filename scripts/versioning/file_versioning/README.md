@@ -18,21 +18,7 @@ It interacts mainly with:
 file_versioning/
 ├── README.md (this file)
 ├── TOC.md
-├── orchestrators/              # Workflow orchestration
-│   ├── execute/                # Interactive entry points (user-facing)
-│   │   ├── start_work.sh       # Main workflow: sync, issues, branch
-│   │   ├── ci_watch_pr.sh      # Monitor PR CI status
-│   │   └── labels_sync.sh      # Sync repository labels
-│   └── read/                   # Non-interactive components (API layer)
-│       ├── synch_main_dev_ci.sh  # Bot automation for dev sync
-│       ├── check_priority_issues.sh  # List priority issues
-│       └── create_pr.sh        # Internal PR helper (guarded)
-├── git/                        # Pure git operations (10 scripts)
-│   ├── create_branch.sh        # Create branches with validation
-│   ├── delete_branch.sh        # Delete branches
-│   ├── push_branch.sh          # Push branches
-│   ├── clean_branches.sh       # Clean obsolete branches
-│   └── ...                     # Additional git utilities
+├── git/                        # Documentation/contracts for git workflows
 └── github/                     # GitHub-only operations
     └── ...                     # Invoked via `versioning_automation` Rust CLI
 ```
@@ -41,82 +27,26 @@ file_versioning/
 
 - `README.md`: This file.
 - `TOC.md`: Documentation index for file versioning scripts.
-- `orchestrators/`: Workflow orchestration scripts.
 - `git/`: Pure git operation scripts.
 - `github/`: GitHub-only operations.
 
-## Architecture: Execute vs Read
+## Runtime Entry Points
 
-Scripts are organized into two clear categories for maximum clarity:
+Automation runtime entrypoints are now the Rust CLI:
 
-### 📁 `orchestrators/execute/` - Executable Entry Points
+- `versioning_automation automation ...`
+- `versioning_automation git ...`
+- `versioning_automation pr ...`
+- `versioning_automation issue ...`
 
-Complete workflows that users run directly:
+Legacy orchestrator shell entrypoints under `orchestrators/**` have been removed.
 
-- **`start_work.sh`** ⭐ - Main workflow: sync dev, show priority issues, create branch
-- **`ci_watch_pr.sh`** - Monitor PR CI status
-- **`labels_sync.sh`** - Sync repository labels from config
-
-**Usage:** Run directly
-
-```bash
-./scripts/versioning/file_versioning/orchestrators/execute/start_work.sh
-```
-
-### 📁 `orchestrators/read/` - Read-Only Components
-
-Specialized scripts called by execute scripts or bot automation:
-
-- `synch_main_dev_ci.sh` - Synchronize dev with main (bot automation only)
-- `create_pr.sh` - Internal PR helper (direct invocation blocked)
-- `check_priority_issues.sh` - List high priority/security issues
-
-**Usage:** Called internally by orchestrators (not meant to be run directly)
-
-### 📁 `git/` - Git Utility Scripts
-
-Low-level scripts using only `git` commands:
-
-- `create_branch.sh` - Create feature/fix/doc branches
-- And more specialized git operations
-
-## Why This Architecture?
-
-1. **Crystal Clear Structure**: `execute/` contains what you run, `read/` contains what executes it
-2. **Forces Best Practices**: Users follow complete workflows, not isolated operations
-3. **Prevents Errors**: Can't skip critical steps (sync before branch creation)
-4. **Easy to Navigate**: Obvious where to find executable scripts vs internal helpers
-
-## Primary Workflow: start_work.sh
-
-**Recommended entry point for starting new work:**
-
-```bash
-./scripts/versioning/file_versioning/orchestrators/execute/start_work.sh
-```
-
-This orchestrates:
-
-1. **Fetch** latest from dev and main branches
-2. **Check** high priority issues (via `check_priority_issues.sh`)
-3. **Create** feature branch from issue (via `git/create_branch.sh`)
-
-Note: Main→dev synchronization is now automated by bot after PR merge
-
-This orchestrator:
-
-1. ✅ Synchronizes `dev` with `main` (ensures you're up-to-date)
-2. 🔥 Shows high priority & security issues
-3. 🌿 Creates branch (from issue or custom name)
-
-**Interactive**: Guides you through the complete process
-
-## After PR Merge: cleanup_after_pr.sh
+## After PR Merge: cleanup-after-pr
 
 After your PR merges, clean up your local branches:
 
 ```bash
-./scripts/versioning/file_versioning/git/cleanup_after_pr.sh
+versioning_automation git cleanup-after-pr
 ```
 
 ⚠️ **Warning:** This script may force-delete local branches (using `git branch -D`) when safe deletion fails. Before running it, ensure the target branches are fully merged or no longer needed, or use the manual workflow for selective/safer cleanup.
@@ -125,20 +55,20 @@ After your PR merges, clean up your local branches:
 
 ## Current Components
 
-### Git-only Components (`git/`)
+### Git Components (Rust CLI)
 
-Pure git operations (10 components):
+Git operations are now exposed via `versioning_automation git ...`:
 
-- `create_branch.sh` - Create branches with naming validation
-- `delete_branch.sh` - Delete branches
-- `push_branch.sh` - Push branches
-- `clean_branches.sh` - Clean obsolete branches
-- `clean_local_gone.sh` - Remove branches with gone remotes
-- `create_work_branch.sh` - Create work branches with conventions
-- `finish_branch.sh` - Close work branches
-- `add_commit_push.sh` - Add, commit, and push
-- `create_after_delete.sh` - Recreate branch from base
-- `cleanup_after_pr.sh` - Update branches after PR merge
+- `create-branch` - Create branches with naming validation
+- `delete-branch` - Delete branches (local/remote)
+- `push-branch` - Push current branch
+- `clean-branches` - Clean obsolete branches
+- `clean-local-gone` - Remove branches with gone remotes
+- `create-work-branch` - Create work branches with conventions
+- `finish-branch` - Close work branches
+- `add-commit-push` - Add, commit, and push
+- `create-after-delete` - Recreate current branch from base
+- `cleanup-after-pr` - Update/recreate outdated branches after PR merge
 
 ### GitHub Components (`github/`)
 
@@ -153,11 +83,12 @@ Issue creation modes:
 - Managed issue flow is handled by `versioning_automation issue ...` and enforces default `issue` label on create unless explicitly disabled.
 - User workflows should use Rust CLI entrypoints (`versioning_automation ...`) directly.
 
-### Hybrid Components (orchestrators/read)
+### Automation Components (Rust CLI)
 
-- `check_priority_issues.sh` - List high priority/security issues
-- `synch_main_dev_ci.sh` - Synchronize main→dev via automated PR (bot-only, called by GitHub Actions)
-- `create_pr.sh` - Internal helper used by canonical PR flow
+- `versioning_automation automation check-priority-issues ...`
+- `versioning_automation automation labels-sync ...`
+- `versioning_automation automation ci-watch-pr ...`
+- `versioning_automation automation sync-main-dev-ci ...`
 
 ## Branch Naming Conventions
 

@@ -256,19 +256,18 @@ git checkout dev
 ## Related Documentation
 
 - [Git Scripts README](README.md) - Overview of all git utility scripts
-- [Create Branch Script](create_branch.sh) - Creating branches with validation
-- [Delete Branch Script](delete_branch.sh) - Deleting branches safely
-- [Orchestrators Documentation](../orchestrators/README.md) - Workflow orchestration
+- `versioning_automation git create-branch ...` - Creating branches with validation
+- `versioning_automation git delete-branch ...` - Deleting branches safely
 
 ## Summary
 
-| Aspect | Manual Cleanup | Automated Script |
-|--------|---------------|------------------|
-| **Best for** | Learning, single branches | Multiple branches, routine maintenance |
-| **Speed** | Slower, step-by-step | Fast, automated |
-| **Control** | High - review each step | Moderate - batch processing |
-| **Error prevention** | Manual verification | Built-in safety checks |
-| **Repeatability** | Variable | Consistent |
-| **Recommended use** | Initial learning, custom needs | Regular maintenance |
+|Aspect|Manual Cleanup|Automated Script|
+|---|---|---|
+|**Best for**|Learning, single branches|Multiple branches, routine maintenance|
+|**Speed**|Slower, step-by-step|Fast, automated|
+|**Control**|High - review each step|Moderate - batch processing|
+|**Error prevention**|Manual verification|Built-in safety checks|
+|**Repeatability**|Variable|Consistent|
+|**Recommended use**|Initial learning, custom needs|Regular maintenance|
 
-**Get Started:** Try the manual process once to understand the workflow, then use `cleanup_after_pr.sh` for routine maintenance after PR merges.
+**Get Started:** Try the manual process once to understand the workflow, then use `versioning_automation git cleanup-after-pr` for routine maintenance after PR merges.

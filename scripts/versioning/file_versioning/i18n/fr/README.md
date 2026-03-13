@@ -20,16 +20,7 @@ Il interagit principalement avec:
 file_versioning/
 ├── README.md (ce fichier, version EN canonique)
 ├── TOC.md
-├── orchestrators/              # Orchestration des workflows
-│   ├── execute/                # Points d'entree interactifs (user-facing)
-│   │   ├── start_work.sh       # Workflow principal: sync, issues, branche
-│   │   ├── ci_watch_pr.sh      # Suivi CI d'une PR
-│   │   └── labels_sync.sh      # Synchronisation des labels
-│   └── read/                   # Composants non interactifs (API layer)
-│       ├── synch_main_dev_ci.sh      # Sync main->dev par bot
-│       ├── check_priority_issues.sh  # Liste des issues prioritaires
-│       └── create_pr.sh              # Creation de PR
-├── git/                        # Operations Git pures
+├── git/                        # Documentation/contrats des workflows Git
 └── github/                     # Operations GitHub-only
     └── ...                     # Entrees canoniques via `versioning_automation`
 ```
@@ -38,31 +29,13 @@ file_versioning/
 
 - `README.md`: Ce document.
 - `TOC.md`: Index des scripts file_versioning.
-- `orchestrators/`: Orchestration des workflows.
 - `git/`: Scripts Git purs.
 - `github/`: Scripts GitHub-only.
 
-## Architecture: Execute vs Read
+## Architecture runtime
 
-### `orchestrators/execute/` - points d'entree executables
-
-Workflows complets lances directement par les humains:
-
-- `start_work.sh` - point d'entree principal
-- `ci_watch_pr.sh` - suivi CI d'une PR
-- `labels_sync.sh` - synchronisation des labels
-
-### `orchestrators/read/` - composants non interactifs
-
-Scripts appeles par les executeurs ou par l'automation bot/CI:
-
-- `synch_main_dev_ci.sh`
-- `create_pr.sh`
-- `check_priority_issues.sh`
-
-### `git/` - utilitaires Git bas niveau
-
-Scripts utilisant uniquement `git` (creation/suppression/push/nettoyage de branches, etc.).
+Les entrypoints runtime shell ont ete supprimes.
+Les workflows sont lances via `versioning_automation ...` (CLI Rust).
 
 ## Pourquoi cette architecture?
 
@@ -71,50 +44,48 @@ Scripts utilisant uniquement `git` (creation/suppression/push/nettoyage de branc
 3. Reduction des erreurs (sync/checks centralises)
 4. Navigation plus simple dans le repertoire
 
-## Workflow principal: start_work.sh
+## Entry points runtime
+
+Les entrypoints runtime sont desormais dans le CLI Rust :
+
+- `versioning_automation automation ...`
+- `versioning_automation git ...`
+- `versioning_automation pr ...`
+- `versioning_automation issue ...`
+
+## Apres merge PR: cleanup-after-pr
 
 ```bash
-./scripts/versioning/file_versioning/orchestrators/execute/start_work.sh
-```
-
-Ce workflow orchestre:
-
-1. Fetch des branches `dev` et `main`
-2. Affichage des issues prioritaires
-3. Creation d'une branche de travail conforme
-
-## Apres merge PR: cleanup_after_pr.sh
-
-```bash
-./scripts/versioning/file_versioning/git/cleanup_after_pr.sh
+versioning_automation git cleanup-after-pr
 ```
 
 Attention: en cas d'echec du safe delete, ce script peut forcer la suppression locale (`git branch -D`).
 
 ## Composants actuels
 
-### Composants Git-only (`git/`)
+### Composants Git (Rust CLI)
 
-- `create_branch.sh`
-- `delete_branch.sh`
-- `push_branch.sh`
-- `clean_branches.sh`
-- `clean_local_gone.sh`
-- `create_work_branch.sh`
-- `finish_branch.sh`
-- `add_commit_push.sh`
-- `create_after_delete.sh`
-- `cleanup_after_pr.sh`
+- `versioning_automation git create-branch ...`
+- `versioning_automation git delete-branch ...`
+- `versioning_automation git push-branch ...`
+- `versioning_automation git clean-branches ...`
+- `versioning_automation git clean-local-gone ...`
+- `versioning_automation git create-work-branch ...`
+- `versioning_automation git finish-branch ...`
+- `versioning_automation git add-commit-push ...`
+- `versioning_automation git create-after-delete ...`
+- `versioning_automation git cleanup-after-pr ...`
 
 ### Composants GitHub (`github/`)
 
 - `versioning_automation pr generate-description ...`
 
-### Composants hybrides (`orchestrators/read`)
+### Composants automation (Rust CLI)
 
-- `check_priority_issues.sh`
-- `synch_main_dev_ci.sh`
-- `create_pr.sh`
+- `versioning_automation automation check-priority-issues ...`
+- `versioning_automation automation labels-sync ...`
+- `versioning_automation automation ci-watch-pr ...`
+- `versioning_automation automation sync-main-dev-ci ...`
 
 ## Conventions de nommage de branches
 
@@ -131,8 +102,6 @@ Exemples: `feature/user-authentication`, `fix/null-pointer-bug`.
 
 ## Ajouter un script
 
-1. Workflow interactif complet? -> `orchestrators/execute/`
-2. Composant non interactif reutilisable? -> `orchestrators/read/`
-3. Git pur? -> `git/`
-4. GitHub pur? -> `github/`
-5. Mix Git/GitHub? -> racine `file_versioning/` ou `orchestrators/read/` selon usage
+1. Workflow runtime? -> expose via `versioning_automation ...`
+2. Git pur? -> `git/` (documentation et contrats)
+3. GitHub pur? -> `github/` (tests/fixtures/docs)

@@ -1,96 +1,33 @@
-# Git Scripts Documentation
+# Git Automation Documentation
 
-This directory contains scripts that use **only** the `git` command-line tool.
+Git operations are now handled by `versioning_automation git ...`.
 
 ## Workflows
 
-For complete workflow documentation, see:
+For post-merge branch synchronization details, see:
 
-- **[Sync After PR Merge](sync_after_pr.md)** - Learn how to update your local branches after a PR merges, with both manual steps and automated cleanup via `cleanup_after_pr.sh`
+- [sync_after_pr.md](sync_after_pr.md)
 
-## Role in the Project
+## Canonical Commands
 
-This directory is responsible for pure git operations that are platform-agnostic and work with any git hosting service.
-It interacts mainly with:
+- `versioning_automation git create-branch [name] [--remote origin] [--base dev]`
+- `versioning_automation git create-work-branch <type> <description> [--remote origin] [--base dev]`
+- `versioning_automation git push-branch [--remote origin]`
+- `versioning_automation git add-commit-push <message> [--no-verify] [--remote origin]`
+- `versioning_automation git delete-branch <name> [--force] [--remote origin] [--base dev]`
+- `versioning_automation git finish-branch [name] [--remote origin] [--base dev]`
+- `versioning_automation git create-after-delete [--remote origin] [--base dev]`
+- `versioning_automation git clean-local-gone [--remote origin]`
+- `versioning_automation git clean-branches [--dry-run] [--remote origin] [--base dev]`
+- `versioning_automation git cleanup-after-pr [--delete-only] [--remote origin] [--base dev]`
 
-- Local git repositories (branch management, commits, working tree)
-- Remote git repositories (push, fetch operations)
-- Parent orchestrators (called by execute/read scripts)
-- Commit message validation (enforces conventional commit format)
+## Commit Message Format
 
-## Directory Structure
+`add-commit-push` enforces:
 
-```
-git/
-├── README.md (this file)
-├── TOC.md
-├── sync_after_pr.md           # Workflow: sync branches after PR merge
-├── create_branch.sh           # Create branches with validation
-├── delete_branch.sh           # Delete branches
-├── push_branch.sh             # Push branches to remote
-├── clean_branches.sh          # Clean obsolete branches
-├── clean_local_gone.sh        # Remove branches with gone remotes
-├── create_work_branch.sh      # Create work branches with conventions
-├── finish_branch.sh           # Close work branches
-├── add_commit_push.sh         # Add, commit, and push with validation
-├── create_after_delete.sh     # Recreate branch from base
-└── cleanup_after_pr.sh        # Update branches after PR merge
-```
+- `<type>(<scope>): <message>`
+- or `<type>: <message>`
 
-## Files
+Allowed types:
 
-- `README.md`: This file.
-- `TOC.md`: Documentation index for git scripts.
-- `sync_after_pr.md`: Workflow documentation for syncing branches after PR merge.
-- `create_branch.sh`: Create branches with validation.
-- `delete_branch.sh`: Delete branches.
-- `push_branch.sh`: Push branches to remote.
-- `clean_branches.sh`: Clean obsolete branches.
-- `clean_local_gone.sh`: Remove branches with gone remotes.
-- `create_work_branch.sh`: Create work branches with conventions.
-- `finish_branch.sh`: Close work branches.
-- `add_commit_push.sh`: Add, commit, and push with message validation.
-- `create_after_delete.sh`: Recreate branch from base.
-- `cleanup_after_pr.sh`: Update branches after PR merge.
-
-## Commit Message Validation
-
-The `add_commit_push.sh` script enforces conventional commit message format:
-
-**Format**: `<type>(<scope>): <message>` or `<type>: <message>`
-
-**Allowed types**: `feature`, `feat`, `fix`, `fixture`, `doc`, `docs`, `refactor`, `test`, `tests`, `chore`
-
-**Examples**:
-
-- `feat(auth): add user authentication`
-- `fix: resolve null pointer exception`
-- `docs(readme): update installation instructions`
-- `docs(.github): add default PR template`
-
-**Bypass** (not recommended):
-
-- Use `--no-verify` flag with the script: `./add_commit_push.sh "message" --no-verify`
-- Use `SKIP_COMMIT_VALIDATION=1` with git directly: `SKIP_COMMIT_VALIDATION=1 git commit -m "message"`
-
-See [CONTRIBUTING.md](../../../../CONTRIBUTING.md) and [commit-msg hook](../../../automation/git_hooks/commit-msg) for full details.
-
-## Scope
-
-Scripts in this directory should:
-
-- Use only `git` commands (no `gh`, `gitlab-cli`, or other version control platform CLIs)
-- Perform pure git operations (branches, commits, working tree, etc.)
-- Be platform-agnostic (work with any git hosting: GitHub, GitLab, Gitea, etc.)
-- Enforce project conventions (branch naming, commit messages)
-
-## Examples
-
-- Branch management (create, delete, checkout)
-- Commit operations with validation
-- Working tree state management
-- Local repository operations
-
-## Note
-
-If a script needs to interact with GitHub/GitLab APIs or their CLIs, it should be placed at the parent level (`file_versioning/`) as a hybrid script, or in a future platform-specific directory if we create pure platform scripts.
+- `feature`, `feat`, `fix`, `fixture`, `doc`, `docs`, `refactor`, `test`, `tests`, `chore`, `perf`

@@ -179,28 +179,11 @@ Voir le [TOC des scripts Git](scripts/versioning/file_versioning/git/TOC.md) pou
 
 ### Créer une PR
 
-Le script `create_pr.sh` automatise la création de PR et **lance les tests automatiquement** avant création.
+Utilisez directement l'entrypoint Rust :
 
 ```bash
-bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
+target/debug/versioning_automation pr generate-description --auto --base dev --head "$(git branch --show-current)" --yes
 ```
-
-**Contrôle des tests** :
-
-- Par défaut, `create_pr.sh` lance `cargo test --workspace` avant de créer la PR
-- Si les tests échouent, la PR n'est pas créée
-- Pour ignorer les tests (non recommandé), utilisez `--skip-tests` :
-
-  ```bash
-  bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh --skip-tests
-  ```
-
-**Options complémentaires** :
-
-- `--base <branch>` : branche cible (par défaut : `dev`)
-- `--title <title>` : titre personnalisé
-- `--body <body>` : description personnalisée
-- `--draft` : crée une PR en brouillon
 
 ### Exemple de description de PR
 
@@ -236,9 +219,9 @@ Voir [Versioning TOC](scripts/versioning/file_versioning/TOC.md) pour plus de d�
 
 Scripts les plus utilisés dans ce guide :
 
-- `scripts/versioning/file_versioning/git/create_branch.sh` : crée une branche et valide sa convention de nommage.
-- `scripts/versioning/file_versioning/git/add_commit_push.sh` : ajoute, valide le message, commit et push.
-- `scripts/versioning/file_versioning/orchestrators/read/create_pr.sh` : crée une PR vers `dev` (avec tests par défaut).
+- `versioning_automation git create-branch ...` : crée une branche et valide sa convention de nommage.
+- `versioning_automation git add-commit-push ...` : ajoute, valide le message, commit et push.
+- `versioning_automation pr generate-description ...` : crée/rafraîchit la PR via le flow Rust canonique.
 - `scripts/automation/git_hooks/install_hooks.sh` : installe les hooks git du dépôt.
 
 ---

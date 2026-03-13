@@ -10,7 +10,6 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 
 ## Sous-repertoires
 
-- [orchestrators/TOC.md](../../orchestrators/TOC.md) : orchestration des workflows (execute/read)
 - [git/TOC.md](../../git/TOC.md) : operations et utilitaires Git purs
 - [github/TOC.md](../../github/TOC.md) : operations GitHub CLI
 
