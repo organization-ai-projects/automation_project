@@ -7,6 +7,10 @@ use crate::moe_core::{
 use crate::orchestrator::{ConcurrentMoePipeline, MoePipelineBuilder};
 use std::collections::HashMap;
 use std::sync::mpsc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use std::thread;
 
 struct ConcurrentTestExpert {
@@ -254,4 +258,106 @@ fn concurrent_pipeline_reports_lock_timeout_metrics_under_contention() {
     );
     assert!(snapshot.total_timeout_events() >= 1);
     assert!(!pipeline.is_within_lock_slo(1.0, 0.0));
+}
+
+#[test]
+fn concurrent_pipeline_chaos_contention_recovers_after_lock_storm() {
+    let pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
+    pipeline
+        .register_expert(Box::new(ConcurrentTestExpert::new(
+            "concurrent-chaos-expert",
+        )))
+        .expect("expert registration should succeed");
+
+    let stop_signal = Arc::new(AtomicBool::new(false));
+    let (lock_tx, lock_rx) = mpsc::channel::<()>();
+    let holder_pipeline = pipeline.clone();
+    let holder_stop = Arc::clone(&stop_signal);
+    let holder = thread::spawn(move || {
+        holder_pipeline
+            .with_write(|_| {
+                lock_tx
+                    .send(())
+                    .expect("lock holder should signal acquisition");
+                while !holder_stop.load(Ordering::Relaxed) {
+                    std::thread::yield_now();
+                }
+                Ok(())
+            })
+            .expect("holder write lock should succeed");
+    });
+
+    lock_rx
+        .recv()
+        .expect("lock holder acquisition signal should be received");
+
+    let mut handles = Vec::new();
+    for worker in 0..4_u32 {
+        let reader_pipeline = pipeline.clone();
+        handles.push(thread::spawn(move || {
+            let mut timeouts = 0_u32;
+            for _ in 0..40_u32 {
+                if reader_pipeline.with_read_timeout(3, |_| ()).is_err() {
+                    timeouts += 1;
+                }
+            }
+            timeouts
+        }));
+
+        let writer_pipeline = pipeline.clone();
+        handles.push(thread::spawn(move || {
+            let mut timeouts = 0_u32;
+            for idx in 0..40_u32 {
+                let entry = MemoryEntry {
+                    id: format!("memory.short.chaos-{worker}-{idx}"),
+                    content: format!("chaos-content-{worker}-{idx}"),
+                    tags: vec!["chaos".to_string()],
+                    created_at: u64::from(worker) * 1_000 + u64::from(idx),
+                    expires_at: None,
+                    memory_type: MemoryType::Short,
+                    relevance: 0.6,
+                    metadata: HashMap::new(),
+                };
+                if writer_pipeline
+                    .with_write_timeout(3, |inner| inner.remember_short_term(entry))
+                    .is_err()
+                {
+                    timeouts += 1;
+                }
+            }
+            timeouts
+        }));
+    }
+
+    let mut observed_worker_timeouts = 0_u32;
+    for handle in handles {
+        observed_worker_timeouts += handle.join().expect("worker should not panic");
+    }
+    assert!(observed_worker_timeouts > 0);
+
+    stop_signal.store(true, Ordering::Relaxed);
+    holder.join().expect("holder thread should not panic");
+
+    pipeline
+        .with_read_timeout(3, |_| ())
+        .expect("read timeout API should recover after lock storm");
+    pipeline
+        .with_write_timeout(3, |_| Ok(()))
+        .expect("write timeout API should recover after lock storm");
+    let execute_result = pipeline
+        .execute(Task::new(
+            "chaos-recovery-task",
+            TaskType::CodeGeneration,
+            "post-chaos execution",
+        ))
+        .expect("pipeline should remain operable after contention storm");
+    assert!(execute_result.selected_output.is_some());
+
+    let snapshot = pipeline.metrics_snapshot();
+    assert!(snapshot.read_lock_contention > 0);
+    assert!(snapshot.write_lock_contention > 0);
+    assert!(snapshot.read_lock_timeouts > 0);
+    assert!(snapshot.write_lock_timeouts > 0);
+    assert!(snapshot.total_lock_acquisitions() > 0);
+    assert!(!pipeline.is_within_lock_slo(0.1, 0.01));
 }
