@@ -15,18 +15,6 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # Single source of truth for GitHub automation public entrypoints.
 declare -a GITHUB_PUBLIC_ENTRYPOINTS=(
-  "scripts/versioning/file_versioning/github/generate_pr_description.sh"
-  "scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr/run.sh"
-  "scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge/run.sh"
-  "scripts/versioning/file_versioning/github/issues/auto_link/run.sh"
-  "scripts/versioning/file_versioning/github/issues/create_direct/run.sh"
-  "scripts/versioning/file_versioning/github/issues/done_status/run.sh"
-  "scripts/versioning/file_versioning/github/issues/manager/run.sh"
-  "scripts/versioning/file_versioning/github/issues/neutralize/run.sh"
-  "scripts/versioning/file_versioning/github/issues/reevaluate/run.sh"
-  "scripts/versioning/file_versioning/github/issues/reopen_on_dev/run.sh"
-  "scripts/versioning/file_versioning/github/parent_issue_guard/run.sh"
-  "scripts/versioning/file_versioning/github/pr_directive_conflict_guard/run.sh"
 )
 
 declare -a USER_FACING_ROWS=(
