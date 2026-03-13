@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/tests/runtime_persistence_bundle.rs
 use crate::memory_engine::{MemoryEntry, MemoryType};
 use crate::moe_core::MoeError;
 use crate::orchestrator::{
@@ -408,6 +409,69 @@ fn compare_and_import_runtime_bundle_succeeds_on_matching_version() {
     target
         .compare_and_import_runtime_bundle(0, bundle)
         .expect("matching version should allow compare-and-import");
+    let restored = target.export_runtime_bundle();
+    assert!(restored.verify_checksum());
+}
+
+#[test]
+fn compare_and_import_runtime_bundle_with_checksum_rejects_checksum_mismatch() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(test_memory_entry(
+            "memory.short.compare_and_import_checksum",
+            "compare and import runtime payload checksum",
+            MemoryType::Short,
+        ))
+        .expect("short memory write should succeed");
+    let bundle = source.export_runtime_bundle();
+
+    let mut target = MoePipelineBuilder::new().build();
+    let err = target
+        .compare_and_import_runtime_bundle_with_checksum(0, "deadbeef", bundle)
+        .expect_err("checksum mismatch must be rejected");
+    assert!(matches!(err, MoeError::PolicyRejected(_)));
+    assert!(err.to_string().contains("expected governance checksum"));
+}
+
+#[test]
+fn compare_and_import_runtime_bundle_with_checksum_succeeds_on_match() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(test_memory_entry(
+            "memory.short.compare_and_import_checksum_ok",
+            "compare and import runtime payload checksum ok",
+            MemoryType::Short,
+        ))
+        .expect("short memory write should succeed");
+    let bundle = source.export_runtime_bundle();
+
+    let mut target = MoePipelineBuilder::new().build();
+    let expected_checksum = target.export_governance_state().state_checksum;
+    target
+        .compare_and_import_runtime_bundle_with_checksum(0, &expected_checksum, bundle)
+        .expect("matching checksum should allow compare-and-import");
+    let restored = target.export_runtime_bundle();
+    assert!(restored.verify_checksum());
+}
+
+#[test]
+fn compare_and_import_runtime_bundle_json_succeeds_on_matching_version() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(test_memory_entry(
+            "memory.short.compare_and_import_json_ok",
+            "compare and import runtime payload json ok",
+            MemoryType::Short,
+        ))
+        .expect("short memory write should succeed");
+    let payload = source
+        .export_runtime_bundle_json()
+        .expect("runtime bundle json export should succeed");
+
+    let mut target = MoePipelineBuilder::new().build();
+    target
+        .compare_and_import_runtime_bundle_json(0, &payload)
+        .expect("matching version should allow compare-and-import json");
     let restored = target.export_runtime_bundle();
     assert!(restored.verify_checksum());
 }
