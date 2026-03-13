@@ -1,112 +1,53 @@
-# Documentation des scripts GitHub
+# Documentation des automatisations GitHub
 
 Langue : [English](../../README.md) | **Francais**
 
-Ce repertoire contient les scripts axes workflows GitHub et generation de metadonnees PR.
-
-## Role dans le projet
-
-Ce repertoire est reserve aux operations cote GitHub.
-Il interagit principalement avec:
-
-- L'API GitHub via `gh`
-- L'historique Git local (fallback/dry-run)
-- La configuration du repository
-- Les workflows GitHub Actions
+Ce repertoire conserve la documentation et les tests de regression GitHub.
+La logique d'automatisation est migree en Rust dans `tools/versioning_automation`, executee via `versioning_automation`.
 
 ## Structure du repertoire
 
-```plaintext
+```text
 github/
-├── README.md (ce fichier, version EN canonique)
+├── README.md
 ├── TOC.md
-├── auto_add_closes_on_dev_pr/
-├── issues/
-│   ├── auto_link/
-│   └── done_status/
-├── generate_pr_description.sh
-├── parent_issue_guard/
-├── lib/
-│   ├── classification.sh
-│   └── rendering.sh
+├── i18n/
 └── tests/
-    └── generate_pr_description_regression.sh
 ```
 
-## Fichiers
+## Entrees canoniques (Rust)
 
-- `README.md`: Ce document.
-- `TOC.md`: Index des scripts GitHub-only.
-- `issues/auto_link/run.sh`: Auto-lie une issue enfant a son parent via le champ `Parent:`.
-- `auto_add_closes_on_dev_pr/run.sh`: Enrichit automatiquement les PR ouvertes vers `dev` avec un bloc gere `Closes #<n>` quand une issue `Part of #<n>` est mono-assignee au meme auteur que la PR.
-- `generate_pr_description.sh`: Genere une description PR structuree.
-- `issues/done_status/run.sh`: Ajoute `done-in-dev` apres merge dans `dev` (refs de fermeture) et le retire a la fermeture d'issue.
-- `parent_issue_guard/run.sh`: Verifie les regles parent/enfant avant fermeture.
-- `lib/classification.sh`: Aides de classification PR/issues.
-- `lib/rendering.sh`: Aides de rendu de sortie.
-- `tests/generate_pr_description_regression.sh`: Matrice de regression CLI.
-- `tests/auto_add_closes_on_dev_pr_regression.sh`: Regression de l'enrichissement auto des lignes `Closes #...` sur PR vers `dev`.
-- `tests/issue_done_in_dev_status_regression.sh`: Tests de regression du cycle add/remove du label `done-in-dev`.
-
-## Portee
-
-Les scripts de ce repertoire doivent:
-
-- Etre centres sur les workflows PR/issues GitHub
-- Preferer les donnees `gh` quand disponibles
-- Garder des fallbacks robustes en indisponibilite API
-
-## Script principal: generate_pr_description.sh
-
-Genere une description PR prete a coller (par ex. `dev -> main`) a partir des PR enfants et issues reliees.
-Supporte:
-
-- Mode PR number (enrichi GitHub)
-- Mode dry-run local
-- Mode auto (generation + creation PR)
-
-Sections generees:
-
-- `Description`
-- `Scope`
-- `Compatibility`
-- `Issues Resolved`
-- `Key Changes`
-- `Testing`
-- `Additional Notes`
-
-### Utilisation
-
-```bash
-bash generate_pr_description.sh [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
-bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER] [--yes] [OUTPUT_FILE]
-bash generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
-```
-
-### Options clefs
-
-- `--dry-run`: extraction locale (base `dev` par defaut, head = branche courante)
-- `--base`, `--head`: plage explicite de comparaison
-- `--create-pr`: creation PR avec le body genere
-- `--allow-partial-create`: autorise la creation meme si enrichissement partiel
-- `--auto-edit PR_NUMBER`: met a jour directement une PR existante
-- `--duplicate-mode safe|auto-close`: gestion des duplicats
-- `--yes`: mode non interactif
-- `--debug`: traces de classification/extraction
-- `--auto`: flux memoire (`--dry-run` + `--create-pr`)
-- `--keep-artifacts`: garde les fichiers intermediaires
-
-### Codes de sortie
-
-- `0`: succes
-- `2`: erreur d'usage/arguments
-- `3`: dependance manquante (`gh`/`jq`)
-- `4`: contexte Git invalide
-- `5`: aucune donnee extraite en dry-run
-- `6`: enrichissement partiel bloquant la creation PR
+- `versioning_automation pr generate-description ...`
+- `versioning_automation pr refresh-validation ...`
+- `versioning_automation pr auto-add-closes ...`
+- `versioning_automation pr directive-conflict-guard ...`
+- `versioning_automation issue auto-link ...`
+- `versioning_automation issue create ...`
+- `versioning_automation issue <read|update|close|reopen|delete> ...`
+- `versioning_automation issue done-status ...`
+- `versioning_automation issue reopen-on-dev ...`
+- `versioning_automation issue neutralize ...`
+- `versioning_automation issue reevaluate ...`
+- `versioning_automation issue parent-guard ...`
+- `versioning_automation issue closure-hygiene ...`
 
 ## Tests de regression
 
-```bash
-bash tests/generate_pr_description_regression.sh
-```
+- `tests/generate_pr_description_regression.sh`
+- `tests/refresh_pr_issue_extraction_regression.sh`
+- `tests/auto_add_closes_on_dev_pr_regression.sh`
+- `tests/pr_directive_conflict_guard_regression.sh`
+- `tests/auto_link_parent_issue_regression.sh`
+- `tests/issue_done_in_dev_status_regression.sh`
+- `tests/issue_reopen_on_dev_merge_regression.sh`
+- `tests/neutralize_closure_refs_regression.sh`
+- `tests/parent_issue_guard_regression.sh`
+- `tests/closure_hygiene_on_main_merge_regression.sh`
+- `tests/manager_issues_regression.sh`
+- `tests/shellcheck_regression.sh`
+- `tests/enforcer_shell_contract_regression.sh`
+
+## Notes
+
+- Les workflows GitHub Actions appellent `target/debug/versioning_automation ...` directement.
+- Aucun entrypoint runtime shell ne reste sous `scripts/versioning/file_versioning/github`.

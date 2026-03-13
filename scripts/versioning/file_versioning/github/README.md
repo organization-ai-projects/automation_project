@@ -1,203 +1,52 @@
-# GitHub Scripts Documentation
+# GitHub Automation Documentation
 
-This directory contains scripts focused on GitHub workflows and PR metadata generation.
-
-## Role in the Project
-
-This directory is reserved for GitHub-facing operations.
-It interacts mainly with:
-
-- GitHub API (via `gh` CLI)
-- Local git history (for dry-run/fallback generation)
-- Repository settings and configurations
-- GitHub Actions workflows
-- Organization and team management
+This directory now keeps GitHub automation regression tests and documentation.
+The automation logic is implemented in Rust in `tools/versioning_automation` and executed via `versioning_automation`.
 
 ## Directory Structure
 
-```
+```text
 github/
-├── README.md (this file)
+├── README.md
 ├── TOC.md
-├── auto_add_closes_on_dev_pr/
-├── generate_pr_description.sh
-├── parent_issue_guard/
-├── issues/
-│   ├── auto_link/
-│   ├── create_direct/
-│   ├── manager/
-│   ├── done_status/
-│   ├── reopen_on_dev/
-│   ├── neutralize/
-│   └── required_fields/
-│       └── load.sh
-├── lib/
-│   ├── classification.sh
-│   ├── issue_refs.sh
-│   └── rendering.sh
+├── i18n/
 └── tests/
-    └── generate_pr_description_regression.sh
 ```
 
-## Files
+## Canonical Entrypoints (Rust)
 
-- `README.md`: This file.
-- `TOC.md`: Documentation index for GitHub-only scripts.
-- `generate_pr_description.sh`: Generate structured merge PR descriptions from PR metadata and/or local git history.
-- `auto_add_closes_on_dev_pr/run.sh`: Auto-enrich open PR bodies targeting `dev` with a managed `Closes #<n>` block when referenced `Part of #<n>` issues are single-assignee and assigned to the PR author.
-- `issues/auto_link/run.sh`: Parse `Parent:` field and auto-link child issues to parent issues via GitHub API.
-- `versioning_automation issue create ...`: Canonical create contract entrypoint (Rust CLI).
-- `versioning_automation issue <read|update|close|reopen|delete> ...`: Canonical issue lifecycle entrypoint (Rust CLI).
-- `issues/done_status/run.sh`: Add `done-in-dev` on merged PRs into `dev` from closure refs, and remove it when issues close.
-  - Supported closure refs for labeling: `Closes/Fixes #<n>`.
-- `issues/reopen_on_dev/run.sh`: Reopen issues referenced by `Reopen #<n>` on merged PRs into `dev`, and remove `done-in-dev` from those issues.
-- `issues/neutralize/run.sh`: Replace closure refs with `... rejected #...` when referenced issues are non-compliant.
-- `parent_issue_guard/run.sh`: Evaluate parent/child issue status and prevent premature parent closure.
-- `lib/classification.sh`: PR/issue classification helpers extracted from the main script.
-- `lib/issue_refs.sh`: Issue reference parsing helpers (`Closes`, `Fixes`, `Part of`, `Reopen`, duplicates).
-- `issues/required_fields/load.sh`: Shared validator for issue contracts (default direct-issue contract + review-followup contract keyed by `review` label).
-- `pr/compare/load.sh`: Compare-source loaders for commit messages/headlines (deterministic local-first with API fallback).
-- `pr/footprint/load.sh`: Change Footprint extraction/rendering helpers and crate-path attribution.
-- `lib/rendering.sh`: Output rendering helpers extracted from the main script.
-- `tests/generate_pr_description_regression.sh`: Regression matrix for CLI modes and argument validation.
-- `tests/auto_add_closes_on_dev_pr_regression.sh`: Regression checks for automatic managed `Closes #...` enrichment on dev-targeting PRs.
-- `tests/issue_done_in_dev_status_regression.sh`: Regression checks for done-in-dev add/remove workflow behavior.
-- `tests/issue_reopen_on_dev_merge_regression.sh`: Regression checks for Reopen footer sync on merged PRs into `dev`.
-- `tests/manager_issues_regression.sh`: Regression checks for manager_issues lifecycle routing behavior (create/read/update/close/reopen/soft-delete).
-- `tests/shellcheck_regression.sh`: ShellCheck regression suite with strict lint for standalone/test scripts and scoped suppressions for the modular PR generator stack.
-- `tests/enforcer_shell_contract_regression.sh`: Enforcer-backed shell contract gate (strict mode), failing on any `STRUCT_SHELL_*` violation in automation scripts.
+- `versioning_automation pr generate-description ...`
+- `versioning_automation pr refresh-validation ...`
+- `versioning_automation pr auto-add-closes ...`
+- `versioning_automation pr directive-conflict-guard ...`
+- `versioning_automation issue auto-link ...`
+- `versioning_automation issue create ...`
+- `versioning_automation issue <read|update|close|reopen|delete> ...`
+- `versioning_automation issue done-status ...`
+- `versioning_automation issue reopen-on-dev ...`
+- `versioning_automation issue neutralize ...`
+- `versioning_automation issue reevaluate ...`
+- `versioning_automation issue parent-guard ...`
+- `versioning_automation issue closure-hygiene ...`
 
-## Scope
+## Regression Tests
 
-Scripts in this directory should:
+- `tests/generate_pr_description_regression.sh`
+- `tests/refresh_pr_issue_extraction_regression.sh`
+- `tests/auto_add_closes_on_dev_pr_regression.sh`
+- `tests/pr_directive_conflict_guard_regression.sh`
+- `tests/auto_link_parent_issue_regression.sh`
+- `tests/issue_done_in_dev_status_regression.sh`
+- `tests/issue_reopen_on_dev_merge_regression.sh`
+- `tests/neutralize_closure_refs_regression.sh`
+- `tests/parent_issue_guard_regression.sh`
+- `tests/closure_hygiene_on_main_merge_regression.sh`
+- `tests/manager_issues_regression.sh`
+- `tests/shellcheck_regression.sh`
+- `tests/enforcer_shell_contract_regression.sh`
 
-- Focus on GitHub PR/issue workflows
-- Prefer `gh` data when available
-- Provide resilient fallbacks when GitHub API is unavailable
+## Notes
 
-Issue contract routing:
-
-- Default issues use `.github/issue_required_fields.conf` keys `ISSUE_*`.
-- Review follow-up issues (label `review`) use `ISSUE_REVIEW_*` keys from the same contract file.
-- Direct creation through `versioning_automation issue create` applies label `issue` by default.
-- Shell scripts under `issues/manager` and `issues/create_direct` are compatibility wrappers; user-facing flow should use the Rust CLI.
-- Issue reads support single-issue view or listing; machine-readable output is available via `--json/--jq/--template`.
-- Delete is implemented as deterministic soft-delete by closing issues with reason `not_planned`.
-
-## Scripts
-
-### `generate_pr_description.sh`
-
-Generates a ready-to-paste PR description (e.g., `dev -> main`) by analyzing child PRs and resolved issues.
-Supports both PR-number mode (GitHub-enriched) and local dry-run mode.
-Generated body includes:
-
-- `### Description`
-- `### Scope`
-- `### Compatibility`
-- `### Issues Resolved`
-- `### Key Changes`
-- `### Testing`
-- `### Additional Notes`
-
-Supported issue-closing keywords for resolved issue extraction:
-
-- `Closes #<n>`
-- `Fixes #<n>`
-
-Usage:
-
-```bash
-bash generate_pr_description.sh [--keep-artifacts] [--debug] [--duplicate-mode MODE] [--auto-edit PR_NUMBER] MAIN_PR_NUMBER [OUTPUT_FILE]
-bash generate_pr_description.sh --dry-run [--base BRANCH] [--head BRANCH] [--create-pr] [--allow-partial-create] [--duplicate-mode MODE] [--debug] [--auto-edit PR_NUMBER] [--validation-only] [--yes] [OUTPUT_FILE]
-bash generate_pr_description.sh --auto [--base BRANCH] [--head BRANCH] [--debug] [--yes]
-```
-
-Key options:
-
-- `--dry-run`: Generate from local history (default base: `dev`, default head: current branch).
-- `--base`, `--head`: Explicit branch range for dry-run extraction.
-- `--create-pr`: In dry-run mode, optionally create the PR with the generated body.
-- `--allow-partial-create`: Allow PR creation even if GitHub enrichment is incomplete.
-- `--auto-edit PR_NUMBER`: Generate body in memory and update an existing PR directly (no output file).
-  When updating an existing PR, the current `### Validation Checklist` section is preserved (checkbox state is kept).
-- `--validation-only`: In `--auto-edit/--refresh-pr` mode, update only `### Validation Gate` (CI + breaking status) and keep the rest of the PR body untouched.
-- `--duplicate-mode MODE`: Duplicate handling mode (`safe` or `auto-close`).
-- `--yes`: Non-interactive confirmation when `--create-pr` is used.
-- `--debug`: Enable extraction and classification traces on stderr.
-- `--auto`: RAM-first flow (`--dry-run` + `--create-pr`) with in-memory body.
-- `--keep-artifacts`: Keep extracted PR/issue intermediate files.
-
-Compatibility behavior:
-
-- Default output is non-breaking:
-  - `- Non-breaking change.`
-- When breaking signals are detected:
-  - `- Breaking change.`
-- Compatibility switches to breaking only when explicit signals are detected in analyzed data:
-  - checked `- [x] Breaking change` in PR body content
-  - conventional-commit breaking marker (`!`) in PR/commit titles
-  - `BREAKING CHANGE:` footer in analyzed PR/commit body text
-  - `breaking` label on linked PRs/issues (when available via GitHub enrichment)
-
-Scope behavior:
-
-- `Scope` is always emitted with deterministic fallback:
-  - `- Not explicitly provided.`
-
-Duplicate handling:
-
-- Default: disabled (no duplicate comment/closure action).
-- `--duplicate-mode safe`: posts a standardized comment on detected duplicate issue references.
-- `--duplicate-mode auto-close`: posts duplicate comment and closes duplicate issue.
-- In `--dry-run`, duplicate mode is simulation-only (deterministic output, no mutation).
-
-Dependency behavior:
-
-- `gh` is required for:
-  - main PR mode
-  - `--create-pr`
-  - `--auto-edit`
-  - duplicate actions outside dry-run
-- `jq` is required whenever GitHub data is parsed (all modes that have `gh` available, including dry-run).
-- Pure local dry-run (`--dry-run` without online actions) works without `gh`.
-
-Resilience:
-
-- GitHub compare lookups retry with deterministic backoff before falling back to local git history.
-- Optional timeline/enrichment reads emit warnings on failure but remain non-fatal to keep generation deterministic.
-
-Exit codes (automation contract):
-
-- `0`: Success
-- `2`: Usage/arguments error
-- `3`: Missing dependency (`gh`/`jq`)
-- `4`: Git context error (e.g. missing branch context)
-- `5`: No extracted PR data in dry-run
-- `6`: Partial GitHub enrichment blocked PR creation
-
-Regression tests:
-
-```bash
-bash tests/generate_pr_description_regression.sh
-bash tests/shellcheck_regression.sh
-bash tests/enforcer_shell_contract_regression.sh
-```
-
-Troubleshooting:
-
-- See `.github/documentation/pr_generator_troubleshooting.md`.
-
-## Internal Module Breakdown
-
-- CLI/options + arg parsing/validation: `pr/cli/load.sh` (`help.sh`, `defaults.sh`, `parse.sh`, `finalize.sh`)
-- extraction/classification: `pr/extraction/load.sh` (`from_compare.sh`, `from_pr_api.sh`), `lib/classification.sh`, `lib/issue_refs.sh`
-- pipeline orchestration: `pr/pipeline/load.sh` (`artifacts.sh`, `deps.sh`, `refs.sh`, `collect.sh`, `render.sh`, `tracking.sh`)
-- runtime/gh helpers: `pr/runtime/load.sh` (`logging.sh`, `git.sh`, `state.sh`)
-- compare loading: `pr/compare/load.sh` (`local_git.sh`, `api.sh`, `commits.sh`)
-- issue flow resolution: `pr/issue/load.sh` (`collector.sh`, `decision.sh`, `actions.sh`)
-- issue contract checks: `issues/required_fields/load.sh`
-- metrics/status: `pr/metrics/load.sh` (`breaking.sh`, `ci.sh`)
-- body composition/publication: `pr/body/builder.sh`, `pr/body/publish.sh` (loaded via `pr/body/load.sh`)
-- rendering helpers: `lib/rendering.sh`, `pr/footprint/load.sh` (`render.sh`)
-- validation-only body updates: `pr/body/validation_gate.sh`
+- GitHub Actions workflows call `target/debug/versioning_automation ...` directly.
+- No shell runtime entrypoint remains under `scripts/versioning/file_versioning/github`.
+- Troubleshooting: `.github/documentation/pr_generator_troubleshooting.md`.

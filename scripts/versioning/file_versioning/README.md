@@ -34,7 +34,7 @@ file_versioning/
 │   ├── clean_branches.sh       # Clean obsolete branches
 │   └── ...                     # Additional git utilities
 └── github/                     # GitHub-only operations
-    └── generate_pr_description.sh # Generate merge PR description
+    └── ...                     # Invoked via `versioning_automation` Rust CLI
 ```
 
 ## Files
@@ -142,7 +142,7 @@ Pure git operations (10 components):
 
 ### GitHub Components (`github/`)
 
-- `generate_pr_description.sh` - Generate merge PR description from PR/issue metadata
+- `versioning_automation pr generate-description ...` - Generate merge PR description from PR/issue metadata
 - `versioning_automation issue create ...` - Canonical direct issue creation contract entrypoint (Rust CLI)
 - `versioning_automation issue <read|update|close|reopen|delete> ...` - Canonical issue lifecycle entrypoint (Rust CLI)
 
@@ -151,7 +151,7 @@ Issue creation modes:
 - Direct issue flow uses `.github/ISSUE_TEMPLATE/direct_issue.md` + default issue contract.
 - Review follow-up flow uses `.github/ISSUE_TEMPLATE/review_followup.md` + `review` label + review issue contract.
 - Managed issue flow is handled by `versioning_automation issue ...` and enforces default `issue` label on create unless explicitly disabled.
-- Direct shell entrypoints under `github/issues/*` are compatibility wrappers; user workflows should use the Rust CLI.
+- User workflows should use Rust CLI entrypoints (`versioning_automation ...`) directly.
 
 ### Hybrid Components (orchestrators/read)
 

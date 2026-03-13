@@ -31,7 +31,7 @@ file_versioning/
 │       └── create_pr.sh              # Creation de PR
 ├── git/                        # Operations Git pures
 └── github/                     # Operations GitHub-only
-    └── generate_pr_description.sh
+    └── ...                     # Entrees canoniques via `versioning_automation`
 ```
 
 ## Fichiers
@@ -108,7 +108,7 @@ Attention: en cas d'echec du safe delete, ce script peut forcer la suppression l
 
 ### Composants GitHub (`github/`)
 
-- `generate_pr_description.sh`
+- `versioning_automation pr generate-description ...`
 
 ### Composants hybrides (`orchestrators/read`)
 

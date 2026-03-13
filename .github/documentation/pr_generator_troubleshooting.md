@@ -2,7 +2,7 @@
 
 This playbook covers common failure modes for:
 
-- `scripts/versioning/file_versioning/github/generate_pr_description.sh`
+- `versioning_automation pr generate-description`
 
 ## Quick Checks
 
@@ -93,7 +93,7 @@ Checks:
 ## Recommended Debug Command
 
 ```bash
-bash scripts/versioning/file_versioning/github/generate_pr_description.sh \
+versioning_automation pr generate-description \
   --dry-run \
   --base dev \
   --head "$(git branch --show-current)" \

@@ -2,31 +2,25 @@
 
 Language: **English** | [Francais](i18n/fr/TOC.md)
 
-This document provides an overview of all documentation files in this directory.
-
 ## Documentation
 
-- [README.md](README.md): Main documentation for GitHub CLI scripts
+- [README.md](README.md): GitHub automation overview and canonical Rust entrypoints
 
-## Scripts
+## Regression Tests
 
-- [issues/auto_link/run.sh](issues/auto_link/run.sh): Auto-link child issues to parent issues from `Parent:` issue-body field
-- [auto_add_closes_on_dev_pr/run.sh](auto_add_closes_on_dev_pr/run.sh): Auto-enrich open PRs targeting `dev` with managed `Closes #...` lines when assignment criteria are met
-- [issues/create_direct/run.sh](issues/create_direct/run.sh): Compatibility wrapper for direct issue creation (canonical entrypoint: `versioning_automation issue create ...`)
-- [generate_pr_description.sh](generate_pr_description.sh): Generate structured merge PR descriptions from GitHub metadata
-- [issues/done_status/run.sh](issues/done_status/run.sh): Manage `done-in-dev` status label on dev merges and issue closure
-- [issues/reopen_on_dev/run.sh](issues/reopen_on_dev/run.sh): Reopen issues referenced by `Reopen #...` on merged PRs into `dev` and clear `done-in-dev` label
-- [issues/neutralize/run.sh](issues/neutralize/run.sh): Neutralize `Closes/Fixes/Resolves` refs when target issues are non-compliant or explicitly reopened
-- [issues/manager/run.sh](issues/manager/run.sh): Compatibility wrapper for issue lifecycle operations (canonical entrypoint: `versioning_automation issue <read/update/close/reopen/delete> ...`)
-- [parent_issue_guard/run.sh](parent_issue_guard/run.sh): Guard parent issue closure and publish parent/child status summaries
-- [lib/classification.sh](lib/classification.sh): Classification and issue-action helpers used by the generator
-- [issues/required_fields/load.sh](issues/required_fields/load.sh): Shared required issue title/body contract validator
-- [lib/rendering.sh](lib/rendering.sh): Rendering helpers for sections and dynamic PR titles
-- [tests/generate_pr_description_regression.sh](tests/generate_pr_description_regression.sh): Regression matrix for CLI argument and mode behavior
-- [tests/auto_add_closes_on_dev_pr_regression.sh](tests/auto_add_closes_on_dev_pr_regression.sh): Regression tests for automatic `Closes #...` enrichment on dev-targeting PRs
-- [tests/issue_done_in_dev_status_regression.sh](tests/issue_done_in_dev_status_regression.sh): Regression tests for done-in-dev label lifecycle automation
-- [tests/issue_reopen_on_dev_merge_regression.sh](tests/issue_reopen_on_dev_merge_regression.sh): Regression tests for `Reopen #...` sync on dev-merge
-- [tests/manager_issues_regression.sh](tests/manager_issues_regression.sh): Regression tests for manager_issues create/read/update/close/reopen/soft-delete flows
+- [tests/generate_pr_description_regression.sh](tests/generate_pr_description_regression.sh): PR description generation regression matrix
+- [tests/refresh_pr_issue_extraction_regression.sh](tests/refresh_pr_issue_extraction_regression.sh): PR/issue extraction refresh regression matrix
+- [tests/auto_add_closes_on_dev_pr_regression.sh](tests/auto_add_closes_on_dev_pr_regression.sh): Auto-managed `Closes #...` enrichment checks
+- [tests/pr_directive_conflict_guard_regression.sh](tests/pr_directive_conflict_guard_regression.sh): Directive conflict guard checks
+- [tests/auto_link_parent_issue_regression.sh](tests/auto_link_parent_issue_regression.sh): Parent auto-link checks
+- [tests/issue_done_in_dev_status_regression.sh](tests/issue_done_in_dev_status_regression.sh): `done-in-dev` lifecycle checks
+- [tests/issue_reopen_on_dev_merge_regression.sh](tests/issue_reopen_on_dev_merge_regression.sh): `Reopen #...` synchronization checks
+- [tests/neutralize_closure_refs_regression.sh](tests/neutralize_closure_refs_regression.sh): Closure neutralization and reevaluate checks
+- [tests/parent_issue_guard_regression.sh](tests/parent_issue_guard_regression.sh): Parent guard checks
+- [tests/closure_hygiene_on_main_merge_regression.sh](tests/closure_hygiene_on_main_merge_regression.sh): Main-merge closure hygiene checks
+- [tests/manager_issues_regression.sh](tests/manager_issues_regression.sh): Issue lifecycle command checks
+- [tests/shellcheck_regression.sh](tests/shellcheck_regression.sh): Shell lint checks for remaining script harnesses
+- [tests/enforcer_shell_contract_regression.sh](tests/enforcer_shell_contract_regression.sh): Enforcer shell contract checks
 
 ## Navigation
 

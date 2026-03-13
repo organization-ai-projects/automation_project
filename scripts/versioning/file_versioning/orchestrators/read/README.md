@@ -87,7 +87,7 @@ Shows issue number, title, and GitHub URL for each priority issue.
 Direct invocation is intentionally blocked. Use:
 
 ```bash
-bash scripts/versioning/file_versioning/github/generate_pr_description.sh --auto --base <branch> --head <branch> --yes
+versioning_automation pr generate-description --auto --base <branch> --head <branch> --yes
 ```
 
 **What it does:**
