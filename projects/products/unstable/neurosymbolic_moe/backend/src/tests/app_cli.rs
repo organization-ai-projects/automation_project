@@ -19,4 +19,5 @@ fn serve_metrics_options_parse_once_and_addr() {
     let parsed = crate::app::parse_serve_metrics_options(&args).expect("serve args should parse");
     assert_eq!(parsed.0, "0.0.0.0:9090");
     assert!(parsed.1);
+    assert!(parsed.2.is_empty());
 }

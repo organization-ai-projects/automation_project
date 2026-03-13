@@ -239,6 +239,7 @@ fn print_usage() {
     tracing::info!("  --runtime-min-successes N");
     tracing::info!("  --runtime-max-rejections N");
     tracing::info!("  --runtime-max-parse-failures N");
+    tracing::info!("  --profile strict|balanced|exploratory");
     tracing::info!("  --concurrent-max-contention-rate F");
     tracing::info!("  --concurrent-max-timeout-rate F");
     tracing::info!("  --concurrent-min-successes N");
@@ -261,24 +262,27 @@ fn cmd_slo_gate(args: &[String]) -> Result<(), DynError> {
         .into());
     }
 
-    tracing::info!("SLO gate passed: runtime=OK concurrent=OK");
+    tracing::info!(
+        "SLO gate passed: profile={} runtime=OK concurrent=OK",
+        thresholds.profile_name()
+    );
     Ok(())
 }
 
 fn cmd_metrics() -> Result<(), DynError> {
-    let metrics = collect_prometheus_metrics()?;
+    let metrics = collect_prometheus_metrics(&SloThresholds::default())?;
     tracing::info!("{metrics}");
     Ok(())
 }
 
 fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
-    let (addr, once) = parse_serve_metrics_options(args)?;
+    let (addr, once, threshold_args) = parse_serve_metrics_options(args)?;
     let listener = TcpListener::bind(&addr)?;
     tracing::info!(
         "Metrics endpoint listening on http://{}/metrics and /healthz",
         addr
     );
-    let thresholds = SloThresholds::default();
+    let thresholds = SloThresholds::parse_args(&threshold_args)?;
     let mut served_requests = 0_u64;
     for stream in listener.incoming() {
         let mut stream = match stream {
@@ -293,8 +297,9 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
         let request_line = String::from_utf8_lossy(&request[..read_len]);
         let is_metrics = request_line.starts_with("GET /metrics ");
         let is_healthz = request_line.starts_with("GET /healthz ");
+        let is_readyz = request_line.starts_with("GET /readyz ");
         let (status_line, body) = if is_metrics {
-            match collect_prometheus_metrics() {
+            match collect_prometheus_metrics(&thresholds) {
                 Ok(metrics) => ("HTTP/1.1 200 OK", metrics),
                 Err(err) => (
                     "HTTP/1.1 500 Internal Server Error",
@@ -332,10 +337,24 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                     format!("health generation failed: {err}"),
                 ),
             }
+        } else if is_readyz {
+            match collect_health_snapshot(&thresholds) {
+                Ok((runtime_status, _, concurrent_status, _)) => {
+                    if runtime_status == "OK" && concurrent_status == "OK" {
+                        ("HTTP/1.1 200 OK", "ready".to_string())
+                    } else {
+                        ("HTTP/1.1 503 Service Unavailable", "not ready".to_string())
+                    }
+                }
+                Err(err) => (
+                    "HTTP/1.1 500 Internal Server Error",
+                    format!("readiness evaluation failed: {err}"),
+                ),
+            }
         } else {
             (
                 "HTTP/1.1 404 Not Found",
-                "not found; use /metrics or /healthz".to_string(),
+                "not found; use /metrics, /healthz or /readyz".to_string(),
             )
         };
         let content_type = if is_metrics {
@@ -361,34 +380,39 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
     Ok(())
 }
 
-fn collect_prometheus_metrics() -> Result<String, DynError> {
-    let thresholds = SloThresholds::default();
-    let (runtime_status, _, concurrent_status, _) = collect_health_snapshot(&thresholds)?;
+fn collect_prometheus_metrics(thresholds: &SloThresholds) -> Result<String, DynError> {
+    let (runtime_status, _, concurrent_status, _) = collect_health_snapshot(thresholds)?;
     let (mut pipeline, runtime_report) = run_runtime_persistence_checks_with_report()?;
     run_training_and_cas_checks(&mut pipeline)?;
     let concurrent_report = run_concurrent_pipeline_checks_with_report()?;
     Ok(format!(
-        "{}\n{}\nmoe_runtime_slo_status {}\nmoe_concurrent_slo_status {}\n",
+        "{}\n{}\nmoe_runtime_slo_status {}\nmoe_concurrent_slo_status {}\nmoe_slo_profile{{profile=\"{}\"}} 1\n",
         runtime_report.to_prometheus_text("moe_runtime"),
         concurrent_report.to_prometheus_text("moe_concurrent"),
         if runtime_status == "OK" { 1 } else { 0 },
         if concurrent_status == "OK" { 1 } else { 0 },
+        thresholds.profile_name(),
     ))
 }
 
-pub(crate) fn parse_serve_metrics_options(args: &[String]) -> Result<(String, bool), DynError> {
+pub(crate) fn parse_serve_metrics_options(
+    args: &[String],
+) -> Result<(String, bool, Vec<String>), DynError> {
     let mut addr = "127.0.0.1:9464".to_string();
     let mut once = false;
+    let mut threshold_args = Vec::new();
     for arg in args {
         if arg == "--once" {
             once = true;
         } else if arg.starts_with("--") {
-            return Err(std::io::Error::other(format!("unknown serve flag: {arg}")).into());
-        } else {
+            threshold_args.push(arg.clone());
+        } else if addr == "127.0.0.1:9464" {
             addr = arg.clone();
+        } else {
+            threshold_args.push(arg.clone());
         }
     }
-    Ok((addr, once))
+    Ok((addr, once, threshold_args))
 }
 
 fn collect_health_snapshot(

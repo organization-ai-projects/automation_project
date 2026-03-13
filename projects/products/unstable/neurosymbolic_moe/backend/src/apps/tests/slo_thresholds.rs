@@ -14,3 +14,12 @@ fn slo_thresholds_parse_args_overrides_defaults() {
     assert_eq!(parsed.runtime_min_successes, 3);
     assert!((parsed.concurrent_max_timeout_rate - 0.15).abs() < f64::EPSILON);
 }
+
+#[test]
+fn slo_thresholds_profile_strict_sets_expected_defaults() {
+    let args = vec!["--profile".to_string(), "strict".to_string()];
+    let parsed = SloThresholds::parse_args(&args).expect("profile args should parse");
+    assert_eq!(parsed.profile_name(), "strict");
+    assert_eq!(parsed.runtime_min_successes, 2);
+    assert!((parsed.concurrent_max_timeout_rate - 0.05).abs() < f64::EPSILON);
+}
