@@ -39,6 +39,10 @@ impl GovernanceState {
         state
     }
 
+    pub fn has_supported_schema(&self) -> bool {
+        self.schema_version == Self::schema_version()
+    }
+
     pub fn recompute_checksum(&self) -> String {
         let policy_fingerprint = self
             .continuous_governance_policy

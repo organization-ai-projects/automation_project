@@ -1,6 +1,8 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/tests/governance_state.rs
 use crate::moe_core::MoeError;
-use crate::orchestrator::{GovernancePersistenceBundle, GovernanceState, MoePipelineBuilder};
+use crate::orchestrator::{
+    GovernancePersistenceBundle, GovernanceState, GovernanceStateSnapshot, MoePipelineBuilder,
+};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -256,4 +258,66 @@ fn import_governance_bundle_json_accepts_legacy_payload_without_audit_or_snapsho
         .import_governance_bundle_json(&payload)
         .expect("legacy bundle payload should be importable");
     assert!(pipeline.export_governance_state().verify_checksum());
+}
+
+#[test]
+fn import_governance_state_json_rejects_unsupported_schema_version() {
+    let source = MoePipelineBuilder::new().build();
+    let mut state = source.export_governance_state();
+    state.schema_version = GovernanceState::schema_version() + 1;
+    state.state_checksum = state.recompute_checksum();
+    let payload = common_json::json::to_json_string_pretty(&state)
+        .expect("governance state serialization should succeed");
+
+    let mut target = MoePipelineBuilder::new().build();
+    let err = target
+        .import_governance_state_json(&payload)
+        .expect_err("unsupported governance schema should be rejected");
+    assert!(matches!(err, MoeError::PolicyRejected(_)));
+    assert!(err.to_string().contains("schema version"));
+}
+
+#[test]
+fn import_governance_bundle_json_rejects_unsupported_state_schema_version() {
+    let source = MoePipelineBuilder::new().build();
+    let mut bundle = source.export_governance_bundle();
+    bundle.state.schema_version = GovernanceState::schema_version() + 1;
+    bundle.state.state_checksum = bundle.state.recompute_checksum();
+    let payload = common_json::json::to_json_string_pretty(&bundle)
+        .expect("governance bundle serialization should succeed");
+
+    let mut target = MoePipelineBuilder::new().build();
+    let err = target
+        .import_governance_bundle_json(&payload)
+        .expect_err("unsupported governance state schema in bundle should be rejected");
+    assert!(matches!(err, MoeError::PolicyRejected(_)));
+    assert!(err.to_string().contains("schema version"));
+}
+
+#[test]
+fn import_governance_bundle_json_rejects_unsupported_snapshot_schema_version() {
+    let source = MoePipelineBuilder::new().build();
+    let mut bundle = source.export_governance_bundle();
+    if bundle.snapshots.is_empty() {
+        bundle.snapshots.push(GovernanceStateSnapshot {
+            version: bundle.state.state_version,
+            reason: "synthetic snapshot for schema validation test".to_string(),
+            state: bundle.state.clone(),
+        });
+    }
+    let snapshot = bundle
+        .snapshots
+        .first_mut()
+        .expect("bundle snapshot list should be non-empty");
+    snapshot.state.schema_version = GovernanceState::schema_version() + 1;
+    snapshot.state.state_checksum = snapshot.state.recompute_checksum();
+    let payload = common_json::json::to_json_string_pretty(&bundle)
+        .expect("governance bundle serialization should succeed");
+
+    let mut target = MoePipelineBuilder::new().build();
+    let err = target
+        .import_governance_bundle_json(&payload)
+        .expect_err("unsupported governance snapshot schema should be rejected");
+    assert!(matches!(err, MoeError::PolicyRejected(_)));
+    assert!(err.to_string().contains("schema version"));
 }

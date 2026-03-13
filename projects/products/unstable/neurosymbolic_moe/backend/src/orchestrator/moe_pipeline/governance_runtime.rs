@@ -11,11 +11,27 @@ impl MoePipeline {
         bundle: &GovernancePersistenceBundle,
     ) -> Result<GovernanceImportDecision, MoeError> {
         let mut state = bundle.state.clone();
+        if !state.has_supported_schema() {
+            return Err(MoeError::PolicyRejected(format!(
+                "governance state schema version {} is not supported",
+                state.schema_version
+            )));
+        }
         state.ensure_checksum();
         if !state.verify_checksum() {
             return Err(MoeError::PolicyRejected(
                 "governance bundle checksum verification failed".to_string(),
             ));
+        }
+        if let Some(unsupported_snapshot) = bundle
+            .snapshots
+            .iter()
+            .find(|snapshot| !snapshot.state.has_supported_schema())
+        {
+            return Err(MoeError::PolicyRejected(format!(
+                "governance snapshot schema version {} is not supported",
+                unsupported_snapshot.state.schema_version
+            )));
         }
         if !bundle
             .snapshots
@@ -233,6 +249,12 @@ impl MoePipeline {
             common_json::json::from_json_str(payload).map_err(|err| {
                 MoeError::DatasetError(format!("governance state deserialization failed: {err}"))
             })?;
+        if !state.has_supported_schema() {
+            return Err(MoeError::PolicyRejected(format!(
+                "governance state schema version {} is not supported",
+                state.schema_version
+            )));
+        }
         state.ensure_checksum();
         Ok(state)
     }
