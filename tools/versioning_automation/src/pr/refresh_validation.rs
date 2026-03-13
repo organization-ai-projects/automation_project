@@ -1,9 +1,8 @@
 //! tools/versioning_automation/src/pr/refresh_validation.rs
-use std::process::Command;
-
 use serde::Deserialize;
 
 use crate::pr::commands::pr_refresh_validation_options::PrRefreshValidationOptions;
+use crate::pr::gh_cli::{gh_output_trim_end_newline, gh_status};
 use crate::repo_name::resolve_repo_name;
 
 #[derive(Debug, Deserialize)]
@@ -38,51 +37,38 @@ pub(crate) fn run_refresh_validation(opts: PrRefreshValidationOptions) -> i32 {
         return 0;
     }
 
-    let mut edit = Command::new("gh");
-    edit.arg("pr")
-        .arg("edit")
-        .arg(&opts.pr_number)
-        .arg("-R")
-        .arg(&repo_name)
-        .arg("--body")
-        .arg(&updated_body);
-
-    match edit.status() {
-        Ok(status) => {
-            if status.success() {
-                println!("PR updated: #{}", opts.pr_number);
-                0
-            } else {
-                status.code().unwrap_or(1)
-            }
-        }
-        Err(err) => {
-            eprintln!("Failed to execute gh pr edit: {err}");
-            1
-        }
+    let status = gh_status(
+        "pr",
+        &[
+            "edit",
+            &opts.pr_number,
+            "-R",
+            &repo_name,
+            "--body",
+            &updated_body,
+        ],
+    );
+    if status == 0 {
+        println!("PR updated: #{}", opts.pr_number);
     }
+    status
 }
 
 fn fetch_pr_validation_snapshot(
     pr_number: &str,
     repo_name: &str,
 ) -> Result<RefreshValidation, String> {
-    let output = Command::new("gh")
-        .arg("pr")
-        .arg("view")
-        .arg(pr_number)
-        .arg("-R")
-        .arg(repo_name)
-        .arg("--json")
-        .arg("body,statusCheckRollup")
-        .output()
-        .map_err(|err| format!("Failed to execute gh pr view: {err}"))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    let json = String::from_utf8_lossy(&output.stdout).to_string();
+    let json = gh_output_trim_end_newline(
+        "pr",
+        &[
+            "view",
+            pr_number,
+            "-R",
+            repo_name,
+            "--json",
+            "body,statusCheckRollup",
+        ],
+    )?;
     common_json::from_json_str::<RefreshValidation>(&json).map_err(|err| err.to_string())
 }
 

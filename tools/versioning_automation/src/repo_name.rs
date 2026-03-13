@@ -1,5 +1,3 @@
-use std::process::Command;
-
 pub(crate) fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
     resolve_repo_name_optional(explicit_repo.as_deref())
         .ok_or_else(|| "Error: unable to determine repository.".to_string())
@@ -16,20 +14,15 @@ pub(crate) fn resolve_repo_name_optional(explicit_repo: Option<&str>) -> Option<
         return Some(repo.to_string());
     }
 
-    let output = Command::new("gh")
-        .arg("repo")
-        .arg("view")
-        .arg("--json")
-        .arg("nameWithOwner")
-        .arg("-q")
-        .arg(".nameWithOwner")
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-
-    let repo_name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let repo_name = crate::gh_cli::output_trim(&[
+        "repo",
+        "view",
+        "--json",
+        "nameWithOwner",
+        "-q",
+        ".nameWithOwner",
+    ])
+    .ok()?;
     non_empty(&repo_name).map(str::to_string)
 }
 

@@ -1,5 +1,3 @@
-use std::process::Command;
-
 use serde::Deserialize;
 
 use crate::issues::commands::SyncProjectStatusOptions;
@@ -224,15 +222,14 @@ fn update_project_status(project_id: &str, item_id: &str, field_id: &str, option
 }
 
 fn gh_graphql(args: &[(&str, &str)]) -> Option<String> {
-    let mut cmd = Command::new("gh");
-    cmd.arg("api").arg("graphql");
+    let mut command_args = vec!["api".to_string(), "graphql".to_string()];
     for (flag, value) in args {
-        cmd.arg(flag);
-        cmd.arg(value);
+        command_args.push((*flag).to_string());
+        command_args.push((*value).to_string());
     }
-    let output = cmd.output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    Some(String::from_utf8_lossy(&output.stdout).to_string())
+    let borrowed = command_args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<&str>>();
+    crate::gh_cli::output_preserve(&borrowed).ok()
 }

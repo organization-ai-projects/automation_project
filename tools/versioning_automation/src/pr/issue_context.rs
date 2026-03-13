@@ -2,6 +2,7 @@ use std::process::Command;
 
 use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::contracts::github::issue_snapshot::IssueSnapshot;
+use crate::pr::gh_cli::gh_output_trim_end_newline;
 use crate::pr::resolve_category::issue_category_from_title;
 use crate::repo_name::resolve_repo_name_optional;
 
@@ -64,23 +65,24 @@ fn compute_non_compliance_reason(title: &str, body: &str, labels_raw: &str) -> S
 }
 
 fn fetch_issue_json(issue_number: &str, repo: Option<&str>) -> Option<String> {
-    let mut cmd = Command::new("gh");
-    cmd.arg("issue")
-        .arg("view")
-        .arg(issue_number)
-        .arg("--json")
-        .arg("title,body,labels");
-
     let resolved_repo = resolve_repo_name_optional(repo);
-
-    if let Some(repo_name_with_owner) = resolved_repo {
-        cmd.arg("-R").arg(repo_name_with_owner);
-    }
-
-    let output = cmd.output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-
-    Some(String::from_utf8_lossy(&output.stdout).to_string())
+    let output = if let Some(repo_name_with_owner) = resolved_repo.as_deref() {
+        gh_output_trim_end_newline(
+            "issue",
+            &[
+                "view",
+                issue_number,
+                "--json",
+                "title,body,labels",
+                "-R",
+                repo_name_with_owner,
+            ],
+        )
+    } else {
+        gh_output_trim_end_newline(
+            "issue",
+            &["view", issue_number, "--json", "title,body,labels"],
+        )
+    };
+    output.ok()
 }

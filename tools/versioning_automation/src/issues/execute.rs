@@ -2223,9 +2223,7 @@ fn print_string_result(result: Result<String, String>, error_code: i32) -> i32 {
 }
 
 fn gh_command(prefix: &[&str]) -> Command {
-    let mut cmd = Command::new("gh");
-    cmd.args(prefix);
-    cmd
+    crate::gh_cli::command(prefix)
 }
 
 fn add_repo_arg(cmd: &mut Command, repo: Option<&str>) {

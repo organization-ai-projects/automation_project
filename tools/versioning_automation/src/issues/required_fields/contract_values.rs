@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::{collections::HashMap, fs};
 
 use crate::issues::required_fields::key::Key;
@@ -43,13 +42,8 @@ impl ContractValues {
 fn contract_path() -> PathBuf {
     let mut resolved_root = String::new();
 
-    if let Ok(output) = Command::new("git")
-        .arg("rev-parse")
-        .arg("--show-toplevel")
-        .output()
-        && output.status.success()
-    {
-        resolved_root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if let Ok(root) = crate::git_cli::output_trim(&["rev-parse", "--show-toplevel"]) {
+        resolved_root = root;
     }
 
     if !resolved_root.is_empty() {

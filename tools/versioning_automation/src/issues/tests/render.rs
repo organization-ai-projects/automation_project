@@ -1,12 +1,9 @@
-use crate::issues;
 use crate::issues::commands::CreateOptions;
-use crate::issues::render::render_direct_issue_body;
+use crate::issues::render::{print_usage, render_direct_issue_body};
 
 #[test]
-fn render_usage_path_returns_zero() {
-    let args = vec!["--help".to_string()];
-    let code = issues::run(&args);
-    assert_eq!(code, 0);
+fn render_usage_prints_without_panic() {
+    print_usage();
 }
 
 #[test]

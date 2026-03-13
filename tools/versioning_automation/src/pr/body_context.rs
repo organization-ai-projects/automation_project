@@ -1,7 +1,6 @@
-use std::process::Command;
-
 use crate::pr::commands::pr_body_context_options::PrBodyContextOptions;
 use crate::pr::contracts::github::issue_label::IssueLabel;
+use crate::pr::gh_cli::gh_output_trim_end_newline;
 use crate::repo_name::resolve_repo_name;
 use serde::Deserialize;
 
@@ -36,21 +35,16 @@ pub(crate) fn run_body_context(opts: PrBodyContextOptions) -> i32 {
 }
 
 fn fetch_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<BodyContext, String> {
-    let output = Command::new("gh")
-        .arg("pr")
-        .arg("view")
-        .arg(pr_number)
-        .arg("-R")
-        .arg(repo_name)
-        .arg("--json")
-        .arg("title,body,labels")
-        .output()
-        .map_err(|err| format!("Failed to execute gh pr view: {err}"))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    let json = String::from_utf8_lossy(&output.stdout).to_string();
+    let json = gh_output_trim_end_newline(
+        "pr",
+        &[
+            "view",
+            pr_number,
+            "-R",
+            repo_name,
+            "--json",
+            "title,body,labels",
+        ],
+    )?;
     common_json::from_json_str::<BodyContext>(&json).map_err(|err| err.to_string())
 }

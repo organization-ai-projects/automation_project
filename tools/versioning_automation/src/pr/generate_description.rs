@@ -1,9 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::process::Command;
 
+use common_json::Json;
 use regex::Regex;
-use serde::Deserialize;
 
 use crate::pr::breaking_detect::text_indicates_breaking;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
@@ -12,6 +11,7 @@ use crate::pr::commit_info::CommitInfo;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::duplicate_actions::run_duplicate_actions;
 use crate::pr::generate_options::GenerateOptions;
+use crate::pr::gh_cli::{gh_output_trim, gh_output_trim_end_newline};
 use crate::pr::main_pr_ref_snapshot::MainPrRefSnapshot;
 use crate::pr::render::print_usage;
 use crate::pr::scan::scan_directives;
@@ -348,20 +348,11 @@ fn render_key_changes(commits: &[CommitInfo]) -> String {
 }
 
 fn render_change_footprint(range: &str) -> String {
-    let output = Command::new("git")
-        .arg("diff")
-        .arg("--name-only")
-        .arg(range)
-        .output();
-
-    let Ok(output) = output else {
+    let Ok(output) = crate::git_cli::output_preserve(&["diff", "--name-only", range]) else {
         return "- No changed files detected for this branch range.".to_string();
     };
-    if !output.status.success() {
-        return "- No changed files detected for this branch range.".to_string();
-    }
 
-    let files = String::from_utf8_lossy(&output.stdout)
+    let files = output
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
@@ -562,58 +553,19 @@ fn replace_top_level_section(body: &str, marker: &str, replacement: &str) -> Str
 }
 
 fn gh_read_pr_body(pr_number: &str) -> Result<String, String> {
-    let output = Command::new("gh")
-        .arg("pr")
-        .arg("view")
-        .arg(pr_number)
-        .arg("--json")
-        .arg("body")
-        .arg("-q")
-        .arg(".body // \"\"")
-        .output()
-        .map_err(|err| format!("Failed to execute gh pr view: {err}"))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout)
-        .trim_end_matches('\n')
-        .to_string())
+    gh_output_trim_end_newline(
+        "pr",
+        &["view", pr_number, "--json", "body", "-q", ".body // \"\""],
+    )
 }
 
 fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {
-    let status = Command::new("gh")
-        .arg("pr")
-        .arg("edit")
-        .arg(pr_number)
-        .arg("--body")
-        .arg(body)
-        .status()
-        .map_err(|err| format!("Failed to execute gh pr edit: {err}"))?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("gh pr edit failed for PR #{pr_number}"))
-    }
+    gh_output_trim("pr", &["edit", pr_number, "--body", body]).map(|_| ())
 }
 
 fn git_log_commits(range: &str) -> Result<Vec<CommitInfo>, String> {
-    let output = Command::new("git")
-        .arg("log")
-        .arg("--format=%H%x1f%s%x1f%b%x1e")
-        .arg(range)
-        .output()
+    let text = crate::git_cli::output_preserve(&["log", "--format=%H%x1f%s%x1f%b%x1e", range])
         .map_err(|err| format!("Error: failed to run git log for range {range}: {err}"))?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Error: unable to read git history for range {range}."
-        ));
-    }
-
-    let text = String::from_utf8_lossy(&output.stdout);
     let mut commits = Vec::new();
 
     for record in text.split('\x1e') {
@@ -638,18 +590,8 @@ fn git_log_commits(range: &str) -> Result<Vec<CommitInfo>, String> {
 }
 
 fn current_branch_name() -> Result<String, String> {
-    let output = Command::new("git")
-        .arg("rev-parse")
-        .arg("--abbrev-ref")
-        .arg("HEAD")
-        .output()
+    let branch = crate::git_cli::output_trim(&["rev-parse", "--abbrev-ref", "HEAD"])
         .map_err(|err| format!("Error: failed to detect current branch: {err}"))?;
-
-    if !output.status.success() {
-        return Err("Error: unable to determine head branch in --dry-run mode.".to_string());
-    }
-
-    let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if branch.is_empty() {
         return Err("Error: unable to determine head branch in --dry-run mode.".to_string());
     }
@@ -759,27 +701,22 @@ fn render_duplicate_mode_message(mode: &str, targets: &BTreeMap<String, String>)
 }
 
 fn gh_create_pr(base_ref: &str, head_ref: &str, title: &str, body: &str) -> Result<String, String> {
-    let output = Command::new("gh")
-        .arg("pr")
-        .arg("create")
-        .arg("--base")
-        .arg(base_ref)
-        .arg("--head")
-        .arg(head_ref)
-        .arg("--title")
-        .arg(title)
-        .arg("--body")
-        .arg(body)
-        .arg("--label")
-        .arg("pull-request")
-        .output()
-        .map_err(|err| format!("Failed to execute gh pr create: {err}"))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let text = gh_output_trim(
+        "pr",
+        &[
+            "create",
+            "--base",
+            base_ref,
+            "--head",
+            head_ref,
+            "--title",
+            title,
+            "--body",
+            body,
+            "--label",
+            "pull-request",
+        ],
+    )?;
     if text.is_empty() {
         Ok("created".to_string())
     } else {
@@ -974,67 +911,55 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
 }
 
 fn fetch_main_pr_refs(pr_number: &str) -> Result<MainPrRefSnapshot, String> {
-    let mut cmd = Command::new("gh");
-    cmd.arg("pr")
-        .arg("view")
-        .arg(pr_number)
-        .arg("--json")
-        .arg("baseRefName,headRefName");
-
+    let mut args = vec![
+        "view".to_string(),
+        pr_number.to_string(),
+        "--json".to_string(),
+        "baseRefName,headRefName".to_string(),
+    ];
     if let Some(repo) = resolve_repo_name_optional(None) {
-        cmd.arg("-R").arg(repo);
+        args.push("-R".to_string());
+        args.push(repo);
     }
 
-    let output = cmd
-        .output()
-        .map_err(|err| format!("Failed to execute gh pr view: {err}"))?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    let json = String::from_utf8_lossy(&output.stdout).to_string();
+    let borrowed = args.iter().map(String::as_str).collect::<Vec<&str>>();
+    let json = gh_output_trim("pr", &borrowed)?;
     common_json::from_json_str::<MainPrRefSnapshot>(&json).map_err(|err| err.to_string())
 }
 
 fn compare_api_commits(base_ref: &str, head_ref: &str) -> Result<Vec<CommitInfo>, String> {
-    #[derive(Debug, Deserialize)]
-    struct CompareResponse {
-        #[serde(default)]
-        commits: Vec<CompareCommit>,
-    }
-    #[derive(Debug, Deserialize)]
-    struct CompareCommit {
-        #[serde(default)]
-        sha: String,
-        #[serde(default)]
-        commit: CompareCommitDetail,
-    }
-    #[derive(Debug, Deserialize, Default)]
-    struct CompareCommitDetail {
-        #[serde(default)]
-        message: String,
-    }
-
     let Some(repo) = resolve_repo_name_optional(None) else {
         return Err("Error: unable to determine repository.".to_string());
     };
 
-    let output = Command::new("gh")
-        .arg("api")
-        .arg(format!("repos/{repo}/compare/{base_ref}...{head_ref}"))
-        .output()
-        .map_err(|err| format!("Failed to execute gh api compare: {err}"))?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    let json = String::from_utf8_lossy(&output.stdout).to_string();
-    let parsed =
-        common_json::from_json_str::<CompareResponse>(&json).map_err(|err| err.to_string())?;
+    let endpoint = format!("repos/{repo}/compare/{base_ref}...{head_ref}");
+    let json = gh_output_trim("api", &[&endpoint])?;
+    let parsed: Json = common_json::from_json_str(&json).map_err(|err| err.to_string())?;
 
     let mut commits = Vec::new();
-    for entry in parsed.commits {
-        let message = entry.commit.message.trim().to_string();
+    let commit_entries = parsed
+        .as_object()
+        .and_then(|object| object.get("commits"))
+        .and_then(Json::as_array)
+        .cloned()
+        .unwrap_or_default();
+    for entry in commit_entries {
+        let Some(entry_object) = entry.as_object() else {
+            continue;
+        };
+        let sha = entry_object
+            .get("sha")
+            .and_then(Json::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let message = entry_object
+            .get("commit")
+            .and_then(Json::as_object)
+            .and_then(|commit_object| commit_object.get("message"))
+            .and_then(Json::as_str)
+            .unwrap_or_default()
+            .trim()
+            .to_string();
         if message.is_empty() {
             continue;
         }
@@ -1042,7 +967,7 @@ fn compare_api_commits(base_ref: &str, head_ref: &str) -> Result<Vec<CommitInfo>
         let subject = lines.next().unwrap_or_default().trim().to_string();
         let body = lines.collect::<Vec<&str>>().join("\n").trim().to_string();
         commits.push(CommitInfo {
-            short_hash: entry.sha.chars().take(7).collect::<String>(),
+            short_hash: sha.chars().take(7).collect::<String>(),
             subject,
             body,
         });

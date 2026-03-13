@@ -1,47 +1,33 @@
 //! tools/versioning_automation/src/pr/issue_view.rs
-use std::process::Command;
-
 use crate::pr::commands::pr_issue_view_options::PrIssueViewOptions;
+use crate::pr::gh_cli::gh_output_trim_end_newline;
+use crate::repo_name::resolve_repo_name_optional;
 
 pub(crate) fn run_issue_view(opts: PrIssueViewOptions) -> i32 {
-    let resolved_repo = opts
-        .repo
-        .and_then(|value| {
-            if value.trim().is_empty() {
-                None
-            } else {
-                Some(value)
-            }
-        })
-        .or_else(|| {
-            std::env::var("GH_REPO").ok().and_then(|value| {
-                if value.trim().is_empty() {
-                    None
-                } else {
-                    Some(value)
-                }
-            })
-        });
+    let resolved_repo = resolve_repo_name_optional(opts.repo.as_deref());
+    let output = if let Some(repo_name) = resolved_repo.as_deref() {
+        gh_output_trim_end_newline(
+            "issue",
+            &[
+                "view",
+                &opts.issue_number,
+                "--json",
+                "title,body,labels",
+                "-R",
+                repo_name,
+            ],
+        )
+    } else {
+        gh_output_trim_end_newline(
+            "issue",
+            &["view", &opts.issue_number, "--json", "title,body,labels"],
+        )
+    };
 
-    let mut command = Command::new("gh");
-    command
-        .arg("issue")
-        .arg("view")
-        .arg(&opts.issue_number)
-        .arg("--json")
-        .arg("title,body,labels");
-    if let Some(repo_name) = resolved_repo {
-        command.arg("-R").arg(repo_name);
+    if let Ok(json) = output
+        && !json.is_empty()
+    {
+        println!("{json}");
     }
-
-    match command.output() {
-        Ok(output) if output.status.success() => {
-            let json = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !json.is_empty() {
-                println!("{json}");
-            }
-            0
-        }
-        _ => 0,
-    }
+    0
 }

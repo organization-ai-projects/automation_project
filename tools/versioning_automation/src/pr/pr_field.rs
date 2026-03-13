@@ -1,8 +1,8 @@
 use serde::Deserialize;
-use std::process::Command;
 
 use crate::pr::commands::pr_field_name::PrFieldName;
 use crate::pr::commands::pr_field_options::PrFieldOptions;
+use crate::pr::gh_cli::gh_output_trim_end_newline;
 use crate::repo_name::resolve_repo_name;
 
 #[derive(Debug, Deserialize)]
@@ -71,40 +71,28 @@ pub(crate) fn run_field(opts: PrFieldOptions) -> i32 {
 }
 
 fn fetch_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<PrField, String> {
-    let output = Command::new("gh")
-        .arg("pr")
-        .arg("view")
-        .arg(pr_number)
-        .arg("-R")
-        .arg(repo_name)
-        .arg("--json")
-        .arg("state,baseRefName,headRefName,title,body,author")
-        .output()
-        .map_err(|err| format!("Failed to execute gh pr view: {err}"))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    let json = String::from_utf8_lossy(&output.stdout).to_string();
+    let json = gh_output_trim_end_newline(
+        "pr",
+        &[
+            "view",
+            pr_number,
+            "-R",
+            repo_name,
+            "--json",
+            "state,baseRefName,headRefName,title,body,author",
+        ],
+    )?;
     common_json::from_json_str::<PrField>(&json).map_err(|err| err.to_string())
 }
 
 fn fetch_commit_messages(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    let output = Command::new("gh")
-        .arg("api")
-        .arg(format!("repos/{repo_name}/pulls/{pr_number}/commits"))
-        .arg("--paginate")
-        .arg("--jq")
-        .arg(".[].commit.message")
-        .output()
-        .map_err(|err| format!("Failed to execute gh api pulls/commits: {err}"))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout)
-        .trim_end_matches('\n')
-        .to_string())
+    gh_output_trim_end_newline(
+        "api",
+        &[
+            &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
+            "--paginate",
+            "--jq",
+            ".[].commit.message",
+        ],
+    )
 }

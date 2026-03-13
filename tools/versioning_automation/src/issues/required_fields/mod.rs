@@ -9,8 +9,6 @@ mod validation;
 #[cfg(test)]
 mod tests;
 
-use std::process::Command;
-
 use contract_values::ContractValues;
 use gh_issue_payload::GhIssuePayload;
 use key::Key;
@@ -63,22 +61,22 @@ pub(crate) fn fetch_non_compliance_reason(
     issue: &str,
     repo: Option<&str>,
 ) -> Result<String, String> {
-    let mut cmd = Command::new("gh");
-    cmd.arg("issue")
-        .arg("view")
-        .arg(issue)
-        .arg("--json")
-        .arg("labels,title,body");
+    let mut args = vec![
+        "issue".to_string(),
+        "view".to_string(),
+        issue.to_string(),
+        "--json".to_string(),
+        "labels,title,body".to_string(),
+    ];
     if let Some(repo_name) = repo.filter(|value| !value.trim().is_empty()) {
-        cmd.arg("-R").arg(repo_name);
+        args.push("-R".to_string());
+        args.push(repo_name.to_string());
     }
 
-    let output = cmd.output().map_err(|err| err.to_string())?;
-    if !output.status.success() {
+    let borrowed = args.iter().map(String::as_str).collect::<Vec<&str>>();
+    let Ok(payload) = crate::gh_cli::output_preserve(&borrowed) else {
         return Ok(String::new());
-    }
-
-    let payload = String::from_utf8_lossy(&output.stdout).to_string();
+    };
     let parsed = common_json::from_json_str::<GhIssuePayload>(&payload)
         .map_err(|err| format!("failed to parse issue payload: {err}"))?;
 
