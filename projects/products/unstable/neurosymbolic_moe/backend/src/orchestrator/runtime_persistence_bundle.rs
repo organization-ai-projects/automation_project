@@ -71,19 +71,23 @@ impl RuntimePersistenceBundle {
 }
 
 fn memory_entries_fingerprint(entries: &[MemoryEntry]) -> String {
-    let mut entries = entries.to_vec();
-    entries.sort_by(|a, b| a.id.cmp(&b.id));
-    entries
+    let mut ordered_entries: Vec<&MemoryEntry> = entries.iter().collect();
+    ordered_entries.sort_by(|a, b| {
+        a.id.cmp(&b.id)
+            .then(a.content.cmp(&b.content))
+            .then(a.created_at.cmp(&b.created_at))
+    });
+    ordered_entries
         .iter()
         .map(|entry| {
-            let mut tags = entry.tags.clone();
-            tags.sort();
+            let mut tags: Vec<&str> = entry.tags.iter().map(String::as_str).collect();
+            tags.sort_unstable();
             let mut metadata: Vec<(&str, &str)> = entry
                 .metadata
                 .iter()
                 .map(|(k, v)| (k.as_str(), v.as_str()))
                 .collect();
-            metadata.sort_by(|a, b| a.0.cmp(b.0));
+            metadata.sort_unstable_by(|a, b| a.0.cmp(b.0));
             format!(
                 "{}|{}|{:?}|{}|{:?}|{}|{:?}|{}",
                 entry.id,
@@ -105,12 +109,12 @@ fn memory_entries_fingerprint(entries: &[MemoryEntry]) -> String {
 }
 
 fn working_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
-    let mut keys = buffer_manager.working().keys();
+    let working = buffer_manager.working();
+    let mut keys = working.keys();
     keys.sort_unstable();
     keys.into_iter()
         .filter_map(|key| {
-            buffer_manager
-                .working()
+            working
                 .get(key)
                 .map(|entry| format!("{}={}", entry.key, entry.value))
         })
@@ -119,17 +123,12 @@ fn working_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
 }
 
 fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
-    let mut sessions = buffer_manager.sessions().list_sessions();
+    let sessions_buffer = buffer_manager.sessions();
+    let mut sessions = sessions_buffer.list_sessions();
     sessions.sort_unstable();
     sessions
         .into_iter()
-        .map(|session| {
-            format!(
-                "{}:{}",
-                session,
-                buffer_manager.sessions().values(session).join("|")
-            )
-        })
+        .map(|session| format!("{}:{}", session, sessions_buffer.values(session).join("|")))
         .collect::<Vec<_>>()
         .join(";")
 }
