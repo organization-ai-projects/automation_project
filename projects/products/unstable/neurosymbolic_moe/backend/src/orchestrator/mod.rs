@@ -12,6 +12,7 @@ mod governance_persistence_bundle;
 mod governance_state;
 mod governance_state_diff;
 mod governance_state_snapshot;
+mod import_journal;
 mod import_telemetry;
 mod moe_pipeline;
 mod moe_pipeline_builder;

@@ -102,6 +102,10 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
     assert_import_telemetry_activity(&restore_pipeline)?;
     let import_telemetry = restore_pipeline.import_telemetry_snapshot();
     let operational_report_json = restore_pipeline.export_operational_report_json()?;
+    let operational_report = restore_pipeline.export_operational_report();
+    let slo_status = operational_report.slo_status(1, 0, 0);
+    let slo_violations = operational_report.slo_violations(1, 0, 0);
+    let prometheus_text = operational_report.to_prometheus_text("moe_runtime");
 
     let trail = restore_pipeline.governance_audit_trail();
     let snapshots = restore_pipeline.governance_state_snapshots().len();
@@ -109,7 +113,7 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
         restore_pipeline.rollback_governance_state_to_version(last.version)?;
     }
     tracing::info!(
-        "Runtime persistence wiring: outputs={} baseline={} report={} human_approved={} state_valid={} state_allowed={} bundle_allowed={} runtime_allowed={} drift={} trail={} snapshots={} import_state_ok={} import_bundle_ok={} import_runtime_ok={} import_json_parse_failures={} operational_report_bytes={}",
+        "Runtime persistence wiring: outputs={} baseline={} report={} human_approved={} state_valid={} state_allowed={} bundle_allowed={} runtime_allowed={} drift={} trail={} snapshots={} import_state_ok={} import_bundle_ok={} import_runtime_ok={} import_json_parse_failures={} operational_report_bytes={} slo_status={} slo_violations={} prometheus_bytes={}",
         runtime_execution.outputs.len(),
         has_baseline,
         has_report,
@@ -125,8 +129,19 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
         import_telemetry.governance_bundle_import_successes,
         import_telemetry.runtime_bundle_import_successes,
         import_telemetry.json_parse_failures,
-        operational_report_json.len()
+        operational_report_json.len(),
+        slo_status,
+        slo_violations.len(),
+        prometheus_text.len(),
     );
+
+    if slo_status != "OK" {
+        return Err(std::io::Error::other(format!(
+            "runtime SLO gate failed: {}",
+            slo_violations.join("; ")
+        ))
+        .into());
+    }
 
     Ok(restore_pipeline)
 }

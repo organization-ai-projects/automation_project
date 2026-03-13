@@ -83,16 +83,37 @@ impl MoePipeline {
     }
 
     pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        let payload_fingerprint =
+            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        if self
+            .import_journal
+            .has_successful_payload_fingerprint(&payload_fingerprint)
+        {
+            self.import_journal.record_deduplicated_replay();
+            return Ok(());
+        }
         let state = match Self::parse_governance_state_json_payload(payload) {
             Ok(state) => state,
             Err(err) => {
                 if Self::is_json_parse_failure(&err) {
                     self.import_telemetry.record_json_parse_failure();
+                    self.import_journal.record_parse_failure();
                 }
                 return Err(err);
             }
         };
-        self.try_import_governance_state(state)
+        let result = self.try_import_governance_state(state);
+        match result {
+            Ok(()) => {
+                self.import_journal
+                    .record_successful_import(payload_fingerprint);
+                Ok(())
+            }
+            Err(err) => {
+                self.import_journal.record_rejection();
+                Err(err)
+            }
+        }
     }
 
     pub fn import_governance_bundle(
@@ -152,16 +173,37 @@ impl MoePipeline {
     }
 
     pub fn import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        let payload_fingerprint =
+            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        if self
+            .import_journal
+            .has_successful_payload_fingerprint(&payload_fingerprint)
+        {
+            self.import_journal.record_deduplicated_replay();
+            return Ok(());
+        }
         let bundle = match Self::parse_governance_bundle_json_payload(payload) {
             Ok(bundle) => bundle,
             Err(err) => {
                 if Self::is_json_parse_failure(&err) {
                     self.import_telemetry.record_json_parse_failure();
+                    self.import_journal.record_parse_failure();
                 }
                 return Err(err);
             }
         };
-        self.import_governance_bundle(bundle)
+        let result = self.import_governance_bundle(bundle);
+        match result {
+            Ok(()) => {
+                self.import_journal
+                    .record_successful_import(payload_fingerprint);
+                Ok(())
+            }
+            Err(err) => {
+                self.import_journal.record_rejection();
+                Err(err)
+            }
+        }
     }
 
     pub fn compare_and_import_governance_bundle_json(
@@ -266,16 +308,37 @@ impl MoePipeline {
     }
 
     pub fn import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
+        let payload_fingerprint =
+            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        if self
+            .import_journal
+            .has_successful_payload_fingerprint(&payload_fingerprint)
+        {
+            self.import_journal.record_deduplicated_replay();
+            return Ok(());
+        }
         let bundle = match Self::parse_runtime_bundle_json_payload(payload) {
             Ok(bundle) => bundle,
             Err(err) => {
                 if Self::is_json_parse_failure(&err) {
                     self.import_telemetry.record_json_parse_failure();
+                    self.import_journal.record_parse_failure();
                 }
                 return Err(err);
             }
         };
-        self.import_runtime_bundle(bundle)
+        let result = self.import_runtime_bundle(bundle);
+        match result {
+            Ok(()) => {
+                self.import_journal
+                    .record_successful_import(payload_fingerprint);
+                Ok(())
+            }
+            Err(err) => {
+                self.import_journal.record_rejection();
+                Err(err)
+            }
+        }
     }
 
     pub fn compare_and_import_runtime_bundle_json(
@@ -313,9 +376,33 @@ impl MoePipeline {
     }
 
     pub fn try_import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        Self::parse_and_apply_runtime_bundle_json(payload, |bundle| {
+        let payload_fingerprint =
+            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        if self
+            .import_journal
+            .has_successful_payload_fingerprint(&payload_fingerprint)
+        {
+            self.import_journal.record_deduplicated_replay();
+            return Ok(());
+        }
+        let result = Self::parse_and_apply_runtime_bundle_json(payload, |bundle| {
             self.try_import_runtime_bundle(bundle)
-        })
+        });
+        match result {
+            Ok(()) => {
+                self.import_journal
+                    .record_successful_import(payload_fingerprint);
+                Ok(())
+            }
+            Err(err) => {
+                if Self::is_json_parse_failure(&err) {
+                    self.import_journal.record_parse_failure();
+                } else {
+                    self.import_journal.record_rejection();
+                }
+                Err(err)
+            }
+        }
     }
 
     pub fn preview_runtime_bundle_import_json(
@@ -338,9 +425,33 @@ impl MoePipeline {
     }
 
     pub fn try_import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        Self::parse_and_apply_governance_bundle_json(payload, |bundle| {
+        let payload_fingerprint =
+            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        if self
+            .import_journal
+            .has_successful_payload_fingerprint(&payload_fingerprint)
+        {
+            self.import_journal.record_deduplicated_replay();
+            return Ok(());
+        }
+        let result = Self::parse_and_apply_governance_bundle_json(payload, |bundle| {
             self.try_import_governance_bundle(bundle)
-        })
+        });
+        match result {
+            Ok(()) => {
+                self.import_journal
+                    .record_successful_import(payload_fingerprint);
+                Ok(())
+            }
+            Err(err) => {
+                if Self::is_json_parse_failure(&err) {
+                    self.import_journal.record_parse_failure();
+                } else {
+                    self.import_journal.record_rejection();
+                }
+                Err(err)
+            }
+        }
     }
 
     pub fn try_import_governance_state(&mut self, state: GovernanceState) -> Result<(), MoeError> {
@@ -411,9 +522,33 @@ impl MoePipeline {
     }
 
     pub fn try_import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        Self::parse_and_apply_governance_state_json(payload, |state| {
+        let payload_fingerprint =
+            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        if self
+            .import_journal
+            .has_successful_payload_fingerprint(&payload_fingerprint)
+        {
+            self.import_journal.record_deduplicated_replay();
+            return Ok(());
+        }
+        let result = Self::parse_and_apply_governance_state_json(payload, |state| {
             self.try_import_governance_state(state)
-        })
+        });
+        match result {
+            Ok(()) => {
+                self.import_journal
+                    .record_successful_import(payload_fingerprint);
+                Ok(())
+            }
+            Err(err) => {
+                if Self::is_json_parse_failure(&err) {
+                    self.import_journal.record_parse_failure();
+                } else {
+                    self.import_journal.record_rejection();
+                }
+                Err(err)
+            }
+        }
     }
 
     pub fn compare_and_import_governance_state_json(

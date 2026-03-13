@@ -23,6 +23,9 @@ pub struct ConcurrentMoePipeline {
     write_lock_timeouts: Arc<AtomicU64>,
     read_lock_spin_attempts_total: Arc<AtomicU64>,
     write_lock_spin_attempts_total: Arc<AtomicU64>,
+    write_guard_rejections: Arc<AtomicU64>,
+    write_guard_max_timeout_rate_milli: Arc<AtomicU64>,
+    write_guard_min_samples: Arc<AtomicU64>,
 }
 
 impl ConcurrentMoePipeline {
@@ -37,6 +40,9 @@ impl ConcurrentMoePipeline {
             write_lock_timeouts: Arc::new(AtomicU64::new(0)),
             read_lock_spin_attempts_total: Arc::new(AtomicU64::new(0)),
             write_lock_spin_attempts_total: Arc::new(AtomicU64::new(0)),
+            write_guard_rejections: Arc::new(AtomicU64::new(0)),
+            write_guard_max_timeout_rate_milli: Arc::new(AtomicU64::new(250)),
+            write_guard_min_samples: Arc::new(AtomicU64::new(16)),
         }
     }
 
@@ -70,6 +76,7 @@ impl ConcurrentMoePipeline {
     where
         F: FnOnce(&mut MoePipeline) -> Result<T, MoeError>,
     {
+        self.ensure_write_guard_allows()?;
         match self.inner.try_write() {
             Ok(mut guard) => {
                 self.record_write_acquisition(0);
@@ -121,6 +128,7 @@ impl ConcurrentMoePipeline {
     where
         F: FnOnce(&mut MoePipeline) -> Result<T, MoeError>,
     {
+        self.ensure_write_guard_allows()?;
         let max_lock_attempts = Self::normalized_lock_attempts(max_lock_attempts);
         if let Ok(mut guard) = self.inner.try_write() {
             self.record_write_acquisition(0);
@@ -345,6 +353,10 @@ impl ConcurrentMoePipeline {
             (snapshot.avg_write_spin_attempts() * 1000.0).round() as u64,
         );
         map.insert(
+            "write_guard_rejections".to_string(),
+            self.write_guard_rejections.load(Ordering::Relaxed),
+        );
+        map.insert(
             "governance_state_import_successes".to_string(),
             import_telemetry.governance_state_import_successes,
         );
@@ -387,6 +399,7 @@ impl ConcurrentMoePipeline {
             lock_contention_rate: lock_metrics.contention_rate(),
             lock_timeout_rate: lock_metrics.timeout_rate(),
             lock_metrics,
+            write_guard_rejections: self.write_guard_rejections(),
         })
     }
 
@@ -394,6 +407,29 @@ impl ConcurrentMoePipeline {
         common_json::json::to_json_string_pretty(&self.export_operational_report()?).map_err(
             |err| MoeError::DatasetError(format!("operational report serialization failed: {err}")),
         )
+    }
+
+    pub fn configure_write_guard(
+        &self,
+        max_timeout_rate: f64,
+        min_samples: u64,
+    ) -> Result<(), MoeError> {
+        if !(0.0..=1.0).contains(&max_timeout_rate) {
+            return Err(MoeError::PolicyRejected(format!(
+                "write guard max timeout rate must be in [0.0, 1.0], got {max_timeout_rate}"
+            )));
+        }
+        self.write_guard_max_timeout_rate_milli.store(
+            (max_timeout_rate * 1000.0).round() as u64,
+            Ordering::Relaxed,
+        );
+        self.write_guard_min_samples
+            .store(min_samples.max(1), Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub fn write_guard_rejections(&self) -> u64 {
+        self.write_guard_rejections.load(Ordering::Relaxed)
     }
 
     pub fn metrics_snapshot(&self) -> ConcurrentLockMetrics {
@@ -446,5 +482,27 @@ impl ConcurrentMoePipeline {
 
     fn normalized_lock_attempts(max_lock_attempts: u32) -> u32 {
         max_lock_attempts.max(1)
+    }
+
+    fn ensure_write_guard_allows(&self) -> Result<(), MoeError> {
+        let snapshot = self.metrics_snapshot();
+        let acquisitions = snapshot.total_lock_acquisitions();
+        let min_samples = self.write_guard_min_samples.load(Ordering::Relaxed);
+        if acquisitions < min_samples {
+            return Ok(());
+        }
+        let timeout_rate = snapshot.timeout_rate();
+        let max_timeout_rate = self
+            .write_guard_max_timeout_rate_milli
+            .load(Ordering::Relaxed) as f64
+            / 1000.0;
+        if timeout_rate > max_timeout_rate {
+            self.write_guard_rejections.fetch_add(1, Ordering::Relaxed);
+            return Err(MoeError::PolicyRejected(format!(
+                "write circuit breaker open: lock timeout rate {:.6} above {:.6} (samples={})",
+                timeout_rate, max_timeout_rate, acquisitions
+            )));
+        }
+        Ok(())
     }
 }

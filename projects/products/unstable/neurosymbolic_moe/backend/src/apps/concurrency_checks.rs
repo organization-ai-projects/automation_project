@@ -102,7 +102,12 @@ pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
     let concurrent_metrics = concurrent_pipeline.metrics();
     let lock_snapshot = concurrent_pipeline.metrics_snapshot();
     let import_telemetry = concurrent_pipeline.import_telemetry_snapshot()?;
+    concurrent_pipeline.configure_write_guard(0.4, 4)?;
     let operational_report_json = concurrent_pipeline.export_operational_report_json()?;
+    let operational_report = concurrent_pipeline.export_operational_report()?;
+    let slo_status = operational_report.slo_status(1.0, 0.2, 1, 0, 0);
+    let slo_violations = operational_report.slo_violations(1.0, 0.2, 1, 0, 0);
+    let prometheus_text = operational_report.to_prometheus_text("moe_concurrency");
     let slo_ok = concurrent_pipeline.is_within_lock_slo(1.0, 0.1);
     if import_telemetry.governance_state_import_successes == 0
         || import_telemetry.governance_bundle_import_successes == 0
@@ -114,7 +119,7 @@ pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
         .into());
     }
     tracing::info!(
-        "Concurrent checks: outputs={} state_allowed={} bundle_allowed={} runtime_allowed={} read_probe={} write_probe={} metrics={} lock_contention_rate={:.4} lock_timeout_rate={:.4} lock_slo_ok={} import_state_ok={} import_bundle_ok={} import_runtime_ok={} import_json_parse_failures={} operational_report_bytes={}",
+        "Concurrent checks: outputs={} state_allowed={} bundle_allowed={} runtime_allowed={} read_probe={} write_probe={} metrics={} lock_contention_rate={:.4} lock_timeout_rate={:.4} lock_slo_ok={} import_state_ok={} import_bundle_ok={} import_runtime_ok={} import_json_parse_failures={} operational_report_bytes={} slo_status={} slo_violations={} prometheus_bytes={} write_guard_rejections={}",
         concurrent_result.outputs.len(),
         concurrent_state_preview.allowed,
         concurrent_bundle_preview.allowed,
@@ -130,7 +135,18 @@ pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
         import_telemetry.runtime_bundle_import_successes,
         import_telemetry.json_parse_failures,
         operational_report_json.len(),
+        slo_status,
+        slo_violations.len(),
+        prometheus_text.len(),
+        operational_report.write_guard_rejections,
     );
+    if slo_status != "OK" {
+        return Err(std::io::Error::other(format!(
+            "concurrent SLO gate failed: {}",
+            slo_violations.join("; ")
+        ))
+        .into());
+    }
     Ok(())
 }
 

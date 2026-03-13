@@ -642,4 +642,53 @@ fn concurrent_pipeline_exports_operational_report_with_lock_and_import_telemetry
     assert!(parsed.lock_metrics.total_lock_acquisitions() > 0);
     assert!(parsed.lock_contention_rate >= 0.0);
     assert!(parsed.lock_timeout_rate >= 0.0);
+    assert!(!report.to_prometheus_text("moe_concurrent_test").is_empty());
+    assert_eq!(report.slo_status(1.0, 0.2, 1, 0, 0), "OK");
+}
+
+#[test]
+fn concurrent_pipeline_write_guard_opens_after_timeout_storm() {
+    let pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
+    pipeline
+        .configure_write_guard(0.0, 1)
+        .expect("write guard configuration should succeed");
+
+    let (tx, rx) = mpsc::channel::<()>();
+    let locked = pipeline.clone();
+    let holder = thread::spawn(move || {
+        locked
+            .with_write(|_| {
+                tx.send(()).expect("holder should signal lock acquired");
+                for _ in 0..150_000 {
+                    std::thread::yield_now();
+                }
+                Ok(())
+            })
+            .expect("holder write lock should succeed");
+    });
+
+    rx.recv().expect("holder signal should be received");
+    let mut timeout_errors = 0_u32;
+    for _ in 0..8_u32 {
+        if pipeline.with_write_timeout(1, |_| Ok(())).is_err() {
+            timeout_errors += 1;
+        }
+    }
+    holder.join().expect("holder should not panic");
+    assert!(timeout_errors > 0);
+
+    let guarded = pipeline
+        .remember_short_term(MemoryEntry {
+            id: "write-guard-short".to_string(),
+            content: "guarded".to_string(),
+            tags: vec!["guard".to_string()],
+            created_at: 1,
+            expires_at: None,
+            memory_type: MemoryType::Short,
+            relevance: 0.6,
+            metadata: HashMap::new(),
+        })
+        .expect_err("write guard should reject writes when timeout rate is too high");
+    assert!(guarded.to_string().contains("write circuit breaker open"));
+    assert!(pipeline.write_guard_rejections() >= 1);
 }

@@ -28,6 +28,11 @@ impl MoePipeline {
             dataset_entries: self.dataset_store.count(),
             feedback_entries: self.feedback_store.count(),
             import_telemetry: self.import_telemetry_snapshot(),
+            import_journal_events_total: self.import_journal.events_total(),
+            import_journal_deduplicated_replays_total: self
+                .import_journal
+                .deduplicated_replays_total(),
+            import_journal_tracked_fingerprints: self.import_journal.tracked_fingerprint_count(),
         }
     }
 

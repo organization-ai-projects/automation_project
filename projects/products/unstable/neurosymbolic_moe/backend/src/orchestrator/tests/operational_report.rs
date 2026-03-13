@@ -1,0 +1,35 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/tests/operational_report.rs
+use crate::orchestrator::{ImportTelemetry, OperationalReport};
+
+#[test]
+fn operational_report_slo_and_prometheus_helpers_work() {
+    let report = OperationalReport {
+        governance_current_version: 1,
+        governance_current_checksum: Some("abcd".to_string()),
+        governance_audit_entries: 1,
+        governance_state_snapshots: 1,
+        runtime_bundle_checksum: "1234".to_string(),
+        short_term_memory_entries: 1,
+        long_term_memory_entries: 1,
+        working_buffer_entries: 0,
+        session_buffer_sessions: 0,
+        session_buffer_values: 0,
+        trace_entries: 1,
+        dataset_entries: 0,
+        feedback_entries: 0,
+        import_telemetry: ImportTelemetry {
+            runtime_bundle_import_successes: 1,
+            ..ImportTelemetry::default()
+        },
+        import_journal_events_total: 1,
+        import_journal_deduplicated_replays_total: 0,
+        import_journal_tracked_fingerprints: 1,
+    };
+    assert_eq!(report.slo_status(1, 0, 0), "OK");
+    assert!(report.slo_violations(2, 0, 0).len() == 1);
+    assert!(
+        report
+            .to_prometheus_text("moe")
+            .contains("moe_import_runtime_successes")
+    );
+}

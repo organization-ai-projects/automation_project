@@ -11,6 +11,7 @@ use crate::feedback_engine::{FeedbackEntry, FeedbackStore};
 use crate::memory_engine::{LongTermMemory, MemoryEntry, MemoryStore, ShortTermMemory};
 use crate::moe_core::{Expert, MoeError};
 use crate::orchestrator::ContinuousImprovementReport;
+use crate::orchestrator::import_journal::ImportJournal;
 use crate::orchestrator::{
     ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceImportPolicy,
     GovernanceState, GovernanceStateSnapshot, ImportTelemetry,
@@ -60,6 +61,7 @@ pub struct MoePipeline {
     pub(super) governance_state_snapshots: Vec<GovernanceStateSnapshot>,
     pub(super) max_governance_state_snapshots: usize,
     pub(super) import_telemetry: ImportTelemetry,
+    pub(super) import_journal: ImportJournal,
     pub(super) feedback_store: FeedbackStore,
     pub(super) dataset_store: DatasetStore,
     pub(super) trace_converter: TraceConverter,
@@ -115,6 +117,14 @@ impl MoePipeline {
 
     pub fn import_telemetry_snapshot(&self) -> ImportTelemetry {
         self.import_telemetry.clone()
+    }
+
+    pub fn import_journal_events_total(&self) -> u64 {
+        self.import_journal.events_total()
+    }
+
+    pub fn import_journal_deduplicated_replays_total(&self) -> u64 {
+        self.import_journal.deduplicated_replays_total()
     }
 
     pub fn export_training_dataset_bundle(

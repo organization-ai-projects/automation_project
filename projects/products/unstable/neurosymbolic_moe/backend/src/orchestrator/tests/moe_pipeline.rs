@@ -342,6 +342,14 @@ fn import_telemetry_tracks_success_rejection_and_parse_failures() {
         .expect("runtime bundle import should succeed");
     let after_runtime_success = target.import_telemetry_snapshot();
     assert_eq!(after_runtime_success.runtime_bundle_import_successes, 1);
+    target
+        .import_runtime_bundle_json(&runtime_payload)
+        .expect("first runtime json import should succeed");
+    target
+        .import_runtime_bundle_json(&runtime_payload)
+        .expect("second runtime json import should deduplicate");
+    assert!(target.import_journal_deduplicated_replays_total() >= 1);
+    assert!(target.import_journal_events_total() >= 3);
 
     let unsupported_state_payload =
         governance_state_payload.replace("\"schema_version\": 1", "\"schema_version\": 999");
@@ -430,6 +438,9 @@ fn export_operational_report_includes_runtime_governance_and_import_telemetry() 
         parsed.governance_current_version,
         report.governance_current_version
     );
+    assert!(report.import_journal_events_total >= 1);
+    assert!(!report.to_prometheus_text("moe_test").is_empty());
+    assert_eq!(report.slo_status(1, 0, 0), "OK");
 }
 
 #[test]
