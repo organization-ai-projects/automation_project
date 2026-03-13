@@ -92,6 +92,7 @@ impl ConcurrentMoePipeline {
     where
         F: FnOnce(&MoePipeline) -> T,
     {
+        let max_lock_attempts = Self::normalized_lock_attempts(max_lock_attempts);
         if let Ok(guard) = self.inner.try_read() {
             self.record_read_acquisition(0);
             return Ok(f(&guard));
@@ -120,6 +121,7 @@ impl ConcurrentMoePipeline {
     where
         F: FnOnce(&mut MoePipeline) -> Result<T, MoeError>,
     {
+        let max_lock_attempts = Self::normalized_lock_attempts(max_lock_attempts);
         if let Ok(mut guard) = self.inner.try_write() {
             self.record_write_acquisition(0);
             return f(&mut guard);
@@ -331,6 +333,14 @@ impl ConcurrentMoePipeline {
             "write_lock_spin_attempts_total".to_string(),
             snapshot.write_lock_spin_attempts_total,
         );
+        map.insert(
+            "read_lock_spin_attempts_avg_milli".to_string(),
+            (snapshot.avg_read_spin_attempts() * 1000.0).round() as u64,
+        );
+        map.insert(
+            "write_lock_spin_attempts_avg_milli".to_string(),
+            (snapshot.avg_write_spin_attempts() * 1000.0).round() as u64,
+        );
         map
     }
 
@@ -380,5 +390,9 @@ impl ConcurrentMoePipeline {
         MoeError::DatasetError(format!(
             "concurrent pipeline {lock_kind} lock timeout after {max_lock_attempts} attempts"
         ))
+    }
+
+    fn normalized_lock_attempts(max_lock_attempts: u32) -> u32 {
+        max_lock_attempts.max(1)
     }
 }

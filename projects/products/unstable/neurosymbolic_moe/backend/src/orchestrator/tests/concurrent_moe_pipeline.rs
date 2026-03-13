@@ -261,6 +261,32 @@ fn concurrent_pipeline_reports_lock_timeout_metrics_under_contention() {
 }
 
 #[test]
+fn concurrent_pipeline_timeout_apis_normalize_zero_attempts() {
+    let pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
+    pipeline
+        .with_read_timeout(0, |_| ())
+        .expect("zero read attempts should be normalized to one");
+    pipeline
+        .with_write_timeout(0, |_| Ok(()))
+        .expect("zero write attempts should be normalized to one");
+    let metrics = pipeline.metrics();
+    assert!(
+        metrics
+            .get("read_lock_spin_attempts_avg_milli")
+            .copied()
+            .unwrap_or_default()
+            <= 1000
+    );
+    assert!(
+        metrics
+            .get("write_lock_spin_attempts_avg_milli")
+            .copied()
+            .unwrap_or_default()
+            <= 1000
+    );
+}
+
+#[test]
 fn concurrent_pipeline_chaos_contention_recovers_after_lock_storm() {
     let pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
     pipeline
@@ -359,5 +385,7 @@ fn concurrent_pipeline_chaos_contention_recovers_after_lock_storm() {
     assert!(snapshot.read_lock_timeouts > 0);
     assert!(snapshot.write_lock_timeouts > 0);
     assert!(snapshot.total_lock_acquisitions() > 0);
+    assert!(snapshot.avg_read_spin_attempts() >= 0.0);
+    assert!(snapshot.avg_write_spin_attempts() >= 0.0);
     assert!(!pipeline.is_within_lock_slo(0.1, 0.01));
 }

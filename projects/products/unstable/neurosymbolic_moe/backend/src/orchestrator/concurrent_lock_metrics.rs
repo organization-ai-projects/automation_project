@@ -38,4 +38,18 @@ impl ConcurrentLockMetrics {
         }
         self.total_timeout_events() as f64 / acquisitions as f64
     }
+
+    pub fn avg_read_spin_attempts(self) -> f64 {
+        if self.read_lock_acquisitions == 0 {
+            return 0.0;
+        }
+        self.read_lock_spin_attempts_total as f64 / self.read_lock_acquisitions as f64
+    }
+
+    pub fn avg_write_spin_attempts(self) -> f64 {
+        if self.write_lock_acquisitions == 0 {
+            return 0.0;
+        }
+        self.write_lock_spin_attempts_total as f64 / self.write_lock_acquisitions as f64
+    }
 }
