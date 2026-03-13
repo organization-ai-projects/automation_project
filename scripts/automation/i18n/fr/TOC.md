@@ -21,12 +21,15 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 - [build_ui_bundles.sh](../../build_ui_bundles.sh) : decouverte et build de tous les bundles UI
 - [changed_crates.sh](../../changed_crates.sh) : liste les crates touchees dans un diff
 - [check_dependencies.sh](../../check_dependencies.sh) : verification dependances obsoletes/manquantes
+- [check_script_integrity.sh](../../check_script_integrity.sh) : verification de l'integrite des scripts (sources/ROOT_DIR/entrypoints)
 - [check_merge_conflicts.sh](../../check_merge_conflicts.sh) : test de merge pour conflits
 - [clean_artifacts.sh](../../clean_artifacts.sh) : nettoyage des artefacts de build
+- [git_add_command_override.sh](../../git_add_command_override.sh) : override shell optionnel pour git add
 - [git_add_guard.sh](../../git_add_guard.sh) : ajout securise avec regles de split
 - [pre_add_review.sh](../../pre_add_review.sh) : revue interne pre-add (format, clippy, tests)
 - [pre_push_check.sh](../../pre_push_check.sh) : validation pre-push (checks, tests, conflits)
 - [release_prepare.sh](../../release_prepare.sh) : preparation release (version/changelog/tag)
-- [setup_hooks.sh](../../setup_hooks.sh) : installation des hooks git
-- [sync_docs.sh](../../sync_docs.sh) : synchronisation de documentation
+- [SCRIPT_WORKFLOWS.md](../../SCRIPT_WORKFLOWS.md) : inventaire canonique des workflows et entrypoints
 - [test_coverage.sh](../../test_coverage.sh) : generation rapports de couverture de tests
+- [tests/critical_workflows_regression.sh](../../tests/critical_workflows_regression.sh) : suite de regression des workflows critiques
+- [tests/enforcer_shell_contract_regression.sh](../../tests/enforcer_shell_contract_regression.sh) : garde-fou enforcer sur la structure shell

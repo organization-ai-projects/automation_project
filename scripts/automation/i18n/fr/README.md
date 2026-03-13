@@ -2,7 +2,9 @@
 
 Langue : [English](../../README.md) | **Francais**
 
-Ce repertoire contient les scripts d'automatisation transverses au projet.
+Ce repertoire contient les entrypoints shell actifs pour l'automatisation transverse.
+La logique canonique de versioning/GitHub est migree en Rust dans
+`tools/versioning_automation`.
 
 ## Role dans le projet
 
@@ -38,8 +40,6 @@ automation/
 ├── pre_add_review.sh               # Pre-check interne avant review
 ├── pre_push_check.sh               # Validation avant push (checks/tests/conflicts)
 ├── release_prepare.sh              # Preparation release (version/changelog/tag)
-├── setup_hooks.sh                  # Installation des hooks Git
-├── sync_docs.sh                    # Synchronisation documentation (placeholder)
 └── test_coverage.sh                # Generation des rapports de couverture
 ```
 
@@ -60,17 +60,16 @@ automation/
 - `pre_add_review.sh`: Verification avant review interne.
 - `pre_push_check.sh`: Validation pre-push.
 - `release_prepare.sh`: Preparation release.
-- `setup_hooks.sh`: Installation des hooks Git.
-- `sync_docs.sh`: Synchronisation de la documentation (placeholder).
 - `test_coverage.sh`: Rapport de couverture.
 
 ## Ajouter un script d'automatisation
 
 1. **Il agit sur tout le repository?** -> Il va ici.
-2. **C'est un workflow de versioning?** -> Il va dans `versioning/`.
-3. **C'est une utilitaire reutilisable?** -> Il va dans `common_lib/`.
+2. **C'est de la logique de workflow Git/GitHub versioning?** -> Il va dans `tools/versioning_automation` (Rust CLI).
+3. **C'est un utilitaire shell reutilisable?** -> Il va dans `scripts/common_lib/`.
 
 Documenter la nouvelle entree dans:
 
 - Ce `README`
-- La documentation technique des scripts
+- `TOC.md` (obligatoire)
+- `SCRIPT_WORKFLOWS.md` si c'est un entrypoint utilisateur

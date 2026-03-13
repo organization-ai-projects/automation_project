@@ -1,6 +1,8 @@
 # Automation Documentation
 
-This directory contains scripts for project-wide automation tasks.
+This directory contains active shell entrypoints for project-wide automation tasks.
+Versioning and GitHub automation logic is now canonical in Rust under
+`tools/versioning_automation`.
 
 ## Role in the Project
 
@@ -37,32 +39,26 @@ automation/
 ├── pre_add_review.sh               # Pre-add internal review (format, clippy, tests)
 ├── pre_push_check.sh               # Pre-push validation (checks, tests, conflicts)
 ├── release_prepare.sh              # Prepare releases with version/changelog/tag
-├── setup_hooks.sh                  # Install git hooks
 ├── check_script_integrity.sh       # Validate script sourcing/root-path integrity
 ├── tests/
 │   ├── critical_workflows_regression.sh # Critical cross-workflow regression suite
 │   └── enforcer_shell_contract_regression.sh # Enforcer check for shell-structure violations
 ├── SCRIPT_WORKFLOWS.md             # Canonical workflow inventory + entrypoints
-├── sync_docs.sh                    # Documentation synchronization (placeholder)
 └── test_coverage.sh                # Generate test coverage reports
 ```
 
 ## Files
 
-- `README.md`: This file.
+For the exhaustive, always-updated list, use:
+
+- `TOC.md`
+
+High-level groups:
+
 - `git_hooks/`: Git hooks for commit validation and pre-push checks.
-- `audit_security.sh`: Security audit on dependencies.
-- `build_accounts_ui.sh`: Build accounts UI bundle.
-- `build_and_check_ui_bundles.sh`: Build and verify artifacts.
-- `build_ui_bundles.sh`: Discover and build all UI bundles.
-- `audit_issue_status.sh`: Audit open issues vs commit references in a branch range.
-- `changed_crates.sh`: List crates touched in a diff.
-- `check_dependencies.sh`: Check for outdated/missing dependencies.
-- `check_merge_conflicts.sh`: Test merge for conflicts.
-- `clean_artifacts.sh`: Clean build artifacts.
-- `git_add_command_override.sh`: Shell override for `git add` to use guarded staging.
-- `git_add_guard.sh`: Guarded staging with split-policy checks.
-- `pre_add_review.sh`: Pre-add internal review.
+- quality/security/build scripts: `audit_*.sh`, `build_*.sh`, `check_*.sh`, `test_coverage.sh`.
+- git safety helpers: `git_add_guard.sh`, `git_add_command_override.sh`, `pre_push_check.sh`, `pre_add_review.sh`.
+- regression/integrity guards: `check_script_integrity.sh`, `tests/*.sh`, `SCRIPT_WORKFLOWS.md`.
 
 ## Optional shell override for `git add`
 
@@ -74,25 +70,16 @@ source /absolute/path/to/repo/scripts/automation/git_add_command_override.sh
 
 After sourcing, only `git add` is overridden; all other `git` commands are unchanged.
 
-- `pre_push_check.sh`: Pre-push validation.
-- `check_script_integrity.sh`: Script integrity checks (ROOT_DIR, sourced helpers, required imports).
-- `release_prepare.sh`: Prepare releases with version/changelog/tag.
-- `tests/critical_workflows_regression.sh`: Critical cross-workflow regression suite.
-- `tests/enforcer_shell_contract_regression.sh`: Enforcer strict-mode guard on shell-structure violations.
-- `SCRIPT_WORKFLOWS.md`: Canonical user-facing workflow inventory and supported invocation paths.
-- `setup_hooks.sh`: Install git hooks.
-- `sync_docs.sh`: Documentation synchronization (placeholder).
-- `test_coverage.sh`: Generate test coverage reports.
-
 ## Adding New Automation Scripts
 
 When adding a new automation script:
 
 1. **Does it operate on the whole repository?** → Belongs here
-2. **Is it a version control workflow task?** → Belongs in `versioning/`
-3. **Is it a reusable utility?** → Belongs in `common/`
+2. **Is it Git/GitHub versioning automation logic?** → Belongs in `tools/versioning_automation` (Rust CLI)
+3. **Is it a reusable shell utility?** → Belongs in `scripts/common_lib/`
 
 Document the script in:
 
 - This README (add to list)
-- `documentation/technical_documentation/versioning/file_versioning/scripts_overview.md`
+- `TOC.md` (required)
+- `SCRIPT_WORKFLOWS.md` when it is a user-facing workflow entrypoint
