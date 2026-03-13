@@ -33,6 +33,8 @@ const STATUS_COMPONENT_LINES: [&str; 13] = [
     "  orchestrator      - Main orchestration pipeline",
 ];
 
+type HealthSnapshot = (String, Vec<String>, String, Vec<String>);
+
 pub fn run() -> Result<(), DynError> {
     tracing_subscriber::fmt::init();
 
@@ -233,7 +235,7 @@ fn print_usage() {
     tracing::info!("  slo-gate [flags]   Fail-fast SLO gate for CI");
     tracing::info!("  metrics            Print Prometheus-compatible metrics snapshot");
     tracing::info!(
-        "  serve-metrics [addr] [--once]  Serve /metrics and /healthz (default 127.0.0.1:9464)"
+        "  serve-metrics [addr] [--once] [--cache-ttl-requests N]  Serve /metrics, /healthz, /readyz, /livez"
     );
     tracing::info!("SLO flags:");
     tracing::info!("  --runtime-min-successes N");
@@ -276,13 +278,15 @@ fn cmd_metrics() -> Result<(), DynError> {
 }
 
 fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
-    let (addr, once, threshold_args) = parse_serve_metrics_options(args)?;
+    let (addr, once, cache_ttl_requests, threshold_args) = parse_serve_metrics_options(args)?;
     let listener = TcpListener::bind(&addr)?;
     tracing::info!(
         "Metrics endpoint listening on http://{}/metrics and /healthz",
         addr
     );
     let thresholds = SloThresholds::parse_args(&threshold_args)?;
+    let mut cached_metrics: Option<(u64, String)> = None;
+    let mut cached_health: Option<(u64, HealthSnapshot)> = None;
     let mut served_requests = 0_u64;
     for stream in listener.incoming() {
         let mut stream = match stream {
@@ -298,8 +302,14 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
         let is_metrics = request_line.starts_with("GET /metrics ");
         let is_healthz = request_line.starts_with("GET /healthz ");
         let is_readyz = request_line.starts_with("GET /readyz ");
+        let is_livez = request_line.starts_with("GET /livez ");
         let (status_line, body) = if is_metrics {
-            match collect_prometheus_metrics(&thresholds) {
+            match get_cached_metrics(
+                &thresholds,
+                cache_ttl_requests,
+                served_requests,
+                &mut cached_metrics,
+            ) {
                 Ok(metrics) => ("HTTP/1.1 200 OK", metrics),
                 Err(err) => (
                     "HTTP/1.1 500 Internal Server Error",
@@ -307,7 +317,12 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                 ),
             }
         } else if is_healthz {
-            match collect_health_snapshot(&thresholds) {
+            match get_cached_health(
+                &thresholds,
+                cache_ttl_requests,
+                served_requests,
+                &mut cached_health,
+            ) {
                 Ok((
                     runtime_status,
                     runtime_violations,
@@ -338,7 +353,12 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                 ),
             }
         } else if is_readyz {
-            match collect_health_snapshot(&thresholds) {
+            match get_cached_health(
+                &thresholds,
+                cache_ttl_requests,
+                served_requests,
+                &mut cached_health,
+            ) {
                 Ok((runtime_status, _, concurrent_status, _)) => {
                     if runtime_status == "OK" && concurrent_status == "OK" {
                         ("HTTP/1.1 200 OK", "ready".to_string())
@@ -351,10 +371,12 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                     format!("readiness evaluation failed: {err}"),
                 ),
             }
+        } else if is_livez {
+            ("HTTP/1.1 200 OK", "alive".to_string())
         } else {
             (
                 "HTTP/1.1 404 Not Found",
-                "not found; use /metrics, /healthz or /readyz".to_string(),
+                "not found; use /metrics, /healthz, /readyz or /livez".to_string(),
             )
         };
         let content_type = if is_metrics {
@@ -397,27 +419,44 @@ fn collect_prometheus_metrics(thresholds: &SloThresholds) -> Result<String, DynE
 
 pub(crate) fn parse_serve_metrics_options(
     args: &[String],
-) -> Result<(String, bool, Vec<String>), DynError> {
+) -> Result<(String, bool, u64, Vec<String>), DynError> {
     let mut addr = "127.0.0.1:9464".to_string();
     let mut once = false;
+    let mut cache_ttl_requests = 1_u64;
     let mut threshold_args = Vec::new();
-    for arg in args {
+    let mut idx = 0_usize;
+    while idx < args.len() {
+        let arg = &args[idx];
         if arg == "--once" {
             once = true;
+            idx += 1;
+        } else if arg == "--cache-ttl-requests" {
+            let raw = args
+                .get(idx + 1)
+                .ok_or_else(|| std::io::Error::other("missing value for --cache-ttl-requests"))?;
+            let ttl_requests: u64 = raw.parse()?;
+            cache_ttl_requests = ttl_requests.max(1);
+            idx += 2;
         } else if arg.starts_with("--") {
-            threshold_args.push(arg.clone());
+            threshold_args.push(arg.to_string());
+            let value = args
+                .get(idx + 1)
+                .ok_or_else(|| std::io::Error::other(format!("missing value for {arg}")))?;
+            threshold_args.push(value.to_string());
+            idx += 2;
         } else if addr == "127.0.0.1:9464" {
-            addr = arg.clone();
+            addr = arg.to_string();
+            idx += 1;
         } else {
-            threshold_args.push(arg.clone());
+            return Err(
+                std::io::Error::other(format!("unexpected positional argument: {arg}")).into(),
+            );
         }
     }
-    Ok((addr, once, threshold_args))
+    Ok((addr, once, cache_ttl_requests, threshold_args))
 }
 
-fn collect_health_snapshot(
-    thresholds: &SloThresholds,
-) -> Result<(String, Vec<String>, String, Vec<String>), DynError> {
+fn collect_health_snapshot(thresholds: &SloThresholds) -> Result<HealthSnapshot, DynError> {
     let (mut pipeline, runtime_report) = run_runtime_persistence_checks_with_report()?;
     run_training_and_cas_checks(&mut pipeline)?;
     let concurrent_report = run_concurrent_pipeline_checks_with_report()?;
@@ -464,4 +503,36 @@ fn health_snapshot_json(
     payload.insert("concurrent_violations", concurrent_violations.join(" | "));
     common_json::json::to_json_string_pretty(&payload)
         .map_err(|err| std::io::Error::other(format!("health serialization failed: {err}")).into())
+}
+
+fn get_cached_metrics(
+    thresholds: &SloThresholds,
+    ttl_requests: u64,
+    request_index: u64,
+    cache: &mut Option<(u64, String)>,
+) -> Result<String, DynError> {
+    if let Some((updated_on_request, value)) = cache.as_ref()
+        && request_index.saturating_sub(*updated_on_request) <= ttl_requests
+    {
+        return Ok(value.clone());
+    }
+    let fresh = collect_prometheus_metrics(thresholds)?;
+    *cache = Some((request_index, fresh.clone()));
+    Ok(fresh)
+}
+
+fn get_cached_health(
+    thresholds: &SloThresholds,
+    ttl_requests: u64,
+    request_index: u64,
+    cache: &mut Option<(u64, HealthSnapshot)>,
+) -> Result<HealthSnapshot, DynError> {
+    if let Some((updated_on_request, value)) = cache.as_ref()
+        && request_index.saturating_sub(*updated_on_request) <= ttl_requests
+    {
+        return Ok(value.clone());
+    }
+    let fresh = collect_health_snapshot(thresholds)?;
+    *cache = Some((request_index, fresh.clone()));
+    Ok(fresh)
 }
