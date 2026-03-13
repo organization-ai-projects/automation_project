@@ -18,7 +18,7 @@ declare -a USER_FACING_ROWS=(
   "branching|versioning_automation git create-work-branch ...|Create branch by type/description"
   "commit_push|versioning_automation git add-commit-push ...|Validate message then commit+push"
   "commit_push|versioning_automation git push-branch ...|Push current branch"
-  "pre_push|scripts/automation/pre_push_check.sh|Repository pre-push checks"
+  "pre_push|scripts/automation/git_hooks/pre-push|Repository pre-push checks"
   "pr_creation|versioning_automation pr generate-description ...|Canonical PR create/refresh entrypoint (Rust CLI)"
   "issue_creation|versioning_automation issue create ...|Canonical direct issue creation entrypoint (Rust CLI)"
   "issue_lifecycle|versioning_automation issue <read/update/close/reopen/delete> ...|Canonical issue lifecycle entrypoint (Rust CLI)"
