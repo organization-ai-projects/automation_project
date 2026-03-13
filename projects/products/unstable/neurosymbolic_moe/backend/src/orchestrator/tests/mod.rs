@@ -12,6 +12,8 @@ mod moe_pipeline_builder;
 mod moe_pipeline_execution;
 #[path = "../moe_pipeline/tests/governance_runtime.rs"]
 mod moe_pipeline_governance_runtime;
+#[path = "../moe_pipeline/tests/observability.rs"]
+mod moe_pipeline_observability;
 #[path = "../moe_pipeline/tests/persistence.rs"]
 mod moe_pipeline_persistence;
 mod runtime_persistence_bundle;

@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub struct ConcurrentLockMetrics {
     pub read_lock_acquisitions: u64,
     pub write_lock_acquisitions: u64,

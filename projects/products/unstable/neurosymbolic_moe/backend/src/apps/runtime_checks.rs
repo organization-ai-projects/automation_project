@@ -101,6 +101,7 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
     )?;
     assert_import_telemetry_activity(&restore_pipeline)?;
     let import_telemetry = restore_pipeline.import_telemetry_snapshot();
+    let operational_report_json = restore_pipeline.export_operational_report_json()?;
 
     let trail = restore_pipeline.governance_audit_trail();
     let snapshots = restore_pipeline.governance_state_snapshots().len();
@@ -108,7 +109,7 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
         restore_pipeline.rollback_governance_state_to_version(last.version)?;
     }
     tracing::info!(
-        "Runtime persistence wiring: outputs={} baseline={} report={} human_approved={} state_valid={} state_allowed={} bundle_allowed={} runtime_allowed={} drift={} trail={} snapshots={} import_state_ok={} import_bundle_ok={} import_runtime_ok={} import_json_parse_failures={}",
+        "Runtime persistence wiring: outputs={} baseline={} report={} human_approved={} state_valid={} state_allowed={} bundle_allowed={} runtime_allowed={} drift={} trail={} snapshots={} import_state_ok={} import_bundle_ok={} import_runtime_ok={} import_json_parse_failures={} operational_report_bytes={}",
         runtime_execution.outputs.len(),
         has_baseline,
         has_report,
@@ -123,7 +124,8 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
         import_telemetry.governance_state_import_successes,
         import_telemetry.governance_bundle_import_successes,
         import_telemetry.runtime_bundle_import_successes,
-        import_telemetry.json_parse_failures
+        import_telemetry.json_parse_failures,
+        operational_report_json.len()
     );
 
     Ok(restore_pipeline)

@@ -4,7 +4,9 @@ use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
     ExpertOutput, ExpertStatus, ExpertType, Task, TaskType,
 };
-use crate::orchestrator::{ConcurrentMoePipeline, GovernanceState, MoePipelineBuilder};
+use crate::orchestrator::{
+    ConcurrentMoePipeline, ConcurrentOperationalReport, GovernanceState, MoePipelineBuilder,
+};
 use std::collections::HashMap;
 use std::sync::mpsc;
 use std::sync::{
@@ -570,4 +572,74 @@ fn concurrent_pipeline_exposes_import_telemetry_for_parse_failures_rejections_an
             .unwrap_or_default()
             >= 1
     );
+}
+
+#[test]
+fn concurrent_pipeline_exports_operational_report_with_lock_and_import_telemetry() {
+    let pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
+    pipeline
+        .remember_short_term(MemoryEntry {
+            id: "ops.concurrent.short".to_string(),
+            content: "short".to_string(),
+            tags: vec!["ops".to_string()],
+            created_at: 1,
+            expires_at: None,
+            memory_type: MemoryType::Short,
+            relevance: 0.7,
+            metadata: HashMap::new(),
+        })
+        .expect("short memory write should succeed");
+    pipeline
+        .remember_long_term(MemoryEntry {
+            id: "ops.concurrent.long".to_string(),
+            content: "long".to_string(),
+            tags: vec!["ops".to_string()],
+            created_at: 2,
+            expires_at: None,
+            memory_type: MemoryType::Long,
+            relevance: 0.8,
+            metadata: HashMap::new(),
+        })
+        .expect("long memory write should succeed");
+    let runtime_payload = pipeline
+        .export_runtime_bundle_json()
+        .expect("runtime export should succeed");
+    pipeline
+        .import_runtime_bundle_json(&runtime_payload)
+        .expect("runtime import should succeed");
+    pipeline
+        .with_read_timeout(2, |_| ())
+        .expect("read timeout api should succeed");
+    pipeline
+        .with_write_timeout(2, |_| Ok(()))
+        .expect("write timeout api should succeed");
+
+    let report = pipeline
+        .export_operational_report()
+        .expect("concurrent operational report should export");
+    assert_eq!(report.pipeline.short_term_memory_entries, 1);
+    assert_eq!(report.pipeline.long_term_memory_entries, 1);
+    assert!(
+        report
+            .pipeline
+            .import_telemetry
+            .runtime_bundle_import_successes
+            >= 1
+    );
+    assert!(report.lock_metrics.total_lock_acquisitions() > 0);
+    assert!(report.lock_contention_rate >= 0.0);
+    assert!(report.lock_timeout_rate >= 0.0);
+
+    let report_json = pipeline
+        .export_operational_report_json()
+        .expect("concurrent operational report json should serialize");
+    let parsed: ConcurrentOperationalReport =
+        common_json::json::from_json_str(&report_json).expect("report json should parse");
+    assert_eq!(
+        parsed.pipeline.runtime_bundle_checksum,
+        report.pipeline.runtime_bundle_checksum
+    );
+    assert!(parsed.lock_metrics.total_lock_acquisitions() > 0);
+    assert!(parsed.lock_contention_rate >= 0.0);
+    assert!(parsed.lock_timeout_rate >= 0.0);
 }

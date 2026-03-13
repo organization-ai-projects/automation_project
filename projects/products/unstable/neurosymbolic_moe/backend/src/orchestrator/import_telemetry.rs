@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportTelemetry {
     pub governance_state_import_successes: u64,
     pub governance_state_import_rejections: u64,

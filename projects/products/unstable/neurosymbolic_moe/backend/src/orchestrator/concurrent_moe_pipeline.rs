@@ -5,8 +5,8 @@ use std::sync::{Arc, RwLock, TryLockError};
 use crate::memory_engine::MemoryEntry;
 use crate::moe_core::{AggregatedOutput, Expert, MoeError, Task};
 use crate::orchestrator::{
-    ConcurrentLockMetrics, GovernanceAuditTrail, GovernanceImportDecision, ImportTelemetry,
-    MoePipeline, MoePipelineBuilder,
+    ConcurrentLockMetrics, ConcurrentOperationalReport, GovernanceAuditTrail,
+    GovernanceImportDecision, ImportTelemetry, MoePipeline, MoePipelineBuilder,
 };
 
 const READ_LOCK_KIND: &str = "read";
@@ -377,6 +377,23 @@ impl ConcurrentMoePipeline {
 
     pub fn import_telemetry_snapshot(&self) -> Result<ImportTelemetry, MoeError> {
         self.with_read(|pipeline| pipeline.import_telemetry_snapshot())
+    }
+
+    pub fn export_operational_report(&self) -> Result<ConcurrentOperationalReport, MoeError> {
+        let pipeline = self.with_read(|inner| inner.export_operational_report())?;
+        let lock_metrics = self.metrics_snapshot();
+        Ok(ConcurrentOperationalReport {
+            pipeline,
+            lock_contention_rate: lock_metrics.contention_rate(),
+            lock_timeout_rate: lock_metrics.timeout_rate(),
+            lock_metrics,
+        })
+    }
+
+    pub fn export_operational_report_json(&self) -> Result<String, MoeError> {
+        common_json::json::to_json_string_pretty(&self.export_operational_report()?).map_err(
+            |err| MoeError::DatasetError(format!("operational report serialization failed: {err}")),
+        )
     }
 
     pub fn metrics_snapshot(&self) -> ConcurrentLockMetrics {

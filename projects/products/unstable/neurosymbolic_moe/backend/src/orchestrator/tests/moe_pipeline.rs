@@ -5,7 +5,7 @@ use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
     ExpertOutput, ExpertStatus, ExpertType, MoeError, Task, TaskType,
 };
-use crate::orchestrator::MoePipelineBuilder;
+use crate::orchestrator::{MoePipelineBuilder, OperationalReport};
 use crate::retrieval_engine::{RetrievalQuery, RetrievalResult, Retriever};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -356,6 +356,80 @@ fn import_telemetry_tracks_success_rejection_and_parse_failures() {
         .expect("valid governance state should import");
     let final_snapshot = target.import_telemetry_snapshot();
     assert!(final_snapshot.governance_state_import_successes >= 1);
+}
+
+#[test]
+fn export_operational_report_includes_runtime_governance_and_import_telemetry() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline
+        .register_expert(Box::new(TestExpert::new(
+            "ops-report-expert",
+            vec![ExpertCapability::CodeGeneration],
+        )))
+        .expect("expert registration should succeed");
+    pipeline
+        .remember_short_term(MemoryEntry {
+            id: "ops-short".to_string(),
+            content: "short".to_string(),
+            tags: vec!["ops".to_string()],
+            created_at: 1,
+            expires_at: None,
+            memory_type: MemoryType::Short,
+            relevance: 0.7,
+            metadata: HashMap::new(),
+        })
+        .expect("short-term memory write should succeed");
+    pipeline
+        .remember_long_term(MemoryEntry {
+            id: "ops-long".to_string(),
+            content: "long".to_string(),
+            tags: vec!["ops".to_string()],
+            created_at: 2,
+            expires_at: None,
+            memory_type: MemoryType::Long,
+            relevance: 0.8,
+            metadata: HashMap::new(),
+        })
+        .expect("long-term memory write should succeed");
+    pipeline.put_session_buffer("ops-session", "k1", "v1");
+    pipeline.put_session_buffer("ops-session", "k2", "v2");
+    let _ = pipeline
+        .execute(Task::new(
+            "ops-report-task",
+            TaskType::CodeGeneration,
+            "operational report",
+        ))
+        .expect("execution should succeed");
+    let runtime_payload = pipeline
+        .export_runtime_bundle_json()
+        .expect("runtime payload export should succeed");
+    pipeline
+        .import_runtime_bundle_json(&runtime_payload)
+        .expect("runtime import should succeed");
+
+    let report = pipeline.export_operational_report();
+    assert_eq!(
+        report.governance_current_version,
+        pipeline.export_governance_state().state_version
+    );
+    assert_eq!(report.short_term_memory_entries, 1);
+    assert_eq!(report.long_term_memory_entries, 1);
+    assert_eq!(report.session_buffer_sessions, 1);
+    assert_eq!(report.session_buffer_values, 2);
+    assert!(report.trace_entries > 0);
+    assert!(report.runtime_bundle_checksum.len() >= 8);
+    assert!(report.import_telemetry.runtime_bundle_import_successes >= 1);
+
+    let report_json = pipeline
+        .export_operational_report_json()
+        .expect("operational report json should serialize");
+    let parsed: OperationalReport =
+        common_json::json::from_json_str(&report_json).expect("operational report should parse");
+    assert_eq!(parsed.session_buffer_values, report.session_buffer_values);
+    assert_eq!(
+        parsed.governance_current_version,
+        report.governance_current_version
+    );
 }
 
 #[test]

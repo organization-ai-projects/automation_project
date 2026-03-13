@@ -32,6 +32,7 @@ const MAX_TRAINING_DATASET_SHARDS_JSON_BYTES: usize = 128 * 1024 * 1024;
 
 mod execution;
 mod governance_runtime;
+mod observability;
 mod persistence;
 
 pub struct MoePipeline {
