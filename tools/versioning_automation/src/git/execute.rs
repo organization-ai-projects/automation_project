@@ -1,6 +1,5 @@
 //! tools/versioning_automation/src/git/execute.rs
 use std::path::PathBuf;
-use std::process::Command;
 
 use regex::Regex;
 
@@ -354,46 +353,17 @@ fn current_branch() -> Result<String, String> {
 }
 
 fn run_git(args: &[&str]) -> Result<(), String> {
-    let status = Command::new("git")
-        .args(args)
-        .status()
-        .map_err(|err| format!("Failed to run git {}: {err}", args.join(" ")))?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!(
-            "Command failed (exit {:?}): git {}",
-            status.code(),
-            args.join(" ")
-        ))
-    }
+    crate::git_cli::status(args)
+        .map_err(|err| format!("Failed to run git {}: {err}", args.join(" ")))
 }
 
 fn run_git_output(args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
-        .args(args)
-        .output()
-        .map_err(|err| format!("Failed to run git {}: {err}", args.join(" ")))?;
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        Err(format!(
-            "Command failed (exit {:?}): git {}",
-            output.status.code(),
-            args.join(" ")
-        ))
-    }
+    crate::git_cli::output_trim(args)
+        .map_err(|err| format!("Failed to run git {}: {err}", args.join(" ")))
 }
 
 fn run_git_output_allow_failure(args: &[&str]) -> Option<String> {
-    let output = Command::new("git").args(args).output().ok()?;
-    if output.status.success() {
-        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        None
-    }
+    crate::git_cli::output_trim(args).ok()
 }
 
 fn git_fetch_prune(remote: &str) -> Result<(), String> {
@@ -401,24 +371,16 @@ fn git_fetch_prune(remote: &str) -> Result<(), String> {
 }
 
 fn branch_exists_local(branch_name: &str) -> bool {
-    Command::new("git")
-        .args([
-            "show-ref",
-            "--verify",
-            "--quiet",
-            &format!("refs/heads/{branch_name}"),
-        ])
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+    crate::git_cli::status_success(&[
+        "show-ref",
+        "--verify",
+        "--quiet",
+        &format!("refs/heads/{branch_name}"),
+    ])
 }
 
 fn branch_exists_remote(remote: &str, branch_name: &str) -> bool {
-    Command::new("git")
-        .args(["ls-remote", "--exit-code", "--heads", remote, branch_name])
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+    crate::git_cli::status_success(&["ls-remote", "--exit-code", "--heads", remote, branch_name])
 }
 
 fn is_protected_branch(branch_name: &str) -> bool {
@@ -493,17 +455,8 @@ fn sanitize_description(description: &str) -> String {
 }
 
 fn require_clean_tree() -> Result<(), String> {
-    let unstaged_clean = Command::new("git")
-        .args(["diff", "--quiet"])
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false);
-
-    let staged_clean = Command::new("git")
-        .args(["diff", "--cached", "--quiet"])
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false);
+    let unstaged_clean = crate::git_cli::status_success(&["diff", "--quiet"]);
+    let staged_clean = crate::git_cli::status_success(&["diff", "--cached", "--quiet"]);
 
     if unstaged_clean && staged_clean {
         Ok(())
@@ -513,11 +466,7 @@ fn require_clean_tree() -> Result<(), String> {
 }
 
 fn has_upstream() -> bool {
-    Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+    crate::git_cli::status_success(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
 }
 
 fn validate_commit_message(message: &str) -> Result<(), String> {
