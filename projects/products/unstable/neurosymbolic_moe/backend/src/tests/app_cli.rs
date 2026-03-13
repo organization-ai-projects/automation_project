@@ -1,4 +1,6 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/tests/app_cli.rs
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::{fs, path::PathBuf};
 
 #[test]
 fn slo_thresholds_parse_args_overrides_defaults() {
@@ -106,4 +108,49 @@ fn admin_audit_limit_query_parser_rejects_zero() {
     let line = "GET /admin/slo-audit?limit=0 HTTP/1.1\r\nHost: x\r\n";
     let parsed = crate::app::parse_admin_audit_limit_from_request_line(line);
     assert_eq!(parsed, None);
+}
+
+#[test]
+fn format_slo_audit_entry_json_escapes_content() {
+    let json = crate::app::format_slo_audit_entry_json(
+        7,
+        "strict",
+        "balanced",
+        "applied",
+        "line1\nline2 \"quoted\"",
+    );
+    assert!(json.contains("\"seq\":7"));
+    assert!(json.contains("\"from_profile\":\"strict\""));
+    assert!(json.contains("\"to_profile\":\"balanced\""));
+    assert!(json.contains("\"reason\":\"line1 line2 \\\"quoted\\\"\""));
+}
+
+#[test]
+fn read_admin_audit_json_returns_tail_only() {
+    let path = unique_test_file_path("audit_tail");
+    let payload = [
+        crate::app::format_slo_audit_entry_json(1, "balanced", "strict", "applied", "a"),
+        crate::app::format_slo_audit_entry_json(2, "strict", "exploratory", "rejected", "b"),
+        crate::app::format_slo_audit_entry_json(3, "strict", "balanced", "applied", "c"),
+    ]
+    .join("\n");
+    fs::write(&path, format!("{payload}\n")).expect("write audit fixture");
+
+    let result =
+        crate::app::read_admin_audit_json(path.to_str().expect("utf8 path"), 2).expect("read");
+    assert!(!result.contains("\"seq\":1"));
+    assert!(result.contains("\"seq\":2"));
+    assert!(result.contains("\"seq\":3"));
+
+    let _ = fs::remove_file(path);
+}
+
+fn unique_test_file_path(prefix: &str) -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let suffix = COUNTER.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "neurosymbolic_moe_{prefix}_{}_{}.jsonl",
+        std::process::id(),
+        suffix
+    ))
 }

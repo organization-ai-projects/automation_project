@@ -1,10 +1,13 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/app.rs
 use std::path::PathBuf;
 use std::{
+    collections::VecDeque,
     fs,
+    fs::File,
     fs::OpenOptions,
-    io::{Read, Write},
+    io::{BufRead, BufReader, Read, Write},
     net::TcpListener,
+    sync::{Mutex, OnceLock},
 };
 
 use crate::aggregator::AggregationStrategy;
@@ -48,6 +51,11 @@ type ServeMetricsOptions = (
 );
 const DEFAULT_ADMIN_AUDIT_LIMIT: usize = 50;
 const MAX_ADMIN_AUDIT_LIMIT: usize = 1000;
+
+fn audit_io_lock() -> &'static Mutex<()> {
+    static AUDIT_IO_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    AUDIT_IO_LOCK.get_or_init(|| Mutex::new(()))
+}
 
 pub fn run() -> Result<(), DynError> {
     tracing_subscriber::fmt::init();
@@ -393,8 +401,17 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                 served_requests,
                 &mut cached_health,
             ) {
-                Ok((runtime_status, _, concurrent_status, _)) => {
-                    if runtime_status == "OK" && concurrent_status == "OK" {
+                Ok((
+                    runtime_status,
+                    runtime_violations,
+                    concurrent_status,
+                    concurrent_violations,
+                )) => {
+                    if runtime_status == "OK"
+                        && concurrent_status == "OK"
+                        && runtime_violations.is_empty()
+                        && concurrent_violations.is_empty()
+                    {
                         ("HTTP/1.1 200 OK", "ready".to_string())
                     } else {
                         ("HTTP/1.1 503 Service Unavailable", "not ready".to_string())
@@ -535,7 +552,8 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
 }
 
 fn collect_prometheus_metrics(thresholds: &SloThresholds) -> Result<String, DynError> {
-    let (runtime_status, _, concurrent_status, _) = collect_health_snapshot(thresholds)?;
+    let (runtime_status, runtime_violations, concurrent_status, concurrent_violations) =
+        collect_health_snapshot(thresholds)?;
     let (mut pipeline, runtime_report) = run_runtime_persistence_checks_with_report()?;
     run_training_and_cas_checks(&mut pipeline)?;
     let concurrent_report = run_concurrent_pipeline_checks_with_report()?;
@@ -543,8 +561,16 @@ fn collect_prometheus_metrics(thresholds: &SloThresholds) -> Result<String, DynE
         "{}\n{}\nmoe_runtime_slo_status {}\nmoe_concurrent_slo_status {}\nmoe_slo_profile{{profile=\"{}\"}} 1\n",
         runtime_report.to_prometheus_text("moe_runtime"),
         concurrent_report.to_prometheus_text("moe_concurrent"),
-        if runtime_status == "OK" { 1 } else { 0 },
-        if concurrent_status == "OK" { 1 } else { 0 },
+        if runtime_status == "OK" && runtime_violations.is_empty() {
+            1
+        } else {
+            0
+        },
+        if concurrent_status == "OK" && concurrent_violations.is_empty() {
+            1
+        } else {
+            0
+        },
         thresholds.profile_name(),
     ))
 }
@@ -728,8 +754,12 @@ pub(crate) fn is_authorized_admin_request(request_text: &str, admin_token: Optio
 }
 
 fn profile_switch_guard_passes(thresholds: &SloThresholds) -> Result<bool, DynError> {
-    let (runtime_status, _, concurrent_status, _) = collect_health_snapshot(thresholds)?;
-    Ok(runtime_status == "OK" && concurrent_status == "OK")
+    let (runtime_status, runtime_violations, concurrent_status, concurrent_violations) =
+        collect_health_snapshot(thresholds)?;
+    Ok(runtime_status == "OK"
+        && concurrent_status == "OK"
+        && runtime_violations.is_empty()
+        && concurrent_violations.is_empty())
 }
 
 fn append_slo_audit_line(
@@ -740,32 +770,62 @@ fn append_slo_audit_line(
     result: &str,
     reason: &str,
 ) -> Result<(), DynError> {
+    let audit_guard = audit_io_lock()
+        .lock()
+        .map_err(|_| std::io::Error::other("audit lock poisoned"))?;
+    let line = format_slo_audit_entry_json(seq, from_profile, to_profile, result, reason);
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+    file.write_all(line.as_bytes())?;
+    file.write_all(b"\n")?;
+    drop(audit_guard);
+    Ok(())
+}
+
+pub(crate) fn read_admin_audit_json(path: &str, limit: usize) -> Result<String, DynError> {
+    if limit == 0 {
+        return Ok("[]".to_string());
+    }
+    let audit_guard = audit_io_lock()
+        .lock()
+        .map_err(|_| std::io::Error::other("audit lock poisoned"))?;
+    let result = match File::open(path) {
+        Ok(file) => {
+            let mut tail: VecDeque<String> = VecDeque::with_capacity(limit.min(1024));
+            for line in BufReader::new(file).lines() {
+                let line = line?;
+                if line.is_empty() {
+                    continue;
+                }
+                if tail.len() == limit {
+                    tail.pop_front();
+                }
+                tail.push_back(line);
+            }
+            let body = tail.into_iter().collect::<Vec<_>>().join(",");
+            Ok(format!("[{body}]"))
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok("[]".to_string()),
+        Err(err) => Err(err.into()),
+    };
+    drop(audit_guard);
+    result
+}
+
+pub(crate) fn format_slo_audit_entry_json(
+    seq: u64,
+    from_profile: &str,
+    to_profile: &str,
+    result: &str,
+    reason: &str,
+) -> String {
     let sanitized_reason = reason.replace('\n', " ");
     let escaped_from = escape_json_string(from_profile);
     let escaped_to = escape_json_string(to_profile);
     let escaped_result = escape_json_string(result);
     let escaped_reason = escape_json_string(&sanitized_reason);
-    let line = format!(
-        "{{\"seq\":{seq},\"from_profile\":\"{escaped_from}\",\"to_profile\":\"{escaped_to}\",\"result\":\"{escaped_result}\",\"reason\":\"{escaped_reason}\"}}\n"
-    );
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-    file.write_all(line.as_bytes())?;
-    Ok(())
-}
-
-fn read_admin_audit_json(path: &str, limit: usize) -> Result<String, DynError> {
-    match fs::read_to_string(path) {
-        Ok(content) => {
-            let mut lines: Vec<&str> = content.lines().filter(|line| !line.is_empty()).collect();
-            if lines.len() > limit {
-                let start = lines.len().saturating_sub(limit);
-                lines = lines.split_off(start);
-            }
-            Ok(format!("[{}]", lines.join(",")))
-        }
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok("[]".to_string()),
-        Err(err) => Err(err.into()),
-    }
+    format!(
+        "{{\"seq\":{seq},\"from_profile\":\"{escaped_from}\",\"to_profile\":\"{escaped_to}\",\"result\":\"{escaped_result}\",\"reason\":\"{escaped_reason}\"}}"
+    )
 }
 
 fn parse_query_param_from_request_line<'a>(
