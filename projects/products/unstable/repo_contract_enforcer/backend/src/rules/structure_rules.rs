@@ -151,7 +151,7 @@ impl StructureRules {
         use reports::violation_code::ViolationCode;
         use rules::rule_id::RuleId;
 
-        let shell_root = repo_root.join("scripts/versioning/file_versioning/github");
+        let shell_root = repo_root.join("scripts/automation");
         if !shell_root.is_dir() {
             return Vec::new();
         }
@@ -518,8 +518,7 @@ mod tests {
     #[test]
     fn shell_run_requires_strict_mode() {
         let root = temp_root("shell_run_strict");
-        let run_path =
-            root.join("scripts/versioning/file_versioning/github/tests/fixtures/auto_link/run.sh");
+        let run_path = root.join("scripts/automation/tests/fixtures/auto_link/run.sh");
         fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
         fs::write(
             &run_path,
@@ -537,8 +536,7 @@ mod tests {
     #[test]
     fn shell_load_forbids_function_definitions() {
         let root = temp_root("shell_load_functions");
-        let load_path =
-            root.join("scripts/versioning/file_versioning/github/tests/fixtures/pr/load.sh");
+        let load_path = root.join("scripts/automation/tests/fixtures/pr/load.sh");
         fs::create_dir_all(load_path.parent().expect("load parent")).expect("create load parent");
         fs::write(
             &load_path,
@@ -556,8 +554,7 @@ mod tests {
     #[test]
     fn shell_run_requires_module_sources() {
         let root = temp_root("shell_run_source");
-        let run_path =
-            root.join("scripts/versioning/file_versioning/github/tests/fixtures/manager/run.sh");
+        let run_path = root.join("scripts/automation/tests/fixtures/manager/run.sh");
         fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
         fs::write(
             &run_path,
@@ -575,8 +572,7 @@ mod tests {
     #[test]
     fn shell_run_requires_entrypoint_passthrough() {
         let root = temp_root("shell_run_entrypoint");
-        let run_path =
-            root.join("scripts/versioning/file_versioning/github/tests/fixtures/manager/run.sh");
+        let run_path = root.join("scripts/automation/tests/fixtures/manager/run.sh");
         fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
         fs::write(
             &run_path,
@@ -594,8 +590,7 @@ mod tests {
     #[test]
     fn shell_run_forbids_function_definitions() {
         let root = temp_root("shell_run_no_functions");
-        let run_path =
-            root.join("scripts/versioning/file_versioning/github/tests/fixtures/manager/run.sh");
+        let run_path = root.join("scripts/automation/tests/fixtures/manager/run.sh");
         fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
         fs::write(
             &run_path,
@@ -613,8 +608,7 @@ mod tests {
     #[test]
     fn shell_load_forbids_executable_logic() {
         let root = temp_root("shell_load_logic");
-        let load_path =
-            root.join("scripts/versioning/file_versioning/github/tests/fixtures/pr/load.sh");
+        let load_path = root.join("scripts/automation/tests/fixtures/pr/load.sh");
         fs::create_dir_all(load_path.parent().expect("load parent")).expect("create load parent");
         fs::write(
             &load_path,
@@ -632,8 +626,7 @@ mod tests {
     #[test]
     fn shell_load_requires_dir_constant_naming() {
         let root = temp_root("shell_load_constant_name");
-        let load_path =
-            root.join("scripts/versioning/file_versioning/github/tests/fixtures/pr/load.sh");
+        let load_path = root.join("scripts/automation/tests/fixtures/pr/load.sh");
         fs::create_dir_all(load_path.parent().expect("load parent")).expect("create load parent");
         fs::write(
             &load_path,
@@ -651,10 +644,8 @@ mod tests {
     #[test]
     fn compliant_shell_layout_has_no_shell_structure_violations() {
         let root = temp_root("shell_layout_ok");
-        let run_path =
-            root.join("scripts/versioning/file_versioning/github/tests/fixtures/manager/run.sh");
-        let load_path =
-            root.join("scripts/versioning/file_versioning/github/tests/fixtures/pr/load.sh");
+        let run_path = root.join("scripts/automation/tests/fixtures/manager/run.sh");
+        let load_path = root.join("scripts/automation/tests/fixtures/pr/load.sh");
         fs::create_dir_all(run_path.parent().expect("run parent")).expect("create run parent");
         fs::create_dir_all(load_path.parent().expect("load parent")).expect("create load parent");
         fs::write(
