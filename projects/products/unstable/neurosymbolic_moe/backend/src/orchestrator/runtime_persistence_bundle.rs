@@ -91,23 +91,23 @@ fn memory_entries_fingerprint(entries: &[MemoryEntry]) -> String {
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
         metadata.sort_unstable_by(|a, b| a.0.cmp(b.0));
-        let metadata_fingerprint = metadata
-            .iter()
-            .map(|(k, v)| format!("{k}={v}"))
-            .collect::<Vec<_>>()
-            .join(",");
         if let Ok(()) = write!(
             fingerprint,
-            "{}|{}|{:?}|{}|{:?}|{}|{:?}|{}",
+            "{}|{}|{:?}|{}|{:?}|{}|{:?}|",
             entry.id,
             entry.content,
             tags,
             entry.created_at,
             entry.expires_at,
             entry.relevance,
-            entry.memory_type,
-            metadata_fingerprint
+            entry.memory_type
         ) {}
+        for (metadata_idx, (key, value)) in metadata.iter().enumerate() {
+            if metadata_idx > 0 {
+                fingerprint.push(',');
+            }
+            if let Ok(()) = write!(fingerprint, "{key}={value}") {}
+        }
     }
     fingerprint
 }
@@ -137,12 +137,14 @@ fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
         if !fingerprint.is_empty() {
             fingerprint.push(';');
         }
-        if let Ok(()) = write!(
-            fingerprint,
-            "{}:{}",
-            session,
-            sessions_buffer.values(session).join("|")
-        ) {}
+        if let Ok(()) = write!(fingerprint, "{}:", session) {}
+        let values = sessions_buffer.values(session);
+        for (value_idx, value) in values.iter().enumerate() {
+            if value_idx > 0 {
+                fingerprint.push('|');
+            }
+            fingerprint.push_str(value);
+        }
     }
     fingerprint
 }
