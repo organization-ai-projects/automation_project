@@ -84,7 +84,7 @@ if [[ $SCOPE_VALID -ne 0 ]] || [[ -z "$AFFECTED" ]]; then
       [[ -z "$crate" ]] && continue
       CLIPPY_ARGS+=(-p "$crate")
       TEST_ARGS+=(-p "$crate")
-    done <<< "$AFFECTED"
+    done <<<"$AFFECTED"
   else
     echo "⚠️  Could not infer affected crates - testing full workspace."
     echo "   (Use scopes like 'refactor(projects/libraries/layers/domain/security):' or 'fix(projects/products/stable/accounts/backend):')"
@@ -102,7 +102,7 @@ else
     [[ -z "$crate" ]] && continue
     CLIPPY_ARGS+=(-p "$crate")
     TEST_ARGS+=(-p "$crate")
-  done <<< "$AFFECTED"
+  done <<<"$AFFECTED"
 fi
 
 FAILED=0
