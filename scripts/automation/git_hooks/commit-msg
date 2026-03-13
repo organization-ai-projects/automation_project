@@ -8,7 +8,6 @@ COMMIT_MSG_FILE="$1"
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 HOOKS_DIR="$ROOT_DIR/scripts/automation/git_hooks"
 
-readonly COMMIT_MSG_RC_OK=0
 readonly COMMIT_MSG_RC_INVALID_FORMAT=3
 readonly COMMIT_MSG_RC_SUBJECT_TRAILER=4
 readonly COMMIT_MSG_RC_ROOT_PARENT=5
@@ -19,20 +18,20 @@ readonly COMMIT_MSG_RC_SUBJECT_LENGTH=9
 readonly COMMIT_MSG_RC_ASSIGNMENT_POLICY=10
 
 if [[ -z "${COMMIT_MSG_FILE:-}" || ! -f "$COMMIT_MSG_FILE" ]]; then
-  echo "❌ commit-msg hook: missing or invalid commit message file" >&2
-  exit 1
+	echo "❌ commit-msg hook: missing or invalid commit message file" >&2
+	exit 1
 fi
 
 read_commit_subject_line() {
-  local file="$1"
-  local line
-  while IFS= read -r line; do
-    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    printf '%s' "$line"
-    return 0
-  done < "$file"
-  printf ''
+	local file="$1"
+	local line
+	while IFS= read -r line; do
+		[[ "$line" =~ ^[[:space:]]*$ ]] && continue
+		[[ "$line" =~ ^[[:space:]]*# ]] && continue
+		printf '%s' "$line"
+		return 0
+	done <"$file"
+	printf ''
 }
 
 # Only validate the commit subject line; body/footer are handled separately.
@@ -40,7 +39,7 @@ COMMIT_SUBJECT="$(read_commit_subject_line "$COMMIT_MSG_FILE")"
 
 # Allow bypass for emergency situations
 if [[ "${SKIP_COMMIT_VALIDATION:-}" == "1" ]]; then
-  exit 0
+	exit 0
 fi
 
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit_format.sh
@@ -55,124 +54,124 @@ source "$HOOKS_DIR/lib/commit_message_policy.sh"
 source "$HOOKS_DIR/lib/issue_footer_policy.sh"
 
 if [[ -n "${COMMIT_MSG_SUBJECT_MAX_LEN:-}" && "${COMMIT_MSG_SUBJECT_MAX_LEN:-0}" -gt 0 ]]; then
-  subject_len="${#COMMIT_SUBJECT}"
-  if [[ "$subject_len" -gt "${COMMIT_MSG_SUBJECT_MAX_LEN}" ]]; then
-    echo "❌ Commit subject too long: ${subject_len}/${COMMIT_MSG_SUBJECT_MAX_LEN} characters." >&2
-    echo "   Set COMMIT_MSG_SUBJECT_MAX_LEN=0 to disable length enforcement." >&2
-    exit "$COMMIT_MSG_RC_SUBJECT_LENGTH"
-  fi
+	subject_len="${#COMMIT_SUBJECT}"
+	if [[ "$subject_len" -gt "${COMMIT_MSG_SUBJECT_MAX_LEN}" ]]; then
+		echo "❌ Commit subject too long: ${subject_len}/${COMMIT_MSG_SUBJECT_MAX_LEN} characters." >&2
+		echo "   Set COMMIT_MSG_SUBJECT_MAX_LEN=0 to disable length enforcement." >&2
+		exit "$COMMIT_MSG_RC_SUBJECT_LENGTH"
+	fi
 fi
 
 # Validate format: <type>(<scope>): <message> or <type>: <message>
 # Allows multiple scopes separated by commas and dot-scopes: feat(.github,scripts): message
 if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
-  echo "❌ Invalid commit message format!" >&2
-  echo "" >&2
-  echo "Expected format:" >&2
-  echo "  <type>(<scope>): <message>" >&2
-  echo "  or" >&2
-  echo "  <type>: <message>" >&2
-  echo "" >&2
-  echo "Allowed types:" >&2
-  echo "  feature, feat, fix, doc, docs, refactor, test, tests, chore, perf" >&2
-  echo "" >&2
-  echo "Examples:" >&2
-  echo "  feat(projects/libraries/layers/domain/security): add user authentication" >&2
-  echo "  chore(scripts): add workflows and sync script" >&2
-  echo "  docs(.github): add default PR template" >&2
-  echo "  fix: resolve null pointer exception" >&2
-  echo "  docs(readme): update installation instructions" >&2
-  echo "  refactor(projects/products/accounts/backend): improve audit flush handling" >&2
-  echo "" >&2
-  echo "Your commit message:" >&2
-  echo "  $COMMIT_SUBJECT" >&2
-  echo "" >&2
-  echo "Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
-  exit "$COMMIT_MSG_RC_INVALID_FORMAT"
+	echo "❌ Invalid commit message format!" >&2
+	echo "" >&2
+	echo "Expected format:" >&2
+	echo "  <type>(<scope>): <message>" >&2
+	echo "  or" >&2
+	echo "  <type>: <message>" >&2
+	echo "" >&2
+	echo "Allowed types:" >&2
+	echo "  feature, feat, fix, doc, docs, refactor, test, tests, chore, perf" >&2
+	echo "" >&2
+	echo "Examples:" >&2
+	echo "  feat(projects/libraries/layers/domain/security): add user authentication" >&2
+	echo "  chore(scripts): add workflows and sync script" >&2
+	echo "  docs(.github): add default PR template" >&2
+	echo "  fix: resolve null pointer exception" >&2
+	echo "  docs(readme): update installation instructions" >&2
+	echo "  refactor(projects/products/accounts/backend): improve audit flush handling" >&2
+	echo "" >&2
+	echo "Your commit message:" >&2
+	echo "  $COMMIT_SUBJECT" >&2
+	echo "" >&2
+	echo "Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
+	exit "$COMMIT_MSG_RC_INVALID_FORMAT"
 fi
 
 if validate_and_normalize_issue_refs_footer_in_file "$COMMIT_MSG_FILE" "$COMMIT_SUBJECT"; then
-  :
+	:
 else
-  exit "$?"
+	exit "$?"
 fi
 
 if validate_no_root_parent_refs_in_footer_file "$COMMIT_MSG_FILE"; then
-  :
+	:
 else
-  exit "$?"
+	exit "$?"
 fi
 
 if validate_single_assignee_requires_closes_in_footer_file "$COMMIT_MSG_FILE"; then
-  :
+	:
 else
-  exit "$?"
+	exit "$?"
 fi
 
 staged_files="$(git diff --cached --name-only --diff-filter=ACMRUD)"
 format_categories="$(collect_format_categories_from_files "$staged_files")"
 format_category_count="$(printf '%s\n' "$format_categories" | awk 'NF{count++} END{print count+0}')"
 if [[ "$format_category_count" -gt 1 ]]; then
-  echo "❌ Mixed file format categories are not allowed in a single commit." >&2
-  echo "" >&2
-  echo "Detected categories:" >&2
-  while IFS= read -r category; do
-    [[ -n "$category" ]] && echo "  - $category" >&2
-  done <<< "$format_categories"
-  echo "" >&2
-  echo "Split this commit so it contains only one category (rust, shell, markdown, or other)." >&2
-  exit "$COMMIT_MSG_RC_MIXED_CATEGORY"
+	echo "❌ Mixed file format categories are not allowed in a single commit." >&2
+	echo "" >&2
+	echo "Detected categories:" >&2
+	while IFS= read -r category; do
+		[[ -n "$category" ]] && echo "  - $category" >&2
+	done <<<"$format_categories"
+	echo "" >&2
+	echo "Split this commit so it contains only one category (rust, shell, markdown, or other)." >&2
+	exit "$COMMIT_MSG_RC_MIXED_CATEGORY"
 fi
 
 required_scopes=$(detect_required_scopes_from_staged_files "$staged_files")
 if [[ -n "$required_scopes" ]]; then
-  commit_scopes=$(extract_scopes_from_commit_message "$COMMIT_SUBJECT")
+	commit_scopes=$(extract_scopes_from_commit_message "$COMMIT_SUBJECT")
 
-  if [[ -z "$commit_scopes" ]]; then
-    echo "❌ Missing required scope in commit message." >&2
-    echo "" >&2
-    echo "Detected changed files requiring scope:" >&2
-    while IFS= read -r scope; do
-      [[ -n "$scope" ]] && echo "  - $scope" >&2
-    done <<< "$required_scopes"
-    echo "" >&2
-    echo "Expected format example:" >&2
-    echo "  fix(projects/libraries/<library_name>): ..." >&2
-    echo "  fix(projects/products/<stable_or_unstable>/<product_name>): ..." >&2
-    echo "  fix(projects/products/<stable_or_unstable>/<product_name>/backend): ..." >&2
-    exit "$COMMIT_MSG_RC_SCOPE_MISSING"
-  fi
+	if [[ -z "$commit_scopes" ]]; then
+		echo "❌ Missing required scope in commit message." >&2
+		echo "" >&2
+		echo "Detected changed files requiring scope:" >&2
+		while IFS= read -r scope; do
+			[[ -n "$scope" ]] && echo "  - $scope" >&2
+		done <<<"$required_scopes"
+		echo "" >&2
+		echo "Expected format example:" >&2
+		echo "  fix(projects/libraries/<library_name>): ..." >&2
+		echo "  fix(projects/products/<stable_or_unstable>/<product_name>): ..." >&2
+		echo "  fix(projects/products/<stable_or_unstable>/<product_name>/backend): ..." >&2
+		exit "$COMMIT_MSG_RC_SCOPE_MISSING"
+	fi
 
-  missing_scopes=()
-  while IFS= read -r required_scope; do
-    [[ -z "$required_scope" ]] && continue
-    covered=0
-    while IFS= read -r commit_scope; do
-      [[ -z "$commit_scope" ]] && continue
-      if scope_covers_required_scope "$commit_scope" "$required_scope"; then
-        covered=1
-        break
-      fi
-    done <<< "$commit_scopes"
-    if [[ $covered -ne 1 ]]; then
-      missing_scopes+=("$required_scope")
-    fi
-  done <<< "$required_scopes"
+	missing_scopes=()
+	while IFS= read -r required_scope; do
+		[[ -z "$required_scope" ]] && continue
+		covered=0
+		while IFS= read -r commit_scope; do
+			[[ -z "$commit_scope" ]] && continue
+			if scope_covers_required_scope "$commit_scope" "$required_scope"; then
+				covered=1
+				break
+			fi
+		done <<<"$commit_scopes"
+		if [[ $covered -ne 1 ]]; then
+			missing_scopes+=("$required_scope")
+		fi
+	done <<<"$required_scopes"
 
-  if [[ "${#missing_scopes[@]}" -gt 0 ]]; then
-    echo "❌ Commit scope does not match touched files." >&2
-    echo "" >&2
-    echo "Missing required scope(s):" >&2
-    for scope in "${missing_scopes[@]}"; do
-      echo "  - $scope" >&2
-    done
-    echo "" >&2
-    echo "Commit scopes found:" >&2
-    while IFS= read -r scope; do
-      [[ -n "$scope" ]] && echo "  - $scope" >&2
-    done <<< "$commit_scopes"
-    exit "$COMMIT_MSG_RC_SCOPE_MISMATCH"
-  fi
+	if [[ "${#missing_scopes[@]}" -gt 0 ]]; then
+		echo "❌ Commit scope does not match touched files." >&2
+		echo "" >&2
+		echo "Missing required scope(s):" >&2
+		for scope in "${missing_scopes[@]}"; do
+			echo "  - $scope" >&2
+		done
+		echo "" >&2
+		echo "Commit scopes found:" >&2
+		while IFS= read -r scope; do
+			[[ -n "$scope" ]] && echo "  - $scope" >&2
+		done <<<"$commit_scopes"
+		exit "$COMMIT_MSG_RC_SCOPE_MISMATCH"
+	fi
 fi
 
 exit 0
