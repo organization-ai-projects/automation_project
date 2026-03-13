@@ -389,3 +389,119 @@ fn concurrent_pipeline_chaos_contention_recovers_after_lock_storm() {
     assert!(snapshot.avg_write_spin_attempts() >= 0.0);
     assert!(!pipeline.is_within_lock_slo(0.1, 0.01));
 }
+
+#[test]
+fn concurrent_pipeline_compare_and_import_with_checksum_rejects_mismatch_for_all_payloads() {
+    let pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
+    let runtime_payload = pipeline
+        .export_runtime_bundle_json()
+        .expect("runtime payload export should succeed");
+    let governance_bundle_payload = pipeline
+        .export_governance_bundle_json()
+        .expect("governance bundle payload export should succeed");
+    let governance_state_payload = pipeline
+        .export_governance_state_json()
+        .expect("governance state payload export should succeed");
+    let version = pipeline
+        .governance_audit_trail()
+        .expect("governance trail read should succeed")
+        .current_version;
+
+    let runtime_err = pipeline
+        .compare_and_import_runtime_bundle_json_with_checksum(version, "deadbeef", &runtime_payload)
+        .expect_err("runtime CAS import should reject checksum mismatch");
+    assert!(
+        runtime_err
+            .to_string()
+            .contains("expected governance checksum")
+    );
+
+    let bundle_err = pipeline
+        .compare_and_import_governance_bundle_json_with_checksum(
+            version,
+            "deadbeef",
+            &governance_bundle_payload,
+        )
+        .expect_err("bundle CAS import should reject checksum mismatch");
+    assert!(
+        bundle_err
+            .to_string()
+            .contains("expected governance checksum")
+    );
+
+    let state_err = pipeline
+        .compare_and_import_governance_state_json_with_checksum(
+            version,
+            "deadbeef",
+            &governance_state_payload,
+        )
+        .expect_err("state CAS import should reject checksum mismatch");
+    assert!(
+        state_err
+            .to_string()
+            .contains("expected governance checksum")
+    );
+}
+
+#[test]
+fn concurrent_pipeline_compare_and_import_with_checksum_accepts_match_for_all_payloads() {
+    let runtime_pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
+    let runtime_payload = runtime_pipeline
+        .export_runtime_bundle_json()
+        .expect("runtime payload export should succeed");
+    let runtime_trail = runtime_pipeline
+        .governance_audit_trail()
+        .expect("runtime trail read should succeed");
+    let runtime_checksum = runtime_trail.current_checksum.clone().unwrap_or_else(|| {
+        runtime_pipeline
+            .with_read(|inner| inner.export_governance_state().state_checksum)
+            .expect("runtime checksum fallback read should succeed")
+    });
+    runtime_pipeline
+        .compare_and_import_runtime_bundle_json_with_checksum(
+            runtime_trail.current_version,
+            &runtime_checksum,
+            &runtime_payload,
+        )
+        .expect("runtime CAS import should accept checksum match");
+
+    let bundle_pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
+    let bundle_payload = bundle_pipeline
+        .export_governance_bundle_json()
+        .expect("bundle payload export should succeed");
+    let bundle_trail = bundle_pipeline
+        .governance_audit_trail()
+        .expect("bundle trail read should succeed");
+    let bundle_checksum = bundle_trail.current_checksum.clone().unwrap_or_else(|| {
+        bundle_pipeline
+            .with_read(|inner| inner.export_governance_state().state_checksum)
+            .expect("bundle checksum fallback read should succeed")
+    });
+    bundle_pipeline
+        .compare_and_import_governance_bundle_json_with_checksum(
+            bundle_trail.current_version,
+            &bundle_checksum,
+            &bundle_payload,
+        )
+        .expect("bundle CAS import should accept checksum match");
+
+    let state_pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
+    let state_payload = state_pipeline
+        .export_governance_state_json()
+        .expect("state payload export should succeed");
+    let state_trail = state_pipeline
+        .governance_audit_trail()
+        .expect("state trail read should succeed");
+    let state_checksum = state_trail.current_checksum.clone().unwrap_or_else(|| {
+        state_pipeline
+            .with_read(|inner| inner.export_governance_state().state_checksum)
+            .expect("state checksum fallback read should succeed")
+    });
+    state_pipeline
+        .compare_and_import_governance_state_json_with_checksum(
+            state_trail.current_version,
+            &state_checksum,
+            &state_payload,
+        )
+        .expect("state CAS import should accept checksum match");
+}
