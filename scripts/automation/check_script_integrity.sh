@@ -18,11 +18,10 @@ declare -a GITHUB_PUBLIC_ENTRYPOINTS=(
 )
 
 declare -a USER_FACING_ROWS=(
-  "start_work|scripts/versioning/file_versioning/orchestrators/execute/start_work.sh|Primary start-work flow"
-  "branching|scripts/versioning/file_versioning/git/create_branch.sh|Create branch from dev"
-  "branching|scripts/versioning/file_versioning/git/create_work_branch.sh|Create branch by type/description"
-  "commit_push|scripts/versioning/file_versioning/git/add_commit_push.sh|Validate message then commit+push"
-  "commit_push|scripts/versioning/file_versioning/git/push_branch.sh|Push current branch"
+  "branching|versioning_automation git create-branch ...|Create branch from dev"
+  "branching|versioning_automation git create-work-branch ...|Create branch by type/description"
+  "commit_push|versioning_automation git add-commit-push ...|Validate message then commit+push"
+  "commit_push|versioning_automation git push-branch ...|Push current branch"
   "pre_push|scripts/automation/pre_push_check.sh|Repository pre-push checks"
   "pr_creation|versioning_automation pr generate-description ...|Canonical PR create/refresh entrypoint (Rust CLI)"
   "issue_creation|versioning_automation issue create ...|Canonical direct issue creation entrypoint (Rust CLI)"
@@ -200,9 +199,6 @@ run_all_checks() {
 
   for script_path in \
     scripts/automation/*.sh \
-    scripts/versioning/file_versioning/git/*.sh \
-    scripts/versioning/file_versioning/orchestrators/execute/*.sh \
-    scripts/versioning/file_versioning/orchestrators/read/*.sh \
     scripts/versioning/file_versioning/github/*.sh; do
     [[ -f "$script_path" ]] || continue
     run_checks_for_script "$script_path" || failed=1
