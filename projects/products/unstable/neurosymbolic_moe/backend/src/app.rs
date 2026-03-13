@@ -7,7 +7,7 @@ use std::{
 
 use crate::aggregator::AggregationStrategy;
 use crate::apps::{
-    DynError, cmd_impl_check, run_concurrent_pipeline_checks_with_report,
+    DynError, SloThresholds, cmd_impl_check, run_concurrent_pipeline_checks_with_report,
     run_runtime_persistence_checks_with_report, run_training_and_cas_checks,
 };
 use crate::echo_expert::EchoExpert;
@@ -47,7 +47,7 @@ pub fn run() -> Result<(), DynError> {
         "status" => cmd_status(),
         "trace" => cmd_trace(&args[2..]),
         "impl-check" => cmd_impl_check(),
-        "slo-gate" => cmd_slo_gate(),
+        "slo-gate" => cmd_slo_gate(&args[2..]),
         "metrics" => cmd_metrics(),
         "serve-metrics" => cmd_serve_metrics(&args[2..]),
         other => {
@@ -230,35 +230,35 @@ fn print_usage() {
     tracing::info!("  status             Show platform component status");
     tracing::info!("  trace [path]       Inspect execution traces");
     tracing::info!("  impl-check         Execute full component wiring check");
-    tracing::info!("  slo-gate           Fail-fast SLO gate for CI");
+    tracing::info!("  slo-gate [flags]   Fail-fast SLO gate for CI");
     tracing::info!("  metrics            Print Prometheus-compatible metrics snapshot");
-    tracing::info!("  serve-metrics [addr]  Serve /metrics over HTTP (default 127.0.0.1:9464)");
+    tracing::info!(
+        "  serve-metrics [addr] [--once]  Serve /metrics and /healthz (default 127.0.0.1:9464)"
+    );
+    tracing::info!("SLO flags:");
+    tracing::info!("  --runtime-min-successes N");
+    tracing::info!("  --runtime-max-rejections N");
+    tracing::info!("  --runtime-max-parse-failures N");
+    tracing::info!("  --concurrent-max-contention-rate F");
+    tracing::info!("  --concurrent-max-timeout-rate F");
+    tracing::info!("  --concurrent-min-successes N");
+    tracing::info!("  --concurrent-max-rejections N");
+    tracing::info!("  --concurrent-max-parse-failures N");
 }
 
-fn cmd_slo_gate() -> Result<(), DynError> {
-    let (mut pipeline, runtime_report) = run_runtime_persistence_checks_with_report()?;
-    run_training_and_cas_checks(&mut pipeline)?;
-    let concurrent_report = run_concurrent_pipeline_checks_with_report()?;
-
-    let runtime_status = runtime_report.slo_status(1, 0, 0);
-    let concurrent_status = concurrent_report.slo_status(1.0, 0.2, 1, 0, 0);
+fn cmd_slo_gate(args: &[String]) -> Result<(), DynError> {
+    let thresholds = SloThresholds::parse_args(args)?;
+    let (runtime_status, runtime_violations, concurrent_status, concurrent_violations) =
+        collect_health_snapshot(&thresholds)?;
     if runtime_status != "OK" || concurrent_status != "OK" {
-        let mut messages = Vec::new();
-        if runtime_status != "OK" {
-            messages.push(format!(
-                "runtime SLO failed: {}",
-                runtime_report.slo_violations(1, 0, 0).join("; ")
-            ));
-        }
-        if concurrent_status != "OK" {
-            messages.push(format!(
-                "concurrent SLO failed: {}",
-                concurrent_report
-                    .slo_violations(1.0, 0.2, 1, 0, 0)
-                    .join("; ")
-            ));
-        }
-        return Err(std::io::Error::other(messages.join(" | ")).into());
+        return Err(std::io::Error::other(format!(
+            "SLO gate failed: runtime={} ({}) | concurrent={} ({})",
+            runtime_status,
+            runtime_violations.join("; "),
+            concurrent_status,
+            concurrent_violations.join("; ")
+        ))
+        .into());
     }
 
     tracing::info!("SLO gate passed: runtime=OK concurrent=OK");
@@ -272,12 +272,14 @@ fn cmd_metrics() -> Result<(), DynError> {
 }
 
 fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
-    let addr = args
-        .first()
-        .cloned()
-        .unwrap_or_else(|| "127.0.0.1:9464".to_string());
+    let (addr, once) = parse_serve_metrics_options(args)?;
     let listener = TcpListener::bind(&addr)?;
-    tracing::info!("Metrics endpoint listening on http://{addr}/metrics");
+    tracing::info!(
+        "Metrics endpoint listening on http://{}/metrics and /healthz",
+        addr
+    );
+    let thresholds = SloThresholds::default();
+    let mut served_requests = 0_u64;
     for stream in listener.incoming() {
         let mut stream = match stream {
             Ok(stream) => stream,
@@ -290,6 +292,7 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
         let read_len = stream.read(&mut request).unwrap_or_default();
         let request_line = String::from_utf8_lossy(&request[..read_len]);
         let is_metrics = request_line.starts_with("GET /metrics ");
+        let is_healthz = request_line.starts_with("GET /healthz ");
         let (status_line, body) = if is_metrics {
             match collect_prometheus_metrics() {
                 Ok(metrics) => ("HTTP/1.1 200 OK", metrics),
@@ -298,14 +301,47 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                     format!("metrics generation failed: {err}"),
                 ),
             }
+        } else if is_healthz {
+            match collect_health_snapshot(&thresholds) {
+                Ok((
+                    runtime_status,
+                    runtime_violations,
+                    concurrent_status,
+                    concurrent_violations,
+                )) => {
+                    let status_line = if runtime_status == "OK" && concurrent_status == "OK" {
+                        "HTTP/1.1 200 OK"
+                    } else {
+                        "HTTP/1.1 503 Service Unavailable"
+                    };
+                    match health_snapshot_json(
+                        &runtime_status,
+                        &runtime_violations,
+                        &concurrent_status,
+                        &concurrent_violations,
+                    ) {
+                        Ok(payload) => (status_line, payload),
+                        Err(err) => (
+                            "HTTP/1.1 500 Internal Server Error",
+                            format!("health serialization failed: {err}"),
+                        ),
+                    }
+                }
+                Err(err) => (
+                    "HTTP/1.1 500 Internal Server Error",
+                    format!("health generation failed: {err}"),
+                ),
+            }
         } else {
             (
                 "HTTP/1.1 404 Not Found",
-                "not found; use /metrics".to_string(),
+                "not found; use /metrics or /healthz".to_string(),
             )
         };
         let content_type = if is_metrics {
             "text/plain; version=0.0.4"
+        } else if is_healthz {
+            "application/json"
         } else {
             "text/plain"
         };
@@ -317,17 +353,91 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
         if let Err(err) = stream.write_all(response.as_bytes()) {
             tracing::error!("metrics response write failed: {err}");
         }
+        served_requests += 1;
+        if once && served_requests >= 1 {
+            break;
+        }
     }
     Ok(())
 }
 
 fn collect_prometheus_metrics() -> Result<String, DynError> {
+    let thresholds = SloThresholds::default();
+    let (runtime_status, _, concurrent_status, _) = collect_health_snapshot(&thresholds)?;
     let (mut pipeline, runtime_report) = run_runtime_persistence_checks_with_report()?;
     run_training_and_cas_checks(&mut pipeline)?;
     let concurrent_report = run_concurrent_pipeline_checks_with_report()?;
     Ok(format!(
-        "{}\n{}",
+        "{}\n{}\nmoe_runtime_slo_status {}\nmoe_concurrent_slo_status {}\n",
         runtime_report.to_prometheus_text("moe_runtime"),
-        concurrent_report.to_prometheus_text("moe_concurrent")
+        concurrent_report.to_prometheus_text("moe_concurrent"),
+        if runtime_status == "OK" { 1 } else { 0 },
+        if concurrent_status == "OK" { 1 } else { 0 },
     ))
+}
+
+pub(crate) fn parse_serve_metrics_options(args: &[String]) -> Result<(String, bool), DynError> {
+    let mut addr = "127.0.0.1:9464".to_string();
+    let mut once = false;
+    for arg in args {
+        if arg == "--once" {
+            once = true;
+        } else if arg.starts_with("--") {
+            return Err(std::io::Error::other(format!("unknown serve flag: {arg}")).into());
+        } else {
+            addr = arg.clone();
+        }
+    }
+    Ok((addr, once))
+}
+
+fn collect_health_snapshot(
+    thresholds: &SloThresholds,
+) -> Result<(String, Vec<String>, String, Vec<String>), DynError> {
+    let (mut pipeline, runtime_report) = run_runtime_persistence_checks_with_report()?;
+    run_training_and_cas_checks(&mut pipeline)?;
+    let concurrent_report = run_concurrent_pipeline_checks_with_report()?;
+
+    let runtime_violations = runtime_report.slo_violations(
+        thresholds.runtime_min_successes,
+        thresholds.runtime_max_rejections,
+        thresholds.runtime_max_parse_failures,
+    );
+    let concurrent_violations = concurrent_report.slo_violations(
+        thresholds.concurrent_max_contention_rate,
+        thresholds.concurrent_max_timeout_rate,
+        thresholds.concurrent_min_successes,
+        thresholds.concurrent_max_rejections,
+        thresholds.concurrent_max_parse_failures,
+    );
+
+    Ok((
+        if runtime_violations.is_empty() {
+            "OK".to_string()
+        } else {
+            "FAIL".to_string()
+        },
+        runtime_violations,
+        if concurrent_violations.is_empty() {
+            "OK".to_string()
+        } else {
+            "FAIL".to_string()
+        },
+        concurrent_violations,
+    ))
+}
+
+fn health_snapshot_json(
+    runtime_status: &str,
+    runtime_violations: &[String],
+    concurrent_status: &str,
+    concurrent_violations: &[String],
+) -> Result<String, DynError> {
+    let mut payload: std::collections::BTreeMap<&str, String> = std::collections::BTreeMap::new();
+    payload.insert("runtime_status", runtime_status.to_string());
+    payload.insert("runtime_violations", runtime_violations.join(" | "));
+    payload.insert("concurrent_status", concurrent_status.to_string());
+    payload.insert("concurrent_violations", concurrent_violations.join(" | "));
+    common_json::json::to_json_string_pretty(&payload)
+        .map_err(|err| std::io::Error::other(format!("health serialization failed: {err}")).into())
 }

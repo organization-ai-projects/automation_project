@@ -3,6 +3,7 @@ mod concurrency_checks;
 mod dyn_error;
 mod impl_check;
 mod runtime_checks;
+mod slo_thresholds;
 #[cfg(test)]
 mod tests;
 
@@ -15,3 +16,4 @@ pub(crate) use runtime_checks::{
     run_runtime_persistence_checks, run_runtime_persistence_checks_with_report,
     run_training_and_cas_checks,
 };
+pub(crate) use slo_thresholds::SloThresholds;

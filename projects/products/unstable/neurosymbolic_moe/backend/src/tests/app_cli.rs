@@ -1,0 +1,22 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/tests/app_cli.rs
+
+#[test]
+fn slo_thresholds_parse_args_overrides_defaults() {
+    let args = vec![
+        "--runtime-min-successes".to_string(),
+        "2".to_string(),
+        "--concurrent-max-timeout-rate".to_string(),
+        "0.05".to_string(),
+    ];
+    let parsed = crate::apps::SloThresholds::parse_args(&args).expect("args should parse");
+    assert_eq!(parsed.runtime_min_successes, 2);
+    assert!((parsed.concurrent_max_timeout_rate - 0.05).abs() < f64::EPSILON);
+}
+
+#[test]
+fn serve_metrics_options_parse_once_and_addr() {
+    let args = vec!["0.0.0.0:9090".to_string(), "--once".to_string()];
+    let parsed = crate::app::parse_serve_metrics_options(&args).expect("serve args should parse");
+    assert_eq!(parsed.0, "0.0.0.0:9090");
+    assert!(parsed.1);
+}
