@@ -5,8 +5,8 @@ use std::sync::{Arc, RwLock, TryLockError};
 use crate::memory_engine::MemoryEntry;
 use crate::moe_core::{AggregatedOutput, Expert, MoeError, Task};
 use crate::orchestrator::{
-    ConcurrentLockMetrics, GovernanceAuditTrail, GovernanceImportDecision, MoePipeline,
-    MoePipelineBuilder,
+    ConcurrentLockMetrics, GovernanceAuditTrail, GovernanceImportDecision, ImportTelemetry,
+    MoePipeline, MoePipelineBuilder,
 };
 
 const READ_LOCK_KIND: &str = "read";
@@ -300,6 +300,9 @@ impl ConcurrentMoePipeline {
 
     pub fn metrics(&self) -> BTreeMap<String, u64> {
         let snapshot = self.metrics_snapshot();
+        let import_telemetry = self
+            .import_telemetry_snapshot()
+            .unwrap_or_else(|_| ImportTelemetry::default());
         let mut map = BTreeMap::new();
         map.insert(
             "read_lock_acquisitions".to_string(),
@@ -341,7 +344,39 @@ impl ConcurrentMoePipeline {
             "write_lock_spin_attempts_avg_milli".to_string(),
             (snapshot.avg_write_spin_attempts() * 1000.0).round() as u64,
         );
+        map.insert(
+            "governance_state_import_successes".to_string(),
+            import_telemetry.governance_state_import_successes,
+        );
+        map.insert(
+            "governance_state_import_rejections".to_string(),
+            import_telemetry.governance_state_import_rejections,
+        );
+        map.insert(
+            "governance_bundle_import_successes".to_string(),
+            import_telemetry.governance_bundle_import_successes,
+        );
+        map.insert(
+            "governance_bundle_import_rejections".to_string(),
+            import_telemetry.governance_bundle_import_rejections,
+        );
+        map.insert(
+            "runtime_bundle_import_successes".to_string(),
+            import_telemetry.runtime_bundle_import_successes,
+        );
+        map.insert(
+            "runtime_bundle_import_rejections".to_string(),
+            import_telemetry.runtime_bundle_import_rejections,
+        );
+        map.insert(
+            "json_parse_failures".to_string(),
+            import_telemetry.json_parse_failures,
+        );
         map
+    }
+
+    pub fn import_telemetry_snapshot(&self) -> Result<ImportTelemetry, MoeError> {
+        self.with_read(|pipeline| pipeline.import_telemetry_snapshot())
     }
 
     pub fn metrics_snapshot(&self) -> ConcurrentLockMetrics {

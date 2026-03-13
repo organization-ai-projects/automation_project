@@ -4,7 +4,7 @@ use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
     ExpertOutput, ExpertStatus, ExpertType, Task, TaskType,
 };
-use crate::orchestrator::{ConcurrentMoePipeline, MoePipelineBuilder};
+use crate::orchestrator::{ConcurrentMoePipeline, GovernanceState, MoePipelineBuilder};
 use std::collections::HashMap;
 use std::sync::mpsc;
 use std::sync::{
@@ -504,4 +504,70 @@ fn concurrent_pipeline_compare_and_import_with_checksum_accepts_match_for_all_pa
             &state_payload,
         )
         .expect("state CAS import should accept checksum match");
+}
+
+#[test]
+fn concurrent_pipeline_exposes_import_telemetry_for_parse_failures_rejections_and_successes() {
+    let pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
+
+    let _ = pipeline.import_runtime_bundle_json("{invalid json");
+
+    let runtime_payload = pipeline
+        .export_runtime_bundle_json()
+        .expect("runtime export should succeed");
+
+    let governance_state_payload = pipeline
+        .export_governance_state_json()
+        .expect("governance state export should succeed");
+    let mut upgraded_state: GovernanceState =
+        common_json::json::from_json_str(&governance_state_payload)
+            .expect("governance state payload should deserialize");
+    upgraded_state.state_version += 1;
+    upgraded_state.state_checksum.clear();
+    let upgraded_state_payload = common_json::json::to_json_string_pretty(&upgraded_state)
+        .expect("upgraded governance state payload should serialize");
+    pipeline
+        .import_governance_state_json(&upgraded_state_payload)
+        .expect("governance state import should advance version");
+
+    pipeline
+        .import_runtime_bundle_json(&runtime_payload)
+        .expect_err("stale runtime payload should be rejected");
+
+    let refreshed_runtime_payload = pipeline
+        .export_runtime_bundle_json()
+        .expect("runtime export after governance upgrade should succeed");
+    pipeline
+        .import_runtime_bundle_json(&refreshed_runtime_payload)
+        .expect("runtime import should succeed");
+
+    let telemetry = pipeline
+        .import_telemetry_snapshot()
+        .expect("import telemetry should be readable");
+    assert!(telemetry.json_parse_failures >= 1);
+    assert!(telemetry.runtime_bundle_import_rejections >= 1);
+    assert!(telemetry.runtime_bundle_import_successes >= 1);
+
+    let metrics = pipeline.metrics();
+    assert!(
+        metrics
+            .get("json_parse_failures")
+            .copied()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(
+        metrics
+            .get("runtime_bundle_import_rejections")
+            .copied()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(
+        metrics
+            .get("runtime_bundle_import_successes")
+            .copied()
+            .unwrap_or_default()
+            >= 1
+    );
 }
