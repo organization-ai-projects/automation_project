@@ -23,6 +23,19 @@ push_policy_remote_checks_warn_only() {
 	return 1
 }
 
+push_policy_should_skip_remote_check() {
+	local message="$1"
+	if push_policy_remote_checks_warn_only; then
+		echo "⚠️  ${message} (warn-only mode enabled)."
+		return 0
+	fi
+	return 1
+}
+
+push_policy_should_bypass_part_of_only_push() {
+	[[ "${ALLOW_PART_OF_ONLY_PUSH:-}" == "1" ]]
+}
+
 push_policy_resolve_upstream_branch() {
 	local upstream
 	upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo "")"
@@ -143,8 +156,7 @@ push_policy_validate_no_root_parent_issue_refs() {
 	[[ -z "$refs" ]] && return 0
 
 	if ! command -v gh >/dev/null 2>&1; then
-		if push_policy_remote_checks_warn_only; then
-			echo "⚠️  Remote footer check skipped (gh unavailable; warn-only mode enabled)."
+		if push_policy_should_skip_remote_check "Remote footer check skipped (gh unavailable)"; then
 			return 0
 		fi
 		echo "❌ Cannot validate root parent issue references: 'gh' CLI is required."
@@ -155,8 +167,7 @@ push_policy_validate_no_root_parent_issue_refs() {
 	local repo_name
 	repo_name="$(resolve_repo_name_with_owner)"
 	if [[ -z "$repo_name" ]]; then
-		if push_policy_remote_checks_warn_only; then
-			echo "⚠️  Remote footer check skipped (repo unresolved; warn-only mode enabled)."
+		if push_policy_should_skip_remote_check "Remote footer check skipped (repo unresolved)"; then
 			return 0
 		fi
 		echo "❌ Cannot resolve GitHub repository for footer validation."
@@ -196,11 +207,10 @@ push_policy_validate_part_of_only_push() {
 	[[ -z "$refs_with_duplicates" ]] && return 0
 
 	if ! command -v gh >/dev/null 2>&1; then
-		if push_policy_remote_checks_warn_only; then
-			echo "⚠️  Assignment policy check skipped (gh unavailable; warn-only mode enabled)."
+		if push_policy_should_skip_remote_check "Assignment policy check skipped (gh unavailable)"; then
 			return 0
 		fi
-		if [[ "${ALLOW_PART_OF_ONLY_PUSH:-}" == "1" ]]; then
+		if push_policy_should_bypass_part_of_only_push; then
 			return 0
 		fi
 		echo "❌ Cannot validate Part-of assignment policy: 'gh' CLI is required."
@@ -211,11 +221,10 @@ push_policy_validate_part_of_only_push() {
 
 	repo_name="$(resolve_repo_name_with_owner)"
 	if [[ -z "$repo_name" ]]; then
-		if push_policy_remote_checks_warn_only; then
-			echo "⚠️  Assignment policy check skipped (repo unresolved; warn-only mode enabled)."
+		if push_policy_should_skip_remote_check "Assignment policy check skipped (repo unresolved)"; then
 			return 0
 		fi
-		if [[ "${ALLOW_PART_OF_ONLY_PUSH:-}" == "1" ]]; then
+		if push_policy_should_bypass_part_of_only_push; then
 			return 0
 		fi
 		echo "❌ Cannot resolve GitHub repository for Part-of assignment policy."
@@ -226,11 +235,10 @@ push_policy_validate_part_of_only_push() {
 
 	current_login="$(gh api user --jq '.login' 2>/dev/null || true)"
 	if [[ -z "$current_login" ]]; then
-		if push_policy_remote_checks_warn_only; then
-			echo "⚠️  Assignment policy check skipped (login unresolved; warn-only mode enabled)."
+		if push_policy_should_skip_remote_check "Assignment policy check skipped (login unresolved)"; then
 			return 0
 		fi
-		if [[ "${ALLOW_PART_OF_ONLY_PUSH:-}" == "1" ]]; then
+		if push_policy_should_bypass_part_of_only_push; then
 			return 0
 		fi
 		echo "❌ Cannot resolve current GitHub login for Part-of assignment policy."
@@ -362,12 +370,6 @@ push_policy_detect_crates_from_scopes() {
 					while IFS= read -r match; do
 						[[ -n "$match" ]] && matches+=("$match")
 					done < <(find projects/products -type f -path "*/${tier_or_product}/${product_or_component}/Cargo.toml")
-
-					if [[ ${#matches[@]} -eq 0 ]]; then
-						while IFS= read -r match; do
-							[[ -n "$match" ]] && matches+=("$match")
-						done < <(find projects/products -type f -path "*/${tier_or_product}/${product_or_component}/Cargo.toml")
-					fi
 
 					if [[ ${#matches[@]} -eq 1 ]]; then
 						cargo_toml="${matches[0]}"
