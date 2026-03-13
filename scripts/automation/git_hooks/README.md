@@ -21,8 +21,6 @@ git_hooks/
 ├── pre-commit          # Runs code formatting before commit
 ├── prepare-commit-msg  # Auto-generates commit subject from context
 ├── pre-push            # Runs quality checks before push
-├── lib/file_types.sh   # Shared file classifiers (docs/tests/shell/workflow/scripts)
-├── lib/scope_resolver.sh # Shared scope/crate detection used by hooks/guards
 ├── lib/policy.sh       # Shared predicates (docs-only/tests-only/docs+scripts/mixed/mono-scope)
 ├── lib/commit_message_policy.sh # Shared commit message generation policy helpers
 ├── lib/issue_footer_policy.sh # Shared footer normalization/validation for issue refs
@@ -42,8 +40,8 @@ git_hooks/
 - `pre-commit`: Runs formatting before commit.
 - `prepare-commit-msg`: Auto-generates commit subject from branch/staged files.
 - `pre-push`: Runs quality checks before push.
-- `lib/file_types.sh`: Shared file classifiers (docs/tests/shell/workflow/scripts paths and patterns).
-- `lib/scope_resolver.sh`: Shared path -> scope and files -> crates resolver used by `prepare-commit-msg`, `commit-msg`, `pre-push`, and staging guards.
+- `../../common_lib/automation/file_types.sh`: Canonical shared file classifiers (docs/tests/shell/workflow/scripts paths and patterns).
+- `../../common_lib/automation/scope_resolver.sh`: Canonical shared path -> scope and files -> crates resolver used by hooks and staging guards.
 - `lib/policy.sh`: Compatibility shim to shared predicates in `../../common_lib/automation/change_policy.sh` (`docs-only`, `tests-only`, mixed docs/code, multi-scope).
 - `lib/commit_message_policy.sh`: Shared commit message helpers (type mapping, description/scopes formatting, scope extraction).
 - `lib/issue_footer_policy.sh`: Shared issue footer normalization and parent-reference validation used by `commit-msg`.
