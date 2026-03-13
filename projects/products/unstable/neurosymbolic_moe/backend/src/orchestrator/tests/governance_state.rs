@@ -1,6 +1,18 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/tests/governance_state.rs
 use crate::moe_core::MoeError;
-use crate::orchestrator::{GovernanceState, MoePipelineBuilder};
+use crate::orchestrator::{GovernancePersistenceBundle, GovernanceState, MoePipelineBuilder};
+
+fn malformed_payload_variants(payload: &str) -> Vec<String> {
+    vec![
+        payload.replacen('{', "[", 1).replacen('}', "]", 1),
+        payload.replacen(':', ";", 1),
+        format!("{payload} trailing-garbage"),
+        payload
+            .strip_suffix('}')
+            .expect("json payload should end with object close")
+            .to_string(),
+    ]
+}
 
 #[test]
 fn ensure_checksum_populates_and_verifies() {
@@ -118,4 +130,80 @@ fn compare_and_import_governance_state_json_succeeds_on_matching_version() {
         .compare_and_import_governance_state_json(0, &payload)
         .expect("matching version should allow compare-and-import json");
     assert!(target.governance_audit_trail().current_version > 0);
+}
+
+#[test]
+fn import_governance_state_json_rejects_malformed_payload_variants() {
+    let source = MoePipelineBuilder::new().build();
+    let payload = source
+        .export_governance_state_json()
+        .expect("governance state json export should succeed");
+
+    for malformed_payload in malformed_payload_variants(&payload) {
+        let mut target = MoePipelineBuilder::new().build();
+        let err = target
+            .import_governance_state_json(&malformed_payload)
+            .expect_err("malformed governance state payload must be rejected");
+        assert!(
+            err.to_string().contains("deserialization failed")
+                || err.to_string().contains("payload too large")
+        );
+    }
+}
+
+#[test]
+fn import_governance_bundle_json_rejects_malformed_payload_variants() {
+    let source = MoePipelineBuilder::new().build();
+    let payload = source
+        .export_governance_bundle_json()
+        .expect("governance bundle json export should succeed");
+
+    for malformed_payload in malformed_payload_variants(&payload) {
+        let mut target = MoePipelineBuilder::new().build();
+        let err = target
+            .import_governance_bundle_json(&malformed_payload)
+            .expect_err("malformed governance bundle payload must be rejected");
+        assert!(
+            err.to_string().contains("deserialization failed")
+                || err.to_string().contains("payload too large")
+        );
+    }
+}
+
+#[test]
+fn governance_state_and_bundle_json_reject_checksum_corruption_matrix() {
+    let source = MoePipelineBuilder::new().build();
+
+    let mut corrupted_state = source.export_governance_state();
+    corrupted_state.state_checksum = "corrupted-state-checksum".to_string();
+    let corrupted_state_payload = common_json::json::to_json_string_pretty(&corrupted_state)
+        .expect("corrupted state payload serialization should succeed");
+
+    let mut target_state = MoePipelineBuilder::new().build();
+    let state_err = target_state
+        .import_governance_state_json(&corrupted_state_payload)
+        .expect_err("corrupted governance state checksum must be rejected");
+    assert!(
+        state_err
+            .to_string()
+            .contains("checksum verification failed")
+    );
+
+    let mut corrupted_bundle: GovernancePersistenceBundle = source.export_governance_bundle();
+    corrupted_bundle.state.state_checksum = "corrupted-bundle-checksum".to_string();
+    let corrupted_bundle_payload = common_json::json::to_json_string_pretty(&corrupted_bundle)
+        .expect("corrupted bundle payload serialization should succeed");
+
+    let mut target_bundle = MoePipelineBuilder::new().build();
+    let bundle_err = target_bundle
+        .import_governance_bundle_json(&corrupted_bundle_payload)
+        .expect_err("corrupted governance bundle checksum must be rejected");
+    assert!(
+        bundle_err
+            .to_string()
+            .contains("latest audit checksum does not match state checksum")
+            || bundle_err
+                .to_string()
+                .contains("checksum verification failed")
+    );
 }
