@@ -2243,14 +2243,10 @@ fn gh_output_or_empty(args: &[&str]) -> String {
 }
 
 fn gh_output(args: &[&str], silence_stderr: bool) -> Result<String, String> {
-    let mut cmd = gh_command(args);
-    let output = cmd.output().map_err(|err| err.to_string())?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else if silence_stderr {
-        Ok(String::new())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    match crate::gh_cli::output_trim(args) {
+        Ok(value) => Ok(value),
+        Err(_) if silence_stderr => Ok(String::new()),
+        Err(message) => Err(message),
     }
 }
 
