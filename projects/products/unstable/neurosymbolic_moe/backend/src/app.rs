@@ -2,6 +2,7 @@
 use std::path::PathBuf;
 use std::{
     fs,
+    fs::OpenOptions,
     io::{Read, Write},
     net::TcpListener,
 };
@@ -35,7 +36,16 @@ const STATUS_COMPONENT_LINES: [&str; 13] = [
 ];
 
 type HealthSnapshot = (String, Vec<String>, String, Vec<String>);
-type ServeMetricsOptions = (String, bool, u64, Vec<String>, Option<String>);
+type ServeMetricsOptions = (
+    String,
+    bool,
+    u64,
+    Vec<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    bool,
+);
 
 pub fn run() -> Result<(), DynError> {
     tracing_subscriber::fmt::init();
@@ -237,8 +247,9 @@ fn print_usage() {
     tracing::info!("  slo-gate [flags]   Fail-fast SLO gate for CI");
     tracing::info!("  metrics            Print Prometheus-compatible metrics snapshot");
     tracing::info!(
-        "  serve-metrics [addr] [--once] [--cache-ttl-requests N] [--slo-profile-path PATH]"
+        "  serve-metrics [addr] [--once] [--cache-ttl-requests N] [--slo-profile-path PATH] [--admin-token TOKEN]"
     );
+    tracing::info!("                   [--slo-audit-path PATH] [--disable-auto-rollback]");
     tracing::info!(
         "                   Serves /metrics, /healthz, /readyz, /livez, /admin/slo-profile"
     );
@@ -283,8 +294,16 @@ fn cmd_metrics() -> Result<(), DynError> {
 }
 
 fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
-    let (addr, once, cache_ttl_requests, threshold_args, slo_profile_path) =
-        parse_serve_metrics_options(args)?;
+    let (
+        addr,
+        once,
+        cache_ttl_requests,
+        threshold_args,
+        slo_profile_path,
+        admin_token,
+        slo_audit_path,
+        disable_auto_rollback,
+    ) = parse_serve_metrics_options(args)?;
     let listener = TcpListener::bind(&addr)?;
     tracing::info!(
         "Metrics endpoint listening on http://{}/metrics and /healthz",
@@ -386,21 +405,61 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
         } else if is_livez {
             ("HTTP/1.1 200 OK", "alive".to_string())
         } else if is_admin_slo {
-            match parse_admin_profile_from_request_line(&request_line) {
+            if !is_authorized_admin_request(&request_line, admin_token.as_deref()) {
+                (
+                    "HTTP/1.1 401 Unauthorized",
+                    "missing or invalid X-Admin-Token".to_string(),
+                )
+            } else {
+                match parse_admin_profile_from_request_line(&request_line) {
                 Some(profile) => {
+                    let previous_profile = thresholds.profile_name().to_string();
                     match SloThresholds::parse_args(&["--profile".to_string(), profile.to_string()])
                     {
                         Ok(updated) => {
+                            let switch_allowed = if disable_auto_rollback {
+                                true
+                            } else {
+                                profile_switch_guard_passes(&updated)?
+                            };
+                            if !switch_allowed {
+                                if let Some(path) = slo_audit_path.as_deref() {
+                                    append_slo_audit_line(
+                                        path,
+                                        &previous_profile,
+                                        profile,
+                                        "rejected",
+                                        "candidate profile failed readiness gate",
+                                    )?;
+                                }
+                                (
+                                    "HTTP/1.1 409 Conflict",
+                                    format!(
+                                        "profile switch blocked by auto-rollback guard: {} -> {}",
+                                        previous_profile, profile
+                                    ),
+                                )
+                            } else {
                             thresholds = updated;
                             cached_metrics = None;
                             cached_health = None;
                             if let Some(path) = slo_profile_path.as_deref() {
                                 persist_profile(path, thresholds.profile_name())?;
                             }
+                            if let Some(path) = slo_audit_path.as_deref() {
+                                append_slo_audit_line(
+                                    path,
+                                    &previous_profile,
+                                    thresholds.profile_name(),
+                                    "applied",
+                                    "profile switch accepted",
+                                )?;
+                            }
                             (
                                 "HTTP/1.1 200 OK",
                                 format!("active profile set to {}", thresholds.profile_name()),
                             )
+                            }
                         }
                         Err(err) => (
                             "HTTP/1.1 400 Bad Request",
@@ -413,6 +472,7 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                     "missing profile query param (expected ?profile=strict|balanced|exploratory)"
                         .to_string(),
                 ),
+            }
             }
         } else {
             (
@@ -466,6 +526,9 @@ pub(crate) fn parse_serve_metrics_options(
     let mut once = false;
     let mut cache_ttl_requests = 1_u64;
     let mut slo_profile_path: Option<String> = None;
+    let mut admin_token: Option<String> = None;
+    let mut slo_audit_path: Option<String> = None;
+    let mut disable_auto_rollback = false;
     let mut threshold_args = Vec::new();
     let mut idx = 0_usize;
     while idx < args.len() {
@@ -486,6 +549,21 @@ pub(crate) fn parse_serve_metrics_options(
                 .ok_or_else(|| std::io::Error::other("missing value for --slo-profile-path"))?;
             slo_profile_path = Some(raw.to_string());
             idx += 2;
+        } else if arg == "--admin-token" {
+            let raw = args
+                .get(idx + 1)
+                .ok_or_else(|| std::io::Error::other("missing value for --admin-token"))?;
+            admin_token = Some(raw.to_string());
+            idx += 2;
+        } else if arg == "--slo-audit-path" {
+            let raw = args
+                .get(idx + 1)
+                .ok_or_else(|| std::io::Error::other("missing value for --slo-audit-path"))?;
+            slo_audit_path = Some(raw.to_string());
+            idx += 2;
+        } else if arg == "--disable-auto-rollback" {
+            disable_auto_rollback = true;
+            idx += 1;
         } else if arg.starts_with("--") {
             threshold_args.push(arg.to_string());
             let value = args
@@ -508,6 +586,9 @@ pub(crate) fn parse_serve_metrics_options(
         cache_ttl_requests,
         threshold_args,
         slo_profile_path,
+        admin_token,
+        slo_audit_path,
+        disable_auto_rollback,
     ))
 }
 
@@ -605,6 +686,41 @@ pub(crate) fn parse_admin_profile_from_request_line(request_line: &str) -> Optio
         }
     }
     None
+}
+
+pub(crate) fn is_authorized_admin_request(request_text: &str, admin_token: Option<&str>) -> bool {
+    let token = match admin_token {
+        Some(value) => value,
+        None => return true,
+    };
+    request_text.lines().any(|line| {
+        if let Some((header, value)) = line.split_once(':') {
+            header.eq_ignore_ascii_case("X-Admin-Token") && value.trim() == token
+        } else {
+            false
+        }
+    })
+}
+
+fn profile_switch_guard_passes(thresholds: &SloThresholds) -> Result<bool, DynError> {
+    let (runtime_status, _, concurrent_status, _) = collect_health_snapshot(thresholds)?;
+    Ok(runtime_status == "OK" && concurrent_status == "OK")
+}
+
+fn append_slo_audit_line(
+    path: &str,
+    from_profile: &str,
+    to_profile: &str,
+    result: &str,
+    reason: &str,
+) -> Result<(), DynError> {
+    let sanitized_reason = reason.replace('\n', " ");
+    let line = format!(
+        "from={from_profile}\tto={to_profile}\tresult={result}\treason={sanitized_reason}\n"
+    );
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+    file.write_all(line.as_bytes())?;
+    Ok(())
 }
 
 fn load_persisted_profile(path: &str) -> Result<Option<String>, DynError> {

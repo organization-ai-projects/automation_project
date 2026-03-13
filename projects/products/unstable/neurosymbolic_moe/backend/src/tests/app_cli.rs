@@ -27,6 +27,9 @@ fn serve_metrics_options_parse_once_and_addr() {
     assert_eq!(parsed.2, 25);
     assert!(parsed.3.is_empty());
     assert!(parsed.4.is_none());
+    assert!(parsed.5.is_none());
+    assert!(parsed.6.is_none());
+    assert!(!parsed.7);
 }
 
 #[test]
@@ -54,6 +57,24 @@ fn serve_metrics_options_parse_profile_path() {
     ];
     let parsed = crate::app::parse_serve_metrics_options(&args).expect("serve args should parse");
     assert_eq!(parsed.4.as_deref(), Some("/tmp/neuro_slo_profile.txt"));
+    assert!(parsed.5.is_none());
+    assert!(parsed.6.is_none());
+    assert!(!parsed.7);
+}
+
+#[test]
+fn serve_metrics_options_parse_admin_and_audit_flags() {
+    let args = vec![
+        "--admin-token".to_string(),
+        "secret-token".to_string(),
+        "--slo-audit-path".to_string(),
+        "/tmp/slo_audit.log".to_string(),
+        "--disable-auto-rollback".to_string(),
+    ];
+    let parsed = crate::app::parse_serve_metrics_options(&args).expect("serve args should parse");
+    assert_eq!(parsed.5.as_deref(), Some("secret-token"));
+    assert_eq!(parsed.6.as_deref(), Some("/tmp/slo_audit.log"));
+    assert!(parsed.7);
 }
 
 #[test]
@@ -61,4 +82,14 @@ fn admin_profile_query_parser_extracts_profile() {
     let line = "POST /admin/slo-profile?profile=strict HTTP/1.1\r\nHost: x\r\n";
     let parsed = crate::app::parse_admin_profile_from_request_line(line);
     assert_eq!(parsed, Some("strict"));
+}
+
+#[test]
+fn admin_token_authorization_parses_header_case_insensitive() {
+    let line =
+        "POST /admin/slo-profile?profile=strict HTTP/1.1\r\nx-admin-token: token-123\r\n\r\n";
+    let ok = crate::app::is_authorized_admin_request(line, Some("token-123"));
+    let denied = crate::app::is_authorized_admin_request(line, Some("wrong"));
+    assert!(ok);
+    assert!(!denied);
 }
