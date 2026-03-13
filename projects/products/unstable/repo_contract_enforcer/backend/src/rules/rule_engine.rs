@@ -72,4 +72,12 @@ impl RuleEngine {
 
         out
     }
+
+    pub fn evaluate_tool(
+        tool_dir: &std::path::Path,
+        scope: crate::config::path_classification::PathClassification,
+        mode: crate::config::enforcement_mode::EnforcementMode,
+    ) -> Vec<crate::reports::violation::Violation> {
+        crate::rules::tool_rules::ToolRules::evaluate(tool_dir, scope, mode)
+    }
 }

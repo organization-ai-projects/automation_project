@@ -6,6 +6,7 @@ use std::path::Path;
 pub enum PathClassification {
     Stable,
     Unstable,
+    Tool,
     Other,
 }
 
@@ -16,6 +17,15 @@ impl PathClassification {
             Self::Stable
         } else if txt.contains("projects/products/unstable/") {
             Self::Unstable
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn from_tool_path(path: &Path) -> Self {
+        let txt = path.to_string_lossy();
+        if txt.contains("/tools/") || txt.starts_with("tools/") || txt == "tools" {
+            Self::Tool
         } else {
             Self::Other
         }
