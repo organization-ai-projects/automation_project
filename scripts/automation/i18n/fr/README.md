@@ -38,7 +38,6 @@ automation/
 ├── clean_artifacts.sh              # Nettoie les artefacts de build
 ├── git_add_guard.sh                # Ajout securise avec regles de split
 ├── pre_add_review.sh               # Pre-check interne avant review
-├── pre_push_check.sh               # Validation avant push (checks/tests/conflicts)
 ├── release_prepare.sh              # Preparation release (version/changelog/tag)
 └── test_coverage.sh                # Generation des rapports de couverture
 ```
@@ -58,9 +57,10 @@ automation/
 - `clean_artifacts.sh`: Nettoyage des artefacts.
 - `git_add_guard.sh`: Ajout securise avec regles de split.
 - `pre_add_review.sh`: Verification avant review interne.
-- `pre_push_check.sh`: Validation pre-push.
 - `release_prepare.sh`: Preparation release.
 - `test_coverage.sh`: Rapport de couverture.
+
+Hook pre-push canonique: `scripts/automation/git_hooks/pre-push`.
 
 ## Ajouter un script d'automatisation
 

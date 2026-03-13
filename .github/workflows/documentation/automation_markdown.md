@@ -123,7 +123,7 @@ pnpm dlx markdownlint-cli2 --fix "**/*.md"
 
 ## Pre-Push Integration
 
-Markdown linting is integrated directly into the Git pre-push hook at `scripts/automation/git_hooks/pre-push` (not via `scripts/automation/pre_push_check.sh`).
+Markdown linting is integrated directly into the Git pre-push hook at `scripts/automation/git_hooks/pre-push`.
 
 Behavior:
 

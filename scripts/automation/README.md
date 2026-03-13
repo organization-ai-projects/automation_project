@@ -37,7 +37,6 @@ automation/
 ├── git_add_command_override.sh     # Shell override for git add -> staging guard
 ├── git_add_guard.sh                # Guarded staging with split-policy checks
 ├── pre_add_review.sh               # Pre-add internal review (format, clippy, tests)
-├── pre_push_check.sh               # Pre-push validation (checks, tests, conflicts)
 ├── release_prepare.sh              # Prepare releases with version/changelog/tag
 ├── check_script_integrity.sh       # Validate script sourcing/root-path integrity
 ├── tests/
@@ -57,7 +56,8 @@ High-level groups:
 
 - `git_hooks/`: Git hooks for commit validation and pre-push checks.
 - quality/security/build scripts: `audit_*.sh`, `build_*.sh`, `check_*.sh`, `test_coverage.sh`.
-- git safety helpers: `git_add_guard.sh`, `git_add_command_override.sh`, `pre_push_check.sh`, `pre_add_review.sh`.
+- git safety helpers: `git_add_guard.sh`, `git_add_command_override.sh`, `pre_add_review.sh`.
+- canonical pre-push hook: `scripts/automation/git_hooks/pre-push`.
 - regression/integrity guards: `check_script_integrity.sh`, `tests/*.sh`, `SCRIPT_WORKFLOWS.md`.
 
 ## Optional shell override for `git add`

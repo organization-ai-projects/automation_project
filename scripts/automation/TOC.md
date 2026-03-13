@@ -27,7 +27,6 @@ This document provides an overview of all documentation files in this directory.
 - [git_add_command_override.sh](git_add_command_override.sh): Shell override for git add
 - [git_add_guard.sh](git_add_guard.sh): Guarded staging with split-policy checks
 - [pre_add_review.sh](pre_add_review.sh): Pre-add internal review (format, clippy, tests)
-- [pre_push_check.sh](pre_push_check.sh): Pre-push validation (checks, tests, conflicts)
 - [release_prepare.sh](release_prepare.sh): Prepare releases with version/changelog/tag
 - [SCRIPT_WORKFLOWS.md](SCRIPT_WORKFLOWS.md): Canonical workflow inventory and supported script paths
 - [test_coverage.sh](test_coverage.sh): Generate test coverage reports

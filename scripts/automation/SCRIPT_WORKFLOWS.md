@@ -16,7 +16,7 @@ branching | `versioning_automation git create-branch ...` | Create validated bra
 branching | `versioning_automation git create-work-branch ...` | Create convention-based work branch
 commit_push | `versioning_automation git add-commit-push ...` | Add, commit, push with validation
 commit_push | `versioning_automation git push-branch ...` | Push current branch with policy checks
-pre_push | `scripts/automation/pre_push_check.sh` | Pre-push quality gate
+pre_push | `scripts/automation/git_hooks/pre-push` | Pre-push quality gate
 pr_creation | `versioning_automation pr generate-description ...` | Canonical PR create/refresh entrypoint (Rust CLI)
 issue_creation | `versioning_automation issue create ...` | Canonical direct issue creation entrypoint (Rust CLI)
 issue_lifecycle | `versioning_automation issue <read/update/close/reopen/delete> ...` | Canonical issue lifecycle entrypoint (Rust CLI)

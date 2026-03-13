@@ -27,7 +27,6 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 - [git_add_command_override.sh](../../git_add_command_override.sh) : override shell optionnel pour git add
 - [git_add_guard.sh](../../git_add_guard.sh) : ajout securise avec regles de split
 - [pre_add_review.sh](../../pre_add_review.sh) : revue interne pre-add (format, clippy, tests)
-- [pre_push_check.sh](../../pre_push_check.sh) : validation pre-push (checks, tests, conflits)
 - [release_prepare.sh](../../release_prepare.sh) : preparation release (version/changelog/tag)
 - [SCRIPT_WORKFLOWS.md](../../SCRIPT_WORKFLOWS.md) : inventaire canonique des workflows et entrypoints
 - [test_coverage.sh](../../test_coverage.sh) : generation rapports de couverture de tests
