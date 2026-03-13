@@ -12,7 +12,38 @@ set -euo pipefail
 #   scripts/automation/audit_issue_status.sh [--repo OWNER/REPO] [--base origin/main] [--head origin/dev] [--limit 200] [--output /tmp/issue_audit.md]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/../versioning/file_versioning/github/lib/issue_refs.sh"
+
+extract_issue_refs_from_text() {
+  local text="$1"
+  echo "$text" | awk '
+    {
+      line = $0
+      lower = tolower($0)
+      while (match(lower, /(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to|reopen|reopens)[[:space:]]+#[0-9]+/)) {
+        matched = substr(line, RSTART, RLENGTH)
+        keyword = tolower(matched)
+        gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
+        issue = matched
+        sub(/^.*#/, "", issue)
+        print keyword "|#" issue
+        line = substr(line, RSTART + RLENGTH)
+        lower = substr(lower, RSTART + RLENGTH)
+      }
+    }
+  ' | sort -u
+}
+
+parse_closing_issue_refs_from_text() {
+  local text="$1"
+  extract_issue_refs_from_text "$text" |
+    awk -F'|' '$1 ~ /^(closes|fixes|resolves)$/{print}'
+}
+
+parse_non_closing_issue_refs_from_text() {
+  local text="$1"
+  extract_issue_refs_from_text "$text" |
+    awk -F'|' '$1 ~ /^(part of|related to|reopen|reopens)$/{print}'
+}
 
 REPO=""
 BASE_REF="origin/main"
@@ -22,28 +53,28 @@ OUTPUT_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --repo)
-      REPO="${2:-}"
-      shift 2
-      ;;
-    --base)
-      BASE_REF="${2:-}"
-      shift 2
-      ;;
-    --head)
-      HEAD_REF="${2:-}"
-      shift 2
-      ;;
-    --limit)
-      LIMIT="${2:-}"
-      shift 2
-      ;;
-    --output)
-      OUTPUT_FILE="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      cat <<'EOF'
+  --repo)
+    REPO="${2:-}"
+    shift 2
+    ;;
+  --base)
+    BASE_REF="${2:-}"
+    shift 2
+    ;;
+  --head)
+    HEAD_REF="${2:-}"
+    shift 2
+    ;;
+  --limit)
+    LIMIT="${2:-}"
+    shift 2
+    ;;
+  --output)
+    OUTPUT_FILE="${2:-}"
+    shift 2
+    ;;
+  -h | --help)
+    cat <<'EOF'
 Usage: scripts/automation/audit_issue_status.sh [options]
 
 Options:
@@ -53,12 +84,12 @@ Options:
   --limit N           Max open issues to fetch (default: 200)
   --output FILE       Write markdown report to file (default: stdout only)
 EOF
-      exit 0
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      exit 2
-      ;;
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1" >&2
+    exit 2
+    ;;
   esac
 done
 
@@ -97,22 +128,22 @@ messages_file="$tmpdir/commit_messages.txt"
 closing_refs="$tmpdir/closing_refs.txt"
 part_refs="$tmpdir/part_refs.txt"
 
-gh issue list -R "$REPO" --state open --limit "$LIMIT" --json number,title,url,body,state,labels > "$open_json"
+gh issue list -R "$REPO" --state open --limit "$LIMIT" --json number,title,url,body,state,labels >"$open_json"
 
-git log "$RANGE" --format=%B > "$messages_file"
+git log "$RANGE" --format=%B >"$messages_file"
 
 closing_lines="$(parse_closing_issue_refs_from_text "$(cat "$messages_file")" || true)"
 if [[ -n "$closing_lines" ]]; then
-  echo "$closing_lines" | awk -F'|' '{ gsub(/^#/, "", $2); print $2 }' | sort -u > "$closing_refs"
+  echo "$closing_lines" | awk -F'|' '{ gsub(/^#/, "", $2); print $2 }' | sort -u >"$closing_refs"
 else
-  : > "$closing_refs"
+  : >"$closing_refs"
 fi
 
 part_lines="$(parse_non_closing_issue_refs_from_text "$(cat "$messages_file")" || true)"
 if [[ -n "$part_lines" ]]; then
-  echo "$part_lines" | awk -F'|' '{ gsub(/^#/, "", $2); print $2 }' | sort -u > "$part_refs"
+  echo "$part_lines" | awk -F'|' '{ gsub(/^#/, "", $2); print $2 }' | sort -u >"$part_refs"
 else
-  : > "$part_refs"
+  : >"$part_refs"
 fi
 
 report="$tmpdir/report.md"
@@ -122,7 +153,7 @@ report="$tmpdir/report.md"
   echo "- Repository: \`$REPO\`"
   echo "- Range: \`$RANGE\`"
   echo
-} > "$report"
+} >"$report"
 
 total_open="$(jq 'length' "$open_json")"
 
@@ -135,10 +166,10 @@ would_close_items="$tmpdir/would_close.md"
 part_only_items="$tmpdir/part_only.md"
 unreferenced_items="$tmpdir/unreferenced.md"
 done_in_dev_items="$tmpdir/done_in_dev.md"
-: > "$would_close_items"
-: > "$part_only_items"
-: > "$unreferenced_items"
-: > "$done_in_dev_items"
+: >"$would_close_items"
+: >"$part_only_items"
+: >"$unreferenced_items"
+: >"$done_in_dev_items"
 
 jq -c '.[]' "$open_json" | while IFS= read -r row; do
   num="$(echo "$row" | jq -r '.number')"
@@ -155,27 +186,27 @@ jq -c '.[]' "$open_json" | while IFS= read -r row; do
 
   if [[ "$labels_csv" == *"done-in-dev"* ]]; then
     done_in_dev=$((done_in_dev + 1))
-    printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >> "$done_in_dev_items"
+    printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >>"$done_in_dev_items"
   elif grep -Fxq "$num" "$closing_refs"; then
     would_close=$((would_close + 1))
-    printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >> "$would_close_items"
+    printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >>"$would_close_items"
   elif grep -Fxq "$num" "$part_refs"; then
     part_only=$((part_only + 1))
-    printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >> "$part_only_items"
+    printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >>"$part_only_items"
   else
     unreferenced=$((unreferenced + 1))
-    printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >> "$unreferenced_items"
+    printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >>"$unreferenced_items"
   fi
 done
 
 # shellcheck disable=SC2034
-would_close="$(wc -l < "$would_close_items" | tr -d ' ')"
+would_close="$(wc -l <"$would_close_items" | tr -d ' ')"
 # shellcheck disable=SC2034
-part_only="$(wc -l < "$part_only_items" | tr -d ' ')"
+part_only="$(wc -l <"$part_only_items" | tr -d ' ')"
 # shellcheck disable=SC2034
-unreferenced="$(wc -l < "$unreferenced_items" | tr -d ' ')"
+unreferenced="$(wc -l <"$unreferenced_items" | tr -d ' ')"
 # shellcheck disable=SC2034
-done_in_dev="$(wc -l < "$done_in_dev_items" | tr -d ' ')"
+done_in_dev="$(wc -l <"$done_in_dev_items" | tr -d ' ')"
 
 {
   echo "## Summary"
@@ -217,7 +248,7 @@ done_in_dev="$(wc -l < "$done_in_dev_items" | tr -d ' ')"
   else
     echo "- None"
   fi
-} >> "$report"
+} >>"$report"
 
 if [[ -n "$OUTPUT_FILE" ]]; then
   cp "$report" "$OUTPUT_FILE"

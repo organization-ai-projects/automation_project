@@ -13,10 +13,6 @@ fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# Single source of truth for GitHub automation public entrypoints.
-declare -a GITHUB_PUBLIC_ENTRYPOINTS=(
-)
-
 declare -a USER_FACING_ROWS=(
   "branching|versioning_automation git create-branch ...|Create branch from dev"
   "branching|versioning_automation git create-work-branch ...|Create branch by type/description"
@@ -97,82 +93,6 @@ check_required_helper_imports() {
   return 0
 }
 
-array_contains() {
-  local needle="$1"
-  shift
-  local item
-  for item in "$@"; do
-    [[ "$item" == "$needle" ]] && return 0
-  done
-  return 1
-}
-
-is_github_public_entrypoint() {
-  local script_path="$1"
-  array_contains "$script_path" "${GITHUB_PUBLIC_ENTRYPOINTS[@]}"
-}
-
-is_github_test_script() {
-  local script_path="$1"
-  [[ "$script_path" == scripts/versioning/file_versioning/github/tests/* ]]
-}
-
-check_internal_script_not_direct_entrypoint() {
-  local script_path="$1"
-  [[ "$script_path" == scripts/versioning/file_versioning/github/* ]] || return 0
-
-  if is_github_test_script "$script_path" || is_github_public_entrypoint "$script_path"; then
-    return 0
-  fi
-
-  if rg -n '^[[:space:]]*[[:alnum:]_]+_(main|run)[[:space:]]+"\$@"[[:space:]]*$' "$script_path" >/dev/null; then
-    echo "ERROR [$script_path] Internal script must not expose a direct *_main/*_run \"\$@\" entrypoint call." >&2
-    return 1
-  fi
-
-  return 0
-}
-
-check_internal_script_not_executable() {
-  local script_path="$1"
-  [[ "$script_path" == scripts/versioning/file_versioning/github/* ]] || return 0
-
-  if is_github_test_script "$script_path" || is_github_public_entrypoint "$script_path"; then
-    return 0
-  fi
-
-  if [[ -x "$script_path" ]]; then
-    echo "ERROR [$script_path] Internal script must not be executable; keep execution through public entrypoint scripts." >&2
-    return 1
-  fi
-
-  return 0
-}
-
-check_github_public_entrypoints_contract() {
-  local failed=0
-  local entrypoint
-  local discovered
-
-  for entrypoint in "${GITHUB_PUBLIC_ENTRYPOINTS[@]}"; do
-    if [[ ! -f "$entrypoint" ]]; then
-      echo "ERROR [entrypoints] Declared GitHub public entrypoint is missing: $entrypoint" >&2
-      failed=1
-    fi
-  done
-
-  while IFS= read -r discovered; do
-    [[ -z "$discovered" ]] && continue
-    if ! array_contains "$discovered" "${GITHUB_PUBLIC_ENTRYPOINTS[@]}"; then
-      echo "ERROR [entrypoints] Undeclared GitHub run entrypoint detected: $discovered" >&2
-      echo "       Add it to GITHUB_PUBLIC_ENTRYPOINTS or convert it to an internal module script." >&2
-      failed=1
-    fi
-  done < <(find scripts/versioning/file_versioning/github -type f -name 'run.sh' | sort)
-
-  return "$failed"
-}
-
 run_checks_for_script() {
   local script_path="$1"
   local failed=0
@@ -185,8 +105,6 @@ run_checks_for_script() {
   check_root_resolution "$script_path" || failed=1
   check_root_source_paths_exist "$script_path" || failed=1
   check_required_helper_imports "$script_path" || failed=1
-  check_internal_script_not_direct_entrypoint "$script_path" || failed=1
-  check_internal_script_not_executable "$script_path" || failed=1
 
   return "$failed"
 }
@@ -195,18 +113,10 @@ run_all_checks() {
   local failed=0
   local script_path
 
-  check_github_public_entrypoints_contract || failed=1
-
-  for script_path in \
-    scripts/automation/*.sh \
-    scripts/versioning/file_versioning/github/*.sh; do
+  for script_path in scripts/automation/*.sh; do
     [[ -f "$script_path" ]] || continue
     run_checks_for_script "$script_path" || failed=1
   done
-
-  while IFS= read -r script_path; do
-    run_checks_for_script "$script_path" || failed=1
-  done < <(find scripts/versioning/file_versioning/github -mindepth 2 -type f -name '*.sh' | sort)
 
   return "$failed"
 }
