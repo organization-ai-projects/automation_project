@@ -99,6 +99,8 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
         &runtime_bundle,
         &runtime_bundle_json,
     )?;
+    assert_import_telemetry_activity(&restore_pipeline)?;
+    let import_telemetry = restore_pipeline.import_telemetry_snapshot();
 
     let trail = restore_pipeline.governance_audit_trail();
     let snapshots = restore_pipeline.governance_state_snapshots().len();
@@ -106,7 +108,7 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
         restore_pipeline.rollback_governance_state_to_version(last.version)?;
     }
     tracing::info!(
-        "Runtime persistence wiring: outputs={} baseline={} report={} human_approved={} state_valid={} state_allowed={} bundle_allowed={} runtime_allowed={} drift={} trail={} snapshots={}",
+        "Runtime persistence wiring: outputs={} baseline={} report={} human_approved={} state_valid={} state_allowed={} bundle_allowed={} runtime_allowed={} drift={} trail={} snapshots={} import_state_ok={} import_bundle_ok={} import_runtime_ok={} import_json_parse_failures={}",
         runtime_execution.outputs.len(),
         has_baseline,
         has_report,
@@ -117,10 +119,28 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
         runtime_preview.allowed,
         state_diff.has_drift,
         trail.entries.len(),
-        snapshots
+        snapshots,
+        import_telemetry.governance_state_import_successes,
+        import_telemetry.governance_bundle_import_successes,
+        import_telemetry.runtime_bundle_import_successes,
+        import_telemetry.json_parse_failures
     );
 
     Ok(restore_pipeline)
+}
+
+fn assert_import_telemetry_activity(pipeline: &MoePipeline) -> Result<(), DynError> {
+    let telemetry = pipeline.import_telemetry_snapshot();
+    if telemetry.governance_state_import_successes == 0
+        || telemetry.governance_bundle_import_successes == 0
+        || telemetry.runtime_bundle_import_successes == 0
+    {
+        return Err(std::io::Error::other(
+            "runtime checks expected non-zero import telemetry successes after restore roundtrip",
+        )
+        .into());
+    }
+    Ok(())
 }
 
 pub(crate) fn run_training_and_cas_checks(
