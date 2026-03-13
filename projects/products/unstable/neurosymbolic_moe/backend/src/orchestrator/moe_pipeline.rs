@@ -13,7 +13,7 @@ use crate::moe_core::{Expert, MoeError};
 use crate::orchestrator::ContinuousImprovementReport;
 use crate::orchestrator::{
     ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceImportPolicy,
-    GovernanceState, GovernanceStateSnapshot,
+    GovernanceState, GovernanceStateSnapshot, ImportTelemetry,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::retrieval_engine::{ContextAssembler, Retriever};
@@ -58,6 +58,7 @@ pub struct MoePipeline {
     pub(super) max_governance_audit_entries: usize,
     pub(super) governance_state_snapshots: Vec<GovernanceStateSnapshot>,
     pub(super) max_governance_state_snapshots: usize,
+    pub(super) import_telemetry: ImportTelemetry,
     pub(super) feedback_store: FeedbackStore,
     pub(super) dataset_store: DatasetStore,
     pub(super) trace_converter: TraceConverter,
@@ -109,6 +110,10 @@ impl MoePipeline {
 
     pub fn dataset_store(&self) -> &DatasetStore {
         &self.dataset_store
+    }
+
+    pub fn import_telemetry_snapshot(&self) -> ImportTelemetry {
+        self.import_telemetry.clone()
     }
 
     pub fn export_training_dataset_bundle(

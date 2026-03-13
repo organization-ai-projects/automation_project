@@ -5,6 +5,7 @@ use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
 use crate::feedback_engine::FeedbackStore;
 use crate::memory_engine::{LongTermMemory, ShortTermMemory};
+use crate::orchestrator::ImportTelemetry;
 use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy, GovernanceImportPolicy};
 use crate::policy_guard::PolicyGuard;
 use crate::retrieval_engine::{ContextAssembler, Retriever, SimpleRetriever};
@@ -142,6 +143,7 @@ impl MoePipelineBuilder {
             max_governance_audit_entries: self.max_governance_audit_entries,
             governance_state_snapshots: Vec::new(),
             max_governance_state_snapshots: self.max_governance_state_snapshots,
+            import_telemetry: ImportTelemetry::default(),
             feedback_store: FeedbackStore::new(),
             dataset_store: DatasetStore::new(),
             trace_converter: TraceConverter::new(),

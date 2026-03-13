@@ -10,6 +10,7 @@ impl MoePipeline {
     pub fn import_governance_state(&mut self, mut state: GovernanceState) {
         state.ensure_checksum();
         if !state.verify_checksum() {
+            self.import_telemetry.record_governance_state_rejection();
             self.trace_logger.log_phase(
                 crate::moe_core::TaskId::new("governance-import"),
                 TracePhase::Validation,
@@ -21,6 +22,7 @@ impl MoePipeline {
 
         let decision = self.evaluate_governance_import(&state);
         if !decision.allowed {
+            self.import_telemetry.record_governance_state_rejection();
             self.trace_logger.log_phase(
                 crate::moe_core::TaskId::new("governance-import"),
                 TracePhase::Validation,
@@ -38,6 +40,7 @@ impl MoePipeline {
         self.last_continuous_improvement_report = state.last_continuous_improvement_report;
         self.governance_state_version = state.state_version;
         self.record_governance_audit("governance state imported");
+        self.import_telemetry.record_governance_state_success();
     }
 
     pub fn export_governance_state_json(&self) -> Result<String, MoeError> {
@@ -80,7 +83,16 @@ impl MoePipeline {
     }
 
     pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        self.try_import_governance_state_json(payload)
+        let state = match Self::parse_governance_state_json_payload(payload) {
+            Ok(state) => state,
+            Err(err) => {
+                if Self::is_json_parse_failure(&err) {
+                    self.import_telemetry.record_json_parse_failure();
+                }
+                return Err(err);
+            }
+        };
+        self.try_import_governance_state(state)
     }
 
     pub fn import_governance_bundle(
@@ -88,7 +100,10 @@ impl MoePipeline {
         bundle: GovernancePersistenceBundle,
     ) -> Result<(), MoeError> {
         let decision = self.evaluate_governance_bundle_import(&bundle)?;
-        Self::ensure_import_allowed(&decision, "governance bundle rejected")?;
+        if let Err(err) = Self::ensure_import_allowed(&decision, "governance bundle rejected") {
+            self.import_telemetry.record_governance_bundle_rejection();
+            return Err(err);
+        }
 
         self.continuous_governance_policy = bundle.state.continuous_governance_policy.clone();
         self.evaluation_baseline = bundle.state.evaluation_baseline.clone();
@@ -109,6 +124,7 @@ impl MoePipeline {
             self.governance_state_snapshots.drain(0..to_trim);
         }
         self.retain_snapshots_with_matching_audit_versions();
+        self.import_telemetry.record_governance_bundle_success();
 
         Ok(())
     }
@@ -136,9 +152,16 @@ impl MoePipeline {
     }
 
     pub fn import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        Self::parse_and_apply_governance_bundle_json(payload, |bundle| {
-            self.import_governance_bundle(bundle)
-        })
+        let bundle = match Self::parse_governance_bundle_json_payload(payload) {
+            Ok(bundle) => bundle,
+            Err(err) => {
+                if Self::is_json_parse_failure(&err) {
+                    self.import_telemetry.record_json_parse_failure();
+                }
+                return Err(err);
+            }
+        };
+        self.import_governance_bundle(bundle)
     }
 
     pub fn compare_and_import_governance_bundle_json(
@@ -171,7 +194,10 @@ impl MoePipeline {
         bundle: RuntimePersistenceBundle,
     ) -> Result<(), MoeError> {
         let decision = self.evaluate_runtime_bundle_import(&bundle)?;
-        Self::ensure_import_allowed(&decision, "runtime bundle rejected")?;
+        if let Err(err) = Self::ensure_import_allowed(&decision, "runtime bundle rejected") {
+            self.import_telemetry.record_runtime_bundle_rejection();
+            return Err(err);
+        }
 
         // Apply runtime state atomically: if any future step becomes fallible, restore backup.
         let backup_governance_policy = self.continuous_governance_policy.clone();
@@ -207,11 +233,13 @@ impl MoePipeline {
             self.short_term_memory = backup_short_term_memory;
             self.long_term_memory = backup_long_term_memory;
             self.buffer_manager = backup_buffer_manager;
+            self.import_telemetry.record_runtime_bundle_rejection();
             return Err(MoeError::DatasetError(format!(
                 "runtime bundle import failed and was rolled back: {err}"
             )));
         }
 
+        self.import_telemetry.record_runtime_bundle_success();
         Ok(())
     }
 
@@ -238,9 +266,16 @@ impl MoePipeline {
     }
 
     pub fn import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        Self::parse_and_apply_runtime_bundle_json(payload, |bundle| {
-            self.import_runtime_bundle(bundle)
-        })
+        let bundle = match Self::parse_runtime_bundle_json_payload(payload) {
+            Ok(bundle) => bundle,
+            Err(err) => {
+                if Self::is_json_parse_failure(&err) {
+                    self.import_telemetry.record_json_parse_failure();
+                }
+                return Err(err);
+            }
+        };
+        self.import_runtime_bundle(bundle)
     }
 
     pub fn compare_and_import_runtime_bundle_json(
@@ -309,13 +344,29 @@ impl MoePipeline {
     }
 
     pub fn try_import_governance_state(&mut self, state: GovernanceState) -> Result<(), MoeError> {
-        let state = Self::verify_governance_state_checksum(state)?;
+        let state = match Self::verify_governance_state_checksum(state) {
+            Ok(state) => state,
+            Err(err) => {
+                self.import_telemetry.record_governance_state_rejection();
+                return Err(err);
+            }
+        };
 
         let decision = self.evaluate_governance_import(&state);
-        Self::ensure_import_allowed(&decision, "governance import rejected")?;
+        if let Err(err) = Self::ensure_import_allowed(&decision, "governance import rejected") {
+            self.import_telemetry.record_governance_state_rejection();
+            return Err(err);
+        }
 
         self.import_governance_state(state);
         Ok(())
+    }
+
+    fn is_json_parse_failure(err: &MoeError) -> bool {
+        match err {
+            MoeError::DatasetError(message) => message.contains("deserialization failed"),
+            _ => false,
+        }
     }
 
     pub fn compare_and_import_governance_state(

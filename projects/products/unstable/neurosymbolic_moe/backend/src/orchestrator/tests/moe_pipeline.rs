@@ -307,6 +307,58 @@ fn execute_respects_metadata_for_retrieval_memory_and_session_buffer() {
 }
 
 #[test]
+fn import_telemetry_tracks_success_rejection_and_parse_failures() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(MemoryEntry {
+            id: "telemetry.short.seed".to_string(),
+            content: "telemetry seed".to_string(),
+            tags: vec!["telemetry".to_string()],
+            created_at: 1,
+            expires_at: None,
+            memory_type: MemoryType::Short,
+            relevance: 0.8,
+            metadata: HashMap::new(),
+        })
+        .expect("short memory write should succeed");
+    let runtime_bundle = source.export_runtime_bundle();
+    let runtime_payload = source
+        .export_runtime_bundle_json()
+        .expect("runtime payload export should succeed");
+    let governance_state_payload = source
+        .export_governance_state_json()
+        .expect("governance state payload export should succeed");
+
+    let mut target = MoePipelineBuilder::new().build();
+    let malformed_runtime_payload = format!("{runtime_payload} trailing-garbage");
+    target
+        .import_runtime_bundle_json(&malformed_runtime_payload)
+        .expect_err("malformed runtime payload should be rejected");
+    let after_parse_failure = target.import_telemetry_snapshot();
+    assert_eq!(after_parse_failure.json_parse_failures, 1);
+
+    target
+        .import_runtime_bundle(runtime_bundle)
+        .expect("runtime bundle import should succeed");
+    let after_runtime_success = target.import_telemetry_snapshot();
+    assert_eq!(after_runtime_success.runtime_bundle_import_successes, 1);
+
+    let unsupported_state_payload =
+        governance_state_payload.replace("\"schema_version\": 1", "\"schema_version\": 999");
+    target
+        .import_governance_state_json(&unsupported_state_payload)
+        .expect_err("unsupported schema should be rejected in strict mode");
+    let after_state_rejection = target.import_telemetry_snapshot();
+    assert!(after_state_rejection.governance_state_import_rejections >= 1);
+
+    target
+        .import_governance_state_json(&governance_state_payload)
+        .expect("valid governance state should import");
+    let final_snapshot = target.import_telemetry_snapshot();
+    assert!(final_snapshot.governance_state_import_successes >= 1);
+}
+
+#[test]
 fn export_training_dataset_bundle_json_from_pipeline() {
     let mut pipeline = MoePipelineBuilder::new().build();
     let expert = TestExpert::new("training-export", vec![ExpertCapability::CodeGeneration]);
