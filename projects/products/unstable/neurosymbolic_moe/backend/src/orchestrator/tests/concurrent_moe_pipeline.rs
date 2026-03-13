@@ -180,6 +180,7 @@ fn concurrent_pipeline_supports_parallel_memory_writes_and_export_reads() {
         .expect("runtime CAS import with checksum should succeed");
 
     let metrics = pipeline.metrics();
+    let snapshot = pipeline.metrics_snapshot();
     assert!(
         metrics
             .get("read_lock_acquisitions")
@@ -194,6 +195,10 @@ fn concurrent_pipeline_supports_parallel_memory_writes_and_export_reads() {
             .unwrap_or_default()
             > 0
     );
+    assert!(snapshot.total_lock_acquisitions() > 0);
+    assert!(snapshot.contention_rate() >= 0.0);
+    assert!(snapshot.timeout_rate() >= 0.0);
+    assert!(pipeline.is_within_lock_slo(2.0, 1.0));
 }
 
 #[test]
@@ -225,6 +230,7 @@ fn concurrent_pipeline_reports_lock_timeout_metrics_under_contention() {
         .with_write_timeout(10, |_| Ok(()))
         .expect("write lock timeout API should succeed when lock is available");
     let metrics = pipeline.metrics();
+    let snapshot = pipeline.metrics_snapshot();
     assert!(
         metrics
             .get("read_lock_timeouts")
@@ -246,4 +252,6 @@ fn concurrent_pipeline_reports_lock_timeout_metrics_under_contention() {
             .unwrap_or_default()
             >= 1
     );
+    assert!(snapshot.total_timeout_events() >= 1);
+    assert!(!pipeline.is_within_lock_slo(1.0, 0.0));
 }

@@ -5,7 +5,8 @@ use std::sync::{Arc, RwLock, TryLockError};
 use crate::memory_engine::MemoryEntry;
 use crate::moe_core::{AggregatedOutput, Expert, MoeError, Task};
 use crate::orchestrator::{
-    GovernanceAuditTrail, GovernanceImportDecision, MoePipeline, MoePipelineBuilder,
+    ConcurrentLockMetrics, GovernanceAuditTrail, GovernanceImportDecision, MoePipeline,
+    MoePipelineBuilder,
 };
 
 const READ_LOCK_KIND: &str = "read";
@@ -296,36 +297,67 @@ impl ConcurrentMoePipeline {
     }
 
     pub fn metrics(&self) -> BTreeMap<String, u64> {
+        let snapshot = self.metrics_snapshot();
         let mut map = BTreeMap::new();
-        Self::insert_metric(
-            &mut map,
-            "read_lock_acquisitions",
-            &self.read_lock_acquisitions,
+        map.insert(
+            "read_lock_acquisitions".to_string(),
+            snapshot.read_lock_acquisitions,
         );
-        Self::insert_metric(
-            &mut map,
-            "write_lock_acquisitions",
-            &self.write_lock_acquisitions,
+        map.insert(
+            "write_lock_acquisitions".to_string(),
+            snapshot.write_lock_acquisitions,
         );
-        Self::insert_metric(&mut map, "read_lock_contention", &self.read_lock_contention);
-        Self::insert_metric(
-            &mut map,
-            "write_lock_contention",
-            &self.write_lock_contention,
+        map.insert(
+            "read_lock_contention".to_string(),
+            snapshot.read_lock_contention,
         );
-        Self::insert_metric(&mut map, "read_lock_timeouts", &self.read_lock_timeouts);
-        Self::insert_metric(&mut map, "write_lock_timeouts", &self.write_lock_timeouts);
-        Self::insert_metric(
-            &mut map,
-            "read_lock_spin_attempts_total",
-            &self.read_lock_spin_attempts_total,
+        map.insert(
+            "write_lock_contention".to_string(),
+            snapshot.write_lock_contention,
         );
-        Self::insert_metric(
-            &mut map,
-            "write_lock_spin_attempts_total",
-            &self.write_lock_spin_attempts_total,
+        map.insert(
+            "read_lock_timeouts".to_string(),
+            snapshot.read_lock_timeouts,
+        );
+        map.insert(
+            "write_lock_timeouts".to_string(),
+            snapshot.write_lock_timeouts,
+        );
+        map.insert(
+            "read_lock_spin_attempts_total".to_string(),
+            snapshot.read_lock_spin_attempts_total,
+        );
+        map.insert(
+            "write_lock_spin_attempts_total".to_string(),
+            snapshot.write_lock_spin_attempts_total,
         );
         map
+    }
+
+    pub fn metrics_snapshot(&self) -> ConcurrentLockMetrics {
+        ConcurrentLockMetrics {
+            read_lock_acquisitions: self.read_lock_acquisitions.load(Ordering::Relaxed),
+            write_lock_acquisitions: self.write_lock_acquisitions.load(Ordering::Relaxed),
+            read_lock_contention: self.read_lock_contention.load(Ordering::Relaxed),
+            write_lock_contention: self.write_lock_contention.load(Ordering::Relaxed),
+            read_lock_timeouts: self.read_lock_timeouts.load(Ordering::Relaxed),
+            write_lock_timeouts: self.write_lock_timeouts.load(Ordering::Relaxed),
+            read_lock_spin_attempts_total: self
+                .read_lock_spin_attempts_total
+                .load(Ordering::Relaxed),
+            write_lock_spin_attempts_total: self
+                .write_lock_spin_attempts_total
+                .load(Ordering::Relaxed),
+        }
+    }
+
+    pub fn is_within_lock_slo(&self, max_contention_rate: f64, max_timeout_rate: f64) -> bool {
+        if max_contention_rate.is_sign_negative() || max_timeout_rate.is_sign_negative() {
+            return false;
+        }
+        let snapshot = self.metrics_snapshot();
+        snapshot.contention_rate() <= max_contention_rate
+            && snapshot.timeout_rate() <= max_timeout_rate
     }
 
     fn record_read_acquisition(&self, attempts: u64) {
@@ -348,9 +380,5 @@ impl ConcurrentMoePipeline {
         MoeError::DatasetError(format!(
             "concurrent pipeline {lock_kind} lock timeout after {max_lock_attempts} attempts"
         ))
-    }
-
-    fn insert_metric(map: &mut BTreeMap<String, u64>, key: &str, value: &Arc<AtomicU64>) {
-        map.insert(key.to_string(), value.load(Ordering::Relaxed));
     }
 }

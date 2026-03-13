@@ -100,8 +100,10 @@ pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
     concurrent_pipeline.with_write_timeout(3, |_| Ok(()))?;
     let concurrent_write_probe = true;
     let concurrent_metrics = concurrent_pipeline.metrics();
+    let lock_snapshot = concurrent_pipeline.metrics_snapshot();
+    let slo_ok = concurrent_pipeline.is_within_lock_slo(1.0, 0.1);
     tracing::info!(
-        "Concurrent checks: outputs={} state_allowed={} bundle_allowed={} runtime_allowed={} read_probe={} write_probe={} metrics={}",
+        "Concurrent checks: outputs={} state_allowed={} bundle_allowed={} runtime_allowed={} read_probe={} write_probe={} metrics={} lock_contention_rate={:.4} lock_timeout_rate={:.4} lock_slo_ok={}",
         concurrent_result.outputs.len(),
         concurrent_state_preview.allowed,
         concurrent_bundle_preview.allowed,
@@ -109,6 +111,9 @@ pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
         concurrent_read_probe,
         concurrent_write_probe,
         concurrent_metrics.len(),
+        lock_snapshot.contention_rate(),
+        lock_snapshot.timeout_rate(),
+        slo_ok,
     );
     Ok(())
 }
