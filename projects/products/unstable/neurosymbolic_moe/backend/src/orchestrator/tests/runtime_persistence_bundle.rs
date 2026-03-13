@@ -35,6 +35,24 @@ fn memory_fingerprint(entries: &[MemoryEntry]) -> Vec<String> {
     rows
 }
 
+fn assert_runtime_json_rejected(target: &mut crate::orchestrator::MoePipeline, payload: &str) {
+    let import_err = target
+        .import_runtime_bundle_json(payload)
+        .expect_err("corrupted runtime payload must be rejected");
+    assert!(
+        import_err.to_string().contains("deserialization failed")
+            || import_err
+                .to_string()
+                .contains("checksum verification failed")
+            || import_err
+                .to_string()
+                .contains("governance bundle import rejected")
+            || import_err
+                .to_string()
+                .contains("governance import rejected")
+    );
+}
+
 #[derive(Serialize)]
 struct LegacyRuntimePersistenceBundle {
     governance: GovernancePersistenceBundle,
@@ -474,4 +492,88 @@ fn compare_and_import_runtime_bundle_json_succeeds_on_matching_version() {
         .expect("matching version should allow compare-and-import json");
     let restored = target.export_runtime_bundle();
     assert!(restored.verify_checksum());
+}
+
+#[test]
+fn import_runtime_bundle_json_rejects_malformed_payload_variants() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(test_memory_entry(
+            "memory.short.malformed-seed",
+            "seed for malformed payload checks",
+            MemoryType::Short,
+        ))
+        .expect("short memory write should succeed");
+    let payload = source
+        .export_runtime_bundle_json()
+        .expect("runtime bundle json export should succeed");
+
+    let malformed_payloads = vec![
+        payload.replacen('{', "[", 1).replacen('}', "]", 1),
+        payload.replacen(':', ";", 1),
+        format!("{payload} trailing-garbage"),
+        payload
+            .strip_suffix('}')
+            .expect("payload should end with object close")
+            .to_string(),
+    ];
+
+    for malformed in malformed_payloads {
+        let mut target = MoePipelineBuilder::new().build();
+        assert_runtime_json_rejected(&mut target, &malformed);
+    }
+}
+
+#[test]
+fn import_runtime_bundle_json_rejects_corruption_matrix_with_stale_checksum() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(test_memory_entry(
+            "memory.short.corruption-matrix",
+            "baseline short-term content",
+            MemoryType::Short,
+        ))
+        .expect("short memory write should succeed");
+    source
+        .remember_long_term(test_memory_entry(
+            "memory.long.corruption-matrix",
+            "baseline long-term content",
+            MemoryType::Long,
+        ))
+        .expect("long memory write should succeed");
+    source.put_session_buffer(
+        "session-corruption-matrix",
+        "checkpoint",
+        "baseline session payload",
+    );
+
+    let base_bundle = source.export_runtime_bundle();
+    let mut variants = Vec::new();
+
+    let mut short_mutated = base_bundle.clone();
+    short_mutated.short_term_memory_entries[0].content = "tampered short-term content".to_string();
+    variants.push(short_mutated);
+
+    let mut long_mutated = base_bundle.clone();
+    long_mutated.long_term_memory_entries[0].content = "tampered long-term content".to_string();
+    variants.push(long_mutated);
+
+    let mut session_mutated = base_bundle.clone();
+    session_mutated.buffer_manager.sessions_mut().put(
+        "session-corruption-matrix",
+        "checkpoint.extra",
+        "tampered extra checkpoint",
+    );
+    variants.push(session_mutated);
+
+    let mut governance_mutated = base_bundle.clone();
+    governance_mutated.governance.state.state_checksum = "deadbeef".to_string();
+    variants.push(governance_mutated);
+
+    for variant in variants {
+        let payload = common_json::json::to_json_string_pretty(&variant)
+            .expect("variant payload serialization should succeed");
+        let mut target = MoePipelineBuilder::new().build();
+        assert_runtime_json_rejected(&mut target, &payload);
+    }
 }
