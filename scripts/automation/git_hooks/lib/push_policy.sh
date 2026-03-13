@@ -267,7 +267,7 @@ push_policy_validate_part_of_only_push() {
 
 		local assignees
 		local count
-		assignees="$(gh issue view "$issue_number" -R "$repo_name" --json assignees --jq '.assignees[].login' 2>/dev/null || true)"
+		assignees="$(issue_assignee_logins "$issue_number" "$repo_name")"
 		count="$(printf '%s\n' "$assignees" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
 		assignee_count["$issue_number"]="${count:-0}"
 		sole_assignee["$issue_number"]="$(printf '%s\n' "$assignees" | sed '/^$/d' | head -n1)"
