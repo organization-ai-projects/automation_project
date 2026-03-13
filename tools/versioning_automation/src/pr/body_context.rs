@@ -6,7 +6,7 @@ use crate::repo_name::resolve_repo_name;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-struct PrBodyContextSnapshot {
+struct BodyContext {
     #[serde(default)]
     title: String,
     #[serde(default)]
@@ -35,7 +35,7 @@ pub(crate) fn run_body_context(opts: PrBodyContextOptions) -> i32 {
     0
 }
 
-fn fetch_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<PrBodyContextSnapshot, String> {
+fn fetch_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<BodyContext, String> {
     let output = Command::new("gh")
         .arg("pr")
         .arg("view")
@@ -52,5 +52,5 @@ fn fetch_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<PrBodyContextSn
     }
 
     let json = String::from_utf8_lossy(&output.stdout).to_string();
-    common_json::from_json_str::<PrBodyContextSnapshot>(&json).map_err(|err| err.to_string())
+    common_json::from_json_str::<BodyContext>(&json).map_err(|err| err.to_string())
 }

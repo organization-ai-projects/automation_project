@@ -4,78 +4,66 @@ use serde::Deserialize;
 
 use crate::issues::commands::SyncProjectStatusOptions;
 
-#[derive(Debug, Deserialize)]
-struct IssueProjectItemsResponse {
-    data: Option<IssueProjectItemsData>,
-}
-
-#[derive(Debug, Deserialize)]
-struct IssueProjectItemsData {
-    repository: Option<IssueProjectItemsRepository>,
-}
-
-#[derive(Debug, Deserialize)]
-struct IssueProjectItemsRepository {
-    issue: Option<IssueProjectItemsIssue>,
-}
-
-#[derive(Debug, Deserialize)]
-struct IssueProjectItemsIssue {
-    #[serde(rename = "projectItems")]
-    project_items: Option<IssueProjectItemsConnection>,
-}
-
-#[derive(Debug, Deserialize)]
-struct IssueProjectItemsConnection {
-    nodes: Vec<ProjectItemNode>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectItemNode {
-    id: Option<String>,
-    project: Option<ProjectNode>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectNode {
-    id: Option<String>,
-    title: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectFieldsResponse {
-    data: Option<ProjectFieldsData>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectFieldsData {
-    node: Option<ProjectFieldsNode>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectFieldsNode {
-    fields: Option<ProjectFieldsConnection>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectFieldsConnection {
-    nodes: Vec<ProjectStatusFieldNode>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectStatusFieldNode {
-    id: Option<String>,
-    name: Option<String>,
-    options: Option<Vec<ProjectStatusOption>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectStatusOption {
-    id: Option<String>,
-    name: Option<String>,
-}
-
 pub(crate) fn run_sync_project_status(opts: SyncProjectStatusOptions) -> i32 {
+    #[derive(Debug, Deserialize)]
+    struct IssueProjectItemsResponse {
+        data: Option<IssueProjectItemsData>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct IssueProjectItemsData {
+        repository: Option<IssueProjectItemsRepository>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct IssueProjectItemsRepository {
+        issue: Option<IssueProjectItemsIssue>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct IssueProjectItemsIssue {
+        #[serde(rename = "projectItems")]
+        project_items: Option<IssueProjectItemsConnection>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct IssueProjectItemsConnection {
+        nodes: Vec<ProjectItemNode>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct ProjectItemNode {
+        id: Option<String>,
+        project: Option<ProjectNode>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct ProjectNode {
+        id: Option<String>,
+        title: Option<String>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct ProjectFieldsResponse {
+        data: Option<ProjectFieldsData>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct ProjectFieldsData {
+        node: Option<ProjectFieldsNode>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct ProjectFieldsNode {
+        fields: Option<ProjectFieldsConnection>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct ProjectFieldsConnection {
+        nodes: Vec<ProjectStatusFieldNode>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct ProjectStatusFieldNode {
+        id: Option<String>,
+        name: Option<String>,
+        options: Option<Vec<ProjectStatusOption>>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct ProjectStatusOption {
+        id: Option<String>,
+        name: Option<String>,
+    }
+
     let Some((owner, name)) = split_repo(&opts.repo) else {
         return 0;
     };

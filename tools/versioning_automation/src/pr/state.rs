@@ -12,19 +12,19 @@ pub(crate) fn run_directives_state(opts: PrDirectivesStateOptions) -> i32 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct DirectivesState {
+pub(crate) struct State {
     pub(crate) explicit_decisions: HashMap<String, String>,
     pub(crate) inferred_decisions: HashMap<String, String>,
     pub(crate) action_records: Vec<DirectiveRecord>,
 }
 
-pub(crate) fn build_state(text: &str) -> DirectivesState {
+pub(crate) fn build_state(text: &str) -> State {
     let records = scan_directives(text, false);
     let explicit_decisions = collect_explicit_decisions(&records);
     let inferred_decisions = collect_inferred_decisions(&records, &explicit_decisions);
     let action_records = collect_action_records(&records);
 
-    DirectivesState {
+    State {
         explicit_decisions,
         inferred_decisions,
         action_records,
@@ -113,7 +113,7 @@ fn collect_action_records(records: &[DirectiveRecord]) -> Vec<DirectiveRecord> {
     out
 }
 
-fn emit_plain(state: &DirectivesState) {
+fn emit_plain(state: &State) {
     let mut explicit_keys: Vec<String> = state.explicit_decisions.keys().cloned().collect();
     explicit_keys.sort_by_key(|issue| issue_number(issue));
     for issue in explicit_keys {

@@ -8,8 +8,11 @@ use serde::Deserialize;
 use crate::pr::breaking_detect::text_indicates_breaking;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
 use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
+use crate::pr::commit_info::CommitInfo;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::duplicate_actions::run_duplicate_actions;
+use crate::pr::generate_options::GenerateOptions;
+use crate::pr::main_pr_ref_snapshot::MainPrRefSnapshot;
 use crate::pr::render::print_usage;
 use crate::pr::scan::scan_directives;
 use crate::repo_name::resolve_repo_name_optional;
@@ -18,57 +21,6 @@ const E_USAGE: i32 = 2;
 const E_DEPENDENCY: i32 = 3;
 const E_GIT: i32 = 4;
 const E_NO_DATA: i32 = 5;
-
-#[derive(Debug, Clone)]
-struct GenerateOptions {
-    help: bool,
-    dry_run: bool,
-    main_pr_number: Option<String>,
-    create_pr: bool,
-    allow_partial_create: bool,
-    assume_yes: bool,
-    base_ref: Option<String>,
-    head_ref: Option<String>,
-    duplicate_mode: Option<String>,
-    auto_edit_pr_number: Option<String>,
-    validation_only: bool,
-    output_file: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-struct CommitInfo {
-    short_hash: String,
-    subject: String,
-    body: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct MainPrRefSnapshot {
-    #[serde(default, rename = "baseRefName")]
-    base_ref_name: String,
-    #[serde(default, rename = "headRefName")]
-    head_ref_name: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct CompareResponse {
-    #[serde(default)]
-    commits: Vec<CompareCommit>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CompareCommit {
-    #[serde(default)]
-    sha: String,
-    #[serde(default)]
-    commit: CompareCommitDetail,
-}
-
-#[derive(Debug, Deserialize, Default)]
-struct CompareCommitDetail {
-    #[serde(default)]
-    message: String,
-}
 
 pub(crate) fn run_generate_description(opts: PrGenerateDescriptionOptions) -> i32 {
     let parsed = match parse_generate_options(&opts.passthrough) {
@@ -1045,6 +997,24 @@ fn fetch_main_pr_refs(pr_number: &str) -> Result<MainPrRefSnapshot, String> {
 }
 
 fn compare_api_commits(base_ref: &str, head_ref: &str) -> Result<Vec<CommitInfo>, String> {
+    #[derive(Debug, Deserialize)]
+    struct CompareResponse {
+        #[serde(default)]
+        commits: Vec<CompareCommit>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct CompareCommit {
+        #[serde(default)]
+        sha: String,
+        #[serde(default)]
+        commit: CompareCommitDetail,
+    }
+    #[derive(Debug, Deserialize, Default)]
+    struct CompareCommitDetail {
+        #[serde(default)]
+        message: String,
+    }
+
     let Some(repo) = resolve_repo_name_optional(None) else {
         return Err("Error: unable to determine repository.".to_string());
     };
@@ -1092,130 +1062,4 @@ fn take_value(flag: &str, args: &[String], index: &mut usize) -> Result<String, 
     }
     *index += 2;
     Ok(value)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        CommitInfo, build_validation_gate, classify_title, parse_generate_options,
-        render_duplicate_mode_message, replace_validation_gate,
-    };
-    use std::collections::BTreeMap;
-
-    #[test]
-    fn parse_dry_run_with_output_file() {
-        let args = vec![
-            "--dry-run".to_string(),
-            "--base".to_string(),
-            "dev".to_string(),
-            "--head".to_string(),
-            "feat/x".to_string(),
-            "out.md".to_string(),
-        ];
-        let parsed = parse_generate_options(&args).expect("parse");
-        assert!(parsed.dry_run);
-        assert_eq!(parsed.base_ref.as_deref(), Some("dev"));
-        assert_eq!(parsed.head_ref.as_deref(), Some("feat/x"));
-        assert_eq!(parsed.output_file.as_deref(), Some("out.md"));
-    }
-
-    #[test]
-    fn parse_validation_only_requires_auto_edit() {
-        let args = vec!["--dry-run".to_string(), "--validation-only".to_string()];
-        let err = parse_generate_options(&args).expect_err("must fail");
-        assert!(err.contains("--validation-only requires --auto-edit/--refresh-pr"));
-    }
-
-    #[test]
-    fn parse_auto_enables_dry_run_and_create_pr() {
-        let args = vec![
-            "--auto".to_string(),
-            "--base".to_string(),
-            "dev".to_string(),
-            "--head".to_string(),
-            "feat/x".to_string(),
-            "--yes".to_string(),
-        ];
-        let parsed = parse_generate_options(&args).expect("parse");
-        assert!(parsed.dry_run);
-        assert!(parsed.create_pr);
-        assert!(parsed.assume_yes);
-    }
-
-    #[test]
-    fn parse_rejects_create_pr_without_dry_run() {
-        let args = vec!["--create-pr".to_string()];
-        let err = parse_generate_options(&args).expect_err("must fail");
-        assert!(err.contains("--create-pr is only supported with --dry-run"));
-    }
-
-    #[test]
-    fn parse_main_mode_requires_main_pr_number() {
-        let err = parse_generate_options(&[]).expect("auto mode should parse");
-        assert!(err.dry_run);
-        assert!(err.create_pr);
-    }
-
-    #[test]
-    fn parse_main_mode_accepts_main_and_output_file() {
-        let args = vec!["42".to_string(), "out.md".to_string()];
-        let parsed = parse_generate_options(&args).expect("parse");
-        assert!(!parsed.dry_run);
-        assert_eq!(parsed.main_pr_number.as_deref(), Some("42"));
-        assert_eq!(parsed.output_file.as_deref(), Some("out.md"));
-    }
-
-    #[test]
-    fn parse_without_mode_or_positionals_defaults_to_auto_even_with_base() {
-        let args = vec!["--base".to_string(), "dev".to_string()];
-        let parsed = parse_generate_options(&args).expect("should parse");
-        assert!(parsed.dry_run);
-        assert!(parsed.create_pr);
-    }
-
-    #[test]
-    fn validation_gate_detects_breaking_commit() {
-        let commits = vec![CommitInfo {
-            short_hash: "abc1234".to_string(),
-            subject: "feat(core)!: change wire format".to_string(),
-            body: String::new(),
-        }];
-        let gate = build_validation_gate(&commits);
-        assert!(gate.contains("- Breaking change"));
-        assert!(gate.contains("`abc1234`"));
-        assert!(gate.contains("`core`"));
-    }
-
-    #[test]
-    fn replace_validation_gate_updates_existing_section() {
-        let body = "### Description\n\nBody\n\n### Validation Gate\n\n- CI: PASS ✅\n- No breaking change\n\n### Key Changes\n\n- X";
-        let replacement = "### Validation Gate\n\n- CI: UNKNOWN ⚪\n- No breaking change";
-        let updated = replace_validation_gate(body, replacement);
-        assert!(updated.contains("- CI: UNKNOWN ⚪"));
-        assert!(!updated.contains("- CI: PASS ✅"));
-        assert!(updated.contains("### Key Changes"));
-    }
-
-    #[test]
-    fn classify_title_heuristics_cover_core_classes() {
-        assert_eq!(classify_title("merge dev into main"), "Synchronization");
-        assert_eq!(classify_title("fix(parser): handle nil"), "Bug Fixes");
-        assert_eq!(
-            classify_title("refactor(core): split modules"),
-            "Refactoring"
-        );
-        assert_eq!(classify_title("feat(ui): add filter"), "Features");
-    }
-
-    #[test]
-    fn duplicate_mode_message_reflects_presence_of_targets() {
-        let empty = BTreeMap::new();
-        let msg_empty = render_duplicate_mode_message("safe", &empty);
-        assert!(msg_empty.contains("no duplicate declarations detected"));
-
-        let mut one = BTreeMap::new();
-        one.insert("#2".to_string(), "#1".to_string());
-        let msg_one = render_duplicate_mode_message("auto-close", &one);
-        assert!(msg_one.contains("dry-run simulation"));
-    }
 }

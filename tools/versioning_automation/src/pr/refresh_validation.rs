@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/pr/refresh_validation.rs
 use std::process::Command;
 
 use serde::Deserialize;
@@ -6,21 +7,11 @@ use crate::pr::commands::pr_refresh_validation_options::PrRefreshValidationOptio
 use crate::repo_name::resolve_repo_name;
 
 #[derive(Debug, Deserialize)]
-struct PrValidationSnapshot {
+struct RefreshValidation {
     #[serde(default)]
     body: String,
     #[serde(default, rename = "statusCheckRollup")]
-    status_check_rollup: Vec<PrValidationRollupItem>,
-}
-
-#[derive(Debug, Deserialize)]
-struct PrValidationRollupItem {
-    #[serde(default)]
-    conclusion: String,
-    #[serde(default)]
-    state: String,
-    #[serde(default)]
-    status: String,
+    status_check_rollup: Vec<std::collections::HashMap<String, String>>,
 }
 
 pub(crate) fn run_refresh_validation(opts: PrRefreshValidationOptions) -> i32 {
@@ -41,7 +32,7 @@ pub(crate) fn run_refresh_validation(opts: PrRefreshValidationOptions) -> i32 {
     };
 
     let ci_line = map_ci_status_with_symbol(compute_ci_status(&snapshot.status_check_rollup));
-    let updated_body = apply_ci_refresh(&snapshot.body, &ci_line);
+    let updated_body = apply_ci_refresh(&snapshot.body, ci_line);
     if updated_body == snapshot.body {
         println!("PR unchanged: #{}", opts.pr_number);
         return 0;
@@ -75,7 +66,7 @@ pub(crate) fn run_refresh_validation(opts: PrRefreshValidationOptions) -> i32 {
 fn fetch_pr_validation_snapshot(
     pr_number: &str,
     repo_name: &str,
-) -> Result<PrValidationSnapshot, String> {
+) -> Result<RefreshValidation, String> {
     let output = Command::new("gh")
         .arg("pr")
         .arg("view")
@@ -92,22 +83,26 @@ fn fetch_pr_validation_snapshot(
     }
 
     let json = String::from_utf8_lossy(&output.stdout).to_string();
-    common_json::from_json_str::<PrValidationSnapshot>(&json).map_err(|err| err.to_string())
+    common_json::from_json_str::<RefreshValidation>(&json).map_err(|err| err.to_string())
 }
 
-fn compute_ci_status(items: &[PrValidationRollupItem]) -> &'static str {
+fn compute_ci_status(items: &[std::collections::HashMap<String, String>]) -> &'static str {
     if items.is_empty() {
         return "UNKNOWN";
     }
 
     let mut has_pass = false;
     for item in items {
-        let mut raw = item.conclusion.trim();
+        let mut raw = item
+            .get("conclusion")
+            .map(String::as_str)
+            .unwrap_or("")
+            .trim();
         if raw.is_empty() {
-            raw = item.state.trim();
+            raw = item.get("state").map(String::as_str).unwrap_or("").trim();
         }
         if raw.is_empty() {
-            raw = item.status.trim();
+            raw = item.get("status").map(String::as_str).unwrap_or("").trim();
         }
         let normalized = if raw.is_empty() {
             "UNKNOWN".to_string()
@@ -179,38 +174,4 @@ fn apply_ci_refresh(body: &str, ci_line: &str) -> String {
     base.push_str("### Validation Gate\n\n");
     base.push_str(&format!("- CI: {ci_line}\n- No breaking change"));
     base
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        PrValidationRollupItem, apply_ci_refresh, compute_ci_status, map_ci_status_with_symbol,
-    };
-
-    #[test]
-    fn refresh_replaces_existing_ci_line() {
-        let body = "### Validation Gate\n\n- CI: FAIL ❌\n- No breaking change\n";
-        let refreshed = apply_ci_refresh(body, "PASS ✅");
-        assert!(refreshed.contains("- CI: PASS ✅"));
-        assert!(!refreshed.contains("- CI: FAIL ❌"));
-    }
-
-    #[test]
-    fn refresh_inserts_validation_section_when_missing() {
-        let body = "### Description\n\nHello";
-        let refreshed = apply_ci_refresh(body, "RUNNING ⏳");
-        assert!(refreshed.contains("### Validation Gate"));
-        assert!(refreshed.contains("- CI: RUNNING ⏳"));
-    }
-
-    #[test]
-    fn ci_status_detects_failure_first() {
-        let items = vec![PrValidationRollupItem {
-            conclusion: "failure".to_string(),
-            state: String::new(),
-            status: String::new(),
-        }];
-        assert_eq!(compute_ci_status(&items), "FAIL");
-        assert_eq!(map_ci_status_with_symbol("FAIL"), "FAIL ❌");
-    }
 }

@@ -1,11 +1,11 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ValidationEntry {
+pub(crate) struct Validation {
     pub(crate) code: String,
     pub(crate) field: String,
     pub(crate) message: String,
 }
 
-impl ValidationEntry {
+impl Validation {
     pub(crate) fn new(code: &str, field: String, message: String) -> Self {
         Self {
             code: code.to_string(),

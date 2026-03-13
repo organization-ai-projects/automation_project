@@ -1,8 +1,4 @@
-#[derive(Debug, Clone)]
-pub(crate) enum DoneStatusMode {
-    OnDevMerge,
-    OnIssueClosed,
-}
+use crate::issues::commands::done_status_mode::DoneStatusMode;
 
 #[derive(Debug, Clone)]
 pub(crate) struct DoneStatusOptions {

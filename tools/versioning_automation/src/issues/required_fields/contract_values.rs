@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{collections::HashMap, fs};
 
-use crate::issues::required_fields::key::ContractKey;
+use crate::issues::required_fields::key::Key;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ContractValues {
@@ -14,18 +14,14 @@ pub(crate) struct ContractValues {
 
 impl ContractValues {
     pub(crate) fn load(profile: &str) -> Result<Self, String> {
-        let title_regex_key = crate::issues::required_fields::contract_key_for_profile(
-            profile,
-            ContractKey::TitleRegex,
-        );
+        let title_regex_key =
+            crate::issues::required_fields::contract_key_for_profile(profile, Key::TitleRegex);
         let required_sections_key = crate::issues::required_fields::contract_key_for_profile(
             profile,
-            ContractKey::RequiredSections,
+            Key::RequiredSections,
         );
-        let required_fields_key = crate::issues::required_fields::contract_key_for_profile(
-            profile,
-            ContractKey::RequiredFields,
-        );
+        let required_fields_key =
+            crate::issues::required_fields::contract_key_for_profile(profile, Key::RequiredFields);
 
         let path = contract_path();
         let values = load_contract_values_from_file(

@@ -1,11 +1,11 @@
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum ContractKey {
+pub(crate) enum Key {
     TitleRegex,
     RequiredSections,
     RequiredFields,
 }
 
-impl ContractKey {
+impl Key {
     fn base_name(self) -> &'static str {
         match self {
             Self::TitleRegex => "TITLE_REGEX",
@@ -15,7 +15,7 @@ impl ContractKey {
     }
 }
 
-pub(crate) fn contract_key_for_profile(profile: &str, base_key: ContractKey) -> String {
+pub(crate) fn contract_key_for_profile(profile: &str, base_key: Key) -> String {
     if profile == "review" {
         return format!("ISSUE_REVIEW_{}", base_key.base_name());
     }

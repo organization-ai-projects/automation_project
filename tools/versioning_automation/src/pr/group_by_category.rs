@@ -20,22 +20,16 @@ pub(crate) fn run_group_by_category(opts: PrGroupByCategoryOptions) -> i32 {
     }
 
     let mut records = parse_records(&opts.text);
-    records.sort_by_key(|record| (record.issue_number, record.order));
+    records.sort_by_key(|record| (record.0, record.3));
 
     let output = render_grouped_output(&records, mode);
     print!("{output}");
     0
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct CategoryRecord {
-    issue_number: u32,
-    category: String,
-    fields: Vec<String>,
-    order: usize,
-}
+type GroupByCategory = (u32, String, Vec<String>, usize);
 
-fn parse_records(text: &str) -> Vec<CategoryRecord> {
+fn parse_records(text: &str) -> Vec<GroupByCategory> {
     let mut out = Vec::new();
     for (index, line) in text.lines().enumerate() {
         let trimmed = line.trim();
@@ -52,23 +46,18 @@ fn parse_records(text: &str) -> Vec<CategoryRecord> {
         let issue_number = parts[0].parse::<u32>().unwrap_or(u32::MAX);
         let category = parts[1].clone();
         let fields = parts.into_iter().skip(2).collect::<Vec<String>>();
-        out.push(CategoryRecord {
-            issue_number,
-            category,
-            fields,
-            order: index,
-        });
+        out.push((issue_number, category, fields, index));
     }
     out
 }
 
-fn render_grouped_output(records: &[CategoryRecord], mode: &str) -> String {
+fn render_grouped_output(records: &[GroupByCategory], mode: &str) -> String {
     let mut out = String::new();
     for category in CATEGORIES {
         let matching = records
             .iter()
-            .filter(|record| record.category == category)
-            .collect::<Vec<&CategoryRecord>>();
+            .filter(|record| record.1 == category)
+            .collect::<Vec<&GroupByCategory>>();
         if matching.is_empty() {
             continue;
         }
@@ -86,9 +75,9 @@ fn render_grouped_output(records: &[CategoryRecord], mode: &str) -> String {
     out
 }
 
-fn render_line(record: &CategoryRecord, mode: &str) -> String {
-    let action = record.fields.first().cloned().unwrap_or_default();
-    let issue_key = record.fields.get(1).cloned().unwrap_or_default();
+fn render_line(record: &GroupByCategory, mode: &str) -> String {
+    let action = record.2.first().cloned().unwrap_or_default();
+    let issue_key = record.2.get(1).cloned().unwrap_or_default();
 
     if mode == "resolved" {
         return format!("- {action} {issue_key}");

@@ -18,7 +18,7 @@ pub(crate) fn run_issue_decision(opts: PrIssueDecisionOptions) -> i32 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct DecisionOutcome {
+pub(crate) struct IssueDecision {
     pub(crate) kind: String,
     pub(crate) reason: String,
     pub(crate) final_action: String,
@@ -26,14 +26,14 @@ pub(crate) struct DecisionOutcome {
     pub(crate) force_category: bool,
 }
 
-pub(crate) fn decide(opts: PrIssueDecisionOptions) -> DecisionOutcome {
+pub(crate) fn decide(opts: PrIssueDecisionOptions) -> IssueDecision {
     if opts.action == "Closes" && opts.seen_reopen {
         let category = if opts.reopen_category.is_empty() {
             opts.default_category
         } else {
             opts.reopen_category
         };
-        return DecisionOutcome {
+        return IssueDecision {
             kind: "resolve_reopen".to_string(),
             reason: "Resolved via directive decision => reopen.".to_string(),
             final_action: "reopen".to_string(),
@@ -46,7 +46,7 @@ pub(crate) fn decide(opts: PrIssueDecisionOptions) -> DecisionOutcome {
         && (opts.inferred_decision.is_empty() || opts.inferred_decision == "conflict");
 
     if inferred_conflict {
-        return DecisionOutcome {
+        return IssueDecision {
             kind: "conflict".to_string(),
             reason: "conflicting inferred directives".to_string(),
             final_action: String::new(),
@@ -62,7 +62,7 @@ pub(crate) fn decide(opts: PrIssueDecisionOptions) -> DecisionOutcome {
     };
 
     if effective_decision == "close" && opts.action == "Reopen" {
-        return DecisionOutcome {
+        return IssueDecision {
             kind: "ignore".to_string(),
             reason: String::new(),
             final_action: String::new(),
@@ -72,7 +72,7 @@ pub(crate) fn decide(opts: PrIssueDecisionOptions) -> DecisionOutcome {
     }
 
     if effective_decision == "reopen" {
-        return DecisionOutcome {
+        return IssueDecision {
             kind: "resolve_reopen".to_string(),
             reason: "Resolved via directive decision => reopen.".to_string(),
             final_action: "reopen".to_string(),
@@ -81,7 +81,7 @@ pub(crate) fn decide(opts: PrIssueDecisionOptions) -> DecisionOutcome {
         };
     }
 
-    DecisionOutcome {
+    IssueDecision {
         kind: "continue".to_string(),
         reason: String::new(),
         final_action: String::new(),

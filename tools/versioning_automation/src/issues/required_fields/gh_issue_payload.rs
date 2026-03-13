@@ -1,3 +1,4 @@
+use crate::issues::required_fields::gh_issue_label::GhIssueLabel;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -20,9 +21,4 @@ impl GhIssuePayload {
             })
             .unwrap_or_default()
     }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub(crate) struct GhIssueLabel {
-    pub(crate) name: Option<String>,
 }

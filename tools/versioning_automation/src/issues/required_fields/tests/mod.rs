@@ -1,3 +1,8 @@
+mod contract_values;
+mod gh_issue_payload;
+mod key;
+mod validation;
+
 use crate::issues::required_fields::{
     non_compliance_reason_from_content, validate_content, validate_title,
 };

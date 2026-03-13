@@ -1,4 +1,5 @@
 mod contract_values;
+mod gh_issue_label;
 mod gh_issue_payload;
 mod key;
 mod labels;
@@ -12,20 +13,17 @@ use std::process::Command;
 
 use contract_values::ContractValues;
 use gh_issue_payload::GhIssuePayload;
-use key::ContractKey;
+use key::Key;
 use parser::{body_has_section, extract_field_value, trim_whitespace};
-use validation::ValidationEntry;
+use validation::Validation;
 
-pub(crate) fn validate_title(
-    title: &str,
-    labels_raw: &str,
-) -> Result<Vec<ValidationEntry>, String> {
+pub(crate) fn validate_title(title: &str, labels_raw: &str) -> Result<Vec<Validation>, String> {
     let profile = labels::profile_for_labels(labels_raw);
     let contract = ContractValues::load(profile)?;
     Ok(validate_title_with_contract(title, &contract))
 }
 
-pub(crate) fn validate_body(body: &str, labels_raw: &str) -> Result<Vec<ValidationEntry>, String> {
+pub(crate) fn validate_body(body: &str, labels_raw: &str) -> Result<Vec<Validation>, String> {
     let profile = labels::profile_for_labels(labels_raw);
     let contract = ContractValues::load(profile)?;
     Ok(validate_body_with_contract(body, &contract))
@@ -35,7 +33,7 @@ pub(crate) fn validate_content(
     title: &str,
     body: &str,
     labels_raw: &str,
-) -> Result<Vec<ValidationEntry>, String> {
+) -> Result<Vec<Validation>, String> {
     let profile = labels::profile_for_labels(labels_raw);
     let contract = ContractValues::load(profile)?;
 
@@ -91,9 +89,9 @@ pub(crate) fn fetch_non_compliance_reason(
     non_compliance_reason_from_content(&title, &body, &labels_raw)
 }
 
-fn validate_title_with_contract(title: &str, contract: &ContractValues) -> Vec<ValidationEntry> {
+fn validate_title_with_contract(title: &str, contract: &ContractValues) -> Vec<Validation> {
     if contract.title_regex.trim().is_empty() {
-        return vec![ValidationEntry::new(
+        return vec![Validation::new(
             "invalid_contract",
             "title".to_string(),
             format!("Missing contract key: {}", contract.title_regex_key),
@@ -101,7 +99,7 @@ fn validate_title_with_contract(title: &str, contract: &ContractValues) -> Vec<V
     }
 
     let Ok(regex) = regex::Regex::new(&contract.title_regex) else {
-        return vec![ValidationEntry::new(
+        return vec![Validation::new(
             "invalid_contract",
             "title".to_string(),
             format!("Invalid title regex in contract: {}", contract.title_regex),
@@ -111,7 +109,7 @@ fn validate_title_with_contract(title: &str, contract: &ContractValues) -> Vec<V
     if regex.is_match(title) {
         Vec::new()
     } else {
-        vec![ValidationEntry::new(
+        vec![Validation::new(
             "invalid_title",
             "title".to_string(),
             format!("Title must match regex: {}", contract.title_regex),
@@ -119,7 +117,7 @@ fn validate_title_with_contract(title: &str, contract: &ContractValues) -> Vec<V
     }
 }
 
-fn validate_body_with_contract(body: &str, contract: &ContractValues) -> Vec<ValidationEntry> {
+fn validate_body_with_contract(body: &str, contract: &ContractValues) -> Vec<Validation> {
     let mut entries = Vec::new();
 
     for raw_section in contract.required_sections.lines() {
@@ -128,7 +126,7 @@ fn validate_body_with_contract(body: &str, contract: &ContractValues) -> Vec<Val
             continue;
         }
         if !body_has_section(body, &section) {
-            entries.push(ValidationEntry::new(
+            entries.push(Validation::new(
                 "missing_section",
                 section.clone(),
                 format!("Missing required section: {section}"),
@@ -151,7 +149,7 @@ fn validate_body_with_contract(body: &str, contract: &ContractValues) -> Vec<Val
 
         let field_value = trim_whitespace(&extract_field_value(body, &field_name));
         if field_value.is_empty() {
-            entries.push(ValidationEntry::new(
+            entries.push(Validation::new(
                 "missing_field",
                 field_name.clone(),
                 format!("Missing required field: {field_name}:"),
@@ -160,7 +158,7 @@ fn validate_body_with_contract(body: &str, contract: &ContractValues) -> Vec<Val
         }
 
         let Ok(regex) = regex::Regex::new(&field_regex) else {
-            entries.push(ValidationEntry::new(
+            entries.push(Validation::new(
                 "invalid_contract",
                 field_name.clone(),
                 format!("Invalid regex for field {field_name}: {field_regex}"),
@@ -169,7 +167,7 @@ fn validate_body_with_contract(body: &str, contract: &ContractValues) -> Vec<Val
         };
 
         if !regex.is_match(&field_value) {
-            entries.push(ValidationEntry::new(
+            entries.push(Validation::new(
                 "invalid_field",
                 field_name.clone(),
                 format!("Invalid {field_name}: '{field_value}' (expected: {field_help})"),
@@ -180,6 +178,6 @@ fn validate_body_with_contract(body: &str, contract: &ContractValues) -> Vec<Val
     entries
 }
 
-pub(crate) fn contract_key_for_profile(profile: &str, base_key: ContractKey) -> String {
+pub(crate) fn contract_key_for_profile(profile: &str, base_key: Key) -> String {
     key::contract_key_for_profile(profile, base_key)
 }

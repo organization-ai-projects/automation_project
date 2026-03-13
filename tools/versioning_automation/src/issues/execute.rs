@@ -24,119 +24,6 @@ use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
 use crate::repo_name::resolve_repo_name;
 
-#[derive(Debug, Deserialize)]
-struct IssueFieldPayload {
-    title: Option<String>,
-    body: Option<String>,
-    labels: Option<Vec<IssueFieldLabel>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct IssueFieldLabel {
-    name: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct IssueStatePayload {
-    state: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct PrBodyPayload {
-    body: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct AutoLinkIssuePayload {
-    title: Option<String>,
-    body: Option<String>,
-    state: Option<String>,
-    labels: Option<Vec<IssueFieldLabel>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlErrorsPayload {
-    errors: Option<Vec<GraphqlError>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlError {
-    message: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlRelationPayload {
-    data: Option<GraphqlRelationData>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlRelationData {
-    repository: Option<GraphqlRelationRepository>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlRelationRepository {
-    child: Option<GraphqlRelationChild>,
-    parent: Option<GraphqlRelationParentIssue>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlRelationChild {
-    id: Option<String>,
-    parent: Option<GraphqlRelationParentRef>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlRelationParentRef {
-    number: Option<u64>,
-    id: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlRelationParentIssue {
-    id: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlAddSubIssuePayload {
-    data: Option<GraphqlAddSubIssueData>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlAddSubIssueData {
-    #[serde(rename = "addSubIssue")]
-    add_sub_issue: Option<GraphqlAddSubIssueResult>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlAddSubIssueResult {
-    issue: Option<GraphqlAddSubIssueIssue>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlAddSubIssueIssue {
-    #[serde(rename = "subIssues")]
-    sub_issues: Option<GraphqlAddSubIssueNodes>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlAddSubIssueNodes {
-    nodes: Option<Vec<GraphqlAddSubIssueNode>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphqlAddSubIssueNode {
-    number: Option<u64>,
-}
-
-#[derive(Debug, Default)]
-struct AutoLinkRelationSnapshot {
-    current_parent_number: String,
-    current_parent_node_id: String,
-    child_node_id: String,
-    parent_node_id: String,
-}
-
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
     let body = render_direct_issue_body(&opts);
     if opts.dry_run {
@@ -613,22 +500,12 @@ pub(crate) fn run_auto_link(opts: AutoLinkOptions) -> i32 {
     let label_automation_failed = "automation-failed";
     let (repo_owner, repo_short_name) = split_repo_name(&repo_name);
 
-    let issue_payload = gh_issue_autolink_payload(&repo_name, &opts.issue);
-    let issue_state = issue_payload.state.unwrap_or_default();
+    let (issue_title, issue_body, issue_state, issue_labels_raw) =
+        gh_issue_autolink_payload(&repo_name, &opts.issue);
     if issue_state.is_empty() {
         eprintln!("Erreur: impossible de lire l'issue #{}.", opts.issue);
         return 4;
     }
-
-    let issue_title = issue_payload.title.unwrap_or_default();
-    let issue_body = issue_payload.body.unwrap_or_default();
-    let issue_labels_raw = issue_payload
-        .labels
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|label| label.name)
-        .collect::<Vec<_>>()
-        .join("|");
 
     let contract_errors =
         validate_content(&issue_title, &issue_body, &issue_labels_raw).unwrap_or_default();
@@ -710,6 +587,7 @@ pub(crate) fn run_auto_link(opts: AutoLinkOptions) -> i32 {
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_auto_link_parent_none(
     repo_name: &str,
     repo_owner: &str,
@@ -750,10 +628,8 @@ fn run_auto_link_parent_none(
         return if status == 0 { 0 } else { status };
     }
 
-    let relation = auto_link_relation_snapshot(&relation_json);
-    let current_parent_number = relation.current_parent_number;
-    let current_parent_node_id = relation.current_parent_node_id;
-    let child_node_id = relation.child_node_id;
+    let (current_parent_number, current_parent_node_id, child_node_id, _) =
+        auto_link_relation_snapshot(&relation_json);
 
     if !current_parent_number.is_empty() {
         if current_parent_node_id.is_empty() || child_node_id.is_empty() {
@@ -826,6 +702,7 @@ fn run_auto_link_parent_none(
     if status == 0 { 0 } else { status }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_auto_link_parent_link(
     repo_name: &str,
     repo_owner: &str,
@@ -849,9 +726,7 @@ fn run_auto_link_parent_link(
         return if status == 0 { 0 } else { status };
     }
 
-    let parent_payload = gh_issue_autolink_payload(repo_name, parent_number);
-    let parent_state = parent_payload.state.unwrap_or_default();
-    let parent_title = parent_payload.title.unwrap_or_default();
+    let (parent_title, _, parent_state, _) = gh_issue_autolink_payload(repo_name, parent_number);
     if parent_state.is_empty() && parent_title.is_empty() {
         let status = auto_link_set_validation_error_state(
             repo_name,
@@ -909,11 +784,8 @@ fn run_auto_link_parent_link(
         return if status == 0 { 0 } else { status };
     }
 
-    let relation = auto_link_relation_snapshot(&relation_json);
-    let current_parent_number = relation.current_parent_number;
-    let current_parent_node_id = relation.current_parent_node_id;
-    let child_node_id = relation.child_node_id;
-    let parent_node_id = relation.parent_node_id;
+    let (current_parent_number, current_parent_node_id, child_node_id, parent_node_id) =
+        auto_link_relation_snapshot(&relation_json);
 
     if current_parent_number == parent_number {
         let status = auto_link_set_success_state(
@@ -1220,6 +1092,12 @@ fn auto_link_add_sub_issue_relation(parent_node_id: &str, child_node_id: &str) -
 }
 
 fn auto_link_graphql_has_errors(payload: &str) -> bool {
+    #[derive(Debug, Deserialize)]
+    struct GraphqlErrorsPayload {
+        errors: Option<Vec<GraphqlError>>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlError {}
     if payload.trim().is_empty() {
         return false;
     }
@@ -1231,6 +1109,14 @@ fn auto_link_graphql_has_errors(payload: &str) -> bool {
 }
 
 fn auto_link_graphql_error_messages(payload: &str) -> String {
+    #[derive(Debug, Deserialize)]
+    struct GraphqlErrorsPayload {
+        errors: Option<Vec<GraphqlError>>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlError {
+        message: Option<String>,
+    }
     let Ok(json) = common_json::from_json_str::<GraphqlErrorsPayload>(payload) else {
         return String::new();
     };
@@ -1245,31 +1131,88 @@ fn auto_link_graphql_error_messages(payload: &str) -> String {
         .join("; ")
 }
 
+type AutoLinkRelationSnapshot = (String, String, String, String);
+
 fn auto_link_relation_snapshot(payload: &str) -> AutoLinkRelationSnapshot {
+    #[derive(Debug, Deserialize)]
+    struct GraphqlRelationPayload {
+        data: Option<GraphqlRelationData>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlRelationData {
+        repository: Option<GraphqlRelationRepository>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlRelationRepository {
+        child: Option<GraphqlRelationChild>,
+        parent: Option<GraphqlRelationParentIssue>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlRelationChild {
+        id: Option<String>,
+        parent: Option<GraphqlRelationParentRef>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlRelationParentRef {
+        number: Option<u64>,
+        id: Option<String>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlRelationParentIssue {
+        id: Option<String>,
+    }
+
     let Ok(json) = common_json::from_json_str::<GraphqlRelationPayload>(payload) else {
-        return AutoLinkRelationSnapshot::default();
+        return (String::new(), String::new(), String::new(), String::new());
     };
     let repository = json.data.and_then(|data| data.repository);
     let child = repository.as_ref().and_then(|repo| repo.child.as_ref());
     let parent_ref = child.and_then(|child| child.parent.as_ref());
     let parent_issue = repository.as_ref().and_then(|repo| repo.parent.as_ref());
 
-    AutoLinkRelationSnapshot {
-        current_parent_number: parent_ref
+    (
+        parent_ref
             .and_then(|parent| parent.number)
             .map(|value| value.to_string())
             .unwrap_or_default(),
-        current_parent_node_id: parent_ref
+        parent_ref
             .and_then(|parent| parent.id.clone())
             .unwrap_or_default(),
-        child_node_id: child.and_then(|child| child.id.clone()).unwrap_or_default(),
-        parent_node_id: parent_issue
+        child.and_then(|entry| entry.id.clone()).unwrap_or_default(),
+        parent_issue
             .and_then(|parent| parent.id.clone())
             .unwrap_or_default(),
-    }
+    )
 }
 
 fn auto_link_add_sub_issue_linked_number(payload: &str) -> String {
+    #[derive(Debug, Deserialize)]
+    struct GraphqlAddSubIssuePayload {
+        data: Option<GraphqlAddSubIssueData>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlAddSubIssueData {
+        #[serde(rename = "addSubIssue")]
+        add_sub_issue: Option<GraphqlAddSubIssueResult>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlAddSubIssueResult {
+        issue: Option<GraphqlAddSubIssueIssue>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlAddSubIssueIssue {
+        #[serde(rename = "subIssues")]
+        sub_issues: Option<GraphqlAddSubIssueNodes>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlAddSubIssueNodes {
+        nodes: Option<Vec<GraphqlAddSubIssueNode>>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GraphqlAddSubIssueNode {
+        number: Option<u64>,
+    }
+
     let Ok(json) = common_json::from_json_str::<GraphqlAddSubIssuePayload>(payload) else {
         return String::new();
     };
@@ -1295,7 +1238,21 @@ fn is_issue_key(value: &str) -> bool {
     trimmed.starts_with('#') && trimmed[1..].chars().all(|ch| ch.is_ascii_digit())
 }
 
-fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> AutoLinkIssuePayload {
+type IssueAutoLinkPayload = (String, String, String, String);
+
+fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> IssueAutoLinkPayload {
+    #[derive(Debug, Deserialize)]
+    struct IssueFieldLabel {
+        name: Option<String>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct AutoLinkIssuePayload {
+        title: Option<String>,
+        body: Option<String>,
+        state: Option<String>,
+        labels: Option<Vec<IssueFieldLabel>>,
+    }
+
     let payload_raw = gh_output_or_empty(&[
         "issue",
         "view",
@@ -1305,13 +1262,26 @@ fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> AutoLinkIss
         "--json",
         "title,body,state,labels",
     ]);
-    common_json::from_json_str::<AutoLinkIssuePayload>(&payload_raw).unwrap_or(
+    let payload = common_json::from_json_str::<AutoLinkIssuePayload>(&payload_raw).unwrap_or(
         AutoLinkIssuePayload {
             title: None,
             body: None,
             state: None,
             labels: None,
         },
+    );
+    let labels_raw = payload
+        .labels
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|label| label.name)
+        .collect::<Vec<_>>()
+        .join("|");
+    (
+        payload.title.unwrap_or_default(),
+        payload.body.unwrap_or_default(),
+        payload.state.unwrap_or_default(),
+        labels_raw,
     )
 }
 
@@ -1347,6 +1317,10 @@ fn gh_issue_state_or_empty(repo_name: Option<&str>, issue_number: &str) -> Strin
         return String::new();
     }
 
+    #[derive(Debug, Deserialize)]
+    struct IssueStatePayload {
+        state: Option<String>,
+    }
     match common_json::from_json_str::<IssueStatePayload>(&payload_raw) {
         Ok(payload) => payload
             .state
@@ -1386,13 +1360,20 @@ fn gh_pr_body_or_empty(repo_name: &str, pr_number: &str) -> String {
     if payload_raw.trim().is_empty() {
         return String::new();
     }
+    #[derive(Debug, Deserialize)]
+    struct PrBodyPayload {
+        body: Option<String>,
+    }
     match common_json::from_json_str::<PrBodyPayload>(&payload_raw) {
         Ok(payload) => payload.body.unwrap_or_default(),
         Err(_) => String::new(),
     }
 }
 
-fn collect_neutralize_refs(text: &str) -> (Vec<(String, String)>, Vec<(String, String)>) {
+type NeutralizeRef = (String, String);
+type NeutralizeRefBuckets = (Vec<NeutralizeRef>, Vec<NeutralizeRef>);
+
+fn collect_neutralize_refs(text: &str) -> NeutralizeRefBuckets {
     let re = Regex::new(r"(?i)\b(closes|fixes)\b\s+(rejected\s+)?[^#\s]*#([0-9]+)")
         .expect("static regex must compile");
     let mut closing_refs: Vec<(String, String)> = Vec::new();
@@ -1775,9 +1756,7 @@ fn evaluate_parent_issue(
     repo_short_name: &str,
     parent_number: &str,
 ) -> i32 {
-    let parent_payload = gh_issue_autolink_payload(repo_name, parent_number);
-    let parent_state = parent_payload.state.unwrap_or_default();
-    let body = parent_payload.body.unwrap_or_default();
+    let (_, body, parent_state, _) = gh_issue_autolink_payload(repo_name, parent_number);
     if parent_state.is_empty() && body.is_empty() {
         return 0;
     }
@@ -1798,9 +1777,7 @@ fn evaluate_parent_issue(
 
     for child_ref in child_refs {
         let child_number = child_ref.trim_start_matches('#');
-        let child_payload = gh_issue_autolink_payload(repo_name, child_number);
-        let child_state = child_payload.state.unwrap_or_default();
-        let child_title = child_payload.title.unwrap_or_default();
+        let (child_title, _, child_state, _) = gh_issue_autolink_payload(repo_name, child_number);
         if child_state.is_empty() && child_title.is_empty() {
             open_count += 1;
             open_lines.push_str(&format!("- {} (unreadable or missing)\n", child_ref));
@@ -2119,6 +2096,17 @@ pub(crate) fn run_list_by_label(opts: ListByLabelOptions) -> i32 {
 }
 
 pub(crate) fn run_field(opts: IssueFieldOptions) -> i32 {
+    #[derive(Debug, Deserialize)]
+    struct IssueFieldLabel {
+        name: Option<String>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct IssueFieldPayload {
+        title: Option<String>,
+        body: Option<String>,
+        labels: Option<Vec<IssueFieldLabel>>,
+    }
+
     let mut args: Vec<&str> = vec!["issue", "view", &opts.issue, "--json", "title,body,labels"];
     if let Some(repo) = opts.repo.as_deref() {
         args.push("-R");
