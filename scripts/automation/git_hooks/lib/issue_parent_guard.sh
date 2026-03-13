@@ -21,10 +21,22 @@ resolve_versioning_automation_bin() {
 	return 1
 }
 
-versioning_automation_output_or_empty() {
+versioning_automation_output_required() {
 	local va_bin
-	va_bin="$(resolve_versioning_automation_bin)" || return 1
-	"$va_bin" "$@" 2>/dev/null || return 1
+	va_bin="$(resolve_versioning_automation_bin)" || {
+		echo "❌ versioning_automation binary is required but was not found." >&2
+		echo "   Build it with: cargo build -p versioning_automation" >&2
+		return 1
+	}
+
+	local output
+	if ! output="$("$va_bin" "$@" 2>/dev/null)"; then
+		echo "❌ versioning_automation failed for command: $*" >&2
+		return 1
+	fi
+
+	printf '%s\n' "$output"
+	return 0
 }
 
 resolve_repo_name_with_owner() {
@@ -34,32 +46,13 @@ resolve_repo_name_with_owner() {
 	fi
 
 	local va_repo
-	va_repo="$(versioning_automation_output_or_empty issue repo-name || true)"
-	if [[ -n "$va_repo" ]]; then
-		printf '%s\n' "$va_repo"
-		return 0
+	va_repo="$(versioning_automation_output_required issue repo-name)" || return 1
+	if [[ -z "$va_repo" ]]; then
+		echo "❌ versioning_automation returned an empty repository name." >&2
+		return 1
 	fi
-
-	local gh_repo
-	gh_repo="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
-	if [[ -n "$gh_repo" ]]; then
-		printf '%s\n' "$gh_repo"
-		return 0
-	fi
-
-	# Fallback: derive owner/name from origin remote URL when gh context is unavailable.
-	local remote_url
-	remote_url="$(git config --get remote.origin.url 2>/dev/null || true)"
-	if [[ -z "$remote_url" ]]; then
-		return 0
-	fi
-
-	# Supports:
-	# - https://github.com/owner/repo.git
-	# - git@github.com:owner/repo.git
-	# - ssh://git@github.com/owner/repo.git
-	printf '%s\n' "$remote_url" |
-		sed -E 's#^(https?://[^/]+/|ssh://[^/]+/|git@[^:]+:)##; s#\.git$##'
+	printf '%s\n' "$va_repo"
+	return 0
 }
 
 normalize_parent_value() {
@@ -75,15 +68,15 @@ split_repo_owner_name() {
 	local repo="$1"
 	local out_owner_var="$2"
 	local out_name_var="$3"
-	local owner="${repo%%/*}"
-	local name="${repo#*/}"
+	local parsed_owner="${repo%%/*}"
+	local parsed_name="${repo#*/}"
 
-	if [[ -z "$owner" || -z "$name" || "$owner" == "$repo" ]]; then
+	if [[ -z "$parsed_owner" || -z "$parsed_name" || "$parsed_owner" == "$repo" ]]; then
 		return 1
 	fi
 
-	printf -v "$out_owner_var" '%s' "$owner"
-	printf -v "$out_name_var" '%s' "$name"
+	printf -v "$out_owner_var" '%s' "$parsed_owner"
+	printf -v "$out_name_var" '%s' "$parsed_name"
 	return 0
 }
 
@@ -114,16 +107,13 @@ issue_has_children() {
 	local owner
 	local repo_name
 	local subissue_refs
-	if split_repo_owner_name "$repo" owner repo_name; then
-		subissue_refs="$(versioning_automation_output_or_empty issue subissue-refs --owner "$owner" --repo "$repo_name" --issue "$issue_number" || true)"
-		if [[ -n "$subissue_refs" ]]; then
-			return 0
-		fi
+	if ! split_repo_owner_name "$repo" owner repo_name; then
+		echo "❌ Invalid repository format '$repo' (expected owner/name)." >&2
+		return 1
 	fi
 
-	local child_count
-	child_count="$(gh issue list -R "$repo" --state all --search "\"Parent: #${issue_number}\" in:body" --limit 1 --json number --jq 'length' 2>/dev/null || echo "0")"
-	[[ "$child_count" != "0" ]]
+	subissue_refs="$(versioning_automation_output_required issue subissue-refs --owner "$owner" --repo "$repo_name" --issue "$issue_number")" || return 1
+	[[ -n "$subissue_refs" ]]
 }
 
 issue_body_value() {
@@ -131,14 +121,9 @@ issue_body_value() {
 	local repo="$2"
 
 	local body
-	body="$(versioning_automation_output_or_empty issue field --issue "$issue_number" --name body --repo "$repo" || true)"
-	if [[ -n "$body" ]]; then
-		printf '%s\n' "$body"
-		return 0
-	fi
-
-	body="$(gh issue view "$issue_number" -R "$repo" --json body -q '.body // ""' 2>/dev/null || true)"
+	body="$(versioning_automation_output_required issue field --issue "$issue_number" --name body --repo "$repo")" || return 1
 	printf '%s\n' "$body"
+	return 0
 }
 
 issue_assignee_logins() {
@@ -146,13 +131,9 @@ issue_assignee_logins() {
 	local repo="$2"
 
 	local assignees
-	assignees="$(versioning_automation_output_or_empty issue assignee-logins --issue "$issue_number" --repo "$repo" || true)"
-	if [[ -n "$assignees" ]]; then
-		printf '%s\n' "$assignees"
-		return 0
-	fi
-
-	gh issue view "$issue_number" -R "$repo" --json assignees --jq '.assignees[].login' 2>/dev/null || true
+	assignees="$(versioning_automation_output_required issue assignee-logins --issue "$issue_number" --repo "$repo")" || return 1
+	printf '%s\n' "$assignees"
+	return 0
 }
 
 issue_parent_value() {

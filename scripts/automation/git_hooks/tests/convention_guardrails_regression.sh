@@ -135,6 +135,137 @@ exit 0
 EOF
 	chmod +x "${mock_dir}/gh"
 
+	cat >"${mock_dir}/versioning_automation" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+contains_issue() {
+  local issue="$1"
+  local list="${MOCK_ROOT_PARENT_ISSUES:-617}"
+  [[ " ${list} " == *" ${issue} "* ]]
+}
+
+issue_has_children() {
+  local issue="$1"
+  local list="${MOCK_PARENT_WITH_CHILDREN:-${MOCK_ROOT_PARENT_ISSUES:-617}}"
+  [[ " ${list} " == *" ${issue} "* ]]
+}
+
+issue_parent_mode() {
+  local issue="$1"
+  local epic_list="${MOCK_EPIC_PARENT_ISSUES:-${MOCK_ROOT_PARENT_ISSUES:-617}}"
+  local base_list="${MOCK_BASE_PARENT_ISSUES:-}"
+  local none_list="${MOCK_NONE_PARENT_ISSUES:-}"
+
+  if [[ " ${epic_list} " == *" ${issue} "* ]]; then
+    echo "epic"
+    return
+  fi
+  if [[ " ${base_list} " == *" ${issue} "* ]]; then
+    echo "base"
+    return
+  fi
+  if [[ " ${none_list} " == *" ${issue} "* ]]; then
+    echo "none"
+    return
+  fi
+  echo "#617"
+}
+
+if [[ "${1:-}" != "issue" ]]; then
+  exit 0
+fi
+
+subcommand="${2:-}"
+shift 2 || true
+
+case "$subcommand" in
+  repo-name)
+    echo "owner/repo"
+    ;;
+
+  subissue-refs)
+    issue_number=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --issue)
+          issue_number="${2:-}"
+          shift 2
+          ;;
+        --owner|--repo)
+          shift 2
+          ;;
+        *)
+          shift
+          ;;
+      esac
+    done
+
+    if [[ -n "$issue_number" ]] && issue_has_children "$issue_number"; then
+      echo "#${issue_number}"
+    fi
+    ;;
+
+  field)
+    issue_number=""
+    field_name=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --issue)
+          issue_number="${2:-}"
+          shift 2
+          ;;
+        --name)
+          field_name="${2:-}"
+          shift 2
+          ;;
+        --repo)
+          shift 2
+          ;;
+        *)
+          shift
+          ;;
+      esac
+    done
+
+    if [[ "$field_name" == "body" ]]; then
+      parent_mode="$(issue_parent_mode "$issue_number")"
+      echo "Parent: ${parent_mode}"
+    fi
+    ;;
+
+  assignee-logins)
+    issue_number=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --issue)
+          issue_number="${2:-}"
+          shift 2
+          ;;
+        --repo)
+          shift 2
+          ;;
+        *)
+          shift
+          ;;
+      esac
+    done
+
+    if [[ " ${MOCK_MULTI_ASSIGNEE_ISSUES:-124} " == *" ${issue_number} "* ]]; then
+      echo "${MOCK_GH_LOGIN:-devuser}"
+      echo "pairdev"
+    elif [[ " ${MOCK_UNASSIGNED_ISSUES:-} " == *" ${issue_number} "* ]]; then
+      :
+    else
+      echo "${MOCK_GH_LOGIN:-devuser}"
+    fi
+    ;;
+esac
+
+exit 0
+EOF
+	chmod +x "${mock_dir}/versioning_automation"
+
 	cat >"${mock_dir}/pnpm" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail

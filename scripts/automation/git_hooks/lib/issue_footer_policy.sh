@@ -109,10 +109,6 @@ validate_no_root_parent_refs_in_footer_file() {
 	local repo
 	local root_parent_refs=()
 
-	if ! command -v gh >/dev/null 2>&1; then
-		return 0
-	fi
-
 	refs="$(extract_trailer_issue_refs_from_file "$commit_msg_file")"
 	[[ -z "$refs" ]] && return 0
 
@@ -149,10 +145,6 @@ validate_single_assignee_requires_closes_in_footer_file() {
 
 	refs="$(extract_trailer_issue_refs_from_file "$commit_msg_file")"
 	[[ -z "$refs" ]] && return 0
-
-	if ! command -v gh >/dev/null 2>&1; then
-		return 0
-	fi
 
 	repo="$(resolve_repo_name_with_owner)"
 	[[ -z "$repo" ]] && return 0
