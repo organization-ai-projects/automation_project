@@ -7,10 +7,15 @@ use crate::{
     echo_expert::EchoExpert,
     memory_engine::{MemoryEntry, MemoryType},
     moe_core::{ExpertCapability, Task, TaskType},
-    orchestrator::{ConcurrentMoePipeline, MoePipelineBuilder},
+    orchestrator::{ConcurrentMoePipeline, ConcurrentOperationalReport, MoePipelineBuilder},
 };
 
 pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
+    run_concurrent_pipeline_checks_with_report().map(|_| ())
+}
+
+pub(crate) fn run_concurrent_pipeline_checks_with_report()
+-> Result<ConcurrentOperationalReport, DynError> {
     let concurrent_pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
     concurrent_pipeline.register_expert(Box::new(EchoExpert::new(
         "concurrent_runtime",
@@ -147,7 +152,7 @@ pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
         ))
         .into());
     }
-    Ok(())
+    Ok(operational_report)
 }
 
 fn governance_checksum_for_concurrent_pipeline(

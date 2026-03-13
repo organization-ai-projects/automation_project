@@ -10,12 +10,18 @@ use crate::{
     moe_core::{ExpertCapability, Task, TaskType},
     orchestrator::{
         self, ArbitrationMode, ContinuousGovernancePolicy, GovernanceImportPolicy, MoePipeline,
-        MoePipelineBuilder,
+        MoePipelineBuilder, OperationalReport,
     },
     retrieval_engine::SimpleRetriever,
     router::HeuristicRouter,
 };
 pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> {
+    let (pipeline, _) = run_runtime_persistence_checks_with_report()?;
+    Ok(pipeline)
+}
+
+pub(crate) fn run_runtime_persistence_checks_with_report()
+-> Result<(MoePipeline, OperationalReport), DynError> {
     let governance_policy =
         ContinuousGovernancePolicy::new(0.5, 0.5, 0.4, 0.2, false).with_auto_promote_on_pass(true);
     let import_policy = GovernanceImportPolicy {
@@ -143,7 +149,7 @@ pub(crate) fn run_runtime_persistence_checks() -> Result<MoePipeline, DynError> 
         .into());
     }
 
-    Ok(restore_pipeline)
+    Ok((restore_pipeline, operational_report))
 }
 
 fn assert_import_telemetry_activity(pipeline: &MoePipeline) -> Result<(), DynError> {
