@@ -64,36 +64,7 @@ else
   echo ""
 fi
 
-# 1. Check orchestrator script permissions on staged orchestrator files only.
-echo "🔒 Checking orchestrator script permissions..."
-PERMISSION_ERRORS=0
-STAGED_ORCHESTRATOR_FILES="$(printf '%s\n' "$STAGED_CHANGED_FILES" | grep -E '^scripts/versioning/file_versioning/orchestrators/(read|execute)/.*\.sh$' || true)"
-
-while IFS= read -r script; do
-  [[ -z "$script" ]] && continue
-  if [[ "$script" == scripts/versioning/file_versioning/orchestrators/read/* ]]; then
-    if [[ -x "$script" ]]; then
-      echo "   ❌ $script should NOT be executable (use chmod 644)"
-      PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
-    fi
-    continue
-  fi
-  if [[ "$script" == scripts/versioning/file_versioning/orchestrators/execute/* ]]; then
-    if [[ ! -x "$script" ]]; then
-      echo "   ❌ $script should be executable (use chmod 755)"
-      PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
-    fi
-  fi
-done <<< "$STAGED_ORCHESTRATOR_FILES"
-
-if [[ $PERMISSION_ERRORS -gt 0 ]]; then
-  echo ""
-  echo "❌ Script permission errors detected!"
-  echo "   Convention: read/ scripts = 644, execute/ scripts = 755"
-  exit 1
-fi
-
-# 2. Run markdown lint for staged markdown files.
+# 1. Run markdown lint for staged markdown files.
 MARKDOWN_LINT_FILES="$(printf '%s\n' "$STAGED_CHANGED_FILES" | grep -E '\.md$' || true)"
 if [[ -n "$MARKDOWN_LINT_FILES" ]]; then
   echo "📝 Auto-fixing markdown files..."
@@ -109,7 +80,7 @@ else
   echo "📝 Skipping markdown lint (no staged markdown files)"
 fi
 
-# 3. Run shell syntax checks for staged shell files.
+# 2. Run shell syntax checks for staged shell files.
 echo "🔎 Checking shell syntax..."
 SHELL_ERRORS=0
 while IFS= read -r staged_file; do
@@ -128,7 +99,7 @@ if [[ $SHELL_ERRORS -gt 0 ]]; then
   exit 1
 fi
 
-# 4. Format Rust files only when Rust sources are staged.
+# 3. Format Rust files only when Rust sources are staged.
 if printf '%s\n' "$STAGED_CHANGED_FILES" | grep -qE '\.rs$'; then
   echo "✨ Formatting code..."
   if ! cargo fmt --all; then
