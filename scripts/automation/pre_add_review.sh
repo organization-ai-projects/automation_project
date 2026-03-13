@@ -30,28 +30,28 @@ ISSUES=0
 # 1. Check formatting
 info "Checking code formatting..."
 if rust_checks_run_fmt_check; then
-  info "✓ Code is properly formatted."
+	info "✓ Code is properly formatted."
 else
-  warn "⚠ Code formatting issues detected. Run: cargo fmt"
-  ISSUES=$((ISSUES + 1))
+	warn "⚠ Code formatting issues detected. Run: cargo fmt"
+	ISSUES=$((ISSUES + 1))
 fi
 
 # 2. Run clippy
 info "Running clippy..."
 if rust_checks_run_clippy --workspace --all-targets; then
-  info "✓ No clippy warnings."
+	info "✓ No clippy warnings."
 else
-  warn "⚠ Clippy warnings detected."
-  ISSUES=$((ISSUES + 1))
+	warn "⚠ Clippy warnings detected."
+	ISSUES=$((ISSUES + 1))
 fi
 
 # 3. Run tests
 info "Running tests..."
 if rust_checks_run_tests --workspace; then
-  info "✓ All tests passed."
+	info "✓ All tests passed."
 else
-  warn "⚠ Some tests failed."
-  ISSUES=$((ISSUES + 1))
+	warn "⚠ Some tests failed."
+	ISSUES=$((ISSUES + 1))
 fi
 
 # 4. Check for problematic patterns
@@ -61,18 +61,18 @@ PATTERNS=("unwrap(" "expect(" "todo!" "unimplemented!" "panic!")
 FOUND_PATTERNS=0
 
 for pattern in "${PATTERNS[@]}"; do
-  if git diff --cached --unified=0 | grep -E "^\+" | grep -v "^+++" | grep -q "$pattern"; then
-    warn "⚠ Found '$pattern' in staged changes."
-    FOUND_PATTERNS=$((FOUND_PATTERNS + 1))
-  fi
+	if git diff --cached --unified=0 | grep -E "^\+" | grep -v "^+++" | grep -q "$pattern"; then
+		warn "⚠ Found '$pattern' in staged changes."
+		FOUND_PATTERNS=$((FOUND_PATTERNS + 1))
+	fi
 done
 
 if [[ $FOUND_PATTERNS -eq 0 ]]; then
-  info "✓ No problematic patterns found."
+	info "✓ No problematic patterns found."
 else
-  warn "⚠ Found $FOUND_PATTERNS problematic pattern(s) in staged changes."
-  info "Consider reviewing uses of unwrap, expect, todo, unimplemented, and panic."
-  ISSUES=$((ISSUES + 1))
+	warn "⚠ Found $FOUND_PATTERNS problematic pattern(s) in staged changes."
+	info "Consider reviewing uses of unwrap, expect, todo, unimplemented, and panic."
+	ISSUES=$((ISSUES + 1))
 fi
 
 # 5. Summarize touched crates
@@ -80,18 +80,18 @@ info "Summarizing touched crates..."
 TOUCHED_CRATES="$(collect_scopes_from_files "$(git diff --cached --name-only --diff-filter=ACMRU)")"
 
 if [[ -n "$TOUCHED_CRATES" ]]; then
-  info "Touched crates:"
-  echo "$TOUCHED_CRATES" | sed 's/^/  - /'
+	info "Touched crates:"
+	echo "$TOUCHED_CRATES" | sed 's/^/  - /'
 else
-  info "No crates touched."
+	info "No crates touched."
 fi
 
 # Summary
 echo ""
 if [[ $ISSUES -eq 0 ]]; then
-  info "✅ Pre-add review passed! Ready to stage changes."
-  exit 0
+	info "✅ Pre-add review passed! Ready to stage changes."
+	exit 0
 else
-  warn "⚠ Pre-add review found $ISSUES issue(s). Please review before staging."
-  exit 1
+	warn "⚠ Pre-add review found $ISSUES issue(s). Please review before staging."
+	exit 1
 fi

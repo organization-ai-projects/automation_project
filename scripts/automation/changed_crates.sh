@@ -21,48 +21,48 @@ cd "$ROOT_DIR"
 
 # Determine refs to compare
 if [[ "$#" -eq 2 ]]; then
-  REF1="$1"
-  REF2="$2"
-  info "Comparing $REF1...$REF2"
-  CHANGED_FILES=$(git diff --name-only "$REF1" "$REF2" || true)
+	REF1="$1"
+	REF2="$2"
+	info "Comparing $REF1...$REF2"
+	CHANGED_FILES=$(git diff --name-only "$REF1" "$REF2" || true)
 elif [[ "$#" -eq 1 ]]; then
-  REF1="$1"
-  info "Comparing $REF1...HEAD"
-  CHANGED_FILES=$(git diff --name-only "$REF1" HEAD || true)
+	REF1="$1"
+	info "Comparing $REF1...HEAD"
+	CHANGED_FILES=$(git diff --name-only "$REF1" HEAD || true)
 else
-  info "Comparing working tree with HEAD"
-  CHANGED_FILES=$(git diff --name-only HEAD || true)
+	info "Comparing working tree with HEAD"
+	CHANGED_FILES=$(git diff --name-only HEAD || true)
 fi
 
 if [[ -z "$CHANGED_FILES" ]]; then
-  info "No changed files."
-  exit 0
+	info "No changed files."
+	exit 0
 fi
 
 # Extract crate paths from changed files.
 CRATE_PATHS=$(while IFS= read -r file; do
-  [[ -z "$file" ]] && continue
-  if crate_dir="$(resolve_scope_from_path "$file")"; then
-    echo "$crate_dir"
-  fi
-done <<< "$CHANGED_FILES" | sort -u || true)
+	[[ -z "$file" ]] && continue
+	if crate_dir="$(resolve_scope_from_path "$file")"; then
+		echo "$crate_dir"
+	fi
+done <<<"$CHANGED_FILES" | sort -u || true)
 
 if [[ -z "$CRATE_PATHS" ]]; then
-  info "No crates affected."
-  exit 0
+	info "No crates affected."
+	exit 0
 fi
 
 info "Changed crates:"
 echo "$CRATE_PATHS" | while read -r crate_path; do
-  if [[ -f "$ROOT_DIR/$crate_path/Cargo.toml" ]]; then
-    CRATE_NAME=$(grep -E "^name\s*=" "$ROOT_DIR/$crate_path/Cargo.toml" | head -1 | sed 's/.*"\(.*\)".*/\1/')
-    echo "  - $CRATE_NAME ($crate_path)"
-  else
-    echo "  - $crate_path"
-  fi
+	if [[ -f "$ROOT_DIR/$crate_path/Cargo.toml" ]]; then
+		CRATE_NAME=$(grep -E "^name\s*=" "$ROOT_DIR/$crate_path/Cargo.toml" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+		echo "  - $CRATE_NAME ($crate_path)"
+	else
+		echo "  - $crate_path"
+	fi
 done
 
 # Output just the paths for scripting
 if [[ "${OUTPUT_FORMAT:-}" == "paths" ]]; then
-  echo "$CRATE_PATHS"
+	echo "$CRATE_PATHS"
 fi

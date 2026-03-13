@@ -32,14 +32,11 @@ git_fetch_prune "$REMOTE"
 
 # Check if base branch exists remotely
 if ! branch_exists_remote "$REMOTE" "$BASE_BRANCH"; then
-  die "Base branch '$REMOTE/$BASE_BRANCH' does not exist."
+	die "Base branch '$REMOTE/$BASE_BRANCH' does not exist."
 fi
 
 # Try a test merge without committing
 info "Attempting test merge of $REMOTE/$BASE_BRANCH into $CURRENT_BRANCH..."
-
-# Save current state
-CURRENT_HEAD="$(git rev-parse HEAD)"
 
 # Create a temporary branch for testing
 TEST_BRANCH="__test_merge_$$"
@@ -49,13 +46,13 @@ git branch "$TEST_BRANCH" "$CURRENT_BRANCH"
 git checkout "$TEST_BRANCH" >/dev/null 2>&1
 
 if git merge --no-commit --no-ff "$REMOTE/$BASE_BRANCH" >/dev/null 2>&1; then
-  info "✓ No merge conflicts detected."
-  RESULT=0
+	info "✓ No merge conflicts detected."
+	RESULT=0
 else
-  warn "⚠ Merge conflicts detected!"
-  info "Conflicting files:"
-  git diff --name-only --diff-filter=U || true
-  RESULT=1
+	warn "⚠ Merge conflicts detected!"
+	info "Conflicting files:"
+	git diff --name-only --diff-filter=U || true
+	RESULT=1
 fi
 
 # Abort the test merge

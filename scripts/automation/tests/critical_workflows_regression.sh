@@ -16,15 +16,15 @@ cat /tmp/script_integrity.out
 
 echo "[2/8] Direct issue creation contract (dry-run)"
 target/debug/versioning_automation issue create \
-  --title "fix(shell): regression direct issue contract" \
-  --context "Regression context" \
-  --problem "Regression problem" \
-  --acceptance "Regression criterion" \
-  --assignee "octocat" \
-  --related-issue "#12" \
-  --related-pr "#34" \
-  --parent none \
-  --dry-run >/tmp/direct_issue_dry_run.out
+	--title "fix(shell): regression direct issue contract" \
+	--context "Regression context" \
+	--problem "Regression problem" \
+	--acceptance "Regression criterion" \
+	--assignee "octocat" \
+	--related-issue "#12" \
+	--related-pr "#34" \
+	--parent none \
+	--dry-run >/tmp/direct_issue_dry_run.out
 sed -n '1,40p' /tmp/direct_issue_dry_run.out
 
 echo "[3/8] Rust unit test suite (versioning_automation)"
