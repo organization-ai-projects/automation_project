@@ -40,6 +40,13 @@ impl SessionBuffer {
     }
 
     pub fn values(&self, session_id: &str) -> Vec<String> {
+        self.values_ref(session_id)
+            .into_iter()
+            .map(ToString::to_string)
+            .collect()
+    }
+
+    pub fn values_ref(&self, session_id: &str) -> Vec<&str> {
         let mut entries: Vec<&BufferEntry> = self
             .sessions
             .get(session_id)
@@ -48,7 +55,7 @@ impl SessionBuffer {
         entries.sort_by(|a, b| a.key.cmp(&b.key));
         entries
             .into_iter()
-            .map(|entry| entry.value.clone())
+            .map(|entry| entry.value.as_str())
             .collect()
     }
 

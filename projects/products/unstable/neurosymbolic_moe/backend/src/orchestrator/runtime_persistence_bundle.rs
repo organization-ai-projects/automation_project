@@ -138,7 +138,7 @@ fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
             fingerprint.push(';');
         }
         if let Ok(()) = write!(fingerprint, "{}:", session) {}
-        let values = sessions_buffer.values(session);
+        let values = sessions_buffer.values_ref(session);
         for (value_idx, value) in values.iter().enumerate() {
             if value_idx > 0 {
                 fingerprint.push('|');

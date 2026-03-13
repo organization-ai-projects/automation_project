@@ -26,3 +26,16 @@ fn list_sessions_returns_existing_ids() {
     assert!(sessions.contains(&"a"));
     assert!(sessions.contains(&"b"));
 }
+
+#[test]
+fn values_ref_returns_sorted_values_without_allocating_owned_strings() {
+    let mut buffer = SessionBuffer::new();
+    buffer.create_session("s1");
+    buffer.put("s1", "b", "value-b");
+    buffer.put("s1", "a", "value-a");
+
+    let refs = buffer.values_ref("s1");
+    assert_eq!(refs, vec!["value-a", "value-b"]);
+    let owned = buffer.values("s1");
+    assert_eq!(owned, vec!["value-a".to_string(), "value-b".to_string()]);
+}
