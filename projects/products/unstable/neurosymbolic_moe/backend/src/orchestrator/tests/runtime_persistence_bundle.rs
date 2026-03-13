@@ -495,6 +495,44 @@ fn compare_and_import_runtime_bundle_json_succeeds_on_matching_version() {
 }
 
 #[test]
+#[ignore = "perf smoke test; run manually when profiling checksum throughput"]
+fn runtime_bundle_checksum_perf_smoke_large_payload() {
+    let mut source = MoePipelineBuilder::new().build();
+    for idx in 0..5_000_u32 {
+        source
+            .remember_short_term(test_memory_entry(
+                &format!("memory.short.perf.{idx}"),
+                &format!("perf short-term entry {idx}"),
+                MemoryType::Short,
+            ))
+            .expect("short memory write should succeed");
+        source
+            .remember_long_term(test_memory_entry(
+                &format!("memory.long.perf.{idx}"),
+                &format!("perf long-term entry {idx}"),
+                MemoryType::Long,
+            ))
+            .expect("long memory write should succeed");
+        source.put_session_buffer(
+            "session-perf-smoke",
+            format!("checkpoint.{idx}"),
+            format!("perf snapshot {idx}"),
+        );
+    }
+
+    let bundle = source.export_runtime_bundle();
+    let baseline_checksum = bundle.recompute_checksum();
+    assert!(!baseline_checksum.is_empty());
+    for _ in 0..5 {
+        let next_checksum = bundle.recompute_checksum();
+        assert_eq!(
+            next_checksum, baseline_checksum,
+            "checksum recomputation should remain stable under repeated calls"
+        );
+    }
+}
+
+#[test]
 fn import_runtime_bundle_json_rejects_malformed_payload_variants() {
     let mut source = MoePipelineBuilder::new().build();
     source

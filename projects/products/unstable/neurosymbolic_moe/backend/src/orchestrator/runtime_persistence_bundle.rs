@@ -3,6 +3,7 @@ use crate::buffer_manager::BufferManager;
 use crate::memory_engine::MemoryEntry;
 use crate::orchestrator::GovernancePersistenceBundle;
 use serde::{Deserialize, Serialize};
+use std::fmt::Write as _;
 
 const RUNTIME_BUNDLE_SCHEMA_VERSION: u32 = 1;
 
@@ -77,86 +78,124 @@ fn memory_entries_fingerprint(entries: &[MemoryEntry]) -> String {
             .then(a.content.cmp(&b.content))
             .then(a.created_at.cmp(&b.created_at))
     });
-    ordered_entries
-        .iter()
-        .map(|entry| {
-            let mut tags: Vec<&str> = entry.tags.iter().map(String::as_str).collect();
-            tags.sort_unstable();
-            let mut metadata: Vec<(&str, &str)> = entry
-                .metadata
-                .iter()
-                .map(|(k, v)| (k.as_str(), v.as_str()))
-                .collect();
-            metadata.sort_unstable_by(|a, b| a.0.cmp(b.0));
-            format!(
-                "{}|{}|{:?}|{}|{:?}|{}|{:?}|{}",
-                entry.id,
-                entry.content,
-                tags,
-                entry.created_at,
-                entry.expires_at,
-                entry.relevance,
-                entry.memory_type,
-                metadata
-                    .iter()
-                    .map(|(k, v)| format!("{k}={v}"))
-                    .collect::<Vec<_>>()
-                    .join(",")
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(";")
+    let mut fingerprint = String::new();
+    for (idx, entry) in ordered_entries.iter().enumerate() {
+        if idx > 0 {
+            fingerprint.push(';');
+        }
+        let mut tags: Vec<&str> = entry.tags.iter().map(String::as_str).collect();
+        tags.sort_unstable();
+        let mut metadata: Vec<(&str, &str)> = entry
+            .metadata
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        metadata.sort_unstable_by(|a, b| a.0.cmp(b.0));
+        let metadata_fingerprint = metadata
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        match write!(
+            fingerprint,
+            "{}|{}|{:?}|{}|{:?}|{}|{:?}|{}",
+            entry.id,
+            entry.content,
+            tags,
+            entry.created_at,
+            entry.expires_at,
+            entry.relevance,
+            entry.memory_type,
+            metadata_fingerprint
+        ) {
+            Ok(()) => {}
+            Err(_) => {}
+        }
+    }
+    fingerprint
 }
 
 fn working_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
     let working = buffer_manager.working();
     let mut keys = working.keys();
     keys.sort_unstable();
-    keys.into_iter()
-        .filter_map(|key| {
-            working
-                .get(key)
-                .map(|entry| format!("{}={}", entry.key, entry.value))
-        })
-        .collect::<Vec<_>>()
-        .join(";")
+    let mut fingerprint = String::new();
+    for key in keys {
+        if let Some(entry) = working.get(key) {
+            if !fingerprint.is_empty() {
+                fingerprint.push(';');
+            }
+            match write!(fingerprint, "{}={}", entry.key, entry.value) {
+                Ok(()) => {}
+                Err(_) => {}
+            }
+        }
+    }
+    fingerprint
 }
 
 fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
     let sessions_buffer = buffer_manager.sessions();
     let mut sessions = sessions_buffer.list_sessions();
     sessions.sort_unstable();
-    sessions
-        .into_iter()
-        .map(|session| format!("{}:{}", session, sessions_buffer.values(session).join("|")))
-        .collect::<Vec<_>>()
-        .join(";")
+    let mut fingerprint = String::new();
+    for session in sessions {
+        if !fingerprint.is_empty() {
+            fingerprint.push(';');
+        }
+        match write!(
+            fingerprint,
+            "{}:{}",
+            session,
+            sessions_buffer.values(session).join("|")
+        ) {
+            Ok(()) => {}
+            Err(_) => {}
+        }
+    }
+    fingerprint
 }
 
 fn governance_fingerprint(governance: &GovernancePersistenceBundle) -> String {
-    let audit_fp = governance
-        .audit_entries
-        .iter()
-        .map(|entry| format!("{}:{}:{}", entry.version, entry.checksum, entry.reason))
-        .collect::<Vec<_>>()
-        .join("|");
-    let snapshot_fp = governance
-        .snapshots
-        .iter()
-        .map(|snapshot| {
-            format!(
-                "{}:{}:{}",
-                snapshot.version, snapshot.reason, snapshot.state.state_checksum
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("|");
-    format!(
-        "{}:{}:{}:{audit_fp}::{snapshot_fp}",
+    let mut fingerprint = String::new();
+    match write!(
+        fingerprint,
+        "{}:{}:{}:",
         governance.state.schema_version,
         governance.state.state_version,
         governance.state.state_checksum
-    )
+    ) {
+        Ok(()) => {}
+        Err(_) => {}
+    }
+    for (idx, entry) in governance.audit_entries.iter().enumerate() {
+        if idx > 0 {
+            fingerprint.push('|');
+        }
+        match write!(
+            fingerprint,
+            "{}:{}:{}",
+            entry.version, entry.checksum, entry.reason
+        ) {
+            Ok(()) => {}
+            Err(_) => {}
+        }
+    }
+    fingerprint.push_str("::");
+    for (idx, snapshot) in governance.snapshots.iter().enumerate() {
+        if idx > 0 {
+            fingerprint.push('|');
+        }
+        match write!(
+            fingerprint,
+            "{}:{}:{}",
+            snapshot.version, snapshot.reason, snapshot.state.state_checksum
+        ) {
+            Ok(()) => {}
+            Err(_) => {}
+        }
+    }
+    fingerprint
 }
 
 fn fnv1a64(bytes: &[u8]) -> u64 {
