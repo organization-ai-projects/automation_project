@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/pr_directive_conflict_guard/run.sh"
+TARGET_BIN="${ROOT_DIR}/target/debug/versioning_automation"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -106,7 +106,7 @@ run_case() {
     GH_REPO="owner/repo" \
     MOCK_PR_EDIT_LOG="${edit_log}" \
     "$@" \
-    /bin/bash "${TARGET_SCRIPT}" ${command}
+    /bin/bash -c "'${TARGET_BIN}' pr directive-conflict-guard ${command}"
   ) >"${out_file}" 2>"${err_file}" || status=$?
 
   cat "${out_file}" "${err_file}" > "${merged}"
@@ -145,6 +145,7 @@ run_case() {
 
 main() {
   echo "Running regression tests for pr_directive_conflict_guard/run.sh"
+  cargo build -q -p versioning_automation
 
   run_case \
     "missing-pr-arg" \

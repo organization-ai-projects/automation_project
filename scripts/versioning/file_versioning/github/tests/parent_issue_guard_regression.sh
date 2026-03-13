@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/parent_issue_guard/run.sh"
+TARGET_BIN="${ROOT_DIR}/target/debug/versioning_automation"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -119,7 +119,7 @@ run_case() {
     GH_REPO="org/repo" \
     PATH="${tmp}/bin:${PATH}" \
     "$@" \
-    /bin/bash "${TARGET_SCRIPT}" ${command}
+    /bin/bash -c "'${TARGET_BIN}' issue parent-guard ${command}"
   ) >"${out_file}" 2>"${err_file}" || status=$?
 
   cat "${out_file}" "${err_file}" > "${merged}"
@@ -170,7 +170,7 @@ run_close_check() {
     GH_REPO="org/repo" \
     PATH="${tmp}/bin:${PATH}" \
     "$@" \
-    /bin/bash "${TARGET_SCRIPT}" ${command}
+    /bin/bash -c "'${TARGET_BIN}' issue parent-guard ${command}"
   ) >"${out_file}" 2>"${err_file}" || status=$?
 
   cat "${out_file}" "${err_file}" > "${merged}"
@@ -197,6 +197,7 @@ run_close_check() {
 
 main() {
   echo "Running regression tests for parent_issue_guard/run.sh"
+  cargo build -q -p versioning_automation
 
   # All children closed => parent should be auto-closed
   run_case \

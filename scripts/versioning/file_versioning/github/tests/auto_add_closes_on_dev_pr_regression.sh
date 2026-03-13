@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr/run.sh"
+TARGET_BIN="${ROOT_DIR}/target/debug/versioning_automation"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -27,35 +27,10 @@ if [[ "$args" == repo\ view* ]]; then
   exit 0
 fi
 
-if [[ "$args" == pr\ view* && "$args" == *"--json number,state,baseRefName,title,body,author"* ]]; then
+if [[ "$args" == pr\ view* && "$args" == *"--json"* ]]; then
   cat <<JSON
-{"number":55,"state":"${MOCK_PR_STATE:-OPEN}","baseRefName":"${MOCK_PR_BASE:-dev}","title":"${MOCK_PR_TITLE:-feat: sample}","body":"${MOCK_PR_BODY:-Part of #101}","author":{"login":"${MOCK_PR_AUTHOR:-devuser}"}}
+{"number":55,"url":"https://github.com/owner/repo/pull/55","state":"${MOCK_PR_STATE:-OPEN}","baseRefName":"${MOCK_PR_BASE:-dev}","headRefName":"${MOCK_PR_HEAD:-feature/test}","title":"${MOCK_PR_TITLE:-feat: sample}","body":"${MOCK_PR_BODY:-Part of #101}","author":{"login":"${MOCK_PR_AUTHOR:-devuser}"}}
 JSON
-  exit 0
-fi
-
-if [[ "$args" == pr\ view* && "$args" == *"--json state"* ]]; then
-  echo "${MOCK_PR_STATE:-OPEN}"
-  exit 0
-fi
-
-if [[ "$args" == pr\ view* && "$args" == *"--json baseRefName"* ]]; then
-  echo "${MOCK_PR_BASE:-dev}"
-  exit 0
-fi
-
-if [[ "$args" == pr\ view* && "$args" == *"--json title"* ]]; then
-  echo "${MOCK_PR_TITLE:-feat: sample}"
-  exit 0
-fi
-
-if [[ "$args" == pr\ view* && "$args" == *"--json body"* ]]; then
-  echo "${MOCK_PR_BODY:-Part of #101}"
-  exit 0
-fi
-
-if [[ "$args" == pr\ view* && "$args" == *"--json author"* ]]; then
-  echo "${MOCK_PR_AUTHOR:-devuser}"
   exit 0
 fi
 
@@ -119,7 +94,7 @@ run_case() {
     GH_REPO="owner/repo" \
     MOCK_PR_EDIT_LOG="${tmp}/pr_edit.log" \
     "$@" \
-    /bin/bash "${TARGET_SCRIPT}" ${command}
+    /bin/bash -c "'${TARGET_BIN}' pr auto-add-closes ${command}"
   ) >"${out_file}" 2>"${err_file}" || status=$?
 
   cat "${out_file}" "${err_file}" > "${merged}"
@@ -146,6 +121,7 @@ run_case() {
 
 main() {
   echo "Running regression tests for auto_add_closes_on_dev_pr/run.sh"
+  cargo build -q -p versioning_automation
 
   run_case \
     "adds-managed-closes-for-single-assignee-pr-author" \

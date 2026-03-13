@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge/run.sh"
+TARGET_BIN="${ROOT_DIR}/target/debug/versioning_automation"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -106,7 +106,7 @@ run_case() {
     MOCK_GH_ARGS_LOG="${tmp}/gh_args.log" \
     GH_REPO="owner/repo" \
     "$@" \
-    /bin/bash "${TARGET_SCRIPT}" ${command}
+    /bin/bash -c "'${TARGET_BIN}' issue closure-hygiene ${command}"
   ) >"${out_file}" 2>"${err_file}" || status=$?
 
   cat "${out_file}" "${err_file}" >"${merged_file}"
@@ -133,6 +133,7 @@ run_case() {
 
 main() {
   echo "Running regression tests for closure_hygiene_on_main_merge/run.sh"
+  cargo build -q -p versioning_automation
 
   run_case \
     "all-children-closed-closes-parent-and-milestone" \

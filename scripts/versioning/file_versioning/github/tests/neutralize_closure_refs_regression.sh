@@ -4,8 +4,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-NEUTRALIZER="${ROOT_DIR}/scripts/versioning/file_versioning/github/issues/neutralize/run.sh"
-REEVALUATOR="${ROOT_DIR}/scripts/versioning/file_versioning/github/issues/reevaluate/run.sh"
+TARGET_BIN="${ROOT_DIR}/target/debug/versioning_automation"
+NEUTRALIZER_CMD="'${TARGET_BIN}' issue neutralize"
+REEVALUATOR_CMD="'${TARGET_BIN}' issue reevaluate"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -133,7 +134,7 @@ run_case() {
   local name="$1"
   local expected_exit="$2"
   local expected_pattern="$3"
-  local target="$4"
+  local target_cmd="$4"
   local command="$5"
   local expected_edit_pattern="${6:-}"
   shift 6
@@ -157,7 +158,7 @@ run_case() {
     MOCK_PR_EDIT_LOG="${edit_log}" \
     MOCK_GH_ARGS_LOG="${tmp}/gh_args.log" \
     "$@" \
-    /bin/bash "$target" ${command}
+    /bin/bash -c "${target_cmd} ${command}"
   ) >"${out_file}" 2>"${err_file}" || status=$?
 
   cat "${out_file}" "${err_file}" > "${merged}"
@@ -198,13 +199,14 @@ run_case() {
 
 main() {
   echo "Running regression tests for neutralize_non_compliant_closure_refs.sh and reevaluate_prs_on_issue_edit.sh"
+  cargo build -q -p versioning_automation
 
   # ── neutralizer: missing --pr arg ────────────────────────────────────────
   run_case \
     "neutralizer-missing-pr-arg" \
     2 \
     "--pr is required" \
-    "$NEUTRALIZER" \
+    "$NEUTRALIZER_CMD" \
     "" \
     ""
 
@@ -213,7 +215,7 @@ main() {
     "neutralizer-non-compliant-issue-adds-rejected" \
     0 \
     "Closure neutralization evaluated" \
-    "$NEUTRALIZER" \
+    "$NEUTRALIZER_CMD" \
     "--pr 1" \
     "pr edit" \
     env MOCK_ISSUE_COMPLIANT=0 MOCK_PR_BODY="Closes #42"
@@ -223,7 +225,7 @@ main() {
     "neutralizer-compliant-issue-no-change" \
     0 \
     "Closure neutralization evaluated" \
-    "$NEUTRALIZER" \
+    "$NEUTRALIZER_CMD" \
     "--pr 1" \
     "" \
     env MOCK_ISSUE_COMPLIANT=1 MOCK_PR_BODY="Closes #42"
@@ -233,7 +235,7 @@ main() {
     "neutralizer-removes-rejected-when-issue-becomes-compliant" \
     0 \
     "Closure neutralization evaluated" \
-    "$NEUTRALIZER" \
+    "$NEUTRALIZER_CMD" \
     "--pr 1" \
     "pr edit" \
     env MOCK_ISSUE_COMPLIANT=1 MOCK_PR_BODY="Closes rejected #42"
@@ -243,7 +245,7 @@ main() {
     "neutralizer-keeps-rejected-when-still-non-compliant" \
     0 \
     "Closure neutralization evaluated" \
-    "$NEUTRALIZER" \
+    "$NEUTRALIZER_CMD" \
     "--pr 1" \
     "" \
     env MOCK_ISSUE_COMPLIANT=0 MOCK_PR_BODY="Closes rejected #42"
@@ -253,7 +255,7 @@ main() {
     "neutralizer-reopen-is-ignored" \
     0 \
     "Closure neutralization evaluated" \
-    "$NEUTRALIZER" \
+    "$NEUTRALIZER_CMD" \
     "--pr 1" \
     "" \
     env MOCK_ISSUE_COMPLIANT=1 MOCK_PR_BODY=$'Closes #42\nReopen #42'
@@ -262,8 +264,8 @@ main() {
   run_case \
     "reevaluator-missing-issue-arg" \
     2 \
-    "--issue is required" \
-    "$REEVALUATOR" \
+    "--issue requires a positive integer" \
+    "$REEVALUATOR_CMD" \
     "" \
     ""
 
@@ -272,7 +274,7 @@ main() {
     "reevaluator-no-prs-found" \
     0 \
     "No open PRs found" \
-    "$REEVALUATOR" \
+    "$REEVALUATOR_CMD" \
     "--issue 42" \
     "" \
     env MOCK_API_PULLS_JSON="[]"
@@ -282,7 +284,7 @@ main() {
     "reevaluator-evaluates-referencing-pr" \
     0 \
     "Re-evaluation complete.*1 PR" \
-    "$REEVALUATOR" \
+    "$REEVALUATOR_CMD" \
     "--issue 42" \
     "" \
     env MOCK_ISSUE_COMPLIANT=1 \
@@ -294,7 +296,7 @@ main() {
     "reevaluator-supports-fixes-owner-repo-ref" \
     0 \
     "Re-evaluation complete.*1 PR" \
-    "$REEVALUATOR" \
+    "$REEVALUATOR_CMD" \
     "--issue 42" \
     "" \
     env MOCK_ISSUE_COMPLIANT=1 \
@@ -306,7 +308,7 @@ main() {
     "reevaluator-ignores-unrelated-pr" \
     0 \
     "No open PRs found" \
-    "$REEVALUATOR" \
+    "$REEVALUATOR_CMD" \
     "--issue 42" \
     "" \
     env MOCK_API_PULLS_JSON='[{"number":2,"body":"Closes #99"}]'

@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-TARGET_SCRIPT="${ROOT_DIR}/scripts/versioning/file_versioning/github/issues/auto_link/run.sh"
+TARGET_BIN="${ROOT_DIR}/target/debug/versioning_automation"
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -80,10 +80,11 @@ chmod +x "${mock_dir}/gh"
 
 (
   cd "${ROOT_DIR}"
+  cargo build -q -p versioning_automation
   MOCK_GH_ARGS_LOG="${args_log}" \
   GH_REPO="org/repo" \
   PATH="${mock_dir}:${PATH}" \
-  bash "${TARGET_SCRIPT}" --issue 123
+  "${TARGET_BIN}" issue auto-link --issue 123
 ) >"${out_log}" 2>"${err_log}" || true
 
 if grep -q "Linked issue #123 to parent #686" "${out_log}"; then
