@@ -6,8 +6,10 @@ const GOVERNANCE_STATE_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GovernanceState {
+    #[serde(default = "GovernanceState::schema_version")]
     pub schema_version: u32,
     pub state_version: u64,
+    #[serde(default)]
     pub state_checksum: String,
     pub continuous_governance_policy: Option<ContinuousGovernancePolicy>,
     pub evaluation_baseline: Option<EvaluationEngine>,
@@ -15,6 +17,10 @@ pub struct GovernanceState {
 }
 
 impl GovernanceState {
+    pub fn schema_version() -> u32 {
+        GOVERNANCE_STATE_SCHEMA_VERSION
+    }
+
     pub fn from_components(
         state_version: u64,
         continuous_governance_policy: Option<ContinuousGovernancePolicy>,
@@ -22,7 +28,7 @@ impl GovernanceState {
         last_continuous_improvement_report: Option<ContinuousImprovementReport>,
     ) -> Self {
         let mut state = Self {
-            schema_version: GOVERNANCE_STATE_SCHEMA_VERSION,
+            schema_version: Self::schema_version(),
             state_version,
             state_checksum: String::new(),
             continuous_governance_policy,

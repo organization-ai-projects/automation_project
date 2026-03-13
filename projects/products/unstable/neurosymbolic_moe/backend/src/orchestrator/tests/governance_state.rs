@@ -1,6 +1,20 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/tests/governance_state.rs
 use crate::moe_core::MoeError;
 use crate::orchestrator::{GovernancePersistenceBundle, GovernanceState, MoePipelineBuilder};
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct LegacyGovernanceStatePayload {
+    state_version: u64,
+    continuous_governance_policy: Option<crate::orchestrator::ContinuousGovernancePolicy>,
+    evaluation_baseline: Option<crate::evaluation_engine::EvaluationEngine>,
+    last_continuous_improvement_report: Option<crate::orchestrator::ContinuousImprovementReport>,
+}
+
+#[derive(Serialize)]
+struct LegacyGovernanceBundlePayload {
+    state: LegacyGovernanceStatePayload,
+}
 
 fn malformed_payload_variants(payload: &str) -> Vec<String> {
     vec![
@@ -206,4 +220,40 @@ fn governance_state_and_bundle_json_reject_checksum_corruption_matrix() {
                 .to_string()
                 .contains("checksum verification failed")
     );
+}
+
+#[test]
+fn import_governance_state_json_accepts_legacy_payload_without_schema_or_checksum() {
+    let payload = common_json::json::to_json_string_pretty(&LegacyGovernanceStatePayload {
+        state_version: 0,
+        continuous_governance_policy: None,
+        evaluation_baseline: None,
+        last_continuous_improvement_report: None,
+    })
+    .expect("legacy state payload serialization should succeed");
+
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline
+        .import_governance_state_json(&payload)
+        .expect("legacy state payload should be importable");
+    assert!(pipeline.export_governance_state().verify_checksum());
+}
+
+#[test]
+fn import_governance_bundle_json_accepts_legacy_payload_without_audit_or_snapshots() {
+    let payload = common_json::json::to_json_string_pretty(&LegacyGovernanceBundlePayload {
+        state: LegacyGovernanceStatePayload {
+            state_version: 0,
+            continuous_governance_policy: None,
+            evaluation_baseline: None,
+            last_continuous_improvement_report: None,
+        },
+    })
+    .expect("legacy bundle payload serialization should succeed");
+
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline
+        .import_governance_bundle_json(&payload)
+        .expect("legacy bundle payload should be importable");
+    assert!(pipeline.export_governance_state().verify_checksum());
 }
