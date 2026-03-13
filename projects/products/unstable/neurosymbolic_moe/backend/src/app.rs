@@ -46,6 +46,8 @@ type ServeMetricsOptions = (
     Option<String>,
     bool,
 );
+const DEFAULT_ADMIN_AUDIT_LIMIT: usize = 50;
+const MAX_ADMIN_AUDIT_LIMIT: usize = 1000;
 
 pub fn run() -> Result<(), DynError> {
     tracing_subscriber::fmt::init();
@@ -251,7 +253,7 @@ fn print_usage() {
     );
     tracing::info!("                   [--slo-audit-path PATH] [--disable-auto-rollback]");
     tracing::info!(
-        "                   Serves /metrics, /healthz, /readyz, /livez, /admin/slo-profile"
+        "                   Serves /metrics, /healthz, /readyz, /livez, /admin/slo-profile, /admin/slo-audit"
     );
     tracing::info!("SLO flags:");
     tracing::info!("  --runtime-min-successes N");
@@ -333,6 +335,7 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
         let is_healthz = request_line.starts_with("GET /healthz ");
         let is_readyz = request_line.starts_with("GET /readyz ");
         let is_livez = request_line.starts_with("GET /livez ");
+        let is_admin_audit = request_line.starts_with("GET /admin/slo-audit");
         let is_admin_slo = request_line.starts_with("POST /admin/slo-profile");
         let (status_line, body) = if is_metrics {
             match get_cached_metrics(
@@ -404,6 +407,29 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
             }
         } else if is_livez {
             ("HTTP/1.1 200 OK", "alive".to_string())
+        } else if is_admin_audit {
+            if !is_authorized_admin_request(&request_line, admin_token.as_deref()) {
+                (
+                    "HTTP/1.1 401 Unauthorized",
+                    "missing or invalid X-Admin-Token".to_string(),
+                )
+            } else if let Some(path) = slo_audit_path.as_deref() {
+                let limit = parse_admin_audit_limit_from_request_line(&request_line)
+                    .unwrap_or(DEFAULT_ADMIN_AUDIT_LIMIT)
+                    .min(MAX_ADMIN_AUDIT_LIMIT);
+                match read_admin_audit_json(path, limit) {
+                    Ok(payload) => ("HTTP/1.1 200 OK", payload),
+                    Err(err) => (
+                        "HTTP/1.1 500 Internal Server Error",
+                        format!("audit read failed: {err}"),
+                    ),
+                }
+            } else {
+                (
+                    "HTTP/1.1 400 Bad Request",
+                    "slo audit is disabled (configure --slo-audit-path)".to_string(),
+                )
+            }
         } else if is_admin_slo {
             if !is_authorized_admin_request(&request_line, admin_token.as_deref()) {
                 (
@@ -412,78 +438,82 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                 )
             } else {
                 match parse_admin_profile_from_request_line(&request_line) {
-                Some(profile) => {
-                    let previous_profile = thresholds.profile_name().to_string();
-                    match SloThresholds::parse_args(&["--profile".to_string(), profile.to_string()])
-                    {
-                        Ok(updated) => {
-                            let switch_allowed = if disable_auto_rollback {
-                                true
-                            } else {
-                                profile_switch_guard_passes(&updated)?
-                            };
-                            if !switch_allowed {
-                                if let Some(path) = slo_audit_path.as_deref() {
-                                    append_slo_audit_line(
-                                        path,
-                                        &previous_profile,
-                                        profile,
-                                        "rejected",
-                                        "candidate profile failed readiness gate",
-                                    )?;
+                    Some(profile) => {
+                        let previous_profile = thresholds.profile_name().to_string();
+                        match SloThresholds::parse_args(&[
+                            "--profile".to_string(),
+                            profile.to_string(),
+                        ]) {
+                            Ok(updated) => {
+                                let switch_allowed = if disable_auto_rollback {
+                                    true
+                                } else {
+                                    profile_switch_guard_passes(&updated)?
+                                };
+                                if !switch_allowed {
+                                    if let Some(path) = slo_audit_path.as_deref() {
+                                        append_slo_audit_line(
+                                            path,
+                                            served_requests + 1,
+                                            &previous_profile,
+                                            profile,
+                                            "rejected",
+                                            "candidate profile failed readiness gate",
+                                        )?;
+                                    }
+                                    (
+                                        "HTTP/1.1 409 Conflict",
+                                        format!(
+                                            "profile switch blocked by auto-rollback guard: {} -> {}",
+                                            previous_profile, profile
+                                        ),
+                                    )
+                                } else {
+                                    thresholds = updated;
+                                    cached_metrics = None;
+                                    cached_health = None;
+                                    if let Some(path) = slo_profile_path.as_deref() {
+                                        persist_profile(path, thresholds.profile_name())?;
+                                    }
+                                    if let Some(path) = slo_audit_path.as_deref() {
+                                        append_slo_audit_line(
+                                            path,
+                                            served_requests + 1,
+                                            &previous_profile,
+                                            thresholds.profile_name(),
+                                            "applied",
+                                            "profile switch accepted",
+                                        )?;
+                                    }
+                                    (
+                                        "HTTP/1.1 200 OK",
+                                        format!("active profile set to {}", thresholds.profile_name()),
+                                    )
                                 }
-                                (
-                                    "HTTP/1.1 409 Conflict",
-                                    format!(
-                                        "profile switch blocked by auto-rollback guard: {} -> {}",
-                                        previous_profile, profile
-                                    ),
-                                )
-                            } else {
-                            thresholds = updated;
-                            cached_metrics = None;
-                            cached_health = None;
-                            if let Some(path) = slo_profile_path.as_deref() {
-                                persist_profile(path, thresholds.profile_name())?;
                             }
-                            if let Some(path) = slo_audit_path.as_deref() {
-                                append_slo_audit_line(
-                                    path,
-                                    &previous_profile,
-                                    thresholds.profile_name(),
-                                    "applied",
-                                    "profile switch accepted",
-                                )?;
-                            }
-                            (
-                                "HTTP/1.1 200 OK",
-                                format!("active profile set to {}", thresholds.profile_name()),
-                            )
-                            }
+                            Err(err) => (
+                                "HTTP/1.1 400 Bad Request",
+                                format!("invalid profile update: {err}"),
+                            ),
                         }
-                        Err(err) => (
-                            "HTTP/1.1 400 Bad Request",
-                            format!("invalid profile update: {err}"),
-                        ),
                     }
+                    None => (
+                        "HTTP/1.1 400 Bad Request",
+                        "missing profile query param (expected ?profile=strict|balanced|exploratory)"
+                            .to_string(),
+                    ),
                 }
-                None => (
-                    "HTTP/1.1 400 Bad Request",
-                    "missing profile query param (expected ?profile=strict|balanced|exploratory)"
-                        .to_string(),
-                ),
-            }
             }
         } else {
             (
                 "HTTP/1.1 404 Not Found",
-                "not found; use /metrics, /healthz, /readyz, /livez or POST /admin/slo-profile?profile=..."
+                "not found; use /metrics, /healthz, /readyz, /livez, GET /admin/slo-audit, or POST /admin/slo-profile?profile=..."
                     .to_string(),
             )
         };
         let content_type = if is_metrics {
             "text/plain; version=0.0.4"
-        } else if is_healthz {
+        } else if is_healthz || is_admin_audit {
             "application/json"
         } else {
             "text/plain"
@@ -674,18 +704,13 @@ fn get_cached_health(
 }
 
 pub(crate) fn parse_admin_profile_from_request_line(request_line: &str) -> Option<&str> {
-    let path = request_line
-        .strip_prefix("POST ")?
-        .split_whitespace()
-        .next()?;
-    let (_, query) = path.split_once('?')?;
-    for pair in query.split('&') {
-        let (key, value) = pair.split_once('=')?;
-        if key == "profile" {
-            return Some(value);
-        }
-    }
-    None
+    parse_query_param_from_request_line(request_line, "POST ", "profile")
+}
+
+pub(crate) fn parse_admin_audit_limit_from_request_line(request_line: &str) -> Option<usize> {
+    parse_query_param_from_request_line(request_line, "GET ", "limit")
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
 }
 
 pub(crate) fn is_authorized_admin_request(request_text: &str, admin_token: Option<&str>) -> bool {
@@ -709,18 +734,65 @@ fn profile_switch_guard_passes(thresholds: &SloThresholds) -> Result<bool, DynEr
 
 fn append_slo_audit_line(
     path: &str,
+    seq: u64,
     from_profile: &str,
     to_profile: &str,
     result: &str,
     reason: &str,
 ) -> Result<(), DynError> {
     let sanitized_reason = reason.replace('\n', " ");
+    let escaped_from = escape_json_string(from_profile);
+    let escaped_to = escape_json_string(to_profile);
+    let escaped_result = escape_json_string(result);
+    let escaped_reason = escape_json_string(&sanitized_reason);
     let line = format!(
-        "from={from_profile}\tto={to_profile}\tresult={result}\treason={sanitized_reason}\n"
+        "{{\"seq\":{seq},\"from_profile\":\"{escaped_from}\",\"to_profile\":\"{escaped_to}\",\"result\":\"{escaped_result}\",\"reason\":\"{escaped_reason}\"}}\n"
     );
     let mut file = OpenOptions::new().create(true).append(true).open(path)?;
     file.write_all(line.as_bytes())?;
     Ok(())
+}
+
+fn read_admin_audit_json(path: &str, limit: usize) -> Result<String, DynError> {
+    match fs::read_to_string(path) {
+        Ok(content) => {
+            let mut lines: Vec<&str> = content.lines().filter(|line| !line.is_empty()).collect();
+            if lines.len() > limit {
+                let start = lines.len().saturating_sub(limit);
+                lines = lines.split_off(start);
+            }
+            Ok(format!("[{}]", lines.join(",")))
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok("[]".to_string()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+fn parse_query_param_from_request_line<'a>(
+    request_line: &'a str,
+    method_prefix: &str,
+    key: &str,
+) -> Option<&'a str> {
+    let path = request_line
+        .strip_prefix(method_prefix)?
+        .split_whitespace()
+        .next()?;
+    let (_, query) = path.split_once('?')?;
+    for pair in query.split('&') {
+        let (param_key, value) = pair.split_once('=')?;
+        if param_key == key {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn escape_json_string(raw: &str) -> String {
+    raw.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
 }
 
 fn load_persisted_profile(path: &str) -> Result<Option<String>, DynError> {

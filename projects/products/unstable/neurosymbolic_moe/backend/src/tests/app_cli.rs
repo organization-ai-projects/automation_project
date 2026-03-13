@@ -93,3 +93,17 @@ fn admin_token_authorization_parses_header_case_insensitive() {
     assert!(ok);
     assert!(!denied);
 }
+
+#[test]
+fn admin_audit_limit_query_parser_extracts_limit() {
+    let line = "GET /admin/slo-audit?limit=120 HTTP/1.1\r\nHost: x\r\n";
+    let parsed = crate::app::parse_admin_audit_limit_from_request_line(line);
+    assert_eq!(parsed, Some(120));
+}
+
+#[test]
+fn admin_audit_limit_query_parser_rejects_zero() {
+    let line = "GET /admin/slo-audit?limit=0 HTTP/1.1\r\nHost: x\r\n";
+    let parsed = crate::app::parse_admin_audit_limit_from_request_line(line);
+    assert_eq!(parsed, None);
+}
