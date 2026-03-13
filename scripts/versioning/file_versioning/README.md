@@ -27,7 +27,7 @@ file_versioning/
 
 - `README.md`: This file.
 - `TOC.md`: Documentation index for file versioning scripts.
-- `git/`: Pure git operation scripts.
+- `git/`: Git workflow documentation for Rust CLI commands.
 - `github/`: GitHub-only operations.
 
 ## Runtime Entry Points
@@ -92,7 +92,7 @@ Issue creation modes:
 
 ## Branch Naming Conventions
 
-Enforced by `create_branch.sh`:
+Enforced by `versioning_automation git create-branch ...`:
 
 - `feature/` or `feat/` - New features
 - `fix/` or `fixture/` - Bug fixes
@@ -103,15 +103,13 @@ Enforced by `create_branch.sh`:
 
 Example: `feature/user-authentication`, `fix/null-pointer-bug`
 
-## Adding New Scripts
+## Adding New Automation
 
 **Decision tree:**
 
-1. **Is it a complete workflow?** → Make it executable orchestrator at root level
-2. **Is it a specialized component?** → Make it non-executable component in appropriate directory
-3. **Does it use only `git`?** → Place in `git/`
-4. **Does it use only `gh`?** → Place in `github/`
-5. **Does it use both?** → Place at root level
+1. **Runtime workflow/logic?** -> Implement in `tools/versioning_automation`.
+2. **Git-focused behavior docs/contracts?** -> Document in `git/`.
+3. **GitHub-focused behavior docs/tests?** -> Document in `github/`.
 
 ## Documentation
 

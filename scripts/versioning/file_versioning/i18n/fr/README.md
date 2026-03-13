@@ -29,7 +29,7 @@ file_versioning/
 
 - `README.md`: Ce document.
 - `TOC.md`: Index des scripts file_versioning.
-- `git/`: Scripts Git purs.
+- `git/`: Documentation des workflows Git pour le CLI Rust.
 - `github/`: Scripts GitHub-only.
 
 ## Architecture runtime
@@ -89,7 +89,7 @@ Attention: en cas d'echec du safe delete, ce script peut forcer la suppression l
 
 ## Conventions de nommage de branches
 
-Validees par `create_branch.sh`:
+Validees par `versioning_automation git create-branch ...`:
 
 - `feature/` ou `feat/`
 - `fix/` ou `fixture/`
@@ -100,8 +100,8 @@ Validees par `create_branch.sh`:
 
 Exemples: `feature/user-authentication`, `fix/null-pointer-bug`.
 
-## Ajouter un script
+## Ajouter une automation
 
-1. Workflow runtime? -> expose via `versioning_automation ...`
-2. Git pur? -> `git/` (documentation et contrats)
-3. GitHub pur? -> `github/` (tests/fixtures/docs)
+1. Workflow runtime/logique? -> implementer dans `tools/versioning_automation`.
+2. Comportement Git (docs/contrats)? -> `git/`.
+3. Comportement GitHub (docs/tests)? -> `github/`.

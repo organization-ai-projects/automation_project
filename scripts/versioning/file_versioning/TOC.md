@@ -11,7 +11,7 @@ This document provides an overview of all documentation files in this directory.
 ## Subdirectories
 
 - [git/TOC.md](git/TOC.md): Pure git operations and utilities
-- [github/TOC.md](github/TOC.md): GitHub CLI operations (reserved, currently empty)
+- [github/TOC.md](github/TOC.md): GitHub CLI operations and regression harnesses
 
 ## Navigation
 

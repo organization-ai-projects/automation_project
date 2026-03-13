@@ -1,6 +1,6 @@
 # Sync After PR Merge Workflow
 
-This document explains how to synchronize your local branches after a PR merge, covering both manual cleanup steps and automated cleanup via the `cleanup_after_pr.sh` script.
+This document explains how to synchronize your local branches after a PR merge, covering both manual cleanup steps and automated cleanup via the `versioning_automation git cleanup-after-pr` script.
 
 ## Overview
 
@@ -89,17 +89,16 @@ git push --set-upstream origin <branch-name>
 git checkout <your-current-branch>
 ```
 
-## Automated Cleanup with cleanup_after_pr.sh
+## Automated Cleanup with `versioning_automation git cleanup-after-pr`
 
-The `cleanup_after_pr.sh` script automates the entire cleanup process.
+The `versioning_automation git cleanup-after-pr` script automates the entire cleanup process.
 
 ### Quick Start
 
 **Default behavior (recreate branches):**
 
 ```bash
-cd scripts/versioning/file_versioning/git
-./cleanup_after_pr.sh
+versioning_automation git cleanup-after-pr
 ```
 
 This will:
@@ -113,7 +112,7 @@ This will:
 **Delete-only mode (don't recreate):**
 
 ```bash
-./cleanup_after_pr.sh --delete-only
+versioning_automation git cleanup-after-pr --delete-only
 ```
 
 Use this when you want to clean up old branches without recreating them.
@@ -124,13 +123,13 @@ Control the script behavior with environment variables:
 
 ```bash
 # Use a different remote
-REMOTE=upstream ./cleanup_after_pr.sh
+REMOTE=upstream versioning_automation git cleanup-after-pr
 
 # Use a different base branch
-BASE_BRANCH=main ./cleanup_after_pr.sh
+BASE_BRANCH=main versioning_automation git cleanup-after-pr
 
 # Combine options
-REMOTE=upstream BASE_BRANCH=main ./cleanup_after_pr.sh --delete-only
+REMOTE=upstream BASE_BRANCH=main versioning_automation git cleanup-after-pr --delete-only
 ```
 
 ### What the Script Does
@@ -149,7 +148,7 @@ REMOTE=upstream BASE_BRANCH=main ./cleanup_after_pr.sh --delete-only
 ### Script Options
 
 ```bash
-./cleanup_after_pr.sh [OPTIONS]
+versioning_automation git cleanup-after-pr [OPTIONS]
 
 Options:
   --delete-only    Delete outdated branches without recreating them
@@ -166,22 +165,21 @@ Environment Variables:
 
 ```bash
 # After your PR merges into dev
-cd scripts/versioning/file_versioning/git
-./cleanup_after_pr.sh
+versioning_automation git cleanup-after-pr
 ```
 
 **Cleanup with custom configuration:**
 
 ```bash
 # Using main as base branch with upstream remote
-BASE_BRANCH=main REMOTE=upstream ./cleanup_after_pr.sh
+BASE_BRANCH=main REMOTE=upstream versioning_automation git cleanup-after-pr
 ```
 
 **Remove old feature branches:**
 
 ```bash
 # Delete without recreating (cleanup abandoned work)
-./cleanup_after_pr.sh --delete-only
+versioning_automation git cleanup-after-pr --delete-only
 ```
 
 ## Safety Features

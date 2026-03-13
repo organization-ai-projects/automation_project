@@ -2,7 +2,7 @@
 
 Langue : [English](../../sync_after_pr.md) | **Francais**
 
-Ce document explique comment synchroniser les branches locales apres un merge PR, en manuel ou via `cleanup_after_pr.sh`.
+Ce document explique comment synchroniser les branches locales apres un merge PR, en manuel ou via `versioning_automation git cleanup-after-pr`.
 
 ## Vue d'ensemble
 
@@ -78,7 +78,7 @@ git push --set-upstream origin <branch-name>
 git checkout <your-current-branch>
 ```
 
-## Nettoyage automatise avec cleanup_after_pr.sh
+## Nettoyage automatise avec `versioning_automation git cleanup-after-pr`
 
 ### Demarrage rapide
 
@@ -86,7 +86,7 @@ Comportement par defaut (supprime + recree):
 
 ```bash
 cd scripts/versioning/file_versioning/git
-./cleanup_after_pr.sh
+versioning_automation git cleanup-after-pr
 ```
 
 Le script:
@@ -100,26 +100,26 @@ Le script:
 Mode suppression seule:
 
 ```bash
-./cleanup_after_pr.sh --delete-only
+versioning_automation git cleanup-after-pr --delete-only
 ```
 
 ## Configuration
 
 ```bash
 # Remote different
-REMOTE=upstream ./cleanup_after_pr.sh
+REMOTE=upstream versioning_automation git cleanup-after-pr
 
 # Base differente
-BASE_BRANCH=main ./cleanup_after_pr.sh
+BASE_BRANCH=main versioning_automation git cleanup-after-pr
 
 # Combinaison
-REMOTE=upstream BASE_BRANCH=main ./cleanup_after_pr.sh --delete-only
+REMOTE=upstream BASE_BRANCH=main versioning_automation git cleanup-after-pr --delete-only
 ```
 
 ## Options
 
 ```bash
-./cleanup_after_pr.sh [OPTIONS]
+versioning_automation git cleanup-after-pr [OPTIONS]
 
 Options:
   --delete-only    Supprime sans recreer
@@ -157,11 +157,11 @@ Le nettoyage local peut tout de meme etre valide.
 
 ## Resume
 
-| Aspect | Manuel | Script |
-|--------|--------|--------|
-| Ideal pour | apprentissage, cas ponctuel | maintenance reguliere |
-| Vitesse | plus lente | rapide |
-| Controle | maximal | moyen |
-| Risque d'erreur | faible si attentif | reduit par checks automatiques |
+|Aspect|Manuel|Script|
+|---|---|---|
+|Ideal pour|apprentissage, cas ponctuel|maintenance reguliere|
+|Vitesse|plus lente|rapide|
+|Controle|maximal|moyen|
+|Risque d'erreur|faible si attentif|reduit par checks automatiques|
 
-Point de depart conseille: tester une fois en manuel, puis automatiser avec `cleanup_after_pr.sh`.
+Point de depart conseille: tester une fois en manuel, puis automatiser avec `versioning_automation git cleanup-after-pr`.
