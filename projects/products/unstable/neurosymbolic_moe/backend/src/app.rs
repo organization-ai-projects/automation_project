@@ -48,6 +48,7 @@ type ServeMetricsOptions = (
     Option<String>,
     Option<String>,
     bool,
+    Option<u64>,
 );
 const DEFAULT_ADMIN_AUDIT_LIMIT: usize = 50;
 const MAX_ADMIN_AUDIT_LIMIT: usize = 1000;
@@ -259,7 +260,9 @@ fn print_usage() {
     tracing::info!(
         "  serve-metrics [addr] [--once] [--cache-ttl-requests N] [--slo-profile-path PATH] [--admin-token TOKEN]"
     );
-    tracing::info!("                   [--slo-audit-path PATH] [--disable-auto-rollback]");
+    tracing::info!(
+        "                   [--slo-audit-path PATH] [--slo-audit-max-bytes N] [--disable-auto-rollback]"
+    );
     tracing::info!(
         "                   Serves /metrics, /healthz, /readyz, /livez, /admin/slo-profile, /admin/slo-audit"
     );
@@ -303,7 +306,7 @@ fn cmd_metrics() -> Result<(), DynError> {
     Ok(())
 }
 
-fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
+pub(crate) fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
     let (
         addr,
         once,
@@ -313,6 +316,7 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
         admin_token,
         slo_audit_path,
         disable_auto_rollback,
+        slo_audit_max_bytes,
     ) = parse_serve_metrics_options(args)?;
     let listener = TcpListener::bind(&addr)?;
     tracing::info!(
@@ -476,6 +480,7 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                                             profile,
                                             "rejected",
                                             "candidate profile failed readiness gate",
+                                            slo_audit_max_bytes,
                                         )?;
                                     }
                                     (
@@ -500,6 +505,7 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
                                             thresholds.profile_name(),
                                             "applied",
                                             "profile switch accepted",
+                                            slo_audit_max_bytes,
                                         )?;
                                     }
                                     (
@@ -585,6 +591,7 @@ pub(crate) fn parse_serve_metrics_options(
     let mut admin_token: Option<String> = None;
     let mut slo_audit_path: Option<String> = None;
     let mut disable_auto_rollback = false;
+    let mut slo_audit_max_bytes: Option<u64> = None;
     let mut threshold_args = Vec::new();
     let mut idx = 0_usize;
     while idx < args.len() {
@@ -617,6 +624,13 @@ pub(crate) fn parse_serve_metrics_options(
                 .ok_or_else(|| std::io::Error::other("missing value for --slo-audit-path"))?;
             slo_audit_path = Some(raw.to_string());
             idx += 2;
+        } else if arg == "--slo-audit-max-bytes" {
+            let raw = args
+                .get(idx + 1)
+                .ok_or_else(|| std::io::Error::other("missing value for --slo-audit-max-bytes"))?;
+            let max_bytes: u64 = raw.parse()?;
+            slo_audit_max_bytes = Some(max_bytes.max(1));
+            idx += 2;
         } else if arg == "--disable-auto-rollback" {
             disable_auto_rollback = true;
             idx += 1;
@@ -645,6 +659,7 @@ pub(crate) fn parse_serve_metrics_options(
         admin_token,
         slo_audit_path,
         disable_auto_rollback,
+        slo_audit_max_bytes,
     ))
 }
 
@@ -769,11 +784,15 @@ fn append_slo_audit_line(
     to_profile: &str,
     result: &str,
     reason: &str,
+    audit_max_bytes: Option<u64>,
 ) -> Result<(), DynError> {
     let audit_guard = audit_io_lock()
         .lock()
         .map_err(|_| std::io::Error::other("audit lock poisoned"))?;
     let line = format_slo_audit_entry_json(seq, from_profile, to_profile, result, reason);
+    if let Some(max_bytes) = audit_max_bytes {
+        rotate_audit_file_if_needed(path, max_bytes, line.len() as u64 + 1)?;
+    }
     let mut file = OpenOptions::new().create(true).append(true).open(path)?;
     file.write_all(line.as_bytes())?;
     file.write_all(b"\n")?;
@@ -809,6 +828,33 @@ pub(crate) fn read_admin_audit_json(path: &str, limit: usize) -> Result<String, 
     };
     drop(audit_guard);
     result
+}
+
+pub(crate) fn rotate_audit_file_if_needed(
+    path: &str,
+    max_bytes: u64,
+    incoming_bytes: u64,
+) -> Result<(), DynError> {
+    let current_size = match fs::metadata(path) {
+        Ok(metadata) => metadata.len(),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => 0,
+        Err(err) => return Err(err.into()),
+    };
+    if current_size.saturating_add(incoming_bytes) <= max_bytes {
+        return Ok(());
+    }
+
+    let rotated_path = format!("{path}.1");
+    match fs::remove_file(&rotated_path) {
+        Ok(_) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => return Err(err.into()),
+    }
+    match fs::rename(path, rotated_path) {
+        Ok(_) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err.into()),
+    }
 }
 
 pub(crate) fn format_slo_audit_entry_json(

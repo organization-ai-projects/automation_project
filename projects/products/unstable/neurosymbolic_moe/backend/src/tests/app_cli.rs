@@ -32,6 +32,7 @@ fn serve_metrics_options_parse_once_and_addr() {
     assert!(parsed.5.is_none());
     assert!(parsed.6.is_none());
     assert!(!parsed.7);
+    assert!(parsed.8.is_none());
 }
 
 #[test]
@@ -62,6 +63,7 @@ fn serve_metrics_options_parse_profile_path() {
     assert!(parsed.5.is_none());
     assert!(parsed.6.is_none());
     assert!(!parsed.7);
+    assert!(parsed.8.is_none());
 }
 
 #[test]
@@ -71,12 +73,15 @@ fn serve_metrics_options_parse_admin_and_audit_flags() {
         "secret-token".to_string(),
         "--slo-audit-path".to_string(),
         "/tmp/slo_audit.log".to_string(),
+        "--slo-audit-max-bytes".to_string(),
+        "4096".to_string(),
         "--disable-auto-rollback".to_string(),
     ];
     let parsed = crate::app::parse_serve_metrics_options(&args).expect("serve args should parse");
     assert_eq!(parsed.5.as_deref(), Some("secret-token"));
     assert_eq!(parsed.6.as_deref(), Some("/tmp/slo_audit.log"));
     assert!(parsed.7);
+    assert_eq!(parsed.8, Some(4096));
 }
 
 #[test]
@@ -143,6 +148,20 @@ fn read_admin_audit_json_returns_tail_only() {
     assert!(result.contains("\"seq\":3"));
 
     let _ = fs::remove_file(path);
+}
+
+#[test]
+fn rotate_audit_file_if_needed_moves_previous_file() {
+    let path = unique_test_file_path("audit_rotate");
+    fs::write(&path, "existing-line\n").expect("seed audit");
+    crate::app::rotate_audit_file_if_needed(path.to_str().expect("utf8"), 1, 64)
+        .expect("rotate should succeed");
+
+    let rotated = PathBuf::from(format!("{}.1", path.display()));
+    assert!(rotated.exists());
+    assert!(!path.exists());
+
+    let _ = fs::remove_file(rotated);
 }
 
 fn unique_test_file_path(prefix: &str) -> PathBuf {
