@@ -1,6 +1,7 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/app.rs
 use std::path::PathBuf;
 use std::{
+    fs,
     io::{Read, Write},
     net::TcpListener,
 };
@@ -34,6 +35,7 @@ const STATUS_COMPONENT_LINES: [&str; 13] = [
 ];
 
 type HealthSnapshot = (String, Vec<String>, String, Vec<String>);
+type ServeMetricsOptions = (String, bool, u64, Vec<String>, Option<String>);
 
 pub fn run() -> Result<(), DynError> {
     tracing_subscriber::fmt::init();
@@ -235,7 +237,10 @@ fn print_usage() {
     tracing::info!("  slo-gate [flags]   Fail-fast SLO gate for CI");
     tracing::info!("  metrics            Print Prometheus-compatible metrics snapshot");
     tracing::info!(
-        "  serve-metrics [addr] [--once] [--cache-ttl-requests N]  Serve /metrics, /healthz, /readyz, /livez"
+        "  serve-metrics [addr] [--once] [--cache-ttl-requests N] [--slo-profile-path PATH]"
+    );
+    tracing::info!(
+        "                   Serves /metrics, /healthz, /readyz, /livez, /admin/slo-profile"
     );
     tracing::info!("SLO flags:");
     tracing::info!("  --runtime-min-successes N");
@@ -278,13 +283,19 @@ fn cmd_metrics() -> Result<(), DynError> {
 }
 
 fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
-    let (addr, once, cache_ttl_requests, threshold_args) = parse_serve_metrics_options(args)?;
+    let (addr, once, cache_ttl_requests, threshold_args, slo_profile_path) =
+        parse_serve_metrics_options(args)?;
     let listener = TcpListener::bind(&addr)?;
     tracing::info!(
         "Metrics endpoint listening on http://{}/metrics and /healthz",
         addr
     );
-    let thresholds = SloThresholds::parse_args(&threshold_args)?;
+    let mut thresholds = SloThresholds::parse_args(&threshold_args)?;
+    if let Some(path) = slo_profile_path.as_deref()
+        && let Some(profile) = load_persisted_profile(path)?
+    {
+        thresholds = SloThresholds::parse_args(&["--profile".to_string(), profile])?;
+    }
     let mut cached_metrics: Option<(u64, String)> = None;
     let mut cached_health: Option<(u64, HealthSnapshot)> = None;
     let mut served_requests = 0_u64;
@@ -303,6 +314,7 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
         let is_healthz = request_line.starts_with("GET /healthz ");
         let is_readyz = request_line.starts_with("GET /readyz ");
         let is_livez = request_line.starts_with("GET /livez ");
+        let is_admin_slo = request_line.starts_with("POST /admin/slo-profile");
         let (status_line, body) = if is_metrics {
             match get_cached_metrics(
                 &thresholds,
@@ -373,10 +385,40 @@ fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
             }
         } else if is_livez {
             ("HTTP/1.1 200 OK", "alive".to_string())
+        } else if is_admin_slo {
+            match parse_admin_profile_from_request_line(&request_line) {
+                Some(profile) => {
+                    match SloThresholds::parse_args(&["--profile".to_string(), profile.to_string()])
+                    {
+                        Ok(updated) => {
+                            thresholds = updated;
+                            cached_metrics = None;
+                            cached_health = None;
+                            if let Some(path) = slo_profile_path.as_deref() {
+                                persist_profile(path, thresholds.profile_name())?;
+                            }
+                            (
+                                "HTTP/1.1 200 OK",
+                                format!("active profile set to {}", thresholds.profile_name()),
+                            )
+                        }
+                        Err(err) => (
+                            "HTTP/1.1 400 Bad Request",
+                            format!("invalid profile update: {err}"),
+                        ),
+                    }
+                }
+                None => (
+                    "HTTP/1.1 400 Bad Request",
+                    "missing profile query param (expected ?profile=strict|balanced|exploratory)"
+                        .to_string(),
+                ),
+            }
         } else {
             (
                 "HTTP/1.1 404 Not Found",
-                "not found; use /metrics, /healthz, /readyz or /livez".to_string(),
+                "not found; use /metrics, /healthz, /readyz, /livez or POST /admin/slo-profile?profile=..."
+                    .to_string(),
             )
         };
         let content_type = if is_metrics {
@@ -419,10 +461,11 @@ fn collect_prometheus_metrics(thresholds: &SloThresholds) -> Result<String, DynE
 
 pub(crate) fn parse_serve_metrics_options(
     args: &[String],
-) -> Result<(String, bool, u64, Vec<String>), DynError> {
+) -> Result<ServeMetricsOptions, DynError> {
     let mut addr = "127.0.0.1:9464".to_string();
     let mut once = false;
     let mut cache_ttl_requests = 1_u64;
+    let mut slo_profile_path: Option<String> = None;
     let mut threshold_args = Vec::new();
     let mut idx = 0_usize;
     while idx < args.len() {
@@ -436,6 +479,12 @@ pub(crate) fn parse_serve_metrics_options(
                 .ok_or_else(|| std::io::Error::other("missing value for --cache-ttl-requests"))?;
             let ttl_requests: u64 = raw.parse()?;
             cache_ttl_requests = ttl_requests.max(1);
+            idx += 2;
+        } else if arg == "--slo-profile-path" {
+            let raw = args
+                .get(idx + 1)
+                .ok_or_else(|| std::io::Error::other("missing value for --slo-profile-path"))?;
+            slo_profile_path = Some(raw.to_string());
             idx += 2;
         } else if arg.starts_with("--") {
             threshold_args.push(arg.to_string());
@@ -453,7 +502,13 @@ pub(crate) fn parse_serve_metrics_options(
             );
         }
     }
-    Ok((addr, once, cache_ttl_requests, threshold_args))
+    Ok((
+        addr,
+        once,
+        cache_ttl_requests,
+        threshold_args,
+        slo_profile_path,
+    ))
 }
 
 fn collect_health_snapshot(thresholds: &SloThresholds) -> Result<HealthSnapshot, DynError> {
@@ -535,4 +590,39 @@ fn get_cached_health(
     let fresh = collect_health_snapshot(thresholds)?;
     *cache = Some((request_index, fresh.clone()));
     Ok(fresh)
+}
+
+pub(crate) fn parse_admin_profile_from_request_line(request_line: &str) -> Option<&str> {
+    let path = request_line
+        .strip_prefix("POST ")?
+        .split_whitespace()
+        .next()?;
+    let (_, query) = path.split_once('?')?;
+    for pair in query.split('&') {
+        let (key, value) = pair.split_once('=')?;
+        if key == "profile" {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn load_persisted_profile(path: &str) -> Result<Option<String>, DynError> {
+    match fs::read_to_string(path) {
+        Ok(content) => {
+            let trimmed = content.trim();
+            if trimmed.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(trimmed.to_string()))
+            }
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(err.into()),
+    }
+}
+
+fn persist_profile(path: &str, profile: &str) -> Result<(), DynError> {
+    fs::write(path, profile.as_bytes())?;
+    Ok(())
 }

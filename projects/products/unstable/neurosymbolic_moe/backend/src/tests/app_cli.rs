@@ -26,6 +26,7 @@ fn serve_metrics_options_parse_once_and_addr() {
     assert!(parsed.1);
     assert_eq!(parsed.2, 25);
     assert!(parsed.3.is_empty());
+    assert!(parsed.4.is_none());
 }
 
 #[test]
@@ -42,4 +43,22 @@ fn serve_metrics_options_forward_threshold_flags() {
     assert_eq!(parsed.3.len(), 4);
     assert_eq!(parsed.3[0], "--runtime-min-successes");
     assert_eq!(parsed.3[1], "3");
+    assert!(parsed.4.is_none());
+}
+
+#[test]
+fn serve_metrics_options_parse_profile_path() {
+    let args = vec![
+        "--slo-profile-path".to_string(),
+        "/tmp/neuro_slo_profile.txt".to_string(),
+    ];
+    let parsed = crate::app::parse_serve_metrics_options(&args).expect("serve args should parse");
+    assert_eq!(parsed.4.as_deref(), Some("/tmp/neuro_slo_profile.txt"));
+}
+
+#[test]
+fn admin_profile_query_parser_extracts_profile() {
+    let line = "POST /admin/slo-profile?profile=strict HTTP/1.1\r\nHost: x\r\n";
+    let parsed = crate::app::parse_admin_profile_from_request_line(line);
+    assert_eq!(parsed, Some("strict"));
 }
