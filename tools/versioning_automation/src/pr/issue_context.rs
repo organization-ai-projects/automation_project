@@ -1,5 +1,4 @@
-use std::process::Command;
-
+use crate::issues::non_compliance_reason_from_content;
 use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::contracts::github::issue_snapshot::IssueSnapshot;
 use crate::pr::gh_cli::gh_output_trim_end_newline;
@@ -41,27 +40,7 @@ fn load_issue_context_payload(opts: &PrIssueContextOptions) -> (String, String, 
 }
 
 fn compute_non_compliance_reason(title: &str, body: &str, labels_raw: &str) -> String {
-    let Ok(current_exe) = std::env::current_exe() else {
-        return String::new();
-    };
-
-    let output = Command::new(current_exe)
-        .arg("issue")
-        .arg("non-compliance-reason")
-        .arg("--title")
-        .arg(title)
-        .arg("--body")
-        .arg(body)
-        .arg("--labels-raw")
-        .arg(labels_raw)
-        .output();
-
-    match output {
-        Ok(result) if result.status.success() => {
-            String::from_utf8_lossy(&result.stdout).trim().to_string()
-        }
-        _ => String::new(),
-    }
+    non_compliance_reason_from_content(title, body, labels_raw).unwrap_or_default()
 }
 
 fn fetch_issue_json(issue_number: &str, repo: Option<&str>) -> Option<String> {

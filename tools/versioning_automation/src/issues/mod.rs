@@ -14,3 +14,4 @@ pub(crate) mod tasklist_refs;
 mod tests;
 
 pub(crate) use dispatch::run;
+pub(crate) use required_fields::non_compliance_reason_from_content;
