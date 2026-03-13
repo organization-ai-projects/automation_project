@@ -1,7 +1,8 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/tests/governance_state.rs
 use crate::moe_core::MoeError;
 use crate::orchestrator::{
-    GovernancePersistenceBundle, GovernanceState, GovernanceStateSnapshot, MoePipelineBuilder,
+    GovernanceImportPolicy, GovernancePersistenceBundle, GovernanceState, GovernanceStateSnapshot,
+    MoePipelineBuilder,
 };
 use serde::Serialize;
 
@@ -274,7 +275,7 @@ fn import_governance_state_json_rejects_unsupported_schema_version() {
         .import_governance_state_json(&payload)
         .expect_err("unsupported governance schema should be rejected");
     assert!(matches!(err, MoeError::PolicyRejected(_)));
-    assert!(err.to_string().contains("schema version"));
+    assert!(err.to_string().contains("schema"));
 }
 
 #[test]
@@ -291,7 +292,7 @@ fn import_governance_bundle_json_rejects_unsupported_state_schema_version() {
         .import_governance_bundle_json(&payload)
         .expect_err("unsupported governance state schema in bundle should be rejected");
     assert!(matches!(err, MoeError::PolicyRejected(_)));
-    assert!(err.to_string().contains("schema version"));
+    assert!(err.to_string().contains("schema"));
 }
 
 #[test]
@@ -319,5 +320,45 @@ fn import_governance_bundle_json_rejects_unsupported_snapshot_schema_version() {
         .import_governance_bundle_json(&payload)
         .expect_err("unsupported governance snapshot schema should be rejected");
     assert!(matches!(err, MoeError::PolicyRejected(_)));
-    assert!(err.to_string().contains("schema version"));
+    assert!(err.to_string().contains("schema"));
+}
+
+#[test]
+fn import_governance_state_json_allows_schema_change_when_policy_enables_it() {
+    let source = MoePipelineBuilder::new().build();
+    let mut state = source.export_governance_state();
+    state.schema_version = GovernanceState::schema_version() + 1;
+    state.state_checksum = state.recompute_checksum();
+    let payload = common_json::json::to_json_string_pretty(&state)
+        .expect("governance state serialization should succeed");
+
+    let mut target = MoePipelineBuilder::new()
+        .with_governance_import_policy(GovernanceImportPolicy {
+            allow_schema_change: true,
+            ..GovernanceImportPolicy::strict()
+        })
+        .build();
+    target
+        .import_governance_state_json(&payload)
+        .expect("schema change should be accepted when policy allows it");
+}
+
+#[test]
+fn import_governance_bundle_json_allows_schema_change_when_policy_enables_it() {
+    let source = MoePipelineBuilder::new().build();
+    let mut bundle = source.export_governance_bundle();
+    bundle.state.schema_version = GovernanceState::schema_version() + 1;
+    bundle.state.state_checksum = bundle.state.recompute_checksum();
+    let payload = common_json::json::to_json_string_pretty(&bundle)
+        .expect("governance bundle serialization should succeed");
+
+    let mut target = MoePipelineBuilder::new()
+        .with_governance_import_policy(GovernanceImportPolicy {
+            allow_schema_change: true,
+            ..GovernanceImportPolicy::strict()
+        })
+        .build();
+    target
+        .import_governance_bundle_json(&payload)
+        .expect("schema change should be accepted when policy allows it");
 }

@@ -2,7 +2,8 @@
 use crate::memory_engine::{MemoryEntry, MemoryType};
 use crate::moe_core::MoeError;
 use crate::orchestrator::{
-    GovernancePersistenceBundle, MoePipelineBuilder, RuntimePersistenceBundle,
+    GovernanceImportPolicy, GovernancePersistenceBundle, MoePipelineBuilder,
+    RuntimePersistenceBundle,
 };
 use crate::{buffer_manager::BufferManager, memory_engine::MemoryEntry as RuntimeMemoryEntry};
 use serde::Serialize;
@@ -157,6 +158,24 @@ fn import_runtime_bundle_rejects_unsupported_schema() {
         .expect_err("unsupported runtime schema must be rejected");
     assert!(matches!(err, MoeError::PolicyRejected(_)));
     assert!(err.to_string().contains("schema version"));
+}
+
+#[test]
+fn import_runtime_bundle_allows_schema_change_when_policy_enables_it() {
+    let source = MoePipelineBuilder::new().build();
+    let mut bundle = source.export_runtime_bundle();
+    bundle.schema_version = RuntimePersistenceBundle::schema_version() + 1;
+    bundle.runtime_checksum = bundle.recompute_checksum();
+
+    let mut target = MoePipelineBuilder::new()
+        .with_governance_import_policy(GovernanceImportPolicy {
+            allow_schema_change: true,
+            ..GovernanceImportPolicy::strict()
+        })
+        .build();
+    target
+        .import_runtime_bundle(bundle)
+        .expect("runtime schema change should be accepted when policy allows it");
 }
 
 #[test]

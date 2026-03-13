@@ -11,7 +11,7 @@ impl MoePipeline {
         bundle: &GovernancePersistenceBundle,
     ) -> Result<GovernanceImportDecision, MoeError> {
         let mut state = bundle.state.clone();
-        if !state.has_supported_schema() {
+        if !self.governance_import_policy.allow_schema_change && !state.has_supported_schema() {
             return Err(MoeError::PolicyRejected(format!(
                 "governance state schema version {} is not supported",
                 state.schema_version
@@ -23,10 +23,11 @@ impl MoePipeline {
                 "governance bundle checksum verification failed".to_string(),
             ));
         }
-        if let Some(unsupported_snapshot) = bundle
-            .snapshots
-            .iter()
-            .find(|snapshot| !snapshot.state.has_supported_schema())
+        if !self.governance_import_policy.allow_schema_change
+            && let Some(unsupported_snapshot) = bundle
+                .snapshots
+                .iter()
+                .find(|snapshot| !snapshot.state.has_supported_schema())
         {
             return Err(MoeError::PolicyRejected(format!(
                 "governance snapshot schema version {} is not supported",
@@ -52,7 +53,7 @@ impl MoePipeline {
         &self,
         bundle: &RuntimePersistenceBundle,
     ) -> Result<GovernanceImportDecision, MoeError> {
-        if !bundle.has_supported_schema() {
+        if !self.governance_import_policy.allow_schema_change && !bundle.has_supported_schema() {
             return Err(MoeError::PolicyRejected(format!(
                 "runtime bundle schema version {} is not supported",
                 bundle.schema_version
@@ -249,12 +250,6 @@ impl MoePipeline {
             common_json::json::from_json_str(payload).map_err(|err| {
                 MoeError::DatasetError(format!("governance state deserialization failed: {err}"))
             })?;
-        if !state.has_supported_schema() {
-            return Err(MoeError::PolicyRejected(format!(
-                "governance state schema version {} is not supported",
-                state.schema_version
-            )));
-        }
         state.ensure_checksum();
         Ok(state)
     }
