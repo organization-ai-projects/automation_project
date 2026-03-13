@@ -96,7 +96,7 @@ fn memory_entries_fingerprint(entries: &[MemoryEntry]) -> String {
             .map(|(k, v)| format!("{k}={v}"))
             .collect::<Vec<_>>()
             .join(",");
-        match write!(
+        if let Ok(()) = write!(
             fingerprint,
             "{}|{}|{:?}|{}|{:?}|{}|{:?}|{}",
             entry.id,
@@ -107,10 +107,7 @@ fn memory_entries_fingerprint(entries: &[MemoryEntry]) -> String {
             entry.relevance,
             entry.memory_type,
             metadata_fingerprint
-        ) {
-            Ok(()) => {}
-            Err(_) => {}
-        }
+        ) {}
     }
     fingerprint
 }
@@ -125,10 +122,7 @@ fn working_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
             if !fingerprint.is_empty() {
                 fingerprint.push(';');
             }
-            match write!(fingerprint, "{}={}", entry.key, entry.value) {
-                Ok(()) => {}
-                Err(_) => {}
-            }
+            if let Ok(()) = write!(fingerprint, "{}={}", entry.key, entry.value) {}
         }
     }
     fingerprint
@@ -143,57 +137,45 @@ fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
         if !fingerprint.is_empty() {
             fingerprint.push(';');
         }
-        match write!(
+        if let Ok(()) = write!(
             fingerprint,
             "{}:{}",
             session,
             sessions_buffer.values(session).join("|")
-        ) {
-            Ok(()) => {}
-            Err(_) => {}
-        }
+        ) {}
     }
     fingerprint
 }
 
 fn governance_fingerprint(governance: &GovernancePersistenceBundle) -> String {
     let mut fingerprint = String::new();
-    match write!(
+    if let Ok(()) = write!(
         fingerprint,
         "{}:{}:{}:",
         governance.state.schema_version,
         governance.state.state_version,
         governance.state.state_checksum
-    ) {
-        Ok(()) => {}
-        Err(_) => {}
-    }
+    ) {}
     for (idx, entry) in governance.audit_entries.iter().enumerate() {
         if idx > 0 {
             fingerprint.push('|');
         }
-        match write!(
+        if let Ok(()) = write!(
             fingerprint,
             "{}:{}:{}",
             entry.version, entry.checksum, entry.reason
-        ) {
-            Ok(()) => {}
-            Err(_) => {}
-        }
+        ) {}
     }
     fingerprint.push_str("::");
     for (idx, snapshot) in governance.snapshots.iter().enumerate() {
         if idx > 0 {
             fingerprint.push('|');
         }
-        match write!(
+        if let Ok(()) = write!(
             fingerprint,
             "{}:{}:{}",
             snapshot.version, snapshot.reason, snapshot.state.state_checksum
-        ) {
-            Ok(()) => {}
-            Err(_) => {}
-        }
+        ) {}
     }
     fingerprint
 }
