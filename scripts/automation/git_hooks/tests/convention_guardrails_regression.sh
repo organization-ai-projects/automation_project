@@ -282,6 +282,47 @@ case "$subcommand" in
     echo "${MOCK_GH_LOGIN:-devuser}"
     ;;
 
+  is-root-parent)
+    issue_number=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --issue)
+          issue_number="${2:-}"
+          shift 2
+          ;;
+        --repo)
+          shift 2
+          ;;
+        *)
+          shift
+          ;;
+      esac
+    done
+
+    parent_mode="$(issue_parent_mode "$issue_number")"
+    case "$parent_mode" in
+      epic)
+        echo "true"
+        ;;
+      base)
+        echo "false"
+        ;;
+      none|"")
+        if issue_has_children "$issue_number"; then
+          echo "true"
+        else
+          echo "false"
+        fi
+        ;;
+      \#*)
+        echo "false"
+        ;;
+      *)
+        echo "false"
+        ;;
+    esac
+    ;;
+
   subissue-refs)
     issue_number=""
     while [[ $# -gt 0 ]]; do

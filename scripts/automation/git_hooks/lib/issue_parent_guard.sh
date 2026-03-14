@@ -55,31 +55,6 @@ resolve_repo_name_with_owner() {
 	return 0
 }
 
-normalize_parent_value() {
-	local raw="$1"
-	raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
-	raw="$(printf '%s' "$raw" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-	raw="${raw#(}"
-	raw="${raw%)}"
-	printf '%s\n' "$raw"
-}
-
-split_repo_owner_name() {
-	local repo="$1"
-	local out_owner_var="$2"
-	local out_name_var="$3"
-	local parsed_owner="${repo%%/*}"
-	local parsed_name="${repo#*/}"
-
-	if [[ -z "$parsed_owner" || -z "$parsed_name" || "$parsed_owner" == "$repo" ]]; then
-		return 1
-	fi
-
-	printf -v "$out_owner_var" '%s' "$parsed_owner"
-	printf -v "$out_name_var" '%s' "$parsed_name"
-	return 0
-}
-
 extract_issue_refs_from_text() {
 	local text="$1"
 	local refs_file
@@ -92,32 +67,6 @@ extract_issue_refs_from_text() {
 	fi
 	rm -f "$refs_file"
 	printf '%s\n' "$output"
-	return 0
-}
-
-issue_has_children() {
-	local issue_number="$1"
-	local repo="$2"
-
-	local owner
-	local repo_name
-	local subissue_refs
-	if ! split_repo_owner_name "$repo" owner repo_name; then
-		echo "❌ Invalid repository format '$repo' (expected owner/name)." >&2
-		return 1
-	fi
-
-	subissue_refs="$(versioning_automation_output_required issue subissue-refs --owner "$owner" --repo "$repo_name" --issue "$issue_number")" || return 1
-	[[ -n "$subissue_refs" ]]
-}
-
-issue_body_value() {
-	local issue_number="$1"
-	local repo="$2"
-
-	local body
-	body="$(versioning_automation_output_required issue field --issue "$issue_number" --name body --repo "$repo")" || return 1
-	printf '%s\n' "$body"
 	return 0
 }
 
@@ -138,50 +87,21 @@ issue_current_login() {
 	return 0
 }
 
-issue_parent_value() {
-	local issue_number="$1"
-	local repo="$2"
-	local body
-	local parent_line
-	local parent_value
-
-	body="$(issue_body_value "$issue_number" "$repo")"
-	parent_line="$(printf '%s\n' "$body" | grep -iE '^[[:space:]]*Parent:[[:space:]]*(#?[0-9]+|none|base|epic|\(none\)|\(base\)|\(epic\))[[:space:]]*$' | tail -n1 || true)"
-	if [[ -z "$parent_line" ]]; then
-		printf 'none\n'
-		return 0
-	fi
-
-	parent_value="$(printf '%s\n' "$parent_line" | sed -E 's/^[[:space:]]*Parent:[[:space:]]*//I')"
-	normalize_parent_value "$parent_value"
-}
-
 issue_is_root_parent() {
 	local issue_number="$1"
 	local repo="$2"
-	local parent_value
+	local is_root_parent
 
-	parent_value="$(issue_parent_value "$issue_number" "$repo")"
-	case "$parent_value" in
-	epic)
+	is_root_parent="$(versioning_automation_output_required issue is-root-parent --issue "$issue_number" --repo "$repo")" || return 1
+	case "$is_root_parent" in
+	true)
 		return 0
 		;;
-	base)
-		# `Parent: base` is a cascade root marker and can still be referenced in
-		# commit trailers by project policy.
-		return 1
-		;;
-	none | "")
-		# `Parent: none` means independent issue. If children are present, treat as protected parent
-		# to prevent accidental closure and prompt explicit `Parent: base`.
-		issue_has_children "$issue_number" "$repo"
-		return $?
-		;;
-	\#*)
-		# Child/middle nodes remain referenceable in commit trailers.
+	false)
 		return 1
 		;;
 	*)
+		echo "❌ Unexpected output from versioning_automation issue is-root-parent: '$is_root_parent'" >&2
 		return 1
 		;;
 	esac
