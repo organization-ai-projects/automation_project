@@ -203,6 +203,50 @@ fn runtime_bundle_roundtrip_restores_trainer_trigger_leases() {
 }
 
 #[test]
+fn runtime_checksum_recompute_is_order_independent_for_leased_event_ids() {
+    let mut source = MoePipelineBuilder::new().build();
+    source.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 501,
+        model_version: 7,
+        training_bundle_checksum: "bundle-leased-501".to_string(),
+        included_entries: 64,
+        train_samples: 51,
+        validation_samples: 13,
+        generated_at: 71,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+    source.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 502,
+        model_version: 7,
+        training_bundle_checksum: "bundle-leased-502".to_string(),
+        included_entries: 65,
+        train_samples: 52,
+        validation_samples: 13,
+        generated_at: 72,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+    source
+        .lease_next_trainer_trigger_event_with_policy(100)
+        .expect("first event should lease");
+    source
+        .lease_next_trainer_trigger_event_with_policy(100)
+        .expect("second event should lease");
+
+    let mut bundle = source.export_runtime_bundle();
+    assert_eq!(bundle.trainer_trigger_leased_event_ids, vec![501, 502]);
+    let expected_checksum = bundle.recompute_checksum();
+
+    bundle.trainer_trigger_leased_event_ids.reverse();
+    assert_eq!(
+        bundle.recompute_checksum(),
+        expected_checksum,
+        "lease id ordering must not affect runtime checksum"
+    );
+}
+
+#[test]
 fn runtime_bundle_import_releases_expired_trainer_trigger_leases() {
     let mut source = MoePipelineBuilder::new().build();
     source.trainer_trigger_queue.push(TrainerTriggerEvent {

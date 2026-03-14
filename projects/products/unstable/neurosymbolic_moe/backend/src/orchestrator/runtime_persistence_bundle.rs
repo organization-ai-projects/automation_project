@@ -2,6 +2,9 @@
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{Correction, DatasetEntry};
 use crate::memory_engine::MemoryEntry;
+use crate::orchestrator::checksum_writer::{
+    append_segment_delimiter, fnv1a64_init, fnv1a64_update,
+};
 use crate::orchestrator::{
     AutoImprovementPolicy, AutoImprovementStatus, GovernanceAuditEntry,
     GovernancePersistenceBundle, GovernanceStateSnapshot, ModelRegistry, RuntimeBundleComponents,
@@ -298,11 +301,9 @@ fn dataset_fingerprint(
     let mut ordered_entries: Vec<&DatasetEntry> = entries.iter().collect();
     ordered_entries.sort_by(|a, b| a.id.cmp(&b.id));
     let mut fingerprint = String::new();
-    let mut has_part = false;
+    let mut first_segment = true;
     for entry in ordered_entries {
-        if has_part {
-            fingerprint.push_str("::");
-        }
+        append_segment_delimiter(&mut fingerprint, "::", &mut first_segment);
         if let Ok(()) = write!(
             fingerprint,
             "{}|{}|{}|{}|{:?}|{:?}|{}|{:?}",
@@ -315,7 +316,6 @@ fn dataset_fingerprint(
             entry.created_at,
             entry.tags
         ) {}
-        has_part = true;
     }
 
     let mut ordered_keys: Vec<&str> = corrections.keys().map(String::as_str).collect();
@@ -323,9 +323,7 @@ fn dataset_fingerprint(
     for key in ordered_keys {
         if let Some(values) = corrections.get(key) {
             for correction in values {
-                if has_part {
-                    fingerprint.push_str("::");
-                }
+                append_segment_delimiter(&mut fingerprint, "::", &mut first_segment);
                 if let Ok(()) = write!(
                     fingerprint,
                     "corr:{}|{}|{}|{}",
@@ -334,7 +332,6 @@ fn dataset_fingerprint(
                     correction.reason,
                     correction.corrected_at
                 ) {}
-                has_part = true;
             }
         }
     }
@@ -415,11 +412,9 @@ where
     I: IntoIterator<Item = &'a TrainerTriggerEvent>,
 {
     let mut fingerprint = String::new();
-    let mut first = true;
+    let mut first_segment = true;
     for event in events {
-        if !first {
-            fingerprint.push_str("::");
-        }
+        append_segment_delimiter(&mut fingerprint, "::", &mut first_segment);
         if let Ok(()) = write!(
             fingerprint,
             "{}|{}|{}|{}|{}|{}|{}|{}|{:?}",
@@ -433,7 +428,6 @@ where
             event.delivery_attempts,
             event.last_attempted_at
         ) {}
-        first = false;
     }
     fingerprint
 }
@@ -445,22 +439,10 @@ where
     let mut ordered_ids: Vec<u64> = ids.into_iter().copied().collect();
     ordered_ids.sort_unstable();
     let mut fingerprint = String::new();
-    for (idx, id) in ordered_ids.iter().enumerate() {
-        if idx > 0 {
-            fingerprint.push_str("::");
-        }
+    let mut first_segment = true;
+    for id in &ordered_ids {
+        append_segment_delimiter(&mut fingerprint, "::", &mut first_segment);
         if let Ok(()) = write!(fingerprint, "{id}") {}
     }
     fingerprint
-}
-
-fn fnv1a64_init() -> u64 {
-    0xcbf29ce484222325_u64
-}
-
-fn fnv1a64_update(hash: &mut u64, bytes: &[u8]) {
-    for byte in bytes {
-        *hash ^= u64::from(*byte);
-        *hash = hash.wrapping_mul(0x100000001b3);
-    }
 }
