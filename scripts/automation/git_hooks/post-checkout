@@ -15,46 +15,10 @@ fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 0
-HOOKS_DIR="$REPO_ROOT/scripts/automation/git_hooks"
-# shellcheck source=scripts/automation/git_hooks/lib/issue_parent_guard.sh
-source "$HOOKS_DIR/lib/issue_parent_guard.sh"
-
-UPSTREAM_BRANCH="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo "")"
-if [[ -z "$UPSTREAM_BRANCH" ]]; then
-	UPSTREAM_BRANCH="origin/dev"
-fi
-
-commit_messages="$(git log "$UPSTREAM_BRANCH"..HEAD --format=%B 2>/dev/null || true)"
-if [[ -z "$commit_messages" ]]; then
+if ! command -v versioning_automation >/dev/null 2>&1; then
 	exit 0
 fi
 
-refs="$(extract_issue_refs_from_text "$commit_messages" || true)"
-if [[ -z "$refs" ]]; then
-	exit 0
-fi
-
-repo_name="$(resolve_repo_name_with_owner 2>/dev/null || true)"
-if [[ -z "$repo_name" ]]; then
-	exit 0
-fi
-
-root_parent_refs=()
-while IFS='|' read -r action issue_number; do
-	[[ -z "$issue_number" ]] && continue
-	if issue_is_root_parent "$issue_number" "$repo_name"; then
-		root_parent_refs+=("${action} #${issue_number}")
-	fi
-done <<<"$refs"
-
-if [[ ${#root_parent_refs[@]} -gt 0 ]]; then
-	echo ""
-	echo "⚠️  Convention warning on branch checkout:"
-	echo "   Current branch history references root parent issue(s):"
-	printf '   - %s\n' "${root_parent_refs[@]}"
-	echo "   This will be blocked by commit-msg/pre-push checks for new commits."
-	echo "   Use child issue refs in trailers instead."
-	echo ""
-fi
+versioning_automation automation post-checkout-check || true
 
 exit 0
