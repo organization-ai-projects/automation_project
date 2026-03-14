@@ -174,3 +174,47 @@ fn parse_install_hooks_maps_action() {
         _ => panic!("expected install-hooks action"),
     }
 }
+
+#[test]
+fn parse_commit_msg_check_maps_action() {
+    let args = vec![
+        "commit-msg-check".to_string(),
+        "--file".to_string(),
+        ".git/COMMIT_EDITMSG".to_string(),
+    ];
+    let action = super::super::parse::parse(&args).expect("parse commit-msg-check");
+    match action {
+        AutomationAction::CommitMsgCheck(_) => {}
+        _ => panic!("expected commit-msg-check action"),
+    }
+}
+
+#[test]
+fn parse_prepare_commit_msg_maps_action() {
+    let args = vec![
+        "prepare-commit-msg".to_string(),
+        "--file".to_string(),
+        ".git/COMMIT_EDITMSG".to_string(),
+        "--source".to_string(),
+        "template".to_string(),
+    ];
+    let action = super::super::parse::parse(&args).expect("parse prepare-commit-msg");
+    match action {
+        AutomationAction::PrepareCommitMsg(_) => {}
+        _ => panic!("expected prepare-commit-msg action"),
+    }
+}
+
+#[test]
+fn parse_pre_branch_create_check_maps_action() {
+    let args = vec![
+        "pre-branch-create-check".to_string(),
+        "--branch".to_string(),
+        "feature/test".to_string(),
+    ];
+    let action = super::super::parse::parse(&args).expect("parse pre-branch-create-check");
+    match action {
+        AutomationAction::PreBranchCreateCheck(_) => {}
+        _ => panic!("expected pre-branch-create-check action"),
+    }
+}

@@ -13,9 +13,10 @@ use crate::automation::commands::{
     AuditIssueStatusOptions, AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions,
     BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
     CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
-    CiWatchPrOptions, CleanArtifactsOptions, InstallHooksOptions, LabelsSyncOptions,
-    PostCheckoutCheckOptions, PreAddReviewOptions, PreCommitCheckOptions, PrePushCheckOptions,
-    ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
+    CiWatchPrOptions, CleanArtifactsOptions, CommitMsgCheckOptions, InstallHooksOptions,
+    LabelsSyncOptions, PostCheckoutCheckOptions, PreAddReviewOptions, PreBranchCreateCheckOptions,
+    PreCommitCheckOptions, PrePushCheckOptions, PrepareCommitMsgOptions, ReleasePrepareOptions,
+    SyncMainDevCiOptions, TestCoverageOptions,
 };
 use crate::automation::parse::parse;
 use crate::automation::render::print_usage;
@@ -32,33 +33,46 @@ pub(crate) fn run(args: &[String]) -> i32 {
 }
 
 fn run_action(action: AutomationAction) -> i32 {
-    let result = match action {
+    match action {
+        AutomationAction::CommitMsgCheck(opts) => run_commit_msg_check(opts),
         AutomationAction::Help => {
             print_usage();
-            Ok(())
+            0
         }
-        AutomationAction::AuditIssueStatus(opts) => run_audit_issue_status(opts),
-        AutomationAction::AuditSecurity(opts) => run_audit_security(opts),
-        AutomationAction::BuildAccountsUi(opts) => run_build_accounts_ui(opts),
-        AutomationAction::BuildUiBundles(opts) => run_build_ui_bundles(opts),
-        AutomationAction::BuildAndCheckUiBundles(opts) => run_build_and_check_ui_bundles(opts),
-        AutomationAction::PreAddReview(opts) => run_pre_add_review(opts),
-        AutomationAction::PreCommitCheck(opts) => run_pre_commit_check(opts),
-        AutomationAction::PostCheckoutCheck(opts) => run_post_checkout_check(opts),
-        AutomationAction::PrePushCheck(opts) => run_pre_push_check(opts),
-        AutomationAction::ReleasePrepare(opts) => run_release_prepare(opts),
-        AutomationAction::TestCoverage(opts) => run_test_coverage(opts),
-        AutomationAction::ChangedCrates(opts) => run_changed_crates(opts),
-        AutomationAction::CheckMergeConflicts(opts) => run_check_merge_conflicts(opts),
-        AutomationAction::CheckDependencies(opts) => run_check_dependencies(opts),
-        AutomationAction::CleanArtifacts(opts) => run_clean_artifacts(opts),
-        AutomationAction::InstallHooks(opts) => run_install_hooks(opts),
-        AutomationAction::CheckPriorityIssues(opts) => run_check_priority_issues(opts),
-        AutomationAction::LabelsSync(opts) => run_labels_sync(opts),
-        AutomationAction::CiWatchPr(opts) => run_ci_watch_pr(opts),
-        AutomationAction::SyncMainDevCi(opts) => run_sync_main_dev_ci(opts),
-    };
+        AutomationAction::AuditIssueStatus(opts) => to_exit_code(run_audit_issue_status(opts)),
+        AutomationAction::AuditSecurity(opts) => to_exit_code(run_audit_security(opts)),
+        AutomationAction::BuildAccountsUi(opts) => to_exit_code(run_build_accounts_ui(opts)),
+        AutomationAction::BuildUiBundles(opts) => to_exit_code(run_build_ui_bundles(opts)),
+        AutomationAction::BuildAndCheckUiBundles(opts) => {
+            to_exit_code(run_build_and_check_ui_bundles(opts))
+        }
+        AutomationAction::PreAddReview(opts) => to_exit_code(run_pre_add_review(opts)),
+        AutomationAction::PreCommitCheck(opts) => to_exit_code(run_pre_commit_check(opts)),
+        AutomationAction::PostCheckoutCheck(opts) => to_exit_code(run_post_checkout_check(opts)),
+        AutomationAction::PrePushCheck(opts) => to_exit_code(run_pre_push_check(opts)),
+        AutomationAction::ReleasePrepare(opts) => to_exit_code(run_release_prepare(opts)),
+        AutomationAction::TestCoverage(opts) => to_exit_code(run_test_coverage(opts)),
+        AutomationAction::ChangedCrates(opts) => to_exit_code(run_changed_crates(opts)),
+        AutomationAction::CheckMergeConflicts(opts) => {
+            to_exit_code(run_check_merge_conflicts(opts))
+        }
+        AutomationAction::CheckDependencies(opts) => to_exit_code(run_check_dependencies(opts)),
+        AutomationAction::CleanArtifacts(opts) => to_exit_code(run_clean_artifacts(opts)),
+        AutomationAction::InstallHooks(opts) => to_exit_code(run_install_hooks(opts)),
+        AutomationAction::CheckPriorityIssues(opts) => {
+            to_exit_code(run_check_priority_issues(opts))
+        }
+        AutomationAction::LabelsSync(opts) => to_exit_code(run_labels_sync(opts)),
+        AutomationAction::CiWatchPr(opts) => to_exit_code(run_ci_watch_pr(opts)),
+        AutomationAction::SyncMainDevCi(opts) => to_exit_code(run_sync_main_dev_ci(opts)),
+        AutomationAction::PrepareCommitMsg(opts) => to_exit_code(run_prepare_commit_msg(opts)),
+        AutomationAction::PreBranchCreateCheck(opts) => {
+            to_exit_code(run_pre_branch_create_check(opts))
+        }
+    }
+}
 
+fn to_exit_code(result: Result<(), String>) -> i32 {
     match result {
         Ok(()) => 0,
         Err(message) => {
@@ -208,6 +222,446 @@ fn run_clean_artifacts(opts: CleanArtifactsOptions) -> Result<(), String> {
     Ok(())
 }
 
+fn run_commit_msg_check(opts: CommitMsgCheckOptions) -> i32 {
+    const RC_INVALID_FORMAT: i32 = 3;
+    const RC_MIXED_CATEGORY: i32 = 6;
+    const RC_SCOPE_MISSING: i32 = 7;
+    const RC_SCOPE_MISMATCH: i32 = 8;
+
+    if std::env::var("SKIP_COMMIT_VALIDATION").unwrap_or_default() == "1" {
+        return 0;
+    }
+
+    let commit_msg_path = PathBuf::from(&opts.file);
+    if !commit_msg_path.is_file() {
+        eprintln!("commit-msg-check: missing or invalid --file");
+        return RC_INVALID_FORMAT;
+    }
+
+    let message = fs::read_to_string(&commit_msg_path)
+        .map_err(|e| format!("Failed to read '{}': {e}", commit_msg_path.display()));
+    let Ok(message) = message else {
+        eprintln!("{}", message.unwrap_err());
+        return RC_INVALID_FORMAT;
+    };
+    let subject = first_non_comment_subject_line(&message);
+    let subject = subject.as_deref().unwrap_or_default();
+
+    match parse_subject_max_len() {
+        Ok(Some(max_len)) if subject.chars().count() > max_len => {
+            eprintln!(
+                "Commit subject too long: {}/{} characters.",
+                subject.chars().count(),
+                max_len
+            );
+            return 9;
+        }
+        Ok(_) => {}
+        Err(message) => {
+            eprintln!("{message}");
+            return RC_INVALID_FORMAT;
+        }
+    }
+
+    let format_re =
+        Regex::new(r"^(feature|feat|fix|doc|docs|refactor|test|tests|chore|perf)(\([a-zA-Z0-9_./,-]+\))?:[[:space:]].+$")
+            .expect("static regex must compile");
+    if !format_re.is_match(subject) {
+        eprintln!("Invalid commit message format: '{subject}'");
+        return RC_INVALID_FORMAT;
+    }
+
+    let footer_status = crate::issues::run(&[
+        "validate-footer".to_string(),
+        "--file".to_string(),
+        opts.file.clone(),
+    ]);
+    if footer_status != 0 {
+        return footer_status;
+    }
+
+    let staged_files_text =
+        match run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRUD"])
+        {
+            Ok(value) => value,
+            Err(message) => {
+                eprintln!("{message}");
+                return 1;
+            }
+        };
+    let staged_files = staged_files_text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+
+    let format_categories = collect_format_categories(&staged_files);
+    if format_categories.len() > 1 {
+        eprintln!(
+            "Mixed file format categories are not allowed in one commit: {}",
+            format_categories.join(", ")
+        );
+        return RC_MIXED_CATEGORY;
+    }
+
+    let required_scopes = match detect_required_scopes(&staged_files) {
+        Ok(value) => value,
+        Err(message) => {
+            eprintln!("{message}");
+            return 1;
+        }
+    };
+    if !required_scopes.is_empty() {
+        let commit_scopes = extract_scopes_from_commit_subject(subject);
+        if commit_scopes.is_empty() {
+            eprintln!("Missing required scope in commit message.");
+            return RC_SCOPE_MISSING;
+        }
+        let missing = required_scopes
+            .into_iter()
+            .filter(|required| !commit_scopes.iter().any(|scope| scope == required))
+            .collect::<Vec<_>>();
+        if !missing.is_empty() {
+            eprintln!(
+                "Commit scope does not match touched files. Missing: {}",
+                missing.join(", ")
+            );
+            return RC_SCOPE_MISMATCH;
+        }
+    }
+
+    0
+}
+
+fn run_prepare_commit_msg(opts: PrepareCommitMsgOptions) -> Result<(), String> {
+    if std::env::var("SKIP_PREPARE_COMMIT_MSG").unwrap_or_default() == "1" {
+        return Ok(());
+    }
+
+    let path = PathBuf::from(&opts.file);
+    if !path.is_file() {
+        return Ok(());
+    }
+    let source = opts.source.unwrap_or_default();
+    if matches!(source.as_str(), "message" | "merge" | "squash" | "commit") {
+        return Ok(());
+    }
+
+    let current = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read '{}': {e}", path.display()))?;
+    if has_non_comment_content(&current) {
+        return Ok(());
+    }
+
+    let branch = run_git_output(&["rev-parse", "--abbrev-ref", "HEAD"]).unwrap_or_default();
+    if branch.trim().is_empty() || branch.trim() == "HEAD" {
+        return Ok(());
+    }
+
+    let staged_files_text =
+        run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRU"])?;
+    let staged_files = staged_files_text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    if staged_files.is_empty() {
+        return Ok(());
+    }
+
+    let (commit_type, fallback_warning) = detect_commit_type_from_context(&staged_files);
+    let scopes = detect_required_scopes(&staged_files)?;
+    let scopes_csv = scopes.join(",");
+    let description = derive_description(branch.trim(), &staged_files);
+    let subject = if scopes_csv.is_empty() {
+        format!("{commit_type}(workspace): {description}")
+    } else {
+        format!("{commit_type}({scopes_csv}): {description}")
+    };
+
+    let mut rendered = String::new();
+    rendered.push_str(&subject);
+    rendered.push_str("\n\n");
+    rendered.push_str("# Auto-generated from branch and staged files.\n");
+    if let Some(warning) = fallback_warning {
+        rendered.push_str(warning);
+        rendered.push('\n');
+    }
+    rendered.push_str("# Edit freely before saving this commit.\n");
+
+    fs::write(&path, rendered).map_err(|e| format!("Failed to write '{}': {e}", path.display()))?;
+    Ok(())
+}
+
+fn run_pre_branch_create_check(opts: PreBranchCreateCheckOptions) -> Result<(), String> {
+    let branch = opts.branch.trim();
+    if branch.is_empty() {
+        return Err("No branch name provided.".to_string());
+    }
+    let re = Regex::new(r"^(feature|fix|hotfix|release)/[a-zA-Z0-9_-]+$")
+        .map_err(|e| format!("Invalid branch regex: {e}"))?;
+    if !re.is_match(branch) {
+        return Err(format!(
+            "Invalid branch name '{branch}'. Expected (feature|fix|hotfix|release)/<name>"
+        ));
+    }
+    if branch_exists_local(branch) {
+        return Err(format!("Branch '{branch}' already exists locally."));
+    }
+    let marker = format!("[{branch}]");
+    let worktrees = run_git_output(&["worktree", "list"])?;
+    if worktrees.lines().any(|line| line.contains(&marker)) {
+        return Err(format!(
+            "Branch '{branch}' is already in use by another worktree."
+        ));
+    }
+    println!("Branch name '{branch}' is valid.");
+    Ok(())
+}
+
+fn first_non_comment_subject_line(message: &str) -> Option<String> {
+    message
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(ToString::to_string)
+}
+
+fn parse_subject_max_len() -> Result<Option<usize>, String> {
+    let raw = std::env::var("COMMIT_MSG_SUBJECT_MAX_LEN").unwrap_or_default();
+    if raw.trim().is_empty() {
+        return Ok(None);
+    }
+    let parsed = raw
+        .trim()
+        .parse::<usize>()
+        .map_err(|_| "COMMIT_MSG_SUBJECT_MAX_LEN must be a positive integer".to_string())?;
+    if parsed == 0 {
+        return Ok(None);
+    }
+    Ok(Some(parsed))
+}
+
+fn has_non_comment_content(message: &str) -> bool {
+    message
+        .lines()
+        .map(str::trim)
+        .any(|line| !line.is_empty() && !line.starts_with('#'))
+}
+
+fn collect_format_categories(staged_files: &[String]) -> Vec<String> {
+    let mut categories = BTreeSet::new();
+    for file in staged_files {
+        if is_shell_file_path(file) {
+            categories.insert("shell".to_string());
+            continue;
+        }
+        if file.ends_with(".md") {
+            categories.insert("markdown".to_string());
+            continue;
+        }
+        if file.ends_with(".rs") || file.ends_with("/Cargo.toml") || file == "Cargo.toml" {
+            categories.insert("rust".to_string());
+            continue;
+        }
+        categories.insert("other".to_string());
+    }
+    categories.into_iter().collect()
+}
+
+fn detect_required_scopes(staged_files: &[String]) -> Result<Vec<String>, String> {
+    let root = repo_root()?;
+    let mut scopes = BTreeSet::new();
+    for file in staged_files {
+        if let Some(scope) = resolve_scope_from_file_path(&root, file) {
+            scopes.insert(scope);
+        }
+    }
+    if !scopes.is_empty() {
+        return Ok(scopes.into_iter().collect());
+    }
+
+    if !staged_files.is_empty() && staged_files.iter().all(|f| is_shell_file_path(f)) {
+        return Ok(vec!["shell".to_string()]);
+    }
+    if !staged_files.is_empty() && staged_files.iter().all(|f| f.ends_with(".md")) {
+        return Ok(vec!["markdown".to_string()]);
+    }
+    if staged_files.is_empty() {
+        return Ok(Vec::new());
+    }
+    Ok(vec![common_path_scope(staged_files)])
+}
+
+fn resolve_scope_from_file_path(root: &Path, file: &str) -> Option<String> {
+    if let Some(scope) = resolve_library_scope(file) {
+        return Some(scope);
+    }
+    if let Some(scope) = resolve_product_scope(root, file) {
+        return Some(scope);
+    }
+    None
+}
+
+fn resolve_library_scope(file: &str) -> Option<String> {
+    let parts = file.split('/').collect::<Vec<_>>();
+    if parts.len() < 4 || parts[0] != "projects" || parts[1] != "libraries" {
+        return None;
+    }
+    Some(format!("{}/{}/{}", parts[0], parts[1], parts[2]))
+}
+
+fn resolve_product_scope(root: &Path, file: &str) -> Option<String> {
+    let parts = file.split('/').collect::<Vec<_>>();
+    if parts.len() < 5
+        || parts[0] != "projects"
+        || parts[1] != "products"
+        || (parts[2] != "stable" && parts[2] != "unstable")
+    {
+        return None;
+    }
+    let base = format!("{}/{}/{}/{}", parts[0], parts[1], parts[2], parts[3]);
+    if let Some(crate_dir) = find_crate_dir_for_file(root, file) {
+        let base_prefix = format!("{base}/");
+        if let Some(rest) = crate_dir.strip_prefix(&base_prefix) {
+            let component = rest.split('/').next().unwrap_or_default();
+            if !component.is_empty() {
+                return Some(format!("{base}/{component}"));
+            }
+        }
+    }
+    Some(base)
+}
+
+fn common_path_scope(staged_files: &[String]) -> String {
+    let mut common = String::new();
+    for file in staged_files {
+        let dir = match file.rfind('/') {
+            Some(index) => &file[..index],
+            None => ".",
+        };
+        if common.is_empty() {
+            common = dir.to_string();
+            continue;
+        }
+        while common != "."
+            && common != dir
+            && !dir.starts_with(&(common.clone() + "/"))
+            && !common.is_empty()
+        {
+            if let Some(index) = common.rfind('/') {
+                common.truncate(index);
+            } else {
+                common = ".".to_string();
+                break;
+            }
+        }
+    }
+    if common.is_empty() || common == "." {
+        "workspace".to_string()
+    } else {
+        common
+    }
+}
+
+fn extract_scopes_from_commit_subject(subject: &str) -> Vec<String> {
+    let re = Regex::new(r"^[a-z]+\(([^)]+)\):").expect("scope extraction regex must compile");
+    let Some(captures) = re.captures(subject) else {
+        return Vec::new();
+    };
+    let Some(raw) = captures.get(1) else {
+        return Vec::new();
+    };
+    raw.as_str()
+        .split(',')
+        .map(str::trim)
+        .filter(|scope| !scope.is_empty())
+        .map(ToString::to_string)
+        .collect()
+}
+
+fn detect_commit_type_from_context(staged_files: &[String]) -> (String, Option<&'static str>) {
+    if is_docs_only_change(staged_files) {
+        return ("docs".to_string(), None);
+    }
+    if is_tests_only_change(staged_files) {
+        return ("test".to_string(), None);
+    }
+    (
+        "type".to_string(),
+        Some(
+            "# WARNING: type not inferred from staged files; replace 'type' with feat/fix/refactor/chore/etc.",
+        ),
+    )
+}
+
+fn is_docs_only_change(staged_files: &[String]) -> bool {
+    !staged_files.is_empty()
+        && staged_files.iter().all(|file| {
+            file.ends_with(".md") || file.starts_with("documentation/") || file.starts_with("docs/")
+        })
+}
+
+fn is_tests_only_change(staged_files: &[String]) -> bool {
+    !staged_files.is_empty()
+        && staged_files.iter().all(|file| {
+            file.contains("/tests/")
+                || file.starts_with("tests/")
+                || file.ends_with("_test.rs")
+                || file.ends_with(".snap")
+        })
+}
+
+fn derive_description(branch: &str, staged_files: &[String]) -> String {
+    let mut name = branch.to_string();
+    for prefix in [
+        "feat/",
+        "feature/",
+        "fix/",
+        "hotfix/",
+        "bugfix/",
+        "docs/",
+        "doc/",
+        "refactor/",
+        "test/",
+        "tests/",
+        "chore/",
+        "perf/",
+    ] {
+        if let Some(rest) = name.strip_prefix(prefix) {
+            name = rest.to_string();
+            break;
+        }
+    }
+    if let Ok(re) = Regex::new(r"^[A-Za-z]+-[0-9]+[-_/]")
+        && let Some(m) = re.find(&name)
+    {
+        name = name[m.end()..].to_string();
+    }
+    let normalized = name.replace(['/', '_', '-'], " ");
+    let normalized = normalized
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_string();
+    if !normalized.is_empty() {
+        return normalized;
+    }
+    if let Some(first_file) = staged_files.first() {
+        let stem = Path::new(first_file)
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or("changes")
+            .replace(['_', '-'], " ");
+        let stem = stem.split_whitespace().collect::<Vec<_>>().join(" ");
+        return format!("update {stem}");
+    }
+    "update changes".to_string()
+}
+
 fn run_install_hooks(_opts: InstallHooksOptions) -> Result<(), String> {
     ensure_git_repo()?;
     let root = repo_root()?;
@@ -220,45 +674,19 @@ fn run_install_hooks(_opts: InstallHooksOptions) -> Result<(), String> {
     })?;
 
     println!("Installing hooks to '{}'", hooks_dir.display());
-
-    write_hook_script(
-        &hooks_dir.join("pre-commit"),
-        PRE_COMMIT_HOOK_SCRIPT,
+    let binary = resolve_versioning_automation_binary(&root)?;
+    let hooks = [
         "pre-commit",
-    )?;
-    copy_tracked_hook(
-        &root,
-        &hooks_dir,
-        "scripts/automation/git_hooks/prepare-commit-msg",
         "prepare-commit-msg",
-    )?;
-    copy_tracked_hook(
-        &root,
-        &hooks_dir,
-        "scripts/automation/git_hooks/commit-msg",
         "commit-msg",
-    )?;
-    write_hook_script(
-        &hooks_dir.join("pre-push"),
-        PRE_PUSH_HOOK_SCRIPT,
         "pre-push",
-    )?;
-    write_hook_script(
-        &hooks_dir.join("post-checkout"),
-        POST_CHECKOUT_HOOK_SCRIPT,
         "post-checkout",
-    )?;
-    copy_tracked_hook(
-        &root,
-        &hooks_dir,
-        "scripts/automation/git_hooks/pre-branch-create",
         "pre-branch-create",
-    )?;
-    write_hook_script(
-        &hooks_dir.join("branch-creation-check"),
-        BRANCH_CREATION_CHECK_SCRIPT,
         "branch-creation-check",
-    )?;
+    ];
+    for hook in hooks {
+        install_hook_entrypoint(&hooks_dir, hook, &binary)?;
+    }
 
     println!("Hooks installed successfully.");
     Ok(())
@@ -563,12 +991,12 @@ fn run_pre_commit_check(_opts: PreCommitCheckOptions) -> Result<(), String> {
 
     println!("🔎 Checking shell syntax...");
     for file in &staged_files {
-        if is_shell_file_path(file) {
-            if let Err(err) = run_command_status("bash", &["-n", file], false) {
-                return Err(format!(
-                    "   ❌ Shell syntax error: {file}\n{err}\n\n❌ Shell syntax checks failed!"
-                ));
-            }
+        if is_shell_file_path(file)
+            && let Err(err) = run_command_status("bash", &["-n", file], false)
+        {
+            return Err(format!(
+                "   ❌ Shell syntax error: {file}\n{err}\n\n❌ Shell syntax checks failed!"
+            ));
         }
     }
 
@@ -2163,94 +2591,83 @@ fn git_hooks_dir(root: &Path) -> Result<PathBuf, String> {
     }
 }
 
-fn copy_tracked_hook(
-    root: &Path,
-    hooks_dir: &Path,
-    source_relative: &str,
-    hook_name: &str,
-) -> Result<(), String> {
-    let source = root.join(source_relative);
-    if !source.is_file() {
-        return Err(format!("Missing hook source '{}'", source.display()));
+fn resolve_versioning_automation_binary(root: &Path) -> Result<PathBuf, String> {
+    if let Ok(path) = std::env::var("VERSIONING_AUTOMATION_BIN") {
+        let candidate = PathBuf::from(path);
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
     }
-    let destination = hooks_dir.join(hook_name);
-    fs::copy(&source, &destination).map_err(|e| {
+
+    let current = std::env::current_exe()
+        .map_err(|e| format!("Failed to resolve current executable path: {e}"))?;
+    if current.is_file() {
+        return Ok(current);
+    }
+
+    let candidates = [
+        root.join("target/debug/versioning_automation"),
+        root.join("target/release/versioning_automation"),
+    ];
+    for candidate in candidates {
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+    Err("Unable to resolve versioning_automation binary path.".to_string())
+}
+
+fn install_hook_entrypoint(hooks_dir: &Path, hook_name: &str, binary: &Path) -> Result<(), String> {
+    let target = hooks_dir.join(hook_name);
+    if target.exists() {
+        fs::remove_file(&target)
+            .map_err(|e| format!("Failed to remove existing hook '{}': {e}", target.display()))?;
+    }
+
+    if link_hook_symlink(binary, &target).is_ok() {
+        println!("✅ Installed {hook_name} (symlink)");
+        return Ok(());
+    }
+    if fs::hard_link(binary, &target).is_ok() {
+        println!("✅ Installed {hook_name} (hardlink)");
+        return Ok(());
+    }
+    fs::copy(binary, &target).map_err(|e| {
         format!(
-            "Failed to copy '{}' to '{}': {e}",
-            source.display(),
-            destination.display()
+            "Failed to copy binary '{}' to hook '{}': {e}",
+            binary.display(),
+            target.display()
         )
     })?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(&destination)
-            .map_err(|e| format!("Failed to read '{}': {e}", destination.display()))?
+        let mut perms = fs::metadata(&target)
+            .map_err(|e| format!("Failed to read '{}': {e}", target.display()))?
             .permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(&destination, perms)
-            .map_err(|e| format!("Failed to chmod '{}': {e}", destination.display()))?;
+        fs::set_permissions(&target, perms)
+            .map_err(|e| format!("Failed to chmod '{}': {e}", target.display()))?;
     }
-    println!("✅ Installed {hook_name}");
+    println!("✅ Installed {hook_name} (copy)");
     Ok(())
 }
 
-fn write_hook_script(path: &Path, content: &str, hook_name: &str) -> Result<(), String> {
-    fs::write(path, content)
-        .map_err(|e| format!("Failed to write hook '{}': {e}", path.display()))?;
+fn link_hook_symlink(binary: &Path, target: &Path) -> Result<(), String> {
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(path)
-            .map_err(|e| format!("Failed to read '{}': {e}", path.display()))?
-            .permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(path, perms)
-            .map_err(|e| format!("Failed to chmod '{}': {e}", path.display()))?;
+        std::os::unix::fs::symlink(binary, target).map_err(|e| e.to_string())
     }
-    println!("✅ Installed {hook_name}");
-    Ok(())
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::symlink_file(binary, target).map_err(|e| e.to_string())
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (binary, target);
+        Err("symlink not supported on this platform".to_string())
+    }
 }
-
-const PRE_COMMIT_HOOK_SCRIPT: &str = r#"#!/usr/bin/env bash
-set -euo pipefail
-if ! command -v versioning_automation >/dev/null 2>&1; then
-	echo "Error: command 'versioning_automation' not found." >&2
-	exit 127
-fi
-exec versioning_automation automation pre-commit-check
-"#;
-
-const PRE_PUSH_HOOK_SCRIPT: &str = r#"#!/usr/bin/env bash
-set -euo pipefail
-if ! command -v versioning_automation >/dev/null 2>&1; then
-	echo "Error: command 'versioning_automation' not found." >&2
-	exit 127
-fi
-exec versioning_automation automation pre-push-check
-"#;
-
-const POST_CHECKOUT_HOOK_SCRIPT: &str = r#"#!/usr/bin/env bash
-set -euo pipefail
-IS_BRANCH_CHECKOUT="${3:-0}"
-[[ "$IS_BRANCH_CHECKOUT" == "1" ]] || exit 0
-[[ "${SKIP_POST_CHECKOUT_CONVENTION_WARN:-}" != "1" ]] || exit 0
-if ! command -v versioning_automation >/dev/null 2>&1; then
-	exit 0
-fi
-versioning_automation automation post-checkout-check || true
-exit 0
-"#;
-
-const BRANCH_CREATION_CHECK_SCRIPT: &str = r#"#!/usr/bin/env bash
-set -euo pipefail
-if ! command -v versioning_automation >/dev/null 2>&1; then
-	echo "❌ versioning_automation not found" >&2
-	echo "   Build/install it, then retry." >&2
-	exit 127
-fi
-exec versioning_automation git branch-creation-check "$@"
-"#;
 
 fn run_gh_status(args: &[&str]) -> Result<(), String> {
     crate::gh_cli::status(args).map_err(|e| format!("Failed to run gh {}: {e}", args.join(" ")))
