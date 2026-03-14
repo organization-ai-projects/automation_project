@@ -11,6 +11,8 @@ pub(crate) fn print_usage() {
         "  build-accounts-ui",
         "  build-ui-bundles",
         "  build-and-check-ui-bundles",
+        "  pre-add-review",
+        "  test-coverage",
         "  changed-crates [<ref1>] [<ref2>] [--output-format paths|default]",
         "  check-merge-conflicts [--remote origin] [--base-branch dev]",
         "  check-dependencies [--skip-outdated] [--skip-unused]",

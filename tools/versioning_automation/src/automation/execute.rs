@@ -12,7 +12,8 @@ use crate::automation::commands::{
     AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions, BuildAndCheckUiBundlesOptions,
     BuildUiBundlesOptions, ChangedCratesOptions, CheckDependenciesOptions,
     CheckMergeConflictsOptions, CheckPriorityIssuesOptions, CiWatchPrOptions,
-    CleanArtifactsOptions, LabelsSyncOptions, SyncMainDevCiOptions,
+    CleanArtifactsOptions, LabelsSyncOptions, PreAddReviewOptions, SyncMainDevCiOptions,
+    TestCoverageOptions,
 };
 use crate::automation::parse::parse;
 use crate::automation::render::print_usage;
@@ -37,6 +38,8 @@ fn run_action(action: AutomationAction) -> i32 {
         AutomationAction::BuildAccountsUi(opts) => run_build_accounts_ui(opts),
         AutomationAction::BuildUiBundles(opts) => run_build_ui_bundles(opts),
         AutomationAction::BuildAndCheckUiBundles(opts) => run_build_and_check_ui_bundles(opts),
+        AutomationAction::PreAddReview(opts) => run_pre_add_review(opts),
+        AutomationAction::TestCoverage(opts) => run_test_coverage(opts),
         AutomationAction::ChangedCrates(opts) => run_changed_crates(opts),
         AutomationAction::CheckMergeConflicts(opts) => run_check_merge_conflicts(opts),
         AutomationAction::CheckDependencies(opts) => run_check_dependencies(opts),
@@ -285,6 +288,144 @@ fn run_build_and_check_ui_bundles(_opts: BuildAndCheckUiBundlesOptions) -> Resul
         eprintln!(" - {path}");
     }
     Err("One or more UI bundles are incomplete.".to_string())
+}
+
+fn run_pre_add_review(_opts: PreAddReviewOptions) -> Result<(), String> {
+    ensure_git_repo()?;
+    let mut issues = 0u32;
+
+    println!("Running pre-add review...");
+
+    println!("Checking code formatting...");
+    if command_status_success("cargo", &["fmt", "--all", "--check"])? {
+        println!("OK: code is properly formatted.");
+    } else {
+        eprintln!("Formatting issues detected. Run: cargo fmt");
+        issues += 1;
+    }
+
+    println!("Running clippy...");
+    if command_status_success(
+        "cargo",
+        &[
+            "clippy",
+            "--workspace",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    )? {
+        println!("OK: no clippy warnings.");
+    } else {
+        eprintln!("Clippy warnings or errors detected.");
+        issues += 1;
+    }
+
+    println!("Running tests...");
+    if command_status_success("cargo", &["test", "--workspace"])? {
+        println!("OK: all tests passed.");
+    } else {
+        eprintln!("Some tests failed.");
+        issues += 1;
+    }
+
+    println!("Checking staged changes for risky patterns...");
+    let staged_patch = run_git_output_preserve(&["diff", "--cached", "--unified=0"])?;
+    let risky_patterns = ["unwrap(", "expect(", "todo!", "unimplemented!", "panic!"];
+    let mut found_patterns = 0u32;
+    for pattern in risky_patterns {
+        if staged_patch
+            .lines()
+            .any(|line| line.starts_with('+') && !line.starts_with("+++") && line.contains(pattern))
+        {
+            eprintln!("Found '{}' in staged changes.", pattern);
+            found_patterns += 1;
+        }
+    }
+    if found_patterns > 0 {
+        issues += 1;
+    }
+
+    println!("Summarizing touched crates...");
+    let staged_files =
+        run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRU"])?;
+    let root = repo_root()?;
+    let mut crates = BTreeSet::new();
+    for file in staged_files
+        .lines()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        if let Some(path) = find_crate_dir_for_file(&root, file) {
+            crates.insert(path);
+        }
+    }
+    if crates.is_empty() {
+        println!("No crates touched.");
+    } else {
+        println!("Touched crates:");
+        for path in crates {
+            println!("  - {path}");
+        }
+    }
+
+    if issues == 0 {
+        println!("Pre-add review passed.");
+        Ok(())
+    } else {
+        Err(format!(
+            "Pre-add review found {issues} issue(s). Please review before staging."
+        ))
+    }
+}
+
+fn run_test_coverage(_opts: TestCoverageOptions) -> Result<(), String> {
+    ensure_git_repo()?;
+    require_command(
+        "cargo-tarpaulin",
+        "cargo-tarpaulin not found. Install with: cargo install cargo-tarpaulin",
+    )?;
+
+    let coverage_dir = repo_root()?.join("target").join("coverage");
+    fs::create_dir_all(&coverage_dir).map_err(|e| {
+        format!(
+            "Failed to create coverage output directory '{}': {e}",
+            coverage_dir.display()
+        )
+    })?;
+
+    let formats_raw = std::env::var("COVERAGE_FORMATS").unwrap_or_else(|_| "html".to_string());
+    let include_lcov = formats_raw.to_lowercase().contains("lcov");
+    let include_json = formats_raw.to_lowercase().contains("json");
+
+    let mut args = vec![
+        "tarpaulin",
+        "--workspace",
+        "--all-features",
+        "--out",
+        "Html",
+        "--output-dir",
+        "target/coverage",
+        "--timeout",
+        "300",
+        "--exclude-files",
+        "*/tests/*",
+        "--exclude-files",
+        "*/benches/*",
+    ];
+    if include_lcov {
+        args.extend(["--out", "Lcov"]);
+    }
+    if include_json {
+        args.extend(["--out", "Json"]);
+    }
+    run_command_status("cargo", &args, false)?;
+    println!(
+        "Coverage report generated: {}/index.html",
+        coverage_dir.display()
+    );
+    Ok(())
 }
 
 fn run_check_priority_issues(opts: CheckPriorityIssuesOptions) -> Result<(), String> {
@@ -863,6 +1004,14 @@ fn run_command_status(program: &str, args: &[&str], allow_failure: bool) -> Resu
             status.code()
         ))
     }
+}
+
+fn command_status_success(program: &str, args: &[&str]) -> Result<bool, String> {
+    let status = Command::new(program)
+        .args(args)
+        .status()
+        .map_err(|e| format!("Failed to run {program} {}: {e}", args.join(" ")))?;
+    Ok(status.success())
 }
 
 fn remove_dir_if_exists(path: &Path) -> Result<(), String> {

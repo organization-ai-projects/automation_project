@@ -9,7 +9,9 @@ use crate::automation::commands::check_priority_issues_options::CheckPriorityIss
 use crate::automation::commands::ci_watch_pr_options::CiWatchPrOptions;
 use crate::automation::commands::clean_artifacts_options::CleanArtifactsOptions;
 use crate::automation::commands::labels_sync_options::LabelsSyncOptions;
+use crate::automation::commands::pre_add_review_options::PreAddReviewOptions;
 use crate::automation::commands::sync_main_dev_ci_options::SyncMainDevCiOptions;
+use crate::automation::commands::test_coverage_options::TestCoverageOptions;
 
 #[derive(Debug)]
 pub(crate) enum AutomationAction {
@@ -18,6 +20,8 @@ pub(crate) enum AutomationAction {
     BuildAccountsUi(BuildAccountsUiOptions),
     BuildUiBundles(BuildUiBundlesOptions),
     BuildAndCheckUiBundles(BuildAndCheckUiBundlesOptions),
+    PreAddReview(PreAddReviewOptions),
+    TestCoverage(TestCoverageOptions),
     ChangedCrates(ChangedCratesOptions),
     CheckMergeConflicts(CheckMergeConflictsOptions),
     CheckDependencies(CheckDependenciesOptions),

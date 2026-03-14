@@ -5,7 +5,8 @@ use crate::automation::commands::{
     AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions, BuildAndCheckUiBundlesOptions,
     BuildUiBundlesOptions, ChangedCratesOptions, CheckDependenciesOptions,
     CheckMergeConflictsOptions, CheckPriorityIssuesOptions, CiWatchPrOptions,
-    CleanArtifactsOptions, LabelsSyncOptions, SyncMainDevCiOptions,
+    CleanArtifactsOptions, LabelsSyncOptions, PreAddReviewOptions, SyncMainDevCiOptions,
+    TestCoverageOptions,
 };
 
 const DEFAULT_LABELS_FILE: &str = ".github/labels.json";
@@ -21,6 +22,8 @@ pub(crate) fn parse(args: &[String]) -> Result<AutomationAction, String> {
         "build-accounts-ui" => parse_build_accounts_ui(&args[1..]),
         "build-ui-bundles" => parse_build_ui_bundles(&args[1..]),
         "build-and-check-ui-bundles" => parse_build_and_check_ui_bundles(&args[1..]),
+        "pre-add-review" => parse_pre_add_review(&args[1..]),
+        "test-coverage" => parse_test_coverage(&args[1..]),
         "changed-crates" => parse_changed_crates(&args[1..]),
         "check-merge-conflicts" => parse_check_merge_conflicts(&args[1..]),
         "check-dependencies" => parse_check_dependencies(&args[1..]),
@@ -61,6 +64,20 @@ fn parse_build_and_check_ui_bundles(args: &[String]) -> Result<AutomationAction,
     Ok(AutomationAction::BuildAndCheckUiBundles(
         BuildAndCheckUiBundlesOptions,
     ))
+}
+
+fn parse_pre_add_review(args: &[String]) -> Result<AutomationAction, String> {
+    if let Some(value) = args.first() {
+        return Err(format!("Unexpected argument: {value}"));
+    }
+    Ok(AutomationAction::PreAddReview(PreAddReviewOptions))
+}
+
+fn parse_test_coverage(args: &[String]) -> Result<AutomationAction, String> {
+    if let Some(value) = args.first() {
+        return Err(format!("Unexpected argument: {value}"));
+    }
+    Ok(AutomationAction::TestCoverage(TestCoverageOptions))
 }
 
 fn parse_changed_crates(args: &[String]) -> Result<AutomationAction, String> {

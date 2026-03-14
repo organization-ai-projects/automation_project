@@ -68,3 +68,23 @@ fn parse_build_ui_bundles_rejects_unexpected_argument() {
     let err = super::super::parse::parse(&args).expect_err("expected parse error");
     assert!(err.contains("Unexpected argument"));
 }
+
+#[test]
+fn parse_pre_add_review_maps_action() {
+    let args = vec!["pre-add-review".to_string()];
+    let action = super::super::parse::parse(&args).expect("parse pre-add-review");
+    match action {
+        AutomationAction::PreAddReview(_) => {}
+        _ => panic!("expected pre-add-review action"),
+    }
+}
+
+#[test]
+fn parse_test_coverage_maps_action() {
+    let args = vec!["test-coverage".to_string()];
+    let action = super::super::parse::parse(&args).expect("parse test-coverage");
+    match action {
+        AutomationAction::TestCoverage(_) => {}
+        _ => panic!("expected test-coverage action"),
+    }
+}
