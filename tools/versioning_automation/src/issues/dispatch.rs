@@ -1,12 +1,12 @@
 //! tools/versioning_automation/src/issues/dispatch.rs
 use crate::issues::commands::IssueAction;
 use crate::issues::execute::{
-    run_assignee_logins, run_auto_link, run_close, run_closure_hygiene, run_create, run_delete,
-    run_done_status, run_fetch_non_compliance_reason, run_field, run_has_label, run_label_exists,
-    run_list_by_label, run_neutralize, run_non_compliance_reason, run_open_numbers,
-    run_parent_guard, run_read, run_reevaluate, run_reopen, run_reopen_on_dev, run_repo_name,
-    run_required_fields_validate, run_state, run_subissue_refs, run_tasklist_refs, run_update,
-    run_upsert_marker_comment,
+    run_assignee_logins, run_auto_link, run_close, run_closure_hygiene, run_create,
+    run_current_login, run_delete, run_done_status, run_fetch_non_compliance_reason, run_field,
+    run_has_label, run_label_exists, run_list_by_label, run_neutralize, run_non_compliance_reason,
+    run_open_numbers, run_parent_guard, run_read, run_reevaluate, run_reopen, run_reopen_on_dev,
+    run_repo_name, run_required_fields_validate, run_state, run_subissue_refs, run_tasklist_refs,
+    run_update, run_upsert_marker_comment,
 };
 use crate::issues::parse::parse;
 use crate::issues::render::print_usage;
@@ -24,6 +24,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(IssueAction::Read(opts)) => run_read(opts),
         Ok(IssueAction::Update(opts)) => run_update(opts),
         Ok(IssueAction::RepoName) => run_repo_name(),
+        Ok(IssueAction::CurrentLogin) => run_current_login(),
         Ok(IssueAction::Close(opts)) => run_close(opts),
         Ok(IssueAction::Reopen(opts)) => run_reopen(opts),
         Ok(IssueAction::Delete(opts)) => run_delete(opts),

@@ -1553,6 +1553,12 @@ pub(crate) fn run_repo_name() -> i32 {
     print_string_result(resolve_repo_name(None), 3)
 }
 
+pub(crate) fn run_current_login() -> i32 {
+    let login = gh_output_or_empty(&["api", "user", "--jq", ".login"]);
+    print_non_empty_lines(&login);
+    0
+}
+
 pub(crate) fn run_close(opts: CloseOptions) -> i32 {
     let mut cmd = gh_command(&["issue", "close", &opts.issue, "--reason", &opts.reason]);
     add_repo_arg(&mut cmd, opts.repo.as_deref());

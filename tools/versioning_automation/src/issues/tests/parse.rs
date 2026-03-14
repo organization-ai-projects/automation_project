@@ -251,6 +251,22 @@ fn parse_repo_name_rejects_extra_options() {
 }
 
 #[test]
+fn parse_current_login_returns_action() {
+    let action = parse(&to_args(&["current-login"])).expect("parse current-login");
+    match action {
+        IssueAction::CurrentLogin => {}
+        _ => panic!("expected CurrentLogin action"),
+    }
+}
+
+#[test]
+fn parse_current_login_rejects_extra_options() {
+    let err = parse(&to_args(&["current-login", "--repo", "owner/repo"]))
+        .expect_err("expected parse error");
+    assert!(err.contains("does not accept additional options"));
+}
+
+#[test]
 fn parse_upsert_marker_comment_rejects_invalid_announce_bool() {
     let err = parse(&to_args(&[
         "upsert-marker-comment",

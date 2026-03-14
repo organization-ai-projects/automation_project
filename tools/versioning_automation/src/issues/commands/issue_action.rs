@@ -18,6 +18,7 @@ pub(crate) enum IssueAction {
     ReopenOnDev(ReopenOnDevOptions),
     Update(UpdateOptions),
     RepoName,
+    CurrentLogin,
     Close(CloseOptions),
     Reopen(IssueTarget),
     Delete(IssueTarget),
