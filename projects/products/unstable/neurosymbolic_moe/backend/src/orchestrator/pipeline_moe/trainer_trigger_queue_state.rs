@@ -246,12 +246,11 @@ impl TrainerTriggerQueueState {
             .events
             .iter()
             .position(|event| event.event_id == event_id)
+            && let Some(event) = self.events.remove(idx)
         {
-            if let Some(event) = self.events.remove(idx) {
-                self.leased_event_ids.remove(&event.event_id);
-                self.push_dead_letter(event);
-                return true;
-            }
+            self.leased_event_ids.remove(&event.event_id);
+            self.push_dead_letter(event);
+            return true;
         }
         false
     }

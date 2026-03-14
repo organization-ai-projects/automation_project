@@ -5,7 +5,6 @@ use crate::orchestrator::{
     ContinuousImprovementReport, GovernanceAuditTrail, GovernanceImportDecision,
     GovernancePersistenceBundle, GovernanceState, GovernanceStateDiff, GovernanceStateSnapshot,
     MoePipeline, RuntimeBundleComponents, RuntimeImportReport, RuntimePersistenceBundle,
-    import_journal,
 };
 use common_time::current_timestamp_ms;
 
@@ -115,7 +114,7 @@ impl MoePipeline {
     }
 
     pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = payload.to_string(); // Define locally
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -123,6 +122,8 @@ impl MoePipeline {
             self.import_journal.record_deduplicated_replay();
             return Ok(());
         }
+        self.import_journal
+            .record_successful_import(payload_fingerprint.clone()); // Clone to avoid move
         let state = match Self::parse_governance_state_json_payload(payload) {
             Ok(state) => state,
             Err(err) => {
@@ -137,7 +138,7 @@ impl MoePipeline {
         match result {
             Ok(()) => {
                 self.import_journal
-                    .record_successful_import(payload_fingerprint);
+                    .record_successful_import(payload_fingerprint.clone());
                 Ok(())
             }
             Err(err) => {
@@ -223,7 +224,7 @@ impl MoePipeline {
     }
 
     pub fn import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = payload.to_string(); // Define locally
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -231,6 +232,8 @@ impl MoePipeline {
             self.import_journal.record_deduplicated_replay();
             return Ok(());
         }
+        self.import_journal
+            .record_successful_import(payload_fingerprint.clone()); // Clone to avoid move
         let bundle = match Self::parse_governance_bundle_json_payload(payload) {
             Ok(bundle) => bundle,
             Err(err) => {
@@ -245,7 +248,7 @@ impl MoePipeline {
         match result {
             Ok(()) => {
                 self.import_journal
-                    .record_successful_import(payload_fingerprint);
+                    .record_successful_import(payload_fingerprint.clone());
                 Ok(())
             }
             Err(err) => {
@@ -448,7 +451,7 @@ impl MoePipeline {
     }
 
     pub fn import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = payload.to_string(); // Define locally
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -470,7 +473,7 @@ impl MoePipeline {
         match result {
             Ok(()) => {
                 self.import_journal
-                    .record_successful_import(payload_fingerprint);
+                    .record_successful_import(payload_fingerprint.clone());
                 Ok(())
             }
             Err(err) => {
@@ -515,7 +518,7 @@ impl MoePipeline {
     }
 
     pub fn try_import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = payload.to_string(); // Define locally
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -563,7 +566,7 @@ impl MoePipeline {
     }
 
     pub fn try_import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = payload.to_string(); // Define locally
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -577,7 +580,7 @@ impl MoePipeline {
         match result {
             Ok(()) => {
                 self.import_journal
-                    .record_successful_import(payload_fingerprint);
+                    .record_successful_import(payload_fingerprint.clone());
                 Ok(())
             }
             Err(err) => {
@@ -659,7 +662,7 @@ impl MoePipeline {
     }
 
     pub fn try_import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = payload.to_string(); // Define locally
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -673,7 +676,7 @@ impl MoePipeline {
         match result {
             Ok(()) => {
                 self.import_journal
-                    .record_successful_import(payload_fingerprint);
+                    .record_successful_import(payload_fingerprint.clone());
                 Ok(())
             }
             Err(err) => {

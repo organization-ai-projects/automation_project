@@ -8,6 +8,7 @@ mod echo_expert;
 mod evaluation_engine;
 mod expert_registry;
 mod feedback_engine;
+mod fingerprint;
 mod memory_engine;
 mod moe_core;
 mod orchestrator;

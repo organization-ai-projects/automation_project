@@ -4,23 +4,24 @@ use crate::orchestrator::import_journal::ImportJournal;
 #[test]
 fn import_journal_tracks_success_rejection_parse_failure_and_dedup() {
     let mut journal = ImportJournal::with_capacity(2);
-    let fp1 = ImportJournal::payload_fingerprint("payload-1");
-    let fp2 = ImportJournal::payload_fingerprint("payload-2");
-    let fp3 = ImportJournal::payload_fingerprint("payload-3");
 
-    journal.record_successful_import(fp1.clone());
-    journal.record_successful_import(fp2.clone());
-    assert!(journal.has_successful_payload_fingerprint(&fp1));
-    assert!(journal.has_successful_payload_fingerprint(&fp2));
+    // Record successful imports
+    journal.record_successful_import("item1".to_string());
+    journal.record_successful_import("item2".to_string());
+    assert!(journal.has_successful_payload_fingerprint("item1"));
+    assert!(journal.has_successful_payload_fingerprint("item2"));
 
-    journal.record_successful_import(fp3.clone());
-    assert!(!journal.has_successful_payload_fingerprint(&fp1));
-    assert!(journal.has_successful_payload_fingerprint(&fp3));
+    // Add a new import and verify the oldest is removed
+    journal.record_successful_import("item3".to_string());
+    assert!(!journal.has_successful_payload_fingerprint("item1"));
+    assert!(journal.has_successful_payload_fingerprint("item3"));
 
+    // Record additional events
     journal.record_parse_failure();
     journal.record_rejection();
     journal.record_deduplicated_replay();
 
+    // Verify totals
     assert_eq!(journal.parse_failures_total(), 1);
     assert_eq!(journal.rejections_total(), 1);
     assert_eq!(journal.deduplicated_replays_total(), 1);
