@@ -38,7 +38,7 @@ ui/
 cargo install dioxus-cli
 
 # Build UI bundle
-scripts/automation/build_accounts_ui.sh
+versioning_automation automation build-accounts-ui
 ```
 
 The bundle should include:
