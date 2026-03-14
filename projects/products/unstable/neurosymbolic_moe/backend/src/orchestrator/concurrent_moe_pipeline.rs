@@ -155,31 +155,31 @@ impl ConcurrentMoePipeline {
     }
 
     pub fn register_expert(&self, expert: Box<dyn Expert>) -> Result<(), MoeError> {
-        self.with_write(|pipeline| pipeline.register_expert(expert))
+        self.with_runtime_write(|pipeline| pipeline.register_expert(expert))
     }
 
     pub fn execute(&self, task: Task) -> Result<AggregatedOutput, MoeError> {
-        self.with_write(|pipeline| pipeline.execute(task))
+        self.with_runtime_write(|pipeline| pipeline.execute(task))
     }
 
     pub fn remember_short_term(&self, entry: MemoryEntry) -> Result<(), MoeError> {
-        self.with_write(|pipeline| pipeline.remember_short_term(entry))
+        self.with_runtime_write(|pipeline| pipeline.remember_short_term(entry))
     }
 
     pub fn remember_long_term(&self, entry: MemoryEntry) -> Result<(), MoeError> {
-        self.with_write(|pipeline| pipeline.remember_long_term(entry))
+        self.with_runtime_write(|pipeline| pipeline.remember_long_term(entry))
     }
 
     pub fn export_runtime_bundle_json(&self) -> Result<String, MoeError> {
-        self.with_read(|pipeline| pipeline.export_runtime_bundle_json())?
+        self.with_runtime_read(|pipeline| pipeline.export_runtime_bundle_json())
     }
 
     pub fn export_governance_state_json(&self) -> Result<String, MoeError> {
-        self.with_read(|pipeline| pipeline.export_governance_state_json())?
+        self.with_runtime_read(|pipeline| pipeline.export_governance_state_json())
     }
 
     pub fn export_governance_bundle_json(&self) -> Result<String, MoeError> {
-        self.with_read(|pipeline| pipeline.export_governance_bundle_json())?
+        self.with_runtime_read(|pipeline| pipeline.export_governance_bundle_json())
     }
 
     pub fn governance_audit_trail(&self) -> Result<GovernanceAuditTrail, MoeError> {
@@ -192,7 +192,7 @@ impl ConcurrentMoePipeline {
         expected_current_checksum: &str,
         payload: &str,
     ) -> Result<(), MoeError> {
-        self.with_write(|pipeline| {
+        self.with_runtime_write(|pipeline| {
             pipeline.compare_and_import_runtime_bundle_json_with_checksum(
                 expected_current_version,
                 expected_current_checksum,
@@ -202,18 +202,18 @@ impl ConcurrentMoePipeline {
     }
 
     pub fn import_runtime_bundle_json(&self, payload: &str) -> Result<(), MoeError> {
-        self.with_write(|pipeline| pipeline.import_runtime_bundle_json(payload))
+        self.with_runtime_write(|pipeline| pipeline.import_runtime_bundle_json(payload))
     }
 
     pub fn try_import_runtime_bundle_json(&self, payload: &str) -> Result<(), MoeError> {
-        self.with_write(|pipeline| pipeline.try_import_runtime_bundle_json(payload))
+        self.with_runtime_write(|pipeline| pipeline.try_import_runtime_bundle_json(payload))
     }
 
     pub fn preview_runtime_bundle_import_json(
         &self,
         payload: &str,
     ) -> Result<GovernanceImportDecision, MoeError> {
-        self.with_read(|pipeline| pipeline.preview_runtime_bundle_import_json(payload))?
+        self.with_runtime_read(|pipeline| pipeline.preview_runtime_bundle_import_json(payload))
     }
 
     pub fn compare_and_import_runtime_bundle_json(
@@ -221,7 +221,7 @@ impl ConcurrentMoePipeline {
         expected_current_version: u64,
         payload: &str,
     ) -> Result<(), MoeError> {
-        self.with_write(|pipeline| {
+        self.with_runtime_write(|pipeline| {
             pipeline.compare_and_import_runtime_bundle_json(expected_current_version, payload)
         })
     }
@@ -232,7 +232,7 @@ impl ConcurrentMoePipeline {
         expected_current_checksum: &str,
         payload: &str,
     ) -> Result<(), MoeError> {
-        self.with_write(|pipeline| {
+        self.with_runtime_write(|pipeline| {
             pipeline.compare_and_import_governance_bundle_json_with_checksum(
                 expected_current_version,
                 expected_current_checksum,
@@ -247,7 +247,7 @@ impl ConcurrentMoePipeline {
         expected_current_checksum: &str,
         payload: &str,
     ) -> Result<(), MoeError> {
-        self.with_write(|pipeline| {
+        self.with_runtime_write(|pipeline| {
             pipeline.compare_and_import_governance_state_json_with_checksum(
                 expected_current_version,
                 expected_current_checksum,
@@ -257,18 +257,18 @@ impl ConcurrentMoePipeline {
     }
 
     pub fn import_governance_bundle_json(&self, payload: &str) -> Result<(), MoeError> {
-        self.with_write(|pipeline| pipeline.import_governance_bundle_json(payload))
+        self.with_runtime_write(|pipeline| pipeline.import_governance_bundle_json(payload))
     }
 
     pub fn try_import_governance_bundle_json(&self, payload: &str) -> Result<(), MoeError> {
-        self.with_write(|pipeline| pipeline.try_import_governance_bundle_json(payload))
+        self.with_runtime_write(|pipeline| pipeline.try_import_governance_bundle_json(payload))
     }
 
     pub fn preview_governance_bundle_import_json(
         &self,
         payload: &str,
     ) -> Result<GovernanceImportDecision, MoeError> {
-        self.with_read(|pipeline| pipeline.preview_governance_bundle_import_json(payload))?
+        self.with_runtime_read(|pipeline| pipeline.preview_governance_bundle_import_json(payload))
     }
 
     pub fn compare_and_import_governance_bundle_json(
@@ -276,24 +276,24 @@ impl ConcurrentMoePipeline {
         expected_current_version: u64,
         payload: &str,
     ) -> Result<(), MoeError> {
-        self.with_write(|pipeline| {
+        self.with_runtime_write(|pipeline| {
             pipeline.compare_and_import_governance_bundle_json(expected_current_version, payload)
         })
     }
 
     pub fn import_governance_state_json(&self, payload: &str) -> Result<(), MoeError> {
-        self.with_write(|pipeline| pipeline.import_governance_state_json(payload))
+        self.with_runtime_write(|pipeline| pipeline.import_governance_state_json(payload))
     }
 
     pub fn try_import_governance_state_json(&self, payload: &str) -> Result<(), MoeError> {
-        self.with_write(|pipeline| pipeline.try_import_governance_state_json(payload))
+        self.with_runtime_write(|pipeline| pipeline.try_import_governance_state_json(payload))
     }
 
     pub fn preview_governance_import_json(
         &self,
         payload: &str,
     ) -> Result<GovernanceImportDecision, MoeError> {
-        self.with_read(|pipeline| pipeline.preview_governance_import_json(payload))?
+        self.with_runtime_read(|pipeline| pipeline.preview_governance_import_json(payload))
     }
 
     pub fn compare_and_import_governance_state_json(
@@ -301,7 +301,7 @@ impl ConcurrentMoePipeline {
         expected_current_version: u64,
         payload: &str,
     ) -> Result<(), MoeError> {
-        self.with_write(|pipeline| {
+        self.with_runtime_write(|pipeline| {
             pipeline.compare_and_import_governance_state_json(expected_current_version, payload)
         })
     }
@@ -396,7 +396,7 @@ impl ConcurrentMoePipeline {
     }
 
     pub fn import_telemetry_snapshot(&self) -> Result<ImportTelemetry, MoeError> {
-        self.with_read(|pipeline| pipeline.import_telemetry_snapshot())
+        self.with_runtime_read(|pipeline| Ok(pipeline.import_telemetry_snapshot()))
     }
 
     pub fn export_operational_report(&self) -> Result<ConcurrentOperationalReport, MoeError> {
@@ -512,5 +512,19 @@ impl ConcurrentMoePipeline {
             )));
         }
         Ok(())
+    }
+
+    fn with_runtime_read<T, F>(&self, f: F) -> Result<T, MoeError>
+    where
+        F: FnOnce(&MoePipeline) -> Result<T, MoeError>,
+    {
+        self.with_read(f)?
+    }
+
+    fn with_runtime_write<T, F>(&self, f: F) -> Result<T, MoeError>
+    where
+        F: FnOnce(&mut MoePipeline) -> Result<T, MoeError>,
+    {
+        self.with_write(f)
     }
 }
