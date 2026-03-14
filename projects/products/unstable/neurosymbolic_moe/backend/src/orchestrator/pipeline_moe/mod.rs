@@ -12,3 +12,4 @@ use crate::orchestrator::pipeline_moe::moe_pipeline::{
     MAX_RUNTIME_BUNDLE_WORKING_ENTRIES,
 };
 pub use moe_pipeline::MoePipeline;
+pub(in crate::orchestrator) use moe_pipeline::TrainerTriggerQueueState;

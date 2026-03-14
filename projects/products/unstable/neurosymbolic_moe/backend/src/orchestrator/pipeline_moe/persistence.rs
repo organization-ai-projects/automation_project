@@ -6,7 +6,6 @@ use crate::orchestrator::{
     GovernancePersistenceBundle, GovernanceState, GovernanceStateDiff, GovernanceStateSnapshot,
     MoePipeline, RuntimeBundleComponents, RuntimePersistenceBundle, import_journal,
 };
-use std::collections::VecDeque;
 
 impl MoePipeline {
     pub fn import_governance_state(&mut self, mut state: GovernanceState) {
@@ -78,7 +77,12 @@ impl MoePipeline {
             auto_improvement_policy: self.auto_improvement_policy.clone(),
             auto_improvement_status: self.auto_improvement_status.clone(),
             model_registry: self.model_registry.clone(),
-            trainer_trigger_events: self.trainer_trigger_events.iter().cloned().collect(),
+            trainer_trigger_events: self
+                .trainer_trigger_queue
+                .events()
+                .iter()
+                .cloned()
+                .collect(),
         })
     }
 
@@ -262,7 +266,7 @@ impl MoePipeline {
         let backup_auto_improvement_policy = self.auto_improvement_policy.clone();
         let backup_auto_improvement_status = self.auto_improvement_status.clone();
         let backup_model_registry = self.model_registry.clone();
-        let backup_trainer_trigger_events = self.trainer_trigger_events.clone();
+        let backup_trainer_trigger_queue = self.trainer_trigger_queue.clone();
 
         let governance = bundle.governance;
         let short_term_memory_entries = bundle.short_term_memory_entries;
@@ -287,7 +291,10 @@ impl MoePipeline {
             self.auto_improvement_policy = auto_improvement_policy;
             self.auto_improvement_status = auto_improvement_status;
             self.model_registry = model_registry;
-            self.trainer_trigger_events = VecDeque::from(trainer_trigger_events);
+            self.trainer_trigger_queue = super::TrainerTriggerQueueState::with_events(
+                self.trainer_trigger_queue.max_events(),
+                trainer_trigger_events,
+            );
             Ok(())
         })() {
             self.continuous_governance_policy = backup_governance_policy;
@@ -304,7 +311,7 @@ impl MoePipeline {
             self.auto_improvement_policy = backup_auto_improvement_policy;
             self.auto_improvement_status = backup_auto_improvement_status;
             self.model_registry = backup_model_registry;
-            self.trainer_trigger_events = backup_trainer_trigger_events;
+            self.trainer_trigger_queue = backup_trainer_trigger_queue;
             self.import_telemetry.record_runtime_bundle_rejection();
             return Err(MoeError::DatasetError(format!(
                 "runtime bundle import failed and was rolled back: {err}"

@@ -1,3 +1,5 @@
+use super::pipeline_moe::MoePipeline;
+use super::pipeline_moe::TrainerTriggerQueueState;
 use crate::aggregator::{AggregationStrategy, OutputAggregator};
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{DatasetStore, TraceConverter};
@@ -15,9 +17,6 @@ use crate::policy_guard::PolicyGuard;
 use crate::retrieval_engine::{ContextAssembler, Retriever, SimpleRetriever};
 use crate::router::{HeuristicRouter, Router};
 use crate::trace_logger::TraceLogger;
-use std::collections::VecDeque;
-
-use super::pipeline_moe::MoePipeline;
 
 pub struct MoePipelineBuilder {
     router: Option<Box<dyn Router>>,
@@ -170,8 +169,7 @@ impl MoePipelineBuilder {
             auto_improvement_policy: self.auto_improvement_policy,
             auto_improvement_status: AutoImprovementStatus::default(),
             model_registry: ModelRegistry::default(),
-            trainer_trigger_events: VecDeque::new(),
-            max_trainer_trigger_events: self.max_trainer_trigger_events,
+            trainer_trigger_queue: TrainerTriggerQueueState::new(self.max_trainer_trigger_events),
         }
     }
 }
