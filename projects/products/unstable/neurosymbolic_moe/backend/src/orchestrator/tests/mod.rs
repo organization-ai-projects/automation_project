@@ -10,6 +10,8 @@ mod governance_import_policy;
 mod governance_state;
 mod import_journal;
 mod import_telemetry;
+mod model_registry;
+mod model_registry_entry;
 mod moe_pipeline;
 mod moe_pipeline_builder;
 #[path = "../moe_pipeline/tests/execution.rs"]
@@ -23,3 +25,4 @@ mod moe_pipeline_persistence;
 mod operational_report;
 mod runtime_bundle_components;
 mod runtime_persistence_bundle;
+mod trainer_trigger_event;

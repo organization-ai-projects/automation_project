@@ -17,6 +17,8 @@ mod governance_state_diff;
 mod governance_state_snapshot;
 mod import_journal;
 mod import_telemetry;
+mod model_registry;
+mod model_registry_entry;
 mod moe_pipeline;
 mod moe_pipeline_builder;
 mod operational_report;
@@ -24,6 +26,7 @@ mod runtime_bundle_components;
 mod runtime_persistence_bundle;
 #[cfg(test)]
 mod tests;
+mod trainer_trigger_event;
 
 pub use arbitration_mode::ArbitrationMode;
 pub use auto_improvement_policy::AutoImprovementPolicy;
@@ -42,8 +45,11 @@ pub use governance_state::GovernanceState;
 pub use governance_state_diff::GovernanceStateDiff;
 pub use governance_state_snapshot::GovernanceStateSnapshot;
 pub use import_telemetry::ImportTelemetry;
+pub use model_registry::ModelRegistry;
+pub use model_registry_entry::ModelRegistryEntry;
 pub use moe_pipeline::MoePipeline;
 pub use moe_pipeline_builder::MoePipelineBuilder;
 pub use operational_report::OperationalReport;
 pub use runtime_bundle_components::RuntimeBundleComponents;
 pub use runtime_persistence_bundle::RuntimePersistenceBundle;
+pub use trainer_trigger_event::TrainerTriggerEvent;

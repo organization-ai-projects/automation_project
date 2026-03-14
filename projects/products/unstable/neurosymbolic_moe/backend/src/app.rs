@@ -225,6 +225,7 @@ fn build_cli_pipeline() -> MoePipeline {
         .with_router(Box::new(HeuristicRouter::new(3)))
         .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
         .with_auto_improvement_policy(auto_improvement_policy)
+        .with_max_trainer_trigger_events(512)
         .with_max_traces(1000)
         .build()
 }

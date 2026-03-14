@@ -420,19 +420,40 @@ impl MoePipeline {
                 {
                     return;
                 }
+                let model_version = self.model_registry.register_candidate(
+                    bundle.bundle_checksum.clone(),
+                    bundle.included_entries,
+                    bundle.train_samples.len(),
+                    bundle.validation_samples.len(),
+                    bundle.generated_at,
+                );
+                if self.model_registry.active_version.is_none() {
+                    self.model_registry.promote(model_version);
+                }
                 self.auto_improvement_status.runs_total += 1;
-                self.auto_improvement_status.last_bundle_checksum = Some(bundle.bundle_checksum);
+                self.auto_improvement_status.last_bundle_checksum =
+                    Some(bundle.bundle_checksum.clone());
                 self.auto_improvement_status.last_included_entries = bundle.included_entries;
                 self.auto_improvement_status.last_train_samples = bundle.train_samples.len();
                 self.auto_improvement_status.last_validation_samples =
                     bundle.validation_samples.len();
+                self.push_trainer_trigger_event(crate::orchestrator::TrainerTriggerEvent {
+                    event_id: self.auto_improvement_status.runs_total,
+                    model_version,
+                    training_bundle_checksum: bundle.bundle_checksum.clone(),
+                    included_entries: bundle.included_entries,
+                    train_samples: bundle.train_samples.len(),
+                    validation_samples: bundle.validation_samples.len(),
+                    generated_at: bundle.generated_at,
+                });
                 self.record_governance_audit("auto improvement dataset refresh");
                 self.trace_logger.log_phase(
                     crate::moe_core::TaskId::new("auto-improvement"),
                     TracePhase::DatasetEnrichment,
                     format!(
-                        "auto improvement run {} prepared training bundle (included={}, train={}, validation={})",
+                        "auto improvement run {} prepared model v{} bundle (included={}, train={}, validation={})",
                         self.auto_improvement_status.runs_total,
+                        model_version,
                         self.auto_improvement_status.last_included_entries,
                         self.auto_improvement_status.last_train_samples,
                         self.auto_improvement_status.last_validation_samples

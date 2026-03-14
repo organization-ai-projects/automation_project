@@ -28,6 +28,10 @@ pub struct OperationalReport {
     pub auto_improvement_runs_total: u64,
     pub auto_improvement_bootstrap_entries_total: usize,
     pub auto_improvement_last_included_entries: usize,
+    pub model_registry_entries: usize,
+    pub model_registry_active_version: u64,
+    pub model_registry_latest_version: u64,
+    pub trainer_trigger_events_pending: usize,
 }
 
 impl OperationalReport {
@@ -89,7 +93,7 @@ impl OperationalReport {
             prefix.to_string()
         };
         format!(
-            "{p}_governance_current_version {}\n{p}_governance_audit_entries {}\n{p}_governance_state_snapshots {}\n{p}_short_term_memory_entries {}\n{p}_long_term_memory_entries {}\n{p}_working_buffer_entries {}\n{p}_session_buffer_sessions {}\n{p}_session_buffer_values {}\n{p}_trace_entries {}\n{p}_dataset_entries {}\n{p}_feedback_entries {}\n{p}_import_runtime_successes {}\n{p}_import_runtime_rejections {}\n{p}_import_governance_state_successes {}\n{p}_import_governance_state_rejections {}\n{p}_import_governance_bundle_successes {}\n{p}_import_governance_bundle_rejections {}\n{p}_import_json_parse_failures {}\n{p}_import_journal_events_total {}\n{p}_import_journal_parse_failures_total {}\n{p}_import_journal_rejections_total {}\n{p}_import_journal_successful_imports_total {}\n{p}_import_journal_deduplicated_replays_total {}\n{p}_import_journal_tracked_fingerprints {}\n{p}_auto_improvement_runs_total {}\n{p}_auto_improvement_bootstrap_entries_total {}\n{p}_auto_improvement_last_included_entries {}\n",
+            "{p}_governance_current_version {}\n{p}_governance_audit_entries {}\n{p}_governance_state_snapshots {}\n{p}_short_term_memory_entries {}\n{p}_long_term_memory_entries {}\n{p}_working_buffer_entries {}\n{p}_session_buffer_sessions {}\n{p}_session_buffer_values {}\n{p}_trace_entries {}\n{p}_dataset_entries {}\n{p}_feedback_entries {}\n{p}_import_runtime_successes {}\n{p}_import_runtime_rejections {}\n{p}_import_governance_state_successes {}\n{p}_import_governance_state_rejections {}\n{p}_import_governance_bundle_successes {}\n{p}_import_governance_bundle_rejections {}\n{p}_import_json_parse_failures {}\n{p}_import_journal_events_total {}\n{p}_import_journal_parse_failures_total {}\n{p}_import_journal_rejections_total {}\n{p}_import_journal_successful_imports_total {}\n{p}_import_journal_deduplicated_replays_total {}\n{p}_import_journal_tracked_fingerprints {}\n{p}_auto_improvement_runs_total {}\n{p}_auto_improvement_bootstrap_entries_total {}\n{p}_auto_improvement_last_included_entries {}\n{p}_model_registry_entries {}\n{p}_model_registry_active_version {}\n{p}_model_registry_latest_version {}\n{p}_trainer_trigger_events_pending {}\n",
             self.governance_current_version,
             self.governance_audit_entries,
             self.governance_state_snapshots,
@@ -117,6 +121,10 @@ impl OperationalReport {
             self.auto_improvement_runs_total,
             self.auto_improvement_bootstrap_entries_total,
             self.auto_improvement_last_included_entries,
+            self.model_registry_entries,
+            self.model_registry_active_version,
+            self.model_registry_latest_version,
+            self.trainer_trigger_events_pending,
         )
     }
 }

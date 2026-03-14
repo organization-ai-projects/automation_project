@@ -7,6 +7,7 @@ impl MoePipeline {
     pub fn export_operational_report(&self) -> OperationalReport {
         let audit_trail = self.governance_audit_trail();
         let runtime_bundle = self.export_runtime_bundle();
+        let model_registry = self.model_registry();
         let sessions = self.buffer_manager.sessions().list_sessions();
         let session_buffer_values = sessions
             .iter()
@@ -42,6 +43,10 @@ impl MoePipeline {
             auto_improvement_last_included_entries: self
                 .auto_improvement_status()
                 .last_included_entries,
+            model_registry_entries: model_registry.entry_count(),
+            model_registry_active_version: model_registry.active_version.unwrap_or(0),
+            model_registry_latest_version: model_registry.latest_version().unwrap_or(0),
+            trainer_trigger_events_pending: self.trainer_trigger_events_pending(),
         }
     }
 

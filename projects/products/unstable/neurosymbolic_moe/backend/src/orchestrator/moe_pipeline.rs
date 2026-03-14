@@ -15,7 +15,7 @@ use crate::orchestrator::import_journal::ImportJournal;
 use crate::orchestrator::{
     ArbitrationMode, AutoImprovementPolicy, AutoImprovementStatus, ContinuousGovernancePolicy,
     GovernanceAuditEntry, GovernanceImportPolicy, GovernanceState, GovernanceStateSnapshot,
-    ImportTelemetry,
+    ImportTelemetry, ModelRegistry, TrainerTriggerEvent,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::retrieval_engine::{ContextAssembler, Retriever};
@@ -68,6 +68,9 @@ pub struct MoePipeline {
     pub(super) trace_converter: TraceConverter,
     pub(super) auto_improvement_policy: Option<AutoImprovementPolicy>,
     pub(super) auto_improvement_status: AutoImprovementStatus,
+    pub(super) model_registry: ModelRegistry,
+    pub(super) trainer_trigger_events: Vec<TrainerTriggerEvent>,
+    pub(super) max_trainer_trigger_events: usize,
 }
 
 impl MoePipeline {
@@ -274,6 +277,22 @@ impl MoePipeline {
 
     pub fn auto_improvement_status(&self) -> &AutoImprovementStatus {
         &self.auto_improvement_status
+    }
+
+    pub fn model_registry(&self) -> &ModelRegistry {
+        &self.model_registry
+    }
+
+    pub fn trainer_trigger_events_pending(&self) -> usize {
+        self.trainer_trigger_events.len()
+    }
+
+    fn push_trainer_trigger_event(&mut self, event: TrainerTriggerEvent) {
+        self.trainer_trigger_events.push(event);
+        if self.trainer_trigger_events.len() > self.max_trainer_trigger_events {
+            let to_trim = self.trainer_trigger_events.len() - self.max_trainer_trigger_events;
+            self.trainer_trigger_events.drain(0..to_trim);
+        }
     }
 
     pub fn bootstrap_initial_dataset_from_training_bundle(

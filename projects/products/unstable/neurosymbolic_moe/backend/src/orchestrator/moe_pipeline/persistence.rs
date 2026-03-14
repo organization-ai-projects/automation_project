@@ -76,6 +76,8 @@ impl MoePipeline {
             dataset_corrections: self.dataset_store.corrections_cloned(),
             auto_improvement_policy: self.auto_improvement_policy.clone(),
             auto_improvement_status: self.auto_improvement_status.clone(),
+            model_registry: self.model_registry.clone(),
+            trainer_trigger_events: self.trainer_trigger_events.clone(),
         })
     }
 
@@ -260,6 +262,8 @@ impl MoePipeline {
         let backup_dataset_corrections = self.dataset_store.corrections_cloned();
         let backup_auto_improvement_policy = self.auto_improvement_policy.clone();
         let backup_auto_improvement_status = self.auto_improvement_status.clone();
+        let backup_model_registry = self.model_registry.clone();
+        let backup_trainer_trigger_events = self.trainer_trigger_events.clone();
 
         let governance = bundle.governance;
         let short_term_memory_entries = bundle.short_term_memory_entries;
@@ -269,6 +273,8 @@ impl MoePipeline {
         let dataset_corrections = bundle.dataset_corrections;
         let auto_improvement_policy = bundle.auto_improvement_policy;
         let auto_improvement_status = bundle.auto_improvement_status;
+        let model_registry = bundle.model_registry;
+        let trainer_trigger_events = bundle.trainer_trigger_events;
 
         if let Err(err) = (|| -> Result<(), MoeError> {
             self.import_governance_bundle(governance)?;
@@ -281,6 +287,8 @@ impl MoePipeline {
                 .replace_all(dataset_entries, dataset_corrections);
             self.auto_improvement_policy = auto_improvement_policy;
             self.auto_improvement_status = auto_improvement_status;
+            self.model_registry = model_registry;
+            self.trainer_trigger_events = trainer_trigger_events;
             Ok(())
         })() {
             self.continuous_governance_policy = backup_governance_policy;
@@ -296,6 +304,8 @@ impl MoePipeline {
                 .replace_all(backup_dataset_entries, backup_dataset_corrections);
             self.auto_improvement_policy = backup_auto_improvement_policy;
             self.auto_improvement_status = backup_auto_improvement_status;
+            self.model_registry = backup_model_registry;
+            self.trainer_trigger_events = backup_trainer_trigger_events;
             self.import_telemetry.record_runtime_bundle_rejection();
             return Err(MoeError::DatasetError(format!(
                 "runtime bundle import failed and was rolled back: {err}"

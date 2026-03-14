@@ -9,7 +9,7 @@ use crate::orchestrator::ImportTelemetry;
 use crate::orchestrator::import_journal::ImportJournal;
 use crate::orchestrator::{
     ArbitrationMode, AutoImprovementPolicy, AutoImprovementStatus, ContinuousGovernancePolicy,
-    GovernanceImportPolicy,
+    GovernanceImportPolicy, ModelRegistry,
 };
 use crate::policy_guard::PolicyGuard;
 use crate::retrieval_engine::{ContextAssembler, Retriever, SimpleRetriever};
@@ -34,6 +34,7 @@ pub struct MoePipelineBuilder {
     max_governance_state_snapshots: usize,
     max_traces: usize,
     auto_improvement_policy: Option<AutoImprovementPolicy>,
+    max_trainer_trigger_events: usize,
 }
 
 impl MoePipelineBuilder {
@@ -54,6 +55,7 @@ impl MoePipelineBuilder {
             max_governance_state_snapshots: 64,
             max_traces: 10_000,
             auto_improvement_policy: None,
+            max_trainer_trigger_events: 512,
         }
     }
 
@@ -122,6 +124,11 @@ impl MoePipelineBuilder {
         self
     }
 
+    pub fn with_max_trainer_trigger_events(mut self, max: usize) -> Self {
+        self.max_trainer_trigger_events = max.max(1);
+        self
+    }
+
     pub fn build(self) -> MoePipeline {
         let router = self
             .router
@@ -161,6 +168,9 @@ impl MoePipelineBuilder {
             trace_converter: TraceConverter::new(),
             auto_improvement_policy: self.auto_improvement_policy,
             auto_improvement_status: AutoImprovementStatus::default(),
+            model_registry: ModelRegistry::default(),
+            trainer_trigger_events: Vec::new(),
+            max_trainer_trigger_events: self.max_trainer_trigger_events,
         }
     }
 }

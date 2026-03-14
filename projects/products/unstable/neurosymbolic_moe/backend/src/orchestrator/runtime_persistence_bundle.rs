@@ -3,8 +3,8 @@ use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{Correction, DatasetEntry};
 use crate::memory_engine::MemoryEntry;
 use crate::orchestrator::{
-    AutoImprovementPolicy, AutoImprovementStatus, GovernancePersistenceBundle,
-    RuntimeBundleComponents,
+    AutoImprovementPolicy, AutoImprovementStatus, GovernancePersistenceBundle, ModelRegistry,
+    RuntimeBundleComponents, TrainerTriggerEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -30,6 +30,10 @@ pub struct RuntimePersistenceBundle {
     pub auto_improvement_policy: Option<AutoImprovementPolicy>,
     #[serde(default)]
     pub auto_improvement_status: AutoImprovementStatus,
+    #[serde(default)]
+    pub model_registry: ModelRegistry,
+    #[serde(default)]
+    pub trainer_trigger_events: Vec<TrainerTriggerEvent>,
 }
 
 impl RuntimePersistenceBundle {
@@ -53,6 +57,8 @@ impl RuntimePersistenceBundle {
             dataset_corrections: components.dataset_corrections,
             auto_improvement_policy: components.auto_improvement_policy,
             auto_improvement_status: components.auto_improvement_status,
+            model_registry: components.model_registry,
+            trainer_trigger_events: components.trainer_trigger_events,
         };
         bundle.runtime_checksum = bundle.recompute_checksum();
         bundle
@@ -79,9 +85,11 @@ impl RuntimePersistenceBundle {
             self.auto_improvement_policy.as_ref(),
             &self.auto_improvement_status,
         );
+        let model_registry_fp = model_registry_fingerprint(&self.model_registry);
+        let trainer_events_fp = trainer_trigger_events_fingerprint(&self.trainer_trigger_events);
 
         let material = format!(
-            "{}:{}:{}:{}:{}:{}:{}:{}",
+            "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
             self.schema_version,
             governance_fp,
             short_fp,
@@ -89,7 +97,9 @@ impl RuntimePersistenceBundle {
             working_fp,
             sessions_fp,
             dataset_fp,
-            auto_improvement_fp
+            auto_improvement_fp,
+            model_registry_fp,
+            trainer_events_fp
         );
         format!("{:016x}", fnv1a64(material.as_bytes()))
     }
@@ -275,6 +285,44 @@ fn auto_improvement_fingerprint(
         status.last_validation_samples
     );
     format!("{policy_part}::{status_part}")
+}
+
+fn model_registry_fingerprint(registry: &ModelRegistry) -> String {
+    let mut parts = Vec::new();
+    parts.push(format!(
+        "active={:?}|next={}",
+        registry.active_version, registry.next_version
+    ));
+    for entry in &registry.entries {
+        parts.push(format!(
+            "{}|{}|{}|{}|{}|{}|{}",
+            entry.version,
+            entry.training_bundle_checksum,
+            entry.included_entries,
+            entry.train_samples,
+            entry.validation_samples,
+            entry.generated_at,
+            entry.promoted
+        ));
+    }
+    parts.join("::")
+}
+
+fn trainer_trigger_events_fingerprint(events: &[TrainerTriggerEvent]) -> String {
+    let mut parts = Vec::new();
+    for event in events {
+        parts.push(format!(
+            "{}|{}|{}|{}|{}|{}|{}",
+            event.event_id,
+            event.model_version,
+            event.training_bundle_checksum,
+            event.included_entries,
+            event.train_samples,
+            event.validation_samples,
+            event.generated_at
+        ));
+    }
+    parts.join("::")
 }
 
 fn fnv1a64(bytes: &[u8]) -> u64 {

@@ -3,7 +3,8 @@ use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{Correction, DatasetEntry};
 use crate::memory_engine::MemoryEntry;
 use crate::orchestrator::{
-    AutoImprovementPolicy, AutoImprovementStatus, GovernancePersistenceBundle,
+    AutoImprovementPolicy, AutoImprovementStatus, GovernancePersistenceBundle, ModelRegistry,
+    TrainerTriggerEvent,
 };
 use std::collections::HashMap;
 
@@ -17,4 +18,6 @@ pub struct RuntimeBundleComponents {
     pub dataset_corrections: HashMap<String, Vec<Correction>>,
     pub auto_improvement_policy: Option<AutoImprovementPolicy>,
     pub auto_improvement_status: AutoImprovementStatus,
+    pub model_registry: ModelRegistry,
+    pub trainer_trigger_events: Vec<TrainerTriggerEvent>,
 }
