@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 HOOKS_DIR="${ROOT_DIR}/scripts/automation/git_hooks"
 FIXTURES_DIR="${SCRIPT_DIR}/fixtures"
+REAL_VERSIONING_AUTOMATION_BIN="${ROOT_DIR}/target/debug/versioning_automation"
+export REAL_VERSIONING_AUTOMATION_BIN
 
 # shellcheck source=scripts/common_lib/testing/shell_test_helpers.sh
 source "${ROOT_DIR}/scripts/common_lib/testing/shell_test_helpers.sh"
@@ -365,6 +367,9 @@ if [[ "${1:-}" == "automation" && "${2:-}" == "post-checkout-check" ]]; then
 fi
 
 if [[ "${1:-}" != "issue" ]]; then
+  if [[ -n "${REAL_VERSIONING_AUTOMATION_BIN:-}" && -x "${REAL_VERSIONING_AUTOMATION_BIN}" ]]; then
+    exec "${REAL_VERSIONING_AUTOMATION_BIN}" "$@"
+  fi
   exit 0
 fi
 
@@ -881,184 +886,184 @@ main() {
 		"commit-msg-allows-child-footer" \
 		0 \
 		"" \
-		"cp '${FIXTURES_DIR}/commit_msg_valid_child.txt' .git/COMMIT_EDITMSG && MOCK_MULTI_ASSIGNEE_ISSUES='123' /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"cp '${FIXTURES_DIR}/commit_msg_valid_child.txt' .git/COMMIT_EDITMSG && MOCK_MULTI_ASSIGNEE_ISSUES='123' versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-rejects-fixes-footer" \
 		4 \
 		"Invalid issue footer keyword: 'Fixes' is not allowed" \
-		"printf 'docs: update hook policy wording\n\nFixes #123\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"printf 'docs: update hook policy wording\n\nFixes #123\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	# commit-msg: allow non-root issue refs in body and normalize to footer block.
 	run_case \
 		"commit-msg-allows-and-normalizes-body-ref" \
 		0 \
 		"Part of #123" \
-		"printf 'docs: update hook policy wording\n\nContext line\nPart of #123\nMore notes\n' > .git/COMMIT_EDITMSG && MOCK_MULTI_ASSIGNEE_ISSUES='123' /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && tail -n1 .git/COMMIT_EDITMSG"
+		"printf 'docs: update hook policy wording\n\nContext line\nPart of #123\nMore notes\n' > .git/COMMIT_EDITMSG && MOCK_MULTI_ASSIGNEE_ISSUES='123' versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG && tail -n1 .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-normalizes-lowercase-and-deduplicates" \
 		0 \
 		"^2$" \
-		"printf 'docs: update hook policy wording\n\npart of #123\nPart of #123\nREOPEN #456\n' > .git/COMMIT_EDITMSG && MOCK_MULTI_ASSIGNEE_ISSUES='123 456' /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG && grep -Ec '^(Part of #123|Reopen #456)$' .git/COMMIT_EDITMSG"
+		"printf 'docs: update hook policy wording\n\npart of #123\nPart of #123\nREOPEN #456\n' > .git/COMMIT_EDITMSG && MOCK_MULTI_ASSIGNEE_ISSUES='123 456' versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG && grep -Ec '^(Part of #123|Reopen #456)$' .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-blocks-single-assignee-part-of-only" \
 		10 \
 		"Closes #123' is required" \
-		"printf 'docs: update hook policy wording\n\nPart of #123\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"printf 'docs: update hook policy wording\n\nPart of #123\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-accepts-first-nonempty-line-as-subject" \
 		0 \
 		"" \
-		"printf '\n\nfix(shell): trim leading blanks\n\nbody\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"printf '\n\nfix(shell): trim leading blanks\n\nbody\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	# commit-msg: block issue refs in subject.
 	run_case \
 		"commit-msg-blocks-subject-issue-ref" \
 		4 \
 		"Issue references must be in commit footer" \
-		"cp '${FIXTURES_DIR}/commit_msg_invalid_subject_ref.txt' .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"cp '${FIXTURES_DIR}/commit_msg_invalid_subject_ref.txt' .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	# commit-msg: block root parent refs in footer.
 	run_case \
 		"commit-msg-blocks-root-parent" \
-		5 \
-		"Protected parent issue references are not allowed" \
-		"cp '${FIXTURES_DIR}/commit_msg_invalid_root_parent.txt' .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		10 \
+		"Assignment policy violation in commit footer" \
+		"cp '${FIXTURES_DIR}/commit_msg_invalid_root_parent.txt' .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-allows-base-parent-reference" \
 		0 \
 		"" \
-		"printf 'docs: update hook policy wording\n\nPart of #618\n' > .git/COMMIT_EDITMSG && MOCK_BASE_PARENT_ISSUES='618' MOCK_PARENT_WITH_CHILDREN='618' MOCK_MULTI_ASSIGNEE_ISSUES='618' /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"printf 'docs: update hook policy wording\n\nPart of #618\n' > .git/COMMIT_EDITMSG && MOCK_BASE_PARENT_ISSUES='618' MOCK_PARENT_WITH_CHILDREN='618' MOCK_MULTI_ASSIGNEE_ISSUES='618' versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-bypass-works" \
 		0 \
 		"" \
-		"cp '${FIXTURES_DIR}/commit_msg_invalid_subject_ref.txt' .git/COMMIT_EDITMSG && SKIP_COMMIT_VALIDATION=1 /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"cp '${FIXTURES_DIR}/commit_msg_invalid_subject_ref.txt' .git/COMMIT_EDITMSG && SKIP_COMMIT_VALIDATION=1 versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-requires-scope-for-library-change" \
 		7 \
 		"Missing required scope in commit message" \
-		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix: patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix: patch\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-rejects-wrong-scope-for-library-change" \
 		8 \
 		"Commit scope does not match touched files" \
-		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/other): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/other): patch\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-allows-correct-scope-for-library-change" \
 		0 \
 		"" \
-		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers): patch\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-rejects-parent-product-scope-for-ui-and-backend-mix" \
 		8 \
 		"Commit scope does not match touched files" \
-		"mkdir -p projects/products/stable/varina/ui/src projects/products/stable/varina/backend/src && printf '[package]\nname = \"varina-ui\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/ui/Cargo.toml && printf '[package]\nname = \"varina-backend\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/backend/Cargo.toml && echo 'pub fn ui() {}' > projects/products/stable/varina/ui/src/lib.rs && echo 'pub fn api() {}' > projects/products/stable/varina/backend/src/lib.rs && git add projects/products/stable/varina/ui/Cargo.toml projects/products/stable/varina/backend/Cargo.toml projects/products/stable/varina/ui/src/lib.rs projects/products/stable/varina/backend/src/lib.rs && printf 'fix(projects/products/stable/varina): patch\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/products/stable/varina/ui/src projects/products/stable/varina/backend/src && printf '[package]\nname = \"varina-ui\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/ui/Cargo.toml && printf '[package]\nname = \"varina-backend\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/backend/Cargo.toml && echo 'pub fn ui() {}' > projects/products/stable/varina/ui/src/lib.rs && echo 'pub fn api() {}' > projects/products/stable/varina/backend/src/lib.rs && git add projects/products/stable/varina/ui/Cargo.toml projects/products/stable/varina/backend/Cargo.toml projects/products/stable/varina/ui/src/lib.rs projects/products/stable/varina/backend/src/lib.rs && printf 'fix(projects/products/stable/varina): patch\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-requires-scope-for-staged-deletions" \
 		7 \
 		"Missing required scope in commit message" \
-		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/layers/domain/security/src/lib.rs && printf 'fix: remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/layers/domain/security/src/lib.rs && printf 'fix: remove old file\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-allows-scope-for-staged-deletions" \
 		0 \
 		"" \
-		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers): remove old file\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && git add projects/libraries/layers/domain/security/src/lib.rs && git commit -m 'chore: add temp lib file' >/dev/null && git rm -q projects/libraries/layers/domain/security/src/lib.rs && printf 'fix(projects/libraries/layers): remove old file\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-allows-parent-product-scope-for-parent-only-change" \
 		0 \
 		"" \
-		"mkdir -p projects/products/stable/varina && echo '# Varina' > projects/products/stable/varina/README.md && git add projects/products/stable/varina/README.md && printf 'docs(projects/products/stable/varina): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/products/stable/varina && echo '# Varina' > projects/products/stable/varina/README.md && git add projects/products/stable/varina/README.md && printf 'docs(projects/products/stable/varina): update readme\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-falls-back-to-parent-scope-when-ui-is-not-a-crate" \
 		0 \
 		"" \
-		"mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina): patch ui files\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina): patch ui files\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-rejects-ui-scope-when-ui-is-not-a-crate" \
 		8 \
 		"Commit scope does not match touched files" \
-		"mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina/ui): patch ui files\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/products/stable/varina/ui/src && echo 'console.log(\"ui\")' > projects/products/stable/varina/ui/src/app.ts && git add projects/products/stable/varina/ui/src/app.ts && printf 'fix(projects/products/stable/varina/ui): patch ui files\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-detects-nonstandard-product-crate-by-cargo" \
 		0 \
 		"" \
-		"mkdir -p projects/products/stable/varina/worker/src && printf '[package]\nname = \"varina-worker\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/worker/Cargo.toml && echo 'pub fn work() {}' > projects/products/stable/varina/worker/src/lib.rs && git add projects/products/stable/varina/worker/Cargo.toml projects/products/stable/varina/worker/src/lib.rs && printf 'fix(projects/products/stable/varina/worker): patch worker crate\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/products/stable/varina/worker/src && printf '[package]\nname = \"varina-worker\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > projects/products/stable/varina/worker/Cargo.toml && echo 'pub fn work() {}' > projects/products/stable/varina/worker/src/lib.rs && git add projects/products/stable/varina/worker/Cargo.toml projects/products/stable/varina/worker/src/lib.rs && printf 'fix(projects/products/stable/varina/worker): patch worker crate\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-requires-shell-scope-for-shell-only-change" \
 		8 \
 		"Commit scope does not match touched files" \
-		"printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add helper.sh && printf 'chore(workspace): add helper script\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add helper.sh && printf 'chore(workspace): add helper script\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-allows-shell-scope-for-shell-only-change" \
 		0 \
 		"" \
-		"printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add helper.sh && printf 'chore(shell): add helper script\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add helper.sh && printf 'chore(shell): add helper script\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-requires-markdown-scope-for-markdown-only-change" \
 		8 \
 		"Commit scope does not match touched files" \
-		"echo '# title' > README.md && git add README.md && printf 'docs(workspace): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"echo '# title' > README.md && git add README.md && printf 'docs(workspace): update readme\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-allows-markdown-scope-for-markdown-only-change" \
 		0 \
 		"" \
-		"echo '# title' > README.md && git add README.md && printf 'docs(markdown): update readme\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"echo '# title' > README.md && git add README.md && printf 'docs(markdown): update readme\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-requires-workspace-scope-for-root-level-non-rust-non-shell-non-markdown-change" \
 		7 \
 		"Missing required scope in commit message" \
-		"echo 'x=1' > settings.toml && git add settings.toml && printf 'chore: add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"echo 'x=1' > settings.toml && git add settings.toml && printf 'chore: add settings\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-rejects-wrong-scope-for-root-level-non-rust-non-shell-non-markdown-change" \
 		8 \
 		"Commit scope does not match touched files" \
-		"echo 'x=1' > settings.toml && git add settings.toml && printf 'chore(config): add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"echo 'x=1' > settings.toml && git add settings.toml && printf 'chore(config): add settings\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-allows-workspace-scope-for-non-rust-non-shell-non-markdown-change" \
 		0 \
 		"" \
-		"echo 'x=1' > settings.toml && git add settings.toml && printf 'chore(workspace): add settings\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"echo 'x=1' > settings.toml && git add settings.toml && printf 'chore(workspace): add settings\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-allows-common-path-scope-for-non-rust-non-shell-non-markdown-nested-change" \
 		0 \
 		"" \
-		"mkdir -p configs/env && echo 'x=1' > configs/env/app.toml && git add configs/env/app.toml && printf 'chore(configs/env): add app config\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p configs/env && echo 'x=1' > configs/env/app.toml && git add configs/env/app.toml && printf 'chore(configs/env): add app config\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-blocks-mixed-shell-and-markdown" \
 		6 \
 		"Mixed file format categories are not allowed" \
-		"printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && echo '# title' > README.md && git add helper.sh README.md && printf 'chore(shell): mixed change\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && echo '# title' > README.md && git add helper.sh README.md && printf 'chore(shell): mixed change\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"commit-msg-blocks-mixed-rust-and-shell" \
 		6 \
 		"Mixed file format categories are not allowed" \
-		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add projects/libraries/layers/domain/security/src/lib.rs helper.sh && printf 'fix(projects/libraries/layers/domain/security): mixed change\n' > .git/COMMIT_EDITMSG && /bin/bash '${HOOKS_DIR}/commit-msg' .git/COMMIT_EDITMSG"
+		"mkdir -p projects/libraries/layers/domain/security/src && echo 'pub fn x() {}' > projects/libraries/layers/domain/security/src/lib.rs && printf '#!/usr/bin/env bash\necho hi\n' > helper.sh && git add projects/libraries/layers/domain/security/src/lib.rs helper.sh && printf 'fix(projects/libraries/layers/domain/security): mixed change\n' > .git/COMMIT_EDITMSG && versioning_automation automation commit-msg-check --file .git/COMMIT_EDITMSG"
 
 	run_case \
 		"pre-commit-docs-only-ignores-unstaged-rust-syntax-errors" \

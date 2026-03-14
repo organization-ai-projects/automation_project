@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/automation/execute.rs
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{self, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -10,17 +10,18 @@ use common_json::Json;
 use regex::Regex;
 
 use crate::automation::commands::{
-    AuditIssueStatusOptions, AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions,
-    BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
-    CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
-    CiWatchPrOptions, CleanArtifactsOptions, CommitMsgCheckOptions, InstallHooksOptions,
-    LabelsSyncOptions, PostCheckoutCheckOptions, PreAddReviewOptions, PreBranchCreateCheckOptions,
-    PreCommitCheckOptions, PrePushCheckOptions, PrepareCommitMsgOptions, ReleasePrepareOptions,
+    AuditSecurityOptions, AutomationAction, CiWatchPrOptions, CommitMsgCheckOptions,
+    PostCheckoutCheckOptions, PreBranchCreateCheckOptions, PrepareCommitMsgOptions,
     SyncMainDevCiOptions, TestCoverageOptions,
 };
 use crate::automation::parse::parse;
 use crate::automation::render::print_usage;
-use crate::repo_name::{resolve_repo_name, resolve_repo_name_optional};
+use crate::automation::{
+    audit_issue_status, changed_crates, check_dependencies, check_merge_conflicts, hook_checks,
+    install_hooks, pre_add_review, ui_build,
+};
+use crate::repo_name::resolve_repo_name_optional;
+use crate::{gh_cli, git_cli};
 
 pub(crate) fn run(args: &[String]) -> i32 {
     match parse(args) {
@@ -39,30 +40,52 @@ fn run_action(action: AutomationAction) -> i32 {
             print_usage();
             0
         }
-        AutomationAction::AuditIssueStatus(opts) => to_exit_code(run_audit_issue_status(opts)),
+        AutomationAction::AuditIssueStatus(opts) => {
+            to_exit_code(audit_issue_status::run_audit_issue_status(opts))
+        }
         AutomationAction::AuditSecurity(opts) => to_exit_code(run_audit_security(opts)),
-        AutomationAction::BuildAccountsUi(opts) => to_exit_code(run_build_accounts_ui(opts)),
-        AutomationAction::BuildUiBundles(opts) => to_exit_code(run_build_ui_bundles(opts)),
+        AutomationAction::BuildAccountsUi(opts) => {
+            to_exit_code(ui_build::run_build_accounts_ui(opts))
+        }
+        AutomationAction::BuildUiBundles(opts) => {
+            to_exit_code(ui_build::run_build_ui_bundles(opts))
+        }
         AutomationAction::BuildAndCheckUiBundles(opts) => {
-            to_exit_code(run_build_and_check_ui_bundles(opts))
+            to_exit_code(ui_build::run_build_and_check_ui_bundles(opts))
         }
-        AutomationAction::PreAddReview(opts) => to_exit_code(run_pre_add_review(opts)),
-        AutomationAction::PreCommitCheck(opts) => to_exit_code(run_pre_commit_check(opts)),
+        AutomationAction::PreAddReview(opts) => {
+            to_exit_code(pre_add_review::run_pre_add_review(opts))
+        }
+        AutomationAction::PreCommitCheck(opts) => {
+            to_exit_code(hook_checks::run_pre_commit_check(opts))
+        }
         AutomationAction::PostCheckoutCheck(opts) => to_exit_code(run_post_checkout_check(opts)),
-        AutomationAction::PrePushCheck(opts) => to_exit_code(run_pre_push_check(opts)),
-        AutomationAction::ReleasePrepare(opts) => to_exit_code(run_release_prepare(opts)),
+        AutomationAction::PrePushCheck(opts) => to_exit_code(hook_checks::run_pre_push_check(opts)),
+        AutomationAction::ReleasePrepare(opts) => {
+            to_exit_code(super::release_prepare::run_release_prepare(opts))
+        }
         AutomationAction::TestCoverage(opts) => to_exit_code(run_test_coverage(opts)),
-        AutomationAction::ChangedCrates(opts) => to_exit_code(run_changed_crates(opts)),
+        AutomationAction::ChangedCrates(opts) => {
+            to_exit_code(changed_crates::run_changed_crates(opts))
+        }
         AutomationAction::CheckMergeConflicts(opts) => {
-            to_exit_code(run_check_merge_conflicts(opts))
+            to_exit_code(check_merge_conflicts::run_check_merge_conflicts(opts))
         }
-        AutomationAction::CheckDependencies(opts) => to_exit_code(run_check_dependencies(opts)),
-        AutomationAction::CleanArtifacts(opts) => to_exit_code(run_clean_artifacts(opts)),
-        AutomationAction::InstallHooks(opts) => to_exit_code(run_install_hooks(opts)),
-        AutomationAction::CheckPriorityIssues(opts) => {
-            to_exit_code(run_check_priority_issues(opts))
+        AutomationAction::CheckDependencies(opts) => {
+            to_exit_code(check_dependencies::run_check_dependencies(opts))
         }
-        AutomationAction::LabelsSync(opts) => to_exit_code(run_labels_sync(opts)),
+        AutomationAction::CleanArtifacts(opts) => {
+            to_exit_code(super::clean_artifacts::run_clean_artifacts(opts))
+        }
+        AutomationAction::InstallHooks(opts) => {
+            to_exit_code(install_hooks::run_install_hooks(opts))
+        }
+        AutomationAction::CheckPriorityIssues(opts) => to_exit_code(
+            super::check_priority_issues::run_check_priority_issues(opts),
+        ),
+        AutomationAction::LabelsSync(opts) => {
+            to_exit_code(super::labels_sync::run_labels_sync(opts))
+        }
         AutomationAction::CiWatchPr(opts) => to_exit_code(run_ci_watch_pr(opts)),
         AutomationAction::SyncMainDevCi(opts) => to_exit_code(run_sync_main_dev_ci(opts)),
         AutomationAction::PrepareCommitMsg(opts) => to_exit_code(run_prepare_commit_msg(opts)),
@@ -80,146 +103,6 @@ fn to_exit_code(result: Result<(), String>) -> i32 {
             1
         }
     }
-}
-
-fn run_changed_crates(opts: ChangedCratesOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    let changed_files = git_changed_files(opts.ref1.as_deref(), opts.ref2.as_deref())?;
-    if changed_files.is_empty() {
-        println!("No changed files.");
-        return Ok(());
-    }
-
-    let repo_root = repo_root()?;
-    let mut crate_paths = BTreeSet::new();
-    for file in changed_files {
-        if let Some(path) = find_crate_dir_for_file(&repo_root, &file) {
-            crate_paths.insert(path);
-        }
-    }
-
-    if crate_paths.is_empty() {
-        println!("No crates affected.");
-        return Ok(());
-    }
-
-    let output_paths_only = opts.output_format.as_deref() == Some("paths");
-    if output_paths_only {
-        for path in crate_paths {
-            println!("{path}");
-        }
-        return Ok(());
-    }
-
-    println!("Changed crates:");
-    for path in crate_paths {
-        let crate_name = read_crate_name(&repo_root, &path).unwrap_or_else(|| path.clone());
-        println!("  - {crate_name} ({path})");
-    }
-    Ok(())
-}
-
-fn run_check_merge_conflicts(opts: CheckMergeConflictsOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    let current_branch = run_git_output(&["branch", "--show-current"])?;
-    if current_branch.trim().is_empty() {
-        return Err("Not on a branch (detached HEAD).".to_string());
-    }
-
-    run_git(&["fetch", "--prune", &opts.remote])?;
-    if !branch_exists_remote(&opts.remote, &opts.base_branch) {
-        return Err(format!(
-            "Base branch '{}/{}' does not exist.",
-            opts.remote, opts.base_branch
-        ));
-    }
-
-    let remote_base = format!("{}/{}", opts.remote, opts.base_branch);
-    let merge_base = crate::git_cli::command(&["merge-base", "HEAD", &remote_base])
-        .output()
-        .map_err(|e| format!("Failed to run git merge-base HEAD {remote_base}: {e}"))?;
-    if !merge_base.status.success() {
-        return Err(format!(
-            "Unable to compute merge base with '{remote_base}'."
-        ));
-    }
-    let base_sha = String::from_utf8_lossy(&merge_base.stdout)
-        .trim()
-        .to_string();
-    if base_sha.is_empty() {
-        return Err("Empty merge base SHA.".to_string());
-    }
-
-    let check = crate::git_cli::command(&["merge-tree", &base_sha, "HEAD", &remote_base])
-        .output()
-        .map_err(|e| format!("Failed to run git merge-tree: {e}"))?;
-    if !check.status.success() {
-        return Err("git merge-tree failed.".to_string());
-    }
-    let output = String::from_utf8_lossy(&check.stdout);
-    let conflicts = output
-        .lines()
-        .filter_map(|line| line.strip_prefix("CONFLICT (contents): Merge conflict in "))
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
-
-    if conflicts.is_empty() {
-        println!("No merge conflicts detected.");
-        return Ok(());
-    }
-
-    println!(
-        "Merge conflicts detected for '{}' against '{}':",
-        current_branch.trim(),
-        remote_base
-    );
-    for path in conflicts {
-        println!("  - {path}");
-    }
-    Err("Merge conflict(s) detected.".to_string())
-}
-
-fn run_check_dependencies(opts: CheckDependenciesOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    if opts.check_outdated {
-        if command_available("cargo-outdated") {
-            run_command_status(
-                "cargo",
-                &["outdated", "--workspace", "--root-deps-only"],
-                true,
-            )?;
-        } else {
-            println!("cargo-outdated not found, skipping outdated dependencies check.");
-        }
-    }
-
-    run_command_status("cargo", &["check", "--workspace", "--all-targets"], false)?;
-
-    if opts.check_unused {
-        if command_available("cargo-udeps") {
-            run_command_status("cargo", &["+nightly", "udeps", "--workspace"], true)?;
-        } else {
-            println!("cargo-udeps not found, skipping unused dependencies check.");
-        }
-    }
-    Ok(())
-}
-
-fn run_clean_artifacts(opts: CleanArtifactsOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    let root = repo_root()?;
-
-    remove_dir_if_exists(&root.join("target"))?;
-    remove_named_dirs_under(&root.join("projects"), "ui_dist")?;
-    if opts.include_node_modules {
-        remove_named_dirs_under(&root, "node_modules")?;
-    }
-    remove_nested_cargo_locks(&root.join("projects"), &root.join("Cargo.lock"))?;
-    remove_files_by_suffixes(&root, &[".profraw", ".gcda", ".gcno", "~", ".bak", ".tmp"])?;
-
-    run_command_status("cargo", &["clean"], false)?;
-    println!("Build artifacts cleaned successfully.");
-    Ok(())
 }
 
 fn run_commit_msg_check(opts: CommitMsgCheckOptions) -> i32 {
@@ -662,36 +545,6 @@ fn derive_description(branch: &str, staged_files: &[String]) -> String {
     "update changes".to_string()
 }
 
-fn run_install_hooks(_opts: InstallHooksOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    let root = repo_root()?;
-    let hooks_dir = git_hooks_dir(&root)?;
-    fs::create_dir_all(&hooks_dir).map_err(|e| {
-        format!(
-            "Failed to create hooks directory '{}': {e}",
-            hooks_dir.display()
-        )
-    })?;
-
-    println!("Installing hooks to '{}'", hooks_dir.display());
-    let binary = resolve_versioning_automation_binary(&root)?;
-    let hooks = [
-        "pre-commit",
-        "prepare-commit-msg",
-        "commit-msg",
-        "pre-push",
-        "post-checkout",
-        "pre-branch-create",
-        "branch-creation-check",
-    ];
-    for hook in hooks {
-        install_hook_entrypoint(&hooks_dir, hook, &binary)?;
-    }
-
-    println!("Hooks installed successfully.");
-    Ok(())
-}
-
 fn run_audit_security(_opts: AuditSecurityOptions) -> Result<(), String> {
     ensure_git_repo()?;
     if !command_available("cargo-audit") {
@@ -701,186 +554,8 @@ fn run_audit_security(_opts: AuditSecurityOptions) -> Result<(), String> {
     run_command_status("cargo", &["audit"], false)
 }
 
-fn run_build_accounts_ui(_opts: BuildAccountsUiOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    require_command(
-        "dx",
-        "dx (dioxus-cli) not found. Install with: cargo install dioxus-cli",
-    )?;
-    let root = repo_root()?;
-    let ui_dir = root.join("projects/products/stable/accounts/ui");
-    if !ui_dir.is_dir() {
-        return Err(format!("UI directory not found: '{}'", ui_dir.display()));
-    }
-    build_ui_bundle_for_dir(&ui_dir)?;
-    println!(
-        "Accounts UI bundle generated in {}",
-        ui_dir.join("ui_dist").display()
-    );
-    Ok(())
-}
-
-fn run_build_ui_bundles(_opts: BuildUiBundlesOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    require_command(
-        "dx",
-        "dx (dioxus-cli) not found. Install with: cargo install dioxus-cli",
-    )?;
-    let root = repo_root()?;
-    let ui_dirs = find_ui_dirs(&root.join("projects/products"))?;
-    if ui_dirs.is_empty() {
-        return Err("No UI crates found under projects/products".to_string());
-    }
-
-    for ui_dir in ui_dirs {
-        let cargo_toml = ui_dir.join("Cargo.toml");
-        if !cargo_contains_dioxus(&cargo_toml)? {
-            println!("Skipping {} (no dioxus dependency)", ui_dir.display());
-            continue;
-        }
-        println!("Building UI bundle in {}", ui_dir.display());
-        build_ui_bundle_for_dir(&ui_dir)?;
-    }
-    println!("UI bundle build complete");
-    Ok(())
-}
-
-fn run_build_and_check_ui_bundles(_opts: BuildAndCheckUiBundlesOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    require_command(
-        "dx",
-        "dx (dioxus-cli) not found. Install with: cargo install dioxus-cli",
-    )?;
-    let root = repo_root()?;
-    let ui_dirs = find_ui_dirs(&root.join("projects/products"))?;
-    if ui_dirs.is_empty() {
-        return Err("No UI crates found under projects/products".to_string());
-    }
-
-    let mut missing = Vec::new();
-    for ui_dir in ui_dirs {
-        let cargo_toml = ui_dir.join("Cargo.toml");
-        if !cargo_contains_dioxus(&cargo_toml)? {
-            println!("Skipping {} (no dioxus dependency)", ui_dir.display());
-            continue;
-        }
-        println!("Building UI bundle in {}", ui_dir.display());
-        build_ui_bundle_for_dir(&ui_dir)?;
-        if !ui_bundle_artifacts_ok(&ui_dir.join("ui_dist"))? {
-            missing.push(ui_dir.to_string_lossy().to_string());
-        }
-    }
-
-    if missing.is_empty() {
-        println!("UI bundle build + check complete");
-        return Ok(());
-    }
-
-    eprintln!("Missing UI bundle artifacts in:");
-    for path in missing {
-        eprintln!(" - {path}");
-    }
-    Err("One or more UI bundles are incomplete.".to_string())
-}
-
-fn run_pre_add_review(_opts: PreAddReviewOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    let mut issues = 0u32;
-
-    println!("Running pre-add review...");
-
-    println!("Checking code formatting...");
-    if command_status_success("cargo", &["fmt", "--all", "--check"])? {
-        println!("OK: code is properly formatted.");
-    } else {
-        eprintln!("Formatting issues detected. Run: cargo fmt");
-        issues += 1;
-    }
-
-    println!("Running clippy...");
-    if command_status_success(
-        "cargo",
-        &[
-            "clippy",
-            "--workspace",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
-        ],
-    )? {
-        println!("OK: no clippy warnings.");
-    } else {
-        eprintln!("Clippy warnings or errors detected.");
-        issues += 1;
-    }
-
-    println!("Running tests...");
-    if command_status_success("cargo", &["test", "--workspace"])? {
-        println!("OK: all tests passed.");
-    } else {
-        eprintln!("Some tests failed.");
-        issues += 1;
-    }
-
-    println!("Checking staged changes for risky patterns...");
-    let staged_patch = run_git_output_preserve(&["diff", "--cached", "--unified=0"])?;
-    let risky_patterns = ["unwrap(", "expect(", "todo!", "unimplemented!", "panic!"];
-    let mut found_patterns = 0u32;
-    for pattern in risky_patterns {
-        if staged_patch
-            .lines()
-            .any(|line| line.starts_with('+') && !line.starts_with("+++") && line.contains(pattern))
-        {
-            eprintln!("Found '{}' in staged changes.", pattern);
-            found_patterns += 1;
-        }
-    }
-    if found_patterns > 0 {
-        issues += 1;
-    }
-
-    println!("Summarizing touched crates...");
-    let staged_files =
-        run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRU"])?;
-    let root = repo_root()?;
-    let mut crates = BTreeSet::new();
-    for file in staged_files
-        .lines()
-        .map(str::trim)
-        .filter(|v| !v.is_empty())
-    {
-        if let Some(path) = find_crate_dir_for_file(&root, file) {
-            crates.insert(path);
-        }
-    }
-    if crates.is_empty() {
-        println!("No crates touched.");
-    } else {
-        println!("Touched crates:");
-        for path in crates {
-            println!("  - {path}");
-        }
-    }
-
-    if issues == 0 {
-        println!("Pre-add review passed.");
-        Ok(())
-    } else {
-        Err(format!(
-            "Pre-add review found {issues} issue(s). Please review before staging."
-        ))
-    }
-}
-
 fn run_post_checkout_check(_opts: PostCheckoutCheckOptions) -> Result<(), String> {
-    let upstream = run_git_output(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
-        .unwrap_or_default();
-    let upstream_branch = if upstream.trim().is_empty() {
-        "origin/dev".to_string()
-    } else {
-        upstream.trim().to_string()
-    };
+    let upstream_branch = resolve_upstream_or_default();
 
     let commit_messages =
         run_git_output_preserve(&["log", &format!("{upstream_branch}..HEAD"), "--format=%B"])
@@ -917,192 +592,6 @@ fn run_post_checkout_check(_opts: PostCheckoutCheckOptions) -> Result<(), String
         println!();
     }
 
-    Ok(())
-}
-
-fn run_pre_commit_check(_opts: PreCommitCheckOptions) -> Result<(), String> {
-    if std::env::var("SKIP_PRE_COMMIT").unwrap_or_default() == "1" {
-        println!("⚠️  Pre-commit checks skipped (SKIP_PRE_COMMIT=1)");
-        return Ok(());
-    }
-
-    println!("📝 Running pre-commit checks...");
-    println!();
-    ensure_git_repo()?;
-
-    let current_branch = run_git_output(&["rev-parse", "--abbrev-ref", "HEAD"])?;
-    if std::env::var("ALLOW_PROTECTED_BRANCH_COMMIT").unwrap_or_default() != "1"
-        && (current_branch.trim() == "dev" || current_branch.trim() == "main")
-    {
-        return Err(format!(
-            "❌ Direct commits on protected branch '{}' are blocked.\n   Create a feature/fix/docs branch, then open a PR.\n   Temporary bypass (exception only): ALLOW_PROTECTED_BRANCH_COMMIT=1 git commit ...",
-            current_branch.trim()
-        ));
-    }
-
-    let upstream = run_git_output(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
-        .unwrap_or_else(|_| "origin/dev".to_string());
-    let push_commits =
-        run_git_output_preserve(&["log", &format!("{upstream}..HEAD"), "--format=%B"])
-            .unwrap_or_default();
-    if !push_commits.trim().is_empty() {
-        validate_part_of_only_policy(&push_commits, resolve_repo_name(None).ok().as_deref())
-            .map_err(|err| {
-                format!("{err}\n\n❌ Assignment policy check failed (early pre-commit guard).")
-            })?;
-    }
-
-    let staged_changed_files =
-        run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRU"])
-            .unwrap_or_default();
-    let staged_files = staged_changed_files
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
-
-    let crates = collect_crates_from_changed_files(&staged_changed_files).unwrap_or_default();
-    if crates.is_empty() {
-        println!("🎯 No Rust crates detected, checking all files");
-    } else {
-        println!("🎯 Affected crates:");
-        for crate_name in &crates {
-            println!("   - {crate_name}");
-        }
-        println!();
-    }
-
-    let markdown_files = staged_files
-        .iter()
-        .filter(|file| file.ends_with(".md"))
-        .cloned()
-        .collect::<Vec<_>>();
-    if markdown_files.is_empty() {
-        println!("📝 Skipping markdown lint (no staged markdown files)");
-    } else {
-        println!("📝 Auto-fixing markdown files...");
-        if let Err(err) = run_markdownlint_files(&markdown_files) {
-            return Err(format!(
-                "{err}\n\n❌ Markdown lint failed on staged markdown files."
-            ));
-        }
-    }
-
-    println!("🔎 Checking shell syntax...");
-    for file in &staged_files {
-        if is_shell_file_path(file)
-            && let Err(err) = run_command_status("bash", &["-n", file], false)
-        {
-            return Err(format!(
-                "   ❌ Shell syntax error: {file}\n{err}\n\n❌ Shell syntax checks failed!"
-            ));
-        }
-    }
-
-    if staged_files.iter().any(|file| file.ends_with(".rs")) {
-        println!("✨ Formatting code...");
-        run_command_status("cargo", &["fmt", "--all"], false)?;
-    } else {
-        println!("✨ Skipping Rust formatting (no staged Rust files)");
-    }
-
-    let restage_files =
-        run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRU"])
-            .unwrap_or_default()
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty())
-            .map(ToString::to_string)
-            .collect::<Vec<_>>();
-    if !restage_files.is_empty() {
-        let mut args = vec!["add".to_string(), "--".to_string()];
-        args.extend(restage_files);
-        run_command_status_owned("git", &args, false)?;
-    }
-
-    println!("✅ Pre-commit checks passed");
-    println!();
-    Ok(())
-}
-
-fn run_pre_push_check(_opts: PrePushCheckOptions) -> Result<(), String> {
-    if std::env::var("SKIP_PRE_PUSH").unwrap_or_default() == "1" {
-        println!("Pre-push checks skipped (SKIP_PRE_PUSH=1)");
-        return Ok(());
-    }
-    ensure_git_repo()?;
-    let upstream = run_git_output(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
-        .unwrap_or_else(|_| "origin/dev".to_string());
-    let commits = run_git_output_preserve(&["log", &format!("{upstream}..HEAD"), "--format=%B"])
-        .unwrap_or_default();
-    let repo = resolve_repo_name(None).ok();
-
-    if !commits.trim().is_empty() {
-        validate_no_root_parent_refs(&commits, repo.as_deref())?;
-        validate_part_of_only_policy(&commits, repo.as_deref())?;
-    }
-
-    let changed_files = compute_changed_files(&upstream)?;
-    let markdown_files = changed_files
-        .iter()
-        .filter(|f| f.ends_with(".md"))
-        .cloned()
-        .collect::<Vec<_>>();
-    let docs_or_scripts_only = is_docs_or_scripts_only_change(&changed_files);
-
-    if docs_or_scripts_only {
-        if !markdown_files.is_empty() {
-            run_markdownlint_files(&markdown_files)?;
-        }
-        run_shell_syntax_checks(&changed_files)?;
-        println!("Pre-push checks passed (docs/scripts-only mode)");
-        return Ok(());
-    }
-
-    if !markdown_files.is_empty() {
-        run_markdownlint_files(&markdown_files)?;
-    }
-    run_command_status("cargo", &["fmt", "--all", "--", "--check"], false)?;
-
-    let changed_file_text = changed_files.join("\n");
-    let mut crates = collect_crates_from_changed_files(&changed_file_text)?;
-    crates.sort();
-    crates.dedup();
-
-    let has_lockfile = repo_root()?.join("Cargo.lock").is_file();
-    let mut clippy_args = Vec::<String>::new();
-    let mut test_args = Vec::<String>::new();
-    if has_lockfile {
-        clippy_args.push("--locked".to_string());
-        test_args.push("--locked".to_string());
-    }
-    if crates.is_empty() {
-        clippy_args.extend(["--workspace", "--all-targets", "--all-features"].map(String::from));
-        test_args.extend(["--workspace", "--all-targets", "--all-features"].map(String::from));
-    } else {
-        clippy_args.extend(["--all-targets", "--all-features"].map(String::from));
-        test_args.extend(["--all-targets", "--all-features"].map(String::from));
-        for crate_name in crates {
-            clippy_args.push("-p".to_string());
-            clippy_args.push(crate_name.clone());
-            test_args.push("-p".to_string());
-            test_args.push(crate_name);
-        }
-    }
-
-    let mut clippy_run = vec!["clippy".to_string()];
-    clippy_run.extend(clippy_args);
-    clippy_run.push("--".to_string());
-    clippy_run.push("-D".to_string());
-    clippy_run.push("warnings".to_string());
-    run_command_status_owned("cargo", &clippy_run, false)?;
-
-    let mut test_run = vec!["test".to_string()];
-    test_run.extend(test_args);
-    run_command_status_owned("cargo", &test_run, false)?;
-
-    println!("All pre-push checks passed");
     Ok(())
 }
 
@@ -1151,295 +640,6 @@ fn run_test_coverage(_opts: TestCoverageOptions) -> Result<(), String> {
         "Coverage report generated: {}/index.html",
         coverage_dir.display()
     );
-    Ok(())
-}
-
-fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    let repo = resolve_repo_name(opts.repo).map_err(|e| e.to_string())?;
-    let range = format!("{}..{}", opts.base_ref, opts.head_ref);
-
-    let open_issues_json = run_gh_output(&[
-        "issue",
-        "list",
-        "--state",
-        "open",
-        "--limit",
-        &opts.limit.to_string(),
-        "--json",
-        "number,title,url,body,labels,state",
-        "-R",
-        &repo,
-    ])?;
-    let open_issues = parse_json_array(&open_issues_json, "open issues JSON")?;
-    let total_open = open_issues.len();
-
-    let commit_messages = run_git_output_preserve(&["log", &range, "--format=%B"])?;
-    let (closing_refs, part_refs) = extract_issue_refs_from_text(&commit_messages)?;
-
-    let mut would_close_items = Vec::new();
-    let mut part_only_items = Vec::new();
-    let mut unreferenced_items = Vec::new();
-    let mut done_in_dev_items = Vec::new();
-
-    for issue in open_issues {
-        let Some(obj) = issue.as_object() else {
-            continue;
-        };
-        let number = object_u64(obj, "number");
-        if number == 0 {
-            continue;
-        }
-        let issue_id = number.to_string();
-        let title = object_string(obj, "title");
-        let url = object_string(obj, "url");
-        let body = object_string(obj, "body");
-        let parent = extract_parent_field(&body).unwrap_or_else(|| "(none)".to_string());
-
-        let labels_csv = obj
-            .get("labels")
-            .and_then(Json::as_array)
-            .map(|labels| {
-                labels
-                    .iter()
-                    .filter_map(|label| label.as_object())
-                    .map(|label_obj| object_string(label_obj, "name").to_lowercase())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            })
-            .unwrap_or_default();
-
-        let line = format!("- [#{issue_id}]({url}) {title} (parent: {parent})");
-        if labels_csv.contains("done-in-dev") {
-            done_in_dev_items.push(line);
-        } else if closing_refs.contains(&issue_id) {
-            would_close_items.push(line);
-        } else if part_refs.contains(&issue_id) {
-            part_only_items.push(line);
-        } else {
-            unreferenced_items.push(line);
-        }
-    }
-
-    let report = render_issue_audit_report(
-        &repo,
-        &range,
-        total_open,
-        &done_in_dev_items,
-        &would_close_items,
-        &part_only_items,
-        &unreferenced_items,
-    );
-
-    if let Some(output_file) = opts.output_file {
-        fs::write(&output_file, &report)
-            .map_err(|e| format!("Failed to write report to '{}': {e}", output_file))?;
-        println!("Generated file: {output_file}");
-    }
-    print!("{report}");
-    Ok(())
-}
-
-fn run_release_prepare(opts: ReleasePrepareOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    require_clean_tree()?;
-    validate_semver(&opts.version)?;
-
-    let current_branch = run_git_output(&["branch", "--show-current"])?;
-    if current_branch.trim() != "main" {
-        println!(
-            "Warning: current branch is '{}', not 'main'.",
-            current_branch.trim()
-        );
-    }
-
-    run_command_status("cargo", &["test", "--workspace"], false)?;
-
-    if command_available("cargo-audit") {
-        run_command_status("cargo", &["audit"], false)?;
-    }
-
-    let root = repo_root()?;
-    let root_cargo = root.join("Cargo.toml");
-    if root_cargo.is_file() {
-        update_version_in_cargo_file(&root_cargo, &opts.version)?;
-    }
-
-    let mut project_cargos = Vec::new();
-    collect_files_named(&root.join("projects"), "Cargo.toml", &mut project_cargos)?;
-    for cargo_toml in project_cargos {
-        update_version_in_cargo_file(&cargo_toml, &opts.version)?;
-    }
-
-    let changelog_path = root.join("CHANGELOG.md");
-    if opts.auto_changelog {
-        update_changelog(&changelog_path, &opts.version)?;
-    } else {
-        println!("Skipping automatic changelog generation.");
-    }
-
-    run_git(&["add", "-u"])?;
-    let commit_message = format!(
-        "chore: prepare release v{}\n\nRelease preparation for version {}.\n",
-        opts.version, opts.version
-    );
-    run_git(&["commit", "-m", &commit_message])?;
-    let tag_name = format!("v{}", opts.version);
-    run_git(&[
-        "tag",
-        "-a",
-        &tag_name,
-        "-m",
-        &format!("Release {}", tag_name),
-    ])?;
-    println!("Release {} prepared.", tag_name);
-    Ok(())
-}
-
-fn run_check_priority_issues(opts: CheckPriorityIssuesOptions) -> Result<(), String> {
-    let mut by_number: BTreeMap<u64, (String, String)> = BTreeMap::new();
-    for label in ["high priority", "security"] {
-        let mut args = vec![
-            "issue",
-            "list",
-            "--state",
-            "open",
-            "--limit",
-            "200",
-            "--label",
-            label,
-            "--json",
-            "number,title,url",
-        ];
-        if let Some(repo) = opts.repo.as_deref() {
-            args.push("-R");
-            args.push(repo);
-        }
-        let output = run_gh_output(&args)?;
-        let issues = parse_json_array(&output, "issues JSON")?;
-        for issue in issues {
-            let Some(issue_object) = issue.as_object() else {
-                continue;
-            };
-            let number = object_u64(issue_object, "number");
-            if number == 0 {
-                continue;
-            }
-            by_number.insert(
-                number,
-                (
-                    object_string(issue_object, "title"),
-                    object_string(issue_object, "url"),
-                ),
-            );
-        }
-    }
-
-    if by_number.is_empty() {
-        println!("No high priority or security issues found.");
-        return Ok(());
-    }
-
-    println!("HIGH PRIORITY & SECURITY ISSUES");
-    println!();
-    for (idx, (number, (title, url))) in by_number.iter().enumerate() {
-        println!("[{}] Issue #{}", idx + 1, number);
-        println!("    Title: {}", title);
-        println!("    URL:   {}", url);
-        println!();
-    }
-    println!("Total priority issues: {}", by_number.len());
-
-    Ok(())
-}
-
-fn run_labels_sync(opts: LabelsSyncOptions) -> Result<(), String> {
-    let content = fs::read_to_string(&opts.labels_file).map_err(|e| {
-        format!(
-            "Labels file not found or unreadable '{}': {e}",
-            opts.labels_file
-        )
-    })?;
-    let labels = parse_labels(&content, &opts.labels_file)?;
-
-    let existing = run_gh_output(&[
-        "label", "list", "--limit", "1000", "--json", "name", "--jq", ".[].name",
-    ])?;
-    let mut existing_set: BTreeSet<String> = existing
-        .lines()
-        .map(|v| v.trim().to_string())
-        .filter(|v| !v.is_empty())
-        .collect();
-
-    for (name, color, description) in &labels {
-        if name.trim().is_empty() {
-            return Err("Label missing field 'name'".to_string());
-        }
-        if color.trim().is_empty() {
-            return Err(format!("Label '{name}' missing field 'color'"));
-        }
-
-        if existing_set.contains(name) {
-            run_gh_status(&[
-                "label",
-                "edit",
-                name,
-                "--color",
-                color,
-                "--description",
-                description,
-            ])?;
-        } else {
-            run_gh_status(&[
-                "label",
-                "create",
-                name,
-                "--color",
-                color,
-                "--description",
-                description,
-            ])?;
-            existing_set.insert(name.clone());
-        }
-    }
-
-    if opts.prune {
-        let desired: BTreeSet<String> = labels
-            .iter()
-            .map(|(name, _, _)| name.clone())
-            .filter(|name| !name.trim().is_empty())
-            .collect();
-
-        let repo_labels = run_gh_output(&[
-            "label", "list", "--limit", "1000", "--json", "name", "--jq", ".[].name",
-        ])?;
-        let protected: BTreeSet<String> = [
-            "bug",
-            "documentation",
-            "duplicate",
-            "enhancement",
-            "good first issue",
-            "help wanted",
-            "invalid",
-            "question",
-            "wontfix",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-
-        for label in repo_labels
-            .lines()
-            .map(|v| v.trim())
-            .filter(|v| !v.is_empty())
-        {
-            if desired.contains(label) || protected.contains(label) {
-                continue;
-            }
-            let _ = run_gh_status(&["label", "delete", label, "--yes"]);
-        }
-    }
-
     Ok(())
 }
 
@@ -1646,249 +846,10 @@ fn run_sync_main_dev_ci(opts: SyncMainDevCiOptions) -> Result<(), String> {
     Ok(())
 }
 
-fn require_clean_tree() -> Result<(), String> {
-    let unstaged_clean = crate::git_cli::status_success(&["diff", "--quiet"]);
-    let staged_clean = crate::git_cli::status_success(&["diff", "--cached", "--quiet"]);
-    if unstaged_clean && staged_clean {
-        Ok(())
-    } else {
-        Err("Working tree is dirty. Commit/stash your changes first.".to_string())
-    }
-}
-
-fn validate_semver(version: &str) -> Result<(), String> {
-    let re = Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$")
-        .map_err(|e| format!("Failed to compile semver regex: {e}"))?;
-    if re.is_match(version) {
-        Ok(())
-    } else {
-        Err(format!(
-            "Invalid version format: {version}. Expected semver format."
-        ))
-    }
-}
-
-fn update_version_in_cargo_file(path: &Path, version: &str) -> Result<(), String> {
-    let content = fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read '{}': {e}", path.display()))?;
-    let mut changed = false;
-    let updated = content
-        .lines()
-        .map(|line| {
-            if line.trim_start().starts_with("version = \"") {
-                changed = true;
-                format!("version = \"{version}\"")
-            } else {
-                line.to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    if changed {
-        fs::write(path, format!("{updated}\n"))
-            .map_err(|e| format!("Failed to write '{}': {e}", path.display()))?;
-    }
-    Ok(())
-}
-
-fn collect_files_named(root: &Path, file_name: &str, out: &mut Vec<PathBuf>) -> Result<(), String> {
-    let entries = match fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(_) => return Ok(()),
-    };
-    for entry in entries {
-        let entry =
-            entry.map_err(|e| format!("Failed to read entry under '{}': {e}", root.display()))?;
-        let path = entry.path();
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-        if file_type.is_dir() {
-            collect_files_named(&path, file_name, out)?;
-            continue;
-        }
-        if file_type.is_file() && path.file_name().and_then(|v| v.to_str()) == Some(file_name) {
-            out.push(path);
-        }
-    }
-    Ok(())
-}
-
-fn update_changelog(path: &Path, version: &str) -> Result<(), String> {
-    let today = run_command_capture("date", &["+%Y-%m-%d"])?;
-    let last_tag = run_git_output(&["describe", "--tags", "--abbrev=0"]).unwrap_or_default();
-    let commits = if last_tag.trim().is_empty() {
-        run_git_output_preserve(&["log", "--oneline", "--no-merges"])?
-    } else {
-        run_git_output_preserve(&[
-            "log",
-            &format!("{}..HEAD", last_tag.trim()),
-            "--oneline",
-            "--no-merges",
-        ])?
-    };
-    let mut lines = vec![
-        "# Changelog".to_string(),
-        "".to_string(),
-        format!("## [v{version}] - {}", today.trim()),
-        "".to_string(),
-        "### Changes".to_string(),
-        "".to_string(),
-    ];
-    lines.extend(
-        commits
-            .lines()
-            .filter(|line| !line.trim().is_empty())
-            .map(|line| format!("- {line}")),
-    );
-    lines.push("".to_string());
-
-    if path.is_file() {
-        let existing = fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read '{}': {e}", path.display()))?;
-        let mut existing_lines = existing.lines();
-        let _ = existing_lines.next();
-        lines.extend(existing_lines.map(ToString::to_string));
-    }
-    fs::write(path, format!("{}\n", lines.join("\n")))
-        .map_err(|e| format!("Failed to write '{}': {e}", path.display()))?;
-    Ok(())
-}
-
-fn run_command_capture(program: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new(program)
-        .args(args)
-        .output()
-        .map_err(|e| format!("Failed to run {program} {}: {e}", args.join(" ")))?;
-    if !output.status.success() {
-        return Err(format!(
-            "{program} {} failed with exit {:?}",
-            args.join(" "),
-            output.status.code()
-        ));
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
-fn extract_issue_refs_from_text(
-    text: &str,
-) -> Result<(BTreeSet<String>, BTreeSet<String>), String> {
-    let re = Regex::new(
-        r"(?i)(closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
-    )
-    .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
-    let mut closing = BTreeSet::new();
-    let mut part = BTreeSet::new();
-    for cap in re.captures_iter(text) {
-        let keyword = cap
-            .get(1)
-            .map(|m| m.as_str().to_lowercase())
-            .unwrap_or_default();
-        let issue_number = cap
-            .get(2)
-            .map(|m| m.as_str().to_string())
-            .unwrap_or_default();
-        if issue_number.is_empty() {
-            continue;
-        }
-        if keyword == "closes" || keyword == "fixes" || keyword == "resolves" {
-            closing.insert(issue_number);
-        } else {
-            part.insert(issue_number);
-        }
-    }
-    Ok((closing, part))
-}
-
-fn extract_parent_field(body: &str) -> Option<String> {
-    let re =
-        Regex::new(r"(?i)^\s*Parent:\s*(#?[0-9]+|none|base|epic|\(none\)|\(base\)|\(epic\))\s*$")
-            .ok()?;
-    let mut parent_value: Option<String> = None;
-    for line in body.lines() {
-        if let Some(cap) = re.captures(line) {
-            parent_value = cap.get(1).map(|m| m.as_str().trim().to_lowercase());
-        }
-    }
-    parent_value.map(|raw| {
-        raw.trim()
-            .trim_start_matches('(')
-            .trim_end_matches(')')
-            .to_string()
-    })
-}
-
-fn render_issue_audit_report(
-    repo: &str,
-    range: &str,
-    total_open: usize,
-    done_in_dev_items: &[String],
-    would_close_items: &[String],
-    part_only_items: &[String],
-    unreferenced_items: &[String],
-) -> String {
-    let mut out = Vec::new();
-    out.push("# Issue Status Audit".to_string());
-    out.push("".to_string());
-    out.push(format!("- Repository: `{repo}`"));
-    out.push(format!("- Range: `{range}`"));
-    out.push("".to_string());
-    out.push("## Summary".to_string());
-    out.push("".to_string());
-    out.push(format!("- Open issues fetched: {total_open}"));
-    out.push(format!(
-        "- Would close on merge: {}",
-        would_close_items.len()
-    ));
-    out.push(format!(
-        "- Done in dev (label): {}",
-        done_in_dev_items.len()
-    ));
-    out.push(format!(
-        "- Part-of-only (not closing): {}",
-        part_only_items.len()
-    ));
-    out.push(format!(
-        "- Unreferenced in range: {}",
-        unreferenced_items.len()
-    ));
-    out.push("".to_string());
-    out.push("## Done In Dev (Label)".to_string());
-    out.push("".to_string());
-    if done_in_dev_items.is_empty() {
-        out.push("- None".to_string());
-    } else {
-        out.extend(done_in_dev_items.iter().cloned());
-    }
-    out.push("".to_string());
-    out.push("## Would Close On Merge".to_string());
-    out.push("".to_string());
-    if would_close_items.is_empty() {
-        out.push("- None".to_string());
-    } else {
-        out.extend(would_close_items.iter().cloned());
-    }
-    out.push("".to_string());
-    out.push("## Part-Of Only".to_string());
-    out.push("".to_string());
-    if part_only_items.is_empty() {
-        out.push("- None".to_string());
-    } else {
-        out.extend(part_only_items.iter().cloned());
-    }
-    out.push("".to_string());
-    out.push("## Unreferenced".to_string());
-    out.push("".to_string());
-    if unreferenced_items.is_empty() {
-        out.push("- None".to_string());
-    } else {
-        out.extend(unreferenced_items.iter().cloned());
-    }
-    out.push("".to_string());
-    out.join("\n")
-}
-
-fn validate_no_root_parent_refs(commits: &str, repo: Option<&str>) -> Result<(), String> {
+pub(crate) fn validate_no_root_parent_refs(
+    commits: &str,
+    repo: Option<&str>,
+) -> Result<(), String> {
     let Some(repo_name) = repo else {
         if remote_policy_warn_only() {
             println!("Remote footer check skipped (repo unresolved, warn-only mode).");
@@ -1908,7 +869,10 @@ fn validate_no_root_parent_refs(commits: &str, repo: Option<&str>) -> Result<(),
     Ok(())
 }
 
-fn validate_part_of_only_policy(commits: &str, repo: Option<&str>) -> Result<(), String> {
+pub(crate) fn validate_part_of_only_policy(
+    commits: &str,
+    repo: Option<&str>,
+) -> Result<(), String> {
     let refs = extract_issue_refs_detailed(commits)?;
     if refs.is_empty() {
         return Ok(());
@@ -2048,7 +1012,7 @@ fn issue_is_root_parent(issue_number: &str, repo: &str) -> Result<bool, String> 
         "--jq",
         ".body // \"\"",
     ])?;
-    let parent = extract_parent_field(&body)
+    let parent = super::audit_issue_status::extract_parent_field(&body)
         .unwrap_or_else(|| "none".to_string())
         .to_lowercase();
     if parent == "epic" {
@@ -2103,29 +1067,47 @@ fn extract_subissue_refs_for_parent(
         .collect())
 }
 
-fn compute_changed_files(upstream: &str) -> Result<Vec<String>, String> {
+pub(crate) fn compute_changed_files(upstream: &str) -> Result<Vec<String>, String> {
     let first = run_git_output_preserve(&["diff", "--name-only", &format!("{upstream}..HEAD")])
         .unwrap_or_default();
     if !first.trim().is_empty() {
-        return Ok(first
-            .lines()
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-            .map(ToString::to_string)
-            .collect());
+        return Ok(parse_non_empty_lines(&first));
     }
     let fallback =
         run_git_output_preserve(&["diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"])
             .unwrap_or_default();
-    Ok(fallback
-        .lines()
-        .map(str::trim)
-        .filter(|v| !v.is_empty())
-        .map(ToString::to_string)
-        .collect())
+    Ok(parse_non_empty_lines(&fallback))
 }
 
-fn is_docs_or_scripts_only_change(files: &[String]) -> bool {
+pub(crate) fn resolve_upstream_or_default() -> String {
+    run_git_output(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+        .unwrap_or_else(|_| "origin/dev".to_string())
+}
+
+fn parse_non_empty_lines(text: &str) -> Vec<String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToString::to_string)
+        .collect()
+}
+
+pub(crate) fn list_staged_changed_files() -> Vec<String> {
+    let staged_changed_files =
+        run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRU"])
+            .unwrap_or_default();
+    parse_non_empty_lines(&staged_changed_files)
+}
+
+pub(crate) fn markdown_files_from(files: &[String]) -> Vec<String> {
+    files
+        .iter()
+        .filter(|file| file.ends_with(".md"))
+        .cloned()
+        .collect()
+}
+
+pub(crate) fn is_docs_or_scripts_only_change(files: &[String]) -> bool {
     if files.is_empty() {
         return false;
     }
@@ -2140,7 +1122,7 @@ fn is_docs_or_scripts_only_change(files: &[String]) -> bool {
     })
 }
 
-fn run_markdownlint_files(files: &[String]) -> Result<(), String> {
+pub(crate) fn run_markdownlint_files(files: &[String]) -> Result<(), String> {
     if files.is_empty() {
         return Ok(());
     }
@@ -2153,7 +1135,7 @@ fn run_markdownlint_files(files: &[String]) -> Result<(), String> {
     run_command_status_owned("pnpm", &args, false)
 }
 
-fn run_shell_syntax_checks(files: &[String]) -> Result<(), String> {
+pub(crate) fn run_shell_syntax_checks(files: &[String]) -> Result<(), String> {
     for file in files {
         if is_shell_file_path(file) {
             run_command_status("bash", &["-n", file], false)?;
@@ -2162,7 +1144,7 @@ fn run_shell_syntax_checks(files: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn is_shell_file_path(file: &str) -> bool {
+pub(crate) fn is_shell_file_path(file: &str) -> bool {
     if file.ends_with(".sh") {
         return true;
     }
@@ -2172,16 +1154,8 @@ fn is_shell_file_path(file: &str) -> bool {
         return false;
     }
 
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-
-        let Ok(metadata) = fs::metadata(path) else {
-            return false;
-        };
-        if metadata.permissions().mode() & 0o111 == 0 {
-            return false;
-        }
+    if !is_executable_candidate(path) {
+        return false;
     }
 
     if let Ok(content) = fs::read_to_string(path)
@@ -2193,7 +1167,9 @@ fn is_shell_file_path(file: &str) -> bool {
     false
 }
 
-fn collect_crates_from_changed_files(changed_files: &str) -> Result<Vec<String>, String> {
+pub(crate) fn collect_crates_from_changed_files(
+    changed_files: &str,
+) -> Result<Vec<String>, String> {
     let root = repo_root()?;
     let mut crates = Vec::new();
     let mut seen = BTreeSet::new();
@@ -2203,7 +1179,7 @@ fn collect_crates_from_changed_files(changed_files: &str) -> Result<Vec<String>,
         .filter(|v| !v.is_empty())
     {
         if let Some(path) = find_crate_dir_for_file(&root, file)
-            && let Some(crate_name) = read_crate_name(&root, &path)
+            && let Some(crate_name) = super::changed_crates::read_crate_name(&root, &path)
             && seen.insert(crate_name.clone())
         {
             crates.push(crate_name);
@@ -2212,7 +1188,7 @@ fn collect_crates_from_changed_files(changed_files: &str) -> Result<Vec<String>,
     Ok(crates)
 }
 
-fn require_command(command: &str, install_hint: &str) -> Result<(), String> {
+pub(crate) fn require_command(command: &str, install_hint: &str) -> Result<(), String> {
     if command_available(command) {
         Ok(())
     } else {
@@ -2220,126 +1196,7 @@ fn require_command(command: &str, install_hint: &str) -> Result<(), String> {
     }
 }
 
-fn find_ui_dirs(root: &Path) -> Result<Vec<PathBuf>, String> {
-    let mut dirs = Vec::new();
-    find_ui_dirs_recursive(root, &mut dirs)?;
-    dirs.sort();
-    Ok(dirs)
-}
-
-fn find_ui_dirs_recursive(root: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
-    let entries = match fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(_) => return Ok(()),
-    };
-    for entry in entries {
-        let entry =
-            entry.map_err(|e| format!("Failed to read entry under '{}': {e}", root.display()))?;
-        let path = entry.path();
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-        if !file_type.is_dir() {
-            continue;
-        }
-
-        if path.file_name().and_then(|v| v.to_str()) == Some("ui")
-            && path.join("Cargo.toml").is_file()
-        {
-            out.push(path);
-            continue;
-        }
-        find_ui_dirs_recursive(&path, out)?;
-    }
-    Ok(())
-}
-
-fn cargo_contains_dioxus(cargo_toml: &Path) -> Result<bool, String> {
-    let content = fs::read_to_string(cargo_toml)
-        .map_err(|e| format!("Failed to read '{}': {e}", cargo_toml.display()))?;
-    Ok(content.contains("dioxus"))
-}
-
-fn build_ui_bundle_for_dir(ui_dir: &Path) -> Result<(), String> {
-    let mut cmd = Command::new("dx");
-    cmd.arg("bundle")
-        .arg("--release")
-        .arg("--debug-symbols")
-        .arg("false")
-        .arg("--out-dir")
-        .arg("ui_dist")
-        .current_dir(ui_dir);
-    let rustflags = std::env::var("RUSTFLAGS").unwrap_or_default();
-    let merged_rustflags = if rustflags.trim().is_empty() {
-        "-C debuginfo=0".to_string()
-    } else {
-        format!("{rustflags} -C debuginfo=0")
-    };
-    cmd.env("CARGO_PROFILE_RELEASE_DEBUG", "0");
-    cmd.env("RUSTFLAGS", merged_rustflags);
-
-    let status = cmd
-        .status()
-        .map_err(|e| format!("Failed to run dx bundle in '{}': {e}", ui_dir.display()))?;
-    if !status.success() {
-        return Err(format!(
-            "dx bundle failed in '{}' with exit {:?}",
-            ui_dir.display(),
-            status.code()
-        ));
-    }
-
-    let manifest = ui_dir.join("ui_manifest.ron");
-    let out_manifest = ui_dir.join("ui_dist").join("ui_manifest.ron");
-    if manifest.is_file() {
-        fs::copy(&manifest, &out_manifest).map_err(|e| {
-            format!(
-                "Failed to copy '{}' to '{}': {e}",
-                manifest.display(),
-                out_manifest.display()
-            )
-        })?;
-    }
-    Ok(())
-}
-
-fn ui_bundle_artifacts_ok(ui_dist: &Path) -> Result<bool, String> {
-    let index = ui_dist.join("public/index.html");
-    if !index.is_file() {
-        return Ok(false);
-    }
-    let assets = ui_dist.join("public/assets");
-    let mut has_js = false;
-    let mut has_wasm = false;
-    let entries = match fs::read_dir(&assets) {
-        Ok(entries) => entries,
-        Err(_) => return Ok(false),
-    };
-    for entry in entries {
-        let entry = entry
-            .map_err(|e| format!("Failed to read assets under '{}': {e}", assets.display()))?;
-        let path = entry.path();
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-        if !file_type.is_file() {
-            continue;
-        }
-        let file_name = path
-            .file_name()
-            .and_then(|v| v.to_str())
-            .unwrap_or_default();
-        if file_name.ends_with(".js") {
-            has_js = true;
-        }
-        if file_name.ends_with(".wasm") {
-            has_wasm = true;
-        }
-    }
-    Ok(has_js && has_wasm)
-}
-
-fn ensure_git_repo() -> Result<(), String> {
+pub(crate) fn ensure_git_repo() -> Result<(), String> {
     if crate::git_cli::status_success(&["rev-parse", "--is-inside-work-tree"]) {
         Ok(())
     } else {
@@ -2347,7 +1204,7 @@ fn ensure_git_repo() -> Result<(), String> {
     }
 }
 
-fn repo_root() -> Result<PathBuf, String> {
+pub(crate) fn repo_root() -> Result<PathBuf, String> {
     let root = run_git_output(&["rev-parse", "--show-toplevel"])?;
     if root.trim().is_empty() {
         return Err("Unable to resolve git repository root.".to_string());
@@ -2355,24 +1212,7 @@ fn repo_root() -> Result<PathBuf, String> {
     Ok(PathBuf::from(root))
 }
 
-fn git_changed_files(ref1: Option<&str>, ref2: Option<&str>) -> Result<Vec<String>, String> {
-    let output = match (ref1, ref2) {
-        (Some(a), Some(b)) => run_git_output_preserve(&["diff", "--name-only", a, b])?,
-        (Some(a), None) => run_git_output_preserve(&["diff", "--name-only", a, "HEAD"])?,
-        (None, None) => run_git_output_preserve(&["diff", "--name-only", "HEAD"])?,
-        (None, Some(_)) => {
-            return Err("Second ref provided without first ref.".to_string());
-        }
-    };
-    Ok(output
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(ToString::to_string)
-        .collect())
-}
-
-fn find_crate_dir_for_file(repo_root: &Path, file: &str) -> Option<String> {
+pub(crate) fn find_crate_dir_for_file(repo_root: &Path, file: &str) -> Option<String> {
     let mut cursor = repo_root.join(file);
     if !cursor.exists() {
         return None;
@@ -2397,25 +1237,7 @@ fn find_crate_dir_for_file(repo_root: &Path, file: &str) -> Option<String> {
     None
 }
 
-fn read_crate_name(repo_root: &Path, crate_path: &str) -> Option<String> {
-    let cargo_toml = repo_root.join(crate_path).join("Cargo.toml");
-    let content = fs::read_to_string(cargo_toml).ok()?;
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix("name") {
-            let rhs = rest.trim_start();
-            if let Some(value) = rhs.strip_prefix('=') {
-                let raw = value.trim();
-                if raw.starts_with('"') && raw.ends_with('"') && raw.len() >= 2 {
-                    return Some(raw[1..raw.len() - 1].to_string());
-                }
-            }
-        }
-    }
-    None
-}
-
-fn command_available(command: &str) -> bool {
+pub(crate) fn command_available(command: &str) -> bool {
     Command::new("sh")
         .arg("-c")
         .arg(format!("command -v {command} >/dev/null 2>&1"))
@@ -2424,7 +1246,11 @@ fn command_available(command: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn run_command_status(program: &str, args: &[&str], allow_failure: bool) -> Result<(), String> {
+pub(crate) fn run_command_status(
+    program: &str,
+    args: &[&str],
+    allow_failure: bool,
+) -> Result<(), String> {
     let status = Command::new(program)
         .args(args)
         .status()
@@ -2440,7 +1266,7 @@ fn run_command_status(program: &str, args: &[&str], allow_failure: bool) -> Resu
     }
 }
 
-fn run_command_status_owned(
+pub(crate) fn run_command_status_owned(
     program: &str,
     args: &[String],
     allow_failure: bool,
@@ -2449,139 +1275,19 @@ fn run_command_status_owned(
     run_command_status(program, &refs, allow_failure)
 }
 
-fn command_status_success(program: &str, args: &[&str]) -> Result<bool, String> {
-    let status = Command::new(program)
-        .args(args)
-        .status()
-        .map_err(|e| format!("Failed to run {program} {}: {e}", args.join(" ")))?;
-    Ok(status.success())
+pub(crate) fn run_git(args: &[&str]) -> Result<(), String> {
+    git_cli::status(args).map_err(|e| format!("Failed to run git {}: {e}", args.join(" ")))
 }
 
-fn remove_dir_if_exists(path: &Path) -> Result<(), String> {
-    if path.is_dir() {
-        fs::remove_dir_all(path)
-            .map_err(|e| format!("Failed to remove directory '{}': {e}", path.display()))?;
-    }
-    Ok(())
+pub(crate) fn run_git_output(args: &[&str]) -> Result<String, String> {
+    git_cli::output_trim(args).map_err(|e| format!("Failed to run git {}: {e}", args.join(" ")))
 }
 
-fn remove_named_dirs_under(root: &Path, target_name: &str) -> Result<(), String> {
-    if !root.is_dir() {
-        return Ok(());
-    }
-    remove_named_dirs_recursive(root, target_name)
+pub(crate) fn run_git_output_preserve(args: &[&str]) -> Result<String, String> {
+    git_cli::output_preserve(args).map_err(|e| format!("Failed to run git {}: {e}", args.join(" ")))
 }
 
-fn remove_named_dirs_recursive(dir: &Path, target_name: &str) -> Result<(), String> {
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return Ok(()),
-    };
-    for entry in entries {
-        let entry =
-            entry.map_err(|e| format!("Failed to read entry under '{}': {e}", dir.display()))?;
-        let path = entry.path();
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-        if !file_type.is_dir() {
-            continue;
-        }
-        if path.file_name().and_then(|v| v.to_str()) == Some(target_name) {
-            fs::remove_dir_all(&path)
-                .map_err(|e| format!("Failed to remove directory '{}': {e}", path.display()))?;
-            continue;
-        }
-        remove_named_dirs_recursive(&path, target_name)?;
-    }
-    Ok(())
-}
-
-fn remove_nested_cargo_locks(projects_root: &Path, root_lock: &Path) -> Result<(), String> {
-    if !projects_root.is_dir() {
-        return Ok(());
-    }
-    remove_nested_cargo_locks_recursive(projects_root, root_lock)
-}
-
-fn remove_nested_cargo_locks_recursive(dir: &Path, root_lock: &Path) -> Result<(), String> {
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return Ok(()),
-    };
-    for entry in entries {
-        let entry =
-            entry.map_err(|e| format!("Failed to read entry under '{}': {e}", dir.display()))?;
-        let path = entry.path();
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-        if file_type.is_dir() {
-            remove_nested_cargo_locks_recursive(&path, root_lock)?;
-            continue;
-        }
-        if file_type.is_file()
-            && path.file_name().and_then(|v| v.to_str()) == Some("Cargo.lock")
-            && path != root_lock
-        {
-            fs::remove_file(&path)
-                .map_err(|e| format!("Failed to remove file '{}': {e}", path.display()))?;
-        }
-    }
-    Ok(())
-}
-
-fn remove_files_by_suffixes(root: &Path, suffixes: &[&str]) -> Result<(), String> {
-    if !root.is_dir() {
-        return Ok(());
-    }
-    remove_files_by_suffixes_recursive(root, suffixes)
-}
-
-fn remove_files_by_suffixes_recursive(dir: &Path, suffixes: &[&str]) -> Result<(), String> {
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return Ok(()),
-    };
-    for entry in entries {
-        let entry =
-            entry.map_err(|e| format!("Failed to read entry under '{}': {e}", dir.display()))?;
-        let path = entry.path();
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-        if file_type.is_dir() {
-            remove_files_by_suffixes_recursive(&path, suffixes)?;
-            continue;
-        }
-        if !file_type.is_file() {
-            continue;
-        }
-        let Some(path_text) = path.to_str() else {
-            continue;
-        };
-        if suffixes.iter().any(|suffix| path_text.ends_with(suffix)) {
-            let _ = fs::remove_file(&path);
-        }
-    }
-    Ok(())
-}
-
-fn run_git(args: &[&str]) -> Result<(), String> {
-    crate::git_cli::status(args).map_err(|e| format!("Failed to run git {}: {e}", args.join(" ")))
-}
-
-fn run_git_output(args: &[&str]) -> Result<String, String> {
-    crate::git_cli::output_trim(args)
-        .map_err(|e| format!("Failed to run git {}: {e}", args.join(" ")))
-}
-
-fn run_git_output_preserve(args: &[&str]) -> Result<String, String> {
-    crate::git_cli::output_preserve(args)
-        .map_err(|e| format!("Failed to run git {}: {e}", args.join(" ")))
-}
-
-fn git_hooks_dir(root: &Path) -> Result<PathBuf, String> {
+pub(crate) fn git_hooks_dir(root: &Path) -> Result<PathBuf, String> {
     let output = run_git_output(&["rev-parse", "--git-path", "hooks"])?;
     let path = PathBuf::from(output.trim());
     if path.is_absolute() {
@@ -2591,95 +1297,29 @@ fn git_hooks_dir(root: &Path) -> Result<PathBuf, String> {
     }
 }
 
-fn resolve_versioning_automation_binary(root: &Path) -> Result<PathBuf, String> {
-    if let Ok(path) = std::env::var("VERSIONING_AUTOMATION_BIN") {
-        let candidate = PathBuf::from(path);
-        if candidate.is_file() {
-            return Ok(candidate);
-        }
-    }
-
-    let current = std::env::current_exe()
-        .map_err(|e| format!("Failed to resolve current executable path: {e}"))?;
-    if current.is_file() {
-        return Ok(current);
-    }
-
-    let candidates = [
-        root.join("target/debug/versioning_automation"),
-        root.join("target/release/versioning_automation"),
-    ];
-    for candidate in candidates {
-        if candidate.is_file() {
-            return Ok(candidate);
-        }
-    }
-    Err("Unable to resolve versioning_automation binary path.".to_string())
+#[cfg(unix)]
+fn is_executable_candidate(path: &Path) -> bool {
+    let Ok(metadata) = fs::metadata(path) else {
+        return false;
+    };
+    std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 != 0
 }
 
-fn install_hook_entrypoint(hooks_dir: &Path, hook_name: &str, binary: &Path) -> Result<(), String> {
-    let target = hooks_dir.join(hook_name);
-    if target.exists() {
-        fs::remove_file(&target)
-            .map_err(|e| format!("Failed to remove existing hook '{}': {e}", target.display()))?;
-    }
-
-    if link_hook_symlink(binary, &target).is_ok() {
-        println!("✅ Installed {hook_name} (symlink)");
-        return Ok(());
-    }
-    if fs::hard_link(binary, &target).is_ok() {
-        println!("✅ Installed {hook_name} (hardlink)");
-        return Ok(());
-    }
-    fs::copy(binary, &target).map_err(|e| {
-        format!(
-            "Failed to copy binary '{}' to hook '{}': {e}",
-            binary.display(),
-            target.display()
-        )
-    })?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(&target)
-            .map_err(|e| format!("Failed to read '{}': {e}", target.display()))?
-            .permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&target, perms)
-            .map_err(|e| format!("Failed to chmod '{}': {e}", target.display()))?;
-    }
-    println!("✅ Installed {hook_name} (copy)");
-    Ok(())
+#[cfg(not(unix))]
+fn is_executable_candidate(_path: &Path) -> bool {
+    true
 }
 
-fn link_hook_symlink(binary: &Path, target: &Path) -> Result<(), String> {
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(binary, target).map_err(|e| e.to_string())
-    }
-    #[cfg(windows)]
-    {
-        std::os::windows::fs::symlink_file(binary, target).map_err(|e| e.to_string())
-    }
-    #[cfg(not(any(unix, windows)))]
-    {
-        let _ = (binary, target);
-        Err("symlink not supported on this platform".to_string())
-    }
+pub(crate) fn run_gh_status(args: &[&str]) -> Result<(), String> {
+    gh_cli::status(args).map_err(|e| format!("Failed to run gh {}: {e}", args.join(" ")))
 }
 
-fn run_gh_status(args: &[&str]) -> Result<(), String> {
-    crate::gh_cli::status(args).map_err(|e| format!("Failed to run gh {}: {e}", args.join(" ")))
-}
-
-fn run_gh_output(args: &[&str]) -> Result<String, String> {
-    crate::gh_cli::output_trim(args)
-        .map_err(|e| format!("Failed to run gh {}: {e}", args.join(" ")))
+pub(crate) fn run_gh_output(args: &[&str]) -> Result<String, String> {
+    gh_cli::output_trim(args).map_err(|e| format!("Failed to run gh {}: {e}", args.join(" ")))
 }
 
 fn branch_exists_local(branch_name: &str) -> bool {
-    crate::git_cli::status_success(&[
+    git_cli::status_success(&[
         "show-ref",
         "--verify",
         "--quiet",
@@ -2688,10 +1328,10 @@ fn branch_exists_local(branch_name: &str) -> bool {
 }
 
 fn branch_exists_remote(remote: &str, branch_name: &str) -> bool {
-    crate::git_cli::status_success(&["ls-remote", "--exit-code", "--heads", remote, branch_name])
+    git_cli::status_success(&["ls-remote", "--exit-code", "--heads", remote, branch_name])
 }
 
-fn parse_json_array(payload: &str, context: &str) -> Result<Vec<Json>, String> {
+pub(crate) fn parse_json_array(payload: &str, context: &str) -> Result<Vec<Json>, String> {
     let parsed: Json = common_json::from_json_str(payload)
         .map_err(|e| format!("Failed to parse {context}: {e}"))?;
     parsed
@@ -2703,7 +1343,7 @@ fn parse_json_array(payload: &str, context: &str) -> Result<Vec<Json>, String> {
 fn parse_json_object(
     payload: &str,
     context: &str,
-) -> Result<std::collections::HashMap<String, Json>, String> {
+) -> Result<collections::HashMap<String, Json>, String> {
     let parsed: Json = common_json::from_json_str(payload)
         .map_err(|e| format!("Failed to parse {context}: {e}"))?;
     parsed
@@ -2712,29 +1352,11 @@ fn parse_json_object(
         .ok_or_else(|| format!("Expected JSON object for {context}"))
 }
 
-fn parse_labels(content: &str, source_name: &str) -> Result<Vec<(String, String, String)>, String> {
-    let parsed = parse_json_array(content, &format!("labels JSON '{source_name}'"))?;
-    let mut labels = Vec::with_capacity(parsed.len());
-    for label in parsed {
-        let Some(object) = label.as_object() else {
-            return Err(format!(
-                "Invalid label entry in '{source_name}': expected object"
-            ));
-        };
-        labels.push((
-            object_string(object, "name"),
-            object_string(object, "color"),
-            object_string(object, "description"),
-        ));
-    }
-    Ok(labels)
-}
-
-fn object_u64(object: &std::collections::HashMap<String, Json>, key: &str) -> u64 {
+pub(crate) fn object_u64(object: &collections::HashMap<String, Json>, key: &str) -> u64 {
     object.get(key).and_then(Json::as_u64).unwrap_or(0)
 }
 
-fn object_string(object: &std::collections::HashMap<String, Json>, key: &str) -> String {
+pub(crate) fn object_string(object: &collections::HashMap<String, Json>, key: &str) -> String {
     object
         .get(key)
         .and_then(Json::as_str)
@@ -2743,7 +1365,7 @@ fn object_string(object: &std::collections::HashMap<String, Json>, key: &str) ->
 }
 
 fn object_string_or_default(
-    object: &std::collections::HashMap<String, Json>,
+    object: &collections::HashMap<String, Json>,
     key: &str,
     default: &str,
 ) -> String {

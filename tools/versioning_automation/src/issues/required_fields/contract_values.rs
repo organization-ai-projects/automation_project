@@ -40,14 +40,8 @@ impl ContractValues {
 }
 
 fn contract_path() -> PathBuf {
-    let mut resolved_root = String::new();
-
     if let Ok(root) = crate::git_cli::output_trim(&["rev-parse", "--show-toplevel"]) {
-        resolved_root = root;
-    }
-
-    if !resolved_root.is_empty() {
-        let candidate = Path::new(&resolved_root).join(".github/issue_required_fields.conf");
+        let candidate = Path::new(&root).join(".github/issue_required_fields.conf");
         if candidate.exists() {
             return candidate;
         }

@@ -1,2 +1,13 @@
+mod audit_issue_status;
+mod changed_crates;
+mod check_dependencies;
+mod check_merge_conflicts;
+mod check_priority_issues;
+mod clean_artifacts;
 mod execute;
+mod install_hooks;
+mod labels_sync;
 mod parse;
+mod pre_add_review;
+mod release_prepare;
+mod ui_build;
