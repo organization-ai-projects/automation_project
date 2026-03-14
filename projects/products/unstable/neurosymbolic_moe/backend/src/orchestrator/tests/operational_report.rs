@@ -22,8 +22,14 @@ fn operational_report_slo_and_prometheus_helpers_work() {
             ..ImportTelemetry::default()
         },
         import_journal_events_total: 1,
+        import_journal_parse_failures_total: 0,
+        import_journal_rejections_total: 0,
+        import_journal_successful_imports_total: 1,
         import_journal_deduplicated_replays_total: 0,
         import_journal_tracked_fingerprints: 1,
+        auto_improvement_runs_total: 0,
+        auto_improvement_bootstrap_entries_total: 0,
+        auto_improvement_last_included_entries: 0,
     };
     assert_eq!(report.slo_status(1, 0, 0), "OK");
     assert!(report.slo_violations(2, 0, 0).len() == 1);

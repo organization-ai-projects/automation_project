@@ -28,11 +28,20 @@ impl MoePipeline {
             dataset_entries: self.dataset_store.count(),
             feedback_entries: self.feedback_store.count(),
             import_telemetry: self.import_telemetry_snapshot(),
-            import_journal_events_total: self.import_journal.events_total(),
+            import_journal_events_total: self.import_journal_events_total(),
+            import_journal_parse_failures_total: self.import_journal_parse_failures_total(),
+            import_journal_rejections_total: self.import_journal_rejections_total(),
+            import_journal_successful_imports_total: self.import_journal_successful_imports_total(),
             import_journal_deduplicated_replays_total: self
-                .import_journal
-                .deduplicated_replays_total(),
+                .import_journal_deduplicated_replays_total(),
             import_journal_tracked_fingerprints: self.import_journal.tracked_fingerprint_count(),
+            auto_improvement_runs_total: self.auto_improvement_status().runs_total,
+            auto_improvement_bootstrap_entries_total: self
+                .auto_improvement_status()
+                .bootstrap_entries_total,
+            auto_improvement_last_included_entries: self
+                .auto_improvement_status()
+                .last_included_entries,
         }
     }
 

@@ -85,8 +85,13 @@ pub fn run() -> Result<(), DynError> {
 }
 
 fn cmd_run(args: &[String]) -> Result<(), DynError> {
-    let input = cli_input_or_default(args);
+    let (input, bootstrap_dataset_bundle_path) = parse_run_options(args)?;
     let mut pipeline = build_cli_pipeline();
+    if let Some(bootstrap_path) = bootstrap_dataset_bundle_path.as_deref() {
+        let payload = fs::read_to_string(bootstrap_path)?;
+        let seeded = pipeline.bootstrap_initial_dataset_from_training_bundle_json(&payload)?;
+        tracing::info!("Auto bootstrap dataset: {} seeded entries", seeded);
+    }
     register_default_cli_experts(&mut pipeline)?;
     add_default_cli_policy(&mut pipeline);
 
@@ -177,6 +182,30 @@ fn cli_input_or_default(args: &[String]) -> String {
     }
 }
 
+pub(crate) fn parse_run_options(args: &[String]) -> Result<(String, Option<String>), DynError> {
+    let mut idx = 0_usize;
+    let mut bootstrap_dataset_bundle_path = None;
+    let mut input_parts = Vec::new();
+    while idx < args.len() {
+        let arg = &args[idx];
+        if arg == "--bootstrap-dataset-bundle-json" {
+            let value = args.get(idx + 1).ok_or_else(|| {
+                std::io::Error::other("missing value for --bootstrap-dataset-bundle-json")
+            })?;
+            bootstrap_dataset_bundle_path = Some(value.to_string());
+            idx += 2;
+        } else {
+            input_parts.push(arg.to_string());
+            idx += 1;
+        }
+    }
+
+    Ok((
+        cli_input_or_default(&input_parts),
+        bootstrap_dataset_bundle_path,
+    ))
+}
+
 fn build_cli_pipeline() -> MoePipeline {
     let auto_improvement_policy = AutoImprovementPolicy::default()
         .with_min_dataset_entries(32)
@@ -261,13 +290,22 @@ fn log_pipeline_runtime_summary(pipeline: &MoePipeline) {
         "Dataset store: {} entries",
         pipeline.dataset_store().count()
     );
+    let auto = pipeline.auto_improvement_status();
+    tracing::info!(
+        "Auto improvement: runs={} bootstrap_entries={} last_included={}",
+        auto.runs_total,
+        auto.bootstrap_entries_total,
+        auto.last_included_entries
+    );
 }
 
 fn print_usage() {
     tracing::info!("neurosymbolic_moe - advanced modular MoE platform");
     tracing::info!("");
     tracing::info!("Commands:");
-    tracing::info!("  run [input...]     Execute a task through the MoE pipeline");
+    tracing::info!(
+        "  run [--bootstrap-dataset-bundle-json PATH] [input...]     Execute a task through the MoE pipeline"
+    );
     tracing::info!("  status             Show platform component status");
     tracing::info!("  trace [path]       Inspect execution traces");
     tracing::info!("  impl-check         Execute full component wiring check");

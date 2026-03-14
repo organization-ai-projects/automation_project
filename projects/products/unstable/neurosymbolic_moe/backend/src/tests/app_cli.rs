@@ -16,6 +16,19 @@ fn slo_thresholds_parse_args_overrides_defaults() {
 }
 
 #[test]
+fn run_options_parse_bootstrap_path_and_input() {
+    let args = vec![
+        "--bootstrap-dataset-bundle-json".to_string(),
+        "/tmp/bootstrap_bundle.json".to_string(),
+        "task".to_string(),
+        "input".to_string(),
+    ];
+    let parsed = crate::app::parse_run_options(&args).expect("run args should parse");
+    assert_eq!(parsed.1.as_deref(), Some("/tmp/bootstrap_bundle.json"));
+    assert_eq!(parsed.0, "task input");
+}
+
+#[test]
 fn serve_metrics_options_parse_once_and_addr() {
     let args = vec![
         "0.0.0.0:9090".to_string(),

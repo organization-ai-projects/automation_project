@@ -20,8 +20,14 @@ pub struct OperationalReport {
     pub feedback_entries: usize,
     pub import_telemetry: ImportTelemetry,
     pub import_journal_events_total: u64,
+    pub import_journal_parse_failures_total: u64,
+    pub import_journal_rejections_total: u64,
+    pub import_journal_successful_imports_total: u64,
     pub import_journal_deduplicated_replays_total: u64,
     pub import_journal_tracked_fingerprints: usize,
+    pub auto_improvement_runs_total: u64,
+    pub auto_improvement_bootstrap_entries_total: usize,
+    pub auto_improvement_last_included_entries: usize,
 }
 
 impl OperationalReport {
@@ -83,7 +89,7 @@ impl OperationalReport {
             prefix.to_string()
         };
         format!(
-            "{p}_governance_current_version {}\n{p}_governance_audit_entries {}\n{p}_governance_state_snapshots {}\n{p}_short_term_memory_entries {}\n{p}_long_term_memory_entries {}\n{p}_working_buffer_entries {}\n{p}_session_buffer_sessions {}\n{p}_session_buffer_values {}\n{p}_trace_entries {}\n{p}_dataset_entries {}\n{p}_feedback_entries {}\n{p}_import_runtime_successes {}\n{p}_import_runtime_rejections {}\n{p}_import_governance_state_successes {}\n{p}_import_governance_state_rejections {}\n{p}_import_governance_bundle_successes {}\n{p}_import_governance_bundle_rejections {}\n{p}_import_json_parse_failures {}\n{p}_import_journal_events_total {}\n{p}_import_journal_deduplicated_replays_total {}\n{p}_import_journal_tracked_fingerprints {}\n",
+            "{p}_governance_current_version {}\n{p}_governance_audit_entries {}\n{p}_governance_state_snapshots {}\n{p}_short_term_memory_entries {}\n{p}_long_term_memory_entries {}\n{p}_working_buffer_entries {}\n{p}_session_buffer_sessions {}\n{p}_session_buffer_values {}\n{p}_trace_entries {}\n{p}_dataset_entries {}\n{p}_feedback_entries {}\n{p}_import_runtime_successes {}\n{p}_import_runtime_rejections {}\n{p}_import_governance_state_successes {}\n{p}_import_governance_state_rejections {}\n{p}_import_governance_bundle_successes {}\n{p}_import_governance_bundle_rejections {}\n{p}_import_json_parse_failures {}\n{p}_import_journal_events_total {}\n{p}_import_journal_parse_failures_total {}\n{p}_import_journal_rejections_total {}\n{p}_import_journal_successful_imports_total {}\n{p}_import_journal_deduplicated_replays_total {}\n{p}_import_journal_tracked_fingerprints {}\n{p}_auto_improvement_runs_total {}\n{p}_auto_improvement_bootstrap_entries_total {}\n{p}_auto_improvement_last_included_entries {}\n",
             self.governance_current_version,
             self.governance_audit_entries,
             self.governance_state_snapshots,
@@ -103,8 +109,14 @@ impl OperationalReport {
             self.import_telemetry.governance_bundle_import_rejections,
             self.import_telemetry.json_parse_failures,
             self.import_journal_events_total,
+            self.import_journal_parse_failures_total,
+            self.import_journal_rejections_total,
+            self.import_journal_successful_imports_total,
             self.import_journal_deduplicated_replays_total,
             self.import_journal_tracked_fingerprints,
+            self.auto_improvement_runs_total,
+            self.auto_improvement_bootstrap_entries_total,
+            self.auto_improvement_last_included_entries,
         )
     }
 }

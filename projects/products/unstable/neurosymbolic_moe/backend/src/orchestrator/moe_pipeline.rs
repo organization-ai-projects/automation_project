@@ -130,6 +130,18 @@ impl MoePipeline {
         self.import_journal.deduplicated_replays_total()
     }
 
+    pub fn import_journal_parse_failures_total(&self) -> u64 {
+        self.import_journal.parse_failures_total()
+    }
+
+    pub fn import_journal_rejections_total(&self) -> u64 {
+        self.import_journal.rejections_total()
+    }
+
+    pub fn import_journal_successful_imports_total(&self) -> u64 {
+        self.import_journal.successful_imports_total()
+    }
+
     pub fn export_training_dataset_bundle(
         &self,
         options: &DatasetTrainingBuildOptions,
