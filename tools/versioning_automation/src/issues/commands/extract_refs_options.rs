@@ -1,9 +1,5 @@
 //! tools/versioning_automation/src/issues/commands/extract_refs_options.rs
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ExtractRefsProfile {
-    Hook,
-    Audit,
-}
+use crate::issues::commands::ExtractRefsProfile;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ExtractRefsOptions {
