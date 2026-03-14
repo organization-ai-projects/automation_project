@@ -18,20 +18,21 @@ Il interagit principalement avec:
 
 ```plaintext
 git_hooks/
-├── commit-msg          # Valide le format du message de commit
+├── commit-msg (genere par `versioning_automation automation install-hooks`) # Valide le format du message de commit
 ├── pre-commit (genere par `versioning_automation automation install-hooks`) # Lance les checks pre-commit via CLI Rust
-├── prepare-commit-msg  # Genere un sujet de commit automatiquement
+├── prepare-commit-msg (genere par `versioning_automation automation install-hooks`) # Genere un sujet de commit automatiquement
 ├── pre-push (genere par `versioning_automation automation install-hooks`) # Lance les checks pre-push via CLI Rust
 ├── post-checkout (genere par `versioning_automation automation install-hooks`) # Lance les checks post-checkout via CLI Rust
+├── pre-branch-create (genere par `versioning_automation automation install-hooks`) # Validation nom de branche/worktree
 └── tests/            # Tests de regression des guardrails de conventions
 ```
 
 ## Fichiers
 
 - `README.md`: Ce document (version EN canonique).
-- `commit-msg`: Validation format commit.
+- `commit-msg`: Genere par `versioning_automation automation install-hooks`; validation format commit.
 - `pre-commit`: Genere par `versioning_automation automation install-hooks`; lance les checks pre-commit via la CLI Rust.
-- `prepare-commit-msg`: Generation automatique du sujet de commit.
+- `prepare-commit-msg`: Genere par `versioning_automation automation install-hooks`; generation automatique du sujet de commit.
 - `pre-push`: Genere par `versioning_automation automation install-hooks`; lance les checks pre-push via la CLI Rust.
 - `post-checkout`: Genere par `versioning_automation automation install-hooks`; lance les checks post-checkout via la CLI Rust.
 - `versioning_automation automation install-hooks`: Installation des hooks dans `.git/hooks/`.
