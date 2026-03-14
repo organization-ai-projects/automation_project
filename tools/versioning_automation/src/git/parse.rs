@@ -1,8 +1,8 @@
 //! tools/versioning_automation/src/git/parse.rs
 use crate::git::commands::{
-    AddCommitPushOptions, CleanBranchesOptions, CleanLocalGoneOptions, CleanupAfterPrOptions,
-    CreateAfterDeleteOptions, CreateBranchOptions, CreateWorkBranchOptions, DeleteBranchOptions,
-    FinishBranchOptions, GitAction, PushBranchOptions,
+    AddCommitPushOptions, BranchCreationCheckOptions, CleanBranchesOptions, CleanLocalGoneOptions,
+    CleanupAfterPrOptions, CreateAfterDeleteOptions, CreateBranchOptions, CreateWorkBranchOptions,
+    DeleteBranchOptions, FinishBranchOptions, GitAction, PushBranchOptions,
 };
 
 const DEFAULT_REMOTE: &str = "origin";
@@ -25,8 +25,22 @@ pub(crate) fn parse(args: &[String]) -> Result<GitAction, String> {
         "clean-local-gone" => parse_clean_local_gone(&args[1..]),
         "clean-branches" => parse_clean_branches(&args[1..]),
         "cleanup-after-pr" => parse_cleanup_after_pr(&args[1..]),
+        "branch-creation-check" => parse_branch_creation_check(&args[1..]),
         unknown => Err(format!("Unknown git subcommand: {unknown}")),
     }
+}
+
+fn parse_branch_creation_check(args: &[String]) -> Result<GitAction, String> {
+    let command = args.first().cloned();
+    let remaining = if args.len() > 1 {
+        args[1..].to_vec()
+    } else {
+        Vec::new()
+    };
+    Ok(GitAction::BranchCreationCheck(BranchCreationCheckOptions {
+        command,
+        args: remaining,
+    }))
 }
 
 fn parse_create_branch(args: &[String]) -> Result<GitAction, String> {

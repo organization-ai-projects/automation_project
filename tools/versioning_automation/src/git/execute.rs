@@ -1,12 +1,13 @@
 //! tools/versioning_automation/src/git/execute.rs
 use std::path::PathBuf;
+use std::process::Command;
 
 use regex::Regex;
 
 use crate::git::commands::{
-    AddCommitPushOptions, CleanBranchesOptions, CleanLocalGoneOptions, CleanupAfterPrOptions,
-    CreateAfterDeleteOptions, CreateBranchOptions, CreateWorkBranchOptions, DeleteBranchOptions,
-    FinishBranchOptions, GitAction, PushBranchOptions,
+    AddCommitPushOptions, BranchCreationCheckOptions, CleanBranchesOptions, CleanLocalGoneOptions,
+    CleanupAfterPrOptions, CreateAfterDeleteOptions, CreateBranchOptions, CreateWorkBranchOptions,
+    DeleteBranchOptions, FinishBranchOptions, GitAction, PushBranchOptions,
 };
 use crate::git::parse::parse;
 use crate::git::render::print_usage;
@@ -37,6 +38,7 @@ fn run_action(action: GitAction) -> i32 {
         GitAction::CleanLocalGone(opts) => run_clean_local_gone(opts),
         GitAction::CleanBranches(opts) => run_clean_branches(opts),
         GitAction::CleanupAfterPr(opts) => run_cleanup_after_pr(opts),
+        GitAction::BranchCreationCheck(opts) => run_branch_creation_check(opts),
     };
 
     match result {
@@ -45,6 +47,80 @@ fn run_action(action: GitAction) -> i32 {
             eprintln!("{message}");
             1
         }
+    }
+}
+
+fn run_branch_creation_check(opts: BranchCreationCheckOptions) -> Result<(), String> {
+    let Some(command) = opts.command else {
+        return run_git_passthrough(&[]);
+    };
+
+    if command != "branch" && command != "checkout" && command != "switch" {
+        let mut passthrough = Vec::with_capacity(1 + opts.args.len());
+        passthrough.push(command);
+        passthrough.extend(opts.args);
+        let refs = passthrough.iter().map(String::as_str).collect::<Vec<_>>();
+        return run_git_passthrough(&refs);
+    }
+
+    let mut branch_to_check: Option<String> = None;
+    let mut i = 0usize;
+    while i < opts.args.len() {
+        let arg = opts.args[i].as_str();
+        match arg {
+            "-b" | "-c" | "--branch" | "--create" | "-B" | "-C" | "--force-create" => {
+                if i + 1 < opts.args.len() {
+                    branch_to_check = Some(opts.args[i + 1].clone());
+                    i += 2;
+                    continue;
+                }
+            }
+            _ => {
+                if command == "branch" && !arg.starts_with('-') && branch_to_check.is_none() {
+                    branch_to_check = Some(arg.to_string());
+                }
+            }
+        }
+        i += 1;
+    }
+
+    if let Some(branch) = branch_to_check {
+        let marker = format!("[{branch}]");
+        let worktrees = run_git_output(&["worktree", "list"])?;
+        if worktrees.lines().any(|line| line.contains(&marker)) {
+            eprintln!(
+                "❌ The branch '{}' is already in use by another worktree:",
+                branch
+            );
+            for line in worktrees.lines().filter(|line| line.contains(&marker)) {
+                eprintln!("{line}");
+            }
+            eprintln!("   Remove it with: git worktree remove <path>");
+            return Err("branch already attached to another worktree".to_string());
+        }
+    }
+
+    let mut passthrough = Vec::with_capacity(1 + opts.args.len());
+    passthrough.push(command);
+    passthrough.extend(opts.args);
+    let refs = passthrough.iter().map(String::as_str).collect::<Vec<_>>();
+    run_git_passthrough(&refs)
+}
+
+fn run_git_passthrough(args: &[&str]) -> Result<(), String> {
+    let mut cmd = Command::new("git");
+    cmd.args(args);
+    let status = cmd
+        .status()
+        .map_err(|err| format!("failed to execute git {}: {}", args.join(" "), err))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "git {} failed with exit status {:?}",
+            args.join(" "),
+            status.code()
+        ))
     }
 }
 

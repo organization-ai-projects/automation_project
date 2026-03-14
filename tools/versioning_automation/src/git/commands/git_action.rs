@@ -1,4 +1,5 @@
 use crate::git::commands::add_commit_push_options::AddCommitPushOptions;
+use crate::git::commands::branch_creation_check_options::BranchCreationCheckOptions;
 use crate::git::commands::clean_branches_options::CleanBranchesOptions;
 use crate::git::commands::clean_local_gone_options::CleanLocalGoneOptions;
 use crate::git::commands::cleanup_after_pr_options::CleanupAfterPrOptions;
@@ -22,4 +23,5 @@ pub(crate) enum GitAction {
     CleanLocalGone(CleanLocalGoneOptions),
     CleanBranches(CleanBranchesOptions),
     CleanupAfterPr(CleanupAfterPrOptions),
+    BranchCreationCheck(BranchCreationCheckOptions),
 }

@@ -17,6 +17,7 @@ pub(crate) fn print_usage() {
         "  clean-local-gone [--remote origin]",
         "  clean-branches [--dry-run] [--remote origin] [--base dev]",
         "  cleanup-after-pr [--delete-only] [--remote origin] [--base dev]",
+        "  branch-creation-check [git-command [args...]]",
     ];
     println!("{}", lines.join("\n"));
 }
