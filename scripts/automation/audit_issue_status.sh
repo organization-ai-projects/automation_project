@@ -76,7 +76,7 @@ while [[ $# -gt 0 ]]; do
 Usage: scripts/automation/audit_issue_status.sh [options]
 
 Options:
-  --repo OWNER/REPO   GitHub repository (default: GH_REPO or current gh repo)
+  --repo OWNER/REPO   GitHub repository (default: GH_REPO or `versioning_automation issue repo-name`)
   --base REF          Base ref for compare range (default: origin/main)
   --head REF          Head ref for compare range (default: origin/dev)
   --limit N           Max open issues to fetch (default: 200)
@@ -91,12 +91,12 @@ EOF
 	esac
 done
 
-if ! command -v gh >/dev/null 2>&1; then
-	echo "Error: command 'gh' not found." >&2
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	echo "Error: command 'versioning_automation' not found." >&2
 	exit 3
 fi
-if ! command -v jq >/dev/null 2>&1; then
-	echo "Error: command 'jq' not found." >&2
+if ! command -v base64 >/dev/null 2>&1; then
+	echo "Error: command 'base64' not found." >&2
 	exit 3
 fi
 
@@ -104,7 +104,7 @@ if [[ -z "$REPO" ]]; then
 	if [[ -n "${GH_REPO:-}" ]]; then
 		REPO="$GH_REPO"
 	else
-		REPO="$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)"
+		REPO="$(versioning_automation issue repo-name 2>/dev/null || true)"
 	fi
 fi
 
@@ -121,12 +121,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-open_json="$tmpdir/open_issues.json"
+open_snapshots="$tmpdir/open_issues.txt"
 messages_file="$tmpdir/commit_messages.txt"
 closing_refs="$tmpdir/closing_refs.txt"
 part_refs="$tmpdir/part_refs.txt"
 
-gh issue list -R "$REPO" --state open --limit "$LIMIT" --json number,title,url,body,state,labels >"$open_json"
+versioning_automation issue open-snapshots --repo "$REPO" --limit "$LIMIT" >"$open_snapshots"
 
 git log "$RANGE" --format=%B >"$messages_file"
 
@@ -153,7 +153,7 @@ report="$tmpdir/report.md"
 	echo
 } >"$report"
 
-total_open="$(jq 'length' "$open_json")"
+total_open="$(wc -l <"$open_snapshots" | tr -d ' ')"
 
 would_close=0
 part_only=0
@@ -169,12 +169,16 @@ done_in_dev_items="$tmpdir/done_in_dev.md"
 : >"$unreferenced_items"
 : >"$done_in_dev_items"
 
-jq -c '.[]' "$open_json" | while IFS= read -r row; do
-	num="$(echo "$row" | jq -r '.number')"
-	title="$(echo "$row" | jq -r '.title')"
-	url="$(echo "$row" | jq -r '.url')"
-	body="$(echo "$row" | jq -r '.body // ""')"
-	labels_csv="$(echo "$row" | jq -r '.labels // [] | map(.name | ascii_downcase) | join(",")')"
+decode_base64() {
+	local value="$1"
+	printf '%s' "$value" | base64 --decode 2>/dev/null || true
+}
+
+while IFS='|' read -r num title_b64 url body_b64 labels_b64 _state; do
+	[[ -z "$num" ]] && continue
+	title="$(decode_base64 "$title_b64")"
+	body="$(decode_base64 "$body_b64")"
+	labels_csv="$(decode_base64 "$labels_b64" | tr '[:upper:]' '[:lower:]')"
 
 	parent="(none)"
 	parent_line="$(printf '%s\n' "$body" | grep -iE '^[[:space:]]*Parent:[[:space:]]*(#?[0-9]+|none|base|epic)[[:space:]]*$' | tail -n1 || true)"
@@ -195,7 +199,7 @@ jq -c '.[]' "$open_json" | while IFS= read -r row; do
 		unreferenced=$((unreferenced + 1))
 		printf -- "- [#%s](%s) %s (parent: %s)\n" "$num" "$url" "$title" "$parent" >>"$unreferenced_items"
 	fi
-done
+done <"$open_snapshots"
 
 # shellcheck disable=SC2034
 would_close="$(wc -l <"$would_close_items" | tr -d ' ')"

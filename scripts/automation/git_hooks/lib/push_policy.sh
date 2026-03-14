@@ -206,7 +206,7 @@ push_policy_validate_part_of_only_push() {
 			return 0
 		fi
 		echo "❌ Cannot resolve GitHub repository for Part-of assignment policy."
-		echo "   Ensure gh auth/network is available, or bypass in emergency:"
+		echo "   Ensure versioning_automation can resolve repo context, or bypass in emergency:"
 		echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
 		return 1
 	fi
@@ -220,7 +220,7 @@ push_policy_validate_part_of_only_push() {
 			return 0
 		fi
 		echo "❌ Cannot resolve current GitHub login for Part-of assignment policy."
-		echo "   Authenticate gh, or bypass in emergency:"
+		echo "   Ensure versioning_automation can resolve current login, or bypass in emergency:"
 		echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
 		return 1
 	fi
