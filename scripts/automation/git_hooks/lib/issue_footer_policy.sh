@@ -112,8 +112,9 @@ validate_no_root_parent_refs_in_footer_file() {
 	refs="$(extract_trailer_issue_refs_from_file "$commit_msg_file")"
 	[[ -z "$refs" ]] && return 0
 
-	repo="$(resolve_repo_name_with_owner)"
-	[[ -z "$repo" ]] && return 0
+	if ! repo="$(resolve_repo_name_with_owner)"; then
+		return "$COMMIT_MSG_RC_ROOT_PARENT"
+	fi
 
 	while IFS='|' read -r action issue_number; do
 		[[ -z "$issue_number" ]] && continue
@@ -146,11 +147,13 @@ validate_single_assignee_requires_closes_in_footer_file() {
 	refs="$(extract_trailer_issue_refs_from_file "$commit_msg_file")"
 	[[ -z "$refs" ]] && return 0
 
-	repo="$(resolve_repo_name_with_owner)"
-	[[ -z "$repo" ]] && return 0
+	if ! repo="$(resolve_repo_name_with_owner)"; then
+		return "$COMMIT_MSG_RC_ASSIGNMENT_POLICY"
+	fi
 
-	current_login="$(gh api user --jq '.login' 2>/dev/null || true)"
-	[[ -z "$current_login" ]] && return 0
+	if ! current_login="$(issue_current_login)"; then
+		return "$COMMIT_MSG_RC_ASSIGNMENT_POLICY"
+	fi
 
 	declare -A has_part_of=()
 	declare -A has_closing=()

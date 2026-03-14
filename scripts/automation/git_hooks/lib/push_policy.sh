@@ -155,23 +155,14 @@ push_policy_validate_no_root_parent_issue_refs() {
 	refs="$(extract_issue_refs_from_text "$commits_input" || true)"
 	[[ -z "$refs" ]] && return 0
 
-	if ! command -v gh >/dev/null 2>&1; then
-		if push_policy_should_skip_remote_check "Remote footer check skipped (gh unavailable)"; then
-			return 0
-		fi
-		echo "❌ Cannot validate root parent issue references: 'gh' CLI is required."
-		echo "   Install gh, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
-		return 1
-	fi
-
 	local repo_name
-	repo_name="$(resolve_repo_name_with_owner)"
+	repo_name="$(resolve_repo_name_with_owner 2>/dev/null || true)"
 	if [[ -z "$repo_name" ]]; then
 		if push_policy_should_skip_remote_check "Remote footer check skipped (repo unresolved)"; then
 			return 0
 		fi
 		echo "❌ Cannot resolve GitHub repository for footer validation."
-		echo "   Ensure gh auth/network is available, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
+		echo "   Ensure versioning_automation can resolve repo context, or bypass in emergency: SKIP_PRE_PUSH=1 git push"
 		return 1
 	fi
 
@@ -206,20 +197,7 @@ push_policy_validate_part_of_only_push() {
 	refs_with_duplicates="$(push_policy_extract_issue_refs_with_duplicates "$commits_input" || true)"
 	[[ -z "$refs_with_duplicates" ]] && return 0
 
-	if ! command -v gh >/dev/null 2>&1; then
-		if push_policy_should_skip_remote_check "Assignment policy check skipped (gh unavailable)"; then
-			return 0
-		fi
-		if push_policy_should_bypass_part_of_only_push; then
-			return 0
-		fi
-		echo "❌ Cannot validate Part-of assignment policy: 'gh' CLI is required."
-		echo "   Install gh, or bypass in emergency:"
-		echo "   ALLOW_PART_OF_ONLY_PUSH=1 git push"
-		return 1
-	fi
-
-	repo_name="$(resolve_repo_name_with_owner)"
+	repo_name="$(resolve_repo_name_with_owner 2>/dev/null || true)"
 	if [[ -z "$repo_name" ]]; then
 		if push_policy_should_skip_remote_check "Assignment policy check skipped (repo unresolved)"; then
 			return 0
@@ -233,7 +211,7 @@ push_policy_validate_part_of_only_push() {
 		return 1
 	fi
 
-	current_login="$(gh api user --jq '.login' 2>/dev/null || true)"
+	current_login="$(issue_current_login 2>/dev/null || true)"
 	if [[ -z "$current_login" ]]; then
 		if push_policy_should_skip_remote_check "Assignment policy check skipped (login unresolved)"; then
 			return 0

@@ -136,6 +136,13 @@ issue_assignee_logins() {
 	return 0
 }
 
+issue_current_login() {
+	local login
+	login="$(versioning_automation_output_required issue current-login)" || return 1
+	printf '%s\n' "$login"
+	return 0
+}
+
 issue_parent_value() {
 	local issue_number="$1"
 	local repo="$2"

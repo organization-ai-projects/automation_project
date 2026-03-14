@@ -184,6 +184,10 @@ case "$subcommand" in
     echo "owner/repo"
     ;;
 
+  current-login)
+    echo "${MOCK_GH_LOGIN:-devuser}"
+    ;;
+
   subissue-refs)
     issue_number=""
     while [[ $# -gt 0 ]]; do
