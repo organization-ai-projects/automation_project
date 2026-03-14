@@ -88,3 +88,49 @@ fn parse_test_coverage_maps_action() {
         _ => panic!("expected test-coverage action"),
     }
 }
+
+#[test]
+fn parse_audit_issue_status_maps_options() {
+    let args = vec![
+        "audit-issue-status".to_string(),
+        "--base".to_string(),
+        "origin/release".to_string(),
+        "--head".to_string(),
+        "origin/dev".to_string(),
+        "--limit".to_string(),
+        "10".to_string(),
+    ];
+    let action = super::super::parse::parse(&args).expect("parse audit-issue-status");
+    match action {
+        AutomationAction::AuditIssueStatus(opts) => {
+            assert_eq!(opts.base_ref, "origin/release");
+            assert_eq!(opts.head_ref, "origin/dev");
+            assert_eq!(opts.limit, 10);
+        }
+        _ => panic!("expected audit-issue-status action"),
+    }
+}
+
+#[test]
+fn parse_release_prepare_requires_version() {
+    let args = vec!["release-prepare".to_string()];
+    let err = super::super::parse::parse(&args).expect_err("expected parse error");
+    assert!(err.contains("release-prepare requires"));
+}
+
+#[test]
+fn parse_release_prepare_maps_options() {
+    let args = vec![
+        "release-prepare".to_string(),
+        "1.2.3".to_string(),
+        "--auto-changelog".to_string(),
+    ];
+    let action = super::super::parse::parse(&args).expect("parse release-prepare");
+    match action {
+        AutomationAction::ReleasePrepare(opts) => {
+            assert_eq!(opts.version, "1.2.3");
+            assert!(opts.auto_changelog);
+        }
+        _ => panic!("expected release-prepare action"),
+    }
+}

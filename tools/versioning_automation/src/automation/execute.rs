@@ -7,16 +7,18 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use common_json::Json;
+use regex::Regex;
 
 use crate::automation::commands::{
-    AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions, BuildAndCheckUiBundlesOptions,
-    BuildUiBundlesOptions, ChangedCratesOptions, CheckDependenciesOptions,
-    CheckMergeConflictsOptions, CheckPriorityIssuesOptions, CiWatchPrOptions,
-    CleanArtifactsOptions, LabelsSyncOptions, PreAddReviewOptions, SyncMainDevCiOptions,
-    TestCoverageOptions,
+    AuditIssueStatusOptions, AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions,
+    BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
+    CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
+    CiWatchPrOptions, CleanArtifactsOptions, LabelsSyncOptions, PreAddReviewOptions,
+    ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
 };
 use crate::automation::parse::parse;
 use crate::automation::render::print_usage;
+use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run(args: &[String]) -> i32 {
     match parse(args) {
@@ -34,11 +36,13 @@ fn run_action(action: AutomationAction) -> i32 {
             print_usage();
             Ok(())
         }
+        AutomationAction::AuditIssueStatus(opts) => run_audit_issue_status(opts),
         AutomationAction::AuditSecurity(opts) => run_audit_security(opts),
         AutomationAction::BuildAccountsUi(opts) => run_build_accounts_ui(opts),
         AutomationAction::BuildUiBundles(opts) => run_build_ui_bundles(opts),
         AutomationAction::BuildAndCheckUiBundles(opts) => run_build_and_check_ui_bundles(opts),
         AutomationAction::PreAddReview(opts) => run_pre_add_review(opts),
+        AutomationAction::ReleasePrepare(opts) => run_release_prepare(opts),
         AutomationAction::TestCoverage(opts) => run_test_coverage(opts),
         AutomationAction::ChangedCrates(opts) => run_changed_crates(opts),
         AutomationAction::CheckMergeConflicts(opts) => run_check_merge_conflicts(opts),
@@ -428,6 +432,148 @@ fn run_test_coverage(_opts: TestCoverageOptions) -> Result<(), String> {
     Ok(())
 }
 
+fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<(), String> {
+    ensure_git_repo()?;
+    let repo = resolve_repo_name(opts.repo).map_err(|e| format!("{e}"))?;
+    let range = format!("{}..{}", opts.base_ref, opts.head_ref);
+
+    let open_issues_json = run_gh_output(&[
+        "issue",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        &opts.limit.to_string(),
+        "--json",
+        "number,title,url,body,labels,state",
+        "-R",
+        &repo,
+    ])?;
+    let open_issues = parse_json_array(&open_issues_json, "open issues JSON")?;
+    let total_open = open_issues.len();
+
+    let commit_messages = run_git_output_preserve(&["log", &range, "--format=%B"])?;
+    let (closing_refs, part_refs) = extract_issue_refs_from_text(&commit_messages)?;
+
+    let mut would_close_items = Vec::new();
+    let mut part_only_items = Vec::new();
+    let mut unreferenced_items = Vec::new();
+    let mut done_in_dev_items = Vec::new();
+
+    for issue in open_issues {
+        let Some(obj) = issue.as_object() else {
+            continue;
+        };
+        let number = object_u64(obj, "number");
+        if number == 0 {
+            continue;
+        }
+        let issue_id = number.to_string();
+        let title = object_string(obj, "title");
+        let url = object_string(obj, "url");
+        let body = object_string(obj, "body");
+        let parent = extract_parent_field(&body).unwrap_or_else(|| "(none)".to_string());
+
+        let labels_csv = obj
+            .get("labels")
+            .and_then(Json::as_array)
+            .map(|labels| {
+                labels
+                    .iter()
+                    .filter_map(|label| label.as_object())
+                    .map(|label_obj| object_string(label_obj, "name").to_lowercase())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            })
+            .unwrap_or_default();
+
+        let line = format!("- [#{issue_id}]({url}) {title} (parent: {parent})");
+        if labels_csv.contains("done-in-dev") {
+            done_in_dev_items.push(line);
+        } else if closing_refs.contains(&issue_id) {
+            would_close_items.push(line);
+        } else if part_refs.contains(&issue_id) {
+            part_only_items.push(line);
+        } else {
+            unreferenced_items.push(line);
+        }
+    }
+
+    let report = render_issue_audit_report(
+        &repo,
+        &range,
+        total_open,
+        &done_in_dev_items,
+        &would_close_items,
+        &part_only_items,
+        &unreferenced_items,
+    );
+
+    if let Some(output_file) = opts.output_file {
+        fs::write(&output_file, &report)
+            .map_err(|e| format!("Failed to write report to '{}': {e}", output_file))?;
+        println!("Generated file: {output_file}");
+    }
+    print!("{report}");
+    Ok(())
+}
+
+fn run_release_prepare(opts: ReleasePrepareOptions) -> Result<(), String> {
+    ensure_git_repo()?;
+    require_clean_tree()?;
+    validate_semver(&opts.version)?;
+
+    let current_branch = run_git_output(&["branch", "--show-current"])?;
+    if current_branch.trim() != "main" {
+        println!(
+            "Warning: current branch is '{}', not 'main'.",
+            current_branch.trim()
+        );
+    }
+
+    run_command_status("cargo", &["test", "--workspace"], false)?;
+
+    if command_available("cargo-audit") {
+        run_command_status("cargo", &["audit"], false)?;
+    }
+
+    let root = repo_root()?;
+    let root_cargo = root.join("Cargo.toml");
+    if root_cargo.is_file() {
+        update_version_in_cargo_file(&root_cargo, &opts.version)?;
+    }
+
+    let mut project_cargos = Vec::new();
+    collect_files_named(&root.join("projects"), "Cargo.toml", &mut project_cargos)?;
+    for cargo_toml in project_cargos {
+        update_version_in_cargo_file(&cargo_toml, &opts.version)?;
+    }
+
+    let changelog_path = root.join("CHANGELOG.md");
+    if opts.auto_changelog {
+        update_changelog(&changelog_path, &opts.version)?;
+    } else {
+        println!("Skipping automatic changelog generation.");
+    }
+
+    run_git(&["add", "-u"])?;
+    let commit_message = format!(
+        "chore: prepare release v{}\n\nRelease preparation for version {}.\n",
+        opts.version, opts.version
+    );
+    run_git(&["commit", "-m", &commit_message])?;
+    let tag_name = format!("v{}", opts.version);
+    run_git(&[
+        "tag",
+        "-a",
+        &tag_name,
+        "-m",
+        &format!("Release {}", tag_name),
+    ])?;
+    println!("Release {} prepared.", tag_name);
+    Ok(())
+}
+
 fn run_check_priority_issues(opts: CheckPriorityIssuesOptions) -> Result<(), String> {
     let mut by_number: BTreeMap<u64, (String, String)> = BTreeMap::new();
     for label in ["high priority", "security"] {
@@ -776,6 +922,237 @@ fn run_sync_main_dev_ci(opts: SyncMainDevCiOptions) -> Result<(), String> {
         "--delete-branch",
     ])?;
     Ok(())
+}
+
+fn require_clean_tree() -> Result<(), String> {
+    let unstaged_clean = crate::git_cli::status_success(&["diff", "--quiet"]);
+    let staged_clean = crate::git_cli::status_success(&["diff", "--cached", "--quiet"]);
+    if unstaged_clean && staged_clean {
+        Ok(())
+    } else {
+        Err("Working tree is dirty. Commit/stash your changes first.".to_string())
+    }
+}
+
+fn validate_semver(version: &str) -> Result<(), String> {
+    let re = Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$")
+        .map_err(|e| format!("Failed to compile semver regex: {e}"))?;
+    if re.is_match(version) {
+        Ok(())
+    } else {
+        Err(format!(
+            "Invalid version format: {version}. Expected semver format."
+        ))
+    }
+}
+
+fn update_version_in_cargo_file(path: &Path, version: &str) -> Result<(), String> {
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read '{}': {e}", path.display()))?;
+    let mut changed = false;
+    let updated = content
+        .lines()
+        .map(|line| {
+            if line.trim_start().starts_with("version = \"") {
+                changed = true;
+                format!("version = \"{version}\"")
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    if changed {
+        fs::write(path, format!("{updated}\n"))
+            .map_err(|e| format!("Failed to write '{}': {e}", path.display()))?;
+    }
+    Ok(())
+}
+
+fn collect_files_named(root: &Path, file_name: &str, out: &mut Vec<PathBuf>) -> Result<(), String> {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(_) => return Ok(()),
+    };
+    for entry in entries {
+        let entry =
+            entry.map_err(|e| format!("Failed to read entry under '{}': {e}", root.display()))?;
+        let path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
+            collect_files_named(&path, file_name, out)?;
+            continue;
+        }
+        if file_type.is_file() && path.file_name().and_then(|v| v.to_str()) == Some(file_name) {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn update_changelog(path: &Path, version: &str) -> Result<(), String> {
+    let today = run_command_capture("date", &["+%Y-%m-%d"])?;
+    let last_tag = run_git_output(&["describe", "--tags", "--abbrev=0"]).unwrap_or_default();
+    let commits = if last_tag.trim().is_empty() {
+        run_git_output_preserve(&["log", "--oneline", "--no-merges"])?
+    } else {
+        run_git_output_preserve(&[
+            "log",
+            &format!("{}..HEAD", last_tag.trim()),
+            "--oneline",
+            "--no-merges",
+        ])?
+    };
+    let mut lines = vec![
+        "# Changelog".to_string(),
+        "".to_string(),
+        format!("## [v{version}] - {}", today.trim()),
+        "".to_string(),
+        "### Changes".to_string(),
+        "".to_string(),
+    ];
+    lines.extend(
+        commits
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| format!("- {line}")),
+    );
+    lines.push("".to_string());
+
+    if path.is_file() {
+        let existing = fs::read_to_string(path)
+            .map_err(|e| format!("Failed to read '{}': {e}", path.display()))?;
+        let mut existing_lines = existing.lines();
+        let _ = existing_lines.next();
+        lines.extend(existing_lines.map(ToString::to_string));
+    }
+    fs::write(path, format!("{}\n", lines.join("\n")))
+        .map_err(|e| format!("Failed to write '{}': {e}", path.display()))?;
+    Ok(())
+}
+
+fn run_command_capture(program: &str, args: &[&str]) -> Result<String, String> {
+    let output = Command::new(program)
+        .args(args)
+        .output()
+        .map_err(|e| format!("Failed to run {program} {}: {e}", args.join(" ")))?;
+    if !output.status.success() {
+        return Err(format!(
+            "{program} {} failed with exit {:?}",
+            args.join(" "),
+            output.status.code()
+        ));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn extract_issue_refs_from_text(
+    text: &str,
+) -> Result<(BTreeSet<String>, BTreeSet<String>), String> {
+    let re = Regex::new(
+        r"(?i)(closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
+    )
+    .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
+    let mut closing = BTreeSet::new();
+    let mut part = BTreeSet::new();
+    for cap in re.captures_iter(text) {
+        let keyword = cap
+            .get(1)
+            .map(|m| m.as_str().to_lowercase())
+            .unwrap_or_default();
+        let issue_number = cap
+            .get(2)
+            .map(|m| m.as_str().to_string())
+            .unwrap_or_default();
+        if issue_number.is_empty() {
+            continue;
+        }
+        if keyword == "closes" || keyword == "fixes" || keyword == "resolves" {
+            closing.insert(issue_number);
+        } else {
+            part.insert(issue_number);
+        }
+    }
+    Ok((closing, part))
+}
+
+fn extract_parent_field(body: &str) -> Option<String> {
+    let re = Regex::new(r"(?im)^\s*Parent:\s*(#?[0-9]+|none|base|epic)\s*$").ok()?;
+    re.captures(body)
+        .and_then(|cap| cap.get(1))
+        .map(|m| m.as_str().to_string())
+}
+
+fn render_issue_audit_report(
+    repo: &str,
+    range: &str,
+    total_open: usize,
+    done_in_dev_items: &[String],
+    would_close_items: &[String],
+    part_only_items: &[String],
+    unreferenced_items: &[String],
+) -> String {
+    let mut out = Vec::new();
+    out.push("# Issue Status Audit".to_string());
+    out.push("".to_string());
+    out.push(format!("- Repository: `{repo}`"));
+    out.push(format!("- Range: `{range}`"));
+    out.push("".to_string());
+    out.push("## Summary".to_string());
+    out.push("".to_string());
+    out.push(format!("- Open issues fetched: {total_open}"));
+    out.push(format!(
+        "- Would close on merge: {}",
+        would_close_items.len()
+    ));
+    out.push(format!(
+        "- Done in dev (label): {}",
+        done_in_dev_items.len()
+    ));
+    out.push(format!(
+        "- Part-of-only (not closing): {}",
+        part_only_items.len()
+    ));
+    out.push(format!(
+        "- Unreferenced in range: {}",
+        unreferenced_items.len()
+    ));
+    out.push("".to_string());
+    out.push("## Done In Dev (Label)".to_string());
+    out.push("".to_string());
+    if done_in_dev_items.is_empty() {
+        out.push("- None".to_string());
+    } else {
+        out.extend(done_in_dev_items.iter().cloned());
+    }
+    out.push("".to_string());
+    out.push("## Would Close On Merge".to_string());
+    out.push("".to_string());
+    if would_close_items.is_empty() {
+        out.push("- None".to_string());
+    } else {
+        out.extend(would_close_items.iter().cloned());
+    }
+    out.push("".to_string());
+    out.push("## Part-Of Only".to_string());
+    out.push("".to_string());
+    if part_only_items.is_empty() {
+        out.push("- None".to_string());
+    } else {
+        out.extend(part_only_items.iter().cloned());
+    }
+    out.push("".to_string());
+    out.push("## Unreferenced".to_string());
+    out.push("".to_string());
+    if unreferenced_items.is_empty() {
+        out.push("- None".to_string());
+    } else {
+        out.extend(unreferenced_items.iter().cloned());
+    }
+    out.push("".to_string());
+    out.join("\n")
 }
 
 fn require_command(command: &str, install_hint: &str) -> Result<(), String> {

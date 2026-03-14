@@ -2,11 +2,11 @@
 use std::env;
 
 use crate::automation::commands::{
-    AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions, BuildAndCheckUiBundlesOptions,
-    BuildUiBundlesOptions, ChangedCratesOptions, CheckDependenciesOptions,
-    CheckMergeConflictsOptions, CheckPriorityIssuesOptions, CiWatchPrOptions,
-    CleanArtifactsOptions, LabelsSyncOptions, PreAddReviewOptions, SyncMainDevCiOptions,
-    TestCoverageOptions,
+    AuditIssueStatusOptions, AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions,
+    BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
+    CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
+    CiWatchPrOptions, CleanArtifactsOptions, LabelsSyncOptions, PreAddReviewOptions,
+    ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
 };
 
 const DEFAULT_LABELS_FILE: &str = ".github/labels.json";
@@ -18,11 +18,13 @@ pub(crate) fn parse(args: &[String]) -> Result<AutomationAction, String> {
 
     match args[0].as_str() {
         "help" | "--help" | "-h" => Ok(AutomationAction::Help),
+        "audit-issue-status" => parse_audit_issue_status(&args[1..]),
         "audit-security" => parse_audit_security(&args[1..]),
         "build-accounts-ui" => parse_build_accounts_ui(&args[1..]),
         "build-ui-bundles" => parse_build_ui_bundles(&args[1..]),
         "build-and-check-ui-bundles" => parse_build_and_check_ui_bundles(&args[1..]),
         "pre-add-review" => parse_pre_add_review(&args[1..]),
+        "release-prepare" => parse_release_prepare(&args[1..]),
         "test-coverage" => parse_test_coverage(&args[1..]),
         "changed-crates" => parse_changed_crates(&args[1..]),
         "check-merge-conflicts" => parse_check_merge_conflicts(&args[1..]),
@@ -34,6 +36,56 @@ pub(crate) fn parse(args: &[String]) -> Result<AutomationAction, String> {
         "sync-main-dev-ci" => parse_sync_main_dev_ci(&args[1..]),
         unknown => Err(format!("Unknown automation subcommand: {unknown}")),
     }
+}
+
+fn parse_audit_issue_status(args: &[String]) -> Result<AutomationAction, String> {
+    let mut repo = None;
+    let mut base_ref = "origin/main".to_string();
+    let mut head_ref = "origin/dev".to_string();
+    let mut limit = 200usize;
+    let mut output_file = None;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--repo" => {
+                i += 1;
+                repo = Some(required_value(args, i, "--repo")?);
+            }
+            "--base" => {
+                i += 1;
+                base_ref = required_value(args, i, "--base")?;
+            }
+            "--head" => {
+                i += 1;
+                head_ref = required_value(args, i, "--head")?;
+            }
+            "--limit" => {
+                i += 1;
+                let raw = required_value(args, i, "--limit")?;
+                limit = raw
+                    .parse::<usize>()
+                    .map_err(|_| "--limit requires a positive integer".to_string())?;
+                if limit == 0 {
+                    return Err("--limit requires a positive integer".to_string());
+                }
+            }
+            "--output" => {
+                i += 1;
+                output_file = Some(required_value(args, i, "--output")?);
+            }
+            value => return Err(format!("Unexpected argument: {value}")),
+        }
+        i += 1;
+    }
+    Ok(AutomationAction::AuditIssueStatus(
+        AuditIssueStatusOptions {
+            repo,
+            base_ref,
+            head_ref,
+            limit,
+            output_file,
+        },
+    ))
 }
 
 fn parse_audit_security(args: &[String]) -> Result<AutomationAction, String> {
@@ -78,6 +130,26 @@ fn parse_test_coverage(args: &[String]) -> Result<AutomationAction, String> {
         return Err(format!("Unexpected argument: {value}"));
     }
     Ok(AutomationAction::TestCoverage(TestCoverageOptions))
+}
+
+fn parse_release_prepare(args: &[String]) -> Result<AutomationAction, String> {
+    if args.is_empty() {
+        return Err("release-prepare requires: <version> [--auto-changelog]".to_string());
+    }
+    let version = args[0].clone();
+    let mut auto_changelog = false;
+    let mut i = 1usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--auto-changelog" => auto_changelog = true,
+            value => return Err(format!("Unexpected argument: {value}")),
+        }
+        i += 1;
+    }
+    Ok(AutomationAction::ReleasePrepare(ReleasePrepareOptions {
+        version,
+        auto_changelog,
+    }))
 }
 
 fn parse_changed_crates(args: &[String]) -> Result<AutomationAction, String> {
