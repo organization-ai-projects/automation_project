@@ -11,6 +11,7 @@ use crate::automation::commands::ci_watch_pr_options::CiWatchPrOptions;
 use crate::automation::commands::clean_artifacts_options::CleanArtifactsOptions;
 use crate::automation::commands::labels_sync_options::LabelsSyncOptions;
 use crate::automation::commands::pre_add_review_options::PreAddReviewOptions;
+use crate::automation::commands::pre_push_check_options::PrePushCheckOptions;
 use crate::automation::commands::release_prepare_options::ReleasePrepareOptions;
 use crate::automation::commands::sync_main_dev_ci_options::SyncMainDevCiOptions;
 use crate::automation::commands::test_coverage_options::TestCoverageOptions;
@@ -24,6 +25,7 @@ pub(crate) enum AutomationAction {
     BuildUiBundles(BuildUiBundlesOptions),
     BuildAndCheckUiBundles(BuildAndCheckUiBundlesOptions),
     PreAddReview(PreAddReviewOptions),
+    PrePushCheck(PrePushCheckOptions),
     ReleasePrepare(ReleasePrepareOptions),
     TestCoverage(TestCoverageOptions),
     ChangedCrates(ChangedCratesOptions),

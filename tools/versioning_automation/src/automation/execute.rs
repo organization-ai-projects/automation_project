@@ -14,7 +14,7 @@ use crate::automation::commands::{
     BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
     CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
     CiWatchPrOptions, CleanArtifactsOptions, LabelsSyncOptions, PreAddReviewOptions,
-    ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
+    PrePushCheckOptions, ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
 };
 use crate::automation::parse::parse;
 use crate::automation::render::print_usage;
@@ -42,6 +42,7 @@ fn run_action(action: AutomationAction) -> i32 {
         AutomationAction::BuildUiBundles(opts) => run_build_ui_bundles(opts),
         AutomationAction::BuildAndCheckUiBundles(opts) => run_build_and_check_ui_bundles(opts),
         AutomationAction::PreAddReview(opts) => run_pre_add_review(opts),
+        AutomationAction::PrePushCheck(opts) => run_pre_push_check(opts),
         AutomationAction::ReleasePrepare(opts) => run_release_prepare(opts),
         AutomationAction::TestCoverage(opts) => run_test_coverage(opts),
         AutomationAction::ChangedCrates(opts) => run_changed_crates(opts),
@@ -382,6 +383,86 @@ fn run_pre_add_review(_opts: PreAddReviewOptions) -> Result<(), String> {
             "Pre-add review found {issues} issue(s). Please review before staging."
         ))
     }
+}
+
+fn run_pre_push_check(_opts: PrePushCheckOptions) -> Result<(), String> {
+    if std::env::var("SKIP_PRE_PUSH").unwrap_or_default() == "1" {
+        println!("Pre-push checks skipped (SKIP_PRE_PUSH=1)");
+        return Ok(());
+    }
+    ensure_git_repo()?;
+    let upstream = run_git_output(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+        .unwrap_or_else(|_| "origin/dev".to_string());
+    let commits = run_git_output_preserve(&["log", &format!("{upstream}..HEAD"), "--format=%B"])
+        .unwrap_or_default();
+    let repo = resolve_repo_name(None).ok();
+
+    if !commits.trim().is_empty() {
+        validate_no_root_parent_refs(&commits, repo.as_deref())?;
+        validate_part_of_only_policy(&commits, repo.as_deref())?;
+    }
+
+    let changed_files = compute_changed_files(&upstream)?;
+    let markdown_files = changed_files
+        .iter()
+        .filter(|f| f.ends_with(".md"))
+        .cloned()
+        .collect::<Vec<_>>();
+    let docs_or_scripts_only = is_docs_or_scripts_only_change(&changed_files);
+
+    if docs_or_scripts_only {
+        if !markdown_files.is_empty() {
+            run_markdownlint_files(&markdown_files)?;
+        }
+        run_shell_syntax_checks(&changed_files)?;
+        println!("Pre-push checks passed (docs/scripts-only mode)");
+        return Ok(());
+    }
+
+    if !markdown_files.is_empty() {
+        run_markdownlint_files(&markdown_files)?;
+    }
+    run_command_status("cargo", &["fmt", "--all", "--", "--check"], false)?;
+
+    let changed_file_text = changed_files.join("\n");
+    let mut crates = collect_crates_from_changed_files(&changed_file_text)?;
+    crates.sort();
+    crates.dedup();
+
+    let has_lockfile = repo_root()?.join("Cargo.lock").is_file();
+    let mut clippy_args = Vec::<String>::new();
+    let mut test_args = Vec::<String>::new();
+    if has_lockfile {
+        clippy_args.push("--locked".to_string());
+        test_args.push("--locked".to_string());
+    }
+    if crates.is_empty() {
+        clippy_args.extend(["--workspace", "--all-targets", "--all-features"].map(String::from));
+        test_args.extend(["--workspace", "--all-targets", "--all-features"].map(String::from));
+    } else {
+        clippy_args.extend(["--all-targets", "--all-features"].map(String::from));
+        test_args.extend(["--all-targets", "--all-features"].map(String::from));
+        for crate_name in crates {
+            clippy_args.push("-p".to_string());
+            clippy_args.push(crate_name.clone());
+            test_args.push("-p".to_string());
+            test_args.push(crate_name);
+        }
+    }
+
+    let mut clippy_run = vec!["clippy".to_string()];
+    clippy_run.extend(clippy_args);
+    clippy_run.push("--".to_string());
+    clippy_run.push("-D".to_string());
+    clippy_run.push("warnings".to_string());
+    run_command_status_owned("cargo", &clippy_run, false)?;
+
+    let mut test_run = vec!["test".to_string()];
+    test_run.extend(test_args);
+    run_command_status_owned("cargo", &test_run, false)?;
+
+    println!("All pre-push checks passed");
+    Ok(())
 }
 
 fn run_test_coverage(_opts: TestCoverageOptions) -> Result<(), String> {
@@ -1155,6 +1236,227 @@ fn render_issue_audit_report(
     out.join("\n")
 }
 
+fn validate_no_root_parent_refs(commits: &str, repo: Option<&str>) -> Result<(), String> {
+    let Some(repo_name) = repo else {
+        if remote_policy_warn_only() {
+            println!("Remote footer check skipped (repo unresolved, warn-only mode).");
+            return Ok(());
+        }
+        return Err("Cannot resolve GitHub repository for footer validation.".to_string());
+    };
+    let refs = extract_issue_refs_detailed(commits)?;
+    for (_action, issue) in refs {
+        if issue_is_root_parent(&issue, repo_name)? {
+            return Err(format!(
+                "Root parent issue reference detected in commits: #{}",
+                issue
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_part_of_only_policy(commits: &str, repo: Option<&str>) -> Result<(), String> {
+    let refs = extract_issue_refs_detailed(commits)?;
+    if refs.is_empty() {
+        return Ok(());
+    }
+    let Some(repo_name) = repo else {
+        if remote_policy_warn_only()
+            || std::env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() == "1"
+        {
+            println!("Assignment policy check skipped (repo unresolved).");
+            return Ok(());
+        }
+        return Err("Cannot resolve GitHub repository for Part-of assignment policy.".to_string());
+    };
+    let current_login = run_gh_output(&["api", "user", "--jq", ".login"]).unwrap_or_default();
+    if current_login.trim().is_empty() {
+        if remote_policy_warn_only()
+            || std::env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() == "1"
+        {
+            println!("Assignment policy check skipped (login unresolved).");
+            return Ok(());
+        }
+        return Err("Cannot resolve current GitHub login for assignment policy.".to_string());
+    }
+
+    let mut has_part_of = BTreeSet::new();
+    let mut has_closing = BTreeSet::new();
+    for (action, issue) in refs {
+        if action == "part of" {
+            has_part_of.insert(issue.clone());
+        }
+        if action == "closes" || action == "fixes" {
+            has_closing.insert(issue);
+        }
+    }
+    let mut violations = Vec::new();
+    for issue in has_part_of {
+        if has_closing.contains(&issue) {
+            continue;
+        }
+        let assignees = run_gh_output(&[
+            "issue",
+            "view",
+            &issue,
+            "-R",
+            repo_name,
+            "--json",
+            "assignees",
+            "--jq",
+            ".assignees[].login",
+        ])
+        .unwrap_or_default();
+        let logins = assignees
+            .lines()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        if logins.len() == 1 && logins[0] == current_login.trim() {
+            violations.push(issue);
+        }
+    }
+    if !violations.is_empty() && std::env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() != "1"
+    {
+        return Err(format!(
+            "Push blocked by assignment policy for issues: {}",
+            violations
+                .iter()
+                .map(|v| format!("#{v}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    Ok(())
+}
+
+fn remote_policy_warn_only() -> bool {
+    let hooks_policy = std::env::var("HOOKS_REMOTE_POLICY").unwrap_or_default();
+    let allow_offline = std::env::var("ALLOW_OFFLINE_REMOTE_CHECKS").unwrap_or_default();
+    hooks_policy == "warn" || allow_offline == "1"
+}
+
+fn extract_issue_refs_detailed(text: &str) -> Result<Vec<(String, String)>, String> {
+    let re = Regex::new(
+        r"(?i)(closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
+    )
+    .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
+    let mut out = Vec::new();
+    for cap in re.captures_iter(text) {
+        let action = cap
+            .get(1)
+            .map(|m| m.as_str().to_lowercase())
+            .unwrap_or_default();
+        let issue = cap
+            .get(2)
+            .map(|m| m.as_str().to_string())
+            .unwrap_or_default();
+        if !issue.is_empty() {
+            out.push((action, issue));
+        }
+    }
+    Ok(out)
+}
+
+fn issue_is_root_parent(issue_number: &str, repo: &str) -> Result<bool, String> {
+    let body = run_gh_output(&[
+        "issue",
+        "view",
+        issue_number,
+        "-R",
+        repo,
+        "--json",
+        "body",
+        "--jq",
+        ".body // \"\"",
+    ])?;
+    let parent = extract_parent_field(&body)
+        .unwrap_or_else(|| "none".to_string())
+        .to_lowercase();
+    Ok(parent == "epic")
+}
+
+fn compute_changed_files(upstream: &str) -> Result<Vec<String>, String> {
+    let first = run_git_output_preserve(&["diff", "--name-only", &format!("{upstream}..HEAD")])
+        .unwrap_or_default();
+    if !first.trim().is_empty() {
+        return Ok(first
+            .lines()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(ToString::to_string)
+            .collect());
+    }
+    let fallback =
+        run_git_output_preserve(&["diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"])
+            .unwrap_or_default();
+    Ok(fallback
+        .lines()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(ToString::to_string)
+        .collect())
+}
+
+fn is_docs_or_scripts_only_change(files: &[String]) -> bool {
+    if files.is_empty() {
+        return false;
+    }
+    files.iter().all(|file| {
+        file.ends_with(".md")
+            || file.starts_with("documentation/")
+            || file.starts_with(".github/documentation/")
+            || file.starts_with(".github/ISSUE_TEMPLATE/")
+            || file.starts_with(".github/PULL_REQUEST_TEMPLATE/")
+            || file.starts_with(".github/workflows/")
+            || file.starts_with("scripts/")
+    })
+}
+
+fn run_markdownlint_files(files: &[String]) -> Result<(), String> {
+    if files.is_empty() {
+        return Ok(());
+    }
+    let mut args = vec![
+        "run".to_string(),
+        "lint-md-files".to_string(),
+        "--".to_string(),
+    ];
+    args.extend(files.iter().cloned());
+    run_command_status_owned("pnpm", &args, false)
+}
+
+fn run_shell_syntax_checks(files: &[String]) -> Result<(), String> {
+    for file in files {
+        if file.ends_with(".sh") {
+            run_command_status("bash", &["-n", file], false)?;
+        }
+    }
+    Ok(())
+}
+
+fn collect_crates_from_changed_files(changed_files: &str) -> Result<Vec<String>, String> {
+    let root = repo_root()?;
+    let mut crates = Vec::new();
+    let mut seen = BTreeSet::new();
+    for file in changed_files
+        .lines()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        if let Some(path) = find_crate_dir_for_file(&root, file) {
+            if let Some(crate_name) = read_crate_name(&root, &path)
+                && seen.insert(crate_name.clone())
+            {
+                crates.push(crate_name);
+            }
+        }
+    }
+    Ok(crates)
+}
+
 fn require_command(command: &str, install_hint: &str) -> Result<(), String> {
     if command_available(command) {
         Ok(())
@@ -1381,6 +1683,15 @@ fn run_command_status(program: &str, args: &[&str], allow_failure: bool) -> Resu
             status.code()
         ))
     }
+}
+
+fn run_command_status_owned(
+    program: &str,
+    args: &[String],
+    allow_failure: bool,
+) -> Result<(), String> {
+    let refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+    run_command_status(program, &refs, allow_failure)
 }
 
 fn command_status_success(program: &str, args: &[&str]) -> Result<bool, String> {

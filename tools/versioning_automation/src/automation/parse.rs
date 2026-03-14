@@ -6,7 +6,7 @@ use crate::automation::commands::{
     BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
     CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
     CiWatchPrOptions, CleanArtifactsOptions, LabelsSyncOptions, PreAddReviewOptions,
-    ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
+    PrePushCheckOptions, ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
 };
 
 const DEFAULT_LABELS_FILE: &str = ".github/labels.json";
@@ -24,6 +24,7 @@ pub(crate) fn parse(args: &[String]) -> Result<AutomationAction, String> {
         "build-ui-bundles" => parse_build_ui_bundles(&args[1..]),
         "build-and-check-ui-bundles" => parse_build_and_check_ui_bundles(&args[1..]),
         "pre-add-review" => parse_pre_add_review(&args[1..]),
+        "pre-push-check" => parse_pre_push_check(&args[1..]),
         "release-prepare" => parse_release_prepare(&args[1..]),
         "test-coverage" => parse_test_coverage(&args[1..]),
         "changed-crates" => parse_changed_crates(&args[1..]),
@@ -123,6 +124,13 @@ fn parse_pre_add_review(args: &[String]) -> Result<AutomationAction, String> {
         return Err(format!("Unexpected argument: {value}"));
     }
     Ok(AutomationAction::PreAddReview(PreAddReviewOptions))
+}
+
+fn parse_pre_push_check(args: &[String]) -> Result<AutomationAction, String> {
+    if let Some(value) = args.first() {
+        return Err(format!("Unexpected argument: {value}"));
+    }
+    Ok(AutomationAction::PrePushCheck(PrePushCheckOptions))
 }
 
 fn parse_test_coverage(args: &[String]) -> Result<AutomationAction, String> {

@@ -134,3 +134,13 @@ fn parse_release_prepare_maps_options() {
         _ => panic!("expected release-prepare action"),
     }
 }
+
+#[test]
+fn parse_pre_push_check_maps_action() {
+    let args = vec!["pre-push-check".to_string()];
+    let action = super::super::parse::parse(&args).expect("parse pre-push-check");
+    match action {
+        AutomationAction::PrePushCheck(_) => {}
+        _ => panic!("expected pre-push-check action"),
+    }
+}
