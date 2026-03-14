@@ -312,86 +312,12 @@ impl ConcurrentMoePipeline {
             .import_telemetry_snapshot()
             .unwrap_or_else(|_| ImportTelemetry::default());
         let mut map = BTreeMap::new();
-        map.insert(
-            "read_lock_acquisitions".to_string(),
-            snapshot.read_lock_acquisitions,
-        );
-        map.insert(
-            "write_lock_acquisitions".to_string(),
-            snapshot.write_lock_acquisitions,
-        );
-        map.insert(
-            "read_lock_contention".to_string(),
-            snapshot.read_lock_contention,
-        );
-        map.insert(
-            "write_lock_contention".to_string(),
-            snapshot.write_lock_contention,
-        );
-        map.insert(
-            "read_lock_timeouts".to_string(),
-            snapshot.read_lock_timeouts,
-        );
-        map.insert(
-            "write_lock_timeouts".to_string(),
-            snapshot.write_lock_timeouts,
-        );
-        map.insert(
-            "read_lock_spin_attempts_total".to_string(),
-            snapshot.read_lock_spin_attempts_total,
-        );
-        map.insert(
-            "write_lock_spin_attempts_total".to_string(),
-            snapshot.write_lock_spin_attempts_total,
-        );
-        map.insert(
-            "read_lock_spin_attempts_avg_milli".to_string(),
-            (snapshot.avg_read_spin_attempts() * 1000.0).round() as u64,
-        );
-        map.insert(
-            "write_lock_spin_attempts_avg_milli".to_string(),
-            (snapshot.avg_write_spin_attempts() * 1000.0).round() as u64,
-        );
-        map.insert(
-            "write_guard_rejections".to_string(),
+        Self::insert_lock_metrics(
+            &mut map,
+            &snapshot,
             self.write_guard_rejections.load(Ordering::Relaxed),
         );
-        map.insert(
-            "governance_state_import_successes".to_string(),
-            import_telemetry.governance_state_import_successes,
-        );
-        map.insert(
-            "governance_state_import_rejections".to_string(),
-            import_telemetry.governance_state_import_rejections,
-        );
-        map.insert(
-            "governance_bundle_import_successes".to_string(),
-            import_telemetry.governance_bundle_import_successes,
-        );
-        map.insert(
-            "governance_bundle_import_rejections".to_string(),
-            import_telemetry.governance_bundle_import_rejections,
-        );
-        map.insert(
-            "runtime_bundle_import_successes".to_string(),
-            import_telemetry.runtime_bundle_import_successes,
-        );
-        map.insert(
-            "runtime_bundle_import_rejections".to_string(),
-            import_telemetry.runtime_bundle_import_rejections,
-        );
-        map.insert(
-            "runtime_bundle_import_expired_leases_released_total".to_string(),
-            import_telemetry.runtime_bundle_import_expired_leases_released_total,
-        );
-        map.insert(
-            "runtime_bundle_import_dead_letter_events_observed_total".to_string(),
-            import_telemetry.runtime_bundle_import_dead_letter_events_observed_total,
-        );
-        map.insert(
-            "json_parse_failures".to_string(),
-            import_telemetry.json_parse_failures,
-        );
+        Self::insert_import_telemetry_metrics(&mut map, &import_telemetry);
         map
     }
 
@@ -512,6 +438,96 @@ impl ConcurrentMoePipeline {
             )));
         }
         Ok(())
+    }
+
+    fn insert_lock_metrics(
+        map: &mut BTreeMap<String, u64>,
+        snapshot: &ConcurrentLockMetrics,
+        write_guard_rejections: u64,
+    ) {
+        map.insert(
+            "read_lock_acquisitions".to_string(),
+            snapshot.read_lock_acquisitions,
+        );
+        map.insert(
+            "write_lock_acquisitions".to_string(),
+            snapshot.write_lock_acquisitions,
+        );
+        map.insert(
+            "read_lock_contention".to_string(),
+            snapshot.read_lock_contention,
+        );
+        map.insert(
+            "write_lock_contention".to_string(),
+            snapshot.write_lock_contention,
+        );
+        map.insert(
+            "read_lock_timeouts".to_string(),
+            snapshot.read_lock_timeouts,
+        );
+        map.insert(
+            "write_lock_timeouts".to_string(),
+            snapshot.write_lock_timeouts,
+        );
+        map.insert(
+            "read_lock_spin_attempts_total".to_string(),
+            snapshot.read_lock_spin_attempts_total,
+        );
+        map.insert(
+            "write_lock_spin_attempts_total".to_string(),
+            snapshot.write_lock_spin_attempts_total,
+        );
+        map.insert(
+            "read_lock_spin_attempts_avg_milli".to_string(),
+            (snapshot.avg_read_spin_attempts() * 1000.0).round() as u64,
+        );
+        map.insert(
+            "write_lock_spin_attempts_avg_milli".to_string(),
+            (snapshot.avg_write_spin_attempts() * 1000.0).round() as u64,
+        );
+        map.insert("write_guard_rejections".to_string(), write_guard_rejections);
+    }
+
+    fn insert_import_telemetry_metrics(
+        map: &mut BTreeMap<String, u64>,
+        telemetry: &ImportTelemetry,
+    ) {
+        map.insert(
+            "governance_state_import_successes".to_string(),
+            telemetry.governance_state_import_successes,
+        );
+        map.insert(
+            "governance_state_import_rejections".to_string(),
+            telemetry.governance_state_import_rejections,
+        );
+        map.insert(
+            "governance_bundle_import_successes".to_string(),
+            telemetry.governance_bundle_import_successes,
+        );
+        map.insert(
+            "governance_bundle_import_rejections".to_string(),
+            telemetry.governance_bundle_import_rejections,
+        );
+        map.insert(
+            "runtime_bundle_import_successes".to_string(),
+            telemetry.runtime_bundle_import_successes,
+        );
+        map.insert(
+            "runtime_bundle_import_rejections".to_string(),
+            telemetry.runtime_bundle_import_rejections,
+        );
+        map.insert(
+            "runtime_bundle_import_expired_leases_released_total".to_string(),
+            telemetry.runtime_bundle_import_expired_leases_released_total,
+        );
+        map.insert(
+            "runtime_bundle_import_dead_letter_events_observed_total".to_string(),
+            telemetry.runtime_bundle_import_dead_letter_events_observed_total,
+        );
+        map.insert(
+            "json_parse_failures".to_string(),
+            telemetry.json_parse_failures,
+        );
     }
 
     fn with_runtime_read<T, F>(&self, f: F) -> Result<T, MoeError>
