@@ -148,6 +148,7 @@ fn runtime_bundle_roundtrip_restores_trainer_trigger_dead_letters() {
     let bundle = source.export_runtime_bundle();
     assert_eq!(bundle.trainer_trigger_events.len(), 0);
     assert_eq!(bundle.trainer_trigger_dead_letter_events.len(), 1);
+    assert_eq!(bundle.trainer_trigger_leased_event_ids.len(), 0);
 
     let mut target = MoePipelineBuilder::new().build();
     target
@@ -157,7 +158,48 @@ fn runtime_bundle_roundtrip_restores_trainer_trigger_dead_letters() {
     let restored = target.export_runtime_bundle();
     assert_eq!(restored.trainer_trigger_events.len(), 0);
     assert_eq!(restored.trainer_trigger_dead_letter_events.len(), 1);
+    assert_eq!(restored.trainer_trigger_leased_event_ids.len(), 0);
     assert_eq!(restored.recompute_checksum(), bundle.recompute_checksum());
+}
+
+#[test]
+fn runtime_bundle_roundtrip_restores_trainer_trigger_leases() {
+    let mut source = MoePipelineBuilder::new().build();
+    source.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 111,
+        model_version: 4,
+        training_bundle_checksum: "bundle-leased-111".to_string(),
+        included_entries: 88,
+        train_samples: 70,
+        validation_samples: 18,
+        generated_at: 50,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+    let leased = source
+        .lease_next_trainer_trigger_event_with_policy(200)
+        .expect("event should lease before export");
+    assert_eq!(leased.event_id, 111);
+
+    let bundle = source.export_runtime_bundle();
+    assert_eq!(bundle.trainer_trigger_events.len(), 1);
+    assert_eq!(bundle.trainer_trigger_leased_event_ids, vec![111]);
+
+    let mut target = MoePipelineBuilder::new().build();
+    target
+        .import_runtime_bundle(bundle.clone())
+        .expect("runtime bundle import should preserve lease metadata");
+
+    let report = target.export_operational_report();
+    assert_eq!(report.trainer_trigger_events_pending, 1);
+    assert_eq!(report.trainer_trigger_events_leased, 1);
+
+    let restored_bundle = target.export_runtime_bundle();
+    assert_eq!(restored_bundle.trainer_trigger_leased_event_ids, vec![111]);
+    assert_eq!(
+        restored_bundle.recompute_checksum(),
+        bundle.recompute_checksum()
+    );
 }
 
 #[test]

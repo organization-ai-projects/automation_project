@@ -21,4 +21,5 @@ pub struct RuntimeBundleComponents {
     pub model_registry: ModelRegistry,
     pub trainer_trigger_events: Vec<TrainerTriggerEvent>,
     pub trainer_trigger_dead_letter_events: Vec<TrainerTriggerEvent>,
+    pub trainer_trigger_leased_event_ids: Vec<u64>,
 }

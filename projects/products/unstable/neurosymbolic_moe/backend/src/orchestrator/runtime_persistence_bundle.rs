@@ -37,6 +37,8 @@ pub struct RuntimePersistenceBundle {
     pub trainer_trigger_events: Vec<TrainerTriggerEvent>,
     #[serde(default)]
     pub trainer_trigger_dead_letter_events: Vec<TrainerTriggerEvent>,
+    #[serde(default)]
+    pub trainer_trigger_leased_event_ids: Vec<u64>,
 }
 
 impl RuntimePersistenceBundle {
@@ -63,6 +65,7 @@ impl RuntimePersistenceBundle {
             model_registry: components.model_registry,
             trainer_trigger_events: components.trainer_trigger_events,
             trainer_trigger_dead_letter_events: components.trainer_trigger_dead_letter_events,
+            trainer_trigger_leased_event_ids: components.trainer_trigger_leased_event_ids,
         };
         bundle.runtime_checksum = bundle.recompute_checksum();
         bundle
@@ -96,12 +99,13 @@ impl RuntimePersistenceBundle {
             &self.model_registry,
             &self.trainer_trigger_events,
             &self.trainer_trigger_dead_letter_events,
+            &self.trainer_trigger_leased_event_ids,
         )
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn recompute_runtime_checksum_from_components<'a, 'b, 'c, S, L, T>(
+pub(crate) fn recompute_runtime_checksum_from_components<'a, 'b, 'c, S, L, T, U>(
     schema_version: u32,
     governance_state_schema_version: u32,
     governance_state_version: u64,
@@ -118,11 +122,13 @@ pub(crate) fn recompute_runtime_checksum_from_components<'a, 'b, 'c, S, L, T>(
     model_registry: &ModelRegistry,
     trainer_trigger_events: T,
     trainer_trigger_dead_letter_events: T,
+    trainer_trigger_leased_event_ids: U,
 ) -> String
 where
     S: IntoIterator<Item = &'a MemoryEntry>,
     L: IntoIterator<Item = &'b MemoryEntry>,
     T: IntoIterator<Item = &'c TrainerTriggerEvent>,
+    U: IntoIterator<Item = &'c u64>,
 {
     let short_fp = memory_entries_fingerprint(short_term_memory_entries);
     let long_fp = memory_entries_fingerprint(long_term_memory_entries);
@@ -142,9 +148,11 @@ where
     let trainer_events_fp = trainer_trigger_events_fingerprint(trainer_trigger_events);
     let trainer_dead_letter_events_fp =
         trainer_trigger_events_fingerprint(trainer_trigger_dead_letter_events);
+    let trainer_leased_ids_fp =
+        trainer_trigger_leased_event_ids_fingerprint(trainer_trigger_leased_event_ids);
 
     let material = format!(
-        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         schema_version,
         governance_fp,
         short_fp,
@@ -155,7 +163,8 @@ where
         auto_improvement_fp,
         model_registry_fp,
         trainer_events_fp,
-        trainer_dead_letter_events_fp
+        trainer_dead_letter_events_fp,
+        trainer_leased_ids_fp
     );
     format!("{:016x}", fnv1a64(material.as_bytes()))
 }
@@ -403,6 +412,19 @@ where
         ));
     }
     parts.join("::")
+}
+
+fn trainer_trigger_leased_event_ids_fingerprint<'a, I>(ids: I) -> String
+where
+    I: IntoIterator<Item = &'a u64>,
+{
+    let mut ordered_ids: Vec<u64> = ids.into_iter().copied().collect();
+    ordered_ids.sort_unstable();
+    ordered_ids
+        .iter()
+        .map(u64::to_string)
+        .collect::<Vec<_>>()
+        .join("::")
 }
 
 fn fnv1a64(bytes: &[u8]) -> u64 {

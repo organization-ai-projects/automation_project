@@ -23,11 +23,12 @@ impl TrainerTriggerQueueState {
         }
     }
 
-    pub fn with_queues(
+    pub fn with_runtime_state(
         max_events: usize,
         max_dead_letter_events: usize,
         events: Vec<TrainerTriggerEvent>,
         dead_letter_events: Vec<TrainerTriggerEvent>,
+        leased_event_ids: Vec<u64>,
     ) -> Self {
         let mut queue = Self::new(max_events, max_dead_letter_events);
         for event in events {
@@ -35,6 +36,9 @@ impl TrainerTriggerQueueState {
         }
         for event in dead_letter_events {
             queue.push_dead_letter(event);
+        }
+        for leased_event_id in leased_event_ids {
+            queue.leased_event_ids.insert(leased_event_id);
         }
         queue
     }
@@ -65,6 +69,12 @@ impl TrainerTriggerQueueState {
 
     pub fn leased_count(&self) -> usize {
         self.leased_event_ids.len()
+    }
+
+    pub fn leased_event_ids_sorted(&self) -> Vec<u64> {
+        let mut ids: Vec<u64> = self.leased_event_ids.iter().copied().collect();
+        ids.sort_unstable();
+        ids
     }
 
     pub fn max_delivery_attempts(&self) -> u32 {

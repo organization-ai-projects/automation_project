@@ -282,6 +282,7 @@ impl MoePipeline {
             &self.training_runtime_state.model_registry,
             self.trainer_trigger_queue.events().iter(),
             self.trainer_trigger_queue.dead_letter_events().iter(),
+            self.trainer_trigger_queue.leased_event_ids_sorted().iter(),
         )
     }
 
