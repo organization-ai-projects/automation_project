@@ -35,6 +35,8 @@ pub struct RuntimePersistenceBundle {
     pub model_registry: ModelRegistry,
     #[serde(default)]
     pub trainer_trigger_events: Vec<TrainerTriggerEvent>,
+    #[serde(default)]
+    pub trainer_trigger_dead_letter_events: Vec<TrainerTriggerEvent>,
 }
 
 impl RuntimePersistenceBundle {
@@ -60,6 +62,7 @@ impl RuntimePersistenceBundle {
             auto_improvement_status: components.auto_improvement_status,
             model_registry: components.model_registry,
             trainer_trigger_events: components.trainer_trigger_events,
+            trainer_trigger_dead_letter_events: components.trainer_trigger_dead_letter_events,
         };
         bundle.runtime_checksum = bundle.recompute_checksum();
         bundle
@@ -92,6 +95,7 @@ impl RuntimePersistenceBundle {
             &self.auto_improvement_status,
             &self.model_registry,
             &self.trainer_trigger_events,
+            &self.trainer_trigger_dead_letter_events,
         )
     }
 }
@@ -113,6 +117,7 @@ pub(crate) fn recompute_runtime_checksum_from_components<'a, 'b, 'c, S, L, T>(
     auto_improvement_status: &AutoImprovementStatus,
     model_registry: &ModelRegistry,
     trainer_trigger_events: T,
+    trainer_trigger_dead_letter_events: T,
 ) -> String
 where
     S: IntoIterator<Item = &'a MemoryEntry>,
@@ -135,9 +140,11 @@ where
         auto_improvement_fingerprint(auto_improvement_policy, auto_improvement_status);
     let model_registry_fp = model_registry_fingerprint(model_registry);
     let trainer_events_fp = trainer_trigger_events_fingerprint(trainer_trigger_events);
+    let trainer_dead_letter_events_fp =
+        trainer_trigger_events_fingerprint(trainer_trigger_dead_letter_events);
 
     let material = format!(
-        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         schema_version,
         governance_fp,
         short_fp,
@@ -147,7 +154,8 @@ where
         dataset_fp,
         auto_improvement_fp,
         model_registry_fp,
-        trainer_events_fp
+        trainer_events_fp,
+        trainer_dead_letter_events_fp
     );
     format!("{:016x}", fnv1a64(material.as_bytes()))
 }

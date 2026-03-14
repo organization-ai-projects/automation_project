@@ -21,6 +21,7 @@ fn runtime_bundle_components_is_constructible() {
         auto_improvement_status: AutoImprovementStatus::default(),
         model_registry: ModelRegistry::default(),
         trainer_trigger_events: Vec::new(),
+        trainer_trigger_dead_letter_events: Vec::new(),
     };
     assert_eq!(components.short_term_memory_entries.len(), 0);
     assert_eq!(components.long_term_memory_entries.len(), 0);

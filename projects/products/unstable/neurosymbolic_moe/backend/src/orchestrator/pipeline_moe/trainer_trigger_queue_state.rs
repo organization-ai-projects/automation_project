@@ -23,14 +23,18 @@ impl TrainerTriggerQueueState {
         }
     }
 
-    pub fn with_events(
+    pub fn with_queues(
         max_events: usize,
         max_dead_letter_events: usize,
         events: Vec<TrainerTriggerEvent>,
+        dead_letter_events: Vec<TrainerTriggerEvent>,
     ) -> Self {
         let mut queue = Self::new(max_events, max_dead_letter_events);
         for event in events {
             queue.push(event);
+        }
+        for event in dead_letter_events {
+            queue.push_dead_letter(event);
         }
         queue
     }
@@ -255,6 +259,15 @@ impl TrainerTriggerQueueState {
             if ids.contains(&event.event_id) {
                 return Err(MoeError::PolicyRejected(format!(
                     "trainer trigger queue invariant failed: event_id {} appears in both pending and dead-letter queues",
+                    event.event_id
+                )));
+            }
+        }
+        let mut dead_letter_ids = HashSet::new();
+        for event in &self.dead_letter_events {
+            if !dead_letter_ids.insert(event.event_id) {
+                return Err(MoeError::PolicyRejected(format!(
+                    "trainer trigger queue invariant failed: duplicate dead-letter event_id {}",
                     event.event_id
                 )));
             }

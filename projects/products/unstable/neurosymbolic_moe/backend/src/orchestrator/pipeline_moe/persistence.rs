@@ -94,6 +94,12 @@ impl MoePipeline {
                 .iter()
                 .cloned()
                 .collect(),
+            trainer_trigger_dead_letter_events: self
+                .trainer_trigger_queue
+                .dead_letter_events()
+                .iter()
+                .cloned()
+                .collect(),
         })
     }
 
@@ -326,6 +332,7 @@ impl MoePipeline {
         let auto_improvement_status = bundle.auto_improvement_status;
         let model_registry = bundle.model_registry;
         let trainer_trigger_events = bundle.trainer_trigger_events;
+        let trainer_trigger_dead_letter_events = bundle.trainer_trigger_dead_letter_events;
 
         if let Err(err) = (|| -> Result<(), MoeError> {
             self.import_governance_bundle(governance)?;
@@ -340,10 +347,11 @@ impl MoePipeline {
             self.training_runtime_state.auto_improvement_policy = auto_improvement_policy;
             self.training_runtime_state.auto_improvement_status = auto_improvement_status;
             self.training_runtime_state.model_registry = model_registry;
-            self.trainer_trigger_queue = super::TrainerTriggerQueueState::with_events(
+            self.trainer_trigger_queue = super::TrainerTriggerQueueState::with_queues(
                 self.trainer_trigger_queue.max_events(),
                 self.trainer_trigger_queue.max_dead_letter_events(),
                 trainer_trigger_events,
+                trainer_trigger_dead_letter_events,
             );
             Ok(())
         })() {

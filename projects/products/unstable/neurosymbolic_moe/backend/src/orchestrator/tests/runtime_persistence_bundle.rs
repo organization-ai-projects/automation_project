@@ -3,7 +3,7 @@ use crate::memory_engine::{MemoryEntry, MemoryType};
 use crate::moe_core::MoeError;
 use crate::orchestrator::{
     GovernanceImportPolicy, GovernancePersistenceBundle, MoePipelineBuilder,
-    RuntimePersistenceBundle,
+    RuntimePersistenceBundle, TrainerTriggerEvent,
 };
 use crate::{buffer_manager::BufferManager, memory_engine::MemoryEntry as RuntimeMemoryEntry};
 use serde::Serialize;
@@ -121,6 +121,43 @@ fn runtime_bundle_roundtrip_restores_state_memory_and_buffers() {
             .sessions()
             .values("session-incident-42")
     );
+}
+
+#[test]
+fn runtime_bundle_roundtrip_restores_trainer_trigger_dead_letters() {
+    let mut source = MoePipelineBuilder::new().build();
+    source.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 99,
+        model_version: 3,
+        training_bundle_checksum: "bundle-dead-letter-99".to_string(),
+        included_entries: 120,
+        train_samples: 96,
+        validation_samples: 24,
+        generated_at: 42,
+        delivery_attempts: 8,
+        last_attempted_at: Some(7),
+    });
+    assert!(
+        source
+            .lease_next_trainer_trigger_event_with_policy(100)
+            .is_none()
+    );
+    assert_eq!(source.trainer_trigger_events_pending(), 0);
+    assert_eq!(source.trainer_trigger_dead_letter_events_total(), 1);
+
+    let bundle = source.export_runtime_bundle();
+    assert_eq!(bundle.trainer_trigger_events.len(), 0);
+    assert_eq!(bundle.trainer_trigger_dead_letter_events.len(), 1);
+
+    let mut target = MoePipelineBuilder::new().build();
+    target
+        .import_runtime_bundle(bundle.clone())
+        .expect("runtime bundle import should succeed");
+
+    let restored = target.export_runtime_bundle();
+    assert_eq!(restored.trainer_trigger_events.len(), 0);
+    assert_eq!(restored.trainer_trigger_dead_letter_events.len(), 1);
+    assert_eq!(restored.recompute_checksum(), bundle.recompute_checksum());
 }
 
 #[test]

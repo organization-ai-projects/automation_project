@@ -20,4 +20,5 @@ pub struct RuntimeBundleComponents {
     pub auto_improvement_status: AutoImprovementStatus,
     pub model_registry: ModelRegistry,
     pub trainer_trigger_events: Vec<TrainerTriggerEvent>,
+    pub trainer_trigger_dead_letter_events: Vec<TrainerTriggerEvent>,
 }
