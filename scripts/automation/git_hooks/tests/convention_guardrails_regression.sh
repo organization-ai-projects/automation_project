@@ -266,6 +266,49 @@ if [[ "${1:-}" == "automation" && "${2:-}" == "pre-push-check" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "automation" && "${2:-}" == "pre-commit-check" ]]; then
+  if [[ "${SKIP_PRE_COMMIT:-}" == "1" ]]; then
+    echo "⚠️  Pre-commit checks skipped (SKIP_PRE_COMMIT=1)"
+    exit 0
+  fi
+
+  echo "📝 Running pre-commit checks..."
+  echo ""
+
+  staged_files="$(git diff --cached --name-only --diff-filter=ACMRU 2>/dev/null || true)"
+
+  markdown_files="$(printf '%s\n' "$staged_files" | grep -E '\.md$' || true)"
+  if [[ -n "$markdown_files" ]]; then
+    echo "📝 Auto-fixing markdown files..."
+    if [[ "${MOCK_MARKDOWNLINT_FAIL:-0}" == "1" ]]; then
+      echo ""
+      echo "❌ Markdown lint failed on staged markdown files."
+      exit 1
+    fi
+  else
+    echo "📝 Skipping markdown lint (no staged markdown files)"
+  fi
+
+  echo "🔎 Checking shell syntax..."
+  while IFS= read -r staged_file; do
+    [[ -z "$staged_file" ]] && continue
+    if [[ "$staged_file" == *.sh ]] && ! bash -n "$staged_file"; then
+      echo "❌ Shell syntax checks failed!"
+      exit 1
+    fi
+  done <<<"$staged_files"
+
+  if printf '%s\n' "$staged_files" | grep -qE '\.rs$'; then
+    echo "✨ Formatting code..."
+  else
+    echo "✨ Skipping Rust formatting (no staged Rust files)"
+  fi
+
+  echo "✅ Pre-commit checks passed"
+  echo ""
+  exit 0
+fi
+
 if [[ "${1:-}" == "automation" && "${2:-}" == "post-checkout-check" ]]; then
   commits="$(git log origin/dev..HEAD --format=%B 2>/dev/null || true)"
   [[ -z "$commits" ]] && exit 0
