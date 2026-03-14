@@ -1,8 +1,10 @@
+use crate::dataset_engine::{DatasetEntry, Outcome};
 use crate::memory_engine::{MemoryEntry, MemoryType};
+use crate::moe_core::{ExpertId, TaskId};
 use crate::orchestrator::{ConcurrentMoePipeline, MoePipelineBuilder, TrainerTriggerEvent};
+use common_time::current_timestamp_ms;
 use std::collections::HashMap;
 use std::thread;
-use std::time::Instant;
 
 fn perf_gate_enabled() -> bool {
     std::env::var("MOE_PERF_BUDGETS").is_ok_and(|value| value == "1")
@@ -49,13 +51,13 @@ fn perf_budget_runtime_bundle_roundtrip_import() {
     let bundle = source.export_runtime_bundle();
     let mut target = MoePipelineBuilder::new().build();
 
-    let started = Instant::now();
+    let started_ms = current_timestamp_ms();
     for _ in 0..iterations {
         target
             .import_runtime_bundle(bundle.clone())
             .expect("runtime bundle import should succeed");
     }
-    let elapsed_ms = started.elapsed().as_millis();
+    let elapsed_ms = current_timestamp_ms().saturating_sub(started_ms) as u128;
 
     assert!(
         elapsed_ms <= budget_ms,
@@ -89,7 +91,7 @@ fn perf_budget_trainer_trigger_lease_ack_cycle() {
         });
     }
 
-    let started = Instant::now();
+    let started_ms = current_timestamp_ms();
     for tick in 0..events {
         let leased = pipeline
             .lease_next_trainer_trigger_event(tick as u64, 0)
@@ -99,7 +101,7 @@ fn perf_budget_trainer_trigger_lease_ack_cycle() {
             "leased event should be acknowledged"
         );
     }
-    let elapsed_ms = started.elapsed().as_millis();
+    let elapsed_ms = current_timestamp_ms().saturating_sub(started_ms) as u128;
 
     assert_eq!(pipeline.trainer_trigger_events_pending(), 0);
     assert!(
@@ -119,7 +121,7 @@ fn perf_budget_concurrent_runtime_soak() {
     let budget_ms = env_u128("MOE_PERF_SOAK_BUDGET_MS", 4_000);
 
     let pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
-    let started = Instant::now();
+    let started_ms = current_timestamp_ms();
 
     let mut handles = Vec::new();
     for worker in 0..workers {
@@ -147,7 +149,7 @@ fn perf_budget_concurrent_runtime_soak() {
         handle.join().expect("worker thread should not panic");
     }
 
-    let elapsed_ms = started.elapsed().as_millis();
+    let elapsed_ms = current_timestamp_ms().saturating_sub(started_ms) as u128;
     let snapshot = pipeline.metrics_snapshot();
     assert!(
         snapshot.total_lock_acquisitions() > 0,
@@ -156,5 +158,88 @@ fn perf_budget_concurrent_runtime_soak() {
     assert!(
         elapsed_ms <= budget_ms,
         "concurrent soak perf budget exceeded: {elapsed_ms}ms > {budget_ms}ms (workers={workers}, ops={ops_per_worker})"
+    );
+}
+
+#[test]
+fn perf_budget_runtime_checksum_recompute() {
+    if !perf_gate_enabled() {
+        return;
+    }
+
+    let entries = env_usize("MOE_PERF_CHECKSUM_ENTRIES", 2_000);
+    let iterations = env_usize("MOE_PERF_CHECKSUM_ITERS", 100);
+    let budget_ms = env_u128("MOE_PERF_CHECKSUM_BUDGET_MS", 2_000);
+
+    let mut pipeline = MoePipelineBuilder::new()
+        .with_max_trainer_trigger_events(entries)
+        .build();
+
+    for idx in 0..entries {
+        pipeline
+            .remember_short_term(MemoryEntry {
+                id: format!("perf-checksum-short-{idx}"),
+                content: "checksum".to_string(),
+                tags: vec!["perf".to_string()],
+                created_at: idx as u64,
+                expires_at: None,
+                memory_type: MemoryType::Short,
+                relevance: 0.7,
+                metadata: HashMap::new(),
+            })
+            .expect("short-term insert should succeed");
+
+        pipeline
+            .remember_long_term(MemoryEntry {
+                id: format!("perf-checksum-long-{idx}"),
+                content: "checksum".to_string(),
+                tags: vec!["perf".to_string()],
+                created_at: idx as u64,
+                expires_at: None,
+                memory_type: MemoryType::Long,
+                relevance: 0.6,
+                metadata: HashMap::new(),
+            })
+            .expect("long-term insert should succeed");
+
+        pipeline
+            .training_runtime_state
+            .dataset_store
+            .upsert_entry(DatasetEntry {
+                id: format!("perf-checksum-dataset-{idx}"),
+                task_id: TaskId::new(format!("t-{idx}")),
+                expert_id: ExpertId::new("perf-expert"),
+                input: "in".to_string(),
+                output: "out".to_string(),
+                outcome: Outcome::Success,
+                score: Some(0.9),
+                tags: vec!["perf".to_string()],
+                created_at: idx as u64,
+                metadata: HashMap::new(),
+            });
+
+        pipeline.trainer_trigger_queue.push(TrainerTriggerEvent {
+            event_id: idx as u64,
+            model_version: 1,
+            training_bundle_checksum: format!("perf-checksum-bundle-{idx}"),
+            included_entries: 10,
+            train_samples: 8,
+            validation_samples: 2,
+            generated_at: idx as u64,
+            delivery_attempts: 0,
+            last_attempted_at: None,
+        });
+    }
+
+    let started_ms = current_timestamp_ms();
+    for _ in 0..iterations {
+        let checksum = pipeline.runtime_bundle_checksum();
+        assert!(!checksum.is_empty(), "checksum must not be empty");
+    }
+    let elapsed_ms = current_timestamp_ms().saturating_sub(started_ms) as u128;
+
+    assert!(
+        elapsed_ms <= budget_ms,
+        "runtime checksum perf budget exceeded: {elapsed_ms}ms > {budget_ms}ms (entries={entries}, iterations={iterations})"
     );
 }

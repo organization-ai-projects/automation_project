@@ -3,8 +3,9 @@ use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{Correction, DatasetEntry};
 use crate::memory_engine::MemoryEntry;
 use crate::orchestrator::{
-    AutoImprovementPolicy, AutoImprovementStatus, GovernancePersistenceBundle, ModelRegistry,
-    RuntimeBundleComponents, TrainerTriggerEvent,
+    AutoImprovementPolicy, AutoImprovementStatus, GovernanceAuditEntry,
+    GovernancePersistenceBundle, GovernanceStateSnapshot, ModelRegistry, RuntimeBundleComponents,
+    TrainerTriggerEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -75,38 +76,87 @@ impl RuntimePersistenceBundle {
     }
 
     pub fn recompute_checksum(&self) -> String {
-        let short_fp = memory_entries_fingerprint(&self.short_term_memory_entries);
-        let long_fp = memory_entries_fingerprint(&self.long_term_memory_entries);
-        let working_fp = working_buffer_fingerprint(&self.buffer_manager);
-        let sessions_fp = session_buffer_fingerprint(&self.buffer_manager);
-        let governance_fp = governance_fingerprint(&self.governance);
-        let dataset_fp = dataset_fingerprint(&self.dataset_entries, &self.dataset_corrections);
-        let auto_improvement_fp = auto_improvement_fingerprint(
+        recompute_runtime_checksum_from_components(
+            self.schema_version,
+            self.governance.state.schema_version,
+            self.governance.state.state_version,
+            &self.governance.state.state_checksum,
+            &self.governance.audit_entries,
+            &self.governance.snapshots,
+            &self.short_term_memory_entries,
+            &self.long_term_memory_entries,
+            &self.buffer_manager,
+            &self.dataset_entries,
+            &self.dataset_corrections,
             self.auto_improvement_policy.as_ref(),
             &self.auto_improvement_status,
-        );
-        let model_registry_fp = model_registry_fingerprint(&self.model_registry);
-        let trainer_events_fp = trainer_trigger_events_fingerprint(&self.trainer_trigger_events);
-
-        let material = format!(
-            "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
-            self.schema_version,
-            governance_fp,
-            short_fp,
-            long_fp,
-            working_fp,
-            sessions_fp,
-            dataset_fp,
-            auto_improvement_fp,
-            model_registry_fp,
-            trainer_events_fp
-        );
-        format!("{:016x}", fnv1a64(material.as_bytes()))
+            &self.model_registry,
+            &self.trainer_trigger_events,
+        )
     }
 }
 
-fn memory_entries_fingerprint(entries: &[MemoryEntry]) -> String {
-    let mut ordered_entries: Vec<&MemoryEntry> = entries.iter().collect();
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn recompute_runtime_checksum_from_components<'a, 'b, 'c, S, L, T>(
+    schema_version: u32,
+    governance_state_schema_version: u32,
+    governance_state_version: u64,
+    governance_state_checksum: &str,
+    governance_audit_entries: &[GovernanceAuditEntry],
+    governance_snapshots: &[GovernanceStateSnapshot],
+    short_term_memory_entries: S,
+    long_term_memory_entries: L,
+    buffer_manager: &BufferManager,
+    dataset_entries: &[DatasetEntry],
+    dataset_corrections: &HashMap<String, Vec<Correction>>,
+    auto_improvement_policy: Option<&AutoImprovementPolicy>,
+    auto_improvement_status: &AutoImprovementStatus,
+    model_registry: &ModelRegistry,
+    trainer_trigger_events: T,
+) -> String
+where
+    S: IntoIterator<Item = &'a MemoryEntry>,
+    L: IntoIterator<Item = &'b MemoryEntry>,
+    T: IntoIterator<Item = &'c TrainerTriggerEvent>,
+{
+    let short_fp = memory_entries_fingerprint(short_term_memory_entries);
+    let long_fp = memory_entries_fingerprint(long_term_memory_entries);
+    let working_fp = working_buffer_fingerprint(buffer_manager);
+    let sessions_fp = session_buffer_fingerprint(buffer_manager);
+    let governance_fp = governance_fingerprint(
+        governance_state_schema_version,
+        governance_state_version,
+        governance_state_checksum,
+        governance_audit_entries,
+        governance_snapshots,
+    );
+    let dataset_fp = dataset_fingerprint(dataset_entries, dataset_corrections);
+    let auto_improvement_fp =
+        auto_improvement_fingerprint(auto_improvement_policy, auto_improvement_status);
+    let model_registry_fp = model_registry_fingerprint(model_registry);
+    let trainer_events_fp = trainer_trigger_events_fingerprint(trainer_trigger_events);
+
+    let material = format!(
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        schema_version,
+        governance_fp,
+        short_fp,
+        long_fp,
+        working_fp,
+        sessions_fp,
+        dataset_fp,
+        auto_improvement_fp,
+        model_registry_fp,
+        trainer_events_fp
+    );
+    format!("{:016x}", fnv1a64(material.as_bytes()))
+}
+
+fn memory_entries_fingerprint<'a, I>(entries: I) -> String
+where
+    I: IntoIterator<Item = &'a MemoryEntry>,
+{
+    let mut ordered_entries: Vec<&MemoryEntry> = entries.into_iter().collect();
     ordered_entries.sort_by(|a, b| {
         a.id.cmp(&b.id)
             .then(a.content.cmp(&b.content))
@@ -183,16 +233,20 @@ fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
     fingerprint
 }
 
-fn governance_fingerprint(governance: &GovernancePersistenceBundle) -> String {
+fn governance_fingerprint(
+    state_schema_version: u32,
+    state_version: u64,
+    state_checksum: &str,
+    audit_entries: &[GovernanceAuditEntry],
+    snapshots: &[GovernanceStateSnapshot],
+) -> String {
     let mut fingerprint = String::new();
     if let Ok(()) = write!(
         fingerprint,
         "{}:{}:{}:",
-        governance.state.schema_version,
-        governance.state.state_version,
-        governance.state.state_checksum
+        state_schema_version, state_version, state_checksum
     ) {}
-    for (idx, entry) in governance.audit_entries.iter().enumerate() {
+    for (idx, entry) in audit_entries.iter().enumerate() {
         if idx > 0 {
             fingerprint.push('|');
         }
@@ -203,7 +257,7 @@ fn governance_fingerprint(governance: &GovernancePersistenceBundle) -> String {
         ) {}
     }
     fingerprint.push_str("::");
-    for (idx, snapshot) in governance.snapshots.iter().enumerate() {
+    for (idx, snapshot) in snapshots.iter().enumerate() {
         if idx > 0 {
             fingerprint.push('|');
         }
@@ -318,7 +372,10 @@ fn model_registry_fingerprint(registry: &ModelRegistry) -> String {
     parts.join("::")
 }
 
-fn trainer_trigger_events_fingerprint(events: &[TrainerTriggerEvent]) -> String {
+fn trainer_trigger_events_fingerprint<'a, I>(events: I) -> String
+where
+    I: IntoIterator<Item = &'a TrainerTriggerEvent>,
+{
     let mut parts = Vec::new();
     for event in events {
         parts.push(format!(

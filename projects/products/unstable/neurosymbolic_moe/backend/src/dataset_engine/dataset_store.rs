@@ -80,8 +80,16 @@ impl DatasetStore {
         self.entries.clone()
     }
 
+    pub fn entries(&self) -> &[DatasetEntry] {
+        &self.entries
+    }
+
     pub fn corrections_cloned(&self) -> HashMap<String, Vec<Correction>> {
         self.corrections.clone()
+    }
+
+    pub fn corrections(&self) -> &HashMap<String, Vec<Correction>> {
+        &self.corrections
     }
 
     pub fn replace_all(

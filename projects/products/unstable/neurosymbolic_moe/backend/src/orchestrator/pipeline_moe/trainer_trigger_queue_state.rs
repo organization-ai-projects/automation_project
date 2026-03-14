@@ -39,6 +39,26 @@ impl TrainerTriggerQueueState {
         &self.events
     }
 
+    pub fn leased_count(&self) -> usize {
+        self.leased_event_ids.len()
+    }
+
+    pub fn max_delivery_attempts(&self) -> u32 {
+        self.events
+            .iter()
+            .map(|event| event.delivery_attempts)
+            .max()
+            .unwrap_or(0)
+    }
+
+    pub fn oldest_generated_at(&self) -> Option<u64> {
+        self.events.iter().map(|event| event.generated_at).min()
+    }
+
+    pub fn newest_generated_at(&self) -> Option<u64> {
+        self.events.iter().map(|event| event.generated_at).max()
+    }
+
     pub fn pop_next(&mut self) -> Option<TrainerTriggerEvent> {
         let event = self.events.pop_front()?;
         self.leased_event_ids.remove(&event.event_id);
@@ -72,6 +92,9 @@ impl TrainerTriggerQueueState {
     }
 
     pub fn acknowledge(&mut self, event_id: u64) -> bool {
+        if !self.leased_event_ids.contains(&event_id) {
+            return false;
+        }
         if let Some(idx) = self
             .events
             .iter()
@@ -86,6 +109,9 @@ impl TrainerTriggerQueueState {
     }
 
     pub fn mark_delivery_failed(&mut self, event_id: u64, failed_at_epoch_seconds: u64) -> bool {
+        if !self.leased_event_ids.contains(&event_id) {
+            return false;
+        }
         if let Some(event) = self
             .events
             .iter_mut()

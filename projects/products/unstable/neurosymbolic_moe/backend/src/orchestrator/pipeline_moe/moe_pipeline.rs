@@ -2,20 +2,20 @@
 use crate::aggregator::OutputAggregator;
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{
-    DatasetStore, DatasetTrainingBuildOptions, DatasetTrainingBundle, DatasetTrainingProvenance,
-    DatasetTrainingShard,
+    self, DatasetStore, DatasetTrainingBuildOptions, DatasetTrainingBundle,
+    DatasetTrainingProvenance, DatasetTrainingShard,
 };
 use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
 use crate::feedback_engine::{FeedbackEntry, FeedbackStore};
 use crate::memory_engine::{LongTermMemory, MemoryEntry, MemoryStore, ShortTermMemory};
-use crate::moe_core::{Expert, MoeError};
-use crate::orchestrator::ContinuousImprovementReport;
+use crate::moe_core::{self, Expert, MoeError};
 use crate::orchestrator::import_journal::ImportJournal;
 use crate::orchestrator::{
     ArbitrationMode, AutoImprovementStatus, GovernanceState, ImportTelemetry, ModelRegistry,
-    TrainerTriggerEvent,
+    TrainerTriggerEvent, runtime_persistence_bundle,
 };
+use crate::orchestrator::{ContinuousImprovementReport, RuntimePersistenceBundle};
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::retrieval_engine::{ContextAssembler, Retriever};
 use crate::router::Router;
@@ -262,15 +262,48 @@ impl MoePipeline {
         self.parse_training_dataset_shards_json(payload)
     }
 
+    pub(crate) fn runtime_bundle_checksum(&self) -> String {
+        runtime_persistence_bundle::recompute_runtime_checksum_from_components(
+            RuntimePersistenceBundle::schema_version(),
+            GovernanceState::schema_version(),
+            self.governance_runtime_state.governance_state_version,
+            &self.governance_state_checksum(),
+            &self.governance_runtime_state.governance_audit_entries,
+            &self.governance_runtime_state.governance_state_snapshots,
+            self.short_term_memory.entries(),
+            self.long_term_memory.entries(),
+            &self.buffer_manager,
+            self.training_runtime_state.dataset_store.entries(),
+            self.training_runtime_state.dataset_store.corrections(),
+            self.training_runtime_state.auto_improvement_policy.as_ref(),
+            &self.training_runtime_state.auto_improvement_status,
+            &self.training_runtime_state.model_registry,
+            self.trainer_trigger_queue.events().iter(),
+        )
+    }
+
+    fn governance_state_checksum(&self) -> String {
+        GovernanceState::recompute_checksum_from_components(
+            GovernanceState::schema_version(),
+            self.governance_runtime_state.governance_state_version,
+            self.governance_runtime_state
+                .continuous_governance_policy
+                .as_ref(),
+            self.governance_runtime_state.evaluation_baseline.as_ref(),
+            self.governance_runtime_state
+                .last_continuous_improvement_report
+                .as_ref(),
+        )
+    }
+
     pub(in crate::orchestrator::pipeline_moe) fn dataset_provenance(
         &self,
     ) -> DatasetTrainingProvenance {
-        let runtime_bundle = self.export_runtime_bundle();
         DatasetTrainingProvenance {
             generator: "neurosymbolic_moe_backend.orchestrator".to_string(),
-            governance_state_version: runtime_bundle.governance.state.state_version,
-            governance_state_checksum: runtime_bundle.governance.state.state_checksum.clone(),
-            runtime_bundle_checksum: runtime_bundle.runtime_checksum,
+            governance_state_version: self.governance_runtime_state.governance_state_version,
+            governance_state_checksum: self.governance_state_checksum(),
+            runtime_bundle_checksum: self.runtime_bundle_checksum(),
             dataset_entry_count: self.training_runtime_state.dataset_store.count(),
         }
     }
@@ -382,14 +415,15 @@ impl MoePipeline {
             let id = format!("bootstrap:{}", sample.entry_id);
             let was_existing = self.training_runtime_state.dataset_store.has_entry_id(&id);
 
-            self.training_runtime_state.dataset_store.upsert_entry(
-                crate::dataset_engine::DatasetEntry {
+            self.training_runtime_state
+                .dataset_store
+                .upsert_entry(dataset_engine::DatasetEntry {
                     id,
-                    task_id: crate::moe_core::TaskId::new(&sample.task_id),
-                    expert_id: crate::moe_core::ExpertId::new(&sample.expert_id),
+                    task_id: moe_core::TaskId::new(&sample.task_id),
+                    expert_id: moe_core::ExpertId::new(&sample.expert_id),
                     input: sample.input.clone(),
                     output: sample.target_output.clone(),
-                    outcome: crate::dataset_engine::Outcome::Success,
+                    outcome: dataset_engine::Outcome::Success,
                     score: sample.score,
                     tags: {
                         let mut tags = sample.tags.clone();
@@ -400,8 +434,7 @@ impl MoePipeline {
                     },
                     created_at: candidate.generated_at,
                     metadata: sample.metadata.clone(),
-                },
-            );
+                });
             if !was_existing {
                 seeded += 1;
             }

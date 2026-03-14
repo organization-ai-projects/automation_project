@@ -11,3 +11,4 @@ tracing-subscriber = { workspace = true }
 common_json = { workspace = true }
 
 [dev-dependencies]
+common_time = { workspace = true }

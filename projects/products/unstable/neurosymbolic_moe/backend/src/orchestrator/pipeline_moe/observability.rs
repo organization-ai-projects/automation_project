@@ -6,7 +6,6 @@ use crate::orchestrator::{MoePipeline, OperationalReport};
 impl MoePipeline {
     pub fn export_operational_report(&self) -> OperationalReport {
         let audit_trail = self.governance_audit_trail();
-        let runtime_bundle = self.export_runtime_bundle();
         let model_registry = self.model_registry();
         let sessions = self.buffer_manager.sessions().list_sessions();
         let session_buffer_values = sessions
@@ -22,7 +21,7 @@ impl MoePipeline {
                 .governance_runtime_state
                 .governance_state_snapshots
                 .len(),
-            runtime_bundle_checksum: runtime_bundle.runtime_checksum,
+            runtime_bundle_checksum: self.runtime_bundle_checksum(),
             short_term_memory_entries: self.short_term_memory.count(),
             long_term_memory_entries: self.long_term_memory.count(),
             working_buffer_entries: self.buffer_manager.working().count(),
@@ -68,6 +67,16 @@ impl MoePipeline {
             model_registry_active_version: model_registry.active_version.unwrap_or(0),
             model_registry_latest_version: model_registry.latest_version().unwrap_or(0),
             trainer_trigger_events_pending: self.trainer_trigger_events_pending(),
+            trainer_trigger_events_leased: self.trainer_trigger_queue.leased_count(),
+            trainer_trigger_max_delivery_attempts_pending: self
+                .trainer_trigger_queue
+                .max_delivery_attempts(),
+            trainer_trigger_oldest_generated_at_pending: self
+                .trainer_trigger_queue
+                .oldest_generated_at(),
+            trainer_trigger_newest_generated_at_pending: self
+                .trainer_trigger_queue
+                .newest_generated_at(),
             trainer_trigger_delivery_attempts_total: self
                 .auto_improvement_status()
                 .trainer_trigger_delivery_attempts_total,

@@ -72,6 +72,7 @@ pub fn run() -> Result<(), DynError> {
         "run" => cmd_run(&args[2..]),
         "status" => cmd_status(),
         "trace" => cmd_trace(&args[2..]),
+        "trainer-events" => cmd_trainer_events(&args[2..]),
         "impl-check" => cmd_impl_check(),
         "slo-gate" => cmd_slo_gate(&args[2..]),
         "metrics" => cmd_metrics(),
@@ -174,11 +175,99 @@ fn cmd_trace(args: &[String]) -> Result<(), DynError> {
     Ok(())
 }
 
+fn cmd_trainer_events(args: &[String]) -> Result<(), DynError> {
+    let mut pipeline = build_cli_pipeline();
+    register_default_cli_experts(&mut pipeline)?;
+    add_default_cli_policy(&mut pipeline);
+
+    let command = args.first().map(String::as_str).unwrap_or("pending");
+    match command {
+        "pending" => {
+            let pending = pipeline.trainer_trigger_events_pending();
+            let listed = pipeline.trainer_trigger_events().len();
+            tracing::info!("trainer events pending={pending} listed={listed}");
+        }
+        "list" => {
+            tracing::info!(
+                "trainer events list (count={})",
+                pipeline.trainer_trigger_events().len()
+            );
+            for event in pipeline.trainer_trigger_events() {
+                tracing::info!(
+                    "event_id={} attempts={} last_attempted_at={:?}",
+                    event.event_id,
+                    event.delivery_attempts,
+                    event.last_attempted_at
+                );
+            }
+        }
+        "pop" => {
+            let popped = pipeline.pop_next_trainer_trigger_event();
+            tracing::info!("pop result: {}", popped.is_some());
+        }
+        "lease" => {
+            let now_epoch_seconds = parse_u64_arg(args, 1, "now_epoch_seconds", 0)?;
+            let min_retry_delay_seconds = parse_u64_arg(args, 2, "min_retry_delay_seconds", 0)?;
+            let leased = pipeline
+                .lease_next_trainer_trigger_event(now_epoch_seconds, min_retry_delay_seconds);
+            tracing::info!("lease result: {}", leased.is_some());
+        }
+        "ack" => {
+            let event_id = parse_u64_arg(args, 1, "event_id", 0)?;
+            let acknowledged = pipeline.acknowledge_trainer_trigger_event(event_id);
+            tracing::info!("ack result: {acknowledged}");
+        }
+        "fail" => {
+            let event_id = parse_u64_arg(args, 1, "event_id", 0)?;
+            let failed_at_epoch_seconds =
+                parse_u64_arg(args, 2, "failed_at_epoch_seconds", event_id)?;
+            let marked = pipeline
+                .mark_trainer_trigger_event_delivery_failed(event_id, failed_at_epoch_seconds);
+            tracing::info!("mark-failed result: {marked}");
+        }
+        "drain" => {
+            let max_events = parse_usize_arg(args, 1, "max_events", 1)?;
+            let drained = pipeline.drain_trainer_trigger_events(max_events);
+            tracing::info!("drain result: {}", drained.len());
+        }
+        other => {
+            return Err(
+                std::io::Error::other(format!("unknown trainer-events command: {other}")).into(),
+            );
+        }
+    }
+
+    Ok(())
+}
+
 fn cli_input_or_default(args: &[String]) -> String {
     if args.is_empty() {
         "default task input".to_string()
     } else {
         args.join(" ")
+    }
+}
+
+fn parse_u64_arg(args: &[String], idx: usize, name: &str, default: u64) -> Result<u64, DynError> {
+    if let Some(raw) = args.get(idx) {
+        raw.parse::<u64>()
+            .map_err(|err| std::io::Error::other(format!("invalid {name}: {err}")).into())
+    } else {
+        Ok(default)
+    }
+}
+
+fn parse_usize_arg(
+    args: &[String],
+    idx: usize,
+    name: &str,
+    default: usize,
+) -> Result<usize, DynError> {
+    if let Some(raw) = args.get(idx) {
+        raw.parse::<usize>()
+            .map_err(|err| std::io::Error::other(format!("invalid {name}: {err}")).into())
+    } else {
+        Ok(default)
     }
 }
 
@@ -309,6 +398,7 @@ fn print_usage() {
     );
     tracing::info!("  status             Show platform component status");
     tracing::info!("  trace [path]       Inspect execution traces");
+    tracing::info!("  trainer-events [pending|list|pop|lease|ack|fail|drain] [args...]");
     tracing::info!("  impl-check         Execute full component wiring check");
     tracing::info!("  slo-gate [flags]   Fail-fast SLO gate for CI");
     tracing::info!("  metrics            Print Prometheus-compatible metrics snapshot");

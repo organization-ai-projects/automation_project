@@ -44,9 +44,23 @@ impl GovernanceState {
     }
 
     pub fn recompute_checksum(&self) -> String {
-        let policy_fingerprint = self
-            .continuous_governance_policy
-            .as_ref()
+        Self::recompute_checksum_from_components(
+            self.schema_version,
+            self.state_version,
+            self.continuous_governance_policy.as_ref(),
+            self.evaluation_baseline.as_ref(),
+            self.last_continuous_improvement_report.as_ref(),
+        )
+    }
+
+    pub fn recompute_checksum_from_components(
+        schema_version: u32,
+        state_version: u64,
+        continuous_governance_policy: Option<&ContinuousGovernancePolicy>,
+        evaluation_baseline: Option<&EvaluationEngine>,
+        last_continuous_improvement_report: Option<&ContinuousImprovementReport>,
+    ) -> String {
+        let policy_fingerprint = continuous_governance_policy
             .map(|p| {
                 format!(
                     "{:.6}:{:.6}:{:.6}:{:.6}:{}:{}",
@@ -60,22 +74,18 @@ impl GovernanceState {
             })
             .unwrap_or_else(|| "-".to_string());
 
-        let baseline_fingerprint = self
-            .evaluation_baseline
-            .as_ref()
+        let baseline_fingerprint = evaluation_baseline
             .map(EvaluationEngine::checksum_fingerprint)
             .unwrap_or_else(|| "-".to_string());
 
-        let report_fingerprint = self
-            .last_continuous_improvement_report
-            .as_ref()
+        let report_fingerprint = last_continuous_improvement_report
             .map(ContinuousImprovementReport::checksum_fingerprint)
             .unwrap_or_else(|| "-".to_string());
 
         let material = format!(
             "{}:{}:{}:{}:{}",
-            self.schema_version,
-            self.state_version,
+            schema_version,
+            state_version,
             policy_fingerprint,
             baseline_fingerprint,
             report_fingerprint

@@ -6,6 +6,7 @@ use crate::moe_core::{
 };
 use crate::orchestrator::{
     ConcurrentMoePipeline, ConcurrentOperationalReport, GovernanceState, MoePipelineBuilder,
+    TrainerTriggerEvent,
 };
 use std::collections::HashMap;
 use std::sync::mpsc;
@@ -644,6 +645,95 @@ fn concurrent_pipeline_exports_operational_report_with_lock_and_import_telemetry
     assert!(parsed.lock_timeout_rate >= 0.0);
     assert!(!report.to_prometheus_text("moe_concurrent_test").is_empty());
     assert_eq!(report.slo_status(1.0, 0.2, 1, 0, 0), "OK");
+}
+
+#[test]
+fn concurrent_pipeline_chaos_trainer_triggers_and_runtime_import_export_keeps_invariants() {
+    let pipeline = ConcurrentMoePipeline::from_builder(
+        MoePipelineBuilder::new().with_max_trainer_trigger_events(512),
+    );
+
+    pipeline
+        .with_write(|inner| {
+            for idx in 0..256_u64 {
+                inner.trainer_trigger_queue.push(TrainerTriggerEvent {
+                    event_id: idx,
+                    model_version: 1,
+                    training_bundle_checksum: format!("chaos-trigger-bundle-{idx}"),
+                    included_entries: 10,
+                    train_samples: 8,
+                    validation_samples: 2,
+                    generated_at: idx,
+                    delivery_attempts: 0,
+                    last_attempted_at: None,
+                });
+            }
+            Ok(())
+        })
+        .expect("trigger seed should succeed");
+
+    let mut handles = Vec::new();
+    for worker in 0..4_u64 {
+        let pipeline = pipeline.clone();
+        handles.push(thread::spawn(move || {
+            for tick in 0..120_u64 {
+                pipeline
+                    .with_write(|inner| {
+                        if let Some(event) =
+                            inner.lease_next_trainer_trigger_event(worker * 10_000 + tick, 0)
+                        {
+                            if (event.event_id + tick + worker).is_multiple_of(3) {
+                                let _ = inner.mark_trainer_trigger_event_delivery_failed(
+                                    event.event_id,
+                                    worker * 10_000 + tick + 1,
+                                );
+                            } else {
+                                let _ = inner.acknowledge_trainer_trigger_event(event.event_id);
+                            }
+                        }
+                        Ok(())
+                    })
+                    .expect("lease/ack/fail cycle should succeed");
+            }
+        }));
+    }
+
+    for _ in 0..3_u32 {
+        let pipeline = pipeline.clone();
+        handles.push(thread::spawn(move || {
+            for _ in 0..80_u32 {
+                let payload = pipeline
+                    .export_runtime_bundle_json()
+                    .expect("runtime export should succeed");
+                pipeline
+                    .import_runtime_bundle_json(&payload)
+                    .expect("runtime import should succeed");
+            }
+        }));
+    }
+
+    for handle in handles {
+        handle.join().expect("chaos worker should not panic");
+    }
+
+    let invariant_result = pipeline
+        .with_read(|inner| inner.validate_runtime_invariants())
+        .expect("invariant read should succeed");
+    invariant_result.expect("runtime invariants should hold after chaos run");
+
+    let report = pipeline
+        .export_operational_report()
+        .expect("operational report should export");
+    assert!(report.pipeline.trainer_trigger_events_pending <= 512);
+    assert!(report.pipeline.trainer_trigger_events_leased <= 512);
+    assert!(report.lock_metrics.total_lock_acquisitions() > 0);
+    assert!(
+        report
+            .pipeline
+            .import_telemetry
+            .runtime_bundle_import_successes
+            >= 1
+    );
 }
 
 #[test]

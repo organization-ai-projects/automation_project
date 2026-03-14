@@ -29,6 +29,10 @@ impl LongTermMemory {
         entries
     }
 
+    pub fn entries(&self) -> impl Iterator<Item = &MemoryEntry> {
+        self.entries.values()
+    }
+
     pub fn replace_entries(&mut self, entries: Vec<MemoryEntry>) -> Result<(), MoeError> {
         self.entries.clear();
         for entry in entries {

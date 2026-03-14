@@ -648,6 +648,49 @@ fn preview_training_dataset_shards_json_rejects_oversized_payload() {
 }
 
 #[test]
+fn runtime_bundle_checksum_matches_exported_bundle_checksum() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline
+        .register_expert(Box::new(TestExpert::new(
+            "checksum-expert",
+            vec![ExpertCapability::CodeGeneration],
+        )))
+        .expect("expert registration should succeed");
+
+    pipeline
+        .remember_short_term(MemoryEntry {
+            id: "checksum-short".to_string(),
+            content: "short".to_string(),
+            tags: vec!["checksum".to_string()],
+            created_at: 1,
+            expires_at: None,
+            memory_type: MemoryType::Short,
+            relevance: 0.9,
+            metadata: HashMap::new(),
+        })
+        .expect("short-term memory should store");
+    pipeline
+        .remember_long_term(MemoryEntry {
+            id: "checksum-long".to_string(),
+            content: "long".to_string(),
+            tags: vec!["checksum".to_string()],
+            created_at: 2,
+            expires_at: None,
+            memory_type: MemoryType::Long,
+            relevance: 0.8,
+            metadata: HashMap::new(),
+        })
+        .expect("long-term memory should store");
+
+    let task = Task::new("checksum-task", TaskType::CodeGeneration, "checksum");
+    let _ = pipeline.execute(task).expect("execution should succeed");
+
+    let fast = pipeline.runtime_bundle_checksum();
+    let exported = pipeline.export_runtime_bundle().runtime_checksum;
+    assert_eq!(fast, exported);
+}
+
+#[test]
 fn runtime_invariants_reject_duplicate_trainer_trigger_event_ids() {
     let mut pipeline = MoePipelineBuilder::new().build();
     pipeline.trainer_trigger_queue.push(TrainerTriggerEvent {
@@ -677,6 +720,57 @@ fn runtime_invariants_reject_duplicate_trainer_trigger_event_ids() {
         .validate_runtime_invariants()
         .expect_err("duplicate trigger ids should violate invariants");
     assert!(err.to_string().contains("duplicate event_id"));
+}
+
+#[test]
+fn trainer_trigger_ack_requires_active_lease() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 42,
+        model_version: 1,
+        training_bundle_checksum: "bundle-42".to_string(),
+        included_entries: 10,
+        train_samples: 8,
+        validation_samples: 2,
+        generated_at: 1,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+
+    assert!(!pipeline.acknowledge_trainer_trigger_event(42));
+    let leased = pipeline
+        .lease_next_trainer_trigger_event(10, 0)
+        .expect("event should lease");
+    assert_eq!(leased.event_id, 42);
+    assert!(pipeline.acknowledge_trainer_trigger_event(42));
+    assert_eq!(pipeline.trainer_trigger_events_pending(), 0);
+}
+
+#[test]
+fn trainer_trigger_mark_failed_requires_active_lease() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 43,
+        model_version: 1,
+        training_bundle_checksum: "bundle-43".to_string(),
+        included_entries: 10,
+        train_samples: 8,
+        validation_samples: 2,
+        generated_at: 1,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+
+    assert!(!pipeline.mark_trainer_trigger_event_delivery_failed(43, 11));
+    let leased = pipeline
+        .lease_next_trainer_trigger_event(12, 0)
+        .expect("event should lease");
+    assert_eq!(leased.event_id, 43);
+    assert!(pipeline.mark_trainer_trigger_event_delivery_failed(43, 13));
+    let released = pipeline
+        .lease_next_trainer_trigger_event(13, 0)
+        .expect("failed event should be leaseable again");
+    assert_eq!(released.event_id, 43);
 }
 
 #[test]
