@@ -107,13 +107,12 @@ fn execute_triggers_auto_improvement_when_policy_thresholds_are_met() {
 }
 
 #[test]
-fn auto_improvement_policy_can_be_configured_and_cleared() {
-    let mut pipeline = MoePipelineBuilder::new().build();
-    pipeline.configure_auto_improvement_policy(
-        AutoImprovementPolicy::default()
-            .with_min_dataset_entries(2)
-            .with_min_success_ratio(0.5),
-    );
-    pipeline.clear_auto_improvement_policy();
+fn auto_improvement_policy_can_be_attached_via_builder() {
+    let policy = AutoImprovementPolicy::default()
+        .with_min_dataset_entries(2)
+        .with_min_success_ratio(0.5);
+    let pipeline = MoePipelineBuilder::new()
+        .with_auto_improvement_policy(policy)
+        .build();
     assert_eq!(pipeline.auto_improvement_status().runs_total, 0);
 }

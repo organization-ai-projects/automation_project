@@ -15,9 +15,10 @@ use crate::apps::{
     DynError, SloThresholds, cmd_impl_check, run_concurrent_pipeline_checks_with_report,
     run_runtime_persistence_checks_with_report, run_training_and_cas_checks,
 };
+use crate::dataset_engine::DatasetTrainingBuildOptions;
 use crate::echo_expert::EchoExpert;
 use crate::moe_core::{self, ExpertCapability, Task, TaskPriority, TaskType};
-use crate::orchestrator::{MoePipeline, MoePipelineBuilder};
+use crate::orchestrator::{AutoImprovementPolicy, MoePipeline, MoePipelineBuilder};
 use crate::policy_guard::{Policy, PolicyType};
 use crate::router::HeuristicRouter;
 use crate::trace_logger::TraceLogger;
@@ -177,9 +178,24 @@ fn cli_input_or_default(args: &[String]) -> String {
 }
 
 fn build_cli_pipeline() -> MoePipeline {
+    let auto_improvement_policy = AutoImprovementPolicy::default()
+        .with_min_dataset_entries(32)
+        .with_min_success_ratio(0.65)
+        .with_min_average_score(Some(0.55))
+        .with_training_build_options(DatasetTrainingBuildOptions {
+            generated_at: 0,
+            validation_ratio: 0.2,
+            min_score: Some(0.4),
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 7,
+        });
     MoePipelineBuilder::new()
         .with_router(Box::new(HeuristicRouter::new(3)))
         .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
+        .with_auto_improvement_policy(auto_improvement_policy)
         .with_max_traces(1000)
         .build()
 }

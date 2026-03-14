@@ -260,14 +260,6 @@ impl MoePipeline {
         self.feedback_store.add(entry);
     }
 
-    pub fn configure_auto_improvement_policy(&mut self, policy: AutoImprovementPolicy) {
-        self.auto_improvement_policy = Some(policy);
-    }
-
-    pub fn clear_auto_improvement_policy(&mut self) {
-        self.auto_improvement_policy = None;
-    }
-
     pub fn auto_improvement_status(&self) -> &AutoImprovementStatus {
         &self.auto_improvement_status
     }
