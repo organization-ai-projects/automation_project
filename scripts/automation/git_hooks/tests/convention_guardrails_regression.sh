@@ -172,6 +172,100 @@ issue_parent_mode() {
   echo "#617"
 }
 
+contains_list_item() {
+  local value="$1"
+  local list="$2"
+  [[ " ${list} " == *" ${value} "* ]]
+}
+
+if [[ "${1:-}" == "automation" && "${2:-}" == "pre-push-check" ]]; then
+  commits="$(git log origin/dev..HEAD --format=%B 2>/dev/null || true)"
+  changed_files="$(git diff --name-only origin/dev..HEAD 2>/dev/null || true)"
+
+  refs="$(echo "$commits" | awk '
+    {
+      line = $0
+      lower = tolower($0)
+      while (match(lower, /(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+/)) {
+        matched = substr(line, RSTART, RLENGTH)
+        keyword = tolower(matched)
+        gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
+        issue = matched
+        sub(/^.*#/, "", issue)
+        print keyword "|" issue
+        line = substr(line, RSTART + RLENGTH)
+        lower = substr(lower, RSTART + RLENGTH)
+      }
+    }
+  ')"
+
+  epic_list="${MOCK_EPIC_PARENT_ISSUES:-${MOCK_ROOT_PARENT_ISSUES:-617}}"
+  while IFS='|' read -r action issue; do
+    [[ -z "$issue" ]] && continue
+    if contains_list_item "$issue" "$epic_list"; then
+      echo "Root parent issue references detected in commits being pushed:"
+      echo "   - ${action} #${issue}"
+      exit 1
+    fi
+  done <<< "$refs"
+
+  current_login="${MOCK_GH_LOGIN:-devuser}"
+  declare -A has_part_of=()
+  declare -A has_closing=()
+  while IFS='|' read -r action issue; do
+    [[ -z "$issue" ]] && continue
+    if [[ "$action" == "part of" ]]; then
+      has_part_of["$issue"]=1
+    fi
+    if [[ "$action" == "closes" || "$action" == "fixes" ]]; then
+      has_closing["$issue"]=1
+    fi
+  done <<< "$refs"
+
+  if [[ "${ALLOW_PART_OF_ONLY_PUSH:-}" != "1" ]]; then
+    for issue in "${!has_part_of[@]}"; do
+      [[ -n "${has_closing[$issue]:-}" ]] && continue
+      multi="${MOCK_MULTI_ASSIGNEE_ISSUES:-124}"
+      if ! contains_list_item "$issue" "$multi"; then
+        echo "Push blocked by assignment policy."
+        echo "   - #${issue} is assigned only to @${current_login}: 'Closes #${issue}' is required (Part of only is not allowed)"
+        exit 1
+      fi
+    done
+  fi
+
+  docs_only=1
+  markdown_files=0
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    case "$file" in
+      documentation/*|.github/documentation/*|.github/ISSUE_TEMPLATE/*|.github/PULL_REQUEST_TEMPLATE/*|.github/workflows/*|scripts/*|*.md)
+        ;;
+      *)
+        docs_only=0
+        ;;
+    esac
+    if [[ "$file" == *.md ]]; then
+      markdown_files=1
+    fi
+  done <<< "$changed_files"
+
+  if [[ "$docs_only" -eq 1 ]]; then
+    if [[ "$markdown_files" -eq 1 ]]; then
+      if [[ "${MOCK_MARKDOWNLINT_FAIL:-0}" == "1" ]]; then
+        echo "Markdown lint failed."
+        exit 1
+      fi
+      echo "Markdown lint OK"
+    fi
+    echo "Pre-push checks PASSED (docs/scripts-only mode)"
+    exit 0
+  fi
+
+  echo "All pre-push checks PASSED"
+  exit 0
+fi
+
 if [[ "${1:-}" != "issue" ]]; then
   exit 0
 fi
