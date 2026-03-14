@@ -14,13 +14,9 @@ mod model_registry;
 mod model_registry_entry;
 mod moe_pipeline;
 mod moe_pipeline_builder;
-#[path = "../moe_pipeline/tests/execution.rs"]
 mod moe_pipeline_execution;
-#[path = "../moe_pipeline/tests/governance_runtime.rs"]
 mod moe_pipeline_governance_runtime;
-#[path = "../moe_pipeline/tests/observability.rs"]
 mod moe_pipeline_observability;
-#[path = "../moe_pipeline/tests/persistence.rs"]
 mod moe_pipeline_persistence;
 mod operational_report;
 mod runtime_bundle_components;
