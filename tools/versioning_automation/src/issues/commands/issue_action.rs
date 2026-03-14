@@ -1,8 +1,8 @@
 //! tools/versioning_automation/src/issues/commands/issue_action.rs
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
-    DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldOptions,
-    IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
+    DoneStatusOptions, ExtractRefsOptions, FetchNonComplianceReasonOptions, HasLabelOptions,
+    IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
     NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions, ParentGuardOptions,
     ReadOptions, ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
     StateOptions, SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions,
@@ -37,6 +37,7 @@ pub(crate) enum IssueAction {
     UpsertMarkerComment(UpsertMarkerCommentOptions),
     OpenNumbers(OpenNumbersOptions),
     OpenSnapshots(OpenSnapshotsOptions),
+    ExtractRefs(ExtractRefsOptions),
     AssigneeLogins(AssigneeLoginsOptions),
     State(StateOptions),
     HasLabel(HasLabelOptions),

@@ -2,11 +2,12 @@
 use crate::issues::commands::IssueAction;
 use crate::issues::execute::{
     run_assignee_logins, run_auto_link, run_close, run_closure_hygiene, run_create,
-    run_current_login, run_delete, run_done_status, run_fetch_non_compliance_reason, run_field,
-    run_has_label, run_label_exists, run_list_by_label, run_neutralize, run_non_compliance_reason,
-    run_open_numbers, run_open_snapshots, run_parent_guard, run_read, run_reevaluate, run_reopen,
-    run_reopen_on_dev, run_repo_name, run_required_fields_validate, run_state, run_subissue_refs,
-    run_tasklist_refs, run_update, run_upsert_marker_comment,
+    run_current_login, run_delete, run_done_status, run_extract_refs,
+    run_fetch_non_compliance_reason, run_field, run_has_label, run_label_exists, run_list_by_label,
+    run_neutralize, run_non_compliance_reason, run_open_numbers, run_open_snapshots,
+    run_parent_guard, run_read, run_reevaluate, run_reopen, run_reopen_on_dev, run_repo_name,
+    run_required_fields_validate, run_state, run_subissue_refs, run_tasklist_refs, run_update,
+    run_upsert_marker_comment,
 };
 use crate::issues::parse::parse;
 use crate::issues::render::print_usage;
@@ -43,6 +44,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(IssueAction::UpsertMarkerComment(opts)) => run_upsert_marker_comment(opts),
         Ok(IssueAction::OpenNumbers(opts)) => run_open_numbers(opts),
         Ok(IssueAction::OpenSnapshots(opts)) => run_open_snapshots(opts),
+        Ok(IssueAction::ExtractRefs(opts)) => run_extract_refs(opts),
         Ok(IssueAction::AssigneeLogins(opts)) => run_assignee_logins(opts),
         Ok(IssueAction::State(opts)) => run_state(opts),
         Ok(IssueAction::HasLabel(opts)) => run_has_label(opts),

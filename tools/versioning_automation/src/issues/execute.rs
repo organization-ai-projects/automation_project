@@ -6,12 +6,13 @@ use serde::Deserialize;
 
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
-    DoneStatusMode, DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions,
-    IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
-    NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions,
-    ParentGuardOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
-    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
-    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    DoneStatusMode, DoneStatusOptions, ExtractRefsOptions, ExtractRefsProfile,
+    FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldName, IssueFieldOptions,
+    IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
+    NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions, ParentGuardOptions,
+    ReadOptions, ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
+    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
+    UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -2070,6 +2071,56 @@ pub(crate) fn run_open_snapshots(opts: OpenSnapshotsOptions) -> i32 {
         args.push(repo);
     }
     print_non_empty_lines(&gh_output_or_empty(&args));
+    0
+}
+
+pub(crate) fn run_extract_refs(opts: ExtractRefsOptions) -> i32 {
+    let text = if let Some(raw) = opts.text {
+        raw
+    } else if let Some(path) = opts.file {
+        match std::fs::read_to_string(&path) {
+            Ok(content) => content,
+            Err(err) => {
+                eprintln!("failed to read --file '{}': {}", path, err);
+                return 1;
+            }
+        }
+    } else {
+        eprintln!("extract-refs requires one input: --text or --file");
+        return 1;
+    };
+
+    let re = match opts.profile {
+        ExtractRefsProfile::Hook => {
+            Regex::new(r"(?i)(closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)")
+        }
+        ExtractRefsProfile::Audit => Regex::new(
+            r"(?i)(closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
+        ),
+    };
+    let re = match re {
+        Ok(value) => value,
+        Err(err) => {
+            eprintln!("failed to compile issue refs regex: {err}");
+            return 1;
+        }
+    };
+
+    let mut seen = HashSet::<String>::new();
+    for caps in re.captures_iter(&text) {
+        let Some(action_raw) = caps.get(1).map(|m| m.as_str()) else {
+            continue;
+        };
+        let Some(issue_number) = caps.get(2).map(|m| m.as_str()) else {
+            continue;
+        };
+        let action = action_raw.to_ascii_lowercase();
+        let key = format!("{action}|{issue_number}");
+        if seen.insert(key) {
+            println!("{action}|{issue_number}");
+        }
+    }
+
     0
 }
 

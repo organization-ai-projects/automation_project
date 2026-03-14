@@ -1,12 +1,13 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
-    DoneStatusMode, DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions,
-    IssueAction, IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions,
-    ListByLabelOptions, NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions,
-    OpenSnapshotsOptions, ParentGuardOptions, ReadOptions, ReevaluateOptions,
-    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
-    SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    DoneStatusMode, DoneStatusOptions, ExtractRefsOptions, ExtractRefsProfile,
+    FetchNonComplianceReasonOptions, HasLabelOptions, IssueAction, IssueFieldName,
+    IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
+    NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions, ParentGuardOptions,
+    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
+    StateOptions, SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions,
+    UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -50,6 +51,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         }
         "open-numbers" => parse_open_numbers(&args[1..]).map(IssueAction::OpenNumbers),
         "open-snapshots" => parse_open_snapshots(&args[1..]).map(IssueAction::OpenSnapshots),
+        "extract-refs" => parse_extract_refs(&args[1..]).map(IssueAction::ExtractRefs),
         "assignee-logins" => parse_assignee_logins(&args[1..]).map(IssueAction::AssigneeLogins),
         "state" => parse_state(&args[1..]).map(IssueAction::State),
         "has-label" => parse_has_label(&args[1..]).map(IssueAction::HasLabel),
@@ -287,6 +289,41 @@ fn parse_open_snapshots(args: &[String]) -> Result<OpenSnapshotsOptions, String>
     }
 
     Ok(OpenSnapshotsOptions { repo, limit })
+}
+
+fn parse_extract_refs(args: &[String]) -> Result<ExtractRefsOptions, String> {
+    let mut profile = ExtractRefsProfile::Hook;
+    let mut text: Option<String> = None;
+    let mut file: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--profile" => {
+                profile = match take_value("--profile", args, &mut i)?.as_str() {
+                    "hook" => ExtractRefsProfile::Hook,
+                    "audit" => ExtractRefsProfile::Audit,
+                    _ => return Err("--profile must be one of: hook | audit".to_string()),
+                };
+            }
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--file" => file = Some(take_value("--file", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for extract-refs: {unknown}")),
+        }
+    }
+
+    if text.is_some() && file.is_some() {
+        return Err("extract-refs accepts either --text or --file, not both".to_string());
+    }
+    if text.is_none() && file.is_none() {
+        return Err("extract-refs requires one input: --text or --file".to_string());
+    }
+
+    Ok(ExtractRefsOptions {
+        profile,
+        text,
+        file,
+    })
 }
 
 fn parse_assignee_logins(args: &[String]) -> Result<AssigneeLoginsOptions, String> {

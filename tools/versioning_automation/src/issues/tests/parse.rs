@@ -293,6 +293,42 @@ fn parse_open_snapshots_rejects_zero_limit() {
 }
 
 #[test]
+fn parse_extract_refs_requires_single_input_source() {
+    let err = parse(&to_args(&["extract-refs"])).expect_err("expected parse error");
+    assert!(err.contains("requires one input"));
+
+    let err = parse(&to_args(&[
+        "extract-refs",
+        "--text",
+        "Closes #1",
+        "--file",
+        "/tmp/refs.txt",
+    ]))
+    .expect_err("expected parse error");
+    assert!(err.contains("either --text or --file"));
+}
+
+#[test]
+fn parse_extract_refs_maps_profile_and_text() {
+    let action = parse(&to_args(&[
+        "extract-refs",
+        "--profile",
+        "audit",
+        "--text",
+        "Resolves #12",
+    ]))
+    .expect("parse extract-refs");
+
+    match action {
+        IssueAction::ExtractRefs(opts) => {
+            assert!(opts.text.is_some());
+            assert!(opts.file.is_none());
+        }
+        _ => panic!("expected ExtractRefs action"),
+    }
+}
+
+#[test]
 fn parse_upsert_marker_comment_rejects_invalid_announce_bool() {
     let err = parse(&to_args(&[
         "upsert-marker-comment",
