@@ -1,8 +1,5 @@
 //! tools/versioning_automation/src/issues/parse.rs
-use crate::issues::commands::{
-    self, DoneStatusMode, DoneStatusOptions, IssueAction, IssueFieldName, IssueFieldOptions,
-    IssueTarget,
-};
+use crate::issues::commands::{self, IssueAction, IssueFieldName, IssueFieldOptions, IssueTarget};
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
     if args.is_empty() {
