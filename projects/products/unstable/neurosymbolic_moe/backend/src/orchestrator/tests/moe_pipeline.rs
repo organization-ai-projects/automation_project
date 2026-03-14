@@ -774,6 +774,39 @@ fn trainer_trigger_mark_failed_requires_active_lease() {
 }
 
 #[test]
+fn trainer_trigger_lease_recovers_after_retry_window_without_explicit_failure() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 44,
+        model_version: 1,
+        training_bundle_checksum: "bundle-44".to_string(),
+        included_entries: 10,
+        train_samples: 8,
+        validation_samples: 2,
+        generated_at: 1,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+
+    let first = pipeline
+        .lease_next_trainer_trigger_event(100, 60)
+        .expect("event should lease at first attempt");
+    assert_eq!(first.event_id, 44);
+    assert_eq!(first.delivery_attempts, 1);
+
+    assert!(
+        pipeline.lease_next_trainer_trigger_event(120, 60).is_none(),
+        "event should remain in-flight before retry window elapses"
+    );
+
+    let retried = pipeline
+        .lease_next_trainer_trigger_event(161, 60)
+        .expect("event should be re-leaseable after retry window");
+    assert_eq!(retried.event_id, 44);
+    assert_eq!(retried.delivery_attempts, 2);
+}
+
+#[test]
 fn runtime_invariants_reject_missing_active_model_registry_version() {
     let mut pipeline = MoePipelineBuilder::new().build();
     pipeline

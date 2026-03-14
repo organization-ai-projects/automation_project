@@ -70,6 +70,21 @@ impl TrainerTriggerQueueState {
         now_epoch_seconds: u64,
         min_retry_delay_seconds: u64,
     ) -> Option<TrainerTriggerEvent> {
+        let expired_leases: Vec<u64> = self
+            .events
+            .iter()
+            .filter(|event| self.leased_event_ids.contains(&event.event_id))
+            .filter(|event| {
+                event.last_attempted_at.is_none_or(|last| {
+                    now_epoch_seconds >= last.saturating_add(min_retry_delay_seconds)
+                })
+            })
+            .map(|event| event.event_id)
+            .collect();
+        for event_id in expired_leases {
+            self.leased_event_ids.remove(&event_id);
+        }
+
         let mut leased_idx = None;
         for (idx, event) in self.events.iter().enumerate() {
             if self.leased_event_ids.contains(&event.event_id) {
