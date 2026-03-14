@@ -381,6 +381,14 @@ impl ConcurrentMoePipeline {
             import_telemetry.runtime_bundle_import_rejections,
         );
         map.insert(
+            "runtime_bundle_import_expired_leases_released_total".to_string(),
+            import_telemetry.runtime_bundle_import_expired_leases_released_total,
+        );
+        map.insert(
+            "runtime_bundle_import_dead_letter_events_observed_total".to_string(),
+            import_telemetry.runtime_bundle_import_dead_letter_events_observed_total,
+        );
+        map.insert(
             "json_parse_failures".to_string(),
             import_telemetry.json_parse_failures,
         );

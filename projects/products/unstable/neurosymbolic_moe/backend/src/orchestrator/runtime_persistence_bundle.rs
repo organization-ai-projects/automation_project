@@ -151,22 +151,26 @@ where
     let trainer_leased_ids_fp =
         trainer_trigger_leased_event_ids_fingerprint(trainer_trigger_leased_event_ids);
 
-    let material = format!(
-        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
-        schema_version,
-        governance_fp,
-        short_fp,
-        long_fp,
-        working_fp,
-        sessions_fp,
-        dataset_fp,
-        auto_improvement_fp,
-        model_registry_fp,
-        trainer_events_fp,
-        trainer_dead_letter_events_fp,
-        trainer_leased_ids_fp
-    );
-    format!("{:016x}", fnv1a64(material.as_bytes()))
+    let schema_version_fp = schema_version.to_string();
+    let mut hash = fnv1a64_init();
+    fnv1a64_update(&mut hash, schema_version_fp.as_bytes());
+    for part in [
+        governance_fp.as_str(),
+        short_fp.as_str(),
+        long_fp.as_str(),
+        working_fp.as_str(),
+        sessions_fp.as_str(),
+        dataset_fp.as_str(),
+        auto_improvement_fp.as_str(),
+        model_registry_fp.as_str(),
+        trainer_events_fp.as_str(),
+        trainer_dead_letter_events_fp.as_str(),
+        trainer_leased_ids_fp.as_str(),
+    ] {
+        fnv1a64_update(&mut hash, b":");
+        fnv1a64_update(&mut hash, part.as_bytes());
+    }
+    format!("{hash:016x}")
 }
 
 fn memory_entries_fingerprint<'a, I>(entries: I) -> String
@@ -293,9 +297,14 @@ fn dataset_fingerprint(
 ) -> String {
     let mut ordered_entries: Vec<&DatasetEntry> = entries.iter().collect();
     ordered_entries.sort_by(|a, b| a.id.cmp(&b.id));
-    let mut parts = Vec::new();
+    let mut fingerprint = String::new();
+    let mut has_part = false;
     for entry in ordered_entries {
-        parts.push(format!(
+        if has_part {
+            fingerprint.push_str("::");
+        }
+        if let Ok(()) = write!(
+            fingerprint,
             "{}|{}|{}|{}|{:?}|{:?}|{}|{:?}",
             entry.id,
             entry.task_id.as_str(),
@@ -305,7 +314,8 @@ fn dataset_fingerprint(
             entry.score,
             entry.created_at,
             entry.tags
-        ));
+        ) {}
+        has_part = true;
     }
 
     let mut ordered_keys: Vec<&str> = corrections.keys().map(String::as_str).collect();
@@ -313,17 +323,22 @@ fn dataset_fingerprint(
     for key in ordered_keys {
         if let Some(values) = corrections.get(key) {
             for correction in values {
-                parts.push(format!(
+                if has_part {
+                    fingerprint.push_str("::");
+                }
+                if let Ok(()) = write!(
+                    fingerprint,
                     "corr:{}|{}|{}|{}",
                     correction.entry_id,
                     correction.corrected_output,
                     correction.reason,
                     correction.corrected_at
-                ));
+                ) {}
+                has_part = true;
             }
         }
     }
-    parts.join("::")
+    fingerprint
 }
 
 fn auto_improvement_fingerprint(
@@ -372,13 +387,16 @@ fn auto_improvement_fingerprint(
 }
 
 fn model_registry_fingerprint(registry: &ModelRegistry) -> String {
-    let mut parts = Vec::new();
-    parts.push(format!(
+    let mut fingerprint = String::new();
+    if let Ok(()) = write!(
+        fingerprint,
         "active={:?}|next={}",
         registry.active_version, registry.next_version
-    ));
+    ) {}
     for entry in &registry.entries {
-        parts.push(format!(
+        fingerprint.push_str("::");
+        if let Ok(()) = write!(
+            fingerprint,
             "{}|{}|{}|{}|{}|{}|{}",
             entry.version,
             entry.training_bundle_checksum,
@@ -387,18 +405,23 @@ fn model_registry_fingerprint(registry: &ModelRegistry) -> String {
             entry.validation_samples,
             entry.generated_at,
             entry.promoted
-        ));
+        ) {}
     }
-    parts.join("::")
+    fingerprint
 }
 
 fn trainer_trigger_events_fingerprint<'a, I>(events: I) -> String
 where
     I: IntoIterator<Item = &'a TrainerTriggerEvent>,
 {
-    let mut parts = Vec::new();
+    let mut fingerprint = String::new();
+    let mut first = true;
     for event in events {
-        parts.push(format!(
+        if !first {
+            fingerprint.push_str("::");
+        }
+        if let Ok(()) = write!(
+            fingerprint,
             "{}|{}|{}|{}|{}|{}|{}|{}|{:?}",
             event.event_id,
             event.model_version,
@@ -409,9 +432,10 @@ where
             event.generated_at,
             event.delivery_attempts,
             event.last_attempted_at
-        ));
+        ) {}
+        first = false;
     }
-    parts.join("::")
+    fingerprint
 }
 
 fn trainer_trigger_leased_event_ids_fingerprint<'a, I>(ids: I) -> String
@@ -420,18 +444,23 @@ where
 {
     let mut ordered_ids: Vec<u64> = ids.into_iter().copied().collect();
     ordered_ids.sort_unstable();
-    ordered_ids
-        .iter()
-        .map(u64::to_string)
-        .collect::<Vec<_>>()
-        .join("::")
+    let mut fingerprint = String::new();
+    for (idx, id) in ordered_ids.iter().enumerate() {
+        if idx > 0 {
+            fingerprint.push_str("::");
+        }
+        if let Ok(()) = write!(fingerprint, "{id}") {}
+    }
+    fingerprint
 }
 
-fn fnv1a64(bytes: &[u8]) -> u64 {
-    let mut hash = 0xcbf29ce484222325_u64;
+fn fnv1a64_init() -> u64 {
+    0xcbf29ce484222325_u64
+}
+
+fn fnv1a64_update(hash: &mut u64, bytes: &[u8]) {
     for byte in bytes {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
+        *hash ^= u64::from(*byte);
+        *hash = hash.wrapping_mul(0x100000001b3);
     }
-    hash
 }

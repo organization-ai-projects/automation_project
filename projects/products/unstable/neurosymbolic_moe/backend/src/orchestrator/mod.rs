@@ -23,6 +23,7 @@ mod moe_pipeline_builder;
 mod operational_report;
 mod pipeline_moe;
 mod runtime_bundle_components;
+mod runtime_import_report;
 mod runtime_persistence_bundle;
 #[cfg(test)]
 mod tests;
@@ -51,5 +52,6 @@ pub use moe_pipeline_builder::MoePipelineBuilder;
 pub use operational_report::OperationalReport;
 pub use pipeline_moe::MoePipeline;
 pub use runtime_bundle_components::RuntimeBundleComponents;
+pub use runtime_import_report::RuntimeImportReport;
 pub use runtime_persistence_bundle::RuntimePersistenceBundle;
 pub use trainer_trigger_event::TrainerTriggerEvent;

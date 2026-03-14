@@ -235,6 +235,20 @@ fn runtime_bundle_import_releases_expired_trainer_trigger_leases() {
         report.trainer_trigger_events_leased, 0,
         "expired lease should be released on import"
     );
+    assert!(report.runtime_last_import_at_epoch_seconds.is_some());
+    assert!(report.runtime_last_import_released_expired_leases >= 1);
+    assert_eq!(report.runtime_last_import_pending_events_after_import, 1);
+    assert_eq!(report.runtime_last_import_leased_events_after_import, 0);
+    assert!(
+        report
+            .import_telemetry
+            .runtime_bundle_import_expired_leases_released_total
+            >= 1
+    );
+    let runtime_import_report = target
+        .last_runtime_import_report()
+        .expect("runtime import report should be captured after import");
+    assert!(runtime_import_report.released_expired_leases >= 1);
     assert!(
         target
             .lease_next_trainer_trigger_event_with_policy(100)
@@ -489,6 +503,85 @@ fn import_runtime_bundle_rejects_duplicate_short_term_memory_ids() {
         .expect_err("duplicate short-term memory ids must be rejected");
     assert!(matches!(err, MoeError::PolicyRejected(_)));
     assert!(err.to_string().contains("duplicate short-term memory ids"));
+}
+
+#[test]
+fn import_runtime_bundle_failure_rolls_back_runtime_state_and_runtime_import_observability() {
+    let mut source = MoePipelineBuilder::new().build();
+    source
+        .remember_short_term(test_memory_entry(
+            "memory.short.rollback_seed",
+            "rollback baseline entry",
+            MemoryType::Short,
+        ))
+        .expect("short memory write should succeed");
+    source.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 333,
+        model_version: 9,
+        training_bundle_checksum: "bundle-rollback-333".to_string(),
+        included_entries: 32,
+        train_samples: 26,
+        validation_samples: 6,
+        generated_at: 77,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+
+    let baseline_bundle = source.export_runtime_bundle();
+    let mut target = MoePipelineBuilder::new().build();
+    target
+        .import_runtime_bundle(baseline_bundle.clone())
+        .expect("baseline runtime bundle import should succeed");
+    let telemetry_before = target.import_telemetry_snapshot();
+    let runtime_checksum_before = target.export_runtime_bundle().runtime_checksum;
+    let report_checksum_before = target
+        .last_runtime_import_report()
+        .expect("baseline import should capture runtime import report")
+        .runtime_checksum_after_import
+        .clone();
+
+    let mut invalid_bundle = baseline_bundle.clone();
+    invalid_bundle.trainer_trigger_leased_event_ids = vec![999_999];
+    invalid_bundle.runtime_checksum = invalid_bundle.recompute_checksum();
+
+    let err = target
+        .import_runtime_bundle(invalid_bundle)
+        .expect_err("invalid leased ids should fail invariant validation");
+    assert!(
+        err.to_string()
+            .contains("runtime bundle import failed and was rolled back")
+    );
+
+    let telemetry_after = target.import_telemetry_snapshot();
+    assert_eq!(
+        telemetry_after.runtime_bundle_import_successes,
+        telemetry_before.runtime_bundle_import_successes
+    );
+    assert_eq!(
+        telemetry_after.runtime_bundle_import_rejections,
+        telemetry_before.runtime_bundle_import_rejections + 1
+    );
+    assert_eq!(
+        telemetry_after.governance_bundle_import_successes,
+        telemetry_before.governance_bundle_import_successes
+    );
+    assert_eq!(
+        telemetry_after.runtime_bundle_import_expired_leases_released_total,
+        telemetry_before.runtime_bundle_import_expired_leases_released_total
+    );
+    assert_eq!(
+        telemetry_after.runtime_bundle_import_dead_letter_events_observed_total,
+        telemetry_before.runtime_bundle_import_dead_letter_events_observed_total
+    );
+
+    let runtime_checksum_after = target.export_runtime_bundle().runtime_checksum;
+    assert_eq!(runtime_checksum_after, runtime_checksum_before);
+    let report_checksum_after = target
+        .last_runtime_import_report()
+        .expect("failed import should preserve previous runtime import report")
+        .runtime_checksum_after_import
+        .clone();
+    assert_eq!(report_checksum_after, report_checksum_before);
 }
 
 #[test]

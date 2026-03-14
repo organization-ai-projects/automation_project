@@ -12,6 +12,7 @@ impl MoePipeline {
             .iter()
             .map(|session| self.buffer_manager.sessions().values_ref(session).len())
             .sum();
+        let runtime_import_report = self.last_runtime_import_report();
 
         OperationalReport {
             governance_current_version: audit_trail.current_version,
@@ -38,6 +39,23 @@ impl MoePipeline {
             import_journal_deduplicated_replays_total: self
                 .import_journal_deduplicated_replays_total(),
             import_journal_tracked_fingerprints: self.import_journal.tracked_fingerprint_count(),
+            runtime_last_import_at_epoch_seconds: runtime_import_report
+                .map(|report| report.imported_at_epoch_seconds),
+            runtime_last_import_released_expired_leases: runtime_import_report
+                .map(|report| report.released_expired_leases)
+                .unwrap_or(0),
+            runtime_last_import_observed_dead_letter_events: runtime_import_report
+                .map(|report| report.observed_dead_letter_events)
+                .unwrap_or(0),
+            runtime_last_import_pending_events_after_import: runtime_import_report
+                .map(|report| report.pending_events_after_import)
+                .unwrap_or(0),
+            runtime_last_import_leased_events_after_import: runtime_import_report
+                .map(|report| report.leased_events_after_import)
+                .unwrap_or(0),
+            runtime_last_import_dead_letter_events_after_import: runtime_import_report
+                .map(|report| report.dead_letter_events_after_import)
+                .unwrap_or(0),
             auto_improvement_runs_total: self.auto_improvement_status().runs_total,
             auto_improvement_bootstrap_entries_total: self
                 .auto_improvement_status()

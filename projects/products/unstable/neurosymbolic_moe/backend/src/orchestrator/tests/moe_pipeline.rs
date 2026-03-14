@@ -366,6 +366,10 @@ fn import_telemetry_tracks_success_rejection_and_parse_failures() {
         .expect("valid governance state should import");
     let final_snapshot = target.import_telemetry_snapshot();
     assert!(final_snapshot.governance_state_import_successes >= 1);
+    assert!(
+        final_snapshot.runtime_bundle_import_dead_letter_events_observed_total
+            >= after_runtime_success.runtime_bundle_import_dead_letter_events_observed_total
+    );
 }
 
 #[test]

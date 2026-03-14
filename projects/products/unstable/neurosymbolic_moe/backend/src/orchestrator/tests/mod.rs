@@ -21,5 +21,6 @@ mod moe_pipeline_persistence;
 mod operational_report;
 mod performance_budgets;
 mod runtime_bundle_components;
+mod runtime_import_report;
 mod runtime_persistence_bundle;
 mod trainer_trigger_event;

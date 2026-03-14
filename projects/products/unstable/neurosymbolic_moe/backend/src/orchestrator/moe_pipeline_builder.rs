@@ -173,6 +173,7 @@ impl MoePipelineBuilder {
             trace_logger: TraceLogger::new(self.max_traces),
             evaluation: EvaluationEngine::new(),
             import_telemetry: ImportTelemetry::default(),
+            last_runtime_import_report: None,
             import_journal: ImportJournal::with_capacity(256),
             training_runtime_state: TrainingRuntimeState {
                 feedback_store: FeedbackStore::new(),

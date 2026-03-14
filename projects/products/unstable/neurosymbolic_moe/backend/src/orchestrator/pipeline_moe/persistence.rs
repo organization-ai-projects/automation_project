@@ -4,7 +4,8 @@ use crate::moe_core::{self, MoeError};
 use crate::orchestrator::{
     ContinuousImprovementReport, GovernanceAuditTrail, GovernanceImportDecision,
     GovernancePersistenceBundle, GovernanceState, GovernanceStateDiff, GovernanceStateSnapshot,
-    MoePipeline, RuntimeBundleComponents, RuntimePersistenceBundle, import_journal,
+    MoePipeline, RuntimeBundleComponents, RuntimeImportReport, RuntimePersistenceBundle,
+    import_journal,
 };
 use common_time::current_timestamp_ms;
 
@@ -323,6 +324,8 @@ impl MoePipeline {
             self.training_runtime_state.auto_improvement_status.clone();
         let backup_model_registry = self.training_runtime_state.model_registry.clone();
         let backup_trainer_trigger_queue = self.trainer_trigger_queue.clone();
+        let backup_import_telemetry = self.import_telemetry.clone();
+        let backup_last_runtime_import_report = self.last_runtime_import_report.clone();
 
         let governance = bundle.governance;
         let short_term_memory_entries = bundle.short_term_memory_entries;
@@ -336,8 +339,9 @@ impl MoePipeline {
         let trainer_trigger_events = bundle.trainer_trigger_events;
         let trainer_trigger_dead_letter_events = bundle.trainer_trigger_dead_letter_events;
         let trainer_trigger_leased_event_ids = bundle.trainer_trigger_leased_event_ids;
+        let runtime_schema_version = bundle.schema_version;
 
-        if let Err(err) = (|| -> Result<(), MoeError> {
+        let import_report = match (|| -> Result<RuntimeImportReport, MoeError> {
             self.import_governance_bundle(governance)?;
             self.short_term_memory
                 .replace_entries(short_term_memory_entries)?;
@@ -358,39 +362,65 @@ impl MoePipeline {
                 trainer_trigger_leased_event_ids,
             );
             let now_epoch_seconds = current_timestamp_ms() / 1000;
-            self.trainer_trigger_queue.release_expired_leases(
+            let released_expired_leases = self.trainer_trigger_queue.release_expired_leases(
                 now_epoch_seconds,
                 self.trainer_trigger_min_retry_delay_seconds(),
             );
-            Ok(())
+            self.validate_runtime_invariants()?;
+            Ok(RuntimeImportReport {
+                imported_at_epoch_seconds: now_epoch_seconds,
+                runtime_schema_version,
+                released_expired_leases: released_expired_leases as u64,
+                observed_dead_letter_events: self.trainer_trigger_queue.dead_letter_count() as u64,
+                pending_events_after_import: self.trainer_trigger_queue.len(),
+                leased_events_after_import: self.trainer_trigger_queue.leased_count(),
+                dead_letter_events_after_import: self.trainer_trigger_queue.dead_letter_count(),
+                runtime_checksum_after_import: self.runtime_bundle_checksum(),
+            })
         })() {
-            self.governance_runtime_state.continuous_governance_policy = backup_governance_policy;
-            self.governance_runtime_state.evaluation_baseline = backup_evaluation_baseline;
-            self.governance_runtime_state
-                .last_continuous_improvement_report = backup_last_report;
-            self.governance_runtime_state.governance_state_version =
-                backup_governance_state_version;
-            self.governance_runtime_state.governance_audit_entries =
-                backup_governance_audit_entries;
-            self.governance_runtime_state.governance_state_snapshots =
-                backup_governance_state_snapshots;
-            self.short_term_memory = backup_short_term_memory;
-            self.long_term_memory = backup_long_term_memory;
-            self.buffer_manager = backup_buffer_manager;
-            self.training_runtime_state
-                .dataset_store
-                .replace_all(backup_dataset_entries, backup_dataset_corrections);
-            self.training_runtime_state.auto_improvement_policy = backup_auto_improvement_policy;
-            self.training_runtime_state.auto_improvement_status = backup_auto_improvement_status;
-            self.training_runtime_state.model_registry = backup_model_registry;
-            self.trainer_trigger_queue = backup_trainer_trigger_queue;
-            self.import_telemetry.record_runtime_bundle_rejection();
-            return Err(MoeError::DatasetError(format!(
-                "runtime bundle import failed and was rolled back: {err}"
-            )));
-        }
+            Ok(report) => report,
+            Err(err) => {
+                self.governance_runtime_state.continuous_governance_policy =
+                    backup_governance_policy;
+                self.governance_runtime_state.evaluation_baseline = backup_evaluation_baseline;
+                self.governance_runtime_state
+                    .last_continuous_improvement_report = backup_last_report;
+                self.governance_runtime_state.governance_state_version =
+                    backup_governance_state_version;
+                self.governance_runtime_state.governance_audit_entries =
+                    backup_governance_audit_entries;
+                self.governance_runtime_state.governance_state_snapshots =
+                    backup_governance_state_snapshots;
+                self.short_term_memory = backup_short_term_memory;
+                self.long_term_memory = backup_long_term_memory;
+                self.buffer_manager = backup_buffer_manager;
+                self.training_runtime_state
+                    .dataset_store
+                    .replace_all(backup_dataset_entries, backup_dataset_corrections);
+                self.training_runtime_state.auto_improvement_policy =
+                    backup_auto_improvement_policy;
+                self.training_runtime_state.auto_improvement_status =
+                    backup_auto_improvement_status;
+                self.training_runtime_state.model_registry = backup_model_registry;
+                self.trainer_trigger_queue = backup_trainer_trigger_queue;
+                self.import_telemetry = backup_import_telemetry;
+                self.last_runtime_import_report = backup_last_runtime_import_report;
+                self.import_telemetry.record_runtime_bundle_rejection();
+                return Err(MoeError::DatasetError(format!(
+                    "runtime bundle import failed and was rolled back: {err}"
+                )));
+            }
+        };
 
-        self.validate_runtime_invariants()?;
+        self.last_runtime_import_report = Some(import_report.clone());
+        self.import_telemetry
+            .record_runtime_bundle_import_released_expired_leases(
+                import_report.released_expired_leases,
+            );
+        self.import_telemetry
+            .record_runtime_bundle_import_dead_letter_events_observed(
+                import_report.observed_dead_letter_events,
+            );
         self.import_telemetry.record_runtime_bundle_success();
         Ok(())
     }

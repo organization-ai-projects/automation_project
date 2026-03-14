@@ -13,7 +13,7 @@ use crate::moe_core::{self, Expert, MoeError};
 use crate::orchestrator::import_journal::ImportJournal;
 use crate::orchestrator::{
     ArbitrationMode, AutoImprovementStatus, GovernanceState, ImportTelemetry, ModelRegistry,
-    TrainerTriggerEvent, runtime_persistence_bundle,
+    RuntimeImportReport, TrainerTriggerEvent, runtime_persistence_bundle,
 };
 use crate::orchestrator::{ContinuousImprovementReport, RuntimePersistenceBundle};
 use crate::policy_guard::{Policy, PolicyGuard};
@@ -58,6 +58,7 @@ pub struct MoePipeline {
     pub(in crate::orchestrator) trace_logger: TraceLogger,
     pub(in crate::orchestrator) evaluation: EvaluationEngine,
     pub(in crate::orchestrator) import_telemetry: ImportTelemetry,
+    pub(in crate::orchestrator) last_runtime_import_report: Option<RuntimeImportReport>,
     pub(in crate::orchestrator) import_journal: ImportJournal,
     pub(in crate::orchestrator) training_runtime_state: TrainingRuntimeState,
     pub(in crate::orchestrator) trainer_trigger_queue: TrainerTriggerQueueState,
@@ -120,6 +121,10 @@ impl MoePipeline {
 
     pub fn import_telemetry_snapshot(&self) -> ImportTelemetry {
         self.import_telemetry.clone()
+    }
+
+    pub fn last_runtime_import_report(&self) -> Option<&RuntimeImportReport> {
+        self.last_runtime_import_report.as_ref()
     }
 
     pub fn import_journal_events_total(&self) -> u64 {

@@ -25,6 +25,12 @@ pub struct OperationalReport {
     pub import_journal_successful_imports_total: u64,
     pub import_journal_deduplicated_replays_total: u64,
     pub import_journal_tracked_fingerprints: usize,
+    pub runtime_last_import_at_epoch_seconds: Option<u64>,
+    pub runtime_last_import_released_expired_leases: u64,
+    pub runtime_last_import_observed_dead_letter_events: u64,
+    pub runtime_last_import_pending_events_after_import: usize,
+    pub runtime_last_import_leased_events_after_import: usize,
+    pub runtime_last_import_dead_letter_events_after_import: usize,
     pub auto_improvement_runs_total: u64,
     pub auto_improvement_bootstrap_entries_total: usize,
     pub auto_improvement_last_included_entries: usize,
@@ -110,7 +116,7 @@ impl OperationalReport {
             prefix.to_string()
         };
         format!(
-            "{p}_governance_current_version {}\n{p}_governance_audit_entries {}\n{p}_governance_state_snapshots {}\n{p}_short_term_memory_entries {}\n{p}_long_term_memory_entries {}\n{p}_working_buffer_entries {}\n{p}_session_buffer_sessions {}\n{p}_session_buffer_values {}\n{p}_trace_entries {}\n{p}_dataset_entries {}\n{p}_feedback_entries {}\n{p}_import_runtime_successes {}\n{p}_import_runtime_rejections {}\n{p}_import_governance_state_successes {}\n{p}_import_governance_state_rejections {}\n{p}_import_governance_bundle_successes {}\n{p}_import_governance_bundle_rejections {}\n{p}_import_json_parse_failures {}\n{p}_import_journal_events_total {}\n{p}_import_journal_parse_failures_total {}\n{p}_import_journal_rejections_total {}\n{p}_import_journal_successful_imports_total {}\n{p}_import_journal_deduplicated_replays_total {}\n{p}_import_journal_tracked_fingerprints {}\n{p}_auto_improvement_runs_total {}\n{p}_auto_improvement_bootstrap_entries_total {}\n{p}_auto_improvement_last_included_entries {}\n{p}_auto_improvement_skipped_min_dataset_entries_total {}\n{p}_auto_improvement_skipped_min_success_ratio_total {}\n{p}_auto_improvement_skipped_min_average_score_total {}\n{p}_auto_improvement_skipped_human_review_required_total {}\n{p}_auto_improvement_skipped_duplicate_bundle_total {}\n{p}_auto_improvement_build_failures_total {}\n{p}_model_registry_entries {}\n{p}_model_registry_active_version {}\n{p}_model_registry_latest_version {}\n{p}_trainer_trigger_events_pending {}\n{p}_trainer_trigger_events_leased {}\n{p}_trainer_trigger_events_dead_letter {}\n{p}_trainer_trigger_max_delivery_attempts_pending {}\n{p}_trainer_trigger_oldest_generated_at_pending {}\n{p}_trainer_trigger_newest_generated_at_pending {}\n{p}_trainer_trigger_oldest_generated_at_dead_letter {}\n{p}_trainer_trigger_newest_generated_at_dead_letter {}\n{p}_trainer_trigger_delivery_attempts_total {}\n{p}_trainer_trigger_delivery_failures_total {}\n{p}_trainer_trigger_acknowledged_total {}\n{p}_trainer_trigger_dead_letter_total {}\n",
+            "{p}_governance_current_version {}\n{p}_governance_audit_entries {}\n{p}_governance_state_snapshots {}\n{p}_short_term_memory_entries {}\n{p}_long_term_memory_entries {}\n{p}_working_buffer_entries {}\n{p}_session_buffer_sessions {}\n{p}_session_buffer_values {}\n{p}_trace_entries {}\n{p}_dataset_entries {}\n{p}_feedback_entries {}\n{p}_import_runtime_successes {}\n{p}_import_runtime_rejections {}\n{p}_import_runtime_expired_leases_released_total {}\n{p}_import_runtime_dead_letter_events_observed_total {}\n{p}_import_governance_state_successes {}\n{p}_import_governance_state_rejections {}\n{p}_import_governance_bundle_successes {}\n{p}_import_governance_bundle_rejections {}\n{p}_import_json_parse_failures {}\n{p}_import_journal_events_total {}\n{p}_import_journal_parse_failures_total {}\n{p}_import_journal_rejections_total {}\n{p}_import_journal_successful_imports_total {}\n{p}_import_journal_deduplicated_replays_total {}\n{p}_import_journal_tracked_fingerprints {}\n{p}_runtime_last_import_at_epoch_seconds {}\n{p}_runtime_last_import_released_expired_leases {}\n{p}_runtime_last_import_observed_dead_letter_events {}\n{p}_runtime_last_import_pending_events_after_import {}\n{p}_runtime_last_import_leased_events_after_import {}\n{p}_runtime_last_import_dead_letter_events_after_import {}\n{p}_auto_improvement_runs_total {}\n{p}_auto_improvement_bootstrap_entries_total {}\n{p}_auto_improvement_last_included_entries {}\n{p}_auto_improvement_skipped_min_dataset_entries_total {}\n{p}_auto_improvement_skipped_min_success_ratio_total {}\n{p}_auto_improvement_skipped_min_average_score_total {}\n{p}_auto_improvement_skipped_human_review_required_total {}\n{p}_auto_improvement_skipped_duplicate_bundle_total {}\n{p}_auto_improvement_build_failures_total {}\n{p}_model_registry_entries {}\n{p}_model_registry_active_version {}\n{p}_model_registry_latest_version {}\n{p}_trainer_trigger_events_pending {}\n{p}_trainer_trigger_events_leased {}\n{p}_trainer_trigger_events_dead_letter {}\n{p}_trainer_trigger_max_delivery_attempts_pending {}\n{p}_trainer_trigger_oldest_generated_at_pending {}\n{p}_trainer_trigger_newest_generated_at_pending {}\n{p}_trainer_trigger_oldest_generated_at_dead_letter {}\n{p}_trainer_trigger_newest_generated_at_dead_letter {}\n{p}_trainer_trigger_delivery_attempts_total {}\n{p}_trainer_trigger_delivery_failures_total {}\n{p}_trainer_trigger_acknowledged_total {}\n{p}_trainer_trigger_dead_letter_total {}\n",
             self.governance_current_version,
             self.governance_audit_entries,
             self.governance_state_snapshots,
@@ -124,6 +130,10 @@ impl OperationalReport {
             self.feedback_entries,
             self.import_telemetry.runtime_bundle_import_successes,
             self.import_telemetry.runtime_bundle_import_rejections,
+            self.import_telemetry
+                .runtime_bundle_import_expired_leases_released_total,
+            self.import_telemetry
+                .runtime_bundle_import_dead_letter_events_observed_total,
             self.import_telemetry.governance_state_import_successes,
             self.import_telemetry.governance_state_import_rejections,
             self.import_telemetry.governance_bundle_import_successes,
@@ -135,6 +145,12 @@ impl OperationalReport {
             self.import_journal_successful_imports_total,
             self.import_journal_deduplicated_replays_total,
             self.import_journal_tracked_fingerprints,
+            self.runtime_last_import_at_epoch_seconds.unwrap_or(0),
+            self.runtime_last_import_released_expired_leases,
+            self.runtime_last_import_observed_dead_letter_events,
+            self.runtime_last_import_pending_events_after_import,
+            self.runtime_last_import_leased_events_after_import,
+            self.runtime_last_import_dead_letter_events_after_import,
             self.auto_improvement_runs_total,
             self.auto_improvement_bootstrap_entries_total,
             self.auto_improvement_last_included_entries,

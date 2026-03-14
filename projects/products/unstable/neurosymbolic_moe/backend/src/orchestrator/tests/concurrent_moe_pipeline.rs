@@ -573,6 +573,14 @@ fn concurrent_pipeline_exposes_import_telemetry_for_parse_failures_rejections_an
             .unwrap_or_default()
             >= 1
     );
+    assert!(
+        metrics.contains_key("runtime_bundle_import_expired_leases_released_total"),
+        "runtime import released-leases metric should be exported"
+    );
+    assert!(
+        metrics.contains_key("runtime_bundle_import_dead_letter_events_observed_total"),
+        "runtime import dead-letter metric should be exported"
+    );
 }
 
 #[test]
