@@ -515,7 +515,7 @@ fn run_test_coverage(_opts: TestCoverageOptions) -> Result<(), String> {
 
 fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<(), String> {
     ensure_git_repo()?;
-    let repo = resolve_repo_name(opts.repo).map_err(|e| format!("{e}"))?;
+    let repo = resolve_repo_name(opts.repo).map_err(|e| e.to_string())?;
     let range = format!("{}..{}", opts.base_ref, opts.head_ref);
 
     let open_issues_json = run_gh_output(&[
@@ -1160,10 +1160,21 @@ fn extract_issue_refs_from_text(
 }
 
 fn extract_parent_field(body: &str) -> Option<String> {
-    let re = Regex::new(r"(?im)^\s*Parent:\s*(#?[0-9]+|none|base|epic)\s*$").ok()?;
-    re.captures(body)
-        .and_then(|cap| cap.get(1))
-        .map(|m| m.as_str().to_string())
+    let re =
+        Regex::new(r"(?i)^\s*Parent:\s*(#?[0-9]+|none|base|epic|\(none\)|\(base\)|\(epic\))\s*$")
+            .ok()?;
+    let mut parent_value: Option<String> = None;
+    for line in body.lines() {
+        if let Some(cap) = re.captures(line) {
+            parent_value = cap.get(1).map(|m| m.as_str().trim().to_lowercase());
+        }
+    }
+    parent_value.map(|raw| {
+        raw.trim()
+            .trim_start_matches('(')
+            .trim_end_matches(')')
+            .to_string()
+    })
 }
 
 fn render_issue_audit_report(
@@ -1375,7 +1386,56 @@ fn issue_is_root_parent(issue_number: &str, repo: &str) -> Result<bool, String> 
     let parent = extract_parent_field(&body)
         .unwrap_or_else(|| "none".to_string())
         .to_lowercase();
-    Ok(parent == "epic")
+    if parent == "epic" {
+        return Ok(true);
+    }
+    if parent == "base" || parent.starts_with('#') {
+        return Ok(false);
+    }
+
+    let (owner, repo_name) = split_repo_owner_name(repo)?;
+    let has_children =
+        !extract_subissue_refs_for_parent(&owner, &repo_name, issue_number)?.is_empty();
+    Ok(has_children)
+}
+
+fn split_repo_owner_name(repo: &str) -> Result<(String, String), String> {
+    let mut parts = repo.splitn(2, '/');
+    let owner = parts.next().unwrap_or("").trim();
+    let name = parts.next().unwrap_or("").trim();
+    if owner.is_empty() || name.is_empty() {
+        return Err(format!(
+            "Invalid repository format '{repo}' (expected owner/name)."
+        ));
+    }
+    Ok((owner.to_string(), name.to_string()))
+}
+
+fn extract_subissue_refs_for_parent(
+    repo_owner: &str,
+    repo_short_name: &str,
+    parent_number: &str,
+) -> Result<Vec<String>, String> {
+    let output = run_gh_output(&[
+        "api",
+        "graphql",
+        "-f",
+        "query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){subIssues(first:100){nodes{number}}}}}",
+        "-f",
+        &format!("owner={repo_owner}"),
+        "-f",
+        &format!("name={repo_short_name}"),
+        "-F",
+        &format!("number={parent_number}"),
+        "--jq",
+        ".data.repository.issue.subIssues.nodes[]?.number | \"#\"+tostring",
+    ])?;
+    Ok(output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect())
 }
 
 fn compute_changed_files(upstream: &str) -> Result<Vec<String>, String> {
@@ -1446,12 +1506,11 @@ fn collect_crates_from_changed_files(changed_files: &str) -> Result<Vec<String>,
         .map(str::trim)
         .filter(|v| !v.is_empty())
     {
-        if let Some(path) = find_crate_dir_for_file(&root, file) {
-            if let Some(crate_name) = read_crate_name(&root, &path)
-                && seen.insert(crate_name.clone())
-            {
-                crates.push(crate_name);
-            }
+        if let Some(path) = find_crate_dir_for_file(&root, file)
+            && let Some(crate_name) = read_crate_name(&root, &path)
+            && seen.insert(crate_name.clone())
+        {
+            crates.push(crate_name);
         }
     }
     Ok(crates)
