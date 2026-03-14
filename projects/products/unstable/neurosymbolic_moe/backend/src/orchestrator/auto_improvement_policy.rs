@@ -62,11 +62,15 @@ impl Default for AutoImprovementPolicy {
             min_success_ratio: 0.70,
             min_average_score: Some(0.60),
             training_build_options: DatasetTrainingBuildOptions::default(),
-            trainer_trigger_min_retry_delay_seconds:
-                default_trainer_trigger_min_retry_delay_seconds(),
-            trainer_trigger_max_delivery_attempts_before_dead_letter:
-                default_trainer_trigger_max_delivery_attempts_before_dead_letter(),
+            trainer_trigger_min_retry_delay_seconds: 0,
+            trainer_trigger_max_delivery_attempts_before_dead_letter: 1,
         }
+        .with_trainer_trigger_min_retry_delay_seconds(
+            default_trainer_trigger_min_retry_delay_seconds(),
+        )
+        .with_trainer_trigger_max_delivery_attempts_before_dead_letter(
+            default_trainer_trigger_max_delivery_attempts_before_dead_letter(),
+        )
     }
 }
 
