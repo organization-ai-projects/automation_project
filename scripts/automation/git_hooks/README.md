@@ -21,11 +21,11 @@ git_hooks/
 ├── pre-commit          # Runs code formatting before commit
 ├── prepare-commit-msg  # Auto-generates commit subject from context
 ├── pre-push            # Runs quality checks before push
-├── lib/policy.sh       # Shared predicates (docs-only/tests-only/docs+scripts/mixed/mono-scope)
 ├── lib/commit_message_policy.sh # Shared commit message generation policy helpers
 ├── lib/issue_footer_policy.sh # Shared footer normalization/validation for issue refs
 ├── lib/markdownlint_policy.sh # Shared markdownlint version/bin resolution + run helpers
 ├── lib/push_policy.sh  # Shared pre-push policy helpers (range/refs/scope parsing/shell checks)
+├── branch-creation-check.sh # Delegates branch/worktree guard to Rust CLI
 ├── install_hooks.sh    # Installs git hooks (worktree-aware)
 └── tests/
     ├── convention_guardrails_regression.sh  # Regression tests for issue trailer guardrails
@@ -42,12 +42,13 @@ git_hooks/
 - `pre-push`: Runs quality checks before push.
 - `../../common_lib/automation/file_types.sh`: Canonical shared file classifiers (docs/tests/shell/workflow/scripts paths and patterns).
 - `../../common_lib/automation/scope_resolver.sh`: Canonical shared path -> scope and files -> crates resolver used by hooks and staging guards.
-- `lib/policy.sh`: Compatibility shim to shared predicates in `../../common_lib/automation/change_policy.sh` (`docs-only`, `tests-only`, mixed docs/code, multi-scope).
+- `../../common_lib/automation/change_policy.sh`: Canonical shared predicates (`docs-only`, `tests-only`, mixed docs/code, multi-scope) sourced directly by hook policies.
 - `lib/commit_message_policy.sh`: Shared commit message helpers (type mapping, description/scopes formatting, scope extraction).
 - `lib/issue_footer_policy.sh`: Shared issue footer normalization and parent-reference validation used by `commit-msg`.
 - `lib/markdownlint_policy.sh`: Shared helpers for markdownlint version resolution (`package.json`), global/local binary selection, and markdown lint execution.
 - `../../common_lib/automation/rust_checks.sh`: Shared Rust check runners used by `pre-push` and CI (`fmt`, `clippy`, `test`).
 - `lib/push_policy.sh`: Shared pre-push policy helpers (trailer guardrails and scope -> crate resolution for targeted checks).
+- `branch-creation-check.sh`: Thin wrapper that delegates branch/worktree guard logic to `versioning_automation git branch-creation-check`.
 - `install_hooks.sh`: Installs hooks to the correct git hooks directory (supports standard clones and worktrees).
 - `tests/convention_guardrails_regression.sh`: Regression suite for issue trailer guardrails in `commit-msg`, `pre-push`, and `post-checkout`.
 - `tests/scope_resolver_perf_smoke.sh`: Basic performance smoke test for scope resolution over a large staged-file set.
