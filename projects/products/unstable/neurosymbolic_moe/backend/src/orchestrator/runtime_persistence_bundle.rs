@@ -315,7 +315,7 @@ fn auto_improvement_fingerprint(
 ) -> String {
     let policy_part = if let Some(policy) = policy {
         format!(
-            "{}|{}|{:?}|{}|{}|{:?}|{}|{}|{}",
+            "{}|{}|{:?}|{}|{}|{:?}|{}|{}|{}|{}|{}",
             policy.min_dataset_entries,
             policy.min_success_ratio,
             policy.min_average_score,
@@ -324,13 +324,15 @@ fn auto_improvement_fingerprint(
             policy.training_build_options.min_score,
             policy.training_build_options.include_failure_entries,
             policy.training_build_options.include_partial_entries,
-            policy.training_build_options.split_seed
+            policy.training_build_options.split_seed,
+            policy.trainer_trigger_min_retry_delay_seconds,
+            policy.trainer_trigger_max_delivery_attempts_before_dead_letter
         )
     } else {
         "none".to_string()
     };
     let status_part = format!(
-        "{}|{}|{:?}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}",
+        "{}|{}|{:?}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}",
         status.runs_total,
         status.bootstrap_entries_total,
         status.last_bundle_checksum,
@@ -346,7 +348,8 @@ fn auto_improvement_fingerprint(
         status.last_skip_reason,
         status.trainer_trigger_delivery_attempts_total,
         status.trainer_trigger_delivery_failures_total,
-        status.trainer_trigger_acknowledged_total
+        status.trainer_trigger_acknowledged_total,
+        status.trainer_trigger_dead_letter_total
     );
     format!("{policy_part}::{status_part}")
 }

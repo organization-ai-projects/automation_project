@@ -41,12 +41,16 @@ fn operational_report_slo_and_prometheus_helpers_work() {
         model_registry_latest_version: 0,
         trainer_trigger_events_pending: 0,
         trainer_trigger_events_leased: 0,
+        trainer_trigger_events_dead_letter: 0,
         trainer_trigger_max_delivery_attempts_pending: 0,
         trainer_trigger_oldest_generated_at_pending: None,
         trainer_trigger_newest_generated_at_pending: None,
+        trainer_trigger_oldest_generated_at_dead_letter: None,
+        trainer_trigger_newest_generated_at_dead_letter: None,
         trainer_trigger_delivery_attempts_total: 0,
         trainer_trigger_delivery_failures_total: 0,
         trainer_trigger_acknowledged_total: 0,
+        trainer_trigger_dead_letter_total: 0,
     };
     assert_eq!(report.slo_status(1, 0, 0), "OK");
     assert!(report.slo_violations(2, 0, 0).len() == 1);

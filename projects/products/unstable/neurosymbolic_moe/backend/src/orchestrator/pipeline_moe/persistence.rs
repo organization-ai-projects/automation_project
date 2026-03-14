@@ -342,6 +342,7 @@ impl MoePipeline {
             self.training_runtime_state.model_registry = model_registry;
             self.trainer_trigger_queue = super::TrainerTriggerQueueState::with_events(
                 self.trainer_trigger_queue.max_events(),
+                self.trainer_trigger_queue.max_dead_letter_events(),
                 trainer_trigger_events,
             );
             Ok(())

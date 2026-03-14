@@ -19,4 +19,6 @@ pub struct AutoImprovementStatus {
     pub trainer_trigger_delivery_attempts_total: u64,
     pub trainer_trigger_delivery_failures_total: u64,
     pub trainer_trigger_acknowledged_total: u64,
+    #[serde(default)]
+    pub trainer_trigger_dead_letter_total: u64,
 }

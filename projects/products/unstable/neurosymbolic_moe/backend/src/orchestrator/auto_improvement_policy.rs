@@ -7,6 +7,10 @@ pub struct AutoImprovementPolicy {
     pub min_success_ratio: f64,
     pub min_average_score: Option<f64>,
     pub training_build_options: DatasetTrainingBuildOptions,
+    #[serde(default = "default_trainer_trigger_min_retry_delay_seconds")]
+    pub trainer_trigger_min_retry_delay_seconds: u64,
+    #[serde(default = "default_trainer_trigger_max_delivery_attempts_before_dead_letter")]
+    pub trainer_trigger_max_delivery_attempts_before_dead_letter: u32,
 }
 
 impl AutoImprovementPolicy {
@@ -32,6 +36,23 @@ impl AutoImprovementPolicy {
         self.training_build_options = training_build_options;
         self
     }
+
+    pub fn with_trainer_trigger_min_retry_delay_seconds(
+        mut self,
+        trainer_trigger_min_retry_delay_seconds: u64,
+    ) -> Self {
+        self.trainer_trigger_min_retry_delay_seconds = trainer_trigger_min_retry_delay_seconds;
+        self
+    }
+
+    pub fn with_trainer_trigger_max_delivery_attempts_before_dead_letter(
+        mut self,
+        trainer_trigger_max_delivery_attempts_before_dead_letter: u32,
+    ) -> Self {
+        self.trainer_trigger_max_delivery_attempts_before_dead_letter =
+            trainer_trigger_max_delivery_attempts_before_dead_letter.max(1);
+        self
+    }
 }
 
 impl Default for AutoImprovementPolicy {
@@ -41,6 +62,18 @@ impl Default for AutoImprovementPolicy {
             min_success_ratio: 0.70,
             min_average_score: Some(0.60),
             training_build_options: DatasetTrainingBuildOptions::default(),
+            trainer_trigger_min_retry_delay_seconds:
+                default_trainer_trigger_min_retry_delay_seconds(),
+            trainer_trigger_max_delivery_attempts_before_dead_letter:
+                default_trainer_trigger_max_delivery_attempts_before_dead_letter(),
         }
     }
+}
+
+fn default_trainer_trigger_min_retry_delay_seconds() -> u64 {
+    30
+}
+
+fn default_trainer_trigger_max_delivery_attempts_before_dead_letter() -> u32 {
+    8
 }

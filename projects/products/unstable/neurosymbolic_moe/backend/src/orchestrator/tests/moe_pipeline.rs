@@ -807,6 +807,79 @@ fn trainer_trigger_lease_recovers_after_retry_window_without_explicit_failure() 
 }
 
 #[test]
+fn trainer_trigger_lease_with_policy_uses_configured_retry_window() {
+    let policy = crate::orchestrator::AutoImprovementPolicy::default()
+        .with_trainer_trigger_min_retry_delay_seconds(60)
+        .with_trainer_trigger_max_delivery_attempts_before_dead_letter(8);
+    let mut pipeline = MoePipelineBuilder::new()
+        .with_auto_improvement_policy(policy)
+        .build();
+    pipeline.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 45,
+        model_version: 1,
+        training_bundle_checksum: "bundle-45".to_string(),
+        included_entries: 10,
+        train_samples: 8,
+        validation_samples: 2,
+        generated_at: 1,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+
+    let first = pipeline
+        .lease_next_trainer_trigger_event_with_policy(100)
+        .expect("event should lease at first attempt");
+    assert!(pipeline.mark_trainer_trigger_event_delivery_failed(first.event_id, 110));
+    assert!(
+        pipeline
+            .lease_next_trainer_trigger_event_with_policy(150)
+            .is_none(),
+        "event should not re-lease before configured retry window"
+    );
+    assert!(
+        pipeline
+            .lease_next_trainer_trigger_event_with_policy(171)
+            .is_some(),
+        "event should re-lease after configured retry window"
+    );
+}
+
+#[test]
+fn trainer_trigger_lease_moves_over_limit_events_to_dead_letter() {
+    let policy = crate::orchestrator::AutoImprovementPolicy::default()
+        .with_trainer_trigger_max_delivery_attempts_before_dead_letter(2);
+    let mut pipeline = MoePipelineBuilder::new()
+        .with_auto_improvement_policy(policy)
+        .build();
+    pipeline.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 46,
+        model_version: 1,
+        training_bundle_checksum: "bundle-46".to_string(),
+        included_entries: 10,
+        train_samples: 8,
+        validation_samples: 2,
+        generated_at: 1,
+        delivery_attempts: 2,
+        last_attempted_at: Some(10),
+    });
+
+    assert!(
+        pipeline
+            .lease_next_trainer_trigger_event_with_policy(100)
+            .is_none(),
+        "event above max attempts should not be leaseable"
+    );
+    assert_eq!(pipeline.trainer_trigger_events_pending(), 0);
+    assert_eq!(pipeline.trainer_trigger_dead_letter_events_total(), 1);
+    assert_eq!(
+        pipeline
+            .auto_improvement_status()
+            .trainer_trigger_dead_letter_total,
+        1
+    );
+}
+
+#[test]
 fn runtime_invariants_reject_missing_active_model_registry_version() {
     let mut pipeline = MoePipelineBuilder::new().build();
     pipeline

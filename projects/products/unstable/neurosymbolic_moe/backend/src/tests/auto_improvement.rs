@@ -274,4 +274,74 @@ fn trainer_trigger_event_queue_supports_lease_fail_and_ack_flow() {
             .trainer_trigger_acknowledged_total,
         1
     );
+    assert_eq!(
+        pipeline
+            .auto_improvement_status()
+            .trainer_trigger_dead_letter_total,
+        0
+    );
+}
+
+#[test]
+fn trainer_trigger_event_queue_dead_letters_after_max_attempts_policy() {
+    let policy = AutoImprovementPolicy::default()
+        .with_min_dataset_entries(1)
+        .with_min_success_ratio(0.0)
+        .with_min_average_score(None)
+        .with_trainer_trigger_min_retry_delay_seconds(0)
+        .with_trainer_trigger_max_delivery_attempts_before_dead_letter(2)
+        .with_training_build_options(DatasetTrainingBuildOptions {
+            generated_at: 1,
+            validation_ratio: 0.2,
+            min_score: None,
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 37,
+        });
+    let mut pipeline = MoePipelineBuilder::new()
+        .with_router(Box::new(HeuristicRouter::new(2)))
+        .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
+        .with_auto_improvement_policy(policy)
+        .build();
+    pipeline
+        .register_expert(Box::new(EchoExpert::new(
+            "auto-dead-letter-expert",
+            "AutoDeadLetterExpert",
+            vec![ExpertCapability::CodeGeneration],
+        )))
+        .expect("register expert");
+
+    pipeline
+        .execute(Task::new(
+            "auto-dead-letter-task-1",
+            TaskType::CodeGeneration,
+            "dead-letter run",
+        ))
+        .expect("execution should succeed");
+
+    let first = pipeline
+        .lease_next_trainer_trigger_event_with_policy(1)
+        .expect("expected first lease");
+    assert!(pipeline.mark_trainer_trigger_event_delivery_failed(first.event_id, 2));
+    let second = pipeline
+        .lease_next_trainer_trigger_event_with_policy(3)
+        .expect("expected second lease");
+    assert!(pipeline.mark_trainer_trigger_event_delivery_failed(second.event_id, 4));
+
+    assert!(
+        pipeline
+            .lease_next_trainer_trigger_event_with_policy(5)
+            .is_none(),
+        "event should be dead-lettered after max attempts"
+    );
+    assert_eq!(pipeline.trainer_trigger_events_pending(), 0);
+    assert_eq!(pipeline.trainer_trigger_dead_letter_events_total(), 1);
+    assert_eq!(
+        pipeline
+            .auto_improvement_status()
+            .trainer_trigger_dead_letter_total,
+        1
+    );
 }

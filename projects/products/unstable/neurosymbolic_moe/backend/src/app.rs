@@ -185,7 +185,10 @@ fn cmd_trainer_events(args: &[String]) -> Result<(), DynError> {
         "pending" => {
             let pending = pipeline.trainer_trigger_events_pending();
             let listed = pipeline.trainer_trigger_events().len();
-            tracing::info!("trainer events pending={pending} listed={listed}");
+            let dead_letters = pipeline.trainer_trigger_dead_letter_events_total();
+            tracing::info!(
+                "trainer events pending={pending} listed={listed} dead_letter={dead_letters}"
+            );
         }
         "list" => {
             tracing::info!(
@@ -201,15 +204,33 @@ fn cmd_trainer_events(args: &[String]) -> Result<(), DynError> {
                 );
             }
         }
+        "dead" => {
+            tracing::info!(
+                "trainer dead-letter events list (count={})",
+                pipeline.trainer_trigger_dead_letter_events().len()
+            );
+            for event in pipeline.trainer_trigger_dead_letter_events() {
+                tracing::info!(
+                    "dead_letter event_id={} attempts={} last_attempted_at={:?}",
+                    event.event_id,
+                    event.delivery_attempts,
+                    event.last_attempted_at
+                );
+            }
+        }
         "pop" => {
             let popped = pipeline.pop_next_trainer_trigger_event();
             tracing::info!("pop result: {}", popped.is_some());
         }
         "lease" => {
             let now_epoch_seconds = parse_u64_arg(args, 1, "now_epoch_seconds", 0)?;
-            let min_retry_delay_seconds = parse_u64_arg(args, 2, "min_retry_delay_seconds", 0)?;
-            let leased = pipeline
-                .lease_next_trainer_trigger_event(now_epoch_seconds, min_retry_delay_seconds);
+            let leased = if args.get(2).is_some() {
+                let min_retry_delay_seconds = parse_u64_arg(args, 2, "min_retry_delay_seconds", 0)?;
+                pipeline
+                    .lease_next_trainer_trigger_event(now_epoch_seconds, min_retry_delay_seconds)
+            } else {
+                pipeline.lease_next_trainer_trigger_event_with_policy(now_epoch_seconds)
+            };
             tracing::info!("lease result: {}", leased.is_some());
         }
         "ack" => {
@@ -315,6 +336,7 @@ fn build_cli_pipeline() -> MoePipeline {
         .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
         .with_auto_improvement_policy(auto_improvement_policy)
         .with_max_trainer_trigger_events(512)
+        .with_max_trainer_trigger_dead_letter_events(512)
         .with_max_traces(1000)
         .build()
 }
@@ -398,7 +420,7 @@ fn print_usage() {
     );
     tracing::info!("  status             Show platform component status");
     tracing::info!("  trace [path]       Inspect execution traces");
-    tracing::info!("  trainer-events [pending|list|pop|lease|ack|fail|drain] [args...]");
+    tracing::info!("  trainer-events [pending|list|dead|pop|lease|ack|fail|drain] [args...]");
     tracing::info!("  impl-check         Execute full component wiring check");
     tracing::info!("  slo-gate [flags]   Fail-fast SLO gate for CI");
     tracing::info!("  metrics            Print Prometheus-compatible metrics snapshot");

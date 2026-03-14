@@ -37,6 +37,7 @@ pub struct MoePipelineBuilder {
     max_traces: usize,
     auto_improvement_policy: Option<AutoImprovementPolicy>,
     max_trainer_trigger_events: usize,
+    max_trainer_trigger_dead_letter_events: usize,
 }
 
 impl MoePipelineBuilder {
@@ -58,6 +59,7 @@ impl MoePipelineBuilder {
             max_traces: 10_000,
             auto_improvement_policy: None,
             max_trainer_trigger_events: 512,
+            max_trainer_trigger_dead_letter_events: 512,
         }
     }
 
@@ -131,6 +133,11 @@ impl MoePipelineBuilder {
         self
     }
 
+    pub fn with_max_trainer_trigger_dead_letter_events(mut self, max: usize) -> Self {
+        self.max_trainer_trigger_dead_letter_events = max.max(1);
+        self
+    }
+
     pub fn build(self) -> MoePipeline {
         let router = self
             .router
@@ -175,7 +182,10 @@ impl MoePipelineBuilder {
                 auto_improvement_status: AutoImprovementStatus::default(),
                 model_registry: ModelRegistry::default(),
             },
-            trainer_trigger_queue: TrainerTriggerQueueState::new(self.max_trainer_trigger_events),
+            trainer_trigger_queue: TrainerTriggerQueueState::new(
+                self.max_trainer_trigger_events,
+                self.max_trainer_trigger_dead_letter_events,
+            ),
         }
     }
 }

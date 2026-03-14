@@ -68,6 +68,7 @@ impl MoePipeline {
             model_registry_latest_version: model_registry.latest_version().unwrap_or(0),
             trainer_trigger_events_pending: self.trainer_trigger_events_pending(),
             trainer_trigger_events_leased: self.trainer_trigger_queue.leased_count(),
+            trainer_trigger_events_dead_letter: self.trainer_trigger_dead_letter_events_total(),
             trainer_trigger_max_delivery_attempts_pending: self
                 .trainer_trigger_queue
                 .max_delivery_attempts(),
@@ -77,6 +78,12 @@ impl MoePipeline {
             trainer_trigger_newest_generated_at_pending: self
                 .trainer_trigger_queue
                 .newest_generated_at(),
+            trainer_trigger_oldest_generated_at_dead_letter: self
+                .trainer_trigger_queue
+                .oldest_dead_letter_generated_at(),
+            trainer_trigger_newest_generated_at_dead_letter: self
+                .trainer_trigger_queue
+                .newest_dead_letter_generated_at(),
             trainer_trigger_delivery_attempts_total: self
                 .auto_improvement_status()
                 .trainer_trigger_delivery_attempts_total,
@@ -86,6 +93,9 @@ impl MoePipeline {
             trainer_trigger_acknowledged_total: self
                 .auto_improvement_status()
                 .trainer_trigger_acknowledged_total,
+            trainer_trigger_dead_letter_total: self
+                .auto_improvement_status()
+                .trainer_trigger_dead_letter_total,
         }
     }
 

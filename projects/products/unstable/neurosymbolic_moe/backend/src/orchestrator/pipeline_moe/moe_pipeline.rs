@@ -38,6 +38,8 @@ pub(in crate::orchestrator::pipeline_moe) const MAX_RUNTIME_BUNDLE_SESSION_VALUE
     20_000;
 const MAX_TRAINING_DATASET_BUNDLE_JSON_BYTES: usize = 64 * 1024 * 1024;
 const MAX_TRAINING_DATASET_SHARDS_JSON_BYTES: usize = 128 * 1024 * 1024;
+const DEFAULT_TRAINER_TRIGGER_MIN_RETRY_DELAY_SECONDS: u64 = 30;
+const DEFAULT_TRAINER_TRIGGER_MAX_DELIVERY_ATTEMPTS_BEFORE_DEAD_LETTER: u32 = 8;
 
 pub struct MoePipeline {
     pub(in crate::orchestrator) registry: ExpertRegistry,
@@ -328,8 +330,26 @@ impl MoePipeline {
         self.trainer_trigger_queue.events()
     }
 
+    pub fn trainer_trigger_dead_letter_events(&self) -> &VecDeque<TrainerTriggerEvent> {
+        self.trainer_trigger_queue.dead_letter_events()
+    }
+
+    pub fn trainer_trigger_dead_letter_events_total(&self) -> usize {
+        self.trainer_trigger_queue.dead_letter_count()
+    }
+
     pub fn pop_next_trainer_trigger_event(&mut self) -> Option<TrainerTriggerEvent> {
         self.trainer_trigger_queue.pop_next()
+    }
+
+    pub fn lease_next_trainer_trigger_event_with_policy(
+        &mut self,
+        now_epoch_seconds: u64,
+    ) -> Option<TrainerTriggerEvent> {
+        self.lease_next_trainer_trigger_event(
+            now_epoch_seconds,
+            self.trainer_trigger_min_retry_delay_seconds(),
+        )
     }
 
     pub fn lease_next_trainer_trigger_event(
@@ -337,17 +357,33 @@ impl MoePipeline {
         now_epoch_seconds: u64,
         min_retry_delay_seconds: u64,
     ) -> Option<TrainerTriggerEvent> {
-        let leased = self
-            .trainer_trigger_queue
-            .lease_next(now_epoch_seconds, min_retry_delay_seconds)?;
-        self.training_runtime_state
-            .auto_improvement_status
-            .trainer_trigger_delivery_attempts_total = self
-            .training_runtime_state
-            .auto_improvement_status
-            .trainer_trigger_delivery_attempts_total
-            .saturating_add(1);
-        Some(leased)
+        let dead_letter_before = self.trainer_trigger_queue.dead_letter_count();
+        let leased = self.trainer_trigger_queue.lease_next(
+            now_epoch_seconds,
+            min_retry_delay_seconds,
+            self.trainer_trigger_max_delivery_attempts_before_dead_letter(),
+        );
+        let dead_letter_after = self.trainer_trigger_queue.dead_letter_count();
+        let new_dead_letters = dead_letter_after.saturating_sub(dead_letter_before) as u64;
+        if new_dead_letters > 0 {
+            self.training_runtime_state
+                .auto_improvement_status
+                .trainer_trigger_dead_letter_total = self
+                .training_runtime_state
+                .auto_improvement_status
+                .trainer_trigger_dead_letter_total
+                .saturating_add(new_dead_letters);
+        }
+        if leased.is_some() {
+            self.training_runtime_state
+                .auto_improvement_status
+                .trainer_trigger_delivery_attempts_total = self
+                .training_runtime_state
+                .auto_improvement_status
+                .trainer_trigger_delivery_attempts_total
+                .saturating_add(1);
+        }
+        leased
     }
 
     pub fn acknowledge_trainer_trigger_event(&mut self, event_id: u64) -> bool {
@@ -506,5 +542,22 @@ impl MoePipeline {
                 .last_continuous_improvement_report
                 .clone(),
         )
+    }
+
+    fn trainer_trigger_min_retry_delay_seconds(&self) -> u64 {
+        self.training_runtime_state
+            .auto_improvement_policy
+            .as_ref()
+            .map(|policy| policy.trainer_trigger_min_retry_delay_seconds)
+            .unwrap_or(DEFAULT_TRAINER_TRIGGER_MIN_RETRY_DELAY_SECONDS)
+    }
+
+    fn trainer_trigger_max_delivery_attempts_before_dead_letter(&self) -> u32 {
+        self.training_runtime_state
+            .auto_improvement_policy
+            .as_ref()
+            .map(|policy| policy.trainer_trigger_max_delivery_attempts_before_dead_letter)
+            .unwrap_or(DEFAULT_TRAINER_TRIGGER_MAX_DELIVERY_ATTEMPTS_BEFORE_DEAD_LETTER)
+            .max(1)
     }
 }
