@@ -274,6 +274,191 @@ subcommand="${2:-}"
 shift 2 || true
 
 case "$subcommand" in
+  validate-footer)
+    commit_file=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --file)
+          commit_file="${2:-}"
+          shift 2
+          ;;
+        --repo)
+          shift 2
+          ;;
+        *)
+          shift
+          ;;
+      esac
+    done
+
+    if [[ -z "$commit_file" || ! -f "$commit_file" ]]; then
+      exit 4
+    fi
+
+    commit_subject="$(awk '
+      {
+        if ($0 ~ /^[[:space:]]*$/) next
+        if ($0 ~ /^[[:space:]]*#/) next
+        print $0
+        exit
+      }
+    ' "$commit_file")"
+    subject_lower="$(printf '%s' "$commit_subject" | tr '[:upper:]' '[:lower:]')"
+    issue_ref_re='(^|[[:space:]])(closes|part[[:space:]]+of|reopen|reopens|fixes)[[:space:]]+#[0-9]+([[:space:]]|$)'
+    if [[ "$subject_lower" =~ $issue_ref_re ]]; then
+      echo "❌ Issue references must be in commit footer, not in subject." >&2
+      echo "   Move 'Closes/Part of/Reopen #...' to footer lines." >&2
+      exit 4
+    fi
+
+    mapfile -t message_lines < <(sed '/^[[:space:]]*#/d' "$commit_file")
+    if [[ ${#message_lines[@]} -eq 0 ]]; then
+      exit 0
+    fi
+
+    trailer_line_re='^[[:space:]]*(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+[[:space:]]*$'
+    trailers=()
+    trailer_keys=()
+    content_lines=("${message_lines[0]}")
+
+    for line in "${message_lines[@]:1}"; do
+      normalized="$(echo "$line" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+      normalized_lower="$(printf '%s' "$normalized" | tr '[:upper:]' '[:lower:]')"
+
+      if [[ "$normalized_lower" =~ ^fixes[[:space:]]+#[0-9]+$ ]]; then
+        echo "❌ Invalid issue footer keyword: 'Fixes' is not allowed." >&2
+        echo "   Use 'Closes #<issue>' for closure." >&2
+        exit 4
+      fi
+
+      if [[ "$normalized_lower" =~ $trailer_line_re ]]; then
+        if [[ "$normalized_lower" =~ ^(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#([0-9]+)$ ]]; then
+          keyword="$(printf '%s' "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
+          issue_number="${BASH_REMATCH[2]}"
+          case "$keyword" in
+            closes) canonical="Closes #${issue_number}" ;;
+            "part of") canonical="Part of #${issue_number}" ;;
+            reopen|reopens) canonical="Reopen #${issue_number}" ;;
+            *) canonical="$normalized" ;;
+          esac
+          key="${keyword}#${issue_number}"
+          if [[ " ${trailer_keys[*]} " != *" ${key} "* ]]; then
+            trailer_keys+=("$key")
+            trailers+=("$canonical")
+          fi
+          continue
+        fi
+      fi
+      content_lines+=("$line")
+    done
+
+    if [[ ${#trailers[@]} -gt 0 ]]; then
+      while [[ ${#content_lines[@]} -gt 0 ]]; do
+        line="${content_lines[$((${#content_lines[@]} - 1))]}"
+        [[ "$line" =~ ^[[:space:]]*$ ]] || break
+        unset "content_lines[$((${#content_lines[@]} - 1))]"
+      done
+
+      compact_lines=()
+      prev_blank=false
+      for line in "${content_lines[@]}"; do
+        if [[ "$line" =~ ^[[:space:]]*$ ]]; then
+          if [[ "$prev_blank" == true ]]; then
+            continue
+          fi
+          prev_blank=true
+        else
+          prev_blank=false
+        fi
+        compact_lines+=("$line")
+      done
+
+      {
+        for i in "${!compact_lines[@]}"; do
+          echo "${compact_lines[$i]}"
+        done
+        echo
+        for line in "${trailers[@]}"; do
+          echo "$line"
+        done
+      } >"$commit_file"
+    fi
+
+    refs="$(sed '/^[[:space:]]*#/d' "$commit_file" | awk '
+      {
+        line = $0
+        lower = tolower($0)
+        while (match(lower, /(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+/)) {
+          matched = substr(line, RSTART, RLENGTH)
+          keyword = tolower(matched)
+          gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
+          issue = matched
+          sub(/^.*#/, "", issue)
+          print keyword "|" issue
+          line = substr(line, RSTART + RLENGTH)
+          lower = substr(lower, RSTART + RLENGTH)
+        }
+      }
+    ' | awk '!seen[$0]++')"
+
+    root_parent_refs=()
+    while IFS='|' read -r action issue_number; do
+      [[ -z "$issue_number" ]] && continue
+      parent_mode="$(issue_parent_mode "$issue_number")"
+      is_root_parent=false
+      case "$parent_mode" in
+        epic) is_root_parent=true ;;
+        base) is_root_parent=false ;;
+        \#*) is_root_parent=false ;;
+        none|"")
+          if issue_has_children "$issue_number"; then
+            is_root_parent=true
+          fi
+          ;;
+        *) is_root_parent=false ;;
+      esac
+      if [[ "$is_root_parent" == true ]]; then
+        root_parent_refs+=("${action} #${issue_number}")
+      fi
+    done <<<"$refs"
+
+    if [[ ${#root_parent_refs[@]} -gt 0 ]]; then
+      echo "❌ Invalid issue footer usage in commit message." >&2
+      echo "   Protected parent issue references are not allowed in commit trailers: ${root_parent_refs[*]}" >&2
+      echo "   Protected parent states: Parent: epic, or Parent: none with detected children." >&2
+      echo "   Use issue refs on child/independent issues only (Part of/Closes/Reopen #<issue>)." >&2
+      echo "   Bypass (emergency only): SKIP_COMMIT_VALIDATION=1 git commit ..." >&2
+      exit 5
+    fi
+
+    current_login="${MOCK_GH_LOGIN:-devuser}"
+    declare -A has_part_of=()
+    declare -A has_closing=()
+    while IFS='|' read -r action issue_number; do
+      [[ -z "$action" || -z "$issue_number" ]] && continue
+      if [[ "$action" == "part of" ]]; then
+        has_part_of["$issue_number"]=1
+      fi
+      if [[ "$action" == "closes" || "$action" == "fixes" ]]; then
+        has_closing["$issue_number"]=1
+      fi
+    done <<<"$refs"
+
+    violations=()
+    for issue_number in "${!has_part_of[@]}"; do
+      [[ -n "${has_closing[$issue_number]:-}" ]] && continue
+      if ! contains_list_item "$issue_number" "${MOCK_MULTI_ASSIGNEE_ISSUES:-124}"; then
+        violations+=("#${issue_number} is assigned only to @${current_login}: 'Closes #${issue_number}' is required (Part of only is not allowed)")
+      fi
+    done
+
+    if [[ ${#violations[@]} -gt 0 ]]; then
+      echo "❌ Assignment policy violation in commit footer." >&2
+      printf '   - %s\n' "${violations[@]}" >&2
+      exit 10
+    fi
+    ;;
+
   repo-name)
     echo "owner/repo"
     ;;
