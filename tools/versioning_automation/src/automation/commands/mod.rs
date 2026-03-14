@@ -1,11 +1,27 @@
+pub(crate) mod audit_security_options;
 pub(crate) mod automation_action;
+pub(crate) mod build_accounts_ui_options;
+pub(crate) mod build_and_check_ui_bundles_options;
+pub(crate) mod build_ui_bundles_options;
+pub(crate) mod changed_crates_options;
+pub(crate) mod check_dependencies_options;
+pub(crate) mod check_merge_conflicts_options;
 pub(crate) mod check_priority_issues_options;
 pub(crate) mod ci_watch_pr_options;
+pub(crate) mod clean_artifacts_options;
 pub(crate) mod labels_sync_options;
 pub(crate) mod sync_main_dev_ci_options;
 
+pub(crate) use audit_security_options::AuditSecurityOptions;
 pub(crate) use automation_action::AutomationAction;
+pub(crate) use build_accounts_ui_options::BuildAccountsUiOptions;
+pub(crate) use build_and_check_ui_bundles_options::BuildAndCheckUiBundlesOptions;
+pub(crate) use build_ui_bundles_options::BuildUiBundlesOptions;
+pub(crate) use changed_crates_options::ChangedCratesOptions;
+pub(crate) use check_dependencies_options::CheckDependenciesOptions;
+pub(crate) use check_merge_conflicts_options::CheckMergeConflictsOptions;
 pub(crate) use check_priority_issues_options::CheckPriorityIssuesOptions;
 pub(crate) use ci_watch_pr_options::CiWatchPrOptions;
+pub(crate) use clean_artifacts_options::CleanArtifactsOptions;
 pub(crate) use labels_sync_options::LabelsSyncOptions;
 pub(crate) use sync_main_dev_ci_options::SyncMainDevCiOptions;
