@@ -7,7 +7,10 @@ use crate::feedback_engine::FeedbackStore;
 use crate::memory_engine::{LongTermMemory, ShortTermMemory};
 use crate::orchestrator::ImportTelemetry;
 use crate::orchestrator::import_journal::ImportJournal;
-use crate::orchestrator::{ArbitrationMode, ContinuousGovernancePolicy, GovernanceImportPolicy};
+use crate::orchestrator::{
+    ArbitrationMode, AutoImprovementPolicy, AutoImprovementStatus, ContinuousGovernancePolicy,
+    GovernanceImportPolicy,
+};
 use crate::policy_guard::PolicyGuard;
 use crate::retrieval_engine::{ContextAssembler, Retriever, SimpleRetriever};
 use crate::router::{HeuristicRouter, Router};
@@ -30,6 +33,7 @@ pub struct MoePipelineBuilder {
     max_governance_audit_entries: usize,
     max_governance_state_snapshots: usize,
     max_traces: usize,
+    auto_improvement_policy: Option<AutoImprovementPolicy>,
 }
 
 impl MoePipelineBuilder {
@@ -49,6 +53,7 @@ impl MoePipelineBuilder {
             max_governance_audit_entries: 128,
             max_governance_state_snapshots: 64,
             max_traces: 10_000,
+            auto_improvement_policy: None,
         }
     }
 
@@ -112,6 +117,11 @@ impl MoePipelineBuilder {
         self
     }
 
+    pub fn with_auto_improvement_policy(mut self, policy: AutoImprovementPolicy) -> Self {
+        self.auto_improvement_policy = Some(policy);
+        self
+    }
+
     pub fn build(self) -> MoePipeline {
         let router = self
             .router
@@ -149,6 +159,8 @@ impl MoePipelineBuilder {
             feedback_store: FeedbackStore::new(),
             dataset_store: DatasetStore::new(),
             trace_converter: TraceConverter::new(),
+            auto_improvement_policy: self.auto_improvement_policy,
+            auto_improvement_status: AutoImprovementStatus::default(),
         }
     }
 }

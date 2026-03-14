@@ -75,6 +75,10 @@ impl DatasetStore {
         self.entries.len()
     }
 
+    pub fn has_entry_id(&self, entry_id: &str) -> bool {
+        self.entries.iter().any(|entry| entry.id == entry_id)
+    }
+
     pub fn successful_count(&self) -> usize {
         self.entries
             .iter()

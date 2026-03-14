@@ -1,4 +1,7 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/mod.rs
 mod arbitration_mode;
+mod auto_improvement_policy;
+mod auto_improvement_status;
 mod concurrent_lock_metrics;
 mod concurrent_moe_pipeline;
 mod concurrent_operational_report;
@@ -22,6 +25,8 @@ mod runtime_persistence_bundle;
 mod tests;
 
 pub use arbitration_mode::ArbitrationMode;
+pub use auto_improvement_policy::AutoImprovementPolicy;
+pub use auto_improvement_status::AutoImprovementStatus;
 pub use concurrent_lock_metrics::ConcurrentLockMetrics;
 pub use concurrent_moe_pipeline::ConcurrentMoePipeline;
 pub use concurrent_operational_report::ConcurrentOperationalReport;

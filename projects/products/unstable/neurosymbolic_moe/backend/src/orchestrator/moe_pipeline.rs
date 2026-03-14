@@ -13,8 +13,9 @@ use crate::moe_core::{Expert, MoeError};
 use crate::orchestrator::ContinuousImprovementReport;
 use crate::orchestrator::import_journal::ImportJournal;
 use crate::orchestrator::{
-    ArbitrationMode, ContinuousGovernancePolicy, GovernanceAuditEntry, GovernanceImportPolicy,
-    GovernanceState, GovernanceStateSnapshot, ImportTelemetry,
+    ArbitrationMode, AutoImprovementPolicy, AutoImprovementStatus, ContinuousGovernancePolicy,
+    GovernanceAuditEntry, GovernanceImportPolicy, GovernanceState, GovernanceStateSnapshot,
+    ImportTelemetry,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::retrieval_engine::{ContextAssembler, Retriever};
@@ -65,6 +66,8 @@ pub struct MoePipeline {
     pub(super) feedback_store: FeedbackStore,
     pub(super) dataset_store: DatasetStore,
     pub(super) trace_converter: TraceConverter,
+    pub(super) auto_improvement_policy: Option<AutoImprovementPolicy>,
+    pub(super) auto_improvement_status: AutoImprovementStatus,
 }
 
 impl MoePipeline {
@@ -255,6 +258,72 @@ impl MoePipeline {
 
     pub fn add_feedback(&mut self, entry: FeedbackEntry) {
         self.feedback_store.add(entry);
+    }
+
+    pub fn configure_auto_improvement_policy(&mut self, policy: AutoImprovementPolicy) {
+        self.auto_improvement_policy = Some(policy);
+    }
+
+    pub fn clear_auto_improvement_policy(&mut self) {
+        self.auto_improvement_policy = None;
+    }
+
+    pub fn auto_improvement_status(&self) -> &AutoImprovementStatus {
+        &self.auto_improvement_status
+    }
+
+    pub fn bootstrap_initial_dataset_from_training_bundle(
+        &mut self,
+        bundle: &DatasetTrainingBundle,
+    ) -> Result<usize, MoeError> {
+        let mut candidate = bundle.clone();
+        candidate.ensure_checksum();
+        DatasetStore::validate_training_bundle(&candidate)?;
+
+        let mut seeded = 0usize;
+        for sample in candidate
+            .train_samples
+            .iter()
+            .chain(candidate.validation_samples.iter())
+        {
+            let id = format!("bootstrap:{}", sample.entry_id);
+            let was_existing = self.dataset_store.has_entry_id(&id);
+
+            self.dataset_store
+                .upsert_entry(crate::dataset_engine::DatasetEntry {
+                    id,
+                    task_id: crate::moe_core::TaskId::new(&sample.task_id),
+                    expert_id: crate::moe_core::ExpertId::new(&sample.expert_id),
+                    input: sample.input.clone(),
+                    output: sample.target_output.clone(),
+                    outcome: crate::dataset_engine::Outcome::Success,
+                    score: sample.score,
+                    tags: {
+                        let mut tags = sample.tags.clone();
+                        if !tags.iter().any(|tag| tag == "bootstrap") {
+                            tags.push("bootstrap".to_string());
+                        }
+                        tags
+                    },
+                    created_at: candidate.generated_at,
+                    metadata: sample.metadata.clone(),
+                });
+            if !was_existing {
+                seeded += 1;
+            }
+        }
+
+        self.auto_improvement_status.bootstrap_entries_total += seeded;
+        self.record_governance_audit("initial dataset bootstrap applied");
+        Ok(seeded)
+    }
+
+    pub fn bootstrap_initial_dataset_from_training_bundle_json(
+        &mut self,
+        payload: &str,
+    ) -> Result<usize, MoeError> {
+        let bundle = self.preview_training_dataset_bundle_json(payload)?;
+        self.bootstrap_initial_dataset_from_training_bundle(&bundle)
     }
 
     pub fn capture_evaluation_baseline(&mut self) {

@@ -1,4 +1,5 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/tests/mod.rs
+mod auto_improvement_policy;
 mod concurrent_lock_metrics;
 mod concurrent_moe_pipeline;
 mod concurrent_operational_report;

@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline/execution.rs
 use crate::memory_engine::{MemoryQuery, MemoryStore};
 use crate::moe_core::{
     AggregatedOutput, ExecutionContext, ExpertError, ExpertId, ExpertOutput, MoeError, Task,
@@ -339,6 +340,7 @@ impl MoePipeline {
             self.last_continuous_improvement_report = Some(report);
             self.record_governance_audit("continuous governance evaluated");
         }
+        self.maybe_run_auto_improvement();
 
         Ok(aggregated)
     }
@@ -378,6 +380,74 @@ impl MoePipeline {
             expert_regressions,
             routing_regression,
             requires_human_review,
+        }
+    }
+
+    fn maybe_run_auto_improvement(&mut self) {
+        let Some(policy) = self.auto_improvement_policy.clone() else {
+            return;
+        };
+        if self.dataset_store.count() < policy.min_dataset_entries {
+            return;
+        }
+
+        let quality = self
+            .dataset_store
+            .quality_report(policy.training_build_options.min_score.unwrap_or(0.0));
+        if quality.success_ratio < policy.min_success_ratio {
+            return;
+        }
+        if let Some(min_average_score) = policy.min_average_score
+            && quality.average_score.unwrap_or(0.0) < min_average_score
+        {
+            return;
+        }
+        if self
+            .last_continuous_improvement_report
+            .as_ref()
+            .is_some_and(|report| report.requires_human_review)
+        {
+            return;
+        }
+
+        match self.dataset_store.build_training_bundle_with_provenance(
+            &policy.training_build_options,
+            self.dataset_provenance(),
+        ) {
+            Ok(bundle) => {
+                if self.auto_improvement_status.last_bundle_checksum.as_deref()
+                    == Some(bundle.bundle_checksum.as_str())
+                {
+                    return;
+                }
+                self.auto_improvement_status.runs_total += 1;
+                self.auto_improvement_status.last_bundle_checksum = Some(bundle.bundle_checksum);
+                self.auto_improvement_status.last_included_entries = bundle.included_entries;
+                self.auto_improvement_status.last_train_samples = bundle.train_samples.len();
+                self.auto_improvement_status.last_validation_samples =
+                    bundle.validation_samples.len();
+                self.record_governance_audit("auto improvement dataset refresh");
+                self.trace_logger.log_phase(
+                    crate::moe_core::TaskId::new("auto-improvement"),
+                    TracePhase::DatasetEnrichment,
+                    format!(
+                        "auto improvement run {} prepared training bundle (included={}, train={}, validation={})",
+                        self.auto_improvement_status.runs_total,
+                        self.auto_improvement_status.last_included_entries,
+                        self.auto_improvement_status.last_train_samples,
+                        self.auto_improvement_status.last_validation_samples
+                    ),
+                    None,
+                );
+            }
+            Err(err) => {
+                self.trace_logger.log_phase(
+                    crate::moe_core::TaskId::new("auto-improvement"),
+                    TracePhase::DatasetEnrichment,
+                    format!("auto improvement skipped (bundle build error: {err})"),
+                    None,
+                );
+            }
         }
     }
 
