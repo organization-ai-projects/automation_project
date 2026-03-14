@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/dataset_engine/dataset_store.rs
 use std::collections::HashMap;
 
 use crate::moe_core::MoeError;
@@ -69,6 +70,23 @@ impl DatasetStore {
 
     pub fn get_corrections(&self, entry_id: &str) -> Option<&Vec<Correction>> {
         self.corrections.get(entry_id)
+    }
+
+    pub fn entries_cloned(&self) -> Vec<DatasetEntry> {
+        self.entries.clone()
+    }
+
+    pub fn corrections_cloned(&self) -> HashMap<String, Vec<Correction>> {
+        self.corrections.clone()
+    }
+
+    pub fn replace_all(
+        &mut self,
+        entries: Vec<DatasetEntry>,
+        corrections: HashMap<String, Vec<Correction>>,
+    ) {
+        self.entries = entries;
+        self.corrections = corrections;
     }
 
     pub fn count(&self) -> usize {

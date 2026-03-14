@@ -1,9 +1,10 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline/persistence.rs
 use crate::evaluation_engine::EvaluationEngine;
 use crate::moe_core::{MoeError, TracePhase};
 use crate::orchestrator::{
     ContinuousImprovementReport, GovernanceAuditTrail, GovernanceImportDecision,
     GovernancePersistenceBundle, GovernanceState, GovernanceStateDiff, GovernanceStateSnapshot,
-    MoePipeline, RuntimePersistenceBundle,
+    MoePipeline, RuntimeBundleComponents, RuntimePersistenceBundle,
 };
 
 impl MoePipeline {
@@ -66,12 +67,16 @@ impl MoePipeline {
     }
 
     pub fn export_runtime_bundle(&self) -> RuntimePersistenceBundle {
-        RuntimePersistenceBundle::from_components(
-            self.export_governance_bundle(),
-            self.short_term_memory.entries_cloned(),
-            self.long_term_memory.entries_cloned(),
-            self.buffer_manager.clone(),
-        )
+        RuntimePersistenceBundle::from_components(RuntimeBundleComponents {
+            governance: self.export_governance_bundle(),
+            short_term_memory_entries: self.short_term_memory.entries_cloned(),
+            long_term_memory_entries: self.long_term_memory.entries_cloned(),
+            buffer_manager: self.buffer_manager.clone(),
+            dataset_entries: self.dataset_store.entries_cloned(),
+            dataset_corrections: self.dataset_store.corrections_cloned(),
+            auto_improvement_policy: self.auto_improvement_policy.clone(),
+            auto_improvement_status: self.auto_improvement_status.clone(),
+        })
     }
 
     pub fn export_runtime_bundle_json(&self) -> Result<String, MoeError> {
@@ -251,11 +256,19 @@ impl MoePipeline {
         let backup_short_term_memory = self.short_term_memory.clone();
         let backup_long_term_memory = self.long_term_memory.clone();
         let backup_buffer_manager = self.buffer_manager.clone();
+        let backup_dataset_entries = self.dataset_store.entries_cloned();
+        let backup_dataset_corrections = self.dataset_store.corrections_cloned();
+        let backup_auto_improvement_policy = self.auto_improvement_policy.clone();
+        let backup_auto_improvement_status = self.auto_improvement_status.clone();
 
         let governance = bundle.governance;
         let short_term_memory_entries = bundle.short_term_memory_entries;
         let long_term_memory_entries = bundle.long_term_memory_entries;
         let buffer_manager = bundle.buffer_manager;
+        let dataset_entries = bundle.dataset_entries;
+        let dataset_corrections = bundle.dataset_corrections;
+        let auto_improvement_policy = bundle.auto_improvement_policy;
+        let auto_improvement_status = bundle.auto_improvement_status;
 
         if let Err(err) = (|| -> Result<(), MoeError> {
             self.import_governance_bundle(governance)?;
@@ -264,6 +277,10 @@ impl MoePipeline {
             self.long_term_memory
                 .replace_entries(long_term_memory_entries)?;
             self.buffer_manager = buffer_manager;
+            self.dataset_store
+                .replace_all(dataset_entries, dataset_corrections);
+            self.auto_improvement_policy = auto_improvement_policy;
+            self.auto_improvement_status = auto_improvement_status;
             Ok(())
         })() {
             self.continuous_governance_policy = backup_governance_policy;
@@ -275,6 +292,10 @@ impl MoePipeline {
             self.short_term_memory = backup_short_term_memory;
             self.long_term_memory = backup_long_term_memory;
             self.buffer_manager = backup_buffer_manager;
+            self.dataset_store
+                .replace_all(backup_dataset_entries, backup_dataset_corrections);
+            self.auto_improvement_policy = backup_auto_improvement_policy;
+            self.auto_improvement_status = backup_auto_improvement_status;
             self.import_telemetry.record_runtime_bundle_rejection();
             return Err(MoeError::DatasetError(format!(
                 "runtime bundle import failed and was rolled back: {err}"

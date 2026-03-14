@@ -1,5 +1,6 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/tests/mod.rs
 mod auto_improvement_policy;
+mod auto_improvement_status;
 mod concurrent_lock_metrics;
 mod concurrent_moe_pipeline;
 mod concurrent_operational_report;
@@ -20,4 +21,5 @@ mod moe_pipeline_observability;
 #[path = "../moe_pipeline/tests/persistence.rs"]
 mod moe_pipeline_persistence;
 mod operational_report;
+mod runtime_bundle_components;
 mod runtime_persistence_bundle;

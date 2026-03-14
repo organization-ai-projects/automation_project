@@ -1,8 +1,13 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/runtime_persistence_bundle.rs
 use crate::buffer_manager::BufferManager;
+use crate::dataset_engine::{Correction, DatasetEntry};
 use crate::memory_engine::MemoryEntry;
-use crate::orchestrator::GovernancePersistenceBundle;
+use crate::orchestrator::{
+    AutoImprovementPolicy, AutoImprovementStatus, GovernancePersistenceBundle,
+    RuntimeBundleComponents,
+};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Write as _;
 
 const RUNTIME_BUNDLE_SCHEMA_VERSION: u32 = 1;
@@ -17,6 +22,14 @@ pub struct RuntimePersistenceBundle {
     pub short_term_memory_entries: Vec<MemoryEntry>,
     pub long_term_memory_entries: Vec<MemoryEntry>,
     pub buffer_manager: BufferManager,
+    #[serde(default)]
+    pub dataset_entries: Vec<DatasetEntry>,
+    #[serde(default)]
+    pub dataset_corrections: HashMap<String, Vec<Correction>>,
+    #[serde(default)]
+    pub auto_improvement_policy: Option<AutoImprovementPolicy>,
+    #[serde(default)]
+    pub auto_improvement_status: AutoImprovementStatus,
 }
 
 impl RuntimePersistenceBundle {
@@ -28,19 +41,18 @@ impl RuntimePersistenceBundle {
         self.schema_version == Self::schema_version()
     }
 
-    pub fn from_components(
-        governance: GovernancePersistenceBundle,
-        short_term_memory_entries: Vec<MemoryEntry>,
-        long_term_memory_entries: Vec<MemoryEntry>,
-        buffer_manager: BufferManager,
-    ) -> Self {
+    pub fn from_components(components: RuntimeBundleComponents) -> Self {
         let mut bundle = Self {
             schema_version: RUNTIME_BUNDLE_SCHEMA_VERSION,
             runtime_checksum: String::new(),
-            governance,
-            short_term_memory_entries,
-            long_term_memory_entries,
-            buffer_manager,
+            governance: components.governance,
+            short_term_memory_entries: components.short_term_memory_entries,
+            long_term_memory_entries: components.long_term_memory_entries,
+            buffer_manager: components.buffer_manager,
+            dataset_entries: components.dataset_entries,
+            dataset_corrections: components.dataset_corrections,
+            auto_improvement_policy: components.auto_improvement_policy,
+            auto_improvement_status: components.auto_improvement_status,
         };
         bundle.runtime_checksum = bundle.recompute_checksum();
         bundle
@@ -62,10 +74,22 @@ impl RuntimePersistenceBundle {
         let working_fp = working_buffer_fingerprint(&self.buffer_manager);
         let sessions_fp = session_buffer_fingerprint(&self.buffer_manager);
         let governance_fp = governance_fingerprint(&self.governance);
+        let dataset_fp = dataset_fingerprint(&self.dataset_entries, &self.dataset_corrections);
+        let auto_improvement_fp = auto_improvement_fingerprint(
+            self.auto_improvement_policy.as_ref(),
+            &self.auto_improvement_status,
+        );
 
         let material = format!(
-            "{}:{}:{}:{}:{}:{}",
-            self.schema_version, governance_fp, short_fp, long_fp, working_fp, sessions_fp
+            "{}:{}:{}:{}:{}:{}:{}:{}",
+            self.schema_version,
+            governance_fp,
+            short_fp,
+            long_fp,
+            working_fp,
+            sessions_fp,
+            dataset_fp,
+            auto_improvement_fp
         );
         format!("{:016x}", fnv1a64(material.as_bytes()))
     }
@@ -180,6 +204,77 @@ fn governance_fingerprint(governance: &GovernancePersistenceBundle) -> String {
         ) {}
     }
     fingerprint
+}
+
+fn dataset_fingerprint(
+    entries: &[DatasetEntry],
+    corrections: &HashMap<String, Vec<Correction>>,
+) -> String {
+    let mut ordered_entries: Vec<&DatasetEntry> = entries.iter().collect();
+    ordered_entries.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut parts = Vec::new();
+    for entry in ordered_entries {
+        parts.push(format!(
+            "{}|{}|{}|{}|{:?}|{:?}|{}|{:?}",
+            entry.id,
+            entry.task_id.as_str(),
+            entry.expert_id.as_str(),
+            entry.input,
+            entry.outcome,
+            entry.score,
+            entry.created_at,
+            entry.tags
+        ));
+    }
+
+    let mut ordered_keys: Vec<&str> = corrections.keys().map(String::as_str).collect();
+    ordered_keys.sort_unstable();
+    for key in ordered_keys {
+        if let Some(values) = corrections.get(key) {
+            for correction in values {
+                parts.push(format!(
+                    "corr:{}|{}|{}|{}",
+                    correction.entry_id,
+                    correction.corrected_output,
+                    correction.reason,
+                    correction.corrected_at
+                ));
+            }
+        }
+    }
+    parts.join("::")
+}
+
+fn auto_improvement_fingerprint(
+    policy: Option<&AutoImprovementPolicy>,
+    status: &AutoImprovementStatus,
+) -> String {
+    let policy_part = if let Some(policy) = policy {
+        format!(
+            "{}|{}|{:?}|{}|{}|{:?}|{}|{}|{}",
+            policy.min_dataset_entries,
+            policy.min_success_ratio,
+            policy.min_average_score,
+            policy.training_build_options.generated_at,
+            policy.training_build_options.validation_ratio,
+            policy.training_build_options.min_score,
+            policy.training_build_options.include_failure_entries,
+            policy.training_build_options.include_partial_entries,
+            policy.training_build_options.split_seed
+        )
+    } else {
+        "none".to_string()
+    };
+    let status_part = format!(
+        "{}|{}|{:?}|{}|{}|{}",
+        status.runs_total,
+        status.bootstrap_entries_total,
+        status.last_bundle_checksum,
+        status.last_included_entries,
+        status.last_train_samples,
+        status.last_validation_samples
+    );
+    format!("{policy_part}::{status_part}")
 }
 
 fn fnv1a64(bytes: &[u8]) -> u64 {

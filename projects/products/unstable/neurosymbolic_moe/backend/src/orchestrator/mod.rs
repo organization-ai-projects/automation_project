@@ -20,6 +20,7 @@ mod import_telemetry;
 mod moe_pipeline;
 mod moe_pipeline_builder;
 mod operational_report;
+mod runtime_bundle_components;
 mod runtime_persistence_bundle;
 #[cfg(test)]
 mod tests;
@@ -44,4 +45,5 @@ pub use import_telemetry::ImportTelemetry;
 pub use moe_pipeline::MoePipeline;
 pub use moe_pipeline_builder::MoePipelineBuilder;
 pub use operational_report::OperationalReport;
+pub use runtime_bundle_components::RuntimeBundleComponents;
 pub use runtime_persistence_bundle::RuntimePersistenceBundle;
