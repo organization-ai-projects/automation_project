@@ -266,6 +266,61 @@ if [[ "${1:-}" == "automation" && "${2:-}" == "pre-push-check" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "automation" && "${2:-}" == "post-checkout-check" ]]; then
+  commits="$(git log origin/dev..HEAD --format=%B 2>/dev/null || true)"
+  [[ -z "$commits" ]] && exit 0
+
+  refs="$(echo "$commits" | awk '
+    {
+      line = $0
+      lower = tolower($0)
+      while (match(lower, /(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+/)) {
+        matched = substr(line, RSTART, RLENGTH)
+        keyword = tolower(matched)
+        gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
+        issue = matched
+        sub(/^.*#/, "", issue)
+        print keyword "|" issue
+        line = substr(line, RSTART + RLENGTH)
+        lower = substr(lower, RSTART + RLENGTH)
+      }
+    }
+  ' | awk '!seen[$0]++')"
+  [[ -z "$refs" ]] && exit 0
+
+  root_parent_refs=()
+  while IFS='|' read -r action issue_number; do
+    [[ -z "$issue_number" ]] && continue
+    parent_mode="$(issue_parent_mode "$issue_number")"
+    is_root_parent=false
+    case "$parent_mode" in
+      epic) is_root_parent=true ;;
+      base) is_root_parent=false ;;
+      \#*) is_root_parent=false ;;
+      none|"")
+        if issue_has_children "$issue_number"; then
+          is_root_parent=true
+        fi
+        ;;
+      *) is_root_parent=false ;;
+    esac
+    if [[ "$is_root_parent" == true ]]; then
+      root_parent_refs+=("${action} #${issue_number}")
+    fi
+  done <<<"$refs"
+
+  if [[ ${#root_parent_refs[@]} -gt 0 ]]; then
+    echo ""
+    echo "⚠️  Convention warning on branch checkout:"
+    echo "   Current branch history references root parent issue(s):"
+    printf '   - %s\n' "${root_parent_refs[@]}"
+    echo "   This will be blocked by commit-msg/pre-push checks for new commits."
+    echo "   Use child issue refs in trailers instead."
+    echo ""
+  fi
+  exit 0
+fi
+
 if [[ "${1:-}" != "issue" ]]; then
   exit 0
 fi
