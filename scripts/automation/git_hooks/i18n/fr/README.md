@@ -19,9 +19,10 @@ Il interagit principalement avec:
 ```plaintext
 git_hooks/
 ├── commit-msg          # Valide le format du message de commit
-├── pre-commit          # Lance le formatage avant commit
+├── pre-commit (genere par install_hooks.sh) # Lance les checks pre-commit via CLI Rust
 ├── prepare-commit-msg  # Genere un sujet de commit automatiquement
-├── pre-push            # Lance les checks qualite avant push
+├── pre-push (genere par install_hooks.sh) # Lance les checks pre-push via CLI Rust
+├── post-checkout (genere par install_hooks.sh) # Lance les checks post-checkout via CLI Rust
 └── install_hooks.sh    # Installe les hooks dans .git/hooks/
 ```
 
@@ -29,9 +30,10 @@ git_hooks/
 
 - `README.md`: Ce document (version EN canonique).
 - `commit-msg`: Validation format commit.
-- `pre-commit`: Formatage avant commit.
+- `pre-commit`: Genere par `install_hooks.sh`; lance les checks pre-commit via la CLI Rust.
 - `prepare-commit-msg`: Generation automatique du sujet de commit.
-- `pre-push`: Quality checks avant push.
+- `pre-push`: Genere par `install_hooks.sh`; lance les checks pre-push via la CLI Rust.
+- `post-checkout`: Genere par `install_hooks.sh`; lance les checks post-checkout via la CLI Rust.
 - `install_hooks.sh`: Installation des hooks dans `.git/hooks/`.
 
 ## Hooks disponibles
