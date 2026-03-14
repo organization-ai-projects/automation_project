@@ -6,6 +6,7 @@ use crate::orchestrator::{
     GovernancePersistenceBundle, GovernanceState, GovernanceStateDiff, GovernanceStateSnapshot,
     MoePipeline, RuntimeBundleComponents, RuntimePersistenceBundle, import_journal,
 };
+use std::collections::VecDeque;
 
 impl MoePipeline {
     pub fn import_governance_state(&mut self, mut state: GovernanceState) {
@@ -77,7 +78,7 @@ impl MoePipeline {
             auto_improvement_policy: self.auto_improvement_policy.clone(),
             auto_improvement_status: self.auto_improvement_status.clone(),
             model_registry: self.model_registry.clone(),
-            trainer_trigger_events: self.trainer_trigger_events.clone(),
+            trainer_trigger_events: self.trainer_trigger_events.iter().cloned().collect(),
         })
     }
 
@@ -286,7 +287,7 @@ impl MoePipeline {
             self.auto_improvement_policy = auto_improvement_policy;
             self.auto_improvement_status = auto_improvement_status;
             self.model_registry = model_registry;
-            self.trainer_trigger_events = trainer_trigger_events;
+            self.trainer_trigger_events = VecDeque::from(trainer_trigger_events);
             Ok(())
         })() {
             self.continuous_governance_policy = backup_governance_policy;

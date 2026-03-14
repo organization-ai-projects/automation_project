@@ -21,6 +21,7 @@ use crate::policy_guard::{Policy, PolicyGuard};
 use crate::retrieval_engine::{ContextAssembler, Retriever};
 use crate::router::Router;
 use crate::trace_logger::TraceLogger;
+use std::collections::VecDeque;
 
 pub(in crate::orchestrator::pipeline_moe) const MAX_RUNTIME_BUNDLE_JSON_BYTES: usize =
     16 * 1024 * 1024;
@@ -70,7 +71,7 @@ pub struct MoePipeline {
     pub(in crate::orchestrator) auto_improvement_policy: Option<AutoImprovementPolicy>,
     pub(in crate::orchestrator) auto_improvement_status: AutoImprovementStatus,
     pub(in crate::orchestrator) model_registry: ModelRegistry,
-    pub(in crate::orchestrator) trainer_trigger_events: Vec<TrainerTriggerEvent>,
+    pub(in crate::orchestrator) trainer_trigger_events: VecDeque<TrainerTriggerEvent>,
     pub(in crate::orchestrator) max_trainer_trigger_events: usize,
 }
 
@@ -253,22 +254,28 @@ impl MoePipeline {
         Ok(bundle)
     }
 
-    pub fn preview_training_dataset_shards_json(
+    pub fn parse_training_dataset_shards_json(
         &self,
         payload: &str,
     ) -> Result<DatasetTrainingBundle, MoeError> {
         self.rebuild_training_dataset_bundle_from_shards_json(payload)
     }
 
+    pub fn preview_training_dataset_shards_json(
+        &self,
+        payload: &str,
+    ) -> Result<DatasetTrainingBundle, MoeError> {
+        self.parse_training_dataset_shards_json(payload)
+    }
+
     pub(in crate::orchestrator::pipeline_moe) fn dataset_provenance(
         &self,
     ) -> DatasetTrainingProvenance {
-        let governance_state = self.export_governance_state();
         let runtime_bundle = self.export_runtime_bundle();
         DatasetTrainingProvenance {
             generator: "neurosymbolic_moe_backend.orchestrator".to_string(),
-            governance_state_version: governance_state.state_version,
-            governance_state_checksum: governance_state.state_checksum,
+            governance_state_version: runtime_bundle.governance.state.state_version,
+            governance_state_checksum: runtime_bundle.governance.state.state_checksum.clone(),
             runtime_bundle_checksum: runtime_bundle.runtime_checksum,
             dataset_entry_count: self.dataset_store.count(),
         }
@@ -290,16 +297,12 @@ impl MoePipeline {
         self.trainer_trigger_events.len()
     }
 
-    pub fn trainer_trigger_events(&self) -> &[TrainerTriggerEvent] {
+    pub fn trainer_trigger_events(&self) -> &VecDeque<TrainerTriggerEvent> {
         &self.trainer_trigger_events
     }
 
     pub fn pop_next_trainer_trigger_event(&mut self) -> Option<TrainerTriggerEvent> {
-        if self.trainer_trigger_events.is_empty() {
-            None
-        } else {
-            self.trainer_trigger_events.drain(0..1).next()
-        }
+        self.trainer_trigger_events.pop_front()
     }
 
     pub fn lease_next_trainer_trigger_event(
@@ -374,17 +377,22 @@ impl MoePipeline {
             return Vec::new();
         }
         let drain_len = max_events.min(self.trainer_trigger_events.len());
-        self.trainer_trigger_events.drain(0..drain_len).collect()
+        let mut drained = Vec::with_capacity(drain_len);
+        for _ in 0..drain_len {
+            if let Some(event) = self.trainer_trigger_events.pop_front() {
+                drained.push(event);
+            }
+        }
+        drained
     }
 
     pub(in crate::orchestrator::pipeline_moe) fn push_trainer_trigger_event(
         &mut self,
         event: TrainerTriggerEvent,
     ) {
-        self.trainer_trigger_events.push(event);
-        if self.trainer_trigger_events.len() > self.max_trainer_trigger_events {
-            let to_trim = self.trainer_trigger_events.len() - self.max_trainer_trigger_events;
-            self.trainer_trigger_events.drain(0..to_trim);
+        self.trainer_trigger_events.push_back(event);
+        while self.trainer_trigger_events.len() > self.max_trainer_trigger_events {
+            let _ = self.trainer_trigger_events.pop_front();
         }
     }
 
@@ -429,7 +437,10 @@ impl MoePipeline {
             }
         }
 
-        self.auto_improvement_status.bootstrap_entries_total += seeded;
+        self.auto_improvement_status.bootstrap_entries_total = self
+            .auto_improvement_status
+            .bootstrap_entries_total
+            .saturating_add(seeded);
         self.record_governance_audit("initial dataset bootstrap applied");
         Ok(seeded)
     }

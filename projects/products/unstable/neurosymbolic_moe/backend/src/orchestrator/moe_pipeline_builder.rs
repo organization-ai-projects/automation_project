@@ -15,6 +15,7 @@ use crate::policy_guard::PolicyGuard;
 use crate::retrieval_engine::{ContextAssembler, Retriever, SimpleRetriever};
 use crate::router::{HeuristicRouter, Router};
 use crate::trace_logger::TraceLogger;
+use std::collections::VecDeque;
 
 use super::pipeline_moe::MoePipeline;
 
@@ -169,7 +170,7 @@ impl MoePipelineBuilder {
             auto_improvement_policy: self.auto_improvement_policy,
             auto_improvement_status: AutoImprovementStatus::default(),
             model_registry: ModelRegistry::default(),
-            trainer_trigger_events: Vec::new(),
+            trainer_trigger_events: VecDeque::new(),
             max_trainer_trigger_events: self.max_trainer_trigger_events,
         }
     }
