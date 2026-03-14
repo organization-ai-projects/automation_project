@@ -19,6 +19,7 @@ mod moe_pipeline_governance_runtime;
 mod moe_pipeline_observability;
 mod moe_pipeline_persistence;
 mod operational_report;
+mod performance_budgets;
 mod runtime_bundle_components;
 mod runtime_persistence_bundle;
 mod trainer_trigger_event;
