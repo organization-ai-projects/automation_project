@@ -1,10 +1,10 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline/persistence.rs
 use crate::evaluation_engine::EvaluationEngine;
-use crate::moe_core::{MoeError, TracePhase};
+use crate::moe_core::{self, MoeError};
 use crate::orchestrator::{
     ContinuousImprovementReport, GovernanceAuditTrail, GovernanceImportDecision,
     GovernancePersistenceBundle, GovernanceState, GovernanceStateDiff, GovernanceStateSnapshot,
-    MoePipeline, RuntimeBundleComponents, RuntimePersistenceBundle,
+    MoePipeline, RuntimeBundleComponents, RuntimePersistenceBundle, import_journal,
 };
 
 impl MoePipeline {
@@ -13,8 +13,8 @@ impl MoePipeline {
         if !state.verify_checksum() {
             self.import_telemetry.record_governance_state_rejection();
             self.trace_logger.log_phase(
-                crate::moe_core::TaskId::new("governance-import"),
-                TracePhase::Validation,
+                moe_core::TaskId::new("governance-import"),
+                moe_core::TracePhase::Validation,
                 "governance state checksum mismatch during import".to_string(),
                 None,
             );
@@ -25,8 +25,8 @@ impl MoePipeline {
         if !decision.allowed {
             self.import_telemetry.record_governance_state_rejection();
             self.trace_logger.log_phase(
-                crate::moe_core::TaskId::new("governance-import"),
-                TracePhase::Validation,
+                moe_core::TaskId::new("governance-import"),
+                moe_core::TracePhase::Validation,
                 format!(
                     "governance import rejected: {}",
                     decision.reasons.join("; ")
@@ -90,8 +90,7 @@ impl MoePipeline {
     }
 
     pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint =
-            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -180,8 +179,7 @@ impl MoePipeline {
     }
 
     pub fn import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint =
-            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -339,8 +337,7 @@ impl MoePipeline {
     }
 
     pub fn import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint =
-            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -407,8 +404,7 @@ impl MoePipeline {
     }
 
     pub fn try_import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint =
-            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -456,8 +452,7 @@ impl MoePipeline {
     }
 
     pub fn try_import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint =
-            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -553,8 +548,7 @@ impl MoePipeline {
     }
 
     pub fn try_import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint =
-            crate::orchestrator::import_journal::ImportJournal::payload_fingerprint(payload);
+        let payload_fingerprint = import_journal::ImportJournal::payload_fingerprint(payload);
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)

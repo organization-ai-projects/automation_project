@@ -43,6 +43,24 @@ impl MoePipeline {
             auto_improvement_last_included_entries: self
                 .auto_improvement_status()
                 .last_included_entries,
+            auto_improvement_skipped_min_dataset_entries_total: self
+                .auto_improvement_status()
+                .skipped_min_dataset_entries_total,
+            auto_improvement_skipped_min_success_ratio_total: self
+                .auto_improvement_status()
+                .skipped_min_success_ratio_total,
+            auto_improvement_skipped_min_average_score_total: self
+                .auto_improvement_status()
+                .skipped_min_average_score_total,
+            auto_improvement_skipped_human_review_required_total: self
+                .auto_improvement_status()
+                .skipped_human_review_required_total,
+            auto_improvement_skipped_duplicate_bundle_total: self
+                .auto_improvement_status()
+                .skipped_duplicate_bundle_total,
+            auto_improvement_build_failures_total: self
+                .auto_improvement_status()
+                .build_failures_total,
             model_registry_entries: model_registry.entry_count(),
             model_registry_active_version: model_registry.active_version.unwrap_or(0),
             model_registry_latest_version: model_registry.latest_version().unwrap_or(0),

@@ -116,3 +116,87 @@ fn auto_improvement_policy_can_be_attached_via_builder() {
         .build();
     assert_eq!(pipeline.auto_improvement_status().runs_total, 0);
 }
+
+#[test]
+fn execute_tracks_skip_reason_when_min_dataset_entries_is_not_reached() {
+    let policy = AutoImprovementPolicy::default()
+        .with_min_dataset_entries(10_000)
+        .with_min_success_ratio(0.0)
+        .with_min_average_score(None);
+    let mut pipeline = MoePipelineBuilder::new()
+        .with_auto_improvement_policy(policy)
+        .build();
+    pipeline
+        .register_expert(Box::new(EchoExpert::new(
+            "auto-skip-expert",
+            "AutoSkipExpert",
+            vec![ExpertCapability::CodeGeneration],
+        )))
+        .expect("register expert");
+
+    pipeline
+        .execute(Task::new(
+            "auto-skip-task-1",
+            TaskType::CodeGeneration,
+            "skip me",
+        ))
+        .expect("execution should succeed");
+
+    let status = pipeline.auto_improvement_status();
+    assert_eq!(status.runs_total, 0);
+    assert_eq!(status.skipped_min_dataset_entries_total, 1);
+    assert_eq!(
+        status.last_skip_reason.as_deref(),
+        Some("dataset entries below min_dataset_entries")
+    );
+}
+
+#[test]
+fn trainer_trigger_event_queue_supports_pop_and_bounded_drain() {
+    let policy = AutoImprovementPolicy::default()
+        .with_min_dataset_entries(1)
+        .with_min_success_ratio(0.0)
+        .with_min_average_score(None)
+        .with_training_build_options(DatasetTrainingBuildOptions {
+            generated_at: 1,
+            validation_ratio: 0.2,
+            min_score: None,
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 21,
+        });
+    let mut pipeline = MoePipelineBuilder::new()
+        .with_router(Box::new(HeuristicRouter::new(2)))
+        .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
+        .with_auto_improvement_policy(policy)
+        .build();
+    pipeline
+        .register_expert(Box::new(EchoExpert::new(
+            "auto-queue-expert",
+            "AutoQueueExpert",
+            vec![ExpertCapability::CodeGeneration],
+        )))
+        .expect("register expert");
+
+    for idx in 0..3 {
+        pipeline
+            .execute(Task::new(
+                format!("auto-queue-task-{idx}"),
+                TaskType::CodeGeneration,
+                "queue run",
+            ))
+            .expect("execution should succeed");
+    }
+
+    assert!(pipeline.trainer_trigger_events_pending() >= 3);
+    assert!(pipeline.pop_next_trainer_trigger_event().is_some());
+    let remaining = pipeline.trainer_trigger_events_pending();
+    assert!(remaining >= 2);
+
+    let drained = pipeline.drain_trainer_trigger_events(1);
+    assert_eq!(drained.len(), 1);
+    assert_eq!(pipeline.trainer_trigger_events_pending(), remaining - 1);
+    assert!(!pipeline.trainer_trigger_events().is_empty());
+}

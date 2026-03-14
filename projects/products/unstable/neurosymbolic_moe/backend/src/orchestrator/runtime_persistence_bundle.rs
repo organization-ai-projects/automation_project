@@ -276,13 +276,20 @@ fn auto_improvement_fingerprint(
         "none".to_string()
     };
     let status_part = format!(
-        "{}|{}|{:?}|{}|{}|{}",
+        "{}|{}|{:?}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}",
         status.runs_total,
         status.bootstrap_entries_total,
         status.last_bundle_checksum,
         status.last_included_entries,
         status.last_train_samples,
-        status.last_validation_samples
+        status.last_validation_samples,
+        status.skipped_min_dataset_entries_total,
+        status.skipped_min_success_ratio_total,
+        status.skipped_min_average_score_total,
+        status.skipped_human_review_required_total,
+        status.skipped_duplicate_bundle_total,
+        status.build_failures_total,
+        status.last_skip_reason
     );
     format!("{policy_part}::{status_part}")
 }

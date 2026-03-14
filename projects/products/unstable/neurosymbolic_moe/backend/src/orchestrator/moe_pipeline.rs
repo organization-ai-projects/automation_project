@@ -287,6 +287,26 @@ impl MoePipeline {
         self.trainer_trigger_events.len()
     }
 
+    pub fn trainer_trigger_events(&self) -> &[TrainerTriggerEvent] {
+        &self.trainer_trigger_events
+    }
+
+    pub fn pop_next_trainer_trigger_event(&mut self) -> Option<TrainerTriggerEvent> {
+        if self.trainer_trigger_events.is_empty() {
+            None
+        } else {
+            self.trainer_trigger_events.drain(0..1).next()
+        }
+    }
+
+    pub fn drain_trainer_trigger_events(&mut self, max_events: usize) -> Vec<TrainerTriggerEvent> {
+        if max_events == 0 || self.trainer_trigger_events.is_empty() {
+            return Vec::new();
+        }
+        let drain_len = max_events.min(self.trainer_trigger_events.len());
+        self.trainer_trigger_events.drain(0..drain_len).collect()
+    }
+
     fn push_trainer_trigger_event(&mut self, event: TrainerTriggerEvent) {
         self.trainer_trigger_events.push(event);
         if self.trainer_trigger_events.len() > self.max_trainer_trigger_events {
