@@ -34,6 +34,9 @@ mkdir -p target/coverage
 # Run tarpaulin with HTML output
 info "Running tests with coverage instrumentation..."
 info "This may take a while..."
+if [[ "${COVERAGE_FAIL_UNDER:-0}" != "0" ]]; then
+  info "Coverage threshold enabled: fail-under=${COVERAGE_FAIL_UNDER}%"
+fi
 
 TARPAULIN_ARGS=(
   --workspace
@@ -44,6 +47,10 @@ TARPAULIN_ARGS=(
   --exclude-files "*/tests/*"
   --exclude-files "*/benches/*"
 )
+
+if [[ "${COVERAGE_FAIL_UNDER:-0}" != "0" ]]; then
+  TARPAULIN_ARGS+=(--fail-under "$COVERAGE_FAIL_UNDER")
+fi
 
 # Optional: Generate multiple output formats
 if [[ "${COVERAGE_FORMATS:-html}" =~ "lcov" ]]; then
