@@ -14,11 +14,9 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 
 ## Scripts
 
-- [audit_issue_status.sh](../../audit_issue_status.sh) : audit des issues ouvertes vs references commits
 - [check_script_integrity.sh](../../check_script_integrity.sh) : verification de l'integrite des scripts (sources/ROOT_DIR/entrypoints)
 - [git_add_command_override.sh](../../git_add_command_override.sh) : override shell optionnel pour git add
 - [git_add_guard.sh](../../git_add_guard.sh) : ajout securise avec regles de split
-- [release_prepare.sh](../../release_prepare.sh) : preparation release (version/changelog/tag)
 - [SCRIPT_WORKFLOWS.md](../../SCRIPT_WORKFLOWS.md) : inventaire canonique des workflows et entrypoints
 - [tests/critical_workflows_regression.sh](../../tests/critical_workflows_regression.sh) : suite de regression des workflows critiques
 - [tests/enforcer_shell_contract_regression.sh](../../tests/enforcer_shell_contract_regression.sh) : garde-fou enforcer sur la structure shell
@@ -35,3 +33,5 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 - `versioning_automation automation clean-artifacts`
 - `versioning_automation automation pre-add-review`
 - `versioning_automation automation test-coverage`
+- `versioning_automation automation audit-issue-status [--repo owner/name] [--base origin/main] [--head origin/dev] [--limit <n>] [--output <file>]`
+- `versioning_automation automation release-prepare <version> [--auto-changelog]`

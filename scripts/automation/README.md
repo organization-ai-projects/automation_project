@@ -25,10 +25,8 @@ automation/
 │   ├── prepare-commit-msg          # Auto-generates commit subject
 │   ├── pre-push                    # Runs quality checks before push
 │   └── install_hooks.sh            # Installs git hooks
-├── audit_issue_status.sh           # Audit open issues vs commit references
 ├── git_add_command_override.sh     # Shell override for git add -> staging guard
 ├── git_add_guard.sh                # Guarded staging with split-policy checks
-├── release_prepare.sh              # Prepare releases with version/changelog/tag
 ├── check_script_integrity.sh       # Validate script sourcing/root-path integrity
 ├── tests/
 │   ├── critical_workflows_regression.sh # Critical cross-workflow regression suite
@@ -89,3 +87,5 @@ Use these commands directly instead of removed shell wrappers:
 - `versioning_automation automation clean-artifacts`
 - `versioning_automation automation pre-add-review`
 - `versioning_automation automation test-coverage`
+- `versioning_automation automation audit-issue-status [--repo owner/name] [--base origin/main] [--head origin/dev] [--limit <n>] [--output <file>]`
+- `versioning_automation automation release-prepare <version> [--auto-changelog]`
