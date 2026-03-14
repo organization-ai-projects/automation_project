@@ -4,9 +4,9 @@ use crate::issues::commands::{
     DoneStatusMode, DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions,
     IssueAction, IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions,
     ListByLabelOptions, NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions,
-    ParentGuardOptions, ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions,
-    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, SyncProjectStatusOptions,
-    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    OpenSnapshotsOptions, ParentGuardOptions, ReadOptions, ReevaluateOptions,
+    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
+    SyncProjectStatusOptions, TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -49,6 +49,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
             parse_upsert_marker_comment(&args[1..]).map(IssueAction::UpsertMarkerComment)
         }
         "open-numbers" => parse_open_numbers(&args[1..]).map(IssueAction::OpenNumbers),
+        "open-snapshots" => parse_open_snapshots(&args[1..]).map(IssueAction::OpenSnapshots),
         "assignee-logins" => parse_assignee_logins(&args[1..]).map(IssueAction::AssigneeLogins),
         "state" => parse_state(&args[1..]).map(IssueAction::State),
         "has-label" => parse_has_label(&args[1..]).map(IssueAction::HasLabel),
@@ -262,6 +263,30 @@ fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {
         }
     }
     Ok(OpenNumbersOptions { repo })
+}
+
+fn parse_open_snapshots(args: &[String]) -> Result<OpenSnapshotsOptions, String> {
+    let mut repo: Option<String> = None;
+    let mut limit: usize = 200;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            "--limit" => {
+                let raw = take_value("--limit", args, &mut i)?;
+                limit = raw
+                    .parse::<usize>()
+                    .map_err(|_| "--limit requires a positive integer".to_string())?;
+                if limit == 0 {
+                    return Err("--limit requires a positive integer".to_string());
+                }
+            }
+            unknown => return Err(format!("Unknown option for open-snapshots: {unknown}")),
+        }
+    }
+
+    Ok(OpenSnapshotsOptions { repo, limit })
 }
 
 fn parse_assignee_logins(args: &[String]) -> Result<AssigneeLoginsOptions, String> {

@@ -8,10 +8,10 @@ use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
     DoneStatusMode, DoneStatusOptions, FetchNonComplianceReasonOptions, HasLabelOptions,
     IssueFieldName, IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
-    NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, ParentGuardOptions,
-    ReadOptions, ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
-    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
-    UpdateOptions, UpsertMarkerCommentOptions,
+    NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions,
+    ParentGuardOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
+    RequiredFieldsValidateOptions, RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions,
+    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
 use crate::issues::render::render_direct_issue_body;
@@ -2042,6 +2042,28 @@ pub(crate) fn run_open_numbers(opts: OpenNumbersOptions) -> i32 {
         "number",
         "--jq",
         ".[].number",
+    ];
+    if let Some(repo) = opts.repo.as_deref() {
+        args.push("-R");
+        args.push(repo);
+    }
+    print_non_empty_lines(&gh_output_or_empty(&args));
+    0
+}
+
+pub(crate) fn run_open_snapshots(opts: OpenSnapshotsOptions) -> i32 {
+    let limit = opts.limit.to_string();
+    let mut args: Vec<&str> = vec![
+        "issue",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        &limit,
+        "--json",
+        "number,title,url,body,state,labels",
+        "--jq",
+        ".[] | \"\\(.number)|\\((.title // \"\") | @base64)|\\(.url // \"\")|\\((.body // \"\") | @base64)|\\(((.labels // []) | map(.name) | join(\"||\")) | @base64)|\\(.state // \"\")\"",
     ];
     if let Some(repo) = opts.repo.as_deref() {
         args.push("-R");

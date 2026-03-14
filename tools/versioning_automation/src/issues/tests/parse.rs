@@ -267,6 +267,32 @@ fn parse_current_login_rejects_extra_options() {
 }
 
 #[test]
+fn parse_open_snapshots_maps_repo_and_limit() {
+    let action = parse(&to_args(&[
+        "open-snapshots",
+        "--repo",
+        "owner/repo",
+        "--limit",
+        "42",
+    ]))
+    .expect("parse open-snapshots");
+    match action {
+        IssueAction::OpenSnapshots(opts) => {
+            assert_eq!(opts.repo, Some("owner/repo".to_string()));
+            assert_eq!(opts.limit, 42);
+        }
+        _ => panic!("expected OpenSnapshots action"),
+    }
+}
+
+#[test]
+fn parse_open_snapshots_rejects_zero_limit() {
+    let err =
+        parse(&to_args(&["open-snapshots", "--limit", "0"])).expect_err("expected parse error");
+    assert!(err.contains("--limit requires a positive integer"));
+}
+
+#[test]
 fn parse_upsert_marker_comment_rejects_invalid_announce_bool() {
     let err = parse(&to_args(&[
         "upsert-marker-comment",

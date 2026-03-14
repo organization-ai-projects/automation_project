@@ -83,6 +83,7 @@ pub(crate) fn print_usage() {
     println!("  va issue tasklist-refs --body <issue_body>");
     println!("  va issue subissue-refs --owner <owner> --repo <repo> --issue <number>");
     println!("  va issue open-numbers [--repo owner/name]");
+    println!("  va issue open-snapshots [--repo owner/name] [--limit <n>]");
     println!("  va issue assignee-logins --issue <number> [--repo owner/name]");
     println!("  va issue state --issue <number> [--repo owner/name]");
     println!("  va issue has-label --issue <number> --label <name> [--repo owner/name]");
