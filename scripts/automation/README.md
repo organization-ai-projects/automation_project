@@ -1,7 +1,7 @@
 # Automation Documentation
 
 This directory contains active shell entrypoints for project-wide automation tasks.
-Versioning and GitHub automation logic is now canonical in Rust under
+Versioning and migrated automation logic are canonical in Rust under
 `tools/versioning_automation`.
 
 ## Role in the Project
@@ -25,15 +25,7 @@ automation/
 │   ├── prepare-commit-msg          # Auto-generates commit subject
 │   ├── pre-push                    # Runs quality checks before push
 │   └── install_hooks.sh            # Installs git hooks
-├── audit_security.sh               # Security audit on dependencies
-├── build_accounts_ui.sh            # Build accounts UI bundle
-├── build_and_check_ui_bundles.sh   # Build and verify artifacts
-├── build_ui_bundles.sh             # Discover and build all UI bundles
 ├── audit_issue_status.sh           # Audit open issues vs commit references
-├── changed_crates.sh               # List crates touched in a diff
-├── check_dependencies.sh           # Check for outdated/missing dependencies
-├── check_merge_conflicts.sh        # Test merge for conflicts
-├── clean_artifacts.sh              # Clean build artifacts
 ├── git_add_command_override.sh     # Shell override for git add -> staging guard
 ├── git_add_guard.sh                # Guarded staging with split-policy checks
 ├── pre_add_review.sh               # Pre-add internal review (format, clippy, tests)
@@ -55,7 +47,7 @@ For the exhaustive, always-updated list, use:
 High-level groups:
 
 - `git_hooks/`: Git hooks for commit validation and pre-push checks.
-- quality/security/build scripts: `audit_*.sh`, `build_*.sh`, `check_*.sh`, `test_coverage.sh`.
+- quality/security/build scripts: `check_*.sh`, `test_coverage.sh`.
 - git safety helpers: `git_add_guard.sh`, `git_add_command_override.sh`, `pre_add_review.sh`.
 - canonical pre-push hook: `scripts/automation/git_hooks/pre-push`.
 - regression/integrity guards: `check_script_integrity.sh`, `tests/*.sh`, `SCRIPT_WORKFLOWS.md`.
@@ -83,3 +75,16 @@ Document the script in:
 - This README (add to list)
 - `TOC.md` (required)
 - `SCRIPT_WORKFLOWS.md` when it is a user-facing workflow entrypoint
+
+## Migrated Rust Commands
+
+Use these commands directly instead of removed shell wrappers:
+
+- `versioning_automation automation audit-security`
+- `versioning_automation automation build-accounts-ui`
+- `versioning_automation automation build-ui-bundles`
+- `versioning_automation automation build-and-check-ui-bundles`
+- `versioning_automation automation changed-crates [<ref1>] [<ref2>] [--output-format paths]`
+- `versioning_automation automation check-dependencies`
+- `versioning_automation automation check-merge-conflicts`
+- `versioning_automation automation clean-artifacts`

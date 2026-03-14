@@ -53,8 +53,8 @@ For complete details about all scripts:
 
 ## Quick Reference
 
-| Goal                             | Directory                                   | Example                                    |
-| -------------------------------- | ------------------------------------------- | ------------------------------------------ |
-| Validate commits and quality     | `automation/git_hooks/`                     | `commit-msg`, `pre-push`                   |
-| Automate builds, tests, checks   | `automation/`                               | `build_ui_bundles.sh`, `pre_add_review.sh` |
-| Reusable utility libraries       | `common_lib/`                               | `logging.sh`, `command.sh`                 |
+| Goal                           | Directory                | Example                                                       |
+| ------------------------------ | ------------------------ | ------------------------------------------------------------- |
+| Validate commits and quality   | `automation/git_hooks/`  | `commit-msg`, `pre-push`                                      |
+| Automate builds, tests, checks | `automation/`            | `versioning_automation automation ...`, `pre_add_review.sh`   |
+| Reusable utility libraries     | `common_lib/`            | `logging.sh`, `command.sh`                                    |

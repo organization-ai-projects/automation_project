@@ -3,7 +3,7 @@
 Langue : [English](../../README.md) | **Francais**
 
 Ce repertoire contient les entrypoints shell actifs pour l'automatisation transverse.
-La logique canonique de versioning/GitHub est migree en Rust dans
+La logique canonique de versioning et des automatisations migrees est en Rust dans
 `tools/versioning_automation`.
 
 ## Role dans le projet
@@ -27,15 +27,7 @@ automation/
 │   ├── prepare-commit-msg          # Genere automatiquement le sujet de commit
 │   ├── pre-push                    # Lance les checks qualite avant push
 │   └── install_hooks.sh            # Installe les hooks Git
-├── audit_security.sh               # Audit securite des dependances
 ├── audit_issue_status.sh           # Audit des issues ouvertes vs references commits
-├── build_accounts_ui.sh            # Build du bundle UI accounts
-├── build_and_check_ui_bundles.sh   # Build + verification des artefacts UI
-├── build_ui_bundles.sh             # Detection + build de tous les bundles UI
-├── changed_crates.sh               # Liste les crates modifiees dans un diff
-├── check_dependencies.sh           # Detecte dependances obsoletes/manquantes
-├── check_merge_conflicts.sh        # Teste les conflits de merge
-├── clean_artifacts.sh              # Nettoie les artefacts de build
 ├── git_add_guard.sh                # Ajout securise avec regles de split
 ├── pre_add_review.sh               # Pre-check interne avant review
 ├── release_prepare.sh              # Preparation release (version/changelog/tag)
@@ -46,15 +38,7 @@ automation/
 
 - `README.md`: Ce document (version EN canonique).
 - `git_hooks/`: Hooks Git de validation commit/push.
-- `audit_security.sh`: Audit securite des dependances.
 - `audit_issue_status.sh`: Audit des issues ouvertes vs references commits sur un range de branches.
-- `build_accounts_ui.sh`: Build UI accounts.
-- `build_and_check_ui_bundles.sh`: Build + verification artefacts UI.
-- `build_ui_bundles.sh`: Decouverte + build de tous les bundles UI.
-- `changed_crates.sh`: Detection des crates modifiees.
-- `check_dependencies.sh`: Verification des dependances.
-- `check_merge_conflicts.sh`: Detection des conflits de merge.
-- `clean_artifacts.sh`: Nettoyage des artefacts.
 - `git_add_guard.sh`: Ajout securise avec regles de split.
 - `pre_add_review.sh`: Verification avant review interne.
 - `release_prepare.sh`: Preparation release.
@@ -73,3 +57,14 @@ Documenter la nouvelle entree dans:
 - Ce `README`
 - `TOC.md` (obligatoire)
 - `SCRIPT_WORKFLOWS.md` si c'est un entrypoint utilisateur
+
+## Commandes Rust migrees
+
+- `versioning_automation automation audit-security`
+- `versioning_automation automation build-accounts-ui`
+- `versioning_automation automation build-ui-bundles`
+- `versioning_automation automation build-and-check-ui-bundles`
+- `versioning_automation automation changed-crates [<ref1>] [<ref2>] [--output-format paths]`
+- `versioning_automation automation check-dependencies`
+- `versioning_automation automation check-merge-conflicts`
+- `versioning_automation automation clean-artifacts`
