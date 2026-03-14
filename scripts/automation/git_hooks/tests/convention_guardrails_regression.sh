@@ -1064,76 +1064,76 @@ main() {
 		"pre-commit-docs-only-ignores-unstaged-rust-syntax-errors" \
 		0 \
 		"Pre-commit checks passed" \
-		"mkdir -p src documentation && printf '[package]\nname = \"tmp\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > Cargo.toml && printf 'fn main() { println!(\"ok\"); }\n' > src/main.rs && git add Cargo.toml src/main.rs && git commit -m 'chore: add minimal rust crate' >/dev/null && printf 'fn main( {\n' > src/main.rs && echo 'note' > documentation/precommit.md && git add documentation/precommit.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
+		"mkdir -p src documentation && printf '[package]\nname = \"tmp\"\nversion = \"0.1.0\"\nedition = \"2021\"\n' > Cargo.toml && printf 'fn main() { println!(\"ok\"); }\n' > src/main.rs && git add Cargo.toml src/main.rs && git commit -m 'chore: add minimal rust crate' >/dev/null && printf 'fn main( {\n' > src/main.rs && echo 'note' > documentation/precommit.md && git add documentation/precommit.md && versioning_automation automation pre-commit-check"
 
 	run_case \
 		"pre-commit-runs-markdownlint-on-staged-markdown" \
 		0 \
 		"Pre-commit checks passed" \
-		"echo '# markdown title' > documentation/precommit_markdownlint.md && git add documentation/precommit_markdownlint.md && /bin/bash '${HOOKS_DIR}/pre-commit'"
+		"echo '# markdown title' > documentation/precommit_markdownlint.md && git add documentation/precommit_markdownlint.md && versioning_automation automation pre-commit-check"
 
 	run_case \
 		"pre-commit-blocks-markdownlint-failure" \
 		1 \
 		"Markdown lint failed on staged markdown files" \
-		"echo '# markdown title' > documentation/precommit_markdownlint_fail.md && git add documentation/precommit_markdownlint_fail.md && MOCK_MARKDOWNLINT_FAIL=1 /bin/bash '${HOOKS_DIR}/pre-commit'"
+		"echo '# markdown title' > documentation/precommit_markdownlint_fail.md && git add documentation/precommit_markdownlint_fail.md && MOCK_MARKDOWNLINT_FAIL=1 versioning_automation automation pre-commit-check"
 
 	# pre-push: block tracking-only push unless explicit override.
 	run_case \
 		"pre-push-blocks-part-of-only" \
 		1 \
 		"Push blocked by assignment policy" \
-		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #123' >/dev/null && /bin/bash '${HOOKS_DIR}/pre-push'"
+		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #123' >/dev/null && versioning_automation automation pre-push-check"
 
 	run_case \
 		"pre-push-allows-part-of-only-with-override" \
 		0 \
 		"Pre-push checks PASSED" \
-		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #123' >/dev/null && ALLOW_PART_OF_ONLY_PUSH=1 /bin/bash '${HOOKS_DIR}/pre-push'"
+		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #123' >/dev/null && ALLOW_PART_OF_ONLY_PUSH=1 versioning_automation automation pre-push-check"
 
 	run_case \
 		"pre-push-allows-part-of-only-when-multi-assignee" \
 		0 \
 		"Pre-push checks PASSED" \
-		"echo '# workflow note' > documentation/work.md && git add documentation/work.md && git commit -m 'docs(markdown): update workflow note' -m 'Part of #123' >/dev/null && MOCK_MULTI_ASSIGNEE_ISSUES='123' /bin/bash '${HOOKS_DIR}/pre-push'"
+		"echo '# workflow note' > documentation/work.md && git add documentation/work.md && git commit -m 'docs(markdown): update workflow note' -m 'Part of #123' >/dev/null && MOCK_MULTI_ASSIGNEE_ISSUES='123' versioning_automation automation pre-push-check"
 
 	run_case \
 		"pre-push-docs-only-runs-markdownlint" \
 		0 \
 		"Markdown lint OK" \
-		"echo '# markdown update' > documentation/markdownlint.md && git add documentation/markdownlint.md && git commit -m 'docs(markdown): add markdownlint doc file' >/dev/null && /bin/bash '${HOOKS_DIR}/pre-push'"
+		"echo '# markdown update' > documentation/markdownlint.md && git add documentation/markdownlint.md && git commit -m 'docs(markdown): add markdownlint doc file' >/dev/null && versioning_automation automation pre-push-check"
 
 	run_case \
 		"pre-push-docs-only-blocks-on-markdownlint-failure" \
 		1 \
 		"Markdown lint failed" \
-		"echo '# markdown update' > documentation/markdownlint_fail.md && git add documentation/markdownlint_fail.md && git commit -m 'docs(markdown): add markdownlint failing file' >/dev/null && MOCK_MARKDOWNLINT_FAIL=1 /bin/bash '${HOOKS_DIR}/pre-push'"
+		"echo '# markdown update' > documentation/markdownlint_fail.md && git add documentation/markdownlint_fail.md && git commit -m 'docs(markdown): add markdownlint failing file' >/dev/null && MOCK_MARKDOWNLINT_FAIL=1 versioning_automation automation pre-push-check"
 
 	# pre-push: block root parent refs in pushed commit range.
 	run_case \
 		"pre-push-blocks-root-parent" \
 		1 \
 		"Root parent issue references detected" \
-		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #617' >/dev/null && /bin/bash '${HOOKS_DIR}/pre-push'"
+		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #617' >/dev/null && versioning_automation automation pre-push-check"
 
 	run_case \
 		"pre-push-allows-base-parent-reference" \
 		0 \
 		"Pre-push checks PASSED" \
-		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #618' >/dev/null && MOCK_BASE_PARENT_ISSUES='618' MOCK_PARENT_WITH_CHILDREN='618' MOCK_MULTI_ASSIGNEE_ISSUES='618' /bin/bash '${HOOKS_DIR}/pre-push'"
+		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #618' >/dev/null && MOCK_BASE_PARENT_ISSUES='618' MOCK_PARENT_WITH_CHILDREN='618' MOCK_MULTI_ASSIGNEE_ISSUES='618' versioning_automation automation pre-push-check"
 
 	# post-checkout: warn when branch history references root parent.
 	run_case \
 		"post-checkout-warns-on-root-parent" \
 		0 \
 		"Convention warning on branch checkout" \
-		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #617' >/dev/null && /bin/bash '${HOOKS_DIR}/post-checkout' HEAD~1 HEAD 1"
+		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #617' >/dev/null && versioning_automation automation post-checkout-check"
 
 	run_case \
 		"post-checkout-no-warning-on-base-parent-reference" \
 		0 \
 		"" \
-		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #618' >/dev/null && MOCK_BASE_PARENT_ISSUES='618' MOCK_PARENT_WITH_CHILDREN='618' /bin/bash '${HOOKS_DIR}/post-checkout' HEAD~1 HEAD 1"
+		"echo 'note' >> documentation/work.md && git add documentation/work.md && git commit -m 'docs: update workflow note' -m 'Part of #618' >/dev/null && MOCK_BASE_PARENT_ISSUES='618' MOCK_PARENT_WITH_CHILDREN='618' versioning_automation automation post-checkout-check"
 
 	echo ""
 	echo "Summary: ${TESTS_RUN} run, ${TESTS_FAILED} failed."

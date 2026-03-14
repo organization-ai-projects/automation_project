@@ -27,14 +27,18 @@ GIT_HOOKS_DIR="$(git -C "$ROOT_DIR" rev-parse --git-path hooks)"
 # Create hooks directory if it doesn't exist
 mkdir -p "$GIT_HOOKS_DIR"
 
-# Install pre-commit hook
-if [[ -f "$SCRIPT_DIR/pre-commit" ]]; then
-	cp "$SCRIPT_DIR/pre-commit" "$GIT_HOOKS_DIR/pre-commit"
-	chmod +x "$GIT_HOOKS_DIR/pre-commit"
-	echo "✅ Installed pre-commit hook"
-else
-	echo "⚠️  pre-commit hook not found"
+# Install pre-commit hook (generated wrapper)
+cat >"$GIT_HOOKS_DIR/pre-commit" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	echo "Error: command 'versioning_automation' not found." >&2
+	exit 127
 fi
+exec versioning_automation automation pre-commit-check
+EOF
+chmod +x "$GIT_HOOKS_DIR/pre-commit"
+echo "✅ Installed pre-commit hook"
 
 # Install prepare-commit-msg hook
 if [[ -f "$SCRIPT_DIR/prepare-commit-msg" ]]; then
@@ -54,23 +58,34 @@ else
 	echo "⚠️  commit-msg hook not found"
 fi
 
-# Install pre-push hook
-if [[ -f "$SCRIPT_DIR/pre-push" ]]; then
-	cp "$SCRIPT_DIR/pre-push" "$GIT_HOOKS_DIR/pre-push"
-	chmod +x "$GIT_HOOKS_DIR/pre-push"
-	echo "✅ Installed pre-push hook"
-else
-	echo "⚠️  pre-push hook not found"
+# Install pre-push hook (generated wrapper)
+cat >"$GIT_HOOKS_DIR/pre-push" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	echo "Error: command 'versioning_automation' not found." >&2
+	exit 127
 fi
+exec versioning_automation automation pre-push-check
+EOF
+chmod +x "$GIT_HOOKS_DIR/pre-push"
+echo "✅ Installed pre-push hook"
 
-# Install post-checkout hook
-if [[ -f "$SCRIPT_DIR/post-checkout" ]]; then
-	cp "$SCRIPT_DIR/post-checkout" "$GIT_HOOKS_DIR/post-checkout"
-	chmod +x "$GIT_HOOKS_DIR/post-checkout"
-	echo "✅ Installed post-checkout hook"
-else
-	echo "⚠️  post-checkout hook not found"
+# Install post-checkout hook (generated wrapper)
+cat >"$GIT_HOOKS_DIR/post-checkout" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+IS_BRANCH_CHECKOUT="${3:-0}"
+[[ "$IS_BRANCH_CHECKOUT" == "1" ]] || exit 0
+[[ "${SKIP_POST_CHECKOUT_CONVENTION_WARN:-}" != "1" ]] || exit 0
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	exit 0
 fi
+versioning_automation automation post-checkout-check || true
+exit 0
+EOF
+chmod +x "$GIT_HOOKS_DIR/post-checkout"
+echo "✅ Installed post-checkout hook"
 
 # Install pre-branch-create hook
 if [[ -f "$SCRIPT_DIR/pre-branch-create" ]]; then
@@ -81,14 +96,19 @@ else
 	echo "⚠️  pre-branch-create hook not found"
 fi
 
-# Install branch-creation-check hook
-if [[ -f "$SCRIPT_DIR/branch-creation-check.sh" ]]; then
-	cp "$SCRIPT_DIR/branch-creation-check.sh" "$GIT_HOOKS_DIR/branch-creation-check"
-	chmod +x "$GIT_HOOKS_DIR/branch-creation-check"
-	echo "✅ Installed branch-creation-check hook"
-else
-	echo "⚠️  branch-creation-check.sh not found"
+# Install branch-creation-check hook (generated wrapper)
+cat >"$GIT_HOOKS_DIR/branch-creation-check" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	echo "❌ versioning_automation not found" >&2
+	echo "   Build/install it, then retry." >&2
+	exit 127
 fi
+exec versioning_automation git branch-creation-check "$@"
+EOF
+chmod +x "$GIT_HOOKS_DIR/branch-creation-check"
+echo "✅ Installed branch-creation-check hook"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
