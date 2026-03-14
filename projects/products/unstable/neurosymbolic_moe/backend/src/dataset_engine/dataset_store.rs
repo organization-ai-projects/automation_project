@@ -25,7 +25,11 @@ impl DatasetStore {
     }
 
     pub fn add_entry(&mut self, entry: DatasetEntry) {
-        self.upsert_entry(entry);
+        if self.has_entry_id(&entry.id) {
+            self.upsert_entry(entry);
+        } else {
+            self.entries.push(entry);
+        }
     }
 
     pub fn upsert_entry(&mut self, entry: DatasetEntry) {
