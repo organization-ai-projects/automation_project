@@ -14,8 +14,8 @@ use crate::automation::commands::{
     BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
     CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
     CiWatchPrOptions, CleanArtifactsOptions, LabelsSyncOptions, PostCheckoutCheckOptions,
-    PreAddReviewOptions, PrePushCheckOptions, ReleasePrepareOptions, SyncMainDevCiOptions,
-    TestCoverageOptions,
+    PreAddReviewOptions, PreCommitCheckOptions, PrePushCheckOptions, ReleasePrepareOptions,
+    SyncMainDevCiOptions, TestCoverageOptions,
 };
 use crate::automation::parse::parse;
 use crate::automation::render::print_usage;
@@ -43,6 +43,7 @@ fn run_action(action: AutomationAction) -> i32 {
         AutomationAction::BuildUiBundles(opts) => run_build_ui_bundles(opts),
         AutomationAction::BuildAndCheckUiBundles(opts) => run_build_and_check_ui_bundles(opts),
         AutomationAction::PreAddReview(opts) => run_pre_add_review(opts),
+        AutomationAction::PreCommitCheck(opts) => run_pre_commit_check(opts),
         AutomationAction::PostCheckoutCheck(opts) => run_post_checkout_check(opts),
         AutomationAction::PrePushCheck(opts) => run_pre_push_check(opts),
         AutomationAction::ReleasePrepare(opts) => run_release_prepare(opts),
@@ -431,6 +432,112 @@ fn run_post_checkout_check(_opts: PostCheckoutCheckOptions) -> Result<(), String
         println!();
     }
 
+    Ok(())
+}
+
+fn run_pre_commit_check(_opts: PreCommitCheckOptions) -> Result<(), String> {
+    if std::env::var("SKIP_PRE_COMMIT").unwrap_or_default() == "1" {
+        println!("⚠️  Pre-commit checks skipped (SKIP_PRE_COMMIT=1)");
+        return Ok(());
+    }
+
+    println!("📝 Running pre-commit checks...");
+    println!();
+    ensure_git_repo()?;
+
+    let current_branch = run_git_output(&["rev-parse", "--abbrev-ref", "HEAD"])?;
+    if std::env::var("ALLOW_PROTECTED_BRANCH_COMMIT").unwrap_or_default() != "1"
+        && (current_branch.trim() == "dev" || current_branch.trim() == "main")
+    {
+        return Err(format!(
+            "❌ Direct commits on protected branch '{}' are blocked.\n   Create a feature/fix/docs branch, then open a PR.\n   Temporary bypass (exception only): ALLOW_PROTECTED_BRANCH_COMMIT=1 git commit ...",
+            current_branch.trim()
+        ));
+    }
+
+    let upstream = run_git_output(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+        .unwrap_or_else(|_| "origin/dev".to_string());
+    let push_commits =
+        run_git_output_preserve(&["log", &format!("{upstream}..HEAD"), "--format=%B"])
+            .unwrap_or_default();
+    if !push_commits.trim().is_empty() {
+        validate_part_of_only_policy(&push_commits, resolve_repo_name(None).ok().as_deref())
+            .map_err(|err| {
+                format!("{err}\n\n❌ Assignment policy check failed (early pre-commit guard).")
+            })?;
+    }
+
+    let staged_changed_files =
+        run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRU"])
+            .unwrap_or_default();
+    let staged_files = staged_changed_files
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+
+    let crates = collect_crates_from_changed_files(&staged_changed_files).unwrap_or_default();
+    if crates.is_empty() {
+        println!("🎯 No Rust crates detected, checking all files");
+    } else {
+        println!("🎯 Affected crates:");
+        for crate_name in &crates {
+            println!("   - {crate_name}");
+        }
+        println!();
+    }
+
+    let markdown_files = staged_files
+        .iter()
+        .filter(|file| file.ends_with(".md"))
+        .cloned()
+        .collect::<Vec<_>>();
+    if markdown_files.is_empty() {
+        println!("📝 Skipping markdown lint (no staged markdown files)");
+    } else {
+        println!("📝 Auto-fixing markdown files...");
+        if let Err(err) = run_markdownlint_files(&markdown_files) {
+            return Err(format!(
+                "{err}\n\n❌ Markdown lint failed on staged markdown files."
+            ));
+        }
+    }
+
+    println!("🔎 Checking shell syntax...");
+    for file in &staged_files {
+        if is_shell_file_path(file) {
+            if let Err(err) = run_command_status("bash", &["-n", file], false) {
+                return Err(format!(
+                    "   ❌ Shell syntax error: {file}\n{err}\n\n❌ Shell syntax checks failed!"
+                ));
+            }
+        }
+    }
+
+    if staged_files.iter().any(|file| file.ends_with(".rs")) {
+        println!("✨ Formatting code...");
+        run_command_status("cargo", &["fmt", "--all"], false)?;
+    } else {
+        println!("✨ Skipping Rust formatting (no staged Rust files)");
+    }
+
+    let restage_files =
+        run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRU"])
+            .unwrap_or_default()
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+    if !restage_files.is_empty() {
+        let mut args = vec!["add".to_string(), "--".to_string()];
+        args.extend(restage_files);
+        run_command_status_owned("git", &args, false)?;
+    }
+
+    println!("✅ Pre-commit checks passed");
+    println!();
     Ok(())
 }
 
@@ -1563,11 +1670,42 @@ fn run_markdownlint_files(files: &[String]) -> Result<(), String> {
 
 fn run_shell_syntax_checks(files: &[String]) -> Result<(), String> {
     for file in files {
-        if file.ends_with(".sh") {
+        if is_shell_file_path(file) {
             run_command_status("bash", &["-n", file], false)?;
         }
     }
     Ok(())
+}
+
+fn is_shell_file_path(file: &str) -> bool {
+    if file.ends_with(".sh") {
+        return true;
+    }
+
+    let path = Path::new(file);
+    if !path.is_file() {
+        return false;
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let Ok(metadata) = fs::metadata(path) else {
+            return false;
+        };
+        if metadata.permissions().mode() & 0o111 == 0 {
+            return false;
+        }
+    }
+
+    if let Ok(content) = fs::read_to_string(path)
+        && let Some(first_line) = content.lines().next()
+    {
+        let line = first_line.trim();
+        return line.starts_with("#!") && (line.contains("bash") || line.contains("sh"));
+    }
+    false
 }
 
 fn collect_crates_from_changed_files(changed_files: &str) -> Result<Vec<String>, String> {

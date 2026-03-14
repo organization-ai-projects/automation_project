@@ -80,6 +80,16 @@ fn parse_pre_add_review_maps_action() {
 }
 
 #[test]
+fn parse_pre_commit_check_maps_action() {
+    let args = vec!["pre-commit-check".to_string()];
+    let action = super::super::parse::parse(&args).expect("parse pre-commit-check");
+    match action {
+        AutomationAction::PreCommitCheck(_) => {}
+        _ => panic!("expected pre-commit-check action"),
+    }
+}
+
+#[test]
 fn parse_post_checkout_check_maps_action() {
     let args = vec!["post-checkout-check".to_string()];
     let action = super::super::parse::parse(&args).expect("parse post-checkout-check");

@@ -12,6 +12,7 @@ use crate::automation::commands::clean_artifacts_options::CleanArtifactsOptions;
 use crate::automation::commands::labels_sync_options::LabelsSyncOptions;
 use crate::automation::commands::post_checkout_check_options::PostCheckoutCheckOptions;
 use crate::automation::commands::pre_add_review_options::PreAddReviewOptions;
+use crate::automation::commands::pre_commit_check_options::PreCommitCheckOptions;
 use crate::automation::commands::pre_push_check_options::PrePushCheckOptions;
 use crate::automation::commands::release_prepare_options::ReleasePrepareOptions;
 use crate::automation::commands::sync_main_dev_ci_options::SyncMainDevCiOptions;
@@ -26,6 +27,7 @@ pub(crate) enum AutomationAction {
     BuildUiBundles(BuildUiBundlesOptions),
     BuildAndCheckUiBundles(BuildAndCheckUiBundlesOptions),
     PreAddReview(PreAddReviewOptions),
+    PreCommitCheck(PreCommitCheckOptions),
     PostCheckoutCheck(PostCheckoutCheckOptions),
     PrePushCheck(PrePushCheckOptions),
     ReleasePrepare(ReleasePrepareOptions),
