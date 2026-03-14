@@ -6,6 +6,7 @@ use crate::orchestrator::{
     GovernancePersistenceBundle, GovernanceState, GovernanceStateDiff, GovernanceStateSnapshot,
     MoePipeline, RuntimeBundleComponents, RuntimePersistenceBundle, import_journal,
 };
+use common_time::current_timestamp_ms;
 
 impl MoePipeline {
     pub fn import_governance_state(&mut self, mut state: GovernanceState) {
@@ -355,6 +356,11 @@ impl MoePipeline {
                 trainer_trigger_events,
                 trainer_trigger_dead_letter_events,
                 trainer_trigger_leased_event_ids,
+            );
+            let now_epoch_seconds = current_timestamp_ms() / 1000;
+            self.trainer_trigger_queue.release_expired_leases(
+                now_epoch_seconds,
+                self.trainer_trigger_min_retry_delay_seconds(),
             );
             Ok(())
         })() {

@@ -9,6 +9,6 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 common_json = { workspace = true }
+common_time = { workspace = true }
 
 [dev-dependencies]
-common_time = { workspace = true }

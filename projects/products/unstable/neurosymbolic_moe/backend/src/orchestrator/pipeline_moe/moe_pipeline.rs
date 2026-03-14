@@ -546,7 +546,9 @@ impl MoePipeline {
         )
     }
 
-    fn trainer_trigger_min_retry_delay_seconds(&self) -> u64 {
+    pub(in crate::orchestrator::pipeline_moe) fn trainer_trigger_min_retry_delay_seconds(
+        &self,
+    ) -> u64 {
         self.training_runtime_state
             .auto_improvement_policy
             .as_ref()

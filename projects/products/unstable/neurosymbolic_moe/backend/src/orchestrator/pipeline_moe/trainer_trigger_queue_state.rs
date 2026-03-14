@@ -77,6 +77,28 @@ impl TrainerTriggerQueueState {
         ids
     }
 
+    pub fn release_expired_leases(
+        &mut self,
+        now_epoch_seconds: u64,
+        min_retry_delay_seconds: u64,
+    ) -> usize {
+        let expired_leases: Vec<u64> = self
+            .events
+            .iter()
+            .filter(|event| self.leased_event_ids.contains(&event.event_id))
+            .filter(|event| {
+                event.last_attempted_at.is_none_or(|last| {
+                    now_epoch_seconds >= last.saturating_add(min_retry_delay_seconds)
+                })
+            })
+            .map(|event| event.event_id)
+            .collect();
+        for event_id in &expired_leases {
+            self.leased_event_ids.remove(event_id);
+        }
+        expired_leases.len()
+    }
+
     pub fn max_delivery_attempts(&self) -> u32 {
         self.events
             .iter()
@@ -120,20 +142,7 @@ impl TrainerTriggerQueueState {
         max_delivery_attempts_before_dead_letter: u32,
     ) -> Option<TrainerTriggerEvent> {
         let max_attempts = max_delivery_attempts_before_dead_letter.max(1);
-        let expired_leases: Vec<u64> = self
-            .events
-            .iter()
-            .filter(|event| self.leased_event_ids.contains(&event.event_id))
-            .filter(|event| {
-                event.last_attempted_at.is_none_or(|last| {
-                    now_epoch_seconds >= last.saturating_add(min_retry_delay_seconds)
-                })
-            })
-            .map(|event| event.event_id)
-            .collect();
-        for event_id in expired_leases {
-            self.leased_event_ids.remove(&event_id);
-        }
+        self.release_expired_leases(now_epoch_seconds, min_retry_delay_seconds);
 
         let dead_letter_ids: Vec<u64> = self
             .events

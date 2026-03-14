@@ -177,7 +177,7 @@ fn runtime_bundle_roundtrip_restores_trainer_trigger_leases() {
         last_attempted_at: None,
     });
     let leased = source
-        .lease_next_trainer_trigger_event_with_policy(200)
+        .lease_next_trainer_trigger_event_with_policy(u64::MAX - 10)
         .expect("event should lease before export");
     assert_eq!(leased.event_id, 111);
 
@@ -199,6 +199,47 @@ fn runtime_bundle_roundtrip_restores_trainer_trigger_leases() {
     assert_eq!(
         restored_bundle.recompute_checksum(),
         bundle.recompute_checksum()
+    );
+}
+
+#[test]
+fn runtime_bundle_import_releases_expired_trainer_trigger_leases() {
+    let mut source = MoePipelineBuilder::new().build();
+    source.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 222,
+        model_version: 5,
+        training_bundle_checksum: "bundle-leased-expired-222".to_string(),
+        included_entries: 90,
+        train_samples: 72,
+        validation_samples: 18,
+        generated_at: 60,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+    let leased = source
+        .lease_next_trainer_trigger_event_with_policy(1)
+        .expect("event should lease before export");
+    assert_eq!(leased.event_id, 222);
+
+    let bundle = source.export_runtime_bundle();
+    assert_eq!(bundle.trainer_trigger_leased_event_ids, vec![222]);
+
+    let mut target = MoePipelineBuilder::new().build();
+    target
+        .import_runtime_bundle(bundle)
+        .expect("runtime bundle import should succeed");
+
+    let report = target.export_operational_report();
+    assert_eq!(report.trainer_trigger_events_pending, 1);
+    assert_eq!(
+        report.trainer_trigger_events_leased, 0,
+        "expired lease should be released on import"
+    );
+    assert!(
+        target
+            .lease_next_trainer_trigger_event_with_policy(100)
+            .is_some(),
+        "event should be leaseable immediately after expired lease release"
     );
 }
 
