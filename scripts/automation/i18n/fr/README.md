@@ -26,7 +26,7 @@ automation/
 │   ├── pre-commit                  # Lance le formatage avant commit
 │   ├── prepare-commit-msg          # Genere automatiquement le sujet de commit
 │   ├── pre-push                    # Lance les checks qualite avant push
-│   └── install_hooks.sh            # Installe les hooks Git
+│   └── (installe via `versioning_automation automation install-hooks`)
 ├── git_add_guard.sh                # Ajout securise avec regles de split
 └── tests/                          # Tests shell de regression/integration
 ```
@@ -65,3 +65,4 @@ Documenter la nouvelle entree dans:
 - `versioning_automation automation test-coverage`
 - `versioning_automation automation audit-issue-status [--repo owner/name] [--base origin/main] [--head origin/dev] [--limit <n>] [--output <file>]`
 - `versioning_automation automation release-prepare <version> [--auto-changelog]`
+- `versioning_automation automation install-hooks`

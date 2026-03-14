@@ -136,7 +136,7 @@ For cross-cutting changes spanning multiple unrelated areas, use multiple scopes
 **Enforcement**:
 
 - The `add_commit_push.sh` script validates commit messages
-- Git commit hooks validate commit messages (when installed via `scripts/automation/git_hooks/install_hooks.sh`)
+- Git commit hooks validate commit messages (when installed via `versioning_automation automation install-hooks`)
 - Non-conforming messages are rejected with clear error messages
 - Bypass only for emergencies:
   - Use `--no-verify` flag with `add_commit_push.sh`
@@ -222,7 +222,7 @@ Frequently used scripts in this guide:
 - `versioning_automation git create-branch ...`: Creates a new branch and validates naming convention.
 - `versioning_automation git add-commit-push ...`: Stages changes, validates commit message format, commits, and pushes.
 - `versioning_automation pr generate-description ...`: Creates or refreshes PR description/body via canonical Rust flow.
-- `scripts/automation/git_hooks/install_hooks.sh`: Installs repository git hooks (commit-msg, pre-push, etc.).
+- `versioning_automation automation install-hooks`: Installs repository git hooks (commit-msg, pre-push, etc.).
 
 ---
 

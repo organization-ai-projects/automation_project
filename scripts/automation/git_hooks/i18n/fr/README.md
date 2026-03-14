@@ -19,22 +19,22 @@ Il interagit principalement avec:
 ```plaintext
 git_hooks/
 ├── commit-msg          # Valide le format du message de commit
-├── pre-commit (genere par install_hooks.sh) # Lance les checks pre-commit via CLI Rust
+├── pre-commit (genere par `versioning_automation automation install-hooks`) # Lance les checks pre-commit via CLI Rust
 ├── prepare-commit-msg  # Genere un sujet de commit automatiquement
-├── pre-push (genere par install_hooks.sh) # Lance les checks pre-push via CLI Rust
-├── post-checkout (genere par install_hooks.sh) # Lance les checks post-checkout via CLI Rust
-└── install_hooks.sh    # Installe les hooks dans .git/hooks/
+├── pre-push (genere par `versioning_automation automation install-hooks`) # Lance les checks pre-push via CLI Rust
+├── post-checkout (genere par `versioning_automation automation install-hooks`) # Lance les checks post-checkout via CLI Rust
+└── tests/            # Tests de regression des guardrails de conventions
 ```
 
 ## Fichiers
 
 - `README.md`: Ce document (version EN canonique).
 - `commit-msg`: Validation format commit.
-- `pre-commit`: Genere par `install_hooks.sh`; lance les checks pre-commit via la CLI Rust.
+- `pre-commit`: Genere par `versioning_automation automation install-hooks`; lance les checks pre-commit via la CLI Rust.
 - `prepare-commit-msg`: Generation automatique du sujet de commit.
-- `pre-push`: Genere par `install_hooks.sh`; lance les checks pre-push via la CLI Rust.
-- `post-checkout`: Genere par `install_hooks.sh`; lance les checks post-checkout via la CLI Rust.
-- `install_hooks.sh`: Installation des hooks dans `.git/hooks/`.
+- `pre-push`: Genere par `versioning_automation automation install-hooks`; lance les checks pre-push via la CLI Rust.
+- `post-checkout`: Genere par `versioning_automation automation install-hooks`; lance les checks post-checkout via la CLI Rust.
+- `versioning_automation automation install-hooks`: Installation des hooks dans `.git/hooks/`.
 
 ## Hooks disponibles
 
@@ -142,10 +142,10 @@ SKIP_PRE_PUSH=1 git push
 ## Installation
 
 ```bash
-./scripts/automation/git_hooks/install_hooks.sh
+versioning_automation automation install-hooks
 ```
 
-Le script copie les hooks dans `.git/hooks/` et les rend executables.
+La commande installe les hooks dans `.git/hooks/` et les rend executables.
 
 ## Architecture
 
@@ -162,7 +162,7 @@ Les hooks sont:
 Pour mettre a jour les hooks apres modification:
 
 ```bash
-./scripts/automation/git_hooks/install_hooks.sh
+versioning_automation automation install-hooks
 ```
 
 Desactivation temporaire:

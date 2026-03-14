@@ -164,3 +164,13 @@ fn parse_pre_push_check_maps_action() {
         _ => panic!("expected pre-push-check action"),
     }
 }
+
+#[test]
+fn parse_install_hooks_maps_action() {
+    let args = vec!["install-hooks".to_string()];
+    let action = super::super::parse::parse(&args).expect("parse install-hooks");
+    match action {
+        AutomationAction::InstallHooks(_) => {}
+        _ => panic!("expected install-hooks action"),
+    }
+}

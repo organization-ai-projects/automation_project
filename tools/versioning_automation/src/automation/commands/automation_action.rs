@@ -9,6 +9,7 @@ use crate::automation::commands::check_merge_conflicts_options::CheckMergeConfli
 use crate::automation::commands::check_priority_issues_options::CheckPriorityIssuesOptions;
 use crate::automation::commands::ci_watch_pr_options::CiWatchPrOptions;
 use crate::automation::commands::clean_artifacts_options::CleanArtifactsOptions;
+use crate::automation::commands::install_hooks_options::InstallHooksOptions;
 use crate::automation::commands::labels_sync_options::LabelsSyncOptions;
 use crate::automation::commands::post_checkout_check_options::PostCheckoutCheckOptions;
 use crate::automation::commands::pre_add_review_options::PreAddReviewOptions;
@@ -36,6 +37,7 @@ pub(crate) enum AutomationAction {
     CheckMergeConflicts(CheckMergeConflictsOptions),
     CheckDependencies(CheckDependenciesOptions),
     CleanArtifacts(CleanArtifactsOptions),
+    InstallHooks(InstallHooksOptions),
     CheckPriorityIssues(CheckPriorityIssuesOptions),
     LabelsSync(LabelsSyncOptions),
     CiWatchPr(CiWatchPrOptions),

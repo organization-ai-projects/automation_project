@@ -24,7 +24,7 @@ automation/
 │   ├── pre-commit                  # Runs code formatting before commit
 │   ├── prepare-commit-msg          # Auto-generates commit subject
 │   ├── pre-push                    # Runs quality checks before push
-│   └── install_hooks.sh            # Installs git hooks
+│   └── (installed via `versioning_automation automation install-hooks`)
 ├── git_add_command_override.sh     # Shell override for git add -> staging guard
 ├── git_add_guard.sh                # Guarded staging with split-policy checks
 ├── check_script_integrity.sh       # Validate script sourcing/root-path integrity
@@ -89,3 +89,4 @@ Use these commands directly instead of removed shell wrappers:
 - `versioning_automation automation test-coverage`
 - `versioning_automation automation audit-issue-status [--repo owner/name] [--base origin/main] [--head origin/dev] [--limit <n>] [--output <file>]`
 - `versioning_automation automation release-prepare <version> [--auto-changelog]`
+- `versioning_automation automation install-hooks`

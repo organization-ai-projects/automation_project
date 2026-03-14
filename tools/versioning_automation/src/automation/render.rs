@@ -22,6 +22,7 @@ pub(crate) fn print_usage() {
         "  check-merge-conflicts [--remote origin] [--base-branch dev]",
         "  check-dependencies [--skip-outdated] [--skip-unused]",
         "  clean-artifacts [--skip-node-modules]",
+        "  install-hooks",
         "  check-priority-issues [--repo owner/name]",
         "  labels-sync [--labels-file .github/labels.json] [--prune]",
         "  ci-watch-pr [--pr <number>] [--poll-interval <seconds>] [--max-wait <seconds>]",

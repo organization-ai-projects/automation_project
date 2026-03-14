@@ -35,3 +35,4 @@ This document provides an overview of all documentation files in this directory.
 - `versioning_automation automation test-coverage`
 - `versioning_automation automation audit-issue-status [--repo owner/name] [--base origin/main] [--head origin/dev] [--limit <n>] [--output <file>]`
 - `versioning_automation automation release-prepare <version> [--auto-changelog]`
+- `versioning_automation automation install-hooks`

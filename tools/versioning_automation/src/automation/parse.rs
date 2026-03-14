@@ -5,9 +5,9 @@ use crate::automation::commands::{
     AuditIssueStatusOptions, AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions,
     BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
     CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
-    CiWatchPrOptions, CleanArtifactsOptions, LabelsSyncOptions, PostCheckoutCheckOptions,
-    PreAddReviewOptions, PreCommitCheckOptions, PrePushCheckOptions, ReleasePrepareOptions,
-    SyncMainDevCiOptions, TestCoverageOptions,
+    CiWatchPrOptions, CleanArtifactsOptions, InstallHooksOptions, LabelsSyncOptions,
+    PostCheckoutCheckOptions, PreAddReviewOptions, PreCommitCheckOptions, PrePushCheckOptions,
+    ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
 };
 
 const DEFAULT_LABELS_FILE: &str = ".github/labels.json";
@@ -34,6 +34,7 @@ pub(crate) fn parse(args: &[String]) -> Result<AutomationAction, String> {
         "check-merge-conflicts" => parse_check_merge_conflicts(&args[1..]),
         "check-dependencies" => parse_check_dependencies(&args[1..]),
         "clean-artifacts" => parse_clean_artifacts(&args[1..]),
+        "install-hooks" => parse_install_hooks(&args[1..]),
         "check-priority-issues" => parse_check_priority_issues(&args[1..]),
         "labels-sync" => parse_labels_sync(&args[1..]),
         "ci-watch-pr" => parse_ci_watch_pr(&args[1..]),
@@ -269,6 +270,13 @@ fn parse_clean_artifacts(args: &[String]) -> Result<AutomationAction, String> {
     Ok(AutomationAction::CleanArtifacts(CleanArtifactsOptions {
         include_node_modules,
     }))
+}
+
+fn parse_install_hooks(args: &[String]) -> Result<AutomationAction, String> {
+    if let Some(value) = args.first() {
+        return Err(format!("Unexpected argument: {value}"));
+    }
+    Ok(AutomationAction::InstallHooks(InstallHooksOptions))
 }
 
 fn parse_check_priority_issues(args: &[String]) -> Result<AutomationAction, String> {

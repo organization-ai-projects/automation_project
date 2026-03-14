@@ -13,9 +13,9 @@ use crate::automation::commands::{
     AuditIssueStatusOptions, AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions,
     BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
     CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
-    CiWatchPrOptions, CleanArtifactsOptions, LabelsSyncOptions, PostCheckoutCheckOptions,
-    PreAddReviewOptions, PreCommitCheckOptions, PrePushCheckOptions, ReleasePrepareOptions,
-    SyncMainDevCiOptions, TestCoverageOptions,
+    CiWatchPrOptions, CleanArtifactsOptions, InstallHooksOptions, LabelsSyncOptions,
+    PostCheckoutCheckOptions, PreAddReviewOptions, PreCommitCheckOptions, PrePushCheckOptions,
+    ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
 };
 use crate::automation::parse::parse;
 use crate::automation::render::print_usage;
@@ -52,6 +52,7 @@ fn run_action(action: AutomationAction) -> i32 {
         AutomationAction::CheckMergeConflicts(opts) => run_check_merge_conflicts(opts),
         AutomationAction::CheckDependencies(opts) => run_check_dependencies(opts),
         AutomationAction::CleanArtifacts(opts) => run_clean_artifacts(opts),
+        AutomationAction::InstallHooks(opts) => run_install_hooks(opts),
         AutomationAction::CheckPriorityIssues(opts) => run_check_priority_issues(opts),
         AutomationAction::LabelsSync(opts) => run_labels_sync(opts),
         AutomationAction::CiWatchPr(opts) => run_ci_watch_pr(opts),
@@ -204,6 +205,62 @@ fn run_clean_artifacts(opts: CleanArtifactsOptions) -> Result<(), String> {
 
     run_command_status("cargo", &["clean"], false)?;
     println!("Build artifacts cleaned successfully.");
+    Ok(())
+}
+
+fn run_install_hooks(_opts: InstallHooksOptions) -> Result<(), String> {
+    ensure_git_repo()?;
+    let root = repo_root()?;
+    let hooks_dir = git_hooks_dir(&root)?;
+    fs::create_dir_all(&hooks_dir).map_err(|e| {
+        format!(
+            "Failed to create hooks directory '{}': {e}",
+            hooks_dir.display()
+        )
+    })?;
+
+    println!("Installing hooks to '{}'", hooks_dir.display());
+
+    write_hook_script(
+        &hooks_dir.join("pre-commit"),
+        PRE_COMMIT_HOOK_SCRIPT,
+        "pre-commit",
+    )?;
+    copy_tracked_hook(
+        &root,
+        &hooks_dir,
+        "scripts/automation/git_hooks/prepare-commit-msg",
+        "prepare-commit-msg",
+    )?;
+    copy_tracked_hook(
+        &root,
+        &hooks_dir,
+        "scripts/automation/git_hooks/commit-msg",
+        "commit-msg",
+    )?;
+    write_hook_script(
+        &hooks_dir.join("pre-push"),
+        PRE_PUSH_HOOK_SCRIPT,
+        "pre-push",
+    )?;
+    write_hook_script(
+        &hooks_dir.join("post-checkout"),
+        POST_CHECKOUT_HOOK_SCRIPT,
+        "post-checkout",
+    )?;
+    copy_tracked_hook(
+        &root,
+        &hooks_dir,
+        "scripts/automation/git_hooks/pre-branch-create",
+        "pre-branch-create",
+    )?;
+    write_hook_script(
+        &hooks_dir.join("branch-creation-check"),
+        BRANCH_CREATION_CHECK_SCRIPT,
+        "branch-creation-check",
+    )?;
+
+    println!("Hooks installed successfully.");
     Ok(())
 }
 
@@ -2095,6 +2152,105 @@ fn run_git_output_preserve(args: &[&str]) -> Result<String, String> {
     crate::git_cli::output_preserve(args)
         .map_err(|e| format!("Failed to run git {}: {e}", args.join(" ")))
 }
+
+fn git_hooks_dir(root: &Path) -> Result<PathBuf, String> {
+    let output = run_git_output(&["rev-parse", "--git-path", "hooks"])?;
+    let path = PathBuf::from(output.trim());
+    if path.is_absolute() {
+        Ok(path)
+    } else {
+        Ok(root.join(path))
+    }
+}
+
+fn copy_tracked_hook(
+    root: &Path,
+    hooks_dir: &Path,
+    source_relative: &str,
+    hook_name: &str,
+) -> Result<(), String> {
+    let source = root.join(source_relative);
+    if !source.is_file() {
+        return Err(format!("Missing hook source '{}'", source.display()));
+    }
+    let destination = hooks_dir.join(hook_name);
+    fs::copy(&source, &destination).map_err(|e| {
+        format!(
+            "Failed to copy '{}' to '{}': {e}",
+            source.display(),
+            destination.display()
+        )
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&destination)
+            .map_err(|e| format!("Failed to read '{}': {e}", destination.display()))?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&destination, perms)
+            .map_err(|e| format!("Failed to chmod '{}': {e}", destination.display()))?;
+    }
+    println!("✅ Installed {hook_name}");
+    Ok(())
+}
+
+fn write_hook_script(path: &Path, content: &str, hook_name: &str) -> Result<(), String> {
+    fs::write(path, content)
+        .map_err(|e| format!("Failed to write hook '{}': {e}", path.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(path)
+            .map_err(|e| format!("Failed to read '{}': {e}", path.display()))?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(path, perms)
+            .map_err(|e| format!("Failed to chmod '{}': {e}", path.display()))?;
+    }
+    println!("✅ Installed {hook_name}");
+    Ok(())
+}
+
+const PRE_COMMIT_HOOK_SCRIPT: &str = r#"#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	echo "Error: command 'versioning_automation' not found." >&2
+	exit 127
+fi
+exec versioning_automation automation pre-commit-check
+"#;
+
+const PRE_PUSH_HOOK_SCRIPT: &str = r#"#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	echo "Error: command 'versioning_automation' not found." >&2
+	exit 127
+fi
+exec versioning_automation automation pre-push-check
+"#;
+
+const POST_CHECKOUT_HOOK_SCRIPT: &str = r#"#!/usr/bin/env bash
+set -euo pipefail
+IS_BRANCH_CHECKOUT="${3:-0}"
+[[ "$IS_BRANCH_CHECKOUT" == "1" ]] || exit 0
+[[ "${SKIP_POST_CHECKOUT_CONVENTION_WARN:-}" != "1" ]] || exit 0
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	exit 0
+fi
+versioning_automation automation post-checkout-check || true
+exit 0
+"#;
+
+const BRANCH_CREATION_CHECK_SCRIPT: &str = r#"#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	echo "❌ versioning_automation not found" >&2
+	echo "   Build/install it, then retry." >&2
+	exit 127
+fi
+exec versioning_automation git branch-creation-check "$@"
+"#;
 
 fn run_gh_status(args: &[&str]) -> Result<(), String> {
     crate::gh_cli::status(args).map_err(|e| format!("Failed to run gh {}: {e}", args.join(" ")))
