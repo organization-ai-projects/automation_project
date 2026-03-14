@@ -33,6 +33,7 @@ mod sync_project_status_options;
 mod tasklist_refs_options;
 mod update_options;
 mod upsert_marker_comment_options;
+mod validate_footer_options;
 
 pub(crate) use assignee_logins_options::AssigneeLoginsOptions;
 pub(crate) use auto_link_options::AutoLinkOptions;
@@ -68,3 +69,4 @@ pub(crate) use sync_project_status_options::SyncProjectStatusOptions;
 pub(crate) use tasklist_refs_options::TasklistRefsOptions;
 pub(crate) use update_options::UpdateOptions;
 pub(crate) use upsert_marker_comment_options::UpsertMarkerCommentOptions;
+pub(crate) use validate_footer_options::ValidateFooterOptions;

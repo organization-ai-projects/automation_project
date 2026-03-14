@@ -6,7 +6,7 @@ use crate::issues::commands::{
     NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions,
     ParentGuardOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
     RequiredFieldsValidateOptions, StateOptions, SubissueRefsOptions, SyncProjectStatusOptions,
-    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
+    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions, ValidateFooterOptions,
 };
 
 #[derive(Debug, Clone)]
@@ -20,6 +20,7 @@ pub(crate) enum IssueAction {
     RepoName,
     CurrentLogin,
     IsRootParent(IsRootParentOptions),
+    ValidateFooter(ValidateFooterOptions),
     Close(CloseOptions),
     Reopen(IssueTarget),
     Delete(IssueTarget),

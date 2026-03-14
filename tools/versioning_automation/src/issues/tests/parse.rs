@@ -287,6 +287,32 @@ fn parse_is_root_parent_rejects_non_numeric_issue() {
 }
 
 #[test]
+fn parse_validate_footer_maps_required_file_and_repo() {
+    let action = parse(&to_args(&[
+        "validate-footer",
+        "--file",
+        ".git/COMMIT_EDITMSG",
+        "--repo",
+        "owner/repo",
+    ]))
+    .expect("parse validate-footer");
+
+    match action {
+        IssueAction::ValidateFooter(opts) => {
+            assert_eq!(opts.file, ".git/COMMIT_EDITMSG");
+            assert_eq!(opts.repo, Some("owner/repo".to_string()));
+        }
+        _ => panic!("expected ValidateFooter action"),
+    }
+}
+
+#[test]
+fn parse_validate_footer_requires_file() {
+    let err = parse(&to_args(&["validate-footer"])).expect_err("expected parse error");
+    assert!(err.contains("validate-footer requires: --file"));
+}
+
+#[test]
 fn parse_current_login_rejects_extra_options() {
     let err = parse(&to_args(&["current-login", "--repo", "owner/repo"]))
         .expect_err("expected parse error");

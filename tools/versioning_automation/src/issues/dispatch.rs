@@ -7,7 +7,7 @@ use crate::issues::execute::{
     run_label_exists, run_list_by_label, run_neutralize, run_non_compliance_reason,
     run_open_numbers, run_open_snapshots, run_parent_guard, run_read, run_reevaluate, run_reopen,
     run_reopen_on_dev, run_repo_name, run_required_fields_validate, run_state, run_subissue_refs,
-    run_tasklist_refs, run_update, run_upsert_marker_comment,
+    run_tasklist_refs, run_update, run_upsert_marker_comment, run_validate_footer,
 };
 use crate::issues::parse::parse;
 use crate::issues::render::print_usage;
@@ -27,6 +27,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(IssueAction::RepoName) => run_repo_name(),
         Ok(IssueAction::CurrentLogin) => run_current_login(),
         Ok(IssueAction::IsRootParent(opts)) => run_is_root_parent(opts),
+        Ok(IssueAction::ValidateFooter(opts)) => run_validate_footer(opts),
         Ok(IssueAction::Close(opts)) => run_close(opts),
         Ok(IssueAction::Reopen(opts)) => run_reopen(opts),
         Ok(IssueAction::Delete(opts)) => run_delete(opts),

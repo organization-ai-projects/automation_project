@@ -11,3 +11,4 @@ mod open_numbers_options;
 mod read_options;
 mod state_options;
 mod update_options;
+mod validate_footer_options;

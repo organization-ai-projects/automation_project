@@ -15,6 +15,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "repo-name" => parse_repo_name(&args[1..]),
         "current-login" => parse_current_login(&args[1..]),
         "is-root-parent" => parse_is_root_parent(&args[1..]).map(IssueAction::IsRootParent),
+        "validate-footer" => parse_validate_footer(&args[1..]).map(IssueAction::ValidateFooter),
         "close" => parse_close(&args[1..]).map(IssueAction::Close),
         "reopen" => parse_target("reopen", &args[1..]).map(IssueAction::Reopen),
         "delete" => parse_target("delete", &args[1..]).map(IssueAction::Delete),
@@ -465,6 +466,23 @@ fn parse_current_login(args: &[String]) -> Result<commands::IssueAction, String>
 fn parse_is_root_parent(args: &[String]) -> Result<commands::IsRootParentOptions, String> {
     let (issue, repo) = parse_issue_and_optional_repo(args, "is-root-parent")?;
     Ok(commands::IsRootParentOptions { issue, repo })
+}
+
+fn parse_validate_footer(args: &[String]) -> Result<commands::ValidateFooterOptions, String> {
+    let mut file = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--file" => file = take_value("--file", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for validate-footer: {unknown}")),
+        }
+    }
+
+    ensure_non_empty_or("validate-footer requires: --file", &[&file])?;
+    Ok(commands::ValidateFooterOptions { file, repo })
 }
 
 fn parse_sync_project_status(
