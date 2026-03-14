@@ -9,8 +9,8 @@ HOOKS_DIR="$ROOT_DIR/scripts/automation/git_hooks"
 source "$HOOKS_DIR/lib/issue_parent_guard.sh"
 # shellcheck source=scripts/common_lib/automation/scope_resolver.sh
 source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/policy.sh
-source "$HOOKS_DIR/lib/policy.sh"
+# shellcheck source=scripts/common_lib/automation/change_policy.sh
+source "$ROOT_DIR/scripts/common_lib/automation/change_policy.sh"
 # shellcheck source=scripts/common_lib/automation/file_types.sh
 source "$ROOT_DIR/scripts/common_lib/automation/file_types.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/markdownlint_policy.sh
