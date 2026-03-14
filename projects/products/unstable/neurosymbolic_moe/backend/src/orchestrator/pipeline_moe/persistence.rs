@@ -36,10 +36,12 @@ impl MoePipeline {
             return;
         }
 
-        self.continuous_governance_policy = state.continuous_governance_policy;
-        self.evaluation_baseline = state.evaluation_baseline;
-        self.last_continuous_improvement_report = state.last_continuous_improvement_report;
-        self.governance_state_version = state.state_version;
+        self.governance_runtime_state.continuous_governance_policy =
+            state.continuous_governance_policy;
+        self.governance_runtime_state.evaluation_baseline = state.evaluation_baseline;
+        self.governance_runtime_state
+            .last_continuous_improvement_report = state.last_continuous_improvement_report;
+        self.governance_runtime_state.governance_state_version = state.state_version;
         self.record_governance_audit("governance state imported");
         self.import_telemetry.record_governance_state_success();
     }
@@ -53,8 +55,14 @@ impl MoePipeline {
     pub fn export_governance_bundle(&self) -> GovernancePersistenceBundle {
         GovernancePersistenceBundle {
             state: self.export_governance_state(),
-            audit_entries: self.governance_audit_entries.clone(),
-            snapshots: self.governance_state_snapshots.clone(),
+            audit_entries: self
+                .governance_runtime_state
+                .governance_audit_entries
+                .clone(),
+            snapshots: self
+                .governance_runtime_state
+                .governance_state_snapshots
+                .clone(),
         }
     }
 
@@ -72,11 +80,14 @@ impl MoePipeline {
             short_term_memory_entries: self.short_term_memory.entries_cloned(),
             long_term_memory_entries: self.long_term_memory.entries_cloned(),
             buffer_manager: self.buffer_manager.clone(),
-            dataset_entries: self.dataset_store.entries_cloned(),
-            dataset_corrections: self.dataset_store.corrections_cloned(),
-            auto_improvement_policy: self.auto_improvement_policy.clone(),
-            auto_improvement_status: self.auto_improvement_status.clone(),
-            model_registry: self.model_registry.clone(),
+            dataset_entries: self.training_runtime_state.dataset_store.entries_cloned(),
+            dataset_corrections: self
+                .training_runtime_state
+                .dataset_store
+                .corrections_cloned(),
+            auto_improvement_policy: self.training_runtime_state.auto_improvement_policy.clone(),
+            auto_improvement_status: self.training_runtime_state.auto_improvement_status.clone(),
+            model_registry: self.training_runtime_state.model_registry.clone(),
             trainer_trigger_events: self
                 .trainer_trigger_queue
                 .events()
@@ -137,23 +148,41 @@ impl MoePipeline {
             return Err(err);
         }
 
-        self.continuous_governance_policy = bundle.state.continuous_governance_policy.clone();
-        self.evaluation_baseline = bundle.state.evaluation_baseline.clone();
-        self.last_continuous_improvement_report =
+        self.governance_runtime_state.continuous_governance_policy =
+            bundle.state.continuous_governance_policy.clone();
+        self.governance_runtime_state.evaluation_baseline =
+            bundle.state.evaluation_baseline.clone();
+        self.governance_runtime_state
+            .last_continuous_improvement_report =
             bundle.state.last_continuous_improvement_report.clone();
-        self.governance_state_version = bundle.state.state_version;
+        self.governance_runtime_state.governance_state_version = bundle.state.state_version;
 
-        self.governance_audit_entries = bundle.audit_entries;
-        if self.governance_audit_entries.len() > self.max_governance_audit_entries {
-            let to_trim = self.governance_audit_entries.len() - self.max_governance_audit_entries;
-            self.governance_audit_entries.drain(0..to_trim);
+        self.governance_runtime_state.governance_audit_entries = bundle.audit_entries;
+        if self.governance_runtime_state.governance_audit_entries.len()
+            > self.governance_runtime_state.max_governance_audit_entries
+        {
+            let to_trim = self.governance_runtime_state.governance_audit_entries.len()
+                - self.governance_runtime_state.max_governance_audit_entries;
+            self.governance_runtime_state
+                .governance_audit_entries
+                .drain(0..to_trim);
         }
 
-        self.governance_state_snapshots = bundle.snapshots;
-        if self.governance_state_snapshots.len() > self.max_governance_state_snapshots {
-            let to_trim =
-                self.governance_state_snapshots.len() - self.max_governance_state_snapshots;
-            self.governance_state_snapshots.drain(0..to_trim);
+        self.governance_runtime_state.governance_state_snapshots = bundle.snapshots;
+        if self
+            .governance_runtime_state
+            .governance_state_snapshots
+            .len()
+            > self.governance_runtime_state.max_governance_state_snapshots
+        {
+            let to_trim = self
+                .governance_runtime_state
+                .governance_state_snapshots
+                .len()
+                - self.governance_runtime_state.max_governance_state_snapshots;
+            self.governance_runtime_state
+                .governance_state_snapshots
+                .drain(0..to_trim);
         }
         self.retain_snapshots_with_matching_audit_versions();
         self.import_telemetry.record_governance_bundle_success();
@@ -252,20 +281,38 @@ impl MoePipeline {
         }
 
         // Apply runtime state atomically: if any future step becomes fallible, restore backup.
-        let backup_governance_policy = self.continuous_governance_policy.clone();
-        let backup_evaluation_baseline = self.evaluation_baseline.clone();
-        let backup_last_report = self.last_continuous_improvement_report.clone();
-        let backup_governance_state_version = self.governance_state_version;
-        let backup_governance_audit_entries = self.governance_audit_entries.clone();
-        let backup_governance_state_snapshots = self.governance_state_snapshots.clone();
+        let backup_governance_policy = self
+            .governance_runtime_state
+            .continuous_governance_policy
+            .clone();
+        let backup_evaluation_baseline = self.governance_runtime_state.evaluation_baseline.clone();
+        let backup_last_report = self
+            .governance_runtime_state
+            .last_continuous_improvement_report
+            .clone();
+        let backup_governance_state_version =
+            self.governance_runtime_state.governance_state_version;
+        let backup_governance_audit_entries = self
+            .governance_runtime_state
+            .governance_audit_entries
+            .clone();
+        let backup_governance_state_snapshots = self
+            .governance_runtime_state
+            .governance_state_snapshots
+            .clone();
         let backup_short_term_memory = self.short_term_memory.clone();
         let backup_long_term_memory = self.long_term_memory.clone();
         let backup_buffer_manager = self.buffer_manager.clone();
-        let backup_dataset_entries = self.dataset_store.entries_cloned();
-        let backup_dataset_corrections = self.dataset_store.corrections_cloned();
-        let backup_auto_improvement_policy = self.auto_improvement_policy.clone();
-        let backup_auto_improvement_status = self.auto_improvement_status.clone();
-        let backup_model_registry = self.model_registry.clone();
+        let backup_dataset_entries = self.training_runtime_state.dataset_store.entries_cloned();
+        let backup_dataset_corrections = self
+            .training_runtime_state
+            .dataset_store
+            .corrections_cloned();
+        let backup_auto_improvement_policy =
+            self.training_runtime_state.auto_improvement_policy.clone();
+        let backup_auto_improvement_status =
+            self.training_runtime_state.auto_improvement_status.clone();
+        let backup_model_registry = self.training_runtime_state.model_registry.clone();
         let backup_trainer_trigger_queue = self.trainer_trigger_queue.clone();
 
         let governance = bundle.governance;
@@ -286,31 +333,37 @@ impl MoePipeline {
             self.long_term_memory
                 .replace_entries(long_term_memory_entries)?;
             self.buffer_manager = buffer_manager;
-            self.dataset_store
+            self.training_runtime_state
+                .dataset_store
                 .replace_all(dataset_entries, dataset_corrections);
-            self.auto_improvement_policy = auto_improvement_policy;
-            self.auto_improvement_status = auto_improvement_status;
-            self.model_registry = model_registry;
+            self.training_runtime_state.auto_improvement_policy = auto_improvement_policy;
+            self.training_runtime_state.auto_improvement_status = auto_improvement_status;
+            self.training_runtime_state.model_registry = model_registry;
             self.trainer_trigger_queue = super::TrainerTriggerQueueState::with_events(
                 self.trainer_trigger_queue.max_events(),
                 trainer_trigger_events,
             );
             Ok(())
         })() {
-            self.continuous_governance_policy = backup_governance_policy;
-            self.evaluation_baseline = backup_evaluation_baseline;
-            self.last_continuous_improvement_report = backup_last_report;
-            self.governance_state_version = backup_governance_state_version;
-            self.governance_audit_entries = backup_governance_audit_entries;
-            self.governance_state_snapshots = backup_governance_state_snapshots;
+            self.governance_runtime_state.continuous_governance_policy = backup_governance_policy;
+            self.governance_runtime_state.evaluation_baseline = backup_evaluation_baseline;
+            self.governance_runtime_state
+                .last_continuous_improvement_report = backup_last_report;
+            self.governance_runtime_state.governance_state_version =
+                backup_governance_state_version;
+            self.governance_runtime_state.governance_audit_entries =
+                backup_governance_audit_entries;
+            self.governance_runtime_state.governance_state_snapshots =
+                backup_governance_state_snapshots;
             self.short_term_memory = backup_short_term_memory;
             self.long_term_memory = backup_long_term_memory;
             self.buffer_manager = backup_buffer_manager;
-            self.dataset_store
+            self.training_runtime_state
+                .dataset_store
                 .replace_all(backup_dataset_entries, backup_dataset_corrections);
-            self.auto_improvement_policy = backup_auto_improvement_policy;
-            self.auto_improvement_status = backup_auto_improvement_status;
-            self.model_registry = backup_model_registry;
+            self.training_runtime_state.auto_improvement_policy = backup_auto_improvement_policy;
+            self.training_runtime_state.auto_improvement_status = backup_auto_improvement_status;
+            self.training_runtime_state.model_registry = backup_model_registry;
             self.trainer_trigger_queue = backup_trainer_trigger_queue;
             self.import_telemetry.record_runtime_bundle_rejection();
             return Err(MoeError::DatasetError(format!(
@@ -611,21 +664,26 @@ impl MoePipeline {
 
     pub fn governance_audit_trail(&self) -> GovernanceAuditTrail {
         GovernanceAuditTrail {
-            current_version: self.governance_state_version,
+            current_version: self.governance_runtime_state.governance_state_version,
             current_checksum: self
+                .governance_runtime_state
                 .governance_audit_entries
                 .last()
                 .map(|e| e.checksum.clone()),
-            entries: self.governance_audit_entries.clone(),
+            entries: self
+                .governance_runtime_state
+                .governance_audit_entries
+                .clone(),
         }
     }
 
     pub fn governance_state_snapshots(&self) -> &[GovernanceStateSnapshot] {
-        &self.governance_state_snapshots
+        &self.governance_runtime_state.governance_state_snapshots
     }
 
     pub fn rollback_governance_state_to_version(&mut self, version: u64) -> Result<(), MoeError> {
         let snapshot = self
+            .governance_runtime_state
             .governance_state_snapshots
             .iter()
             .rev()
@@ -638,10 +696,12 @@ impl MoePipeline {
                 ))
             })?;
 
-        self.continuous_governance_policy = snapshot.state.continuous_governance_policy;
-        self.evaluation_baseline = snapshot.state.evaluation_baseline;
-        self.last_continuous_improvement_report = snapshot.state.last_continuous_improvement_report;
-        self.governance_state_version = snapshot.state.state_version;
+        self.governance_runtime_state.continuous_governance_policy =
+            snapshot.state.continuous_governance_policy;
+        self.governance_runtime_state.evaluation_baseline = snapshot.state.evaluation_baseline;
+        self.governance_runtime_state
+            .last_continuous_improvement_report = snapshot.state.last_continuous_improvement_report;
+        self.governance_runtime_state.governance_state_version = snapshot.state.state_version;
         self.record_governance_audit(&format!("governance rollback to version {}", version));
         Ok(())
     }

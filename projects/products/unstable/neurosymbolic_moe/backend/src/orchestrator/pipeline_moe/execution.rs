@@ -277,14 +277,14 @@ impl MoePipeline {
             .map(|o| o.content.as_str())
             .unwrap_or("");
 
-        let entry = self.trace_converter.convert(
+        let entry = self.training_runtime_state.trace_converter.convert(
             &task_traces,
             task.input(),
             output_text,
             crate::dataset_engine::Outcome::Success,
         );
 
-        self.dataset_store.add_entry(entry);
+        self.training_runtime_state.dataset_store.add_entry(entry);
 
         self.trace_logger.log_phase(
             task_id,
@@ -293,7 +293,7 @@ impl MoePipeline {
             None,
         );
 
-        if let Some(policy) = &self.continuous_governance_policy {
+        if let Some(policy) = &self.governance_runtime_state.continuous_governance_policy {
             let report = self.continuous_improvement_report(
                 policy.min_expert_success_rate,
                 policy.min_routing_accuracy,
@@ -310,7 +310,8 @@ impl MoePipeline {
                 );
 
                 if policy.block_on_human_review {
-                    self.last_continuous_improvement_report = Some(report);
+                    self.governance_runtime_state
+                        .last_continuous_improvement_report = Some(report);
                     self.record_governance_audit("continuous governance blocked pending review");
                     return Err(MoeError::PolicyRejected(
                         "continuous governance gate blocked output (human review required)"
@@ -337,7 +338,8 @@ impl MoePipeline {
                 }
             }
 
-            self.last_continuous_improvement_report = Some(report);
+            self.governance_runtime_state
+                .last_continuous_improvement_report = Some(report);
             self.record_governance_audit("continuous governance evaluated");
         }
         self.maybe_run_auto_improvement();
@@ -355,10 +357,13 @@ impl MoePipeline {
         let governance = self
             .evaluation
             .governance_report(min_expert_success_rate, min_routing_accuracy);
-        let dataset_quality = self.dataset_store.quality_report(low_score_threshold);
+        let dataset_quality = self
+            .training_runtime_state
+            .dataset_store
+            .quality_report(low_score_threshold);
 
         let (expert_regressions, routing_regression) =
-            if let Some(baseline) = &self.evaluation_baseline {
+            if let Some(baseline) = &self.governance_runtime_state.evaluation_baseline {
                 (
                     self.evaluation
                         .detect_expert_regressions(baseline, regression_drop_threshold),
@@ -384,79 +389,126 @@ impl MoePipeline {
     }
 
     fn maybe_run_auto_improvement(&mut self) {
-        let Some(policy) = self.auto_improvement_policy.clone() else {
+        let Some(policy) = self.training_runtime_state.auto_improvement_policy.clone() else {
             return;
         };
-        if self.dataset_store.count() < policy.min_dataset_entries {
-            self.auto_improvement_status
+        if self.training_runtime_state.dataset_store.count() < policy.min_dataset_entries {
+            self.training_runtime_state
+                .auto_improvement_status
                 .skipped_min_dataset_entries_total += 1;
-            self.auto_improvement_status.last_skip_reason =
-                Some("dataset entries below min_dataset_entries".to_string());
+            self.training_runtime_state
+                .auto_improvement_status
+                .last_skip_reason = Some("dataset entries below min_dataset_entries".to_string());
             return;
         }
 
         let quality = self
+            .training_runtime_state
             .dataset_store
             .quality_report(policy.training_build_options.min_score.unwrap_or(0.0));
         if quality.success_ratio < policy.min_success_ratio {
-            self.auto_improvement_status.skipped_min_success_ratio_total += 1;
-            self.auto_improvement_status.last_skip_reason =
+            self.training_runtime_state
+                .auto_improvement_status
+                .skipped_min_success_ratio_total += 1;
+            self.training_runtime_state
+                .auto_improvement_status
+                .last_skip_reason =
                 Some("dataset success_ratio below min_success_ratio".to_string());
             return;
         }
         if let Some(min_average_score) = policy.min_average_score
             && quality.average_score.unwrap_or(0.0) < min_average_score
         {
-            self.auto_improvement_status.skipped_min_average_score_total += 1;
-            self.auto_improvement_status.last_skip_reason =
+            self.training_runtime_state
+                .auto_improvement_status
+                .skipped_min_average_score_total += 1;
+            self.training_runtime_state
+                .auto_improvement_status
+                .last_skip_reason =
                 Some("dataset average_score below min_average_score".to_string());
             return;
         }
         if self
+            .governance_runtime_state
             .last_continuous_improvement_report
             .as_ref()
             .is_some_and(|report| report.requires_human_review)
         {
-            self.auto_improvement_status
+            self.training_runtime_state
+                .auto_improvement_status
                 .skipped_human_review_required_total += 1;
-            self.auto_improvement_status.last_skip_reason =
-                Some("continuous governance requires human review".to_string());
+            self.training_runtime_state
+                .auto_improvement_status
+                .last_skip_reason = Some("continuous governance requires human review".to_string());
             return;
         }
 
-        match self.dataset_store.build_training_bundle_with_provenance(
-            &policy.training_build_options,
-            self.dataset_provenance(),
-        ) {
+        match self
+            .training_runtime_state
+            .dataset_store
+            .build_training_bundle_with_provenance(
+                &policy.training_build_options,
+                self.dataset_provenance(),
+            ) {
             Ok(bundle) => {
-                if self.auto_improvement_status.last_bundle_checksum.as_deref()
+                if self
+                    .training_runtime_state
+                    .auto_improvement_status
+                    .last_bundle_checksum
+                    .as_deref()
                     == Some(bundle.bundle_checksum.as_str())
                 {
-                    self.auto_improvement_status.skipped_duplicate_bundle_total += 1;
-                    self.auto_improvement_status.last_skip_reason =
-                        Some("training bundle checksum unchanged".to_string());
+                    self.training_runtime_state
+                        .auto_improvement_status
+                        .skipped_duplicate_bundle_total += 1;
+                    self.training_runtime_state
+                        .auto_improvement_status
+                        .last_skip_reason = Some("training bundle checksum unchanged".to_string());
                     return;
                 }
-                let model_version = self.model_registry.register_candidate(
-                    bundle.bundle_checksum.clone(),
-                    bundle.included_entries,
-                    bundle.train_samples.len(),
-                    bundle.validation_samples.len(),
-                    bundle.generated_at,
-                );
-                if self.model_registry.active_version.is_none() {
-                    self.model_registry.promote(model_version);
+                let model_version = self
+                    .training_runtime_state
+                    .model_registry
+                    .register_candidate(
+                        bundle.bundle_checksum.clone(),
+                        bundle.included_entries,
+                        bundle.train_samples.len(),
+                        bundle.validation_samples.len(),
+                        bundle.generated_at,
+                    );
+                if self
+                    .training_runtime_state
+                    .model_registry
+                    .active_version
+                    .is_none()
+                {
+                    self.training_runtime_state
+                        .model_registry
+                        .promote(model_version);
                 }
-                self.auto_improvement_status.runs_total += 1;
-                self.auto_improvement_status.last_bundle_checksum =
-                    Some(bundle.bundle_checksum.clone());
-                self.auto_improvement_status.last_included_entries = bundle.included_entries;
-                self.auto_improvement_status.last_train_samples = bundle.train_samples.len();
-                self.auto_improvement_status.last_validation_samples =
-                    bundle.validation_samples.len();
-                self.auto_improvement_status.last_skip_reason = None;
+                self.training_runtime_state
+                    .auto_improvement_status
+                    .runs_total += 1;
+                self.training_runtime_state
+                    .auto_improvement_status
+                    .last_bundle_checksum = Some(bundle.bundle_checksum.clone());
+                self.training_runtime_state
+                    .auto_improvement_status
+                    .last_included_entries = bundle.included_entries;
+                self.training_runtime_state
+                    .auto_improvement_status
+                    .last_train_samples = bundle.train_samples.len();
+                self.training_runtime_state
+                    .auto_improvement_status
+                    .last_validation_samples = bundle.validation_samples.len();
+                self.training_runtime_state
+                    .auto_improvement_status
+                    .last_skip_reason = None;
                 self.push_trainer_trigger_event(crate::orchestrator::TrainerTriggerEvent {
-                    event_id: self.auto_improvement_status.runs_total,
+                    event_id: self
+                        .training_runtime_state
+                        .auto_improvement_status
+                        .runs_total,
                     model_version,
                     training_bundle_checksum: bundle.bundle_checksum.clone(),
                     included_entries: bundle.included_entries,
@@ -472,19 +524,22 @@ impl MoePipeline {
                     TracePhase::DatasetEnrichment,
                     format!(
                         "auto improvement run {} prepared model v{} bundle (included={}, train={}, validation={})",
-                        self.auto_improvement_status.runs_total,
+                        self.training_runtime_state.auto_improvement_status.runs_total,
                         model_version,
-                        self.auto_improvement_status.last_included_entries,
-                        self.auto_improvement_status.last_train_samples,
-                        self.auto_improvement_status.last_validation_samples
+                        self.training_runtime_state.auto_improvement_status.last_included_entries,
+                        self.training_runtime_state.auto_improvement_status.last_train_samples,
+                        self.training_runtime_state.auto_improvement_status.last_validation_samples
                     ),
                     None,
                 );
             }
             Err(err) => {
-                self.auto_improvement_status.build_failures_total += 1;
-                self.auto_improvement_status.last_skip_reason =
-                    Some(format!("training bundle build error: {err}"));
+                self.training_runtime_state
+                    .auto_improvement_status
+                    .build_failures_total += 1;
+                self.training_runtime_state
+                    .auto_improvement_status
+                    .last_skip_reason = Some(format!("training bundle build error: {err}"));
                 self.trace_logger.log_phase(
                     crate::moe_core::TaskId::new("auto-improvement"),
                     TracePhase::DatasetEnrichment,

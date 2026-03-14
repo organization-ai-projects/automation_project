@@ -3,7 +3,7 @@ use crate::aggregator::OutputAggregator;
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{
     DatasetStore, DatasetTrainingBuildOptions, DatasetTrainingBundle, DatasetTrainingProvenance,
-    DatasetTrainingShard, TraceConverter,
+    DatasetTrainingShard,
 };
 use crate::evaluation_engine::EvaluationEngine;
 use crate::expert_registry::ExpertRegistry;
@@ -13,15 +13,16 @@ use crate::moe_core::{Expert, MoeError};
 use crate::orchestrator::ContinuousImprovementReport;
 use crate::orchestrator::import_journal::ImportJournal;
 use crate::orchestrator::{
-    ArbitrationMode, AutoImprovementPolicy, AutoImprovementStatus, ContinuousGovernancePolicy,
-    GovernanceAuditEntry, GovernanceImportPolicy, GovernanceState, GovernanceStateSnapshot,
-    ImportTelemetry, ModelRegistry, TrainerTriggerEvent,
+    ArbitrationMode, AutoImprovementStatus, GovernanceState, ImportTelemetry, ModelRegistry,
+    TrainerTriggerEvent,
 };
 use crate::policy_guard::{Policy, PolicyGuard};
 use crate::retrieval_engine::{ContextAssembler, Retriever};
 use crate::router::Router;
 use crate::trace_logger::TraceLogger;
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
+
+use super::{GovernanceRuntimeState, TrainerTriggerQueueState, TrainingRuntimeState};
 
 pub(in crate::orchestrator::pipeline_moe) const MAX_RUNTIME_BUNDLE_JSON_BYTES: usize =
     16 * 1024 * 1024;
@@ -38,127 +39,6 @@ pub(in crate::orchestrator::pipeline_moe) const MAX_RUNTIME_BUNDLE_SESSION_VALUE
 const MAX_TRAINING_DATASET_BUNDLE_JSON_BYTES: usize = 64 * 1024 * 1024;
 const MAX_TRAINING_DATASET_SHARDS_JSON_BYTES: usize = 128 * 1024 * 1024;
 
-#[derive(Clone)]
-pub(in crate::orchestrator) struct TrainerTriggerQueueState {
-    events: VecDeque<TrainerTriggerEvent>,
-    max_events: usize,
-    leased_event_ids: HashSet<u64>,
-}
-
-impl TrainerTriggerQueueState {
-    pub fn new(max_events: usize) -> Self {
-        Self {
-            events: VecDeque::new(),
-            max_events: max_events.max(1),
-            leased_event_ids: HashSet::new(),
-        }
-    }
-
-    pub fn with_events(max_events: usize, events: Vec<TrainerTriggerEvent>) -> Self {
-        let mut queue = Self::new(max_events);
-        for event in events {
-            queue.push(event);
-        }
-        queue
-    }
-
-    pub fn max_events(&self) -> usize {
-        self.max_events
-    }
-
-    pub fn len(&self) -> usize {
-        self.events.len()
-    }
-
-    pub fn events(&self) -> &VecDeque<TrainerTriggerEvent> {
-        &self.events
-    }
-
-    pub fn pop_next(&mut self) -> Option<TrainerTriggerEvent> {
-        let event = self.events.pop_front()?;
-        self.leased_event_ids.remove(&event.event_id);
-        Some(event)
-    }
-
-    pub fn lease_next(
-        &mut self,
-        now_epoch_seconds: u64,
-        min_retry_delay_seconds: u64,
-    ) -> Option<TrainerTriggerEvent> {
-        let mut leased_idx = None;
-        for (idx, event) in self.events.iter().enumerate() {
-            if self.leased_event_ids.contains(&event.event_id) {
-                continue;
-            }
-            let eligible = event.last_attempted_at.is_none_or(|last| {
-                now_epoch_seconds >= last.saturating_add(min_retry_delay_seconds)
-            });
-            if eligible {
-                leased_idx = Some(idx);
-                break;
-            }
-        }
-        let idx = leased_idx?;
-        let event = self.events.get_mut(idx)?;
-        event.delivery_attempts = event.delivery_attempts.saturating_add(1);
-        event.last_attempted_at = Some(now_epoch_seconds);
-        self.leased_event_ids.insert(event.event_id);
-        Some(event.clone())
-    }
-
-    pub fn acknowledge(&mut self, event_id: u64) -> bool {
-        if let Some(idx) = self
-            .events
-            .iter()
-            .position(|event| event.event_id == event_id)
-        {
-            self.events.remove(idx);
-            self.leased_event_ids.remove(&event_id);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn mark_delivery_failed(&mut self, event_id: u64, failed_at_epoch_seconds: u64) -> bool {
-        if let Some(event) = self
-            .events
-            .iter_mut()
-            .find(|event| event.event_id == event_id)
-        {
-            event.last_attempted_at = Some(failed_at_epoch_seconds);
-            self.leased_event_ids.remove(&event_id);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn drain(&mut self, max_events: usize) -> Vec<TrainerTriggerEvent> {
-        if max_events == 0 || self.events.is_empty() {
-            return Vec::new();
-        }
-        let drain_len = max_events.min(self.events.len());
-        let mut drained = Vec::with_capacity(drain_len);
-        for _ in 0..drain_len {
-            if let Some(event) = self.events.pop_front() {
-                self.leased_event_ids.remove(&event.event_id);
-                drained.push(event);
-            }
-        }
-        drained
-    }
-
-    pub fn push(&mut self, event: TrainerTriggerEvent) {
-        self.events.push_back(event);
-        while self.events.len() > self.max_events {
-            if let Some(removed) = self.events.pop_front() {
-                self.leased_event_ids.remove(&removed.event_id);
-            }
-        }
-    }
-}
-
 pub struct MoePipeline {
     pub(in crate::orchestrator) registry: ExpertRegistry,
     pub(in crate::orchestrator) router: Box<dyn Router>,
@@ -171,27 +51,13 @@ pub struct MoePipeline {
     pub(in crate::orchestrator) arbitration_mode: ArbitrationMode,
     pub(in crate::orchestrator) fallback_on_expert_error: bool,
     pub(in crate::orchestrator) enable_task_metadata_chain: bool,
-    pub(in crate::orchestrator) continuous_governance_policy: Option<ContinuousGovernancePolicy>,
-    pub(in crate::orchestrator) governance_import_policy: GovernanceImportPolicy,
+    pub(in crate::orchestrator) governance_runtime_state: GovernanceRuntimeState,
     pub(in crate::orchestrator) policy_guard: PolicyGuard,
     pub(in crate::orchestrator) trace_logger: TraceLogger,
     pub(in crate::orchestrator) evaluation: EvaluationEngine,
-    pub(in crate::orchestrator) evaluation_baseline: Option<EvaluationEngine>,
-    pub(in crate::orchestrator) last_continuous_improvement_report:
-        Option<ContinuousImprovementReport>,
-    pub(in crate::orchestrator) governance_state_version: u64,
-    pub(in crate::orchestrator) governance_audit_entries: Vec<GovernanceAuditEntry>,
-    pub(in crate::orchestrator) max_governance_audit_entries: usize,
-    pub(in crate::orchestrator) governance_state_snapshots: Vec<GovernanceStateSnapshot>,
-    pub(in crate::orchestrator) max_governance_state_snapshots: usize,
     pub(in crate::orchestrator) import_telemetry: ImportTelemetry,
     pub(in crate::orchestrator) import_journal: ImportJournal,
-    pub(in crate::orchestrator) feedback_store: FeedbackStore,
-    pub(in crate::orchestrator) dataset_store: DatasetStore,
-    pub(in crate::orchestrator) trace_converter: TraceConverter,
-    pub(in crate::orchestrator) auto_improvement_policy: Option<AutoImprovementPolicy>,
-    pub(in crate::orchestrator) auto_improvement_status: AutoImprovementStatus,
-    pub(in crate::orchestrator) model_registry: ModelRegistry,
+    pub(in crate::orchestrator) training_runtime_state: TrainingRuntimeState,
     pub(in crate::orchestrator) trainer_trigger_queue: TrainerTriggerQueueState,
 }
 
@@ -236,11 +102,11 @@ impl MoePipeline {
     }
 
     pub fn feedback_store(&self) -> &FeedbackStore {
-        &self.feedback_store
+        &self.training_runtime_state.feedback_store
     }
 
     pub fn dataset_store(&self) -> &DatasetStore {
-        &self.dataset_store
+        &self.training_runtime_state.dataset_store
     }
 
     pub fn import_telemetry_snapshot(&self) -> ImportTelemetry {
@@ -271,7 +137,8 @@ impl MoePipeline {
         &self,
         options: &DatasetTrainingBuildOptions,
     ) -> Result<DatasetTrainingBundle, MoeError> {
-        self.dataset_store
+        self.training_runtime_state
+            .dataset_store
             .build_training_bundle_with_provenance(options, self.dataset_provenance())
     }
 
@@ -397,20 +264,20 @@ impl MoePipeline {
             governance_state_version: runtime_bundle.governance.state.state_version,
             governance_state_checksum: runtime_bundle.governance.state.state_checksum.clone(),
             runtime_bundle_checksum: runtime_bundle.runtime_checksum,
-            dataset_entry_count: self.dataset_store.count(),
+            dataset_entry_count: self.training_runtime_state.dataset_store.count(),
         }
     }
 
     pub fn add_feedback(&mut self, entry: FeedbackEntry) {
-        self.feedback_store.add(entry);
+        self.training_runtime_state.feedback_store.add(entry);
     }
 
     pub fn auto_improvement_status(&self) -> &AutoImprovementStatus {
-        &self.auto_improvement_status
+        &self.training_runtime_state.auto_improvement_status
     }
 
     pub fn model_registry(&self) -> &ModelRegistry {
-        &self.model_registry
+        &self.training_runtime_state.model_registry
     }
 
     pub fn trainer_trigger_events_pending(&self) -> usize {
@@ -433,8 +300,10 @@ impl MoePipeline {
         let leased = self
             .trainer_trigger_queue
             .lease_next(now_epoch_seconds, min_retry_delay_seconds)?;
-        self.auto_improvement_status
+        self.training_runtime_state
+            .auto_improvement_status
             .trainer_trigger_delivery_attempts_total = self
+            .training_runtime_state
             .auto_improvement_status
             .trainer_trigger_delivery_attempts_total
             .saturating_add(1);
@@ -443,8 +312,10 @@ impl MoePipeline {
 
     pub fn acknowledge_trainer_trigger_event(&mut self, event_id: u64) -> bool {
         if self.trainer_trigger_queue.acknowledge(event_id) {
-            self.auto_improvement_status
+            self.training_runtime_state
+                .auto_improvement_status
                 .trainer_trigger_acknowledged_total = self
+                .training_runtime_state
                 .auto_improvement_status
                 .trainer_trigger_acknowledged_total
                 .saturating_add(1);
@@ -463,8 +334,10 @@ impl MoePipeline {
             .trainer_trigger_queue
             .mark_delivery_failed(event_id, failed_at_epoch_seconds)
         {
-            self.auto_improvement_status
+            self.training_runtime_state
+                .auto_improvement_status
                 .trainer_trigger_delivery_failures_total = self
+                .training_runtime_state
                 .auto_improvement_status
                 .trainer_trigger_delivery_failures_total
                 .saturating_add(1);
@@ -500,10 +373,10 @@ impl MoePipeline {
             .chain(candidate.validation_samples.iter())
         {
             let id = format!("bootstrap:{}", sample.entry_id);
-            let was_existing = self.dataset_store.has_entry_id(&id);
+            let was_existing = self.training_runtime_state.dataset_store.has_entry_id(&id);
 
-            self.dataset_store
-                .upsert_entry(crate::dataset_engine::DatasetEntry {
+            self.training_runtime_state.dataset_store.upsert_entry(
+                crate::dataset_engine::DatasetEntry {
                     id,
                     task_id: crate::moe_core::TaskId::new(&sample.task_id),
                     expert_id: crate::moe_core::ExpertId::new(&sample.expert_id),
@@ -520,13 +393,17 @@ impl MoePipeline {
                     },
                     created_at: candidate.generated_at,
                     metadata: sample.metadata.clone(),
-                });
+                },
+            );
             if !was_existing {
                 seeded += 1;
             }
         }
 
-        self.auto_improvement_status.bootstrap_entries_total = self
+        self.training_runtime_state
+            .auto_improvement_status
+            .bootstrap_entries_total = self
+            .training_runtime_state
             .auto_improvement_status
             .bootstrap_entries_total
             .saturating_add(seeded);
@@ -543,25 +420,32 @@ impl MoePipeline {
     }
 
     pub fn capture_evaluation_baseline(&mut self) {
-        self.evaluation_baseline = Some(self.evaluation.clone());
+        self.governance_runtime_state.evaluation_baseline = Some(self.evaluation.clone());
     }
 
     pub fn last_continuous_improvement_report(&self) -> Option<&ContinuousImprovementReport> {
-        self.last_continuous_improvement_report.as_ref()
+        self.governance_runtime_state
+            .last_continuous_improvement_report
+            .as_ref()
     }
 
     pub fn has_evaluation_baseline(&self) -> bool {
-        self.evaluation_baseline.is_some()
+        self.governance_runtime_state.evaluation_baseline.is_some()
     }
 
     pub fn approve_pending_human_review_and_promote(&mut self) -> bool {
         if self
+            .governance_runtime_state
             .last_continuous_improvement_report
             .as_ref()
             .is_some_and(|report| report.requires_human_review)
         {
             self.capture_evaluation_baseline();
-            if let Some(report) = self.last_continuous_improvement_report.as_mut() {
+            if let Some(report) = self
+                .governance_runtime_state
+                .last_continuous_improvement_report
+                .as_mut()
+            {
                 report.requires_human_review = false;
             }
             self.record_governance_audit("human approval promotion");
@@ -573,10 +457,14 @@ impl MoePipeline {
 
     pub fn export_governance_state(&self) -> GovernanceState {
         GovernanceState::from_components(
-            self.governance_state_version,
-            self.continuous_governance_policy.clone(),
-            self.evaluation_baseline.clone(),
-            self.last_continuous_improvement_report.clone(),
+            self.governance_runtime_state.governance_state_version,
+            self.governance_runtime_state
+                .continuous_governance_policy
+                .clone(),
+            self.governance_runtime_state.evaluation_baseline.clone(),
+            self.governance_runtime_state
+                .last_continuous_improvement_report
+                .clone(),
         )
     }
 }

@@ -18,7 +18,10 @@ impl MoePipeline {
             governance_current_version: audit_trail.current_version,
             governance_current_checksum: audit_trail.current_checksum,
             governance_audit_entries: audit_trail.entries.len(),
-            governance_state_snapshots: self.governance_state_snapshots.len(),
+            governance_state_snapshots: self
+                .governance_runtime_state
+                .governance_state_snapshots
+                .len(),
             runtime_bundle_checksum: runtime_bundle.runtime_checksum,
             short_term_memory_entries: self.short_term_memory.count(),
             long_term_memory_entries: self.long_term_memory.count(),
@@ -26,8 +29,8 @@ impl MoePipeline {
             session_buffer_sessions: sessions.len(),
             session_buffer_values,
             trace_entries: self.trace_logger.count(),
-            dataset_entries: self.dataset_store.count(),
-            feedback_entries: self.feedback_store.count(),
+            dataset_entries: self.training_runtime_state.dataset_store.count(),
+            feedback_entries: self.training_runtime_state.feedback_store.count(),
             import_telemetry: self.import_telemetry_snapshot(),
             import_journal_events_total: self.import_journal_events_total(),
             import_journal_parse_failures_total: self.import_journal_parse_failures_total(),

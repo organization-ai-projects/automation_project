@@ -1,5 +1,7 @@
+use super::pipeline_moe::GovernanceRuntimeState;
 use super::pipeline_moe::MoePipeline;
 use super::pipeline_moe::TrainerTriggerQueueState;
+use super::pipeline_moe::TrainingRuntimeState;
 use crate::aggregator::{AggregationStrategy, OutputAggregator};
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{DatasetStore, TraceConverter};
@@ -149,26 +151,30 @@ impl MoePipelineBuilder {
             arbitration_mode: self.arbitration_mode,
             fallback_on_expert_error: self.fallback_on_expert_error,
             enable_task_metadata_chain: self.enable_task_metadata_chain,
-            continuous_governance_policy: self.continuous_governance_policy,
-            governance_import_policy: self.governance_import_policy,
+            governance_runtime_state: GovernanceRuntimeState {
+                continuous_governance_policy: self.continuous_governance_policy,
+                governance_import_policy: self.governance_import_policy,
+                evaluation_baseline: None,
+                last_continuous_improvement_report: None,
+                governance_state_version: 0,
+                governance_audit_entries: Vec::new(),
+                max_governance_audit_entries: self.max_governance_audit_entries,
+                governance_state_snapshots: Vec::new(),
+                max_governance_state_snapshots: self.max_governance_state_snapshots,
+            },
             policy_guard: PolicyGuard::new(),
             trace_logger: TraceLogger::new(self.max_traces),
             evaluation: EvaluationEngine::new(),
-            evaluation_baseline: None,
-            last_continuous_improvement_report: None,
-            governance_state_version: 0,
-            governance_audit_entries: Vec::new(),
-            max_governance_audit_entries: self.max_governance_audit_entries,
-            governance_state_snapshots: Vec::new(),
-            max_governance_state_snapshots: self.max_governance_state_snapshots,
             import_telemetry: ImportTelemetry::default(),
             import_journal: ImportJournal::with_capacity(256),
-            feedback_store: FeedbackStore::new(),
-            dataset_store: DatasetStore::new(),
-            trace_converter: TraceConverter::new(),
-            auto_improvement_policy: self.auto_improvement_policy,
-            auto_improvement_status: AutoImprovementStatus::default(),
-            model_registry: ModelRegistry::default(),
+            training_runtime_state: TrainingRuntimeState {
+                feedback_store: FeedbackStore::new(),
+                dataset_store: DatasetStore::new(),
+                trace_converter: TraceConverter::new(),
+                auto_improvement_policy: self.auto_improvement_policy,
+                auto_improvement_status: AutoImprovementStatus::default(),
+                model_registry: ModelRegistry::default(),
+            },
             trainer_trigger_queue: TrainerTriggerQueueState::new(self.max_trainer_trigger_events),
         }
     }

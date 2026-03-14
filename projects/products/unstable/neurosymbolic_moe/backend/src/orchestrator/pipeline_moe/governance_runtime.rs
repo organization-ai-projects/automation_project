@@ -11,7 +11,12 @@ impl MoePipeline {
         bundle: &GovernancePersistenceBundle,
     ) -> Result<GovernanceImportDecision, MoeError> {
         let mut state = bundle.state.clone();
-        if !self.governance_import_policy.allow_schema_change && !state.has_supported_schema() {
+        if !self
+            .governance_runtime_state
+            .governance_import_policy
+            .allow_schema_change
+            && !state.has_supported_schema()
+        {
             return Err(MoeError::PolicyRejected(format!(
                 "governance state schema version {} is not supported",
                 state.schema_version
@@ -23,7 +28,10 @@ impl MoePipeline {
                 "governance bundle checksum verification failed".to_string(),
             ));
         }
-        if !self.governance_import_policy.allow_schema_change
+        if !self
+            .governance_runtime_state
+            .governance_import_policy
+            .allow_schema_change
             && let Some(unsupported_snapshot) = bundle
                 .snapshots
                 .iter()
@@ -53,7 +61,12 @@ impl MoePipeline {
         &self,
         bundle: &RuntimePersistenceBundle,
     ) -> Result<GovernanceImportDecision, MoeError> {
-        if !self.governance_import_policy.allow_schema_change && !bundle.has_supported_schema() {
+        if !self
+            .governance_runtime_state
+            .governance_import_policy
+            .allow_schema_change
+            && !bundle.has_supported_schema()
+        {
             return Err(MoeError::PolicyRejected(format!(
                 "runtime bundle schema version {} is not supported",
                 bundle.schema_version
@@ -160,7 +173,8 @@ impl MoePipeline {
         duplicates
     }
     pub(crate) fn current_governance_checksum(&self) -> String {
-        self.governance_audit_entries
+        self.governance_runtime_state
+            .governance_audit_entries
             .last()
             .map(|entry| entry.checksum.clone())
             .unwrap_or_else(|| self.export_governance_state().state_checksum)
@@ -277,10 +291,10 @@ impl MoePipeline {
         expected_current_version: u64,
         expected_current_checksum: Option<&str>,
     ) -> Result<(), MoeError> {
-        if self.governance_state_version != expected_current_version {
+        if self.governance_runtime_state.governance_state_version != expected_current_version {
             return Err(MoeError::PolicyRejected(format!(
                 "compare-and-import rejected: expected governance version {}, current version {}",
-                expected_current_version, self.governance_state_version
+                expected_current_version, self.governance_runtime_state.governance_state_version
             )));
         }
         if let Some(expected_checksum) = expected_current_checksum {
@@ -406,29 +420,50 @@ impl MoePipeline {
         Ok(())
     }
     pub(crate) fn record_governance_audit(&mut self, reason: &str) {
-        self.governance_state_version = self.governance_state_version.saturating_add(1);
+        self.governance_runtime_state.governance_state_version = self
+            .governance_runtime_state
+            .governance_state_version
+            .saturating_add(1);
         let state = self.export_governance_state();
         let checksum = state.state_checksum.clone();
-        self.governance_audit_entries.push(GovernanceAuditEntry {
-            version: self.governance_state_version,
-            checksum,
-            reason: reason.to_string(),
-        });
-        if self.governance_audit_entries.len() > self.max_governance_audit_entries {
-            let to_trim = self.governance_audit_entries.len() - self.max_governance_audit_entries;
-            self.governance_audit_entries.drain(0..to_trim);
+        self.governance_runtime_state
+            .governance_audit_entries
+            .push(GovernanceAuditEntry {
+                version: self.governance_runtime_state.governance_state_version,
+                checksum,
+                reason: reason.to_string(),
+            });
+        if self.governance_runtime_state.governance_audit_entries.len()
+            > self.governance_runtime_state.max_governance_audit_entries
+        {
+            let to_trim = self.governance_runtime_state.governance_audit_entries.len()
+                - self.governance_runtime_state.max_governance_audit_entries;
+            self.governance_runtime_state
+                .governance_audit_entries
+                .drain(0..to_trim);
         }
 
-        self.governance_state_snapshots
+        self.governance_runtime_state
+            .governance_state_snapshots
             .push(GovernanceStateSnapshot {
-                version: self.governance_state_version,
+                version: self.governance_runtime_state.governance_state_version,
                 reason: reason.to_string(),
                 state,
             });
-        if self.governance_state_snapshots.len() > self.max_governance_state_snapshots {
-            let to_trim =
-                self.governance_state_snapshots.len() - self.max_governance_state_snapshots;
-            self.governance_state_snapshots.drain(0..to_trim);
+        if self
+            .governance_runtime_state
+            .governance_state_snapshots
+            .len()
+            > self.governance_runtime_state.max_governance_state_snapshots
+        {
+            let to_trim = self
+                .governance_runtime_state
+                .governance_state_snapshots
+                .len()
+                - self.governance_runtime_state.max_governance_state_snapshots;
+            self.governance_runtime_state
+                .governance_state_snapshots
+                .drain(0..to_trim);
         }
         self.retain_snapshots_with_matching_audit_versions();
     }
@@ -439,19 +474,37 @@ impl MoePipeline {
         let diff = self.diff_governance_state(state);
         let mut reasons = Vec::new();
 
-        if !self.governance_import_policy.allow_schema_change && diff.schema_version_changed {
+        if !self
+            .governance_runtime_state
+            .governance_import_policy
+            .allow_schema_change
+            && diff.schema_version_changed
+        {
             reasons.push("schema version drift is not allowed".to_string());
         }
-        if !self.governance_import_policy.allow_version_regression && diff.version_delta < 0 {
+        if !self
+            .governance_runtime_state
+            .governance_import_policy
+            .allow_version_regression
+            && diff.version_delta < 0
+        {
             reasons.push("version regression is not allowed".to_string());
         }
-        if let Some(max) = self.governance_import_policy.max_version_regression
+        if let Some(max) = self
+            .governance_runtime_state
+            .governance_import_policy
+            .max_version_regression
             && diff.version_delta < 0
             && (-diff.version_delta as u64) > max
         {
             reasons.push("version regression exceeds configured maximum".to_string());
         }
-        if self.governance_import_policy.require_policy_match && diff.policy_changed {
+        if self
+            .governance_runtime_state
+            .governance_import_policy
+            .require_policy_match
+            && diff.policy_changed
+        {
             reasons.push("governance policy mismatch".to_string());
         }
 
@@ -462,17 +515,29 @@ impl MoePipeline {
         }
     }
     pub(crate) fn retain_snapshots_with_matching_audit_versions(&mut self) {
-        if self.governance_state_snapshots.is_empty() || self.governance_audit_entries.is_empty() {
-            self.governance_state_snapshots.clear();
+        if self
+            .governance_runtime_state
+            .governance_state_snapshots
+            .is_empty()
+            || self
+                .governance_runtime_state
+                .governance_audit_entries
+                .is_empty()
+        {
+            self.governance_runtime_state
+                .governance_state_snapshots
+                .clear();
             return;
         }
 
         let audit_versions: std::collections::HashSet<u64> = self
+            .governance_runtime_state
             .governance_audit_entries
             .iter()
             .map(|entry| entry.version)
             .collect();
-        self.governance_state_snapshots
+        self.governance_runtime_state
+            .governance_state_snapshots
             .retain(|snapshot| audit_versions.contains(&snapshot.version));
     }
 }
