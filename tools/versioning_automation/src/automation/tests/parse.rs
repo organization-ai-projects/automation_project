@@ -80,6 +80,16 @@ fn parse_pre_add_review_maps_action() {
 }
 
 #[test]
+fn parse_post_checkout_check_maps_action() {
+    let args = vec!["post-checkout-check".to_string()];
+    let action = super::super::parse::parse(&args).expect("parse post-checkout-check");
+    match action {
+        AutomationAction::PostCheckoutCheck(_) => {}
+        _ => panic!("expected post-checkout-check action"),
+    }
+}
+
+#[test]
 fn parse_test_coverage_maps_action() {
     let args = vec!["test-coverage".to_string()];
     let action = super::super::parse::parse(&args).expect("parse test-coverage");

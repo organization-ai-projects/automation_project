@@ -13,6 +13,7 @@ pub(crate) fn print_usage() {
         "  build-ui-bundles",
         "  build-and-check-ui-bundles",
         "  pre-add-review",
+        "  post-checkout-check",
         "  pre-push-check",
         "  release-prepare <version> [--auto-changelog]",
         "  test-coverage",

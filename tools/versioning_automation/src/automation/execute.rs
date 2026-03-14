@@ -13,12 +13,13 @@ use crate::automation::commands::{
     AuditIssueStatusOptions, AuditSecurityOptions, AutomationAction, BuildAccountsUiOptions,
     BuildAndCheckUiBundlesOptions, BuildUiBundlesOptions, ChangedCratesOptions,
     CheckDependenciesOptions, CheckMergeConflictsOptions, CheckPriorityIssuesOptions,
-    CiWatchPrOptions, CleanArtifactsOptions, LabelsSyncOptions, PreAddReviewOptions,
-    PrePushCheckOptions, ReleasePrepareOptions, SyncMainDevCiOptions, TestCoverageOptions,
+    CiWatchPrOptions, CleanArtifactsOptions, LabelsSyncOptions, PostCheckoutCheckOptions,
+    PreAddReviewOptions, PrePushCheckOptions, ReleasePrepareOptions, SyncMainDevCiOptions,
+    TestCoverageOptions,
 };
 use crate::automation::parse::parse;
 use crate::automation::render::print_usage;
-use crate::repo_name::resolve_repo_name;
+use crate::repo_name::{resolve_repo_name, resolve_repo_name_optional};
 
 pub(crate) fn run(args: &[String]) -> i32 {
     match parse(args) {
@@ -42,6 +43,7 @@ fn run_action(action: AutomationAction) -> i32 {
         AutomationAction::BuildUiBundles(opts) => run_build_ui_bundles(opts),
         AutomationAction::BuildAndCheckUiBundles(opts) => run_build_and_check_ui_bundles(opts),
         AutomationAction::PreAddReview(opts) => run_pre_add_review(opts),
+        AutomationAction::PostCheckoutCheck(opts) => run_post_checkout_check(opts),
         AutomationAction::PrePushCheck(opts) => run_pre_push_check(opts),
         AutomationAction::ReleasePrepare(opts) => run_release_prepare(opts),
         AutomationAction::TestCoverage(opts) => run_test_coverage(opts),
@@ -383,6 +385,53 @@ fn run_pre_add_review(_opts: PreAddReviewOptions) -> Result<(), String> {
             "Pre-add review found {issues} issue(s). Please review before staging."
         ))
     }
+}
+
+fn run_post_checkout_check(_opts: PostCheckoutCheckOptions) -> Result<(), String> {
+    let upstream = run_git_output(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+        .unwrap_or_default();
+    let upstream_branch = if upstream.trim().is_empty() {
+        "origin/dev".to_string()
+    } else {
+        upstream.trim().to_string()
+    };
+
+    let commit_messages =
+        run_git_output_preserve(&["log", &format!("{upstream_branch}..HEAD"), "--format=%B"])
+            .unwrap_or_default();
+    if commit_messages.trim().is_empty() {
+        return Ok(());
+    }
+
+    let refs = extract_issue_refs_hook_detailed(&commit_messages)?;
+    if refs.is_empty() {
+        return Ok(());
+    }
+
+    let Some(repo_name) = resolve_repo_name_optional(None) else {
+        return Ok(());
+    };
+
+    let mut root_parent_refs: Vec<String> = Vec::new();
+    for (action, issue_number) in refs {
+        if issue_is_root_parent(&issue_number, &repo_name)? {
+            root_parent_refs.push(format!("{action} #{issue_number}"));
+        }
+    }
+
+    if !root_parent_refs.is_empty() {
+        println!();
+        println!("⚠️  Convention warning on branch checkout:");
+        println!("   Current branch history references root parent issue(s):");
+        for parent_ref in &root_parent_refs {
+            println!("   - {parent_ref}");
+        }
+        println!("   This will be blocked by commit-msg/pre-push checks for new commits.");
+        println!("   Use child issue refs in trailers instead.");
+        println!();
+    }
+
+    Ok(())
 }
 
 fn run_pre_push_check(_opts: PrePushCheckOptions) -> Result<(), String> {
@@ -1366,6 +1415,30 @@ fn extract_issue_refs_detailed(text: &str) -> Result<Vec<(String, String)>, Stri
             .unwrap_or_default();
         if !issue.is_empty() {
             out.push((action, issue));
+        }
+    }
+    Ok(out)
+}
+
+fn extract_issue_refs_hook_detailed(text: &str) -> Result<Vec<(String, String)>, String> {
+    let re = Regex::new(r"(?i)(closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)")
+        .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
+    let mut out = Vec::new();
+    let mut seen = BTreeSet::new();
+    for cap in re.captures_iter(text) {
+        let action = cap
+            .get(1)
+            .map(|m| m.as_str().to_lowercase())
+            .unwrap_or_default();
+        let issue = cap
+            .get(2)
+            .map(|m| m.as_str().to_string())
+            .unwrap_or_default();
+        if !issue.is_empty() {
+            let key = format!("{action}|{issue}");
+            if seen.insert(key) {
+                out.push((action, issue));
+            }
         }
     }
     Ok(out)

@@ -10,6 +10,7 @@ use crate::automation::commands::check_priority_issues_options::CheckPriorityIss
 use crate::automation::commands::ci_watch_pr_options::CiWatchPrOptions;
 use crate::automation::commands::clean_artifacts_options::CleanArtifactsOptions;
 use crate::automation::commands::labels_sync_options::LabelsSyncOptions;
+use crate::automation::commands::post_checkout_check_options::PostCheckoutCheckOptions;
 use crate::automation::commands::pre_add_review_options::PreAddReviewOptions;
 use crate::automation::commands::pre_push_check_options::PrePushCheckOptions;
 use crate::automation::commands::release_prepare_options::ReleasePrepareOptions;
@@ -25,6 +26,7 @@ pub(crate) enum AutomationAction {
     BuildUiBundles(BuildUiBundlesOptions),
     BuildAndCheckUiBundles(BuildAndCheckUiBundlesOptions),
     PreAddReview(PreAddReviewOptions),
+    PostCheckoutCheck(PostCheckoutCheckOptions),
     PrePushCheck(PrePushCheckOptions),
     ReleasePrepare(ReleasePrepareOptions),
     TestCoverage(TestCoverageOptions),
