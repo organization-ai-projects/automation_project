@@ -29,9 +29,8 @@ automation/
 │   └── install_hooks.sh            # Installe les hooks Git
 ├── audit_issue_status.sh           # Audit des issues ouvertes vs references commits
 ├── git_add_guard.sh                # Ajout securise avec regles de split
-├── pre_add_review.sh               # Pre-check interne avant review
 ├── release_prepare.sh              # Preparation release (version/changelog/tag)
-└── test_coverage.sh                # Generation des rapports de couverture
+└── tests/                          # Tests shell de regression/integration
 ```
 
 ## Fichiers
@@ -40,9 +39,7 @@ automation/
 - `git_hooks/`: Hooks Git de validation commit/push.
 - `audit_issue_status.sh`: Audit des issues ouvertes vs references commits sur un range de branches.
 - `git_add_guard.sh`: Ajout securise avec regles de split.
-- `pre_add_review.sh`: Verification avant review interne.
 - `release_prepare.sh`: Preparation release.
-- `test_coverage.sh`: Rapport de couverture.
 
 Hook pre-push canonique: `scripts/automation/git_hooks/pre-push`.
 
@@ -68,3 +65,5 @@ Documenter la nouvelle entree dans:
 - `versioning_automation automation check-dependencies`
 - `versioning_automation automation check-merge-conflicts`
 - `versioning_automation automation clean-artifacts`
+- `versioning_automation automation pre-add-review`
+- `versioning_automation automation test-coverage`

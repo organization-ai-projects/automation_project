@@ -56,5 +56,5 @@ For complete details about all scripts:
 | Goal                           | Directory                | Example                                                       |
 | ------------------------------ | ------------------------ | ------------------------------------------------------------- |
 | Validate commits and quality   | `automation/git_hooks/`  | `commit-msg`, `pre-push`                                      |
-| Automate builds, tests, checks | `automation/`            | `versioning_automation automation ...`, `pre_add_review.sh`   |
+| Automate builds, tests, checks | `automation/`            | `versioning_automation automation ...`                        |
 | Reusable utility libraries     | `common_lib/`            | `logging.sh`, `command.sh`                                    |

@@ -28,14 +28,13 @@ automation/
 ├── audit_issue_status.sh           # Audit open issues vs commit references
 ├── git_add_command_override.sh     # Shell override for git add -> staging guard
 ├── git_add_guard.sh                # Guarded staging with split-policy checks
-├── pre_add_review.sh               # Pre-add internal review (format, clippy, tests)
 ├── release_prepare.sh              # Prepare releases with version/changelog/tag
 ├── check_script_integrity.sh       # Validate script sourcing/root-path integrity
 ├── tests/
 │   ├── critical_workflows_regression.sh # Critical cross-workflow regression suite
 │   └── enforcer_shell_contract_regression.sh # Enforcer check for shell-structure violations
 ├── SCRIPT_WORKFLOWS.md             # Canonical workflow inventory + entrypoints
-└── test_coverage.sh                # Generate test coverage reports
+└── tests/                          # Shell regression/integration tests
 ```
 
 ## Files
@@ -47,8 +46,8 @@ For the exhaustive, always-updated list, use:
 High-level groups:
 
 - `git_hooks/`: Git hooks for commit validation and pre-push checks.
-- quality/security/build scripts: `check_*.sh`, `test_coverage.sh`.
-- git safety helpers: `git_add_guard.sh`, `git_add_command_override.sh`, `pre_add_review.sh`.
+- quality/security/build scripts: `check_*.sh`.
+- git safety helpers: `git_add_guard.sh`, `git_add_command_override.sh`.
 - canonical pre-push hook: `scripts/automation/git_hooks/pre-push`.
 - regression/integrity guards: `check_script_integrity.sh`, `tests/*.sh`, `SCRIPT_WORKFLOWS.md`.
 
@@ -88,3 +87,5 @@ Use these commands directly instead of removed shell wrappers:
 - `versioning_automation automation check-dependencies`
 - `versioning_automation automation check-merge-conflicts`
 - `versioning_automation automation clean-artifacts`
+- `versioning_automation automation pre-add-review`
+- `versioning_automation automation test-coverage`

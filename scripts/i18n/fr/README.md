@@ -58,5 +58,5 @@ Pour les details complets:
 | Objectif                          | Repertoire              | Exemple                                                       |
 | --------------------------------- | ----------------------- | ------------------------------------------------------------- |
 | Valider commits et qualite        | `automation/git_hooks/` | `commit-msg`, `pre-push`                                      |
-| Automatiser build/tests/checks    | `automation/`           | `versioning_automation automation ...`, `pre_add_review.sh`   |
+| Automatiser build/tests/checks    | `automation/`           | `versioning_automation automation ...`                        |
 | Reutiliser des fonctions communes | `common_lib/`           | `logging.sh`, `command.sh`                                    |

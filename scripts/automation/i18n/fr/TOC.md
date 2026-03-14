@@ -18,10 +18,8 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 - [check_script_integrity.sh](../../check_script_integrity.sh) : verification de l'integrite des scripts (sources/ROOT_DIR/entrypoints)
 - [git_add_command_override.sh](../../git_add_command_override.sh) : override shell optionnel pour git add
 - [git_add_guard.sh](../../git_add_guard.sh) : ajout securise avec regles de split
-- [pre_add_review.sh](../../pre_add_review.sh) : revue interne pre-add (format, clippy, tests)
 - [release_prepare.sh](../../release_prepare.sh) : preparation release (version/changelog/tag)
 - [SCRIPT_WORKFLOWS.md](../../SCRIPT_WORKFLOWS.md) : inventaire canonique des workflows et entrypoints
-- [test_coverage.sh](../../test_coverage.sh) : generation rapports de couverture de tests
 - [tests/critical_workflows_regression.sh](../../tests/critical_workflows_regression.sh) : suite de regression des workflows critiques
 - [tests/enforcer_shell_contract_regression.sh](../../tests/enforcer_shell_contract_regression.sh) : garde-fou enforcer sur la structure shell
 
@@ -35,3 +33,5 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 - `versioning_automation automation check-dependencies`
 - `versioning_automation automation check-merge-conflicts`
 - `versioning_automation automation clean-artifacts`
+- `versioning_automation automation pre-add-review`
+- `versioning_automation automation test-coverage`
