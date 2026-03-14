@@ -34,11 +34,7 @@ if [[ -z "$refs" ]]; then
 	exit 0
 fi
 
-if ! command -v gh >/dev/null 2>&1; then
-	exit 0
-fi
-
-repo_name="$(resolve_repo_name_with_owner)"
+repo_name="$(resolve_repo_name_with_owner 2>/dev/null || true)"
 if [[ -z "$repo_name" ]]; then
 	exit 0
 fi
