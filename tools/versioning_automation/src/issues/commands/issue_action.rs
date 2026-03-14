@@ -2,11 +2,11 @@
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
     DoneStatusOptions, ExtractRefsOptions, FetchNonComplianceReasonOptions, HasLabelOptions,
-    IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
-    NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions, ParentGuardOptions,
-    ReadOptions, ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
-    StateOptions, SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions,
-    UpdateOptions, UpsertMarkerCommentOptions,
+    IsRootParentOptions, IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions,
+    NeutralizeOptions, NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions,
+    ParentGuardOptions, ReadOptions, ReevaluateOptions, ReopenOnDevOptions,
+    RequiredFieldsValidateOptions, StateOptions, SubissueRefsOptions, SyncProjectStatusOptions,
+    TasklistRefsOptions, UpdateOptions, UpsertMarkerCommentOptions,
 };
 
 #[derive(Debug, Clone)]
@@ -19,6 +19,7 @@ pub(crate) enum IssueAction {
     Update(UpdateOptions),
     RepoName,
     CurrentLogin,
+    IsRootParent(IsRootParentOptions),
     Close(CloseOptions),
     Reopen(IssueTarget),
     Delete(IssueTarget),

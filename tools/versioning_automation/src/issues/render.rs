@@ -61,6 +61,7 @@ pub(crate) fn print_usage() {
     );
     println!("  va issue repo-name");
     println!("  va issue current-login");
+    println!("  va issue is-root-parent --issue <number> [--repo owner/name]");
     println!(
         "  va issue close --issue <number> [--repo owner/name] [--reason completed|not_planned] [--comment ...]"
     );

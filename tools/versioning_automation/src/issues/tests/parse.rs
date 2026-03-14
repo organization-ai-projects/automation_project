@@ -260,6 +260,33 @@ fn parse_current_login_returns_action() {
 }
 
 #[test]
+fn parse_is_root_parent_maps_issue_and_repo() {
+    let action = parse(&to_args(&[
+        "is-root-parent",
+        "--issue",
+        "42",
+        "--repo",
+        "owner/repo",
+    ]))
+    .expect("parse is-root-parent");
+
+    match action {
+        IssueAction::IsRootParent(opts) => {
+            assert_eq!(opts.issue, "42");
+            assert_eq!(opts.repo, Some("owner/repo".to_string()));
+        }
+        _ => panic!("expected IsRootParent action"),
+    }
+}
+
+#[test]
+fn parse_is_root_parent_rejects_non_numeric_issue() {
+    let err =
+        parse(&to_args(&["is-root-parent", "--issue", "abc"])).expect_err("expected parse error");
+    assert!(err.contains("--issue requires a positive integer"));
+}
+
+#[test]
 fn parse_current_login_rejects_extra_options() {
     let err = parse(&to_args(&["current-login", "--repo", "owner/repo"]))
         .expect_err("expected parse error");

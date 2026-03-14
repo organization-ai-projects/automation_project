@@ -1,13 +1,7 @@
 //! tools/versioning_automation/src/issues/parse.rs
 use crate::issues::commands::{
-    AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
-    DoneStatusMode, DoneStatusOptions, ExtractRefsOptions, ExtractRefsProfile,
-    FetchNonComplianceReasonOptions, HasLabelOptions, IssueAction, IssueFieldName,
-    IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
-    NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions, ParentGuardOptions,
-    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
-    StateOptions, SubissueRefsOptions, SyncProjectStatusOptions, TasklistRefsOptions,
-    UpdateOptions, UpsertMarkerCommentOptions,
+    self, DoneStatusMode, DoneStatusOptions, IssueAction, IssueFieldName, IssueFieldOptions,
+    IssueTarget,
 };
 
 pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
@@ -23,6 +17,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
         "update" => parse_update(&args[1..]).map(IssueAction::Update),
         "repo-name" => parse_repo_name(&args[1..]),
         "current-login" => parse_current_login(&args[1..]),
+        "is-root-parent" => parse_is_root_parent(&args[1..]).map(IssueAction::IsRootParent),
         "close" => parse_close(&args[1..]).map(IssueAction::Close),
         "reopen" => parse_target("reopen", &args[1..]).map(IssueAction::Reopen),
         "delete" => parse_target("delete", &args[1..]).map(IssueAction::Delete),
@@ -61,7 +56,7 @@ pub(crate) fn parse(args: &[String]) -> Result<IssueAction, String> {
     }
 }
 
-fn parse_field(args: &[String]) -> Result<IssueFieldOptions, String> {
+fn parse_field(args: &[String]) -> Result<commands::IssueFieldOptions, String> {
     let mut issue = String::new();
     let mut repo: Option<String> = None;
     let mut name = String::new();
@@ -89,8 +84,8 @@ fn parse_field(args: &[String]) -> Result<IssueFieldOptions, String> {
     Ok(IssueFieldOptions { issue, repo, name })
 }
 
-fn parse_done_status(args: &[String]) -> Result<DoneStatusOptions, String> {
-    let mut mode: Option<DoneStatusMode> = None;
+fn parse_done_status(args: &[String]) -> Result<commands::DoneStatusOptions, String> {
+    let mut mode: Option<commands::DoneStatusMode> = None;
     let mut pr: Option<String> = None;
     let mut issue: Option<String> = None;
     let mut label = "done-in-dev".to_string();
@@ -100,11 +95,11 @@ fn parse_done_status(args: &[String]) -> Result<DoneStatusOptions, String> {
     while i < args.len() {
         match args[i].as_str() {
             "--on-dev-merge" => {
-                mode = Some(DoneStatusMode::OnDevMerge);
+                mode = Some(commands::DoneStatusMode::OnDevMerge);
                 i += 1;
             }
             "--on-issue-closed" => {
-                mode = Some(DoneStatusMode::OnIssueClosed);
+                mode = Some(commands::DoneStatusMode::OnIssueClosed);
                 i += 1;
             }
             "--pr" => pr = Some(take_value("--pr", args, &mut i)?),
@@ -122,13 +117,13 @@ fn parse_done_status(args: &[String]) -> Result<DoneStatusOptions, String> {
     };
 
     match mode {
-        DoneStatusMode::OnDevMerge => {
+        commands::DoneStatusMode::OnDevMerge => {
             let pr_value = pr
                 .as_deref()
                 .ok_or_else(|| "done-status --on-dev-merge requires: --pr".to_string())?;
             require_positive_number("--pr", pr_value)?;
         }
-        DoneStatusMode::OnIssueClosed => {
+        commands::DoneStatusMode::OnIssueClosed => {
             let issue_value = issue
                 .as_deref()
                 .ok_or_else(|| "done-status --on-issue-closed requires: --issue".to_string())?;
@@ -136,7 +131,7 @@ fn parse_done_status(args: &[String]) -> Result<DoneStatusOptions, String> {
         }
     }
 
-    Ok(DoneStatusOptions {
+    Ok(commands::DoneStatusOptions {
         mode,
         pr,
         issue,
@@ -145,9 +140,7 @@ fn parse_done_status(args: &[String]) -> Result<DoneStatusOptions, String> {
     })
 }
 
-fn parse_reopen_on_dev(
-    args: &[String],
-) -> Result<crate::issues::commands::ReopenOnDevOptions, String> {
+fn parse_reopen_on_dev(args: &[String]) -> Result<commands::ReopenOnDevOptions, String> {
     let mut pr = String::new();
     let mut label = "done-in-dev".to_string();
     let mut repo: Option<String> = None;
@@ -164,10 +157,10 @@ fn parse_reopen_on_dev(
 
     require_positive_number("--pr", &pr)?;
 
-    Ok(crate::issues::commands::ReopenOnDevOptions { pr, label, repo })
+    Ok(commands::ReopenOnDevOptions { pr, label, repo })
 }
 
-fn parse_neutralize(args: &[String]) -> Result<NeutralizeOptions, String> {
+fn parse_neutralize(args: &[String]) -> Result<commands::NeutralizeOptions, String> {
     let mut pr = String::new();
     let mut repo: Option<String> = None;
     let mut i = 0usize;
@@ -182,10 +175,10 @@ fn parse_neutralize(args: &[String]) -> Result<NeutralizeOptions, String> {
         return Err("--pr is required".to_string());
     }
     require_positive_number("--pr", &pr)?;
-    Ok(NeutralizeOptions { pr, repo })
+    Ok(commands::NeutralizeOptions { pr, repo })
 }
 
-fn parse_auto_link(args: &[String]) -> Result<AutoLinkOptions, String> {
+fn parse_auto_link(args: &[String]) -> Result<commands::AutoLinkOptions, String> {
     let mut issue = String::new();
     let mut repo: Option<String> = None;
     let mut i = 0usize;
@@ -200,10 +193,10 @@ fn parse_auto_link(args: &[String]) -> Result<AutoLinkOptions, String> {
         return Err("--issue is required".to_string());
     }
     require_positive_number("--issue", &issue)?;
-    Ok(AutoLinkOptions { issue, repo })
+    Ok(commands::AutoLinkOptions { issue, repo })
 }
 
-fn parse_parent_guard(args: &[String]) -> Result<ParentGuardOptions, String> {
+fn parse_parent_guard(args: &[String]) -> Result<commands::ParentGuardOptions, String> {
     let mut issue: Option<String> = None;
     let mut child: Option<String> = None;
     let mut strict_guard = true;
@@ -236,14 +229,14 @@ fn parse_parent_guard(args: &[String]) -> Result<ParentGuardOptions, String> {
         require_positive_number("--child", value)?;
     }
 
-    Ok(ParentGuardOptions {
+    Ok(commands::ParentGuardOptions {
         issue,
         child,
         strict_guard,
     })
 }
 
-fn parse_closure_hygiene(args: &[String]) -> Result<ClosureHygieneOptions, String> {
+fn parse_closure_hygiene(args: &[String]) -> Result<commands::ClosureHygieneOptions, String> {
     let mut repo: Option<String> = None;
     let mut i = 0usize;
     while i < args.len() {
@@ -252,10 +245,10 @@ fn parse_closure_hygiene(args: &[String]) -> Result<ClosureHygieneOptions, Strin
             unknown => return Err(format!("Unknown option for closure-hygiene: {unknown}")),
         }
     }
-    Ok(ClosureHygieneOptions { repo })
+    Ok(commands::ClosureHygieneOptions { repo })
 }
 
-fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {
+fn parse_open_numbers(args: &[String]) -> Result<commands::OpenNumbersOptions, String> {
     let mut repo: Option<String> = None;
     let mut i = 0usize;
     while i < args.len() {
@@ -264,10 +257,10 @@ fn parse_open_numbers(args: &[String]) -> Result<OpenNumbersOptions, String> {
             unknown => return Err(format!("Unknown option for open-numbers: {unknown}")),
         }
     }
-    Ok(OpenNumbersOptions { repo })
+    Ok(commands::OpenNumbersOptions { repo })
 }
 
-fn parse_open_snapshots(args: &[String]) -> Result<OpenSnapshotsOptions, String> {
+fn parse_open_snapshots(args: &[String]) -> Result<commands::OpenSnapshotsOptions, String> {
     let mut repo: Option<String> = None;
     let mut limit: usize = 200;
 
@@ -288,11 +281,11 @@ fn parse_open_snapshots(args: &[String]) -> Result<OpenSnapshotsOptions, String>
         }
     }
 
-    Ok(OpenSnapshotsOptions { repo, limit })
+    Ok(commands::OpenSnapshotsOptions { repo, limit })
 }
 
-fn parse_extract_refs(args: &[String]) -> Result<ExtractRefsOptions, String> {
-    let mut profile = ExtractRefsProfile::Hook;
+fn parse_extract_refs(args: &[String]) -> Result<commands::ExtractRefsOptions, String> {
+    let mut profile = commands::ExtractRefsProfile::Hook;
     let mut text: Option<String> = None;
     let mut file: Option<String> = None;
 
@@ -301,8 +294,8 @@ fn parse_extract_refs(args: &[String]) -> Result<ExtractRefsOptions, String> {
         match args[i].as_str() {
             "--profile" => {
                 profile = match take_value("--profile", args, &mut i)?.as_str() {
-                    "hook" => ExtractRefsProfile::Hook,
-                    "audit" => ExtractRefsProfile::Audit,
+                    "hook" => commands::ExtractRefsProfile::Hook,
+                    "audit" => commands::ExtractRefsProfile::Audit,
                     _ => return Err("--profile must be one of: hook | audit".to_string()),
                 };
             }
@@ -319,24 +312,24 @@ fn parse_extract_refs(args: &[String]) -> Result<ExtractRefsOptions, String> {
         return Err("extract-refs requires one input: --text or --file".to_string());
     }
 
-    Ok(ExtractRefsOptions {
+    Ok(commands::ExtractRefsOptions {
         profile,
         text,
         file,
     })
 }
 
-fn parse_assignee_logins(args: &[String]) -> Result<AssigneeLoginsOptions, String> {
+fn parse_assignee_logins(args: &[String]) -> Result<commands::AssigneeLoginsOptions, String> {
     let (issue, repo) = parse_issue_and_optional_repo(args, "assignee-logins")?;
-    Ok(AssigneeLoginsOptions { issue, repo })
+    Ok(commands::AssigneeLoginsOptions { issue, repo })
 }
 
-fn parse_state(args: &[String]) -> Result<StateOptions, String> {
+fn parse_state(args: &[String]) -> Result<commands::StateOptions, String> {
     let (issue, repo) = parse_issue_and_optional_repo(args, "state")?;
-    Ok(StateOptions { issue, repo })
+    Ok(commands::StateOptions { issue, repo })
 }
 
-fn parse_has_label(args: &[String]) -> Result<HasLabelOptions, String> {
+fn parse_has_label(args: &[String]) -> Result<commands::HasLabelOptions, String> {
     let mut issue = String::new();
     let mut repo: Option<String> = None;
     let mut label = String::new();
@@ -354,10 +347,10 @@ fn parse_has_label(args: &[String]) -> Result<HasLabelOptions, String> {
     require_positive_number("--issue", &issue)?;
     ensure_non_empty_or("has-label requires: --issue and --label", &[&label])?;
 
-    Ok(HasLabelOptions { issue, label, repo })
+    Ok(commands::HasLabelOptions { issue, label, repo })
 }
 
-fn parse_list_by_label(args: &[String]) -> Result<ListByLabelOptions, String> {
+fn parse_list_by_label(args: &[String]) -> Result<commands::ListByLabelOptions, String> {
     let mut label = String::new();
     let mut repo: Option<String> = None;
 
@@ -371,10 +364,12 @@ fn parse_list_by_label(args: &[String]) -> Result<ListByLabelOptions, String> {
     }
 
     ensure_non_empty_or("list-by-label requires: --label", &[&label])?;
-    Ok(ListByLabelOptions { label, repo })
+    Ok(commands::ListByLabelOptions { label, repo })
 }
 
-fn parse_upsert_marker_comment(args: &[String]) -> Result<UpsertMarkerCommentOptions, String> {
+fn parse_upsert_marker_comment(
+    args: &[String],
+) -> Result<commands::UpsertMarkerCommentOptions, String> {
     let mut repo = String::new();
     let mut issue = String::new();
     let mut marker = String::new();
@@ -405,7 +400,7 @@ fn parse_upsert_marker_comment(args: &[String]) -> Result<UpsertMarkerCommentOpt
         &[&repo, &marker, &body],
     )?;
 
-    Ok(UpsertMarkerCommentOptions {
+    Ok(commands::UpsertMarkerCommentOptions {
         repo,
         issue,
         marker,
@@ -414,7 +409,7 @@ fn parse_upsert_marker_comment(args: &[String]) -> Result<UpsertMarkerCommentOpt
     })
 }
 
-fn parse_subissue_refs(args: &[String]) -> Result<SubissueRefsOptions, String> {
+fn parse_subissue_refs(args: &[String]) -> Result<commands::SubissueRefsOptions, String> {
     let mut owner = String::new();
     let mut repo = String::new();
     let mut issue = String::new();
@@ -435,10 +430,10 @@ fn parse_subissue_refs(args: &[String]) -> Result<SubissueRefsOptions, String> {
         &[&owner, &repo],
     )?;
 
-    Ok(SubissueRefsOptions { owner, repo, issue })
+    Ok(commands::SubissueRefsOptions { owner, repo, issue })
 }
 
-fn parse_tasklist_refs(args: &[String]) -> Result<TasklistRefsOptions, String> {
+fn parse_tasklist_refs(args: &[String]) -> Result<commands::TasklistRefsOptions, String> {
     let mut body = String::new();
 
     let mut i = 0usize;
@@ -451,26 +446,33 @@ fn parse_tasklist_refs(args: &[String]) -> Result<TasklistRefsOptions, String> {
 
     ensure_non_empty_or("tasklist-refs requires: --body", &[&body])?;
 
-    Ok(TasklistRefsOptions { body })
+    Ok(commands::TasklistRefsOptions { body })
 }
 
-fn parse_repo_name(args: &[String]) -> Result<IssueAction, String> {
+fn parse_repo_name(args: &[String]) -> Result<commands::IssueAction, String> {
     if args.is_empty() {
-        Ok(IssueAction::RepoName)
+        Ok(commands::IssueAction::RepoName)
     } else {
         Err("repo-name does not accept additional options".to_string())
     }
 }
 
-fn parse_current_login(args: &[String]) -> Result<IssueAction, String> {
+fn parse_current_login(args: &[String]) -> Result<commands::IssueAction, String> {
     if args.is_empty() {
-        Ok(IssueAction::CurrentLogin)
+        Ok(commands::IssueAction::CurrentLogin)
     } else {
         Err("current-login does not accept additional options".to_string())
     }
 }
 
-fn parse_sync_project_status(args: &[String]) -> Result<SyncProjectStatusOptions, String> {
+fn parse_is_root_parent(args: &[String]) -> Result<commands::IsRootParentOptions, String> {
+    let (issue, repo) = parse_issue_and_optional_repo(args, "is-root-parent")?;
+    Ok(commands::IsRootParentOptions { issue, repo })
+}
+
+fn parse_sync_project_status(
+    args: &[String],
+) -> Result<commands::SyncProjectStatusOptions, String> {
     let mut repo = String::new();
     let mut issue = String::new();
     let mut status = String::new();
@@ -491,14 +493,14 @@ fn parse_sync_project_status(args: &[String]) -> Result<SyncProjectStatusOptions
         &[&repo, &status],
     )?;
 
-    Ok(SyncProjectStatusOptions {
+    Ok(commands::SyncProjectStatusOptions {
         repo,
         issue,
         status,
     })
 }
 
-fn parse_label_exists(args: &[String]) -> Result<LabelExistsOptions, String> {
+fn parse_label_exists(args: &[String]) -> Result<commands::LabelExistsOptions, String> {
     let mut repo = String::new();
     let mut label = String::new();
 
@@ -516,16 +518,16 @@ fn parse_label_exists(args: &[String]) -> Result<LabelExistsOptions, String> {
         &[&repo, &label],
     )?;
 
-    Ok(LabelExistsOptions { repo, label })
+    Ok(commands::LabelExistsOptions { repo, label })
 }
 
 fn parse_required_fields_validate(
     args: &[String],
-) -> Result<RequiredFieldsValidateOptions, String> {
+) -> Result<commands::RequiredFieldsValidateOptions, String> {
     let mut title = String::new();
     let mut body = String::new();
     let mut labels_raw = String::new();
-    let mut mode = RequiredFieldsValidationMode::Content;
+    let mut mode = commands::RequiredFieldsValidationMode::Content;
 
     let mut i = 0usize;
     while i < args.len() {
@@ -536,9 +538,9 @@ fn parse_required_fields_validate(
             "--mode" => {
                 let raw_mode = take_value("--mode", args, &mut i)?;
                 mode = match raw_mode.as_str() {
-                    "title" => RequiredFieldsValidationMode::Title,
-                    "body" => RequiredFieldsValidationMode::Body,
-                    "content" => RequiredFieldsValidationMode::Content,
+                    "title" => commands::RequiredFieldsValidationMode::Title,
+                    "body" => commands::RequiredFieldsValidationMode::Body,
+                    "content" => commands::RequiredFieldsValidationMode::Content,
                     _ => return Err("--mode must be one of: title | body | content".to_string()),
                 };
             }
@@ -550,7 +552,7 @@ fn parse_required_fields_validate(
         }
     }
 
-    Ok(RequiredFieldsValidateOptions {
+    Ok(commands::RequiredFieldsValidateOptions {
         title,
         body,
         labels_raw,
@@ -558,7 +560,9 @@ fn parse_required_fields_validate(
     })
 }
 
-fn parse_non_compliance_reason(args: &[String]) -> Result<NonComplianceReasonOptions, String> {
+fn parse_non_compliance_reason(
+    args: &[String],
+) -> Result<commands::NonComplianceReasonOptions, String> {
     let mut title = String::new();
     let mut body = String::new();
     let mut labels_raw = String::new();
@@ -577,7 +581,7 @@ fn parse_non_compliance_reason(args: &[String]) -> Result<NonComplianceReasonOpt
         }
     }
 
-    Ok(NonComplianceReasonOptions {
+    Ok(commands::NonComplianceReasonOptions {
         title,
         body,
         labels_raw,
@@ -586,17 +590,17 @@ fn parse_non_compliance_reason(args: &[String]) -> Result<NonComplianceReasonOpt
 
 fn parse_fetch_non_compliance_reason(
     args: &[String],
-) -> Result<FetchNonComplianceReasonOptions, String> {
+) -> Result<commands::FetchNonComplianceReasonOptions, String> {
     let (issue, repo) = parse_issue_and_optional_repo(args, "fetch-non-compliance-reason")?;
-    Ok(FetchNonComplianceReasonOptions { issue, repo })
+    Ok(commands::FetchNonComplianceReasonOptions { issue, repo })
 }
 
-fn parse_reevaluate(args: &[String]) -> Result<ReevaluateOptions, String> {
+fn parse_reevaluate(args: &[String]) -> Result<commands::ReevaluateOptions, String> {
     let (issue, repo) = parse_issue_and_optional_repo(args, "reevaluate")?;
-    Ok(ReevaluateOptions { issue, repo })
+    Ok(commands::ReevaluateOptions { issue, repo })
 }
 
-fn parse_create(args: &[String]) -> Result<CreateOptions, String> {
+fn parse_create(args: &[String]) -> Result<commands::CreateOptions, String> {
     let mut title = String::new();
     let mut context = String::new();
     let mut problem = String::new();
@@ -653,7 +657,7 @@ fn parse_create(args: &[String]) -> Result<CreateOptions, String> {
         labels.push("issue".to_string());
     }
 
-    Ok(CreateOptions {
+    Ok(commands::CreateOptions {
         title,
         context,
         problem,
@@ -668,7 +672,7 @@ fn parse_create(args: &[String]) -> Result<CreateOptions, String> {
     })
 }
 
-fn parse_read(args: &[String]) -> Result<ReadOptions, String> {
+fn parse_read(args: &[String]) -> Result<commands::ReadOptions, String> {
     let mut issue: Option<String> = None;
     let mut repo: Option<String> = None;
     let mut json: Option<String> = None;
@@ -684,7 +688,7 @@ fn parse_read(args: &[String]) -> Result<ReadOptions, String> {
             "--jq" => jq = Some(take_value("--jq", args, &mut i)?),
             "--template" => template = Some(take_value("--template", args, &mut i)?),
             "-h" | "--help" => {
-                return Ok(ReadOptions {
+                return Ok(commands::ReadOptions {
                     issue,
                     repo,
                     json,
@@ -700,7 +704,7 @@ fn parse_read(args: &[String]) -> Result<ReadOptions, String> {
         require_positive_number("--issue", value)?;
     }
 
-    Ok(ReadOptions {
+    Ok(commands::ReadOptions {
         issue,
         repo,
         json,
@@ -709,7 +713,7 @@ fn parse_read(args: &[String]) -> Result<ReadOptions, String> {
     })
 }
 
-fn parse_update(args: &[String]) -> Result<UpdateOptions, String> {
+fn parse_update(args: &[String]) -> Result<commands::UpdateOptions, String> {
     let mut issue = String::new();
     let mut repo: Option<String> = None;
     let mut edit_args: Vec<(String, String)> = Vec::new();
@@ -740,14 +744,14 @@ fn parse_update(args: &[String]) -> Result<UpdateOptions, String> {
         return Err("update requires at least one edit option".to_string());
     }
 
-    Ok(UpdateOptions {
+    Ok(commands::UpdateOptions {
         issue,
         repo,
         edit_args,
     })
 }
 
-fn parse_close(args: &[String]) -> Result<CloseOptions, String> {
+fn parse_close(args: &[String]) -> Result<commands::CloseOptions, String> {
     let mut issue = String::new();
     let mut repo: Option<String> = None;
     let mut reason = "completed".to_string();
@@ -769,7 +773,7 @@ fn parse_close(args: &[String]) -> Result<CloseOptions, String> {
         return Err("--reason must be 'completed' or 'not_planned'".to_string());
     }
 
-    Ok(CloseOptions {
+    Ok(commands::CloseOptions {
         issue,
         repo,
         reason,

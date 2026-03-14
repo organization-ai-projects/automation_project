@@ -7,8 +7,8 @@ use serde::Deserialize;
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
     DoneStatusMode, DoneStatusOptions, ExtractRefsOptions, ExtractRefsProfile,
-    FetchNonComplianceReasonOptions, HasLabelOptions, IssueFieldName, IssueFieldOptions,
-    IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
+    FetchNonComplianceReasonOptions, HasLabelOptions, IsRootParentOptions, IssueFieldName,
+    IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
     NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions, ParentGuardOptions,
     ReadOptions, ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
     RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
@@ -1039,6 +1039,26 @@ fn auto_link_extract_parent(body: &str) -> Option<String> {
         .map(|m| m.as_str().trim().to_string())
 }
 
+fn extract_parent_field(body: &str) -> Option<String> {
+    let re =
+        Regex::new(r"(?i)^\s*Parent:\s*(#?[0-9]+|none|base|epic|\(none\)|\(base\)|\(epic\))\s*$")
+            .expect("static regex must compile");
+    let mut parent_value: Option<String> = None;
+
+    for line in body.lines() {
+        if let Some(captures) = re.captures(line) {
+            parent_value = captures.get(1).map(|m| m.as_str().trim().to_lowercase());
+        }
+    }
+
+    parent_value.map(|raw| {
+        raw.trim()
+            .trim_start_matches('(')
+            .trim_end_matches(')')
+            .to_string()
+    })
+}
+
 fn auto_link_query_child_parent_relation(
     repo_owner: &str,
     repo_short_name: &str,
@@ -1557,6 +1577,39 @@ pub(crate) fn run_repo_name() -> i32 {
 pub(crate) fn run_current_login() -> i32 {
     let login = gh_output_or_empty(&["api", "user", "--jq", ".login"]);
     print_non_empty_lines(&login);
+    0
+}
+
+pub(crate) fn run_is_root_parent(opts: IsRootParentOptions) -> i32 {
+    let repo_name = match resolve_repo_name(opts.repo) {
+        Ok(repo) => repo,
+        Err(message) => {
+            eprintln!("{message}");
+            return 3;
+        }
+    };
+    let (_, body, _, _) = gh_issue_autolink_payload(&repo_name, &opts.issue);
+    let parent_value = extract_parent_field(&body)
+        .unwrap_or_else(|| "none".to_string())
+        .to_lowercase();
+
+    if parent_value == "epic" {
+        println!("true");
+        return 0;
+    }
+    if parent_value == "base" {
+        println!("false");
+        return 0;
+    }
+    if parent_value.starts_with('#') {
+        println!("false");
+        return 0;
+    }
+
+    let (owner, repo_short) = split_repo_name(&repo_name);
+    let has_children =
+        !extract_subissue_refs_for_parent(&owner, &repo_short, &opts.issue).is_empty();
+    println!("{}", if has_children { "true" } else { "false" });
     0
 }
 
