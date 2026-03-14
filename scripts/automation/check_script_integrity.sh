@@ -86,10 +86,13 @@ check_root_source_paths_exist() {
 check_required_helper_imports() {
 	local script_path="$1"
 
+	if [[ "$script_path" == "scripts/automation/check_script_integrity.sh" ]]; then
+		return 0
+	fi
+
 	if grep -qE '\bgit_fetch_prune\b' "$script_path"; then
-		# shellcheck disable=SC2016
-		if ! grep -q 'source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/synch.sh"' "$script_path"; then
-			echo "ERROR [$script_path] Uses git_fetch_prune but does not source git/synch.sh" >&2
+		if ! grep -qE '^[[:space:]]*git_fetch_prune\(\)' "$script_path"; then
+			echo "ERROR [$script_path] Uses git_fetch_prune but does not define git_fetch_prune()" >&2
 			return 1
 		fi
 	fi

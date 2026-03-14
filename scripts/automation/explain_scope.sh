@@ -8,10 +8,12 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # shellcheck source=scripts/common_lib/core/logging.sh
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
 # shellcheck source=scripts/common_lib/automation/scope_resolver.sh
 source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
+
+require_git_repo() {
+	git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "Not a git repository."
+}
 
 require_git_repo
 cd "$ROOT_DIR"

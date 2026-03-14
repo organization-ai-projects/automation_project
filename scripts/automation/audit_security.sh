@@ -11,8 +11,10 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/core/command.sh
 source "$ROOT_DIR/scripts/common_lib/core/command.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
+
+require_git_repo() {
+	git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "Not a git repository."
+}
 
 require_git_repo
 require_cmd cargo

@@ -11,14 +11,22 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/core/command.sh
 source "$ROOT_DIR/scripts/common_lib/core/command.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/working_tree.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/working_tree.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
 # shellcheck source=scripts/common_lib/automation/rust_checks.sh
 source "$ROOT_DIR/scripts/common_lib/automation/rust_checks.sh"
+
+require_git_repo() {
+	git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "Not a git repository."
+}
+
+require_clean_tree() {
+	if ! git diff --quiet || ! git diff --cached --quiet; then
+		die "Working tree is dirty. Commit/stash your changes first."
+	fi
+}
+
+get_current_branch() {
+	git branch --show-current || die "Not on a branch (detached HEAD)."
+}
 
 require_git_repo
 require_clean_tree

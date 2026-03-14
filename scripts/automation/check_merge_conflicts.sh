@@ -10,12 +10,26 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$ROOT_DIR/scripts/common_lib/core/logging.sh"
 # shellcheck source=scripts/common_lib/core/command.sh
 source "$ROOT_DIR/scripts/common_lib/core/command.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/repo.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/repo.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/branch.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/branch.sh"
-# shellcheck source=scripts/common_lib/versioning/file_versioning/git/synch.sh
-source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/synch.sh"
+
+require_git_repo() {
+	git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "Not a git repository."
+}
+
+get_current_branch() {
+	git branch --show-current || die "Not on a branch (detached HEAD)."
+}
+
+git_fetch_prune() {
+	local remote="${1:-origin}"
+	info "Fetching from $remote with prune..."
+	git fetch --prune "$remote"
+}
+
+branch_exists_remote() {
+	local remote="$1"
+	local branch="$2"
+	git ls-remote --exit-code --heads "$remote" "$branch" >/dev/null 2>&1
+}
 
 require_git_repo
 
