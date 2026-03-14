@@ -185,6 +185,7 @@ impl MoePipeline {
                 .drain(0..to_trim);
         }
         self.retain_snapshots_with_matching_audit_versions();
+        self.validate_runtime_invariants()?;
         self.import_telemetry.record_governance_bundle_success();
 
         Ok(())
@@ -371,6 +372,7 @@ impl MoePipeline {
             )));
         }
 
+        self.validate_runtime_invariants()?;
         self.import_telemetry.record_runtime_bundle_success();
         Ok(())
     }
@@ -701,8 +703,15 @@ impl MoePipeline {
         self.governance_runtime_state.evaluation_baseline = snapshot.state.evaluation_baseline;
         self.governance_runtime_state
             .last_continuous_improvement_report = snapshot.state.last_continuous_improvement_report;
-        self.governance_runtime_state.governance_state_version = snapshot.state.state_version;
+        self.governance_runtime_state.governance_state_version = self
+            .governance_runtime_state
+            .governance_audit_entries
+            .last()
+            .map(|entry| entry.version)
+            .unwrap_or(self.governance_runtime_state.governance_state_version)
+            .max(snapshot.state.state_version);
         self.record_governance_audit(&format!("governance rollback to version {}", version));
+        self.validate_runtime_invariants()?;
         Ok(())
     }
 

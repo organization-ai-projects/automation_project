@@ -343,6 +343,7 @@ impl MoePipeline {
             self.record_governance_audit("continuous governance evaluated");
         }
         self.maybe_run_auto_improvement();
+        self.validate_runtime_invariants()?;
 
         Ok(aggregated)
     }

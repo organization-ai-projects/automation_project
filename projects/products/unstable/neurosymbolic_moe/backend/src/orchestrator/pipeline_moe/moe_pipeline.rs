@@ -62,6 +62,13 @@ pub struct MoePipeline {
 }
 
 impl MoePipeline {
+    pub fn validate_runtime_invariants(&self) -> Result<(), MoeError> {
+        self.governance_runtime_state.validate_invariants()?;
+        self.training_runtime_state.validate_invariants()?;
+        self.trainer_trigger_queue.validate_invariants()?;
+        Ok(())
+    }
+
     pub fn register_expert(&mut self, expert: Box<dyn Expert>) -> Result<(), MoeError> {
         self.registry.register(expert)
     }

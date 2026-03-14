@@ -1,4 +1,5 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/trainer_trigger_queue_state.rs
+use crate::moe_core::MoeError;
 use crate::orchestrator::TrainerTriggerEvent;
 use std::collections::{HashSet, VecDeque};
 
@@ -120,5 +121,38 @@ impl TrainerTriggerQueueState {
                 self.leased_event_ids.remove(&removed.event_id);
             }
         }
+    }
+
+    pub fn validate_invariants(&self) -> Result<(), MoeError> {
+        if self.events.len() > self.max_events {
+            return Err(MoeError::PolicyRejected(format!(
+                "trainer trigger queue invariant failed: pending events exceed max ({} > {})",
+                self.events.len(),
+                self.max_events
+            )));
+        }
+
+        let mut ids = HashSet::new();
+        for event in &self.events {
+            if !ids.insert(event.event_id) {
+                return Err(MoeError::PolicyRejected(format!(
+                    "trainer trigger queue invariant failed: duplicate event_id {}",
+                    event.event_id
+                )));
+            }
+        }
+
+        if self
+            .leased_event_ids
+            .iter()
+            .any(|leased_id| !ids.contains(leased_id))
+        {
+            return Err(MoeError::PolicyRejected(
+                "trainer trigger queue invariant failed: leased event id missing from queue"
+                    .to_string(),
+            ));
+        }
+
+        Ok(())
     }
 }

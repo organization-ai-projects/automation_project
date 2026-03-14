@@ -5,7 +5,9 @@ use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
     ExpertOutput, ExpertStatus, ExpertType, MoeError, Task, TaskType,
 };
-use crate::orchestrator::{MoePipelineBuilder, OperationalReport};
+use crate::orchestrator::{
+    GovernanceStateSnapshot, MoePipelineBuilder, OperationalReport, TrainerTriggerEvent,
+};
 use crate::retrieval_engine::{RetrievalQuery, RetrievalResult, Retriever};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -643,4 +645,69 @@ fn preview_training_dataset_shards_json_rejects_oversized_payload() {
         .preview_training_dataset_shards_json(&oversized_payload)
         .expect_err("oversized training shard payload should be rejected");
     assert!(err.to_string().contains("payload too large"));
+}
+
+#[test]
+fn runtime_invariants_reject_duplicate_trainer_trigger_event_ids() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 7,
+        model_version: 1,
+        training_bundle_checksum: "bundle-a".to_string(),
+        included_entries: 10,
+        train_samples: 8,
+        validation_samples: 2,
+        generated_at: 1,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+    pipeline.trainer_trigger_queue.push(TrainerTriggerEvent {
+        event_id: 7,
+        model_version: 2,
+        training_bundle_checksum: "bundle-b".to_string(),
+        included_entries: 11,
+        train_samples: 9,
+        validation_samples: 2,
+        generated_at: 2,
+        delivery_attempts: 0,
+        last_attempted_at: None,
+    });
+
+    let err = pipeline
+        .validate_runtime_invariants()
+        .expect_err("duplicate trigger ids should violate invariants");
+    assert!(err.to_string().contains("duplicate event_id"));
+}
+
+#[test]
+fn runtime_invariants_reject_missing_active_model_registry_version() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    pipeline
+        .training_runtime_state
+        .model_registry
+        .active_version = Some(999);
+
+    let err = pipeline
+        .validate_runtime_invariants()
+        .expect_err("missing active model version should violate invariants");
+    assert!(err.to_string().contains("active model version"));
+}
+
+#[test]
+fn runtime_invariants_reject_governance_snapshot_version_mismatch() {
+    let mut pipeline = MoePipelineBuilder::new().build();
+    let state = pipeline.export_governance_state();
+    pipeline
+        .governance_runtime_state
+        .governance_state_snapshots
+        .push(GovernanceStateSnapshot {
+            version: state.state_version.saturating_add(1),
+            reason: "test mismatch".to_string(),
+            state,
+        });
+
+    let err = pipeline
+        .validate_runtime_invariants()
+        .expect_err("snapshot/state version mismatch should violate invariants");
+    assert!(err.to_string().contains("snapshot version"));
 }
