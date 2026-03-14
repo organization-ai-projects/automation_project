@@ -44,14 +44,10 @@ fi
 
 # shellcheck source=scripts/common_lib/versioning/file_versioning/git/commit_format.sh
 source "$ROOT_DIR/scripts/common_lib/versioning/file_versioning/git/commit_format.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/issue_parent_guard.sh
-source "$HOOKS_DIR/lib/issue_parent_guard.sh"
 # shellcheck source=scripts/common_lib/automation/scope_resolver.sh
 source "$ROOT_DIR/scripts/common_lib/automation/scope_resolver.sh"
 # shellcheck source=scripts/automation/git_hooks/lib/commit_message_policy.sh
 source "$HOOKS_DIR/lib/commit_message_policy.sh"
-# shellcheck source=scripts/automation/git_hooks/lib/issue_footer_policy.sh
-source "$HOOKS_DIR/lib/issue_footer_policy.sh"
 
 if [[ -n "${COMMIT_MSG_SUBJECT_MAX_LEN:-}" && "${COMMIT_MSG_SUBJECT_MAX_LEN:-0}" -gt 0 ]]; then
 	subject_len="${#COMMIT_SUBJECT}"
@@ -90,22 +86,16 @@ if ! validate_commit_message_format "$COMMIT_SUBJECT" '[[:space:]]' true; then
 	exit "$COMMIT_MSG_RC_INVALID_FORMAT"
 fi
 
-if validate_and_normalize_issue_refs_footer_in_file "$COMMIT_MSG_FILE" "$COMMIT_SUBJECT"; then
-	:
-else
-	exit "$?"
+if ! command -v versioning_automation >/dev/null 2>&1; then
+	echo "❌ versioning_automation binary is required but was not found." >&2
+	echo "   Build it with: cargo build -p versioning_automation" >&2
+	exit 127
 fi
 
-if validate_no_root_parent_refs_in_footer_file "$COMMIT_MSG_FILE"; then
-	:
-else
-	exit "$?"
-fi
-
-if validate_single_assignee_requires_closes_in_footer_file "$COMMIT_MSG_FILE"; then
-	:
-else
-	exit "$?"
+versioning_automation issue validate-footer --file "$COMMIT_MSG_FILE"
+footer_status=$?
+if [[ "$footer_status" -ne 0 ]]; then
+	exit "$footer_status"
 fi
 
 staged_files="$(git diff --cached --name-only --diff-filter=ACMRUD)"
