@@ -200,3 +200,78 @@ fn trainer_trigger_event_queue_supports_pop_and_bounded_drain() {
     assert_eq!(pipeline.trainer_trigger_events_pending(), remaining - 1);
     assert!(!pipeline.trainer_trigger_events().is_empty());
 }
+
+#[test]
+fn trainer_trigger_event_queue_supports_lease_fail_and_ack_flow() {
+    let policy = AutoImprovementPolicy::default()
+        .with_min_dataset_entries(1)
+        .with_min_success_ratio(0.0)
+        .with_min_average_score(None)
+        .with_training_build_options(DatasetTrainingBuildOptions {
+            generated_at: 1,
+            validation_ratio: 0.2,
+            min_score: None,
+            include_failure_entries: true,
+            include_partial_entries: true,
+            include_unknown_entries: false,
+            require_correction_for_failure: false,
+            split_seed: 31,
+        });
+    let mut pipeline = MoePipelineBuilder::new()
+        .with_router(Box::new(HeuristicRouter::new(2)))
+        .with_aggregation_strategy(AggregationStrategy::HighestConfidence)
+        .with_auto_improvement_policy(policy)
+        .build();
+    pipeline
+        .register_expert(Box::new(EchoExpert::new(
+            "auto-lease-expert",
+            "AutoLeaseExpert",
+            vec![ExpertCapability::CodeGeneration],
+        )))
+        .expect("register expert");
+
+    pipeline
+        .execute(Task::new(
+            "auto-lease-task-1",
+            TaskType::CodeGeneration,
+            "lease run",
+        ))
+        .expect("execution should succeed");
+    assert_eq!(pipeline.trainer_trigger_events_pending(), 1);
+
+    let leased = pipeline
+        .lease_next_trainer_trigger_event(100, 30)
+        .expect("expected a leased event");
+    assert_eq!(leased.delivery_attempts, 1);
+    assert_eq!(leased.last_attempted_at, Some(100));
+    assert!(
+        pipeline.lease_next_trainer_trigger_event(110, 30).is_none(),
+        "event should not be leaseable before retry delay"
+    );
+    assert!(pipeline.mark_trainer_trigger_event_delivery_failed(leased.event_id, 120));
+    let re_lease = pipeline
+        .lease_next_trainer_trigger_event(151, 30)
+        .expect("expected a re-leased event");
+    assert_eq!(re_lease.delivery_attempts, 2);
+    assert_eq!(re_lease.last_attempted_at, Some(151));
+    assert!(pipeline.acknowledge_trainer_trigger_event(re_lease.event_id));
+    assert_eq!(pipeline.trainer_trigger_events_pending(), 0);
+    assert_eq!(
+        pipeline
+            .auto_improvement_status()
+            .trainer_trigger_delivery_attempts_total,
+        2
+    );
+    assert_eq!(
+        pipeline
+            .auto_improvement_status()
+            .trainer_trigger_delivery_failures_total,
+        1
+    );
+    assert_eq!(
+        pipeline
+            .auto_improvement_status()
+            .trainer_trigger_acknowledged_total,
+        1
+    );
+}

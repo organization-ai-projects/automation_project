@@ -9,4 +9,8 @@ pub struct TrainerTriggerEvent {
     pub train_samples: usize,
     pub validation_samples: usize,
     pub generated_at: u64,
+    #[serde(default)]
+    pub delivery_attempts: u32,
+    #[serde(default)]
+    pub last_attempted_at: Option<u64>,
 }

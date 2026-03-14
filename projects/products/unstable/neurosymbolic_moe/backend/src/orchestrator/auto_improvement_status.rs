@@ -16,4 +16,7 @@ pub struct AutoImprovementStatus {
     pub skipped_duplicate_bundle_total: u64,
     pub build_failures_total: u64,
     pub last_skip_reason: Option<String>,
+    pub trainer_trigger_delivery_attempts_total: u64,
+    pub trainer_trigger_delivery_failures_total: u64,
+    pub trainer_trigger_acknowledged_total: u64,
 }

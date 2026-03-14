@@ -10,6 +10,8 @@ fn trainer_trigger_event_fields_roundtrip() {
         train_samples: 96,
         validation_samples: 24,
         generated_at: 1000,
+        delivery_attempts: 2,
+        last_attempted_at: Some(1234),
     };
     assert_eq!(event.event_id, 7);
     assert_eq!(event.model_version, 3);
@@ -18,4 +20,6 @@ fn trainer_trigger_event_fields_roundtrip() {
     assert_eq!(event.train_samples, 96);
     assert_eq!(event.validation_samples, 24);
     assert_eq!(event.generated_at, 1000);
+    assert_eq!(event.delivery_attempts, 2);
+    assert_eq!(event.last_attempted_at, Some(1234));
 }

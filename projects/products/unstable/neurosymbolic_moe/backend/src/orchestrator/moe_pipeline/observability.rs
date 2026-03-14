@@ -65,6 +65,15 @@ impl MoePipeline {
             model_registry_active_version: model_registry.active_version.unwrap_or(0),
             model_registry_latest_version: model_registry.latest_version().unwrap_or(0),
             trainer_trigger_events_pending: self.trainer_trigger_events_pending(),
+            trainer_trigger_delivery_attempts_total: self
+                .auto_improvement_status()
+                .trainer_trigger_delivery_attempts_total,
+            trainer_trigger_delivery_failures_total: self
+                .auto_improvement_status()
+                .trainer_trigger_delivery_failures_total,
+            trainer_trigger_acknowledged_total: self
+                .auto_improvement_status()
+                .trainer_trigger_acknowledged_total,
         }
     }
 

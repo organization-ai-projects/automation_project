@@ -40,6 +40,9 @@ fn operational_report_slo_and_prometheus_helpers_work() {
         model_registry_active_version: 0,
         model_registry_latest_version: 0,
         trainer_trigger_events_pending: 0,
+        trainer_trigger_delivery_attempts_total: 0,
+        trainer_trigger_delivery_failures_total: 0,
+        trainer_trigger_acknowledged_total: 0,
     };
     assert_eq!(report.slo_status(1, 0, 0), "OK");
     assert!(report.slo_violations(2, 0, 0).len() == 1);

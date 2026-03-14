@@ -17,6 +17,9 @@ fn auto_improvement_status_default_is_empty() {
     assert_eq!(status.skipped_duplicate_bundle_total, 0);
     assert_eq!(status.build_failures_total, 0);
     assert!(status.last_skip_reason.is_none());
+    assert_eq!(status.trainer_trigger_delivery_attempts_total, 0);
+    assert_eq!(status.trainer_trigger_delivery_failures_total, 0);
+    assert_eq!(status.trainer_trigger_acknowledged_total, 0);
 }
 
 #[test]
@@ -35,6 +38,9 @@ fn auto_improvement_status_fields_roundtrip() {
         skipped_duplicate_bundle_total: 5,
         build_failures_total: 6,
         last_skip_reason: Some("test skip reason".to_string()),
+        trainer_trigger_delivery_attempts_total: 7,
+        trainer_trigger_delivery_failures_total: 8,
+        trainer_trigger_acknowledged_total: 9,
     };
     assert_eq!(status.runs_total, 3);
     assert_eq!(status.bootstrap_entries_total, 12);
@@ -49,4 +55,7 @@ fn auto_improvement_status_fields_roundtrip() {
     assert_eq!(status.skipped_duplicate_bundle_total, 5);
     assert_eq!(status.build_failures_total, 6);
     assert_eq!(status.last_skip_reason.as_deref(), Some("test skip reason"));
+    assert_eq!(status.trainer_trigger_delivery_attempts_total, 7);
+    assert_eq!(status.trainer_trigger_delivery_failures_total, 8);
+    assert_eq!(status.trainer_trigger_acknowledged_total, 9);
 }

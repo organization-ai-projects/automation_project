@@ -299,6 +299,73 @@ impl MoePipeline {
         }
     }
 
+    pub fn lease_next_trainer_trigger_event(
+        &mut self,
+        now_epoch_seconds: u64,
+        min_retry_delay_seconds: u64,
+    ) -> Option<TrainerTriggerEvent> {
+        let mut leased_idx = None;
+        for (idx, event) in self.trainer_trigger_events.iter().enumerate() {
+            let eligible = event.last_attempted_at.is_none_or(|last| {
+                now_epoch_seconds >= last.saturating_add(min_retry_delay_seconds)
+            });
+            if eligible {
+                leased_idx = Some(idx);
+                break;
+            }
+        }
+        let idx = leased_idx?;
+        let event = self.trainer_trigger_events.get_mut(idx)?;
+        event.delivery_attempts = event.delivery_attempts.saturating_add(1);
+        event.last_attempted_at = Some(now_epoch_seconds);
+        self.auto_improvement_status
+            .trainer_trigger_delivery_attempts_total = self
+            .auto_improvement_status
+            .trainer_trigger_delivery_attempts_total
+            .saturating_add(1);
+        Some(event.clone())
+    }
+
+    pub fn acknowledge_trainer_trigger_event(&mut self, event_id: u64) -> bool {
+        if let Some(idx) = self
+            .trainer_trigger_events
+            .iter()
+            .position(|event| event.event_id == event_id)
+        {
+            self.trainer_trigger_events.remove(idx);
+            self.auto_improvement_status
+                .trainer_trigger_acknowledged_total = self
+                .auto_improvement_status
+                .trainer_trigger_acknowledged_total
+                .saturating_add(1);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn mark_trainer_trigger_event_delivery_failed(
+        &mut self,
+        event_id: u64,
+        failed_at_epoch_seconds: u64,
+    ) -> bool {
+        if let Some(event) = self
+            .trainer_trigger_events
+            .iter_mut()
+            .find(|event| event.event_id == event_id)
+        {
+            event.last_attempted_at = Some(failed_at_epoch_seconds);
+            self.auto_improvement_status
+                .trainer_trigger_delivery_failures_total = self
+                .auto_improvement_status
+                .trainer_trigger_delivery_failures_total
+                .saturating_add(1);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn drain_trainer_trigger_events(&mut self, max_events: usize) -> Vec<TrainerTriggerEvent> {
         if max_events == 0 || self.trainer_trigger_events.is_empty() {
             return Vec::new();

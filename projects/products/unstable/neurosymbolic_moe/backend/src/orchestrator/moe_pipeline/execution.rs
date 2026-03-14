@@ -463,6 +463,8 @@ impl MoePipeline {
                     train_samples: bundle.train_samples.len(),
                     validation_samples: bundle.validation_samples.len(),
                     generated_at: bundle.generated_at,
+                    delivery_attempts: 0,
+                    last_attempted_at: None,
                 });
                 self.record_governance_audit("auto improvement dataset refresh");
                 self.trace_logger.log_phase(

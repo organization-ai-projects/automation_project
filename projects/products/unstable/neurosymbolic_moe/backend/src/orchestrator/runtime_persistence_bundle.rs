@@ -276,7 +276,7 @@ fn auto_improvement_fingerprint(
         "none".to_string()
     };
     let status_part = format!(
-        "{}|{}|{:?}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}",
+        "{}|{}|{:?}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}",
         status.runs_total,
         status.bootstrap_entries_total,
         status.last_bundle_checksum,
@@ -289,7 +289,10 @@ fn auto_improvement_fingerprint(
         status.skipped_human_review_required_total,
         status.skipped_duplicate_bundle_total,
         status.build_failures_total,
-        status.last_skip_reason
+        status.last_skip_reason,
+        status.trainer_trigger_delivery_attempts_total,
+        status.trainer_trigger_delivery_failures_total,
+        status.trainer_trigger_acknowledged_total
     );
     format!("{policy_part}::{status_part}")
 }
@@ -319,14 +322,16 @@ fn trainer_trigger_events_fingerprint(events: &[TrainerTriggerEvent]) -> String 
     let mut parts = Vec::new();
     for event in events {
         parts.push(format!(
-            "{}|{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{:?}",
             event.event_id,
             event.model_version,
             event.training_bundle_checksum,
             event.included_entries,
             event.train_samples,
             event.validation_samples,
-            event.generated_at
+            event.generated_at,
+            event.delivery_attempts,
+            event.last_attempted_at
         ));
     }
     parts.join("::")
