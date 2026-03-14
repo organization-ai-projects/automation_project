@@ -1,4 +1,4 @@
-//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline/persistence.rs
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/persistence.rs
 use crate::evaluation_engine::EvaluationEngine;
 use crate::moe_core::{self, MoeError};
 use crate::orchestrator::{

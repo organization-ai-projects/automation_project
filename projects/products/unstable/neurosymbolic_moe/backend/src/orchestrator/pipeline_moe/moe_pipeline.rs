@@ -1,4 +1,4 @@
-//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline.rs
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/moe_pipeline.rs
 use crate::aggregator::OutputAggregator;
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{
@@ -22,55 +22,56 @@ use crate::retrieval_engine::{ContextAssembler, Retriever};
 use crate::router::Router;
 use crate::trace_logger::TraceLogger;
 
-const MAX_RUNTIME_BUNDLE_JSON_BYTES: usize = 16 * 1024 * 1024;
-const MAX_GOVERNANCE_STATE_JSON_BYTES: usize = 4 * 1024 * 1024;
-const MAX_GOVERNANCE_BUNDLE_JSON_BYTES: usize = 16 * 1024 * 1024;
-const MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES: usize = 10_000;
-const MAX_RUNTIME_BUNDLE_WORKING_ENTRIES: usize = 10_000;
-const MAX_RUNTIME_BUNDLE_SESSION_COUNT: usize = 2_000;
-const MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL: usize = 20_000;
+pub(in crate::orchestrator::pipeline_moe) const MAX_RUNTIME_BUNDLE_JSON_BYTES: usize =
+    16 * 1024 * 1024;
+pub(in crate::orchestrator::pipeline_moe) const MAX_GOVERNANCE_STATE_JSON_BYTES: usize =
+    4 * 1024 * 1024;
+pub(in crate::orchestrator::pipeline_moe) const MAX_GOVERNANCE_BUNDLE_JSON_BYTES: usize =
+    16 * 1024 * 1024;
+pub(in crate::orchestrator::pipeline_moe) const MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES: usize =
+    10_000;
+pub(in crate::orchestrator::pipeline_moe) const MAX_RUNTIME_BUNDLE_WORKING_ENTRIES: usize = 10_000;
+pub(in crate::orchestrator::pipeline_moe) const MAX_RUNTIME_BUNDLE_SESSION_COUNT: usize = 2_000;
+pub(in crate::orchestrator::pipeline_moe) const MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL: usize =
+    20_000;
 const MAX_TRAINING_DATASET_BUNDLE_JSON_BYTES: usize = 64 * 1024 * 1024;
 const MAX_TRAINING_DATASET_SHARDS_JSON_BYTES: usize = 128 * 1024 * 1024;
 
-mod execution;
-mod governance_runtime;
-mod observability;
-mod persistence;
-
 pub struct MoePipeline {
-    pub(super) registry: ExpertRegistry,
-    pub(super) router: Box<dyn Router>,
-    pub(super) retriever: Box<dyn Retriever>,
-    pub(super) context_assembler: ContextAssembler,
-    pub(super) short_term_memory: ShortTermMemory,
-    pub(super) long_term_memory: LongTermMemory,
-    pub(super) buffer_manager: BufferManager,
-    pub(super) aggregator: OutputAggregator,
-    pub(super) arbitration_mode: ArbitrationMode,
-    pub(super) fallback_on_expert_error: bool,
-    pub(super) enable_task_metadata_chain: bool,
-    pub(super) continuous_governance_policy: Option<ContinuousGovernancePolicy>,
-    pub(super) governance_import_policy: GovernanceImportPolicy,
-    pub(super) policy_guard: PolicyGuard,
-    pub(super) trace_logger: TraceLogger,
-    pub(super) evaluation: EvaluationEngine,
-    pub(super) evaluation_baseline: Option<EvaluationEngine>,
-    pub(super) last_continuous_improvement_report: Option<ContinuousImprovementReport>,
-    pub(super) governance_state_version: u64,
-    pub(super) governance_audit_entries: Vec<GovernanceAuditEntry>,
-    pub(super) max_governance_audit_entries: usize,
-    pub(super) governance_state_snapshots: Vec<GovernanceStateSnapshot>,
-    pub(super) max_governance_state_snapshots: usize,
-    pub(super) import_telemetry: ImportTelemetry,
-    pub(super) import_journal: ImportJournal,
-    pub(super) feedback_store: FeedbackStore,
-    pub(super) dataset_store: DatasetStore,
-    pub(super) trace_converter: TraceConverter,
-    pub(super) auto_improvement_policy: Option<AutoImprovementPolicy>,
-    pub(super) auto_improvement_status: AutoImprovementStatus,
-    pub(super) model_registry: ModelRegistry,
-    pub(super) trainer_trigger_events: Vec<TrainerTriggerEvent>,
-    pub(super) max_trainer_trigger_events: usize,
+    pub(in crate::orchestrator) registry: ExpertRegistry,
+    pub(in crate::orchestrator) router: Box<dyn Router>,
+    pub(in crate::orchestrator) retriever: Box<dyn Retriever>,
+    pub(in crate::orchestrator) context_assembler: ContextAssembler,
+    pub(in crate::orchestrator) short_term_memory: ShortTermMemory,
+    pub(in crate::orchestrator) long_term_memory: LongTermMemory,
+    pub(in crate::orchestrator) buffer_manager: BufferManager,
+    pub(in crate::orchestrator) aggregator: OutputAggregator,
+    pub(in crate::orchestrator) arbitration_mode: ArbitrationMode,
+    pub(in crate::orchestrator) fallback_on_expert_error: bool,
+    pub(in crate::orchestrator) enable_task_metadata_chain: bool,
+    pub(in crate::orchestrator) continuous_governance_policy: Option<ContinuousGovernancePolicy>,
+    pub(in crate::orchestrator) governance_import_policy: GovernanceImportPolicy,
+    pub(in crate::orchestrator) policy_guard: PolicyGuard,
+    pub(in crate::orchestrator) trace_logger: TraceLogger,
+    pub(in crate::orchestrator) evaluation: EvaluationEngine,
+    pub(in crate::orchestrator) evaluation_baseline: Option<EvaluationEngine>,
+    pub(in crate::orchestrator) last_continuous_improvement_report:
+        Option<ContinuousImprovementReport>,
+    pub(in crate::orchestrator) governance_state_version: u64,
+    pub(in crate::orchestrator) governance_audit_entries: Vec<GovernanceAuditEntry>,
+    pub(in crate::orchestrator) max_governance_audit_entries: usize,
+    pub(in crate::orchestrator) governance_state_snapshots: Vec<GovernanceStateSnapshot>,
+    pub(in crate::orchestrator) max_governance_state_snapshots: usize,
+    pub(in crate::orchestrator) import_telemetry: ImportTelemetry,
+    pub(in crate::orchestrator) import_journal: ImportJournal,
+    pub(in crate::orchestrator) feedback_store: FeedbackStore,
+    pub(in crate::orchestrator) dataset_store: DatasetStore,
+    pub(in crate::orchestrator) trace_converter: TraceConverter,
+    pub(in crate::orchestrator) auto_improvement_policy: Option<AutoImprovementPolicy>,
+    pub(in crate::orchestrator) auto_improvement_status: AutoImprovementStatus,
+    pub(in crate::orchestrator) model_registry: ModelRegistry,
+    pub(in crate::orchestrator) trainer_trigger_events: Vec<TrainerTriggerEvent>,
+    pub(in crate::orchestrator) max_trainer_trigger_events: usize,
 }
 
 impl MoePipeline {
@@ -259,7 +260,9 @@ impl MoePipeline {
         self.rebuild_training_dataset_bundle_from_shards_json(payload)
     }
 
-    fn dataset_provenance(&self) -> DatasetTrainingProvenance {
+    pub(in crate::orchestrator::pipeline_moe) fn dataset_provenance(
+        &self,
+    ) -> DatasetTrainingProvenance {
         let governance_state = self.export_governance_state();
         let runtime_bundle = self.export_runtime_bundle();
         DatasetTrainingProvenance {
@@ -374,7 +377,10 @@ impl MoePipeline {
         self.trainer_trigger_events.drain(0..drain_len).collect()
     }
 
-    fn push_trainer_trigger_event(&mut self, event: TrainerTriggerEvent) {
+    pub(in crate::orchestrator::pipeline_moe) fn push_trainer_trigger_event(
+        &mut self,
+        event: TrainerTriggerEvent,
+    ) {
         self.trainer_trigger_events.push(event);
         if self.trainer_trigger_events.len() > self.max_trainer_trigger_events {
             let to_trim = self.trainer_trigger_events.len() - self.max_trainer_trigger_events;

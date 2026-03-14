@@ -16,7 +16,7 @@ use crate::retrieval_engine::{ContextAssembler, Retriever, SimpleRetriever};
 use crate::router::{HeuristicRouter, Router};
 use crate::trace_logger::TraceLogger;
 
-use super::moe_pipeline::MoePipeline;
+use super::pipeline_moe::MoePipeline;
 
 pub struct MoePipelineBuilder {
     router: Option<Box<dyn Router>>,

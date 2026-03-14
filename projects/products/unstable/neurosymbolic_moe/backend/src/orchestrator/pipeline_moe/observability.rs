@@ -1,4 +1,4 @@
-//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline/observability.rs
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/observability.rs
 use crate::memory_engine::MemoryStore;
 use crate::moe_core::MoeError;
 use crate::orchestrator::{MoePipeline, OperationalReport};
