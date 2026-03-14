@@ -11,35 +11,15 @@ set -euo pipefail
 # Usage:
 #   scripts/automation/audit_issue_status.sh [--repo OWNER/REPO] [--base origin/main] [--head origin/dev] [--limit 200] [--output /tmp/issue_audit.md]
 
-extract_issue_refs_from_text() {
-	local text="$1"
-	echo "$text" | awk '
-    {
-      line = $0
-      lower = tolower($0)
-      while (match(lower, /(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to|reopen|reopens)[[:space:]]+#[0-9]+/)) {
-        matched = substr(line, RSTART, RLENGTH)
-        keyword = tolower(matched)
-        gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
-        issue = matched
-        sub(/^.*#/, "", issue)
-        print keyword "|#" issue
-        line = substr(line, RSTART + RLENGTH)
-        lower = substr(lower, RSTART + RLENGTH)
-      }
-    }
-  ' | sort -u
-}
-
-parse_closing_issue_refs_from_text() {
-	local text="$1"
-	extract_issue_refs_from_text "$text" |
+parse_closing_issue_refs_from_file() {
+	local path="$1"
+	versioning_automation issue extract-refs --profile audit --file "$path" |
 		awk -F'|' '$1 ~ /^(closes|fixes|resolves)$/{print}'
 }
 
-parse_non_closing_issue_refs_from_text() {
-	local text="$1"
-	extract_issue_refs_from_text "$text" |
+parse_non_closing_issue_refs_from_file() {
+	local path="$1"
+	versioning_automation issue extract-refs --profile audit --file "$path" |
 		awk -F'|' '$1 ~ /^(part of|related to|reopen|reopens)$/{print}'
 }
 
@@ -130,16 +110,16 @@ versioning_automation issue open-snapshots --repo "$REPO" --limit "$LIMIT" >"$op
 
 git log "$RANGE" --format=%B >"$messages_file"
 
-closing_lines="$(parse_closing_issue_refs_from_text "$(cat "$messages_file")" || true)"
+closing_lines="$(parse_closing_issue_refs_from_file "$messages_file" || true)"
 if [[ -n "$closing_lines" ]]; then
-	echo "$closing_lines" | awk -F'|' '{ gsub(/^#/, "", $2); print $2 }' | sort -u >"$closing_refs"
+	echo "$closing_lines" | awk -F'|' '{ print $2 }' | sort -u >"$closing_refs"
 else
 	: >"$closing_refs"
 fi
 
-part_lines="$(parse_non_closing_issue_refs_from_text "$(cat "$messages_file")" || true)"
+part_lines="$(parse_non_closing_issue_refs_from_file "$messages_file" || true)"
 if [[ -n "$part_lines" ]]; then
-	echo "$part_lines" | awk -F'|' '{ gsub(/^#/, "", $2); print $2 }' | sort -u >"$part_refs"
+	echo "$part_lines" | awk -F'|' '{ print $2 }' | sort -u >"$part_refs"
 else
 	: >"$part_refs"
 fi

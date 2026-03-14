@@ -82,22 +82,17 @@ split_repo_owner_name() {
 
 extract_issue_refs_from_text() {
 	local text="$1"
-	echo "$text" | awk '
-    {
-      line = $0
-      lower = tolower($0)
-      while (match(lower, /(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+/)) {
-        matched = substr(line, RSTART, RLENGTH)
-        keyword = tolower(matched)
-        gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
-        issue = matched
-        sub(/^.*#/, "", issue)
-        print keyword "|" issue
-        line = substr(line, RSTART + RLENGTH)
-        lower = substr(lower, RSTART + RLENGTH)
-      }
-    }
-  ' | sort -u
+	local refs_file
+	local output
+	refs_file="$(mktemp)"
+	printf '%s' "$text" >"$refs_file"
+	if ! output="$(versioning_automation_output_required issue extract-refs --profile hook --file "$refs_file")"; then
+		rm -f "$refs_file"
+		return 1
+	fi
+	rm -f "$refs_file"
+	printf '%s\n' "$output"
+	return 0
 }
 
 issue_has_children() {

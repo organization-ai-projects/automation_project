@@ -71,22 +71,7 @@ push_policy_refresh_upstream_branch() {
 
 push_policy_extract_issue_refs_with_duplicates() {
 	local text="$1"
-	echo "$text" | awk '
-    {
-      line = $0
-      lower = tolower($0)
-      while (match(lower, /(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+/)) {
-        matched = substr(line, RSTART, RLENGTH)
-        keyword = tolower(matched)
-        gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
-        issue = matched
-        sub(/^.*#/, "", issue)
-        print keyword "|" issue
-        line = substr(line, RSTART + RLENGTH)
-        lower = substr(lower, RSTART + RLENGTH)
-      }
-    }
-  '
+	extract_issue_refs_from_text "$text"
 }
 
 push_policy_compute_changed_files() {

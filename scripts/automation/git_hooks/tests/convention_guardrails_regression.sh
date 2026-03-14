@@ -264,6 +264,71 @@ case "$subcommand" in
       echo "${MOCK_GH_LOGIN:-devuser}"
     fi
     ;;
+
+  extract-refs)
+    profile="hook"
+    raw_text=""
+    file_path=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --profile)
+          profile="${2:-hook}"
+          shift 2
+          ;;
+        --text)
+          raw_text="${2:-}"
+          shift 2
+          ;;
+        --file)
+          file_path="${2:-}"
+          shift 2
+          ;;
+        *)
+          shift
+          ;;
+      esac
+    done
+
+    if [[ -n "$file_path" && -f "$file_path" ]]; then
+      raw_text="$(cat "$file_path")"
+    fi
+
+    if [[ "$profile" == "audit" ]]; then
+      echo "$raw_text" | awk '
+        {
+          line = $0
+          lower = tolower($0)
+          while (match(lower, /(closes|fixes|resolves|part[[:space:]]+of|related[[:space:]]+to|reopen|reopens)[[:space:]]+#[0-9]+/)) {
+            matched = substr(line, RSTART, RLENGTH)
+            keyword = tolower(matched)
+            gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
+            issue = matched
+            sub(/^.*#/, "", issue)
+            print keyword "|" issue
+            line = substr(line, RSTART + RLENGTH)
+            lower = substr(lower, RSTART + RLENGTH)
+          }
+        }
+      ' | awk '!seen[$0]++'
+    else
+      echo "$raw_text" | awk '
+        {
+          line = $0
+          lower = tolower($0)
+          while (match(lower, /(closes|fixes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#[0-9]+/)) {
+            matched = substr(line, RSTART, RLENGTH)
+            keyword = tolower(matched)
+            gsub(/[[:space:]]+#[0-9]+$/, "", keyword)
+            issue = matched
+            sub(/^.*#/, "", issue)
+            print keyword "|" issue
+            line = substr(line, RSTART + RLENGTH)
+            lower = substr(lower, RSTART + RLENGTH)
+          }
+        }
+      ' | awk '!seen[$0]++'
+    fi
+    ;;
 esac
 
 exit 0
