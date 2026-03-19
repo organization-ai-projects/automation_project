@@ -20,11 +20,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            scripts/versioning/file_versioning/github/
-            scripts/common_lib/versioning/file_versioning/github/
-          sparse-checkout-cone-mode: false
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build versioning_automation
+        run: cargo build -p versioning_automation
 
       - name: Ensure jq is available
         run: |
@@ -42,9 +43,10 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           # Evaluate the changed issue itself as a potential parent.
-          bash scripts/versioning/file_versioning/github/parent_issue_guard/run.sh \
+          target/debug/versioning_automation issue parent-guard \
             --issue "$ISSUE_NUMBER" \
-            --strict-guard true
+            --strict-guard true \
+            --repo "$GH_REPO"
 
       - name: Evaluate parent candidates from changed child
         if: github.event_name == 'issues'
@@ -55,9 +57,10 @@ jobs:
         run: |
           # Re-evaluate any parent impacted by the changed child issue state.
           # This intentionally runs for opened/edited/reopened/closed events.
-          bash scripts/versioning/file_versioning/github/parent_issue_guard/run.sh \
+          target/debug/versioning_automation issue parent-guard \
             --child "$ISSUE_NUMBER" \
-            --strict-guard true
+            --strict-guard true \
+            --repo "$GH_REPO"
 
       - name: Manual parent evaluation
         if: github.event_name == 'workflow_dispatch'
@@ -74,6 +77,7 @@ jobs:
             echo "Invalid issue_number '$ISSUE_NUMBER' (expected positive integer)." >&2
             exit 1
           fi
-          bash scripts/versioning/file_versioning/github/parent_issue_guard/run.sh \
+          target/debug/versioning_automation issue parent-guard \
             --issue "$ISSUE_NUMBER" \
-            --strict-guard true
+            --strict-guard true \
+            --repo "$GH_REPO"

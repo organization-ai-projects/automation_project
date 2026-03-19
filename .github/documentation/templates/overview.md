@@ -6,7 +6,7 @@ This document explains how GitHub templates and script-generated PR bodies are a
 
 - Pull request template definitions in `.github/PULL_REQUEST_TEMPLATE/`
 - Issue template definitions in `.github/ISSUE_TEMPLATE/`
-- PR body generation behavior in `scripts/versioning/file_versioning/github/generate_pr_description.sh`
+- PR body generation behavior in `versioning_automation pr generate-description`
 
 ## Articulation
 

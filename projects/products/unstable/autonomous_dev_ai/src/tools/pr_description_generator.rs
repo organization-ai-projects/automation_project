@@ -14,7 +14,7 @@ impl Tool for PrDescriptionGenerator {
     }
 
     fn execute(&self, args: &[String]) -> AgentResult<ToolResult> {
-        let script_path = "scripts/versioning/file_versioning/github/generate_pr_description.sh";
+        let command = "versioning_automation";
 
         let main_pr = args.first().cloned().ok_or_else(|| {
             AgentError::Tool("Missing main PR number for generate_pr_description".to_string())
@@ -24,9 +24,16 @@ impl Tool for PrDescriptionGenerator {
             .cloned()
             .unwrap_or_else(|| "pr_description.md".to_string());
 
+        let command_args = vec![
+            "pr".to_string(),
+            "generate-description".to_string(),
+            main_pr,
+            output_file,
+        ];
+
         run_with_timeout(
-            script_path,
-            &[main_pr, output_file],
+            command,
+            &command_args,
             Duration::from_secs(DEFAULT_TOOL_TIMEOUT_SECS),
         )
     }

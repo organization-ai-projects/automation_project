@@ -22,4 +22,4 @@ This workflow synchronizes `Reopen #...` directives when a PR is merged into `de
 
 ## Script Used
 
-- `scripts/versioning/file_versioning/github/issues/reopen_on_dev/run.sh`
+- `versioning_automation issue reopen-on-dev`

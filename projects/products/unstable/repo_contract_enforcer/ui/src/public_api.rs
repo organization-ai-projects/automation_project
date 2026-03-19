@@ -130,8 +130,9 @@ pub(crate) fn parse_args(args: &[String]) -> Result<Args> {
             mode,
         },
         "check-product" => Command::CheckProduct {
-            path: product_path
-                .ok_or_else(|| anyhow::anyhow!("check-product requires --path <product_path>"))?,
+            path: product_path.ok_or_else(|| {
+                anyhow::anyhow!("check-product requires --path <product_or_tool_path>")
+            })?,
             mode,
         },
         _ => anyhow::bail!("unknown command: {cmd}"),

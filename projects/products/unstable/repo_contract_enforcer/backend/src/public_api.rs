@@ -3,6 +3,7 @@ use crate::config::path_classification::PathClassification;
 use crate::config::severity::Severity;
 use crate::protocol::message::{Request, RequestPayload};
 use crate::protocol::response::{Response, ResponsePayload};
+use crate::reports;
 use crate::reports::report::{Report, ReportSummary};
 use crate::reports::report_hash::ReportHash;
 use crate::reports::violation::Violation;
@@ -63,6 +64,9 @@ impl BackendState {
         for product in WorkspaceScanner::discover_products(root) {
             violations.extend(check_product(&product, mode));
         }
+        for tool in WorkspaceScanner::discover_tools(root) {
+            violations.extend(check_tool(&tool, mode));
+        }
         violations.extend(
             crate::rules::layering_rules::LayeringRules::evaluate_library_dependencies(root, mode),
         );
@@ -74,7 +78,7 @@ impl BackendState {
     }
 
     fn build_product_report(&mut self, product: &Path, mode: EnforcementMode) -> ResponsePayload {
-        let violations = check_product(product, mode);
+        let violations = check_path_target(product, mode);
         finalize_report(product, mode, &mut self.reports, violations)
     }
 }
@@ -114,7 +118,7 @@ fn finalize_report(
     };
     report.report_hash = hash.clone();
     cache.insert(hash.clone(), report.clone());
-    let _canonical_json = crate::reports::json_report_codec::JsonReportCodec::to_json(&report);
+    let _canonical_json = reports::json_report_codec::JsonReportCodec::to_json(&report);
 
     ResponsePayload::Report {
         report_json: report,
@@ -148,6 +152,8 @@ fn summarize(violations: &[Violation]) -> ReportSummary {
             (PathClassification::Unstable, Severity::Warning) => {
                 summary.unstable_warning_count += 1
             }
+            (PathClassification::Tool, Severity::Error) => summary.stable_error_count += 1,
+            (PathClassification::Tool, Severity::Warning) => summary.stable_warning_count += 1,
             (PathClassification::Other, _) => {}
         }
     }
@@ -163,6 +169,28 @@ fn check_product(product_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
     RuleEngine::evaluate_product(product_dir, scope, mode)
 }
 
+fn check_tool(tool_dir: &Path, mode: EnforcementMode) -> Vec<Violation> {
+    let scope = PathClassification::from_tool_path(tool_dir);
+    if scope == PathClassification::Other {
+        return Vec::new();
+    }
+    RuleEngine::evaluate_tool(tool_dir, scope, mode)
+}
+
+fn check_path_target(path: &Path, mode: EnforcementMode) -> Vec<Violation> {
+    let product_scope = PathClassification::from_product_path(path);
+    if product_scope != PathClassification::Other {
+        return RuleEngine::evaluate_product(path, product_scope, mode);
+    }
+
+    let tool_scope = PathClassification::from_tool_path(path);
+    if tool_scope != PathClassification::Other {
+        return RuleEngine::evaluate_tool(path, tool_scope, mode);
+    }
+
+    Vec::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,6 +198,7 @@ mod tests {
     use crate::protocol::response::ResponsePayload;
     use crate::reports::report::Report;
     use crate::reports::report_hash::ReportHash;
+    use crate::reports::violation_code::ViolationCode;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -246,6 +275,44 @@ mod tests {
                 .iter()
                 .all(|v| v.severity == Severity::Warning)
         );
+    }
+
+    #[test]
+    fn repo_check_reports_tool_violations() {
+        let root = temp_root();
+        let tool_dir = root.join("tools/bad_tool/src");
+        fs::create_dir_all(&tool_dir).expect("create tool src");
+        fs::write(
+            root.join("tools/bad_tool/Cargo.toml"),
+            "[package]\nname = \"bad_tool\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .expect("write tool Cargo.toml");
+        fs::write(
+            tool_dir.join("main.rs"),
+            "fn helper() {}\nfn main() { helper(); }\n",
+        )
+        .expect("write tool main.rs");
+
+        let mut state = BackendState::new();
+        let req = Request {
+            id: Some("t_tools".to_string()),
+            payload: RequestPayload::CheckRepo {
+                root_path: root.to_string_lossy().to_string(),
+                mode: EnforcementMode::Strict,
+            },
+        };
+
+        let response = state.handle(req);
+        let report = match response.payload {
+            ResponsePayload::Report { report_json, .. } => report_json,
+            _ => panic!("expected report payload"),
+        };
+
+        assert!(report.violations.iter().any(|v| {
+            v.path.contains("tools/bad_tool/src/main.rs")
+                && v.violation_code == ViolationCode::CrateBinaryMainContainsNonEntrypointFn
+                && v.scope == PathClassification::Tool
+        }));
     }
 
     fn fixture_root(name: &str) -> std::path::PathBuf {

@@ -1,0 +1,1138 @@
+//! tools/versioning_automation/src/pr/parse.rs
+use std::fs;
+use std::io::{self, Read};
+use std::path::Path;
+
+use crate::pr::commands::pr_action::PrAction;
+use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
+use crate::pr::commands::pr_body_context_options::PrBodyContextOptions;
+use crate::pr::commands::pr_breaking_detect_options::PrBreakingDetectOptions;
+use crate::pr::commands::pr_child_pr_refs_options::PrChildPrRefsOptions;
+use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
+use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
+use crate::pr::commands::pr_details_options::PrDetailsOptions;
+use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
+use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
+use crate::pr::commands::pr_directives_apply_options::PrDirectivesApplyOptions;
+use crate::pr::commands::pr_directives_format::PrDirectivesFormat;
+use crate::pr::commands::pr_directives_options::PrDirectivesOptions;
+use crate::pr::commands::pr_directives_state_options::PrDirectivesStateOptions;
+use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
+use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptions;
+use crate::pr::commands::pr_field_name::PrFieldName;
+use crate::pr::commands::pr_field_options::PrFieldOptions;
+use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
+use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
+use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
+use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
+use crate::pr::commands::pr_issue_close_policy_options::PrIssueClosePolicyOptions;
+use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
+use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
+use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
+use crate::pr::commands::pr_issue_view_options::PrIssueViewOptions;
+use crate::pr::commands::pr_non_closing_refs_options::PrNonClosingRefsOptions;
+use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
+use crate::pr::commands::pr_open_referencing_issue_options::PrOpenReferencingIssueOptions;
+use crate::pr::commands::pr_pr_state_options::PrPrStateOptions;
+use crate::pr::commands::pr_refresh_validation_options::PrRefreshValidationOptions;
+use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
+use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
+use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
+use crate::pr::commands::pr_update_body_options::PrUpdateBodyOptions;
+use crate::pr::commands::pr_upsert_comment_options::PrUpsertCommentOptions;
+
+pub(crate) fn parse(args: &[String]) -> Result<PrAction, String> {
+    if args.is_empty() {
+        return Ok(PrAction::Help);
+    }
+
+    match args[0].as_str() {
+        "help" | "--help" | "-h" => Ok(PrAction::Help),
+        "breaking-detect" => parse_breaking_detect(&args[1..]).map(PrAction::BreakingDetect),
+        "body-context" => parse_body_context(&args[1..]).map(PrAction::BodyContext),
+        "child-pr-refs" => parse_child_pr_refs(&args[1..]).map(PrAction::ChildPrRefs),
+        "directives" => parse_directives(&args[1..]).map(PrAction::Directives),
+        "directives-apply" => parse_directives_apply(&args[1..]).map(PrAction::DirectivesApply),
+        "details" => parse_details(&args[1..]).map(PrAction::Details),
+        "field" => parse_field(&args[1..]).map(PrAction::Field),
+        "closure-refs" => parse_closure_refs(&args[1..]).map(PrAction::ClosureRefs),
+        "directives-state" => parse_directives_state(&args[1..]).map(PrAction::DirectivesState),
+        "directive-conflicts" => {
+            parse_directive_conflicts(&args[1..]).map(PrAction::DirectiveConflicts)
+        }
+        "directive-conflict-guard" => {
+            parse_directive_conflict_guard(&args[1..]).map(PrAction::DirectiveConflictGuard)
+        }
+        "duplicate-actions" => parse_duplicate_actions(&args[1..]).map(PrAction::DuplicateActions),
+        "effective-category" => {
+            parse_effective_category(&args[1..]).map(PrAction::EffectiveCategory)
+        }
+        "generate-description" => Ok(PrAction::GenerateDescription(parse_generate_description(
+            &args[1..],
+        ))),
+        "group-by-category" => parse_group_by_category(&args[1..]).map(PrAction::GroupByCategory),
+        "issue-category-from-labels" => {
+            parse_issue_category_from_labels(&args[1..]).map(PrAction::IssueCategoryFromLabels)
+        }
+        "issue-category-from-title" => {
+            parse_issue_category_from_title(&args[1..]).map(PrAction::IssueCategoryFromTitle)
+        }
+        "issue-close-policy" => {
+            parse_issue_close_policy(&args[1..]).map(PrAction::IssueClosePolicy)
+        }
+        "issue-context" => parse_issue_context(&args[1..]).map(PrAction::IssueContext),
+        "issue-view" => parse_issue_view(&args[1..]).map(PrAction::IssueView),
+        "pr-state" => parse_pr_state(&args[1..]).map(PrAction::PrState),
+        "refresh-validation" => {
+            parse_refresh_validation(&args[1..]).map(PrAction::RefreshValidation)
+        }
+        "issue-ref-kind" => parse_issue_ref_kind(&args[1..]).map(PrAction::IssueRefKind),
+        "normalize-issue-key" => {
+            parse_normalize_issue_key(&args[1..]).map(PrAction::NormalizeIssueKey)
+        }
+        "open-referencing-issue" => {
+            parse_open_referencing_issue(&args[1..]).map(PrAction::OpenReferencingIssue)
+        }
+        "issue-decision" => parse_issue_decision(&args[1..]).map(PrAction::IssueDecision),
+        "sort-bullets" => parse_sort_bullets(&args[1..]).map(PrAction::SortBullets),
+        "closure-marker" => parse_closure_marker(&args[1..]).map(PrAction::ClosureMarker),
+        "non-closing-refs" => parse_non_closing_refs(&args[1..]).map(PrAction::NonClosingRefs),
+        "resolve-category" => parse_resolve_category(&args[1..]).map(PrAction::ResolveCategory),
+        "auto-add-closes" => parse_auto_add_closes(&args[1..]).map(PrAction::AutoAddCloses),
+        "text-payload" => parse_text_payload(&args[1..]).map(PrAction::TextPayload),
+        "update-body" => parse_update_body(&args[1..]).map(PrAction::UpdateBody),
+        "upsert-comment" => parse_upsert_comment(&args[1..]).map(PrAction::UpsertComment),
+        unknown => Err(format!("Unknown pr subcommand: {unknown}")),
+    }
+}
+
+fn parse_generate_description(args: &[String]) -> PrGenerateDescriptionOptions {
+    PrGenerateDescriptionOptions {
+        passthrough: args.to_vec(),
+    }
+}
+
+fn parse_upsert_comment(args: &[String]) -> Result<PrUpsertCommentOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+    let mut marker = String::new();
+    let mut body = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => pr_number = take_value("--pr", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            "--marker" => marker = take_value("--marker", args, &mut i)?,
+            "--body" => body = take_value("--body", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for upsert-comment: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    if marker.is_empty() {
+        return Err("--marker is required".to_string());
+    }
+    if body.is_empty() {
+        return Err("--body is required".to_string());
+    }
+
+    Ok(PrUpsertCommentOptions {
+        pr_number,
+        repo,
+        marker,
+        body,
+    })
+}
+
+fn parse_update_body(args: &[String]) -> Result<PrUpdateBodyOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+    let mut body = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => pr_number = take_value("--pr", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            "--body" => body = take_value("--body", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for update-body: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    if body.is_empty() {
+        return Err("--body is required".to_string());
+    }
+
+    Ok(PrUpdateBodyOptions {
+        pr_number,
+        repo,
+        body,
+    })
+}
+
+fn parse_breaking_detect(args: &[String]) -> Result<PrBreakingDetectOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+    let mut labels_raw: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
+            "--labels-raw" => labels_raw = Some(take_value("--labels-raw", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for breaking-detect: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() && labels_raw.is_none() {
+        return Err(
+            "breaking-detect requires --text/--stdin/--input-file or --labels-raw".to_string(),
+        );
+    }
+
+    Ok(PrBreakingDetectOptions {
+        text: resolved_text,
+        labels_raw,
+    })
+}
+
+fn parse_body_context(args: &[String]) -> Result<PrBodyContextOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for body-context: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrBodyContextOptions { pr_number, repo })
+}
+
+fn parse_child_pr_refs(args: &[String]) -> Result<PrChildPrRefsOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for child-pr-refs: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrChildPrRefsOptions { pr_number, repo })
+}
+
+fn parse_details(args: &[String]) -> Result<PrDetailsOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for details: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrDetailsOptions { pr_number, repo })
+}
+
+fn parse_field(args: &[String]) -> Result<PrFieldOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+    let mut name = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            "--name" => {
+                name = take_value("--name", args, &mut i)?;
+            }
+            unknown => return Err(format!("Unknown option for field: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    if name.is_empty() {
+        return Err("--name is required".to_string());
+    }
+
+    let name = match name.as_str() {
+        "state" => PrFieldName::State,
+        "base-ref-name" => PrFieldName::BaseRefName,
+        "head-ref-name" => PrFieldName::HeadRefName,
+        "title" => PrFieldName::Title,
+        "body" => PrFieldName::Body,
+        "author-login" => PrFieldName::AuthorLogin,
+        "commit-messages" => PrFieldName::CommitMessages,
+        _ => {
+            return Err(
+                "--name must be one of: state | base-ref-name | head-ref-name | title | body | author-login | commit-messages"
+                    .to_string(),
+            )
+        }
+    };
+
+    Ok(PrFieldOptions {
+        pr_number,
+        repo,
+        name,
+    })
+}
+
+fn parse_refresh_validation(args: &[String]) -> Result<PrRefreshValidationOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for refresh-validation: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrRefreshValidationOptions { pr_number, repo })
+}
+
+fn parse_directive_conflict_guard(
+    args: &[String],
+) -> Result<PrDirectiveConflictGuardOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => {
+                return Err(format!(
+                    "Unknown option for directive-conflict-guard: {unknown}"
+                ));
+            }
+        }
+    }
+
+    if pr_number.is_empty() {
+        return Err("--pr is required".to_string());
+    }
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrDirectiveConflictGuardOptions { pr_number, repo })
+}
+
+fn parse_directives_apply(args: &[String]) -> Result<PrDirectivesApplyOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for directives-apply: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("directives-apply requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrDirectivesApplyOptions {
+        text: resolved_text,
+    })
+}
+
+fn parse_duplicate_actions(args: &[String]) -> Result<PrDuplicateActionsOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+    let mut mode = String::new();
+    let mut repo = String::new();
+    let mut assume_yes = false;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
+            "--mode" => mode = take_value("--mode", args, &mut i)?,
+            "--repo" => repo = take_value("--repo", args, &mut i)?,
+            "--assume-yes" => {
+                assume_yes =
+                    parse_bool_value("--assume-yes", &take_value("--assume-yes", args, &mut i)?)?
+            }
+            unknown => return Err(format!("Unknown option for duplicate-actions: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("duplicate-actions requires --text <value> or --stdin".to_string());
+    }
+    if mode.is_empty() {
+        return Err("--mode is required".to_string());
+    }
+    if repo.is_empty() {
+        return Err("--repo is required".to_string());
+    }
+
+    Ok(PrDuplicateActionsOptions {
+        text: resolved_text,
+        mode,
+        repo,
+        assume_yes,
+    })
+}
+
+fn parse_effective_category(args: &[String]) -> Result<PrEffectiveCategoryOptions, String> {
+    let mut labels_raw = String::new();
+    let mut title: Option<String> = None;
+    let mut title_category: Option<String> = None;
+    let mut default_category = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--labels-raw" => labels_raw = take_value("--labels-raw", args, &mut i)?,
+            "--title" => title = Some(take_value("--title", args, &mut i)?),
+            "--title-category" => {
+                title_category = Some(take_value("--title-category", args, &mut i)?)
+            }
+            "--default-category" => {
+                default_category = take_value("--default-category", args, &mut i)?
+            }
+            unknown => return Err(format!("Unknown option for effective-category: {unknown}")),
+        }
+    }
+
+    if labels_raw.is_empty() {
+        return Err("--labels-raw is required".to_string());
+    }
+    if title.is_none() && title_category.is_none() {
+        return Err("effective-category requires --title or --title-category".to_string());
+    }
+    if default_category.is_empty() {
+        return Err("--default-category is required".to_string());
+    }
+
+    Ok(PrEffectiveCategoryOptions {
+        labels_raw,
+        title,
+        title_category,
+        default_category,
+    })
+}
+
+fn parse_group_by_category(args: &[String]) -> Result<PrGroupByCategoryOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+    let mut mode = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
+            "--mode" => mode = take_value("--mode", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for group-by-category: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("group-by-category requires --text <value> or --stdin".to_string());
+    }
+    if mode.is_empty() {
+        return Err("--mode is required".to_string());
+    }
+
+    Ok(PrGroupByCategoryOptions {
+        text: resolved_text,
+        mode,
+    })
+}
+
+fn parse_issue_ref_kind(args: &[String]) -> Result<PrIssueRefKindOptions, String> {
+    let mut issue_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue_number = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for issue-ref-kind: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue_number)?;
+    Ok(PrIssueRefKindOptions { issue_number, repo })
+}
+
+fn parse_issue_context(args: &[String]) -> Result<PrIssueContextOptions, String> {
+    let mut issue_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue_number = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for issue-context: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue_number)?;
+    Ok(PrIssueContextOptions { issue_number, repo })
+}
+
+fn parse_issue_view(args: &[String]) -> Result<PrIssueViewOptions, String> {
+    let mut issue_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue_number = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for issue-view: {unknown}")),
+        }
+    }
+
+    require_positive_number("--issue", &issue_number)?;
+    Ok(PrIssueViewOptions { issue_number, repo })
+}
+
+fn parse_pr_state(args: &[String]) -> Result<PrPrStateOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => pr_number = take_value("--pr", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for pr-state: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrPrStateOptions { pr_number, repo })
+}
+
+fn parse_issue_close_policy(args: &[String]) -> Result<PrIssueClosePolicyOptions, String> {
+    let mut action = String::new();
+    let mut is_pr_ref = false;
+    let mut non_compliance_reason = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--action" => action = take_value("--action", args, &mut i)?,
+            "--is-pr-ref" => {
+                is_pr_ref =
+                    parse_bool_value("--is-pr-ref", &take_value("--is-pr-ref", args, &mut i)?)?
+            }
+            "--non-compliance-reason" => {
+                non_compliance_reason = take_value("--non-compliance-reason", args, &mut i)?
+            }
+            unknown => return Err(format!("Unknown option for issue-close-policy: {unknown}")),
+        }
+    }
+
+    if action.is_empty() {
+        return Err("--action is required".to_string());
+    }
+
+    Ok(PrIssueClosePolicyOptions {
+        action,
+        is_pr_ref,
+        non_compliance_reason,
+    })
+}
+
+fn parse_normalize_issue_key(args: &[String]) -> Result<PrNormalizeIssueKeyOptions, String> {
+    let mut raw = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--raw" => raw = take_value("--raw", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for normalize-issue-key: {unknown}")),
+        }
+    }
+
+    if raw.is_empty() {
+        return Err("--raw is required".to_string());
+    }
+    Ok(PrNormalizeIssueKeyOptions { raw })
+}
+
+fn parse_open_referencing_issue(args: &[String]) -> Result<PrOpenReferencingIssueOptions, String> {
+    let mut issue_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--issue" => issue_number = take_value("--issue", args, &mut i)?,
+            "--repo" => repo = Some(take_value("--repo", args, &mut i)?),
+            unknown => {
+                return Err(format!(
+                    "Unknown option for open-referencing-issue: {unknown}"
+                ));
+            }
+        }
+    }
+
+    require_positive_number("--issue", &issue_number)?;
+    Ok(PrOpenReferencingIssueOptions { issue_number, repo })
+}
+
+fn parse_sort_bullets(args: &[String]) -> Result<PrSortBulletsOptions, String> {
+    let mut input_file = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--input-file" => input_file = take_value("--input-file", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for sort-bullets: {unknown}")),
+        }
+    }
+
+    if input_file.is_empty() {
+        return Err("--input-file is required".to_string());
+    }
+    Ok(PrSortBulletsOptions { input_file })
+}
+
+fn parse_issue_category_from_labels(
+    args: &[String],
+) -> Result<PrIssueCategoryFromLabelsOptions, String> {
+    let mut labels_raw = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--labels-raw" => labels_raw = take_value("--labels-raw", args, &mut i)?,
+            unknown => {
+                return Err(format!(
+                    "Unknown option for issue-category-from-labels: {unknown}"
+                ));
+            }
+        }
+    }
+
+    if labels_raw.is_empty() {
+        return Err("--labels-raw is required".to_string());
+    }
+    Ok(PrIssueCategoryFromLabelsOptions { labels_raw })
+}
+
+fn parse_issue_category_from_title(
+    args: &[String],
+) -> Result<PrIssueCategoryFromTitleOptions, String> {
+    let mut title = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--title" => title = take_value("--title", args, &mut i)?,
+            unknown => {
+                return Err(format!(
+                    "Unknown option for issue-category-from-title: {unknown}"
+                ));
+            }
+        }
+    }
+
+    if title.is_empty() {
+        return Err("--title is required".to_string());
+    }
+    Ok(PrIssueCategoryFromTitleOptions { title })
+}
+
+fn parse_non_closing_refs(args: &[String]) -> Result<PrNonClosingRefsOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
+            unknown => return Err(format!("Unknown option for non-closing-refs: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("non-closing-refs requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrNonClosingRefsOptions {
+        text: resolved_text,
+    })
+}
+
+fn parse_resolve_category(args: &[String]) -> Result<PrResolveCategoryOptions, String> {
+    let mut label_category = String::new();
+    let mut title_category = String::new();
+    let mut default_category = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--label-category" => label_category = take_value("--label-category", args, &mut i)?,
+            "--title-category" => title_category = take_value("--title-category", args, &mut i)?,
+            "--default-category" => {
+                default_category = take_value("--default-category", args, &mut i)?
+            }
+            unknown => return Err(format!("Unknown option for resolve-category: {unknown}")),
+        }
+    }
+
+    if label_category.is_empty() {
+        return Err("--label-category is required".to_string());
+    }
+    if title_category.is_empty() {
+        return Err("--title-category is required".to_string());
+    }
+    if default_category.is_empty() {
+        return Err("--default-category is required".to_string());
+    }
+
+    Ok(PrResolveCategoryOptions {
+        label_category,
+        title_category,
+        default_category,
+    })
+}
+
+fn parse_closure_marker(args: &[String]) -> Result<PrClosureMarkerOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+    let mut keyword_pattern = String::new();
+    let mut issue = String::new();
+    let mut mode = String::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => text = Some(take_value("--text", args, &mut i)?),
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => input_file = Some(take_value("--input-file", args, &mut i)?),
+            "--keyword-pattern" => keyword_pattern = take_value("--keyword-pattern", args, &mut i)?,
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--mode" => mode = take_value("--mode", args, &mut i)?,
+            unknown => return Err(format!("Unknown option for closure-marker: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("closure-marker requires --text <value> or --stdin".to_string());
+    }
+    if keyword_pattern.is_empty() {
+        return Err("--keyword-pattern is required".to_string());
+    }
+    if issue.is_empty() {
+        return Err("--issue is required".to_string());
+    }
+    if mode.is_empty() {
+        return Err("--mode is required".to_string());
+    }
+
+    Ok(PrClosureMarkerOptions {
+        text: resolved_text,
+        keyword_pattern,
+        issue,
+        mode,
+    })
+}
+
+fn parse_issue_decision(args: &[String]) -> Result<PrIssueDecisionOptions, String> {
+    let mut action = String::new();
+    let mut issue = String::new();
+    let mut default_category = String::new();
+    let mut seen_reopen = false;
+    let mut reopen_category = String::new();
+    let mut inferred_decision = String::new();
+    let mut explicit_decision = String::new();
+    let mut allow_inferred = true;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--action" => action = take_value("--action", args, &mut i)?,
+            "--issue" => issue = take_value("--issue", args, &mut i)?,
+            "--default-category" => {
+                default_category = take_value("--default-category", args, &mut i)?
+            }
+            "--seen-reopen" => {
+                seen_reopen =
+                    parse_bool_value("--seen-reopen", &take_value("--seen-reopen", args, &mut i)?)?
+            }
+            "--reopen-category" => reopen_category = take_value("--reopen-category", args, &mut i)?,
+            "--inferred-decision" => {
+                inferred_decision = take_value("--inferred-decision", args, &mut i)?
+            }
+            "--explicit-decision" => {
+                explicit_decision = take_value("--explicit-decision", args, &mut i)?
+            }
+            "--allow-inferred" => {
+                allow_inferred = parse_bool_value(
+                    "--allow-inferred",
+                    &take_value("--allow-inferred", args, &mut i)?,
+                )?
+            }
+            unknown => return Err(format!("Unknown option for issue-decision: {unknown}")),
+        }
+    }
+
+    if action.is_empty() {
+        return Err("--action is required".to_string());
+    }
+    if issue.is_empty() {
+        return Err("--issue is required".to_string());
+    }
+    if default_category.is_empty() {
+        return Err("--default-category is required".to_string());
+    }
+
+    Ok(PrIssueDecisionOptions {
+        action,
+        issue,
+        default_category,
+        seen_reopen,
+        reopen_category,
+        inferred_decision,
+        explicit_decision,
+        allow_inferred,
+    })
+}
+
+fn parse_closure_refs(args: &[String]) -> Result<PrClosureRefsOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => {
+                text = Some(take_value("--text", args, &mut i)?);
+            }
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => {
+                input_file = Some(take_value("--input-file", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for closure-refs: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("closure-refs requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrClosureRefsOptions {
+        text: resolved_text,
+    })
+}
+
+fn parse_directives_state(args: &[String]) -> Result<PrDirectivesStateOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => {
+                text = Some(take_value("--text", args, &mut i)?);
+            }
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => {
+                input_file = Some(take_value("--input-file", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for directives-state: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("directives-state requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrDirectivesStateOptions {
+        text: resolved_text,
+    })
+}
+
+fn parse_directive_conflicts(args: &[String]) -> Result<PrDirectiveConflictsOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+    let mut source_branch_count = 1u32;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => {
+                text = Some(take_value("--text", args, &mut i)?);
+            }
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => {
+                input_file = Some(take_value("--input-file", args, &mut i)?);
+            }
+            "--source-branch-count" => {
+                let value = take_value("--source-branch-count", args, &mut i)?;
+                source_branch_count = value.parse::<u32>().map_err(|_| {
+                    "--source-branch-count requires a positive numeric value".to_string()
+                })?;
+                if source_branch_count == 0 {
+                    return Err(
+                        "--source-branch-count requires a positive numeric value".to_string()
+                    );
+                }
+            }
+            unknown => return Err(format!("Unknown option for directive-conflicts: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+    if resolved_text.is_empty() {
+        return Err("directive-conflicts requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrDirectiveConflictsOptions {
+        text: resolved_text,
+        source_branch_count,
+    })
+}
+
+fn parse_auto_add_closes(args: &[String]) -> Result<PrAutoAddClosesOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for auto-add-closes: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrAutoAddClosesOptions { pr_number, repo })
+}
+
+fn parse_text_payload(args: &[String]) -> Result<PrTextPayloadOptions, String> {
+    let mut pr_number = String::new();
+    let mut repo: Option<String> = None;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--pr" => {
+                pr_number = take_value("--pr", args, &mut i)?;
+            }
+            "--repo" => {
+                repo = Some(take_value("--repo", args, &mut i)?);
+            }
+            unknown => return Err(format!("Unknown option for text-payload: {unknown}")),
+        }
+    }
+
+    require_positive_number("--pr", &pr_number)?;
+    Ok(PrTextPayloadOptions { pr_number, repo })
+}
+
+fn parse_directives(args: &[String]) -> Result<PrDirectivesOptions, String> {
+    let mut text: Option<String> = None;
+    let mut read_stdin = false;
+    let mut input_file: Option<String> = None;
+    let mut format = PrDirectivesFormat::Plain;
+    let mut unique = false;
+
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--text" => {
+                text = Some(take_value("--text", args, &mut i)?);
+            }
+            "--stdin" => {
+                read_stdin = true;
+                i += 1;
+            }
+            "--input-file" => {
+                input_file = Some(take_value("--input-file", args, &mut i)?);
+            }
+            "--format" => {
+                let value = take_value("--format", args, &mut i)?;
+                format = match value.as_str() {
+                    "plain" => PrDirectivesFormat::Plain,
+                    "json" => PrDirectivesFormat::Json,
+                    _ => return Err("--format must be 'plain' or 'json'".to_string()),
+                };
+            }
+            "--unique" => {
+                unique = true;
+                i += 1;
+            }
+            unknown => return Err(format!("Unknown option for directives: {unknown}")),
+        }
+    }
+
+    let resolved_text = resolve_input_text(text, read_stdin, input_file)?;
+
+    if resolved_text.is_empty() {
+        return Err("directives requires --text <value> or --stdin".to_string());
+    }
+
+    Ok(PrDirectivesOptions {
+        text: resolved_text,
+        format,
+        unique,
+    })
+}
+
+fn resolve_input_text(
+    text: Option<String>,
+    read_stdin: bool,
+    input_file: Option<String>,
+) -> Result<String, String> {
+    if read_stdin {
+        read_stdin_text()
+    } else if let Some(file_path) = input_file {
+        read_file_text(&file_path)
+    } else {
+        Ok(text.unwrap_or_default())
+    }
+}
+
+fn take_value(flag: &str, args: &[String], index: &mut usize) -> Result<String, String> {
+    let value_index = *index + 1;
+    if value_index >= args.len() {
+        return Err(format!("{flag} requires a value"));
+    }
+    let value = args[value_index].clone();
+    *index += 2;
+    Ok(value)
+}
+
+fn read_stdin_text() -> Result<String, String> {
+    let mut input = String::new();
+    io::stdin()
+        .read_to_string(&mut input)
+        .map_err(|err| format!("failed to read stdin: {err}"))?;
+    Ok(input)
+}
+
+fn read_file_text(file_path: &str) -> Result<String, String> {
+    let path = Path::new(file_path);
+    fs::read_to_string(path)
+        .map_err(|err| format!("failed to read input file '{file_path}': {err}"))
+}
+
+fn require_positive_number(flag: &str, value: &str) -> Result<(), String> {
+    if !value.is_empty() && value.chars().all(|c| c.is_ascii_digit()) && value != "0" {
+        return Ok(());
+    }
+    Err(format!("{flag} requires a positive numeric value"))
+}
+
+fn parse_bool_value(flag: &str, value: &str) -> Result<bool, String> {
+    match value {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(format!("{flag} must be true or false")),
+    }
+}

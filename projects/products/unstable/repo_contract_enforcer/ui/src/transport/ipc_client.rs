@@ -48,6 +48,7 @@ pub enum Severity {
 pub enum Scope {
     Stable,
     Unstable,
+    Tool,
     Other,
 }
 

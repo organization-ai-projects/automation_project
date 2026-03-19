@@ -93,6 +93,7 @@ members = [
   "projects/products/unstable/agent_engine/backend",
   "projects/products/unstable/agent_engine/ui",
   "projects/products/unstable/neurosymbolic_moe",
+  "tools/versioning_automation",
 ]
 resolver = "2"
 
