@@ -3,8 +3,10 @@ use protocol::{Command, Event, Metadata};
 use protocol_accounts::{SetupAdminRequest, SetupAdminResponse, SetupStatusResponse};
 use security::Role;
 
-use crate::router::helpers::{err_event, map_store_error, ok_payload, payload_as};
-use crate::store::account_manager::AccountManager;
+use crate::{
+    router::helpers::{err_event, map_store_error, ok_payload, payload_as},
+    store::AccountManager,
+};
 
 use super::command_router::{PAYLOAD_SETUP_ADMIN, PAYLOAD_SETUP_STATUS};
 

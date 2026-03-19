@@ -8,3 +8,6 @@ pub use content_class::ContentClass;
 pub use diff::Diff;
 pub use diff_entry::DiffEntry;
 pub use diff_kind::DiffKind;
+
+#[cfg(test)]
+mod tests;

@@ -50,16 +50,3 @@ impl From<ObjectId> for BlobId {
         Self(id)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn roundtrip() {
-        let raw = [0x01u8; 32];
-        let id = BlobId::from_bytes(&raw);
-        let parsed: BlobId = id.to_string().parse().unwrap();
-        assert_eq!(id, parsed);
-    }
-}

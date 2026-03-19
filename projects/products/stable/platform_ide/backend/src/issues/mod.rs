@@ -1,4 +1,4 @@
-// projects/products/stable/platform_ide/backend/src/issues/mod.rs
-pub mod issue_summary;
+//! projects/products/stable/platform_ide/backend/src/issues/mod.rs
+mod issue_summary;
 
-pub use issue_summary::IssueSummary;
+pub(crate) use issue_summary::IssueSummary;

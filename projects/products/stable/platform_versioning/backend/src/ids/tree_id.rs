@@ -47,16 +47,3 @@ impl From<ObjectId> for TreeId {
         Self(id)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn roundtrip() {
-        let raw = [0x02u8; 32];
-        let id = TreeId::from_bytes(&raw);
-        let parsed: TreeId = id.to_string().parse().unwrap();
-        assert_eq!(id, parsed);
-    }
-}

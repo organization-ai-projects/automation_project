@@ -1,4 +1,7 @@
 // projects/products/varina/backend/src/router.rs
+use std::env;
+use std::path::PathBuf;
+
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -222,9 +225,6 @@ fn run_git_autopilot(req: RunRequest) -> Result<String, HandlerError> {
 /// - Environment variable is empty
 /// - All paths in environment variable are empty after trimming
 fn create_repo_path_validator() -> RepoPathValidator {
-    use std::env;
-    use std::path::PathBuf;
-
     // Check for VARINA_REPO_WHITELIST environment variable
     // Format: comma-separated absolute paths like "/home,/tmp,/workspace"
     if let Ok(whitelist_str) = env::var("VARINA_REPO_WHITELIST") {

@@ -1,0 +1,115 @@
+use serde::{Deserialize, Serialize};
+
+use crate::moe_core::MoeError;
+
+use super::chunk::Chunk;
+use super::retrieval_trait::{RetrievalQuery, RetrievalResult, Retriever};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimpleRetriever {
+    documents: Vec<Chunk>,
+}
+
+impl SimpleRetriever {
+    pub fn new() -> Self {
+        Self {
+            documents: Vec::new(),
+        }
+    }
+
+    pub fn add_document(&mut self, chunk: Chunk) {
+        self.documents.push(chunk);
+    }
+
+    /// Computes relevance as the fraction of the content covered by non-overlapping
+    /// occurrences of the query substring (match density).
+    fn compute_relevance(content: &str, query: &str) -> f64 {
+        if query.is_empty() || content.is_empty() {
+            return 0.0;
+        }
+
+        let content_lower = content.to_lowercase();
+        let query_lower = query.to_lowercase();
+
+        let mut matches = 0usize;
+        let mut start = 0;
+        while let Some(pos) = content_lower[start..].find(&query_lower) {
+            matches += 1;
+            start += pos + query_lower.len();
+        }
+
+        if matches == 0 {
+            return 0.0;
+        }
+
+        let covered = matches * query_lower.len();
+        (covered as f64 / content_lower.len() as f64).min(1.0)
+    }
+
+    fn matches_filters(chunk: &Chunk, filters: &std::collections::HashMap<String, String>) -> bool {
+        filters
+            .iter()
+            .all(|(k, v)| chunk.metadata.get(k).is_some_and(|val| val == v))
+    }
+}
+
+impl Default for SimpleRetriever {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Retriever for SimpleRetriever {
+    fn retrieve(&self, query: &RetrievalQuery) -> Result<Vec<RetrievalResult>, MoeError> {
+        let mut results: Vec<RetrievalResult> = self
+            .documents
+            .iter()
+            .filter(|chunk| Self::matches_filters(chunk, &query.filters))
+            .filter_map(|chunk| {
+                let relevance = Self::compute_relevance(&chunk.content, &query.query);
+                if relevance >= query.min_relevance && relevance > 0.0 {
+                    Some(RetrievalResult {
+                        chunk_id: chunk.id.clone(),
+                        content: chunk.content.clone(),
+                        relevance_score: relevance,
+                        source: chunk.source.clone(),
+                        metadata: chunk.metadata.clone(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        results.sort_by(|a, b| {
+            b.relevance_score
+                .partial_cmp(&a.relevance_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        results.truncate(query.max_results);
+
+        Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn simple_retriever_search() {
+        let mut retriever = SimpleRetriever::new();
+        retriever.add_document(Chunk::new("c1", "rust programming language", "doc1", 0, 25));
+        retriever.add_document(Chunk::new("c2", "python scripting", "doc2", 0, 16));
+        retriever.add_document(Chunk::new("c3", "rust rust rust", "doc3", 0, 14));
+
+        let query = RetrievalQuery::new("rust");
+        let results = retriever.retrieve(&query).unwrap();
+
+        assert_eq!(results.len(), 2);
+        // "rust rust rust" has higher density than "rust programming language"
+        assert_eq!(results[0].chunk_id, "c3");
+        assert_eq!(results[1].chunk_id, "c1");
+    }
+}

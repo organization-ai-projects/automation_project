@@ -1,13 +1,6 @@
 // projects/products/stable/platform_versioning/backend/src/pipeline/snapshot.rs
 use std::collections::BTreeMap;
 
-#[cfg(test)]
-fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
-
 use serde::{Deserialize, Serialize};
 
 use crate::errors::PvError;
@@ -121,68 +114,5 @@ fn split_path(path: &str) -> (&str, &str) {
         (&path[..pos], &path[pos + 1..])
     } else {
         ("", path)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn unique_test_dir() -> std::path::PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let pid = std::process::id();
-        let nanos = next_nonce();
-        std::env::temp_dir().join(format!("pv_snapshot_{pid}_{nanos}_{id}"))
-    }
-
-    fn dummy_blob_id(byte: u8) -> BlobId {
-        BlobId::from(crate::ids::ObjectId::from_bytes(&[byte; 32]))
-    }
-
-    #[test]
-    fn empty_snapshot_produces_empty_root_tree() {
-        let dir = unique_test_dir();
-        let store = ObjectStore::open(&dir).unwrap();
-        let snapshot = Snapshot::from_map(BTreeMap::new());
-        let root_id = snapshot.write_trees(&store).unwrap();
-        let obj = store.read(root_id.as_object_id()).unwrap();
-        assert!(matches!(obj, Object::Tree(_)));
-        if let Object::Tree(t) = obj {
-            assert!(t.entries.is_empty());
-        }
-    }
-
-    #[test]
-    fn flat_snapshot_produces_correct_tree() {
-        let dir = unique_test_dir();
-        let store = ObjectStore::open(&dir).unwrap();
-        let mut map = BTreeMap::new();
-        map.insert("a.txt".parse().unwrap(), dummy_blob_id(1));
-        map.insert("b.txt".parse().unwrap(), dummy_blob_id(2));
-        let snapshot = Snapshot::from_map(map);
-        let root_id = snapshot.write_trees(&store).unwrap();
-        let obj = store.read(root_id.as_object_id()).unwrap();
-        assert!(matches!(obj, Object::Tree(_)));
-        if let Object::Tree(t) = obj {
-            assert_eq!(t.entries.len(), 2);
-        }
-    }
-
-    #[test]
-    fn same_snapshot_produces_same_tree_id() {
-        let dir1 = unique_test_dir();
-        let dir2 = unique_test_dir();
-        let store1 = ObjectStore::open(&dir1).unwrap();
-        let store2 = ObjectStore::open(&dir2).unwrap();
-        let mut map = BTreeMap::new();
-        map.insert("readme.md".parse().unwrap(), dummy_blob_id(5));
-        let s1 = Snapshot::from_map(map.clone());
-        let s2 = Snapshot::from_map(map);
-        let id1 = s1.write_trees(&store1).unwrap();
-        let id2 = s2.write_trees(&store2).unwrap();
-        assert_eq!(id1, id2);
     }
 }

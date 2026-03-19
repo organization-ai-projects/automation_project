@@ -39,6 +39,9 @@ mod score;
 mod utils;
 mod worktree;
 
+#[cfg(test)]
+mod tests;
+
 use anyhow::{Context, Result, bail};
 use common_json::{from_json_str, to_json_string_pretty};
 use common_time::timeout::with_timeout;

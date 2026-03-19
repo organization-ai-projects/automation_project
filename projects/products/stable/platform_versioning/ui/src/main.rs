@@ -18,6 +18,9 @@ mod tree_browser;
 mod tree_browser_entry;
 mod ui_app;
 
+#[cfg(test)]
+mod tests;
+
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     ui_app::run()

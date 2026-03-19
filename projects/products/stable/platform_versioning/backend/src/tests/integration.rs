@@ -1,24 +1,23 @@
 // projects/products/stable/platform_versioning/backend/src/tests/integration.rs
 //! Integration tests covering the full repo create → commit → browse → diff → merge flow.
 
-fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
-
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::auth::audit_entry::AuditEntry;
-use crate::auth::{AuditOutcome, Permission, PermissionGrant, TokenClaims, TokenVerifier};
+use crate::auth::{
+    AuditLog, AuditOutcome, Permission, PermissionGrant, TokenClaims, TokenVerifier,
+};
 use crate::checkouts::{Checkout, CheckoutPolicy};
 use crate::diffs::Diff;
 use crate::history::HistoryWalker;
 use crate::ids::RepoId;
 use crate::indexes::Index;
 use crate::merges::{Merge, MergeResult};
+use crate::nonce::next_nonce;
 use crate::objects::{Blob, Object, ObjectStore};
 use crate::pipeline::CommitBuilder;
+use crate::pipeline::Snapshot;
 use crate::refs_store::RefStore;
 use crate::repos::RepoStore;
 use crate::verify::Verification;
@@ -118,8 +117,6 @@ fn full_flow_create_commit_browse_diff_merge() {
         let mut idx = Index::new();
         idx.add("theirs.txt".parse().unwrap(), their_blob_id);
 
-        use crate::pipeline::Snapshot;
-        use std::collections::BTreeMap;
         let map: BTreeMap<_, _> = idx.entries().map(|e| (e.path, e.blob_id)).collect();
         let tree_id = Snapshot::from_map(map).write_trees(&obj2).unwrap();
 
@@ -175,7 +172,6 @@ fn auth_denied_without_token() {
 
 #[test]
 fn auth_enforced_via_audit_log() {
-    use crate::auth::AuditLog;
     let log = AuditLog::new();
 
     // Record a denied action.

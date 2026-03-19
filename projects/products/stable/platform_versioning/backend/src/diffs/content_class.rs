@@ -31,23 +31,3 @@ impl ContentClass {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn plain_text_is_text() {
-        assert_eq!(ContentClass::of(b"hello world\n"), ContentClass::Text);
-    }
-
-    #[test]
-    fn null_byte_is_binary() {
-        assert_eq!(ContentClass::of(b"hello\0world"), ContentClass::Binary);
-    }
-
-    #[test]
-    fn empty_bytes_is_text() {
-        assert_eq!(ContentClass::of(b""), ContentClass::Text);
-    }
-}

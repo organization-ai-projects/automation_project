@@ -50,28 +50,3 @@ impl AdminPanel {
         self.role.is_admin()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn admin_sees_all_panels() {
-        let panel = AdminPanel::for_role(RoleView::Admin);
-        assert!(panel.show_permission_panel());
-        assert!(panel.show_slice_panel());
-    }
-
-    #[test]
-    fn developer_sees_only_issue_panel() {
-        let panel = AdminPanel::for_role(RoleView::Developer);
-        assert!(!panel.show_permission_panel());
-        assert!(!panel.show_slice_panel());
-    }
-
-    #[test]
-    fn default_role_is_developer() {
-        let panel = AdminPanel::default();
-        assert_eq!(panel.role, RoleView::Developer);
-    }
-}

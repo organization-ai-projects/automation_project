@@ -22,25 +22,3 @@ impl DiffView {
         self.entries = entries;
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::diff_entry_kind::DiffEntryKind;
-
-    #[test]
-    fn load_sets_fields() {
-        let mut view = DiffView::default();
-        view.load(
-            "abc".to_string(),
-            "def".to_string(),
-            vec![DiffDisplayEntry {
-                path: "readme.md".to_string(),
-                kind: DiffEntryKind::Modified,
-                binary: false,
-            }],
-        );
-        assert_eq!(view.from_commit.as_deref(), Some("abc"));
-        assert_eq!(view.entries.len(), 1);
-    }
-}

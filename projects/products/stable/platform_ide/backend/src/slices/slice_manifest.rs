@@ -1,4 +1,4 @@
-// projects/products/stable/platform_ide/backend/src/slices/slice_manifest.rs
+//! projects/products/stable/platform_ide/backend/src/slices/slice_manifest.rs
 use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
@@ -68,53 +68,5 @@ impl SliceManifest {
     /// Returns `true` if the manifest contains no paths.
     pub fn is_empty(&self) -> bool {
         self.paths.is_empty()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn manifest() -> SliceManifest {
-        SliceManifest::new("issue-42", "abc123", ["src/main.rs", "README.md"])
-    }
-
-    #[test]
-    fn allow_returns_path_for_manifest_member() {
-        let m = manifest();
-        let p = m.allow("src/main.rs").unwrap();
-        assert_eq!(p.as_str(), "src/main.rs");
-    }
-
-    #[test]
-    fn allow_rejects_non_manifest_path() {
-        let m = manifest();
-        let err = m.allow("src/secret.rs").unwrap_err();
-        // The error must not reveal the forbidden path or the allowed paths.
-        let msg = err.to_string();
-        assert!(!msg.contains("secret.rs"), "error leaks forbidden path");
-        assert!(!msg.contains("src/main.rs"), "error leaks allowed paths");
-    }
-
-    #[test]
-    fn allow_rejects_traversal() {
-        let m = manifest();
-        assert!(m.allow("../etc/passwd").is_err());
-        assert!(m.allow("src/../../other").is_err());
-    }
-
-    #[test]
-    fn allow_rejects_absolute() {
-        let m = manifest();
-        assert!(m.allow("/absolute").is_err());
-    }
-
-    #[test]
-    fn len_and_iter() {
-        let m = manifest();
-        assert_eq!(m.len(), 2);
-        let mut paths: Vec<&str> = m.iter().collect();
-        paths.sort_unstable();
-        assert_eq!(paths, ["README.md", "src/main.rs"]);
     }
 }

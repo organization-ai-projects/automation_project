@@ -6,3 +6,6 @@ pub mod repo_store;
 pub use repo::Repo;
 pub use repo_metadata::RepoMetadata;
 pub use repo_store::RepoStore;
+
+#[cfg(test)]
+mod tests;

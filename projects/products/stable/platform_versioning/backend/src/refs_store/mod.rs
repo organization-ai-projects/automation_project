@@ -10,3 +10,6 @@ pub use ref_kind::RefKind;
 pub use ref_name::RefName;
 pub use ref_store::RefStore;
 pub use ref_target::RefTarget;
+
+#[cfg(test)]
+mod tests;

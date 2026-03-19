@@ -43,35 +43,3 @@ impl Blob {
         Self::compute_id(&self.content) == self.id
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn id_is_deterministic() {
-        let a = Blob::from_bytes(b"hello world".to_vec());
-        let b = Blob::from_bytes(b"hello world".to_vec());
-        assert_eq!(a.id, b.id);
-    }
-
-    #[test]
-    fn different_content_different_id() {
-        let a = Blob::from_bytes(b"hello".to_vec());
-        let b = Blob::from_bytes(b"world".to_vec());
-        assert_ne!(a.id, b.id);
-    }
-
-    #[test]
-    fn verify_intact() {
-        let blob = Blob::from_bytes(b"test data".to_vec());
-        assert!(blob.verify());
-    }
-
-    #[test]
-    fn verify_corrupt() {
-        let mut blob = Blob::from_bytes(b"test data".to_vec());
-        blob.content[0] ^= 0xff;
-        assert!(!blob.verify());
-    }
-}

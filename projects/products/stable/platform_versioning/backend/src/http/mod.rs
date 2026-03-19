@@ -9,3 +9,6 @@ pub use api_error::ApiError;
 pub use api_version::ApiVersion;
 pub use response_envelope::ResponseEnvelope;
 pub use server::Server;
+
+#[cfg(test)]
+mod tests;
