@@ -47,7 +47,19 @@ fn contract_path() -> PathBuf {
         }
     }
 
+    if let Some(repo_root) = manifest_repo_root() {
+        let candidate = repo_root.join(".github/issue_required_fields.conf");
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+
     PathBuf::from(".github/issue_required_fields.conf")
+}
+
+fn manifest_repo_root() -> Option<PathBuf> {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir.parent()?.parent().map(Path::to_path_buf)
 }
 
 fn load_contract_values_from_file(
