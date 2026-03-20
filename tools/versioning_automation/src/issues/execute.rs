@@ -353,13 +353,14 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         std::env::var("PROJECT_STATUS_REOPEN_NAME").unwrap_or_else(|_| "Todo".to_string());
 
     for issue_number in reopen_issue_numbers {
-        let state = gh_issue_state_or_empty(Some(repo_name.as_str()), &issue_number);
+        let (_, _, state, labels_raw) = gh_issue_autolink_payload(&repo_name, &issue_number);
         if state.is_empty() {
             println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
             continue;
         }
+        let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
 
-        if state == "CLOSED" {
+        if sync_plan.reopen_issue {
             let status = execute_command(gh_issue_target_command(
                 "reopen",
                 &issue_number,
@@ -376,36 +377,21 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
             );
         }
 
-        if label_exists {
-            let has_label = gh_output_or_empty(&[
-                "issue",
-                "view",
-                &issue_number,
-                "-R",
-                &repo_name,
-                "--json",
-                "labels",
-                "--jq",
-                ".labels[].name",
-            ])
-            .lines()
-            .any(|value| value.trim() == label_name);
-            if has_label {
-                let status = execute_command({
-                    let mut cmd =
-                        gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                    push_arg(&mut cmd, "--remove-label");
-                    push_arg(&mut cmd, &label_name);
-                    cmd
-                });
-                if status != 0 {
-                    return status;
-                }
-                println!(
-                    "Issue #{}: removed label '{}' due to Reopen ref.",
-                    issue_number, label_name
-                );
+        if label_exists && sync_plan.remove_done_in_dev_label {
+            let status = execute_command({
+                let mut cmd =
+                    gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
+                push_arg(&mut cmd, "--remove-label");
+                push_arg(&mut cmd, &label_name);
+                cmd
+            });
+            if status != 0 {
+                return status;
             }
+            println!(
+                "Issue #{}: removed label '{}' due to Reopen ref.",
+                issue_number, label_name
+            );
         }
 
         let status = run_sync_project_status(crate::issues::commands::SyncProjectStatusOptions {
@@ -423,6 +409,26 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
 
 pub(crate) fn pr_state_allows_reopen_sync(state: &str) -> bool {
     matches!(state, "OPEN" | "MERGED")
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ReopenSyncPlan {
+    pub(crate) reopen_issue: bool,
+    pub(crate) remove_done_in_dev_label: bool,
+}
+
+pub(crate) fn plan_reopen_sync(issue_state: &str, has_done_in_dev_label: bool) -> ReopenSyncPlan {
+    ReopenSyncPlan {
+        reopen_issue: issue_state == "CLOSED",
+        remove_done_in_dev_label: has_done_in_dev_label,
+    }
+}
+
+fn has_label_named(labels_raw: &str, expected_label: &str) -> bool {
+    labels_raw
+        .split('|')
+        .map(str::trim)
+        .any(|label| label == expected_label)
 }
 
 pub(crate) fn run_neutralize(opts: NeutralizeOptions) -> i32 {

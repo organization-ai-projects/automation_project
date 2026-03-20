@@ -1,7 +1,7 @@
 use crate::issues::commands::{CreateOptions, NonComplianceReasonOptions};
 use crate::issues::execute::{
-    extract_closing_issue_numbers, extract_reopen_issue_numbers, pr_state_allows_reopen_sync,
-    run_create, run_non_compliance_reason,
+    extract_closing_issue_numbers, extract_reopen_issue_numbers, plan_reopen_sync,
+    pr_state_allows_reopen_sync, run_create, run_non_compliance_reason,
 };
 
 #[test]
@@ -80,4 +80,25 @@ fn reopen_sync_allows_open_and_merged_pr_states() {
     assert!(pr_state_allows_reopen_sync("MERGED"));
     assert!(!pr_state_allows_reopen_sync("CLOSED"));
     assert!(!pr_state_allows_reopen_sync(""));
+}
+
+#[test]
+fn plan_reopen_sync_reopens_closed_issue_and_removes_done_in_dev_when_present() {
+    let plan = plan_reopen_sync("CLOSED", true);
+    assert!(plan.reopen_issue);
+    assert!(plan.remove_done_in_dev_label);
+}
+
+#[test]
+fn plan_reopen_sync_only_removes_done_in_dev_for_open_issue() {
+    let plan = plan_reopen_sync("OPEN", true);
+    assert!(!plan.reopen_issue);
+    assert!(plan.remove_done_in_dev_label);
+}
+
+#[test]
+fn plan_reopen_sync_is_noop_for_open_issue_without_done_in_dev() {
+    let plan = plan_reopen_sync("OPEN", false);
+    assert!(!plan.reopen_issue);
+    assert!(!plan.remove_done_in_dev_label);
 }
