@@ -9,6 +9,7 @@ use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions
 use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
 use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::commit_info::CommitInfo;
+use crate::pr::conflicts::build_conflict_report;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::duplicate_actions::run_duplicate_actions;
 use crate::pr::generate_options::GenerateOptions;
@@ -240,7 +241,7 @@ fn run_native_dry_run(opts: GenerateOptions) -> i32 {
     exit_code
 }
 
-fn build_full_body(
+pub(crate) fn build_full_body(
     base_ref: &str,
     head_ref: &str,
     commits: &[CommitInfo],
@@ -280,6 +281,17 @@ fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
         .map(|commit| format!("{}\n{}", commit.subject, commit.body))
         .collect::<Vec<String>>()
         .join("\n\n");
+    let conflict_report = build_conflict_report(&text, 1);
+    let resolved_conflicts = conflict_report
+        .resolved
+        .into_iter()
+        .map(|entry| {
+            (
+                entry.issue,
+                conflict_resolution_suffix(&entry.decision, &entry.origin),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
 
     for record in extract_effective_issue_ref_records(&text) {
         if record.first == "Closes" {
@@ -296,27 +308,43 @@ fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
     let mut sections = Vec::new();
 
     if !closes.is_empty() {
-        sections.push(render_issue_outcome_section(&closes, "Closes"));
+        sections.push(render_issue_outcome_section(
+            &closes,
+            "Closes",
+            &resolved_conflicts,
+        ));
     }
 
     if !reopens.is_empty() {
-        sections.push(render_issue_outcome_section(&reopens, "Reopen"));
+        sections.push(render_issue_outcome_section(
+            &reopens,
+            "Reopen",
+            &resolved_conflicts,
+        ));
     }
 
     sections.join("\n\n")
 }
 
-fn render_issue_outcome_section(issue_keys: &BTreeSet<String>, action: &str) -> String {
+fn render_issue_outcome_section(
+    issue_keys: &BTreeSet<String>,
+    action: &str,
+    resolved_conflicts: &BTreeMap<String, String>,
+) -> String {
     let records = issue_keys
         .iter()
         .map(|issue_key| {
+            let mut fields = vec![action.to_string(), issue_key.to_string()];
+            if let Some(suffix) = resolved_conflicts.get(issue_key) {
+                fields.push(suffix.clone());
+            }
             (
                 issue_key
                     .trim_start_matches('#')
                     .parse::<u32>()
                     .unwrap_or(u32::MAX),
                 resolve_issue_outcome_category(issue_key),
-                vec![action.to_string(), issue_key.to_string()],
+                fields,
                 0usize,
             )
         })
@@ -326,7 +354,14 @@ fn render_issue_outcome_section(issue_keys: &BTreeSet<String>, action: &str) -> 
     if rendered.trim().is_empty() {
         issue_keys
             .iter()
-            .map(|issue_key| format!("- {action} {issue_key}"))
+            .map(|issue_key| {
+                let mut line = format!("- {action} {issue_key}");
+                if let Some(suffix) = resolved_conflicts.get(issue_key) {
+                    line.push(' ');
+                    line.push_str(suffix);
+                }
+                line
+            })
             .collect::<Vec<String>>()
             .join("\n")
     } else {
@@ -359,10 +394,13 @@ pub(crate) fn render_issue_outcome_groups_with_mode(
         for record in matching {
             let action = record.2.first().cloned().unwrap_or_default();
             let issue_key = record.2.get(1).cloned().unwrap_or_default();
+            let suffix = record.2.get(2).cloned().unwrap_or_default();
             let line = if mode == "conflict" {
                 format!("- {action} - {issue_key}")
-            } else {
+            } else if suffix.is_empty() {
                 format!("- {action} {issue_key}")
+            } else {
+                format!("- {action} {issue_key} {suffix}")
             };
             out.push_str(&line);
             out.push('\n');
@@ -370,6 +408,15 @@ pub(crate) fn render_issue_outcome_groups_with_mode(
         out.push('\n');
     }
     out
+}
+
+fn conflict_resolution_suffix(decision: &str, origin: &str) -> String {
+    let winner = if decision == "close" {
+        "Closes"
+    } else {
+        "Reopen"
+    };
+    format!("(resolved Closes/Reopen conflict; winner: {winner}; origin: {origin})")
 }
 
 fn resolve_issue_outcome_category(issue_key: &str) -> String {
