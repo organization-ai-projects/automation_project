@@ -283,8 +283,26 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         "--jq",
         ".state // \"\"",
     ]);
-    if pr_state != "MERGED" {
-        println!("PR #{} is not merged; nothing to do.", pr_number);
+    let pr_base = gh_output_or_empty(&[
+        "pr",
+        "view",
+        &pr_number,
+        "-R",
+        &repo_name,
+        "--json",
+        "baseRefName",
+        "--jq",
+        ".baseRefName // \"\"",
+    ]);
+    if pr_base != "dev" {
+        println!("PR #{} does not target dev; nothing to do.", pr_number);
+        return 0;
+    }
+    if !pr_state_allows_reopen_sync(&pr_state) {
+        println!(
+            "PR #{} state={} is not eligible; nothing to do.",
+            pr_number, pr_state
+        );
         return 0;
     }
 
@@ -401,6 +419,10 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
     }
 
     0
+}
+
+pub(crate) fn pr_state_allows_reopen_sync(state: &str) -> bool {
+    matches!(state, "OPEN" | "MERGED")
 }
 
 pub(crate) fn run_neutralize(opts: NeutralizeOptions) -> i32 {

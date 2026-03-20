@@ -1,7 +1,7 @@
 use crate::issues::commands::{CreateOptions, NonComplianceReasonOptions};
 use crate::issues::execute::{
-    extract_closing_issue_numbers, extract_reopen_issue_numbers, run_create,
-    run_non_compliance_reason,
+    extract_closing_issue_numbers, extract_reopen_issue_numbers, pr_state_allows_reopen_sync,
+    run_create, run_non_compliance_reason,
 };
 
 #[test]
@@ -72,4 +72,12 @@ fn extract_reopen_issue_numbers_ignores_reopen_when_later_close_wins() {
 fn extract_closing_issue_numbers_keeps_later_close_after_reopen() {
     let out = extract_closing_issue_numbers("Reopen #12\nCloses #12");
     assert_eq!(out, vec!["12".to_string()]);
+}
+
+#[test]
+fn reopen_sync_allows_open_and_merged_pr_states() {
+    assert!(pr_state_allows_reopen_sync("OPEN"));
+    assert!(pr_state_allows_reopen_sync("MERGED"));
+    assert!(!pr_state_allows_reopen_sync("CLOSED"));
+    assert!(!pr_state_allows_reopen_sync(""));
 }
