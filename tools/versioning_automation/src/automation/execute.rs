@@ -21,7 +21,7 @@ use crate::automation::{
     install_hooks, pre_add_review, ui_build,
 };
 use crate::pr::scan::scan_directives;
-use crate::pr::state::build_state;
+use crate::pr::text_payload::extract_effective_issue_ref_sets;
 use crate::repo_name::resolve_repo_name_optional;
 use crate::{gh_cli, git_cli};
 
@@ -972,8 +972,7 @@ fn remote_policy_warn_only() -> bool {
 
 fn extract_issue_refs_detailed(text: &str) -> Result<Vec<(String, String)>, String> {
     let mut out = Vec::new();
-    let legacy_re = Regex::new(r"(?i)(fixes|resolves|related\s+to|reopens)\s+#([0-9]+)")
-        .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
+    let (closes, reopens, part_of) = extract_effective_issue_ref_sets(text);
 
     for record in scan_directives(text, false) {
         if record.first == "Part of" {
@@ -984,29 +983,18 @@ fn extract_issue_refs_detailed(text: &str) -> Result<Vec<(String, String)>, Stri
         }
     }
 
-    for cap in legacy_re.captures_iter(text) {
-        let action = cap
-            .get(1)
-            .map(|m| m.as_str().to_lowercase())
-            .unwrap_or_default();
-        let issue = cap
-            .get(2)
-            .map(|m| m.as_str().to_string())
-            .unwrap_or_default();
-        if !issue.is_empty() {
-            out.push((action, issue));
-        }
+    for issue in closes {
+        out.push(("closes".to_string(), issue));
     }
-
-    for record in build_state(text).action_records {
-        let issue = record.second.trim_start_matches('#').to_string();
-        if issue.is_empty() {
-            continue;
-        }
-        match record.first.as_str() {
-            "Closes" => out.push(("closes".to_string(), issue)),
-            "Reopen" => out.push(("reopen".to_string(), issue)),
-            _ => {}
+    for issue in reopens {
+        out.push(("reopen".to_string(), issue));
+    }
+    for issue in part_of {
+        if !out
+            .iter()
+            .any(|(action, existing)| action == "part of" && existing == &issue)
+        {
+            out.push(("part of".to_string(), issue));
         }
     }
     Ok(out)
@@ -1015,8 +1003,7 @@ fn extract_issue_refs_detailed(text: &str) -> Result<Vec<(String, String)>, Stri
 fn extract_issue_refs_hook_detailed(text: &str) -> Result<Vec<(String, String)>, String> {
     let mut seen = BTreeSet::new();
     let mut out = Vec::new();
-    let legacy_re = Regex::new(r"(?i)(fixes|reopens)\s+#([0-9]+)")
-        .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
+    let (closes, reopens, _) = extract_effective_issue_ref_sets(text);
 
     for record in scan_directives(text, false) {
         if record.first == "Part of" {
@@ -1032,35 +1019,15 @@ fn extract_issue_refs_hook_detailed(text: &str) -> Result<Vec<(String, String)>,
         }
     }
 
-    for cap in legacy_re.captures_iter(text) {
-        let action = cap
-            .get(1)
-            .map(|m| m.as_str().to_lowercase())
-            .unwrap_or_default();
-        let issue = cap
-            .get(2)
-            .map(|m| m.as_str().to_string())
-            .unwrap_or_default();
-        if issue.is_empty() {
-            continue;
-        }
+    for issue in closes {
+        let action = "closes".to_string();
         let key = format!("{action}|{issue}");
         if seen.insert(key) {
             out.push((action, issue));
         }
     }
-
-    for record in build_state(text).action_records {
-        let action = match record.first.as_str() {
-            "Closes" => "closes",
-            "Reopen" => "reopen",
-            _ => continue,
-        }
-        .to_string();
-        let issue = record.second.trim_start_matches('#').to_string();
-        if issue.is_empty() {
-            continue;
-        }
+    for issue in reopens {
+        let action = "reopen".to_string();
         let key = format!("{action}|{issue}");
         if seen.insert(key) {
             out.push((action, issue));

@@ -1,8 +1,11 @@
 //! tools/versioning_automation/src/pr/text_payload.rs
 use std::collections::BTreeSet;
 
+use regex::Regex;
+
 use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
 use crate::pr::gh_cli::gh_output_trim_end_newline;
+use crate::pr::scan::scan_directives;
 use crate::pr::state::build_state;
 use crate::repo_name::resolve_repo_name;
 
@@ -63,8 +66,53 @@ pub(crate) fn load_pr_text_payload(pr_number: &str, repo_name: &str) -> Result<S
 pub(crate) fn extract_effective_action_issue_numbers(
     payload: &str,
 ) -> (BTreeSet<String>, BTreeSet<String>) {
+    let (closes, reopens, _) = extract_effective_issue_ref_sets(payload);
+    (closes, reopens)
+}
+
+pub(crate) fn extract_effective_issue_ref_sets(
+    payload: &str,
+) -> (BTreeSet<String>, BTreeSet<String>, BTreeSet<String>) {
     let mut closes = BTreeSet::new();
     let mut reopens = BTreeSet::new();
+    let mut part_of = BTreeSet::new();
+    let legacy_re =
+        Regex::new(r"(?i)(fixes|resolves|related\s+to|reopens)\s+#([0-9]+)").expect("valid regex");
+
+    for record in scan_directives(payload, false) {
+        if record.first == "Part of" {
+            let issue_number = record.second.trim_start_matches('#').to_string();
+            if !issue_number.is_empty() {
+                part_of.insert(issue_number);
+            }
+        }
+    }
+
+    for cap in legacy_re.captures_iter(payload) {
+        let keyword = cap
+            .get(1)
+            .map(|m| m.as_str().to_lowercase())
+            .unwrap_or_default();
+        let issue_number = cap
+            .get(2)
+            .map(|m| m.as_str().to_string())
+            .unwrap_or_default();
+        if issue_number.is_empty() {
+            continue;
+        }
+        match keyword.as_str() {
+            "fixes" | "resolves" => {
+                closes.insert(issue_number);
+            }
+            "reopens" => {
+                reopens.insert(issue_number);
+            }
+            "related to" => {
+                part_of.insert(issue_number);
+            }
+            _ => {}
+        }
+    }
 
     for record in build_state(payload).action_records {
         let issue_number = record.second.trim_start_matches('#').to_string();
@@ -73,14 +121,16 @@ pub(crate) fn extract_effective_action_issue_numbers(
         }
         match record.first.as_str() {
             "Closes" => {
-                closes.insert(issue_number);
+                closes.insert(issue_number.clone());
+                reopens.remove(&issue_number);
             }
             "Reopen" => {
-                reopens.insert(issue_number);
+                reopens.insert(issue_number.clone());
+                closes.remove(&issue_number);
             }
             _ => {}
         }
     }
 
-    (closes, reopens)
+    (closes, reopens, part_of)
 }

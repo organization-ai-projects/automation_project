@@ -6,8 +6,7 @@ use regex::Regex;
 
 use crate::automation::commands::AuditIssueStatusOptions;
 use crate::gh_cli;
-use crate::pr::scan::scan_directives;
-use crate::pr::state::build_state;
+use crate::pr::text_payload::extract_effective_issue_ref_sets;
 use crate::repo_name::resolve_repo_name;
 
 use super::execute::{ensure_git_repo, run_git_output_preserve};
@@ -33,9 +32,10 @@ pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<()
     let total_open = open_issues.len();
 
     let commit_messages = run_git_output_preserve(&["log", &range, "--format=%B"])?;
-    let (closing_refs, part_refs) = extract_issue_refs_from_text(&commit_messages)?;
+    let (closing_refs, reopen_refs, part_refs) = extract_issue_refs_from_text(&commit_messages)?;
 
     let mut would_close_items = Vec::new();
+    let mut would_reopen_items = Vec::new();
     let mut part_only_items = Vec::new();
     let mut unreferenced_items = Vec::new();
     let mut done_in_dev_items = Vec::new();
@@ -72,6 +72,8 @@ pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<()
             done_in_dev_items.push(line);
         } else if closing_refs.contains(&issue_id) {
             would_close_items.push(line);
+        } else if reopen_refs.contains(&issue_id) {
+            would_reopen_items.push(line);
         } else if part_refs.contains(&issue_id) {
             part_only_items.push(line);
         } else {
@@ -85,6 +87,7 @@ pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<()
         total_open,
         &done_in_dev_items,
         &would_close_items,
+        &would_reopen_items,
         &part_only_items,
         &unreferenced_items,
     );
@@ -100,52 +103,8 @@ pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<()
 
 pub(crate) fn extract_issue_refs_from_text(
     text: &str,
-) -> Result<(BTreeSet<String>, BTreeSet<String>), String> {
-    let mut closing = BTreeSet::new();
-    let mut part = BTreeSet::new();
-    let legacy_re = Regex::new(r"(?i)(fixes|resolves|related\s+to|reopens)\s+#([0-9]+)")
-        .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
-
-    for record in scan_directives(text, false) {
-        if record.first == "Part of" {
-            let issue_number = record.second.trim_start_matches('#').to_string();
-            if !issue_number.is_empty() {
-                part.insert(issue_number);
-            }
-        }
-    }
-
-    for cap in legacy_re.captures_iter(text) {
-        let keyword = cap
-            .get(1)
-            .map(|m| m.as_str().to_lowercase())
-            .unwrap_or_default();
-        let issue_number = cap
-            .get(2)
-            .map(|m| m.as_str().to_string())
-            .unwrap_or_default();
-        if issue_number.is_empty() {
-            continue;
-        }
-        if keyword == "fixes" || keyword == "resolves" {
-            closing.insert(issue_number);
-        } else {
-            part.insert(issue_number);
-        }
-    }
-
-    for record in build_state(text).action_records {
-        let issue_number = record.second.trim_start_matches('#').to_string();
-        if issue_number.is_empty() {
-            continue;
-        }
-        if record.first == "Closes" {
-            closing.insert(issue_number);
-        } else if record.first == "Reopen" {
-            part.insert(issue_number);
-        }
-    }
-    Ok((closing, part))
+) -> Result<(BTreeSet<String>, BTreeSet<String>, BTreeSet<String>), String> {
+    Ok(extract_effective_issue_ref_sets(text))
 }
 
 pub(crate) fn extract_parent_field(body: &str) -> Option<String> {
@@ -172,6 +131,7 @@ pub(crate) fn render_issue_audit_report(
     total_open: usize,
     done_in_dev_items: &[String],
     would_close_items: &[String],
+    would_reopen_items: &[String],
     part_only_items: &[String],
     unreferenced_items: &[String],
 ) -> String {
@@ -187,6 +147,10 @@ pub(crate) fn render_issue_audit_report(
     out.push(format!(
         "- Would close on merge: {}",
         would_close_items.len()
+    ));
+    out.push(format!(
+        "- Would reopen from current refs: {}",
+        would_reopen_items.len()
     ));
     out.push(format!(
         "- Done in dev (label): {}",
@@ -215,6 +179,14 @@ pub(crate) fn render_issue_audit_report(
         out.push("- None".to_string());
     } else {
         out.extend(would_close_items.iter().cloned());
+    }
+    out.push("".to_string());
+    out.push("## Would Reopen".to_string());
+    out.push("".to_string());
+    if would_reopen_items.is_empty() {
+        out.push("- None".to_string());
+    } else {
+        out.extend(would_reopen_items.iter().cloned());
     }
     out.push("".to_string());
     out.push("## Part-Of Only".to_string());
