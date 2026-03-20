@@ -23,7 +23,6 @@ use crate::issues::required_fields::{
 };
 use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
-use crate::pr::state::build_state;
 use crate::pr::text_payload::{extract_effective_action_issue_numbers, load_pr_text_payload};
 use crate::repo_name::resolve_repo_name;
 
@@ -2724,33 +2723,13 @@ fn pr_body_references_issue(body: &str, issue_number: &str) -> bool {
 }
 
 pub(crate) fn extract_closing_issue_numbers(text: &str) -> Vec<String> {
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut out = Vec::new();
-    for record in build_state(text).action_records {
-        if record.first != "Closes" {
-            continue;
-        }
-        let num = record.second.trim_start_matches('#').to_string();
-        if seen.insert(num.clone()) {
-            out.push(num);
-        }
-    }
-    out
+    let (closes, _) = extract_effective_action_issue_numbers(text);
+    closes.into_iter().collect()
 }
 
 pub(crate) fn extract_reopen_issue_numbers(text: &str) -> Vec<String> {
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut out = Vec::new();
-    for record in build_state(text).action_records {
-        if record.first != "Reopen" {
-            continue;
-        }
-        let num = record.second.trim_start_matches('#').to_string();
-        if seen.insert(num.clone()) {
-            out.push(num);
-        }
-    }
-    out
+    let (_, reopens) = extract_effective_action_issue_numbers(text);
+    reopens.into_iter().collect()
 }
 
 fn print_non_empty_lines(text: &str) {
