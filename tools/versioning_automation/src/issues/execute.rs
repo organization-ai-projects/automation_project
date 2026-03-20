@@ -16,6 +16,7 @@ use crate::issues::commands::{
     UpdateOptions, UpsertMarkerCommentOptions, ValidateFooterOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
+use crate::issues::issue_sync_plan::{plan_done_in_dev_sync, plan_reopen_sync};
 use crate::issues::render::render_direct_issue_body;
 use crate::issues::required_fields::{
     fetch_non_compliance_reason, non_compliance_reason_from_content, validate_body,
@@ -25,6 +26,7 @@ use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
 use crate::pr::text_payload::{extract_effective_action_issue_numbers, load_pr_text_payload};
 use crate::repo_name::resolve_repo_name;
+use crate::{gh_cli, issues};
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
     let body = render_direct_issue_body(&opts);
@@ -139,25 +141,23 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             }
 
             for issue_number in closing_issue_numbers {
-                let snapshot = gh_issue_sync_snapshot(&repo_name, &issue_number);
-                if snapshot.state.is_empty() {
+                let (_, _, state, labels_raw) =
+                    gh_issue_autolink_payload(&repo_name, &issue_number);
+                if state.is_empty() {
                     println!("Issue #{}: unreadable; skipping.", issue_number);
                     continue;
                 }
-                let sync_plan = plan_issue_sync(
-                    &snapshot.state,
-                    has_label_named(&snapshot.labels_raw, &label_name),
-                    IssueSyncIntent::MarkDoneInDev,
-                );
+                let sync_plan =
+                    plan_done_in_dev_sync(&state, has_label_named(&labels_raw, &label_name));
                 if !sync_plan.add_done_in_dev_label {
                     println!(
                         "Issue #{}: state={}; no done-in-dev label update needed.",
-                        issue_number, snapshot.state
+                        issue_number, state
                     );
                     continue;
                 }
 
-                if has_label_named(&snapshot.labels_raw, &label_name) {
+                if has_label_named(&labels_raw, &label_name) {
                     println!(
                         "Issue #{}: label '{}' already present.",
                         issue_number, label_name
@@ -299,16 +299,12 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         std::env::var("PROJECT_STATUS_REOPEN_NAME").unwrap_or_else(|_| "Todo".to_string());
 
     for issue_number in reopen_issue_numbers {
-        let snapshot = gh_issue_sync_snapshot(&repo_name, &issue_number);
-        if snapshot.state.is_empty() {
+        let (_, _, state, labels_raw) = gh_issue_autolink_payload(&repo_name, &issue_number);
+        if state.is_empty() {
             println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
             continue;
         }
-        let sync_plan = plan_issue_sync(
-            &snapshot.state,
-            has_label_named(&snapshot.labels_raw, &label_name),
-            IssueSyncIntent::Reopen,
-        );
+        let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
 
         if sync_plan.reopen_issue {
             let status = execute_command(gh_issue_target_command(
@@ -323,7 +319,7 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         } else {
             println!(
                 "Issue #{}: state={}; no reopen needed.",
-                issue_number, snapshot.state
+                issue_number, state
             );
         }
 
@@ -344,7 +340,7 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
             );
         }
 
-        let status = run_sync_project_status(crate::issues::commands::SyncProjectStatusOptions {
+        let status = run_sync_project_status(issues::commands::SyncProjectStatusOptions {
             repo: repo_name.clone(),
             issue: issue_number.clone(),
             status: reopen_status.clone(),
@@ -359,42 +355,6 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
 
 pub(crate) fn pr_state_allows_reopen_sync(state: &str) -> bool {
     matches!(state, "OPEN" | "MERGED")
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct IssueSyncPlan {
-    pub(crate) reopen_issue: bool,
-    pub(crate) add_done_in_dev_label: bool,
-    pub(crate) remove_done_in_dev_label: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum IssueSyncIntent {
-    MarkDoneInDev,
-    Reopen,
-}
-
-pub(crate) fn plan_issue_sync(
-    issue_state: &str,
-    has_done_in_dev_label: bool,
-    intent: IssueSyncIntent,
-) -> IssueSyncPlan {
-    match intent {
-        IssueSyncIntent::MarkDoneInDev => IssueSyncPlan {
-            reopen_issue: false,
-            add_done_in_dev_label: issue_state == "OPEN" && !has_done_in_dev_label,
-            remove_done_in_dev_label: false,
-        },
-        IssueSyncIntent::Reopen => IssueSyncPlan {
-            reopen_issue: issue_state == "CLOSED",
-            add_done_in_dev_label: false,
-            remove_done_in_dev_label: has_done_in_dev_label,
-        },
-    }
-}
-
-pub(crate) fn plan_reopen_sync(issue_state: &str, has_done_in_dev_label: bool) -> IssueSyncPlan {
-    plan_issue_sync(issue_state, has_done_in_dev_label, IssueSyncIntent::Reopen)
 }
 
 fn has_label_named(labels_raw: &str, expected_label: &str) -> bool {
@@ -968,7 +928,7 @@ fn auto_link_set_validation_error_state(
     auto_link_remove_label(repo_name, issue_number, automation_failed_label);
     let body =
         format!("{marker}\n### Parent Field Autolink Status\n\n❌ {message}\n\n{help_text}\n");
-    run_upsert_marker_comment(crate::issues::commands::UpsertMarkerCommentOptions {
+    run_upsert_marker_comment(issues::commands::UpsertMarkerCommentOptions {
         repo: repo_name.to_string(),
         issue: issue_number.to_string(),
         marker: marker.to_string(),
@@ -988,7 +948,7 @@ fn auto_link_set_runtime_error_state(
     auto_link_add_label(repo_name, issue_number, automation_failed_label);
     let body =
         format!("{marker}\n### Parent Field Autolink Status\n\n⚠️ {message}\n\n{help_text}\n");
-    run_upsert_marker_comment(crate::issues::commands::UpsertMarkerCommentOptions {
+    run_upsert_marker_comment(issues::commands::UpsertMarkerCommentOptions {
         repo: repo_name.to_string(),
         issue: issue_number.to_string(),
         marker: marker.to_string(),
@@ -1008,7 +968,7 @@ fn auto_link_set_success_state(
     auto_link_remove_label(repo_name, issue_number, required_missing_label);
     auto_link_remove_label(repo_name, issue_number, automation_failed_label);
     let body = format!("{marker}\n### Parent Field Autolink Status\n\n✅ {message}\n");
-    run_upsert_marker_comment(crate::issues::commands::UpsertMarkerCommentOptions {
+    run_upsert_marker_comment(issues::commands::UpsertMarkerCommentOptions {
         repo: repo_name.to_string(),
         issue: issue_number.to_string(),
         marker: marker.to_string(),
@@ -1277,49 +1237,6 @@ fn is_issue_key(value: &str) -> bool {
 }
 
 type IssueAutoLinkPayload = (String, String, String, String);
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-struct IssueSyncSnapshot {
-    state: String,
-    labels_raw: String,
-}
-
-fn gh_issue_sync_snapshot(repo_name: &str, issue_number: &str) -> IssueSyncSnapshot {
-    #[derive(Debug, Deserialize)]
-    struct IssueSyncLabel {
-        name: Option<String>,
-    }
-    #[derive(Debug, Deserialize)]
-    struct IssueSyncPayload {
-        state: Option<String>,
-        labels: Option<Vec<IssueSyncLabel>>,
-    }
-
-    let payload_raw = gh_output_or_empty(&[
-        "issue",
-        "view",
-        issue_number,
-        "-R",
-        repo_name,
-        "--json",
-        "state,labels",
-    ]);
-    let payload =
-        common_json::from_json_str::<IssueSyncPayload>(&payload_raw).unwrap_or(IssueSyncPayload {
-            state: None,
-            labels: None,
-        });
-    IssueSyncSnapshot {
-        state: payload.state.unwrap_or_default(),
-        labels_raw: payload
-            .labels
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|label| label.name)
-            .collect::<Vec<_>>()
-            .join("|"),
-    }
-}
 
 fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> IssueAutoLinkPayload {
     #[derive(Debug, Deserialize)]
@@ -2661,7 +2578,7 @@ pub(crate) fn run_upsert_marker_comment(opts: UpsertMarkerCommentOptions) -> i32
 
 fn execute_command(command: Vec<String>) -> i32 {
     let borrowed = command.iter().map(String::as_str).collect::<Vec<&str>>();
-    match crate::gh_cli::status(&borrowed) {
+    match gh_cli::status(&borrowed) {
         Ok(()) => 0,
         Err(err) => {
             eprintln!("Failed to execute command: {err}");
@@ -2705,7 +2622,7 @@ fn gh_output_or_empty(args: &[&str]) -> String {
 }
 
 fn gh_output(args: &[&str], silence_stderr: bool) -> Result<String, String> {
-    match crate::gh_cli::output_trim(args) {
+    match gh_cli::output_trim(args) {
         Ok(value) => Ok(value),
         Err(_) if silence_stderr => Ok(String::new()),
         Err(message) => Err(message),
@@ -2720,16 +2637,6 @@ fn pr_body_references_issue(body: &str, issue_number: &str) -> bool {
     Regex::new(&pattern)
         .map(|re| re.is_match(body))
         .unwrap_or(false)
-}
-
-pub(crate) fn extract_closing_issue_numbers(text: &str) -> Vec<String> {
-    let (closes, _) = extract_effective_action_issue_numbers(text);
-    closes.into_iter().collect()
-}
-
-pub(crate) fn extract_reopen_issue_numbers(text: &str) -> Vec<String> {
-    let (_, reopens) = extract_effective_action_issue_numbers(text);
-    reopens.into_iter().collect()
 }
 
 fn print_non_empty_lines(text: &str) {

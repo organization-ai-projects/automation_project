@@ -41,7 +41,7 @@ pub(crate) fn run_issue_category_from_title(opts: PrIssueCategoryFromTitleOption
     0
 }
 
-fn resolve_effective_category(
+pub(crate) fn resolve_effective_category(
     label_category: &str,
     title_category: &str,
     default_category: &str,

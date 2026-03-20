@@ -11,7 +11,7 @@ pub(crate) fn run_issue_context(opts: PrIssueContextOptions) -> i32 {
     0
 }
 
-fn load_issue_context_payload(opts: &PrIssueContextOptions) -> (String, String, String) {
+pub(crate) fn load_issue_context_payload(opts: &PrIssueContextOptions) -> (String, String, String) {
     let Some(issue_json) = fetch_issue_json(&opts.issue_number, opts.repo.as_deref()) else {
         return (String::new(), "Unknown".to_string(), String::new());
     };
