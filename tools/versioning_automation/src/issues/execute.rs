@@ -140,33 +140,26 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             }
 
             for issue_number in closing_issue_numbers {
-                let state = gh_issue_state_or_empty(Some(repo_name.as_str()), &issue_number);
+                let (_, _, state, labels_raw) =
+                    gh_issue_autolink_payload(&repo_name, &issue_number);
                 if state.is_empty() {
                     println!("Issue #{}: unreadable; skipping.", issue_number);
                     continue;
                 }
-                if state != "OPEN" {
+                let sync_plan = plan_issue_sync(
+                    &state,
+                    has_label_named(&labels_raw, &label_name),
+                    IssueSyncIntent::MarkDoneInDev,
+                );
+                if !sync_plan.add_done_in_dev_label {
                     println!(
-                        "Issue #{}: state={}; skipping done-in-dev label.",
+                        "Issue #{}: state={}; no done-in-dev label update needed.",
                         issue_number, state
                     );
                     continue;
                 }
 
-                let has_label = gh_output_or_empty(&[
-                    "issue",
-                    "view",
-                    &issue_number,
-                    "-R",
-                    &repo_name,
-                    "--json",
-                    "labels",
-                    "--jq",
-                    ".labels[].name",
-                ])
-                .lines()
-                .any(|value| value.trim() == label_name);
-                if has_label {
+                if has_label_named(&labels_raw, &label_name) {
                     println!(
                         "Issue #{}: label '{}' already present.",
                         issue_number, label_name
@@ -313,7 +306,11 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
             println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
             continue;
         }
-        let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
+        let sync_plan = plan_issue_sync(
+            &state,
+            has_label_named(&labels_raw, &label_name),
+            IssueSyncIntent::Reopen,
+        );
 
         if sync_plan.reopen_issue {
             let status = execute_command(gh_issue_target_command(
@@ -367,16 +364,39 @@ pub(crate) fn pr_state_allows_reopen_sync(state: &str) -> bool {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ReopenSyncPlan {
+pub(crate) struct IssueSyncPlan {
     pub(crate) reopen_issue: bool,
+    pub(crate) add_done_in_dev_label: bool,
     pub(crate) remove_done_in_dev_label: bool,
 }
 
-pub(crate) fn plan_reopen_sync(issue_state: &str, has_done_in_dev_label: bool) -> ReopenSyncPlan {
-    ReopenSyncPlan {
-        reopen_issue: issue_state == "CLOSED",
-        remove_done_in_dev_label: has_done_in_dev_label,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IssueSyncIntent {
+    MarkDoneInDev,
+    Reopen,
+}
+
+pub(crate) fn plan_issue_sync(
+    issue_state: &str,
+    has_done_in_dev_label: bool,
+    intent: IssueSyncIntent,
+) -> IssueSyncPlan {
+    match intent {
+        IssueSyncIntent::MarkDoneInDev => IssueSyncPlan {
+            reopen_issue: false,
+            add_done_in_dev_label: issue_state == "OPEN" && !has_done_in_dev_label,
+            remove_done_in_dev_label: false,
+        },
+        IssueSyncIntent::Reopen => IssueSyncPlan {
+            reopen_issue: issue_state == "CLOSED",
+            add_done_in_dev_label: false,
+            remove_done_in_dev_label: has_done_in_dev_label,
+        },
     }
+}
+
+pub(crate) fn plan_reopen_sync(issue_state: &str, has_done_in_dev_label: bool) -> IssueSyncPlan {
+    plan_issue_sync(issue_state, has_done_in_dev_label, IssueSyncIntent::Reopen)
 }
 
 fn has_label_named(labels_raw: &str, expected_label: &str) -> bool {

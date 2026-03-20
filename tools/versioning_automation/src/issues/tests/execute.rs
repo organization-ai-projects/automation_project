@@ -1,7 +1,7 @@
 use crate::issues::commands::{CreateOptions, NonComplianceReasonOptions};
 use crate::issues::execute::{
-    extract_closing_issue_numbers, extract_reopen_issue_numbers, plan_reopen_sync,
-    pr_state_allows_reopen_sync, run_create, run_non_compliance_reason,
+    IssueSyncIntent, extract_closing_issue_numbers, extract_reopen_issue_numbers, plan_issue_sync,
+    plan_reopen_sync, pr_state_allows_reopen_sync, run_create, run_non_compliance_reason,
 };
 
 #[test]
@@ -86,6 +86,7 @@ fn reopen_sync_allows_open_and_merged_pr_states() {
 fn plan_reopen_sync_reopens_closed_issue_and_removes_done_in_dev_when_present() {
     let plan = plan_reopen_sync("CLOSED", true);
     assert!(plan.reopen_issue);
+    assert!(!plan.add_done_in_dev_label);
     assert!(plan.remove_done_in_dev_label);
 }
 
@@ -93,6 +94,7 @@ fn plan_reopen_sync_reopens_closed_issue_and_removes_done_in_dev_when_present() 
 fn plan_reopen_sync_only_removes_done_in_dev_for_open_issue() {
     let plan = plan_reopen_sync("OPEN", true);
     assert!(!plan.reopen_issue);
+    assert!(!plan.add_done_in_dev_label);
     assert!(plan.remove_done_in_dev_label);
 }
 
@@ -100,5 +102,30 @@ fn plan_reopen_sync_only_removes_done_in_dev_for_open_issue() {
 fn plan_reopen_sync_is_noop_for_open_issue_without_done_in_dev() {
     let plan = plan_reopen_sync("OPEN", false);
     assert!(!plan.reopen_issue);
+    assert!(!plan.add_done_in_dev_label);
+    assert!(!plan.remove_done_in_dev_label);
+}
+
+#[test]
+fn plan_issue_sync_adds_done_in_dev_only_for_open_issue_without_label() {
+    let plan = plan_issue_sync("OPEN", false, IssueSyncIntent::MarkDoneInDev);
+    assert!(!plan.reopen_issue);
+    assert!(plan.add_done_in_dev_label);
+    assert!(!plan.remove_done_in_dev_label);
+}
+
+#[test]
+fn plan_issue_sync_skips_done_in_dev_when_label_is_already_present() {
+    let plan = plan_issue_sync("OPEN", true, IssueSyncIntent::MarkDoneInDev);
+    assert!(!plan.reopen_issue);
+    assert!(!plan.add_done_in_dev_label);
+    assert!(!plan.remove_done_in_dev_label);
+}
+
+#[test]
+fn plan_issue_sync_skips_done_in_dev_for_closed_issue() {
+    let plan = plan_issue_sync("CLOSED", false, IssueSyncIntent::MarkDoneInDev);
+    assert!(!plan.reopen_issue);
+    assert!(!plan.add_done_in_dev_label);
     assert!(!plan.remove_done_in_dev_label);
 }
