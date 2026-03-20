@@ -140,26 +140,25 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             }
 
             for issue_number in closing_issue_numbers {
-                let (_, _, state, labels_raw) =
-                    gh_issue_autolink_payload(&repo_name, &issue_number);
-                if state.is_empty() {
+                let snapshot = gh_issue_sync_snapshot(&repo_name, &issue_number);
+                if snapshot.state.is_empty() {
                     println!("Issue #{}: unreadable; skipping.", issue_number);
                     continue;
                 }
                 let sync_plan = plan_issue_sync(
-                    &state,
-                    has_label_named(&labels_raw, &label_name),
+                    &snapshot.state,
+                    has_label_named(&snapshot.labels_raw, &label_name),
                     IssueSyncIntent::MarkDoneInDev,
                 );
                 if !sync_plan.add_done_in_dev_label {
                     println!(
                         "Issue #{}: state={}; no done-in-dev label update needed.",
-                        issue_number, state
+                        issue_number, snapshot.state
                     );
                     continue;
                 }
 
-                if has_label_named(&labels_raw, &label_name) {
+                if has_label_named(&snapshot.labels_raw, &label_name) {
                     println!(
                         "Issue #{}: label '{}' already present.",
                         issue_number, label_name
@@ -301,14 +300,14 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         std::env::var("PROJECT_STATUS_REOPEN_NAME").unwrap_or_else(|_| "Todo".to_string());
 
     for issue_number in reopen_issue_numbers {
-        let (_, _, state, labels_raw) = gh_issue_autolink_payload(&repo_name, &issue_number);
-        if state.is_empty() {
+        let snapshot = gh_issue_sync_snapshot(&repo_name, &issue_number);
+        if snapshot.state.is_empty() {
             println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
             continue;
         }
         let sync_plan = plan_issue_sync(
-            &state,
-            has_label_named(&labels_raw, &label_name),
+            &snapshot.state,
+            has_label_named(&snapshot.labels_raw, &label_name),
             IssueSyncIntent::Reopen,
         );
 
@@ -325,7 +324,7 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         } else {
             println!(
                 "Issue #{}: state={}; no reopen needed.",
-                issue_number, state
+                issue_number, snapshot.state
             );
         }
 
@@ -1279,6 +1278,49 @@ fn is_issue_key(value: &str) -> bool {
 }
 
 type IssueAutoLinkPayload = (String, String, String, String);
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+struct IssueSyncSnapshot {
+    state: String,
+    labels_raw: String,
+}
+
+fn gh_issue_sync_snapshot(repo_name: &str, issue_number: &str) -> IssueSyncSnapshot {
+    #[derive(Debug, Deserialize)]
+    struct IssueSyncLabel {
+        name: Option<String>,
+    }
+    #[derive(Debug, Deserialize)]
+    struct IssueSyncPayload {
+        state: Option<String>,
+        labels: Option<Vec<IssueSyncLabel>>,
+    }
+
+    let payload_raw = gh_output_or_empty(&[
+        "issue",
+        "view",
+        issue_number,
+        "-R",
+        repo_name,
+        "--json",
+        "state,labels",
+    ]);
+    let payload =
+        common_json::from_json_str::<IssueSyncPayload>(&payload_raw).unwrap_or(IssueSyncPayload {
+            state: None,
+            labels: None,
+        });
+    IssueSyncSnapshot {
+        state: payload.state.unwrap_or_default(),
+        labels_raw: payload
+            .labels
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|label| label.name)
+            .collect::<Vec<_>>()
+            .join("|"),
+    }
+}
 
 fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> IssueAutoLinkPayload {
     #[derive(Debug, Deserialize)]
