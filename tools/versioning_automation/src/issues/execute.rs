@@ -161,17 +161,14 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
                     continue;
                 }
 
-                let status = execute_command({
-                    let mut cmd =
-                        gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                    push_arg(&mut cmd, "--add-label");
-                    push_arg(&mut cmd, &label_name);
-                    cmd
+                let status = run_update(UpdateOptions {
+                    issue: issue_number.clone(),
+                    repo: Some(repo_name.clone()),
+                    edit_args: vec![("--add-label".to_string(), label_name.clone())],
                 });
                 if status != 0 {
                     return status;
                 }
-                println!("Issue #{}: added label '{}'.", issue_number, label_name);
             }
             0
         }
@@ -204,17 +201,14 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             .any(|value| value.trim() == label_name);
 
             if has_label {
-                let status = execute_command({
-                    let mut cmd =
-                        gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                    push_arg(&mut cmd, "--remove-label");
-                    push_arg(&mut cmd, &label_name);
-                    cmd
+                let status = run_update(UpdateOptions {
+                    issue: issue_number.clone(),
+                    repo: Some(repo_name.clone()),
+                    edit_args: vec![("--remove-label".to_string(), label_name.clone())],
                 });
                 if status != 0 {
                     return status;
                 }
-                println!("Issue #{}: removed label '{}'.", issue_number, label_name);
             } else {
                 println!(
                     "Issue #{}: label '{}' not present.",
@@ -299,15 +293,13 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
 
         if sync_plan.reopen_issue {
-            let status = execute_command(gh_issue_target_command(
-                "reopen",
-                &issue_number,
-                Some(repo_name.as_str()),
-            ));
+            let status = run_reopen(IssueTarget {
+                issue: issue_number.clone(),
+                repo: Some(repo_name.clone()),
+            });
             if status != 0 {
                 return status;
             }
-            println!("Issue #{}: reopened from Reopen ref.", issue_number);
         } else {
             println!(
                 "Issue #{}: state={}; no reopen needed.",
@@ -316,20 +308,14 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         }
 
         if label_exists && sync_plan.remove_done_in_dev_label {
-            let status = execute_command({
-                let mut cmd =
-                    gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                push_arg(&mut cmd, "--remove-label");
-                push_arg(&mut cmd, &label_name);
-                cmd
+            let status = run_update(UpdateOptions {
+                issue: issue_number.clone(),
+                repo: Some(repo_name.clone()),
+                edit_args: vec![("--remove-label".to_string(), label_name.clone())],
             });
             if status != 0 {
                 return status;
             }
-            println!(
-                "Issue #{}: removed label '{}' due to Reopen ref.",
-                issue_number, label_name
-            );
         }
 
         let status = run_sync_project_status(issues::commands::SyncProjectStatusOptions {
