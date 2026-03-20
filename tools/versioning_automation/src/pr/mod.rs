@@ -35,7 +35,7 @@ mod render;
 mod resolve_category;
 mod scan;
 mod sort_bullets;
-mod state;
+pub(crate) mod state;
 mod text_payload;
 mod update_body;
 mod upsert_comment;

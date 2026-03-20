@@ -5,6 +5,7 @@ use crate::pr::contracts::github::pr_snapshot::PrSnapshot;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::gh_cli::{gh_output_trim, gh_status};
 use crate::pr::scan::scan_directives;
+use crate::pr::state::build_state;
 use crate::repo_name::resolve_repo_name;
 
 const AUTO_BLOCK_START: &str = "<!-- auto-closes:start -->";
@@ -157,7 +158,11 @@ fn collect_refs_from_payload(payload: &str) -> (Vec<String>, Vec<String>) {
 
         if record.first == "Part of" {
             part_of_rows.insert(format!("Part of|{}", record.second));
-        } else if record.first == "Closes" {
+        }
+    }
+
+    for record in build_state(payload).action_records {
+        if record.first == "Closes" {
             closing_rows.insert(format!("Closes|{}", record.second));
         }
     }

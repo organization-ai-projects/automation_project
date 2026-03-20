@@ -37,7 +37,7 @@ pub(crate) fn print_usage() {
     println!("  va pr issue-category-from-labels --labels-raw \"label1||label2\"");
     println!("  va pr issue-category-from-title --title \"...\"");
     println!(
-        "  va pr issue-close-policy --action <Closes|Reopen> [--is-pr-ref true|false] [--non-compliance-reason \"...\"]"
+        "  va pr issue-close-policy --action <Closes|Reopen|Cancel-Closes> [--is-pr-ref true|false] [--non-compliance-reason \"...\"]"
     );
     println!("  va pr issue-context --issue <number> [--repo owner/name]");
     println!("  va pr issue-view --issue <number> [--repo owner/name]");
@@ -49,7 +49,7 @@ pub(crate) fn print_usage() {
     println!("  va pr normalize-issue-key --raw \"text containing #123\"");
     println!("  va pr sort-bullets --input-file /path/to/bullets.txt");
     println!(
-        "  va pr issue-decision --action <Closes|Reopen> --issue <#n> --default-category <name> [--seen-reopen true|false] [--reopen-category <name>] [--inferred-decision <close|reopen|conflict>] [--explicit-decision <close|reopen>] [--allow-inferred true|false]"
+        "  va pr issue-decision --action <Closes|Reopen|Cancel-Closes> --issue <#n> --default-category <name> [--seen-reopen true|false] [--reopen-category <name>] [--inferred-decision <close|reopen|conflict>] [--explicit-decision <close|reopen>] [--allow-inferred true|false]"
     );
     println!(
         "  va pr resolve-category --label-category <name> --title-category <name> --default-category <name>"

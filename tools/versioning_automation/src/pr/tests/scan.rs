@@ -22,3 +22,12 @@ fn scan_directives_extracts_rejected_closing_event() {
     assert_eq!(records[0].first, "Closes rejected");
     assert_eq!(records[0].second, "#42");
 }
+
+#[test]
+fn scan_directives_extracts_cancel_closes_event() {
+    let text = "Cancel-Closes #42";
+    let records = scan_directives(text, false);
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].first, "Cancel-Closes");
+    assert_eq!(records[0].second, "#42");
+}

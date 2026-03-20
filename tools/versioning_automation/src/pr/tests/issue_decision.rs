@@ -59,3 +59,12 @@ fn continue_when_no_directive_override() {
     let out = decide(opts);
     assert_eq!(out.kind, "continue");
 }
+
+#[test]
+fn cancel_closes_returns_cancel_close_decision() {
+    let mut opts = base_opts();
+    opts.action = "Cancel-Closes".to_string();
+    let out = decide(opts);
+    assert_eq!(out.kind, "cancel_close");
+    assert_eq!(out.final_action, "cancel_close");
+}

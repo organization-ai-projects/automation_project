@@ -1,5 +1,8 @@
 use crate::issues::commands::{CreateOptions, NonComplianceReasonOptions};
-use crate::issues::execute::{run_create, run_non_compliance_reason};
+use crate::issues::execute::{
+    extract_closing_issue_numbers, extract_reopen_issue_numbers, run_create,
+    run_non_compliance_reason,
+};
 
 #[test]
 fn execute_create_dry_run_still_works_after_refactor() {
@@ -45,4 +48,16 @@ fn execute_non_compliance_reason_runs() {
         labels_raw: "issue-required-missing".to_string(),
     });
     assert_eq!(code, 0);
+}
+
+#[test]
+fn extract_closing_issue_numbers_ignores_cancelled_closes() {
+    let out = extract_closing_issue_numbers("Closes #12\nCancel-Closes #12\nCloses #13");
+    assert_eq!(out, vec!["13".to_string()]);
+}
+
+#[test]
+fn extract_reopen_issue_numbers_keeps_effective_reopen() {
+    let out = extract_reopen_issue_numbers("Closes #12\nCancel-Closes #12\nReopen #12");
+    assert_eq!(out, vec!["12".to_string()]);
 }

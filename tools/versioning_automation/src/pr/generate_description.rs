@@ -15,6 +15,7 @@ use crate::pr::gh_cli::{gh_output_trim, gh_output_trim_end_newline};
 use crate::pr::main_pr_ref_snapshot::MainPrRefSnapshot;
 use crate::pr::render::print_usage;
 use crate::pr::scan::scan_directives;
+use crate::pr::state::build_state;
 use crate::repo_name::resolve_repo_name_optional;
 
 const E_USAGE: i32 = 2;
@@ -275,7 +276,7 @@ fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
         .collect::<Vec<String>>()
         .join("\n\n");
 
-    for record in scan_directives(&text, true) {
+    for record in build_state(&text).action_records {
         if record.first == "Closes" {
             closes.insert(record.second);
         } else if record.first == "Reopen" {

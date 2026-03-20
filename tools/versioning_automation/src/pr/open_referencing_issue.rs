@@ -1,9 +1,8 @@
 use std::collections::BTreeSet;
 
 use crate::pr::commands::pr_open_referencing_issue_options::PrOpenReferencingIssueOptions;
-use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::gh_cli::gh_output_trim;
-use crate::pr::scan::scan_directives;
+use crate::pr::state::build_state;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_open_referencing_issue(opts: PrOpenReferencingIssueOptions) -> i32 {
@@ -42,10 +41,7 @@ pub(crate) fn run_open_referencing_issue(opts: PrOpenReferencingIssueOptions) ->
 }
 
 fn pr_body_references_issue(body: &str, issue_key: &str) -> bool {
-    for record in scan_directives(body, false) {
-        if record.record_type != DirectiveRecordType::Event {
-            continue;
-        }
+    for record in build_state(body).action_records {
         if record.first == "Closes" && record.second == issue_key {
             return true;
         }

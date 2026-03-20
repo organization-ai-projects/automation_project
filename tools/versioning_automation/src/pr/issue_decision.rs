@@ -27,6 +27,16 @@ pub(crate) struct IssueDecision {
 }
 
 pub(crate) fn decide(opts: PrIssueDecisionOptions) -> IssueDecision {
+    if opts.action == "Cancel-Closes" {
+        return IssueDecision {
+            kind: "cancel_close".to_string(),
+            reason: "Cancel-Closes neutralizes a branch-local close intent.".to_string(),
+            final_action: "cancel_close".to_string(),
+            category: String::new(),
+            force_category: false,
+        };
+    }
+
     if opts.action == "Closes" && opts.seen_reopen {
         let category = if opts.reopen_category.is_empty() {
             opts.default_category

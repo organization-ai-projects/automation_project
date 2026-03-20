@@ -23,6 +23,7 @@ use crate::issues::required_fields::{
 };
 use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
+use crate::pr::state::build_state;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
@@ -1639,12 +1640,12 @@ pub(crate) fn run_validate_footer(opts: ValidateFooterOptions) -> i32 {
         .unwrap_or_default()
         .to_string();
     let issue_ref_in_subject_re = Regex::new(
-        r"(?i)(^|[[:space:]])(closes|part[[:space:]]+of|reopen|reopens|fixes)[[:space:]]+#[0-9]+([[:space:]]|$)",
+        r"(?i)(^|[[:space:]])(cancel[\s_-]*closes|closes|part[[:space:]]+of|reopen|reopens|fixes)[[:space:]]+#[0-9]+([[:space:]]|$)",
     )
     .expect("static regex must compile");
     if issue_ref_in_subject_re.is_match(&subject) {
         eprintln!("❌ Issue references must be in commit footer, not in subject.");
-        eprintln!("   Move 'Closes/Part of/Reopen #...' to footer lines.");
+        eprintln!("   Move 'Closes/Cancel-Closes/Part of/Reopen #...' to footer lines.");
         return RC_SUBJECT_TRAILER;
     }
 
@@ -1660,7 +1661,7 @@ pub(crate) fn run_validate_footer(opts: ValidateFooterOptions) -> i32 {
     let fixes_only_trailer_re =
         Regex::new(r"(?i)^fixes[[:space:]]+#[0-9]+$").expect("static regex must compile");
     let trailer_line_re =
-        Regex::new(r"(?i)^(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#([0-9]+)$")
+        Regex::new(r"(?i)^(cancel[\s_-]*closes|closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#([0-9]+)$")
             .expect("static regex must compile");
 
     let mut trailers: Vec<String> = Vec::new();
@@ -1682,6 +1683,9 @@ pub(crate) fn run_validate_footer(opts: ValidateFooterOptions) -> i32 {
                 .unwrap_or_default();
             let issue_number = caps.get(2).map(|m| m.as_str()).unwrap_or_default();
             let canonical = match keyword.as_str() {
+                "cancel-closes" | "cancel closes" | "cancel_closes" => {
+                    format!("Cancel-Closes #{issue_number}")
+                }
                 "closes" => format!("Closes #{issue_number}"),
                 "part of" => format!("Part of #{issue_number}"),
                 "reopen" | "reopens" => format!("Reopen #{issue_number}"),
@@ -1828,8 +1832,9 @@ fn extract_issue_refs_for_footer(text: &str) -> Vec<(String, String)> {
         .filter(|line| !line.trim_start().starts_with('#'))
         .collect::<Vec<_>>()
         .join("\n");
-    let re = Regex::new(r"(?i)(closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)")
-        .expect("static regex must compile");
+    let re =
+        Regex::new(r"(?i)(cancel[\s_-]*closes|closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)")
+            .expect("static regex must compile");
     let mut seen = HashSet::<String>::new();
     let mut refs: Vec<(String, String)> = Vec::new();
     for caps in re.captures_iter(&filtered) {
@@ -2404,11 +2409,11 @@ pub(crate) fn run_extract_refs(opts: ExtractRefsOptions) -> i32 {
     };
 
     let re = match opts.profile {
-        ExtractRefsProfile::Hook => {
-            Regex::new(r"(?i)(closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)")
-        }
+        ExtractRefsProfile::Hook => Regex::new(
+            r"(?i)(cancel[\s_-]*closes|closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)",
+        ),
         ExtractRefsProfile::Audit => Regex::new(
-            r"(?i)(closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
+            r"(?i)(cancel[\s_-]*closes|closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
         ),
     };
     let re = match re {
@@ -2673,15 +2678,14 @@ fn pr_body_references_issue(body: &str, issue_number: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn extract_closing_issue_numbers(text: &str) -> Vec<String> {
-    let re = Regex::new(r"(?i)\b(closes|fixes)\b\s+(?:rejected\s+)?[^#\s]*#([0-9]+)")
-        .expect("static regex must compile");
+pub(crate) fn extract_closing_issue_numbers(text: &str) -> Vec<String> {
     let mut seen: HashSet<String> = HashSet::new();
     let mut out = Vec::new();
-    for captures in re.captures_iter(text) {
-        let Some(num) = captures.get(2).map(|m| m.as_str().to_string()) else {
+    for record in build_state(text).action_records {
+        if record.first != "Closes" {
             continue;
-        };
+        }
+        let num = record.second.trim_start_matches('#').to_string();
         if seen.insert(num.clone()) {
             out.push(num);
         }
@@ -2689,15 +2693,14 @@ fn extract_closing_issue_numbers(text: &str) -> Vec<String> {
     out
 }
 
-fn extract_reopen_issue_numbers(text: &str) -> Vec<String> {
-    let re = Regex::new(r"(?i)\breopen\b\s+(?:rejected\s+)?[^#\s]*#([0-9]+)")
-        .expect("static regex must compile");
+pub(crate) fn extract_reopen_issue_numbers(text: &str) -> Vec<String> {
     let mut seen: HashSet<String> = HashSet::new();
     let mut out = Vec::new();
-    for captures in re.captures_iter(text) {
-        let Some(num) = captures.get(1).map(|m| m.as_str().to_string()) else {
+    for record in build_state(text).action_records {
+        if record.first != "Reopen" {
             continue;
-        };
+        }
+        let num = record.second.trim_start_matches('#').to_string();
         if seen.insert(num.clone()) {
             out.push(num);
         }
