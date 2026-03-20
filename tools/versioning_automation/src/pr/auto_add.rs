@@ -3,10 +3,8 @@ use std::collections::BTreeSet;
 
 use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
 use crate::pr::contracts::github::pr_snapshot::PrSnapshot;
-use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::gh_cli::{gh_output_trim, gh_status};
-use crate::pr::scan::scan_directives;
-use crate::pr::text_payload::extract_effective_action_issue_numbers;
+use crate::pr::text_payload::extract_effective_issue_ref_records;
 use crate::repo_name::resolve_repo_name;
 
 const AUTO_BLOCK_START: &str = "<!-- auto-closes:start -->";
@@ -147,25 +145,15 @@ fn gh_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<PrSnapshot, String
 
 fn collect_refs_from_payload(payload: &str) -> (Vec<String>, Vec<String>) {
     let mut part_of_rows = BTreeSet::new();
+    let mut closing_rows = BTreeSet::new();
 
-    for record in scan_directives(payload, false) {
-        if record.record_type != DirectiveRecordType::Event {
-            continue;
-        }
-        if !record.second.starts_with('#') {
-            continue;
-        }
-
+    for record in extract_effective_issue_ref_records(payload) {
         if record.first == "Part of" {
             part_of_rows.insert(format!("Part of|{}", record.second));
+        } else if record.first == "Closes" {
+            closing_rows.insert(format!("Closes|{}", record.second));
         }
     }
-
-    let (closing_issue_numbers, _) = extract_effective_action_issue_numbers(payload);
-    let closing_rows = closing_issue_numbers
-        .into_iter()
-        .map(|issue| format!("Closes|#{issue}"))
-        .collect::<BTreeSet<_>>();
 
     (
         part_of_rows.into_iter().collect(),

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::pr::commands::pr_open_referencing_issue_options::PrOpenReferencingIssueOptions;
 use crate::pr::gh_cli::gh_output_trim;
-use crate::pr::state::build_state;
+use crate::pr::text_payload::extract_effective_issue_ref_records;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_open_referencing_issue(opts: PrOpenReferencingIssueOptions) -> i32 {
@@ -41,7 +41,7 @@ pub(crate) fn run_open_referencing_issue(opts: PrOpenReferencingIssueOptions) ->
 }
 
 fn pr_body_references_issue(body: &str, issue_key: &str) -> bool {
-    for record in build_state(body).action_records {
+    for record in extract_effective_issue_ref_records(body) {
         if record.first == "Closes" && record.second == issue_key {
             return true;
         }

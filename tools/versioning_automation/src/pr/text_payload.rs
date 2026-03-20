@@ -4,6 +4,8 @@ use std::collections::BTreeSet;
 use regex::Regex;
 
 use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
+use crate::pr::domain::directives::directive_record::DirectiveRecord;
+use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::gh_cli::gh_output_trim_end_newline;
 use crate::pr::scan::scan_directives;
 use crate::pr::state::build_state;
@@ -70,6 +72,23 @@ pub(crate) fn extract_effective_action_issue_numbers(
     (closes, reopens)
 }
 
+pub(crate) fn extract_effective_issue_ref_records(payload: &str) -> Vec<DirectiveRecord> {
+    let (closes, reopens, part_of) = extract_effective_issue_ref_sets(payload);
+    let mut out = Vec::new();
+
+    for issue in part_of {
+        out.push(issue_ref_record("Part of", &issue));
+    }
+    for issue in closes {
+        out.push(issue_ref_record("Closes", &issue));
+    }
+    for issue in reopens {
+        out.push(issue_ref_record("Reopen", &issue));
+    }
+
+    out
+}
+
 pub(crate) fn extract_effective_issue_ref_sets(
     payload: &str,
 ) -> (BTreeSet<String>, BTreeSet<String>, BTreeSet<String>) {
@@ -133,4 +152,12 @@ pub(crate) fn extract_effective_issue_ref_sets(
     }
 
     (closes, reopens, part_of)
+}
+
+fn issue_ref_record(action: &str, issue_number: &str) -> DirectiveRecord {
+    DirectiveRecord {
+        record_type: DirectiveRecordType::Event,
+        first: action.to_string(),
+        second: format!("#{issue_number}"),
+    }
 }

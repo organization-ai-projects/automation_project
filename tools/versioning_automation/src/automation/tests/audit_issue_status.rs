@@ -37,11 +37,13 @@ fn render_issue_audit_report_contains_summary_and_sections() {
         "org/repo",
         "main..HEAD",
         3,
-        &["- [#1](u) Done".to_string()],
-        &["- [#2](u) Close".to_string()],
-        &["- [#4](u) Reopen".to_string()],
-        &[],
-        &["- [#3](u) None".to_string()],
+        super::super::audit_issue_status::IssueAuditReportSections {
+            done_in_dev_items: &["- [#1](u) Done".to_string()],
+            would_close_items: &["- [#2](u) Close".to_string()],
+            would_reopen_items: &["- [#4](u) Reopen".to_string()],
+            part_only_items: &[],
+            unreferenced_items: &["- [#3](u) None".to_string()],
+        },
     );
 
     assert!(report.contains("# Issue Status Audit"));
