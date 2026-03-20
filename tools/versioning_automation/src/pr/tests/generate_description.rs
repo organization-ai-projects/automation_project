@@ -1,6 +1,6 @@
 use crate::pr::commit_info::CommitInfo;
-use crate::pr::generate_description::build_full_body;
 use crate::pr::generate_description::render_issue_outcome_groups_with_mode;
+use crate::pr::generate_description::{build_full_body, parse_generate_options};
 use crate::pr::group_by_category::parse_records;
 
 #[test]
@@ -58,5 +58,47 @@ fn build_full_body_mentions_conflict_resolution_winner_in_issue_outcomes() {
         "- CI: UNKNOWN",
     );
 
-    assert!(rendered.contains("- Closes #1085 (resolved Closes/Reopen conflict; winner: Closes; origin: inferred from latest directive)"));
+    assert!(rendered.contains("#### Category 1: Issues Without Conflicts"));
+    assert!(rendered.contains("##### Closes/Fixes"));
+    assert!(rendered.contains("##### Reopened"));
+    assert!(rendered.contains("#### Category 2: Issues With Conflicts"));
+    assert!(rendered.contains("##### Auto-resolved"));
+    assert!(rendered.contains("##### Not resolved"));
+    assert!(rendered.contains("#### Automation"));
+    assert!(rendered.contains("- Closes #1085 - Resolved via directive decision => close."));
+    assert!(!rendered.contains("- Closes #1085\n"));
+}
+
+#[test]
+fn parse_generate_description_allows_create_pr_without_dry_run() {
+    let parsed = parse_generate_options(&[
+        "--create-pr".to_string(),
+        "--yes".to_string(),
+        "--base".to_string(),
+        "dev".to_string(),
+        "--head".to_string(),
+        "feature/test".to_string(),
+    ])
+    .expect("create-pr should parse without dry-run");
+
+    assert!(parsed.create_pr);
+    assert!(!parsed.dry_run);
+    assert_eq!(parsed.base_ref.as_deref(), Some("dev"));
+    assert_eq!(parsed.head_ref.as_deref(), Some("feature/test"));
+}
+
+#[test]
+fn parse_generate_description_allows_auto_edit_without_dry_run() {
+    let parsed = parse_generate_options(&[
+        "--auto-edit".to_string(),
+        "1090".to_string(),
+        "--base".to_string(),
+        "dev".to_string(),
+        "--head".to_string(),
+        "feature/test".to_string(),
+    ])
+    .expect("auto-edit should parse without dry-run");
+
+    assert_eq!(parsed.auto_edit_pr_number.as_deref(), Some("1090"));
+    assert!(!parsed.dry_run);
 }

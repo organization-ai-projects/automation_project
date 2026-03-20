@@ -43,13 +43,67 @@ pub(crate) fn run_generate_description(opts: PrGenerateDescriptionOptions) -> i3
         return 0;
     }
 
-    run_native_dry_run(parsed)
+    run_generate_flow(parsed)
 }
 
-fn run_native_dry_run(opts: GenerateOptions) -> i32 {
-    let (base_ref, head_ref) = if opts.dry_run {
-        let base_ref = opts.base_ref.unwrap_or_else(|| "dev".to_string());
-        let head_ref = match opts.head_ref {
+fn run_generate_flow(opts: GenerateOptions) -> i32 {
+    let (base_ref, head_ref) = if let Some(pr_number) = opts.auto_edit_pr_number.as_deref() {
+        let refs = match fetch_main_pr_refs(pr_number) {
+            Ok(value) => value,
+            Err(msg) => {
+                eprintln!("{msg}");
+                return E_DEPENDENCY;
+            }
+        };
+        let base_ref = if opts.base_ref.as_deref().unwrap_or("").trim().is_empty() {
+            if refs.base_ref_name.trim().is_empty() {
+                "dev".to_string()
+            } else {
+                refs.base_ref_name
+            }
+        } else {
+            opts.base_ref.clone().unwrap_or_else(|| "dev".to_string())
+        };
+        let head_ref = if opts.head_ref.as_deref().unwrap_or("").trim().is_empty() {
+            if refs.head_ref_name.trim().is_empty() {
+                "dev".to_string()
+            } else {
+                refs.head_ref_name
+            }
+        } else {
+            opts.head_ref.clone().unwrap_or_else(|| "dev".to_string())
+        };
+        (base_ref, head_ref)
+    } else if let Some(main_pr_number) = opts.main_pr_number.as_deref() {
+        let refs = match fetch_main_pr_refs(main_pr_number) {
+            Ok(value) => value,
+            Err(msg) => {
+                eprintln!("{msg}");
+                return E_DEPENDENCY;
+            }
+        };
+        let base_ref = if opts.base_ref.as_deref().unwrap_or("").trim().is_empty() {
+            if refs.base_ref_name.trim().is_empty() {
+                "dev".to_string()
+            } else {
+                refs.base_ref_name
+            }
+        } else {
+            opts.base_ref.clone().unwrap_or_else(|| "dev".to_string())
+        };
+        let head_ref = if opts.head_ref.as_deref().unwrap_or("").trim().is_empty() {
+            if refs.head_ref_name.trim().is_empty() {
+                "dev".to_string()
+            } else {
+                refs.head_ref_name
+            }
+        } else {
+            opts.head_ref.clone().unwrap_or_else(|| "dev".to_string())
+        };
+        (base_ref, head_ref)
+    } else {
+        let base_ref = opts.base_ref.clone().unwrap_or_else(|| "dev".to_string());
+        let head_ref = match opts.head_ref.clone() {
             Some(value) => value,
             None => match current_branch_name() {
                 Ok(value) => value,
@@ -60,40 +114,6 @@ fn run_native_dry_run(opts: GenerateOptions) -> i32 {
             },
         };
         (base_ref, head_ref)
-    } else {
-        let main_pr_number = match opts.main_pr_number.as_deref() {
-            Some(value) => value,
-            None => {
-                eprintln!("MAIN_PR_NUMBER is required.");
-                return E_USAGE;
-            }
-        };
-        let refs = match fetch_main_pr_refs(main_pr_number) {
-            Ok(value) => value,
-            Err(msg) => {
-                eprintln!("{msg}");
-                return E_DEPENDENCY;
-            }
-        };
-        let base = if opts.base_ref.as_deref().unwrap_or("").trim().is_empty() {
-            if refs.base_ref_name.trim().is_empty() {
-                "dev".to_string()
-            } else {
-                refs.base_ref_name
-            }
-        } else {
-            opts.base_ref.clone().unwrap_or_else(|| "dev".to_string())
-        };
-        let head = if opts.head_ref.as_deref().unwrap_or("").trim().is_empty() {
-            if refs.head_ref_name.trim().is_empty() {
-                "dev".to_string()
-            } else {
-                refs.head_ref_name
-            }
-        } else {
-            opts.head_ref.clone().unwrap_or_else(|| "dev".to_string())
-        };
-        (base, head)
     };
 
     let range = format!("{base_ref}..{head_ref}");
@@ -282,16 +302,12 @@ fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
         .collect::<Vec<String>>()
         .join("\n\n");
     let conflict_report = build_conflict_report(&text, 1);
-    let resolved_conflicts = conflict_report
-        .resolved
-        .into_iter()
-        .map(|entry| {
-            (
-                entry.issue,
-                conflict_resolution_suffix(&entry.decision, &entry.origin),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
+    let resolved_conflicts = conflict_report.resolved.into_iter().collect::<Vec<_>>();
+    let unresolved_conflicts = conflict_report.unresolved.into_iter().collect::<Vec<_>>();
+    let resolved_conflict_keys = resolved_conflicts
+        .iter()
+        .map(|entry| entry.issue.clone())
+        .collect::<BTreeSet<_>>();
 
     for record in extract_effective_issue_ref_records(&text) {
         if record.first == "Closes" {
@@ -301,50 +317,119 @@ fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
         }
     }
 
-    if closes.is_empty() && reopens.is_empty() {
+    if closes.is_empty()
+        && reopens.is_empty()
+        && resolved_conflicts.is_empty()
+        && unresolved_conflicts.is_empty()
+    {
         return "- No issues processed in this PR.".to_string();
     }
 
-    let mut sections = Vec::new();
+    let close_only = closes
+        .difference(&resolved_conflict_keys)
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let reopen_only = reopens
+        .difference(&resolved_conflict_keys)
+        .cloned()
+        .collect::<BTreeSet<_>>();
 
-    if !closes.is_empty() {
-        sections.push(render_issue_outcome_section(
-            &closes,
-            "Closes",
-            &resolved_conflicts,
-        ));
+    let directive_resolution_records = resolved_conflicts
+        .iter()
+        .map(|entry| {
+            (
+                entry
+                    .issue
+                    .trim_start_matches('#')
+                    .parse::<u32>()
+                    .unwrap_or(u32::MAX),
+                "Automation".to_string(),
+                vec![render_directive_resolution_line(
+                    &entry.issue,
+                    &entry.decision,
+                    &entry.origin,
+                )],
+                0usize,
+            )
+        })
+        .collect::<Vec<_>>();
+    let unresolved_conflict_records = unresolved_conflicts
+        .iter()
+        .map(|entry| {
+            (
+                entry
+                    .issue
+                    .trim_start_matches('#')
+                    .parse::<u32>()
+                    .unwrap_or(u32::MAX),
+                resolve_issue_outcome_category(&entry.issue),
+                vec![entry.issue.clone(), entry.reason.clone()],
+                0usize,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let close_rendered = render_issue_outcome_section(&close_only, "Closes");
+    let reopen_rendered = render_issue_outcome_section(&reopen_only, "Reopen");
+    let directive_rendered =
+        render_issue_outcome_groups_with_mode(&directive_resolution_records, "directive")
+            .trim()
+            .to_string();
+    let unresolved_rendered =
+        render_issue_outcome_groups_with_mode(&unresolved_conflict_records, "conflict")
+            .trim()
+            .to_string();
+
+    let mut out = String::new();
+    out.push_str("#### Category 1: Issues Without Conflicts\n\n");
+    out.push_str("##### Closes/Fixes\n\n");
+    if close_rendered.trim().is_empty() {
+        out.push_str(
+            "- No resolved issues detected via GitHub references or PR body keywords.\n\n",
+        );
+    } else {
+        out.push_str(close_rendered.trim());
+        out.push_str("\n\n");
     }
 
-    if !reopens.is_empty() {
-        sections.push(render_issue_outcome_section(
-            &reopens,
-            "Reopen",
-            &resolved_conflicts,
-        ));
+    out.push_str("##### Reopened\n\n");
+    if reopen_rendered.trim().is_empty() {
+        out.push_str("- No reopened issues detected.\n\n");
+    } else {
+        out.push_str(reopen_rendered.trim());
+        out.push_str("\n\n");
     }
 
-    sections.join("\n\n")
+    out.push_str("#### Category 2: Issues With Conflicts\n\n");
+    out.push_str("##### Auto-resolved\n\n");
+    if directive_rendered.trim().is_empty() {
+        out.push_str("- No auto-resolved directive conflicts.\n\n");
+    } else {
+        out.push_str(directive_rendered.trim());
+        out.push_str("\n\n");
+    }
+
+    out.push_str("##### Not resolved\n\n");
+    if unresolved_rendered.trim().is_empty() {
+        out.push_str("- No unresolved directive conflicts.");
+    } else {
+        out.push_str(unresolved_rendered.trim());
+    }
+
+    out
 }
 
-fn render_issue_outcome_section(
-    issue_keys: &BTreeSet<String>,
-    action: &str,
-    resolved_conflicts: &BTreeMap<String, String>,
-) -> String {
+fn render_issue_outcome_section(issue_keys: &BTreeSet<String>, action: &str) -> String {
     let records = issue_keys
         .iter()
         .map(|issue_key| {
-            let mut fields = vec![action.to_string(), issue_key.to_string()];
-            if let Some(suffix) = resolved_conflicts.get(issue_key) {
-                fields.push(suffix.clone());
-            }
             (
                 issue_key
                     .trim_start_matches('#')
                     .parse::<u32>()
                     .unwrap_or(u32::MAX),
                 resolve_issue_outcome_category(issue_key),
-                fields,
+                vec![action.to_string(), issue_key.to_string()],
                 0usize,
             )
         })
@@ -354,14 +439,7 @@ fn render_issue_outcome_section(
     if rendered.trim().is_empty() {
         issue_keys
             .iter()
-            .map(|issue_key| {
-                let mut line = format!("- {action} {issue_key}");
-                if let Some(suffix) = resolved_conflicts.get(issue_key) {
-                    line.push(' ');
-                    line.push_str(suffix);
-                }
-                line
-            })
+            .map(|issue_key| format!("- {action} {issue_key}"))
             .collect::<Vec<String>>()
             .join("\n")
     } else {
@@ -394,13 +472,12 @@ pub(crate) fn render_issue_outcome_groups_with_mode(
         for record in matching {
             let action = record.2.first().cloned().unwrap_or_default();
             let issue_key = record.2.get(1).cloned().unwrap_or_default();
-            let suffix = record.2.get(2).cloned().unwrap_or_default();
             let line = if mode == "conflict" {
                 format!("- {action} - {issue_key}")
-            } else if suffix.is_empty() {
-                format!("- {action} {issue_key}")
+            } else if mode == "directive" {
+                format!("- {action}")
             } else {
-                format!("- {action} {issue_key} {suffix}")
+                format!("- {action} {issue_key}")
             };
             out.push_str(&line);
             out.push('\n');
@@ -410,13 +487,29 @@ pub(crate) fn render_issue_outcome_groups_with_mode(
     out
 }
 
-fn conflict_resolution_suffix(decision: &str, origin: &str) -> String {
-    let winner = if decision == "close" {
-        "Closes"
+fn render_directive_resolution_line(issue_key: &str, decision: &str, origin: &str) -> String {
+    let resolved_action = if decision == "close" {
+        "close"
     } else {
-        "Reopen"
+        "reopen"
     };
-    format!("(resolved Closes/Reopen conflict; winner: {winner}; origin: {origin})")
+    if origin == "explicit" || origin == "inferred from latest directive" {
+        let prefix = if decision == "close" {
+            "Closes"
+        } else {
+            "Reopen"
+        };
+        format!("{prefix} {issue_key} - Resolved via directive decision => {resolved_action}.")
+    } else {
+        let prefix = if decision == "close" {
+            "Closes"
+        } else {
+            "Reopen"
+        };
+        format!(
+            "{prefix} {issue_key} - resolved Closes/Reopen conflict; winner: {resolved_action}; origin: {origin}."
+        )
+    }
 }
 
 fn resolve_issue_outcome_category(issue_key: &str) -> String {
@@ -681,7 +774,21 @@ fn gh_read_pr_body(pr_number: &str) -> Result<String, String> {
 }
 
 fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {
-    gh_output_trim("pr", &["edit", pr_number, "--body", body]).map(|_| ())
+    let Some(repo) = resolve_repo_name_optional(None) else {
+        return Err("Error: unable to determine repository.".to_string());
+    };
+    let endpoint = format!("repos/{repo}/pulls/{pr_number}");
+    gh_output_trim(
+        "api",
+        &[
+            &endpoint,
+            "--method",
+            "PATCH",
+            "-f",
+            &format!("body={body}"),
+        ],
+    )
+    .map(|_| ())
 }
 
 fn git_log_commits(range: &str) -> Result<Vec<CommitInfo>, String> {
@@ -845,7 +952,7 @@ fn gh_create_pr(base_ref: &str, head_ref: &str, title: &str, body: &str) -> Resu
     }
 }
 
-fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
+pub(crate) fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
     let mut help = false;
     let mut dry_run = false;
     let mut main_pr_number: Option<String> = None;
@@ -896,6 +1003,7 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
             }
             "--auto-edit" | "--refresh-pr" => {
                 auto_edit_pr_number = Some(take_value(args[i].as_str(), args, &mut i)?);
+                mode_explicit = true;
             }
             "--validation-only" => {
                 validation_only = true;
@@ -943,16 +1051,12 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
         auto_mode = true;
     }
     if auto_mode {
-        dry_run = true;
         create_pr = true;
         if !positionals.is_empty() {
             return Err("--auto does not accept a positional OUTPUT_FILE.".to_string());
         }
     }
 
-    if create_pr && !dry_run {
-        return Err("--create-pr is only supported with --dry-run.".to_string());
-    }
     if allow_partial_create && !create_pr {
         return Err("--allow-partial-create requires --create-pr.".to_string());
     }
@@ -992,19 +1096,22 @@ fn parse_generate_options(args: &[String]) -> Result<GenerateOptions, String> {
                     .to_string(),
             );
         }
-        if auto_edit_pr_number.is_none() && positionals.len() > 2 {
+        if auto_edit_pr_number.is_none() && !create_pr && positionals.len() > 2 {
             return Err(
                 "Too many positional arguments. Expected usage: MAIN_PR_NUMBER [OUTPUT_FILE]."
                     .to_string(),
             );
         }
-        if let Some(first) = positionals.first() {
+        if auto_edit_pr_number.is_none()
+            && !create_pr
+            && let Some(first) = positionals.first()
+        {
             main_pr_number = Some(first.clone());
         }
-        if main_pr_number.is_none() {
+        if auto_edit_pr_number.is_none() && !create_pr && main_pr_number.is_none() {
             return Err("MAIN_PR_NUMBER is required.".to_string());
         }
-        if auto_edit_pr_number.is_none() {
+        if auto_edit_pr_number.is_none() && !create_pr {
             if positionals.len() >= 2 {
                 Some(positionals[1].clone())
             } else {
