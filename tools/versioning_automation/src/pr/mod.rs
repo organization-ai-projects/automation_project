@@ -36,7 +36,7 @@ mod resolve_category;
 pub(crate) mod scan;
 mod sort_bullets;
 pub(crate) mod state;
-mod text_payload;
+pub(crate) mod text_payload;
 mod update_body;
 mod upsert_comment;
 

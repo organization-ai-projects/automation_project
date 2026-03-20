@@ -24,6 +24,7 @@ use crate::issues::required_fields::{
 use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
 use crate::pr::state::build_state;
+use crate::pr::text_payload::{extract_effective_action_issue_numbers, load_pr_text_payload};
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
@@ -117,37 +118,14 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
                 return 0;
             }
 
-            let pr_title = gh_output_or_empty(&[
-                "pr",
-                "view",
-                &pr_number,
-                "-R",
-                &repo_name,
-                "--json",
-                "title",
-                "--jq",
-                ".title // \"\"",
-            ]);
-            let pr_body = gh_output_or_empty(&[
-                "pr",
-                "view",
-                &pr_number,
-                "-R",
-                &repo_name,
-                "--json",
-                "body",
-                "--jq",
-                ".body // \"\"",
-            ]);
-            let pr_commits = gh_output_or_empty(&[
-                "api",
-                &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
-                "--paginate",
-                "--jq",
-                ".[].commit.message",
-            ]);
-            let payload = format!("{pr_title}\n{pr_body}\n{pr_commits}");
-            let closing_issue_numbers = extract_closing_issue_numbers(&payload);
+            let payload = match load_pr_text_payload(&pr_number, &repo_name) {
+                Ok(value) => value,
+                Err(_) => {
+                    eprintln!("Error: unable to read PR #{}.", pr_number);
+                    return 4;
+                }
+            };
+            let (closing_issue_numbers, _) = extract_effective_action_issue_numbers(&payload);
             if closing_issue_numbers.is_empty() {
                 println!("No closing issue refs found for PR #{}.", pr_number);
                 return 0;
@@ -306,38 +284,15 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         return 0;
     }
 
-    let pr_title = gh_output_or_empty(&[
-        "pr",
-        "view",
-        &pr_number,
-        "-R",
-        &repo_name,
-        "--json",
-        "title",
-        "--jq",
-        ".title // \"\"",
-    ]);
-    let pr_body = gh_output_or_empty(&[
-        "pr",
-        "view",
-        &pr_number,
-        "-R",
-        &repo_name,
-        "--json",
-        "body",
-        "--jq",
-        ".body // \"\"",
-    ]);
-    let pr_commits = gh_output_or_empty(&[
-        "api",
-        &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
-        "--paginate",
-        "--jq",
-        ".[].commit.message",
-    ]);
-    let payload = format!("{pr_title}\n{pr_body}\n{pr_commits}");
+    let payload = match load_pr_text_payload(&pr_number, &repo_name) {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Error: unable to read PR #{}.", pr_number);
+            return 4;
+        }
+    };
 
-    let reopen_issue_numbers = extract_reopen_issue_numbers(&payload);
+    let (_, reopen_issue_numbers) = extract_effective_action_issue_numbers(&payload);
     if reopen_issue_numbers.is_empty() {
         println!("No reopen issue refs found for PR #{}.", pr_number);
         return 0;
