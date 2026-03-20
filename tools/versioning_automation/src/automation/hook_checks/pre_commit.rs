@@ -32,6 +32,12 @@ pub(super) fn run_pre_commit_check_with_skip(
     validate_pre_commit_assignment_policy(&push_commits)?;
 
     let staged_files = execute::list_staged_changed_files();
+    if staged_files.is_empty() {
+        println!("📝 No staged files detected; skipping file-based pre-commit checks");
+        println!("✅ Pre-commit checks passed");
+        println!();
+        return Ok(());
+    }
     let staged_changed_files = staged_files.join("\n");
 
     let crates =
@@ -126,4 +132,9 @@ fn restage_staged_files() -> Result<(), String> {
     let mut args = vec!["add".to_string(), "--".to_string()];
     args.extend(restage_files);
     execute::run_command_status_owned("git", &args, false)
+}
+
+#[cfg(test)]
+pub(crate) fn should_exit_pre_commit_early(staged_files: &[String]) -> bool {
+    staged_files.is_empty()
 }

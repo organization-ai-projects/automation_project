@@ -29,6 +29,10 @@ pub(super) fn run_pre_push_check_with_skip(
     validate_pre_push_commit_policies(&commits, repo.as_deref())?;
 
     let changed_files = execute::compute_changed_files(&upstream)?;
+    if changed_files.is_empty() {
+        println!("Pre-push checks passed (no changed files)");
+        return Ok(());
+    }
     let markdown_files = execute::markdown_files_from(changed_files.as_slice());
     let docs_or_scripts_only = execute::is_docs_or_scripts_only_change(&changed_files);
 
@@ -119,4 +123,9 @@ fn build_quality_check_args(
         }
     }
     (clippy_args, test_args)
+}
+
+#[cfg(test)]
+pub(crate) fn should_exit_pre_push_early(changed_files: &[String]) -> bool {
+    changed_files.is_empty()
 }
