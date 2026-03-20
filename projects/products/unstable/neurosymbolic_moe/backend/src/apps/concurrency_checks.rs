@@ -16,8 +16,8 @@ pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
     run_concurrent_pipeline_checks_with_report().map(|_| ())
 }
 
-pub(crate) fn run_concurrent_pipeline_checks_with_report(
-) -> Result<ConcurrentOperationalReport, DynError> {
+pub(crate) fn run_concurrent_pipeline_checks_with_report()
+-> Result<ConcurrentOperationalReport, DynError> {
     let concurrent_pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
     let expert_id = ProtocolId::default();
     let task_id = ProtocolId::default();

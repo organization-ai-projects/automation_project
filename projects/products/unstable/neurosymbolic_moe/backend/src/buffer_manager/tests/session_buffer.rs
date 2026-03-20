@@ -16,7 +16,10 @@ fn create_put_get_and_remove_session() {
         .get(&session_id, "k1")
         .expect("entry should be present in created session");
     assert_eq!(entry.value, "v1");
-    assert_eq!(entry.session_id.as_deref(), Some(session_id.to_string().as_str()));
+    assert_eq!(
+        entry.session_id.as_deref(),
+        Some(session_id.to_string().as_str())
+    );
     assert_eq!(buffer.session_count(), 1);
     assert!(buffer.remove_session(&session_id));
     assert_eq!(buffer.session_count(), 0);

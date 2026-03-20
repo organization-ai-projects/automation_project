@@ -22,11 +22,7 @@ impl Task {
         Self::new_with_id(ProtocolId::default(), task_type, input)
     }
 
-    pub fn new_with_id(
-        id: ProtocolId,
-        task_type: TaskType,
-        input: impl Into<String>,
-    ) -> Self {
+    pub fn new_with_id(id: ProtocolId, task_type: TaskType, input: impl Into<String>) -> Self {
         Self {
             id: TaskId::from_protocol_id(id),
             task_type,

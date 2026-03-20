@@ -41,5 +41,9 @@ fn code_generation_and_transformation_experts_produce_different_outputs() {
     let transformation_output = transformation.execute(&task, &context).unwrap();
 
     assert_ne!(generation_output.content, transformation_output.content);
-    assert!(transformation_output.content.contains("Transformation plan"));
+    assert!(
+        transformation_output
+            .content
+            .contains("Transformation plan")
+    );
 }
