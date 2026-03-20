@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/issues/execute.rs
-use std::collections::{HashMap, HashSet};
+use std::collections::{self, HashMap, HashSet};
 use std::fs;
 
 use regex::Regex;
@@ -119,14 +119,11 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
                 return 0;
             }
 
-            let payload = match load_pr_text_payload(&pr_number, &repo_name) {
-                Ok(value) => value,
-                Err(_) => {
-                    eprintln!("Error: unable to read PR #{}.", pr_number);
-                    return 4;
-                }
-            };
-            let (closing_issue_numbers, _) = extract_effective_action_issue_numbers(&payload);
+            let (closing_issue_numbers, _) =
+                match load_effective_issue_action_numbers_for_pr(&pr_number, &repo_name) {
+                    Ok(value) => value,
+                    Err(code) => return code,
+                };
             if closing_issue_numbers.is_empty() {
                 println!("No closing issue refs found for PR #{}.", pr_number);
                 return 0;
@@ -141,12 +138,11 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             }
 
             for issue_number in closing_issue_numbers {
-                let (_, _, state, labels_raw) =
-                    gh_issue_autolink_payload(&repo_name, &issue_number);
-                if state.is_empty() {
-                    println!("Issue #{}: unreadable; skipping.", issue_number);
+                let Some((state, labels_raw)) =
+                    load_issue_sync_snapshot(&repo_name, &issue_number, "skipping")
+                else {
                     continue;
-                }
+                };
                 let sync_plan =
                     plan_done_in_dev_sync(&state, has_label_named(&labels_raw, &label_name));
                 if !sync_plan.add_done_in_dev_label {
@@ -275,15 +271,11 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         return 0;
     }
 
-    let payload = match load_pr_text_payload(&pr_number, &repo_name) {
-        Ok(value) => value,
-        Err(_) => {
-            eprintln!("Error: unable to read PR #{}.", pr_number);
-            return 4;
-        }
-    };
-
-    let (_, reopen_issue_numbers) = extract_effective_action_issue_numbers(&payload);
+    let (_, reopen_issue_numbers) =
+        match load_effective_issue_action_numbers_for_pr(&pr_number, &repo_name) {
+            Ok(value) => value,
+            Err(code) => return code,
+        };
     if reopen_issue_numbers.is_empty() {
         println!("No reopen issue refs found for PR #{}.", pr_number);
         return 0;
@@ -299,11 +291,11 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         std::env::var("PROJECT_STATUS_REOPEN_NAME").unwrap_or_else(|_| "Todo".to_string());
 
     for issue_number in reopen_issue_numbers {
-        let (_, _, state, labels_raw) = gh_issue_autolink_payload(&repo_name, &issue_number);
-        if state.is_empty() {
-            println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
+        let Some((state, labels_raw)) =
+            load_issue_sync_snapshot(&repo_name, &issue_number, "skipping reopen sync")
+        else {
             continue;
-        }
+        };
         let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
 
         if sync_plan.reopen_issue {
@@ -355,6 +347,37 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
 
 pub(crate) fn pr_state_allows_reopen_sync(state: &str) -> bool {
     matches!(state, "OPEN" | "MERGED")
+}
+
+fn load_effective_issue_action_numbers_for_pr(
+    pr_number: &str,
+    repo_name: &str,
+) -> Result<(collections::BTreeSet<String>, collections::BTreeSet<String>), i32> {
+    let payload = match load_pr_text_payload(pr_number, repo_name) {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Error: unable to read PR #{}.", pr_number);
+            return Err(4);
+        }
+    };
+
+    Ok(extract_effective_action_issue_numbers(&payload))
+}
+
+fn load_issue_sync_snapshot(
+    repo_name: &str,
+    issue_number: &str,
+    unreadable_suffix: &str,
+) -> Option<(String, String)> {
+    let (_, _, state, labels_raw) = gh_issue_autolink_payload(repo_name, issue_number);
+    if state.is_empty() {
+        println!(
+            "Issue #{}: unreadable; {}.",
+            issue_number, unreadable_suffix
+        );
+        return None;
+    }
+    Some((state, labels_raw))
 }
 
 fn has_label_named(labels_raw: &str, expected_label: &str) -> bool {
