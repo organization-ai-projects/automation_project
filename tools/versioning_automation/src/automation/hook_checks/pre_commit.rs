@@ -133,8 +133,3 @@ fn restage_staged_files() -> Result<(), String> {
     args.extend(restage_files);
     execute::run_command_status_owned("git", &args, false)
 }
-
-#[cfg(test)]
-pub(crate) fn should_exit_pre_commit_early(staged_files: &[String]) -> bool {
-    staged_files.is_empty()
-}

@@ -124,8 +124,3 @@ fn build_quality_check_args(
     }
     (clippy_args, test_args)
 }
-
-#[cfg(test)]
-pub(crate) fn should_exit_pre_push_early(changed_files: &[String]) -> bool {
-    changed_files.is_empty()
-}

@@ -13,7 +13,7 @@ use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::duplicate_actions::run_duplicate_actions;
 use crate::pr::generate_options::GenerateOptions;
 use crate::pr::gh_cli::{gh_output_trim, gh_output_trim_end_newline};
-use crate::pr::group_by_category::{parse_records, render_grouped_output};
+use crate::pr::group_by_category::CATEGORIES;
 use crate::pr::issue_context::load_issue_context_payload;
 use crate::pr::main_pr_ref_snapshot::MainPrRefSnapshot;
 use crate::pr::render::print_usage;
@@ -21,6 +21,7 @@ use crate::pr::resolve_category::{issue_category_from_labels, resolve_effective_
 use crate::pr::scan::scan_directives;
 use crate::pr::text_payload::extract_effective_issue_ref_records;
 use crate::repo_name::resolve_repo_name_optional;
+use crate::{git_cli, pr};
 
 const E_USAGE: i32 = 2;
 const E_DEPENDENCY: i32 = 3;
@@ -295,24 +296,33 @@ fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
     let mut sections = Vec::new();
 
     if !closes.is_empty() {
-        sections.push(render_issue_outcome_section(&closes, "Closes", "resolved"));
+        sections.push(render_issue_outcome_section(&closes, "Closes"));
     }
 
     if !reopens.is_empty() {
-        sections.push(render_issue_outcome_section(&reopens, "Reopen", "reopen"));
+        sections.push(render_issue_outcome_section(&reopens, "Reopen"));
     }
 
     sections.join("\n\n")
 }
 
-fn render_issue_outcome_section(issue_keys: &BTreeSet<String>, action: &str, mode: &str) -> String {
-    let records_text = issue_keys
+fn render_issue_outcome_section(issue_keys: &BTreeSet<String>, action: &str) -> String {
+    let records = issue_keys
         .iter()
-        .map(|issue_key| render_issue_outcome_record(issue_key, action))
-        .collect::<Vec<String>>()
-        .join("\n");
+        .map(|issue_key| {
+            (
+                issue_key
+                    .trim_start_matches('#')
+                    .parse::<u32>()
+                    .unwrap_or(u32::MAX),
+                resolve_issue_outcome_category(issue_key),
+                vec![action.to_string(), issue_key.to_string()],
+                0usize,
+            )
+        })
+        .collect::<Vec<_>>();
 
-    let rendered = render_issue_outcome_records(&records_text, mode);
+    let rendered = render_issue_outcome_groups(&records);
     if rendered.trim().is_empty() {
         issue_keys
             .iter()
@@ -324,16 +334,42 @@ fn render_issue_outcome_section(issue_keys: &BTreeSet<String>, action: &str, mod
     }
 }
 
-pub(crate) fn render_issue_outcome_records(records_text: &str, mode: &str) -> String {
-    let mut records = parse_records(records_text);
-    records.sort_by_key(|record| (record.0, record.3));
-    render_grouped_output(&records, mode).trim().to_string()
+fn render_issue_outcome_groups(records: &[pr::group_by_category::GroupByCategory]) -> String {
+    render_issue_outcome_groups_with_mode(records, "resolved")
 }
 
-fn render_issue_outcome_record(issue_key: &str, action: &str) -> String {
-    let category = resolve_issue_outcome_category(issue_key);
-    let issue_number = issue_key.trim_start_matches('#');
-    format!("{issue_number}|{category}|{action}|{issue_key}")
+pub(crate) fn render_issue_outcome_groups_with_mode(
+    records: &[pr::group_by_category::GroupByCategory],
+    mode: &str,
+) -> String {
+    let mut out = String::new();
+    for category in CATEGORIES {
+        let matching = records
+            .iter()
+            .filter(|record| record.1 == category)
+            .collect::<Vec<_>>();
+        if matching.is_empty() {
+            continue;
+        }
+
+        out.push_str("#### ");
+        out.push_str(category);
+        out.push('\n');
+
+        for record in matching {
+            let action = record.2.first().cloned().unwrap_or_default();
+            let issue_key = record.2.get(1).cloned().unwrap_or_default();
+            let line = if mode == "conflict" {
+                format!("- {action} - {issue_key}")
+            } else {
+                format!("- {action} {issue_key}")
+            };
+            out.push_str(&line);
+            out.push('\n');
+        }
+        out.push('\n');
+    }
+    out
 }
 
 fn resolve_issue_outcome_category(issue_key: &str) -> String {
@@ -386,7 +422,7 @@ fn render_key_changes(commits: &[CommitInfo]) -> String {
 }
 
 fn render_change_footprint(range: &str) -> String {
-    let Ok(output) = crate::git_cli::output_preserve(&["diff", "--name-only", range]) else {
+    let Ok(output) = git_cli::output_preserve(&["diff", "--name-only", range]) else {
         return "- No changed files detected for this branch range.".to_string();
     };
 
@@ -602,7 +638,7 @@ fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {
 }
 
 fn git_log_commits(range: &str) -> Result<Vec<CommitInfo>, String> {
-    let text = crate::git_cli::output_preserve(&["log", "--format=%H%x1f%s%x1f%b%x1e", range])
+    let text = git_cli::output_preserve(&["log", "--format=%H%x1f%s%x1f%b%x1e", range])
         .map_err(|err| format!("Error: failed to run git log for range {range}: {err}"))?;
     let mut commits = Vec::new();
 
@@ -628,7 +664,7 @@ fn git_log_commits(range: &str) -> Result<Vec<CommitInfo>, String> {
 }
 
 fn current_branch_name() -> Result<String, String> {
-    let branch = crate::git_cli::output_trim(&["rev-parse", "--abbrev-ref", "HEAD"])
+    let branch = git_cli::output_trim(&["rev-parse", "--abbrev-ref", "HEAD"])
         .map_err(|err| format!("Error: failed to detect current branch: {err}"))?;
     if branch.is_empty() {
         return Err("Error: unable to determine head branch in --dry-run mode.".to_string());
