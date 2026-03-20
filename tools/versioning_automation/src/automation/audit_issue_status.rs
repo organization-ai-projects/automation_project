@@ -12,14 +12,13 @@ use crate::repo_name::resolve_repo_name;
 use super::execute::{ensure_git_repo, run_git_output_preserve};
 
 type IssueRefSets = (BTreeSet<String>, BTreeSet<String>, BTreeSet<String>);
-
-pub(crate) struct IssueAuditReportSections<'a> {
-    pub(crate) done_in_dev_items: &'a [String],
-    pub(crate) would_close_items: &'a [String],
-    pub(crate) would_reopen_items: &'a [String],
-    pub(crate) part_only_items: &'a [String],
-    pub(crate) unreferenced_items: &'a [String],
-}
+type AuditIssueStatusSections<'a> = (
+    &'a [String],
+    &'a [String],
+    &'a [String],
+    &'a [String],
+    &'a [String],
+);
 
 pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<(), String> {
     ensure_git_repo()?;
@@ -95,13 +94,13 @@ pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<()
         &repo,
         &range,
         total_open,
-        IssueAuditReportSections {
-            done_in_dev_items: &done_in_dev_items,
-            would_close_items: &would_close_items,
-            would_reopen_items: &would_reopen_items,
-            part_only_items: &part_only_items,
-            unreferenced_items: &unreferenced_items,
-        },
+        (
+            &done_in_dev_items,
+            &would_close_items,
+            &would_reopen_items,
+            &part_only_items,
+            &unreferenced_items,
+        ),
     );
 
     if let Some(output_file) = opts.output_file {
@@ -139,8 +138,15 @@ pub(crate) fn render_issue_audit_report(
     repo: &str,
     range: &str,
     total_open: usize,
-    sections: IssueAuditReportSections<'_>,
+    sections: AuditIssueStatusSections<'_>,
 ) -> String {
+    let (
+        done_in_dev_items,
+        would_close_items,
+        would_reopen_items,
+        part_only_items,
+        unreferenced_items,
+    ) = sections;
     let mut out = Vec::new();
     out.push("# Issue Status Audit".to_string());
     out.push("".to_string());
@@ -152,63 +158,63 @@ pub(crate) fn render_issue_audit_report(
     out.push(format!("- Open issues fetched: {total_open}"));
     out.push(format!(
         "- Would close on merge: {}",
-        sections.would_close_items.len()
+        would_close_items.len()
     ));
     out.push(format!(
         "- Would reopen from current refs: {}",
-        sections.would_reopen_items.len()
+        would_reopen_items.len()
     ));
     out.push(format!(
         "- Done in dev (label): {}",
-        sections.done_in_dev_items.len()
+        done_in_dev_items.len()
     ));
     out.push(format!(
         "- Part-of-only (not closing): {}",
-        sections.part_only_items.len()
+        part_only_items.len()
     ));
     out.push(format!(
         "- Unreferenced in range: {}",
-        sections.unreferenced_items.len()
+        unreferenced_items.len()
     ));
     out.push("".to_string());
     out.push("## Done In Dev (Label)".to_string());
     out.push("".to_string());
-    if sections.done_in_dev_items.is_empty() {
+    if done_in_dev_items.is_empty() {
         out.push("- None".to_string());
     } else {
-        out.extend(sections.done_in_dev_items.iter().cloned());
+        out.extend(done_in_dev_items.iter().cloned());
     }
     out.push("".to_string());
     out.push("## Would Close On Merge".to_string());
     out.push("".to_string());
-    if sections.would_close_items.is_empty() {
+    if would_close_items.is_empty() {
         out.push("- None".to_string());
     } else {
-        out.extend(sections.would_close_items.iter().cloned());
+        out.extend(would_close_items.iter().cloned());
     }
     out.push("".to_string());
     out.push("## Would Reopen".to_string());
     out.push("".to_string());
-    if sections.would_reopen_items.is_empty() {
+    if would_reopen_items.is_empty() {
         out.push("- None".to_string());
     } else {
-        out.extend(sections.would_reopen_items.iter().cloned());
+        out.extend(would_reopen_items.iter().cloned());
     }
     out.push("".to_string());
     out.push("## Part-Of Only".to_string());
     out.push("".to_string());
-    if sections.part_only_items.is_empty() {
+    if part_only_items.is_empty() {
         out.push("- None".to_string());
     } else {
-        out.extend(sections.part_only_items.iter().cloned());
+        out.extend(part_only_items.iter().cloned());
     }
     out.push("".to_string());
     out.push("## Unreferenced".to_string());
     out.push("".to_string());
-    if sections.unreferenced_items.is_empty() {
+    if unreferenced_items.is_empty() {
         out.push("- None".to_string());
     } else {
-        out.extend(sections.unreferenced_items.iter().cloned());
+        out.extend(unreferenced_items.iter().cloned());
     }
     out.push("".to_string());
     out.join("\n")
