@@ -10,8 +10,9 @@ Ce document fournit une vue d'ensemble des fichiers de documentation de ce dossi
 
 ## Hooks
 
-- [commit-msg](../../commit-msg) : valide le format des messages de commit
-- [pre-commit](../../pre-commit) : lance le formatage avant commit
-- [prepare-commit-msg](../../prepare-commit-msg) : genere automatiquement le sujet de commit
-- [pre-push](../../pre-push) : lance les checks qualite avant push
-- [install_hooks.sh](../../install_hooks.sh) : installe les hooks dans .git/hooks/
+- `commit-msg` : genere par `versioning_automation automation install-hooks`, valide le format des messages de commit
+- `pre-commit` : genere par `versioning_automation automation install-hooks`, lance les checks pre-commit via la CLI Rust
+- `prepare-commit-msg` : genere par `versioning_automation automation install-hooks`, genere automatiquement le sujet de commit
+- `pre-push` : genere par `versioning_automation automation install-hooks`, lance les checks pre-push via la CLI Rust
+- `post-checkout` : genere par `versioning_automation automation install-hooks`, lance les checks post-checkout via la CLI Rust
+- `versioning_automation automation install-hooks` : installe les hooks dans `.git/hooks/`

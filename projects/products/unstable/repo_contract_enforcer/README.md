@@ -12,7 +12,7 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
 - Backend: `repo_contract_enforcer_backend serve`
 - UI:
   - `repo_contract_enforcer_ui check --root <path> [--mode auto|strict|relaxed] [--json]`
-  - `repo_contract_enforcer_ui check-product --path <product_path> [--mode auto|strict|relaxed] [--json]`
+  - `repo_contract_enforcer_ui check-product --path <product_or_tool_path> [--mode auto|strict|relaxed] [--json]`
 
 ## Exit Codes
 
@@ -37,6 +37,7 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
   - binary `src/main.rs` should remain entrypoint-only: no `struct`/`enum`/`trait`/`impl`, and no helper `fn` outside `main`
   - local `use` statements in non-top-level scopes are forbidden; imports must be at module scope
   - inline test attributes in source files are forbidden; tests must live in nearest `src/**/tests/*.rs`
+- The same crate-level structural contract is applied to `tools/*` Rust crates in strict mode.
 - Library layering rules enforce dependency direction in `projects/libraries/**`:
   - `core/*` must not depend on `layers/*`
   - `layers/domain/*` must not depend on `layers/orchestration/*`
@@ -47,7 +48,7 @@ Deterministic repository contract enforcer with strict `backend/ui` separation.
   - product root `metadata.ron`
   - `backend/backend_manifest.ron`
   - `ui/ui_manifest.ron`
-- Shell structure rules enforce repository automation contracts under `scripts/versioning/file_versioning/github/**`:
+- Shell structure rules enforce repository automation contracts under `scripts/automation/**`:
   - `run.sh` must include strict mode (`set -euo pipefail`)
   - `run.sh` must source module files
   - `run.sh` must end with a single `*_main`/`*_run "$@"` entrypoint dispatch

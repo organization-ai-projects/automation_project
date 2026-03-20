@@ -1,0 +1,35 @@
+//! tools/versioning_automation/src/git/render.rs
+pub(crate) fn print_usage() {
+    let lines = [
+        "versioning_automation automation",
+        "",
+        "Usage:",
+        "  versioning_automation automation <subcommand> [options]",
+        "",
+        "Subcommands:",
+        "  audit-issue-status [--repo owner/name] [--base origin/main] [--head origin/dev] [--limit <n>] [--output <file>]",
+        "  audit-security",
+        "  build-accounts-ui",
+        "  build-ui-bundles",
+        "  build-and-check-ui-bundles",
+        "  pre-add-review",
+        "  pre-commit-check",
+        "  post-checkout-check",
+        "  pre-push-check",
+        "  release-prepare <version> [--auto-changelog]",
+        "  test-coverage",
+        "  changed-crates [<ref1>] [<ref2>] [--output-format paths|default]",
+        "  check-merge-conflicts [--remote origin] [--base-branch dev]",
+        "  check-dependencies [--skip-outdated] [--skip-unused]",
+        "  clean-artifacts [--skip-node-modules]",
+        "  commit-msg-check --file <path>",
+        "  install-hooks",
+        "  prepare-commit-msg --file <path> [--source <source>]",
+        "  pre-branch-create-check --branch <name>",
+        "  check-priority-issues [--repo owner/name]",
+        "  labels-sync [--labels-file .github/labels.json] [--prune]",
+        "  ci-watch-pr [--pr <number>] [--poll-interval <seconds>] [--max-wait <seconds>]",
+        "  sync-main-dev-ci [--remote origin] [--main main] [--dev dev] [--sync-branch sync/main-into-dev]",
+    ];
+    println!("{}", lines.join("\n"));
+}

@@ -9,7 +9,7 @@ Ce repertoire contient un harness local pour tester le script de synchronisation
 Le harness valide la logique d'automatisation dans un environnement controle, reproductible et sans dependances externes.
 Il interagit principalement avec:
 
-- Les scripts de sync dans `scripts/versioning/file_versioning/orchestrators/read/`
+- La commande Rust `versioning_automation automation sync-main-dev-ci`
 - Les comportements GitHub CLI mockes
 - Les scenarios definis dans `scenarios/`
 
@@ -50,7 +50,7 @@ tools/bot_ci_harness/run_all.sh --verbose
 ## Choisir un autre script sous test
 
 ```bash
-SCRIPT_UNDER_TEST=./scripts/.../synch_main_dev_ci.sh tools/bot_ci_harness/run_all.sh
+SCRIPT_UNDER_TEST=./target/debug/versioning_automation tools/bot_ci_harness/run_all.sh
 ```
 
 ## Ajouter un scenario

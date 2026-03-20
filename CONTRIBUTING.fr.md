@@ -136,7 +136,7 @@ Pour les changements transverses, utilisez plusieurs scopes (séparés par des v
 **Contrôles** :
 
 - `add_commit_push.sh` valide les messages de commit
-- Les hooks git valident aussi les messages (installés via `scripts/automation/git_hooks/install_hooks.sh`)
+- Les hooks git valident aussi les messages (installés via `versioning_automation automation install-hooks`)
 - Les messages non conformes sont rejetés avec des erreurs explicites
 - Bypass uniquement en urgence :
   - `--no-verify` avec `add_commit_push.sh`
@@ -148,7 +148,7 @@ Pour les changements transverses, utilisez plusieurs scopes (séparés par des v
 - Référencez les issues si applicable : `fix: resolve panic in parser (#42)`
 - Utilisez des mots-clés de footer explicites (`Closes`, `Fixes`, `Resolves`, `Related to`, `Part of`) selon `documentation/technical_documentation/commit_footer_policy.md`.
 
-Voir le [TOC des scripts Git](scripts/versioning/file_versioning/git/TOC.md) pour plus de détails.
+Voir le [TOC des workflows Git](tools/versioning_automation/documentation/git/TOC.md) pour plus de détails.
 
 ---
 
@@ -179,28 +179,11 @@ Voir le [TOC des scripts Git](scripts/versioning/file_versioning/git/TOC.md) pou
 
 ### Créer une PR
 
-Le script `create_pr.sh` automatise la création de PR et **lance les tests automatiquement** avant création.
+Utilisez directement l'entrypoint Rust :
 
 ```bash
-bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
+target/debug/versioning_automation pr generate-description --auto --base dev --head "$(git branch --show-current)" --yes
 ```
-
-**Contrôle des tests** :
-
-- Par défaut, `create_pr.sh` lance `cargo test --workspace` avant de créer la PR
-- Si les tests échouent, la PR n'est pas créée
-- Pour ignorer les tests (non recommandé), utilisez `--skip-tests` :
-
-  ```bash
-  bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh --skip-tests
-  ```
-
-**Options complémentaires** :
-
-- `--base <branch>` : branche cible (par défaut : `dev`)
-- `--title <title>` : titre personnalisé
-- `--body <body>` : description personnalisée
-- `--draft` : crée une PR en brouillon
 
 ### Exemple de description de PR
 
@@ -228,7 +211,7 @@ Closes #<issue-number>
 - **Taille** : gardez des PR focalisées ; découpez les trop grosses
 - **Tests** : ajoutez des tests pour toute nouvelle fonctionnalité
 
-Voir [Versioning TOC](scripts/versioning/file_versioning/TOC.md) pour plus de détails.
+Voir [la documentation d'automatisation versioning](tools/versioning_automation/documentation/git/TOC.md) pour plus de détails.
 
 ---
 
@@ -236,10 +219,10 @@ Voir [Versioning TOC](scripts/versioning/file_versioning/TOC.md) pour plus de d�
 
 Scripts les plus utilisés dans ce guide :
 
-- `scripts/versioning/file_versioning/git/create_branch.sh` : crée une branche et valide sa convention de nommage.
-- `scripts/versioning/file_versioning/git/add_commit_push.sh` : ajoute, valide le message, commit et push.
-- `scripts/versioning/file_versioning/orchestrators/read/create_pr.sh` : crée une PR vers `dev` (avec tests par défaut).
-- `scripts/automation/git_hooks/install_hooks.sh` : installe les hooks git du dépôt.
+- `versioning_automation git create-branch ...` : crée une branche et valide sa convention de nommage.
+- `versioning_automation git add-commit-push ...` : ajoute, valide le message, commit et push.
+- `versioning_automation pr generate-description ...` : crée/rafraîchit la PR via le flow Rust canonique.
+- `versioning_automation automation install-hooks` : installe les hooks git du dépôt.
 
 ---
 

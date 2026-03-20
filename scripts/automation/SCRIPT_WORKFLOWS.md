@@ -12,15 +12,14 @@ This file is the canonical inventory of user-facing script entrypoints and their
 
 Workflow | Entrypoint | Scope
 --- | --- | ---
-start_work | `scripts/versioning/file_versioning/orchestrators/execute/start_work.sh` | Sync + priority checks + branch creation
-branching | `scripts/versioning/file_versioning/git/create_branch.sh` | Create validated branch from `dev`
-branching | `scripts/versioning/file_versioning/git/create_work_branch.sh` | Create convention-based work branch
-commit_push | `scripts/versioning/file_versioning/git/add_commit_push.sh` | Add, commit, push with validation
-commit_push | `scripts/versioning/file_versioning/git/push_branch.sh` | Push current branch with policy checks
-pre_push | `scripts/automation/pre_push_check.sh` | Pre-push quality gate
-pr_creation | `scripts/versioning/file_versioning/github/generate_pr_description.sh` | Canonical PR create/refresh entrypoint
-issue_creation | `scripts/versioning/file_versioning/github/create_direct_issue.sh` | Create direct issue from issue contract
-issue_lifecycle | `scripts/versioning/file_versioning/github/manager_issues.sh` | Route create/update/close/reopen issue operations
+branching | `versioning_automation git create-branch ...` | Create validated branch from `dev`
+branching | `versioning_automation git create-work-branch ...` | Create convention-based work branch
+commit_push | `versioning_automation git add-commit-push ...` | Add, commit, push with validation
+commit_push | `versioning_automation git push-branch ...` | Push current branch with policy checks
+pre_push | `scripts/automation/git_hooks/pre-push` | Pre-push quality gate
+pr_creation | `versioning_automation pr generate-description ...` | Canonical PR create/refresh entrypoint (Rust CLI)
+issue_creation | `versioning_automation issue create ...` | Canonical direct issue creation entrypoint (Rust CLI)
+issue_lifecycle | `versioning_automation issue <read/update/close/reopen/delete> ...` | Canonical issue lifecycle entrypoint (Rust CLI)
 
 ## Issue Templates and Validation Profiles
 

@@ -26,10 +26,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build versioning_automation
+        run: cargo build -p versioning_automation
+
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Run closure hygiene script
+      - name: Run closure hygiene
         run: |
-          chmod +x scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge/run.sh
-          bash scripts/versioning/file_versioning/github/closure_hygiene_on_main_merge/run.sh
+          target/debug/versioning_automation issue closure-hygiene --repo "$GH_REPO"

@@ -136,7 +136,7 @@ For cross-cutting changes spanning multiple unrelated areas, use multiple scopes
 **Enforcement**:
 
 - The `add_commit_push.sh` script validates commit messages
-- Git commit hooks validate commit messages (when installed via `scripts/automation/git_hooks/install_hooks.sh`)
+- Git commit hooks validate commit messages (when installed via `versioning_automation automation install-hooks`)
 - Non-conforming messages are rejected with clear error messages
 - Bypass only for emergencies:
   - Use `--no-verify` flag with `add_commit_push.sh`
@@ -148,7 +148,7 @@ For cross-cutting changes spanning multiple unrelated areas, use multiple scopes
 - Reference issues when applicable: `fix: resolve panic in parser (#42)`
 - Use explicit footer keywords for issue references (`Closes`, `Fixes`, `Resolves`, `Related to`, `Part of`) as defined in `documentation/technical_documentation/commit_footer_policy.md`.
 
-See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details.
+See [Git workflows TOC](tools/versioning_automation/documentation/git/TOC.md) for details.
 
 ---
 
@@ -179,30 +179,11 @@ See [Git scripts TOC](scripts/versioning/file_versioning/git/TOC.md) for details
 
 ### Creating a PR
 
-The `create_pr.sh` script automates PR creation and **automatically runs tests** before creating the PR to ensure code quality:
+Use the Rust CLI entrypoint directly:
 
 ```bash
-bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh
+target/debug/versioning_automation pr generate-description --auto --base dev --head "$(git branch --show-current)" --yes
 ```
-
-**Test enforcement:**
-
-- By default, `create_pr.sh` runs `cargo test --workspace` before creating the PR
-- If tests fail, the PR will not be created
-- To skip tests (not recommended), use the `--skip-tests` flag:
-
-  ```bash
-  bash scripts/versioning/file_versioning/orchestrators/read/create_pr.sh --skip-tests
-  ```
-
-- Skipping tests will display a warning reminder to ensure proper testing before merging
-
-**Additional options:**
-
-- `--base <branch>`: Specify the base branch (default: `dev`)
-- `--title <title>`: Custom PR title
-- `--body <body>`: Custom PR description
-- `--draft`: Create as draft PR
 
 ### PR Description Example
 
@@ -230,7 +211,7 @@ Closes #<issue-number>
 - **Size**: Keep PRs focused; split large changes into smaller PRs
 - **Tests**: Include tests for new functionality
 
-See [Versioning TOC](scripts/versioning/file_versioning/TOC.md) for details.
+See [Versioning automation docs](tools/versioning_automation/documentation/git/TOC.md) for details.
 
 ---
 
@@ -238,10 +219,10 @@ See [Versioning TOC](scripts/versioning/file_versioning/TOC.md) for details.
 
 Frequently used scripts in this guide:
 
-- `scripts/versioning/file_versioning/git/create_branch.sh`: Creates a new branch and validates naming convention.
-- `scripts/versioning/file_versioning/git/add_commit_push.sh`: Stages changes, validates commit message format, commits, and pushes.
-- `scripts/versioning/file_versioning/orchestrators/read/create_pr.sh`: Creates a PR to `dev` (with tests by default).
-- `scripts/automation/git_hooks/install_hooks.sh`: Installs repository git hooks (commit-msg, pre-push, etc.).
+- `versioning_automation git create-branch ...`: Creates a new branch and validates naming convention.
+- `versioning_automation git add-commit-push ...`: Stages changes, validates commit message format, commits, and pushes.
+- `versioning_automation pr generate-description ...`: Creates or refreshes PR description/body via canonical Rust flow.
+- `versioning_automation automation install-hooks`: Installs repository git hooks (commit-msg, pre-push, etc.).
 
 ---
 
