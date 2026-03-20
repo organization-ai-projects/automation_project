@@ -6,6 +6,8 @@ use regex::Regex;
 
 use crate::automation::commands::AuditIssueStatusOptions;
 use crate::gh_cli;
+use crate::pr::scan::scan_directives;
+use crate::pr::state::build_state;
 use crate::repo_name::resolve_repo_name;
 
 use super::execute::{ensure_git_repo, run_git_output_preserve};
@@ -99,13 +101,21 @@ pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<()
 pub(crate) fn extract_issue_refs_from_text(
     text: &str,
 ) -> Result<(BTreeSet<String>, BTreeSet<String>), String> {
-    let re = Regex::new(
-        r"(?i)(closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
-    )
-    .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
     let mut closing = BTreeSet::new();
     let mut part = BTreeSet::new();
-    for cap in re.captures_iter(text) {
+    let legacy_re = Regex::new(r"(?i)(fixes|resolves|related\s+to|reopens)\s+#([0-9]+)")
+        .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
+
+    for record in scan_directives(text, false) {
+        if record.first == "Part of" {
+            let issue_number = record.second.trim_start_matches('#').to_string();
+            if !issue_number.is_empty() {
+                part.insert(issue_number);
+            }
+        }
+    }
+
+    for cap in legacy_re.captures_iter(text) {
         let keyword = cap
             .get(1)
             .map(|m| m.as_str().to_lowercase())
@@ -117,9 +127,21 @@ pub(crate) fn extract_issue_refs_from_text(
         if issue_number.is_empty() {
             continue;
         }
-        if keyword == "closes" || keyword == "fixes" || keyword == "resolves" {
+        if keyword == "fixes" || keyword == "resolves" {
             closing.insert(issue_number);
         } else {
+            part.insert(issue_number);
+        }
+    }
+
+    for record in build_state(text).action_records {
+        let issue_number = record.second.trim_start_matches('#').to_string();
+        if issue_number.is_empty() {
+            continue;
+        }
+        if record.first == "Closes" {
+            closing.insert(issue_number);
+        } else if record.first == "Reopen" {
             part.insert(issue_number);
         }
     }

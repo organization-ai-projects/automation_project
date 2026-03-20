@@ -12,6 +12,17 @@ fn extract_issue_refs_separates_closing_and_part_of_refs() {
 }
 
 #[test]
+fn extract_issue_refs_ignores_cancelled_closes() {
+    let text = "Closes #12\nCancel-Closes #12\nReopen #12\nPart of #34";
+    let (closing, part) = super::super::audit_issue_status::extract_issue_refs_from_text(text)
+        .expect("refs should parse");
+
+    assert!(!closing.contains("12"));
+    assert!(part.contains("12"));
+    assert!(part.contains("34"));
+}
+
+#[test]
 fn extract_parent_field_normalizes_parent_value() {
     let body = "Some body\nParent: (EPIC)\nOther: value";
     let parent = super::super::audit_issue_status::extract_parent_field(body);
